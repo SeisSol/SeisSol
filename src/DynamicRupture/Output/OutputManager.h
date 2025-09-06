@@ -69,13 +69,13 @@ class OutputManager {
   seissol::initializer::LTSTree* drTree{nullptr};
   seissol::initializer::DynamicRupture* drDescr{nullptr};
 
-  FaceToLtsMapType faceToLtsMap{};
+  FaceToLtsMapType faceToLtsMap;
   std::vector<std::size_t> globalFaceToLtsMap;
   seissol::geometry::MeshReader* meshReader{nullptr};
 
   size_t iterationStep{0};
-  static constexpr double timeMargin{1.005};
-  std::string backupTimeStamp{};
+  static constexpr double TimeMargin{1.005};
+  std::string backupTimeStamp;
 
   std::unique_ptr<ReceiverOutput> impl{nullptr};
 

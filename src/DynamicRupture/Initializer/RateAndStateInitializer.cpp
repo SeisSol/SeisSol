@@ -18,9 +18,11 @@
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol::dr::initializer {
 void RateAndStateInitializer::initializeFault(

@@ -11,6 +11,9 @@
 
 #include "easi/util/Magic.h"
 
+// (to be removed by #1408)
+// NOLINTBEGIN
+
 namespace seissol {
 template <typename X>
 struct extract_type {
@@ -112,5 +115,7 @@ struct extract_type<F<X>> {
       }                                                                                            \
     };                                                                                             \
   };
+
+// NOLINTEND
 
 #endif // SEISSOL_SRC_MEMORY_TREE_INTERFACEHELPER_H_

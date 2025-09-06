@@ -22,9 +22,9 @@ namespace seissol::kernels {
 struct LocalTmp {
   alignas(Alignment) real
       timeIntegratedAne[zeroLengthArrayHandler(kernels::size<tensor::Iane>())]{};
+  GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
   alignas(Alignment)
       std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
-  GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
   LocalTmp(double graviationalAcceleration)
       : gravitationalFreeSurfaceBc(graviationalAcceleration) {};
 };

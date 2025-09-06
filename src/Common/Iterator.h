@@ -86,7 +86,7 @@ private:
     bool lenient;
   };
 
-  Zip(bool lenient, RangeTs&&... ranges) : lenient(lenient), ranges(ranges...) {}
+  Zip(bool lenient, RangeTs&&... ranges) : ranges(ranges...), lenient(lenient) {}
 
   constexpr auto begin() {
     return Iterator<IteratorType<RangeTs>...>(
@@ -102,14 +102,14 @@ private:
         tupleTransform([](auto&& value) { return std::end(value); }, ranges));
   }
 
-  constexpr auto begin() const {
+  [[nodiscard]] constexpr auto begin() const {
     return Iterator<IteratorType<RangeTs>...>(
         lenient,
         tupleTransform([](const auto& value) { return std::cbegin(value); }, ranges),
         tupleTransform([](const auto& value) { return std::cend(value); }, ranges));
   }
 
-  constexpr auto end() const {
+  [[nodiscard]] constexpr auto end() const {
     return Iterator<IteratorType<RangeTs>...>(
         lenient,
         tupleTransform([](const auto& value) { return std::cend(value); }, ranges),
@@ -118,8 +118,9 @@ private:
 
   private:
   template <typename TupleT, std::size_t... Idx>
-  constexpr static bool
-      tupleAnyEqualImpl(const TupleT& tuple1, const TupleT& tuple2, std::index_sequence<Idx...>) {
+  constexpr static bool tupleAnyEqualImpl(const TupleT& tuple1,
+                                          const TupleT& tuple2,
+                                          std::index_sequence<Idx...> /*unused*/) {
     return ((std::get<Idx>(tuple1) == std::get<Idx>(tuple2)) || ...);
   }
 

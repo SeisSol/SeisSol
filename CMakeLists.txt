@@ -234,6 +234,8 @@ add_custom_command(
        )
 
 add_custom_target(seissol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
+
+# TODO: remove IMPORTED here for clang-tidy to see the headers (and use "???.h" for internals)
 add_library(seissol-common-properties INTERFACE IMPORTED)
 
 include(src/sources.cmake)
