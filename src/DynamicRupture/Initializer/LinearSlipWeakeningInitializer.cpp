@@ -34,7 +34,7 @@ void LinearSlipWeakeningInitializer::initializeFault(
     real(*slipRate1)[misc::NumPaddedPoints] = layer.var(concreteLts->slipRate1);
     real(*slipRate2)[misc::NumPaddedPoints] = layer.var(concreteLts->slipRate2);
     real(*mu)[misc::NumPaddedPoints] = layer.var(concreteLts->mu);
-    real(*muS)[misc::NumPaddedPoints] = layer.var(concreteLts->muS);
+    const real(*muS)[misc::NumPaddedPoints] = layer.var(concreteLts->muS);
     real(*forcedRuptureTime)[misc::NumPaddedPoints] = layer.var(concreteLts->forcedRuptureTime);
     const bool providesForcedRuptureTime = this->faultProvides("forced_rupture_time");
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
@@ -83,9 +83,9 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(
 
   for (auto& layer : dynRupTree->leaves(Ghost)) {
     real(*regularizedStrength)[misc::NumPaddedPoints] = layer.var(concreteLts->regularizedStrength);
-    real(*mu)[misc::NumPaddedPoints] = layer.var(concreteLts->mu);
-    real(*cohesion)[misc::NumPaddedPoints] = layer.var(concreteLts->cohesion);
-    auto* initialStressInFaultCS = layer.var(concreteLts->initialStressInFaultCS);
+    const real(*mu)[misc::NumPaddedPoints] = layer.var(concreteLts->mu);
+    const real(*cohesion)[misc::NumPaddedPoints] = layer.var(concreteLts->cohesion);
+    const auto* initialStressInFaultCS = layer.var(concreteLts->initialStressInFaultCS);
 
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {

@@ -25,8 +25,8 @@ TEST_CASE("DR Variables") {
   SUBCASE("TotalVariablesCount") {
     output::DrVarsT drVars;
 
-    std::array<bool, std::tuple_size<output::DrVarsT>::value> mask{};
-    for (size_t i = 0; i < std::tuple_size<output::DrVarsT>::value; ++i) {
+    std::array<bool, std::tuple_size_v<output::DrVarsT>> mask{};
+    for (size_t i = 0; i < std::tuple_size_v<output::DrVarsT>; ++i) {
       mask[i] = true;
     }
 
@@ -48,8 +48,8 @@ TEST_CASE("DR Variables") {
   SUBCASE("AllocationDeallocationOfVariables") {
     output::DrVarsT drVars;
 
-    std::array<bool, std::tuple_size<output::DrVarsT>::value> mask{};
-    for (size_t i = 0; i < std::tuple_size<output::DrVarsT>::value; ++i) {
+    std::array<bool, std::tuple_size_v<output::DrVarsT>> mask{};
+    for (size_t i = 0; i < std::tuple_size_v<output::DrVarsT>; ++i) {
       mask[i] = true;
     }
 

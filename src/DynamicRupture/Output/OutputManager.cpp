@@ -192,7 +192,7 @@ void OutputManager::initElementwiseOutput() {
   const auto cellConnectivity = getCellConnectivity(receiverPoints);
   const auto faultTags = getFaultTags(receiverPoints);
   const auto vertices = getAllVertices(receiverPoints);
-  constexpr auto MaxNumVars = std::tuple_size<DrVarsT>::value;
+  constexpr auto MaxNumVars = std::tuple_size_v<DrVarsT>;
   const auto outputMask = seissolParameters.output.elementwiseParameters.outputMask;
   const auto intMask = convertMaskFromBoolToInt<MaxNumVars>(outputMask);
 
@@ -467,13 +467,13 @@ void OutputManager::initFaceToLtsMap() {
     globalFaceToLtsMap.resize(faceToLtsMap.size());
     for (auto& layer : drTree->leaves(Ghost)) {
 
-      DRFaceInformation* faceInformation = layer.var(drDescr->faceInformation);
+      const auto* faceInformation = layer.var(drDescr->faceInformation);
       for (size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
         faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&layer, ltsFace);
       }
     }
 
-    DRFaceInformation* faceInformation = drTree->var(drDescr->faceInformation);
+    const auto* faceInformation = drTree->var(drDescr->faceInformation);
     for (size_t ltsFace = 0; ltsFace < ltsFaultSize; ++ltsFace) {
       globalFaceToLtsMap[faceInformation[ltsFace].meshFace] = ltsFace;
     }

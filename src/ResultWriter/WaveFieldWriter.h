@@ -110,7 +110,7 @@ class WaveFieldWriter
            vertexCoords[2] <= boxBounds[5] && vertexCoords[2] >= boxBounds[4];
   }
 
-  refinement::TetrahedronRefiner<double>* createRefiner(int refinement);
+  const refinement::TetrahedronRefiner<double>* createRefiner(int refinement);
 
   const unsigned* adjustOffsets(refinement::MeshRefiner<double>* meshRefiner);
   std::vector<unsigned int>

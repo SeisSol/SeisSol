@@ -326,16 +326,16 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       };
 #else
       // TODO: for fused simulations, do this once and reuse
-      real** timeDerivativePlus = layer.var(dynRup->timeDerivativePlus);
-      real** timeDerivativeMinus = layer.var(dynRup->timeDerivativeMinus);
+      real* const* timeDerivativePlus = layer.var(dynRup->timeDerivativePlus);
+      real* const* timeDerivativeMinus = layer.var(dynRup->timeDerivativeMinus);
       const auto timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
       const auto timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinus[i]; };
 #endif
-      DRGodunovData* godunovData = layer.var(dynRup->godunovData);
-      DRFaceInformation* faceInformation = layer.var(dynRup->faceInformation);
-      DREnergyOutput* drEnergyOutput = layer.var(dynRup->drEnergyOutput);
-      seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = layer.var(dynRup->waveSpeedsPlus);
-      seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = layer.var(dynRup->waveSpeedsMinus);
+      const auto* godunovData = layer.var(dynRup->godunovData);
+      const auto* faceInformation = layer.var(dynRup->faceInformation);
+      const auto* drEnergyOutput = layer.var(dynRup->drEnergyOutput);
+      const auto* waveSpeedsPlus = layer.var(dynRup->waveSpeedsPlus);
+      const auto* waveSpeedsMinus = layer.var(dynRup->waveSpeedsMinus);
       const auto layerSize = layer.size();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP

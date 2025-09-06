@@ -221,7 +221,7 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
       // https://en.wikipedia.org/wiki/Simple_linear_regression#Normality_assumption
       const double se = std::sqrt((stderror[region] / (n - 2)) / xv);
 
-      const char* names[] = {"constant", "per element"};
+      const auto names = std::vector<std::string>{"constant", "per element"};
       logInfo() << regions[region].name << "(total time):" << y
                 << "s ( =" << UnitTime.formatTime(y).c_str() << ")";
       for (unsigned c = 0; c < 2; ++c) {
@@ -240,7 +240,7 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
 void LoopStatistics::writeSamples(const std::string& outputPrefix,
                                   bool isLoopStatisticsNetcdfOutputOn) {
   if (isLoopStatisticsNetcdfOutputOn) {
-#if defined(USE_NETCDF)
+#ifdef USE_NETCDF
     const auto loopStatFile = outputPrefix + "-loopStat-";
     const auto rank = MPI::mpi.rank();
     logInfo() << "Starting to write loop statistics samples to disk.";
