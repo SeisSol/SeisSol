@@ -41,14 +41,14 @@ using namespace device;
 
 namespace seissol::kernels {
 template <typename Cfg>
-std::size_t Plasticity<Cfg>::computePlasticity(
-    double oneMinusIntegratingFactor,
-    double timeStepWidth,
-    double tV,
-    const GlobalData& global,
-    const seissol::model::PlasticityData<Real<Cfg>>* plasticityData,
-    real degreesOfFreedom[tensor::Q<Cfg>::size()],
-    real* pstrain) {
+std::size_t
+    Plasticity<Cfg>::computePlasticity(double oneMinusIntegratingFactor,
+                                       double timeStepWidth,
+                                       double tV,
+                                       const GlobalData& global,
+                                       const seissol::model::PlasticityData<Cfg>* plasticityData,
+                                       real degreesOfFreedom[tensor::Q<Cfg>::size()],
+                                       real* pstrain) {
 
   assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(global.get<Cfg>().vandermondeMatrix) % Alignment == 0);
@@ -255,7 +255,7 @@ void Plasticity<Cfg>::computePlasticityBatched(
     double tV,
     const GlobalData& global,
     initializer::recording::ConditionalPointersToRealsTable& table,
-    seissol::model::PlasticityData<Real<Cfg>>* plasticityData,
+    seissol::model::PlasticityData<Cfg>* plasticityData,
     std::size_t* yieldCounter,
     unsigned* isAdjustableVector,
     seissol::parallel::runtime::StreamRuntime& runtime) {

@@ -129,6 +129,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   // numberOfQuantities. But the compile-time parameter
   // seissol::model::MaterialT::NumQuantities contains it nonetheless.
 
+  // fix some config
+  using Cfg0 = Config0;
+
   // TODO(David): change Yateto/TensorForge interface to make padded sizes more accessible
 
   std::size_t maxSims = 1;
@@ -203,9 +206,6 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         "wavefield", celllist.size(), io::instance::geometry::Shape::Tetrahedron, order);
 
     writer.addPointProjector([=](double* target, std::size_t index) {
-      // fix some config
-      using Cfg0 = Config0;
-
       const auto& element = meshReader.getElements()[cellIndices[index]];
       const auto& vertexArray = meshReader.getVertices();
 
@@ -282,11 +282,11 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
       if (seissolParams.model.plasticity) {
         for (std::size_t quantity = 0;
-             quantity < seissol::model::PlasticityData<double>::Quantities.size();
+             quantity < seissol::model::PlasticityData<Cfg0>::Quantities.size();
              ++quantity) {
           if (seissolParams.output.waveFieldParameters.plasticityMask[quantity]) {
             writer.addGeometryOutput<float>(
-                namewrap(seissol::model::PlasticityData<double>::Quantities[quantity], sim),
+                namewrap(seissol::model::PlasticityData<Cfg0>::Quantities[quantity], sim),
                 {},
                 false,
                 [=, &ltsStorage, &backmap](float* target, std::size_t index) {

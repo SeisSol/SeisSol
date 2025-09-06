@@ -204,7 +204,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
             }
 
             initAssign(plasticity,
-                       seissol::model::PlasticityData<Real<Cfg>>(localPlasticity, material.local));
+                       seissol::model::PlasticityData<Cfg>(localPlasticity, material.local));
           });
         }
       }

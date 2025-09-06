@@ -18,13 +18,14 @@ namespace seissol::model {
 // plasticity information per cell. In case of multiple simulations, it contains data of all
 // simulations
 
-template <typename RealT, typename Cfg = Config0>
+template <typename Cfg>
 struct PlasticityData {
+  using real = Real<Cfg>;
   // initial loading (stress tensor)
-  RealT initialLoading[6 * seissol::multisim::NumSimulations<Cfg>];
-  RealT cohesionTimesCosAngularFriction[seissol::multisim::NumSimulations<Cfg>];
-  RealT sinAngularFriction[seissol::multisim::NumSimulations<Cfg>];
-  RealT mufactor; // Only dependent on mu which is to be constant for all simulations
+  real initialLoading[6 * seissol::multisim::NumSimulations<Cfg>];
+  real cohesionTimesCosAngularFriction[seissol::multisim::NumSimulations<Cfg>];
+  real sinAngularFriction[seissol::multisim::NumSimulations<Cfg>];
+  real mufactor; // Only dependent on mu which is to be constant for all simulations
 
   PlasticityData(const std::array<Plasticity, seissol::multisim::NumSimulations<Cfg>>& plasticity,
                  const Material* material) {

@@ -32,21 +32,20 @@ class Plasticity {
 
   /** Returns 1 if there was plastic yielding otherwise 0.
    */
-  static std::size_t
-      computePlasticity(double oneMinusIntegratingFactor,
-                        double timeStepWidth,
-                        double tV,
-                        const GlobalData& global,
-                        const seissol::model::PlasticityData<Real<Cfg>>* plasticityData,
-                        real degreesOfFreedom[tensor::Q<Cfg>::size()],
-                        real* pstrain);
+  static std::size_t computePlasticity(double oneMinusIntegratingFactor,
+                                       double timeStepWidth,
+                                       double tV,
+                                       const GlobalData& global,
+                                       const seissol::model::PlasticityData<Cfg>* plasticityData,
+                                       real degreesOfFreedom[tensor::Q<Cfg>::size()],
+                                       real* pstrain);
 
   static void
       computePlasticityBatched(double timeStepWidth,
                                double tV,
                                const GlobalData& global,
                                initializer::recording::ConditionalPointersToRealsTable& table,
-                               seissol::model::PlasticityData<Real<Cfg>>* plasticityData,
+                               seissol::model::PlasticityData<Cfg>* plasticityData,
                                std::size_t* yieldCounter,
                                unsigned* isAdjustableVector,
                                seissol::parallel::runtime::StreamRuntime& runtime);

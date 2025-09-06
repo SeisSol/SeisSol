@@ -120,7 +120,7 @@ struct LTS {
   struct Material : public initializer::Variable<CellMaterialData> {};
   struct Plasticity : public initializer::Variable<void> {
     template<typename Cfg>
-    using VariantType = seissol::model::PlasticityData<Real<Cfg>>;
+    using VariantType = seissol::model::PlasticityData<Cfg>;
   };
   struct DRMapping : public initializer::Variable<void> {
     template<typename Cfg>
