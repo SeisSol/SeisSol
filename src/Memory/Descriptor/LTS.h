@@ -9,8 +9,8 @@
 #ifndef SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_
 
-#include "IO/Instance/Checkpoint/CheckpointManager.h"
 #include "GeneratedCode/tensor.h"
+#include "IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Memory/Tree/LTSTree.h"
@@ -87,6 +87,10 @@ struct LTS {
       }
     }
   }
+
+  // needed to make clang-format not detect this file as ObjC code
+  using RealPtr = real*;
+
   Variable<real[tensor::Q::size()]> dofs;
   // size is zero if Qane is not defined
   Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> dofsAne;
@@ -94,7 +98,7 @@ struct LTS {
   Variable<real*> derivatives;
   Variable<CellLocalInformation> cellInformation;
   Variable<SecondaryCellLocalInformation> secondaryInformation;
-  Variable<real* [Cell::NumFaces]> faceNeighbors;
+  Variable<RealPtr[Cell::NumFaces]> faceNeighbors;
   Variable<LocalIntegrationData> localIntegration;
   Variable<NeighboringIntegrationData> neighboringIntegration;
   Variable<model::MaterialT> materialData;
@@ -103,13 +107,13 @@ struct LTS {
   Variable<CellDRMapping[Cell::NumFaces]> drMapping;
   Variable<CellBoundaryMapping[Cell::NumFaces]> boundaryMapping;
   Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> pstrain;
-  Variable<real* [Cell::NumFaces]> faceDisplacements;
+  Variable<RealPtr[Cell::NumFaces]> faceDisplacements;
   Bucket<real> buffersDerivatives;
 
   Variable<real*> buffersDevice;
   Variable<real*> derivativesDevice;
-  Variable<real* [Cell::NumFaces]> faceDisplacementsDevice;
-  Variable<real* [Cell::NumFaces]> faceNeighborsDevice;
+  Variable<RealPtr[Cell::NumFaces]> faceDisplacementsDevice;
+  Variable<RealPtr[Cell::NumFaces]> faceNeighborsDevice;
   Variable<CellDRMapping[Cell::NumFaces]> drMappingDevice;
   Variable<CellBoundaryMapping[Cell::NumFaces]> boundaryMappingDevice;
 
