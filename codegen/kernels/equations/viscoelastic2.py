@@ -86,11 +86,11 @@ class Viscoelastic2ADERDG(ADERDGBase):
         )
         self.w = Tensor("w", (self.numberOfMechanisms,))
 
-        # TODO(David): re-enable CSCMemoryLayout here for GPUs
         self.W = Tensor(
             "W",
             (self.numberOfMechanisms, self.numberOfMechanisms),
-            np.eye(self.numberOfMechanisms, dtype=bool),
+            spp=np.eye(self.numberOfMechanisms, dtype=bool),
+            memoryLayoutClass=CSCMemoryLayout,
         )
 
         selectElaSpp = np.zeros(
