@@ -11,12 +11,28 @@ repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
-    -   id: check-json
-        name: '[JSON] check'
     -   id: check-merge-conflict
         name: '[GENERIC] merge conflict check'
     -   id: check-symlinks
         name: '[GENERIC] symlink check'
+    -   id: destroyed-symlinks
+        name: '[GENERIC] detect broken symlinks'
+    -   id: detect-private-key
+        name: '[GENERIC] detect private keys uploaded by accident'
+    -   id: check-case-conflict
+        name: '[GENERIC] detect OS file naming case conflicts'
+    -   id: check-executables-have-shebangs
+        name: '[GENERIC] check for shebangs in executable files'
+    -   id: check-illegal-windows-names
+        name: '[GENERIC] detect illegal Windows file names'
+    -   id: check-json
+        name: '[JSON] check'
+    -   id: check-xml
+        name: '[XML] check'
+
+    # disable for now
+    #-   id: check-shebang-scripts-are-executable
+    #    name: '[GENERIC] check that shebang-containing files are executable'
 
 # disable; needs hadolint installed
 #-   repo: https://github.com/hadolint/hadolint
