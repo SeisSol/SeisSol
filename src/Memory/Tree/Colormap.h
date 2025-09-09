@@ -225,7 +225,8 @@ struct LayerIdentifier {
   }
 };
 
-// NOTE: keep the ordering like this until we merge #1411. Otherwise, there will be a data layout mismatch with the LtsLayout class.
+// NOTE: keep the ordering like this until we merge #1411. Otherwise, there will be a data layout
+// mismatch with the LtsLayout class.
 using LTSColorMap = ColorMap<LayerIdentifier,
                              EnumLayer<HaloType>,
                              EnumLayer<std::size_t>,
