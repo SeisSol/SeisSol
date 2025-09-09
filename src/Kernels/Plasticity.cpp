@@ -81,7 +81,6 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   m2nKrnl.v = global->vandermondeMatrix;
   m2nKrnl.QStress = degreesOfFreedom;
   m2nKrnl.QStressNodal = qStressNodal;
-  // m2nKrnl.replicateInitialLoading = init::replicateInitialLoading::Values;
   m2nKrnl.initialLoading = plasticityData->initialLoading;
   m2nKrnl.execute();
 
@@ -281,14 +280,12 @@ void Plasticity::computePlasticityBatched(
     real** nodalStressTensors =
         (entry.get(inner_keys::Wp::Id::NodalStressTensor))->getDeviceDataPtr();
 
-    assert(global->replicateStresses != nullptr && "replicateStresses has not been initialized");
     static_assert(kernel::gpu_plConvertToNodal::TmpMaxMemRequiredInBytes == 0);
     real** initLoad = (entry.get(inner_keys::Wp::Id::InitialLoad))->getDeviceDataPtr();
     kernel::gpu_plConvertToNodal m2nKrnl;
     m2nKrnl.v = global->vandermondeMatrix;
     m2nKrnl.QStress = const_cast<const real**>(modalStressTensors);
     m2nKrnl.QStressNodal = nodalStressTensors;
-    // m2nKrnl.replicateInitialLoadingM = global->replicateStresses;
     m2nKrnl.initialLoading = const_cast<const real**>(initLoad);
     m2nKrnl.streamPtr = defaultStream;
     m2nKrnl.numElements = numElements;

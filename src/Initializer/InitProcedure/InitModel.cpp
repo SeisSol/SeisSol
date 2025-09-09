@@ -113,7 +113,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
       plasticityDB[i] =
           queryDB<Plasticity>(std::make_shared<PlasticityPointGenerator>(ctv),
                               seissolParams.model.plasticityFileNames[i],
-                              meshReader.getElements().size() * tensor::meanStress::size());
+                              meshReader.getElements().size() * model::PlasticityData::PointCount);
     }
   }
 
@@ -211,7 +211,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
           std::array<const Plasticity*, seissol::multisim::NumSimulations> localPlasticity;
           for (size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
             localPlasticity[i] =
-                &plasticityDB[i][static_cast<std::size_t>(meshId) * tensor::meanStress::size()];
+                &plasticityDB[i][static_cast<std::size_t>(meshId) * model::PlasticityData::PointCount];
           }
           initAssign(plasticity, seissol::model::PlasticityData(localPlasticity, material.local));
         }

@@ -172,7 +172,7 @@ easi::Query ElementAverageGenerator::generate() const {
 }
 
 easi::Query PlasticityPointGenerator::generate() const {
-  constexpr auto PlasticityPoints = tensor::meanStress::size();
+  constexpr auto PlasticityPoints = model::PlasticityData::PointCount;
   // Generate query using quadrature points for each element
   easi::Query query(m_cellToVertex.size * PlasticityPoints, Cell::Dim);
 

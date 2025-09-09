@@ -89,17 +89,6 @@ void OnDevice::initSpecificGlobalData(GlobalData& globalData,
                                       CopyManagerT& copyManager,
                                       size_t alignment,
                                       seissol::memory::Memkind memkind) {
-  /*
-#ifdef ACL_DEVICE
-const size_t size = yateto::alignedUpper(tensor::replicateInitialLoadingM::size(),
-     yateto::alignedReals<real>(alignment));
-real* plasticityStressReplication =
-static_cast<real*>(allocator.allocateMemory(size * sizeof(real), alignment, memkind));
-
-copyManager.template copyTensorToMemAndSetPtr<init::replicateInitialLoadingM>(
-plasticityStressReplication, globalData.replicateStresses, alignment);
-#endif // ACL_DEVICE
-*/
 }
 
 real* OnDevice::DeviceCopyPolicy::copy(const real* first, const real* last, real*& mem) {

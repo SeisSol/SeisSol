@@ -13,15 +13,16 @@
 #include <Kernels/Precision.h>
 #include <Solver/MultipleSimulations.h>
 #include <cmath>
-#include <equation-elastic-6-double/init.h>
-#include <generated_code/init.h>
-#include <generated_code/tensor.h>
+#include <GeneratedCode/init.h>
+#include <GeneratedCode/tensor.h>
 #include <string>
 
 namespace seissol::model {
 
 // plasticity information per cell
 struct PlasticityData {
+  static constexpr auto PointCount = tensor::v::Shape[0];
+
   // initial loading (stress tensor)
   alignas(Alignment) real initialLoading[tensor::QStressNodal::size()];
   alignas(Alignment) real cohesionTimesCosAngularFriction[tensor::meanStress::size()];
@@ -43,18 +44,22 @@ struct PlasticityData {
     sinAngularFrictionV.setZero();
 
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-      for (std::size_t i = 0; i < tensor::meanStress::size(); ++i) {
-        initialLoadingV(i, 0) = plasticity[s][i].sXX;
-        initialLoadingV(i, 1) = plasticity[s][i].sYY;
-        initialLoadingV(i, 2) = plasticity[s][i].sZZ;
-        initialLoadingV(i, 3) = plasticity[s][i].sXY;
-        initialLoadingV(i, 4) = plasticity[s][i].sYZ;
-        initialLoadingV(i, 5) = plasticity[s][i].sXZ;
+      auto initialLoadingVS = multisim::simtensor(initialLoadingV, s);
+      auto cohesionTimesCosAngularFrictionVS = multisim::simtensor(cohesionTimesCosAngularFrictionV, s);
+      auto sinAngularFrictionVS = multisim::simtensor(sinAngularFrictionV, s);
+
+      for (std::size_t i = 0; i < PointCount; ++i) {
+        initialLoadingVS(i, 0) = plasticity[s][i].sXX;
+        initialLoadingVS(i, 1) = plasticity[s][i].sYY;
+        initialLoadingVS(i, 2) = plasticity[s][i].sZZ;
+        initialLoadingVS(i, 3) = plasticity[s][i].sXY;
+        initialLoadingVS(i, 4) = plasticity[s][i].sYZ;
+        initialLoadingVS(i, 5) = plasticity[s][i].sXZ;
 
         const double angularFriction = std::atan(plasticity[s][i].bulkFriction);
 
-        cohesionTimesCosAngularFrictionV(i) = plasticity[s][i].plastCo * std::cos(angularFriction);
-        sinAngularFrictionV(i) = std::sin(angularFriction);
+        cohesionTimesCosAngularFrictionVS(i) = plasticity[s][i].plastCo * std::cos(angularFriction);
+        sinAngularFrictionVS(i) = std::sin(angularFriction);
       }
     }
 
