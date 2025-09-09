@@ -5,6 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Interface.h"
 #include "Recorders.h"
 #include <Common/Constants.h>
@@ -17,8 +19,6 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
-#include <init.h>
-#include <tensor.h>
 #include <vector>
 #include <yateto.h>
 
@@ -308,8 +308,8 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
           t[face].push_back(dataHost.boundaryMappingDevice()[face].dataT);
           tInv[face].push_back(dataHost.boundaryMappingDevice()[face].dataTinv);
 
-          rhos[face].push_back(dataHost.material().local.rho);
-          lambdas[face].push_back(dataHost.material().local.getLambdaBar());
+          rhos[face].push_back(dataHost.material().local->getDensity());
+          lambdas[face].push_back(dataHost.material().local->getLambdaBar());
 
           real* displ{&nodalAvgDisplacements[nodalAvgDisplacementsCounter]};
           nodalAvgDisplacementsPtrs[face].push_back(displ);
@@ -327,8 +327,9 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
                                                     counter[face] * tensor::INodal::size());
           dofsFaceNodalPtrs[face].push_back(dofsFaceNodalScratch +
                                             counter[face] * tensor::INodal::size());
-          prevCoefficientsPtrs[face].push_back(prevCoefficientsScratch +
-                                               counter[face] * nodal::tensor::nodes2D::Shape[0]);
+          prevCoefficientsPtrs[face].push_back(
+              prevCoefficientsScratch +
+              counter[face] * nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
           invImpedances[face].push_back(0);
 
           ++counter[face];

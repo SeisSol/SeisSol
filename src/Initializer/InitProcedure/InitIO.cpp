@@ -8,9 +8,12 @@
 #include "InitIO.h"
 #include "Common/Filesystem.h"
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "IO/Instance/Geometry/Geometry.h"
+#include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Writer/Writer.h"
-#include "Init.h"
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
 #include <Common/Constants.h>
@@ -27,10 +30,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
-#include <init.h>
-#include <kernel.h>
 #include <string>
-#include <tensor.h>
 #include <utils/logger.h>
 #include <vector>
 
@@ -68,8 +68,8 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       auto faultFace = drFaceInformation[i].meshFace;
       const auto& fault = seissolInstance.meshReader().getFault()[faultFace];
       // take the positive cell and side as fault face identifier
-      // (should result in roughly twice as large numbers as when indexing all faces; cf. handshake
-      // theorem)
+      // (should result in roughly twice as large numbers as when indexing all faces; cf.
+      // handshake theorem)
       faceIdentifiers[i] = fault.globalId * 4 + fault.side;
     }
     checkpoint.registerTree("dynrup", tree, faceIdentifiers);
@@ -100,7 +100,8 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   }
 
   if (seissolInstance.getSeisSolParameters().output.checkpointParameters.enabled) {
-    // FIXME: for now, we allow only _one_ checkpoint interval which checkpoints everything existent
+    // FIXME: for now, we allow only _one_ checkpoint interval which checkpoints everything
+    // existent
     seissolInstance.getOutputManager().setupCheckpoint(
         seissolInstance.getSeisSolParameters().output.checkpointParameters.interval);
   }
@@ -439,10 +440,7 @@ void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
   seissolInstance.timeManager().setFaultOutputManager(faultOutputManager);
 }
 
-void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  auto& memoryManager = seissolInstance.getMemoryManager();
-}
+void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {}
 
 void setIntegralMask(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();

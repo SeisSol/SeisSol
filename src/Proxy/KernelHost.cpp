@@ -12,6 +12,8 @@
 #include "Constants.h"
 #include "Kernel.h"
 
+#include "GeneratedCode/tensor.h"
+#include "Parallel/OpenMP.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
@@ -28,8 +30,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <omp.h>
-#include <tensor.h>
 
 namespace seissol::proxy {
 void ProxyKernelHostAder::run(ProxyData& data,
@@ -46,9 +46,9 @@ void ProxyKernelHostAder::run(ProxyData& data,
 
 #ifdef _OPENMP
 #pragma omp parallel
+#endif
   {
     LIKWID_MARKER_START("ader");
-#endif
     kernels::LocalTmp tmp(9.81);
 #ifdef _OPENMP
 #pragma omp for schedule(static)
@@ -58,10 +58,8 @@ void ProxyKernelHostAder::run(ProxyData& data,
       data.spacetimeKernel.computeAder(
           integrationCoeffs.data(), Timestep, local, tmp, buffers[cell], derivatives[cell]);
     }
-#ifdef _OPENMP
     LIKWID_MARKER_STOP("ader");
   }
-#endif
 }
 auto ProxyKernelHostAder::performanceEstimate(ProxyData& data) const -> PerformanceEstimate {
   PerformanceEstimate ret;
@@ -96,9 +94,9 @@ void ProxyKernelHostLocalWOAder::run(ProxyData& data,
 
 #ifdef _OPENMP
 #pragma omp parallel
+#endif
   {
     LIKWID_MARKER_START("localwoader");
-#endif
     kernels::LocalTmp tmp(9.81);
 #ifdef _OPENMP
 #pragma omp for schedule(static)
@@ -107,10 +105,8 @@ void ProxyKernelHostLocalWOAder::run(ProxyData& data,
       auto local = loader.entry(cell);
       data.localKernel.computeIntegral(buffers[cell], local, tmp, nullptr, nullptr, 0, 0);
     }
-#ifdef _OPENMP
     LIKWID_MARKER_STOP("localwoader");
   }
-#endif
 }
 auto ProxyKernelHostLocalWOAder::performanceEstimate(ProxyData& data) const -> PerformanceEstimate {
   PerformanceEstimate ret;
@@ -150,9 +146,9 @@ void ProxyKernelHostLocal::run(ProxyData& data,
 
 #ifdef _OPENMP
 #pragma omp parallel
+#endif
   {
     LIKWID_MARKER_START("local");
-#endif
     kernels::LocalTmp tmp(9.81);
 #ifdef _OPENMP
 #pragma omp for schedule(static)
@@ -163,10 +159,8 @@ void ProxyKernelHostLocal::run(ProxyData& data,
           integrationCoeffs.data(), Timestep, local, tmp, buffers[cell], derivatives[cell]);
       data.localKernel.computeIntegral(buffers[cell], local, tmp, nullptr, nullptr, 0, 0);
     }
-#ifdef _OPENMP
     LIKWID_MARKER_STOP("local");
   }
-#endif
 }
 
 void ProxyKernelHostNeighbor::run(ProxyData& data,
@@ -190,8 +184,10 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
 
 #ifdef _OPENMP
 #pragma omp parallel private(timeIntegrated, faceNeighborsPrefetch)
+#endif
   {
     LIKWID_MARKER_START("neighboring");
+#ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
@@ -203,14 +199,10 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
           timeCoeffs.data(),
           timeCoeffs.data(),
           faceNeighbors[cell],
-#ifdef _OPENMP
           *reinterpret_cast<real(*)[4][tensor::I::size()]>(
-              &(data.globalDataOnHost.integrationBufferLTS[static_cast<size_t>(
-                  omp_get_thread_num() * 4 * tensor::I::size())])),
-#else
-        *reinterpret_cast<real(*)[4][tensor::I::size()]>(
-            data.globalDataOnHost.integrationBufferLTS),
-#endif
+              &data.globalDataOnHost
+                   .integrationBufferLTS[OpenMP::threadId() *
+                                         static_cast<size_t>(tensor::I::size()) * 4]),
           timeIntegrated);
 
       faceNeighborsPrefetch[0] = (cellInformation[cell].faceTypes[1] != FaceType::DynamicRupture)
@@ -237,10 +229,8 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
           local, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
     }
 
-#ifdef _OPENMP
     LIKWID_MARKER_STOP("neighboring");
   }
-#endif
 }
 auto ProxyKernelHostNeighbor::performanceEstimate(ProxyData& data) const -> PerformanceEstimate {
   PerformanceEstimate ret;
