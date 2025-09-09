@@ -8,3 +8,4 @@
 #include "doctest.h"
 
 #include "IntegerMaskParser.t.h"
+#include "Iterator.t.h"
