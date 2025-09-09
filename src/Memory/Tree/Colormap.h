@@ -19,7 +19,9 @@
 
 namespace seissol::initializer {
 
-// a wrapper type for both enums, but also static variants, like we use them
+/**
+  A wrapper type for enums and integer lists, to be used in `ColorMap`.
+ */
 template <typename T>
 class EnumLayer {
   public:
@@ -44,6 +46,9 @@ class EnumLayer {
   std::unordered_map<T, std::size_t> reverse;
 };
 
+/**
+  A wrapper type around a `std::variant`, to be used in `ColorMap`.
+ */
 template <typename T>
 class TraitLayer {
   public:
@@ -68,6 +73,10 @@ class TraitLayer {
   std::unordered_map<std::size_t, std::size_t> reverse;
 };
 
+/**
+  Helper class for `ColorMap`; indicates that we have reached the end of the `LayerSet`.
+  Not intended for outside use.
+ */
 class StopLayerSet {
   public:
   template <typename F, typename... Args>
@@ -86,6 +95,10 @@ class StopLayerSet {
   [[nodiscard]] Type argument(std::size_t color) const { return {}; }
 };
 
+/**
+  Helper class for `ColorMap`; contains either an `EnumLayer` or a `TraitLayer`.
+  Not intended for outside use.
+ */
 template <typename Definition, typename SubLayerSet>
 class LayerSet {
   public:
@@ -126,6 +139,10 @@ class LayerSet {
   SubLayerSet subLayerSet;
 };
 
+/**
+  Defines an ordering for different storage layers in a Storage structure,
+  in a hierarchitcal fashion; with a convenience type (instead of bare tuples).
+ */
 template <typename ConvenienceType, typename... Definitions>
 class ColorMap {
   private:
@@ -183,6 +200,12 @@ class ColorMap {
 
 using ConfigVariant = std::variant<Config>;
 
+/**
+  A convenience data structure for the Layer identifier type we use.
+  In essence, it provides basic infos about the layer, like e.g. if it is a ghost, copy or interior
+  layer or which LTS cluster it belongs to; and maps identifier to a contiguous ID (a.k.a. color),
+  and back.
+  */
 struct LayerIdentifier {
   HaloType halo;
   ConfigVariant config;
@@ -202,6 +225,7 @@ struct LayerIdentifier {
   }
 };
 
+// NOTE: keep the ordering like this until we merge #1411. Otherwise, there will be a data layout mismatch with the LtsLayout class.
 using LTSColorMap = ColorMap<LayerIdentifier,
                              EnumLayer<HaloType>,
                              EnumLayer<std::size_t>,

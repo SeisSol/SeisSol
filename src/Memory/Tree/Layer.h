@@ -211,6 +211,10 @@ bool layerFilter(const LayerIdentifier& filter) {
   return ((filter.halo == FilteredTypes) || ...);
 }
 
+/**
+  A generic Varmap which does not have any type restrictions.
+  Slower in access than a SpecificVarmap, but it doesn't require any pre-defined type lists to work.
+ */
 struct GenericVarmap {
   std::unordered_map<std::type_index, std::size_t> typemap;
   std::unordered_map<int*, std::size_t> handlemap;
@@ -249,6 +253,10 @@ struct GenericVarmap {
   using PointerContainerT = std::vector<void*>;
 };
 
+/**
+  A Varmap with a type list. It is faster in accessing, but needs all types pre-registered (leading
+  to usually veeeeery long type lists; try to subclass to avoid the error messages being too long).
+  */
 template <typename... Types>
 struct SpecificVarmap {
   template <typename T, typename Thead, typename... Ttail>
@@ -292,6 +300,9 @@ struct SpecificVarmap {
   }
 };
 
+/**
+  A layer (i.e. contiguous array of data) in a Storage structure.
+ */
 template <typename VarmapT = GenericVarmap>
 class Layer {
   private:
@@ -318,6 +329,21 @@ class Layer {
 
   [[nodiscard]] std::size_t id() const { return posId; }
 
+  /**
+    Contains references to a specific cell for all stored internal data.
+    Useful e.g. for passing less arguments.
+
+    (equivalent to the `LocalData` / `NeighborData` in older SeisSol)
+
+    Example: if you have a registered type Tx, then the following are equivalent:
+
+    const auto& data = layer.var<Tx>(AllocationPlace::Device)[123];
+
+    to:
+
+    const auto ref = layer.cellRef(123, AllocationPlace::Device);
+    const auto& data = ref.get<Tx>();
+   */
   class CellRef {
 public:
     CellRef(std::size_t id,

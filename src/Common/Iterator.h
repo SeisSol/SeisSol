@@ -19,12 +19,18 @@
 
 namespace seissol::common {
 
-// TODO: remove once C++23 lands in SeisSol
+// TODO: remove all in here once C++23 lands in SeisSol
 
 // cf. https://stackoverflow.com/a/44661987
 template <typename RangeT>
 using IteratorType = decltype(std::begin(std::declval<RangeT&>()));
 
+/**
+  Runs multiple iterators at the same time in a tuple, akin to Python `zip`.
+
+  Can most likely be simplified with C++20 view transforms.
+  Will be replaced with C++23 std::views::zip .
+ */
 template <typename... RangeTs>
 class Zip {
   public:
@@ -145,13 +151,28 @@ private:
   bool lenient;
 };
 
+/**
+  Runs multiple iterators at the same time in a tuple, akin to Python `zip`.
+
+  Usage:
+
+  for (const auto [first, second, third] : zip(firstIt, secondIt, thirdIt)) {
+    // ...
+  }
+
+  Can most likely be simplified with C++20 view transforms.
+  Will be replaced with C++23 std::views::zip .
+ */
 template <typename... RangeTs>
 constexpr auto zip(RangeTs&&... ranges) {
   return Zip<RangeTs...>(false, std::forward<RangeTs>(ranges)...);
 }
 
-// TODO: replace/remove, once C++20 lands in SeisSol
+/**
+  A simple incrementing range.
 
+  TODO: replace/remove, once C++20 lands in SeisSol
+ */
 template <typename T>
 class Range {
   static_assert(std::is_integral_v<T>, "For now, T needs to be integer");
@@ -219,21 +240,54 @@ private:
   T stepVal;
 };
 
+/**
+  A range to an iterator, running from 0 to `stop - 1`. (similar to Python)
+
+  With C++20, replace by std::views::iota
+ */
 template <typename T>
 constexpr auto range(T stop) {
   return Range(0, stop, 1);
 }
 
+/**
+  A range to an iterator, running from `start` to `stop - 1`. (similar to Python)
+
+  With C++20, replace by std::views::iota
+ */
 template <typename T>
 constexpr auto range(T start, T stop) {
   return Range(start, stop, 1);
 }
 
+/**
+  A range to an iterator, running from `start` to `stop - 1` in increment `step`. (similar to
+  Python)
+
+  With C++20, replace by std::views::iota
+ */
 template <typename T>
 constexpr auto range(T start, T stop, T step) {
   return Range(start, stop, step);
 }
 
+/**
+  Counts while running through an iterator.
+
+  Usage:
+
+  for (const auto [i, item] : zip(it)) {
+    // ...
+  }
+
+  Will give:
+  0, it[0]
+  1, it[1]
+  ...
+
+  Can most likely be simplified with C++20 view transforms.
+  Will be replaced with C++23 std::views::enumerate .
+ */
 template <typename RangeT>
 constexpr auto enumerate(RangeT&& iterator) {
   // a tiny bit hacky to use both zip and the int range like that. But it should work.
@@ -243,6 +297,27 @@ constexpr auto enumerate(RangeT&& iterator) {
       std::forward<RangeT>(iterator));
 }
 
+/**
+  Filter an iterator by a function; i.e. skip certain elements while iterating over it. E.g.
+
+  auto beginIt = FilteredIterator(obj.begin(), obj.end(), filter);
+  auto endIt = FilteredIterator(obj.end(), obj.end(), filter);
+
+  for (auto it = beginIt; it != endIt; ++it) {
+    // ...
+  }
+
+  is equivalent to
+
+  for (auto it = obj.begin(); it != obj.end(); ++it) {
+    if (filter(*it)) {
+      // ...
+    }
+  }
+
+  (NOTE: might benefit from a short-hand notation like for zip and enumerate in this file; however
+  we didn't need that so far; and C++20 is around the corner to be adopted anyways)
+ */
 template <typename T>
 class FilteredIterator {
   public:

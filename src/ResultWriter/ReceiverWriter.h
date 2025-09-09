@@ -64,7 +64,6 @@ class ReceiverWriter : public seissol::Module {
   std::string m_fileNamePrefix;
   double m_samplingInterval;
   std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity>> derivedQuantities;
-  // Map needed because LayerType enum casts weirdly to int.
   std::vector<std::shared_ptr<kernels::ReceiverCluster>> m_receiverClusters;
   Stopwatch m_stopwatch;
 };

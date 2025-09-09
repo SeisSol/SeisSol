@@ -14,8 +14,6 @@ namespace seissol {
 // https://stackoverflow.com/questions/66944744/syntax-to-unpack-tuple-on-parameter-pack-and-variadic-template
 // )
 
-// Also, say hello to a bit of templating. Just a tiny bit.
-
 // transforms the elements of a variadic type
 template <template <typename> typename ElementTransform, typename OriginalT>
 struct TransformVariadic {};
@@ -27,6 +25,12 @@ struct TransformVariadic<ElementTransform, VariadicT<Args...>> {
   using Result = VariadicT<ElementTransform<Args>...>;
 };
 
+/**
+  Transforms the underlying type of a variadic type. E.g.
+
+  OriginalT<T1, T2, T3> becomes
+  OriginalT<ElementTransform<T1>, ElementTransform<T2>, ElementTransform<T3>>
+ */
 template <template <typename> typename ElementTransform, typename OriginalT>
 using TransformVariadicT = typename TransformVariadic<ElementTransform, OriginalT>::Result;
 
@@ -41,6 +45,12 @@ struct ChangeVariadic<TargetT, VariadicT<Args...>> {
   using Result = TargetT<Args...>;
 };
 
+/**
+  Transforms the underlying type of a variadic type. E.g.
+
+  OriginalT<T1, T2, T3> becomes
+  TargetT<T1, T2, T3>
+ */
 template <template <typename...> typename TargetT, typename OriginalT>
 using ChangeVariadicT = typename ChangeVariadic<TargetT, OriginalT>::Result;
 
@@ -75,6 +85,13 @@ struct RemoveDuplicateVariadic<VariadicT<Args...>> {
   using Result = typename Intermediate<Args...>::Result;
 };
 
+/**
+  Removes duplicate types in a variadic type list.
+
+  E.g.
+  ContainerT<T1, T2, T3, T2, T3, T4, T1> becomes
+  ContainerT<T1, T2, T3, T4>
+ */
 template <typename OriginalT>
 using RemoveDuplicateVariadicT = typename RemoveDuplicateVariadic<OriginalT>::Result;
 
@@ -91,6 +108,12 @@ struct ConcatVariadic<VariadicT<Args1...>, VariadicT<Args2...>> {
   using Type = VariadicT<Args1..., Args2...>;
 };
 
+/**
+  Concatenates two variadic type lists. E.g.
+
+  ContainerT<T1, T2> and ContainerT<T3, T4> makes
+  ContainerT<T1, T2, T3, T4>
+ */
 template <typename T1, typename T2>
 using ConcatVariadicT = typename ConcatVariadic<T1, T2>::Type;
 
@@ -102,6 +125,13 @@ struct PrependVariadic<PreT, VariadicT<Args...>> {
   using Type = VariadicT<PreT, Args...>;
 };
 
+/**
+  Adds a type to the variadic type list at the left side (front).
+
+  E.g.
+  ContainerT<T1, T2> and Tn will make
+  ContainerT<Tn, T1, T2>
+ */
 template <typename PreT, typename T>
 using PrependVariadicT = typename PrependVariadic<PreT, T>::Type;
 
@@ -113,6 +143,13 @@ struct AppendVariadic<PostT, VariadicT<Args...>> {
   using Type = VariadicT<Args..., PostT>;
 };
 
+/**
+  Adds a type to the variadic type list at the right side (back).
+
+  E.g.
+  ContainerT<T1, T2> and Tn will make
+  ContainerT<T1, T2, Tn>
+ */
 template <typename PostT, typename T>
 using AppendVariadicT = typename AppendVariadic<PostT, T>::Type;
 
