@@ -45,24 +45,23 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         alignStride=True,
     )
 
-    initialLoading = Tensor("initialLoading", (numberOfNodes, 6), alignStride=True)
-
-    replicateIniLShape = ()
-    replicateIniLSpp = np.ones(
-        aderdg.Q.insertOptDim(replicateIniLShape, (aderdg.Q.optSize(),))
-    )
-
-    """
-    replicateInitialLoading = OptionalDimTensor(
-        "replicateInitialLoading",
+    initialLoading = OptionalDimTensor(
+        "initialLoading",
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
+        (6,),
+    )
+
+    replicateIniLShape = (numberOfNodes,)
+    replicateIniLSpp = np.ones(replicateIniLShape)
+
+    replicateInitialLoading = Tensor(
+        "replicateInitialLoading",
         replicateIniLShape,
         spp=replicateIniLSpp,
         alignStride=True,
     )
-"""
 
     iShape = (numberOfNodes, 6)
     QStressNodal = OptionalDimTensor(
@@ -171,7 +170,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
 
         if aderdg.multipleSimulations > 1:
             # for now, copy the tensors into here and rename them; until gemmforge/chainforge is deprecated
-            matreplace = replicateInitialLoading[""] * initialLoading["kp"]
+            matreplace = initialLoading["kp"]
         else:
             matreplace = initialLoading["kp"]
 

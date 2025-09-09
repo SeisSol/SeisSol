@@ -11,7 +11,9 @@
 #include "Model/CommonDatastructures.h"
 #include <Alignment.h>
 #include <Kernels/Precision.h>
+#include <Solver/MultipleSimulations.h>
 #include <cmath>
+#include <equation-elastic-6-double/init.h>
 #include <generated_code/init.h>
 #include <generated_code/tensor.h>
 #include <string>
@@ -25,25 +27,35 @@ struct PlasticityData {
   alignas(Alignment) real cohesionTimesCosAngularFriction[tensor::meanStress::size()];
   alignas(Alignment) real sinAngularFriction[tensor::meanStress::size()];
 
-  // TODO: make vary as well? (at least for #1297)
+  // depends on the material only (i.e. #1297 or multi-fused-material relevant only)
   real mufactor;
 
-  PlasticityData(const Plasticity* plasticity, const Material* material) {
+  PlasticityData(const std::array<const Plasticity*, seissol::multisim::NumSimulations>& plasticity,
+                 const Material* material) {
     auto initialLoadingV = init::QStressNodal::view::create(initialLoading);
     initialLoadingV.setZero();
 
-    for (std::size_t i = 0; i < tensor::meanStress::size(); ++i) {
-      initialLoadingV(i, 0) = plasticity[i].sXX;
-      initialLoadingV(i, 1) = plasticity[i].sYY;
-      initialLoadingV(i, 2) = plasticity[i].sZZ;
-      initialLoadingV(i, 3) = plasticity[i].sXY;
-      initialLoadingV(i, 4) = plasticity[i].sYZ;
-      initialLoadingV(i, 5) = plasticity[i].sXZ;
+    auto cohesionTimesCosAngularFrictionV =
+        init::meanStress::view::create(cohesionTimesCosAngularFriction);
+    cohesionTimesCosAngularFrictionV.setZero();
 
-      const double angularFriction = std::atan(plasticity[i].bulkFriction);
+    auto sinAngularFrictionV = init::meanStress::view::create(sinAngularFriction);
+    sinAngularFrictionV.setZero();
 
-      cohesionTimesCosAngularFriction[i] = plasticity[i].plastCo * std::cos(angularFriction);
-      sinAngularFriction[i] = std::sin(angularFriction);
+    for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
+      for (std::size_t i = 0; i < tensor::meanStress::size(); ++i) {
+        initialLoadingV(i, 0) = plasticity[s][i].sXX;
+        initialLoadingV(i, 1) = plasticity[s][i].sYY;
+        initialLoadingV(i, 2) = plasticity[s][i].sZZ;
+        initialLoadingV(i, 3) = plasticity[s][i].sXY;
+        initialLoadingV(i, 4) = plasticity[s][i].sYZ;
+        initialLoadingV(i, 5) = plasticity[s][i].sXZ;
+
+        const double angularFriction = std::atan(plasticity[s][i].bulkFriction);
+
+        cohesionTimesCosAngularFrictionV(i) = plasticity[s][i].plastCo * std::cos(angularFriction);
+        sinAngularFrictionV(i) = std::sin(angularFriction);
+      }
     }
 
     const auto mubar = material->getMuBar();

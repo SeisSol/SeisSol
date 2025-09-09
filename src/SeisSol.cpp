@@ -14,15 +14,12 @@
 #include <sys/resource.h>
 #include <utils/logger.h>
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif // _OPENMP
-
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Unit.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
+#include "Parallel/OpenMP.h"
 #include "Parallel/Pin.h"
 
 namespace seissol {
@@ -47,9 +44,12 @@ bool SeisSol::init(int argc, char* argv[]) {
   printUSMInfo(m_env);
   printMPIUSMInfo(m_env);
 #endif
-#ifdef _OPENMP
   pinning.checkEnvVariables();
-  logInfo() << "Using OMP with #threads/rank:" << omp_get_max_threads();
+  if (OpenMP::enabled()) {
+    logInfo() << "Using OpenMP with #threads/rank:" << seissol::OpenMP::threadCount();
+  } else {
+    logInfo() << "OpenMP disabled. Using only a single thread.";
+  }
   if (!parallel::Pinning::areAllCpusOnline()) {
     logInfo() << "Some CPUs are offline. Only online CPUs are considered.";
     logInfo() << "Online Mask            (this node)   :"
@@ -72,7 +72,6 @@ bool SeisSol::init(int argc, char* argv[]) {
              "then try running with the environment variable \"SEISSOL_COMMTHREAD=0\". ";
     }
   }
-#endif // _OPENMP
 
   // Check if the ulimit for the stacksize is reasonable.
   // A low limit can lead to segmentation faults.

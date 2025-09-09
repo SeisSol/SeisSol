@@ -19,9 +19,9 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 
+#include "GeneratedCode/init.h"
 #include "easi/Query.h"
 #include "easi/ResultAdapter.h"
-#include "generated_code/init.h"
 
 #include "Equations/Datastructures.h"
 

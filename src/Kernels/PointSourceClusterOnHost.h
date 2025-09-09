@@ -21,17 +21,13 @@ class PointSourceClusterOnHost : public PointSourceCluster {
   void addTimeIntegratedPointSources(double from,
                                      double to,
                                      seissol::parallel::runtime::StreamRuntime& runtime) override;
-  [[nodiscard]] unsigned size() const override;
+  [[nodiscard]] std::size_t size() const override;
 
   private:
-  void addTimeIntegratedPointSourceNRF(unsigned source,
-                                       double from,
-                                       double to,
-                                       real dofs[tensor::Q::size()]);
-  void addTimeIntegratedPointSourceFSRM(unsigned source,
-                                        double from,
-                                        double to,
-                                        real dofs[tensor::Q::size()]);
+  void addTimeIntegratedPointSource(std::size_t source,
+                                    double from,
+                                    double to,
+                                    real dofs[tensor::Q::size()]);
 
   std::shared_ptr<sourceterm::ClusterMapping> clusterMapping_;
   std::shared_ptr<sourceterm::PointSources> sources_;
