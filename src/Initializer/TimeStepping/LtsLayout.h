@@ -23,11 +23,11 @@
 #include <limits>
 
 
-  
+
 namespace seissol::initializer::time_stepping {
   class LtsLayout;
 } // namespace seissol::initializer::time_stepping
-  
+
 
 class seissol::initializer::time_stepping::LtsLayout {
   //private:

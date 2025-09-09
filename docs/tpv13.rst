@@ -92,4 +92,3 @@ discussions.
    :align: center
 
    Figure 1: along-strike (left) and along-dip (right) slip rate in TPV12 (blue) and 13 (orange).
-

@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest adding a feature that is not yet in SeisSol  
+about: Suggest adding a feature that is not yet in SeisSol
 labels: 'feature-request'
 type: 'Feature'
 ---

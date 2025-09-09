@@ -74,8 +74,8 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
    * theta[2] = -2.0 * mu * Y_mu
    **/
   double theta[zeroLengthArrayHandler(Mechanisms)][3];
-  double Qp;
-  double Qs;
+  double qp;
+  double qs;
 
   ViscoElasticMaterialParametrized() = default;
   ViscoElasticMaterialParametrized(const std::vector<double>& materialValues)
@@ -89,8 +89,8 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
     // This constructor is used to initialize a ViscoElasticMaterial
     // from the values in Fortran. Qp and Qs are not part of the
     // material in Fortran, so we set these to NaN.
-    Qp = std::numeric_limits<double>::signaling_NaN();
-    Qs = std::numeric_limits<double>::signaling_NaN();
+    qp = std::numeric_limits<double>::signaling_NaN();
+    qs = std::numeric_limits<double>::signaling_NaN();
   }
 
   ~ViscoElasticMaterialParametrized() override = default;

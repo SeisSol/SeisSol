@@ -304,24 +304,25 @@ def main():
 
     argParser = argparse.ArgumentParser()
     argParser.add_argument("--fix", action="store_true")
-    argParser.add_argument("path")
+    argParser.add_argument("path", nargs="*")
     argParser.set_defaults(fix=False)
     args = argParser.parse_args()
 
     found = False
 
-    for root, dirs, files in pathlib.Path(args.path).walk(top_down=False):
-        for prefile in files:
-            file = root / prefile
-            if (
-                not os.path.islink(file)
-                and file.suffix
-                in Settings.CPP_HEADER_ENDINGS + Settings.CPP_SOURCE_ENDINGS
-            ):
-                result = processFile(file, not args.fix)
-                if result:
-                    print(f"Reformatted: {file}")
-                found |= result
+    for path in args.path:
+        for root, dirs, files in pathlib.Path(path).walk(top_down=False):
+            for prefile in files:
+                file = root / prefile
+                if (
+                    not os.path.islink(file)
+                    and file.suffix
+                    in Settings.CPP_HEADER_ENDINGS + Settings.CPP_SOURCE_ENDINGS
+                ):
+                    result = processFile(file, not args.fix)
+                    if result:
+                        print(f"Reformatted: {file}")
+                    found |= result
 
     if found:
         print("Unsanitized files found.")

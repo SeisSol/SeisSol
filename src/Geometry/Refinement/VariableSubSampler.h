@@ -13,13 +13,13 @@
 #include <cassert>
 
 #include <Eigen/Dense>
+#include <cstddef>
 
 #include "Geometry/MeshReader.h"
 #include "Numerical/BasisFunction.h"
 #include "RefinerUtils.h"
 
-namespace seissol {
-namespace refinement {
+namespace seissol::refinement {
 
 //------------------------------------------------------------------------------
 
@@ -29,18 +29,18 @@ class VariableSubsampler {
   std::vector<basisFunction::SampledBasisFunctions<T>> m_BasisFunctions;
 
   /** The original number of cells (without refinement) */
-  const unsigned int m_numCells;
+  unsigned int mNumCells;
 
-  const unsigned int kSubCellsPerCell;
-  const unsigned int kNumVariables;
-  const unsigned int kNumAlignedDOF;
+  unsigned int kSubCellsPerCell;
+  unsigned int kNumVariables;
+  unsigned int kNumAlignedDOF;
 
   std::size_t
       getInVarOffset(unsigned int cell, unsigned int variable, const unsigned int* cellMap) const {
-    return (cellMap[cell] * kNumVariables + variable) * kNumAlignedDOF;
+    return static_cast<std::size_t>((cellMap[cell] * kNumVariables + variable) * kNumAlignedDOF);
   }
 
-  std::size_t getOutVarOffset(unsigned cell, unsigned int subcell) const {
+  [[nodiscard]] std::size_t getOutVarOffset(unsigned cell, unsigned int subcell) const {
     return kSubCellsPerCell * cell + subcell;
   }
 
@@ -62,12 +62,11 @@ VariableSubsampler<T>::VariableSubsampler(unsigned int numCells,
                                           unsigned int order,
                                           unsigned int numVariables,
                                           unsigned int numAlignedDOF)
-    : m_numCells(numCells), kSubCellsPerCell(tetRefiner.getDivisionCount()),
+    : mNumCells(numCells), kSubCellsPerCell(tetRefiner.getDivisionCount()),
       kNumVariables(numVariables), kNumAlignedDOF(numAlignedDOF) {
   // Generate cell centerpoints in the reference or unit tetrahedron.
-  Tetrahedron<T>* subCells = new Tetrahedron<T>[kSubCellsPerCell];
-  Eigen::Matrix<T, 3, 1>* additionalVertices =
-      new Eigen::Matrix<T, 3, 1>[tetRefiner.additionalVerticesPerCell()];
+  auto* subCells = new Tetrahedron<T>[kSubCellsPerCell];
+  auto* additionalVertices = new Eigen::Matrix<T, 3, 1>[tetRefiner.additionalVerticesPerCell()];
 
   tetRefiner.refine(Tetrahedron<T>::unitTetrahedron(), 0, subCells, additionalVertices);
 
@@ -93,7 +92,7 @@ void VariableSubsampler<T>::get(const real* inData,
 #pragma omp parallel for schedule(static)
 #endif
   // Iterate over original Cells
-  for (unsigned int c = 0; c < m_numCells; ++c) {
+  for (unsigned int c = 0; c < mNumCells; ++c) {
     for (unsigned int sc = 0; sc < kSubCellsPerCell; ++sc) {
       outData[getOutVarOffset(c, sc)] =
           m_BasisFunctions[sc].evalWithCoeffs(&inData[getInVarOffset(c, variable, cellMap)]);
@@ -103,7 +102,6 @@ void VariableSubsampler<T>::get(const real* inData,
 
 //------------------------------------------------------------------------------
 
-} // namespace refinement
-} // namespace seissol
+} // namespace seissol::refinement
 
 #endif // SEISSOL_SRC_GEOMETRY_REFINEMENT_VARIABLESUBSAMPLER_H_

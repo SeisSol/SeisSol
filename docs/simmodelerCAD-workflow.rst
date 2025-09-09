@@ -144,6 +144,3 @@ Finally, we remove the part of the surface we do not want in the model using:
     Discrete>Delete. Apply to delete the surface parts that are not needed.
 
 This yields a self-intersecting surface representation of the structural model that can be easily meshed.
-
-
-

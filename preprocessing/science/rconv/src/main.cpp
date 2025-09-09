@@ -8,17 +8,17 @@
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -55,7 +55,7 @@ int main(int argc, char** argv)
   args.addOption("normalize-onset", 'n', "Subtract the minimum onset time from all onsets.", utils::Args::No, false);
 	args.addOption("vcs", 'v', "Proj.4 string that describes the coordinate system for visualisation (defaults to geocentric if mcs not given, i.e. \"+proj=geocent +datum=WGS84 +units=m +no_def\").", utils::Args::Required, false);
   args.addOption("xdmf", 'x', "Output for visualisation (.xmf)", utils::Args::Required, false);
-  
+
   args.setCustomHelpMessage("\nWith rconv you may either convert a SRF file to a NRF file, which you can use as input in SeisSol.\n"
                             "In this case, give the options -i, -m, -o, and optionally -n.\n\n"
                             "You may also write a file which may be loaded in Paraview for visualisation of the SRF file.\n"
@@ -69,13 +69,13 @@ int main(int argc, char** argv)
     bool normalizeOnset = args.isSet("normalize-onset");
     std::string vcs = args.getArgument<std::string>("vcs", "");
     std::string xdmf = args.getArgument<std::string>("xdmf", "");
-    
+
     if (mcs.empty() && vcs.empty()) {
       vcs = "+proj=geocent +datum=WGS84 +units=m +no_defs";
     } else if (vcs.empty()) {
       vcs = mcs;
     }
-    
+
     std::cout << "Reading SRF..." << std::flush;
     std::vector<SRFPointSource> srf = parseSRF(in.c_str());
     std::cout << "finished." << std::endl;
@@ -84,12 +84,12 @@ int main(int argc, char** argv)
       std::cerr << "Error: -o and -m may only be given simultaneously." << std::endl;
       return -1;
     } else if (!mcs.empty()) {
-      Map map(mcs);    
+      Map map(mcs);
       std::cout << "Writing NRF..." << std::flush;
       writeNRF(out.c_str(), srf, map, normalizeOnset);
       std::cout << "finished." << std::endl;
     }
-    
+
     if (!xdmf.empty()) {
       Map mapGeocent(vcs);
       std::cout << "Writing XDMF..." << std::flush;
@@ -99,6 +99,6 @@ int main(int argc, char** argv)
 	} else {
 		return -1;
 	}
-  
+
   return 0;
 }

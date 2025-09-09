@@ -21,7 +21,7 @@
 namespace seissol {
 namespace initializer {
 namespace time_stepping {
-  
+
 /**
  * Gets the lts setup in relation to the four face neighbors.
  *   Remark: Remember to perform the required normalization step.

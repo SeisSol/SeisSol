@@ -637,15 +637,15 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
 
     layer.setEntrySize(lts.dofsFaceBoundaryNodalScratch, sizeof(real) * dirichletCount * tensor::INodal::size());
 
-    layer.setEntrySize(lts.rotateDisplacementToFaceNormalScratch, 
+    layer.setEntrySize(lts.rotateDisplacementToFaceNormalScratch,
       sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
-    layer.setEntrySize(lts.rotateDisplacementToGlobalScratch, 
+    layer.setEntrySize(lts.rotateDisplacementToGlobalScratch,
       sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
-    layer.setEntrySize(lts.rotatedFaceDisplacementScratch, 
+    layer.setEntrySize(lts.rotatedFaceDisplacementScratch,
       sizeof(real) * freeSurfaceCount * init::rotatedFaceDisplacement::Size);
-    layer.setEntrySize(lts.dofsFaceNodalScratch, 
+    layer.setEntrySize(lts.dofsFaceNodalScratch,
       sizeof(real) * freeSurfaceCount * tensor::INodal::size());
-    layer.setEntrySize(lts.prevCoefficientsScratch, 
+    layer.setEntrySize(lts.prevCoefficientsScratch,
       sizeof(real) * freeSurfaceCount * nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
   }
 }
@@ -855,4 +855,3 @@ void seissol::initializer::MemoryManager::synchronizeTo(seissol::initializer::Al
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 }
-

@@ -32,7 +32,7 @@ jobs:
           mkdir build && cd build
           CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
           ninja install
-      
+
       - id: checkout
         name: checkout-seissol
         uses: actions/checkout@v4
@@ -60,7 +60,7 @@ jobs:
         run: |
           cd build
           ninja seissol-coverage
-      
+
       - name: upload-seissol-coverage
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}

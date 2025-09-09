@@ -82,4 +82,3 @@ if (IS_NVCC_PLATFORM)
 else()
     target_link_libraries(seissol-device-lib PUBLIC ${HIP_PATH}/lib/libamdhip64.so)
 endif()
-

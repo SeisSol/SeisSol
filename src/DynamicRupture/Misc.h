@@ -71,7 +71,7 @@ constexpr F forEach(TupleT&& tuple, F&& functor) {
   return forEachImpl(
       std::forward<TupleT>(tuple),
       std::forward<F>(functor),
-      std::make_index_sequence<std::tuple_size<std::remove_reference_t<TupleT>>::value>{});
+      std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleT>>>{});
 }
 /**
  * Compute base^exp

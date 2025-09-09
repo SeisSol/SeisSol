@@ -24,7 +24,9 @@ AbstractCommunicationManager::AbstractCommunicationManager(
 void AbstractCommunicationManager::reset(double newSyncTime) {
   for (auto& ghostCluster : ghostClusters) {
     ghostCluster->setSyncTime(newSyncTime);
-    ghostCluster->reset();
+
+    // dereference first due to clang-tidy recommendation
+    (*ghostCluster).reset();
   }
 }
 

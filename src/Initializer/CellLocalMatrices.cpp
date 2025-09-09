@@ -459,7 +459,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       Lut* ltsLut,
                                       LTSTree* dynRupTree,
                                       DynamicRupture* dynRup,
-                                      unsigned* ltsFaceToMeshFace,
+                                      const unsigned* ltsFaceToMeshFace,
                                       const GlobalData& global,
                                       double etaHack) {
   real matTData[tensor::T::size()];
@@ -478,7 +478,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
   auto* faceNeighborsDevice = ltsTree->var(lts->faceNeighborsDevice);
   auto* cellInformation = ltsTree->var(lts->cellInformation);
 
-  unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
+  const unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
   for (auto& layer : dynRupTree->leaves(Ghost)) {
     auto* timeDerivativePlus = layer.var(dynRup->timeDerivativePlus);
@@ -639,8 +639,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                             matTinv);
 
       /// Materials
-      seissol::model::MaterialT* plusMaterial = nullptr;
-      seissol::model::MaterialT* minusMaterial = nullptr;
+      const seissol::model::MaterialT* plusMaterial = nullptr;
+      const seissol::model::MaterialT* minusMaterial = nullptr;
       const std::size_t plusLtsId =
           (fault[meshFace].element >= 0)
               ? ltsLut->ltsId(ltsTree->info(lts->material).mask, fault[meshFace].element)
@@ -654,14 +654,14 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
              minusLtsId != std::numeric_limits<std::size_t>::max());
 
       if (plusLtsId != std::numeric_limits<std::size_t>::max()) {
-        plusMaterial = dynamic_cast<seissol::model::MaterialT*>(material[plusLtsId].local);
-        minusMaterial = dynamic_cast<seissol::model::MaterialT*>(
+        plusMaterial = dynamic_cast<const seissol::model::MaterialT*>(material[plusLtsId].local);
+        minusMaterial = dynamic_cast<const seissol::model::MaterialT*>(
             material[plusLtsId].neighbor[faceInformation[ltsFace].plusSide]);
       } else {
         assert(minusLtsId != std::numeric_limits<std::size_t>::max());
-        plusMaterial = dynamic_cast<seissol::model::MaterialT*>(
+        plusMaterial = dynamic_cast<const seissol::model::MaterialT*>(
             material[minusLtsId].neighbor[faceInformation[ltsFace].minusSide]);
-        minusMaterial = dynamic_cast<seissol::model::MaterialT*>(material[minusLtsId].local);
+        minusMaterial = dynamic_cast<const seissol::model::MaterialT*>(material[minusLtsId].local);
       }
 
       if (plusMaterial == nullptr || minusMaterial == nullptr) {

@@ -51,9 +51,9 @@ void seissol::writer::WaveFieldWriter::setUp() {
 
 void seissol::writer::WaveFieldWriter::enable() { m_enabled = true; }
 
-seissol::refinement::TetrahedronRefiner<double>*
+const seissol::refinement::TetrahedronRefiner<double>*
     seissol::writer::WaveFieldWriter::createRefiner(int refinement) {
-  refinement::TetrahedronRefiner<double>* tetRefiner = nullptr;
+  const refinement::TetrahedronRefiner<double>* tetRefiner = nullptr;
   switch (refinement) {
   case 0:
     logInfo() << "Refinement is turned off.";
@@ -179,8 +179,7 @@ void seissol::writer::WaveFieldWriter::init(
   param.bufferIds[OutputFlags] = addSyncBuffer(m_outputFlags, m_numVariables * sizeof(bool), true);
 
   // Setup the tetrahedron refinement strategy
-  refinement::TetrahedronRefiner<double>* tetRefiner =
-      createRefiner(static_cast<int>(parameters.refinement));
+  const auto* tetRefiner = createRefiner(static_cast<int>(parameters.refinement));
 
   unsigned int numElems = meshReader.getElements().size();
   unsigned int numVerts = meshReader.getVertices().size();

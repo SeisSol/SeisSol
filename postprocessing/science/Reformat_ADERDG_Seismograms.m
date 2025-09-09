@@ -8,21 +8,21 @@
 % @section LICENSE
 % Copyright (c) 2006, SeisSol Group
 % All rights reserved.
-% 
+%
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
-% 
+%
 % 1. Redistributions of source code must retain the above copyright notice,
 %    this list of conditions and the following disclaimer.
-% 
+%
 % 2. Redistributions in binary form must reproduce the above copyright notice,
 %    this list of conditions and the following disclaimer in the documentation
 %    and/or other materials provided with the distribution.
-% 
+%
 % 3. Neither the name of the copyright holder nor the names of its
 %    contributors may be used to endorse or promote products derived from this
 %    software without specific prior written permission.
-% 
+%
 % THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 % AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 % IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -92,11 +92,11 @@ ind = 0;
 location(3,1:nseis) = 0;
 
 for num = 1:nseis
-     
+
     in_file = command_result{2}{num};
 
     fid   = fopen(in_file);
-    junk  = fgetl(fid); junk  = fgetl(fid); 
+    junk  = fgetl(fid); junk  = fgetl(fid);
     junk  = fscanf(fid,'%c',[6,1]);
     x1    = fscanf(fid,'%g',[1,1]);
     junk  = fscanf(fid,'%c',[6,1]);
@@ -106,16 +106,16 @@ for num = 1:nseis
     disp(sprintf('X: %g   Y: %g  Z: %g',x1,x2,x3));
     location(:,num) = [x1; x2; x3];
     data = fscanf(fid,'%g',[nvar,ndt]); data = data';
-    
+
     %determine and delete double samples from a possible restart
     data(:,1) = (round(data(:,1)*1000000))/1000000;
     [tmp,k,kk] = unique(data(:,1));
     data  = data(k,:);
-    
+
     disp(sprintf('\n Samples in seismogram nr. %i\t:   %i', num,size(data,1)));
     MATLAB_OUTPUT(:,:,num) = data;
     fclose(fid);
-      
+
 end
 
 % add to struct

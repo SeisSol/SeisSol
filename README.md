@@ -23,22 +23,20 @@ learn more about SeisSol. Our [discussion forum](https://github.com/SeisSol/Seis
 can help you to communicate with SeisSol developers or other users, share your
 ideas, ask questions, etc.
 
-## Note
+> SeisSol is still under heavy development and comes without any guaranteed
+> functionality. At the moment we can only provide very limited support for
+> general users.
 
-SeisSol is still under heavy development and comes without any guaranteed
-functionality. At the moment we can only provide very limited support for
-general users.
-
-# Collaboration
+## Collaboration
 
 If you are interested in a close collaboration, please contact [Alice Gabriel](https://www.alicegabriel.com/).
 
-# Code of Conduct
+## Code of Conduct
 
 We follow a [**Code of Conduct**](CODE_OF_CONDUCT.md).
 Please follow the rules when participating in our community.
 
-# Contributing
+## Contributing
 
 We will be happy if you plan to contribute new features, extensions or bug fixes
 to SeisSol. To start off, please, open a new issue and discuss your feature with
@@ -47,7 +45,7 @@ to learn more about the source code structure.
 
 To learn more about contributing to SeisSol, please read our [**Contribution page**](CONTRIBUTING.md).
 
-# Licensing
+## Licensing
 
 The source code of SeisSol is licensed under the BSD-3-Clause license.
 Some files in the `cmake` and `external` folders may have different licenses

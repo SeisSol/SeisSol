@@ -167,7 +167,7 @@ function(get_git_commit_info _varHash _varTimestamp)
 		out
 		ERROR_QUIET
 		OUTPUT_STRIP_TRAILING_WHITESPACE)
-	
+
 	if(NOT res EQUAL 0)
 		set(outHash "${out}-${res}-NOTFOUND")
 		set(outTimestamp "${out}-${res}-NOTFOUND")

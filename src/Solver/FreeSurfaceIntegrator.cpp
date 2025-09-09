@@ -73,6 +73,7 @@ void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
   if (maxRefinementDepth > MaxRefinement) {
     logError()
         << "Free surface integrator: Currently more than 3 levels of refinements are unsupported.";
+    return;
   }
 
   m_enabled = true;
@@ -86,10 +87,10 @@ void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
 void FreeSurfaceIntegrator::calculateOutput() const {
   const seissol::initializer::LayerMask ghostMask(Ghost);
   for (auto& surfaceLayer : surfaceLtsTree->leaves(ghostMask)) {
-    real** dofs = surfaceLayer.var(surfaceLts->dofs);
-    auto* displacementDofs = surfaceLayer.var(surfaceLts->displacementDofs);
-    auto* side = surfaceLayer.var(surfaceLts->side);
-    auto* outputPosition = surfaceLayer.var(surfaceLts->outputPosition);
+    real* const* dofs = surfaceLayer.var(surfaceLts->dofs);
+    const auto* displacementDofs = surfaceLayer.var(surfaceLts->displacementDofs);
+    const auto* side = surfaceLayer.var(surfaceLts->side);
+    const auto* outputPosition = surfaceLayer.var(surfaceLts->outputPosition);
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for schedule(static) default(none)                                            \
@@ -110,7 +111,7 @@ void FreeSurfaceIntegrator::calculateOutput() const {
           for (std::size_t component = 0; component < NumComponents; ++component) {
             real* target = output[component] + outputPosition[face] * numberOfSubTriangles;
             /// @yateto_todo fix for multiple simulations
-            real* source =
+            const real* source =
                 subTriangleDofs + static_cast<size_t>(component * numberOfAlignedSubTriangles);
             for (std::size_t subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
               target[subtri] = source[subtri];

@@ -116,4 +116,3 @@ edges. For instance here:
 .. |overall view| image:: LatexFigures/ManuallyFixingAnIntersection0.png
 .. |localizing small features| image:: LatexFigures/ManuallyFixingAnIntersection1.png
 .. |fixing intersection| image:: LatexFigures/ManuallyFixingAnIntersection2.png
-

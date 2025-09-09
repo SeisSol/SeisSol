@@ -48,12 +48,12 @@ std::string actorStateToString(ActorState state) {
 }
 
 void MessageQueue::push(const Message& message) {
-  const std::lock_guard lock{mutex};
+  const std::scoped_lock lock{mutex};
   queue.push(message);
 }
 
 Message MessageQueue::pop() {
-  const std::lock_guard lock{mutex};
+  const std::scoped_lock lock{mutex};
   const Message message = queue.front();
   queue.pop();
   return message;

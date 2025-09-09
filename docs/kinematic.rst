@@ -131,6 +131,3 @@ A snapshot of the vertical ground-surface velocity at 7s after rupture onset in 
    :align: center
 
    vertical ground-surface velocity at 7 s after rupture onset. Note the unsmooth velocity field due to the coarse resolution of the kinematic model used.
-
-
-

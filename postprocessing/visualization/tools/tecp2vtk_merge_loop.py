@@ -11,21 +11,21 @@
 # @section LICENSE
 # Copyright (c) SeisSol Group
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice,
 #    this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice,
 #    this list of conditions and the following disclaimer in the documentation
 #    and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its
 #    contributors may be used to endorse or promote products derived from this
 #    software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -39,7 +39,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 # @section DESCRIPTION
-# usage: 
+# usage:
 # python tecp2vtk_merge [-b] <tecpfile-rootname>
 # i.e. python tecp2vtk_merge_loop.py data
 #
@@ -48,8 +48,8 @@
 # options:
 #   -b: binary output
 #
-# for tetrahedral meshes only!!! 
-# 
+# for tetrahedral meshes only!!!
+#
 # requires pyvtk (http://pypi.python.org/pypi/PyVTK)
 
 import sys
@@ -61,7 +61,7 @@ try:
     import pyvtk
 except:
     sys.exit('please install pyvtk (binary = Falsehttp://pypi.python.org/pypi/PyVTK)')
-    
+
 binary = False
 tetfiles = []
 ts = []
@@ -80,7 +80,7 @@ for path, dirs, fls in os.walk('./'):
 	    if d.startswith(files):
 		for f in glob.iglob(os.path.join(path, d, '*.tet.dat')):
 			   tetfiles.append(f)
-                
+
 
 if len(tetfiles) == 0:
     sys.exit('no such file: ./' + files + '*/*.tet.dat')
@@ -96,7 +96,7 @@ for path, dirs, fls in os.walk('./'):
 
 # loop over timesteps
 for time in ts:
-    t_step = (time.split('-')[2]).split('.')[0] 
+    t_step = (time.split('-')[2]).split('.')[0]
     elems = []
     datal = []
     ntelem = 0
@@ -106,51 +106,51 @@ for time in ts:
      if file.endswith(t_step + '.tet.dat'):
         print 'reading ' + file
         fi = open(file, 'r')
-    
+
         title = fi.readline().split('"')[1].strip()
-    
+
         vars = fi.readline().split()[2:]
-    
+
         for i, var in enumerate(vars):
             vars[i] = var.strip('"')
-    
+
         nvar = len(vars)
         s = fi.readline().split()
         npts = int(s[2])
         nelem = int(s[4])
-    
+
         for i in range(npts):
             datal.append(fi.readline().split())
-    
+
         for i in range(nelem):
             elems.append((np.array(fi.readline().split(), dtype=int) - 1 + ntpts).tolist())
-    
+
         ntelem += nelem
         ntpts += npts
-    
+
         fi.close()
-    
+
     data = np.array(datal, dtype=float).T
     elems = np.array(elems, dtype=int).T
-    
+
     pl = []
     for i in np.arange(data.shape[1]):
         pl.append(tuple(data[:3,i]))
-    
+
     el = []
     for i in np.arange(elems.shape[1]):
         el.append(tuple(elems[:,i]))
-    
+
     grid = pyvtk.UnstructuredGrid(pl, tetra=el)
-    
+
     pointdata = pyvtk.PointData()
     for j, var in enumerate(vars[3:]):
         pointdata.append(pyvtk.Scalars(data[j+3,:].tolist(), name=var, lookup_table='default'))
-    
+
     vtk = pyvtk.VtkData(grid, pointdata, title)
     if binary:
         vtk.tofile(t_step + '.vtk', 'binary')
     else:
         vtk.tofile(t_step + '.vtk', 'ascii')
-    
+
     print t_step + '.vtk written'

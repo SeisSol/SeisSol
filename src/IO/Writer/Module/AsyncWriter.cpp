@@ -35,7 +35,7 @@ void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& param
   {
     // for the Hdf5 implementations, we'll need to serialize writes
     // (TODO: make one AsyncWriter only in total)
-    const std::lock_guard lock(globalLock);
+    const std::scoped_lock lock(globalLock);
     writer = Writer(std::string(strData, strData + size));
     instance = std::optional(writer.beginWrite(info));
     // for now write synchronously

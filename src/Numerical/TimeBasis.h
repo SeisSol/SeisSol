@@ -19,14 +19,17 @@ derivatives.
 template <typename RealT>
 class TimeBasis {
   public:
-  virtual std::vector<RealT> derivative(double position, double timestep) const = 0;
-  virtual std::vector<RealT> point(double position, double timestep) const = 0;
-  virtual std::vector<RealT> integrate(double start, double end, double timestep) const = 0;
+  virtual ~TimeBasis() = default;
+  [[nodiscard]] virtual std::vector<RealT> derivative(double position, double timestep) const = 0;
+  [[nodiscard]] virtual std::vector<RealT> point(double position, double timestep) const = 0;
+  [[nodiscard]] virtual std::vector<RealT>
+      integrate(double start, double end, double timestep) const = 0;
 
   /*
     Provides a vector of multiple point evaluations.
   */
-  std::vector<RealT> collocate(const std::vector<double>& points, double timestep) const {
+  [[nodiscard]] std::vector<RealT> collocate(const std::vector<double>& points,
+                                             double timestep) const {
     std::vector<RealT> data;
     for (const auto& point : points) {
       const auto local = this->point(point, timestep);
@@ -47,9 +50,10 @@ Used in the Cauchy-Kovalevskaya kernels.
 template <typename RealT>
 class MonomialBasis : public TimeBasis<RealT> {
   public:
+  ~MonomialBasis() override = default;
   explicit MonomialBasis(std::size_t order) : order(order) {}
 
-  std::vector<RealT> derivative(double position, double timestep) const override {
+  [[nodiscard]] std::vector<RealT> derivative(double position, double timestep) const override {
     std::vector<RealT> coeffs(order);
     coeffs[0] = 0;
     if (coeffs.size() > 1) {
@@ -63,7 +67,7 @@ class MonomialBasis : public TimeBasis<RealT> {
     return coeffs;
   }
 
-  std::vector<RealT> point(double position, double timestep) const override {
+  [[nodiscard]] std::vector<RealT> point(double position, double timestep) const override {
     std::vector<RealT> coeffs(order);
     coeffs[0] = 1;
     double coeffCache = 1;
@@ -74,7 +78,8 @@ class MonomialBasis : public TimeBasis<RealT> {
     return coeffs;
   }
 
-  std::vector<RealT> integrate(double start, double end, double timestep) const override {
+  [[nodiscard]] std::vector<RealT>
+      integrate(double start, double end, double timestep) const override {
     std::vector<RealT> coeffs(order);
     double coeffStart = start;
     double coeffEnd = end;
@@ -98,6 +103,7 @@ Used in the Space-Time Predictor kernels.
 template <typename RealT>
 class LegendreBasis : public TimeBasis<RealT> {
   public:
+  ~LegendreBasis() override = default;
   explicit LegendreBasis(std::size_t order) : order(order) {}
 
   std::vector<RealT> derivative(double position, double timestep) const override {

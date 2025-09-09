@@ -144,7 +144,3 @@ on the fault at point (15 km, 0 km, -9 km).
    :align: center
 
    Velocity at two opposite stations across the fault surface.
-
-
-
-

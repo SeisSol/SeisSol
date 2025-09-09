@@ -27,13 +27,13 @@
 find_package(GKlib QUIET)
 
 find_path(METIS_INCLUDE_DIR metis.h
-  HINTS ${METIS_INCLUDE_DIR} 
-        ENV METIS_INCLUDE_DIR 
-        ${METIS_DIR} 
-        ENV METIS_DIR 
-        ${PARMETIS_INCLUDE_DIR} 
-        ENV PARMETIS_INCLUDE_DIR 
-        ${PARMETIS_DIR} 
+  HINTS ${METIS_INCLUDE_DIR}
+        ENV METIS_INCLUDE_DIR
+        ${METIS_DIR}
+        ENV METIS_DIR
+        ${PARMETIS_INCLUDE_DIR}
+        ENV PARMETIS_INCLUDE_DIR
+        ${PARMETIS_DIR}
         ENV PARMETIS_DIR
   PATH_SUFFIXES include
   DOC "Directory where the METIS header files are located"
@@ -41,13 +41,13 @@ find_path(METIS_INCLUDE_DIR metis.h
 
 find_library(METIS_LIBRARY
   NAMES metis metis${PARMETIS_LIB_SUFFIX}
-  HINTS ${PARMETIS_LIB_DIR} 
-        ENV PARMETIS_LIB_DIR 
-        ${PARMETIS_DIR} 
+  HINTS ${PARMETIS_LIB_DIR}
+        ENV PARMETIS_LIB_DIR
+        ${PARMETIS_DIR}
         ENV PARMETIS_DIR
-        ${METIS_LIB_DIR} 
-        ENV METIS_LIB_DIR 
-        ${METIS_DIR} 
+        ${METIS_LIB_DIR}
+        ENV METIS_LIB_DIR
+        ${METIS_DIR}
         ENV METIS_DIR
   PATH_SUFFIXES lib
   DOC "Directory where the METIS library is located"
@@ -98,9 +98,9 @@ endif()
 
 # Standard package handling
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(METIS REQUIRED_VARS 
-                                  METIS_LIBRARY 
-                                  METIS_INCLUDE_DIR 
+find_package_handle_standard_args(METIS REQUIRED_VARS
+                                  METIS_LIBRARY
+                                  METIS_INCLUDE_DIR
                                   METIS_TEST_RUNS)
 
 if(METIS_FOUND)

@@ -6,7 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #  GemmTools - BLAS-like Library Instantiation Software Framework
-#  email: ravil.dorozhinskii@tum.de 
+#  email: ravil.dorozhinskii@tum.de
 #
 #  Input:
 #  GEMM_TOOLS_LIST                - a list of targeted BLAS implementations
@@ -16,7 +16,7 @@
 #  GemmTools_FOUND                - system has found GemmTools
 #  GemmTools_INCLUDE_DIRS         - include directories for GemmTools
 #  GemmTools_LIBRARIES            - libraries for GemmTools
-#  GemmTools_COMPILER_DEFINITIONS - compiler definitions for GemmTools 
+#  GemmTools_COMPILER_DEFINITIONS - compiler definitions for GemmTools
 #
 #  Example usage:
 #
@@ -30,7 +30,7 @@
 #    if(GEMM_TOOLS_LIBRARIES)
 #      target_link_libraries(TARGET PUBLIC ${GEMM_TOOLS_LIBRARIES})
 #    endif()
-#    if(GEMM_TOOLS_COMPILER_DEFINITIONS)  
+#    if(GEMM_TOOLS_COMPILER_DEFINITIONS)
 #      target_compile_definitions(TARGET PUBLIC ${GEMM_TOOLS_COMPILER_DEFINITIONS})
 #    endif()
 #  endif()

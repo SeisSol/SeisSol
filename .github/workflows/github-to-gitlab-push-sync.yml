@@ -7,7 +7,7 @@
 
 name: codehub-hlrs-sync
 
-on: 
+on:
   push:
     branches:
       - 'master'
@@ -28,4 +28,3 @@ jobs:
         target-url: 'https://codehub.hlrs.de/coes/cheese-2p/SeisSol/SeisSol.git'
         target-username: ${{ secrets.ACCESS_TOKEN_NAME }}
         target-token: ${{ secrets.ACCESS_TOKEN }}
-

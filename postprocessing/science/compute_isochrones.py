@@ -16,23 +16,23 @@ parser.add_argument("x", nargs=1, type=float, help="receiver x")
 parser.add_argument("y", nargs=1, type=float, help="receiver y")
 parser.add_argument("--z", nargs=1, type=float, default=([0.]), help="receiver z")
 
-parser.add_argument('--faultXdmf', type=str, metavar=('-fault.xdmf'), 
+parser.add_argument('--faultXdmf', type=str, metavar=('-fault.xdmf'),
                     help='provide path+filename-fault.xdmf; only needed when the path differs from the -surface.xdmf file')
 
-parser.add_argument('--output', choices=["numpy","xdmf","both"], default="xdmf", 
+parser.add_argument('--output', choices=["numpy","xdmf","both"], default="xdmf",
                     help='output format')
 
 parser.add_argument('--slipRateThreshold', nargs=1, default=([0.05]), metavar=('peak slip rate threshold in m/s'),
                     help='fault cells below the threshold are assumed to not radiate waves' , type=float)
 
-parser.add_argument('--slipRateParameters', choices=["absolute","components","both"], default="both", 
-                    help="absolute: compute isochrones from peak times of absolute slip rates;"+ 
+parser.add_argument('--slipRateParameters', choices=["absolute","components","both"], default="both",
+                    help="absolute: compute isochrones from peak times of absolute slip rates;"+
                     " components: peak slip rate times are computed for SRs and SRd separately")
 
 parser.add_argument('--medianFilterRadius', nargs=1, required=True, metavar=('radius of the median filter in m'),
                     help='peak slip rate time of a fault cell is set to the median value of all surrounding fault cells within \
                     a sphere with this radius; 0 turns the filter off' , type=float)
-# This prevents strong oscillations of peak slip rate times where different rupture fronts have similar peak slip rates 
+# This prevents strong oscillations of peak slip rate times where different rupture fronts have similar peak slip rates
 # and picks the time of the dominant rupture front.
 # Radii between 150 m and 300 m are advised (also depending on the resolution of the fault output)
 
@@ -41,14 +41,14 @@ parser.add_argument('--threads', nargs=1, metavar=('threads'), default=([4]),
 
 parser.add_argument('--timeStepRange', nargs=2, default=([0,-1]), metavar=("minIndex", "maxIndex"),
                     help='parse the fault output time step index range that includes the desired part of the rupture; e.g., \
-                    if the output contains more than one event; first time step has index 0', type=int) 
+                    if the output contains more than one event; first time step has index 0', type=int)
 
 args = parser.parse_args()
 
 
 def ComputeTriangleMidpoints(geom, connect):
     """Generates an array with coordinates of triangle midpoints (same dimension as connect)"""
-    xyz = (1./3.)*(geom[connect[:,0],:]+geom[connect[:,1],:]+geom[connect[:,2],:])   
+    xyz = (1./3.)*(geom[connect[:,0],:]+geom[connect[:,1],:]+geom[connect[:,2],:])
     return xyz
 
 
@@ -74,34 +74,34 @@ def ClosestReceiverIndex(coords, receiver_array):
 
 def PTraveltime(receiverIndex, trigger=0.01):
     """Picks the P-wave arrival. This function is only suited for synthetic data with negligible noise"""
-    
+
     indexBoundsSurface = np.int_(indexBoundsFault * (dtFault / dtSurface))
     absWaveform = np.sqrt(surfaceXdmf.ReadDataChunk(surfaceVariables[0], receiverIndex, 1)**2 +
                       surfaceXdmf.ReadDataChunk(surfaceVariables[1], receiverIndex, 1)**2 +
                       surfaceXdmf.ReadDataChunk(surfaceVariables[2],
                                                 receiverIndex, 1)**2)[indexBoundsSurface [0]:indexBoundsSurface [1]]
-    
+
     threshold = np.amax(absWaveform)*trigger           # trigger dictates the portion of the maximum ground velocity,
                                                        # which needs to be reached to pick the p-phase
     return np.argmax(absWaveform>threshold)*dtSurface  # p-phase arrival time (equal to traveltime if nucleation at t=0)
 
 
 def ApproximateHypocenter(ruptureTimes, faultMidPoints):
-    
+
     nucleationTime = dtFault
     indHypocenter = (ruptureTimes > 0) & (ruptureTimes <= nucleationTime)
-    
+
     # Take the mean of the first 100+ slipping elements to reduce impact from degenerated elements
     while indHypocenter.sum() < 100:
         nucleationTime += dtFault
         indHypocenter = (ruptureTimes > 0) & (ruptureTimes <= nucleationTime)
-    
+
     hypocenter = np.mean(faultMidPoints[indHypocenter,:], axis=0)
     return hypocenter
 
 
 def GetTraveltimesToAllFaultCells(receiverCoords, faultMidPoints, swaveVelocity):
-    
+
     distances = np.sqrt(np.sum((receiverCoords - faultMidPoints) ** 2, axis=1))
     return distances * (1 / swaveVelocity)
 
@@ -119,10 +119,10 @@ def MedianSmoothing(input_tuple):
 
 
 def MedianSmoothingParallel(peakSliprateTimesLocal, xyz, radius=250., nprocs=4):
-    
+
     chunks = [(peakSliprateTimesLocal, xyz, i, radius) for i in np.array_split(np.arange(peakSliprateTimesLocal.shape[0]),
                                                                                nprocs)]
-        
+
     p = Pool(nprocs)
     result = p.map(MedianSmoothing, chunks)
     p.close()
@@ -139,8 +139,8 @@ dtSurface = surfaceXdmf.ReadTimeStep()
 
 if not args.faultXdmf:
     args.faultXdmf = args.filename[:-12]+"fault.xdmf"
-    
-faultXdmf = seissolxdmf.seissolxdmf(args.faultXdmf) 
+
+faultXdmf = seissolxdmf.seissolxdmf(args.faultXdmf)
 faultGeom = faultXdmf.ReadGeometry()
 faultConnect = faultXdmf.ReadConnect()
 faultMidPoints = ComputeTriangleMidpoints(faultGeom, faultConnect)
@@ -159,8 +159,8 @@ if args.slipRateParameters == "absolute":
 elif args.slipRateParameters == "components":
     sliprateParameters = ["SRs", "SRd"]
 else:
-    sliprateParameters = ["SRs", "SRd", "ASR"] 
-    
+    sliprateParameters = ["SRs", "SRd", "ASR"]
+
 sliprates = LoadSliprates(sliprateParameters)
 sliprates = np.abs(sliprates)
 
@@ -200,13 +200,13 @@ stop2 = timeit.default_timer()
 print(f"Time to compute values: {stop2 - stop1:.2f}")
 
 if args.medianFilterRadius[0]:
-    
+
     print(f"Median filter radius: {args.medianFilterRadius[0]}")
     assert(args.threads[0] >= 1 and args.threads[0] <= cpu_count())
     print(f"Median smoothing using {args.threads[0]} threads...")
-    
+
     for i in range(peakSliprateTimes.shape[0]):
-        peakSliprateTimes[i] = MedianSmoothingParallel(peakSliprateTimes[i], faultMidPoints, radius=args.medianFilterRadius[0], 
+        peakSliprateTimes[i] = MedianSmoothingParallel(peakSliprateTimes[i], faultMidPoints, radius=args.medianFilterRadius[0],
                                                        nprocs=args.threads[0])
     stop3 = timeit.default_timer()
     print(f"Time to apply median filter: {stop3 - stop2:.2f}")

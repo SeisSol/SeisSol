@@ -36,9 +36,9 @@ class SevereVelocityWeakeningLaw
     const double steadyStateStateVariable = localSlipRate * localSl0 / this->drParameters->rsSr0;
 
     const double preexp1 = -this->drParameters->rsSr0 * (timeIncrement / localSl0);
-    const double exp1 = std::exp(preexp1);
+    const double exp1v = std::exp(preexp1);
     const double exp1m = -std::expm1(preexp1);
-    const double localStateVariable = steadyStateStateVariable * exp1m + exp1 * stateVarReference;
+    const double localStateVariable = steadyStateStateVariable * exp1m + exp1v * stateVarReference;
 
     return localStateVariable;
   }

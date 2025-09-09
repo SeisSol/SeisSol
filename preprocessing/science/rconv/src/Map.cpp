@@ -8,17 +8,17 @@
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -53,13 +53,13 @@ void printLastError()
 
 Map::Map(std::string const& targetCoordSystem)
 {
-  if (!(pj_lonlat = pj_init_plus("+proj=lonlat +datum=WGS84 +units=km +no_defs"))) { 
+  if (!(pj_lonlat = pj_init_plus("+proj=lonlat +datum=WGS84 +units=km +no_defs"))) {
     printLastError();
   }
-  if (!(pj_mesh = pj_init_plus(targetCoordSystem.c_str()))) { 
+  if (!(pj_mesh = pj_init_plus(targetCoordSystem.c_str()))) {
     printLastError();
   }
-  
+
   if (pj_mesh->to_meter != 1.0 || pj_mesh->vto_meter != 1.0) {
     std::cout << "Warning: The MCS does not use meter as length unit. Note that area and sliprate will be saved in m^2 and m/s so prepare for trouble." << std::endl;
   }
@@ -68,7 +68,7 @@ Map::Map(std::string const& targetCoordSystem)
 Map::~Map()
 {
   pj_free(pj_lonlat);
-  pj_free(pj_mesh);  
+  pj_free(pj_mesh);
 }
 
 void Map::map(double longitude, double latitude, double depth, double* x, double* y, double* z) const
@@ -85,7 +85,7 @@ void Map::adjustAxes(double* x, double* y, double* z) const
 {
   double p[3] = { *x, *y, *z }; // x = n, y = e, z = d
   double* v[3] = { x, y, z };
-  
+
   for (unsigned i = 0; i < 3; ++i) {
     switch (pj_mesh->axis[i]) {
       case 'e':
@@ -110,7 +110,7 @@ void Map::adjustAxes(double* x, double* y, double* z) const
         std::cerr << "Weird axis definition: " << pj_mesh->axis[i] << std::endl;
         break;
     }
-  }  
+  }
 }
 #else
 
@@ -126,7 +126,7 @@ void Map::toMCS(double strike, double dip, double rake, double u1, double u2, do
 {
   strike *= DEG_TO_RAD;
   dip *= DEG_TO_RAD;
-  rake *= DEG_TO_RAD;  
+  rake *= DEG_TO_RAD;
   *x = u1*(sin(rake)*sin(strike)*cos(dip) + cos(rake)*cos(strike)) + u2*(-sin(rake)*cos(strike) + sin(strike)*cos(dip)*cos(rake)) - u3*sin(dip)*sin(strike);
   *y = u1*(-sin(rake)*cos(dip)*cos(strike) + sin(strike)*cos(rake)) + u2*(-sin(rake)*sin(strike) - cos(dip)*cos(rake)*cos(strike)) + u3*sin(dip)*cos(strike);
   *z = -u1*sin(dip)*sin(rake) - u2*sin(dip)*cos(rake) - u3*cos(dip);
