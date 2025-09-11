@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATECOMMON_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATECOMMON_H_
 
+#include <cstdint>
 #include <type_traits>
 
 namespace seissol::dr::friction_law::rs {
@@ -33,8 +34,8 @@ struct Settings {
    * the most adapted Number of iteration in the loops
    */
 
-  const unsigned int maxNumberSlipRateUpdates{60};
-  const unsigned int numberStateVariableUpdates{2};
+  const uint32_t maxNumberSlipRateUpdates{60};
+  const uint32_t numberStateVariableUpdates{2};
   const double newtonTolerance{1e-8};
 };
 } // namespace seissol::dr::friction_law::rs

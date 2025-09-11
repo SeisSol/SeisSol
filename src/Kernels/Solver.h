@@ -9,9 +9,12 @@
 
 #include <Equations/Datastructures.h>
 
+#include <Config.h>
 #include <Kernels/LinearCK/Solver.h>
 #include <Kernels/LinearCKAnelastic/Solver.h>
+#include <Kernels/Precision.h>
 #include <Kernels/STP/Solver.h>
+#include <Numerical/TimeBasis.h>
 
 // IWYU pragma: begin_exports
 
@@ -19,10 +22,9 @@
 #include <Kernels/LinearCKAnelastic/LocalBase.h>
 #include <Kernels/LinearCKAnelastic/NeighborBase.h>
 #include <Kernels/LinearCKAnelastic/TimeBase.h>
-#elif defined(USE_STP)
+#elif defined(USE_POROELASTIC)
 #include <Kernels/LinearCK/LocalBase.h>
 #include <Kernels/LinearCK/NeighborBase.h>
-#include <Kernels/LinearCK/TimeBase.h>
 #include <Kernels/STP/TimeBase.h>
 #else
 #include <Kernels/LinearCK/LocalBase.h>
@@ -42,6 +44,10 @@ using Time = typename Solver::TimeKernelT;
 using Spacetime = typename Solver::SpacetimeKernelT;
 using Local = typename Solver::LocalKernelT;
 using Neighbor = typename Solver::NeighborKernelT;
+
+inline typename Solver::TimeBasis<real> timeBasis() {
+  return Solver::TimeBasis<real>(Config::ConvergenceOrder);
+}
 
 } // namespace seissol::kernels
 #endif // SEISSOL_SRC_KERNELS_SOLVER_H_

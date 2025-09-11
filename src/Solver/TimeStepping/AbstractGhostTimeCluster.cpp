@@ -7,11 +7,11 @@
 
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 #include <Common/Executor.h>
-#include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
 #include <Monitoring/Instrumentation.h>
 #include <Solver/TimeStepping/AbstractTimeCluster.h>
 #include <Solver/TimeStepping/ActorState.h>
+#include <Solver/TimeStepping/HaloCommunication.h>
 #include <cassert>
 #include <chrono>
 #include <list>
@@ -95,16 +95,18 @@ void AbstractGhostTimeCluster::handleAdvancedCorrectionTimeMessage(
   }
 }
 
-AbstractGhostTimeCluster::AbstractGhostTimeCluster(double maxTimeStepSize,
-                                                   int timeStepRate,
-                                                   int globalTimeClusterId,
-                                                   int otherGlobalTimeClusterId,
-                                                   const MeshStructure* meshStructure)
+AbstractGhostTimeCluster::AbstractGhostTimeCluster(
+    double maxTimeStepSize,
+    int timeStepRate,
+    int globalTimeClusterId,
+    int otherGlobalTimeClusterId,
+    const seissol::solver::HaloCommunication& meshStructure)
     : AbstractTimeCluster(
           maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
       globalClusterId(globalTimeClusterId), otherGlobalClusterId(otherGlobalTimeClusterId),
-      meshStructure(meshStructure), sendRequests(meshStructure->numberOfRegions),
-      recvRequests(meshStructure->numberOfRegions) {}
+      meshStructure(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId)),
+      sendRequests(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).size()),
+      recvRequests(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).size()) {}
 
 void AbstractGhostTimeCluster::reset() {
   AbstractTimeCluster::reset();

@@ -16,7 +16,7 @@
 
 namespace seissol::initializer::parameters {
 
-enum class MeshFormat : int { Netcdf, PUML, CubeGenerator };
+enum class MeshFormat : int { PUML, CubeGenerator };
 
 enum class BoundaryFormat : int { Auto, I32, I64, I32x4 };
 

@@ -33,6 +33,8 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(
 
   MPI_Comm_split(seissol::MPI::mpi.comm(), (nCells > 0 ? 0 : MPI_UNDEFINED), 0, &m_comm);
 
+  m_enabled = true;
+
   if (nCells > 0) {
     int rank = 0;
     MPI_Comm_rank(m_comm, &rank);
@@ -56,13 +58,15 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(
     const std::string extraIntVarName = "locationFlag";
     const auto vertexFilter = utils::Env("").get<bool>("SEISSOL_VERTEXFILTER", true);
     m_xdmfWriter->init(
-        variables, std::vector<const char*>(), extraIntVarName.c_str(), vertexFilter);
+        variables, std::vector<const char*>(), {extraIntVarName, "global-id"}, vertexFilter);
     m_xdmfWriter->setMesh(nCells,
                           static_cast<const unsigned int*>(info.buffer(Cells)),
                           nVertices,
                           static_cast<const double*>(info.buffer(Vertices)),
                           param.timestep != 0);
     setLocationFlagData(static_cast<const unsigned int*>(info.buffer(LocationFlags)));
+    m_xdmfWriter->writeExtraIntCellData(1,
+                                        static_cast<const unsigned int*>(info.buffer(GlobalIds)));
 
     logInfo() << "Initializing free surface output. Done.";
   }

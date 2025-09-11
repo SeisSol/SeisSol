@@ -9,9 +9,6 @@
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
 #include <Solver/MultipleSimulations.h>
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 #include "Memory/MemoryAllocator.h"
 #include "SeisSol.h"
@@ -34,7 +31,7 @@
 
 #include "Common/Iterator.h"
 
-#include "generated_code/tensor.h"
+#include "GeneratedCode/tensor.h"
 
 #ifdef ACL_DEVICE
 #include "BatchRecorders/Recorders.h"
@@ -191,7 +188,7 @@ void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
 
       // set size
       m_meshStructure[tc].ghostRegionSizes[l_region] = tensor::Q::size() * l_numberOfBuffers +
-                                                       yateto::computeFamilySize<tensor::dQ>() * l_numberOfDerivatives;
+                                                       kernels::Solver::DerivativesSize * l_numberOfDerivatives;
 
       // update the pointer
       ghostStart += m_meshStructure[tc].ghostRegionSizes[l_region];
@@ -234,7 +231,7 @@ void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
 
       // set size
       m_meshStructure[tc].copyRegionSizes[l_region] = tensor::Q::size() * l_numberOfBuffers +
-                                                      yateto::computeFamilySize<tensor::dQ>() * l_numberOfDerivatives;
+                                                      kernels::Solver::DerivativesSize * l_numberOfDerivatives;
 
       // jump over region
       l_offset += m_meshStructure[tc].numberOfCopyRegionCells[l_region];
@@ -527,40 +524,21 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
       }
     }
   }
-}
 
-void seissol::initializer::MemoryManager::deriveFaceDisplacementsBucket()
-{
-  for (auto& layer : m_ltsTree.leaves(m_ltsTree.info(m_lts.faceDisplacements).mask)) {
-    CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
-    real* (*displacements)[Cell::NumFaces] = layer.var(m_lts.faceDisplacements);
-    CellMaterialData* cellMaterialData = layer.var(m_lts.material);
+  surfaceTree.setName("surface");
+  surface.addTo(surfaceTree);
 
-    unsigned numberOfFaces = 0;
-    for (unsigned cell = 0; cell < layer.size(); ++cell) {
-      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        if (requiresDisplacement(cellInformation[cell],
-                                 cellMaterialData[cell],
-                                 face)) {
-          // We add the base address later when the bucket is allocated
-          // +1 is necessary as we want to reserve the nullptr for cell without displacement.
-          // Thanks to this hack, the array contains a constant plus the offset of the current
-          // cell.
-          displacements[cell][face] =
-              reinterpret_cast<real*>(1 + numberOfFaces * tensor::faceDisplacement::size());
-          ++numberOfFaces;
-        } else {
-          displacements[cell][face] = nullptr;
-        }
-      }
-    }
-    layer.setEntrySize(m_lts.faceDisplacementsBuffer, numberOfFaces * 1 * tensor::faceDisplacement::size() * sizeof(real));
+  int refinement = 0;
+  const auto& outputParams = seissolInstance.getSeisSolParameters().output;
+  if (outputParams.freeSurfaceParameters.enabled && outputParams.freeSurfaceParameters.vtkorder < 0) {
+    refinement = outputParams.freeSurfaceParameters.refinement;
   }
+  seissolInstance.freeSurfaceIntegrator().initialize(refinement, &m_globalDataOnHost, &m_lts, &m_ltsTree, &surface, &surfaceTree);
 }
 
 #ifdef ACL_DEVICE
 void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTSTree& ltsTree, LTS& lts) {
-  constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
+  constexpr size_t totalDerivativesSize = kernels::Solver::DerivativesSize;
   constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
   for (auto& layer : ltsTree.leaves(Ghost)) {
@@ -623,7 +601,10 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
       }
     }
     const auto freeSurfaceCount = *std::max_element(freeSurfacePerFace.begin(), freeSurfacePerFace.end());
-    const auto dirichletCount = *std::max_element(dirichletPerFace.begin(), dirichletPerFace.end());
+    const auto dirichletCountPre = *std::max_element(dirichletPerFace.begin(), dirichletPerFace.end());
+
+    // FSG also counts as Dirichlet
+    const auto dirichletCount = std::max(dirichletCountPre, freeSurfaceCount);
 
     layer.setEntrySize(lts.integratedDofsScratch,
                              integratedDofsCounter * tensor::I::size() * sizeof(real));
@@ -665,7 +646,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
     layer.setEntrySize(lts.dofsFaceNodalScratch, 
       sizeof(real) * freeSurfaceCount * tensor::INodal::size());
     layer.setEntrySize(lts.prevCoefficientsScratch, 
-      sizeof(real) * freeSurfaceCount * nodal::tensor::nodes2D::Shape[0]);
+      sizeof(real) * freeSurfaceCount * nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
   }
 }
 
@@ -680,40 +661,6 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(
   }
 }
 #endif
-
-void seissol::initializer::MemoryManager::initializeFaceDisplacements()
-{
-  for (auto& layer : m_ltsTree.leaves(m_ltsTree.info(m_lts.faceDisplacements).mask)) {
-    if (layer.getEntrySize(m_lts.faceDisplacementsBuffer) == 0) {
-      continue;
-    }
-    real* (*displacements)[Cell::NumFaces] = layer.var(m_lts.faceDisplacements);
-    real* bucket = static_cast<real*>(layer.var(m_lts.faceDisplacementsBuffer));
-    real* (*displacementsDevice)[Cell::NumFaces] = layer.var(m_lts.faceDisplacementsDevice);
-    real* bucketDevice = static_cast<real*>(layer.var(m_lts.faceDisplacementsBuffer, seissol::initializer::AllocationPlace::Device));
-
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static) default(none) shared(layer, displacements, bucket, displacementsDevice, bucketDevice)
-#endif // _OPENMP
-    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        if (displacements[cell][face] != nullptr) {
-          // Remove constant part that was added in deriveDisplacementsBucket.
-          // We then have the pointer offset that needs to be added to the bucket.
-          // The final value of this pointer then points to a valid memory address
-          // somewhere in the bucket.
-          auto offset = (reinterpret_cast<std::intptr_t>(displacements[cell][face]) - 1);
-          displacements[cell][face] = bucket + offset;
-          displacementsDevice[cell][face] = bucketDevice + offset;
-          for (unsigned dof = 0; dof < tensor::faceDisplacement::size(); ++dof) {
-            // zero displacements
-            displacements[cell][face][dof] = static_cast<real>(0.0);
-          }
-        }
-      }
-    }
-  }
-}
 
 void seissol::initializer::MemoryManager::initializeMemoryLayout()
 {
@@ -732,21 +679,19 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
 
     for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
       l_ghostSize    += sizeof(real) * tensor::Q::size() * m_numberOfGhostRegionBuffers[tc][l_region];
-      l_ghostSize    += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfGhostRegionDerivatives[tc][l_region];
+      l_ghostSize    += sizeof(real) * kernels::Solver::DerivativesSize * m_numberOfGhostRegionDerivatives[tc][l_region];
 
       l_copySize     += sizeof(real) * tensor::Q::size() * m_numberOfCopyRegionBuffers[tc][l_region];
-      l_copySize     += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfCopyRegionDerivatives[tc][l_region];
+      l_copySize     += sizeof(real) * kernels::Solver::DerivativesSize * m_numberOfCopyRegionDerivatives[tc][l_region];
     }
 
     l_interiorSize += sizeof(real) * tensor::Q::size() * m_numberOfInteriorBuffers[tc];
-    l_interiorSize += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfInteriorDerivatives[tc];
+    l_interiorSize += sizeof(real) * kernels::Solver::DerivativesSize * m_numberOfInteriorDerivatives[tc];
 
     cluster.child<Ghost>().setEntrySize(m_lts.buffersDerivatives, l_ghostSize);
     cluster.child<Copy>().setEntrySize(m_lts.buffersDerivatives, l_copySize);
     cluster.child<Interior>().setEntrySize(m_lts.buffersDerivatives, l_interiorSize);
   }
-
-  deriveFaceDisplacementsBucket();
 
   m_ltsTree.allocateBuckets();
 
@@ -782,26 +727,10 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
   // initialize the communication structure
   initializeCommunicationStructure();
 
-  initializeFaceDisplacements();
-
 #ifdef ACL_DEVICE
   seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(seissolInstance.getSeisSolParameters().model.plasticity, m_ltsTree, m_lts);
   m_ltsTree.allocateScratchPads();
 #endif
-}
-
-std::pair<MeshStructure *, CompoundGlobalData>
-seissol::initializer::MemoryManager::getMemoryLayout(unsigned int i_cluster) {
-  MeshStructure *meshStructure = m_meshStructure + i_cluster;
-
-  CompoundGlobalData globalData{};
-  globalData.onHost = &m_globalDataOnHost;
-  globalData.onDevice = nullptr;
-  if constexpr (seissol::isDeviceOn()) {
-    globalData.onDevice = &m_globalDataOnDevice;
-  }
-
-  return std::make_pair(meshStructure, globalData);
 }
 
 void seissol::initializer::MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
@@ -836,19 +765,21 @@ void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticit
 
 bool seissol::initializer::isAcousticSideOfElasticAcousticInterface(CellMaterialData &material,
                                               unsigned int face) {
-  constexpr auto eps = std::numeric_limits<real>::epsilon();
-  return material.neighbor[face].getMuBar() > eps && material.local.getMuBar() < eps;
+  constexpr auto Eps = std::numeric_limits<real>::epsilon();
+  return material.neighbor[face]->getMuBar() > Eps && material.local->getMuBar() < Eps;
 }
 bool seissol::initializer::isElasticSideOfElasticAcousticInterface(CellMaterialData &material,
                                              unsigned int face) {
-  constexpr auto eps = std::numeric_limits<real>::epsilon();
-  return material.local.getMuBar() > eps && material.neighbor[face].getMuBar() < eps;
+  constexpr auto Eps = std::numeric_limits<real>::epsilon();
+  return material.local->getMuBar() > Eps && material.neighbor[face]->getMuBar() < Eps;
 }
 
 bool seissol::initializer::isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face) {
   // We define the interface cells as all cells that are in the elastic domain but have a
   // neighbor with acoustic material.
-  return isAcousticSideOfElasticAcousticInterface(material, face) || isElasticSideOfElasticAcousticInterface(material, face);
+  return material.local != nullptr && material.neighbor[face] != nullptr
+    && (isAcousticSideOfElasticAcousticInterface(material, face)
+      || isElasticSideOfElasticAcousticInterface(material, face));
 }
 
 
@@ -905,11 +836,6 @@ void seissol::initializer::MemoryManager::initFrictionData() {
 
     m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree);
 
-#ifdef ACL_DEVICE
-    if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {
-      impl->allocateAuxiliaryMemory();
-    }
-#endif // ACL_DEVICE
   }
 }
 
@@ -925,6 +851,7 @@ void seissol::initializer::MemoryManager::synchronizeTo(seissol::initializer::Al
   m_ltsTree.synchronizeTo(place, defaultStream);
   m_dynRupTree.synchronizeTo(place, defaultStream);
   m_boundaryTree.synchronizeTo(place, defaultStream);
+  surfaceTree.synchronizeTo(place, defaultStream);
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 }

@@ -15,11 +15,11 @@
 #include <Eigen/Dense>
 #include <yateto.h>
 
+#include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
-#include "generated_code/init.h"
 
 namespace seissol::model {
 

@@ -147,11 +147,11 @@ class Viscoelastic2ADERDG(ADERDGBase):
         return 6
 
     def numberOfExtendedQuantities(self):
-        """Number of quantities for fused computation of elastic and anelastic update."""
+        """Return the number of quantities for fused computation of elastic and anelastic update."""
         return self.numberOfQuantities() + self.numberOfAnelasticQuantities()
 
     def numberOfFullQuantities(self):
-        """Number of quantities when unrolling anelastic tensor into a matrix."""
+        """Return the number of quantities when unrolling anelastic tensor into a matrix."""
         return (
             self.numberOfQuantities()
             + self.numberOfMechanisms * self.numberOfAnelasticQuantities()

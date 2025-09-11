@@ -9,6 +9,9 @@
 
 #include "Kernels/LinearCK/LocalBase.h"
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
@@ -23,9 +26,7 @@
 #include <Solver/MultipleSimulations.h>
 #include <cstddef>
 #include <cstdint>
-#include <generated_code/init.h>
-#include <generated_code/kernel.h>
-#include <tensor.h>
+#include <memory>
 #include <vector>
 #include <yateto.h>
 
@@ -62,7 +63,6 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
-  const auto deviceAlignment = device.api->getGlobMemAlignment();
 
   deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
 #ifdef USE_PREMULTIPLY_FLUX
@@ -78,31 +78,35 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 
 template <typename LocalDataType>
 struct ApplyAnalyticalSolution {
-  ApplyAnalyticalSolution(seissol::physics::InitialField* initCondition, LocalDataType& data)
-      : initCondition(initCondition), localData(data) {}
+  ApplyAnalyticalSolution(const std::vector<std::unique_ptr<physics::InitialField>>* initConditions,
+                          LocalDataType& data)
+      : initConditions(initConditions), localData(data) {}
 
   void operator()(const real* nodes, double time, seissol::init::INodal::view::type& boundaryDofs) {
+    assert(initConditions != nullptr);
 
-    auto nodesVec = std::vector<std::array<double, 3>>{};
-    int offset = 0;
+    constexpr auto NodeCount = seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension];
+    alignas(Alignment) std::array<double, 3> nodesVec[NodeCount];
+
+#pragma omp simd
+    for (std::size_t i = 0; i < NodeCount; ++i) {
+      nodesVec[i][0] = nodes[i * 3 + 0];
+      nodesVec[i][1] = nodes[i * 3 + 1];
+      nodesVec[i][2] = nodes[i * 3 + 2];
+    }
+
+    // NOTE: not yet tested for multisim setups
+    // (only implemented to get the build to work)
+
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
       auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
-
-      for (unsigned int i = 0; i < seissol::tensor::INodal::Shape[0]; ++i) {
-        auto curNode = std::array<double, 3>{};
-        curNode[0] = nodes[offset++];
-        curNode[1] = nodes[offset++];
-        curNode[2] = nodes[offset++];
-        nodesVec.push_back(curNode);
-      }
-
-      assert(initCondition != nullptr);
-      initCondition->evaluate(time, nodesVec, localData.material(), slicedBoundaryDofs);
+      initConditions->at(s % initConditions->size())
+          ->evaluate(time, nodesVec, NodeCount, localData.material(), slicedBoundaryDofs);
     }
   }
 
   private:
-  seissol::physics::InitialField* initCondition{};
+  const std::vector<std::unique_ptr<physics::InitialField>>* initConditions;
   LocalDataType& localData;
 };
 
@@ -169,7 +173,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
               for (unsigned int i = 0;
                    i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
                    ++i) {
-                const double rho = materialData->local.rho;
+                const double rho = materialData->local->getDensity();
                 assert(localG > 0);
                 const double pressureAtBnd = -1 * rho * localG * slicedDisplacement(i);
 
@@ -224,8 +228,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
     case FaceType::Analytical: {
       assert(cellBoundaryMapping != nullptr);
       assert(initConds != nullptr);
-      assert(initConds->size() == 1);
-      ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data);
+      ApplyAnalyticalSolution applyAnalyticalSolution(initConds, data);
 
       dirichletBoundary.evaluateTimeDependent(timeIntegratedDegreesOfFreedom,
                                               face,
@@ -369,15 +372,14 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
       auto* analytical =
           reinterpret_cast<real(*)[tensor::INodal::size()]>(layer.var(lts.analyticScratch));
 
-      runtime.enqueueOmpFor(numElements, [=, &cellIds](std::size_t index) {
+      runtime.enqueueLoop(numElements, [=, &cellIds](std::size_t index) {
         auto cellId = cellIds.at(index);
         auto data = loader.entry(cellId);
 
         alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
 
         assert(initConds != nullptr);
-        assert(initConds->size() == 1);
-        ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data);
+        ApplyAnalyticalSolution applyAnalyticalSolution(initConds, data);
 
         dirichletBoundary.evaluateTimeDependent(nullptr,
                                                 face,

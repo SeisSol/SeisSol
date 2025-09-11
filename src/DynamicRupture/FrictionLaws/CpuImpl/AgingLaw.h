@@ -36,12 +36,12 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
  * @return \f$ \Psi(t) \f$
  */
 #pragma omp declare simd
-  [[nodiscard]] double updateStateVariable(int pointIndex,
-                                           unsigned int face,
+  [[nodiscard]] double updateStateVariable(std::uint32_t pointIndex,
+                                           std::size_t faceIndex,
                                            double stateVarReference,
                                            double timeIncrement,
                                            double localSlipRate) const {
-    const double localSl0 = this->sl0[face][pointIndex];
+    const double localSl0 = this->sl0[faceIndex][pointIndex];
     const double preexp1 = -localSlipRate * (timeIncrement / localSl0);
     const double exp1 = std::exp(preexp1);
     const double exp1m = -std::expm1(preexp1);

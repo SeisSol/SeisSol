@@ -13,11 +13,11 @@
 #include "Numerical/GaussianNucleationFunction.h"
 #include "Numerical/RegularizedYoffe.h"
 #include <cstddef>
+#include <cstdint>
 
 namespace seissol::dr::friction_law::cpu {
 void YoffeSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                  const seissol::initializer::DynamicRupture* dynRup,
-                                  real fullUpdateTime) {
+                                  const seissol::initializer::DynamicRupture* dynRup) {
   const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSImposedSlipRatesYoffe*>(dynRup);
   onsetTime = layerData.var(concreteLts->onsetTime);
@@ -28,15 +28,14 @@ void YoffeSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
 real YoffeSTF::evaluate(real currentTime,
                         [[maybe_unused]] real timeIncrement,
                         size_t ltsFace,
-                        size_t pointIndex) {
+                        uint32_t pointIndex) {
   return regularizedYoffe::regularizedYoffe(currentTime - onsetTime[ltsFace][pointIndex],
                                             tauS[ltsFace][pointIndex],
                                             tauR[ltsFace][pointIndex]);
 }
 
 void GaussianSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* dynRup,
-                                     real fullUpdateTime) {
+                                     const seissol::initializer::DynamicRupture* dynRup) {
   const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSImposedSlipRatesGaussian*>(dynRup);
   onsetTime = layerData.var(concreteLts->onsetTime);
@@ -46,21 +45,20 @@ void GaussianSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
 real GaussianSTF::evaluate(real currentTime,
                            real timeIncrement,
                            size_t ltsFace,
-                           size_t pointIndex) {
+                           uint32_t pointIndex) {
   const real smoothStepIncrement = gaussianNucleationFunction::smoothStepIncrement(
       currentTime - onsetTime[ltsFace][pointIndex], timeIncrement, riseTime[ltsFace][pointIndex]);
   return smoothStepIncrement / timeIncrement;
 }
 
 void DeltaSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                  const seissol::initializer::DynamicRupture* const dynRup,
-                                  real fullUpdateTime) {
+                                  const seissol::initializer::DynamicRupture* const dynRup) {
   const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSImposedSlipRatesDelta*>(dynRup);
   onsetTime = layerData.var(concreteLts->onsetTime);
 }
 
-real DeltaSTF::evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex) {
+real DeltaSTF::evaluate(real currentTime, real timeIncrement, size_t ltsFace, uint32_t pointIndex) {
   // Currently, the delta pulse is normalized in time equivalent to FL33 and FL34
   return deltaPulse::deltaPulse(currentTime - onsetTime[ltsFace][pointIndex], timeIncrement);
 }

@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_INTEGRATIONDATA_H_
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_INTEGRATIONDATA_H_
 
-#include "generated_code/tensor.h"
+#include "GeneratedCode/tensor.h"
 
 namespace seissol::model {
 

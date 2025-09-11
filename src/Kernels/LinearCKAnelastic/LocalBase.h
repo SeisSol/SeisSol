@@ -10,8 +10,8 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCALBASE_H_
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCALBASE_H_
 
+#include "GeneratedCode/kernel.h"
 #include "Physics/InitialField.h"
-#include "generated_code/kernel.h"
 #include <Kernels/Interface.h>
 #include <Kernels/Local.h>
 #include <memory>

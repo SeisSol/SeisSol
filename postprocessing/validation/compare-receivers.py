@@ -1,17 +1,26 @@
 #!/usr/bin/env python3
 
+# SPDX-FileCopyrightText: 2022 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 import argparse
-import numpy as np
-import pandas as pd
-import sys
+import glob
 import os
 import re
-import glob
+import sys
 
-if hasattr(np, 'trapezoid'):
+import numpy as np
+import pandas as pd
+
+if hasattr(np, "trapezoid"):
     trapz_func = np.trapezoid
 else:
     trapz_func = np.trapz
+
 
 def velocity_norm(receiver, fused_index=""):
     names = [f"v1{fused_index}", f"v2{fused_index}", f"v3{fused_index}"]
@@ -79,11 +88,15 @@ def rupture_time_norm(receiver, fused_suffix=""):
 
 
 def sliprate_norm(receiver, fused_suffix=""):
-    return np.sqrt(receiver["SRs" + fused_suffix] ** 2 + receiver["SRd" + fused_suffix] ** 2)
+    return np.sqrt(
+        receiver["SRs" + fused_suffix] ** 2 + receiver["SRd" + fused_suffix] ** 2
+    )
 
 
 def slip_norm(receiver, fused_suffix=""):
-    return np.sqrt(receiver["Sls" + fused_suffix] ** 2 + receiver["Sld" + fused_suffix] ** 2)
+    return np.sqrt(
+        receiver["Sls" + fused_suffix] ** 2 + receiver["Sld" + fused_suffix] ** 2
+    )
 
 
 def statevariable_norm(receiver, fused_suffix=""):
@@ -106,7 +119,9 @@ def integrate_in_time(time, samples):
     return trapz_func(samples, x=time)
 
 
-def integrate_quantity_in_time(receiver, quantity, fused_index=0, number_of_fused_sims=1):
+def integrate_quantity_in_time(
+    receiver, quantity, fused_index=0, number_of_fused_sims=1
+):
     quantity_to_norm = {
         "absolute slip": absolute_slip_norm,
         "friction coefficient": friction_coefficient_norm,
@@ -124,8 +139,12 @@ def integrate_quantity_in_time(receiver, quantity, fused_index=0, number_of_fuse
     }
     fused_suffix = ""
     if number_of_fused_sims > 1:
-        fused_suffix += "-"+str(fused_index+1) # +1 because we want to use the fused index as per fault receiver numbering
-    return integrate_in_time(receiver["Time"], quantity_to_norm[quantity](receiver, fused_suffix))
+        fused_suffix += "-" + str(
+            fused_index + 1
+        )  # +1 because we want to use the fused index as per fault receiver numbering
+    return integrate_in_time(
+        receiver["Time"], quantity_to_norm[quantity](receiver, fused_suffix)
+    )
 
 
 def get_number_of_fused_sims(columns):
@@ -227,7 +246,9 @@ def receiver_diff(args, i):
 
     number_of_fused_sims = get_number_of_fused_sims(sim_receiver.columns)
     if number_of_fused_sims < 1:
-        print("Setting the number of fused simulations to 1, because the receiver file does not contain any fused simulations.")
+        print(
+            "Setting the number of fused simulations to 1, because the receiver file does not contain any fused simulations."
+        )
         number_of_fused_sims = 1
 
     max_velocity = 0
@@ -249,7 +270,9 @@ def receiver_diff(args, i):
         ref_stress_norm = integrate_in_time(
             time, stress_norm(ref_receiver, fused_suffix)
         )
-        diff_stress_norm = integrate_in_time(time, stress_norm(difference, fused_suffix))
+        diff_stress_norm = integrate_in_time(
+            time, stress_norm(difference, fused_suffix)
+        )
         rel_stress_diff = diff_stress_norm / ref_stress_norm
         max_stress = rel_stress_diff if rel_stress_diff > max_stress else max_stress
 
@@ -261,9 +284,7 @@ def receiver_diff(args, i):
 
 def faultreceiver_diff(args, i, quantities):
     sim_files = glob.glob(f"{args.output}/{args.prefix}-faultreceiver-{i:05d}*.dat")
-    ref_files = glob.glob(
-        f"{args.output_ref}/{args.prefix}-faultreceiver-{i:05d}*.dat"
-    )
+    ref_files = glob.glob(f"{args.output_ref}/{args.prefix}-faultreceiver-{i:05d}*.dat")
     # allow copy layer receivers
     assert len(sim_files) >= 1
     assert len(ref_files) == 1
@@ -277,9 +298,13 @@ def faultreceiver_diff(args, i, quantities):
     ), f'Record time mismatch: {sim_receiver["Time"]} vs. {ref_receiver["Time"]}'
     time = sim_receiver["Time"]
     difference = sim_receiver - ref_receiver
-    number_of_fused_sims = get_number_of_fused_sims(sim_receiver.columns) - 1 # -1 because the numbering of fault receivers is different for fused when compared to off-fault receivers
+    number_of_fused_sims = (
+        get_number_of_fused_sims(sim_receiver.columns) - 1
+    )  # -1 because the numbering of fault receivers is different for fused when compared to off-fault receivers
     if number_of_fused_sims < 1:
-        print("Setting the number of fused simulations to 1, because the receiver file does not contain any fused simulations.")
+        print(
+            "Setting the number of fused simulations to 1, because the receiver file does not contain any fused simulations."
+        )
         number_of_fused_sims = 1
     # We still want to use the same time and not the difference in time steps.
     difference["Time"] = ref_receiver["Time"]
@@ -305,8 +330,18 @@ def faultreceiver_diff(args, i, quantities):
     for fused_index in range(number_of_fused_sims):
         for quantity_name in possible_quantity_names:
             if quantity_name in quantities:
-                ref_norm = integrate_quantity_in_time(ref_receiver, quantity_name, fused_index=fused_index, number_of_fused_sims=number_of_fused_sims)
-                diff_norm = integrate_quantity_in_time(difference, quantity_name, fused_index=fused_index, number_of_fused_sims=number_of_fused_sims)
+                ref_norm = integrate_quantity_in_time(
+                    ref_receiver,
+                    quantity_name,
+                    fused_index=fused_index,
+                    number_of_fused_sims=number_of_fused_sims,
+                )
+                diff_norm = integrate_quantity_in_time(
+                    difference,
+                    quantity_name,
+                    fused_index=fused_index,
+                    number_of_fused_sims=number_of_fused_sims,
+                )
                 errors.loc[i, quantity_name] = (
                     diff_norm / ref_norm
                     if diff_norm / ref_norm > errors.loc[i, quantity_name]
@@ -320,7 +355,7 @@ def find_all_receivers(directory, prefix, faultreceiver=False):
         file_candidates = glob.glob(f"{directory}/{prefix}-faultreceiver-*.dat")
     else:
         file_candidates = glob.glob(f"{directory}/{prefix}-receiver-*.dat")
-    
+
     extract_id = re.compile(r".+/\w+-\w+-(\d+)(?:-\d+)?\.dat$")
     receiver_ids = []
     for fn in file_candidates:

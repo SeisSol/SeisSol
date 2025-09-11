@@ -10,6 +10,7 @@
 
 #include "Initializer/Typedefs.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
+#include "Solver/TimeStepping/HaloCommunication.h"
 #include <list>
 
 namespace seissol::time_stepping {
@@ -24,7 +25,7 @@ class DirectGhostTimeCluster : public AbstractGhostTimeCluster {
                          int timeStepRate,
                          int globalTimeClusterId,
                          int otherGlobalTimeClusterId,
-                         const MeshStructure* meshStructure,
+                         const seissol::solver::HaloCommunication& meshStructure,
                          bool persistent);
   void finalize() override;
 

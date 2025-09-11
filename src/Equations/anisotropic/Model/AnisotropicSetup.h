@@ -15,10 +15,10 @@
 #include <Equations/anisotropic/Model/IntegrationData.h>
 
 #include "Datastructures.h"
+#include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
-#include "generated_code/init.h"
 
 namespace seissol::model {
 using Matrix99 = Eigen::Matrix<double, 9, 9>;

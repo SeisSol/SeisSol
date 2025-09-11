@@ -8,109 +8,77 @@
 #ifndef SEISSOL_SRC_PARALLEL_DATACOLLECTOR_H_
 #define SEISSOL_SRC_PARALLEL_DATACOLLECTOR_H_
 
+#include <Kernels/Common.h>
+#include <Memory/MemoryAllocator.h>
 #include <cstddef>
 #include <vector>
-
-#include "Kernels/Precision.h"
-
-#ifdef ACL_DEVICE
-#include "device.h"
-#endif
 
 namespace seissol::parallel {
 
 // wrapper class for sparse device-to-host transfers (e.g. needed for receivers)
-class DataCollector {
+class DataCollectorUntyped {
   public:
-  DataCollector(const std::vector<real*>& indexDataHost,
-                size_t elemSize,
-                bool hostAccessible = false)
-      : indexCount(indexDataHost.size()), indexDataHost(indexDataHost), elemSize(elemSize),
-        hostAccessible(hostAccessible) {
-#ifndef ACL_DEVICE
-    // in case we want to use this class in a host-only scenario
-    this->hostAccessible = true;
-#endif
-    if (!this->hostAccessible && indexCount > 0) {
-#ifdef ACL_DEVICE
-      indexDataDevice = reinterpret_cast<real**>(
-          device::DeviceInstance::getInstance().api->allocGlobMem(sizeof(real*) * indexCount));
-      device::DeviceInstance::getInstance().api->copyTo(
-          indexDataDevice, indexDataHost.data(), sizeof(real*) * indexCount);
-      copiedData =
-          reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
-              sizeof(real) * elemSize * indexCount));
-      copiedDataDevice = reinterpret_cast<real*>(
-          device::DeviceInstance::getInstance().api->devicePointer(copiedData));
-#endif
-    }
-  }
+  DataCollectorUntyped(const std::vector<void*>& indexDataHost,
+                       size_t elemSize,
+                       bool hostAccessible = false);
 
-  DataCollector(const DataCollector&) = delete;
+  ~DataCollectorUntyped();
 
-  ~DataCollector() {
-    if (!hostAccessible && indexCount > 0) {
-#ifdef ACL_DEVICE
-      device::DeviceInstance::getInstance().api->freeGlobMem(indexDataDevice);
-      device::DeviceInstance::getInstance().api->freePinnedMem(copiedData);
-#endif
-    }
-  }
+  auto operator=(const DataCollectorUntyped&) = delete;
+  DataCollectorUntyped(const DataCollectorUntyped&) = delete;
+
+  auto operator=(DataCollectorUntyped&&) -> DataCollectorUntyped& = default;
+  DataCollectorUntyped(DataCollectorUntyped&&) = default;
 
   // gathers and sends data to the device to the host
-  void gatherToHost(void* stream) {
-    if (!hostAccessible && indexCount > 0) {
-#ifdef ACL_DEVICE
-      device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
-          const_cast<const real**>(indexDataDevice),
-          copiedDataDevice,
-          elemSize,
-          elemSize,
-          indexCount,
-          stream);
-#endif
-    }
-  }
+  void gatherToHost(void* stream);
 
   // sends and scatters data from the host to the device
-  void scatterFromHost(void* stream) {
-    if (!hostAccessible && indexCount > 0) {
-#ifdef ACL_DEVICE
-      device::DeviceInstance::getInstance().algorithms.copyUniformToScatter(
-          const_cast<const real*>(copiedDataDevice),
-          indexDataDevice,
-          elemSize,
-          elemSize,
-          indexCount,
-          stream);
-#endif
-    }
-  }
+  void scatterFromHost(void* stream);
 
-  real* get(size_t index) {
+  void* get(size_t index) {
     if (hostAccessible) {
       return indexDataHost[index];
     } else {
-      return copiedData + index * elemSize;
+      return reinterpret_cast<void*>(reinterpret_cast<uint8_t*>(copiedData) + index * elemSize);
     }
   }
 
-  const real* get(size_t index) const {
+  [[nodiscard]] const void* get(size_t index) const {
     if (hostAccessible) {
       return indexDataHost[index];
     } else {
-      return copiedData + index * elemSize;
+      return reinterpret_cast<void*>(reinterpret_cast<uint8_t*>(copiedData) + index * elemSize);
     }
   }
 
   private:
   bool hostAccessible;
-  real** indexDataDevice;
-  std::vector<real*> indexDataHost;
+  void** indexDataDevice;
+  std::vector<void*> indexDataHost;
   size_t indexCount;
   size_t elemSize;
-  real* copiedData;
-  real* copiedDataDevice;
+  void* copiedData;
+  void* copiedDataDevice;
+};
+
+// wrapper class; typed version
+template <typename T>
+class DataCollector : DataCollectorUntyped {
+  public:
+  DataCollector(const std::vector<T*>& data, std::size_t elemCount, bool hostAccessible = false)
+      : DataCollectorUntyped(
+            std::vector<void*>(data.begin(), data.end()), elemCount * sizeof(T), hostAccessible) {}
+
+  void gatherToHost(void* stream) { DataCollectorUntyped::gatherToHost(stream); }
+
+  void scatterFromHost(void* stream) { DataCollectorUntyped::scatterFromHost(stream); }
+
+  T* get(std::size_t index) { return reinterpret_cast<T*>(DataCollectorUntyped::get(index)); }
+
+  [[nodiscard]] const T* get(std::size_t index) const {
+    return reinterpret_cast<const T*>(DataCollectorUntyped::get(index));
+  }
 };
 
 } // namespace seissol::parallel

@@ -13,6 +13,8 @@
 #include <DynamicRupture/FrictionLaws/TPCommon.h>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 
 namespace seissol::dr::friction_law::cpu {
 
@@ -22,8 +24,7 @@ static const tp::GaussianHeatSource<misc::NumTpGridPoints> HeatSource;
 
 void ThermalPressurization::copyLtsTreeToLocal(
     seissol::initializer::Layer& layerData,
-    const seissol::initializer::DynamicRupture* const dynRup,
-    real fullUpdateTime) {
+    const seissol::initializer::DynamicRupture* const dynRup) {
   const auto* concreteLts =
       dynamic_cast<const seissol::initializer::ThermalPressurization*>(dynRup);
   temperature = layerData.var(concreteLts->temperature);
@@ -40,10 +41,10 @@ void ThermalPressurization::calcFluidPressure(
     const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
     real deltaT,
     bool saveTPinLTS,
-    unsigned int timeIndex,
-    unsigned int ltsFace) {
+    uint32_t timeIndex,
+    std::size_t ltsFace) {
 #pragma omp simd
-  for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+  for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
     real temperatureUpdate = 0.0;
     real pressureUpdate = 0.0;
 
@@ -53,7 +54,7 @@ void ThermalPressurization::calcFluidPressure(
         drParameters->undrainedTPResponse * drParameters->thermalDiffusivity /
         (hydraulicDiffusivity[ltsFace][pointIndex] - drParameters->thermalDiffusivity);
 
-    for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
+    for (uint32_t tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
          ++tpGridPointIndex) {
       // Gaussian shear zone in spectral domain, normalized by w
       // \hat{l} / w

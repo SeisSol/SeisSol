@@ -18,7 +18,7 @@
 #include "Common/Offset.h"
 #endif
 
-#include "generated_code/init.h"
+#include "GeneratedCode/init.h"
 
 namespace seissol::kernels::solver::linearckanelastic {
 
@@ -276,7 +276,7 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
     nKrnl.execute();
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 

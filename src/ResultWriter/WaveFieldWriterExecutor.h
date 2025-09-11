@@ -37,11 +37,12 @@ enum BufferTags {
   Cells = 2,
   Vertices = 3,
   Clustering = 4,
-  Variables0 = 5,
-  LowCells = 6,
-  LowVertices = 7,
-  LowOutputFlags = 8,
-  LowVariables0 = 9,
+  GlobalIds = 5,
+  Variables0 = 6,
+  LowCells = 7,
+  LowVertices = 8,
+  LowOutputFlags = 9,
+  LowVariables0 = 10,
   BuffertagMax = LowVariables0
 };
 
@@ -145,8 +146,11 @@ class WaveFieldWriterExecutor {
       m_waveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
       const std::string extraIntVarName = "clustering";
       const auto vertexFilter = utils::Env("").get<bool>("SEISSOL_VERTEXFILTER", true);
-      m_waveFieldWriter->init(
-          variables, std::vector<const char*>(), extraIntVarName.c_str(), vertexFilter, true);
+      m_waveFieldWriter->init(variables,
+                              std::vector<const char*>(),
+                              {extraIntVarName, "global-id"},
+                              vertexFilter,
+                              true);
       m_waveFieldWriter->setMesh(
           info.bufferSize(param.bufferIds[Cells]) / (4 * sizeof(unsigned int)),
           static_cast<const unsigned int*>(info.buffer(param.bufferIds[Cells])),
@@ -155,6 +159,8 @@ class WaveFieldWriterExecutor {
           param.timestep != 0);
 
       setClusteringData(static_cast<const unsigned int*>(info.buffer(param.bufferIds[Clustering])));
+      m_waveFieldWriter->writeExtraIntCellData(
+          1, static_cast<const unsigned int*>(info.buffer(param.bufferIds[GlobalIds])));
       logInfo() << "High order output initialized";
 
       //
@@ -177,7 +183,7 @@ class WaveFieldWriterExecutor {
         m_lowWaveFieldWriter->setComm(m_comm);
         m_lowWaveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
 
-        m_lowWaveFieldWriter->init(lowVariables, std::vector<const char*>(), "", vertexFilter);
+        m_lowWaveFieldWriter->init(lowVariables, std::vector<const char*>(), {}, vertexFilter);
         m_lowWaveFieldWriter->setMesh(
             info.bufferSize(param.bufferIds[LowCells]) / (4 * sizeof(unsigned int)),
             static_cast<const unsigned int*>(info.buffer(param.bufferIds[LowCells])),
@@ -198,7 +204,7 @@ class WaveFieldWriterExecutor {
   }
 
   void setClusteringData(const unsigned* clustering) {
-    m_waveFieldWriter->writeExtraIntCellData(clustering);
+    m_waveFieldWriter->writeExtraIntCellData(0, clustering);
   }
 
   void exec(const async::ExecInfo& info, const WaveFieldParam& param) {

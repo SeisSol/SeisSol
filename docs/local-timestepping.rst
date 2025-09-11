@@ -55,6 +55,29 @@ and so on.
 For LTS with higher rates, the base of the exponentiation changes.
 The wiggle factor :math:`\lambda` is typically one.
 
+Varying-Rate Clustering
+-----------------------
+
+Instead of just writing :code:`ClusteredLTS = N`,
+you can also input a list of numbers, e.g. :code:`ClusteredLTS = '3 2'`,
+which defines the rate between the first clusters.
+In the example, we have rate 3 between the first and the second cluster;
+and rate 2 between all subsequent clusters. I.e.
+
+.. math::
+
+    [\lambda (\Delta t)^\text{min}, 3 \lambda (\Delta t)^\text{min}])
+
+and then
+
+.. math::
+
+    [3 \lambda (\Delta t)^\text{min}, 6 \lambda (\Delta t)^\text{min}]).
+
+The last number in the list is used for all subsequent clusters;
+to keep consistency with the single-rate setups.
+In particular using "1" last means that all clusters will be fused.
+
 Maximum Difference Property
 ----------------------------
 

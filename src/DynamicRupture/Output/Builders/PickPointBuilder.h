@@ -13,6 +13,7 @@
 #include "ReceiverBasedOutputBuilder.h"
 
 #include <Common/Iterator.h>
+#include <Parallel/Runtime/Stream.h>
 #include <memory>
 #include <optional>
 
@@ -25,6 +26,10 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   }
   void build(std::shared_ptr<ReceiverOutputData> pickPointOutputData) override {
     outputData = pickPointOutputData;
+
+    // TODO: enable after #1407 has been merged
+    // outputData->extraRuntime.emplace(0);
+
     readCoordsFromFile();
     initReceiverLocations();
     assignNearestGaussianPoints(outputData->receiverPoints);
@@ -91,6 +96,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
         receiver.localFaceSideId = faultItem.side;
         receiver.globalReceiverIndex = receiverIdx;
         receiver.elementIndex = element.localId;
+        receiver.elementGlobalIndex = element.globalId;
 
         receiver.reference =
             transformations::tetrahedronGlobalToReference(meshVertices[element.vertices[0]].coords,

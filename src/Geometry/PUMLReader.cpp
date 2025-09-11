@@ -441,8 +441,9 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
       PUML::Upward::cells(puml, faces[info.second[i]], cellIds);
       assert(cellIds[1] < 0);
 
-      const auto side = copySide[k][i];
-      const auto gSide = ghostSide[k][i];
+      // the linters demanded a double cast here
+      const auto side = static_cast<std::size_t>(static_cast<unsigned char>(copySide[k][i]));
+      const auto gSide = static_cast<std::size_t>(static_cast<unsigned char>(ghostSide[k][i]));
       m_elements[cellIds[0]].neighborSides[PumlFaceToSeisSol[side]] = PumlFaceToSeisSol[gSide];
 
       // Set side sideOrientation

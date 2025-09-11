@@ -36,7 +36,7 @@ AutoMergeCostBaseline parseAutoMergeCostBaseline(std::string str);
 
 class LtsParameters {
   private:
-  unsigned int rate{};
+  std::vector<uint64_t> rate;
   double wiggleFactorMinimum{};
   double wiggleFactorStepsize{};
   bool wiggleFactorEnforceMaximumDifference{};
@@ -48,7 +48,7 @@ class LtsParameters {
   double finalWiggleFactor = 1.0;
 
   public:
-  [[nodiscard]] unsigned int getRate() const;
+  [[nodiscard]] std::vector<uint64_t> getRate() const;
   [[nodiscard]] bool isWiggleFactorUsed() const;
   [[nodiscard]] double getWiggleFactorMinimum() const;
   [[nodiscard]] double getWiggleFactorStepsize() const;
@@ -64,7 +64,7 @@ class LtsParameters {
 
   LtsParameters() = default;
 
-  LtsParameters(unsigned int rate,
+  LtsParameters(const std::vector<uint64_t>& rates,
                 double wiggleFactorMinimum,
                 double wiggleFactorStepsize,
                 bool wigleFactorEnforceMaximumDifference,

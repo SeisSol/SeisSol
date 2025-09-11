@@ -9,16 +9,11 @@
 #ifndef SEISSOL_SRC_KERNELS_DYNAMICRUPTURE_H_
 #define SEISSOL_SRC_KERNELS_DYNAMICRUPTURE_H_
 
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
 #include <Kernels/Kernel.h>
 #include <Kernels/Solver.h>
-#ifdef USE_STP
-#include "Numerical/BasisFunction.h"
-#include <array>
-#include <memory>
-#endif
 
 namespace seissol::kernels {
 
@@ -32,19 +27,9 @@ class DynamicRupture : public Kernel {
 #endif
 
   public:
-  double timePoints[ConvergenceOrder]{};
-  double timeWeights[ConvergenceOrder]{};
-  real spaceWeights[NumSpaceQuadraturePoints]{};
-#ifdef USE_STP
-  std::array<std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>>, ConvergenceOrder>
-      timeBasisFunctions;
-#endif
-
   DynamicRupture() = default;
 
   void setGlobalData(const CompoundGlobalData& global) override;
-
-  void setTimeStepWidth(double timestep);
 
   void spaceTimeInterpolation(
       const DRFaceInformation& faceInfo,
@@ -56,10 +41,12 @@ class DynamicRupture : public Kernel {
       real qInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
       real qInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
       const real* timeDerivativePlusPrefetch,
-      const real* timeDerivativeMinusPrefetch);
+      const real* timeDerivativeMinusPrefetch,
+      const real* coeffs);
 
   // NOLINTNEXTLINE
   void batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table,
+                                     const real* coeffs,
                                      seissol::parallel::runtime::StreamRuntime& runtime);
 
   void flopsGodunovState(const DRFaceInformation& faceInfo,

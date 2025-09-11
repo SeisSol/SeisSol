@@ -10,11 +10,11 @@
 #ifndef SEISSOL_SRC_KERNELS_PLASTICITY_H_
 #define SEISSOL_SRC_KERNELS_PLASTICITY_H_
 
+#include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
 #include "Model/Plasticity.h"
 #include "Parallel/Runtime/Stream.h"
-#include "generated_code/tensor.h"
 #include <cmath>
 #include <limits>
 

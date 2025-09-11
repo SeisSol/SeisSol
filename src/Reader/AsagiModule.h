@@ -14,8 +14,6 @@
 
 #include <string>
 
-#include <asagi.h>
-
 #include <utils/env.h>
 
 #include "Modules/Module.h"

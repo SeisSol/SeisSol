@@ -11,6 +11,7 @@
 
 #include "Kernels/LinearCK/NeighborBase.h"
 
+#include "GeneratedCode/tensor.h"
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
@@ -21,7 +22,6 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <generated_code/tensor.h>
 #include <stdint.h>
 
 #ifdef ACL_DEVICE
@@ -44,7 +44,6 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
-  const auto deviceAlignment = device.api->getGlobMemAlignment();
 
 #ifdef USE_PREMULTIPLY_FLUX
   deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;

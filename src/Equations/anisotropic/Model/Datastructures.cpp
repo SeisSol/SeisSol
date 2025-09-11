@@ -8,15 +8,16 @@
 
 #include "Datastructures.h"
 #include "Equations/elastic/Model/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Model/CommonDatastructures.h"
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
 #include <Eigen/Dense>
 #include <Equations/acoustic/Model/Datastructures.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::model {
@@ -184,4 +185,10 @@ double AnisotropicMaterial::getSWaveSpeed() const {
 }
 
 MaterialType AnisotropicMaterial::getMaterialType() const { return MaterialType::Anisotropic; }
+
+void AnisotropicMaterial::setLameParameters(double mu, double lambda) {
+  // no idea.
+  logError() << "Setting the Lamé parameters for anisotropic materials is not yet implemented.";
+}
+
 } // namespace seissol::model

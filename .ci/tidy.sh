@@ -16,6 +16,7 @@
 format() {
     # don't use a directory with whitespace
     local allowlist_dir="
+        app
         src/Common
         src/DynamicRupture
         src/Equations
@@ -58,11 +59,11 @@ format() {
         src/Initializer/PointMapper.cpp
         src/Initializer/PreProcessorMacros.h
         src/Initializer/TimeStepping/ClusterLayout.h
+        src/Initializer/TimeStepping/ClusterLayout.cpp
         src/Initializer/TimeStepping/GlobalTimestep.h
         src/Initializer/TimeStepping/GlobalTimestep.cpp
         src/SeisSol.h
         src/SeisSol.cpp
-        src/Main.cpp
         "
 
 

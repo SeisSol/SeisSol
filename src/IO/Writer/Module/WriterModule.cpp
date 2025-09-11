@@ -137,7 +137,9 @@ void WriterModule::syncPoint(double time) {
                 bufferMap[targetSize].push_back(newId);
                 return newId;
               }();
-              void* bufferPtr = managedBuffer<void*>(foundId);
+
+              // avoid assert in ASYNC by checking targetSize == 0 explicitly
+              void* bufferPtr = targetSize == 0 ? nullptr : managedBuffer<void*>(foundId);
               adhocBuffer->setData(bufferPtr);
               return foundId;
             }

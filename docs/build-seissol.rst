@@ -96,7 +96,7 @@ On an Intel Data Center Max GPU 1550, you could set
 .. code-block:: bash
 
    mkdir build && cd build
-   cmake -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DORDER=4 -DDEVICE_BACKEND=oneapi -DSYCL_CC=dpcpp -DDEVICE_ARCH=pvc ..
+   cmake -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DORDER=4 -DDEVICE_BACKEND=oneapi -DDEVICE_ARCH=12_60_7 ..
    make -j 4
 
 Cray compiler environments and GPUs

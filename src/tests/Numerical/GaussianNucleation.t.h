@@ -15,12 +15,13 @@ namespace seissol::unit_test {
 /**
  * Reference implementation for the Gaussian Nucleation function
  */
-inline real gaussianNucleation(real time, real dt, real tau) {
-  const auto step = [&tau](real t) {
+template <typename T>
+inline T gaussianNucleation(T time, T dt, T tau) {
+  const auto step = [&tau](T t) {
     if (t < 0) {
-      return static_cast<real>(0.0);
+      return static_cast<T>(0.0);
     } else if (t > tau) {
-      return static_cast<real>(1.0);
+      return static_cast<T>(1.0);
     } else {
       return std::exp((t - tau) * (t - tau) / (t * (t - 2 * tau)));
     }
@@ -28,14 +29,14 @@ inline real gaussianNucleation(real time, real dt, real tau) {
   return step(time) - step(time - dt);
 }
 
-TEST_CASE("Gaussian Nucleation Function") {
-  constexpr real Dt = 0.01;
-  constexpr real Epsilon = 1e-4;
-  for (const real effectiveRiseTime : {0.8, 1.0}) {
+TEST_CASE_TEMPLATE("Gaussian Nucleation Function", RealT, float, double) {
+  constexpr RealT Dt = 0.01;
+  constexpr RealT Epsilon = 1e-4;
+  for (const RealT effectiveRiseTime : {0.8, 1.0}) {
     for (int i = -10; i < 111; i++) {
-      const real stfEvaluated =
-          seissol::gaussianNucleationFunction::smoothStepIncrement(i * Dt, Dt, effectiveRiseTime);
-      const real referenceEvaluated = gaussianNucleation(i * Dt, Dt, effectiveRiseTime);
+      const auto stfEvaluated = seissol::gaussianNucleationFunction::smoothStepIncrement<RealT>(
+          i * Dt, Dt, effectiveRiseTime);
+      const auto referenceEvaluated = gaussianNucleation<RealT>(i * Dt, Dt, effectiveRiseTime);
       REQUIRE(stfEvaluated == AbsApprox(referenceEvaluated).epsilon(Epsilon));
     }
   }

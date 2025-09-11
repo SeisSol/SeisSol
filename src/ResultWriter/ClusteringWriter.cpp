@@ -9,11 +9,13 @@
 
 #include "Common/Filesystem.h"
 #include <Memory/Tree/Layer.h>
+#include <Numerical/Statistics.h>
 #include <cstddef>
 #include <fstream>
 #include <ios>
 #include <string>
 #include <utils/logger.h>
+#include <vector>
 
 #include "Parallel/MPI.h"
 namespace seissol::writer {
@@ -23,8 +25,8 @@ ClusteringWriter::ClusteringWriter(const std::string& outputPrefix) : outputPref
 void ClusteringWriter::addCluster(unsigned profilingId,
                                   unsigned localClusterId,
                                   LayerType layerType,
-                                  unsigned size,
-                                  unsigned dynRupSize) {
+                                  std::size_t size,
+                                  std::size_t dynRupSize) {
   clusteringInformation.profilingIds.push_back(profilingId);
   clusteringInformation.localClusterIds.push_back(localClusterId);
   clusteringInformation.layerTypes.push_back(layerType);
@@ -44,6 +46,31 @@ void ClusteringWriter::write() const {
   const auto dynamicRuptureSizes = mpi.collectContainer(clusteringInformation.dynamicRuptureSizes);
 
   if (mpi.rank() == 0) {
+    logInfo() << "Cluster statistics:";
+    for (std::size_t i = 0; i < clusteringInformation.profilingIds.size(); ++i) {
+      std::vector<double> sizestat(mpi.size());
+      for (std::size_t j = 0; j < sizestat.size(); ++j) {
+        sizestat[j] = sizes[j][i];
+      }
+      const auto sizeSummary = statistics::Summary(sizestat);
+      const auto layerType = static_cast<LayerType>(clusteringInformation.layerTypes[i]);
+      const std::string layerTypeStr = layerType == Interior ? "interior" : "copy";
+      logInfo() << "cell" << layerTypeStr.c_str() << localClusterIds[0][i] << ":" << sizeSummary.sum
+                << "(per rank:" << sizeSummary.mean << "±" << sizeSummary.std << "; range: ["
+                << sizeSummary.min << ";" << sizeSummary.max << "])";
+    }
+    for (std::size_t i = 0; i < clusteringInformation.profilingIds.size(); ++i) {
+      std::vector<double> sizestat(mpi.size());
+      for (std::size_t j = 0; j < sizestat.size(); ++j) {
+        sizestat[j] = dynamicRuptureSizes[j][i];
+      }
+      const auto sizeSummary = statistics::Summary(sizestat);
+      const auto layerType = static_cast<LayerType>(clusteringInformation.layerTypes[i]);
+      const std::string layerTypeStr = layerType == Interior ? "interior" : "copy";
+      logInfo() << "DR" << layerTypeStr.c_str() << localClusterIds[0][i] << ":" << sizeSummary.sum
+                << "(per rank:" << sizeSummary.mean << "±" << sizeSummary.std << "; range: ["
+                << sizeSummary.min << ";" << sizeSummary.max << "])";
+    }
 
     auto filepath = path(outputPrefix);
     filepath += path("-clustering.csv");

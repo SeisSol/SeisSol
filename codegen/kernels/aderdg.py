@@ -57,6 +57,7 @@ class ADERDGBase(ABC):
         self.Q = OptionalDimTensor(
             "Q", "s", multipleSimulations, 0, qShape, alignStride=True
         )
+
         self.I = OptionalDimTensor(
             "I", "s", multipleSimulations, 0, qShape, alignStride=True
         )

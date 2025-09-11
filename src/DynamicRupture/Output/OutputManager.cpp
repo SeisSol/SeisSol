@@ -14,6 +14,8 @@
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
 #include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Writer/Writer.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -28,17 +30,17 @@
 #include "Memory/Tree/Lut.h"
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
+#include <Parallel/Runtime/Stream.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <ctime>
 #include <fstream>
-#include <init.h>
 #include <iomanip>
 #include <ios>
-#include <kernel.h>
 #include <memory>
 #include <numeric>
 #include <ostream>
@@ -201,16 +203,26 @@ void OutputManager::initElementwiseOutput() {
     std::vector<real*> dataPointers;
     auto recordPointers = [&dataPointers](auto& var, int) {
       if (var.isActive) {
-        for (int dim = 0; dim < var.dim(); ++dim) {
+        for (std::size_t dim = 0; dim < var.dim(); ++dim) {
           dataPointers.push_back(var.data[dim]);
         }
       }
     };
     misc::forEach(ewOutputData->vars, recordPointers);
 
+    std::vector<unsigned> faceIdentifiers(receiverPoints.size());
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+    for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
+      faceIdentifiers[i] =
+          receiverPoints[i].elementGlobalIndex * 4 + receiverPoints[i].localFaceSideId;
+    }
+
     seissolInstance.faultWriter().init(cellConnectivity.data(),
                                        vertices.data(),
                                        faultTags.data(),
+                                       faceIdentifiers.data(),
                                        static_cast<unsigned int>(receiverPoints.size()),
                                        static_cast<unsigned int>(3 * receiverPoints.size()),
                                        &intMask[0],
@@ -244,9 +256,19 @@ void OutputManager::initElementwiseOutput() {
       }
     });
 
+    writer.addCellData<int>("fault-tag", {}, [=, &receiverPoints](int* target, std::size_t index) {
+      *target = receiverPoints[index].faultTag;
+    });
+
+    writer.addCellData<std::size_t>(
+        "global-id", {}, [=, &receiverPoints](std::size_t* target, std::size_t index) {
+          *target =
+              receiverPoints[index].elementGlobalIndex * 4 + receiverPoints[index].localFaceSideId;
+        });
+
     misc::forEach(ewOutputData->vars, [&](auto& var, int i) {
       if (var.isActive) {
-        for (int d = 0; d < var.dim(); ++d) {
+        for (std::size_t d = 0; d < var.dim(); ++d) {
           auto* data = var.data[d];
           writer.addPointData<real>(VariableLabels[i][d],
                                     std::vector<std::size_t>(),
@@ -334,13 +356,13 @@ void OutputManager::initPickpointOutput() {
       allReceiversInOneFilePerRank ? ppOutputData->receiverPoints.size() / multisim::NumSimulations
                                    : 1;
 
-  for (std::size_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
+  for (std::uint32_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
     for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
       size_t labelCounter = 0;
       auto collectVariableNames =
           [&baseHeader, &labelCounter, &simIndex, &pointIndex, suffix](auto& var, int) {
             if (var.isActive) {
-              for (int dim = 0; dim < var.dim(); ++dim) {
+              for (std::size_t dim = 0; dim < var.dim(); ++dim) {
                 baseHeader << " ,\"" << writer::FaultWriterExecutor::getLabelName(labelCounter)
                            << suffix(pointIndex + 1, simIndex + 1) << '\"';
                 ++labelCounter;
@@ -354,8 +376,6 @@ void OutputManager::initPickpointOutput() {
   }
 
   for (size_t i = 0; i < ppFiles.size(); ++i) {
-    const auto& receiver = outputData->receiverPoints[i];
-
     const auto& ppfile = ppFiles[i];
 
     if (!seissol::filesystem::exists(ppfile.fileName)) {
@@ -473,7 +493,9 @@ bool OutputManager::isAtPickpoint(double time, double dt) {
   return (isFirstStep || isOutputIteration || isCloseToTimeOut);
 }
 
-void OutputManager::writePickpointOutput(double time, double dt) {
+void OutputManager::writePickpointOutput(double time,
+                                         double dt,
+                                         parallel::runtime::StreamRuntime& runtime) {
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   if (this->ppOutputBuilder) {
     if (this->isAtPickpoint(time, dt)) {
@@ -482,6 +504,7 @@ void OutputManager::writePickpointOutput(double time, double dt) {
       impl->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
                             seissolParameters.drParameters.slipRateOutputType,
                             ppOutputData,
+                            runtime,
                             time);
 
       const bool isMaxCacheLevel =
@@ -490,6 +513,11 @@ void OutputManager::writePickpointOutput(double time, double dt) {
       const bool isCloseToEnd = (seissolParameters.timeStepping.endTime - time) < dt * timeMargin;
 
       if (isMaxCacheLevel || isCloseToEnd) {
+        // we need to wait for all data to be (internally) written to write it out
+        auto& callRuntime =
+            outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+        callRuntime.wait();
+
         this->flushPickpointDataToFile();
       }
     }
@@ -507,7 +535,7 @@ void OutputManager::flushPickpointDataToFile() {
       for (std::size_t pointId : ppfile.indices) {
         auto recordResults = [pointId, level, &data](auto& var, int) {
           if (var.isActive) {
-            for (int dim = 0; dim < var.dim(); ++dim) {
+            for (std::size_t dim = 0; dim < var.dim(); ++dim) {
               data << makeFormatted(var(dim, level, pointId)) << '\t';
             }
           }
@@ -533,7 +561,9 @@ void OutputManager::updateElementwiseOutput() {
     const auto& seissolParameters = seissolInstance.getSeisSolParameters();
     impl->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
                           seissolParameters.drParameters.slipRateOutputType,
-                          ewOutputData);
+                          ewOutputData,
+                          runtime);
+    runtime.wait();
   }
 }
 } // namespace seissol::dr::output
