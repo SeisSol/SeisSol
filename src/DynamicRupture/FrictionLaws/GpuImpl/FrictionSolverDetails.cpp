@@ -9,10 +9,10 @@
 #include "Common/Constants.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/init.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
 #include <cstddef>
-#include <init.h>
 
 #include "Memory/MemoryAllocator.h"
 
@@ -25,72 +25,15 @@ FrictionSolverDetails::FrictionSolverDetails(
 
 FrictionSolverDetails::~FrictionSolverDetails() = default;
 
-void FrictionSolverDetails::allocateAuxiliaryMemory() {
-
-  {
-    devTimeWeights =
-        seissol::memory::allocTyped<double>(misc::TimeSteps, 1, memory::DeviceGlobalMemory);
-  }
-
+void FrictionSolverDetails::allocateAuxiliaryMemory(GlobalData* globalData) {
   {
     data = seissol::memory::allocTyped<FrictionLawData>(1, 1, memory::DeviceGlobalMemory);
   }
 
-  {
-    constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
-    constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
-    const size_t requiredNumBytes = Dim0 * Dim1 * sizeof(real);
-
-    resampleMatrix = seissol::memory::allocTyped<real>(Dim0 * Dim1, 1, memory::DeviceGlobalMemory);
-    seissol::memory::memcopyTyped<real>(resampleMatrix,
-                                        init::resample::Values,
-                                        Dim0 * Dim1,
-                                        memory::DeviceGlobalMemory,
-                                        memory::Standard);
-  }
-
-  {
-    devSpaceWeights =
-        seissol::memory::allocTyped<real>(misc::NumPaddedPoints, 1, memory::DeviceGlobalMemory);
-    seissol::memory::memcopyTyped<real>(devSpaceWeights,
-                                        spaceWeights,
-                                        misc::NumPaddedPoints,
-                                        memory::DeviceGlobalMemory,
-                                        memory::Standard);
-  }
-
-  {
-    const auto data =
-        seissol::dr::friction_law::tp::InverseFourierCoefficients<misc::NumTpGridPoints>();
-    devTpInverseFourierCoefficients =
-        seissol::memory::allocTyped<real>(misc::NumTpGridPoints, 1, memory::DeviceGlobalMemory);
-    seissol::memory::memcopyTyped<real>(devTpInverseFourierCoefficients,
-                                        data.data().data(),
-                                        misc::NumTpGridPoints,
-                                        memory::DeviceGlobalMemory,
-                                        memory::Standard);
-  }
-
-  {
-    const auto data = seissol::dr::friction_law::tp::GridPoints<misc::NumTpGridPoints>();
-    devTpGridPoints =
-        seissol::memory::allocTyped<real>(misc::NumTpGridPoints, 1, memory::DeviceGlobalMemory);
-    seissol::memory::memcopyTyped<real>(devTpGridPoints,
-                                        data.data().data(),
-                                        misc::NumTpGridPoints,
-                                        memory::DeviceGlobalMemory,
-                                        memory::Standard);
-  }
-
-  {
-    const auto data = seissol::dr::friction_law::tp::GaussianHeatSource<misc::NumTpGridPoints>();
-    devHeatSource =
-        seissol::memory::allocTyped<real>(misc::NumTpGridPoints, 1, memory::DeviceGlobalMemory);
-    seissol::memory::memcopyTyped<real>(devHeatSource,
-                                        data.data().data(),
-                                        misc::NumTpGridPoints,
-                                        memory::DeviceGlobalMemory,
-                                        memory::Standard);
-  }
+  resampleMatrix = globalData->resampleMatrix;
+  devSpaceWeights = globalData->spaceWeights;
+  devTpInverseFourierCoefficients = globalData->tpInverseFourierCoefficients;
+  devHeatSource = globalData->heatSource;
+  devTpGridPoints = globalData->tpGridPoints;
 }
 } // namespace seissol::dr::friction_law::gpu

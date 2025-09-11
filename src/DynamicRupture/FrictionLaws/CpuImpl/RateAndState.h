@@ -23,6 +23,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       : BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw(drParameters),
         tpMethod(TPMethod(drParameters)) {}
 
+  std::unique_ptr<FrictionSolver> clone() override {
+    return std::make_unique<Derived>(*static_cast<Derived*>(this));
+  }
+
   void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
                              TractionResults<Executor::Host>& tractionResults,
                              std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
@@ -86,14 +90,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   }
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
-                          real fullUpdateTime) {
+                          const seissol::initializer::DynamicRupture* const dynRup) {
     const auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState*>(dynRup);
     a = layerData.var(concreteLts->rsA);
     sl0 = layerData.var(concreteLts->rsSl0);
     stateVariable = layerData.var(concreteLts->stateVariable);
-    static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-    tpMethod.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+    static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup);
+    tpMethod.copyLtsTreeToLocal(layerData, dynRup);
   }
 
   /**

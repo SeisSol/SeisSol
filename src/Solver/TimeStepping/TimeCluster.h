@@ -12,6 +12,7 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMECLUSTER_H_
 
 #include <list>
+#include <memory>
 #include <mpi.h>
 
 #include "Initializer/Typedefs.h"
@@ -103,8 +104,10 @@ class TimeCluster : public AbstractTimeCluster {
   seissol::initializer::Layer* dynRupCopyData;
   seissol::initializer::LTS* lts;
   seissol::initializer::DynamicRupture* dynRup;
-  dr::friction_law::FrictionSolver* frictionSolver;
-  dr::friction_law::FrictionSolver* frictionSolverDevice;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolver;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverDevice;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverCopy;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverCopyDevice;
   dr::output::OutputManager* faultOutputManager;
 
   seissol::kernels::PointSourceClusterPair sourceCluster;
@@ -187,11 +190,9 @@ class TimeCluster : public AbstractTimeCluster {
    **/
   void computeNeighboringIntegration(double subTimeStart);
 
-#ifdef ACL_DEVICE
   void computeLocalIntegrationDevice(bool resetBuffers);
   void computeDynamicRuptureDevice(seissol::initializer::Layer& layerData);
   void computeNeighboringIntegrationDevice(double subTimeStart);
-#endif
 
   void computeLocalIntegrationFlops();
 
@@ -255,8 +256,8 @@ class TimeCluster : public AbstractTimeCluster {
               seissol::initializer::Layer* dynRupCopyData,
               seissol::initializer::LTS* lts,
               seissol::initializer::DynamicRupture* dynRup,
-              seissol::dr::friction_law::FrictionSolver* frictionSolver,
-              seissol::dr::friction_law::FrictionSolver* frictionSolverDevice,
+              seissol::dr::friction_law::FrictionSolver* frictionSolverTemplate,
+              seissol::dr::friction_law::FrictionSolver* frictionSolverTemplateDevice,
               dr::output::OutputManager* faultOutputManager,
               seissol::SeisSol& seissolInstance,
               LoopStatistics* loopStatistics,

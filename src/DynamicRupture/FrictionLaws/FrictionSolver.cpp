@@ -36,8 +36,7 @@ FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<dou
 }
 
 void FrictionSolver::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                        const seissol::initializer::DynamicRupture* const dynRup,
-                                        real fullUpdateTime) {
+                                        const seissol::initializer::DynamicRupture* const dynRup) {
   const seissol::initializer::AllocationPlace place = allocationPlace();
   impAndEta = layerData.var(dynRup->impAndEta, place);
   impedanceMatrices = layerData.var(dynRup->impedanceMatrices, place);
@@ -61,7 +60,6 @@ void FrictionSolver::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
   imposedStateMinus = layerData.var(dynRup->imposedStateMinus, place);
   energyData = layerData.var(dynRup->drEnergyOutput, place);
   godunovData = layerData.var(dynRup->godunovData, place);
-  mFullUpdateTime = fullUpdateTime;
   dynStressTime = layerData.var(dynRup->dynStressTime, place);
   dynStressTimePending = layerData.var(dynRup->dynStressTimePending, place);
   qInterpolatedPlus = layerData.var(dynRup->qInterpolatedPlus, place);

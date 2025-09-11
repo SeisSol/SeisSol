@@ -11,11 +11,11 @@
 #ifndef SEISSOL_SRC_KERNELS_SPACETIME_H_
 #define SEISSOL_SRC_KERNELS_SPACETIME_H_
 
+#include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
 #include "Numerical/BasisFunction.h"
-#include "generated_code/tensor.h"
 #include <Kernels/Kernel.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>

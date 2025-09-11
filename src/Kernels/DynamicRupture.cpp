@@ -8,6 +8,7 @@
 
 #include "DynamicRupture.h"
 
+#include "GeneratedCode/tensor.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
@@ -17,11 +18,10 @@
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
-#include <tensor.h>
 
 #include "utils/logger.h"
 
-#include "generated_code/kernel.h"
+#include "GeneratedCode/kernel.h"
 #ifdef ACL_DEVICE
 #include "device.h"
 #include <DataTypes/ConditionalKey.h>

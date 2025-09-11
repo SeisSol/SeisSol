@@ -9,8 +9,9 @@
 
 #include "Plasticity.h"
 
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include <Alignment.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/Typedefs.h>
@@ -21,7 +22,6 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
-#include <tensor.h>
 
 #include "utils/logger.h"
 
@@ -76,6 +76,7 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   /* Convert modal to nodal and add sigma0.
    * Stores s_{ij} := sigma_{ij} + sigma0_{ij} for every node.
    * sigma0 is constant */
+
   kernel::plConvertToNodal m2nKrnl;
   m2nKrnl.v = global->vandermondeMatrix;
   m2nKrnl.QStress = degreesOfFreedom;
@@ -114,9 +115,11 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 
   // Compute tau_c for every node
   for (std::size_t ip = 0; ip < tensor::meanStress::size(); ++ip) {
-    taulim[ip] = std::max(static_cast<real>(0.0),
-                          plasticityData->cohesionTimesCosAngularFriction -
-                              meanStress[ip] * plasticityData->sinAngularFriction);
+    taulim[ip] = std::max(
+        static_cast<real>(0.0),
+        plasticityData->cohesionTimesCosAngularFriction[ip % seissol::multisim::NumSimulations] -
+            meanStress[ip] *
+                plasticityData->sinAngularFriction[ip % seissol::multisim::NumSimulations]);
   }
 
   bool adjust = false;
@@ -255,7 +258,7 @@ void Plasticity::computePlasticityBatched(
   static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
                 "modal and nodal dofs must have the same leading dimensions");
   static_assert(tensor::Q::Shape[multisim::BasisFunctionDimension] == tensor::v::Shape[0],
-                "modal dofs and vandermonde matrix must hage the same leading dimensions");
+                "modal dofs and vandermonde matrix must have the same leading dimensions");
 
   DeviceInstance& device = DeviceInstance::getInstance();
   ConditionalKey key(*KernelNames::Plasticity);
