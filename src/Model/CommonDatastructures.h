@@ -44,9 +44,10 @@ struct Material {
 
   virtual ~Material() = default;
 
-  double rho;
+  double rho{};
   Material() = default;
-  Material(const std::vector<double>& data) : rho(data.at(0)) {}
+  explicit Material(double rho) : rho(rho) {}
+  explicit Material(const std::vector<double>& data) : rho(data.at(0)) {}
 
   virtual void initialize(const initializer::parameters::ModelParameters& parameters) {}
 

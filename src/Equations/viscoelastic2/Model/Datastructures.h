@@ -55,15 +55,15 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
 #endif
 
   //! Relaxation frequencies
-  double omega[zeroLengthArrayHandler(Mechanisms)];
+  double omega[zeroLengthArrayHandler(Mechanisms)]{};
   /** Entries of the source matrix (E)
    * theta[0] = -(lambda * Y_lambda + 2.0 * mu * Y_mu)
    * theta[1] = -lambda * Y_lambda
    * theta[2] = -2.0 * mu * Y_mu
    **/
-  double theta[zeroLengthArrayHandler(Mechanisms)][3];
-  double Qp;
-  double Qs;
+  double theta[zeroLengthArrayHandler(Mechanisms)][3]{};
+  double Qp{};
+  double Qs{};
 
   static const std::unordered_map<std::string, double ViscoElasticMaterialParametrized::*>
       ParameterMap;
@@ -83,6 +83,11 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
     Qp = std::numeric_limits<double>::signaling_NaN();
     Qs = std::numeric_limits<double>::signaling_NaN();
   }
+
+  explicit ViscoElasticMaterialParametrized(const ElasticMaterial& elastic)
+      : ElasticMaterial(elastic) {}
+  explicit ViscoElasticMaterialParametrized(const AcousticMaterial& acoustic)
+      : ElasticMaterial(acoustic) {}
 
   ~ViscoElasticMaterialParametrized() override = default;
 

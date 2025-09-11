@@ -13,6 +13,7 @@
 #include "Model/CommonDatastructures.h"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
+#include <Equations/acoustic/Model/Datastructures.h>
 #include <Kernels/LinearCK/Solver.h>
 #include <array>
 #include <cmath>
@@ -44,8 +45,8 @@ struct ElasticMaterial : Material {
   using NeighborSpecificData = ElasticNeighborData;
   using Solver = kernels::solver::linearck::Solver;
 
-  double lambda;
-  double mu;
+  double lambda{};
+  double mu{};
 
   static const std::unordered_map<std::string, double ElasticMaterial::*> ParameterMap;
 
@@ -54,8 +55,11 @@ struct ElasticMaterial : Material {
   [[nodiscard]] double getMuBar() const override { return mu; }
 
   ElasticMaterial() = default;
-  ElasticMaterial(const std::vector<double>& materialValues)
+  explicit ElasticMaterial(const std::vector<double>& materialValues)
       : Material(materialValues), lambda(materialValues.at(2)), mu(materialValues.at(1)) {}
+
+  explicit ElasticMaterial(const AcousticMaterial& acoustic)
+      : Material(acoustic.rho), lambda(acoustic.lambda) {}
 
   ~ElasticMaterial() override = default;
 

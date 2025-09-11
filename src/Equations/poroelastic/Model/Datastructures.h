@@ -51,13 +51,13 @@ struct PoroElasticMaterial : public ElasticMaterial {
   using NeighborSpecificData = PoroelasticNeighborData;
   using Solver = kernels::solver::stp::Solver;
 
-  double bulkSolid;
-  double porosity;
-  double permeability;
-  double tortuosity;
-  double bulkFluid;
-  double rhoFluid;
-  double viscosity;
+  double bulkSolid{};
+  double porosity{};
+  double permeability{};
+  double tortuosity{};
+  double bulkFluid{};
+  double rhoFluid{};
+  double viscosity{};
 
   static const std::unordered_map<std::string, double PoroElasticMaterial::*> ParameterMap;
 
@@ -75,6 +75,9 @@ struct PoroElasticMaterial : public ElasticMaterial {
     mu = materialValues.at(3);
   }
   ~PoroElasticMaterial() override = default;
+
+  explicit PoroElasticMaterial(const ElasticMaterial& elastic) : ElasticMaterial(elastic) {}
+  explicit PoroElasticMaterial(const AcousticMaterial& acoustic) : ElasticMaterial(acoustic) {}
 
   void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const override {
     const std::vector<double> elasticMaterialVals{this->rho, this->mu, this->lambda};

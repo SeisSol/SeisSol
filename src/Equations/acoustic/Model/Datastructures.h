@@ -45,7 +45,7 @@ struct AcousticMaterial : public Material {
   using NeighborSpecificData = AcousticNeighborData;
   using Solver = kernels::solver::linearck::Solver;
 
-  double lambda;
+  double lambda{};
 
   static const std::unordered_map<std::string, double AcousticMaterial::*> ParameterMap;
 
@@ -54,7 +54,7 @@ struct AcousticMaterial : public Material {
   [[nodiscard]] double getMuBar() const override { return 0.0; }
 
   AcousticMaterial() = default;
-  AcousticMaterial(const std::vector<double>& materialValues)
+  explicit AcousticMaterial(const std::vector<double>& materialValues)
       : Material(materialValues), lambda(materialValues.at(1)) {}
 
   ~AcousticMaterial() override = default;

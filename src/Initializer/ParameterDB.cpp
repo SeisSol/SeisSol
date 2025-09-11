@@ -57,6 +57,45 @@
 #endif
 #include "utils/logger.h"
 
+namespace {
+
+using namespace seissol::initializer;
+
+template <typename SurrogateMaterialT>
+bool canEvaluateFor(const std::set<std::string>& parameters) {
+  return std::all_of(
+      SurrogateMaterialT::ParameterMap.begin(),
+      SurrogateMaterialT::ParameterMap.end(),
+      [&](const auto& ptr) { return parameters.find(ptr.first) != parameters.end(); });
+}
+
+template <typename MaterialT, typename SurrogateMaterialT, typename... SurrogatesT>
+bool surrogateEvaluate(const std::string& fileName,
+                       const QueryGenerator& queryGen,
+                       std::vector<MaterialT>* materials,
+                       const std::set<std::string>& parameters) {
+  if constexpr (std::is_constructible_v<MaterialT, SurrogateMaterialT>) {
+    if (canEvaluateFor<SurrogateMaterialT>(parameters)) {
+      MaterialParameterDB<SurrogateMaterialT> edb;
+      std::vector<SurrogateMaterialT> preMaterials(materials->size());
+      edb.setMaterialVector(&preMaterials);
+      edb.evaluateModel(fileName, queryGen);
+
+      for (std::size_t i = 0; i < materials->size(); i++) {
+        materials->at(i) = MaterialT(preMaterials[i]);
+      }
+
+      return true;
+    }
+  }
+  if constexpr (sizeof...(SurrogatesT) > 0) {
+    return surrogateEvaluate<MaterialT, SurrogatesT...>(fileName, queryGen, materials, parameters);
+  } else {
+    return false;
+  }
+}
+} // namespace
+
 namespace seissol::initializer {
 
 CellToVertexArray::CellToVertexArray(size_t size,
@@ -288,68 +327,59 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
                                            const QueryGenerator& queryGen) {
   easi::Component* model = loadEasiModel(fileName);
   auto suppliedParameters = model->suppliedParameters();
-  for (const auto& [name, pointer] : T::ParameterMap) {
-  }
 
-  easi::Query query = queryGen.generate();
-  const std::size_t numPoints = query.numPoints();
+  // the following code does:
+  // * try to evaluate the model just normally
+  // * if not (e.g. poroelastic or anisotropic with just elastic parameters), parse elastic or
+  // acoustic first, then convert to the target material
 
-  std::vector<T> materialsFromQuery(numPoints);
-  easi::ArrayOfStructsAdapter<T> adapter(materialsFromQuery.data());
-  for (const auto& [name, pointer] : T::ParameterMap) {
-    adapter.addBindingPoint(name, pointer);
-  }
-  model->evaluate(query, adapter);
+  const auto evaluateModel = [&]() {
+    easi::Query query = queryGen.generate();
+    const std::size_t numPoints = query.numPoints();
 
-  // Only use homogenization when ElementAverageGenerator has been supplied
-  if (const auto* gen = dynamic_cast<const ElementAverageGenerator*>(&queryGen)) {
-    const std::size_t numElems = numPoints / NumQuadpoints;
-    const std::vector<double> quadratureWeights(gen->getQuadratureWeights().begin(),
-                                                gen->getQuadratureWeights().end());
+    std::vector<T> materialsFromQuery(numPoints);
+    easi::ArrayOfStructsAdapter<T> adapter(materialsFromQuery.data());
+    for (const auto& [name, pointer] : T::ParameterMap) {
+      adapter.addBindingPoint(name, pointer);
+    }
+    model->evaluate(query, adapter);
+
+    return materialsFromQuery;
+  };
+
+  if (canEvaluateFor<T>(suppliedParameters)) {
+    const auto materialsFromQuery = evaluateModel();
+    const std::size_t numPoints = materialsFromQuery.size();
+
+    // Only use homogenization when ElementAverageGenerator has been supplied
+    if (const auto* gen = dynamic_cast<const ElementAverageGenerator*>(&queryGen)) {
+      const std::size_t numElems = numPoints / NumQuadpoints;
+      const std::vector<double> quadratureWeights(gen->getQuadratureWeights().begin(),
+                                                  gen->getQuadratureWeights().end());
 
 // Compute homogenized material parameters for every element in a specialization for the
 // particular material
 #pragma omp parallel for schedule(static)
-    for (std::size_t elementIdx = 0; elementIdx < numElems; ++elementIdx) {
-      m_materials->at(elementIdx) = MaterialAverager<T>::computeAveragedMaterial(
-          elementIdx, quadratureWeights, materialsFromQuery);
+      for (std::size_t elementIdx = 0; elementIdx < numElems; ++elementIdx) {
+        m_materials->at(elementIdx) = MaterialAverager<T>::computeAveragedMaterial(
+            elementIdx, quadratureWeights, materialsFromQuery);
+      }
+    } else {
+      // Usual behavior without homogenization
+      for (std::size_t i = 0; i < numPoints; ++i) {
+        m_materials->at(i) = T(materialsFromQuery[i]);
+      }
     }
   } else {
-    // Usual behavior without homogenization
-    for (std::size_t i = 0; i < numPoints; ++i) {
-      m_materials->at(i) = T(materialsFromQuery[i]);
-    }
-  }
-  delete model;
-}
+    // hard-code tests for elastic or acoustic material here (only if a conversion constructor
+    // exists)
+    if (!surrogateEvaluate<T, ElasticMaterial, AcousticMaterial>(
+            fileName, queryGen, m_materials, suppliedParameters)) {
 
-template <>
-void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& fileName,
-                                                             const QueryGenerator& queryGen) {
-  easi::Component* model = loadEasiModel(fileName);
-  easi::Query query = queryGen.generate();
-  auto suppliedParameters = model->suppliedParameters();
-  // TODO(Sebastian): inhomogeneous materials, where in some parts only mu and lambda are given
-  //                  and in other parts the full elastic tensor is given
-
-  // if we look for an anisotropic material and only mu and lambda are supplied,
-  // assume isotropic behavior and calculate the parameters accordingly
-  if (suppliedParameters.find("mu") != suppliedParameters.end() &&
-      suppliedParameters.find("lambda") != suppliedParameters.end()) {
-    MaterialParameterDB<ElasticMaterial> edb;
-    std::vector<ElasticMaterial> preMaterials(m_materials->size());
-    edb.setMaterialVector(&preMaterials);
-    edb.evaluateModel(fileName, queryGen);
-
-    for (std::size_t i = 0; i < m_materials->size(); i++) {
-      m_materials->at(i) = AnisotropicMaterial(preMaterials[i]);
+      // no surrogate worked
+      // fail gracefully by just trying to evaluate the original model and fail there
+      (void)evaluateModel();
     }
-  } else {
-    easi::ArrayOfStructsAdapter<AnisotropicMaterial> arrayOfStructsAdapter(m_materials->data());
-    for (const auto& [name, pointer] : AnisotropicMaterial::ParameterMap) {
-      arrayOfStructsAdapter.addBindingPoint(name, pointer);
-    }
-    model->evaluate(query, arrayOfStructsAdapter);
   }
   delete model;
 }
@@ -358,6 +388,8 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
 // NUM_QUADPOINTS material samples per mesh element.
 // We assume that materialsFromQuery[i * NUM_QUADPOINTS, ..., (i+1)*NUM_QUADPOINTS-1]
 // stores samples from element i.
+
+// TODO: extract acoustic average class
 
 template <>
 struct MaterialAverager<ElasticMaterial> {
