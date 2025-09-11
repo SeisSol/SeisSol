@@ -12,24 +12,29 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
 #include <cstddef>
+#include <vector>
 
 namespace seissol::dr::friction_law {
 
-void FrictionSolver::computeDeltaT(const double timePoints[ConvergenceOrder]) {
+FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<double>& timePoints) {
+  std::vector<real> deltaT(ConvergenceOrder);
+  real sumDt = 0;
+
   deltaT[0] = timePoints[0];
   sumDt = deltaT[0];
-  for (std::size_t timeIndex = 1; timeIndex < ConvergenceOrder; timeIndex++) {
+  for (std::size_t timeIndex = 1; timeIndex < ConvergenceOrder; ++timeIndex) {
     deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
     sumDt += deltaT[timeIndex];
   }
   // to fill last segment of Gaussian integration
   deltaT[ConvergenceOrder - 1] = deltaT[ConvergenceOrder - 1] + deltaT[0];
   sumDt += deltaT[0];
+
+  return {sumDt, deltaT};
 }
 
 void FrictionSolver::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                        const seissol::initializer::DynamicRupture* const dynRup,
-                                        real fullUpdateTime) {
+                                        const seissol::initializer::DynamicRupture* const dynRup) {
   const seissol::initializer::AllocationPlace place = allocationPlace();
   impAndEta = layerData.var(dynRup->impAndEta, place);
   impedanceMatrices = layerData.var(dynRup->impedanceMatrices, place);
@@ -53,7 +58,6 @@ void FrictionSolver::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
   imposedStateMinus = layerData.var(dynRup->imposedStateMinus, place);
   energyData = layerData.var(dynRup->drEnergyOutput, place);
   godunovData = layerData.var(dynRup->godunovData, place);
-  mFullUpdateTime = fullUpdateTime;
   dynStressTime = layerData.var(dynRup->dynStressTime, place);
   dynStressTimePending = layerData.var(dynRup->dynStressTimePending, place);
   qInterpolatedPlus = layerData.var(dynRup->qInterpolatedPlus, place);

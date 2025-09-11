@@ -8,13 +8,14 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
 
+#include "GeneratedCode/tensor.h"
 #include "Geometry.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/DataCollector.h"
-#include "generated_code/tensor.h"
 #include <Eigen/Dense>
+#include <Parallel/Runtime/Stream.h>
 #include <array>
 #include <cassert>
 #include <cstring>
@@ -159,13 +160,14 @@ struct ReceiverOutputData {
   bool isActive{false};
   std::optional<int64_t> clusterId;
 
-  std::unique_ptr<parallel::DataCollector> deviceDataCollector;
+  std::unique_ptr<parallel::DataCollector<real>> deviceDataCollector;
   std::vector<std::size_t> deviceDataPlus;
   std::vector<std::size_t> deviceDataMinus;
   std::size_t cellCount{0};
 
-  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector>> deviceVariables;
+  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector<real>>> deviceVariables;
   std::vector<std::size_t> deviceIndices;
+  std::optional<parallel::runtime::StreamRuntime> extraRuntime;
 };
 } // namespace seissol::dr
 

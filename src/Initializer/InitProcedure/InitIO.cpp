@@ -8,9 +8,11 @@
 #include "InitIO.h"
 #include "Common/Filesystem.h"
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Writer/Writer.h"
-#include "Init.h"
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
 #include <Common/Constants.h>
@@ -27,10 +29,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
-#include <init.h>
-#include <kernel.h>
 #include <string>
-#include <tensor.h>
 #include <utils/logger.h>
 #include <vector>
 
@@ -366,15 +365,16 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     });
 
     writer.addCellData<std::uint8_t>(
-        "locationFlag", {}, [=](std::uint8_t* target, std::size_t index) {
-          target[0] = surfaceLocationFlag[index];
+        "locationFlag", {}, [=, &freeSurfaceIntegrator](std::uint8_t* target, std::size_t index) {
+          target[0] = surfaceLocationFlag[freeSurfaceIntegrator.backmap[index]];
         });
 
-    writer.addCellData<std::size_t>("global-id", {}, [=](std::size_t* target, std::size_t index) {
-      const auto meshId = surfaceMeshIds[index];
-      const auto side = surfaceMeshSides[index];
-      target[0] = meshReader.getElements()[meshId].globalId * 4 + side;
-    });
+    writer.addCellData<std::size_t>(
+        "global-id", {}, [=, &freeSurfaceIntegrator](std::size_t* target, std::size_t index) {
+          const auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
+          const auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
+          target[0] = meshReader.getElements()[meshId].globalId * 4 + side;
+        });
 
     std::vector<std::string> quantityLabels = {"v1", "v2", "v3", "u1", "u2", "u3"};
     for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
@@ -483,7 +483,7 @@ void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {
 
 void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  auto& memoryManager = seissolInstance.getMemoryManager();
+
   if (seissolParams.output.freeSurfaceParameters.enabled &&
       seissolParams.output.freeSurfaceParameters.vtkorder < 0) {
     seissolInstance.freeSurfaceWriter().enable();

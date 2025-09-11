@@ -7,30 +7,31 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Allocator.h"
+#include "GeneratedCode/tensor.h"
+#include "Parallel/OpenMP.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
+#include <Kernels/Solver.h>
 #include <Kernels/Touch.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/GlobalData.h>
 #include <Memory/MemoryAllocator.h>
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/TimeCluster.h>
-#include <Proxy/Constants.h>
 #include <cstddef>
 #include <random>
 #include <stdlib.h>
-#include <tensor.h>
-
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 #ifdef ACL_DEVICE
 #include <Initializer/MemoryManager.h>
+#endif
+
+#ifdef USE_POROELASTIC
+#include "Proxy/Constants.h"
 #endif
 
 namespace {
@@ -146,8 +147,6 @@ void ProxyData::initGlobalData() {
   localKernel.setGlobalData(globalData);
   neighborKernel.setGlobalData(globalData);
   dynRupKernel.setGlobalData(globalData);
-
-  dynRupKernel.setTimeStepWidth(Timestep);
 }
 
 void ProxyData::initDataStructures(bool enableDR) {
@@ -182,38 +181,34 @@ void ProxyData::initDataStructures(bool enableDR) {
     dynRupTree.allocateVariables();
     dynRupTree.touchVariables();
 
-    fakeDerivativesHost = reinterpret_cast<real*>(
-        allocator.allocateMemory(cellCount * yateto::computeFamilySize<tensor::dQ>() * sizeof(real),
-                                 PagesizeHeap,
-                                 seissol::memory::Standard));
+    fakeDerivativesHost = reinterpret_cast<real*>(allocator.allocateMemory(
+        cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
+        PagesizeHeap,
+        seissol::memory::Standard));
 
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
     {
-#ifdef _OPENMP
-      const auto offset = omp_get_thread_num();
-#else
-      const auto offset = 0;
-#endif
+      const auto offset = OpenMP::threadId();
       std::mt19937 rng(cellCount + offset);
       std::uniform_real_distribution<real> urd;
       for (std::size_t cell = 0; cell < cellCount; ++cell) {
-        for (std::size_t i = 0; i < yateto::computeFamilySize<tensor::dQ>(); i++) {
-          fakeDerivativesHost[cell * yateto::computeFamilySize<tensor::dQ>() + i] = urd(rng);
+        for (std::size_t i = 0; i < seissol::kernels::Solver::DerivativesSize; i++) {
+          fakeDerivativesHost[cell * seissol::kernels::Solver::DerivativesSize + i] = urd(rng);
         }
       }
     }
 
 #ifdef ACL_DEVICE
-    fakeDerivatives = reinterpret_cast<real*>(
-        allocator.allocateMemory(cellCount * yateto::computeFamilySize<tensor::dQ>() * sizeof(real),
-                                 PagesizeHeap,
-                                 seissol::memory::DeviceGlobalMemory));
+    fakeDerivatives = reinterpret_cast<real*>(allocator.allocateMemory(
+        cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
+        PagesizeHeap,
+        seissol::memory::DeviceGlobalMemory));
     const auto& device = ::device::DeviceInstance::getInstance();
     device.api->copyTo(fakeDerivatives,
                        fakeDerivativesHost,
-                       cellCount * yateto::computeFamilySize<tensor::dQ>() * sizeof(real));
+                       cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real));
 #else
     fakeDerivatives = fakeDerivativesHost;
 #endif
@@ -269,13 +264,13 @@ void ProxyData::initDataStructures(bool enableDR) {
       const auto plusCell = cellDist(rng);
       const auto minusCell = cellDist(rng);
       timeDerivativeHostPlus[face] =
-          &fakeDerivativesHost[plusCell * yateto::computeFamilySize<tensor::dQ>()];
+          &fakeDerivativesHost[plusCell * seissol::kernels::Solver::DerivativesSize];
       timeDerivativeHostMinus[face] =
-          &fakeDerivativesHost[minusCell * yateto::computeFamilySize<tensor::dQ>()];
+          &fakeDerivativesHost[minusCell * seissol::kernels::Solver::DerivativesSize];
       timeDerivativePlus[face] =
-          &fakeDerivatives[plusCell * yateto::computeFamilySize<tensor::dQ>()];
+          &fakeDerivatives[plusCell * seissol::kernels::Solver::DerivativesSize];
       timeDerivativeMinus[face] =
-          &fakeDerivatives[minusCell * yateto::computeFamilySize<tensor::dQ>()];
+          &fakeDerivatives[minusCell * seissol::kernels::Solver::DerivativesSize];
 
       faceInformation[face].plusSide = sideDist(rng);
       faceInformation[face].minusSide = sideDist(rng);

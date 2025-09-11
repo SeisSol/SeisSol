@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_KERNELS_RECEIVER_H_
 #define SEISSOL_SRC_KERNELS_RECEIVER_H_
 
+#include "GeneratedCode/init.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/PointMapper.h"
 #include "Kernels/Interface.h"
@@ -18,10 +19,10 @@
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
-#include "generated_code/init.h"
 #include <Common/Executor.h>
 #include <Eigen/Dense>
 #include <Initializer/Typedefs.h>
+#include <Parallel/Runtime/Stream.h>
 #include <optional>
 #include <vector>
 
@@ -92,8 +93,11 @@ class ReceiverCluster {
                    seissol::initializer::LTS const& lts);
 
   //! Returns new receiver time
-  double calcReceivers(
-      double time, double expansionPoint, double timeStepWidth, Executor executor, void* stream);
+  double calcReceivers(double time,
+                       double expansionPoint,
+                       double timeStepWidth,
+                       Executor executor,
+                       parallel::runtime::StreamRuntime& runtime);
 
   std::vector<Receiver>::iterator begin() { return m_receivers.begin(); }
 
@@ -105,7 +109,8 @@ class ReceiverCluster {
   void freeData();
 
   private:
-  std::unique_ptr<seissol::parallel::DataCollector> deviceCollector{nullptr};
+  std::optional<parallel::runtime::StreamRuntime> extraRuntime;
+  std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollector{nullptr};
   std::vector<size_t> deviceIndices;
   std::vector<Receiver> m_receivers;
   seissol::kernels::Spacetime spacetimeKernel;

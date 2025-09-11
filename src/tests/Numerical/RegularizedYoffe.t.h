@@ -8,13 +8,17 @@
 #include "Numerical/RegularizedYoffe.h"
 #include "doctest.h"
 #include <cassert>
+#include <cmath>
+#include <initializer_list>
+#include <limits>
 
 namespace seissol::unit_test {
 /**
  * Yoffe function, see Tinti et al. 2005: eq 1
  */
-inline real yoffe(real time, real riseTime) {
-  constexpr real Epsilon = 10 * std::numeric_limits<real>::epsilon();
+template <typename T>
+inline T yoffe(T time, T riseTime) {
+  constexpr auto Epsilon = 10 * std::numeric_limits<T>::epsilon();
   if (time < Epsilon || time > riseTime - Epsilon) {
     return 0.0;
   } else {
@@ -25,9 +29,10 @@ inline real yoffe(real time, real riseTime) {
 /**
  * Triangle function, see Tinti et al. 2005: eq 2
  */
-inline real triangle(real time, real halfDuration) {
+template <typename T>
+inline T triangle(T time, T halfDuration) {
   assert(halfDuration > 0);
-  const real halfDurationSquared = halfDuration * halfDuration;
+  const auto halfDurationSquared = halfDuration * halfDuration;
   if (time > 0 && time < halfDuration) {
     return time / halfDurationSquared;
   } else if (time > halfDuration && time < 2 * halfDuration) {
@@ -41,39 +46,41 @@ inline real triangle(real time, real halfDuration) {
  * Reference implementation for the regularized Yoffe function by explicitly computing the
  * convolution, see Tinti et al. 2005: eq 3
  */
-inline real regularizedYoffe(real time, real tauS, real tauR) {
+template <typename T>
+inline T regularizedYoffe(T time, T tauS, T tauR) {
   if (time < -2 * tauS || time > tauR + 2 * tauS) {
     return 0.0;
   } else {
     // use trapezoidal rule to compute integral
-    real yoffeVal = 0.0;
+    T yoffeVal = 0.0;
     const size_t numberOfTrapezoids = 1e6;
     // we integrate from -2*tauS until tauR + 2*tauS
-    const real h = (tauR + 4 * tauS) / numberOfTrapezoids;
+    const T h = (tauR + 4 * tauS) / numberOfTrapezoids;
     // integrate yoffe(x) * triangle(time - x) dx
-    auto integrand = [&time, &tauS, &tauR](real x) {
+    auto integrand = [&time, &tauS, &tauR](T x) {
       return yoffe(x, tauR) * triangle(time - x, tauS);
     };
     // integrand is 0 at left and right boundary, only accumulate interior values
-    for (size_t i = 1; i < numberOfTrapezoids; i++) {
+    for (size_t i = 1; i < numberOfTrapezoids; ++i) {
       yoffeVal += integrand(i * h);
     }
     return yoffeVal * h;
   }
 }
 
-TEST_CASE("Regularized Yoffe Function") {
-  constexpr real Dt = 0.01;
+TEST_CASE_TEMPLATE("Regularized Yoffe Function", RealT, float, double) {
+  constexpr RealT Dt = 0.01;
   // rather coarse epsilon, since the quadrature to compute the reference is also rather coarse
-  constexpr real Epsilon = 1e-2;
-  for (const real accTime : {0.2, 0.3}) {
-    for (const real effectiveRiseTime : {0.9, 1.1}) {
-      const real tauS = accTime / 1.27;
-      const real tauR = effectiveRiseTime - 2 * tauS;
+  constexpr RealT Epsilon = 1e-2;
+  for (const RealT accTime : {0.2, 0.3}) {
+    for (const RealT effectiveRiseTime : {0.9, 1.1}) {
+      const RealT tauS = accTime / 1.27;
+      const RealT tauR = effectiveRiseTime - 2 * tauS;
 
       for (int i = -10; i < 111; i++) {
-        real stfEvaluated = seissol::regularizedYoffe::regularizedYoffe(i * Dt, tauS, tauR);
-        const real referenceEvaluated = regularizedYoffe(i * Dt, tauS, tauR);
+        const auto stfEvaluated =
+            seissol::regularizedYoffe::regularizedYoffe<RealT>(i * Dt, tauS, tauR);
+        const auto referenceEvaluated = regularizedYoffe<RealT>(i * Dt, tauS, tauR);
         REQUIRE(stfEvaluated == AbsApprox(referenceEvaluated).epsilon(Epsilon));
       }
     }

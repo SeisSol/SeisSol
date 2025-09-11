@@ -9,9 +9,6 @@
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
 #include <Solver/MultipleSimulations.h>
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 #include "Memory/MemoryAllocator.h"
 #include "SeisSol.h"
@@ -34,7 +31,7 @@
 
 #include "Common/Iterator.h"
 
-#include "generated_code/tensor.h"
+#include "GeneratedCode/tensor.h"
 
 #ifdef ACL_DEVICE
 #include "BatchRecorders/Recorders.h"
@@ -191,7 +188,7 @@ void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
 
       // set size
       m_meshStructure[tc].ghostRegionSizes[l_region] = tensor::Q::size() * l_numberOfBuffers +
-                                                       yateto::computeFamilySize<tensor::dQ>() * l_numberOfDerivatives;
+                                                       kernels::Solver::DerivativesSize * l_numberOfDerivatives;
 
       // update the pointer
       ghostStart += m_meshStructure[tc].ghostRegionSizes[l_region];
@@ -234,7 +231,7 @@ void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
 
       // set size
       m_meshStructure[tc].copyRegionSizes[l_region] = tensor::Q::size() * l_numberOfBuffers +
-                                                      yateto::computeFamilySize<tensor::dQ>() * l_numberOfDerivatives;
+                                                      kernels::Solver::DerivativesSize * l_numberOfDerivatives;
 
       // jump over region
       l_offset += m_meshStructure[tc].numberOfCopyRegionCells[l_region];
@@ -541,7 +538,7 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
 
 #ifdef ACL_DEVICE
 void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTSTree& ltsTree, LTS& lts) {
-  constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
+  constexpr size_t totalDerivativesSize = kernels::Solver::DerivativesSize;
   constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
   for (auto& layer : ltsTree.leaves(Ghost)) {
@@ -649,7 +646,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
     layer.setEntrySize(lts.dofsFaceNodalScratch, 
       sizeof(real) * freeSurfaceCount * tensor::INodal::size());
     layer.setEntrySize(lts.prevCoefficientsScratch, 
-      sizeof(real) * freeSurfaceCount * nodal::tensor::nodes2D::Shape[0]);
+      sizeof(real) * freeSurfaceCount * nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
   }
 }
 
@@ -682,14 +679,14 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
 
     for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
       l_ghostSize    += sizeof(real) * tensor::Q::size() * m_numberOfGhostRegionBuffers[tc][l_region];
-      l_ghostSize    += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfGhostRegionDerivatives[tc][l_region];
+      l_ghostSize    += sizeof(real) * kernels::Solver::DerivativesSize * m_numberOfGhostRegionDerivatives[tc][l_region];
 
       l_copySize     += sizeof(real) * tensor::Q::size() * m_numberOfCopyRegionBuffers[tc][l_region];
-      l_copySize     += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfCopyRegionDerivatives[tc][l_region];
+      l_copySize     += sizeof(real) * kernels::Solver::DerivativesSize * m_numberOfCopyRegionDerivatives[tc][l_region];
     }
 
     l_interiorSize += sizeof(real) * tensor::Q::size() * m_numberOfInteriorBuffers[tc];
-    l_interiorSize += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfInteriorDerivatives[tc];
+    l_interiorSize += sizeof(real) * kernels::Solver::DerivativesSize * m_numberOfInteriorDerivatives[tc];
 
     cluster.child<Ghost>().setEntrySize(m_lts.buffersDerivatives, l_ghostSize);
     cluster.child<Copy>().setEntrySize(m_lts.buffersDerivatives, l_copySize);
@@ -768,19 +765,21 @@ void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticit
 
 bool seissol::initializer::isAcousticSideOfElasticAcousticInterface(CellMaterialData &material,
                                               unsigned int face) {
-  constexpr auto eps = std::numeric_limits<real>::epsilon();
-  return material.neighbor[face].getMuBar() > eps && material.local.getMuBar() < eps;
+  constexpr auto Eps = std::numeric_limits<real>::epsilon();
+  return material.neighbor[face]->getMuBar() > Eps && material.local->getMuBar() < Eps;
 }
 bool seissol::initializer::isElasticSideOfElasticAcousticInterface(CellMaterialData &material,
                                              unsigned int face) {
-  constexpr auto eps = std::numeric_limits<real>::epsilon();
-  return material.local.getMuBar() > eps && material.neighbor[face].getMuBar() < eps;
+  constexpr auto Eps = std::numeric_limits<real>::epsilon();
+  return material.local->getMuBar() > Eps && material.neighbor[face]->getMuBar() < Eps;
 }
 
 bool seissol::initializer::isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face) {
   // We define the interface cells as all cells that are in the elastic domain but have a
   // neighbor with acoustic material.
-  return isAcousticSideOfElasticAcousticInterface(material, face) || isElasticSideOfElasticAcousticInterface(material, face);
+  return material.local != nullptr && material.neighbor[face] != nullptr
+    && (isAcousticSideOfElasticAcousticInterface(material, face)
+      || isElasticSideOfElasticAcousticInterface(material, face));
 }
 
 
@@ -837,11 +836,6 @@ void seissol::initializer::MemoryManager::initFrictionData() {
 
     m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree);
 
-#ifdef ACL_DEVICE
-    if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {
-      impl->allocateAuxiliaryMemory();
-    }
-#endif // ACL_DEVICE
   }
 }
 

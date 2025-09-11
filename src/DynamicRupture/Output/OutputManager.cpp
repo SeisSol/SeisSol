@@ -14,6 +14,8 @@
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
 #include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Writer/Writer.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -28,6 +30,7 @@
 #include "Memory/Tree/Lut.h"
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
+#include <Parallel/Runtime/Stream.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
@@ -36,10 +39,8 @@
 #include <cstring>
 #include <ctime>
 #include <fstream>
-#include <init.h>
 #include <iomanip>
 #include <ios>
-#include <kernel.h>
 #include <memory>
 #include <numeric>
 #include <ostream>
@@ -206,7 +207,7 @@ void OutputManager::initElementwiseOutput() {
     std::vector<real*> dataPointers;
     auto recordPointers = [&dataPointers](auto& var, int) {
       if (var.isActive) {
-        for (int dim = 0; dim < var.dim(); ++dim) {
+        for (std::size_t dim = 0; dim < var.dim(); ++dim) {
           dataPointers.push_back(var.data[dim]);
         }
       }
@@ -271,7 +272,7 @@ void OutputManager::initElementwiseOutput() {
 
     misc::forEach(ewOutputData->vars, [&](auto& var, int i) {
       if (var.isActive) {
-        for (int d = 0; d < var.dim(); ++d) {
+        for (std::size_t d = 0; d < var.dim(); ++d) {
           auto* data = var.data[d];
           writer.addPointData<real>(VariableLabels[i][d],
                                     std::vector<std::size_t>(),
@@ -367,7 +368,7 @@ void OutputManager::initPickpointOutput() {
         auto collectVariableNames =
             [&baseHeader, &labelCounter, &simIndex, &pointIndex, suffix](auto& var, int) {
               if (var.isActive) {
-                for (int dim = 0; dim < var.dim(); ++dim) {
+                for (std::size_t dim = 0; dim < var.dim(); ++dim) {
                   baseHeader << " ,\"" << writer::FaultWriterExecutor::getLabelName(labelCounter)
                              << suffix(pointIndex + 1, simIndex + 1) << '\"';
                   ++labelCounter;
@@ -504,7 +505,10 @@ bool OutputManager::isAtPickpoint(double time, double dt) {
   return (isFirstStep || isOutputIteration || isCloseToTimeOut);
 }
 
-void OutputManager::writePickpointOutput(int64_t clusterId, double time, double dt) {
+void OutputManager::writePickpointOutput(int64_t clusterId,
+                                         double time,
+                                         double dt,
+                                         parallel::runtime::StreamRuntime& runtime) {
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   if (this->ppOutputBuilder) {
     if (this->isAtPickpoint(time, dt)) {
@@ -515,6 +519,7 @@ void OutputManager::writePickpointOutput(int64_t clusterId, double time, double 
         impl->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
                               seissolParameters.drParameters.slipRateOutputType,
                               outputData,
+                              runtime,
                               time);
 
         const bool isMaxCacheLevel =
@@ -523,6 +528,11 @@ void OutputManager::writePickpointOutput(int64_t clusterId, double time, double 
         const bool isCloseToEnd = (seissolParameters.timeStepping.endTime - time) < dt * timeMargin;
 
         if (isMaxCacheLevel || isCloseToEnd) {
+          // we need to wait for all data to be (internally) written to write it out
+          auto& callRuntime =
+              outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+          callRuntime.wait();
+
           this->flushPickpointDataToFile(clusterId);
         }
       }
@@ -533,7 +543,7 @@ void OutputManager::writePickpointOutput(int64_t clusterId, double time, double 
 
 void OutputManager::writePickpointOutput(double time, double dt) {
   for (const auto& [id, _] : ppOutputData) {
-    writePickpointOutput(id, time, dt);
+    writePickpointOutput(id, time, dt, runtime);
   }
 }
 
@@ -547,7 +557,7 @@ void OutputManager::flushPickpointDataToFile(int64_t clusterId) {
       for (std::size_t pointId : ppfile.indices) {
         auto recordResults = [pointId, level, &data](auto& var, int) {
           if (var.isActive) {
-            for (int dim = 0; dim < var.dim(); ++dim) {
+            for (std::size_t dim = 0; dim < var.dim(); ++dim) {
               data << makeFormatted(var(dim, level, pointId)) << '\t';
             }
           }
@@ -573,7 +583,9 @@ void OutputManager::updateElementwiseOutput() {
     const auto& seissolParameters = seissolInstance.getSeisSolParameters();
     impl->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
                           seissolParameters.drParameters.slipRateOutputType,
-                          ewOutputData);
+                          ewOutputData,
+                          runtime);
+    runtime.wait();
   }
 }
 } // namespace seissol::dr::output

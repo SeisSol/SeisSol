@@ -8,6 +8,8 @@
 #include "BaseDRInitializer.h"
 
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
 #include "Geometry/MeshDefinition.h"
 #include "Initializer/ParameterDB.h"
 #include "Kernels/Precision.h"
@@ -16,7 +18,6 @@
 #include "Memory/Tree/Layer.h"
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
-#include "generated_code/kernel.h"
 #include <Eigen/Dense>
 #include <Equations/Datastructures.h>
 #include <Model/CommonDatastructures.h>
@@ -24,7 +25,6 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <init.h>
 #include <string>
 #include <tuple>
 #include <unordered_map>

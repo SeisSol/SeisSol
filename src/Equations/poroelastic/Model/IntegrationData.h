@@ -10,8 +10,8 @@
 
 #include "Common/Constants.h"
 #include "Datastructures.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
-#include "generated_code/tensor.h"
 
 namespace seissol::model {
 
