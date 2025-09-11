@@ -14,6 +14,7 @@
 #include "Numerical/Functions.h"
 #include <Common/Constants.h>
 #include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
+#include <DynamicRupture/Misc.h>
 #include <algorithm>
 
 #include "Common/Marker.h"
@@ -39,8 +40,8 @@ struct FrictionLawArgs {
   const real* __restrict heatSource{nullptr};
 
   real fullUpdateTime;
-  double timeWeights[ConvergenceOrder];
-  real deltaT[ConvergenceOrder];
+  double timeWeights[misc::TimeSteps];
+  real deltaT[misc::TimeSteps];
   real sumDt;
 };
 
@@ -195,7 +196,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
   void evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
                       real fullUpdateTime,
-                      const double timeWeights[ConvergenceOrder],
+                      const double* timeWeights,
                       const FrictionTime& frictionTime);
 
   void evaluate(real fullUpdateTime,
