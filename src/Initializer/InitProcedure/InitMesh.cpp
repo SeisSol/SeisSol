@@ -284,7 +284,6 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
   SCOREP_USER_REGION("init_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  const auto commRank = seissol::MPI::mpi.rank();
   const auto commSize = seissol::MPI::mpi.size();
 
   logInfo() << "Begin init mesh.";

@@ -15,6 +15,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Parallel/DataCollector.h"
 #include <Eigen/Dense>
+#include <Parallel/Runtime/Stream.h>
 #include <array>
 #include <cassert>
 #include <cstring>
@@ -158,13 +159,14 @@ struct ReceiverOutputData {
   size_t maxCacheLevel{50};
   bool isActive{false};
 
-  std::unique_ptr<parallel::DataCollector> deviceDataCollector;
+  std::unique_ptr<parallel::DataCollector<real>> deviceDataCollector;
   std::vector<std::size_t> deviceDataPlus;
   std::vector<std::size_t> deviceDataMinus;
   std::size_t cellCount{0};
 
-  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector>> deviceVariables;
+  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector<real>>> deviceVariables;
   std::vector<std::size_t> deviceIndices;
+  std::optional<parallel::runtime::StreamRuntime> extraRuntime;
 };
 } // namespace seissol::dr
 
