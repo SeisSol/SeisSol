@@ -186,8 +186,7 @@ void Spacetime::computeBatchedAder(const real* coeffs,
     krnl.Q = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
     krnl.timestep = timeStepWidth;
 
-    // TODO: maybe zero init?
-    krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Stp))->getDeviceDataPtr();
+    krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
     krnl.spaceTimePredictorRhs = (entry.get(inner_keys::Wp::Id::StpRhs))->getDeviceDataPtr();
 
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
@@ -209,18 +208,11 @@ void Spacetime::computeBatchedAder(const real* coeffs,
     krnl.extraOffset_Gmt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[12]);
 
     /*
-    // TODO: port
-
     if (timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
-      assert(false && "NYI");
+      runtime.enqueueLoop(numElements, [](std::size_t i) {
+      });
     }
-
     */
-    /*runtime.enqueueOmpFor(numElements, [](std::size_t i) {
-      if (timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
-        // TODO
-      }
-    });*/
 
     std::size_t zinvOffset = SEISSOL_OFFSET(LocalIntegrationData, specific.Zinv);
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::Zinv>(); i++) {

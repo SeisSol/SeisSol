@@ -63,6 +63,8 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     std::vector<real*> derivativesExtPtrs(size, nullptr);
     std::vector<real*> ltsBuffers{};
     std::vector<real*> idofsForLtsBuffers{};
+    std::vector<real*> stpRhsPtrs{};
+    std::vector<real*> zinvExtraPtrs{};
 
     idofsPtrs.reserve(size);
     dQPtrs.resize(size);
