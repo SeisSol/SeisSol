@@ -17,42 +17,42 @@
 
 void seissol::initializer::Lut::LutsForMask::createLut(LayerMask mask,
                                                        LTSTree* ltsTree,
-                                                       const unsigned* globalLtsToMesh,
-                                                       unsigned numberOfMeshIds) {
-  const unsigned numberOfLtsIds = ltsTree->getNumberOfCells(mask);
+                                                       const std::size_t* globalLtsToMesh,
+                                                       std::size_t numberOfMeshIds) {
+  const std::size_t numberOfLtsIds = ltsTree->size(mask);
   ltsToMesh.resize(numberOfLtsIds);
 
   // ltsToMesh
-  unsigned globalLtsId = 0;
-  unsigned offset = 0;
+  std::size_t globalLtsId = 0;
+  std::size_t offset = 0;
   for (const auto& layer : ltsTree->leaves()) {
     if (!layer.isMasked(mask)) {
-      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
-        const unsigned meshId = globalLtsToMesh[globalLtsId + cell];
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+        const std::size_t meshId = globalLtsToMesh[globalLtsId + cell];
         ltsToMesh[offset + cell] = meshId;
       }
-      offset += layer.getNumberOfCells();
+      offset += layer.size();
     }
-    globalLtsId += layer.getNumberOfCells();
+    globalLtsId += layer.size();
   }
 
   // meshToLts
   for (auto& meshToLt : meshToLts) {
-    meshToLt.resize(numberOfMeshIds, std::numeric_limits<unsigned>::max());
+    meshToLt.resize(numberOfMeshIds, std::numeric_limits<std::size_t>::max());
   }
 
-  std::vector<unsigned> numDuplicates(numberOfMeshIds);
+  std::vector<std::size_t> numDuplicates(numberOfMeshIds);
 
-  for (unsigned ltsId = 0; ltsId < numberOfLtsIds; ++ltsId) {
-    const unsigned meshId = ltsToMesh[ltsId];
-    if (meshId != std::numeric_limits<unsigned int>::max()) {
+  for (std::size_t ltsId = 0; ltsId < numberOfLtsIds; ++ltsId) {
+    const std::size_t meshId = ltsToMesh[ltsId];
+    if (meshId != std::numeric_limits<std::size_t>::max()) {
       assert(numDuplicates[meshId] < MaxDuplicates);
       meshToLts[numDuplicates[meshId]++][meshId] = ltsId;
     }
   }
 
   std::size_t numberOfDuplicatedMeshIds = 0;
-  for (unsigned meshId = 0; meshId < numberOfMeshIds; ++meshId) {
+  for (std::size_t meshId = 0; meshId < numberOfMeshIds; ++meshId) {
     if (numDuplicates[meshId] > 1) {
       ++numberOfDuplicatedMeshIds;
     }
@@ -60,8 +60,8 @@ void seissol::initializer::Lut::LutsForMask::createLut(LayerMask mask,
 
   duplicatedMeshIds.resize(numberOfDuplicatedMeshIds);
 
-  unsigned dupId = 0;
-  for (unsigned meshId = 0; meshId < numberOfMeshIds; ++meshId) {
+  std::size_t dupId = 0;
+  for (std::size_t meshId = 0; meshId < numberOfMeshIds; ++meshId) {
     if (numDuplicates[meshId] > 1) {
       duplicatedMeshIds[dupId++] = meshId;
     }
@@ -71,13 +71,13 @@ void seissol::initializer::Lut::LutsForMask::createLut(LayerMask mask,
 seissol::initializer::Lut::Lut() = default;
 
 void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
-                                           unsigned* ltsToMesh,
-                                           unsigned numberOfMeshIds) {
-  const unsigned numberOfCells = ltsTree->getNumberOfCells();
+                                           std::size_t* ltsToMesh,
+                                           std::size_t numberOfMeshIds) {
+  const std::size_t numberOfCells = ltsTree->size();
 
   m_ltsTree = ltsTree;
 
-  for (unsigned var = 0; var < m_ltsTree->getNumberOfVariables(); ++var) {
+  for (std::size_t var = 0; var < m_ltsTree->getNumberOfVariables(); ++var) {
     const LayerMask mask = m_ltsTree->info(var).mask;
     LutsForMask& maskedLut = maskedLuts[mask.to_ulong()];
     if (maskedLut.ltsToMesh.empty()) {
@@ -86,32 +86,32 @@ void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
   }
 
   struct LayerOffset {
-    unsigned offsetGhost;
-    unsigned offsetCopy;
-    unsigned offsetInterior;
+    std::size_t offsetGhost;
+    std::size_t offsetCopy;
+    std::size_t offsetInterior;
   };
 
-  std::vector<unsigned> clusters(m_ltsTree->numChildren() + 1);
+  std::vector<std::size_t> clusters(m_ltsTree->numChildren() + 1);
   // Store number of cells in layers for each timecluster.
   // Note that the index 0 is the first cluster, unlike as in clusters.
   auto clustersLayerOffset = std::vector<LayerOffset>(m_ltsTree->numChildren());
   clusters[0] = 0;
-  for (unsigned tc = 0; tc < m_ltsTree->numChildren(); ++tc) {
+  for (std::size_t tc = 0; tc < m_ltsTree->numChildren(); ++tc) {
     auto& cluster = m_ltsTree->child(tc);
-    clusters[tc + 1] = clusters[tc] + cluster.getNumberOfCells();
+    clusters[tc + 1] = clusters[tc] + cluster.size();
     // For each cluster, we first store the Ghost cells, then the Copy cells and finally the
     // Interior cells.
     auto offsetGhost = 0U;
-    auto offsetCopy = cluster.child<Ghost>().getNumberOfCells();
-    auto offsetInterior = offsetCopy + cluster.child<Copy>().getNumberOfCells();
+    auto offsetCopy = cluster.child<Ghost>().size();
+    auto offsetInterior = offsetCopy + cluster.child<Copy>().size();
     clustersLayerOffset[tc] = LayerOffset{offsetGhost, offsetCopy, offsetInterior};
   }
 
   m_meshToClusters.resize(numberOfMeshIds);
   m_meshToLayer.resize(numberOfMeshIds);
-  unsigned cluster = 0;
-  unsigned curClusterElements = 0;
-  for (unsigned cell = 0; cell < numberOfCells; ++cell) {
+  std::size_t cluster = 0;
+  std::size_t curClusterElements = 0;
+  for (std::size_t cell = 0; cell < numberOfCells; ++cell) {
     if (cell >= clusters[cluster + 1]) {
       curClusterElements = 0;
       ++cluster;
@@ -119,7 +119,7 @@ void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
     } else {
       ++curClusterElements;
     }
-    if (ltsToMesh[cell] != std::numeric_limits<unsigned>::max()) {
+    if (ltsToMesh[cell] != std::numeric_limits<std::size_t>::max()) {
       const auto meshId = ltsToMesh[cell];
       m_meshToClusters[meshId] = cluster;
       const auto& layerOffsets = clustersLayerOffset[cluster];

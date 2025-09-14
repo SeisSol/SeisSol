@@ -16,6 +16,7 @@
 format() {
     # don't use a directory with whitespace
     local allowlist_dir="
+        app
         src/Common
         src/DynamicRupture
         src/Equations
@@ -36,6 +37,7 @@ format() {
         src/Proxy
         src/Reader
         src/ResultWriter
+        src/Solver
         src/SourceTerm
         src/tests
         "
@@ -50,19 +52,18 @@ format() {
         src/Initializer/InitialFieldProjection.h
         src/Initializer/InitialFieldProjection.cpp
         src/Initializer/InputAux.h
+        src/Initializer/Typedefs.h
         src/Initializer/ParameterDB.h
         src/Initializer/ParameterDB.cpp
         src/Initializer/PointMapper.h
         src/Initializer/PointMapper.cpp
         src/Initializer/PreProcessorMacros.h
+        src/Initializer/TimeStepping/ClusterLayout.h
+        src/Initializer/TimeStepping/ClusterLayout.cpp
         src/Initializer/TimeStepping/GlobalTimestep.h
         src/Initializer/TimeStepping/GlobalTimestep.cpp
-        src/Solver/MultipleSimulations.h
-        src/Solver/Estimator.h
-        src/Solver/Estimator.cpp
         src/SeisSol.h
         src/SeisSol.cpp
-        src/Main.cpp
         "
 
 

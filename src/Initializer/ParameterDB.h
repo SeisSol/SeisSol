@@ -19,9 +19,9 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 
+#include "GeneratedCode/init.h"
 #include "easi/Query.h"
 #include "easi/ResultAdapter.h"
-#include "generated_code/init.h"
 
 #include "Equations/Datastructures.h"
 
@@ -144,7 +144,7 @@ class MaterialParameterDB : ParameterDB {
 
 class FaultParameterDB : ParameterDB {
   public:
-  FaultParameterDB(std::size_t simulation) : simid(simulation) {}
+  explicit FaultParameterDB(std::size_t simulation) : simid(simulation) {}
   ~FaultParameterDB() override = default;
   void addParameter(const std::string& parameter, real* memory, unsigned stride = 1) {
     m_parameters[parameter] = std::make_pair(memory, stride);

@@ -37,11 +37,12 @@ enum BufferTags {
   Cells = 2,
   Vertices = 3,
   Clustering = 4,
-  Variables0 = 5,
-  LowCells = 6,
-  LowVertices = 7,
-  LowOutputFlags = 8,
-  LowVariables0 = 9,
+  GlobalIds = 5,
+  Variables0 = 6,
+  LowCells = 7,
+  LowVertices = 8,
+  LowOutputFlags = 9,
+  LowVariables0 = 10,
   BuffertagMax = LowVariables0
 };
 
@@ -76,10 +77,8 @@ class WaveFieldWriterExecutor {
   /** Flags indicating which low order variables should be written */
   const bool* m_lowOutputFlags{nullptr};
 
-#ifdef USE_MPI
   /** The MPI communicator for the XDMF writer */
   MPI_Comm m_comm{MPI_COMM_NULL};
-#endif // USE_MPI
 
   /** Stopwatch for the wave field backend */
   Stopwatch m_stopwatch;
@@ -130,7 +129,6 @@ class WaveFieldWriterExecutor {
       }
     }
 
-#ifdef USE_MPI
     // Split the communicator into two - those containing vertices and those
     //  not containing any vertices.
     const int commColour = (info.bufferSize(param.bufferIds[Cells]) == 0) ? 0 : 1;
@@ -139,20 +137,20 @@ class WaveFieldWriterExecutor {
     if (info.bufferSize(param.bufferIds[Cells]) != 0) {
       // Get the new rank
       MPI_Comm_rank(m_comm, &rank);
-#endif // USE_MPI
 
       // Initialize the I/O handler and write the mesh
       m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>(
           type, outputPrefix, param.timestep);
 
-#ifdef USE_MPI
       m_waveFieldWriter->setComm(m_comm);
-#endif // USE_MPI
       m_waveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
       const std::string extraIntVarName = "clustering";
       const auto vertexFilter = utils::Env("").get<bool>("SEISSOL_VERTEXFILTER", true);
-      m_waveFieldWriter->init(
-          variables, std::vector<const char*>(), extraIntVarName.c_str(), vertexFilter, true);
+      m_waveFieldWriter->init(variables,
+                              std::vector<const char*>(),
+                              {extraIntVarName, "global-id"},
+                              vertexFilter,
+                              true);
       m_waveFieldWriter->setMesh(
           info.bufferSize(param.bufferIds[Cells]) / (4 * sizeof(unsigned int)),
           static_cast<const unsigned int*>(info.buffer(param.bufferIds[Cells])),
@@ -161,6 +159,8 @@ class WaveFieldWriterExecutor {
           param.timestep != 0);
 
       setClusteringData(static_cast<const unsigned int*>(info.buffer(param.bufferIds[Clustering])));
+      m_waveFieldWriter->writeExtraIntCellData(
+          1, static_cast<const unsigned int*>(info.buffer(param.bufferIds[GlobalIds])));
       logInfo() << "High order output initialized";
 
       //
@@ -180,12 +180,10 @@ class WaveFieldWriterExecutor {
         m_lowWaveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>(
             type, (std::string(outputPrefix) + "-low").c_str());
 
-#ifdef USE_MPI
         m_lowWaveFieldWriter->setComm(m_comm);
-#endif // USE_MPI
         m_lowWaveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
 
-        m_lowWaveFieldWriter->init(lowVariables, std::vector<const char*>(), "", vertexFilter);
+        m_lowWaveFieldWriter->init(lowVariables, std::vector<const char*>(), {}, vertexFilter);
         m_lowWaveFieldWriter->setMesh(
             info.bufferSize(param.bufferIds[LowCells]) / (4 * sizeof(unsigned int)),
             static_cast<const unsigned int*>(info.buffer(param.bufferIds[LowCells])),
@@ -201,21 +199,17 @@ class WaveFieldWriterExecutor {
       m_variableBufferIds[1] = param.bufferIds[LowVariables0];
 
       logInfo() << "Initializing XDMF wave field output. Done.";
-#ifdef USE_MPI
     }
     // End the if statement
-#endif // USE_MPI
   }
 
   void setClusteringData(const unsigned* clustering) {
-    m_waveFieldWriter->writeExtraIntCellData(clustering);
+    m_waveFieldWriter->writeExtraIntCellData(0, clustering);
   }
 
   void exec(const async::ExecInfo& info, const WaveFieldParam& param) {
-#ifdef USE_MPI
     // Execute this function only if m_waveFieldWriter is initialized
     if (m_waveFieldWriter != nullptr) {
-#endif // USE_MPI
       m_stopwatch.start();
 
       // High order output
@@ -251,27 +245,18 @@ class WaveFieldWriterExecutor {
       }
 
       m_stopwatch.pause();
-#ifdef USE_MPI
     }
-#endif // USE_MPI
   }
 
   void finalize() {
     if (m_waveFieldWriter != nullptr) {
-      m_stopwatch.printTime("Time wave field writer backend:"
-#ifdef USE_MPI
-                            ,
-                            m_comm
-#endif // USE_MPI
-      );
+      m_stopwatch.printTime("Time wave field writer backend:");
     }
 
-#ifdef USE_MPI
     if (m_comm != MPI_COMM_NULL) {
       MPI_Comm_free(&m_comm);
       m_comm = MPI_COMM_NULL;
     }
-#endif // USE_MPI
 
     delete m_waveFieldWriter;
     m_waveFieldWriter = nullptr;

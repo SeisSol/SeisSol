@@ -39,43 +39,46 @@ const std::string Base64Pad = "=";
 const std::array<int, 256> FromBase64 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 template <int Count>
-void base64Convert(std::ostringstream& sstr, int dataPtr1, int dataPtr2, int dataPtr3) {
-  const int data = dataPtr1 | (dataPtr2 << 8) | (dataPtr3 << 16);
+void base64Convert(std::ostringstream& sstr,
+                   unsigned dataPtr1,
+                   unsigned dataPtr2,
+                   unsigned dataPtr3) {
+  const unsigned data = dataPtr1 | (dataPtr2 << 8U) | (dataPtr3 << 16U);
   if constexpr (Count > 0) {
-    const auto data1 = data & 0x3f;
+    const auto data1 = data & 0x3fU;
     sstr << Base64[data1];
   }
   if constexpr (Count > 1) {
-    const auto data2 = (data >> 6) & 0x3f;
+    const auto data2 = (data >> 6U) & 0x3fU;
     sstr << Base64[data2];
   }
   if constexpr (Count > 2) {
-    const auto data3 = (data >> 12) & 0x3f;
+    const auto data3 = (data >> 12U) & 0x3fU;
     sstr << Base64[data3];
   }
   if constexpr (Count > 3) {
-    const auto data4 = (data >> 18) & 0x3f;
+    const auto data4 = (data >> 18U) & 0x3fU;
     sstr << Base64[data4];
   }
 }
 
 template <int Count>
 void base64Revert(const std::string& idata, std::size_t ipos, char* odata, std::size_t opos) {
-  const auto idata1 = FromBase64[idata[ipos]];
-  const auto idata2 = FromBase64[idata[ipos + 1]];
-  const auto idata3 = FromBase64[idata[ipos + 2]];
-  const auto idata4 = FromBase64[idata[ipos + 3]];
-  const int idataNumber = idata1 | (idata2 << 6) | (idata3 << 12) | (idata4 << 18);
+  const unsigned idata1 = FromBase64[idata[ipos]];
+  const unsigned idata2 = FromBase64[idata[ipos + 1]];
+  const unsigned idata3 = FromBase64[idata[ipos + 2]];
+  const unsigned idata4 = FromBase64[idata[ipos + 3]];
+  const unsigned idataNumber = idata1 | (idata2 << 6U) | (idata3 << 12U) | (idata4 << 18U);
   if constexpr (Count > 0) {
-    const auto data = idataNumber & 0xff;
+    const auto data = idataNumber & 0xffU;
     odata[opos] = data;
   }
   if constexpr (Count > 1) {
-    const auto data = (idataNumber >> 8) & 0xff;
+    const auto data = (idataNumber >> 8U) & 0xffU;
     odata[opos + 1] = data;
   }
   if constexpr (Count > 2) {
-    const auto data = (idataNumber >> 16) & 0xff;
+    const auto data = (idataNumber >> 16U) & 0xffU;
     odata[opos + 2] = data;
   }
 }
@@ -286,7 +289,7 @@ StructDatatype::StructDatatype(const std::vector<MemberInfo>& members)
     : StructDatatype(members, minSize(members)) {}
 
 StructDatatype::StructDatatype(const std::vector<MemberInfo>& members, std::size_t size)
-    : membersP(members), sizeP(size) {
+    : sizeP(size), membersP(members) {
   assert(size >= minSize(members));
 }
 

@@ -27,7 +27,7 @@ class SeisSol;
 namespace seissol::geometry {
 
 struct GhostElementMetadata {
-  double vertices[4][3];
+  double vertices[Cell::NumVertices][Cell::Dim];
   int group;
   LocalElemId localId;
   GlobalElemId globalId;
@@ -64,7 +64,7 @@ class MeshReader {
   /** Has a plus fault side */
   bool m_hasPlusFault{false};
 
-  MeshReader(int rank);
+  explicit MeshReader(int rank);
 
   public:
   virtual ~MeshReader();

@@ -8,11 +8,12 @@
 
 #include "Runner.h"
 
-#include "Kernel.h"
+#include "GeneratedCode/kernel.h"
 #include "KernelDevice.h"
 #include "KernelHost.h"
 #include <Kernels/Common.h>
 #include <Parallel/Runtime/Stream.h>
+#include <Proxy/Kernel.h>
 #include <cstddef>
 #include <iostream>
 #include <memory>
@@ -109,7 +110,7 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   total = sec(startTime, endTime);
 #ifdef __USE_RDTSC
   std::cout << "Cycles via __rdtsc()" << std::endl;
-  totalCycles = (double)(cyclesEnd - cyclesStart);
+  totalCycles = static_cast<double>(cyclesEnd - cyclesStart);
 #else
   totalCycles = derive_cycles_from_time(total);
 #endif

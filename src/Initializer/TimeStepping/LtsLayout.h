@@ -17,6 +17,7 @@
 
 #include "Initializer/Parameters/SeisSolParameters.h"
 
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <array>
 #include <cassert>
 #include <limits>
@@ -51,7 +52,7 @@ class seissol::initializer::time_stepping::LtsLayout {
     std::vector<double> m_globalTimeStepWidths;
 
     //! time step rates of all clusters
-    std::vector<unsigned int> m_globalTimeStepRates;
+    std::vector<uint64_t> m_globalTimeStepRates;
 
     //! mpi tags used for communication
     enum mpiTag {
@@ -83,9 +84,6 @@ class seissol::initializer::time_stepping::LtsLayout {
 
     //! number of ghost cells per rank
     unsigned int *m_numberOfPlainGhostCells;
-
-    //! cluster ids of the cells in the ghost layer
-    unsigned int **m_plainGhostCellClusterIds;
 
     //! face ids of interior dr faces
     std::vector< std::vector<int> > m_dynamicRupturePlainInterior;
@@ -210,20 +208,6 @@ class seissol::initializer::time_stepping::LtsLayout {
      *   vector containing the cell ids in the neighboring computational domain is derived.
      **/
     void normalizeMpiIndices();
-
-    /**
-     * Normalizes the clustering.
-     **/
-    void normalizeClustering();
-
-    /**
-     * Gets the maximum possible speedups.
-     *
-     * @param o_perCellTimeStepWidths maximum possible speedup, when every cell is allowed to do an individual time step width.
-     * @param o_clustering maximum possible speedup with the derived clustering strategy.
-     **/
-    void getTheoreticalSpeedup( double &o_perCellTimeStepWidths,
-                                double &o_clustering );
 
     /**
      * Sorts a clustered copy region neighboring to a copy region in GTS fashion.
@@ -405,15 +389,7 @@ class seissol::initializer::time_stepping::LtsLayout {
      * @param i_timeClustering clustering strategy.
      * @param i_clusterRate cluster rate in the case of a multi-rate scheme.
      **/
-    void deriveLayout( enum TimeClustering i_timeClustering,
-                       unsigned int        i_clusterRate = std::numeric_limits<unsigned int>::max() );
-
-    /**
-     * Gets the cross-cluster time stepping information.
-     *
-     * @param o_timeStepping cross-cluster time stepping information.
-     **/
-    void getCrossClusterTimeStepping( struct TimeStepping &o_timeStepping );
+    void deriveLayout(  );
 
     /**
      * Initializes the data structures required for computation.
@@ -430,8 +406,8 @@ class seissol::initializer::time_stepping::LtsLayout {
      **/
     void getCellInformation( CellLocalInformation* io_cellLocalInformation,
                              SecondaryCellLocalInformation* secondaryInformation,
-                             unsigned int         *&o_ltsToMesh,
-                             unsigned int          &o_numberOfMeshCells );
+                             std::size_t         *&o_ltsToMesh,
+                             std::size_t          &o_numberOfMeshCells );
 
     void getDynamicRuptureInformation(  unsigned*&  ltsToFace,
                                         unsigned*&  numberOfDRCopyFaces,

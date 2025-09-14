@@ -23,13 +23,12 @@ class YoffeSTF {
 
   public:
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup,
-                          real fullUpdateTime);
+                          const seissol::initializer::DynamicRupture* dynRup);
 
   real evaluate(real currentTime,
                 [[maybe_unused]] real timeIncrement,
                 size_t ltsFace,
-                size_t pointIndex);
+                uint32_t pointIndex);
 };
 
 class GaussianSTF {
@@ -39,10 +38,9 @@ class GaussianSTF {
 
   public:
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup,
-                          real fullUpdateTime);
+                          const seissol::initializer::DynamicRupture* dynRup);
 
-  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex);
+  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, uint32_t pointIndex);
 };
 
 class DeltaSTF {
@@ -51,10 +49,9 @@ class DeltaSTF {
 
   public:
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup,
-                          real fullUpdateTime);
+                          const seissol::initializer::DynamicRupture* dynRup);
 
-  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex);
+  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, uint32_t pointIndex);
 };
 
 } // namespace seissol::dr::friction_law::cpu

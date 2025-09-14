@@ -15,11 +15,11 @@
 #include <Eigen/Dense>
 #include <yateto.h>
 
+#include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
-#include "generated_code/init.h"
 
 namespace seissol::model {
 
@@ -334,7 +334,7 @@ struct MaterialSetup<PoroElasticMaterial> {
   }
 
   static void initializeSpecificLocalData(const PoroElasticMaterial& material,
-                                          real timeStepWidth,
+                                          double timeStepWidth,
                                           PoroelasticLocalData* localData) {
     auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
     sourceMatrix.setZero();
@@ -371,7 +371,7 @@ struct MaterialSetup<PoroElasticMaterial> {
         normal, tangent1, tangent2, matTinv, origin, origin);
   }
 
-  static PoroElasticMaterial getRotatedMaterialCoefficients(real rotationParameters[36],
+  static PoroElasticMaterial getRotatedMaterialCoefficients(double rotationParameters[36],
                                                             PoroElasticMaterial& material) {
     return material;
   }

@@ -86,9 +86,9 @@ seissol::refinement::TetrahedronRefiner<double>*
 const unsigned*
     seissol::writer::WaveFieldWriter::adjustOffsets(refinement::MeshRefiner<double>* meshRefiner) {
   const unsigned* constCells = nullptr;
-// Cells are a bit complicated because the vertex filter will now longer work if we just use the
-// buffer We will add the offset later
-#ifdef USE_MPI
+  // Cells are a bit complicated because the vertex filter will now longer work if we just use the
+  // buffer We will add the offset later
+
   // Add the offset to the cells
   MPI_Comm groupComm = seissolInstance.asyncIO().groupComm();
   unsigned int offset = meshRefiner->getNumVertices();
@@ -101,9 +101,6 @@ const unsigned*
     cells[i] = meshRefiner->getCellData()[i] + offset;
   }
   constCells = cells;
-#else  // USE_MPI
-  const_cells = meshRefiner->getCellData();
-#endif // USE_MPI
   return constCells;
 }
 
@@ -133,10 +130,11 @@ void seissol::writer::WaveFieldWriter::init(
     int numAlignedDOF,
     const seissol::geometry::MeshReader& meshReader,
     const std::vector<unsigned>& ltsClusteringData,
+    const std::vector<unsigned>& ltsIdData,
     const real* dofs,
     const real* pstrain,
     const real* integrals,
-    const unsigned int* map,
+    const std::size_t* map,
     const seissol::initializer::parameters::WaveFieldOutputParameters& parameters,
     xdmfwriter::BackendType backend,
     const std::string& backupTimeStamp) {
@@ -305,6 +303,10 @@ void seissol::writer::WaveFieldWriter::init(
       generateRefinedClusteringData(meshRefiner, ltsClusteringData, newToOldCellMap);
   param.bufferIds[Clustering] = addSyncBuffer(refinedClusteringData.data(),
                                               meshRefiner->getNumCells() * sizeof(unsigned int));
+  std::vector<unsigned int> refinedIdData =
+      generateRefinedClusteringData(meshRefiner, ltsIdData, newToOldCellMap);
+  param.bufferIds[GlobalIds] =
+      addSyncBuffer(refinedIdData.data(), meshRefiner->getNumCells() * sizeof(unsigned int));
 
   // Create data buffers
   bool first = false;
@@ -409,10 +411,8 @@ void seissol::writer::WaveFieldWriter::init(
   // Remove the low mesh refiner if it was setup
   delete pLowMeshRefiner;
 
-#ifdef USE_MPI
   delete[] constCells;
   delete[] constLowCells;
-#endif // USE_MPI
 
   // Save dof/map pointer
   m_dofs = dofs;

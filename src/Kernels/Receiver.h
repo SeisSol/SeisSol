@@ -9,18 +9,20 @@
 #ifndef SEISSOL_SRC_KERNELS_RECEIVER_H_
 #define SEISSOL_SRC_KERNELS_RECEIVER_H_
 
+#include "GeneratedCode/init.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/PointMapper.h"
 #include "Kernels/Interface.h"
-#include "Kernels/Time.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Lut.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
-#include "generated_code/init.h"
 #include <Common/Executor.h>
 #include <Eigen/Dense>
+#include <Initializer/Typedefs.h>
+#include <Parallel/Runtime/Stream.h>
 #include <optional>
 #include <vector>
 
@@ -74,9 +76,9 @@ struct ReceiverStrain : public DerivedReceiverQuantity {
 
 class ReceiverCluster {
   public:
-  ReceiverCluster(seissol::SeisSol& seissolInstance);
+  explicit ReceiverCluster(seissol::SeisSol& seissolInstance);
 
-  ReceiverCluster(const GlobalData* global,
+  ReceiverCluster(const CompoundGlobalData& global,
                   const std::vector<unsigned>& quantities,
                   double samplingInterval,
                   double syncPointInterval,
@@ -91,8 +93,11 @@ class ReceiverCluster {
                    seissol::initializer::LTS const& lts);
 
   //! Returns new receiver time
-  double calcReceivers(
-      double time, double expansionPoint, double timeStepWidth, Executor executor, void* stream);
+  double calcReceivers(double time,
+                       double expansionPoint,
+                       double timeStepWidth,
+                       Executor executor,
+                       parallel::runtime::StreamRuntime& runtime);
 
   std::vector<Receiver>::iterator begin() { return m_receivers.begin(); }
 
@@ -104,13 +109,15 @@ class ReceiverCluster {
   void freeData();
 
   private:
-  std::unique_ptr<seissol::parallel::DataCollector> deviceCollector{nullptr};
+  std::optional<parallel::runtime::StreamRuntime> extraRuntime;
+  std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollector{nullptr};
   std::vector<size_t> deviceIndices;
   std::vector<Receiver> m_receivers;
-  seissol::kernels::Time m_timeKernel;
+  seissol::kernels::Spacetime spacetimeKernel;
+  seissol::kernels::Time timeKernel;
   std::vector<unsigned> m_quantities;
-  unsigned m_nonZeroFlops{};
-  unsigned m_hardwareFlops{};
+  std::uint64_t m_nonZeroFlops{};
+  std::uint64_t m_hardwareFlops{};
   double m_samplingInterval;
   double m_syncPointInterval;
   std::vector<std::shared_ptr<DerivedReceiverQuantity>> derivedQuantities;

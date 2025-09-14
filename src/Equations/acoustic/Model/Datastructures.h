@@ -11,9 +11,10 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_DATASTRUCTURES_H_
 #define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_DATASTRUCTURES_H_
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
 #include "Model/CommonDatastructures.h"
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
+#include <Kernels/LinearCK/Solver.h>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -28,16 +29,21 @@ struct AcousticMaterial : public Material {
   static constexpr std::size_t NumQuantities = 4;
   static constexpr std::size_t NumElasticQuantities = 4;
   static constexpr std::size_t NumberPerMechanism = 0;
+  static constexpr std::size_t TractionQuantities = 1;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Acoustic;
-  static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
   static inline const std::string Text = "acoustic";
   // The stress-velocity formulation of the elastic model is reused.
   // By definition, the normal stress and pressure are negatives of each other.
   static inline const std::array<std::string, NumQuantities> Quantities = {"-p", "v1", "v2", "v3"};
+  static constexpr std::size_t Parameters = 1 + Material::Parameters;
+
+  static constexpr bool SupportsDR = false;
+  static constexpr bool SupportsLTS = true;
 
   using LocalSpecificData = AcousticLocalData;
   using NeighborSpecificData = AcousticNeighborData;
+  using Solver = kernels::solver::linearck::Solver;
 
   double lambda;
 
@@ -75,6 +81,8 @@ struct AcousticMaterial : public Material {
   [[nodiscard]] double getSWaveSpeed() const override { return 0.0; }
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
+
+  void setLameParameters(double mu, double lambda) override { this->lambda = lambda; }
 };
 } // namespace seissol::model
 

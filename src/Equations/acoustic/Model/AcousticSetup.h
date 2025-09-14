@@ -11,11 +11,11 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_
 #define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_
 
+#include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
-#include "generated_code/init.h"
 #include <Equations/acoustic/Model/Datastructures.h>
 #include <Equations/acoustic/Model/IntegrationData.h>
 
@@ -28,7 +28,7 @@ struct MaterialSetup<AcousticMaterial> {
   static void getTransposedCoefficientMatrix(const AcousticMaterial& material, unsigned dim, T& M) {
     M.setZero();
 
-    real rhoInv = 1.0 / material.rho;
+    const double rhoInv = 1.0 / material.rho;
 
     switch (dim) {
     case 0:
@@ -97,12 +97,12 @@ struct MaterialSetup<AcousticMaterial> {
     }
   }
 
-  static AcousticMaterial getRotatedMaterialCoefficients(real rotationParameters[36],
+  static AcousticMaterial getRotatedMaterialCoefficients(double rotationParameters[36],
                                                          AcousticMaterial& material) {
     return material;
   }
   static void initializeSpecificLocalData(const AcousticMaterial& material,
-                                          real timeStepWidth,
+                                          double timeStepWidth,
                                           AcousticLocalData* localData) {}
 
   static void initializeSpecificNeighborData(const AcousticMaterial& material,

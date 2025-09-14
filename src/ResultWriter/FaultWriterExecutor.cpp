@@ -31,15 +31,13 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo& info,
   const unsigned int nCells = info.bufferSize(Cells) / (3 * sizeof(int));
   const unsigned int nVertices = info.bufferSize(Vertices) / (3 * sizeof(double));
 
-#ifdef USE_MPI
   MPI_Comm_split(seissol::MPI::mpi.comm(), (nCells > 0 ? 0 : MPI_UNDEFINED), 0, &m_comm);
-#endif // USE_MPI
+
+  m_enabled = true;
 
   if (nCells > 0) {
     int rank = 0;
-#ifdef USE_MPI
     MPI_Comm_rank(m_comm, &rank);
-#endif // USE_MPI
 
     std::string outputName(static_cast<const char*>(info.buffer(OutputPrefix)));
     outputName += "-fault";
@@ -56,18 +54,19 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo& info,
     m_xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>(
         param.backend, outputName.c_str(), param.timestep);
 
-#ifdef USE_MPI
     m_xdmfWriter->setComm(m_comm);
-#endif // USE_MPI
     m_xdmfWriter->setBackupTimeStamp(param.backupTimeStamp);
     const auto vertexFilter = utils::Env("").get<bool>("SEISSOL_VERTEXFILTER", true);
-    m_xdmfWriter->init(variables, std::vector<const char*>(), "fault-tag", vertexFilter, true);
+    m_xdmfWriter->init(
+        variables, std::vector<const char*>(), {"fault-tag", "global-id"}, vertexFilter, true);
     m_xdmfWriter->setMesh(nCells,
                           static_cast<const unsigned int*>(info.buffer(Cells)),
                           nVertices,
                           static_cast<const double*>(info.buffer(Vertices)),
                           param.timestep != 0);
     setFaultTagsData(static_cast<const unsigned int*>(info.buffer(FaultTags)));
+    m_xdmfWriter->writeExtraIntCellData(1,
+                                        static_cast<const unsigned int*>(info.buffer(GlobalIds)));
 
     logInfo() << "Initializing XDMF fault output. Done.";
   }

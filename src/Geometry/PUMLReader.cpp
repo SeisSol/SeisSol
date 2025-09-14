@@ -7,6 +7,7 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "Geometry/MeshDefinition.h"
+#include <Common/Constants.h>
 #include <Common/Iterator.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/Parameters/MeshParameters.h>
@@ -195,9 +196,7 @@ void PUMLReader::read(PUML::TETPUML& puml, const char* meshFile) {
   const size_t localCells = puml.numOriginalCells();
   size_t localStart = 0;
 
-#ifdef USE_MPI
   MPI_Exscan(&localCells, &localStart, 1, PUML::MPITypeInfer<size_t>::type(), MPI_SUM, puml.comm());
-#endif
 
   std::vector<size_t> cellIdsAsInFile(localCells);
   std::iota(cellIdsAsInFile.begin(), cellIdsAsInFile.end(), localStart);
@@ -224,7 +223,6 @@ void PUMLReader::partition(PUML::TETPUML& puml,
   auto graph = PUML::TETPartitionGraph(puml);
   graph.setVertexWeights(ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex());
 
-#ifdef USE_MPI
   auto nodeWeights = std::vector<double>(MPI::mpi.size());
   MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights.data(), 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
   double sum = 0.0;
@@ -234,9 +232,6 @@ void PUMLReader::partition(PUML::TETPUML& puml,
   for (auto& w : nodeWeights) {
     w /= sum;
   }
-#else
-  auto nodeWeights = std::vector<double>{1.0};
-#endif
 
   auto target = PUML::PartitionTarget{};
   target.setVertexWeights(nodeWeights);
@@ -288,11 +283,11 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
         puml, cells[i], reinterpret_cast<unsigned int*>(m_elements[i].vertices));
 
     // Neighbor information
-    unsigned int faceids[4];
+    unsigned int faceids[Cell::NumFaces];
     PUML::Downward::faces(puml, cells[i], faceids);
-    int neighbors[4];
+    int neighbors[Cell::NumFaces];
     PUML::Neighbor::face(puml, i, neighbors);
-    for (int j = 0; j < 4; j++) {
+    for (std::size_t j = 0; j < Cell::NumFaces; j++) {
       int bcCurrentFace = decodeBoundary(boundaryCond, i, j, boundaryFormat);
       const bool isLocallyCorrect = checkMeshCorrectnessLocally(
           faces[faceids[j]], neighbors, j, bcCurrentFace, cellIdsAsInFile[i]);
@@ -314,9 +309,9 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
 
         m_elements[i].neighbors[PumlFaceToSeisSol[j]] = neighbors[j];
 
-        int nfaces[4];
+        int nfaces[Cell::NumFaces];
         PUML::Neighbor::face(puml, neighbors[j], nfaces);
-        int* back = std::find(nfaces, nfaces + 4, i);
+        int* back = std::find(nfaces, nfaces + Cell::NumFaces, i);
         assert(back < nfaces + 4);
 
         m_elements[i].neighborSides[PumlFaceToSeisSol[j]] = PumlFaceToSeisSol[back - nfaces];
@@ -324,9 +319,10 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
         const unsigned int firstVertex =
             m_elements[i].vertices[FirstFaceVertex[PumlFaceToSeisSol[j]]];
 
-        unsigned int nvertices[4];
+        unsigned int nvertices[Cell::NumVertices];
         PUML::Downward::vertices(puml, cells[neighbors[j]], nvertices);
-        unsigned int* neighborFirstVertex = std::find(nvertices, nvertices + 4, firstVertex);
+        unsigned int* neighborFirstVertex =
+            std::find(nvertices, nvertices + Cell::NumVertices, firstVertex);
 
         m_elements[i].sideOrientations[PumlFaceToSeisSol[j]] =
             FaceVertexToOrientation[m_elements[i].neighborSides[PumlFaceToSeisSol[j]]]
@@ -403,8 +399,8 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
       // The side of boundary
       int cellIds[2];
       PUML::Upward::cells(puml, faces[info.second[i]], cellIds);
-      const int side = PUML::Downward::faceSide(puml, cells[cellIds[0]], info.second[i]);
-      assert(side >= 0 && side < 4);
+      const auto side = PUML::Downward::faceSide(puml, cells[cellIds[0]], info.second[i]);
+      assert(side >= 0 && side < Cell::NumFaces);
       copySide[k][i] = side;
 
       // First vertex of the face on the boundary
@@ -445,15 +441,17 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
       PUML::Upward::cells(puml, faces[info.second[i]], cellIds);
       assert(cellIds[1] < 0);
 
-      const int side = copySide[k][i];
-      const int gSide = ghostSide[k][i];
+      // the linters demanded a double cast here
+      const auto side = static_cast<std::size_t>(static_cast<unsigned char>(copySide[k][i]));
+      const auto gSide = static_cast<std::size_t>(static_cast<unsigned char>(ghostSide[k][i]));
       m_elements[cellIds[0]].neighborSides[PumlFaceToSeisSol[side]] = PumlFaceToSeisSol[gSide];
 
       // Set side sideOrientation
-      unsigned long nvertices[4];
+      unsigned long nvertices[Cell::NumVertices];
       PUML::Downward::gvertices(puml, cells[cellIds[0]], nvertices);
 
-      unsigned long* localFirstVertex = std::find(nvertices, nvertices + 4, ghostFirstVertex[k][i]);
+      unsigned long* localFirstVertex =
+          std::find(nvertices, nvertices + Cell::NumVertices, ghostFirstVertex[k][i]);
       assert(localFirstVertex != nvertices + 4);
 
       m_elements[cellIds[0]].sideOrientations[PumlFaceToSeisSol[side]] =
@@ -465,7 +463,7 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
   // Set vertices
   m_vertices.resize(vertices.size());
   for (std::size_t i = 0; i < vertices.size(); i++) {
-    memcpy(m_vertices[i].coords, vertices[i].coordinate(), 3 * sizeof(double));
+    memcpy(m_vertices[i].coords, vertices[i].coordinate(), Cell::Dim * sizeof(double));
 
     PUML::Upward::cells(puml, vertices[i], m_vertices[i].elements);
   }

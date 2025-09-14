@@ -14,7 +14,7 @@
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 
-#include "generated_code/init.h"
+#include "GeneratedCode/init.h"
 #include <Equations/viscoelastic2/Model/Datastructures.h>
 #include <Equations/viscoelastic2/Model/IntegrationData.h>
 #include <yateto.h>
@@ -28,7 +28,7 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
 
   template <typename T>
   static void
-      getTransposedViscoelasticCoefficientMatrix(real omega, unsigned dim, unsigned mech, T& M) {
+      getTransposedViscoelasticCoefficientMatrix(double omega, unsigned dim, unsigned mech, T& M) {
     unsigned col = 9 + mech * 6;
     switch (dim) {
     case 0:
@@ -152,7 +152,7 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
   }
 
   static void initializeSpecificLocalData(const MaterialT& material,
-                                          real timeStepWidth,
+                                          double timeStepWidth,
                                           ViscoElasticLocalData* localData) {
     auto E = init::E::view::create(localData->E);
     E.setZero();
@@ -192,7 +192,7 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
                                                              MaterialT::NumElasticQuantities);
   }
 
-  static MaterialT getRotatedMaterialCoefficients(real rotationParameters[36],
+  static MaterialT getRotatedMaterialCoefficients(double rotationParameters[36],
                                                   MaterialT& material) {
     return material;
   }

@@ -10,6 +10,7 @@
 
 #include "AsagiModule.h"
 #include "Parallel/Helper.h"
+#include "Parallel/OpenMP.h"
 #include "utils/env.h"
 #include <Modules/Modules.h>
 #include <Parallel/MPI.h>
@@ -17,10 +18,6 @@
 #include <memory>
 #include <string>
 #include <utils/logger.h>
-
-#ifdef _OPENMP
-#include <omp.h>
-#endif // _OPENMP
 
 namespace seissol::asagi {
 
@@ -41,6 +38,7 @@ AsagiModule::AsagiModule(utils::Env& env)
 }
 
 AsagiMPIMode AsagiModule::getMPIMode(utils::Env& env) {
+  // USE_MPI kept on purpose
 #ifdef USE_MPI
   const std::string mpiModeName = env.get(EnvMpiMode, "WINDOWS");
   if (mpiModeName == "WINDOWS") {
@@ -60,14 +58,10 @@ AsagiMPIMode AsagiModule::getMPIMode(utils::Env& env) {
 }
 
 int AsagiModule::getTotalThreads(utils::Env& env) {
-  int totalThreads = 1;
-
-#ifdef _OPENMP
-  totalThreads = omp_get_max_threads();
+  int totalThreads = OpenMP::threadCount();
   if (seissol::useCommThread(seissol::MPI::mpi, env)) {
     totalThreads++;
   }
-#endif // _OPENMP
 
   return totalThreads;
 }
@@ -95,17 +89,13 @@ void AsagiModule::postMPIInit() {
 }
 
 void AsagiModule::preModel() {
-#ifdef USE_MPI
   // TODO check if ASAGI is required for model setup
   ::asagi::Grid::startCommThread();
-#endif // USE_MPI
 }
 
 void AsagiModule::postModel() {
-#ifdef USE_MPI
   // TODO check if ASAGI is required for model setup
   ::asagi::Grid::stopCommThread();
-#endif // USE_MPI
 }
 
 void AsagiModule::initInstance(utils::Env& env) {

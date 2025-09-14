@@ -11,6 +11,7 @@
 #include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
 #include "Kernels/Precision.h"
+#include <Alignment.h>
 #include <Common/Executor.h>
 
 namespace seissol::dr {

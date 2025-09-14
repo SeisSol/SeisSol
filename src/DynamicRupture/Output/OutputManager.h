@@ -12,6 +12,8 @@
 #include "DynamicRupture/Output/Builders/PickPointBuilder.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include <DynamicRupture/Output/DataTypes.h>
+#include <Parallel/Runtime/Stream.h>
 #include <memory>
 
 namespace seissol {
@@ -34,7 +36,7 @@ class OutputManager {
 
   void init();
   void initFaceToLtsMap();
-  void writePickpointOutput(double time, double dt);
+  void writePickpointOutput(double time, double dt, parallel::runtime::StreamRuntime& runtime);
   void flushPickpointDataToFile();
   void updateElementwiseOutput();
 
@@ -52,6 +54,15 @@ class OutputManager {
   std::shared_ptr<ReceiverOutputData> ewOutputData{nullptr};
   std::shared_ptr<ReceiverOutputData> ppOutputData{nullptr};
 
+  struct PickpointFile {
+    std::string fileName;
+
+    // all receivers to be printed into this file
+    std::vector<std::size_t> indices;
+  };
+
+  std::vector<PickpointFile> ppFiles;
+
   seissol::initializer::LTS* wpDescr{nullptr};
   seissol::initializer::LTSTree* wpTree{nullptr};
   seissol::initializer::Lut* wpLut{nullptr};
@@ -67,6 +78,8 @@ class OutputManager {
   std::string backupTimeStamp{};
 
   std::unique_ptr<ReceiverOutput> impl{nullptr};
+
+  parallel::runtime::StreamRuntime runtime;
 };
 } // namespace dr::output
 } // namespace seissol

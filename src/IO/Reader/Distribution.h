@@ -21,7 +21,7 @@ class Distributor {
   public:
   class DistributionInstance {
 public:
-    DistributionInstance(const std::function<void()>& completion);
+    explicit DistributionInstance(const std::function<void()>& completion);
     void complete();
 
 private:
@@ -29,7 +29,7 @@ private:
     std::function<void()> completion;
   };
 
-  Distributor(MPI_Comm comm);
+  explicit Distributor(MPI_Comm comm);
 
   void setup(const std::vector<std::size_t>& sourceIds, const std::vector<std::size_t>& targetIds);
 

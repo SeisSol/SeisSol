@@ -10,36 +10,44 @@
 
 #include "Model/CommonDatastructures.h"
 #include <Kernels/Precision.h>
+#include <Solver/MultipleSimulations.h>
 #include <cmath>
 #include <string>
 
 namespace seissol::model {
-// plasticity information per cell
+// plasticity information per cell. In case of multiple simulations, it contains data of all
+// simulations
+
 struct PlasticityData {
   // initial loading (stress tensor)
-  real initialLoading[6];
-  real cohesionTimesCosAngularFriction;
-  real sinAngularFriction;
-  real mufactor;
+  real initialLoading[6 * seissol::multisim::NumSimulations];
+  real cohesionTimesCosAngularFriction[seissol::multisim::NumSimulations];
+  real sinAngularFriction[seissol::multisim::NumSimulations];
+  real mufactor; // Only dependent on mu which is to be constant for all simulations
 
-  PlasticityData(const Plasticity& plasticity, const Material* material) {
-    initialLoading[0] = plasticity.sXX;
-    initialLoading[1] = plasticity.sYY;
-    initialLoading[2] = plasticity.sZZ;
-    initialLoading[3] = plasticity.sXY;
-    initialLoading[4] = plasticity.sYZ;
-    initialLoading[5] = plasticity.sXZ;
+  PlasticityData(const std::array<Plasticity, seissol::multisim::NumSimulations>& plasticity,
+                 const Material* material) {
+    for (std::size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
+      // interleave these so that the kernel does not need any modifications
+      initialLoading[0 * seissol::multisim::NumSimulations + i] = plasticity[i].sXX;
+      initialLoading[1 * seissol::multisim::NumSimulations + i] = plasticity[i].sYY;
+      initialLoading[2 * seissol::multisim::NumSimulations + i] = plasticity[i].sZZ;
+      initialLoading[3 * seissol::multisim::NumSimulations + i] = plasticity[i].sXY;
+      initialLoading[4 * seissol::multisim::NumSimulations + i] = plasticity[i].sYZ;
+      initialLoading[5 * seissol::multisim::NumSimulations + i] = plasticity[i].sXZ;
 
-    const double angularFriction = std::atan(plasticity.bulkFriction);
+      const double angularFriction = std::atan(plasticity[i].bulkFriction);
 
-    cohesionTimesCosAngularFriction = plasticity.plastCo * std::cos(angularFriction);
-    sinAngularFriction = std::sin(angularFriction);
-
-    mufactor = 1.0 / (2.0 * material->getMuBar());
+      cohesionTimesCosAngularFriction[i] = plasticity[i].plastCo * std::cos(angularFriction);
+      sinAngularFriction[i] = std::sin(angularFriction);
+    }
+    const auto mubar = material->getMuBar();
+    mufactor = 1.0 / (2.0 * mubar);
   }
 
   static constexpr std::size_t NumQuantities = 7;
   static constexpr std::size_t NumberPerMechanism = 0;
+  static constexpr std::size_t Parameters = 9;
   static const inline std::string Text = "plasticity";
   static inline const std::array<std::string, NumQuantities> Quantities = {
       "ep_xx", "ep_yy", "ep_zz", "ep_xy", "ep_yz", "ep_xz", "eta"};

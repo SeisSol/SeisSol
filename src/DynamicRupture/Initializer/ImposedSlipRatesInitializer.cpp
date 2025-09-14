@@ -21,6 +21,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <utils/logger.h>
@@ -46,8 +47,8 @@ void ImposedSlipRatesInitializer::initializeFault(
     // First read slip in strike/dip direction. Later we will rotate this to the face aligned
     // coordinate system.
     using VectorOfArraysT = std::vector<std::array<real, misc::NumPaddedPoints>>;
-    VectorOfArraysT strikeSlip(layer.getNumberOfCells());
-    VectorOfArraysT dipSlip(layer.getNumberOfCells());
+    VectorOfArraysT strikeSlip(layer.size());
+    VectorOfArraysT dipSlip(layer.size());
     parameterToStorageMap.insert({"strike_slip", strikeSlip.data()->data()});
     parameterToStorageMap.insert({"dip_slip", dipSlip.data()->data()});
     parameterToStorageMap.insert({"rupture_onset", reinterpret_cast<real*>(onsetTime)});
@@ -68,18 +69,31 @@ void ImposedSlipRatesInitializer::initializeFault(
     rotateSlipToFaultCS(
         dynRup, layer, strikeSlip, dipSlip, imposedSlipDirection1, imposedSlipDirection2);
 
-    auto* nucleationStressInFaultCS = layer.var(dynRup->nucleationStressInFaultCS);
     auto* initialStressInFaultCS = layer.var(dynRup->initialStressInFaultCS);
-
-    // Set initial and nucleation stress to zero, these are not needed for this FL
-    for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
-      for (unsigned int dim = 0; dim < 6; ++dim) {
-        for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    auto* initialPressure = layer.var(dynRup->initialPressure);
+    for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+        for (unsigned int dim = 0; dim < 6; ++dim) {
           initialStressInFaultCS[ltsFace][dim][pointIndex] = 0;
-          nucleationStressInFaultCS[ltsFace][dim][pointIndex] = 0;
+        }
+        initialPressure[ltsFace][pointIndex] = 0;
+      }
+    }
+
+    for (unsigned i = 0; i < drParameters->nucleationCount; ++i) {
+      auto* nucleationStressInFaultCS = layer.var(dynRup->nucleationStressInFaultCS[i]);
+      auto* nucleationPressure = layer.var(dynRup->nucleationPressure[i]);
+      for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+        for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+          for (unsigned int dim = 0; dim < 6; ++dim) {
+            nucleationStressInFaultCS[ltsFace][dim][pointIndex] = 0;
+          }
+          nucleationPressure[ltsFace][pointIndex] = 0;
         }
       }
     }
+
+    // Set initial and nucleation stress to zero, these are not needed for this FL
 
     fixInterpolatedSTFParameters(dynRup, layer);
 
@@ -94,9 +108,9 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
     const std::vector<std::array<real, misc::NumPaddedPoints>>& dipSlip,
     real (*imposedSlipDirection1)[misc::NumPaddedPoints],
     real (*imposedSlipDirection2)[misc::NumPaddedPoints]) {
-  for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+  for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
     const auto& drFaceInformation = layer.var(dynRup->faceInformation);
-    const unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
+    const auto meshFace = drFaceInformation[ltsFace].meshFace;
     const Fault& fault = seissolInstance.meshReader().getFault().at(meshFace);
 
     VrtxCoords strikeVector{};
@@ -109,7 +123,7 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
     MeshTools::cross(strikeVector, fault.tangent1, crossProduct);
     const real scalarProduct = MeshTools::dot(crossProduct, fault.normal);
     const real sin = std::sqrt(1 - cos * cos) * std::copysign(1.0, scalarProduct);
-    for (size_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       imposedSlipDirection1[ltsFace][pointIndex] =
           cos * strikeSlip[ltsFace][pointIndex] + sin * dipSlip[ltsFace][pointIndex];
       imposedSlipDirection2[ltsFace][pointIndex] =
@@ -143,8 +157,8 @@ void ImposedSlipRatesYoffeInitializer::fixInterpolatedSTFParameters(
   real(*tauR)[misc::NumPaddedPoints] = layer.var(concreteLts->tauR);
   // ensure that tauR is larger than tauS and that tauS and tauR are greater than 0 (the contrary
   // can happen due to ASAGI interpolation)
-  for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
-    for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+  for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       tauS[ltsFace][pointIndex] = std::max(static_cast<real>(0.0), tauS[ltsFace][pointIndex]);
       tauR[ltsFace][pointIndex] = std::max(tauR[ltsFace][pointIndex], tauS[ltsFace][pointIndex]);
     }

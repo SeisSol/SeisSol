@@ -10,10 +10,11 @@
 #define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_DATASTRUCTURES_H_
 
 #include "Equations/elastic/Model/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Model/CommonDatastructures.h"
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
+#include <Kernels/LinearCK/Solver.h>
 #include <array>
 #include <cstddef>
 #include <string>
@@ -26,15 +27,20 @@ struct AnisotropicMaterial : public Material {
   static constexpr std::size_t NumQuantities = 9;
   static constexpr std::size_t NumElasticQuantities = 9;
   static constexpr std::size_t NumberPerMechanism = 0;
+  static constexpr std::size_t TractionQuantities = 6;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Anisotropic;
-  static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
   static inline const std::string Text = "anisotropic";
   static inline const std::array<std::string, NumQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
+  static constexpr std::size_t Parameters = 21 + Material::Parameters;
+
+  static constexpr bool SupportsDR = false;
+  static constexpr bool SupportsLTS = true;
 
   using LocalSpecificData = AnisotropicLocalData;
   using NeighborSpecificData = AnisotropicNeighborData;
+  using Solver = kernels::solver::linearck::Solver;
 
   double c11;
   double c12;
@@ -66,7 +72,7 @@ struct AnisotropicMaterial : public Material {
 
   explicit AnisotropicMaterial(const ElasticMaterial& m);
 
-  AnisotropicMaterial(const std::vector<double>& materialValues);
+  explicit AnisotropicMaterial(const std::vector<double>& materialValues);
 
   ~AnisotropicMaterial() override;
 
@@ -82,6 +88,8 @@ struct AnisotropicMaterial : public Material {
   [[nodiscard]] double getSWaveSpeed() const override;
 
   [[nodiscard]] MaterialType getMaterialType() const override;
+
+  void setLameParameters(double mu, double lambda) override;
 };
 } // namespace seissol::model
 

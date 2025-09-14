@@ -11,7 +11,8 @@
 #ifndef SEISSOL_SRC_SOURCETERM_POINTSOURCE_H_
 #define SEISSOL_SRC_SOURCETERM_POINTSOURCE_H_
 
-#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Memory/MemoryAllocator.h"
 #include "SourceTerm/Typedefs.h"
 
 namespace seissol::sourceterm {
@@ -33,15 +34,14 @@ namespace seissol::sourceterm {
  *                   |                1 | |    sin d  cos d |  |                1 |
  *
  **/
-void transformMomentTensor(
-    const real localMomentTensor[3][3],
-    const real localSolidVelocityComponent[3],
-    real localPressureComponent,
-    const real localFluidVelocityComponent[3],
-    real strike,
-    real dip,
-    real rake,
-    seissol::memory::AlignedArray<real, PointSources::TensorSize>& forceComponents);
+void transformMomentTensor(const double localMomentTensor[3][3],
+                           const double localSolidVelocityComponent[3],
+                           double localPressureComponent,
+                           const double localFluidVelocityComponent[3],
+                           double strike,
+                           double dip,
+                           double rake,
+                           real* forceComponents);
 } // namespace seissol::sourceterm
 
 #endif // SEISSOL_SRC_SOURCETERM_POINTSOURCE_H_

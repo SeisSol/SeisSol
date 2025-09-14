@@ -107,7 +107,7 @@ std::size_t Hdf5Reader::dataCount(const std::string& name) {
   MPI_Comm_size(comm, &mpisize);
   MPI_Comm_rank(comm, &mpirank);
 
-  return dims[0] / mpisize + ((dims[0] % mpisize) > mpirank ? 1 : 0);
+  return dims[0] / mpisize + ((dims[0] % mpisize) > static_cast<std::size_t>(mpirank) ? 1 : 0);
 }
 void Hdf5Reader::readDataRaw(void* data,
                              const std::string& name,
@@ -116,9 +116,7 @@ void Hdf5Reader::readDataRaw(void* data,
   checkExistence(name, "dataset");
   const hid_t h5alist = H5Pcreate(H5P_DATASET_XFER);
   _eh(h5alist);
-#ifdef USE_MPI
   _eh(H5Pset_dxpl_mpio(h5alist, H5FD_MPIO_COLLECTIVE));
-#endif // USE_MPI
 
   const hid_t dataset = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
   const hid_t dataspace = _eh(H5Dget_space(dataset));
@@ -135,7 +133,8 @@ void Hdf5Reader::readDataRaw(void* data,
   }
 
   const std::size_t chunksize =
-      std::max(std::size_t(1), std::size_t(2'000'000'000) / (targetType->size() * dimprod));
+      std::max(static_cast<std::size_t>(1),
+               static_cast<std::size_t>(2'000'000'000) / (targetType->size() * dimprod));
   std::size_t rounds = (count + chunksize - 1) / chunksize;
   std::size_t start = 0;
   MPI_Allreduce(MPI_IN_PLACE,

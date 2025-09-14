@@ -9,7 +9,8 @@
 #ifndef SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_
 #define SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_
 
-#include "generated_code/init.h"
+#include "GeneratedCode/init.h"
+#include <Common/Constants.h>
 #include <cmath>
 #include <numeric>
 #include <type_traits>
@@ -216,19 +217,19 @@ class SampledBasisFunctionDerivatives {
    * @param coords coords[i] contains the 3 coordinates of the ith vertex of the
    * physical tetrahedron.
    */
-  void transformToGlobalCoordinates(const double* coords[4]) {
-    real xCoords[4];
-    real yCoords[4];
-    real zCoords[4];
-    for (size_t i = 0; i < 4; ++i) {
+  void transformToGlobalCoordinates(const double* coords[Cell::NumVertices]) {
+    double xCoords[Cell::NumVertices];
+    double yCoords[Cell::NumVertices];
+    double zCoords[Cell::NumVertices];
+    for (size_t i = 0; i < Cell::NumVertices; ++i) {
       xCoords[i] = coords[i][0];
       yCoords[i] = coords[i][1];
       zCoords[i] = coords[i][2];
     }
 
-    real gradXi[3];
-    real gradEta[3];
-    real gradZeta[3];
+    double gradXi[3];
+    double gradEta[3];
+    double gradZeta[3];
 
     seissol::transformations::tetrahedronGlobalToReferenceJacobian(
         xCoords, yCoords, zCoords, gradXi, gradEta, gradZeta);

@@ -7,7 +7,7 @@
 
 #include "ActorStateStatistics.h"
 #include "LoopStatistics.h"
-#include <Solver/time_stepping/ActorState.h>
+#include <Solver/TimeStepping/ActorState.h>
 #include <optional>
 #include <time.h>
 
@@ -36,11 +36,11 @@ void ActorStateStatistics::exit() {
 
 ActorStateStatistics::Sample::Sample(seissol::time_stepping::ActorState state)
     : state(state), end(std::nullopt), numEnteredRegion(0) {
-  clock_gettime(CLOCK_MONOTONIC, &begin);
+  (void)clock_gettime(CLOCK_MONOTONIC, &begin);
 }
 void ActorStateStatistics::Sample::finish() {
   timespec endTime{};
-  clock_gettime(CLOCK_MONOTONIC, &endTime);
+  (void)clock_gettime(CLOCK_MONOTONIC, &endTime);
   end = endTime;
 }
 

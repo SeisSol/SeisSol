@@ -10,14 +10,15 @@
 #include "utils/stringutils.h"
 #include <algorithm>
 #include <cctype>
-#include <cstdlib>
 #include <mpi.h>
 #include <string>
 #include <unistd.h>
+#include <utils/env.h>
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "Parallel/AcceleratorDevice.h"
+#include <device.h>
 #endif
 
 void seissol::MPI::init(int& argc, char**& argv) {
@@ -68,14 +69,23 @@ void seissol::MPI::printAcceleratorDeviceInfo() {
 #ifdef ACL_DEVICE
   auto& instance = seissol::AcceleratorDevice::getInstance();
   instance.printInfo();
+
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  const auto pci = device.api->getPciAddress(0);
+  const auto pcisNode = collectContainer(pci, m_sharedMemComm);
+  pcis = collectContainer(pci);
+  logInfo() << "Device PCI address (rank=0): " << pci;
+  logInfo() << "Device PCI addresses (node of rank=0):" << pcisNode;
 #endif
 }
 
 void seissol::MPI::setDataTransferModeFromEnv() {
   // TODO (Ravil, David): switch to reading this option from the parameter-file.
   // Waiting for David to finish his `no-fortran` PR
-  if (const char* envVariable = std::getenv("SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE")) {
-    std::string option{envVariable};
+  const auto envVariable =
+      utils::Env("SEISSOL_").getOptional<std::string>("PREFERRED_MPI_DATA_TRANSFER_MODE");
+  if (envVariable.has_value()) {
+    std::string option{envVariable.value()};
     std::transform(option.begin(), option.end(), option.begin(), [](unsigned char c) {
       return std::tolower(c);
     });

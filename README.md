@@ -7,7 +7,7 @@
     SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 -->
 
-# ![SeisSol](Documentation/LatexFigures/logo_sans_darkred_border.svg)
+# ![SeisSol](docs/LatexFigures/logo_sans_darkred_border.svg)
 
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![GitHub Repo stars](https://img.shields.io/github/stars/SeisSol/SeisSol)](https://github.com/SeisSol/SeisSol/stargazers)
@@ -31,7 +31,7 @@ general users.
 
 # Collaboration
 
-If you are interested in a close collaboration, please contact [Alice Gabriel](http://www.geophysik.uni-muenchen.de/Members/gabriel).
+If you are interested in a close collaboration, please contact [Alice Gabriel](https://www.alicegabriel.com/).
 
 # Code of Conduct
 

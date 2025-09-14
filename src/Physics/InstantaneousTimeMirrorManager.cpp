@@ -10,14 +10,15 @@
 #include "Modules/Modules.h"
 #include "SeisSol.h"
 #include <Initializer/Parameters/ModelParameters.h>
-#include <Initializer/Typedefs.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/Lut.h>
+#include <Model/CommonDatastructures.h>
 #include <Modules/Module.h>
 #include <cmath>
-#include <memory>
+#include <cstddef>
 #include <utils/logger.h>
 #include <vector>
 
@@ -29,7 +30,7 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           initializer::LTSTree* ltsTree,
                                           initializer::LTS* lts,
                                           initializer::Lut* ltsLut,
-                                          const TimeStepping* timestepping) {
+                                          const initializer::ClusterLayout* clusterLayout) {
   isEnabled = true; // This is to sync just before and after the ITM. This does not toggle the ITM.
                     // Need this by default as true for it to work.
   this->velocityScalingFactor = velocityScalingFactor;
@@ -38,8 +39,8 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
   this->ltsTree = ltsTree;
   this->lts = lts;
   this->ltsLut = ltsLut;
-  this->timestepping = timestepping; // An empty timestepping is added. Need to discuss what exactly
-                                     // is to be sent here
+  this->clusterLayout = clusterLayout; // An empty timestepping is added. Need to discuss what
+                                       // exactly is to be sent here
   setSyncInterval(triggerTime);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 }
@@ -64,7 +65,7 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
                                            ltsTree,
                                            lts,
                                            ltsLut,
-                                           *timestepping,
+                                           *clusterLayout,
                                            seissolInstance.getSeisSolParameters().model);
   // An empty timestepping is added. Need to discuss what exactly is to be sent here
 
@@ -76,101 +77,53 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
 }
 
 void InstantaneousTimeMirrorManager::updateVelocities() {
-#ifdef USE_ANISOTROPIC
-  logError() << "This feature has not been implemented for anisotropic yet";
-#else
   auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
   auto reflectionType = itmParameters.itmReflectionType;
-  for (auto& layer : ltsTree->leaves(Ghost)) {
-    CellMaterialData* materials = layer.var(lts->material);
+
+  const auto updateMaterial = [&](model::Material& material) {
+    const auto rho = material.getDensity();
+    const auto lambda = material.getLambdaBar();
+    const auto mu = material.getMuBar();
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWaves) {
-      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
-        auto& material = materials[cell];
-// Refocusing both waves
-#ifndef USE_ACOUSTIC
-        material.local.mu *= velocityScalingFactor * velocityScalingFactor;
-#endif
-        material.local.lambda *= velocityScalingFactor * velocityScalingFactor;
-        for (int i = 0; i < 4; i++) {
-#ifndef USE_ACOUSTIC
-          material.neighbor[i].mu *= velocityScalingFactor * velocityScalingFactor;
-#endif
-          material.neighbor[i].lambda *= velocityScalingFactor * velocityScalingFactor;
-        }
-      }
+      material.setLameParameters(mu * velocityScalingFactor * velocityScalingFactor,
+                                 lambda * velocityScalingFactor * velocityScalingFactor);
+    } else if (reflectionType ==
+               seissol::initializer::parameters::ReflectionType::BothWavesVelocity) {
+      material.setDensity(rho * velocityScalingFactor);
+      material.setLameParameters(mu * velocityScalingFactor, lambda * velocityScalingFactor);
+    } else if (reflectionType == seissol::initializer::parameters::ReflectionType::Pwave) {
+      material.setLameParameters(mu, lambda * velocityScalingFactor * velocityScalingFactor);
+    } else if (reflectionType == seissol::initializer::parameters::ReflectionType::Swave) {
+      // Refocusing only S-waves
+
+      // (preserved comment from before the refactor)
+      // lambda = -2.0 * velocityScalingFactor * mu + (lambda + 2.0 * mu) / velocityScalingFactor;
+      // mu *= velocityScalingFactor;
+      // rho *= velocityScalingFactor;
+
+      const auto newLambda = lambda + 2.0 * mu * (1 - velocityScalingFactor);
+      material.setDensity(rho * lambda / newLambda);
+      material.setLameParameters(velocityScalingFactor * mu, newLambda);
+    } else {
+      logError() << "Unknown reflection type; material cannot be updated.";
     }
+  };
 
-    if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWavesVelocity) {
-      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
-        auto& material = materials[cell];
-        // Refocusing both waves with constant velocities
-        material.local.lambda *= velocityScalingFactor;
-#ifndef USE_ACOUSTIC
-        material.local.mu *= velocityScalingFactor;
-#endif
-        material.local.rho *= velocityScalingFactor;
-        for (int i = 0; i < 4; i++) {
-          material.neighbor[i].lambda *= velocityScalingFactor;
-#ifndef USE_ACOUSTIC
-          material.neighbor[i].mu *= velocityScalingFactor;
-#endif
-          material.neighbor[i].rho *= velocityScalingFactor;
-        }
-      }
-    }
+  for (auto& layer : ltsTree->leaves()) {
+    auto* materialData = layer.var(lts->materialData);
 
-    if (reflectionType == seissol::initializer::parameters::ReflectionType::Pwave) {
-      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
-        auto& material = materials[cell];
-        // Refocusing only P-waves
-        material.local.lambda *= velocityScalingFactor * velocityScalingFactor;
-        for (int i = 0; i < 4; i++) {
-          material.neighbor[i].lambda *= velocityScalingFactor * velocityScalingFactor;
-        }
-      }
-    }
-
-    if (reflectionType == seissol::initializer::parameters::ReflectionType::Swave) {
-      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
-        auto& material = materials[cell];
-        // Refocusing only S-waves
-        // material.local.lambda =
-        //     -2.0 * velocityScalingFactor * material.local.mu +
-        //     (material.local.lambda + 2.0 * material.local.mu) / velocityScalingFactor;
-        // material.local.mu *= velocityScalingFactor;
-        // material.local.rho *= velocityScalingFactor;
-        material.local.rho = material.local.rho * material.local.lambda /
-                             (material.local.lambda + 2.0 * material.local.getMuBar() -
-                              2.0 * material.local.getMuBar() * velocityScalingFactor);
-        material.local.lambda = material.local.lambda + 2.0 * material.local.getMuBar() -
-                                2.0 * material.local.getMuBar() * velocityScalingFactor;
-#ifndef USE_ACOUSTIC
-        material.local.mu = velocityScalingFactor * material.local.mu;
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
 #endif
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      // for now, keep the NOLINTNEXTLINE here (due to polymorphic access)
+      // NOLINTNEXTLINE
+      auto& material = materialData[cell];
 
-        for (int i = 0; i < 4; i++) {
-          // material.neighbor[i].lambda =
-          //     -2.0 * velocityScalingFactor * material.neighbor[i].mu +
-          //     (material.neighbor[i].lambda + 2.0 * material.neighbor[i].mu) /
-          //     velocityScalingFactor;
-          // material.neighbor[i].mu *= velocityScalingFactor;
-          // material.neighbor[i].rho *= velocityScalingFactor;
-          material.neighbor[i].rho =
-              material.neighbor[i].rho * material.neighbor[i].lambda /
-              (material.neighbor[i].lambda + 2.0 * material.neighbor[i].getMuBar() -
-               2.0 * material.neighbor[i].getMuBar() * velocityScalingFactor);
-          material.neighbor[i].lambda =
-              material.neighbor[i].lambda + 2.0 * material.neighbor[i].getMuBar() -
-              2.0 * material.neighbor[i].getMuBar() * velocityScalingFactor;
-#ifndef USE_ACOUSTIC
-          material.neighbor[i].mu = velocityScalingFactor * material.neighbor[i].mu;
-#endif
-        }
-      }
+      updateMaterial(material);
     }
   }
-#endif
 }
 
 void InstantaneousTimeMirrorManager::updateTimeSteps() {
@@ -183,20 +136,11 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
   // refocusing both the waves. Default scenario. Works for both waves, only P-wave and constant
   // impedance case
   {
-    for (auto& cluster : *timeClusters) {
+    for (auto& cluster : clusters) {
       cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
       auto* neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
         neighborCluster.ct.setTimeStepSize(neighborCluster.ct.getTimeStepSize() /
-                                           velocityScalingFactor);
-      }
-    }
-
-    for (auto& cluster : *ghostTimeClusters) {
-      cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
-      auto* ghostNeighborClusters = cluster->getNeighborClusters();
-      for (auto& neighborcluster : *ghostNeighborClusters) {
-        neighborcluster.ct.setTimeStepSize(neighborcluster.ct.getTimeStepSize() /
                                            velocityScalingFactor);
       }
     }
@@ -213,7 +157,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
       timeStepScalingFactor = 2.0;
     }
 
-    for (auto& cluster : *timeClusters) {
+    for (auto& cluster : clusters) {
       cluster->setClusterTimes(cluster->getClusterTimes() * timeStepScalingFactor);
       auto* neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
@@ -221,26 +165,12 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
                                            timeStepScalingFactor);
       }
     }
-
-    for (auto& cluster : *ghostTimeClusters) {
-      cluster->setClusterTimes(cluster->getClusterTimes() * timeStepScalingFactor);
-      auto* ghostNeighborClusters = cluster->getNeighborClusters();
-      for (auto& neighborcluster : *ghostNeighborClusters) {
-        neighborcluster.ct.setTimeStepSize(neighborcluster.ct.getTimeStepSize() *
-                                           timeStepScalingFactor);
-      }
-    }
   }
 }
 
-void InstantaneousTimeMirrorManager::setTimeClusterVector(
-    std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* clusters) {
-  timeClusters = clusters;
-}
-
-void InstantaneousTimeMirrorManager::setGhostClusterVector(
-    std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* clusters) {
-  ghostTimeClusters = clusters;
+void InstantaneousTimeMirrorManager::setClusterVector(
+    const std::vector<seissol::time_stepping::AbstractTimeCluster*>& clusters) {
+  this->clusters = clusters;
 }
 
 void initializeTimeMirrorManagers(double scalingFactor,
@@ -252,15 +182,15 @@ void initializeTimeMirrorManagers(double scalingFactor,
                                   InstantaneousTimeMirrorManager& increaseManager,
                                   InstantaneousTimeMirrorManager& decreaseManager,
                                   seissol::SeisSol& seissolInstance,
-                                  const TimeStepping* timestepping) {
+                                  const initializer::ClusterLayout* clusterLayout) {
   increaseManager.init(scalingFactor,
                        triggerTime,
                        meshReader,
                        ltsTree,
                        lts,
                        ltsLut,
-                       timestepping); // An empty timestepping is added. Need to discuss what
-                                      // exactly is to be sent here
+                       clusterLayout); // An empty timestepping is added. Need to discuss what
+                                       // exactly is to be sent here
   auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
   const double eps = itmParameters.itmDuration;
 
@@ -271,7 +201,7 @@ void initializeTimeMirrorManagers(double scalingFactor,
                        ltsTree,
                        lts,
                        ltsLut,
-                       timestepping); // An empty timestepping is added. Need to discuss what
-                                      // exactly is to be sent here
+                       clusterLayout); // An empty timestepping is added. Need to discuss what
+                                       // exactly is to be sent here
 };
 } // namespace seissol::ITM

@@ -13,6 +13,7 @@
 #include <Eigen/Dense>
 #include <array>
 #include <cassert>
+#include <limits>
 
 namespace seissol::dr {
 struct ExtVrtxCoords {
@@ -20,15 +21,15 @@ struct ExtVrtxCoords {
   ~ExtVrtxCoords() = default;
 
   template <typename T>
-  ExtVrtxCoords(const T& other) {
-    for (int i = 0; i < 3; ++i) {
+  explicit ExtVrtxCoords(const T& other) {
+    for (std::size_t i = 0; i < Cell::Dim; ++i) {
       coords[i] = other[i];
     }
   }
 
   template <typename T>
   ExtVrtxCoords& operator=(const T& other) {
-    for (int i = 0; i < 3; ++i) {
+    for (std::size_t i = 0; i < Cell::Dim; ++i) {
       coords[i] = other[i];
     }
     return *this;
@@ -37,18 +38,18 @@ struct ExtVrtxCoords {
   ExtVrtxCoords(std::initializer_list<double> inputCoords) {
     assert(inputCoords.size() == 3 && "ExtVrtxCoords must get initialized with 3 values");
     const auto* begin = inputCoords.begin();
-    for (int i = 0; i < 3; ++i, ++begin) {
+    for (std::size_t i = 0; i < Cell::Dim; ++i, ++begin) {
       coords[i] = *begin;
     }
   }
 
   double& operator[](size_t index) {
-    assert((index < 3) && "ExtVrtxCoords index must be less than 3");
+    assert((index < Cell::Dim) && "ExtVrtxCoords index must be less than 3");
     return coords[index];
   }
 
   double operator[](size_t index) const {
-    assert((index < 3) && "ExtVrtxCoords index must be less than 3");
+    assert((index < Cell::Dim) && "ExtVrtxCoords index must be less than 3");
     return coords[index];
   }
 
@@ -56,7 +57,7 @@ struct ExtVrtxCoords {
     return Eigen::Vector3d(coords[0], coords[1], coords[2]);
   }
 
-  constexpr static int size() { return 3; }
+  constexpr static std::size_t size() { return Cell::Dim; }
 
   VrtxCoords coords = {0.0, 0.0, 0.0};
 };
@@ -80,28 +81,34 @@ struct ExtTriangle {
     return points[index];
   }
 
-  static int size() { return 3; }
+  static std::size_t size() { return 3; }
 
   private:
   std::array<ExtVrtxCoords, 3> points{};
 };
 
 struct ReceiverPoint {
-  ExtVrtxCoords global;        // physical coords of a receiver
-  ExtVrtxCoords reference;     // reference coords of a receiver
-  ExtTriangle globalTriangle;  // a surrounding triangle of a receiver
-  int faultFaceIndex{-1};      // Face Fault index which the receiver belongs to
-  int localFaceSideId{-1};     // Side ID of a reference element
-  int elementIndex{-1};        // Element which the receiver belongs to
-  int globalReceiverIndex{-1}; // receiver index of global list
-  bool isInside{false};        // If a point is inside the mesh or not
+  ExtVrtxCoords global;       // physical coords of a receiver
+  ExtVrtxCoords reference;    // reference coords of a receiver
+  ExtTriangle globalTriangle; // a surrounding triangle of a receiver
+  int faultFaceIndex{-1};     // Face Fault index which the receiver belongs to
+  int localFaceSideId{-1};    // Side ID of a reference element
+  int elementIndex{-1};       // Element which the receiver belongs to
+  std::size_t elementGlobalIndex{
+      std::numeric_limits<std::size_t>::max()}; // Element which the receiver belongs to
+  int globalReceiverIndex{-1};                  // receiver index of global list
+  bool isInside{false};                         // If a point is inside the mesh or not
   int nearestGpIndex{-1};
   int faultTag{-1};
+  int simIndex{0}; // Simulation index for multisim
+  int gpIndex{-1}; // Index of the nearest gaussian point considering fused simulations
 
   // Internal points are required because computed gradients
   // are inaccurate near triangle edges,
   // specifically for low-order elements
   int nearestInternalGpIndex{-1};
+  int internalGpIndexFused{
+      -1}; // Index of the nearest internal gaussian point considering fused simulations
 };
 using ReceiverPoints = std::vector<ReceiverPoint>;
 

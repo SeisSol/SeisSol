@@ -23,40 +23,58 @@ namespace seissol::dr::friction_law::cpu {
  */
 template <typename Derived>
 class BaseFrictionLaw : public FrictionSolver {
+  private:
+  size_t currLayerSize{};
+
   public:
   explicit BaseFrictionLaw(seissol::initializer::parameters::DRParameters* drParameters)
-      : FrictionSolver(drParameters) {};
+      : FrictionSolver(drParameters) {}
+
+  std::unique_ptr<FrictionSolver> clone() override {
+    return std::make_unique<Derived>(*static_cast<Derived*>(this));
+  }
+
+  void setupLayer(seissol::initializer::Layer& layerData,
+                  const seissol::initializer::DynamicRupture* dynRup,
+                  seissol::parallel::runtime::StreamRuntime& runtime) override {
+    this->currLayerSize = layerData.size();
+    BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup);
+    static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup);
+  }
 
   /**
    * evaluates the current friction model
    */
-  void evaluate(seissol::initializer::Layer& layerData,
-                const seissol::initializer::DynamicRupture* const dynRup,
-                real fullUpdateTime,
+  void evaluate(real fullUpdateTime,
+                const FrictionTime& frictionTime,
                 const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
-    if (layerData.getNumberOfCells() == 0) {
+    if (this->currLayerSize == 0) {
       return;
     }
 
     SCOREP_USER_REGION_DEFINE(myRegionHandle)
-    BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-    static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+    std::copy_n(frictionTime.deltaT.begin(), frictionTime.deltaT.size(), this->deltaT);
+    this->sumDt = frictionTime.sumDt;
+    this->mFullUpdateTime = fullUpdateTime;
 
     // loop over all dynamic rupture faces, in this LTS layer
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
+    for (std::size_t ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
       alignas(Alignment) FaultStresses<Executor::Host> faultStresses{};
       SCOREP_USER_REGION_BEGIN(
           myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
+      const auto etaPDamp =
+          drParameters->etaStop > this->mFullUpdateTime ? drParameters->etaHack : 1.0;
       common::precomputeStressFromQInterpolated(faultStresses,
                                                 impAndEta[ltsFace],
                                                 impedanceMatrices[ltsFace],
                                                 qInterpolatedPlus[ltsFace],
-                                                qInterpolatedMinus[ltsFace]);
+                                                qInterpolatedMinus[ltsFace],
+                                                etaPDamp);
       LIKWID_MARKER_STOP("computeDynamicRupturePrecomputeStress");
       SCOREP_USER_REGION_END(myRegionHandle)
 
@@ -81,13 +99,16 @@ class BaseFrictionLaw : public FrictionSolver {
       real updateTime = this->mFullUpdateTime;
       for (std::size_t timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
         updateTime += this->deltaT[timeIndex];
-        common::adjustInitialStress(initialStressInFaultCS[ltsFace],
-                                    nucleationStressInFaultCS[ltsFace],
-                                    initialPressure[ltsFace],
-                                    nucleationPressure[ltsFace],
-                                    updateTime,
-                                    this->drParameters->t0,
-                                    this->deltaT[timeIndex]);
+        for (unsigned i = 0; i < this->drParameters->nucleationCount; ++i) {
+          common::adjustInitialStress(initialStressInFaultCS[ltsFace],
+                                      nucleationStressInFaultCS[i][ltsFace],
+                                      initialPressure[ltsFace],
+                                      nucleationPressure[i][ltsFace],
+                                      updateTime,
+                                      this->drParameters->t0[i],
+                                      this->drParameters->s0[i],
+                                      this->deltaT[timeIndex]);
+        }
 
         static_cast<Derived*>(this)->updateFrictionAndSlip(faultStresses,
                                                            tractionResults,

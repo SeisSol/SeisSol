@@ -7,24 +7,31 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Allocator.h"
+#include "GeneratedCode/tensor.h"
+#include "Parallel/OpenMP.h"
+#include <Alignment.h>
 #include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
+#include <Kernels/Solver.h>
 #include <Kernels/Touch.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/GlobalData.h>
 #include <Memory/MemoryAllocator.h>
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/TimeCluster.h>
-#include <Proxy/Constants.h>
 #include <cstddef>
+#include <random>
 #include <stdlib.h>
-#include <tensor.h>
 
 #ifdef ACL_DEVICE
 #include <Initializer/MemoryManager.h>
+#endif
+
+#ifdef USE_POROELASTIC
+#include "Proxy/Constants.h"
 #endif
 
 namespace {
@@ -38,26 +45,30 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
   auto* cellInformation = layer.var(lts.cellInformation);
   auto* secondaryInformation = layer.var(lts.secondaryInformation);
   real* bucket =
-      static_cast<real*>(layer.bucket(lts.buffersDerivatives, initializer::AllocationPlace::Host));
+      static_cast<real*>(layer.var(lts.buffersDerivatives, initializer::AllocationPlace::Host));
 
   real** buffersDevice = layer.var(lts.buffersDevice);
   real** derivativesDevice = layer.var(lts.derivativesDevice);
   real*(*faceNeighborsDevice)[4] = layer.var(lts.faceNeighborsDevice);
-  real* bucketDevice = static_cast<real*>(
-      layer.bucket(lts.buffersDerivatives, initializer::AllocationPlace::Device));
+  real* bucketDevice =
+      static_cast<real*>(layer.var(lts.buffersDerivatives, initializer::AllocationPlace::Device));
 
-  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+  std::mt19937 rng(layer.size());
+  std::uniform_int_distribution<unsigned> sideDist(0, 3);
+  std::uniform_int_distribution<unsigned> orientationDist(0, 2);
+  std::uniform_int_distribution<std::size_t> cellDist(0, layer.size() - 1);
+
+  for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     buffers[cell] = bucket + cell * tensor::I::size();
     derivatives[cell] = nullptr;
     buffersDevice[cell] = bucketDevice + cell * tensor::I::size();
     derivativesDevice[cell] = nullptr;
 
-    for (unsigned f = 0; f < 4; ++f) {
+    for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       cellInformation[cell].faceTypes[f] = faceTp;
-      cellInformation[cell].faceRelations[f][0] = ((unsigned int)lrand48() % 4);
-      cellInformation[cell].faceRelations[f][1] = ((unsigned int)lrand48() % 3);
-      secondaryInformation[cell].faceNeighborIds[f] =
-          ((unsigned int)lrand48() % layer.getNumberOfCells());
+      cellInformation[cell].faceRelations[f][0] = sideDist(rng);
+      cellInformation[cell].faceRelations[f][1] = orientationDist(rng);
+      secondaryInformation[cell].faceNeighborIds[f] = cellDist(rng);
     }
     cellInformation[cell].ltsSetup = 0;
   }
@@ -65,8 +76,8 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
-    for (unsigned f = 0; f < 4; ++f) {
+  for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+    for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       switch (faceTp) {
       case FaceType::FreeSurface:
         faceNeighbors[cell][f] = buffers[cell];
@@ -84,22 +95,20 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
     }
   }
 
-  kernels::fillWithStuff(
-      reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.getNumberOfCells(), false);
-  kernels::fillWithStuff(bucket, tensor::I::size() * layer.getNumberOfCells(), false);
+  kernels::fillWithStuff(reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.size(), false);
+  kernels::fillWithStuff(bucket, tensor::I::size() * layer.size(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
-                         sizeof(LocalIntegrationData) / sizeof(real) * layer.getNumberOfCells(),
+                         sizeof(LocalIntegrationData) / sizeof(real) * layer.size(),
                          false);
   kernels::fillWithStuff(reinterpret_cast<real*>(neighboringIntegration),
-                         sizeof(NeighboringIntegrationData) / sizeof(real) *
-                             layer.getNumberOfCells(),
+                         sizeof(NeighboringIntegrationData) / sizeof(real) * layer.size(),
                          false);
 
 #ifdef USE_POROELASTIC
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+  for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     localIntegration[cell].specific.typicalTimeStepWidth = seissol::proxy::Timestep;
   }
 #endif
@@ -133,17 +142,15 @@ void ProxyData::initGlobalData() {
         globalDataOnDevice, allocator, seissol::memory::DeviceGlobalMemory);
     globalData.onDevice = &globalDataOnDevice;
   }
+  spacetimeKernel.setGlobalData(globalData);
   timeKernel.setGlobalData(globalData);
   localKernel.setGlobalData(globalData);
   neighborKernel.setGlobalData(globalData);
   dynRupKernel.setGlobalData(globalData);
-
-  dynRupKernel.setTimeStepWidth(Timestep);
 }
 
 void ProxyData::initDataStructures(bool enableDR) {
   // init RNG
-  srand48(cellCount);
   lts.addTo(ltsTree, false); // proxy does not use plasticity
   ltsTree.setNumberOfTimeClusters(1);
   ltsTree.fixate();
@@ -154,8 +161,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   cluster.child<Interior>().setNumberOfCells(cellCount);
 
   seissol::initializer::Layer& layer = cluster.child<Interior>();
-  layer.setBucketSize(lts.buffersDerivatives,
-                      sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
+  layer.setEntrySize(lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.size());
 
   ltsTree.allocateVariables();
   ltsTree.touchVariables();
@@ -175,28 +181,34 @@ void ProxyData::initDataStructures(bool enableDR) {
     dynRupTree.allocateVariables();
     dynRupTree.touchVariables();
 
-    fakeDerivativesHost = reinterpret_cast<real*>(
-        allocator.allocateMemory(cellCount * yateto::computeFamilySize<tensor::dQ>() * sizeof(real),
-                                 PagesizeHeap,
-                                 seissol::memory::Standard));
+    fakeDerivativesHost = reinterpret_cast<real*>(allocator.allocateMemory(
+        cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
+        PagesizeHeap,
+        seissol::memory::Standard));
+
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static)
+#pragma omp parallel
 #endif
-    for (unsigned cell = 0; cell < cellCount; ++cell) {
-      for (unsigned i = 0; i < yateto::computeFamilySize<tensor::dQ>(); i++) {
-        fakeDerivativesHost[cell * yateto::computeFamilySize<tensor::dQ>() + i] = (real)drand48();
+    {
+      const auto offset = OpenMP::threadId();
+      std::mt19937 rng(cellCount + offset);
+      std::uniform_real_distribution<real> urd;
+      for (std::size_t cell = 0; cell < cellCount; ++cell) {
+        for (std::size_t i = 0; i < seissol::kernels::Solver::DerivativesSize; i++) {
+          fakeDerivativesHost[cell * seissol::kernels::Solver::DerivativesSize + i] = urd(rng);
+        }
       }
     }
 
 #ifdef ACL_DEVICE
-    fakeDerivatives = reinterpret_cast<real*>(
-        allocator.allocateMemory(cellCount * yateto::computeFamilySize<tensor::dQ>() * sizeof(real),
-                                 PagesizeHeap,
-                                 seissol::memory::DeviceGlobalMemory));
+    fakeDerivatives = reinterpret_cast<real*>(allocator.allocateMemory(
+        cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
+        PagesizeHeap,
+        seissol::memory::DeviceGlobalMemory));
     const auto& device = ::device::DeviceInstance::getInstance();
     device.api->copyTo(fakeDerivatives,
                        fakeDerivativesHost,
-                       cellCount * yateto::computeFamilySize<tensor::dQ>() * sizeof(real));
+                       cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real));
 #else
     fakeDerivatives = fakeDerivativesHost;
 #endif
@@ -227,13 +239,19 @@ void ProxyData::initDataStructures(bool enableDR) {
                                               : interior.var(dynRup.timeDerivativeMinus);
     DRFaceInformation* faceInformation = interior.var(dynRup.faceInformation);
 
+    std::mt19937 rng(cellCount);
+    std::uniform_int_distribution<unsigned> sideDist(0, 3);
+    std::uniform_int_distribution<unsigned> orientationDist(0, 2);
+    std::uniform_int_distribution<std::size_t> drDist(0, interior.size() - 1);
+    std::uniform_int_distribution<std::size_t> cellDist(0, cellCount - 1);
+
     /* init drMapping */
-    for (unsigned cell = 0; cell < cellCount; ++cell) {
-      for (unsigned face = 0; face < 4; ++face) {
+    for (std::size_t cell = 0; cell < cellCount; ++cell) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         CellDRMapping& drm = drMapping[cell][face];
-        const unsigned side = (unsigned int)lrand48() % 4;
-        const unsigned orientation = (unsigned int)lrand48() % 3;
-        const unsigned drFace = (unsigned int)lrand48() % interior.getNumberOfCells();
+        const auto side = sideDist(rng);
+        const auto orientation = orientationDist(rng);
+        const auto drFace = drDist(rng);
         drm.side = side;
         drm.faceRelation = orientation;
         drm.godunov = imposedStatePlus[drFace];
@@ -242,21 +260,21 @@ void ProxyData::initDataStructures(bool enableDR) {
     }
 
     /* init dr godunov state */
-    for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
-      const unsigned plusCell = (unsigned int)lrand48() % cellCount;
-      const unsigned minusCell = (unsigned int)lrand48() % cellCount;
+    for (std::size_t face = 0; face < interior.size(); ++face) {
+      const auto plusCell = cellDist(rng);
+      const auto minusCell = cellDist(rng);
       timeDerivativeHostPlus[face] =
-          &fakeDerivativesHost[plusCell * yateto::computeFamilySize<tensor::dQ>()];
+          &fakeDerivativesHost[plusCell * seissol::kernels::Solver::DerivativesSize];
       timeDerivativeHostMinus[face] =
-          &fakeDerivativesHost[minusCell * yateto::computeFamilySize<tensor::dQ>()];
+          &fakeDerivativesHost[minusCell * seissol::kernels::Solver::DerivativesSize];
       timeDerivativePlus[face] =
-          &fakeDerivatives[plusCell * yateto::computeFamilySize<tensor::dQ>()];
+          &fakeDerivatives[plusCell * seissol::kernels::Solver::DerivativesSize];
       timeDerivativeMinus[face] =
-          &fakeDerivatives[minusCell * yateto::computeFamilySize<tensor::dQ>()];
+          &fakeDerivatives[minusCell * seissol::kernels::Solver::DerivativesSize];
 
-      faceInformation[face].plusSide = (unsigned int)lrand48() % 4;
-      faceInformation[face].minusSide = (unsigned int)lrand48() % 4;
-      faceInformation[face].faceRelation = (unsigned int)lrand48() % 3;
+      faceInformation[face].plusSide = sideDist(rng);
+      faceInformation[face].minusSide = sideDist(rng);
+      faceInformation[face].faceRelation = orientationDist(rng);
     }
   }
 }
@@ -271,7 +289,7 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
   seissol::initializer::TimeCluster& cluster = ltsTree.child(0);
   seissol::initializer::Layer& layer = cluster.child<Interior>();
 
-  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(ltsTree, lts);
+  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(false, ltsTree, lts);
   ltsTree.allocateScratchPads();
 
   seissol::initializer::recording::CompositeRecorder<seissol::initializer::LTS> recorder;

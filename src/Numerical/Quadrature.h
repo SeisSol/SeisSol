@@ -21,8 +21,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-namespace seissol {
-namespace quadrature {
+namespace seissol::quadrature {
 static const unsigned MaxIterations = 100;
 static const double Tolerance = 10. * std::numeric_limits<double>::epsilon();
 
@@ -61,6 +60,28 @@ inline void GaussLegendre(double* points, double* weights, unsigned n) {
     weights[i - 1] = w;
     weights[n - i] = w;
   }
+}
+
+/**
+  Return the quadrature points and weights with Gauss Legendre with n points; shifted to the
+  interval [a, b].
+
+  @return [quadrature points, quadrature weights]
+*/
+inline std::pair<std::vector<double>, std::vector<double>>
+    ShiftedGaussLegendre(unsigned n, double a, double b) {
+  std::pair<std::vector<double>, std::vector<double>> output{std::vector<double>(n),
+                                                             std::vector<double>(n)};
+  GaussLegendre(output.first.data(), output.second.data(), n);
+  const auto ba = b - a;
+  const auto ab = b + a;
+  for (auto& point : output.first) {
+    point = (point * ba + ab) / 2;
+  }
+  for (auto& weight : output.second) {
+    weight = (weight * ba) / 2;
+  }
+  return output;
 }
 
 /** Returns quadrature points for the interval [-1,1] with weight function (1-x)^a * (1+x)^b, i.e.
@@ -181,7 +202,6 @@ inline void TetrahedronQuadrature(double (*points)[3], double* weights, unsigned
     logError() << "Sum of tetrahedron quadrature weights are " << sumWeights << " /= " << 1. / 6.;
   }
 }
-} // namespace quadrature
-} // namespace seissol
+} // namespace seissol::quadrature
 
 #endif // SEISSOL_SRC_NUMERICAL_QUADRATURE_H_

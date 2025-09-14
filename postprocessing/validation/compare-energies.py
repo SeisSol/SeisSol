@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+# SPDX-FileCopyrightText: 2022 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 
 def pivot_if_necessary(df):
     if "variable" in df:
@@ -34,7 +41,7 @@ def get_number_of_fused_sims(df):
 def get_sub_simulation(df, fused_index):
     if "simulation_index" not in df.columns:
         # if there's no simulation_index, we're not fused
-        return 0
+        return df.loc[:, :].reset_index()
     else:
         is_subsim = df["simulation_index"] == fused_index
         return df.loc[is_subsim, :].reset_index()
@@ -55,8 +62,9 @@ def perform_check(energy, energy_ref, epsilon):
 
 if __name__ == "__main__":
     import argparse
-    import numpy as np
     import sys
+
+    import numpy as np
     import pandas as pd
 
     parser = argparse.ArgumentParser(description="Compare energy output csv files.")

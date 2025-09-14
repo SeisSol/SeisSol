@@ -53,7 +53,7 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
   dr::output::OutputManager* callbackObject{nullptr};
 
   public:
-  FaultWriter(seissol::SeisSol& seissolInstance)
+  explicit FaultWriter(seissol::SeisSol& seissolInstance)
       : seissolInstance(seissolInstance)
 
   {}
@@ -68,6 +68,7 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
   void init(const unsigned int* cells,
             const double* vertices,
             const unsigned int* faultTags,
+            const unsigned int* ids,
             unsigned int nCells,
             unsigned int nVertices,
             const int* outputMask,

@@ -9,15 +9,19 @@
 #include "Common/Constants.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
+#include "GeneratedCode/init.h"
+#include "Geometry.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Precision.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
+#include <Common/Iterator.h>
 #include <Eigen/Dense>
 #include <Solver/MultipleSimulations.h>
+#include <algorithm>
 #include <cstddef>
-#include <init.h>
+#include <cstdint>
 #include <limits>
 #include <tuple>
 #include <utility>
@@ -196,6 +200,29 @@ double getDistanceFromPointToFace(const ExtVrtxCoords& point,
   return MeshTools::dot(faceNormal, diff) / faceNormalLength;
 }
 
+// (NOTE: only the sign really has a meaning; except maybe for some small tolerance)
+// (reason: lack of normalization, probably)
+double
+    isInsideFace(const ExtVrtxCoords& point, const ExtTriangle& face, const VrtxCoords faceNormal) {
+
+  // view the triangle as an intersection of hyperplanes
+
+  double sidemin = std::numeric_limits<double>::max();
+  for (auto [i1, i2] : seissol::common::zip(std::vector{0, 1, 2}, std::vector{1, 2, 0})) {
+    const auto& p1 = face.point(i1).coords;
+    const auto& p2 = face.point(i2).coords;
+    VrtxCoords sidevec{0.0, 0.0, 0.0};
+    VrtxCoords hypersupport{0.0, 0.0, 0.0};
+    MeshTools::sub(p2, p1, sidevec);
+    MeshTools::cross(faceNormal, sidevec, hypersupport);
+    const auto sidevalue = MeshTools::dot(hypersupport, p1);
+    const auto pointvalue = MeshTools::dot(hypersupport, point.coords);
+    const auto containvalue = pointvalue - sidevalue;
+    sidemin = std::min(sidemin, containvalue);
+  }
+  return sidemin;
+}
+
 PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
                                                    const VrtxCoords* plusElementCoords[4],
                                                    const VrtxCoords* minusElementCoords[4]) {
@@ -220,13 +247,13 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
 std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints) {
   std::vector<double> vertices(3 * (3 * receiverPoints.size()), 0.0);
 
-  for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
-    for (int vertexIndex{0}; vertexIndex < ExtTriangle::size(); ++vertexIndex) {
+  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
+    for (std::uint32_t vertexIndex{0}; vertexIndex < ExtTriangle::size(); ++vertexIndex) {
       const auto& triangle = receiverPoints[pointIndex].globalTriangle;
       const auto& point = triangle.point(vertexIndex);
 
       const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
-      for (int coordIndex{0}; coordIndex < ExtVrtxCoords::size(); ++coordIndex) {
+      for (std::uint32_t coordIndex{0}; coordIndex < ExtVrtxCoords::size(); ++coordIndex) {
         vertices[3 * globalVertexIndex + coordIndex] = point[coordIndex];
       }
     }
@@ -237,7 +264,7 @@ std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPo
 std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints& receiverPoints) {
   std::vector<unsigned int> cells(3 * receiverPoints.size());
 
-  for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
+  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
     for (int vertexIndex{0}; vertexIndex < 3; ++vertexIndex) {
       const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
       cells[globalVertexIndex] = globalVertexIndex;
@@ -248,7 +275,7 @@ std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints&
 std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiverPoints) {
   std::vector<unsigned int> faultTags(receiverPoints.size());
 
-  for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
+  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
     faultTags[pointIndex] = receiverPoints[pointIndex].faultTag;
   }
   return faultTags;

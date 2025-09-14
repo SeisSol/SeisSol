@@ -6,9 +6,9 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Kernels/DeviceAux/PlasticityAux.h"
+#include "GeneratedCode/init.h"
 #include <Solver/MultipleSimulations.h>
 #include <cmath>
-#include <init.h>
 #include <sycl/sycl.hpp>
 
 namespace seissol::kernels::device::aux::plasticity {
@@ -79,8 +79,10 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
       tau = std::sqrt(tau);
 
       // 4. Compute the plasticity criteria
-      const real cohesionTimesCosAngularFriction = plasticity[wid].cohesionTimesCosAngularFriction;
-      const real sinAngularFriction = plasticity[wid].sinAngularFriction;
+      const real cohesionTimesCosAngularFriction =
+          plasticity[wid].cohesionTimesCosAngularFriction[tid % seissol::multisim::NumSimulations];
+      const real sinAngularFriction =
+          plasticity[wid].sinAngularFriction[tid % seissol::multisim::NumSimulations];
       real taulim = cohesionTimesCosAngularFriction - meanStress * sinAngularFriction;
       taulim = std::max(static_cast<real>(0.0), taulim);
 
@@ -111,33 +113,10 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
   });
 }
 
-void adjustPointers(real* QEtaNodal,
-                    real** QEtaNodalPtrs,
-                    real* QEtaModal,
-                    real** QEtaModalPtrs,
-                    real* dUdTpstrain,
-                    real** dUdTpstrainPtrs,
-                    size_t numElements,
-                    void* queuePtr) {
-  auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
-  sycl::range rng{numElements};
-
-  queue->submit([&](sycl::handler& cgh) {
-    cgh.parallel_for(rng, [=](sycl::item<1> item) {
-      auto tid = item.get_id(0);
-      if (tid < numElements) {
-        QEtaNodalPtrs[tid] = &QEtaNodal[tensor::QEtaNodal::Size * tid];
-        QEtaModalPtrs[tid] = &QEtaModal[tensor::QEtaModal::Size * tid];
-        dUdTpstrainPtrs[tid] = &dUdTpstrain[tensor::QStressNodal::Size * tid];
-      }
-    });
-  });
-}
-
 void computePstrains(real** pstrains,
                      const seissol::model::PlasticityData* plasticityData,
                      real** dofs,
-                     real* prevDofs,
+                     real** prevDofs,
                      real** dUdTpstrain,
                      double T_v,
                      double oneMinusIntegratingFactor,
@@ -156,7 +135,7 @@ void computePstrains(real** pstrains,
 
       if (isAdjustableVector[wid]) {
         real* localDofs = dofs[wid];
-        real* localPrevDofs = &prevDofs[tensor::Q::Size * wid];
+        real* localPrevDofs = prevDofs[wid];
         const seissol::model::PlasticityData* localData = &plasticityData[wid];
         real* localPstrain = pstrains[wid];
         real* localDuDtPstrain = dUdTpstrain[wid];
@@ -170,56 +149,6 @@ void computePstrains(real** pstrains,
           static_assert(leadDim<init::QStress>() == leadDim<init::Q>());
           localPstrain[q] += timeStepWidth * nodeDuDtPstrain;
           localDuDtPstrain[q] = nodeDuDtPstrain;
-        }
-      }
-    });
-  });
-}
-
-void pstrainToQEtaModal(real** pstrains,
-                        real** QEtaModalPtrs,
-                        unsigned* isAdjustableVector,
-                        size_t numElements,
-                        void* queuePtr) {
-  auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
-  sycl::nd_range rng{{1024 * numElements}, {1024}};
-
-  queue->submit([&](sycl::handler& cgh) {
-    cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-      static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>());
-
-      auto wid = item.get_group().get_group_id(0);
-      auto lid = item.get_local_id(0);
-      if (isAdjustableVector[wid]) {
-        real* localQEtaModal = QEtaModalPtrs[wid];
-        real* localPstrain = pstrains[wid];
-        for (std::size_t i = lid; i < tensor::QEtaModal::Size; i += 1024) {
-          localQEtaModal[i] = localPstrain[NumStressComponents * leadDim<init::QStressNodal>() + i];
-        }
-      }
-    });
-  });
-}
-
-void qEtaModalToPstrain(real** QEtaModalPtrs,
-                        real** pstrains,
-                        unsigned* isAdjustableVector,
-                        size_t numElements,
-                        void* queuePtr) {
-  auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
-  sycl::nd_range rng{{1024 * numElements}, {1024}};
-
-  queue->submit([&](sycl::handler& cgh) {
-    cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-      static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>());
-
-      auto wid = item.get_group().get_group_id(0);
-      auto lid = item.get_local_id(0);
-      if (isAdjustableVector[wid]) {
-        real* localQEtaModal = QEtaModalPtrs[wid];
-        real* localPstrain = pstrains[wid];
-        for (std::size_t i = lid; i < tensor::QEtaModal::Size; i += 1024) {
-          localPstrain[NumStressComponents * leadDim<init::QStressNodal>() + i] = localQEtaModal[i];
         }
       }
     });

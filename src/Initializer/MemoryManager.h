@@ -13,9 +13,8 @@
 
 #include "Memory/Tree/Layer.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#ifdef USE_MPI
+#include <Memory/Descriptor/Surface.h>
 #include <mpi.h>
-#endif
 
 #include <utils/logger.h>
 
@@ -66,7 +65,6 @@ class MemoryManager {
     //! number of derivatives in the interior per cluster
     unsigned int *m_numberOfInteriorDerivatives;
 
-#ifdef USE_MPI
     /*
      * Ghost layer
      */
@@ -96,7 +94,6 @@ class MemoryManager {
 
     //! number of derivatives in the copy regionsper cluster
     unsigned int **m_numberOfCopyRegionDerivatives;
-#endif
 
     /*
      * Cross-cluster
@@ -123,6 +120,9 @@ class MemoryManager {
     LTSTree m_boundaryTree;
     Boundary m_boundary;
 
+    LTSTree surfaceTree;
+    SurfaceLTS surface;
+
     EasiBoundary m_easiBoundary;
 
     /**
@@ -147,11 +147,6 @@ class MemoryManager {
     void initializeBuffersDerivatives();
 
     /**
-    * Derives the size of the displacement accumulation buffer.
-    */
-    void deriveFaceDisplacementsBucket();
-
-    /**
      * Derives the size of the displacement accumulation buffer.
      */
     void deriveDisplacementsBucket();
@@ -162,16 +157,9 @@ class MemoryManager {
     void initializeDisplacements();
 
     /**
-     * Initializes the displacement accumulation buffer.
-     */
-  void initializeFaceDisplacements();
-
-#ifdef USE_MPI
-    /**
      * Initializes the communication structure.
      **/
     void initializeCommunicationStructure();
-#endif
 
   public:
     /**
@@ -195,8 +183,8 @@ class MemoryManager {
      *
      * @param i_meshStructrue mesh structure.
      **/
-    void fixateLtsTree(struct TimeStepping& i_timeStepping,
-                       struct MeshStructure*i_meshStructure,
+    void fixateLtsTree(struct ClusterLayout& clusterLayout,
+                       struct MeshStructure* meshStructure,
                        unsigned* numberOfDRCopyFaces,
                        unsigned* numberOfDRInteriorFaces,
                        bool usePlasticity);
@@ -234,17 +222,6 @@ class MemoryManager {
       }
       return global;
     }
-
-    /**
-     * Gets the memory layout of a time cluster.
-     *
-     * @param i_cluster local id of the time cluster.
-     * @param o_meshStructure mesh structure.
-     * @param o_globalData global data.
-     * @param o_globalDataCopies several copies of global data
-     **/
-    std::pair<MeshStructure*, CompoundGlobalData>
-    getMemoryLayout(unsigned int i_cluster);
                           
     inline LTSTree* getLtsTree() {
       return &m_ltsTree;
@@ -277,6 +254,14 @@ class MemoryManager {
 
     inline Boundary* getBoundary() {
       return &m_boundary;
+    }
+
+    LTSTree* getSurfaceTree() {
+      return &surfaceTree;
+    }
+
+    SurfaceLTS* getSurface() {
+      return &surface;
     }
 
     inline void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
@@ -339,7 +324,7 @@ class MemoryManager {
   /**
    * Derives sizes of scratch memory required during computations of Wave Propagation solver
    **/
-  static void deriveRequiredScratchpadMemoryForWp(LTSTree &ltsTree, LTS& lts);
+  static void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTSTree &ltsTree, LTS& lts);
 
   /**
    * Derives sizes of scratch memory required during computations of Dynamic Rupture solver

@@ -38,7 +38,7 @@ class ReceiverWriter : public seissol::Module {
   seissol::SeisSol& seissolInstance;
 
   public:
-  ReceiverWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
+  explicit ReceiverWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
   void init(const std::string& fileNamePrefix,
             double endTime,
@@ -47,7 +47,7 @@ class ReceiverWriter : public seissol::Module {
   void addPoints(const seissol::geometry::MeshReader& mesh,
                  const seissol::initializer::Lut& ltsLut,
                  const seissol::initializer::LTS& lts,
-                 const GlobalData* global);
+                 const CompoundGlobalData& global);
 
   kernels::ReceiverCluster* receiverCluster(unsigned clusterId, LayerType layer);
   //
@@ -66,7 +66,8 @@ class ReceiverWriter : public seissol::Module {
   double m_samplingInterval;
   std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity>> derivedQuantities;
   // Map needed because LayerType enum casts weirdly to int.
-  std::unordered_map<LayerType, std::vector<kernels::ReceiverCluster>> m_receiverClusters;
+  std::unordered_map<LayerType, std::vector<std::shared_ptr<kernels::ReceiverCluster>>>
+      m_receiverClusters;
   Stopwatch m_stopwatch;
 };
 } // namespace seissol::writer

@@ -23,11 +23,9 @@
 #ifdef USE_NETCDF
 #include <fstream>
 #include <netcdf.h>
+#include <netcdf_par.h>
 #include <ostream>
 #include <sstream>
-#ifdef USE_MPI
-#include <netcdf_par.h>
-#endif // USE_MPI
 #endif // USE_NETCDF
 
 #include "Monitoring/Stopwatch.h"
@@ -84,12 +82,12 @@ unsigned LoopStatistics::getRegion(const std::string& name) const {
 }
 
 void LoopStatistics::begin(unsigned region) {
-  clock_gettime(CLOCK_MONOTONIC, &regions[region].begin);
+  (void)clock_gettime(CLOCK_MONOTONIC, &regions[region].begin);
 }
 
 void LoopStatistics::end(unsigned region, unsigned numIterations, unsigned subRegion) {
   timespec endTime{};
-  clock_gettime(CLOCK_MONOTONIC, &endTime);
+  (void)clock_gettime(CLOCK_MONOTONIC, &endTime);
   addSample(region, numIterations, subRegion, regions[region].begin, endTime);
 }
 
@@ -164,11 +162,7 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
   }
 
   int rank = 0;
-#ifdef USE_MPI
   MPI_Comm_rank(comm, &rank);
-#else
-  rank = 0;
-#endif
 
   const auto summary = seissol::statistics::parallelSummary(totalTimePerRank);
   logInfo() << "Time spent in compute kernels: mean =" << summary.mean << " std =" << summary.std
@@ -177,9 +171,7 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
   const auto loadImbalance = 1.0 - summary.mean / summary.max;
   logInfo() << "Load imbalance:" << 100.0 * loadImbalance << "%";
 
-#ifdef USE_MPI
   MPI_Allreduce(MPI_IN_PLACE, sums.data(), sums.size(), MPI_DOUBLE, MPI_SUM, comm);
-#endif
 
   auto regressionCoeffs = std::vector<double>(2 * nRegions);
   auto stderror = std::vector<double>(nRegions, 0.0);
@@ -248,9 +240,9 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
 void LoopStatistics::writeSamples(const std::string& outputPrefix,
                                   bool isLoopStatisticsNetcdfOutputOn) {
   if (isLoopStatisticsNetcdfOutputOn) {
+#if defined(USE_NETCDF)
     const auto loopStatFile = outputPrefix + "-loopStat-";
     const auto rank = MPI::mpi.rank();
-#if defined(USE_NETCDF) && defined(USE_MPI)
     logInfo() << "Starting to write loop statistics samples to disk.";
     const unsigned nRegions = regions.size();
     for (unsigned region = 0; region < nRegions; ++region) {
@@ -357,7 +349,7 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
     }
     logInfo() << "Finished writing loop statistics samples.";
 #else
-    logWarning() << "Writing loop statistics requires NetCDF and MPI.";
+    logWarning() << "Writing loop statistics requires NetCDF.";
 #endif
   }
 }

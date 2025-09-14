@@ -46,14 +46,14 @@ class BaseDRInitializer {
    * Stores the initialStresses.
    */
   struct StressTensor {
-    StressTensor(size_t size) {
-      xx.reserve(size);
-      yy.reserve(size);
-      zz.reserve(size);
-      xy.reserve(size);
-      yz.reserve(size);
-      xz.reserve(size);
-      p.reserve(size);
+    explicit StressTensor(size_t size) {
+      xx.resize(size);
+      yy.resize(size);
+      zz.resize(size);
+      xy.resize(size);
+      yz.resize(size);
+      xz.resize(size);
+      p.resize(size);
     }
     using VectorOfArraysT = std::vector<std::array<real, misc::NumPaddedPoints>>;
     VectorOfArraysT xx;
@@ -184,7 +184,7 @@ class BaseDRInitializer {
    * to false, check identifiers for the initial stress
    * @return vector of strings, with the identifiers for the initial stress.
    */
-  std::pair<std::vector<std::string>, Parametrization> stressIdentifiers(bool readNucleation);
+  std::pair<std::vector<std::string>, Parametrization> stressIdentifiers(int readNucleation);
 };
 
 } // namespace dr::initializer

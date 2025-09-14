@@ -23,14 +23,11 @@
 #include <mpi.h>
 #include <vector>
 
-#ifdef USE_NETCDF
 #include "Geometry/CubeGenerator.h"
-#include "Geometry/NetcdfReader.h"
-#endif // USE_NETCDF
-#if defined(USE_HDF) && defined(USE_MPI)
+#if defined(USE_HDF)
 #include "Geometry/PUMLReader.h"
 #include <hdf5.h>
-#endif // defined(USE_HDF) && defined(USE_MPI)
+#endif // defined(USE_HDF)
 #include "Initializer/TimeStepping/LtsWeights/WeightsFactory.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Stopwatch.h"
@@ -94,10 +91,8 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
     }
   }
 
-#ifdef USE_MPI
   MPI_Allreduce(MPI_IN_PLACE, maxPointValue, 3, MPI_DOUBLE, MPI_MAX, seissol::MPI::mpi.comm());
   MPI_Allreduce(MPI_IN_PLACE, minPointValue, 3, MPI_DOUBLE, MPI_MIN, seissol::MPI::mpi.comm());
-#endif
 
   logInfo() << "Smallest bounding box around the mesh: <" << minPointValue[0] << minPointValue[1]
             << minPointValue[2] << "> to <" << maxPointValue[0] << maxPointValue[1]
@@ -106,7 +101,7 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
 
 void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
                   seissol::SeisSol& seissolInstance) {
-#if defined(USE_HDF) && defined(USE_MPI)
+#if defined(USE_HDF)
   double nodeWeight = 1.0;
 
   if (seissolInstance.env().get<bool>("MINISEISSOL", true)) {
@@ -150,7 +145,8 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       auto format = [&]() {
         if (_eh(H5Tis_variable_str(boundaryAttributeType))) {
           char* formatRaw = nullptr;
-          _eh(H5Aread(boundaryAttribute, boundaryAttributeType, &formatRaw));
+          _eh(H5Aread(
+              boundaryAttribute, boundaryAttributeType, reinterpret_cast<void*>(&formatRaw)));
           auto format = std::string(formatRaw);
           _eh(H5free_memory(formatRaw));
           return format;
@@ -236,15 +232,9 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   watch.pause();
   watch.printTime("PUML mesh read in:");
 
-#else // defined(USE_HDF) && defined(USE_MPI)
-#ifndef USE_MPI
-  logError() << "Tried to load a PUML mesh. However, PUML is currently only supported with MPI "
-                "(and this build of SeisSol does not use MPI).";
-#endif
-#ifndef USE_HDF
+#else  // defined(USE_HDF)
   logError() << "Tried to load a PUML mesh. However, PUML needs SeisSol to be linked against HDF5.";
-#endif
-#endif // defined(USE_HDF) && defined(USE_MPI)
+#endif // defined(USE_HDF)
 }
 
 size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
@@ -260,7 +250,6 @@ size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
 
 void readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
                        seissol::SeisSol& seissolInstance) {
-#if USE_NETCDF
   // unpack seissolParams
   const auto cubeParameters = seissolParams.cubeGenerator;
 
@@ -270,10 +259,6 @@ void readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters
 
   seissolInstance.setMeshReader(
       new seissol::geometry::CubeGenerator(commRank, commSize, realMeshFileName, cubeParameters));
-#else
-  logError() << "Tried using CubeGenerator to read a Netcdf mesh, however this build of SeisSol is "
-                "not linked to Netcdf.";
-#endif
 }
 
 } // namespace
@@ -282,7 +267,6 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
   SCOREP_USER_REGION("init_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  const auto commRank = seissol::MPI::mpi.rank();
   const auto commSize = seissol::MPI::mpi.size();
 
   logInfo() << "Begin init mesh.";
@@ -297,36 +281,7 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
   seissol::Stopwatch watch;
   watch.start();
 
-  const std::string realMeshFileName = seissolParams.mesh.meshFileName;
-  [[maybe_unused]] bool addNC = true;
-  if (realMeshFileName.size() >= 3) {
-    const auto lastCharacters = realMeshFileName.substr(realMeshFileName.size() - 3);
-    addNC = lastCharacters != ".nc";
-  }
-
   switch (meshFormat) {
-  case seissol::initializer::parameters::MeshFormat::Netcdf: {
-#if USE_NETCDF
-    const auto realMeshFileNameNetcdf = [&]() {
-      if (addNC) {
-        const auto newRealMeshFileName = realMeshFileName + ".nc";
-        logInfo() << "The Netcdf file extension \".nc\" has been appended. Updated mesh file name:"
-                  << newRealMeshFileName;
-        return newRealMeshFileName;
-      } else {
-        // (suppress preference for return move)
-        // NOLINTNEXTLINE
-        return realMeshFileName;
-      }
-    }();
-    seissolInstance.setMeshReader(
-        new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileNameNetcdf.c_str()));
-#else
-    logError()
-        << "Tried to load a Netcdf mesh, however this build of SeisSol is not linked to Netcdf.";
-#endif
-    break;
-  }
   case seissol::initializer::parameters::MeshFormat::PUML: {
     readMeshPUML(seissolParams, seissolInstance);
     break;

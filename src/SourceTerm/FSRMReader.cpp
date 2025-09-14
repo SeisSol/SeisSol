@@ -6,7 +6,6 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "FSRMReader.h"
-#include <Kernels/Precision.h>
 #include <cstddef>
 #include <utils/logger.h>
 
@@ -24,7 +23,7 @@ template <size_t N>
 void readArrayOrZero(std::ifstream& filestream,
                      std::string& header,
                      const std::string& keyword,
-                     real* data) {
+                     double* data) {
   if (header.find(keyword) != std::string::npos) {
     for (size_t i = 0; i < N; ++i) {
       filestream >> data[i];

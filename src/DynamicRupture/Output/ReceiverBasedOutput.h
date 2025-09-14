@@ -16,6 +16,7 @@
 #include "Memory/Tree/Lut.h"
 
 #include <DynamicRupture/Misc.h>
+#include <Parallel/Runtime/Stream.h>
 #include <memory>
 #include <vector>
 
@@ -34,7 +35,8 @@ class ReceiverOutput {
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
   void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
-                       std::shared_ptr<ReceiverOutputData> outputData,
+                       const std::shared_ptr<ReceiverOutputData>& outputData,
+                       parallel::runtime::StreamRuntime& runtime,
                        double time = 0.0);
 
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
@@ -54,8 +56,11 @@ class ReceiverOutput {
     size_t ltsId{};
     int nearestGpIndex{};
     int nearestInternalGpIndex{};
+    int gpIndex{};
+    int internalGpIndexFused{};
 
     std::size_t index{};
+    std::size_t fusedIndex{};
 
     real iniTraction1{};
     real iniTraction2{};
@@ -81,8 +86,10 @@ class ReceiverOutput {
     real slipRateStrike{};
     real slipRateDip{};
 
-    real faceAlignedValuesPlus[tensor::QAtPoint::size()]{};
-    real faceAlignedValuesMinus[tensor::QAtPoint::size()]{};
+    real
+        faceAlignedValuesPlus[tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension]]{};
+    real faceAlignedValuesMinus
+        [tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension]]{};
 
     model::IsotropicWaveSpeeds* waveSpeedsPlus{};
     model::IsotropicWaveSpeeds* waveSpeedsMinus{};
@@ -93,7 +100,7 @@ class ReceiverOutput {
   template <typename T>
   std::remove_extent_t<T>* getCellData(const LocalInfo& local,
                                        const seissol::initializer::Variable<T>& variable) {
-    auto devVar = local.state->deviceVariables.find(variable.index);
+    auto devVar = local.state->deviceVariables.find(drTree->info(variable).index);
     if (devVar != local.state->deviceVariables.end()) {
       return reinterpret_cast<std::remove_extent_t<T>*>(
           devVar->second->get(local.state->deviceIndices[local.index]));
@@ -103,7 +110,7 @@ class ReceiverOutput {
   }
 
   void getDofs(real dofs[tensor::Q::size()], int meshId);
-  void getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side);
+  void getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side);
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
   virtual real computeFluidPressure(LocalInfo& local) { return 0.0; }
@@ -118,7 +125,7 @@ class ReceiverOutput {
                               const std::array<double, 3>& tangent2,
                               const std::array<double, 3>& strike,
                               const std::array<double, 3>& dip);
-  virtual void outputSpecifics(std::shared_ptr<ReceiverOutputData>& data,
+  virtual void outputSpecifics(const std::shared_ptr<ReceiverOutputData>& data,
                                const LocalInfo& local,
                                size_t outputSpecifics,
                                size_t receiverIdx) {}
