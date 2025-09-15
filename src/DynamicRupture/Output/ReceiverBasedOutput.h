@@ -107,6 +107,11 @@ class ReceiverOutputImpl : public ReceiverOutput {
     ReceiverOutputData* state{};
   };
 
+  /**
+    Gets the cell data defined by the type StorageT.
+    (we cannot just access the storage data structure in case we need to sparsely copy data for the
+    onfault receiver output on GPUs)
+   */
   template <typename StorageT, typename Cfg>
   std::remove_extent_t<typename StorageT::template VariantType<Cfg>>*
       getCellData(Cfg cfg, const LocalInfo<Cfg>& local) {

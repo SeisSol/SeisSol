@@ -73,7 +73,7 @@ class BaseDRInitializer {
    * This will be specialized in the derived friction law initializers
    * @param parameterToStorageMap reference to a std::unordered_map<std::string, double*>, which
    * maps the parameter name, to the address in memory, where the parameter shall be stored
-   * @param layer reference to an Storage layer
+   * @param layer reference to a Storage layer
    */
   virtual void
       addAdditionalParameters(std::unordered_map<std::string, void*>& parameterToStorageMap,
@@ -81,7 +81,7 @@ class BaseDRInitializer {
 
   /**
    * Finds all faceIDs in one iterator. This is the mapping idInStorage -> idInMesh
-   * @param layer reference to an Storage layer
+   * @param layer reference to a Storage layer
    * @return vector containing all faceIDs which are stored in the leaf_iterator
    */
   static std::vector<std::size_t> getFaceIDsInIterator(DynamicRupture::Layer& layer);
@@ -98,7 +98,7 @@ class BaseDRInitializer {
    * slipRateMagnitude
    * traction1
    * traction2
-   * @param layer reference to an Storage layer
+   * @param layer reference to a Storage layer
    */
   static void initializeOtherVariables(DynamicRupture::Layer& layer);
 
@@ -127,8 +127,8 @@ class BaseDRInitializer {
    * "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz" ("nuc_xx", "nuc_yy", "nuc_zz", "nuc_xy",
    * "nuc_yz", "nuc_xz"). The user either has to provide all three traction components or all six
    * stress components, but no mixture.
-   * @param readNucleation if set to true, check the identifiers for the nucleation stress. If set
-   * to false, check identifiers for the initial stress
+   * @param readNucleation if set to > 0, check the identifiers for the nucleation stress. If set
+   * to 0, check identifiers for the initial stress
    * @return vector of strings, with the identifiers for the initial stress.
    */
   std::pair<std::vector<std::string>, Parametrization>

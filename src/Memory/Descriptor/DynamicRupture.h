@@ -103,15 +103,15 @@ struct DynamicRupture {
   struct NucleationPressure : public initializer::VariantVariable<DrDataArray> {};
   struct Mu : public initializer::VariantVariable<DrDataArray> {};
   struct AccumulatedSlipMagnitude : public initializer::VariantVariable<DrDataArray> {};
-  struct Slip1 : public initializer::VariantVariable<DrDataArray> {
-  }; // slip at given fault node along local direction 1
-  struct Slip2 : public initializer::VariantVariable<DrDataArray> {
-  }; // slip at given fault node along local direction 2
+  // slip at given fault node along local direction 1
+  struct Slip1 : public initializer::VariantVariable<DrDataArray> {};
+  // slip at given fault node along local direction 2
+  struct Slip2 : public initializer::VariantVariable<DrDataArray> {};
   struct SlipRateMagnitude : public initializer::VariantVariable<DrDataArray> {};
-  struct SlipRate1 : public initializer::VariantVariable<DrDataArray> {
-  }; // slip rate at given fault node along local direction 1
-  struct SlipRate2 : public initializer::VariantVariable<DrDataArray> {
-  }; // slip rate at given fault node along local direction 2
+  // slip rate at given fault node along local direction 1
+  struct SlipRate1 : public initializer::VariantVariable<DrDataArray> {};
+  // slip rate at given fault node along local direction 2
+  struct SlipRate2 : public initializer::VariantVariable<DrDataArray> {};
   struct RuptureTime : public initializer::VariantVariable<DrDataArray> {};
   struct DynStressTime : public initializer::VariantVariable<DrDataArray> {};
   struct RuptureTimePending : public initializer::Variable<void> {
@@ -173,6 +173,7 @@ struct DynamicRupture {
     storage.add<InitialPressure>(mask, Alignment, allocationModeDR());
     storage.add<RuptureTime>(mask, Alignment, allocationModeDR());
 
+    // NOTE: nucleation count (multi-nucleation support) is passed here.
     storage.add<NucleationStressInFaultCS>(
         mask, Alignment, allocationModeDR(), true, nucleationCount);
     storage.add<NucleationPressure>(mask, Alignment, allocationModeDR(), true, nucleationCount);

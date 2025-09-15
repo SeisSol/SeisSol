@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 SeisSol Group
+// SPDX-FileCopyrightText: 2025 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -7,5 +7,6 @@
 
 #include "doctest.h"
 
-#include "IntegerMaskParser.t.h"
-#include "Iterator.t.h"
+#include "Backmap.t.h"
+#include "Colormap.t.h"
+#include "Storage.t.h"

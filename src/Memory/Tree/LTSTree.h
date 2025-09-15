@@ -60,6 +60,16 @@ void initAssign(T& target, const T& value) {
   // for <typename S, size_t N>, to use a copy constructor as well)
 }
 
+/**
+  A layered storage datastructure. That is, we have some data identified by types that is clustered
+  into different chunks called "layers" for historic reasons. Each layer is associated to a color
+  (cf. LTSColorMap) which identifies e.g. the halo type and the LTS cluster ID it belongs to.
+
+  The VarmapT is either GenericVarmap or SpecificVarmap.
+
+  NOTE: currently hard-coded to the LTSColorMap type. If someone would need it, you could generalize
+  that to arbitrary color maps or orderings. (we don't need that anywhere right now (late 2025))
+ */
 template <typename VarmapT = GenericVarmap>
 class Storage {
   private:
@@ -425,6 +435,8 @@ class Storage {
     return maxClusterSize;
   }
 
+  // helper class for the `leaves` function below; so that we can use the function like `for (auto x
+  // : leaves())`
   class IteratorWrapper {
 private:
     Storage<VarmapT>& node;
@@ -441,6 +453,8 @@ public:
     auto end() { return common::FilteredIterator(node.layers.end(), node.layers.end(), filter); }
   };
 
+  // helper class for the `leaves` (const) function below; so that we can use the function like `for
+  // (auto x : leaves())`
   class IteratorWrapperConst {
 private:
     const Storage<VarmapT>& node;
