@@ -70,15 +70,15 @@ struct DynamicRupture {
   struct Mu : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct AccumulatedSlipMagnitude : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {
   };
-  struct Slip1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {
-  }; // slip at given fault node along local direction 1
-  struct Slip2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {
-  }; // slip at given fault node along local direction 2
+  // slip at given fault node along local direction 1
+  struct Slip1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  // slip at given fault node along local direction 2
+  struct Slip2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct SlipRateMagnitude : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct SlipRate1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {
-  }; // slip rate at given fault node along local direction 1
-  struct SlipRate2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {
-  }; // slip rate at given fault node along local direction 2
+  // slip rate at given fault node along local direction 1
+  struct SlipRate1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  // slip rate at given fault node along local direction 2
+  struct SlipRate2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct RuptureTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct DynStressTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct RuptureTimePending : public initializer::Variable<bool[dr::misc::NumPaddedPoints]> {};
@@ -123,6 +123,7 @@ struct DynamicRupture {
     storage.add<InitialPressure>(mask, Alignment, allocationModeDR());
     storage.add<RuptureTime>(mask, Alignment, allocationModeDR());
 
+    // NOTE: nucleation count (multi-nucleation support) is passed here.
     storage.add<NucleationStressInFaultCS>(
         mask, Alignment, allocationModeDR(), true, nucleationCount);
     storage.add<NucleationPressure>(mask, Alignment, allocationModeDR(), true, nucleationCount);

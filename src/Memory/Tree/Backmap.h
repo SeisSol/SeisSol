@@ -18,6 +18,10 @@
 
 namespace seissol::initializer {
 
+/**
+  A position in the Storage structure; identified by the layer color and the cell position inside
+  that layer. (and the global ID as extra info)
+ */
 struct StoragePosition {
   std::size_t color;
   std::size_t cell;
@@ -32,11 +36,20 @@ struct StoragePosition {
   const static StoragePosition NullPosition;
 };
 
+/**
+  A undefined storage position; e.g. for use when there is no cell present but a position needs to
+  be stored. Will most likely cause a segfault when used; prefer using optionals to StoragePositions
+  instead where possible.
+ */
 const inline StoragePosition StoragePosition::NullPosition =
     StoragePosition{std::numeric_limits<std::size_t>::max(),
                     std::numeric_limits<std::size_t>::max(),
                     std::numeric_limits<std::size_t>::max()};
 
+/**
+  A map from e.g. cell ID to position in a layered Storage structure. May contain MaxDuplicatesP
+  many duplicates per cell ID. (akin to the Lut implementation in older SeisSol)
+ */
 template <std::size_t MaxDuplicatesP>
 class StorageBackmap {
   public:

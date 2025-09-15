@@ -30,7 +30,7 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * This will be specialized in the derived friction law initializers
    * @param parameterToStorageMap reference to a std::unordered_map<std::string, double*>, which
    * maps the parameter name, to the address in memory, where the parameter shall be stored
-   * @param layer reference to an Storage layer
+   * @param layer reference to a Storage layer
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                                DynamicRupture::Layer& layer) override = 0;
