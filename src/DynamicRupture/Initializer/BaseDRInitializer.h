@@ -83,12 +83,10 @@ class BaseDRInitializer {
    * Main function to initialize all fault dependent parameters.
    * In particular this initializes the initial and nucleation stress and rotates them to the fault
    * aligned coordinate system Furthermore data is copied to the fortran part
-   * @param dynRup pointer to the respective dynamic rupture datastructure
-   * @param dynRupTree pointer to the dynamic rupture lts tree
+   * @param drStorage pointer to the dynamic rupture storage
    * not need to store values in the Fortran parts
    */
-  virtual void initializeFault(const seissol::initializer::DynamicRupture* dynRup,
-                               seissol::initializer::LTSTree* dynRupTree);
+  virtual void initializeFault(DynamicRupture::Storage& drStorage);
 
   protected:
   /**
@@ -96,23 +94,18 @@ class BaseDRInitializer {
    * This will be specialized in the derived friction law initializers
    * @param parameterToStorageMap reference to a std::unordered_map<std::string, double*>, which
    * maps the parameter name, to the address in memory, where the parameter shall be stored
-   * @param dynRup pointer to the respective dynamic rupture datastructure
-   * @param it reference to an LTSTree leaf_iterator
+   * @param layer reference to a Storage layer
    */
   virtual void
       addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                              const seissol::initializer::DynamicRupture* dynRup,
-                              seissol::initializer::Layer& layer);
+                              DynamicRupture::Layer& layer);
 
   /**
-   * Finds all faceIDs in one iterator. This is the mapping idInLTSTree -> idInMesh
-   * @param dynRup pointer to the respective dynamic rupture datastructure
-   * @param it reference to an LTSTree leaf_iterator
+   * Finds all faceIDs in one iterator. This is the mapping idInStorage -> idInMesh
+   * @param layer reference to a Storage layer
    * @return vector containing all faceIDs which are stored in the leaf_iterator
    */
-  static std::vector<unsigned>
-      getFaceIDsInIterator(const seissol::initializer::DynamicRupture* dynRup,
-                           seissol::initializer::Layer& layer);
+  static std::vector<unsigned> getFaceIDsInIterator(DynamicRupture::Layer& layer);
 
   /**
    * Initialize all other variables:
@@ -126,11 +119,9 @@ class BaseDRInitializer {
    * slipRateMagnitude
    * traction1
    * traction2
-   * @param dynRup pointer to the respective dynamic rupture datastructure
-   * @param it reference to an LTSTree leaf_iterator
+   * @param layer reference to a Storage layer
    */
-  static void initializeOtherVariables(const seissol::initializer::DynamicRupture* dynRup,
-                                       seissol::initializer::Layer& layer);
+  static void initializeOtherVariables(DynamicRupture::Layer& layer);
 
   /**
    * Reads the parameters from the easi file
@@ -160,27 +151,26 @@ class BaseDRInitializer {
   private:
   /**
    * Rotates the fault-aligned traction to cartesian stress coordinates
-   * @param dynRup pointer to the respective dynamic rupture datastructure
-   * @param it reference to an LTSTree leaf_iterator
+   * @param layer reference to a Storage layer
    * @param stress reference to a StressTensor
    * IN: stores traction in fault strike/dip coordinate system OUT: stores the the stress in
    * cartesian coordinates
    */
-  void rotateTractionToCartesianStress(const seissol::initializer::DynamicRupture* dynRup,
-                                       seissol::initializer::Layer& layer,
-                                       StressTensor& stress);
+  void rotateTractionToCartesianStress(DynamicRupture::Layer& layer, StressTensor& stress);
 
   /**
    * Rotates the stress tensor to a fault aligned coordinate system and stores it in stressInFaultCS
-   * @param dynRup pointer to the respective dynamic rupture datastructure
-   * @param it reference to an LTSTree leaf_iterator
+   * @param layer reference to a Storage layer
    * @param stressInFaultCS pointer to array of size [numCells][6][numPaddedPoints], stores rotated
    * stress
+   * @param index stress index per cell (set to 0, unless initializing multi-nucleation)
+   * @param count stress count per cell (set to 1, unless initializing multi-nucleation)
    * @param stress reference to a StressTensor, stores the stress in cartesian coordinates
    */
-  void rotateStressToFaultCS(const seissol::initializer::DynamicRupture* dynRup,
-                             seissol::initializer::Layer& layer,
+  void rotateStressToFaultCS(DynamicRupture::Layer& layer,
                              real (*stressInFaultCS)[6][misc::NumPaddedPoints],
+                             std::size_t index,
+                             std::size_t count,
                              const StressTensor& stress);
 
   /**
@@ -189,8 +179,8 @@ class BaseDRInitializer {
    * "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz" ("nuc_xx", "nuc_yy", "nuc_zz", "nuc_xy",
    * "nuc_yz", "nuc_xz"). The user either has to provide all three traction components or all six
    * stress components, but no mixture.
-   * @param readNucleation if set to true, check the identifiers for the nucleation stress. If set
-   * to false, check identifiers for the initial stress
+   * @param readNucleation if set to > 0, check the identifiers for the nucleation stress. If set
+   * to 0, check identifiers for the initial stress
    * @return vector of strings, with the identifiers for the initial stress.
    */
   std::pair<std::vector<std::string>, Parametrization> stressIdentifiers(int readNucleation);

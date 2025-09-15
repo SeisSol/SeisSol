@@ -40,7 +40,7 @@ class SpacetimeKernel : public Kernel {
   */
   virtual void computeAder(const real* coeffs,
                            double timeStepWidth,
-                           LocalData& data,
+                           LTS::Ref& data,
                            LocalTmp& tmp,
                            real timeIntegrated[tensor::I::size()],
                            real* timeDerivativesOrSTP = nullptr,

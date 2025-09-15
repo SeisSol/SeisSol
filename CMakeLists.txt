@@ -602,6 +602,7 @@ if (TESTING)
           src/tests/Numerical/TestNumerical.cpp
           src/tests/Geometry/TestGeometry.cpp
           src/tests/Kernel/TestKernel.cpp
+          src/tests/Memory/TestMemory.cpp
           src/tests/SourceTerm/TestSourceTerm.cpp
           src/tests/Parallel/TestParallel.cpp
           src/tests/ResultWriter/TestResultWriter.cpp
