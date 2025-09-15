@@ -33,26 +33,12 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::stp {
 
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
-  for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
-    if (n > 0) {
-      for (int d = 0; d < 3; ++d) {
-        m_krnlPrototype.kDivMTSub(d, n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
-      }
-    }
-  }
+  m_krnlPrototype.kDivMT = global.onHost->stiffnessMatricesTransposed;
   m_krnlPrototype.timeInt = init::timeInt::Values;
   m_krnlPrototype.wHat = init::wHat::Values;
 
 #ifdef ACL_DEVICE
-  // TODO: adjust pointers
-  for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
-    if (n > 0) {
-      for (int d = 0; d < 3; ++d) {
-        deviceKrnlPrototype.kDivMTSub(d, n) =
-            init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
-      }
-    }
-  }
+  deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
   deviceKrnlPrototype.timeInt = init::timeInt::Values;
   deviceKrnlPrototype.wHat = init::wHat::Values;
 #endif

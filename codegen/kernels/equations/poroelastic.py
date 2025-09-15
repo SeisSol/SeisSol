@@ -160,19 +160,6 @@ class PoroelasticADERDG(LinearADERDG):
         def Zinv(o):
             return Tensor("Zinv({})".format(o), (self.order, self.order))
 
-        # Submatrix of the stiffness matrix
-        #
-        # The stiffness matrix for derivatives in direction d, where only the
-        # contribution from basis functions of degree n is considered
-        #
-        # @param d The direction in which derivatives are taken 0 =< d < 3
-        # @param n The polynomial degree n, which is taken into account
-        def kSub(d, n):
-            Bn_1, Bn = modeRange(n)
-            stiffnessSpp = np.zeros(fullShape)
-            stiffnessSpp[:, Bn_1:Bn] = -stiffnessValues[d][:, Bn_1:Bn]
-            return Tensor("kDivMTSub({},{})".format(d, n), fullShape, spp=stiffnessSpp, alignStride=True)
-
         QAtTimeSTP = OptionalDimTensor(
             "QAtTimeSTP",
             self.Q.optName(),
@@ -228,7 +215,7 @@ class PoroelasticADERDG(LinearADERDG):
                     )
                     for d in range(3):
                         derivativeSum += (
-                            kSub(d, n)["kl"] * spaceTimePredictor["lqt"] * star(d)
+                            self.db.kDivMT[d]["kl"].subslice('l', *modeRange(n)) * spaceTimePredictor["lqt"].subslice('l', *modeRange(n)) * star(d)
                         )
                 kernels.append(spaceTimePredictorRhs["kpt"] <= derivativeSum)
             kernels.append(
