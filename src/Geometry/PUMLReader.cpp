@@ -14,6 +14,7 @@
 #include <PUML/TypeInference.h>
 #include <PUML/Upward.h>
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -157,6 +158,7 @@ namespace seissol::geometry {
 
 PUMLReader::PUMLReader(const char* meshFile,
                        const char* partitioningLib,
+                       const ConfigMap& configMap,
                        seissol::initializer::parameters::BoundaryFormat boundaryFormat,
                        initializer::time_stepping::LtsWeights* ltsWeights,
                        double tpwgt)
@@ -168,7 +170,7 @@ PUMLReader::PUMLReader(const char* meshFile,
 
   generatePUML(puml); // We need to call generatePUML in order to create the dual graph of the mesh
   if (ltsWeights != nullptr) {
-    ltsWeights->computeWeights(puml);
+    ltsWeights->computeWeights(puml, configMap);
   }
   partition(puml, ltsWeights, tpwgt, meshFile, partitioningLib);
 
@@ -277,6 +279,7 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
     m_elements[i].localId = i;
     m_elements[i].clusterId = clusterIds[i];
     m_elements[i].timestep = timestep[i];
+    m_elements[i].configId = 0;
 
     // Vertices
     PUML::Downward::vertices(
@@ -479,10 +482,21 @@ void PUMLReader::addMPINeighor(const PUML::TETPUML& puml,
   neighbor.elements.resize(faces.size());
 
   for (std::size_t i = 0; i < faces.size(); i++) {
-    int cellIds[2];
-    PUML::Upward::cells(puml, puml.faces()[faces[i]], cellIds);
+    std::array<int, 2> cellIds;
+    PUML::Upward::cells(puml, puml.faces()[faces[i]], cellIds.data());
 
     neighbor.elements[i].localElement = cellIds[0];
+
+    std::array<unsigned int, Cell::NumFaces> sides;
+    PUML::Downward::faces(puml, puml.cells()[cellIds[0]], sides.data());
+    neighbor.elements[i].localSide = [&]() {
+      for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
+        if (sides[f] == faces[i]) {
+          return f;
+        }
+      }
+      throw;
+    }();
   }
 }
 

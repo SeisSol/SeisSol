@@ -119,27 +119,6 @@ endif()
 configure_file("src/Alignment.h.in"
                "${CMAKE_CURRENT_BINARY_DIR}/src/Alignment.h")
 
-if (EQUATIONS STREQUAL "viscoelastic")
-  set(PARAMETER_MATERIAL "Viscoelastic")
-  set(PARAMETER_VISCOMODE "QuantityExtension")
-elseif (EQUATIONS STREQUAL "viscoelastic2")
-  set(PARAMETER_MATERIAL "Viscoelastic")
-  set(PARAMETER_VISCOMODE "AnelasticTensor")
-else()
-  capitalize(${EQUATIONS} PARAMETER_MATERIAL)
-  set(PARAMETER_VISCOMODE "None")
-endif()
-
-capitalize(${DR_QUAD_RULE} PARAMETER_DRQUADRULE)
-
-if (PRECISION STREQUAL "single")
-  set(PARAMETER_REALTYPE "F32")
-else()
-  set(PARAMETER_REALTYPE "F64")
-endif()
-
-configure_file("src/Config.h.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/src/Config.h")
 
 # Generate version.h
 include(GetGitRevisionDescription)
@@ -220,6 +199,9 @@ add_custom_command(
      "--PlasticityMethod" ${PLASTICITY_METHOD}
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      "--drQuadRule" ${DR_QUAD_RULE}
+     "--enabled_order" ${ENABLED_ORDER}
+     "--enabled_material" ${ENABLED_MATERIAL}
+     "--enabled_precision" ${ENABLED_PRECISION}
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
      "--executable_pspamm=${PSpaMM_PROGRAM}"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
@@ -383,7 +365,8 @@ if (MEMKIND)
   target_compile_definitions(seissol-common-properties INTERFACE USE_MEMKIND)
 endif()
 
-if(${EQUATIONS} STREQUAL "poroelastic")
+# TODO: make better
+if(ENABLE_MATERIAL_POROELASTIC)
   include(CheckLanguage)
   check_language(Fortran)
   if(CMAKE_Fortran_COMPILER)
@@ -414,11 +397,7 @@ if (ADDRESS_SANITIZER_DEBUG)
   )
 endif()
 
-# Note: it is better to include `async` as
-# system headers because they emit lot's of warnings
-# from clang. Most of them are issues with respect
-# to overriden virtual methods
-target_include_directories(seissol-common-properties SYSTEM INTERFACE
+target_include_directories(seissol-common-properties INTERFACE
   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
@@ -487,15 +466,17 @@ else()
   else()
     set(NAME_SUFFIX "cpu")
   endif()
-  set(NAME_SUFFIX "${NAME_SUFFIX}-${EQUATIONS}")
-  if (PRECISION STREQUAL "single")
-    set(NAME_SUFFIX "${NAME_SUFFIX}-s")
-  else()
-    set(NAME_SUFFIX "${NAME_SUFFIX}-d")
-  endif()
-  set(NAME_SUFFIX "${NAME_SUFFIX}-p${ORDER}")
-  if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
-    set(NAME_SUFFIX "${NAME_SUFFIX}-f${NUMBER_OF_FUSED_SIMULATIONS}")
+  if (NOT MULTISETUP)
+    set(NAME_SUFFIX "${NAME_SUFFIX}-${EQUATIONS}")
+    if (PRECISION STREQUAL "single")
+      set(NAME_SUFFIX "${NAME_SUFFIX}-s")
+    else()
+      set(NAME_SUFFIX "${NAME_SUFFIX}-d")
+    endif()
+    set(NAME_SUFFIX "${NAME_SUFFIX}-p${ORDER}")
+    if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
+      set(NAME_SUFFIX "${NAME_SUFFIX}-f${NUMBER_OF_FUSED_SIMULATIONS}")
+    endif()
   endif()
 endif()
 

@@ -16,16 +16,24 @@
 namespace seissol {
 
 struct SurfaceLTS {
-  using FaceDisplacementType = real[tensor::faceDisplacement::size()];
+  struct Dofs : public seissol::initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = Real<Cfg>*;
+  };
 
-  struct Dofs : public seissol::initializer::Variable<real*> {};
   struct Side : public seissol::initializer::Variable<std::uint8_t> {};
   struct MeshId : public seissol::initializer::Variable<std::size_t> {};
   struct OutputPosition : public seissol::initializer::Variable<std::size_t> {};
-  struct BoundaryMapping : public seissol::initializer::Variable<CellBoundaryMapping*> {};
+  struct BoundaryMapping : public seissol::initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = CellBoundaryMapping<Cfg>*;
+  };
   struct LocationFlag : public seissol::initializer::Variable<std::uint8_t> {};
 
-  struct DisplacementDofs : public seissol::initializer::Variable<FaceDisplacementType> {};
+  struct DisplacementDofs : public seissol::initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = Real<Cfg>[tensor::faceDisplacement<Cfg>::size()];
+  };
 
   struct SurfaceVarmap : public initializer::SpecificVarmap<Dofs,
                                                             Side,
@@ -37,7 +45,8 @@ struct SurfaceLTS {
 
   using Storage = initializer::Storage<SurfaceVarmap>;
   using Layer = initializer::Layer<SurfaceVarmap>;
-  using Ref = initializer::Layer<SurfaceVarmap>::CellRef;
+  template <typename Config>
+  using Ref = initializer::Layer<SurfaceVarmap>::CellRef<Config>;
   using Backmap = initializer::StorageBackmap<1>;
 
   static void addTo(Storage& storage) {

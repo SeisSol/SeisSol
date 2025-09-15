@@ -11,7 +11,9 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include <Alignment.h>
+#include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
+#include <Equations/Datastructures.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshTools.h>
 #include <Initializer/InitialFieldProjection.h>
@@ -33,6 +35,7 @@
 #include <string_view>
 #include <utility>
 #include <utils/logger.h>
+#include <variant>
 #include <vector>
 
 #include "Geometry/MeshReader.h"
@@ -54,7 +57,7 @@ void CsvAnalysisWriter::writeHeader() {
 
 void CsvAnalysisWriter::addObservation(std::string_view variable,
                                        std::string_view normType,
-                                       real error) {
+                                       double error) {
   if (isEnabled) {
     out << variable << "," << normType << "," << error << "\n";
   }
@@ -91,18 +94,34 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& iniFields = seissolInstance.getMemoryManager().getInitialConditions();
 
   const auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
-  const auto* globalData = seissolInstance.getMemoryManager().getGlobalData().onHost;
+  const auto& globalData = seissolInstance.getMemoryManager().getGlobalData();
 
   const std::vector<Vertex>& vertices = meshReader->getVertices();
   const std::vector<Element>& elements = meshReader->getElements();
 
-  constexpr auto NumQuantities =
-      tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
-
-  // Initialize quadrature nodes and weights.
-  // TODO(Lukas) Increase quadrature order later.
-  constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
-  constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
+  std::size_t maxSims = 1;
+  std::size_t numQuantities = 0;
+  for (const auto& element : elements) {
+    std::visit(
+        [&](auto cfg) {
+          using Cfg = decltype(cfg);
+          maxSims = std::max(maxSims, Cfg::NumSimulations);
+          numQuantities = std::max(numQuantities, model::MaterialTT<Cfg>::Quantities.size());
+        },
+        ConfigVariantList[element.configId]);
+  }
+  MPI_Allreduce(MPI_IN_PLACE,
+                &maxSims,
+                1,
+                seissol::MPI::castToMpiType<std::size_t>(),
+                MPI_MAX,
+                seissol::MPI::mpi.comm());
+  MPI_Allreduce(MPI_IN_PLACE,
+                &numQuantities,
+                1,
+                seissol::MPI::castToMpiType<std::size_t>(),
+                MPI_MAX,
+                seissol::MPI::mpi.comm());
 
   std::vector<double> data;
 
@@ -114,24 +133,20 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         seissolInstance.getSeisSolParameters().initialization.hasTime);
   }
 
-  double quadraturePoints[NumQuadPoints][3];
-  double quadratureWeights[NumQuadPoints];
-  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
-
-  for (unsigned sim = 0; sim < multisim::NumSimulations; ++sim) {
+  for (unsigned sim = 0; sim < maxSims; ++sim) {
     logInfo() << "Analysis for simulation" << sim << ": absolute, relative";
     logInfo() << "--------------------------";
 
-    using ErrorArrayT = std::array<double, NumQuantities>;
-    using MeshIdArrayT = std::array<unsigned int, NumQuantities>;
+    using ErrorArrayT = std::vector<double>;
+    using MeshIdArrayT = std::vector<unsigned int>;
 
-    auto errL1Local = ErrorArrayT{0.0};
-    auto errL2Local = ErrorArrayT{0.0};
-    auto errLInfLocal = ErrorArrayT{-1.0};
-    auto elemLInfLocal = MeshIdArrayT{0};
-    auto analyticalL1Local = ErrorArrayT{0.0};
-    auto analyticalL2Local = ErrorArrayT{0.0};
-    auto analyticalLInfLocal = ErrorArrayT{-1.0};
+    auto errL1Local = ErrorArrayT(numQuantities);
+    auto errL2Local = ErrorArrayT(numQuantities);
+    auto errLInfLocal = ErrorArrayT(numQuantities);
+    auto elemLInfLocal = MeshIdArrayT(numQuantities);
+    auto analyticalL1Local = ErrorArrayT(numQuantities);
+    auto analyticalL2Local = ErrorArrayT(numQuantities);
+    auto analyticalLInfLocal = ErrorArrayT(numQuantities);
 
     // also functional with an enabled NVHPC_AVOID_OMP
     const int numThreads = OpenMP::threadCount();
@@ -145,18 +160,37 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     auto analyticalsL2Local = std::vector<ErrorArrayT>(numThreads);
     auto analyticalsLInfLocal = std::vector<ErrorArrayT>(numThreads, {-1});
 
-    // Note: We iterate over mesh cells by id to avoid
-    // cells that are duplicates.
-    std::vector<std::array<double, 3>> quadraturePointsXyz(NumQuadPoints);
-
-    alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
-    alignas(Alignment) real analyticalSolutionData[NumQuadPoints * NumQuantities];
     for (const auto& layer : ltsStorage.leaves(Ghost)) {
-      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-      const auto* materialData = layer.var<LTS::Material>();
-      const auto* dofsData = layer.var<LTS::Dofs>();
+      layer.wrap([&](auto cfg) {
+        using Cfg = decltype(cfg);
+        using real = Real<Cfg>;
+
+        constexpr auto NumQuantities =
+            tensor::Q<Cfg>::Shape[sizeof(tensor::Q<Cfg>::Shape) / sizeof(tensor::Q<Cfg>::Shape[0]) -
+                                  1];
+
+        // Initialize quadrature nodes and weights.
+        // TODO(Lukas) Increase quadrature order later.
+        constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
+        constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
+
+        double quadraturePoints[NumQuadPoints][3];
+        double quadratureWeights[NumQuadPoints];
+        seissol::quadrature::TetrahedronQuadrature(
+            quadraturePoints, quadratureWeights, QuadPolyDegree);
+
+        // Note: We iterate over mesh cells by id to avoid
+        // cells that are duplicates.
+        std::vector<std::array<double, 3>> quadraturePointsXyz(NumQuadPoints);
+
+        alignas(Alignment) real numericalSolutionData[tensor::dofsQP<Cfg>::size()];
+        alignas(Alignment) real analyticalSolutionData[NumQuadPoints * NumQuantities];
+
+        const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+        const auto* materialData = layer.var<LTS::Material>();
+        const auto* dofsData = layer.var<LTS::Dofs>(cfg);
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
-      // Note: Adding default(none) leads error when using gcc-8
+        // Note: Adding default(none) leads error when using gcc-8
 #pragma omp parallel for shared(elements,                                                          \
                                     vertices,                                                      \
                                     iniFields,                                                     \
@@ -174,86 +208,87 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                                     analyticalsLInfLocal)                                          \
     firstprivate(quadraturePointsXyz) private(numericalSolutionData, analyticalSolutionData)
 #endif
-      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-        if (secondaryInformation[cell].duplicate > 0) {
-          // skip duplicate cells
-          continue;
-        }
-        const auto meshId = secondaryInformation[cell].meshId;
-        const int curThreadId = OpenMP::threadId();
-
-        auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
-        auto analyticalSolution = yateto::DenseTensorView<2, real>(analyticalSolutionData,
-                                                                   {NumQuadPoints, NumQuantities});
-
-        // Needed to weight the integral.
-        const auto volume = MeshTools::volume(elements[meshId], vertices);
-        const auto jacobiDet = 6 * volume;
-
-        if (initialConditionType != seissol::initializer::parameters::InitializationType::Easi) {
-          // Compute global position of quadrature points.
-          const double* elementCoords[Cell::NumVertices];
-          for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
-            elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
+        for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+          if (secondaryInformation[cell].duplicate > 0) {
+            // skip duplicate cells
+            continue;
           }
-          for (std::size_t i = 0; i < NumQuadPoints; ++i) {
-            seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
-                                                                   elementCoords[1],
-                                                                   elementCoords[2],
-                                                                   elementCoords[3],
-                                                                   quadraturePoints[i],
-                                                                   quadraturePointsXyz[i].data());
+          const auto meshId = secondaryInformation[cell].meshId;
+          const int curThreadId = OpenMP::threadId();
+
+          auto numericalSolution = init::dofsQP<Cfg>::view::create(numericalSolutionData);
+          auto analyticalSolution = yateto::DenseTensorView<2, real>(
+              analyticalSolutionData, {NumQuadPoints, NumQuantities});
+
+          // Needed to weight the integral.
+          const auto volume = MeshTools::volume(elements[meshId], vertices);
+          const auto jacobiDet = 6 * volume;
+
+          if (initialConditionType != seissol::initializer::parameters::InitializationType::Easi) {
+            // Compute global position of quadrature points.
+            const double* elementCoords[Cell::NumVertices];
+            for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
+              elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
+            }
+            for (std::size_t i = 0; i < NumQuadPoints; ++i) {
+              seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
+                                                                     elementCoords[1],
+                                                                     elementCoords[2],
+                                                                     elementCoords[3],
+                                                                     quadraturePoints[i],
+                                                                     quadraturePointsXyz[i].data());
+            }
+
+            // Evaluate analytical solution at quad. nodes
+            const CellMaterialData& material = materialData[cell];
+            iniFields[sim % iniFields.size()]->evaluate(simulationTime,
+                                                        quadraturePointsXyz.data(),
+                                                        quadraturePointsXyz.size(),
+                                                        material,
+                                                        analyticalSolution);
+          } else {
+            for (std::size_t i = 0; i < NumQuadPoints; ++i) {
+              for (std::size_t j = 0; j < NumQuantities; ++j) {
+                analyticalSolution(i, j) =
+                    data.at(meshId * NumQuadPoints * NumQuantities + NumQuantities * i + j);
+              }
+            }
           }
 
-          // Evaluate analytical solution at quad. nodes
-          const CellMaterialData& material = materialData[cell];
-          iniFields[sim % iniFields.size()]->evaluate(simulationTime,
-                                                      quadraturePointsXyz.data(),
-                                                      quadraturePointsXyz.size(),
-                                                      material,
-                                                      analyticalSolution);
-        } else {
-          for (std::size_t i = 0; i < NumQuadPoints; ++i) {
-            for (std::size_t j = 0; j < NumQuantities; ++j) {
-              analyticalSolution(i, j) =
-                  data.at(meshId * NumQuadPoints * NumQuantities + NumQuantities * i + j);
+          auto numSub = seissol::multisim::simtensor<Cfg>(numericalSolution, sim);
+
+          // Evaluate numerical solution at quad. nodes
+          kernel::evalAtQP<Cfg> krnl;
+          krnl.evalAtQP = globalData.get<Cfg>().evalAtQPMatrix;
+          krnl.dofsQP = numericalSolutionData;
+          krnl.Q = dofsData[cell];
+          krnl.execute();
+
+          for (size_t i = 0; i < NumQuadPoints; ++i) {
+            const auto curWeight = jacobiDet * quadratureWeights[i];
+            for (size_t v = 0; v < NumQuantities; ++v) {
+              const double curError = std::abs(numSub(i, v) - analyticalSolution(i, v));
+              const double curAnalytical = std::abs(analyticalSolution(i, v));
+
+              errsL1Local[curThreadId][v] += curWeight * curError;
+              errsL2Local[curThreadId][v] += curWeight * curError * curError;
+              analyticalsL1Local[curThreadId][v] += curWeight * curAnalytical;
+              analyticalsL2Local[curThreadId][v] += curWeight * curAnalytical * curAnalytical;
+
+              if (curError > errsLInfLocal[curThreadId][v]) {
+                errsLInfLocal[curThreadId][v] = curError;
+                elemsLInfLocal[curThreadId][v] = meshId;
+              }
+              analyticalsLInfLocal[curThreadId][v] =
+                  std::max(curAnalytical, analyticalsLInfLocal[curThreadId][v]);
             }
           }
         }
-
-        auto numSub = seissol::multisim::simtensor(numericalSolution, sim);
-
-        // Evaluate numerical solution at quad. nodes
-        kernel::evalAtQP krnl;
-        krnl.evalAtQP = globalData->evalAtQPMatrix;
-        krnl.dofsQP = numericalSolutionData;
-        krnl.Q = dofsData[cell];
-        krnl.execute();
-
-        for (size_t i = 0; i < NumQuadPoints; ++i) {
-          const auto curWeight = jacobiDet * quadratureWeights[i];
-          for (size_t v = 0; v < NumQuantities; ++v) {
-            const double curError = std::abs(numSub(i, v) - analyticalSolution(i, v));
-            const double curAnalytical = std::abs(analyticalSolution(i, v));
-
-            errsL1Local[curThreadId][v] += curWeight * curError;
-            errsL2Local[curThreadId][v] += curWeight * curError * curError;
-            analyticalsL1Local[curThreadId][v] += curWeight * curAnalytical;
-            analyticalsL2Local[curThreadId][v] += curWeight * curAnalytical * curAnalytical;
-
-            if (curError > errsLInfLocal[curThreadId][v]) {
-              errsLInfLocal[curThreadId][v] = curError;
-              elemsLInfLocal[curThreadId][v] = meshId;
-            }
-            analyticalsLInfLocal[curThreadId][v] =
-                std::max(curAnalytical, analyticalsLInfLocal[curThreadId][v]);
-          }
-        }
-      }
+      });
     }
 
     for (int i = 0; i < numThreads; ++i) {
-      for (unsigned v = 0; v < NumQuantities; ++v) {
+      for (unsigned v = 0; v < numQuantities; ++v) {
         errL1Local[v] += errsL1Local[i][v];
         errL2Local[v] += errsL2Local[i][v];
         analyticalL1Local[v] += analyticalsL1Local[i][v];
@@ -266,7 +301,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       }
     }
 
-    for (std::size_t i = 0; i < NumQuantities; ++i) {
+    for (std::size_t i = 0; i < numQuantities; ++i) {
       // Find position of element with lowest LInf error.
       VrtxCoords center;
       MeshTools::center(elements[elemLInfLocal[i]], vertices, center);
@@ -275,10 +310,10 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     const auto& comm = mpi.comm();
 
     // Reduce error over all MPI ranks.
-    auto errL1MPI = ErrorArrayT{0.0};
-    auto errL2MPI = ErrorArrayT{0.0};
-    auto analyticalL1MPI = ErrorArrayT{0.0};
-    auto analyticalL2MPI = ErrorArrayT{0.0};
+    auto errL1MPI = ErrorArrayT(numQuantities);
+    auto errL2MPI = ErrorArrayT(numQuantities);
+    auto analyticalL1MPI = ErrorArrayT(numQuantities);
+    auto analyticalL2MPI = ErrorArrayT(numQuantities);
 
     MPI_Reduce(errL1Local.data(), errL1MPI.data(), errL1Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
     MPI_Reduce(errL2Local.data(), errL2MPI.data(), errL2Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
@@ -298,8 +333,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                comm);
 
     // Find maximum element and its location.
-    auto errLInfSend = std::array<Data, errLInfLocal.size()>{};
-    auto errLInfRecv = std::array<Data, errLInfLocal.size()>{};
+    auto errLInfSend = std::vector<Data>(numQuantities);
+    auto errLInfRecv = std::vector<Data>(numQuantities);
     for (size_t i = 0; i < errLInfLocal.size(); ++i) {
       errLInfSend[i] = Data{errLInfLocal[i], mpi.rank()};
     }
@@ -310,7 +345,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                   MPI_MAXLOC,
                   comm);
 
-    auto analyticalLInfMPI = ErrorArrayT{0.0};
+    auto analyticalLInfMPI = ErrorArrayT(numQuantities);
     MPI_Reduce(analyticalLInfLocal.data(),
                analyticalLInfMPI.data(),
                analyticalLInfLocal.size(),
@@ -326,7 +361,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       csvWriter.writeHeader();
     }
 
-    for (std::size_t i = 0; i < NumQuantities; ++i) {
+    for (std::size_t i = 0; i < numQuantities; ++i) {
       VrtxCoords centerSend{};
       MeshTools::center(elements[elemLInfLocal[i]], vertices, centerSend);
 

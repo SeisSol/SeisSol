@@ -17,11 +17,11 @@ namespace seissol::dr::friction_law::cpu {
  * properly on the Master Branch. This class is also less optimized. It was left in here to have a
  * reference of how it could be implemented.
  */
-template <class TPMethod>
-class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
+template <typename Cfg, class TPMethod>
+class AgingLaw : public SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
-  using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::copyStorageToLocal;
+  using SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
+  using SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, TPMethod>::copyStorageToLocal;
 
 /**
  * Integrates the state variable ODE in time

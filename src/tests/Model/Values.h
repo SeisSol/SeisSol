@@ -10,7 +10,6 @@
 
 #include "Kernels/Precision.h"
 #include <Equations/Datastructures.h>
-#include <Model/Datastructures.h>
 #include <array>
 
 namespace seissol::unit_test {
@@ -19,7 +18,7 @@ template <typename T>
 struct SolutionData;
 
 struct ElasticSolutionData {
-  const inline static std::array<std::array<real, 9>, 9> SolutionHomogeneousLocal = {
+  const inline static std::array<std::array<double, 9>, 9> SolutionHomogeneousLocal = {
       {{0.5000000000000000,
         0.0000000000000000,
         0.0000000000000000,
@@ -101,7 +100,7 @@ struct ElasticSolutionData {
         0.0000000000000000,
         0.0000000000000000,
         0.5000000000000000}}};
-  const inline static std::array<std::array<real, 9>, 9> SolutionHomogeneousNeighbor = {
+  const inline static std::array<std::array<double, 9>, 9> SolutionHomogeneousNeighbor = {
       {{0.5000000000000000,
         0.0000000000000000,
         0.0000000000000000,
@@ -184,7 +183,7 @@ struct ElasticSolutionData {
         0.0000000000000000,
         0.4999999999999999}}};
 
-  const inline static std::array<std::array<real, 9>, 9> SolutionBoundary = {
+  const inline static std::array<std::array<double, 9>, 9> SolutionBoundary = {
       {{0.0000000000000000,
         0.0000000000000000,
         0.0000000000000000,
@@ -266,7 +265,7 @@ struct ElasticSolutionData {
         0.0000000000000000,
         0.0000000000000000,
         1.000000000000000}}};
-  const inline static std::array<std::array<real, 9>, 9> SolutionHeterogeneousLocal = {
+  const inline static std::array<std::array<double, 9>, 9> SolutionHeterogeneousLocal = {
       {{1 - 0.6090225563909775,
         0.0000000000000000,
         0.0000000000000000,
@@ -348,7 +347,7 @@ struct ElasticSolutionData {
         0.0000000000000000,
         0.0000000000000000,
         1 - 0.3573195536254192}}};
-  const inline static std::array<std::array<real, 9>, 9> SolutionHeterogeneousNeighbor = {
+  const inline static std::array<std::array<double, 9>, 9> SolutionHeterogeneousNeighbor = {
       {{0.6090225563909775,
         0.0000000000000000,
         0.0000000000000000,
@@ -432,10 +431,11 @@ struct ElasticSolutionData {
         0.3573195536254192}}};
 };
 
-template <>
-struct SolutionData<model::ViscoElasticMaterial> : public ElasticSolutionData {
+template <std::size_t Mechanisms>
+struct SolutionData<model::ViscoElasticMaterialParametrized<Mechanisms>>
+    : public ElasticSolutionData {
   static auto zeroExtend(std::vector<double> input) -> std::vector<double> {
-    constexpr auto TargetSize = model::ViscoElasticMaterial::Mechanisms * 4 + 3;
+    constexpr auto TargetSize = Mechanisms * 4 + 3;
     input.reserve(TargetSize);
     while (input.size() < TargetSize) {
       input.emplace_back(0);
@@ -493,7 +493,7 @@ struct SolutionData<model::PoroElasticMaterial> {
       0.001    // viscosity
   };
 
-  const inline static std::array<std::array<real, 13>, 13> SolutionHomogeneousLocal = {
+  const inline static std::array<std::array<double, 13>, 13> SolutionHomogeneousLocal = {
       {{
            0.5000000000000002,
            0,
@@ -689,7 +689,7 @@ struct SolutionData<model::PoroElasticMaterial> {
            0,
            0,
        }}};
-  const inline static std::array<std::array<real, 13>, 13> SolutionHomogeneousNeighbor = {
+  const inline static std::array<std::array<double, 13>, 13> SolutionHomogeneousNeighbor = {
       {{0.4999999999999999,
         0,
         0,
@@ -848,7 +848,7 @@ struct SolutionData<model::PoroElasticMaterial> {
         0,
         0}}};
 
-  const inline static std::array<std::array<real, 13>, 13> SolutionBoundary = {
+  const inline static std::array<std::array<double, 13>, 13> SolutionBoundary = {
       {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -934,7 +934,7 @@ struct SolutionData<model::PoroElasticMaterial> {
         0,
         0,
         1}}};
-  const inline static std::array<std::array<real, 13>, 13> SolutionHeterogeneousLocal = {
+  const inline static std::array<std::array<double, 13>, 13> SolutionHeterogeneousLocal = {
       {{0.4822638562418708,
         0,
         0,
@@ -1092,7 +1092,7 @@ struct SolutionData<model::PoroElasticMaterial> {
         7.656484166819926e-16,
         0,
         0}}};
-  const inline static std::array<std::array<real, 13>, 13> SolutionHeterogeneousNeighbor = {
+  const inline static std::array<std::array<double, 13>, 13> SolutionHeterogeneousNeighbor = {
       {{0.5177361437581292,
         0,
         0,

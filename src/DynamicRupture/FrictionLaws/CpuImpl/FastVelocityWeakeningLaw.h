@@ -15,17 +15,18 @@
 
 namespace seissol::dr::friction_law::cpu {
 
-template <typename TPMethod>
+template <typename Cfg, typename TPMethod>
 class FastVelocityWeakeningLaw
-    : public RateAndStateBase<FastVelocityWeakeningLaw<TPMethod>, TPMethod> {
+    : public RateAndStateBase<Cfg, FastVelocityWeakeningLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  using real = Real<Cfg>;
+  using RateAndStateBase<Cfg, FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   /**
    * Copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyStorageToLocal(DynamicRupture::Layer& layerData) {
-    this->srW = layerData.var<LTSRateAndStateFastVelocityWeakening::RsSrW>();
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) override {
+    this->srW = layerData.var<LTSRateAndStateFastVelocityWeakening::RsSrW>(Cfg());
   }
 
 /**
@@ -70,26 +71,26 @@ class FastVelocityWeakeningLaw
     const real exp1 = std::exp(preexp1);
     const real exp1m = -std::expm1(preexp1);
     const real localStateVariable = steadyStateStateVariable * exp1m + exp1 * stateVarReference;
-    assert((std::isfinite(localStateVariable) || pointIndex >= misc::NumBoundaryGaussPoints) &&
+    assert((std::isfinite(localStateVariable) || pointIndex >= misc::NumBoundaryGaussPoints<Cfg>) &&
            "Inf/NaN detected");
     return localStateVariable;
   }
 
   struct MuDetails {
-    std::array<double, misc::NumPaddedPoints> a{};
-    std::array<double, misc::NumPaddedPoints> c{};
-    std::array<double, misc::NumPaddedPoints> ac{};
+    std::array<double, misc::NumPaddedPoints<Cfg>> a{};
+    std::array<double, misc::NumPaddedPoints<Cfg>> c{};
+    std::array<double, misc::NumPaddedPoints<Cfg>> ac{};
   };
 
   MuDetails getMuDetails(std::size_t ltsFace,
-                         const std::array<real, misc::NumPaddedPoints>& localStateVariable) {
+                         const std::array<real, misc::NumPaddedPoints<Cfg>>& localStateVariable) {
     MuDetails details{};
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
       const double localA = this->a[ltsFace][pointIndex];
       const double c = 0.5 / this->drParameters->rsSr0 *
                        std::exp(static_cast<double>(localStateVariable[pointIndex]) / localA);
-      assert((std::isfinite(c) || pointIndex >= misc::NumBoundaryGaussPoints) &&
+      assert((std::isfinite(c) || pointIndex >= misc::NumBoundaryGaussPoints<Cfg>) &&
              "Inf/NaN detected");
       details.a[pointIndex] = localA;
       details.c[pointIndex] = c;
@@ -132,29 +133,29 @@ class FastVelocityWeakeningLaw
   /**
    * Resample the state variable.
    */
-  void resampleStateVar(const std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
+  void resampleStateVar(const std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
                         std::size_t ltsFace) const {
-    std::array<real, misc::NumPaddedPoints> deltaStateVar = {0};
-    std::array<real, misc::NumPaddedPoints> resampledDeltaStateVar = {0};
+    std::array<real, misc::NumPaddedPoints<Cfg>> deltaStateVar = {0};
+    std::array<real, misc::NumPaddedPoints<Cfg>> resampledDeltaStateVar = {0};
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
       deltaStateVar[pointIndex] =
           stateVariableBuffer[pointIndex] - this->stateVariable[ltsFace][pointIndex];
     }
-    dynamicRupture::kernel::resampleParameter resampleKrnl;
-    resampleKrnl.resample = init::resample::Values;
+    dynamicRupture::kernel::resampleParameter<Cfg> resampleKrnl;
+    resampleKrnl.resample = init::resample<Cfg>::Values;
     resampleKrnl.originalQ = deltaStateVar.data();
     resampleKrnl.resampledQ = resampledDeltaStateVar.data();
     resampleKrnl.execute();
 
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
       this->stateVariable[ltsFace][pointIndex] =
           this->stateVariable[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex];
     }
   }
 
-  void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
+  void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints<Cfg>>& localStateVariable,
                              std::size_t ltsFace) const {
     [[maybe_unused]] const real tmp = 0.5 / this->drParameters->rsSr0 *
                                       std::exp(localStateVariable[0] / this->a[ltsFace][0]) *
@@ -163,7 +164,7 @@ class FastVelocityWeakeningLaw
   }
 
   protected:
-  real (*__restrict srW)[misc::NumPaddedPoints];
+  real (*__restrict srW)[misc::NumPaddedPoints<Cfg>];
 };
 } // namespace seissol::dr::friction_law::cpu
 

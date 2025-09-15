@@ -6,14 +6,15 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include <Eigen/Dense>
+#include <type_traits>
 
 #include "Numerical/ODEInt.h"
 #include "Numerical/ODEVector.h"
 
 namespace seissol::unit_test {
 
-TEST_CASE("Test ODE Solver") {
-  constexpr real Eps = Config::Precision == RealType::F32 ? 10e-4 : 10e-11;
+TEST_CASE_TEMPLATE("Test ODE Solver", real, double) {
+  constexpr real Eps = std::is_same_v<real, float> ? 10e-4 : 10e-11;
   SUBCASE("Test simple integration") {
     constexpr auto SizeSolution = 5;
     constexpr auto SizeIntegratedSolution = SizeSolution;
@@ -21,8 +22,8 @@ TEST_CASE("Test ODE Solver") {
     alignas(Alignment) real curUSolutionIntegrated[SizeIntegratedSolution] = {};
     alignas(Alignment) real curUSolution[SizeSolution] = {};
 
-    auto curU = seissol::ode::ODEVector{{curUSolutionIntegrated, curUSolution},
-                                        {SizeIntegratedSolution, SizeSolution}};
+    auto curU = seissol::ode::ODEVector<real>{{curUSolutionIntegrated, curUSolution},
+                                              {SizeIntegratedSolution, SizeSolution}};
 
     // Setup ODE solver
     const auto timeSpan = seissol::ode::TimeSpan{0, 2};
@@ -31,7 +32,7 @@ TEST_CASE("Test ODE Solver") {
 
     auto solver =
         seissol::ode::RungeKuttaODESolver({SizeIntegratedSolution, SizeSolution}, odeSolverConfig);
-    auto f = [&](seissol::ode::ODEVector& du, seissol::ode::ODEVector& u, double time) {
+    auto f = [&](seissol::ode::ODEVector<real>& du, seissol::ode::ODEVector<real>& u, double time) {
       // Unpack du
       auto [dUIntegratedStorage, dUIntegratedSize] = du.getSubvector(0);
       REQUIRE(dUIntegratedSize == SizeIntegratedSolution);
@@ -72,7 +73,7 @@ TEST_CASE("Test ODE Solver") {
 
     alignas(Alignment) real curUSolution[SizeSolution] = {};
 
-    auto curU = seissol::ode::ODEVector{{curUSolution}, {SizeSolution}};
+    auto curU = seissol::ode::ODEVector<real>{{curUSolution}, {SizeSolution}};
 
     // Setup ODE solver
     const auto timeSpan = seissol::ode::TimeSpan{0, 1};
@@ -82,7 +83,7 @@ TEST_CASE("Test ODE Solver") {
 
     auto solver = seissol::ode::RungeKuttaODESolver({SizeSolution}, odeSolverConfig);
     auto parameters = std::array<real, 4>{1.5, 1.0, 3.0, 1.0};
-    auto f = [&](seissol::ode::ODEVector& du, seissol::ode::ODEVector& u, double time) {
+    auto f = [&](seissol::ode::ODEVector<real>& du, seissol::ode::ODEVector<real>& u, double time) {
       // A simple Lotka-Volterra model
       // See: https://en.wikipedia.org/wiki/Lotka%E2%80%93Volterra_equations
 

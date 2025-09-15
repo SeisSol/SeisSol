@@ -64,7 +64,7 @@ static __device__ __forceinline__ void taylorSumInner(TargetRealT* const __restr
   constexpr bool UseShared = MemorySize >= RestMemSize;
   constexpr std::size_t LoadSize = UseShared ? RestMemSize : SourceMemSize;
 
-  static_assert(seissol::tensor::dQ::size(ThisOrder) == SourceMemSize,
+  static_assert(seissol::tensor::dQ<Cfg>::size(ThisOrder) == SourceMemSize,
                 "Tensor size mismatch in explicit kernel.");
 
   if constexpr (LoadSize > 0) {
@@ -176,9 +176,9 @@ void taylorSum(
                     seissol::model::MaterialT::NumQuantities,
                     real,
                     real,
-                    ConvergenceOrder,
-                    ConvergenceOrder>(
-      count, target, source, coeffs, stream, std::make_index_sequence<ConvergenceOrder>());
+                    Cfg::ConvergenceOrder,
+                    Cfg::ConvergenceOrder>(
+      count, target, source, coeffs, stream, std::make_index_sequence<Cfg::ConvergenceOrder>());
 }
 } // namespace seissol::kernels::time::aux
 #endif
@@ -260,9 +260,9 @@ __global__ void kernelFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
     real* elementBoundaryDofs = dofsFaceBoundaryNodalPtrs[elementId];
     real* elementDisplacement = displacementDataPtrs[elementId];
 
-    constexpr auto numNodes = linearDim<seissol::nodal::init::nodes2D>();
+    constexpr auto numNodes = linearDim<seissol::nodal::init::nodes2D<Cfg>>();
     if (tid < numNodes) {
-      constexpr auto ldINodal = linearDim<seissol::init::INodal>();
+      constexpr auto ldINodal = linearDim<seissol::init::INodal<Cfg>>();
 
       const auto pressureAtBnd = static_cast<real>(-1.0) * rho * g * elementDisplacement[tid];
 
@@ -281,7 +281,7 @@ void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
                               double g,
                               size_t numElements,
                               void* deviceStream) {
-  dim3 block = getblock(leadDim<seissol::nodal::init::nodes2D>());
+  dim3 block = getblock(leadDim<seissol::nodal::init::nodes2D<Cfg>>());
   dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(deviceStream);
   kernelFreeSurfaceGravity<<<grid, block, 0, stream>>>(
@@ -296,22 +296,22 @@ __global__ void kernelEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
   const int tid = validx();
   const int elementId = blockIdx.x;
 
-  constexpr auto ldINodalDim = linearDim<seissol::init::INodal>();
-  constexpr auto iNodalDim0 = seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension + 0];
-  constexpr auto iNodalDim1 = seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension + 1];
-  __shared__ __align__(8) real resultTerm[iNodalDim1][iNodalDim0][multisim::NumSimulations];
+  constexpr auto ldINodalDim = linearDim<seissol::init::INodal<Cfg>>();
+  constexpr auto iNodalDim0 = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 0];
+  constexpr auto iNodalDim1 = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
+  __shared__ __align__(8) real resultTerm[iNodalDim1][iNodalDim0][multisim::NumSimulations<Cfg>];
 
-  constexpr auto ldConstantDim = linearDim<seissol::init::easiBoundaryConstant>();
+  constexpr auto ldConstantDim = linearDim<seissol::init::easiBoundaryConstant<Cfg>>();
   constexpr auto constantDim0 =
-      seissol::tensor::easiBoundaryConstant::Shape[multisim::BasisFunctionDimension + 0];
+      seissol::tensor::easiBoundaryConstant<Cfg>::Shape[multisim::BasisDim<Cfg> + 0];
   constexpr auto constantDim1 =
-      seissol::tensor::easiBoundaryConstant::Shape[multisim::BasisFunctionDimension + 1];
-  __shared__ __align__(8) real rightTerm[constantDim0][constantDim1][multisim::NumSimulations];
+      seissol::tensor::easiBoundaryConstant<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
+  __shared__ __align__(8) real rightTerm[constantDim0][constantDim1][multisim::NumSimulations<Cfg>];
 
-  constexpr auto ldMapDim = leadDim<seissol::init::easiBoundaryMap>();
-  constexpr auto mapDim0 = seissol::tensor::easiBoundaryMap::Shape[0];
-  constexpr auto mapDim1 = seissol::tensor::easiBoundaryMap::Shape[1];
-  constexpr auto mapDim2 = seissol::tensor::easiBoundaryMap::Shape[2];
+  constexpr auto ldMapDim = leadDim<seissol::init::easiBoundaryMap<Cfg>>();
+  constexpr auto mapDim0 = seissol::tensor::easiBoundaryMap<Cfg>::Shape[0];
+  constexpr auto mapDim1 = seissol::tensor::easiBoundaryMap<Cfg>::Shape[1];
+  constexpr auto mapDim2 = seissol::tensor::easiBoundaryMap<Cfg>::Shape[2];
   __shared__ __align__(8) real leftTerm[mapDim0][mapDim2];
 
   static_assert(iNodalDim1 == constantDim0, "supposed to be equal");
@@ -323,8 +323,8 @@ __global__ void kernelEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
     auto easiBoundaryConstant = easiBoundaryConstantPtrs[elementId];
 
     for (int i = linearidx(); i < (ldConstantDim * constantDim1); i += linearsize()) {
-      const auto sim = i % multisim::NumSimulations;
-      const auto subsim = i / multisim::NumSimulations;
+      const auto sim = i % multisim::NumSimulations<Cfg>;
+      const auto subsim = i / multisim::NumSimulations<Cfg>;
       const auto quantity = subsim % constantDim0;
       const auto quadpoint = subsim / constantDim0;
       rightTerm[quantity][quadpoint][sim] = easiBoundaryConstant[i];
@@ -371,7 +371,7 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
                         size_t numElements,
                         void* deviceStream) {
 
-  dim3 block = getblock(leadDim<seissol::init::INodal>());
+  dim3 block = getblock(leadDim<seissol::init::INodal<Cfg>>());
   dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(deviceStream);
   kernelEasiBoundary<<<grid, block, 0, stream>>>(
@@ -392,9 +392,10 @@ __global__ void kernelextractRotationMatrices(real** displacementToFaceNormalPtr
     auto* T = TPtrs[elementId];
     auto* Tinv = TinvPtrs[elementId];
 
-    constexpr auto ldTinv = yateto::leadDim<seissol::init::Tinv>();
-    constexpr auto ldT = yateto::leadDim<seissol::init::T>();
-    constexpr auto ldDisplacement = yateto::leadDim<seissol::init::displacementRotationMatrix>();
+    constexpr auto ldTinv = yateto::leadDim<seissol::init::Tinv<Cfg>>();
+    constexpr auto ldT = yateto::leadDim<seissol::init::T<Cfg>>();
+    constexpr auto ldDisplacement =
+        yateto::leadDim<seissol::init::displacementRotationMatrix<Cfg>>();
 
     const int i = threadIdx.x;
     const int j = threadIdx.y;
@@ -430,11 +431,11 @@ __global__ void
     auto* integratedDisplacementNodal = integratedDisplacementNodalPtrs[elementId];
     const auto* rotatedFaceDisplacement = rotatedFaceDisplacementPtrs[elementId];
 
-    assert(linearDim<seissol::nodal::init::nodes2D>() <=
-           linearDim<seissol::init::rotatedFaceDisplacement>());
+    assert(linearDim<seissol::nodal::init::nodes2D<Cfg>>() <=
+           linearDim<seissol::init::rotatedFaceDisplacement<Cfg>>());
 
     const int tid = linearidx();
-    constexpr auto num2dNodes = linearDim<seissol::nodal::init::nodes2D>();
+    constexpr auto num2dNodes = linearDim<seissol::nodal::init::nodes2D<Cfg>>();
     if (tid < num2dNodes) {
       prevCoefficients[tid] = rotatedFaceDisplacement[tid];
       integratedDisplacementNodal[tid] = deltaTInt * rotatedFaceDisplacement[tid];
@@ -449,7 +450,7 @@ void initializeTaylorSeriesForGravitationalBoundary(real** prevCoefficientsPtrs,
                                                     size_t numElements,
                                                     void* deviceStream) {
 
-  dim3 block = getblock(leadDim<seissol::nodal::init::nodes2D>());
+  dim3 block = getblock(leadDim<seissol::nodal::init::nodes2D<Cfg>>());
   dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(deviceStream);
   kernelInitializeTaylorSeriesForGravitationalBoundary<<<grid, block, 0, stream>>>(
@@ -495,13 +496,13 @@ __global__ void kernelUpdateRotatedFaceDisplacement(real** rotatedFaceDisplaceme
   if (elementId < numElements) {
     constexpr int pIdx = 0;
     constexpr int uIdx = model::MaterialT::TractionQuantities;
-    constexpr auto num2dNodes = linearDim<seissol::nodal::init::nodes2D>();
+    constexpr auto num2dNodes = linearDim<seissol::nodal::init::nodes2D<Cfg>>();
 
     const int tid = linearidx();
     if (tid < num2dNodes) {
 
       real* dofsFaceNodal = dofsFaceNodalPtrs[elementId];
-      constexpr auto ldINodal = linearDim<seissol::init::INodal>();
+      constexpr auto ldINodal = linearDim<seissol::init::INodal<Cfg>>();
 
       const auto uInside = dofsFaceNodal[tid + (uIdx + 0) * ldINodal];
       const auto vInside = dofsFaceNodal[tid + (uIdx + 1) * ldINodal];
@@ -516,7 +517,7 @@ __global__ void kernelUpdateRotatedFaceDisplacement(real** rotatedFaceDisplaceme
           uInside - invImpedance * (rho * g * prevCoefficients[tid] + pressureInside);
       prevCoefficients[tid] = curCoeff;
 
-      constexpr auto ldFaceDisplacement = linearDim<seissol::init::faceDisplacement>();
+      constexpr auto ldFaceDisplacement = linearDim<seissol::init::faceDisplacement<Cfg>>();
       static_assert(num2dNodes <= ldFaceDisplacement, "");
 
       real* rotatedFaceDisplacement = rotatedFaceDisplacementPtrs[elementId];
@@ -525,7 +526,7 @@ __global__ void kernelUpdateRotatedFaceDisplacement(real** rotatedFaceDisplaceme
       rotatedFaceDisplacement[tid + 2 * ldFaceDisplacement] += factorEvaluated * wInside;
 
       constexpr auto ldIntegratedFaceDisplacement =
-          linearDim<seissol::init::averageNormalDisplacement>();
+          linearDim<seissol::init::averageNormalDisplacement<Cfg>>();
       static_assert(num2dNodes <= ldIntegratedFaceDisplacement, "");
 
       real* integratedDisplacementNodal = integratedDisplacementNodalPtrs[elementId];
@@ -545,7 +546,7 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
                                    double factorInt,
                                    size_t numElements,
                                    void* deviceStream) {
-  dim3 block = getblock(leadDim<seissol::nodal::init::nodes2D>());
+  dim3 block = getblock(leadDim<seissol::nodal::init::nodes2D<Cfg>>());
   dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(deviceStream);
   kernelUpdateRotatedFaceDisplacement<<<grid, block, 0, stream>>>(rotatedFaceDisplacementPtrs,

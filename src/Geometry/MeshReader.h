@@ -11,6 +11,7 @@
 
 #include "MeshDefinition.h"
 
+#include <Initializer/ConfigMap.h>
 #include <cmath>
 #include <map>
 #include <unordered_map>
@@ -26,6 +27,15 @@ class SeisSol;
 
 namespace seissol::geometry {
 
+constexpr bool isCopy(const Element& element, int rank) {
+  for (int i = 0; i < 4; ++i) {
+    if (element.neighborRanks[i] != rank) {
+      return true;
+    }
+  }
+  return false;
+}
+
 struct GhostElementMetadata {
   double vertices[Cell::NumVertices][Cell::Dim];
   int group;
@@ -33,6 +43,7 @@ struct GhostElementMetadata {
   GlobalElemId globalId;
   int clusterId;
   double timestep;
+  int configId;
 };
 
 class MeshReader {
@@ -96,6 +107,8 @@ class MeshReader {
                                seissol::initializer::parameters::RefPointMethod refPointMethod);
 
   void exchangeGhostlayerMetadata();
+
+  void setupConfigs(const ConfigMap& map);
 };
 
 } // namespace seissol::geometry

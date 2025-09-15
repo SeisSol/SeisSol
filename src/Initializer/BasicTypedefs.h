@@ -8,24 +8,16 @@
 #ifndef SEISSOL_SRC_INITIALIZER_BASICTYPEDEFS_H_
 #define SEISSOL_SRC_INITIALIZER_BASICTYPEDEFS_H_
 
+#include <cstdint>
 namespace seissol {
 
-constexpr int DataTagOffset = 2;
-
 enum class HaloType { Ghost, Copy, Interior };
-
-enum class TimeClustering {
-  // global time stepping
-  Single = 0,
-  // online clustering resulting in a multi-rate scheme
-  MultiRate = 2,
-};
 
 // face types
 // Note: When introducting new types also change
 // int seissol::initializer::time_stepping::LtsWeights::getBoundaryCondition
 // and PUMLReader. Otherwise it might become a DR face...
-enum class FaceType {
+enum class FaceType : uint8_t {
   // regular: inside the computational domain
   Regular = 0,
 
@@ -61,6 +53,7 @@ constexpr bool isInternalFaceType(FaceType faceType) {
 }
 
 // Checks if a face type is an external boundary face (i.e. there is only one cell adjacent to it).
+// (note that Outflow is purposefully excluded here)
 constexpr bool isExternalBoundaryFaceType(FaceType faceType) {
   return faceType == FaceType::FreeSurface || faceType == FaceType::FreeSurfaceGravity ||
          faceType == FaceType::Dirichlet || faceType == FaceType::Analytical;

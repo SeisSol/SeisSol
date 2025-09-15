@@ -29,7 +29,7 @@ TEST_CASE("Storage") {
       initializer::EnumLayer(
           std::vector<HaloType>{HaloType::Interior, HaloType::Copy, HaloType::Ghost}),
       initializer::EnumLayer(std::vector<std::size_t>{1, 2, 3}),
-      initializer::TraitLayer(std::vector<initializer::ConfigVariant>{Config()}));
+      initializer::TraitLayer(std::vector<initializer::ConfigVariant>{Config0()}));
 
   storage.add<TestDescriptor::Var1>(Ghost, 1, initializer::AllocationMode::HostOnly);
   storage.add<TestDescriptor::Var2>(Copy, 4, initializer::AllocationMode::HostOnly);
