@@ -20,18 +20,18 @@ struct RemoteCluster {
   std::size_t size;
   RealType datatype;
   int rank;
-  int tag;
+  std::size_t tag;
+
+  RemoteCluster(void* data, std::size_t size, RealType datatype, int rank, std::size_t tag)
+      : data(data), size(size), datatype(datatype), rank(rank), tag(tag) {}
 };
 
 struct RemoteClusterPair {
-  RemoteCluster copy;
-  RemoteCluster ghost;
+  std::vector<RemoteCluster> copy;
+  std::vector<RemoteCluster> ghost;
 };
 
-using HaloCommunication = std::vector<std::vector<std::vector<RemoteClusterPair>>>;
-
-HaloCommunication getHaloCommunication(const initializer::ClusterLayout& layout,
-                                       const MeshStructure* structure);
+using HaloCommunication = std::vector<std::vector<RemoteClusterPair>>;
 } // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_HALOCOMMUNICATION_H_

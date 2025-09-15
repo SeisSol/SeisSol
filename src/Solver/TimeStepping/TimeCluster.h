@@ -209,20 +209,20 @@ class TimeCluster : public AbstractTimeCluster {
 
   void computeFlops();
 
-  const LayerType layerType;
+  HaloType layerType;
   //! time of the next receiver output
   double receiverTime;
 
   //! print status every 100th timestep
   bool printProgress;
   //! cluster id on this rank
-  const unsigned int clusterId;
+  unsigned int clusterId;
 
   //! global cluster cluster id
-  const unsigned int globalClusterId;
+  unsigned int globalClusterId;
 
   //! id used to identify this cluster (including layer type) when profiling
-  const unsigned int profilingId;
+  unsigned int profilingId;
 
   DynamicRuptureScheduler* dynamicRuptureScheduler;
 
@@ -242,7 +242,7 @@ class TimeCluster : public AbstractTimeCluster {
               unsigned int globalClusterId,
               unsigned int profilingId,
               bool usePlasticity,
-              LayerType layerType,
+              HaloType layerType,
               double maxTimeStepSize,
               long timeStepRate,
               bool printProgress,
@@ -282,7 +282,7 @@ class TimeCluster : public AbstractTimeCluster {
   [[nodiscard]] std::size_t layerId() const;
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;
-  [[nodiscard]] LayerType getLayerType() const;
+  [[nodiscard]] HaloType getLayerType() const;
   void setTime(double time) override;
 
   std::vector<NeighborCluster>* getNeighborClusters();
@@ -290,6 +290,8 @@ class TimeCluster : public AbstractTimeCluster {
   void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) override;
 
   void finishPhase() override;
+
+  [[nodiscard]] std::string description() const override;
 };
 
 } // namespace seissol::time_stepping
