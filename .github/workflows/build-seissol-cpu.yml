@@ -10,7 +10,7 @@ on:
   - push
 
 env:
-  precomputed-hash: fb41141ee0b38b48b10cc74c8c817860d4a745c5
+  precomputed-hash: 4cc0993d4ba3b8f0aabc84af78e405af9d98f902
 
 jobs:
   seissol-build-test:
@@ -353,6 +353,14 @@ jobs:
             receivers: true
             fault: false # incomplete, hence disabled
             volume: false
+            surface: false
+          - name: loh1-ic
+            equation: elastic
+            multisim: 1
+            energies: true
+            receivers: true
+            fault: false
+            volume: true
             surface: false
         precision:
           - single

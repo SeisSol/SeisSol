@@ -11,7 +11,6 @@
 
 #include "Kernels/LinearCK/GravitationalFreeSurfaceBC.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/InterfaceHelper.h"
 #include <Common/Constants.h>
 
 namespace seissol::tensor {
@@ -28,36 +27,6 @@ struct LocalTmp {
   LocalTmp(double graviationalAcceleration)
       : gravitationalFreeSurfaceBc(graviationalAcceleration) {};
 };
-#ifndef ACL_DEVICE
-LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData,
-                                    initializer::LTS,
-                                    cellInformation,
-                                    localIntegration,
-                                    neighboringIntegration,
-                                    dofs,
-                                    dofsAne,
-                                    faceDisplacements,
-                                    boundaryMapping,
-                                    material)
-LTSTREE_GENERATE_INTERFACE_GETTERED(
-    NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs, dofsAne)
-#else
-LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData,
-                                    initializer::LTS,
-                                    cellInformation,
-                                    localIntegration,
-                                    neighboringIntegration,
-                                    dofs,
-                                    dofsAne,
-                                    faceDisplacements,
-                                    faceDisplacementsDevice,
-                                    plasticity,
-                                    boundaryMapping,
-                                    boundaryMappingDevice,
-                                    material)
-LTSTREE_GENERATE_INTERFACE_GETTERED(
-    NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs, dofsAne)
-#endif
 } // namespace seissol::kernels
 
 #endif // SEISSOL_SRC_KERNELS_INTERFACE_H_

@@ -35,65 +35,68 @@ struct CheckpointVariable {
 
 struct CheckpointTree {
   std::string name;
-  initializer::LTSTree* tree;
+  std::size_t cells;
   std::vector<std::size_t> ids;
   std::vector<CheckpointVariable> variables;
 };
 
 class CheckpointManager {
   public:
+  template <typename VarmapT>
   void registerTree(const std::string& name,
-                    initializer::LTSTree* tree,
+                    initializer::Storage<VarmapT>& storage,
                     const std::vector<std::size_t>& ids) {
-    dataRegistry[tree].name = name;
-    dataRegistry[tree].tree = tree;
-    dataRegistry[tree].ids = ids;
+    dataRegistry[&storage].name = name;
+    dataRegistry[&storage].cells = storage.size(Ghost);
+    dataRegistry[&storage].ids = ids;
   }
 
-  template <typename HandleT>
-  void registerData(const std::string& name, initializer::LTSTree* tree, const HandleT& var) {
-    if (tree->info(var).mask != initializer::LayerMask(Ghost)) {
+  template <typename HandleT, typename VarmapT>
+  void registerData(const std::string& name,
+                    initializer::Storage<VarmapT>& storage,
+                    const HandleT& var) {
+    if (storage.info(var).mask != initializer::LayerMask(Ghost)) {
       logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
     }
-    dataRegistry[tree].variables.emplace_back(
+    dataRegistry[&storage].variables.emplace_back(
         CheckpointVariable{name,
-                           tree->var(var),
+                           storage.var(var),
                            datatype::inferDatatype<typename HandleT::Type>(),
                            datatype::inferDatatype<typename HandleT::Type>()});
   }
 
-  template <typename StorageT>
-  void registerData(const std::string& name, initializer::LTSTree* tree) {
-    if (tree->info<StorageT>().mask != initializer::LayerMask(Ghost)) {
+  template <typename StorageT, typename VarmapT>
+  void registerData(const std::string& name, initializer::Storage<VarmapT>& storage) {
+    if (storage.template info<StorageT>().mask != initializer::LayerMask(Ghost)) {
       logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
     }
-    dataRegistry[tree].variables.emplace_back(
+    dataRegistry[&storage].variables.emplace_back(
         CheckpointVariable{name,
-                           tree->var<StorageT>(),
+                           storage.template var<StorageT>(),
                            datatype::inferDatatype<typename StorageT::Type>(),
                            datatype::inferDatatype<typename StorageT::Type>()});
   }
 
-  template <typename S, typename T>
+  template <typename S, typename T, typename VarmapT>
   void registerTransformedData(const std::string& name,
-                               initializer::LTSTree* tree,
+                               initializer::Storage<VarmapT>& storage,
                                initializer::Variable<T> var,
                                const std::function<void(void*, const void*)>& pack,
                                const std::function<void(void*, const void*)>& unpack) {
     if (var.mask != initializer::LayerMask(Ghost)) {
       logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
     }
-    dataRegistry[tree].variables.emplace_back(CheckpointVariable{name,
-                                                                 tree->var(var),
-                                                                 datatype::inferDatatype<S>(),
-                                                                 datatype::inferDatatype<T>(),
-                                                                 pack,
-                                                                 unpack});
+    dataRegistry[&storage].variables.emplace_back(CheckpointVariable{name,
+                                                                     storage.var(var),
+                                                                     datatype::inferDatatype<S>(),
+                                                                     datatype::inferDatatype<T>(),
+                                                                     pack,
+                                                                     unpack});
   }
 
-  template <std::size_t Pad, std::size_t Nopad, typename T, std::size_t Npad>
+  template <std::size_t Pad, std::size_t Nopad, typename T, std::size_t Npad, typename VarmapT>
   void registerPaddedData(const std::string& name,
-                          initializer::LTSTree* tree,
+                          initializer::Storage<VarmapT>& storage,
                           initializer::Variable<T[Npad]> var) {
     constexpr std::size_t Lines = (Npad / Pad);
     constexpr std::size_t Nnopad = Lines * Nopad;
@@ -102,7 +105,7 @@ class CheckpointManager {
     using Tnopad = T[Nnopad];
     registerTransformedData<Tnopad, Tpad>(
         name,
-        tree,
+        storage,
         var,
         [](void* nopadV, const void* padV) {
           auto* nopad = reinterpret_cast<T*>(nopadV);
@@ -131,7 +134,7 @@ class CheckpointManager {
   double loadCheckpoint(const std::string& file);
 
   private:
-  std::map<initializer::LTSTree*, CheckpointTree> dataRegistry;
+  std::map<void*, CheckpointTree> dataRegistry;
 };
 
 } // namespace seissol::io::instance::checkpoint

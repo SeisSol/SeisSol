@@ -14,6 +14,7 @@
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/Refinement/TriangleRefiner.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/Surface.h>
 #include <Memory/Tree/Layer.h>
 #include <Monitoring/Instrumentation.h>
 #include <Parallel/Helper.h>
@@ -58,13 +59,10 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
 
   const std::size_t numberOfSubTriangles = m_freeSurfaceIntegrator->triRefiner.subTris.size();
 
-  auto* meshIds =
-      m_freeSurfaceIntegrator->surfaceLtsTree->var(m_freeSurfaceIntegrator->surfaceLts->meshId);
-  auto* sides =
-      m_freeSurfaceIntegrator->surfaceLtsTree->var(m_freeSurfaceIntegrator->surfaceLts->side);
-  auto* outputPosition = m_freeSurfaceIntegrator->surfaceLtsTree->var(
-      m_freeSurfaceIntegrator->surfaceLts->outputPosition);
-  for (std::size_t fs = 0; fs < m_freeSurfaceIntegrator->surfaceLtsTree->size(Ghost); ++fs) {
+  auto* meshIds = m_freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::MeshId>();
+  auto* sides = m_freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::Side>();
+  auto* outputPosition = m_freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::OutputPosition>();
+  for (std::size_t fs = 0; fs < m_freeSurfaceIntegrator->surfaceStorage->size(Ghost); ++fs) {
     if (outputPosition[fs] != std::numeric_limits<std::size_t>::max()) {
       const auto meshId = meshIds[fs];
       const auto side = sides[fs];
@@ -86,7 +84,8 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
         const seissol::refinement::Triangle& subTri =
             m_freeSurfaceIntegrator->triRefiner.subTris[tri];
         for (std::size_t vertex = 0; vertex < Cell::Dim; ++vertex) {
-          const auto vertexPosition = 3 * outputPosition[fs] + vertex;
+          const auto vertexPosition =
+              3 * (outputPosition[fs] * numberOfSubTriangles + tri) + vertex;
 
           Eigen::Vector3d v = x[0] + subTri.x[vertex][0] * a + subTri.x[vertex][1] * b;
           vertices[3 * vertexPosition + 0] = v(0);

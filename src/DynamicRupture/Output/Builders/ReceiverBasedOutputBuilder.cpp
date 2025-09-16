@@ -17,14 +17,12 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Precision.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Lut.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include <Common/Typedefs.h>
 #include <Config.h>
+#include <Memory/Descriptor/DynamicRupture.h>
+#include <Memory/Descriptor/LTS.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
@@ -51,16 +49,12 @@ void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshRead
   localRank = MPI::mpi.rank();
 }
 
-void ReceiverBasedOutputBuilder::setLtsData(seissol::initializer::LTSTree* userWpTree,
-                                            seissol::initializer::LTS* userWpDescr,
-                                            seissol::initializer::Lut* userWpLut,
-                                            seissol::initializer::LTSTree* userDrTree,
-                                            seissol::initializer::DynamicRupture* userDrDescr) {
-  wpTree = userWpTree;
-  wpDescr = userWpDescr;
-  wpLut = userWpLut;
-  drTree = userDrTree;
-  drDescr = userDrDescr;
+void ReceiverBasedOutputBuilder::setLtsData(LTS::Storage& userWpStorage,
+                                            LTS::Backmap& userWpBackmap,
+                                            DynamicRupture::Storage& userDrStorage) {
+  wpStorage = &userWpStorage;
+  wpBackmap = &userWpBackmap;
+  drStorage = &userDrStorage;
 }
 
 void ReceiverBasedOutputBuilder::setVariableList(const std::vector<std::size_t>& variables) {
@@ -171,23 +165,25 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   std::vector<real*> indexPtrs(outputData->cellCount);
 
   for (const auto& [index, arrayIndex] : elementIndices) {
-    indexPtrs[arrayIndex] = wpLut->lookup(wpDescr->derivativesDevice, index);
+    const auto position = wpBackmap->get(index);
+    indexPtrs[arrayIndex] = wpStorage->lookup<LTS::DerivativesDevice>(position);
     assert(indexPtrs[arrayIndex] != nullptr);
   }
   for (const auto& [_, ghost] : elementIndicesGhost) {
     const auto neighbor = ghost.data;
     const auto arrayIndex = ghost.index + elementIndices.size();
-    indexPtrs[arrayIndex] =
-        wpLut->lookup(wpDescr->faceNeighborsDevice, neighbor.first)[neighbor.second];
+
+    const auto position = wpBackmap->get(neighbor.first);
+    indexPtrs[arrayIndex] = wpStorage->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second];
     assert(indexPtrs[arrayIndex] != nullptr);
   }
 
-  outputData->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector>(
+  outputData->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
       indexPtrs, seissol::tensor::Q::size(), useMPIUSM());
 
   for (const auto& variable : variables) {
-    auto* var = drTree->varUntyped(variable, initializer::AllocationPlace::Device);
-    const std::size_t elementSize = drTree->info(variable).bytes;
+    auto* var = drStorage->varUntyped(variable, initializer::AllocationPlace::Device);
+    const std::size_t elementSize = drStorage->info(variable).bytes;
 
     assert(elementSize % sizeof(real) == 0);
 
@@ -196,8 +192,11 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
     for (const auto& [index, arrayIndex] : faceIndices) {
       dataPointers[arrayIndex] = reinterpret_cast<real*>(var) + elementCount * index;
     }
+
+    const bool hostAccessible = useUSM() && !outputData->extraRuntime.has_value();
     outputData->deviceVariables[variable] =
-        std::make_unique<seissol::parallel::DataCollector>(dataPointers, elementCount, useUSM());
+        std::make_unique<seissol::parallel::DataCollector<real>>(
+            dataPointers, elementCount, hostAccessible);
   }
 #endif
 

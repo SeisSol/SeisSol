@@ -87,6 +87,10 @@ src/Solver/TimeStepping/HaloCommunication.cpp
 
 ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
 ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
+
+src/Parallel/OpenMP.cpp
+src/Parallel/Runtime/Stream.cpp
+src/Parallel/DataCollector.cpp
 )
 
 # target_link_options(seissol-common-lib PUBLIC seissol-kernel-lib)
@@ -147,8 +151,6 @@ src/Initializer/Parameters/SourceParameters.cpp
 
 src/Initializer/TimeStepping/GlobalTimestep.cpp
 src/Initializer/TimeStepping/LtsLayout.cpp
-
-src/Memory/Tree/Lut.cpp
 
 src/Numerical/ODEInt.cpp
 src/Numerical/ODEVector.cpp

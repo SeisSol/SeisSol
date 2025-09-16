@@ -9,7 +9,6 @@
 #include "DynamicRupture/Misc.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Tree/Layer.h"
 #include <DynamicRupture/FrictionLaws/TPCommon.h>
 #include <array>
 #include <cmath>
@@ -22,17 +21,13 @@ static const tp::GridPoints<misc::NumTpGridPoints> TpGridPoints;
 static const tp::InverseFourierCoefficients<misc::NumTpGridPoints> TpInverseFourierCoefficients;
 static const tp::GaussianHeatSource<misc::NumTpGridPoints> HeatSource;
 
-void ThermalPressurization::copyLtsTreeToLocal(
-    seissol::initializer::Layer& layerData,
-    const seissol::initializer::DynamicRupture* const dynRup) {
-  const auto* concreteLts =
-      dynamic_cast<const seissol::initializer::ThermalPressurization*>(dynRup);
-  temperature = layerData.var(concreteLts->temperature);
-  pressure = layerData.var(concreteLts->pressure);
-  theta = layerData.var(concreteLts->theta);
-  sigma = layerData.var(concreteLts->sigma);
-  halfWidthShearZone = layerData.var(concreteLts->halfWidthShearZone);
-  hydraulicDiffusivity = layerData.var(concreteLts->hydraulicDiffusivity);
+void ThermalPressurization::copyStorageToLocal(DynamicRupture::Layer& layerData) {
+  temperature = layerData.var<LTSThermalPressurization::Temperature>();
+  pressure = layerData.var<LTSThermalPressurization::Pressure>();
+  theta = layerData.var<LTSThermalPressurization::Theta>();
+  sigma = layerData.var<LTSThermalPressurization::Sigma>();
+  halfWidthShearZone = layerData.var<LTSThermalPressurization::HalfWidthShearZone>();
+  hydraulicDiffusivity = layerData.var<LTSThermalPressurization::HydraulicDiffusivity>();
 }
 
 void ThermalPressurization::calcFluidPressure(
