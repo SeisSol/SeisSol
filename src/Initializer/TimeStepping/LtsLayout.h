@@ -401,12 +401,10 @@ class seissol::initializer::time_stepping::LtsLayout {
      *  4) cell id in the mesh (reordering for communicatio possible).
      *
      * @param io_cellLocalInformation set to: cell local information of all computational cells.
-     * @param o_ltsToMesh mapping from the global (accross all clusters and layers) lts id to the mesh id.
      * @param o_numberOfMeshCells number of cells in the mesh.
      **/
     void getCellInformation( CellLocalInformation* io_cellLocalInformation,
                              SecondaryCellLocalInformation* secondaryInformation,
-                             std::size_t         *&o_ltsToMesh,
                              std::size_t          &o_numberOfMeshCells );
 
     void getDynamicRuptureInformation(  unsigned*&  ltsToFace,

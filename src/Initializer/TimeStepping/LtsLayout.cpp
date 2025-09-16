@@ -643,7 +643,6 @@ void seissol::initializer::time_stepping::LtsLayout::deriveLayout(  ) {
 
 void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLocalInformation* io_cellLocalInformation,
                                                                           SecondaryCellLocalInformation* secondaryInformation,
-                                                                          std::size_t         *&o_ltsToMesh,
                                                                           std::size_t          &o_numberOfMeshCells ) {
 	const int rank = seissol::MPI::mpi.rank();
 
@@ -707,8 +706,6 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
 
 
   // allocate memory
-  // TODO: free sometime somewhere
-  o_ltsToMesh            = new std::size_t[ numberOfLtsCells ];
 
   // current lts cell
   std::size_t l_ltsCell = 0;
@@ -725,9 +722,6 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         unsigned int l_clusterId = m_clusteredCopy[l_cluster][l_region].first[1];
 
         const auto rank = m_clusteredCopy[l_cluster][l_region].first[0];
-
-        // set mapping invalid
-        o_ltsToMesh[l_ltsCell] = std::numeric_limits<std::size_t>::max();
 
         secondaryInformation[l_ltsCell].clusterId = l_clusterId;
 
@@ -758,9 +752,6 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         unsigned int l_meshId     = m_clusteredCopy[l_cluster][l_region].second[l_copyCell];
 
         // store face independent information
-
-        // set mappings
-        o_ltsToMesh[l_ltsCell]                   = l_meshId;
 
         secondaryInformation[l_ltsCell].clusterId = l_clusterId;
         secondaryInformation[l_ltsCell].meshId = l_meshId;
@@ -882,9 +873,6 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
       secondaryInformation[l_ltsCell].layerId = layerId;
       secondaryInformation[l_ltsCell].configId = 0;
       std::memcpy(secondaryInformation[l_ltsCell].neighborRanks, m_cells[l_meshId].neighborRanks, sizeof(int[4]));
-
-      // set mappings
-      o_ltsToMesh[l_ltsCell]                   = l_meshId;
 
       // iterate over faces
       for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {

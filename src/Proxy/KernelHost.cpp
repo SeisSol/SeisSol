@@ -260,8 +260,8 @@ auto ProxyKernelHostNeighborDR::needsDR() const -> bool { return true; }
 void ProxyKernelHostGodunovDR::run(ProxyData& data,
                                    seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layerData = data.drStorage.layer(data.layerId);
-  DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
-  DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
+  const DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
+  const DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
   DREnergyOutput* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>();
   real* const* timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
   real* const* timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
