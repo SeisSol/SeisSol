@@ -31,7 +31,7 @@ class NoFault : public BaseFrictionLaw<NoFault> {
   };
   void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
   };
-  void saveDynamicStressOutput(std::size_t ltsFace) {};
+  void saveDynamicStressOutput(std::size_t ltsFace, real time) {};
 };
 } // namespace seissol::dr::friction_law::cpu
 

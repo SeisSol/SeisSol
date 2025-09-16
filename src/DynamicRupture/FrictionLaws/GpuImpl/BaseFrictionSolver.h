@@ -14,6 +14,7 @@
 #include "Numerical/Functions.h"
 #include <Common/Constants.h>
 #include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
+#include <DynamicRupture/Misc.h>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <algorithm>
 
@@ -40,8 +41,8 @@ struct FrictionLawArgs {
   const real* __restrict heatSource{nullptr};
 
   real fullUpdateTime;
-  double timeWeights[ConvergenceOrder];
-  real deltaT[ConvergenceOrder];
+  double timeWeights[misc::TimeSteps];
+  real deltaT[misc::TimeSteps];
   real sumDt;
 };
 
@@ -99,12 +100,18 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         etaPDamp,
         ctx.pointIndex);
 
+    const auto isFrictionEnergyRequired{ctx.data->drParameters.isFrictionEnergyRequired};
+    const auto isCheckAbortCriteraEnabled{ctx.data->drParameters.isCheckAbortCriteraEnabled};
+    const auto devTerminatorSlipRateThreshold{ctx.data->drParameters.terminatorSlipRateThreshold};
+
     Derived::preHook(ctx);
 
+    real startTime = 0;
     real updateTime = ctx.args->fullUpdateTime;
-    for (uint32_t timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
+    for (uint32_t timeIndex = 0; timeIndex < misc::TimeSteps; ++timeIndex) {
       const real dt = ctx.args->deltaT[timeIndex];
 
+      startTime = updateTime;
       updateTime += dt;
 
       for (uint32_t i = 0; i < ctx.data->drParameters.nucleationCount; ++i) {
@@ -123,28 +130,32 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       }
 
       Derived::updateFrictionAndSlip(ctx, timeIndex);
+
+      // time-dependent outputs
+      common::saveRuptureFrontOutput<GpuRangeType>(ctx.data->ruptureTimePending[ctx.ltsFace],
+                                                   ctx.data->ruptureTime[ctx.ltsFace],
+                                                   ctx.data->slipRateMagnitude[ctx.ltsFace],
+                                                   startTime,
+                                                   ctx.pointIndex);
+
+      Derived::saveDynamicStressOutput(ctx, startTime);
+
+      common::savePeakSlipRateOutput<GpuRangeType>(ctx.data->slipRateMagnitude[ctx.ltsFace],
+                                                   ctx.data->peakSlipRate[ctx.ltsFace],
+                                                   ctx.pointIndex);
+
+      if (isFrictionEnergyRequired && isCheckAbortCriteraEnabled) {
+        common::updateTimeSinceSlipRateBelowThreshold<GpuRangeType>(
+            ctx.data->slipRateMagnitude[ctx.ltsFace],
+            ctx.data->ruptureTimePending[ctx.ltsFace],
+            ctx.data->energyData[ctx.ltsFace],
+            dt,
+            devTerminatorSlipRateThreshold,
+            ctx.pointIndex);
+      }
     }
+
     Derived::postHook(ctx);
-
-    common::saveRuptureFrontOutput<GpuRangeType>(ctx.data->ruptureTimePending[ctx.ltsFace],
-                                                 ctx.data->ruptureTime[ctx.ltsFace],
-                                                 ctx.data->slipRateMagnitude[ctx.ltsFace],
-                                                 ctx.args->fullUpdateTime,
-                                                 ctx.pointIndex);
-
-    Derived::saveDynamicStressOutput(ctx);
-
-    const auto devSumDt{ctx.args->sumDt};
-
-    const auto isFrictionEnergyRequired{ctx.data->drParameters.isFrictionEnergyRequired};
-    const auto isCheckAbortCriteraEnabled{ctx.data->drParameters.isCheckAbortCriteraEnabled};
-    const auto devTerminatorSlipRateThreshold{ctx.data->drParameters.terminatorSlipRateThreshold};
-    const auto energiesFromAcrossFaultVelocities{
-        ctx.data->drParameters.energiesFromAcrossFaultVelocities};
-
-    common::savePeakSlipRateOutput<GpuRangeType>(ctx.data->slipRateMagnitude[ctx.ltsFace],
-                                                 ctx.data->peakSlipRate[ctx.ltsFace],
-                                                 ctx.pointIndex);
 
     common::postcomputeImposedStateFromNewStress<GpuRangeType>(
         ctx.faultStresses,
@@ -159,16 +170,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         ctx.pointIndex);
 
     if (isFrictionEnergyRequired) {
-
-      if (isCheckAbortCriteraEnabled) {
-        common::updateTimeSinceSlipRateBelowThreshold<GpuRangeType>(
-            ctx.data->slipRateMagnitude[ctx.ltsFace],
-            ctx.data->ruptureTimePending[ctx.ltsFace],
-            ctx.data->energyData[ctx.ltsFace],
-            devSumDt,
-            devTerminatorSlipRateThreshold,
-            ctx.pointIndex);
-      }
+      const auto energiesFromAcrossFaultVelocities{
+          ctx.data->drParameters.energiesFromAcrossFaultVelocities};
 
       common::computeFrictionEnergy<GpuRangeType>(ctx.data->energyData[ctx.ltsFace],
                                                   ctx.data->qInterpolatedPlus[ctx.ltsFace],
@@ -195,12 +198,12 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
   void evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
                       real fullUpdateTime,
-                      const double timeWeights[ConvergenceOrder],
+                      const double* timeWeights,
                       const FrictionTime& frictionTime);
 
   void evaluate(real fullUpdateTime,
                 const FrictionTime& frictionTime,
-                const double timeWeights[ConvergenceOrder],
+                const double* timeWeights,
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
     if (this->currLayerSize == 0) {
       return;

@@ -34,8 +34,8 @@ class FrictionSolver {
   virtual ~FrictionSolver() = default;
 
   struct FrictionTime {
-    real sumDt;
-    std::vector<real> deltaT;
+    double sumDt;
+    std::vector<double> deltaT;
   };
 
   virtual void setupLayer(DynamicRupture::Layer& layerData,
@@ -43,7 +43,7 @@ class FrictionSolver {
 
   virtual void evaluate(real fullUpdateTime,
                         const FrictionTime& frictionTime,
-                        const double timeWeights[ConvergenceOrder],
+                        const double* timeWeights,
                         seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   /**
@@ -68,7 +68,7 @@ class FrictionSolver {
    * Adjust initial stress by adding nucleation stress * nucleation function
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf.
    */
-  real deltaT[ConvergenceOrder] = {};
+  real deltaT[misc::TimeSteps] = {};
   real sumDt{};
 
   seissol::initializer::parameters::DRParameters* __restrict drParameters;
@@ -103,8 +103,8 @@ class FrictionSolver {
   real (*__restrict dynStressTime)[misc::NumPaddedPoints]{};
   bool (*__restrict dynStressTimePending)[misc::NumPaddedPoints]{};
 
-  real (*__restrict qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
-  real (*__restrict qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
+  real (*__restrict qInterpolatedPlus)[misc::TimeSteps][tensor::QInterpolated::size()]{};
+  real (*__restrict qInterpolatedMinus)[misc::TimeSteps][tensor::QInterpolated::size()]{};
 };
 } // namespace seissol::dr::friction_law
 

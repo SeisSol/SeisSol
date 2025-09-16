@@ -69,7 +69,7 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {}
   void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
   }
-  void saveDynamicStressOutput(std::size_t ltsFace) {}
+  void saveDynamicStressOutput(std::size_t ltsFace, real time) {}
 
   protected:
   real (*__restrict imposedSlipDirection1)[misc::NumPaddedPoints]{};
