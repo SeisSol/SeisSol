@@ -39,7 +39,6 @@ struct Wp {
     EasiBoundaryMap,
     EasiBoundaryConstant,
     ZinvExtra,
-    StpRhs,
     IdofsAne,
     DofsAne,
     DofsExt,

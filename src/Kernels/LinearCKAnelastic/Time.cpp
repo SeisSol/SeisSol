@@ -191,6 +191,7 @@ void Time::evaluateBatched(const real* coeffs,
 
 void Spacetime::computeBatchedAder(const real* coeffs,
                                    double timeStepWidth,
+                                   LTS::Layer& layer,
                                    LocalTmp& tmp,
                                    ConditionalPointersToRealsTable& dataTable,
                                    ConditionalMaterialTable& materialTable,
