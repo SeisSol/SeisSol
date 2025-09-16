@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_BASEFRICTIONLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_BASEFRICTIONLAW_H_
 
+#include <Memory/Descriptor/DynamicRupture.h>
 #include <yaml-cpp/yaml.h>
 
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
@@ -34,12 +35,11 @@ class BaseFrictionLaw : public FrictionSolver {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
   }
 
-  void setupLayer(seissol::initializer::Layer& layerData,
-                  const seissol::initializer::DynamicRupture* dynRup,
+  void setupLayer(DynamicRupture::Layer& layerData,
                   seissol::parallel::runtime::StreamRuntime& runtime) override {
     this->currLayerSize = layerData.size();
-    BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup);
-    static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup);
+    BaseFrictionLaw::copyStorageToLocal(layerData);
+    static_cast<Derived*>(this)->copyStorageToLocal(layerData);
   }
 
   /**
@@ -102,14 +102,15 @@ class BaseFrictionLaw : public FrictionSolver {
         startTime = updateTime;
         updateTime += this->deltaT[timeIndex];
         for (unsigned i = 0; i < this->drParameters->nucleationCount; ++i) {
-          common::adjustInitialStress(initialStressInFaultCS[ltsFace],
-                                      nucleationStressInFaultCS[i][ltsFace],
-                                      initialPressure[ltsFace],
-                                      nucleationPressure[i][ltsFace],
-                                      updateTime,
-                                      this->drParameters->t0[i],
-                                      this->drParameters->s0[i],
-                                      this->deltaT[timeIndex]);
+          common::adjustInitialStress(
+              initialStressInFaultCS[ltsFace],
+              nucleationStressInFaultCS[ltsFace * this->drParameters->nucleationCount + i],
+              initialPressure[ltsFace],
+              nucleationPressure[ltsFace * this->drParameters->nucleationCount + i],
+              updateTime,
+              this->drParameters->t0[i],
+              this->drParameters->s0[i],
+              this->deltaT[timeIndex]);
         }
 
         static_cast<Derived*>(this)->updateFrictionAndSlip(faultStresses,

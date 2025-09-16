@@ -9,8 +9,8 @@
 #ifndef SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_
 
-#include "IO/Instance/Checkpoint/CheckpointManager.h"
 #include "GeneratedCode/tensor.h"
+#include "IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Memory/Tree/LTSTree.h"
@@ -18,6 +18,7 @@
 #include "Model/Plasticity.h"
 #include <Equations/Datastructures.h>
 #include <Initializer/CellLocalInformation.h>
+#include <Memory/Tree/Backmap.h>
 #include <Parallel/Helper.h>
 
 #ifdef ACL_DEVICE
@@ -28,7 +29,7 @@ namespace seissol::tensor {
 class Qane;
 } // namespace seissol::tensor
 
-namespace seissol::initializer {
+namespace seissol {
 
 struct LTS {
   enum class AllocationPreset {
@@ -45,6 +46,7 @@ struct LTS {
 
   static auto allocationModeWP(AllocationPreset preset,
                                int convergenceOrder = seissol::ConvergenceOrder) {
+    using namespace seissol::initializer;
     if constexpr (!isDeviceOn()) {
       switch (preset) {
       case AllocationPreset::Global:
@@ -87,54 +89,109 @@ struct LTS {
       }
     }
   }
-  Variable<real[tensor::Q::size()]> dofs;
+  struct Dofs : public initializer::Variable<real[tensor::Q::size()]> {};
   // size is zero if Qane is not defined
-  Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> dofsAne;
-  Variable<real*> buffers;
-  Variable<real*> derivatives;
-  Variable<CellLocalInformation> cellInformation;
-  Variable<SecondaryCellLocalInformation> secondaryInformation;
-  Variable<real* [Cell::NumFaces]> faceNeighbors;
-  Variable<LocalIntegrationData> localIntegration;
-  Variable<NeighboringIntegrationData> neighboringIntegration;
-  Variable<model::MaterialT> materialData;
-  Variable<CellMaterialData> material;
-  Variable<seissol::model::PlasticityData> plasticity;
-  Variable<CellDRMapping[Cell::NumFaces]> drMapping;
-  Variable<CellBoundaryMapping[Cell::NumFaces]> boundaryMapping;
-  Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> pstrain;
-  Variable<real* [Cell::NumFaces]> faceDisplacements;
-  Bucket<real> buffersDerivatives;
+  struct DofsAne
+      : public initializer::Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> {
+  };
+  struct Buffers : public initializer::Variable<real*> {};
+  struct Derivatives : public initializer::Variable<real*> {};
+  struct CellInformation : public initializer::Variable<CellLocalInformation> {};
+  struct SecondaryInformation : public initializer::Variable<SecondaryCellLocalInformation> {};
+  struct FaceNeighbors : public initializer::Variable<real* [Cell::NumFaces]> {};
+  struct LocalIntegration : public initializer::Variable<LocalIntegrationData> {};
+  struct NeighboringIntegration : public initializer::Variable<NeighboringIntegrationData> {};
+  struct MaterialData : public initializer::Variable<model::MaterialT> {};
+  struct Material : public initializer::Variable<CellMaterialData> {};
+  struct Plasticity : public initializer::Variable<seissol::model::PlasticityData> {};
+  struct DRMapping : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
+  struct BoundaryMapping : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {};
+  struct PStrain
+      : public initializer::Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> {};
+  struct FaceDisplacements : public initializer::Variable<real* [Cell::NumFaces]> {};
+  struct BuffersDerivatives : public initializer::Bucket<real> {};
 
-  Variable<real*> buffersDevice;
-  Variable<real*> derivativesDevice;
-  Variable<real* [Cell::NumFaces]> faceDisplacementsDevice;
-  Variable<real* [Cell::NumFaces]> faceNeighborsDevice;
-  Variable<CellDRMapping[Cell::NumFaces]> drMappingDevice;
-  Variable<CellBoundaryMapping[Cell::NumFaces]> boundaryMappingDevice;
+  struct BuffersDevice : public initializer::Variable<real*> {};
+  struct DerivativesDevice : public initializer::Variable<real*> {};
+  struct FaceNeighborsDevice : public initializer::Variable<real* [Cell::NumFaces]> {};
+  struct FaceDisplacementsDevice : public initializer::Variable<real* [Cell::NumFaces]> {};
+  struct DRMappingDevice : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
+  struct BoundaryMappingDevice : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {
+  };
 
-  Scratchpad<real> integratedDofsScratch;
-  Scratchpad<real> derivativesScratch;
-  Scratchpad<real> nodalAvgDisplacements;
-  Scratchpad<real> analyticScratch;
-  Scratchpad<real> derivativesExtScratch;
-  Scratchpad<real> derivativesAneScratch;
-  Scratchpad<real> idofsAneScratch;
-  Scratchpad<real> dofsExtScratch;
+  struct IntegratedDofsScratch : public initializer::Scratchpad<real> {};
+  struct DerivativesScratch : public initializer::Scratchpad<real> {};
+  struct NodalAvgDisplacements : public initializer::Scratchpad<real> {};
+  struct AnalyticScratch : public initializer::Scratchpad<real> {};
+  struct DerivativesExtScratch : public initializer::Scratchpad<real> {};
+  struct DerivativesAneScratch : public initializer::Scratchpad<real> {};
+  struct IDofsAneScratch : public initializer::Scratchpad<real> {};
+  struct DofsExtScratch : public initializer::Scratchpad<real> {};
 
-  Scratchpad<unsigned> flagScratch;
-  Scratchpad<real> prevDofsScratch;
-  Scratchpad<real> qEtaNodalScratch;
-  Scratchpad<real> qStressNodalScratch;
+  struct FlagScratch : public initializer::Scratchpad<unsigned> {};
+  struct PrevDofsScratch : public initializer::Scratchpad<real> {};
+  struct QEtaNodalScratch : public initializer::Scratchpad<real> {};
+  struct QStressNodalScratch : public initializer::Scratchpad<real> {};
 
-  Scratchpad<real> rotateDisplacementToFaceNormalScratch;
-  Scratchpad<real> rotateDisplacementToGlobalScratch;
-  Scratchpad<real> rotatedFaceDisplacementScratch;
-  Scratchpad<real> dofsFaceNodalScratch;
-  Scratchpad<real> prevCoefficientsScratch;
-  Scratchpad<real> dofsFaceBoundaryNodalScratch;
+  struct RotateDisplacementToFaceNormalScratch : public initializer::Scratchpad<real> {};
+  struct RotateDisplacementToGlobalScratch : public initializer::Scratchpad<real> {};
+  struct RotatedFaceDisplacementScratch : public initializer::Scratchpad<real> {};
+  struct DofsFaceNodalScratch : public initializer::Scratchpad<real> {};
+  struct PrevCoefficientsScratch : public initializer::Scratchpad<real> {};
+  struct DofsFaceBoundaryNodalScratch : public initializer::Scratchpad<real> {};
 
-  void addTo(LTSTree& tree, bool usePlasticity) {
+  struct Integrals : public initializer::Variable<real> {};
+
+  struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
+                                                        DofsAne,
+                                                        Buffers,
+                                                        Derivatives,
+                                                        CellInformation,
+                                                        SecondaryInformation,
+                                                        FaceNeighbors,
+                                                        LocalIntegration,
+                                                        NeighboringIntegration,
+                                                        Material,
+                                                        MaterialData,
+                                                        Plasticity,
+                                                        DRMapping,
+                                                        BoundaryMapping,
+                                                        PStrain,
+                                                        FaceDisplacements,
+                                                        BuffersDerivatives,
+                                                        BuffersDevice,
+                                                        DerivativesDevice,
+                                                        FaceNeighborsDevice,
+                                                        FaceDisplacementsDevice,
+                                                        DRMappingDevice,
+                                                        BoundaryMappingDevice,
+                                                        IntegratedDofsScratch,
+                                                        DerivativesScratch,
+                                                        NodalAvgDisplacements,
+                                                        AnalyticScratch,
+                                                        DerivativesExtScratch,
+                                                        DerivativesAneScratch,
+                                                        IDofsAneScratch,
+                                                        DofsExtScratch,
+                                                        FlagScratch,
+                                                        PrevDofsScratch,
+                                                        QEtaNodalScratch,
+                                                        QStressNodalScratch,
+                                                        RotateDisplacementToFaceNormalScratch,
+                                                        RotateDisplacementToGlobalScratch,
+                                                        RotatedFaceDisplacementScratch,
+                                                        DofsFaceNodalScratch,
+                                                        PrevCoefficientsScratch,
+                                                        DofsFaceBoundaryNodalScratch,
+                                                        Integrals> {};
+
+  using Storage = initializer::Storage<LTSVarmap>;
+  using Layer = initializer::Layer<LTSVarmap>;
+  using Ref = initializer::Layer<LTSVarmap>::CellRef;
+  using Backmap = initializer::StorageBackmap<4>;
+
+  static void addTo(Storage& storage, bool usePlasticity) {
+    using namespace initializer;
     LayerMask plasticityMask;
     if (usePlasticity) {
       plasticityMask = LayerMask(Ghost);
@@ -142,97 +199,89 @@ struct LTS {
       plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
     }
 
-    tree.add(dofs, LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
+    storage.add<Dofs>(LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
     if (kernels::size<tensor::Qane>() > 0) {
-      tree.add(dofsAne, LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
+      storage.add<DofsAne>(
+          LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
     } else {
-      tree.add(dofsAne,
-               LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior),
-               PagesizeHeap,
-               allocationModeWP(AllocationPreset::Dofs));
+      storage.add<DofsAne>(LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior),
+                           PagesizeHeap,
+                           allocationModeWP(AllocationPreset::Dofs));
     }
-    tree.add(buffers, LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
-    tree.add(
-        derivatives, LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
-    tree.add(cellInformation, LayerMask(), 1, allocationModeWP(AllocationPreset::Constant), true);
-    tree.add(secondaryInformation, LayerMask(), 1, AllocationMode::HostOnly, true);
-    tree.add(faceNeighbors,
-             LayerMask(Ghost),
-             1,
-             allocationModeWP(AllocationPreset::TimedofsConstant),
-             true);
-    tree.add(localIntegration,
-             LayerMask(Ghost),
-             1,
-             allocationModeWP(AllocationPreset::ConstantShared),
-             true);
-    tree.add(neighboringIntegration,
-             LayerMask(Ghost),
-             1,
-             allocationModeWP(AllocationPreset::ConstantShared),
-             true);
-    tree.add(material, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    tree.add(materialData, LayerMask(), 1, AllocationMode::HostOnly, true);
-    tree.add(plasticity, plasticityMask, 1, allocationModeWP(AllocationPreset::Plasticity), true);
-    tree.add(drMapping, LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
-    tree.add(
-        boundaryMapping, LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
-    tree.add(
-        pstrain, plasticityMask, PagesizeHeap, allocationModeWP(AllocationPreset::PlasticityData));
-    tree.add(faceDisplacements, LayerMask(Ghost), PagesizeHeap, AllocationMode::HostOnly, true);
+    storage.add<Buffers>(
+        LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+    storage.add<Derivatives>(
+        LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+    storage.add<CellInformation>(
+        LayerMask(), 1, allocationModeWP(AllocationPreset::Constant), true);
+    storage.add<SecondaryInformation>(LayerMask(), 1, AllocationMode::HostOnly, true);
+    storage.add<FaceNeighbors>(
+        LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+    storage.add<LocalIntegration>(
+        LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::ConstantShared), true);
+    storage.add<NeighboringIntegration>(
+        LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::ConstantShared), true);
+    storage.add<MaterialData>(LayerMask(), 1, AllocationMode::HostOnly, true);
+    storage.add<Material>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    storage.add<Plasticity>(
+        plasticityMask, 1, allocationModeWP(AllocationPreset::Plasticity), true);
+    storage.add<DRMapping>(LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
+    storage.add<BoundaryMapping>(
+        LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
+    storage.add<PStrain>(
+        plasticityMask, PagesizeHeap, allocationModeWP(AllocationPreset::PlasticityData));
+    storage.add<FaceDisplacements>(LayerMask(Ghost), PagesizeHeap, AllocationMode::HostOnly, true);
 
     // TODO(David): remove/rename "constant" flag (the data is temporary; and copying it for IO is
     // handled differently)
-    tree.add(buffersDerivatives,
-             LayerMask(),
-             PagesizeHeap,
-             allocationModeWP(AllocationPreset::Timebucket),
-             true);
+    storage.add<BuffersDerivatives>(
+        LayerMask(), PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
 
-    tree.add(buffersDevice, LayerMask(), 1, AllocationMode::HostOnly, true);
-    tree.add(derivativesDevice, LayerMask(), 1, AllocationMode::HostOnly, true);
-    tree.add(faceDisplacementsDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    tree.add(faceNeighborsDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    tree.add(drMappingDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    tree.add(boundaryMappingDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    storage.add<BuffersDevice>(LayerMask(), 1, AllocationMode::HostOnly, true);
+    storage.add<DerivativesDevice>(LayerMask(), 1, AllocationMode::HostOnly, true);
+    storage.add<FaceDisplacementsDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    storage.add<FaceNeighborsDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    storage.add<DRMappingDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    storage.add<BoundaryMappingDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
 
     if constexpr (isDeviceOn()) {
-      tree.add(derivativesExtScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(derivativesAneScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(idofsAneScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(dofsExtScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(integratedDofsScratch, LayerMask(), 1, AllocationMode::HostDeviceSplit);
-      tree.add(derivativesScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(nodalAvgDisplacements, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(analyticScratch, LayerMask(), 1, AllocationMode::HostDevicePinned);
+      storage.add<DerivativesExtScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<DerivativesAneScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<IDofsAneScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<DofsExtScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<IntegratedDofsScratch>(LayerMask(), 1, AllocationMode::HostDeviceSplit);
+      storage.add<DerivativesScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<NodalAvgDisplacements>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<AnalyticScratch>(LayerMask(), 1, AllocationMode::HostDevicePinned);
 
-      tree.add(flagScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(prevDofsScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(qEtaNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(qStressNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<FlagScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<PrevDofsScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<QEtaNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<QStressNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
 
-      tree.add(rotateDisplacementToFaceNormalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(rotateDisplacementToGlobalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(rotatedFaceDisplacementScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(dofsFaceNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(prevCoefficientsScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(dofsFaceBoundaryNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<RotateDisplacementToFaceNormalScratch>(
+          LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<RotateDisplacementToGlobalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<RotatedFaceDisplacementScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<DofsFaceNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<PrevCoefficientsScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<DofsFaceBoundaryNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
     }
   }
 
-  void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   LTSTree* tree) const {
-    manager.registerData("dofs", tree, dofs);
+  static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
+                                          Storage& storage) {
+    manager.registerData<Dofs>("dofs", storage);
     if constexpr (kernels::size<tensor::Qane>() > 0) {
-      manager.registerData("dofsAne", tree, dofsAne);
+      manager.registerData<DofsAne>("dofsAne", storage);
     }
     // check plasticity usage over the layer mask (for now)
-    if (tree->info(plasticity).mask == LayerMask(Ghost)) {
-      manager.registerData("pstrain", tree, pstrain);
+    if (storage.info<Plasticity>().mask == initializer::LayerMask(Ghost)) {
+      manager.registerData<Plasticity>("pstrain", storage);
     }
   }
 };
 
-} // namespace seissol::initializer
+} // namespace seissol
 
 #endif // SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_

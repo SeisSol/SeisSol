@@ -15,6 +15,7 @@
 #include <Common/Constants.h>
 #include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
 #include <DynamicRupture/Misc.h>
+#include <Memory/Descriptor/DynamicRupture.h>
 #include <algorithm>
 
 #include "Common/Marker.h"
@@ -116,9 +117,11 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       for (uint32_t i = 0; i < ctx.data->drParameters.nucleationCount; ++i) {
         common::adjustInitialStress<GpuRangeType>(
             ctx.data->initialStressInFaultCS[ctx.ltsFace],
-            ctx.data->nucleationStressInFaultCS[i][ctx.ltsFace],
+            ctx.data
+                ->nucleationStressInFaultCS[ctx.ltsFace * ctx.data->drParameters.nucleationCount +
+                                            i],
             ctx.data->initialPressure[ctx.ltsFace],
-            ctx.data->nucleationPressure[i][ctx.ltsFace],
+            ctx.data->nucleationPressure[ctx.ltsFace * ctx.data->drParameters.nucleationCount + i],
             updateTime,
             ctx.data->drParameters.t0[i],
             ctx.data->drParameters.s0[i],
@@ -183,12 +186,11 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     }
   }
 
-  void setupLayer(seissol::initializer::Layer& layerData,
-                  const seissol::initializer::DynamicRupture* const dynRup,
+  void setupLayer(DynamicRupture::Layer& layerData,
                   seissol::parallel::runtime::StreamRuntime& runtime) override {
     this->currLayerSize = layerData.size();
-    FrictionSolverInterface::copyLtsTreeToLocal(&dataHost, layerData, dynRup);
-    Derived::copySpecificLtsDataTreeToLocal(&dataHost, layerData, dynRup);
+    FrictionSolverInterface::copyStorageToLocal(&dataHost, layerData);
+    Derived::copySpecificStorageDataToLocal(&dataHost, layerData);
     dataHost.drParameters = *this->drParameters;
     device::DeviceInstance::getInstance().api->copyToAsync(
         data, &dataHost, sizeof(FrictionLawData), runtime.stream());

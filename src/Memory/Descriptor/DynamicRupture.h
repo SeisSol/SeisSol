@@ -19,10 +19,12 @@
 #include "Parallel/Helper.h"
 #include <Initializer/Parameters/DRParameters.h>
 #include <Kernels/Common.h>
+#include <Memory/Tree/Backmap.h>
 
-namespace seissol::initializer {
+namespace seissol {
 
 inline auto allocationModeDR() {
+  using namespace seissol::initializer;
   if constexpr (!isDeviceOn()) {
     return AllocationMode::HostOnly;
   } else {
@@ -35,315 +37,331 @@ inline auto allocationModeDR() {
 struct DynamicRupture {
   public:
   DynamicRupture() = default;
-  explicit DynamicRupture(const parameters::DRParameters* parameters)
-      : nucleationStressInFaultCS(parameters->nucleationCount),
-        nucleationPressure(parameters->nucleationCount) {}
+  std::size_t nucleationCount{1};
+  explicit DynamicRupture(const initializer::parameters::DRParameters* parameters)
+      : nucleationCount(parameters->nucleationCount) {}
 
   virtual ~DynamicRupture() = default;
-  Variable<real*> timeDerivativePlus;
-  Variable<real*> timeDerivativeMinus;
-  Variable<real*> timeDerivativePlusDevice;
-  Variable<real*> timeDerivativeMinusDevice;
-  Variable<real[tensor::QInterpolated::size()]> imposedStatePlus;
-  Variable<real[tensor::QInterpolated::size()]> imposedStateMinus;
-  Variable<DRGodunovData> godunovData;
-  Variable<real[tensor::fluxSolver::size()]> fluxSolverPlus;
-  Variable<real[tensor::fluxSolver::size()]> fluxSolverMinus;
-  Variable<DRFaceInformation> faceInformation;
-  Variable<model::IsotropicWaveSpeeds> waveSpeedsPlus;
-  Variable<model::IsotropicWaveSpeeds> waveSpeedsMinus;
-  Variable<DREnergyOutput> drEnergyOutput;
+  struct TimeDerivativePlus : public initializer::Variable<real*> {};
+  struct TimeDerivativeMinus : public initializer::Variable<real*> {};
+  struct TimeDerivativePlusDevice : public initializer::Variable<real*> {};
+  struct TimeDerivativeMinusDevice : public initializer::Variable<real*> {};
+  struct ImposedStatePlus : public initializer::Variable<real[tensor::QInterpolated::size()]> {};
+  struct ImposedStateMinus : public initializer::Variable<real[tensor::QInterpolated::size()]> {};
+  struct GodunovData : public initializer::Variable<DRGodunovData> {};
+  struct FluxSolverPlus : public initializer::Variable<real[tensor::fluxSolver::size()]> {};
+  struct FluxSolverMinus : public initializer::Variable<real[tensor::fluxSolver::size()]> {};
+  struct FaceInformation : public initializer::Variable<DRFaceInformation> {};
+  struct WaveSpeedsPlus : public initializer::Variable<model::IsotropicWaveSpeeds> {};
+  struct WaveSpeedsMinus : public initializer::Variable<model::IsotropicWaveSpeeds> {};
+  struct DREnergyOutputVar : public initializer::Variable<DREnergyOutput> {};
 
-  Variable<seissol::dr::ImpedancesAndEta> impAndEta;
-  Variable<seissol::dr::ImpedanceMatrices> impedanceMatrices;
+  struct ImpAndEta : public initializer::Variable<seissol::dr::ImpedancesAndEta> {};
+  struct ImpedanceMatrices : public initializer::Variable<seissol::dr::ImpedanceMatrices> {};
   // size padded for vectorization
   // CS = coordinate system
-  Variable<real[6][dr::misc::NumPaddedPoints]> initialStressInFaultCS;
-  std::vector<Variable<real[6][dr::misc::NumPaddedPoints]>> nucleationStressInFaultCS;
+  struct InitialStressInFaultCS : public initializer::Variable<real[6][dr::misc::NumPaddedPoints]> {
+  };
+  struct NucleationStressInFaultCS
+      : public initializer::Variable<real[6][dr::misc::NumPaddedPoints]> {};
   // will be always zero, if not using poroelasticity
-  Variable<real[dr::misc::NumPaddedPoints]> initialPressure;
-  std::vector<Variable<real[dr::misc::NumPaddedPoints]>> nucleationPressure;
-  Variable<real[dr::misc::NumPaddedPoints]> mu;
-  Variable<real[dr::misc::NumPaddedPoints]> accumulatedSlipMagnitude;
-  Variable<real[dr::misc::NumPaddedPoints]>
-      slip1; // slip at given fault node along local direction 1
-  Variable<real[dr::misc::NumPaddedPoints]>
-      slip2; // slip at given fault node along local direction 2
-  Variable<real[dr::misc::NumPaddedPoints]> slipRateMagnitude;
-  Variable<real[dr::misc::NumPaddedPoints]>
-      slipRate1; // slip rate at given fault node along local direction 1
-  Variable<real[dr::misc::NumPaddedPoints]>
-      slipRate2; // slip rate at given fault node along local direction 2
-  Variable<real[dr::misc::NumPaddedPoints]> ruptureTime;
-  Variable<real[dr::misc::NumPaddedPoints]> dynStressTime;
-  Variable<bool[dr::misc::NumPaddedPoints]> ruptureTimePending;
-  Variable<bool[dr::misc::NumPaddedPoints]> dynStressTimePending;
-  Variable<real[dr::misc::NumPaddedPoints]> peakSlipRate;
-  Variable<real[dr::misc::NumPaddedPoints]> traction1;
-  Variable<real[dr::misc::NumPaddedPoints]> traction2;
-  Variable<real[dr::misc::TimeSteps][tensor::QInterpolated::size()]> qInterpolatedPlus;
-  Variable<real[dr::misc::TimeSteps][tensor::QInterpolated::size()]> qInterpolatedMinus;
+  struct InitialPressure : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct NucleationPressure : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct Mu : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct AccumulatedSlipMagnitude : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {
+  };
+  // slip at given fault node along local direction 1
+  struct Slip1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  // slip at given fault node along local direction 2
+  struct Slip2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct SlipRateMagnitude : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  // slip rate at given fault node along local direction 1
+  struct SlipRate1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  // slip rate at given fault node along local direction 2
+  struct SlipRate2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct RuptureTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct DynStressTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct RuptureTimePending : public initializer::Variable<bool[dr::misc::NumPaddedPoints]> {};
+  struct DynStressTimePending : public initializer::Variable<bool[dr::misc::NumPaddedPoints]> {};
+  struct PeakSlipRate : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct Traction1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct Traction2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct QInterpolatedPlus
+      : public initializer::Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> {};
+  struct QInterpolatedMinus
+      : public initializer::Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> {};
 
-  Scratchpad<real> idofsPlusOnDevice;
-  Scratchpad<real> idofsMinusOnDevice;
+  struct IdofsPlusOnDevice : public initializer::Scratchpad<real> {};
+  struct IdofsMinusOnDevice : public initializer::Scratchpad<real> {};
 
-  virtual void addTo(LTSTree& tree) {
+  struct DynrupVarmap : public initializer::GenericVarmap {};
+
+  using Storage = initializer::Storage<DynrupVarmap>;
+  using Layer = initializer::Layer<DynrupVarmap>;
+  using Ref = initializer::Layer<DynrupVarmap>::CellRef;
+  using Backmap = initializer::StorageBackmap<1>;
+
+  virtual void addTo(Storage& storage) {
+    using namespace seissol::initializer;
     const auto mask = LayerMask(Ghost);
-    tree.add(timeDerivativePlus, mask, Alignment, AllocationMode::HostOnly, true);
-    tree.add(timeDerivativeMinus, mask, Alignment, AllocationMode::HostOnly, true);
-    tree.add(timeDerivativePlusDevice, mask, Alignment, AllocationMode::HostOnly, true);
-    tree.add(timeDerivativeMinusDevice, mask, Alignment, AllocationMode::HostOnly, true);
-    tree.add(imposedStatePlus, mask, PagesizeHeap, allocationModeDR());
-    tree.add(imposedStateMinus, mask, PagesizeHeap, allocationModeDR());
-    tree.add(godunovData, mask, Alignment, allocationModeDR());
-    tree.add(fluxSolverPlus, mask, Alignment, allocationModeDR());
-    tree.add(fluxSolverMinus, mask, Alignment, allocationModeDR());
-    tree.add(faceInformation, mask, Alignment, AllocationMode::HostOnly, true);
-    tree.add(waveSpeedsPlus, mask, Alignment, allocationModeDR(), true);
-    tree.add(waveSpeedsMinus, mask, Alignment, allocationModeDR(), true);
-    tree.add(drEnergyOutput, mask, Alignment, allocationModeDR());
-    tree.add(impAndEta, mask, Alignment, allocationModeDR(), true);
-    tree.add(impedanceMatrices, mask, Alignment, allocationModeDR(), true);
-    tree.add(initialStressInFaultCS, mask, Alignment, allocationModeDR());
-    tree.add(initialPressure, mask, Alignment, allocationModeDR());
-    tree.add(ruptureTime, mask, Alignment, allocationModeDR());
+    storage.add<TimeDerivativePlus>(mask, Alignment, AllocationMode::HostOnly, true);
+    storage.add<TimeDerivativeMinus>(mask, Alignment, AllocationMode::HostOnly, true);
+    storage.add<TimeDerivativePlusDevice>(mask, Alignment, AllocationMode::HostOnly, true);
+    storage.add<TimeDerivativeMinusDevice>(mask, Alignment, AllocationMode::HostOnly, true);
+    storage.add<ImposedStatePlus>(mask, PagesizeHeap, allocationModeDR());
+    storage.add<ImposedStateMinus>(mask, PagesizeHeap, allocationModeDR());
+    storage.add<GodunovData>(mask, Alignment, allocationModeDR());
+    storage.add<FluxSolverPlus>(mask, Alignment, allocationModeDR());
+    storage.add<FluxSolverMinus>(mask, Alignment, allocationModeDR());
+    storage.add<FaceInformation>(mask, Alignment, AllocationMode::HostOnly, true);
+    storage.add<WaveSpeedsPlus>(mask, Alignment, allocationModeDR(), true);
+    storage.add<WaveSpeedsMinus>(mask, Alignment, allocationModeDR(), true);
+    storage.add<DREnergyOutputVar>(mask, Alignment, allocationModeDR());
+    storage.add<ImpAndEta>(mask, Alignment, allocationModeDR(), true);
+    storage.add<ImpedanceMatrices>(mask, Alignment, allocationModeDR(), true);
+    storage.add<InitialStressInFaultCS>(mask, Alignment, allocationModeDR());
+    storage.add<InitialPressure>(mask, Alignment, allocationModeDR());
+    storage.add<RuptureTime>(mask, Alignment, allocationModeDR());
 
-    for (auto& nucleation : nucleationStressInFaultCS) {
-      tree.add(nucleation, mask, Alignment, allocationModeDR(), true);
-    }
-    for (auto& nucleation : nucleationPressure) {
-      tree.add(nucleation, mask, Alignment, allocationModeDR(), true);
-    }
+    // NOTE: nucleation count (multi-nucleation support) is passed here.
+    storage.add<NucleationStressInFaultCS>(
+        mask, Alignment, allocationModeDR(), true, nucleationCount);
+    storage.add<NucleationPressure>(mask, Alignment, allocationModeDR(), true, nucleationCount);
 
-    tree.add(ruptureTimePending, mask, Alignment, allocationModeDR());
-    tree.add(dynStressTime, mask, Alignment, allocationModeDR());
-    tree.add(dynStressTimePending, mask, Alignment, allocationModeDR());
-    tree.add(mu, mask, Alignment, allocationModeDR());
-    tree.add(accumulatedSlipMagnitude, mask, Alignment, allocationModeDR());
-    tree.add(slip1, mask, Alignment, allocationModeDR());
-    tree.add(slip2, mask, Alignment, allocationModeDR());
-    tree.add(slipRateMagnitude, mask, Alignment, allocationModeDR());
-    tree.add(slipRate1, mask, Alignment, allocationModeDR());
-    tree.add(slipRate2, mask, Alignment, allocationModeDR());
-    tree.add(peakSlipRate, mask, Alignment, allocationModeDR());
-    tree.add(traction1, mask, Alignment, allocationModeDR());
-    tree.add(traction2, mask, Alignment, allocationModeDR());
-    tree.add(qInterpolatedPlus, mask, Alignment, allocationModeDR());
-    tree.add(qInterpolatedMinus, mask, Alignment, allocationModeDR());
+    storage.add<RuptureTimePending>(mask, Alignment, allocationModeDR());
+    storage.add<DynStressTime>(mask, Alignment, allocationModeDR());
+    storage.add<DynStressTimePending>(mask, Alignment, allocationModeDR());
+    storage.add<Mu>(mask, Alignment, allocationModeDR());
+    storage.add<AccumulatedSlipMagnitude>(mask, Alignment, allocationModeDR());
+    storage.add<Slip1>(mask, Alignment, allocationModeDR());
+    storage.add<Slip2>(mask, Alignment, allocationModeDR());
+    storage.add<SlipRateMagnitude>(mask, Alignment, allocationModeDR());
+    storage.add<SlipRate1>(mask, Alignment, allocationModeDR());
+    storage.add<SlipRate2>(mask, Alignment, allocationModeDR());
+    storage.add<PeakSlipRate>(mask, Alignment, allocationModeDR());
+    storage.add<Traction1>(mask, Alignment, allocationModeDR());
+    storage.add<Traction2>(mask, Alignment, allocationModeDR());
+    storage.add<QInterpolatedPlus>(mask, Alignment, allocationModeDR());
+    storage.add<QInterpolatedMinus>(mask, Alignment, allocationModeDR());
 
     if constexpr (isDeviceOn()) {
-      tree.add(idofsPlusOnDevice, LayerMask(), Alignment, AllocationMode::DeviceOnly);
-      tree.add(idofsMinusOnDevice, LayerMask(), Alignment, AllocationMode::DeviceOnly);
+      storage.add<IdofsPlusOnDevice>(LayerMask(), Alignment, AllocationMode::DeviceOnly);
+      storage.add<IdofsMinusOnDevice>(LayerMask(), Alignment, AllocationMode::DeviceOnly);
     }
   }
 
   virtual void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                           LTSTree* tree) const {
-    manager.registerData("initialStressInFaultCS", tree, initialStressInFaultCS);
-    manager.registerData("initialPressure", tree, initialPressure);
-    manager.registerData("mu", tree, mu);
-    manager.registerData("slipRate1", tree, slipRate1);
-    manager.registerData("slipRate2", tree, slipRate2);
-    manager.registerData("accumulatedSlipMagnitude", tree, accumulatedSlipMagnitude);
-    manager.registerData("slip1", tree, slip1);
-    manager.registerData("slip2", tree, slip2);
-    manager.registerData("peakSlipRate", tree, peakSlipRate);
-    manager.registerData("ruptureTime", tree, ruptureTime);
-    manager.registerData("ruptureTimePending", tree, ruptureTimePending);
-    manager.registerData("dynStressTime", tree, dynStressTime);
-    manager.registerData("dynStressTimePending", tree, dynStressTimePending);
-    manager.registerData("drEnergyOutput", tree, drEnergyOutput);
+                                           Storage& storage) const {
+    manager.registerData<InitialStressInFaultCS>("initialStressInFaultCS", storage);
+    manager.registerData<InitialPressure>("initialPressure", storage);
+    manager.registerData<Mu>("mu", storage);
+    manager.registerData<SlipRate1>("slipRate1", storage);
+    manager.registerData<SlipRate2>("slipRate2", storage);
+    manager.registerData<AccumulatedSlipMagnitude>("accumulatedSlipMagnitude", storage);
+    manager.registerData<Slip1>("slip1", storage);
+    manager.registerData<Slip2>("slip2", storage);
+    manager.registerData<PeakSlipRate>("peakSlipRate", storage);
+    manager.registerData<RuptureTime>("ruptureTime", storage);
+    manager.registerData<RuptureTimePending>("ruptureTimePending", storage);
+    manager.registerData<DynStressTime>("dynStressTime", storage);
+    manager.registerData<DynStressTimePending>("dynStressTimePending", storage);
+    manager.registerData<DREnergyOutputVar>("drEnergyOutput", storage);
   }
 };
 
 struct LTSLinearSlipWeakening : public DynamicRupture {
-  Variable<real[dr::misc::NumPaddedPoints]> dC;
-  Variable<real[dr::misc::NumPaddedPoints]> muS;
-  Variable<real[dr::misc::NumPaddedPoints]> muD;
-  Variable<real[dr::misc::NumPaddedPoints]> cohesion;
-  Variable<real[dr::misc::NumPaddedPoints]> forcedRuptureTime;
+  struct DC : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct MuS : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct MuD : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct Cohesion : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct ForcedRuptureTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
 
-  explicit LTSLinearSlipWeakening(const parameters::DRParameters* parameters)
+  explicit LTSLinearSlipWeakening(const initializer::parameters::DRParameters* parameters)
       : DynamicRupture(parameters) {}
 
-  void addTo(LTSTree& tree) override {
-    DynamicRupture::addTo(tree);
-    const auto mask = LayerMask(Ghost);
-    tree.add(dC, mask, Alignment, allocationModeDR(), true);
-    tree.add(muS, mask, Alignment, allocationModeDR(), true);
-    tree.add(muD, mask, Alignment, allocationModeDR(), true);
-    tree.add(cohesion, mask, Alignment, allocationModeDR(), true);
-    tree.add(forcedRuptureTime, mask, Alignment, allocationModeDR(), true);
+  void addTo(Storage& storage) override {
+    DynamicRupture::addTo(storage);
+    const auto mask = initializer::LayerMask(Ghost);
+    storage.add<DC>(mask, Alignment, allocationModeDR(), true);
+    storage.add<MuS>(mask, Alignment, allocationModeDR(), true);
+    storage.add<MuD>(mask, Alignment, allocationModeDR(), true);
+    storage.add<Cohesion>(mask, Alignment, allocationModeDR(), true);
+    storage.add<ForcedRuptureTime>(mask, Alignment, allocationModeDR(), true);
   }
 };
 
 struct LTSLinearSlipWeakeningBimaterial : public LTSLinearSlipWeakening {
-  Variable<real[dr::misc::NumPaddedPoints]> regularizedStrength;
+  struct RegularizedStrength : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
 
-  explicit LTSLinearSlipWeakeningBimaterial(const parameters::DRParameters* parameters)
+  explicit LTSLinearSlipWeakeningBimaterial(const initializer::parameters::DRParameters* parameters)
       : LTSLinearSlipWeakening(parameters) {}
 
-  void addTo(LTSTree& tree) override {
-    LTSLinearSlipWeakening::addTo(tree);
-    const auto mask = LayerMask(Ghost);
-    tree.add(regularizedStrength, mask, Alignment, allocationModeDR());
+  void addTo(Storage& storage) override {
+    LTSLinearSlipWeakening::addTo(storage);
+    const auto mask = initializer::LayerMask(Ghost);
+    storage.add<RegularizedStrength>(mask, Alignment, allocationModeDR());
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   LTSTree* tree) const override {
-    seissol::initializer::LTSLinearSlipWeakening::registerCheckpointVariables(manager, tree);
-    manager.registerData("regularizedStrength", tree, regularizedStrength);
+                                   Storage& storage) const override {
+    LTSLinearSlipWeakening::registerCheckpointVariables(manager, storage);
+    manager.registerData<RegularizedStrength>("regularizedStrength", storage);
   }
 };
 
 struct LTSRateAndState : public DynamicRupture {
-  Variable<real[dr::misc::NumPaddedPoints]> rsA;
-  Variable<real[dr::misc::NumPaddedPoints]> rsSl0;
-  Variable<real[dr::misc::NumPaddedPoints]> stateVariable;
+  struct RsA : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct RsSl0 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct StateVariable : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
 
-  explicit LTSRateAndState(const parameters::DRParameters* parameters)
+  explicit LTSRateAndState(const initializer::parameters::DRParameters* parameters)
       : DynamicRupture(parameters) {}
 
-  void addTo(LTSTree& tree) override {
-    DynamicRupture::addTo(tree);
-    const auto mask = LayerMask(Ghost);
-    tree.add(rsA, mask, Alignment, allocationModeDR(), true);
-    tree.add(rsSl0, mask, Alignment, allocationModeDR(), true);
-    tree.add(stateVariable, mask, Alignment, allocationModeDR());
+  void addTo(Storage& storage) override {
+    DynamicRupture::addTo(storage);
+    const auto mask = initializer::LayerMask(Ghost);
+    storage.add<RsA>(mask, Alignment, allocationModeDR(), true);
+    storage.add<RsSl0>(mask, Alignment, allocationModeDR(), true);
+    storage.add<StateVariable>(mask, Alignment, allocationModeDR());
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   LTSTree* tree) const override {
-    seissol::initializer::DynamicRupture::registerCheckpointVariables(manager, tree);
-    manager.registerData("stateVariable", tree, stateVariable);
+                                   Storage& storage) const override {
+    DynamicRupture::registerCheckpointVariables(manager, storage);
+    manager.registerData<StateVariable>("stateVariable", storage);
   }
 };
 
 struct LTSRateAndStateFastVelocityWeakening : public LTSRateAndState {
-  Variable<real[dr::misc::NumPaddedPoints]> rsSrW;
+  struct RsSrW : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
 
-  explicit LTSRateAndStateFastVelocityWeakening(const parameters::DRParameters* parameters)
+  explicit LTSRateAndStateFastVelocityWeakening(
+      const initializer::parameters::DRParameters* parameters)
       : LTSRateAndState(parameters) {}
 
-  void addTo(LTSTree& tree) override {
-    LTSRateAndState::addTo(tree);
-    const auto mask = LayerMask(Ghost);
-    tree.add(rsSrW, mask, Alignment, allocationModeDR(), true);
+  void addTo(Storage& storage) override {
+    LTSRateAndState::addTo(storage);
+    const auto mask = initializer::LayerMask(Ghost);
+    storage.add<RsSrW>(mask, Alignment, allocationModeDR(), true);
   }
 };
 
-struct ThermalPressurization {
-  Variable<real[dr::misc::NumPaddedPoints]> temperature;
-  Variable<real[dr::misc::NumPaddedPoints]> pressure;
-  Variable<real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints]> theta;
-  Variable<real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints]> sigma;
-  Variable<real[dr::misc::NumPaddedPoints]> halfWidthShearZone;
-  Variable<real[dr::misc::NumPaddedPoints]> hydraulicDiffusivity;
+struct LTSThermalPressurization {
+  struct Temperature : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct Pressure : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct Theta : public initializer::Variable<
+                     real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints]> {};
+  struct Sigma : public initializer::Variable<
+                     real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints]> {};
+  struct HalfWidthShearZone : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct HydraulicDiffusivity : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
 
-  void addTo(LTSTree& tree) {
-    const auto mask = LayerMask(Ghost);
-    tree.add(temperature, mask, Alignment, allocationModeDR());
-    tree.add(pressure, mask, Alignment, allocationModeDR());
-    tree.add(theta, mask, Alignment, allocationModeDR());
-    tree.add(sigma, mask, Alignment, allocationModeDR());
-    tree.add(halfWidthShearZone, mask, Alignment, allocationModeDR(), true);
-    tree.add(hydraulicDiffusivity, mask, Alignment, allocationModeDR(), true);
+  void addTo(DynamicRupture::Storage& storage) {
+    const auto mask = initializer::LayerMask(Ghost);
+    storage.add<Temperature>(mask, Alignment, allocationModeDR());
+    storage.add<Pressure>(mask, Alignment, allocationModeDR());
+    storage.add<Theta>(mask, Alignment, allocationModeDR());
+    storage.add<Sigma>(mask, Alignment, allocationModeDR());
+    storage.add<HalfWidthShearZone>(mask, Alignment, allocationModeDR(), true);
+    storage.add<HydraulicDiffusivity>(mask, Alignment, allocationModeDR(), true);
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   LTSTree* tree) const {
-    manager.registerData("temperature", tree, temperature);
-    manager.registerData("pressure", tree, pressure);
-    manager.registerData("theta", tree, theta);
-    manager.registerData("sigma", tree, sigma);
+                                   DynamicRupture::Storage& storage) const {
+    manager.registerData<Temperature>("temperature", storage);
+    manager.registerData<Pressure>("pressure", storage);
+    manager.registerData<Theta>("theta", storage);
+    manager.registerData<Sigma>("sigma", storage);
   }
 };
 
-struct LTSRateAndStateThermalPressurization : public LTSRateAndState, public ThermalPressurization {
-  explicit LTSRateAndStateThermalPressurization(const parameters::DRParameters* parameters)
+struct LTSRateAndStateThermalPressurization : public LTSRateAndState,
+                                              public LTSThermalPressurization {
+  explicit LTSRateAndStateThermalPressurization(
+      const initializer::parameters::DRParameters* parameters)
       : LTSRateAndState(parameters) {}
 
-  void addTo(LTSTree& tree) override {
-    LTSRateAndState::addTo(tree);
-    ThermalPressurization::addTo(tree);
+  void addTo(Storage& storage) override {
+    LTSRateAndState::addTo(storage);
+    LTSThermalPressurization::addTo(storage);
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   LTSTree* tree) const override {
-    LTSRateAndState::registerCheckpointVariables(manager, tree);
-    ThermalPressurization::registerCheckpointVariables(manager, tree);
+                                   Storage& storage) const override {
+    LTSRateAndState::registerCheckpointVariables(manager, storage);
+    LTSThermalPressurization::registerCheckpointVariables(manager, storage);
   }
 };
 
 struct LTSRateAndStateThermalPressurizationFastVelocityWeakening
     : public LTSRateAndStateFastVelocityWeakening,
-      public ThermalPressurization {
+      public LTSThermalPressurization {
   explicit LTSRateAndStateThermalPressurizationFastVelocityWeakening(
-      const parameters::DRParameters* parameters)
+      const initializer::parameters::DRParameters* parameters)
       : LTSRateAndStateFastVelocityWeakening(parameters) {}
 
-  void addTo(LTSTree& tree) override {
-    LTSRateAndStateFastVelocityWeakening::addTo(tree);
-    ThermalPressurization::addTo(tree);
+  void addTo(Storage& storage) override {
+    LTSRateAndStateFastVelocityWeakening::addTo(storage);
+    LTSThermalPressurization::addTo(storage);
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   LTSTree* tree) const override {
-    LTSRateAndStateFastVelocityWeakening::registerCheckpointVariables(manager, tree);
-    ThermalPressurization::registerCheckpointVariables(manager, tree);
+                                   Storage& storage) const override {
+    LTSRateAndStateFastVelocityWeakening::registerCheckpointVariables(manager, storage);
+    LTSThermalPressurization::registerCheckpointVariables(manager, storage);
   }
 };
 
 struct LTSImposedSlipRates : public DynamicRupture {
-  Variable<real[dr::misc::NumPaddedPoints]> imposedSlipDirection1;
-  Variable<real[dr::misc::NumPaddedPoints]> imposedSlipDirection2;
-  Variable<real[dr::misc::NumPaddedPoints]> onsetTime;
+  struct ImposedSlipDirection1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct ImposedSlipDirection2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct OnsetTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
 
-  explicit LTSImposedSlipRates(const parameters::DRParameters* parameters)
+  explicit LTSImposedSlipRates(const initializer::parameters::DRParameters* parameters)
       : DynamicRupture(parameters) {}
 
-  void addTo(LTSTree& tree) override {
-    DynamicRupture::addTo(tree);
-    const auto mask = LayerMask(Ghost);
-    tree.add(imposedSlipDirection1, mask, Alignment, allocationModeDR(), true);
-    tree.add(imposedSlipDirection2, mask, Alignment, allocationModeDR(), true);
-    tree.add(onsetTime, mask, Alignment, allocationModeDR(), true);
+  void addTo(Storage& storage) override {
+    DynamicRupture::addTo(storage);
+    const auto mask = initializer::LayerMask(Ghost);
+    storage.add<ImposedSlipDirection1>(mask, Alignment, allocationModeDR(), true);
+    storage.add<ImposedSlipDirection2>(mask, Alignment, allocationModeDR(), true);
+    storage.add<OnsetTime>(mask, Alignment, allocationModeDR(), true);
   }
 };
 
 struct LTSImposedSlipRatesYoffe : public LTSImposedSlipRates {
-  Variable<real[dr::misc::NumPaddedPoints]> tauS;
-  Variable<real[dr::misc::NumPaddedPoints]> tauR;
+  struct TauS : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct TauR : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
 
-  explicit LTSImposedSlipRatesYoffe(const parameters::DRParameters* parameters)
+  explicit LTSImposedSlipRatesYoffe(const initializer::parameters::DRParameters* parameters)
       : LTSImposedSlipRates(parameters) {}
 
-  void addTo(LTSTree& tree) override {
-    LTSImposedSlipRates::addTo(tree);
-    const auto mask = LayerMask(Ghost);
-    tree.add(tauS, mask, Alignment, allocationModeDR(), true);
-    tree.add(tauR, mask, Alignment, allocationModeDR(), true);
+  void addTo(Storage& storage) override {
+    LTSImposedSlipRates::addTo(storage);
+    const auto mask = initializer::LayerMask(Ghost);
+    storage.add<TauS>(mask, Alignment, allocationModeDR(), true);
+    storage.add<TauR>(mask, Alignment, allocationModeDR(), true);
   }
 };
 
 struct LTSImposedSlipRatesGaussian : public LTSImposedSlipRates {
-  Variable<real[dr::misc::NumPaddedPoints]> riseTime;
+  struct RiseTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
 
-  explicit LTSImposedSlipRatesGaussian(const parameters::DRParameters* parameters)
+  explicit LTSImposedSlipRatesGaussian(const initializer::parameters::DRParameters* parameters)
       : LTSImposedSlipRates(parameters) {}
 
-  void addTo(LTSTree& tree) override {
-    LTSImposedSlipRates::addTo(tree);
-    const auto mask = LayerMask(Ghost);
-    tree.add(riseTime, mask, Alignment, allocationModeDR(), true);
+  void addTo(Storage& storage) override {
+    LTSImposedSlipRates::addTo(storage);
+    const auto mask = initializer::LayerMask(Ghost);
+    storage.add<RiseTime>(mask, Alignment, allocationModeDR(), true);
   }
 };
 
 struct LTSImposedSlipRatesDelta : public LTSImposedSlipRates {
-  explicit LTSImposedSlipRatesDelta(const parameters::DRParameters* parameters)
+  explicit LTSImposedSlipRatesDelta(const initializer::parameters::DRParameters* parameters)
       : LTSImposedSlipRates(parameters) {}
 };
 
-} // namespace seissol::initializer
+} // namespace seissol
 
 #endif // SEISSOL_SRC_MEMORY_DESCRIPTOR_DYNAMICRUPTURE_H_

@@ -14,6 +14,8 @@
 #include "Memory/Tree/Layer.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include <Memory/Descriptor/Surface.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
+#include <Memory/Tree/Backmap.h>
 #include <mpi.h>
 
 #include <utils/logger.h>
@@ -22,8 +24,6 @@
 #include "Memory/MemoryAllocator.h"
 
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Lut.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Initializer/InputAux.h"
 #include "Memory/Descriptor/Boundary.h"
@@ -31,6 +31,7 @@
 
 #include "Physics/InitialField.h"
 
+#include <utility>
 #include <vector>
 #include <memory>
 
@@ -102,26 +103,24 @@ class MemoryManager {
     GlobalData            m_globalDataOnHost;
     GlobalData            m_globalDataOnDevice;
 
-    //! Memory organization tree
-    LTSTree               m_ltsTree;
-    LTS                   m_lts;
-    Lut                   m_ltsLut;
+    //! Memory organization storage
+    LTS::Storage               ltsStorage;
+    LTS::Backmap backmap;
+
+    std::optional<ClusterLayout> clusterLayout;
 
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
-    LTSTree m_dynRupTree;
+    DynamicRupture::Storage drStorage;
     std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
     std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
     std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
     std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLawDevice = nullptr;
     std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
-    std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> m_seissolParams = nullptr;
 
-    LTSTree m_boundaryTree;
-    Boundary m_boundary;
+    Boundary::Storage m_boundaryTree;
 
-    LTSTree surfaceTree;
-    SurfaceLTS surface;
+    SurfaceLTS::Storage surfaceStorage;
 
     EasiBoundary m_easiBoundary;
 
@@ -139,7 +138,7 @@ class MemoryManager {
      * Initializes the face neighbor pointers of the internal state.
      **/
     void initializeFaceNeighbors( unsigned    cluster,
-                                  Layer& layer);
+                                  LTS::Layer& layer);
 
     /**
      * Initializes the pointers of the internal state.
@@ -165,12 +164,12 @@ class MemoryManager {
     /**
      * Constructor
      **/
-    MemoryManager(seissol::SeisSol& instance) : seissolInstance(instance) {};
+    MemoryManager(seissol::SeisSol& instance) : seissolInstance(instance) {}
 
     /**
      * Destructor, memory is freed by managed allocator
      **/
-    ~MemoryManager() {}
+    ~MemoryManager() = default;
     
     /**
      * Initialization function, which allocates memory for the global matrices and initializes them.
@@ -178,37 +177,22 @@ class MemoryManager {
     void initialize();
     
     /**
-     * Sets the number of cells in each leaf of the lts tree, fixates the variables, and allocates memory.
-     * Afterwards the tree cannot be changed anymore.
+     * Sets the number of cells in each leaf of the lts storage, fixates the variables, and allocates memory.
+     * Afterwards the storage cannot be changed anymore.
      *
      * @param i_meshStructrue mesh structure.
      **/
-    void fixateLtsTree(struct ClusterLayout& clusterLayout,
+    void fixateLtsStorage(struct ClusterLayout& clusterLayout,
                        struct MeshStructure* meshStructure,
                        unsigned* numberOfDRCopyFaces,
                        unsigned* numberOfDRInteriorFaces,
                        bool usePlasticity);
 
-    void fixateBoundaryLtsTree();
+    void fixateBoundaryStorage();
     /**
      * Set up the internal structure.
      **/
     void initializeMemoryLayout();
-
-    /**
-     * Gets global data on the host.
-     **/
-    GlobalData* getGlobalDataOnHost() {
-      return &m_globalDataOnHost;
-    }
-
-    /**
-     * Gets the global data on device.
-     **/
-    GlobalData* getGlobalDataOnDevice() {
-      assert(seissol::isDeviceOn() && "application is not compiled for acceleration device");
-      return &m_globalDataOnDevice;
-    }
 
     /**
      * Gets the global data on both host and device.
@@ -223,99 +207,56 @@ class MemoryManager {
       return global;
     }
                           
-    inline LTSTree* getLtsTree() {
-      return &m_ltsTree;
-    }
-                          
-    inline LTS* getLts() {
-      return &m_lts;
+    LTS::Storage& getLtsStorage() {
+      return ltsStorage;
     }
 
-    inline Lut* getLtsLut() {
-      return &m_ltsLut;
+    LTS::Backmap& getBackmap() {
+      return backmap;
     }
 
-    // TODO(David): remove again (this method is merely a temporary construction to transition from C++ to FORTRAN and should be removed in the next refactoring step)
-    inline Lut& getLtsLutUnsafe() {
-      return m_ltsLut;
+    DynamicRupture::Storage& getDRStorage() {
+      return drStorage;
     }
 
-    inline LTSTree* getDynamicRuptureTree() {
-      return &m_dynRupTree;
-    }
-                          
-    inline DynamicRupture* getDynamicRupture() {
-      return m_dynRup.get();
+    DynamicRupture& getDynamicRupture() {
+      return *m_dynRup;
     }
 
-    inline LTSTree* getBoundaryTree() {
-      return &m_boundaryTree;
+    SurfaceLTS::Storage& getSurfaceStorage() {
+      return surfaceStorage;
     }
 
-    inline Boundary* getBoundary() {
-      return &m_boundary;
-    }
-
-    LTSTree* getSurfaceTree() {
-      return &surfaceTree;
-    }
-
-    SurfaceLTS* getSurface() {
-      return &surface;
-    }
-
-    inline void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
+    void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
       m_iniConds = std::move(iniConds);
     }
 
-    inline const std::vector<std::unique_ptr<physics::InitialField>>& getInitialConditions() {
+    const std::vector<std::unique_ptr<physics::InitialField>>& getInitialConditions() {
       return m_iniConds;
     }
 
-    inline void setLtsToFace(unsigned int* ptr) {
+    void setLtsToFace(unsigned int* ptr) {
       ltsToFace = ptr;
     }
 
-    inline unsigned int* ltsToFaceMap() const {
+    unsigned int* ltsToFaceMap() const {
       return ltsToFace;
     }
 
     void initializeEasiBoundaryReader(const char* fileName);
 
-    inline EasiBoundary* getEasiBoundaryReader() {
+    EasiBoundary* getEasiBoundaryReader() {
       return &m_easiBoundary;
     }
 
-    inline dr::friction_law::FrictionSolver* getFrictionLaw() {
+    dr::friction_law::FrictionSolver* getFrictionLaw() {
         return m_FrictionLaw.get();
     }
-    inline dr::friction_law::FrictionSolver* getFrictionLawDevice() {
+    dr::friction_law::FrictionSolver* getFrictionLawDevice() {
         return m_FrictionLawDevice.get();
     }
-    inline  dr::initializer::BaseDRInitializer* getDRInitializer() {
-        return m_DRInitializer.get();
-    }
-    inline seissol::dr::output::OutputManager* getFaultOutputManager() {
+    seissol::dr::output::OutputManager* getFaultOutputManager() {
         return m_faultOutputManager.get();
-    }
-    inline seissol::initializer::parameters::DRParameters* getDRParameters() {
-        return &(m_seissolParams->drParameters);
-    }
-
-    inline seissol::initializer::parameters::LtsParameters* getLtsParameters() {
-        return &(m_seissolParams->timeStepping.lts);
-    };
-
-    void setInputParams(std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> params) {
-      m_seissolParams = params;
-    }
-
-    std::string getOutputPrefix() const {
-      return m_seissolParams->output.prefix;
-    }
-
-    bool isLoopStatisticsNetcdfOutputOn() const {
-      return m_seissolParams->output.loopStatisticsNetcdfOutput;
     }
 
 #ifdef ACL_DEVICE
@@ -324,12 +265,12 @@ class MemoryManager {
   /**
    * Derives sizes of scratch memory required during computations of Wave Propagation solver
    **/
-  static void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTSTree &ltsTree, LTS& lts);
+  static void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStorage);
 
   /**
    * Derives sizes of scratch memory required during computations of Dynamic Rupture solver
    **/
-  static void deriveRequiredScratchpadMemoryForDr(LTSTree &ltsTree, DynamicRupture& dynRup);
+  static void deriveRequiredScratchpadMemoryForDr(DynamicRupture::Storage& drStorage);
 #endif
 
   void initializeFrictionLaw();

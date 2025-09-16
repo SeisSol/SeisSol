@@ -29,17 +29,15 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
   ~RateAndStateBase() = default;
 
-  static void
-      copySpecificLtsDataTreeToLocal(FrictionLawData* data,
-                                     seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* const dynRup) {
-    const auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState*>(dynRup);
-    data->a = layerData.var(concreteLts->rsA, seissol::initializer::AllocationPlace::Device);
-    data->sl0 = layerData.var(concreteLts->rsSl0, seissol::initializer::AllocationPlace::Device);
-    data->stateVariable =
-        layerData.var(concreteLts->stateVariable, seissol::initializer::AllocationPlace::Device);
-    Derived::copySpecificLtsDataTreeToLocal(data, layerData, dynRup);
-    TPMethod::copyLtsTreeToLocal(data, layerData, dynRup);
+  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+                                             DynamicRupture::Layer& layerData) {
+    data->a = layerData.var<LTSRateAndState::RsA>(seissol::initializer::AllocationPlace::Device);
+    data->sl0 =
+        layerData.var<LTSRateAndState::RsSl0>(seissol::initializer::AllocationPlace::Device);
+    data->stateVariable = layerData.var<LTSRateAndState::StateVariable>(
+        seissol::initializer::AllocationPlace::Device);
+    Derived::copySpecificStorageDataToLocal(data, layerData);
+    TPMethod::copyStorageToLocal(data, layerData);
   }
 
   SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, uint32_t timeIndex) {
