@@ -8,6 +8,7 @@
 
 #include "DynamicRupture.h"
 
+#include "DynamicRupture/Misc.h"
 #include "GeneratedCode/tensor.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
@@ -80,10 +81,10 @@ void DynamicRupture::spaceTimeInterpolation(
     m_timeKernel.evaluate(
         &coeffs[timeInterval * ConvergenceOrder], timeDerivativeMinus, degreesOfFreedomMinus);
 
-    const real* plusPrefetch = (timeInterval < dr::misc::TimeSteps - 1)
+    const real* plusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps)
                                    ? &qInterpolatedPlus[timeInterval + 1][0]
                                    : timeDerivativePlusPrefetch;
-    const real* minusPrefetch = (timeInterval < dr::misc::TimeSteps - 1)
+    const real* minusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps)
                                     ? &qInterpolatedMinus[timeInterval + 1][0]
                                     : timeDerivativeMinusPrefetch;
 

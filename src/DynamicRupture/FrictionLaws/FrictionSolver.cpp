@@ -7,11 +7,11 @@
 
 #include "FrictionSolver.h"
 
-#include "Common/Constants.h"
-#include "Kernels/Precision.h"
+#include "DynamicRupture/Misc.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
 #include <cstddef>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::dr::friction_law {
