@@ -240,9 +240,6 @@ struct GlobalData {
   // It allows us to allocate this vector only once in the GPU memory
   real* replicateStresses{nullptr};
 
-  real* selectAne{nullptr};
-  real* selectEla{nullptr};
-
   // tensor::resample
   real* resampleMatrix{nullptr};
 

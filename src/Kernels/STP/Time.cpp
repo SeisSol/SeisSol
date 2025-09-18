@@ -33,40 +33,12 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::stp {
 
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
-  for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
-    if (n > 0) {
-      for (int d = 0; d < 3; ++d) {
-        m_krnlPrototype.kDivMTSub(d, n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
-      }
-    }
-    m_krnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
-  }
-  for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
-    m_krnlPrototype.selectQuantity(k) =
-        init::selectQuantity::Values[tensor::selectQuantity::index(k)];
-    m_krnlPrototype.selectQuantityG(k) =
-        init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
-  }
+  m_krnlPrototype.kDivMT = global.onHost->stiffnessMatricesTransposed;
   m_krnlPrototype.timeInt = init::timeInt::Values;
   m_krnlPrototype.wHat = init::wHat::Values;
 
 #ifdef ACL_DEVICE
-  // TODO: adjust pointers
-  for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
-    if (n > 0) {
-      for (int d = 0; d < 3; ++d) {
-        deviceKrnlPrototype.kDivMTSub(d, n) =
-            init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
-      }
-    }
-    deviceKrnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
-  }
-  for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
-    deviceKrnlPrototype.selectQuantity(k) =
-        init::selectQuantity::Values[tensor::selectQuantity::index(k)];
-    deviceKrnlPrototype.selectQuantityG(k) =
-        init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
-  }
+  deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
   deviceKrnlPrototype.timeInt = init::timeInt::Values;
   deviceKrnlPrototype.wHat = init::wHat::Values;
 #endif
@@ -182,6 +154,7 @@ std::uint64_t Spacetime::bytesAder() {
 
 void Spacetime::computeBatchedAder(const real* coeffs,
                                    double timeStepWidth,
+                                   LTS::Layer& layer,
                                    LocalTmp& tmp,
                                    ConditionalPointersToRealsTable& dataTable,
                                    ConditionalMaterialTable& materialTable,
@@ -201,17 +174,13 @@ void Spacetime::computeBatchedAder(const real* coeffs,
     krnl.Q = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
     krnl.timestep = timeStepWidth;
 
-    // TODO: maybe zero init?
-    krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Stp))->getDeviceDataPtr();
-    krnl.spaceTimePredictorRhs = (entry.get(inner_keys::Wp::Id::StpRhs))->getDeviceDataPtr();
+    krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
 
-    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
       krnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
       krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
-
-    krnl.streamPtr = runtime.stream();
 
     krnl.Gkt = const_cast<const real**>(
         (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
@@ -223,27 +192,37 @@ void Spacetime::computeBatchedAder(const real* coeffs,
     krnl.extraOffset_Glt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[11]);
     krnl.extraOffset_Gmt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[12]);
 
-    /*
-    // TODO: port
+    const auto defaultTimestep =
+        layer.var<LTS::LocalIntegrationData>()[0].specific.typicalTimeStepWidth == timeStepWidth;
 
-    if (timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
-      assert(false && "NYI");
-    }
-
-    */
-    /*runtime.enqueueOmpFor(numElements, [](std::size_t i) {
-      if (timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
-        // TODO
+    if (defaultTimestep) {
+      for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
+        krnl.Zinv(i) = const_cast<const real**>(
+            (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+        krnl.extraOffset_Zinv(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, specific.Zinv, i);
       }
-    });*/
+    } else {
+      auto* layerZinvData = layer.var<LTS::ZinvExtra>();
+      const auto* layerLocalIntegration = layer.var<LTS::LocalIntegrationData>();
+      runtime.enqueueLoop(numElements, [=](std::size_t i) {
+        auto* ZinvData = layerZinvData + yateto::computeFamilySize<tensor::Zinv>() * i;
+        const auto& localIntegration = layerLocalIntegration[i];
 
-    std::size_t zinvOffset = SEISSOL_OFFSET(LocalIntegrationData, specific.Zinv);
-    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::Zinv>(); i++) {
-      krnl.Zinv(i) =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Zinv))->getDeviceDataPtr());
-      krnl.extraOffset_Zinv(i) = zinvOffset;
-      zinvOffset += tensor::Zinv::size(i);
+        auto sourceMatrix = init::ET::view::create(localIntegration.specific.sourceMatrix);
+        model::zInvInitializerForLoop<0,
+                                      seissol::model::MaterialT::NumQuantities,
+                                      decltype(sourceMatrix)>(
+            ZinvData, sourceMatrix, timeStepWidth);
+      });
+      for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
+        krnl.Zinv(i) = const_cast<const real**>(
+            (entry.get(inner_keys::Wp::Id::ZinvExtra))->getDeviceDataPtr());
+        krnl.extraOffset_Zinv(i) = yateto::computeFamilySize<tensor::Zinv>(1, i);
+      }
     }
+
+    krnl.streamPtr = runtime.stream();
+
     krnl.execute();
   }
 #else

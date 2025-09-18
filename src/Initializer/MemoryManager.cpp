@@ -670,6 +670,11 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
       sizeof(real) * freeSurfaceCount * tensor::INodal::size());
     layer.setEntrySize<LTS::PrevCoefficientsScratch>(
       sizeof(real) * freeSurfaceCount * nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
+
+#ifdef USE_POROELASTIC
+    layer.setEntrySize<LTS::ZinvExtra>(
+                                layer.size() * yateto::computeFamilySize<tensor::Zinv>() * sizeof(real));
+#endif
   }
 }
 

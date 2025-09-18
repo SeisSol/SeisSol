@@ -128,22 +128,6 @@ class SpaceTimePredictorTestFixture {
   }
 
   void prepareKernel(seissol::kernel::spaceTimePredictor& krnlPrototype) {
-    for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
-      if (n > 0) {
-        for (int d = 0; d < 3; ++d) {
-          krnlPrototype.kDivMTSub(d, n) =
-              seissol::init::kDivMTSub::Values[seissol::tensor::kDivMTSub::index(d, n)];
-        }
-      }
-      krnlPrototype.selectModes(n) =
-          seissol::init::selectModes::Values[seissol::tensor::selectModes::index(n)];
-    }
-    for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
-      krnlPrototype.selectQuantity(k) =
-          seissol::init::selectQuantity::Values[seissol::tensor::selectQuantity::index(k)];
-      krnlPrototype.selectQuantityG(k) =
-          init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
-    }
     krnlPrototype.timeInt = seissol::init::timeInt::Values;
     krnlPrototype.wHat = seissol::init::wHat::Values;
   }

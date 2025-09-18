@@ -433,6 +433,7 @@ void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
       computeGraphKey, *clusterData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
         spacetimeKernel.computeBatchedAder(integrationCoeffs.data(),
                                            timeStepWidth,
+                                           *clusterData,
                                            tmp,
                                            dataTable,
                                            materialTable,
