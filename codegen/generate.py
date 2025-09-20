@@ -25,12 +25,17 @@ import kernels.point
 import kernels.surface_displacement
 import kernels.vtkproject
 import yateto
-from yateto import (DeviceArchDefinition, Generator, GlobalRoutineCache,
-                    HostArchDefinition, NamespacedGenerator,
-                    deriveArchitecture, fixArchitectureGlobal,
-                    gemm_configuration)
-from yateto.ast.cost import (BoundingBoxCostEstimator,
-                             FusedGemmsBoundingBoxCostEstimator)
+from yateto import (
+    DeviceArchDefinition,
+    Generator,
+    GlobalRoutineCache,
+    HostArchDefinition,
+    NamespacedGenerator,
+    deriveArchitecture,
+    fixArchitectureGlobal,
+    gemm_configuration,
+)
+from yateto.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
 from yateto.gemm_configuration import GeneratorCollection
 
 

@@ -17,12 +17,12 @@
 #constraints are optional
 #--constraint="scratch&work"
 #SBATCH --partition=test
-#Number of nodes and MPI tasks per node: 
+#Number of nodes and MPI tasks per node:
 #SBATCH --nodes=16
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=48
 #SBATCH --ear=off
-#Run the program: 
+#Run the program:
 export MP_SINGLE_THREAD=no
 export OMP_NUM_THREADS=48
 export MP_TASK_AFFINITY=core:$OMP_NUM_THREADS

@@ -36,7 +36,7 @@ class RateAndStateThermalPressurization : public RateAndState {
     }
   }
 
-  std::vector<std::size_t> getOutputVariables() const override {
+  [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
     auto baseVector = RateAndState::getOutputVariables();
     baseVector.push_back(drStorage->info<LTSThermalPressurization::Temperature>().index);
     baseVector.push_back(drStorage->info<LTSThermalPressurization::Pressure>().index);

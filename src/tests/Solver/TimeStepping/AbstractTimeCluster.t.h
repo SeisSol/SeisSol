@@ -70,7 +70,9 @@ TEST_CASE("GTS Timesteping works") {
 
   for (auto* cluster : clusters) {
     cluster->setSyncTime(endTime);
-    cluster->reset();
+
+    // derefernce first due to a clang-tidy recommendation
+    (*cluster).reset();
   }
 
   // First, move from synced -> corrected
@@ -135,7 +137,9 @@ TEST_CASE("LTS Timesteping works") {
 
   for (auto* cluster : clusters) {
     cluster->setSyncTime(endTime);
-    cluster->reset();
+
+    // derefernce first due to a clang-tidy recommendation
+    (*cluster).reset();
   }
 
   ALLOW_CALL(cluster1, handleAdvancedCorrectionTimeMessage(ANY(NeighborCluster)));

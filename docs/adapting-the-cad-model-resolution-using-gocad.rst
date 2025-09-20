@@ -47,4 +47,3 @@ topography.
 .. |coarse and fine topography| image:: LatexFigures/topo_coarse_fine1.png
 .. |adding border Extremities| image:: LatexFigures/topo_coarse_fine2.png
 .. |gap filled| image:: LatexFigures/topo_coarse_fine3.png
-

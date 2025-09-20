@@ -8,21 +8,21 @@
 % @section LICENSE
 % Copyright (c) 2007, SeisSol Group
 % All rights reserved.
-% 
+%
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
-% 
+%
 % 1. Redistributions of source code must retain the above copyright notice,
 %    this list of conditions and the following disclaimer.
-% 
+%
 % 2. Redistributions in binary form must reproduce the above copyright notice,
 %    this list of conditions and the following disclaimer in the documentation
 %    and/or other materials provided with the distribution.
-% 
+%
 % 3. Neither the name of the copyright holder nor the names of its
 %    contributors may be used to endorse or promote products derived from this
 %    software without specific prior written permission.
-% 
+%
 % THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 % AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 % IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -89,13 +89,13 @@ if(rheo==1)
     mu      = 1;                %Lame constant
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
+
     disp('-----------------------------------------------------------------')
     disp('     Chosen parameters are:');
     disp(sprintf('      Density rho             = %g',rho));
     disp(sprintf('      Lame constant (lambda)  = %g',lambda));
     disp(sprintf('      Lame constant (mu)      = %g',mu));
-    
+
     %% Build Jacobian matrix A
     A = [0       0       0       0       0       0      -(lambda+2*mu)    0       0;
          0       0       0       0       0       0      -lambda           0       0;
@@ -126,22 +126,22 @@ if(rheo==1)
          0       0       0       0       0       0       0        0        0;
          0       0       0       0       0       0       0       -mu       0;
          0       0       0       0       0       0      -mu       0        0;
-         0       0       0       0       0    -1/rho     0        0        0; 
-         0       0       0       0     -1/rho    0       0        0        0; 
+         0       0       0       0       0    -1/rho     0        0        0;
+         0       0       0       0     -1/rho    0       0        0        0;
          0       0    -1/rho     0       0       0       0        0        0 ];
-    
+
 elseif(rheo==2)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%% PARAMETER INPUT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+    %%% PARAMETER INPUT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     rho     = 1;                %density
     lambda  = 1;                %Lame constant
     mu      = 1;                %Lame constant
     QPval   = 20;               %Q-factor for P-waves
     QSval   = 10;               %Q-factor for S-waves
-    n       = 3;                %Number of mechanisms, i.e. Maxwell bodies 
+    n       = 3;                %Number of mechanisms, i.e. Maxwell bodies
     freq    = 1;                %Central frequency of the absorption band (in Hertz)
     f_ratio = 100;              %The ratio between the maximum and minimum frequencies of our bandwidth
-                                %Usually 10^4 is taken as good (Day 2003)                             
+                                %Usually 10^4 is taken as good (Day 2003)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -157,12 +157,12 @@ elseif(rheo==2)
     % Selection of the logarithmically equispaced frequencies
     % i.e.: log(w) = log(wmin) + (i-1)*log(f_ratio)/(2*(n-1))
     w0      = 2*pi*freq;
-    wmin    = w0/sqrt(f_ratio); 
-    kmax    = 2*n-1;              
-    
+    wmin    = w0/sqrt(f_ratio);
+    kmax    = 2*n-1;
+
     if n>1
       for i=1:kmax
-        w(i) = exp(log(wmin)+(i-1)/(2*(n-1))*log(f_ratio));  
+        w(i) = exp(log(wmin)+(i-1)/(2*(n-1))*log(f_ratio));
       end
     else
         w = w0;
@@ -187,9 +187,9 @@ elseif(rheo==2)
               0       0      0      0       0      0    0        0         0 ;
               0       0      0      0       0      0    0        0         0 ;
               0       0      0      0       0      0    0       -w(i)/2    0 ;
-              0       0      0      0       0      0    0        0         0 ;          
+              0       0      0      0       0      0    0        0         0 ;
               0       0      0      0       0      0    0        0       -w(i)/2];
-            ]; 
+            ];
     end
     A = [A,zeros(9+n*6,n*6)];
 
@@ -210,7 +210,7 @@ elseif(rheo==2)
               0       0      0      0       0      0    0       -w(i)      0 ;
               0       0      0      0       0      0    0        0         0 ;
               0       0      0      0       0      0  -w(i)/2    0         0 ;
-              0       0      0      0       0      0    0        0       -w(i)/2 ;          
+              0       0      0      0       0      0    0        0       -w(i)/2 ;
               0       0      0      0       0      0    0        0         0];
             ];
     end
@@ -223,8 +223,8 @@ elseif(rheo==2)
          0       0       0       0       0       0       0        0        0;
          0       0       0       0       0       0       0       -mu       0;
          0       0       0       0       0       0      -mu       0        0;
-         0       0       0       0       0    -1/rho     0        0        0; 
-         0       0       0       0     -1/rho    0       0        0        0; 
+         0       0       0       0       0    -1/rho     0        0        0;
+         0       0       0       0     -1/rho    0       0        0        0;
          0       0    -1/rho     0       0       0       0        0        0 ];
     %% extend by n mechanisms
     for i = 1:n
@@ -233,7 +233,7 @@ elseif(rheo==2)
               0       0      0      0       0      0    0        0         0 ;
               0       0      0      0       0      0    0        0        -w(i) ;
               0       0      0      0       0      0    0        0         0 ;
-              0       0      0      0       0      0    0      -w(i)/2     0 ;          
+              0       0      0      0       0      0    0      -w(i)/2     0 ;
               0       0      0      0       0      0   -w(i)/2   0         0];
             ];
     end
@@ -252,14 +252,14 @@ elseif(rheo==3)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    %coefficients given in N/m^2 
+    %coefficients given in N/m^2
     ce(1,1)     = data(3);
     ce(1,2)     = data(4);
     ce(1,3)     = data(5);
     ce(1,4)     = data(6);
     ce(1,5)     = data(7);
     ce(1,6)     = data(8);
-    ce(2,2)     = data(9);  
+    ce(2,2)     = data(9);
     ce(2,3)     = data(10);
     ce(2,4)     = data(11);
     ce(2,5)     = data(12);
@@ -286,14 +286,14 @@ elseif(rheo==3)
     tx = data(30);
     ty = data(31);
     tz = data(32);
-    
-    for i = 1:6 
+
+    for i = 1:6
     for j = 1:i-1
     ce(i,j) = ce(j,i);
     end
     end
 
-    % Transformation matrix TO the rotated system  
+    % Transformation matrix TO the rotated system
     T(1,1) = nx^2;
     T(1,2) = ny^2;
     T(1,3) = nz^2;
@@ -330,7 +330,7 @@ elseif(rheo==3)
     T(6,4) = nz*sy+ny*sz;
     T(6,5) = nz*sx+nx*sz;
     T(6,6) = ny*sx+nx*sy;
-    for i = 1:6 
+    for i = 1:6
     for j = 1:6
     TT(i,j) = T(j,i);
     end
@@ -338,12 +338,12 @@ elseif(rheo==3)
 
     % Initialize lower half of Voigt matrix using the symmetry property
 
-    for i = 1:6 
+    for i = 1:6
     for j = 1:i-1
     ce(i,j) = ce(j,i);
     end
     end
-    % 
+    %
     % % Initialize and rotate Voigt matrix to get local material properties
 
     Voigt_rot(:,:) =  T(:,:)*(ce(:,:)*TT(:,:));
@@ -379,14 +379,14 @@ elseif(rheo==3)
          0       0       0      -1/rho   0       0       0                0        0;
          0     -1/rho    0       0       0       0       0                0        0;
          0       0       0       0    -1/rho     0       0                0       0 ];
-     
+
      B(1,7:9) = [ -ce(1,6), -ce(1,2), -ce(1,4) ];
      B(2,7:9) = [ -ce(2,6), -ce(2,2), -ce(2,4) ];
      B(3,7:9) = [ -ce(3,6), -ce(2,3), -ce(3,4) ];
      B(4,7:9) = [ -ce(6,6), -ce(2,6), -ce(4,6) ];
      B(5,7:9) = [ -ce(4,6), -ce(2,4), -ce(4,4) ];
      B(6,7:9) = [ -ce(5,6), -ce(2,5), -ce(4,5) ];
-     
+
     %% Build Jacobian matrix C
     C = [0       0       0       0       0       0       0        0        0;
          0       0       0       0       0       0       0        0        0;
@@ -394,10 +394,10 @@ elseif(rheo==3)
          0       0       0       0       0       0       0        0        0;
          0       0       0       0       0       0       0        0        0;
          0       0       0       0       0       0       0        0        0;
-         0       0       0       0       0    -1/rho     0        0        0; 
-         0       0       0       0     -1/rho    0       0        0        0; 
+         0       0       0       0       0    -1/rho     0        0        0;
+         0       0       0       0     -1/rho    0       0        0        0;
           0       0    -1/rho     0       0       0       0        0        0 ];
-      
+
     C(1,7:9) = [ -ce(1,5), -ce(1,4), -ce(1,3) ];
     C(2,7:9) = [ -ce(2,5), -ce(2,4), -ce(2,3) ];
     C(3,7:9) = [ -ce(3,5), -ce(3,4), -ce(3,3) ];
@@ -417,14 +417,14 @@ elseif(rheo==4)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    %coefficients given in N/m^2 
+    %coefficients given in N/m^2
     c(1,1)     = data(3);
     c(1,2)     = data(4);
     c(1,3)     = data(5);
     c(1,4)     = data(6);
     c(1,5)     = data(7);
     c(1,6)     = data(8);
-    c(2,2)     = data(9);  
+    c(2,2)     = data(9);
     c(2,3)     = data(10);
     c(2,4)     = data(11);
     c(2,5)     = data(12);
@@ -488,9 +488,9 @@ elseif(rheo==4)
     len = sqrt(sx*sx+sy*sy+sz*sz);   sx=sx/len;  sy=sy/len;  sz=sz/len;
     len = sqrt(tx*tx+ty*ty+tz*tz);   tx=tx/len;  ty=ty/len;  tz=tz/len;
 
-    % rotation matrix of anisotropic coefficients  (Bond matrix)       
-    BM(1,1) = nx^2;      
-    BM(1,2) = sx^2; 
+    % rotation matrix of anisotropic coefficients  (Bond matrix)
+    BM(1,1) = nx^2;
+    BM(1,2) = sx^2;
     BM(1,3) = tx^2;
     BM(1,4) = 2*sx*tx;
     BM(1,5) = 2*nx*tx;
@@ -526,7 +526,7 @@ elseif(rheo==4)
     BM(6,5) = ny*tx+nx*ty;
     BM(6,6) = ny*sx+nx*sy;
 
-    %rotation of anisotropic coefficient c into symmetry axes system 
+    %rotation of anisotropic coefficient c into symmetry axes system
     c = BM*c*BM';
 
     %computation of undrained c(i,j) coefficients
@@ -548,7 +548,7 @@ elseif(rheo==4)
      -1/Rho1(1) 0 0  0 0      0      0      0      0 -Beta1(1)/Rho1(1) 0 0 0;
           0 0 0 -1/Rho1(1) 0   0      0      0      0    0       0      0 0;
           0 0 0      0 0 -1/Rho1(1)   0      0      0    0       0      0 0;
-          0 0 0      0 0      0 Alpha(1)*MM Alpha(6)*MM Alpha(5)*MM 0 MM 0 0 ; 
+          0 0 0      0 0      0 Alpha(1)*MM Alpha(6)*MM Alpha(5)*MM 0 MM 0 0 ;
       -1/Rho2(1) 0 0  0 0      0      0      0      0 -Beta2(1)/Rho2(1) 0 0 0;
           0 0 0 -1/Rho2(1) 0   0      0      0      0   0       0       0 0;
           0 0 0      0 0 -1/Rho2(1)   0      0      0   0       0       0 0];
@@ -576,14 +576,14 @@ elseif(rheo==4)
          0 0      0 0      0      0 -c(5,6) -c(4,6) -c(3,6) 0 0 0 -Alpha(6)*MM;
          0 0      0 0      0      0 -c(4,5) -c(4,4) -c(3,4) 0 0 0 -Alpha(4)*MM;
          0 0      0 0      0      0 -c(5,5) -c(4,5) -c(3,5) 0 0 0 -Alpha(5)*MM;
-         0 0      0 0      0 -1/Rho1(3)      0      0      0    0 0 0   0; 
-         0 0      0 0 -1/Rho1(3)      0      0      0      0    0 0 0   0; 
+         0 0      0 0      0 -1/Rho1(3)      0      0      0    0 0 0   0;
+         0 0      0 0 -1/Rho1(3)      0      0      0      0    0 0 0   0;
          0 0 -1/Rho1(3) 0      0      0      0      0      0    -Beta1(3)/Rho1(3) 0 0 0;
          0 0      0 0      0      0 Alpha(5)*MM Alpha(4)*MM Alpha(3)*MM 0 0 0 MM;
-         0 0      0 0      0 -1/Rho2(3)      0      0      0    0 0  0  0; 
-         0 0      0 0 -1/Rho2(3)      0      0      0      0    0 0  0  0; 
+         0 0      0 0      0 -1/Rho2(3)      0      0      0    0 0  0  0;
+         0 0      0 0 -1/Rho2(3)      0      0      0      0    0 0  0  0;
          0 0 -1/Rho2(3) 0      0      0      0      0      0    -Beta2(3)/Rho2(3) 0 0 0];
-      
+
 end
 %%%%%%%%%%%%%%%%%%%%%%% Compute analytic solution %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Formulate and solve Eigenvalue problem
@@ -604,12 +604,11 @@ disp(' ');
 disp(sprintf('Writing data into file...'));
 fid_out  = fopen([fname_out,'.dat'],'w');
     fprintf(fid_out,'Number of eigenvalues\n');
-    fprintf(fid_out,'%d\n',length(omega));    
+    fprintf(fid_out,'%d\n',length(omega));
     fprintf(fid_out,'Eigenvalues\n');
     fprintf(fid_out,'%25.14f\n',[real(omega)]');
     fprintf(fid_out,'Eigenvectors\n');
     fprintf(fid_out,'%25.14f\n',[real(reshape(R,length(omega)^2,1))]');
 fclose(fid_out);
 
-disp(sprintf('Finished! '));                                  
-
+disp(sprintf('Finished! '));

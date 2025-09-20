@@ -71,7 +71,7 @@ class OutputManager {
   seissol::geometry::MeshReader* meshReader{nullptr};
 
   size_t iterationStep{0};
-  static constexpr double timeMargin{1.005};
+  static constexpr double TimeMargin{1.005};
   std::string backupTimeStamp;
 
   std::unique_ptr<ReceiverOutput> impl{nullptr};

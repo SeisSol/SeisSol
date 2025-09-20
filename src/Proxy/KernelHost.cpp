@@ -38,8 +38,8 @@ void ProxyKernelHostAder::run(ProxyData& data,
                               seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  real** buffers = layer.var<LTS::Buffers>();
-  real** derivatives = layer.var<LTS::Derivatives>();
+  real* const* buffers = layer.var<LTS::Buffers>();
+  real* const* derivatives = layer.var<LTS::Derivatives>();
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
 
@@ -86,7 +86,7 @@ void ProxyKernelHostLocalWOAder::run(ProxyData& data,
                                      seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  real** buffers = layer.var<LTS::Buffers>();
+  real* const* buffers = layer.var<LTS::Buffers>();
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -132,8 +132,8 @@ void ProxyKernelHostLocal::run(ProxyData& data,
                                seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  real** buffers = layer.var<LTS::Buffers>();
-  real** derivatives = layer.var<LTS::Derivatives>();
+  real* const* buffers = layer.var<LTS::Buffers>();
+  real* const* derivatives = layer.var<LTS::Derivatives>();
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
 
@@ -160,9 +160,9 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
                                   seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  real*(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
-  CellDRMapping(*drMapping)[4] = layer.var<LTS::DRMapping>();
-  CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
+  real* const(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
+  const CellDRMapping(*drMapping)[4] = layer.var<LTS::DRMapping>();
+  const CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
 
   real* timeIntegrated[4];
   real* faceNeighborsPrefetch[4];
@@ -230,8 +230,8 @@ auto ProxyKernelHostNeighbor::performanceEstimate(ProxyData& data) const -> Perf
   // iterate over cells
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
-  CellDRMapping(*drMapping)[4] = layer.var<LTS::DRMapping>();
+  const CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
+  const CellDRMapping(*drMapping)[4] = layer.var<LTS::DRMapping>();
   for (std::size_t cell = 0; cell < nrOfCells; cell++) {
     std::uint64_t nonZeroFlops = 0;
     std::uint64_t hardwareFlops = 0;
@@ -260,11 +260,11 @@ auto ProxyKernelHostNeighborDR::needsDR() const -> bool { return true; }
 void ProxyKernelHostGodunovDR::run(ProxyData& data,
                                    seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layerData = data.drStorage.layer(data.layerId);
-  DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
-  DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
+  const DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
+  const DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
   DREnergyOutput* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>();
-  real** timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
-  real** timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
+  real* const* timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
+  real* const* timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
   alignas(Alignment) real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()];
   alignas(Alignment) real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()];
   const auto [timePoints, timeWeights] =
@@ -296,7 +296,7 @@ auto ProxyKernelHostGodunovDR::performanceEstimate(ProxyData& data) const -> Per
 
   // iterate over cells
   auto& interior = data.drStorage.layer(data.layerId);
-  DRFaceInformation* faceInformation = interior.var<DynamicRupture::FaceInformation>();
+  const DRFaceInformation* faceInformation = interior.var<DynamicRupture::FaceInformation>();
   for (std::size_t face = 0; face < interior.size(); ++face) {
     std::uint64_t drNonZeroFlops = 0;
     std::uint64_t drHardwareFlops = 0;

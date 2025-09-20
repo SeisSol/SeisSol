@@ -20,7 +20,7 @@ h1.groupheader {
 }
 
 .title {
-  font: 700 18px Verdana,DejaVu Sans,Geneva,sans-serif;  
+  font: 700 18px Verdana,DejaVu Sans,Geneva,sans-serif;
   margin: 10px 2px;
 }
 
@@ -122,11 +122,11 @@ a.elRef {
 }
 
 a.code, a.code:visited, a.line, a.line:visited {
-  color: #00732F; 
+  color: #00732F;
 }
 
 a.codeRef, a.codeRef:visited, a.lineRef, a.lineRef:visited {
-  color: #00732F; 
+  color: #00732F;
 }
 
 /* @end */
@@ -248,16 +248,16 @@ span.stringliteral {
 span.charliteral {
 }
 
-span.vhdldigit { 
+span.vhdldigit {
 }
 
-span.vhdlchar { 
+span.vhdlchar {
 }
 
-span.vhdlkeyword { 
+span.vhdlkeyword {
 }
 
-span.vhdllogic { 
+span.vhdllogic {
 }
 
 blockquote {
@@ -300,7 +300,7 @@ table.memberdecls {
 /* addition */
 
 table.memberdecls a {
-  font-weight: 600;  
+  font-weight: 600;
 }
 
 table.memberdecls .memItemLeft {
@@ -442,12 +442,12 @@ table.memberdecls tr:nth-last-child(2) .memItemRight {
 }
 
 .memproto .memname a {
-  font-weight: bold;  
+  font-weight: bold;
 }
 /* --- */
 
 .memdoc, dl.reflist dd {
-  border: 0;      
+  border: 0;
   padding: 0;
   background: none;
   border-radius: 0;
@@ -481,14 +481,14 @@ dl.reflist dd {
 }
 
 .params, .retval, .exception, .tparams {
-}       
+}
 
 .params .paramname, .retval .paramname {
 }
-        
+
 .params .paramtype {
-}       
-        
+}
+
 .params .paramdir {
 }
 
@@ -616,8 +616,8 @@ table.fieldtable {
 
 .fieldtable td.fielddoc p:first-child {
   margin: auto;
-}       
-        
+}
+
 .fieldtable td.fielddoc p:last-child {
   margin: auto;
 }
@@ -672,7 +672,7 @@ div.summary {
   text-align: left;
   color: transparent;
   line-height: 0;
-  padding: 15px 25px;      
+  padding: 15px 25px;
   border: 1px solid #E6E6E6;
   background-color: #F6F6F6;
   border-radius: 7px;
@@ -682,7 +682,7 @@ div.summary {
 }
 
 div.summary a {
-  display: block;  
+  display: block;
   line-height: 1.5;
 }
 
@@ -733,23 +733,23 @@ dl.section dd {
 
 #projectlogo {
 }
- 
-#projectlogo img { 
+
+#projectlogo img {
 }
 
 #projectname {
-  font: 24px Verdana,DejaVu Sans,Geneva,sans-serif;  
+  font: 24px Verdana,DejaVu Sans,Geneva,sans-serif;
   font-weight: bold;
   display: inline;
 }
 
 #projectbrief {
-  font: 16px Verdana,DejaVu Sans,Geneva,sans-serif;  
+  font: 16px Verdana,DejaVu Sans,Geneva,sans-serif;
   display: inline;
 }
 
 #projectnumber {
-  font: 16px Verdana,DejaVu Sans,Geneva,sans-serif;  
+  font: 16px Verdana,DejaVu Sans,Geneva,sans-serif;
   display: inline;
 }
 
@@ -795,7 +795,7 @@ div.toc h3 {
 }
 
 div.toc ul {
-}       
+}
 
 div.toc li.level1 {
 }
@@ -1019,7 +1019,7 @@ tr.heading h2 {
 }
 
 #nav-tree {
-  background-color: #F6F6F6; 
+  background-color: #F6F6F6;
 }
 
 #doc-content {

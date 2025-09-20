@@ -26,7 +26,7 @@ git checkout 4.9.3
 mkdir build
 cd build
 cmake .. -DCMAKE_INSTALL_PREFIX=$my_proj4_install_prefix
-make 
+make
 make install
 ```
 
@@ -35,7 +35,7 @@ Note that `$my_proj4_install_prefix` should be different than the build director
 
 ### Installing netcdf
 
-see this [link](https://seissol.readthedocs.io/en/latest/compilation.html#installing-netcdf)
+see the [link in our documentation](https://seissol.readthedocs.io/en/latest/compilation.html#installing-netcdf)
 
 ### Building rconv
 
@@ -45,7 +45,7 @@ To install rconv, execute the following in the main folder:
 mkdir build
 cd build
 cmake .. -DCMAKE_PREFIX_PATH=$my_proj4_install_prefix
-make 
+make
 make install
 ```
 

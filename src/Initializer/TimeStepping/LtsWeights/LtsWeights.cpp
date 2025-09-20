@@ -115,7 +115,7 @@ LtsWeights::LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissol
       m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity),
       boundaryFormat(config.boundaryFormat) {}
 
-void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
+void LtsWeights::computeWeights(const PUML::TETPUML& mesh) {
   bool continueComputation = true;
   if (!model::MaterialT::SupportsLTS) {
     logInfo() << "The material" << model::MaterialT::Text

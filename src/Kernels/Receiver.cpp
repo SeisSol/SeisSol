@@ -226,7 +226,8 @@ void ReceiverCluster::allocateData() {
     std::vector<real*> dofs;
     std::unordered_map<real*, size_t> indexMap;
     for (size_t i = 0; i < m_receivers.size(); ++i) {
-      real* currentDofs = m_receivers[i].dataDevice.get<LTS::Dofs>();
+      // NOLINTNEXTLINE(misc-const-correctness)
+      real* const currentDofs = m_receivers[i].dataDevice.get<LTS::Dofs>();
       if (indexMap.find(currentDofs) == indexMap.end()) {
         // point to the current array end
         indexMap[currentDofs] = dofs.size();

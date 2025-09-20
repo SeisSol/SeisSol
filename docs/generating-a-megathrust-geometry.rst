@@ -116,5 +116,3 @@ The final step consists in intersecting all objects (topography, faults and doma
    :align: center
 
    Cut view of the final Tohoku's model
-
-

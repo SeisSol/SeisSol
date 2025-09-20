@@ -4,26 +4,26 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Thomas Ulrich  
+# @author Thomas Ulrich
 #
 # @section LICENSE
 # Copyright (c) 2016, SeisSol Group
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice,
 #    this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice,
 #    this list of conditions and the following disclaimer in the documentation
 #    and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its
 #    contributors may be used to endorse or promote products derived from this
 #    software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -41,7 +41,7 @@
 
 #Author: Thomas Ulrich
 #Date: 29.09.17
-#aim: 
+#aim:
 #1 Read time history from free surface output in either hdf5 or posix format
 #2 compute ground motion parameter (PGA,PGV,PGD, SA(T))
 #3 store output in a hdf5 file readable by paraview
@@ -88,11 +88,11 @@ def compute_cav_gmrot(acceleration_x, time_step_x, acceleration_y, time_step_y, 
     cav_theta = np.zeros(len(angles), dtype=float)
     for iloc, theta in enumerate(angles):
         if iloc == 0:
-            cav_theta[iloc] = np.sqrt(get_cav(acceleration_x, time_step_x) * 
+            cav_theta[iloc] = np.sqrt(get_cav(acceleration_x, time_step_x) *
                     get_cav(acceleration_y, time_step_y))
         else:
             rot_x, rot_y = rotate_horizontal(acceleration_x, acceleration_y, theta)
-            cav_theta[iloc] = np.sqrt(get_cav(rot_x, time_step_x) * 
+            cav_theta[iloc] = np.sqrt(get_cav(rot_x, time_step_x) *
                     get_cav(rot_y, time_step_y))
     return np.percentile(cav_theta, percentile)
 
@@ -174,7 +174,7 @@ def ComputeGroundMotionParameters(args2):
    #compute SA(T) and PGA,...
    res = myfunc(acceleration_x, dt, acceleration_y, dt, periods,
             percentile=50, damping=0.05, units="cm/s/s", method="Nigam-Jennings")
-   
+
 
    myres = [res['PGA'],res['PGV'],res['PGD']]
    if args.CAV:
@@ -250,7 +250,7 @@ if args.periods is None:
    if irank==0:
       print("no periods specified: using default periods", periods)
 else:
-   periods = np.array([float(per) for per in args.periods])  
+   periods = np.array([float(per) for per in args.periods])
    if irank==0:
       print("periods", periods)
 

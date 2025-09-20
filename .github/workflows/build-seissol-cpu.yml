@@ -80,7 +80,7 @@ jobs:
     steps:
       - id: checkout
         name: checkout-seissol
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -116,7 +116,7 @@ jobs:
         run: |
           cd build
           ctest -j --rerun-failed --output-on-failure
-      
+
       - name: run-seissol-no-input
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
@@ -158,7 +158,7 @@ jobs:
           ./proxyseissol-${EXENAME} 100 1 neigh_dr
           ./proxyseissol-${EXENAME} 100 1 godunov_dr
           ./proxyseissol-${EXENAME} 100 1 all_dr
- 
+
       - name: upload-seissol
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
@@ -398,16 +398,16 @@ jobs:
           else
             pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
           fi
-      
+
       - id: get-precomputed-solutions
         name: get-precomputed-solutions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: seissol/precomputed-seissol
           ref: ${{env.precomputed-hash}}
           path: precomputed
       - name: get-seissol
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.case.equation}}-${{matrix.case.multisim}}-${{matrix.setup.cc}}
           path: install
@@ -424,21 +424,21 @@ jobs:
           export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:$LD_LIBRARY_PATH
 
           chmod +x $(pwd)/install/bin/*
-          
+
           export OMP_NUM_THREADS=${{matrix.parallel.threads}}
           export SEISSOL_COMMTHREAD=${{matrix.parallel.commthread}}
           export SEISSOL_MINI_NUM_ELEMENTS=100
 
           cd precomputed/${{matrix.case.name}}
-          
+
           mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-${EXENAME}
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: scripts
-      
+
       - name: check-fault
         if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.fault }}
         run: |

@@ -89,6 +89,7 @@ struct LTS {
       }
     }
   }
+
   struct Dofs : public initializer::Variable<real[tensor::Q::size()]> {};
   // size is zero if Qane is not defined
   struct DofsAne

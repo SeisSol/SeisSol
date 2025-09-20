@@ -14,11 +14,11 @@ jobs:
     name: markdown-lint
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         name: checkout-seissol
 
       # cf. the docs under https://github.com/marketplace/actions/markdownlint-cli2-action
-      - uses: DavidAnson/markdownlint-cli2-action@v18
+      - uses: DavidAnson/markdownlint-cli2-action@v20
         name: run-markdownlint
         with:
           globs: '**/*.md'

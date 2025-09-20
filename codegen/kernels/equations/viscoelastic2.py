@@ -12,8 +12,7 @@ from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor, simpleParameterSpace
 from yateto.ast.node import Add
-from yateto.input import (memoryLayoutFromFile, parseJSONMatrixFile,
-                          parseXMLMatrixFile)
+from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile, parseXMLMatrixFile
 from yateto.memory import CSCMemoryLayout
 from yateto.util import tensor_collection_from_constant_expression
 
