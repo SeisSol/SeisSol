@@ -701,11 +701,28 @@ void TimeCluster::predict() {
 }
 
 void TimeCluster::handleDynamicRupture(DynamicRupture::Layer& layerData) {
+  if (layerData.size() == 0) {
+    return;
+  }
+
   if (executor == Executor::Device) {
     computeDynamicRuptureDevice(layerData);
   } else {
     computeDynamicRupture(layerData);
   }
+
+  double time = ct.correctionTime;
+
+  // repeat the current solution for some times---to match the existing output scheme.
+  // maybe replace with just writePickpointOutput(layerId(), time + dt, dt); some day?
+
+  do {
+    const auto oldTime = time;
+    time += dynamicRuptureScheduler->getOutputTimestep();
+    const auto trueTime = std::min(time, syncTime);
+    const auto trueDt = trueTime - oldTime;
+    faultOutputManager->writePickpointOutput(layerData.id(), trueTime, trueDt, streamRuntime);
+  } while (time * (1 + 1e-8) < ct.correctionTime + ct.maxTimeStepSize);
 
   // TODO(David): restrict to copy/interior of same cluster type
   if (hasDifferentExecutorNeighbor()) {
@@ -750,23 +767,23 @@ void TimeCluster::correct() {
   // Otherwise, this is an interior layer actor, and we need only the FL_Int.
   // We need to avoid computing it twice.
   if (dynamicRuptureScheduler->mayComputeInterior(ct.stepsSinceStart)) {
-    if (dynamicRuptureScheduler->hasDynamicRuptureFaces()) {
-      handleDynamicRupture(*dynRupInteriorData);
-      seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(
-          accFlopsNonZero[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
-      seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(
-          accFlopsHardware[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
-    }
+    handleDynamicRupture(*dynRupInteriorData);
+
+    seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(
+        accFlopsNonZero[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
+    seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(
+        accFlopsHardware[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
+
     dynamicRuptureScheduler->setLastCorrectionStepsInterior(ct.stepsSinceStart);
   }
   if (layerType == Copy) {
-    if (dynamicRuptureScheduler->hasDynamicRuptureFaces()) {
-      handleDynamicRupture(*dynRupCopyData);
-      seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(
-          accFlopsNonZero[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
-      seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(
-          accFlopsHardware[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
-    }
+    handleDynamicRupture(*dynRupCopyData);
+
+    seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(
+        accFlopsNonZero[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
+    seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(
+        accFlopsHardware[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
+
     dynamicRuptureScheduler->setLastCorrectionStepsCopy((ct.stepsSinceStart));
   }
 
@@ -784,26 +801,6 @@ void TimeCluster::correct() {
       accFlopsNonZero[static_cast<int>(ComputePart::DRNeighbor)]);
   seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(
       accFlopsHardware[static_cast<int>(ComputePart::DRNeighbor)]);
-
-  // First cluster calls fault receiver output
-  // Call fault output only if both interior and copy parts of DR were computed
-  // TODO: Change from iteration based to time based
-  if (dynamicRuptureScheduler->mayComputeFaultOutput(ct.stepsSinceStart)) {
-    double time = ct.correctionTime;
-
-    // repeat the current solution for some times---to match the existing output scheme.
-    // maybe replace with just writePickpointOutput(globalClusterId, time + dt, dt); some day?
-
-    do {
-      const auto oldTime = time;
-      time += dynamicRuptureScheduler->getOutputTimestep();
-      const auto trueTime = std::min(time, syncTime);
-      const auto trueDt = trueTime - oldTime;
-      faultOutputManager->writePickpointOutput(globalClusterId, trueTime, trueDt, streamRuntime);
-    } while (time * (1 + 1e-8) < ct.correctionTime + ct.maxTimeStepSize);
-
-    dynamicRuptureScheduler->setLastFaultOutput(ct.stepsSinceStart);
-  }
 
   streamRuntime.wait();
 

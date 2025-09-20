@@ -25,8 +25,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   void setParams(seissol::initializer::parameters::PickpointParameters params) {
     pickpointParams = std::move(params);
   }
-  void
-      build(std::unordered_map<int64_t, std::shared_ptr<ReceiverOutputData>>& pickPointOutputData) {
+  void build(
+      std::unordered_map<std::size_t, std::shared_ptr<ReceiverOutputData>>& pickPointOutputData) {
     readCoordsFromFile();
     initReceiverLocations(pickPointOutputData);
     for (auto& [id, singleClusterOutputData] : pickPointOutputData) {
@@ -70,7 +70,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   }
 
   void initReceiverLocations(
-      std::unordered_map<int64_t, std::shared_ptr<ReceiverOutputData>>& outputDataPerCluster) {
+      std::unordered_map<std::size_t, std::shared_ptr<ReceiverOutputData>>& outputDataPerCluster) {
     const auto numReceiverPoints = potentialReceivers.size();
 
     const auto& meshElements = meshReader->getElements();
@@ -118,10 +118,12 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
           auto singleReceiver = receiver;
           const auto& element = meshElements.at(receiver.elementIndex);
           singleReceiver.simIndex = i;
-          if (outputDataPerCluster[element.clusterId] == nullptr) {
-            outputDataPerCluster[element.clusterId] = std::make_shared<ReceiverOutputData>();
+
+          const auto layerId = faceToLtsMap->at(receiver.faultFaceIndex).color;
+          if (outputDataPerCluster[layerId] == nullptr) {
+            outputDataPerCluster[layerId] = std::make_shared<ReceiverOutputData>();
           }
-          outputDataPerCluster[element.clusterId]->receiverPoints.push_back(singleReceiver);
+          outputDataPerCluster[layerId]->receiverPoints.push_back(singleReceiver);
         }
       }
     }

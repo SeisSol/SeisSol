@@ -103,13 +103,9 @@ class DynamicRuptureScheduler {
 
   [[nodiscard]] bool mayComputeInterior(long curCorrectionSteps) const;
 
-  [[nodiscard]] bool mayComputeFaultOutput(long curCorrectionSteps) const;
-
   void setLastCorrectionStepsInterior(long steps);
 
   void setLastCorrectionStepsCopy(long steps);
-
-  void setLastFaultOutput(long steps);
 
   [[nodiscard]] bool hasDynamicRuptureFaces() const;
 

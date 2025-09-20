@@ -28,6 +28,7 @@
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
 #include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/Backmap.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
@@ -469,19 +470,28 @@ void OutputManager::initFaceToLtsMap() {
     const size_t readerFaultSize = meshReader->getFault().size();
     const size_t ltsFaultSize = drStorage->size(Ghost);
 
-    faceToLtsMap.resize(std::max(readerFaultSize, ltsFaultSize));
-    globalFaceToLtsMap.resize(faceToLtsMap.size());
-    for (auto& layer : drStorage->leaves(Ghost)) {
+    ::seissol::initializer::StorageBackmap<1> backmap;
+    backmap.setSize(meshReader->getFault().size());
 
-      DRFaceInformation* faceInformation = layer.var<DynamicRupture::FaceInformation>();
+    faceToLtsMap.resize(meshReader->getFault().size());
+    globalFaceToLtsMap.resize(faceToLtsMap.size());
+
+    const auto* globalFaceInformation = drStorage->var<DynamicRupture::FaceInformation>();
+    for (auto& layer : drStorage->leaves()) {
+      const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
       for (size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
         faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&layer, ltsFace);
+        backmap.addElement(layer.id(),
+                           globalFaceInformation,
+                           faceInformation,
+                           faceInformation[ltsFace].meshFace,
+                           ltsFace);
       }
     }
 
     DRFaceInformation* faceInformation = drStorage->var<DynamicRupture::FaceInformation>();
-    for (size_t ltsFace = 0; ltsFace < ltsFaultSize; ++ltsFace) {
-      globalFaceToLtsMap[faceInformation[ltsFace].meshFace] = ltsFace;
+    for (size_t i = 0; i < meshReader->getFault().size(); ++i) {
+      globalFaceToLtsMap[i] = backmap.get(i);
     }
   }
   impl->setFaceToLtsMap(&faceToLtsMap);
@@ -491,7 +501,7 @@ bool OutputManager::isAtPickpoint(double time, double dt) {
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   const bool isFirstStep = iterationStep == 0;
   const double abortTime = seissolParameters.timeStepping.endTime;
-  const bool isCloseToTimeOut = (abortTime - time) < (dt * timeMargin);
+  const bool isCloseToTimeOut = (abortTime - time) < (dt * TimeMargin);
 
   const int printTimeInterval = seissolParameters.output.pickpointParameters.printTimeInterval;
   const bool isOutputIteration = iterationStep % printTimeInterval == 0;
@@ -499,14 +509,14 @@ bool OutputManager::isAtPickpoint(double time, double dt) {
   return (isFirstStep || isOutputIteration || isCloseToTimeOut);
 }
 
-void OutputManager::writePickpointOutput(int64_t clusterId,
+void OutputManager::writePickpointOutput(std::size_t layerId,
                                          double time,
                                          double dt,
                                          parallel::runtime::StreamRuntime& runtime) {
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   if (this->ppOutputBuilder) {
     if (this->isAtPickpoint(time, dt)) {
-      const auto findResult = ppOutputData.find(clusterId);
+      const auto findResult = ppOutputData.find(layerId);
       if (findResult != ppOutputData.end()) {
         const auto& outputData = findResult->second;
 
@@ -519,7 +529,7 @@ void OutputManager::writePickpointOutput(int64_t clusterId,
         const bool isMaxCacheLevel =
             outputData->currentCacheLevel >=
             static_cast<size_t>(seissolParameters.output.pickpointParameters.maxPickStore);
-        const bool isCloseToEnd = (seissolParameters.timeStepping.endTime - time) < dt * timeMargin;
+        const bool isCloseToEnd = (seissolParameters.timeStepping.endTime - time) < dt * TimeMargin;
 
         if (isMaxCacheLevel || isCloseToEnd) {
           // we need to wait for all data to be (internally) written to write it out
@@ -527,7 +537,7 @@ void OutputManager::writePickpointOutput(int64_t clusterId,
               outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
           callRuntime.wait();
 
-          this->flushPickpointDataToFile(clusterId);
+          this->flushPickpointDataToFile(layerId);
         }
       }
     }
@@ -541,10 +551,10 @@ void OutputManager::writePickpointOutput(double time, double dt) {
   }
 }
 
-void OutputManager::flushPickpointDataToFile(int64_t clusterId) {
-  auto& outputData = ppOutputData.at(clusterId);
+void OutputManager::flushPickpointDataToFile(std::size_t layerId) {
+  auto& outputData = ppOutputData.at(layerId);
 
-  for (const auto& ppfile : ppFiles.at(clusterId)) {
+  for (const auto& ppfile : ppFiles.at(layerId)) {
     std::stringstream data;
     for (size_t level = 0; level < outputData->currentCacheLevel; ++level) {
       data << makeFormatted(outputData->cachedTime[level]) << '\t';
