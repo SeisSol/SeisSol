@@ -8,6 +8,7 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "TimeCommon.h"
+#include "GeneratedCode/tensor.h"
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
@@ -17,7 +18,6 @@
 #include <cassert>
 #include <cstddef>
 #include <stdint.h>
-#include <tensor.h>
 
 #include "utils/logger.h"
 

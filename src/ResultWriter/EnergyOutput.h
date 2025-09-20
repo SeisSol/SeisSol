@@ -19,8 +19,6 @@
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Lut.h"
 
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Module.h"
@@ -63,11 +61,9 @@ struct EnergiesStorage {
 class EnergyOutput : public Module {
   public:
   void init(GlobalData* newGlobal,
-            seissol::initializer::DynamicRupture* newDynRup,
-            seissol::initializer::LTSTree* newDynRuptTree,
-            seissol::geometry::MeshReader* newMeshReader,
-            seissol::initializer::LTSTree* newLtsTree,
-            seissol::initializer::LTS* newLts,
+            const DynamicRupture::Storage& newDynRuptTree,
+            const seissol::geometry::MeshReader& newMeshReader,
+            const LTS::Storage& newStorage,
             bool newIsPlasticityEnabled,
             const std::string& outputFileNamePrefix,
             const seissol::initializer::parameters::EnergyOutputParameters& parameters);
@@ -127,11 +123,9 @@ class EnergyOutput : public Module {
   memory::MemkindArray<real*> timeDerivativeMinusHostPtrs{memory::Memkind::Standard};
 
   const GlobalData* global = nullptr;
-  seissol::initializer::DynamicRupture* dynRup = nullptr;
-  seissol::initializer::LTSTree* dynRupTree = nullptr;
-  seissol::geometry::MeshReader* meshReader = nullptr;
-  seissol::initializer::LTSTree* ltsTree = nullptr;
-  seissol::initializer::LTS* lts = nullptr;
+  const DynamicRupture::Storage* drStorage = nullptr;
+  const seissol::geometry::MeshReader* meshReader = nullptr;
+  const LTS::Storage* ltsStorage = nullptr;
 
   parallel::runtime::StreamRuntime stream;
 

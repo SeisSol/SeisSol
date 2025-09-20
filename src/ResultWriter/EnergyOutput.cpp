@@ -8,6 +8,9 @@
 #include "EnergyOutput.h"
 
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
@@ -39,16 +42,13 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
-#include <init.h>
 #include <iomanip>
 #include <ios>
-#include <kernel.h>
 #include <limits>
 #include <mpi.h>
 #include <optional>
 #include <ostream>
 #include <string>
-#include <tensor.h>
 #include <utils/logger.h>
 #include <vector>
 
@@ -161,11 +161,9 @@ double& EnergiesStorage::totalMomentumZ(size_t sim) {
 
 void EnergyOutput::init(
     GlobalData* newGlobal,
-    seissol::initializer::DynamicRupture* newDynRup,
-    seissol::initializer::LTSTree* newDynRuptTree,
-    seissol::geometry::MeshReader* newMeshReader,
-    seissol::initializer::LTSTree* newLtsTree,
-    seissol::initializer::LTS* newLts,
+    const DynamicRupture::Storage& newDynRuptTree,
+    const seissol::geometry::MeshReader& newMeshReader,
+    const LTS::Storage& newStorage,
     bool newIsPlasticityEnabled,
     const std::string& outputFileNamePrefix,
     const seissol::initializer::parameters::EnergyOutputParameters& parameters) {
@@ -193,15 +191,13 @@ void EnergyOutput::init(
   outputFileName = outputFileNamePrefix + "-energy.csv";
 
   global = newGlobal;
-  dynRup = newDynRup;
-  dynRupTree = newDynRuptTree;
-  meshReader = newMeshReader;
-  ltsTree = newLtsTree;
-  lts = newLts;
+  drStorage = &newDynRuptTree;
+  meshReader = &newMeshReader;
+  ltsStorage = &newStorage;
 
   isPlasticityEnabled = newIsPlasticityEnabled;
 
-  const auto maxCells = ltsTree->getMaxClusterSize();
+  const auto maxCells = ltsStorage->getMaxClusterSize();
 
   if constexpr (isDeviceOn()) {
     if (maxCells > 0) {
@@ -297,7 +293,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     double& potency = energiesStorage.potency(sim);
     minTimeSinceSlipRateBelowThreshold[sim] = std::numeric_limits<double>::max();
 
-    for (auto& layer : dynRupTree->leaves()) {
+    for (auto& layer : drStorage->leaves()) {
 
       // NOTE: (0, 1) is again a dummy range (to be adjusted)
       kernels::Time time;
@@ -307,7 +303,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       const ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
       auto& table = layer.getConditionalTable<inner_keys::Dr>();
       if (table.find(timeIntegrationKey) != table.end()) {
-        auto& entry = table[timeIntegrationKey];
+        const auto& entry = table.at(timeIntegrationKey);
         const real** timeDerivativePlusDevice = const_cast<const real**>(
             (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr());
         const real** timeDerivativeMinusDevice = const_cast<const real**>(
@@ -335,8 +331,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       // TODO: for fused simulations, do this once and reuse
       // TODO response: maybe switch loops? Let the layers be outside, the sims inside
 
-      real** timeDerivativePlus = layer.var(dynRup->timeDerivativePlus);
-      real** timeDerivativeMinus = layer.var(dynRup->timeDerivativeMinus);
+      real* const* timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();
+      real* const* timeDerivativeMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
       const auto timeDerivativePlusPtr = [&](std::size_t i, real* temp) {
         time.evaluate(timeCoeffs.data(), timeDerivativePlus[i], temp);
         return temp;
@@ -347,11 +343,13 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       };
 #endif
 
-      DRGodunovData* godunovData = layer.var(dynRup->godunovData);
-      DRFaceInformation* faceInformation = layer.var(dynRup->faceInformation);
-      DREnergyOutput* drEnergyOutput = layer.var(dynRup->drEnergyOutput);
-      seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = layer.var(dynRup->waveSpeedsPlus);
-      seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = layer.var(dynRup->waveSpeedsMinus);
+      const DRGodunovData* godunovData = layer.var<DynamicRupture::GodunovData>();
+      const DRFaceInformation* faceInformation = layer.var<DynamicRupture::FaceInformation>();
+      const DREnergyOutput* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>();
+      const seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus =
+          layer.var<DynamicRupture::WaveSpeedsPlus>();
+      const seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus =
+          layer.var<DynamicRupture::WaveSpeedsMinus>();
       const auto layerSize = layer.size();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
@@ -443,14 +441,14 @@ void EnergyOutput::computeVolumeEnergies() {
 
     // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
     // it
-    for (auto& layer : ltsTree->leaves(Ghost)) {
-      const auto* secondaryInformation = layer.var(lts->secondaryInformation);
-      const auto* cellInformationData = layer.var(lts->cellInformation);
-      const auto* faceDisplacementsData = layer.var(lts->faceDisplacements);
-      const auto* materialData = layer.var(lts->material);
-      const auto* boundaryMappingData = layer.var(lts->boundaryMapping);
-      const auto* pstrainData = layer.var(lts->pstrain);
-      const auto* dofsData = layer.var(lts->dofs);
+    for (const auto& layer : ltsStorage->leaves(Ghost)) {
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      const auto* cellInformationData = layer.var<LTS::CellInformation>();
+      const auto* faceDisplacementsData = layer.var<LTS::FaceDisplacements>();
+      const auto* materialData = layer.var<LTS::Material>();
+      const auto* boundaryMappingData = layer.var<LTS::BoundaryMapping>();
+      const auto* pstrainData = layer.var<LTS::PStrain>();
+      const auto* dofsData = layer.var<LTS::Dofs>();
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal,             \
                                                         totalAcousticEnergyLocal,                  \
@@ -461,7 +459,7 @@ void EnergyOutput::computeVolumeEnergies() {
                                                         totalMomentumYLocal,                       \
                                                         totalMomentumZLocal,                       \
                                                         totalPlasticMoment)                        \
-    shared(elements, vertices, lts, global)
+    shared(elements, vertices, global)
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         if (secondaryInformation[cell].duplicate > 0) {
@@ -470,7 +468,7 @@ void EnergyOutput::computeVolumeEnergies() {
         }
         const auto elementId = secondaryInformation[cell].meshId;
         const double volume = MeshTools::volume(elements[elementId], vertices);
-        const CellMaterialData& material = materialData[cell];
+        const auto& material = *materialData[cell].local;
         const auto& cellInformation = cellInformationData[cell];
         const auto& faceDisplacements = faceDisplacementsData[cell];
 
@@ -502,11 +500,11 @@ void EnergyOutput::computeVolumeEnergies() {
 
         auto numSub = multisim::simtensor(numericalSolution, sim);
 
-        constexpr int UIdx = model::MaterialT::TractionQuantities;
+        constexpr auto UIdx = model::MaterialT::TractionQuantities;
 
         for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
           const auto curWeight = jacobiDet * quadratureWeightsTet[qp];
-          const auto rho = material.local.rho;
+          const auto rho = material.getDensity();
 
           const auto u = numSub(qp, UIdx + 0);
           const auto v = numSub(qp, UIdx + 1);
@@ -516,10 +514,10 @@ void EnergyOutput::computeVolumeEnergies() {
           const double curMomentumY = rho * v;
           const double curMomentumZ = rho * w;
 
-          if (std::abs(material.local.getMuBar()) < 10e-14) {
+          if (std::abs(material.getMuBar()) < 10e-14) {
             // Acoustic
-            constexpr int PIdx = 0;
-            const auto k = material.local.getLambdaBar();
+            constexpr std::size_t PIdx = 0;
+            const auto k = material.getLambdaBar();
             const auto p = numSub(qp, PIdx);
             const double curAcousticEnergy = (p * p) / (2 * k);
             totalAcousticEnergyLocal += curWeight * curAcousticEnergy;
@@ -538,8 +536,8 @@ void EnergyOutput::computeVolumeEnergies() {
 
             auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
 
-            const auto lambda = material.local.getLambdaBar();
-            const auto mu = material.local.getMuBar();
+            const auto lambda = material.getLambdaBar();
+            const auto mu = material.getMuBar();
             const auto sumUniaxialStresses = getStress(0, 0) + getStress(1, 1) + getStress(2, 2);
             auto computeStrain = [&](int i, int j) {
               double strain = 0.0;
@@ -595,7 +593,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
           // Perform quadrature
           const auto surface = MeshTools::surface(elements[elementId], face, vertices);
-          const auto rho = material.local.rho;
+          const auto rho = material.getDensity();
 
           static_assert(NumQuadraturePointsTri == init::rotatedFaceDisplacementAtQuadratureNodes::
                                                       Shape[multisim::BasisFunctionDimension]);
@@ -603,7 +601,7 @@ void EnergyOutput::computeVolumeEnergies() {
               init::rotatedFaceDisplacementAtQuadratureNodes::view::create(displQuadData.data());
           auto rotatedFaceDisplacement = multisim::simtensor(rotatedFaceDisplacementFused, sim);
 
-          for (unsigned i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
+          for (std::size_t i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
             // See for example (Saito, Tsunami generation and propagation, 2019) section 3.2.3 for
             // derivation.
             const auto displ = rotatedFaceDisplacement(i, 0);
@@ -616,7 +614,7 @@ void EnergyOutput::computeVolumeEnergies() {
         if (isPlasticityEnabled) {
           // plastic moment
           const real* pstrainCell = pstrainData[cell];
-          const double mu = material.local.getMuBar();
+          const double mu = material.getMuBar();
           totalPlasticMoment += mu * volume * pstrainCell[tensor::QStress::size() + sim];
         }
       }

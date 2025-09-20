@@ -12,7 +12,7 @@
 #define SEISSOL_SRC_KERNELS_LINEARCK_TIMEBASE_H_
 
 #include "Common/Constants.h"
-#include "generated_code/kernel.h"
+#include "GeneratedCode/kernel.h"
 #include <Initializer/Typedefs.h>
 #include <Kernels/Spacetime.h>
 #include <Kernels/Time.h>
@@ -32,7 +32,7 @@ class Spacetime : public SpacetimeKernel {
   void setGlobalData(const CompoundGlobalData& global) override;
   void computeAder(const real* coeffs,
                    double timeStepWidth,
-                   LocalData& data,
+                   LTS::Ref& data,
                    LocalTmp& tmp,
                    real timeIntegrated[tensor::I::size()],
                    real* timeDerivativesOrSTP = nullptr,

@@ -9,6 +9,7 @@
 #include "Common/Constants.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
+#include "GeneratedCode/init.h"
 #include "Geometry.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
@@ -21,7 +22,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <init.h>
 #include <limits>
 #include <tuple>
 #include <utility>
@@ -248,12 +248,12 @@ std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPo
   std::vector<double> vertices(3 * (3 * receiverPoints.size()), 0.0);
 
   for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
-    for (int vertexIndex{0}; vertexIndex < ExtTriangle::size(); ++vertexIndex) {
+    for (std::uint32_t vertexIndex{0}; vertexIndex < ExtTriangle::size(); ++vertexIndex) {
       const auto& triangle = receiverPoints[pointIndex].globalTriangle;
       const auto& point = triangle.point(vertexIndex);
 
       const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
-      for (int coordIndex{0}; coordIndex < ExtVrtxCoords::size(); ++coordIndex) {
+      for (std::uint32_t coordIndex{0}; coordIndex < ExtVrtxCoords::size(); ++coordIndex) {
         vertices[3 * globalVertexIndex + coordIndex] = point[coordIndex];
       }
     }

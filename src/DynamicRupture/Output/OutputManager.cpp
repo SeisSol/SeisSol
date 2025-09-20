@@ -14,6 +14,8 @@
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
 #include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Writer/Writer.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -22,12 +24,11 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
-#include "Memory/Tree/Lut.h"
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
+#include <Memory/Descriptor/LTS.h>
+#include <Parallel/Runtime/Stream.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
@@ -36,10 +37,8 @@
 #include <cstring>
 #include <ctime>
 #include <fstream>
-#include <init.h>
 #include <iomanip>
 #include <ios>
-#include <kernel.h>
 #include <memory>
 #include <numeric>
 #include <ostream>
@@ -150,17 +149,13 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   }
 }
 
-void OutputManager::setLtsData(seissol::initializer::LTSTree* userWpTree,
-                               seissol::initializer::LTS* userWpDescr,
-                               seissol::initializer::Lut* userWpLut,
-                               seissol::initializer::LTSTree* userDrTree,
-                               seissol::initializer::DynamicRupture* userDrDescr) {
-  wpDescr = userWpDescr;
-  wpTree = userWpTree;
-  wpLut = userWpLut;
-  drTree = userDrTree;
-  drDescr = userDrDescr;
-  impl->setLtsData(wpTree, wpDescr, wpLut, drTree, drDescr);
+void OutputManager::setLtsData(LTS::Storage& userWpStorage,
+                               LTS::Backmap& userWpBackmap,
+                               DynamicRupture::Storage& userDrStorage) {
+  wpStorage = &userWpStorage;
+  wpBackmap = &userWpBackmap;
+  drStorage = &userDrStorage;
+  impl->setLtsData(userWpStorage, userWpBackmap, userDrStorage);
   initFaceToLtsMap();
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
@@ -172,12 +167,12 @@ void OutputManager::setLtsData(seissol::initializer::LTSTree* userWpTree,
                                       seissol::initializer::parameters::OutputType::Elementwise ||
                                   bothEnabled;
   if (pointEnabled) {
-    ppOutputBuilder->setLtsData(userWpTree, userWpDescr, userWpLut, userDrTree, userDrDescr);
+    ppOutputBuilder->setLtsData(userWpStorage, userWpBackmap, userDrStorage);
     ppOutputBuilder->setVariableList(impl->getOutputVariables());
     ppOutputBuilder->setFaceToLtsMap(&globalFaceToLtsMap);
   }
   if (elementwiseEnabled) {
-    ewOutputBuilder->setLtsData(userWpTree, userWpDescr, userWpLut, userDrTree, userDrDescr);
+    ewOutputBuilder->setLtsData(userWpStorage, userWpBackmap, userDrStorage);
     ewOutputBuilder->setFaceToLtsMap(&globalFaceToLtsMap);
   }
 }
@@ -202,7 +197,7 @@ void OutputManager::initElementwiseOutput() {
     std::vector<real*> dataPointers;
     auto recordPointers = [&dataPointers](auto& var, int) {
       if (var.isActive) {
-        for (int dim = 0; dim < var.dim(); ++dim) {
+        for (std::size_t dim = 0; dim < var.dim(); ++dim) {
           dataPointers.push_back(var.data[dim]);
         }
       }
@@ -267,7 +262,7 @@ void OutputManager::initElementwiseOutput() {
 
     misc::forEach(ewOutputData->vars, [&](auto& var, int i) {
       if (var.isActive) {
-        for (int d = 0; d < var.dim(); ++d) {
+        for (std::size_t d = 0; d < var.dim(); ++d) {
           auto* data = var.data[d];
           writer.addPointData<real>(VariableLabels[i][d],
                                     std::vector<std::size_t>(),
@@ -361,7 +356,7 @@ void OutputManager::initPickpointOutput() {
       auto collectVariableNames =
           [&baseHeader, &labelCounter, &simIndex, &pointIndex, suffix](auto& var, int) {
             if (var.isActive) {
-              for (int dim = 0; dim < var.dim(); ++dim) {
+              for (std::size_t dim = 0; dim < var.dim(); ++dim) {
                 baseHeader << " ,\"" << writer::FaultWriterExecutor::getLabelName(labelCounter)
                            << suffix(pointIndex + 1, simIndex + 1) << '\"';
                 ++labelCounter;
@@ -375,8 +370,6 @@ void OutputManager::initPickpointOutput() {
   }
 
   for (size_t i = 0; i < ppFiles.size(); ++i) {
-    const auto& receiver = outputData->receiverPoints[i];
-
     const auto& ppfile = ppFiles[i];
 
     if (!seissol::filesystem::exists(ppfile.fileName)) {
@@ -419,7 +412,7 @@ void OutputManager::initPickpointOutput() {
           {
             auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
 
-            const auto* initialStressVar = layer->var(drDescr->initialStressInFaultCS);
+            const auto* initialStressVar = layer->var<DynamicRupture::InitialStressInFaultCS>();
             const auto* initialStress = initialStressVar[face];
             std::array<real, 6> unrotatedInitialStress{};
             for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();
@@ -460,21 +453,21 @@ void OutputManager::init() {
 }
 
 void OutputManager::initFaceToLtsMap() {
-  if (drTree != nullptr) {
+  if (drStorage != nullptr) {
     const size_t readerFaultSize = meshReader->getFault().size();
-    const size_t ltsFaultSize = drTree->size(Ghost);
+    const size_t ltsFaultSize = drStorage->size(Ghost);
 
     faceToLtsMap.resize(std::max(readerFaultSize, ltsFaultSize));
     globalFaceToLtsMap.resize(faceToLtsMap.size());
-    for (auto& layer : drTree->leaves(Ghost)) {
+    for (auto& layer : drStorage->leaves(Ghost)) {
 
-      DRFaceInformation* faceInformation = layer.var(drDescr->faceInformation);
+      DRFaceInformation* faceInformation = layer.var<DynamicRupture::FaceInformation>();
       for (size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
         faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&layer, ltsFace);
       }
     }
 
-    DRFaceInformation* faceInformation = drTree->var(drDescr->faceInformation);
+    DRFaceInformation* faceInformation = drStorage->var<DynamicRupture::FaceInformation>();
     for (size_t ltsFace = 0; ltsFace < ltsFaultSize; ++ltsFace) {
       globalFaceToLtsMap[faceInformation[ltsFace].meshFace] = ltsFace;
     }
@@ -494,7 +487,9 @@ bool OutputManager::isAtPickpoint(double time, double dt) {
   return (isFirstStep || isOutputIteration || isCloseToTimeOut);
 }
 
-void OutputManager::writePickpointOutput(double time, double dt) {
+void OutputManager::writePickpointOutput(double time,
+                                         double dt,
+                                         parallel::runtime::StreamRuntime& runtime) {
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   if (this->ppOutputBuilder) {
     if (this->isAtPickpoint(time, dt)) {
@@ -503,6 +498,7 @@ void OutputManager::writePickpointOutput(double time, double dt) {
       impl->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
                             seissolParameters.drParameters.slipRateOutputType,
                             ppOutputData,
+                            runtime,
                             time);
 
       const bool isMaxCacheLevel =
@@ -511,6 +507,11 @@ void OutputManager::writePickpointOutput(double time, double dt) {
       const bool isCloseToEnd = (seissolParameters.timeStepping.endTime - time) < dt * timeMargin;
 
       if (isMaxCacheLevel || isCloseToEnd) {
+        // we need to wait for all data to be (internally) written to write it out
+        auto& callRuntime =
+            outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+        callRuntime.wait();
+
         this->flushPickpointDataToFile();
       }
     }
@@ -528,7 +529,7 @@ void OutputManager::flushPickpointDataToFile() {
       for (std::size_t pointId : ppfile.indices) {
         auto recordResults = [pointId, level, &data](auto& var, int) {
           if (var.isActive) {
-            for (int dim = 0; dim < var.dim(); ++dim) {
+            for (std::size_t dim = 0; dim < var.dim(); ++dim) {
               data << makeFormatted(var(dim, level, pointId)) << '\t';
             }
           }
@@ -554,7 +555,9 @@ void OutputManager::updateElementwiseOutput() {
     const auto& seissolParameters = seissolInstance.getSeisSolParameters();
     impl->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
                           seissolParameters.drParameters.slipRateOutputType,
-                          ewOutputData);
+                          ewOutputData,
+                          runtime);
+    runtime.wait();
   }
 }
 } // namespace seissol::dr::output

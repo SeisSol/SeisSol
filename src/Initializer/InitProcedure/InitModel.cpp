@@ -13,7 +13,6 @@
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Lut.h"
 #include <Common/Constants.h>
 #include <Common/Real.h>
 #include <Config.h>
@@ -22,13 +21,16 @@
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Kernels/Common.h>
+#include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/Layer.h>
 #include <Model/CommonDatastructures.h>
 #include <Model/Plasticity.h>
 #include <Modules/Modules.h>
 #include <Monitoring/Stopwatch.h>
+#include <Parallel/Helper.h>
 #include <Physics/InstantaneousTimeMirrorManager.h>
 #include <Solver/Estimator.h>
+#include <Solver/MultipleSimulations.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -43,8 +45,6 @@
 
 #include "InitModel.h"
 #include "SeisSol.h"
-
-#include "Parallel/MPI.h"
 
 #if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
 #include "Physics/Attenuation.h"
@@ -106,11 +106,13 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
       queryGen, seissolParams.model.materialFileName, meshReader.getElements().size());
 
   // plasticity (if needed)
-  std::vector<Plasticity> plasticityDB;
+  std::array<std::vector<Plasticity>, seissol::multisim::NumSimulations> plasticityDB;
   if (seissolParams.model.plasticity) {
     // plasticity information is only needed on all interior+copy cells.
-    plasticityDB = queryDB<Plasticity>(
-        queryGen, seissolParams.model.materialFileName, meshReader.getElements().size());
+    for (size_t i = 0; i < seissol::multisim::NumSimulations; i++) {
+      plasticityDB[i] = queryDB<Plasticity>(
+          queryGen, seissolParams.model.plasticityFileNames[i], meshReader.getElements().size());
+    }
   }
 
   // material retrieval for ghost layers
@@ -134,54 +136,81 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
     cellMat.initialize(seissolParams.model);
   }
 
-  logDebug() << "Setting cell materials in the LTS tree (for interior and copy layers).";
+  logDebug() << "Setting cell materials in the storage (for interior and copy layers).";
   const auto& elements = meshReader.getElements();
 
-  for (auto& layer : memoryManager.getLtsTree()->leaves(Ghost)) {
-    auto* cellInformation = layer.var(memoryManager.getLts()->cellInformation);
-    auto* secondaryInformation = layer.var(memoryManager.getLts()->secondaryInformation);
-    auto* materialArray = layer.var(memoryManager.getLts()->material);
-    auto* plasticityArray =
-        seissolParams.model.plasticity ? layer.var(memoryManager.getLts()->plasticity) : nullptr;
+  auto* materialDataArrayGlobal = memoryManager.getLtsStorage().var<LTS::MaterialData>();
 
+  for (auto& layer : memoryManager.getLtsStorage().leaves()) {
+    auto* cellInformation = layer.var<LTS::CellInformation>();
+    auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    auto* materialDataArray = layer.var<LTS::MaterialData>();
+
+    if (layer.getIdentifier().halo == HaloType::Ghost) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      // set the materials for the cell volume and its faces
-      auto meshId = secondaryInformation[cell].meshId;
-      auto& material = materialArray[cell];
-      const auto& localMaterial = materialsDB[meshId];
-      const auto& element = elements[meshId];
-      const auto& localCellInformation = cellInformation[cell];
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+        const auto& localSecondaryInformation = secondaryInformation[cell];
+        const auto meshId = localSecondaryInformation.meshId;
 
-      initAssign(material.local, localMaterial);
-      for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-        if (isInternalFaceType(localCellInformation.faceTypes[side])) {
-          // use the neighbor face material info in case that we are not at a boundary
-          if (element.neighborRanks[side] == seissol::MPI::mpi.rank()) {
-            // material from interior or copy
-            auto neighbor = element.neighbors[side];
-            initAssign(material.neighbor[side], materialsDB[neighbor]);
-          } else {
-            // material from ghost layer (computed locally)
-            auto neighborRank = element.neighborRanks[side];
-            auto neighborRankIdx = element.mpiIndices[side];
-            auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
-            initAssign(material.neighbor[side], materialsDBGhost[materialGhostIdx]);
-          }
-        } else {
-          // otherwise, use the material from the own cell
-          initAssign(material.neighbor[side], localMaterial);
-        }
+        // explicitly use polymorphic pointer arithmetic here
+        // NOLINTNEXTLINE
+        auto& materialData = materialDataArray[cell];
+
+        auto neighborRank = localSecondaryInformation.rank;
+        auto neighborRankIdx = localSecondaryInformation.meshId;
+        auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
+        const auto& localMaterial = materialsDBGhost[materialGhostIdx];
+        initAssign(materialData, localMaterial);
       }
+    } else {
+      auto* materialArray = layer.var<LTS::Material>();
+      auto* plasticityArray =
+          seissolParams.model.plasticity ? layer.var<LTS::Plasticity>() : nullptr;
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+        // set the materials for the cell volume and its faces
+        const auto& localSecondaryInformation = secondaryInformation[cell];
+        const auto meshId = localSecondaryInformation.meshId;
+        auto& material = materialArray[cell];
+        const auto& localMaterial = materialsDB[meshId];
+        const auto& localCellInformation = cellInformation[cell];
 
-      // if enabled, set up the plasticity as well
-      if (seissolParams.model.plasticity) {
-        auto& plasticity = plasticityArray[cell];
-        const auto& localPlasticity = plasticityDB[meshId];
+        // explicitly use polymorphic pointer arithmetic here
+        // NOLINTNEXTLINE
+        auto& materialData = materialDataArray[cell];
+        initAssign(materialData, localMaterial);
+        material.local = &materialData;
 
-        initAssign(plasticity, seissol::model::PlasticityData(localPlasticity, &material.local));
+        for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
+          if (isInternalFaceType(localCellInformation.faceTypes[side])) {
+            // use the neighbor face material info in case that we are not at a boundary
+            const auto globalNeighborIndex = localSecondaryInformation.faceNeighborIds[side];
+
+            // explicitly use polymorphic pointer arithmetic here
+            // NOLINTNEXTLINE
+            auto* materialNeighbor = &materialDataArrayGlobal[globalNeighborIndex];
+            material.neighbor[side] = materialNeighbor;
+          } else {
+            // otherwise, use the material from the own cell
+            material.neighbor[side] = material.local;
+          }
+        }
+
+        // if enabled, set up the plasticity as well
+        if (seissolParams.model.plasticity) {
+          auto& plasticity = plasticityArray[cell];
+          assert(plasticityDB.size() == seissol::multisim::NumSimulations &&
+                 "Plasticity database size mismatch with number of simulations");
+          std::array<Plasticity, seissol::multisim::NumSimulations> localPlasticity;
+          for (size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
+            localPlasticity[i] = plasticityDB[i][meshId];
+          }
+          initAssign(plasticity, seissol::model::PlasticityData(localPlasticity, material.local));
+        }
       }
     }
   }
@@ -204,9 +233,7 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   auto& memoryManager = seissolInstance.getMemoryManager();
 
   seissol::initializer::initializeCellLocalMatrices(meshReader,
-                                                    memoryManager.getLtsTree(),
-                                                    memoryManager.getLts(),
-                                                    memoryManager.getLtsLut(),
+                                                    memoryManager.getLtsStorage(),
                                                     ltsInfo.clusterLayout.value(),
                                                     seissolParams.model);
 
@@ -218,22 +245,17 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   }
 
   seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
-                                                         memoryManager.getLtsTree(),
-                                                         memoryManager.getLts(),
-                                                         memoryManager.getLtsLut(),
-                                                         memoryManager.getDynamicRuptureTree(),
-                                                         memoryManager.getDynamicRupture(),
+                                                         memoryManager.getLtsStorage(),
+                                                         memoryManager.getBackmap(),
+                                                         memoryManager.getDRStorage(),
                                                          ltsInfo.ltsMeshToFace,
-                                                         *memoryManager.getGlobalDataOnHost(),
+                                                         *memoryManager.getGlobalData().onHost,
                                                          seissolParams.drParameters.etaHack);
 
   memoryManager.initFrictionData();
 
-  seissol::initializer::initializeBoundaryMappings(meshReader,
-                                                   memoryManager.getEasiBoundaryReader(),
-                                                   memoryManager.getLtsTree(),
-                                                   memoryManager.getLts(),
-                                                   memoryManager.getLtsLut());
+  seissol::initializer::initializeBoundaryMappings(
+      meshReader, memoryManager.getEasiBoundaryReader(), memoryManager.getLtsStorage());
 
 #ifdef ACL_DEVICE
   memoryManager.recordExecutionPaths(seissolParams.model.plasticity);
@@ -246,17 +268,13 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
     const double scalingFactor = itmParameters.itmVelocityScalingFactor;
     const double startingTime = itmParameters.itmStartingTime;
 
-    auto* ltsTree = memoryManager.getLtsTree();
-    auto* lts = memoryManager.getLts();
-    auto* ltsLut = memoryManager.getLtsLut();
+    auto& ltsStorage = memoryManager.getLtsStorage();
     const auto* timeStepping = &seissolInstance.timeManager().getClusterLayout();
 
     initializeTimeMirrorManagers(scalingFactor,
                                  startingTime,
                                  &meshReader,
-                                 ltsTree,
-                                 lts,
-                                 ltsLut,
+                                 ltsStorage,
                                  timeMirrorManagers.first,
                                  timeMirrorManagers.second,
                                  seissolInstance,
@@ -283,11 +301,7 @@ void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
       seissolInstance.setExecutionPlaceCutoff(hdswitchInt);
     }
 
-#ifdef ACL_DEVICE
     const bool usmDefault = useUSM();
-#else
-    const bool usmDefault = false;
-#endif
 
     if (!usmDefault && hdenabled) {
       logWarning() << "Using the host-device execution on non-USM systems is not fully supported "
@@ -315,39 +329,44 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   seissolInstance.getLtsLayout().getDynamicRuptureInformation(
       ltsInfo.ltsMeshToFace, numberOfDRCopyFaces, numberOfDRInteriorFaces);
 
-  seissolInstance.getMemoryManager().fixateLtsTree(ltsInfo.clusterLayout.value(),
-                                                   ltsInfo.meshStructure,
-                                                   numberOfDRCopyFaces,
-                                                   numberOfDRInteriorFaces,
-                                                   seissolParams.model.plasticity);
+  seissolInstance.getMemoryManager().fixateLtsStorage(ltsInfo.clusterLayout.value(),
+                                                      ltsInfo.meshStructure,
+                                                      numberOfDRCopyFaces,
+                                                      numberOfDRInteriorFaces,
+                                                      seissolParams.model.plasticity);
 
   seissolInstance.getMemoryManager().setLtsToFace(ltsInfo.ltsMeshToFace);
 
   delete[] numberOfDRCopyFaces;
   delete[] numberOfDRInteriorFaces;
 
-  const auto& ltsTree = seissolInstance.getMemoryManager().getLtsTree();
-  const auto& lts = seissolInstance.getMemoryManager().getLts();
+  auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
 
   std::size_t* ltsToMesh = nullptr;
   std::size_t numberOfMeshCells = 0;
 
-  seissolInstance.getLtsLayout().getCellInformation(ltsTree->var(lts->cellInformation),
-                                                    ltsTree->var(lts->secondaryInformation),
+  seissolInstance.getLtsLayout().getCellInformation(ltsStorage.var<LTS::CellInformation>(),
+                                                    ltsStorage.var<LTS::SecondaryInformation>(),
                                                     ltsToMesh,
                                                     numberOfMeshCells);
-
-  // TODO(David): move all of this method to the MemoryManager
-  seissolInstance.getMemoryManager().getLtsLutUnsafe().createLuts(
-      ltsTree, ltsToMesh, numberOfMeshCells);
 
   delete[] ltsToMesh;
 
   seissol::initializer::time_stepping::deriveLtsSetups(
       ltsInfo.clusterLayout.value().globalClusterCount,
       ltsInfo.meshStructure,
-      ltsTree->var(lts->cellInformation),
-      ltsTree->var(lts->secondaryInformation));
+      ltsStorage.var<LTS::CellInformation>(),
+      ltsStorage.var<LTS::SecondaryInformation>());
+
+  auto& backmap = seissolInstance.getMemoryManager().getBackmap();
+  backmap.setSize(numberOfMeshCells);
+  const auto* zero = ltsStorage.var<LTS::SecondaryInformation>();
+  for (const auto& layer : ltsStorage.leaves(Ghost)) {
+    const auto* zeroLayer = layer.var<LTS::SecondaryInformation>();
+    for (std::size_t i = 0; i < layer.size(); ++i) {
+      backmap.addElement(layer.id(), zero, zeroLayer, zeroLayer[i].meshId, i);
+    }
+  }
 }
 
 void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {
@@ -360,7 +379,7 @@ void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
                                             seissolInstance.getMemoryManager(),
                                             seissolParams.model.plasticity);
 
-  seissolInstance.getMemoryManager().fixateBoundaryLtsTree();
+  seissolInstance.getMemoryManager().fixateBoundaryStorage();
 }
 
 } // namespace
@@ -384,6 +403,7 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   logInfo() << "Order:" << ConvergenceOrder;
   logInfo() << "Precision:"
             << (Config::Precision == RealType::F32 ? "single (f32)" : "double (f64)");
+  logInfo() << "Number of simulations: " << Config::NumSimulations;
   logInfo() << "Plasticity:"
             << (seissolInstance.getSeisSolParameters().model.plasticity ? "on" : "off");
   logInfo() << "Flux:"
