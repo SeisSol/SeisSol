@@ -28,7 +28,7 @@ class Neighbor : public NeighborKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
 
-  void computeNeighborsIntegral(NeighborData& data,
+  void computeNeighborsIntegral(LTS::Ref& data,
                                 const CellDRMapping (&cellDrMapping)[4],
                                 real* timeIntegrated[4],
                                 real* faceNeighborsPrefetch[4]) override;

@@ -12,7 +12,7 @@
 #include "Geometry.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
-#include "Memory/Tree/Layer.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/DataCollector.h"
 #include <Eigen/Dense>
 #include <Parallel/Runtime/Stream.h>
@@ -130,7 +130,7 @@ const inline std::vector<std::vector<std::string>> VariableLabels = {{"SRs", "SR
                                                                      {"DS"},
                                                                      {"P_f", "Tmp"}};
 
-using FaceToLtsMapType = std::vector<std::pair<seissol::initializer::Layer*, size_t>>;
+using FaceToLtsMapType = std::vector<std::pair<DynamicRupture::Layer*, size_t>>;
 
 } // namespace seissol::dr::output
 
