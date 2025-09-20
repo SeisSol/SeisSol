@@ -8,6 +8,8 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 #define SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 
+#include <Memory/MemoryAllocator.h>
+#include <Parallel/Runtime/Stream.h>
 #include <array>
 #include <fstream>
 #include <iostream>
@@ -115,17 +117,17 @@ class EnergyOutput : public Module {
   std::string outputFileName;
   std::ofstream out;
 
-#ifdef ACL_DEVICE
-  real* timeDerivativePlusHost = nullptr;
-  real* timeDerivativeMinusHost = nullptr;
-  real* timeDerivativePlusHostMapped = nullptr;
-  real* timeDerivativeMinusHostMapped = nullptr;
-#endif
+  memory::MemkindArray<real> timeDerivativePlusHost{memory::Memkind::Standard};
+  memory::MemkindArray<real> timeDerivativeMinusHost{memory::Memkind::Standard};
+  memory::MemkindArray<real*> timeDerivativePlusHostPtrs{memory::Memkind::Standard};
+  memory::MemkindArray<real*> timeDerivativeMinusHostPtrs{memory::Memkind::Standard};
 
   const GlobalData* global = nullptr;
   const DynamicRupture::Storage* drStorage = nullptr;
   const seissol::geometry::MeshReader* meshReader = nullptr;
   const LTS::Storage* ltsStorage = nullptr;
+
+  parallel::runtime::StreamRuntime stream;
 
   EnergiesStorage energiesStorage{};
   std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold;
