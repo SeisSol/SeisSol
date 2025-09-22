@@ -343,10 +343,10 @@ else()
 endif()
 
 if (OVERRIDE_ALIGNMENT GREATER 0)
-    set(ALIGNMENT OVERRIDE_ALIGNMENT)
+    set(ALIGNMENT ${OVERRIDE_ALIGNMENT})
 endif()
 if (OVERRIDE_VECTORSIZE GREATER 0)
-    set(VECTORSIZE OVERRIDE_VECTORSIZE)
+    set(VECTORSIZE ${OVERRIDE_VECTORSIZE})
 endif()
 
 message(STATUS "Memory alignment has been set to ${ALIGNMENT} B.")
@@ -370,14 +370,6 @@ elseif ("${PRECISION}" STREQUAL "single")
 endif()
 
 
-# check NUMBER_OF_FUSED_SIMULATIONS
-math(EXPR IS_ALIGNED_MULT_SIMULATIONS 
-        "${NUMBER_OF_FUSED_SIMULATIONS} % (${ALIGNMENT} / ${REAL_SIZE_IN_BYTES})")
-
-if (NOT ${NUMBER_OF_FUSED_SIMULATIONS} EQUAL 1 AND NOT ${IS_ALIGNED_MULT_SIMULATIONS} EQUAL 0)
-    math(EXPR FACTOR "${ALIGNMENT} / ${REAL_SIZE_IN_BYTES}")
-    message(FATAL_ERROR "a number of fused simulations must be multiple of ${FACTOR}")
-endif()
 
 #-------------------------------------------------------------------------------
 # -------------------- COMPUTE/ADJUST ADDITIONAL PARAMETERS --------------------

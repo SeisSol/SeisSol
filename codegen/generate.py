@@ -14,7 +14,6 @@ import importlib.util
 import os
 import re
 import sys
-from typing import Union
 
 import kernels.dynamic_rupture
 import kernels.general
@@ -49,7 +48,7 @@ def main():
         "--precision", type=str, choices=["s", "d", "f32", "f64"]
     )
     cmdLineParser.add_argument("--numberOfMechanisms", type=int)
-    cmdLineParser.add_argument("--vectorsize", default=None, type=Union[None, int])
+    cmdLineParser.add_argument("--vectorsize", default=0, type=int)
     cmdLineParser.add_argument("--memLayout")
     cmdLineParser.add_argument("--multipleSimulations", type=int)
     cmdLineParser.add_argument("--PlasticityMethod")
@@ -70,6 +69,9 @@ def main():
     # derive the compute platform
     gpu_platforms = ["cuda", "hip", "hipsycl", "acpp", "oneapi"]
     targets = ["gpu", "cpu"] if cmdLineArgs.device_backend in gpu_platforms else ["cpu"]
+
+    if cmdLineArgs.vectorsize == 0:
+        cmdLineArgs.vectorsize = None
 
     host_arch = HostArchDefinition(
         cmdLineArgs.host_arch, cmdLineArgs.precision, cmdLineArgs.vectorsize, None
