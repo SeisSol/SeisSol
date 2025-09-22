@@ -163,7 +163,7 @@ class SeisSol {
   }
 
   /**
-   * Deletes memoryManager. MemoryManager desctructor will destroy LTS Tree and
+   * Deletes memoryManager. MemoryManager desctructor will destroy all storage structures and
    * memoryAllocator i.e., the main components of SeisSol. Therefore, call this function
    * at the very end of a program execution
    */

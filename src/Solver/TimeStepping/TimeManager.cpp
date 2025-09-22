@@ -15,6 +15,7 @@
 #include "SeisSol.h"
 #include "TimeManager.h"
 #include <DynamicRupture/Output/OutputManager.h>
+#include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Initializer/Typedefs.h>
@@ -34,7 +35,6 @@
 #include <limits>
 #include <memory>
 #include <mpi.h>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -69,14 +69,20 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // store the time stepping
   this->clusterLayout = clusterLayout;
 
-  auto clusteringWriter = writer::ClusteringWriter(memoryManager.getOutputPrefix());
+  auto clusteringWriter =
+      writer::ClusteringWriter(seissolInstance.getSeisSolParameters().output.prefix);
 
   std::size_t drClusterOutput = std::numeric_limits<std::size_t>::max();
 
   for (std::size_t clusterId = 0; clusterId < clusterLayout.globalClusterCount; ++clusterId) {
-    auto& dynRupTree = memoryManager.getDynamicRuptureTree()->child(clusterId);
-    const long numberOfDynRupCells = dynRupTree.child(Interior).size() +
-                                     dynRupTree.child(Copy).size() + dynRupTree.child(Ghost).size();
+    const auto interiorId = initializer::LayerIdentifier(HaloType::Interior, Config(), clusterId);
+    const auto copyId = initializer::LayerIdentifier(HaloType::Copy, Config(), clusterId);
+    const auto ghostId = initializer::LayerIdentifier(HaloType::Ghost, Config(), clusterId);
+
+    const long numberOfDynRupCells = memoryManager.getDRStorage().layer(interiorId).size() +
+                                     memoryManager.getDRStorage().layer(copyId).size() +
+                                     memoryManager.getDRStorage().layer(ghostId).size();
+
     if (numberOfDynRupCells > 0) {
       drClusterOutput = clusterId;
       break;
@@ -99,10 +105,14 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     const auto timeStepRate = clusterLayout.clusterRate(clusterId);
 
     // Dynamic rupture
-    auto& dynRupTree = memoryManager.getDynamicRuptureTree()->child(clusterId);
+    const auto interiorId = initializer::LayerIdentifier(HaloType::Interior, Config(), clusterId);
+    const auto copyId = initializer::LayerIdentifier(HaloType::Copy, Config(), clusterId);
+    const auto ghostId = initializer::LayerIdentifier(HaloType::Ghost, Config(), clusterId);
+
     // Note: We need to include the Ghost part, as we need to compute its DR part as well.
-    const long numberOfDynRupCells = dynRupTree.child(Interior).size() +
-                                     dynRupTree.child(Copy).size() + dynRupTree.child(Ghost).size();
+    const long numberOfDynRupCells = memoryManager.getDRStorage().layer(interiorId).size() +
+                                     memoryManager.getDRStorage().layer(copyId).size() +
+                                     memoryManager.getDRStorage().layer(ghostId).size();
 
     const bool isFirstDynamicRuptureCluster = drClusterOutput == clusterId;
     auto& drScheduler =
@@ -116,9 +126,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       const bool printProgress =
           (clusterId == clusterLayout.globalClusterCount - 1) && (type == Interior);
       const auto profilingId = clusterId + offsetMonitoring;
-      auto* layerData = &memoryManager.getLtsTree()->child(clusterId).child(type);
-      auto* dynRupInteriorData = &dynRupTree.child(Interior);
-      auto* dynRupCopyData = &dynRupTree.child(Copy);
+      auto* layerData = &memoryManager.getLtsStorage().layer(type == Copy ? copyId : interiorId);
+      auto* dynRupInteriorData = &memoryManager.getDRStorage().layer(interiorId);
+      auto* dynRupCopyData = &memoryManager.getDRStorage().layer(copyId);
       clusters.push_back(
           std::make_unique<TimeCluster>(clusterId,
                                         clusterId,
@@ -133,8 +143,6 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                         layerData,
                                         dynRupInteriorData,
                                         dynRupCopyData,
-                                        memoryManager.getLts(),
-                                        memoryManager.getDynamicRupture(),
                                         memoryManager.getFrictionLaw(),
                                         memoryManager.getFrictionLawDevice(),
                                         memoryManager.getFaultOutputManager(),
@@ -336,21 +344,15 @@ double TimeManager::getTimeTolerance() const {
 }
 
 void TimeManager::setPointSourcesForClusters(
-    std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>
-        sourceClusters) {
+    std::vector<seissol::kernels::PointSourceClusterPair> sourceClusters) {
   for (auto& cluster : clusters) {
-    auto layerClusters = sourceClusters.find(cluster->getLayerType());
-    if (layerClusters != sourceClusters.end() &&
-        cluster->getClusterId() < layerClusters->second.size()) {
-      cluster->setPointSources(std::move(layerClusters->second[cluster->getClusterId()]));
-    }
+    cluster->setPointSources(std::move(sourceClusters[cluster->layerId()]));
   }
 }
 
 void TimeManager::setReceiverClusters(writer::ReceiverWriter& receiverWriter) {
   for (auto& cluster : clusters) {
-    cluster->setReceiverCluster(
-        receiverWriter.receiverCluster(cluster->getClusterId(), cluster->getLayerType()));
+    cluster->setReceiverCluster(receiverWriter.receiverCluster(cluster->layerId()));
   }
 }
 
