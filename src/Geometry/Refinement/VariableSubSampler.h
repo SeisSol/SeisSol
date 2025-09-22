@@ -51,7 +51,8 @@ class VariableSubsampler {
                      unsigned int numVariables,
                      unsigned int numAlignedDOF);
 
-  void get(const real* inData, const unsigned int* cellMap, int variable, real* outData) const;
+  template <typename RealT>
+  void get(const RealT* inData, const unsigned int* cellMap, int variable, RealT* outData) const;
 };
 
 //------------------------------------------------------------------------------
@@ -85,10 +86,11 @@ VariableSubsampler<T>::VariableSubsampler(unsigned int numCells,
 //------------------------------------------------------------------------------
 
 template <typename T>
-void VariableSubsampler<T>::get(const real* inData,
+template <typename RealT>
+void VariableSubsampler<T>::get(const RealT* inData,
                                 const unsigned int* cellMap,
                                 int variable,
-                                real* outData) const {
+                                RealT* outData) const {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif

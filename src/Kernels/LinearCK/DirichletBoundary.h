@@ -29,20 +29,14 @@
 #endif
 
 namespace {
-// Helper functions, needed because C++ doesnt allow partial func. template specialisation
-template <typename MappingKrnl>
-void addRotationToProjectKernel(MappingKrnl& projectKernel,
-                                const seissol::CellBoundaryMapping& boundaryMapping) {
-  // do nothing
-}
 
 //
 // GCC warns that the method below is unused. This is not correct.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
-template <>
-void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
-                                const seissol::CellBoundaryMapping& boundaryMapping) {
+template <typename Cfg>
+void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated<Cfg>& projectKernel,
+                                const seissol::CellBoundaryMapping<Cfg>& boundaryMapping) {
   assert(boundaryMapping.dataTinv != nullptr);
   projectKernel.Tinv = boundaryMapping.dataTinv;
 }
@@ -52,27 +46,30 @@ void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& 
 
 namespace seissol::kernels {
 
+template <typename Cfg>
 class DirichletBoundary {
   public:
-  DirichletBoundary() { quadrature::GaussLegendre(quadPoints, quadWeights, ConvergenceOrder); }
+  using real = Real<Cfg>;
+
+  DirichletBoundary() { quadrature::GaussLegendre(quadPoints, quadWeights, Cfg::ConvergenceOrder); }
 
   template <typename Func, typename MappingKrnl>
   void evaluate(const real* dofsVolumeInteriorModal,
                 int faceIdx,
-                const CellBoundaryMapping& boundaryMapping,
+                const CellBoundaryMapping<Cfg>& boundaryMapping,
                 MappingKrnl&& projectKernelPrototype,
                 Func&& evaluateBoundaryCondition,
                 real* dofsFaceBoundaryNodal) const {
     auto projectKrnl = std::forward<MappingKrnl>(projectKernelPrototype);
-    addRotationToProjectKernel(projectKrnl, boundaryMapping);
+    addRotationToProjectKernel<Cfg>(projectKrnl, boundaryMapping);
     projectKrnl.I = dofsVolumeInteriorModal;
     projectKrnl.INodal = dofsFaceBoundaryNodal;
     projectKrnl.execute(faceIdx);
 
-    auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
+    auto boundaryDofs = init::INodal<Cfg>::view::create(dofsFaceBoundaryNodal);
 
-    static_assert(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] ==
-                      tensor::INodal::Shape[multisim::BasisFunctionDimension],
+    static_assert(nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisDim<Cfg>] ==
+                      tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg>],
                   "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);
@@ -136,41 +133,41 @@ class DirichletBoundary {
   template <typename Func, typename MappingKrnl>
   void evaluateTimeDependent(const real* dofsVolumeInteriorModal,
                              int faceIdx,
-                             const CellBoundaryMapping& boundaryMapping,
+                             const CellBoundaryMapping<Cfg>& boundaryMapping,
                              const MappingKrnl& projectKernelPrototype,
                              Func&& evaluateBoundaryCondition,
                              real* dofsFaceBoundaryNodal,
                              double startTime,
                              double timeStepWidth) const {
     // TODO(Lukas) Implement functions which depend on the interior values...
-    auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
+    auto boundaryDofs = init::INodal<Cfg>::view::create(dofsFaceBoundaryNodal);
 
-    static_assert(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] ==
-                      tensor::INodal::Shape[multisim::BasisFunctionDimension],
+    static_assert(nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisDim<Cfg>] ==
+                      tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg>],
                   "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);
 
     // Compute quad points/weights for interval [t, t+dt]
-    double timePoints[ConvergenceOrder];
-    double timeWeights[ConvergenceOrder];
-    for (unsigned point = 0; point < ConvergenceOrder; ++point) {
+    double timePoints[Cfg::ConvergenceOrder];
+    double timeWeights[Cfg::ConvergenceOrder];
+    for (unsigned point = 0; point < Cfg::ConvergenceOrder; ++point) {
       timePoints[point] = (timeStepWidth * quadPoints[point] + 2 * startTime + timeStepWidth) / 2;
       timeWeights[point] = 0.5 * timeStepWidth * quadWeights[point];
     }
 
-    alignas(Alignment) real dofsFaceBoundaryNodalTmp[tensor::INodal::size()];
-    auto boundaryDofsTmp = init::INodal::view::create(dofsFaceBoundaryNodalTmp);
+    alignas(Alignment) real dofsFaceBoundaryNodalTmp[tensor::INodal<Cfg>::size()];
+    auto boundaryDofsTmp = init::INodal<Cfg>::view::create(dofsFaceBoundaryNodalTmp);
 
     boundaryDofs.setZero();
     boundaryDofsTmp.setZero();
 
-    auto updateKernel = kernel::updateINodal{};
+    auto updateKernel = kernel::updateINodal<Cfg>{};
     updateKernel.INodal = dofsFaceBoundaryNodal;
     updateKernel.INodalUpdate = dofsFaceBoundaryNodalTmp;
     // Evaluate boundary conditions at precomputed nodes (in global coordinates).
 
-    for (unsigned i = 0; i < ConvergenceOrder; ++i) {
+    for (unsigned i = 0; i < Cfg::ConvergenceOrder; ++i) {
       boundaryDofsTmp.setZero();
       std::forward<Func>(evaluateBoundaryCondition)(
           boundaryMapping.nodes, timePoints[i], boundaryDofsTmp);
@@ -181,8 +178,8 @@ class DirichletBoundary {
   }
 
   private:
-  double quadPoints[ConvergenceOrder];
-  double quadWeights[ConvergenceOrder];
+  double quadPoints[Cfg::ConvergenceOrder];
+  double quadWeights[Cfg::ConvergenceOrder];
 };
 
 } // namespace seissol::kernels

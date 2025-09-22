@@ -20,12 +20,15 @@
 
 namespace seissol::kernels {
 
+template <typename Cfg>
 class LocalKernel : public Kernel {
   protected:
   double gravitationalAcceleration{9.81};
   const std::vector<std::unique_ptr<physics::InitialField>>* initConds;
 
   public:
+  using real = Real<Cfg>;
+
   ~LocalKernel() override = default;
   void setGravitationalAcceleration(double g) { gravitationalAcceleration = g; }
   void setInitConds(decltype(initConds) initConds) { this->initConds = initConds; }
@@ -35,11 +38,11 @@ class LocalKernel : public Kernel {
     return condition.get();
   }
 
-  virtual void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                               LTS::Ref& data,
-                               LocalTmp& tmp,
+  virtual void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
+                               LTS::Ref<Cfg>& data,
+                               LocalTmp<Cfg>& tmp,
                                const CellMaterialData* materialData,
-                               const CellBoundaryMapping (*cellBoundaryMapping)[4],
+                               const CellBoundaryMapping<Cfg> (*cellBoundaryMapping)[4],
                                double time,
                                double timeStepWidth) = 0;
 
@@ -57,7 +60,7 @@ class LocalKernel : public Kernel {
                                      double timeStepWidth,
                                      seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  virtual void flopsIntegral(const FaceType faceTypes[4],
+  virtual void flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
                              std::uint64_t& nonZeroFlops,
                              std::uint64_t& hardwareFlops) = 0;
 

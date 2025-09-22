@@ -65,7 +65,7 @@ class LtsWeights {
   LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance);
 
   virtual ~LtsWeights() = default;
-  void computeWeights(PUML::TETPUML const& mesh);
+  void computeWeights(PUML::TETPUML const& mesh, const ConfigMap& configMap);
 
   [[nodiscard]] const int* vertexWeights() const;
   [[nodiscard]] const double* imbalances() const;
@@ -79,7 +79,7 @@ class LtsWeights {
   protected:
   seissol::initializer::GlobalTimestep m_details;
 
-  seissol::initializer::GlobalTimestep collectGlobalTimeStepDetails();
+  seissol::initializer::GlobalTimestep collectGlobalTimeStepDetails(const ConfigMap& configMap);
   std::uint64_t getCluster(double timestep,
                            double globalMinTimestep,
                            double wiggleFactor,

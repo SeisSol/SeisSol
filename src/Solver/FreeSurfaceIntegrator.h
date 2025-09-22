@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
 
 #include <Memory/Descriptor/Surface.h>
+#include <Memory/GlobalData.h>
 #include <Memory/Tree/Layer.h>
 #include <memory>
 
@@ -33,23 +34,23 @@ class FreeSurfaceIntegrator {
     FreeSurfaceWithGravity = 3
   };
 
-  real* projectionMatrixMemory{nullptr};
-  real* projectionMatrix[4]{};
-  real* projectionMatrixFromFace{nullptr};
+  double* projectionMatrixMemory{nullptr};
+  double* projectionMatrix[4]{};
+  double* projectionMatrixFromFace{nullptr};
   std::size_t numberOfSubTriangles{0};
   std::size_t numberOfAlignedSubTriangles{0};
 
-  static constexpr auto PolyDegree = ConvergenceOrder - 1;
+  static constexpr auto PolyDegree = 4;
   static constexpr auto NumQuadraturePoints = PolyDegree * PolyDegree;
   bool m_enabled{false};
 
   void initializeProjectionMatrices(unsigned maxRefinementDepth);
   void computeSubTriangleAverages(
-      real* projectionMatrixRow,
+      double* projectionMatrixRow,
       const std::array<std::array<double, 3>, NumQuadraturePoints>& bfPoints,
       const double* weights) const;
   void computeSubTriangleAveragesFromFaces(
-      real* projectionMatrixFromFaceRow,
+      double* projectionMatrixFromFaceRow,
       const std::array<std::array<double, 2>, NumQuadraturePoints>& bfPoints,
       const double* weights) const;
   void initializeSurfaceStorage(LTS::Storage& ltsStorage);
@@ -58,8 +59,8 @@ class FreeSurfaceIntegrator {
       getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
 
   public:
-  std::array<real*, NumComponents> velocities;
-  std::array<real*, NumComponents> displacements;
+  std::array<double*, NumComponents> velocities;
+  std::array<double*, NumComponents> displacements;
 
   std::vector<std::uint8_t> locationFlags;
   std::size_t totalNumberOfFreeSurfaces{0};
@@ -80,7 +81,6 @@ class FreeSurfaceIntegrator {
   auto operator=(FreeSurfaceIntegrator&&) -> FreeSurfaceIntegrator& = delete;
 
   void initialize(unsigned maxRefinementDepth,
-                  GlobalData* globalData,
                   LTS::Storage& ltsStorage,
                   SurfaceLTS::Storage& surfaceStorage);
 

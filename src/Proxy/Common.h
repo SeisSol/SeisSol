@@ -21,6 +21,7 @@ enum class OutputFormat { Plain, Json };
 struct ProxyConfig {
   unsigned cells{static_cast<unsigned>(1e5)};
   unsigned timesteps{10};
+  std::size_t configId{0};
   std::vector<Kernel> kernels;
   bool verbose{true};
   Executor executor;

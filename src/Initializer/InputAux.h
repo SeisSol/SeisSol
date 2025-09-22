@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iterator>
 #include <list>
+#include <optional>
 #include <sstream>
 #include <utils/logger.h>
 #include <vector>
@@ -49,7 +50,7 @@ void convertStringToMask(const std::string& stringMask, ContainerT& mask) {
   auto end = std::istream_iterator<T>();
 
   for (int index = 0; it != end; ++index, ++it) {
-    if (std::is_same<T, bool>::value) {
+    if (std::is_same_v<T, bool>) {
       mask[index] = (*it) > 0;
     } else {
       mask[index] = (*it);
@@ -65,17 +66,17 @@ void convertStringToMask(const std::string& stringMask, ContainerT& mask) {
  * \throws runtime_error if the input string contains parameters, which can not be converted to T.
  * Or if the length is not equal to n (unless ignored).
  * */
-template <typename T, size_t N>
-std::array<T, N> convertStringToArray(const std::string& inputString,
-                                      bool exactLength = true,
-                                      bool skipEmpty = true,
-                                      char delimiter = ' ') {
-  auto result = std::array<T, N>();
+template <typename T>
+std::vector<T> convertStringToVector(const std::string& inputString,
+                                     std::optional<std::size_t> exactLength = {},
+                                     bool skipEmpty = true,
+                                     char delimiter = ' ') {
+  auto result = std::vector<T>();
   if (inputString.empty()) {
-    if (exactLength && N > 0) {
+    if (exactLength.has_value() && exactLength.value() > 0) {
       throw std::runtime_error(
           std::string("Insufficient number of elements in array. Given: 0. Required: ") +
-          std::to_string(N) + std::string("."));
+          std::to_string(exactLength.value()) + std::string("."));
     } else {
       return result;
     }
@@ -84,9 +85,9 @@ std::array<T, N> convertStringToArray(const std::string& inputString,
   auto convert = [&inputString](size_t begin, size_t end) {
     size_t count = end - begin;
     std::string word = inputString.substr(begin, count);
-    if constexpr (std::is_integral<T>::value) {
+    if constexpr (std::is_integral_v<T>) {
       return std::stoi(word);
-    } else if constexpr (std::is_floating_point<T>::value) {
+    } else if constexpr (std::is_floating_point_v<T>) {
       return std::stod(word);
     } else {
       return static_cast<T>(word);
@@ -105,11 +106,8 @@ std::array<T, N> convertStringToArray(const std::string& inputString,
     if (inputString.at(i) == delimiter) {
       // either we have a word, or two subsequent delimiters
       if (s == State::Word || !skipEmpty) {
-        result.at(wordCount) = convert(begin, i);
+        result.emplace_back(convert(begin, i));
         ++wordCount;
-        if (wordCount >= N) {
-          break;
-        }
       }
 
       // exclude the delimiter, hence i+1
@@ -122,19 +120,34 @@ std::array<T, N> convertStringToArray(const std::string& inputString,
 
   // handle rest. Note that if a line ends with a delimiter, we consider the last element to be an
   // empty one again.
-  if ((s == State::Word || !skipEmpty) && wordCount < N) {
-    result.at(wordCount) = convert(begin, inputString.size());
+  if (s == State::Word || !skipEmpty) {
+    result.emplace_back(convert(begin, inputString.size()));
     ++wordCount;
   }
 
-  if (wordCount != N && exactLength) {
+  if (exactLength.has_value() && wordCount != exactLength.value()) {
     throw std::runtime_error(std::string("Insufficient number of elements in array. Given: ") +
                              std::to_string(wordCount) + std::string(". Required: ") +
-                             std::to_string(N));
+                             std::to_string(exactLength.value()));
   }
 
   return result;
 }
+
+template <typename T, std::size_t N>
+std::array<T, N> convertStringToArray(const std::string& inputString,
+                                      bool exactLength = true,
+                                      bool skipEmpty = true,
+                                      char delimiter = ' ') {
+  const auto vec = convertStringToVector<T>(
+      inputString, exactLength ? N : std::optional<std::size_t>(), skipEmpty, delimiter);
+  std::array<T, N> array;
+  for (std::size_t i = 0; i < std::min(vec.size(), N); ++i) {
+    array[i] = vec[i];
+  }
+  return array;
+}
+
 //
 using StringsType = std::list<std::string>;
 class FileProcessor {
@@ -164,8 +177,9 @@ class FileProcessor {
 
     std::vector<StringsType::iterator> deletees;
     for (auto itr = content.begin(); itr != content.end(); ++itr) {
-      if (isEmptyString(*itr))
+      if (isEmptyString(*itr)) {
         deletees.push_back(itr);
+      }
     }
 
     for (auto& itr : deletees) {

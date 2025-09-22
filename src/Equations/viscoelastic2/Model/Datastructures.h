@@ -17,31 +17,55 @@
 #include "Initializer/PreProcessorMacros.h"
 #include "Model/CommonDatastructures.h"
 #include <Common/Typedefs.h>
+#include <Equations/viscoelastic/Model/IntegrationData.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Kernels/LinearCK/Solver.h>
 #include <Kernels/LinearCKAnelastic/Solver.h>
 #include <Physics/Attenuation.h>
 #include <array>
 #include <cstddef>
+#include <limits>
 #include <string>
 
 namespace seissol::model {
-class ViscoElasticLocalData;
-class ViscoElasticNeighborData;
+template <typename>
+class ViscoElasticQELocalData;
+template <typename>
+class ViscoElasticATLocalData;
+template <typename>
+class ViscoElasticATNeighborData;
 
 template <ViscoImplementation Implementation>
 struct ViscoSolver {
   using Type = kernels::solver::linearck::Solver;
+
+  template <typename Cfg>
+  using LocalData = ViscoElasticQELocalData<Cfg>;
+
+  template <typename Cfg>
+  using NeighborData = std::monostate;
 };
 
 template <>
 struct ViscoSolver<ViscoImplementation::QuantityExtension> {
   using Type = kernels::solver::linearck::Solver;
+
+  template <typename Cfg>
+  using LocalData = ViscoElasticQELocalData<Cfg>;
+
+  template <typename Cfg>
+  using NeighborData = std::monostate;
 };
 
 template <>
 struct ViscoSolver<ViscoImplementation::AnelasticTensor> {
   using Type = kernels::solver::linearckanelastic::Solver;
+
+  template <typename Cfg>
+  using LocalData = ViscoElasticATLocalData<Cfg>;
+
+  template <typename Cfg>
+  using NeighborData = ViscoElasticATNeighborData<Cfg>;
 };
 
 template <std::size_t MechanismsP>
@@ -61,9 +85,14 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   static constexpr bool SupportsDR = true;
   static constexpr bool SupportsLTS = true;
 
-  using LocalSpecificData = ViscoElasticLocalData;
-  using NeighborSpecificData = ViscoElasticNeighborData;
+  template <typename Config>
+  using LocalSpecificData = typename ViscoSolver<Config::ViscoMode>::template LocalData<Config>;
 
+  template <typename Config>
+  using NeighborSpecificData =
+      typename ViscoSolver<Config::ViscoMode>::template NeighborData<Config>;
+
+  template <typename Config>
   using Solver = typename ViscoSolver<Config::ViscoMode>::Type;
 
   //! Relaxation frequencies
@@ -76,6 +105,9 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   double theta[zeroLengthArrayHandler(Mechanisms)][3];
   double Qp;
   double Qs;
+
+  static const std::unordered_map<std::string, double ViscoElasticMaterialParametrized::*>
+      ParameterMap;
 
   ViscoElasticMaterialParametrized() = default;
   ViscoElasticMaterialParametrized(const std::vector<double>& materialValues)
@@ -97,12 +129,27 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 
+  // for now, keep per material entry
+  double maxTimestep{std::numeric_limits<double>::infinity()};
+
   void initialize(const initializer::parameters::ModelParameters& parameters) override {
+    maxTimestep = 0.25 / (parameters.freqCentral * std::sqrt(parameters.freqRatio));
+
     physics::fitAttenuation<Mechanisms>(*this, parameters.freqCentral, parameters.freqRatio);
   }
+
+  [[nodiscard]] double maximumTimestep() const override { return maxTimestep; }
 };
 
-using ViscoElasticMaterial = ViscoElasticMaterialParametrized<Config::RelaxationMechanisms>;
+template <std::size_t N>
+inline const std::unordered_map<std::string, double ViscoElasticMaterialParametrized<N>::*>
+    ViscoElasticMaterialParametrized<N>::ParameterMap{
+        {"rho", &ViscoElasticMaterialParametrized<N>::rho},
+        {"lambda", &ViscoElasticMaterialParametrized<N>::lambda},
+        {"mu", &ViscoElasticMaterialParametrized<N>::mu},
+        {"Qp", &ViscoElasticMaterialParametrized<N>::Qp},
+        {"Qs", &ViscoElasticMaterialParametrized<N>::Qs}};
+
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_DATASTRUCTURES_H_

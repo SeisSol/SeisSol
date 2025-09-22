@@ -24,6 +24,7 @@
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
+#include <Memory/GlobalData.h>
 #include <Memory/Tree/Layer.h>
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>
@@ -31,8 +32,6 @@
 #include "GeneratedCode/init.h"
 #include <array>
 #include <cstddef>
-#include <easi/Query.h>
-#include <easi/ResultAdapter.h>
 #include <easi/YAMLParser.h>
 #include <memory>
 #include <string>
@@ -60,11 +59,6 @@ GENERATE_HAS_MEMBER(selectAneFull)
 GENERATE_HAS_MEMBER(selectElaFull)
 GENERATE_HAS_MEMBER(Values)
 GENERATE_HAS_MEMBER(Qane)
-
-namespace seissol::init {
-class selectAneFull;
-class selectElaFull;
-} // namespace seissol::init
 
 #ifndef USE_ASAGI
 namespace easi {
@@ -117,69 +111,76 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
   const auto& vertices = meshReader.getVertices();
   const auto& elements = meshReader.getElements();
 
-  constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
-  constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
-
-  double quadraturePoints[NumQuadPoints][Cell::Dim];
-  double quadratureWeights[NumQuadPoints];
-  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
-
   for (auto& layer : storage.leaves(Ghost)) {
+    layer.wrap([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      using real = Real<Cfg>;
+
+      const auto& global = globalData.get<Cfg>();
+
+      constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
+      constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
+
+      double quadraturePoints[NumQuadPoints][Cell::Dim];
+      double quadratureWeights[NumQuadPoints];
+      seissol::quadrature::TetrahedronQuadrature(
+          quadraturePoints, quadratureWeights, QuadPolyDegree);
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel
-    {
 #endif
-      alignas(Alignment) real iniCondData[tensor::iniCond::size()] = {};
-      auto iniCond = init::iniCond::view::create(iniCondData);
+      {
+        alignas(Alignment) real iniCondData[tensor::iniCond<Cfg>::size()] = {};
+        auto iniCond = init::iniCond<Cfg>::view::create(iniCondData);
 
-      std::vector<std::array<double, Cell::Dim>> quadraturePointsXyz;
-      quadraturePointsXyz.resize(NumQuadPoints);
+        std::vector<std::array<double, Cell::Dim>> quadraturePointsXyz;
+        quadraturePointsXyz.resize(NumQuadPoints);
 
-      kernel::projectIniCond krnl;
-      krnl.projectQP = globalData.projectQPMatrix;
-      krnl.iniCond = iniCondData;
-      kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
-      kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
+        kernel::projectIniCond<Cfg> krnl;
+        krnl.projectQP = global.projectQPMatrix;
+        krnl.iniCond = iniCondData;
+        kernels::set_selectAneFull(krnl,
+                                   kernels::get_static_ptr_Values<init::selectAneFull<Cfg>>());
+        kernels::set_selectElaFull(krnl,
+                                   kernels::get_static_ptr_Values<init::selectElaFull<Cfg>>());
 
-      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-      const auto* material = layer.var<LTS::Material>();
-      auto* dofs = layer.var<LTS::Dofs>();
-      auto* dofsAne = layer.var<LTS::DofsAne>();
+        const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+        const auto* material = layer.var<LTS::Material>();
+        auto* dofs = layer.var<LTS::Dofs>(cfg);
+        auto* dofsAne = layer.var<LTS::DofsAne>(cfg);
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
 #endif
-      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-        const auto meshId = secondaryInformation[cell].meshId;
-        const double* elementCoords[Cell::NumVertices];
-        for (size_t v = 0; v < Cell::NumVertices; ++v) {
-          elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
-        }
-        for (size_t i = 0; i < NumQuadPoints; ++i) {
-          seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
-                                                                 elementCoords[1],
-                                                                 elementCoords[2],
-                                                                 elementCoords[3],
-                                                                 quadraturePoints[i],
-                                                                 quadraturePointsXyz[i].data());
-        }
+        for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+          const auto meshId = secondaryInformation[cell].meshId;
+          const double* elementCoords[Cell::NumVertices];
+          for (size_t v = 0; v < Cell::NumVertices; ++v) {
+            elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
+          }
+          for (size_t i = 0; i < NumQuadPoints; ++i) {
+            seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
+                                                                   elementCoords[1],
+                                                                   elementCoords[2],
+                                                                   elementCoords[3],
+                                                                   quadraturePoints[i],
+                                                                   quadraturePointsXyz[i].data());
+          }
 
-        const CellMaterialData& materialData = material[cell];
-        for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-          auto sub = multisim::simtensor(iniCond, s);
-          iniFields[s % iniFields.size()]->evaluate(
-              0.0, quadraturePointsXyz.data(), quadraturePointsXyz.size(), materialData, sub);
-        }
+          const CellMaterialData& materialData = material[cell];
+          for (std::size_t s = 0; s < multisim::NumSimulations<Cfg>; ++s) {
+            auto sub = multisim::simtensor<Cfg>(iniCond, s);
+            iniFields[s % iniFields.size()]->evaluate(
+                0.0, quadraturePointsXyz.data(), quadraturePointsXyz.size(), materialData, sub);
+          }
 
-        krnl.Q = dofs[cell];
-        if constexpr (kernels::HasSize<tensor::Qane>::Value) {
-          kernels::set_Qane(krnl, dofsAne[cell]);
+          krnl.Q = dofs[cell];
+          if constexpr (kernels::HasSize<tensor::Qane<Cfg>>::Value) {
+            kernels::set_Qane(krnl, dofsAne[cell]);
+          }
+          krnl.execute();
         }
-        krnl.execute();
       }
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
-    }
-#endif
+    });
   }
 }
 
@@ -190,7 +191,8 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
   const auto& vertices = meshReader.getVertices();
   const auto& elements = meshReader.getElements();
 
-  constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
+  /*
+  constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
   const int dimensions = needsTime ? (Cell::Dim + 1) : Cell::Dim;
@@ -228,15 +230,15 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
     }
   }
 
-  std::vector<double> data(NumQuadPoints * iniFields.size() * model::MaterialT::Quantities.size() *
-                           elements.size());
-  const auto dataPointStride = iniFields.size() * model::MaterialT::Quantities.size();
+  std::vector<double> data(NumQuadPoints * iniFields.size() *
+                           model::MaterialTT<Cfg>::Quantities.size() * elements.size());
+  const auto dataPointStride = iniFields.size() * model::MaterialTT<Cfg>::Quantities.size();
   {
     auto models = EasiLoader(needsTime, iniFields);
     for (std::size_t i = 0; i < iniFields.size(); ++i) {
       auto adapter = easi::ArraysAdapter();
-      for (std::size_t j = 0; j < model::MaterialT::Quantities.size(); ++j) {
-        const auto& quantity = model::MaterialT::Quantities.at(j);
+      for (std::size_t j = 0; j < model::MaterialTT<Cfg>::Quantities.size(); ++j) {
+        const auto& quantity = model::MaterialTT<Cfg>::Quantities.at(j);
         const std::size_t bindOffset = i + j * iniFields.size();
         adapter.addBindingPoint(quantity, data.data() + bindOffset, dataPointStride);
       }
@@ -244,7 +246,8 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
     }
   }
 
-  return data;
+  return data;*/
+  return std::vector<double>();
 }
 
 void projectEasiInitialField(const std::vector<std::string>& iniFields,
@@ -253,58 +256,67 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              seissol::initializer::MemoryManager& memoryManager,
                              LTS::Storage& storage,
                              bool needsTime) {
-  constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
-  constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
-
   const auto data = projectEasiFields(iniFields, 0, meshReader, needsTime);
 
-  const auto dataStride = NumQuadPoints * iniFields.size() * model::MaterialT::Quantities.size();
-  const auto quantityCount = model::MaterialT::Quantities.size();
-
   for (auto& layer : storage.leaves(Ghost)) {
+    layer.wrap([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      using real = Real<Cfg>;
+
+      constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
+      constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
+      const auto dataStride =
+          NumQuadPoints * iniFields.size() * model::MaterialTT<Cfg>::Quantities.size();
+      const auto quantityCount = model::MaterialTT<Cfg>::Quantities.size();
+
+      const auto& global = globalData.get<Cfg>();
+
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel
 #endif
-    {
-      alignas(Alignment) real iniCondData[tensor::iniCond::size()] = {};
-      auto iniCond = init::iniCond::view::create(iniCondData);
+      {
+        alignas(Alignment) real iniCondData[tensor::iniCond<Cfg>::size()] = {};
+        auto iniCond = init::iniCond<Cfg>::view::create(iniCondData);
 
-      std::vector<std::array<double, 3>> quadraturePointsXyz;
-      quadraturePointsXyz.resize(NumQuadPoints);
+        std::vector<std::array<double, 3>> quadraturePointsXyz;
+        quadraturePointsXyz.resize(NumQuadPoints);
 
-      kernel::projectIniCond krnl;
-      krnl.projectQP = globalData.projectQPMatrix;
-      krnl.iniCond = iniCondData;
-      kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
-      kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
+        kernel::projectIniCond<Cfg> krnl;
+        krnl.projectQP = global.projectQPMatrix;
+        krnl.iniCond = iniCondData;
+        kernels::set_selectAneFull(krnl,
+                                   kernels::get_static_ptr_Values<init::selectAneFull<Cfg>>());
+        kernels::set_selectElaFull(krnl,
+                                   kernels::get_static_ptr_Values<init::selectElaFull<Cfg>>());
 
-      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-      auto* dofs = layer.var<LTS::Dofs>();
-      auto* dofsAne = layer.var<LTS::DofsAne>();
+        const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+        auto* dofs = layer.var<LTS::Dofs>(cfg);
+        auto* dofsAne = layer.var<LTS::DofsAne>(cfg);
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
 #endif
-      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-        const auto meshId = secondaryInformation[cell].meshId;
-        // TODO: multisim loop
+        for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+          const auto meshId = secondaryInformation[cell].meshId;
+          // TODO: multisim loop
 
-        for (std::size_t s = 0; s < seissol::multisim::NumSimulations; s++) {
-          auto sub = multisim::simtensor(iniCond, s);
-          for (std::size_t i = 0; i < NumQuadPoints; ++i) {
-            for (std::size_t j = 0; j < quantityCount; ++j) {
-              sub(i, j) = data.at(meshId * dataStride + quantityCount * i + j);
+          for (std::size_t s = 0; s < seissol::multisim::NumSimulations<Cfg>; s++) {
+            auto sub = multisim::simtensor<Cfg>(iniCond, s);
+            for (std::size_t i = 0; i < NumQuadPoints; ++i) {
+              for (std::size_t j = 0; j < quantityCount; ++j) {
+                sub(i, j) = data.at(meshId * dataStride + quantityCount * i + j);
+              }
             }
           }
-        }
 
-        krnl.Q = dofs[cell];
-        if constexpr (kernels::HasSize<tensor::Qane>::Value) {
-          kernels::set_Qane(krnl, dofsAne[cell]);
+          krnl.Q = dofs[cell];
+          if constexpr (kernels::HasSize<tensor::Qane<Cfg>>::Value) {
+            kernels::set_Qane(krnl, dofsAne[cell]);
+          }
+          krnl.execute();
         }
-        krnl.execute();
       }
-    }
+    });
   }
 }
 

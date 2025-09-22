@@ -81,7 +81,7 @@ namespace kernels {
  * @param convergenceOrder convergence order.
  * @return number of basis funcitons.
  **/
-constexpr unsigned int getNumberOfBasisFunctions(unsigned int convergenceOrder = ConvergenceOrder) {
+constexpr std::size_t getNumberOfBasisFunctions(std::size_t convergenceOrder) {
   return convergenceOrder * (convergenceOrder + 1) * (convergenceOrder + 2) / 6;
 }
 
@@ -91,9 +91,9 @@ constexpr unsigned int getNumberOfBasisFunctions(unsigned int convergenceOrder =
  * @param alignment alignment in bytes.
  * @return aligned number of reals.
  **/
-template <typename RealT = real>
-constexpr unsigned int getNumberOfAlignedReals(unsigned int numberOfReals,
-                                               unsigned int alignment = Vectorsize) {
+template <typename RealT>
+constexpr std::size_t getNumberOfAlignedReals(std::size_t numberOfReals,
+                                              std::size_t alignment = Vectorsize) {
   // in principle, we could simplify this formula by substituting alignment = alignment /
   // sizeof(real). However, this will cause errors, if alignment is not dividable by sizeof(real)
   // which could happen e.g. if alignment < sizeof(real), or if we have real == long double (if
@@ -110,13 +110,12 @@ constexpr unsigned int getNumberOfAlignedReals(unsigned int numberOfReals,
  * @param alignment alignment in bytes.
  * @return aligned number of basis functions.
  **/
-template <typename RealT = real>
-constexpr unsigned int
-    getNumberOfAlignedBasisFunctions(unsigned int convergenceOrder = ConvergenceOrder,
-                                     unsigned int alignment = Vectorsize) {
+template <typename RealT>
+constexpr std::size_t getNumberOfAlignedBasisFunctions(std::size_t convergenceOrder,
+                                                       std::size_t alignment = Vectorsize) {
   // return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) *
   // REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
-  unsigned int numberOfBasisFunctions = getNumberOfBasisFunctions(convergenceOrder);
+  std::size_t numberOfBasisFunctions = getNumberOfBasisFunctions(convergenceOrder);
   return getNumberOfAlignedReals<RealT>(numberOfBasisFunctions);
 }
 
@@ -127,12 +126,13 @@ constexpr unsigned int
  * @param alignment alignment in bytes.
  * @return aligned number of basis functions.
  **/
-constexpr unsigned
-    getNumberOfAlignedDerivativeBasisFunctions(unsigned int convergenceOrder = ConvergenceOrder,
-                                               unsigned int alignment = Vectorsize) {
+template <typename RealT>
+constexpr std::size_t
+    getNumberOfAlignedDerivativeBasisFunctions(std::size_t convergenceOrder,
+                                               std::size_t alignment = Vectorsize) {
   return (convergenceOrder > 0)
-             ? getNumberOfAlignedBasisFunctions(convergenceOrder) +
-                   getNumberOfAlignedDerivativeBasisFunctions(convergenceOrder - 1)
+             ? getNumberOfAlignedBasisFunctions<RealT>(convergenceOrder) +
+                   getNumberOfAlignedDerivativeBasisFunctions<RealT>(convergenceOrder - 1)
              : 0;
 }
 
@@ -142,7 +142,7 @@ constexpr unsigned
 template <typename T>
 struct HasSize {
   template <typename U>
-  static constexpr decltype(std::declval<U>().size(), bool()) test(int) {
+  static constexpr decltype(std::declval<U>().size(), bool()) test(int /*unused*/) {
     return true;
   }
   template <typename U>
@@ -167,12 +167,5 @@ constexpr auto size() -> std::enable_if_t<!HasSize<T>::Value, unsigned> {
 
 constexpr bool isDeviceOn() { return HardwareSupport == BuildType::Gpu; }
 } // namespace seissol
-
-// for now, make these #defines constexprs. Soon, they should be namespaced.
-constexpr std::size_t NumBasisFunctions = seissol::kernels::getNumberOfBasisFunctions();
-constexpr std::size_t NumAlignedBasisFunctions =
-    seissol::kernels::getNumberOfAlignedBasisFunctions();
-constexpr std::size_t NumAlignedDerivativeBasisFunctions =
-    seissol::kernels::getNumberOfAlignedDerivativeBasisFunctions();
 
 #endif // SEISSOL_SRC_KERNELS_COMMON_H_

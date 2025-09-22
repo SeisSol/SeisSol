@@ -19,7 +19,6 @@
 #include "utils/logger.h"
 
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/TimeStepping/LtsLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Monitoring/FlopCounter.h"
 #include "Parallel/Pin.h"
@@ -27,10 +26,7 @@
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/AsyncIO.h"
 #include "ResultWriter/EnergyOutput.h"
-#include "ResultWriter/FaultWriter.h"
-#include "ResultWriter/FreeSurfaceWriter.h"
 #include "ResultWriter/PostProcessor.h"
-#include "ResultWriter/WaveFieldWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/Simulator.h"
 #include "Solver/TimeStepping/TimeManager.h"
@@ -81,8 +77,6 @@ class SeisSol {
 
   void setExecutionPlaceCutoff(std::size_t size);
 
-  initializer::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
-
   initializer::MemoryManager& getMemoryManager() { return *m_memoryManager; }
 
   time_stepping::TimeManager& timeManager() { return m_timeManager; }
@@ -93,8 +87,6 @@ class SeisSol {
 
   solver::FreeSurfaceIntegrator& freeSurfaceIntegrator() { return m_freeSurfaceIntegrator; }
 
-  writer::FreeSurfaceWriter& freeSurfaceWriter() { return m_freeSurfaceWriter; }
-
   writer::AnalysisWriter& analysisWriter() { return m_analysisWriter; }
 
   /** Get the post processor module
@@ -102,16 +94,6 @@ class SeisSol {
   writer::PostProcessor& postProcessor() { return m_postProcessor; }
 
   io::AsyncIO& asyncIO() { return m_asyncIO; }
-
-  /**
-   * Get the wave field writer module
-   */
-  writer::WaveFieldWriter& waveFieldWriter() { return m_waveFieldWriter; }
-
-  /**
-   * Get the fault writer module
-   */
-  writer::FaultWriter& faultWriter() { return m_faultWriter; }
 
   /**
    * Get the receiver writer module
@@ -223,9 +205,6 @@ class SeisSol {
   //! Mesh Reader
   seissol::geometry::MeshReader* m_meshReader{nullptr};
 
-  //! Lts Layout
-  initializer::time_stepping::LtsLayout m_ltsLayout;
-
   //! Memory Manager
   std::unique_ptr<initializer::MemoryManager> m_memoryManager{nullptr};
 
@@ -244,17 +223,8 @@ class SeisSol {
   //! Free surface integrator module
   solver::FreeSurfaceIntegrator m_freeSurfaceIntegrator;
 
-  //! Free surface writer module
-  writer::FreeSurfaceWriter m_freeSurfaceWriter;
-
   //! Analysis writer module
   writer::AnalysisWriter m_analysisWriter;
-
-  //! Wavefield output module
-  writer::WaveFieldWriter m_waveFieldWriter;
-
-  //! Fault output module
-  writer::FaultWriter m_faultWriter;
 
   //! Receiver writer module
   writer::ReceiverWriter m_receiverWriter;
@@ -281,10 +251,9 @@ class SeisSol {
 
   public:
   SeisSol(initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)
-      : outputManager(*this), m_seissolParameters(parameters), m_ltsLayout(parameters),
+      : outputManager(*this), m_seissolParameters(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
-        m_freeSurfaceWriter(*this), m_analysisWriter(*this), m_waveFieldWriter(*this),
-        m_faultWriter(*this), m_receiverWriter(*this), m_energyOutput(*this),
+        m_analysisWriter(*this), m_receiverWriter(*this), m_energyOutput(*this),
         timeMirrorManagers(*this, *this), m_env(env) {}
 
   SeisSol(const SeisSol&) = delete;

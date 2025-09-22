@@ -9,6 +9,7 @@
 
 #include "Xml.h"
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace seissol::io::instance::metadata {
@@ -24,9 +25,9 @@ XmlFile makePvu(const std::vector<PvuEntry>& entries) {
 
   for (const auto& entry : entries) {
     auto dataset = std::make_shared<XmlData>("DataSet");
-    dataset->addAttribute(XmlAttribute::create("timestep", entry.timestep))
+    dataset->addAttribute(XmlAttribute::create("timestep", std::to_string(entry.timestep)))
         .addAttribute(XmlAttribute::create("group", ""))
-        .addAttribute(XmlAttribute::create("part", 0))
+        .addAttribute(XmlAttribute::create("part", "0"))
         .addAttribute(XmlAttribute::create("file", entry.file));
     collection->addNode(dataset);
   }
