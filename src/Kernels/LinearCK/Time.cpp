@@ -22,6 +22,8 @@
 #include <Kernels/Interface.h>
 #include <Kernels/LinearCK/Solver.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/Layer.h>
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <cstdint>
@@ -53,7 +55,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
-  const auto deviceAlignment = device.api->getGlobMemAlignment();
+
   deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
   deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onDevice->v3mTo2nFace;
 #endif
@@ -61,21 +63,21 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 
 void Spacetime::computeAder(const real* coeffs,
                             double timeStepWidth,
-                            LocalData& data,
+                            LTS::Ref& data,
                             LocalTmp& tmp,
                             real timeIntegrated[tensor::I::size()],
                             real* timeDerivatives,
                             bool updateDisplacement) {
 
-  assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Alignment == 0);
   assert(timeDerivatives == nullptr ||
          reinterpret_cast<uintptr_t>(timeDerivatives) % Alignment == 0);
 
   // Only a small fraction of cells has the gravitational free surface boundary condition
   updateDisplacement &=
-      std::any_of(std::begin(data.cellInformation().faceTypes),
-                  std::end(data.cellInformation().faceTypes),
+      std::any_of(std::begin(data.get<LTS::CellInformation>().faceTypes),
+                  std::end(data.get<LTS::CellInformation>().faceTypes),
                   [](const FaceType f) { return f == FaceType::FreeSurfaceGravity; });
 
   alignas(PagesizeStack) real temporaryBuffer[Solver::DerivativesSize];
@@ -83,13 +85,13 @@ void Spacetime::computeAder(const real* coeffs,
 
   kernel::derivative krnl = m_krnlPrototype;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.localIntegration().starMatrices[i];
+    krnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
 
   // Optional source term
-  set_ET(krnl, get_ptr_sourceMatrix(data.localIntegration().specific));
+  set_ET(krnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
 
-  krnl.dQ(0) = const_cast<real*>(data.dofs());
+  krnl.dQ(0) = const_cast<real*>(data.get<LTS::Dofs>());
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ>(1, i);
   }
@@ -102,11 +104,11 @@ void Spacetime::computeAder(const real* coeffs,
 
   if (updateDisplacement) {
     // First derivative if needed later in kernel
-    std::copy_n(data.dofs(), tensor::dQ::size(0), derivativesBuffer);
+    std::copy_n(data.get<LTS::Dofs>(), tensor::dQ::size(0), derivativesBuffer);
   } else if (timeDerivatives != nullptr) {
     // First derivative is not needed here but later
     // Hence stream it out
-    streamstore(tensor::dQ::size(0), data.dofs(), derivativesBuffer);
+    streamstore(tensor::dQ::size(0), data.get<LTS::Dofs>(), derivativesBuffer);
   }
 
   krnl.execute();
@@ -115,19 +117,19 @@ void Spacetime::computeAder(const real* coeffs,
   // Compute integrated displacement over time step if needed.
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
-    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      if (data.faceDisplacements()[face] != nullptr &&
-          data.cellInformation().faceTypes[face] == FaceType::FreeSurfaceGravity) {
+    for (std::size_t face = 0; face < 4; ++face) {
+      if (data.get<LTS::FaceDisplacements>()[face] != nullptr &&
+          data.get<LTS::CellInformation>().faceTypes[face] == FaceType::FreeSurfaceGravity) {
         bc.evaluate(face,
                     projectDerivativeToNodalBoundaryRotated,
-                    data.boundaryMapping()[face],
-                    data.faceDisplacements()[face],
+                    data.get<LTS::BoundaryMapping>()[face],
+                    data.get<LTS::FaceDisplacements>()[face],
                     tmp.nodalAvgDisplacements[face].data(),
                     *this,
                     derivativesBuffer,
                     timeStepWidth,
-                    data.material(),
-                    data.cellInformation().faceTypes[face]);
+                    data.get<LTS::Material>(),
+                    data.get<LTS::CellInformation>().faceTypes[face]);
       }
     }
   }

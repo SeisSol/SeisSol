@@ -24,15 +24,17 @@ class InitialField {
   public:
   virtual ~InitialField() = default;
   virtual void evaluate(double time,
-                        const std::vector<std::array<double, 3>>& points,
+                        const std::array<double, 3>* points,
+                        std::size_t count,
                         const CellMaterialData& materialData,
                         yateto::DenseTensorView<2, real, unsigned>& dofsQP) const = 0;
 };
 
 class ZeroField : public InitialField {
   public:
-  void evaluate(double,
-                const std::vector<std::array<double, 3>>&,
+  void evaluate(double time,
+                const std::array<double, 3>* points,
+                std::size_t count,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override {
     dofsQP.setZero();
@@ -44,8 +46,9 @@ class PressureInjection : public InitialField {
   PressureInjection(
       const seissol::initializer::parameters::InitializationParameters& initializationParameters);
 
-  void evaluate(double,
-                const std::vector<std::array<double, 3>>&,
+  void evaluate(double time,
+                const std::array<double, 3>* points,
+                std::size_t count,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 
@@ -67,7 +70,8 @@ class Planarwave : public InitialField {
                       Eigen::Vector3d kVec = {M_PI, M_PI, M_PI});
 
   void evaluate(double time,
-                const std::vector<std::array<double, 3>>& points,
+                const std::array<double, 3>* points,
+                std::size_t count,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 
@@ -92,7 +96,8 @@ class SuperimposedPlanarwave : public InitialField {
   SuperimposedPlanarwave(const CellMaterialData& materialData, real phase = 0.0);
 
   void evaluate(double time,
-                const std::vector<std::array<double, 3>>& points,
+                const std::array<double, 3>* points,
+                std::size_t count,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 
@@ -109,7 +114,8 @@ class TravellingWave : public Planarwave {
                  const TravellingWaveParameters& travellingWaveParameters);
 
   void evaluate(double time,
-                const std::vector<std::array<double, 3>>& points,
+                const std::array<double, 3>* points,
+                std::size_t count,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 
@@ -123,7 +129,8 @@ class AcousticTravellingWaveITM : public InitialField {
       const CellMaterialData& materialData,
       const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersITM);
   void evaluate(double time,
-                const std::vector<std::array<double, 3>>& points,
+                const std::array<double, 3>* points,
+                std::size_t count,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 
@@ -142,7 +149,8 @@ class ScholteWave : public InitialField {
   public:
   ScholteWave() = default;
   void evaluate(double time,
-                const std::vector<std::array<double, 3>>& points,
+                const std::array<double, 3>* points,
+                std::size_t count,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 };
@@ -150,7 +158,8 @@ class SnellsLaw : public InitialField {
   public:
   SnellsLaw() = default;
   void evaluate(double time,
-                const std::vector<std::array<double, 3>>& points,
+                const std::array<double, 3>* points,
+                std::size_t count,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 };
@@ -166,13 +175,14 @@ class SnellsLaw : public InitialField {
  */
 class Ocean : public InitialField {
   private:
-  const int mode;
-  const double gravitationalAcceleration;
+  int mode;
+  double gravitationalAcceleration;
 
   public:
   Ocean(int mode, double gravitationalAcceleration);
   void evaluate(double time,
-                const std::vector<std::array<double, 3>>& points,
+                const std::array<double, 3>* points,
+                std::size_t count,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 };

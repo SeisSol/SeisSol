@@ -15,8 +15,7 @@
 #include <Initializer/Typedefs.h>
 #include <Kernels/Receiver.h>
 #include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
-#include <Memory/Tree/Lut.h>
+#include <Memory/Tree/Backmap.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cassert>
@@ -129,25 +128,23 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
 
   m_stopwatch.start();
 
-  for (auto& [layer, clusters] : m_receiverClusters) {
-    for (auto& cluster : clusters) {
-      auto ncols = cluster.ncols();
-      for (auto& receiver : cluster) {
-        assert(receiver.output.size() % ncols == 0);
-        const size_t nSamples = receiver.output.size() / ncols;
+  for (auto& cluster : m_receiverClusters) {
+    auto ncols = cluster->ncols();
+    for (auto& receiver : *cluster) {
+      assert(receiver.output.size() % ncols == 0);
+      const size_t nSamples = receiver.output.size() / ncols;
 
-        std::ofstream file;
-        file.open(fileName(receiver.pointId), std::ios::app);
-        file << std::scientific << std::setprecision(15);
-        for (size_t i = 0; i < nSamples; ++i) {
-          for (size_t q = 0; q < ncols; ++q) {
-            file << "  " << receiver.output[q + i * ncols];
-          }
-          file << std::endl;
+      std::ofstream file;
+      file.open(fileName(receiver.pointId), std::ios::app);
+      file << std::scientific << std::setprecision(15);
+      for (size_t i = 0; i < nSamples; ++i) {
+        for (size_t q = 0; q < ncols; ++q) {
+          file << "  " << receiver.output[q + i * ncols];
         }
-        file.close();
-        receiver.output.clear();
+        file << std::endl;
       }
+      file.close();
+      receiver.output.clear();
     }
   }
 
@@ -176,8 +173,7 @@ void ReceiverWriter::init(
 }
 
 void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
-                               const seissol::initializer::Lut& ltsLut,
-                               const seissol::initializer::LTS& lts,
+                               const LTS::Backmap& backmap,
                                const CompoundGlobalData& global) {
   std::vector<Eigen::Vector3d> points;
   // Only parse if we have a receiver file
@@ -224,54 +220,44 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   }
 
   logInfo() << "Mapping receivers to LTS cells...";
-  m_receiverClusters[Interior].clear();
-  m_receiverClusters[Copy].clear();
+  m_receiverClusters.clear();
   for (std::size_t point = 0; point < numberOfPoints; ++point) {
     if (contained[point] == 1) {
       const std::size_t meshId = meshIds[point];
-      const unsigned cluster = ltsLut.cluster(meshId);
-      const LayerType layer = ltsLut.layer(meshId);
+      const auto id = backmap.get(meshId).color;
 
-      auto& clusters = m_receiverClusters[layer];
       // Make sure that needed empty clusters are initialized.
-      for (unsigned c = clusters.size(); c <= cluster; ++c) {
-        clusters.emplace_back(global,
-                              quantities,
-                              m_samplingInterval,
-                              syncInterval(),
-                              derivedQuantities,
-                              seissolInstance);
+      for (std::size_t c = m_receiverClusters.size(); c <= id; ++c) {
+        m_receiverClusters.emplace_back(
+            std::make_shared<kernels::ReceiverCluster>(global,
+                                                       quantities,
+                                                       m_samplingInterval,
+                                                       syncInterval(),
+                                                       derivedQuantities,
+                                                       seissolInstance));
       }
 
       writeHeader(point, points[point]);
-      m_receiverClusters[layer][cluster].addReceiver(
-          meshId, point, points[point], mesh, ltsLut, lts);
+      m_receiverClusters[id]->addReceiver(meshId, point, points[point], mesh, backmap);
     }
   }
 }
 
 void ReceiverWriter::simulationStart(std::optional<double> checkpointTime) {
-  for (auto& [layer, clusters] : m_receiverClusters) {
-    for (auto& cluster : clusters) {
-      cluster.allocateData();
-    }
+  for (auto& cluster : m_receiverClusters) {
+    cluster->allocateData();
   }
 }
 
 void ReceiverWriter::shutdown() {
-  for (auto& [layer, clusters] : m_receiverClusters) {
-    for (auto& cluster : clusters) {
-      cluster.freeData();
-    }
+  for (auto& cluster : m_receiverClusters) {
+    cluster->freeData();
   }
 }
 
-kernels::ReceiverCluster* ReceiverWriter::receiverCluster(unsigned clusterId, LayerType layer) {
-  assert(layer != Ghost);
-  assert(m_receiverClusters.find(layer) != m_receiverClusters.end());
-  auto& clusters = m_receiverClusters[layer];
-  if (clusterId < clusters.size()) {
-    return &clusters[clusterId];
+kernels::ReceiverCluster* ReceiverWriter::receiverCluster(std::size_t id) {
+  if (id < m_receiverClusters.size()) {
+    return m_receiverClusters[id].get();
   }
   return nullptr;
 }
