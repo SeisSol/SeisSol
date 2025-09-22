@@ -38,6 +38,51 @@
 #include <cstdint>
 #endif
 
+namespace {
+template <typename Cfg, typename CfgNeighbor>
+void checkCompatible() {
+  if constexpr (!(tensor::I<Cfg>::Shape[multisim::BasisDim<Cfg>] ==
+                      tensor::I<CfgNeighbor>::Shape[multisim::BasisDim<CfgNeighbor>] &&
+                  tensor::I<Cfg>::Shape[multisim::BasisDim<Cfg> + 1] ==
+                      tensor::I<CfgNeighbor>::Shape[multisim::BasisDim<CfgNeighbor> + 1] &&
+                  multisim::NumSimulations<Cfg> == multisim::NumSimulations<CfgNeighbor>)) {
+    logError() << "Fatal error: wanted to compare differently-sized buffers.";
+  }
+}
+
+template <typename Cfg, typename CfgNeighbor>
+void copyView(Real<Cfg>* ownPtr, Real<CfgNeighbor>* neighborPtr) {
+  // convert precision / copy and zero relevant data
+
+  auto ownView = init::I<Cfg>::view::create(ownPtr);
+  auto neighborView = init::I<CfgNeighbor>::view::create(neighborPtr);
+
+  using real = Real<Cfg>;
+
+  const auto dataRange = std::min(ownView.shape(multisim::BasisDim<Cfg>),
+                                  neighborView.shape(multisim::BasisDim<CfgNeighbor>));
+
+#pragma omp simd collapse(3)
+  for (std::size_t j = 0; j < dataRange; ++j) {
+    for (std::size_t k = 0; k < ownView.shape(multisim::BasisDim<Cfg> + 1); ++k) {
+      for (std::size_t i = 0; i < multisim::NumSimulations<Cfg>; ++i) {
+        multisim::multisimWrap<Cfg>(ownView, i, j, k) =
+            static_cast<real>(multisim::multisimWrap<CfgNeighbor>(neighborView, i, j, k));
+      }
+    }
+  }
+#pragma omp simd collapse(3)
+  for (std::size_t j = dataRange; j < ownView.shape(multisim::BasisDim<Cfg>); ++j) {
+    for (std::size_t k = 0; k < ownView.shape(multisim::BasisDim<Cfg> + 1); ++k) {
+
+      for (std::size_t i = 0; i < multisim::NumSimulations<Cfg>; ++i) {
+        multisim::multisimWrap<Cfg>(ownView, i, j, k) = 0;
+      }
+    }
+  }
+}
+} // namespace
+
 namespace seissol::kernels {
 
 template <typename Cfg>
@@ -83,16 +128,7 @@ void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
               [&](auto cfg) {
                 using CfgNeighbor = decltype(cfg);
 
-                if constexpr (!(tensor::I<Cfg>::Shape[multisim::BasisDim<Cfg>] ==
-                                    tensor::I<
-                                        CfgNeighbor>::Shape[multisim::BasisDim<CfgNeighbor>] &&
-                                tensor::I<Cfg>::Shape[multisim::BasisDim<Cfg> + 1] ==
-                                    tensor::I<CfgNeighbor>::Shape[multisim::BasisDim<CfgNeighbor> +
-                                                                  1] &&
-                                multisim::NumSimulations<Cfg> ==
-                                    multisim::NumSimulations<CfgNeighbor>)) {
-                  logError() << "Fatal error: wanted to compare differently-sized buffers.";
-                }
+                checkCompatible<Cfg, CfgNeighbor>();
 
                 using RealNeighbor = Real<CfgNeighbor>;
                 auto* neighborPtr = static_cast<RealNeighbor*>(timeDofs[dofneighbor]);
@@ -104,31 +140,7 @@ void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
                 } else {
                   // convert precision / copy and zero relevant data
 
-                  auto ownView = init::I<Cfg>::view::create(integrationBuffer[dofneighbor]);
-                  auto neighborView = init::I<CfgNeighbor>::view::create(neighborPtr);
-
-                  const auto dataRange =
-                      std::min(ownView.shape(multisim::BasisDim<Cfg>),
-                               neighborView.shape(multisim::BasisDim<CfgNeighbor>));
-
-#pragma omp simd collapse(3)
-                  for (std::size_t j = 0; j < dataRange; ++j) {
-                    for (std::size_t k = 0; k < ownView.shape(multisim::BasisDim<Cfg> + 1); ++k) {
-                      for (std::size_t i = 0; i < multisim::NumSimulations<Cfg>; ++i) {
-                        multisim::multisimWrap<Cfg>(ownView, i, j, k) = static_cast<real>(
-                            multisim::multisimWrap<CfgNeighbor>(neighborView, i, j, k));
-                      }
-                    }
-                  }
-#pragma omp simd collapse(3)
-                  for (std::size_t j = dataRange; j < ownView.shape(multisim::BasisDim<Cfg>); ++j) {
-                    for (std::size_t k = 0; k < ownView.shape(multisim::BasisDim<Cfg> + 1); ++k) {
-
-                      for (std::size_t i = 0; i < multisim::NumSimulations<Cfg>; ++i) {
-                        multisim::multisimWrap<Cfg>(ownView, i, j, k) = 0;
-                      }
-                    }
-                  }
+                  copyView<Cfg, CfgNeighbor>(integrationBuffer[dofneighbor], neighborPtr);
                   timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
                 }
               },
@@ -145,10 +157,56 @@ void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
         // relation" instead; then everything will work again.
 
         const auto* coeffs = ltsSetup.neighborGTS(dofneighbor) ? timeCoeffs : subtimeCoeffs;
-        time.evaluate(
-            coeffs, static_cast<real*>(timeDofs[dofneighbor]), integrationBuffer[dofneighbor]);
 
-        timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
+        if (ConfigVariant(Cfg()).index() == neighborConfig) {
+          time.evaluate(
+              coeffs, static_cast<real*>(timeDofs[dofneighbor]), integrationBuffer[dofneighbor]);
+
+          timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
+        } else {
+          std::visit(
+              [&](auto cfg) {
+                using CfgNeighbor = decltype(cfg);
+
+                checkCompatible<Cfg, CfgNeighbor>();
+
+                using RealNeighbor = Real<CfgNeighbor>;
+                auto* neighborPtr = static_cast<RealNeighbor*>(timeDofs[dofneighbor]);
+
+                alignas(Alignment) RealNeighbor bufferN[tensor::I<CfgNeighbor>::size()];
+                RealNeighbor coeffsN[CfgNeighbor::ConvergenceOrder]{};
+
+                for (std::size_t i = 0;
+                     i < std::min(CfgNeighbor::ConvergenceOrder, Cfg::ConvergenceOrder);
+                     ++i) {
+                  coeffsN[i] = coeffs[i];
+                }
+
+                Time<CfgNeighbor> timeNeighbor;
+
+                RealNeighbor* buffer = nullptr;
+
+                if constexpr (std::is_same_v<real, RealNeighbor> &&
+                              Cfg::ConvergenceOrder == CfgNeighbor::ConvergenceOrder) {
+                  buffer = integrationBuffer[dofneighbor];
+                } else {
+                  // use temporary buffer
+                  buffer = bufferN;
+                }
+
+                timeNeighbor.evaluate(
+                    coeffsN, static_cast<RealNeighbor*>(timeDofs[dofneighbor]), buffer);
+
+                if constexpr (!(std::is_same_v<real, RealNeighbor> &&
+                                Cfg::ConvergenceOrder == CfgNeighbor::ConvergenceOrder)) {
+                  copyView<Cfg, CfgNeighbor>(static_cast<real*>(integrationBuffer[dofneighbor]),
+                                             buffer);
+                }
+
+                timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
+              },
+              ConfigVariantList[neighborConfig]);
+        }
       }
     }
   }
