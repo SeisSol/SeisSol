@@ -140,7 +140,6 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
   assert(LayerMask(Ghost) == ltsStorage.info<LTS::LocalIntegration>().mask);
   assert(LayerMask(Ghost) == ltsStorage.info<LTS::NeighboringIntegration>().mask);
 
-  const auto* cellInformationAll = ltsStorage.var<LTS::CellInformation>();
   for (auto& layer : ltsStorage.leaves(Ghost)) {
     layer.wrap([&](auto cfg) {
       using Cfg = decltype(cfg);
@@ -381,7 +380,6 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
     layer.wrap([&](auto cfg) {
       using Cfg = decltype(cfg);
       using real = Real<Cfg>;
-      using MaterialT = model::MaterialTT<Cfg>;
       auto* cellInformation = layer.var<LTS::CellInformation>();
       auto* boundary = layer.var<LTS::BoundaryMapping>(cfg);
       auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();

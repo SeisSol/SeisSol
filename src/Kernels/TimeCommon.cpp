@@ -171,7 +171,6 @@ void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
                 checkCompatible<Cfg, CfgNeighbor>();
 
                 using RealNeighbor = Real<CfgNeighbor>;
-                auto* neighborPtr = static_cast<RealNeighbor*>(timeDofs[dofneighbor]);
 
                 alignas(Alignment) RealNeighbor bufferN[tensor::I<CfgNeighbor>::size()];
                 RealNeighbor coeffsN[CfgNeighbor::ConvergenceOrder]{};
