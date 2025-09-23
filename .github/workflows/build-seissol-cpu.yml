@@ -104,8 +104,12 @@ jobs:
 
           if [ ${{matrix.setup.cc}} = nvc ]; then
             TESTING_COMMAND="mpirun -np 1 --oversubscribe --allow-run-as-root";
+
+            # there's still a bug with how NVHPC compiles the kernels; thus disable them for now
+            TESTING_GENERATED_ENABLE=OFF;
           else
             TESTING_COMMAND="";
+            TESTING_GENERATED_ENABLE=ON;
           fi;
 
           cmake .. \
@@ -114,7 +118,7 @@ jobs:
             -DTESTING_COMMAND="${TESTING_COMMAND}" \
             -DCMAKE_INSTALL_PREFIX=/opt/seissol \
             -DTESTING=ON \
-            -DTESTING_GENERATED=ON \
+            -DTESTING_GENERATED=${TESTING_GENERATED_ENABLE} \
             -DASAGI=ON \
             -DHOST_ARCH=${{matrix.arch}} \
             -DORDER=${{matrix.order}} \
