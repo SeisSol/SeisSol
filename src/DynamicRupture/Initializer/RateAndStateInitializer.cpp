@@ -27,6 +27,13 @@ namespace seissol::dr::initializer {
 void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
   BaseDRInitializer::initializeFault(drStorage);
 
+  const auto rsF0Param = !faultProvides("rs_f0");
+  const auto rsMuWParam = !faultProvides("rs_muw");
+  const auto rsBParam = !faultProvides("rs_b");
+
+  logInfo() << "RS parameter source (1 == from parameter file, 0 == from easi file): f0"
+            << rsF0Param << "- muW" << rsMuWParam << "- b" << rsBParam;
+
   for (auto& layer : drStorage.leaves(Ghost)) {
 
     auto* dynStressTimePending = layer.var<LTSRateAndState::DynStressTimePending>();
@@ -37,6 +44,11 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
     real(*stateVariable)[misc::NumPaddedPoints] = layer.var<LTSRateAndState::StateVariable>();
     const real(*rsSl0)[misc::NumPaddedPoints] = layer.var<LTSRateAndState::RsSl0>();
     const real(*rsA)[misc::NumPaddedPoints] = layer.var<LTSRateAndState::RsA>();
+
+    auto* rsF0 = layer.var<LTSRateAndState::RsF0>();
+    auto* rsMuW = layer.var<LTSRateAndState::RsMuW>();
+    auto* rsB = layer.var<LTSRateAndState::RsB>();
+
     auto* initialStressInFaultCS = layer.var<LTSRateAndState::InitialStressInFaultCS>();
 
     const real initialSlipRate =
@@ -48,16 +60,27 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
         dynStressTimePending[ltsFace][pointIndex] = true;
         slipRate1[ltsFace][pointIndex] = drParameters->rsInitialSlipRate1;
         slipRate2[ltsFace][pointIndex] = drParameters->rsInitialSlipRate2;
+
+        if (rsF0Param) {
+          rsF0[ltsFace][pointIndex] = drParameters->rsF0;
+        }
+        if (rsMuWParam) {
+          rsMuW[ltsFace][pointIndex] = drParameters->muW;
+        }
+        if (rsBParam) {
+          rsB[ltsFace][pointIndex] = drParameters->rsB;
+        }
+
         // compute initial friction and state
-        auto stateAndFriction =
+        const auto stateAndFriction =
             computeInitialStateAndFriction(initialStressInFaultCS[ltsFace][XY][pointIndex],
                                            initialStressInFaultCS[ltsFace][XZ][pointIndex],
                                            initialStressInFaultCS[ltsFace][XX][pointIndex],
                                            rsA[ltsFace][pointIndex],
-                                           drParameters->rsB,
+                                           rsB[ltsFace][pointIndex],
                                            rsSl0[ltsFace][pointIndex],
                                            drParameters->rsSr0,
-                                           drParameters->rsF0,
+                                           rsF0[ltsFace][pointIndex],
                                            initialSlipRate);
         stateVariable[ltsFace][pointIndex] = stateAndFriction.stateVariable;
         mu[ltsFace][pointIndex] = stateAndFriction.frictionCoefficient;
@@ -103,6 +126,15 @@ void RateAndStateInitializer::addAdditionalParameters(
 
   parameterToStorageMap.insert({sl0Name, reinterpret_cast<real*>(rsSl0)});
   parameterToStorageMap.insert({"rs_a", reinterpret_cast<real*>(rsA)});
+
+  const auto insertIfPresent = [&](const auto& name, auto* var) {
+    if (faultProvides(name)) {
+      parameterToStorageMap.insert({name, reinterpret_cast<real*>(var)});
+    }
+  };
+  insertIfPresent("rs_f0", layer.var<LTSRateAndState::RsF0>());
+  insertIfPresent("rs_muw", layer.var<LTSRateAndState::RsMuW>());
+  insertIfPresent("rs_b", layer.var<LTSRateAndState::RsB>());
 }
 
 RateAndStateInitializer::StateAndFriction

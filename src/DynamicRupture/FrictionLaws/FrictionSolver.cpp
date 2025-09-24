@@ -7,28 +7,33 @@
 
 #include "FrictionSolver.h"
 
-#include "Common/Constants.h"
-#include "Kernels/Precision.h"
+#include "DynamicRupture/Misc.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
 #include <cstddef>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::dr::friction_law {
 
 FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<double>& timePoints) {
-  std::vector<real> deltaT(ConvergenceOrder);
-  real sumDt = 0;
+  std::vector<double> deltaT(misc::TimeSteps);
 
-  deltaT[0] = timePoints[0];
-  sumDt = deltaT[0];
-  for (std::size_t timeIndex = 1; timeIndex < ConvergenceOrder; ++timeIndex) {
-    deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
-    sumDt += deltaT[timeIndex];
+  if (timePoints.size() != deltaT.size()) {
+    logError() << "Internal time point count mismatch. Given vs. expected:" << timePoints.size()
+               << deltaT.size();
   }
-  // to fill last segment of Gaussian integration
-  deltaT[ConvergenceOrder - 1] = deltaT[ConvergenceOrder - 1] + deltaT[0];
-  sumDt += deltaT[0];
+
+  deltaT[0] = timePoints[0]; // - 0
+  for (std::size_t timeIndex = 1; timeIndex < misc::TimeSteps; ++timeIndex) {
+    deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
+  }
+
+  // add the segment [lastPoint, timestep] to the last point
+  deltaT.back() += timePoints[0];
+
+  // use that time points are symmetric to compute dt
+  const auto sumDt = timePoints.back() + timePoints[0];
 
   return {sumDt, deltaT};
 }
