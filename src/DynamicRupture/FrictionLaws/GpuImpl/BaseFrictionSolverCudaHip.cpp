@@ -21,6 +21,7 @@
 #include "ThermalPressurization/NoTP.h"
 #include "ThermalPressurization/ThermalPressurization.h"
 #include <Common/Constants.h>
+#include <DynamicRupture/Misc.h>
 
 #ifdef __HIP__
 #include "hip/hip_runtime.h"
@@ -68,7 +69,7 @@ namespace seissol::dr::friction_law::gpu {
 template <typename T>
 void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
                                            real fullUpdateTime,
-                                           const double timeWeights[ConvergenceOrder],
+                                           const double* timeWeights,
                                            const FrictionTime& frictionTime) {
 #ifdef __CUDACC__
   using StreamT = cudaStream_t;
@@ -87,8 +88,8 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   args.tpInverseFourierCoefficients = devTpInverseFourierCoefficients;
   args.tpGridPoints = devTpGridPoints;
   args.heatSource = devHeatSource;
-  std::copy_n(timeWeights, ConvergenceOrder, args.timeWeights);
-  std::copy_n(frictionTime.deltaT.data(), ConvergenceOrder, args.deltaT);
+  std::copy_n(timeWeights, misc::TimeSteps, args.timeWeights);
+  std::copy_n(frictionTime.deltaT.data(), misc::TimeSteps, args.deltaT);
   args.sumDt = frictionTime.sumDt;
   args.fullUpdateTime = fullUpdateTime;
 

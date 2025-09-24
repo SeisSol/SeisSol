@@ -204,15 +204,15 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] = slipRate2;
   }
 
-  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& ctx) {
+  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& ctx, real time) {
+    auto muW{ctx.data->muW[ctx.ltsFace][ctx.pointIndex]};
+    auto rsF0{ctx.data->f0[ctx.ltsFace][ctx.pointIndex]};
+
     const auto localRuptureTime = ctx.data->ruptureTime[ctx.ltsFace][ctx.pointIndex];
-    if (localRuptureTime > 0.0 && localRuptureTime <= ctx.args->fullUpdateTime &&
+    if (localRuptureTime > 0.0 && localRuptureTime <= time &&
         ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
-        ctx.data->mu[ctx.ltsFace][ctx.pointIndex] <=
-            (ctx.data->muW[ctx.ltsFace][ctx.pointIndex] +
-             0.05 * (ctx.data->f0[ctx.ltsFace][ctx.pointIndex] -
-                     ctx.data->muW[ctx.ltsFace][ctx.pointIndex]))) {
-      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = ctx.args->fullUpdateTime;
+        ctx.data->mu[ctx.ltsFace][ctx.pointIndex] <= (muW + 0.05 * (rsF0 - muW))) {
+      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = time;
       ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
     }
   }

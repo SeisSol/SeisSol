@@ -260,17 +260,17 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     }
   }
 
-  void saveDynamicStressOutput(std::size_t faceIndex) {
+  void saveDynamicStressOutput(std::size_t faceIndex, real time) {
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
 
       if (this->ruptureTime[faceIndex][pointIndex] > 0.0 &&
-          this->ruptureTime[faceIndex][pointIndex] <= this->mFullUpdateTime &&
+          this->ruptureTime[faceIndex][pointIndex] <= time &&
           this->dynStressTimePending[faceIndex][pointIndex] &&
           this->mu[faceIndex][pointIndex] <=
               (this->muW[faceIndex][pointIndex] +
                0.05 * (this->f0[faceIndex][pointIndex] - this->muW[faceIndex][pointIndex]))) {
-        this->dynStressTime[faceIndex][pointIndex] = this->mFullUpdateTime;
+        this->dynStressTime[faceIndex][pointIndex] = time;
         this->dynStressTimePending[faceIndex][pointIndex] = false;
       }
     }
