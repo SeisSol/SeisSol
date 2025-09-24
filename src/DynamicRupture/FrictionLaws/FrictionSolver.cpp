@@ -29,6 +29,9 @@ FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<dou
     deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
   }
 
+  // add the segment [lastPoint, timestep] to the last point
+  deltaT.back() += timePoints[0];
+
   // use that time points are symmetric to compute dt
   const auto sumDt = timePoints.back() + timePoints[0];
 
