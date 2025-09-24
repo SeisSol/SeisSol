@@ -12,6 +12,7 @@
 #include "Kernels/Precision.h"
 
 #include "GeneratedCode/init.h"
+#include <Common/Constants.h>
 #include <Initializer/Parameters/DRParameters.h>
 #include <cmath>
 #include <string>
@@ -45,6 +46,12 @@ static constexpr inline size_t NumPaddedPointsSingleSim =
     dimSize<init::QInterpolated, multisim::BasisFunctionDimension>();
 static constexpr inline size_t NumQuantities =
     misc::dimSize<init::QInterpolated, multisim::BasisFunctionDimension + 1>();
+
+/*
+ * Time integration point count
+ */
+
+static constexpr inline uint32_t TimeSteps = ConvergenceOrder;
 
 /**
  * Constants for Thermal Pressurization
