@@ -45,6 +45,7 @@ class SevereVelocityWeakeningLaw
   struct MuDetails {
     std::array<double, misc::NumPaddedPoints> a{};
     std::array<double, misc::NumPaddedPoints> c{};
+    std::array<double, misc::NumPaddedPoints> f0{};
   };
 
   MuDetails getMuDetails(std::size_t ltsFace,
@@ -54,11 +55,12 @@ class SevereVelocityWeakeningLaw
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       const double localA = this->a[ltsFace][pointIndex];
       const double localSl0 = this->sl0[ltsFace][pointIndex];
-      const double c = this->drParameters->rsB *
+      const double c = this->b[ltsFace][pointIndex] *
                        static_cast<double>(localStateVariable[pointIndex]) /
                        (static_cast<double>(localStateVariable[pointIndex]) + localSl0);
       details.a[pointIndex] = localA;
       details.c[pointIndex] = c;
+      details.f0[pointIndex] = this->f0[ltsFace][pointIndex];
     }
     return details;
   }
@@ -66,7 +68,7 @@ class SevereVelocityWeakeningLaw
 #pragma omp declare simd
   double
       updateMu(std::uint32_t pointIndex, double localSlipRateMagnitude, const MuDetails& details) {
-    return this->drParameters->rsF0 +
+    return details.f0[pointIndex] +
            details.a[pointIndex] * localSlipRateMagnitude /
                (localSlipRateMagnitude + this->drParameters->rsSr0) -
            details.c[pointIndex];
