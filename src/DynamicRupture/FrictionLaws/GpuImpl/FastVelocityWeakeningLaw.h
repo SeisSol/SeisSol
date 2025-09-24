@@ -34,16 +34,16 @@ class FastVelocityWeakeningLaw
     const double localSrW = ctx.data->srW[ctx.ltsFace][ctx.pointIndex];
     const double localSlipRate = ctx.initialVariables.localSlipRate;
 
-    const auto rsF0 = ctx.data->f0[ctx.ltsFace][ctx.pointIndex];
-    const auto rsB = ctx.data->b[ctx.ltsFace][ctx.pointIndex];
-    const auto muW = ctx.data->muW[ctx.ltsFace][ctx.pointIndex];
+    const auto localF0 = ctx.data->f0[ctx.ltsFace][ctx.pointIndex];
+    const auto localB = ctx.data->b[ctx.ltsFace][ctx.pointIndex];
+    const auto localMuW = ctx.data->muW[ctx.ltsFace][ctx.pointIndex];
 
     const double lowVelocityFriction =
-        rsF0 - (rsB - localA) * std::log(localSlipRate / ctx.data->drParameters.rsSr0);
+        localF0 - (localB - localA) * std::log(localSlipRate / ctx.data->drParameters.rsSr0);
 
     const double steadyStateFrictionCoefficient =
-        muW + (lowVelocityFriction - muW) /
-                  std::pow(1.0 + std::pow(localSlipRate / localSrW, 8), 1.0 / 8.0);
+        localMuW + (lowVelocityFriction - localMuW) /
+                       std::pow(1.0 + std::pow(localSlipRate / localSrW, 8), 1.0 / 8.0);
 
     const double steadyStateStateVariable =
         localA * std::log(ctx.data->drParameters.rsSr0 / localSlipRate * 2 *

@@ -25,6 +25,13 @@ namespace seissol::dr::initializer {
 void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
   BaseDRInitializer::initializeFault(drStorage);
 
+  const auto rsF0Param = !faultProvides("rs_f0");
+  const auto rsMuWParam = !faultProvides("rs_muw");
+  const auto rsBParam = !faultProvides("rs_b");
+
+  logInfo() << "RS parameter source (1 == from parameter file, 0 == from easi file): f0"
+            << rsF0Param << "- muW" << rsMuWParam << "- b" << rsBParam;
+
   for (auto& layer : drStorage.leaves(Ghost)) {
 
     auto* dynStressTimePending = layer.var<LTSRateAndState::DynStressTimePending>();
@@ -44,10 +51,6 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
 
     const real initialSlipRate =
         misc::magnitude(drParameters->rsInitialSlipRate1, drParameters->rsInitialSlipRate2);
-
-    const auto rsF0Param = !faultProvides("rs_f0");
-    const auto rsMuWParam = !faultProvides("rs_muw");
-    const auto rsBParam = !faultProvides("rs_b");
 
     using namespace dr::misc::quantity_indices;
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {

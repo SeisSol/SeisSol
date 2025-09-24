@@ -41,9 +41,10 @@ class SlowVelocityWeakeningLaw
     const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const double log1 = std::log(ctx.data->drParameters.rsSr0 * localStateVariable / localSl0);
-    const auto rsF0 = ctx.data->f0[ctx.ltsFace][ctx.pointIndex];
-    const auto rsB = ctx.data->b[ctx.ltsFace][ctx.pointIndex];
-    const double c = 0.5 / ctx.data->drParameters.rsSr0 * std::exp((rsF0 + rsB * log1) / localA);
+    const auto localF0 = ctx.data->f0[ctx.ltsFace][ctx.pointIndex];
+    const auto localB = ctx.data->b[ctx.ltsFace][ctx.pointIndex];
+    const double c =
+        0.5 / ctx.data->drParameters.rsSr0 * std::exp((localF0 + localB * log1) / localA);
     return MuDetails{localA, c, localA * c};
   }
 
