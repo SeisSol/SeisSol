@@ -12,7 +12,7 @@
 #define SEISSOL_SRC_KERNELS_LINEARCK_TIMEBASE_H_
 
 #include "Common/Constants.h"
-#include "generated_code/kernel.h"
+#include "GeneratedCode/kernel.h"
 #include <Initializer/Typedefs.h>
 #include <Kernels/Spacetime.h>
 #include <Kernels/Time.h>
@@ -30,22 +30,24 @@ namespace seissol::kernels::solver::linearck {
 class Spacetime : public SpacetimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
-  void computeAder(double timeStepWidth,
-                   LocalData& data,
+  void computeAder(const real* coeffs,
+                   double timeStepWidth,
+                   LTS::Ref& data,
                    LocalTmp& tmp,
                    real timeIntegrated[tensor::I::size()],
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
-  void computeBatchedAder(double timeStepWidth,
+  void computeBatchedAder(const real* coeffs,
+                          double timeStepWidth,
                           LocalTmp& tmp,
                           ConditionalPointersToRealsTable& dataTable,
                           ConditionalMaterialTable& materialTable,
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) override;
+  void flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
 
-  unsigned bytesAder() override;
+  std::uint64_t bytesAder() override;
 
   protected:
   kernel::derivative m_krnlPrototype;
@@ -61,44 +63,15 @@ class Spacetime : public SpacetimeKernel {
 class Time : public TimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
-  void evaluateAtTime(
-      std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions,
-      const real* timeDerivatives,
-      real timeEvaluated[tensor::Q::size()]) override;
-  void flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops) override;
-
-  void computeIntegral(double expansionPoint,
-                       double integrationStart,
-                       double integrationEnd,
-                       const real* timeDerivatives,
-                       real timeIntegrated[tensor::I::size()]) override;
-
-  void computeBatchedIntegral(double expansionPoint,
-                              double integrationStart,
-                              double integrationEnd,
-                              const real** timeDerivatives,
-                              real** timeIntegratedDofs,
-                              unsigned numElements,
-                              seissol::parallel::runtime::StreamRuntime& runtime) override;
-
-  void computeTaylorExpansion(real time,
-                              real expansionPoint,
-                              const real* timeDerivatives,
-                              real timeEvaluated[tensor::Q::size()]) override;
-
-  void computeBatchedTaylorExpansion(real time,
-                                     real expansionPoint,
-                                     real** timeDerivatives,
-                                     real** timeEvaluated,
-                                     size_t numElements,
-                                     seissol::parallel::runtime::StreamRuntime& runtime) override;
-
-  void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) override;
-
-  protected:
-#ifdef ACL_DEVICE
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
-#endif
+  void evaluate(const real* coeffs,
+                const real* timeDerivatives,
+                real timeEvaluated[tensor::I::size()]) override;
+  void evaluateBatched(const real* coeffs,
+                       const real** timeDerivatives,
+                       real** timeIntegratedDofs,
+                       std::size_t numElements,
+                       seissol::parallel::runtime::StreamRuntime& runtime) override;
+  void flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
 };
 
 } // namespace seissol::kernels::solver::linearck

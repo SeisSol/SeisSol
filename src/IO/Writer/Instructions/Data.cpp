@@ -103,7 +103,7 @@ WriteBuffer::WriteBuffer(const void* data,
                          size_t size,
                          std::shared_ptr<datatype::Datatype> datatype,
                          const std::vector<std::size_t>& shape)
-    : data(data), size(size), DataSource(std::move(datatype), shape) {}
+    : DataSource(std::move(datatype), shape), data(data), size(size) {}
 
 YAML::Node WriteBuffer::serialize() {
   YAML::Node node;

@@ -43,6 +43,7 @@ struct NumPoints {
   using GpuRange = ForLoopRange<0, 1, 1>;
 
   public:
+  // Range::Start is 0, and Range::End is seissol::misc::NumPaddedPoints for CPU
   using Range = std::conditional_t<Type == RangeType::CPU, CpuRange, GpuRange>;
 };
 
@@ -573,12 +574,12 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   using namespace dr::misc::quantity_indices;
   for (size_t o = 0; o < ConvergenceOrder; ++o) {
     const auto timeWeight = timeWeights[o];
-
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
     for (size_t index = Range::Start; index < Range::End; index += Range::Step) {
-      const size_t i{startIndex + index};
+
+      const size_t i{startIndex + index}; // startIndex is always 0 for CPU
 
       const real interpolatedSlipRate1 = qIMinus[o][U][i] - qIPlus[o][U][i];
       const real interpolatedSlipRate2 = qIMinus[o][V][i] - qIPlus[o][V][i];

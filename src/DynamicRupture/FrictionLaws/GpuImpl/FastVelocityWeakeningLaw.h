@@ -20,19 +20,12 @@ class FastVelocityWeakeningLaw
   public:
   using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
-  static void copyLtsTreeToLocal(FrictionLawData* data,
-                                 seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup,
-                                 real fullUpdateTime) {}
+  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
 
-  static void
-      copySpecificLtsDataTreeToLocal(FrictionLawData* data,
-                                     seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* const dynRup,
-                                     real fullUpdateTime) {
-    using SelfInitializerType = seissol::initializer::LTSRateAndStateFastVelocityWeakening;
-    const auto* concreteLts = dynamic_cast<const SelfInitializerType*>(dynRup);
-    data->srW = layerData.var(concreteLts->rsSrW, seissol::initializer::AllocationPlace::Device);
+  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+                                             DynamicRupture::Layer& layerData) {
+    data->srW = layerData.var<LTSRateAndStateFastVelocityWeakening::RsSrW>(
+        seissol::initializer::AllocationPlace::Device);
   }
 
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
@@ -78,16 +71,16 @@ class FastVelocityWeakeningLaw
   }
 
   SEISSOL_DEVICE static double
-      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, MuDetails& details) {
+      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, const MuDetails& details) {
     const double x = details.c * localSlipRateMagnitude;
     return details.a * std::asinh(x);
   }
 
   SEISSOL_DEVICE static double updateMuDerivative(FrictionLawContext& ctx,
                                                   double localSlipRateMagnitude,
-                                                  MuDetails& details) {
+                                                  const MuDetails& details) {
     const double x = details.c * localSlipRateMagnitude;
-    return details.ac / std::sqrt(std::pow(x, 2) + 1.0);
+    return details.ac / std::sqrt(x * x + 1.0);
   }
 
   SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {
@@ -106,11 +99,11 @@ class FastVelocityWeakeningLaw
     real resampledDeltaStateVar{0.0};
     for (size_t i{0}; i < Dim1; ++i) {
       if constexpr (multisim::MultisimEnabled) {
-        resampledDeltaStateVar += ctx.resampleMatrix[simPointIndex * Dim1 + i] *
+        resampledDeltaStateVar += ctx.args->resampleMatrix[simPointIndex * Dim1 + i] *
                                   ctx.sharedMemory[i * multisim::NumSimulations + simId];
       } else {
         resampledDeltaStateVar +=
-            ctx.resampleMatrix[simPointIndex + i * Dim0] * ctx.sharedMemory[i];
+            ctx.args->resampleMatrix[simPointIndex + i * Dim0] * ctx.sharedMemory[i];
       }
     }
 

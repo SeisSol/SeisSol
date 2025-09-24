@@ -17,7 +17,6 @@ extern long long libxsmm_num_total_flops;
 #include <Eigen/Dense>
 #include <cassert>
 #include <cstring>
-#include <omp.h>
 #include <stdint.h>
 
 #ifdef ACL_DEVICE
@@ -74,7 +73,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 }
 
 void Spacetime::executeSTP(double timeStepWidth,
-                           LocalData& data,
+                           LTS::Ref& data,
                            real timeIntegrated[tensor::I::size()],
                            real* stp)
 
@@ -91,19 +90,19 @@ void Spacetime::executeSTP(double timeStepWidth,
   real B_values[init::star::size(1)];
   real C_values[init::star::size(2)];
   for (std::size_t i = 0; i < init::star::size(0); i++) {
-    A_values[i] = timeStepWidth * data.localIntegration().starMatrices[0][i];
-    B_values[i] = timeStepWidth * data.localIntegration().starMatrices[1][i];
-    C_values[i] = timeStepWidth * data.localIntegration().starMatrices[2][i];
+    A_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[0][i];
+    B_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[1][i];
+    C_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[2][i];
   }
   krnl.star(0) = A_values;
   krnl.star(1) = B_values;
   krnl.star(2) = C_values;
 
-  krnl.Gk = data.localIntegration().specific.G[10] * timeStepWidth;
-  krnl.Gl = data.localIntegration().specific.G[11] * timeStepWidth;
-  krnl.Gm = data.localIntegration().specific.G[12] * timeStepWidth;
+  krnl.Gk = data.get<LTS::LocalIntegration>().specific.G[10] * timeStepWidth;
+  krnl.Gl = data.get<LTS::LocalIntegration>().specific.G[11] * timeStepWidth;
+  krnl.Gm = data.get<LTS::LocalIntegration>().specific.G[12] * timeStepWidth;
 
-  krnl.Q = const_cast<real*>(data.dofs());
+  krnl.Q = const_cast<real*>(data.get<LTS::Dofs>());
   krnl.I = timeIntegrated;
   krnl.timestep = timeStepWidth;
   krnl.spaceTimePredictor = stp;
@@ -112,8 +111,9 @@ void Spacetime::executeSTP(double timeStepWidth,
   // The matrix Zinv depends on the timestep
   // If the timestep is not as expected e.g. when approaching a sync point
   // we have to recalculate it
-  if (timeStepWidth != data.localIntegration().specific.typicalTimeStepWidth) {
-    auto sourceMatrix = init::ET::view::create(data.localIntegration().specific.sourceMatrix);
+  if (timeStepWidth != data.get<LTS::LocalIntegration>().specific.typicalTimeStepWidth) {
+    auto sourceMatrix =
+        init::ET::view::create(data.get<LTS::LocalIntegration>().specific.sourceMatrix);
     real ZinvData[seissol::model::MaterialT::NumQuantities][ConvergenceOrder * ConvergenceOrder];
     model::zInvInitializerForLoop<0,
                                   seissol::model::MaterialT::NumQuantities,
@@ -125,14 +125,15 @@ void Spacetime::executeSTP(double timeStepWidth,
     krnl.execute();
   } else {
     for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
-      krnl.Zinv(i) = data.localIntegration().specific.Zinv[i];
+      krnl.Zinv(i) = data.get<LTS::LocalIntegration>().specific.Zinv[i];
     }
     krnl.execute();
   }
 }
 
-void Spacetime::computeAder(double timeStepWidth,
-                            LocalData& data,
+void Spacetime::computeAder(const real* coeffs,
+                            double timeStepWidth,
+                            LTS::Ref& data,
                             LocalTmp& tmp,
                             real timeIntegrated[tensor::I::size()],
                             real* timeDerivatives,
@@ -140,7 +141,7 @@ void Spacetime::computeAder(double timeStepWidth,
   /*
    * assert alignments.
    */
-  assert((reinterpret_cast<uintptr_t>(data.dofs())) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0 ||
          timeDerivatives == NULL);
@@ -150,7 +151,7 @@ void Spacetime::computeAder(double timeStepWidth,
   executeSTP(timeStepWidth, data, timeIntegrated, stpBuffer);
 }
 
-void Spacetime::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
+void Spacetime::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   // reset flops
   nonZeroFlops = 0;
   hardwareFlops = 0;
@@ -162,8 +163,8 @@ void Spacetime::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlop
   hardwareFlops += 3 * init::star::size(0);
 }
 
-unsigned Spacetime::bytesAder() {
-  unsigned reals = 0;
+std::uint64_t Spacetime::bytesAder() {
+  std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
   reals += tensor::Q::size() + 2 * tensor::I::size();
@@ -179,7 +180,8 @@ unsigned Spacetime::bytesAder() {
   return reals * sizeof(real);
 }
 
-void Spacetime::computeBatchedAder(double timeStepWidth,
+void Spacetime::computeBatchedAder(const real* coeffs,
+                                   double timeStepWidth,
                                    LocalTmp& tmp,
                                    ConditionalPointersToRealsTable& dataTable,
                                    ConditionalMaterialTable& materialTable,
@@ -245,8 +247,33 @@ void Spacetime::computeBatchedAder(double timeStepWidth,
     krnl.execute();
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
+
+void Time::evaluate(const real* coeffs,
+                    const real* timeDerivatives,
+                    real timeEvaluated[tensor::I::size()]) {
+  kernel::evaluateDOFSAtTimeSTP krnl;
+  krnl.spaceTimePredictor = timeDerivatives;
+  krnl.QAtTimeSTP = timeEvaluated;
+  krnl.timeBasisFunctionsAtPoint = coeffs;
+  krnl.execute();
+}
+
+void Time::evaluateBatched(const real* coeffs,
+                           const real** timeDerivatives,
+                           real** timeIntegratedDofs,
+                           std::size_t numElements,
+                           seissol::parallel::runtime::StreamRuntime& runtime) {
+  logError() << "No GPU implementation provided";
+}
+
+void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
+  nonZeroFlops = kernel::evaluateDOFSAtTimeSTP::NonZeroFlops;
+  hardwareFlops = kernel::evaluateDOFSAtTimeSTP::HardwareFlops;
+}
+
+void Time::setGlobalData(const CompoundGlobalData& global) {}
 
 } // namespace seissol::kernels::solver::stp

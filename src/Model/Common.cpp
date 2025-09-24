@@ -8,8 +8,8 @@
 // SPDX-FileContributor: Sebastian Wolf
 
 #include "Model/Common.h"
+#include "GeneratedCode/init.h"
 #include <Geometry/MeshDefinition.h>
-#include <generated_code/init.h>
 
 namespace seissol::model {
 

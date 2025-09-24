@@ -10,11 +10,11 @@
 #ifndef SEISSOL_SRC_KERNELS_PLASTICITY_H_
 #define SEISSOL_SRC_KERNELS_PLASTICITY_H_
 
+#include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
 #include "Model/Plasticity.h"
 #include "Parallel/Runtime/Stream.h"
-#include "generated_code/tensor.h"
 #include <cmath>
 #include <limits>
 
@@ -46,10 +46,10 @@ class Plasticity {
                                unsigned* isAdjustableVector,
                                seissol::parallel::runtime::StreamRuntime& runtime);
 
-  static void flopsPlasticity(long long& nonZeroFlopsCheck,
-                              long long& hardwareFlopsCheck,
-                              long long& nonZeroFlopsYield,
-                              long long& hardwareFlopsYield);
+  static void flopsPlasticity(std::uint64_t& nonZeroFlopsCheck,
+                              std::uint64_t& hardwareFlopsCheck,
+                              std::uint64_t& nonZeroFlopsYield,
+                              std::uint64_t& hardwareFlopsYield);
 };
 
 } // namespace seissol::kernels

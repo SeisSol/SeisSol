@@ -12,7 +12,7 @@
 #define SEISSOL_SRC_KERNELS_LINEARCK_NEIGHBORBASE_H_
 
 #include "Common/Constants.h"
-#include "generated_code/kernel.h"
+#include "GeneratedCode/kernel.h"
 #include <Kernels/Neighbor.h>
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -28,7 +28,7 @@ class Neighbor : public NeighborKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
 
-  void computeNeighborsIntegral(NeighborData& data,
+  void computeNeighborsIntegral(LTS::Ref& data,
                                 const CellDRMapping (&cellDrMapping)[4],
                                 real* timeIntegrated[4],
                                 real* faceNeighborsPrefetch[4]) override;
@@ -39,12 +39,12 @@ class Neighbor : public NeighborKernel {
   void flopsNeighborsIntegral(const FaceType faceTypes[4],
                               const int neighboringIndices[4][2],
                               const CellDRMapping (&cellDrMapping)[4],
-                              unsigned int& nonZeroFlops,
-                              unsigned int& hardwareFlops,
-                              long long& drNonZeroFlops,
-                              long long& drHardwareFlops) override;
+                              std::uint64_t& nonZeroFlops,
+                              std::uint64_t& hardwareFlops,
+                              std::uint64_t& drNonZeroFlops,
+                              std::uint64_t& drHardwareFlops) override;
 
-  unsigned bytesNeighborsIntegral() override;
+  std::uint64_t bytesNeighborsIntegral() override;
 
   protected:
   kernel::neighboringFlux m_nfKrnlPrototype;

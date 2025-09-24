@@ -19,30 +19,26 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   public:
   using BaseFrictionLaw<ImposedSlipRates>::BaseFrictionLaw;
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
-                          real fullUpdateTime) {
-    const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSImposedSlipRates*>(dynRup);
-    imposedSlipDirection1 = layerData.var(concreteLts->imposedSlipDirection1);
-    imposedSlipDirection2 = layerData.var(concreteLts->imposedSlipDirection2);
-    stf.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {
+    imposedSlipDirection1 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>();
+    imposedSlipDirection2 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>();
+    stf.copyStorageToLocal(layerData);
   }
 
   void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
                              TractionResults<Executor::Host>& tractionResults,
                              std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                              std::array<real, misc::NumPaddedPoints>& strengthBuffer,
-                             unsigned ltsFace,
-                             unsigned timeIndex) {
+                             std::size_t ltsFace,
+                             uint32_t timeIndex) {
     const real timeIncrement = this->deltaT[timeIndex];
     real currentTime = this->mFullUpdateTime;
-    for (unsigned i = 0; i <= timeIndex; i++) {
+    for (uint32_t i = 0; i <= timeIndex; i++) {
       currentTime += this->deltaT[i];
     }
 
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       const real stfEvaluated = stf.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
 
       this->traction1[ltsFace][pointIndex] =
@@ -70,9 +66,10 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     }
   }
 
-  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {}
-  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {}
-  void saveDynamicStressOutput(unsigned int ltsFace) {}
+  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {}
+  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
+  }
+  void saveDynamicStressOutput(std::size_t ltsFace) {}
 
   protected:
   real (*__restrict imposedSlipDirection1)[misc::NumPaddedPoints]{};

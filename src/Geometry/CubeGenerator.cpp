@@ -9,12 +9,15 @@
 #include "utils/logger.h"
 
 #include "Parallel/MPI.h"
+#include "Parallel/OpenMP.h"
 
+#include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
 #include <Initializer/Parameters/CubeGeneratorParameters.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cstddef>
 #include <cstring>
 #include <iterator>
 #include <map>
@@ -22,8 +25,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
-#include <omp.h>
 
 #include "MeshReader.h"
 
@@ -61,7 +62,7 @@ const int TetSideOrientations[2][20] = {
     {2, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0},
     {0, 1, 0, 0, 0, 1, 0, 2, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0}};
 
-const char* dim2str(unsigned int dim) {
+const char* dim2str(std::size_t dim) {
   switch (dim) {
   case 0:
     return "x";
@@ -92,18 +93,18 @@ CubeGenerator::CubeGenerator(
     : MeshReader(rank), // init base class
       rank(rank), nProcs(nProcs) {
   // get cubeGenerator parameters
-  const unsigned int cubeMinX = cubeParams.cubeMinX;
-  const unsigned int cubeMaxX = cubeParams.cubeMaxX;
-  const unsigned int cubeMinY = cubeParams.cubeMinY;
-  const unsigned int cubeMaxY = cubeParams.cubeMaxY;
-  const unsigned int cubeMinZ = cubeParams.cubeMinZ;
-  const unsigned int cubeMaxZ = cubeParams.cubeMaxZ;
-  const unsigned int cubeX = cubeParams.cubeX;
-  const unsigned int cubeY = cubeParams.cubeY;
-  const unsigned int cubeZ = cubeParams.cubeZ;
-  const unsigned int cubePx = cubeParams.cubePx;
-  const unsigned int cubePy = cubeParams.cubePy;
-  const unsigned int cubePz = cubeParams.cubePz;
+  const std::size_t cubeMinX = cubeParams.cubeMinX;
+  const std::size_t cubeMaxX = cubeParams.cubeMaxX;
+  const std::size_t cubeMinY = cubeParams.cubeMinY;
+  const std::size_t cubeMaxY = cubeParams.cubeMaxY;
+  const std::size_t cubeMinZ = cubeParams.cubeMinZ;
+  const std::size_t cubeMaxZ = cubeParams.cubeMaxZ;
+  const std::size_t cubeX = cubeParams.cubeX;
+  const std::size_t cubeY = cubeParams.cubeY;
+  const std::size_t cubeZ = cubeParams.cubeZ;
+  const std::size_t cubePx = cubeParams.cubePx;
+  const std::size_t cubePy = cubeParams.cubePy;
+  const std::size_t cubePz = cubeParams.cubePz;
   const double cubeScale = cubeParams.cubeS;
   const double cubeScaleX = cubeParams.cubeSx;
   const double cubeScaleY = cubeParams.cubeSy;
@@ -120,8 +121,8 @@ CubeGenerator::CubeGenerator(
   }
 
   // create additional variables necessary for cubeGenerator()
-  const std::array<unsigned int, 4> numCubes = {cubeX, cubeY, cubeZ, cubeX * cubeY * cubeZ};
-  const std::array<unsigned int, 4> numPartitions = {
+  const std::array<std::size_t, 4> numCubes = {cubeX, cubeY, cubeZ, cubeX * cubeY * cubeZ};
+  const std::array<std::size_t, 4> numPartitions = {
       cubePx, cubePy, cubePz, cubePx * cubePy * cubePz};
 
   // check input arguments
@@ -146,22 +147,22 @@ CubeGenerator::CubeGenerator(
   }
 
   // Compute additional sizes
-  const std::array<unsigned int, 4> numCubesPerPart = {numCubes[0] / numPartitions[0],
-                                                       numCubes[1] / numPartitions[1],
-                                                       numCubes[2] / numPartitions[2],
-                                                       numCubes[3] / numPartitions[3]};
-  const std::array<unsigned long, 4> numElemPerPart = {numCubesPerPart[0] * 5,
-                                                       numCubesPerPart[1] * 5,
-                                                       numCubesPerPart[2] * 5,
-                                                       numCubesPerPart[3] * 5};
-  const std::array<unsigned int, 4> numVrtxPerPart = {numCubesPerPart[0] + 1,
-                                                      numCubesPerPart[1] + 1,
-                                                      numCubesPerPart[2] + 1,
-                                                      numCubesPerPart[0] * numCubesPerPart[1] *
-                                                          numCubesPerPart[2]};
-  const std::array<unsigned int, 3> numBndElements = {2 * numCubesPerPart[1] * numCubesPerPart[2],
-                                                      2 * numCubesPerPart[0] * numCubesPerPart[2],
-                                                      2 * numCubesPerPart[0] * numCubesPerPart[1]};
+  const std::array<std::size_t, 4> numCubesPerPart = {numCubes[0] / numPartitions[0],
+                                                      numCubes[1] / numPartitions[1],
+                                                      numCubes[2] / numPartitions[2],
+                                                      numCubes[3] / numPartitions[3]};
+  const std::array<std::size_t, 4> numElemPerPart = {numCubesPerPart[0] * 5,
+                                                     numCubesPerPart[1] * 5,
+                                                     numCubesPerPart[2] * 5,
+                                                     numCubesPerPart[3] * 5};
+  const std::array<std::size_t, 4> numVrtxPerPart = {numCubesPerPart[0] + 1,
+                                                     numCubesPerPart[1] + 1,
+                                                     numCubesPerPart[2] + 1,
+                                                     numCubesPerPart[0] * numCubesPerPart[1] *
+                                                         numCubesPerPart[2]};
+  const std::array<std::size_t, 3> numBndElements = {2 * numCubesPerPart[1] * numCubesPerPart[2],
+                                                     2 * numCubesPerPart[0] * numCubesPerPart[2],
+                                                     2 * numCubesPerPart[0] * numCubesPerPart[1]};
 
   // output file name
   const std::string& fileName = meshFile;
@@ -189,18 +190,18 @@ CubeGenerator::CubeGenerator(
                                fileName);
 }
 
-void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
-                                  const std::array<unsigned int, 4> numPartitions,
-                                  unsigned int boundaryMinx,
-                                  unsigned int boundaryMaxx,
-                                  unsigned int boundaryMiny,
-                                  unsigned int boundaryMaxy,
-                                  unsigned int boundaryMinz,
-                                  unsigned int boundaryMaxz,
-                                  const std::array<unsigned int, 4> numCubesPerPart,
+void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
+                                  const std::array<std::size_t, 4> numPartitions,
+                                  std::size_t boundaryMinx,
+                                  std::size_t boundaryMaxx,
+                                  std::size_t boundaryMiny,
+                                  std::size_t boundaryMaxy,
+                                  std::size_t boundaryMinz,
+                                  std::size_t boundaryMaxz,
+                                  const std::array<std::size_t, 4> numCubesPerPart,
                                   const std::array<unsigned long, 4> numElemPerPart,
-                                  const std::array<unsigned int, 4> numVrtxPerPart,
-                                  const std::array<unsigned int, 3> numBndElements,
+                                  const std::array<std::size_t, 4> numVrtxPerPart,
+                                  const std::array<std::size_t, 3> numBndElements,
                                   double scale,
                                   double scaleX,
                                   double scaleY,
@@ -219,7 +220,7 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
   logInfo() << "Total number of elements per partition:" << numElemPerPart[0] << 'x'
             << numElemPerPart[1] << 'x' << numElemPerPart[2] << '='
             << numElemPerPart[0] * numElemPerPart[1] * numElemPerPart[2];
-  logInfo() << "Using" << omp_get_max_threads() << "threads";
+  logInfo() << "Using" << seissol::OpenMP::threadCount() << "threads";
 
   // Setup MPI Communicator
   MPI_Comm commMaster = MPI_COMM_NULL;
@@ -233,7 +234,7 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
   // Get important dimensions
   const size_t partitions = numPartitions[3];
 
-  if (partitions != static_cast<unsigned int>(nProcs)) {
+  if (partitions != static_cast<std::size_t>(nProcs)) {
     logError() << "Number of partitions does not match number of MPI ranks.";
   }
 
@@ -252,14 +253,14 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(3)
 #endif // _OPENMP
-  for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-    for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-      for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-        unsigned int c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
+  for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+    for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
+      for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
+        std::size_t c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
         const int odd = (zz + yy + xx) % 2;
 
-        for (unsigned int i = 0; i < 5; i++) {
-          for (unsigned int j = 0; j < 4; j++) {
+        for (std::size_t i = 0; i < 5; i++) {
+          for (std::size_t j = 0; j < 4; j++) {
             CubeVertex v{};
             v.v[0] = TetVertices[odd][i][j][0] + xx;
             v.v[1] = TetVertices[odd][i][j][1] + yy;
@@ -276,7 +277,7 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
   std::map<CubeVertex, int> vertexMap;
 
   // Calculate elemVertices
-  for (unsigned int i = 0; i < vertices.size(); i++) {
+  for (std::size_t i = 0; i < vertices.size(); i++) {
     const auto it = vertexMap.find(vertices[i]);
     if (it != vertexMap.end()) {
       elemVertices[i] = it->second;
@@ -334,10 +335,10 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(3)
 #endif // _OPENMP
-  for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-    for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-      for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-        const unsigned int c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
+  for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+    for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
+      for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
+        const std::size_t c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
         const int odd = (zz + yy + xx) % 2;
 
         memcpy(&elemNeighbors[c], tetNeighbors[odd], sizeof(int) * 20);
@@ -459,21 +460,21 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
   int* elemBoundaries = new int[numElemPerPart[3] * 4];
 
   // Calculate elemBoundaries
-  for (unsigned int z = 0; z < numPartitions[2]; z++) {
-    for (unsigned int y = 0; y < numPartitions[1]; y++) {
-      const unsigned int x = rank;
+  for (std::size_t z = 0; z < numPartitions[2]; z++) {
+    for (std::size_t y = 0; y < numPartitions[1]; y++) {
+      const std::size_t x = rank;
       memset(elemBoundaries, 0, sizeof(int) * numElemPerPart[3] * 4);
 
       if (x == 0) { // first partition in x dimension
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy) % 2;
             if (odd != 0) {
-              elemBoundaries[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] =
-                  boundaryMinx;
+              elemBoundaries[static_cast<size_t>((zz * numCubesPerPart[1] + yy) *
+                                                 numCubesPerPart[0] * 20)] = boundaryMinx;
               elemBoundaries[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] =
                   boundaryMinx;
             } else {
@@ -489,8 +490,8 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy + 1) % 2;
             if (odd != 0) {
               elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
@@ -518,8 +519,8 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (zz + xx) % 2;
             if (odd != 0) {
               elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 6] =
@@ -539,8 +540,8 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (zz + xx + 1) % 2;
             if (odd != 0) {
               elemBoundaries
@@ -568,14 +569,15 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (yy + xx) % 2;
             if (odd != 0) {
               elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 1] = boundaryMinz;
               elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 5] = boundaryMinz;
             } else {
-              elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20] = boundaryMinz;
+              elemBoundaries[static_cast<size_t>((yy * numCubesPerPart[0] + xx) * 20)] =
+                  boundaryMinz;
               elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 5] = boundaryMinz;
             }
           }
@@ -585,8 +587,8 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             //                                                                    int odd =
             //                                                                    (yy+xx+1) % 2; if
             //                                                                    (odd) {
@@ -614,7 +616,9 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 
       for (int i = 0; i < sizes[0]; i++) {
         // ElemBoundaries is an int array of size 4
-        memcpy(m_elements[i].boundaries, &elemBoundaries[i * 4], sizeof(ElemBoundaries));
+        memcpy(m_elements[i].boundaries,
+               &elemBoundaries[static_cast<ptrdiff_t>(i * 4)],
+               sizeof(ElemBoundaries));
       }
     }
   }
@@ -624,31 +628,32 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(3)
 #endif // _OPENMP
-  for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-    for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-      for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+  for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+    for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
+      for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
         const int odd = (zz + yy + xx) % 2;
-        const unsigned int c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
+        const std::size_t c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
         memcpy(&elemNeighborSidesDef[c], TetSideNeighbors[odd], sizeof(int) * 20);
       }
     }
   }
 
   // Calculate elemNeighborSides
-  for (unsigned int z = 0; z < numPartitions[2]; z++) {
-    for (unsigned int y = 0; y < numPartitions[1]; y++) {
-      const unsigned int x = rank;
+  for (std::size_t z = 0; z < numPartitions[2]; z++) {
+    for (std::size_t y = 0; y < numPartitions[1]; y++) {
+      const std::size_t x = rank;
       memcpy(elemNeighborSides, elemNeighborSidesDef, sizeof(int) * numElemPerPart[3] * 4);
 
       if (boundaryMinx != 6 && x == 0) { // first partition in x dimension
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy) % 2;
             if (odd != 0) {
-              elemNeighborSides[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] = 0;
+              elemNeighborSides[static_cast<size_t>((zz * numCubesPerPart[1] + yy) *
+                                                    numCubesPerPart[0] * 20)] = 0;
               elemNeighborSides[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] = 0;
             } else {
               elemNeighborSides[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 2] = 0;
@@ -661,8 +666,8 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy + 1) % 2;
             if (odd != 0) {
               elemNeighborSides[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
@@ -690,8 +695,8 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (zz + xx) % 2;
             if (odd != 0) {
               elemNeighborSides[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 6] = 0;
@@ -707,8 +712,8 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (zz + xx + 1) % 2;
             if (odd != 0) {
               elemNeighborSides
@@ -736,14 +741,14 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (yy + xx) % 2;
             if (odd != 0) {
               elemNeighborSides[(yy * numCubesPerPart[0] + xx) * 20 + 1] = 0;
               elemNeighborSides[(yy * numCubesPerPart[0] + xx) * 20 + 5] = 0;
             } else {
-              elemNeighborSides[(yy * numCubesPerPart[0] + xx) * 20] = 0;
+              elemNeighborSides[static_cast<size_t>((yy * numCubesPerPart[0] + xx) * 20)] = 0;
               elemNeighborSides[(yy * numCubesPerPart[0] + xx) * 20 + 5] = 0;
             }
           }
@@ -753,8 +758,8 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             //                                                                    int odd =
             //                                                                    (yy+xx+1) % 2; if
             //                                                                    (odd) {
@@ -780,7 +785,9 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 
       for (int i = 0; i < sizes[0]; i++) {
         // ElemNeighborSides is an int array of size 4
-        memcpy(m_elements[i].neighborSides, &elemNeighborSides[i * 4], sizeof(ElemNeighborSides));
+        memcpy(m_elements[i].neighborSides,
+               &elemNeighborSides[static_cast<ptrdiff_t>(i * 4)],
+               sizeof(ElemNeighborSides));
       }
     }
   }
@@ -792,20 +799,20 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(3)
 #endif // _OPENMP
-  for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-    for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-      for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+  for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+    for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
+      for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
         const int odd = (zz + yy + xx) % 2;
-        const unsigned int c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
+        const std::size_t c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
         memcpy(&elemSideOrientationsDef[c], TetSideOrientations[odd], sizeof(int) * 20);
       }
     }
   }
 
   // Calculate elemSideOrientations
-  for (unsigned int z = 0; z < numPartitions[2]; z++) {
-    for (unsigned int y = 0; y < numPartitions[1]; y++) {
-      const unsigned int x = rank;
+  for (std::size_t z = 0; z < numPartitions[2]; z++) {
+    for (std::size_t y = 0; y < numPartitions[1]; y++) {
+      const std::size_t x = rank;
 
       memcpy(elemSideOrientations, elemSideOrientationsDef, sizeof(int) * numElemPerPart[3] * 4);
 
@@ -813,11 +820,12 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy) % 2;
             if (odd != 0) {
-              elemSideOrientations[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] = 0;
+              elemSideOrientations[static_cast<size_t>((zz * numCubesPerPart[1] + yy) *
+                                                       numCubesPerPart[0] * 20)] = 0;
               elemSideOrientations[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] =
                   0;
             } else {
@@ -833,8 +841,8 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy + 1) % 2;
             if (odd != 0) {
               elemSideOrientations[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
@@ -864,9 +872,9 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
       //                                      #ifdef _OPENMP
       //                                      #pragma omp parallel for schedule(static) collapse(2)
       //                                      #endig // _OPENMP
-      //                                      for (unsigned int zz = 0; zz < numCubesPerPart[2];
+      //                                      for (std::size_t zz = 0; zz < numCubesPerPart[2];
       //                                      zz++) {
-      //                                              for (unsigned int xx = 0; xx <
+      //                                              for (std::size_t xx = 0; xx <
       //                                              numCubesPerPart[0]; xx++) {
       //                                                      int odd = (zz+xx) % 2;
       //                                                      if (odd) {
@@ -888,9 +896,9 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
       //                                      #ifdef _OPENMP
       //                                      #pragma omp parallel for schedule(static) collapse(2)
       //                                      #endig // _OPENMP
-      //                                      for (unsigned int zz = 0; zz < numCubesPerPart[2];
+      //                                      for (std::size_t zz = 0; zz < numCubesPerPart[2];
       //                                      zz++) {
-      //                                              for (unsigned int xx = 0; xx <
+      //                                              for (std::size_t xx = 0; xx <
       //                                              numCubesPerPart[0]; xx++) {
       //                                                      int odd = (zz+xx+1) % 2;
       //                                                      if (odd) {
@@ -911,14 +919,14 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (yy + xx) % 2;
             if (odd != 0) {
               elemSideOrientations[(yy * numCubesPerPart[0] + xx) * 20 + 1] = 0;
               elemSideOrientations[(yy * numCubesPerPart[0] + xx) * 20 + 5] = 0;
             } else {
-              elemSideOrientations[(yy * numCubesPerPart[0] + xx) * 20] = 0;
+              elemSideOrientations[static_cast<size_t>((yy * numCubesPerPart[0] + xx) * 20)] = 0;
               elemSideOrientations[(yy * numCubesPerPart[0] + xx) * 20 + 5] = 0;
             }
           }
@@ -928,8 +936,8 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             //                                                                    int odd =
             //                                                                    (yy+xx+1) % 2; if
             //                                                                    (odd) {
@@ -956,7 +964,7 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
       for (int i = 0; i < sizes[0]; i++) {
         // ElemSideOrientations is an int array of size 4
         memcpy(m_elements[i].sideOrientations,
-               &elemSideOrientations[i * 4],
+               &elemSideOrientations[static_cast<ptrdiff_t>(i * 4)],
                sizeof(ElemSideOrientations));
       }
     }
@@ -966,9 +974,9 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 
   int* elemNeighborRanks = new int[numElemPerPart[3] * 4];
 
-  for (unsigned int z = 0; z < numPartitions[2]; z++) {
-    for (unsigned int y = 0; y < numPartitions[1]; y++) {
-      const unsigned int x = rank;
+  for (std::size_t z = 0; z < numPartitions[2]; z++) {
+    for (std::size_t y = 0; y < numPartitions[1]; y++) {
+      const std::size_t x = rank;
       const int myrank = (z * numPartitions[1] + y) * numPartitions[0] + x;
 
       std::fill(elemNeighborRanks, elemNeighborRanks + numElemPerPart[3] * 4, myrank);
@@ -980,11 +988,12 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy) % 2;
             if (odd != 0) {
-              elemNeighborRanks[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] = rank;
+              elemNeighborRanks[static_cast<size_t>((zz * numCubesPerPart[1] + yy) *
+                                                    numCubesPerPart[0] * 20)] = rank;
               elemNeighborRanks[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] =
                   rank;
             } else {
@@ -1003,8 +1012,8 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy + 1) % 2;
             if (odd != 0) {
               elemNeighborRanks[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
@@ -1036,8 +1045,8 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (zz + xx) % 2;
             if (odd != 0) {
               elemNeighborRanks[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 6] =
@@ -1060,8 +1069,8 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (zz + xx + 1) % 2;
             if (odd != 0) {
               elemNeighborRanks
@@ -1093,14 +1102,14 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (yy + xx) % 2;
             if (odd != 0) {
               elemNeighborRanks[(yy * numCubesPerPart[0] + xx) * 20 + 1] = rank;
               elemNeighborRanks[(yy * numCubesPerPart[0] + xx) * 20 + 5] = rank;
             } else {
-              elemNeighborRanks[(yy * numCubesPerPart[0] + xx) * 20] = rank;
+              elemNeighborRanks[static_cast<size_t>((yy * numCubesPerPart[0] + xx) * 20)] = rank;
               elemNeighborRanks[(yy * numCubesPerPart[0] + xx) * 20 + 5] = rank;
             }
           }
@@ -1114,8 +1123,8 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
-        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             //                                                                    int odd =
             //                                                                    (yy+xx+1) % 2; if
             //                                                                    (odd) {
@@ -1141,7 +1150,9 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 
       for (int i = 0; i < sizes[0]; i++) {
         // ElemNeighborRanks is an int array of size 4
-        memcpy(m_elements[i].neighborRanks, &elemNeighborRanks[i * 4], sizeof(ElemNeighborRanks));
+        memcpy(m_elements[i].neighborRanks,
+               &elemNeighborRanks[static_cast<ptrdiff_t>(i * 4)],
+               sizeof(ElemNeighborRanks));
       }
     }
   }
@@ -1158,17 +1169,17 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
   const int bndSizeGlobal = bndSize;
 
   // calculate bndElem variables, bndLocalIds and elemMPIIndices
-  for (unsigned int z = 0; z < numPartitions[2]; z++) {
-    for (unsigned int y = 0; y < numPartitions[1]; y++) {
-      const unsigned int x = rank;
+  for (std::size_t z = 0; z < numPartitions[2]; z++) {
+    for (std::size_t y = 0; y < numPartitions[1]; y++) {
+      const std::size_t x = rank;
       memset(elemMPIIndices, 0, sizeof(int) * numElemPerPart[3] * 4);
 
-      unsigned int bndSize = 0;
+      std::size_t bndSize = 0;
 
       if ((boundaryMinz == 6 && numPartitions[2] > 1) || z != 0) { // first partition in z dimension
-        int nextMPIIndex = 0;
-        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        std::size_t nextMPIIndex = 0;
+        for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (yy + xx) % 2;
             if (odd != 0) {
               bndLocalIds[nextMPIIndex] = (yy * numCubesPerPart[0] + xx) * 5 + 1;
@@ -1177,7 +1188,8 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
               elemMPIIndices[(yy * numCubesPerPart[0] + xx) * 20 + 1] = nextMPIIndex++;
             } else {
               bndLocalIds[nextMPIIndex] = (yy * numCubesPerPart[0] + xx) * 5;
-              elemMPIIndices[(yy * numCubesPerPart[0] + xx) * 20] = nextMPIIndex++;
+              elemMPIIndices[static_cast<size_t>((yy * numCubesPerPart[0] + xx) * 20)] =
+                  nextMPIIndex++;
               bndLocalIds[nextMPIIndex] = (yy * numCubesPerPart[0] + xx) * 5 + 1;
               elemMPIIndices[(yy * numCubesPerPart[0] + xx) * 20 + 5] = nextMPIIndex++;
             }
@@ -1185,7 +1197,7 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
         }
 
         const size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0U};
-        const size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        const size_t count[3] = {1, 1, nextMPIIndex};
         const int rank = (((z - 1 + numPartitions[2]) % numPartitions[2]) * numPartitions[1] + y) *
                              numPartitions[0] +
                          x;
@@ -1199,9 +1211,9 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
         bndSize++;
       }
       if ((boundaryMiny == 6 && numPartitions[1] > 1) || y != 0) { // first partition in y dimension
-        int nextMPIIndex = 0;
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        std::size_t nextMPIIndex = 0;
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (zz + xx) % 2;
             if (odd != 0) {
               bndLocalIds[nextMPIIndex] =
@@ -1225,7 +1237,7 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
         }
 
         const size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0U};
-        const size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        const size_t count[3] = {1, 1, nextMPIIndex};
         const int rank = (z * numPartitions[1] + (y - 1 + numPartitions[1]) % numPartitions[1]) *
                              numPartitions[0] +
                          x;
@@ -1239,14 +1251,14 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
         bndSize++;
       }
       if ((boundaryMinx == 6 && numPartitions[0] > 1) || x != 0) { // first partition in x dimension
-        int nextMPIIndex = 0;
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+        std::size_t nextMPIIndex = 0;
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy) % 2;
             if (odd != 0) {
               bndLocalIds[nextMPIIndex] = (zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 5;
-              elemMPIIndices[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] =
-                  nextMPIIndex++;
+              elemMPIIndices[static_cast<size_t>((zz * numCubesPerPart[1] + yy) *
+                                                 numCubesPerPart[0] * 20)] = nextMPIIndex++;
               bndLocalIds[nextMPIIndex] =
                   (zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 5 + 2;
               elemMPIIndices[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] =
@@ -1264,7 +1276,7 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
         }
 
         const size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0U};
-        const size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        const size_t count[3] = {1, 1, nextMPIIndex};
         const int rank = (z * numPartitions[1] + y) * numPartitions[0] +
                          (x - 1 + numPartitions[0]) % numPartitions[0];
 
@@ -1278,9 +1290,9 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
       }
       if ((boundaryMaxx == 6 && numPartitions[0] > 1) ||
           x != numPartitions[0] - 1) { // last partition in x dimension
-        int nextMPIIndex = 0;
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+        std::size_t nextMPIIndex = 0;
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy + 1) % 2;
             if (odd != 0) {
               bndLocalIds[nextMPIIndex] =
@@ -1321,7 +1333,7 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
         }
 
         const size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0};
-        const size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        const size_t count[3] = {1, 1, nextMPIIndex};
         int rank = (z * numPartitions[1] + y) * numPartitions[0] + (x + 1) % numPartitions[0];
         rank = (rank + numPartitions[3]) % numPartitions[3];
 
@@ -1335,9 +1347,9 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
       }
       if ((boundaryMaxy == 6 && numPartitions[1] > 1) ||
           y != numPartitions[1] - 1) { // last partition in y dimension
-        int nextMPIIndex = 0;
-        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        std::size_t nextMPIIndex = 0;
+        for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (zz + xx + 1) % 2;
             if (odd != 0) {
               bndLocalIds[nextMPIIndex] =
@@ -1377,7 +1389,7 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
         }
 
         const size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0};
-        const size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        const size_t count[3] = {1, 1, nextMPIIndex};
         int rank = (z * numPartitions[1] + (y + 1) % numPartitions[1]) * numPartitions[0] + x;
         rank = (rank + numPartitions[3]) % numPartitions[3];
 
@@ -1391,9 +1403,9 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
       }
       if ((boundaryMaxz == 6 && numPartitions[2] > 1) ||
           z != numPartitions[2] - 1) { // last partition in z dimension
-        int nextMPIIndex = 0;
-        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        std::size_t nextMPIIndex = 0;
+        for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             bndLocalIds[nextMPIIndex] =
                 (((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
                     5 +
@@ -1414,7 +1426,7 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
         }
 
         const size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0U};
-        const size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        const size_t count[3] = {1, 1, nextMPIIndex};
         int rank = (((z + 1) % numPartitions[2]) * numPartitions[1] + y) * numPartitions[0] + x;
         rank = (rank + numPartitions[3]) % numPartitions[3];
 
@@ -1429,7 +1441,9 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 
       for (int i = 0; i < sizes[0]; i++) {
         // ElemMPIIndices is an int array of size 4
-        memcpy(m_elements[i].mpiIndices, &elemMPIIndices[i * 4], sizeof(ElemMPIIndices));
+        memcpy(m_elements[i].mpiIndices,
+               &elemMPIIndices[static_cast<ptrdiff_t>(i * 4)],
+               sizeof(ElemMPIIndices));
       }
 
       bndSizePtr[(z * numPartitions[1] + y) * numPartitions[0] + x] = bndSize;
@@ -1477,14 +1491,14 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
   // Calculate vrtxCoords
   auto* vrtxCoords = new double[uniqueVertices.size() * 3];
 
-  for (unsigned int z = 0; z < numPartitions[2]; z++) {
-    for (unsigned int y = 0; y < numPartitions[1]; y++) {
-      const unsigned int x = rank;
+  for (std::size_t z = 0; z < numPartitions[2]; z++) {
+    for (std::size_t y = 0; y < numPartitions[1]; y++) {
+      const std::size_t x = rank;
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif // _OPENMP
-      for (unsigned int i = 0; i < uniqueVertices.size(); i++) {
-        vrtxCoords[i * 3] =
+      for (std::size_t i = 0; i < uniqueVertices.size(); i++) {
+        vrtxCoords[static_cast<size_t>(i * 3)] =
             static_cast<double>(uniqueVertices.at(i).v[0] + x * numCubesPerPart[0]) /
                 static_cast<double>(numCubes[0]) * scaleX -
             halfWidthX + tx;
@@ -1564,11 +1578,11 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
 }
 
 void CubeGenerator::findElementsPerVertex() {
-  for (auto i = m_elements.begin(); i != m_elements.end(); i++) {
-    for (int j = 0; j < 4; j++) {
-      assert(i->vertices[j] < static_cast<int>(m_vertices.size()));
+  for (auto& element : m_elements) {
+    for (std::size_t j = 0; j < Cell::NumVertices; j++) {
+      assert(element.vertices[j] < static_cast<int>(m_vertices.size()));
       // push back the localIds for each element of a vertex
-      m_vertices[i->vertices[j]].elements.push_back(i->localId);
+      m_vertices[element.vertices[j]].elements.push_back(element.localId);
     }
   }
 }

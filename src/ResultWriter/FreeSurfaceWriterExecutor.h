@@ -33,7 +33,8 @@ class FreeSurfaceWriterExecutor {
     Cells = 1,
     Vertices = 2,
     LocationFlags = 3,
-    Variables0 = 4,
+    GlobalIds = 4,
+    Variables0 = 5,
   };
 
   private:
@@ -45,6 +46,8 @@ class FreeSurfaceWriterExecutor {
 
   /** Backend stopwatch */
   Stopwatch m_stopwatch;
+
+  bool m_enabled{false};
 
   public:
   FreeSurfaceWriterExecutor() = default;
@@ -73,11 +76,12 @@ class FreeSurfaceWriterExecutor {
   }
 
   void setLocationFlagData(const unsigned int* locationFlags) {
-    m_xdmfWriter->writeExtraIntCellData(locationFlags);
+    m_xdmfWriter->writeExtraIntCellData(0, locationFlags);
   }
 
   void finalize() {
-    if (m_xdmfWriter != nullptr) {
+    if (m_enabled) {
+      // note: also includes some ranks which do nothing at all
       m_stopwatch.printTime("Time free surface writer backend:");
     }
 

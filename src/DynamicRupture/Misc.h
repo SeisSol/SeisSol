@@ -11,7 +11,7 @@
 #include "Geometry/MeshDefinition.h"
 #include "Kernels/Precision.h"
 
-#include "generated_code/init.h"
+#include "GeneratedCode/init.h"
 #include <Initializer/Parameters/DRParameters.h>
 #include <cmath>
 #include <string>

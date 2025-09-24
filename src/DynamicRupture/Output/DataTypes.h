@@ -8,13 +8,14 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
 
+#include "GeneratedCode/tensor.h"
 #include "Geometry.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
-#include "Memory/Tree/Layer.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/DataCollector.h"
-#include "generated_code/tensor.h"
 #include <Eigen/Dense>
+#include <Parallel/Runtime/Stream.h>
 #include <array>
 #include <cassert>
 #include <cstring>
@@ -24,11 +25,11 @@
 #include <vector>
 
 namespace seissol::dr::output {
-template <int DIM>
+template <std::size_t DIM>
 struct VarT {
   VarT() = default;
   ~VarT() { releaseData(); }
-  constexpr int dim() { return DIM; }
+  constexpr std::size_t dim() { return DIM; }
 
   VarT(const VarT&) = delete;
   auto operator=(const VarT&) -> VarT& = delete;
@@ -36,13 +37,13 @@ struct VarT {
   VarT(VarT&&) = default;
   auto operator=(VarT&&) -> VarT& = default;
 
-  real* operator[](int dim) {
+  real* operator[](std::size_t dim) {
     assert(dim < DIM && "access is out of the DIM. bounds");
     assert(data[dim] != nullptr && "data has not been initialized yet");
     return data[dim];
   }
 
-  real& operator()(int dim, size_t level, size_t index) {
+  real& operator()(std::size_t dim, size_t level, size_t index) {
     assert(dim < DIM && "access is out of DIM. bounds");
     assert(level < maxCacheLevel && "access is out of cache bounds");
     assert(index < size && "access is out of size bounds");
@@ -61,13 +62,13 @@ struct VarT {
   void allocateData(size_t dataSize) {
     size = dataSize;
     if (isActive) {
-      for (int dim = 0; dim < DIM; ++dim) {
+      for (std::size_t dim = 0; dim < DIM; ++dim) {
         assert(data[dim] == nullptr && "double allocation is not allowed");
         data[dim] = new real[size * maxCacheLevel];
         std::memset(static_cast<void*>(data[dim]), 0, size * maxCacheLevel * sizeof(real));
       }
     } else {
-      for (int dim = 0; dim < DIM; ++dim) {
+      for (std::size_t dim = 0; dim < DIM; ++dim) {
         data[dim] = nullptr;
       }
     }
@@ -129,7 +130,7 @@ const inline std::vector<std::vector<std::string>> VariableLabels = {{"SRs", "SR
                                                                      {"DS"},
                                                                      {"P_f", "Tmp"}};
 
-using FaceToLtsMapType = std::vector<std::pair<seissol::initializer::Layer*, size_t>>;
+using FaceToLtsMapType = std::vector<std::pair<DynamicRupture::Layer*, size_t>>;
 
 } // namespace seissol::dr::output
 
@@ -158,13 +159,14 @@ struct ReceiverOutputData {
   size_t maxCacheLevel{50};
   bool isActive{false};
 
-  std::unique_ptr<parallel::DataCollector> deviceDataCollector;
+  std::unique_ptr<parallel::DataCollector<real>> deviceDataCollector;
   std::vector<std::size_t> deviceDataPlus;
   std::vector<std::size_t> deviceDataMinus;
   std::size_t cellCount{0};
 
-  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector>> deviceVariables;
+  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector<real>>> deviceVariables;
   std::vector<std::size_t> deviceIndices;
+  std::optional<parallel::runtime::StreamRuntime> extraRuntime;
 };
 } // namespace seissol::dr
 

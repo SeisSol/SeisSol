@@ -57,27 +57,6 @@ void seissol::initializer::time_stepping::LtsLayout::setMesh( const seissol::geo
   }
 
   MPI_Allreduce( MPI_IN_PLACE, &m_numberOfGlobalClusters, 1, MPI_INT, MPI_MAX, seissol::MPI::mpi.comm() );
-
-  m_globalTimeStepWidths.resize(m_numberOfGlobalClusters);
-  m_globalTimeStepWidths[0] = std::numeric_limits<double>::max();
-  for (std::size_t i = 0; i < m_cells.size(); ++i) {
-    m_globalTimeStepWidths[0] = std::min(m_globalTimeStepWidths[0], m_cellTimeStepWidths[i]);
-  }
-
-  MPI_Allreduce( MPI_IN_PLACE, m_globalTimeStepWidths.data(), 1, MPI_DOUBLE, MPI_MIN, seissol::MPI::mpi.comm() );
-
-  const auto wiggle = seissolParams.timeStepping.lts.getWiggleFactor();
-  if (wiggle == 1) {
-    logInfo() << "Minimum timestep:" << seissol::UnitTime.formatPrefix(m_globalTimeStepWidths[0]).c_str();
-  }
-  else {
-    logInfo() << "Minimum timestep (pre-wiggle):" << seissol::UnitTime.formatPrefix(m_globalTimeStepWidths[0]).c_str();
-
-    // apply wiggle here
-    m_globalTimeStepWidths[0] *= wiggle;
-    logInfo() << "Minimum timestep (with wiggle" << wiggle << "):" << seissol::UnitTime.formatPrefix(m_globalTimeStepWidths[0]).c_str();
-  }
-  logInfo() << "Global cluster count:" << m_numberOfGlobalClusters;
 }
 
 seissol::FaceType seissol::initializer::time_stepping::LtsLayout::getFaceType(int i_meshFaceType) {
@@ -95,7 +74,7 @@ void seissol::initializer::time_stepping::LtsLayout::derivePlainCopyInterior() {
 
   // derive neighboring ranks
   for( unsigned int l_cell = 0; l_cell < m_cells.size(); l_cell++ ) {
-    for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
+    for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
       if(  m_cells[l_cell].neighborRanks[l_face] != rank ) {
         l_neighboringRanks.insert( m_cells[l_cell].neighborRanks[l_face] ) ;
       }
@@ -111,7 +90,7 @@ void seissol::initializer::time_stepping::LtsLayout::derivePlainCopyInterior() {
   // derive copy regions (split by ranks alone) and interior
   for( unsigned int l_cell = 0; l_cell < m_cells.size(); l_cell++ ) {
     bool l_copyCell = false;
-    for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
+    for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
       if(  m_cells[l_cell].neighborRanks[l_face] != rank ) {
         // derive id of the local region
         int l_region = getPlainRegion( m_cells[l_cell].neighborRanks[l_face] );
@@ -200,30 +179,6 @@ void seissol::initializer::time_stepping::LtsLayout::deriveDynamicRupturePlainCo
       m_dynamicRupturePlainCopy[localCluster].push_back(face);
     }
   }
-
-  int* localClusterHistogram = new int[m_numberOfGlobalClusters];
-  for (unsigned gc = 0; gc < m_numberOfGlobalClusters; ++gc) {
-    localClusterHistogram[gc] = 0;
-  }
-  for (unsigned cluster = 0; cluster < m_localClusters.size(); ++cluster) {
-    unsigned gc = m_localClusters[cluster];
-    localClusterHistogram[gc] = m_dynamicRupturePlainInterior[cluster].size() + m_dynamicRupturePlainCopy[cluster].size();
-  }
-
-  const int rank = seissol::MPI::mpi.rank();
-  int* globalClusterHistogram = NULL;
-  if (rank == 0) {
-    globalClusterHistogram = new int[m_numberOfGlobalClusters];
-  }
-  MPI_Reduce(localClusterHistogram, globalClusterHistogram, m_numberOfGlobalClusters, MPI_INT, MPI_SUM, 0, seissol::MPI::mpi.comm());
-  if (rank == 0) {
-    logInfo() << "Number of elements in dynamic rupture time clusters:";
-    for (unsigned cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {
-      logInfo() << utils::nospace << cluster << " (dr):" << utils::space << globalClusterHistogram[cluster];
-    }
-    delete[] globalClusterHistogram;
-  }
-  delete[] localClusterHistogram;
 }
 
 void seissol::initializer::time_stepping::LtsLayout::normalizeMpiIndices() {
@@ -244,66 +199,6 @@ void seissol::initializer::time_stepping::LtsLayout::normalizeMpiIndices() {
     // store the results
     m_plainGhostCellIds.push_back( l_remoteFaceToCellIdMappings );
   }
-}
-
-void seissol::initializer::time_stepping::LtsLayout::normalizeClustering() {
-  const int rank = seissol::MPI::mpi.rank();
-  
-  std::vector<int> localClusterHistogram(m_numberOfGlobalClusters);
-  for (unsigned cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {
-    localClusterHistogram[cluster] = 0;
-  }
-  for (unsigned cell = 0; cell < m_cells.size(); ++cell) {
-    ++localClusterHistogram[ m_cellClusterIds[cell] ];
-  }
-
-  std::vector<int> globalClusterHistogram;
-  globalClusterHistogram.resize(m_numberOfGlobalClusters);
-  MPI_Reduce(localClusterHistogram.data(), globalClusterHistogram.data(), m_numberOfGlobalClusters, MPI_INT, MPI_SUM, 0, seissol::MPI::mpi.comm());
-  if (rank == 0) {
-    logInfo() << "Number of elements in time clusters:";
-    for (unsigned cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {
-      logInfo() << utils::nospace << cluster << ":" << utils::space << globalClusterHistogram[cluster];
-    }
-  }
-}
-
-void seissol::initializer::time_stepping::LtsLayout::getTheoreticalSpeedup( double &o_perCellTimeStepWidths,
-                                                                             double &o_clustering  ) {
-  // use khan sum
-  // 0: true sum
-  // 1: compensation
-  double l_localPerCellSpeedup[2];
-  l_localPerCellSpeedup[0] = l_localPerCellSpeedup[1] = 0;
-  double l_localClusteringSpeedup[2];
-  l_localClusteringSpeedup[0] = l_localClusteringSpeedup[1] = 0;
-
-  double l_t, l_y;
-
-  for( unsigned int l_cell = 0; l_cell < m_cells.size(); l_cell++ ) {
-    l_y = (m_globalTimeStepWidths[m_numberOfGlobalClusters-1] /  m_cellTimeStepWidths[l_cell]) - l_localPerCellSpeedup[1];
-    l_t = l_localPerCellSpeedup[0] + l_y;
-    l_localPerCellSpeedup[1] = (l_t - l_localPerCellSpeedup[0] ) - l_y;
-    l_localPerCellSpeedup[0] = l_t;
-
-    l_y = (m_globalTimeStepWidths[m_numberOfGlobalClusters-1] / m_globalTimeStepWidths[ m_cellClusterIds[l_cell] ] ) - l_localClusteringSpeedup[1];
-    l_t = l_localClusteringSpeedup[0] + l_y;
-    l_localClusteringSpeedup[1] = (l_t - l_localClusteringSpeedup[0]) - l_y;
-    l_localClusteringSpeedup[0] = l_t;
-  }
-
-  unsigned int l_localNumberOfCells = m_cells.size();
-  unsigned int l_globalNumberOfCells = 0;
-
-  // derive global number of cells
-  MPI_Allreduce( &l_localNumberOfCells, &l_globalNumberOfCells, 1, MPI_UNSIGNED, MPI_SUM, seissol::MPI::mpi.comm() );
-
-  // derive global "speedup"
-  MPI_Allreduce( l_localPerCellSpeedup,    &o_perCellTimeStepWidths, 1, MPI_DOUBLE, MPI_SUM, seissol::MPI::mpi.comm() );
-  MPI_Allreduce( l_localClusteringSpeedup, &o_clustering,            1, MPI_DOUBLE, MPI_SUM, seissol::MPI::mpi.comm() );
-
-  o_perCellTimeStepWidths = (l_globalNumberOfCells * ( m_globalTimeStepWidths[m_numberOfGlobalClusters-1] / m_globalTimeStepWidths[0] ) ) / o_perCellTimeStepWidths;
-  o_clustering            = (l_globalNumberOfCells * ( m_globalTimeStepWidths[m_numberOfGlobalClusters-1] / m_globalTimeStepWidths[0] ) ) / o_clustering;
 }
 
 void seissol::initializer::time_stepping::LtsLayout::addClusteredCopyCell( unsigned int i_cellId,
@@ -373,7 +268,7 @@ void seissol::initializer::time_stepping::LtsLayout::sortClusteredCopyGts( clust
     // assert this is GTS
     assert( io_copyRegion.first[1] == m_cellClusterIds[l_meshId] );
 
-    for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
+    for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
       // check if the cell qualifies for reordering because of dynamic rupture
       if( // m_cells[l_meshId].neighborRanks[l_face] == io_copyRegion.first[0] && // Dynamic rupture cells in the copy layer communicate derivatives only
                                                                                   // TODO: Here's some minor potential for optimizations
@@ -451,7 +346,7 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredCopyInterior
   for( unsigned int l_cell = 0; l_cell < m_cells.size(); l_cell++ ) {
     bool l_copyCell = false;
 
-    for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
+    for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
       // copy cell
       if( m_cells[l_cell].neighborRanks[l_face] != rank ) {
         l_copyCell = true;
@@ -726,15 +621,7 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredGhost() {
   delete[] l_requests;
 }
 
-void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClustering i_timeClustering,
-                                                                    unsigned int        i_clusterRate ) {
-  m_globalTimeStepRates.resize(1);
-  m_globalTimeStepRates[0] = i_clusterRate;
-  
-  for (std::size_t i = 1; i < m_numberOfGlobalClusters; ++i) {
-    m_globalTimeStepWidths[i] = m_globalTimeStepWidths[i - 1] * i_clusterRate;
-  }
-
+void seissol::initializer::time_stepping::LtsLayout::deriveLayout(  ) {
   // derive plain copy and the interior
   derivePlainCopyInterior();
 
@@ -744,22 +631,6 @@ void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClusterin
   // normalize mpi indices (not anymore; just set up the ghost layers)
   normalizeMpiIndices();
 
-  // normalize clustering (not anymore, just prints some info; done in LtsWeights/somewhere else)
-  normalizeClustering();
-
-  // get maximum speedups compared to GTS
-  double perCellSpeedup = 0;
-  double clusteringSpeedup = 0;
-  getTheoreticalSpeedup( perCellSpeedup, clusteringSpeedup );
-
-  // The speedups above are computed without considering the wiggle factor
-  const auto wiggleFactor = seissolParams.timeStepping.lts.getWiggleFactor();
-  perCellSpeedup *= wiggleFactor;
-  clusteringSpeedup *= wiggleFactor;
-
-  // get maximum speedup
-  logInfo() << "Theoretical speedup to GTS:" << perCellSpeedup << "elementwise LTS;" << clusteringSpeedup << "clustered LTS (current setup)";
-
   // derive clustered copy and interior layout
   deriveClusteredCopyInterior();
 
@@ -768,10 +639,6 @@ void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClusterin
   
   // derive dynamic rupture layers
   deriveDynamicRupturePlainCopyInterior();
-}
-
-seissol::initializer::ClusterLayout seissol::initializer::time_stepping::LtsLayout::clusterLayout() const {
-  return ClusterLayout({m_globalTimeStepRates[0]}, m_globalTimeStepWidths[0], m_numberOfGlobalClusters);
 }
 
 void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLocalInformation* io_cellLocalInformation,
@@ -857,16 +724,21 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         // get values
         unsigned int l_clusterId = m_clusteredCopy[l_cluster][l_region].first[1];
 
+        const auto rank = m_clusteredCopy[l_cluster][l_region].first[0];
+
         // set mapping invalid
         o_ltsToMesh[l_ltsCell] = std::numeric_limits<std::size_t>::max();
 
         secondaryInformation[l_ltsCell].clusterId = l_clusterId;
-        secondaryInformation[l_ltsCell].meshId = l_ghostCell;
+
+        // we want to set secondaryInformation[l_ltsCell].meshId
+        // to the mpiIndex of the copy cell
+        // however, we'll need to do that later (in the copy cell loop)
+
         secondaryInformation[l_ltsCell].duplicate = 0;
         secondaryInformation[l_ltsCell].halo = HaloType::Ghost;
 
-        secondaryInformation[l_ltsCell].globalId = m_mesh->getGhostlayerMetadata().at(m_clusteredCopy[l_cluster][l_region].first[0])[l_ghostCell].globalId; // TODO: check
-        secondaryInformation[l_ltsCell].rank = m_clusteredCopy[l_cluster][l_region].first[0];
+        secondaryInformation[l_ltsCell].rank = rank;
         secondaryInformation[l_ltsCell].layerId = layerId;
         secondaryInformation[l_ltsCell].configId = 0;
 
@@ -903,7 +775,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         std::memcpy(secondaryInformation[l_ltsCell].neighborRanks, m_cells[l_meshId].neighborRanks, sizeof(int[4]));
 
         // iterate over faces
-        for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
+        for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
           // store mpi-independent values
           io_cellLocalInformation[l_ltsCell].faceTypes[l_face]        = getFaceType( m_cells[l_meshId].boundaries[l_face] );
           io_cellLocalInformation[l_ltsCell].faceRelations[l_face][0] = m_cells[l_meshId].neighborSides[l_face];
@@ -913,8 +785,11 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
           if( m_cells[l_meshId].neighborRanks[l_face] != rank ) {
             // remark: it is not sufficient to just search in the corresponding ghost region as copy cells can have more than one mpi-neighbor
 
+            const auto mpiIndex = m_cells[l_meshId].mpiIndices[l_face];
+            const auto& metadata = m_mesh->getGhostlayerMetadata().at(m_cells[l_meshId].neighborRanks[l_face])[mpiIndex];
+
             // global neighboring cluster id
-            unsigned int l_globalNeighboringCluster = m_mesh->getGhostlayerMetadata().at(m_cells[l_meshId].neighborRanks[l_face])[ m_cells[l_meshId].mpiIndices[l_face]].clusterId;
+            unsigned int l_globalNeighboringCluster = metadata.clusterId;
 
             // find local neighboring region
             unsigned int l_localNeighboringRegion;
@@ -929,14 +804,18 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
             }
 
             // get mesh id in the neighboring domain
-            unsigned int l_neighboringMeshId = m_mesh->getGhostlayerMetadata().at(m_cells[l_meshId].neighborRanks[l_face])[ m_cells[l_meshId].mpiIndices[l_face]].localId;
+            unsigned int l_neighboringMeshId = metadata.localId;
 
             unsigned int l_localGhostId = searchClusteredGhostCell( l_neighboringMeshId,
                                                                     l_cluster,
                                                                     l_localNeighboringRegion );
 
             // store value
-            secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = l_ghostOffsets[l_cluster][l_localNeighboringRegion] + l_localGhostId;
+            const auto ghostId = l_ghostOffsets[l_cluster][l_localNeighboringRegion] + l_localGhostId;
+            secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = ghostId;
+
+            secondaryInformation[ghostId].meshId = mpiIndex;
+            secondaryInformation[ghostId].globalId = metadata.globalId;
           }
           // else neighboring cell is part of the interior or copy layer
           else if (io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::Regular ||
@@ -1008,7 +887,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
       o_ltsToMesh[l_ltsCell]                   = l_meshId;
 
       // iterate over faces
-      for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
+      for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
         // store mpi-independent values
         io_cellLocalInformation[l_ltsCell].faceTypes[l_face]        = getFaceType( m_cells[l_meshId].boundaries[l_face] );
         io_cellLocalInformation[l_ltsCell].faceRelations[l_face][0] = m_cells[l_meshId].neighborSides[l_face];

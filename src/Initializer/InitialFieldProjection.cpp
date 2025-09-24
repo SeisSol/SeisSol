@@ -8,12 +8,12 @@
 
 #include "InitialFieldProjection.h"
 
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/MemoryManager.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
 #include "ParameterDB.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
 
 #include "Initializer/PreProcessorMacros.h"
 #include <Alignment.h>
@@ -24,17 +24,16 @@
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>
 
+#include "GeneratedCode/init.h"
 #include <array>
 #include <cstddef>
 #include <easi/Query.h>
 #include <easi/ResultAdapter.h>
 #include <easi/YAMLParser.h>
-#include <init.h>
 #include <memory>
 #include <string>
 #include <vector>
@@ -56,8 +55,6 @@
 #else
 #include <utils/logger.h>
 #endif
-
-#include <Solver/MultipleSimulations.h>
 
 GENERATE_HAS_MEMBER(selectAneFull)
 GENERATE_HAS_MEMBER(selectElaFull)
@@ -116,19 +113,18 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
                          const GlobalData& globalData,
                          const seissol::geometry::MeshReader& meshReader,
                          seissol::initializer::MemoryManager& memoryManager,
-                         LTSTree& tree,
-                         LTS const& lts) {
+                         LTS::Storage& storage) {
   const auto& vertices = meshReader.getVertices();
   const auto& elements = meshReader.getElements();
 
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  double quadraturePoints[NumQuadPoints][3];
+  double quadraturePoints[NumQuadPoints][Cell::Dim];
   double quadratureWeights[NumQuadPoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
 
-  for (auto& layer : tree.leaves(Ghost)) {
+  for (auto& layer : storage.leaves(Ghost)) {
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel
     {
@@ -136,7 +132,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
       alignas(Alignment) real iniCondData[tensor::iniCond::size()] = {};
       auto iniCond = init::iniCond::view::create(iniCondData);
 
-      std::vector<std::array<double, 3>> quadraturePointsXyz;
+      std::vector<std::array<double, Cell::Dim>> quadraturePointsXyz;
       quadraturePointsXyz.resize(NumQuadPoints);
 
       kernel::projectIniCond krnl;
@@ -145,18 +141,18 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
       kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
       kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
 
-      const auto* secondaryInformation = layer.var(lts.secondaryInformation);
-      const auto* material = layer.var(lts.material);
-      auto* dofs = layer.var(lts.dofs);
-      auto* dofsAne = layer.var(lts.dofsAne);
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      const auto* material = layer.var<LTS::Material>();
+      auto* dofs = layer.var<LTS::Dofs>();
+      auto* dofsAne = layer.var<LTS::DofsAne>();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto meshId = secondaryInformation[cell].meshId;
-        const double* elementCoords[4];
-        for (size_t v = 0; v < 4; ++v) {
+        const double* elementCoords[Cell::NumVertices];
+        for (size_t v = 0; v < Cell::NumVertices; ++v) {
           elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
         }
         for (size_t i = 0; i < NumQuadPoints; ++i) {
@@ -171,7 +167,8 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
         const CellMaterialData& materialData = material[cell];
         for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
           auto sub = multisim::simtensor(iniCond, s);
-          iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, materialData, sub);
+          iniFields[s % iniFields.size()]->evaluate(
+              0.0, quadraturePointsXyz.data(), quadraturePointsXyz.size(), materialData, sub);
         }
 
         krnl.Q = dofs[cell];
@@ -196,33 +193,33 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  const int dimensions = needsTime ? 4 : 3;
+  const int dimensions = needsTime ? (Cell::Dim + 1) : Cell::Dim;
   const int spaceStart = needsTime ? 1 : 0;
   easi::Query query(elements.size() * NumQuadPoints, dimensions);
 
   {
-    double quadraturePoints[NumQuadPoints][3];
+    double quadraturePoints[NumQuadPoints][Cell::Dim];
     double quadratureWeights[NumQuadPoints];
     seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
     for (std::size_t elem = 0; elem < elements.size(); ++elem) {
-      const double* elementCoords[4];
-      for (size_t v = 0; v < 4; ++v) {
+      const double* elementCoords[Cell::NumVertices];
+      for (size_t v = 0; v < Cell::NumVertices; ++v) {
         elementCoords[v] = vertices[elements[elem].vertices[v]].coords;
       }
       for (size_t i = 0; i < NumQuadPoints; ++i) {
-        std::array<double, 3> transformed;
+        std::array<double, Cell::Dim> transformed;
         seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
                                                                elementCoords[1],
                                                                elementCoords[2],
                                                                elementCoords[3],
                                                                quadraturePoints[i],
                                                                transformed.data());
-        query.x(elem * NumQuadPoints + i, spaceStart + 0) = transformed[0];
-        query.x(elem * NumQuadPoints + i, spaceStart + 1) = transformed[1];
-        query.x(elem * NumQuadPoints + i, spaceStart + 2) = transformed[2];
+        for (std::size_t d = 0; d < Cell::Dim; ++d) {
+          query.x(elem * NumQuadPoints + i, spaceStart + d) = transformed[d];
+        }
         if (needsTime) {
           query.x(elem * NumQuadPoints + i, 0) = 0;
         }
@@ -254,11 +251,8 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              const GlobalData& globalData,
                              const seissol::geometry::MeshReader& meshReader,
                              seissol::initializer::MemoryManager& memoryManager,
-                             LTSTree& tree,
-                             LTS const& lts,
+                             LTS::Storage& storage,
                              bool needsTime) {
-  const auto& elements = meshReader.getElements();
-
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
@@ -267,11 +261,11 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
   const auto dataStride = NumQuadPoints * iniFields.size() * model::MaterialT::Quantities.size();
   const auto quantityCount = model::MaterialT::Quantities.size();
 
-  for (auto& layer : tree.leaves(Ghost)) {
+  for (auto& layer : storage.leaves(Ghost)) {
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel
-    {
 #endif
+    {
       alignas(Alignment) real iniCondData[tensor::iniCond::size()] = {};
       auto iniCond = init::iniCond::view::create(iniCondData);
 
@@ -284,10 +278,9 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
       kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
 
-      const auto* secondaryInformation = layer.var(lts.secondaryInformation);
-      const auto* material = layer.var(lts.material);
-      auto* dofs = layer.var(lts.dofs);
-      auto* dofsAne = layer.var(lts.dofsAne);
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      auto* dofs = layer.var<LTS::Dofs>();
+      auto* dofsAne = layer.var<LTS::DofsAne>();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
@@ -311,9 +304,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
         }
         krnl.execute();
       }
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
     }
-#endif
   }
 }
 

@@ -11,6 +11,10 @@
 #include <cstdint>
 #include <vector>
 
+namespace seissol::geometry {
+class MeshReader;
+} // namespace seissol::geometry
+
 namespace seissol::initializer {
 
 struct ClusterLayout {
@@ -35,6 +39,11 @@ struct ClusterLayout {
     }
     return value;
   }
+
+  static ClusterLayout fromMesh(const std::vector<std::uint64_t>& rates,
+                                const geometry::MeshReader& mesh,
+                                double wiggle,
+                                bool infoprint);
 };
 
 } // namespace seissol::initializer

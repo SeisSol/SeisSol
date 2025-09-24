@@ -11,6 +11,7 @@
 #include "DynamicRupture/Misc.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/Runtime/Stream.h"
+#include <vector>
 
 namespace seissol::dr::friction_law {
 /**
@@ -24,15 +25,24 @@ class FrictionSolver {
   // Note: FrictionSolver must be trivially copyable. It is important for GPU offloading
   explicit FrictionSolver(seissol::initializer::parameters::DRParameters* userDRParameters)
       : drParameters(userDRParameters) {
-    std::copy(&init::quadweights::Values[init::quadweights::Start[0]],
-              &init::quadweights::Values[init::quadweights::Stop[0]],
+    std::copy(&init::quadweights::Values
+                  [init::quadweights::Start[seissol::multisim::BasisFunctionDimension]],
+              &init::quadweights::Values
+                  [init::quadweights::Stop[seissol::multisim::BasisFunctionDimension]],
               &spaceWeights[0]);
   }
   virtual ~FrictionSolver() = default;
 
-  virtual void evaluate(seissol::initializer::Layer& layerData,
-                        const seissol::initializer::DynamicRupture* dynRup,
-                        real fullUpdateTime,
+  struct FrictionTime {
+    real sumDt;
+    std::vector<real> deltaT;
+  };
+
+  virtual void setupLayer(DynamicRupture::Layer& layerData,
+                          seissol::parallel::runtime::StreamRuntime& runtime) = 0;
+
+  virtual void evaluate(real fullUpdateTime,
+                        const FrictionTime& frictionTime,
                         const double timeWeights[ConvergenceOrder],
                         seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
@@ -40,16 +50,18 @@ class FrictionSolver {
    * compute the DeltaT from the current timePoints call this function before evaluate
    * to set the correct DeltaT
    */
-  void computeDeltaT(const double timePoints[ConvergenceOrder]);
+  static FrictionTime computeDeltaT(const std::vector<double>& timePoints);
 
   /**
    * copies all common parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup,
-                          real fullUpdateTime);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData);
+
+  virtual void allocateAuxiliaryMemory(GlobalData* globalData) {}
 
   virtual seissol::initializer::AllocationPlace allocationPlace();
+
+  virtual std::unique_ptr<FrictionSolver> clone() = 0;
 
   protected:
   /**
@@ -65,8 +77,7 @@ class FrictionSolver {
   real mFullUpdateTime{};
   // CS = coordinate system
   real (*__restrict initialStressInFaultCS)[6][misc::NumPaddedPoints]{};
-  real (*__restrict nucleationStressInFaultCS[seissol::initializer::parameters::MaxNucleactions])
-      [6][misc::NumPaddedPoints]{};
+  real (*__restrict nucleationStressInFaultCS)[6][misc::NumPaddedPoints]{};
   real (*__restrict cohesion)[misc::NumPaddedPoints]{};
   real (*__restrict mu)[misc::NumPaddedPoints]{};
   real (*__restrict accumulatedSlipMagnitude)[misc::NumPaddedPoints]{};
@@ -86,8 +97,7 @@ class FrictionSolver {
   DREnergyOutput* __restrict energyData{};
   DRGodunovData* __restrict godunovData{};
   real (*__restrict initialPressure)[misc::NumPaddedPoints]{};
-  real (*__restrict nucleationPressure[initializer::parameters::MaxNucleactions])
-      [misc::NumPaddedPoints]{};
+  real (*__restrict nucleationPressure)[misc::NumPaddedPoints]{};
 
   // be careful only for some FLs initialized:
   real (*__restrict dynStressTime)[misc::NumPaddedPoints]{};

@@ -19,11 +19,12 @@ class SlowVelocityWeakeningLaw
   public:
   using RateAndStateBase<SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
-  static void
-      copySpecificLtsDataTreeToLocal(FrictionLawData* data,
-                                     seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* const dynRup,
-                                     real fullUpdateTime) {}
+  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+                                             DynamicRupture::Layer& layerData) {}
+
+  std::unique_ptr<FrictionSolver> clone() override {
+    return std::make_unique<Derived>(*static_cast<Derived*>(this));
+  }
 
   // Note that we need double precision here, since single precision led to NaNs.
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
@@ -47,16 +48,16 @@ class SlowVelocityWeakeningLaw
   }
 
   SEISSOL_DEVICE static double
-      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, MuDetails& details) {
+      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, const MuDetails& details) {
     const double x = localSlipRateMagnitude * details.c;
     return details.a * std::asinh(x);
   }
 
   SEISSOL_DEVICE static double updateMuDerivative(FrictionLawContext& ctx,
                                                   double localSlipRateMagnitude,
-                                                  MuDetails& details) {
+                                                  const MuDetails& details) {
     const double x = localSlipRateMagnitude * details.c;
-    return details.ac / std::sqrt(std::pow(x, 2) + 1.0);
+    return details.ac / std::sqrt(x * x + 1.0);
   }
 
   /**

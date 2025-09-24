@@ -13,9 +13,10 @@
 #include "Common/Constants.h"
 #include "Config.h"
 #include "Equations/elastic/Model/Datastructures.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Model/CommonDatastructures.h"
-#include "generated_code/tensor.h"
+#include <Common/Typedefs.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Kernels/LinearCK/Solver.h>
 #include <Kernels/LinearCKAnelastic/Solver.h>
@@ -27,6 +28,21 @@
 namespace seissol::model {
 class ViscoElasticLocalData;
 class ViscoElasticNeighborData;
+
+template <ViscoImplementation Implementation>
+struct ViscoSolver {
+  using Type = kernels::solver::linearck::Solver;
+};
+
+template <>
+struct ViscoSolver<ViscoImplementation::QuantityExtension> {
+  using Type = kernels::solver::linearck::Solver;
+};
+
+template <>
+struct ViscoSolver<ViscoImplementation::AnelasticTensor> {
+  using Type = kernels::solver::linearckanelastic::Solver;
+};
 
 template <std::size_t MechanismsP>
 struct ViscoElasticMaterialParametrized : public ElasticMaterial {
@@ -48,11 +64,7 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   using LocalSpecificData = ViscoElasticLocalData;
   using NeighborSpecificData = ViscoElasticNeighborData;
 
-#ifdef USE_VISCOELASTIC2
-  using Solver = kernels::solver::linearckanelastic::Solver;
-#else
-  using Solver = kernels::solver::linearck::Solver;
-#endif
+  using Solver = typename ViscoSolver<Config::ViscoMode>::Type;
 
   //! Relaxation frequencies
   double omega[zeroLengthArrayHandler(Mechanisms)];

@@ -6,21 +6,25 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "GravitationalFreeSurfaceBC.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
+#include <Solver/MultipleSimulations.h>
 #include <cstddef>
-#include <generated_code/kernel.h>
-#include <generated_code/tensor.h>
+#include <cstdint>
 #include <utility>
 
 namespace seissol {
 
-std::pair<long long, long long>
+std::pair<std::uint64_t, std::uint64_t>
     GravitationalFreeSurfaceBc::getFlopsDisplacementFace(unsigned int face, FaceType faceType) {
-  long long hardwareFlops = 0;
-  long long nonZeroFlops = 0;
+  std::uint64_t hardwareFlops = 0;
+  std::uint64_t nonZeroFlops = 0;
 
-  constexpr auto NumberOfNodes = nodal::tensor::nodes2D::Shape[0];
+  constexpr std::uint64_t NumberOfNodes =
+      static_cast<std::uint64_t>(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]) *
+      multisim::NumSimulations;
 
   // initialize integral of displacement
   hardwareFlops += 1 * NumberOfNodes;

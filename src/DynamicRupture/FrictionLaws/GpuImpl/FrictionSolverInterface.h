@@ -16,17 +16,13 @@
 // which, in its turn, is not supposed to know anything about SYCL
 namespace seissol::dr::friction_law::gpu {
 struct FrictionLawData {
-  real deltaT[ConvergenceOrder] = {};
-  real sumDt{};
-
   seissol::initializer::parameters::DRParameters drParameters;
 
   const ImpedancesAndEta* __restrict impAndEta{};
   const ImpedanceMatrices* __restrict impedanceMatrices{};
   // CS = coordinate system
   real (*__restrict initialStressInFaultCS)[6][misc::NumPaddedPoints]{};
-  const real (*__restrict nucleationStressInFaultCS
-                  [seissol::initializer::parameters::MaxNucleactions])[6][misc::NumPaddedPoints]{};
+  const real (*__restrict nucleationStressInFaultCS)[6][misc::NumPaddedPoints]{};
   const real (*__restrict cohesion)[misc::NumPaddedPoints]{};
   real (*__restrict mu)[misc::NumPaddedPoints]{};
   real (*__restrict accumulatedSlipMagnitude)[misc::NumPaddedPoints]{};
@@ -45,8 +41,7 @@ struct FrictionLawData {
   DREnergyOutput* __restrict energyData{};
   const DRGodunovData* __restrict godunovData{};
   real (*__restrict initialPressure)[misc::NumPaddedPoints]{};
-  const real (*__restrict nucleationPressure[seissol::initializer::parameters::MaxNucleactions])
-      [misc::NumPaddedPoints]{};
+  const real (*__restrict nucleationPressure)[misc::NumPaddedPoints]{};
 
   // be careful only for some FLs initialized:
   real (*__restrict dynStressTime)[misc::NumPaddedPoints]{};
@@ -98,49 +93,40 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
       : seissol::dr::friction_law::FrictionSolver(drParameters) {}
   ~FrictionSolverInterface() override = default;
 
-  virtual void allocateAuxiliaryMemory() = 0;
-
   seissol::initializer::AllocationPlace allocationPlace() override {
     return seissol::initializer::AllocationPlace::Device;
   }
 
-  static void copyLtsTreeToLocal(FrictionLawData* data,
-                                 seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* dynRup,
-                                 real fullUpdateTime) {
+  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
     const seissol::initializer::AllocationPlace place =
         seissol::initializer::AllocationPlace::Device;
-    data->impAndEta = layerData.var(dynRup->impAndEta, place);
-    data->impedanceMatrices = layerData.var(dynRup->impedanceMatrices, place);
-    data->initialStressInFaultCS = layerData.var(dynRup->initialStressInFaultCS, place);
-    for (std::size_t i = 0; i < dynRup->nucleationStressInFaultCS.size(); ++i) {
-      data->nucleationStressInFaultCS[i] =
-          layerData.var(dynRup->nucleationStressInFaultCS[i], place);
-    }
-    data->mu = layerData.var(dynRup->mu, place);
-    data->accumulatedSlipMagnitude = layerData.var(dynRup->accumulatedSlipMagnitude, place);
-    data->slip1 = layerData.var(dynRup->slip1, place);
-    data->slip2 = layerData.var(dynRup->slip2, place);
-    data->slipRateMagnitude = layerData.var(dynRup->slipRateMagnitude, place);
-    data->slipRate1 = layerData.var(dynRup->slipRate1, place);
-    data->slipRate2 = layerData.var(dynRup->slipRate2, place);
-    data->ruptureTime = layerData.var(dynRup->ruptureTime, place);
-    data->ruptureTimePending = layerData.var(dynRup->ruptureTimePending, place);
-    data->peakSlipRate = layerData.var(dynRup->peakSlipRate, place);
-    data->traction1 = layerData.var(dynRup->traction1, place);
-    data->traction2 = layerData.var(dynRup->traction2, place);
-    data->imposedStatePlus = layerData.var(dynRup->imposedStatePlus, place);
-    data->imposedStateMinus = layerData.var(dynRup->imposedStateMinus, place);
-    data->energyData = layerData.var(dynRup->drEnergyOutput, place);
-    data->godunovData = layerData.var(dynRup->godunovData, place);
-    data->dynStressTime = layerData.var(dynRup->dynStressTime, place);
-    data->dynStressTimePending = layerData.var(dynRup->dynStressTimePending, place);
-    data->qInterpolatedPlus = layerData.var(dynRup->qInterpolatedPlus, place);
-    data->qInterpolatedMinus = layerData.var(dynRup->qInterpolatedMinus, place);
-    data->initialPressure = layerData.var(dynRup->initialPressure, place);
-    for (std::size_t i = 0; i < dynRup->nucleationPressure.size(); ++i) {
-      data->nucleationPressure[i] = layerData.var(dynRup->nucleationPressure[i], place);
-    }
+    data->impAndEta = layerData.var<DynamicRupture::ImpAndEta>(place);
+    data->impedanceMatrices = layerData.var<DynamicRupture::ImpedanceMatrices>(place);
+    data->initialStressInFaultCS = layerData.var<DynamicRupture::InitialStressInFaultCS>(place);
+    data->nucleationStressInFaultCS =
+        layerData.var<DynamicRupture::NucleationStressInFaultCS>(place);
+    data->mu = layerData.var<DynamicRupture::Mu>(place);
+    data->accumulatedSlipMagnitude = layerData.var<DynamicRupture::AccumulatedSlipMagnitude>(place);
+    data->slip1 = layerData.var<DynamicRupture::Slip1>(place);
+    data->slip2 = layerData.var<DynamicRupture::Slip2>(place);
+    data->slipRateMagnitude = layerData.var<DynamicRupture::SlipRateMagnitude>(place);
+    data->slipRate1 = layerData.var<DynamicRupture::SlipRate1>(place);
+    data->slipRate2 = layerData.var<DynamicRupture::SlipRate2>(place);
+    data->ruptureTime = layerData.var<DynamicRupture::RuptureTime>(place);
+    data->ruptureTimePending = layerData.var<DynamicRupture::RuptureTimePending>(place);
+    data->peakSlipRate = layerData.var<DynamicRupture::PeakSlipRate>(place);
+    data->traction1 = layerData.var<DynamicRupture::Traction1>(place);
+    data->traction2 = layerData.var<DynamicRupture::Traction2>(place);
+    data->imposedStatePlus = layerData.var<DynamicRupture::ImposedStatePlus>(place);
+    data->imposedStateMinus = layerData.var<DynamicRupture::ImposedStateMinus>(place);
+    data->energyData = layerData.var<DynamicRupture::DREnergyOutputVar>(place);
+    data->godunovData = layerData.var<DynamicRupture::GodunovData>(place);
+    data->dynStressTime = layerData.var<DynamicRupture::DynStressTime>(place);
+    data->dynStressTimePending = layerData.var<DynamicRupture::DynStressTimePending>(place);
+    data->qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>(place);
+    data->qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>(place);
+    data->initialPressure = layerData.var<DynamicRupture::InitialPressure>(place);
+    data->nucleationPressure = layerData.var<DynamicRupture::NucleationPressure>(place);
   }
 
   protected:

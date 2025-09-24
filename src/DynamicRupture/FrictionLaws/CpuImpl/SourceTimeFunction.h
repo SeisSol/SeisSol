@@ -22,14 +22,12 @@ class YoffeSTF {
   real (*__restrict tauR)[misc::NumPaddedPoints];
 
   public:
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup,
-                          real fullUpdateTime);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData);
 
   real evaluate(real currentTime,
                 [[maybe_unused]] real timeIncrement,
                 size_t ltsFace,
-                size_t pointIndex);
+                uint32_t pointIndex);
 };
 
 class GaussianSTF {
@@ -38,11 +36,9 @@ class GaussianSTF {
   real (*__restrict riseTime)[misc::NumPaddedPoints];
 
   public:
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup,
-                          real fullUpdateTime);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData);
 
-  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex);
+  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, uint32_t pointIndex);
 };
 
 class DeltaSTF {
@@ -50,11 +46,9 @@ class DeltaSTF {
   real (*__restrict onsetTime)[misc::NumPaddedPoints];
 
   public:
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup,
-                          real fullUpdateTime);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData);
 
-  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex);
+  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, uint32_t pointIndex);
 };
 
 } // namespace seissol::dr::friction_law::cpu

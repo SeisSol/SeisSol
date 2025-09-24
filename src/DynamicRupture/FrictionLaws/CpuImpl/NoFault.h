@@ -18,20 +18,20 @@ class NoFault : public BaseFrictionLaw<NoFault> {
   public:
   using BaseFrictionLaw::BaseFrictionLaw;
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
-                          real fullUpdateTime) {}
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
 
   static void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
                                     TractionResults<Executor::Host>& tractionResults,
                                     std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                                     std::array<real, misc::NumPaddedPoints>& strengthBuffer,
-                                    unsigned ltsFace,
-                                    unsigned timeIndex);
+                                    std::size_t ltsFace,
+                                    uint32_t timeIndex);
 
-  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {};
-  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {};
-  void saveDynamicStressOutput(unsigned int ltsFace) {};
+  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
+  };
+  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
+  };
+  void saveDynamicStressOutput(std::size_t ltsFace) {};
 };
 } // namespace seissol::dr::friction_law::cpu
 
