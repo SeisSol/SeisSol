@@ -16,9 +16,7 @@ set(GRAPH_PARTITIONING_LIBS "parmetis" CACHE STRING "Graph partitioning library 
 set(GRAPH_PARTITIONING_LIB_OPTIONS none parmetis parhip ptscotch)
 set_property(CACHE GRAPH_PARTITIONING_LIBS PROPERTY STRINGS ${GRAPH_PARTITIONING_LIB_OPTIONS})
 
-# FIXME: forced to be on
-# option(MPI "Use MPI parallelization" ON)
-set(MPI ON)
+option(MPI "Use MPI parallelization" ON)
 
 # FIXME: forced to be on
 # option(OPENMP "Use OpenMP parallelization" ON)
