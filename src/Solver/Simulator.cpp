@@ -17,12 +17,12 @@
 #include "SeisSol.h"
 #include "TimeStepping/TimeManager.h"
 #include <Memory/Tree/Layer.h>
+#include <Monitoring/Instrumentation.h>
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <cassert>
 #include <optional>
 #include <utils/logger.h>
-#include <xdmfwriter/scorep_wrapper.h>
 
 namespace seissol {
 
