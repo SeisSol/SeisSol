@@ -166,9 +166,9 @@ class StreamRuntime {
     }
   }
 
-  template <typename F>
+  template <typename VarmapT, typename F>
   void runGraph(seissol::initializer::GraphKey computeGraphKey,
-                seissol::initializer::Layer& layer,
+                initializer::Layer<VarmapT>& layer,
                 F&& handler) {
     auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
 
@@ -219,7 +219,7 @@ class StreamRuntime {
   StreamRuntime(std::size_t ringbufferSize) {}
 
   template <typename F>
-  void enqueueLoop(std::size_t elemCount, F handler) {
+  void enqueueLoop(std::size_t elemCount, const F& handler) {
 #pragma omp parallel for schedule(static)
     for (std::size_t i = 0; i < elemCount; ++i) {
       std::invoke(handler, i);

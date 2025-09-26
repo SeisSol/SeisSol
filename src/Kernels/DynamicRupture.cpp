@@ -8,6 +8,7 @@
 
 #include "DynamicRupture.h"
 
+#include "DynamicRupture/Misc.h"
 #include "GeneratedCode/tensor.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
@@ -22,6 +23,7 @@
 #include "utils/logger.h"
 
 #include "GeneratedCode/kernel.h"
+
 #ifdef ACL_DEVICE
 #include "device.h"
 #include <DataTypes/ConditionalKey.h>
@@ -52,8 +54,8 @@ void DynamicRupture::spaceTimeInterpolation(
     DREnergyOutput* drEnergyOutput,
     const real* timeDerivativePlus,
     const real* timeDerivativeMinus,
-    real qInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
-    real qInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
+    real qInterpolatedPlus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
+    real qInterpolatedMinus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
     const real* timeDerivativePlusPrefetch,
     const real* timeDerivativeMinusPrefetch,
     const real* coeffs) {
@@ -73,16 +75,16 @@ void DynamicRupture::spaceTimeInterpolation(
   alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
-  for (std::size_t timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
+  for (std::size_t timeInterval = 0; timeInterval < dr::misc::TimeSteps; ++timeInterval) {
     m_timeKernel.evaluate(
         &coeffs[timeInterval * ConvergenceOrder], timeDerivativePlus, degreesOfFreedomPlus);
     m_timeKernel.evaluate(
         &coeffs[timeInterval * ConvergenceOrder], timeDerivativeMinus, degreesOfFreedomMinus);
 
-    const real* plusPrefetch = (timeInterval < ConvergenceOrder - 1)
+    const real* plusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps)
                                    ? &qInterpolatedPlus[timeInterval + 1][0]
                                    : timeDerivativePlusPrefetch;
-    const real* minusPrefetch = (timeInterval < ConvergenceOrder - 1)
+    const real* minusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps)
                                     ? &qInterpolatedMinus[timeInterval + 1][0]
                                     : timeDerivativeMinusPrefetch;
 
@@ -109,7 +111,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
   real** degreesOfFreedomPlus{nullptr};
   real** degreesOfFreedomMinus{nullptr};
 
-  for (unsigned timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
+  for (unsigned timeInterval = 0; timeInterval < dr::misc::TimeSteps; ++timeInterval) {
     ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
     if (table.find(timeIntegrationKey) != table.end()) {
       auto& entry = table[timeIntegrationKey];
@@ -217,8 +219,8 @@ void DynamicRupture::flopsGodunovState(const DRFaceInformation& faceInfo,
   hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(
       faceInfo.minusSide, faceInfo.faceRelation);
 
-  nonZeroFlops *= ConvergenceOrder;
-  hardwareFlops *= ConvergenceOrder;
+  nonZeroFlops *= dr::misc::TimeSteps;
+  hardwareFlops *= dr::misc::TimeSteps;
 }
 
 } // namespace seissol::kernels

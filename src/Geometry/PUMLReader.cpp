@@ -383,8 +383,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
 
         m_elements[i].neighborSides[PumlFaceToSeisSol[j]] = PumlFaceToSeisSol[back - nfaces];
 
-        const unsigned int firstVertex =
-            m_elements[i].vertices[FirstFaceVertex[PumlFaceToSeisSol[j]]];
+        const auto firstVertex = m_elements[i].vertices[FirstFaceVertex[PumlFaceToSeisSol[j]]];
 
         unsigned int nvertices[Cell::NumVertices];
         PUML::Downward::vertices(meshTopology, cells[neighbors[j]], nvertices);
@@ -517,7 +516,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
       unsigned long nvertices[Cell::NumVertices];
       PUML::Downward::gvertices(meshTopology, cells[cellIds[0]], nvertices);
 
-      unsigned long* localFirstVertex =
+      const auto* localFirstVertex =
           std::find(nvertices, nvertices + Cell::NumVertices, ghostFirstVertex[k][i]);
       assert(localFirstVertex != nvertices + 4);
 

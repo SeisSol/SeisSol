@@ -89,14 +89,15 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     static_cast<Derived*>(this)->resampleStateVar(stateVariableBuffer, ltsFace);
   }
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup) {
-    const auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState*>(dynRup);
-    a = layerData.var(concreteLts->rsA);
-    sl0 = layerData.var(concreteLts->rsSl0);
-    stateVariable = layerData.var(concreteLts->stateVariable);
-    static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup);
-    tpMethod.copyLtsTreeToLocal(layerData, dynRup);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {
+    a = layerData.var<LTSRateAndState::RsA>();
+    sl0 = layerData.var<LTSRateAndState::RsSl0>();
+    f0 = layerData.var<LTSRateAndState::RsF0>();
+    muW = layerData.var<LTSRateAndState::RsMuW>();
+    b = layerData.var<LTSRateAndState::RsB>();
+    stateVariable = layerData.var<LTSRateAndState::StateVariable>();
+    static_cast<Derived*>(this)->copyStorageToLocal(layerData);
+    tpMethod.copyStorageToLocal(layerData);
   }
 
   /**
@@ -259,17 +260,17 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     }
   }
 
-  void saveDynamicStressOutput(std::size_t faceIndex) {
+  void saveDynamicStressOutput(std::size_t faceIndex, real time) {
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
 
       if (this->ruptureTime[faceIndex][pointIndex] > 0.0 &&
-          this->ruptureTime[faceIndex][pointIndex] <= this->mFullUpdateTime &&
+          this->ruptureTime[faceIndex][pointIndex] <= time &&
           this->dynStressTimePending[faceIndex][pointIndex] &&
           this->mu[faceIndex][pointIndex] <=
-              (this->drParameters->muW +
-               0.05 * (this->drParameters->rsF0 - this->drParameters->muW))) {
-        this->dynStressTime[faceIndex][pointIndex] = this->mFullUpdateTime;
+              (this->muW[faceIndex][pointIndex] +
+               0.05 * (this->f0[faceIndex][pointIndex] - this->muW[faceIndex][pointIndex]))) {
+        this->dynStressTime[faceIndex][pointIndex] = time;
         this->dynStressTimePending[faceIndex][pointIndex] = false;
       }
     }
@@ -367,6 +368,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   real (*__restrict a)[misc::NumPaddedPoints]{};
   real (*__restrict sl0)[misc::NumPaddedPoints]{};
   real (*__restrict stateVariable)[misc::NumPaddedPoints]{};
+
+  real (*__restrict f0)[misc::NumPaddedPoints]{};
+  real (*__restrict muW)[misc::NumPaddedPoints]{};
+  real (*__restrict b)[misc::NumPaddedPoints]{};
 
   TPMethod tpMethod;
   rs::Settings settings{};

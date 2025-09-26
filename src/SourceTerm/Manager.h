@@ -10,7 +10,6 @@
 #define SEISSOL_SRC_SOURCETERM_MANAGER_H_
 
 #include "Geometry/MeshReader.h"
-#include "Memory/Tree/Lut.h"
 #include "Solver/TimeStepping/TimeManager.h"
 #include <cstdarg>
 
@@ -24,9 +23,8 @@ class Manager {
   static void loadSources(seissol::initializer::parameters::PointSourceType sourceType,
                           const char* fileName,
                           const seissol::geometry::MeshReader& mesh,
-                          seissol::initializer::LTSTree* ltsTree,
-                          seissol::initializer::LTS* lts,
-                          seissol::initializer::Lut* ltsLut,
+                          LTS::Storage& ltsStorage,
+                          LTS::Backmap& backmap,
                           time_stepping::TimeManager& timeManager);
 };
 

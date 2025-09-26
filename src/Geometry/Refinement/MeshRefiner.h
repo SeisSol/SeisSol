@@ -9,13 +9,13 @@
 #ifndef SEISSOL_SRC_GEOMETRY_REFINEMENT_MESHREFINER_H_
 #define SEISSOL_SRC_GEOMETRY_REFINEMENT_MESHREFINER_H_
 
+#include <cstddef>
 #include <cstring>
 
 #include "Geometry/MeshReader.h"
 #include "RefinerUtils.h"
 
-namespace seissol {
-namespace refinement {
+namespace seissol::refinement {
 
 //------------------------------------------------------------------------------
 
@@ -29,7 +29,7 @@ class MeshRefiner {
   size_t m_numSubCells;
   size_t m_numVertices;
 
-  static const unsigned int kIndicesPerCell = 4;
+  static const unsigned int KIndicesPerCell = 4;
 
   const unsigned int kSubCellsPerCell;
 
@@ -44,12 +44,12 @@ class MeshRefiner {
 
   ~MeshRefiner();
 
-  const unsigned int* getCellData() const;
+  [[nodiscard]] const unsigned int* getCellData() const;
   const T* getVertexData() const;
-  std::size_t getkSubCellsPerCell() const;
+  [[nodiscard]] std::size_t getkSubCellsPerCell() const;
 
-  std::size_t getNumCells() const;
-  std::size_t getNumVertices() const;
+  [[nodiscard]] std::size_t getNumCells() const;
+  [[nodiscard]] std::size_t getNumVertices() const;
 };
 
 //------------------------------------------------------------------------------
@@ -69,7 +69,7 @@ MeshRefiner<T>::MeshRefiner(const seissol::geometry::MeshReader& meshReader,
   const unsigned int additionalVertices = tetRefiner.additionalVerticesPerCell();
   m_numVertices = kInVertexCount + kInCellCount * additionalVertices;
 
-  m_cells = new unsigned int[m_numSubCells * kIndicesPerCell];
+  m_cells = new unsigned int[m_numSubCells * KIndicesPerCell];
   m_vertices = new T[m_numVertices * 3];
 
   const std::vector<Vertex>& kVertices = meshReader.getVertices();
@@ -80,7 +80,7 @@ MeshRefiner<T>::MeshRefiner(const seissol::geometry::MeshReader& meshReader,
 #pragma omp parallel for
 #endif // _OPENMP
   for (unsigned int i = 0; i < kInVertexCount; i++) {
-    memcpy(&m_vertices[i * 3], kVertices[i].coords, sizeof(double) * 3);
+    memcpy(&m_vertices[static_cast<size_t>(i * 3)], kVertices[i].coords, sizeof(double) * 3);
   }
 
   // The pointer to the new vertices
@@ -91,22 +91,22 @@ MeshRefiner<T>::MeshRefiner(const seissol::geometry::MeshReader& meshReader,
 #pragma omp parallel
   {
 #endif // _OPENMPI
-    Eigen::Matrix<T, 3, 1>* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
-    Tetrahedron<T>* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
+    auto* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
+    auto* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
 
 #ifdef _OPENMP
 #pragma omp for schedule(static) nowait
 #endif // _OPENMP
     for (size_t c = 0; c < kInCellCount; ++c) {
       // Build a Terahedron containing the coordinates of the vertices.
-      Tetrahedron<T> inTet = Tetrahedron<T>(kVertices[kElements[c].vertices[0]].coords,
-                                            kVertices[kElements[c].vertices[1]].coords,
-                                            kVertices[kElements[c].vertices[2]].coords,
-                                            kVertices[kElements[c].vertices[3]].coords,
-                                            kElements[c].vertices[0],
-                                            kElements[c].vertices[1],
-                                            kElements[c].vertices[2],
-                                            kElements[c].vertices[3]);
+      const Tetrahedron<T> inTet = Tetrahedron<T>(kVertices[kElements[c].vertices[0]].coords,
+                                                  kVertices[kElements[c].vertices[1]].coords,
+                                                  kVertices[kElements[c].vertices[2]].coords,
+                                                  kVertices[kElements[c].vertices[3]].coords,
+                                                  kElements[c].vertices[0],
+                                                  kElements[c].vertices[1],
+                                                  kElements[c].vertices[2],
+                                                  kElements[c].vertices[3]);
 
       // Generate the tets
       tetRefiner.refine(inTet, kInVertexCount + c * additionalVertices, newTetsTmp, newVerticesTmp);
@@ -151,7 +151,7 @@ MeshRefiner<T>::MeshRefiner(const std::vector<const Element*>& subElements,
   const unsigned int additionalVertices = tetRefiner.additionalVerticesPerCell();
   m_numVertices = kInVertexCount + kInCellCount * additionalVertices;
 
-  m_cells = new unsigned int[m_numSubCells * kIndicesPerCell];
+  m_cells = new unsigned int[m_numSubCells * KIndicesPerCell];
   m_vertices = new T[m_numVertices * 3];
 
   const std::vector<const Vertex*>& kVertices = subVertices;
@@ -162,7 +162,7 @@ MeshRefiner<T>::MeshRefiner(const std::vector<const Element*>& subElements,
 #pragma omp parallel for
 #endif // _OPENMP
   for (unsigned int i = 0; i < kInVertexCount; i++) {
-    memcpy(&m_vertices[i * 3], kVertices[i]->coords, sizeof(double) * 3);
+    memcpy(&m_vertices[static_cast<size_t>(i * 3)], kVertices[i]->coords, sizeof(double) * 3);
   }
 
   // The pointer to the new vertices
@@ -173,15 +173,15 @@ MeshRefiner<T>::MeshRefiner(const std::vector<const Element*>& subElements,
 #pragma omp parallel shared(oldToNewVertexMap)
   {
 #endif // _OPENMPI
-    Eigen::Matrix<T, 3, 1>* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
-    Tetrahedron<T>* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
+    auto* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
+    auto* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
 
 #ifdef _OPENMP
 #pragma omp for schedule(static) nowait
 #endif // _OPENMP
     for (size_t c = 0; c < kInCellCount; ++c) {
       // Build a Terahedron containing the coordinates of the vertices.
-      Tetrahedron<T> inTet =
+      const Tetrahedron<T> inTet =
           Tetrahedron<T>(kVertices[oldToNewVertexMap.at(kElements[c]->vertices[0])]->coords,
                          kVertices[oldToNewVertexMap.at(kElements[c]->vertices[1])]->coords,
                          kVertices[oldToNewVertexMap.at(kElements[c]->vertices[2])]->coords,
@@ -258,7 +258,6 @@ std::size_t MeshRefiner<T>::getNumVertices() const {
 
 //------------------------------------------------------------------------------
 
-} // namespace refinement
-} // namespace seissol
+} // namespace seissol::refinement
 
 #endif // SEISSOL_SRC_GEOMETRY_REFINEMENT_MESHREFINER_H_

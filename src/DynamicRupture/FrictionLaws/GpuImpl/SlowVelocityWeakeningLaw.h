@@ -19,10 +19,8 @@ class SlowVelocityWeakeningLaw
   public:
   using RateAndStateBase<SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
-  static void
-      copySpecificLtsDataTreeToLocal(FrictionLawData* data,
-                                     seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* const dynRup) {}
+  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+                                             DynamicRupture::Layer& layerData) {}
 
   std::unique_ptr<FrictionSolver> clone() override {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
@@ -43,9 +41,10 @@ class SlowVelocityWeakeningLaw
     const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const double log1 = std::log(ctx.data->drParameters.rsSr0 * localStateVariable / localSl0);
+    const auto localF0 = ctx.data->f0[ctx.ltsFace][ctx.pointIndex];
+    const auto localB = ctx.data->b[ctx.ltsFace][ctx.pointIndex];
     const double c =
-        0.5 / ctx.data->drParameters.rsSr0 *
-        std::exp((ctx.data->drParameters.rsF0 + ctx.data->drParameters.rsB * log1) / localA);
+        0.5 / ctx.data->drParameters.rsSr0 * std::exp((localF0 + localB * log1) / localA);
     return MuDetails{localA, c, localA * c};
   }
 

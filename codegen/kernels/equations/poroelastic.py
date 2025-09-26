@@ -10,8 +10,7 @@ from kernels.aderdg import LinearADERDG
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor
-from yateto.input import (memoryLayoutFromFile, parseJSONMatrixFile,
-                          parseXMLMatrixFile)
+from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile, parseXMLMatrixFile
 
 
 def choose(n, k):

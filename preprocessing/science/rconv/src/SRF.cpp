@@ -8,17 +8,17 @@
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -54,14 +54,14 @@ void parsePOINTS_1_0(std::ifstream& in, SRFPointSource& ps)
 {
   double dummy;
   unsigned nt[3];
-  
+
   // Point source, line 1
   in >> ps.longitude >> ps.latitude >> ps.depth >> ps.strike >> ps.dip >> ps.area >> ps.tinit >> ps.dt;
   // Point source, line 2
   in >> ps.rake >> dummy >> nt[0] >> dummy >> nt[1] >> dummy >> nt[2];
-  
+
   ps.shearModulus = 0.0; // = unknown
-  
+
   for (unsigned i = 0; i < 3; ++i) {
     parseSamples(in, ps.slipRate[i], nt[i]);
   }
@@ -71,14 +71,14 @@ void parsePOINTS_2_0(std::ifstream& in, SRFPointSource& ps)
 {
   double vs, den, dummy;
   unsigned nt[3];
-  
+
   // Point source, line 1
   in >> ps.longitude >> ps.latitude >> ps.depth >> ps.strike >> ps.dip >> ps.area >> ps.tinit >> ps.dt >> vs >> den;
   // Point source, line 2
   in >> ps.rake >> dummy >> nt[0] >> dummy >> nt[1] >> dummy >> nt[2];
-  
+
   ps.shearModulus = (vs > 0.0 && den > 0.0) ? vs * vs * den : 0.0;
-  
+
   for (unsigned i = 0; i < 3; ++i) {
     parseSamples(in, ps.slipRate[i], nt[i]);
   }
@@ -87,13 +87,13 @@ void parsePOINTS_2_0(std::ifstream& in, SRFPointSource& ps)
 std::vector<SRFPointSource> parseSRF(char const* filename)
 {
   std::vector<SRFPointSource> srf;
-  
+
   std::ifstream in(filename, std::ifstream::in);
-  
+
   double version;
   in >> version;
   void (*parsePoints)(std::ifstream&, SRFPointSource&);
-  
+
   if (version == 2.0) {
     parsePoints = parsePOINTS_2_0;
   } else if (version == 1.0) {
@@ -132,9 +132,9 @@ std::vector<SRFPointSource> parseSRF(char const* filename)
       return srf;
     }
   }
-  
+
   in.close();
-  
+
   // Erasing sources with zero samples
   unsigned numRemoved = 0;
   std::vector<SRFPointSource>::iterator source = srf.begin();
@@ -152,4 +152,3 @@ std::vector<SRFPointSource> parseSRF(char const* filename)
 
   return srf;
 }
-

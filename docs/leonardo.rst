@@ -213,4 +213,3 @@ Attached is a (preliminary) job script which does the necessary pinning for us.
     CPU_BIND="${CPU_BIND},f000f000"
 
     srun --cpu-bind=${CPU_BIND} ./select_gpu ./${SEISSOL_EXE} ./parameters.par
-

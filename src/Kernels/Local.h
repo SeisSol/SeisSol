@@ -36,7 +36,7 @@ class LocalKernel : public Kernel {
   }
 
   virtual void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                               LocalData& data,
+                               LTS::Ref& data,
                                LocalTmp& tmp,
                                const CellMaterialData* materialData,
                                const CellBoundaryMapping (*cellBoundaryMapping)[4],
@@ -46,17 +46,13 @@ class LocalKernel : public Kernel {
   virtual void computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
                                       ConditionalMaterialTable& materialTable,
                                       ConditionalIndicesTable& indicesTable,
-                                      kernels::LocalData::Loader& loader,
-                                      LocalTmp& tmp,
                                       double timeStepWidth,
                                       seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   virtual void
       evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
                                      ConditionalIndicesTable& indicesTable,
-                                     kernels::LocalData::Loader& loader,
-                                     seissol::initializer::Layer& layer,
-                                     seissol::initializer::LTS& lts,
+                                     LTS::Layer& layer,
                                      double time,
                                      double timeStepWidth,
                                      seissol::parallel::runtime::StreamRuntime& runtime) = 0;
