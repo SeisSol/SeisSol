@@ -422,8 +422,14 @@ target_include_directories(seissol-common-properties SYSTEM INTERFACE
   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
-find_package(Eigen3 3.4 REQUIRED)
+find_package(Eigen3 REQUIRED)
 target_link_libraries(seissol-common-properties INTERFACE Eigen3::Eigen)
+
+# the following check is needed because allowing 3.4 and 5.0.0 at the same
+# time was not possible inline in the find_package
+if ("${Eigen3_VERSION}" VERSION_LESS "3.4")
+  message(FATAL_ERROR "Your installed Eigen version is too old. Needed: at least 3.4 .")
+endif()
 
 find_package(yaml-cpp REQUIRED)
 
