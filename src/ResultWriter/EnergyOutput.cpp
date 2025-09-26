@@ -326,13 +326,11 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       const auto timeDerivativePlusPtr = [&](std::size_t i) { return timeDerivativePlus[i]; };
       const auto timeDerivativeMinusPtr = [&](std::size_t i) { return timeDerivativeMinus[i]; };
 #endif
-      const DRGodunovData* godunovData = layer.var<DynamicRupture::GodunovData>();
-      const DRFaceInformation* faceInformation = layer.var<DynamicRupture::FaceInformation>();
-      const DREnergyOutput* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>();
-      const seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus =
-          layer.var<DynamicRupture::WaveSpeedsPlus>();
-      const seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus =
-          layer.var<DynamicRupture::WaveSpeedsMinus>();
+      const auto* godunovData = layer.var<DynamicRupture::GodunovData>();
+      const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
+      const auto* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>();
+      const auto* waveSpeedsPlus = layer.var<DynamicRupture::WaveSpeedsPlus>();
+      const auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
       const auto layerSize = layer.size();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP

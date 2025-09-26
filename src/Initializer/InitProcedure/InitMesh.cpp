@@ -24,7 +24,7 @@
 #include <vector>
 
 #include "Geometry/CubeGenerator.h"
-#if defined(USE_HDF)
+#ifdef USE_HDF
 #include "Geometry/PUMLReader.h"
 #include <hdf5.h>
 #endif // defined(USE_HDF)
@@ -99,7 +99,7 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
 
 void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
                   seissol::SeisSol& seissolInstance) {
-#if defined(USE_HDF)
+#ifdef USE_HDF
   double nodeWeight = 1.0;
 
   if (seissolInstance.env().get<bool>("MINISEISSOL", true)) {
