@@ -56,5 +56,3 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 endif()
 
 target_include_directories(cubeGenerator PUBLIC "${PROJECT_SOURCE_DIR}/../../../submodules")
-
-

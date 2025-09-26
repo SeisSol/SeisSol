@@ -343,15 +343,11 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 
   auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
 
-  std::size_t* ltsToMesh = nullptr;
   std::size_t numberOfMeshCells = 0;
 
   seissolInstance.getLtsLayout().getCellInformation(ltsStorage.var<LTS::CellInformation>(),
                                                     ltsStorage.var<LTS::SecondaryInformation>(),
-                                                    ltsToMesh,
                                                     numberOfMeshCells);
-
-  delete[] ltsToMesh;
 
   seissol::initializer::time_stepping::deriveLtsSetups(
       ltsInfo.clusterLayout.value().globalClusterCount,

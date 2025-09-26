@@ -70,7 +70,7 @@ class WriteInline : public DataSource {
   template <typename T>
   static std::shared_ptr<DataSource>
       create(const T& data,
-             std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
+             const std::shared_ptr<datatype::Datatype>& datatype = datatype::inferDatatype<T>()) {
     return std::make_shared<WriteInline>(&data, sizeof(T), datatype, std::vector<std::size_t>());
   }
 
@@ -82,10 +82,10 @@ class WriteInline : public DataSource {
   }
 
   template <typename T>
-  static std::shared_ptr<DataSource>
-      createArray(const std::vector<std::size_t>& shape,
-                  const std::vector<T>& data,
-                  std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
+  static std::shared_ptr<DataSource> createArray(
+      const std::vector<std::size_t>& shape,
+      const std::vector<T>& data,
+      const std::shared_ptr<datatype::Datatype>& datatype = datatype::inferDatatype<T>()) {
     return std::make_shared<WriteInline>(data.data(), sizeof(T) * data.size(), datatype, shape);
   }
 
@@ -139,7 +139,7 @@ class WriteBuffer : public DataSource {
       create(const T* data,
              size_t count,
              const std::vector<std::size_t>& shape = {},
-             std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
+             const std::shared_ptr<datatype::Datatype>& datatype = datatype::inferDatatype<T>()) {
     return std::make_shared<WriteBuffer>(data, count, datatype, shape);
   }
 
@@ -209,8 +209,8 @@ class GeneratedBuffer : public AdhocBuffer {
       std::size_t sourceCount,
       std::size_t targetCount,
       const std::vector<std::size_t>& shape,
-      F handler,
-      std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
+      const F& handler,
+      const std::shared_ptr<datatype::Datatype>& datatype = datatype::inferDatatype<T>()) {
     std::size_t localTargetStride = targetCount;
     for (auto dim : shape) {
       localTargetStride *= dim;

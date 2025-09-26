@@ -67,9 +67,9 @@ class FastVelocityWeakeningLaw
     // exact integration of dSV/dt DGL, assuming constant V over integration step
 
     const auto preexp1 = -localSlipRate * (timeIncrement / localSl0);
-    const real exp1 = std::exp(preexp1);
+    const real exp1v = std::exp(preexp1);
     const real exp1m = -std::expm1(preexp1);
-    const real localStateVariable = steadyStateStateVariable * exp1m + exp1 * stateVarReference;
+    const real localStateVariable = steadyStateStateVariable * exp1m + exp1v * stateVarReference;
     assert((std::isfinite(localStateVariable) || pointIndex >= misc::NumBoundaryGaussPoints) &&
            "Inf/NaN detected");
     return localStateVariable;

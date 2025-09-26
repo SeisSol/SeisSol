@@ -50,10 +50,10 @@ class FastVelocityWeakeningLaw
                           std::sinh(steadyStateFrictionCoefficient / localA));
 
     const double preexp1 = -localSlipRate * (timeIncrement / localSl0);
-    const double exp1 = std::exp(preexp1);
+    const double exp1v = std::exp(preexp1);
     const double exp1m = -std::expm1(preexp1);
     const double localStateVariable =
-        steadyStateStateVariable * exp1m + exp1 * ctx.initialVariables.stateVarReference;
+        steadyStateStateVariable * exp1m + exp1v * ctx.initialVariables.stateVarReference;
 
     ctx.stateVariableBuffer = localStateVariable;
   }

@@ -365,4 +365,3 @@ Two additional thermal pressurization parameters are space-dependent and therefo
     tp_halfWidthShearZone: 0.01     # Half width of shearing zone [m]
 
 TP generates 2 additional on-fault outputs: Pore pressure and temperature (see fault output).
-
