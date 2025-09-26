@@ -37,7 +37,7 @@ struct GhostElementMetadata {
 
 class MeshReader {
   protected:
-  const int mRank;
+  int mRank{0};
 
   std::vector<Element> m_elements;
 

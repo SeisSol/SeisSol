@@ -170,7 +170,8 @@ PUMLReader::PUMLReader(const char* meshFile,
                        seissol::initializer::parameters::TopologyFormat topologyFormat,
                        initializer::time_stepping::LtsWeights* ltsWeights,
                        double tpwgt)
-    : MeshReader(MPI::mpi.rank()), boundaryFormat(boundaryFormat), topologyFormat(topologyFormat) {
+    : MeshReader(seissol::MPI::mpi.rank()), boundaryFormat(boundaryFormat),
+      topologyFormat(topologyFormat) {
   // we need up to two meshes, potentially:
   // one mesh for the geometry
   // one mesh for the topology
@@ -178,8 +179,8 @@ PUMLReader::PUMLReader(const char* meshFile,
 
   PumlMesh meshTopologyExtra;
   PumlMesh meshGeometry;
-  meshTopologyExtra.setComm(MPI::mpi.comm());
-  meshGeometry.setComm(MPI::mpi.comm());
+  meshTopologyExtra.setComm(seissol::MPI::mpi.comm());
+  meshGeometry.setComm(seissol::MPI::mpi.comm());
 
   read(meshGeometry, meshFile, false);
 
