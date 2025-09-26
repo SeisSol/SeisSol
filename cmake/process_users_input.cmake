@@ -377,7 +377,7 @@ math(EXPR IS_ALIGNED_MULT_SIMULATIONS
 
 if (NOT ${NUMBER_OF_FUSED_SIMULATIONS} EQUAL 1 AND NOT ${IS_ALIGNED_MULT_SIMULATIONS} EQUAL 0)
     math(EXPR FACTOR "${ALIGNMENT} / ${REAL_SIZE_IN_BYTES}")
-    message(FATAL_ERROR "a number of fused simulations must be multiple of ${FACTOR}")
+    message(WARNING "a number of fused simulations should be multiple of ${FACTOR}. Expect code generation errors and/or degraded performance when continuing.")
 endif()
 
 #-------------------------------------------------------------------------------
