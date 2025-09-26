@@ -185,5 +185,3 @@ We provide the following small-scale examples, specifically designed for SeisSol
      - n/a
      - 1
      - `<https://github.com/SeisSol/Training/tree/main/northridge>`_
-
-

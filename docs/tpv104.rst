@@ -141,5 +141,3 @@ direction at T=5s.
    :align: center
 
    Slip rate along-strike on the fault at 5 s of TPV 104.
-
-

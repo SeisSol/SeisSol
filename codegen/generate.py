@@ -24,12 +24,17 @@ import kernels.point
 import kernels.surface_displacement
 import kernels.vtkproject
 import yateto
-from yateto import (DeviceArchDefinition, Generator, GlobalRoutineCache,
-                    HostArchDefinition, NamespacedGenerator,
-                    deriveArchitecture, fixArchitectureGlobal,
-                    gemm_configuration)
-from yateto.ast.cost import (BoundingBoxCostEstimator,
-                             FusedGemmsBoundingBoxCostEstimator)
+from yateto import (
+    DeviceArchDefinition,
+    Generator,
+    GlobalRoutineCache,
+    HostArchDefinition,
+    NamespacedGenerator,
+    deriveArchitecture,
+    fixArchitectureGlobal,
+    gemm_configuration,
+)
+from yateto.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
 from yateto.gemm_configuration import GeneratorCollection
 
 
@@ -139,6 +144,7 @@ def main():
                 )
         if "tensorforge" in device_codegen:
             import tensorforge
+
             if tensorforge.use_fusedgemm_cost():
                 cost_estimators = FusedGemmsBoundingBoxCostEstimator
             custom_routine_generators["gpu"] = tensorforge.get_routine_generator(yateto)

@@ -186,7 +186,7 @@ void OutputManager::initElementwiseOutput() {
   const auto cellConnectivity = getCellConnectivity(receiverPoints);
   const auto faultTags = getFaultTags(receiverPoints);
   const auto vertices = getAllVertices(receiverPoints);
-  constexpr auto MaxNumVars = std::tuple_size<DrVarsT>::value;
+  constexpr auto MaxNumVars = std::tuple_size_v<DrVarsT>;
   const auto outputMask = seissolParameters.output.elementwiseParameters.outputMask;
   const auto intMask = convertMaskFromBoolToInt<MaxNumVars>(outputMask);
 
@@ -461,13 +461,13 @@ void OutputManager::initFaceToLtsMap() {
     globalFaceToLtsMap.resize(faceToLtsMap.size());
     for (auto& layer : drStorage->leaves(Ghost)) {
 
-      DRFaceInformation* faceInformation = layer.var<DynamicRupture::FaceInformation>();
+      const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
       for (size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
         faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&layer, ltsFace);
       }
     }
 
-    DRFaceInformation* faceInformation = drStorage->var<DynamicRupture::FaceInformation>();
+    const auto* faceInformation = drStorage->var<DynamicRupture::FaceInformation>();
     for (size_t ltsFace = 0; ltsFace < ltsFaultSize; ++ltsFace) {
       globalFaceToLtsMap[faceInformation[ltsFace].meshFace] = ltsFace;
     }
@@ -479,7 +479,7 @@ bool OutputManager::isAtPickpoint(double time, double dt) {
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   const bool isFirstStep = iterationStep == 0;
   const double abortTime = seissolParameters.timeStepping.endTime;
-  const bool isCloseToTimeOut = (abortTime - time) < (dt * timeMargin);
+  const bool isCloseToTimeOut = (abortTime - time) < (dt * TimeMargin);
 
   const int printTimeInterval = seissolParameters.output.pickpointParameters.printTimeInterval;
   const bool isOutputIteration = iterationStep % printTimeInterval == 0;
@@ -504,7 +504,7 @@ void OutputManager::writePickpointOutput(double time,
       const bool isMaxCacheLevel =
           outputData->currentCacheLevel >=
           static_cast<size_t>(seissolParameters.output.pickpointParameters.maxPickStore);
-      const bool isCloseToEnd = (seissolParameters.timeStepping.endTime - time) < dt * timeMargin;
+      const bool isCloseToEnd = (seissolParameters.timeStepping.endTime - time) < dt * TimeMargin;
 
       if (isMaxCacheLevel || isCloseToEnd) {
         // we need to wait for all data to be (internally) written to write it out

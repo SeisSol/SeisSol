@@ -37,8 +37,6 @@ option(COVERAGE "Generate targed for code coverage using lcob" OFF)
 set(TESTING_COMMAND "" CACHE STRING "Prefix to the test binary, so that CMake can list the tests")
 option(TESTING_BUILD_ONLY "Only compile the unit tests, but not collect them (only in effect if TESTING=ON)" OFF)
 
-option(LTO "Enable link-time optimization" OFF)
-
 #Seissol specific
 set(ORDER 6 CACHE STRING "Convergence order")  # must be INT type, by cmake-3.16 accepts only STRING
 set(ORDER_OPTIONS 2 3 4 5 6 7 8)
@@ -373,6 +371,14 @@ elseif ("${PRECISION}" STREQUAL "single")
 endif()
 
 
+# check NUMBER_OF_FUSED_SIMULATIONS
+math(EXPR IS_ALIGNED_MULT_SIMULATIONS
+        "${NUMBER_OF_FUSED_SIMULATIONS} % (${ALIGNMENT} / ${REAL_SIZE_IN_BYTES})")
+
+if (NOT ${NUMBER_OF_FUSED_SIMULATIONS} EQUAL 1 AND NOT ${IS_ALIGNED_MULT_SIMULATIONS} EQUAL 0)
+    math(EXPR FACTOR "${ALIGNMENT} / ${REAL_SIZE_IN_BYTES}")
+    message(FATAL_ERROR "a number of fused simulations must be multiple of ${FACTOR}")
+endif()
 
 #-------------------------------------------------------------------------------
 # -------------------- COMPUTE/ADJUST ADDITIONAL PARAMETERS --------------------
