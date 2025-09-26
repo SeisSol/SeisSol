@@ -1,0 +1,29 @@
+<memory_layouts>
+
+<matrix name="kDivMT(0)" sparse="aligned"/>
+<matrix name="kDivMT(1)" sparse="aligned"/>
+<matrix name="kDivMT(2)" sparse="aligned"/>
+
+<matrix name="kDivM(0)" sparse="aligned"/>
+<matrix name="kDivM(1)" sparse="aligned"/>
+<matrix name="kDivM(2)" sparse="aligned"/>
+
+<matrix name="fMrT(0)" sparse="aligned"/>
+<matrix name="fMrT(1)" sparse="aligned"/>
+<matrix name="fMrT(2)" sparse="aligned"/>
+<matrix name="fMrT(3)" sparse="aligned"/>
+
+<matrix name="rDivM(0)" sparse="aligned"/>
+<matrix name="rDivM(1)" sparse="aligned"/>
+<matrix name="rDivM(2)" sparse="aligned"/>
+<matrix name="rDivM(3)" sparse="aligned"/>
+
+<matrix name="rT(0)" sparse="aligned"/>
+<matrix name="rT(1)" sparse="aligned"/>
+<matrix name="rT(2)" sparse="aligned"/>
+<matrix name="rT(3)" sparse="aligned"/>
+
+<matrix name="star" sparse="True"/>
+<matrix name="ET" sparse="True"/>
+
+</memory_layouts>

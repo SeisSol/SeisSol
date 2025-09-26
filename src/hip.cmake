@@ -43,6 +43,12 @@ else()
     set(SEISSOL_HIPCC ${SEISSOL_HIPCC} --offload-arch=${DEVICE_ARCH})
 endif()
 
+if (DEVICE_KERNEL_INFOPRINT)
+    set(SEISSOL_HIPCC ${SEISSOL_HIPCC} -Rpass-analysis=kernel-resource-usage)
+endif()
+if (DEVICE_KERNEL_SAVETEMPS)
+    set(SEISSOL_HIPCC ${SEISSOL_HIPCC} --save-temps)
+endif()
 
 set(CMAKE_HIP_CREATE_SHARED_LIBRARY
 "${HIP_HIPCC_CMAKE_LINKER_HELPER} \
@@ -61,24 +67,25 @@ set(DEVICE_SRC ${DEVICE_SRC}
                ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
                ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterCudaHip.cpp)
 
+function(make_device_lib NAME FILES)
 
-set_source_files_properties(${DEVICE_SRC} PROPERTIES HIP_SOURCE_PROPERTY_FORMAT 1)
+    set_source_files_properties(${FILES} PROPERTIES HIP_SOURCE_PROPERTY_FORMAT 1)
 
-hip_reset_flags()
-hip_add_library(seissol-device-lib SHARED ${DEVICE_SRC}
-        HIPCC_OPTIONS ${SEISSOL_HIPCC}
-        NVCC_OPTIONS ${SEISSOL_NVCC})
+    hip_reset_flags()
+    hip_add_library(${NAME} SHARED ${FILES}
+            HIPCC_OPTIONS ${SEISSOL_HIPCC}
+            NVCC_OPTIONS ${SEISSOL_NVCC})
 
-target_link_libraries(seissol-device-lib PRIVATE seissol-common-properties)
-target_include_directories(seissol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE})
-set_property(TARGET seissol-device-lib PROPERTY HIP_ARCHITECTURES OFF)
-if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
-target_compile_definitions(seissol-device-lib PRIVATE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
-endif()
+    target_include_directories(${NAME} PUBLIC ${SEISSOL_DEVICE_INCLUDE})
+    set_property(TARGET ${NAME} PROPERTY HIP_ARCHITECTURES OFF)
 
-if (IS_NVCC_PLATFORM)
-    set_target_properties(seissol-device-lib PROPERTIES LINKER_LANGUAGE HIP)
-    target_link_options(seissol-device-lib PRIVATE -arch=${DEVICE_ARCH})
-else()
-    target_link_libraries(seissol-device-lib PUBLIC ${HIP_PATH}/lib/libamdhip64.so)
-endif()
+    if (IS_NVCC_PLATFORM)
+        set_target_properties(${NAME} PROPERTIES LINKER_LANGUAGE HIP)
+        target_link_options(${NAME} PRIVATE -arch=${DEVICE_ARCH})
+    else()
+        target_link_libraries(${NAME} PUBLIC ${HIP_PATH}/lib/libamdhip64.so)
+    endif()
+
+endfunction()
+
+make_device_lib(seissol-device-lib "${DEVICE_SRC}")
