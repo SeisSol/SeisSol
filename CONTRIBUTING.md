@@ -187,9 +187,12 @@ python .ci/filename.py --fix src app
 python .ci/header.py --fix src app
 black codegen/kernels/**/*.py
 isort --profile black codegen/kernels
+markdownlint-cli2 **/*.md # ignore submodules errors here
+sphinx-lint **/*.rst
 ```
 
-(`clang-format` itself is available via e.g. `pip`; similarly for `black` and `isort`)
+`clang-format` itself is available via e.g. `pip`; similarly for `black` and `isort`,
+as well as `sphinx-lint`. The `markdownlint-cli2` can be downloaded from `npm`.
 
 ### Step 5
 
