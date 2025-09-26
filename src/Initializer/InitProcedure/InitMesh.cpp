@@ -74,6 +74,9 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
                           drParameters.referencePoint[2]};
   meshReader.extractFaultInformation(center, drParameters.refPointMethod);
 
+  logInfo() << "Check the mesh for geometric errors.";
+  meshReader.verifyMesh();
+
   seissolInstance.getLtsLayout().setMesh(meshReader);
 
   double maxPointValue[3]{-INFINITY, -INFINITY, -INFINITY};

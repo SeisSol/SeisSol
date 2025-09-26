@@ -96,6 +96,9 @@ class MeshReader {
                                seissol::initializer::parameters::RefPointMethod refPointMethod);
 
   void exchangeGhostlayerMetadata();
+
+  // verify the mesh, e.g. the tetrahedron orientation etc.
+  void verifyMesh();
 };
 
 } // namespace seissol::geometry
