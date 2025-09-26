@@ -383,23 +383,6 @@ if (MEMKIND)
   target_compile_definitions(seissol-common-properties INTERFACE USE_MEMKIND)
 endif()
 
-if(${EQUATIONS} STREQUAL "poroelastic")
-  include(CheckLanguage)
-  check_language(Fortran)
-  if(CMAKE_Fortran_COMPILER)
-    enable_language(Fortran)
-    include(FortranCInterface)
-    FortranCInterface_HEADER(FC.h MACRO_NAMESPACE "FC_")
-    find_package(LAPACK REQUIRED)
-    target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
-    target_link_libraries(seissol-common-properties INTERFACE ${LAPACK_LIBRARIES})
-    target_compile_definitions(seissol-common-properties INTERFACE USE_LAPACK)
-  else()
-    message(FATAL_ERROR "SeisSol needs a Fortran compiler.")
-  endif()
-endif()
-
-
 if (INTEGRATE_QUANTITIES)
   target_compile_definitions(seissol-common-properties INTERFACE INTEGRATE_QUANTITIES)
 endif()
@@ -422,8 +405,31 @@ target_include_directories(seissol-common-properties SYSTEM INTERFACE
   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
-find_package(Eigen3 3.4 REQUIRED)
+find_package(Eigen3 REQUIRED)
 target_link_libraries(seissol-common-properties INTERFACE Eigen3::Eigen)
+
+# the following check is needed because allowing 3.4 and 5.0.0 at the same
+# time was not possible inline in the find_package
+if ("${Eigen3_VERSION}" VERSION_LESS "3.4")
+  message(FATAL_ERROR "Your installed Eigen version is too old. Needed: at least 3.4 .")
+endif()
+
+# only needed for "old" Eigen (i.e. below 5.0.0)
+if((${EQUATIONS} STREQUAL "poroelastic") AND ("${Eigen3_VERSION}" VERSION_LESS "5.0.0"))
+  include(CheckLanguage)
+  check_language(Fortran)
+  if(CMAKE_Fortran_COMPILER)
+    enable_language(Fortran)
+    include(FortranCInterface)
+    FortranCInterface_HEADER(FC.h MACRO_NAMESPACE "FC_")
+    find_package(LAPACK REQUIRED)
+    target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
+    target_link_libraries(seissol-common-properties INTERFACE ${LAPACK_LIBRARIES})
+    target_compile_definitions(seissol-common-properties INTERFACE USE_LAPACK)
+  else()
+    message(FATAL_ERROR "SeisSol needs a Fortran compiler.")
+  endif()
+endif()
 
 find_package(yaml-cpp REQUIRED)
 
