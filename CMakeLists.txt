@@ -84,9 +84,6 @@ endif()
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
         "Release" "Debug" "RelWithDebInfo") # MinSizeRel is useless for us
 
-# LTO
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO})
-
 function(capitalize INARG OUTARG)
   string(REPLACE "_" ";" PARTS ${INARG})
   set(PREOUTARG "")
@@ -237,6 +234,8 @@ add_custom_command(
        )
 
 add_custom_target(seissol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
+
+# TODO: remove IMPORTED here for clang-tidy to see the headers (and use "???.h" for internals)
 add_library(seissol-common-properties INTERFACE IMPORTED)
 
 include(src/sources.cmake)
@@ -350,7 +349,7 @@ if (HDF5)
   if (NOT HDF5_IS_PARALLEL)
     message(WARNING "The found parallel Hdf5 installation is not parallel. Compile errors will occur.")
   endif()
-endif()  
+endif()
 
 # Parmetis
 if ("parmetis" IN_LIST GRAPH_PARTITIONING_LIBS)
@@ -560,7 +559,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
   # Activate interprocedual optimization.
-  #set_property(TARGET seissol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
+  #set_property(TARGET seissol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Wno-unused-parameter")
 
@@ -711,4 +710,3 @@ endif()
 
 # https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/
 # https://ortogonal.github.io/cmake-clang-tidy/
-

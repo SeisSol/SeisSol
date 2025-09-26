@@ -169,4 +169,3 @@ vncviewer windows is deselected. To avoid this problem, add in
 .. code-block:: bash
 
    export XKL_XMODMAP_DISABLE=1
-

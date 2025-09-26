@@ -225,4 +225,3 @@ the fault surface.
    :align: center
 
    Snapshot of slip rate along the strike at T=3 s in TPV 29. The fault has a rough surface.
-
