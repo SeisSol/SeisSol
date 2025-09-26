@@ -7,6 +7,7 @@
 
 #include "Init.h"
 
+#include <Initializer/InitProcedure/InitLayout.h>
 #include <Memory/Tree/Layer.h>
 #include <Monitoring/Stopwatch.h>
 #include <utils/logger.h>
@@ -64,6 +65,7 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
 
   // initialization procedure
   seissol::initializer::initprocedure::initMesh(seissolInstance);
+  seissol::initializer::initprocedure::initLayout(seissolInstance);
   seissol::initializer::initprocedure::initModel(seissolInstance);
   seissol::initializer::initprocedure::initSideConditions(seissolInstance);
   seissol::initializer::initprocedure::initIO(seissolInstance);

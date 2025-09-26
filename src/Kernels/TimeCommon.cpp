@@ -12,9 +12,11 @@
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
+#include <Initializer/LtsSetup.h>
 #include <Kernels/Precision.h>
 #include <Kernels/Solver.h>
 #include <Parallel/Runtime/Stream.h>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <stdint.h>
@@ -33,8 +35,8 @@
 
 namespace seissol::kernels {
 void TimeCommon::computeIntegrals(Time& time,
-                                  unsigned short ltsSetup,
-                                  const FaceType faceTypes[4],
+                                  const LtsSetup& ltsSetup,
+                                  const std::array<FaceType, Cell::NumFaces>& faceTypes,
                                   const real* timeCoeffs,
                                   const real* subtimeCoeffs,
                                   real* const timeDofs[4],
@@ -44,8 +46,6 @@ void TimeCommon::computeIntegrals(Time& time,
   /*
    * assert valid input.
    */
-  // only lower 10 bits are used for lts encoding
-  assert(ltsSetup < 2048);
 
 #ifndef NDEBUG
   // alignment of the time derivatives/integrated dofs and the buffer
@@ -63,7 +63,7 @@ void TimeCommon::computeIntegrals(Time& time,
     if (faceTypes[dofneighbor] != FaceType::Outflow &&
         faceTypes[dofneighbor] != FaceType::DynamicRupture) {
       // check if the time integration is already done (-> copy pointer)
-      if ((ltsSetup >> dofneighbor) % 2 == 0) {
+      if (!ltsSetup.neighborHasDerivatives(dofneighbor)) {
         timeIntegrated[dofneighbor] = timeDofs[dofneighbor];
       }
       // integrate the DOFs in time via the derivatives and set pointer to local buffer
@@ -75,8 +75,7 @@ void TimeCommon::computeIntegrals(Time& time,
         // setup; but just be aware of it when changing things. In that case, enforce the "GTS
         // relation" instead; then everything will work again.
 
-        const auto* coeffs =
-            ((ltsSetup >> (dofneighbor + 4)) % 2) != 0 ? timeCoeffs : subtimeCoeffs;
+        const auto* coeffs = ltsSetup.neighborGTS(dofneighbor) ? timeCoeffs : subtimeCoeffs;
         time.evaluate(coeffs, timeDofs[dofneighbor], integrationBuffer[dofneighbor]);
 
         timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];

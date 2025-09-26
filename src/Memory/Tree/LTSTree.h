@@ -235,6 +235,7 @@ class Storage {
   }
 
   auto lookupRef(const StoragePosition& position, AllocationPlace place = AllocationPlace::Host) {
+    assert(position != StoragePosition::NullPosition);
     return layer(position.color).cellRef(position.cell, place);
   }
 
@@ -242,11 +243,13 @@ class Storage {
   auto& lookup(const HandleT& handle,
                const StoragePosition& position,
                AllocationPlace place = AllocationPlace::Host) {
+    assert(position != StoragePosition::NullPosition);
     return layer(position.color).var(handle, place)[position.cell];
   }
 
   template <typename StorageT>
   auto& lookup(const StoragePosition& position, AllocationPlace place = AllocationPlace::Host) {
+    assert(position != StoragePosition::NullPosition);
     return layer(position.color).template var<StorageT>(place)[position.cell];
   }
 
@@ -254,12 +257,14 @@ class Storage {
   const auto& lookup(const HandleT& handle,
                      const StoragePosition& position,
                      AllocationPlace place = AllocationPlace::Host) const {
+    assert(position != StoragePosition::NullPosition);
     return layer(position.color).var(handle, place)[position.cell];
   }
 
   template <typename StorageT>
   const auto& lookup(const StoragePosition& position,
                      AllocationPlace place = AllocationPlace::Host) const {
+    assert(position != StoragePosition::NullPosition);
     return layer(position.color).template var<StorageT>(place)[position.cell];
   }
 
@@ -449,15 +454,6 @@ public:
   [[nodiscard]] std::size_t size(LayerMask layerMask = LayerMask()) const {
     std::size_t numCells = 0;
     for (const auto& leaf : leaves(layerMask)) {
-      numCells += leaf.size();
-    }
-    return numCells;
-  }
-
-  template <typename F>
-  [[nodiscard]] std::size_t size(F&& filter) const {
-    std::size_t numCells = 0;
-    for (const auto& leaf : leaves(std::forward<F>(filter))) {
       numCells += leaf.size();
     }
     return numCells;
