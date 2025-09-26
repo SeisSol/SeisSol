@@ -113,11 +113,12 @@ inline std::string bcToString(int id) {
  * @param cellIdAsInFile: Original cell id as it is given in the h5 file
  */
 template <PUML::TopoType Topo>
-inline bool checkMeshCorrectnessLocally(const typename PUML::PUML<Topo>::face_t& face,
-                                        const int* cellNeighbors,
-                                        int side,
-                                        int sideBC,
-                                        uint64_t cellIdAsInFile) {
+inline bool
+    checkMeshCorrectnessLocally(const typename PUML::PUML<Topo>::face_t& face,
+                                const std::array<int, seissol::Cell::NumFaces>& cellNeighbors,
+                                int side,
+                                int sideBC,
+                                uint64_t cellIdAsInFile) {
   // all of these will only issue warnings here -- the "logError()" is supposed to come later, after
   // all warning have been logged
 
@@ -349,18 +350,22 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
     PUML::Downward::vertices(
         meshGeometry, cellsGeometry[i], reinterpret_cast<unsigned int*>(m_elements[i].vertices));
 
+    std::array<unsigned int, Cell::NumVertices> topoVertices{};
+    PUML::Downward::vertices(meshTopology, cells[i], topoVertices.data());
+
     // Neighbor information
-    unsigned int faceids[Cell::NumFaces];
-    PUML::Downward::faces(meshTopology, cells[i], faceids);
-    int neighbors[Cell::NumFaces];
-    PUML::Neighbor::face(meshTopology, i, neighbors);
+    std::array<unsigned int, Cell::NumFaces> faceids{};
+    PUML::Downward::faces(meshTopology, cells[i], faceids.data());
+    std::array<int, Cell::NumFaces> neighbors{};
+    PUML::Neighbor::face(meshTopology, i, neighbors.data());
+
     for (std::size_t j = 0; j < Cell::NumFaces; j++) {
       int bcCurrentFace = decodeBoundary(boundaryCond, i, j, boundaryFormat);
       const bool isLocallyCorrect = checkMeshCorrectnessLocally<PumlTopology>(
           faces[faceids[j]], neighbors, j, bcCurrentFace, cellIdsAsInFile[i]);
       isMeshCorrect &= isLocallyCorrect;
       if (neighbors[j] < 0) {
-        m_elements[i].neighbors[PumlFaceToSeisSol[j]] = cells.size();
+        m_elements[i].neighbors[PumlFaceToSeisSol[j]] = cellsGeometry.size();
 
         if (!faces[faceids[j]].isShared()) {
           // Boundary sides
@@ -372,27 +377,28 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
           m_elements[i].neighborRanks[PumlFaceToSeisSol[j]] = faces[faceids[j]].shared()[0];
         }
       } else {
-        assert(neighbors[j] >= 0 && static_cast<unsigned>(neighbors[j]) < cells.size());
+        assert(neighbors[j] >= 0 && static_cast<std::size_t>(neighbors[j]) < cells.size());
 
         m_elements[i].neighbors[PumlFaceToSeisSol[j]] = neighbors[j];
 
-        int nfaces[Cell::NumFaces];
-        PUML::Neighbor::face(meshTopology, neighbors[j], nfaces);
-        int* back = std::find(nfaces, nfaces + Cell::NumFaces, i);
-        assert(back < nfaces + 4);
+        std::array<int, Cell::NumFaces> nfaces{};
+        PUML::Neighbor::face(meshTopology, neighbors[j], nfaces.data());
+        const auto* back = std::find(nfaces.begin(), nfaces.end(), i);
+        assert(back != nfaces.end());
 
-        m_elements[i].neighborSides[PumlFaceToSeisSol[j]] = PumlFaceToSeisSol[back - nfaces];
+        m_elements[i].neighborSides[PumlFaceToSeisSol[j]] =
+            PumlFaceToSeisSol[back - nfaces.begin()];
 
-        const auto firstVertex = m_elements[i].vertices[FirstFaceVertex[PumlFaceToSeisSol[j]]];
+        const auto firstVertex = topoVertices[FirstFaceVertex[PumlFaceToSeisSol[j]]];
 
-        unsigned int nvertices[Cell::NumVertices];
-        PUML::Downward::vertices(meshTopology, cells[neighbors[j]], nvertices);
-        unsigned int* neighborFirstVertex =
-            std::find(nvertices, nvertices + Cell::NumVertices, firstVertex);
+        std::array<unsigned int, Cell::NumVertices> nvertices{};
+        PUML::Downward::vertices(meshTopology, cells[neighbors[j]], nvertices.data());
+        const auto* neighborFirstVertex =
+            std::find(nvertices.begin(), nvertices.end(), firstVertex);
 
         m_elements[i].sideOrientations[PumlFaceToSeisSol[j]] =
             FaceVertexToOrientation[m_elements[i].neighborSides[PumlFaceToSeisSol[j]]]
-                                   [neighborFirstVertex - nvertices];
+                                   [neighborFirstVertex - nvertices.begin()];
         assert(m_elements[i].sideOrientations[PumlFaceToSeisSol[j]] >= 0);
 
         m_elements[i].neighborRanks[PumlFaceToSeisSol[j]] = rank;
@@ -424,11 +430,11 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
 
   std::unordered_set<unsigned int> t;
 #ifndef NDEBUG
-  unsigned int sum = 0;
+  std::size_t sum = 0;
 #endif
   for (auto [k, info] : seissol::common::enumerate(neighborInfo)) {
     // Need to sort the neighborInfo vectors once
-    std::sort(info.second.begin(), info.second.end(), [&](unsigned int a, unsigned int b) {
+    std::sort(info.second.begin(), info.second.end(), [&](auto a, auto b) {
       return meshTopology.faces()[a].gid() < meshTopology.faces()[b].gid();
     });
 
@@ -461,7 +467,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
               &requests[neighborInfo.size() + k]);
 
     // Neighbor side
-    for (unsigned int i = 0; i < info.second.size(); i++) {
+    for (std::size_t i = 0; i < info.second.size(); i++) {
       // The side of boundary
       int cellIds[2];
       PUML::Upward::cells(meshTopology, faces[info.second[i]], cellIds);
@@ -470,7 +476,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
       copySide[k][i] = side;
 
       // First vertex of the face on the boundary
-      const unsigned int firstVertex =
+      const auto firstVertex =
           m_elements[cellIds[0]].vertices[FirstFaceVertex[PumlFaceToSeisSol[side]]];
       copyFirstVertex[k][i] = vertices[firstVertex].gid();
 
@@ -501,7 +507,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
   MPI_Waitall(neighborInfo.size() * 4, requests.data(), MPI_STATUSES_IGNORE);
 
   for (auto [k, info] : seissol::common::enumerate(neighborInfo)) {
-    for (unsigned int i = 0; i < info.second.size(); i++) {
+    for (std::size_t i = 0; i < info.second.size(); i++) {
       // Set neighbor side
       int cellIds[2];
       PUML::Upward::cells(meshTopology, faces[info.second[i]], cellIds);
@@ -513,15 +519,15 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
       m_elements[cellIds[0]].neighborSides[PumlFaceToSeisSol[side]] = PumlFaceToSeisSol[gSide];
 
       // Set side sideOrientation
-      unsigned long nvertices[Cell::NumVertices];
-      PUML::Downward::gvertices(meshTopology, cells[cellIds[0]], nvertices);
+      std::array<unsigned long, Cell::NumVertices> nvertices{};
+      PUML::Downward::gvertices(meshTopology, cells[cellIds[0]], nvertices.data());
 
       const auto* localFirstVertex =
-          std::find(nvertices, nvertices + Cell::NumVertices, ghostFirstVertex[k][i]);
-      assert(localFirstVertex != nvertices + 4);
+          std::find(nvertices.begin(), nvertices.end(), ghostFirstVertex[k][i]);
+      assert(localFirstVertex != nvertices.end());
 
       m_elements[cellIds[0]].sideOrientations[PumlFaceToSeisSol[side]] =
-          FaceVertexToOrientation[PumlFaceToSeisSol[side]][localFirstVertex - nvertices];
+          FaceVertexToOrientation[PumlFaceToSeisSol[side]][localFirstVertex - nvertices.begin()];
       assert(m_elements[cellIds[0]].sideOrientations[PumlFaceToSeisSol[side]] >= 0);
     }
   }
