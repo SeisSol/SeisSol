@@ -36,7 +36,9 @@ class ReceiverOutput {
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                        const std::shared_ptr<ReceiverOutputData>& outputData,
                        parallel::runtime::StreamRuntime& runtime,
-                       double time = 0.0);
+                       double time = 0.0,
+                       double dt = 1.0,
+                       double indt = 0.0);
 
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
 

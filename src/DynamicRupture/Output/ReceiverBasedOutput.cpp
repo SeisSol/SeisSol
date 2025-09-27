@@ -76,15 +76,17 @@ void ReceiverOutput::calcFaultOutput(
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     const std::shared_ptr<ReceiverOutputData>& outputData,
     parallel::runtime::StreamRuntime& runtime,
-    double time) {
+    double time,
+    double dt,
+    double indt) {
 
   const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
                            ? outputData->currentCacheLevel
                            : 0;
   const auto& faultInfos = meshReader->getFault();
 
-  // TODO: replace by the true timestep? (only needed if we don't want position 0)
-  const auto timeCoeffs = kernels::timeBasis().point(0, 1);
+  const auto timeCoeffs = kernels::timeBasis().point(indt, dt);
+  const auto integrateCoeffs = kernels::timeBasis().integrate(0, indt, dt);
 
   auto& callRuntime =
       outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;

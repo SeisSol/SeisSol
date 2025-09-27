@@ -512,6 +512,8 @@ bool OutputManager::isAtPickpoint(double time, double dt) {
 void OutputManager::writePickpointOutput(std::size_t layerId,
                                          double time,
                                          double dt,
+                                         double meshDt,
+                                         double meshInDt,
                                          parallel::runtime::StreamRuntime& runtime) {
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   if (this->ppOutputBuilder) {
@@ -524,7 +526,9 @@ void OutputManager::writePickpointOutput(std::size_t layerId,
                               seissolParameters.drParameters.slipRateOutputType,
                               outputData,
                               runtime,
-                              time);
+                              time,
+                              meshDt,
+                              meshInDt);
 
         const bool isMaxCacheLevel =
             outputData->currentCacheLevel >=
@@ -547,7 +551,7 @@ void OutputManager::writePickpointOutput(std::size_t layerId,
 
 void OutputManager::writePickpointOutput(double time, double dt) {
   for (const auto& [id, _] : ppOutputData) {
-    writePickpointOutput(id, time, dt, runtime);
+    writePickpointOutput(id, time, dt, 0, 1, runtime);
   }
 }
 

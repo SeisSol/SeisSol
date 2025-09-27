@@ -721,12 +721,17 @@ void TimeCluster::handleDynamicRupture(DynamicRupture::Layer& layerData) {
   // repeat the current solution for some times---to match the existing output scheme.
   // maybe replace with just writePickpointOutput(layerId(), time + dt, dt); some day?
 
+  const double meshDt = ct.getTimeStepSize();
+  double meshInDt = 0;
+
   do {
     const auto oldTime = time;
     time += dynamicRuptureScheduler->getOutputTimestep();
     const auto trueTime = std::min(time, syncTime);
     const auto trueDt = trueTime - oldTime;
-    faultOutputManager->writePickpointOutput(layerData.id(), trueTime, trueDt, streamRuntime);
+    meshInDt += trueDt;
+    faultOutputManager->writePickpointOutput(
+        layerData.id(), trueTime, trueDt, meshDt, 0, streamRuntime);
   } while (time * (1 + 1e-8) < ct.correctionTime + ct.maxTimeStepSize);
 
   // TODO(David): restrict to copy/interior of same cluster type
