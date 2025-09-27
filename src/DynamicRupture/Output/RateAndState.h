@@ -24,7 +24,7 @@ class RateAndState : public ReceiverOutput {
     return getCellData<LTSRateAndState::StateVariable>(local)[local.gpIndex];
   }
 
-  std::vector<std::size_t> getOutputVariables() const override {
+  [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
     auto baseVector = ReceiverOutput::getOutputVariables();
     baseVector.push_back(drStorage->info<LTSRateAndState::StateVariable>().index);
     return baseVector;

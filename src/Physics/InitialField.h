@@ -78,8 +78,8 @@ class Planarwave : public InitialField {
   protected:
   std::vector<int> m_varField;
   std::vector<std::complex<double>> m_ampField;
-  const double m_phase;
-  const Eigen::Vector3d m_kVec;
+  double m_phase;
+  Eigen::Vector3d m_kVec;
   std::array<std::complex<double>, seissol::model::MaterialT::NumQuantities> m_lambdaA;
   std::array<std::complex<double>,
              seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
@@ -102,8 +102,8 @@ class SuperimposedPlanarwave : public InitialField {
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 
   private:
-  const std::array<Eigen::Vector3d, 3> m_kVec;
-  const double m_phase;
+  std::array<Eigen::Vector3d, 3> m_kVec;
+  double m_phase;
   std::array<Planarwave, 3> m_pw;
 };
 

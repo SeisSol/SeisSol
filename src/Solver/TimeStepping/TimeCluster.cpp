@@ -186,11 +186,11 @@ void TimeCluster::computeDynamicRupture(DynamicRupture::Layer& layerData) {
 
   loopStatistics->begin(regionComputeDynamicRupture);
 
-  DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
-  DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
+  const DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
+  const DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
   DREnergyOutput* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>();
-  real** timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
-  real** timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
+  real* const* timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
+  real* const* timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
   auto* qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>();
   auto* qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>();
 
@@ -309,7 +309,7 @@ void TimeCluster::computeDynamicRuptureFlops(DynamicRupture::Layer& layerData,
   nonZeroFlops = 0;
   hardwareFlops = 0;
 
-  DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
+  const DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
 
   for (std::size_t face = 0; face < layerData.size(); ++face) {
     std::uint64_t faceNonZeroFlops = 0;
@@ -333,9 +333,9 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   // pointer for the call of the ADER-function
   real* bufferPointer = nullptr;
 
-  real** buffers = clusterData->var<LTS::Buffers>();
-  real** derivatives = clusterData->var<LTS::Derivatives>();
-  CellMaterialData* materialData = clusterData->var<LTS::Material>();
+  real* const* buffers = clusterData->var<LTS::Buffers>();
+  real* const* derivatives = clusterData->var<LTS::Derivatives>();
+  const CellMaterialData* materialData = clusterData->var<LTS::Material>();
 
   kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
@@ -374,7 +374,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
         integrationCoeffs.data(), timeStepWidth, data, tmp, bufferPointer, derivatives[cell], true);
 
     // Compute local integrals (including some boundary conditions)
-    CellBoundaryMapping(*boundaryMapping)[4] = clusterData->var<LTS::BoundaryMapping>();
+    const CellBoundaryMapping(*boundaryMapping)[4] = clusterData->var<LTS::BoundaryMapping>();
     localKernel.computeIntegral(bufferPointer,
                                 data,
                                 tmp,

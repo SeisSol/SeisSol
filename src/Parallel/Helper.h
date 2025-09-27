@@ -18,7 +18,7 @@
 namespace seissol {
 template <typename T>
 void printCommThreadInfo(const T& mpiBasic, utils::Env& env) {
-  bool useThread = env.get<bool>("COMMTHREAD", true);
+  const bool useThread = env.get<bool>("COMMTHREAD", true);
   if (mpiBasic.isSingleProcess()) {
     logInfo() << "Using polling for advancing MPI communication, due to having only "
                  "one MPI rank running.";
@@ -31,7 +31,7 @@ void printCommThreadInfo(const T& mpiBasic, utils::Env& env) {
 
 template <typename T>
 bool useCommThread(const T& mpiBasic, utils::Env& env) {
-  bool useThread = env.get<bool>("COMMTHREAD", true);
+  const bool useThread = env.get<bool>("COMMTHREAD", true);
   return useThread && !mpiBasic.isSingleProcess();
 }
 

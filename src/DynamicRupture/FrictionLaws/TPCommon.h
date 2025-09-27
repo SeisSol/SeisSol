@@ -34,7 +34,7 @@ class GridPoints {
 
 #pragma omp declare simd
   const RealT& operator[](size_t i) const { return values[i]; };
-  const std::array<RealT, N>& data() const { return values; }
+  [[nodiscard]] const std::array<RealT, N>& data() const { return values; }
 
   private:
   std::array<RealT, N> values;
@@ -58,7 +58,7 @@ class InverseFourierCoefficients {
 
 #pragma omp declare simd
   const RealT& operator[](size_t i) const { return values[i]; };
-  const std::array<RealT, N>& data() const { return values; }
+  [[nodiscard]] const std::array<RealT, N>& data() const { return values; }
 
   private:
   std::array<RealT, N> values;
@@ -82,7 +82,7 @@ class GaussianHeatSource {
 
 #pragma omp declare simd
   const RealT& operator[](size_t i) const { return values[i]; };
-  const std::array<RealT, N>& data() const { return values; }
+  [[nodiscard]] const std::array<RealT, N>& data() const { return values; }
 
   private:
   std::array<RealT, N> values;

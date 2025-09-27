@@ -43,4 +43,3 @@ if (EXTRA_CXX_FLAGS)
             --compiler-options ${EXTRA_CXX_FLAGS}
             >)
 endif()
-

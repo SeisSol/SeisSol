@@ -191,7 +191,7 @@ void OutputManager::initElementwiseOutput() {
   const auto cellConnectivity = getCellConnectivity(receiverPoints);
   const auto faultTags = getFaultTags(receiverPoints);
   const auto vertices = getAllVertices(receiverPoints);
-  constexpr auto MaxNumVars = std::tuple_size<DrVarsT>::value;
+  constexpr auto MaxNumVars = std::tuple_size_v<DrVarsT>;
   const auto outputMask = seissolParameters.output.elementwiseParameters.outputMask;
   const auto intMask = convertMaskFromBoolToInt<MaxNumVars>(outputMask);
 
@@ -489,7 +489,6 @@ void OutputManager::initFaceToLtsMap() {
       }
     }
 
-    DRFaceInformation* faceInformation = drStorage->var<DynamicRupture::FaceInformation>();
     for (size_t i = 0; i < meshReader->getFault().size(); ++i) {
       globalFaceToLtsMap[i] = backmap.get(i);
     }

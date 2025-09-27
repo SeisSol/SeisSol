@@ -43,10 +43,10 @@ class AlignedArray {
   public:
   SEISSOL_HOSTDEVICE T* begin() noexcept { return data_; }
   SEISSOL_HOSTDEVICE T* end() noexcept { return data_ + N; }
-  SEISSOL_HOSTDEVICE const T* begin() const noexcept { return data_; }
-  SEISSOL_HOSTDEVICE const T* end() const noexcept { return data_ + N; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE const T* begin() const noexcept { return data_; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE const T* end() const noexcept { return data_ + N; }
   SEISSOL_HOSTDEVICE T* data() { return data_; }
-  SEISSOL_HOSTDEVICE const T* data() const { return data_; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE const T* data() const { return data_; }
   SEISSOL_HOSTDEVICE constexpr T& operator[](std::size_t pos) { return data_[pos]; }
   SEISSOL_HOSTDEVICE constexpr const T& operator[](std::size_t pos) const { return data_[pos]; }
   [[nodiscard]] SEISSOL_HOSTDEVICE constexpr std::size_t size() const noexcept { return N; }
@@ -209,11 +209,11 @@ class MemkindArray {
 
   ~MemkindArray() { free(dataPtr, memkind); }
   SEISSOL_HOSTDEVICE T* data() noexcept { return dataPtr; }
-  SEISSOL_HOSTDEVICE const T* data() const noexcept { return dataPtr; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE const T* data() const noexcept { return dataPtr; }
   SEISSOL_HOSTDEVICE T* begin() noexcept { return dataPtr; }
   SEISSOL_HOSTDEVICE T* end() noexcept { return dataPtr + capacity; }
-  SEISSOL_HOSTDEVICE const T* begin() const noexcept { return dataPtr; }
-  SEISSOL_HOSTDEVICE const T* end() const noexcept { return dataPtr + capacity; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE const T* begin() const noexcept { return dataPtr; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE const T* end() const noexcept { return dataPtr + capacity; }
   SEISSOL_HOSTDEVICE constexpr T& operator[](std::size_t index) { return dataPtr[index]; }
   SEISSOL_HOSTDEVICE constexpr const T& operator[](std::size_t index) const {
     return dataPtr[index];
