@@ -20,9 +20,13 @@ The main input format for SeisSol is called PUML;
 an acronym for **P**\ arallel **U**\ nstructured **M**\ esh **L**\ ibrary.
 
 The data is stored in a single Hdf5 file, consisting of the following datasets:
+
 -   ``/geometry``: contains the geometric coordinates of the vertices. Dimension: (nNodes, 3)
+
 -   ``/connect``: describes the tetrahedra by their vertices. Dimension: (nCells, 4)
+
 -   ``/group``: contains the group ID for each tetrahedron; which is used in selecting different material properties. Dimension: (nCells,).
+
 -   ``/boundary``: contains the boundary condition information for all four faces of each tetrahedron. Dimension: (nCells,) or (nCells, 4).
 
 The content of the Hdf5 file can be view using ``h5dump``; most notably ``h5dump -H <file>`` will output only the dataset headers.
@@ -60,6 +64,9 @@ An example Hdf5 file looks as follows:
 
 It shows that the hdf5 file consists of the 4 arrays: geometry, connect, group and boundary.
 
+Boundary Conditions
+-------------------
+
 In the default format (``int32``), the 4 boundary condition ids for each tetrahedron (8 bits each) are store within a single integer (32 bits) variable. The values can be unpacked, for example in python using:
 
 .. code-block:: python
@@ -77,7 +84,7 @@ Other boundary formats (``int64``) have a 16-bit offset and use 0xffff as a mask
 | 3: dynamic rupture
 | 4: dirichlet
 | 5: absorbing
-| 6: periodic
+| 6: periodic (behaves similarly to 0)
 | 7: analytical
 | n>64: dynamic rupture (See :doc:`fault-tagging`)
 
@@ -87,11 +94,17 @@ The following convention for defining a face ID is used:
 
    s_vert[0,:] = [0,2,1];   s_vert[1,:] = [0,1,3];    s_vert[2,:] = [1,2,3]; s_vert[3,:] = [0,3,2];
 
-Netcdf Input Format (Deprecated)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Periodic Boundaries
+-------------------
 
-An older input format. It still supports periodic boundary conditions, as used e.g. for the convergence tests.
-However, it requires a fixed partition encoded in the file, and is thus usually far more restricted and less performant than the PUML format.
+Periodicity is not encoded via the boundary conditions; instead the PUML file contains additional topology
+information in these cases. There are two ways to encode periodicity:
+
+- cell-wise: i.e. an extra, "topological" connectivity array.
+
+- vertex-wise: assign a topological vertex to each geometric vertex. From that, we subsequently generate the topological connectivity array.
+
+Currently, the topological vertex IDs may not exceed the number of geometric vertices.
 
 Cube Generator
 ~~~~~~~~~~~~~~
