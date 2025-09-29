@@ -537,7 +537,7 @@ SEISSOL_HOSTDEVICE inline void
         timeSinceSlipRateBelowThreshold[pointIndex] = 0;
       }
     } else {
-      timeSinceSlipRateBelowThreshold[pointIndex] = std::numeric_limits<real>::max();
+      timeSinceSlipRateBelowThreshold[pointIndex] = std::numeric_limits<real>::infinity();
     }
   }
 }
