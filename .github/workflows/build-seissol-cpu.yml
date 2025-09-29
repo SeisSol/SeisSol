@@ -81,7 +81,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           submodules: recursive
-      
+
       - uses: ./.github/actions/cpu-build
         name: elastic-d-p6
         if: ${{ !cancelled() }}
@@ -96,7 +96,7 @@ jobs:
           cc: ${{matrix.setup.cc}}
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
- 
+
       - uses: ./.github/actions/cpu-build
         name: viscoelastic-3-d-p6
         if: ${{ !cancelled() }}
@@ -111,7 +111,7 @@ jobs:
           cc: ${{matrix.setup.cc}}
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
-      
+
       - uses: ./.github/actions/cpu-build
         name: poroelastic-d-p6
         if: ${{ !cancelled() }}
@@ -126,7 +126,7 @@ jobs:
           cc: ${{matrix.setup.cc}}
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
-      
+
       - uses: ./.github/actions/cpu-build
         name: anisotropic-d-p6
         if: ${{ !cancelled() }}
@@ -141,7 +141,7 @@ jobs:
           cc: ${{matrix.setup.cc}}
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
-      
+
       - uses: ./.github/actions/cpu-build
         name: acoustic-d-p6
         if: ${{ !cancelled() }}
@@ -156,7 +156,7 @@ jobs:
           cc: ${{matrix.setup.cc}}
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
-      
+
       - uses: ./.github/actions/cpu-build
         name: elastic-d-p6-f8
         if: ${{ !cancelled() }}
@@ -171,7 +171,7 @@ jobs:
           cc: ${{matrix.setup.cc}}
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
-      
+
       - uses: ./.github/actions/cpu-build
         name: elastic-s-p6
         if: ${{ !cancelled() }}
@@ -186,7 +186,7 @@ jobs:
           cc: ${{matrix.setup.cc}}
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
- 
+
       - uses: ./.github/actions/cpu-build
         name: viscoelastic-3-s-p6
         if: ${{ !cancelled() }}
@@ -201,7 +201,7 @@ jobs:
           cc: ${{matrix.setup.cc}}
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
-      
+
       - uses: ./.github/actions/cpu-build
         name: poroelastic-s-p6
         if: ${{ !cancelled() }}
@@ -216,7 +216,7 @@ jobs:
           cc: ${{matrix.setup.cc}}
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
-      
+
       - uses: ./.github/actions/cpu-build
         name: anisotropic-s-p6
         if: ${{ !cancelled() }}
@@ -231,7 +231,7 @@ jobs:
           cc: ${{matrix.setup.cc}}
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
-      
+
       - uses: ./.github/actions/cpu-build
         name: acoustic-s-p6
         if: ${{ !cancelled() }}
@@ -246,7 +246,7 @@ jobs:
           cc: ${{matrix.setup.cc}}
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
-      
+
       - uses: ./.github/actions/cpu-build
         name: elastic-s-p6-f8
         if: ${{ !cancelled() }}
@@ -366,7 +366,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           path: scripts
-      
+
       - name: tpv5/double
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -383,7 +383,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv5-nuc/double
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -400,7 +400,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv6/double
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -434,7 +434,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv16/double
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -451,7 +451,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv101/double
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -468,7 +468,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv101-slip/double
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -485,7 +485,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv104/double
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -502,7 +502,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv105/double
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -707,7 +707,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv5-nuc/single
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -724,7 +724,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv6/single
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -758,7 +758,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv16/single
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -775,7 +775,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv101/single
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -792,7 +792,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv101-slip/single
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -809,7 +809,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv104/single
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -826,7 +826,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv105/single
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}

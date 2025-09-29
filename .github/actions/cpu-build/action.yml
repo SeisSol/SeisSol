@@ -122,7 +122,7 @@ runs:
 
         TEST_THREADS=$(($(nproc) * 4))
         ctest -j$TEST_THREADS --rerun-failed --output-on-failure
-    
+
     - name: run-seissol-no-input
       if: ${{ !cancelled() && steps.build.outcome == 'success' && inputs.tests == 'ON' }}
       shell: bash
