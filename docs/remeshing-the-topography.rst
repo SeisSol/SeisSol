@@ -40,4 +40,3 @@ region away from which a fine discretization is not necessary.
 
 .. |topography in SimModeler| image:: LatexFigures/fine2coarse2.png
 .. |meshed topography| image:: LatexFigures/fine2coarse.png
-

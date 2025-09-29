@@ -83,7 +83,7 @@ jobs:
             backend: cuda
     steps:
       - name: checkout-seissol
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -232,14 +232,14 @@ jobs:
     steps:
       - id: get-seissol
         name: get-seissol
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.setup.cc}}
           path: install
 
       - id: get-precomputed-solutions
         name: get-precomputed-solutions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: seissol/precomputed-seissol
           ref: ${{env.precomputed-hash}}
@@ -247,7 +247,7 @@ jobs:
         
       # TODO: make this checkout obsolete
       - name: get-verification-scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: scripts
       

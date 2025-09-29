@@ -184,5 +184,3 @@ as well as the rest main fault. The fault slip rate is shown in Figure
    :align: center
 
    Snapshot of slip rate in branching fault system. Slip rate at 3.5 s.
-
-

@@ -88,6 +88,3 @@ Results
 
    Benchmark of x-component particle velocity at receiver point 1 (0.0,
    693.0,0.1). Bule is 4-order SeisSol and orange is SISMOWINE result.
-
-
-

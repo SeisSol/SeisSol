@@ -24,7 +24,7 @@
 #include <vector>
 
 #include "Geometry/CubeGenerator.h"
-#if defined(USE_HDF)
+#ifdef USE_HDF
 #include "Geometry/PUMLReader.h"
 #include <hdf5.h>
 #endif // defined(USE_HDF)
@@ -68,11 +68,11 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   meshReader.exchangeGhostlayerMetadata();
 
   logInfo() << "Extracting fault information.";
-  auto* drParameters = seissolInstance.getMemoryManager().getDRParameters();
-  const VrtxCoords center{drParameters->referencePoint[0],
-                          drParameters->referencePoint[1],
-                          drParameters->referencePoint[2]};
-  meshReader.extractFaultInformation(center, drParameters->refPointMethod);
+  const auto& drParameters = seissolInstance.getSeisSolParameters().drParameters;
+  const VrtxCoords center{drParameters.referencePoint[0],
+                          drParameters.referencePoint[1],
+                          drParameters.referencePoint[2]};
+  meshReader.extractFaultInformation(center, drParameters.refPointMethod);
 
   seissolInstance.getLtsLayout().setMesh(meshReader);
 
@@ -101,7 +101,7 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
 
 void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
                   seissol::SeisSol& seissolInstance) {
-#if defined(USE_HDF)
+#ifdef USE_HDF
   double nodeWeight = 1.0;
 
   if (seissolInstance.env().get<bool>("MINISEISSOL", true)) {
@@ -267,7 +267,6 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
   SCOREP_USER_REGION("init_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  const auto commRank = seissol::MPI::mpi.rank();
   const auto commSize = seissol::MPI::mpi.size();
 
   logInfo() << "Begin init mesh.";

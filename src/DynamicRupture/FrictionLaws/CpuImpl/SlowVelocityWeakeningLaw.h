@@ -21,8 +21,7 @@ class SlowVelocityWeakeningLaw
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup) {}
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
 
   std::unique_ptr<FrictionSolver> clone() override {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
@@ -56,7 +55,7 @@ class SlowVelocityWeakeningLaw
                                    static_cast<double>(localStateVariable[pointIndex]) / localSl0);
       const double c =
           0.5 / this->drParameters->rsSr0 *
-          std::exp((this->drParameters->rsF0 + this->drParameters->rsB * log1) / localA);
+          std::exp((this->f0[ltsFace][pointIndex] + this->b[ltsFace][pointIndex] * log1) / localA);
       details.a[pointIndex] = localA;
       details.c[pointIndex] = c;
       details.ac[pointIndex] = localA * c;

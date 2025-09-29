@@ -12,7 +12,6 @@
 #include <IO/Datatype/Datatype.h>
 #include <IO/Datatype/Inference.h>
 #include <IO/Datatype/MPIType.h>
-#include <IO/Instance/SeisSolMemoryHelper.h>
 #include <IO/Writer/Instructions/Data.h>
 #include <IO/Writer/Instructions/Hdf5.h>
 #include <IO/Writer/Instructions/Instruction.h>
@@ -30,7 +29,7 @@ class VtkHdfWriter {
                std::size_t targetDegree);
 
   template <typename F>
-  void addPointProjector(F projector) {
+  void addPointProjector(const F& projector) {
     auto selfLocalElementCount = localElementCount;
     auto selfPointsPerElement = pointsPerElement;
 
@@ -64,7 +63,7 @@ class VtkHdfWriter {
   template <typename T, typename F>
   void addCellData(const std::string& name,
                    const std::vector<std::size_t>& dimensions,
-                   F cellMapper) {
+                   const F& cellMapper) {
     auto selfLocalElementCount = localElementCount;
 
     instructions.emplace_back([=](const std::string& filename, double time) {
