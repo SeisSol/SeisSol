@@ -49,7 +49,7 @@ class PUMLReader : public seissol::geometry::MeshReader {
              seissol::initializer::parameters::BoundaryFormat boundaryFormat =
                  seissol::initializer::parameters::BoundaryFormat::I32,
              seissol::initializer::parameters::TopologyFormat topologyFormat =
-                 seissol::initializer::parameters::TopologyFormat::Connect,
+                 seissol::initializer::parameters::TopologyFormat::Geometric,
              initializer::time_stepping::LtsWeights* ltsWeights = nullptr,
              double tpwgt = 1.0);
 

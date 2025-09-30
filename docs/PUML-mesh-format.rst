@@ -29,6 +29,12 @@ The data is stored in a single Hdf5 file, consisting of the following datasets:
 
 -   ``/boundary``: contains the boundary condition information for all four faces of each tetrahedron. Dimension: (nCells,) or (nCells, 4).
 
+In addition, there are two attributes that should be given in the file:
+
+-   ``/boundary-format``: A hint for the boundary format to use. Cf. the discussion below for the different formats.
+
+-   ``/topology-format``: A hint for the mesh topology to use. For supporting periodic meshes.
+
 The content of the Hdf5 file can be view using ``h5dump``; most notably ``h5dump -H <file>`` will output only the dataset headers.
 
 The format itself is mostly compatible to Xdmf, given a corresponding Xdmf XML file. With such, it can be visualized in e.g. ParaView.
@@ -64,17 +70,22 @@ An example Hdf5 file looks as follows:
 
 It shows that the hdf5 file consists of the 4 arrays: geometry, connect, group and boundary.
 
+Conventions
+-----------
+
+All tetrahedra need to have the same, positive orientation.
+
 Boundary Conditions
 -------------------
 
-In the default format (``int32``), the 4 boundary condition ids for each tetrahedron (8 bits each) are store within a single integer (32 bits) variable. The values can be unpacked, for example in python using:
+In the default format (``i32``), the 4 boundary condition ids for each tetrahedron (8 bits each) are store within a single integer (32 bits) variable. The values can be unpacked, for example in python using:
 
 .. code-block:: python
 
    for faceId in range(0,4):
       boundaryFace[faceId] = (boundary >> (faceId*8)) & 0xFF;
 
-Other boundary formats (``int64``) have a 16-bit offset and use 0xffff as a mask instead. The format ``int32x4`` stores each boundary value in an array value of its own, instead of compressing all four values into one integer.
+Other boundary formats (``i64``) have a 16-bit offset and use 0xffff as a mask instead. The format ``i32x4`` stores each boundary value in an array value of its own, instead of compressing all four values into one integer.
 
 | The possibles values of the boundary condition ids range from 0 to 255.
 | In SeisSol, boundary conditions are historically tagged as:
@@ -94,19 +105,26 @@ The following convention for defining a face ID is used:
 
    s_vert[0,:] = [0,2,1];   s_vert[1,:] = [0,1,3];    s_vert[2,:] = [1,2,3]; s_vert[3,:] = [0,3,2];
 
+In general,
+
 Periodic Boundaries
 -------------------
 
-Periodicity is not encoded via the boundary conditions; instead the PUML file contains additional topology
-information in these cases. There are two ways to encode periodicity:
+Periodicity is not encoded via the above boundary conditions;
+instead the PUML file contains additional topology
+information in these cases.
 
-- cell-wise: i.e. an extra, "topological" connectivity array.
+The default (i.e. for non-periodic meshes) is to take the geometric mesh as topological mesh (topology format ``geometric``).
 
-- vertex-wise: assign a topological vertex to each geometric vertex. From that, we subsequently generate the topological connectivity array.
+There are two ways to encode periodicity:
+
+- cell-wise: i.e. an extra, "topological" connectivity array, called ``topology``, in the mesh file. (topology format ``identify-cell``)
+
+- vertex-wise: assign a topological vertex to each geometric vertex, called ``identify`` in the mesh file. From that, we subsequently generate the topological connectivity array. (topology format ``identify-vertex``)
 
 Currently, the topological vertex IDs may not exceed the number of geometric vertices.
 
 Cube Generator
 ~~~~~~~~~~~~~~
 
-A cube mesh generator is integrated in SeisSol as well; it also supports periodic boundary conditions.
+A cube mesh generator is integrated in SeisSol as well; it also supports periodic boundary conditions, but only single-rank setups.

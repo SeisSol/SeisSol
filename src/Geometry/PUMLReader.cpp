@@ -201,15 +201,15 @@ PUMLReader::PUMLReader(const char* meshFile,
   // Note 2: we also need it for vertex identification
   meshGeometry.generateMesh();
 
-  if (topologyFormat != initializer::parameters::TopologyFormat::Connect) {
+  if (topologyFormat != initializer::parameters::TopologyFormat::Geometric) {
     // we have a topology mesh; separate from the physical mesh
 
     read(meshTopologyExtra,
          meshFile,
-         topologyFormat == initializer::parameters::TopologyFormat::CellIdentify);
+         topologyFormat == initializer::parameters::TopologyFormat::IdentifyCell);
 
     int id = -1;
-    if (topologyFormat == initializer::parameters::TopologyFormat::VertexIdentify) {
+    if (topologyFormat == initializer::parameters::TopologyFormat::IdentifyVertex) {
       id = meshTopologyExtra.addData<unsigned long>(
           (std::string(meshFile) + ":/identify").c_str(), PUML::VERTEX, {});
     }
@@ -217,14 +217,14 @@ PUMLReader::PUMLReader(const char* meshFile,
     // generate the topology mesh for the dual graph
     meshTopologyExtra.generateMesh();
 
-    if (topologyFormat == initializer::parameters::TopologyFormat::VertexIdentify) {
+    if (topologyFormat == initializer::parameters::TopologyFormat::IdentifyVertex) {
       // re-identify vertices; then re-distribute
       meshTopologyExtra.identify(id);
       meshTopologyExtra.generateMesh();
     }
   }
 
-  auto& meshTopology = topologyFormat == initializer::parameters::TopologyFormat::Connect
+  auto& meshTopology = topologyFormat == initializer::parameters::TopologyFormat::Geometric
                            ? meshGeometry
                            : meshTopologyExtra;
 

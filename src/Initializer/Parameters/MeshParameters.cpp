@@ -35,9 +35,9 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
       "auto",
       {
           {"auto", TopologyFormat::Auto},
-          {"connect", TopologyFormat::Connect},
-          {"cell", TopologyFormat::CellIdentify},
-          {"vertex", TopologyFormat::VertexIdentify},
+          {"geometric", TopologyFormat::Geometric},
+          {"identify-cell", TopologyFormat::IdentifyCell},
+          {"identify-vertex", TopologyFormat::IdentifyVertex},
       });
 
   const auto displacementRaw = seissol::initializer::convertStringToArray<double, 3>(

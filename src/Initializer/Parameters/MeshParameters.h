@@ -20,7 +20,7 @@ enum class MeshFormat : int { PUML, CubeGenerator };
 
 enum class BoundaryFormat : int { Auto, I32, I64, I32x4 };
 
-enum class TopologyFormat : int { Auto, Connect, CellIdentify, VertexIdentify };
+enum class TopologyFormat : int { Auto, Geometric, IdentifyCell, IdentifyVertex };
 
 struct MeshParameters {
   bool showEdgeCutStatistics;
