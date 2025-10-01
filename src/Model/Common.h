@@ -13,11 +13,11 @@
 #include <Eigen/Dense>
 #include <Equations/Datastructures.h>
 
+#include "GeneratedCode/init.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/Typedefs.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
-#include "generated_code/init.h"
 #include "utils/logger.h"
 
 #include "Model/CommonDatastructures.h"
@@ -193,8 +193,8 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT:
              seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
       A;
   // transpose AT to get A
-  for (int i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
-    for (int j = 0; j < seissol::model::MaterialT::NumQuantities; j++) {
+  for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
+    for (std::size_t j = 0; j < seissol::model::MaterialT::NumQuantities; j++) {
       A[i + seissol::model::MaterialT::NumQuantities * j] =
           AT[seissol::model::MaterialT::NumQuantities * i + j];
     }
@@ -214,7 +214,7 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT:
   // also check that the imaginary parts are zero
   int evNeg = 0;
   int evPos = 0;
-  for (int i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
+  for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
     assert(std::abs(eigenvalues(i).imag()) < zeroThreshold);
     if (eigenvalues(i).real() < -zeroThreshold) {
       ++evNeg;
@@ -230,7 +230,7 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT:
   CMatrix coeff(A.data());
   const CMatrix matrixMult = coeff * eigenvectors;
   CMatrix eigenvalueMatrix = CMatrix::Zero();
-  for (size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
+  for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
     eigenvalueMatrix(i, i) = eigenvalues(i);
   }
   const CMatrix vectorMult = eigenvectors * eigenvalueMatrix;

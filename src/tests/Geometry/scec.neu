@@ -2,7 +2,7 @@
 ** GAMBIT NEUTRAL FILE
 scec_box40x20x30
 PROGRAM:                Gambit     VERSION:  2.3.16
- May 2010     
+ May 2010
      NUMNP     NELEM     NGRPS    NBSETS     NDFCD     NDFVL
       5504     28298         1         3         3         3
 ENDOFSECTION

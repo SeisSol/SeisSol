@@ -19,6 +19,7 @@
 # * bugprone-crtp-constructor-accessibility,
 # * bugprone-exception-escape,
 # * bugprone-branch-clone,
+# * cppcoreguidelines-use-enum-class
 
 Checks: |
   -clang-analyzer-cplusplus.NewDeleteLeaks
@@ -47,11 +48,13 @@ Checks: |
   -cppcoreguidelines-pro-type-reinterpret-cast,
   -cppcoreguidelines-narrowing-conversions,
   -cppcoreguidelines-pro-type-member-init,
-  -cppcoreguidelines-pro-type-const-cast
+  -cppcoreguidelines-pro-type-const-cast,
+  -cppcoreguidelines-use-enum-class,
   llvm-*,
   -llvm-else-after-return,
   -llvm-header-guard,
   -llvm-qualified-auto,
+  -llvm-prefer-static-over-anonymous-namespace,
   misc-*,
   -misc-non-private-member-variables-in-classes,
   -misc-unused-parameters,

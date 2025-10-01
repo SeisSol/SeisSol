@@ -22,12 +22,11 @@ TEST_CASE("Friction Solver Common") {
   FaultStresses<Executor::Host> faultStresses{};
   TractionResults<Executor::Host> tractionResults{};
   ImpedancesAndEta impAndEta;
-  alignas(Alignment) real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()] = {{}};
-  alignas(Alignment)
-      real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()] = {{}};
+  alignas(Alignment) real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()] = {{}};
+  alignas(Alignment) real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()] = {{}};
   alignas(Alignment) real imposedStatePlus[tensor::QInterpolated::size()] = {};
   alignas(Alignment) real imposedStateMinus[tensor::QInterpolated::size()] = {};
-  double timeWeights[ConvergenceOrder];
+  double timeWeights[misc::TimeSteps];
   std::iota(std::begin(timeWeights), std::end(timeWeights), 1);
   constexpr real Epsilon = 1e6 * std::numeric_limits<real>::epsilon();
 
@@ -68,7 +67,7 @@ TEST_CASE("Friction Solver Common") {
   auto t1 = [](size_t o, size_t p) { return static_cast<real>(o + p); };
   auto t2 = [](size_t o, size_t p) { return static_cast<real>(2 * (o + p)); };
 
-  for (size_t o = 0; o < ConvergenceOrder; o++) {
+  for (size_t o = 0; o < misc::TimeSteps; o++) {
     for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
       for (size_t q = 0; q < misc::NumQuantities; q++) {
         qIPlus[o][q][p] = qP(o, q, p);
@@ -84,7 +83,7 @@ TEST_CASE("Friction Solver Common") {
         faultStresses, impAndEta, impMats, qInterpolatedPlus, qInterpolatedMinus, 1.0);
 
     // Assure that qInterpolatedPlus and qInterpolatedMinus are const.
-    for (size_t o = 0; o < ConvergenceOrder; o++) {
+    for (size_t o = 0; o < misc::TimeSteps; o++) {
       for (size_t q = 0; q < misc::NumQuantities; q++) {
         for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
           REQUIRE(qIPlus[o][q][p] == qP(o, q, p));
@@ -94,7 +93,7 @@ TEST_CASE("Friction Solver Common") {
     }
 
     // Assure that faultstresses were computed correctly
-    for (size_t o = 0; o < ConvergenceOrder; o++) {
+    for (size_t o = 0; o < misc::TimeSteps; o++) {
       for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
         const real expectedNormalStress =
             impAndEta.etaP * (qM(o, 6, p) - qP(o, 6, p) + impAndEta.invZp * qP(o, 0, p) +
@@ -132,7 +131,7 @@ TEST_CASE("Friction Solver Common") {
       real expectedU[2]{};
       real expectedV[2]{};
       real expectedW[2]{};
-      for (size_t o = 0; o < ConvergenceOrder; o++) {
+      for (size_t o = 0; o < misc::TimeSteps; o++) {
         expectedNormalStress[0] += timeWeights[o] * faultStresses.normalStress[o][p];
         expectedTraction1[0] += timeWeights[o] * t1(o, p);
         expectedTraction2[0] += timeWeights[o] * t2(o, p);

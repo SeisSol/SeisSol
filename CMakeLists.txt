@@ -84,9 +84,6 @@ endif()
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
         "Release" "Debug" "RelWithDebInfo") # MinSizeRel is useless for us
 
-# LTO
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO})
-
 function(capitalize INARG OUTARG)
   string(REPLACE "_" ";" PARTS ${INARG})
   set(PREOUTARG "")
@@ -162,24 +159,24 @@ message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
 message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
 
 add_custom_target(build-time-make-directory ALL
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code")
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode")
 
-set(GENERATED_FILES_FOR_SEISSOL src/generated_code/subroutine.h
-                                src/generated_code/tensor.cpp
-                                src/generated_code/subroutine.cpp
-                                src/generated_code/gpulike_subroutine.cpp
-                                src/generated_code/tensor.h
-                                src/generated_code/init.cpp
-                                src/generated_code/init.h
-                                src/generated_code/kernel.h
-                                src/generated_code/kernel.cpp)
+set(GENERATED_FILES_FOR_SEISSOL codegen/GeneratedCode/subroutine.h
+                                codegen/GeneratedCode/tensor.cpp
+                                codegen/GeneratedCode/subroutine.cpp
+                                codegen/GeneratedCode/gpulike_subroutine.cpp
+                                codegen/GeneratedCode/tensor.h
+                                codegen/GeneratedCode/init.cpp
+                                codegen/GeneratedCode/init.h
+                                codegen/GeneratedCode/kernel.h
+                                codegen/GeneratedCode/kernel.cpp)
 
 if (TESTING AND TESTING_GENERATED)
   set(GENERATED_FILES_FOR_SEISSOL ${GENERATED_FILES_FOR_SEISSOL}
-                                src/generated_code/test-kernel.cpp)
+                                codegen/GeneratedCode/test-kernel.cpp)
 endif()
 
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/)
 
 if(PROXY_PYBINDING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
@@ -203,10 +200,10 @@ find_package(GemmTools REQUIRED)
 
 add_custom_command(
   COMMAND
-  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated-code/generate.py"
+  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/codegen/generate.py"
      "--equations" ${EQUATIONS}
-     "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated-code/matrices
-     "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
+     "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/codegen/matrices
+     "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode
      "--host_arch" ${HOST_ARCH}
      "--device_codegen" ${DEVICE_CODEGEN}
      "--device_arch" ${DEVICE_ARCH}
@@ -224,19 +221,21 @@ add_custom_command(
      "--executable_pspamm=${PSpaMM_PROGRAM}"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
      ${OVERRIDE_VECTORSIZE_PARAM}
-     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated-code
+     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/codegen
      DEPENDS
         build-time-make-directory
-        generated-code/generate.py
-        generated-code/kernels
-        generated-code/matrices
-        generated-code/config
+        codegen/generate.py
+        codegen/kernels
+        codegen/matrices
+        codegen/config
     OUTPUT
         ${GENERATED_FILES_FOR_SEISSOL}
     COMMENT "Code generation for tensor operations..."
        )
 
 add_custom_target(seissol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
+
+# TODO: remove IMPORTED here for clang-tidy to see the headers (and use "???.h" for internals)
 add_library(seissol-common-properties INTERFACE IMPORTED)
 
 include(src/sources.cmake)
@@ -280,10 +279,6 @@ target_compile_options(seissol-common-properties INTERFACE ${CPU_ARCH_FLAGS})
 target_compile_definitions(seissol-common-properties INTERFACE LOGLEVEL=${LOG_LEVEL})
 target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_LEVEL_MASTER}
                                                      LOGLEVEL0=${LOG_LEVEL_MASTER})
-
-if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
-  target_compile_definitions(seissol-common-properties INTERFACE MULTIPLE_SIMULATIONS=${NUMBER_OF_FUSED_SIMULATIONS})
-endif()
 
 # enable interproc. opts for small cores
 #if cpu in ['knc', 'knl', 'skx']:
@@ -354,7 +349,7 @@ if (HDF5)
   if (NOT HDF5_IS_PARALLEL)
     message(WARNING "The found parallel Hdf5 installation is not parallel. Compile errors will occur.")
   endif()
-endif()  
+endif()
 
 # Parmetis
 if ("parmetis" IN_LIST GRAPH_PARTITIONING_LIBS)
@@ -387,23 +382,6 @@ if (MEMKIND)
   target_compile_definitions(seissol-common-properties INTERFACE USE_MEMKIND)
 endif()
 
-if(${EQUATIONS} STREQUAL "poroelastic")
-  include(CheckLanguage)
-  check_language(Fortran)
-  if(CMAKE_Fortran_COMPILER)
-    enable_language(Fortran)
-    include(FortranCInterface)
-    FortranCInterface_HEADER(FC.h MACRO_NAMESPACE "FC_")
-    find_package(LAPACK REQUIRED)
-    target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
-    target_link_libraries(seissol-common-properties INTERFACE ${LAPACK_LIBRARIES})
-    target_compile_definitions(seissol-common-properties INTERFACE USE_LAPACK)
-  else()
-    message(FATAL_ERROR "SeisSol needs a Fortran compiler.")
-  endif()
-endif()
-
-
 if (INTEGRATE_QUANTITIES)
   target_compile_definitions(seissol-common-properties INTERFACE INTEGRATE_QUANTITIES)
 endif()
@@ -426,8 +404,31 @@ target_include_directories(seissol-common-properties SYSTEM INTERFACE
   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
-find_package(Eigen3 3.4 REQUIRED)
+find_package(Eigen3 REQUIRED)
 target_link_libraries(seissol-common-properties INTERFACE Eigen3::Eigen)
+
+# the following check is needed because allowing 3.4 and 5.0.0 at the same
+# time was not possible inline in the find_package
+if ("${Eigen3_VERSION}" VERSION_LESS "3.4")
+  message(FATAL_ERROR "Your installed Eigen version is too old. Needed: at least 3.4 .")
+endif()
+
+# only needed for "old" Eigen (i.e. below 5.0.0)
+if((${EQUATIONS} STREQUAL "poroelastic") AND ("${Eigen3_VERSION}" VERSION_LESS "5.0.0"))
+  include(CheckLanguage)
+  check_language(Fortran)
+  if(CMAKE_Fortran_COMPILER)
+    enable_language(Fortran)
+    include(FortranCInterface)
+    FortranCInterface_HEADER(FC.h MACRO_NAMESPACE "FC_")
+    find_package(LAPACK REQUIRED)
+    target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
+    target_link_libraries(seissol-common-properties INTERFACE ${LAPACK_LIBRARIES})
+    target_compile_definitions(seissol-common-properties INTERFACE USE_LAPACK)
+  else()
+    message(FATAL_ERROR "SeisSol needs a Fortran compiler.")
+  endif()
+endif()
 
 find_package(yaml-cpp REQUIRED)
 
@@ -467,6 +468,7 @@ target_include_directories(seissol-common-properties INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
     ${CMAKE_CURRENT_BINARY_DIR}/src/
+    ${CMAKE_CURRENT_BINARY_DIR}/codegen/
 )
 
 if (PREMULTIPLY_FLUX)
@@ -557,7 +559,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
   # Activate interprocedual optimization.
-  #set_property(TARGET seissol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
+  #set_property(TARGET seissol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Wno-unused-parameter")
 
@@ -582,7 +584,7 @@ target_link_libraries(seissol-common-properties INTERFACE std::filesystem)
 # Generated code does only work without red-zone.
 if (HAS_REDZONE)
   set_source_files_properties(
-      ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
+      ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
   )
 endif()
 
@@ -606,6 +608,7 @@ if (TESTING)
           src/tests/Numerical/TestNumerical.cpp
           src/tests/Geometry/TestGeometry.cpp
           src/tests/Kernel/TestKernel.cpp
+          src/tests/Memory/TestMemory.cpp
           src/tests/SourceTerm/TestSourceTerm.cpp
           src/tests/Parallel/TestParallel.cpp
           src/tests/ResultWriter/TestResultWriter.cpp
@@ -617,8 +620,8 @@ if (TESTING)
 
   if (TESTING_GENERATED)
     # FIXME: fix by removing the `using namespace` in the test files
-    # and replace by ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp
-    file(GLOB_RECURSE KERNEL_TESTFILES ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/**/test-kernel.cpp)
+    # and replace by ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/test-kernel.cpp
+    file(GLOB_RECURSE KERNEL_TESTFILES ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/**/test-kernel.cpp)
     set(seissol_test_sources
             ${seissol_test_sources}
             ${KERNEL_TESTFILES}
@@ -683,30 +686,16 @@ if (TESTING)
                     "submodules/*"
                     "*/tests/*"
                     "external/*"
-                    "*/src/generated_code/*"
+                    "*/codegen/GeneratedCode/*"
                     "/opt/*"
             LCOV_ARGS --ignore-errors inconsistent
                       --ignore-errors unused
+                      --ignore-errors mismatch
     )
   endif()
 endif()
 
-# build seissol-bin
-add_executable(seissol-bin src/Main.cpp)
-if (NOT NEW_BINARY_NAMING)
-  set_target_properties(seissol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
-else()
-  set_target_properties(seissol-bin PROPERTIES OUTPUT_NAME "seissol-${NAME_SUFFIX}")
-endif()
-
-target_link_libraries(seissol-bin PUBLIC seissol-lib)
-
-install(TARGETS seissol-bin RUNTIME)
-# end build seissol-bin
-
-# build seissol-proxy
-add_subdirectory(auto-tuning/proxy/src)
-# end build seissol-proxy
+add_subdirectory(app)
 
 if (WITH_GPU)
   string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
@@ -721,4 +710,3 @@ endif()
 
 # https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/
 # https://ortogonal.github.io/cmake-clang-tidy/
-

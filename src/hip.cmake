@@ -55,7 +55,7 @@ ${HCC_PATH} \
 <LINK_LIBRARIES>")
 
 set(DEVICE_SRC ${DEVICE_SRC}
-               ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
+               ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/gpulike_subroutine.cpp
                ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/cudahip/PlasticityAux.cpp
                ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
                ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
@@ -82,4 +82,3 @@ if (IS_NVCC_PLATFORM)
 else()
     target_link_libraries(seissol-device-lib PUBLIC ${HIP_PATH}/lib/libamdhip64.so)
 endif()
-

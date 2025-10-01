@@ -9,6 +9,7 @@
 #include "utils/logger.h"
 
 #include "Parallel/MPI.h"
+#include "Parallel/OpenMP.h"
 
 #include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
@@ -24,8 +25,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
-#include <omp.h>
 
 #include "MeshReader.h"
 
@@ -221,7 +220,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   logInfo() << "Total number of elements per partition:" << numElemPerPart[0] << 'x'
             << numElemPerPart[1] << 'x' << numElemPerPart[2] << '='
             << numElemPerPart[0] * numElemPerPart[1] * numElemPerPart[2];
-  logInfo() << "Using" << omp_get_max_threads() << "threads";
+  logInfo() << "Using" << seissol::OpenMP::threadCount() << "threads";
 
   // Setup MPI Communicator
   MPI_Comm commMaster = MPI_COMM_NULL;
@@ -1165,7 +1164,6 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   int* bndElemSizePtr = new int[numPartitions[3] * bndSize];
   int* bndElemRankPtr = new int[numPartitions[3] * bndSize];
   int* bndElemLocalIdsPtr = new int[numPartitions[3] * bndSize * bndElemSize];
-  int* elemMPIIndicesPtr = new int[numPartitions[3] * numElemPerPart[3] * 4];
 
   const int bndSizeGlobal = bndSize;
 
@@ -1567,7 +1565,6 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   delete[] bndElemSizePtr;
   delete[] bndElemRankPtr;
   delete[] bndElemLocalIdsPtr;
-  delete[] elemMPIIndicesPtr;
 
   // Close MPI communicator
   MPI_Comm_free(&commMaster);

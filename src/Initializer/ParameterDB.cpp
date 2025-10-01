@@ -7,6 +7,8 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Wolf
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include <Common/Constants.h>
 #include <Equations/Datastructures.h>
 #include <Equations/acoustic/Model/Datastructures.h>
@@ -24,11 +26,9 @@
 #include <cassert>
 #include <cstddef>
 #include <easi/Query.h>
-#include <init.h>
 #include <iterator>
 #include <memory>
 #include <set>
-#include <tensor.h>
 #include <utility>
 #include <vector>
 #ifdef USE_HDF
@@ -38,7 +38,7 @@
 
 #include "PUML/Downward.h"
 
-#include "generated_code/kernel.h"
+#include "GeneratedCode/kernel.h"
 #endif
 #include "ParameterDB.h"
 #include <algorithm>
@@ -273,8 +273,8 @@ void MaterialParameterDB<ViscoElasticMaterial>::addBindingPoints(
   adapter.addBindingPoint("rho", &ViscoElasticMaterial::rho);
   adapter.addBindingPoint("mu", &ViscoElasticMaterial::mu);
   adapter.addBindingPoint("lambda", &ViscoElasticMaterial::lambda);
-  adapter.addBindingPoint("Qp", &ViscoElasticMaterial::Qp);
-  adapter.addBindingPoint("Qs", &ViscoElasticMaterial::Qs);
+  adapter.addBindingPoint("Qp", &ViscoElasticMaterial::qp);
+  adapter.addBindingPoint("Qs", &ViscoElasticMaterial::qs);
 }
 
 template <>
@@ -335,7 +335,8 @@ void MaterialParameterDB<AnisotropicMaterial>::addBindingPoints(
 template <class T>
 void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
                                            const QueryGenerator& queryGen) {
-  easi::Component* model = loadEasiModel(fileName);
+  // NOLINTNEXTLINE(misc-const-correctness)
+  easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
   const unsigned numPoints = query.numPoints();
 
@@ -456,8 +457,8 @@ ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedM
         elementMaterial.lambda /
         (2.0 * elementMaterial.mu * (3.0 * elementMaterial.lambda + 2.0 * elementMaterial.mu)) *
         quadWeight;
-    qpMean += elementMaterial.Qp * quadWeight;
-    qsMean += elementMaterial.Qs * quadWeight;
+    qpMean += elementMaterial.qp * quadWeight;
+    qsMean += elementMaterial.qs * quadWeight;
   }
 
   // Harmonic average is used for mu, so take the reciprocal
@@ -470,8 +471,8 @@ ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedM
   result.rho = rhoMean;
   result.mu = muMean;
   result.lambda = lambdaMean;
-  result.Qp = qpMean;
-  result.Qs = qsMean;
+  result.qp = qpMean;
+  result.qs = qsMean;
 
   return result;
 }
@@ -479,7 +480,8 @@ ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedM
 template <>
 void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& fileName,
                                                              const QueryGenerator& queryGen) {
-  easi::Component* model = loadEasiModel(fileName);
+  // NOLINTNEXTLINE(misc-const-correctness)
+  easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
   auto suppliedParameters = model->suppliedParameters();
   // TODO(Sebastian): inhomogeneous materials, where in some parts only mu and lambda are given
@@ -507,7 +509,8 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
 }
 
 void FaultParameterDB::evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) {
-  easi::Component* model = loadEasiModel(fileName);
+  // NOLINTNEXTLINE(misc-const-correctness)
+  easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
 
   easi::ArraysAdapter<real> adapter;
@@ -524,7 +527,9 @@ std::set<std::string> FaultParameterDB::faultProvides(const std::string& fileNam
   if (fileName.empty()) {
     return {};
   }
-  easi::Component* model = loadEasiModel(fileName);
+
+  // NOLINTNEXTLINE(misc-const-correctness)
+  easi::Component* const model = loadEasiModel(fileName);
   std::set<std::string> supplied = model->suppliedParameters();
   delete model;
   return supplied;

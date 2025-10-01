@@ -47,10 +47,10 @@ struct TractionResults;
  */
 template <>
 struct FaultStresses<Executor::Host> {
-  alignas(Alignment) real normalStress[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real traction1[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real traction2[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real fluidPressure[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real normalStress[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real traction1[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real traction2[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real fluidPressure[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
 };
 
 /**
@@ -59,8 +59,8 @@ struct FaultStresses<Executor::Host> {
  */
 template <>
 struct TractionResults<Executor::Host> {
-  alignas(Alignment) real traction1[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real traction2[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real traction1[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real traction2[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
 };
 
 /**
@@ -70,10 +70,10 @@ struct TractionResults<Executor::Host> {
  */
 template <>
 struct FaultStresses<Executor::Device> {
-  real normalStress[ConvergenceOrder] = {{}};
-  real traction1[ConvergenceOrder] = {{}};
-  real traction2[ConvergenceOrder] = {{}};
-  real fluidPressure[ConvergenceOrder] = {{}};
+  real normalStress[misc::TimeSteps] = {{}};
+  real traction1[misc::TimeSteps] = {{}};
+  real traction2[misc::TimeSteps] = {{}};
+  real fluidPressure[misc::TimeSteps] = {{}};
 };
 
 /**
@@ -82,8 +82,8 @@ struct FaultStresses<Executor::Device> {
  */
 template <>
 struct TractionResults<Executor::Device> {
-  real traction1[ConvergenceOrder] = {{}};
-  real traction2[ConvergenceOrder] = {{}};
+  real traction1[misc::TimeSteps] = {{}};
+  real traction2[misc::TimeSteps] = {{}};
 };
 
 } // namespace seissol::dr

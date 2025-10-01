@@ -311,17 +311,16 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
 
         int nfaces[Cell::NumFaces];
         PUML::Neighbor::face(puml, neighbors[j], nfaces);
-        int* back = std::find(nfaces, nfaces + Cell::NumFaces, i);
+        const auto* back = std::find(nfaces, nfaces + Cell::NumFaces, i);
         assert(back < nfaces + 4);
 
         m_elements[i].neighborSides[PumlFaceToSeisSol[j]] = PumlFaceToSeisSol[back - nfaces];
 
-        const unsigned int firstVertex =
-            m_elements[i].vertices[FirstFaceVertex[PumlFaceToSeisSol[j]]];
+        const auto firstVertex = m_elements[i].vertices[FirstFaceVertex[PumlFaceToSeisSol[j]]];
 
         unsigned int nvertices[Cell::NumVertices];
         PUML::Downward::vertices(puml, cells[neighbors[j]], nvertices);
-        unsigned int* neighborFirstVertex =
+        const auto* neighborFirstVertex =
             std::find(nvertices, nvertices + Cell::NumVertices, firstVertex);
 
         m_elements[i].sideOrientations[PumlFaceToSeisSol[j]] =
@@ -441,15 +440,16 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
       PUML::Upward::cells(puml, faces[info.second[i]], cellIds);
       assert(cellIds[1] < 0);
 
-      const auto side = copySide[k][i];
-      const auto gSide = ghostSide[k][i];
+      // the linters demanded a double cast here
+      const auto side = static_cast<std::size_t>(static_cast<unsigned char>(copySide[k][i]));
+      const auto gSide = static_cast<std::size_t>(static_cast<unsigned char>(ghostSide[k][i]));
       m_elements[cellIds[0]].neighborSides[PumlFaceToSeisSol[side]] = PumlFaceToSeisSol[gSide];
 
       // Set side sideOrientation
       unsigned long nvertices[Cell::NumVertices];
       PUML::Downward::gvertices(puml, cells[cellIds[0]], nvertices);
 
-      unsigned long* localFirstVertex =
+      const auto* localFirstVertex =
           std::find(nvertices, nvertices + Cell::NumVertices, ghostFirstVertex[k][i]);
       assert(localFirstVertex != nvertices + 4);
 

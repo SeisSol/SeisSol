@@ -8,13 +8,14 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
 
+#include "GeneratedCode/tensor.h"
 #include "Geometry.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
-#include "Memory/Tree/Layer.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/DataCollector.h"
-#include "generated_code/tensor.h"
 #include <Eigen/Dense>
+#include <Parallel/Runtime/Stream.h>
 #include <array>
 #include <cassert>
 #include <cstring>
@@ -129,7 +130,7 @@ const inline std::vector<std::vector<std::string>> VariableLabels = {{"SRs", "SR
                                                                      {"DS"},
                                                                      {"P_f", "Tmp"}};
 
-using FaceToLtsMapType = std::vector<std::pair<seissol::initializer::Layer*, size_t>>;
+using FaceToLtsMapType = std::vector<std::pair<DynamicRupture::Layer*, size_t>>;
 
 } // namespace seissol::dr::output
 
@@ -158,13 +159,14 @@ struct ReceiverOutputData {
   size_t maxCacheLevel{50};
   bool isActive{false};
 
-  std::unique_ptr<parallel::DataCollector> deviceDataCollector;
+  std::unique_ptr<parallel::DataCollector<real>> deviceDataCollector;
   std::vector<std::size_t> deviceDataPlus;
   std::vector<std::size_t> deviceDataMinus;
   std::size_t cellCount{0};
 
-  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector>> deviceVariables;
+  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector<real>>> deviceVariables;
   std::vector<std::size_t> deviceIndices;
+  std::optional<parallel::runtime::StreamRuntime> extraRuntime;
 };
 } // namespace seissol::dr
 

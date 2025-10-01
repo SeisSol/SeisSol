@@ -10,18 +10,18 @@
 #define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_DATASTRUCTURES_H_
 
 #include "Equations/elastic/Model/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Model/CommonDatastructures.h"
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
 #include <Kernels/LinearCK/Solver.h>
 #include <array>
 #include <cstddef>
 #include <string>
 
 namespace seissol::model {
-class AnisotropicLocalData;
-class AnisotropicNeighborData;
+struct AnisotropicLocalData;
+struct AnisotropicNeighborData;
 
 struct AnisotropicMaterial : public Material {
   static constexpr std::size_t NumQuantities = 9;
@@ -88,6 +88,8 @@ struct AnisotropicMaterial : public Material {
   [[nodiscard]] double getSWaveSpeed() const override;
 
   [[nodiscard]] MaterialType getMaterialType() const override;
+
+  void setLameParameters(double mu, double lambda) override;
 };
 } // namespace seissol::model
 

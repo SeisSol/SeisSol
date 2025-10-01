@@ -15,6 +15,7 @@
 format() {
     # don't use a directory with whitespace
     local allowlist_dir="
+        app
         src/Common
         src/DynamicRupture
         src/Equations
@@ -57,11 +58,11 @@ format() {
         src/Initializer/PointMapper.cpp
         src/Initializer/PreProcessorMacros.h
         src/Initializer/TimeStepping/ClusterLayout.h
+        src/Initializer/TimeStepping/ClusterLayout.cpp
         src/Initializer/TimeStepping/GlobalTimestep.h
         src/Initializer/TimeStepping/GlobalTimestep.cpp
         src/SeisSol.h
         src/SeisSol.cpp
-        src/Main.cpp
         "
 
 
@@ -74,9 +75,9 @@ format() {
     fi
 
     local formatter_version=$(${formatter} --version)
-    if [ "${formatter_version}" != "clang-format version 20.1.0" ]; then
-        echo "Your clang-format tool in \"${formatter}\" does not have the correct version (should be 20.1.0). Given: ${formatter_version}"
-        echo "Hint: you may install the required clang-format via pip, by typing: pip3 install clang-format==20.1.0"
+    if [ "${formatter_version}" != "clang-format version 21.1.0" ]; then
+        echo "Your clang-format tool in \"${formatter}\" does not have the correct version (should be 21.1.0). Given: ${formatter_version}"
+        echo "Hint: you may install the required clang-format via pip, by typing: pip3 install clang-format==21.1.0"
         exit 176
     fi
 

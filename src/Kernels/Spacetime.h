@@ -11,11 +11,11 @@
 #ifndef SEISSOL_SRC_KERNELS_SPACETIME_H_
 #define SEISSOL_SRC_KERNELS_SPACETIME_H_
 
+#include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
 #include "Numerical/BasisFunction.h"
-#include "generated_code/tensor.h"
 #include <Kernels/Kernel.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>
@@ -27,13 +27,27 @@ namespace seissol::kernels {
 class SpacetimeKernel : public Kernel {
   public:
   ~SpacetimeKernel() override = default;
-  virtual void computeAder(double timeStepWidth,
-                           LocalData& data,
+
+  /**
+    @brief Compute the space-time evolution (a.k.a. "derivatives") from the given DOFs.
+
+    Includes an inline time integration; as that's needed for most subsequent operations.
+
+    @param coeffs The time basis coefficients used for the integrated integration.
+    @param timeStepWidth The size of the current timestep
+    @param timeIntegrated Output: time integration data.
+    @param timeDerivativesOrSTP Output: space-time evoluion.
+  */
+  virtual void computeAder(const real* coeffs,
+                           double timeStepWidth,
+                           LTS::Ref& data,
                            LocalTmp& tmp,
                            real timeIntegrated[tensor::I::size()],
                            real* timeDerivativesOrSTP = nullptr,
                            bool updateDisplacement = false) = 0;
-  virtual void computeBatchedAder(double timeStepWidth,
+
+  virtual void computeBatchedAder(const real* coeffs,
+                                  double timeStepWidth,
                                   LocalTmp& tmp,
                                   ConditionalPointersToRealsTable& dataTable,
                                   ConditionalMaterialTable& materialTable,

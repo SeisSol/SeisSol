@@ -9,13 +9,13 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_RECEIVERWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_RECEIVERWRITER_H_
 
+#include <Memory/Tree/Backmap.h>
 #include <string_view>
 #include <vector>
 
 #include "Geometry/MeshReader.h"
 #include "Kernels/Receiver.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Lut.h"
 #include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
 #include <Eigen/Dense>
@@ -45,11 +45,10 @@ class ReceiverWriter : public seissol::Module {
             const seissol::initializer::parameters::ReceiverOutputParameters& parameters);
 
   void addPoints(const seissol::geometry::MeshReader& mesh,
-                 const seissol::initializer::Lut& ltsLut,
-                 const seissol::initializer::LTS& lts,
+                 const LTS::Backmap& backmap,
                  const CompoundGlobalData& global);
 
-  kernels::ReceiverCluster* receiverCluster(unsigned clusterId, LayerType layer);
+  kernels::ReceiverCluster* receiverCluster(std::size_t id);
   //
   // Hooks
   //
@@ -65,8 +64,7 @@ class ReceiverWriter : public seissol::Module {
   std::string m_fileNamePrefix;
   double m_samplingInterval;
   std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity>> derivedQuantities;
-  // Map needed because LayerType enum casts weirdly to int.
-  std::unordered_map<LayerType, std::vector<kernels::ReceiverCluster>> m_receiverClusters;
+  std::vector<std::shared_ptr<kernels::ReceiverCluster>> m_receiverClusters;
   Stopwatch m_stopwatch;
 };
 } // namespace seissol::writer

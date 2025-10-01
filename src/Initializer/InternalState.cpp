@@ -7,10 +7,11 @@
 // SPDX-FileContributor: Alexander Breuer
 
 #include "InternalState.h"
-#include <limits>
-#include <cstddef>
 #include <cassert>
+#include <cstddef>
+#include <limits>
 #include <yateto.h>
+#include <Kernels/Solver.h>
 
 void seissol::initializer::InternalState::deriveLayerLayout(       unsigned int                  i_numberOfClusters,
                                                                     unsigned int                 *i_numberOfRegions,
@@ -113,9 +114,9 @@ void seissol::initializer::InternalState::setUpLayerPointers(       unsigned int
       else o_buffers[l_cell] = NULL;
 
       if( (i_cellLocalInformation[l_cell].ltsSetup >> 9 ) % 2 ) {
-        o_derivatives[l_cell] = i_layerMemory + l_offset 
+        o_derivatives[l_cell] = i_layerMemory + l_offset
                                               + i_numberOfBuffers[l_region] * tensor::I::size()
-                                              + l_derivativeCounter * yateto::computeFamilySize<tensor::dQ>();
+                                              + l_derivativeCounter * seissol::kernels::Solver::DerivativesSize;
         l_derivativeCounter++;
       }
       else o_derivatives[l_cell] = NULL;
@@ -128,7 +129,7 @@ void seissol::initializer::InternalState::setUpLayerPointers(       unsigned int
     // update offsets
     l_firstRegionCell = l_firstNonRegionCell;
     l_offset += i_numberOfBuffers[l_region]     * tensor::I::size() +
-                i_numberOfDerivatives[l_region] * yateto::computeFamilySize<tensor::dQ>();
+                i_numberOfDerivatives[l_region] * seissol::kernels::Solver::DerivativesSize;
   }
 }
 
@@ -149,4 +150,3 @@ void seissol::initializer::InternalState::setUpInteriorPointers(       unsigned 
                        o_buffers,
                        o_derivatives );
 }
-
