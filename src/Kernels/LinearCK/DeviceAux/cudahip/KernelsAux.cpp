@@ -5,6 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Alignment.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
@@ -347,6 +348,262 @@ void launch_local(const float** A,
   kernel_local<<<grid, block, 0, stream>>>(A, B, Boffset, C1, C2, C3, C4, D, numElements, flags);
 }
 } // namespace seissol::kernels::local::aux
+
+namespace {
+
+template <int Full, int Size1, int Size2>
+__launch_bounds__(512) __global__ void kernel_ck(const float** A,
+                                                 unsigned Aoffset,
+                                                 const float** B,
+                                                 unsigned Boffset,
+                                                 const float* C1,
+                                                 const float* C2,
+                                                 const float* C3,
+                                                 float** D,
+                                                 unsigned Doffset,
+                                                 float** E,
+                                                 float F,
+                                                 size_t numElements) {
+  // meta data:
+  // A = {rows: 64, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0), np.int64(64),
+  // np.int64(9)]}; B = {rows: 9, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0),
+  // np.int64(9), np.int64(9)]}; C = {rows: 56, cols: 56, addr: none, bbox: [np.int64(0),
+  // np.int64(0), np.int64(56), np.int64(56)]}; D = {rows: 64, cols: 9, addr: pointer_based, bbox:
+  // [np.int64(0), np.int64(0), np.int64(56), np.int64(9)]};
+
+  // tmp0 = 1.0 * A x B
+  // D = 1.0 * C x tmp0 + 1.0 * D
+
+  constexpr int Quantities = 9;
+  constexpr int Faces = 3;
+
+  constexpr int Count = Faces * Quantities * Quantities;
+  constexpr int CountH = Count / 64;
+  constexpr int CountR = Count % 64;
+
+  constexpr int MyAlign = (seissol::Alignment / sizeof(float));
+  constexpr int PaddedFull = (Full / MyAlign) * MyAlign;
+  constexpr int PaddedSize1 = (Size1 / MyAlign) * MyAlign;
+  constexpr int PaddedSize2 = (Size2 / MyAlign) * MyAlign;
+
+  __shared__ __align__(8) float total_shrmem0[(PaddedSize1 * Quantities + Count) * 8];
+
+  const auto tid_x = threadIdx.x;
+  unsigned batchId = threadIdx.y + blockDim.y * blockIdx.x;
+  if (batchId < numElements) {
+    const float* const __restrict__ glbA = A[batchId] + Aoffset;
+    const float* const __restrict__ glbB = B[batchId] + Boffset;
+    const float* const __restrict__ glbC1 = C1;
+    const float* const __restrict__ glbC2 = C2;
+    const float* const __restrict__ glbC3 = C3;
+    float* const __restrict__ glbD = D[batchId] + Doffset;
+    float* const __restrict__ glbE = E[batchId];
+
+    float reg0[Faces][Quantities]{};
+    float reg1[Quantities]{};
+    float reg2[Quantities]{};
+
+    float* shrmem0 = &total_shrmem0[(PaddedSize1 * Quantities + Count) * threadIdx.y];
+
+    // writing to shr mem: from reg0 to _1
+    float* __restrict__ _1 = &shrmem0[0];
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      _1[tid_x + i * PaddedSize1] = __builtin_nontemporal_load(&glbA[tid_x + i * PaddedSize1]);
+    }
+
+    float* __restrict__ _0 = &shrmem0[PaddedSize2 * Quantities];
+
+    // load all 3 9×9 matrices
+    // loading glbB to _0: # no trans, extended
+#pragma unroll
+    for (int i = 0; i < CountH; ++i) {
+      _0[tid_x + i * PaddedSize1] = glbB[tid_x + i * PaddedSize1];
+    }
+    if (tid_x < CountR) {
+      _0[tid_x + CountH * PaddedSize1] = glbB[tid_x + CountH * PaddedSize1];
+    }
+
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+      reg2[n] = __builtin_nontemporal_load(&glbE[tid_x + n * PaddedFull]);
+    }
+
+    // gemm: glbC x _1
+#pragma unroll 2
+    for (int k = 0; k < Size1; k += 8) {
+      float values[Faces][8]{};
+#pragma unroll
+      for (int kk = 0; kk < 8; ++kk) {
+        values[0][kk] = glbC1[tid_x + (k + kk) * PaddedSize2];
+      }
+#pragma unroll
+      for (int kk = 0; kk < 8; ++kk) {
+        values[1][kk] = glbC2[tid_x + (k + kk) * PaddedSize2];
+      }
+#pragma unroll
+      for (int kk = 0; kk < 8; ++kk) {
+        values[2][kk] = glbC3[tid_x + (k + kk) * PaddedSize2];
+      }
+
+#pragma unroll
+      for (int n = 0; n < Quantities; ++n) {
+        float local[8]{};
+#pragma unroll
+        for (int kk = 0; kk < 8; ++kk) {
+          local[kk] = _1[(k + kk) + n * PaddedSize1];
+        }
+#pragma unroll
+        for (int kk = 0; kk < 8; ++kk) {
+#pragma unroll
+          for (int d = 0; d < Faces; ++d) {
+            reg0[d][n] += values[d][kk] * local[kk];
+          }
+        }
+      }
+    }
+
+    // gemm: glbA x _0
+#pragma unroll
+    for (int d = 0; d < Faces; ++d) {
+#pragma unroll
+      for (int n = 0; n < Quantities; ++n) {
+#pragma unroll
+        for (int k = 0; k < Quantities; ++k) {
+          reg1[n] += reg0[d][k] * _0[k + n * Quantities + Quantities * Quantities * d];
+        }
+      }
+    }
+
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+      reg2[n] += F * reg1[n];
+    }
+
+    // write results back to glb. memory
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+      __builtin_nontemporal_store(reg1[n], &glbD[tid_x + n * PaddedSize2]);
+    }
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+      __builtin_nontemporal_store(reg2[n], &glbE[tid_x + n * PaddedFull]);
+    }
+  }
+}
+
+template <int Full>
+__launch_bounds__(512) __global__
+    void kernel_ick(const float** A, unsigned Aoffset, float** E, float F, size_t numElements) {
+  // meta data:
+  // A = {rows: 64, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0), np.int64(64),
+  // np.int64(9)]}; B = {rows: 9, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0),
+  // np.int64(9), np.int64(9)]}; C = {rows: 56, cols: 56, addr: none, bbox: [np.int64(0),
+  // np.int64(0), np.int64(56), np.int64(56)]}; D = {rows: 64, cols: 9, addr: pointer_based, bbox:
+  // [np.int64(0), np.int64(0), np.int64(56), np.int64(9)]};
+
+  // tmp0 = 1.0 * A x B
+  // D = 1.0 * C x tmp0 + 1.0 * D
+
+  constexpr int Quantities = 9;
+
+  constexpr int MyAlign = (seissol::Alignment / sizeof(float));
+  constexpr int PaddedFull = (Full / MyAlign) * MyAlign;
+
+  const auto tid_x = threadIdx.x;
+  unsigned batchId = threadIdx.y + blockDim.y * blockIdx.x;
+  if (batchId < numElements) {
+    const float* const __restrict__ glbA = A[batchId] + Aoffset;
+    float* const __restrict__ glbE = E[batchId];
+
+    float reg1[Quantities]{};
+    float reg2[Quantities]{};
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      reg1[i] = __builtin_nontemporal_load(&glbA[tid_x + i * PaddedFull]);
+    }
+
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+      reg2[n] = F * reg1[n];
+    }
+
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+      __builtin_nontemporal_store(reg2[n], &glbE[tid_x + n * PaddedFull]);
+    }
+  }
+}
+
+} // namespace
+
+namespace seissol::kernels::time::aux {
+
+template <int SourceOrder>
+void launch_cki(const float** A,
+                unsigned Aoffset,
+                const float** B,
+                unsigned Boffset,
+                const float* C1,
+                const float* C2,
+                const float* C3,
+                float** D,
+                unsigned Doffset,
+                float** E,
+                float F,
+                size_t numElements,
+                void* streamPtr) {
+  dim3 block(64, 8, 1);
+  dim3 grid((numElements + 8 - 1) / 8, 1, 1);
+  hipStream_t stream = (streamPtr != nullptr) ? static_cast<hipStream_t>(streamPtr) : 0;
+  constexpr std::size_t Full = seissol::kernels::getNumberOfBasisFunctions(ConvergenceOrder);
+  constexpr std::size_t Size1 = seissol::kernels::getNumberOfBasisFunctions(SourceOrder);
+  constexpr std::size_t Size2 = seissol::kernels::getNumberOfBasisFunctions(SourceOrder - 1);
+  kernel_ck<Full, Size1, Size2><<<grid, block, 0, stream>>>(
+      A, Aoffset, B, Boffset, C1, C2, C3, D, Doffset, E, F, numElements);
+}
+
+void launch_ck(const float** A,
+               unsigned Aoffset,
+               const float** B,
+               unsigned Boffset,
+               const float* C1,
+               const float* C2,
+               const float* C3,
+               float** D,
+               unsigned Doffset,
+               float** E,
+               float F,
+               size_t numElements,
+               void* streamPtr,
+               int sourceOrder) {
+  if (sourceOrder == 6) {
+    launch_cki<6>(A, Aoffset, B, Boffset, C1, C2, C3, D, Doffset, E, F, numElements, streamPtr);
+  }
+  if (sourceOrder == 5) {
+    launch_cki<5>(A, Aoffset, B, Boffset, C1, C2, C3, D, Doffset, E, F, numElements, streamPtr);
+  }
+  if (sourceOrder == 4) {
+    launch_cki<4>(A, Aoffset, B, Boffset, C1, C2, C3, D, Doffset, E, F, numElements, streamPtr);
+  }
+  if (sourceOrder == 3) {
+    launch_cki<3>(A, Aoffset, B, Boffset, C1, C2, C3, D, Doffset, E, F, numElements, streamPtr);
+  }
+  if (sourceOrder == 2) {
+    launch_cki<2>(A, Aoffset, B, Boffset, C1, C2, C3, D, Doffset, E, F, numElements, streamPtr);
+  }
+}
+
+void launch_ick(
+    const float** A, unsigned Aoffset, float** E, float F, size_t numElements, void* streamPtr) {
+  dim3 block(64, 8, 1);
+  dim3 grid((numElements + 8 - 1) / 8, 1, 1);
+  hipStream_t stream = (streamPtr != nullptr) ? static_cast<hipStream_t>(streamPtr) : 0;
+  constexpr std::size_t Full = seissol::kernels::getNumberOfBasisFunctions(ConvergenceOrder);
+  kernel_ick<Full><<<grid, block, 0, stream>>>(A, Aoffset, E, F, numElements);
+}
+
+} // namespace seissol::kernels::time::aux
 
 #endif
 

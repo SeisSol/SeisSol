@@ -183,7 +183,32 @@ void Spacetime::computeBatchedAder(const real* coeffs,
     }
     derivativesKrnl.linearAllocator.initialize(tmpMem.get());
     derivativesKrnl.streamPtr = runtime.stream();
-    derivativesKrnl.execute();
+
+    seissol::kernels::time::aux::launch_ick((const float**)derivativesKrnl.dQ(0),
+                                            derivativesKrnl.extraOffset_star(0),
+                                            derivativesKrnl.I,
+                                            coeffs[0],
+                                            numElements,
+                                            runtime.stream());
+    for (int i = ConvergenceOrder; i >= 2; --i) {
+      seissol::kernels::time::aux::launch_ck(
+          (const float**)derivativesKrnl.dQ(ConvergenceOrder - i),
+          derivativesKrnl.extraOffset_star(ConvergenceOrder - i),
+          derivativesKrnl.star(0),
+          derivativesKrnl.extraOffset_star(i),
+          derivativesKrnl.kDivMT(0),
+          derivativesKrnl.kDivMT(1),
+          derivativesKrnl.kDivMT(2),
+          derivativesKrnl.dQ(1 + (ConvergenceOrder - i)),
+          derivativesKrnl.extraOffset_star(1 + (ConvergenceOrder - i)),
+          derivativesKrnl.I,
+          coeffs[1 + (ConvergenceOrder - i)],
+          numElements,
+          runtime.stream(),
+          i);
+    }
+
+    // derivativesKrnl.execute();
   }
 
   if (updateDisplacement) {

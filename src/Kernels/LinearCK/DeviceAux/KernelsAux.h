@@ -30,6 +30,27 @@ void launch_local(const float** A,
                   void* streamPtr);
 }
 
+namespace seissol::kernels::time::aux {
+
+void launch_ck(const float** A,
+               unsigned Aoffset,
+               const float** B,
+               unsigned Boffset,
+               const float* C1,
+               const float* C2,
+               const float* C3,
+               float** D,
+               unsigned Doffset,
+               float** E,
+               float F,
+               size_t numElements,
+               void* streamPtr,
+               int sourceOrder);
+
+void launch_ick(
+    const float** A, unsigned Aoffset, float** E, float F, size_t numElements, void* streamPtr);
+} // namespace seissol::kernels::time::aux
+
 namespace seissol::kernels::local_flux::aux::details {
 void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
                               real** displacementDataPtrs,
