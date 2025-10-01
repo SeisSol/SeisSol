@@ -407,21 +407,23 @@ __launch_bounds__(512) __global__ void kernel_ck(const float** A,
 
     // writing to shr mem: from reg0 to _1
     float* __restrict__ _1 = &shrmem0[0];
+    if (tid_x < PaddedSize1) {
 #pragma unroll
-    for (int i = 0; i < Quantities; ++i) {
-      _1[tid_x + i * PaddedSize1] = __builtin_nontemporal_load(&glbA[tid_x + i * PaddedSize1]);
+      for (int i = 0; i < Quantities; ++i) {
+        _1[tid_x + i * PaddedSize1] = __builtin_nontemporal_load(&glbA[tid_x + i * PaddedSize1]);
+      }
     }
 
-    float* __restrict__ _0 = &shrmem0[PaddedSize2 * Quantities];
+    float* __restrict__ _0 = &shrmem0[PaddedSize1 * Quantities];
 
     // load all 3 9×9 matrices
     // loading glbB to _0: # no trans, extended
 #pragma unroll
     for (int i = 0; i < CountH; ++i) {
-      _0[tid_x + i * PaddedSize1] = glbB[tid_x + i * PaddedSize1];
+      _0[tid_x + i * 64] = glbB[tid_x + i * 64];
     }
     if (tid_x < CountR) {
-      _0[tid_x + CountH * PaddedSize1] = glbB[tid_x + CountH * PaddedSize1];
+      _0[tid_x + CountH * 64] = glbB[tid_x + CountH * 64];
     }
 
 #pragma unroll
@@ -435,23 +437,25 @@ __launch_bounds__(512) __global__ void kernel_ck(const float** A,
       float values[Faces][8]{};
 #pragma unroll
       for (int kk = 0; kk < 8; ++kk) {
-        values[0][kk] = glbC1[tid_x + (k + kk) * PaddedSize2];
+        values[0][kk] = glbC1[tid_x + (k + kk) * PaddedFull];
       }
 #pragma unroll
       for (int kk = 0; kk < 8; ++kk) {
-        values[1][kk] = glbC2[tid_x + (k + kk) * PaddedSize2];
+        values[1][kk] = glbC2[tid_x + (k + kk) * PaddedFull];
       }
 #pragma unroll
       for (int kk = 0; kk < 8; ++kk) {
-        values[2][kk] = glbC3[tid_x + (k + kk) * PaddedSize2];
+        values[2][kk] = glbC3[tid_x + (k + kk) * PaddedFull];
       }
 
 #pragma unroll
       for (int n = 0; n < Quantities; ++n) {
         float local[8]{};
+        if (tid_x < PaddedSize1) {
 #pragma unroll
-        for (int kk = 0; kk < 8; ++kk) {
-          local[kk] = _1[(k + kk) + n * PaddedSize1];
+          for (int kk = 0; kk < 8; ++kk) {
+            local[kk] = _1[(k + kk) + n * PaddedSize1];
+          }
         }
 #pragma unroll
         for (int kk = 0; kk < 8; ++kk) {
@@ -468,23 +472,25 @@ __launch_bounds__(512) __global__ void kernel_ck(const float** A,
       float values[Faces][Size1 % 8]{};
 #pragma unroll
       for (int kk = 0; kk < Size1 % 8; ++kk) {
-        values[0][kk] = glbC1[tid_x + (k + kk) * PaddedSize2];
+        values[0][kk] = glbC1[tid_x + (k + kk) * PaddedFull];
       }
 #pragma unroll
       for (int kk = 0; kk < Size1 % 8; ++kk) {
-        values[1][kk] = glbC2[tid_x + (k + kk) * PaddedSize2];
+        values[1][kk] = glbC2[tid_x + (k + kk) * PaddedFull];
       }
 #pragma unroll
       for (int kk = 0; kk < Size1 % 8; ++kk) {
-        values[2][kk] = glbC3[tid_x + (k + kk) * PaddedSize2];
+        values[2][kk] = glbC3[tid_x + (k + kk) * PaddedFull];
       }
 
 #pragma unroll
       for (int n = 0; n < Quantities; ++n) {
         float local[Size1 % 8]{};
+        if (tid_x < PaddedSize1) {
 #pragma unroll
-        for (int kk = 0; kk < Size1 % 8; ++kk) {
-          local[kk] = _1[(k + kk) + n * PaddedSize1];
+          for (int kk = 0; kk < Size1 % 8; ++kk) {
+            local[kk] = _1[(k + kk) + n * PaddedSize1];
+          }
         }
 #pragma unroll
         for (int kk = 0; kk < Size1 % 8; ++kk) {
@@ -514,9 +520,11 @@ __launch_bounds__(512) __global__ void kernel_ck(const float** A,
     }
 
     // write results back to glb. memory
+    if (tid_x < PaddedSize2) {
 #pragma unroll
-    for (int n = 0; n < Quantities; ++n) {
-      __builtin_nontemporal_store(reg1[n], &glbD[tid_x + n * PaddedSize2]);
+      for (int n = 0; n < Quantities; ++n) {
+        __builtin_nontemporal_store(reg1[n], &glbD[tid_x + n * PaddedSize2]);
+      }
     }
 #pragma unroll
     for (int n = 0; n < Quantities; ++n) {
