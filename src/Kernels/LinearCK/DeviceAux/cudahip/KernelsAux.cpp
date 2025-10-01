@@ -451,11 +451,9 @@ __launch_bounds__(512) __global__ void kernel_ck(const float** A,
 #pragma unroll
       for (int n = 0; n < Quantities; ++n) {
         float local[8]{};
-        if (tid_x < PaddedSize1) {
 #pragma unroll
-          for (int kk = 0; kk < 8; ++kk) {
-            local[kk] = _1[(k + kk) + n * PaddedSize1];
-          }
+        for (int kk = 0; kk < 8; ++kk) {
+          local[kk] = _1[(k + kk) + n * PaddedSize1];
         }
 #pragma unroll
         for (int kk = 0; kk < 8; ++kk) {
@@ -486,11 +484,9 @@ __launch_bounds__(512) __global__ void kernel_ck(const float** A,
 #pragma unroll
       for (int n = 0; n < Quantities; ++n) {
         float local[Size1 % 8]{};
-        if (tid_x < PaddedSize1) {
 #pragma unroll
-          for (int kk = 0; kk < Size1 % 8; ++kk) {
-            local[kk] = _1[(k + kk) + n * PaddedSize1];
-          }
+        for (int kk = 0; kk < Size1 % 8; ++kk) {
+          local[kk] = _1[(k + kk) + n * PaddedSize1];
         }
 #pragma unroll
         for (int kk = 0; kk < Size1 % 8; ++kk) {
