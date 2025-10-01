@@ -73,7 +73,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       auto dataHost = currentLayer->cellRef(cell, AllocationPlace::Host);
 
       for (unsigned face = 0; face < 4; ++face) {
-        if (dataHost.cellInformation().faceTypes[face] != FaceType::DynamicRupture) {
+        if (dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
           fluxes[cell] |= (1 << face);
         }
       }
