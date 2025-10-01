@@ -382,9 +382,9 @@ __launch_bounds__(512) __global__ void kernel_ck(const float** A,
   constexpr int CountR = Count % 64;
 
   constexpr int MyAlign = (seissol::Alignment / sizeof(float));
-  constexpr int PaddedFull = (Full / MyAlign) * MyAlign;
-  constexpr int PaddedSize1 = (Size1 / MyAlign) * MyAlign;
-  constexpr int PaddedSize2 = (Size2 / MyAlign) * MyAlign;
+  constexpr int PaddedFull = ((Full + MyAlign - 1) / MyAlign) * MyAlign;
+  constexpr int PaddedSize1 = ((Size1 + MyAlign - 1) / MyAlign) * MyAlign;
+  constexpr int PaddedSize2 = ((Size2 + MyAlign - 1) / MyAlign) * MyAlign;
 
   __shared__ __align__(8) float total_shrmem0[(PaddedSize1 * Quantities + Count) * 8];
 
@@ -431,7 +431,7 @@ __launch_bounds__(512) __global__ void kernel_ck(const float** A,
 
     // gemm: glbC x _1
 #pragma unroll 2
-    for (int k = 0; k < Size1; k += 8) {
+    for (int k = 0; k < (Size1 / 8) * 8; k += 8) {
       float values[Faces][8]{};
 #pragma unroll
       for (int kk = 0; kk < 8; ++kk) {
@@ -455,6 +455,39 @@ __launch_bounds__(512) __global__ void kernel_ck(const float** A,
         }
 #pragma unroll
         for (int kk = 0; kk < 8; ++kk) {
+#pragma unroll
+          for (int d = 0; d < Faces; ++d) {
+            reg0[d][n] += values[d][kk] * local[kk];
+          }
+        }
+      }
+    }
+
+    {
+      const int k = (Size1 / 8) * 8;
+      float values[Faces][Size1 % 8]{};
+#pragma unroll
+      for (int kk = 0; kk < Size1 % 8; ++kk) {
+        values[0][kk] = glbC1[tid_x + (k + kk) * PaddedSize2];
+      }
+#pragma unroll
+      for (int kk = 0; kk < Size1 % 8; ++kk) {
+        values[1][kk] = glbC2[tid_x + (k + kk) * PaddedSize2];
+      }
+#pragma unroll
+      for (int kk = 0; kk < Size1 % 8; ++kk) {
+        values[2][kk] = glbC3[tid_x + (k + kk) * PaddedSize2];
+      }
+
+#pragma unroll
+      for (int n = 0; n < Quantities; ++n) {
+        float local[Size1 % 8]{};
+#pragma unroll
+        for (int kk = 0; kk < Size1 % 8; ++kk) {
+          local[kk] = _1[(k + kk) + n * PaddedSize1];
+        }
+#pragma unroll
+        for (int kk = 0; kk < Size1 % 8; ++kk) {
 #pragma unroll
           for (int d = 0; d < Faces; ++d) {
             reg0[d][n] += values[d][kk] * local[kk];
@@ -508,7 +541,7 @@ __launch_bounds__(512) __global__
   constexpr int Quantities = 9;
 
   constexpr int MyAlign = (seissol::Alignment / sizeof(float));
-  constexpr int PaddedFull = (Full / MyAlign) * MyAlign;
+  constexpr int PaddedFull = ((Full + MyAlign - 1) / MyAlign) * MyAlign;
 
   const auto tid_x = threadIdx.x;
   unsigned batchId = threadIdx.y + blockDim.y * blockIdx.x;
