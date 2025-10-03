@@ -370,16 +370,20 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
     return {cartesianNames, Parametrization::Cartesian};
   } else if (allTractionParametersSupplied && !anyCartesianParametersSupplied) {
     return {tractionNames, Parametrization::Traction};
-  } else {
-    logError() << "Please specify a correct parametrization of the "
-               << (readNucleation > 0
-                       ? "nucleation stress " + std::to_string(readNucleation + 1) + "."
-                       : "initial stress.")
-               << "You have either not specified all parameters or an uncommom mixture of "
-                  "parameters. Give either all of "
-               << cartesianNames << "or all of" << tractionNames << ", but not a mixture of them.";
+  } else if (readNucleation > 0) {
+    logWarning() << "Are you sure you have correctly specified the nucleation stress "
+                 << std::to_string(readNucleation) << "? "
+                 << "You have either not specified all parameters or an uncommon mixture of "
+                 << cartesianNames << " or " << tractionNames << ". "
+                 << "Ignore this warning if you are using forced_rupture_time.";
     return {};
-  }
+} else {
+    logError() << "Please specify a correct parametrization of the initial stress. "
+               << "You have either not specified all parameters or an uncommon mixture of "
+                  "parameters. Give either all of "
+               << cartesianNames << " or all of " << tractionNames << ", but not a mixture of them.";
+    return {};
+}
 }
 
 std::string BaseDRInitializer::faultNameAlternatives(const std::vector<std::string>& parameter) {
