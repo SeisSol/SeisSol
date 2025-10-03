@@ -377,7 +377,7 @@ By default, :code:`s_0 = 0` and :code:`t_0 = 0`.
 Multiple nucleations
 ^^^^^^^^^^^^^^^^^^^^
 
-SeisSol supports multiple episodes of artificial nucleation by extending the nucleation parameters.  
+SeisSol supports multiple episodes of artificial nucleation by extending the nucleation parameters.
 For each episode, parameters can be specified with numbered suffixes:
 
 - Nucleation start times: ``s_0``, ``s2_0``, ``s3_0``, ...
