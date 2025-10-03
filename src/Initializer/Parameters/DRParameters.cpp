@@ -150,24 +150,26 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
       "terminatormaxtimepostrupture", std::numeric_limits<double>::infinity());
   const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
 
-  const double etaHack = [&]() {
-    const auto hackRead1 = reader->read<double>("etahack");
-    if (hackRead1.has_value()) {
-      return hackRead1.value();
+  const double etaDamp = [&]() {
+    const auto dampRead1 = reader->read<double>("etadamp");
+    if (dampRead1.has_value()) {
+      return dampRead1.value();
     } else {
-      const auto hackRead2 = outputReader->read<double>("etahack");
-      if (hackRead2.has_value()) {
+      const auto dampRead2 = reader->read<double>("etahack");
+      const auto dampRead3 = outputReader->read<double>("etahack");
+      if (dampRead2.has_value() || dampRead3.has_value()) {
         logWarning()
-            << "Reading the etahack parameter from the output section is deprecated and may be "
+            << "The name \"etahack\" is deprecated and may be "
                "removed in a future version of SeisSol. Put the parameter into the dynamicrupture "
-               "section instead.";
+               "section instead and name it \"etadamp\" instead.";
       }
-      return hackRead2.value_or(1.0);
+      return dampRead2.value_or(dampRead3.value_or(1.0));
     }
   }();
 
-  const auto hackStop =
-      reader->read<double>("etastop").value_or(std::numeric_limits<double>::infinity());
+  const auto etaDampEnd = reader->read<double>("etadampend")
+                              .value_or(reader->read<double>("etastop").value_or(
+                                  std::numeric_limits<double>::infinity()));
 
   reader->warnDeprecated({"rf_output_on", "backgroundtype"});
 
@@ -201,8 +203,8 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       faultFileNames,
                       referencePoint,
                       terminatorSlipRateThreshold,
-                      etaHack,
-                      hackStop,
+                      etaDamp,
+                      etaDampEnd,
                       nucleationCount};
 }
 } // namespace seissol::initializer::parameters
