@@ -268,6 +268,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           secondaryCellInformation[i].globalId =
               meshReader.getGhostlayerMetadata().at(linear.rank)[index].globalId;
 
+          // equivalent to elementNeighbor.neighborSides[boundaryElement.localSide]
           const auto face = boundaryElement.neighborSide;
 
           secondaryCellInformation[i].faceNeighbors[face] = neighbor;

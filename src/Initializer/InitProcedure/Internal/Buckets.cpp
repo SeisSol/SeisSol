@@ -11,10 +11,12 @@
 #include <Config.h>
 #include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
+#include <Initializer/CellLocalInformation.h>
 #include <Initializer/TimeStepping/Halo.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/Layer.h>
 #include <Solver/TimeStepping/HaloCommunication.h>
 #include <cassert>
@@ -67,8 +69,57 @@ void initBucketItem(T*& data, void* bucket, std::size_t count, bool memsetCpu) {
   }
 }
 
-std::vector<solver::RemoteCluster>
-    allocateTransferInfo(LTS::Layer& layer, const std::vector<RemoteCellRegion>& regions) {
+auto useBuffersDerivatives(const LTS::Storage& storage,
+                           const LTS::Layer& layer,
+                           std::size_t index,
+                           const RemoteCellRegion& region) {
+  bool buffers = false;
+  bool derivatives = false;
+
+  const auto& myPrimary = layer.var<LTS::CellInformation>()[index];
+  const auto& mySecondary = layer.var<LTS::SecondaryInformation>()[index];
+
+  // what we do here: we check whether one of our neighbor cells demands derivatives from us.
+  // i.e. we jump onto the neighboring cell (if existent), look for the same face we jumped over
+  // from the other side, and check the `neighborHasDerivatives` for the original cell.
+  for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
+    if (mySecondary.faceNeighbors[j] != StoragePosition::NullPosition) {
+      const auto& primary = storage.lookup<LTS::CellInformation>(mySecondary.faceNeighbors[j]);
+      const auto& secondary =
+          storage.lookup<LTS::SecondaryInformation>(mySecondary.faceNeighbors[j]);
+
+      const auto isCopyGhost = secondary.halo != mySecondary.halo &&
+                               mySecondary.halo != HaloType::Interior &&
+                               secondary.halo != HaloType::Interior;
+
+      if (isCopyGhost && (secondary.rank == region.rank || mySecondary.rank == region.rank)) {
+        for (std::size_t k = 0; k < Cell::NumFaces; ++k) {
+          if (secondary.faceNeighbors[k] != StoragePosition::NullPosition) {
+            const auto& reverseSecondary =
+                storage.lookup<LTS::SecondaryInformation>(secondary.faceNeighbors[k]);
+            if (reverseSecondary.globalId == mySecondary.globalId) {
+              if (primary.ltsSetup.neighborHasDerivatives(k)) {
+                assert(myPrimary.ltsSetup.hasDerivatives());
+                derivatives = true;
+              } else {
+                assert(myPrimary.ltsSetup.hasBuffers());
+                buffers = true;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // if there are suspected correctness issues, enable
+  // buffers = true;
+  // derivatives = true;
+  return std::pair<bool, bool>{buffers, derivatives};
+}
+
+std::vector<solver::RemoteCluster> allocateTransferInfo(
+    const LTS::Storage& storage, LTS::Layer& layer, const std::vector<RemoteCellRegion>& regions) {
   auto* buffers = layer.var<LTS::Buffers>();
   auto* derivatives = layer.var<LTS::Derivatives>();
   auto* buffersDevice = layer.var<LTS::BuffersDevice>();
@@ -99,27 +150,21 @@ std::vector<solver::RemoteCluster>
     }
   };
 
-  const auto useBuffersDerivatives = [&](std::size_t index, int rank) {
-    bool buffers = false;
-    bool derivatives = false;
-
-    // TODO: optimize away again
-    for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
-      if ((secondaryCellInformation[index].rank == rank &&
-           secondaryCellInformation[index].neighborRanks[j] >= 0) ||
-          (secondaryCellInformation[index].neighborRanks[j] == rank &&
-           secondaryCellInformation[index].rank == seissol::MPI::mpi.rank())) {
-        if (cellInformation[index].ltsSetup.neighborHasDerivatives(j)) {
-          derivatives = true;
-        } else {
-          buffers = true;
+  const auto allocationPass =
+      [&](std::size_t counter, const RemoteCellRegion& region, bool needed, bool useDerivatives) {
+        for (std::size_t i = 0; i < region.count; ++i) {
+          const auto index = i + counter;
+          const auto [buffers, derivatives] = useBuffersDerivatives(storage, layer, index, region);
+          if (needed || layer.getIdentifier().halo != HaloType::Ghost) {
+            if (!useDerivatives && buffers == needed) {
+              allocate(index, false);
+            }
+            if (useDerivatives && derivatives == needed) {
+              allocate(index, true);
+            }
+          }
         }
-      }
-    }
-    buffers = true;
-    derivatives = true;
-    return std::pair<bool, bool>{buffers, derivatives};
-  };
+      };
 
   std::vector<solver::RemoteCluster> remoteClusters;
   remoteClusters.reserve(regions.size());
@@ -137,30 +182,12 @@ std::vector<solver::RemoteCluster>
     // allocate all to-transfer buffers/derivatives contiguously (note: region.rank)
     // (thus do non-relevant buffers before and non-relevant derivatives afterwards)
     for (const auto& region : regions) {
-      for (std::size_t i = 0; i < region.count; ++i) {
-        const auto index = i + counter;
-        auto [buffers, derivatives] = useBuffersDerivatives(index, region.rank);
-        if (!buffers) {
-          allocate(index, false);
-        }
-      }
+      allocationPass(counter, region, false, false);
 
       // transfer allocation
       auto startPosition = manager.position();
-      for (std::size_t i = 0; i < region.count; ++i) {
-        const auto index = i + counter;
-        auto [buffers, derivatives] = useBuffersDerivatives(index, region.rank);
-        if (buffers) {
-          allocate(index, false);
-        }
-      }
-      for (std::size_t i = 0; i < region.count; ++i) {
-        const auto index = i + counter;
-        auto [buffers, derivatives] = useBuffersDerivatives(index, region.rank);
-        if (derivatives) {
-          allocate(index, true);
-        }
-      }
+      allocationPass(counter, region, true, false);
+      allocationPass(counter, region, true, true);
       auto endPosition = manager.position();
       auto size = endPosition - startPosition;
       assert(size % typeSize == 0);
@@ -170,13 +197,7 @@ std::vector<solver::RemoteCluster>
 
       remoteClusters.emplace_back(startPtr, size / typeSize, datatype, region.rank, region.tag);
 
-      for (std::size_t i = 0; i < region.count; ++i) {
-        const auto index = i + counter;
-        auto [buffers, derivatives] = useBuffersDerivatives(index, region.rank);
-        if (!derivatives) {
-          allocate(index, true);
-        }
-      }
+      allocationPass(counter, region, false, true);
 
       counter += region.count;
     }
@@ -220,9 +241,9 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
       initBucketItem(derivatives[cell], buffersDerivatives, derivativeSize, true);
 
       assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffers() ||
-             buffers[cell] != nullptr);
+             buffers[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
       assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasDerivatives() ||
-             derivatives[cell] != nullptr);
+             derivatives[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
 
       if constexpr (isDeviceOn()) {
         initBucketItem(buffersDevice[cell], buffersDerivativesDevice, bufferSize, false);
@@ -304,7 +325,7 @@ solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const M
   std::vector<std::vector<solver::RemoteCluster>> commInfo(storage.getColorMap().size());
 
   for (auto& layer : storage.leaves()) {
-    commInfo[layer.id()] = allocateTransferInfo(layer, layout[layer.id()].regions);
+    commInfo[layer.id()] = allocateTransferInfo(storage, layer, layout[layer.id()].regions);
   }
 
   storage.allocateBuckets();
