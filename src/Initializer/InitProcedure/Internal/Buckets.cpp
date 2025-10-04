@@ -52,7 +52,7 @@ void initBucketItem(T*& data, void* bucket, std::size_t count, bool memsetCpu) {
   if (data != nullptr) {
     const auto ddata = reinterpret_cast<uintptr_t>(data);
     const auto offset = ddata - 1;
-    auto* bucketPtr = reinterpret_cast<char*>(bucket);
+    auto* bucketPtr = reinterpret_cast<uint8_t*>(bucket);
     // this rather strange offset behavior is required by clang-tidy (and the reason makes sense)
     data = reinterpret_cast<T*>(bucketPtr + offset);
     if (memsetCpu) {
@@ -134,10 +134,19 @@ std::vector<solver::RemoteCluster>
   } else {
     std::size_t counter = 0;
 
-    // allocate all to-transfer buffers/derivatives first (note: region.rank)
+    // allocate all to-transfer buffers/derivatives contiguously (note: region.rank)
+    // (thus do non-relevant buffers before and non-relevant derivatives afterwards)
     for (const auto& region : regions) {
-      auto startPosition = manager.position();
+      for (std::size_t i = 0; i < region.count; ++i) {
+        const auto index = i + counter;
+        auto [buffers, derivatives] = useBuffersDerivatives(index, region.rank);
+        if (!buffers) {
+          allocate(index, false);
+        }
+      }
 
+      // transfer allocation
+      auto startPosition = manager.position();
       for (std::size_t i = 0; i < region.count; ++i) {
         const auto index = i + counter;
         auto [buffers, derivatives] = useBuffersDerivatives(index, region.rank);
@@ -161,13 +170,6 @@ std::vector<solver::RemoteCluster>
 
       remoteClusters.emplace_back(startPtr, size / typeSize, datatype, region.rank, region.tag);
 
-      for (std::size_t i = 0; i < region.count; ++i) {
-        const auto index = i + counter;
-        auto [buffers, derivatives] = useBuffersDerivatives(index, region.rank);
-        if (!buffers) {
-          allocate(index, false);
-        }
-      }
       for (std::size_t i = 0; i < region.count; ++i) {
         const auto index = i + counter;
         auto [buffers, derivatives] = useBuffersDerivatives(index, region.rank);
@@ -235,11 +237,14 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
   }
 
   for (auto& info : comm) {
+    const auto offset = reinterpret_cast<intptr_t>(info.data);
+    uint8_t* base = nullptr;
     if constexpr (isDeviceOn()) {
-      info.data = reinterpret_cast<intptr_t>(info.data) + buffersDerivativesDevice;
+      base = reinterpret_cast<uint8_t*>(buffersDerivativesDevice);
     } else {
-      info.data = reinterpret_cast<intptr_t>(info.data) + buffersDerivatives;
+      base = reinterpret_cast<uint8_t*>(buffersDerivatives);
     }
+    info.data = reinterpret_cast<void*>(base + offset);
   }
 }
 
@@ -296,7 +301,7 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
 
 namespace seissol::initializer::internal {
 solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const MeshLayout& layout) {
-  std::vector<std::vector<solver::RemoteCluster>> commInfo(storage.numChildren());
+  std::vector<std::vector<solver::RemoteCluster>> commInfo(storage.getColorMap().size());
 
   for (auto& layer : storage.leaves()) {
     commInfo[layer.id()] = allocateTransferInfo(layer, layout[layer.id()].regions);
@@ -317,9 +322,9 @@ solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const M
 
   solver::HaloCommunication communication;
 
-  communication.resize(storage.numChildren());
+  communication.resize(commInfo.size());
   for (auto& comm : communication) {
-    comm.resize(storage.numChildren());
+    comm.resize(commInfo.size());
   }
 
   const auto colorAdjust = [&](std::size_t color, HaloType halo) {
