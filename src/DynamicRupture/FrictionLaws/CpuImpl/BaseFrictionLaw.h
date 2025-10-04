@@ -68,7 +68,7 @@ class BaseFrictionLaw : public FrictionSolver {
           myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
       const auto etaPDamp =
-          drParameters->etaStop > this->mFullUpdateTime ? drParameters->etaHack : 1.0;
+          drParameters->etaDampEnd > this->mFullUpdateTime ? drParameters->etaDamp : 1.0;
       common::precomputeStressFromQInterpolated(faultStresses,
                                                 impAndEta[ltsFace],
                                                 impedanceMatrices[ltsFace],
