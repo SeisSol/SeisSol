@@ -25,14 +25,71 @@
 #include <cassert>
 #include <cstddef>
 #include <map>
+#include <mpi.h>
 #include <numeric>
 #include <unordered_map>
-#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
 namespace {
 using namespace seissol::initializer;
+
+void verifyHaloSetup(const LTS::Storage& ltsStorage, const std::vector<ClusterMap>& meshLayout) {
+  // just verify everything. I.e. exchange the global IDs of copy and ghost layers, and see if they
+  // match (or not).
+
+  std::vector<std::size_t> copyGlobalIds(ltsStorage.size(Ghost | Interior));
+  std::vector<std::size_t> ghostGlobalIds(ltsStorage.size(Copy | Interior));
+  std::vector<MPI_Request> requests;
+
+  std::size_t copyI = 0;
+  std::size_t ghostI = 0;
+  for (const auto& layer : ltsStorage.leaves(Interior)) {
+    const auto& layout = meshLayout[layer.id()];
+    std::size_t copyIL = 0;
+    for (const auto& region : layout.regions) {
+      auto& request = requests.emplace_back(MPI_REQUEST_NULL);
+      if (layer.getIdentifier().halo == HaloType::Copy) {
+        for (std::size_t i = 0; i < region.count; ++i) {
+          copyGlobalIds[copyI + i] = layer.var<LTS::SecondaryInformation>()[copyIL + i].globalId;
+        }
+        MPI_Isend(&copyGlobalIds[copyI],
+                  region.count,
+                  seissol::MPI::castToMpiType<std::size_t>(),
+                  region.rank,
+                  region.tag,
+                  seissol::MPI::mpi.comm(),
+                  &request);
+        copyI += region.count;
+        copyIL += region.count;
+      }
+      if (layer.getIdentifier().halo == HaloType::Ghost) {
+        MPI_Irecv(&ghostGlobalIds[ghostI],
+                  region.count,
+                  seissol::MPI::castToMpiType<std::size_t>(),
+                  region.rank,
+                  region.tag,
+                  seissol::MPI::mpi.comm(),
+                  &request);
+        ghostI += region.count;
+      }
+    }
+  }
+
+  MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
+
+  std::size_t ghostC = 0;
+  for (const auto& layer : ltsStorage.leaves(Copy | Interior)) {
+    for (std::size_t i = 0; i < layer.size(); ++i) {
+      if (layer.var<LTS::SecondaryInformation>()[i].globalId != ghostGlobalIds[ghostC]) {
+        logError() << "Internal error: halo setup. Global IDs"
+                   << layer.var<LTS::SecondaryInformation>()[i].globalId << "vs"
+                   << ghostGlobalIds[ghostC];
+      }
+      ++ghostC;
+    }
+  }
+}
 
 void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
@@ -211,10 +268,9 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           secondaryCellInformation[i].globalId =
               meshReader.getGhostlayerMetadata().at(linear.rank)[index].globalId;
 
-          // might need adjustments depending on the duplicate; but this one's not used so far
-          // secondaryCellInformation[i].faceNeighbors[boundaryElement.localSide] = neighbor;
+          const auto face = boundaryElement.neighborSide;
 
-          const auto face = elementNeighbor.neighborSides[boundaryElement.localSide];
+          secondaryCellInformation[i].faceNeighbors[face] = neighbor;
 
           secondaryCellInformation[i].neighborRanks[face] = rank;
           cellInformation[i].neighborConfigIds[face] = neighbor.color;
@@ -227,6 +283,9 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       }
     }
   }
+
+  logInfo() << "Verify the halo setup...";
+  verifyHaloSetup(ltsStorage, meshLayout);
 
   // pass 3: LTS setup
   logInfo() << "Setting up LTS configuration...";

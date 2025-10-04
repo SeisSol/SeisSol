@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <map>
+#include <set>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
