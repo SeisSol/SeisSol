@@ -189,7 +189,7 @@ struct LTS {
   using Storage = initializer::Storage<LTSVarmap>;
   using Layer = initializer::Layer<LTSVarmap>;
   using Ref = initializer::Layer<LTSVarmap>::CellRef;
-  using Backmap = initializer::StorageBackmap<4>;
+  using Backmap = initializer::StorageBackmap<Cell::NumFaces>;
 
   static void addTo(Storage& storage, bool usePlasticity) {
     using namespace initializer;

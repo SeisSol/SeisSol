@@ -23,9 +23,9 @@ namespace seissol::initializer {
   that layer. (and the global ID as extra info)
  */
 struct StoragePosition {
-  std::size_t color;
-  std::size_t cell;
-  std::size_t global;
+  std::size_t color{std::numeric_limits<std::size_t>::max()};
+  std::size_t cell{std::numeric_limits<std::size_t>::max()};
+  std::size_t global{std::numeric_limits<std::size_t>::max()};
 
   bool operator==(const StoragePosition& other) const {
     return color == other.color && cell == other.cell;
@@ -34,6 +34,11 @@ struct StoragePosition {
   bool operator!=(const StoragePosition& other) const { return !(*this == other); }
 
   const static StoragePosition NullPosition;
+
+  StoragePosition() = default;
+
+  StoragePosition(std::size_t color, std::size_t cell, std::size_t global)
+      : color(color), cell(cell), global(global) {}
 };
 
 /**

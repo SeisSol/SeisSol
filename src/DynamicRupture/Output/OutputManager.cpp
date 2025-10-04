@@ -32,6 +32,7 @@
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -410,7 +411,9 @@ void OutputManager::initPickpointOutput() {
           // stress info
           std::array<real, 6> rotatedInitialStress{};
           {
-            auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
+            const auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
+
+            assert(layer != nullptr);
 
             const auto* initialStressVar = layer->var<DynamicRupture::InitialStressInFaultCS>();
             const auto* initialStress = initialStressVar[face];
