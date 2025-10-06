@@ -26,6 +26,15 @@ class SeisSol;
 
 namespace seissol::geometry {
 
+constexpr bool isCopy(const Element& element, int rank) {
+  for (int i = 0; i < 4; ++i) {
+    if (element.neighborRanks[i] != rank) {
+      return true;
+    }
+  }
+  return false;
+}
+
 struct GhostElementMetadata {
   double vertices[Cell::NumVertices][Cell::Dim];
   int group;

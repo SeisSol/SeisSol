@@ -26,13 +26,14 @@ class Neighbor : public NeighborKernel {
   void computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
                                        seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void flopsNeighborsIntegral(const FaceType faceTypes[4],
-                              const int neighboringIndices[4][2],
-                              const CellDRMapping (&cellDrMapping)[4],
-                              std::uint64_t& nonZeroFlops,
-                              std::uint64_t& hardwareFlops,
-                              std::uint64_t& drNonZeroFlops,
-                              std::uint64_t& drHardwareFlops) override;
+  void flopsNeighborsIntegral(
+      const std::array<FaceType, Cell::NumFaces>& faceTypes,
+      const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
+      const CellDRMapping (&cellDrMapping)[4],
+      std::uint64_t& nonZeroFlops,
+      std::uint64_t& hardwareFlops,
+      std::uint64_t& drNonZeroFlops,
+      std::uint64_t& drHardwareFlops) override;
 
   std::uint64_t bytesNeighborsIntegral() override;
 
