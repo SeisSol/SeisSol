@@ -224,11 +224,13 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
                                                     memoryManager.clusterLayout(),
                                                     seissolParams.model);
 
-  if (seissolParams.drParameters.etaHack != 1.0) {
-    logWarning() << "The \"eta hack\" has been enabled in the timeframe [0,"
-                 << seissolParams.drParameters.etaStop
+  if (seissolParams.drParameters.etaDamp != 1.0) {
+    logWarning() << "The \"eta damp\" (=" << seissolParams.drParameters.etaDamp
+                 << ") has been enabled in the timeframe [0,"
+                 << seissolParams.drParameters.etaDampEnd
                  << ") to mitigate quasi-divergent solutions in the "
-                    "friction law. The results may not conform to the existing benchmarks.";
+                    "friction law. The results may not conform to the existing benchmarks (which "
+                    "are (mostly) computed with \"eta damp\" = 1).";
   }
 
   seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
@@ -236,7 +238,7 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
                                                          memoryManager.getBackmap(),
                                                          memoryManager.getDRStorage(),
                                                          *memoryManager.getGlobalData().onHost,
-                                                         seissolParams.drParameters.etaHack);
+                                                         seissolParams.drParameters.etaDamp);
 
   memoryManager.initFrictionData();
 

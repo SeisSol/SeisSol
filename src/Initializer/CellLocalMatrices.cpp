@@ -454,7 +454,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       const LTS::Backmap& backmap,
                                       DynamicRupture::Storage& drStorage,
                                       const GlobalData& global,
-                                      double etaHack) {
+                                      double etaDamp) {
   real matTData[tensor::T::size()];
   real matTinvData[tensor::Tinv::size()];
   real matAPlusData[tensor::star::size(0)];
