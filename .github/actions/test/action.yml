@@ -64,7 +64,7 @@ runs:
         export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:$LD_LIBRARY_PATH
 
         chmod +x $(pwd)/install/bin/*
-        
+
         export OMP_NUM_THREADS=${{inputs.rankthreads}}
         export SEISSOL_COMMTHREAD=0
         export SEISSOL_MINISEISSOL=OFF
@@ -83,7 +83,7 @@ runs:
         SCRIPTS=$GITHUB_WORKSPACE/scripts/postprocessing/validation
 
         python3 $SCRIPTS/compare-mesh.py ./output/tpv.xdmf ./precomputed/${{inputs.resultdir}}/tpv.xdmf --epsilon ${EPSILON}
-    
+
     - name: compare-fault
       if: ${{ !cancelled() && steps.runtest.outcome == 'success' && inputs.compare-fault == 'true' }}
       shell: bash
@@ -127,3 +127,11 @@ runs:
         SCRIPTS=$GITHUB_WORKSPACE/scripts/postprocessing/validation
 
         python3 $SCRIPTS/compare-receivers.py ./output ./precomputed/${{inputs.resultdir}} --epsilon ${EPSILON} --mode ${{inputs.compare-receiver-mode}}
+
+    - name: cleanup
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' }}
+      shell: bash
+      run: |
+        cd precomputed/${{inputs.rundir}}
+
+        rm -rf ./output
