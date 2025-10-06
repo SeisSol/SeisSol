@@ -16,8 +16,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <map>
-#include <unordered_map>
-#include <unordered_set>
+#include <set>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -36,18 +35,8 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
     clusters[color[i]].cellMap.push_back(i);
   }
 
-  // prepare halos
-  std::map<std::pair<int, std::size_t>, std::size_t> toLinear;
-  std::unordered_map<std::size_t, std::pair<int, std::size_t>> fromLinear;
-  std::size_t linearId = 0;
-  for (const auto& [rank, cells] : meshReader.getMPINeighbors()) {
-    for (const auto [i, cell] : common::enumerate(cells.elements)) {
-      clusters[ghostColor[linearId]].cellMap.push_back(linearId);
-
-      toLinear[std::pair<int, std::size_t>{rank, i}] = linearId;
-      fromLinear[linearId] = std::pair<int, std::size_t>{rank, i};
-      ++linearId;
-    }
+  for (std::size_t i = 0; i < meshReader.linearGhostlayer().size(); ++i) {
+    clusters[ghostColor[i]].cellMap.push_back(i);
   }
 
   // we keep the "old" layout:
@@ -60,8 +49,6 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
     return colormap.colorId(id);
   };
 
-  // TODO: remove duplicate sends
-
   // clustered halo
   for (std::size_t i = 0; i < clusters.size(); ++i) {
     if (colormap.argument(i).halo == HaloType::Copy) {
@@ -69,15 +56,15 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
       std::size_t newCount = 0;
       for (std::size_t j = 0; j < clusters[i].cellMap.size(); ++j) {
         const auto cell = clusters[i].cellMap[j];
-        // std::set<std::pair<int, std::size_t>> neighborColors;
-        std::vector<std::pair<int, std::size_t>> neighborColors;
+        std::set<std::pair<int, std::size_t>> neighborColors;
         for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
           const auto& element = meshReader.getElements()[cell];
 
           if (element.neighborRanks[f] != seissol::MPI::mpi.rank()) {
-            const auto ghostLinear = toLinear.at({element.neighborRanks[f], element.mpiIndices[f]});
+            const auto ghostLinear = meshReader.toLinearGhostlayer().at(
+                {element.neighborRanks[f], element.mpiIndices[f]});
             const auto colorGhost = ghostColor[ghostLinear];
-            neighborColors.emplace_back(element.neighborRanks[f], colorGhost);
+            neighborColors.emplace(element.neighborRanks[f], colorGhost);
           }
         }
         for (const auto& neighborColor : neighborColors) {
@@ -88,6 +75,7 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
 
       clusters[i].cellMap.clear();
       clusters[i].cellMap.reserve(newCount);
+      clusters[i].regions.reserve(byColor.size());
       for (const auto& [id, cells] : byColor) {
         const auto [rank, color] = id;
 
@@ -105,29 +93,33 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
       const auto& ghostlayer = meshReader.getGhostlayerMetadata();
 
       const auto globalId = [&](std::size_t id) {
-        const auto& dId = fromLinear[id];
-        return ghostlayer.at(dId.first)[dId.second].globalId;
+        // take the first index here; linearGhostLayer will not contain empty vectors
+        const auto& dId = meshReader.linearGhostlayer()[id];
+        return ghostlayer.at(dId.rank)[dId.inRankIndices[0]].globalId;
       };
 
       std::map<std::pair<int, std::size_t>, std::vector<std::size_t>> byColor;
-      std::map<std::pair<int, std::size_t>, std::unordered_set<std::size_t>> byId;
       std::size_t newCount = 0;
       for (std::size_t j = 0; j < clusters[i].cellMap.size(); ++j) {
         const auto cell = clusters[i].cellMap[j];
-        const auto dCell = fromLinear[cell];
-        const auto& localInfo = neighbor.at(dCell.first).elements[dCell.second];
-        const auto copyColor = color[localInfo.localElement];
+        const auto& linearCell = meshReader.linearGhostlayer()[cell];
 
-        if (byId[{dCell.first, copyColor}].find(globalId(cell)) ==
-            byId[{dCell.first, copyColor}].end()) {
-          // byId[{dCell.first, copyColor}].emplace(globalId(cell));
-          byColor[{dCell.first, copyColor}].emplace_back(cell);
-          newCount += 1;
+        std::set<std::pair<int, std::size_t>> neighborColors;
+        for (const auto index : linearCell.inRankIndices) {
+          const auto& localInfo = neighbor.at(linearCell.rank).elements[index];
+          const auto copyColor = color[localInfo.localElement];
+
+          neighborColors.emplace(linearCell.rank, copyColor);
         }
+        for (const auto& neighborColor : neighborColors) {
+          byColor[neighborColor].push_back(cell);
+        }
+        newCount += neighborColors.size();
       }
 
       clusters[i].cellMap.clear();
       clusters[i].cellMap.reserve(newCount);
+      clusters[i].regions.reserve(byColor.size());
       for (const auto& [id, cells] : byColor) {
         const auto [rank, color] = id;
 
@@ -152,23 +144,13 @@ std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& c
                                                const geometry::MeshReader& meshReader) {
   std::vector<std::vector<std::size_t>> clusters(colormap.size());
 
-  std::map<std::pair<int, std::size_t>, std::size_t> toLinear;
-  std::unordered_map<std::size_t, std::pair<int, std::size_t>> fromLinear;
-  std::size_t linearId = 0;
-  for (const auto& [rank, cells] : meshReader.getMPINeighbors()) {
-    for (const auto [i, cell] : common::enumerate(cells.elements)) {
-      toLinear[std::pair<int, std::size_t>{rank, i}] = linearId;
-      fromLinear[linearId] = std::pair<int, std::size_t>{rank, i};
-      ++linearId;
-    }
-  }
-
   const auto getColor = [&](int id, int idOther, std::size_t sideOther) {
     if (id < 0) {
       const auto rank = meshReader.getElements()[idOther].neighborRanks[sideOther];
       const auto index = meshReader.getElements()[idOther].mpiIndices[sideOther];
 
-      return ghostColor[toLinear.at(std::pair<int, std::size_t>{rank, index})];
+      return ghostColor[meshReader.toLinearGhostlayer().at(
+          std::pair<int, std::size_t>{rank, index})];
     } else {
       return color[id];
     }

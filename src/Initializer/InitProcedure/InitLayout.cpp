@@ -25,20 +25,79 @@
 #include <cassert>
 #include <cstddef>
 #include <map>
+#include <mpi.h>
 #include <numeric>
 #include <unordered_map>
-#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
 namespace {
 using namespace seissol::initializer;
 
+void verifyHaloSetup(const LTS::Storage& ltsStorage, const std::vector<ClusterMap>& meshLayout) {
+  // just verify everything. I.e. exchange the global IDs of copy and ghost layers, and see if they
+  // match (or not).
+
+  std::vector<std::size_t> copyGlobalIds(ltsStorage.size(Ghost | Interior));
+  std::vector<std::size_t> ghostGlobalIds(ltsStorage.size(Copy | Interior));
+  std::vector<MPI_Request> requests;
+
+  std::size_t copyI = 0;
+  std::size_t ghostI = 0;
+  for (const auto& layer : ltsStorage.leaves(Interior)) {
+    const auto& layout = meshLayout[layer.id()];
+    std::size_t copyIL = 0;
+    for (const auto& region : layout.regions) {
+      auto& request = requests.emplace_back(MPI_REQUEST_NULL);
+      if (layer.getIdentifier().halo == HaloType::Copy) {
+        for (std::size_t i = 0; i < region.count; ++i) {
+          copyGlobalIds[copyI + i] = layer.var<LTS::SecondaryInformation>()[copyIL + i].globalId;
+        }
+        MPI_Isend(&copyGlobalIds[copyI],
+                  region.count,
+                  seissol::MPI::castToMpiType<std::size_t>(),
+                  region.rank,
+                  region.tag,
+                  seissol::MPI::mpi.comm(),
+                  &request);
+        copyI += region.count;
+        copyIL += region.count;
+      }
+      if (layer.getIdentifier().halo == HaloType::Ghost) {
+        MPI_Irecv(&ghostGlobalIds[ghostI],
+                  region.count,
+                  seissol::MPI::castToMpiType<std::size_t>(),
+                  region.rank,
+                  region.tag,
+                  seissol::MPI::mpi.comm(),
+                  &request);
+        ghostI += region.count;
+      }
+    }
+  }
+
+  MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
+
+  std::size_t ghostC = 0;
+  for (const auto& layer : ltsStorage.leaves(Copy | Interior)) {
+    for (std::size_t i = 0; i < layer.size(); ++i) {
+      if (layer.var<LTS::SecondaryInformation>()[i].globalId != ghostGlobalIds[ghostC]) {
+        logError() << "Internal error: halo setup. Global IDs"
+                   << layer.var<LTS::SecondaryInformation>()[i].globalId << "vs"
+                   << ghostGlobalIds[ghostC];
+      }
+      ++ghostC;
+    }
+  }
+}
+
 void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   const auto& meshReader = seissolInstance.meshReader();
 
   const auto rank = seissol::MPI::mpi.rank();
+
+  logInfo() << "Determining cell colors...";
 
   const auto clusterLayout =
       ClusterLayout::fromMesh(seissolParams.timeStepping.lts.getRate(),
@@ -63,24 +122,17 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     colors[i] = colorMap.color(halo, element.clusterId, Config());
   }
 
-  std::size_t ghostSize = 0;
-  for (const auto& [_, neighbor] : meshReader.getGhostlayerMetadata()) {
-    ghostSize += neighbor.size();
-  }
+  const auto ghostSize = meshReader.linearGhostlayer().size();
 
   std::vector<std::size_t> colorsGhost(ghostSize);
-  std::size_t linearId = 0;
-  std::map<std::pair<int, std::size_t>, std::size_t> toLinear;
-  std::vector<std::pair<int, std::size_t>> fromLinear(ghostSize);
-  for (const auto& [rank, _] : meshReader.getMPINeighbors()) {
-    for (const auto [i, element] : common::enumerate(meshReader.getGhostlayerMetadata().at(rank))) {
-      const auto halo = HaloType::Ghost;
-      colorsGhost[linearId] = colorMap.color(halo, element.clusterId, Config());
-      toLinear[std::pair<int, std::size_t>(rank, i)] = linearId;
-      fromLinear[linearId] = std::pair<int, std::size_t>(rank, i);
-      ++linearId;
-    }
+  for (const auto [i, linearGhost] : common::enumerate(meshReader.linearGhostlayer())) {
+    const auto& element =
+        meshReader.getGhostlayerMetadata().at(linearGhost.rank)[linearGhost.inRankIndices[0]];
+    const auto halo = HaloType::Ghost;
+    colorsGhost[i] = colorMap.color(halo, element.clusterId, Config());
   }
+
+  logInfo() << "Creating mesh layout...";
 
   const auto meshLayout = internal::layoutCells(colors, colorsGhost, colorMap, meshReader);
 
@@ -98,22 +150,27 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   ltsStorage.touchVariables();
   backmap.setSize(meshReader.getElements().size());
 
-  StorageBackmap<1> backmapGhost;
+  StorageBackmap<Cell::NumFaces> backmapGhost;
   backmapGhost.setSize(ghostSize);
+  std::vector<std::unordered_map<std::size_t, StoragePosition>> backmapGhostMap(ghostSize);
 
   logInfo() << "Setting up cell storage...";
   // just need pick a test variable that is available everywhere
-
-  backmap.setSize(seissolInstance.meshReader().getElements().size());
   const auto* zero = ltsStorage.var<LTS::SecondaryInformation>();
   for (auto& layer : ltsStorage.leaves()) {
     auto* zeroLayer = layer.var<LTS::SecondaryInformation>();
+    const auto& layout = meshLayout[layer.id()];
+    auto regionIt = layout.regions.begin();
+    std::size_t regionOffset = 0;
 
     const auto addToBackmapCopyInterior = [&](auto cell, auto index) {
       return backmap.addElement(layer.id(), zero, zeroLayer, cell, index);
     };
     const auto addToBackmapGhost = [&](auto cell, auto index) {
-      return backmapGhost.addElement(layer.id(), zero, zeroLayer, cell, index);
+      assert(regionIt != layout.regions.end());
+      const auto dup = backmapGhost.addElement(layer.id(), zero, zeroLayer, cell, index);
+      backmapGhostMap.at(cell)[regionIt->remoteId] = backmapGhost.getDup(cell, dup).value();
+      return dup;
     };
     const auto& addToBackmap = [&](auto cell, auto index) {
       if (layer.getIdentifier().halo == HaloType::Ghost) {
@@ -123,9 +180,12 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       }
     };
 
-    const auto& layout = meshLayout[layer.id()];
     for (const auto [i, cell] : common::enumerate(layout.cellMap)) {
-      // TODO: two boundary elements with the same source (relevant for Ghost)
+      while (regionIt != layout.regions.end() && i >= regionOffset + regionIt->count) {
+        regionOffset += regionIt->count;
+        ++regionIt;
+      }
+
       const auto dup = addToBackmap(cell, i);
 
       zeroLayer[i].meshId = cell;
@@ -172,8 +232,9 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
               if (ghostNeighbor) {
                 const auto rank = element.neighborRanks[face];
                 const auto mpiIndex = element.mpiIndices[face];
+                const auto linear = meshReader.toLinearGhostlayer().at({rank, mpiIndex});
                 // ghost layer
-                return backmapGhost.get(toLinear.at({rank, mpiIndex}));
+                return backmapGhostMap.at(linear).at(layer.id());
               } else {
                 // copy/interior layer
                 return backmap.get(element.neighbors[face]);
@@ -194,31 +255,38 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 #endif
       for (std::size_t i = 0; i < cells.size(); ++i) {
         const auto cell = cells[i];
-        const auto index = i;
 
-        const auto delinear = fromLinear[cell];
-        const auto& boundaryElement =
-            meshReader.getMPINeighbors().at(delinear.first).elements[delinear.second];
-        secondaryCellInformation[index].rank = delinear.first;
-        const auto neighbor = backmap.get(boundaryElement.localElement);
-        const auto& elementNeighbor = meshReader.getElements()[boundaryElement.localElement];
+        const auto& linear = meshReader.linearGhostlayer()[cell];
+        secondaryCellInformation[i].rank = linear.rank;
 
-        secondaryCellInformation[index].globalId =
-            meshReader.getGhostlayerMetadata().at(delinear.first)[delinear.second].globalId;
-        secondaryCellInformation[index].faceNeighbors[boundaryElement.localSide] = neighbor;
+        for (const auto& index : linear.inRankIndices) {
+          const auto& boundaryElement =
+              meshReader.getMPINeighbors().at(linear.rank).elements[index];
+          const auto neighbor = backmap.get(boundaryElement.localElement);
+          const auto& elementNeighbor = meshReader.getElements()[boundaryElement.localElement];
 
-        const auto face = elementNeighbor.neighborSides[boundaryElement.localSide];
+          secondaryCellInformation[i].globalId =
+              meshReader.getGhostlayerMetadata().at(linear.rank)[index].globalId;
 
-        secondaryCellInformation[index].neighborRanks[face] = rank;
-        cellInformation[index].neighborConfigIds[face] = neighbor.color;
-        cellInformation[index].faceTypes[face] =
-            static_cast<FaceType>(elementNeighbor.boundaries[boundaryElement.localSide]);
-        cellInformation[index].faceRelations[face][0] = boundaryElement.localSide;
-        cellInformation[index].faceRelations[face][1] =
-            elementNeighbor.sideOrientations[boundaryElement.localSide];
+          // equivalent to elementNeighbor.neighborSides[boundaryElement.localSide]
+          const auto face = boundaryElement.neighborSide;
+
+          secondaryCellInformation[i].faceNeighbors[face] = neighbor;
+
+          secondaryCellInformation[i].neighborRanks[face] = rank;
+          cellInformation[i].neighborConfigIds[face] = neighbor.color;
+          cellInformation[i].faceTypes[face] =
+              static_cast<FaceType>(elementNeighbor.boundaries[boundaryElement.localSide]);
+          cellInformation[i].faceRelations[face][0] = boundaryElement.localSide;
+          cellInformation[i].faceRelations[face][1] =
+              elementNeighbor.sideOrientations[boundaryElement.localSide];
+        }
       }
     }
   }
+
+  logInfo() << "Verify the halo setup...";
+  verifyHaloSetup(ltsStorage, meshLayout);
 
   // pass 3: LTS setup
   logInfo() << "Setting up LTS configuration...";
