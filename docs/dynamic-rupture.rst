@@ -369,8 +369,8 @@ Nucleation
 ~~~~~~~~~~~~~~~~~~~~~~
 
 SeisSol provides several options to enforce artificial nucleation within a limited temporal and spatial extent.
-The additional nucleation stress applied to the fault plane can be specified using the parameters ``Tnuc_s`` (along strike), ``Tnuc_d`` (along dip), and ``Tnuc_n`` (normal stress).
-Alternatively, if the stress state is described by the full stress tensor, the parameters ``nuc_xx``, ``nuc_yy``, ``nuc_zz``, ``nuc_yz``, ``nuc_xz``, and ``nuc_xy`` can be used.
+The additional nucleation stress applied to the fault plane needs to be specified using the parameters ``Tnuc_s`` (along strike), ``Tnuc_d`` (along dip), and ``Tnuc_n`` (normal stress).
+Alternatively, if the stress state is described by the full stress tensor, use parameters ``nuc_xx``, ``nuc_yy``, ``nuc_zz``, ``nuc_yz``, ``nuc_xz``, and ``nuc_xy``.
 The parameter ``s_0`` defines the start time of artificial nucleation, while ``t_0`` sets the characteristic nucleation time over which the additional stress is applied.
 By default, :code:`s_0 = 0` and :code:`t_0 = 0`.
 
@@ -388,6 +388,6 @@ For each episode, parameters can be specified with numbered suffixes:
 Forced rupture time
 ^^^^^^^^^^^^^^^^^^^
 
-If :code:`forced_rupture_time` is specified in the fault `yaml` file, the friction coefficient is artificially reduced from its static value to its dynamic value at the given time.
+If :code:`forced_rupture_time` is specified in the fault `yaml` file, the friction coefficient is artificially reduced from its static value to its dynamic value at the given time (e.g., Gabriel et al., 2012).
 This method enables a smooth nucleation process without affecting the overall stress drop.
-In this case, the characteristic nucleation time ``t_0`` defines the duration of the linear transition from static to dynamic friction.
+In this case, the characteristic nucleation time ``t_0`` defines the duration of the linear transition from static to dynamic friction, and ``s_0`` is ignored.
