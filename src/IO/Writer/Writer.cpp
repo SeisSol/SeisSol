@@ -68,8 +68,8 @@ std::string Writer::serialize() {
   return sstr.str();
 }
 
-WriteInstance Writer::beginWrite(const async::ExecInfo& info) {
-  WriteInstance instance(MPI_COMM_WORLD);
+WriteInstance Writer::beginWrite(const async::ExecInfo& info, MPI_Comm comm) {
+  WriteInstance instance(comm);
   for (const auto& instruction : instructions) {
     instance.write(info, instruction);
   }
