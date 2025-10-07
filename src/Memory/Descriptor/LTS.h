@@ -244,7 +244,7 @@ struct LTS {
   using Layer = initializer::Layer<LTSVarmap>;
   template <typename Config>
   using Ref = initializer::Layer<LTSVarmap>::CellRef<Config>;
-  using Backmap = initializer::StorageBackmap<4>;
+  using Backmap = initializer::StorageBackmap<Cell::NumFaces>;
 
   static void addTo(Storage& storage, bool usePlasticity) {
     using namespace initializer;

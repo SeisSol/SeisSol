@@ -129,10 +129,12 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto& localSecondaryInformation = secondaryInformation[cell];
+        const auto meshId = localSecondaryInformation.meshId;
+        const auto& linear = meshReader.linearGhostlayer()[meshId];
 
-        auto neighborRank = localSecondaryInformation.rank;
-        auto neighborRankIdx = localSecondaryInformation.meshId;
-        auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
+        const auto neighborRank = linear.rank;
+        const auto neighborRankIdx = linear.inRankIndices[0];
+        const auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
 
         layer.wrap([&](auto cfg) {
           // NOLINTNEXTLINE

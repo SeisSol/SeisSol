@@ -46,6 +46,11 @@ struct GhostElementMetadata {
   int configId;
 };
 
+struct LinearGhostCell {
+  std::vector<std::size_t> inRankIndices;
+  int rank;
+};
+
 class MeshReader {
   protected:
   const int mRank;
@@ -72,6 +77,10 @@ class MeshReader {
   /** Vertices of MPI Neighbors*/
   std::unordered_map<int, std::vector<GhostElementMetadata>> m_ghostlayerMetadata;
 
+  std::vector<LinearGhostCell> m_linearGhostlayer;
+
+  std::map<std::pair<int, std::size_t>, std::size_t> m_toLinearGhostlayer;
+
   /** Has a plus fault side */
   bool m_hasPlusFault{false};
 
@@ -88,6 +97,9 @@ class MeshReader {
   const std::vector<Fault>& getFault() const;
   bool hasFault() const;
   bool hasPlusFault() const;
+
+  const std::vector<LinearGhostCell>& linearGhostlayer() const;
+  const std::map<std::pair<int, std::size_t>, std::size_t>& toLinearGhostlayer() const;
 
   virtual bool inlineTimestepCompute() const { return false; }
   virtual bool inlineClusterCompute() const { return false; }
@@ -109,6 +121,16 @@ class MeshReader {
   void exchangeGhostlayerMetadata();
 
   void setupConfigs(const ConfigMap& map);
+
+  /**
+    Create a linearized ghost layer view.
+    Currently, the ghost layer arrays copy each cell per rank-boundary face.
+    Meaning that a cell may appear multiple times remotely.
+
+    The linearization removes that, and also removes the map, so that the data
+    is easier to deal with.
+    */
+  void linearizeGhostlayer();
 };
 
 } // namespace seissol::geometry

@@ -68,6 +68,8 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   logInfo() << "Exchanging ghostlayer metadata.";
   meshReader.exchangeGhostlayerMetadata();
 
+  meshReader.linearizeGhostlayer();
+
   logInfo() << "Extracting fault information.";
   const auto& drParameters = seissolInstance.getSeisSolParameters().drParameters;
   const VrtxCoords center{drParameters.referencePoint[0],

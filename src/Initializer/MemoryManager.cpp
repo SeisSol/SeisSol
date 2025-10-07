@@ -26,8 +26,6 @@
 #include <Memory/Descriptor/Boundary.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Descriptor/Surface.h>
-#include <Memory/Tree/Colormap.h>
-#include <Solver/MultipleSimulations.h>
 #include <array>
 #include <cstddef>
 #include <limits>
@@ -48,6 +46,7 @@
 #include "BatchRecorders/Recorders.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "device.h"
+#include <Solver/MultipleSimulations.h>
 #endif // ACL_DEVICE
 
 namespace seissol::initializer {

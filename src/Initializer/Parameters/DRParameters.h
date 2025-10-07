@@ -89,8 +89,8 @@ struct DRParameters {
   std::vector<std::optional<std::string>> faultFileNames;
   Eigen::Vector3d referencePoint;
   double terminatorSlipRateThreshold{0.0};
-  double etaHack{1.0};
-  double etaStop{std::numeric_limits<double>::infinity()};
+  double etaDamp{1.0};
+  double etaDampEnd{std::numeric_limits<double>::infinity()};
   unsigned nucleationCount{0};
 };
 

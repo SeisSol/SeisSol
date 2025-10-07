@@ -262,7 +262,7 @@ void EnergyOutput::syncPoint(double time) {
     printEnergies();
   }
   if (isCheckAbortCriteraSlipRateEnabled) {
-    checkAbortCriterion(minTimeSinceSlipRateBelowThreshold, "All slip-rate are");
+    checkAbortCriterion(minTimeSinceSlipRateBelowThreshold, "All slip rates are");
   }
   if (isCheckAbortCriteraMomentRateEnabled) {
     checkAbortCriterion(minTimeSinceMomentRateBelowThreshold, "The seismic moment rate is");
@@ -302,7 +302,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     double& staticFrictionalWork = energiesStorage.staticFrictionalWork(sim);
     double& seismicMoment = energiesStorage.seismicMoment(sim);
     double& potency = energiesStorage.potency(sim);
-    minTimeSinceSlipRateBelowThreshold[sim] = std::numeric_limits<double>::max();
+    minTimeSinceSlipRateBelowThreshold[sim] = std::numeric_limits<double>::infinity();
 
 #ifdef ACL_DEVICE
     void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
@@ -395,7 +395,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             seismicMoment += potencyIncrease * mu;
           }
         }
-        double localMin = std::numeric_limits<double>::max();
+        double localMin = std::numeric_limits<double>::infinity();
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(min : localMin) default(none)                                   \
     shared(layerSize, drEnergyOutput, faceInformation, sim)
@@ -745,15 +745,15 @@ void EnergyOutput::checkAbortCriterion(const std::vector<double>& timeSinceThres
   size_t abortCount = 0;
   for (size_t sim = 0; sim < timeSinceThreshold.size(); sim++) {
     if ((timeSinceThreshold[sim] > 0) and
-        (timeSinceThreshold[sim] < std::numeric_limits<double>::max())) {
+        (timeSinceThreshold[sim] < std::numeric_limits<double>::infinity())) {
       if (static_cast<double>(timeSinceThreshold[sim]) < terminatorMaxTimePostRupture) {
         logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold[sim]
-                  << "in simulation: " << sim
-                  << "s (lower than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
+                  << "s; in simulation: " << sim
+                  << "(lower than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
       } else {
         logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold[sim]
-                  << "in simulation: " << sim
-                  << "s (greater than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
+                  << "s; in simulation: " << sim
+                  << "(greater than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
         ++abortCount;
       }
     }

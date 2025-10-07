@@ -53,6 +53,14 @@ bool MeshReader::hasFault() const { return !m_fault.empty(); }
 
 bool MeshReader::hasPlusFault() const { return m_hasPlusFault; }
 
+const std::vector<LinearGhostCell>& MeshReader::linearGhostlayer() const {
+  return m_linearGhostlayer;
+}
+
+const std::map<std::pair<int, std::size_t>, std::size_t>& MeshReader::toLinearGhostlayer() const {
+  return m_toLinearGhostlayer;
+}
+
 void MeshReader::displaceMesh(const Eigen::Vector3d& displacement) {
   for (std::size_t vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
     for (std::size_t i = 0; i < Cell::Dim; ++i) {
@@ -338,6 +346,26 @@ void MeshReader::exchangeGhostlayerMetadata() {
   m_ghostlayerMetadata = std::move(recvData);
 
   MPI_Type_free(&ghostElementType);
+}
+
+void MeshReader::linearizeGhostlayer() {
+  m_linearGhostlayer.clear();
+  m_toLinearGhostlayer.clear();
+
+  // basic assumption: each cell appears only on exactly one rank
+  for (const auto& [rank, cells] : m_ghostlayerMetadata) {
+    // map for deterministic ordering (for now)
+    std::map<std::size_t, std::vector<std::size_t>> ordering;
+    for (std::size_t i = 0; i < cells.size(); ++i) {
+      ordering[cells[i].globalId].emplace_back(i);
+    }
+    for (const auto& [_, ids] : ordering) {
+      for (const auto& index : ids) {
+        m_toLinearGhostlayer[{rank, index}] = m_linearGhostlayer.size();
+      }
+      m_linearGhostlayer.push_back(LinearGhostCell{ids, rank});
+    }
+  }
 }
 
 void MeshReader::computeTimestepIfNecessary(const seissol::SeisSol& seissolInstance) {
