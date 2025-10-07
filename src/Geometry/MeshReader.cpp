@@ -272,8 +272,8 @@ void MeshReader::exchangeGhostlayerMetadata() {
   MPI_Datatype ghostElementTypePre = MPI_DATATYPE_NULL;
 
   // assume that all vertices are stored contiguously
-  const int datatypeCount = 6;
-  const std::vector<int> datatypeBlocklen{Cell::NumVertices * Cell::Dim, 1, 1, 1, 1, 1};
+  const int datatypeCount = 7;
+  const std::vector<int> datatypeBlocklen{Cell::NumVertices * Cell::Dim, 1, 1, 1, 1, 1, 1};
   const std::vector<MPI_Aint> datatypeDisplacement{offsetof(GhostElementMetadata, vertices),
                                                    offsetof(GhostElementMetadata, group),
                                                    offsetof(GhostElementMetadata, localId),
