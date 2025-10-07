@@ -190,20 +190,16 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     }
   };
 
-  for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost | Copy)) {
-    const auto interiorId = layer.id();
-    const auto copyId = deltaId(layer.getIdentifier(), HaloType::Copy, 0);
-
-    connectIfBothExist(cellClusterBackmap[interiorId], cellClusterBackmap[copyId]);
-
-    if (layer.getIdentifier().lts > 0) {
-      const auto interiorId1 = deltaId(layer.getIdentifier(), HaloType::Interior, -1);
-      const auto copyId1 = deltaId(layer.getIdentifier(), HaloType::Copy, -1);
-
-      connectIfBothExist(cellClusterBackmap[interiorId], cellClusterBackmap[interiorId1]);
-      connectIfBothExist(cellClusterBackmap[interiorId], cellClusterBackmap[copyId1]);
-      connectIfBothExist(cellClusterBackmap[copyId], cellClusterBackmap[interiorId1]);
-      connectIfBothExist(cellClusterBackmap[copyId], cellClusterBackmap[copyId1]);
+  for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost)) {
+    for (auto& otherLayer : memoryManager.getLtsStorage().leaves(Ghost)) {
+      // only traverse half of all combinations
+      if (layer.id() < otherLayer.id()) {
+        const int64_t lts1 = layer.getIdentifier().lts;
+        const int64_t lts2 = otherLayer.getIdentifier().lts;
+        if (std::abs(lts1 - lts2) <= 1) {
+          connectIfBothExist(cellClusterBackmap[layer.id()], cellClusterBackmap[otherLayer.id()]);
+        }
+      }
     }
   }
 
