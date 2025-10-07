@@ -40,217 +40,21 @@
 
 namespace seissol::solver {
 
-FreeSurfaceIntegrator::FreeSurfaceIntegrator() {
-  for (auto& face : projectionMatrix) {
-    face = nullptr;
-  }
+FreeSurfaceIntegrator::FreeSurfaceIntegrator() = default;
 
-  for (unsigned dim = 0; dim < NumComponents; ++dim) {
-    velocities[dim] = nullptr;
-    displacements[dim] = nullptr;
-  }
-}
-
-FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
-  for (unsigned dim = 0; dim < NumComponents; ++dim) {
-    seissol::memory::free(velocities[dim]);
-    seissol::memory::free(displacements[dim]);
-  }
-
-  seissol::memory::free(projectionMatrixMemory);
-  seissol::memory::free(projectionMatrixFromFace);
-}
+FreeSurfaceIntegrator::~FreeSurfaceIntegrator() = default;
 
 void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
                                        GlobalData* globalData,
                                        LTS::Storage& ltsStorage,
                                        SurfaceLTS::Storage& surfaceStorage) {
   this->surfaceStorage = &surfaceStorage;
-  if (maxRefinementDepth > MaxRefinement) {
-    logError()
-        << "Free surface integrator: Currently more than 3 levels of refinements are unsupported.";
-    return;
-  }
 
   m_enabled = true;
 
   logInfo() << "Initializing free surface integrator.";
-  initializeProjectionMatrices(maxRefinementDepth);
   initializeSurfaceStorage(ltsStorage);
   logInfo() << "Initializing free surface integrator. Done.";
-}
-
-void FreeSurfaceIntegrator::calculateOutput() const {
-  const seissol::initializer::LayerMask ghostMask(Ghost);
-  for (auto& surfaceLayer : surfaceStorage->leaves(ghostMask)) {
-    real* const* dofs = surfaceLayer.var<SurfaceLTS::Dofs>();
-    const auto* displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>();
-    const auto* side = surfaceLayer.var<SurfaceLTS::Side>();
-    const auto* outputPosition = surfaceLayer.var<SurfaceLTS::OutputPosition>();
-
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
-#pragma omp parallel for schedule(static) default(none)                                            \
-    shared(surfaceLayer, dofs, displacementDofs, side, outputPosition)
-#endif // _OPENMP
-    for (std::size_t face = 0; face < surfaceLayer.size(); ++face) {
-      if (outputPosition[face] != std::numeric_limits<std::size_t>::max()) {
-        alignas(Alignment) real subTriangleDofs[tensor::subTriangleDofs::size(MaxRefinement)];
-
-        kernel::subTriangleVelocity vkrnl;
-        vkrnl.Q = dofs[face];
-        vkrnl.selectVelocity = init::selectVelocity::Values;
-        vkrnl.subTriangleProjection(triRefiner.maxDepth) = projectionMatrix[side[face]];
-        vkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
-        vkrnl.execute(triRefiner.maxDepth);
-
-        auto addOutput = [&](const std::array<real*, NumComponents>& output) {
-          for (std::size_t component = 0; component < NumComponents; ++component) {
-            real* target = output[component] + outputPosition[face] * numberOfSubTriangles;
-            /// @yateto_todo fix for multiple simulations
-            const real* source =
-                subTriangleDofs + static_cast<size_t>(component * numberOfAlignedSubTriangles);
-            for (std::size_t subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
-              target[subtri] = source[subtri];
-              if (!std::isfinite(source[subtri])) {
-                logError() << "Detected Inf/NaN in free surface output. Aborting.";
-              }
-            }
-          }
-        };
-
-        addOutput(velocities);
-
-        kernel::subTriangleDisplacement dkrnl;
-        dkrnl.faceDisplacement = displacementDofs[face];
-        dkrnl.MV2nTo2m = nodal::init::MV2nTo2m::Values;
-        dkrnl.subTriangleProjectionFromFace(triRefiner.maxDepth) = projectionMatrixFromFace;
-        dkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
-        dkrnl.execute(triRefiner.maxDepth);
-
-        addOutput(displacements);
-      }
-    }
-  }
-}
-
-void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementDepth) {
-  // Sub triangles
-  triRefiner.refine(maxRefinementDepth);
-
-  const auto projectionMatrixNCols =
-      tensor::subTriangleProjection::Shape[tensor::subTriangleProjection::index(maxRefinementDepth)]
-                                          [1];
-
-  numberOfSubTriangles = triRefiner.subTris.size();
-  numberOfAlignedSubTriangles =
-      tensor::subTriangleProjection::size(maxRefinementDepth) / projectionMatrixNCols;
-
-  assert(numberOfAlignedSubTriangles * projectionMatrixNCols ==
-         tensor::subTriangleProjection::size(maxRefinementDepth));
-  assert(numberOfSubTriangles == (1U << (2U * maxRefinementDepth)));
-
-  const auto projectionMatrixNumberOfReals =
-      4 * tensor::subTriangleProjection::size(maxRefinementDepth);
-  const auto projectionMatrixFromFaceMemoryNumberOfReals =
-      tensor::subTriangleProjectionFromFace::size(maxRefinementDepth);
-
-  projectionMatrixMemory =
-      seissol::memory::allocTyped<real>(projectionMatrixNumberOfReals, Alignment);
-  projectionMatrixFromFace =
-      seissol::memory::allocTyped<real>(projectionMatrixFromFaceMemoryNumberOfReals, Alignment);
-
-  std::fill_n(projectionMatrixMemory, 0, projectionMatrixNumberOfReals);
-  std::fill_n(projectionMatrixFromFace, 0, projectionMatrixFromFaceMemoryNumberOfReals);
-
-  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    projectionMatrix[face] =
-        projectionMatrixMemory +
-        static_cast<size_t>(face * tensor::subTriangleProjection::size(maxRefinementDepth));
-  }
-
-  // Triangle quadrature points and weights
-  auto* points = new double[NumQuadraturePoints][2];
-  auto* weights = new double[NumQuadraturePoints];
-  // TODO(SW): Use the same quadrature rule, which is used for Dynamic Rupture
-  seissol::quadrature::TriangleQuadrature(points, weights, PolyDegree);
-
-  auto points3D =
-      std::array<std::array<double, 3>, NumQuadraturePoints>{}; // Points for eval of 3D basis
-  auto points2D =
-      std::array<std::array<double, 2>, NumQuadraturePoints>{}; // Points for eval of 2D basis
-
-  // Compute projection matrices
-  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    for (std::size_t tri = 0; tri < numberOfSubTriangles; ++tri) {
-      for (std::size_t qp = 0; qp < NumQuadraturePoints; ++qp) {
-        const seissol::refinement::Triangle& subTri = triRefiner.subTris[tri];
-        const auto chiTau = std::array<double, 2>{
-            points[qp][0] * (subTri.x[1][0] - subTri.x[0][0]) +
-                points[qp][1] * (subTri.x[2][0] - subTri.x[0][0]) + subTri.x[0][0],
-            points[qp][0] * (subTri.x[1][1] - subTri.x[0][1]) +
-                points[qp][1] * (subTri.x[2][1] - subTri.x[0][1]) + subTri.x[0][1]};
-        seissol::transformations::chiTau2XiEtaZeta(face, chiTau.data(), points3D[qp].data());
-        points2D[qp] = chiTau;
-      }
-      computeSubTriangleAverages(projectionMatrix[face] + tri, points3D, weights);
-      if (face == 0) {
-        computeSubTriangleAveragesFromFaces(projectionMatrixFromFace + tri, points2D, weights);
-      }
-    }
-  }
-
-  delete[] points;
-  delete[] weights;
-}
-
-void FreeSurfaceIntegrator::computeSubTriangleAverages(
-    real* projectionMatrixRow,
-    const std::array<std::array<double, 3>, NumQuadraturePoints>& bfPoints,
-    const double* weights) const {
-  unsigned nbf = 0;
-  for (unsigned d = 0; d < ConvergenceOrder; ++d) {
-    for (unsigned k = 0; k <= d; ++k) {
-      for (unsigned j = 0; j <= d - k; ++j) {
-        const unsigned i = d - k - j;
-
-        // Compute subtriangle average via quadrature
-        double average = 0.0;
-        for (unsigned qp = 0; qp < NumQuadraturePoints; ++qp) {
-          average +=
-              weights[qp] * seissol::functions::TetraDubinerP(
-                                {i, j, k}, {bfPoints[qp][0], bfPoints[qp][1], bfPoints[qp][2]});
-        }
-        // We have a factor J / area. As J = 2*area we have to multiply the average by 2.
-        average *= 2.0;
-
-        projectionMatrixRow[static_cast<size_t>(nbf * numberOfAlignedSubTriangles)] = average;
-
-        ++nbf;
-      }
-    }
-  }
-}
-
-void FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces(
-    real* projectionMatrixFromFaceRow,
-    const std::array<std::array<double, 2>, NumQuadraturePoints>& bfPoints,
-    const double* weights) const {
-  unsigned nbf = 0;
-  for (unsigned d = 0; d < ConvergenceOrder; ++d) {
-    for (unsigned j = 0; j <= d; ++j) {
-      // Compute subtriangle average via quadrature
-      double average = 0.0;
-      for (unsigned qp = 0; qp < NumQuadraturePoints; ++qp) {
-        average += weights[qp] *
-                   seissol::functions::TriDubinerP({d - j, j}, {bfPoints[qp][0], bfPoints[qp][1]});
-      }
-      // We have a factor J / area. As J = 2*area we have to multiply the average by 2.
-      average *= 2.0;
-
-      projectionMatrixFromFaceRow[static_cast<size_t>(nbf * numberOfAlignedSubTriangles)] = average;
-      ++nbf;
-    }
-  }
 }
 
 FreeSurfaceIntegrator::LocationFlag FreeSurfaceIntegrator::getLocationFlag(
@@ -305,18 +109,10 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
     surfaceLayer.setNumberOfCells(numberOfFreeSurfaces);
     totalNumberOfFreeSurfaces += numberOfOutputFreeSurfaces;
   }
-  totalNumberOfTriangles = totalNumberOfFreeSurfaces * numberOfSubTriangles;
   backmap.resize(totalNumberOfFreeSurfaces);
 
   surfaceStorage->allocateVariables();
   surfaceStorage->touchVariables();
-
-  for (std::size_t dim = 0; dim < NumComponents; ++dim) {
-    velocities[dim] = seissol::memory::allocTyped<real>(totalNumberOfTriangles, Alignment);
-    displacements[dim] = seissol::memory::allocTyped<real>(totalNumberOfTriangles, Alignment);
-  }
-  locationFlags = std::vector<std::uint8_t>(totalNumberOfTriangles, 0);
-  globalIds.resize(totalNumberOfTriangles);
 
   // NOTE: we store also for space storage duplicates here
   // thus, we need a non-duplicate lookup table (backmap)
@@ -362,11 +158,6 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
           const auto globalId = secondaryInformation[cell].globalId * 4 + face;
 
           if (secondaryInformation[cell].duplicate == 0) {
-            for (std::size_t i = 0; i < numberOfSubTriangles; ++i) {
-              locationFlags[surfaceCellOffset * numberOfSubTriangles + i] =
-                  locationFlagLayer[surfaceCell];
-              globalIds[surfaceCellOffset * numberOfSubTriangles + i] = globalId;
-            }
             outputPosition[surfaceCell] = surfaceCellOffset;
             backmap[surfaceCellOffset] = surfaceCellGlobal;
             ++surfaceCellOffset;
