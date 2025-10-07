@@ -263,6 +263,9 @@ struct LTSRateAndState : public DynamicRupture {
   struct RsA : public initializer::VariantVariable<DrDataArray> {};
   struct RsSl0 : public initializer::VariantVariable<DrDataArray> {};
   struct StateVariable : public initializer::VariantVariable<DrDataArray> {};
+  struct RsF0 : public initializer::VariantVariable<DrDataArray> {};
+  struct RsMuW : public initializer::VariantVariable<DrDataArray> {};
+  struct RsB : public initializer::VariantVariable<DrDataArray> {};
 
   explicit LTSRateAndState(const initializer::parameters::DRParameters* parameters)
       : DynamicRupture(parameters) {}
@@ -273,6 +276,9 @@ struct LTSRateAndState : public DynamicRupture {
     storage.add<RsA>(mask, Alignment, allocationModeDR(), true);
     storage.add<RsSl0>(mask, Alignment, allocationModeDR(), true);
     storage.add<StateVariable>(mask, Alignment, allocationModeDR());
+    storage.add<RsF0>(mask, Alignment, allocationModeDR(), true);
+    storage.add<RsMuW>(mask, Alignment, allocationModeDR(), true);
+    storage.add<RsB>(mask, Alignment, allocationModeDR(), true);
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,

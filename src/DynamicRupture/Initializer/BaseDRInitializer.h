@@ -120,6 +120,15 @@ class BaseDRInitializer {
    */
   bool faultProvides(const std::string& parameter);
 
+  /**
+   * Evaluates, whether the FaultParameterDB provides a certain parameter.
+   * With alternative, deprecated names after position 0 in the vector.
+   * @param parameter The name vector.
+   * @return returns the provided alternative or the first entry otherwise (for clean error
+   * messages).
+   */
+  std::string faultNameAlternatives(const std::vector<std::string>& parameter);
+
   private:
   /**
    * Checks how the initial stress (nucleation stress) is characterized. The user can either provide

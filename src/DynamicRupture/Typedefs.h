@@ -50,11 +50,11 @@ struct TractionResults;
  */
 template <typename Cfg>
 struct FaultStresses<Cfg, Executor::Host> {
-  alignas(Alignment) Real<Cfg> normalStress[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {
+  alignas(Alignment) Real<Cfg> normalStress[misc::TimeSteps<Cfg>][misc::NumPaddedPoints<Cfg>] = {
       {}};
-  alignas(Alignment) Real<Cfg> traction1[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {{}};
-  alignas(Alignment) Real<Cfg> traction2[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {{}};
-  alignas(Alignment) Real<Cfg> fluidPressure[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {
+  alignas(Alignment) Real<Cfg> traction1[misc::TimeSteps<Cfg>][misc::NumPaddedPoints<Cfg>] = {{}};
+  alignas(Alignment) Real<Cfg> traction2[misc::TimeSteps<Cfg>][misc::NumPaddedPoints<Cfg>] = {{}};
+  alignas(Alignment) Real<Cfg> fluidPressure[misc::TimeSteps<Cfg>][misc::NumPaddedPoints<Cfg>] = {
       {}};
 };
 
@@ -64,8 +64,8 @@ struct FaultStresses<Cfg, Executor::Host> {
  */
 template <typename Cfg>
 struct TractionResults<Cfg, Executor::Host> {
-  alignas(Alignment) Real<Cfg> traction1[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {{}};
-  alignas(Alignment) Real<Cfg> traction2[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {{}};
+  alignas(Alignment) Real<Cfg> traction1[misc::TimeSteps<Cfg>][misc::NumPaddedPoints<Cfg>] = {{}};
+  alignas(Alignment) Real<Cfg> traction2[misc::TimeSteps<Cfg>][misc::NumPaddedPoints<Cfg>] = {{}};
 };
 
 /**
@@ -75,10 +75,10 @@ struct TractionResults<Cfg, Executor::Host> {
  */
 template <typename Cfg>
 struct FaultStresses<Cfg, Executor::Device> {
-  Real<Cfg> normalStress[Cfg::ConvergenceOrder] = {{}};
-  Real<Cfg> traction1[Cfg::ConvergenceOrder] = {{}};
-  Real<Cfg> traction2[Cfg::ConvergenceOrder] = {{}};
-  Real<Cfg> fluidPressure[Cfg::ConvergenceOrder] = {{}};
+  Real<Cfg> normalStress[misc::TimeSteps<Cfg>] = {{}};
+  Real<Cfg> traction1[misc::TimeSteps<Cfg>] = {{}};
+  Real<Cfg> traction2[misc::TimeSteps<Cfg>] = {{}};
+  Real<Cfg> fluidPressure[misc::TimeSteps<Cfg>] = {{}};
 };
 
 /**
@@ -87,8 +87,8 @@ struct FaultStresses<Cfg, Executor::Device> {
  */
 template <typename Cfg>
 struct TractionResults<Cfg, Executor::Device> {
-  Real<Cfg> traction1[Cfg::ConvergenceOrder] = {{}};
-  Real<Cfg> traction2[Cfg::ConvergenceOrder] = {{}};
+  Real<Cfg> traction1[misc::TimeSteps<Cfg>] = {{}};
+  Real<Cfg> traction2[misc::TimeSteps<Cfg>] = {{}};
 };
 
 } // namespace seissol::dr

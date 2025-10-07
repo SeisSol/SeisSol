@@ -79,13 +79,13 @@ template <typename Cfg>
 struct VariableIndexing<Cfg, Executor::Host> {
   template <typename T>
   static constexpr T&
-      index(T (&data)[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>], int o, int i) {
+      index(T (&data)[misc::TimeSteps<Cfg>][misc::NumPaddedPoints<Cfg>], int o, int i) {
     return data[o][i];
   }
 
   template <typename T>
   static constexpr T
-      index(const T (&data)[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>], int o, int i) {
+      index(const T (&data)[misc::TimeSteps<Cfg>][misc::NumPaddedPoints<Cfg>], int o, int i) {
     return data[o][i];
   }
 };
@@ -93,12 +93,12 @@ struct VariableIndexing<Cfg, Executor::Host> {
 template <typename Cfg>
 struct VariableIndexing<Cfg, Executor::Device> {
   template <typename T>
-  static constexpr T& index(T (&data)[Cfg::ConvergenceOrder], int o, int i) {
+  static constexpr T& index(T (&data)[misc::TimeSteps<Cfg>], int o, int i) {
     return data[o];
   }
 
   template <typename T>
-  static constexpr T index(const T (&data)[Cfg::ConvergenceOrder], int o, int i) {
+  static constexpr T index(const T (&data)[misc::TimeSteps<Cfg>], int o, int i) {
     return data[o];
   }
 };
@@ -108,13 +108,13 @@ struct VariableIndexing<Cfg, Executor::Device> {
  */
 template <typename Cfg>
 inline void checkAlignmentPreCompute(
-    const Real<Cfg> qIPlus[Cfg::ConvergenceOrder][dr::misc::NumQuantities<Cfg>]
+    const Real<Cfg> qIPlus[misc::TimeSteps<Cfg>][dr::misc::NumQuantities<Cfg>]
                           [dr::misc::NumPaddedPoints<Cfg>],
-    const Real<Cfg> qIMinus[Cfg::ConvergenceOrder][dr::misc::NumQuantities<Cfg>]
+    const Real<Cfg> qIMinus[misc::TimeSteps<Cfg>][dr::misc::NumQuantities<Cfg>]
                            [dr::misc::NumPaddedPoints<Cfg>],
     const FaultStresses<Cfg, Executor::Host>& faultStresses) {
   using namespace dr::misc::quantity_indices;
-  for (unsigned o = 0; o < Cfg::ConvergenceOrder; ++o) {
+  for (unsigned o = 0; o < misc::TimeSteps<Cfg>; ++o) {
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % Alignment == 0);
@@ -155,8 +155,8 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     FaultStresses<Cfg, RangeExecutor<Type>::Exec>& faultStresses,
     const ImpedancesAndEta<Real<Cfg>>& impAndEta,
     const ImpedanceMatrices<Cfg>& impedanceMatrices,
-    const Real<Cfg> qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
-    const Real<Cfg> qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
+    const Real<Cfg> qInterpolatedPlus[misc::TimeSteps<Cfg>][tensor::QInterpolated<Cfg>::size()],
+    const Real<Cfg> qInterpolatedMinus[misc::TimeSteps<Cfg>][tensor::QInterpolated<Cfg>::size()],
     Real<Cfg> etaPDamp,
     unsigned startLoopIndex = 0) {
   static_assert(tensor::QInterpolated<Cfg>::Shape[seissol::multisim::BasisDim<Cfg>] ==
@@ -182,7 +182,7 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
 #endif
 
-    for (unsigned o = 0; o < Cfg::ConvergenceOrder; ++o) {
+    for (unsigned o = 0; o < misc::TimeSteps<Cfg>; ++o) {
       using Range = typename NumPoints<Type, Cfg>::Range;
 
 #ifndef ACL_DEVICE
@@ -237,12 +237,12 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
  */
 template <typename Cfg>
 inline void checkAlignmentPostCompute(
-    const Real<Cfg> qIPlus[Cfg::ConvergenceOrder][dr::misc::NumQuantities<Cfg>]
+    const Real<Cfg> qIPlus[misc::TimeSteps<Cfg>][dr::misc::NumQuantities<Cfg>]
                           [dr::misc::NumPaddedPoints<Cfg>],
-    const Real<Cfg> qIMinus[Cfg::ConvergenceOrder][dr::misc::NumQuantities<Cfg>]
+    const Real<Cfg> qIMinus[misc::TimeSteps<Cfg>][dr::misc::NumQuantities<Cfg>]
                            [dr::misc::NumPaddedPoints<Cfg>],
-    const Real<Cfg> imposedStateP[Cfg::ConvergenceOrder][dr::misc::NumPaddedPoints<Cfg>],
-    const Real<Cfg> imposedStateM[Cfg::ConvergenceOrder][dr::misc::NumPaddedPoints<Cfg>],
+    const Real<Cfg> imposedStateP[misc::TimeSteps<Cfg>][dr::misc::NumPaddedPoints<Cfg>],
+    const Real<Cfg> imposedStateM[misc::TimeSteps<Cfg>][dr::misc::NumPaddedPoints<Cfg>],
     const FaultStresses<Cfg, Executor::Host>& faultStresses,
     const TractionResults<Cfg, Executor::Host>& tractionResults) {
   using namespace dr::misc::quantity_indices;
@@ -261,7 +261,7 @@ inline void checkAlignmentPostCompute(
   assert(reinterpret_cast<uintptr_t>(imposedStateM[T1]) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(imposedStateM[T2]) % Alignment == 0);
 
-  for (size_t o = 0; o < Cfg::ConvergenceOrder; ++o) {
+  for (size_t o = 0; o < misc::TimeSteps<Cfg>; ++o) {
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % Alignment == 0);
@@ -304,8 +304,8 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     const ImpedanceMatrices<Cfg>& impedanceMatrices,
     Real<Cfg> imposedStatePlus[tensor::QInterpolated<Cfg>::size()],
     Real<Cfg> imposedStateMinus[tensor::QInterpolated<Cfg>::size()],
-    const Real<Cfg> qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
-    const Real<Cfg> qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
+    const Real<Cfg> qInterpolatedPlus[misc::TimeSteps<Cfg>][tensor::QInterpolated<Cfg>::size()],
+    const Real<Cfg> qInterpolatedMinus[misc::TimeSteps<Cfg>][tensor::QInterpolated<Cfg>::size()],
     const double* timeWeights,
     unsigned startIndex = 0) {
 
@@ -339,7 +339,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
         qIPlus, qIMinus, imposedStateP, imposedStateM, faultStresses, tractionResults);
 #endif
 
-    for (unsigned o = 0; o < Cfg::ConvergenceOrder; ++o) {
+    for (unsigned o = 0; o < misc::TimeSteps<Cfg>; ++o) {
       auto weight = timeWeights[o];
 
       using NumPointsRange = typename NumPoints<Type, Cfg>::Range;
@@ -564,8 +564,8 @@ SEISSOL_HOSTDEVICE inline void updateTimeSinceSlipRateBelowThreshold(
 template <typename Cfg, RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     DREnergyOutput<Cfg>& energyData,
-    const Real<Cfg> qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
-    const Real<Cfg> qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
+    const Real<Cfg> qInterpolatedPlus[misc::TimeSteps<Cfg>][tensor::QInterpolated<Cfg>::size()],
+    const Real<Cfg> qInterpolatedMinus[misc::TimeSteps<Cfg>][tensor::QInterpolated<Cfg>::size()],
     const ImpedancesAndEta<Real<Cfg>>& impAndEta,
     const double* timeWeights,
     const Real<Cfg> spaceWeights[seissol::kernels::NumSpaceQuadraturePoints<Cfg>],
@@ -590,7 +590,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   using Range = typename NumPoints<Type, Cfg>::Range;
 
   using namespace dr::misc::quantity_indices;
-  for (size_t o = 0; o < Cfg::ConvergenceOrder; ++o) {
+  for (size_t o = 0; o < misc::TimeSteps<Cfg>; ++o) {
     const auto timeWeight = timeWeights[o];
 #ifndef ACL_DEVICE
 #pragma omp simd

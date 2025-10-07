@@ -115,11 +115,22 @@ class RateAndStateFastVelocityInitializer : public RateAndStateInitializer {
 class ThermalPressurizationInitializer {
   public:
   explicit ThermalPressurizationInitializer(
-      const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters);
+      const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
+      const std::set<std::string>& faultParameterNames);
   /**
    * Intializes temperature and pressure and sets compute grid to 0
    */
   void initializeFault(DynamicRupture::Storage& drStorage);
+
+  /**
+   * Evaluates, whether the FaultParameterDB provides a certain parameter.
+   * With alternative, deprecated names after position 0 in the vector.
+   * (copy from BaseDRInitializer; TODO: make common base class)
+   * @param parameter The name vector.
+   * @return returns the provided alternative or the first entry otherwise (for clean error
+   * messages).
+   */
+  std::string faultNameAlternatives(const std::vector<std::string>& parameter);
 
   protected:
   /**
@@ -130,6 +141,7 @@ class ThermalPressurizationInitializer {
 
   private:
   std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters;
+  std::set<std::string> faultParameterNames;
 };
 
 /**

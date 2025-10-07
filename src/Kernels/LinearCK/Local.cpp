@@ -136,7 +136,7 @@ void Local<Cfg>::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<C
   kernel::volume<Cfg> volKrnl = m_volumeKernelPrototype;
   volKrnl.Q = data.template get<LTS::Dofs>();
   volKrnl.I = timeIntegratedDegreesOfFreedom;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
     volKrnl.star(i) = data.template get<LTS::LocalIntegration>().starMatrices[i];
   }
 

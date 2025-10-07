@@ -12,6 +12,7 @@
 #include "Kernels/Precision.h"
 
 #include "GeneratedCode/init.h"
+#include <Common/Constants.h>
 #include <Initializer/Parameters/DRParameters.h>
 #include <cmath>
 #include <string>
@@ -51,6 +52,13 @@ template <typename Cfg>
 static constexpr inline size_t NumQuantities =
     misc::dimSize<init::QInterpolated<Cfg>, multisim::BasisDim<Cfg> + 1>();
 
+/*
+ * Time integration point count
+ */
+
+template <typename Cfg>
+static constexpr inline uint32_t TimeSteps = Cfg::ConvergenceOrder;
+
 /**
  * Constants for Thermal Pressurization
  */
@@ -77,7 +85,7 @@ constexpr F forEach(TupleT&& tuple, F&& functor) {
   return forEachImpl(
       std::forward<TupleT>(tuple),
       std::forward<F>(functor),
-      std::make_index_sequence<std::tuple_size<std::remove_reference_t<TupleT>>::value>{});
+      std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleT>>>{});
 }
 /**
  * Compute base^exp

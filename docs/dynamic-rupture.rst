@@ -256,22 +256,26 @@ Reference benchmarks: TVP101 and TPV102
 Friction parameters:
 
 +------------------+----------------------------------------+-------------------------------+
-| symbol           | quantity                               | seisSol name                  |
+| symbol           | quantity                               | SeisSol name                  |
 +==================+========================================+===============================+
 | :math:`a(x)`     | frictional evolution coefficient       | :code:`rs_a`                  |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`b`        | frictional state coefficient           | :code:`rs_b`                  |
+| :math:`b(x)`     | frictional state coefficient           | :code:`rs_b`                  |
 +------------------+----------------------------------------+-------------------------------+
 | :math:`L(x)`     | characteristic slip scale              | :code:`rs_sl0`                |
 +------------------+----------------------------------------+-------------------------------+
 | :math:`V_0`      | reference slip velocity                | :code:`rs_sr0`                |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`f_0`      | reference friction coefficient         | :code:`rs_f0`                 |
+| :math:`f_0(x)`   | reference friction coefficient         | :code:`rs_f0`                 |
 +------------------+----------------------------------------+-------------------------------+
 | :math:`V_{ini1}` | initial along-strike slip velocity     | :code:`rs_inisliprate1`       |
 +------------------+----------------------------------------+-------------------------------+
 | :math:`V_{ini2}` | initial along-dip slip veloctiy        | :code:`rs_inisliprate2`       |
 +------------------+----------------------------------------+-------------------------------+
+
+Here, :math:`b(x)` and :math:`f_0(x)` can either be varied or given in the parameter file as constants.
+Once they are given in the fault yaml file, they are assumed to be varied and their parameter file values are ignored.
+For the parameter file and the fault yaml file, the names are the same.
 
 .. math::
   \begin{aligned}
@@ -306,8 +310,11 @@ In addition to the Aging and the Slip Law, strong velocity weakening requires tw
 +==================+========================================+===============================+
 | :math:`V_w(x)`   | weakening slip velocity                | :code:`rs_srW`                |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`\mu_w`    | weakening friction coefficient         | :code:`rs_muW`                |
+| :math:`\mu_w(x)` | weakening friction coefficient         | :code:`rs_muW`                |
 +------------------+----------------------------------------+-------------------------------+
+
+Here, :math:`\mu_w(x)` behaves similarly to :math:`b(x)` and :math:`f_0(x)`; i.e. it can be specified in either
+the parameter file as a global constant or in the fault yaml file to vary; the same rules as above apply here as well.
 
 .. math::
   \begin{aligned}
@@ -358,4 +365,3 @@ Two additional thermal pressurization parameters are space-dependent and therefo
     tp_halfWidthShearZone: 0.01     # Half width of shearing zone [m]
 
 TP generates 2 additional on-fault outputs: Pore pressure and temperature (see fault output).
-

@@ -198,8 +198,8 @@ seissol::eigenvalues::Eigenpair<std::complex<double>,
   getTransposedCoefficientMatrix<Cfg>(material, 0, ATView);
   std::array<std::complex<double>, Tmaterial::NumQuantities * Tmaterial::NumQuantities> A;
   // transpose AT to get A
-  for (int i = 0; i < Tmaterial::NumQuantities; i++) {
-    for (int j = 0; j < Tmaterial::NumQuantities; j++) {
+  for (std::size_t i = 0; i < Tmaterial::NumQuantities; i++) {
+    for (std::size_t j = 0; j < Tmaterial::NumQuantities; j++) {
       A[i + Tmaterial::NumQuantities * j] = AT[Tmaterial::NumQuantities * i + j];
     }
   }
@@ -216,7 +216,7 @@ seissol::eigenvalues::Eigenpair<std::complex<double>,
   // also check that the imaginary parts are zero
   int evNeg = 0;
   int evPos = 0;
-  for (int i = 0; i < Tmaterial::NumQuantities; ++i) {
+  for (std::size_t i = 0; i < Tmaterial::NumQuantities; ++i) {
     assert(std::abs(eigenvalues(i).imag()) < zeroThreshold);
     if (eigenvalues(i).real() < -zeroThreshold) {
       ++evNeg;
@@ -232,7 +232,7 @@ seissol::eigenvalues::Eigenpair<std::complex<double>,
   CMatrix coeff(A.data());
   const CMatrix matrixMult = coeff * eigenvectors;
   CMatrix eigenvalueMatrix = CMatrix::Zero();
-  for (size_t i = 0; i < Tmaterial::NumQuantities; i++) {
+  for (std::size_t i = 0; i < Tmaterial::NumQuantities; i++) {
     eigenvalueMatrix(i, i) = eigenvalues(i);
   }
   const CMatrix vectorMult = eigenvectors * eigenvalueMatrix;

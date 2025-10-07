@@ -65,7 +65,7 @@ class LtsWeights {
   LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance);
 
   virtual ~LtsWeights() = default;
-  void computeWeights(PUML::TETPUML const& mesh, const ConfigMap& configMap);
+  void computeWeights(const PUML::TETPUML& mesh, const ConfigMap& configMap);
 
   [[nodiscard]] const int* vertexWeights() const;
   [[nodiscard]] const double* imbalances() const;

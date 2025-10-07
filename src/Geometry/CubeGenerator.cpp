@@ -1164,7 +1164,6 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   int* bndElemSizePtr = new int[numPartitions[3] * bndSize];
   int* bndElemRankPtr = new int[numPartitions[3] * bndSize];
   int* bndElemLocalIdsPtr = new int[numPartitions[3] * bndSize * bndElemSize];
-  int* elemMPIIndicesPtr = new int[numPartitions[3] * numElemPerPart[3] * 4];
 
   const int bndSizeGlobal = bndSize;
 
@@ -1567,7 +1566,6 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   delete[] bndElemSizePtr;
   delete[] bndElemRankPtr;
   delete[] bndElemLocalIdsPtr;
-  delete[] elemMPIIndicesPtr;
 
   // Close MPI communicator
   MPI_Comm_free(&commMaster);

@@ -49,9 +49,9 @@ struct FrictionLawData {
   real (*__restrict dynStressTime)[misc::NumPaddedPoints<Cfg>]{};
   bool (*__restrict dynStressTimePending)[misc::NumPaddedPoints<Cfg>]{};
 
-  const real (*__restrict qInterpolatedPlus)[Cfg::ConvergenceOrder]
+  const real (*__restrict qInterpolatedPlus)[misc::TimeSteps<Cfg>]
                                             [tensor::QInterpolated<Cfg>::size()]{};
-  const real (*__restrict qInterpolatedMinus)[Cfg::ConvergenceOrder]
+  const real (*__restrict qInterpolatedMinus)[misc::TimeSteps<Cfg>]
                                              [tensor::QInterpolated<Cfg>::size()]{};
 
   // LSW
@@ -65,6 +65,9 @@ struct FrictionLawData {
   const real (*__restrict a)[misc::NumPaddedPoints<Cfg>];
   const real (*__restrict sl0)[misc::NumPaddedPoints<Cfg>];
   real (*__restrict stateVariable)[misc::NumPaddedPoints<Cfg>];
+  const real (*__restrict f0)[misc::NumPaddedPoints<Cfg>];
+  const real (*__restrict muW)[misc::NumPaddedPoints<Cfg>];
+  const real (*__restrict b)[misc::NumPaddedPoints<Cfg>];
 
   // R+S FVW
   const real (*__restrict srW)[misc::NumPaddedPoints<Cfg>];

@@ -36,7 +36,7 @@ class NoFault : public BaseFrictionSolver<Cfg, NoFault<Cfg>> {
    * output time when shear stress is equal to the dynamic stress after rupture arrived
    * currently only for linear slip weakening
    */
-  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& ctx) {}
+  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& ctx, real time) {}
 
   SEISSOL_DEVICE static void preHook(FrictionLawContext<Cfg>& ctx) {}
   SEISSOL_DEVICE static void postHook(FrictionLawContext<Cfg>& ctx) {}

@@ -25,22 +25,22 @@
 
 namespace seissol::dr::friction_law::gpu {
 
-template <typename T>
+template <typename Cfg, typename T>
 void BaseFrictionSolver<Cfg, T>::evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
-                                                double fullUpdateTime,
+                                                real fullUpdateTime,
                                                 const double* timeWeights,
                                                 const FrictionTime& frictionTime) {
   auto* queue = reinterpret_cast<sycl::queue*>(runtime.stream());
 
-  FrictionLawArgs args{};
+  FrictionLawArgs<Cfg> args{};
   args.data = data;
   args.spaceWeights = devSpaceWeights;
   args.resampleMatrix = resampleMatrix;
   args.tpInverseFourierCoefficients = devTpInverseFourierCoefficients;
   args.tpGridPoints = devTpGridPoints;
   args.heatSource = devHeatSource;
-  std::copy_n(timeWeights, Cfg::ConvergenceOrder, args.timeWeights);
-  std::copy_n(frictionTime.deltaT.data(), Cfg::ConvergenceOrder, args.deltaT);
+  std::copy_n(timeWeights, misc::TimeSteps<Cfg>, args.timeWeights);
+  std::copy_n(frictionTime.deltaT.data(), misc::TimeSteps<Cfg>, args.deltaT);
   args.sumDt = frictionTime.sumDt;
   args.fullUpdateTime = fullUpdateTime;
 

@@ -193,15 +193,17 @@ void TimeCluster<Cfg>::computeDynamicRupture(DynamicRupture::Layer& layerData) {
   auto* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
   auto* godunovData = layerData.var<DynamicRupture::GodunovData>(Cfg());
   auto* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>(Cfg());
-  auto** timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>(Cfg());
-  auto** timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>(Cfg());
+  auto* const* timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>(Cfg());
+  auto* const* timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>(Cfg());
   auto* qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>(Cfg());
   auto* qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>(Cfg());
 
+  const auto timestep = timeStepSize();
+
   const auto [timePoints, timeWeights] =
-      seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timeStepSize());
-  const auto pointsCollocate =
-      seissol::kernels::timeBasis<Cfg>().collocate(timePoints, timeStepSize());
+      seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timestep);
+
+  const auto pointsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, timestep);
   const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
 
 #pragma omp parallel
@@ -254,16 +256,17 @@ void TimeCluster<Cfg>::computeDynamicRuptureDevice(DynamicRupture::Layer& layerD
   if (layerData.size() > 0) {
     // compute space time interpolation part
 
-    const double stepSizeWidth = timeStepSize();
+    const auto timestep = timeStepSize();
+
     ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
     device.api->putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
-    auto computeGraphKey = initializer::GraphKey(graphType, stepSizeWidth);
+    auto computeGraphKey = initializer::GraphKey(graphType, timestep);
     auto& table = layerData.getConditionalTable<inner_keys::Dr>();
 
     const auto [timePoints, timeWeights] =
-        seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timeStepSize());
-    const auto pointsCollocate =
-        seissol::kernels::timeBasis<Cfg>().collocate(timePoints, stepSizeWidth);
+        seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timestep);
+
+    const auto pointsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, timestep);
     const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
 
     streamRuntime.runGraph(
@@ -311,7 +314,7 @@ void TimeCluster<Cfg>::computeDynamicRuptureFlops(DynamicRupture::Layer& layerDa
   nonZeroFlops = 0;
   hardwareFlops = 0;
 
-  DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
+  const DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
 
   for (std::size_t face = 0; face < layerData.size(); ++face) {
     std::uint64_t faceNonZeroFlops = 0;
@@ -336,8 +339,8 @@ void TimeCluster<Cfg>::computeLocalIntegration(bool resetBuffers) {
   // pointer for the call of the ADER-function
   real* bufferPointer = nullptr;
 
-  real** buffers = clusterData->var<LTS::Buffers>(Cfg());
-  real** derivatives = clusterData->var<LTS::Derivatives>(Cfg());
+  real* const* buffers = clusterData->var<LTS::Buffers>(Cfg());
+  real* const* derivatives = clusterData->var<LTS::Derivatives>(Cfg());
   CellMaterialData* materialData = clusterData->var<LTS::Material>();
 
   kernels::LocalTmp<Cfg> tmp(seissolInstance.getGravitationSetup().acceleration);
@@ -377,7 +380,8 @@ void TimeCluster<Cfg>::computeLocalIntegration(bool resetBuffers) {
         integrationCoeffs.data(), timeStepWidth, data, tmp, bufferPointer, derivatives[cell], true);
 
     // Compute local integrals (including some boundary conditions)
-    CellBoundaryMapping<Cfg>(*boundaryMapping)[4] = clusterData->var<LTS::BoundaryMapping>(Cfg());
+    const CellBoundaryMapping<Cfg>(*boundaryMapping)[4] =
+        clusterData->var<LTS::BoundaryMapping>(Cfg());
     localKernel.computeIntegral(bufferPointer,
                                 data,
                                 tmp,

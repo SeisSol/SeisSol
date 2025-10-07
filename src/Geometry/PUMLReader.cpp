@@ -314,17 +314,16 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
 
         int nfaces[Cell::NumFaces];
         PUML::Neighbor::face(puml, neighbors[j], nfaces);
-        int* back = std::find(nfaces, nfaces + Cell::NumFaces, i);
+        const auto* back = std::find(nfaces, nfaces + Cell::NumFaces, i);
         assert(back < nfaces + 4);
 
         m_elements[i].neighborSides[PumlFaceToSeisSol[j]] = PumlFaceToSeisSol[back - nfaces];
 
-        const unsigned int firstVertex =
-            m_elements[i].vertices[FirstFaceVertex[PumlFaceToSeisSol[j]]];
+        const auto firstVertex = m_elements[i].vertices[FirstFaceVertex[PumlFaceToSeisSol[j]]];
 
         unsigned int nvertices[Cell::NumVertices];
         PUML::Downward::vertices(puml, cells[neighbors[j]], nvertices);
-        unsigned int* neighborFirstVertex =
+        const auto* neighborFirstVertex =
             std::find(nvertices, nvertices + Cell::NumVertices, firstVertex);
 
         m_elements[i].sideOrientations[PumlFaceToSeisSol[j]] =
@@ -453,7 +452,7 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
       unsigned long nvertices[Cell::NumVertices];
       PUML::Downward::gvertices(puml, cells[cellIds[0]], nvertices);
 
-      unsigned long* localFirstVertex =
+      const auto* localFirstVertex =
           std::find(nvertices, nvertices + Cell::NumVertices, ghostFirstVertex[k][i]);
       assert(localFirstVertex != nvertices + 4);
 

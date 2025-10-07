@@ -82,7 +82,7 @@ class FrictionSolverImpl : public FrictionSolver {
    * Adjust initial stress by adding nucleation stress * nucleation function
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf.
    */
-  real deltaT[Cfg::ConvergenceOrder] = {};
+  real deltaT[misc::TimeSteps<Cfg>] = {};
   real sumDt{};
 
   seissol::initializer::parameters::DRParameters* __restrict drParameters;
@@ -117,9 +117,8 @@ class FrictionSolverImpl : public FrictionSolver {
   real (*__restrict dynStressTime)[misc::NumPaddedPoints<Cfg>]{};
   bool (*__restrict dynStressTimePending)[misc::NumPaddedPoints<Cfg>]{};
 
-  real (*__restrict qInterpolatedPlus)[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]{};
-  real (*__restrict qInterpolatedMinus)[Cfg::ConvergenceOrder]
-                                       [tensor::QInterpolated<Cfg>::size()]{};
+  real (*__restrict qInterpolatedPlus)[misc::TimeSteps<Cfg>][tensor::QInterpolated<Cfg>::size()]{};
+  real (*__restrict qInterpolatedMinus)[misc::TimeSteps<Cfg>][tensor::QInterpolated<Cfg>::size()]{};
 };
 
 using FrictionSolverFactory = std::function<std::unique_ptr<FrictionSolver>(ConfigVariant)>;

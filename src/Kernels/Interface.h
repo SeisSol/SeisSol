@@ -19,10 +19,10 @@ template <typename Cfg>
 struct LocalTmp {
   alignas(Alignment)
       Real<Cfg> timeIntegratedAne[zeroLengthArrayHandler(kernels::size<tensor::Iane<Cfg>>())]{};
+  GravitationalFreeSurfaceBc<Cfg> gravitationalFreeSurfaceBc;
   alignas(Alignment) std::array<
       Real<Cfg>,
       tensor::averageNormalDisplacement<Cfg>::size()> nodalAvgDisplacements[Cell::NumFaces];
-  GravitationalFreeSurfaceBc<Cfg> gravitationalFreeSurfaceBc;
   LocalTmp(double graviationalAcceleration)
       : gravitationalFreeSurfaceBc(graviationalAcceleration) {};
 };

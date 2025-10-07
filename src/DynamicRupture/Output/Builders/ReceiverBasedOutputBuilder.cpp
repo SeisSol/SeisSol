@@ -331,7 +331,7 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
 }
 
 void ReceiverBasedOutputBuilder::initOutputVariables(
-    std::array<bool, std::tuple_size<DrVarsT>::value>& outputMask) {
+    std::array<bool, std::tuple_size_v<DrVarsT>>& outputMask) {
   auto assignMask = [&outputMask](auto& var, int receiverId) {
     var.isActive = outputMask[receiverId];
   };

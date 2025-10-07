@@ -357,7 +357,8 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
 template <>
 void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& fileName,
                                                              const QueryGenerator& queryGen) {
-  easi::Component* model = loadEasiModel(fileName);
+  // NOLINTNEXTLINE(misc-const-correctness)
+  easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
   auto suppliedParameters = model->suppliedParameters();
   // TODO(Sebastian): inhomogeneous materials, where in some parts only mu and lambda are given
@@ -469,8 +470,8 @@ struct MaterialAverager<ViscoElasticMaterialParametrized<Mechanisms>> {
           elementMaterial.lambda /
           (2.0 * elementMaterial.mu * (3.0 * elementMaterial.lambda + 2.0 * elementMaterial.mu)) *
           quadWeight;
-      qpMean += elementMaterial.Qp * quadWeight;
-      qsMean += elementMaterial.Qs * quadWeight;
+      qpMean += elementMaterial.qp * quadWeight;
+      qsMean += elementMaterial.qs * quadWeight;
     }
 
     // Harmonic average is used for mu, so take the reciprocal
@@ -483,8 +484,8 @@ struct MaterialAverager<ViscoElasticMaterialParametrized<Mechanisms>> {
     result.rho = rhoMean;
     result.mu = muMean;
     result.lambda = lambdaMean;
-    result.Qp = qpMean;
-    result.Qs = qsMean;
+    result.qp = qpMean;
+    result.qs = qsMean;
 
     return result;
   }
@@ -511,7 +512,9 @@ std::set<std::string> FaultParameterDB<T>::faultProvides(const std::string& file
   if (fileName.empty()) {
     return {};
   }
-  easi::Component* model = loadEasiModel(fileName);
+
+  // NOLINTNEXTLINE(misc-const-correctness)
+  easi::Component* const model = loadEasiModel(fileName);
   std::set<std::string> supplied = model->suppliedParameters();
   delete model;
   return supplied;

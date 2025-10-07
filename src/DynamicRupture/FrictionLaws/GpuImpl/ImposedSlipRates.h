@@ -67,7 +67,7 @@ class ImposedSlipRates : public BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, ST
     ctx.tractionResults.traction2[timeIndex] = ctx.data->traction2[ctx.ltsFace][ctx.pointIndex];
   }
 
-  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& ctx) {}
+  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& ctx, real time) {}
   SEISSOL_DEVICE static void preHook(FrictionLawContext<Cfg>& ctx) {}
   SEISSOL_DEVICE static void postHook(FrictionLawContext<Cfg>& ctx) {}
 };

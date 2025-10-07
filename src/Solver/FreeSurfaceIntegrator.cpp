@@ -61,6 +61,7 @@ void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
   if (maxRefinementDepth > MaxRefinement) {
     logError()
         << "Free surface integrator: Currently more than 3 levels of refinements are unsupported.";
+    return;
   }
 
   m_enabled = true;

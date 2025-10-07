@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2020 SeisSol Group
-# 
+#
 # SPDX-License-Identifier: BSD-3-Clause
 # SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 #
@@ -20,7 +20,7 @@
 [rho, mu, lambda]: !Any
   components:
     - !AxisAlignedCuboidalDomainFilter
-      limits: 
+      limits:
         x: [-.Inf, .Inf]
         y: [-.Inf, 0.5]
         z: [-.Inf, .Inf]
@@ -29,7 +29,7 @@
           lambda: 1.e10
           mu:     1.e10
           rho:    2500
-          
+
     - !ConstantMap
       map:
         lambda: 3.e10

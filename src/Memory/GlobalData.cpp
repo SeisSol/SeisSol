@@ -346,6 +346,7 @@ void GlobalDataInitializer<Cfg, MatrixManipPolicyT>::init(GlobalDataCfg<Cfg>& gl
   auto* drGlobalMatrixMem = static_cast<Real<Cfg>*>(memoryAllocator.allocateMemory(
       drGlobalMatrixMemSize * sizeof(Real<Cfg>), prop.pagesizeHeap, memkind));
 
+  // NOLINTNEXTLINE(misc-const-correctness)
   Real<Cfg>* drGlobalMatrixMemPtr = drGlobalMatrixMem;
   copyManager.template copyFamilyToMemAndSetPtr<init::V3mTo2nTWDivM<Cfg>>(
       drGlobalMatrixMemPtr, globalData.nodalFluxMatrices, prop.alignment);
@@ -364,6 +365,7 @@ void GlobalDataInitializer<Cfg, MatrixManipPolicyT>::init(GlobalDataCfg<Cfg>& gl
   auto* plasticityGlobalMatrixMem = static_cast<Real<Cfg>*>(memoryAllocator.allocateMemory(
       plasticityGlobalMatrixMemSize * sizeof(Real<Cfg>), prop.pagesizeHeap, memkind));
 
+  // NOLINTNEXTLINE(misc-const-correctness)
   Real<Cfg>* plasticityGlobalMatrixMemPtr = plasticityGlobalMatrixMem;
   copyManager.template copyTensorToMemAndSetPtr<init::v<Cfg>>(
       plasticityGlobalMatrixMemPtr, globalData.vandermondeMatrix, prop.alignment);

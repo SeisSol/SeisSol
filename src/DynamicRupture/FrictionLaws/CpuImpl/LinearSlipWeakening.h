@@ -133,13 +133,13 @@ class LinearSlipWeakeningLaw
   /**
    * output time when shear stress is equal to the dynamic stress after rupture arrived
    */
-  void saveDynamicStressOutput(std::size_t ltsFace) {
+  void saveDynamicStressOutput(std::size_t ltsFace, real time) {
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
       if (this->dynStressTimePending[ltsFace][pointIndex] &&
           std::fabs(this->accumulatedSlipMagnitude[ltsFace][pointIndex]) >=
               dC[ltsFace][pointIndex]) {
-        this->dynStressTime[ltsFace][pointIndex] = this->mFullUpdateTime;
+        this->dynStressTime[ltsFace][pointIndex] = time;
         this->dynStressTimePending[ltsFace][pointIndex] = false;
       }
     }

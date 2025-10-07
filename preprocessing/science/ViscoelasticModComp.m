@@ -8,21 +8,21 @@
 % @section LICENSE
 % Copyright (c) 2007, SeisSol Group
 % All rights reserved.
-% 
+%
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
-% 
+%
 % 1. Redistributions of source code must retain the above copyright notice,
 %    this list of conditions and the following disclaimer.
-% 
+%
 % 2. Redistributions in binary form must reproduce the above copyright notice,
 %    this list of conditions and the following disclaimer in the documentation
 %    and/or other materials provided with the distribution.
-% 
+%
 % 3. Neither the name of the copyright holder nor the names of its
 %    contributors may be used to endorse or promote products derived from this
 %    software without specific prior written permission.
-% 
+%
 % THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 % AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 % IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -70,7 +70,7 @@
 %% recommended values for vp_0 and vs_0 given the proposed setup. For
 %% double-checking one can then re-run the script now assigning the
 %% previously obtained vp_0 and vs_0 values so that we are certain that the
-%% values computed are correct. 
+%% values computed are correct.
 home
 clear all;
 close all;
@@ -127,7 +127,7 @@ disp(strcat('Q for S-wave=  ',num2str(QSval)));
 %%%%%%%%%% PROBLEM SETUP %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %Derived quantities initialization
-w_max=10001;          % Maximum frequency (minimum freq = -w_max). Is better to keep an odd number 
+w_max=10001;          % Maximum frequency (minimum freq = -w_max). Is better to keep an odd number
 w_inc=0.1;           % Increment in frequency
 w0=freq*(2*pi);        % Conversion to angular velocity
 w=[0:w_inc:w_max];
@@ -147,7 +147,7 @@ YS=zeros(n,1);
 
 %% Selection of the logarithmically equispaced frequencies
 wmean=2*pi*freq;
-wmin_disc=wmean/sqrt(f_ratio); 
+wmin_disc=wmean/sqrt(f_ratio);
 
 if n==1
     w_disc=w0;
@@ -178,8 +178,8 @@ YS=AS\QS;
 %%%%%%%%%% VISUALIZATION OF Q IN FREQUENCY %%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Getting values for the continuous representation of Q %%
-wmin=wmean/sqrt(f_ratio); 
-wmax=wmean*sqrt(f_ratio); 
+wmin=wmean/sqrt(f_ratio);
+wmax=wmean*sqrt(f_ratio);
 xfrq=[wmin:(wmax-wmin)/(10000-1):wmax];
 
 %% P-wave Q continuous values

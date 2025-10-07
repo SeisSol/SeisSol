@@ -83,8 +83,8 @@ std::vector<T> convertStringToVector(const std::string& inputString,
   }
 
   auto convert = [&inputString](size_t begin, size_t end) {
-    size_t count = end - begin;
-    std::string word = inputString.substr(begin, count);
+    const size_t count = end - begin;
+    const std::string word = inputString.substr(begin, count);
     if constexpr (std::is_integral_v<T>) {
       return std::stoi(word);
     } else if constexpr (std::is_floating_point_v<T>) {
@@ -171,7 +171,7 @@ class FileProcessor {
   static void removeEmptyLines(StringsType& content) {
     const std::string whitespace = " \n\r\t\f\v";
     auto isEmptyString = [&whitespace](const std::string& string) -> bool {
-      size_t start = string.find_first_not_of(whitespace);
+      const size_t start = string.find_first_not_of(whitespace);
       return start == std::string::npos;
     };
 

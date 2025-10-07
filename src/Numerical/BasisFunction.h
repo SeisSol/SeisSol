@@ -19,8 +19,7 @@
 #include "Functions.h"
 #include "Transformation.h"
 
-namespace seissol {
-namespace basisFunction {
+namespace seissol::basisFunction {
 
 //------------------------------------------------------------------------------
 
@@ -132,7 +131,7 @@ class SampledBasisFunctions {
    */
   SampledBasisFunctions(unsigned int order, T xi, T eta, T zeta)
       : m_data(basisFunctionsForOrder(order)) {
-    BasisFunctionGenerator<T> gen(xi, eta, zeta);
+    const BasisFunctionGenerator<T> gen(xi, eta, zeta);
 
     unsigned int i = 0;
     for (unsigned int ord = 0; ord < order; ord++) {
@@ -191,7 +190,7 @@ class SampledBasisFunctionDerivatives {
    */
   SampledBasisFunctionDerivatives(unsigned int order, T xi, T eta, T zeta)
       : m_data(3 * basisFunctionsForOrder(order)) {
-    BasisFunctionDerivativeGenerator<T> gen(xi, eta, zeta);
+    const BasisFunctionDerivativeGenerator<T> gen(xi, eta, zeta);
     auto dataView = init::basisFunctionDerivativesAtPoint<Cfg>::view::create(m_data.data());
 
     unsigned int i = 0;
@@ -272,13 +271,12 @@ class TimeBasisFunctionGenerator {
 
 template <class T>
 class SampledTimeBasisFunctions {
-  static_assert(std::is_arithmetic<T>::value,
+  static_assert(std::is_arithmetic_v<T>,
                 "Type T for SampledTimeBasisFunctions must be arithmetic.");
 
   public:
   std::vector<T> m_data;
 
-  public:
   SampledTimeBasisFunctions(unsigned int order, T tau) : m_data(order) {
     TimeBasisFunctionGenerator<T> gen(tau);
 
@@ -292,7 +290,7 @@ class SampledTimeBasisFunctions {
     return std::inner_product(m_data.begin(), m_data.end(), coeffIter, static_cast<T>(0));
   }
 
-  unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
 };
 
 namespace tri_dubiner {
@@ -319,7 +317,6 @@ inline void evaluateGradPolynomials(double* phis, double xi, double eta, int num
   }
 }
 } // namespace tri_dubiner
-} // namespace basisFunction
-} // namespace seissol
+} // namespace seissol::basisFunction
 
 #endif // SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_

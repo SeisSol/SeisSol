@@ -118,7 +118,7 @@ LtsWeights::LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissol
       m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity),
       boundaryFormat(config.boundaryFormat) {}
 
-void LtsWeights::computeWeights(PUML::TETPUML const& mesh, const ConfigMap& configMap) {
+void LtsWeights::computeWeights(const PUML::TETPUML& mesh, const ConfigMap& configMap) {
   bool continueComputation = true;
   const auto* groups = reinterpret_cast<const int*>(mesh.cellData(0));
 

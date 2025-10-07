@@ -40,8 +40,9 @@ class DynamicRupture : public Kernel {
       DREnergyOutput<Cfg>* drEnergyOutput,
       const real* timeDerivativePlus,
       const real* timeDerivativeMinus,
-      real qInterpolatedPlus[Cfg::ConvergenceOrder][seissol::tensor::QInterpolated<Cfg>::size()],
-      real qInterpolatedMinus[Cfg::ConvergenceOrder][seissol::tensor::QInterpolated<Cfg>::size()],
+      real qInterpolatedPlus[dr::misc::TimeSteps<Cfg>][seissol::tensor::QInterpolated<Cfg>::size()],
+      real qInterpolatedMinus[dr::misc::TimeSteps<Cfg>]
+                             [seissol::tensor::QInterpolated<Cfg>::size()],
       const real* timeDerivativePlusPrefetch,
       const real* timeDerivativeMinusPrefetch,
       const real* coeffs);

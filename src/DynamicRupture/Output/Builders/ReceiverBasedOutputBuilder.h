@@ -43,7 +43,7 @@ class ReceiverBasedOutputBuilder {
   void initBasisFunctions();
   void initFaultDirections();
   void initRotationMatrices();
-  void initOutputVariables(std::array<bool, std::tuple_size<DrVarsT>::value>& outputMask);
+  void initOutputVariables(std::array<bool, std::tuple_size_v<DrVarsT>>& outputMask);
   void initJacobian2dMatrices();
   void assignNearestInternalGaussianPoints();
   void assignFaultTags();

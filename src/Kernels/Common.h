@@ -115,7 +115,7 @@ constexpr std::size_t getNumberOfAlignedBasisFunctions(std::size_t convergenceOr
                                                        std::size_t alignment = Vectorsize) {
   // return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) *
   // REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
-  std::size_t numberOfBasisFunctions = getNumberOfBasisFunctions(convergenceOrder);
+  const auto numberOfBasisFunctions = getNumberOfBasisFunctions(convergenceOrder);
   return getNumberOfAlignedReals<RealT>(numberOfBasisFunctions);
 }
 

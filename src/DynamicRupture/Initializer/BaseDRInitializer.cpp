@@ -389,7 +389,11 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
                       insertIndex("nuc", "yz"),
                       insertIndex("nuc", "xz")};
   } else {
-    tractionNames = {"T_n", "T_s", "T_d"};
+    const auto tnName = faultNameAlternatives({"T_n", "Pn0"});
+    const auto tsName = faultNameAlternatives({"T_s", "Ts0"});
+    const auto tdName = faultNameAlternatives({"T_d", "Td0"});
+
+    tractionNames = {tnName, tsName, tdName};
     cartesianNames = {"s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz"};
   }
   if (materialType == model::MaterialType::Poroelastic) {
@@ -461,5 +465,18 @@ template void
                                   const std::vector<std::size_t>& faceIDs,
                                   std::size_t simid,
                                   std::size_t configId);
+
+std::string BaseDRInitializer::faultNameAlternatives(const std::vector<std::string>& parameter) {
+  for (const auto& name : parameter) {
+    if (faultProvides(name)) {
+      if (name != parameter[0]) {
+        logWarning() << "You are using the deprecated fault parameter name" << name << "for"
+                     << parameter[0];
+      }
+      return name;
+    }
+  }
+  return parameter[0];
+}
 
 } // namespace seissol::dr::initializer

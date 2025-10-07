@@ -145,8 +145,10 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
       const auto& faultInfo = faultInfos[faceIndex];
 
       if constexpr (isDeviceOn()) {
-        real* dofsPlusData = outputData->deviceDataCollector->get(outputData->deviceDataPlus[i]);
-        real* dofsMinusData = outputData->deviceDataCollector->get(outputData->deviceDataMinus[i]);
+        const real* dofsPlusData =
+            outputData->deviceDataCollector->get(outputData->deviceDataPlus[i]);
+        const real* dofsMinusData =
+            outputData->deviceDataCollector->get(outputData->deviceDataMinus[i]);
 
         std::memcpy(dofsPlus, dofsPlusData, sizeof(dofsPlus));
         std::memcpy(dofsMinus, dofsMinusData, sizeof(dofsMinus));
@@ -277,7 +279,7 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
 
       auto& ruptureTime = std::get<VariableID::RuptureTime>(outputData->vars);
       if (ruptureTime.isActive) {
-        auto* rt = getCellData<DynamicRupture::RuptureTime>(cfg, local);
+        const auto* rt = getCellData<DynamicRupture::RuptureTime>(cfg, local);
         ruptureTime(level, i) = rt[local.gpIndex];
       }
 
@@ -288,7 +290,7 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
 
       auto& accumulatedSlip = std::get<VariableID::AccumulatedSlip>(outputData->vars);
       if (accumulatedSlip.isActive) {
-        auto* slip = getCellData<DynamicRupture::AccumulatedSlipMagnitude>(cfg, local);
+        const auto* slip = getCellData<DynamicRupture::AccumulatedSlipMagnitude>(cfg, local);
         accumulatedSlip(level, i) = slip[local.gpIndex];
       }
 
@@ -320,13 +322,13 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
 
       auto& peakSlipsRate = std::get<VariableID::PeakSlipRate>(outputData->vars);
       if (peakSlipsRate.isActive) {
-        auto* peakSR = getCellData<DynamicRupture::PeakSlipRate>(cfg, local);
+        const auto* peakSR = getCellData<DynamicRupture::PeakSlipRate>(cfg, local);
         peakSlipsRate(level, i) = peakSR[local.gpIndex];
       }
 
       auto& dynamicStressTime = std::get<VariableID::DynamicStressTime>(outputData->vars);
       if (dynamicStressTime.isActive) {
-        auto* dynStressTime = getCellData<DynamicRupture::DynStressTime>(cfg, local);
+        const auto* dynStressTime = getCellData<DynamicRupture::DynStressTime>(cfg, local);
         dynamicStressTime(level, i) = dynStressTime[local.gpIndex];
       }
 
@@ -473,7 +475,7 @@ template <typename Cfg>
 Real<Cfg> ReceiverOutputImpl<Derived>::computeRuptureVelocity(
     const Eigen::Matrix<Real<Cfg>, 2, 2>& jacobiT2d, const LocalInfo<Cfg>& local) {
   using real = Real<Cfg>;
-  auto* ruptureTime = getCellData<DynamicRupture::RuptureTime>(Cfg(), local);
+  const auto* ruptureTime = getCellData<DynamicRupture::RuptureTime>(Cfg(), local);
   real ruptureVelocity = 0.0;
 
   bool needsUpdate{true};
@@ -497,7 +499,7 @@ Real<Cfg> ReceiverOutputImpl<Derived>::computeRuptureVelocity(
     auto weights =
         init::quadweights<Cfg>::view::create(const_cast<real*>(init::quadweights<Cfg>::Values));
 
-    auto* rt = getCellData<DynamicRupture::RuptureTime>(Cfg(), local);
+    const auto* rt = getCellData<DynamicRupture::RuptureTime>(Cfg(), local);
     for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints<Cfg>; ++jBndGP) {
       const real chi = seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, jBndGP, 0);
       const real tau = seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, jBndGP, 1);

@@ -356,10 +356,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         const auto* godunovData = layer.var<DynamicRupture::GodunovData>(cfg);
         const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
         const auto* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>(cfg);
-        const seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus =
-            layer.var<DynamicRupture::WaveSpeedsPlus>();
-        const seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus =
-            layer.var<DynamicRupture::WaveSpeedsMinus>();
+        const auto* waveSpeedsPlus = layer.var<DynamicRupture::WaveSpeedsPlus>();
+        const auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
         const auto layerSize = layer.size();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP

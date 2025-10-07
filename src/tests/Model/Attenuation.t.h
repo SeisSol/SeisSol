@@ -24,8 +24,8 @@ TEST_CASE("Attenuation") {
   vm.mu = 30969716301.94932938;
   vm.lambda = 30969716301.94934082;
 
-  vm.Qp = 58.40512125971850566;
-  vm.Qs = 29.20256062985925283;
+  vm.qp = 58.40512125971850566;
+  vm.qs = 29.20256062985925283;
 
   constexpr double FreqCentral = 0.3;
   constexpr double FreqRatio = 100;

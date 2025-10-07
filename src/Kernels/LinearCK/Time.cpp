@@ -24,7 +24,6 @@
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <cstdint>
-#include <iterator>
 
 #include "Kernels/Common.h"
 #include "Kernels/MemoryOps.h"

@@ -18,6 +18,7 @@
 #include "Initializer/PointMapper.h"
 #include "Kernels/PointSourceClusterOnHost.h"
 #include "Numerical/Transformation.h"
+#include "Parallel/Helper.h"
 #include "PointSource.h"
 #include <Common/Constants.h>
 #include <Equations/Datastructures.h>
@@ -355,7 +356,7 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
   auto hostData = std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources<Cfg>>>(
       std::make_shared<ClusterMapping>(mapping), std::make_shared<PointSources<Cfg>>(sources));
 
-#if defined(ACL_DEVICE)
+#ifdef ACL_DEVICE
   using GpuImpl = seissol::kernels::PointSourceClusterOnDevice<Cfg>;
 
   const auto deviceData =

@@ -11,6 +11,7 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
 #include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
+#include <Memory/Descriptor/DynamicRupture.h>
 
 namespace seissol::dr::friction_law::gpu {
 /**
@@ -39,6 +40,12 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
         layerData.var<LTSRateAndState::RsSl0>(Cfg(), seissol::initializer::AllocationPlace::Device);
     data->stateVariable = layerData.var<LTSRateAndState::StateVariable>(
         Cfg(), seissol::initializer::AllocationPlace::Device);
+    data->f0 =
+        layerData.var<LTSRateAndState::RsF0>(Cfg(), seissol::initializer::AllocationPlace::Device);
+    data->muW =
+        layerData.var<LTSRateAndState::RsMuW>(Cfg(), seissol::initializer::AllocationPlace::Device);
+    data->b =
+        layerData.var<LTSRateAndState::RsB>(Cfg(), seissol::initializer::AllocationPlace::Device);
     Derived::copySpecificStorageDataToLocal(data, layerData);
     TPMethod::copyStorageToLocal(data, layerData);
   }
@@ -207,15 +214,15 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
     ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] = slipRate2;
   }
 
-  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& ctx) {
+  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& ctx, real time) {
     auto muW{ctx.data->drParameters.muW};
     auto rsF0{ctx.data->drParameters.rsF0};
 
     const auto localRuptureTime = ctx.data->ruptureTime[ctx.ltsFace][ctx.pointIndex];
-    if (localRuptureTime > 0.0 && localRuptureTime <= ctx.args->fullUpdateTime &&
+    if (localRuptureTime > 0.0 && localRuptureTime <= time &&
         ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
         ctx.data->mu[ctx.ltsFace][ctx.pointIndex] <= (muW + 0.05 * (rsF0 - muW))) {
-      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = ctx.args->fullUpdateTime;
+      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = time;
       ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
     }
   }
