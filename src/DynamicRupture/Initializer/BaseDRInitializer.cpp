@@ -100,6 +100,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
     nucleationStresses.reserve(drParameters->nucleationCount);
     for (unsigned i = 0; i < drParameters->nucleationCount; ++i) {
       nucleationStresses.emplace_back(layer.size());
+      nucleationStresses.back().setZero();
       nucleationStressParameterizedByTraction[i] =
           addStressesToStorageMap(nucleationStresses[i], i + 1);
     }

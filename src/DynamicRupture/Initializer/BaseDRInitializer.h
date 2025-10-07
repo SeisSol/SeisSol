@@ -63,7 +63,24 @@ class BaseDRInitializer {
     VectorOfArraysT yz;
     VectorOfArraysT xz;
     VectorOfArraysT p;
+
+    void setZero() {
+        auto zeroOut = [](VectorOfArraysT& vec) {
+            for (auto& arr : vec) {
+                arr.fill(static_cast<real>(0));
+            }
+        };
+
+        zeroOut(xx);
+        zeroOut(yy);
+        zeroOut(zz);
+        zeroOut(xy);
+        zeroOut(yz);
+        zeroOut(xz);
+        zeroOut(p);
+    }
   };
+
 
   public:
   /**
