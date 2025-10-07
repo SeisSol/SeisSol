@@ -104,9 +104,10 @@ Hdf5DataWrite::Hdf5DataWrite(const Hdf5Location& location,
                              const std::string& name,
                              std::shared_ptr<writer::DataSource> dataSource,
                              std::shared_ptr<datatype::Datatype> targetType,
+                             bool append,
                              int compress)
     : location(location), name(name), dataSource(std::move(dataSource)),
-      targetType(std::move(targetType)), compress(compress) {}
+      targetType(std::move(targetType)), append(append), compress(compress) {}
 
 YAML::Node Hdf5DataWrite::serialize() {
   YAML::Node node;
@@ -116,6 +117,7 @@ YAML::Node Hdf5DataWrite::serialize() {
   node["targetType"] = targetType->serialize();
   node["writer"] = "hdf5";
   node["type"] = "data";
+  node["append"] = append;
   node["compress"] = compress;
   return node;
 }
@@ -123,9 +125,8 @@ YAML::Node Hdf5DataWrite::serialize() {
 Hdf5DataWrite::Hdf5DataWrite(YAML::Node node)
     : location(Hdf5Location(node["location"])), name(node["name"].as<std::string>()),
       dataSource(writer::DataSource::deserialize(node["source"])),
-
       targetType(datatype::Datatype::deserialize(node["targetType"])),
-      compress(node["compress"].as<int>()) {}
+      append(node["append"].as<bool>()), compress(node["compress"].as<int>()) {}
 
 std::vector<std::shared_ptr<DataSource>> Hdf5DataWrite::dataSources() { return {dataSource}; }
 

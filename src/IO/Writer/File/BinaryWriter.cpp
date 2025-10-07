@@ -34,6 +34,13 @@ void BinaryFile::writeDistributed(const void* data, std::size_t size) {
   // TODO: get max write size
   MPI_File_write_all(file, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
 }
+void BinaryFile::align(std::size_t alignment) {
+  MPI_Offset position = 0;
+  MPI_File_get_position(file, &position);
+
+  const auto alignedPosition = ((position + alignment - 1) / alignment) * alignment;
+  MPI_File_seek(file, alignedPosition, MPI_SEEK_SET);
+}
 void BinaryFile::closeFile() { MPI_File_close(&file); }
 
 BinaryWriter::BinaryWriter(MPI_Comm comm) : comm(comm) {}
@@ -48,6 +55,10 @@ void BinaryWriter::write(const async::ExecInfo& info, const instructions::Binary
 
   // TODO: add dimensions
   const auto dataSize = write.dataSource->count(info) * write.dataSource->datatype()->size();
+
+  if (write.alignment > 0) {
+    openFiles[write.filename]->align(write.alignment);
+  }
 
   if (write.dataSource->distributed()) {
     openFiles[write.filename]->writeDistributed(dataPointer, dataSize);

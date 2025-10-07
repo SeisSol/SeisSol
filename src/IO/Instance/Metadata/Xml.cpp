@@ -36,7 +36,7 @@ void XmlInstructor::addBuffer(const std::shared_ptr<writer::DataSource>& dataSou
   if (dataSource->distributed()) {
     flush();
     instructionList.push_back(
-        std::make_shared<writer::instructions::BinaryWrite>(file, dataSource, written));
+        std::make_shared<writer::instructions::BinaryWrite>(file, dataSource, 0, written));
     written = true;
   } else {
     cache << dataSource->datatype()->toStringRaw(dataSource->getLocalPointer());
@@ -47,7 +47,7 @@ void XmlInstructor::flush() {
   const auto data = cache.str();
   if (!data.empty()) {
     instructionList.push_back(std::make_shared<writer::instructions::BinaryWrite>(
-        file, writer::WriteInline::createString(data), written));
+        file, writer::WriteInline::createString(data), 0, written));
     written = true;
   }
   cache.clear();

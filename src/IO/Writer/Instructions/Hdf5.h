@@ -64,12 +64,14 @@ struct Hdf5DataWrite : public WriteInstruction {
   std::string name;
   std::shared_ptr<writer::DataSource> dataSource;
   std::shared_ptr<datatype::Datatype> targetType;
+  bool append;
   int compress;
 
   Hdf5DataWrite(const Hdf5Location& location,
                 const std::string& name,
                 std::shared_ptr<writer::DataSource> dataSource,
                 std::shared_ptr<datatype::Datatype> targetType,
+                bool append = false,
                 int compress = 0);
 
   YAML::Node serialize() override;
