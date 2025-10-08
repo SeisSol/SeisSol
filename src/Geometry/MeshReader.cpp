@@ -352,7 +352,7 @@ void MeshReader::computeTimestepIfNecessary(const seissol::SeisSol& seissolInsta
   }
 }
 
-void MeshReader::verifyMesh() {
+void MeshReader::verifyMeshOrientation() {
   // for now, only check the tetrahedron orientation here
 
   bool correct = true;

@@ -105,8 +105,6 @@ The following convention for defining a face ID is used:
 
    s_vert[0,:] = [0,2,1];   s_vert[1,:] = [0,1,3];    s_vert[2,:] = [1,2,3]; s_vert[3,:] = [0,3,2];
 
-In general,
-
 Periodic Boundaries
 -------------------
 

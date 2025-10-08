@@ -98,7 +98,7 @@ class MeshReader {
   void exchangeGhostlayerMetadata();
 
   // verify the mesh, e.g. the tetrahedron orientation etc.
-  void verifyMesh();
+  void verifyMeshOrientation();
 };
 
 } // namespace seissol::geometry

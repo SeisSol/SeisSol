@@ -76,7 +76,7 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   meshReader.extractFaultInformation(center, drParameters.refPointMethod);
 
   logInfo() << "Check the mesh for geometric errors.";
-  meshReader.verifyMesh();
+  meshReader.verifyMeshOrientation();
 
   seissolInstance.getLtsLayout().setMesh(meshReader);
 
@@ -255,11 +255,6 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   }
   if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32x4) {
     logInfo() << "Using boundary format: i32x4 (4xi32)";
-  }
-
-  if (topologyFormat == seissol::initializer::parameters::TopologyFormat::Auto) {
-    logInfo() << "Inferring topology format; i.e. set it to the connectivity.";
-    topologyFormat = seissol::initializer::parameters::TopologyFormat::Geometric;
   }
 
   if (topologyFormat == seissol::initializer::parameters::TopologyFormat::Geometric) {
