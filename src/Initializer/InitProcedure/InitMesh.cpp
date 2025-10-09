@@ -221,8 +221,8 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
 
       if (topologyFormatStr.value() == "geometric") {
         topologyFormat = seissol::initializer::parameters::TopologyFormat::Geometric;
-      } else if (topologyFormatStr.value() == "identify-cell") {
-        topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyCell;
+      } else if (topologyFormatStr.value() == "identify-face") {
+        topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyFace;
       } else if (topologyFormatStr.value() == "identify-vertex") {
         topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyVertex;
       } else {
@@ -237,7 +237,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       if (vertexIdentifyTest > 0) {
         topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyVertex;
       } else if (cellIdentifyTest > 0) {
-        topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyCell;
+        topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyFace;
       } else {
         topologyFormat = seissol::initializer::parameters::TopologyFormat::Geometric;
       }
@@ -260,7 +260,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   if (topologyFormat == seissol::initializer::parameters::TopologyFormat::Geometric) {
     logInfo() << "Using the geometric topology.";
   }
-  if (topologyFormat == seissol::initializer::parameters::TopologyFormat::IdentifyCell) {
+  if (topologyFormat == seissol::initializer::parameters::TopologyFormat::IdentifyFace) {
     logInfo() << "Using a topology mesh.";
   }
   if (topologyFormat == seissol::initializer::parameters::TopologyFormat::IdentifyVertex) {

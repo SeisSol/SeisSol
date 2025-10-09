@@ -206,7 +206,7 @@ PUMLReader::PUMLReader(const char* meshFile,
 
     read(meshTopologyExtra,
          meshFile,
-         topologyFormat == initializer::parameters::TopologyFormat::IdentifyCell);
+         topologyFormat == initializer::parameters::TopologyFormat::IdentifyFace);
 
     int id = -1;
     if (topologyFormat == initializer::parameters::TopologyFormat::IdentifyVertex) {

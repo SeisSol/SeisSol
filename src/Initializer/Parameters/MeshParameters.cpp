@@ -36,7 +36,7 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
       {
           {"auto", TopologyFormat::Auto},
           {"geometric", TopologyFormat::Geometric},
-          {"identify-cell", TopologyFormat::IdentifyCell},
+          {"identify-face", TopologyFormat::IdentifyFace},
           {"identify-vertex", TopologyFormat::IdentifyVertex},
       });
 
