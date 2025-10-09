@@ -213,6 +213,10 @@ void OutputManager::initElementwiseOutput() {
     }
   });
 
+  const auto rank = seissol::MPI::mpi.rank();
+  writer.addCellData<int>(
+      "partition", {}, true, [=](int* target, std::size_t index) { target[0] = rank; });
+
   writer.addCellData<int>(
       "fault-tag", {}, true, [=, &receiverPoints](int* target, std::size_t index) {
         *target = receiverPoints[index].faultTag;

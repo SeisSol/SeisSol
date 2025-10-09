@@ -219,6 +219,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     });
 
+    const auto rank = seissol::MPI::mpi.rank();
+    writer.addCellData<int>(
+        "partition", {}, true, [=](int* target, std::size_t index) { target[0] = rank; });
+
     writer.addCellData<uint64_t>("clustering", {}, true, [=](uint64_t* target, std::size_t index) {
       target[0] = meshReader.getElements()[index].clusterId;
     });
@@ -334,6 +338,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             &target[i * 3]);
       }
     });
+
+    const auto rank = seissol::MPI::mpi.rank();
+    writer.addCellData<int>(
+        "partition", {}, true, [=](int* target, std::size_t index) { target[0] = rank; });
 
     writer.addCellData<std::uint8_t>(
         "locationFlag",
