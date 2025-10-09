@@ -14,6 +14,7 @@
 #include <IO/Writer/Instructions/Binary.h>
 #include <IO/Writer/Instructions/Hdf5.h>
 #include <memory>
+#include <mpi.h>
 #include <yaml-cpp/yaml.h>
 
 namespace async {
@@ -52,7 +53,7 @@ class Writer {
 
   std::string serialize();
 
-  WriteInstance beginWrite(const async::ExecInfo& info);
+  WriteInstance beginWrite(const async::ExecInfo& info, MPI_Comm comm);
 
   void endWrite();
 

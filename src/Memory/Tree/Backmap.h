@@ -107,8 +107,10 @@ class StorageBackmap {
                          const TRef* layerData,
                          std::size_t cell,
                          std::size_t index) {
-    const auto position =
-        static_cast<std::size_t>((layerData + index) - zeroPosition) / sizeof(TRef);
+    const auto layerPosition = (reinterpret_cast<std::intptr_t>(layerData) -
+                                reinterpret_cast<std::intptr_t>(zeroPosition)) /
+                               sizeof(TRef);
+    const auto position = layerPosition + index;
     const auto storagePosition = StoragePosition{color, index, position};
     for (std::size_t j = 0; j < MaxDuplicates; ++j) {
       if (data[cell][j] == StoragePosition::NullPosition) {
