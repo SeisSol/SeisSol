@@ -37,7 +37,7 @@ struct GhostElementMetadata {
 
 class MeshReader {
   protected:
-  const int mRank;
+  int mRank{0};
 
   std::vector<Element> m_elements;
 
@@ -96,6 +96,9 @@ class MeshReader {
                                seissol::initializer::parameters::RefPointMethod refPointMethod);
 
   void exchangeGhostlayerMetadata();
+
+  // verify the mesh, e.g. the tetrahedron orientation etc.
+  void verifyMeshOrientation();
 };
 
 } // namespace seissol::geometry

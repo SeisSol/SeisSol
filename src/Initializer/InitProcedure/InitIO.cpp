@@ -29,6 +29,7 @@
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -131,21 +132,17 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     const std::vector<Element>& meshElements = seissolInstance.meshReader().getElements();
     std::vector<unsigned> ltsClusteringData(meshElements.size());
     std::vector<unsigned> ltsIdData(meshElements.size());
-    for (const auto& element : meshElements) {
-      ltsClusteringData[element.localId] = element.clusterId;
-      ltsIdData[element.localId] = element.globalId;
-    }
-    std::vector<std::size_t> meshToLts(ltsStorage.size(seissol::initializer::LayerMask(Ghost)));
-    std::size_t offset = 0;
-    for (auto& layer : ltsStorage.leaves(Ghost)) {
+    std::vector<std::size_t> meshToLts(meshElements.size());
+
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-      for (std::size_t i = 0; i < layer.size(); ++i) {
-        const auto meshId = layer.var<LTS::SecondaryInformation>()[i].meshId;
-        meshToLts[offset + i] = meshId;
-      }
-      offset += layer.size();
+    for (std::size_t i = 0; i < meshToLts.size(); ++i) {
+      const auto& element = meshElements[i];
+      ltsClusteringData[element.localId] = element.clusterId;
+      ltsIdData[element.localId] = element.globalId;
+      meshToLts[i] = backmap.get(i).global;
+      assert(ltsStorage.var<LTS::SecondaryInformation>()[meshToLts[i]].meshId == i);
     }
 
     // Initialize wave field output

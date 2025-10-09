@@ -88,8 +88,8 @@ struct DRParameters {
   std::array<std::optional<std::string>, seissol::multisim::NumSimulations> faultFileNames;
   Eigen::Vector3d referencePoint;
   real terminatorSlipRateThreshold{0.0};
-  double etaHack{1.0};
-  double etaStop{std::numeric_limits<double>::infinity()};
+  double etaDamp{1.0};
+  double etaDampEnd{std::numeric_limits<double>::infinity()};
   unsigned nucleationCount{0};
 };
 
