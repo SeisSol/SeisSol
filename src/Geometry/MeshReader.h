@@ -53,7 +53,7 @@ struct LinearGhostCell {
 
 class MeshReader {
   protected:
-  const int mRank;
+  int mRank{0};
 
   std::vector<Element> m_elements;
 
@@ -131,6 +131,9 @@ class MeshReader {
     is easier to deal with.
     */
   void linearizeGhostlayer();
+
+  // verify the mesh, e.g. the tetrahedron orientation etc.
+  void verifyMeshOrientation();
 };
 
 } // namespace seissol::geometry

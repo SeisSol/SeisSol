@@ -11,6 +11,7 @@
 #define SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 
 #include <Common/Templating.h>
+#include <Geometry/PUMLReader.h>
 #include <Initializer/ConfigMap.h>
 #include <memory>
 #include <set>
@@ -62,7 +63,8 @@ struct CellToVertexArray {
 
   static CellToVertexArray fromMeshReader(const seissol::geometry::MeshReader& meshReader);
 #ifdef USE_HDF
-  static CellToVertexArray fromPUML(const PUML::TETPUML& mesh, const ConfigMap& configs);
+  static CellToVertexArray fromPUML(const seissol::geometry::PumlMesh& mesh,
+                                    const ConfigMap& configs);
 #endif
   static CellToVertexArray
       fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,

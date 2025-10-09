@@ -312,7 +312,7 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
     velocities[dim] = seissol::memory::allocTyped<double>(totalNumberOfTriangles, Alignment);
     displacements[dim] = seissol::memory::allocTyped<double>(totalNumberOfTriangles, Alignment);
   }
-  locationFlags = std::vector<std::uint8_t>(totalNumberOfTriangles, 0);
+  locationFlags.resize(totalNumberOfTriangles);
   globalIds.resize(totalNumberOfTriangles);
 
   // NOTE: we store also for space storage duplicates here

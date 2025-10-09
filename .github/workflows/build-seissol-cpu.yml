@@ -78,11 +78,30 @@ jobs:
 
           if [ ${{matrix.setup.cc}} = nvc ]; then
             TESTING_COMMAND="mpirun -np 1 --oversubscribe --allow-run-as-root";
+
+            # there's still a bug with how NVHPC compiles the kernels; thus disable them for now
+            TESTING_GENERATED_ENABLE=OFF;
           else
             TESTING_COMMAND="";
+            TESTING_GENERATED_ENABLE=ON;
           fi;
 
-          cmake .. -GNinja -DNEW_BINARY_NAMING=ON -DTESTING_COMMAND="${TESTING_COMMAND}" -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DASAGI=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }}
+          cmake .. \
+            -GNinja \
+            -DNEW_BINARY_NAMING=ON \
+            -DTESTING_COMMAND="${TESTING_COMMAND}" \
+            -DCMAKE_INSTALL_PREFIX=/opt/seissol \
+            -DTESTING=ON \
+            -DTESTING_GENERATED=${TESTING_GENERATED_ENABLE} \
+            -DASAGI=ON \
+            -DHOST_ARCH=${{matrix.arch}} \
+            -DORDER=${{matrix.order}} \
+            -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
+            -DEQUATIONS=${{matrix.equation.type}} \
+            -DPRECISION=${{matrix.precision}} \
+            -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} \
+            -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }}
+
           ninja install -j1
 
       - name: test-seissol

@@ -34,7 +34,6 @@
 #include <mpi.h>
 
 #include "PUML/Downward.h"
-#include "PUML/PUML.h"
 #include "PUML/Upward.h"
 
 #include "GeneratedCode/init.h"
@@ -118,13 +117,15 @@ LtsWeights::LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissol
       m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity),
       boundaryFormat(config.boundaryFormat) {}
 
-void LtsWeights::computeWeights(const PUML::TETPUML& mesh, const ConfigMap& configMap) {
+void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
+                                const seissol::geometry::PumlMesh& meshGeometry,
+                                const ConfigMap& configMap) {
   bool continueComputation = true;
-  const auto* groups = reinterpret_cast<const int*>(mesh.cellData(0));
+  const auto* groups = reinterpret_cast<const int*>(meshGeometry.cellData(0));
 
   std::size_t ltsUnsupported = 0;
   std::string unsupportedExample;
-  for (std::size_t i = 0; i < mesh.cells().size(); ++i) {
+  for (std::size_t i = 0; i < meshGeometry.cells().size(); ++i) {
     const auto config = 0; // groups[i];
 
     std::visit(
@@ -159,7 +160,8 @@ void LtsWeights::computeWeights(const PUML::TETPUML& mesh, const ConfigMap& conf
   logInfo() << "Computing LTS weights.";
 
   // Note: Return value optimization is guaranteed while returning temp. objects in C++17
-  m_mesh = &mesh;
+  m_meshTopology = &meshTopology;
+  m_meshGeometry = &meshGeometry;
   m_details = collectGlobalTimeStepDetails(configMap);
   m_cellCosts = computeCostsPerTimestep();
 
@@ -432,7 +434,7 @@ std::uint64_t ratepow(const std::vector<std::uint64_t>& rate, std::uint64_t a, s
 seissol::initializer::GlobalTimestep
     LtsWeights::collectGlobalTimeStepDetails(const ConfigMap& configMap) {
   return seissol::initializer::computeTimesteps(
-      seissol::initializer::CellToVertexArray::fromPUML(*m_mesh, configMap),
+      seissol::initializer::CellToVertexArray::fromPUML(*m_meshGeometry, configMap),
       seissolInstance.getSeisSolParameters());
 }
 
@@ -457,7 +459,7 @@ int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWig
 #ifdef _OPENMP
 #pragma omp parallel for reduction(+ : cellchanges)
 #endif
-      for (std::size_t cell = 0; cell < m_mesh->cells().size(); ++cell) {
+      for (std::size_t cell = 0; cell < m_meshTopology->cells().size(); ++cell) {
         if (lb->second[cell] > newClusterIds[cell]) {
           ++cellchanges;
         }
@@ -465,7 +467,7 @@ int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWig
       }
     } else {
       m_clusterIds = computeClusterIds(curWiggleFactor);
-      cellchanges = m_mesh->cells().size();
+      cellchanges = m_meshTopology->cells().size();
     }
     const auto& ltsParameters = seissolInstance.getSeisSolParameters().timeStepping.lts;
     if (ltsParameters.getWiggleFactorEnforceMaximumDifference()) {
@@ -481,7 +483,7 @@ int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWig
 }
 
 std::vector<int> LtsWeights::computeClusterIds(double curWiggleFactor) {
-  const auto& cells = m_mesh->cells();
+  const auto& cells = m_meshTopology->cells();
   std::vector<int> clusterIds(cells.size(), 0);
 #ifdef _OPENMP
 #pragma omp parallel for
@@ -494,16 +496,16 @@ std::vector<int> LtsWeights::computeClusterIds(double curWiggleFactor) {
 }
 
 std::vector<int> LtsWeights::computeCostsPerTimestep() {
-  const auto& cells = m_mesh->cells();
+  const auto& cells = m_meshTopology->cells();
 
   std::vector<int> cellCosts(cells.size());
-  const void* boundaryCond = m_mesh->cellData(1);
+  const void* boundaryCond = m_meshTopology->cellData(1);
   for (std::size_t cell = 0; cell < cells.size(); ++cell) {
     int dynamicRupture = 0;
     int freeSurfaceWithGravity = 0;
 
     unsigned int faceids[Cell::NumFaces];
-    PUML::Downward::faces(*m_mesh, cells[cell], faceids);
+    PUML::Downward::faces(*m_meshTopology, cells[cell], faceids);
 
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       const auto faceType = getBoundaryCondition(boundaryCond, cell, face);
@@ -536,15 +538,15 @@ int LtsWeights::enforceMaximumDifference() {
 }
 
 void LtsWeights::prepareDifferenceEnforcement() {
-  const auto& cells = m_mesh->cells();
-  const auto& faces = m_mesh->faces();
-  const void* boundaryCond = m_mesh->cellData(1);
+  const auto& cells = m_meshTopology->cells();
+  const auto& faces = m_meshTopology->faces();
+  const void* boundaryCond = m_meshTopology->cellData(1);
 
   std::unordered_map<int, std::vector<std::size_t>> rankToSharedFacesPre;
   for (std::size_t cell = 0; cell < cells.size(); ++cell) {
     unsigned int faceids[Cell::NumFaces]{};
     bool atBoundary = false;
-    PUML::Downward::faces(*m_mesh, cells[cell], faceids);
+    PUML::Downward::faces(*m_meshTopology, cells[cell], faceids);
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
       // Continue for regular, dynamic rupture, and periodic boundary cells
@@ -583,9 +585,9 @@ void LtsWeights::prepareDifferenceEnforcement() {
 int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
   int numberOfReductions = 0;
 
-  const auto& cells = m_mesh->cells();
-  const auto& faces = m_mesh->faces();
-  const void* boundaryCond = m_mesh->cellData(1);
+  const auto& cells = m_meshTopology->cells();
+  const auto& faces = m_meshTopology->faces();
+  const void* boundaryCond = m_meshTopology->cellData(1);
 
 #ifdef _OPENMP
 #pragma omp parallel for reduction(+ : numberOfReductions)
@@ -594,7 +596,7 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
     int timeCluster = m_clusterIds[cell];
 
     unsigned int faceids[Cell::NumFaces]{};
-    PUML::Downward::faces(*m_mesh, cells[cell], faceids);
+    PUML::Downward::faces(*m_meshTopology, cells[cell], faceids);
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       int difference = maxDifference;
       const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
@@ -604,7 +606,7 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
         const auto& face = faces.at(faceids[f]);
         if (!face.isShared()) {
           int cellIds[2];
-          PUML::Upward::cells(*m_mesh, face, cellIds);
+          PUML::Upward::cells(*m_meshTopology, face, cellIds);
 
           const int neighborCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
           const int otherTimeCluster = m_clusterIds[neighborCell];
@@ -663,7 +665,7 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
     int& timeCluster = m_clusterIds[cell];
 
     unsigned int faceids[Cell::NumFaces]{};
-    PUML::Downward::faces(*m_mesh, cells[cell], faceids);
+    PUML::Downward::faces(*m_meshTopology, cells[cell], faceids);
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       int difference = maxDifference;
       const auto boundary = getBoundaryCondition(boundaryCond, cell, f);

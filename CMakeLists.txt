@@ -170,7 +170,7 @@ else()
 endif()
 
 if (OVERRIDE_VECTORSIZE GREATER 0)
-  set(OVERRIDE_VECTORSIZE_PARAM "--vectorsize ${OVERRIDE_VECTORSIZE}")
+  set(OVERRIDE_VECTORSIZE_PARAM "--vectorsize=${OVERRIDE_VECTORSIZE}")
 else()
   set(OVERRIDE_VECTORSIZE_PARAM "")
 endif()
@@ -519,7 +519,7 @@ if (WITH_GPU)
     set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
     set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_BACKEND}")
   else()
-    set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "seissol-gpucode-${EXE_NAME_PREFIX}")
+    set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "seissol-gpucode-${NAME_SUFFIX}")
   endif()
 
   # set up GPU install targets
@@ -597,17 +597,6 @@ if (TESTING)
           src/tests/Common/TestCommon.cpp
           )
 
-
-  if (TESTING_GENERATED)
-    # FIXME: fix by removing the `using namespace` in the test files
-    # and replace by ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/test-kernel.cpp
-    file(GLOB_RECURSE KERNEL_TESTFILES ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/**/test-kernel.cpp)
-    set(seissol_test_sources
-            ${seissol_test_sources}
-            ${KERNEL_TESTFILES}
-            )
-  endif()
-
   configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/TimeStepping/mesh.h5
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh.h5
@@ -650,9 +639,29 @@ if (TESTING)
   target_link_libraries(seissol-serial-test PRIVATE seissol-lib)
   target_include_directories(seissol-serial-test PUBLIC external/)
 
+  if (TESTING_GENERATED)
+    if (WITH_GPU)
+
+      # for the GPU, create an extra library with device linking flags etc.
+      make_device_lib(seissol-serial-test-device "${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/test-kernel.cpp")
+      target_link_libraries(seissol-serial-test-device PRIVATE seissol-kernel-lib)
+      target_include_directories(seissol-serial-test-device PRIVATE external/)
+      target_link_libraries(seissol-serial-test PRIVATE seissol-serial-test-device)
+      target_compile_definitions(seissol-serial-test-device PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
+
+    else()
+
+      # else (i.e. CPU only), just add it to the main test binary
+      target_sources(seissol-serial-test PRIVATE
+        "${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/test-kernel.cpp")
+    endif()
+  endif()
+
   separate_arguments(TESTING_COMMAND_LIST NATIVE_COMMAND ${TESTING_COMMAND})
   set_property(TARGET seissol-serial-test PROPERTY CROSSCOMPILING_EMULATOR ${TESTING_COMMAND_LIST})
-  doctest_discover_tests(seissol-serial-test)
+  if (NOT TESTING_BUILD_ONLY)
+    doctest_discover_tests(seissol-serial-test)
+  endif()
 
   # Avoid duplicate definition of FLOP counters
   target_compile_definitions(seissol-serial-test PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)

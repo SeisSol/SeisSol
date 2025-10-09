@@ -7,6 +7,7 @@
 
 #include "Initializer/Parameters/LtsParameters.h"
 #include "tests/TestHelper.h"
+#include <Initializer/Parameters/MeshParameters.h>
 #include <memory>
 #include <numeric>
 
@@ -50,6 +51,7 @@ TEST_CASE("LTS Weights") {
                                     "Default",
                                     ConfigMap({}, env),
                                     seissol::initializer::parameters::BoundaryFormat::I32,
+                                    seissol::initializer::parameters::TopologyFormat::Geometric,
                                     ltsWeights.get());
   std::cout.clear();
 

@@ -62,11 +62,11 @@ class FreeSurfaceIntegrator {
   std::array<double*, NumComponents> velocities;
   std::array<double*, NumComponents> displacements;
 
-  std::vector<std::uint8_t> locationFlags;
+  std::vector<unsigned> locationFlags;
   std::size_t totalNumberOfFreeSurfaces{0};
   std::size_t totalNumberOfTriangles{0};
   std::vector<std::size_t> backmap;
-  std::vector<std::size_t> globalIds;
+  std::vector<unsigned> globalIds;
 
   SurfaceLTS::Storage* surfaceStorage{nullptr};
   seissol::refinement::TriangleRefiner triRefiner;
