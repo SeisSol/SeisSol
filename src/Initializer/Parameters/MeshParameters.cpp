@@ -30,6 +30,15 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
                                                             {"i64", BoundaryFormat::I64},
                                                             {"i32x4", BoundaryFormat::I32x4},
                                                         });
+  const auto pumlTopologyFormat = reader->readWithDefaultStringEnum<TopologyFormat>(
+      "pumltopologyformat",
+      "auto",
+      {
+          {"auto", TopologyFormat::Auto},
+          {"geometric", TopologyFormat::Geometric},
+          {"identify-face", TopologyFormat::IdentifyFace},
+          {"identify-vertex", TopologyFormat::IdentifyVertex},
+      });
 
   const auto displacementRaw = seissol::initializer::convertStringToArray<double, 3>(
       reader->readWithDefault("displacement", std::string("0.0 0.0 0.0")));
@@ -50,6 +59,7 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
 
   return MeshParameters{showEdgeCutStatistics,
                         pumlBoundaryFormat,
+                        pumlTopologyFormat,
                         meshFormat,
                         meshFileName,
                         partitioningLib,

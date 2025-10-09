@@ -20,9 +20,12 @@ enum class MeshFormat : int { PUML, CubeGenerator };
 
 enum class BoundaryFormat : int { Auto, I32, I64, I32x4 };
 
+enum class TopologyFormat : int { Auto, Geometric, IdentifyFace, IdentifyVertex };
+
 struct MeshParameters {
   bool showEdgeCutStatistics;
   BoundaryFormat pumlBoundaryFormat;
+  TopologyFormat pumlTopologyFormat;
   MeshFormat meshFormat;
   std::string meshFileName;
   std::string partitioningLib;
