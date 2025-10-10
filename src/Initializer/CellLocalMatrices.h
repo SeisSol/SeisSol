@@ -14,11 +14,11 @@
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
+#include <Initializer/ParameterDB.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Memory/Tree/Backmap.h>
 
 namespace seissol::initializer {
-class EasiBoundary;
 /**
  * Computes the star matrices A*, B*, and C*, and solves the Riemann problems at the interfaces.
  **/
@@ -28,16 +28,13 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                                  const parameters::ModelParameters& modelParameters);
 
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
-                                const EasiBoundary* easiBoundary,
+                                const EasiBoundaryT& easiBoundary,
                                 LTS::Storage& ltsStorage);
 
 void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,
                                       LTS::Storage& ltsStorage,
                                       const LTS::Backmap& backmap,
-                                      DynamicRupture::Storage& drStorage,
-                                      const unsigned* ltsFaceToMeshFace,
-                                      const GlobalData& global,
-                                      double etaDamp);
+                                      DynamicRupture::Storage& drStorage);
 } // namespace seissol::initializer
 
 #endif // SEISSOL_SRC_INITIALIZER_CELLLOCALMATRICES_H_

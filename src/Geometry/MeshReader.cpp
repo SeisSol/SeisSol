@@ -54,6 +54,14 @@ bool MeshReader::hasFault() const { return !m_fault.empty(); }
 
 bool MeshReader::hasPlusFault() const { return m_hasPlusFault; }
 
+const std::vector<LinearGhostCell>& MeshReader::linearGhostlayer() const {
+  return m_linearGhostlayer;
+}
+
+const std::map<std::pair<int, std::size_t>, std::size_t>& MeshReader::toLinearGhostlayer() const {
+  return m_toLinearGhostlayer;
+}
+
 void MeshReader::displaceMesh(const Eigen::Vector3d& displacement) {
   for (std::size_t vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
     for (std::size_t i = 0; i < Cell::Dim; ++i) {
@@ -265,20 +273,22 @@ void MeshReader::exchangeGhostlayerMetadata() {
   MPI_Datatype ghostElementTypePre = MPI_DATATYPE_NULL;
 
   // assume that all vertices are stored contiguously
-  const int datatypeCount = 6;
-  const std::vector<int> datatypeBlocklen{Cell::NumVertices * Cell::Dim, 1, 1, 1, 1, 1};
+  const int datatypeCount = 7;
+  const std::vector<int> datatypeBlocklen{Cell::NumVertices * Cell::Dim, 1, 1, 1, 1, 1, 1};
   const std::vector<MPI_Aint> datatypeDisplacement{offsetof(GhostElementMetadata, vertices),
                                                    offsetof(GhostElementMetadata, group),
                                                    offsetof(GhostElementMetadata, localId),
                                                    offsetof(GhostElementMetadata, globalId),
                                                    offsetof(GhostElementMetadata, clusterId),
-                                                   offsetof(GhostElementMetadata, timestep)};
+                                                   offsetof(GhostElementMetadata, timestep),
+                                                   offsetof(GhostElementMetadata, configId)};
   const std::vector<MPI_Datatype> datatypeDatatype{MPI_DOUBLE,
                                                    MPI_INT,
                                                    PUML::MPITypeInfer<LocalElemId>::type(),
                                                    PUML::MPITypeInfer<GlobalElemId>::type(),
                                                    MPI_INT,
-                                                   MPI_DOUBLE};
+                                                   MPI_DOUBLE,
+                                                   MPI_INT};
 
   MPI_Type_create_struct(datatypeCount,
                          datatypeBlocklen.data(),
@@ -312,6 +322,7 @@ void MeshReader::exchangeGhostlayerMetadata() {
       ghost.globalId = element.globalId;
       ghost.clusterId = element.clusterId;
       ghost.timestep = element.timestep;
+      ghost.configId = element.configId;
     }
 
     // TODO(David): evaluate, if MPI_Ssend (instead of just MPI_Send) makes sense here?
@@ -338,6 +349,26 @@ void MeshReader::exchangeGhostlayerMetadata() {
   MPI_Type_free(&ghostElementType);
 }
 
+void MeshReader::linearizeGhostlayer() {
+  m_linearGhostlayer.clear();
+  m_toLinearGhostlayer.clear();
+
+  // basic assumption: each cell appears only on exactly one rank
+  for (const auto& [rank, cells] : m_ghostlayerMetadata) {
+    // map for deterministic ordering (for now)
+    std::map<std::size_t, std::vector<std::size_t>> ordering;
+    for (std::size_t i = 0; i < cells.size(); ++i) {
+      ordering[cells[i].globalId].emplace_back(i);
+    }
+    for (const auto& [_, ids] : ordering) {
+      for (const auto& index : ids) {
+        m_toLinearGhostlayer[{rank, index}] = m_linearGhostlayer.size();
+      }
+      m_linearGhostlayer.push_back(LinearGhostCell{ids, rank});
+    }
+  }
+}
+
 void MeshReader::computeTimestepIfNecessary(const seissol::SeisSol& seissolInstance) {
   if (!inlineTimestepCompute()) {
     const auto ctvarray = seissol::initializer::CellToVertexArray::fromMeshReader(*this);
@@ -349,6 +380,12 @@ void MeshReader::computeTimestepIfNecessary(const seissol::SeisSol& seissolInsta
       // enforce GTS in the case here
       cell.clusterId = 0;
     }
+  }
+}
+
+void MeshReader::setupConfigs(const ConfigMap& map) {
+  for (auto& cell : m_elements) {
+    cell.configId = map.toConfig(cell.group).index();
   }
 }
 

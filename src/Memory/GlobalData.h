@@ -11,65 +11,47 @@
 
 #include "Initializer/Typedefs.h"
 #include "MemoryAllocator.h"
+#include <Common/Executor.h>
+#include <Common/Templating.h>
+#include <Config.h>
+#include <variant>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "device.h"
 #endif // ACL_DEVICE
 
-namespace seissol::initializer {
-/*
- * \class MemoryProperties
- *
- * \brief An auxiliary data structure for a policy-based design
- *
- * Attributes are initialized with CPU memory properties by default.
- * See, an example of a policy-based design in GlobalData.cpp
- * */
-struct MemoryProperties {
-  size_t alignment{Alignment};
-  size_t pagesizeHeap{PagesizeHeap};
-  size_t pagesizeStack{PagesizeStack};
+namespace seissol {
+
+struct GlobalData {
+  private:
+  memory::ManagedAllocator allocator;
+  enum memory::Memkind memkindHost = memory::Memkind::HighBandwidth; // TODO: really?
+  enum memory::Memkind memkindDevice = memory::Memkind::DeviceGlobalMemory;
+
+  using GlobalDataArray = ChangeVariadicT<
+      std::tuple,
+      TransformVariadicT<std::optional, TransformVariadicT<GlobalDataCfg, ConfigVariant>>>;
+
+  GlobalDataArray onHost;
+  GlobalDataArray onDevice;
+
+  public:
+  GlobalData() = default;
+
+  void init(std::size_t configId);
+
+  template <typename Cfg, Executor Exec = Executor::Host>
+  const GlobalDataCfg<Cfg>& get() const {
+    if constexpr (Exec == Executor::Host) {
+      return std::get<std::optional<GlobalDataCfg<Cfg>>>(onHost).value();
+    } else if constexpr (Exec == Executor::Device) {
+      return std::get<std::optional<GlobalDataCfg<Cfg>>>(onDevice).value();
+    }
+    throw;
+  }
 };
 
-namespace matrixmanip {
-struct OnHost {
-  using CopyManagerT = typename yateto::DefaultCopyManager<real>;
-  static MemoryProperties getProperties();
-  static void negateStiffnessMatrix(GlobalData& globalData);
-  static void initSpecificGlobalData(GlobalData& globalData,
-                                     memory::ManagedAllocator& allocator,
-                                     CopyManagerT& copyManager,
-                                     size_t alignment,
-                                     seissol::memory::Memkind memkind);
-};
-
-struct OnDevice {
-  struct DeviceCopyPolicy {
-    static real* copy(const real* first, const real* last, real*& mem);
-  };
-  using CopyManagerT = typename yateto::CopyManager<real, DeviceCopyPolicy>;
-  static MemoryProperties getProperties();
-  static void negateStiffnessMatrix(GlobalData& globalData);
-  static void initSpecificGlobalData(GlobalData& globalData,
-                                     memory::ManagedAllocator& allocator,
-                                     CopyManagerT& copyManager,
-                                     size_t alignment,
-                                     seissol::memory::Memkind memkind);
-};
-} // namespace matrixmanip
-
-// Generalized Global data initializers of SeisSol.
-template <typename MatrixManipPolicyT>
-struct GlobalDataInitializer {
-  static void init(GlobalData& globalData,
-                   memory::ManagedAllocator& memoryAllocator,
-                   enum memory::Memkind memkind);
-};
-
-// Specific Global data initializers of SeisSol.
-using GlobalDataInitializerOnHost = GlobalDataInitializer<matrixmanip::OnHost>;
-using GlobalDataInitializerOnDevice = GlobalDataInitializer<matrixmanip::OnDevice>;
-} // namespace seissol::initializer
+} // namespace seissol
 
 #endif // SEISSOL_SRC_MEMORY_GLOBALDATA_H_

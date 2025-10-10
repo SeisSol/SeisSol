@@ -11,6 +11,7 @@
 #include <Initializer/Parameters/MeshParameters.h>
 #include <Initializer/Parameters/SeisSolParameters.h>
 #include <Initializer/TimeStepping/LtsWeights/LtsWeights.h>
+#include <Monitoring/Instrumentation.h>
 #include <Solver/Estimator.h>
 #include <algorithm>
 #include <cmath>
@@ -68,6 +69,8 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   logInfo() << "Exchanging ghostlayer metadata.";
   meshReader.exchangeGhostlayerMetadata();
 
+  meshReader.linearizeGhostlayer();
+
   logInfo() << "Extracting fault information.";
   const auto& drParameters = seissolInstance.getSeisSolParameters().drParameters;
   const VrtxCoords center{drParameters.referencePoint[0],
@@ -77,8 +80,6 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
 
   logInfo() << "Check the mesh for geometric errors.";
   meshReader.verifyMeshOrientation();
-
-  seissolInstance.getLtsLayout().setMesh(meshReader);
 
   double maxPointValue[3]{-INFINITY, -INFINITY, -INFINITY};
   double minPointValue[3]{INFINITY, INFINITY, INFINITY};
@@ -104,6 +105,7 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
 }
 
 void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
+                  const ConfigMap& configMap,
                   seissol::SeisSol& seissolInstance) {
 #ifdef USE_HDF
   double nodeWeight = 1.0;
@@ -282,6 +284,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       seissolParams.timeStepping.lts.getLtsWeightsType(), config, seissolInstance);
   auto* meshReader = new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName.c_str(),
                                                        seissolParams.mesh.partitioningLib.c_str(),
+                                                       configMap,
                                                        boundaryFormat,
                                                        topologyFormat,
                                                        ltsWeights.get(),
@@ -328,6 +331,8 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   const auto commSize = seissol::MPI::mpi.size();
 
+  const auto configMap = ConfigMap({}, seissolInstance.env());
+
   logInfo() << "Begin init mesh.";
 
   // Call the pre mesh initialization hook
@@ -342,7 +347,7 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
 
   switch (meshFormat) {
   case seissol::initializer::parameters::MeshFormat::PUML: {
-    readMeshPUML(seissolParams, seissolInstance);
+    readMeshPUML(seissolParams, configMap, seissolInstance);
     break;
   }
   case seissol::initializer::parameters::MeshFormat::CubeGenerator: {
@@ -354,6 +359,9 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
   }
 
   auto& meshReader = seissolInstance.meshReader();
+
+  meshReader.setupConfigs(configMap);
+
   postMeshread(
       meshReader, seissolParams.mesh.displacement, seissolParams.mesh.scaling, seissolInstance);
 

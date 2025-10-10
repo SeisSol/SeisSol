@@ -6,7 +6,6 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "ODEInt.h"
-#include <Kernels/Precision.h>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -247,7 +246,7 @@ RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storage
   // Initialize storages for stages
   stages.reserve(numberOfStages);
   storages.reserve((numberOfStages + 1) * storageSizes.size()); // +1 due to buffer
-  auto curStoragePtrs = std::vector<real*>(storageSizes.size());
+  auto curStoragePtrs = std::vector<double*>(storageSizes.size());
   for (auto i = 0; i < numberOfStages; ++i) {
     curStoragePtrs.clear();
     for (const unsigned long storageSize : storageSizes) {

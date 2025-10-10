@@ -47,7 +47,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
     std::vector<real*> gtsIDofsPtrs{};
 
     for (std::size_t cell = 0; cell < size; ++cell) {
-      auto dataHost = currentLayer->cellRef(cell, AllocationPlace::Host);
+      auto dataHost = currentLayer->cellRef<Cfg>(cell, AllocationPlace::Host);
 
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         real* neighborBuffer = faceNeighborsDevice[cell][face];
@@ -61,13 +61,13 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
                 dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
 
               const bool isNeighbProvidesDerivatives =
-                  ((dataHost.get<LTS::CellInformation>().ltsSetup >> face) % 2) == 1;
+                  dataHost.get<LTS::CellInformation>().ltsSetup.neighborHasDerivatives(face);
 
               if (isNeighbProvidesDerivatives) {
                 real* nextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter];
 
                 const bool isGtsNeighbor =
-                    ((dataHost.get<LTS::CellInformation>().ltsSetup >> (face + 4)) % 2) == 1;
+                    dataHost.get<LTS::CellInformation>().ltsSetup.neighborGTS(face);
                 if (isGtsNeighbor) {
 
                   idofsAddressRegistry[neighborBuffer] = nextTempIDofsPtr;
@@ -79,7 +79,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
                   ltsIDofsPtrs.push_back(nextTempIDofsPtr);
                   ltsDerivativesPtrs.push_back(neighborBuffer);
                 }
-                integratedDofsAddressCounter += tensor::I::size();
+                integratedDofsAddressCounter += tensor::I<Cfg>::size();
               } else {
                 idofsAddressRegistry[neighborBuffer] = neighborBuffer;
               }
@@ -119,7 +119,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularDofsExt {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofsExt {};
 
-  CellDRMapping(*drMappingDevice)[4] = currentLayer->var<LTS::DRMappingDevice>();
+  CellDRMapping<Cfg>(*drMappingDevice)[4] = currentLayer->var<LTS::DRMappingDevice>(Cfg());
 
 #ifdef USE_VISCOELASTIC2
   auto* dofsExt = currentLayer->var<LTS::DofsExtScratch>(AllocationPlace::Device);
@@ -127,8 +127,8 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
 
   const auto size = currentLayer->size();
   for (std::size_t cell = 0; cell < size; ++cell) {
-    auto data = currentLayer->cellRef(cell, AllocationPlace::Device);
-    auto dataHost = currentLayer->cellRef(cell, AllocationPlace::Host);
+    auto data = currentLayer->cellRef<Cfg>(cell, AllocationPlace::Device);
+    auto dataHost = currentLayer->cellRef<Cfg>(cell, AllocationPlace::Host);
 
     for (std::size_t face = 0; face < Cell::NumFaces; face++) {
       switch (dataHost.get<LTS::CellInformation>().faceTypes[face]) {
@@ -155,7 +155,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
 #ifdef USE_VISCOELASTIC2
           regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
-                                                       tensor::Qext::size() * cell);
+                                                       tensor::Qext<Cfg>::size() * cell);
 #endif
         }
         break;
@@ -173,7 +173,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         drFluxSolver[face][faceRelation].push_back(drMappingDevice[cell][face].fluxSolver);
 #ifdef USE_VISCOELASTIC2
         drDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
-                                                tensor::Qext::size() * cell);
+                                                tensor::Qext<Cfg>::size() * cell);
 #endif
         break;
       }

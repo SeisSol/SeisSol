@@ -50,6 +50,7 @@ struct Element {
   ElemFaultTags faultTags; // member of struct Element
   int clusterId;
   double timestep;
+  int configId;
 };
 
 struct Vertex {
@@ -63,7 +64,7 @@ struct MPINeighborElement {
   LocalElemId localElement;
   /** Side of the local element */
   SideId localSide;
-  /** Global number neighbor element */
+  /** Global number neighbor element (for now: MPI index) */
   LocalElemId neighborElement;
   /** Side of the neighbor element */
   SideId neighborSide;

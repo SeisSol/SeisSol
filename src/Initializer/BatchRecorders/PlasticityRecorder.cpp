@@ -45,15 +45,15 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
     std::vector<real*> prevDofsPtrs(size, nullptr);
 
     for (unsigned cell = 0; cell < size; ++cell) {
-      auto data = currentLayer->cellRef(cell, AllocationPlace::Device);
+      auto data = currentLayer->cellRef<Cfg>(cell, AllocationPlace::Device);
       dofsPtrs[cell] = static_cast<real*>(data.get<LTS::Dofs>());
       qstressNodalPtrs[cell] = &scratchMem[nodalStressTensorCounter];
-      nodalStressTensorCounter += tensor::QStressNodal::size();
+      nodalStressTensorCounter += tensor::QStressNodal<Cfg>::size();
       pstransPtrs[cell] = static_cast<real*>(pstrains[cell]);
       initialLoadPtrs[cell] = static_cast<real*>(data.get<LTS::Plasticity>().initialLoading);
-      qEtaNodalPtrs[cell] = qEtaNodalScratch + cell * tensor::QEtaNodal::size();
-      qStressNodalPtrs[cell] = qStressNodalScratch + cell * tensor::QStressNodal::size();
-      prevDofsPtrs[cell] = prevDofsScratch + cell * tensor::Q::size();
+      qEtaNodalPtrs[cell] = qEtaNodalScratch + cell * tensor::QEtaNodal<Cfg>::size();
+      qStressNodalPtrs[cell] = qStressNodalScratch + cell * tensor::QStressNodal<Cfg>::size();
+      prevDofsPtrs[cell] = prevDofsScratch + cell * tensor::Q<Cfg>::size();
     }
 
     const ConditionalKey key(*KernelNames::Plasticity);
