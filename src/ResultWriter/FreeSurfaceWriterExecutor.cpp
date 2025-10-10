@@ -28,16 +28,20 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(
     logError() << "Free surface writer already initialized.";
   }
 
+  logInfo() << "X1";
+
   const unsigned int nCells = info.bufferSize(Cells) / (3 * sizeof(int));
   const unsigned int nVertices = info.bufferSize(Vertices) / (3 * sizeof(double));
 
   MPI_Comm_split(seissol::MPI::mpi.comm(), (nCells > 0 ? 0 : MPI_UNDEFINED), 0, &m_comm);
 
+  logInfo() << "X2";
   m_enabled = true;
 
   if (nCells > 0) {
     int rank = 0;
     MPI_Comm_rank(m_comm, &rank);
+    logInfo() << "X3";
 
     std::string outputName(static_cast<const char*>(info.buffer(OutputPrefix)));
     outputName += "-surface";
@@ -49,27 +53,38 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(
       variables.push_back(Labels[i]);
     }
 
+    logInfo() << "X4";
+
     // TODO get the timestep from the checkpoint
     m_xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>(
         param.backend, outputName.c_str(), param.timestep);
 
+    logInfo() << "X5";
+
     m_xdmfWriter->setComm(m_comm);
+    logInfo() << "X6";
     m_xdmfWriter->setBackupTimeStamp(param.backupTimeStamp);
+    logInfo() << "X7";
     const std::string extraIntVarName = "locationFlag";
     const auto vertexFilter = utils::Env("").get<bool>("SEISSOL_VERTEXFILTER", true);
     m_xdmfWriter->init(
         variables, std::vector<const char*>(), {extraIntVarName, "global-id"}, vertexFilter);
+    logInfo() << "X8";
     m_xdmfWriter->setMesh(nCells,
                           static_cast<const unsigned int*>(info.buffer(Cells)),
                           nVertices,
                           static_cast<const double*>(info.buffer(Vertices)),
                           param.timestep != 0);
+    logInfo() << "X9";
     setLocationFlagData(static_cast<const unsigned int*>(info.buffer(LocationFlags)));
+    logInfo() << "X10";
     m_xdmfWriter->writeExtraIntCellData(1,
                                         static_cast<const unsigned int*>(info.buffer(GlobalIds)));
+    logInfo() << "X11";
 
     logInfo() << "Initializing free surface output. Done.";
   }
+  logInfo() << "X12";
 }
 
 const char* const seissol::writer::FreeSurfaceWriterExecutor::Labels[] = {
