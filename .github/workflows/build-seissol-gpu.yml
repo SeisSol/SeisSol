@@ -104,7 +104,7 @@ jobs:
           devicearch: ${{matrix.setup.arch}}
           devicebackend: ${{matrix.setup.backend}}
           tests: OFF
- 
+
       - uses: ./.github/actions/cpu-build
         name: viscoelastic-3-s-p6
         if: ${{ !cancelled() }}
@@ -122,7 +122,7 @@ jobs:
           devicearch: ${{matrix.setup.arch}}
           devicebackend: ${{matrix.setup.backend}}
           tests: OFF
-      
+
       - uses: ./.github/actions/cpu-build
         name: anisotropic-s-p6
         if: ${{ !cancelled() }}
@@ -140,7 +140,7 @@ jobs:
           devicearch: ${{matrix.setup.arch}}
           devicebackend: ${{matrix.setup.backend}}
           tests: OFF
-      
+
       - uses: ./.github/actions/cpu-build
         name: acoustic-s-p6
         if: ${{ !cancelled() }}
@@ -158,7 +158,7 @@ jobs:
           devicearch: ${{matrix.setup.arch}}
           devicebackend: ${{matrix.setup.backend}}
           tests: OFF
-      
+
       - uses: ./.github/actions/cpu-build
         name: elastic-s-p3-f32
         if: ${{ !cancelled() }}
@@ -244,13 +244,13 @@ jobs:
           repository: seissol/precomputed-seissol
           ref: ${{env.precomputed-hash}}
           path: precomputed
-        
+
       # TODO: make this checkout obsolete
       - name: get-verification-scripts
         uses: actions/checkout@v5
         with:
           path: scripts
-      
+
       - name: tpv5/single
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -267,7 +267,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv5-nuc/single
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -284,7 +284,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv6/single
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -318,7 +318,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv16/single
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -335,7 +335,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv101/single
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -352,7 +352,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv101-slip/single
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -369,7 +369,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv104/single
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -386,7 +386,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: tpv105/single
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -437,7 +437,7 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-      
+
       - name: ttpv1/single
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
@@ -539,4 +539,3 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
-
