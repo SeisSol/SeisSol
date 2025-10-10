@@ -5,7 +5,6 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Buckets.h"
-#include "Parallel/MPI.h"
 #include <Common/Constants.h>
 #include <Common/Real.h>
 #include <Config.h>

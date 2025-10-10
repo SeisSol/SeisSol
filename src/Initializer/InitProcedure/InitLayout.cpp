@@ -20,6 +20,7 @@
 #include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/Colormap.h>
 #include <Memory/Tree/LTSTree.h>
+#include <Memory/Tree/Layer.h>
 #include <Parallel/MPI.h>
 #include <array>
 #include <cassert>
