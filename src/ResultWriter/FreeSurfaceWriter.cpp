@@ -62,6 +62,8 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
   auto* meshIds = m_freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::MeshId>();
   auto* sides = m_freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::Side>();
   auto* outputPosition = m_freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::OutputPosition>();
+
+  logInfo() << "A" << m_freeSurfaceIntegrator->surfaceStorage->size(Ghost);
   for (std::size_t fs = 0; fs < m_freeSurfaceIntegrator->surfaceStorage->size(Ghost); ++fs) {
     if (outputPosition[fs] != std::numeric_limits<std::size_t>::max()) {
       const auto meshId = meshIds[fs];
@@ -96,6 +98,8 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
       }
     }
   }
+
+  logInfo() << "B";
 }
 
 void seissol::writer::FreeSurfaceWriter::setUp() {
@@ -132,6 +136,8 @@ void seissol::writer::FreeSurfaceWriter::init(
   // Initialize the asynchronous module
   async::Module<FreeSurfaceWriterExecutor, FreeSurfaceInitParam, FreeSurfaceParam>::init();
 
+  logInfo() << "preA";
+
   // too aggressive clang-tidy (21); do not make const
   // NOLINTNEXTLINE(misc-const-correctness)
   unsigned* cells = nullptr;
@@ -141,13 +147,18 @@ void seissol::writer::FreeSurfaceWriter::init(
   unsigned nVertices = 0;
   constructSurfaceMesh(meshReader, cells, vertices, nCells, nVertices);
 
+  logInfo() << "C";
+
   const AsyncCellIDs<3> cellIds(nCells, nVertices, cells, seissolInstance);
+
+  logInfo() << "D";
 
   // Create buffer for output prefix
   unsigned int bufferId = addSyncBuffer(outputPrefix, strlen(outputPrefix) + 1, true);
   assert(bufferId == FreeSurfaceWriterExecutor::OutputPrefix);
   NDBG_UNUSED(bufferId);
 
+  logInfo() << "E";
   // Create mesh buffers
   bufferId =
       addSyncBuffer(cellIds.cells(), static_cast<unsigned long>(nCells * 3) * sizeof(unsigned));
@@ -161,6 +172,8 @@ void seissol::writer::FreeSurfaceWriter::init(
   assert(bufferId == FreeSurfaceWriterExecutor::LocationFlags);
   NDBG_UNUSED(bufferId);
 
+  logInfo() << "F";
+
   bufferId = addSyncBuffer(m_freeSurfaceIntegrator->globalIds.data(), nCells * sizeof(unsigned));
   assert(bufferId == FreeSurfaceWriterExecutor::GlobalIds);
   NDBG_UNUSED(bufferId);
@@ -172,6 +185,8 @@ void seissol::writer::FreeSurfaceWriter::init(
     addBuffer(displacement, nCells * sizeof(real));
   }
 
+  logInfo() << "G";
+
   //
   // Send all buffers for initialization
   //
@@ -182,12 +197,16 @@ void seissol::writer::FreeSurfaceWriter::init(
   sendBuffer(FreeSurfaceWriterExecutor::LocationFlags);
   sendBuffer(FreeSurfaceWriterExecutor::GlobalIds);
 
+  logInfo() << "H";
+
   // Initialize the executor
   FreeSurfaceInitParam param;
   param.timestep = 0;
   param.backend = backend;
   param.backupTimeStamp = backupTimeStamp;
   callInit(param);
+
+  logInfo() << "I";
 
   // Remove unused buffers
   removeBuffer(FreeSurfaceWriterExecutor::OutputPrefix);
@@ -196,10 +215,14 @@ void seissol::writer::FreeSurfaceWriter::init(
   removeBuffer(FreeSurfaceWriterExecutor::LocationFlags);
   removeBuffer(FreeSurfaceWriterExecutor::GlobalIds);
 
+  logInfo() << "J";
+
   // Register for the synchronization point hook
   Modules::registerHook(*this, ModuleHook::SimulationStart);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
   setSyncInterval(interval);
+
+  logInfo() << "K";
 
   delete[] cells;
   delete[] vertices;
