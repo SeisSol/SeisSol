@@ -30,7 +30,6 @@ if (("${DEVICE_BACKEND}" STREQUAL "hipsycl") OR ("${DEVICE_BACKEND}" STREQUAL "a
         else()
             set(HIPSYCL_TARGETS "cuda:${DEVICE_ARCH}" CACHE STRING "" FORCE)
             set(ACPP_TARGETS "cuda:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-            target_compile_options(device PRIVATE -Wno-unknown-cuda-version)
         endif()
     elseif(DEVICE_ARCH MATCHES "gfx*")
         set(HIPSYCL_TARGETS "hip:${DEVICE_ARCH}" CACHE STRING "" FORCE)
@@ -41,10 +40,15 @@ if (("${DEVICE_BACKEND}" STREQUAL "hipsycl") OR ("${DEVICE_BACKEND}" STREQUAL "a
     endif()
 
     find_package(OpenMP REQUIRED)
-    find_package(AdaptiveCpp CONFIG REQUIRED)
+    find_package(AdaptiveCpp REQUIRED)
 
     function(make_device_lib NAME FILES)
         add_library(${NAME} SHARED ${FILES})
+
+        if ((DEVICE_ARCH MATCHES "sm_*") AND (NOT SYCL_USE_NVHPC))
+            target_compile_options(${NAME} PRIVATE -Wno-unknown-cuda-version)
+        endif()
+
         target_include_directories(${NAME} PUBLIC ${SEISSOL_DEVICE_INCLUDE})
 
         target_link_libraries(${NAME} PUBLIC ${Boost_LIBRARIES})
