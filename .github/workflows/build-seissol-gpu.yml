@@ -10,7 +10,7 @@ on:
   - push
 
 env:
-  precomputed-hash: 4cc0993d4ba3b8f0aabc84af78e405af9d98f902
+  precomputed-hash: 8252b8a29306370f7ad2cce61613975fc19f82c3
 
 jobs:
   seissol-build-test:
@@ -255,15 +255,7 @@ jobs:
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
-          seissol: gpu-elastic-s-p6
-          rundir: tpv5
-          resultdir: single
-          compare-volume: true
-          compare-fault: true
-          compare-surface: false
-          compare-energy: true
-          compare-receiver: true
-          compare-receiver-mode: lsw
+          case: tpv5/single
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
@@ -272,15 +264,7 @@ jobs:
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
-          seissol: gpu-elastic-s-p6
-          rundir: tpv5-nuc
-          resultdir: single
-          compare-volume: true
-          compare-fault: true
-          compare-surface: false
-          compare-energy: true
-          compare-receiver: true
-          compare-receiver-mode: lsw
+          case: tpv5-nuc/single
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
@@ -289,15 +273,7 @@ jobs:
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
-          seissol: gpu-elastic-s-p6
-          rundir: tpv6
-          resultdir: single
-          compare-volume: true
-          compare-fault: true
-          compare-surface: false
-          compare-energy: true
-          compare-receiver: true
-          compare-receiver-mode: lsw
+          case: tpv6/single
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
@@ -306,15 +282,7 @@ jobs:
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
-          seissol: gpu-elastic-s-p6
-          rundir: tpv13
-          resultdir: single
-          compare-volume: true
-          compare-fault: true
-          compare-surface: false
-          compare-energy: true
-          compare-receiver: true
-          compare-receiver-mode: lsw
+          case: tpv13/single
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
@@ -323,15 +291,7 @@ jobs:
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
-          seissol: gpu-elastic-s-p6
-          rundir: tpv16
-          resultdir: single
-          compare-volume: true
-          compare-fault: true
-          compare-surface: false
-          compare-energy: true
-          compare-receiver: true
-          compare-receiver-mode: lsw
+          case: tpv16/single
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
@@ -340,15 +300,7 @@ jobs:
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
-          seissol: gpu-elastic-s-p6
-          rundir: tpv101
-          resultdir: single
-          compare-volume: true
-          compare-fault: true
-          compare-surface: false
-          compare-energy: true
-          compare-receiver: true
-          compare-receiver-mode: rs
+          case: tpv101/single
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
@@ -357,15 +309,7 @@ jobs:
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
-          seissol: gpu-elastic-s-p6
-          rundir: tpv101-slip
-          resultdir: single
-          compare-volume: true
-          compare-fault: true
-          compare-surface: false
-          compare-energy: true
-          compare-receiver: true
-          compare-receiver-mode: rs
+          case: tpv101-slip/single
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
@@ -374,15 +318,7 @@ jobs:
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
-          seissol: gpu-elastic-s-p6
-          rundir: tpv104
-          resultdir: single
-          compare-volume: true
-          compare-fault: true
-          compare-surface: false
-          compare-energy: true
-          compare-receiver: true
-          compare-receiver-mode: rs
+          case: tpv104/single
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
@@ -391,15 +327,7 @@ jobs:
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
-          seissol: gpu-elastic-s-p6
-          rundir: tpv105
-          resultdir: single
-          compare-volume: true
-          compare-fault: true
-          compare-surface: false
-          compare-energy: true
-          compare-receiver: true
-          compare-receiver-mode: tp
+          case: tpv105/single
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
@@ -408,15 +336,7 @@ jobs:
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
-          seissol: gpu-elastic-s-p6
-          rundir: tpvyoffe
-          resultdir: single
-          compare-volume: true
-          compare-fault: true
-          compare-surface: false
-          compare-energy: true
-          compare-receiver: true
-          compare-receiver-mode: tp
+          case: tpvyoffe/single
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
@@ -425,15 +345,7 @@ jobs:
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
-          seissol: gpu-elastic-s-p6
-          rundir: tpvgaussian
-          resultdir: single
-          compare-volume: true
-          compare-fault: true
-          compare-surface: false
-          compare-energy: true
-          compare-receiver: true
-          compare-receiver-mode: tp
+          case: tpvgaussian/single
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
@@ -442,15 +354,7 @@ jobs:
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
-          seissol: gpu-elastic-s-p6
-          rundir: ttpv1
-          resultdir: single
-          compare-volume: true
-          compare-fault: true
-          compare-surface: false
-          compare-energy: true
-          compare-receiver: true
-          compare-receiver-mode: lsw
+          case: ttpv1/single
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
@@ -459,49 +363,25 @@ jobs:
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
-          seissol: gpu-viscoelastic2-s-p6
-          rundir: tpv5-visco
-          resultdir: single
-          compare-volume: true
-          compare-fault: true
-          compare-surface: false
-          compare-energy: true
-          compare-receiver: true
-          compare-receiver-mode: lsw
+          case: tpv5-visco/single
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
 
-      - name: tpvahsp/single
+      - name: ahsp/single
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
-          seissol: gpu-anisotropic-s-p6
-          rundir: tpvahsp
-          resultdir: single
-          compare-volume: true
-          compare-fault: false
-          compare-surface: false
-          compare-energy: false
-          compare-receiver: true
-          compare-receiver-mode: lsw
+          case: ahsp/single
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
 
-      - name: tpvloh1-fused/single # (temporary)
+      - name: loh1-fused/single # (temporary)
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
-          seissol: gpu-elastic-s-p3-f32
-          rundir: tpvloh1-fused
-          resultdir: single
-          compare-volume: false
-          compare-fault: false
-          compare-surface: false
-          compare-energy: true
-          compare-receiver: true
-          compare-receiver-mode: lsw
+          case: loh1-fused/single
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
@@ -510,15 +390,7 @@ jobs:
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
-          seissol: gpu-elastic-s-p3-f32
-          rundir: tpv13-fused
-          resultdir: single
-          compare-volume: false
-          compare-fault: false
-          compare-surface: false
-          compare-energy: true
-          compare-receiver: true
-          compare-receiver-mode: lsw
+          case: tpv13-fused/single
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
@@ -527,15 +399,7 @@ jobs:
         uses: ./.github/actions/test
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
-          seissol: gpu-elastic-s-p3-f32
-          rundir: tpv13-fused-plasticity
-          resultdir: single
-          compare-volume: false
-          compare-fault: false
-          compare-surface: false
-          compare-energy: true
-          compare-receiver: true
-          compare-receiver-mode: lsw
+          case: tpv13-fused-plasticity/single
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
