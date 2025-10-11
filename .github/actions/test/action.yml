@@ -10,51 +10,36 @@
 name: 'seissol-test'
 description: 'Run End-to-End Test Scenario with SeisSol'
 inputs:
-  seissol:
-    description: 'SeisSol executable name'
+  case:
+    description: 'Test case to run'
     required: true
-  rundir:
-    description: 'Directory to run the test in'
-    required: true
-  resultdir:
-    description: 'Result directory; relative to the run directory'
-    required: true
-  # TODO: obsoletify the following tests:
-  compare-volume:
-    required: true
-    default: false
-  compare-fault:
-    required: true
-    default: false
-  compare-surface:
-    required: true
-    default: false
-  compare-energy:
-    required: true
-    default: false
-  compare-receiver:
-    required: true
-    default: false
-  compare-receiver-mode:
-    required: true
-    default: lsw
-  commsize:
-    required: true
-    default: 1
-  rankthreads:
-    required: true
-    default: 1
-  ompi:
-    required: true
-    default: true
 runs:
   using: "composite"
   steps:
+    - name: read-test
+      shell: bash
+      run: |
+        SEISSOL_EXE=$(jq -rc '."${{inputs.case}}".config' precomputed/cases.json)
+        PARAMETER_FILE=$(jq -rc '."${{inputs.case}}".parameters' precomputed/cases.json)
+        REFERENCE_DIR=$(jq -rc '."${{inputs.case}}".output' precomputed/cases.json)
+
+        REFERENCE_FILE="precomputed/${REFERENCE_DIR}-data.json"
+
+        {
+          echo 'COMPARE_FILE<<EOF'
+          cat $REFERENCE_FILE
+          echo EOF
+        } >> "$GITHUB_ENV"
+
+        echo "REFERENCE_DIR=precomputed/$REFERENCE_DIR" >> "$GITHUB_ENV"
+        echo "SEISSOL_EXE=$SEISSOL_EXE" >> "$GITHUB_ENV"
+        echo "PARAMETER_FILE=precomputed/$PARAMETER_FILE" >> "$GITHUB_ENV"
+
     - id: runtest
       name: run-test
       shell: bash
       run: |
-        if ${{inputs.ompi}}; then
+        if ${{env.ompi}}; then
           MPI_OPTIONS="--oversubscribe --allow-run-as-root -bind-to none";
         else
           MPI_OPTIONS="";
@@ -65,65 +50,60 @@ runs:
 
         chmod +x $(pwd)/install/bin/*
 
-        export OMP_NUM_THREADS=${{inputs.rankthreads}}
+        export OMP_NUM_THREADS=${{env.rankthreads}}
         export SEISSOL_COMMTHREAD=0
         export SEISSOL_MINISEISSOL=OFF
 
-        cd precomputed/${{inputs.rundir}}
-
-        mpirun ${MPI_OPTIONS} -np ${{inputs.commsize}} seissol-${{inputs.seissol}}
+        mpirun ${MPI_OPTIONS} -np ${{env.commsize}} seissol-${{env.device}}-${{env.SEISSOL_EXE}} ${{env.PARAMETER_FILE}}
 
     - name: compare-volume
-      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && inputs.compare-volume == 'true' }}
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && fromJSON(env.COMPARE_FILE).volume.enabled == true }}
       shell: bash
       run: |
-        cd precomputed/${{inputs.rundir}}
-
-        EPSILON=0.05
+        EPSILON=${{ fromJSON(env.COMPARE_FILE).volume.epsilon || 0.05 }}
         SCRIPTS=$GITHUB_WORKSPACE/scripts/postprocessing/validation
 
-        python3 $SCRIPTS/compare-mesh.py ./output/tpv.xdmf ./precomputed/${{inputs.resultdir}}/tpv.xdmf --epsilon ${EPSILON}
+        python3 $SCRIPTS/compare-mesh.py ./output/tpv.xdmf ${{env.REFERENCE_DIR}}.xdmf --epsilon ${EPSILON}
 
     - name: compare-fault
-      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && inputs.compare-fault == 'true' }}
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && fromJSON(env.COMPARE_FILE).fault.enabled == true }}
       shell: bash
       run: |
-        cd precomputed/${{inputs.rundir}}
-
-        EPSILON=0.05
+        EPSILON=${{ fromJSON(env.COMPARE_FILE).fault.epsilon || 0.05 }}
         SCRIPTS=$GITHUB_WORKSPACE/scripts/postprocessing/validation
 
-        python3 $SCRIPTS/compare-mesh.py ./output/tpv-fault.xdmf ./precomputed/${{inputs.resultdir}}/tpv-fault.xdmf --epsilon ${EPSILON}
+        python3 $SCRIPTS/compare-mesh.py ./output/tpv-fault.xdmf ${{env.REFERENCE_DIR}}-fault.xdmf --epsilon ${EPSILON}
 
     - name: compare-surface
-      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && inputs.compare-surface == 'true' }}
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && fromJSON(env.COMPARE_FILE).surface.enabled == true }}
       shell: bash
       run: |
-        cd precomputed/${{inputs.rundir}}
-
-        EPSILON=0.05
+        EPSILON=${{ fromJSON(env.COMPARE_FILE).surface.epsilon || 0.05 }}
         SCRIPTS=$GITHUB_WORKSPACE/scripts/postprocessing/validation
 
-        python3 $SCRIPTS/compare-mesh.py ./output/tpv-surface.xdmf ./precomputed/${{inputs.resultdir}}/tpv-surface.xdmf --epsilon ${EPSILON}
+        python3 $SCRIPTS/compare-mesh.py ./output/tpv-surface.xdmf ${{env.REFERENCE_DIR}}-surface.xdmf --epsilon ${EPSILON}
 
     - name: compare-energy
-      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && inputs.compare-energy == 'true' }}
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && fromJSON(env.COMPARE_FILE).energy.enabled == true }}
       shell: bash
       run: |
-        cd precomputed/${{inputs.rundir}}
-
-        EPSILON=0.05
+        EPSILON=${{ fromJSON(env.COMPARE_FILE).energy.epsilon || 0.05 }}
         SCRIPTS=$GITHUB_WORKSPACE/scripts/postprocessing/validation
 
-        python3 $SCRIPTS/compare-energies.py ./output/tpv-energy.csv ./precomputed/${{inputs.resultdir}}/tpv-energy.csv --epsilon ${EPSILON}
+        python3 $SCRIPTS/compare-energies.py ./output/tpv-energy.csv ${{env.REFERENCE_DIR}}-energy.csv --epsilon ${EPSILON}
 
     - name: compare-receiver
-      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && inputs.compare-receiver == 'true' }}
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && fromJSON(env.COMPARE_FILE).receiver.enabled == true }}
       shell: bash
       run: |
-        cd precomputed/${{inputs.rundir}}
-
-        EPSILON=0.05
+        EPSILON=${{ fromJSON(env.COMPARE_FILE).receiver.epsilon || 0.05 }}
+        MODE=${{ fromJSON(env.COMPARE_FILE).receiver.mode || 'lsw' }}
         SCRIPTS=$GITHUB_WORKSPACE/scripts/postprocessing/validation
 
-        python3 $SCRIPTS/compare-receivers.py ./output ./precomputed/${{inputs.resultdir}} --epsilon ${EPSILON} --mode ${{inputs.compare-receiver-mode}}
+        python3 $SCRIPTS/compare-receivers.py ./output ${{env.REFERENCE_DIR}} --epsilon ${EPSILON} --mode ${MODE}
+
+    - name: cleanup
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' }}
+      shell: bash
+      run: |
+        rm -rf ./output
