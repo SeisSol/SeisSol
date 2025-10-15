@@ -108,7 +108,6 @@ to the number of nodes you want to run on. A rule of thumb for optimal performan
 
   #Run the program:
   export MP_SINGLE_THREAD=no
-  unset KMP_AFFINITY
   export OMP_NUM_THREADS=94
   export OMP_PLACES="cores(47)"
   #Prevents errors such as experience in Issue #691
@@ -125,6 +124,10 @@ to the number of nodes you want to run on. A rule of thumb for optimal performan
 
   echo 'num_nodes:' $SLURM_JOB_NUM_NODES 'ntasks:' $SLURM_NTASKS
   ulimit -Ss 2097152
+  # NOTE: If you load a SeisSol module, `unset KMP_AFFINITY` must come
+  # after loading the module
+  unset KMP_AFFINITY
+
   srun SeisSol_Release_sskx_4_elastic parameters.par
 
 Accessing PyPI
