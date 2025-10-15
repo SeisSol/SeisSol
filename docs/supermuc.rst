@@ -16,7 +16,6 @@ Discovering Precompiled SeisSol Modules
 ---------------------------------------
 
 To discover precompiled SeisSol Spack modules on SuperMUC-NG, follow the procedure below.
-
 Update your ``~/.bashrc`` file as follows:
 
 .. code-block:: bash
@@ -31,6 +30,8 @@ Update your ``~/.bashrc`` file as follows:
 
     # Add the custom SeisSol module path
     module use /hppfs/work/pn49ha/di73yeq4/user_spack24.5/SNG1/modules
+    # To access the easi Python module
+    export PYTHONPATH=/hppfs/work/pn49ha/di73yeq4/user_spack24.5/SNG1/spack_installation/linux-sles15-skylake_avx512/easi/1.6.1-gcc-15.1.0-efuzmvl/lib/python3.10/site-packages/easilib/cmake/easi/python_wrapper/:$PYTHONPATH
 
 After sourcing your ``~/.bashrc``, you should be able to discover the available SeisSol modules, for example:
 
@@ -44,8 +45,26 @@ Setting up GitHub on SuperMuc-NG
 
 see :ref:`pypi_behind_firewall`.
 
-.. _running_seissol_on_supermuc:
 
+
+Installing Python packages with pip
+-----------------------------------
+
+The module ``python/3.10.12-extended`` does not support installing packages
+using ``pip install --user``. To install additional Python packages, you should
+instead create a *virtual environment* with:
+
+.. code-block:: bash
+
+    python -m venv ~/venv-stack24.5-3.10
+
+The virtual environment is then activated with (can be added you ``~/.bashrc``:
+
+.. code-block:: bash
+
+    source ~/venv-stack24.5-3.10/bin/activate
+
+.. _running_seissol_on_supermuc:
 
 Running SeisSol
 ---------------
