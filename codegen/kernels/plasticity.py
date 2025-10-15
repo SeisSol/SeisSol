@@ -60,7 +60,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         "replicateInitialLoading",
         replicateIniLShape,
         spp=replicateIniLSpp,
-        alignStride=True,
+        alignStride=aderdg.multipleSimulations == 1,
     )
 
     iShape = (numberOfNodes, 6)
@@ -182,7 +182,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
                 "replicateInitialLoadingM",
                 replicateIniLShape,
                 spp=replicateIniLSpp,
-                alignStride=True,
+                alignStride=False,
             )
 
             matreplace = replicateInitialLoadingM["k"] * initialLoadingM["p"]
