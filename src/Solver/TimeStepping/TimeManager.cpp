@@ -61,7 +61,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                               initializer::MemoryManager& memoryManager,
                               bool usePlasticity) {
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
-  std::vector<std::unique_ptr<AbstractGhostTimeCluster>> ghostClusters;
+  std::vector<std::unique_ptr<AbstractTimeCluster>> ghostClusters;
   // assert non-zero pointers
   const auto haloStructure = solver::getHaloCommunication(clusterLayout, meshStructure);
 

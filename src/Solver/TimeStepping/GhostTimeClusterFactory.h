@@ -12,6 +12,9 @@
 #include <Solver/TimeStepping/HaloCommunication.h>
 #ifdef ACL_DEVICE
 #include "Solver/TimeStepping/GhostTimeClusterWithCopy.h"
+#ifdef USE_CCL
+#include "Solver/TimeStepping/CCLNeighborCluster.h"
+#endif
 #endif // ACL_DEVICE
 #include "Parallel/MPI.h"
 #include "memory"
@@ -19,26 +22,35 @@
 namespace seissol::time_stepping {
 struct GhostTimeClusterFactory {
   public:
-  static std::unique_ptr<AbstractGhostTimeCluster>
-      get(double maxTimeStepSize,
-          int timeStepRate,
-          int globalTimeClusterId,
-          int otherGlobalTimeClusterId,
-          const solver::HaloCommunication& meshStructure,
-          MPI::DataTransferMode mode,
-          bool persistent) {
+  static std::unique_ptr<AbstractTimeCluster> get(double maxTimeStepSize,
+                                                  int timeStepRate,
+                                                  int globalTimeClusterId,
+                                                  int otherGlobalTimeClusterId,
+                                                  const solver::HaloCommunication& meshStructure,
+                                                  MPI::DataTransferMode mode,
+                                                  bool persistent) {
     switch (mode) {
 #ifdef ACL_DEVICE
     case MPI::DataTransferMode::CopyInCopyOutHost: {
-      using ghostCluster_t = GhostTimeClusterWithCopy<MPI::DataTransferMode::CopyInCopyOutHost>;
-      return std::make_unique<ghostCluster_t>(maxTimeStepSize,
-                                              timeStepRate,
-                                              globalTimeClusterId,
-                                              otherGlobalTimeClusterId,
-                                              meshStructure,
-                                              persistent);
+      using GhostClusterT = GhostTimeClusterWithCopy<MPI::DataTransferMode::CopyInCopyOutHost>;
+      return std::make_unique<GhostClusterT>(maxTimeStepSize,
+                                             timeStepRate,
+                                             globalTimeClusterId,
+                                             otherGlobalTimeClusterId,
+                                             meshStructure,
+                                             persistent);
     }
 #endif // ACL_DEVICE
+#if defined(ACL_DEVICE) && defined(USE_CCL)
+    case MPI::DataTransferMode::DirectCcl: {
+      return std::make_unique<CCLNeighborCluster>(maxTimeStepSize,
+                                                  timeStepRate,
+                                                  globalTimeClusterId,
+                                                  otherGlobalTimeClusterId,
+                                                  meshStructure,
+                                                  persistent);
+    }
+#endif // defined(ACL_DEVICE) && defined(USE_CCL)
     case MPI::DataTransferMode::Direct: {
       return std::make_unique<DirectGhostTimeCluster>(maxTimeStepSize,
                                                       timeStepRate,

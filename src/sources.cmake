@@ -28,6 +28,7 @@ src/Solver/TimeStepping/ActorState.cpp
 src/Solver/TimeStepping/CommunicationManager.cpp
 src/Solver/TimeStepping/DirectGhostTimeCluster.cpp
 src/Solver/TimeStepping/GhostTimeClusterWithCopy.cpp
+src/Solver/TimeStepping/CCLNeighborCluster.cpp
 src/Solver/TimeStepping/TimeCluster.cpp
 src/Solver/TimeStepping/TimeManager.cpp
 

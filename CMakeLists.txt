@@ -546,6 +546,37 @@ if (WITH_GPU)
   install(TARGETS seissol-device-lib LIBRARY)
   install(TARGETS device LIBRARY)
   target_sources(seissol-common-lib PRIVATE ${SYCL_ONLY_SRC_FILES})
+
+  # TODO: add oneCCL support, once the C API is published
+  # see https://github.com/uxlfoundation/oneCCL/blob/cd05d52e6ba8b324a8e498c2228f279cdb7fc3dd/README.md#notice-of-deprecation
+  # and https://github.com/uxlfoundation/oneCCL/blob/rfcs/rfcs/20240806-c-api/README.md
+  option(CCL "Enable NCCL/RCCL support" OFF)
+
+  if (CCL)
+    if (DEVICE_BACKEND STREQUAL "cuda")
+      find_package(NCCL REQUIRED)
+      target_include_directories(seissol-common-properties INTERFACE ${NCCL_INCLUDE_DIRS})
+      target_link_libraries(seissol-common-properties INTERFACE ${NCCL_LIBRARIES})
+      target_compile_definitions(seissol-common-properties INTERFACE CCL_NCCL)
+      target_compile_definitions(seissol-common-properties INTERFACE USE_CCL)
+    elseif (DEVICE_BACKEND STREQUAL "hip")
+      find_package(RCCL REQUIRED)
+      target_include_directories(seissol-common-properties INTERFACE ${RCCL_INCLUDE_DIRS})
+      target_link_libraries(seissol-common-properties INTERFACE ${RCCL_LIBRARIES})
+      target_compile_definitions(seissol-common-properties INTERFACE CCL_RCCL)
+      target_compile_definitions(seissol-common-properties INTERFACE USE_CCL)
+    elseif (DEVICE_BACKEND STREQUAL "oneapi")
+      find_package(oneCCL REQUIRED)
+      target_link_libraries(seissol-common-properties INTERFACE oneCCL)
+      target_compile_definitions(seissol-common-properties INTERFACE CCL_ONECCL)
+      message(WARNING "The implementation of a oneCCL is postponed until the release of the C interface"
+        "(cf. https://github.com/uxlfoundation/oneCCL/blob/cd05d52e6ba8b324a8e498c2228f279cdb7fc3dd/README.md#notice-of-deprecation )")
+      # TODO: enable, once the C API is published
+      # target_compile_definitions(seissol-common-properties INTERFACE USE_CCL)
+    else()
+      message(WARNING "No CCL library included, even though it has been requested")
+    endif()
+  endif()
 endif()
 
 # C++ compiler settings

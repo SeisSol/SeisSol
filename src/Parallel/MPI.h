@@ -247,7 +247,7 @@ class MPI : public MPIBasic {
 
   void setDataTransferModeFromEnv();
 
-  enum class DataTransferMode { Direct, CopyInCopyOutHost };
+  enum class DataTransferMode { Direct, CopyInCopyOutHost, DirectCcl };
   DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode; }
 
   /** The only instance of the class */
