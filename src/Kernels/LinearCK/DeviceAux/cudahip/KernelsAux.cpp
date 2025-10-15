@@ -352,6 +352,244 @@ void launch_local(const float** A,
 namespace {
 
 template <int Full, int Size1, int Size2>
+__device__ __forceinline__ void kernel_ckstep(float reg1[9],
+                                              float reg2[9],
+                                              const float* C1,
+                                              const float* C2,
+                                              const float* C3,
+                                              float** D,
+                                              unsigned Doffset,
+                                              float F,
+                                              float* shrmem0) {
+  // meta data:
+  // A = {rows: 64, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0), np.int64(64),
+  // np.int64(9)]}; B = {rows: 9, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0),
+  // np.int64(9), np.int64(9)]}; C = {rows: 56, cols: 56, addr: none, bbox: [np.int64(0),
+  // np.int64(0), np.int64(56), np.int64(56)]}; D = {rows: 64, cols: 9, addr: pointer_based, bbox:
+  // [np.int64(0), np.int64(0), np.int64(56), np.int64(9)]};
+
+  // tmp0 = 1.0 * A x B
+  // D = 1.0 * C x tmp0 + 1.0 * D
+
+  constexpr int Quantities = 9;
+  constexpr int Faces = 3;
+
+  constexpr int MyAlign = (seissol::Alignment / sizeof(float));
+  constexpr int PaddedFull = ((Full + MyAlign - 1) / MyAlign) * MyAlign;
+  constexpr int PaddedSize1 = ((Size1 + MyAlign - 1) / MyAlign) * MyAlign;
+  constexpr int PaddedSize2 = ((Size2 + MyAlign - 1) / MyAlign) * MyAlign;
+
+  const auto tid_x = threadIdx.x;
+  unsigned batchId = threadIdx.y + blockDim.y * blockIdx.x;
+
+  const float* const __restrict__ glbC1 = C1;
+  const float* const __restrict__ glbC2 = C2;
+  const float* const __restrict__ glbC3 = C3;
+  float* const __restrict__ glbD = D[batchId] + Doffset;
+
+  float reg0[Faces][Quantities]{};
+
+  float* __restrict__ _0 = &shrmem0[PaddedSize1 * Quantities];
+  float* __restrict__ _1 = &shrmem0[0];
+
+  // gemm: glbC x _1
+#pragma unroll 2
+  for (int k = 0; k < (Size1 / 8) * 8; k += 8) {
+    float values[Faces][8]{};
+#pragma unroll
+    for (int kk = 0; kk < 8; ++kk) {
+      values[0][kk] = glbC1[tid_x + (k + kk) * PaddedFull];
+    }
+#pragma unroll
+    for (int kk = 0; kk < 8; ++kk) {
+      values[1][kk] = glbC2[tid_x + (k + kk) * PaddedFull];
+    }
+#pragma unroll
+    for (int kk = 0; kk < 8; ++kk) {
+      values[2][kk] = glbC3[tid_x + (k + kk) * PaddedFull];
+    }
+
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+      float local[8]{};
+#pragma unroll
+      for (int kk = 0; kk < 8; ++kk) {
+        local[kk] = _1[(k + kk) + n * PaddedSize1];
+      }
+#pragma unroll
+      for (int kk = 0; kk < 8; ++kk) {
+#pragma unroll
+        for (int d = 0; d < Faces; ++d) {
+          reg0[d][n] += values[d][kk] * local[kk];
+        }
+      }
+    }
+  }
+
+  {
+    const int k = (Size1 / 8) * 8;
+    float values[Faces][Size1 % 8]{};
+#pragma unroll
+    for (int kk = 0; kk < Size1 % 8; ++kk) {
+      values[0][kk] = glbC1[tid_x + (k + kk) * PaddedFull];
+    }
+#pragma unroll
+    for (int kk = 0; kk < Size1 % 8; ++kk) {
+      values[1][kk] = glbC2[tid_x + (k + kk) * PaddedFull];
+    }
+#pragma unroll
+    for (int kk = 0; kk < Size1 % 8; ++kk) {
+      values[2][kk] = glbC3[tid_x + (k + kk) * PaddedFull];
+    }
+
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+      float local[Size1 % 8]{};
+#pragma unroll
+      for (int kk = 0; kk < Size1 % 8; ++kk) {
+        local[kk] = _1[(k + kk) + n * PaddedSize1];
+      }
+#pragma unroll
+      for (int kk = 0; kk < Size1 % 8; ++kk) {
+#pragma unroll
+        for (int d = 0; d < Faces; ++d) {
+          reg0[d][n] += values[d][kk] * local[kk];
+        }
+      }
+    }
+  }
+
+  // gemm: glbA x _0
+#pragma unroll
+  for (int d = 0; d < Faces; ++d) {
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+#pragma unroll
+      for (int k = 0; k < Quantities; ++k) {
+        reg1[n] += reg0[d][k] * _0[k + n * Quantities + Quantities * Quantities * d];
+      }
+    }
+  }
+
+#pragma unroll
+  for (int n = 0; n < Quantities; ++n) {
+    reg2[n] += F * reg1[n];
+  }
+
+  // write results back to glb. memory
+  if (tid_x < PaddedSize2) {
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+      __builtin_nontemporal_store(reg1[n], &glbD[tid_x + n * PaddedSize2]);
+    }
+  }
+}
+
+template <int Full, int Size1>
+__launch_bounds__(512) __global__ void kernel_cke(const float** A,
+                                                  unsigned Aoffset,
+                                                  const float** B,
+                                                  unsigned Boffset,
+                                                  const float* C1,
+                                                  const float* C2,
+                                                  const float* C3,
+                                                  float** D,
+                                                  unsigned Doffset,
+                                                  float** E,
+                                                  float F1,
+                                                  float F2,
+                                                  float F3,
+                                                  size_t numElements) {
+  // meta data:
+  // A = {rows: 64, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0), np.int64(64),
+  // np.int64(9)]}; B = {rows: 9, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0),
+  // np.int64(9), np.int64(9)]}; C = {rows: 56, cols: 56, addr: none, bbox: [np.int64(0),
+  // np.int64(0), np.int64(56), np.int64(56)]}; D = {rows: 64, cols: 9, addr: pointer_based, bbox:
+  // [np.int64(0), np.int64(0), np.int64(56), np.int64(9)]};
+
+  // tmp0 = 1.0 * A x B
+  // D = 1.0 * C x tmp0 + 1.0 * D
+
+  constexpr int Quantities = 9;
+  constexpr int Faces = 3;
+
+  constexpr int Count = Faces * Quantities * Quantities;
+  constexpr int CountH = Count / 64;
+  constexpr int CountR = Count % 64;
+
+  constexpr int MyAlign = (seissol::Alignment / sizeof(float));
+  constexpr int PaddedFull = ((Full + MyAlign - 1) / MyAlign) * MyAlign;
+  constexpr int PaddedSize1 = ((Size1 + MyAlign - 1) / MyAlign) * MyAlign;
+
+  __shared__ __align__(8) float total_shrmem0[(PaddedSize1 * Quantities + Count) * 8];
+
+  const auto tid_x = threadIdx.x;
+  unsigned batchId = threadIdx.y + blockDim.y * blockIdx.x;
+  if (batchId < numElements) {
+    const float* const __restrict__ glbA = A[batchId] + Aoffset;
+    const float* const __restrict__ glbB = B[batchId] + Boffset;
+    const float* const __restrict__ glbC1 = C1;
+    const float* const __restrict__ glbC2 = C2;
+    const float* const __restrict__ glbC3 = C3;
+    float* const __restrict__ glbD = D[batchId] + Doffset;
+    float* const __restrict__ glbE = E[batchId];
+
+    float reg0[Faces][Quantities]{};
+    float reg1[Quantities]{};
+    float reg2[Quantities]{};
+
+    float* shrmem0 = &total_shrmem0[(PaddedSize1 * Quantities + Count) * threadIdx.y];
+
+    // writing to shr mem: from reg0 to _1
+    float* __restrict__ _1 = &shrmem0[0];
+    if (tid_x < PaddedSize1) {
+#pragma unroll
+      for (int i = 0; i < Quantities; ++i) {
+        _1[tid_x + i * PaddedSize1] = __builtin_nontemporal_load(&glbA[tid_x + i * PaddedSize1]);
+      }
+    }
+
+    float* __restrict__ _0 = &shrmem0[PaddedSize1 * Quantities];
+
+    // load all 3 9×9 matrices
+    // loading glbB to _0: # no trans, extended
+#pragma unroll
+    for (int i = 0; i < CountH; ++i) {
+      _0[tid_x + i * 64] = glbB[tid_x + i * 64];
+    }
+    if (tid_x < CountR) {
+      _0[tid_x + CountH * 64] = glbB[tid_x + CountH * 64];
+    }
+
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+      reg2[n] = __builtin_nontemporal_load(&glbE[tid_x + n * PaddedFull]);
+    }
+
+    kernel_ckstep<Full, Size1, 10>(reg1, reg2, C1, C2, C3, D, Doffset, F1, shrmem0);
+    if (tid_x < PaddedSize1) {
+#pragma unroll
+      for (int i = 0; i < Quantities; ++i) {
+        _1[tid_x + i * PaddedSize1] = reg1[i];
+      }
+    }
+    kernel_ckstep<Full, 10, 4>(reg1, reg2, C1, C2, C3, D, Doffset + 32 * 9, F2, shrmem0);
+    if (tid_x < PaddedSize1) {
+#pragma unroll
+      for (int i = 0; i < Quantities; ++i) {
+        _1[tid_x + i * PaddedSize1] = reg1[i];
+      }
+    }
+    kernel_ckstep<Full, 4, 1>(reg1, reg2, C1, C2, C3, D, Doffset + 64 * 9, F3, shrmem0);
+
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+      __builtin_nontemporal_store(reg2[n], &glbE[tid_x + n * PaddedFull]);
+    }
+  }
+}
+
+template <int Full, int Size1, int Size2>
 __launch_bounds__(512) __global__ void kernel_ck(const float** A,
                                                  unsigned Aoffset,
                                                  const float** B,
@@ -465,6 +703,7 @@ __launch_bounds__(512) __global__ void kernel_ck(const float** A,
       }
     }
 
+    if constexpr(Size1 % 8 != 0)
     {
       const int k = (Size1 / 8) * 8;
       float values[Faces][Size1 % 8]{};
