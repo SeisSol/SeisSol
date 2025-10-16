@@ -6,8 +6,10 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "CCLNeighborCluster.h"
 #include <Parallel/MPI.h>
+#include <Parallel/Runtime/Stream.h>
 #include <Solver/TimeStepping/AbstractTimeCluster.h>
 #include <Solver/TimeStepping/HaloCommunication.h>
+#include <memory>
 
 #ifdef USE_CCL
 #ifdef CCL_NCCL
@@ -77,7 +79,7 @@ void CCLNeighborCluster::handleAdvancedPredictionTimeMessage(
   assert(stream.test());
   if (remote.size() > 0) {
 #ifdef USE_CCL
-    stream.runGraphGeneric(handle, [&](parallel::runtime::StreamRuntime& runtime) {
+    stream->runGraphGeneric(handle, [&](parallel::runtime::StreamRuntime& runtime) {
       ncclGroupStart();
       for (std::size_t i = 0; i < remote.size(); ++i) {
         const auto& cluster = remote[i];
@@ -123,6 +125,13 @@ CCLNeighborCluster::CCLNeighborCluster(double maxTimeStepSize,
     : AbstractTimeCluster(
           maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host) {
   comm = createComms(1)[0];
+
+  // TODO: make session-specific
+  static std::shared_ptr<parallel::runtime::StreamRuntime> rt{nullptr};
+  if (!rt) {
+    rt = std::make_shared<parallel::runtime::StreamRuntime>(0);
+  }
+  stream = rt;
 
   const auto& local = meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId);
 

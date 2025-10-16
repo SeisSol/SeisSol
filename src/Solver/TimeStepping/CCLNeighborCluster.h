@@ -23,7 +23,7 @@ class CCLNeighborCluster : public AbstractTimeCluster {
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
   private:
-  parallel::runtime::StreamRuntime stream{0};
+  std::shared_ptr<parallel::runtime::StreamRuntime> stream;
   std::vector<solver::RemoteCluster> remote;
   std::vector<bool> isSend;
   std::vector<void*> memoryHandles;
