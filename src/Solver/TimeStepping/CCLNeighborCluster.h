@@ -28,6 +28,7 @@ class CCLNeighborCluster : public AbstractTimeCluster {
   std::vector<bool> isSend;
   std::vector<void*> memoryHandles;
   void* comm;
+  void* event{nullptr};
 
 #ifdef ACL_DEVICE
   device::DeviceGraphHandle handle;

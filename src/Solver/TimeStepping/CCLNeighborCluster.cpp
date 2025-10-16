@@ -72,7 +72,14 @@ std::vector<void*> createComms(std::size_t count) {
 
 namespace seissol::time_stepping {
 
-bool CCLNeighborCluster::mayCorrect() { return stream.test() && AbstractTimeCluster::mayCorrect(); }
+bool CCLNeighborCluster::mayCorrect() {
+#ifdef ACL_DEVICE
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  return (event == nullptr || device.api->isEventCompleted(event)) &&
+         AbstractTimeCluster::mayCorrect();
+#endif
+  return AbstractTimeCluster::mayCorrect();
+}
 
 void CCLNeighborCluster::handleAdvancedPredictionTimeMessage(
     const NeighborCluster& /*neighborCluster*/) {
@@ -102,6 +109,7 @@ void CCLNeighborCluster::handleAdvancedPredictionTimeMessage(
       ncclGroupEnd();
     });
 #endif
+    event = stream->eventRecord();
   }
 }
 
