@@ -59,7 +59,7 @@ TimeCluster::TimeCluster(unsigned int clusterId,
                          unsigned int globalClusterId,
                          unsigned int profilingId,
                          bool usePlasticity,
-                         LayerType layerType,
+                         HaloType layerType,
                          double maxTimeStepSize,
                          long timeStepRate,
                          bool printProgress,
@@ -355,9 +355,9 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
     // If we cannot overwrite the buffer, we compute everything in a temporary
     // local buffer and accumulate the results later in the shared buffer.
     const bool buffersProvided =
-        (data.get<LTS::CellInformation>().ltsSetup >> 8) % 2 == 1; // buffers are provided
+        data.get<LTS::CellInformation>().ltsSetup.hasBuffers(); // buffers are provided
     const bool resetMyBuffers =
-        buffersProvided && ((data.get<LTS::CellInformation>().ltsSetup >> 10) % 2 == 0 ||
+        buffersProvided && (!data.get<LTS::CellInformation>().ltsSetup.cacheBuffers() ||
                             resetBuffers); // they should be reset
 
     if (resetMyBuffers) {
@@ -764,7 +764,7 @@ void TimeCluster::correct() {
     }
     dynamicRuptureScheduler->setLastCorrectionStepsInterior(ct.stepsSinceStart);
   }
-  if (layerType == Copy) {
+  if (layerType == HaloType::Copy) {
     if (dynamicRuptureScheduler->hasDynamicRuptureFaces()) {
       handleDynamicRupture(*dynRupCopyData);
       seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(
@@ -843,7 +843,7 @@ std::size_t TimeCluster::layerId() const { return clusterData->id(); }
 
 unsigned int TimeCluster::getGlobalClusterId() const { return globalClusterId; }
 
-LayerType TimeCluster::getLayerType() const { return layerType; }
+HaloType TimeCluster::getLayerType() const { return layerType; }
 void TimeCluster::setTime(double time) {
   AbstractTimeCluster::setTime(time);
   this->receiverTime = time;
@@ -978,10 +978,10 @@ void TimeCluster::synchronizeTo(seissol::initializer::AllocationPlace place, voi
     if ((place == initializer::AllocationPlace::Host && executor == Executor::Device) ||
         (place == initializer::AllocationPlace::Device && executor == Executor::Host)) {
       clusterData->synchronizeTo(place, stream);
-      if (layerType == Interior) {
+      if (layerType == HaloType::Interior) {
         dynRupInteriorData->synchronizeTo(place, stream);
       }
-      if (layerType == Copy) {
+      if (layerType == HaloType::Copy) {
         dynRupCopyData->synchronizeTo(place, stream);
       }
     }
@@ -995,6 +995,12 @@ void TimeCluster::finishPhase() {
   seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
       cells * accFlopsHardware[static_cast<int>(ComputePart::PlasticityYield)]);
   yieldCells[0] = 0;
+}
+
+std::string TimeCluster::description() const {
+  const auto identifier = clusterData->getIdentifier();
+  const std::string haloStr = identifier.halo == HaloType::Interior ? "interior" : "copy";
+  return "compute-" + haloStr;
 }
 
 } // namespace seissol::time_stepping

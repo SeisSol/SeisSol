@@ -14,11 +14,11 @@
 #include "ResultWriter/ClusteringWriter.h"
 #include "SeisSol.h"
 #include "TimeManager.h"
+#include <Common/Iterator.h>
 #include <DynamicRupture/Output/OutputManager.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
-#include <Initializer/Typedefs.h>
 #include <Kernels/PointSourceCluster.h>
 #include <Memory/Tree/Layer.h>
 #include <ResultWriter/ReceiverWriter.h>
@@ -31,6 +31,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <mpi.h>
@@ -57,13 +58,11 @@ TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
 TimeManager::~TimeManager() = default;
 
 void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
-                              MeshStructure* meshStructure,
+                              const solver::HaloCommunication& haloStructure,
                               initializer::MemoryManager& memoryManager,
                               bool usePlasticity) {
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
   std::vector<std::unique_ptr<AbstractTimeCluster>> ghostClusters;
-  // assert non-zero pointers
-  const auto haloStructure = solver::getHaloCommunication(clusterLayout, meshStructure);
 
   // store the time stepping
   this->clusterLayout = clusterLayout;
@@ -71,18 +70,16 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   auto clusteringWriter =
       writer::ClusteringWriter(seissolInstance.getSeisSolParameters().output.prefix);
 
+  std::vector<std::size_t> drCellsPerCluster(clusterLayout.globalClusterCount);
+
+  // setup DR schedulers
+  for (const auto& layer : memoryManager.getDRStorage().leaves()) {
+    drCellsPerCluster[layer.getIdentifier().lts] += layer.size();
+  }
+
   std::size_t drClusterOutput = std::numeric_limits<std::size_t>::max();
-
-  for (std::size_t clusterId = 0; clusterId < clusterLayout.globalClusterCount; ++clusterId) {
-    const auto interiorId = initializer::LayerIdentifier(HaloType::Interior, Config(), clusterId);
-    const auto copyId = initializer::LayerIdentifier(HaloType::Copy, Config(), clusterId);
-    const auto ghostId = initializer::LayerIdentifier(HaloType::Ghost, Config(), clusterId);
-
-    const long numberOfDynRupCells = memoryManager.getDRStorage().layer(interiorId).size() +
-                                     memoryManager.getDRStorage().layer(copyId).size() +
-                                     memoryManager.getDRStorage().layer(ghostId).size();
-
-    if (numberOfDynRupCells > 0) {
+  for (std::size_t clusterId = 0; clusterId < drCellsPerCluster.size(); ++clusterId) {
+    if (drCellsPerCluster[clusterId] > 0) {
       drClusterOutput = clusterId;
       break;
     }
@@ -94,112 +91,134 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                 MPI_MIN,
                 MPI::mpi.comm());
 
+  for (std::size_t clusterId = 0; clusterId < drCellsPerCluster.size(); ++clusterId) {
+    const bool isFirstDynamicRuptureCluster = drClusterOutput == clusterId;
+    dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(
+        drCellsPerCluster[clusterId], isFirstDynamicRuptureCluster));
+  }
+
+  std::vector<AbstractTimeCluster*> cellClusterBackmap(
+      memoryManager.getLtsStorage().getColorMap().size());
+
+  const auto deltaId = [&](const auto& id, HaloType halo, int32_t offset) {
+    auto cloned = id;
+    cloned.halo = halo;
+    cloned.lts += offset;
+    return memoryManager.getLtsStorage().getColorMap().colorId(cloned);
+  };
+
   // iterate over local time clusters
-  for (std::size_t clusterId = 0; clusterId < clusterLayout.globalClusterCount; ++clusterId) {
-    // get memory layout of this cluster
+  for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost)) {
     auto globalData = memoryManager.getGlobalData();
+
+    const auto clusterId = layer.getIdentifier().lts;
 
     // chop off at synchronization time
     const auto timeStepSize = clusterLayout.timestepRate(clusterId);
     const auto timeStepRate = clusterLayout.clusterRate(clusterId);
 
-    // Dynamic rupture
-    const auto interiorId = initializer::LayerIdentifier(HaloType::Interior, Config(), clusterId);
-    const auto copyId = initializer::LayerIdentifier(HaloType::Copy, Config(), clusterId);
-    const auto ghostId = initializer::LayerIdentifier(HaloType::Ghost, Config(), clusterId);
+    // We print progress only if it is the cluster with the largest time step on each rank.
+    // This does not mean that it is the largest cluster globally!
+    const bool printProgress = (clusterId == clusterLayout.globalClusterCount - 1) &&
+                               (layer.getIdentifier().halo == HaloType::Interior);
+    const auto profilingId = layer.id();
 
-    // Note: We need to include the Ghost part, as we need to compute its DR part as well.
-    const long numberOfDynRupCells = memoryManager.getDRStorage().layer(interiorId).size() +
-                                     memoryManager.getDRStorage().layer(copyId).size() +
-                                     memoryManager.getDRStorage().layer(ghostId).size();
+    auto* dynRupInteriorData =
+        &memoryManager.getDRStorage().layer(deltaId(layer.getIdentifier(), HaloType::Interior, 0));
+    auto* dynRupCopyData =
+        &memoryManager.getDRStorage().layer(deltaId(layer.getIdentifier(), HaloType::Copy, 0));
 
-    const bool isFirstDynamicRuptureCluster = drClusterOutput == clusterId;
-    auto& drScheduler =
-        dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(
-            numberOfDynRupCells, isFirstDynamicRuptureCluster));
+    auto& cluster = clusters.emplace_back(
+        std::make_unique<TimeCluster>(clusterId,
+                                      clusterId,
+                                      profilingId,
+                                      usePlasticity,
+                                      layer.getIdentifier().halo,
+                                      timeStepSize,
+                                      timeStepRate,
+                                      printProgress,
+                                      dynamicRuptureSchedulers[clusterId].get(),
+                                      globalData,
+                                      &layer,
+                                      dynRupInteriorData,
+                                      dynRupCopyData,
+                                      memoryManager.getFrictionLaw(),
+                                      memoryManager.getFrictionLawDevice(),
+                                      memoryManager.getFaultOutputManager(),
+                                      seissolInstance,
+                                      &loopStatistics,
+                                      &actorStateStatisticsManager.addCluster(profilingId)));
 
-    for (auto type : {Copy, Interior}) {
-      const auto offsetMonitoring = type == Interior ? 0 : clusterLayout.globalClusterCount;
-      // We print progress only if it is the cluster with the largest time step on each rank.
-      // This does not mean that it is the largest cluster globally!
-      const bool printProgress =
-          (clusterId == clusterLayout.globalClusterCount - 1) && (type == Interior);
-      const auto profilingId = clusterId + offsetMonitoring;
-      auto* layerData = &memoryManager.getLtsStorage().layer(type == Copy ? copyId : interiorId);
-      auto* dynRupInteriorData = &memoryManager.getDRStorage().layer(interiorId);
-      auto* dynRupCopyData = &memoryManager.getDRStorage().layer(copyId);
-      clusters.push_back(
-          std::make_unique<TimeCluster>(clusterId,
-                                        clusterId,
-                                        profilingId,
-                                        usePlasticity,
-                                        type,
-                                        timeStepSize,
-                                        timeStepRate,
-                                        printProgress,
-                                        drScheduler.get(),
-                                        globalData,
-                                        layerData,
-                                        dynRupInteriorData,
-                                        dynRupCopyData,
-                                        memoryManager.getFrictionLaw(),
-                                        memoryManager.getFrictionLawDevice(),
-                                        memoryManager.getFaultOutputManager(),
-                                        seissolInstance,
-                                        &loopStatistics,
-                                        &actorStateStatisticsManager.addCluster(profilingId)));
+    const auto clusterSize = layer.size();
+    const auto dynRupSize = memoryManager.getDRStorage().layer(layer.id()).size();
+    // Add writer to output
+    clusteringWriter.addCluster(
+        profilingId, clusterId, layer.getIdentifier().halo, clusterSize, dynRupSize);
 
-      const auto clusterSize = layerData->size();
-      const auto dynRupSize = type == Copy ? dynRupCopyData->size() : dynRupInteriorData->size();
-      // Add writer to output
-      clusteringWriter.addCluster(profilingId, clusterId, type, clusterSize, dynRupSize);
-    }
-    auto& interior = clusters[clusters.size() - 1];
-    auto& copy = clusters[clusters.size() - 2];
-
-    // Mark copy layers as higher priority layers.
-    interior->setPriority(ActorPriority::Low);
-    copy->setPriority(ActorPriority::High);
-
-    // Copy/interior with same timestep are neighbors
-    interior->connect(*copy);
-
-    // Connect new copy/interior to previous two copy/interior
-    // Then all clusters that are neighboring are connected.
-    // Note: Only clusters with a distance of 1 time step factor
-    // are connected.
-    if (clusterId > 0) {
-      assert(clusters.size() >= 4);
-      for (int i = 0; i < 2; ++i) {
-        copy->connect(*clusters[clusters.size() - 2 - i - 1]);
-        interior->connect(*clusters[clusters.size() - 2 - i - 1]);
-      }
+    if (layer.getIdentifier().halo == HaloType::Copy) {
+      cluster->setPriority(ActorPriority::High);
+    } else {
+      cluster->setPriority(ActorPriority::Low);
     }
 
-    // Create ghost time clusters for MPI
-    const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
-    const auto persistent = usePersistentMpi(seissolInstance.env());
-    for (std::size_t otherClusterId = 0; otherClusterId < clusterLayout.globalClusterCount;
-         ++otherClusterId) {
-      const bool hasNeighborRegions = !haloStructure.at(clusterId).at(otherClusterId).empty();
+    cellClusterBackmap[layer.id()] = cluster.get();
+  }
+
+  const auto connectIfBothExist = [](auto& a, auto& b) {
+    if (a != nullptr && b != nullptr) {
+      a->connect(*b);
+    }
+  };
+
+  for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost | Copy)) {
+    const auto interiorId = layer.id();
+    const auto copyId = deltaId(layer.getIdentifier(), HaloType::Copy, 0);
+
+    connectIfBothExist(cellClusterBackmap[interiorId], cellClusterBackmap[copyId]);
+
+    if (layer.getIdentifier().lts > 0) {
+      const auto interiorId1 = deltaId(layer.getIdentifier(), HaloType::Interior, -1);
+      const auto copyId1 = deltaId(layer.getIdentifier(), HaloType::Copy, -1);
+
+      connectIfBothExist(cellClusterBackmap[interiorId], cellClusterBackmap[interiorId1]);
+      connectIfBothExist(cellClusterBackmap[interiorId], cellClusterBackmap[copyId1]);
+      connectIfBothExist(cellClusterBackmap[copyId], cellClusterBackmap[interiorId1]);
+      connectIfBothExist(cellClusterBackmap[copyId], cellClusterBackmap[copyId1]);
+    }
+  }
+
+  // Create ghost time clusters for MPI
+  const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
+  const auto persistent = usePersistentMpi(seissolInstance.env());
+  for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost | Interior)) {
+
+    const auto clusterId = layer.getIdentifier().lts;
+
+    for (const auto [i, halo] : common::enumerate(haloStructure.at(layer.id()))) {
+
+      const bool hasNeighborRegions = !halo.copy.empty() || !halo.ghost.empty();
+      const auto other = memoryManager.getLtsStorage().getColorMap().argument(i);
+
       if (hasNeighborRegions) {
-        assert(otherClusterId + 1 >= clusterId);
-        assert(otherClusterId <
-               std::min(clusterId + 2, static_cast<std::size_t>(clusterLayout.globalClusterCount)));
-        const auto otherTimeStepSize = clusterLayout.timestepRate(otherClusterId);
-        const auto otherTimeStepRate = clusterLayout.clusterRate(otherClusterId);
+
+        assert(other.halo == HaloType::Ghost);
+        assert(other.lts + 1 >= clusterId);
+        assert(other.lts < std::min(clusterId + 2, clusterLayout.globalClusterCount));
+
+        const auto otherTimeStepSize = clusterLayout.timestepRate(other.lts);
+        const auto otherTimeStepRate = clusterLayout.clusterRate(other.lts);
 
         auto ghostCluster = GhostTimeClusterFactory::get(otherTimeStepSize,
                                                          otherTimeStepRate,
-                                                         clusterId,
-                                                         otherClusterId,
+                                                         layer.id(),
+                                                         i,
                                                          haloStructure,
                                                          preferredDataTransferMode,
                                                          persistent);
         ghostClusters.push_back(std::move(ghostCluster));
 
         // Connect with previous copy layer.
-        ghostClusters.back()->connect(*copy);
+        ghostClusters.back()->connect(*cellClusterBackmap[layer.id()]);
       }
     }
   }

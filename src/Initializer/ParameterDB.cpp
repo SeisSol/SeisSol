@@ -21,7 +21,6 @@
 #include <Geometry/PUMLReader.h>
 #include <Kernels/Precision.h>
 #include <Model/CommonDatastructures.h>
-#include <Model/Datastructures.h>
 #include <Solver/MultipleSimulations.h>
 #include <array>
 #include <cassert>

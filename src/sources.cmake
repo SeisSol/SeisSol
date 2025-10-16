@@ -85,6 +85,7 @@ src/ResultWriter/AnalysisWriter.cpp
 
 src/Initializer/TimeStepping/ClusterLayout.cpp
 src/Solver/TimeStepping/HaloCommunication.cpp
+src/Initializer/TimeStepping/Halo.cpp
 
 ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
 ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
@@ -134,10 +135,14 @@ src/Initializer/InitProcedure/InitMesh.cpp
 src/Initializer/InitProcedure/InitModel.cpp
 src/Initializer/InitProcedure/InitIO.cpp
 src/Initializer/InitProcedure/InitSideConditions.cpp
-src/Initializer/InternalState.cpp
 src/Memory/MemoryAllocator.cpp
 src/Initializer/MemoryManager.cpp
 src/Initializer/ParameterDB.cpp
+
+src/Initializer/InitProcedure/InitLayout.cpp
+src/Initializer/InitProcedure/Internal/Buckets.cpp
+src/Initializer/InitProcedure/Internal/MeshLayout.cpp
+src/Initializer/InitProcedure/Internal/LtsSetup.cpp
 
 src/Initializer/Parameters/CubeGeneratorParameters.cpp
 src/Initializer/Parameters/DRParameters.cpp
@@ -151,7 +156,6 @@ src/Initializer/Parameters/SeisSolParameters.cpp
 src/Initializer/Parameters/SourceParameters.cpp
 
 src/Initializer/TimeStepping/GlobalTimestep.cpp
-src/Initializer/TimeStepping/LtsLayout.cpp
 
 src/Numerical/ODEInt.cpp
 src/Numerical/ODEVector.cpp
