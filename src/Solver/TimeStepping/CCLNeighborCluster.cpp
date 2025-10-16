@@ -126,14 +126,40 @@ CCLNeighborCluster::CCLNeighborCluster(double maxTimeStepSize,
 
   const auto& local = meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId);
 
-  remote.resize(local.size() + local.size());
+  remote.resize(local.copy.size() + local.ghost.size());
   isSend.resize(remote.size());
-  for (std::size_t i = 0; i < local.size(); ++i) {
-    isSend[2 * i] = local[i].copy.rank < seissol::MPI::mpi.rank();
-    isSend[2 * i + 1] = !isSend[2 * i];
 
-    remote[2 * i] = isSend[2 * i] ? local[i].copy : local[i].ghost;
-    remote[2 * i + 1] = isSend[2 * i + 1] ? local[i].copy : local[i].ghost;
+  std::vector<std::pair<solver::RemoteCluster, bool>> temp(remote.size());
+  for (std::size_t i = 0; i < local.copy.size(); ++i) {
+    temp[i].first = local.copy[i];
+    temp[i].second = true;
+  }
+  for (std::size_t i = 0; i < local.ghost.size(); ++i) {
+    temp[i].first = local.ghost[i + local.copy.size()];
+    temp[i].second = false;
+  }
+
+  const auto ownRank = seissol::MPI::mpi.rank();
+
+  std::sort(temp.begin(), temp.end(), [&](const auto& a, const auto& b) {
+    const auto& rA = a.first;
+    const auto& rB = b.first;
+
+    if (rA.tag == rB.tag) {
+      // "hypercube" ordering; cf. e.g.
+      // https://github.com/NVIDIA/nccl-tests/blob/abc46770a98777a9fd1b072adcf8becb76bfe125/src/hypercube.cu#L60-L67
+
+      const auto rmA = rA.rank ^ ownRank;
+      const auto rmB = rB.rank ^ ownRank;
+      return rmA < rmB;
+    }
+
+    return rA.tag < rB.tag;
+  });
+
+  for (std::size_t i = 0; i < temp.size(); ++i) {
+    remote[i] = temp[i].first;
+    isSend[i] = temp[i].second;
   }
 
 #ifdef USE_CCL_REGISTER
