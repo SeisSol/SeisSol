@@ -135,8 +135,8 @@ CCLNeighborCluster::CCLNeighborCluster(double maxTimeStepSize,
     temp[i].second = true;
   }
   for (std::size_t i = 0; i < local.ghost.size(); ++i) {
-    temp[i].first = local.ghost[i + local.copy.size()];
-    temp[i].second = false;
+    temp[i + local.copy.size()].first = local.ghost[i];
+    temp[i + local.copy.size()].second = false;
   }
 
   const auto ownRank = seissol::MPI::mpi.rank();
