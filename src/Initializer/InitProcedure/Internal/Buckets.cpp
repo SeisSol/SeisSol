@@ -336,6 +336,7 @@ solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const M
     setupFaceNeighbors(storage, layer);
   }
 
+  // wait for the data initialization to finish
 #ifdef ACL_DEVICE
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif

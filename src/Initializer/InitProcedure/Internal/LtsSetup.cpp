@@ -302,6 +302,9 @@ void deriveLtsSetups(const MeshLayout& layout, LTS::Storage& storage) {
 
   // get final setup in the ghost layer (after normalization)
   haloCommunication<LTS::CellInformation>(layout, storage, ghostElementType);
+
+  // we won't need the ghost element type after this anymore
+  MPI_Type_free(&ghostElementType);
 }
 
 } // namespace seissol::initializer::internal
