@@ -40,7 +40,7 @@ if (("${DEVICE_BACKEND}" STREQUAL "hipsycl") OR ("${DEVICE_BACKEND}" STREQUAL "a
     endif()
 
     find_package(OpenMP REQUIRED)
-    find_package(AdaptiveCpp REQUIRED)
+    find_package(AdaptiveCpp CONFIG REQUIRED)
 
     function(make_device_lib NAME FILES)
         add_library(${NAME} SHARED ${FILES})
@@ -58,6 +58,7 @@ if (("${DEVICE_BACKEND}" STREQUAL "hipsycl") OR ("${DEVICE_BACKEND}" STREQUAL "a
         add_sycl_to_target(TARGET ${NAME} SOURCES ${FILES})
     endfunction()
 
+    target_link_libraries(seissol-common-properties INTERFACE AdaptiveCpp::acpp-rt)
 elseif("${DEVICE_BACKEND}" STREQUAL "oneapi")
     find_package(DpcppFlags REQUIRED)
 
