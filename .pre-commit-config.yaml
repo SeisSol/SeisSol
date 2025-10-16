@@ -57,7 +57,6 @@ repos:
     rev: 25.1.0
     hooks:
     -   id: black
-        language_version: python3.13
         files: ^(?!preprocessing|postprocessing)
         name: '[PYTHON] black'
 -   repo: https://github.com/pycqa/isort
