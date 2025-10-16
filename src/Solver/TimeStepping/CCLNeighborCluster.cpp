@@ -131,7 +131,8 @@ CCLNeighborCluster::CCLNeighborCluster(double maxTimeStepSize,
                                        const seissol::solver::HaloCommunication& meshStructure,
                                        bool persistent)
     : AbstractTimeCluster(
-          maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host) {
+          maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
+      globalClusterId(globalTimeClusterId), otherGlobalClusterId(otherGlobalTimeClusterId) {
   comm = createComms(1)[0];
 
   // TODO: make session-specific
@@ -197,6 +198,10 @@ CCLNeighborCluster::~CCLNeighborCluster() {
     ncclCommDeregister(reinterpret_cast<ncclComm_t>(comm), &handle);
   }
 #endif
+}
+
+std::string CCLNeighborCluster::description() const {
+  return "comm-" + std::to_string(globalClusterId) + "-" + std::to_string(otherGlobalClusterId);
 }
 
 } // namespace seissol::time_stepping

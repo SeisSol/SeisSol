@@ -34,6 +34,9 @@ class CCLNeighborCluster : public AbstractTimeCluster {
   device::DeviceGraphHandle handle;
 #endif
 
+  std::size_t globalClusterId;
+  std::size_t otherGlobalClusterId;
+
   public:
   CCLNeighborCluster(double maxTimeStepSize,
                      int timeStepRate,
@@ -42,6 +45,8 @@ class CCLNeighborCluster : public AbstractTimeCluster {
                      const seissol::solver::HaloCommunication& meshStructure,
                      bool persistent);
   ~CCLNeighborCluster() override;
+
+  [[nodiscard]] std::string description() const override;
 };
 
 } // namespace seissol::time_stepping
