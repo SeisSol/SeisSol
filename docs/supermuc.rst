@@ -30,8 +30,8 @@ Update your ``~/.bashrc`` file as follows:
 
     # Add the custom SeisSol module path
     module use /hppfs/work/pn49ha/di73yeq4/user_spack24.5/SNG1/modules
-    # To access the easi Python module
-    export PYTHONPATH=/hppfs/work/pn49ha/di73yeq4/user_spack24.5/SNG1/spack_installation/linux-sles15-skylake_avx512/easi/1.6.1-gcc-15.1.0-efuzmvl/lib/python3.10/site-packages/easilib/cmake/easi/python_wrapper/:$PYTHONPATH
+    # To access the easi Python module (this points to a symbolic link towards the folder containing the library)
+    export PYTHONPATH=/hppfs/work/pn49ha/di73yeq4/user_spack24.5/SNG1/spack_installation/python_wrapper:$PYTHONPATH
 
 After sourcing your ``~/.bashrc``, you should be able to discover the available SeisSol modules, for example:
 
