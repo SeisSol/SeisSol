@@ -153,9 +153,14 @@ Update your ~/.bashrc to:
     module load intel/2025.1.0
     module load user_spack/24.5.0 python/3.10.12-extended
 
-    # Replace ddddd by the port defined in your ~/.ssh/config on your local computer
-    export https_proxy=http://localhost:<your_port>
-    export http_proxy=http://localhost:<your_port>
+    # Replace by the port defined in your ~/.ssh/config on your local computer
+    if [ "$HOSTNAME" = "login22" ]; then
+      export https_proxy=http://localhost:<your_port_for_NG_phase2>
+      export http_proxy=http://localhost:<your_port_for_NG_phase2>
+    else
+      export https_proxy=http://localhost:<your_port_for_NG_phase1>
+      export http_proxy=http://localhost:<your_port_for_NG_phase1>
+    fi
 
 
 Clone seissol-spack-aid and add the repository (as spack is not fully up to date on supermuc NG).
