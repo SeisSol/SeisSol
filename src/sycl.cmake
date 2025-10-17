@@ -53,7 +53,10 @@ if (("${DEVICE_BACKEND}" STREQUAL "hipsycl") OR ("${DEVICE_BACKEND}" STREQUAL "a
 
         target_link_libraries(${NAME} PUBLIC ${Boost_LIBRARIES})
 
-        target_compile_options(${NAME} PRIVATE ${EXTRA_CXX_FLAGS} "-fPIC" ${OpenMP_CXX_FLAGS})
+        target_link_libraries(${NAME} PRIVATE OpenMP::OpenMP_CXX)
+        target_link_libraries(${NAME} PRIVATE ${OpenMP_CXX_FLAGS})
+
+        target_compile_options(${NAME} PRIVATE ${EXTRA_CXX_FLAGS} "-fPIC")
 
         add_sycl_to_target(TARGET ${NAME} SOURCES ${FILES})
     endfunction()
