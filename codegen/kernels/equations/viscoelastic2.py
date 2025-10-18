@@ -12,8 +12,7 @@ from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor, simpleParameterSpace
 from yateto.ast.node import Add
-from yateto.input import (memoryLayoutFromFile, parseJSONMatrixFile,
-                          parseXMLMatrixFile)
+from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile, parseXMLMatrixFile
 from yateto.memory import CSCMemoryLayout
 from yateto.util import tensor_collection_from_constant_expression
 
@@ -259,11 +258,16 @@ class Viscoelastic2ADERDG(ADERDGBase):
                 [
                     self.Qane["kpm"]
                     <= self.Qane["kpm"]
-                    + self.w["m"] * self.Qext["kp"].subslice('p', self.numberOfQuantities(), self.numberOfExtendedQuantities())
+                    + self.w["m"]
+                    * self.Qext["kp"].subslice(
+                        "p",
+                        self.numberOfQuantities(),
+                        self.numberOfExtendedQuantities(),
+                    )
                     + self.Iane["kpl"] * self.W["lm"],
                     self.Q["kp"]
                     <= self.Q["kp"]
-                    + self.Qext["kp"].subslice('p', 0, self.numberOfQuantities())
+                    + self.Qext["kp"].subslice("p", 0, self.numberOfQuantities())
                     + self.Iane["kqm"] * self.E["qmp"],
                 ],
                 target=target,
@@ -309,9 +313,15 @@ class Viscoelastic2ADERDG(ADERDGBase):
                 [
                     self.Qane["kpm"]
                     <= self.Qane["kpm"]
-                    + self.w["m"] * self.Qext["kp"].subslice('p', self.numberOfQuantities(), self.numberOfExtendedQuantities()),
+                    + self.w["m"]
+                    * self.Qext["kp"].subslice(
+                        "p",
+                        self.numberOfQuantities(),
+                        self.numberOfExtendedQuantities(),
+                    ),
                     self.Q["kp"]
-                    <= self.Q["kp"] + self.Qext["kp"].subslice('p', 0, self.numberOfQuantities()),
+                    <= self.Q["kp"]
+                    + self.Qext["kp"].subslice("p", 0, self.numberOfQuantities()),
                 ],
                 target=target,
             )
@@ -393,10 +403,15 @@ class Viscoelastic2ADERDG(ADERDGBase):
                 derivativeExpr += [
                     dQext[d]["kp"] <= derivative(d),
                     dQ[d]["kp"]
-                    <= dQext[d]["kp"].subslice('p', 0, self.numberOfQuantities())
+                    <= dQext[d]["kp"].subslice("p", 0, self.numberOfQuantities())
                     + dQane[d - 1]["kqm"] * self.E["qmp"],
                     dQane[d]["kpm"]
-                    <= self.w["m"] * dQext[d]["kp"].subslice('p', self.numberOfQuantities(), self.numberOfExtendedQuantities())
+                    <= self.w["m"]
+                    * dQext[d]["kp"].subslice(
+                        "p",
+                        self.numberOfQuantities(),
+                        self.numberOfExtendedQuantities(),
+                    )
                     + dQane[d - 1]["kpl"] * self.W["lm"],
                     self.I["kp"] <= self.I["kp"] + powers[d] * dQ[d]["kp"],
                     self.Iane["kpm"] <= self.Iane["kpm"] + powers[d] * dQane[d]["kpm"],

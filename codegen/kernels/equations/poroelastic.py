@@ -112,6 +112,7 @@ class PoroelasticADERDG(LinearADERDG):
             self.Q.optPos(),
             stpShape,
             alignStride=True,
+            temporary=True,
         )
         spaceTimePredictor = OptionalDimTensor(
             "spaceTimePredictor",
