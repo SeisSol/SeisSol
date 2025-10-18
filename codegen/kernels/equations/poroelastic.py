@@ -94,12 +94,6 @@ class PoroelasticADERDG(LinearADERDG):
     def addTime(self, generator, targets):
         super().addTime(generator, targets)
 
-        stiffnessValues = [self.db.kDivMT[d].values_as_ndarray() for d in range(3)]
-        fullShape = (
-            self.numberOf3DBasisFunctions(),
-            self.numberOf3DBasisFunctions(),
-        )
-
         stpShape = (
             self.numberOf3DBasisFunctions(),
             self.numberOfQuantities(),
