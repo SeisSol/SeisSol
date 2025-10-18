@@ -46,18 +46,18 @@ class FastVelocityWeakeningLaw
                                          real stateVarReference,
                                          real timeIncrement,
                                          real localSlipRate) const {
-    const double muW = this->drParameters->muW;
+    const double localMuW = this->muW[faceIndex][pointIndex];
     const double localSrW = this->srW[faceIndex][pointIndex];
     const double localA = this->a[faceIndex][pointIndex];
     const double localSl0 = this->sl0[faceIndex][pointIndex];
 
     // low-velocity steady state friction coefficient
     const real lowVelocityFriction =
-        this->drParameters->rsF0 -
-        (this->drParameters->rsB - localA) * log(localSlipRate / this->drParameters->rsSr0);
+        this->f0[faceIndex][pointIndex] -
+        (this->b[faceIndex][pointIndex] - localA) * log(localSlipRate / this->drParameters->rsSr0);
     const real steadyStateFrictionCoefficient =
-        muW + (lowVelocityFriction - muW) /
-                  std::pow(1.0 + misc::power<8, double>(localSlipRate / localSrW), 1.0 / 8.0);
+        localMuW + (lowVelocityFriction - localMuW) /
+                       std::pow(1.0 + misc::power<8, double>(localSlipRate / localSrW), 1.0 / 8.0);
     // TODO: check again, if double precision is necessary here (earlier, there were cancellation
     // issues)
     const real steadyStateStateVariable =
@@ -67,9 +67,9 @@ class FastVelocityWeakeningLaw
     // exact integration of dSV/dt DGL, assuming constant V over integration step
 
     const auto preexp1 = -localSlipRate * (timeIncrement / localSl0);
-    const real exp1 = std::exp(preexp1);
+    const real exp1v = std::exp(preexp1);
     const real exp1m = -std::expm1(preexp1);
-    const real localStateVariable = steadyStateStateVariable * exp1m + exp1 * stateVarReference;
+    const real localStateVariable = steadyStateStateVariable * exp1m + exp1v * stateVarReference;
     assert((std::isfinite(localStateVariable) || pointIndex >= misc::NumBoundaryGaussPoints) &&
            "Inf/NaN detected");
     return localStateVariable;

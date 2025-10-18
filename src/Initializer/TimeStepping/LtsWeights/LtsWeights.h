@@ -19,12 +19,6 @@
 
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 
-#ifndef PUML_PUML_H
-namespace PUML {
-class TETPUML;
-}
-#endif // PUML_PUML_H
-
 namespace seissol {
 class SeisSol;
 namespace initializer::time_stepping {
@@ -65,7 +59,8 @@ class LtsWeights {
   LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance);
 
   virtual ~LtsWeights() = default;
-  void computeWeights(PUML::TETPUML const& mesh);
+  void computeWeights(const seissol::geometry::PumlMesh& meshTopology,
+                      const seissol::geometry::PumlMesh& meshGeometry);
 
   [[nodiscard]] const int* vertexWeights() const;
   [[nodiscard]] const double* imbalances() const;
@@ -104,7 +99,8 @@ class LtsWeights {
   int m_vertexWeightDynamicRupture{};
   int m_vertexWeightFreeSurfaceWithGravity{};
   int m_ncon{std::numeric_limits<int>::infinity()};
-  const PUML::TETPUML* m_mesh{nullptr};
+  const geometry::PumlMesh* m_meshTopology{nullptr};
+  const geometry::PumlMesh* m_meshGeometry{nullptr};
   std::vector<int> m_clusterIds;
   double wiggleFactor = 1.0;
   std::map<double, decltype(m_clusterIds), std::greater<>>

@@ -181,14 +181,12 @@ Friction parameters:
 +------------------+----------------------------------------+-------------------------------+
 | :math:`T(x)`     | forced rupture time                    | :code:`forced_rupture_time`   |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`t_0`      | forced friction drop duration          | :code:`t_0`                   |
+| :math:`t_0`      | characteristic nucleation time         | :code:`t_0`                   |
 +------------------+----------------------------------------+-------------------------------+
 | :math:`v_0`      | threshold velocity                     | :code:`lsw_healingThreshold`  |
 +------------------+----------------------------------------+-------------------------------+
 
 Friction law :code:`16` implements linear slip-weakening with a forced rupture time.
-At the specified :code:`forced_rupture_time`, the friction coefficient is artificially reduced from its static value to its dynamic value. This procedure enables a smooth nucleation process without altering the overall stress drop.
-The forced friction drop duration defines the duration of this linear transition from static to dynamic friction. By default, it is set to :code:`t_0 = 0`.
 If you are only interested in linear slip weakening friction without forced rupture time, do not supply the parameter :code:`forced_rupture_time` in the fault `yaml` file.
 
 Friction law :code:`6` uses Prakash-Clifton regularization for bimaterial faults.
@@ -256,22 +254,26 @@ Reference benchmarks: TVP101 and TPV102
 Friction parameters:
 
 +------------------+----------------------------------------+-------------------------------+
-| symbol           | quantity                               | seisSol name                  |
+| symbol           | quantity                               | SeisSol name                  |
 +==================+========================================+===============================+
 | :math:`a(x)`     | frictional evolution coefficient       | :code:`rs_a`                  |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`b`        | frictional state coefficient           | :code:`rs_b`                  |
+| :math:`b(x)`     | frictional state coefficient           | :code:`rs_b`                  |
 +------------------+----------------------------------------+-------------------------------+
 | :math:`L(x)`     | characteristic slip scale              | :code:`rs_sl0`                |
 +------------------+----------------------------------------+-------------------------------+
 | :math:`V_0`      | reference slip velocity                | :code:`rs_sr0`                |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`f_0`      | reference friction coefficient         | :code:`rs_f0`                 |
+| :math:`f_0(x)`   | reference friction coefficient         | :code:`rs_f0`                 |
 +------------------+----------------------------------------+-------------------------------+
 | :math:`V_{ini1}` | initial along-strike slip velocity     | :code:`rs_inisliprate1`       |
 +------------------+----------------------------------------+-------------------------------+
 | :math:`V_{ini2}` | initial along-dip slip veloctiy        | :code:`rs_inisliprate2`       |
 +------------------+----------------------------------------+-------------------------------+
+
+Here, :math:`b(x)` and :math:`f_0(x)` can either be varied or given in the parameter file as constants.
+Once they are given in the fault yaml file, they are assumed to be varied and their parameter file values are ignored.
+For the parameter file and the fault yaml file, the names are the same.
 
 .. math::
   \begin{aligned}
@@ -306,8 +308,11 @@ In addition to the Aging and the Slip Law, strong velocity weakening requires tw
 +==================+========================================+===============================+
 | :math:`V_w(x)`   | weakening slip velocity                | :code:`rs_srW`                |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`\mu_w`    | weakening friction coefficient         | :code:`rs_muW`                |
+| :math:`\mu_w(x)` | weakening friction coefficient         | :code:`rs_muW`                |
 +------------------+----------------------------------------+-------------------------------+
+
+Here, :math:`\mu_w(x)` behaves similarly to :math:`b(x)` and :math:`f_0(x)`; i.e. it can be specified in either
+the parameter file as a global constant or in the fault yaml file to vary; the same rules as above apply here as well.
 
 .. math::
   \begin{aligned}
@@ -359,3 +364,30 @@ Two additional thermal pressurization parameters are space-dependent and therefo
 
 TP generates 2 additional on-fault outputs: Pore pressure and temperature (see fault output).
 
+
+Nucleation
+~~~~~~~~~~~~~~~~~~~~~~
+
+SeisSol provides several options to enforce artificial nucleation within a limited temporal and spatial extent.
+The additional nucleation stress applied to the fault plane needs to be specified using the parameters ``Tnuc_s`` (along strike), ``Tnuc_d`` (along dip), and ``Tnuc_n`` (normal stress).
+Alternatively, if the stress state is described by the full stress tensor, use parameters ``nuc_xx``, ``nuc_yy``, ``nuc_zz``, ``nuc_yz``, ``nuc_xz``, and ``nuc_xy``.
+The parameter ``s_0`` defines the start time of artificial nucleation, while ``t_0`` sets the characteristic nucleation time over which the additional stress is applied.
+By default, :code:`s_0 = 0` and :code:`t_0 = 0`.
+
+Multiple nucleations
+^^^^^^^^^^^^^^^^^^^^
+
+SeisSol supports multiple episodes of artificial nucleation by extending the nucleation parameters.
+For each episode, parameters can be specified with numbered suffixes:
+
+- Nucleation start times: ``s_0``, ``s2_0``, ``s3_0``, ...
+- Characteristic nucleation times: ``t_0``, ``t2_0``, ``t3_0``, ...
+- Projected nucleation stress components: ``Tnuc_s``, ``Tnuc2_s``, ``Tnuc3_s``, ...
+- Nucleation stress tensor components: ``nuc_xy``, ``nuc2_xy``, ``nuc3_xy``, ...
+
+Forced rupture time
+^^^^^^^^^^^^^^^^^^^
+
+If :code:`forced_rupture_time` is specified in the fault `yaml` file, the friction coefficient is artificially reduced from its static value to its dynamic value at the given time (e.g., Gabriel et al., 2012).
+This method enables a smooth nucleation process without affecting the overall stress drop.
+In this case, the characteristic nucleation time ``t_0`` defines the duration of the linear transition from static to dynamic friction, and ``s_0`` is ignored.

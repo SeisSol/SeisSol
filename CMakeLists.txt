@@ -84,9 +84,6 @@ endif()
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
         "Release" "Debug" "RelWithDebInfo") # MinSizeRel is useless for us
 
-# LTO
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO})
-
 function(capitalize INARG OUTARG)
   string(REPLACE "_" ";" PARTS ${INARG})
   set(PREOUTARG "")
@@ -194,7 +191,7 @@ else()
 endif()
 
 if (OVERRIDE_VECTORSIZE GREATER 0)
-  set(OVERRIDE_VECTORSIZE_PARAM "--vectorsize ${OVERRIDE_VECTORSIZE}")
+  set(OVERRIDE_VECTORSIZE_PARAM "--vectorsize=${OVERRIDE_VECTORSIZE}")
 else()
   set(OVERRIDE_VECTORSIZE_PARAM "")
 endif()
@@ -237,6 +234,8 @@ add_custom_command(
        )
 
 add_custom_target(seissol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
+
+# TODO: remove IMPORTED here for clang-tidy to see the headers (and use "???.h" for internals)
 add_library(seissol-common-properties INTERFACE IMPORTED)
 
 include(src/sources.cmake)
@@ -350,7 +349,7 @@ if (HDF5)
   if (NOT HDF5_IS_PARALLEL)
     message(WARNING "The found parallel Hdf5 installation is not parallel. Compile errors will occur.")
   endif()
-endif()  
+endif()
 
 # Parmetis
 if ("parmetis" IN_LIST GRAPH_PARTITIONING_LIBS)
@@ -383,23 +382,6 @@ if (MEMKIND)
   target_compile_definitions(seissol-common-properties INTERFACE USE_MEMKIND)
 endif()
 
-if(${EQUATIONS} STREQUAL "poroelastic")
-  include(CheckLanguage)
-  check_language(Fortran)
-  if(CMAKE_Fortran_COMPILER)
-    enable_language(Fortran)
-    include(FortranCInterface)
-    FortranCInterface_HEADER(FC.h MACRO_NAMESPACE "FC_")
-    find_package(LAPACK REQUIRED)
-    target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
-    target_link_libraries(seissol-common-properties INTERFACE ${LAPACK_LIBRARIES})
-    target_compile_definitions(seissol-common-properties INTERFACE USE_LAPACK)
-  else()
-    message(FATAL_ERROR "SeisSol needs a Fortran compiler.")
-  endif()
-endif()
-
-
 if (INTEGRATE_QUANTITIES)
   target_compile_definitions(seissol-common-properties INTERFACE INTEGRATE_QUANTITIES)
 endif()
@@ -422,8 +404,31 @@ target_include_directories(seissol-common-properties SYSTEM INTERFACE
   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
-find_package(Eigen3 3.4 REQUIRED)
+find_package(Eigen3 REQUIRED)
 target_link_libraries(seissol-common-properties INTERFACE Eigen3::Eigen)
+
+# the following check is needed because allowing 3.4 and 5.0.0 at the same
+# time was not possible inline in the find_package
+if ("${Eigen3_VERSION}" VERSION_LESS "3.4")
+  message(FATAL_ERROR "Your installed Eigen version is too old. Needed: at least 3.4 .")
+endif()
+
+# only needed for "old" Eigen (i.e. below 5.0.0)
+if((${EQUATIONS} STREQUAL "poroelastic") AND ("${Eigen3_VERSION}" VERSION_LESS "5.0.0"))
+  include(CheckLanguage)
+  check_language(Fortran)
+  if(CMAKE_Fortran_COMPILER)
+    enable_language(Fortran)
+    include(FortranCInterface)
+    FortranCInterface_HEADER(FC.h MACRO_NAMESPACE "FC_")
+    find_package(LAPACK REQUIRED)
+    target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
+    target_link_libraries(seissol-common-properties INTERFACE ${LAPACK_LIBRARIES})
+    target_compile_definitions(seissol-common-properties INTERFACE USE_LAPACK)
+  else()
+    message(FATAL_ERROR "SeisSol needs a Fortran compiler.")
+  endif()
+endif()
 
 find_package(yaml-cpp REQUIRED)
 
@@ -534,7 +539,7 @@ if (WITH_GPU)
     set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
     set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_BACKEND}")
   else()
-    set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "seissol-gpucode-${EXE_NAME_PREFIX}")
+    set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "seissol-gpucode-${NAME_SUFFIX}")
   endif()
 
   # set up GPU install targets
@@ -554,7 +559,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
   # Activate interprocedual optimization.
-  #set_property(TARGET seissol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
+  #set_property(TARGET seissol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Wno-unused-parameter")
 
@@ -612,17 +617,6 @@ if (TESTING)
           src/tests/Common/TestCommon.cpp
           )
 
-
-  if (TESTING_GENERATED)
-    # FIXME: fix by removing the `using namespace` in the test files
-    # and replace by ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/test-kernel.cpp
-    file(GLOB_RECURSE KERNEL_TESTFILES ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/**/test-kernel.cpp)
-    set(seissol_test_sources
-            ${seissol_test_sources}
-            ${KERNEL_TESTFILES}
-            )
-  endif()
-
   configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/TimeStepping/mesh.h5
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh.h5
@@ -665,9 +659,29 @@ if (TESTING)
   target_link_libraries(seissol-serial-test PRIVATE seissol-lib)
   target_include_directories(seissol-serial-test PUBLIC external/)
 
+  if (TESTING_GENERATED)
+    if (WITH_GPU)
+
+      # for the GPU, create an extra library with device linking flags etc.
+      make_device_lib(seissol-serial-test-device "${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/test-kernel.cpp")
+      target_link_libraries(seissol-serial-test-device PRIVATE seissol-kernel-lib)
+      target_include_directories(seissol-serial-test-device PRIVATE external/)
+      target_link_libraries(seissol-serial-test PRIVATE seissol-serial-test-device)
+      target_compile_definitions(seissol-serial-test-device PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
+
+    else()
+
+      # else (i.e. CPU only), just add it to the main test binary
+      target_sources(seissol-serial-test PRIVATE
+        "${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/test-kernel.cpp")
+    endif()
+  endif()
+
   separate_arguments(TESTING_COMMAND_LIST NATIVE_COMMAND ${TESTING_COMMAND})
   set_property(TARGET seissol-serial-test PROPERTY CROSSCOMPILING_EMULATOR ${TESTING_COMMAND_LIST})
-  doctest_discover_tests(seissol-serial-test)
+  if (NOT TESTING_BUILD_ONLY)
+    doctest_discover_tests(seissol-serial-test)
+  endif()
 
   # Avoid duplicate definition of FLOP counters
   target_compile_definitions(seissol-serial-test PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
@@ -705,4 +719,3 @@ endif()
 
 # https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/
 # https://ortogonal.github.io/cmake-clang-tidy/
-

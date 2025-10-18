@@ -9,21 +9,21 @@ function data = seissol2d_read_fault_parallel(name,nCPU,sp_sample)
 % @section LICENSE
 % Copyright (c) 2009, SeisSol Group
 % All rights reserved.
-% 
+%
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
-% 
+%
 % 1. Redistributions of source code must retain the above copyright notice,
 %    this list of conditions and the following disclaimer.
-% 
+%
 % 2. Redistributions in binary form must reproduce the above copyright notice,
 %    this list of conditions and the following disclaimer in the documentation
 %    and/or other materials provided with the distribution.
-% 
+%
 % 3. Neither the name of the copyright holder nor the names of its
 %    contributors may be used to endorse or promote products derived from this
 %    software without specific prior written permission.
-% 
+%
 % THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 % AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 % IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -58,7 +58,7 @@ disp(' ')
 count = 0; data.nx=0;
 
 for iCPU = 0:nCPU-1
-    
+
     %define character string of input files
     if(iCPU<10)
         hdr = [name,'-flt_header.000',num2str(iCPU),'.txt'];
@@ -67,13 +67,13 @@ for iCPU = 0:nCPU-1
     else
         hdr = [name,'-flt_header.0',num2str(iCPU),'.txt'];
     end
-    
+
     % check if file exists
     check = exist(hdr,'file');
     if(check~=2)
         continue % step out the loop
-    end   
-    
+    end
+
     %Read header file
      %hdr = strcat(name,'-flt_header.',iCPU,'.txt');
     [temp.nx] = textread(hdr,'%n',1,'headerlines',1);
@@ -114,7 +114,7 @@ for iCPU = 0:nCPU-1
     temp.st = squeeze(raw(2,1:sp_sample:end,:));
     temp.sn = squeeze(raw(3,1:sp_sample:end,:));
     temp.u  = squeeze(raw(4,1:sp_sample:end,:));
-    
+
     % add to data struct
     count = count + 1;
     if(count == 1)
@@ -134,9 +134,9 @@ for iCPU = 0:nCPU-1
         data.sn = vertcat(data.sn, temp.sn);
         data.u  = vertcat(data.u, temp.u);
     end
-    
+
     data.nx = data.nx + temp.nx;
-    
+
     clear temp;
 end
 

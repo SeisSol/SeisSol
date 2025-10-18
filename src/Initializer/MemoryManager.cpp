@@ -345,7 +345,7 @@ void seissol::initializer::MemoryManager::initializeBuffersDerivatives() {
                                         layer.var<LTS::DerivativesDevice>() );
     }
 
-    if (layer.getIdentifier().halo == HaloType::Copy) {    
+    if (layer.getIdentifier().halo == HaloType::Copy) {
 
       /*
       * Copy layer
@@ -662,9 +662,9 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
 
     layer.setEntrySize<LTS::RotateDisplacementToFaceNormalScratch>(
       sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
-    layer.setEntrySize<LTS::RotateDisplacementToGlobalScratch>( 
+    layer.setEntrySize<LTS::RotateDisplacementToGlobalScratch>(
       sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
-    layer.setEntrySize<LTS::RotatedFaceDisplacementScratch>( 
+    layer.setEntrySize<LTS::RotatedFaceDisplacementScratch>(
       sizeof(real) * freeSurfaceCount * init::rotatedFaceDisplacement::Size);
     layer.setEntrySize<LTS::DofsFaceNodalScratch>(
       sizeof(real) * freeSurfaceCount * tensor::INodal::size());
@@ -883,4 +883,3 @@ void seissol::initializer::MemoryManager::synchronizeTo(seissol::initializer::Al
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 }
-

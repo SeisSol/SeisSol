@@ -453,9 +453,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       LTS::Storage& ltsStorage,
                                       const LTS::Backmap& backmap,
                                       DynamicRupture::Storage& drStorage,
-                                      unsigned* ltsFaceToMeshFace,
+                                      const unsigned* ltsFaceToMeshFace,
                                       const GlobalData& global,
-                                      double etaHack) {
+                                      double etaDamp) {
   real matTData[tensor::T::size()];
   real matTinvData[tensor::Tinv::size()];
   real matAPlusData[tensor::star::size(0)];
@@ -464,7 +464,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
   const auto& fault = meshReader.getFault();
   const auto& elements = meshReader.getElements();
 
-  unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
+  const unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
   for (auto& layer : drStorage.leaves(Ghost)) {
     auto* timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();

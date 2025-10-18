@@ -239,7 +239,7 @@ void EnergyOutput::syncPoint(double time) {
     printEnergies();
   }
   if (isCheckAbortCriteraSlipRateEnabled) {
-    checkAbortCriterion(minTimeSinceSlipRateBelowThreshold, "All slip-rate are");
+    checkAbortCriterion(minTimeSinceSlipRateBelowThreshold, "All slip rates are");
   }
   if (isCheckAbortCriteraMomentRateEnabled) {
     checkAbortCriterion(minTimeSinceMomentRateBelowThreshold, "The seismic moment rate is");
@@ -279,7 +279,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     double& staticFrictionalWork = energiesStorage.staticFrictionalWork(sim);
     double& seismicMoment = energiesStorage.seismicMoment(sim);
     double& potency = energiesStorage.potency(sim);
-    minTimeSinceSlipRateBelowThreshold[sim] = std::numeric_limits<double>::max();
+    minTimeSinceSlipRateBelowThreshold[sim] = std::numeric_limits<double>::infinity();
 
 #ifdef ACL_DEVICE
     void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
@@ -326,13 +326,11 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       const auto timeDerivativePlusPtr = [&](std::size_t i) { return timeDerivativePlus[i]; };
       const auto timeDerivativeMinusPtr = [&](std::size_t i) { return timeDerivativeMinus[i]; };
 #endif
-      const DRGodunovData* godunovData = layer.var<DynamicRupture::GodunovData>();
-      const DRFaceInformation* faceInformation = layer.var<DynamicRupture::FaceInformation>();
-      const DREnergyOutput* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>();
-      const seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus =
-          layer.var<DynamicRupture::WaveSpeedsPlus>();
-      const seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus =
-          layer.var<DynamicRupture::WaveSpeedsMinus>();
+      const auto* godunovData = layer.var<DynamicRupture::GodunovData>();
+      const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
+      const auto* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>();
+      const auto* waveSpeedsPlus = layer.var<DynamicRupture::WaveSpeedsPlus>();
+      const auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
       const auto layerSize = layer.size();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
@@ -377,7 +375,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
           seismicMoment += potencyIncrease * mu;
         }
       }
-      double localMin = std::numeric_limits<double>::max();
+      double localMin = std::numeric_limits<double>::infinity();
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(min : localMin) default(none)                                   \
     shared(layerSize, drEnergyOutput, faceInformation, sim)
@@ -714,15 +712,15 @@ void EnergyOutput::checkAbortCriterion(
   size_t abortCount = 0;
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
     if ((timeSinceThreshold[sim] > 0) and
-        (timeSinceThreshold[sim] < std::numeric_limits<double>::max())) {
+        (timeSinceThreshold[sim] < std::numeric_limits<double>::infinity())) {
       if (static_cast<double>(timeSinceThreshold[sim]) < terminatorMaxTimePostRupture) {
         logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold[sim]
-                  << "in simulation: " << sim
-                  << "s (lower than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
+                  << "s; in simulation: " << sim
+                  << "(lower than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
       } else {
         logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold[sim]
-                  << "in simulation: " << sim
-                  << "s (greater than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
+                  << "s; in simulation: " << sim
+                  << "(greater than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
         ++abortCount;
       }
     }

@@ -20,7 +20,15 @@ struct AsyncWriterExec {};
 
 class AsyncWriter {
   public:
-  AsyncWriter() = default;
+  AsyncWriter();
+  ~AsyncWriter();
+
+  AsyncWriter(const AsyncWriter&) = delete;
+  AsyncWriter(AsyncWriter&&) = delete;
+  auto operator=(const AsyncWriter&) = delete;
+  auto operator=(AsyncWriter&&) = delete;
+
+  void setComm(MPI_Comm comm);
   void execInit(const async::ExecInfo& info, const AsyncWriterInit& params);
   void exec(const async::ExecInfo& info, const AsyncWriterExec& params);
   void execWait(const async::ExecInfo& info);
@@ -31,6 +39,7 @@ class AsyncWriter {
   bool printPlan{false};
   seissol::io::writer::Writer writer;
   std::optional<seissol::io::writer::WriteInstance> instance;
+  MPI_Comm comm{MPI_COMM_WORLD};
 
   static std::mutex globalLock;
 };

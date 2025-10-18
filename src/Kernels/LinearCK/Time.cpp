@@ -27,7 +27,6 @@
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <cstdint>
-#include <iterator>
 
 #include "Kernels/Common.h"
 #include "Kernels/MemoryOps.h"
@@ -75,10 +74,13 @@ void Spacetime::computeAder(const real* coeffs,
          reinterpret_cast<uintptr_t>(timeDerivatives) % Alignment == 0);
 
   // Only a small fraction of cells has the gravitational free surface boundary condition
-  updateDisplacement &=
-      std::any_of(std::begin(data.get<LTS::CellInformation>().faceTypes),
-                  std::end(data.get<LTS::CellInformation>().faceTypes),
-                  [](const FaceType f) { return f == FaceType::FreeSurfaceGravity; });
+  updateDisplacement &= [&]() {
+    bool anyOfResult = false;
+    for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
+      anyOfResult |= data.get<LTS::CellInformation>().faceTypes[i] == FaceType::FreeSurfaceGravity;
+    }
+    return anyOfResult;
+  }();
 
   alignas(PagesizeStack) real temporaryBuffer[Solver::DerivativesSize];
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;

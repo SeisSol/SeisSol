@@ -21,10 +21,11 @@
 #include <Eigen/Dense>
 #include <math.h>
 #include <mpi.h>
+#include <optional>
 #include <vector>
 
 #include "Geometry/CubeGenerator.h"
-#if defined(USE_HDF)
+#ifdef USE_HDF
 #include "Geometry/PUMLReader.h"
 #include <hdf5.h>
 #endif // defined(USE_HDF)
@@ -74,6 +75,9 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
                           drParameters.referencePoint[2]};
   meshReader.extractFaultInformation(center, drParameters.refPointMethod);
 
+  logInfo() << "Check the mesh for geometric errors.";
+  meshReader.verifyMeshOrientation();
+
   seissolInstance.getLtsLayout().setMesh(meshReader);
 
   double maxPointValue[3]{-INFINITY, -INFINITY, -INFINITY};
@@ -101,7 +105,7 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
 
 void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
                   seissol::SeisSol& seissolInstance) {
-#if defined(USE_HDF)
+#ifdef USE_HDF
   double nodeWeight = 1.0;
 
   if (seissolInstance.env().get<bool>("MINISEISSOL", true)) {
@@ -127,71 +131,115 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   logInfo() << "Reading PUML mesh";
 
   auto boundaryFormat = seissolParams.mesh.pumlBoundaryFormat;
+  auto topologyFormat = seissolParams.mesh.pumlTopologyFormat;
 
-  if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::Auto) {
+  if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::Auto ||
+      topologyFormat == seissol::initializer::parameters::TopologyFormat::Auto) {
     logInfo() << "Inferring boundary format.";
     MPI_Info info = MPI_INFO_NULL;
     const hid_t plistId = _eh(H5Pcreate(H5P_FILE_ACCESS));
     _eh(H5Pset_fapl_mpio(plistId, seissol::MPI::mpi.comm(), info));
     const hid_t dataFile =
         _eh(H5Fopen(seissolParams.mesh.meshFileName.c_str(), H5F_ACC_RDONLY, plistId));
-    const hid_t existenceTest = _eh(H5Aexists(dataFile, "boundary-format"));
-    if (existenceTest > 0) {
-      logInfo() << "Boundary format given in PUML file.";
-      hid_t boundaryAttribute = _eh(H5Aopen(dataFile, "boundary-format", H5P_DEFAULT));
 
-      hid_t boundaryAttributeType = _eh(H5Aget_type(boundaryAttribute));
+    const auto checkAttribute = [&](const std::string& name) {
+      const hid_t existenceTest = _eh(H5Aexists(dataFile, name.c_str()));
+      if (existenceTest > 0) {
+        hid_t boundaryAttribute = _eh(H5Aopen(dataFile, name.c_str(), H5P_DEFAULT));
 
-      auto format = [&]() {
-        if (_eh(H5Tis_variable_str(boundaryAttributeType))) {
-          char* formatRaw = nullptr;
-          _eh(H5Aread(
-              boundaryAttribute, boundaryAttributeType, reinterpret_cast<void*>(&formatRaw)));
-          auto format = std::string(formatRaw);
-          _eh(H5free_memory(formatRaw));
-          return format;
-        } else {
-          auto length = H5Tget_size(boundaryAttributeType);
-          std::vector<char> data(length);
-          _eh(H5Aread(boundaryAttribute, boundaryAttributeType, data.data()));
-          std::size_t actualLength = length;
-          for (std::size_t i = 0; i < length; ++i) {
-            if (data[i] == '\0') {
-              actualLength = i;
-              break;
+        hid_t boundaryAttributeType = _eh(H5Aget_type(boundaryAttribute));
+
+        const auto format = [&]() {
+          if (_eh(H5Tis_variable_str(boundaryAttributeType))) {
+            char* formatRaw = nullptr;
+            _eh(H5Aread(
+                boundaryAttribute, boundaryAttributeType, reinterpret_cast<void*>(&formatRaw)));
+            auto format = std::string(formatRaw);
+            _eh(H5free_memory(formatRaw));
+            return format;
+          } else {
+            auto length = H5Tget_size(boundaryAttributeType);
+            std::vector<char> data(length);
+            _eh(H5Aread(boundaryAttribute, boundaryAttributeType, data.data()));
+            std::size_t actualLength = length;
+            for (std::size_t i = 0; i < length; ++i) {
+              if (data[i] == '\0') {
+                actualLength = i;
+                break;
+              }
             }
+            return std::string(data.begin(), data.begin() + actualLength);
           }
-          return std::string(data.begin(), data.begin() + actualLength);
-        }
-      }();
+        }();
+        _eh(H5Aclose(boundaryAttribute));
+        _eh(H5Tclose(boundaryAttributeType));
 
-      _eh(H5Aclose(boundaryAttribute));
-      _eh(H5Tclose(boundaryAttributeType));
-      if (format == "i32x4") {
-        boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32x4;
-      } else if (format == "i64") {
-        boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I64;
-      } else if (format == "i32") {
-        boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32;
+        return std::optional<std::string>(format);
+      }
+      return std::optional<std::string>();
+    };
+
+    if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::Auto) {
+      const auto boundaryFormatStr = checkAttribute("boundary-format");
+
+      if (boundaryFormatStr.has_value()) {
+        logInfo() << "Boundary format given in PUML file.";
+
+        if (boundaryFormatStr.value() == "i32x4") {
+          boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32x4;
+        } else if (boundaryFormatStr.value() == "i64") {
+          boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I64;
+        } else if (boundaryFormatStr.value() == "i32") {
+          boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32;
+        } else {
+          logError() << "Unkown boundary format given in PUML file:" << boundaryFormatStr.value();
+        }
       } else {
-        logError() << "Unkown boundary format given in PUML file:" << format;
+        logInfo() << "Boundary format not given in PUML file; inferring from array shape.";
+        const hid_t boundaryDataset = _eh(H5Dopen2(dataFile, "boundary", H5P_DEFAULT));
+        const hid_t boundarySpace = _eh(H5Dget_space(boundaryDataset));
+        auto boundaryTypeRank = _eh(H5Sget_simple_extent_ndims(boundarySpace));
+
+        _eh(H5Sclose(boundarySpace));
+        _eh(H5Dclose(boundaryDataset));
+
+        // avoid checking the type size here
+        if (boundaryTypeRank == 2) {
+          boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32x4;
+        } else if (boundaryTypeRank == 1) {
+          boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32;
+        } else {
+          logError() << "Unknown boundary format of rank" << boundaryTypeRank;
+        }
+      }
+    }
+
+    const auto topologyFormatStr = checkAttribute("topology-format");
+
+    if (topologyFormatStr.has_value()) {
+      logInfo() << "Topology format given in PUML file.";
+
+      if (topologyFormatStr.value() == "geometric") {
+        topologyFormat = seissol::initializer::parameters::TopologyFormat::Geometric;
+      } else if (topologyFormatStr.value() == "identify-face") {
+        topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyFace;
+      } else if (topologyFormatStr.value() == "identify-vertex") {
+        topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyVertex;
+      } else {
+        logError() << "Unkown topology format given in PUML file:" << topologyFormatStr.value();
       }
     } else {
-      logInfo() << "Boundary format not given in PUML file; inferring from array shape.";
-      const hid_t boundaryDataset = _eh(H5Dopen2(dataFile, "boundary", H5P_DEFAULT));
-      const hid_t boundarySpace = _eh(H5Dget_space(boundaryDataset));
-      auto boundaryTypeRank = _eh(H5Sget_simple_extent_ndims(boundarySpace));
+      logInfo() << "Topology format not given in PUML file; inferring from data present.";
 
-      _eh(H5Sclose(boundarySpace));
-      _eh(H5Dclose(boundaryDataset));
+      const hid_t vertexIdentifyTest = _eh(H5Aexists(dataFile, "identify"));
+      const hid_t cellIdentifyTest = _eh(H5Aexists(dataFile, "topology"));
 
-      // avoid checking the type size here
-      if (boundaryTypeRank == 2) {
-        boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32x4;
-      } else if (boundaryTypeRank == 1) {
-        boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32;
+      if (vertexIdentifyTest > 0) {
+        topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyVertex;
+      } else if (cellIdentifyTest > 0) {
+        topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyFace;
       } else {
-        logError() << "Unknown boundary format of rank" << boundaryTypeRank;
+        topologyFormat = seissol::initializer::parameters::TopologyFormat::Geometric;
       }
     }
 
@@ -207,6 +255,16 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   }
   if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32x4) {
     logInfo() << "Using boundary format: i32x4 (4xi32)";
+  }
+
+  if (topologyFormat == seissol::initializer::parameters::TopologyFormat::Geometric) {
+    logInfo() << "Using the geometric topology.";
+  }
+  if (topologyFormat == seissol::initializer::parameters::TopologyFormat::IdentifyFace) {
+    logInfo() << "Using a topology mesh.";
+  }
+  if (topologyFormat == seissol::initializer::parameters::TopologyFormat::IdentifyVertex) {
+    logInfo() << "Using vertex identification for topology.";
   }
 
   seissol::Stopwatch watch;
@@ -225,6 +283,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   auto* meshReader = new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName.c_str(),
                                                        seissolParams.mesh.partitioningLib.c_str(),
                                                        boundaryFormat,
+                                                       topologyFormat,
                                                        ltsWeights.get(),
                                                        nodeWeight);
   seissolInstance.setMeshReader(meshReader);

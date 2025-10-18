@@ -116,7 +116,7 @@ constexpr unsigned int
                                      unsigned int alignment = Vectorsize) {
   // return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) *
   // REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
-  unsigned int numberOfBasisFunctions = getNumberOfBasisFunctions(convergenceOrder);
+  const auto numberOfBasisFunctions = getNumberOfBasisFunctions(convergenceOrder);
   return getNumberOfAlignedReals<RealT>(numberOfBasisFunctions);
 }
 
@@ -142,7 +142,7 @@ constexpr unsigned
 template <typename T>
 struct HasSize {
   template <typename U>
-  static constexpr decltype(std::declval<U>().size(), bool()) test(int) {
+  static constexpr decltype(std::declval<U>().size(), bool()) test(int /*unused*/) {
     return true;
   }
   template <typename U>

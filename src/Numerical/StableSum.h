@@ -48,7 +48,7 @@ struct StableAccumulator {
 
   auto operator-=(RealT number) -> StableAccumulator<RealT> { return (*this += (-number)); }
 
-  RealT result() const { return acc; }
+  [[nodiscard]] RealT result() const { return acc; }
 
   private:
   RealT acc{0};

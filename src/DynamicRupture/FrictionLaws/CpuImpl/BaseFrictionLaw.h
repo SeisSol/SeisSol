@@ -47,7 +47,7 @@ class BaseFrictionLaw : public FrictionSolver {
    */
   void evaluate(real fullUpdateTime,
                 const FrictionTime& frictionTime,
-                const double timeWeights[ConvergenceOrder],
+                const double* timeWeights,
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
     if (this->currLayerSize == 0) {
       return;
@@ -68,7 +68,7 @@ class BaseFrictionLaw : public FrictionSolver {
           myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
       const auto etaPDamp =
-          drParameters->etaStop > this->mFullUpdateTime ? drParameters->etaHack : 1.0;
+          drParameters->etaDampEnd > this->mFullUpdateTime ? drParameters->etaDamp : 1.0;
       common::precomputeStressFromQInterpolated(faultStresses,
                                                 impAndEta[ltsFace],
                                                 impedanceMatrices[ltsFace],
@@ -95,9 +95,11 @@ class BaseFrictionLaw : public FrictionSolver {
       LIKWID_MARKER_START("computeDynamicRuptureUpdateFrictionAndSlip");
       TractionResults<Executor::Host> tractionResults = {};
 
-      // loop over sub time steps (i.e. quadrature points in time)
+      // loop over sub time steps (i.e. quadrature points in time
+      real startTime = 0;
       real updateTime = this->mFullUpdateTime;
-      for (std::size_t timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
+      for (std::size_t timeIndex = 0; timeIndex < misc::TimeSteps; timeIndex++) {
+        startTime = updateTime;
         updateTime += this->deltaT[timeIndex];
         for (unsigned i = 0; i < this->drParameters->nucleationCount; ++i) {
           common::adjustInitialStress(
@@ -117,6 +119,26 @@ class BaseFrictionLaw : public FrictionSolver {
                                                            strengthBuffer,
                                                            ltsFace,
                                                            timeIndex);
+
+        // time-dependent outputs
+        common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
+                                       ruptureTime[ltsFace],
+                                       slipRateMagnitude[ltsFace],
+                                       startTime);
+
+        static_cast<Derived*>(this)->saveDynamicStressOutput(ltsFace, startTime);
+
+        common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
+
+        if (this->drParameters->isFrictionEnergyRequired &&
+            this->drParameters->isCheckAbortCriteraEnabled) {
+          common::updateTimeSinceSlipRateBelowThreshold(
+              slipRateMagnitude[ltsFace],
+              ruptureTimePending[ltsFace],
+              energyData[ltsFace],
+              this->deltaT[timeIndex],
+              this->drParameters->terminatorSlipRateThreshold);
+        }
       }
       LIKWID_MARKER_STOP("computeDynamicRuptureUpdateFrictionAndSlip");
       SCOREP_USER_REGION_END(myRegionHandle)
@@ -126,14 +148,6 @@ class BaseFrictionLaw : public FrictionSolver {
       LIKWID_MARKER_START("computeDynamicRupturePostHook");
       static_cast<Derived*>(this)->postHook(stateVariableBuffer, ltsFace);
 
-      common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
-                                     ruptureTime[ltsFace],
-                                     slipRateMagnitude[ltsFace],
-                                     mFullUpdateTime);
-
-      static_cast<Derived*>(this)->saveDynamicStressOutput(ltsFace);
-
-      common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
       LIKWID_MARKER_STOP("computeDynamicRupturePostHook");
       SCOREP_USER_REGION_END(myRegionHandle)
 
@@ -154,15 +168,6 @@ class BaseFrictionLaw : public FrictionSolver {
       SCOREP_USER_REGION_END(myRegionHandle)
 
       if (this->drParameters->isFrictionEnergyRequired) {
-
-        if (this->drParameters->isCheckAbortCriteraEnabled) {
-          common::updateTimeSinceSlipRateBelowThreshold(
-              slipRateMagnitude[ltsFace],
-              ruptureTimePending[ltsFace],
-              energyData[ltsFace],
-              this->sumDt,
-              this->drParameters->terminatorSlipRateThreshold);
-        }
         common::computeFrictionEnergy(energyData[ltsFace],
                                       qInterpolatedPlus[ltsFace],
                                       qInterpolatedMinus[ltsFace],

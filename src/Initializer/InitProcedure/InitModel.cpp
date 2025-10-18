@@ -237,11 +237,13 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
                                                     ltsInfo.clusterLayout.value(),
                                                     seissolParams.model);
 
-  if (seissolParams.drParameters.etaHack != 1.0) {
-    logWarning() << "The \"eta hack\" has been enabled in the timeframe [0,"
-                 << seissolParams.drParameters.etaStop
+  if (seissolParams.drParameters.etaDamp != 1.0) {
+    logWarning() << "The \"eta damp\" (=" << seissolParams.drParameters.etaDamp
+                 << ") has been enabled in the timeframe [0,"
+                 << seissolParams.drParameters.etaDampEnd
                  << ") to mitigate quasi-divergent solutions in the "
-                    "friction law. The results may not conform to the existing benchmarks.";
+                    "friction law. The results may not conform to the existing benchmarks (which "
+                    "are (mostly) computed with \"eta damp\" = 1).";
   }
 
   seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
@@ -250,7 +252,7 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
                                                          memoryManager.getDRStorage(),
                                                          ltsInfo.ltsMeshToFace,
                                                          *memoryManager.getGlobalData().onHost,
-                                                         seissolParams.drParameters.etaHack);
+                                                         seissolParams.drParameters.etaDamp);
 
   memoryManager.initFrictionData();
 
@@ -342,15 +344,11 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 
   auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
 
-  std::size_t* ltsToMesh = nullptr;
   std::size_t numberOfMeshCells = 0;
 
   seissolInstance.getLtsLayout().getCellInformation(ltsStorage.var<LTS::CellInformation>(),
                                                     ltsStorage.var<LTS::SecondaryInformation>(),
-                                                    ltsToMesh,
                                                     numberOfMeshCells);
-
-  delete[] ltsToMesh;
 
   seissol::initializer::time_stepping::deriveLtsSetups(
       ltsInfo.clusterLayout.value().globalClusterCount,
