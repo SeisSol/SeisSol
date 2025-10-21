@@ -20,12 +20,7 @@ std::mutex AsyncWriter::globalLock = std::mutex();
 
 AsyncWriter::AsyncWriter() = default;
 
-AsyncWriter::~AsyncWriter() {
-  if (comm != MPI_COMM_WORLD) {
-    // comm has been duplicated
-    MPI_Comm_free(&comm);
-  }
-}
+AsyncWriter::~AsyncWriter() = default;
 
 void AsyncWriter::setComm(MPI_Comm comm) {
   // TODO: currently non-functional for ASYNC_MODE=mpi
@@ -60,5 +55,11 @@ void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& param
 void AsyncWriter::execWait(const async::ExecInfo& info) {
   // TODO: async finalize
 }
-void AsyncWriter::finalize() {}
+void AsyncWriter::finalize() {
+  if (comm != MPI_COMM_WORLD) {
+    // comm has been duplicated
+    MPI_Comm_free(&comm);
+    comm = MPI_COMM_WORLD;
+  }
+}
 } // namespace seissol::io::writer::module
