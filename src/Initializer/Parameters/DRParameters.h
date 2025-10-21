@@ -91,7 +91,7 @@ struct DRParameters {
   double etaDamp{1.0};
   double etaDampEnd{std::numeric_limits<double>::infinity()};
   unsigned nucleationCount{0};
-  double ruptureFrontThreshold{0.001};
+  real ruptureFrontThreshold{0.001};
 };
 
 DRParameters readDRParameters(ParameterReader* baseReader);

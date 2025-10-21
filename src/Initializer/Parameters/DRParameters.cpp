@@ -171,6 +171,8 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                               .value_or(reader->read<double>("etastop").value_or(
                                   std::numeric_limits<double>::infinity()));
 
+  const auto ruptureFrontThreshold = static_cast<real>(reader->readWithDefault("ruptureFrontThreshold", 0.001));                      
+
   reader->warnDeprecated({"rf_output_on", "backgroundtype"});
 
   return DRParameters{isDynamicRuptureEnabled,

@@ -124,6 +124,7 @@ class BaseFrictionLaw : public FrictionSolver {
         common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
                                        ruptureTime[ltsFace],
                                        slipRateMagnitude[ltsFace],
+                                       this->drParameters->ruptureFrontThreshold,
                                        startTime);
 
         static_cast<Derived*>(this)->saveDynamicStressOutput(ltsFace, startTime);
