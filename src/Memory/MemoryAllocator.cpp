@@ -59,7 +59,7 @@ void* allocate(size_t size, size_t alignment, enum Memkind memkind) {
 
 #ifdef ACL_DEVICE
   } else if (memkind == DeviceGlobalMemory) {
-    ptrBuffer = device::DeviceInstance::getInstance().api->allocGlobMem(size);
+    ptrBuffer = device::DeviceInstance::getInstance().api->allocGlobMem(size, true);
   } else if (memkind == DeviceUnifiedMemory) {
     ptrBuffer = device::DeviceInstance::getInstance().api->allocUnifiedMem(size);
   } else if (memkind == PinnedMemory) {

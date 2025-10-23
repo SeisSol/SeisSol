@@ -46,6 +46,7 @@ inline void printPersistentMpiInfo(utils::Env& env) {
 }
 
 inline bool useUSM(utils::Env& env) {
+  return false;
 #ifdef ACL_DEVICE
   return env.get<bool>("USM", device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
 #else
@@ -67,6 +68,7 @@ inline void printUSMInfo(utils::Env& env) {
 }
 
 inline bool useMPIUSM(utils::Env& env) {
+  return false;
 #ifdef ACL_DEVICE
   return env.get<bool>("USM_MPI",
                        device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
