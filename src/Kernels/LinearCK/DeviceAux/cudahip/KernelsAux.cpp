@@ -373,7 +373,7 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
     const bool has3 = (flags[batchId] & 4) != 0;
     const bool has4 = (flags[batchId] & 8) != 0;
 
-    const float* const __restrict__ ptrC[4];
+    const float* __restrict__ ptrC[4]{};
 
     int ptrcnt = 0;
     if (has1) {
