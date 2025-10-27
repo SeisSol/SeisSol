@@ -426,7 +426,7 @@ __device__ __forceinline__ void kernel_ckstep(float reg1[9],
     }
   }
 
-  {
+  if constexpr(Size1 % 8 != 0) {
     const int k = (Size1 / 8) * 8;
     float values[Faces][Size1 % 8]{};
 #pragma unroll
