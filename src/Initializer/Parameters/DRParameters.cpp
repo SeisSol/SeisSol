@@ -133,7 +133,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   for (std::size_t i = 0; i < faultFileNames.size(); ++i) {
     const auto fieldname = "modelfilename" + std::to_string(i);
     if (reader->hasField(fieldname)) {
-      faultFileNames[i] = reader->read<std::string>(fieldname);
+      faultFileNames[i] = reader->readPath(fieldname);
       isDynamicRuptureEnabled = true;
     }
   }

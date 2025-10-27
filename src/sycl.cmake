@@ -30,7 +30,6 @@ if (("${DEVICE_BACKEND}" STREQUAL "hipsycl") OR ("${DEVICE_BACKEND}" STREQUAL "a
         else()
             set(HIPSYCL_TARGETS "cuda:${DEVICE_ARCH}" CACHE STRING "" FORCE)
             set(ACPP_TARGETS "cuda:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-            target_compile_options(device PRIVATE -Wno-unknown-cuda-version)
         endif()
     elseif(DEVICE_ARCH MATCHES "gfx*")
         set(HIPSYCL_TARGETS "hip:${DEVICE_ARCH}" CACHE STRING "" FORCE)
@@ -45,15 +44,24 @@ if (("${DEVICE_BACKEND}" STREQUAL "hipsycl") OR ("${DEVICE_BACKEND}" STREQUAL "a
 
     function(make_device_lib NAME FILES)
         add_library(${NAME} SHARED ${FILES})
+
+        if ((DEVICE_ARCH MATCHES "sm_*") AND (NOT SYCL_USE_NVHPC))
+            target_compile_options(${NAME} PRIVATE -Wno-unknown-cuda-version)
+        endif()
+
         target_include_directories(${NAME} PUBLIC ${SEISSOL_DEVICE_INCLUDE})
 
         target_link_libraries(${NAME} PUBLIC ${Boost_LIBRARIES})
 
-        target_compile_options(${NAME} PRIVATE ${EXTRA_CXX_FLAGS} "-fPIC" ${OpenMP_CXX_FLAGS})
+        target_link_libraries(${NAME} PRIVATE OpenMP::OpenMP_CXX)
+        target_link_libraries(${NAME} PRIVATE ${OpenMP_CXX_FLAGS})
+
+        target_compile_options(${NAME} PRIVATE ${EXTRA_CXX_FLAGS} "-fPIC")
 
         add_sycl_to_target(TARGET ${NAME} SOURCES ${FILES})
     endfunction()
 
+    target_link_libraries(seissol-common-properties INTERFACE AdaptiveCpp::acpp-rt)
 elseif("${DEVICE_BACKEND}" STREQUAL "oneapi")
     find_package(DpcppFlags REQUIRED)
 
