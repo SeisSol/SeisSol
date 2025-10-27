@@ -84,11 +84,10 @@ using namespace seissol;
  *  In Example 5 the buffer is a LTS buffer (reset on request only). GTS buffers are updated in
  *every time step.
  *
- * @return lts setup.
- * @param localCluster global id of the cluster to which this cell belongs.
- * @param neighboringClusterIds global ids of the clusters the face neighbors belong to (if
- *present).
- * @param faceTypes types of the four faces.
+ * @return LTS setup (without correction)
+ * @param ownPrimary primary cell information struct of the cell in consideration
+ * @param ownSecondary secondary cell information struct of the cell in consideration
+ * @param neighborClusters face-neighbor LTS cluster IDs
  * @param copy true if the cell is part of the copy layer (only required for correctness in dynamic
  *rupture computations).
  **/
@@ -106,13 +105,13 @@ LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
       continue;
     } else if (isExternalBoundaryFaceType(ownPrimary.faceTypes[face])) {
       // fake neighbors are GTS
-      ltsSetup.setNeighborGTS(face, true);
+      ltsSetup.setNeighborGTSRelation(face, true);
     } else if (ownPrimary.faceTypes[face] == FaceType::DynamicRupture) {
       // dynamic rupture faces are always global time stepping but operate on derivatives
 
       // face-neighbor provides GTS+derivatives
       ltsSetup.setNeighborHasDerivatives(face, true);
-      ltsSetup.setNeighborGTS(face, true);
+      ltsSetup.setNeighborGTSRelation(face, true);
 
       // cell is required to provide derivatives for dynamic rupture
       ltsSetup.setHasDerivatives(true);
@@ -120,7 +119,7 @@ LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
       if (copy) {
         // set the buffer invalid in copy layers
         // TODO: Minor improvements possible: Non-DR MPI-neighbor for example
-        ltsSetup.setCacheBuffers(true);
+        ltsSetup.setAccumulateBuffers(true);
       }
     }
     // derive the LTS setup based on the cluster ids
@@ -131,10 +130,10 @@ LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
         ltsSetup.setNeighborHasDerivatives(face, true);
 
         // the cell-local buffer is used in LTS-fashion
-        ltsSetup.setCacheBuffers(true);
+        ltsSetup.setAccumulateBuffers(true);
       } else if (ownSecondary.clusterId == neighborClusters[face]) {
         // GTS relation
-        ltsSetup.setNeighborGTS(face, true);
+        ltsSetup.setNeighborGTSRelation(face, true);
       }
 
       if (ownSecondary.clusterId > neighborClusters[face]) {
@@ -150,9 +149,9 @@ LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
   // true lts buffer with gts required derivatives
   bool hasGTS = false;
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    hasGTS |= ltsSetup.neighborGTS(face);
+    hasGTS |= ltsSetup.neighborGTSRelation(face);
   }
-  if (ltsSetup.cacheBuffers() && hasGTS) {
+  if (ltsSetup.accumulateBuffers() && hasGTS) {
     ltsSetup.setHasDerivatives(true);
   }
 
@@ -169,7 +168,7 @@ LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
     const bool isSpecialCase = isExternalBoundaryFaceType(ownPrimary.faceTypes[face]);
 
     // need special case face and either LTS buffers, or no buffers at all
-    if (isSpecialCase && (ltsSetup.cacheBuffers() || !ltsSetup.hasBuffers())) {
+    if (isSpecialCase && (ltsSetup.accumulateBuffers() || !ltsSetup.hasBuffers())) {
 
       // enable derivatives locally as well as for the neighbor
       ltsSetup.setHasDerivatives(true);
@@ -205,7 +204,7 @@ LtsSetup normalizeLtsSetup(const LtsSetup& localLtsSetup,
   // iterate over the face neighbors
   for (std::size_t face = 0; face < Cell::NumFaces; face++) {
     // enforce derivatives if this is a "GTS on derivatives" relation
-    if (localLtsSetup.neighborGTS(face) && neighborCache[face]) {
+    if (localLtsSetup.neighborGTSRelation(face) && neighborCache[face]) {
       output.setNeighborHasDerivatives(face, true);
     }
   }
@@ -287,7 +286,7 @@ void deriveLtsSetups(const MeshLayout& layout, LTS::Storage& storage) {
         if (isInternalFaceType(primaryInformationLocal[cell].faceTypes[face])) {
           const auto& neighbor = secondaryInformationLocal[cell].faceNeighbors[face];
           neighborCache[face] =
-              storage.lookup<LTS::CellInformation>(neighbor).ltsSetup.cacheBuffers();
+              storage.lookup<LTS::CellInformation>(neighbor).ltsSetup.accumulateBuffers();
         }
       }
 

@@ -67,7 +67,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
                 real* nextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter];
 
                 const bool isGtsNeighbor =
-                    dataHost.get<LTS::CellInformation>().ltsSetup.neighborGTS(face);
+                    dataHost.get<LTS::CellInformation>().ltsSetup.neighborGTSRelation(face);
                 if (isGtsNeighbor) {
 
                   idofsAddressRegistry[neighborBuffer] = nextTempIDofsPtr;
