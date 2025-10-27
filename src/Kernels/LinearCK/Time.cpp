@@ -184,6 +184,7 @@ void Spacetime::computeBatchedAder(const real* coeffs,
     derivativesKrnl.linearAllocator.initialize(tmpMem.get());
     derivativesKrnl.streamPtr = runtime.stream();
 
+    /*
     seissol::kernels::time::aux::launch_ick((const float**)derivativesKrnl.dQ(0),
                                             derivativesKrnl.extraOffset_dQ(0),
                                             derivativesKrnl.I,
@@ -207,8 +208,9 @@ void Spacetime::computeBatchedAder(const real* coeffs,
           runtime.stream(),
           i);
     }
+    */
 
-    // derivativesKrnl.execute();
+    derivativesKrnl.execute();
   }
 
   if (updateDisplacement) {
