@@ -185,16 +185,16 @@ void taylorSum(
 
 namespace {
 
-__launch_bounds__(512) __global__ void kernel_local(const float** A,
-                                                    const float** B,
-                                                    unsigned Boffset,
-                                                    const float* C1,
-                                                    const float* C2,
-                                                    const float* C3,
-                                                    const float* C4,
-                                                    float** D,
-                                                    size_t numElements,
-                                                    const unsigned* flags) {
+__launch_bounds__(512) __global__ void kernel_local2(const float** A,
+                                                     const float** B,
+                                                     unsigned Boffset,
+                                                     const float* C1,
+                                                     const float* C2,
+                                                     const float* C3,
+                                                     const float* C4,
+                                                     float** D,
+                                                     size_t numElements,
+                                                     const unsigned* flags) {
   // meta data:
   // A = {rows: 64, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0), np.int64(64),
   // np.int64(9)]}; B = {rows: 9, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0),
@@ -328,6 +328,203 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
   }
 }
 
+__launch_bounds__(512) __global__ void kernel_local(const float** A,
+                                                    const float** B,
+                                                    unsigned Boffset,
+                                                    const float* C1,
+                                                    const float* C2,
+                                                    const float* C3,
+                                                    const float* C4,
+                                                    float** D,
+                                                    size_t numElements,
+                                                    const unsigned* flags) {
+  // meta data:
+  // A = {rows: 64, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0), np.int64(64),
+  // np.int64(9)]}; B = {rows: 9, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0),
+  // np.int64(9), np.int64(9)]}; C = {rows: 56, cols: 56, addr: none, bbox: [np.int64(0),
+  // np.int64(0), np.int64(56), np.int64(56)]}; D = {rows: 64, cols: 9, addr: pointer_based, bbox:
+  // [np.int64(0), np.int64(0), np.int64(56), np.int64(9)]};
+
+  // tmp0 = 1.0 * A x B
+  // D = 1.0 * C x tmp0 + 1.0 * D
+
+  constexpr int Quantities = 9;
+  constexpr int Faces = 4;
+
+  constexpr int Count = Faces * Quantities * Quantities;
+  constexpr int CountH = Count / 64;
+  constexpr int CountR = Count % 64;
+
+  __shared__ __align__(8) float total_shrmem0[(576 + Count) * 8];
+
+  const auto tid_x = threadIdx.x;
+  unsigned batchId = threadIdx.y + blockDim.y * blockIdx.x;
+  if (batchId < numElements) {
+    const float* const __restrict__ glbA = A[batchId];
+    const float* const __restrict__ glbB = B[batchId] + Boffset;
+    const float* const __restrict__ glbC1 = C1;
+    const float* const __restrict__ glbC2 = C2;
+    const float* const __restrict__ glbC3 = C3;
+    const float* const __restrict__ glbC4 = C4;
+    float* const __restrict__ glbD = D[batchId];
+
+    const bool has1 = (flags[batchId] & 1) != 0;
+    const bool has2 = (flags[batchId] & 2) != 0;
+    const bool has3 = (flags[batchId] & 4) != 0;
+    const bool has4 = (flags[batchId] & 8) != 0;
+
+    const float* const __restrict__ ptrC[4];
+
+    int ptrcnt = 0;
+    if (has1) {
+      ptrC[ptrcnt] = glbC1;
+      ++ptrcnt;
+    }
+    if (has2) {
+      ptrC[ptrcnt] = glbC2;
+      ++ptrcnt;
+    }
+    if (has3) {
+      ptrC[ptrcnt] = glbC3;
+      ++ptrcnt;
+    }
+    if (has4) {
+      ptrC[ptrcnt] = glbC4;
+      ++ptrcnt;
+    }
+
+    float reg0[Faces][Quantities]{};
+    float reg1[Quantities]{};
+
+    float* shrmem0 = &total_shrmem0[(576 + Count) * threadIdx.y];
+
+    // writing to shr mem: from reg0 to _1
+    float* __restrict__ _1 = &shrmem0[0];
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      _1[tid_x + i * 64] = __builtin_nontemporal_load(&glbA[tid_x + i * 64]);
+    }
+
+    float* __restrict__ _0 = &shrmem0[576];
+
+    // load all 4 9×9 matrices
+    // loading glbB to _0: # no trans, extended
+#pragma unroll
+    for (int i = 0; i < CountH; ++i) {
+      _0[tid_x + i * 64] = glbB[tid_x + i * 64];
+    }
+    if (tid_x < CountR) {
+      _0[tid_x + CountH * 64] = glbB[tid_x + CountH * 64];
+    }
+
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+      reg1[n] = __builtin_nontemporal_load(&glbD[tid_x + n * 64]);
+    }
+
+    // gemm: glbC x _1
+    if (tid_x < 56) {
+
+#pragma unroll 2
+      for (int k = 0; k < 56; k += 8) {
+        float values[Faces][8]{};
+        if (ptrcnt >= 1) {
+#pragma unroll
+          for (int kk = 0; kk < 8; ++kk) {
+            values[0][kk] = ptrC[0][tid_x + (k + kk) * 56];
+          }
+          if (ptrcnt >= 2) {
+#pragma unroll
+            for (int kk = 0; kk < 8; ++kk) {
+              values[1][kk] = ptrC[1][tid_x + (k + kk) * 56];
+            }
+            if (ptrcnt >= 3) {
+#pragma unroll
+              for (int kk = 0; kk < 8; ++kk) {
+                values[2][kk] = ptrC[2][tid_x + (k + kk) * 56];
+              }
+              if (ptrcnt == 4) {
+#pragma unroll
+                for (int kk = 0; kk < 8; ++kk) {
+                  values[3][kk] = ptrC[3][tid_x + (k + kk) * 56];
+                }
+              }
+            }
+          }
+        }
+
+#pragma unroll
+        for (int n = 0; n < Quantities; ++n) {
+          float local[8]{};
+#pragma unroll
+          for (int kk = 0; kk < 8; ++kk) {
+            local[kk] = _1[(k + kk) + n * 64];
+          }
+#pragma unroll
+          for (int kk = 0; kk < 8; ++kk) {
+            if (ptrcnt >= 1) {
+              reg0[0][n] += values[0][kk] * local[kk];
+              if (ptrcnt >= 2) {
+                reg0[1][n] += values[1][kk] * local[kk];
+                if (ptrcnt >= 3) {
+                  reg0[2][n] += values[2][kk] * local[kk];
+                  if (ptrcnt >= 4) {
+                    reg0[3][n] += values[3][kk] * local[kk];
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // gemm: glbA x _0
+    if (ptrcnt >= 1) {
+#pragma unroll
+      for (int n = 0; n < Quantities; ++n) {
+#pragma unroll
+        for (int k = 0; k < Quantities; ++k) {
+          reg1[n] += reg0[0][k] * _0[k + n * Quantities + Quantities * Quantities * 0];
+        }
+      }
+      if (ptrcnt >= 2) {
+#pragma unroll
+        for (int n = 0; n < Quantities; ++n) {
+#pragma unroll
+          for (int k = 0; k < Quantities; ++k) {
+            reg1[n] += reg0[1][k] * _0[k + n * Quantities + Quantities * Quantities * 1];
+          }
+        }
+        if (ptrcnt >= 3) {
+#pragma unroll
+          for (int n = 0; n < Quantities; ++n) {
+#pragma unroll
+            for (int k = 0; k < Quantities; ++k) {
+              reg1[n] += reg0[2][k] * _0[k + n * Quantities + Quantities * Quantities * 2];
+            }
+          }
+          if (ptrcnt >= 4) {
+#pragma unroll
+            for (int n = 0; n < Quantities; ++n) {
+#pragma unroll
+              for (int k = 0; k < Quantities; ++k) {
+                reg1[n] += reg0[3][k] * _0[k + n * Quantities + Quantities * Quantities * 3];
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // write results back to glb. memory
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+      __builtin_nontemporal_store(reg1[n], &glbD[tid_x + n * 64]);
+    }
+  }
+}
+
 } // namespace
 
 namespace seissol::kernels::local::aux {
@@ -426,7 +623,7 @@ __device__ __forceinline__ void kernel_ckstep(float reg1[9],
     }
   }
 
-  if constexpr(Size1 % 8 != 0) {
+  if constexpr (Size1 % 8 != 0) {
     const int k = (Size1 / 8) * 8;
     float values[Faces][Size1 % 8]{};
 #pragma unroll
@@ -703,8 +900,7 @@ __launch_bounds__(512) __global__ void kernel_ck(const float** A,
       }
     }
 
-    if constexpr(Size1 % 8 != 0)
-    {
+    if constexpr (Size1 % 8 != 0) {
       const int k = (Size1 / 8) * 8;
       float values[Faces][Size1 % 8]{};
 #pragma unroll
