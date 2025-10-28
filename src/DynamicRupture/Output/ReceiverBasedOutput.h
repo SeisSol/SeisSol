@@ -15,6 +15,7 @@
 #include "Memory/Descriptor/LTS.h"
 
 #include <DynamicRupture/Misc.h>
+#include <Kernels/Solver.h>
 #include <Memory/Tree/Backmap.h>
 #include <Parallel/Runtime/Stream.h>
 #include <memory>
@@ -35,7 +36,9 @@ class ReceiverOutput {
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                        const std::shared_ptr<ReceiverOutputData>& outputData,
                        parallel::runtime::StreamRuntime& runtime,
-                       double time = 0.0);
+                       double time = 0.0,
+                       double dt = 1.0,
+                       double indt = 0.0);
 
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
 
@@ -46,6 +49,8 @@ class ReceiverOutput {
   seissol::geometry::MeshReader* meshReader{nullptr};
   FaceToLtsMapType* faceToLtsMap{nullptr};
   real* deviceCopyMemory{nullptr};
+
+  kernels::Time timeKernel;
 
   struct LocalInfo {
     DynamicRupture::Layer* layer{};
@@ -109,8 +114,13 @@ class ReceiverOutput {
     }
   }
 
-  void getDofs(real dofs[tensor::Q::size()], int meshId);
-  void getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side);
+  void getDofs(real dofs[tensor::Q::size()],
+               const std::vector<real>& timeCoeffs,
+               std::size_t meshId);
+  void getNeighborDofs(real dofs[tensor::Q::size()],
+                       const std::vector<real>& timeCoeffs,
+                       std::size_t meshId,
+                       std::size_t side);
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
   virtual real computeFluidPressure(LocalInfo& local) { return 0.0; }
