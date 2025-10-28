@@ -374,22 +374,27 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
     const bool has4 = (flags[batchId] & 8) != 0;
 
     const float* __restrict__ ptrC[4]{};
+    int ptrMap[4]{};
 
     int ptrcnt = 0;
     if (has1) {
       ptrC[ptrcnt] = glbC1;
+      ptrMap[ptrcnt] = 0;
       ++ptrcnt;
     }
     if (has2) {
       ptrC[ptrcnt] = glbC2;
+      ptrMap[ptrcnt] = 1;
       ++ptrcnt;
     }
     if (has3) {
       ptrC[ptrcnt] = glbC3;
+      ptrMap[ptrcnt] = 2;
       ++ptrcnt;
     }
     if (has4) {
       ptrC[ptrcnt] = glbC4;
+      ptrMap[ptrcnt] = 3;
       ++ptrcnt;
     }
 
@@ -485,7 +490,7 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
       for (int n = 0; n < Quantities; ++n) {
 #pragma unroll
         for (int k = 0; k < Quantities; ++k) {
-          reg1[n] += reg0[0][k] * _0[k + n * Quantities + Quantities * Quantities * 0];
+          reg1[n] += reg0[0][k] * _0[k + n * Quantities + Quantities * Quantities * ptrMap[0]];
         }
       }
       if (ptrcnt >= 2) {
@@ -493,7 +498,7 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
         for (int n = 0; n < Quantities; ++n) {
 #pragma unroll
           for (int k = 0; k < Quantities; ++k) {
-            reg1[n] += reg0[1][k] * _0[k + n * Quantities + Quantities * Quantities * 1];
+            reg1[n] += reg0[1][k] * _0[k + n * Quantities + Quantities * Quantities * ptrMap[1]];
           }
         }
         if (ptrcnt >= 3) {
@@ -501,7 +506,7 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
           for (int n = 0; n < Quantities; ++n) {
 #pragma unroll
             for (int k = 0; k < Quantities; ++k) {
-              reg1[n] += reg0[2][k] * _0[k + n * Quantities + Quantities * Quantities * 2];
+              reg1[n] += reg0[2][k] * _0[k + n * Quantities + Quantities * Quantities * ptrMap[2]];
             }
           }
           if (ptrcnt >= 4) {
@@ -509,7 +514,7 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
             for (int n = 0; n < Quantities; ++n) {
 #pragma unroll
               for (int k = 0; k < Quantities; ++k) {
-                reg1[n] += reg0[3][k] * _0[k + n * Quantities + Quantities * Quantities * 3];
+                reg1[n] += reg0[3][k] * _0[k + n * Quantities + Quantities * Quantities * ptrMap[3]];
               }
             }
           }
