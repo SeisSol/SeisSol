@@ -273,24 +273,28 @@ __launch_bounds__(512) __global__ void kernel_local3(const float** A,
           for (int kk = 0; kk < Cache; ++kk) {
             values[0][kk] = glbC1[tid_x + (k + kk) * 56];
           }
+        __builtin_amdgcn_sched_group_barrier(0x0020, 8, 1);
         }
         if (has2) {
 #pragma unroll
           for (int kk = 0; kk < Cache; ++kk) {
             values[1][kk] = glbC2[tid_x + (k + kk) * 56];
           }
+        __builtin_amdgcn_sched_group_barrier(0x0020, 8, 2);
         }
         if (has3) {
 #pragma unroll
           for (int kk = 0; kk < Cache; ++kk) {
             values[2][kk] = glbC3[tid_x + (k + kk) * 56];
           }
+        __builtin_amdgcn_sched_group_barrier(0x0020, 8, 3);
         }
         if (has4) {
 #pragma unroll
           for (int kk = 0; kk < Cache; ++kk) {
             values[3][kk] = glbC4[tid_x + (k + kk) * 56];
           }
+        __builtin_amdgcn_sched_group_barrier(0x0020, 8, 4);
         }
 
         #pragma unroll
@@ -311,7 +315,6 @@ __launch_bounds__(512) __global__ void kernel_local3(const float** A,
           __builtin_amdgcn_sched_group_barrier(0x0100, Cache, 0);
         }
 
-        __builtin_amdgcn_sched_group_barrier(0x0020, 8 * Faces, 0);
       }
     }
 
@@ -324,7 +327,7 @@ __launch_bounds__(512) __global__ void kernel_local3(const float** A,
         for (int k = 0; k < Quantities; ++k) {
           reg1[n] += reg0[d][k] * _0[k + n * Quantities + Quantities * Quantities * d];
         }
-        __builtin_amdgcn_sched_group_barrier(0x0100, 8, 0);
+        __builtin_amdgcn_sched_group_barrier(0x0100, 9, 0);
       }
       // __builtin_amdgcn_sched_group_barrier(0x0100, 8, 0);
     }
