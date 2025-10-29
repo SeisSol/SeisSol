@@ -64,7 +64,34 @@ We also require a small hotfix for pkg-config, as required by easi (and subseque
 
 .. code-block:: bash
 
-    export PKG_CONFIG_PATH=/opt/cray/pe/netcdf/4.9.0.7/amd/5.0/lib/pkgconfig:/opt/cray/pe/hdf5/1.12.2.7/amd/5.0/lib/pkgconfig:$PKG_CONFIG_PATH
+    export PKG_CONFIG_PATH=/opt/cray/pe/netcdf/4.9.0.11/amd/5.0/lib/pkgconfig:/opt/cray/pe/hdf5/1.12.2.11/amd/5.0/lib/pkgconfig:$PKG_CONFIG_PATH
+
+
+All things put together, your `~/.bashrc` file should look like:
+
+.. code-block:: bash
+
+    module load LUMI/24.03 partition/G
+    module load cpeAMD/24.03
+    module load rocm/6.0.3
+    module load amd/6.0.3
+    module load Boost/1.83.0-cpeAMD-24.03
+    module load Eigen/3.4.0
+
+    module load cray-hdf5-parallel
+    module load cray-netcdf-hdf5parallel
+    module load cray-python/3.11.7
+
+    export PKG_CONFIG_PATH=/opt/cray/pe/netcdf/4.9.0.11/amd/5.0/lib/pkgconfig:/opt/cray/pe/hdf5/1.12.2.11/amd/5.0/lib/pkgconfig:$PKG_CONFIG_PATH
+
+    export SEISSOL_BASE=/project/project_465002391/<your_name>/seissol_base
+    export SEISSOL_PREFIX=$SEISSOL_BASE/local
+    export CMAKE_PREFIX_PATH=$SEISSOL_PREFIX:$CMAKE_PREFIX_PATH
+    source $SEISSOL_PREFIX/bin/activate
+    export CC=cc
+    export CXX=CC
+    export FC=ftn
+
 
 Next, we also start up our Python installation. The virtual environment sets additional paths for e.g. executables to our prefix directory automatically.
 
