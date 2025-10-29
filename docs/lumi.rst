@@ -45,19 +45,16 @@ We set the compilers to the cray compiler wrappers (which in our case use ``amdc
 
 .. code-block:: bash
 
-    module load LUMI/23.09 partition/G
-    module load cpeAMD/23.09
-    module load rocm/5.6.1
-    module load amd/5.6.1
-
-    module load buildtools/23.09
-
-    module load Boost/1.82.0-cpeAMD-23.09
+    module load LUMI/24.03 partition/G
+    module load cpeAMD/24.03
+    module load rocm/6.0.3
+    module load amd/6.0.3
+    module load Boost/1.83.0-cpeAMD-24.03
     module load Eigen/3.4.0
 
-    module load cray-hdf5-parallel/1.12.2.7
-    module load cray-netcdf-hdf5parallel/4.9.0.7
-    module load cray-python/3.10.10
+    module load cray-hdf5-parallel
+    module load cray-netcdf-hdf5parallel
+    module load cray-python/3.11.7
 
     export CC=cc
     export CXX=CC
@@ -77,6 +74,7 @@ Next, we also start up our Python installation. The virtual environment sets add
     source $SEISSOL_PREFIX/bin/activate
     pip install setuptools
     pip install numpy
+    pip install ninja
     pip install git+https://github.com/SeisSol/PSpaMM.git
     pip install git+https://github.com/SeisSol/gemmforge.git
     pip install git+https://github.com/SeisSol/chainforge.git
@@ -89,8 +87,8 @@ METIS/ParMETIS:
 
 .. code-block:: bash
 
-    wget https://ftp.mcs.anl.gov/pub/pdetools/spack-pkgs/parmetis-4.0.3.tar.gz
-    tar -xvf parmetis-4.0.3.tar.gz
+    wget https://deb.debian.org/debian/pool/non-free/p/parmetis/parmetis_4.0.3.orig.tar.gz
+    tar -xvf parmetis_4.0.3.orig.tar.gz
     cd parmetis-4.0.3
     sed -i 's/IDXTYPEWIDTH 32/IDXTYPEWIDTH 64/g'  ./metis/include/metis.h
     make config cc=mpicc cxx=mpicxx prefix=$SEISSOL_PREFIX
@@ -149,7 +147,7 @@ For libxsmm (note that we need 1.17 sharp; the latest main will not work as inte
 
 .. code-block:: bash
 
-    git clone --branch 1.17 --depth 1 https://github.com/hfp/libxsmm
+    git clone --branch 1.17 --depth 1 https://github.com/libxsmm/libxsmm
     cd libxsmm
     make generator
     cp bin/libxsmm_gemm_generator $SEISSOL_PREFIX/bin
@@ -172,7 +170,7 @@ In total, we get the following:
     git clone --recursive https://github.com/SeisSol/SeisSol.git seissol
     mkdir -p seissol/build
     cd seissol/build
-    CC=amdclang CXX=amdclang++ CFLAGS=$(cc --cray-print-opts=all) CXXFLAGS=$(CC --cray-print-opts=all) cmake .. -GNinja -DPRECISION=single -DDEVICE_BACKEND=hip -DDEVICE_ARCH=gfx90a -DHOST_ARCH=milan -DORDER=4 -DASAGI=ON -DNUMA_AWARE_PINNING=ON -DUSE_GRAPH_CAPTURING=OFF -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
+    CC=amdclang CXX=amdclang++ CFLAGS=$(cc --cray-print-opts=all) CXXFLAGS=$(CC --cray-print-opts=all) cmake .. -DPython3_EXECUTABLE=$(which python3.11) -GNinja -DPRECISION=single -DDEVICE_BACKEND=hip -DDEVICE_ARCH=gfx90a -DHOST_ARCH=milan -DORDER=4 -DASAGI=ON -DNUMA_AWARE_PINNING=ON -DUSE_GRAPH_CAPTURING=OFF -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
     ninja
 
 Optionally, you can install SeisSol to ``$SEISSOL_PREFIX``.
