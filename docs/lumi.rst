@@ -41,15 +41,12 @@ Run ``pwd`` and copy the path there. Run the following script there.
 Next, we load the necessary modules for our SeisSol build.
 We set the compilers to the cray compiler wrappers (which in our case use ``amdclang`` internally).
 
-**NOTE: these modules are outdated.**
-
 .. code-block:: bash
 
     module load LUMI/24.03 partition/G
     module load cpeAMD/24.03
     module load rocm/6.0.3
     module load amd/6.0.3
-    module load Boost/1.83.0-cpeAMD-24.03
     module load Eigen/3.4.0
 
     module load cray-hdf5-parallel
@@ -75,7 +72,6 @@ All things put together, your `~/.bashrc` file should look like:
     module load cpeAMD/24.03
     module load rocm/6.0.3
     module load amd/6.0.3
-    module load Boost/1.83.0-cpeAMD-24.03
     module load Eigen/3.4.0
 
     module load cray-hdf5-parallel
@@ -188,7 +184,6 @@ Compiling SeisSol
 Finally, it's time to clone SeisSol and build it.
 
 However, we need to apply a small hotfix here, since the Cray compiler environment does not work with AdaptiveCpp (it causes problems with finding MPI, the filesystem headers etc.). As a workaround, we compile SeisSol with ``amdclang`` directly, and add the necessary flags from the Cray environment as compiler flags (that can be done by ``CC --cray-print-opts=all``, the same with ``cc`` and ``ftn``).
-Also, for LUMI, we disable the ROCm graphs, since they are not fully functional with SeisSol and ROCm 5.6.
 
 In total, we get the following:
 
@@ -197,7 +192,7 @@ In total, we get the following:
     git clone --recursive https://github.com/SeisSol/SeisSol.git seissol
     mkdir -p seissol/build
     cd seissol/build
-    CC=amdclang CXX=amdclang++ CFLAGS=$(cc --cray-print-opts=all) CXXFLAGS=$(CC --cray-print-opts=all) cmake .. -DPython3_EXECUTABLE=$(which python3.11) -GNinja -DPRECISION=single -DDEVICE_BACKEND=hip -DDEVICE_ARCH=gfx90a -DHOST_ARCH=milan -DORDER=4 -DASAGI=ON -DNUMA_AWARE_PINNING=ON -DUSE_GRAPH_CAPTURING=OFF -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
+    CC=amdclang CXX=amdclang++ CFLAGS=$(cc --cray-print-opts=all) CXXFLAGS=$(CC --cray-print-opts=all) cmake .. -DPython3_EXECUTABLE=$(which python3.11) -GNinja -DPRECISION=single -DDEVICE_BACKEND=hip -DDEVICE_ARCH=gfx90a -DHOST_ARCH=milan -DORDER=5 -DASAGI=ON -DNUMA_AWARE_PINNING=ON -DUSE_GRAPH_CAPTURING=ON -DDR_QUAD_RULE=dunavant -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
     ninja
 
 Optionally, you can install SeisSol to ``$SEISSOL_PREFIX``.
