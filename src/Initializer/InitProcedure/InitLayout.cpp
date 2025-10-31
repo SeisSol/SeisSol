@@ -195,6 +195,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       zeroLayer[i].duplicate = dup;
       zeroLayer[i].halo = layer.getIdentifier().halo;
       zeroLayer[i].rank = -1;
+      zeroLayer[i].color = layer.id();
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         zeroLayer[i].neighborRanks[face] = -1;
         zeroLayer[i].faceNeighbors[face] = StoragePosition::NullPosition;
