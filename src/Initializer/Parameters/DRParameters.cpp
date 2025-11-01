@@ -136,7 +136,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
       for (std::size_t j = faultFileNames.size(); j < i; ++j) {
         faultFileNames.emplace_back();
       }
-      faultFileNames[i] = reader->read<std::string>(fieldname);
+      faultFileNames[i] = reader->readPath(fieldname);
       isDynamicRuptureEnabled = true;
     }
   }

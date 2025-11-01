@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Buckets.h"
-#include "Parallel/MPI.h"
+#include <Alignment.h>
 #include <Common/Constants.h>
 #include <Common/Real.h>
 #include <Config.h>
@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <cstring>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
 #include <yateto/InitTools.h>
 
@@ -37,7 +38,12 @@ class BucketManager {
 
   public:
   template <typename T>
-  T* markAllocate(std::size_t size) {
+  T* markAllocate(std::size_t size, bool align = true) {
+    if (align) {
+      // round up by Alignment
+      this->dataSize = ((this->dataSize + Alignment - 1) / Alignment) * Alignment;
+    }
+
     const uintptr_t offset = this->dataSize;
     this->dataSize += size;
 
@@ -81,9 +87,10 @@ auto useBuffersDerivatives(const LTS::Storage& storage,
   const auto& myPrimary = layer.var<LTS::CellInformation>()[index];
   const auto& mySecondary = layer.var<LTS::SecondaryInformation>()[index];
 
-  // what we do here: we check whether one of our neighbor cells demands derivatives from us.
-  // i.e. we jump onto the neighboring cell (if existent), look for the same face we jumped over
-  // from the other side, and check the `neighborHasDerivatives` for the original cell.
+  // what we do here: we check whether one of our neighbor cells demands derivatives from us which
+  // is in the same region. i.e. we jump onto the neighboring cell (if existent), look for the same
+  // face we jumped over from the other side, and check the `neighborHasDerivatives` for the
+  // original cell.
   for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
     if (mySecondary.faceNeighbors[j] != StoragePosition::NullPosition) {
       const auto& primary = storage.lookup<LTS::CellInformation>(mySecondary.faceNeighbors[j]);
@@ -94,17 +101,24 @@ auto useBuffersDerivatives(const LTS::Storage& storage,
                                mySecondary.halo != HaloType::Interior &&
                                secondary.halo != HaloType::Interior;
 
-      if (isCopyGhost && (secondary.rank == region.rank || mySecondary.rank == region.rank)) {
+      const auto colorCorrect = secondary.color == region.remoteId;
+
+      if (colorCorrect && isCopyGhost &&
+          (secondary.rank == region.rank || mySecondary.rank == region.rank)) {
         for (std::size_t k = 0; k < Cell::NumFaces; ++k) {
           if (secondary.faceNeighbors[k] != StoragePosition::NullPosition) {
             const auto& reverseSecondary =
                 storage.lookup<LTS::SecondaryInformation>(secondary.faceNeighbors[k]);
             if (reverseSecondary.globalId == mySecondary.globalId) {
               if (primary.ltsSetup.neighborHasDerivatives(k)) {
-                assert(myPrimary.ltsSetup.hasDerivatives());
+                if (!myPrimary.ltsSetup.hasDerivatives()) {
+                  logError() << "Setup error: derivatives were requested, but are not present.";
+                }
                 derivatives = true;
               } else {
-                assert(myPrimary.ltsSetup.hasBuffers());
+                if (!myPrimary.ltsSetup.hasBuffers()) {
+                  logError() << "Setup error: buffers were requested, but are not present.";
+                }
                 buffers = true;
               }
             }
@@ -348,6 +362,7 @@ solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const M
     layer.wrap([&](auto cfg) { setupFaceNeighbors(cfg, storage, layer); });
   }
 
+  // wait for the data initialization to finish
 #ifdef ACL_DEVICE
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif

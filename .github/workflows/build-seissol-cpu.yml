@@ -190,7 +190,7 @@ jobs:
             volume: true
             surface: false
           - name: tpv5-visco
-            equation: viscoelastic2
+            equation: viscoelastic-3
             multisim: 1
             energies: true
             receivers: true

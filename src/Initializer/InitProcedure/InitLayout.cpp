@@ -24,6 +24,7 @@
 #include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/Colormap.h>
 #include <Memory/Tree/LTSTree.h>
+#include <Memory/Tree/Layer.h>
 #include <Parallel/MPI.h>
 #include <Physics/InstantaneousTimeMirrorManager.h>
 #include <array>
@@ -275,6 +276,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       zeroLayer[i].duplicate = dup;
       zeroLayer[i].halo = layer.getIdentifier().halo;
       zeroLayer[i].rank = -1;
+      zeroLayer[i].color = layer.id();
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         zeroLayer[i].neighborRanks[face] = -1;
         zeroLayer[i].faceNeighbors[face] = StoragePosition::NullPosition;

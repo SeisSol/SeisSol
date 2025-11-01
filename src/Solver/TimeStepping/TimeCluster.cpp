@@ -363,8 +363,9 @@ void TimeCluster<Cfg>::computeLocalIntegration(bool resetBuffers) {
     const bool buffersProvided =
         data.template get<LTS::CellInformation>().ltsSetup.hasBuffers(); // buffers are provided
     const bool resetMyBuffers =
-        buffersProvided && (!data.template get<LTS::CellInformation>().ltsSetup.cacheBuffers() ||
-                            resetBuffers); // they should be reset
+        buffersProvided &&
+        (!data.template get<LTS::CellInformation>().ltsSetup.accumulateBuffers() ||
+         resetBuffers); // they should be reset
 
     if (resetMyBuffers) {
       // assert presence of the buffer

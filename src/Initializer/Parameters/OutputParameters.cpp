@@ -122,7 +122,7 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
       reader->readWithDefault<std::string>("outputmask", "1 1 1 1 1 1 0 0 0 0 0 0");
   const std::array<bool, 12> outputMask = convertStringToArray<bool, 12>(outputMaskString, false);
 
-  const auto pickpointFileName = reader->readWithDefault("ppfilename", std::string(""));
+  const auto pickpointFileName = reader->readPath("ppfilename");
 
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
   const auto aggregate = reader->readWithDefault("aggregateperrank", false);
@@ -143,14 +143,23 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
   const auto computeRotation = reader->readWithDefault("receivercomputerotation", false);
   const auto computeStrain = reader->readWithDefault("receivercomputestrain", false);
   const auto samplingInterval = reader->readWithDefault("pickdt", 0.005);
-  const auto fileName = reader->readWithDefault("rfilename", std::string(""));
+  const auto fileName = reader->readPath("rfilename");
 
   warnIntervalAndDisable(enabled, samplingInterval, "receiveroutput", "pickdt");
 
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
 
-  return ReceiverOutputParameters{
-      enabled, computeRotation, computeStrain, interval, samplingInterval, fileName, collectiveio};
+  if (!fileName.has_value()) {
+    logError() << "The off-fault receiver output is enabled, but no receiver point file was given.";
+  }
+
+  return ReceiverOutputParameters{enabled,
+                                  computeRotation,
+                                  computeStrain,
+                                  interval,
+                                  samplingInterval,
+                                  fileName.value(),
+                                  collectiveio};
 }
 
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {

@@ -182,7 +182,9 @@ std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& c
     const auto minusColor = getColor(fault.neighborElement, fault.element, fault.side);
 
     if (!colorCompare(plusColor, minusColor)) {
-      logError() << "";
+      logError()
+          << "The element setup differs around a fault face (currently, SeisSol requires both "
+             "sides of a fault face to use the same configuration and LTS cluster). Aborting.";
     }
 
     clusters[determineColor(plusColor, minusColor)].emplace_back(i);
