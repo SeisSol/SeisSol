@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <cstring>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
 #include <yateto/InitTools.h>
 
