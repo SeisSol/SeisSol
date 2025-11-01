@@ -48,7 +48,11 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   protected:
   void readCoordsFromFile() {
     using namespace seissol::initializer;
-    StringsType content = FileProcessor::getFileAsStrings(pickpointParams.pickpointFileName,
+    if (!pickpointParams.pickpointFileName.has_value()) {
+      logError() << "Pickpoint/on-fault receiver file requested, but not given in the parameters.";
+    }
+
+    StringsType content = FileProcessor::getFileAsStrings(pickpointParams.pickpointFileName.value(),
                                                           "pickpoint/on-fault receiver file");
     FileProcessor::removeEmptyLines(content);
 

@@ -19,7 +19,6 @@
 #include "utils/logger.h"
 
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/TimeStepping/LtsLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Monitoring/FlopCounter.h"
 #include "Parallel/Pin.h"
@@ -77,8 +76,6 @@ class SeisSol {
   }
 
   void setExecutionPlaceCutoff(std::size_t size);
-
-  initializer::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
 
   initializer::MemoryManager& getMemoryManager() { return *m_memoryManager; }
 
@@ -208,9 +205,6 @@ class SeisSol {
   //! Mesh Reader
   seissol::geometry::MeshReader* m_meshReader{nullptr};
 
-  //! Lts Layout
-  initializer::time_stepping::LtsLayout m_ltsLayout;
-
   //! Memory Manager
   std::unique_ptr<initializer::MemoryManager> m_memoryManager{nullptr};
 
@@ -257,7 +251,7 @@ class SeisSol {
 
   public:
   SeisSol(initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)
-      : outputManager(*this), m_seissolParameters(parameters), m_ltsLayout(parameters),
+      : outputManager(*this), m_seissolParameters(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
         m_analysisWriter(*this), m_receiverWriter(*this), m_energyOutput(*this),
         timeMirrorManagers(*this, *this), m_env(env) {}

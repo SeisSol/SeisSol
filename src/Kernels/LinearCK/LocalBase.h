@@ -53,7 +53,7 @@ class Local : public LocalKernel {
                                       double timeStepWidth,
                                       seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void flopsIntegral(const FaceType faceTypes[4],
+  void flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
                      std::uint64_t& nonZeroFlops,
                      std::uint64_t& hardwareFlops) override;
 

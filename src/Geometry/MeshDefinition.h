@@ -63,7 +63,7 @@ struct MPINeighborElement {
   LocalElemId localElement;
   /** Side of the local element */
   SideId localSide;
-  /** Global number neighbor element */
+  /** Global number neighbor element (for now: MPI index) */
   LocalElemId neighborElement;
   /** Side of the neighbor element */
   SideId neighborSide;

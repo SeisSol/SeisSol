@@ -69,6 +69,8 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   logInfo() << "Exchanging ghostlayer metadata.";
   meshReader.exchangeGhostlayerMetadata();
 
+  meshReader.linearizeGhostlayer();
+
   logInfo() << "Extracting fault information.";
   const auto& drParameters = seissolInstance.getSeisSolParameters().drParameters;
   const VrtxCoords center{drParameters.referencePoint[0],
@@ -78,8 +80,6 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
 
   logInfo() << "Check the mesh for geometric errors.";
   meshReader.verifyMeshOrientation();
-
-  seissolInstance.getLtsLayout().setMesh(meshReader);
 
   double maxPointValue[3]{-INFINITY, -INFINITY, -INFINITY};
   double minPointValue[3]{INFINITY, INFINITY, INFINITY};
