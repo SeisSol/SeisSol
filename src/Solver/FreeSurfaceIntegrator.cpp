@@ -19,7 +19,6 @@
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <Common/Iterator.h>
-#include <Geometry/Refinement/TriangleRefiner.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/PreProcessorMacros.h>
 #include <Initializer/Typedefs.h>
