@@ -34,7 +34,7 @@ TEST_CASE("Backmap") {
     for (std::size_t i = 0; i < layerSize; ++i) {
       backmap.addElement(layerId, zero, zeroLayer, dataToMesh[global], i);
 
-      compare[dataToMesh[global]].emplace_back(initializer::StoragePosition{layerId, i, global});
+      compare[dataToMesh[global]].emplace_back(layerId, i, global);
 
       ++global;
     }

@@ -76,9 +76,8 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
       // idofs
       real* nextIdofPtr = &integratedDofsScratch[integratedDofsAddressCounter];
-      const bool isBuffersProvided =
-          ((dataHost.get<LTS::CellInformation>().ltsSetup >> 8) % 2) == 1;
-      const bool isLtsBuffers = ((dataHost.get<LTS::CellInformation>().ltsSetup >> 10) % 2) == 1;
+      const bool isBuffersProvided = dataHost.get<LTS::CellInformation>().ltsSetup.hasBuffers();
+      const bool isLtsBuffers = dataHost.get<LTS::CellInformation>().ltsSetup.accumulateBuffers();
 
       if (isBuffersProvided) {
         if (isLtsBuffers) {
@@ -124,7 +123,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
       // derivatives
       const bool isDerivativesProvided =
-          ((dataHost.get<LTS::CellInformation>().ltsSetup >> 9) % 2) == 1;
+          dataHost.get<LTS::CellInformation>().ltsSetup.hasDerivatives();
       if (isDerivativesProvided) {
         dQPtrs[cell] = derivatives[cell];
 

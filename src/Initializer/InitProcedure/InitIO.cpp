@@ -286,8 +286,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               {},
               [=, &ltsStorage, &backmap](real* target, std::size_t index) {
                 const auto position = backmap.get(cellIndices[index]);
-                const auto* dofsAllQuantities =
-                    ltsStorage.layer(position.color).var<LTS::Dofs>()[position.cell];
+                const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj{};
                 memory::AlignedArray<real, multisim::NumSimulations> simselect;
@@ -310,8 +309,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 {},
                 [=, &ltsStorage, &backmap](real* target, std::size_t index) {
                   const auto position = backmap.get(cellIndices[index]);
-                  const auto* dofsAllQuantities =
-                      ltsStorage.layer(position.color).var<LTS::PStrain>()[position.cell];
+                  const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(position);
                   const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                   kernel::projectBasisToVtkVolume vtkproj{};
                   memory::AlignedArray<real, multisim::NumSimulations> simselect;

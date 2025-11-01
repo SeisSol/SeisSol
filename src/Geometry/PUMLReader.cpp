@@ -549,6 +549,13 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
 
     PUML::Upward::cells(meshGeometry, verticesGeometry[i], m_vertices[i].elements);
   }
+
+  // the neighborSide needs to be _inferred_ here.
+  for (auto& [_, neighbor] : m_MPINeighbors) {
+    for (auto& element : neighbor.elements) {
+      element.neighborSide = m_elements[element.localElement].neighborSides[element.localSide];
+    }
+  }
 }
 
 void PUMLReader::addMPINeighor(const PumlMesh& meshTopology,
@@ -561,10 +568,23 @@ void PUMLReader::addMPINeighor(const PumlMesh& meshTopology,
   neighbor.elements.resize(faces.size());
 
   for (std::size_t i = 0; i < faces.size(); i++) {
-    int cellIds[2];
-    PUML::Upward::cells(meshTopology, meshTopology.faces()[faces[i]], cellIds);
+    std::array<int, 2> cellIds;
+    PUML::Upward::cells(meshTopology, meshTopology.faces()[faces[i]], cellIds.data());
 
     neighbor.elements[i].localElement = cellIds[0];
+
+    neighbor.elements[i].neighborElement = i;
+
+    std::array<unsigned int, Cell::NumFaces> sides;
+    PUML::Downward::faces(meshTopology, meshTopology.cells()[cellIds[0]], sides.data());
+    neighbor.elements[i].localSide = [&]() {
+      for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
+        if (sides[PumlFaceToSeisSol[f]] == faces[i]) {
+          return f;
+        }
+      }
+      throw;
+    }();
   }
 }
 

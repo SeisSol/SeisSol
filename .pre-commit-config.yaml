@@ -104,8 +104,7 @@ repos:
     hooks:
     -   id: clang-format
         name: '[C++] clang-format'
-        # TODO: simplify the following line to `^(app|src)` once #1411 has landed
-        files: ^(?!src/Initializer/TimeStepping/LtsLayout*|src/Initializer/TimeStepping/Common*|src/Initializer/InternalState*|src/Initializer/MemoryManager*)(src|app)
+        files: ^(src|app)
 
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
