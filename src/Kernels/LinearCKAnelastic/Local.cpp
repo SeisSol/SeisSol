@@ -105,7 +105,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
   lKrnl.execute();
 }
 
-void Local::flopsIntegral(const FaceType faceTypes[4],
+void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
                           std::uint64_t& nonZeroFlops,
                           std::uint64_t& hardwareFlops) {
   nonZeroFlops = seissol::kernel::volumeExt::NonZeroFlops;

@@ -18,16 +18,6 @@ jobs:
     runs-on: ${{ matrix.setup.runner }}
     container: ${{ matrix.setup.container }}
     continue-on-error: true
-    env:
-      EXENAME: |
-        ${{
-          format('gpu-{0}-{1}-p{2}{3}',
-            matrix.equation.type,
-            matrix.precision == 'single' && 's' || 'd',
-            matrix.equation.order,
-            matrix.equation.multisim != 1 && format('-f{0}', matrix.equation.multisim) || ''
-          )
-        }}
     strategy:
       fail-fast: false
       matrix:
@@ -228,11 +218,11 @@ jobs:
     env:
       EXENAME: |
         ${{
-          format('gpu-{0}-{1}-p{2}{3}',
+          format('gpu-{0}-p{2}-{1}{3}',
             matrix.case.equation,
-            matrix.precision == 'single' && 's' || 'd',
-            matrix.case.order,
-            matrix.case.multisim != 1 && format('-f{0}', matrix.case.multisim) || ''
+            matrix.precision == 'single' && 'f32' || 'f64',
+            matrix.order,
+            matrix.case.multisim != 1 && format('-s{0}', matrix.case.multisim) || ''
           )
         }}
     strategy:
