@@ -14,6 +14,7 @@
 #include "Parallel/MPI.h"
 #include <Common/Constants.h>
 #include <Common/Iterator.h>
+#include <Eigen/Core>
 #include <Initializer/ParameterDB.h>
 #include <Initializer/Parameters/DRParameters.h>
 #include <Initializer/TimeStepping/GlobalTimestep.h>

@@ -21,6 +21,7 @@
 #include "Numerical/Transformation.h"
 #include <Common/Typedefs.h>
 #include <Config.h>
+#include <Eigen/Core>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Solver/MultipleSimulations.h>

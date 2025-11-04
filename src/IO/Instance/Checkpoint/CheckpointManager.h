@@ -62,7 +62,9 @@ class CheckpointManager {
         CheckpointVariable{name,
                            storage.var(var),
                            datatype::inferDatatype<typename HandleT::Type>(),
-                           datatype::inferDatatype<typename HandleT::Type>()});
+                           datatype::inferDatatype<typename HandleT::Type>(),
+                           {},
+                           {}});
   }
 
   template <typename StorageT, typename VarmapT>
@@ -74,7 +76,9 @@ class CheckpointManager {
         CheckpointVariable{name,
                            storage.template var<StorageT>(),
                            datatype::inferDatatype<typename StorageT::Type>(),
-                           datatype::inferDatatype<typename StorageT::Type>()});
+                           datatype::inferDatatype<typename StorageT::Type>(),
+                           {},
+                           {}});
   }
 
   template <typename S, typename T, typename VarmapT>

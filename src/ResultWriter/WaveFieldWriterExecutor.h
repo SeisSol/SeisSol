@@ -159,6 +159,8 @@ class WaveFieldWriterExecutor {
           param.timestep != 0);
 
       setClusteringData(static_cast<const unsigned int*>(info.buffer(param.bufferIds[Clustering])));
+
+      // NOLINTNEXTLINE
       m_waveFieldWriter->writeExtraIntCellData(
           1, static_cast<const unsigned int*>(info.buffer(param.bufferIds[GlobalIds])));
       logInfo() << "High order output initialized";
@@ -204,6 +206,7 @@ class WaveFieldWriterExecutor {
   }
 
   void setClusteringData(const unsigned* clustering) {
+    // NOLINTNEXTLINE
     m_waveFieldWriter->writeExtraIntCellData(0, clustering);
   }
 

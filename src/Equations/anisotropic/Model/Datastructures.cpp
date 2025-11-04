@@ -12,7 +12,9 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Model/CommonDatastructures.h"
+#include <Eigen/Core>
 #include <Eigen/Dense>
+#include <Eigen/Eigenvalues>
 #include <algorithm>
 #include <array>
 #include <cmath>

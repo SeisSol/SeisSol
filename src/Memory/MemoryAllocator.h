@@ -78,7 +78,12 @@ void memcopy(
 template <typename T>
 void memcopyTyped(
     T* dst, const T* src, std::size_t count, enum Memkind dstMemkind, enum Memkind srcMemkind) {
-  memcopy(dst, src, count * sizeof(T), dstMemkind, srcMemkind);
+  // explicit cast to silence clang-tidy
+  memcopy(static_cast<void*>(dst),
+          static_cast<const void*>(src),
+          count * sizeof(T),
+          dstMemkind,
+          srcMemkind);
 }
 
 void memzero(void* dst, std::size_t size, enum Memkind memkind);
@@ -91,7 +96,7 @@ void memzeroTyped(T* dst, std::size_t count, enum Memkind memkind) {
 template <typename T>
 void meminit(T* dst, std::size_t count, enum Memkind memkind) {
   std::vector<T> local(count);
-  memcopyTyped<T>(dst, local, count, memkind, Memkind::Standard);
+  memcopyTyped<T>(dst, local.data(), count, memkind, Memkind::Standard);
 }
 
 void* hostToDevicePointer(void* host, enum Memkind memkind);

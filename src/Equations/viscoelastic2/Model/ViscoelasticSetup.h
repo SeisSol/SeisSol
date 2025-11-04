@@ -85,14 +85,14 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
   static void getTransposedGodunovState(const MaterialT& local,
                                         const MaterialT& neighbor,
                                         FaceType faceType,
-                                        init::QgodLocal::view::type& QgodLocal,
-                                        init::QgodNeighbor::view::type& QgodNeighbor) {
+                                        init::QgodLocal::view::type& qGodLocal,
+                                        init::QgodNeighbor::view::type& qGodNeighbor) {
     ::seissol::model::getTransposedGodunovState<ElasticMaterial>(
         dynamic_cast<const ElasticMaterial&>(local),
         dynamic_cast<const ElasticMaterial&>(neighbor),
         faceType,
-        QgodLocal,
-        QgodNeighbor);
+        qGodLocal,
+        qGodNeighbor);
   }
 
   static void getPlaneWaveOperator(

@@ -21,6 +21,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Numerical/BasisFunction.h"
 #include <Alignment.h>
+#include <Eigen/Core>
 #include <Kernels/Common.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Solver/MultipleSimulations.h>

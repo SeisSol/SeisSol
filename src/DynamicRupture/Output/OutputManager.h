@@ -25,6 +25,11 @@ namespace dr::output {
 class OutputManager {
   public:
   ~OutputManager();
+  auto operator=(const OutputManager&) = delete;
+  auto operator=(OutputManager&&) = delete;
+  OutputManager(const OutputManager&) = delete;
+  OutputManager(OutputManager&&) = delete;
+
   OutputManager() = delete;
   OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl, seissol::SeisSol& seissolInstance);
   void setInputParam(seissol::geometry::MeshReader& userMesher);

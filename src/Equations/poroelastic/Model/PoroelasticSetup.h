@@ -276,8 +276,8 @@ struct MaterialSetup<PoroElasticMaterial> {
   static void getTransposedGodunovState(const PoroElasticMaterial& local,
                                         const PoroElasticMaterial& neighbor,
                                         FaceType faceType,
-                                        init::QgodLocal::view::type& QgodLocal,
-                                        init::QgodNeighbor::view::type& QgodNeighbor) {
+                                        init::QgodLocal::view::type& qGodLocal,
+                                        init::QgodNeighbor::view::type& qGodNeighbor) {
     // Will be used to check, whether numbers are (numerically) zero
     constexpr auto ZeroThreshold = 1e-7;
     using CMatrix = Eigen::Matrix<std::complex<double>,
@@ -306,26 +306,26 @@ struct MaterialSetup<PoroElasticMaterial> {
         chiPlus(i, i) = 1.0;
       }
     }
-    CMatrix R = localEigenvectors * chiMinus + neighborEigenvectors * chiPlus;
+    CMatrix mR = localEigenvectors * chiMinus + neighborEigenvectors * chiPlus;
     // set null space eigenvectors manually
-    R(1, 4) = 1.0;
-    R(2, 5) = 1.0;
-    R(12, 6) = 1.0;
-    R(11, 7) = 1.0;
-    R(4, 8) = 1.0;
+    mR(1, 4) = 1.0;
+    mR(2, 5) = 1.0;
+    mR(12, 6) = 1.0;
+    mR(11, 7) = 1.0;
+    mR(4, 8) = 1.0;
     if (faceType == FaceType::FreeSurface) {
-      Matrix realR = R.real();
+      Matrix realR = mR.real();
       getTransposedFreeSurfaceGodunovState(
-          MaterialType::Poroelastic, QgodLocal, QgodNeighbor, realR);
+          MaterialType::Poroelastic, qGodLocal, qGodNeighbor, realR);
     } else {
-      CMatrix invR = R.inverse();
-      CMatrix godunovMinus = R * chiMinus * invR;
-      CMatrix godunovPlus = R * chiPlus * invR;
+      CMatrix invR = mR.inverse();
+      CMatrix godunovMinus = mR * chiMinus * invR;
+      CMatrix godunovPlus = mR * chiPlus * invR;
 
-      for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
-        for (unsigned j = 0; j < QgodLocal.shape(0); ++j) {
-          QgodLocal(j, i) = godunovPlus(i, j).real();
-          QgodNeighbor(j, i) = godunovMinus(i, j).real();
+      for (unsigned i = 0; i < qGodLocal.shape(1); ++i) {
+        for (unsigned j = 0; j < qGodLocal.shape(0); ++j) {
+          qGodLocal(j, i) = godunovPlus(i, j).real();
+          qGodNeighbor(j, i) = godunovMinus(i, j).real();
           assert(std::abs(godunovPlus(j, i).imag()) < ZeroThreshold);
           assert(std::abs(godunovMinus(j, i).imag()) < ZeroThreshold);
         }

@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "DRParameters.h"
+#include <Eigen/Core>
 #include <Initializer/Parameters/ParameterReader.h>
 #include <Kernels/Precision.h>
 #include <Solver/MultipleSimulations.h>

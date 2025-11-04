@@ -22,6 +22,7 @@
 #include "Parameters/ModelParameters.h"
 #include <Common/Constants.h>
 #include <DynamicRupture/Typedefs.h>
+#include <Eigen/Core>
 #include <Equations/Datastructures.h> // IWYU pragma: keep
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>

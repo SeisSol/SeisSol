@@ -8,6 +8,7 @@
 
 #include "ReceiverWriter.h"
 
+#include <Eigen/Core>
 #include <Equations/Datastructures.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/Parameters/OutputParameters.h>

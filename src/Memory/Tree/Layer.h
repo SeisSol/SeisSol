@@ -369,7 +369,7 @@ public:
     }
 
     template <typename HandleT>
-    const typename HandleT::Type& get(const HandleT& handle) const {
+    [[nodiscard]] const typename HandleT::Type& get(const HandleT& handle) const {
       return *reinterpret_cast<const typename HandleT::Type*>(pointers[varmap.index(handle)]);
     }
 
@@ -380,7 +380,7 @@ public:
     }
 
     template <typename StorageT>
-    const typename StorageT::Type& get() const {
+    [[nodiscard]] const typename StorageT::Type& get() const {
       return *reinterpret_cast<const typename StorageT::Type*>(
           pointers[varmap.template index<StorageT>()]);
     }
@@ -444,14 +444,15 @@ private:
   }
 
   template <typename StorageT>
-  const typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) const {
+  [[nodiscard]] const typename StorageT::Type*
+      var(AllocationPlace place = AllocationPlace::Host) const {
     const auto index = varmap.template index<StorageT>();
     assert(memoryContainer.size() > index);
     return static_cast<typename StorageT::Type*>(memoryContainer[index].get(place));
   }
 
   template <typename StorageT, typename ConfigT>
-  const typename StorageT::template VariantType<ConfigT>*
+  [[nodiscard]] const typename StorageT::template VariantType<ConfigT>*
       var(const ConfigT& /*...*/, AllocationPlace place = AllocationPlace::Host) const {
     const auto index = varmap.template index<StorageT>();
     assert(memoryContainer.size() > index);
@@ -486,15 +487,15 @@ private:
   }
 
   template <typename HandleT>
-  const typename HandleT::Type* var(const HandleT& handle,
-                                    AllocationPlace place = AllocationPlace::Host) const {
+  [[nodiscard]] const typename HandleT::Type*
+      var(const HandleT& handle, AllocationPlace place = AllocationPlace::Host) const {
     const auto index = varmap.index(handle);
     assert(memoryContainer.size() > index);
     return static_cast<typename HandleT::Type*>(memoryContainer[index].get(place));
   }
 
   template <typename HandleT, typename ConfigT>
-  const typename HandleT::template VariantType<ConfigT>*
+  [[nodiscard]] const typename HandleT::template VariantType<ConfigT>*
       var(const HandleT& handle,
           const ConfigT& /*...*/,
           AllocationPlace place = AllocationPlace::Host) const {

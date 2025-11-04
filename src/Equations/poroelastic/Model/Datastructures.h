@@ -18,8 +18,8 @@
 #include <vector>
 
 namespace seissol::model {
-class PoroelasticLocalData;
-class PoroelasticNeighborData;
+struct PoroelasticLocalData;
+struct PoroelasticNeighborData;
 
 struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t NumQuantities = 13;

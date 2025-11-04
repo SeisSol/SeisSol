@@ -17,6 +17,7 @@
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include <Common/Iterator.h>
+#include <Eigen/Core>
 #include <Eigen/Dense>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>

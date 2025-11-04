@@ -10,6 +10,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include <Common/Constants.h>
+#include <Eigen/Core>
 #include <Equations/Datastructures.h>
 #include <Equations/acoustic/Model/Datastructures.h>
 #include <Equations/anisotropic/Model/Datastructures.h>

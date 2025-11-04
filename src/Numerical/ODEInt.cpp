@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "ODEInt.h"
+#include <Eigen/Core>
 #include <Kernels/Precision.h>
 #include <cassert>
 #include <cmath>

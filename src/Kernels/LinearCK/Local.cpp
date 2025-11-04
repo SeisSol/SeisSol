@@ -81,7 +81,9 @@ struct ApplyAnalyticalSolution {
                           LTS::Ref& data)
       : initConditions(initConditions), localData(data) {}
 
-  void operator()(const real* nodes, double time, seissol::init::INodal::view::type& boundaryDofs) {
+  void operator()(const real* nodes,
+                  double time,
+                  seissol::init::INodal::view::type& boundaryDofs) const {
     assert(initConditions != nullptr);
 
     constexpr auto NodeCount = seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension];
@@ -227,7 +229,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
     case FaceType::Analytical: {
       assert(cellBoundaryMapping != nullptr);
       assert(initConds != nullptr);
-      ApplyAnalyticalSolution applyAnalyticalSolution(initConds, data);
+      const auto applyAnalyticalSolution = ApplyAnalyticalSolution(initConds, data);
 
       dirichletBoundary.evaluateTimeDependent(timeIntegratedDegreesOfFreedom,
                                               face,

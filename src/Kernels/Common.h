@@ -21,57 +21,57 @@
 #include <type_traits>
 #include <utility>
 
+// TODO: once we use C++20, remove the SFINAE usage.
+
 /**
- * Uses SFINAE to generate the following functions:
+ * Generate the following functions (needs a macro, since it's qualifier dependent)
  *
  * has_NAME<T>::value -> true if class T has member NAME and false otherwise
+ *
  * set_NAME<T>(kernel, ptr) -> sets kernel.NAME = ptr if class T has member NAME and does nothing
- * otherwise get_static_ptr_NAME<T>() returns &T::NAME[0] if class T has member NAME and nullptr
- * otherwise get_ptr_NAME<T>(T& obj) returns &obj.NAME[0] if class T has member NAME and nullptr
+ * otherwise
+ *
+ * get_static_ptr_NAME<T>() returns &T::NAME[0] if class T has member NAME and nullptr otherwise
+ *
+ * get_ptr_NAME<T>(T& obj) returns &obj.NAME[0] if class T has member NAME and nullptr
  * otherwise
  */
 #define GENERATE_HAS_MEMBER(NAME)                                                                  \
-  namespace seissol::kernels {                                                                     \
-  template <typename T>                                                                            \
+  namespace {                                                                                      \
+  using namespace seissol::kernels;                                                                \
+  template <typename T, typename = void>                                                           \
   struct has_##NAME {                                                                              \
-    template <typename U>                                                                          \
-    static constexpr decltype(std::declval<U>().NAME, bool()) test(int) {                          \
-      return true;                                                                                 \
-    }                                                                                              \
-    template <typename U>                                                                          \
-    static constexpr bool test(...) {                                                              \
-      return false;                                                                                \
-    }                                                                                              \
-    static constexpr bool value = test<T>(int());                                                  \
+    static constexpr bool value = false;                                                           \
+    using ptr = void*;                                                                             \
   };                                                                                               \
-  template <class T>                                                                               \
-  auto set_##NAME(T& kernel, decltype(T::NAME) ptr) ->                                             \
-      typename std::enable_if<has_##NAME<T>::value>::type {                                        \
-    kernel.NAME = ptr;                                                                             \
+  template <typename T>                                                                            \
+  struct has_##NAME<T, decltype(std::declval<T>().NAME, void())> {                                 \
+    static constexpr bool value = true;                                                            \
+    using ptr = decltype(std::declval<T>().NAME);                                                  \
+  };                                                                                               \
+  template <typename T>                                                                            \
+  void set_##NAME(T& kernel, const typename has_##NAME<T>::ptr& ptr) {                             \
+    if constexpr (has_##NAME<T>::value) {                                                          \
+      kernel.NAME = ptr;                                                                           \
+    }                                                                                              \
   }                                                                                                \
-  template <class T>                                                                               \
-  auto set_##NAME(T&, void*) -> typename std::enable_if<!has_##NAME<T>::value>::type {}            \
-  template <class T>                                                                               \
-  constexpr auto get_static_ptr_##NAME() ->                                                        \
-      typename std::enable_if<has_##NAME<T>::value, decltype(&T::NAME[0])>::type {                 \
-    return &T::NAME[0];                                                                            \
+  template <typename T>                                                                            \
+  constexpr auto get_static_ptr_##NAME() -> typename has_##NAME<T>::ptr {                          \
+    if constexpr (has_##NAME<T>::value) {                                                          \
+      return &T::NAME[0];                                                                          \
+    } else {                                                                                       \
+      return nullptr;                                                                              \
+    }                                                                                              \
   }                                                                                                \
-  template <class T>                                                                               \
-  constexpr auto get_static_ptr_##NAME() ->                                                        \
-      typename std::enable_if<!has_##NAME<T>::value, void*>::type {                                \
-    return nullptr;                                                                                \
+  template <typename T>                                                                            \
+  constexpr auto get_ptr_##NAME(T& obj) -> typename has_##NAME<T>::ptr {                           \
+    if constexpr (has_##NAME<T>::value) {                                                          \
+      return &obj.NAME[0];                                                                         \
+    } else {                                                                                       \
+      return nullptr;                                                                              \
+    }                                                                                              \
   }                                                                                                \
-  template <class T>                                                                               \
-  constexpr auto get_ptr_##NAME(T& obj) ->                                                         \
-      typename std::enable_if<has_##NAME<T>::value, decltype(&obj.NAME[0])>::type {                \
-    return &obj.NAME[0];                                                                           \
-  }                                                                                                \
-  template <class T>                                                                               \
-  constexpr auto get_ptr_##NAME(T&) ->                                                             \
-      typename std::enable_if<!has_##NAME<T>::value, void*>::type {                                \
-    return nullptr;                                                                                \
-  }                                                                                                \
-  }
+  } // namespace
 
 namespace seissol {
 namespace kernels {
@@ -137,32 +137,32 @@ constexpr unsigned
 }
 
 /**
- * uses SFINAE to check if class T has a size() function.
+ * Check if a type has a .size() member.
  */
-template <typename T>
+template <typename T, typename = void>
 struct HasSize {
-  template <typename U>
-  static constexpr decltype(std::declval<U>().size(), bool()) test(int /*unused*/) {
-    return true;
-  }
-  template <typename U>
-  static constexpr bool test(...) {
-    return false;
-  }
-  static constexpr bool Value = test<T>(int());
+  static constexpr bool Value = false;
+  using Type = std::size_t;
+};
+
+template <typename T>
+struct HasSize<T, decltype(std::declval<T>().size(), void())> {
+  static constexpr bool Value = true;
+  using Type = decltype(std::declval<T>().size());
 };
 
 /**
- * returns T::size() if T has size function and 0 otherwise
+ * returns T::size() if T has size function and 0 otherwise.
  */
 template <class T>
-constexpr auto size() -> std::enable_if_t<HasSize<T>::Value, unsigned> {
-  return T::size();
+constexpr auto size() -> typename HasSize<T>::Type {
+  if constexpr (HasSize<T>::Value) {
+    return T::size();
+  } else {
+    return static_cast<typename HasSize<T>::Type>(0);
+  }
 }
-template <class T>
-constexpr auto size() -> std::enable_if_t<!HasSize<T>::Value, unsigned> {
-  return 0;
-}
+
 } // namespace kernels
 
 constexpr bool isDeviceOn() { return HardwareSupport == BuildType::Gpu; }

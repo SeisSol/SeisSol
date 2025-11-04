@@ -7,6 +7,7 @@
 
 #include "InitMesh.h"
 
+#include <Eigen/Core>
 #include <Geometry/MeshDefinition.h>
 #include <Initializer/Parameters/MeshParameters.h>
 #include <Initializer/Parameters/SeisSolParameters.h>

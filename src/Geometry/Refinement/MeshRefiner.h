@@ -44,6 +44,11 @@ class MeshRefiner {
 
   ~MeshRefiner();
 
+  auto operator=(const MeshRefiner&) = delete;
+  auto operator=(MeshRefiner&&) = delete;
+  MeshRefiner(const MeshRefiner&) = delete;
+  MeshRefiner(MeshRefiner&&) = delete;
+
   [[nodiscard]] const unsigned int* getCellData() const;
   const T* getVertexData() const;
   [[nodiscard]] std::size_t getkSubCellsPerCell() const;

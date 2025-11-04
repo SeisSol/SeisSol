@@ -90,9 +90,6 @@ struct MultisimHelperWrapper {
     return reverseCall(std::forward<F>(function), std::forward<Args>(args)...);
   }
 
-#ifndef SEISSOL_NO_OMPSIMD
-#pragma omp declare simd
-#endif
   template <unsigned Rank, typename RealT, typename IdxT>
   static auto simtensor(::yateto::DenseTensorView<Rank, RealT, IdxT>& tensor, int sim) {
     static_assert(Rank > 0, "Tensor rank needs to be non-scalar (rank > 0)");
@@ -134,9 +131,6 @@ struct MultisimHelperWrapper<1> {
     return std::invoke(std::forward<F>(function), std::forward<Args>(args)...);
   }
 
-#ifndef SEISSOL_NO_OMPSIMD
-#pragma omp declare simd
-#endif
   template <unsigned Rank, typename RealT, typename IdxT>
   static auto simtensor(::yateto::DenseTensorView<Rank, RealT, IdxT>& tensor, int sim) {
     return tensor;
@@ -177,9 +171,6 @@ auto multisimTranspose(F&& function, Args&&... args) {
   return MultisimHelper::multisimTranspose(std::forward<F>(function), std::forward<Args>(args)...);
 }
 
-#ifndef SEISSOL_NO_OMPSIMD
-#pragma omp declare simd
-#endif
 template <unsigned Rank, typename RealT, typename IdxT>
 auto simtensor(::yateto::DenseTensorView<Rank, RealT, IdxT>& tensor, int sim) {
   return MultisimHelper::simtensor(tensor, sim);

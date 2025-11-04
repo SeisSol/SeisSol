@@ -7,6 +7,7 @@
 
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include <Eigen/Core>
 #include <Equations/Datastructures.h>
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>

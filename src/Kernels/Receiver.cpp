@@ -16,6 +16,7 @@
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <Common/Executor.h>
+#include <Eigen/Core>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
 #include <Kernels/Interface.h>

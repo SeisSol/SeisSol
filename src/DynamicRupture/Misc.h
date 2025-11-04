@@ -66,19 +66,19 @@ static constexpr double TpMaxWaveNumber = 10.0;
 static constexpr unsigned int NumBoundaryGaussPoints =
     init::QInterpolated::Shape[multisim::BasisFunctionDimension];
 
-template <class TupleT, class F, std::size_t... I>
-constexpr F forEachImpl(TupleT&& tuple, F&& functor, std::index_sequence<I...> /*unused*/) {
-  return (void)std::initializer_list<int>{
-             (std::forward<F>(functor)(std::get<I>(std::forward<TupleT>(tuple)), I), 0)...},
-         functor;
+template <std::size_t I, typename F, typename TupleT>
+constexpr F forEachElement(F&& functor, TupleT&& tuple) {
+  // TODO: maybe forward here somehow?
+  functor(std::get<I>(tuple), I);
+  if constexpr (I + 1 < std::tuple_size_v<std::remove_reference_t<TupleT>>) {
+    return forEachElement<I + 1>(std::forward<F>(functor), std::forward<TupleT>(tuple));
+  }
+  return std::forward<F>(functor);
 }
 
 template <typename TupleT, typename F>
 constexpr F forEach(TupleT&& tuple, F&& functor) {
-  return forEachImpl(
-      std::forward<TupleT>(tuple),
-      std::forward<F>(functor),
-      std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleT>>>{});
+  return forEachElement<0>(std::forward<F>(functor), std::forward<TupleT>(tuple));
 }
 /**
  * Compute base^exp
@@ -123,7 +123,7 @@ SEISSOL_HOSTDEVICE inline T magnitude(T t1, Tn... tn) {
   if constexpr (sizeof...(Tn) == 1) {
     return std::hypot(t1, tn...);
   }
-  return std::sqrt(square(t1) + square(tn...));
+  return std::sqrt(square(t1, tn...));
 }
 
 #pragma omp declare simd

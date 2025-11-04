@@ -21,6 +21,7 @@
 #include "Parallel/Helper.h"
 #include "PointSource.h"
 #include <Common/Constants.h>
+#include <Eigen/Core>
 #include <Equations/Datastructures.h>
 #include <Geometry/MeshReader.h>
 #include <Geometry/MeshTools.h>

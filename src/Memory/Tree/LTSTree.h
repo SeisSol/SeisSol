@@ -21,6 +21,7 @@
 #include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/Colormap.h>
 #include <type_traits>
+#include <utility>
 
 namespace seissol::initializer {
 
@@ -421,7 +422,7 @@ private:
 
 public:
     IteratorWrapper(Storage<VarmapT>& node, std::function<bool(const Layer<VarmapT>&)> filter)
-        : node(node), filter(filter) {}
+        : node(node), filter(std::move(filter)) {}
 
     auto begin() {
       return common::FilteredIterator(node.layers.begin(), node.layers.end(), filter);
@@ -440,7 +441,7 @@ private:
 public:
     IteratorWrapperConst(const Storage<VarmapT>& node,
                          std::function<bool(const Layer<VarmapT>&)> filter)
-        : node(node), filter(filter) {}
+        : node(node), filter(std::move(filter)) {}
 
     [[nodiscard]] auto begin() const {
       return common::FilteredIterator(node.layers.begin(), node.layers.end(), filter);

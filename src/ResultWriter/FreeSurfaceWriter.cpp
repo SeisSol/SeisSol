@@ -10,6 +10,7 @@
 #include "FreeSurfaceWriter.h"
 
 #include <Common/Constants.h>
+#include <Eigen/Core>
 #include <Eigen/Dense>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/Refinement/TriangleRefiner.h>

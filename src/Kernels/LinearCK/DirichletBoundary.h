@@ -138,7 +138,7 @@ class DirichletBoundary {
                              int faceIdx,
                              const CellBoundaryMapping& boundaryMapping,
                              const MappingKrnl& projectKernelPrototype,
-                             Func&& evaluateBoundaryCondition,
+                             const Func& evaluateBoundaryCondition,
                              real* dofsFaceBoundaryNodal,
                              double startTime,
                              double timeStepWidth) const {
@@ -172,8 +172,7 @@ class DirichletBoundary {
 
     for (unsigned i = 0; i < ConvergenceOrder; ++i) {
       boundaryDofsTmp.setZero();
-      std::forward<Func>(evaluateBoundaryCondition)(
-          boundaryMapping.nodes, timePoints[i], boundaryDofsTmp);
+      evaluateBoundaryCondition(boundaryMapping.nodes, timePoints[i], boundaryDofsTmp);
 
       updateKernel.factor = timeWeights[i];
       updateKernel.execute();

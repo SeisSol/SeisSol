@@ -11,7 +11,7 @@
 
 #include <Kernels/Precision.h>
 
-#if defined(__AVX512F__)
+#ifdef __AVX512F__
 
 #include <immintrin.h>
 
