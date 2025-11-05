@@ -217,7 +217,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
 
   real const break_coeff = 1e2*damage_para1;
-  real const beta_alpha = 0.03;
+  real const beta_alpha = 0.05;
 
   // real const damage_para2 = 3e-6;
   // real const lambda0 = 9.71e10; // data.material.local.lambda0
@@ -302,7 +302,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     }
 
     if (xi + data.material.local.xi0 > 0) {
-      if (alpha_ave < 0.9){
+      if (alpha_ave < 1.0){
         if (break_ave < 1.0){
           fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
             (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff

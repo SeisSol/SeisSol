@@ -430,12 +430,12 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     real epsInitzx = -0e-1; // eps_zx0
     real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
     real const break_coeff = 1e2*damage_para1;
-    real const beta_alpha = 0.03;
+    real const beta_alpha = 0.05;
 
-    real aB0 = 7.43e9;
-    real aB1 = -12.14e9;
+    real aB0 = 12.43e9;
+    real aB1 = -0.0e9;
     real aB2 = 18.93e9;
-    real aB3 = -5.067e9;
+    real aB3 = -0.0e9;
 
     // std::cout << data.material.local.Cd << std::endl;
     // real const damage_para2 = 3e-6;
@@ -552,7 +552,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
         }
 
         if (xi + data.material.local.xi0 > 0) {
-          if (alpha_ave < 0.9 ){
+          if (alpha_ave < 1.0 ){
             if (break_ave < 1.0 ){
               FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
                 (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff
@@ -1191,10 +1191,10 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       // real aB2 = 23.96e9;
       // real aB3 = -10.112e9;
 
-      real aB0 = 7.43e9;
-      real aB1 = -12.14e9;
+      real aB0 = 12.43e9;
+      real aB1 = 0.0e9;
       real aB2 = 18.93e9;
-      real aB3 = -5.067e9;
+      real aB3 = 0.0e9;
 
       unsigned int meshId = data.localIntegration.globalMeshId;
 
