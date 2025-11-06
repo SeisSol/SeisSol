@@ -154,12 +154,13 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
     logError() << "The off-fault receiver output is enabled, but no receiver point file was given.";
   }
 
+  // note: we'll need to supply a filename, even if we don't use the receivers
   return ReceiverOutputParameters{enabled,
                                   computeRotation,
                                   computeStrain,
                                   interval,
                                   samplingInterval,
-                                  fileName.value(),
+                                  fileName.value_or(""),
                                   collectiveio};
 }
 
