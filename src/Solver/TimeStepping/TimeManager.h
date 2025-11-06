@@ -9,14 +9,8 @@
 
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
-#include "Initializer/TimeStepping/ClusterLayout.h"
-#include <cassert>
-#include <list>
-#include <memory>
-#include <queue>
-#include <vector>
-
 #include "Initializer/MemoryManager.h"
+#include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Monitoring/Stopwatch.h"
@@ -25,7 +19,13 @@
 #include "Solver/TimeStepping/GhostTimeClusterFactory.h"
 #include "SourceTerm/Typedefs.h"
 #include "TimeCluster.h"
+
+#include <cassert>
+#include <list>
+#include <memory>
+#include <queue>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol::time_stepping {
 class AbstractCommunicationManager;

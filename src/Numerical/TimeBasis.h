@@ -8,6 +8,7 @@
 #define SEISSOL_SRC_NUMERICAL_TIMEBASIS_H_
 
 #include "Functions.h"
+
 #include <cstddef>
 #include <vector>
 namespace seissol::numerical {

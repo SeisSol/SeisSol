@@ -5,6 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "InitModel.h"
+
 #include "Common/Constants.h"
 #include "Common/Real.h"
 #include "Config.h"
@@ -27,8 +29,10 @@
 #include "Monitoring/Stopwatch.h"
 #include "Parallel/Helper.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
+#include "SeisSol.h"
 #include "Solver/Estimator.h"
 #include "Solver/MultipleSimulations.h"
+
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -39,9 +43,6 @@
 #include <utils/logger.h>
 #include <utils/stringutils.h>
 #include <vector>
-
-#include "InitModel.h"
-#include "SeisSol.h"
 
 #if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
 #include "Physics/Attenuation.h"

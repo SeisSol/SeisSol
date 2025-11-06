@@ -7,8 +7,6 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "Kernels/LinearCK/LocalBase.h"
-
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "DataTypes/ConditionalTable.h"
@@ -18,21 +16,22 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
+#include "Kernels/LinearCK/LocalBase.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Physics/InitialField.h"
 #include "Solver/MultipleSimulations.h"
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <vector>
-#include <yateto.h>
 
 #include <array>
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <stdint.h>
+#include <vector>
+#include <yateto.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -40,7 +39,6 @@
 #pragma GCC diagnostic pop
 
 #include "Kernels/Common.h"
-
 #include "utils/logger.h"
 
 #ifdef ACL_DEVICE

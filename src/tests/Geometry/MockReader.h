@@ -9,10 +9,10 @@
 #define SEISSOL_SRC_TESTS_GEOMETRY_MOCKREADER_H_
 
 #include "Common/Constants.h"
+#include "Geometry/MeshReader.h"
+
 #include <Eigen/Dense>
 #include <array>
-
-#include "Geometry/MeshReader.h"
 
 namespace seissol {
 class MockReader : public seissol::geometry::MeshReader {

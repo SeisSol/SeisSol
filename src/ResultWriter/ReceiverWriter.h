@@ -9,16 +9,16 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_RECEIVERWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_RECEIVERWRITER_H_
 
-#include "Memory/Tree/Backmap.h"
-#include <string_view>
-#include <vector>
-
 #include "Geometry/MeshReader.h"
 #include "Kernels/Receiver.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
 #include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
+
 #include <Eigen/Dense>
+#include <string_view>
+#include <vector>
 
 namespace seissol {
 struct LocalIntegrationData;

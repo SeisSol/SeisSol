@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Numerical/Transformation.h"
+
 #include <Eigen/Dense>
 
 namespace seissol::unit_test {

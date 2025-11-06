@@ -5,15 +5,14 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Equations/acoustic/Model/Datastructures.h"
-#include <cmath>
-#include <tests/TestHelper.h>
-
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h"
+#include "Equations/acoustic/Model/Datastructures.h"
 #include "Model/Common.h"
-
 #include "Values.h"
+
+#include <cmath>
+#include <tests/TestHelper.h>
 
 namespace seissol::unit_test {
 template <typename T>

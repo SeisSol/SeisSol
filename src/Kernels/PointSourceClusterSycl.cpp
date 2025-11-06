@@ -5,11 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Memory/MemoryAllocator.h"
 #include "PointSourceCluster.h"
 
-#include "Memory/MemoryAllocator.h"
 #include <cstddef>
-
 #include <sycl/sycl.hpp>
 
 namespace {

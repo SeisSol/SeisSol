@@ -9,9 +9,9 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
 
 #include "DynamicRupture/Misc.h"
-#include <cmath>
-
 #include "RateAndState.h"
+
+#include <cmath>
 
 namespace seissol::dr::friction_law::cpu {
 

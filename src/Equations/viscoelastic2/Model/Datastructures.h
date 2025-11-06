@@ -21,6 +21,7 @@
 #include "Kernels/LinearCKAnelastic/Solver.h"
 #include "Model/CommonDatastructures.h"
 #include "Physics/Attenuation.h"
+
 #include <array>
 #include <cstddef>
 #include <string>

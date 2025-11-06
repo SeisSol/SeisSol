@@ -6,10 +6,12 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "ResultWriter/ThreadsPinningWriter.h"
+
 #include "Common/Filesystem.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
+
 #include <fstream>
 #include <ios>
 #include <sched.h>

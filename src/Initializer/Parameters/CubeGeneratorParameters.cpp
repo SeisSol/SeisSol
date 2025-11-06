@@ -6,8 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "CubeGeneratorParameters.h"
-#include "Initializer/Parameters/ParameterReader.h"
 
+#include "Initializer/Parameters/ParameterReader.h"
 #include "Parallel/MPI.h"
 
 namespace seissol::initializer::parameters {

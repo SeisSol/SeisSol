@@ -8,9 +8,9 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_
 
-#include <string>
-
 #include "ParameterReader.h"
+
+#include <string>
 
 namespace seissol::initializer::parameters {
 

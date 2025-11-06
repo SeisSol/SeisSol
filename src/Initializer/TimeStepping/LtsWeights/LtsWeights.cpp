@@ -11,10 +11,17 @@
 
 #include "Common/Constants.h"
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/init.h"
 #include "Geometry/PUMLReader.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/LtsParameters.h"
+#include "Initializer/TimeStepping/GlobalTimestep.h"
+#include "PUML/Downward.h"
+#include "PUML/Upward.h"
+#include "Parallel/MPI.h"
+#include "SeisSol.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -22,21 +29,12 @@
 #include <cstdint>
 #include <limits>
 #include <map>
+#include <mpi.h>
 #include <optional>
 #include <unordered_map>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
-
-#include <mpi.h>
-
-#include "PUML/Downward.h"
-#include "PUML/Upward.h"
-
-#include "GeneratedCode/init.h"
-#include "Initializer/TimeStepping/GlobalTimestep.h"
-#include "Parallel/MPI.h"
-#include "SeisSol.h"
 
 namespace seissol::initializer::time_stepping {
 

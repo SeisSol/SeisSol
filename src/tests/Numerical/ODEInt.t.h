@@ -5,10 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <Eigen/Dense>
-
 #include "Numerical/ODEInt.h"
 #include "Numerical/ODEVector.h"
+
+#include <Eigen/Dense>
 
 namespace seissol::unit_test {
 

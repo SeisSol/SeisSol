@@ -20,6 +20,7 @@
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
+
 #include <Eigen/Dense>
 #include <cassert>
 #include <cstddef>

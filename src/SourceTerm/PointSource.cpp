@@ -9,8 +9,10 @@
 // SPDX-FileContributor: Sebastian Wolf
 
 #include "PointSource.h"
+
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
+
 #include <algorithm>
 #include <cmath>
 

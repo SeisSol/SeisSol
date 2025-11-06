@@ -10,6 +10,7 @@
 
 #include "DynamicRupture/Output/DataTypes.h"
 #include "Initializer/Parameters/OutputParameters.h"
+
 #include <memory>
 #include <tuple>
 

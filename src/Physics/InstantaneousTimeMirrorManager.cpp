@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "InstantaneousTimeMirrorManager.h"
+
 #include "Initializer/CellLocalMatrices.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
@@ -15,6 +16,7 @@
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
 #include "SeisSol.h"
+
 #include <cmath>
 #include <cstddef>
 #include <utils/logger.h>

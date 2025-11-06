@@ -5,7 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "ODEVector.h"
+
 #include "Kernels/Precision.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -14,8 +17,6 @@
 #include <iostream>
 #include <utility>
 #include <vector>
-
-#include "ODEVector.h"
 
 namespace seissol::ode {
 std::pair<std::size_t, std::size_t> ODEVector::index(std::size_t idx) const {

@@ -8,6 +8,7 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "TimeCommon.h"
+
 #include "Common/Constants.h"
 #include "DataTypes/ConditionalTable.h"
 #include "GeneratedCode/tensor.h"
@@ -16,12 +17,12 @@
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Parallel/Runtime/Stream.h"
+#include "utils/logger.h"
+
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <stdint.h>
-
-#include "utils/logger.h"
 
 #ifdef ACL_DEVICE
 #include "DataTypes/ConditionalKey.h"
@@ -30,6 +31,7 @@
 
 #ifndef NDEBUG
 #include "Alignment.h"
+
 #include <cstdint>
 #endif
 

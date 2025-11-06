@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "ResultWriter/ReceiverWriter.h"
+
 #include <string>
 
 namespace seissol::unit_test {

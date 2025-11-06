@@ -14,6 +14,7 @@
 #include "GeneratedCode/kernel.h"
 #include "Kernels/LinearCK/Solver.h"
 #include "Model/CommonDatastructures.h"
+
 #include <array>
 #include <cmath>
 #include <cstddef>

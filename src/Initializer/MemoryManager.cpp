@@ -9,8 +9,12 @@
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
 #include "MemoryManager.h"
+
 #include "Common/Constants.h"
+#include "Common/Iterator.h"
 #include "DynamicRupture/Factory.h"
+#include "DynamicRupture/Misc.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -25,6 +29,7 @@
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
+
 #include <array>
 #include <cstddef>
 #include <limits>
@@ -32,12 +37,6 @@
 #include <utility>
 #include <utils/logger.h>
 #include <yateto.h>
-
-#include "DynamicRupture/Misc.h"
-
-#include "Common/Iterator.h"
-
-#include "GeneratedCode/tensor.h"
 
 #ifdef ACL_DEVICE
 #include "BatchRecorders/Recorders.h"

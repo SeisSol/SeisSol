@@ -11,6 +11,7 @@
 #include "Common/Real.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
+
 #include <cstddef>
 #include <vector>
 namespace seissol::solver {

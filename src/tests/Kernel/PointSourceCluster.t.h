@@ -6,10 +6,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "doctest.h"
+
 #include "Kernels/PointSourceCluster.h"
 #include "Kernels/Precision.h"
-
-#include "doctest.h"
 
 #include <cmath>
 #include <vector>

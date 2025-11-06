@@ -6,11 +6,18 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
+#include "FaultWriter.h"
+
+#include "AsyncCellIDs.h"
+#include "DynamicRupture/Output/OutputManager.h"
 #include "Kernels/Precision.h"
+#include "Modules/Modules.h"
 #include "Monitoring/Instrumentation.h" // IWYU pragma: keep
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/FaultWriterExecutor.h"
+#include "SeisSol.h"
+
 #include <algorithm>
 #include <async/Module.h>
 #include <cassert>
@@ -19,12 +26,6 @@
 #include <string>
 #include <utils/env.h>
 #include <utils/logger.h>
-
-#include "AsyncCellIDs.h"
-#include "DynamicRupture/Output/OutputManager.h"
-#include "FaultWriter.h"
-#include "Modules/Modules.h"
-#include "SeisSol.h"
 
 void seissol::writer::FaultWriter::setUp() {
   setExecutor(m_executor);

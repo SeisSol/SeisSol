@@ -10,21 +10,19 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 
+#include "Equations/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "Geometry/MeshReader.h"
 #include "Geometry/PUMLReader.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "easi/Query.h"
+#include "easi/ResultAdapter.h"
+
 #include <memory>
 #include <set>
 #include <string>
 #include <unordered_map>
-
-#include "Geometry/MeshReader.h"
-#include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
-
-#include "GeneratedCode/init.h"
-#include "easi/Query.h"
-#include "easi/ResultAdapter.h"
-
-#include "Equations/Datastructures.h"
 
 #ifdef USE_HDF
 #include "PUML/PUML.h"

@@ -14,14 +14,13 @@
 
 // Gather all datastructure Headers here
 #include "Equations/acoustic/Model/Datastructures.h"
+#include "Equations/acoustic/Model/IntegrationData.h"
 #include "Equations/anisotropic/Model/Datastructures.h"
+#include "Equations/anisotropic/Model/IntegrationData.h"
 #include "Equations/elastic/Model/Datastructures.h"
+#include "Equations/elastic/Model/IntegrationData.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/viscoelastic2/Model/Datastructures.h"
-
-#include "Equations/acoustic/Model/IntegrationData.h"
-#include "Equations/anisotropic/Model/IntegrationData.h"
-#include "Equations/elastic/Model/IntegrationData.h"
 #ifdef USE_POROELASTIC
 #include "Equations/poroelastic/Model/IntegrationData.h"
 #endif

@@ -7,23 +7,24 @@
 
 #include "Init.h"
 
-#include "Initializer/InitProcedure/InitLayout.h"
-#include "Memory/Tree/Layer.h"
-#include "Monitoring/Stopwatch.h"
-#include <utils/logger.h>
-
 #include "InitIO.h"
 #include "InitMesh.h"
 #include "InitModel.h"
 #include "InitSideConditions.h"
+#include "Initializer/InitProcedure/InitLayout.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Memory/Tree/Layer.h"
+#include "Monitoring/Stopwatch.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "SeisSol.h"
 
+#include <utils/logger.h>
+
 #ifdef ACL_DEVICE
 #include "Monitoring/Unit.h"
 #include "Numerical/Statistics.h"
+
 #include <ostream>
 #include <sstream>
 #endif

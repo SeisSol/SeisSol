@@ -9,8 +9,6 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#include "Kernels/LinearCK/TimeBase.h"
-
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "DataTypes/ConditionalTable.h"
@@ -19,26 +17,24 @@
 #include "GravitationalFreeSurfaceBC.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Kernels/Interface.h"
 #include "Kernels/LinearCK/Solver.h"
+#include "Kernels/LinearCK/TimeBase.h"
+#include "Kernels/MemoryOps.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Runtime/Stream.h"
+#include "utils/logger.h"
+
 #include <algorithm>
-#include <cstdint>
-
-#include "Kernels/Common.h"
-#include "Kernels/MemoryOps.h"
-
 #include <cassert>
+#include <cstdint>
 #include <cstring>
 #include <stdint.h>
-
 #include <yateto.h>
 #include <yateto/InitTools.h>
-
-#include "utils/logger.h"
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"

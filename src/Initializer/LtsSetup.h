@@ -8,6 +8,7 @@
 #define SEISSOL_SRC_INITIALIZER_LTSSETUP_H_
 
 #include "Common/Constants.h"
+
 #include <cassert>
 #include <cstdint>
 

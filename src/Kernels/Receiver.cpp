@@ -7,6 +7,7 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "Receiver.h"
+
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Executor.h"
@@ -28,6 +29,7 @@
 #include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
+
 #include <Eigen/Core>
 #include <cmath>
 #include <cstddef>

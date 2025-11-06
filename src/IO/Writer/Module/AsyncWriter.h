@@ -11,6 +11,7 @@
 #include "IO/Writer/Writer.h"
 #include "async/ExecInfo.h"
 #include "async/Module.h"
+
 #include <mutex>
 
 namespace seissol::io::writer::module {

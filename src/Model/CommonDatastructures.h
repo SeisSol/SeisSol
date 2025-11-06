@@ -11,6 +11,7 @@
 #define SEISSOL_SRC_MODEL_COMMONDATASTRUCTURES_H_
 
 #include "Initializer/Parameters/ModelParameters.h"
+
 #include <array>
 #include <limits>
 #include <string>

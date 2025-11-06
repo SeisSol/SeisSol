@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_
 
 #include "Memory/Tree/Layer.h"
+
 #include <functional>
 #include <utility>
 

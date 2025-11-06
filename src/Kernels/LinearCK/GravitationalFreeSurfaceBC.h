@@ -8,24 +8,23 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_GRAVITATIONALFREESURFACEBC_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_GRAVITATIONALFREESURFACEBC_H_
 
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-
 #include "Initializer/Typedefs.h"
-
-#include "Equations/Datastructures.h"
 #include "Numerical/ODEInt.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/Runtime/Stream.h"
-
 #include "Solver/MultipleSimulations.h"
+
 #include <utility>
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Kernels/LinearCK/DeviceAux/KernelsAux.h"
 #include "device.h"
+
 #include <tuple>
 #endif
 

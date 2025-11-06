@@ -6,15 +6,16 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Kernels/DeviceAux/PlasticityAux.h"
+
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 #include "Model/Plasticity.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <cmath>
 #include <cstddef>
 #include <type_traits>
-
-#include "Solver/MultipleSimulations.h"
 
 #ifdef __HIP__
 #include "hip/hip_runtime.h"

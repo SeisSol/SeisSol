@@ -6,9 +6,14 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
+#include "Initializer/InitProcedure/Init.h"
 #include "Initializer/Parameters/ParameterReader.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Instrumentation.h"
+#include "Parallel/MPI.h"
+#include "SeisSol.h"
+
 #include <ctime>
 #include <exception>
 #include <fty/fty.hpp>
@@ -20,12 +25,6 @@
 #include <utils/timeutils.h>
 #include <xdmfwriter/scorep_wrapper.h>
 #include <yaml-cpp/yaml.h>
-
-#include "Initializer/InitProcedure/Init.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "SeisSol.h"
-
-#include "Parallel/MPI.h"
 
 #ifdef USE_ASAGI
 #include "Reader/AsagiModule.h"

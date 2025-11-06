@@ -6,18 +6,17 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#include "Parallel/MPI.h"
+#include "FaultWriterExecutor.h"
 
 #include "Kernels/Precision.h"
+#include "Parallel/MPI.h"
+#include "utils/logger.h"
+
 #include <async/ExecInfo.h>
 #include <mpi.h>
 #include <string>
 #include <utils/env.h>
 #include <vector>
-
-#include "utils/logger.h"
-
-#include "FaultWriterExecutor.h"
 
 /**
  * Initialize the XDMF writers

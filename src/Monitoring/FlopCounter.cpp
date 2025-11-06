@@ -8,7 +8,9 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Rettenberger
 
+#include "Numerical/Statistics.h"
 #include "Unit.h"
+
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -17,16 +19,13 @@
 #include <ostream>
 #include <string>
 
-#include "Numerical/Statistics.h"
-
 // NOLINTNEXTLINE
 long long libxsmm_num_total_flops = 0;
 // NOLINTNEXTLINE
 long long pspamm_num_total_flops = 0;
 
-#include "Parallel/MPI.h"
-
 #include "FlopCounter.h"
+#include "Parallel/MPI.h"
 
 #include <utils/logger.h>
 

@@ -7,37 +7,36 @@
 
 #include "InitMesh.h"
 
+#include "Geometry/CubeGenerator.h"
 #include "Geometry/MeshDefinition.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
 #include "Solver/Estimator.h"
+#include "utils/env.h"
+#include "utils/logger.h"
+
 #include <Eigen/Core>
+#include <Eigen/Dense>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-
-#include "utils/env.h"
-#include "utils/logger.h"
-#include <Eigen/Dense>
 #include <math.h>
 #include <mpi.h>
 #include <optional>
 #include <vector>
-
-#include "Geometry/CubeGenerator.h"
 #ifdef USE_HDF
 #include "Geometry/PUMLReader.h"
+
 #include <hdf5.h>
 #endif // defined(USE_HDF)
 #include "Initializer/TimeStepping/LtsWeights/WeightsFactory.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Stopwatch.h"
 #include "Numerical/Statistics.h"
+#include "Parallel/MPI.h"
 #include "ResultWriter/MiniSeisSolWriter.h"
 #include "SeisSol.h"
-
-#include "Parallel/MPI.h"
 
 namespace {
 

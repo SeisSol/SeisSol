@@ -9,14 +9,14 @@
 #ifndef SEISSOL_SRC_INITIALIZER_INITIALFIELDPROJECTION_H_
 #define SEISSOL_SRC_INITIALIZER_INITIALFIELDPROJECTION_H_
 
-#include <memory>
-#include <vector>
-
 #include "Geometry/MeshReader.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Physics/InitialField.h"
+
+#include <memory>
+#include <vector>
 
 namespace seissol::initializer {
 void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField>>& iniFields,

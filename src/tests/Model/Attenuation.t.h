@@ -5,12 +5,12 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Equations/viscoelastic2/Model/Datastructures.h"
-#include "tests/TestHelper.h"
-#include <cstdlib>
-
 #include "Equations/Datastructures.h"
+#include "Equations/viscoelastic2/Model/Datastructures.h"
 #include "Physics/Attenuation.h"
+#include "tests/TestHelper.h"
+
+#include <cstdlib>
 
 namespace seissol::unit_test {
 TEST_CASE("Attenuation" *

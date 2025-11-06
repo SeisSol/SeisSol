@@ -10,6 +10,7 @@
 
 #include "Common/Constants.h"
 #include "Geometry/MeshDefinition.h"
+
 #include <cassert>
 #include <cmath>
 #include <cstddef>

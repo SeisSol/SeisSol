@@ -12,6 +12,7 @@
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "tests/Geometry/MockReader.h"
+
 #include <Eigen/Dense>
 #include <iostream>
 #include <tests/TestHelper.h>

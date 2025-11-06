@@ -9,9 +9,8 @@
 #ifndef SEISSOL_SRC_GEOMETRY_REFINEMENT_REFINERUTILS_H_
 #define SEISSOL_SRC_GEOMETRY_REFINEMENT_REFINERUTILS_H_
 
-#include <vector>
-
 #include <Eigen/Dense>
+#include <vector>
 
 namespace seissol::refinement {
 

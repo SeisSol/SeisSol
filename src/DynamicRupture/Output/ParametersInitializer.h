@@ -11,6 +11,7 @@
 #include "DataTypes.h"
 #include "FaultRefiner/FaultRefiners.h"
 #include "Initializer/InputAux.h"
+
 #include <utils/logger.h>
 #include <yaml-cpp/yaml.h>
 

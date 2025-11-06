@@ -20,11 +20,13 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Runtime/Stream.h"
+
 #include <unordered_set>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/Recorders.h"
+
 #include <device.h>
 #endif
 

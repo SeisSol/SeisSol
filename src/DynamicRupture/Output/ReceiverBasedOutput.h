@@ -8,15 +8,15 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RECEIVERBASEDOUTPUT_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RECEIVERBASEDOUTPUT_H_
 
+#include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/ParametersInitializer.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
-
-#include "DynamicRupture/Misc.h"
 #include "Memory/Tree/Backmap.h"
 #include "Parallel/Runtime/Stream.h"
+
 #include <memory>
 #include <vector>
 

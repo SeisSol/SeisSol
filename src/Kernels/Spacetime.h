@@ -18,6 +18,7 @@
 #include "Kernels/Kernel.h"
 #include "Numerical/BasisFunction.h"
 #include "Parallel/Runtime/Stream.h"
+
 #include <cassert>
 #include <limits>
 #include <memory>

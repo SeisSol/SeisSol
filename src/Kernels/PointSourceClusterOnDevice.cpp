@@ -12,6 +12,7 @@
 #include "Kernels/Precision.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SourceTerm/Typedefs.h"
+
 #include <memory>
 #include <utility>
 

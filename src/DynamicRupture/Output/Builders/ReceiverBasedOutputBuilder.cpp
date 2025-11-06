@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.h"
+
 #include "Common/Constants.h"
 #include "Common/Typedefs.h"
 #include "Config.h"
@@ -24,6 +25,7 @@
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include "Solver/MultipleSimulations.h"
+
 #include <Eigen/Core>
 #include <algorithm>
 #include <array>
@@ -41,6 +43,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Helper.h"
+
 #include <memory>
 #endif
 

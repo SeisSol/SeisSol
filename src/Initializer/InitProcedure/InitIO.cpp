@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "InitIO.h"
+
 #include "Common/Constants.h"
 #include "Common/Filesystem.h"
 #include "Equations/Datastructures.h"
@@ -24,9 +25,11 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
 #include "Numerical/Transformation.h"
+#include "Parallel/MPI.h"
 #include "SeisSol.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/MultipleSimulations.h"
+
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -35,8 +38,6 @@
 #include <string>
 #include <utils/logger.h>
 #include <vector>
-
-#include "Parallel/MPI.h"
 
 namespace {
 

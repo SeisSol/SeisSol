@@ -18,6 +18,7 @@
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
 #include "TimeStepping/TimeManager.h"
+
 #include <algorithm>
 #include <cassert>
 #include <optional>

@@ -7,8 +7,10 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "Transformation.h"
+
 #include "Geometry/MeshDefinition.h"
 #include "Kernels/Precision.h"
+
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <cassert>

@@ -6,9 +6,11 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "InitializationParameters.h"
+
 #include "Equations/Datastructures.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/Parameters/ParameterReader.h"
+
 #include <Eigen/Core>
 #include <cstddef>
 #include <limits>

@@ -8,6 +8,7 @@
 #ifdef ACL_DEVICE
 
 #include "Solver/TimeStepping/GhostTimeClusterWithCopy.h"
+
 #include "Parallel/MPI.h"
 #include "device.h"
 

@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "DynamicRupture/Output/OutputManager.h"
+
 #include "Common/Filesystem.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.h"
@@ -30,6 +31,7 @@
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
+
 #include <algorithm>
 #include <array>
 #include <cassert>

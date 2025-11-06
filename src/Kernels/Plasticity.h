@@ -15,6 +15,7 @@
 #include "Initializer/Typedefs.h"
 #include "Model/Plasticity.h"
 #include "Parallel/Runtime/Stream.h"
+
 #include <cmath>
 #include <limits>
 

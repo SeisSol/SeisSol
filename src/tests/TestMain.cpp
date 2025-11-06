@@ -6,8 +6,9 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #define DOCTEST_CONFIG_IMPLEMENT
-#include "Parallel/MPI.h"
 #include "doctest.h"
+
+#include "Parallel/MPI.h"
 
 int main(int argc, char** argv) {
   seissol::MPI::mpi.init(argc, argv);

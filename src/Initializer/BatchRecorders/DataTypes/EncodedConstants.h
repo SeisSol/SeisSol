@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_ENCODEDCONSTANTS_H_
 
 #include "Kernels/Precision.h"
+
 #include <cstdlib>
 
 namespace seissol::initializer::recording::inner_keys {

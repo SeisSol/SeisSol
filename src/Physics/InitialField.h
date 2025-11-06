@@ -8,16 +8,15 @@
 #ifndef SEISSOL_SRC_PHYSICS_INITIALFIELD_H_
 #define SEISSOL_SRC_PHYSICS_INITIALFIELD_H_
 
-#include <array>
-#include <complex>
-#include <vector>
-
-#include <Eigen/Dense>
-
 #include "GeneratedCode/init.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+
+#include <Eigen/Dense>
+#include <array>
+#include <complex>
+#include <vector>
 
 namespace seissol::physics {
 class InitialField {

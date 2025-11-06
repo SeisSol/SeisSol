@@ -9,6 +9,8 @@
 
 #include "Data.h"
 #include "IO/Datatype/Datatype.h"
+#include "utils/stringutils.h"
+
 #include <cassert>
 #include <cstddef>
 #include <memory>
@@ -17,8 +19,6 @@
 #include <utility>
 #include <vector>
 #include <yaml-cpp/yaml.h>
-
-#include "utils/stringutils.h"
 
 namespace seissol::io::writer::instructions {
 Hdf5Location::Hdf5Location(const std::string& longstring) {

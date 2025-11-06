@@ -8,12 +8,12 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTORSTATE_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTORSTATE_H_
 
+#include "Common/Executor.h"
+
 #include <memory>
 #include <mutex>
 #include <queue>
 #include <variant>
-
-#include "Common/Executor.h"
 
 namespace seissol::time_stepping {
 

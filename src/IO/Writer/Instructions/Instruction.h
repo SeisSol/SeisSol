@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_INSTRUCTION_H_
 
 #include "IO/Writer/Instructions/Data.h"
+
 #include <memory>
 #include <yaml-cpp/yaml.h>
 

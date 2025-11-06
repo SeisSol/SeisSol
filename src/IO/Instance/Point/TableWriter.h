@@ -10,11 +10,11 @@
 
 #include "IO/Datatype/Datatype.h"
 #include "IO/Writer/Writer.h"
+#include "utils/logger.h"
+
 #include <functional>
 #include <memory>
 #include <string>
-
-#include "utils/logger.h"
 
 namespace seissol::io::instance::point {
 

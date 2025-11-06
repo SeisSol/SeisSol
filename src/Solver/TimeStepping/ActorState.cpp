@@ -5,7 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "ActorState.h"
+
 #include "Common/Executor.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -14,8 +17,6 @@
 #include <string>
 #include <type_traits>
 #include <variant>
-
-#include "ActorState.h"
 
 namespace seissol::time_stepping {
 

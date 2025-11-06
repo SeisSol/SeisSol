@@ -12,6 +12,7 @@
 
 #include "Condition.h"
 #include "EncodedConstants.h"
+
 #include <array>
 #include <device.h>
 #include <string>

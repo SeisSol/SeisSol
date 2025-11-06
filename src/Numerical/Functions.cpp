@@ -8,6 +8,7 @@
 #include "Functions.h"
 
 #include "Numerical/StableSum.h"
+
 #include <array>
 #include <cstdint>
 

@@ -9,24 +9,19 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITEREXECUTOR_H_
 #define SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITEREXECUTOR_H_
 
-#include "Parallel/MPI.h"
-
+#include "Equations/Datastructures.h"
 #include "Kernels/Precision.h"
+#include "Model/Plasticity.h"
+#include "Monitoring/Stopwatch.h"
+#include "Parallel/MPI.h"
+#include "async/ExecInfo.h"
+#include "utils/logger.h"
+#include "xdmfwriter/XdmfWriter.h"
+
 #include <cassert>
 #include <memory>
 #include <string>
 #include <vector>
-
-#include "utils/logger.h"
-
-#include "xdmfwriter/XdmfWriter.h"
-
-#include "async/ExecInfo.h"
-
-#include "Monitoring/Stopwatch.h"
-
-#include "Equations/Datastructures.h"
-#include "Model/Plasticity.h"
 
 namespace seissol::writer {
 

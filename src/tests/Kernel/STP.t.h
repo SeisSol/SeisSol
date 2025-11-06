@@ -5,23 +5,21 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <iomanip>
-#include <iostream>
-
-#include <cmath>
-#include <limits>
-#include <random>
-#include <type_traits>
-
+#include "Equations/poroelastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
+#include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Model/PoroelasticSetup.h"
 #include "Numerical/Transformation.h"
 
-#include "Equations/poroelastic/Model/Datastructures.h"
-#include "GeneratedCode/tensor.h"
-#include "Kernels/Common.h"
+#include <cmath>
+#include <iomanip>
+#include <iostream>
+#include <limits>
+#include <random>
+#include <type_traits>
 
 namespace seissol::unit_test {
 

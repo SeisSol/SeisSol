@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_IO_WRITER_FILE_BINARYWRITER_H_
 #include "IO/Writer/Instructions/Binary.h"
 #include "IO/Writer/Instructions/Data.h"
+
 #include <hdf5.h>
 #include <memory>
 #include <mpi.h>

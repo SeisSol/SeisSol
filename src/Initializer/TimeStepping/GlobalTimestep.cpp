@@ -8,7 +8,12 @@
 #include "GlobalTimestep.h"
 
 #include "Common/Constants.h"
+#include "Equations/Datastructures.h"
+#include "Initializer/ParameterDB.h"
+#include "Initializer/Parameters//SeisSolParameters.h"
 #include "Initializer/Parameters/ModelParameters.h"
+#include "Parallel/MPI.h"
+
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <algorithm>
@@ -16,12 +21,6 @@
 #include <cmath>
 #include <mpi.h>
 #include <vector>
-
-#include "Equations/Datastructures.h"
-#include "Initializer/ParameterDB.h"
-#include "Initializer/Parameters//SeisSolParameters.h"
-
-#include "Parallel/MPI.h"
 
 namespace {
 

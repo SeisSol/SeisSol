@@ -5,11 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Equations/Datastructures.h"
+#include "Model/CommonDatastructures.h"
 #include "SourceTerm/PointSource.h"
 #include "tests/TestHelper.h"
 
-#include "Equations/Datastructures.h"
-#include "Model/CommonDatastructures.h"
 #include <memory>
 
 namespace seissol::unit_test {

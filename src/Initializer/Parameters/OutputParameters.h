@@ -8,15 +8,14 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_OUTPUTPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_OUTPUTPARAMETERS_H_
 
-#include <list>
-#include <string>
-#include <unordered_set>
-
-#include <xdmfwriter/backends/Backend.h>
-
 #include "Equations/Datastructures.h"
 #include "Initializer/InputAux.h"
 #include "ParameterReader.h"
+
+#include <list>
+#include <string>
+#include <unordered_set>
+#include <xdmfwriter/backends/Backend.h>
 
 namespace seissol::initializer::parameters {
 

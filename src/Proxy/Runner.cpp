@@ -14,6 +14,7 @@
 #include "Kernels/Common.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Proxy/Kernel.h"
+
 #include <cstddef>
 #include <iostream>
 #include <memory>
@@ -31,6 +32,7 @@
 #endif
 
 #include "Monitoring/FlopCounter.h"
+
 #include <cassert>
 
 // seissol_kernel includes

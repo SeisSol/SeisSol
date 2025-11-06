@@ -9,17 +9,22 @@
 
 #include "FreeSurfaceWriter.h"
 
+#include "AsyncCellIDs.h"
 #include "Common/Constants.h"
 #include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshTools.h"
 #include "Geometry/Refinement/TriangleRefiner.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/Surface.h"
 #include "Memory/Tree/Layer.h"
+#include "Modules/Modules.h"
 #include "Monitoring/Instrumentation.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/FreeSurfaceWriterExecutor.h"
+#include "SeisSol.h"
 #include "Solver/FreeSurfaceIntegrator.h"
+
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <async/Module.h>
@@ -31,11 +36,6 @@
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
-
-#include "AsyncCellIDs.h"
-#include "Geometry/MeshTools.h"
-#include "Modules/Modules.h"
-#include "SeisSol.h"
 
 void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
     const seissol::geometry::MeshReader& meshReader,

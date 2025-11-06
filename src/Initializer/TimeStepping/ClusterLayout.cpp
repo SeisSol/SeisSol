@@ -5,19 +5,20 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Initializer/TimeStepping/ClusterLayout.h"
+
 #include "Geometry/MeshReader.h"
 #include "Monitoring/Unit.h"
 #include "Numerical/StableSum.h"
 #include "Parallel/MPI.h"
+
 #include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <mpi.h>
 #include <utils/logger.h>
 #include <vector>
-
-#include <mpi.h>
 
 namespace seissol::initializer {
 

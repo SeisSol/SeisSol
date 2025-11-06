@@ -29,6 +29,7 @@
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/Datastructures.h" // IWYU pragma: keep
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/Helper.h"
@@ -38,6 +39,7 @@
 #include "Solver/TimeStepping/TimeManager.h"
 #include "SourceTerm/NRF.h"
 #include "SourceTerm/Typedefs.h"
+
 #include <Eigen/Core>
 #include <algorithm>
 #include <array>
@@ -51,10 +53,9 @@
 #include <utils/logger.h>
 #include <vector>
 
-#include "Model/Datastructures.h" // IWYU pragma: keep
-
 #ifdef USE_NETCDF
 #include "NRFReader.h"
+
 #include <mpi.h>
 #endif
 

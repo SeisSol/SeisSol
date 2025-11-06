@@ -22,6 +22,7 @@
 #include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Runtime/Stream.h"
+
 #include <Eigen/Dense>
 #include <optional>
 #include <vector>

@@ -12,11 +12,10 @@
 #include <memory>
 #ifdef USE_ASAGI
 
-#include <string>
-
-#include <utils/env.h>
-
 #include "Modules/Module.h"
+
+#include <string>
+#include <utils/env.h>
 
 namespace seissol::asagi {
 

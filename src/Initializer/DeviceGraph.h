@@ -10,6 +10,7 @@
 
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+
 #include <cstddef>
 
 namespace seissol::initializer {

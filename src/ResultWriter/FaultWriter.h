@@ -9,17 +9,14 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_FAULTWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_FAULTWRITER_H_
 
-#include "Parallel/MPI.h"
-#include "Parallel/Pin.h"
-
-#include "utils/logger.h"
-
-#include "async/Module.h"
-
 #include "FaultWriterExecutor.h"
 #include "Modules/Module.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
+#include "Parallel/MPI.h"
+#include "Parallel/Pin.h"
+#include "async/Module.h"
+#include "utils/logger.h"
 
 namespace seissol {
 class SeisSol;

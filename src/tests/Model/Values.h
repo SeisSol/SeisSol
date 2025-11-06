@@ -11,6 +11,7 @@
 #include "Equations/Datastructures.h"
 #include "Kernels/Precision.h"
 #include "Model/Datastructures.h"
+
 #include <array>
 
 namespace seissol::unit_test {

@@ -22,6 +22,7 @@
 #include "Kernels/Precision.h"
 #include "Model/CommonDatastructures.h"
 #include "Solver/MultipleSimulations.h"
+
 #include <Eigen/Core>
 #include <array>
 #include <cassert>
@@ -35,20 +36,19 @@
 #ifdef USE_HDF
 // PUML.h needs to be included before Downward.h
 
-#include "PUML/Downward.h"
-
 #include "GeneratedCode/kernel.h"
+#include "PUML/Downward.h"
 #endif
-#include "ParameterDB.h"
-#include <algorithm>
-#include <cmath>
-
 #include "DynamicRupture/Misc.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
+#include "ParameterDB.h"
 #include "SeisSol.h"
 #include "easi/ResultAdapter.h"
 #include "easi/YAMLParser.h"
+
+#include <algorithm>
+#include <cmath>
 #ifdef USE_ASAGI
 #include "Reader/AsagiReader.h"
 #endif

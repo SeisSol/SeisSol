@@ -7,6 +7,7 @@
 
 #include "Solver/TimeStepping/AbstractTimeCluster.h"
 #include "tests/TestHelper.h"
+
 #include <iostream>
 namespace seissol::unit_test {
 using namespace time_stepping;

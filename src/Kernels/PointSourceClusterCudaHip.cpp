@@ -7,6 +7,7 @@
 
 #include "Memory/MemoryAllocator.h"
 #include "PointSourceCluster.h"
+
 #include <cstddef>
 
 #ifdef __HIP__

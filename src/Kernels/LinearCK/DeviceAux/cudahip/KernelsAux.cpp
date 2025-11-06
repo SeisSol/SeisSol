@@ -10,10 +10,10 @@
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <cstdio>
 #include <yateto.h>
-
-#include "Solver/MultipleSimulations.h"
 
 #ifdef __HIP__
 #include "hip/hip_runtime.h"

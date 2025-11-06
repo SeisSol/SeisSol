@@ -27,6 +27,7 @@
 #include "Numerical/Functions.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
+
 #include <algorithm>
 #include <array>
 #include <cassert>

@@ -18,13 +18,13 @@
 #include "Kernels/Precision.h"
 #include "Model/Plasticity.h"
 #include "Parallel/Runtime/Stream.h"
+#include "Solver/MultipleSimulations.h"
+#include "utils/logger.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
-
-#include "Solver/MultipleSimulations.h"
-#include "utils/logger.h"
 
 #ifdef ACL_DEVICE
 #include "DataTypes/ConditionalKey.h"

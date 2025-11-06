@@ -12,6 +12,7 @@
 #include "IO/Instance/Point/TableWriter.h"
 #include "IO/Writer/Instructions/Binary.h"
 #include "IO/Writer/Instructions/Data.h"
+
 #include <memory>
 #include <sstream>
 #include <string>

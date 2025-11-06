@@ -8,14 +8,14 @@
 #include "HDF5Type.h"
 
 #include "Datatype.h"
+#include "utils/logger.h"
+
 #include <H5Ipublic.h>
 #include <H5Tpublic.h>
 #include <H5public.h>
 #include <H5version.h>
 #include <memory>
 #include <vector>
-
-#include "utils/logger.h"
 
 namespace {
 hid_t _eh(hid_t data) {

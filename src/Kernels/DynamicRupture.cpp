@@ -12,17 +12,16 @@
 #include "Common/Constants.h"
 #include "DataTypes/ConditionalTable.h"
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Parallel/Runtime/Stream.h"
+#include "utils/logger.h"
+
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
-
-#include "utils/logger.h"
-
-#include "GeneratedCode/kernel.h"
 
 #ifdef ACL_DEVICE
 #include "DataTypes/ConditionalKey.h"

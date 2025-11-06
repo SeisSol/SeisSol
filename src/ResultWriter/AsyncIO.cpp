@@ -8,10 +8,9 @@
 #include "AsyncIO.h"
 
 #include "Parallel/MPI.h"
+#include "async/Dispatcher.h"
 
 #include <mpi.h>
-
-#include "async/Dispatcher.h"
 
 namespace seissol::io {
 

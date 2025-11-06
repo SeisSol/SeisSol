@@ -7,17 +7,17 @@
 
 #include "MeshReader.h"
 
-#include "MeshDefinition.h"
-#include "MeshTools.h"
-
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
+#include "MeshDefinition.h"
+#include "MeshTools.h"
 #include "PUML/TypeInference.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
+
 #include <Eigen/Core>
 #include <algorithm>
 #include <cstddef>

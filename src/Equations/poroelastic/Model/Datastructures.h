@@ -11,6 +11,7 @@
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Kernels/STP/Solver.h"
 #include "Model/CommonDatastructures.h"
+
 #include <array>
 #include <cassert>
 #include <cstddef>

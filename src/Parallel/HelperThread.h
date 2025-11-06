@@ -8,6 +8,7 @@
 #define SEISSOL_SRC_PARALLEL_HELPERTHREAD_H_
 
 #include "Parallel/Pin.h"
+
 #include <atomic>
 #include <functional>
 #include <thread>

@@ -6,17 +6,17 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
+
 #include "Common/Constants.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
+#include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
-#include <cstddef>
-
 #include "Memory/MemoryAllocator.h"
 
-#include "DynamicRupture/FrictionLaws/TPCommon.h"
+#include <cstddef>
 
 namespace seissol::dr::friction_law::gpu {
 FrictionSolverDetails::FrictionSolverDetails(

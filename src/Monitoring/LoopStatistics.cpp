@@ -7,6 +7,7 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "LoopStatistics.h"
+
 #include "Unit.h"
 
 #include <algorithm>

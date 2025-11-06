@@ -8,20 +8,18 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_
 
-#include "Geometry/MeshDefinition.h"
-#include "Kernels/Precision.h"
-
 #include "Common/Constants.h"
+#include "Common/Marker.h"
 #include "GeneratedCode/init.h"
+#include "Geometry/MeshDefinition.h"
 #include "Initializer/Parameters/DRParameters.h"
+#include "Kernels/Precision.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <cmath>
 #include <string>
 #include <tuple>
 #include <type_traits>
-
-#include "Solver/MultipleSimulations.h"
-
-#include "Common/Marker.h"
 
 namespace seissol::dr::misc {
 // TODO: this can be moved to yateto headers

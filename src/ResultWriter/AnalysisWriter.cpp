@@ -13,9 +13,11 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/InitialFieldProjection.h"
 #include "Initializer/Parameters/InitializationParameters.h"
+#include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
@@ -23,6 +25,11 @@
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
+#include "Parallel/OpenMP.h"
+#include "Physics/InitialField.h"
+#include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -34,13 +41,6 @@
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
-
-#include "Geometry/MeshReader.h"
-#include "Initializer/PreProcessorMacros.h"
-#include "Parallel/OpenMP.h"
-#include "Physics/InitialField.h"
-#include "SeisSol.h"
-#include "Solver/MultipleSimulations.h"
 
 namespace seissol::writer {
 

@@ -12,6 +12,7 @@
 #include "Common/Constants.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Local.h"
+
 #include <memory>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"

@@ -14,6 +14,7 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
 #include "Recorders.h"
+
 #include <array>
 #include <cstddef>
 #include <vector>

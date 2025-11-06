@@ -7,7 +7,7 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#include "Parallel/MPI.h"
+#include "TimeManager.h"
 
 #include "Common/Iterator.h"
 #include "CommunicationManager.h"
@@ -18,6 +18,7 @@
 #include "Kernels/PointSourceCluster.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
 #include "ResultWriter/ClusteringWriter.h"
 #include "ResultWriter/ReceiverWriter.h"
 #include "SeisSol.h"
@@ -27,7 +28,7 @@
 #include "Solver/TimeStepping/GhostTimeClusterFactory.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
 #include "Solver/TimeStepping/TimeCluster.h"
-#include "TimeManager.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>

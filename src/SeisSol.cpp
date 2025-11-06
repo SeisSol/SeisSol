@@ -8,18 +8,18 @@
 
 #include "SeisSol.h"
 
-#include <cstddef>
-#include <memory>
-#include <optional>
-#include <sys/resource.h>
-#include <utils/logger.h>
-
 #include "Modules/Modules.h"
 #include "Monitoring/Unit.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
 #include "Parallel/Pin.h"
+
+#include <cstddef>
+#include <memory>
+#include <optional>
+#include <sys/resource.h>
+#include <utils/logger.h>
 
 namespace seissol {
 

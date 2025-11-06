@@ -7,11 +7,13 @@
 // SPDX-FileContributor: Sebastian Wolf
 
 #include "Datastructures.h"
+
 #include "Equations/elastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Model/CommonDatastructures.h"
+
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>

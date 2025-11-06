@@ -10,16 +10,15 @@
 
 #include "Equations/elastic/Model/ElasticSetup.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
-#include <cassert>
-
-#include <Eigen/Dense>
-#include <yateto.h>
-
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
+
+#include <Eigen/Dense>
+#include <cassert>
+#include <yateto.h>
 
 namespace seissol::model {
 

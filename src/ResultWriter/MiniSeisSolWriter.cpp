@@ -6,8 +6,10 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "MiniSeisSolWriter.h"
+
 #include "Common/Filesystem.h"
 #include "Parallel/MPI.h"
+
 #include <algorithm>
 #include <cstddef>
 #include <fstream>

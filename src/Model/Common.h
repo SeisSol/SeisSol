@@ -11,17 +11,15 @@
 #define SEISSOL_SRC_MODEL_COMMON_H_
 
 #include "Equations/Datastructures.h"
-#include <Eigen/Dense>
-
 #include "GeneratedCode/init.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/Typedefs.h"
+#include "Model/CommonDatastructures.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 #include "utils/logger.h"
 
-#include "Model/CommonDatastructures.h"
-
+#include <Eigen/Dense>
 #include <cmath>
 #include <limits>
 

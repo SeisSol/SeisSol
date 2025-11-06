@@ -15,6 +15,7 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Runtime/Stream.h"
+
 #include <Eigen/Dense>
 #include <array>
 #include <cassert>

@@ -15,6 +15,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Tree/Backmap.h"
 #include "Parallel/Runtime/Stream.h"
+
 #include <memory>
 
 namespace seissol {

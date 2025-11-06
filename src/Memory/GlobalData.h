@@ -11,6 +11,7 @@
 
 #include "Initializer/Typedefs.h"
 #include "MemoryAllocator.h"
+
 #include <yateto.h>
 
 #ifdef ACL_DEVICE

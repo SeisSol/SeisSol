@@ -8,12 +8,12 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_PICKPOINTBUILDER_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_PICKPOINTBUILDER_H_
 
+#include "Common/Iterator.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PointMapper.h"
+#include "Parallel/Runtime/Stream.h"
 #include "ReceiverBasedOutputBuilder.h"
 
-#include "Common/Iterator.h"
-#include "Parallel/Runtime/Stream.h"
 #include <memory>
 #include <optional>
 

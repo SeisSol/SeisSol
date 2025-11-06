@@ -6,14 +6,21 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
+#include "WaveFieldWriter.h"
+
 #include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshReader.h"
+#include "Geometry/Refinement/MeshRefiner.h"
 #include "Geometry/Refinement/RefinerUtils.h"
 #include "Geometry/Refinement/VariableSubSampler.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Kernels/Precision.h"
+#include "Modules/Modules.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/WaveFieldWriterExecutor.h"
+#include "SeisSol.h"
+
 #include <algorithm>
 #include <async/Module.h>
 #include <cassert>
@@ -29,12 +36,6 @@
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
-
-#include "Geometry/MeshReader.h"
-#include "Geometry/Refinement/MeshRefiner.h"
-#include "Modules/Modules.h"
-#include "SeisSol.h"
-#include "WaveFieldWriter.h"
 
 void seissol::writer::WaveFieldWriter::setUp() {
   setExecutor(m_executor);

@@ -10,16 +10,15 @@
 #define SEISSOL_SRC_MEMORY_TREE_LTSTREE_H_
 
 #include "Backmap.h"
-#include "Layer.h"
-
-#include "Memory/MemoryAllocator.h"
-
 #include "Common/Iterator.h"
 #include "Config.h"
+#include "Layer.h"
+#include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Colormap.h"
 #include "Monitoring/Unit.h"
 #include "utils/logger.h"
+
 #include <type_traits>
 #include <utility>
 

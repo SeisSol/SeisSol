@@ -5,17 +5,17 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Geometry/PUMLReader.h"
 #include "Initializer/Parameters/LtsParameters.h"
 #include "Initializer/Parameters/MeshParameters.h"
-#include "tests/TestHelper.h"
-#include <memory>
-#include <numeric>
-
-#include "Geometry/PUMLReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/TimeStepping/LtsWeights/WeightsModels.h"
 #include "Initializer/Typedefs.h"
 #include "SeisSol.h"
+#include "tests/TestHelper.h"
+
+#include <memory>
+#include <numeric>
 
 namespace seissol::unit_test {
 

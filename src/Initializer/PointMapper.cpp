@@ -10,11 +10,13 @@
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
 #include "PointMapper.h"
+
 #include "Common/Constants.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Parallel/MPI.h"
+
 #include <Eigen/Core>
 #include <array>
 #include <cstring>

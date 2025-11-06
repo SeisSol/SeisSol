@@ -5,13 +5,12 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "tests/TestHelper.h"
-#include <cstdlib>
-
+#include "SlipRatesData.h"
 #include "SourceTerm/NRF.h"
 #include "SourceTerm/NRFReader.h"
+#include "tests/TestHelper.h"
 
-#include "SlipRatesData.h"
+#include <cstdlib>
 
 namespace seissol::unit_test {
 TEST_CASE("NRF Reader") {

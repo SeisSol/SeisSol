@@ -13,6 +13,8 @@
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Hdf5.h"
 #include "IO/Writer/Writer.h"
+#include "utils/logger.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -20,8 +22,6 @@
 #include <mpi.h>
 #include <string>
 #include <vector>
-
-#include "utils/logger.h"
 
 namespace seissol::io::instance::mesh {
 VtkHdfWriter::VtkHdfWriter(const std::string& name,

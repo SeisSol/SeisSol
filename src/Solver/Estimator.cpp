@@ -7,6 +7,7 @@
 // SPDX-FileContributor: David Schneller
 
 #include "Estimator.h"
+
 #include "Common/Executor.h"
 #include "Kernels/Common.h"
 #include "Numerical/Statistics.h"

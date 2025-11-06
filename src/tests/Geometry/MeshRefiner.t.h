@@ -6,14 +6,14 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Common/Constants.h"
-#include "tests/TestHelper.h"
-#include <Eigen/Dense>
-#include <array>
-#include <cstddef>
-
 #include "Geometry/Refinement/MeshRefiner.h"
 #include "Geometry/Refinement/RefinerUtils.h"
 #include "MockReader.h"
+#include "tests/TestHelper.h"
+
+#include <Eigen/Dense>
+#include <array>
+#include <cstddef>
 
 namespace seissol::unit_test {
 

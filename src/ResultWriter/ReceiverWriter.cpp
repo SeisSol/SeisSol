@@ -16,7 +16,10 @@
 #include "Kernels/Receiver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
+#include "Modules/Modules.h"
+#include "Parallel/MPI.h"
 #include "Solver/MultipleSimulations.h"
+
 #include <Eigen/Core>
 #include <algorithm>
 #include <cassert>
@@ -37,9 +40,6 @@
 #include <sys/stat.h>
 #include <utils/logger.h>
 #include <vector>
-
-#include "Modules/Modules.h"
-#include "Parallel/MPI.h"
 
 namespace seissol::writer {
 

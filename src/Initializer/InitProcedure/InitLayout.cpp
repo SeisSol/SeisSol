@@ -5,6 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "InitLayout.h"
+
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
 #include "Geometry/MeshReader.h"
@@ -22,6 +23,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
+
 #include <array>
 #include <cassert>
 #include <cstddef>

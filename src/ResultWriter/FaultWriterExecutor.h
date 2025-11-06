@@ -9,12 +9,12 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_FAULTWRITEREXECUTOR_H_
 #define SEISSOL_SRC_RESULTWRITER_FAULTWRITEREXECUTOR_H_
 
-#include <mpi.h>
-
 #include "Kernels/Precision.h"
 #include "Monitoring/Stopwatch.h"
 #include "async/ExecInfo.h"
 #include "xdmfwriter/XdmfWriter.h"
+
+#include <mpi.h>
 
 namespace seissol::writer {
 

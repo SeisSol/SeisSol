@@ -8,11 +8,11 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_INITIALIZATIONPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_INITIALIZATIONPARAMETERS_H_
 
-#include <Eigen/Dense>
-
 #include "Equations/Datastructures.h"
 #include "Initializer/InputAux.h"
 #include "ParameterReader.h"
+
+#include <Eigen/Dense>
 
 namespace seissol::initializer::parameters {
 

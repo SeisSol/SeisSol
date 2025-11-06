@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_RESULTWRITER_THREADSPINNINGWRITER_H_
 
 #include "Parallel/Pin.h"
+
 #include <string>
 #include <utils/env.h>
 #include <vector>

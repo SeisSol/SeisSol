@@ -10,15 +10,15 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ANISOTROPICSETUP_H_
 #define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ANISOTROPICSETUP_H_
 
-#include "Equations/anisotropic/Model/IntegrationData.h"
-#include <Eigen/Dense>
-#include <Eigen/Eigenvalues>
-
 #include "Datastructures.h"
+#include "Equations/anisotropic/Model/IntegrationData.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
+
+#include <Eigen/Dense>
+#include <Eigen/Eigenvalues>
 
 namespace seissol::model {
 using Matrix99 = Eigen::Matrix<double, 9, 9>;

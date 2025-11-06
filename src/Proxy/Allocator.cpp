@@ -7,6 +7,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Allocator.h"
+
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Config.h"
@@ -24,6 +25,7 @@
 #include "Memory/Tree/Colormap.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/OpenMP.h"
+
 #include <cstddef>
 #include <random>
 #include <stdlib.h>

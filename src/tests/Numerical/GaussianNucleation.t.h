@@ -5,10 +5,12 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "doctest.h"
+
 #include "Kernels/Precision.h"
 #include "Numerical/GaussianNucleationFunction.h"
-#include "doctest.h"
 #include "tests/TestHelper.h"
+
 #include <cassert>
 
 namespace seissol::unit_test {

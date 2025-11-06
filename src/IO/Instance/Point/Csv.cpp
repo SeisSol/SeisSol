@@ -10,6 +10,7 @@
 #include "IO/Writer/Instructions/Binary.h"
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Writer.h"
+
 #include <cstddef>
 #include <functional>
 #include <memory>

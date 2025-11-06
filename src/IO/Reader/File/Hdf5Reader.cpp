@@ -11,6 +11,8 @@
 #include "IO/Datatype/HDF5Type.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
+#include "utils/logger.h"
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdio>
@@ -20,8 +22,6 @@
 #include <stack>
 #include <string>
 #include <vector>
-
-#include "utils/logger.h"
 
 namespace {
 #define _eh(x) _ehh(x, __FILE__, __LINE__)

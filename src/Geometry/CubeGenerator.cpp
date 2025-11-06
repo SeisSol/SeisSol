@@ -6,14 +6,15 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "CubeGenerator.h"
-#include "utils/logger.h"
-
-#include "Parallel/MPI.h"
-#include "Parallel/OpenMP.h"
 
 #include "Common/Constants.h"
 #include "Geometry/MeshDefinition.h"
 #include "Initializer/Parameters/CubeGeneratorParameters.h"
+#include "MeshReader.h"
+#include "Parallel/MPI.h"
+#include "Parallel/OpenMP.h"
+#include "utils/logger.h"
+
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -25,8 +26,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
-#include "MeshReader.h"
 
 namespace {
 using TVertex = std::array<int, 3>;

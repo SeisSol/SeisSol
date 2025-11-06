@@ -9,11 +9,10 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_FREESURFACEWRITEREXECUTOR_H_
 #define SEISSOL_SRC_RESULTWRITER_FREESURFACEWRITEREXECUTOR_H_
 
-#include "async/ExecInfo.h"
-#include "xdmfwriter/XdmfWriter.h"
-
 #include "Kernels/Precision.h"
 #include "Monitoring/Stopwatch.h"
+#include "async/ExecInfo.h"
+#include "xdmfwriter/XdmfWriter.h"
 
 namespace seissol::writer {
 struct FreeSurfaceInitParam {

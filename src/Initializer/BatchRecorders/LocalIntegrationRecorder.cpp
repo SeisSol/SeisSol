@@ -6,7 +6,10 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Common/Constants.h"
+#include "DataTypes/Condition.h"
 #include "DataTypes/ConditionalKey.h"
+#include "DataTypes/ConditionalTable.h"
+#include "DataTypes/EncodedConstants.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
@@ -16,15 +19,12 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Recorders.h"
+
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <vector>
 #include <yateto.h>
-
-#include "DataTypes/Condition.h"
-#include "DataTypes/ConditionalTable.h"
-#include "DataTypes/EncodedConstants.h"
 
 using namespace device;
 using namespace seissol::initializer;

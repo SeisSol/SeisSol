@@ -15,6 +15,7 @@
 #include "Common/Constants.h"
 #include "Common/Marker.h"
 #include "Kernels/Precision.h"
+
 #include <cassert>
 #include <cstdlib>
 #include <vector>
@@ -25,6 +26,7 @@
 
 #ifdef ACL_DEVICE
 #include "UsmAllocator.h"
+
 #include <device.h>
 #endif
 

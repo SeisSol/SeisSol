@@ -5,6 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Buckets.h"
+
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
@@ -19,6 +20,7 @@
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
+
 #include <cassert>
 #include <cstdint>
 #include <cstring>

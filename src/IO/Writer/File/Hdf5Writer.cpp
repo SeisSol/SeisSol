@@ -13,6 +13,8 @@
 #include "IO/Datatype/MPIType.h"
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Hdf5.h"
+#include "utils/logger.h"
+
 #include <algorithm>
 #include <async/ExecInfo.h>
 #include <cassert>
@@ -24,8 +26,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
-#include "utils/logger.h"
 
 namespace {
 #define _eh(x) _ehh(x, __FILE__, __LINE__)

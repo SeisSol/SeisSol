@@ -9,15 +9,15 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_
 
 #include "Common/Executor.h"
-#include <cmath>
-#include <limits>
-#include <type_traits>
-
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
 #include "Initializer/Typedefs.h"
 #include "Numerical/GaussianNucleationFunction.h"
 #include "Solver/MultipleSimulations.h"
+
+#include <cmath>
+#include <limits>
+#include <type_traits>
 
 /**
  * Contains common functions required both for CPU and GPU impl.

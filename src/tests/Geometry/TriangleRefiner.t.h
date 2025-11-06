@@ -5,15 +5,14 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Geometry/Refinement/TriangleRefiner.h"
 #include "tests/TestHelper.h"
+
+#include <Eigen/Dense>
 #include <array>
 #include <cstddef>
 #include <iomanip>
 #include <iostream>
-
-#include <Eigen/Dense>
-
-#include "Geometry/Refinement/TriangleRefiner.h"
 
 namespace seissol::unit_test {
 

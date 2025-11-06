@@ -11,6 +11,7 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/TimeStepping/Halo.h"
 #include "Memory/Tree/Colormap.h"
+
 #include <mpi.h>
 #include <stdexcept>
 #include <vector>

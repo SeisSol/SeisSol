@@ -10,6 +10,7 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "TimeCluster.h"
+
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Executor.h"
@@ -43,6 +44,7 @@
 #include "SeisSol.h"
 #include "Solver/TimeStepping/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/ActorState.h"
+
 #include <algorithm>
 #include <cassert>
 #include <chrono>

@@ -13,15 +13,15 @@
 #include "Initializer/DeviceGraph.h"
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Colormap.h"
+
 #include <bitset>
 #include <cstring>
 #include <limits>
 #include <type_traits>
 #include <typeindex>
+#include <utils/logger.h>
 #include <variant>
 #include <vector>
-
-#include <utils/logger.h>
 
 enum LayerType { Ghost = (1U << 0U), Copy = (1U << 1U), Interior = (1U << 2U), NumLayers = 3U };
 

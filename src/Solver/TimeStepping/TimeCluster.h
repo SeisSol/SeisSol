@@ -11,29 +11,27 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMECLUSTER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMECLUSTER_H_
 
-#include <list>
-#include <memory>
-#include <mpi.h>
-
-#include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/LTS.h"
-#include "SourceTerm/Typedefs.h"
-#include <utils/logger.h>
-
+#include "AbstractTimeCluster.h"
 #include "Common/Executor.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Output/OutputManager.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/DynamicRupture.h"
 #include "Kernels/Plasticity.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Kernels/Solver.h"
 #include "Kernels/TimeCommon.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Monitoring/ActorStateStatistics.h"
 #include "Monitoring/LoopStatistics.h"
 #include "Solver/FreeSurfaceIntegrator.h"
+#include "SourceTerm/Typedefs.h"
 
-#include "AbstractTimeCluster.h"
+#include <list>
+#include <memory>
+#include <mpi.h>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include <device.h>

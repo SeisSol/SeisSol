@@ -16,6 +16,7 @@
 #include "Kernels/Kernel.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Physics/InitialField.h"
+
 #include <cassert>
 
 namespace seissol::kernels {

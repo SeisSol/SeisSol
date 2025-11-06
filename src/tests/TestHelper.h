@@ -8,12 +8,12 @@
 #ifndef SEISSOL_SRC_TESTS_TESTHELPER_H_
 #define SEISSOL_SRC_TESTS_TESTHELPER_H_
 
+#include "doctest.h"
+
 #include <cmath>
 #include <limits>
 #include <ostream>
 #include <vector>
-
-#include "doctest.h"
 
 namespace seissol::unit_test {
 

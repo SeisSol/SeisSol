@@ -5,13 +5,19 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Physics/InitialField.h"
+
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Kernels/Precision.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
+#include "Numerical/Eigenvalues.h"
+
 #include <Eigen/Core>
 #include <array>
 #include <cassert>
@@ -20,11 +26,6 @@
 #include <cstddef>
 #include <limits>
 #include <math.h>
-
-#include "Kernels/Common.h"
-#include "Kernels/Precision.h"
-#include "Numerical/Eigenvalues.h"
-#include "Physics/InitialField.h"
 #include <stdexcept>
 #include <string>
 #include <utility>

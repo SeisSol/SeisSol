@@ -16,7 +16,6 @@ extern long long libxsmm_num_total_flops;
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
-
 #include <yateto.h>
 
 #ifdef ACL_DEVICE

@@ -11,13 +11,6 @@
 
 #include "Common/Executor.h"
 #include "IO/Manager.h"
-#include <memory>
-#include <optional>
-#include <string>
-
-#include "utils/env.h"
-#include "utils/logger.h"
-
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Monitoring/FlopCounter.h"
@@ -34,6 +27,12 @@
 #include "Solver/Simulator.h"
 #include "Solver/TimeStepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
+#include "utils/env.h"
+#include "utils/logger.h"
+
+#include <memory>
+#include <optional>
+#include <string>
 
 namespace seissol {
 

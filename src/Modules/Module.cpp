@@ -8,6 +8,7 @@
 #include "Module.h"
 
 #include "utils/logger.h"
+
 #include <cassert>
 #include <cmath>
 #include <limits>

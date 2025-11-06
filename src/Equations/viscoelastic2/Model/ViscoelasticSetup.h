@@ -10,13 +10,13 @@
 #ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_VISCOELASTICSETUP_H_
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_VISCOELASTICSETUP_H_
 
+#include "Equations/viscoelastic2/Model/Datastructures.h"
+#include "Equations/viscoelastic2/Model/IntegrationData.h"
+#include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 
-#include "Equations/viscoelastic2/Model/Datastructures.h"
-#include "Equations/viscoelastic2/Model/IntegrationData.h"
-#include "GeneratedCode/init.h"
 #include <yateto.h>
 
 namespace seissol::model {

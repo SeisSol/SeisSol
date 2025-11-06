@@ -14,6 +14,7 @@
 #include "Kernels/Interface.h"
 #include "Kernels/Local.h"
 #include "Physics/InitialField.h"
+
 #include <memory>
 
 namespace seissol::kernels::solver::linearckanelastic {

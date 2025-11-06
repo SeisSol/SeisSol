@@ -11,6 +11,7 @@
 #include "Parallel/MPI.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
+
 #include <device.h>
 
 namespace seissol::time_stepping {

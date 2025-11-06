@@ -10,8 +10,8 @@
 #define SEISSOL_SRC_MODULES_MODULES_H_
 
 #include "Module.h"
-
 #include "utils/logger.h"
+
 #include <array>
 #include <limits>
 #include <map>

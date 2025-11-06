@@ -13,6 +13,7 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
+
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>

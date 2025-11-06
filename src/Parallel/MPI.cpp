@@ -7,7 +7,9 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "MPI.h"
+
 #include "utils/stringutils.h"
+
 #include <algorithm>
 #include <cctype>
 #include <mpi.h>
@@ -18,6 +20,7 @@
 
 #ifdef ACL_DEVICE
 #include "Parallel/AcceleratorDevice.h"
+
 #include <device.h>
 #endif
 

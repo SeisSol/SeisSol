@@ -9,11 +9,11 @@
 #ifndef SEISSOL_SRC_GEOMETRY_REFINEMENT_MESHREFINER_H_
 #define SEISSOL_SRC_GEOMETRY_REFINEMENT_MESHREFINER_H_
 
-#include <cstddef>
-#include <cstring>
-
 #include "Geometry/MeshReader.h"
 #include "RefinerUtils.h"
+
+#include <cstddef>
+#include <cstring>
 
 namespace seissol::refinement {
 

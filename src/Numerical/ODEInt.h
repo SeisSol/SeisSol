@@ -8,10 +8,10 @@
 #ifndef SEISSOL_SRC_NUMERICAL_ODEINT_H_
 #define SEISSOL_SRC_NUMERICAL_ODEINT_H_
 
-#include <Eigen/Dense>
-
 #include "Kernels/Precision.h"
 #include "ODEVector.h"
+
+#include <Eigen/Dense>
 #include <cassert>
 
 namespace seissol::ode {

@@ -10,6 +10,7 @@
 
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
+
 #include <hdf5.h>
 #include <memory>
 #include <stack>

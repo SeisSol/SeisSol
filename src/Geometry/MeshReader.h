@@ -9,16 +9,14 @@
 #ifndef SEISSOL_SRC_GEOMETRY_MESHREADER_H_
 #define SEISSOL_SRC_GEOMETRY_MESHREADER_H_
 
+#include "Initializer/Parameters/DRParameters.h"
 #include "MeshDefinition.h"
 
+#include <Eigen/Dense>
 #include <cmath>
 #include <map>
 #include <unordered_map>
 #include <vector>
-
-#include <Eigen/Dense>
-
-#include "Initializer/Parameters/DRParameters.h"
 
 namespace seissol {
 class SeisSol;

@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_CONDITION_H_
 
 #include "EncodedConstants.h"
+
 #include <assert.h>
 #include <type_traits>
 

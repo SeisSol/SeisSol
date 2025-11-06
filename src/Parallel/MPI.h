@@ -11,11 +11,11 @@
 
 #include "Common/Real.h"
 #include "Kernels/Precision.h"
-#include <functional>
-
 #include "MPIBasic.h"
 #include "utils/logger.h"
+
 #include <algorithm>
+#include <functional>
 #include <mpi.h>
 #include <numeric>
 #include <optional>

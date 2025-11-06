@@ -7,15 +7,15 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "NRFReader.h"
+
 #include "SourceTerm/NRF.h"
+
 #include <Eigen/Core>
+#include <cassert>
 #include <cstddef>
+#include <netcdf.h>
 #include <ostream>
 #include <utils/logger.h>
-
-#include <netcdf.h>
-
-#include <cassert>
 
 namespace {
 

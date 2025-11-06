@@ -5,8 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Numerical/RegularizedYoffe.h"
 #include "doctest.h"
+
+#include "Numerical/RegularizedYoffe.h"
+
 #include <cassert>
 #include <cmath>
 #include <initializer_list>

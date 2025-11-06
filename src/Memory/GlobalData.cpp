@@ -7,6 +7,7 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "GlobalData.h"
+
 #include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
@@ -15,6 +16,7 @@
 #include "Kernels/Precision.h"
 #include "Memory/MemoryAllocator.h"
 #include "Parallel/OpenMP.h"
+
 #include <cassert>
 #include <cstddef>
 #include <yateto.h>

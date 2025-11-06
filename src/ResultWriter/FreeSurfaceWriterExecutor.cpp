@@ -6,18 +6,18 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "Parallel/MPI.h"
+#include "FreeSurfaceWriterExecutor.h"
 
 #include "Kernels/Precision.h"
+#include "Parallel/MPI.h"
+#include "Solver/FreeSurfaceIntegrator.h"
+#include "utils/logger.h"
+
 #include <async/ExecInfo.h>
 #include <mpi.h>
 #include <string>
 #include <utils/env.h>
 #include <vector>
-
-#include "FreeSurfaceWriterExecutor.h"
-#include "Solver/FreeSurfaceIntegrator.h"
-#include "utils/logger.h"
 
 /**
  * Initialize the XDMF writers

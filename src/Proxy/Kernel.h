@@ -10,6 +10,7 @@
 
 #include "Allocator.h"
 #include "Parallel/Runtime/Stream.h"
+
 #include <type_traits>
 namespace seissol::proxy {
 

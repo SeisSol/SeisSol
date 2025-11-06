@@ -5,18 +5,17 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <array>
-#include <cstddef>
-#include <iomanip>
-#include <iostream>
-
-#include <Eigen/Dense>
-
 #include "Geometry/Refinement/MeshRefiner.h"
 #include "Geometry/Refinement/RefinerUtils.h"
 #include "Geometry/Refinement/VariableSubSampler.h"
 #include "Kernels/Precision.h"
 #include "MockReader.h"
+
+#include <Eigen/Dense>
+#include <array>
+#include <cstddef>
+#include <iomanip>
+#include <iostream>
 
 namespace seissol::unit_test {
 

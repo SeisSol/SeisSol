@@ -5,11 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <numeric>
-
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Misc.h"
 #include "tests/TestHelper.h"
+
+#include <numeric>
 
 #ifndef USE_ACOUSTIC
 

@@ -6,40 +6,37 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
+#include "PUMLReader.h"
+
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/Parameters/MeshParameters.h"
-#include "PUML/Topology.h"
-#include "PUML/TypeInference.h"
-#include "PUML/Upward.h"
-#include <algorithm>
-#include <array>
-#include <cassert>
-#include <cstddef>
-#include <cstdint>
-#include <cstring>
-#include <mpi.h>
-#include <numeric>
-#include <string>
-
-#include "PUMLReader.h"
-#include "PartitioningLib.h"
-
+#include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
+#include "Monitoring/Instrumentation.h"
 #include "PUML/Downward.h"
 #include "PUML/Neighbor.h"
 #include "PUML/PUML.h"
 #include "PUML/Partition.h"
 #include "PUML/PartitionGraph.h"
 #include "PUML/PartitionTarget.h"
+#include "PUML/Topology.h"
+#include "PUML/TypeInference.h"
+#include "PUML/Upward.h"
+#include "PartitioningLib.h"
 
-#include "Monitoring/Instrumentation.h"
-
-#include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
-
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <hdf5.h>
+#include <mpi.h>
+#include <numeric>
 #include <sstream>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>

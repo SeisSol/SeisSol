@@ -11,13 +11,13 @@
 #define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_LTSWEIGHTS_H_
 
 #include "Geometry/PUMLReader.h"
+#include "Initializer/TimeStepping/GlobalTimestep.h"
+
 #include <limits>
 #include <map>
 #include <optional>
 #include <string>
 #include <vector>
-
-#include "Initializer/TimeStepping/GlobalTimestep.h"
 
 namespace seissol {
 class SeisSol;

@@ -9,15 +9,14 @@
 #ifndef SEISSOL_SRC_GEOMETRY_REFINEMENT_VARIABLESUBSAMPLER_H_
 #define SEISSOL_SRC_GEOMETRY_REFINEMENT_VARIABLESUBSAMPLER_H_
 
-#include <algorithm>
-#include <cassert>
-
-#include <Eigen/Dense>
-#include <cstddef>
-
 #include "Geometry/MeshReader.h"
 #include "Numerical/BasisFunction.h"
 #include "RefinerUtils.h"
+
+#include <Eigen/Dense>
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
 
 namespace seissol::refinement {
 

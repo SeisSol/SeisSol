@@ -7,9 +7,8 @@
 #ifndef SEISSOL_SRC_KERNELS_SOLVER_H_
 #define SEISSOL_SRC_KERNELS_SOLVER_H_
 
-#include "Equations/Datastructures.h"
-
 #include "Config.h"
+#include "Equations/Datastructures.h"
 #include "Kernels/LinearCK/Solver.h"
 #include "Kernels/LinearCKAnelastic/Solver.h"
 #include "Kernels/Precision.h"

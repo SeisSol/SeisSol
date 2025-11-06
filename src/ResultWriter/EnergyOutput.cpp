@@ -31,6 +31,7 @@
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
+
 #include <algorithm>
 #include <array>
 #include <cassert>

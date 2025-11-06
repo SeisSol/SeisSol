@@ -5,10 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "tests/TestHelper.h"
-#include <cstdlib>
-
 #include "SourceTerm/FSRMReader.h"
+#include "tests/TestHelper.h"
+
+#include <cstdlib>
 
 namespace seissol::unit_test {
 TEST_CASE("FSRM Reader 1") {
