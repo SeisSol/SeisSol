@@ -72,8 +72,8 @@ ForEachMacros:
   - BOOST_FOREACH
 IncludeBlocks:   Regroup
 IncludeCategories:
-  # keep the doctest header in front
-  - Regex:           '^"doctest\.h"$'
+  # keep the doctest headers in front
+  - Regex:           '^(<|")doctest'
     Priority:        1
   - Regex:           '^"(llvm|llvm-c|clang|clang-c)/'
     Priority:        3

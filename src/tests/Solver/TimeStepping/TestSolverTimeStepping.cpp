@@ -6,7 +6,6 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "doctest.h"
+#include <doctest/trompeloeil.hpp>
 
 #include "AbstractTimeCluster.t.h"
-
-#include <doctest/trompeloeil.hpp>
