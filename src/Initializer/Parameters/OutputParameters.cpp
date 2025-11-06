@@ -150,7 +150,7 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
 
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
 
-  if (!fileName.has_value()) {
+  if (enabled && !fileName.has_value()) {
     logError() << "The off-fault receiver output is enabled, but no receiver point file was given.";
   }
 
