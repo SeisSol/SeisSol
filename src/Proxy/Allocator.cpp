@@ -132,7 +132,8 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
 namespace seissol::proxy {
 
 ProxyData::ProxyData(std::size_t cellCount, bool enableDR) : cellCount(cellCount) {
-  layerId = initializer::LayerIdentifier(HaloType::Interior, Config(), 0);
+  // size_t case needed for old Intel compilers
+  layerId = initializer::LayerIdentifier(HaloType::Interior, Config(), static_cast<std::size_t>(0));
 
   initGlobalData();
   initDataStructures(enableDR);
