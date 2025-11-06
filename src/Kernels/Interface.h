@@ -14,7 +14,7 @@
 #include "Memory/Descriptor/LTS.h"
 
 namespace seissol::tensor {
-class Iane;
+struct Iane;
 } // namespace seissol::tensor
 
 namespace seissol::kernels {

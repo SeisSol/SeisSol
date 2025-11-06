@@ -26,7 +26,7 @@
 #endif
 
 namespace seissol::tensor {
-class Qane;
+struct Qane;
 } // namespace seissol::tensor
 
 namespace seissol {

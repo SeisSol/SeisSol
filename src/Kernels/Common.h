@@ -43,21 +43,19 @@
   template <typename T, typename = void>                                                           \
   struct has_##NAME {                                                                              \
     static constexpr bool value = false;                                                           \
-    using ptr = void*;                                                                             \
   };                                                                                               \
   template <typename T>                                                                            \
   struct has_##NAME<T, decltype(std::declval<T>().NAME, void())> {                                 \
     static constexpr bool value = true;                                                            \
-    using ptr = decltype(std::declval<T>().NAME);                                                  \
   };                                                                                               \
-  template <typename T>                                                                            \
-  void set_##NAME(T& kernel, const typename has_##NAME<T>::ptr& ptr) {                             \
+  template <typename T, typename PtrT>                                                             \
+  void set_##NAME(T& kernel, PtrT&& ptr) {                                                         \
     if constexpr (has_##NAME<T>::value) {                                                          \
-      kernel.NAME = ptr;                                                                           \
+      kernel.NAME = std::forward<PtrT>(ptr);                                                       \
     }                                                                                              \
   }                                                                                                \
   template <typename T>                                                                            \
-  constexpr auto get_static_ptr_##NAME() -> typename has_##NAME<T>::ptr {                          \
+  constexpr auto get_static_ptr_##NAME() {                                                         \
     if constexpr (has_##NAME<T>::value) {                                                          \
       return &T::NAME[0];                                                                          \
     } else {                                                                                       \
@@ -65,7 +63,7 @@
     }                                                                                              \
   }                                                                                                \
   template <typename T>                                                                            \
-  constexpr auto get_ptr_##NAME(T& obj) -> typename has_##NAME<T>::ptr {                           \
+  constexpr auto get_ptr_##NAME(T& obj) {                                                          \
     if constexpr (has_##NAME<T>::value) {                                                          \
       return &obj.NAME[0];                                                                         \
     } else {                                                                                       \

@@ -62,8 +62,8 @@ GENERATE_HAS_MEMBER(Values)
 GENERATE_HAS_MEMBER(Qane)
 
 namespace seissol::init {
-class selectAneFull;
-class selectElaFull;
+struct selectAneFull;
+struct selectElaFull;
 } // namespace seissol::init
 
 #ifndef USE_ASAGI

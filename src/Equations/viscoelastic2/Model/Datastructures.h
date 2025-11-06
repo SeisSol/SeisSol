@@ -27,8 +27,8 @@
 #include <string>
 
 namespace seissol::model {
-class ViscoElasticLocalData;
-class ViscoElasticNeighborData;
+struct ViscoElasticLocalData;
+struct ViscoElasticNeighborData;
 
 template <ViscoImplementation Implementation>
 struct ViscoSolver {
