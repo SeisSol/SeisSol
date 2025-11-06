@@ -9,6 +9,8 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
+#include "Kernels/LinearCK/Time.h"
+
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "DataTypes/ConditionalTable.h"
@@ -20,7 +22,6 @@
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
 #include "Kernels/LinearCK/Solver.h"
-#include "Kernels/LinearCK/TimeBase.h"
 #include "Kernels/MemoryOps.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"

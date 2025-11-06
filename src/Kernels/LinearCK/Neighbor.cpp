@@ -9,12 +9,13 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
+#include "Kernels/LinearCK/Neighbor.h"
+
 #include "Common/Constants.h"
 #include "DataTypes/ConditionalTable.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/LinearCK/NeighborBase.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"

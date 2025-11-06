@@ -7,7 +7,7 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "TimeBase.h"
+#include "Time.h"
 
 #ifndef NDEBUG
 extern long long libxsmm_num_total_flops;

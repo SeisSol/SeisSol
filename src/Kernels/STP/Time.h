@@ -8,12 +8,11 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#ifndef SEISSOL_SRC_KERNELS_LINEARCK_TIMEBASE_H_
-#define SEISSOL_SRC_KERNELS_LINEARCK_TIMEBASE_H_
+#ifndef SEISSOL_SRC_KERNELS_STP_TIME_H_
+#define SEISSOL_SRC_KERNELS_STP_TIME_H_
 
 #include "Common/Constants.h"
 #include "GeneratedCode/kernel.h"
-#include "Initializer/Typedefs.h"
 #include "Kernels/Spacetime.h"
 #include "Kernels/Time.h"
 
@@ -21,11 +20,7 @@
 #include <device.h>
 #endif // ACL_DEVICE
 
-namespace seissol {
-struct GlobalData;
-} // namespace seissol
-
-namespace seissol::kernels::solver::linearck {
+namespace seissol::kernels::solver::stp {
 
 class Spacetime : public SpacetimeKernel {
   public:
@@ -49,14 +44,18 @@ class Spacetime : public SpacetimeKernel {
 
   std::uint64_t bytesAder() override;
 
-  protected:
-  kernel::derivative m_krnlPrototype;
+  private:
+  void executeSTP(double timeStepWidth,
+                  LTS::Ref& data,
+                  real timeIntegrated[tensor::I::size()],
+                  real* stp);
+
+  kernel::spaceTimePredictor m_krnlPrototype;
   kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_derivative deviceKrnlPrototype;
+  kernel::gpu_spaceTimePredictor deviceKrnlPrototype;
   kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 };
 
@@ -74,6 +73,6 @@ class Time : public TimeKernel {
   void flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
 };
 
-} // namespace seissol::kernels::solver::linearck
+} // namespace seissol::kernels::solver::stp
 
-#endif // SEISSOL_SRC_KERNELS_LINEARCK_TIMEBASE_H_
+#endif // SEISSOL_SRC_KERNELS_STP_TIME_H_

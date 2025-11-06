@@ -7,6 +7,8 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
+#include "Kernels/LinearCK/Local.h"
+
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "DataTypes/ConditionalTable.h"
@@ -16,7 +18,6 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
-#include "Kernels/LinearCK/LocalBase.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"

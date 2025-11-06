@@ -1,20 +1,32 @@
 // SPDX-FileCopyrightText: 2013 SeisSol Group
+// SPDX-FileCopyrightText: 2014-2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Alexander Breuer
-// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_TIMEBASE_H_
-#define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_TIMEBASE_H_
+#ifndef SEISSOL_SRC_KERNELS_LINEARCK_TIME_H_
+#define SEISSOL_SRC_KERNELS_LINEARCK_TIME_H_
 
+#include "Common/Constants.h"
 #include "GeneratedCode/kernel.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Spacetime.h"
 #include "Kernels/Time.h"
 
-namespace seissol::kernels::solver::linearckanelastic {
+#ifdef ACL_DEVICE
+#include <device.h>
+#endif // ACL_DEVICE
+
+namespace seissol {
+struct GlobalData;
+} // namespace seissol
+
+namespace seissol::kernels::solver::linearck {
+
 class Spacetime : public SpacetimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
@@ -39,9 +51,12 @@ class Spacetime : public SpacetimeKernel {
 
   protected:
   kernel::derivative m_krnlPrototype;
+  kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
 
 #ifdef ACL_DEVICE
   kernel::gpu_derivative deviceKrnlPrototype;
+  kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 };
 
@@ -58,6 +73,7 @@ class Time : public TimeKernel {
                        seissol::parallel::runtime::StreamRuntime& runtime) override;
   void flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
 };
-} // namespace seissol::kernels::solver::linearckanelastic
 
-#endif // SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_TIMEBASE_H_
+} // namespace seissol::kernels::solver::linearck
+
+#endif // SEISSOL_SRC_KERNELS_LINEARCK_TIME_H_

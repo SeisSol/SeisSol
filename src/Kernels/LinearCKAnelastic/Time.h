@@ -1,27 +1,20 @@
 // SPDX-FileCopyrightText: 2013 SeisSol Group
-// SPDX-FileCopyrightText: 2014-2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Alexander Breuer
-// SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
+// SPDX-FileContributor: Carsten Uphoff
 
-#ifndef SEISSOL_SRC_KERNELS_STP_TIMEBASE_H_
-#define SEISSOL_SRC_KERNELS_STP_TIMEBASE_H_
+#ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_TIME_H_
+#define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_TIME_H_
 
-#include "Common/Constants.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Spacetime.h"
 #include "Kernels/Time.h"
 
-#ifdef ACL_DEVICE
-#include <device.h>
-#endif // ACL_DEVICE
-
-namespace seissol::kernels::solver::stp {
-
+namespace seissol::kernels::solver::linearckanelastic {
 class Spacetime : public SpacetimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
@@ -44,18 +37,11 @@ class Spacetime : public SpacetimeKernel {
 
   std::uint64_t bytesAder() override;
 
-  private:
-  void executeSTP(double timeStepWidth,
-                  LTS::Ref& data,
-                  real timeIntegrated[tensor::I::size()],
-                  real* stp);
-
-  kernel::spaceTimePredictor m_krnlPrototype;
-  kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
+  protected:
+  kernel::derivative m_krnlPrototype;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_spaceTimePredictor deviceKrnlPrototype;
-  kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
+  kernel::gpu_derivative deviceKrnlPrototype;
 #endif
 };
 
@@ -72,7 +58,6 @@ class Time : public TimeKernel {
                        seissol::parallel::runtime::StreamRuntime& runtime) override;
   void flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
 };
+} // namespace seissol::kernels::solver::linearckanelastic
 
-} // namespace seissol::kernels::solver::stp
-
-#endif // SEISSOL_SRC_KERNELS_STP_TIMEBASE_H_
+#endif // SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_TIME_H_

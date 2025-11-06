@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "TimeBase.h"
+#include "Time.h"
 
 #ifndef NDEBUG
 extern long long libxsmm_num_total_flops;

@@ -7,7 +7,7 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "LocalBase.h"
+#include "Local.h"
 
 #include <cassert>
 #include <cstring>

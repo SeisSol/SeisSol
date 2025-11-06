@@ -8,8 +8,8 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#ifndef SEISSOL_SRC_KERNELS_LINEARCK_NEIGHBORBASE_H_
-#define SEISSOL_SRC_KERNELS_LINEARCK_NEIGHBORBASE_H_
+#ifndef SEISSOL_SRC_KERNELS_LINEARCK_NEIGHBOR_H_
+#define SEISSOL_SRC_KERNELS_LINEARCK_NEIGHBOR_H_
 
 #include "Common/Constants.h"
 #include "GeneratedCode/kernel.h"
@@ -60,4 +60,4 @@ class Neighbor : public NeighborKernel {
 
 } // namespace seissol::kernels::solver::linearck
 
-#endif // SEISSOL_SRC_KERNELS_LINEARCK_NEIGHBORBASE_H_
+#endif // SEISSOL_SRC_KERNELS_LINEARCK_NEIGHBOR_H_

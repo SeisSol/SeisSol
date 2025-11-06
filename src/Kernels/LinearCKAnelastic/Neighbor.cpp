@@ -7,7 +7,7 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "NeighborBase.h"
+#include "Neighbor.h"
 
 #include <cassert>
 #include <cstddef>

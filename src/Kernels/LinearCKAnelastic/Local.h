@@ -7,8 +7,8 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCALBASE_H_
-#define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCALBASE_H_
+#ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCAL_H_
+#define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCAL_H_
 
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Interface.h"
@@ -62,4 +62,4 @@ class Local : public LocalKernel {
 };
 } // namespace seissol::kernels::solver::linearckanelastic
 
-#endif // SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCALBASE_H_
+#endif // SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCAL_H_
