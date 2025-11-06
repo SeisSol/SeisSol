@@ -15,9 +15,9 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
+#include "Kernels/Kernel.h"
 #include "Numerical/BasisFunction.h"
-#include <Kernels/Kernel.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Parallel/Runtime/Stream.h"
 #include <cassert>
 #include <limits>
 #include <memory>

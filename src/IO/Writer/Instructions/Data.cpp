@@ -6,7 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Data.h"
-#include <IO/Datatype/Datatype.h>
+#include "IO/Datatype/Datatype.h"
 #include <algorithm>
 #include <async/ExecInfo.h>
 #include <cstddef>

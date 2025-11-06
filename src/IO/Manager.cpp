@@ -7,9 +7,9 @@
 
 #include "Manager.h"
 
+#include "IO/Writer/Writer.h"
+#include "SeisSol.h"
 #include "Writer/Module/WriterModule.h"
-#include <IO/Writer/Writer.h>
-#include <SeisSol.h>
 #include <memory>
 #include <string>
 #include <vector>

@@ -9,8 +9,8 @@
 #ifndef SEISSOL_SRC_SEISSOL_H_
 #define SEISSOL_SRC_SEISSOL_H_
 
-#include <Common/Executor.h>
-#include <IO/Manager.h>
+#include "Common/Executor.h"
+#include "IO/Manager.h"
 #include <memory>
 #include <optional>
 #include <string>

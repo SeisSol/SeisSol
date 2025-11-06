@@ -8,8 +8,8 @@
 #include "ClusteringWriter.h"
 
 #include "Common/Filesystem.h"
-#include <Initializer/BasicTypedefs.h>
-#include <Numerical/Statistics.h>
+#include "Initializer/BasicTypedefs.h"
+#include "Numerical/Statistics.h"
 #include <cstddef>
 #include <fstream>
 #include <ios>

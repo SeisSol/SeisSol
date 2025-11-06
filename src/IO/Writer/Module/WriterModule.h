@@ -10,7 +10,7 @@
 
 #include "AsyncWriter.h"
 #include "Modules/Module.h"
-#include <Parallel/Pin.h>
+#include "Parallel/Pin.h"
 #include <functional>
 #include <memory>
 #include <string>

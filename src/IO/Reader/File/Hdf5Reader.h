@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_IO_READER_FILE_HDF5READER_H_
 #define SEISSOL_SRC_IO_READER_FILE_HDF5READER_H_
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/Inference.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
 #include <hdf5.h>
 #include <memory>
 #include <stack>

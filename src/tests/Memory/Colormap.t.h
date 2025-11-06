@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <Memory/Tree/Colormap.h>
+#include "Memory/Tree/Colormap.h"
 
 namespace seissol::unit_test {
 

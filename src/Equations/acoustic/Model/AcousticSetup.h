@@ -11,13 +11,13 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_
 #define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_
 
+#include "Equations/acoustic/Model/Datastructures.h"
+#include "Equations/acoustic/Model/IntegrationData.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
-#include <Equations/acoustic/Model/Datastructures.h>
-#include <Equations/acoustic/Model/IntegrationData.h>
 
 namespace seissol::model {
 using Matrix44 = Eigen::Matrix<double, 4, 4>;

@@ -13,8 +13,8 @@
 
 #include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
+#include "Kernels/Kernel.h"
 #include "Parallel/Runtime/Stream.h"
-#include <Kernels/Kernel.h>
 
 namespace seissol::kernels {
 

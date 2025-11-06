@@ -8,6 +8,8 @@
 #include "BaseFrictionSolver.h"
 
 #include "AgingLaw.h"
+#include "Common/Constants.h"
+#include "DynamicRupture/Misc.h"
 #include "FastVelocityWeakeningLaw.h"
 #include "FrictionSolverInterface.h"
 #include "ImposedSlipRates.h"
@@ -20,8 +22,6 @@
 #include "SourceTimeFunction.h"
 #include "ThermalPressurization/NoTP.h"
 #include "ThermalPressurization/ThermalPressurization.h"
-#include <Common/Constants.h>
-#include <DynamicRupture/Misc.h>
 
 #ifdef __HIP__
 #include "hip/hip_runtime.h"

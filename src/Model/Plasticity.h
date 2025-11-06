@@ -8,9 +8,9 @@
 #ifndef SEISSOL_SRC_MODEL_PLASTICITY_H_
 #define SEISSOL_SRC_MODEL_PLASTICITY_H_
 
+#include "Kernels/Precision.h"
 #include "Model/CommonDatastructures.h"
-#include <Kernels/Precision.h>
-#include <Solver/MultipleSimulations.h>
+#include "Solver/MultipleSimulations.h"
 #include <cmath>
 #include <cstddef>
 #include <string>

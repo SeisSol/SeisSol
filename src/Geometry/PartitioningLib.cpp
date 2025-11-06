@@ -8,7 +8,7 @@
 
 #include "PartitioningLib.h"
 #include "Common/Fnv1a.h"
-#include <PUML/Partition.h>
+#include "PUML/Partition.h"
 #include <string_view>
 
 using PUML::PartitionerType;

@@ -9,10 +9,10 @@
 
 #include "DynamicRupture/Initializer/BaseDRInitializer.h"
 #include "DynamicRupture/Misc.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
-#include <Initializer/Parameters/DRParameters.h>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>

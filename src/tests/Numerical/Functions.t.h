@@ -5,11 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Kernels/Precision.h"
 #include "Numerical/Functions.h"
+#include "Numerical/StableSum.h"
 #include "doctest.h"
 #include "tests/TestHelper.h"
-#include <Kernels/Precision.h>
-#include <Numerical/StableSum.h>
 
 namespace seissol::unit_test {
 

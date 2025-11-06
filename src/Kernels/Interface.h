@@ -9,9 +9,9 @@
 #ifndef SEISSOL_SRC_KERNELS_INTERFACE_H_
 #define SEISSOL_SRC_KERNELS_INTERFACE_H_
 
+#include "Common/Constants.h"
 #include "Kernels/LinearCK/GravitationalFreeSurfaceBC.h"
 #include "Memory/Descriptor/LTS.h"
-#include <Common/Constants.h>
 
 namespace seissol::tensor {
 class Iane;

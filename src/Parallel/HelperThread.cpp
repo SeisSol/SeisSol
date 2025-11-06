@@ -6,7 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "HelperThread.h"
 
-#include <Parallel/Pin.h>
+#include "Parallel/Pin.h"
 #include <functional>
 #include <utility>
 

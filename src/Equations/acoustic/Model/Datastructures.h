@@ -13,8 +13,8 @@
 
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "Kernels/LinearCK/Solver.h"
 #include "Model/CommonDatastructures.h"
-#include <Kernels/LinearCK/Solver.h>
 #include <array>
 #include <cmath>
 #include <cstddef>

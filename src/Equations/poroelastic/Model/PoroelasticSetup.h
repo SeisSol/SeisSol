@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_POROELASTICSETUP_H_
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_POROELASTICSETUP_H_
 
-#include <Equations/elastic/Model/ElasticSetup.h>
-#include <Equations/poroelastic/Model/Datastructures.h>
+#include "Equations/elastic/Model/ElasticSetup.h"
+#include "Equations/poroelastic/Model/Datastructures.h"
 #include <cassert>
 
 #include <Eigen/Dense>

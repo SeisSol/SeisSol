@@ -7,11 +7,11 @@
 // SPDX-FileContributor: David Schneller
 
 #include "Estimator.h"
-#include <Common/Executor.h>
-#include <Kernels/Common.h>
-#include <Numerical/Statistics.h>
-#include <Proxy/Common.h>
-#include <Proxy/Runner.h>
+#include "Common/Executor.h"
+#include "Kernels/Common.h"
+#include "Numerical/Statistics.h"
+#include "Proxy/Common.h"
+#include "Proxy/Runner.h"
 
 #include <utils/logger.h>
 

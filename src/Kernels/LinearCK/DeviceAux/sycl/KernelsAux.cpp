@@ -14,7 +14,7 @@
 #include <sycl/sycl.hpp>
 #include <yateto.h>
 
-#include <Solver/MultipleSimulations.h>
+#include "Solver/MultipleSimulations.h"
 
 #ifdef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
 namespace {

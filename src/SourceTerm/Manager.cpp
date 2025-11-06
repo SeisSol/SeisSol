@@ -11,34 +11,34 @@
 
 #include "Manager.h"
 
+#include "Common/Constants.h"
+#include "Equations/Datastructures.h"
 #include "FSRMReader.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/MeshReader.h"
+#include "Geometry/MeshTools.h"
+#include "Initializer/Parameters/SourceParameters.h"
 #include "Initializer/PointMapper.h"
+#include "Kernels/PointSourceCluster.h"
 #include "Kernels/PointSourceClusterOnHost.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/MemoryAllocator.h"
+#include "Memory/Tree/Backmap.h"
+#include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
+#include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
 #include "PointSource.h"
-#include <Common/Constants.h>
+#include "Solver/MultipleSimulations.h"
+#include "Solver/TimeStepping/TimeManager.h"
+#include "SourceTerm/NRF.h"
+#include "SourceTerm/Typedefs.h"
 #include <Eigen/Core>
-#include <Equations/Datastructures.h>
-#include <Geometry/MeshReader.h>
-#include <Geometry/MeshTools.h>
-#include <Initializer/Parameters/SourceParameters.h>
-#include <Kernels/PointSourceCluster.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/MemoryAllocator.h>
-#include <Memory/Tree/Backmap.h>
-#include <Memory/Tree/Layer.h>
-#include <Model/CommonDatastructures.h>
-#include <Numerical/BasisFunction.h>
-#include <Parallel/MPI.h>
-#include <Solver/MultipleSimulations.h>
-#include <Solver/TimeStepping/TimeManager.h>
-#include <SourceTerm/NRF.h>
-#include <SourceTerm/Typedefs.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -51,7 +51,7 @@
 #include <utils/logger.h>
 #include <vector>
 
-#include <Model/Datastructures.h> // IWYU pragma: keep
+#include "Model/Datastructures.h" // IWYU pragma: keep
 
 #ifdef USE_NETCDF
 #include "NRFReader.h"
@@ -60,7 +60,7 @@
 
 #ifdef ACL_DEVICE
 #include "Kernels/PointSourceClusterOnDevice.h"
-#include <Parallel/Helper.h>
+#include "Parallel/Helper.h"
 #endif
 
 namespace {

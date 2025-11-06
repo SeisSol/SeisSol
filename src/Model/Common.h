@@ -10,8 +10,8 @@
 #ifndef SEISSOL_SRC_MODEL_COMMON_H_
 #define SEISSOL_SRC_MODEL_COMMON_H_
 
+#include "Equations/Datastructures.h"
 #include <Eigen/Dense>
-#include <Equations/Datastructures.h>
 
 #include "GeneratedCode/init.h"
 #include "Geometry/MeshTools.h"

@@ -5,14 +5,14 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/Parameters/InitializationParameters.h"
+#include "Initializer/Typedefs.h"
+#include "Model/Common.h"
+#include "Model/CommonDatastructures.h"
 #include <Eigen/Core>
-#include <Equations/Datastructures.h>
-#include <Initializer/Parameters/InitializationParameters.h>
-#include <Initializer/Typedefs.h>
-#include <Model/Common.h>
-#include <Model/CommonDatastructures.h>
 #include <array>
 #include <cassert>
 #include <cmath>

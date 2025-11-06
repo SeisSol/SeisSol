@@ -8,25 +8,25 @@
 
 #include "FreeSurfaceIntegrator.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Common/Iterator.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/Refinement/TriangleRefiner.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Initializer/MemoryManager.h"
+#include "Initializer/PreProcessorMacros.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Descriptor/Surface.h"
 #include "Memory/MemoryAllocator.h"
+#include "Memory/Tree/Layer.h"
 #include "Numerical/Functions.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <Common/Iterator.h>
-#include <Geometry/Refinement/TriangleRefiner.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/PreProcessorMacros.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Descriptor/Surface.h>
-#include <Memory/Tree/Layer.h>
 #include <algorithm>
 #include <array>
 #include <cassert>

@@ -13,7 +13,7 @@
 #include <cstdio>
 #include <yateto.h>
 
-#include <Solver/MultipleSimulations.h>
+#include "Solver/MultipleSimulations.h"
 
 #ifdef __HIP__
 #include "hip/hip_runtime.h"

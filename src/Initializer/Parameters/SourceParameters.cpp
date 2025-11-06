@@ -6,7 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "SourceParameters.h"
-#include <Initializer/Parameters/ParameterReader.h>
+#include "Initializer/Parameters/ParameterReader.h"
 
 namespace seissol::initializer::parameters {
 

@@ -9,8 +9,8 @@
 
 #include "AsagiReader.h"
 
-#include <Monitoring/Instrumentation.h>
-#include <Reader/AsagiModule.h>
+#include "Monitoring/Instrumentation.h"
+#include "Reader/AsagiModule.h"
 #include <asagi.h>
 #include <mpi.h>
 #include <string>

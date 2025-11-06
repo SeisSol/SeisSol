@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_BASEFRICTIONLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_BASEFRICTIONLAW_H_
 
-#include <Memory/Descriptor/DynamicRupture.h>
+#include "Memory/Descriptor/DynamicRupture.h"
 #include <yaml-cpp/yaml.h>
 
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"

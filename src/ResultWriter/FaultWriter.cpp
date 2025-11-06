@@ -6,11 +6,11 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#include <Kernels/Precision.h>
-#include <Monitoring/Instrumentation.h> // IWYU pragma: keep
-#include <Parallel/Helper.h>
-#include <Parallel/MPI.h>
-#include <ResultWriter/FaultWriterExecutor.h>
+#include "Kernels/Precision.h"
+#include "Monitoring/Instrumentation.h" // IWYU pragma: keep
+#include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
+#include "ResultWriter/FaultWriterExecutor.h"
 #include <algorithm>
 #include <async/Module.h>
 #include <cassert>

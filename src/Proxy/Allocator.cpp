@@ -7,29 +7,29 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Allocator.h"
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Config.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
+#include "Kernels/Touch.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/GlobalData.h"
+#include "Memory/MemoryAllocator.h"
+#include "Memory/Tree/Colormap.h"
+#include "Memory/Tree/Layer.h"
 #include "Parallel/OpenMP.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <Config.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Common.h>
-#include <Kernels/Precision.h>
-#include <Kernels/Solver.h>
-#include <Kernels/Touch.h>
-#include <Memory/Descriptor/DynamicRupture.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/GlobalData.h>
-#include <Memory/MemoryAllocator.h>
-#include <Memory/Tree/Colormap.h>
-#include <Memory/Tree/Layer.h>
 #include <cstddef>
 #include <random>
 #include <stdlib.h>
 
 #ifdef ACL_DEVICE
-#include <Initializer/MemoryManager.h>
+#include "Initializer/MemoryManager.h"
 #endif
 
 #ifdef USE_POROELASTIC

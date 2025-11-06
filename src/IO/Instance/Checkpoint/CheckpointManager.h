@@ -8,11 +8,11 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_H_
 #define SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_H_
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/Inference.h>
-#include <IO/Writer/Instructions/Data.h>
-#include <Memory/Tree/LTSTree.h>
-#include <Memory/Tree/Layer.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
+#include "IO/Writer/Instructions/Data.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Layer.h"
 #include <map>
 #include <string>
 

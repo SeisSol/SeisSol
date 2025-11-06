@@ -7,10 +7,10 @@
 
 #include "GlobalTimestep.h"
 
-#include <Common/Constants.h>
+#include "Common/Constants.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include <Eigen/Core>
 #include <Eigen/Dense>
-#include <Initializer/Parameters/ModelParameters.h>
 #include <algorithm>
 #include <array>
 #include <cmath>

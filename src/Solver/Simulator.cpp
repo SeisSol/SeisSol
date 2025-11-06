@@ -9,15 +9,15 @@
 
 #include "Simulator.h"
 
+#include "Memory/Tree/Layer.h"
 #include "Modules/Modules.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Stopwatch.h"
+#include "Parallel/Runtime/Stream.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
 #include "TimeStepping/TimeManager.h"
-#include <Memory/Tree/Layer.h>
-#include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <cassert>
 #include <optional>

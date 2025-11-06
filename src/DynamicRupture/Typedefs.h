@@ -8,11 +8,11 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_
 
+#include "Alignment.h"
 #include "Common/Constants.h"
+#include "Common/Executor.h"
 #include "DynamicRupture/Misc.h"
 #include "Kernels/Precision.h"
-#include <Alignment.h>
-#include <Common/Executor.h>
 
 namespace seissol::dr {
 

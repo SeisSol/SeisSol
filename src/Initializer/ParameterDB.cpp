@@ -7,22 +7,22 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Wolf
 
+#include "Common/Constants.h"
+#include "Equations/Datastructures.h"
+#include "Equations/acoustic/Model/Datastructures.h"
+#include "Equations/anisotropic/Model/Datastructures.h"
+#include "Equations/elastic/Model/Datastructures.h"
+#include "Equations/poroelastic/Model/Datastructures.h"
+#include "Equations/viscoelastic2/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
-#include <Common/Constants.h>
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshTools.h"
+#include "Geometry/PUMLReader.h"
+#include "Kernels/Precision.h"
+#include "Model/CommonDatastructures.h"
+#include "Solver/MultipleSimulations.h"
 #include <Eigen/Core>
-#include <Equations/Datastructures.h>
-#include <Equations/acoustic/Model/Datastructures.h>
-#include <Equations/anisotropic/Model/Datastructures.h>
-#include <Equations/elastic/Model/Datastructures.h>
-#include <Equations/poroelastic/Model/Datastructures.h>
-#include <Equations/viscoelastic2/Model/Datastructures.h>
-#include <Geometry/MeshDefinition.h>
-#include <Geometry/MeshTools.h>
-#include <Geometry/PUMLReader.h>
-#include <Kernels/Precision.h>
-#include <Model/CommonDatastructures.h>
-#include <Solver/MultipleSimulations.h>
 #include <array>
 #include <cassert>
 #include <cstddef>

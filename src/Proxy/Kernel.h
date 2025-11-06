@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_PROXY_KERNEL_H_
 
 #include "Allocator.h"
-#include <Parallel/Runtime/Stream.h>
+#include "Parallel/Runtime/Stream.h"
 #include <type_traits>
 namespace seissol::proxy {
 

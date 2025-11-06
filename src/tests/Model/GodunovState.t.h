@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <Equations/acoustic/Model/Datastructures.h>
+#include "Equations/acoustic/Model/Datastructures.h"
 #include <cmath>
 #include <tests/TestHelper.h>
 

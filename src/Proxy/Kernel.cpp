@@ -7,7 +7,7 @@
 
 #include "Kernel.h"
 #include "Allocator.h"
-#include <Parallel/Runtime/Stream.h>
+#include "Parallel/Runtime/Stream.h"
 #include <algorithm>
 #include <memory>
 #include <vector>

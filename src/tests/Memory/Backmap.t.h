@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <Common/Iterator.h>
-#include <Memory/Tree/Backmap.h>
+#include "Common/Iterator.h"
+#include "Memory/Tree/Backmap.h"
 namespace seissol::unit_test {
 
 using namespace seissol;

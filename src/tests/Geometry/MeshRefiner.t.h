@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Common/Constants.h"
 #include "tests/TestHelper.h"
-#include <Common/Constants.h>
 #include <Eigen/Dense>
 #include <array>
 #include <cstddef>

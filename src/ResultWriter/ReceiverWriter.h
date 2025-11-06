@@ -9,7 +9,7 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_RECEIVERWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_RECEIVERWRITER_H_
 
-#include <Memory/Tree/Backmap.h>
+#include "Memory/Tree/Backmap.h"
 #include <string_view>
 #include <vector>
 

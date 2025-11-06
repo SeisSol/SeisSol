@@ -24,7 +24,7 @@
 #endif
 
 #ifdef ACL_DEVICE
-#include <UsmAllocator.h>
+#include "UsmAllocator.h"
 #include <device.h>
 #endif
 

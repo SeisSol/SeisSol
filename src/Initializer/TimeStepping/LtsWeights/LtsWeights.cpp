@@ -9,12 +9,12 @@
 
 #include "LtsWeights.h"
 
+#include "Common/Constants.h"
+#include "Equations/Datastructures.h"
 #include "Geometry/PUMLReader.h"
-#include <Common/Constants.h>
-#include <Equations/Datastructures.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/ParameterDB.h>
-#include <Initializer/Parameters/LtsParameters.h>
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/ParameterDB.h"
+#include "Initializer/Parameters/LtsParameters.h"
 #include <algorithm>
 #include <cassert>
 #include <cmath>

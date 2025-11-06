@@ -11,8 +11,8 @@
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_TIMEBASE_H_
 
 #include "GeneratedCode/kernel.h"
-#include <Kernels/Spacetime.h>
-#include <Kernels/Time.h>
+#include "Kernels/Spacetime.h"
+#include "Kernels/Time.h"
 
 namespace seissol::kernels::solver::linearckanelastic {
 class Spacetime : public SpacetimeKernel {

@@ -6,12 +6,12 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Common/Executor.h"
+#include "Kernels/Common.h"
 #include "Proxy/Common.h"
 #include "Proxy/LikwidWrapper.h"
 #include "Proxy/Runner.h"
 #include "Proxy/Tools.h"
-#include <Common/Executor.h>
-#include <Kernels/Common.h>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>

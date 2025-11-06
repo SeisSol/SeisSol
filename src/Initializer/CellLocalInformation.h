@@ -7,10 +7,10 @@
 #ifndef SEISSOL_SRC_INITIALIZER_CELLLOCALINFORMATION_H_
 #define SEISSOL_SRC_INITIALIZER_CELLLOCALINFORMATION_H_
 
-#include <Common/Constants.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/LtsSetup.h>
-#include <Memory/Tree/Backmap.h>
+#include "Common/Constants.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/LtsSetup.h"
+#include "Memory/Tree/Backmap.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>

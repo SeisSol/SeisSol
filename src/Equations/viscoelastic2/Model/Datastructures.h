@@ -11,16 +11,16 @@
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_DATASTRUCTURES_H_
 
 #include "Common/Constants.h"
+#include "Common/Typedefs.h"
 #include "Config.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/PreProcessorMacros.h"
+#include "Kernels/LinearCK/Solver.h"
+#include "Kernels/LinearCKAnelastic/Solver.h"
 #include "Model/CommonDatastructures.h"
-#include <Common/Typedefs.h>
-#include <Initializer/Parameters/ModelParameters.h>
-#include <Kernels/LinearCK/Solver.h>
-#include <Kernels/LinearCKAnelastic/Solver.h>
-#include <Physics/Attenuation.h>
+#include "Physics/Attenuation.h"
 #include <array>
 #include <cstddef>
 #include <string>

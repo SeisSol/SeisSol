@@ -24,12 +24,12 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Parallel/Runtime/Stream.h"
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
-#include <Memory/Descriptor/LTS.h>
-#include <Parallel/Runtime/Stream.h>
-#include <Solver/MultipleSimulations.h>
+#include "Solver/MultipleSimulations.h"
 #include <algorithm>
 #include <array>
 #include <cassert>

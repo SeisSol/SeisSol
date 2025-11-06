@@ -20,6 +20,7 @@
 #include "SourceTerm/Typedefs.h"
 #include <utils/logger.h>
 
+#include "Common/Executor.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Output/OutputManager.h"
 #include "Kernels/DynamicRupture.h"
@@ -31,7 +32,6 @@
 #include "Monitoring/ActorStateStatistics.h"
 #include "Monitoring/LoopStatistics.h"
 #include "Solver/FreeSurfaceIntegrator.h"
-#include <Common/Executor.h>
 
 #include "AbstractTimeCluster.h"
 

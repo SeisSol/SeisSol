@@ -11,7 +11,7 @@
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_NEIGHBORBASE_H_
 
 #include "GeneratedCode/kernel.h"
-#include <Kernels/Neighbor.h>
+#include "Kernels/Neighbor.h"
 
 namespace seissol::kernels::solver::linearckanelastic {
 class Neighbor : public NeighborKernel {

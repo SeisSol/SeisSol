@@ -8,10 +8,10 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_POINT_CSV_H_
 #define SEISSOL_SRC_IO_INSTANCE_POINT_CSV_H_
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Instance/Point/TableWriter.h>
-#include <IO/Writer/Instructions/Binary.h>
-#include <IO/Writer/Instructions/Data.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Instance/Point/TableWriter.h"
+#include "IO/Writer/Instructions/Binary.h"
+#include "IO/Writer/Instructions/Data.h"
 #include <memory>
 #include <sstream>
 #include <string>

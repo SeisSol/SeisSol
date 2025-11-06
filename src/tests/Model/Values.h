@@ -8,9 +8,9 @@
 #ifndef SEISSOL_SRC_TESTS_MODEL_VALUES_H_
 #define SEISSOL_SRC_TESTS_MODEL_VALUES_H_
 
+#include "Equations/Datastructures.h"
 #include "Kernels/Precision.h"
-#include <Equations/Datastructures.h>
-#include <Model/Datastructures.h>
+#include "Model/Datastructures.h"
 #include <array>
 
 namespace seissol::unit_test {

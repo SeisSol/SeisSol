@@ -8,9 +8,9 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_COMMUNICATIONMANAGER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_COMMUNICATIONMANAGER_H_
 
+#include "Parallel/HelperThread.h"
 #include "Parallel/Pin.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
-#include <Parallel/HelperThread.h>
 #include <atomic>
 #include <memory>
 #include <thread>

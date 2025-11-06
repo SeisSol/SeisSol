@@ -13,8 +13,8 @@
 
 #include "Common/Constants.h"
 #include "GeneratedCode/kernel.h"
-#include <Kernels/Spacetime.h>
-#include <Kernels/Time.h>
+#include "Kernels/Spacetime.h"
+#include "Kernels/Time.h"
 
 #ifdef ACL_DEVICE
 #include <device.h>

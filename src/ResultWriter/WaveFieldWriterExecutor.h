@@ -11,7 +11,7 @@
 
 #include "Parallel/MPI.h"
 
-#include <Kernels/Precision.h>
+#include "Kernels/Precision.h"
 #include <cassert>
 #include <memory>
 #include <string>

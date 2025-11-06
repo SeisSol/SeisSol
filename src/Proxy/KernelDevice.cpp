@@ -9,12 +9,12 @@
 #include "Allocator.h"
 #include "Common.h"
 #include "Kernel.h"
-#include <Parallel/Runtime/Stream.h>
+#include "Parallel/Runtime/Stream.h"
 #include <memory>
 
 #ifdef ACL_DEVICE
 #include "Constants.h"
-#include <Kernels/TimeCommon.h>
+#include "Kernels/TimeCommon.h"
 #include <device.h>
 #endif
 

@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_TESTS_GEOMETRY_MOCKREADER_H_
 #define SEISSOL_SRC_TESTS_GEOMETRY_MOCKREADER_H_
 
-#include <Common/Constants.h>
+#include "Common/Constants.h"
 #include <Eigen/Dense>
 #include <array>
 

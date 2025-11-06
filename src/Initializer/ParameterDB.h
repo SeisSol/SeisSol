@@ -10,7 +10,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 
-#include <Geometry/PUMLReader.h>
+#include "Geometry/PUMLReader.h"
 #include <memory>
 #include <set>
 #include <string>

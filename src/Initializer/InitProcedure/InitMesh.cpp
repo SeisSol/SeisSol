@@ -7,12 +7,12 @@
 
 #include "InitMesh.h"
 
+#include "Geometry/MeshDefinition.h"
+#include "Initializer/Parameters/MeshParameters.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
+#include "Solver/Estimator.h"
 #include <Eigen/Core>
-#include <Geometry/MeshDefinition.h>
-#include <Initializer/Parameters/MeshParameters.h>
-#include <Initializer/Parameters/SeisSolParameters.h>
-#include <Initializer/TimeStepping/LtsWeights/LtsWeights.h>
-#include <Solver/Estimator.h>
 #include <algorithm>
 #include <cmath>
 #include <cstring>

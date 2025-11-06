@@ -7,30 +7,30 @@
 
 #include "EnergyOutput.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshTools.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/CellLocalInformation.h"
+#include "Initializer/Parameters/OutputParameters.h"
+#include "Initializer/PreProcessorMacros.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
+#include "Modules/Modules.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <Equations/Datastructures.h>
-#include <Geometry/MeshDefinition.h>
-#include <Geometry/MeshTools.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/CellLocalInformation.h>
-#include <Initializer/Parameters/OutputParameters.h>
-#include <Initializer/PreProcessorMacros.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/DynamicRupture.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
-#include <Model/CommonDatastructures.h>
-#include <Modules/Modules.h>
-#include <Solver/MultipleSimulations.h>
+#include "Solver/MultipleSimulations.h"
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -49,8 +49,8 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include <DataTypes/ConditionalKey.h>
-#include <DataTypes/EncodedConstants.h>
+#include "DataTypes/ConditionalKey.h"
+#include "DataTypes/EncodedConstants.h"
 #endif
 
 namespace {

@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 
-#include <DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h>
+#include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include <array>
 #include <cstddef>
 

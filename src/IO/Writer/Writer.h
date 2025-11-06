@@ -8,11 +8,11 @@
 #ifndef SEISSOL_SRC_IO_WRITER_WRITER_H_
 #define SEISSOL_SRC_IO_WRITER_WRITER_H_
 
+#include "IO/Writer/File/BinaryWriter.h"
+#include "IO/Writer/File/Hdf5Writer.h"
+#include "IO/Writer/Instructions/Binary.h"
+#include "IO/Writer/Instructions/Hdf5.h"
 #include "Instructions/Instruction.h"
-#include <IO/Writer/File/BinaryWriter.h>
-#include <IO/Writer/File/Hdf5Writer.h>
-#include <IO/Writer/Instructions/Binary.h>
-#include <IO/Writer/Instructions/Hdf5.h>
 #include <memory>
 #include <mpi.h>
 #include <yaml-cpp/yaml.h>

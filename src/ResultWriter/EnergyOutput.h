@@ -21,7 +21,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
-#include <Solver/MultipleSimulations.h>
+#include "Solver/MultipleSimulations.h"
 
 namespace seissol {
 class SeisSol;

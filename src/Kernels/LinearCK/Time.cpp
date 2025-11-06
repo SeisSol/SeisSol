@@ -11,20 +11,20 @@
 
 #include "Kernels/LinearCK/TimeBase.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "DataTypes/ConditionalTable.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "GravitationalFreeSurfaceBC.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <DataTypes/ConditionalTable.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Interface.h>
-#include <Kernels/LinearCK/Solver.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Interface.h"
+#include "Kernels/LinearCK/Solver.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+#include "Parallel/Runtime/Stream.h"
 #include <algorithm>
 #include <cstdint>
 

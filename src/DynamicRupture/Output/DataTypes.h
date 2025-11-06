@@ -14,8 +14,8 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/DataCollector.h"
+#include "Parallel/Runtime/Stream.h"
 #include <Eigen/Dense>
-#include <Parallel/Runtime/Stream.h>
 #include <array>
 #include <cassert>
 #include <cstring>

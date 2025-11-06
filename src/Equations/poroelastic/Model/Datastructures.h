@@ -9,8 +9,8 @@
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_DATASTRUCTURES_H_
 
 #include "Equations/elastic/Model/Datastructures.h"
+#include "Kernels/STP/Solver.h"
 #include "Model/CommonDatastructures.h"
-#include <Kernels/STP/Solver.h>
 #include <array>
 #include <cassert>
 #include <cstddef>

@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "DataCollector.h"
-#include <Kernels/Common.h>
-#include <Memory/MemoryAllocator.h>
+#include "Kernels/Common.h"
+#include "Memory/MemoryAllocator.h"
 #include <cstddef>
 #include <vector>
 

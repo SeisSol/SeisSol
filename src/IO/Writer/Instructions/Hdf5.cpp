@@ -8,7 +8,7 @@
 #include "Hdf5.h"
 
 #include "Data.h"
-#include <IO/Datatype/Datatype.h>
+#include "IO/Datatype/Datatype.h"
 #include <cassert>
 #include <cstddef>
 #include <memory>

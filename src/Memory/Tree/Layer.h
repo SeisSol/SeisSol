@@ -12,7 +12,7 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/DeviceGraph.h"
 #include "Memory/MemoryAllocator.h"
-#include <Memory/Tree/Colormap.h>
+#include "Memory/Tree/Colormap.h"
 #include <bitset>
 #include <cstring>
 #include <limits>

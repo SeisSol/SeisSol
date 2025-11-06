@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_PARALLEL_DATACOLLECTOR_H_
 #define SEISSOL_SRC_PARALLEL_DATACOLLECTOR_H_
 
-#include <Kernels/Common.h>
-#include <Memory/MemoryAllocator.h>
+#include "Kernels/Common.h"
+#include "Memory/MemoryAllocator.h"
 #include <cstddef>
 #include <vector>
 

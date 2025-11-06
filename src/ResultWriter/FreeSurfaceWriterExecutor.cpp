@@ -8,7 +8,7 @@
 
 #include "Parallel/MPI.h"
 
-#include <Kernels/Precision.h>
+#include "Kernels/Precision.h"
 #include <async/ExecInfo.h>
 #include <mpi.h>
 #include <string>

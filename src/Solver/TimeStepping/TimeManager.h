@@ -9,7 +9,7 @@
 
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
-#include <Initializer/TimeStepping/ClusterLayout.h>
+#include "Initializer/TimeStepping/ClusterLayout.h"
 #include <cassert>
 #include <list>
 #include <memory>

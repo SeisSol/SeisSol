@@ -9,15 +9,15 @@
 
 #include "Plasticity.h"
 
+#include "Alignment.h"
+#include "DataTypes/ConditionalTable.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-#include <Alignment.h>
-#include <DataTypes/ConditionalTable.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Model/Plasticity.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Model/Plasticity.h"
+#include "Parallel/Runtime/Stream.h"
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -27,11 +27,11 @@
 #include "utils/logger.h"
 
 #ifdef ACL_DEVICE
+#include "DataTypes/ConditionalKey.h"
+#include "DataTypes/EncodedConstants.h"
 #include "DeviceAux/PlasticityAux.h"
+#include "Solver/MultipleSimulations.h"
 #include "device.h"
-#include <DataTypes/ConditionalKey.h>
-#include <DataTypes/EncodedConstants.h>
-#include <Solver/MultipleSimulations.h>
 using namespace device;
 #endif
 

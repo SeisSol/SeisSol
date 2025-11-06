@@ -12,10 +12,10 @@
 #define SEISSOL_SRC_INITIALIZER_MEMORYMANAGER_H_
 
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/TimeStepping/ClusterLayout.h"
+#include "Memory/Descriptor/Surface.h"
+#include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
-#include <Initializer/TimeStepping/ClusterLayout.h>
-#include <Memory/Descriptor/Surface.h>
-#include <Memory/Tree/Backmap.h>
 #include <mpi.h>
 
 #include <utils/logger.h>

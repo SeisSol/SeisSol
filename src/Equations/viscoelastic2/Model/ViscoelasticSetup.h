@@ -14,9 +14,9 @@
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 
+#include "Equations/viscoelastic2/Model/Datastructures.h"
+#include "Equations/viscoelastic2/Model/IntegrationData.h"
 #include "GeneratedCode/init.h"
-#include <Equations/viscoelastic2/Model/Datastructures.h>
-#include <Equations/viscoelastic2/Model/IntegrationData.h>
 #include <yateto.h>
 
 namespace seissol::model {

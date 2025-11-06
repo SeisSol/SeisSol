@@ -10,9 +10,9 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ANISOTROPICSETUP_H_
 #define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ANISOTROPICSETUP_H_
 
+#include "Equations/anisotropic/Model/IntegrationData.h"
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
-#include <Equations/anisotropic/Model/IntegrationData.h>
 
 #include "Datastructures.h"
 #include "GeneratedCode/init.h"

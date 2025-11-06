@@ -14,12 +14,12 @@
 
 #include "Initializer/Typedefs.h"
 
+#include "Equations/Datastructures.h"
 #include "Numerical/ODEInt.h"
 #include "Numerical/Quadrature.h"
-#include <Equations/Datastructures.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Parallel/Runtime/Stream.h"
 
-#include <Solver/MultipleSimulations.h>
+#include "Solver/MultipleSimulations.h"
 #include <utility>
 
 #ifdef ACL_DEVICE

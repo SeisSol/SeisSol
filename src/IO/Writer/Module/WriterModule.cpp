@@ -6,15 +6,15 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "WriterModule.h"
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Module/AsyncWriter.h"
+#include "IO/Writer/Writer.h"
+#include "Modules/Modules.h"
+#include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
+#include "Parallel/Pin.h"
 #include "SeisSol.h"
 #include "utils/logger.h"
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Module/AsyncWriter.h>
-#include <IO/Writer/Writer.h>
-#include <Modules/Modules.h>
-#include <Parallel/Helper.h>
-#include <Parallel/MPI.h>
-#include <Parallel/Pin.h>
 #include <cassert>
 #include <cmath>
 #include <cstring>

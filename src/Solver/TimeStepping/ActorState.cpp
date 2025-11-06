@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <Common/Executor.h>
+#include "Common/Executor.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>

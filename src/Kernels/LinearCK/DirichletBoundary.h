@@ -17,7 +17,7 @@
 #include "Common/Offset.h"
 
 #include "Numerical/Quadrature.h"
-#include <Parallel/Runtime/Stream.h>
+#include "Parallel/Runtime/Stream.h"
 
 #include "Solver/MultipleSimulations.h"
 

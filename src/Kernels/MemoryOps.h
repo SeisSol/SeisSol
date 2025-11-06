@@ -9,7 +9,7 @@
 #ifndef SEISSOL_SRC_KERNELS_MEMORYOPS_H_
 #define SEISSOL_SRC_KERNELS_MEMORYOPS_H_
 
-#include <Kernels/Precision.h>
+#include "Kernels/Precision.h"
 
 #ifdef __AVX512F__
 

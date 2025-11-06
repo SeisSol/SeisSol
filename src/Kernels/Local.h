@@ -13,9 +13,9 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
+#include "Kernels/Kernel.h"
 #include "Parallel/Runtime/Stream.h"
-#include <Kernels/Kernel.h>
-#include <Physics/InitialField.h>
+#include "Physics/InitialField.h"
 #include <cassert>
 
 namespace seissol::kernels {

@@ -10,11 +10,11 @@
 
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.h"
 #include "DynamicRupture/Output/Builders/PickPointBuilder.h"
+#include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include <DynamicRupture/Output/DataTypes.h>
-#include <Memory/Tree/Backmap.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Memory/Tree/Backmap.h"
+#include "Parallel/Runtime/Stream.h"
 #include <memory>
 
 namespace seissol {

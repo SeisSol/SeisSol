@@ -6,7 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "MPIType.h"
-#include <IO/Datatype/Datatype.h>
+#include "IO/Datatype/Datatype.h"
 #include <cstddef>
 #include <iosfwd>
 #include <memory>

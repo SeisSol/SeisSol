@@ -13,7 +13,7 @@
 
 #include "Common/Constants.h"
 #include "GeneratedCode/kernel.h"
-#include <Kernels/Neighbor.h>
+#include "Kernels/Neighbor.h"
 #ifdef ACL_DEVICE
 #include <device.h>
 #endif

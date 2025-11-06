@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_IO_READER_DISTRIBUTION_H_
 #define SEISSOL_SRC_IO_READER_DISTRIBUTION_H_
 
-#include <IO/Datatype/Inference.h>
-#include <IO/Datatype/MPIType.h>
+#include "IO/Datatype/Inference.h"
+#include "IO/Datatype/MPIType.h"
 #include <cstddef>
 #include <functional>
 #include <mpi.h>

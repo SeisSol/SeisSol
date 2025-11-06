@@ -6,12 +6,12 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
-#include <Common/Executor.h>
-#include <Kernels/Common.h>
-#include <Monitoring/Instrumentation.h>
-#include <Solver/TimeStepping/AbstractTimeCluster.h>
-#include <Solver/TimeStepping/ActorState.h>
-#include <Solver/TimeStepping/HaloCommunication.h>
+#include "Common/Executor.h"
+#include "Kernels/Common.h"
+#include "Monitoring/Instrumentation.h"
+#include "Solver/TimeStepping/AbstractTimeCluster.h"
+#include "Solver/TimeStepping/ActorState.h"
+#include "Solver/TimeStepping/HaloCommunication.h"
 #include <cassert>
 #include <chrono>
 #include <list>

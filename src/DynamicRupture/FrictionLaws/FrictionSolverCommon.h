@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_
 
-#include <Common/Executor.h>
+#include "Common/Executor.h"
 #include <cmath>
 #include <limits>
 #include <type_traits>

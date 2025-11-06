@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_GHOSTTIMECLUSTERFACTORY_H_
 
 #include "Solver/TimeStepping/DirectGhostTimeCluster.h"
-#include <Solver/TimeStepping/HaloCommunication.h>
+#include "Solver/TimeStepping/HaloCommunication.h"
 #ifdef ACL_DEVICE
 #include "Solver/TimeStepping/GhostTimeClusterWithCopy.h"
 #endif // ACL_DEVICE

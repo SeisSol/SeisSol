@@ -9,7 +9,7 @@
 #ifndef SEISSOL_SRC_GEOMETRY_MESHDEFINITION_H_
 #define SEISSOL_SRC_GEOMETRY_MESHDEFINITION_H_
 
-#include <Common/Constants.h>
+#include "Common/Constants.h"
 #include <cstddef>
 #include <vector>
 

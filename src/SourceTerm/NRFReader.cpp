@@ -7,8 +7,8 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "NRFReader.h"
+#include "SourceTerm/NRF.h"
 #include <Eigen/Core>
-#include <SourceTerm/NRF.h>
 #include <cstddef>
 #include <ostream>
 #include <utils/logger.h>

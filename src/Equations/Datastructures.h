@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_EQUATIONS_DATASTRUCTURES_H_
 #define SEISSOL_SRC_EQUATIONS_DATASTRUCTURES_H_
 
-#include <Model/CommonDatastructures.h>
+#include "Model/CommonDatastructures.h"
 
 // IWYU pragma: begin_exports
 
@@ -34,7 +34,7 @@
 
 // IWYU pragma: end_exports
 
-#include <Config.h>
+#include "Config.h"
 
 namespace seissol::model {
 template <MaterialType Type>

@@ -6,14 +6,14 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
+#include "Common/Constants.h"
+#include "Common/Iterator.h"
 #include "Geometry/MeshDefinition.h"
-#include <Common/Constants.h>
-#include <Common/Iterator.h>
-#include <Geometry/MeshReader.h>
-#include <Initializer/Parameters/MeshParameters.h>
-#include <PUML/Topology.h>
-#include <PUML/TypeInference.h>
-#include <PUML/Upward.h>
+#include "Geometry/MeshReader.h"
+#include "Initializer/Parameters/MeshParameters.h"
+#include "PUML/Topology.h"
+#include "PUML/TypeInference.h"
+#include "PUML/Upward.h"
 #include <algorithm>
 #include <array>
 #include <cassert>

@@ -11,9 +11,9 @@
 #define SEISSOL_SRC_KERNELS_TIMECOMMON_H_
 
 #include "GeneratedCode/tensor.h"
+#include "Initializer/LtsSetup.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Solver.h"
-#include <Initializer/LtsSetup.h>
 
 namespace seissol::kernels {
 struct TimeCommon {

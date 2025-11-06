@@ -8,14 +8,14 @@
 
 #include "DynamicRupture.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "DataTypes/ConditionalTable.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/tensor.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <DataTypes/ConditionalTable.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Parallel/Runtime/Stream.h"
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
@@ -25,9 +25,9 @@
 #include "GeneratedCode/kernel.h"
 
 #ifdef ACL_DEVICE
+#include "DataTypes/ConditionalKey.h"
+#include "DataTypes/EncodedConstants.h"
 #include "device.h"
-#include <DataTypes/ConditionalKey.h>
-#include <DataTypes/EncodedConstants.h>
 #endif
 #include <yateto.h>
 

@@ -12,14 +12,14 @@
 #include "Initializer/InitialFieldProjection.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 
-#include <Equations/Datastructures.h>
-#include <Initializer/Parameters/InitializationParameters.h>
-#include <Initializer/Typedefs.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Model/CommonDatastructures.h>
-#include <Physics/InitialField.h>
-#include <Solver/MultipleSimulations.h>
-#include <SourceTerm/Manager.h>
+#include "Equations/Datastructures.h"
+#include "Initializer/Parameters/InitializationParameters.h"
+#include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Model/CommonDatastructures.h"
+#include "Physics/InitialField.h"
+#include "Solver/MultipleSimulations.h"
+#include "SourceTerm/Manager.h"
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>

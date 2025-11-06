@@ -11,9 +11,9 @@
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCALBASE_H_
 
 #include "GeneratedCode/kernel.h"
+#include "Kernels/Interface.h"
+#include "Kernels/Local.h"
 #include "Physics/InitialField.h"
-#include <Kernels/Interface.h>
-#include <Kernels/Local.h>
 #include <memory>
 
 namespace seissol::kernels::solver::linearckanelastic {

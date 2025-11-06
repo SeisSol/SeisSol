@@ -8,8 +8,8 @@
 #include "SourceTerm/PointSource.h"
 #include "tests/TestHelper.h"
 
-#include <Equations/Datastructures.h>
-#include <Model/CommonDatastructures.h>
+#include "Equations/Datastructures.h"
+#include "Model/CommonDatastructures.h"
 #include <memory>
 
 namespace seissol::unit_test {

@@ -7,9 +7,9 @@
 
 #include "Xml.h"
 
-#include <IO/Writer/Instructions/Binary.h>
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Instructions/Instruction.h>
+#include "IO/Writer/Instructions/Binary.h"
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Instruction.h"
 #include <memory>
 #include <sstream>
 #include <string>

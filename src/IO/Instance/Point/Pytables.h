@@ -8,10 +8,10 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_POINT_PYTABLES_H_
 #define SEISSOL_SRC_IO_INSTANCE_POINT_PYTABLES_H_
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Instance/Point/TableWriter.h>
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Instructions/Hdf5.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Instance/Point/TableWriter.h"
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Hdf5.h"
 #include <memory>
 #include <string>
 namespace seissol::io::instance::point {

@@ -12,8 +12,8 @@
 #include "Initializer/PointMapper.h"
 #include "ReceiverBasedOutputBuilder.h"
 
-#include <Common/Iterator.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Common/Iterator.h"
+#include "Parallel/Runtime/Stream.h"
 #include <memory>
 #include <optional>
 

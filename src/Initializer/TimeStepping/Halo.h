@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_HALO_H_
 #define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_HALO_H_
 
-#include <Memory/Descriptor/LTS.h>
+#include "Memory/Descriptor/LTS.h"
 #include <cstddef>
 #include <mpi.h>
 #include <vector>

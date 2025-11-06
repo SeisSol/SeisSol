@@ -8,16 +8,16 @@
 
 #include "ReceiverWriter.h"
 
+#include "Equations/Datastructures.h"
+#include "Geometry/MeshReader.h"
+#include "Initializer/Parameters/OutputParameters.h"
+#include "Initializer/PointMapper.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Receiver.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
+#include "Solver/MultipleSimulations.h"
 #include <Eigen/Core>
-#include <Equations/Datastructures.h>
-#include <Geometry/MeshReader.h>
-#include <Initializer/Parameters/OutputParameters.h>
-#include <Initializer/PointMapper.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Receiver.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Backmap.h>
-#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cassert>
 #include <cctype>

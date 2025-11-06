@@ -8,9 +8,9 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_METADATA_XML_H_
 #define SEISSOL_SRC_IO_INSTANCE_METADATA_XML_H_
 
-#include <IO/Writer/Instructions/Binary.h>
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Instructions/Instruction.h>
+#include "IO/Writer/Instructions/Binary.h"
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Instruction.h"
 #include <memory>
 #include <sstream>
 #include <string>

@@ -9,7 +9,7 @@
 #include "Common/Filesystem.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
-#include <Parallel/Pin.h>
+#include "Parallel/Pin.h"
 #include <fstream>
 #include <ios>
 #include <sched.h>
