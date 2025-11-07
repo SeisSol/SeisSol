@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "doctest.h"
+#include <doctest.h>
 
 #include "GeneratedCode/init.h"
 #include "Kernels/Precision.h"

@@ -6,7 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #define DOCTEST_CONFIG_IMPLEMENT
-#include "doctest.h"
+#include <doctest.h>
 
 #include "Parallel/MPI.h"
 

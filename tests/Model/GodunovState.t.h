@@ -9,10 +9,10 @@
 #include "Equations/Setup.h"
 #include "Equations/acoustic/Model/Datastructures.h"
 #include "Model/Common.h"
+#include "TestHelper.h"
 #include "Values.h"
 
 #include <cmath>
-#include "TestHelper.h"
 
 namespace seissol::unit_test {
 template <typename T>

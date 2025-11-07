@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "doctest.h"
+#include <doctest.h>
 
 #include "MeshRefiner.t.h"
 #include "TriangleRefiner.t.h"

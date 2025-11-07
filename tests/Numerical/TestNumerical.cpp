@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "doctest.h"
+#include <doctest.h>
 
 #include "BasisFunctions.t.h"
 #include "Eigenvalues.t.h"

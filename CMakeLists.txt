@@ -609,95 +609,13 @@ if (LIKWID)
   target_link_libraries(seissol-lib PUBLIC likwid::likwid)
 endif()
 
+add_subdirectory(external)
+
 if (TESTING)
   enable_testing()
   include(cmake/doctest.cmake)
 
-  set(seissol_test_sources
-          tests/Model/TestModel.cpp
-          tests/Initializer/TestInitializer.cpp
-          tests/Numerical/TestNumerical.cpp
-          tests/Geometry/TestGeometry.cpp
-          tests/Kernel/TestKernel.cpp
-          tests/Memory/TestMemory.cpp
-          tests/SourceTerm/TestSourceTerm.cpp
-          tests/Parallel/TestParallel.cpp
-          tests/ResultWriter/TestResultWriter.cpp
-          tests/Solver/TimeStepping/TestSolverTimeStepping.cpp
-          tests/DynamicRupture/TestDynamicRupture.cpp
-          tests/Common/TestCommon.cpp
-          )
-
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/Initializer/TimeStepping/mesh.h5
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh.h5
-    COPYONLY
-    )
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/Initializer/TimeStepping/material.yaml
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/material.yaml
-    COPYONLY
-    )
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/ResultWriter/receiver_correct.dat
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/receiver_correct.dat
-    COPYONLY
-  )
-
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/Reader/fsrm_source1.dat
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/fsrm_source1.dat
-    COPYONLY
-  )
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/Reader/fsrm_source2.dat
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/fsrm_source2.dat
-    COPYONLY
-  )
-
-  if (NETCDF)
-    configure_file(
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/Reader/source_loh.nrf
-            ${CMAKE_CURRENT_BINARY_DIR}/Testing/source_loh.nrf
-            COPYONLY
-    )
-    set(seissol_test_sources ${seissol_test_sources} ${CMAKE_CURRENT_SOURCE_DIR}/tests/Reader/ReaderTest.cpp)
-  endif()
-
-  add_executable(seissol-serial-test
-            ${seissol_test_sources}
-            tests/TestMain.cpp)
-  target_link_libraries(seissol-serial-test PRIVATE seissol-lib)
-  target_include_directories(seissol-serial-test SYSTEM PUBLIC external/)
-  target_include_directories(seissol-serial-test PUBLIC tests/)
-
-  if (TESTING_GENERATED)
-    if (WITH_GPU)
-
-      # for the GPU, create an extra library with device linking flags etc.
-      make_device_lib(seissol-serial-test-device "${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/test-kernel.cpp")
-      target_link_libraries(seissol-serial-test-device PRIVATE seissol-kernel-lib)
-      target_include_directories(seissol-serial-test-device SYSTEM PRIVATE external/)
-      target_include_directories(seissol-serial-test-device PRIVATE tests/)
-      target_link_libraries(seissol-serial-test PRIVATE seissol-serial-test-device)
-      target_compile_definitions(seissol-serial-test-device PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
-
-    else()
-
-      # else (i.e. CPU only), just add it to the main test binary
-      target_sources(seissol-serial-test PRIVATE
-        "${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/test-kernel.cpp")
-    endif()
-  endif()
-
-  separate_arguments(TESTING_COMMAND_LIST NATIVE_COMMAND ${TESTING_COMMAND})
-  set_property(TARGET seissol-serial-test PROPERTY CROSSCOMPILING_EMULATOR ${TESTING_COMMAND_LIST})
-  if (NOT TESTING_BUILD_ONLY)
-    doctest_discover_tests(seissol-serial-test)
-  endif()
-
-  # Avoid duplicate definition of FLOP counters
-  target_compile_definitions(seissol-serial-test PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
+  add_subdirectory(tests)
 
   # Coverage
   if(COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)

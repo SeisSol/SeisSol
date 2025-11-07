@@ -8,14 +8,14 @@
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "Geometry/MeshReader.h"
+#include "Geometry/MockReader.h"
 #include "Initializer/PointMapper.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
-#include "Geometry/MockReader.h"
+#include "TestHelper.h"
 
 #include <Eigen/Dense>
 #include <iostream>
-#include "TestHelper.h"
 
 namespace seissol::unit_test {
 
