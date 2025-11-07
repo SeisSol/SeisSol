@@ -86,7 +86,6 @@ class FaultWriterExecutor {
   }
 
   void setFaultTagsData(const unsigned int* faultTags) {
-    // NOLINTNEXTLINE
     m_xdmfWriter->writeExtraIntCellData(0, faultTags);
   }
 
