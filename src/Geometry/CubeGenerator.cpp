@@ -13,7 +13,6 @@
 #include "MeshReader.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
-#include "utils/logger.h"
 
 #include <algorithm>
 #include <array>
@@ -25,6 +24,7 @@
 #include <mpi.h>
 #include <string>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
 
 namespace {

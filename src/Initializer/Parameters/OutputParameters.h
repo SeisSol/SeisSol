@@ -11,11 +11,11 @@
 #include "Equations/Datastructures.h"
 #include "Initializer/InputAux.h"
 #include "ParameterReader.h"
+#include "xdmfwriter/backends/Backend.h"
 
 #include <list>
 #include <string>
 #include <unordered_set>
-#include <xdmfwriter/backends/Backend.h>
 
 namespace seissol::initializer::parameters {
 

@@ -15,7 +15,6 @@
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
 #include "SeisSol.h"
-#include "utils/logger.h"
 
 #include <cassert>
 #include <cmath>
@@ -23,6 +22,7 @@
 #include <optional>
 #include <string>
 #include <unordered_set>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::io::writer::module {

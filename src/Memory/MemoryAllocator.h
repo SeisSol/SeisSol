@@ -25,9 +25,8 @@
 #endif
 
 #ifdef ACL_DEVICE
-#include "UsmAllocator.h"
-
-#include <device.h>
+#include <Device/UsmAllocator.h>
+#include <Device/device.h>
 #endif
 
 namespace seissol::memory {

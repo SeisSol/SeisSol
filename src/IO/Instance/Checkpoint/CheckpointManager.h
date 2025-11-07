@@ -13,10 +13,10 @@
 #include "IO/Writer/Instructions/Data.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
-#include "utils/logger.h"
 
 #include <map>
 #include <string>
+#include <utils/logger.h>
 
 namespace seissol::io::writer {
 class Writer;

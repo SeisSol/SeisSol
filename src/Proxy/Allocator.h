@@ -27,7 +27,7 @@
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/Recorders.h"
 
-#include <device.h>
+#include <Device/device.h>
 #endif
 
 namespace seissol::proxy {

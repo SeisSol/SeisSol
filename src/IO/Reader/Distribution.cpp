@@ -9,7 +9,6 @@
 
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
-#include "utils/logger.h"
 
 #include <algorithm>
 #include <cassert>
@@ -22,6 +21,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
 
 namespace {

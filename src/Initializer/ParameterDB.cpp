@@ -40,7 +40,8 @@
 // PUML.h needs to be included before Downward.h
 
 #include "GeneratedCode/kernel.h"
-#include "PUML/Downward.h"
+
+#include <PUML/Downward.h>
 #endif
 #include "DynamicRupture/Misc.h"
 #include "Numerical/Quadrature.h"
@@ -55,7 +56,7 @@
 #ifdef USE_ASAGI
 #include "Reader/AsagiReader.h"
 #endif
-#include "utils/logger.h"
+#include <utils/logger.h>
 
 namespace {
 

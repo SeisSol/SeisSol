@@ -23,7 +23,6 @@
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <utils/timeutils.h>
-#include <xdmfwriter/scorep_wrapper.h>
 #include <yaml-cpp/yaml.h>
 
 #ifdef USE_ASAGI
@@ -31,7 +30,7 @@
 #endif
 
 #ifdef ACL_DEVICE
-#include "device.h"
+#include <Device/device.h>
 #endif
 
 #if defined(__GNUC__) || defined(__linux__)

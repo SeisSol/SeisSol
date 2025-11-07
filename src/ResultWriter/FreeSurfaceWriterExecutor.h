@@ -11,8 +11,9 @@
 
 #include "Kernels/Precision.h"
 #include "Monitoring/Stopwatch.h"
-#include "async/ExecInfo.h"
 #include "xdmfwriter/XdmfWriter.h"
+
+#include <async/ExecInfo.h>
 
 namespace seissol::writer {
 struct FreeSurfaceInitParam {

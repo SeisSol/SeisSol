@@ -11,12 +11,12 @@
 #include "Kernels/Precision.h"
 #include "Parallel/MPI.h"
 #include "Solver/FreeSurfaceIntegrator.h"
-#include "utils/logger.h"
 
 #include <async/ExecInfo.h>
 #include <mpi.h>
 #include <string>
 #include <utils/env.h>
+#include <utils/logger.h>
 #include <vector>
 
 /**

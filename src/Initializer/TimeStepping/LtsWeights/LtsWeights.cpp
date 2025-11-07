@@ -17,11 +17,11 @@
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/LtsParameters.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
-#include "PUML/Downward.h"
-#include "PUML/Upward.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 
+#include <PUML/Downward.h>
+#include <PUML/Upward.h>
 #include <algorithm>
 #include <cassert>
 #include <cmath>

@@ -12,8 +12,8 @@
 #include "Kernels/Interface.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
-#include "utils/logger.h"
 
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::recording {

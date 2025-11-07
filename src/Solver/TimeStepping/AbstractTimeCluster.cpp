@@ -9,7 +9,6 @@
 
 #include "Common/Executor.h"
 #include "Solver/TimeStepping/ActorState.h"
-#include "utils/logger.h"
 
 #include <algorithm>
 #include <cassert>
@@ -17,6 +16,7 @@
 #include <iostream>
 #include <memory>
 #include <type_traits>
+#include <utils/logger.h>
 #include <variant>
 #include <vector>
 

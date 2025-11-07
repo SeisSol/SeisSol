@@ -13,8 +13,6 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
 #include "Solver/Estimator.h"
-#include "utils/env.h"
-#include "utils/logger.h"
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
@@ -24,6 +22,8 @@
 #include <math.h>
 #include <mpi.h>
 #include <optional>
+#include <utils/env.h>
+#include <utils/logger.h>
 #include <vector>
 #ifdef USE_HDF
 #include "Geometry/PUMLReader.h"

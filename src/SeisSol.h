@@ -27,12 +27,12 @@
 #include "Solver/Simulator.h"
 #include "Solver/TimeStepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
-#include "utils/env.h"
-#include "utils/logger.h"
 
 #include <memory>
 #include <optional>
 #include <string>
+#include <utils/env.h>
+#include <utils/logger.h>
 
 namespace seissol {
 

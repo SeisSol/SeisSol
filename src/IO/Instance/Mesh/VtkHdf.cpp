@@ -13,7 +13,6 @@
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Hdf5.h"
 #include "IO/Writer/Writer.h"
-#include "utils/logger.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -21,6 +20,7 @@
 #include <memory>
 #include <mpi.h>
 #include <string>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::io::instance::mesh {

@@ -8,7 +8,10 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Rettenberger
 
+#include "FlopCounter.h"
+
 #include "Numerical/Statistics.h"
+#include "Parallel/MPI.h"
 #include "Unit.h"
 
 #include <array>
@@ -18,16 +21,12 @@
 #include <mpi.h>
 #include <ostream>
 #include <string>
+#include <utils/logger.h>
 
 // NOLINTNEXTLINE
 long long libxsmm_num_total_flops = 0;
 // NOLINTNEXTLINE
 long long pspamm_num_total_flops = 0;
-
-#include "FlopCounter.h"
-#include "Parallel/MPI.h"
-
-#include <utils/logger.h>
 
 namespace seissol::monitoring {
 

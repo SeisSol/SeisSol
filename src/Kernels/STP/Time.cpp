@@ -7,10 +7,7 @@
 
 #include "Time.h"
 
-#ifndef NDEBUG
-extern long long libxsmm_num_total_flops;
-#endif
-
+#include "Equations/poroelastic/Model/PoroelasticSetup.h"
 #include "Kernels/Common.h"
 #include "Kernels/MemoryOps.h"
 
@@ -18,14 +15,15 @@ extern long long libxsmm_num_total_flops;
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
+#include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #endif
 
-#include "Equations/poroelastic/Model/PoroelasticSetup.h"
-
-#include <yateto.h>
+#ifndef NDEBUG
+extern long long libxsmm_num_total_flops;
+#endif
 
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)

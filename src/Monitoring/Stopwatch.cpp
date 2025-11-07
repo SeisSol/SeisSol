@@ -9,10 +9,10 @@
 
 #include "Numerical/Statistics.h"
 #include "Unit.h"
-#include "utils/logger.h"
 
 #include <string>
 #include <time.h>
+#include <utils/logger.h>
 
 namespace seissol {
 

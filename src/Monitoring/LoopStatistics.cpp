@@ -8,6 +8,8 @@
 
 #include "LoopStatistics.h"
 
+#include "Monitoring/Stopwatch.h"
+#include "Numerical/Statistics.h"
 #include "Unit.h"
 
 #include <algorithm>
@@ -21,6 +23,7 @@
 #include <time.h>
 #include <utils/logger.h>
 #include <vector>
+
 #ifdef USE_NETCDF
 #include <fstream>
 #include <netcdf.h>
@@ -28,9 +31,6 @@
 #include <ostream>
 #include <sstream>
 #endif // USE_NETCDF
-
-#include "Monitoring/Stopwatch.h"
-#include "Numerical/Statistics.h"
 
 #ifdef USE_NETCDF
 namespace {

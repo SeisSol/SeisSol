@@ -12,12 +12,11 @@
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
+#include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #endif
-
-#include <yateto.h>
 
 namespace seissol::kernels::solver::linearckanelastic {
 

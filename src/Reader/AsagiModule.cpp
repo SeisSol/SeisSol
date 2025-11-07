@@ -14,11 +14,11 @@
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
-#include "utils/env.h"
 
 #include <asagi.h>
 #include <memory>
 #include <string>
+#include <utils/env.h>
 #include <utils/logger.h>
 
 namespace seissol::asagi {

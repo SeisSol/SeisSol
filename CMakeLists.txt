@@ -395,14 +395,6 @@ if (ADDRESS_SANITIZER_DEBUG)
   )
 endif()
 
-# Note: it is better to include `async` as
-# system headers because they emit lot's of warnings
-# from clang. Most of them are issues with respect
-# to overriden virtual methods
-target_include_directories(seissol-common-properties SYSTEM INTERFACE
-  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
-)
-
 find_package(Eigen3 REQUIRED)
 target_link_libraries(seissol-common-properties INTERFACE Eigen3::Eigen)
 
@@ -464,10 +456,24 @@ endif()
 
 target_include_directories(seissol-common-properties INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/submodules
-    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
     ${CMAKE_CURRENT_BINARY_DIR}/src/
     ${CMAKE_CURRENT_BINARY_DIR}/codegen/
+)
+
+# submodule includes
+
+# Note: it is better to include `async` as
+# system headers because they emit lots of warnings
+# from clang. Most of them are issues with respect
+# to overriden virtual methods
+
+# for the same reason, do the same for all other submodules (for now)
+
+# not explicitly listed: PUML, utils, fty, xdmfwriter
+target_include_directories(seissol-common-properties SYSTEM INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
 if (PREMULTIPLY_FLUX)
@@ -535,7 +541,6 @@ if (WITH_GPU)
 
   # add device submodule
   add_subdirectory(submodules/Device)
-  target_include_directories(seissol-common-properties INTERFACE submodules/Device)
   target_link_libraries(seissol-common-properties INTERFACE device)
 
   # add SeisSol GPU part

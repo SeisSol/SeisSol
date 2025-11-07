@@ -11,11 +11,11 @@
 
 #define USE_MATH_DEFINES
 #include "Numerical/Functions.h"
-#include "utils/logger.h"
 
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <utils/logger.h>
 #include <vector>
 
 #ifndef M_PI

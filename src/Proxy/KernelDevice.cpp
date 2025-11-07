@@ -18,7 +18,7 @@
 #include "Constants.h"
 #include "Kernels/TimeCommon.h"
 
-#include <device.h>
+#include <Device/device.h>
 #endif
 
 using namespace seissol::recording;

@@ -27,13 +27,13 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Runtime/Stream.h"
-#include "utils/logger.h"
 
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <stdint.h>
+#include <utils/logger.h>
 #include <yateto.h>
 #include <yateto/InitTools.h>
 

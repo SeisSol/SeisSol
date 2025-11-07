@@ -15,7 +15,7 @@
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Neighbor.h"
 #ifdef ACL_DEVICE
-#include <device.h>
+#include <Device/device.h>
 #endif
 
 namespace seissol {

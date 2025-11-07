@@ -25,7 +25,7 @@
 #include <unordered_map>
 
 #ifdef USE_HDF
-#include "PUML/PUML.h"
+#include <PUML/PUML.h>
 #endif
 
 #include <Eigen/Dense>

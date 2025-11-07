@@ -40,7 +40,8 @@
 #pragma GCC diagnostic pop
 
 #include "Kernels/Common.h"
-#include "utils/logger.h"
+
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"

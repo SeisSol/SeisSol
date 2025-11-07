@@ -12,9 +12,9 @@
 #define SEISSOL_SRC_MONITORING_STOPWATCH_H_
 
 #include "Parallel/MPI.h"
-#include "utils/logger.h"
 
 #include <time.h>
+#include <utils/logger.h>
 
 namespace seissol {
 

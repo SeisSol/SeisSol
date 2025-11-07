@@ -15,17 +15,17 @@
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
 #include "Monitoring/Instrumentation.h"
-#include "PUML/Downward.h"
-#include "PUML/Neighbor.h"
-#include "PUML/PUML.h"
-#include "PUML/Partition.h"
-#include "PUML/PartitionGraph.h"
-#include "PUML/PartitionTarget.h"
-#include "PUML/Topology.h"
-#include "PUML/TypeInference.h"
-#include "PUML/Upward.h"
 #include "PartitioningLib.h"
 
+#include <PUML/Downward.h>
+#include <PUML/Neighbor.h>
+#include <PUML/PUML.h>
+#include <PUML/Partition.h>
+#include <PUML/PartitionGraph.h>
+#include <PUML/PartitionTarget.h>
+#include <PUML/Topology.h>
+#include <PUML/TypeInference.h>
+#include <PUML/Upward.h>
 #include <algorithm>
 #include <array>
 #include <cassert>

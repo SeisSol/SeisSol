@@ -23,8 +23,8 @@
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Kernels/LinearCK/DeviceAux/KernelsAux.h"
-#include "device.h"
 
+#include <Device/device.h>
 #include <tuple>
 #endif
 

@@ -17,11 +17,11 @@
 #include "Model/CommonDatastructures.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
-#include "utils/logger.h"
 
 #include <Eigen/Dense>
 #include <cmath>
 #include <limits>
+#include <utils/logger.h>
 
 namespace seissol::model {
 

@@ -19,7 +19,7 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include "device.h"
+#include <Device/device.h>
 #endif
 
 namespace seissol::memory {

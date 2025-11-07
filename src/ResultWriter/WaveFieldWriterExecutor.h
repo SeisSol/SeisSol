@@ -14,13 +14,13 @@
 #include "Model/Plasticity.h"
 #include "Monitoring/Stopwatch.h"
 #include "Parallel/MPI.h"
-#include "async/ExecInfo.h"
-#include "utils/logger.h"
 #include "xdmfwriter/XdmfWriter.h"
 
+#include <async/ExecInfo.h>
 #include <cassert>
 #include <memory>
 #include <string>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::writer {

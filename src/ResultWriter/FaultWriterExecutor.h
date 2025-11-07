@@ -11,9 +11,9 @@
 
 #include "Kernels/Precision.h"
 #include "Monitoring/Stopwatch.h"
-#include "async/ExecInfo.h"
 #include "xdmfwriter/XdmfWriter.h"
 
+#include <async/ExecInfo.h>
 #include <mpi.h>
 
 namespace seissol::writer {

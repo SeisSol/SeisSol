@@ -16,10 +16,10 @@
 #include "IO/Writer/Instructions/Instruction.h"
 #include "IO/Writer/Writer.h"
 #include "Initializer/MemoryManager.h"
-#include "utils/logger.h"
 
 #include <functional>
 #include <memory>
+#include <utils/logger.h>
 
 namespace seissol::io::instance::mesh {
 class VtkHdfWriter {

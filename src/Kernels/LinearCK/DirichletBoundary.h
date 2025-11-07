@@ -20,8 +20,9 @@
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Kernels/LinearCK/DeviceAux/KernelsAux.h"
-#include "device.h"
-#include "yateto.h"
+
+#include <Device/device.h>
+#include <yateto.h>
 #endif
 
 namespace seissol::kernels {

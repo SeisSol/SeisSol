@@ -9,7 +9,6 @@
 
 #include "Data.h"
 #include "IO/Datatype/Datatype.h"
-#include "utils/stringutils.h"
 
 #include <cassert>
 #include <cstddef>
@@ -17,6 +16,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <utils/stringutils.h>
 #include <vector>
 #include <yaml-cpp/yaml.h>
 

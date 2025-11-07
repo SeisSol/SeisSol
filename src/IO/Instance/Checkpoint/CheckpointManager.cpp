@@ -16,7 +16,6 @@
 #include "IO/Writer/Instructions/Hdf5.h"
 #include "IO/Writer/Writer.h"
 #include "Parallel/MPI.h"
-#include "utils/logger.h"
 
 #include <cassert>
 #include <cstddef>
@@ -27,6 +26,7 @@
 #include <memory>
 #include <mpi.h>
 #include <string>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::io::instance::checkpoint {

@@ -27,7 +27,6 @@
 #include "ParameterDB.h"
 #include "Physics/InitialField.h"
 #include "Solver/MultipleSimulations.h"
-#include "utils/logger.h"
 
 #include <array>
 #include <cstddef>
@@ -37,6 +36,7 @@
 #include <exception>
 #include <memory>
 #include <string>
+#include <utils/logger.h>
 #include <vector>
 
 #ifdef USE_ASAGI

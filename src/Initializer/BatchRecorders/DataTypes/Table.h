@@ -13,8 +13,8 @@
 #include "Condition.h"
 #include "EncodedConstants.h"
 
+#include <Device/device.h>
 #include <array>
-#include <device.h>
 #include <memory>
 #include <string>
 #include <unordered_map>

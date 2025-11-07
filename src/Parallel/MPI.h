@@ -12,7 +12,6 @@
 #include "Common/Real.h"
 #include "Kernels/Precision.h"
 #include "MPIBasic.h"
-#include "utils/logger.h"
 
 #include <algorithm>
 #include <functional>
@@ -20,6 +19,7 @@
 #include <numeric>
 #include <optional>
 #include <string>
+#include <utils/logger.h>
 
 namespace seissol {
 

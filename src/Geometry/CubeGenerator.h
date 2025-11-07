@@ -11,12 +11,12 @@
 
 #include "Initializer/Parameters/CubeGeneratorParameters.h"
 #include "MeshReader.h"
-#include "utils/logger.h"
 
 #include <algorithm>
 #include <cstring>
 #include <map>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::geometry {

@@ -9,9 +9,8 @@
 
 #include "Time.h"
 
-#ifndef NDEBUG
-extern long long libxsmm_num_total_flops;
-#endif
+#include "GeneratedCode/init.h"
+#include "Kernels/MemoryOps.h"
 
 #include <cassert>
 #include <cstring>
@@ -22,8 +21,9 @@ extern long long libxsmm_num_total_flops;
 #include "Common/Offset.h"
 #endif
 
-#include "GeneratedCode/init.h"
-#include "Kernels/MemoryOps.h"
+#ifndef NDEBUG
+extern long long libxsmm_num_total_flops;
+#endif
 
 namespace seissol::kernels::solver::linearckanelastic {
 

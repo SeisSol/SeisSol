@@ -9,7 +9,8 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_LINEARSLIPWEAKENING_H_
 
 #include "BaseFrictionLaw.h"
-#include "utils/logger.h"
+
+#include <utils/logger.h>
 
 namespace seissol::dr::friction_law::cpu {
 

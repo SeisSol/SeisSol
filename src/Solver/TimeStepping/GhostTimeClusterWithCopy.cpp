@@ -10,7 +10,8 @@
 #include "Solver/TimeStepping/GhostTimeClusterWithCopy.h"
 
 #include "Parallel/MPI.h"
-#include "device.h"
+
+#include <Device/device.h>
 
 namespace seissol::time_stepping {
 template <MPI::DataTransferMode CommType>

@@ -7,11 +7,10 @@
 
 #include "Module.h"
 
-#include "utils/logger.h"
-
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <utils/logger.h>
 
 namespace seissol {
 Module::Module() : lastSyncPoint(-std::numeric_limits<double>::infinity()) {}

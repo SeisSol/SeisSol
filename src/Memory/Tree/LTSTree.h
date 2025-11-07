@@ -17,10 +17,10 @@
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Colormap.h"
 #include "Monitoring/Unit.h"
-#include "utils/logger.h"
 
 #include <type_traits>
 #include <utility>
+#include <utils/logger.h>
 
 namespace seissol::initializer {
 

@@ -11,8 +11,6 @@
 
 #include "Common/IntegerMaskParser.h"
 #include "Parallel/MPI.h"
-#include "utils/env.h"
-#include "utils/logger.h"
 
 #include <async/as/Pin.h>
 #include <cassert>
@@ -24,6 +22,8 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <utils/env.h>
+#include <utils/logger.h>
 #include <vector>
 
 #ifndef __APPLE__

@@ -42,7 +42,8 @@
 #include "BatchRecorders/Recorders.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "Solver/MultipleSimulations.h"
-#include "device.h"
+
+#include <Device/device.h>
 #endif // ACL_DEVICE
 
 namespace seissol::initializer {

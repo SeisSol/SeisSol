@@ -19,19 +19,20 @@
 #include "Model/Plasticity.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
-#include "utils/logger.h"
 
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "DataTypes/ConditionalKey.h"
 #include "DataTypes/EncodedConstants.h"
 #include "DeviceAux/PlasticityAux.h"
 #include "Solver/MultipleSimulations.h"
-#include "device.h"
+
+#include <Device/device.h>
 using namespace device;
 #endif
 

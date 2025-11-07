@@ -17,16 +17,17 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Parallel/Runtime/Stream.h"
-#include "utils/logger.h"
 
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "DataTypes/ConditionalKey.h"
 #include "DataTypes/EncodedConstants.h"
-#include "device.h"
+
+#include <Device/device.h>
 #endif
 #include <yateto.h>
 

@@ -14,11 +14,11 @@
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "MeshDefinition.h"
 #include "MeshTools.h"
-#include "PUML/TypeInference.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 
 #include <Eigen/Core>
+#include <PUML/TypeInference.h>
 #include <algorithm>
 #include <cstddef>
 #include <map>

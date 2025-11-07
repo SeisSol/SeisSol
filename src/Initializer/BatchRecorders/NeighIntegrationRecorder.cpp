@@ -15,11 +15,11 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Recorders.h"
-#include "utils/logger.h"
 
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <utils/logger.h>
 #include <vector>
 #include <yateto.h>
 

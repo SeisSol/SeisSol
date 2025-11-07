@@ -8,8 +8,6 @@
 
 #include "MPI.h"
 
-#include "utils/stringutils.h"
-
 #include <algorithm>
 #include <cctype>
 #include <mpi.h>
@@ -17,11 +15,12 @@
 #include <unistd.h>
 #include <utils/env.h>
 #include <utils/logger.h>
+#include <utils/stringutils.h>
 
 #ifdef ACL_DEVICE
 #include "Parallel/AcceleratorDevice.h"
 
-#include <device.h>
+#include <Device/device.h>
 #endif
 
 void seissol::MPI::init(int& argc, char**& argv) {

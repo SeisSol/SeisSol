@@ -23,7 +23,6 @@
 #include <cassert>
 #include <optional>
 #include <utils/logger.h>
-#include <xdmfwriter/scorep_wrapper.h>
 
 namespace seissol {
 

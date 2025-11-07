@@ -15,8 +15,9 @@
 #include "Monitoring/Stopwatch.h"
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
-#include "async/Module.h"
-#include "utils/logger.h"
+
+#include <async/Module.h>
+#include <utils/logger.h>
 
 namespace seissol {
 class SeisSol;

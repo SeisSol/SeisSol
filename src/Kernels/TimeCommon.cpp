@@ -17,12 +17,12 @@
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Parallel/Runtime/Stream.h"
-#include "utils/logger.h"
 
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <stdint.h>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "DataTypes/ConditionalKey.h"

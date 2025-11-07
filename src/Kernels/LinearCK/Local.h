@@ -21,7 +21,7 @@
 #include "Physics/InitialField.h"
 
 #ifdef ACL_DEVICE
-#include <device.h>
+#include <Device/device.h>
 #endif
 
 namespace seissol {

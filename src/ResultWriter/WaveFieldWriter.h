@@ -15,16 +15,16 @@
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
 #include "WaveFieldWriterExecutor.h"
-#include "async/Module.h"
-#include "utils/logger.h"
 
 #include <algorithm>
 #include <array>
+#include <async/Module.h>
 #include <cassert>
 #include <cstddef>
 #include <memory>
 #include <string>
 #include <unordered_set>
+#include <utils/logger.h>
 #include <vector>
 
 // for OutputBounds

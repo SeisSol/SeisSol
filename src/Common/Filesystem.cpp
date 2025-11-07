@@ -7,12 +7,11 @@
 
 #include "Filesystem.h"
 
-#include "utils/timeutils.h"
-
 #include <ctime>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <utils/timeutils.h>
 
 namespace seissol {
 #ifdef EXPERIMENTAL_FS

@@ -7,11 +7,10 @@
 
 #include "Parallel/AcceleratorDevice.h"
 
-#include "utils/logger.h"
-
-#include <device.h>
+#include <Device/device.h>
 #include <sstream>
 #include <string>
+#include <utils/logger.h>
 
 namespace seissol {
 

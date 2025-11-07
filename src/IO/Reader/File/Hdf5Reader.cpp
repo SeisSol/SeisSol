@@ -11,7 +11,6 @@
 #include "IO/Datatype/HDF5Type.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
-#include "utils/logger.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -21,6 +20,7 @@
 #include <mpi.h>
 #include <stack>
 #include <string>
+#include <utils/logger.h>
 #include <vector>
 
 namespace {
