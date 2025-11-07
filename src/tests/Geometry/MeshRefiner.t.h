@@ -14,6 +14,7 @@
 #include <Eigen/Dense>
 #include <array>
 #include <cstddef>
+#include <random>
 
 namespace seissol::unit_test {
 
@@ -31,20 +32,16 @@ inline void assertCell(const unsigned int* a, const Eigen::Vector4i& b) {
 
 TEST_CASE("Mesh refiner") {
   constexpr double Epsilon = std::numeric_limits<double>::epsilon();
-  std::srand(0);
-  const auto vertices =
-      std::array<Eigen::Vector3d, 4>{{Eigen::Vector3d((double)std::rand() / RAND_MAX,
-                                                      (double)std::rand() / RAND_MAX,
-                                                      (double)std::rand() / RAND_MAX),
-                                      Eigen::Vector3d((double)std::rand() / RAND_MAX,
-                                                      (double)std::rand() / RAND_MAX,
-                                                      (double)std::rand() / RAND_MAX),
-                                      Eigen::Vector3d((double)std::rand() / RAND_MAX,
-                                                      (double)std::rand() / RAND_MAX,
-                                                      (double)std::rand() / RAND_MAX),
-                                      Eigen::Vector3d((double)std::rand() / RAND_MAX,
-                                                      (double)std::rand() / RAND_MAX,
-                                                      (double)std::rand() / RAND_MAX)}};
+
+  // NOLINTNEXTLINE (-cert-dcl59-cpp)
+  std::mt19937 rnggen(0);
+  std::uniform_real_distribution<> rngdist(0.0, 1.0);
+
+  const auto vertices = std::array<Eigen::Vector3d, 4>{
+      {Eigen::Vector3d(rngdist(rnggen), rngdist(rnggen), rngdist(rnggen)),
+       Eigen::Vector3d(rngdist(rnggen), rngdist(rnggen), rngdist(rnggen)),
+       Eigen::Vector3d(rngdist(rnggen), rngdist(rnggen), rngdist(rnggen)),
+       Eigen::Vector3d(rngdist(rnggen), rngdist(rnggen), rngdist(rnggen))}};
   const seissol::MockReader mockReader(vertices);
 
   SUBCASE("Divide by 4") {

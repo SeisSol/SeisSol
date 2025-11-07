@@ -84,6 +84,12 @@ std::pair<B, A> flip_pair(const std::pair<A, B>& p) {
 
 namespace seissol::geometry {
 
+// ignore the function size problem for now.
+// The whole cube generator will need to be completely revamped anyways.
+// (maybe by copying PUMLcube?)
+
+// NOLINTBEGIN (-google-readability-function-size)
+
 CubeGenerator::CubeGenerator(
     int rank,
     int nProcs,
@@ -1573,6 +1579,8 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   logInfo() << "Finished";
 }
+
+// NOLINTEND
 
 void CubeGenerator::findElementsPerVertex() {
   for (auto& element : m_elements) {

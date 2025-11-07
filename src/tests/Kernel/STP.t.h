@@ -56,8 +56,7 @@ class SpaceTimePredictorTestFixture {
         std::vector<double>{{40.0e9, 2500, 12.0e9, 10.0e9, 0.2, 600.0e-15, 3, 2.5e9, 1040, 0.001}};
     const model::PoroElasticMaterial material(materialVals);
 
-    // prepare Geometry
-    std::srand(0);
+    // NOLINTNEXTLINE (-cert-dcl59-cpp)
     std::mt19937 generator(20210109); // Standard mersenne_twister_engine seeded with today's date
     std::uniform_real_distribution<real> distribution(0, 1);
     double x[] = {distribution(generator),
@@ -163,10 +162,14 @@ class SpaceTimePredictorTestFixture {
     // scale quantities to make it more realistic
     std::array<real, 13> factor = {{1e9, 1e9, 1e9, 1e9, 1e9, 1e9, 1, 1, 1, 1e9, 1, 1, 1}};
     auto q = init::Q::view::create(qData);
-    std::srand(1234);
+
+    // NOLINTNEXTLINE (-cert-dcl59-cpp)
+    std::mt19937 rnggen(1234);
+    std::uniform_real_distribution<> rngdist(0.0, 1.0);
+
     for (std::size_t qi = 0; qi < seissol::model::MaterialT::NumQuantities; ++qi) {
       for (std::size_t bf = 0; bf < NumBasisFunctions; ++bf) {
-        q(bf, qi) = static_cast<real>(std::rand()) / RAND_MAX * factor.at(qi);
+        q(bf, qi) = rngdist(rnggen) * factor.at(qi);
       }
     }
   }

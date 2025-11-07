@@ -112,6 +112,10 @@ inline doctest::String toString(const AbsApprox& in) {
 
 } // namespace seissol::unit_test
 
+// we add a printer for a vector; as the stdlib doesn't provide one as of C++17
+
+// NOLINTBEGIN (cert-dcl58-cpp)
+
 namespace std {
 template <typename T>
 ostream& operator<<(ostream& stream, const std::vector<T>& vec) {
@@ -122,6 +126,18 @@ ostream& operator<<(ostream& stream, const std::vector<T>& vec) {
   stream << "}";
   return stream;
 }
+
+template <typename T, std::size_t N>
+ostream& operator<<(ostream& stream, const std::array<T, N>& vec) {
+  stream << "{";
+  for (const auto& item : vec) {
+    stream << item << ",";
+  }
+  stream << "}";
+  return stream;
+}
 } // namespace std
+
+// NOLINTEND
 
 #endif // SEISSOL_SRC_TESTS_TESTHELPER_H_
