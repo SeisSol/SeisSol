@@ -17,7 +17,6 @@
 # * bugprone-easily-swappable-parameters,
 # * bugprone-unchecked-optional-access,
 # * bugprone-crtp-constructor-accessibility,
-# * bugprone-exception-escape,
 # * bugprone-branch-clone,
 # * cppcoreguidelines-use-enum-class
 
@@ -30,7 +29,6 @@ Checks: |
   -bugprone-easily-swappable-parameters,
   -bugprone-unchecked-optional-access,
   -bugprone-crtp-constructor-accessibility,
-  -bugprone-exception-escape,
   -bugprone-branch-clone,
   clang-diagnostic-*,
   cppcoreguidelines-*,

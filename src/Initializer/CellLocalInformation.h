@@ -27,7 +27,7 @@ struct CellLocalInformation {
   std::array<std::array<uint8_t, 2>, Cell::NumFaces> faceRelations;
 
   // neighbor config IDs
-  std::array<std::uint32_t, 4> neighborConfigIds;
+  std::array<std::uint32_t, Cell::NumFaces> neighborConfigIds;
 
   // LTS setup
   LtsSetup ltsSetup;
@@ -43,7 +43,7 @@ struct SecondaryCellLocalInformation {
   std::size_t meshId;
 
   // storage positions of the face neighbors
-  std::array<initializer::StoragePosition, 4> faceNeighbors;
+  std::array<initializer::StoragePosition, Cell::NumFaces> faceNeighbors;
 
   // ID in layer
   std::size_t layerId;
@@ -64,7 +64,7 @@ struct SecondaryCellLocalInformation {
   int rank;
 
   // rank of all neighboring cells
-  std::array<int, 4> neighborRanks;
+  std::array<int, Cell::NumFaces> neighborRanks;
 
   // duplicate id of own cell
   uint8_t duplicate;

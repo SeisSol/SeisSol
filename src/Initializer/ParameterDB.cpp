@@ -27,10 +27,13 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <easi/Component.h>
 #include <easi/Query.h>
+#include <exception>
 #include <iterator>
 #include <memory>
 #include <set>
+#include <string>
 #include <utility>
 #include <vector>
 #ifdef USE_HDF
@@ -53,6 +56,22 @@
 #include "Reader/AsagiReader.h"
 #endif
 #include "utils/logger.h"
+
+namespace {
+
+void easiEvalSafe(easi::Component* model,
+                  easi::Query& query,
+                  easi::ResultAdapter& adapter,
+                  const std::string& hint) {
+  try {
+    model->evaluate(query, adapter);
+  } catch (const std::exception& error) {
+    logError() << "Error while evaluating an easi model for" << hint.c_str() << ":"
+               << std::string(error.what());
+  }
+}
+
+} // namespace
 
 namespace seissol::initializer {
 
@@ -342,7 +361,8 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
   std::vector<T> materialsFromQuery(numPoints);
   easi::ArrayOfStructsAdapter<T> adapter(materialsFromQuery.data());
   MaterialParameterDB<T>().addBindingPoints(adapter);
-  model->evaluate(query, adapter);
+
+  easiEvalSafe(model, query, adapter, "volume material");
 
   // Only use homogenization when ElementAverageGenerator has been supplied
   if (const auto* gen = dynamic_cast<const ElementAverageGenerator*>(&queryGen)) {
@@ -494,7 +514,7 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
     easi::ArrayOfStructsAdapter<ElasticMaterial> adapter(elasticMaterials.data());
     MaterialParameterDB<ElasticMaterial>().addBindingPoints(adapter);
     const unsigned numPoints = query.numPoints();
-    model->evaluate(query, adapter);
+    easiEvalSafe(model, query, adapter, "volume material (anisotropic -> elastic)");
 
     for (unsigned i = 0; i < numPoints; i++) {
       m_materials->at(i) = AnisotropicMaterial(elasticMaterials[i]);
@@ -502,7 +522,7 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
   } else {
     easi::ArrayOfStructsAdapter<AnisotropicMaterial> arrayOfStructsAdapter(m_materials->data());
     addBindingPoints(arrayOfStructsAdapter);
-    model->evaluate(query, arrayOfStructsAdapter);
+    easiEvalSafe(model, query, arrayOfStructsAdapter, "volume material (anisotropic)");
   }
   delete model;
 }
@@ -517,7 +537,8 @@ void FaultParameterDB::evaluateModel(const std::string& fileName, const QueryGen
     adapter.addBindingPoint(
         kv.first, kv.second.first + simid, kv.second.second * multisim::NumSimulations);
   }
-  model->evaluate(query, adapter);
+
+  easiEvalSafe(model, query, adapter, "fault material");
 
   delete model;
 }
@@ -617,7 +638,7 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
       ++offset;
     }
   }
-  model->evaluate(query, adapter);
+  easiEvalSafe(model, query, adapter, "Dirichlet BC data");
 }
 
 easi::Component* loadEasiModel(const std::string& fileName) {
@@ -627,7 +648,13 @@ easi::Component* loadEasiModel(const std::string& fileName) {
 #else
   easi::YAMLParser parser(3);
 #endif
-  return parser.parse(fileName);
+  try {
+    return parser.parse(fileName);
+  } catch (const std::exception& error) {
+    logError() << "Error while parsing easi file" << fileName << ":" << std::string(error.what());
+    // silence no-return warnings
+    return nullptr;
+  }
 }
 
 std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,

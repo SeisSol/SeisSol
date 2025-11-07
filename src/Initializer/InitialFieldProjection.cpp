@@ -27,12 +27,14 @@
 #include "ParameterDB.h"
 #include "Physics/InitialField.h"
 #include "Solver/MultipleSimulations.h"
+#include "utils/logger.h"
 
 #include <array>
 #include <cstddef>
 #include <easi/Query.h>
 #include <easi/ResultAdapter.h>
 #include <easi/YAMLParser.h>
+#include <exception>
 #include <memory>
 #include <string>
 #include <vector>
@@ -101,7 +103,12 @@ struct EasiLoader {
 #endif
     components.resize(files.size());
     for (std::size_t i = 0; i < files.size(); ++i) {
-      components[i] = std::unique_ptr<easi::Component>(parser->parse(files.at(i)));
+      try {
+        components[i] = std::unique_ptr<easi::Component>(parser->parse(files.at(i)));
+      } catch (const std::exception& error) {
+        logError() << "Error while parsing easi file" << files.at(i) << ":"
+                   << std::string(error.what());
+      }
     }
   }
 };
@@ -240,7 +247,12 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
         const std::size_t bindOffset = i + j * iniFields.size();
         adapter.addBindingPoint(quantity, data.data() + bindOffset, dataPointStride);
       }
-      models.components.at(i)->evaluate(query, adapter);
+      try {
+        models.components.at(i)->evaluate(query, adapter);
+      } catch (const std::exception& error) {
+        logError() << "Error while applying easi file" << iniFields.at(i) << ":"
+                   << std::string(error.what());
+      }
     }
   }
 
