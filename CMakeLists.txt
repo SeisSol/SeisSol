@@ -5,7 +5,7 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.20)
 
 # use <PackageName>_ROOT variables
 if(POLICY CMP0074)
@@ -158,25 +158,6 @@ configure_file("src/Version.h.in"
 message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
 message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
 
-add_custom_target(build-time-make-directory ALL
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode")
-
-set(GENERATED_FILES_FOR_SEISSOL codegen/GeneratedCode/subroutine.h
-                                codegen/GeneratedCode/tensor.cpp
-                                codegen/GeneratedCode/subroutine.cpp
-                                codegen/GeneratedCode/gpulike_subroutine.cpp
-                                codegen/GeneratedCode/tensor.h
-                                codegen/GeneratedCode/init.cpp
-                                codegen/GeneratedCode/init.h
-                                codegen/GeneratedCode/kernel.h
-                                codegen/GeneratedCode/kernel.cpp)
-
-if (TESTING AND TESTING_GENERATED)
-  set(GENERATED_FILES_FOR_SEISSOL ${GENERATED_FILES_FOR_SEISSOL}
-                                codegen/GeneratedCode/test-kernel.cpp)
-endif()
-
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/)
 
 if(PROXY_PYBINDING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
@@ -184,56 +165,9 @@ else()
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
 endif()
 
-if(PREMULTIPLY_FLUX)
-  set(PREMULTIPLY_FLUX_VALUE "--enable_premultiply_flux")
-else()
-  set(PREMULTIPLY_FLUX_VALUE "--disable_premultiply_flux")
-endif()
-
-if (OVERRIDE_VECTORSIZE GREATER 0)
-  set(OVERRIDE_VECTORSIZE_PARAM "--vectorsize=${OVERRIDE_VECTORSIZE}")
-else()
-  set(OVERRIDE_VECTORSIZE_PARAM "")
-endif()
-
 find_package(GemmTools REQUIRED)
 
-add_custom_command(
-  COMMAND
-  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/codegen/generate.py"
-     "--equations" ${EQUATIONS}
-     "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/codegen/matrices
-     "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode
-     "--host_arch" ${HOST_ARCH}
-     "--device_codegen" ${DEVICE_CODEGEN}
-     "--device_arch" ${DEVICE_ARCH}
-     "--device_backend" ${DEVICE_BACKEND}
-     "--device_vendor" ${DEVICE_VENDOR}
-     "--precision" ${PRECISION_PREFIX}
-     "--order" ${ORDER}
-     "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
-     "--memLayout" ${MEMORY_LAYOUT}
-     "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
-     "--PlasticityMethod" ${PLASTICITY_METHOD}
-     "--gemm_tools" ${GEMM_TOOLS_LIST}
-     "--drQuadRule" ${DR_QUAD_RULE}
-     "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
-     "--executable_pspamm=${PSpaMM_PROGRAM}"
-     ${PREMULTIPLY_FLUX_VALUE} # boolean flag
-     ${OVERRIDE_VECTORSIZE_PARAM}
-     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/codegen
-     DEPENDS
-        build-time-make-directory
-        codegen/generate.py
-        codegen/kernels
-        codegen/matrices
-        codegen/config
-    OUTPUT
-        ${GENERATED_FILES_FOR_SEISSOL}
-    COMMENT "Code generation for tensor operations..."
-       )
-
-add_custom_target(seissol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
+add_subdirectory(codegen)
 
 add_library(seissol-common-properties INTERFACE)
 
