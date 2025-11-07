@@ -31,6 +31,8 @@
 
 namespace {
 
+using namespace seissol;
+
 TravellingWaveParameters getTravellingWaveInformation(seissol::SeisSol& seissolInstance) {
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
 

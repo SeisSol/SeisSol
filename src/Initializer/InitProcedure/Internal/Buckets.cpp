@@ -30,6 +30,8 @@
 #include <yateto/InitTools.h>
 
 namespace {
+
+using namespace seissol;
 using namespace seissol::initializer;
 using namespace seissol::initializer::internal;
 

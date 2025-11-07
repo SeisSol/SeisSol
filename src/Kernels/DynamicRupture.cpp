@@ -102,11 +102,11 @@ void DynamicRupture::spaceTimeInterpolation(
 }
 
 void DynamicRupture::batchedSpaceTimeInterpolation(
-    DrConditionalPointersToRealsTable& table,
+    recording::DrConditionalPointersToRealsTable& table,
     const real* coeffs,
     seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
-
+  using namespace seissol::recording;
   real** degreesOfFreedomPlus{nullptr};
   real** degreesOfFreedomMinus{nullptr};
 

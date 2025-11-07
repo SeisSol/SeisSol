@@ -317,11 +317,12 @@ class Layer {
 
 #ifdef ACL_DEVICE
   std::unordered_map<GraphKey, device::DeviceGraphHandle, GraphKeyHash> m_computeGraphHandles{};
-  ConditionalPointersToRealsTable m_conditionalPointersToRealsTable{};
-  DrConditionalPointersToRealsTable m_drConditionalPointersToRealsTable{};
-  ConditionalMaterialTable m_conditionalMaterialTable{};
-  ConditionalIndicesTable m_conditionalIndicesTable;
 #endif
+
+  recording::ConditionalPointersToRealsTable m_conditionalPointersToRealsTable;
+  recording::DrConditionalPointersToRealsTable m_drConditionalPointersToRealsTable;
+  recording::ConditionalMaterialTable m_conditionalMaterialTable;
+  recording::ConditionalIndicesTable m_conditionalIndicesTable;
 
   public:
   Layer() = default;
@@ -648,45 +649,45 @@ private:
     std::visit(std::forward<F>(function), identifier.config);
   }
 
-#ifdef ACL_DEVICE
   template <typename InnerKeyType>
   auto& getConditionalTable() {
-    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Wp>) {
+    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Wp>) {
       return m_conditionalPointersToRealsTable;
     }
 
-    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Dr>) {
+    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Dr>) {
       return m_drConditionalPointersToRealsTable;
     }
 
-    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Material>) {
+    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Material>) {
       return m_conditionalMaterialTable;
     }
 
-    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Indices>) {
+    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Indices>) {
       return m_conditionalIndicesTable;
     }
   }
 
   template <typename InnerKeyType>
   const auto& getConditionalTable() const {
-    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Wp>) {
+    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Wp>) {
       return m_conditionalPointersToRealsTable;
     }
 
-    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Dr>) {
+    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Dr>) {
       return m_drConditionalPointersToRealsTable;
     }
 
-    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Material>) {
+    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Material>) {
       return m_conditionalMaterialTable;
     }
 
-    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Indices>) {
+    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Indices>) {
       return m_conditionalIndicesTable;
     }
   }
 
+#ifdef ACL_DEVICE
   device::DeviceGraphHandle getDeviceComputeGraphHandle(GraphKey graphKey) {
     if (m_computeGraphHandles.find(graphKey) != m_computeGraphHandles.end()) {
       return m_computeGraphHandles[graphKey];

@@ -246,16 +246,18 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   return 0;
 }
 
-void Plasticity::computePlasticityBatched(
-    double timeStepWidth,
-    double tV,
-    const GlobalData* global,
-    initializer::recording::ConditionalPointersToRealsTable& table,
-    seissol::model::PlasticityData* plasticityData,
-    std::size_t* yieldCounter,
-    unsigned* isAdjustableVector,
-    seissol::parallel::runtime::StreamRuntime& runtime) {
+void Plasticity::computePlasticityBatched(double timeStepWidth,
+                                          double tV,
+                                          const GlobalData* global,
+                                          recording::ConditionalPointersToRealsTable& table,
+                                          seissol::model::PlasticityData* plasticityData,
+                                          std::size_t* yieldCounter,
+                                          unsigned* isAdjustableVector,
+                                          seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
+
   static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
                 "modal and nodal dofs must have the same leading dimensions");
   static_assert(tensor::Q::Shape[multisim::BasisFunctionDimension] == tensor::v::Shape[0],
@@ -265,6 +267,7 @@ void Plasticity::computePlasticityBatched(
   ConditionalKey key(*KernelNames::Plasticity);
   auto defaultStream = runtime.stream();
 
+  using namespace seissol::recording;
   if (table.find(key) != table.end()) {
     const auto oneMinusIntegratingFactor = computeRelaxTime(tV, timeStepWidth);
 

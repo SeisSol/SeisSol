@@ -22,7 +22,7 @@
 
 using namespace device;
 using namespace seissol::initializer;
-using namespace seissol::initializer::recording;
+using namespace seissol::recording;
 
 void DynamicRuptureRecorder::record(DynamicRupture::Layer& layer) {
   setUpContext(layer);

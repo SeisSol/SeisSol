@@ -89,9 +89,10 @@ void TimeCommon::computeIntegrals(Time& time,
 void TimeCommon::computeBatchedIntegrals(Time& time,
                                          const real* timeCoeffs,
                                          const real* subtimeCoeffs,
-                                         ConditionalPointersToRealsTable& table,
+                                         recording::ConditionalPointersToRealsTable& table,
                                          seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+  using namespace seissol::recording;
   // Compute time integrated dofs using neighbors derivatives using the GTS relation,
   // i.e. the expansion point is around 'timeStepStart'
   ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithGtsDerivatives);

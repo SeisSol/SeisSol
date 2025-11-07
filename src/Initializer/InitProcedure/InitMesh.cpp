@@ -40,6 +40,8 @@
 
 namespace {
 
+using namespace seissol;
+
 template <typename TT>
 TT _checkH5Err(TT&& status, const char* file, int line) {
   if (status < 0) {

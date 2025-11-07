@@ -141,12 +141,14 @@ std::uint64_t Local::bytesIntegral() {
   return reals * sizeof(real);
 }
 
-void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
-                                   ConditionalMaterialTable& materialTable,
-                                   ConditionalIndicesTable& indicesTable,
+void Local::computeBatchedIntegral(recording::ConditionalPointersToRealsTable& dataTable,
+                                   recording::ConditionalMaterialTable& materialTable,
+                                   recording::ConditionalIndicesTable& indicesTable,
                                    double timeStepWidth,
                                    seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype;
@@ -217,8 +219,8 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
 #endif
 }
 
-void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
-                                           ConditionalIndicesTable& indicesTable,
+void Local::evaluateBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& dataTable,
+                                           recording::ConditionalIndicesTable& indicesTable,
                                            LTS::Layer& layer,
                                            double time,
                                            double timeStepWidth,

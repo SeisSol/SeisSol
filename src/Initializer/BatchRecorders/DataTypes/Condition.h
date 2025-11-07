@@ -13,7 +13,7 @@
 #include <assert.h>
 #include <type_traits>
 
-namespace seissol::initializer::recording {
+namespace seissol::recording {
 template <typename T>
 constexpr bool isEncodedConstant() {
   return std::is_same_v<FaceKinds, T> || std::is_same_v<KernelNames, T> ||
@@ -29,8 +29,8 @@ class Condition {
   public:
   Condition() = delete;
 
-  Condition(T initialEncoding)
-      : highBitsMask(~((~size_t(0)) << static_cast<size_t>(T::Count))),
+  explicit Condition(T initialEncoding)
+      : highBitsMask(~((~static_cast<size_t>(0)) << static_cast<size_t>(T::Count))),
         encoding(static_cast<size_t>(initialEncoding)) {}
 
   Condition& operator!() {
@@ -52,10 +52,7 @@ class Condition {
   size_t encoding;
   size_t count;
 };
-} // namespace seissol::initializer::recording
-
-using namespace seissol::initializer::recording;
-using namespace seissol;
+} // namespace seissol::recording
 
 /** Implements "OR" operation.
  *
@@ -66,7 +63,8 @@ using namespace seissol;
  * Refer to Condition Class if you need much more sophisticated behaviour
  */
 template <typename T>
-std::enable_if_t<isEncodedConstant<T>(), size_t> operator||(const T& lhs, const T& rhs) {
+std::enable_if_t<seissol::recording::isEncodedConstant<T>(), size_t> operator||(const T& lhs,
+                                                                                const T& rhs) {
   return (static_cast<size_t>(lhs) | static_cast<size_t>(rhs));
 }
 
@@ -76,7 +74,8 @@ std::enable_if_t<isEncodedConstant<T>(), size_t> operator||(const T& lhs, const 
  * Refer to Condition Class if you need much more sophisticated behaviour
  */
 template <typename T>
-constexpr std::enable_if_t<isEncodedConstant<T>(), size_t> operator*(const T& condition) {
+constexpr std::enable_if_t<seissol::recording::isEncodedConstant<T>(), size_t>
+    operator*(const T& condition) {
   return static_cast<size_t>(condition);
 }
 
@@ -86,8 +85,8 @@ constexpr std::enable_if_t<isEncodedConstant<T>(), size_t> operator*(const T& co
  * Refer to Condition Class if you need much more sophisticated behaviour
  */
 template <typename T>
-std::enable_if_t<isEncodedConstant<T>(), size_t> operator!(const T& condition) {
-  size_t highBitsMask = ~((~size_t(0)) << static_cast<size_t>(T::Count));
+std::enable_if_t<seissol::recording::isEncodedConstant<T>(), size_t> operator!(const T& condition) {
+  size_t highBitsMask = ~((~static_cast<size_t>(0)) << static_cast<size_t>(T::Count));
   return highBitsMask & (~static_cast<size_t>(condition));
 }
 

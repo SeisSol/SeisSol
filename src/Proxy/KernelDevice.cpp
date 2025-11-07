@@ -21,6 +21,8 @@
 #include <device.h>
 #endif
 
+using namespace seissol::recording;
+
 namespace seissol::proxy {
 #ifdef ACL_DEVICE
 void ProxyKernelDeviceAder::run(ProxyData& data,

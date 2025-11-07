@@ -31,6 +31,8 @@
 
 namespace {
 
+using namespace seissol;
+
 void reportDeviceMemoryStatus() {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();

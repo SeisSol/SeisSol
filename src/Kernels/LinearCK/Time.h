@@ -40,8 +40,8 @@ class Spacetime : public SpacetimeKernel {
   void computeBatchedAder(const real* coeffs,
                           double timeStepWidth,
                           LocalTmp& tmp,
-                          ConditionalPointersToRealsTable& dataTable,
-                          ConditionalMaterialTable& materialTable,
+                          recording::ConditionalPointersToRealsTable& dataTable,
+                          recording::ConditionalMaterialTable& materialTable,
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime) override;
 

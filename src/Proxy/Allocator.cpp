@@ -39,6 +39,9 @@
 #endif
 
 namespace {
+
+using namespace seissol;
+
 void fakeData(LTS::Layer& layer, FaceType faceTp) {
   real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
   real** buffers = layer.var<LTS::Buffers>();
@@ -301,11 +304,11 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
   seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(false, ltsStorage);
   ltsStorage.allocateScratchPads();
 
-  seissol::initializer::recording::CompositeRecorder<LTS::LTSVarmap> recorder;
-  recorder.addRecorder(new seissol::initializer::recording::LocalIntegrationRecorder);
-  recorder.addRecorder(new seissol::initializer::recording::NeighIntegrationRecorder);
+  seissol::recording::CompositeRecorder<LTS::LTSVarmap> recorder;
+  recorder.addRecorder(new seissol::recording::LocalIntegrationRecorder);
+  recorder.addRecorder(new seissol::recording::NeighIntegrationRecorder);
 
-  recorder.addRecorder(new seissol::initializer::recording::PlasticityRecorder);
+  recorder.addRecorder(new seissol::recording::PlasticityRecorder);
   recorder.record(layer);
   if (enableDR) {
     drStorage.synchronizeTo(seissol::initializer::AllocationPlace::Device,
@@ -314,8 +317,8 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
     seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(drStorage);
     drStorage.allocateScratchPads();
 
-    CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
-    drRecorder.addRecorder(new DynamicRuptureRecorder);
+    seissol::recording::CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
+    drRecorder.addRecorder(new seissol::recording::DynamicRuptureRecorder);
 
     auto& drLayer = drStorage.layer(layerId);
     drRecorder.record(drLayer);

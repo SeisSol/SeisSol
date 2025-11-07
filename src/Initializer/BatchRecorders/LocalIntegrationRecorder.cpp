@@ -28,7 +28,7 @@
 
 using namespace device;
 using namespace seissol::initializer;
-using namespace seissol::initializer::recording;
+using namespace seissol::recording;
 
 void LocalIntegrationRecorder::record(LTS::Layer& layer) {
   setUpContext(layer);

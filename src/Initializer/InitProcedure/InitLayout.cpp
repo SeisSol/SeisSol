@@ -35,6 +35,8 @@
 #include <vector>
 
 namespace {
+
+using namespace seissol;
 using namespace seissol::initializer;
 
 void verifyHaloSetup(const LTS::Storage& ltsStorage, const std::vector<ClusterMap>& meshLayout) {

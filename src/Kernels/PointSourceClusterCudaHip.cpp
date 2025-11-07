@@ -19,6 +19,7 @@ constexpr std::size_t SubBlock = 64;
 constexpr std::size_t Blocksize = 256;
 constexpr auto PerBlock = Blocksize / SubBlock;
 
+using namespace seissol;
 using namespace seissol::kernels;
 
 __launch_bounds__(Blocksize) __global__ void launchKernel(

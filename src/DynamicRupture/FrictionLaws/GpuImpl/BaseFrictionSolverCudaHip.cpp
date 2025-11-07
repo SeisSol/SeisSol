@@ -27,6 +27,8 @@
 #endif
 
 namespace {
+
+using namespace seissol;
 using namespace seissol::dr::friction_law::gpu;
 
 constexpr std::size_t safeblockMultiple(std::size_t block, std::size_t maxmult) {

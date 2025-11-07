@@ -37,15 +37,14 @@ class Plasticity {
                                        real degreesOfFreedom[tensor::Q::size()],
                                        real* pstrain);
 
-  static void
-      computePlasticityBatched(double timeStepWidth,
-                               double tV,
-                               const GlobalData* global,
-                               initializer::recording::ConditionalPointersToRealsTable& table,
-                               seissol::model::PlasticityData* plasticityData,
-                               std::size_t* yieldCounter,
-                               unsigned* isAdjustableVector,
-                               seissol::parallel::runtime::StreamRuntime& runtime);
+  static void computePlasticityBatched(double timeStepWidth,
+                                       double tV,
+                                       const GlobalData* global,
+                                       recording::ConditionalPointersToRealsTable& table,
+                                       seissol::model::PlasticityData* plasticityData,
+                                       std::size_t* yieldCounter,
+                                       unsigned* isAdjustableVector,
+                                       seissol::parallel::runtime::StreamRuntime& runtime);
 
   static void flopsPlasticity(std::uint64_t& nonZeroFlopsCheck,
                               std::uint64_t& hardwareFlopsCheck,

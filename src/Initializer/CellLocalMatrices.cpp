@@ -48,6 +48,8 @@
 
 namespace {
 
+using namespace seissol;
+
 void setStarMatrix(const real* matAT,
                    const real* matBT,
                    const real* matCT,

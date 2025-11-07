@@ -33,7 +33,7 @@ class Neighbor : public NeighborKernel {
                                 real* timeIntegrated[4],
                                 real* faceNeighborsPrefetch[4]) override;
 
-  void computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
+  void computeBatchedNeighborsIntegral(recording::ConditionalPointersToRealsTable& table,
                                        seissol::parallel::runtime::StreamRuntime& runtime) override;
 
   void flopsNeighborsIntegral(

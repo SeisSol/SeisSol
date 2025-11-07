@@ -41,14 +41,14 @@ class Local : public LocalKernel {
                        double time,
                        double timeStepWidth) override;
 
-  void computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
-                              ConditionalMaterialTable& materialTable,
-                              ConditionalIndicesTable& indicesTable,
+  void computeBatchedIntegral(recording::ConditionalPointersToRealsTable& dataTable,
+                              recording::ConditionalMaterialTable& materialTable,
+                              recording::ConditionalIndicesTable& indicesTable,
                               double timeStepWidth,
                               seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
-                                      ConditionalIndicesTable& indicesTable,
+  void evaluateBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& dataTable,
+                                      recording::ConditionalIndicesTable& indicesTable,
                                       LTS::Layer& layer,
                                       double time,
                                       double timeStepWidth,

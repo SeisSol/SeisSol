@@ -105,9 +105,10 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
   }
 }
 
-void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
+void Neighbor::computeBatchedNeighborsIntegral(recording::ConditionalPointersToRealsTable& table,
                                                seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+  using namespace seissol::recording;
   kernel::gpu_neighboringFlux neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
 

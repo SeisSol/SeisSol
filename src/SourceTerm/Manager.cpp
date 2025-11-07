@@ -66,6 +66,7 @@
 
 namespace {
 
+using namespace seissol;
 using namespace seissol::sourceterm;
 
 /**

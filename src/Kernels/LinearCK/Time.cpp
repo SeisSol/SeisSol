@@ -137,11 +137,12 @@ void Spacetime::computeAder(const real* coeffs,
 void Spacetime::computeBatchedAder(const real* coeffs,
                                    double timeStepWidth,
                                    LocalTmp& tmp,
-                                   ConditionalPointersToRealsTable& dataTable,
-                                   ConditionalMaterialTable& materialTable,
+                                   recording::ConditionalPointersToRealsTable& dataTable,
+                                   recording::ConditionalMaterialTable& materialTable,
                                    bool updateDisplacement,
                                    seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+  using namespace seissol::recording;
   kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype;
 
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
@@ -245,6 +246,9 @@ void Time::evaluateBatched(const real* coeffs,
                            std::size_t numElements,
                            seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
+
   assert(timeDerivatives != nullptr);
   assert(timeIntegratedDofs != nullptr);
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");

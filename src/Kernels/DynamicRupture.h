@@ -45,7 +45,7 @@ class DynamicRupture : public Kernel {
       const real* coeffs);
 
   // NOLINTNEXTLINE
-  void batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table,
+  void batchedSpaceTimeInterpolation(recording::DrConditionalPointersToRealsTable& table,
                                      const real* coeffs,
                                      seissol::parallel::runtime::StreamRuntime& runtime);
 

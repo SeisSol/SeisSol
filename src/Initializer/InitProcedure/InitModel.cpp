@@ -44,13 +44,11 @@
 #include <utils/stringutils.h>
 #include <vector>
 
-#if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
-#include "Physics/Attenuation.h"
-#endif
-
 using namespace seissol::initializer;
 
 namespace {
+
+using namespace seissol;
 
 using MaterialT = seissol::model::MaterialT;
 using Plasticity = seissol::model::Plasticity;

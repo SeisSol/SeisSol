@@ -189,12 +189,13 @@ class GravitationalFreeSurfaceBc {
   void evaluateOnDevice(unsigned faceIdx,
                         MappingKrnl&& projectKernelPrototype,
                         TimeKrnl& timeKernel,
-                        ConditionalPointersToRealsTable& dataTable,
-                        ConditionalMaterialTable& materialTable,
+                        recording::ConditionalPointersToRealsTable& dataTable,
+                        recording::ConditionalMaterialTable& materialTable,
                         double timeStepWidth,
                         device::DeviceInstance& device,
                         seissol::parallel::runtime::StreamRuntime& runtime) {
 
+    using namespace seissol::recording;
     auto* deviceStream = runtime.stream();
     ConditionalKey key(
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, faceIdx);

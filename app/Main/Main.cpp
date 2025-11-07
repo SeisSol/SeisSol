@@ -43,6 +43,8 @@
 #include "Version.h"
 
 namespace {
+using namespace seissol;
+
 auto readYamlParams(const std::string& parameterFile) -> std::shared_ptr<YAML::Node> {
   // Read parameter file input from file
   fty::Loader<fty::AsLowercase> loader{};

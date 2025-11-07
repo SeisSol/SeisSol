@@ -41,6 +41,8 @@
 
 namespace {
 
+using namespace seissol;
+
 void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   auto& checkpoint = seissolInstance.getOutputManager().getCheckpointManager();
 

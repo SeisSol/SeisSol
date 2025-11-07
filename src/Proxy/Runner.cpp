@@ -40,6 +40,7 @@
 #include "Tools.h"
 
 namespace {
+using namespace seissol;
 using namespace seissol::proxy;
 void testKernel(std::shared_ptr<ProxyData>& data,
                 std::shared_ptr<parallel::runtime::StreamRuntime>& runtime,

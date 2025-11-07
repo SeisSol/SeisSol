@@ -183,11 +183,13 @@ std::uint64_t Spacetime::bytesAder() {
 void Spacetime::computeBatchedAder(const real* coeffs,
                                    double timeStepWidth,
                                    LocalTmp& tmp,
-                                   ConditionalPointersToRealsTable& dataTable,
-                                   ConditionalMaterialTable& materialTable,
+                                   recording::ConditionalPointersToRealsTable& dataTable,
+                                   recording::ConditionalMaterialTable& materialTable,
                                    bool updateDisplacement,
                                    seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
   kernel::gpu_spaceTimePredictor krnl = deviceKrnlPrototype;
 
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);

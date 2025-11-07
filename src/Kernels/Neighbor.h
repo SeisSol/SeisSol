@@ -28,7 +28,7 @@ class NeighborKernel : public Kernel {
                                         real* faceNeighborsPrefetch[4]) = 0;
 
   virtual void
-      computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
+      computeBatchedNeighborsIntegral(recording::ConditionalPointersToRealsTable& table,
                                       seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   virtual void flopsNeighborsIntegral(

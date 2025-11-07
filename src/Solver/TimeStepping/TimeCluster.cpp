@@ -247,6 +247,9 @@ void TimeCluster::computeDynamicRupture(DynamicRupture::Layer& layerData) {
 
 void TimeCluster::computeDynamicRuptureDevice(DynamicRupture::Layer& layerData) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
+
   SCOREP_USER_REGION("computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   loopStatistics->begin(regionComputeDynamicRupture);
@@ -418,6 +421,8 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
 void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
 
 #ifdef ACL_DEVICE
+  using namespace seissol::recording;
+
   SCOREP_USER_REGION("computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
   device.api->putProfilingMark("computeLocalIntegration", device::ProfilingColors::Yellow);
 
@@ -515,6 +520,9 @@ void TimeCluster::computeNeighboringIntegration(double subTimeStart) {
 
 void TimeCluster::computeNeighboringIntegrationDevice(double subTimeStart) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
+
   device.api->putProfilingMark("computeNeighboring", device::ProfilingColors::Red);
   SCOREP_USER_REGION("computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
   loopStatistics->begin(regionComputeNeighboringIntegration);

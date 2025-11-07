@@ -55,6 +55,8 @@
 #endif
 
 namespace {
+using namespace seissol;
+
 constexpr bool VolumeEnergyApproximation =
     model::MaterialT::Type != model::MaterialType::Elastic &&
     model::MaterialT::Type != model::MaterialType::Viscoelastic &&
@@ -289,6 +291,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
       /// (We'd need to send the dofs over the network in order to fix this.)
 #ifdef ACL_DEVICE
+
+      using namespace seissol::recording;
       constexpr auto QSize = tensor::Q::size();
       const ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
       auto& table = layer.getConditionalTable<inner_keys::Dr>();

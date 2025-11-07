@@ -66,14 +66,14 @@ class DirichletBoundary {
 #ifdef ACL_DEVICE
   template <typename Func, typename MappingKrnl, typename InverseMappingKrnl>
   void evaluateOnDevice(int faceIdx,
-                        ConditionalKey& key,
+                        recording::ConditionalKey& key,
                         MappingKrnl& projectKernelPrototype,
                         InverseMappingKrnl& nodalLfKrnlPrototype,
                         local_flux::aux::DirichletBoundaryAux<Func>& boundaryCondition,
-                        ConditionalPointersToRealsTable& dataTable,
+                        recording::ConditionalPointersToRealsTable& dataTable,
                         device::DeviceInstance& device,
                         seissol::parallel::runtime::StreamRuntime& runtime) const {
-
+    using namespace seissol::recording;
     const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize()};
 
     auto** dofsFaceBoundaryNodalPtrs =
@@ -99,7 +99,7 @@ class DirichletBoundary {
 
     boundaryCondition.evaluate(dofsFaceBoundaryNodalPtrs, numElements, deviceStream);
 
-    auto** dofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
+    auto** dofsPtrs = dataTable[key].get(recording::inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
 
     auto nodalLfKrnl = nodalLfKrnlPrototype;
     nodalLfKrnl.numElements = numElements;
