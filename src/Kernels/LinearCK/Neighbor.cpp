@@ -12,9 +12,9 @@
 #include "Kernels/LinearCK/Neighbor.h"
 
 #include "Common/Constants.h"
-#include "DataTypes/ConditionalTable.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"

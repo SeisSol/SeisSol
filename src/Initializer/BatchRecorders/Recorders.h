@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_RECORDERS_H_
 #define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_RECORDERS_H_
 
-#include "DataTypes/ConditionalTable.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Kernels/Interface.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"

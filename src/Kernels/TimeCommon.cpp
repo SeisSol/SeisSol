@@ -10,9 +10,9 @@
 #include "TimeCommon.h"
 
 #include "Common/Constants.h"
-#include "DataTypes/ConditionalTable.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/LtsSetup.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
@@ -25,8 +25,8 @@
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include "DataTypes/ConditionalKey.h"
-#include "DataTypes/EncodedConstants.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
 
 #ifndef NDEBUG

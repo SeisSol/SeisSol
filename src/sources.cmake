@@ -250,9 +250,6 @@ elseif ("${EQUATIONS}" STREQUAL "poroelastic")
   target_compile_definitions(seissol-common-properties INTERFACE USE_POROELASTIC)
 endif()
 
-target_include_directories(seissol-common-properties INTERFACE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders)
-
 
 # GPU code
 if (WITH_GPU)
@@ -263,11 +260,7 @@ if (WITH_GPU)
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/DynamicRuptureRecorder.cpp)
 
 
-  set(SEISSOL_DEVICE_INCLUDE ${DEVICE_INCLUDE_DIRS}
-                             ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
-                             ${CMAKE_BINARY_DIR}/src
-                             ${CMAKE_BINARY_DIR}/codegen
-                             ${CMAKE_CURRENT_SOURCE_DIR}/src)
+  set(SEISSOL_DEVICE_INCLUDE ${DEVICE_INCLUDE_DIRS})
 
   # include cmake files will define seissol-device-lib target
   if ("${DEVICE_BACKEND}" STREQUAL "cuda")

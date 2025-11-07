@@ -11,11 +11,11 @@
 
 #include "Alignment.h"
 #include "Common/Constants.h"
-#include "DataTypes/ConditionalTable.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Precision.h"

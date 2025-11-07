@@ -50,8 +50,8 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include "DataTypes/ConditionalKey.h"
-#include "DataTypes/EncodedConstants.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
 
 namespace {

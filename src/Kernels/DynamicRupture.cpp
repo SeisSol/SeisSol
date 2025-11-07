@@ -10,10 +10,10 @@
 
 #include "Alignment.h"
 #include "Common/Constants.h"
-#include "DataTypes/ConditionalTable.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Parallel/Runtime/Stream.h"
@@ -24,8 +24,8 @@
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include "DataTypes/ConditionalKey.h"
-#include "DataTypes/EncodedConstants.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 
 #include <Device/device.h>
 #endif

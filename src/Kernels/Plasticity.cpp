@@ -10,10 +10,10 @@
 #include "Plasticity.h"
 
 #include "Alignment.h"
-#include "DataTypes/ConditionalTable.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Model/Plasticity.h"
@@ -27,9 +27,9 @@
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include "DataTypes/ConditionalKey.h"
-#include "DataTypes/EncodedConstants.h"
 #include "DeviceAux/PlasticityAux.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <Device/device.h>

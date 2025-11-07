@@ -6,13 +6,13 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Common/Constants.h"
-#include "DataTypes/Condition.h"
-#include "DataTypes/ConditionalKey.h"
-#include "DataTypes/ConditionalTable.h"
-#include "DataTypes/EncodedConstants.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/Condition.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
