@@ -92,7 +92,7 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
 
   runtime->wait();
 
-  const seissol::monitoring::FlopCounter flopCounter;
+  const seissol::monitoring::FlopCounter flopCounter{};
 
   gettimeofday(&startTime, nullptr);
 #ifdef __USE_RDTSC
