@@ -92,7 +92,7 @@ class WaveFieldWriterExecutor {
       logError() << "Wave field writer already initialized";
     }
 
-    int rank = seissol::MPI::mpi.rank();
+    int rank = seissol::Mpi::mpi.rank();
 
     const xdmfwriter::BackendType type = param.backend;
 
@@ -127,7 +127,7 @@ class WaveFieldWriterExecutor {
     // Split the communicator into two - those containing vertices and those
     //  not containing any vertices.
     const int commColour = (info.bufferSize(param.bufferIds[Cells]) == 0) ? 0 : 1;
-    MPI_Comm_split(seissol::MPI::mpi.comm(), commColour, rank, &m_comm);
+    MPI_Comm_split(seissol::Mpi::mpi.comm(), commColour, rank, &m_comm);
     // Start the if statement
     if (info.bufferSize(param.bufferIds[Cells]) != 0) {
       // Get the new rank

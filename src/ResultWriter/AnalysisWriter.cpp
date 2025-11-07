@@ -75,7 +75,7 @@ CsvAnalysisWriter::~CsvAnalysisWriter() {
 }
 
 void AnalysisWriter::printAnalysis(double simulationTime) {
-  const auto& mpi = seissol::MPI::mpi;
+  const auto& mpi = seissol::Mpi::mpi;
 
   const auto initialConditionType = seissolInstance.getSeisSolParameters().initialization.type;
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero ||

@@ -25,12 +25,12 @@ struct GhostTimeClusterFactory {
           int globalTimeClusterId,
           int otherGlobalTimeClusterId,
           const solver::HaloCommunication& meshStructure,
-          MPI::DataTransferMode mode,
+          Mpi::DataTransferMode mode,
           bool persistent) {
     switch (mode) {
 #ifdef ACL_DEVICE
-    case MPI::DataTransferMode::CopyInCopyOutHost: {
-      using ghostCluster_t = GhostTimeClusterWithCopy<MPI::DataTransferMode::CopyInCopyOutHost>;
+    case Mpi::DataTransferMode::CopyInCopyOutHost: {
+      using ghostCluster_t = GhostTimeClusterWithCopy<Mpi::DataTransferMode::CopyInCopyOutHost>;
       return std::make_unique<ghostCluster_t>(maxTimeStepSize,
                                               timeStepRate,
                                               globalTimeClusterId,
@@ -39,7 +39,7 @@ struct GhostTimeClusterFactory {
                                               persistent);
     }
 #endif // ACL_DEVICE
-    case MPI::DataTransferMode::Direct: {
+    case Mpi::DataTransferMode::Direct: {
       return std::make_unique<DirectGhostTimeCluster>(maxTimeStepSize,
                                                       timeStepRate,
                                                       globalTimeClusterId,

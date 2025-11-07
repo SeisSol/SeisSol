@@ -41,13 +41,13 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
              1,
              datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
              MPI_SUM,
-             seissol::MPI::mpi.comm());
+             seissol::Mpi::mpi.comm());
   MPI_Allreduce(&localElementCount,
                 &globalElementCount,
                 1,
                 datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
                 MPI_SUM,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
   pointOffset = elementOffset * pointsPerElement;
   localPointCount = localElementCount * pointsPerElement;
   globalPointCount = globalElementCount * pointsPerElement;
@@ -102,7 +102,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
         datatype::inferDatatype<int64_t>());
   });
 
-  const bool isLastRank = MPI::mpi.size() == MPI::mpi.rank() + 1;
+  const bool isLastRank = Mpi::mpi.size() == Mpi::mpi.rank() + 1;
   instructionsConst.emplace_back([=](const std::string& filename, double time) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
         writer::instructions::Hdf5Location(filename, {GroupName}),

@@ -30,7 +30,7 @@ class AsagiReader : public easi::AsagiReader {
   MPI_Comm comm;
 
   public:
-  explicit AsagiReader(MPI_Comm comm = seissol::MPI::mpi.comm());
+  explicit AsagiReader(MPI_Comm comm = seissol::Mpi::mpi.comm());
 
   ::asagi::Grid* open(const char* file, const char* varname) override;
   [[nodiscard]] unsigned numberOfThreads() const override;

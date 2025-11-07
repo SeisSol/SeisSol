@@ -60,10 +60,10 @@ void verifyHaloSetup(const LTS::Storage& ltsStorage, const std::vector<ClusterMa
         }
         MPI_Isend(&copyGlobalIds[copyI],
                   region.count,
-                  seissol::MPI::castToMpiType<std::size_t>(),
+                  seissol::Mpi::castToMpiType<std::size_t>(),
                   region.rank,
                   region.tag,
-                  seissol::MPI::mpi.comm(),
+                  seissol::Mpi::mpi.comm(),
                   &request);
         copyI += region.count;
         copyIL += region.count;
@@ -71,10 +71,10 @@ void verifyHaloSetup(const LTS::Storage& ltsStorage, const std::vector<ClusterMa
       if (layer.getIdentifier().halo == HaloType::Ghost) {
         MPI_Irecv(&ghostGlobalIds[ghostI],
                   region.count,
-                  seissol::MPI::castToMpiType<std::size_t>(),
+                  seissol::Mpi::castToMpiType<std::size_t>(),
                   region.rank,
                   region.tag,
-                  seissol::MPI::mpi.comm(),
+                  seissol::Mpi::mpi.comm(),
                   &request);
         ghostI += region.count;
       }
@@ -100,7 +100,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   const auto& meshReader = seissolInstance.meshReader();
 
-  const auto rank = seissol::MPI::mpi.rank();
+  const auto rank = seissol::Mpi::mpi.rank();
 
   logInfo() << "Determining cell colors...";
 

@@ -61,7 +61,7 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
         for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
           const auto& element = meshReader.getElements()[cell];
 
-          if (element.neighborRanks[f] != seissol::MPI::mpi.rank()) {
+          if (element.neighborRanks[f] != seissol::Mpi::mpi.rank()) {
             const auto ghostLinear = meshReader.toLinearGhostlayer().at(
                 {element.neighborRanks[f], element.mpiIndices[f]});
             const auto colorGhost = ghostColor[ghostLinear];

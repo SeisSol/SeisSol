@@ -229,7 +229,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   // Setup MPI Communicator
   MPI_Comm commMaster = MPI_COMM_NULL;
-  MPI_Comm_split(seissol::MPI::mpi.comm(), rank % 1 == 0 ? 1 : MPI_UNDEFINED, rank, &commMaster);
+  MPI_Comm_split(seissol::Mpi::mpi.comm(), rank % 1 == 0 ? 1 : MPI_UNDEFINED, rank, &commMaster);
 
   size_t bndSize = -1;
   size_t bndElemSize = -1;
@@ -1531,7 +1531,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   // Get maximum number of neighbors (required to get collective MPI-IO right)
   const int maxNeighbors = bndSize;
-  // MPI_Allreduce(MPI_IN_PLACE, &maxNeighbors, 1, MPI_INT, MPI_MAX, seissol::MPI::mpi.comm());
+  // MPI_Allreduce(MPI_IN_PLACE, &maxNeighbors, 1, MPI_INT, MPI_MAX, seissol::Mpi::mpi.comm());
   int* bndElemLocalIds = new int[bndElemSize];
 
   //        SCOREP_USER_REGION_DEFINE( r_read_boundaries );

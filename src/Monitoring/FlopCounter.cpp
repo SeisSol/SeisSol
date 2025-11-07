@@ -32,8 +32,8 @@ namespace seissol::monitoring {
 
 void FlopCounter::init(const std::string& outputFileNamePrefix) {
   const std::string outputFileName = outputFileNamePrefix + "-flops.csv";
-  const int rank = seissol::MPI::mpi.rank();
-  const auto worldSize = static_cast<size_t>(seissol::MPI::mpi.size());
+  const int rank = seissol::Mpi::mpi.rank();
+  const auto worldSize = static_cast<size_t>(seissol::Mpi::mpi.size());
   if (rank == 0) {
     out.open(outputFileName);
     out << "time,";
@@ -51,8 +51,8 @@ void FlopCounter::init(const std::string& outputFileNamePrefix) {
 }
 
 void FlopCounter::printPerformanceUpdate(double wallTime) {
-  const int rank = seissol::MPI::mpi.rank();
-  const auto worldSize = static_cast<size_t>(seissol::MPI::mpi.size());
+  const int rank = seissol::Mpi::mpi.rank();
+  const auto worldSize = static_cast<size_t>(seissol::Mpi::mpi.size());
 
   const long long newTotalHWFlops = hardwareFlopsLocal + hardwareFlopsNeighbor +
                                     hardwareFlopsOther + hardwareFlopsDynamicRupture +
@@ -78,7 +78,7 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
   }
 
   const auto handleFlopsDataset = [&](auto local, const std::string& message) {
-    const auto localOnRanks = seissol::MPI::mpi.collect(local);
+    const auto localOnRanks = seissol::Mpi::mpi.collect(local);
     const auto localSummary = seissol::statistics::Summary(localOnRanks);
 
     if (rank == 0) {
@@ -131,7 +131,7 @@ void FlopCounter::printPerformanceSummary(double wallTime) const {
   flops[PLHardwareFlops] = hardwareFlopsPlasticity;
 
   MPI_Allreduce(
-      MPI_IN_PLACE, flops.data(), flops.size(), MPI_DOUBLE, MPI_SUM, seissol::MPI::mpi.comm());
+      MPI_IN_PLACE, flops.data(), flops.size(), MPI_DOUBLE, MPI_SUM, seissol::Mpi::mpi.comm());
 
 #ifndef NDEBUG
   logInfo() << "Total    libxsmm HW-FLOP: " << UnitFlop.formatPrefix(flops[Libxsmm]).c_str();

@@ -17,13 +17,13 @@
 #include <vector>
 
 void seissol::writer::MiniSeisSolWriter::write(double elapsedTime, double weight) {
-  auto elapsedTimeVector = seissol::MPI::mpi.collect(elapsedTime);
-  auto weightVector = seissol::MPI::mpi.collect(weight);
+  auto elapsedTimeVector = seissol::Mpi::mpi.collect(elapsedTime);
+  auto weightVector = seissol::Mpi::mpi.collect(weight);
 
-  auto localRanks = seissol::MPI::mpi.collect(seissol::MPI::mpi.sharedMemMpiRank());
+  auto localRanks = seissol::Mpi::mpi.collect(seissol::Mpi::mpi.sharedMemMpiRank());
 
-  if (seissol::MPI::mpi.rank() == 0) {
-    std::vector<size_t> ranks(seissol::MPI::mpi.size());
+  if (seissol::Mpi::mpi.rank() == 0) {
+    std::vector<size_t> ranks(seissol::Mpi::mpi.size());
     for (size_t i = 0; i < ranks.size(); ++i) {
       ranks[i] = i;
     }
@@ -38,7 +38,7 @@ void seissol::writer::MiniSeisSolWriter::write(double elapsedTime, double weight
     std::fstream fileStream(path, std::ios::out);
     fileStream << "hostname,rank,localRank,elapsedTime,weight\n";
 
-    const auto& hostNames = seissol::MPI::mpi.getHostNames();
+    const auto& hostNames = seissol::Mpi::mpi.getHostNames();
     for (auto rank : ranks) {
       fileStream << "\"" << hostNames[rank] << "\"," << rank << ',' << localRanks[rank] << ','
                  << elapsedTimeVector[rank] << ',' << weightVector[rank] << '\n';

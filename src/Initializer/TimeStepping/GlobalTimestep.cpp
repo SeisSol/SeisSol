@@ -88,13 +88,13 @@ GlobalTimestep
                 1,
                 MPI_DOUBLE,
                 MPI_MIN,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
   MPI_Allreduce(&localMaxTimestep,
                 &timestep.globalMaxTimeStep,
                 1,
                 MPI_DOUBLE,
                 MPI_MAX,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
   return timestep;
 }
 } // namespace seissol::initializer

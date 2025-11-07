@@ -206,7 +206,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                 globalContained.size(),
                 MPI_SHORT,
                 MPI_MAX,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
 
   bool receiversMissing = false;
   for (std::size_t i = 0; i < numberOfPoints; ++i) {

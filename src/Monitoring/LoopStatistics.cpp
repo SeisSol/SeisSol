@@ -243,7 +243,7 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
   if (isLoopStatisticsNetcdfOutputOn) {
 #ifdef USE_NETCDF
     const auto loopStatFile = outputPrefix + "-loopStat-";
-    const auto rank = MPI::mpi.rank();
+    const auto rank = Mpi::mpi.rank();
     logInfo() << "Starting to write loop statistics samples to disk.";
     const unsigned nRegions = regions.size();
     for (unsigned region = 0; region < nRegions; ++region) {
@@ -254,13 +254,13 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
 
       long nSamples = regions[region].times.size();
       long sampleOffset = 0;
-      MPI_Scan(&nSamples, &sampleOffset, 1, MPI_LONG, MPI_SUM, MPI::mpi.comm());
+      MPI_Scan(&nSamples, &sampleOffset, 1, MPI_LONG, MPI_SUM, Mpi::mpi.comm());
 
       int ncid = 0;
       int stat = 0;
       stat = nc_create_par(fileName.c_str(),
                            NC_MPIIO | NC_CLOBBER | NC_NETCDF4,
-                           MPI::mpi.comm(),
+                           Mpi::mpi.comm(),
                            MPI_INFO_NULL,
                            &ncid);
       check_err(stat, __LINE__, __FILE__);
@@ -272,7 +272,7 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
       int offsetid = 0;
       int sampleid = 0;
 
-      stat = nc_def_dim(ncid, "rank", 1 + MPI::mpi.size(), &rankdim);
+      stat = nc_def_dim(ncid, "rank", 1 + Mpi::mpi.size(), &rankdim);
       check_err(stat, __LINE__, __FILE__);
       stat = nc_def_dim(ncid, "sample", NC_UNLIMITED, &sampledim);
       check_err(stat, __LINE__, __FILE__);

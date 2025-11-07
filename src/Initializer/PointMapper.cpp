@@ -109,8 +109,8 @@ void findMeshIds(const Eigen::Vector3d* points,
 }
 
 void cleanDoubles(short* contained, std::size_t numPoints) {
-  const auto myrank = seissol::MPI::mpi.rank();
-  const auto size = seissol::MPI::mpi.size();
+  const auto myrank = seissol::Mpi::mpi.rank();
+  const auto size = seissol::Mpi::mpi.size();
 
   auto globalContained = std::vector<short>(size * numPoints);
   MPI_Allgather(contained,
@@ -119,7 +119,7 @@ void cleanDoubles(short* contained, std::size_t numPoints) {
                 globalContained.data(),
                 numPoints,
                 MPI_SHORT,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
 
   std::size_t cleaned = 0;
   for (std::size_t point = 0; point < numPoints; ++point) {

@@ -28,10 +28,10 @@ void DirectGhostTimeCluster::sendCopyLayer() {
     if (!persistent) {
       MPI_Isend(meshStructure.copy[region].data,
                 static_cast<int>(meshStructure.copy[region].size),
-                MPI::precisionToMpiType(meshStructure.copy[region].datatype),
+                Mpi::precisionToMpiType(meshStructure.copy[region].datatype),
                 meshStructure.copy[region].rank,
                 meshStructure.copy[region].tag,
-                seissol::MPI::mpi.comm(),
+                seissol::Mpi::mpi.comm(),
                 sendRequests.data() + region);
     }
     sendQueue.push_back(region);
@@ -48,10 +48,10 @@ void DirectGhostTimeCluster::receiveGhostLayer() {
     if (!persistent) {
       MPI_Irecv(meshStructure.ghost[region].data,
                 static_cast<int>(meshStructure.ghost[region].size),
-                MPI::precisionToMpiType(meshStructure.ghost[region].datatype),
+                Mpi::precisionToMpiType(meshStructure.ghost[region].datatype),
                 meshStructure.ghost[region].rank,
                 meshStructure.ghost[region].tag,
-                seissol::MPI::mpi.comm(),
+                seissol::Mpi::mpi.comm(),
                 recvRequests.data() + region);
     }
     receiveQueue.push_back(region);
@@ -80,19 +80,19 @@ DirectGhostTimeCluster::DirectGhostTimeCluster(
     for (std::size_t region = 0; region < this->meshStructure.copy.size(); ++region) {
       MPI_Send_init(this->meshStructure.copy[region].data,
                     static_cast<int>(this->meshStructure.copy[region].size),
-                    MPI::precisionToMpiType(this->meshStructure.copy[region].datatype),
+                    Mpi::precisionToMpiType(this->meshStructure.copy[region].datatype),
                     this->meshStructure.copy[region].rank,
                     this->meshStructure.copy[region].tag,
-                    seissol::MPI::mpi.comm(),
+                    seissol::Mpi::mpi.comm(),
                     sendRequests.data() + region);
     }
     for (std::size_t region = 0; region < this->meshStructure.ghost.size(); ++region) {
       MPI_Recv_init(this->meshStructure.ghost[region].data,
                     static_cast<int>(this->meshStructure.ghost[region].size),
-                    MPI::precisionToMpiType(this->meshStructure.ghost[region].datatype),
+                    Mpi::precisionToMpiType(this->meshStructure.ghost[region].datatype),
                     this->meshStructure.ghost[region].rank,
                     this->meshStructure.ghost[region].tag,
-                    seissol::MPI::mpi.comm(),
+                    seissol::Mpi::mpi.comm(),
                     recvRequests.data() + region);
     }
   }

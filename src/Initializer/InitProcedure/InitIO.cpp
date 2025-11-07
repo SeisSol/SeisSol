@@ -527,7 +527,7 @@ void setIntegralMask(seissol::SeisSol& seissolInstance) {
 } // namespace
 
 void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstance) {
-  const auto rank = MPI::mpi.rank();
+  const auto rank = Mpi::mpi.rank();
   logInfo() << "Begin init output.";
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
@@ -539,7 +539,7 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
       filesystem::create_directory(outputDir);
     }
   }
-  seissol::MPI::barrier(MPI::mpi.comm());
+  seissol::Mpi::barrier(Mpi::mpi.comm());
 
   enableWaveFieldOutput(seissolInstance);
   setIntegralMask(seissolInstance);

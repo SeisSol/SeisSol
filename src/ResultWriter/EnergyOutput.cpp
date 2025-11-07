@@ -171,7 +171,7 @@ void EnergyOutput::init(
   } else {
     return;
   }
-  const auto rank = MPI::mpi.rank();
+  const auto rank = Mpi::mpi.rank();
   logInfo() << "Initializing energy output.";
 
   if constexpr (VolumeEnergyApproximation) {
@@ -219,7 +219,7 @@ void EnergyOutput::init(
 
 void EnergyOutput::syncPoint(double time) {
   assert(isEnabled);
-  const auto rank = MPI::mpi.rank();
+  const auto rank = Mpi::mpi.rank();
   logInfo() << "Writing energy output at time" << time;
   computeEnergies();
   reduceEnergies();
@@ -614,7 +614,7 @@ void EnergyOutput::computeEnergies() {
 }
 
 void EnergyOutput::reduceEnergies() {
-  const auto& comm = MPI::mpi.comm();
+  const auto& comm = Mpi::mpi.comm();
   MPI_Allreduce(MPI_IN_PLACE,
                 energiesStorage.energies.data(),
                 static_cast<int>(energiesStorage.energies.size()),
@@ -624,11 +624,11 @@ void EnergyOutput::reduceEnergies() {
 }
 
 void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
-  const auto& comm = MPI::mpi.comm();
+  const auto& comm = Mpi::mpi.comm();
   MPI_Allreduce(MPI_IN_PLACE,
                 minTimeSinceSlipRateBelowThreshold.data(),
                 static_cast<int>(minTimeSinceSlipRateBelowThreshold.size()),
-                MPI::castToMpiType<double>(),
+                Mpi::castToMpiType<double>(),
                 MPI_MIN,
                 comm);
 }
@@ -732,7 +732,7 @@ void EnergyOutput::checkAbortCriterion(
   }
 
   bool abort = abortCount == multisim::NumSimulations;
-  const auto& comm = MPI::mpi.comm();
+  const auto& comm = Mpi::mpi.comm();
   MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);
   if (abort) {
     seissolInstance.simulator().abort();

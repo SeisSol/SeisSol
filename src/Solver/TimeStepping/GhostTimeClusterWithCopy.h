@@ -15,7 +15,7 @@
 #include <Device/device.h>
 
 namespace seissol::time_stepping {
-template <MPI::DataTransferMode CommType>
+template <Mpi::DataTransferMode CommType>
 class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
   public:
   GhostTimeClusterWithCopy(double maxTimeStepSize,

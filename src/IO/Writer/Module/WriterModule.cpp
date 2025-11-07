@@ -31,15 +31,15 @@ WriterModule::WriterModule(const std::string& prefix,
                            const ScheduledWriter& settings,
                            const parallel::Pinning& pinning,
                            SeisSol& seissolInstance)
-    : rank(seissol::MPI::mpi.rank()), prefix(prefix), settings(settings), pinning(pinning),
+    : rank(seissol::Mpi::mpi.rank()), prefix(prefix), settings(settings), pinning(pinning),
       seissolInstance(seissolInstance) {}
 
 void WriterModule::setUp() {
   logInfo() << "Output Writer" << settings.name << ": setup.";
-  executor.setComm(seissol::MPI::mpi.comm());
+  executor.setComm(seissol::Mpi::mpi.comm());
   setExecutor(executor);
   // TODO: adjust the CommThread call here
-  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, seissolInstance.env())) {
+  if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, seissolInstance.env())) {
     const auto freeCpus = pinning.getFreeCPUsMask();
     logInfo() << "Output Writer" << settings.name
               << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus);

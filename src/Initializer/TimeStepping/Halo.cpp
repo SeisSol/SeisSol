@@ -35,7 +35,7 @@ void haloCommunication(const MeshLayout& comm,
                   datatype,
                   remote.rank,
                   remote.tag,
-                  seissol::MPI::mpi.comm(),
+                  seissol::Mpi::mpi.comm(),
                   &request);
         data += elemsize * remote.count;
       }
@@ -47,7 +47,7 @@ void haloCommunication(const MeshLayout& comm,
                   datatype,
                   remote.rank,
                   remote.tag,
-                  seissol::MPI::mpi.comm(),
+                  seissol::Mpi::mpi.comm(),
                   &request);
         data += elemsize * remote.count;
       }

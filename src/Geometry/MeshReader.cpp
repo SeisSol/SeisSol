@@ -264,7 +264,7 @@ void MeshReader::exchangeGhostlayerMetadata() {
   std::unordered_map<int, std::vector<GhostElementMetadata>> recvData;
 
   constexpr int Tag = 10;
-  MPI_Comm comm = seissol::MPI::mpi.comm();
+  MPI_Comm comm = seissol::Mpi::mpi.comm();
 
   std::vector<MPI_Request> requests(m_MPINeighbors.size() * 2);
 

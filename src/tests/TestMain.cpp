@@ -11,14 +11,14 @@
 #include "Parallel/MPI.h"
 
 int main(int argc, char** argv) {
-  seissol::MPI::mpi.init(argc, argv);
+  seissol::Mpi::mpi.init(argc, argv);
   doctest::Context context;
 
   context.applyCommandLine(argc, argv);
 
   const int returnValue = context.run();
 
-  seissol::MPI::finalize();
+  seissol::Mpi::finalize();
 
   return returnValue;
 }

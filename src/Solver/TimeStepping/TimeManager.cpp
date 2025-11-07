@@ -89,9 +89,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   MPI_Allreduce(MPI_IN_PLACE,
                 &drClusterOutput,
                 1,
-                MPI::castToMpiType<std::size_t>(),
+                Mpi::castToMpiType<std::size_t>(),
                 MPI_MIN,
-                MPI::mpi.comm());
+                Mpi::mpi.comm());
 
   for (std::size_t clusterId = 0; clusterId < drCellsPerCluster.size(); ++clusterId) {
     const bool isFirstDynamicRuptureCluster = drClusterOutput == clusterId;
@@ -186,7 +186,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   }
 
   // Create ghost time clusters for MPI
-  const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
+  const auto preferredDataTransferMode = Mpi::mpi.getPreferredDataTransferMode();
   const auto persistent = usePersistentMpi(seissolInstance.env());
   for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost | Interior)) {
 
@@ -239,7 +239,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
   std::sort(ghostClusters.begin(), ghostClusters.end(), rateSorter);
 
-  if (seissol::useCommThread(MPI::mpi, seissolInstance.env())) {
+  if (seissol::useCommThread(Mpi::mpi, seissolInstance.env())) {
     communicationManager = std::make_unique<ThreadedCommunicationManager>(
         std::move(ghostClusters), &seissolInstance.getPinning());
   } else {
@@ -287,7 +287,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 
   communicationManager->reset(synchronizationTime);
 
-  seissol::MPI::barrier(seissol::MPI::mpi.comm());
+  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
@@ -353,7 +353,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 void TimeManager::printComputationTime(const std::string& outputPrefix,
                                        bool isLoopStatisticsNetcdfOutputOn) {
   actorStateStatisticsManager.finish();
-  loopStatistics.printSummary(MPI::mpi.comm());
+  loopStatistics.printSummary(Mpi::mpi.comm());
   loopStatistics.writeSamples(outputPrefix, isLoopStatisticsNetcdfOutputOn);
 }
 

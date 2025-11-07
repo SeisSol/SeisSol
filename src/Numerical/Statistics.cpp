@@ -51,8 +51,8 @@ seissol::statistics::Summary::Summary(const std::vector<double>& values) : media
 }
 
 auto seissol::statistics::parallelSummary(double value) -> Summary {
-  auto collect = seissol::MPI::mpi.collect(value);
-  const int rank = seissol::MPI::mpi.rank();
+  auto collect = seissol::Mpi::mpi.collect(value);
+  const int rank = seissol::Mpi::mpi.rank();
   if (rank == 0) {
     return Summary(collect);
   }

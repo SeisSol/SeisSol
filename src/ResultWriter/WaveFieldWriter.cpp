@@ -40,7 +40,7 @@
 void seissol::writer::WaveFieldWriter::setUp() {
   setExecutor(m_executor);
   utils::Env env("SEISSOL_");
-  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, env)) {
+  if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, env)) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
     logInfo() << "Wave field writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {

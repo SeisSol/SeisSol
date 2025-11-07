@@ -38,7 +38,7 @@ void ClusteringWriter::addCluster(unsigned profilingId,
 
 void ClusteringWriter::write() const {
   using namespace seissol::filesystem;
-  const auto& mpi = MPI::mpi;
+  const auto& mpi = Mpi::mpi;
 
   const auto localRanks = mpi.collect(mpi.sharedMemMpiRank());
   const auto profilingIds = mpi.collectContainer(clusteringInformation.profilingIds);

@@ -180,7 +180,7 @@ PUMLReader::PUMLReader(const char* meshFile,
                        seissol::initializer::parameters::TopologyFormat topologyFormat,
                        initializer::time_stepping::LtsWeights* ltsWeights,
                        double tpwgt)
-    : MeshReader(seissol::MPI::mpi.rank()), boundaryFormat(boundaryFormat),
+    : MeshReader(seissol::Mpi::mpi.rank()), boundaryFormat(boundaryFormat),
       topologyFormat(topologyFormat) {
   // we need up to two meshes, potentially:
   // one mesh for the geometry
@@ -189,8 +189,8 @@ PUMLReader::PUMLReader(const char* meshFile,
 
   PumlMesh meshTopologyExtra;
   PumlMesh meshGeometry;
-  meshTopologyExtra.setComm(seissol::MPI::mpi.comm());
-  meshGeometry.setComm(seissol::MPI::mpi.comm());
+  meshTopologyExtra.setComm(seissol::Mpi::mpi.comm());
+  meshGeometry.setComm(seissol::Mpi::mpi.comm());
 
   read(meshGeometry, meshFile, false);
 
@@ -291,8 +291,8 @@ void PUMLReader::partition(PumlMesh& meshTopology,
   auto graph = PUML::TETPartitionGraph(meshTopology);
   graph.setVertexWeights(ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex());
 
-  auto nodeWeights = std::vector<double>(MPI::mpi.size());
-  MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights.data(), 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
+  auto nodeWeights = std::vector<double>(Mpi::mpi.size());
+  MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights.data(), 1, MPI_DOUBLE, seissol::Mpi::mpi.comm());
   double sum = 0.0;
   for (const auto& w : nodeWeights) {
     sum += w;
@@ -328,7 +328,7 @@ void PUMLReader::generatePUML(PumlMesh& meshTopology, PumlMesh& meshGeometry) {
 void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeometry) {
   SCOREP_USER_REGION("PUMLReader_getmesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-  const int rank = MPI::mpi.rank();
+  const int rank = Mpi::mpi.rank();
 
   const std::vector<PumlMesh::cell_t>& cells = meshTopology.cells();
   const std::vector<PumlMesh::face_t>& faces = meshTopology.faces();
@@ -463,14 +463,14 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
               MPI_CHAR,
               info.first,
               0,
-              MPI::mpi.comm(),
+              Mpi::mpi.comm(),
               &requests[k]);
     MPI_Irecv(ghostFirstVertex[k].data(),
               info.second.size(),
               MPI_UNSIGNED_LONG,
               info.first,
               0,
-              MPI::mpi.comm(),
+              Mpi::mpi.comm(),
               &requests[neighborInfo.size() + k]);
 
     // Neighbor side
@@ -499,14 +499,14 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
               MPI_CHAR,
               info.first,
               0,
-              MPI::mpi.comm(),
+              Mpi::mpi.comm(),
               &requests[neighborInfo.size() * 2 + k]);
     MPI_Isend(copyFirstVertex[k].data(),
               info.second.size(),
               MPI_UNSIGNED_LONG,
               info.first,
               0,
-              MPI::mpi.comm(),
+              Mpi::mpi.comm(),
               &requests[neighborInfo.size() * 3 + k]);
   }
   logassert(t.size() == sum);

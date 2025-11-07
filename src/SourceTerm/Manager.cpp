@@ -425,13 +425,13 @@ auto loadSourceFile(const char* fileName,
   MPI_Reduce(&numSources,
              &globalnumSources,
              1,
-             MPI::castToMpiType<std::size_t>(),
+             Mpi::castToMpiType<std::size_t>(),
              MPI_SUM,
              0,
-             seissol::MPI::mpi.comm());
+             seissol::Mpi::mpi.comm());
 
   logInfo() << "Found" << globalnumSources << "point sources.";
-  const int rank = seissol::MPI::mpi.rank();
+  const int rank = seissol::Mpi::mpi.rank();
   if (rank == 0 && points.size() > globalnumSources) {
     logError() << (points.size() - globalnumSources) << " point sources are outside the domain.";
   }

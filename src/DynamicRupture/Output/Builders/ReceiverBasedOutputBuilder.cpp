@@ -50,7 +50,7 @@
 namespace seissol::dr::output {
 void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshReader* reader) {
   meshReader = reader;
-  localRank = MPI::mpi.rank();
+  localRank = Mpi::mpi.rank();
 }
 
 void ReceiverBasedOutputBuilder::setLtsData(LTS::Storage& userWpStorage,

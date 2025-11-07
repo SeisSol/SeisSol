@@ -30,7 +30,7 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo& info,
   const unsigned int nCells = info.bufferSize(Cells) / (3 * sizeof(int));
   const unsigned int nVertices = info.bufferSize(Vertices) / (3 * sizeof(double));
 
-  MPI_Comm_split(seissol::MPI::mpi.comm(), (nCells > 0 ? 0 : MPI_UNDEFINED), 0, &m_comm);
+  MPI_Comm_split(seissol::Mpi::mpi.comm(), (nCells > 0 ? 0 : MPI_UNDEFINED), 0, &m_comm);
 
   m_enabled = true;
 

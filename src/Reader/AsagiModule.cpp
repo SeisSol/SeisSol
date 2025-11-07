@@ -61,7 +61,7 @@ AsagiMPIMode AsagiModule::getMPIMode(utils::Env& env) {
 
 int AsagiModule::getTotalThreads(utils::Env& env) {
   int totalThreads = OpenMP::threadCount();
-  if (seissol::useCommThread(seissol::MPI::mpi, env)) {
+  if (seissol::useCommThread(seissol::Mpi::mpi, env)) {
     totalThreads++;
   }
 

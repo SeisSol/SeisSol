@@ -28,9 +28,9 @@ namespace seissol {
  *
  * Make sure only one instance of this class exists!
  */
-class MPI : public MPIBasic {
+class Mpi : public MpiBasic {
   public:
-  ~MPI() override = default;
+  ~Mpi() override = default;
 
   /**
    * @brief Inits Device(s).
@@ -251,12 +251,12 @@ class MPI : public MPIBasic {
   DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode; }
 
   /** The only instance of the class */
-  static MPI mpi;
+  static Mpi mpi;
 
   private:
-  MPI_Comm m_comm;
+  MPI_Comm m_comm{MPI_COMM_NULL};
   MPI_Comm m_sharedMemComm{};
-  MPI() : m_comm(MPI_COMM_NULL) {}
+  Mpi() = default;
   DataTransferMode preferredDataTransferMode{DataTransferMode::Direct};
   std::vector<std::string> hostNames;
   std::vector<std::string> pcis;

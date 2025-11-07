@@ -97,8 +97,8 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
     }
   }
 
-  MPI_Allreduce(MPI_IN_PLACE, maxPointValue, 3, MPI_DOUBLE, MPI_MAX, seissol::MPI::mpi.comm());
-  MPI_Allreduce(MPI_IN_PLACE, minPointValue, 3, MPI_DOUBLE, MPI_MIN, seissol::MPI::mpi.comm());
+  MPI_Allreduce(MPI_IN_PLACE, maxPointValue, 3, MPI_DOUBLE, MPI_MAX, seissol::Mpi::mpi.comm());
+  MPI_Allreduce(MPI_IN_PLACE, minPointValue, 3, MPI_DOUBLE, MPI_MIN, seissol::Mpi::mpi.comm());
 
   logInfo() << "Smallest bounding box around the mesh: <" << minPointValue[0] << minPointValue[1]
             << minPointValue[2] << "> to <" << maxPointValue[0] << maxPointValue[1]
@@ -111,7 +111,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   double nodeWeight = 1.0;
 
   if (seissolInstance.env().get<bool>("MINISEISSOL", true)) {
-    if (seissol::MPI::mpi.size() > 1) {
+    if (seissol::Mpi::mpi.size() > 1) {
       logInfo() << "Running mini SeisSol to determine node weights.";
       auto elapsedTime = seissol::solver::miniSeisSol();
       nodeWeight = 1.0 / elapsedTime;
@@ -140,7 +140,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
     logInfo() << "Inferring boundary format.";
     MPI_Info info = MPI_INFO_NULL;
     const hid_t plistId = _eh(H5Pcreate(H5P_FILE_ACCESS));
-    _eh(H5Pset_fapl_mpio(plistId, seissol::MPI::mpi.comm(), info));
+    _eh(H5Pset_fapl_mpio(plistId, seissol::Mpi::mpi.comm(), info));
     const hid_t dataFile =
         _eh(H5Fopen(seissolParams.mesh.meshFileName.c_str(), H5F_ACC_RDONLY, plistId));
 
@@ -314,8 +314,8 @@ void readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters
   // unpack seissolParams
   const auto cubeParameters = seissolParams.cubeGenerator;
 
-  const auto commRank = seissol::MPI::mpi.rank();
-  const auto commSize = seissol::MPI::mpi.size();
+  const auto commRank = seissol::Mpi::mpi.rank();
+  const auto commSize = seissol::Mpi::mpi.size();
   const std::string realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
 
   seissolInstance.setMeshReader(
@@ -328,7 +328,7 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
   SCOREP_USER_REGION("init_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  const auto commSize = seissol::MPI::mpi.size();
+  const auto commSize = seissol::Mpi::mpi.size();
 
   logInfo() << "Begin init mesh.";
 

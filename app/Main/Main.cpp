@@ -60,7 +60,7 @@ auto readYamlParams(const std::string& parameterFile) -> std::shared_ptr<YAML::N
 auto main(int argc, char* argv[]) -> int {
   try {
 #ifdef ACL_DEVICE
-    seissol::MPI::mpi.bindAcceleratorDevice();
+    seissol::Mpi::mpi.bindAcceleratorDevice();
     device::DeviceInstance& device = device::DeviceInstance::getInstance();
     device.api->initialize();
 #endif // ACL_DEVICE
@@ -75,8 +75,8 @@ auto main(int argc, char* argv[]) -> int {
     // Call pre MPI hooks
     seissol::Modules::callHook<ModuleHook::PreMPI>();
 
-    seissol::MPI::mpi.init(argc, argv);
-    const int rank = seissol::MPI::mpi.rank();
+    seissol::Mpi::mpi.init(argc, argv);
+    const int rank = seissol::Mpi::mpi.rank();
 
     utils::Logger::setRank(rank);
 
@@ -139,7 +139,7 @@ auto main(int argc, char* argv[]) -> int {
       [[fallthrough]];
     }
     case utils::Args::Error: {
-      seissol::MPI::finalize();
+      seissol::Mpi::finalize();
       return 1;
     }
     case utils::Args::Success: {
