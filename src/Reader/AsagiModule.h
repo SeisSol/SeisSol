@@ -37,7 +37,7 @@ class AsagiModule : public Module {
   static std::shared_ptr<AsagiModule> instance;
 
   public:
-  AsagiModule(utils::Env& env);
+  explicit AsagiModule(utils::Env& env);
   ~AsagiModule() override = default;
   AsagiModule(const AsagiModule&) = delete;
   void operator=(const AsagiModule&) = delete;

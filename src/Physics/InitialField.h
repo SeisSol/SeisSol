@@ -42,7 +42,7 @@ class ZeroField : public InitialField {
 
 class PressureInjection : public InitialField {
   public:
-  PressureInjection(
+  explicit PressureInjection(
       const seissol::initializer::parameters::InitializationParameters& initializationParameters);
 
   void evaluate(double time,
@@ -92,7 +92,7 @@ class Planarwave : public InitialField {
 class SuperimposedPlanarwave : public InitialField {
   public:
   //! Choose phase in [0, 2*pi]
-  SuperimposedPlanarwave(const CellMaterialData& materialData, real phase = 0.0);
+  explicit SuperimposedPlanarwave(const CellMaterialData& materialData, real phase = 0.0);
 
   void evaluate(double time,
                 const std::array<double, 3>* points,

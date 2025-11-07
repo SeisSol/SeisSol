@@ -263,7 +263,7 @@ class TimeBasisFunctionGenerator {
   }
 
   public:
-  TimeBasisFunctionGenerator(T tau) : tau_(tau) {}
+  explicit TimeBasisFunctionGenerator(T tau) : tau_(tau) {}
 
   T operator()(unsigned int i) const { return functions::DubinerP<1>({i}, {tau_}); }
 };

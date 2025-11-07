@@ -19,8 +19,14 @@
 # * bugprone-crtp-constructor-accessibility,
 # * bugprone-branch-clone,
 # * cppcoreguidelines-use-enum-class
+# * google-runtime-int
 
 Checks:
+  - google-*
+  - -google-readability-todo
+  - -google-runtime-int
+  - -google-build-using-namespace
+  - -google-default-arguments
   - cert-*
   - -cert-err58-cpp
   - openmp-*

@@ -62,7 +62,7 @@ class TimeManager {
   /**
    * Construct a new time manager.
    **/
-  TimeManager(seissol::SeisSol& seissolInstance);
+  explicit TimeManager(seissol::SeisSol& seissolInstance);
 
   /**
    * Destruct the time manager.

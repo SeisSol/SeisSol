@@ -81,7 +81,7 @@ class MemoryManager {
   /**
    * Constructor
    **/
-  MemoryManager(seissol::SeisSol& instance) : seissolInstance(instance) {}
+  explicit MemoryManager(seissol::SeisSol& instance) : seissolInstance(instance) {}
 
   /**
    * Destructor, memory is freed by managed allocator
