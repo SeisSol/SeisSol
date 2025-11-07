@@ -24,31 +24,29 @@
 #include "yateto.h"
 #endif
 
-namespace {
-// Helper functions, needed because C++ doesnt allow partial func. template specialisation
-template <typename MappingKrnl>
-void addRotationToProjectKernel(MappingKrnl& projectKernel,
-                                const seissol::CellBoundaryMapping& boundaryMapping) {
-  // do nothing
-}
+namespace seissol::kernels {
+
+class DirichletBoundary {
+  private:
+  // Helper functions, needed because C++ doesnt allow partial func. template specialization
+  template <typename MappingKrnl>
+  static void addRotationToProjectKernel(MappingKrnl& projectKernel,
+                                         const seissol::CellBoundaryMapping& boundaryMapping) {
+    // do nothing
+  }
 
 //
 // GCC warns that the method below is unused. This is not correct.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
-template <>
-void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
-                                const seissol::CellBoundaryMapping& boundaryMapping) {
-  assert(boundaryMapping.dataTinv != nullptr);
-  projectKernel.Tinv = boundaryMapping.dataTinv;
-}
+  template <>
+  void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
+                                  const seissol::CellBoundaryMapping& boundaryMapping) {
+    assert(boundaryMapping.dataTinv != nullptr);
+    projectKernel.Tinv = boundaryMapping.dataTinv;
+  }
 #pragma GCC diagnostic pop
 
-} // namespace
-
-namespace seissol::kernels {
-
-class DirichletBoundary {
   public:
   DirichletBoundary() { quadrature::GaussLegendre(quadPoints, quadWeights, ConvergenceOrder); }
 
