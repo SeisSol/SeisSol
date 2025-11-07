@@ -79,7 +79,7 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   double qs;
 
   ViscoElasticMaterialParametrized() = default;
-  ViscoElasticMaterialParametrized(const std::vector<double>& materialValues)
+  explicit ViscoElasticMaterialParametrized(const std::vector<double>& materialValues)
       : ElasticMaterial(materialValues) {
     for (int mech = 0; mech < Mechanisms; ++mech) {
       this->omega[mech] = materialValues.at(3 + 4 * mech);

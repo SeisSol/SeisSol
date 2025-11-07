@@ -286,7 +286,7 @@ struct CellBoundaryMapping {
   real* easiBoundaryMap{nullptr};
 
   CellBoundaryMapping() = default;
-  CellBoundaryMapping(BoundaryFaceInformation& faceInfo)
+  explicit CellBoundaryMapping(BoundaryFaceInformation& faceInfo)
       : nodes(faceInfo.nodes), dataT(faceInfo.dataT), dataTinv(faceInfo.dataTinv),
         easiBoundaryConstant(faceInfo.easiBoundaryConstant),
         easiBoundaryMap(faceInfo.easiBoundaryMap) {}

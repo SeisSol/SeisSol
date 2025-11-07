@@ -52,7 +52,7 @@ struct ElasticMaterial : Material {
   [[nodiscard]] double getMuBar() const override { return mu; }
 
   ElasticMaterial() = default;
-  ElasticMaterial(const std::vector<double>& materialValues)
+  explicit ElasticMaterial(const std::vector<double>& materialValues)
       : Material(materialValues), lambda(materialValues.at(2)), mu(materialValues.at(1)) {}
 
   ~ElasticMaterial() override = default;

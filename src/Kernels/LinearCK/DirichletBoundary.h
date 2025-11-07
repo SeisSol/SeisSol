@@ -35,18 +35,6 @@ class DirichletBoundary {
     // do nothing
   }
 
-//
-// GCC warns that the method below is unused. This is not correct.
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
-  template <>
-  void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
-                                  const seissol::CellBoundaryMapping& boundaryMapping) {
-    assert(boundaryMapping.dataTinv != nullptr);
-    projectKernel.Tinv = boundaryMapping.dataTinv;
-  }
-#pragma GCC diagnostic pop
-
   public:
   DirichletBoundary() { quadrature::GaussLegendre(quadPoints, quadWeights, ConvergenceOrder); }
 
@@ -177,6 +165,19 @@ class DirichletBoundary {
   double quadPoints[ConvergenceOrder];
   double quadWeights[ConvergenceOrder];
 };
+
+//
+// GCC warns that the method below is unused. This is not correct.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+template <>
+inline void DirichletBoundary::addRotationToProjectKernel(
+    seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
+    const seissol::CellBoundaryMapping& boundaryMapping) {
+  assert(boundaryMapping.dataTinv != nullptr);
+  projectKernel.Tinv = boundaryMapping.dataTinv;
+}
+#pragma GCC diagnostic pop
 
 } // namespace seissol::kernels
 

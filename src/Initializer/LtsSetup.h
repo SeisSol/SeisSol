@@ -33,7 +33,7 @@ class LtsSetup {
 
   LtsSetup() = default;
 
-  LtsSetup(BitmapType data) : data(data) {}
+  explicit LtsSetup(BitmapType data) : data(data) {}
 
   constexpr auto setNeighborHasDerivatives(std::uint32_t face, bool derivatives) -> LtsSetup& {
     assert(face < Cell::NumFaces);

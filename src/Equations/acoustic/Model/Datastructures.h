@@ -53,7 +53,7 @@ struct AcousticMaterial : public Material {
   [[nodiscard]] double getMuBar() const override { return 0.0; }
 
   AcousticMaterial() = default;
-  AcousticMaterial(const std::vector<double>& materialValues)
+  explicit AcousticMaterial(const std::vector<double>& materialValues)
       : Material(materialValues), lambda(materialValues.at(1)) {}
 
   ~AcousticMaterial() override = default;

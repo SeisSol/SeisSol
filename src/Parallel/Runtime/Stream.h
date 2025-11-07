@@ -217,7 +217,7 @@ class StreamRuntime {
   public:
   StreamRuntime() : StreamRuntime(0) {}
 
-  StreamRuntime(std::size_t ringbufferSize) {}
+  explicit StreamRuntime(std::size_t ringbufferSize) {}
 
   template <typename F>
   void enqueueLoop(std::size_t elemCount, const F& handler) {

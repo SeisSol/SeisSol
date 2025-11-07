@@ -93,7 +93,7 @@ private:
     bool lenient;
   };
 
-  Zip(bool lenient, RangeTs&&... ranges) : ranges(ranges...), lenient(lenient) {}
+  explicit Zip(bool lenient, RangeTs&&... ranges) : ranges(ranges...), lenient(lenient) {}
 
   constexpr auto begin() {
     return Iterator<IteratorType<RangeTs>...>(

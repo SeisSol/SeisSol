@@ -26,7 +26,7 @@ namespace seissol::initializer {
 template <typename T>
 class EnumLayer {
   public:
-  EnumLayer(const std::vector<T>& supportedValues) : supportedValues(supportedValues) {
+  explicit EnumLayer(const std::vector<T>& supportedValues) : supportedValues(supportedValues) {
     for (std::size_t i = 0; i < supportedValues.size(); ++i) {
       reverse[supportedValues[i]] = i;
     }
@@ -53,7 +53,7 @@ class EnumLayer {
 template <typename T>
 class TraitLayer {
   public:
-  TraitLayer(const std::vector<T>& supportedValues) : supportedValues(supportedValues) {
+  explicit TraitLayer(const std::vector<T>& supportedValues) : supportedValues(supportedValues) {
     for (std::size_t i = 0; i < supportedValues.size(); ++i) {
       reverse[supportedValues[i].index()] = i;
     }
@@ -164,7 +164,7 @@ class ColorMap {
   NestedLayerSets layerSets;
 
   public:
-  ColorMap(Definitions&&... definitions)
+  explicit ColorMap(Definitions&&... definitions)
       : layerSets(NestTypes<Definitions...>::create(std::forward<Definitions>(definitions)...)) {}
 
   template <typename F, typename... Args>
