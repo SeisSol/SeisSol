@@ -7,13 +7,6 @@
 
 enable_language(CUDA)
 
-set(DEVICE_SRC ${DEVICE_SRC}
-    ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/gpulike_subroutine.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/cudahip/PlasticityAux.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterCudaHip.cpp)
-
 function(make_device_lib NAME FILES)
 
     add_library(${NAME} SHARED ${FILES})
@@ -53,5 +46,3 @@ function(make_device_lib NAME FILES)
     endif()
 
 endfunction()
-
-make_device_lib(seissol-device-lib "${DEVICE_SRC}")
