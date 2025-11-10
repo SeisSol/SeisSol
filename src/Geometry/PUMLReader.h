@@ -45,8 +45,8 @@ inline int decodeBoundary(const void* data,
 
 class PUMLReader : public seissol::geometry::MeshReader {
   public:
-  PUMLReader(const char* meshFile,
-             const char* partitioningLib,
+  PUMLReader(const std::string& meshFile,
+             const std::string& partitioningLib,
              seissol::initializer::parameters::BoundaryFormat boundaryFormat =
                  seissol::initializer::parameters::BoundaryFormat::I32,
              seissol::initializer::parameters::TopologyFormat topologyFormat =
@@ -64,7 +64,7 @@ class PUMLReader : public seissol::geometry::MeshReader {
   /**
    * Read the mesh
    */
-  void read(PumlMesh& meshTopology, const char* meshFile, bool topology);
+  void read(PumlMesh& meshTopology, const std::string& file, bool topology);
 
   /**
    * Create the partitioning
@@ -73,8 +73,7 @@ class PUMLReader : public seissol::geometry::MeshReader {
                         PumlMesh& meshGeometry,
                         initializer::time_stepping::LtsWeights* ltsWeights,
                         double tpwgt,
-                        const char* meshFile,
-                        const char* partitioningLib);
+                        const std::string& partitioningLib);
   /**
    * Generate the PUML data structure
    */

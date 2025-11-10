@@ -174,8 +174,8 @@ const std::array<std::int32_t, 4> FirstFaceVertex = {0, 0, 0, 1};
 
 namespace seissol::geometry {
 
-PUMLReader::PUMLReader(const char* meshFile,
-                       const char* partitioningLib,
+PUMLReader::PUMLReader(const std::string& meshFile,
+                       const std::string& partitioningLib,
                        seissol::initializer::parameters::BoundaryFormat boundaryFormat,
                        seissol::initializer::parameters::TopologyFormat topologyFormat,
                        initializer::time_stepping::LtsWeights* ltsWeights,
@@ -228,17 +228,15 @@ PUMLReader::PUMLReader(const char* meshFile,
   if (ltsWeights != nullptr) {
     ltsWeights->computeWeights(meshTopology, meshGeometry);
   }
-  partition(meshTopology, meshGeometry, ltsWeights, tpwgt, meshFile, partitioningLib);
+  partition(meshTopology, meshGeometry, ltsWeights, tpwgt, partitioningLib);
 
   generatePUML(meshTopology, meshGeometry);
 
   getMesh(meshTopology, meshGeometry);
 }
 
-void PUMLReader::read(PumlMesh& meshTopology, const char* meshFile, bool topology) {
+void PUMLReader::read(PumlMesh& meshTopology, const std::string& file, bool topology) {
   SCOREP_USER_REGION("PUMLReader_read", SCOREP_USER_REGION_TYPE_FUNCTION);
-
-  const std::string file(meshFile);
 
   if (topology) {
     meshTopology.open((file + ":/topology").c_str(), (file + ":/geometry").c_str());
@@ -274,8 +272,7 @@ void PUMLReader::partition(PumlMesh& meshTopology,
                            PumlMesh& meshGeometry,
                            initializer::time_stepping::LtsWeights* ltsWeights,
                            double tpwgt,
-                           const char* meshFile,
-                           const char* partitioningLib) {
+                           const std::string& partitioningLib) {
   SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   auto partType = toPartitionerType(std::string_view(partitioningLib));

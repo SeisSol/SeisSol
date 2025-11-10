@@ -10,6 +10,9 @@
 
 #include <doctest.h>
 
+#include "Common/Filesystem.h"
+#include "Setup.h"
+
 #include <cmath>
 #include <limits>
 #include <ostream>
@@ -108,6 +111,14 @@ inline bool operator>(const AbsApprox& lhs, double rhs) { return lhs.m_value > r
 inline doctest::String toString(const AbsApprox& in) {
   // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
   return doctest::String("AbsApprox( ") + doctest::toString(in.m_value) + " )";
+}
+
+// test file path derelativizer.
+// Used to handle different execution directories for the tests
+inline std::string tpath(const std::string& subpath) {
+  const auto base = seissol::filesystem::path(TestSetup::Path);
+  const auto addend = seissol::filesystem::path(subpath);
+  return std::string(base / addend);
 }
 
 } // namespace seissol::unit_test

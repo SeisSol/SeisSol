@@ -39,7 +39,7 @@ TEST_CASE("LTS Weights") {
   seissolParameters.timeStepping.lts = ltsParameters;
   seissolParameters.timeStepping.cfl = 1;
   seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
-  seissolParameters.model.materialFileName = "Testing/material.yaml";
+  seissolParameters.model.materialFileName = tpath("Testing/material.yaml");
   seissolParameters.model.useCellHomogenizedMaterial = false;
   seissolParameters.model.plasticity = false;
   const utils::Env env("SEISSOL_");
@@ -47,7 +47,7 @@ TEST_CASE("LTS Weights") {
 
   auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
   const auto pumlReader =
-      seissol::geometry::PUMLReader("Testing/mesh.h5",
+      seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
                                     "Default",
                                     seissol::initializer::parameters::BoundaryFormat::I32,
                                     seissol::initializer::parameters::TopologyFormat::Geometric,

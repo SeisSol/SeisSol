@@ -488,7 +488,7 @@ if (TESTING)
             EXECUTABLE seissol-serial-test
             EXCLUDE "/usr/*"
                     "submodules/*"
-                    "*/tests/*"
+                    "tests/*"
                     "external/*"
                     "*/codegen/GeneratedCode/*"
                     "/opt/*"

@@ -15,7 +15,7 @@
 namespace seissol::unit_test {
 TEST_CASE("NRF Reader") {
   seissol::sourceterm::NRF nrf;
-  seissol::sourceterm::readNRF("Testing/source_loh.nrf", nrf);
+  seissol::sourceterm::readNRF(tpath("Testing/source_loh.nrf").c_str(), nrf);
 
   REQUIRE(nrf.centres[0](0) == AbsApprox(0.0));
   REQUIRE(nrf.centres[0](1) == AbsApprox(0.0));

@@ -13,7 +13,7 @@
 namespace seissol::unit_test {
 TEST_CASE("FSRM Reader 1") {
   seissol::sourceterm::FSRMSource fsrm;
-  fsrm.read(std::string("Testing/fsrm_source1.dat"));
+  fsrm.read(tpath("Testing/fsrm_source1.dat"));
 
   REQUIRE(fsrm.momentTensor[0][0] == doctest::Approx(0.0));
   REQUIRE(fsrm.momentTensor[0][1] == doctest::Approx(-0.1e+19));
@@ -55,7 +55,7 @@ TEST_CASE("FSRM Reader 1") {
 
 TEST_CASE("FSRM Reader 2") {
   seissol::sourceterm::FSRMSource fsrm;
-  fsrm.read(std::string("Testing/fsrm_source2.dat"));
+  fsrm.read(tpath("Testing/fsrm_source2.dat"));
 
   REQUIRE(fsrm.momentTensor[0][0] == doctest::Approx(0.01));
   REQUIRE(fsrm.momentTensor[0][1] == doctest::Approx(0.02));
@@ -126,6 +126,6 @@ TEST_CASE("FSRM Reader 2") {
 
 TEST_CASE("FSRM Reader File Not Found") {
   seissol::sourceterm::FSRMSource fsrm;
-  REQUIRE_THROWS(fsrm.read(std::string("Testing/unknown-file.dat")));
+  REQUIRE_THROWS(fsrm.read(tpath("Testing/unknown-file.dat")));
 }
 } // namespace seissol::unit_test

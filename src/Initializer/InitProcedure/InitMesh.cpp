@@ -282,8 +282,8 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
 
   auto ltsWeights = getLtsWeightsImplementation(
       seissolParams.timeStepping.lts.getLtsWeightsType(), config, seissolInstance);
-  auto* meshReader = new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName.c_str(),
-                                                       seissolParams.mesh.partitioningLib.c_str(),
+  auto* meshReader = new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName,
+                                                       seissolParams.mesh.partitioningLib,
                                                        boundaryFormat,
                                                        topologyFormat,
                                                        ltsWeights.get(),

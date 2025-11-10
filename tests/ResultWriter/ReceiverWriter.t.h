@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "ResultWriter/ReceiverWriter.h"
+#include "TestHelper.h"
 
 #include <string>
 
@@ -37,7 +38,7 @@ TEST_CASE("Throws expected exceptions for conversion errors") {
 }
 
 TEST_CASE("Parses receiver file correctly") {
-  const std::string receiverFileName = "Testing/receiver_correct.dat";
+  const auto receiverFileName = tpath("Testing/receiver_correct.dat");
   const auto points = seissol::writer::parseReceiverFile(receiverFileName);
 
   const auto expectedPoints = std::vector<Eigen::Vector3d>{{1, 0.1, 10}, {10, 2, 0.2}};

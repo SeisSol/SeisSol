@@ -57,7 +57,7 @@ add_custom_command(
      "--executable_pspamm=${PSpaMM_PROGRAM}"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
      ${OVERRIDE_VECTORSIZE_PARAM}
-     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/codegen
+     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
      DEPENDS
         build-time-make-directory
         "${CMAKE_CURRENT_SOURCE_DIR}/generate.py"
