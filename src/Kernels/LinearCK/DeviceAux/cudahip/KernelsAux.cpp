@@ -185,15 +185,15 @@ void taylorSum(
 
 namespace {
 __launch_bounds__(64) __global__ void kernel_local3(const float** A,
-                                                     const float** B,
-                                                     unsigned Boffset,
-                                                     const float* C1,
-                                                     const float* C2,
-                                                     const float* C3,
-                                                     const float* C4,
-                                                     float** D,
-                                                     size_t numElements,
-                                                     const unsigned* flags) {
+                                                    const float** B,
+                                                    unsigned Boffset,
+                                                    const float* C1,
+                                                    const float* C2,
+                                                    const float* C3,
+                                                    const float* C4,
+                                                    float** D,
+                                                    size_t numElements,
+                                                    const unsigned* flags) {
   // meta data:
   // A = {rows: 64, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0), np.int64(64),
   // np.int64(9)]}; B = {rows: 9, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0),
@@ -265,55 +265,55 @@ __launch_bounds__(64) __global__ void kernel_local3(const float** A,
     // gemm: glbC x _1
     if (tid_x < 56) {
 
-// #pragma unroll
+      // #pragma unroll
       for (int k = 0; k < 56; k += Cache) {
         float values[Faces][Cache]{};
         if (has1) {
 #pragma unroll
           for (int kk = 0; kk < Cache; kk += 4) {
             const float4 data = *((float4*)glbC1[tid_x + (k + kk) * 56]);
-            values[0][kk+0] = data.x;
-            values[0][kk+1] = data.y;
-            values[0][kk+2] = data.z;
-            values[0][kk+3] = data.w;
+            values[0][kk + 0] = data.x;
+            values[0][kk + 1] = data.y;
+            values[0][kk + 2] = data.z;
+            values[0][kk + 3] = data.w;
           }
-        __builtin_amdgcn_sched_group_barrier(0x0020, Cache / 4, 1);
+          __builtin_amdgcn_sched_group_barrier(0x0020, Cache / 4, 1);
         }
         if (has2) {
 #pragma unroll
           for (int kk = 0; kk < Cache; kk += 4) {
             const float4 data = *((float4*)glbC2[tid_x + (k + kk) * 56]);
-            values[1][kk+0] = data.x;
-            values[1][kk+1] = data.y;
-            values[1][kk+2] = data.z;
-            values[1][kk+3] = data.w;
+            values[1][kk + 0] = data.x;
+            values[1][kk + 1] = data.y;
+            values[1][kk + 2] = data.z;
+            values[1][kk + 3] = data.w;
           }
-        __builtin_amdgcn_sched_group_barrier(0x0020, Cache / 4, 2);
+          __builtin_amdgcn_sched_group_barrier(0x0020, Cache / 4, 2);
         }
         if (has3) {
 #pragma unroll
           for (int kk = 0; kk < Cache; kk += 4) {
             const float4 data = *((float4*)glbC3[tid_x + (k + kk) * 56]);
-            values[2][kk+0] = data.x;
-            values[2][kk+1] = data.y;
-            values[2][kk+2] = data.z;
-            values[2][kk+3] = data.w;
+            values[2][kk + 0] = data.x;
+            values[2][kk + 1] = data.y;
+            values[2][kk + 2] = data.z;
+            values[2][kk + 3] = data.w;
           }
-        __builtin_amdgcn_sched_group_barrier(0x0020, Cache / 4, 3);
+          __builtin_amdgcn_sched_group_barrier(0x0020, Cache / 4, 3);
         }
         if (has4) {
 #pragma unroll
           for (int kk = 0; kk < Cache; kk += 4) {
             const float4 data = *((float4*)glbC4[tid_x + (k + kk) * 56]);
-            values[3][kk+0] = data.x;
-            values[3][kk+1] = data.y;
-            values[3][kk+2] = data.z;
-            values[3][kk+3] = data.w;
+            values[3][kk + 0] = data.x;
+            values[3][kk + 1] = data.y;
+            values[3][kk + 2] = data.z;
+            values[3][kk + 3] = data.w;
           }
-        __builtin_amdgcn_sched_group_barrier(0x0020, Cache / 4, 4);
+          __builtin_amdgcn_sched_group_barrier(0x0020, Cache / 4, 4);
         }
 
-        #pragma unroll
+#pragma unroll
         for (int n = 0; n < Quantities; ++n) {
           float local[Cache]{};
 #pragma unroll
@@ -330,7 +330,6 @@ __launch_bounds__(64) __global__ void kernel_local3(const float** A,
 
           __builtin_amdgcn_sched_group_barrier(0x0100, Cache, 0);
         }
-
       }
     }
 
@@ -344,21 +343,21 @@ __launch_bounds__(64) __global__ void kernel_local3(const float** A,
         reg1[n] += reg0[d][k] * _0L.x;
       }
       {
-        const auto d = (x+1) / (Quantities * Quantities);
-        const auto n = ((x+1) / Quantities) % Quantities;
-        const auto k = (x+1) % Quantities;
+        const auto d = (x + 1) / (Quantities * Quantities);
+        const auto n = ((x + 1) / Quantities) % Quantities;
+        const auto k = (x + 1) % Quantities;
         reg1[n] += reg0[d][k] * _0L.y;
       }
       {
-        const auto d = (x+2) / (Quantities * Quantities);
-        const auto n = ((x+2) / Quantities) % Quantities;
-        const auto k = (x+2) % Quantities;
+        const auto d = (x + 2) / (Quantities * Quantities);
+        const auto n = ((x + 2) / Quantities) % Quantities;
+        const auto k = (x + 2) % Quantities;
         reg1[n] += reg0[d][k] * _0L.z;
       }
       {
-        const auto d = (x+3) / (Quantities * Quantities);
-        const auto n = ((x+3) / Quantities) % Quantities;
-        const auto k = (x+3) % Quantities;
+        const auto d = (x + 3) / (Quantities * Quantities);
+        const auto n = ((x + 3) / Quantities) % Quantities;
+        const auto k = (x + 3) % Quantities;
         reg1[n] += reg0[d][k] * _0L.w;
       }
       __builtin_amdgcn_sched_group_barrier(0x0100, 1, 0);
@@ -373,15 +372,15 @@ __launch_bounds__(64) __global__ void kernel_local3(const float** A,
 }
 
 __launch_bounds__(64) __global__ void kernel_local3(const float** A,
-                                                     const float** B,
-                                                     unsigned Boffset,
-                                                     const float* C1,
-                                                     const float* C2,
-                                                     const float* C3,
-                                                     const float* C4,
-                                                     float** D,
-                                                     size_t numElements,
-                                                     const unsigned* flags) {
+                                                    const float** B,
+                                                    unsigned Boffset,
+                                                    const float* C1,
+                                                    const float* C2,
+                                                    const float* C3,
+                                                    const float* C4,
+                                                    float** D,
+                                                    size_t numElements,
+                                                    const unsigned* flags) {
   // meta data:
   // A = {rows: 64, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0), np.int64(64),
   // np.int64(9)]}; B = {rows: 9, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0),
@@ -453,7 +452,7 @@ __launch_bounds__(64) __global__ void kernel_local3(const float** A,
     // gemm: glbC x _1
     if (tid_x < 56) {
 
-// #pragma unroll
+      // #pragma unroll
       for (int k = 0; k < 56; k += Cache) {
         float values[Faces][Cache]{};
         if (has1) {
@@ -461,31 +460,31 @@ __launch_bounds__(64) __global__ void kernel_local3(const float** A,
           for (int kk = 0; kk < Cache; ++kk) {
             values[0][kk] = glbC1[tid_x + (k + kk) * 56];
           }
-        __builtin_amdgcn_sched_group_barrier(0x0020, 8, 1);
+          __builtin_amdgcn_sched_group_barrier(0x0020, 8, 1);
         }
         if (has2) {
 #pragma unroll
           for (int kk = 0; kk < Cache; ++kk) {
             values[1][kk] = glbC2[tid_x + (k + kk) * 56];
           }
-        __builtin_amdgcn_sched_group_barrier(0x0020, 8, 2);
+          __builtin_amdgcn_sched_group_barrier(0x0020, 8, 2);
         }
         if (has3) {
 #pragma unroll
           for (int kk = 0; kk < Cache; ++kk) {
             values[2][kk] = glbC3[tid_x + (k + kk) * 56];
           }
-        __builtin_amdgcn_sched_group_barrier(0x0020, 8, 3);
+          __builtin_amdgcn_sched_group_barrier(0x0020, 8, 3);
         }
         if (has4) {
 #pragma unroll
           for (int kk = 0; kk < Cache; ++kk) {
             values[3][kk] = glbC4[tid_x + (k + kk) * 56];
           }
-        __builtin_amdgcn_sched_group_barrier(0x0020, 8, 4);
+          __builtin_amdgcn_sched_group_barrier(0x0020, 8, 4);
         }
 
-        #pragma unroll
+#pragma unroll
         for (int n = 0; n < Quantities; ++n) {
           float local[Cache]{};
 #pragma unroll
@@ -502,7 +501,6 @@ __launch_bounds__(64) __global__ void kernel_local3(const float** A,
 
           __builtin_amdgcn_sched_group_barrier(0x0100, Cache, 0);
         }
-
       }
     }
 
@@ -531,21 +529,21 @@ __launch_bounds__(64) __global__ void kernel_local3(const float** A,
         reg1[n] += reg0[d][k] * _0L.x;
       }
       {
-        const auto d = (x+1) / (Quantities * Quantities);
-        const auto n = ((x+1) / Quantities) % Quantities;
-        const auto k = (x+1) % Quantities;
+        const auto d = (x + 1) / (Quantities * Quantities);
+        const auto n = ((x + 1) / Quantities) % Quantities;
+        const auto k = (x + 1) % Quantities;
         reg1[n] += reg0[d][k] * _0L.y;
       }
       {
-        const auto d = (x+2) / (Quantities * Quantities);
-        const auto n = ((x+2) / Quantities) % Quantities;
-        const auto k = (x+2) % Quantities;
+        const auto d = (x + 2) / (Quantities * Quantities);
+        const auto n = ((x + 2) / Quantities) % Quantities;
+        const auto k = (x + 2) % Quantities;
         reg1[n] += reg0[d][k] * _0L.z;
       }
       {
-        const auto d = (x+3) / (Quantities * Quantities);
-        const auto n = ((x+3) / Quantities) % Quantities;
-        const auto k = (x+3) % Quantities;
+        const auto d = (x + 3) / (Quantities * Quantities);
+        const auto n = ((x + 3) / Quantities) % Quantities;
+        const auto k = (x + 3) % Quantities;
         reg1[n] += reg0[d][k] * _0L.w;
       }
       __builtin_amdgcn_sched_group_barrier(0x0100, 1, 0);
@@ -888,7 +886,8 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
             for (int n = 0; n < Quantities; ++n) {
 #pragma unroll
               for (int k = 0; k < Quantities; ++k) {
-                reg1[n] += reg0[3][k] * _0[k + n * Quantities + Quantities * Quantities * ptrMap[3]];
+                reg1[n] +=
+                    reg0[3][k] * _0[k + n * Quantities + Quantities * Quantities * ptrMap[3]];
               }
             }
           }
