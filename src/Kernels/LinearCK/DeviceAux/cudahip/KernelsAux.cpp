@@ -211,7 +211,7 @@ __launch_bounds__(64) __global__ void kernel_local4(const float** A,
   constexpr int CountH = Count / 64;
   constexpr int CountR = Count % 64;
 
-  __shared__ __align__(8) float total_shrmem0[(576 + Count) * 8];
+  __shared__ __align__(8) float total_shrmem0[(576 + Count) * 1];
 
   const auto tid_x = threadIdx.x;
   unsigned batchId = threadIdx.y + blockDim.y * blockIdx.x;
@@ -398,7 +398,7 @@ __launch_bounds__(64) __global__ void kernel_local3(const float** A,
   constexpr int CountH = Count / 64;
   constexpr int CountR = Count % 64;
 
-  __shared__ __align__(8) float total_shrmem0[(576 + Count) * 8];
+  __shared__ __align__(8) float total_shrmem0[(576 + Count) * 1];
 
   const auto tid_x = threadIdx.x;
   unsigned batchId = threadIdx.y + blockDim.y * blockIdx.x;
