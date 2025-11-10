@@ -184,7 +184,7 @@ void taylorSum(
 } // namespace seissol::kernels::time::aux
 
 namespace {
-__launch_bounds__(512) __global__ void kernel_local3(const float** A,
+__launch_bounds__(64) __global__ void kernel_local3(const float** A,
                                                      const float** B,
                                                      unsigned Boffset,
                                                      const float* C1,
@@ -730,8 +730,8 @@ void launch_local(const float** A,
                   size_t numElements,
                   const unsigned* flags,
                   void* streamPtr) {
-  dim3 block(64, 8, 1);
-  dim3 grid((numElements + 8 - 1) / 8, 1, 1);
+  dim3 block(64, 1, 1);
+  dim3 grid((numElements + 1 - 1) / 1, 1, 1);
   hipStream_t stream = (streamPtr != nullptr) ? static_cast<hipStream_t>(streamPtr) : 0;
   kernel_local3<<<grid, block, 0, stream>>>(A, B, Boffset, C1, C2, C3, C4, D, numElements, flags);
 }
