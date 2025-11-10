@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2021 SeisSol Group
+// SPDX-FileCopyrightText: 2025 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -7,6 +7,7 @@
 
 #include "doctest.h"
 
-// #include "MeshRefiner.t.h"
-// #include "TriangleRefiner.t.h"
-// #include "VariableSubsampler.t.h"
+#include "Datatype.t.h"
+#include "Distributor.t.h"
+#include "HdfWriteRead.t.h"
+#include "Instruction.t.h"

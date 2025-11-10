@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2021 SeisSol Group
+// SPDX-FileCopyrightText: 2025 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -7,6 +7,8 @@
 
 #include "doctest.h"
 
-// #include "MeshRefiner.t.h"
-// #include "TriangleRefiner.t.h"
-// #include "VariableSubsampler.t.h"
+namespace seissol::unit_test {
+
+TEST_CASE("IO/Datatype") {}
+
+} // namespace seissol::unit_test

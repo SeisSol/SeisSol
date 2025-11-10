@@ -396,11 +396,7 @@ if (ADDRESS_SANITIZER_DEBUG)
   )
 endif()
 
-# Note: it is better to include `async` as
-# system headers because they emit lot's of warnings
-# from clang. Most of them are issues with respect
-# to overriden virtual methods
-target_include_directories(seissol-common-properties SYSTEM INTERFACE
+target_include_directories(seissol-common-properties INTERFACE
   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
@@ -612,6 +608,7 @@ if (TESTING)
   set(seissol_test_sources
           src/tests/Model/TestModel.cpp
           src/tests/Initializer/TestInitializer.cpp
+          src/tests/IO/TestIO.cpp
           src/tests/Numerical/TestNumerical.cpp
           src/tests/Geometry/TestGeometry.cpp
           src/tests/Kernel/TestKernel.cpp
