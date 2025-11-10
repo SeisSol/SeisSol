@@ -18,7 +18,15 @@ ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/subroutine.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/init.cpp
 )
 
+target_precompile_headers(seissol-kernel-lib PRIVATE
+${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/kernel.h
+${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/tensor.h
+${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/init.h
+)
+
 add_library(seissol-common-lib
+
+src/Common/ConfigHelper.cpp
 
 src/Initializer/CellLocalMatrices.cpp
 src/Memory/GlobalData.cpp
@@ -109,15 +117,10 @@ target_sources(seissol-lib PRIVATE
 src/Solver/Estimator.cpp
 
 src/ResultWriter/EnergyOutput.cpp
-src/ResultWriter/FreeSurfaceWriter.cpp
-src/ResultWriter/FreeSurfaceWriterExecutor.cpp
 src/ResultWriter/MiniSeisSolWriter.cpp
 src/ResultWriter/PostProcessor.cpp
 src/ResultWriter/ReceiverWriter.cpp
 src/ResultWriter/ThreadsPinningWriter.cpp
-src/ResultWriter/WaveFieldWriter.cpp
-src/ResultWriter/FaultWriter.cpp
-src/ResultWriter/FaultWriterExecutor.cpp
 
 src/DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp
 src/DynamicRupture/Output/FaultRefiner/FaultRefiners.cpp
@@ -172,6 +175,9 @@ src/Reader/AsagiReader.cpp
 src/Geometry/CubeGenerator.cpp
 )
 
+target_precompile_headers(seissol-common-lib REUSE_FROM seissol-kernel-lib)
+target_precompile_headers(seissol-lib REUSE_FROM seissol-kernel-lib)
+
 set(SYCL_ONLY_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/AcceleratorDevice.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.cpp
@@ -192,63 +198,15 @@ if (NETCDF)
   target_sources(seissol-common-lib PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/NRFReader.cpp)
 endif()
 
-
-# Eqations have to be set at compile time currently.
-if ("${EQUATIONS}" STREQUAL "elastic")
-  target_sources(seissol-common-lib PRIVATE
+target_sources(seissol-common-lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Time.cpp
-    )
-  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_ELASTIC)
-
-elseif ("${EQUATIONS}" STREQUAL "acoustic")
-  target_sources(seissol-common-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Local.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Neighbor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Time.cpp
-    )
-  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/acoustic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_ACOUSTIC)
-
-elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
-  target_sources(seissol-common-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Local.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Neighbor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Time.cpp
-    )
-  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_VISCOELASTIC)
-
-elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
-  target_sources(seissol-common-lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCKAnelastic/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCKAnelastic/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCKAnelastic/Time.cpp
-  )
-  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_VISCOELASTIC2)
-
-elseif ("${EQUATIONS}" STREQUAL "anisotropic")
-  target_sources(seissol-common-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Neighbor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Local.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Time.cpp
-  )
-  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_ANISOTROPIC)
-
-elseif ("${EQUATIONS}" STREQUAL "poroelastic")
-  target_sources(seissol-common-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Neighbor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Local.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Time.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/STP/Time.cpp
-  )
-  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_POROELASTIC)
-endif()
+    )
 
 target_include_directories(seissol-common-properties INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders)

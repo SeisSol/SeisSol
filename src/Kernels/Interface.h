@@ -13,17 +13,16 @@
 #include "Memory/Descriptor/LTS.h"
 #include <Common/Constants.h>
 
-namespace seissol::tensor {
-class Iane;
-} // namespace seissol::tensor
-
 namespace seissol::kernels {
+
+template <typename Cfg>
 struct LocalTmp {
-  alignas(Alignment) real
-      timeIntegratedAne[zeroLengthArrayHandler(kernels::size<tensor::Iane>())]{};
-  GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
   alignas(Alignment)
-      std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
+      Real<Cfg> timeIntegratedAne[zeroLengthArrayHandler(kernels::size<tensor::Iane<Cfg>>())]{};
+  GravitationalFreeSurfaceBc<Cfg> gravitationalFreeSurfaceBc;
+  alignas(Alignment) std::array<
+      Real<Cfg>,
+      tensor::averageNormalDisplacement<Cfg>::size()> nodalAvgDisplacements[Cell::NumFaces];
   LocalTmp(double graviationalAcceleration)
       : gravitationalFreeSurfaceBc(graviationalAcceleration) {};
 };

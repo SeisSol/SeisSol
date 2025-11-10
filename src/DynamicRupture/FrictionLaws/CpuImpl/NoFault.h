@@ -14,23 +14,26 @@ namespace seissol::dr::friction_law::cpu {
 /**
  * No friction computation input stress equals output
  */
-class NoFault : public BaseFrictionLaw<NoFault> {
+template <typename Cfg>
+class NoFault : public BaseFrictionLaw<Cfg, NoFault<Cfg>> {
   public:
-  using BaseFrictionLaw::BaseFrictionLaw;
+  using real = Real<Cfg>;
+  using BaseFrictionLaw<Cfg, NoFault<Cfg>>::BaseFrictionLaw;
 
-  void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) override {}
 
-  static void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
-                                    TractionResults<Executor::Host>& tractionResults,
-                                    std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
-                                    std::array<real, misc::NumPaddedPoints>& strengthBuffer,
-                                    std::size_t ltsFace,
-                                    uint32_t timeIndex);
+  static void
+      updateFrictionAndSlip(const FaultStresses<Cfg, Executor::Host>& faultStresses,
+                            TractionResults<Cfg, Executor::Host>& tractionResults,
+                            std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
+                            std::array<real, misc::NumPaddedPoints<Cfg>>& strengthBuffer,
+                            std::size_t ltsFace,
+                            uint32_t timeIndex);
 
-  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
-  };
-  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
-  };
+  void preHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
+               std::size_t ltsFace) {};
+  void postHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
+                std::size_t ltsFace) {};
   void saveDynamicStressOutput(std::size_t ltsFace, real time) {};
 };
 } // namespace seissol::dr::friction_law::cpu

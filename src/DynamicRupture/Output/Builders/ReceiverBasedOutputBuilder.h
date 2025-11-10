@@ -27,7 +27,7 @@ namespace seissol::dr::output {
 class ReceiverBasedOutputBuilder {
   public:
   virtual ~ReceiverBasedOutputBuilder() = default;
-  virtual void build(std::shared_ptr<ReceiverOutputData> outputData) = 0;
+  void build(std::shared_ptr<ReceiverOutputData> outputData);
 
   void setMeshReader(const seissol::geometry::MeshReader* reader);
   void setLtsData(LTS::Storage& userWpStorage,

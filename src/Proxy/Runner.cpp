@@ -11,6 +11,8 @@
 #include "GeneratedCode/kernel.h"
 #include "KernelDevice.h"
 #include "KernelHost.h"
+#include <Common/ConfigHelper.h>
+#include <Config.h>
 #include <Kernels/Common.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Proxy/Kernel.h>
@@ -53,13 +55,15 @@ void testKernel(std::shared_ptr<ProxyData>& data,
 namespace seissol::proxy {
 
 auto runProxy(const ProxyConfig& config) -> ProxyOutput {
+  ConfigVariant cfg = ConfigVariantList[config.configId];
+
   auto kernel = [&]() {
     std::vector<std::shared_ptr<ProxyKernel>> subkernels;
     for (const auto& kernelName : config.kernels) {
       if constexpr (isDeviceOn()) {
-        subkernels.emplace_back(getProxyKernelDevice(kernelName));
+        subkernels.emplace_back(getProxyKernelDevice(kernelName, cfg));
       } else {
-        subkernels.emplace_back(getProxyKernelHost(kernelName));
+        subkernels.emplace_back(getProxyKernelHost(kernelName, cfg));
       }
     }
     return std::dynamic_pointer_cast<ProxyKernel>(std::make_shared<ChainKernel>(subkernels));
@@ -71,7 +75,7 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
     std::cerr << "Allocating fake data... ";
   }
 
-  auto data = std::make_shared<ProxyData>(config.cells, enableDynamicRupture);
+  auto data = ProxyData::get(cfg, config.cells, enableDynamicRupture);
 
   auto runtime = std::make_shared<seissol::parallel::runtime::StreamRuntime>();
 

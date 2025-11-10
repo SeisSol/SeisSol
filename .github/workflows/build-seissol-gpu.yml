@@ -27,33 +27,12 @@ jobs:
           - Release
           #- Debug
         equation:
-          - type: acoustic
-            multisim: 1
-            mechanisms: 0
-            order: 6
           - type: elastic
             multisim: 1
             mechanisms: 0
             order: 6
-          #- type: poroelastic # Does not work yet
-          #  multisim: 1
-          #  mechanisms: 0
-          #  order: 6
-          - type: viscoelastic2
-            multisim: 1
-            mechanisms: 3
-            order: 6
-          - type: anisotropic
-            multisim: 1
-            mechanisms: 0
-            order: 6
-          - type: elastic
-            multisim: 32
-            mechanisms: 0
-            order: 3
         precision:
           - single
-          - double
         setup:
           - arch: sm_60
             backend: cuda
@@ -176,7 +155,7 @@ jobs:
             -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} \
             -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }}
 
-          ninja install
+          ninja install -j1
 
       - name: upload-seissol
         uses: actions/upload-artifact@v4
@@ -215,16 +194,6 @@ jobs:
     continue-on-error: true
     needs: [seissol-build-test, seissol-cache-precomputed]
     if: ${{ github.repository == 'SeisSol/SeisSol' && false }}
-    env:
-      EXENAME: |
-        ${{
-          format('gpu-{0}-p{2}-{1}{3}',
-            matrix.case.equation,
-            matrix.precision == 'single' && 'f32' || 'f64',
-            matrix.order,
-            matrix.case.multisim != 1 && format('-s{0}', matrix.case.multisim) || ''
-          )
-        }}
     strategy:
       fail-fast: false
       matrix:
@@ -470,7 +439,7 @@ jobs:
 
           cd precomputed/${{matrix.case.name}}
 
-          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-${EXENAME}
+          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-gpu
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts
