@@ -59,7 +59,7 @@ struct ProxyDataImpl : public ProxyData {
 
   ProxyDataImpl(std::size_t cellCount, bool enableDR);
 
-  initializer::LayerIdentifier layerId{HaloType::Interior, Cfg(), 0};
+  initializer::LayerIdentifier layerId;
 
   // TODO: check copyability (probably not)
 

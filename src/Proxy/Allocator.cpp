@@ -139,6 +139,8 @@ namespace seissol::proxy {
 
 template <typename Cfg>
 ProxyDataImpl<Cfg>::ProxyDataImpl(std::size_t cellCount, bool enableDR) : cellCount(cellCount) {
+  layerId = initializer::LayerIdentifier(HaloType::Interior, ConfigVariant{Cfg()}, 0);
+
   initGlobalData();
   initDataStructures(enableDR);
   initDataStructuresOnDevice(enableDR);
@@ -157,9 +159,10 @@ void ProxyDataImpl<Cfg>::initGlobalData() {
 
 template <typename Cfg>
 void ProxyDataImpl<Cfg>::initDataStructures(bool enableDR) {
-  const initializer::LTSColorMap map(initializer::EnumLayer<HaloType>({HaloType::Interior}),
-                                     initializer::EnumLayer<std::size_t>({0}),
-                                     initializer::TraitLayer<ConfigVariant>({Cfg()}));
+  const initializer::LTSColorMap map(
+      initializer::EnumLayer<HaloType>({HaloType::Interior}),
+      initializer::EnumLayer<std::size_t>({0}),
+      initializer::TraitLayer<ConfigVariant>({ConfigVariant(Cfg())}));
 
   Cfg cfg;
 
