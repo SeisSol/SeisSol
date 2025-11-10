@@ -318,6 +318,7 @@ __launch_bounds__(512) __global__ void kernel_local3(const float** A,
       }
     }
 
+    /*
     // gemm: glbA x _0
 #pragma unroll
     for (int d = 0; d < Faces; ++d) {
@@ -330,6 +331,36 @@ __launch_bounds__(512) __global__ void kernel_local3(const float** A,
         __builtin_amdgcn_sched_group_barrier(0x0100, 9, 0);
       }
       // __builtin_amdgcn_sched_group_barrier(0x0100, 8, 0);
+    }
+      */
+#pragma unroll
+    for (int x = 0; x < Faces * Quantities * Quantities; x += 4) {
+      float4 _0L = *((float4*)&_0[x]);
+      {
+        const auto d = x / (Quantities * Quantities);
+        const auto n = (x / Quantities) % Quantities;
+        const auto k = x % Quantities;
+        reg1[n] += reg0[d][k] * _0L.x;
+      }
+      {
+        const auto d = (x+1) / (Quantities * Quantities);
+        const auto n = ((x+1) / Quantities) % Quantities;
+        const auto k = (x+1) % Quantities;
+        reg1[n] += reg0[d][k] * _0L.y;
+      }
+      {
+        const auto d = (x+2) / (Quantities * Quantities);
+        const auto n = ((x+2) / Quantities) % Quantities;
+        const auto k = (x+2) % Quantities;
+        reg1[n] += reg0[d][k] * _0L.z;
+      }
+      {
+        const auto d = (x+3) / (Quantities * Quantities);
+        const auto n = ((x+3) / Quantities) % Quantities;
+        const auto k = (x+3) % Quantities;
+        reg1[n] += reg0[d][k] * _0L.w;
+      }
+      __builtin_amdgcn_sched_group_barrier(0x0100, 1, 0);
     }
 
     // write results back to glb. memory
