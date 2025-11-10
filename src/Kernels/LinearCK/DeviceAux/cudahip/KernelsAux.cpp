@@ -184,7 +184,7 @@ void taylorSum(
 } // namespace seissol::kernels::time::aux
 
 namespace {
-__launch_bounds__(64) __global__ void kernel_local3(const float** A,
+__launch_bounds__(64) __global__ void kernel_local4(const float** A,
                                                     const float** B,
                                                     unsigned Boffset,
                                                     const float* C1,
@@ -271,7 +271,7 @@ __launch_bounds__(64) __global__ void kernel_local3(const float** A,
         if (has1) {
 #pragma unroll
           for (int kk = 0; kk < Cache; kk += 4) {
-            const float4 data = *((float4*)glbC1[tid_x + (k + kk) * 56]);
+            const float4 data = *((float4*)&glbC1[tid_x + (k + kk) * 56]);
             values[0][kk + 0] = data.x;
             values[0][kk + 1] = data.y;
             values[0][kk + 2] = data.z;
@@ -282,7 +282,7 @@ __launch_bounds__(64) __global__ void kernel_local3(const float** A,
         if (has2) {
 #pragma unroll
           for (int kk = 0; kk < Cache; kk += 4) {
-            const float4 data = *((float4*)glbC2[tid_x + (k + kk) * 56]);
+            const float4 data = *((float4*)&glbC2[tid_x + (k + kk) * 56]);
             values[1][kk + 0] = data.x;
             values[1][kk + 1] = data.y;
             values[1][kk + 2] = data.z;
@@ -293,7 +293,7 @@ __launch_bounds__(64) __global__ void kernel_local3(const float** A,
         if (has3) {
 #pragma unroll
           for (int kk = 0; kk < Cache; kk += 4) {
-            const float4 data = *((float4*)glbC3[tid_x + (k + kk) * 56]);
+            const float4 data = *((float4*)&glbC3[tid_x + (k + kk) * 56]);
             values[2][kk + 0] = data.x;
             values[2][kk + 1] = data.y;
             values[2][kk + 2] = data.z;
@@ -304,7 +304,7 @@ __launch_bounds__(64) __global__ void kernel_local3(const float** A,
         if (has4) {
 #pragma unroll
           for (int kk = 0; kk < Cache; kk += 4) {
-            const float4 data = *((float4*)glbC4[tid_x + (k + kk) * 56]);
+            const float4 data = *((float4*)&glbC4[tid_x + (k + kk) * 56]);
             values[3][kk + 0] = data.x;
             values[3][kk + 1] = data.y;
             values[3][kk + 2] = data.z;
