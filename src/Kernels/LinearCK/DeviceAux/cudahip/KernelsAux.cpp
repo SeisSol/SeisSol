@@ -270,6 +270,194 @@ __launch_bounds__(64) __global__ void kernel_local3(const float** A,
         float values[Faces][Cache]{};
         if (has1) {
 #pragma unroll
+          for (int kk = 0; kk < Cache; kk += 4) {
+            const float4 data = *((float4*)glbC1[tid_x + (k + kk) * 56]);
+            values[0][kk+0] = data.x;
+            values[0][kk+1] = data.y;
+            values[0][kk+2] = data.z;
+            values[0][kk+3] = data.w;
+          }
+        __builtin_amdgcn_sched_group_barrier(0x0020, Cache / 4, 1);
+        }
+        if (has2) {
+#pragma unroll
+          for (int kk = 0; kk < Cache; kk += 4) {
+            const float4 data = *((float4*)glbC2[tid_x + (k + kk) * 56]);
+            values[1][kk+0] = data.x;
+            values[1][kk+1] = data.y;
+            values[1][kk+2] = data.z;
+            values[1][kk+3] = data.w;
+          }
+        __builtin_amdgcn_sched_group_barrier(0x0020, Cache / 4, 2);
+        }
+        if (has3) {
+#pragma unroll
+          for (int kk = 0; kk < Cache; kk += 4) {
+            const float4 data = *((float4*)glbC3[tid_x + (k + kk) * 56]);
+            values[2][kk+0] = data.x;
+            values[2][kk+1] = data.y;
+            values[2][kk+2] = data.z;
+            values[2][kk+3] = data.w;
+          }
+        __builtin_amdgcn_sched_group_barrier(0x0020, Cache / 4, 3);
+        }
+        if (has4) {
+#pragma unroll
+          for (int kk = 0; kk < Cache; kk += 4) {
+            const float4 data = *((float4*)glbC4[tid_x + (k + kk) * 56]);
+            values[3][kk+0] = data.x;
+            values[3][kk+1] = data.y;
+            values[3][kk+2] = data.z;
+            values[3][kk+3] = data.w;
+          }
+        __builtin_amdgcn_sched_group_barrier(0x0020, Cache / 4, 4);
+        }
+
+        #pragma unroll
+        for (int n = 0; n < Quantities; ++n) {
+          float local[Cache]{};
+#pragma unroll
+          for (int kk = 0; kk < Cache; ++kk) {
+            local[kk] = _1[(k + kk) + n * 64];
+          }
+#pragma unroll
+          for (int kk = 0; kk < Cache; ++kk) {
+#pragma unroll
+            for (int d = 0; d < Faces; ++d) {
+              reg0[d][n] += values[d][kk] * local[kk];
+            }
+          }
+
+          __builtin_amdgcn_sched_group_barrier(0x0100, Cache, 0);
+        }
+
+      }
+    }
+
+#pragma unroll
+    for (int x = 0; x < Faces * Quantities * Quantities; x += 4) {
+      float4 _0L = *((float4*)&_0[x]);
+      {
+        const auto d = x / (Quantities * Quantities);
+        const auto n = (x / Quantities) % Quantities;
+        const auto k = x % Quantities;
+        reg1[n] += reg0[d][k] * _0L.x;
+      }
+      {
+        const auto d = (x+1) / (Quantities * Quantities);
+        const auto n = ((x+1) / Quantities) % Quantities;
+        const auto k = (x+1) % Quantities;
+        reg1[n] += reg0[d][k] * _0L.y;
+      }
+      {
+        const auto d = (x+2) / (Quantities * Quantities);
+        const auto n = ((x+2) / Quantities) % Quantities;
+        const auto k = (x+2) % Quantities;
+        reg1[n] += reg0[d][k] * _0L.z;
+      }
+      {
+        const auto d = (x+3) / (Quantities * Quantities);
+        const auto n = ((x+3) / Quantities) % Quantities;
+        const auto k = (x+3) % Quantities;
+        reg1[n] += reg0[d][k] * _0L.w;
+      }
+      __builtin_amdgcn_sched_group_barrier(0x0100, 1, 0);
+    }
+
+    // write results back to glb. memory
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+      __builtin_nontemporal_store(reg1[n], &glbD[tid_x + n * 64]);
+    }
+  }
+}
+
+__launch_bounds__(64) __global__ void kernel_local3(const float** A,
+                                                     const float** B,
+                                                     unsigned Boffset,
+                                                     const float* C1,
+                                                     const float* C2,
+                                                     const float* C3,
+                                                     const float* C4,
+                                                     float** D,
+                                                     size_t numElements,
+                                                     const unsigned* flags) {
+  // meta data:
+  // A = {rows: 64, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0), np.int64(64),
+  // np.int64(9)]}; B = {rows: 9, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0),
+  // np.int64(9), np.int64(9)]}; C = {rows: 56, cols: 56, addr: none, bbox: [np.int64(0),
+  // np.int64(0), np.int64(56), np.int64(56)]}; D = {rows: 64, cols: 9, addr: pointer_based, bbox:
+  // [np.int64(0), np.int64(0), np.int64(56), np.int64(9)]};
+
+  // tmp0 = 1.0 * A x B
+  // D = 1.0 * C x tmp0 + 1.0 * D
+
+  constexpr int Quantities = 9;
+  constexpr int Faces = 4;
+
+  constexpr int Count = Faces * Quantities * Quantities;
+  constexpr int CountH = Count / 64;
+  constexpr int CountR = Count % 64;
+
+  __shared__ __align__(8) float total_shrmem0[(576 + Count) * 8];
+
+  const auto tid_x = threadIdx.x;
+  unsigned batchId = threadIdx.y + blockDim.y * blockIdx.x;
+  if (batchId < numElements) {
+    const float* const __restrict__ glbA = A[batchId];
+    const float* const __restrict__ glbB = B[batchId] + Boffset;
+    const float* const __restrict__ glbC1 = C1;
+    const float* const __restrict__ glbC2 = C2;
+    const float* const __restrict__ glbC3 = C3;
+    const float* const __restrict__ glbC4 = C4;
+    float* const __restrict__ glbD = D[batchId];
+
+    const bool has1 = (flags[batchId] & 1) != 0;
+    const bool has2 = (flags[batchId] & 2) != 0;
+    const bool has3 = (flags[batchId] & 4) != 0;
+    const bool has4 = (flags[batchId] & 8) != 0;
+
+    float reg0[Faces][Quantities]{};
+    float reg1[Quantities]{};
+
+    float* shrmem0 = &total_shrmem0[(576 + Count) * threadIdx.y];
+
+    // writing to shr mem: from reg0 to _1
+    float* __restrict__ _1 = &shrmem0[0];
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      _1[tid_x + i * 64] = __builtin_nontemporal_load(&glbA[tid_x + i * 64]);
+    }
+
+    float* __restrict__ _0 = &shrmem0[576];
+
+    // load all 4 9×9 matrices
+    // loading glbB to _0: # no trans, extended
+#pragma unroll
+    for (int i = 0; i < CountH; ++i) {
+      _0[tid_x + i * 64] = glbB[tid_x + i * 64];
+    }
+    if (tid_x < CountR) {
+      _0[tid_x + CountH * 64] = glbB[tid_x + CountH * 64];
+    }
+
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+      reg1[n] = __builtin_nontemporal_load(&glbD[tid_x + n * 64]);
+    }
+
+    __builtin_amdgcn_sched_group_barrier(0x220, Quantities + CountH + (CountR > 0), 0);
+
+    constexpr int Cache = 8;
+
+    // gemm: glbC x _1
+    if (tid_x < 56) {
+
+// #pragma unroll
+      for (int k = 0; k < 56; k += Cache) {
+        float values[Faces][Cache]{};
+        if (has1) {
+#pragma unroll
           for (int kk = 0; kk < Cache; ++kk) {
             values[0][kk] = glbC1[tid_x + (k + kk) * 56];
           }
