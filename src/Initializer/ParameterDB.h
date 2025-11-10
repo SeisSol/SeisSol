@@ -133,7 +133,9 @@ struct MaterialAverager {
   static constexpr bool Implemented = false;
   static T computeAveragedMaterial(std::size_t elementIdx,
                                    const std::vector<double>& quadratureWeights,
-                                   const std::vector<T>& materialsFromQuery) {}
+                                   const std::vector<T>& materialsFromQuery) {
+    throw;
+  }
 };
 
 template <class T>

@@ -257,18 +257,23 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
 
   // these four methods need to be called in this order.
   logInfo() << "Model infos:";
-  for (std::size_t i = 0; i < std::variant_size_v<ConfigVariant>; ++i) {
-    logInfo() << "Model" << i;
-    std::visit(
-        [&](auto cfg) {
-          using Cfg = decltype(cfg);
-          logInfo() << "Material:" << model::MaterialTT<Cfg>::Text.c_str();
-          logInfo() << "Order:" << Cfg::ConvergenceOrder;
-          logInfo() << "Precision:"
-                    << (Cfg::Precision == RealType::F32 ? "single (f32)" : "double (f64)");
-          logInfo() << "Number of simulations: " << Cfg::NumSimulations;
-        },
-        ConfigVariantList[i]);
+  std::unordered_set<std::size_t> found;
+  for (const auto& leaf : seissolInstance.getMemoryManager().getLtsStorage().leaves()) {
+    const auto index = leaf.getIdentifier().config.index();
+    if (found.find(index) == found.end()) {
+      logInfo() << "Config" << leaf.getIdentifier().config.index();
+      std::visit(
+          [&](auto cfg) {
+            using Cfg = decltype(cfg);
+            logInfo() << "Material:" << model::MaterialTT<Cfg>::Text.c_str();
+            logInfo() << "Order:" << Cfg::ConvergenceOrder;
+            logInfo() << "Precision:"
+                      << (Cfg::Precision == RealType::F32 ? "single (f32)" : "double (f64)");
+            logInfo() << "Number of simulations: " << Cfg::NumSimulations;
+          },
+          leaf.getIdentifier().config);
+      found.insert(index);
+    }
   }
 
   logInfo() << "Other model settings:";
