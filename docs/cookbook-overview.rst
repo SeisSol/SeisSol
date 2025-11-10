@@ -23,7 +23,7 @@ Please note that the examples used here are only for demonstration purpose.
 For detailed benchmark tests please refer to SCEC benchmark center.
 
 
-.. include:: table_cookbook.rst
+.. include:: table-cookbook.rst
 
 
 Prerequisites

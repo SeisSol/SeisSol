@@ -108,7 +108,7 @@ Finally, we create a box mesh box domain with pygmsh as follow:
 
     generate_box.py --proj "$myproj" --rangeFromTopo $topofile tmp/box.stl --zdim " -500e3" 5e3 --shrink 0.9
 
-The final step consists in intersecting all objects (topography, faults and domain box) in the GUI of SimModeler, as presented in :doc:`simmodelerCAD-workflow`.
+The final step consists in intersecting all objects (topography, faults and domain box) in the GUI of SimModeler, as presented in :doc:`simmodeler-cad-workflow`.
 
 .. figure:: LatexFigures/Tohoku_final_cut_view.png
    :alt: Cut view of the final Tohoku's model
