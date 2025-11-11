@@ -184,6 +184,205 @@ void taylorSum(
 } // namespace seissol::kernels::time::aux
 
 namespace {
+__launch_bounds__(256) __global__ void kernel_local6(const float** A,
+                                                     const float** B,
+                                                     unsigned Boffset,
+                                                     const float* C1,
+                                                     const float* C2,
+                                                     const float* C3,
+                                                     const float* C4,
+                                                     float** D,
+                                                     size_t numElements,
+                                                     const unsigned* flags) {
+  // meta data:
+  // A = {rows: 64, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0), np.int64(64),
+  // np.int64(9)]}; B = {rows: 9, cols: 9, addr: pointer_based, bbox: [np.int64(0), np.int64(0),
+  // np.int64(9), np.int64(9)]}; C = {rows: 56, cols: 56, addr: none, bbox: [np.int64(0),
+  // np.int64(0), np.int64(56), np.int64(56)]}; D = {rows: 64, cols: 9, addr: pointer_based, bbox:
+  // [np.int64(0), np.int64(0), np.int64(56), np.int64(9)]};
+
+  // tmp0 = 1.0 * A x B
+  // D = 1.0 * C x tmp0 + 1.0 * D
+
+  constexpr int Quantities = 9;
+  constexpr int Faces = 4;
+
+  constexpr int Count = Faces * Quantities * Quantities;
+  constexpr int CountH = Count / 64;
+  constexpr int CountR = Count % 64;
+
+  __shared__ __align__(8) float total_shrmem0[(576 + Count) * 8];
+
+  __shared__ __align__(8) float cache1[8 * 56 * 4 + 16];
+
+  const auto tid_x = threadIdx.x;
+  unsigned batchId = threadIdx.y + blockDim.y * blockIdx.x;
+  const auto linear_x = threadIdx.x + blockDim.x * threadIdx.y;
+
+  // TODO: handle overhang
+  if (batchId < numElements) {
+    const float* const __restrict__ glbA = A[batchId];
+    const float* const __restrict__ glbB = B[batchId] + Boffset;
+    const float* const __restrict__ glbC1 = C1;
+    const float* const __restrict__ glbC2 = C2;
+    const float* const __restrict__ glbC3 = C3;
+    const float* const __restrict__ glbC4 = C4;
+    float* const __restrict__ glbD = D[batchId];
+
+    const bool has1 = (flags[batchId] & 1) != 0;
+    const bool has2 = (flags[batchId] & 2) != 0;
+    const bool has3 = (flags[batchId] & 4) != 0;
+    const bool has4 = (flags[batchId] & 8) != 0;
+
+    float reg0[Faces][Quantities][2]{};
+    float reg1[Quantities][2]{};
+
+    float* shrmem0 = &total_shrmem0[(576 + Count) * threadIdx.y];
+
+    // writing to shr mem: from reg0 to _1
+    float* __restrict__ _1 = &shrmem0[0];
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      _1[tid_x + i * 64] = __builtin_nontemporal_load(&glbA[tid_x + i * 64]);
+      _1[tid_x + i * 64 + 32] = __builtin_nontemporal_load(&glbA[tid_x + i * 64 + 32]);
+    }
+
+    float* __restrict__ _0 = &shrmem0[576];
+
+    // load all 4 9×9 matrices
+    // loading glbB to _0: # no trans, extended
+#pragma unroll
+    for (int i = 0; i < CountH; ++i) {
+      _0[tid_x + i * 32] = glbB[tid_x + i * 32];
+    }
+    if (tid_x < CountR) {
+      _0[tid_x + CountH * 32] = glbB[tid_x + CountH * 32];
+    }
+
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+      reg1[n][0] = __builtin_nontemporal_load(&glbD[tid_x + n * 64 + 0]);
+      reg1[n][1] = __builtin_nontemporal_load(&glbD[tid_x + n * 64 + 32]);
+    }
+
+    __builtin_amdgcn_sched_barrier(0);
+
+    constexpr int Cache = 8;
+
+    // gemm: glbC x _1
+
+    // #pragma unroll
+    for (int k = 0; k < 56; k += Cache) {
+      if (linear_x * 2 < 448) {
+        *(float2*)&cache1[linear_x * 2 + Cache * 56 * 0] = *(float2*)&glbC1[linear_x * 2 + k * 56];
+        *(float2*)&cache1[linear_x * 2 + Cache * 56 * 1] = *(float2*)&glbC2[linear_x * 2 + k * 56];
+        *(float2*)&cache1[linear_x * 2 + Cache * 56 * 2] = *(float2*)&glbC3[linear_x * 2 + k * 56];
+        *(float2*)&cache1[linear_x * 2 + Cache * 56 * 3] = *(float2*)&glbC4[linear_x * 2 + k * 56];
+        __builtin_amdgcn_sched_group_barrier(0x020, 4, 1);
+        __builtin_amdgcn_sched_group_barrier(0x0200, 4, 1);
+      }
+      __syncthreads();
+
+      float values[Faces][Cache][2]{};
+      if (has1) {
+#pragma unroll
+        for (int kk = 0; kk < Cache; ++kk) {
+          values[0][kk][0] = cache1[tid_x + 56 * kk + Cache * 56 * 0];
+          values[0][kk][1] = cache1[tid_x + 56 * kk + Cache * 56 * 0 + 32];
+        }
+        __builtin_amdgcn_sched_group_barrier(0x0100, Cache, 1);
+      }
+      if (has2) {
+#pragma unroll
+        for (int kk = 0; kk < Cache; ++kk) {
+          values[1][kk][0] = cache1[tid_x + 56 * kk + Cache * 56 * 1];
+          values[1][kk][1] = cache1[tid_x + 56 * kk + Cache * 56 * 1 + 32];
+        }
+        __builtin_amdgcn_sched_group_barrier(0x0100, Cache, 1);
+      }
+      if (has3) {
+#pragma unroll
+        for (int kk = 0; kk < Cache; ++kk) {
+          values[2][kk][0] = cache1[tid_x + 56 * kk + Cache * 56 * 2];
+          values[2][kk][1] = cache1[tid_x + 56 * kk + Cache * 56 * 2 + 32];
+        }
+        __builtin_amdgcn_sched_group_barrier(0x0100, Cache, 1);
+      }
+      if (has4) {
+#pragma unroll
+        for (int kk = 0; kk < Cache; ++kk) {
+          values[3][kk][0] = cache1[tid_x + 56 * kk + Cache * 56 * 3];
+          values[3][kk][1] = cache1[tid_x + 56 * kk + Cache * 56 * 3 + 32];
+        }
+        __builtin_amdgcn_sched_group_barrier(0x0100, Cache, 1);
+      }
+
+#pragma unroll
+      for (int n = 0; n < Quantities; ++n) {
+        float local[Cache]{};
+#pragma unroll
+        for (int kk = 0; kk < Cache; kk += 4) {
+          const auto prelocal = *(float4*)&_1[(k + kk) + n * 64];
+          local[kk] = prelocal.x;
+          local[kk + 1] = prelocal.y;
+          local[kk + 2] = prelocal.z;
+          local[kk + 3] = prelocal.w;
+        }
+#pragma unroll
+        for (int kk = 0; kk < Cache; ++kk) {
+#pragma unroll
+          for (int d = 0; d < Faces; ++d) {
+            reg0[d][n][0] += values[d][kk][0] * local[kk];
+            reg0[d][n][1] += values[d][kk][1] * local[kk];
+          }
+        }
+
+        __builtin_amdgcn_sched_group_barrier(0x0100, Cache / 4, 0);
+      }
+    }
+
+#pragma unroll
+    for (int x = 0; x < Faces * Quantities * Quantities; x += 4) {
+      float4 _0L = *((float4*)&_0[x]);
+#pragma unroll
+      for (int z = 0; z < 2; ++z) {
+        {
+          const auto d = x / (Quantities * Quantities);
+          const auto n = (x / Quantities) % Quantities;
+          const auto k = x % Quantities;
+          reg1[n][z] += reg0[d][k][z] * _0L.x;
+        }
+        {
+          const auto d = (x + 1) / (Quantities * Quantities);
+          const auto n = ((x + 1) / Quantities) % Quantities;
+          const auto k = (x + 1) % Quantities;
+          reg1[n][z] += reg0[d][k][z] * _0L.y;
+        }
+        {
+          const auto d = (x + 2) / (Quantities * Quantities);
+          const auto n = ((x + 2) / Quantities) % Quantities;
+          const auto k = (x + 2) % Quantities;
+          reg1[n][z] += reg0[d][k][z] * _0L.z;
+        }
+        {
+          const auto d = (x + 3) / (Quantities * Quantities);
+          const auto n = ((x + 3) / Quantities) % Quantities;
+          const auto k = (x + 3) % Quantities;
+          reg1[n][z] += reg0[d][k][z] * _0L.w;
+        }
+      }
+      __builtin_amdgcn_sched_group_barrier(0x0100, 1, 0);
+    }
+
+    // write results back to glb. memory
+#pragma unroll
+    for (int n = 0; n < Quantities; ++n) {
+      __builtin_nontemporal_store(reg1[n][0], &glbD[tid_x + n * 64]);
+      __builtin_nontemporal_store(reg1[n][1], &glbD[tid_x + n * 64 + 32]);
+    }
+  }
+}
+
 __launch_bounds__(256) __global__ void kernel_local5(const float** A,
                                                      const float** B,
                                                      unsigned Boffset,
@@ -271,15 +470,11 @@ __launch_bounds__(256) __global__ void kernel_local5(const float** A,
 
     // #pragma unroll
     for (int k = 0; k < 56; k += Cache) {
-      cache1[linear_x + Cache * 56 * 0] = glbC1[linear_x + k * 56];
-      cache1[linear_x + Cache * 56 * 1] = glbC2[linear_x + k * 56];
-      cache1[linear_x + Cache * 56 * 2] = glbC3[linear_x + k * 56];
-      cache1[linear_x + Cache * 56 * 3] = glbC4[linear_x + k * 56];
-      if (linear_x < 448 - 256) {
-        cache1[256 + linear_x + Cache * 56 * 0] = glbC1[256 + linear_x + k * 56];
-        cache1[256 + linear_x + Cache * 56 * 1] = glbC2[256 + linear_x + k * 56];
-        cache1[256 + linear_x + Cache * 56 * 2] = glbC3[256 + linear_x + k * 56];
-        cache1[256 + linear_x + Cache * 56 * 3] = glbC4[256 + linear_x + k * 56];
+      if (linear_x * 2 < 448) {
+        *(float2*)&cache1[linear_x * 2 + Cache * 56 * 0] = *(float2*)&glbC1[linear_x * 2 + k * 56];
+        *(float2*)&cache1[linear_x * 2 + Cache * 56 * 1] = *(float2*)&glbC2[linear_x * 2 + k * 56];
+        *(float2*)&cache1[linear_x * 2 + Cache * 56 * 2] = *(float2*)&glbC3[linear_x * 2 + k * 56];
+        *(float2*)&cache1[linear_x * 2 + Cache * 56 * 3] = *(float2*)&glbC4[linear_x * 2 + k * 56];
         __builtin_amdgcn_sched_group_barrier(0x020, 4, 1);
         __builtin_amdgcn_sched_group_barrier(0x0200, 4, 1);
       }
