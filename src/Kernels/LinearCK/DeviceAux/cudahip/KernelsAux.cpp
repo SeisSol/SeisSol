@@ -213,7 +213,7 @@ __launch_bounds__(256) __global__ void kernel_local5(const float** A,
 
   __shared__ __align__(8) float total_shrmem0[(576 + Count) * 4];
 
-  __shared__ __align__(8) float cache1[8 * 16 * 32];
+  __shared__ __align__(8) float cache1[8 * 56 * 4];
 
   const auto tid_x = threadIdx.x;
   unsigned batchId = threadIdx.y + blockDim.y * blockIdx.x;
