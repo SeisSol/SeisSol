@@ -184,6 +184,118 @@ void taylorSum(
 } // namespace seissol::kernels::time::aux
 
 namespace {
+template <typename T>
+__device__ __forceinline__ auto readlane(T value, int lane) -> T {
+  static_assert(sizeof(T) == sizeof(int), "NYI");
+  int vc = *reinterpret_cast<int*>(&value);
+  int vcr = __builtin_amdgcn_readlane(vc, lane);
+  return *reinterpret_cast<T*>(&vcr);
+}
+
+__launch_bounds__(512) __global__ void kernel_local7(const float** A,
+                                                     const float** B,
+                                                     unsigned Boffset,
+                                                     const float* C1,
+                                                     const float* C2,
+                                                     const float* C3,
+                                                     const float* C4,
+                                                     float** D,
+                                                     size_t numElements,
+                                                     const unsigned* flags) {
+
+  constexpr int Quantities = 9;
+  constexpr int Faces = 4;
+
+  __shared__ float kdivCache[56 * 56 * Faces + 16];
+
+  constexpr int Count = Faces * Quantities * Quantities;
+  constexpr int CountH = Count / 64;
+  constexpr int CountR = Count % 64;
+
+  const auto linear = threadIdx.y * blockDim.x + threadIdx.x;
+
+  const float* const __restrict__ glbC1 = C1;
+  const float* const __restrict__ glbC2 = C2;
+  const float* const __restrict__ glbC3 = C3;
+  const float* const __restrict__ glbC4 = C4;
+
+  typedef float f4 __attribute__((vector_size(16)));
+
+  for (int i = 0; i < 48; i += 4) {
+    // TODO: reorder for float4 loads
+    *(f4*)&kdivCache[i * 256 + linear] = __builtin_nontemporal_load((f4*)&C1[i * 256 + linear]);
+  }
+  kdivCache[48 * 256 + linear] = __builtin_nontemporal_load(&C1[48 * 256 + linear]);
+  __syncthreads();
+
+  for (int b = blockIdx.x * blockDim.y + threadIdx.y; b < numElements;
+       b += gridDim.x * blockDim.y) {
+    const float* const __restrict__ glbA = A[b];
+    const float* const __restrict__ glbB = B[b] + Boffset;
+    float* const __restrict__ glbD = D[b];
+
+    float dq[Quantities]{};
+    float star[CountH + 1]{};
+
+    float result[Quantities]{};
+    for (int i = 0; i < Quantities; ++i) {
+      dq[i] = __builtin_nontemporal_load(&glbA[i * 64 + threadIdx.x]);
+    }
+
+#pragma unroll
+    for (int i = 0; i < CountH; ++i) {
+      star[i] = glbB[threadIdx.x + i * 64];
+    }
+    if (threadIdx.x < CountR) {
+      star[CountH] = glbB[threadIdx.x + CountH * 64];
+    }
+
+    float interm[Faces][Quantities]{};
+
+#pragma unroll 8
+    for (int k = 0; k < 56; ++k) {
+      const auto kdivLocal0 = kdivCache[k * 64 + threadIdx.x + 0 * 56 * 56];
+      const auto kdivLocal1 = kdivCache[k * 64 + threadIdx.x + 1 * 56 * 56];
+      const auto kdivLocal2 = kdivCache[k * 64 + threadIdx.x + 2 * 56 * 56];
+      const auto kdivLocal3 = kdivCache[k * 64 + threadIdx.x + 3 * 56 * 56];
+
+#pragma unroll
+      for (int j = 0; j < Quantities; ++j) {
+        const auto value = readlane(dq[j], k);
+
+        interm[0][j] += kdivLocal0 * value;
+        interm[1][j] += kdivLocal1 * value;
+        interm[2][j] += kdivLocal2 * value;
+        interm[3][j] += kdivLocal3 * value;
+      }
+    }
+
+#pragma unroll
+    for (int d = 0; d < Faces; ++d) {
+#pragma unroll
+      for (int n = 0; n < Quantities; ++n) {
+#pragma unroll
+        for (int k = 0; k < Quantities; ++k) {
+          const auto staridx = k + n * Quantities + Quantities * Quantities * d;
+          result[n] += interm[d][k] * readlane(star[staridx / 64], staridx % 64);
+        }
+      }
+    }
+
+    if (threadIdx.x >= 56) {
+#pragma unroll
+      for (int v = 0; v < Quantities; ++v) {
+        result[v] = 0;
+      }
+    }
+
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      __builtin_nontemporal_store(result[i], &glbD[i * 64 + threadIdx.x]);
+    }
+  }
+}
+
 __launch_bounds__(256) __global__ void kernel_local6(const float** A,
                                                      const float** B,
                                                      unsigned Boffset,
