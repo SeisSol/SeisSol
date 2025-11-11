@@ -206,7 +206,7 @@ __launch_bounds__(512) __global__ void kernel_local7(const float** A,
   constexpr int Quantities = 9;
   constexpr int Faces = 4;
 
-  __shared__ float kdivCache[56 * 56 * Faces + 16];
+  __shared__ float kdivCache[64 * 56 * Faces];
 
   constexpr int Count = Faces * Quantities * Quantities;
   constexpr int CountH = Count / 64;
@@ -219,13 +219,27 @@ __launch_bounds__(512) __global__ void kernel_local7(const float** A,
   const float* const __restrict__ glbC3 = C3;
   const float* const __restrict__ glbC4 = C4;
 
-  typedef float f4 __attribute__((vector_size(16)));
+  for (int i = 0; i < 56 / 8; ++i) {
+    auto x1 = __builtin_nontemporal_load(&C1[i * 56 + linear]);
+    auto x2 = __builtin_nontemporal_load(&C2[i * 56 + linear]);
+    auto x3 = __builtin_nontemporal_load(&C3[i * 56 + linear]);
+    auto x4 = __builtin_nontemporal_load(&C4[i * 56 + linear]);
 
-  for (int i = 0; i < 48; i += 4) {
-    // TODO: reorder for float4 loads
-    *(f4*)&kdivCache[i * 256 + linear] = __builtin_nontemporal_load((f4*)&C1[i * 256 + linear]);
+    if (threadIdx.x >= 56) {
+      x1 = 0;
+      x2 = 0;
+      x3 = 0;
+      x4 = 0;
+    }
+
+    float4 x;
+    x.x = x1;
+    x.y = x2;
+    x.z = x3;
+    x.w = x4;
+
+    *(float4*)&kdivCache[i * 256 + linear * 4] = x;
   }
-  kdivCache[48 * 256 + linear] = __builtin_nontemporal_load(&C1[48 * 256 + linear]);
   __syncthreads();
 
   for (int b = blockIdx.x * blockDim.y + threadIdx.y; b < numElements;
@@ -261,19 +275,16 @@ __launch_bounds__(512) __global__ void kernel_local7(const float** A,
 
 #pragma unroll 8
     for (int k = 0; k < 56; ++k) {
-      const auto kdivLocal0 = kdivCache[k * 56 + threadIdx.x + 0 * 56 * 56];
-      const auto kdivLocal1 = kdivCache[k * 56 + threadIdx.x + 1 * 56 * 56];
-      const auto kdivLocal2 = kdivCache[k * 56 + threadIdx.x + 2 * 56 * 56];
-      const auto kdivLocal3 = kdivCache[k * 56 + threadIdx.x + 3 * 56 * 56];
+      const auto kdivLocal = *(float4*)&kdivCache[k * 256 + threadIdx.x * 4];
 
 #pragma unroll
       for (int j = 0; j < Quantities; ++j) {
         const auto value = readlane(dq[j], k);
 
-        interm[0][j] += kdivLocal0 * value;
-        interm[1][j] += kdivLocal1 * value;
-        interm[2][j] += kdivLocal2 * value;
-        interm[3][j] += kdivLocal3 * value;
+        interm[0][j] += kdivLocal.x * value;
+        interm[1][j] += kdivLocal.y * value;
+        interm[2][j] += kdivLocal.z * value;
+        interm[3][j] += kdivLocal.w * value;
       }
     }
 
@@ -288,13 +299,6 @@ __launch_bounds__(512) __global__ void kernel_local7(const float** A,
             result[n] += interm[d][k] * readlane(star[staridx / 64], staridx % 64);
           }
         }
-      }
-    }
-
-    if (threadIdx.x >= 56) {
-#pragma unroll
-      for (int v = 0; v < Quantities; ++v) {
-        result[v] = 0;
       }
     }
 
