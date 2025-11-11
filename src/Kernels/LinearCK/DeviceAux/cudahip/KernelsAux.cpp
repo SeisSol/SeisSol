@@ -219,11 +219,12 @@ __launch_bounds__(512) __global__ void kernel_local7(const float** A,
   const float* const __restrict__ glbC3 = C3;
   const float* const __restrict__ glbC4 = C4;
 
+#pragma unroll
   for (int i = 0; i < 56 / 8; ++i) {
-    auto x1 = __builtin_nontemporal_load(&C1[i * 56 * 8 + linear]);
-    auto x2 = __builtin_nontemporal_load(&C2[i * 56 * 8 + linear]);
-    auto x3 = __builtin_nontemporal_load(&C3[i * 56 * 8 + linear]);
-    auto x4 = __builtin_nontemporal_load(&C4[i * 56 * 8 + linear]);
+    auto x1 = __builtin_nontemporal_load(&C1[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x2 = __builtin_nontemporal_load(&C2[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x3 = __builtin_nontemporal_load(&C3[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x4 = __builtin_nontemporal_load(&C4[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
 
     if (threadIdx.x >= 56) {
       x1 = 0;
@@ -232,7 +233,7 @@ __launch_bounds__(512) __global__ void kernel_local7(const float** A,
       x4 = 0;
     }
 
-    float4 x;
+    float4 x{};
     x.x = x1;
     x.y = x2;
     x.z = x3;
