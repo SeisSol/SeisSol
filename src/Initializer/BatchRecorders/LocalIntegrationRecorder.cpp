@@ -68,15 +68,20 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     real** derivatives = currentLayer->var<LTS::DerivativesDevice>();
     real** buffers = currentLayer->var<LTS::BuffersDevice>();
 
+    std::vector<int> bins(5);
+
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLayer->cellRef(cell, AllocationPlace::Device);
       auto dataHost = currentLayer->cellRef(cell, AllocationPlace::Host);
 
+      int count = 0;
       for (unsigned face = 0; face < 4; ++face) {
         if (dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
           fluxes[cell] |= (1 << face);
+          ++count;
         }
       }
+      ++bins[count];
 
       // dofs
       dofsPtrs[cell] = static_cast<real*>(data.get<LTS::Dofs>());
@@ -167,6 +172,8 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 #endif
 
     (*currentIndicesTable)[key].set(inner_keys::Indices::Id::LocalFlux, fluxes);
+
+    logInfo() << bins;
   }
 }
 
