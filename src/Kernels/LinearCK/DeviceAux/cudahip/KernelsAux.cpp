@@ -237,6 +237,13 @@ __launch_bounds__(512) __global__ void kernel_local7(const float** A,
     float dq[Quantities]{};
     float star[CountH + 1]{};
 
+    const bool has1 = (flags[b] & 1) != 0;
+    const bool has2 = (flags[b] & 2) != 0;
+    const bool has3 = (flags[b] & 4) != 0;
+    const bool has4 = (flags[b] & 8) != 0;
+
+    bool has[4]{has1, has2, has3, has4};
+
     float result[Quantities]{};
     for (int i = 0; i < Quantities; ++i) {
       dq[i] = __builtin_nontemporal_load(&glbA[i * 64 + threadIdx.x]);
@@ -254,10 +261,10 @@ __launch_bounds__(512) __global__ void kernel_local7(const float** A,
 
 #pragma unroll 8
     for (int k = 0; k < 56; ++k) {
-      const auto kdivLocal0 = kdivCache[k * 64 + threadIdx.x + 0 * 56 * 56];
-      const auto kdivLocal1 = kdivCache[k * 64 + threadIdx.x + 1 * 56 * 56];
-      const auto kdivLocal2 = kdivCache[k * 64 + threadIdx.x + 2 * 56 * 56];
-      const auto kdivLocal3 = kdivCache[k * 64 + threadIdx.x + 3 * 56 * 56];
+      const auto kdivLocal0 = kdivCache[k * 56 + threadIdx.x + 0 * 56 * 56];
+      const auto kdivLocal1 = kdivCache[k * 56 + threadIdx.x + 1 * 56 * 56];
+      const auto kdivLocal2 = kdivCache[k * 56 + threadIdx.x + 2 * 56 * 56];
+      const auto kdivLocal3 = kdivCache[k * 56 + threadIdx.x + 3 * 56 * 56];
 
 #pragma unroll
       for (int j = 0; j < Quantities; ++j) {
@@ -272,12 +279,14 @@ __launch_bounds__(512) __global__ void kernel_local7(const float** A,
 
 #pragma unroll
     for (int d = 0; d < Faces; ++d) {
+      if (has[d]) {
 #pragma unroll
-      for (int n = 0; n < Quantities; ++n) {
+        for (int n = 0; n < Quantities; ++n) {
 #pragma unroll
-        for (int k = 0; k < Quantities; ++k) {
-          const auto staridx = k + n * Quantities + Quantities * Quantities * d;
-          result[n] += interm[d][k] * readlane(star[staridx / 64], staridx % 64);
+          for (int k = 0; k < Quantities; ++k) {
+            const auto staridx = k + n * Quantities + Quantities * Quantities * d;
+            result[n] += interm[d][k] * readlane(star[staridx / 64], staridx % 64);
+          }
         }
       }
     }
@@ -1503,10 +1512,31 @@ void launch_local(const float** A,
                   size_t numElements,
                   const unsigned* flags,
                   void* streamPtr) {
+  /*
   dim3 block(64, 1, 1);
   dim3 grid((numElements + 1 - 1) / 1, 1, 1);
   hipStream_t stream = (streamPtr != nullptr) ? static_cast<hipStream_t>(streamPtr) : 0;
   kernel_local3<<<grid, block, 0, stream>>>(A, B, Boffset, C1, C2, C3, C4, D, numElements, flags);
+  */
+
+  static int gridsize = -1;
+
+  if (gridsize < 0) {
+    int device{}, smCount{}, blocksPerSM{};
+    hipGetDevice(&device);
+    hipDeviceGetAttribute(&smCount, hipDeviceAttributeMultiprocessorCount, device);
+    hipOccupancyMaxActiveBlocksPerMultiprocessor(&blocksPerSM, kernel_local7, 512, 0);
+    if (blocksPerSM > 0) {
+      gridsize = smCount * blocksPerSM;
+    } else {
+      gridsize = smCount;
+    }
+  }
+
+  dim3 block(64, 8, 1);
+  dim3 grid(gridsize, 1, 1);
+  hipStream_t stream = (streamPtr != nullptr) ? static_cast<hipStream_t>(streamPtr) : 0;
+  kernel_local7<<<grid, block, 0, stream>>>(A, B, Boffset, C1, C2, C3, C4, D, numElements, flags);
 }
 } // namespace seissol::kernels::local::aux
 
