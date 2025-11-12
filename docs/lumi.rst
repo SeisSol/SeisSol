@@ -34,6 +34,7 @@ Run ``pwd`` and copy the path there. Run the following script there.
 
     export SEISSOL_BASE=$(pwd)
     export SEISSOL_PREFIX=$SEISSOL_BASE/local
+    export PYTHONPATH=$SEISSOL_PREFIX/lib64/cmake/easi/python_wrapper:$PYTHONPATH
     export CMAKE_PREFIX_PATH=$SEISSOL_PREFIX:$CMAKE_PREFIX_PATH
 
     mkdir -p $SEISSOL_PREFIX
@@ -82,6 +83,7 @@ All things put together, your `~/.bashrc` file should look like:
 
     export SEISSOL_BASE=/project/project_465002391/<your_name>/seissol_base
     export SEISSOL_PREFIX=$SEISSOL_BASE/local
+    export PYTHONPATH=$SEISSOL_PREFIX/lib64/cmake/easi/python_wrapper:$PYTHONPATH
     export CMAKE_PREFIX_PATH=$SEISSOL_PREFIX:$CMAKE_PREFIX_PATH
     source $SEISSOL_PREFIX/bin/activate
     export CC=cc
@@ -141,7 +143,7 @@ For ASAGI:
     git clone --recursive --depth 1 https://github.com/TUM-I5/ASAGI
     mkdir -p ASAGI/build
     cd ASAGI/build
-    cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DCMAKE_BUILD_TYPE=Release -GNinja
+    cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DCMAKE_BUILD_TYPE=Release -GNinja -DCMAKE_POSITION_INDEPENDENT_CODE=ON
     ninja install
     cd ../..
 
@@ -152,7 +154,7 @@ For LUA:
     wget https://www.lua.org/ftp/lua-5.4.6.tar.gz
     tar -xf lua-5.4.6.tar.gz
     cd lua-5.4.6
-    make all install INSTALL_TOP=$SEISSOL_PREFIX
+    make all install INSTALL_TOP=$SEISSOL_PREFIX MYCFLAGS="-fPIC"
     cd ..
 
 For easi (depending on the former two):
@@ -162,7 +164,7 @@ For easi (depending on the former two):
     git clone --recursive --depth 1 https://github.com/seissol/easi
     mkdir -p easi/build
     cd easi/build
-    cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DCMAKE_BUILD_TYPE=Release -GNinja -DASAGI=ON -DLUA=ON -DIMPALAJIT=OFF -DEASICUBE=OFF
+    cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DCMAKE_BUILD_TYPE=Release -GNinja -DASAGI=ON -DLUA=ON -DIMPALAJIT=OFF -DEASICUBE=OFF -DPYTHON_BINDINGS=ON
     ninja install
     cd ../..
 
