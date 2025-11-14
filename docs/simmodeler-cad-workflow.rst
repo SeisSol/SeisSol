@@ -79,7 +79,7 @@ create_fault_from_trace.py takes 3 main arguments: ``filename``, ``dipType`` and
 - ``dipType`` allow switching between a constant (0), an along-depth dependant (1) or an along-strike dependent (2).
 - ``dipDesc`` gives either the dip angle value (dipType=0) or the 1D variation of the dip angle (dipType=1 or 2).
 
-.. figure:: LatexFigures/dipDescription.png
+.. figure:: figures/dipDescription.png
    :alt: example of surface mesh generated using create_fault_from_trace.py and various dipType
    :width: 12.00000cm
    :align: center
@@ -120,14 +120,14 @@ When then intersect these datasets using the Discrete tab of SimModeler:
 
 
 
-.. figure:: LatexFigures/SimModeler_before_intersection.png
+.. figure:: figures/SimModeler_before_intersection.png
      :alt: Imported mesh representation of faults without explicitly meshed intersection.
      :width: 12.00000cm
      :align: center
 
      Fig. 2: Imported mesh representation of faults without explicitly meshed intersection.
 
-.. figure:: LatexFigures/SimModeler_after_intersection.png
+.. figure:: figures/SimModeler_after_intersection.png
      :alt: Intersected faults, after applying `union parts`
      :width: 12.00000cm
      :align: center

@@ -18,7 +18,7 @@ and to the discrete spatial sampling between point sources (aliasing).
 
 The current implementation allows either imposing kinematic models parameterized by regularized Yoffe functions (FL=33, see Tinti et al., 2005, https://doi.org/10.1785/0120040177) or by Gaussian  source time functions (FL=34).
 
-.. figure:: LatexFigures/Yoffe_example.png
+.. figure:: figures/Yoffe_example.png
    :alt: a typical Yoffe function.
    :width: 15.00000cm
 
