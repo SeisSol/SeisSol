@@ -62,7 +62,7 @@ class ReceiverWriter : public seissol::Module {
 
   std::string m_receiverFileName;
   std::string m_fileNamePrefix;
-  double m_samplingInterval;
+  double m_samplingInterval{};
   std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity>> derivedQuantities;
   std::vector<std::shared_ptr<kernels::ReceiverCluster>> m_receiverClusters;
   Stopwatch m_stopwatch;

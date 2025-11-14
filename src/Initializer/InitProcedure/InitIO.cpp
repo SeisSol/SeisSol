@@ -291,7 +291,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj{};
-                memory::AlignedArray<real, multisim::NumSimulations> simselect;
+                memory::AlignedArray<real, multisim::NumSimulations> simselect{};
                 simselect[sim] = 1;
                 vtkproj.simselect = simselect.data();
                 vtkproj.qb = dofsSingleQuantity;
@@ -314,7 +314,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                   const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(position);
                   const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                   kernel::projectBasisToVtkVolume vtkproj{};
-                  memory::AlignedArray<real, multisim::NumSimulations> simselect;
+                  memory::AlignedArray<real, multisim::NumSimulations> simselect{};
                   simselect[sim] = 1;
                   vtkproj.simselect = simselect.data();
                   vtkproj.qb = dofsSingleQuantity;
@@ -420,7 +420,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               const auto* dofsSingleQuantity =
                   dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
               kernel::projectBasisToVtkFaceFromVolume vtkproj{};
-              memory::AlignedArray<real, multisim::NumSimulations> simselect;
+              memory::AlignedArray<real, multisim::NumSimulations> simselect{};
               simselect[sim] = 1;
               vtkproj.simselect = simselect.data();
               vtkproj.qb = dofsSingleQuantity;
@@ -447,7 +447,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               const auto* faceDisplacementVariable =
                   faceDisplacements[side] + FaceDisplacementPadded * quantity;
               kernel::projectNodalToVtkFace vtkproj{};
-              memory::AlignedArray<real, multisim::NumSimulations> simselect;
+              memory::AlignedArray<real, multisim::NumSimulations> simselect{};
               simselect[sim] = 1;
               vtkproj.simselect = simselect.data();
               vtkproj.pn = faceDisplacementVariable;

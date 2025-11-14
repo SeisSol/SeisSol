@@ -68,15 +68,15 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   using Solver = typename ViscoSolver<Config::ViscoMode>::Type;
 
   //! Relaxation frequencies
-  double omega[zeroLengthArrayHandler(Mechanisms)];
+  double omega[zeroLengthArrayHandler(Mechanisms)]{};
   /** Entries of the source matrix (E)
    * theta[0] = -(lambda * Y_lambda + 2.0 * mu * Y_mu)
    * theta[1] = -lambda * Y_lambda
    * theta[2] = -2.0 * mu * Y_mu
    **/
-  double theta[zeroLengthArrayHandler(Mechanisms)][3];
-  double qp;
-  double qs;
+  double theta[zeroLengthArrayHandler(Mechanisms)][3]{};
+  double qp{};
+  double qs{};
 
   ViscoElasticMaterialParametrized() = default;
   explicit ViscoElasticMaterialParametrized(const std::vector<double>& materialValues)

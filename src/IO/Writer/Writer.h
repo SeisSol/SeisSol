@@ -61,7 +61,7 @@ class Writer {
 
 struct ScheduledWriter {
   std::string name;
-  double interval;
+  double interval{};
   std::function<Writer(const std::string&, std::size_t, double)> planWrite;
 };
 

@@ -267,7 +267,7 @@ TEST_CASE("DR Geometry") {
     vertices.push_back({{1.0, 1.0, 1.0}, {1}});
 
     std::vector<Element> elements;
-    Element e1;
+    Element e1{};
     e1.localId = 0;
     e1.vertices[0] = 0;
     e1.vertices[1] = 1;
@@ -275,7 +275,7 @@ TEST_CASE("DR Geometry") {
     e1.vertices[3] = 3;
     elements.push_back(e1);
 
-    Element e2;
+    Element e2{};
     e2.localId = 1;
     e2.vertices[0] = 1;
     e2.vertices[1] = 4;

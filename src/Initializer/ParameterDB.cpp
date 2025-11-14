@@ -89,7 +89,7 @@ CellToVertexArray
   return CellToVertexArray(
       elements.size(),
       [&](size_t index) {
-        std::array<Eigen::Vector3d, 4> verts;
+        std::array<Eigen::Vector3d, 4> verts{};
         for (size_t i = 0; i < Cell::NumVertices; ++i) {
           auto vindex = elements[index].vertices[i];
           const auto& vertex = vertices[vindex];
@@ -108,7 +108,7 @@ CellToVertexArray CellToVertexArray::fromPUML(const seissol::geometry::PumlMesh&
   return CellToVertexArray(
       elements.size(),
       [&](size_t cell) {
-        std::array<Eigen::Vector3d, 4> x;
+        std::array<Eigen::Vector3d, 4> x{};
         unsigned vertLids[Cell::NumVertices];
         PUML::Downward::vertices(mesh, elements[cell], vertLids);
         for (std::size_t vtx = 0; vtx < Cell::NumVertices; ++vtx) {
@@ -130,7 +130,7 @@ CellToVertexArray CellToVertexArray::fromVectors(
   return CellToVertexArray(
       vertices.size(),
       [&](size_t idx) {
-        std::array<Eigen::Vector3d, Cell::NumVertices> verts;
+        std::array<Eigen::Vector3d, Cell::NumVertices> verts{};
         for (size_t i = 0; i < Cell::NumVertices; ++i) {
           verts[i] << vertices[idx][i][0], vertices[idx][i][1], vertices[idx][i][2];
         }

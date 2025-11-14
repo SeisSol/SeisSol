@@ -50,10 +50,10 @@ class ReceiverBasedOutputBuilder {
   void assignFaultTags();
   void assignFusedIndices();
 
-  const seissol::geometry::MeshReader* meshReader{};
-  LTS::Storage* wpStorage;
-  LTS::Backmap* wpBackmap;
-  DynamicRupture::Storage* drStorage;
+  const seissol::geometry::MeshReader* meshReader{nullptr};
+  LTS::Storage* wpStorage{nullptr};
+  LTS::Backmap* wpBackmap{nullptr};
+  DynamicRupture::Storage* drStorage{nullptr};
   std::shared_ptr<ReceiverOutputData> outputData;
   std::vector<std::size_t> variables;
   std::vector<std::size_t>* faceToLtsMap{nullptr};

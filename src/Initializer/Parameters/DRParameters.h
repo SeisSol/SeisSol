@@ -83,7 +83,7 @@ struct DRParameters {
   real prakashLength{0.0};
   std::string faultFileName;
   std::array<std::optional<std::string>, seissol::multisim::NumSimulations> faultFileNames;
-  Eigen::Vector3d referencePoint;
+  Eigen::Vector3d referencePoint{};
   real terminatorSlipRateThreshold{0.0};
   double etaDamp{1.0};
   double etaDampEnd{std::numeric_limits<double>::infinity()};

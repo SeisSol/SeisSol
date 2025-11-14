@@ -217,7 +217,7 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
         elementCoords[v] = vertices[elements[elem].vertices[v]].coords;
       }
       for (size_t i = 0; i < NumQuadPoints; ++i) {
-        std::array<double, Cell::Dim> transformed;
+        std::array<double, Cell::Dim> transformed{};
         seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
                                                                elementCoords[1],
                                                                elementCoords[2],

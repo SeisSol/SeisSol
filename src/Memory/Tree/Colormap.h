@@ -208,9 +208,9 @@ using ConfigVariant = std::variant<Config>;
   and back.
   */
 struct LayerIdentifier {
-  HaloType halo;
+  HaloType halo{HaloType::Interior};
   ConfigVariant config;
-  std::size_t lts;
+  std::size_t lts{};
 
   LayerIdentifier() = default;
 

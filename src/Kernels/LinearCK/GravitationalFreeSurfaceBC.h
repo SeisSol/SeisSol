@@ -115,7 +115,7 @@ class GravitationalFreeSurfaceBc {
       auto dofsFaceNodal = init::INodal::view::create(dofsFaceNodalStorage);
 
       // Temporary buffer to store nodal face coefficients at some time t
-      alignas(Alignment) std::array<real, nodal::tensor::nodes2D::Shape[0]> prevCoefficients;
+      alignas(Alignment) std::array<real, nodal::tensor::nodes2D::Shape[0]> prevCoefficients{};
 
       const double deltaT = timeStepWidth;
       const double deltaTInt = timeStepWidth;

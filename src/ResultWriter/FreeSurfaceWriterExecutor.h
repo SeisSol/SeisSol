@@ -17,13 +17,13 @@
 
 namespace seissol::writer {
 struct FreeSurfaceInitParam {
-  int timestep;
-  xdmfwriter::BackendType backend;
+  int timestep{};
+  xdmfwriter::BackendType backend{};
   std::string backupTimeStamp;
 };
 
 struct FreeSurfaceParam {
-  double time;
+  double time{};
 };
 
 class FreeSurfaceWriterExecutor {

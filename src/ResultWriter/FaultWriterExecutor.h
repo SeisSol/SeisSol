@@ -21,14 +21,14 @@ namespace seissol::writer {
 struct FaultInitParam {
   static const unsigned int OutputMaskSize = 20;
 
-  bool outputMask[OutputMaskSize];
-  int timestep;
-  xdmfwriter::BackendType backend;
+  bool outputMask[OutputMaskSize]{};
+  int timestep{};
+  xdmfwriter::BackendType backend{};
   std::string backupTimeStamp;
 };
 
 struct FaultParam {
-  double time;
+  double time{};
 };
 
 class FaultWriterExecutor {

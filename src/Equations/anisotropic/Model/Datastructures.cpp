@@ -33,9 +33,8 @@ double AnisotropicMaterial::getMuBar() const { return (c44 + c55 + c66) / 3.0; }
 AnisotropicMaterial::AnisotropicMaterial() = default;
 
 AnisotropicMaterial::AnisotropicMaterial(const ElasticMaterial& m)
-    : c11(m.lambda + 2 * m.mu), c12(m.lambda), c13(m.lambda), c14(0), c15(0), c16(0),
-      c22(m.lambda + 2 * m.mu), c23(m.lambda), c24(0), c25(0), c26(0), c33(m.lambda + 2 * m.mu),
-      c34(0), c35(0), c36(0), c44(m.mu), c45(0), c46(0), c55(m.mu), c56(0), c66(m.mu) {
+    : c11(m.lambda + 2 * m.mu), c12(m.lambda), c13(m.lambda), c22(m.lambda + 2 * m.mu),
+      c23(m.lambda), c33(m.lambda + 2 * m.mu), c44(m.mu), c55(m.mu), c66(m.mu) {
   rho = m.rho;
 }
 
@@ -151,7 +150,7 @@ double AnisotropicMaterial::getMaxWaveSpeed() const {
 
   double maxEv = 0;
 
-  std::array<double, 81> fullTensor;
+  std::array<double, 81> fullTensor{};
   getFullStiffnessTensor(fullTensor);
   seissol_general::kernel::computeChristoffel computeChristoffel;
   computeChristoffel.stiffnessTensor = fullTensor.data();

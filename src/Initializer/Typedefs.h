@@ -206,16 +206,16 @@ struct NeighboringIntegrationData {
 
 // material constants per cell
 struct CellMaterialData {
-  seissol::model::Material* local;
-  seissol::model::Material* neighbor[4];
+  seissol::model::Material* local{};
+  seissol::model::Material* neighbor[4]{};
 };
 
 struct DRFaceInformation {
-  std::size_t meshFace;
-  std::uint8_t plusSide;
-  std::uint8_t minusSide;
-  std::uint8_t faceRelation;
-  bool plusSideOnThisRank;
+  std::size_t meshFace{};
+  std::uint8_t plusSide{};
+  std::uint8_t minusSide{};
+  std::uint8_t faceRelation{};
+  bool plusSideOnThisRank{};
 };
 
 struct DRGodunovData {
@@ -263,10 +263,10 @@ struct DREnergyOutput {
 };
 
 struct CellDRMapping {
-  unsigned side;
-  unsigned faceRelation;
-  real* godunov;
-  real* fluxSolver;
+  unsigned side{};
+  unsigned faceRelation{};
+  real* godunov{nullptr};
+  real* fluxSolver{nullptr};
 };
 
 struct BoundaryFaceInformation {
@@ -297,23 +297,23 @@ struct GravitationSetup {
 };
 
 struct TravellingWaveParameters {
-  Eigen::Vector3d origin;
-  Eigen::Vector3d kVec;
+  Eigen::Vector3d origin{};
+  Eigen::Vector3d kVec{};
   std::vector<int> varField;
   std::vector<std::complex<double>> ampField;
 };
 
 struct AcousticTravellingWaveParametersITM {
-  double k;
-  double itmStartingTime;
-  double itmDuration;
-  double itmVelocityScalingFactor;
+  double k{};
+  double itmStartingTime{};
+  double itmDuration{};
+  double itmVelocityScalingFactor{};
 };
 
 struct PressureInjectionParameters {
-  std::array<double, 3> origin;
-  double magnitude;
-  double width;
+  std::array<double, 3> origin{};
+  double magnitude{};
+  double width{};
 };
 
 } // namespace seissol

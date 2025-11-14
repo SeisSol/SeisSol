@@ -116,7 +116,7 @@ std::array<real, multisim::NumSimulations>
   feKrnl.minusSurfaceArea = -0.5 * godunovData.doubledSurfaceArea;
   feKrnl.execute();
 
-  std::array<real, multisim::NumSimulations> frictionalWorkReturn;
+  std::array<real, multisim::NumSimulations> frictionalWorkReturn{};
   std::copy(staticFrictionalWork,
             staticFrictionalWork + multisim::NumSimulations,
             std::begin(frictionalWorkReturn));

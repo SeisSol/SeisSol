@@ -182,7 +182,7 @@ class AdhocBuffer : public DataSource {
   bool distributed() override { return true; }
 
   private:
-  int id;
+  int id{-1};
 };
 
 class GeneratedBuffer : public AdhocBuffer {

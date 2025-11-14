@@ -163,8 +163,8 @@ class DirichletBoundary {
   }
 
   private:
-  double quadPoints[ConvergenceOrder];
-  double quadWeights[ConvergenceOrder];
+  double quadPoints[ConvergenceOrder]{};
+  double quadWeights[ConvergenceOrder]{};
 };
 
 //

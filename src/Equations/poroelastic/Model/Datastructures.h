@@ -52,13 +52,13 @@ struct PoroElasticMaterial : public ElasticMaterial {
   using NeighborSpecificData = PoroelasticNeighborData;
   using Solver = kernels::solver::stp::Solver;
 
-  double bulkSolid;
-  double porosity;
-  double permeability;
-  double tortuosity;
-  double bulkFluid;
-  double rhoFluid;
-  double viscosity;
+  double bulkSolid{};
+  double porosity{};
+  double permeability{};
+  double tortuosity{};
+  double bulkFluid{};
+  double rhoFluid{};
+  double viscosity{};
 
   PoroElasticMaterial() = default;
 

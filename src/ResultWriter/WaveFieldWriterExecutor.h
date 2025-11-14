@@ -42,14 +42,14 @@ enum BufferTags {
 };
 
 struct WaveFieldInitParam {
-  int timestep;
-  int bufferIds[BuffertagMax + 1];
-  xdmfwriter::BackendType backend;
+  int timestep{};
+  int bufferIds[BuffertagMax + 1]{};
+  xdmfwriter::BackendType backend{};
   std::string backupTimeStamp;
 };
 
 struct WaveFieldParam {
-  double time;
+  double time{};
 };
 
 class WaveFieldWriterExecutor {
@@ -61,7 +61,7 @@ class WaveFieldWriterExecutor {
   xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>* m_lowWaveFieldWriter{nullptr};
 
   /** Buffer id for the first variable for high and low order output */
-  unsigned int m_variableBufferIds[2];
+  unsigned int m_variableBufferIds[2]{};
 
   /** The total number of (high order) variables */
   unsigned int m_numVariables{0};

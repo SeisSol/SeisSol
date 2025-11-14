@@ -17,7 +17,7 @@ namespace seissol::initializer::parameters {
 enum class PointSourceType : int { None = 0, NrfSource = 42, FsrmSource = 50 };
 
 struct SourceParameters {
-  PointSourceType type;
+  PointSourceType type{PointSourceType::None};
   std::string fileName;
 };
 

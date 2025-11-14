@@ -95,7 +95,7 @@ void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point)
   }
 
   /// \todo Find a nicer solution that is not so hard-coded.
-  struct stat fileStat;
+  struct stat fileStat{};
   // Write header if file does not exist
   if (stat(name.c_str(), &fileStat) != 0) {
     std::ofstream file;

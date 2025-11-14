@@ -46,7 +46,7 @@ struct AcousticMaterial : public Material {
   using NeighborSpecificData = AcousticNeighborData;
   using Solver = kernels::solver::linearck::Solver;
 
-  double lambda;
+  double lambda{};
 
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 

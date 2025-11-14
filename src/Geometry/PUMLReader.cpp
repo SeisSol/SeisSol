@@ -561,14 +561,14 @@ void PUMLReader::addMPINeighor(const PumlMesh& meshTopology,
   neighbor.elements.resize(faces.size());
 
   for (std::size_t i = 0; i < faces.size(); i++) {
-    std::array<int, 2> cellIds;
+    std::array<int, 2> cellIds{};
     PUML::Upward::cells(meshTopology, meshTopology.faces()[faces[i]], cellIds.data());
 
     neighbor.elements[i].localElement = cellIds[0];
 
     neighbor.elements[i].neighborElement = i;
 
-    std::array<unsigned int, Cell::NumFaces> sides;
+    std::array<unsigned int, Cell::NumFaces> sides{};
     PUML::Downward::faces(meshTopology, meshTopology.cells()[cellIds[0]], sides.data());
     neighbor.elements[i].localSide = [&]() {
       for (std::size_t f = 0; f < Cell::NumFaces; ++f) {

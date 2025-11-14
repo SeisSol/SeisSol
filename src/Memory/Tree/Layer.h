@@ -41,9 +41,9 @@ enum class AllocationMode {
 enum class AllocationPlace { Host, Device };
 
 struct DualMemoryContainer {
-  void* host = nullptr;
-  void* device = nullptr;
-  AllocationMode allocationMode;
+  void* host{nullptr};
+  void* device{nullptr};
+  AllocationMode allocationMode{AllocationMode::HostOnly};
   std::size_t allocationSize{};
   std::size_t allocationAlignment{};
   bool constant{};
@@ -196,8 +196,8 @@ struct MemoryInfo {
   size_t size{};
   size_t count{};
   LayerMask mask;
-  AllocationMode allocMode;
-  MemoryType type;
+  AllocationMode allocMode{AllocationMode::HostOnly};
+  MemoryType type{MemoryType::Variable};
   bool constant{false};
   bool filtered{false};
   bool initialized{false};

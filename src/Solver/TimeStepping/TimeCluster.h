@@ -49,11 +49,11 @@ namespace seissol::time_stepping {
 class TimeCluster : public AbstractTimeCluster {
   private:
   // Last correction time of the neighboring cluster with higher dt
-  double lastSubTime;
+  double lastSubTime{0};
 
   // The timestep of the largest neighbor. Not well-defined (and not used) for the largest local
   // timecluster.
-  double neighborTimestep;
+  double neighborTimestep{0};
 
   void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
   void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
@@ -61,9 +61,6 @@ class TimeCluster : public AbstractTimeCluster {
   void predict() override;
   void correct() override;
   bool usePlasticity;
-
-  //! number of time steps
-  unsigned long m_numberOfTimeSteps;
 
   seissol::SeisSol& seissolInstance;
   /*
@@ -118,8 +115,8 @@ class TimeCluster : public AbstractTimeCluster {
     NumComputeParts
   };
 
-  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsNonZero;
-  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsHardware;
+  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsNonZero{};
+  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsHardware{};
 
   //! Stopwatch of TimeManager
   LoopStatistics* loopStatistics;

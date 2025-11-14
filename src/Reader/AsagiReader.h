@@ -24,7 +24,7 @@ enum class NumaCacheMode { Off, On, Cache };
 class AsagiReader : public easi::AsagiReader {
   private:
   /** Number of threads used by ASAGI */
-  unsigned int asagiThreads;
+  unsigned int asagiThreads{0};
 
   /** MPI communicator used by ASAGI */
   MPI_Comm comm;

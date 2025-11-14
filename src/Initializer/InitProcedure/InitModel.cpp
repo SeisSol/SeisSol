@@ -198,7 +198,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
           auto& plasticity = plasticityArray[cell];
           assert(plasticityDB.size() == seissol::multisim::NumSimulations &&
                  "Plasticity database size mismatch with number of simulations");
-          std::array<Plasticity, seissol::multisim::NumSimulations> localPlasticity;
+          std::array<Plasticity, seissol::multisim::NumSimulations> localPlasticity{};
           for (size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
             localPlasticity[i] = plasticityDB[i][meshId];
           }

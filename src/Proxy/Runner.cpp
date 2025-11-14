@@ -82,8 +82,8 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
     std::cerr << "...done" << std::endl;
   }
 
-  struct timeval startTime;
-  struct timeval endTime;
+  struct timeval startTime{};
+  struct timeval endTime{};
 #ifdef __USE_RDTSC
   size_t cyclesStart, cyclesEnd;
 #endif

@@ -50,7 +50,6 @@ class Condition {
   private:
   size_t highBitsMask;
   size_t encoding;
-  size_t count;
 };
 } // namespace seissol::recording
 

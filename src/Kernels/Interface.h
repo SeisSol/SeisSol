@@ -23,7 +23,8 @@ struct LocalTmp {
       timeIntegratedAne[zeroLengthArrayHandler(kernels::size<tensor::Iane>())]{};
   GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
   alignas(Alignment)
-      std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
+      std::array<real,
+                 tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[Cell::NumFaces]{};
   explicit LocalTmp(double graviationalAcceleration)
       : gravitationalFreeSurfaceBc(graviationalAcceleration) {};
 };

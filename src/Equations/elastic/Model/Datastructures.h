@@ -44,8 +44,8 @@ struct ElasticMaterial : Material {
   using NeighborSpecificData = ElasticNeighborData;
   using Solver = kernels::solver::linearck::Solver;
 
-  double lambda;
-  double mu;
+  double lambda{};
+  double mu{};
 
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 

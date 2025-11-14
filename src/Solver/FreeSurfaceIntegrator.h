@@ -58,8 +58,8 @@ class FreeSurfaceIntegrator {
       getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
 
   public:
-  std::array<real*, NumComponents> velocities;
-  std::array<real*, NumComponents> displacements;
+  std::array<real*, NumComponents> velocities{};
+  std::array<real*, NumComponents> displacements{};
 
   std::vector<unsigned> locationFlags;
   std::size_t totalNumberOfFreeSurfaces{0};

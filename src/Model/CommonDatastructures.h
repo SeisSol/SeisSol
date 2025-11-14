@@ -45,7 +45,7 @@ struct Material {
 
   virtual ~Material() = default;
 
-  double rho;
+  double rho{};
   Material() = default;
   explicit Material(const std::vector<double>& data) : rho(data.at(0)) {}
 

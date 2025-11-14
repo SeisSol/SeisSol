@@ -80,8 +80,8 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
     logError() << "You requested more nucleations than supported by this build of SeisSol. Either "
                   "adjust that yourself, or complain to the developers. :)";
   }
-  std::array<real, MaxNucleactions> t0;
-  std::array<real, MaxNucleactions> s0;
+  std::array<real, MaxNucleactions> t0{};
+  std::array<real, MaxNucleactions> s0{};
   for (std::size_t i = 0; i < nucleationCount; ++i) {
     const std::string t0name = i == 0 ? "t_0" : ("t" + std::to_string(i + 1) + "_0");
     t0[i] = static_cast<real>(reader->readWithDefault(t0name, 0.0));

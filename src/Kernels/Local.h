@@ -24,7 +24,7 @@ namespace seissol::kernels {
 class LocalKernel : public Kernel {
   protected:
   double gravitationalAcceleration{9.81};
-  const std::vector<std::unique_ptr<physics::InitialField>>* initConds;
+  const std::vector<std::unique_ptr<physics::InitialField>>* initConds{nullptr};
 
   public:
   ~LocalKernel() override = default;

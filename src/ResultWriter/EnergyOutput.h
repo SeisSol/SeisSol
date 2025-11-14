@@ -127,12 +127,12 @@ class EnergyOutput : public Module {
   const LTS::Storage* ltsStorage = nullptr;
 
   EnergiesStorage energiesStorage{};
-  std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold;
-  std::array<double, multisim::NumSimulations> minTimeSinceMomentRateBelowThreshold;
+  std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold{};
+  std::array<double, multisim::NumSimulations> minTimeSinceMomentRateBelowThreshold{};
   double terminatorMaxTimePostRupture{};
   double energyOutputInterval{};
   double terminatorMomentRateThreshold{};
-  std::array<double, multisim::NumSimulations> seismicMomentPrevious;
+  std::array<double, multisim::NumSimulations> seismicMomentPrevious{};
 };
 
 } // namespace writer

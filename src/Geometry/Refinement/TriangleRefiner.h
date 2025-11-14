@@ -19,8 +19,8 @@ class TriangleRefiner;
 } // namespace seissol::refinement
 
 struct seissol::refinement::Triangle {
-  Eigen::Vector2d x[3];
-  double area;
+  Eigen::Vector2d x[3]{};
+  double area{};
 };
 
 class seissol::refinement::TriangleRefiner {
@@ -55,7 +55,7 @@ class seissol::refinement::TriangleRefiner {
 
   public:
   std::vector<Triangle> subTris;
-  unsigned maxDepth;
+  unsigned maxDepth{0};
 
   explicit TriangleRefiner() = default;
 

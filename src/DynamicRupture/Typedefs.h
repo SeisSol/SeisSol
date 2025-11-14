@@ -21,7 +21,17 @@ namespace seissol::dr {
  * Carsten Uphoff's dissertation equation (4.51)
  */
 struct ImpedancesAndEta {
-  real zp, zs, zpNeig, zsNeig, etaP, etaS, invEtaS, invZp, invZs, invZpNeig, invZsNeig;
+  real zp{};
+  real zs{};
+  real zpNeig{};
+  real zsNeig{};
+  real etaP{};
+  real etaS{};
+  real invEtaS{};
+  real invZp{};
+  real invZs{};
+  real invZpNeig{};
+  real invZsNeig{};
 };
 
 /**

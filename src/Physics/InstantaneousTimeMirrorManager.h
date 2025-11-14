@@ -31,7 +31,7 @@ class InstantaneousTimeMirrorManager : Module {
 
   seissol::geometry::MeshReader* meshReader{nullptr};
   LTS::Storage* ltsStorage{nullptr};
-  const initializer::ClusterLayout* clusterLayout;
+  const initializer::ClusterLayout* clusterLayout{nullptr};
 
   std::vector<seissol::time_stepping::AbstractTimeCluster*> clusters;
 

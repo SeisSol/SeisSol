@@ -38,9 +38,9 @@ using Subfault = struct Subfault {
   double timestep{};
   double mu{};
   double area{};
-  Eigen::Vector3d tan1;
-  Eigen::Vector3d tan2;
-  Eigen::Vector3d normal;
+  Eigen::Vector3d tan1{};
+  Eigen::Vector3d tan2{};
+  Eigen::Vector3d normal{};
 };
 
 using Offsets = std::array<unsigned, 3U>;

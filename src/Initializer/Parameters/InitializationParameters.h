@@ -32,16 +32,16 @@ enum class InitializationType : int {
 };
 
 struct InitializationParameters {
-  InitializationType type;
-  Eigen::Vector3d origin;
-  Eigen::Vector3d kVec;
-  Eigen::Vector<double, seissol::model::MaterialT::NumQuantities> ampField;
-  double magnitude;
-  double width;
-  double k;
+  InitializationType type{InitializationType::Zero};
+  Eigen::Vector3d origin{};
+  Eigen::Vector3d kVec{};
+  Eigen::Vector<double, seissol::model::MaterialT::NumQuantities> ampField{};
+  double magnitude{};
+  double width{};
+  double k{};
   std::string filename;
-  bool hasTime;
-  bool avoidIC;
+  bool hasTime{false};
+  bool avoidIC{false};
 };
 
 InitializationParameters readInitializationParameters(ParameterReader* baseReader);
