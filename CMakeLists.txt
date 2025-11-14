@@ -111,9 +111,10 @@ if (WITH_GPU)
   endif()
 endif()
 
-add_subdirectory(src)
-
+target_compile_options(seissol-common-properties INTERFACE ${EXTRA_CXX_FLAGS})
 target_compile_options(seissol-common-properties INTERFACE -fPIC)
+
+add_subdirectory(src)
 
 # enforce code generation to run before any other target
 add_dependencies(seissol-common-properties seissol-codegen)
@@ -429,33 +430,38 @@ if (WITH_GPU)
 endif()
 
 # C++ compiler settings
+# TODO: mostly remove or make optional? (except the EIGEN_DONT_VECTORIZE for NVHPC below)
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  target_compile_options(seissol-lib INTERFACE -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
+  target_compile_options(seissol-common-properties INTERFACE -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
 
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
   # todo remove std?, is ffreestanding needed?
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+  target_compile_options(seissol-common-properties INTERFACE -pedantic $<$<COMPILE_LANGUAGE:CXX>:-std=c++17>)
 
   # Activate interprocedual optimization.
   #set_property(TARGET seissol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Wno-unused-parameter")
+  target_compile_options(seissol-common-properties INTERFACE -pedantic $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra -pedantic -Wno-unused-parameter>)
 
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
     # warning 186 - pointless comparison of unsigned integer with zero detected
     # warning 612 - overloaded virtual function is only partially overridden
     # warning 111 - statement is unreachable
-    set(WARNINGS "--display_error_number --diag_suppress186 --diag_suppress612 --diag_suppress111")
+    target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:--display_error_number --diag_suppress186 --diag_suppress612 --diag_suppress111>)
     if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.3.1")
-      set(WARNINGS "${WARNINGS} --diag_suppress1")
+      target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:--diag_suppress1>)
     endif()
 
     # NOTE:
     # 1. --pending_instantiations=0 allows an infinite recursive template instantiation
-    # 2. EIGEN_DONT_VECTORIZE=1 waiting for eigen3 support for nvhpc compiler collection w.r.t. vectorization
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wc,--pending_instantiations=0 ${WARNINGS} -DEIGEN_DONT_VECTORIZE=0")
+    target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-Wc,--pending_instantiations=0>)
+
+    if ("${Eigen3_VERSION}" VERSION_LESS "5.0")
+      # 2. EIGEN_DONT_VECTORIZE=1 ; Eigen3 3.4 does not have support for NVHPC vectorization
+      target_compile_definitions(seissol-common-properties INTERFACE EIGEN_DONT_VECTORIZE=0)
+    endif()
 endif()
 
 find_package(FILESYSTEM REQUIRED)

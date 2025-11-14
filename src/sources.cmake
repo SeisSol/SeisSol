@@ -174,8 +174,6 @@ Reader/AsagiReader.cpp
 Geometry/CubeGenerator.cpp
 )
 
-target_compile_options(seissol-common-properties INTERFACE ${EXTRA_CXX_FLAGS})
-
 if (HDF5 AND MPI)
   target_sources(seissol-lib PRIVATE
     Geometry/PartitioningLib.cpp
