@@ -238,15 +238,15 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
   const auto bufferSize = tensor::I::size();
   const auto derivativeSize = yateto::computeFamilySize<tensor::dQ>();
 
+#ifdef ACL_DEVICE
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  device.api->setDevice(0);
+#endif // ACL_DEVICE
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
   {
-#ifdef ACL_DEVICE
-    device::DeviceInstance& device = device::DeviceInstance::getInstance();
-    device.api->setDevice(0);
-#endif // ACL_DEVICE
-
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
