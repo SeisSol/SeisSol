@@ -27,6 +27,8 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <map>
 #include <mpi.h>
 #include <numeric>
@@ -104,11 +106,10 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   logInfo() << "Determining cell colors...";
 
-  const auto clusterLayout =
-      ClusterLayout::fromMesh(seissolParams.timeStepping.lts.getRate(),
-                              seissolInstance.meshReader(),
-                              seissolParams.timeStepping.lts.getWiggleFactor(),
-                              true);
+  const auto clusterLayout = ClusterLayout::fromMesh(seissolParams.timeStepping.lts.getRate(),
+                                                     seissolInstance.meshReader(),
+                                                     seissolInstance.getTimestepScale(),
+                                                     true);
 
   seissolInstance.getMemoryManager().setClusterLayout(clusterLayout);
 
@@ -251,7 +252,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
             cellInformation[index].neighborConfigIds[face] = 0;
           } else {
             secondaryCellInformation[index].faceNeighbors[face] = StoragePosition::NullPosition;
-            cellInformation[index].neighborConfigIds[face] = -1;
+            cellInformation[index].neighborConfigIds[face] =
+                std::numeric_limits<std::uint32_t>::max();
           }
         }
       }

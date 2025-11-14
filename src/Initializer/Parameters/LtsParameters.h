@@ -57,10 +57,7 @@ class LtsParameters {
   [[nodiscard]] bool isAutoMergeUsed() const;
   [[nodiscard]] double getAllowedPerformanceLossRatioAutoMerge() const;
   [[nodiscard]] AutoMergeCostBaseline getAutoMergeCostBaseline() const;
-  [[nodiscard]] double getWiggleFactor() const;
   [[nodiscard]] LtsWeightsTypes getLtsWeightsType() const;
-  void setWiggleFactor(double factor);
-  void setMaxNumberOfClusters(int numClusters);
 
   LtsParameters() = default;
 

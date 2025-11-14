@@ -67,6 +67,7 @@ class LtsWeights {
   [[nodiscard]] const std::vector<int>& clusterIds() const;
   [[nodiscard]] const std::vector<double>& timesteps() const;
   [[nodiscard]] int nWeightsPerVertex() const;
+  [[nodiscard]] double getWiggleFactor() const;
 
   private:
   seissol::SeisSol& seissolInstance;

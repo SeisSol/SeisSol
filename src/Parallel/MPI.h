@@ -81,6 +81,8 @@ class Mpi : public MpiBasic {
       return MPI_C_BOOL;
     } else {
       static_assert(sizeof(T) == 0, "Unimplemented MPI type.");
+      // return something to make NVHPC happy
+      return MPI_BYTE;
     }
   }
 

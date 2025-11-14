@@ -265,6 +265,7 @@ struct SpecificVarmap {
       return value;
     } else if constexpr (sizeof...(Ttail) == 0) {
       static_assert(sizeof(T) == 0, "Type not found.");
+      return std::numeric_limits<std::size_t>::max();
     } else {
       return innerIndex<T, Ttail...>(value + 1);
     }
