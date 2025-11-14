@@ -17,7 +17,7 @@ jobs:
       - name: apt-get
         run: |
           sudo apt-get update
-          sudo apt-get install hdf5-tools libeigen3-dev libhdf5-openmpi-dev libmetis-dev libomp-dev libopenmpi-dev libparmetis-dev libyaml-cpp-dev openmpi-bin openmpi-common python3.10 python3-pip
+          sudo apt-get install hdf5-tools libhdf5-openmpi-dev libmetis-dev libomp-dev libopenmpi-dev libparmetis-dev libyaml-cpp-dev openmpi-bin openmpi-common python3.10 python3-pip
 
           # keep, for once clang-21 or higher is needed
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
@@ -39,7 +39,18 @@ jobs:
         run: |
           mkdir build && cd build
           CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
-          make -j $(nproc) && make install
+          make -j $(nproc) install
+
+      # Eigen3 5.0 isn't present with Ubuntu 24.04 by default yet; but contains many useful changes
+      - name: install-eigen
+        run: |
+          wget https://gitlab.com/libeigen/eigen/-/archive/5.0.0/eigen-5.0.0.zip
+          unzip eigen-5.0.0.zip
+          cd eigen-5.0.0
+
+          mkdir build && cd build
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -DCMAKE_INSTALL_PREFIX=/opt/dependencies
+          make -j $(nproc) install
 
       - name: checkout-seissol
         uses: actions/checkout@v5
