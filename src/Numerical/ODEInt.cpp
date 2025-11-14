@@ -14,7 +14,6 @@
 #include <cmath>
 #include <cstddef>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
 namespace {

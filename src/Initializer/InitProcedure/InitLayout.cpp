@@ -232,7 +232,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           cellInformation[index].faceRelations[face][0] = element.neighborSides[face];
           cellInformation[index].faceRelations[face][1] = element.sideOrientations[face];
 
-          if (element.neighbors[face] != meshReader.getElements().size() ||
+          if (static_cast<std::size_t>(element.neighbors[face]) !=
+                  meshReader.getElements().size() ||
               element.neighborRanks[face] != rank) {
             const auto& neighbor = [&]() {
               const bool ghostNeighbor = element.neighborRanks[face] != rank;

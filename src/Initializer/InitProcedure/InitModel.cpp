@@ -133,9 +133,6 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   }
 
   logDebug() << "Setting cell materials in the storage (for interior and copy layers).";
-  const auto& elements = meshReader.getElements();
-
-  auto* materialDataArrayGlobal = memoryManager.getLtsStorage().var<LTS::MaterialData>();
 
   for (auto& layer : memoryManager.getLtsStorage().leaves()) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
@@ -272,6 +269,8 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
 
 void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
   if constexpr (isDeviceOn()) {
+    logInfo() << "Determine Host-Device switchpoint";
+
     const auto hdswitch = seissolInstance.env().get<std::string>("DEVICE_HOST_SWITCH", "none");
     bool hdenabled = false;
     if (hdswitch == "none") {
@@ -299,8 +298,6 @@ void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
 }
 
 void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
-
   seissolInstance.getMemoryManager().initializeMemoryLayout();
 
   seissolInstance.getMemoryManager().fixateBoundaryStorage();
@@ -339,10 +336,7 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   logInfo() << "Initialize cell material parameters.";
   initializeCellMaterial(seissolInstance);
 
-  if constexpr (isDeviceOn()) {
-    logInfo() << "Determine Host-Device switchpoint";
-    hostDeviceCoexecution(seissolInstance);
-  }
+  hostDeviceCoexecution(seissolInstance);
 
   // init memory layout (needs cell material values to initialize e.g. displacements correctly)
   logInfo() << "Initialize Memory layout.";

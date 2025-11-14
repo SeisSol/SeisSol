@@ -180,8 +180,7 @@ PUMLReader::PUMLReader(const std::string& meshFile,
                        seissol::initializer::parameters::TopologyFormat topologyFormat,
                        initializer::time_stepping::LtsWeights* ltsWeights,
                        double tpwgt)
-    : MeshReader(seissol::Mpi::mpi.rank()), boundaryFormat(boundaryFormat),
-      topologyFormat(topologyFormat) {
+    : MeshReader(seissol::Mpi::mpi.rank()), boundaryFormat(boundaryFormat) {
   // we need up to two meshes, potentially:
   // one mesh for the geometry
   // one mesh for the topology
@@ -476,7 +475,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
       std::array<int, 2> cellIds{};
       PUML::Upward::cells(meshTopology, faces[info.second[i]], cellIds.data());
       const auto side = PUML::Downward::faceSide(meshTopology, cells[cellIds[0]], info.second[i]);
-      logassert(side >= 0 && side < Cell::NumFaces);
+      logassert(side >= 0 && static_cast<std::size_t>(side) < Cell::NumFaces);
       copySide[k][i] = side;
 
       std::array<unsigned int, Cell::NumVertices> topoVertices{};

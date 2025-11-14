@@ -45,7 +45,6 @@ class LtsParameters {
   double allowedPerformanceLossRatioAutoMerge{};
   AutoMergeCostBaseline autoMergeCostBaseline = AutoMergeCostBaseline::BestWiggleFactor;
   LtsWeightsTypes ltsWeightsType;
-  double finalWiggleFactor = 1.0;
 
   public:
   [[nodiscard]] std::vector<uint64_t> getRate() const;

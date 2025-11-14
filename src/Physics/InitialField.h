@@ -102,7 +102,6 @@ class SuperimposedPlanarwave : public InitialField {
 
   private:
   std::array<Eigen::Vector3d, 3> m_kVec;
-  double m_phase;
   std::array<Planarwave, 3> m_pw;
 };
 

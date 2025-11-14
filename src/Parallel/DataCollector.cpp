@@ -21,8 +21,8 @@ namespace seissol::parallel {
 DataCollectorUntyped::DataCollectorUntyped(const std::vector<void*>& indexDataHost,
                                            size_t elemSize,
                                            bool hostAccessible)
-    : indexCount(indexDataHost.size()), indexDataHost(indexDataHost), elemSize(elemSize),
-      hostAccessible(hostAccessible) {
+    : hostAccessible(hostAccessible), indexDataHost(indexDataHost),
+      indexCount(indexDataHost.size()), elemSize(elemSize) {
   // in case we want to use this class in a host-only scenario
   if constexpr (!isDeviceOn()) {
     this->hostAccessible = true;

@@ -37,7 +37,6 @@
 #include "PointSource.h"
 #include "Solver/MultipleSimulations.h"
 #include "Solver/TimeStepping/TimeManager.h"
-#include "SourceTerm/NRF.h"
 #include "SourceTerm/Typedefs.h"
 
 #include <Eigen/Core>
@@ -55,13 +54,13 @@
 
 #ifdef USE_NETCDF
 #include "NRFReader.h"
+#include "SourceTerm/NRF.h"
 
 #include <mpi.h>
 #endif
 
 #ifdef ACL_DEVICE
 #include "Kernels/PointSourceClusterOnDevice.h"
-#include "Parallel/Helper.h"
 #endif
 
 namespace {
@@ -102,6 +101,12 @@ void computeMInvJInvPhisAtSources(
   krnl.execute();
 }
 
+struct SourceFile {
+  std::vector<std::size_t> originalIndex;
+  std::vector<std::size_t> meshIds;
+};
+
+#if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
 void transformNRFSourceToInternalSource(const Subfault& subfault,
                                         const Offsets& offsets,
                                         const Offsets& nextOffsets,
@@ -167,12 +172,6 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
   }
 }
 
-struct SourceFile {
-  std::vector<std::size_t> originalIndex;
-  std::vector<std::size_t> meshIds;
-};
-
-#if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
 struct NrfFile : public SourceFile {
   NRF nrf;
   void read(const std::string& file) { readNRF(file.c_str(), nrf); }

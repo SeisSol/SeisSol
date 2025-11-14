@@ -127,7 +127,7 @@ void seissol::physics::Planarwave::evaluate(
 
 seissol::physics::SuperimposedPlanarwave::SuperimposedPlanarwave(
     const CellMaterialData& materialData, real phase)
-    : m_kVec({{{M_PI, 0.0, 0.0}, {0.0, M_PI, 0.0}, {0.0, 0.0, M_PI}}}), m_phase(phase),
+    : m_kVec({{{M_PI, 0.0, 0.0}, {0.0, M_PI, 0.0}, {0.0, 0.0, M_PI}}}),
       m_pw({Planarwave(materialData, phase, m_kVec.at(0)),
             Planarwave(materialData, phase, m_kVec.at(1)),
             Planarwave(materialData, phase, m_kVec.at(2))}) {}

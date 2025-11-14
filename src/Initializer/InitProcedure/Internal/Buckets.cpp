@@ -143,7 +143,6 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   auto* buffersDevice = layer.var<LTS::BuffersDevice>();
   auto* derivativesDevice = layer.var<LTS::DerivativesDevice>();
   const auto* cellInformation = layer.var<LTS::CellInformation>();
-  const auto* secondaryCellInformation = layer.var<LTS::SecondaryInformation>();
   BucketManager manager;
 
   const auto datatype = Config::Precision;

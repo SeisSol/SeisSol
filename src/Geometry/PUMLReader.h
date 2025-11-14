@@ -59,7 +59,6 @@ class PUMLReader : public seissol::geometry::MeshReader {
 
   private:
   seissol::initializer::parameters::BoundaryFormat boundaryFormat;
-  seissol::initializer::parameters::TopologyFormat topologyFormat;
 
   /**
    * Read the mesh

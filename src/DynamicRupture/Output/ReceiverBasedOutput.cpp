@@ -96,8 +96,7 @@ void ReceiverOutput::calcFaultOutput(
   }
 
   const auto points = outputData->receiverPoints.size();
-  const auto handler = [this, outputData, &faultInfos, outputType, slipRateOutputType, level](
-                           std::size_t i) {
+  const auto handler = [this, outputData, &faultInfos, slipRateOutputType, level](std::size_t i) {
     // TODO: query the dofs, only once per simulation; once per face
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
     alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
