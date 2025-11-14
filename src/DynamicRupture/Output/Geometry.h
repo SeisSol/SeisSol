@@ -10,6 +10,7 @@
 
 #include "Geometry/MeshDefinition.h"
 #include "Kernels/Precision.h"
+
 #include <Eigen/Dense>
 #include <array>
 #include <cassert>

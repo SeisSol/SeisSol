@@ -7,28 +7,29 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "KernelHost.h"
+
+#include "Alignment.h"
 #include "Allocator.h"
 #include "Common.h"
+#include "Common/Constants.h"
 #include "Constants.h"
-#include "Kernel.h"
-
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/CellLocalInformation.h"
+#include "Initializer/Typedefs.h"
+#include "Kernel.h"
+#include "Kernels/Interface.h"
+#include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
+#include "Kernels/TimeCommon.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+#include "Monitoring/Instrumentation.h"
+#include "Numerical/Quadrature.h"
 #include "Parallel/OpenMP.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/CellLocalInformation.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Interface.h>
-#include <Kernels/Precision.h>
-#include <Kernels/Solver.h>
-#include <Kernels/TimeCommon.h>
-#include <Memory/Descriptor/DynamicRupture.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
-#include <Monitoring/Instrumentation.h>
-#include <Numerical/Quadrature.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Parallel/Runtime/Stream.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>

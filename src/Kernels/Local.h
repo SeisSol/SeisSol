@@ -13,9 +13,10 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
+#include "Kernels/Kernel.h"
 #include "Parallel/Runtime/Stream.h"
-#include <Kernels/Kernel.h>
-#include <Physics/InitialField.h>
+#include "Physics/InitialField.h"
+
 #include <cassert>
 
 namespace seissol::kernels {
@@ -23,7 +24,7 @@ namespace seissol::kernels {
 class LocalKernel : public Kernel {
   protected:
   double gravitationalAcceleration{9.81};
-  const std::vector<std::unique_ptr<physics::InitialField>>* initConds;
+  const std::vector<std::unique_ptr<physics::InitialField>>* initConds{nullptr};
 
   public:
   ~LocalKernel() override = default;
@@ -43,15 +44,15 @@ class LocalKernel : public Kernel {
                                double time,
                                double timeStepWidth) = 0;
 
-  virtual void computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
-                                      ConditionalMaterialTable& materialTable,
-                                      ConditionalIndicesTable& indicesTable,
+  virtual void computeBatchedIntegral(recording::ConditionalPointersToRealsTable& dataTable,
+                                      recording::ConditionalMaterialTable& materialTable,
+                                      recording::ConditionalIndicesTable& indicesTable,
                                       double timeStepWidth,
                                       seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   virtual void
-      evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
-                                     ConditionalIndicesTable& indicesTable,
+      evaluateBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& dataTable,
+                                     recording::ConditionalIndicesTable& indicesTable,
                                      LTS::Layer& layer,
                                      double time,
                                      double timeStepWidth,

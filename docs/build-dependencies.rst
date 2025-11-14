@@ -32,7 +32,7 @@ For compiling SeisSol, you will need the following dependencies during build:
 Additionally, you need the following libraries:
 
 - MPI (Support for MPI Standard >= 2.2)
-- Eigen (>= 3.4)
+- Eigen (>= 5.0 preferred; >= 3.4 supported)
 - Hdf5 (>= 1.8, parallel)
 - easi (>= 1.5)
 - (optional, recommended) a code generator

@@ -18,6 +18,7 @@ format() {
     local allowlist_dir="
         app
         src
+        tests
         "
 
     # files outside the source directories

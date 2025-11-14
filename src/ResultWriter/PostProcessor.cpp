@@ -7,11 +7,13 @@
 // SPDX-FileContributor: Vishal Sontakke
 
 #include "PostProcessor.h"
-#include <Alignment.h>
-#include <Kernels/Common.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
+
+#include "Alignment.h"
+#include "Kernels/Common.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+
 #include <array>
 
 void seissol::writer::PostProcessor::integrateQuantities(const double timestep,
@@ -53,7 +55,7 @@ void seissol::writer::PostProcessor::allocateMemory(LTS::Storage& ltsStorage) co
                                  m_numberOfVariables);
 }
 
-const real* seissol::writer::PostProcessor::getIntegrals(LTS::Storage& ltsStorage) const {
+const seissol::real* seissol::writer::PostProcessor::getIntegrals(LTS::Storage& ltsStorage) const {
   if (m_numberOfVariables == 0) {
     return nullptr;
   } else {

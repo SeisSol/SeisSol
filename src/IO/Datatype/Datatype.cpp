@@ -281,7 +281,7 @@ std::optional<std::vector<char>> ArrayDatatype::fromStringRaw(const std::string&
 
 struct MemberInfo {
   std::string name;
-  std::size_t offset;
+  std::size_t offset{};
   std::shared_ptr<Datatype> datatype;
 };
 

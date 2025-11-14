@@ -5,21 +5,20 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "SeisSol.h"
-
 #include "InitSideConditions.h"
 
+#include "Equations/Datastructures.h"
 #include "Initializer/InitialFieldProjection.h"
+#include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Model/CommonDatastructures.h"
+#include "Physics/InitialField.h"
+#include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
+#include "SourceTerm/Manager.h"
 
-#include <Equations/Datastructures.h>
-#include <Initializer/Parameters/InitializationParameters.h>
-#include <Initializer/Typedefs.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Model/CommonDatastructures.h>
-#include <Physics/InitialField.h>
-#include <Solver/MultipleSimulations.h>
-#include <SourceTerm/Manager.h>
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
@@ -31,6 +30,8 @@
 #include <vector>
 
 namespace {
+
+using namespace seissol;
 
 TravellingWaveParameters getTravellingWaveInformation(seissol::SeisSol& seissolInstance) {
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;

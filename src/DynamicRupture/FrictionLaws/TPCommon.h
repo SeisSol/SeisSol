@@ -8,13 +8,13 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_TPCOMMON_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_TPCOMMON_H_
 
-#include <array>
-#include <cstddef>
-
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+
+#include <array>
+#include <cstddef>
 
 namespace seissol::dr::friction_law::tp {
 

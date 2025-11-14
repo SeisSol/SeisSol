@@ -8,9 +8,10 @@
 #ifndef SEISSOL_SRC_IO_WRITER_MODULE_ASYNCWRITER_H_
 #define SEISSOL_SRC_IO_WRITER_MODULE_ASYNCWRITER_H_
 
-#include "async/ExecInfo.h"
-#include "async/Module.h"
-#include <IO/Writer/Writer.h>
+#include "IO/Writer/Writer.h"
+
+#include <async/ExecInfo.h>
+#include <async/Module.h>
 #include <mutex>
 
 namespace seissol::io::writer::module {

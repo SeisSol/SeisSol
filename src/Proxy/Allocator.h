@@ -9,23 +9,25 @@
 #ifndef SEISSOL_SRC_PROXY_ALLOCATOR_H_
 #define SEISSOL_SRC_PROXY_ALLOCATOR_H_
 
+#include "Config.h"
+#include "Kernels/DynamicRupture.h"
+#include "Kernels/Local.h"
+#include "Kernels/Neighbor.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/GlobalData.h"
 #include "Memory/Tree/LTSTree.h"
-#include <Config.h>
-#include <Kernels/DynamicRupture.h>
-#include <Kernels/Local.h>
-#include <Kernels/Neighbor.h>
-#include <Kernels/Solver.h>
-#include <Memory/Tree/Layer.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Memory/Tree/Layer.h"
+#include "Parallel/Runtime/Stream.h"
+
 #include <unordered_set>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/Recorders.h"
-#include <device.h>
+
+#include <Device/device.h>
 #endif
 
 namespace seissol::proxy {

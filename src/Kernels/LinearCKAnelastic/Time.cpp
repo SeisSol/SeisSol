@@ -7,24 +7,23 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "TimeBase.h"
+#include "Time.h"
 
-#ifndef NDEBUG
-extern long long libxsmm_num_total_flops;
-#endif
+#include "GeneratedCode/init.h"
+#include "Kernels/MemoryOps.h"
 
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
-
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #endif
 
-#include "GeneratedCode/init.h"
-#include "Kernels/MemoryOps.h"
+#ifndef NDEBUG
+extern long long libxsmm_num_total_flops;
+#endif
 
 namespace seissol::kernels::solver::linearckanelastic {
 
@@ -197,11 +196,13 @@ void Time::evaluateBatched(const real* coeffs,
 void Spacetime::computeBatchedAder(const real* coeffs,
                                    double timeStepWidth,
                                    LocalTmp& tmp,
-                                   ConditionalPointersToRealsTable& dataTable,
-                                   ConditionalMaterialTable& materialTable,
+                                   recording::ConditionalPointersToRealsTable& dataTable,
+                                   recording::ConditionalMaterialTable& materialTable,
                                    bool updateDisplacement,
                                    seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
   /*
    * compute ADER scheme.
    */

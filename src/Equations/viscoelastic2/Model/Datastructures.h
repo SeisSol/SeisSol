@@ -11,23 +11,24 @@
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_DATASTRUCTURES_H_
 
 #include "Common/Constants.h"
+#include "Common/Typedefs.h"
 #include "Config.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/PreProcessorMacros.h"
+#include "Kernels/LinearCK/Solver.h"
+#include "Kernels/LinearCKAnelastic/Solver.h"
 #include "Model/CommonDatastructures.h"
-#include <Common/Typedefs.h>
-#include <Initializer/Parameters/ModelParameters.h>
-#include <Kernels/LinearCK/Solver.h>
-#include <Kernels/LinearCKAnelastic/Solver.h>
-#include <Physics/Attenuation.h>
+#include "Physics/Attenuation.h"
+
 #include <array>
 #include <cstddef>
 #include <string>
 
 namespace seissol::model {
-class ViscoElasticLocalData;
-class ViscoElasticNeighborData;
+struct ViscoElasticLocalData;
+struct ViscoElasticNeighborData;
 
 template <ViscoImplementation Implementation>
 struct ViscoSolver {
@@ -67,18 +68,18 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   using Solver = typename ViscoSolver<Config::ViscoMode>::Type;
 
   //! Relaxation frequencies
-  double omega[zeroLengthArrayHandler(Mechanisms)];
+  double omega[zeroLengthArrayHandler(Mechanisms)]{};
   /** Entries of the source matrix (E)
    * theta[0] = -(lambda * Y_lambda + 2.0 * mu * Y_mu)
    * theta[1] = -lambda * Y_lambda
    * theta[2] = -2.0 * mu * Y_mu
    **/
-  double theta[zeroLengthArrayHandler(Mechanisms)][3];
-  double qp;
-  double qs;
+  double theta[zeroLengthArrayHandler(Mechanisms)][3]{};
+  double qp{};
+  double qs{};
 
   ViscoElasticMaterialParametrized() = default;
-  ViscoElasticMaterialParametrized(const std::vector<double>& materialValues)
+  explicit ViscoElasticMaterialParametrized(const std::vector<double>& materialValues)
       : ElasticMaterial(materialValues) {
     for (int mech = 0; mech < Mechanisms; ++mech) {
       this->omega[mech] = materialValues.at(3 + 4 * mech);

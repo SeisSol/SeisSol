@@ -9,7 +9,7 @@
 #ifndef SEISSOL_SRC_GEOMETRY_PARTITIONINGLIB_H_
 #define SEISSOL_SRC_GEOMETRY_PARTITIONINGLIB_H_
 
-#include "PUML/Partition.h"
+#include <PUML/Partition.h>
 #include <string_view>
 
 namespace seissol {

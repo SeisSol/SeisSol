@@ -7,15 +7,16 @@
 
 #include "CheckpointManager.h"
 
-#include <Common/Constants.h>
-#include <IO/Datatype/Inference.h>
-#include <IO/Datatype/MPIType.h>
-#include <IO/Reader/Distribution.h>
-#include <IO/Reader/File/Hdf5Reader.h>
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Instructions/Hdf5.h>
-#include <IO/Writer/Writer.h>
-#include <Parallel/MPI.h>
+#include "Common/Constants.h"
+#include "IO/Datatype/Inference.h"
+#include "IO/Datatype/MPIType.h"
+#include "IO/Reader/Distribution.h"
+#include "IO/Reader/File/Hdf5Reader.h"
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Hdf5.h"
+#include "IO/Writer/Writer.h"
+#include "Parallel/MPI.h"
+
 #include <cassert>
 #include <cstddef>
 #include <cstdlib>
@@ -25,9 +26,8 @@
 #include <memory>
 #include <mpi.h>
 #include <string>
+#include <utils/logger.h>
 #include <vector>
-
-#include "utils/logger.h"
 
 namespace seissol::io::instance::checkpoint {
 
@@ -46,7 +46,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
                     1,
                     datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
                     MPI_SUM,
-                    MPI::mpi.comm());
+                    Mpi::mpi.comm());
       writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
           writer::instructions::Hdf5Location(filename, {"checkpoint", ckpTree.name}),
           "__ids",
@@ -100,7 +100,7 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   logInfo() << "Loading checkpoint...";
   logInfo() << "Checkpoint file:" << file;
 
-  auto reader = reader::file::Hdf5Reader(seissol::MPI::mpi.comm());
+  auto reader = reader::file::Hdf5Reader(seissol::Mpi::mpi.comm());
   reader.openFile(file);
   reader.openGroup("checkpoint");
   const auto convergenceOrderRead = reader.readAttributeScalar<int>("__order");
@@ -109,7 +109,7 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   }
   for (auto& [_, ckpTree] : dataRegistry) {
     reader.openGroup(ckpTree.name);
-    auto distributor = reader::Distributor(seissol::MPI::mpi.comm());
+    auto distributor = reader::Distributor(seissol::Mpi::mpi.comm());
 
     logInfo() << "Reading group IDs for" << ckpTree.name;
     auto groupIds = reader.readData<std::size_t>("__ids");

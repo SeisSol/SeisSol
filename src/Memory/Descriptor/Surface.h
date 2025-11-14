@@ -9,10 +9,10 @@
 #ifndef SEISSOL_SRC_MEMORY_DESCRIPTOR_SURFACE_H_
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_SURFACE_H_
 
-#include <Initializer/Typedefs.h>
-#include <Memory/Descriptor/Boundary.h>
-#include <Memory/Tree/LTSTree.h>
-#include <Memory/Tree/Layer.h>
+#include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/Boundary.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Layer.h"
 namespace seissol {
 
 struct SurfaceLTS {

@@ -8,8 +8,10 @@
 #include "ClusteringWriter.h"
 
 #include "Common/Filesystem.h"
-#include <Initializer/BasicTypedefs.h>
-#include <Numerical/Statistics.h>
+#include "Initializer/BasicTypedefs.h"
+#include "Numerical/Statistics.h"
+#include "Parallel/MPI.h"
+
 #include <cstddef>
 #include <fstream>
 #include <ios>
@@ -17,8 +19,6 @@
 #include <type_traits>
 #include <utils/logger.h>
 #include <vector>
-
-#include "Parallel/MPI.h"
 namespace seissol::writer {
 
 ClusteringWriter::ClusteringWriter(const std::string& outputPrefix) : outputPrefix(outputPrefix) {}
@@ -38,7 +38,7 @@ void ClusteringWriter::addCluster(unsigned profilingId,
 
 void ClusteringWriter::write() const {
   using namespace seissol::filesystem;
-  const auto& mpi = MPI::mpi;
+  const auto& mpi = Mpi::mpi;
 
   const auto localRanks = mpi.collect(mpi.sharedMemMpiRank());
   const auto profilingIds = mpi.collectContainer(clusteringInformation.profilingIds);

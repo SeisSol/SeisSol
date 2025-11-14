@@ -13,13 +13,13 @@
 #include "DynamicRupture/Typedefs.h"
 #include "GeneratedCode/tensor.h"
 #include "IO/Instance/Checkpoint/CheckpointManager.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Helper.h"
-#include <Initializer/Parameters/DRParameters.h>
-#include <Kernels/Common.h>
-#include <Memory/Tree/Backmap.h>
 
 namespace seissol {
 

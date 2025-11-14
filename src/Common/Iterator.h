@@ -56,8 +56,8 @@ public:
     }
 
     Iterator(bool lenient,
-             std::tuple<IteratorTs...> iterators,
-             std::tuple<IteratorTs...> iteratorEnds)
+             const std::tuple<IteratorTs...>& iterators,
+             const std::tuple<IteratorTs...>& iteratorEnds)
         : iterators(iterators), iteratorEnds(iteratorEnds),
           ended(tupleAnyEqual(iterators, iteratorEnds)), lenient(lenient) {
       if (!lenient && ended && iterators != iteratorEnds) {
@@ -93,7 +93,7 @@ private:
     bool lenient;
   };
 
-  Zip(bool lenient, RangeTs&&... ranges) : ranges(ranges...), lenient(lenient) {}
+  explicit Zip(bool lenient, RangeTs&&... ranges) : ranges(ranges...), lenient(lenient) {}
 
   constexpr auto begin() {
     return Iterator<IteratorType<RangeTs>...>(
@@ -333,7 +333,7 @@ class FilteredIterator {
   // NOLINTNEXTLINE
   using reference = typename std::iterator_traits<T>::reference;
 
-  FilteredIterator(T base, T end, std::function<bool(reference)> filter)
+  FilteredIterator(T base, T end, const std::function<bool(reference)>& filter)
       : base(base), end(end), filter(filter) {
     // skip initially-filtered elements
     while (this->base != end && !filter(*this->base)) {

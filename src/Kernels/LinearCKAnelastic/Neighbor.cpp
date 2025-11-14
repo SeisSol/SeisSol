@@ -7,7 +7,7 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "NeighborBase.h"
+#include "Neighbor.h"
 
 #include <cassert>
 #include <cstddef>
@@ -185,9 +185,11 @@ std::uint64_t Neighbor::bytesNeighborsIntegral() {
   return reals * sizeof(real);
 }
 
-void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
+void Neighbor::computeBatchedNeighborsIntegral(recording::ConditionalPointersToRealsTable& table,
                                                seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
   kernel::gpu_neighborFluxExt neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
 

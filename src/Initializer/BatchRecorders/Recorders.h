@@ -8,21 +8,22 @@
 #ifndef SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_RECORDERS_H_
 #define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_RECORDERS_H_
 
-#include "DataTypes/ConditionalTable.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Kernels/Interface.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
-#include "utils/logger.h"
-#include <Memory/Descriptor/DynamicRupture.h>
+
+#include <utils/logger.h>
 #include <vector>
 
-namespace seissol::initializer::recording {
+namespace seissol::recording {
 
 template <typename VarmapT>
 class AbstractRecorder {
   public:
   virtual ~AbstractRecorder() = default;
 
-  virtual void record(Layer<VarmapT>& layer) = 0;
+  virtual void record(initializer::Layer<VarmapT>& layer) = 0;
 
   protected:
   void checkKey(const ConditionalKey& key) {
@@ -32,7 +33,7 @@ class AbstractRecorder {
     }
   }
 
-  void setUpContext(Layer<VarmapT>& layer) {
+  void setUpContext(initializer::Layer<VarmapT>& layer) {
     currentTable = &(layer.template getConditionalTable<inner_keys::Wp>());
     currentDrTable = &(layer.template getConditionalTable<inner_keys::Dr>());
     currentMaterialTable = &(layer.template getConditionalTable<inner_keys::Material>());
@@ -44,25 +45,21 @@ class AbstractRecorder {
   DrConditionalPointersToRealsTable* currentDrTable{nullptr};
   ConditionalMaterialTable* currentMaterialTable{nullptr};
   ConditionalIndicesTable* currentIndicesTable{nullptr};
-  Layer<VarmapT>* currentLayer{nullptr};
+  initializer::Layer<VarmapT>* currentLayer{nullptr};
 };
 
 template <typename VarmapT>
 class CompositeRecorder : public AbstractRecorder<VarmapT> {
   public:
-  ~CompositeRecorder() override {
-    for (auto* recorder : concreteRecorders) {
-      delete recorder;
-    }
-  }
-
-  void record(Layer<VarmapT>& layer) override {
-    for (auto* recorder : concreteRecorders) {
+  void record(initializer::Layer<VarmapT>& layer) override {
+    for (auto recorder : concreteRecorders) {
       recorder->record(layer);
     }
   }
 
-  void addRecorder(AbstractRecorder<VarmapT>* recorder) { concreteRecorders.push_back(recorder); }
+  void addRecorder(AbstractRecorder<VarmapT>* recorder) {
+    concreteRecorders.push_back(std::shared_ptr<AbstractRecorder<VarmapT>>(recorder));
+  }
 
   void removeRecorder(size_t recorderIndex) {
     if (recorderIndex < concreteRecorders.size()) {
@@ -71,7 +68,7 @@ class CompositeRecorder : public AbstractRecorder<VarmapT> {
   }
 
   private:
-  std::vector<AbstractRecorder<VarmapT>*> concreteRecorders;
+  std::vector<std::shared_ptr<AbstractRecorder<VarmapT>>> concreteRecorders;
 };
 
 class LocalIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
@@ -132,6 +129,6 @@ class DynamicRuptureRecorder : public AbstractRecorder<DynamicRupture::DynrupVar
   std::unordered_map<real*, real*> idofsAddressRegistry;
 };
 
-} // namespace seissol::initializer::recording
+} // namespace seissol::recording
 
 #endif // SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_RECORDERS_H_

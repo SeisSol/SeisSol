@@ -11,12 +11,13 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-#include <Kernels/Common.h>
-#include <Kernels/PointSourceCluster.h>
-#include <Kernels/Precision.h>
-#include <Parallel/Runtime/Stream.h>
-#include <Solver/MultipleSimulations.h>
-#include <SourceTerm/Typedefs.h>
+#include "Kernels/Common.h"
+#include "Kernels/PointSourceCluster.h"
+#include "Kernels/Precision.h"
+#include "Parallel/Runtime/Stream.h"
+#include "Solver/MultipleSimulations.h"
+#include "SourceTerm/Typedefs.h"
+
 #include <array>
 #include <cstddef>
 #include <memory>

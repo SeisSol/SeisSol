@@ -6,13 +6,14 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "ParameterReader.h"
+
+#include "Common/Filesystem.h"
+
 #include <memory>
 #include <optional>
 #include <string>
 #include <utils/logger.h>
 #include <vector>
-
-#include "Common/Filesystem.h"
 
 namespace seissol::initializer::parameters {
 

@@ -9,14 +9,14 @@
 #define SEISSOL_SRC_PHYSICS_INSTANTANEOUSTIMEMIRRORMANAGER_H_
 
 #include "Geometry/MeshReader.h"
+#include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Modules/Module.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
+#include "Solver/TimeStepping/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/TimeCluster.h"
-#include <Initializer/TimeStepping/ClusterLayout.h>
-#include <Solver/TimeStepping/AbstractTimeCluster.h>
 
 namespace seissol {
 class SeisSol;
@@ -31,7 +31,7 @@ class InstantaneousTimeMirrorManager : Module {
 
   seissol::geometry::MeshReader* meshReader{nullptr};
   LTS::Storage* ltsStorage{nullptr};
-  const initializer::ClusterLayout* clusterLayout;
+  const initializer::ClusterLayout* clusterLayout{nullptr};
 
   std::vector<seissol::time_stepping::AbstractTimeCluster*> clusters;
 

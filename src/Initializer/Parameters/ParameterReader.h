@@ -11,7 +11,6 @@
 #include <optional>
 #include <string>
 #include <unordered_set>
-
 #include <utils/logger.h>
 #include <utils/stringutils.h>
 #include <yaml-cpp/yaml.h>

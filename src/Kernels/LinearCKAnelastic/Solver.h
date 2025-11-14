@@ -8,6 +8,7 @@
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_SOLVER_H_
 
 #include "GeneratedCode/tensor.h"
+
 #include <cstddef>
 #include <yateto/InitTools.h>
 

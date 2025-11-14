@@ -9,8 +9,9 @@
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_DATASTRUCTURES_H_
 
 #include "Equations/elastic/Model/Datastructures.h"
+#include "Kernels/STP/Solver.h"
 #include "Model/CommonDatastructures.h"
-#include <Kernels/STP/Solver.h>
+
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -18,8 +19,8 @@
 #include <vector>
 
 namespace seissol::model {
-class PoroelasticLocalData;
-class PoroelasticNeighborData;
+struct PoroelasticLocalData;
+struct PoroelasticNeighborData;
 
 struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t NumQuantities = 13;
@@ -51,13 +52,13 @@ struct PoroElasticMaterial : public ElasticMaterial {
   using NeighborSpecificData = PoroelasticNeighborData;
   using Solver = kernels::solver::stp::Solver;
 
-  double bulkSolid;
-  double porosity;
-  double permeability;
-  double tortuosity;
-  double bulkFluid;
-  double rhoFluid;
-  double viscosity;
+  double bulkSolid{};
+  double porosity{};
+  double permeability{};
+  double tortuosity{};
+  double bulkFluid{};
+  double rhoFluid{};
+  double viscosity{};
 
   PoroElasticMaterial() = default;
 

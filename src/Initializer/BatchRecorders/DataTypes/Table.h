@@ -12,14 +12,16 @@
 
 #include "Condition.h"
 #include "EncodedConstants.h"
+
+#include <Device/device.h>
 #include <array>
-#include <device.h>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-namespace seissol::initializer::recording {
+namespace seissol::recording {
 
 template <typename Type>
 class GenericTableEntry {
@@ -78,27 +80,18 @@ struct GenericTable {
   using DataType = typename KeyType::DataType;
 
   public:
-  GenericTable() {
-    for (auto& entry : content) {
-      entry = nullptr;
-    }
-  }
-  ~GenericTable() {
-    for (auto& entry : content) {
-      delete entry;
-    }
-  }
+  GenericTable() = default;
 
   void set(VariableIdType id, std::vector<DataType>& data) {
-    content[*id] = new GenericTableEntry<DataType>(data);
+    content[*id] = std::make_shared<GenericTableEntry<DataType>>(data);
   }
 
-  auto get(VariableIdType id) { return content.at(*id); }
+  auto get(VariableIdType id) { return content.at(*id).get(); }
 
-  const auto get(VariableIdType id) const { return content.at(*id); }
+  const auto get(VariableIdType id) const { return content.at(*id).get(); }
 
   private:
-  std::array<GenericTableEntry<DataType>*, *VariableIdType::Count> content{};
+  std::array<std::shared_ptr<GenericTableEntry<DataType>>, *VariableIdType::Count> content{};
 };
 
 using PointersToRealsTable = GenericTable<inner_keys::Wp>;
@@ -106,16 +99,16 @@ using DrPointersToRealsTable = GenericTable<inner_keys::Dr>;
 using MaterialTable = GenericTable<inner_keys::Material>;
 using IndicesTable = GenericTable<inner_keys::Indices>;
 
-} // namespace seissol::initializer::recording
+} // namespace seissol::recording
 
 #else  // ACL_DEVICE
-namespace seissol::initializer::recording {
+namespace seissol::recording {
 // Provide a dummy implementations for a pure CPU execution
 struct PointersToRealsTable {};
 struct DrPointersToRealsTable {};
 struct MaterialTable {};
 struct IndicesTable {};
-} // namespace seissol::initializer::recording
+} // namespace seissol::recording
 #endif // ACL_DEVICE
 
 #endif // SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_TABLE_H_

@@ -9,32 +9,34 @@
 
 #include "CellLocalMatrices.h"
 
-#include "Equations/Setup.h" // IWYU pragma: keep
+#include "Common/Constants.h"
+#include "DynamicRupture/Typedefs.h"
+#include "Equations/Datastructures.h" // IWYU pragma: keep
+#include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/ParameterDB.h"
+#include "Initializer/TimeStepping/ClusterLayout.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
+#include "Model/CommonDatastructures.h"
+#include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 #include "Parameters/ModelParameters.h"
-#include <Common/Constants.h>
-#include <DynamicRupture/Typedefs.h>
-#include <Equations/Datastructures.h> // IWYU pragma: keep
-#include <Geometry/MeshDefinition.h>
-#include <Geometry/MeshReader.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/TimeStepping/ClusterLayout.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/DynamicRupture.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Backmap.h>
-#include <Model/CommonDatastructures.h>
-#include <Numerical/Eigenvalues.h>
-#include <Solver/MultipleSimulations.h>
+#include "Solver/MultipleSimulations.h"
+
+#include <Eigen/Core>
 #include <algorithm>
 #include <cassert>
 #include <complex>
@@ -45,6 +47,8 @@
 #include <vector>
 
 namespace {
+
+using namespace seissol;
 
 void setStarMatrix(const real* matAT,
                    const real* matBT,
@@ -145,7 +149,6 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
   assert(LayerMask(Ghost) == ltsStorage.info<LTS::LocalIntegration>().mask);
   assert(LayerMask(Ghost) == ltsStorage.info<LTS::NeighboringIntegration>().mask);
 
-  const auto* cellInformationAll = ltsStorage.var<LTS::CellInformation>();
   for (auto& layer : ltsStorage.leaves(Ghost)) {
     auto* material = layer.var<LTS::Material>();
     auto* materialData = layer.var<LTS::MaterialData>();

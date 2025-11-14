@@ -8,15 +8,19 @@
 
 #include "ReceiverWriter.h"
 
-#include <Equations/Datastructures.h>
-#include <Geometry/MeshReader.h>
-#include <Initializer/Parameters/OutputParameters.h>
-#include <Initializer/PointMapper.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Receiver.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Backmap.h>
-#include <Solver/MultipleSimulations.h>
+#include "Equations/Datastructures.h"
+#include "Geometry/MeshReader.h"
+#include "Initializer/Parameters/OutputParameters.h"
+#include "Initializer/PointMapper.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Receiver.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
+#include "Modules/Modules.h"
+#include "Parallel/MPI.h"
+#include "Solver/MultipleSimulations.h"
+
+#include <Eigen/Core>
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -36,9 +40,6 @@
 #include <sys/stat.h>
 #include <utils/logger.h>
 #include <vector>
-
-#include "Modules/Modules.h"
-#include "Parallel/MPI.h"
 
 namespace seissol::writer {
 
@@ -94,7 +95,7 @@ void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point)
   }
 
   /// \todo Find a nicer solution that is not so hard-coded.
-  struct stat fileStat;
+  struct stat fileStat{};
   // Write header if file does not exist
   if (stat(name.c_str(), &fileStat) != 0) {
     std::ofstream file;
@@ -205,7 +206,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                 globalContained.size(),
                 MPI_SHORT,
                 MPI_MAX,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
 
   bool receiversMissing = false;
   for (std::size_t i = 0; i < numberOfPoints; ++i) {

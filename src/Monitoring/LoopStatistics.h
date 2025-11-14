@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_MONITORING_LOOPSTATISTICS_H_
 
 #include "Parallel/MPI.h"
+
 #include <algorithm>
 #include <cassert>
 #include <fstream>

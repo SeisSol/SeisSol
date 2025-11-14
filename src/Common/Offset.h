@@ -12,10 +12,18 @@
 
 namespace seissol {
 
+// NOLINTBEGIN (bugprone-macro-parentheses)
+
+// IMPORTANT: these macros use member names directly; and thus cannot be safeguarded by parentheses.
+// (I'm sorry, clang-tidy)
+
 #define SEISSOL_OFFSET(type, member) (offsetof(type, member) / sizeof(real))
+
 #define SEISSOL_ARRAY_OFFSET(type, member, arrayidx)                                               \
   (SEISSOL_OFFSET(type, member[0]) +                                                               \
    (arrayidx) * (SEISSOL_OFFSET(type, member[1]) - SEISSOL_OFFSET(type, member[0])))
+
+// NOLINTEND
 
 } // namespace seissol
 

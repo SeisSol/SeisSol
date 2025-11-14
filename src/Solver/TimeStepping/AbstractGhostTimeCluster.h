@@ -10,12 +10,11 @@
 
 #include "AbstractTimeCluster.h"
 #include "Initializer/Typedefs.h"
+#include "Parallel/MPI.h"
+#include "Solver/TimeStepping/HaloCommunication.h"
+
 #include <list>
 #include <string>
-
-#include "Parallel/MPI.h"
-
-#include "Solver/TimeStepping/HaloCommunication.h"
 
 namespace seissol::time_stepping {
 class AbstractGhostTimeCluster : public AbstractTimeCluster {

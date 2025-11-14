@@ -10,8 +10,10 @@
 
 #include "AsyncWriter.h"
 #include "Modules/Module.h"
-#include <Parallel/Pin.h>
+#include "Parallel/Pin.h"
+
 #include <functional>
+#include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -23,8 +25,8 @@ class SeisSol;
 namespace seissol::io::writer::module {
 
 struct BufferPointer {
-  size_t size;
-  int id;
+  size_t size{0};
+  int id{-1};
 };
 
 class WriterModule : public seissol::Module, private AsyncWriterModule {
@@ -43,7 +45,7 @@ class WriterModule : public seissol::Module, private AsyncWriterModule {
   private:
   int rank;
   std::string prefix;
-  unsigned planId;
+  unsigned planId{std::numeric_limits<unsigned>::max()};
   AsyncWriter executor;
   std::unordered_map<const void*, BufferPointer> pointerMap;
   std::unordered_map<std::size_t, std::vector<int>> bufferMap;

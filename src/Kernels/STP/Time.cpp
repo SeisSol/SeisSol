@@ -5,12 +5,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "TimeBase.h"
+#include "Time.h"
 
-#ifndef NDEBUG
-extern long long libxsmm_num_total_flops;
-#endif
-
+#include "Equations/poroelastic/Model/PoroelasticSetup.h"
 #include "Kernels/Common.h"
 #include "Kernels/MemoryOps.h"
 
@@ -18,14 +15,15 @@ extern long long libxsmm_num_total_flops;
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
+#include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #endif
 
-#include "Equations/poroelastic/Model/PoroelasticSetup.h"
-
-#include <yateto.h>
+#ifndef NDEBUG
+extern long long libxsmm_num_total_flops;
+#endif
 
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
@@ -183,11 +181,13 @@ std::uint64_t Spacetime::bytesAder() {
 void Spacetime::computeBatchedAder(const real* coeffs,
                                    double timeStepWidth,
                                    LocalTmp& tmp,
-                                   ConditionalPointersToRealsTable& dataTable,
-                                   ConditionalMaterialTable& materialTable,
+                                   recording::ConditionalPointersToRealsTable& dataTable,
+                                   recording::ConditionalMaterialTable& materialTable,
                                    bool updateDisplacement,
                                    seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
   kernel::gpu_spaceTimePredictor krnl = deviceKrnlPrototype;
 
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);

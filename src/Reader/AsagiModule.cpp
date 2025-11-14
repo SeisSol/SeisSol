@@ -9,14 +9,16 @@
 #ifdef USE_ASAGI
 
 #include "AsagiModule.h"
+
+#include "Modules/Modules.h"
 #include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
-#include "utils/env.h"
-#include <Modules/Modules.h>
-#include <Parallel/MPI.h>
+
 #include <asagi.h>
 #include <memory>
 #include <string>
+#include <utils/env.h>
 #include <utils/logger.h>
 
 namespace seissol::asagi {
@@ -59,7 +61,7 @@ AsagiMPIMode AsagiModule::getMPIMode(utils::Env& env) {
 
 int AsagiModule::getTotalThreads(utils::Env& env) {
   int totalThreads = OpenMP::threadCount();
-  if (seissol::useCommThread(seissol::MPI::mpi, env)) {
+  if (seissol::useCommThread(seissol::Mpi::mpi, env)) {
     totalThreads++;
   }
 

@@ -113,6 +113,6 @@ edges. For instance here:
 | When then apply this manual procedure on all detected small features,
   and we finally make the mutual intersection. Hopefully, the model once loaded in SimModeler is then free of small features!
 
-.. |overall view| image:: LatexFigures/ManuallyFixingAnIntersection0.png
-.. |localizing small features| image:: LatexFigures/ManuallyFixingAnIntersection1.png
-.. |fixing intersection| image:: LatexFigures/ManuallyFixingAnIntersection2.png
+.. |overall view| image:: figures/ManuallyFixingAnIntersection0.png
+.. |localizing small features| image:: figures/ManuallyFixingAnIntersection1.png
+.. |fixing intersection| image:: figures/ManuallyFixingAnIntersection2.png

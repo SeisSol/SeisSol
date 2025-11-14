@@ -8,14 +8,14 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FACTORY_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FACTORY_H_
 
-#include <stdexcept>
-#include <tuple>
-#include <utility>
-
 #include "DynamicRupture/Initializer/Initializers.h"
 #include "FrictionLaws/FrictionSolver.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Output/Output.h"
+
+#include <stdexcept>
+#include <tuple>
+#include <utility>
 
 namespace seissol {
 class SeisSol;

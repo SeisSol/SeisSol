@@ -6,10 +6,12 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "ThermalPressurization.h"
+
+#include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
-#include <DynamicRupture/FrictionLaws/TPCommon.h>
+
 #include <array>
 #include <cmath>
 #include <cstddef>

@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_IO_DATATYPE_MPITYPE_H_
 
 #include "Datatype.h"
+
 #include <memory>
 #include <mpi.h>
 

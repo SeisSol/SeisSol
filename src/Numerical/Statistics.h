@@ -16,12 +16,12 @@ struct Summary {
   explicit Summary(double value = 0.0);
   explicit Summary(const std::vector<double>& values);
 
-  double mean;
-  double std;
-  double min;
-  double median;
-  double max;
-  double sum;
+  double mean{};
+  double std{};
+  double min{};
+  double median{};
+  double max{};
+  double sum{};
 };
 
 auto parallelSummary(double value) -> Summary;
