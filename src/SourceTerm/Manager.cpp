@@ -506,7 +506,8 @@ void Manager::loadSources(seissol::initializer::parameters::PointSourceType sour
                           LTS::Storage& ltsStorage,
                           LTS::Backmap& backmap,
                           time_stepping::TimeManager& timeManager) {
-  const auto memkind = useUSM() ? seissol::memory::DeviceUnifiedMemory : seissol::memory::Standard;
+  const auto memkind =
+      useUSM() ? seissol::memory::Memkind::DeviceUnifiedMemory : seissol::memory::Memkind::Standard;
   auto sourceClusters = std::vector<seissol::kernels::PointSourceClusterPair>();
   if (sourceType == seissol::initializer::parameters::PointSourceType::NrfSource) {
     logInfo() << "Reading an NRF source (type 42).";

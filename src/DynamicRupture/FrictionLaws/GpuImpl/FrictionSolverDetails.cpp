@@ -27,7 +27,7 @@ FrictionSolverDetails::~FrictionSolverDetails() = default;
 
 void FrictionSolverDetails::allocateAuxiliaryMemory(GlobalData* globalData) {
   {
-    data = seissol::memory::allocTyped<FrictionLawData>(1, 1, memory::DeviceGlobalMemory);
+    data = seissol::memory::allocTyped<FrictionLawData>(1, 1, memory::Memkind::DeviceGlobalMemory);
   }
 
   resampleMatrix = globalData->resampleMatrix;

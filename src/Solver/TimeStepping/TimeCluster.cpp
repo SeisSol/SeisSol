@@ -92,7 +92,9 @@ TimeCluster::TimeCluster(unsigned int clusterId,
       sourceCluster(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
       // cells
       loopStatistics(loopStatistics), actorStateStatistics(actorStateStatistics),
-      yieldCells(1, isDeviceOn() ? seissol::memory::PinnedMemory : seissol::memory::Standard),
+      yieldCells(1,
+                 isDeviceOn() ? seissol::memory::Memkind::PinnedMemory
+                              : seissol::memory::Memkind::Standard),
       layerType(layerType), printProgress(printProgress), clusterId(clusterId),
       globalClusterId(globalClusterId), profilingId(profilingId),
       dynamicRuptureScheduler(dynamicRuptureScheduler) {

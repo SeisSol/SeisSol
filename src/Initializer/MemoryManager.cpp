@@ -50,10 +50,11 @@ namespace seissol::initializer {
 
 void MemoryManager::initialize() {
   // initialize global matrices
-  GlobalDataInitializerOnHost::init(m_globalDataOnHost, m_memoryAllocator, memory::Standard);
+  GlobalDataInitializerOnHost::init(
+      m_globalDataOnHost, m_memoryAllocator, memory::Memkind::Standard);
   if constexpr (seissol::isDeviceOn()) {
     GlobalDataInitializerOnDevice::init(
-        m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
+        m_globalDataOnDevice, m_memoryAllocator, memory::Memkind::DeviceGlobalMemory);
   }
 }
 

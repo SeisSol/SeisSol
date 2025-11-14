@@ -229,7 +229,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                         data.data().data(),
                                         dr::misc::NumTpGridPoints,
                                         memkind,
-                                        memory::Standard);
+                                        memory::Memkind::Standard);
   }
 
   {
@@ -241,7 +241,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                         data.data().data(),
                                         dr::misc::NumTpGridPoints,
                                         memkind,
-                                        memory::Standard);
+                                        memory::Memkind::Standard);
   }
 
   {
@@ -255,7 +255,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                         data.data().data(),
                                         dr::misc::NumTpGridPoints,
                                         memkind,
-                                        memory::Standard);
+                                        memory::Memkind::Standard);
   }
 
   assert(globalMatrixMemPtr == globalMatrixMem + globalMatrixMemSize);

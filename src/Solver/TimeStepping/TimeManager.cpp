@@ -190,8 +190,6 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   const auto persistent = usePersistentMpi(seissolInstance.env());
   for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost | Interior)) {
 
-    const auto clusterId = layer.getIdentifier().lts;
-
     for (const auto [i, halo] : common::enumerate(haloStructure.at(layer.id()))) {
 
       const bool hasNeighborRegions = !halo.copy.empty() || !halo.ghost.empty();
@@ -200,8 +198,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       if (hasNeighborRegions) {
 
         assert(other.halo == HaloType::Ghost);
-        assert(other.lts + 1 >= clusterId);
-        assert(other.lts < std::min(clusterId + 2, clusterLayout.globalClusterCount));
+        assert(other.lts + 1 >= layer.getIdentifier().lts);
+        assert(other.lts <
+               std::min(layer.getIdentifier().lts + 2, clusterLayout.globalClusterCount));
 
         const auto otherTimeStepSize = clusterLayout.timestepRate(other.lts);
         const auto otherTimeStepRate = clusterLayout.clusterRate(other.lts);

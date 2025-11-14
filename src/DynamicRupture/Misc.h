@@ -17,6 +17,7 @@
 #include "Solver/MultipleSimulations.h"
 
 #include <cmath>
+#include <cstdint>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -145,6 +146,8 @@ void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, Vrtx
 
 std::string frictionLawName(seissol::initializer::parameters::FrictionLawType type);
 
+// NOLINTBEGIN (-cppcoreguidelines-use-enum-class)
+
 namespace quantity_indices {
 /**
  * Defines the indices under which one can find a specific quantity.
@@ -158,7 +161,7 @@ namespace quantity_indices {
  * real normalStress = quantities[N];
  * ```
  * */
-enum QuantityIndices : size_t {
+enum QuantityIndices : uint32_t {
   U = 6,
   V = 7,
   W = 8,
@@ -174,5 +177,7 @@ enum QuantityIndices : size_t {
 };
 } // namespace quantity_indices
 } // namespace seissol::dr::misc
+
+// NOLINTEND ()
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_
