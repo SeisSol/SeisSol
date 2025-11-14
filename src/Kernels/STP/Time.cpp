@@ -193,7 +193,7 @@ void Spacetime::computeBatchedAder(const real* coeffs,
     krnl.extraOffset_Gmt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[12]);
 
     const auto defaultTimestep =
-        layer.var<LTS::LocalIntegrationData>()[0].specific.typicalTimeStepWidth == timeStepWidth;
+        layer.var<LTS::LocalIntegration>()[0].specific.typicalTimeStepWidth == timeStepWidth;
 
     if (defaultTimestep) {
       for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
@@ -203,12 +203,16 @@ void Spacetime::computeBatchedAder(const real* coeffs,
       }
     } else {
       auto* layerZinvData = layer.var<LTS::ZinvExtra>();
-      const auto* layerLocalIntegration = layer.var<LTS::LocalIntegrationData>();
+      const auto* layerLocalIntegration = layer.var<LTS::LocalIntegration>();
       runtime.enqueueLoop(numElements, [=](std::size_t i) {
-        auto* ZinvData = layerZinvData + yateto::computeFamilySize<tensor::Zinv>() * i;
+        auto* ZinvData = reinterpret_cast<real(*)[ConvergenceOrder * ConvergenceOrder]>(
+            layerZinvData + yateto::computeFamilySize<tensor::Zinv>() * i);
         const auto& localIntegration = layerLocalIntegration[i];
 
-        auto sourceMatrix = init::ET::view::create(localIntegration.specific.sourceMatrix);
+        // currently, we need to cast away the `const` here (due to Yateto not having a const view
+        // yet)
+        auto sourceMatrix =
+            init::ET::view::create(const_cast<real*>(localIntegration.specific.sourceMatrix));
         model::zInvInitializerForLoop<0,
                                       seissol::model::MaterialT::NumQuantities,
                                       decltype(sourceMatrix)>(
@@ -245,7 +249,23 @@ void Time::evaluateBatched(const real* coeffs,
                            real** timeIntegratedDofs,
                            std::size_t numElements,
                            seissol::parallel::runtime::StreamRuntime& runtime) {
+  // for now, use the Taylor kernel here; since it'll do exactly the same as in the LinearCK case.
+  // if there are any errors, check this one again.
+
+#ifdef ACL_DEVICE
+  kernel::gpu_derivativeTaylorExpansion krnl;
+  krnl.numElements = numElements;
+  krnl.I = timeIntegratedDofs;
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    krnl.dQ(i) = const_cast<const real**>(timeDerivatives);
+    krnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
+    krnl.power(i) = coeffs[i];
+  }
+  krnl.streamPtr = runtime.stream();
+  krnl.execute();
+#else
   logError() << "No GPU implementation provided";
+#endif
 }
 
 void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {

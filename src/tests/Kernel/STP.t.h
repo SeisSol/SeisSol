@@ -159,8 +159,8 @@ class SpaceTimePredictorTestFixture {
 
   void solveWithKernel(real stp[], const real* qData) {
     real timeIntegrated[seissol::tensor::I::size()];
-    alignas(PagesizeStack) real stpRhs[seissol::tensor::spaceTimePredictorRhs::size()];
-    std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
+    // alignas(PagesizeStack) real stpRhs[seissol::tensor::spaceTimePredictorRhs::size()];
+    // std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
 
     seissol::kernel::spaceTimePredictor krnl;
     prepareKernel(krnl);
@@ -191,7 +191,7 @@ class SpaceTimePredictorTestFixture {
     krnl.I = timeIntegrated;
     krnl.timestep = Dt;
     krnl.spaceTimePredictor = stp;
-    krnl.spaceTimePredictorRhs = stpRhs;
+    // krnl.spaceTimePredictorRhs = stpRhs;
     krnl.execute();
   }
 
