@@ -65,7 +65,7 @@ PROJECT_LOGO           =
 # entered, it will be relative to the location where doxygen was started. If
 # left blank the current directory will be used.
 
-OUTPUT_DIRECTORY       =
+OUTPUT_DIRECTORY       = "@CMAKE_CURRENT_BINARY_DIR@"
 
 # If the CREATE_SUBDIRS tag is set to YES, then doxygen will create 4096 sub-
 # directories (in 2 levels) under the output directory of each output format and
@@ -751,11 +751,11 @@ WARN_LOGFILE           =
 # Note: If this tag is empty the current directory is searched.
 
 INPUT                  = ../../src \
+                         ../../app \
                          ../../README.md \
                          ./CODE_OF_CONDUCT.md \
                          ./CONTRIBUTING.md \
-                         ./IDE.md \
-                         ./LOCAL_USAGE.md
+                         ./LICENSE
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses

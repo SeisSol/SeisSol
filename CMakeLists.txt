@@ -512,5 +512,13 @@ if (WITH_GPU)
           PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
 endif()
 
+if (BUILD_DOXYGEN)
+  add_subdirectory(docs/doxygen)
+endif()
+
+if (BUILD_DOCS)
+  add_subdirectory(docs)
+endif()
+
 # https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/
 # https://ortogonal.github.io/cmake-clang-tidy/
