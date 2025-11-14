@@ -329,6 +329,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       const auto* godunovData = layer.var<DynamicRupture::GodunovData>();
       const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
       const auto* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>();
+      const auto* ruptureTimePending = layer.var<DynamicRupture::RuptureTimePending>();
       const auto* waveSpeedsPlus = layer.var<DynamicRupture::WaveSpeedsPlus>();
       const auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
       const auto layerSize = layer.size();
@@ -378,16 +379,17 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       double localMin = std::numeric_limits<double>::infinity();
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(min : localMin) default(none)                                   \
-    shared(layerSize, drEnergyOutput, faceInformation, sim)
+    shared(layerSize, drEnergyOutput, faceInformation, sim, ruptureTimePending)
 #endif
       for (std::size_t i = 0; i < layerSize; ++i) {
         if (faceInformation[i].plusSideOnThisRank) {
           for (std::size_t j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
-            localMin = std::min(
-                static_cast<double>(
-                    drEnergyOutput[i].timeSinceSlipRateBelowThreshold
-                        [static_cast<size_t>(j * seissol::multisim::NumSimulations) + sim]),
-                localMin);
+            const auto idx = static_cast<size_t>(j * seissol::multisim::NumSimulations) + sim;
+            if (!ruptureTimePending[i][idx]) {
+              localMin = std::min(
+                  static_cast<double>(drEnergyOutput[i].timeSinceSlipRateBelowThreshold[idx]),
+                  localMin);
+            }
           }
         }
       }
