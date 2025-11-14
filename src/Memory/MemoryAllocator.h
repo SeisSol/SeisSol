@@ -56,22 +56,22 @@ class AlignedArray {
   alignas(Alignment) T data_[N];
 };
 
-// TODO(David): make enum class
-enum Memkind {
+enum class Memkind {
   Standard = 0,
   HighBandwidth = 1,
   DeviceGlobalMemory = 3,
   DeviceUnifiedMemory = 4,
   PinnedMemory = 5
 };
-void* allocate(size_t size, size_t alignment = 1, enum Memkind memkind = Standard);
+
+void* allocate(size_t size, size_t alignment = 1, Memkind memkind = Memkind::Standard);
 
 template <typename T>
-T* allocTyped(size_t count, size_t alignment = 1, enum Memkind memkind = Standard) {
+T* allocTyped(size_t count, size_t alignment = 1, Memkind memkind = Memkind::Standard) {
   return reinterpret_cast<T*>(allocate(count * sizeof(T), alignment, memkind));
 }
 
-void free(void* pointer, enum Memkind memkind = Standard);
+void free(void* pointer, Memkind memkind = Memkind::Standard);
 
 void memcopy(
     void* dst, const void* src, std::size_t size, enum Memkind dstMemkind, enum Memkind srcMemkind);
@@ -112,7 +112,7 @@ T* hostToDevicePointerTyped(T* host, enum Memkind memkind) {
  *
  * @param memoryAlignment memory alignment.
  **/
-void printMemoryAlignment(std::vector<std::vector<unsigned long long>> memoryAlignment);
+void printMemoryAlignment(const std::vector<std::vector<unsigned long long>>& memoryAlignment);
 
 /**
  * Automatically frees allocated memory on destruction.
@@ -147,7 +147,7 @@ class ManagedAllocator {
    * @param  alignment alignment of the memory chunk in byte.
    * @return pointer, which points to the aligned memory of the given size.
    **/
-  void* allocateMemory(size_t size, size_t alignment = 1, enum Memkind memkind = Standard);
+  void* allocateMemory(size_t size, size_t alignment = 1, Memkind memkind = Memkind::Standard);
 };
 
 template <typename T>
@@ -207,7 +207,7 @@ class MemkindArray {
   private:
   T* dataPtr{nullptr};
   std::size_t capacity{0};
-  enum Memkind memkind;
+  Memkind memkind{Memkind::Standard};
 };
 
 } // namespace seissol::memory

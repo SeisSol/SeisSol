@@ -28,22 +28,22 @@ DataCollectorUntyped::DataCollectorUntyped(const std::vector<void*>& indexDataHo
     this->hostAccessible = true;
   }
   if (!this->hostAccessible && indexCount > 0) {
-    indexDataDevice = memory::allocTyped<void*>(indexCount, 1, memory::DeviceGlobalMemory);
-    copiedData = memory::allocate(elemSize * indexCount, 1, memory::PinnedMemory);
+    indexDataDevice = memory::allocTyped<void*>(indexCount, 1, memory::Memkind::DeviceGlobalMemory);
+    copiedData = memory::allocate(elemSize * indexCount, 1, memory::Memkind::PinnedMemory);
 
-    copiedDataDevice = memory::hostToDevicePointerTyped(copiedData, memory::PinnedMemory);
+    copiedDataDevice = memory::hostToDevicePointerTyped(copiedData, memory::Memkind::PinnedMemory);
     memory::memcopyTyped(indexDataDevice,
                          indexDataHost.data(),
                          indexCount,
-                         memory::DeviceGlobalMemory,
-                         memory::Standard);
+                         memory::Memkind::DeviceGlobalMemory,
+                         memory::Memkind::Standard);
   }
 }
 
 DataCollectorUntyped::~DataCollectorUntyped() {
   if (!hostAccessible && indexCount > 0) {
-    memory::free(static_cast<void*>(indexDataDevice), memory::DeviceGlobalMemory);
-    memory::free(copiedData, memory::PinnedMemory);
+    memory::free(static_cast<void*>(indexDataDevice), memory::Memkind::DeviceGlobalMemory);
+    memory::free(copiedData, memory::Memkind::PinnedMemory);
   }
 }
 

@@ -144,14 +144,14 @@ ProxyData::ProxyData(std::size_t cellCount, bool enableDR) : cellCount(cellCount
 
 void ProxyData::initGlobalData() {
   seissol::initializer::GlobalDataInitializerOnHost::init(
-      globalDataOnHost, allocator, seissol::memory::Standard);
+      globalDataOnHost, allocator, seissol::memory::Memkind::Standard);
 
   CompoundGlobalData globalData{};
   globalData.onHost = &globalDataOnHost;
   globalData.onDevice = nullptr;
   if constexpr (seissol::isDeviceOn()) {
     seissol::initializer::GlobalDataInitializerOnDevice::init(
-        globalDataOnDevice, allocator, seissol::memory::DeviceGlobalMemory);
+        globalDataOnDevice, allocator, seissol::memory::Memkind::DeviceGlobalMemory);
     globalData.onDevice = &globalDataOnDevice;
   }
   spacetimeKernel.setGlobalData(globalData);
@@ -195,7 +195,7 @@ void ProxyData::initDataStructures(bool enableDR) {
     fakeDerivativesHost = reinterpret_cast<real*>(allocator.allocateMemory(
         cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
         PagesizeHeap,
-        seissol::memory::Standard));
+        seissol::memory::Memkind::Standard));
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -215,7 +215,7 @@ void ProxyData::initDataStructures(bool enableDR) {
     fakeDerivatives = reinterpret_cast<real*>(allocator.allocateMemory(
         cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
         PagesizeHeap,
-        seissol::memory::DeviceGlobalMemory));
+        seissol::memory::Memkind::DeviceGlobalMemory));
     const auto& device = ::device::DeviceInstance::getInstance();
     device.api->copyTo(fakeDerivatives,
                        fakeDerivativesHost,

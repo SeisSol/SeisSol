@@ -23,7 +23,11 @@
 #include <variant>
 #include <vector>
 
+// TODO: remove the following
+
+// NOLINTBEGIN (-cppcoreguidelines-use-enum-class)
 enum LayerType { Ghost = (1U << 0U), Copy = (1U << 1U), Interior = (1U << 2U), NumLayers = 3U };
+// NOLINTEND (-cppcoreguidelines-use-enum-class)
 
 namespace seissol::initializer {
 using LayerMask = std::bitset<NumLayers>;
