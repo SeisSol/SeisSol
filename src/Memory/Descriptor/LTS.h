@@ -141,6 +141,8 @@ struct LTS {
   struct PrevCoefficientsScratch : public initializer::Scratchpad<real> {};
   struct DofsFaceBoundaryNodalScratch : public initializer::Scratchpad<real> {};
 
+  struct ZinvExtra : public initializer::Scratchpad<real> {};
+
   struct Integrals : public initializer::Variable<real> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
@@ -184,7 +186,8 @@ struct LTS {
                                                         DofsFaceNodalScratch,
                                                         PrevCoefficientsScratch,
                                                         DofsFaceBoundaryNodalScratch,
-                                                        Integrals> {};
+                                                        Integrals,
+                                                        ZinvExtra> {};
 
   using Storage = initializer::Storage<LTSVarmap>;
   using Layer = initializer::Layer<LTSVarmap>;
@@ -267,6 +270,7 @@ struct LTS {
       storage.add<DofsFaceNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
       storage.add<PrevCoefficientsScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
       storage.add<DofsFaceBoundaryNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<ZinvExtra>(LayerMask(), 1, AllocationMode::HostDevicePinned);
     }
   }
 

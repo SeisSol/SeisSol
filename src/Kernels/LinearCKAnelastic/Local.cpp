@@ -41,8 +41,6 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   m_volumeKernelPrototype.kDivM = global.onHost->stiffnessMatrices;
   m_localFluxKernelPrototype.rDivM = global.onHost->changeOfBasisMatrices;
   m_localFluxKernelPrototype.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
-  m_localKernelPrototype.selectEla = init::selectEla::Values;
-  m_localKernelPrototype.selectAne = init::selectAne::Values;
 
 #ifdef ACL_DEVICE
   deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
@@ -52,8 +50,6 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
   deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
 #endif
-  deviceLocalKernelPrototype.selectEla = global.onDevice->selectEla;
-  deviceLocalKernelPrototype.selectAne = global.onDevice->selectAne;
 #endif
 }
 

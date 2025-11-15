@@ -39,14 +39,9 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
          0);
 
   m_krnlPrototype.kDivMT = global.onHost->stiffnessMatricesTransposed;
-  m_krnlPrototype.selectAne = init::selectAne::Values;
-  m_krnlPrototype.selectEla = init::selectEla::Values;
 
 #ifdef ACL_DEVICE
   deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
-  // the selectAne/selectEla are inlined
-  deviceKrnlPrototype.selectAne = global.onDevice->selectAne;
-  deviceKrnlPrototype.selectEla = global.onDevice->selectEla;
 #endif
 }
 
@@ -196,6 +191,7 @@ void Time::evaluateBatched(const real* coeffs,
 
 void Spacetime::computeBatchedAder(const real* coeffs,
                                    double timeStepWidth,
+                                   LTS::Layer& layer,
                                    LocalTmp& tmp,
                                    ConditionalPointersToRealsTable& dataTable,
                                    ConditionalMaterialTable& materialTable,

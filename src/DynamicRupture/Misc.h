@@ -173,6 +173,10 @@ enum QuantityIndices : size_t {
   XY = 3,
   YZ = 4,
   XZ = 5,
+  FP = 9,
+  FU = 10,
+  FV = 11,
+  FW = 12,
 };
 } // namespace quantity_indices
 } // namespace seissol::dr::misc

@@ -39,6 +39,7 @@ class Spacetime : public SpacetimeKernel {
                    bool updateDisplacement = false) override;
   void computeBatchedAder(const real* coeffs,
                           double timeStepWidth,
+                          LTS::Layer& layer,
                           LocalTmp& tmp,
                           ConditionalPointersToRealsTable& dataTable,
                           ConditionalMaterialTable& materialTable,
