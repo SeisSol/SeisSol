@@ -184,6 +184,11 @@ void taylorSum(
 } // namespace seissol::kernels::time::aux
 
 namespace {
+// TODO for FP64: use DPP64 maybe?
+// i.e. we can broadcast per 16 threads
+// however, no idea how to stuff constant matrices...
+// (we'd need 128 KiB LDS for that at least)
+
 template <typename T>
 __device__ __forceinline__ auto readlane(T value, int lane) -> T {
   static_assert(sizeof(T) == sizeof(int), "NYI");
@@ -191,6 +196,8 @@ __device__ __forceinline__ auto readlane(T value, int lane) -> T {
   int vcr = __builtin_amdgcn_readlane(vc, lane);
   return *reinterpret_cast<T*>(&vcr);
 }
+
+// TODO: test using the scalar cache much more?
 
 __launch_bounds__(512) __global__ void kernel_local7(const float** A,
                                                      const float** B,
@@ -207,6 +214,7 @@ __launch_bounds__(512) __global__ void kernel_local7(const float** A,
   constexpr int Faces = 4;
 
   __shared__ float kdivCache[64 * 56 * Faces];
+  // TODO: maybe try add __shared__ float broadcastCache[64 * 4 * 8]; ?
 
   constexpr int Count = Faces * Quantities * Quantities;
   constexpr int CountH = Count / 64;
@@ -221,10 +229,10 @@ __launch_bounds__(512) __global__ void kernel_local7(const float** A,
 
 #pragma unroll
   for (int i = 0; i < 56 / 8; ++i) {
-    auto x1 = __builtin_nontemporal_load(&C1[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
-    auto x2 = __builtin_nontemporal_load(&C2[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
-    auto x3 = __builtin_nontemporal_load(&C3[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
-    auto x4 = __builtin_nontemporal_load(&C4[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x1 = __builtin_nontemporal_load(&glbC1[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x2 = __builtin_nontemporal_load(&glbC2[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x3 = __builtin_nontemporal_load(&glbC3[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x4 = __builtin_nontemporal_load(&glbC4[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
 
     if (threadIdx.x >= 56) {
       x1 = 0;
@@ -249,17 +257,22 @@ __launch_bounds__(512) __global__ void kernel_local7(const float** A,
     const float* const __restrict__ glbB = B[b] + Boffset;
     float* const __restrict__ glbD = D[b];
 
+    float result[Quantities]{};
     float dq[Quantities]{};
     float star[CountH + 1]{};
 
-    const bool has1 = (flags[b] & 1) != 0;
-    const bool has2 = (flags[b] & 2) != 0;
-    const bool has3 = (flags[b] & 4) != 0;
-    const bool has4 = (flags[b] & 8) != 0;
+    const auto flag = flags[b];
 
-    bool has[4]{has1, has2, has3, has4};
+    const bool has1 = (flag & 1) != 0;
+    const bool has2 = (flag & 2) != 0;
+    const bool has3 = (flag & 4) != 0;
+    const bool has4 = (flag & 8) != 0;
 
-    float result[Quantities]{};
+    const bool has[4]{has1, has2, has3, has4};
+
+    // load matrices
+
+#pragma unroll
     for (int i = 0; i < Quantities; ++i) {
       dq[i] = __builtin_nontemporal_load(&glbA[i * 64 + threadIdx.x]);
     }
@@ -272,6 +285,12 @@ __launch_bounds__(512) __global__ void kernel_local7(const float** A,
       star[CountH] = glbB[threadIdx.x + CountH * 64];
     }
 
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      result[i] = __builtin_nontemporal_load(&glbD[i * 64 + threadIdx.x]);
+    }
+
+    // matmul #1 X = (M @ I) × 4
     float interm[Faces][Quantities]{};
 
 #pragma unroll 8
@@ -289,6 +308,7 @@ __launch_bounds__(512) __global__ void kernel_local7(const float** A,
       }
     }
 
+    // matmul #2 Q += (X @ A*) × 4
 #pragma unroll
     for (int d = 0; d < Faces; ++d) {
       if (has[d]) {
