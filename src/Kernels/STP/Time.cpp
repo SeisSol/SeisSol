@@ -83,7 +83,14 @@ void Spacetime::executeSTP(double timeStepWidth,
   // The matrix Zinv depends on the timestep
   // If the timestep is not as expected e.g. when approaching a sync point
   // we have to recalculate it
-  if (timeStepWidth != data.get<LTS::LocalIntegration>().specific.typicalTimeStepWidth) {
+
+  // beware of float comparison errors with the timestep
+
+  const auto defaultTimestep =
+      std::abs((data.get<LTS::LocalIntegration>().specific.typicalTimeStepWidth - timeStepWidth) /
+               timeStepWidth) < 1e-7;
+
+  if (!defaultTimestep) {
     auto sourceMatrix =
         init::ET::view::create(data.get<LTS::LocalIntegration>().specific.sourceMatrix);
     real ZinvData[seissol::model::MaterialT::NumQuantities][ConvergenceOrder * ConvergenceOrder];
@@ -192,8 +199,12 @@ void Spacetime::computeBatchedAder(const real* coeffs,
     krnl.extraOffset_Glt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[11]);
     krnl.extraOffset_Gmt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[12]);
 
+    // checking the first cell should suffice; if we always work on the same cluster.
+    // (which we currently always do)
     const auto defaultTimestep =
-        layer.var<LTS::LocalIntegration>()[0].specific.typicalTimeStepWidth == timeStepWidth;
+        std::abs(
+            (layer.var<LTS::LocalIntegration>()[0].specific.typicalTimeStepWidth - timeStepWidth) /
+            timeStepWidth) < 1e-7;
 
     if (defaultTimestep) {
       for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
