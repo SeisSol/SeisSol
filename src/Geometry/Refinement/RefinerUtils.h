@@ -56,7 +56,7 @@ struct Tetrahedron {
               unsigned int k,
               unsigned int l)
       : i(i), j(j), k(k), l(l), a(Eigen::Matrix<T, 3, 1>(a)), b(Eigen::Matrix<T, 3, 1>(b)),
-        c(Eigen::Matrix<T, 3, 1>(c)), d(Eigen::Matrix<T, 3, 1>(d)) {};
+        c(Eigen::Matrix<T, 3, 1>(c)), d(Eigen::Matrix<T, 3, 1>(d)) {}
 
   static Tetrahedron<T> unitTetrahedron() {
     return Tetrahedron(Eigen::Matrix<T, 3, 1>(0, 0, 0),

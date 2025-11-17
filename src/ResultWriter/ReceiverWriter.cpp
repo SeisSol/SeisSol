@@ -47,7 +47,7 @@ Eigen::Vector3d parseReceiverLine(const std::string& line) {
   const std::regex rgx("\\s+");
   std::sregex_token_iterator iter(line.begin(), line.end(), rgx, -1);
   const std::sregex_token_iterator end;
-  Eigen::Vector3d coordinates{};
+  Eigen::Vector3d coordinates;
   unsigned numberOfCoordinates = 0;
   for (; iter != end; ++iter, ++numberOfCoordinates) {
     if (numberOfCoordinates >= coordinates.size()) {
@@ -62,7 +62,7 @@ Eigen::Vector3d parseReceiverLine(const std::string& line) {
 }
 
 std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileName) {
-  std::vector<Eigen::Vector3d> points{};
+  std::vector<Eigen::Vector3d> points;
 
   std::ifstream file{receiverFileName};
   std::string line{};

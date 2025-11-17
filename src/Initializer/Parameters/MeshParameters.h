@@ -29,8 +29,8 @@ struct MeshParameters {
   MeshFormat meshFormat{MeshFormat::PUML};
   std::string meshFileName;
   std::string partitioningLib;
-  Eigen::Vector3d displacement{};
-  Eigen::Matrix3d scaling{};
+  Eigen::Vector3d displacement;
+  Eigen::Matrix3d scaling;
 };
 
 MeshParameters readMeshParameters(ParameterReader* baseReader);

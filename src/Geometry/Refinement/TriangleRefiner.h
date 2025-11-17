@@ -19,7 +19,7 @@ class TriangleRefiner;
 } // namespace seissol::refinement
 
 struct seissol::refinement::Triangle {
-  Eigen::Vector2d x[3]{};
+  Eigen::Vector2d x[3];
   double area{};
 };
 

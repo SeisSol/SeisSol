@@ -269,14 +269,17 @@ endif()
 find_package(Eigen3 REQUIRED)
 target_link_libraries(seissol-common-properties INTERFACE Eigen3::Eigen)
 
+# needed explicitly also to silence some clang-tidy differences
+target_compile_definitions(seissol-common-properties INTERFACE EIGEN_INITIALIZE_MATRICES_BY_ZERO)
+
 # the following check is needed because allowing 3.4 and 5.0.0 at the same
 # time was not possible inline in the find_package
 if ("${Eigen3_VERSION}" VERSION_LESS "3.4")
   message(FATAL_ERROR "Your installed Eigen version is too old. Needed: at least 3.4 .")
 endif()
 
-# only needed for "old" Eigen (i.e. below 5.0.0)
-if((${EQUATIONS} STREQUAL "poroelastic") AND ("${Eigen3_VERSION}" VERSION_LESS "5.0.0"))
+# needed because Eigen (also 5.0) still incorrectly computes some values and fails some unit tests
+if((${EQUATIONS} STREQUAL "poroelastic"))
   include(CheckLanguage)
   check_language(Fortran)
   if(CMAKE_Fortran_COMPILER)

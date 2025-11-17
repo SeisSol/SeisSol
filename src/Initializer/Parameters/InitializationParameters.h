@@ -33,9 +33,9 @@ enum class InitializationType : int {
 
 struct InitializationParameters {
   InitializationType type{InitializationType::Zero};
-  Eigen::Vector3d origin{};
-  Eigen::Vector3d kVec{};
-  Eigen::Vector<double, seissol::model::MaterialT::NumQuantities> ampField{};
+  Eigen::Vector3d origin;
+  Eigen::Vector3d kVec;
+  Eigen::Vector<double, seissol::model::MaterialT::NumQuantities> ampField;
   double magnitude{};
   double width{};
   double k{};

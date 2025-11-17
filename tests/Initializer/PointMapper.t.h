@@ -15,7 +15,7 @@ namespace seissol::unit_test {
 
 TEST_CASE("Point mapper") {
   // We do all tests in double precision
-  std::array<Eigen::Vector3d, 4> vertices{};
+  std::array<Eigen::Vector3d, 4> vertices;
 
   vertices = {{Eigen::Vector3d(0.0, 0.0, 0.0),
                Eigen::Vector3d(1.0, 0.0, 0.0),

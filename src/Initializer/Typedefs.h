@@ -297,8 +297,8 @@ struct GravitationSetup {
 };
 
 struct TravellingWaveParameters {
-  Eigen::Vector3d origin{};
-  Eigen::Vector3d kVec{};
+  Eigen::Vector3d origin;
+  Eigen::Vector3d kVec;
   std::vector<int> varField;
   std::vector<std::complex<double>> ampField;
 };
