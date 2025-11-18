@@ -8,8 +8,9 @@
 #ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_H_
 #define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_H_
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/Inference.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
+
 #include <cstring>
 #include <functional>
 #include <memory>
@@ -181,7 +182,7 @@ class AdhocBuffer : public DataSource {
   bool distributed() override { return true; }
 
   private:
-  int id;
+  int id{-1};
 };
 
 class GeneratedBuffer : public AdhocBuffer {

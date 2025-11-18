@@ -12,8 +12,8 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
-#include <Kernels/Kernel.h>
-#include <Kernels/Solver.h>
+#include "Kernels/Kernel.h"
+#include "Kernels/Solver.h"
 
 namespace seissol::kernels {
 
@@ -45,7 +45,7 @@ class DynamicRupture : public Kernel {
       const real* coeffs);
 
   // NOLINTNEXTLINE
-  void batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table,
+  void batchedSpaceTimeInterpolation(recording::DrConditionalPointersToRealsTable& table,
                                      const real* coeffs,
                                      seissol::parallel::runtime::StreamRuntime& runtime);
 

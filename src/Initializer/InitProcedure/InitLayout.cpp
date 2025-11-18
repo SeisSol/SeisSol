@@ -5,26 +5,30 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "InitLayout.h"
+
+#include "Common/Constants.h"
+#include "Common/Iterator.h"
+#include "Geometry/MeshReader.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/InitProcedure/Internal/Buckets.h"
+#include "Initializer/InitProcedure/Internal/LtsSetup.h"
+#include "Initializer/TimeStepping/ClusterLayout.h"
+#include "Initializer/TimeStepping/Halo.h"
 #include "Internal/MeshLayout.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
+#include "Memory/Tree/Colormap.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Layer.h"
+#include "Parallel/MPI.h"
 #include "SeisSol.h"
-#include <Common/Constants.h>
-#include <Common/Iterator.h>
-#include <Geometry/MeshReader.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/InitProcedure/Internal/Buckets.h>
-#include <Initializer/InitProcedure/Internal/LtsSetup.h>
-#include <Initializer/TimeStepping/ClusterLayout.h>
-#include <Initializer/TimeStepping/Halo.h>
-#include <Memory/Descriptor/DynamicRupture.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Backmap.h>
-#include <Memory/Tree/Colormap.h>
-#include <Memory/Tree/LTSTree.h>
-#include <Memory/Tree/Layer.h>
-#include <Parallel/MPI.h>
+
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <map>
 #include <mpi.h>
 #include <numeric>
@@ -33,6 +37,8 @@
 #include <vector>
 
 namespace {
+
+using namespace seissol;
 using namespace seissol::initializer;
 
 void verifyHaloSetup(const LTS::Storage& ltsStorage, const std::vector<ClusterMap>& meshLayout) {
@@ -56,10 +62,10 @@ void verifyHaloSetup(const LTS::Storage& ltsStorage, const std::vector<ClusterMa
         }
         MPI_Isend(&copyGlobalIds[copyI],
                   region.count,
-                  seissol::MPI::castToMpiType<std::size_t>(),
+                  seissol::Mpi::castToMpiType<std::size_t>(),
                   region.rank,
                   region.tag,
-                  seissol::MPI::mpi.comm(),
+                  seissol::Mpi::mpi.comm(),
                   &request);
         copyI += region.count;
         copyIL += region.count;
@@ -67,10 +73,10 @@ void verifyHaloSetup(const LTS::Storage& ltsStorage, const std::vector<ClusterMa
       if (layer.getIdentifier().halo == HaloType::Ghost) {
         MPI_Irecv(&ghostGlobalIds[ghostI],
                   region.count,
-                  seissol::MPI::castToMpiType<std::size_t>(),
+                  seissol::Mpi::castToMpiType<std::size_t>(),
                   region.rank,
                   region.tag,
-                  seissol::MPI::mpi.comm(),
+                  seissol::Mpi::mpi.comm(),
                   &request);
         ghostI += region.count;
       }
@@ -96,15 +102,14 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   const auto& meshReader = seissolInstance.meshReader();
 
-  const auto rank = seissol::MPI::mpi.rank();
+  const auto rank = seissol::Mpi::mpi.rank();
 
   logInfo() << "Determining cell colors...";
 
-  const auto clusterLayout =
-      ClusterLayout::fromMesh(seissolParams.timeStepping.lts.getRate(),
-                              seissolInstance.meshReader(),
-                              seissolParams.timeStepping.lts.getWiggleFactor(),
-                              true);
+  const auto clusterLayout = ClusterLayout::fromMesh(seissolParams.timeStepping.lts.getRate(),
+                                                     seissolInstance.meshReader(),
+                                                     seissolInstance.getTimestepScale(),
+                                                     true);
 
   seissolInstance.getMemoryManager().setClusterLayout(clusterLayout);
 
@@ -227,7 +232,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           cellInformation[index].faceRelations[face][0] = element.neighborSides[face];
           cellInformation[index].faceRelations[face][1] = element.sideOrientations[face];
 
-          if (element.neighbors[face] != meshReader.getElements().size() ||
+          if (static_cast<std::size_t>(element.neighbors[face]) !=
+                  meshReader.getElements().size() ||
               element.neighborRanks[face] != rank) {
             const auto& neighbor = [&]() {
               const bool ghostNeighbor = element.neighborRanks[face] != rank;
@@ -247,7 +253,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
             cellInformation[index].neighborConfigIds[face] = 0;
           } else {
             secondaryCellInformation[index].faceNeighbors[face] = StoragePosition::NullPosition;
-            cellInformation[index].neighborConfigIds[face] = -1;
+            cellInformation[index].neighborConfigIds[face] =
+                std::numeric_limits<std::uint32_t>::max();
           }
         }
       }

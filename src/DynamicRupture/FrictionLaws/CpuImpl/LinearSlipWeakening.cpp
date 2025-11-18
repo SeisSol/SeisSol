@@ -6,11 +6,13 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "LinearSlipWeakening.h"
+
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>

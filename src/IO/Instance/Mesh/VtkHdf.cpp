@@ -7,21 +7,21 @@
 
 #include "VtkHdf.h"
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/Inference.h>
-#include <IO/Datatype/MPIType.h>
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Instructions/Hdf5.h>
-#include <IO/Writer/Writer.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
+#include "IO/Datatype/MPIType.h"
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Hdf5.h"
+#include "IO/Writer/Writer.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <mpi.h>
 #include <string>
+#include <utils/logger.h>
 #include <vector>
-
-#include "utils/logger.h"
 
 namespace seissol::io::instance::mesh {
 VtkHdfWriter::VtkHdfWriter(const std::string& name,
@@ -41,13 +41,13 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
              1,
              datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
              MPI_SUM,
-             seissol::MPI::mpi.comm());
+             seissol::Mpi::mpi.comm());
   MPI_Allreduce(&localElementCount,
                 &globalElementCount,
                 1,
                 datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
                 MPI_SUM,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
   pointOffset = elementOffset * pointsPerElement;
   localPointCount = localElementCount * pointsPerElement;
   globalPointCount = globalElementCount * pointsPerElement;
@@ -102,7 +102,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
         datatype::inferDatatype<int64_t>());
   });
 
-  const bool isLastRank = MPI::mpi.size() == MPI::mpi.rank() + 1;
+  const bool isLastRank = Mpi::mpi.size() == Mpi::mpi.rank() + 1;
   instructionsConst.emplace_back([=](const std::string& filename, double time) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
         writer::instructions::Hdf5Location(filename, {GroupName}),

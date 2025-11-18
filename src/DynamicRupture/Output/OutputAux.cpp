@@ -6,7 +6,9 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "OutputAux.h"
+
 #include "Common/Constants.h"
+#include "Common/Iterator.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
 #include "GeneratedCode/init.h"
@@ -16,9 +18,10 @@
 #include "Kernels/Precision.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
-#include <Common/Iterator.h>
+#include "Solver/MultipleSimulations.h"
+
+#include <Eigen/Core>
 #include <Eigen/Dense>
-#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>

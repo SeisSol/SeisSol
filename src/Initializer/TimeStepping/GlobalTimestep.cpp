@@ -7,20 +7,20 @@
 
 #include "GlobalTimestep.h"
 
-#include <Common/Constants.h>
+#include "Common/Constants.h"
+#include "Equations/Datastructures.h"
+#include "Initializer/ParameterDB.h"
+#include "Initializer/Parameters//SeisSolParameters.h"
+#include "Initializer/Parameters/ModelParameters.h"
+#include "Parallel/MPI.h"
+
+#include <Eigen/Core>
 #include <Eigen/Dense>
-#include <Initializer/Parameters/ModelParameters.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <mpi.h>
 #include <vector>
-
-#include "Equations/Datastructures.h"
-#include "Initializer/ParameterDB.h"
-#include "Initializer/Parameters//SeisSolParameters.h"
-
-#include "Parallel/MPI.h"
 
 namespace {
 
@@ -88,13 +88,13 @@ GlobalTimestep
                 1,
                 MPI_DOUBLE,
                 MPI_MIN,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
   MPI_Allreduce(&localMaxTimestep,
                 &timestep.globalMaxTimeStep,
                 1,
                 MPI_DOUBLE,
                 MPI_MAX,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
   return timestep;
 }
 } // namespace seissol::initializer

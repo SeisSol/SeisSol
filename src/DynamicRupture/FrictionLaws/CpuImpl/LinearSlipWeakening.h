@@ -10,7 +10,7 @@
 
 #include "BaseFrictionLaw.h"
 
-#include "utils/logger.h"
+#include <utils/logger.h>
 
 namespace seissol::dr::friction_law::cpu {
 

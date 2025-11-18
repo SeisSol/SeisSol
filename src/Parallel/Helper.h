@@ -8,11 +8,11 @@
 #ifndef SEISSOL_SRC_PARALLEL_HELPER_H_
 #define SEISSOL_SRC_PARALLEL_HELPER_H_
 
-#include "utils/env.h"
-#include "utils/logger.h"
+#include <utils/env.h>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include <device.h>
+#include <Device/device.h>
 #endif
 
 namespace seissol {

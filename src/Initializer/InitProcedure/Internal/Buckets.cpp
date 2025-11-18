@@ -5,20 +5,22 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Buckets.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <Common/Real.h>
-#include <Config.h>
-#include <GeneratedCode/tensor.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/CellLocalInformation.h>
-#include <Initializer/TimeStepping/Halo.h>
-#include <Kernels/Common.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Backmap.h>
-#include <Memory/Tree/Layer.h>
-#include <Solver/TimeStepping/HaloCommunication.h>
+
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Common/Real.h"
+#include "Config.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/CellLocalInformation.h"
+#include "Initializer/TimeStepping/Halo.h"
+#include "Kernels/Common.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
+#include "Memory/Tree/Layer.h"
+#include "Solver/TimeStepping/HaloCommunication.h"
+
 #include <cassert>
 #include <cstdint>
 #include <cstring>
@@ -28,6 +30,8 @@
 #include <yateto/InitTools.h>
 
 namespace {
+
+using namespace seissol;
 using namespace seissol::initializer;
 using namespace seissol::initializer::internal;
 
@@ -139,7 +143,6 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   auto* buffersDevice = layer.var<LTS::BuffersDevice>();
   auto* derivativesDevice = layer.var<LTS::DerivativesDevice>();
   const auto* cellInformation = layer.var<LTS::CellInformation>();
-  const auto* secondaryCellInformation = layer.var<LTS::SecondaryInformation>();
   BucketManager manager;
 
   const auto datatype = Config::Precision;

@@ -8,26 +8,26 @@
 
 #include "DynamicRupture.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <DataTypes/ConditionalTable.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Parallel/Runtime/Stream.h"
+
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
-
-#include "utils/logger.h"
-
-#include "GeneratedCode/kernel.h"
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include "device.h"
-#include <DataTypes/ConditionalKey.h>
-#include <DataTypes/EncodedConstants.h>
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+
+#include <Device/device.h>
 #endif
 #include <yateto.h>
 
@@ -103,11 +103,11 @@ void DynamicRupture::spaceTimeInterpolation(
 }
 
 void DynamicRupture::batchedSpaceTimeInterpolation(
-    DrConditionalPointersToRealsTable& table,
+    recording::DrConditionalPointersToRealsTable& table,
     const real* coeffs,
     seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
-
+  using namespace seissol::recording;
   real** degreesOfFreedomPlus{nullptr};
   real** degreesOfFreedomMinus{nullptr};
 

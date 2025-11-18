@@ -9,15 +9,8 @@
 #ifndef SEISSOL_SRC_SEISSOL_H_
 #define SEISSOL_SRC_SEISSOL_H_
 
-#include <Common/Executor.h>
-#include <IO/Manager.h>
-#include <memory>
-#include <optional>
-#include <string>
-
-#include "utils/env.h"
-#include "utils/logger.h"
-
+#include "Common/Executor.h"
+#include "IO/Manager.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Monitoring/FlopCounter.h"
@@ -34,6 +27,12 @@
 #include "Solver/Simulator.h"
 #include "Solver/TimeStepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
+
+#include <memory>
+#include <optional>
+#include <string>
+#include <utils/env.h>
+#include <utils/logger.h>
 
 namespace seissol {
 
@@ -166,10 +165,6 @@ class SeisSol {
    */
   seissol::geometry::MeshReader& meshReader() { return *m_meshReader; }
 
-  seissol::initializer::parameters::SeisSolParameters& getSeisSolParameters() {
-    return m_seissolParameters;
-  }
-
   const seissol::initializer::parameters::SeisSolParameters& getSeisSolParameters() const {
     return m_seissolParameters;
   }
@@ -187,6 +182,10 @@ class SeisSol {
    * sets a time stamp for backuping
    * */
   void setBackupTimeStamp(const std::string& stamp);
+
+  void setTimestepScale(double scale) { timestepScale = scale; }
+
+  double getTimestepScale() const { return timestepScale; }
 
   /*
    * returns the backup time stamp
@@ -209,7 +208,7 @@ class SeisSol {
   seissol::io::OutputManager outputManager;
 
   //! Collection of Parameters
-  seissol::initializer::parameters::SeisSolParameters& m_seissolParameters;
+  const seissol::initializer::parameters::SeisSolParameters& m_seissolParameters;
 
   //! Gravitation setup for tsunami boundary condition
   GravitationSetup gravitationSetup;
@@ -273,8 +272,10 @@ class SeisSol {
 
   utils::Env m_env;
 
+  double timestepScale{1.0};
+
   public:
-  SeisSol(initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)
+  SeisSol(const initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)
       : outputManager(*this), m_seissolParameters(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
         m_freeSurfaceWriter(*this), m_analysisWriter(*this), m_waveFieldWriter(*this),

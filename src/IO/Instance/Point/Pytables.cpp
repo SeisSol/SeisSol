@@ -7,9 +7,10 @@
 
 #include "Pytables.h"
 
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Instructions/Hdf5.h>
-#include <IO/Writer/Writer.h>
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Hdf5.h"
+#include "IO/Writer/Writer.h"
+
 #include <cstddef>
 #include <functional>
 #include <memory>

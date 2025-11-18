@@ -8,20 +8,19 @@
 #ifndef SEISSOL_SRC_EQUATIONS_DATASTRUCTURES_H_
 #define SEISSOL_SRC_EQUATIONS_DATASTRUCTURES_H_
 
-#include <Model/CommonDatastructures.h>
+#include "Model/CommonDatastructures.h"
 
 // IWYU pragma: begin_exports
 
 // Gather all datastructure Headers here
 #include "Equations/acoustic/Model/Datastructures.h"
+#include "Equations/acoustic/Model/IntegrationData.h"
 #include "Equations/anisotropic/Model/Datastructures.h"
+#include "Equations/anisotropic/Model/IntegrationData.h"
 #include "Equations/elastic/Model/Datastructures.h"
+#include "Equations/elastic/Model/IntegrationData.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/viscoelastic2/Model/Datastructures.h"
-
-#include "Equations/acoustic/Model/IntegrationData.h"
-#include "Equations/anisotropic/Model/IntegrationData.h"
-#include "Equations/elastic/Model/IntegrationData.h"
 #ifdef USE_POROELASTIC
 #include "Equations/poroelastic/Model/IntegrationData.h"
 #endif
@@ -34,7 +33,7 @@
 
 // IWYU pragma: end_exports
 
-#include <Config.h>
+#include "Config.h"
 
 namespace seissol::model {
 template <MaterialType Type>

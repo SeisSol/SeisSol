@@ -11,9 +11,10 @@
 #include "GeneratedCode/kernel.h"
 #include "KernelDevice.h"
 #include "KernelHost.h"
-#include <Kernels/Common.h>
-#include <Parallel/Runtime/Stream.h>
-#include <Proxy/Kernel.h>
+#include "Kernels/Common.h"
+#include "Parallel/Runtime/Stream.h"
+#include "Proxy/Kernel.h"
+
 #include <cstddef>
 #include <iostream>
 #include <memory>
@@ -31,6 +32,7 @@
 #endif
 
 #include "Monitoring/FlopCounter.h"
+
 #include <cassert>
 
 // seissol_kernel includes
@@ -38,6 +40,7 @@
 #include "Tools.h"
 
 namespace {
+using namespace seissol;
 using namespace seissol::proxy;
 void testKernel(std::shared_ptr<ProxyData>& data,
                 std::shared_ptr<parallel::runtime::StreamRuntime>& runtime,
@@ -79,8 +82,8 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
     std::cerr << "...done" << std::endl;
   }
 
-  struct timeval startTime;
-  struct timeval endTime;
+  struct timeval startTime{};
+  struct timeval endTime{};
 #ifdef __USE_RDTSC
   size_t cyclesStart, cyclesEnd;
 #endif

@@ -6,18 +6,18 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "Parallel/MPI.h"
+#include "FreeSurfaceWriterExecutor.h"
 
-#include <Kernels/Precision.h>
+#include "Kernels/Precision.h"
+#include "Parallel/MPI.h"
+#include "Solver/FreeSurfaceIntegrator.h"
+
 #include <async/ExecInfo.h>
 #include <mpi.h>
 #include <string>
 #include <utils/env.h>
+#include <utils/logger.h>
 #include <vector>
-
-#include "FreeSurfaceWriterExecutor.h"
-#include "Solver/FreeSurfaceIntegrator.h"
-#include "utils/logger.h"
 
 /**
  * Initialize the XDMF writers
@@ -33,7 +33,7 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(
   const unsigned int nCells = info.bufferSize(Cells) / (3 * sizeof(int));
   const unsigned int nVertices = info.bufferSize(Vertices) / (3 * sizeof(double));
 
-  MPI_Comm_split(seissol::MPI::mpi.comm(), (nCells > 0 ? 0 : MPI_UNDEFINED), 0, &m_comm);
+  MPI_Comm_split(seissol::Mpi::mpi.comm(), (nCells > 0 ? 0 : MPI_UNDEFINED), 0, &m_comm);
 
   logInfo() << "X2";
   m_enabled = true;

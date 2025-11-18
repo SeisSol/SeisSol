@@ -8,38 +8,40 @@
 
 #include "InitialFieldProjection.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Equations/Datastructures.h"
+#include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/MeshReader.h"
 #include "Initializer/MemoryManager.h"
+#include "Initializer/PreProcessorMacros.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
 #include "ParameterDB.h"
+#include "Physics/InitialField.h"
+#include "Solver/MultipleSimulations.h"
 
-#include "Initializer/PreProcessorMacros.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <Equations/Datastructures.h>
-#include <Geometry/MeshReader.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Common.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
-#include <Physics/InitialField.h>
-#include <Solver/MultipleSimulations.h>
-
-#include "GeneratedCode/init.h"
 #include <array>
 #include <cstddef>
 #include <easi/Query.h>
 #include <easi/ResultAdapter.h>
 #include <easi/YAMLParser.h>
+#include <exception>
 #include <memory>
 #include <string>
+#include <utils/logger.h>
 #include <vector>
 
 #ifdef USE_ASAGI
-#include <Reader/AsagiReader.h>
+#include "Reader/AsagiReader.h"
+
 #include <easi/util/AsagiReader.h>
 #endif
 
@@ -62,8 +64,8 @@ GENERATE_HAS_MEMBER(Values)
 GENERATE_HAS_MEMBER(Qane)
 
 namespace seissol::init {
-class selectAneFull;
-class selectElaFull;
+struct selectAneFull;
+struct selectElaFull;
 } // namespace seissol::init
 
 #ifndef USE_ASAGI
@@ -101,7 +103,12 @@ struct EasiLoader {
 #endif
     components.resize(files.size());
     for (std::size_t i = 0; i < files.size(); ++i) {
-      components[i] = std::unique_ptr<easi::Component>(parser->parse(files.at(i)));
+      try {
+        components[i] = std::unique_ptr<easi::Component>(parser->parse(files.at(i)));
+      } catch (const std::exception& error) {
+        logError() << "Error while parsing easi file" << files.at(i) << ":"
+                   << std::string(error.what());
+      }
     }
   }
 };
@@ -138,8 +145,8 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
       kernel::projectIniCond krnl;
       krnl.projectQP = globalData.projectQPMatrix;
       krnl.iniCond = iniCondData;
-      kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
-      kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
+      set_selectAneFull(krnl, get_static_ptr_Values<init::selectAneFull>());
+      set_selectElaFull(krnl, get_static_ptr_Values<init::selectElaFull>());
 
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       const auto* material = layer.var<LTS::Material>();
@@ -173,7 +180,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
 
         krnl.Q = dofs[cell];
         if constexpr (kernels::HasSize<tensor::Qane>::Value) {
-          kernels::set_Qane(krnl, dofsAne[cell]);
+          set_Qane(krnl, dofsAne[cell]);
         }
         krnl.execute();
       }
@@ -210,7 +217,7 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
         elementCoords[v] = vertices[elements[elem].vertices[v]].coords;
       }
       for (size_t i = 0; i < NumQuadPoints; ++i) {
-        std::array<double, Cell::Dim> transformed;
+        std::array<double, Cell::Dim> transformed{};
         seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
                                                                elementCoords[1],
                                                                elementCoords[2],
@@ -240,7 +247,12 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
         const std::size_t bindOffset = i + j * iniFields.size();
         adapter.addBindingPoint(quantity, data.data() + bindOffset, dataPointStride);
       }
-      models.components.at(i)->evaluate(query, adapter);
+      try {
+        models.components.at(i)->evaluate(query, adapter);
+      } catch (const std::exception& error) {
+        logError() << "Error while applying easi file" << iniFields.at(i) << ":"
+                   << std::string(error.what());
+      }
     }
   }
 
@@ -275,8 +287,8 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       kernel::projectIniCond krnl;
       krnl.projectQP = globalData.projectQPMatrix;
       krnl.iniCond = iniCondData;
-      kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
-      kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
+      set_selectAneFull(krnl, get_static_ptr_Values<init::selectAneFull>());
+      set_selectElaFull(krnl, get_static_ptr_Values<init::selectElaFull>());
 
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       auto* dofs = layer.var<LTS::Dofs>();
@@ -300,7 +312,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
 
         krnl.Q = dofs[cell];
         if constexpr (kernels::HasSize<tensor::Qane>::Value) {
-          kernels::set_Qane(krnl, dofsAne[cell]);
+          set_Qane(krnl, dofsAne[cell]);
         }
         krnl.execute();
       }

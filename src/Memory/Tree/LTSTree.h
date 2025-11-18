@@ -10,17 +10,17 @@
 #define SEISSOL_SRC_MEMORY_TREE_LTSTREE_H_
 
 #include "Backmap.h"
+#include "Common/Iterator.h"
+#include "Config.h"
 #include "Layer.h"
-
 #include "Memory/MemoryAllocator.h"
-
+#include "Memory/Tree/Backmap.h"
+#include "Memory/Tree/Colormap.h"
 #include "Monitoring/Unit.h"
-#include "utils/logger.h"
-#include <Common/Iterator.h>
-#include <Config.h>
-#include <Memory/Tree/Backmap.h>
-#include <Memory/Tree/Colormap.h>
+
 #include <type_traits>
+#include <utility>
+#include <utils/logger.h>
 
 namespace seissol::initializer {
 
@@ -421,7 +421,7 @@ private:
 
 public:
     IteratorWrapper(Storage<VarmapT>& node, std::function<bool(const Layer<VarmapT>&)> filter)
-        : node(node), filter(filter) {}
+        : node(node), filter(std::move(filter)) {}
 
     auto begin() {
       return common::FilteredIterator(node.layers.begin(), node.layers.end(), filter);
@@ -440,7 +440,7 @@ private:
 public:
     IteratorWrapperConst(const Storage<VarmapT>& node,
                          std::function<bool(const Layer<VarmapT>&)> filter)
-        : node(node), filter(filter) {}
+        : node(node), filter(std::move(filter)) {}
 
     [[nodiscard]] auto begin() const {
       return common::FilteredIterator(node.layers.begin(), node.layers.end(), filter);

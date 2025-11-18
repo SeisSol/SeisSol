@@ -5,13 +5,20 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Physics/InitialField.h"
+
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
-#include <Equations/Datastructures.h>
-#include <Initializer/Parameters/InitializationParameters.h>
-#include <Initializer/Typedefs.h>
-#include <Model/Common.h>
-#include <Model/CommonDatastructures.h>
+#include "Initializer/Parameters/InitializationParameters.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Kernels/Precision.h"
+#include "Model/Common.h"
+#include "Model/CommonDatastructures.h"
+#include "Numerical/Eigenvalues.h"
+
+#include <Eigen/Core>
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -19,11 +26,6 @@
 #include <cstddef>
 #include <limits>
 #include <math.h>
-
-#include "Kernels/Common.h"
-#include "Kernels/Precision.h"
-#include "Numerical/Eigenvalues.h"
-#include "Physics/InitialField.h"
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -125,7 +127,7 @@ void seissol::physics::Planarwave::evaluate(
 
 seissol::physics::SuperimposedPlanarwave::SuperimposedPlanarwave(
     const CellMaterialData& materialData, real phase)
-    : m_kVec({{{M_PI, 0.0, 0.0}, {0.0, M_PI, 0.0}, {0.0, 0.0, M_PI}}}), m_phase(phase),
+    : m_kVec({{{M_PI, 0.0, 0.0}, {0.0, M_PI, 0.0}, {0.0, 0.0, M_PI}}}),
       m_pw({Planarwave(materialData, phase, m_kVec.at(0)),
             Planarwave(materialData, phase, m_kVec.at(1)),
             Planarwave(materialData, phase, m_kVec.at(2))}) {}

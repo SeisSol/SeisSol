@@ -102,6 +102,10 @@ option(SHARED "Build SeisSol as shared library" OFF)
 
 option(PROXY_PYBINDING "Enable pybind11 for proxy (everything will be compiled with -fPIC)" OFF)
 
+option(BUILD_DOCS "Build the SeisSol Documentation" OFF)
+
+option(BUILD_DOXYGEN "Build the SeisSol Doxygen docs" OFF)
+
 # FIXME: currently unused
 #set(LOG_LEVEL "warning" CACHE STRING "Log level for the code")
 #set(LOG_LEVEL_OPTIONS "debug" "info" "warning" "error")

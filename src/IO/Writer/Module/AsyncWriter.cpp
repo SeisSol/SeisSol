@@ -7,8 +7,9 @@
 
 #include "AsyncWriter.h"
 
-#include "async/ExecInfo.h"
-#include <IO/Writer/Writer.h>
+#include "IO/Writer/Writer.h"
+
+#include <async/ExecInfo.h>
 #include <cstddef>
 #include <mpi.h>
 #include <mutex>
