@@ -5,7 +5,7 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.20)
 
 # use <PackageName>_ROOT variables
 if(POLICY CMP0074)
@@ -692,26 +692,26 @@ if (TESTING)
 
   # Avoid duplicate definition of FLOP counters
   target_compile_definitions(seissol-serial-test PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
-
-  # Coverage
-  if(COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
-    setup_target_for_coverage_lcov(
-            NAME seissol-coverage
-            EXECUTABLE seissol-serial-test
-            EXCLUDE "/usr/*"
-                    "submodules/*"
-                    "*/tests/*"
-                    "external/*"
-                    "*/codegen/GeneratedCode/*"
-                    "/opt/*"
-            LCOV_ARGS --ignore-errors inconsistent
-                      --ignore-errors unused
-                      --ignore-errors mismatch
-    )
-  endif()
 endif()
 
 add_subdirectory(app)
+
+# Coverage (should run last; after all folders have been added)
+if(TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
+  setup_target_for_coverage_lcov(
+          NAME seissol-coverage
+          EXECUTABLE ctest -j
+          EXCLUDE "/usr/*"
+                  "submodules/*"
+                  "*/tests/*"
+                  "external/*"
+                  "*/codegen/GeneratedCode/*"
+                  "/opt/*"
+          LCOV_ARGS --ignore-errors inconsistent
+                    --ignore-errors unused
+                    --ignore-errors mismatch
+  )
+endif()
 
 if (WITH_GPU)
   string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
