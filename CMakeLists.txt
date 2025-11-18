@@ -622,6 +622,7 @@ if (TESTING)
           src/tests/Solver/TimeStepping/TestSolverTimeStepping.cpp
           src/tests/DynamicRupture/TestDynamicRupture.cpp
           src/tests/Common/TestCommon.cpp
+          src/tests/Modules/TestModule.cpp
           )
 
   configure_file(

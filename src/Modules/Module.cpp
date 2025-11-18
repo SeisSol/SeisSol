@@ -19,8 +19,8 @@ Module::~Module() = default;
 
 double Module::potentialSyncPoint(double currentTime, double timeTolerance, bool forceSyncPoint) {
   if (std::abs(currentTime - lastSyncPoint) < timeTolerance) {
-    logInfo() << "Ignoring duplicate synchronization point at time" << currentTime
-              << "; the last sync point was at " << lastSyncPoint;
+    logDebug() << "Ignoring duplicate synchronization point at time" << currentTime
+               << "; the last sync point was at " << lastSyncPoint;
   } else if (forceSyncPoint || std::abs(currentTime - nextSyncPoint) < timeTolerance) {
     syncPoint(currentTime);
     lastSyncPoint = currentTime;
