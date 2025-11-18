@@ -20,7 +20,6 @@
 #include <limits>
 #include <math.h>
 
-#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Numerical/Eigenvalues.h"
 #include "Physics/InitialField.h"
@@ -139,11 +138,7 @@ void seissol::physics::SuperimposedPlanarwave::evaluate(
   dofsQP.setZero();
 
   std::vector<real> dofsPwVector(dofsQP.size());
-  auto dofsPW = yateto::DenseTensorView<2, real, unsigned>(
-      dofsPwVector.data(),
-      {NumBasisFunctions, seissol::model::MaterialT::NumQuantities},
-      {0, 0},
-      {NumBasisFunctions, seissol::model::MaterialT::NumQuantities});
+  auto dofsPW = init::Q::view::create(dofsPwVector.data());
 
   for (int pw = 0; pw < 3; pw++) {
     // evaluate each planarwave
