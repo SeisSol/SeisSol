@@ -58,7 +58,7 @@ if (("${DEVICE_BACKEND}" STREQUAL "hipsycl") OR ("${DEVICE_BACKEND}" STREQUAL "a
         add_sycl_to_target(TARGET ${NAME} SOURCES ${FILES})
     endfunction()
 
-    target_include_directories(seissol-common-properties INTERFACE ${ACPP_BINARY_ROOT}/include ${ACPP_SOURCE_ROOT}/include)
+    target_link_libraries(seissol-common-properties INTERFACE AdaptiveCpp::acpp-rt)
 elseif("${DEVICE_BACKEND}" STREQUAL "oneapi")
     find_package(DpcppFlags REQUIRED)
 

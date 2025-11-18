@@ -80,21 +80,21 @@ RUN wget https://downloads.unidata.ucar.edu/netcdf-c/4.9.2/netcdf-c-4.9.2.tar.gz
 # ASAGI
 RUN git clone --recursive --depth 1 https://github.com/TUM-I5/ASAGI.git gitbuild && \
 mkdir -p gitbuild/build && cd gitbuild/build && \
-    cmake .. -DSHARED_LIB=OFF -DFORTRAN_SUPPORT=OFF -DSTATIC_LIB=ON -GNinja && \
+    CPPFLAGS="-fPIC ${CPPFLAGS}" cmake .. -DSHARED_LIB=OFF -DFORTRAN_SUPPORT=OFF -DSTATIC_LIB=ON -GNinja && \
     ninja install && \
     cd ../.. && rm -rf gitbuild
 
 # Lua
 RUN wget https://www.lua.org/ftp/lua-5.3.6.tar.gz && \
     tar -xzvf lua-5.3.6.tar.gz && cd lua-5.3.6/ &&\
-    make linux && make local && \
+    CPPFLAGS="-fPIC ${CPPFLAGS}" make linux && make local && \
     cp -r install/* /usr && \
     cd .. && rm -rf lua-5.3.6
 
 # easi
 RUN git clone --recursive --depth 1 --branch v1.6.1 https://github.com/SeisSol/easi.git gitbuild && \
     mkdir -p gitbuild/build && cd gitbuild/build && \
-    cmake .. -GNinja -DLUA=ON -DIMPALAJIT=ON -DASAGI=ON && \
+    CPPFLAGS="-fPIC ${CPPFLAGS}" cmake .. -GNinja -DLUA=ON -DIMPALAJIT=ON -DASAGI=ON && \
     ninja install && \
     cd ../.. && rm -rf gitbuild
 

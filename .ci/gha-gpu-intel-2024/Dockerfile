@@ -46,7 +46,7 @@ RUN apt-get update -y && apt-get upgrade -y && \
     python3-setuptools python3-numpy python3-scipy \
     libeigen3-dev libyaml-cpp-dev ninja-build \
     numactl libnuma-dev \
-    jq
+    jq intel-compute-runtime intel-ocloc-dev
 
 # (Par)METIS
 
