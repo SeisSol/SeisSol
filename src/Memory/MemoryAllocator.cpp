@@ -11,6 +11,8 @@
 
 #include "MemoryAllocator.h"
 
+#include "Kernels/Common.h"
+
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
@@ -49,6 +51,10 @@ void* allocate(size_t size, size_t alignment, Memkind memkind) {
 
   // switch memkind; reproducing legacy behavior
   if (memkind == Memkind::HighBandwidth && !HasHBM) {
+    memkind = Memkind::Standard;
+  }
+  if ((memkind == Memkind::DeviceUnifiedMemory || memkind == Memkind::PinnedMemory) &&
+      !isDeviceOn()) {
     memkind = Memkind::Standard;
   }
 
@@ -97,6 +103,10 @@ void* allocate(size_t size, size_t alignment, Memkind memkind) {
 void free(void* pointer, Memkind memkind) {
 
   if (memkind == Memkind::HighBandwidth && !HasHBM) {
+    memkind = Memkind::Standard;
+  }
+  if ((memkind == Memkind::DeviceUnifiedMemory || memkind == Memkind::PinnedMemory) &&
+      !isDeviceOn()) {
     memkind = Memkind::Standard;
   }
 
