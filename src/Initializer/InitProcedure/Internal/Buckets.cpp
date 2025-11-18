@@ -267,9 +267,9 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
         initBucketItem(derivativesDevice[cell], buffersDerivativesDevice, derivativeSize, false);
 
         assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffers() ||
-               buffersDevice[cell] != nullptr);
+               buffersDevice[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
         assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasDerivatives() ||
-               derivativesDevice[cell] != nullptr);
+               derivativesDevice[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
       }
     }
   }

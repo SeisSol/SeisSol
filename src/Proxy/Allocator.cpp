@@ -137,6 +137,9 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
 namespace seissol::proxy {
 
 ProxyData::ProxyData(std::size_t cellCount, bool enableDR) : cellCount(cellCount) {
+  layerId =
+      initializer::LayerIdentifier(HaloType::Interior, initializer::ConfigVariant{Config()}, 0);
+
   initGlobalData();
   initDataStructures(enableDR);
   initDataStructuresOnDevice(enableDR);
@@ -165,7 +168,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   const initializer::LTSColorMap map(
       initializer::EnumLayer<HaloType>({HaloType::Interior}),
       initializer::EnumLayer<std::size_t>({0}),
-      initializer::TraitLayer<initializer::ConfigVariant>({Config()}));
+      initializer::TraitLayer<initializer::ConfigVariant>({initializer::ConfigVariant(Config())}));
 
   // init RNG
   LTS::addTo(ltsStorage, false); // proxy does not use plasticity
