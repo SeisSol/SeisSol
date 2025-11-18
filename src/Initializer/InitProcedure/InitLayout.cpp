@@ -114,7 +114,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   const LTSColorMap colorMap(
       initializer::EnumLayer<HaloType>({HaloType::Ghost, HaloType::Copy, HaloType::Interior}),
       initializer::EnumLayer<std::size_t>(clusterMap),
-      initializer::TraitLayer<initializer::ConfigVariant>({Config()}));
+      initializer::TraitLayer<initializer::ConfigVariant>({initializer::ConfigVariant(Config())}));
 
   std::vector<std::size_t> colors(meshReader.getElements().size());
   for (std::size_t i = 0; i < colors.size(); ++i) {
@@ -195,6 +195,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       zeroLayer[i].duplicate = dup;
       zeroLayer[i].halo = layer.getIdentifier().halo;
       zeroLayer[i].rank = -1;
+      zeroLayer[i].color = layer.id();
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         zeroLayer[i].neighborRanks[face] = -1;
         zeroLayer[i].faceNeighbors[face] = StoragePosition::NullPosition;

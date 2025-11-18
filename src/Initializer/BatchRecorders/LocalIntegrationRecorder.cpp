@@ -77,7 +77,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       // idofs
       real* nextIdofPtr = &integratedDofsScratch[integratedDofsAddressCounter];
       const bool isBuffersProvided = dataHost.get<LTS::CellInformation>().ltsSetup.hasBuffers();
-      const bool isLtsBuffers = dataHost.get<LTS::CellInformation>().ltsSetup.cacheBuffers();
+      const bool isLtsBuffers = dataHost.get<LTS::CellInformation>().ltsSetup.accumulateBuffers();
 
       if (isBuffersProvided) {
         if (isLtsBuffers) {

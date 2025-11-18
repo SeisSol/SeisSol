@@ -63,25 +63,10 @@ class StorageBackmap {
   private:
   using CellStoragePosition = std::array<StoragePosition, MaxDuplicates>;
 
-  static StoragePosition getNullPosition(std::size_t index) {
-    return StoragePosition::NullPosition;
-  }
-
-  template <std::size_t... Indices>
-  static CellStoragePosition getNullStoragePosition(std::index_sequence<Indices...> /*...*/) {
-    return CellStoragePosition{getNullPosition(Indices)...};
-  }
-
-  const inline static std::vector<StoragePosition> PreNullCellStoragePosition =
-      std::vector<StoragePosition>(MaxDuplicates, StoragePosition::NullPosition);
-
-  const inline static CellStoragePosition NullCellStoragePosition =
-      getNullStoragePosition(std::make_index_sequence<MaxDuplicates>());
-
   std::vector<CellStoragePosition> data;
 
   public:
-  StorageBackmap(std::size_t size) : data(NullCellStoragePosition, size) {}
+  StorageBackmap(std::size_t size) : data(size) {}
 
   StorageBackmap() = default;
 
@@ -104,7 +89,7 @@ class StorageBackmap {
     }
   }
 
-  void setSize(std::size_t size) { data.resize(size, NullCellStoragePosition); }
+  void setSize(std::size_t size) { data.resize(size); }
 
   template <typename TRef>
   std::size_t addElement(std::size_t color,
@@ -117,6 +102,12 @@ class StorageBackmap {
                                sizeof(TRef);
     const auto position = layerPosition + index;
     const auto storagePosition = StoragePosition{color, index, position};
+
+    if (cell >= data.size()) {
+      logError() << "Tried to add cell" << cell << "to a backmap of size" << data.size()
+                 << ". Out of capacity.";
+    }
+
     for (std::size_t j = 0; j < MaxDuplicates; ++j) {
       if (data[cell][j] == StoragePosition::NullPosition) {
         data[cell][j] = storagePosition;

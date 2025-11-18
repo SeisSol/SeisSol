@@ -47,6 +47,9 @@ struct SecondaryCellLocalInformation {
   // ID in layer
   std::size_t layerId;
 
+  // layer color
+  std::size_t color;
+
   // own config ID
   std::uint32_t configId;
 

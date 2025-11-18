@@ -75,7 +75,7 @@ void TimeCommon::computeIntegrals(Time& time,
         // setup; but just be aware of it when changing things. In that case, enforce the "GTS
         // relation" instead; then everything will work again.
 
-        const auto* coeffs = ltsSetup.neighborGTS(dofneighbor) ? timeCoeffs : subtimeCoeffs;
+        const auto* coeffs = ltsSetup.neighborGTSRelation(dofneighbor) ? timeCoeffs : subtimeCoeffs;
         time.evaluate(coeffs, timeDofs[dofneighbor], integrationBuffer[dofneighbor]);
 
         timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
