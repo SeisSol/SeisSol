@@ -164,30 +164,18 @@ void EnergyOutput::init(
 
   std::size_t maxSims = 1;
   approxElements = 0;
-  for (const auto& element : newMeshReader.getElements()) {
+  for (const auto& layer : newStorage.leaves(Ghost)) {
     std::visit(
         [&](auto cfg) {
           using Cfg = decltype(cfg);
           if constexpr (VolumeEnergyApproximation<model::MaterialTT<Cfg>>) {
-            approxElements += 1;
+            approxElements = 1;
           }
 
           maxSims = std::max(maxSims, Cfg::NumSimulations);
         },
-        ConfigVariantList[element.configId]);
+        layer.getIdentifier().config);
   }
-  MPI_Allreduce(MPI_IN_PLACE,
-                &approxElements,
-                1,
-                seissol::MPI::castToMpiType<std::size_t>(),
-                MPI_SUM,
-                seissol::MPI::mpi.comm());
-  MPI_Allreduce(MPI_IN_PLACE,
-                &maxSims,
-                1,
-                seissol::MPI::castToMpiType<std::size_t>(),
-                MPI_MAX,
-                seissol::MPI::mpi.comm());
 
   if (approxElements > 0) {
     logWarning() << "The volume energies printed for the given equation system are, by now, only "
@@ -644,12 +632,13 @@ void EnergyOutput::computeEnergies() {
 
 void EnergyOutput::reduceEnergies() {
   const auto& comm = MPI::mpi.comm();
-  MPI_Allreduce(MPI_IN_PLACE,
-                energiesStorage.energies.data(),
-                static_cast<int>(energiesStorage.energies.size()),
-                MPI_DOUBLE,
-                MPI_SUM,
-                comm);
+  MPI_Allreduce(
+      MPI_IN_PLACE,
+      energiesStorage.energies.data(),
+      static_cast<int>(energiesStorage.energies.size() * EnergiesStorage::NumberOfEnergies),
+      MPI_DOUBLE,
+      MPI_SUM,
+      comm);
 }
 
 void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {

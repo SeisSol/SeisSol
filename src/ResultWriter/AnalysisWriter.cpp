@@ -101,27 +101,15 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
   std::size_t maxSims = 1;
   std::size_t numQuantities = 0;
-  for (const auto& element : elements) {
+  for (const auto& layer : ltsStorage.leaves()) {
     std::visit(
         [&](auto cfg) {
           using Cfg = decltype(cfg);
           maxSims = std::max(maxSims, Cfg::NumSimulations);
           numQuantities = std::max(numQuantities, model::MaterialTT<Cfg>::Quantities.size());
         },
-        ConfigVariantList[element.configId]);
+        layer.getIdentifier().config);
   }
-  MPI_Allreduce(MPI_IN_PLACE,
-                &maxSims,
-                1,
-                seissol::MPI::castToMpiType<std::size_t>(),
-                MPI_MAX,
-                seissol::MPI::mpi.comm());
-  MPI_Allreduce(MPI_IN_PLACE,
-                &numQuantities,
-                1,
-                seissol::MPI::castToMpiType<std::size_t>(),
-                MPI_MAX,
-                seissol::MPI::mpi.comm());
 
   std::vector<double> data;
 
@@ -152,13 +140,13 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     const int numThreads = OpenMP::threadCount();
     assert(numThreads > 0);
     // Allocate one array per thread to avoid synchronization.
-    auto errsL1Local = std::vector<ErrorArrayT>(numThreads);
-    auto errsL2Local = std::vector<ErrorArrayT>(numThreads);
-    auto errsLInfLocal = std::vector<ErrorArrayT>(numThreads, {-1});
-    auto elemsLInfLocal = std::vector<MeshIdArrayT>(numThreads);
-    auto analyticalsL1Local = std::vector<ErrorArrayT>(numThreads);
-    auto analyticalsL2Local = std::vector<ErrorArrayT>(numThreads);
-    auto analyticalsLInfLocal = std::vector<ErrorArrayT>(numThreads, {-1});
+    auto errsL1Local = std::vector<ErrorArrayT>(numThreads, errL1Local);
+    auto errsL2Local = std::vector<ErrorArrayT>(numThreads, errL2Local);
+    auto errsLInfLocal = std::vector<ErrorArrayT>(numThreads, errLInfLocal);
+    auto elemsLInfLocal = std::vector<MeshIdArrayT>(numThreads, elemLInfLocal);
+    auto analyticalsL1Local = std::vector<ErrorArrayT>(numThreads, analyticalL1Local);
+    auto analyticalsL2Local = std::vector<ErrorArrayT>(numThreads, analyticalL2Local);
+    auto analyticalsLInfLocal = std::vector<ErrorArrayT>(numThreads, analyticalLInfLocal);
 
     for (const auto& layer : ltsStorage.leaves(Ghost)) {
       layer.wrap([&](auto cfg) {

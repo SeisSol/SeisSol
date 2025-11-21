@@ -261,7 +261,7 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   for (const auto& leaf : seissolInstance.getMemoryManager().getLtsStorage().leaves()) {
     const auto index = leaf.getIdentifier().config.index();
     if (found.find(index) == found.end()) {
-      logInfo() << "Config" << leaf.getIdentifier().config.index();
+      logInfo() << "Config" << index << "(" << ConfigString[index] << ")";
       std::visit(
           [&](auto cfg) {
             using Cfg = decltype(cfg);
