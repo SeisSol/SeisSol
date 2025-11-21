@@ -53,6 +53,13 @@ class VtkHdfWriter {
     const auto data = writer::GeneratedBuffer::createElementwise<T>(
         localElementCount, pointsPerElement, dimensions, std::forward<F>(pointMapper));
     addData(name, PointDataName, isConst, data);
+    if (temporal) {
+      const auto offset = isConst ? 0 : globalPointCount;
+      addData(name,
+              PointDataName + "Offsets",
+              isConst,
+              writer::WriteInline::createArray<uint64_t>({1}, {offset}));
+    }
   }
 
   template <typename T, typename F>
@@ -63,6 +70,13 @@ class VtkHdfWriter {
     const auto data = writer::GeneratedBuffer::createElementwise<T>(
         localElementCount, 1, dimensions, std::forward<F>(cellMapper));
     addData(name, CellDataName, isConst, data);
+    if (temporal) {
+      const auto offset = isConst ? 0 : globalElementCount;
+      addData(name,
+              CellDataName + "Offsets",
+              false,
+              writer::WriteInline::createArray<uint64_t>({1}, {offset}));
+    }
   }
 
   template <typename T>
@@ -72,6 +86,14 @@ class VtkHdfWriter {
                     const std::vector<T>& data) {
     const auto datasource = writer::WriteInline::createArray(dimensions, data);
     addData(name, FieldDataName, isConst, datasource);
+    if (temporal) {
+      // TODO:
+      const auto offset = isConst ? 0UL : 1UL;
+      addData(name,
+              FieldDataName + "Offsets",
+              false,
+              writer::WriteInline::createArray<uint64_t>({1}, {offset}));
+    }
   }
 
   void addHook(const std::function<void(std::size_t, double)>& hook);
@@ -99,6 +121,7 @@ class VtkHdfWriter {
       instructions;
   std::size_t type;
   std::size_t targetDegree;
+  bool temporal{false};
   const static inline std::string GroupName = "VTKHDF";
   const static inline std::string FieldDataName = "FieldData";
   const static inline std::string CellDataName = "CellData";

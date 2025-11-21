@@ -58,21 +58,16 @@ class BucketManager {
 };
 
 template <typename T>
-void initBucketItem(T*& data, void* bucket, std::size_t count, bool memsetCpu) {
+void initBucketItem(T*& data, void* bucket, std::size_t count, bool init) {
   if (data != nullptr) {
     const auto ddata = reinterpret_cast<uintptr_t>(data);
     const auto offset = ddata - 1;
     auto* bucketPtr = reinterpret_cast<uint8_t*>(bucket);
     // this rather strange offset behavior is required by clang-tidy (and the reason makes sense)
     data = reinterpret_cast<T*>(bucketPtr + offset);
-    if (memsetCpu) {
-      std::memset(data, 0, sizeof(T) * count);
-    } else {
-#ifdef ACL_DEVICE
-      void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-      device::DeviceInstance::getInstance().algorithms.fillArray(
-          reinterpret_cast<char*>(data), static_cast<char>(0), sizeof(T) * count, stream);
-#endif
+
+    if (init) {
+      std::memset(data, 0, count * sizeof(T));
     }
   }
 }
@@ -246,35 +241,25 @@ void setupBuckets(Cfg cfg, LTS::Layer& layer, std::vector<solver::RemoteCluster>
   const auto derivativeSize = kernels::Solver<Cfg>::template DerivativesSize<Cfg>;
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel for schedule(static)
 #endif
-  {
-#ifdef ACL_DEVICE
-    device::DeviceInstance& device = device::DeviceInstance::getInstance();
-    device.api->setDevice(0);
-#endif // ACL_DEVICE
+  for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+    initBucketItem(buffers[cell], buffersDerivatives, bufferSize, true);
+    initBucketItem(derivatives[cell], buffersDerivatives, derivativeSize, true);
 
-#ifdef _OPENMP
-#pragma omp for schedule(static)
-#endif
-    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      initBucketItem(buffers[cell], buffersDerivatives, bufferSize, true);
-      initBucketItem(derivatives[cell], buffersDerivatives, derivativeSize, true);
+    assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffers() ||
+           buffers[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
+    assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasDerivatives() ||
+           derivatives[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
+
+    if constexpr (isDeviceOn()) {
+      initBucketItem(buffersDevice[cell], buffersDerivativesDevice, bufferSize, false);
+      initBucketItem(derivativesDevice[cell], buffersDerivativesDevice, derivativeSize, false);
 
       assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffers() ||
-             buffers[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
+             buffersDevice[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
       assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasDerivatives() ||
-             derivatives[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
-
-      if constexpr (isDeviceOn()) {
-        initBucketItem(buffersDevice[cell], buffersDerivativesDevice, bufferSize, false);
-        initBucketItem(derivativesDevice[cell], buffersDerivativesDevice, derivativeSize, false);
-
-        assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffers() ||
-               buffersDevice[cell] != nullptr);
-        assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasDerivatives() ||
-               derivativesDevice[cell] != nullptr);
-      }
+             derivativesDevice[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
     }
   }
 
@@ -361,11 +346,6 @@ solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const M
   for (auto& layer : storage.leaves(Ghost)) {
     layer.wrap([&](auto cfg) { setupFaceNeighbors(cfg, storage, layer); });
   }
-
-  // wait for the data initialization to finish
-#ifdef ACL_DEVICE
-  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
-#endif
 
   solver::HaloCommunication communication;
 

@@ -18,6 +18,7 @@
 #include <Parallel/MPI.h>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <mpi.h>
@@ -256,37 +257,37 @@ void XdmfWriter::addData(const std::string& name,
     const auto filenameParts = utils::StringUtils::split(preFilename, '/');
     const auto& filename = filenameParts.back();
 
-    // two modes:
-    // * binary: append to the same file at some position
-    // * HDF5: add a new dataset
+    // for both binary and HDF5: append to the same dataset (add a dummy dimension)
+
+    if (!isConst) {
+      // write into a single file
+      result.offset.emplace_back(counter);
+
+      result.offset.emplace_back(0);
+      for (std::size_t _ = 0; _ < data->shape().size(); ++_) {
+        result.offset.emplace_back(0);
+      }
+
+      result.dimensions.emplace_back(counter + 1);
+    }
 
     if (binary) {
+      const auto trueFilepath = preFilename + "-dataset" + std::to_string(datasetId);
       const auto trueFilename = filename + "-dataset" + std::to_string(datasetId);
       result.format = "Binary";
       result.location = trueFilename;
       result.instruction =
-          std::make_shared<writer::instructions::BinaryWrite>(trueFilename, data, counter > 0);
-      if (!isConst) {
-        // write into a single file
-        result.offset.emplace_back(counter);
-
-        result.offset.emplace_back(0);
-        for (std::size_t _ = 0; _ < data->shape().size(); ++_) {
-          result.offset.emplace_back(0);
-        }
-
-        result.dimensions.emplace_back(counter + 1);
-      }
+          std::make_shared<writer::instructions::BinaryWrite>(trueFilepath, data, 0, counter > 0);
     } else {
-      const std::string groupName = "dataset" + std::to_string(datasetId);
-      const std::string datasetName = "data" + std::to_string(counter);
+      const std::string datasetName = "dataset" + std::to_string(datasetId);
       result.format = "HDF";
-      result.location = filename + ":/" + groupName + "/" + datasetName;
+      result.location = filename + ":/" + datasetName;
       result.instruction = std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(filename, {groupName}),
+          writer::instructions::Hdf5Location(preFilename, {}),
           datasetName,
           data,
-          data->datatype());
+          data->datatype(),
+          true);
     }
 
     result.dimensions.emplace_back(globalCount);

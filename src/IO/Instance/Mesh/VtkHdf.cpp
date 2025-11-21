@@ -51,12 +51,17 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
   localPointCount = localElementCount * pointsPerElement;
   globalPointCount = globalElementCount * pointsPerElement;
 
+  const auto version = temporal ? std::vector<int64_t>{2, 0} : std::vector<int64_t>{1, 0};
+
   addData("Type",
           {},
-          false,
+          temporal,
           writer::WriteInline::create("UnstructuredGrid",
                                       std::make_shared<datatype::StringDatatype>(16)));
-  addData("Version", {}, false, writer::WriteInline::createArray<int64_t>({2}, {1, 0}));
+  addData("Version",
+          {},
+          temporal,
+          writer::WriteInline::createArray<int64_t>({version.size()}, version));
 
   // to capture by value
   const auto selfGlobalElementCount = globalElementCount;
@@ -67,22 +72,22 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
   const auto selfPointsPerElement = pointsPerElement;
   const auto selfType = type;
 
-  // TODO: move the following arrays into a "common" HDF5 file
-  // also, auto-generate them using a managed buffer
+  // TODO: auto-generate using a managed buffer maybe
+
   addData("NumberOfCells",
           {},
-          true,
+          temporal,
           writer::WriteInline::createArray<int64_t>(
               {1}, {static_cast<int64_t>(selfGlobalElementCount)}));
   addData(
       "NumberOfConnectivityIds",
       {},
-      true,
+      temporal,
       writer::WriteInline::createArray<int64_t>({1}, {static_cast<int64_t>(selfGlobalPointCount)}));
   addData(
       "NumberOfPoints",
       {},
-      true,
+      temporal,
       writer::WriteInline::createArray<int64_t>({1}, {static_cast<int64_t>(selfGlobalPointCount)}));
 
   const bool isLastRank = MPI::mpi.size() == MPI::mpi.rank() + 1;
@@ -112,6 +117,31 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
               1,
               std::vector<std::size_t>(),
               [=](int64_t* target, std::size_t index) { target[0] = index + selfPointOffset; }));
+
+  if (temporal) {
+    // we need to use a direct instruction here; since we store the time
+    instructions.emplace_back([=](const std::string& filename, double time) {
+      const auto data = writer::WriteInline::createArray<double>({1}, {time});
+      return std::make_shared<writer::instructions::Hdf5DataWrite>(
+          writer::instructions::Hdf5Location(filename, {GroupName}),
+          "Values",
+          data,
+          data->datatype(),
+          true);
+    });
+
+    // append for all
+    addData("PartOffsets", {}, false, writer::WriteInline::createArray<uint64_t>({1}, {0}));
+    addData("PointOffsets", {}, false, writer::WriteInline::createArray<uint64_t>({1}, {0}));
+    addData("CellOffsets", {}, false, writer::WriteInline::createArray<uint64_t>({1, 1}, {0}));
+    addData("ConnectivityIdOffsets",
+            {},
+            false,
+            writer::WriteInline::createArray<uint64_t>({1, 1}, {0}));
+
+    // ignore
+    // NumberOfParts
+  }
 }
 
 void VtkHdfWriter::addData(const std::string& name,
@@ -125,12 +155,14 @@ void VtkHdfWriter::addData(const std::string& name,
     groups.emplace_back(group.value());
   }
 
+  const auto append = !isConst && temporal;
+
   instrarray.emplace_back([=](const std::string& filename, double time) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, groups), name, data, data->datatype());
+        writer::instructions::Hdf5Location(filename, groups), name, data, data->datatype(), append);
   });
 
-  if (isConst) {
+  if (isConst && !temporal) {
     instructionsConstLink.emplace_back(
         [=](const std::string& filename, const std::string& filenameConst) {
           return std::make_shared<writer::instructions::Hdf5LinkExternalWrite>(
@@ -159,7 +191,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
     const auto filename = prefix + "-" + self.name + "-" + std::to_string(counter) + ".vtkhdf";
     const auto filenameConst = prefix + "-" + self.name + "-const.vtkhdf";
     const auto filenameConstFile = lastPrefix.back() + "-" + self.name + "-const.vtkhdf";
-    const auto filenamePvu = prefix + "-" + self.name + ".pvu";
+    const auto filenamePvu = prefix + "-" + self.name + ".pvd";
     pvu.emplace_back(metadata::PvuEntry{filename, time});
     auto writer = writer::Writer();
 

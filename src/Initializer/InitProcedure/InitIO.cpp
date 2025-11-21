@@ -79,8 +79,8 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       auto faultFace = drFaceInformation[i].meshFace;
       const auto& fault = seissolInstance.meshReader().getFault()[faultFace];
       // take the positive cell and side as fault face identifier
-      // (should result in roughly twice as large numbers as when indexing all faces; cf. handshake
-      // theorem)
+      // (should result in roughly twice as large numbers as when indexing all faces; cf.
+      // handshake theorem)
       faceIdentifiers[i] = fault.globalId * 4 + fault.side;
     }
     checkpoint.registerTree("dynrup", storage, faceIdentifiers);
@@ -110,7 +110,8 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   }
 
   if (seissolInstance.getSeisSolParameters().output.checkpointParameters.enabled) {
-    // FIXME: for now, we allow only _one_ checkpoint interval which checkpoints everything existent
+    // FIXME: for now, we allow only _one_ checkpoint interval which checkpoints everything
+    // existent
     seissolInstance.getOutputManager().setupCheckpoint(
         seissolInstance.getSeisSolParameters().output.checkpointParameters.interval);
   }
@@ -234,6 +235,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             &target[i * 3]);
       }
     });
+
+    const auto rank = seissol::MPI::mpi.rank();
+    writer.addCellData<int>(
+        "partition", {}, true, [=](int* target, std::size_t index) { target[0] = rank; });
 
     writer.addCellData<uint64_t>("clustering", {}, true, [=](uint64_t* target, std::size_t index) {
       target[0] = meshReader.getElements()[index].clusterId;
@@ -378,6 +383,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             &target[i * 3]);
       }
     });
+
+    const auto rank = seissol::MPI::mpi.rank();
+    writer.addCellData<int>(
+        "partition", {}, true, [=](int* target, std::size_t index) { target[0] = rank; });
 
     writer.addCellData<std::uint8_t>(
         "locationFlag",

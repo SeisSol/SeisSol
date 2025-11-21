@@ -223,6 +223,10 @@ void OutputManager::initElementwiseOutput() {
     }
   });
 
+  const auto rank = seissol::MPI::mpi.rank();
+  writer.addCellData<int>(
+      "partition", {}, true, [=](int* target, std::size_t index) { target[0] = rank; });
+
   writer.addCellData<int>(
       "fault-tag", {}, true, [=, &receiverPoints](int* target, std::size_t index) {
         *target = receiverPoints[index].faultTag;
@@ -340,15 +344,19 @@ void OutputManager::initPickpointOutput() {
 
     for (std::size_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
       for (std::size_t simIndex = 0; simIndex < maxSims; ++simIndex) {
-        auto collectVariableNames = [&baseHeader, &simIndex, &pointIndex, suffix](auto& var,
-                                                                                  int index) {
-          if (var.isActive) {
-            for (std::size_t dim = 0; dim < var.dim(); ++dim) {
-              baseHeader << " ,\"" << VariableLabels[index][dim]
-                         << suffix(pointIndex + 1, simIndex + 1) << '\"';
-            }
-          }
-        };
+        size_t labelCounter = 0;
+        auto collectVariableNames =
+            [&baseHeader, &labelCounter, &simIndex, &pointIndex, suffix](auto& var, int index) {
+              if (var.isActive) {
+                for (std::size_t dim = 0; dim < var.dim(); ++dim) {
+                  baseHeader << " ,\"" << VariableLabels[index][dim]
+                             << suffix(pointIndex + 1, simIndex + 1) << '\"';
+                  ++labelCounter;
+                }
+              } else {
+                labelCounter += var.dim();
+              }
+            };
         misc::forEach(outputData->vars, collectVariableNames);
       }
     }

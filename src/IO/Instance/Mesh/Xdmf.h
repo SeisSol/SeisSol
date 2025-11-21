@@ -78,7 +78,7 @@ class XdmfWriter {
   private:
   std::string name;
   std::string type;
-  bool binary{true};
+  bool binary{false};
   std::size_t localElementCount;
   std::size_t globalElementCount;
   std::size_t elementOffset{0};
