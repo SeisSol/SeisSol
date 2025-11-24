@@ -17,7 +17,6 @@
 #include "SeisSol.h"
 #include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
-#include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Descriptor/LTS.h>
@@ -122,6 +121,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
   constexpr auto NumQuantities =
       tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
+
+  // ill-defined for multisim; but irrelevant for it
+  constexpr auto NumAlignedBasisFunctions = tensor::Q::size() / NumQuantities;
   // TODO(David): handle attenuation properly here. We'll probably not want it to be contained in
   // numberOfQuantities. But the compile-time parameter
   // seissol::model::MaterialT::NumQuantities contains it nonetheless.
