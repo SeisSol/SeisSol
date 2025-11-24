@@ -164,8 +164,10 @@ class SpaceTimePredictorTestFixture {
     std::array<real, 13> factor = {{1e9, 1e9, 1e9, 1e9, 1e9, 1e9, 1, 1, 1, 1e9, 1, 1, 1}};
     auto q = init::Q::view::create(qData);
     std::srand(1234);
-    for (std::size_t i = 0; i < init::Q::size(); ++i) {
-      qData[i] = static_cast<real>(std::rand()) / RAND_MAX * factor.at(qi);
+    for (std::size_t qi = 0; qi < q.shape(1); ++qi) {
+      for (std::size_t bf = 0; bf < q.shape(0); ++bf) {
+        q(bf, qi) = static_cast<real>(std::rand()) / RAND_MAX * factor.at(qi);
+      }
     }
   }
 

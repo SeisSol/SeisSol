@@ -12,6 +12,7 @@
 #include <Initializer/Typedefs.h>
 #include <Model/Common.h>
 #include <Model/CommonDatastructures.h>
+#include <Solver/MultipleSimulations.h>
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -137,8 +138,12 @@ void seissol::physics::SuperimposedPlanarwave::evaluate(
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
 
-  std::vector<real> dofsPwVector(dofsQP.size());
-  auto dofsPW = init::Q::view::create(dofsPwVector.data());
+  const std::size_t basisFunCount = init::Q::Shape[multisim::BasisFunctionDimension];
+  const std::size_t quantityCount = init::Q::Shape[multisim::BasisFunctionDimension + 1];
+
+  std::vector<real> dofsPwVector(quantityCount * basisFunCount);
+  auto dofsPW = yateto::DenseTensorView<2, real, unsigned>(
+      dofsPwVector.data(), {basisFunCount, quantityCount}, {0, 0}, {basisFunCount, quantityCount});
 
   for (int pw = 0; pw < 3; pw++) {
     // evaluate each planarwave
