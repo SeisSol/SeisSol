@@ -254,26 +254,26 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           // must be subtracted.
           const double fluxScale = -2.0 * surface / (6.0 * volume);
 
-          const auto isSpecialBC =
-              [&secondaryInformation, &cellInformation, &cellInformationAll, cell](int side) {
-                const auto hasDRFace = [](const CellLocalInformation& ci) {
-                  bool hasAtLeastOneDRFace = false;
-                  for (size_t i = 0; i < Cell::NumFaces; ++i) {
-                    if (ci.faceTypes[i] == FaceType::DynamicRupture) {
-                      hasAtLeastOneDRFace = true;
-                    }
-                  }
-                  return hasAtLeastOneDRFace;
-                };
-                const bool thisCellHasAtLeastOneDRFace = hasDRFace(cellInformation[cell]);
-                const auto neighborID = secondaryInformation[cell].faceNeighborIds[side];
-                const bool neighborBehindSideHasAtLeastOneDRFace =
-                    hasDRFace(cellInformationAll[neighborID]);
-                const bool adjacentDRFaceExists =
-                    thisCellHasAtLeastOneDRFace || neighborBehindSideHasAtLeastOneDRFace;
-                return (cellInformation[cell].faceTypes[side] == FaceType::Regular) &&
-                       adjacentDRFaceExists;
-              };
+          const auto isSpecialBC = [&](int side) {
+            const auto hasDRFace = [](const CellLocalInformation& ci) {
+              bool hasAtLeastOneDRFace = false;
+              for (size_t i = 0; i < Cell::NumFaces; ++i) {
+                if (ci.faceTypes[i] == FaceType::DynamicRupture) {
+                  hasAtLeastOneDRFace = true;
+                }
+              }
+              return hasAtLeastOneDRFace;
+            };
+            const bool thisCellHasAtLeastOneDRFace = hasDRFace(cellInformation[cell]);
+            const auto& neighborID = secondaryInformation[cell].faceNeighbors[side];
+            const bool neighborBehindSideHasAtLeastOneDRFace =
+                neighborID != StoragePosition::NullPosition &&
+                hasDRFace(ltsStorage.lookup<LTS::CellInformation>(neighborID));
+            const bool adjacentDRFaceExists =
+                thisCellHasAtLeastOneDRFace || neighborBehindSideHasAtLeastOneDRFace;
+            return (cellInformation[cell].faceTypes[side] == FaceType::Regular) &&
+                   adjacentDRFaceExists;
+          };
 
           const auto wavespeedLocal = materialLocal.getMaxWaveSpeed();
           const auto wavespeedNeighbor = material[cell].neighbor[side]->getMaxWaveSpeed();
@@ -453,9 +453,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       LTS::Storage& ltsStorage,
                                       const LTS::Backmap& backmap,
                                       DynamicRupture::Storage& drStorage,
-                                      const unsigned* ltsFaceToMeshFace,
                                       const GlobalData& global,
-                                      double etaHack) {
+                                      double etaDamp) {
   real matTData[tensor::T::size()];
   real matTinvData[tensor::Tinv::size()];
   real matAPlusData[tensor::star::size(0)];
@@ -463,8 +462,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
   const auto& fault = meshReader.getFault();
   const auto& elements = meshReader.getElements();
-
-  const unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
   for (auto& layer : drStorage.leaves(Ghost)) {
     auto* timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();
@@ -494,11 +491,11 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
     schedule(static)
 #endif
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-      const std::size_t meshFace = layerLtsFaceToMeshFace[ltsFace];
+      const std::size_t meshFace = faceInformation[ltsFace].meshFace;
       assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
 
       /// Face information
-      faceInformation[ltsFace].meshFace = meshFace;
+      // already set: faceInformation[ltsFace].meshFace = meshFace;
       faceInformation[ltsFace].plusSide = fault[meshFace].side;
       faceInformation[ltsFace].minusSide = fault[meshFace].neighborSide;
       if (fault[meshFace].element >= 0) {
@@ -533,12 +530,12 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         if (positionOpt.has_value()) {
           const auto position = positionOpt.value();
           const auto& cellInformation = ltsStorage.lookup<LTS::CellInformation>(position);
-          if (timeDerivative1 == nullptr && (cellInformation.ltsSetup >> 9U) % 2 == 1) {
+          if (timeDerivative1 == nullptr && cellInformation.ltsSetup.hasDerivatives()) {
             timeDerivative1 = ltsStorage.lookup<LTS::Derivatives>(position);
             timeDerivative1Device = ltsStorage.lookup<LTS::DerivativesDevice>(position);
           }
           if (timeDerivative2 == nullptr &&
-              (cellInformation.ltsSetup >> derivativesSide) % 2 == 1) {
+              cellInformation.ltsSetup.neighborHasDerivatives(derivativesSide)) {
             timeDerivative2 = ltsStorage.lookup<LTS::FaceNeighbors>(position)[derivativesSide];
             timeDerivative2Device =
                 ltsStorage.lookup<LTS::FaceNeighborsDevice>(position)[derivativesSide];
@@ -801,8 +798,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       krnl.star(0) = matAMinusData;
       krnl.execute();
     }
-
-    layerLtsFaceToMeshFace += layer.size();
   }
 }
 

@@ -84,6 +84,7 @@ src/ResultWriter/AnalysisWriter.cpp
 
 src/Initializer/TimeStepping/ClusterLayout.cpp
 src/Solver/TimeStepping/HaloCommunication.cpp
+src/Initializer/TimeStepping/Halo.cpp
 
 ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
 ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
@@ -133,10 +134,14 @@ src/Initializer/InitProcedure/InitMesh.cpp
 src/Initializer/InitProcedure/InitModel.cpp
 src/Initializer/InitProcedure/InitIO.cpp
 src/Initializer/InitProcedure/InitSideConditions.cpp
-src/Initializer/InternalState.cpp
 src/Memory/MemoryAllocator.cpp
 src/Initializer/MemoryManager.cpp
 src/Initializer/ParameterDB.cpp
+
+src/Initializer/InitProcedure/InitLayout.cpp
+src/Initializer/InitProcedure/Internal/Buckets.cpp
+src/Initializer/InitProcedure/Internal/MeshLayout.cpp
+src/Initializer/InitProcedure/Internal/LtsSetup.cpp
 
 src/Initializer/Parameters/CubeGeneratorParameters.cpp
 src/Initializer/Parameters/DRParameters.cpp
@@ -150,7 +155,6 @@ src/Initializer/Parameters/SeisSolParameters.cpp
 src/Initializer/Parameters/SourceParameters.cpp
 
 src/Initializer/TimeStepping/GlobalTimestep.cpp
-src/Initializer/TimeStepping/LtsLayout.cpp
 
 src/Numerical/ODEInt.cpp
 src/Numerical/ODEVector.cpp
@@ -274,6 +278,8 @@ if (WITH_GPU)
     include(${CMAKE_SOURCE_DIR}/src/sycl.cmake)
   endif()
 
+  target_link_libraries(seissol-device-lib PRIVATE seissol-common-properties)
+
   target_compile_options(seissol-device-lib PRIVATE -fPIC)
   if ("${EQUATIONS}" STREQUAL "elastic")
     target_compile_definitions(seissol-device-lib PRIVATE USE_ELASTIC)
@@ -292,6 +298,10 @@ if (WITH_GPU)
 
   if ("${EQUATIONS}" STREQUAL "elastic")
     target_compile_definitions(seissol-device-lib PRIVATE USE_ELASTIC)
+  endif()
+
+  if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+    target_compile_definitions(seissol-device-lib PRIVATE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
   endif()
 endif()
 

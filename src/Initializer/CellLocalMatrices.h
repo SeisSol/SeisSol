@@ -35,9 +35,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       LTS::Storage& ltsStorage,
                                       const LTS::Backmap& backmap,
                                       DynamicRupture::Storage& drStorage,
-                                      const unsigned* ltsFaceToMeshFace,
                                       const GlobalData& global,
-                                      double etaHack);
+                                      double etaDamp);
 } // namespace seissol::initializer
 
 #endif // SEISSOL_SRC_INITIALIZER_CELLLOCALMATRICES_H_

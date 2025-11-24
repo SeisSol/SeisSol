@@ -16,6 +16,10 @@
 #include <string>
 #include <unordered_map>
 
+namespace seissol {
+class SeisSol;
+} // namespace seissol
+
 namespace seissol::io::writer::module {
 
 struct BufferPointer {
@@ -27,7 +31,8 @@ class WriterModule : public seissol::Module, private AsyncWriterModule {
   public:
   WriterModule(const std::string& prefix,
                const ScheduledWriter& settings,
-               const parallel::Pinning& pinning);
+               const parallel::Pinning& pinning,
+               SeisSol& seissolInstance);
   void startup();
   void setUp() override;
   void simulationStart(std::optional<double> checkpointTime) override;
@@ -45,6 +50,9 @@ class WriterModule : public seissol::Module, private AsyncWriterModule {
   ScheduledWriter settings;
   double lastWrite{-1};
   const parallel::Pinning& pinning;
+
+  // TODO: remove?
+  SeisSol& seissolInstance;
 };
 
 } // namespace seissol::io::writer::module

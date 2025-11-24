@@ -29,6 +29,7 @@
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -131,21 +132,30 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     const std::vector<Element>& meshElements = seissolInstance.meshReader().getElements();
     std::vector<unsigned> ltsClusteringData(meshElements.size());
     std::vector<unsigned> ltsIdData(meshElements.size());
-    for (const auto& element : meshElements) {
-      ltsClusteringData[element.localId] = element.clusterId;
-      ltsIdData[element.localId] = element.globalId;
-    }
-    std::vector<std::size_t> meshToLts(ltsStorage.size(seissol::initializer::LayerMask(Ghost)));
-    std::size_t offset = 0;
-    for (auto& layer : ltsStorage.leaves(Ghost)) {
+    std::vector<std::size_t> meshToLts(meshElements.size());
+
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
+    for (std::size_t i = 0; i < meshElements.size(); ++i) {
+      const auto& element = meshElements[i];
+      ltsClusteringData[element.localId] = element.clusterId;
+      ltsIdData[element.localId] = element.globalId;
+      meshToLts[i] = backmap.get(i).global;
+      assert(ltsStorage.var<LTS::SecondaryInformation>()[meshToLts[i]].meshId == i);
+    }
+
+    // backmap.global does NOT work, as it'll include the ghost layers
+    // (also this whole thing is pretty near-obsolete, with #1180 )
+    std::size_t layerOffset = 0;
+    for (const auto& layer : ltsStorage.leaves(Ghost)) {
       for (std::size_t i = 0; i < layer.size(); ++i) {
-        const auto meshId = layer.var<LTS::SecondaryInformation>()[i].meshId;
-        meshToLts[offset + i] = meshId;
+        const auto& sec = layer.var<LTS::SecondaryInformation>()[i];
+        if (sec.duplicate == 0) {
+          meshToLts[sec.meshId] = i + layerOffset;
+        }
       }
-      offset += layer.size();
+      layerOffset += layer.size();
     }
 
     // Initialize wave field output
@@ -276,8 +286,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               {},
               [=, &ltsStorage, &backmap](real* target, std::size_t index) {
                 const auto position = backmap.get(cellIndices[index]);
-                const auto* dofsAllQuantities =
-                    ltsStorage.layer(position.color).var<LTS::Dofs>()[position.cell];
+                const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj{};
                 memory::AlignedArray<real, multisim::NumSimulations> simselect;
@@ -300,8 +309,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 {},
                 [=, &ltsStorage, &backmap](real* target, std::size_t index) {
                   const auto position = backmap.get(cellIndices[index]);
-                  const auto* dofsAllQuantities =
-                      ltsStorage.layer(position.color).var<LTS::PStrain>()[position.cell];
+                  const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(position);
                   const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                   kernel::projectBasisToVtkVolume vtkproj{};
                   memory::AlignedArray<real, multisim::NumSimulations> simselect;

@@ -52,7 +52,7 @@ void ReceiverOutput::getDofs(real dofs[tensor::Q::size()],
   const auto position = wpBackmap->get(meshId);
   auto& layer = wpStorage->layer(position.color);
   // get DOFs from 0th derivatives
-  assert((layer.var<LTS::CellInformation>()[position.cell].ltsSetup >> 9) % 2 == 1);
+  assert(layer.var<LTS::CellInformation>()[position.cell].ltsSetup.hasDerivatives());
 
   real* derivatives = layer.var<LTS::Derivatives>()[position.cell];
 
