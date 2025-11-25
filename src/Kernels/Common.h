@@ -120,22 +120,6 @@ constexpr unsigned int
 }
 
 /**
- * Get the # of derivatives of basis functions aligned to the given boundaries.
- *
- * @param convergenceOrder convergence order.
- * @param alignment alignment in bytes.
- * @return aligned number of basis functions.
- **/
-constexpr unsigned
-    getNumberOfAlignedDerivativeBasisFunctions(unsigned int convergenceOrder = ConvergenceOrder,
-                                               unsigned int alignment = Vectorsize) {
-  return (convergenceOrder > 0)
-             ? getNumberOfAlignedBasisFunctions(convergenceOrder) +
-                   getNumberOfAlignedDerivativeBasisFunctions(convergenceOrder - 1)
-             : 0;
-}
-
-/**
  * Check if a type has a .size() member.
  */
 template <typename T, typename = void>
@@ -166,12 +150,5 @@ constexpr auto size() -> typename HasSize<T>::Type {
 
 constexpr bool isDeviceOn() { return HardwareSupport == BuildType::Gpu; }
 } // namespace seissol
-
-// for now, make these #defines constexprs. Soon, they should be namespaced.
-constexpr std::size_t NumBasisFunctions = seissol::kernels::getNumberOfBasisFunctions();
-constexpr std::size_t NumAlignedBasisFunctions =
-    seissol::kernels::getNumberOfAlignedBasisFunctions();
-constexpr std::size_t NumAlignedDerivativeBasisFunctions =
-    seissol::kernels::getNumberOfAlignedDerivativeBasisFunctions();
 
 #endif // SEISSOL_SRC_KERNELS_COMMON_H_

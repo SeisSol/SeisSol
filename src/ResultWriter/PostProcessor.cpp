@@ -9,12 +9,13 @@
 #include "PostProcessor.h"
 
 #include "Alignment.h"
-#include "Kernels/Common.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 
 #include <array>
+#include <cstddef>
 
 void seissol::writer::PostProcessor::integrateQuantities(const double timestep,
                                                          LTS::Layer& layerData,
@@ -22,6 +23,12 @@ void seissol::writer::PostProcessor::integrateQuantities(const double timestep,
                                                          const double* const dofs) {
 
   real* integrals = layerData.var<LTS::Integrals>();
+  constexpr auto NumQuantities =
+      tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
+
+  // ill-defined for multisim; but irrelevant for it
+  constexpr std::size_t NumAlignedBasisFunctions = tensor::Q::size() / NumQuantities;
+
   for (int i = 0; i < m_numberOfVariables; i++) {
     integrals[cell * m_numberOfVariables + i] +=
         dofs[NumAlignedBasisFunctions * m_integerMap[i]] * timestep;

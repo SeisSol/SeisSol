@@ -14,9 +14,11 @@
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
+#include "Parallel/Pin.h"
 
 #include <asagi.h>
 #include <memory>
+#include <sched.h>
 #include <string>
 #include <utils/env.h>
 #include <utils/logger.h>
@@ -74,7 +76,7 @@ void AsagiModule::preMPI() {
   // Communication threads required
   if (m_mpiMode == AsagiMPIMode::CommThread) {
     // Comm threads has to be started before model initialization
-    Modules::registerHook(*this, ModuleHook::PreModel, ModulePriority::Highest);
+    Modules::registerHook(*this, ModuleHook::PreMesh, ModulePriority::Highest);
     // Comm threads has to be stoped after model initialization
     Modules::registerHook(*this, ModuleHook::PostModel, ModulePriority::Lowest);
   }
@@ -90,14 +92,26 @@ void AsagiModule::postMPIInit() {
   }
 }
 
-void AsagiModule::preModel() {
-  // TODO check if ASAGI is required for model setup
-  ::asagi::Grid::startCommThread();
+void AsagiModule::preMesh() {
+  if (m_mpiMode == AsagiMPIMode::CommThread) {
+    int cpu = -1;
+#ifndef __APPLE__
+    const auto cpuSet = pinning->getFreeCPUsMask().set;
+    for (int i = 0; i < CPU_COUNT(&cpuSet); ++i) {
+      if (CPU_ISSET(i, &cpuSet)) {
+        cpu = i;
+        break;
+      }
+    }
+#endif
+    ::asagi::Grid::startCommThread();
+  }
 }
 
 void AsagiModule::postModel() {
-  // TODO check if ASAGI is required for model setup
-  ::asagi::Grid::stopCommThread();
+  if (m_mpiMode == AsagiMPIMode::CommThread) {
+    ::asagi::Grid::stopCommThread();
+  }
 }
 
 void AsagiModule::initInstance(utils::Env& env) {
