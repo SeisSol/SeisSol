@@ -298,10 +298,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
           // exclude boundary conditions
           static const std::vector<FaceType> GodunovBoundaryConditions = {
-              FaceType::FreeSurface,
-              FaceType::FreeSurfaceGravity,
-              FaceType::Analytical,
-              FaceType::Outflow};
+              FaceType::FreeSurface, FaceType::FreeSurfaceGravity, FaceType::Analytical};
 
           const auto enforceGodunovBc = std::any_of(
               GodunovBoundaryConditions.begin(),
@@ -317,7 +314,12 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           kernel::computeFluxSolverLocal localKrnl;
           localKrnl.fluxScale = fluxScale;
           localKrnl.AplusT = localIntegration[cell].nApNm1[side];
-          if (flux == parameters::NumericalFlux::Rusanov) {
+          if (cellInformation[cell].faceTypes[side] == FaceType::Outflow) {
+            // merge local+neighbor contributions, and use flux consistency
+            localKrnl.QgodLocal = centralFluxData;
+            localKrnl.QcorrLocal = rusanovPlusNull;
+            localKrnl.fluxScale *= 2;
+          } else if (flux == parameters::NumericalFlux::Rusanov) {
             localKrnl.QgodLocal = centralFluxData;
             localKrnl.QcorrLocal = rusanovPlusData;
           } else {
