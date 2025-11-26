@@ -157,7 +157,7 @@ class SampledBasisFunctions {
   /**
    * Returns the amount of Basis functions this class represents.
    */
-  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] std::size_t getSize() const { return m_data.size(); }
 };
 
 //------------------------------------------------------------------------------
@@ -166,8 +166,9 @@ class SampledBasisFunctions {
  * This class represents the derivatives of vector Basis functions sampled at a specific point.
  * @param T denotes the type to calculate internally.
  */
-template <class T>
+template <class Cfg>
 class SampledBasisFunctionDerivatives {
+  using T = Real<Cfg>;
   static_assert(std::is_arithmetic_v<T>, "Type T for SampledBasisFunctions must be arithmetic.");
 
   public:
@@ -190,7 +191,7 @@ class SampledBasisFunctionDerivatives {
   SampledBasisFunctionDerivatives(unsigned int order, T xi, T eta, T zeta)
       : m_data(3 * basisFunctionsForOrder(order)) {
     const BasisFunctionDerivativeGenerator<T> gen(xi, eta, zeta);
-    auto dataView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
+    auto dataView = init::basisFunctionDerivativesAtPoint<Cfg>::view::create(m_data.data());
 
     unsigned int i = 0;
     for (unsigned int ord = 0; ord < order; ord++) {
@@ -232,10 +233,10 @@ class SampledBasisFunctionDerivatives {
         xCoords, yCoords, zCoords, gradXi, gradEta, gradZeta);
     std::vector<T> oldData = m_data;
 
-    auto oldView = init::basisFunctionDerivativesAtPoint::view::create(oldData.data());
-    auto newView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
-    for (size_t i = 0; i < init::basisFunctionDerivativesAtPoint::Shape[0]; ++i) {
-      for (size_t direction = 0; direction < init::basisFunctionDerivativesAtPoint::Shape[1];
+    auto oldView = init::basisFunctionDerivativesAtPoint<Cfg>::view::create(oldData.data());
+    auto newView = init::basisFunctionDerivativesAtPoint<Cfg>::view::create(m_data.data());
+    for (size_t i = 0; i < init::basisFunctionDerivativesAtPoint<Cfg>::Shape[0]; ++i) {
+      for (size_t direction = 0; direction < init::basisFunctionDerivativesAtPoint<Cfg>::Shape[1];
            ++direction) {
         // dpsi / di = dphi / dxi * dxi / di + dphi / deta * deta / di + dphi / dzeta * dzeta / di
         newView(i, direction) = oldView(i, 0) * gradXi[direction] +
@@ -248,7 +249,7 @@ class SampledBasisFunctionDerivatives {
   /**
    * Returns the amount of Basis functions this class represents.
    */
-  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] std::size_t getSize() const { return m_data.size(); }
 };
 
 //==============================================================================

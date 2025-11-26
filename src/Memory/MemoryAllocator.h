@@ -29,15 +29,6 @@
 #endif
 
 namespace seissol::memory {
-#ifdef ACL_DEVICE
-using AllocatorT = device::UsmAllocator<real>;
-#else
-using AllocatorT = std::allocator<real>;
-#endif
-template <typename T>
-using VectorT =
-    std::vector<T, typename std::allocator_traits<AllocatorT>::template rebind_alloc<T>>;
-
 template <typename T, std::size_t N>
 class AlignedArray {
   public:

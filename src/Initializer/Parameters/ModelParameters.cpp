@@ -6,7 +6,6 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "ModelParameters.h"
-#include <Equations/Datastructures.h>
 #include <Initializer/Parameters/ParameterReader.h>
 #include <Solver/MultipleSimulations.h>
 #include <cstddef>
@@ -54,7 +53,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   const auto boundaryFileName = reader->readPath("boundaryfileName");
   const std::string materialFileName =
       reader->readPathOrFail("materialfilename", "No material file given.");
-  std::vector<std::string> plasticityFileNames(seissol::multisim::NumSimulations);
+  std::vector<std::string> plasticityFileNames(128); // TODO num simulations
 
   for (std::size_t i = 0; i < plasticityFileNames.size(); ++i) {
     const auto fieldname = "plasticityfilename" + (i == 0 ? std::string{} : std::to_string(i));
@@ -71,15 +70,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
       reader->readWithDefault("gravitationalacceleration", 9.81);
   const double tv = reader->readWithDefault("tv", 0.1);
 
-  constexpr auto IsAnelastic = model::MaterialT::Mechanisms > 0;
-
-  const auto freqCentral = reader->readIfRequired<double>("freqcentral", IsAnelastic);
-  const auto freqRatio = reader->readIfRequired<double>("freqratio", IsAnelastic);
-  if constexpr (IsAnelastic) {
-    if (freqRatio <= 0) {
-      logError() << "The freqratio parameter must be positive; but that is currently not the case.";
-    }
-  }
+  const auto freqCentral = reader->readWithDefault("freqcentral", 0.0);
+  const auto freqRatio = reader->readWithDefault("freqratio", 0.0);
 
   const ITMParameters itmParameters = readITMParameters(baseReader);
 

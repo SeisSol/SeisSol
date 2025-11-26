@@ -96,10 +96,10 @@ class DynamicRuptureScheduler {
   long lastCorrectionStepsCopy = -1;
   long lastFaultOutput = -1;
   long numberOfDynamicRuptureFaces;
-  bool firstClusterWithDynamicRuptureFaces;
+  double outputTimestep{};
 
   public:
-  DynamicRuptureScheduler(long numberOfDynamicRuptureFaces, bool isFirstDynamicRuptureCluster);
+  DynamicRuptureScheduler(long numberOfDynamicRuptureFaces, double outputTimestep);
 
   [[nodiscard]] bool mayComputeInterior(long curCorrectionSteps) const;
 
@@ -113,7 +113,7 @@ class DynamicRuptureScheduler {
 
   [[nodiscard]] bool hasDynamicRuptureFaces() const;
 
-  [[nodiscard]] bool isFirstClusterWithDynamicRuptureFaces() const;
+  [[nodiscard]] double getOutputTimestep() const;
 };
 
 struct ActResult {

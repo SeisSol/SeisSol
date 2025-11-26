@@ -116,27 +116,6 @@ endif()
 configure_file("src/Alignment.h.in"
                "${CMAKE_CURRENT_BINARY_DIR}/src/Alignment.h")
 
-if (EQUATIONS STREQUAL "viscoelastic")
-  set(PARAMETER_MATERIAL "Viscoelastic")
-  set(PARAMETER_VISCOMODE "QuantityExtension")
-elseif (EQUATIONS STREQUAL "viscoelastic2")
-  set(PARAMETER_MATERIAL "Viscoelastic")
-  set(PARAMETER_VISCOMODE "AnelasticTensor")
-else()
-  capitalize(${EQUATIONS} PARAMETER_MATERIAL)
-  set(PARAMETER_VISCOMODE "None")
-endif()
-
-capitalize(${DR_QUAD_RULE} PARAMETER_DRQUADRULE)
-
-if (PRECISION STREQUAL "single")
-  set(PARAMETER_REALTYPE "F32")
-else()
-  set(PARAMETER_REALTYPE "F64")
-endif()
-
-configure_file("src/Config.h.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/src/Config.h")
 
 # Generate version.h
 include(GetGitRevisionDescription)
@@ -217,6 +196,9 @@ add_custom_command(
      "--PlasticityMethod" ${PLASTICITY_METHOD}
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      "--drQuadRule" ${DR_QUAD_RULE}
+     "--enabled_order" ${ENABLED_ORDER}
+     "--enabled_material" ${ENABLED_MATERIAL}
+     "--enabled_precision" ${ENABLED_PRECISION}
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
      "--executable_pspamm=${PSpaMM_PROGRAM}"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
@@ -396,11 +378,7 @@ if (ADDRESS_SANITIZER_DEBUG)
   )
 endif()
 
-# Note: it is better to include `async` as
-# system headers because they emit lot's of warnings
-# from clang. Most of them are issues with respect
-# to overriden virtual methods
-target_include_directories(seissol-common-properties SYSTEM INTERFACE
+target_include_directories(seissol-common-properties INTERFACE
   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
@@ -414,7 +392,7 @@ if ("${Eigen3_VERSION}" VERSION_LESS "3.4")
 endif()
 
 # only needed for "old" Eigen (i.e. below 5.0.0)
-if((${EQUATIONS} STREQUAL "poroelastic") AND ("${Eigen3_VERSION}" VERSION_LESS "5.0.0"))
+if(ENABLE_MATERIAL_POROELASTIC AND ("${Eigen3_VERSION}" VERSION_LESS "5.0.0"))
   include(CheckLanguage)
   check_language(Fortran)
   if(CMAKE_Fortran_COMPILER)
@@ -492,22 +470,24 @@ else()
   else()
     set(NAME_SUFFIX "cpu")
   endif()
-  if (EQUATIONS STREQUAL "viscoelastic2")
-    set(NAME_SUFFIX "${NAME_SUFFIX}-viscoelastic")
-  else()
-    set(NAME_SUFFIX "${NAME_SUFFIX}-${EQUATIONS}")
-  endif()
-  if (NUMBER_OF_MECHANISMS GREATER 0)
-    set(NAME_SUFFIX "${NAME_SUFFIX}-${NUMBER_OF_MECHANISMS}")
-  endif()
-  set(NAME_SUFFIX "${NAME_SUFFIX}-p${ORDER}")
-  if (PRECISION STREQUAL "single")
-    set(NAME_SUFFIX "${NAME_SUFFIX}-f32")
-  else()
-    set(NAME_SUFFIX "${NAME_SUFFIX}-f64")
-  endif()
-  if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
-    set(NAME_SUFFIX "${NAME_SUFFIX}-s${NUMBER_OF_FUSED_SIMULATIONS}")
+  if (NOT MULTISETUP)
+    if (EQUATIONS STREQUAL "viscoelastic2")
+      set(NAME_SUFFIX "${NAME_SUFFIX}-viscoelastic")
+    else()
+      set(NAME_SUFFIX "${NAME_SUFFIX}-${EQUATIONS}")
+    endif()
+    if (NUMBER_OF_MECHANISMS GREATER 0)
+      set(NAME_SUFFIX "${NAME_SUFFIX}-${NUMBER_OF_MECHANISMS}")
+    endif()
+    set(NAME_SUFFIX "${NAME_SUFFIX}-p${ORDER}")
+    if (PRECISION STREQUAL "single")
+      set(NAME_SUFFIX "${NAME_SUFFIX}-f32")
+    else()
+      set(NAME_SUFFIX "${NAME_SUFFIX}-f64")
+    endif()
+    if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
+      set(NAME_SUFFIX "${NAME_SUFFIX}-s${NUMBER_OF_FUSED_SIMULATIONS}")
+    endif()
   endif()
 endif()
 
@@ -612,6 +592,7 @@ if (TESTING)
   set(seissol_test_sources
           src/tests/Model/TestModel.cpp
           src/tests/Initializer/TestInitializer.cpp
+          src/tests/IO/TestIO.cpp
           src/tests/Numerical/TestNumerical.cpp
           src/tests/Geometry/TestGeometry.cpp
           src/tests/Kernel/TestKernel.cpp

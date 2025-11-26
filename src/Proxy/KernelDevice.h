@@ -12,41 +12,52 @@
 
 namespace seissol::proxy {
 
-class ProxyKernelDeviceAder : public ProxyKernelHostAder {
+template <typename Cfg>
+class ProxyKernelDeviceAder : public ProxyKernelHostAder<Cfg> {
   public:
-  void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const override;
+  void run(ProxyData& predata, seissol::parallel::runtime::StreamRuntime& runtime) const override;
 };
 
-class ProxyKernelDeviceLocalWOAder : public ProxyKernelHostLocalWOAder {
+template <typename Cfg>
+class ProxyKernelDeviceLocalWOAder : public ProxyKernelHostLocalWOAder<Cfg> {
   public:
-  void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const override;
+  void run(ProxyData& predata, seissol::parallel::runtime::StreamRuntime& runtime) const override;
 };
 
-class ProxyKernelDeviceLocal : public ProxyKernelHostLocal {
+template <typename Cfg>
+class ProxyKernelDeviceLocal : public ProxyKernelHostLocal<Cfg> {
   public:
-  void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const override;
+  void run(ProxyData& predata, seissol::parallel::runtime::StreamRuntime& runtime) const override;
 };
 
-class ProxyKernelDeviceNeighbor : public ProxyKernelHostNeighbor {
+template <typename Cfg>
+class ProxyKernelDeviceNeighbor : public ProxyKernelHostNeighbor<Cfg> {
   public:
-  void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const override;
+  void run(ProxyData& predata, seissol::parallel::runtime::StreamRuntime& runtime) const override;
 };
 
-class ProxyKernelDeviceNeighborDR : public ProxyKernelDeviceNeighbor {
+template <typename Cfg>
+class ProxyKernelDeviceNeighborDR : public ProxyKernelDeviceNeighbor<Cfg> {
   public:
   [[nodiscard]] auto needsDR() const -> bool override;
 };
 
-class ProxyKernelDeviceGodunovDR : public ProxyKernelHostGodunovDR {
+template <typename Cfg>
+class ProxyKernelDeviceGodunovDR : public ProxyKernelHostGodunovDR<Cfg> {
   public:
-  void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const override;
+  void run(ProxyData& predata, seissol::parallel::runtime::StreamRuntime& runtime) const override;
 };
 
-using ProxyKernelDeviceAll = CompoundKernel<ProxyKernelDeviceLocal, ProxyKernelDeviceNeighbor>;
-using ProxyKernelDeviceAllDR =
-    CompoundKernel<ProxyKernelDeviceLocal, ProxyKernelDeviceGodunovDR, ProxyKernelDeviceNeighborDR>;
+template <typename Cfg>
+using ProxyKernelDeviceAll =
+    CompoundKernel<ProxyKernelDeviceLocal<Cfg>, ProxyKernelDeviceNeighbor<Cfg>>;
 
-std::shared_ptr<ProxyKernel> getProxyKernelDevice(Kernel kernel);
+template <typename Cfg>
+using ProxyKernelDeviceAllDR = CompoundKernel<ProxyKernelDeviceLocal<Cfg>,
+                                              ProxyKernelDeviceGodunovDR<Cfg>,
+                                              ProxyKernelDeviceNeighborDR<Cfg>>;
+
+std::shared_ptr<ProxyKernel> getProxyKernelDevice(Kernel kernel, ConfigVariant variant);
 
 } // namespace seissol::proxy
 

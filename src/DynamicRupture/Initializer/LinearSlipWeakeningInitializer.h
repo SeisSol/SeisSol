@@ -27,7 +27,7 @@ class LinearSlipWeakeningInitializer : public BaseDRInitializer {
   /**
    * Adds the additional parameters mu_s, mu_d, d_c, cohesion and if available forced_rupture_time.
    */
-  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+  void addAdditionalParameters(std::unordered_map<std::string, void*>& parameterToStorageMap,
                                DynamicRupture::Layer& layer) override;
 };
 

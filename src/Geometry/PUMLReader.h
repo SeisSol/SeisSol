@@ -46,6 +46,7 @@ class PUMLReader : public seissol::geometry::MeshReader {
   public:
   PUMLReader(const char* meshFile,
              const char* partitioningLib,
+             const ConfigMap& configMap,
              seissol::initializer::parameters::BoundaryFormat boundaryFormat =
                  seissol::initializer::parameters::BoundaryFormat::I32,
              seissol::initializer::parameters::TopologyFormat topologyFormat =

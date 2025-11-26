@@ -9,9 +9,22 @@
 
 #include "LocalBase.h"
 
+#include <Alignment.h>
+#include <Common/Constants.h>
+#include <DataTypes/ConditionalTable.h>
+#include <GeneratedCode/metagen/init.h>
+#include <GeneratedCode/metagen/tensor.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Interface.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Parallel/Runtime/Stream.h>
+#include <array>
 #include <cassert>
+#include <cstdint>
 #include <cstring>
 #include <stdint.h>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
@@ -19,139 +32,150 @@
 
 #include <yateto.h>
 
+#include "Memory/GlobalData.h"
+
 namespace seissol::kernels::solver::linearckanelastic {
 
-void Local::setGlobalData(const CompoundGlobalData& global) {
+template <typename Cfg>
+void Local<Cfg>::setGlobalData(const GlobalData& global) {
 
 #ifndef NDEBUG
   for (std::size_t stiffness = 0; stiffness < Cell::Dim; ++stiffness) {
-    assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatrices(stiffness))) % Alignment ==
+    assert((reinterpret_cast<uintptr_t>(global.get<Cfg>().stiffnessMatrices(stiffness))) %
+               Alignment ==
            0);
   }
   for (std::size_t flux = 0; flux < Cell::NumFaces; ++flux) {
-    assert(
-        (reinterpret_cast<uintptr_t>(global.onHost->localChangeOfBasisMatricesTransposed(flux))) %
-            Alignment ==
-        0);
-    assert((reinterpret_cast<uintptr_t>(global.onHost->changeOfBasisMatrices(flux))) % Alignment ==
+    assert((reinterpret_cast<uintptr_t>(
+               global.get<Cfg>().localChangeOfBasisMatricesTransposed(flux))) %
+               Alignment ==
+           0);
+    assert((reinterpret_cast<uintptr_t>(global.get<Cfg>().changeOfBasisMatrices(flux))) %
+               Alignment ==
            0);
   }
 #endif
 
-  m_volumeKernelPrototype.kDivM = global.onHost->stiffnessMatrices;
-  m_localFluxKernelPrototype.rDivM = global.onHost->changeOfBasisMatrices;
-  m_localFluxKernelPrototype.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
-  m_localKernelPrototype.selectEla = init::selectEla::Values;
-  m_localKernelPrototype.selectAne = init::selectAne::Values;
+  m_volumeKernelPrototype.kDivM = global.get<Cfg>().stiffnessMatrices;
+  m_localFluxKernelPrototype.rDivM = global.get<Cfg>().changeOfBasisMatrices;
+  m_localFluxKernelPrototype.fMrT = global.get<Cfg>().localChangeOfBasisMatricesTransposed;
+  m_localKernelPrototype.selectEla = init::selectEla<Cfg>::Values;
+  m_localKernelPrototype.selectAne = init::selectAne<Cfg>::Values;
 
 #ifdef ACL_DEVICE
-  deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
+  deviceVolumeKernelPrototype.kDivM = global.get<Cfg, Executor::Device>().stiffnessMatrices;
 #ifdef USE_PREMULTIPLY_FLUX
-  deviceLocalFluxKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
+  deviceLocalFluxKernelPrototype.plusFluxMatrices =
+      global.get<Cfg, Executor::Device>().plusFluxMatrices;
 #else
-  deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+  deviceLocalFluxKernelPrototype.rDivM = global.get<Cfg, Executor::Device>().changeOfBasisMatrices;
+  deviceLocalFluxKernelPrototype.fMrT =
+      global.get<Cfg, Executor::Device>().localChangeOfBasisMatricesTransposed;
 #endif
-  deviceLocalKernelPrototype.selectEla = global.onDevice->selectEla;
-  deviceLocalKernelPrototype.selectAne = global.onDevice->selectAne;
+  deviceLocalKernelPrototype.selectEla = global.get<Cfg, Executor::Device>().selectEla;
+  deviceLocalKernelPrototype.selectAne = global.get<Cfg, Executor::Device>().selectAne;
 #endif
 }
 
-void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                            LTS::Ref& data,
-                            LocalTmp& tmp,
-                            // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
-                            const CellMaterialData* materialData,
-                            const CellBoundaryMapping (*cellBoundaryMapping)[4],
-                            double time,
-                            double timeStepWidth) {
+template <typename Cfg>
+void Local<Cfg>::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
+                                 LTS::Ref<Cfg>& data,
+                                 LocalTmp<Cfg>& tmp,
+                                 // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
+                                 const CellMaterialData* materialData,
+                                 const CellBoundaryMapping<Cfg> (*cellBoundaryMapping)[4],
+                                 double time,
+                                 double timeStepWidth) {
   // assert alignments
 #ifndef NDEBUG
   assert((reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(tmp.timeIntegratedAne)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(data.template get<LTS::Dofs>())) % Alignment == 0);
 #endif
 
-  alignas(Alignment) real Qext[tensor::Qext::size()];
+  alignas(Alignment) real qext[tensor::Qext<Cfg>::size()];
 
-  kernel::volumeExt volKrnl = m_volumeKernelPrototype;
-  volKrnl.Qext = Qext;
+  kernel::volumeExt<Cfg> volKrnl = m_volumeKernelPrototype;
+  volKrnl.Qext = qext;
   volKrnl.I = timeIntegratedDegreesOfFreedom;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
+    volKrnl.star(i) = data.template get<LTS::LocalIntegration>().starMatrices[i];
   }
 
-  kernel::localFluxExt lfKrnl = m_localFluxKernelPrototype;
-  lfKrnl.Qext = Qext;
+  kernel::localFluxExt<Cfg> lfKrnl = m_localFluxKernelPrototype;
+  lfKrnl.Qext = qext;
   lfKrnl.I = timeIntegratedDegreesOfFreedom;
-  lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
-  lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
+  lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I<Cfg>::size();
+  lfKrnl._prefetch.Q = data.template get<LTS::Dofs>() + tensor::Q<Cfg>::size();
 
   volKrnl.execute();
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if (data.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
-      lfKrnl.AplusT = data.get<LTS::LocalIntegration>().nApNm1[face];
+    if (data.template get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
+      lfKrnl.AplusT = data.template get<LTS::LocalIntegration>().nApNm1[face];
       lfKrnl.execute(face);
     }
   }
 
-  kernel::local lKrnl = m_localKernelPrototype;
-  lKrnl.E = data.get<LTS::LocalIntegration>().specific.E;
+  kernel::local<Cfg> lKrnl = m_localKernelPrototype;
+  lKrnl.E = data.template get<LTS::LocalIntegration>().specific.E;
   lKrnl.Iane = tmp.timeIntegratedAne;
-  lKrnl.Q = data.get<LTS::Dofs>();
-  lKrnl.Qane = data.get<LTS::DofsAne>();
-  lKrnl.Qext = Qext;
-  lKrnl.W = data.get<LTS::LocalIntegration>().specific.W;
-  lKrnl.w = data.get<LTS::LocalIntegration>().specific.w;
+  lKrnl.Q = data.template get<LTS::Dofs>();
+  lKrnl.Qane = data.template get<LTS::DofsAne>();
+  lKrnl.Qext = qext;
+  lKrnl.W = data.template get<LTS::LocalIntegration>().specific.W;
+  lKrnl.w = data.template get<LTS::LocalIntegration>().specific.w;
 
   lKrnl.execute();
 }
 
-void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                          std::uint64_t& nonZeroFlops,
-                          std::uint64_t& hardwareFlops) {
-  nonZeroFlops = seissol::kernel::volumeExt::NonZeroFlops;
-  hardwareFlops = seissol::kernel::volumeExt::HardwareFlops;
+template <typename Cfg>
+void Local<Cfg>::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
+                               std::uint64_t& nonZeroFlops,
+                               std::uint64_t& hardwareFlops) {
+  nonZeroFlops = seissol::kernel::volumeExt<Cfg>::NonZeroFlops;
+  hardwareFlops = seissol::kernel::volumeExt<Cfg>::HardwareFlops;
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     if (faceTypes[face] != FaceType::DynamicRupture) {
-      nonZeroFlops += seissol::kernel::localFluxExt::nonZeroFlops(face);
-      hardwareFlops += seissol::kernel::localFluxExt::hardwareFlops(face);
+      nonZeroFlops += seissol::kernel::localFluxExt<Cfg>::nonZeroFlops(face);
+      hardwareFlops += seissol::kernel::localFluxExt<Cfg>::hardwareFlops(face);
     }
   }
 
-  nonZeroFlops += seissol::kernel::local::NonZeroFlops;
-  hardwareFlops += seissol::kernel::local::HardwareFlops;
+  nonZeroFlops += seissol::kernel::local<Cfg>::NonZeroFlops;
+  hardwareFlops += seissol::kernel::local<Cfg>::HardwareFlops;
 }
 
-std::uint64_t Local::bytesIntegral() {
+template <typename Cfg>
+std::uint64_t Local<Cfg>::bytesIntegral() {
   std::uint64_t reals = 0;
 
   // star matrices load
-  reals += yateto::computeFamilySize<tensor::star>() + tensor::w::size() + tensor::W::size() +
-           tensor::E::size();
+  reals += yateto::computeFamilySize<tensor::star<Cfg>>() + tensor::w<Cfg>::size() +
+           tensor::W<Cfg>::size() + tensor::E<Cfg>::size();
   // flux solvers
-  reals += 4 * tensor::AplusT::size();
+  reals += 4 * tensor::AplusT<Cfg>::size();
 
   // DOFs write
-  reals += tensor::Q::size() + tensor::Qane::size();
+  reals += tensor::Q<Cfg>::size() + tensor::Qane<Cfg>::size();
 
   return reals * sizeof(real);
 }
 
-void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
-                                   ConditionalMaterialTable& materialTable,
-                                   ConditionalIndicesTable& indicesTable,
-                                   double timeStepWidth,
-                                   seissol::parallel::runtime::StreamRuntime& runtime) {
+template <typename Cfg>
+void Local<Cfg>::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
+                                        ConditionalMaterialTable& materialTable,
+                                        ConditionalIndicesTable& indicesTable,
+                                        double timeStepWidth,
+                                        seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
-  kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype;
-  kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype;
-  kernel::gpu_local localKrnl = deviceLocalKernelPrototype;
+  kernel::gpu_volumeExt<Cfg> volKrnl = deviceVolumeKernelPrototype;
+  kernel::gpu_localFluxExt<Cfg> localFluxKrnl = deviceLocalFluxKernelPrototype;
+  kernel::gpu_local<Cfg> localKrnl = deviceLocalKernelPrototype;
 
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];
@@ -162,7 +186,7 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
     volKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
 
-    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
       volKrnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
       volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
@@ -217,11 +241,16 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
 #endif
 }
 
-void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
-                                           ConditionalIndicesTable& indicesTable,
-                                           LTS::Layer& layer,
-                                           double time,
-                                           double timeStepWidth,
-                                           seissol::parallel::runtime::StreamRuntime& runtime) {}
+template <typename Cfg>
+void Local<Cfg>::evaluateBatchedTimeDependentBc(
+    ConditionalPointersToRealsTable& dataTable,
+    ConditionalIndicesTable& indicesTable,
+    LTS::Layer& layer,
+    double time,
+    double timeStepWidth,
+    seissol::parallel::runtime::StreamRuntime& runtime) {}
+
+#define SEISSOL_CONFIGITER(cfg) template class Local<cfg>;
+#include "ConfigIncludeLinearCKAne.h"
 
 } // namespace seissol::kernels::solver::linearckanelastic

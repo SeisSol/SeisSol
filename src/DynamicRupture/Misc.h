@@ -38,20 +38,26 @@ constexpr size_t leadDim() noexcept {
 /**
  * Number of gauss points padded to match the vector register length.
  */
+template <typename Cfg>
 static constexpr inline size_t NumPaddedPoints =
-    multisim::MultisimEnabled
-        ? dimSize<init::QInterpolated, 0>() * dimSize<init::QInterpolated, 1>()
-        : leadDim<init::QInterpolated>();
+    multisim::MultisimEnabled<Cfg>
+        ? dimSize<init::QInterpolated<Cfg>, 0>() * dimSize<init::QInterpolated<Cfg>, 1>()
+        : leadDim<init::QInterpolated<Cfg>>();
+
+template <typename Cfg>
 static constexpr inline size_t NumPaddedPointsSingleSim =
-    dimSize<init::QInterpolated, multisim::BasisFunctionDimension>();
+    dimSize<init::QInterpolated<Cfg>, multisim::BasisDim<Cfg>>();
+
+template <typename Cfg>
 static constexpr inline size_t NumQuantities =
-    misc::dimSize<init::QInterpolated, multisim::BasisFunctionDimension + 1>();
+    misc::dimSize<init::QInterpolated<Cfg>, multisim::BasisDim<Cfg> + 1>();
 
 /*
  * Time integration point count
  */
 
-static constexpr inline uint32_t TimeSteps = ConvergenceOrder;
+template <typename Cfg>
+static constexpr inline uint32_t TimeSteps = Cfg::ConvergenceOrder;
 
 /**
  * Constants for Thermal Pressurization
@@ -63,8 +69,9 @@ static constexpr double TpMaxWaveNumber = 10.0;
 /**
  * Number of gauss points on an element surface.
  */
+template <typename Cfg>
 static constexpr unsigned int NumBoundaryGaussPoints =
-    init::QInterpolated::Shape[multisim::BasisFunctionDimension];
+    init::QInterpolated<Cfg>::Shape[multisim::BasisDim<Cfg>];
 
 template <class TupleT, class F, std::size_t... I>
 constexpr F forEachImpl(TupleT&& tuple, F&& functor, std::index_sequence<I...> /*unused*/) {
