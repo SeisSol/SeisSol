@@ -120,23 +120,6 @@ constexpr std::size_t getNumberOfAlignedBasisFunctions(std::size_t convergenceOr
 }
 
 /**
- * Get the # of derivatives of basis functions aligned to the given boundaries.
- *
- * @param convergenceOrder convergence order.
- * @param alignment alignment in bytes.
- * @return aligned number of basis functions.
- **/
-template <typename RealT>
-constexpr std::size_t
-    getNumberOfAlignedDerivativeBasisFunctions(std::size_t convergenceOrder,
-                                               std::size_t alignment = Vectorsize) {
-  return (convergenceOrder > 0)
-             ? getNumberOfAlignedBasisFunctions<RealT>(convergenceOrder) +
-                   getNumberOfAlignedDerivativeBasisFunctions<RealT>(convergenceOrder - 1)
-             : 0;
-}
-
-/**
  * uses SFINAE to check if class T has a size() function.
  */
 template <typename T>

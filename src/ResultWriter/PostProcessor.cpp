@@ -7,11 +7,13 @@
 // SPDX-FileContributor: Vishal Sontakke
 
 #include "PostProcessor.h"
+#include "GeneratedCode/tensor.h"
 #include <Alignment.h>
-#include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
+#include <array>
+#include <cstddef>
 #include <vector>
 
 void seissol::writer::PostProcessor::integrateQuantities(const double timestep,
@@ -20,13 +22,15 @@ void seissol::writer::PostProcessor::integrateQuantities(const double timestep,
                                                          const double* const dofs) {
   layerData.wrap([&](auto cfg) {
     using Cfg = decltype(cfg);
+    constexpr auto NumQuantities =
+        tensor::Q<Cfg>::Shape[sizeof(tensor::Q<Cfg>::Shape) / sizeof(tensor::Q<Cfg>::Shape[0]) - 1];
+
+    // ill-defined for multisim; but irrelevant for it
+    constexpr std::size_t NumAlignedBasisFunctions = tensor::Q<Cfg>::size() / NumQuantities;
     auto* integrals = layerData.var<LTS::Integrals>(cfg);
     for (int i = 0; i < m_numberOfVariables; i++) {
       integrals[cell * m_numberOfVariables + i] +=
-          dofs[seissol::kernels::getNumberOfAlignedBasisFunctions<Real<Cfg>>(
-                   Cfg::ConvergenceOrder) *
-               m_integerMap[i]] *
-          timestep;
+          dofs[NumAlignedBasisFunctions * m_integerMap[i]] * timestep;
     }
   });
 }

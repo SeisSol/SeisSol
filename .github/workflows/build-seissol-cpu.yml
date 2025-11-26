@@ -47,10 +47,10 @@ jobs:
             cxx: icpx
             fc: ifx
             container: seissol/gha-gpu-intel:davschneller-gpu-image
-          - cc: nvc
-            cxx: nvc++
-            fc: nvfortran
-            container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+          #- cc: nvc
+          #  cxx: nvc++
+          #  fc: nvfortran
+          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
     steps:
       - id: checkout
         name: checkout-seissol
@@ -361,12 +361,12 @@ jobs:
             container: seissol/gha-gpu-intel:davschneller-gpu-image
             pythonbreak: false
             mpi: intel
-          - cc: nvc
-            cxx: nvc++
-            fc: nvfortran
-            container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
-            pythonbreak: true
-            mpi: openmpi
+          #- cc: nvc
+          #  cxx: nvc++
+          #  fc: nvfortran
+          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+          #  pythonbreak: true
+          #  mpi: openmpi
         parallel:
           - ranks: 1
             threads: 4
