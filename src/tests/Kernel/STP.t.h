@@ -27,8 +27,6 @@ namespace seissol::unit_test {
 
 class SpaceTimePredictorTestFixture {
   protected:
-  constexpr static auto N =
-      seissol::model::MaterialT::NumQuantities * NumBasisFunctions * ConvergenceOrder;
   constexpr static const double Epsilon = std::numeric_limits<real>::epsilon();
   constexpr static const double Dt = 1.05109e-06;
   real starMatrices0[tensor::star::size(0)];
@@ -150,8 +148,8 @@ class SpaceTimePredictorTestFixture {
     std::array<real, 13> factor = {{1e9, 1e9, 1e9, 1e9, 1e9, 1e9, 1, 1, 1, 1e9, 1, 1, 1}};
     auto q = init::Q::view::create(qData);
     std::srand(1234);
-    for (std::size_t qi = 0; qi < seissol::model::MaterialT::NumQuantities; ++qi) {
-      for (std::size_t bf = 0; bf < NumBasisFunctions; ++bf) {
+    for (std::size_t qi = 0; qi < q.shape(1); ++qi) {
+      for (std::size_t bf = 0; bf < q.shape(0); ++bf) {
         q(bf, qi) = static_cast<real>(std::rand()) / RAND_MAX * factor.at(qi);
       }
     }
@@ -226,7 +224,7 @@ TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture, "Solve Space Time Predictor") {
   alignas(PagesizeStack) real stp[seissol::tensor::spaceTimePredictor::size()];
   alignas(PagesizeStack) real rhs[seissol::tensor::testLhs::size()];
   alignas(PagesizeStack) real lhs[seissol::tensor::testRhs::size()];
-  alignas(PagesizeStack) real qData[seissol::model::MaterialT::NumQuantities * NumBasisFunctions];
+  alignas(PagesizeStack) real qData[seissol::tensor::Q::size()];
   std::fill(std::begin(stp), std::end(stp), 0);
   std::fill(std::begin(rhs), std::end(rhs), 0);
   std::fill(std::begin(lhs), std::end(lhs), 0);
