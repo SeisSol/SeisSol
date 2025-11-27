@@ -228,10 +228,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                      rs::Settings solverSettings) {
 
     // Note that we need double precision here, since single precision led to NaNs.
-    double muF{0.0};
-    double dMuF{0.0};
-    double g{0.0};
-    double dG{0.0};
+    real muF{0.0};
+    real dMuF{0.0};
+    real g{0.0};
+    real dG{0.0};
     slipRateTest = slipRateMagnitude;
 
     auto details = Derived::getMuDetails(ctx, localStateVariable);
