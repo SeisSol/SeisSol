@@ -22,7 +22,9 @@ inline auto allocationModeBoundary() {
   if constexpr (!isDeviceOn()) {
     return AllocationMode::HostOnly;
   } else {
-    return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
+    return useUSM() ? AllocationMode::HostDeviceUnified
+                    : (useDeviceL2Compress() ? AllocationMode::HostDeviceCompress
+                                             : AllocationMode::HostDeviceSplit);
   }
 }
 

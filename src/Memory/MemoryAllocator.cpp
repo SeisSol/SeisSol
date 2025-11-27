@@ -64,6 +64,8 @@ void* allocate(size_t size, size_t alignment, enum Memkind memkind) {
     ptrBuffer = device::DeviceInstance::getInstance().api->allocUnifiedMem(size);
   } else if (memkind == PinnedMemory) {
     ptrBuffer = device::DeviceInstance::getInstance().api->allocPinnedMem(size);
+  } else if (memkind == Memkind::DeviceGlobalCompressed) {
+    ptrBuffer = device::DeviceInstance::getInstance().api->allocGlobMem(size, true);
 #endif
 
 #if defined(USE_MEMKIND) || defined(ACL_DEVICE)
@@ -98,6 +100,8 @@ void free(void* pointer, enum Memkind memkind) {
     device::DeviceInstance::getInstance().api->freeUnifiedMem(pointer);
   } else if (memkind == PinnedMemory) {
     device::DeviceInstance::getInstance().api->freePinnedMem(pointer);
+  } else if (memkind == Memkind::DeviceGlobalCompressed) {
+    device::DeviceInstance::getInstance().api->freeGlobMem(pointer);
 #endif
 
 #if defined(USE_MEMKIND) || defined(ACL_DEVICE)
