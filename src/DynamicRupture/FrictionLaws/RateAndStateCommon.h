@@ -55,7 +55,8 @@ struct Settings {
 
   If c < 0, we can process as normal.
  */
-SEISSOL_DEVICE constexpr real arsinhexp(real x, real expLog, real exp) {
+template <typename T>
+SEISSOL_DEVICE constexpr T arsinhexp(T x, T expLog, T exp) {
   if (expLog > 0) {
     return expLog + std::log(x + std::sqrt(x * x + exp));
   } else {
@@ -68,8 +69,9 @@ SEISSOL_DEVICE constexpr real arsinhexp(real x, real expLog, real exp) {
   Helper function to arsinhexp. Since for asinh(x * exp(c)),
   we can assume c to be constant, we can pre-compute exp(c) or exp(-2c).
  */
-SEISSOL_DEVICE constexpr real computeCExp(real cExpLog) {
-  real cExp{};
+template <typename T>
+SEISSOL_DEVICE constexpr T computeCExp(T cExpLog) {
+  T cExp{};
   if (cExpLog > 0) {
     cExp = std::exp(-2 * cExpLog);
   } else {
@@ -81,13 +83,34 @@ SEISSOL_DEVICE constexpr real computeCExp(real cExpLog) {
 /**
   Derivative to arsinhexp.
  */
-SEISSOL_DEVICE constexpr real darsinhexp(real x, real expLog, real exp) {
+template <typename T>
+SEISSOL_DEVICE constexpr T darsinhexp(T x, T expLog, T exp) {
   if (expLog > 0) {
     return 1 / std::sqrt(x * x + exp);
   } else {
     const auto v = exp * x;
     return exp / std::sqrt(1 + v * v);
   }
+}
+
+/**
+  Compute log(x * sinh(c)).
+  if c > 0, then
+  log(x * (e(c) - e(-c)) / 2)
+  = log(e(c) * x / 2 * (1 - e(-2c)))
+  = c * log(x / 2 * -expm1(-2c))
+
+  if c < 0, then
+  log(x * sinh(c)) = -c * log(x / 2 * expm1(2c))
+
+  In total,
+  log(x * sinh(c)) = -c * log(x / 2 * -sign(c) * expm1(-2|c|))
+ */
+template <typename T>
+SEISSOL_DEVICE constexpr T logsinh(T x, T c) {
+  const T sign = c > 0 ? 1 : -1;
+  const T absC = std::abs(c);
+  return absC + std::log(x / 2 * -sign * std::expm1(-2 * absC));
 }
 
 } // namespace seissol::dr::friction_law::rs
