@@ -60,47 +60,32 @@ class FastVelocityWeakeningLaw
 
   struct MuDetails {
     real a{};
-    real c{};
-    real x{};
+    real cLin{};
+    real cExpLog{};
+    real cExp{};
+    real acLin{};
   };
 
   SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& ctx, double localStateVariable) {
     const real localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
-    const real c = 0.5 / ctx.data->drParameters.rsSr0;
-    const real x = localStateVariable / localA;
-    return MuDetails{localA, c, x};
-  }
-
-  SEISSOL_DEVICE static constexpr real arsinhexp(real x, real c) {
-    if (x > 0) {
-      return x + std::log(c + std::sqrt(c * c + std::exp(-2 * x)));
-    } else {
-      const auto v = std::exp(x) * c;
-      return std::asinh(v);
-    }
-  }
-
-  SEISSOL_DEVICE static constexpr real darsinhexp(real x, real c) {
-    if (x > 0) {
-      return 1 / std::sqrt(c * c + std::exp(-2 * x));
-    } else {
-      const auto exp = std::exp(x);
-      const auto v = exp * c;
-      return exp / std::sqrt(1 + v * v);
-    }
+    const real cLin = 0.5 / ctx.data->drParameters.rsSr0;
+    const real cExpLog = localStateVariable / localA;
+    const real cExp = rs::computeCExp(cExpLog);
+    const real acLin = localA * cLin;
+    return MuDetails{localA, cLin, cExpLog, cExp, acLin};
   }
 
   SEISSOL_DEVICE static real
       updateMu(FrictionLawContext& ctx, real localSlipRateMagnitude, const MuDetails& details) {
-    const real lx = details.c * localSlipRateMagnitude;
-    return details.a * arsinhexp(details.x, lx);
+    const real lx = details.cLin * localSlipRateMagnitude;
+    return details.a * rs::arsinhexp(lx, details.cExpLog, details.cExp);
   }
 
   SEISSOL_DEVICE static real updateMuDerivative(FrictionLawContext& ctx,
                                                 real localSlipRateMagnitude,
                                                 const MuDetails& details) {
-    const real lx = details.c * localSlipRateMagnitude;
-    return details.a * details.c * darsinhexp(details.x, lx);
+    const real lx = details.cLin * localSlipRateMagnitude;
+    return details.acLin * rs::darsinhexp(lx, details.cExpLog, details.cExp);
   }
 
   SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {

@@ -8,6 +8,8 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATECOMMON_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATECOMMON_H_
 
+#include "Common/Marker.h"
+#include "Kernels/Precision.h"
 #include <cstdint>
 #include <type_traits>
 
@@ -38,6 +40,56 @@ struct Settings {
   const uint32_t numberStateVariableUpdates{2};
   const double newtonTolerance{1e-8};
 };
+
+/**
+  Computes asinh(x * exp(c)). Reason is: exp(c) can grow really large (too large for float);
+  but actually asinh(exp(c)) \approx c for large c.
+
+  Hence, we compute instead
+  asinh(x * exp(c))
+  = asinh((x * exp(c)) + sqrt((x * exp(c))**2 + 1))
+  = asinh(exp(c) * (x + sqrt(x**2 + exp(-2c))))
+  = c + asinh(x + sqrt(x**2 + exp(-2c))).
+
+  Here, exp(-2c) is small.
+
+  If c < 0, we can process as normal.
+ */
+SEISSOL_DEVICE constexpr real arsinhexp(real x, real expLog, real exp) {
+  if (expLog > 0) {
+    return expLog + std::log(x + std::sqrt(x * x + exp));
+  } else {
+    const auto v = exp * x;
+    return std::asinh(v);
+  }
+}
+
+/**
+  Helper function to arsinhexp. Since for asinh(x * exp(c)),
+  we can assume c to be constant, we can pre-compute exp(c) or exp(-2c).
+ */
+SEISSOL_DEVICE constexpr real computeCExp(real cExpLog) {
+  real cExp{};
+  if (cExpLog > 0) {
+    cExp = std::exp(-2 * cExpLog);
+  } else {
+    cExp = std::exp(cExpLog);
+  }
+  return cExp;
+}
+
+/**
+  Derivative to arsinhexp.
+ */
+SEISSOL_DEVICE constexpr real darsinhexp(real x, real expLog, real exp) {
+  if (expLog > 0) {
+    return 1 / std::sqrt(x * x + exp);
+  } else {
+    const auto v = exp * x;
+    return exp / std::sqrt(1 + v * v);
+  }
+}
+
 } // namespace seissol::dr::friction_law::rs
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATECOMMON_H_
