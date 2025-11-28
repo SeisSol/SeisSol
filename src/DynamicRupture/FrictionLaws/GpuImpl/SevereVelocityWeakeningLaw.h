@@ -37,15 +37,15 @@ class SevereVelocityWeakeningLaw
 
   // Note that we need double precision here, since single precision led to NaNs.
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
-    const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
-    const double localSlipRate = ctx.initialVariables.localSlipRate;
+    const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
+    const real localSlipRate = ctx.initialVariables.localSlipRate;
 
-    const double steadyStateStateVariable = localSlipRate * localSl0 / ctx.data->drParameters.rsSr0;
+    const real steadyStateStateVariable = localSlipRate * localSl0 / ctx.data->drParameters.rsSr0;
 
     const double preexp1 = -ctx.data->drParameters.rsSr0 * (timeIncrement / localSl0);
     const double exp1v = std::exp(preexp1);
     const double exp1m = -std::expm1(preexp1);
-    const double localStateVariable =
+    const real localStateVariable =
         steadyStateStateVariable * exp1m + exp1v * ctx.initialVariables.stateVarReference;
 
     ctx.stateVariableBuffer = localStateVariable;
