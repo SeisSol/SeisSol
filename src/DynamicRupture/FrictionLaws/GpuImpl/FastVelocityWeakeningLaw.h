@@ -86,7 +86,7 @@ class FastVelocityWeakeningLaw
                                                 real localSlipRateMagnitude,
                                                 const MuDetails& details) {
     const real lx = details.cLin * localSlipRateMagnitude;
-    return details.acLin * rs::darsinhexp(lx, details.cExpLog, details.cExp);
+    return details.acLin * rs::arsinhexpDerivative(lx, details.cExpLog, details.cExp);
   }
 
   SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {

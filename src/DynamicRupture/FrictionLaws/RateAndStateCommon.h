@@ -84,7 +84,7 @@ SEISSOL_DEVICE constexpr T computeCExp(T cExpLog) {
   Derivative to arsinhexp.
  */
 template <typename T>
-SEISSOL_DEVICE constexpr T darsinhexp(T x, T expLog, T exp) {
+SEISSOL_DEVICE constexpr T arsinhexpDerivative(T x, T expLog, T exp) {
   if (expLog > 0) {
     return 1 / std::sqrt(x * x + exp);
   } else {
@@ -98,13 +98,13 @@ SEISSOL_DEVICE constexpr T darsinhexp(T x, T expLog, T exp) {
   if c > 0, then
   log(x * (e(c) - e(-c)) / 2)
   = log(e(c) * x / 2 * (1 - e(-2c)))
-  = c * log(x / 2 * -expm1(-2c))
+  = c + log(x / 2 * -expm1(-2c))
 
   if c < 0, then
-  log(x * sinh(c)) = -c * log(x / 2 * expm1(2c))
+  log(x * sinh(c)) = -c + log(x / 2 * expm1(2c))
 
   In total,
-  log(x * sinh(c)) = -c * log(x / 2 * -sign(c) * expm1(-2|c|))
+  log(x * sinh(c)) = |c| + log(x / 2 * -sign(c) * expm1(-2|c|))
  */
 template <typename T>
 SEISSOL_DEVICE constexpr T logsinh(T x, T c) {

@@ -39,12 +39,12 @@ class SlowVelocityWeakeningLaw
     real acLin{};
   };
 
-  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& ctx, double localStateVariable) {
+  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& ctx, real localStateVariable) {
     const real localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
-    const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
-    const double log1 = std::log(ctx.data->drParameters.rsSr0 * localStateVariable / localSl0);
-    const double localF0 = ctx.data->f0[ctx.ltsFace][ctx.pointIndex];
-    const double localB = ctx.data->b[ctx.ltsFace][ctx.pointIndex];
+    const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
+    const real log1 = std::log(ctx.data->drParameters.rsSr0 * localStateVariable / localSl0);
+    const real localF0 = ctx.data->f0[ctx.ltsFace][ctx.pointIndex];
+    const real localB = ctx.data->b[ctx.ltsFace][ctx.pointIndex];
 
     const real cLin = 0.5 / ctx.data->drParameters.rsSr0;
     const real cExpLog = (localF0 + localB * log1) / localA;
@@ -63,7 +63,7 @@ class SlowVelocityWeakeningLaw
                                                 real localSlipRateMagnitude,
                                                 const MuDetails& details) {
     const real lx = details.cLin * localSlipRateMagnitude;
-    return details.acLin * rs::darsinhexp(lx, details.cExpLog, details.cExp);
+    return details.acLin * rs::arsinhexpDerivative(lx, details.cExpLog, details.cExp);
   }
 
   /**
