@@ -127,15 +127,16 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       auto& exportMu = devMu[ctx.ltsFace][ctx.pointIndex];
 
       real slipRateTest{};
-      bool hasConvergedLocal = RateAndStateBase::invertSlipRateIterative(ctx,
-                                                                         slipRateTest,
-                                                                         localStateVariable,
-                                                                         normalStress,
-                                                                         absoluteShearStress,
-                                                                         localSlipRateMagnitude,
-                                                                         localImpAndEta.invEtaS,
-                                                                         exportMu,
-                                                                         settings);
+      const bool hasConvergedLocal =
+          RateAndStateBase::invertSlipRateIterative(ctx,
+                                                    slipRateTest,
+                                                    localStateVariable,
+                                                    normalStress,
+                                                    absoluteShearStress,
+                                                    localSlipRateMagnitude,
+                                                    localImpAndEta.invEtaS,
+                                                    exportMu,
+                                                    settings);
       deviceBarrier(ctx);
 
       devLocalSlipRate = 0.5 * (localSlipRateMagnitude + std::fabs(slipRateTest));
@@ -236,7 +237,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     auto details = Derived::getMuDetails(ctx, localStateVariable);
 
-    for (unsigned i = 0; i < solverSettings.maxNumberSlipRateUpdates; i++) {
+    for (uint32_t i = 0; i < solverSettings.maxNumberSlipRateUpdates; i++) {
       muF = Derived::updateMu(ctx, slipRateTest, details);
 
       g = -invEtaS * (std::fabs(normalStress) * muF - absoluteShearStress) - slipRateTest;
@@ -254,8 +255,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
       dMuF = Derived::updateMuDerivative(ctx, slipRateTest, details);
       dG = -invEtaS * (std::fabs(normalStress) * dMuF) - 1.0;
-      slipRateTest =
-          std::max(friction_law::rs::almostZero(), static_cast<real>(slipRateTest - (g / dG)));
+      slipRateTest = std::max(friction_law::rs::almostZero(), slipRateTest - (g / dG));
     }
     return false;
   }
