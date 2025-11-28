@@ -55,8 +55,9 @@ struct Settings {
 
   If c < 0, we can process as normal.
  */
+#pragma omp declare simd
 template <typename T>
-SEISSOL_DEVICE constexpr T arsinhexp(T x, T expLog, T exp) {
+SEISSOL_HOSTDEVICE constexpr T arsinhexp(T x, T expLog, T exp) {
   if (expLog > 0) {
     return expLog + std::log(x + std::sqrt(x * x + exp));
   } else {
@@ -69,8 +70,9 @@ SEISSOL_DEVICE constexpr T arsinhexp(T x, T expLog, T exp) {
   Helper function to arsinhexp. Since for asinh(x * exp(c)),
   we can assume c to be constant, we can pre-compute exp(c) or exp(-2c).
  */
+#pragma omp declare simd
 template <typename T>
-SEISSOL_DEVICE constexpr T computeCExp(T cExpLog) {
+SEISSOL_HOSTDEVICE constexpr T computeCExp(T cExpLog) {
   T cExp{};
   if (cExpLog > 0) {
     cExp = std::exp(-2 * cExpLog);
@@ -83,8 +85,9 @@ SEISSOL_DEVICE constexpr T computeCExp(T cExpLog) {
 /**
   Derivative to arsinhexp.
  */
+#pragma omp declare simd
 template <typename T>
-SEISSOL_DEVICE constexpr T arsinhexpDerivative(T x, T expLog, T exp) {
+SEISSOL_HOSTDEVICE constexpr T arsinhexpDerivative(T x, T expLog, T exp) {
   if (expLog > 0) {
     return 1 / std::sqrt(x * x + exp);
   } else {
@@ -106,8 +109,9 @@ SEISSOL_DEVICE constexpr T arsinhexpDerivative(T x, T expLog, T exp) {
   In total,
   log(x * sinh(c)) = |c| + log(x / 2 * -sign(c) * expm1(-2|c|))
  */
+#pragma omp declare simd
 template <typename T>
-SEISSOL_DEVICE constexpr T logsinh(T x, T c) {
+SEISSOL_HOSTDEVICE constexpr T logsinh(T x, T c) {
   const T sign = c > 0 ? 1 : -1;
   const T absC = std::abs(c);
   return absC + std::log(x / 2 * -sign * std::expm1(-2 * absC));

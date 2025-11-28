@@ -293,11 +293,11 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                const std::array<real, misc::NumPaddedPoints>& normalStress,
                                const std::array<real, misc::NumPaddedPoints>& absoluteShearStress,
                                std::array<real, misc::NumPaddedPoints>& slipRateTest) {
-    // Note that we need double precision here, since single precision led to NaNs.
-    double muF[misc::NumPaddedPoints];
-    double dMuF[misc::NumPaddedPoints];
-    double g[misc::NumPaddedPoints];
-    double dG[misc::NumPaddedPoints];
+
+    real muF[misc::NumPaddedPoints]{};
+    real dMuF[misc::NumPaddedPoints]{};
+    real g[misc::NumPaddedPoints]{};
+    real dG[misc::NumPaddedPoints]{};
 
     const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
 
