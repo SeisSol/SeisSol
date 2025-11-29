@@ -8,7 +8,6 @@
 # TODO: apply
 # * modernize-use-trailing-return-type
 # * readability-function-size
-# * cppcoreguidelines-pro-type-const-cast
 # * readability-convert-member-functions-to-static
 # * clang-analyzer-cplusplus.NewDeleteLeaks
 # * clang-analyzer-optin.cplusplus.VirtualCall
@@ -48,7 +47,6 @@ Checks: |
   -cppcoreguidelines-pro-type-reinterpret-cast,
   -cppcoreguidelines-narrowing-conversions,
   -cppcoreguidelines-pro-type-member-init,
-  -cppcoreguidelines-pro-type-const-cast,
   -cppcoreguidelines-use-enum-class,
   llvm-*,
   -llvm-else-after-return,

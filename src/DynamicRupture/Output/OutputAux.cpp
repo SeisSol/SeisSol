@@ -109,8 +109,8 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
   TriangleQuadratureData data{};
 
   // Generate triangle quadrature points and weights (Factory Method)
-  auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
-  auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
+  const auto pointsView = init::quadpoints::view::create(init::quadpoints::Values);
+  const auto weightsView = init::quadweights::view::create(init::quadweights::Values);
 
   auto* reshapedPoints = unsafe_reshape<2>((data.points).data());
   for (size_t i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
