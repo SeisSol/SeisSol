@@ -24,9 +24,9 @@
 #include <mpi.h>
 #include <vector>
 
-namespace {
+namespace seissol::initializer::internal {
 
-using namespace seissol;
+namespace {
 
 /**
  * Gets the lts setup in relation to the four face neighbors.
@@ -214,8 +214,6 @@ LtsSetup normalizeLtsSetup(const LtsSetup& localLtsSetup,
 }
 
 } // namespace
-
-namespace seissol::initializer::internal {
 
 /**
  * Derives the lts setups of all given cells.

@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_PICKPOINTBUILDER_H_
 
 #include "Common/Iterator.h"
+#include "Initializer/InputAux.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PointMapper.h"
 #include "Parallel/Runtime/Stream.h"
@@ -48,13 +49,15 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
   protected:
   void readCoordsFromFile() {
-    using namespace seissol::initializer;
+    using seissol::initializer::convertStringToMask;
+    using seissol::initializer::FileProcessor;
+
     if (!pickpointParams.pickpointFileName.has_value()) {
       logError() << "Pickpoint/on-fault receiver file requested, but not given in the parameters.";
     }
 
-    StringsType content = FileProcessor::getFileAsStrings(pickpointParams.pickpointFileName.value(),
-                                                          "pickpoint/on-fault receiver file");
+    auto content = FileProcessor::getFileAsStrings(pickpointParams.pickpointFileName.value(),
+                                                   "pickpoint/on-fault receiver file");
     FileProcessor::removeEmptyLines(content);
 
     // iterate line by line and initialize DrRecordPoints

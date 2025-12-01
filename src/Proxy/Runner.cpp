@@ -39,9 +39,10 @@
 #include "Allocator.h"
 #include "Tools.h"
 
+namespace seissol::proxy {
+
 namespace {
-using namespace seissol;
-using namespace seissol::proxy;
+
 void testKernel(std::shared_ptr<ProxyData>& data,
                 std::shared_ptr<parallel::runtime::StreamRuntime>& runtime,
                 std::shared_ptr<ProxyKernel>& kernel,
@@ -52,8 +53,6 @@ void testKernel(std::shared_ptr<ProxyData>& data,
 }
 
 } // namespace
-
-namespace seissol::proxy {
 
 auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   auto kernel = [&]() {

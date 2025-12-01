@@ -54,8 +54,9 @@
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
 
+namespace seissol::writer {
+
 namespace {
-using namespace seissol;
 
 constexpr bool VolumeEnergyApproximation =
     model::MaterialT::Type != model::MaterialType::Elastic &&
@@ -124,8 +125,6 @@ std::array<real, multisim::NumSimulations>
 }
 
 } // namespace
-
-namespace seissol::writer {
 
 double& EnergiesStorage::gravitationalEnergy(size_t sim) {
   return energies[0 + sim * NumberOfEnergies];

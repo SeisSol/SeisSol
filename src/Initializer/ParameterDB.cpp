@@ -58,6 +58,10 @@
 #endif
 #include <utils/logger.h>
 
+using namespace seissol::model;
+
+namespace seissol::initializer {
+
 namespace {
 
 void easiEvalSafe(easi::Component* model,
@@ -73,8 +77,6 @@ void easiEvalSafe(easi::Component* model,
 }
 
 } // namespace
-
-namespace seissol::initializer {
 
 CellToVertexArray::CellToVertexArray(size_t size,
                                      const CellToVertexFunction& elementCoordinates,
@@ -268,8 +270,6 @@ easi::Query FaultGPGenerator::generate() const {
   }
   return query;
 }
-
-using namespace seissol::model;
 
 template <>
 void MaterialParameterDB<ElasticMaterial>::addBindingPoints(

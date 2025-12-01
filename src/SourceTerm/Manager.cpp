@@ -64,10 +64,9 @@
 #include "Kernels/PointSourceClusterOnDevice.h"
 #endif
 
-namespace {
+namespace seissol::sourceterm {
 
-using namespace seissol;
-using namespace seissol::sourceterm;
+namespace {
 
 /**
  * Computes mInvJInvPhisAtSources[i] = |J|^-1 * M_ii^-1 * phi_i(xi, eta, zeta),
@@ -495,8 +494,6 @@ auto loadSourceFile(const char* fileName,
 }
 
 } // namespace
-
-namespace seissol::sourceterm {
 
 void Manager::loadSources(seissol::initializer::parameters::PointSourceType sourceType,
                           const char* fileName,

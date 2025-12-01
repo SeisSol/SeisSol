@@ -29,9 +29,9 @@
 #include <utils/logger.h>
 #include <vector>
 
-namespace {
+namespace seissol::initializer::initprocedure {
 
-using namespace seissol;
+namespace {
 
 TravellingWaveParameters getTravellingWaveInformation(seissol::SeisSol& seissolInstance) {
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
@@ -202,7 +202,7 @@ void initBoundary(seissol::SeisSol& seissolInstance) {
 
 } // namespace
 
-void seissol::initializer::initprocedure::initSideConditions(seissol::SeisSol& seissolInstance) {
+void initSideConditions(seissol::SeisSol& seissolInstance) {
   logInfo() << "Setting initial conditions.";
   initInitialCondition(seissolInstance);
   logInfo() << "Reading source.";
@@ -210,3 +210,5 @@ void seissol::initializer::initprocedure::initSideConditions(seissol::SeisSol& s
   logInfo() << "Setting up boundary conditions.";
   initBoundary(seissolInstance);
 }
+
+} // namespace seissol::initializer::initprocedure

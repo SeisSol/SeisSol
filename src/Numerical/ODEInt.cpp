@@ -16,9 +16,9 @@
 #include <unordered_map>
 #include <vector>
 
+namespace seissol::ode {
+
 namespace {
-using namespace seissol;
-using namespace seissol::ode;
 
 int getNumberOfStages(RungeKuttaVariant variant) {
   static std::unordered_map<RungeKuttaVariant, int> variantToNumberOfStages = {
@@ -246,8 +246,6 @@ void initializeRungeKuttaScheme(RungeKuttaVariant variant,
 }
 
 } // namespace
-
-namespace seissol::ode {
 
 RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storageSizes,
                                          ODESolverConfig config)

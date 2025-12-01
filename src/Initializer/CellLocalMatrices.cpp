@@ -47,9 +47,9 @@
 #include <utils/logger.h>
 #include <vector>
 
-namespace {
+namespace seissol::initializer {
 
-using namespace seissol;
+namespace {
 
 void setStarMatrix(const real* matAT,
                    const real* matBT,
@@ -131,8 +131,6 @@ Eigen::Matrix<T, N, N>
 };
 
 } // namespace
-
-namespace seissol::initializer {
 
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
                                  LTS::Storage& ltsStorage,

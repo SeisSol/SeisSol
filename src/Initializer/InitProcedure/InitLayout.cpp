@@ -36,10 +36,9 @@
 #include <utils/logger.h>
 #include <vector>
 
-namespace {
+namespace seissol::initializer::initprocedure {
 
-using namespace seissol;
-using namespace seissol::initializer;
+namespace {
 
 void verifyHaloSetup(const LTS::Storage& ltsStorage, const std::vector<ClusterMap>& meshLayout) {
   // just verify everything. I.e. exchange the global IDs of copy and ghost layers, and see if they
@@ -352,7 +351,6 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
 } // namespace
 
-namespace seissol::initializer::initprocedure {
 void initLayout(seissol::SeisSol& seissolInstance) {
   logInfo() << "Begin init layout.";
 

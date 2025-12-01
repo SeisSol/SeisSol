@@ -26,10 +26,9 @@
 #include "hip/hip_runtime.h"
 #endif
 
-namespace {
+namespace seissol::dr::friction_law::gpu {
 
-using namespace seissol;
-using namespace seissol::dr::friction_law::gpu;
+namespace {
 
 constexpr std::size_t safeblockMultiple(std::size_t block, std::size_t maxmult) {
   const auto unsafe = (maxmult + block - 1) / block;
@@ -64,8 +63,6 @@ __launch_bounds__(PaddedMultiple* seissol::dr::misc::NumPaddedPoints) __global__
   }
 }
 } // namespace
-
-namespace seissol::dr::friction_law::gpu {
 
 template <typename T>
 void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,

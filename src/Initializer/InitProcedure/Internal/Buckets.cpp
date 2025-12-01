@@ -29,11 +29,9 @@
 #include <vector>
 #include <yateto/InitTools.h>
 
-namespace {
+namespace seissol::initializer::internal {
 
-using namespace seissol;
-using namespace seissol::initializer;
-using namespace seissol::initializer::internal;
+namespace {
 
 class BucketManager {
   private:
@@ -322,7 +320,6 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
 }
 } // namespace
 
-namespace seissol::initializer::internal {
 solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const MeshLayout& layout) {
   std::vector<std::vector<solver::RemoteCluster>> commInfo(storage.getColorMap().size());
 

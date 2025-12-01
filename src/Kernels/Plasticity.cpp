@@ -270,7 +270,6 @@ void Plasticity::computePlasticityBatched(
   ConditionalKey key(*KernelNames::Plasticity);
   auto defaultStream = runtime.stream();
 
-  using namespace seissol::recording;
   if (table.find(key) != table.end()) {
     const auto oneMinusIntegratingFactor = computeRelaxTime(tV, timeStepWidth);
 

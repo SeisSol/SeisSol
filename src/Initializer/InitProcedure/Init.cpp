@@ -29,9 +29,9 @@
 #include <sstream>
 #endif
 
-namespace {
+namespace seissol::initializer::initprocedure {
 
-using namespace seissol;
+namespace {
 
 void reportDeviceMemoryStatus() {
 #ifdef ACL_DEVICE
@@ -103,7 +103,7 @@ void closeSeisSol(seissol::SeisSol& seissolInstance) {
 
 } // namespace
 
-void seissol::initializer::initprocedure::seissolMain(seissol::SeisSol& seissolInstance) {
+void seissolMain(seissol::SeisSol& seissolInstance) {
   initSeisSol(seissolInstance);
   reportHardwareRelatedStatus(seissolInstance);
 
@@ -124,3 +124,5 @@ void seissol::initializer::initprocedure::seissolMain(seissol::SeisSol& seissolI
 
   closeSeisSol(seissolInstance);
 }
+
+} // namespace seissol::initializer::initprocedure

@@ -38,9 +38,9 @@
 #include "Proxy/Constants.h"
 #endif
 
-namespace {
+namespace seissol::proxy {
 
-using namespace seissol;
+namespace {
 
 void fakeData(LTS::Layer& layer, FaceType faceTp) {
   real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
@@ -133,8 +133,6 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
 #endif
 }
 } // namespace
-
-namespace seissol::proxy {
 
 ProxyData::ProxyData(std::size_t cellCount, bool enableDR) : cellCount(cellCount) {
   layerId =

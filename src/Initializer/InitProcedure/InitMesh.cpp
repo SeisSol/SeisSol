@@ -38,9 +38,9 @@
 #include "ResultWriter/MiniSeisSolWriter.h"
 #include "SeisSol.h"
 
-namespace {
+namespace seissol::initializer::initprocedure {
 
-using namespace seissol;
+namespace {
 
 template <typename TT>
 TT _checkH5Err(TT&& status, const char* file, int line) {
@@ -325,7 +325,7 @@ void readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters
 
 } // namespace
 
-void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInstance) {
+void initMesh(seissol::SeisSol& seissolInstance) {
   SCOREP_USER_REGION("init_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
@@ -377,3 +377,5 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
               << " max =" << summary.max;
   }
 }
+
+} // namespace seissol::initializer::initprocedure

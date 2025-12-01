@@ -44,11 +44,9 @@
 #include <utils/stringutils.h>
 #include <vector>
 
-using namespace seissol::initializer;
+namespace seissol::initializer::initprocedure {
 
 namespace {
-
-using namespace seissol;
 
 using MaterialT = seissol::model::MaterialT;
 using Plasticity = seissol::model::Plasticity;
@@ -303,7 +301,7 @@ void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
 
 } // namespace
 
-void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolInstance) {
+void initModel(seissol::SeisSol& seissolInstance) {
   SCOREP_USER_REGION("init_model", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   logInfo() << "Begin init model.";
@@ -352,3 +350,5 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
 
   logInfo() << "End init model.";
 }
+
+} // namespace seissol::initializer::initprocedure

@@ -270,7 +270,10 @@ find_package(Eigen3 REQUIRED)
 target_link_libraries(seissol-common-properties INTERFACE Eigen3::Eigen)
 
 # needed explicitly also to silence some clang-tidy differences
-target_compile_definitions(seissol-common-properties INTERFACE EIGEN_INITIALIZE_MATRICES_BY_ZERO)
+if (NOT WITH_GPU)
+  # but: it still causes issues with some GPU builds until we refactor the DR parameter datastructures
+  target_compile_definitions(seissol-common-properties INTERFACE EIGEN_INITIALIZE_MATRICES_BY_ZERO)
+endif()
 
 # the following check is needed because allowing 3.4 and 5.0.0 at the same
 # time was not possible inline in the find_package
