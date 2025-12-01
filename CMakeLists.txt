@@ -435,18 +435,18 @@ endif()
 # C++ compiler settings
 # TODO: mostly remove or make optional? (except the EIGEN_DONT_VECTORIZE for NVHPC below)
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  target_compile_options(seissol-common-properties INTERFACE -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
+  target_compile_options(seissol-common-properties INTERFACE $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-pedantic -Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
 
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
   # todo remove std?, is ffreestanding needed?
-  target_compile_options(seissol-common-properties INTERFACE -pedantic $<$<COMPILE_LANGUAGE:CXX>:-std=c++17>)
+  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-pedantic -std=c++17>)
 
   # Activate interprocedual optimization.
   #set_property(TARGET seissol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
-  target_compile_options(seissol-common-properties INTERFACE -pedantic $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra -pedantic -Wno-unused-parameter>)
+  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-pedantic -Wall -Wextra -Wno-unused-parameter>)
 
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
     # warning 186 - pointless comparison of unsigned integer with zero detected
