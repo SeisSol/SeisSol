@@ -238,7 +238,7 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
   }
 }
 
-void LoopStatistics::writeSamples(const std::string& outputPrefix,
+void LoopStatistics::writeSamples([[maybe_unused]] const std::string& outputPrefix,
                                   bool isLoopStatisticsNetcdfOutputOn) {
   if (isLoopStatisticsNetcdfOutputOn) {
 #ifdef USE_NETCDF
