@@ -22,7 +22,7 @@ namespace seissol::io::instance::point {
 Pytables::Pytables() = default;
 
 std::function<writer::Writer(const std::string&, std::size_t, double)> Pytables::makeWriter() {
-  return [this](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
+  return [this](const std::string& prefix, std::size_t counter, double /*time*/) -> writer::Writer {
     const auto filename = prefix + "-" + name + ".h5";
     auto writer = writer::Writer();
 

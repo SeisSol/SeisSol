@@ -116,7 +116,7 @@ constexpr unsigned int
   // return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) *
   // REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
   const auto numberOfBasisFunctions = getNumberOfBasisFunctions(convergenceOrder);
-  return getNumberOfAlignedReals<RealT>(numberOfBasisFunctions);
+  return getNumberOfAlignedReals<RealT>(numberOfBasisFunctions, alignment);
 }
 
 /**

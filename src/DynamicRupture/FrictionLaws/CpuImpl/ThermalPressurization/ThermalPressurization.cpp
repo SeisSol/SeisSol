@@ -38,7 +38,6 @@ void ThermalPressurization::calcFluidPressure(
     const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
     real deltaT,
     bool saveTPinLTS,
-    uint32_t timeIndex,
     std::size_t ltsFace) {
 #pragma omp simd
   for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {

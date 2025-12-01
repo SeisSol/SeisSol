@@ -64,7 +64,6 @@ class ThermalPressurization {
                          const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
                          real deltaT,
                          bool saveTPinLTS,
-                         uint32_t timeIndex,
                          std::size_t ltsFace);
 
   [[nodiscard]] real getFluidPressure(std::size_t ltsFace, std::uint32_t pointIndex) const {

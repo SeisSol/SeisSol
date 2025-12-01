@@ -38,6 +38,7 @@
 
 #include <Eigen/Core>
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <complex>
 #include <cstddef>
@@ -236,7 +237,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           MeshTools::normalize(tangent1, tangent1);
           MeshTools::normalize(tangent2, tangent2);
 
-          double nLocalData[6 * 6];
+          std::array<double, 36> nLocalData{};
           seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
           seissol::model::getTransposedGodunovState(
               seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
@@ -455,9 +456,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,
                                       LTS::Storage& ltsStorage,
                                       const LTS::Backmap& backmap,
-                                      DynamicRupture::Storage& drStorage,
-                                      const GlobalData& global,
-                                      double etaDamp) {
+                                      DynamicRupture::Storage& drStorage) {
   real matTData[tensor::T::size()];
   real matTinvData[tensor::Tinv::size()];
   real matAPlusData[tensor::star::size(0)];

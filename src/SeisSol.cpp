@@ -23,7 +23,7 @@
 
 namespace seissol {
 
-bool SeisSol::init(int argc, char* argv[]) {
+bool SeisSol::init() {
   const auto rank = seissol::Mpi::mpi.rank();
 
   if (rank == 0) {

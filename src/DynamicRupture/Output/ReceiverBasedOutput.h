@@ -113,8 +113,8 @@ class ReceiverOutput {
   void getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side);
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
-  virtual real computeFluidPressure(LocalInfo& local) { return 0.0; }
-  virtual real computeStateVariable(LocalInfo& local) { return 0.0; }
+  virtual real computeFluidPressure(LocalInfo& /*local*/) { return 0.0; }
+  virtual real computeStateVariable(LocalInfo& /*local*/) { return 0.0; }
   static void updateLocalTractions(LocalInfo& local, real strength);
   real computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jacobiT2d, const LocalInfo& local);
   virtual void computeSlipRate(LocalInfo& local,

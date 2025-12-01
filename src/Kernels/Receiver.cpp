@@ -261,7 +261,7 @@ size_t ReceiverCluster::ncols() const {
 std::vector<std::string> ReceiverRotation::quantities() const { return {"rot1", "rot2", "rot3"}; }
 void ReceiverRotation::compute(size_t sim,
                                std::vector<real>& output,
-                               seissol::init::QAtPoint::view::type& qAtPoint,
+                               seissol::init::QAtPoint::view::type& /*qAtPoint*/,
                                seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
   output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 1) -
                    seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 2));
@@ -276,7 +276,7 @@ std::vector<std::string> ReceiverStrain::quantities() const {
 }
 void ReceiverStrain::compute(size_t sim,
                              std::vector<real>& output,
-                             seissol::init::QAtPoint::view::type& qAtPoint,
+                             seissol::init::QAtPoint::view::type& /*qAtPoint*/,
                              seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
   // actually 9 quantities; 3 removed due to symmetry
 

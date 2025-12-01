@@ -244,7 +244,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   }
 }
 
-void ReceiverWriter::simulationStart(std::optional<double> checkpointTime) {
+void ReceiverWriter::simulationStart(std::optional<double> /*checkpointTime*/) {
   for (auto& cluster : m_receiverClusters) {
     cluster->allocateData();
   }

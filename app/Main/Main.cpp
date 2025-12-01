@@ -172,7 +172,7 @@ auto main(int argc, char* argv[]) -> int {
     }
 
     // run SeisSol
-    const bool runSeisSol = seissolInstance.init(argc, argv);
+    const bool runSeisSol = seissolInstance.init();
 
     const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr));
     seissolInstance.setBackupTimeStamp(stamp);

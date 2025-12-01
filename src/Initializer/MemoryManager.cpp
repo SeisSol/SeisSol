@@ -134,8 +134,7 @@ void MemoryManager::fixateBoundaryStorage() {
       outputParams.freeSurfaceParameters.vtkorder < 0) {
     refinement = outputParams.freeSurfaceParameters.refinement;
   }
-  seissolInstance.freeSurfaceIntegrator().initialize(
-      refinement, &m_globalDataOnHost, ltsStorage, surfaceStorage);
+  seissolInstance.freeSurfaceIntegrator().initialize(refinement, ltsStorage, surfaceStorage);
 }
 
 #ifdef ACL_DEVICE

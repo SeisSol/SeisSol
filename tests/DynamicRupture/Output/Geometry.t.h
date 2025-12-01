@@ -142,7 +142,7 @@ TEST_CASE("DR Geometry") {
         0.48876030678064375,     0.29039930608799031,     0.12632929701966925,
         2.4874032376060777E-002};
 
-    auto data = generateTriangleQuadrature(7);
+    auto data = generateTriangleQuadrature();
     double (*testTrianglePoints)[2] = unsafe_reshape<2>(data.points.data());
 
     constexpr double Epsilon = 1e-6;

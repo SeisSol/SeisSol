@@ -81,7 +81,7 @@ class TraitLayer {
 class StopLayerSet {
   public:
   template <typename F, typename... Args>
-  void call(std::size_t color, F&& func, Args... args) {
+  void call(std::size_t /*color*/, F&& func, Args... args) {
     std::invoke(std::forward<F>(func), args...);
   }
 
@@ -93,7 +93,7 @@ class StopLayerSet {
 
   using VariantType = std::variant<>;
 
-  [[nodiscard]] Type argument(std::size_t color) const { return {}; }
+  [[nodiscard]] Type argument(std::size_t /*color*/) const { return {}; }
 };
 
 /**

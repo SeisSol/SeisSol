@@ -104,7 +104,7 @@ void AsagiModule::preMesh() {
       }
     }
 #endif
-    ::asagi::Grid::startCommThread();
+    ::asagi::Grid::startCommThread(cpu);
   }
 }
 

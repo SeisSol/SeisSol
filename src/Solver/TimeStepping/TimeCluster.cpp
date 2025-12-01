@@ -14,6 +14,7 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Executor.h"
+#include "Common/Marker.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Output/OutputManager.h"
 #include "GeneratedCode/init.h"
@@ -192,7 +193,6 @@ void TimeCluster::computeDynamicRupture(DynamicRupture::Layer& layerData) {
 
   const DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
   const DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
-  DREnergyOutput* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>();
   real* const* timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
   real* const* timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
   auto* qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>();
@@ -216,9 +216,7 @@ void TimeCluster::computeDynamicRupture(DynamicRupture::Layer& layerData) {
   for (std::size_t face = 0; face < layerData.size(); ++face) {
     const std::size_t prefetchFace = (face + 1 < layerData.size()) ? face + 1 : face;
     dynamicRuptureKernel.spaceTimeInterpolation(faceInformation[face],
-                                                globalDataOnHost,
                                                 &godunovData[face],
-                                                &drEnergyOutput[face],
                                                 timeDerivativePlus[face],
                                                 timeDerivativeMinus[face],
                                                 qInterpolatedPlus[face],
@@ -247,7 +245,7 @@ void TimeCluster::computeDynamicRupture(DynamicRupture::Layer& layerData) {
   loopStatistics->end(regionComputeDynamicRupture, layerData.size(), profilingId);
 }
 
-void TimeCluster::computeDynamicRuptureDevice(DynamicRupture::Layer& layerData) {
+void TimeCluster::computeDynamicRuptureDevice(SEISSOL_GPU_PARAM DynamicRupture::Layer& layerData) {
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;
@@ -420,7 +418,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   loopStatistics->end(regionComputeLocalIntegration, clusterData->size(), profilingId);
 }
 
-void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
+void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuffers) {
 
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
@@ -520,7 +518,7 @@ void TimeCluster::computeNeighboringIntegration(double subTimeStart) {
   }
 }
 
-void TimeCluster::computeNeighboringIntegrationDevice(double subTimeStart) {
+void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double subTimeStart) {
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;

@@ -41,20 +41,20 @@ struct FrictionLawArgs {
   const real* __restrict tpGridPoints{nullptr};
   const real* __restrict heatSource{nullptr};
 
-  real fullUpdateTime;
-  double timeWeights[misc::TimeSteps];
-  real deltaT[misc::TimeSteps];
-  real sumDt;
+  real fullUpdateTime{};
+  double timeWeights[misc::TimeSteps]{};
+  real deltaT[misc::TimeSteps]{};
+  real sumDt{};
 };
 
 struct FrictionLawContext {
-  std::size_t ltsFace;
-  std::uint32_t pointIndex;
-  const FrictionLawData* __restrict data;
-  const FrictionLawArgs* __restrict args;
+  std::size_t ltsFace{0};
+  std::uint32_t pointIndex{0};
+  const FrictionLawData* __restrict data{nullptr};
+  const FrictionLawArgs* __restrict args{nullptr};
 
-  real* __restrict sharedMemory;
-  void* item;
+  real* __restrict sharedMemory{nullptr};
+  void* item{nullptr};
 
   FaultStresses<Executor::Device> faultStresses{};
   TractionResults<Executor::Device> tractionResults{};
@@ -78,9 +78,9 @@ inline void deviceBarrier(FrictionLawContext& ctx) {}
 template <typename Derived>
 class BaseFrictionSolver : public FrictionSolverDetails {
   public:
-  explicit BaseFrictionSolver<Derived>(seissol::initializer::parameters::DRParameters* drParameters)
+  explicit BaseFrictionSolver(seissol::initializer::parameters::DRParameters* drParameters)
       : FrictionSolverDetails(drParameters) {}
-  ~BaseFrictionSolver<Derived>() override = default;
+  ~BaseFrictionSolver() override = default;
 
   std::unique_ptr<FrictionSolver> clone() override {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));

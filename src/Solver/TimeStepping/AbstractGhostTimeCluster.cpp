@@ -80,7 +80,7 @@ void AbstractGhostTimeCluster::handleAdvancedPredictionTimeMessage(
 }
 
 void AbstractGhostTimeCluster::handleAdvancedCorrectionTimeMessage(
-    const NeighborCluster& neighborCluster) {
+    const NeighborCluster& /*neighborCluster*/) {
   assert(testForGhostLayerReceives());
 
   auto upcomingCorrectionSteps = ct.stepsSinceLastSync;

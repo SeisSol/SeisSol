@@ -12,6 +12,7 @@
 #include "Kernels/LinearCK/Neighbor.h"
 
 #include "Common/Constants.h"
+#include "Common/Marker.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
@@ -105,8 +106,9 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
   }
 }
 
-void Neighbor::computeBatchedNeighborsIntegral(recording::ConditionalPointersToRealsTable& table,
-                                               seissol::parallel::runtime::StreamRuntime& runtime) {
+void Neighbor::computeBatchedNeighborsIntegral(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
   kernel::gpu_neighboringFlux neighFluxKrnl = deviceNfKrnlPrototype;

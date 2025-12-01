@@ -10,6 +10,7 @@
 #include "Plasticity.h"
 
 #include "Alignment.h"
+#include "Common/Marker.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -247,14 +248,15 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   return 0;
 }
 
-void Plasticity::computePlasticityBatched(double timeStepWidth,
-                                          double tV,
-                                          const GlobalData* global,
-                                          recording::ConditionalPointersToRealsTable& table,
-                                          seissol::model::PlasticityData* plasticityData,
-                                          std::size_t* yieldCounter,
-                                          unsigned* isAdjustableVector,
-                                          seissol::parallel::runtime::StreamRuntime& runtime) {
+void Plasticity::computePlasticityBatched(
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM double tV,
+    SEISSOL_GPU_PARAM const GlobalData* global,
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM seissol::model::PlasticityData* plasticityData,
+    SEISSOL_GPU_PARAM std::size_t* yieldCounter,
+    SEISSOL_GPU_PARAM unsigned* isAdjustableVector,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;

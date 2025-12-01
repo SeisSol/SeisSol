@@ -41,7 +41,7 @@ struct TriangleQuadratureData {
   std::array<double, Size> weights{};
 };
 
-TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree);
+TriangleQuadratureData generateTriangleQuadrature();
 
 void assignNearestGaussianPoints(ReceiverPoints& geoPoints);
 

@@ -114,7 +114,9 @@ class Storage {
     } else {
       using SelfT = typename TraitT::Type;
       m.bytes = sizeof(SelfT) * count;
-      m.bytesLayer = [count](const LayerIdentifier& identifier) { return sizeof(SelfT) * count; };
+      m.bytesLayer = [count](const LayerIdentifier& /*identifier*/) {
+        return sizeof(SelfT) * count;
+      };
     }
 
     const auto bytesLayer = m.bytesLayer;

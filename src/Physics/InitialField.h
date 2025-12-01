@@ -31,10 +31,10 @@ class InitialField {
 
 class ZeroField : public InitialField {
   public:
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
+  void evaluate(double /*time*/,
+                const std::array<double, 3>* /*points*/,
+                std::size_t /*count*/,
+                const CellMaterialData& /*materialData*/,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override {
     dofsQP.setZero();
   }

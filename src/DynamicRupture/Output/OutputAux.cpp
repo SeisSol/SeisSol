@@ -108,7 +108,7 @@ ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2) {
   return midPoint;
 }
 
-TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
+TriangleQuadratureData generateTriangleQuadrature() {
   TriangleQuadratureData data{};
 
   // Generate triangle quadrature points and weights (Factory Method)
@@ -145,7 +145,7 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
 }
 
 void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
-  auto quadratureData = generateTriangleQuadrature(ConvergenceOrder + 1);
+  auto quadratureData = generateTriangleQuadrature();
   const double (*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
 
   for (auto& geoPoint : geoPoints) {

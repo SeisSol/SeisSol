@@ -11,12 +11,15 @@
 
 #include "Alignment.h"
 #include "Common/Constants.h"
+#include "Common/Marker.h"
+#include "DirichletBoundary.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
@@ -31,17 +34,9 @@
 #include <cstdint>
 #include <memory>
 #include <stdint.h>
+#include <utils/logger.h>
 #include <vector>
 #include <yateto.h>
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
-#include "DirichletBoundary.h"
-#pragma GCC diagnostic pop
-
-#include "Kernels/Common.h"
-
-#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
@@ -202,7 +197,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       assert(easiBoundaryConstant != nullptr);
       assert(easiBoundaryMap != nullptr);
       auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
-                                   const real* nodes, init::INodal::view::type& boundaryDofs) {
+                                   const real* /*nodes*/, init::INodal::view::type& boundaryDofs) {
         seissol::kernel::createEasiBoundaryGhostCells easiBoundaryKernel;
         easiBoundaryKernel.easiBoundaryMap = easiBoundaryMap;
         easiBoundaryKernel.easiBoundaryConstant = easiBoundaryConstant;
@@ -249,11 +244,12 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
   }
 }
 
-void Local::computeBatchedIntegral(recording::ConditionalPointersToRealsTable& dataTable,
-                                   recording::ConditionalMaterialTable& materialTable,
-                                   recording::ConditionalIndicesTable& indicesTable,
-                                   double timeStepWidth,
-                                   seissol::parallel::runtime::StreamRuntime& runtime) {
+void Local::computeBatchedIntegral(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
+    SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;
@@ -353,12 +349,13 @@ void Local::computeBatchedIntegral(recording::ConditionalPointersToRealsTable& d
 #endif
 }
 
-void Local::evaluateBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& dataTable,
-                                           recording::ConditionalIndicesTable& indicesTable,
-                                           LTS::Layer& layer,
-                                           double time,
-                                           double timeStepWidth,
-                                           seissol::parallel::runtime::StreamRuntime& runtime) {
+void Local::evaluateBatchedTimeDependentBc(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
+    SEISSOL_GPU_PARAM LTS::Layer& layer,
+    SEISSOL_GPU_PARAM double time,
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 
 #ifdef ACL_DEVICE
   using namespace seissol::recording;

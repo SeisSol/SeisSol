@@ -181,8 +181,9 @@ struct MaterialSetup<ElasticMaterial> {
         normal, tangent1, tangent2, matTinv, 6, 6);
   }
 
-  static ElasticMaterial getRotatedMaterialCoefficients(double rotationParameters[36],
-                                                        ElasticMaterial& material) {
+  static ElasticMaterial
+      getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
+                                     ElasticMaterial& material) {
     return material;
   }
 

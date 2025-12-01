@@ -19,6 +19,7 @@
 #include "Numerical/Transformation.h"
 
 #include <Eigen/Dense>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <utils/logger.h>
@@ -95,7 +96,7 @@ void initializeSpecificNeighborData(const T& material,
 void getBondMatrix(const VrtxCoords normal,
                    const VrtxCoords tangent1,
                    const VrtxCoords tangent2,
-                   double* matN);
+                   std::array<double, 36>& matN);
 
 template <typename MaterialT = seissol::model::MaterialT>
 void getFaceRotationMatrix(const Eigen::Vector3d& normal,
@@ -119,7 +120,8 @@ void getFaceRotationMatrix(const VrtxCoords normal,
 }
 
 template <typename MaterialT>
-MaterialT getRotatedMaterialCoefficients(double rotationParameters[36], MaterialT& material) {
+MaterialT getRotatedMaterialCoefficients(const std::array<double, 36>& rotationParameters,
+                                         MaterialT& material) {
   return MaterialSetup<MaterialT>::getRotatedMaterialCoefficients(rotationParameters, material);
 }
 
@@ -179,7 +181,8 @@ void setBlocks(T qGodLocal, Tmatrix mS, Tarray1 tractionIndices, Tarray2 velocit
 
 template <typename Tmaterial>
 seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities>
-    seissol::model::getEigenDecomposition(const Tmaterial& material, double zeroThreshold) {
+    seissol::model::getEigenDecomposition(const Tmaterial& material,
+                                          [[maybe_unused]] double zeroThreshold) {
   std::array<std::complex<double>,
              seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
       dataAT;

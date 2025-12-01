@@ -83,7 +83,7 @@ struct AcousticMaterial : public Material {
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 
-  void setLameParameters(double mu, double lambda) override { this->lambda = lambda; }
+  void setLameParameters(double /*mu*/, double lambda) override { this->lambda = lambda; }
 };
 } // namespace seissol::model
 

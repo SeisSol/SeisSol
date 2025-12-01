@@ -112,7 +112,7 @@ struct MultisimHelperWrapper<1> {
 #pragma omp declare simd
 #endif
   template <typename F, typename... Args>
-  static auto& multisimWrap(F&& function, size_t sim, Args&&... args) {
+  static auto& multisimWrap(F&& function, size_t /*sim*/, Args&&... args) {
     return std::invoke(std::forward<F>(function), std::forward<Args>(args)...);
   }
 
@@ -120,7 +120,7 @@ struct MultisimHelperWrapper<1> {
 #pragma omp declare simd
 #endif
   template <typename T, typename F, typename... Args>
-  static auto multisimObjectWrap(F&& func, T& obj, int sim, Args&&... args) {
+  static auto multisimObjectWrap(F&& func, T& obj, int /*sim*/, Args&&... args) {
     return std::invoke(std::forward<F>(func), obj, std::forward<Args>(args)...);
   }
 
@@ -133,7 +133,7 @@ struct MultisimHelperWrapper<1> {
   }
 
   template <unsigned Rank, typename RealT, typename IdxT>
-  static auto simtensor(::yateto::DenseTensorView<Rank, RealT, IdxT>& tensor, int sim) {
+  static auto simtensor(::yateto::DenseTensorView<Rank, RealT, IdxT>& tensor, int /*sim*/) {
     return tensor;
   }
   constexpr static size_t MultisimStart = 0;

@@ -24,12 +24,10 @@
 
 namespace {
 
-double
-    computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
-                        double pWaveVel,
-                        double cfl,
-                        double maximumAllowedTimeStep,
-                        const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
+double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
+                           double pWaveVel,
+                           double cfl,
+                           double maximumAllowedTimeStep) {
   // Compute insphere radius
   std::array<Eigen::Vector3d, 4> x = vertices;
   Eigen::Matrix4d a;
@@ -73,8 +71,8 @@ GlobalTimestep
     const auto materialMaxTimestep = materials[cell].maximumTimestep();
     const auto cellMaxTimestep =
         std::min(materialMaxTimestep, seissolParams.timeStepping.maxTimestepWidth);
-    timestep.cellTimeStepWidths[cell] = computeCellTimestep(
-        vertices, pWaveVel, seissolParams.timeStepping.cfl, cellMaxTimestep, seissolParams);
+    timestep.cellTimeStepWidths[cell] =
+        computeCellTimestep(vertices, pWaveVel, seissolParams.timeStepping.cfl, cellMaxTimestep);
   }
 
   const auto minmaxCellPosition =

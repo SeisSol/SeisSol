@@ -143,10 +143,10 @@ RateAndStateInitializer::StateAndFriction
                                                                         real traction2,
                                                                         real pressure,
                                                                         real rsA,
-                                                                        real rsB,
-                                                                        real rsSl0,
+                                                                        real /*rsB*/,
+                                                                        real /*rsSl0*/,
                                                                         real rsSr0,
-                                                                        real rsF0,
+                                                                        real /*rsF0*/,
                                                                         real initialSlipRate) {
   StateAndFriction result{};
   const real absoluteTraction = misc::magnitude(traction1, traction2);

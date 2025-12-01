@@ -396,7 +396,7 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
 template <class T>
 T MaterialParameterDB<T>::computeAveragedMaterial(
     unsigned elementIdx,
-    const std::array<double, NumQuadpoints>& quadratureWeights,
+    const std::array<double, NumQuadpoints>& /*quadratureWeights*/,
     const std::vector<T>& materialsFromQuery) {
   logWarning() << "You want me to compute an average material for a generic type. In general, this "
                   "function should never be called, but always a proper specialization!";

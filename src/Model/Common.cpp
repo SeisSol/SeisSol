@@ -12,12 +12,14 @@
 #include "GeneratedCode/init.h"
 #include "Geometry/MeshDefinition.h"
 
+#include <array>
+
 namespace seissol::model {
 
 void getBondMatrix(const VrtxCoords normal,
                    const VrtxCoords tangent1,
                    const VrtxCoords tangent2,
-                   double* matN) {
+                   std::array<double, 36>& matN) {
   matN[0 * 6 + 0] = normal[0] * normal[0];
   matN[0 * 6 + 1] = normal[1] * normal[1];
   matN[0 * 6 + 2] = normal[2] * normal[2];

@@ -37,7 +37,7 @@ class BaseFrictionLaw : public FrictionSolver {
   }
 
   void setupLayer(DynamicRupture::Layer& layerData,
-                  seissol::parallel::runtime::StreamRuntime& runtime) override {
+                  seissol::parallel::runtime::StreamRuntime& /*runtime*/) override {
     this->currLayerSize = layerData.size();
     BaseFrictionLaw::copyStorageToLocal(layerData);
     static_cast<Derived*>(this)->copyStorageToLocal(layerData);
@@ -49,7 +49,7 @@ class BaseFrictionLaw : public FrictionSolver {
   void evaluate(real fullUpdateTime,
                 const FrictionTime& frictionTime,
                 const double* timeWeights,
-                seissol::parallel::runtime::StreamRuntime& runtime) override {
+                seissol::parallel::runtime::StreamRuntime& /*runtime*/) override {
     if (this->currLayerSize == 0) {
       return;
     }

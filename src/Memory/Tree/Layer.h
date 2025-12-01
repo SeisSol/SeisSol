@@ -291,7 +291,7 @@ struct SpecificVarmap {
   }
 
   template <typename T>
-  [[nodiscard]] std::size_t index(T& handle) const {
+  [[nodiscard]] std::size_t index(T& /*handle*/) const {
     static_assert(sizeof(T) == 0, "Type not found.");
     return 0;
   }

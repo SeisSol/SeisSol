@@ -117,10 +117,10 @@ class DirichletBoundary {
 #endif
 
   template <typename Func, typename MappingKrnl>
-  void evaluateTimeDependent(const real* dofsVolumeInteriorModal,
-                             int faceIdx,
+  void evaluateTimeDependent(const real* /*dofsVolumeInteriorModal*/,
+                             int /*faceIdx*/,
                              const CellBoundaryMapping& boundaryMapping,
-                             const MappingKrnl& projectKernelPrototype,
+                             const MappingKrnl& /*projectKernelPrototype*/,
                              const Func& evaluateBoundaryCondition,
                              real* dofsFaceBoundaryNodal,
                              double startTime,

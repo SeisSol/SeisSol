@@ -166,7 +166,6 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
     seissol::initializer::projectEasiInitialField({initConditionParams.filename},
                                                   *memoryManager.getGlobalData().onHost,
                                                   seissolInstance.meshReader(),
-                                                  seissolInstance.getMemoryManager(),
                                                   memoryManager.getLtsStorage(),
                                                   initConditionParams.hasTime);
   } else {
@@ -176,7 +175,6 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
       seissol::initializer::projectInitialField(initConditions,
                                                 *memoryManager.getGlobalData().onHost,
                                                 seissolInstance.meshReader(),
-                                                seissolInstance.getMemoryManager(),
                                                 memoryManager.getLtsStorage());
     }
     memoryManager.setInitialConditions(std::move(initConditions));

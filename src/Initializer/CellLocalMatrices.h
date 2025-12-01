@@ -34,9 +34,8 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,
                                       LTS::Storage& ltsStorage,
                                       const LTS::Backmap& backmap,
-                                      DynamicRupture::Storage& drStorage,
-                                      const GlobalData& global,
-                                      double etaDamp);
+                                      DynamicRupture::Storage& drStorage);
+
 } // namespace seissol::initializer
 
 #endif // SEISSOL_SRC_INITIALIZER_CELLLOCALMATRICES_H_

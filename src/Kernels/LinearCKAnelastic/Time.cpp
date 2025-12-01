@@ -9,6 +9,7 @@
 
 #include "Time.h"
 
+#include "Common/Marker.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/MemoryOps.h"
 
@@ -164,11 +165,11 @@ void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlo
   hardwareFlops = kernel::derivativeTaylorExpansionEla::HardwareFlops;
 }
 
-void Time::evaluateBatched(const real* coeffs,
-                           const real** timeDerivatives,
-                           real** timeIntegratedDofs,
-                           std::size_t numElements,
-                           seissol::parallel::runtime::StreamRuntime& runtime) {
+void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
+                           SEISSOL_GPU_PARAM const real** timeDerivatives,
+                           SEISSOL_GPU_PARAM real** timeIntegratedDofs,
+                           SEISSOL_GPU_PARAM std::size_t numElements,
+                           SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   assert(timeDerivatives != nullptr);
   assert(timeIntegratedDofs != nullptr);
@@ -193,13 +194,14 @@ void Time::evaluateBatched(const real* coeffs,
 #endif
 }
 
-void Spacetime::computeBatchedAder(const real* coeffs,
-                                   double timeStepWidth,
-                                   LocalTmp& tmp,
-                                   recording::ConditionalPointersToRealsTable& dataTable,
-                                   recording::ConditionalMaterialTable& materialTable,
-                                   bool updateDisplacement,
-                                   seissol::parallel::runtime::StreamRuntime& runtime) {
+void Spacetime::computeBatchedAder(
+    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM LocalTmp& tmp,
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
+    SEISSOL_GPU_PARAM bool updateDisplacement,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;

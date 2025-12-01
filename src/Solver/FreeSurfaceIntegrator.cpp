@@ -63,7 +63,6 @@ FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
 }
 
 void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
-                                       GlobalData* globalData,
                                        LTS::Storage& ltsStorage,
                                        SurfaceLTS::Storage& surfaceStorage) {
   this->surfaceStorage = &surfaceStorage;

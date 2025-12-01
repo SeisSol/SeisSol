@@ -370,8 +370,9 @@ struct MaterialSetup<PoroElasticMaterial> {
         normal, tangent1, tangent2, matTinv, origin, origin);
   }
 
-  static PoroElasticMaterial getRotatedMaterialCoefficients(double rotationParameters[36],
-                                                            PoroElasticMaterial& material) {
+  static PoroElasticMaterial
+      getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
+                                     PoroElasticMaterial& material) {
     return material;
   }
 

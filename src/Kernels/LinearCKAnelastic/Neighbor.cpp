@@ -9,6 +9,9 @@
 
 #include "Neighbor.h"
 
+#include "Common/Marker.h"
+#include "GeneratedCode/init.h"
+
 #include <cassert>
 #include <cstddef>
 #include <cstring>
@@ -17,8 +20,6 @@
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #endif
-
-#include "GeneratedCode/init.h"
 
 namespace seissol::kernels::solver::linearckanelastic {
 
@@ -185,8 +186,9 @@ std::uint64_t Neighbor::bytesNeighborsIntegral() {
   return reals * sizeof(real);
 }
 
-void Neighbor::computeBatchedNeighborsIntegral(recording::ConditionalPointersToRealsTable& table,
-                                               seissol::parallel::runtime::StreamRuntime& runtime) {
+void Neighbor::computeBatchedNeighborsIntegral(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;

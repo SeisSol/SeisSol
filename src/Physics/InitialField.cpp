@@ -103,7 +103,7 @@ void seissol::physics::Planarwave::evaluate(
     double time,
     const std::array<double, 3>* points,
     std::size_t count,
-    const CellMaterialData& materialData,
+    const CellMaterialData& /*materialData*/,
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
 
@@ -206,7 +206,7 @@ void seissol::physics::AcousticTravellingWaveITM::evaluate(
     double time,
     const std::array<double, 3>* points,
     std::size_t count,
-    const CellMaterialData& materialData,
+    const CellMaterialData& /*materialData*/,
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
   double pressure = 0.0;
@@ -274,7 +274,7 @@ void seissol::physics::TravellingWave::evaluate(
     double time,
     const std::array<double, 3>* points,
     std::size_t count,
-    const CellMaterialData& materialData,
+    const CellMaterialData& /*materialData*/,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
   dofsQp.setZero();
 
@@ -310,10 +310,10 @@ seissol::physics::PressureInjection::PressureInjection(
 }
 
 void seissol::physics::PressureInjection::evaluate(
-    double time,
+    double /*time*/,
     const std::array<double, 3>* points,
     std::size_t count,
-    const CellMaterialData& materialData,
+    const CellMaterialData& /*materialData*/,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
   const auto o1 = m_parameters.origin[0];
   const auto o2 = m_parameters.origin[1];

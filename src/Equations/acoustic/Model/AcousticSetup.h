@@ -98,8 +98,9 @@ struct MaterialSetup<AcousticMaterial> {
     }
   }
 
-  static AcousticMaterial getRotatedMaterialCoefficients(double rotationParameters[36],
-                                                         AcousticMaterial& material) {
+  static AcousticMaterial
+      getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
+                                     AcousticMaterial& material) {
     return material;
   }
   static void initializeSpecificLocalData(const AcousticMaterial& material,

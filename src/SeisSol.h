@@ -55,7 +55,7 @@ class SeisSol {
   /**
    * Initialize C++ part of the program
    */
-  bool init(int argc, char* argv[]);
+  bool init();
 
   /**
    * Finalize SeisSol

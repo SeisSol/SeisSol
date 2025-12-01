@@ -47,11 +47,11 @@ class GravitationalFreeSurfaceBc {
                 const CellBoundaryMapping& boundaryMapping,
                 real* displacementNodalData,
                 real* integratedDisplacementNodalData,
-                TimeKrnl& timeKernel,
+                TimeKrnl& /*timeKernel*/,
                 const real* derivatives,
                 double timeStepWidth,
                 CellMaterialData& materialData,
-                FaceType faceType) {
+                FaceType /*faceType*/) {
     // This function does two things:
     // 1: Compute eta (for all three dimensions) at the end of the timestep
     // 2: Compute the integral of eta in normal direction over the timestep

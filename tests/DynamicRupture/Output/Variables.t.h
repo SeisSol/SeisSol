@@ -16,7 +16,7 @@ TEST_CASE("DR Variables") {
     output::DrVarsT drVars;
 
     unsigned variableCounter = 0;
-    auto countVariables = [&variableCounter](auto& var, int) { ++variableCounter; };
+    const auto countVariables = [&variableCounter](auto& /*var*/, int) { ++variableCounter; };
 
     misc::forEach(drVars, countVariables);
     REQUIRE(variableCounter == 12);

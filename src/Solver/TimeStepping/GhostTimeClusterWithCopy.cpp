@@ -176,11 +176,11 @@ bool GhostTimeClusterWithCopy<CommType>::testReceiveQueue() {
       auto* stream = prefetchGhostRegionsStreams[*region];
       if (device.api->isStreamWorkDone(stream)) {
         receiveRegionsStates[*region] = ReceiveState::Ready;
-        // Note: fall-through to the `Ready` state is intentional
+        region = receiveQueue.erase(region);
       } else {
         ++region;
-        break;
       }
+      break;
     }
     case ReceiveState::Ready: {
       region = receiveQueue.erase(region);

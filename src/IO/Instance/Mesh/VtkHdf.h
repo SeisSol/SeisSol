@@ -34,7 +34,7 @@ class VtkHdfWriter {
     auto selfLocalElementCount = localElementCount;
     auto selfPointsPerElement = pointsPerElement;
 
-    instructionsConst.emplace_back([=](const std::string& filename, double time) {
+    instructionsConst.emplace_back([=](const std::string& filename, double /*time*/) {
       return std::make_shared<writer::instructions::Hdf5DataWrite>(
           writer::instructions::Hdf5Location(filename, {GroupName}),
           "Points",
@@ -51,7 +51,7 @@ class VtkHdfWriter {
     auto selfLocalElementCount = localElementCount;
     auto selfPointsPerElement = pointsPerElement;
 
-    instructions.emplace_back([=](const std::string& filename, double time) {
+    instructions.emplace_back([=](const std::string& filename, double /*time*/) {
       return std::make_shared<writer::instructions::Hdf5DataWrite>(
           writer::instructions::Hdf5Location(filename, {GroupName, PointDataName}),
           name,
@@ -67,7 +67,7 @@ class VtkHdfWriter {
                    const F& cellMapper) {
     auto selfLocalElementCount = localElementCount;
 
-    instructions.emplace_back([=](const std::string& filename, double time) {
+    instructions.emplace_back([=](const std::string& filename, double /*time*/) {
       return std::make_shared<writer::instructions::Hdf5DataWrite>(
           writer::instructions::Hdf5Location(filename, {GroupName, CellDataName}),
           name,
@@ -81,7 +81,7 @@ class VtkHdfWriter {
   void addFieldData(const std::string& name,
                     const std::vector<std::size_t>& dimensions,
                     const std::vector<T>& data) {
-    instructions.emplace_back([=](const std::string& filename, double time) {
+    instructions.emplace_back([=](const std::string& filename, double /*time*/) {
       return std::make_shared<writer::instructions::Hdf5DataWrite>(
           writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
           name,

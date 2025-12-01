@@ -9,6 +9,8 @@
 
 #include "Local.h"
 
+#include "Common/Marker.h"
+
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
@@ -140,11 +142,12 @@ std::uint64_t Local::bytesIntegral() {
   return reals * sizeof(real);
 }
 
-void Local::computeBatchedIntegral(recording::ConditionalPointersToRealsTable& dataTable,
-                                   recording::ConditionalMaterialTable& materialTable,
-                                   recording::ConditionalIndicesTable& indicesTable,
-                                   double timeStepWidth,
-                                   seissol::parallel::runtime::StreamRuntime& runtime) {
+void Local::computeBatchedIntegral(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
+    SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;

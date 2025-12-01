@@ -15,7 +15,6 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshReader.h"
-#include "Initializer/MemoryManager.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
@@ -119,7 +118,6 @@ namespace seissol::initializer {
 void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField>>& iniFields,
                          const GlobalData& globalData,
                          const seissol::geometry::MeshReader& meshReader,
-                         seissol::initializer::MemoryManager& memoryManager,
                          LTS::Storage& storage) {
   const auto& vertices = meshReader.getVertices();
   const auto& elements = meshReader.getElements();
@@ -228,7 +226,7 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
           query.x(elem * NumQuadPoints + i, spaceStart + d) = transformed[d];
         }
         if (needsTime) {
-          query.x(elem * NumQuadPoints + i, 0) = 0;
+          query.x(elem * NumQuadPoints + i, 0) = time;
         }
         query.group(elem * NumQuadPoints + i) = elements[elem].group;
       }
@@ -262,7 +260,6 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
 void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              const GlobalData& globalData,
                              const seissol::geometry::MeshReader& meshReader,
-                             seissol::initializer::MemoryManager& memoryManager,
                              LTS::Storage& storage,
                              bool needsTime) {
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;

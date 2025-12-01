@@ -168,12 +168,12 @@ class AdhocBuffer : public DataSource {
     return node;
   }
 
-  const void* getPointer(const async::ExecInfo& info) override { return nullptr; }
+  const void* getPointer(const async::ExecInfo& /*info*/) override { return nullptr; }
 
   [[nodiscard]] const void* getLocalPointer() const override { return nullptr; }
   [[nodiscard]] size_t getLocalSize() const override { return getTargetSize(); }
 
-  std::size_t count(const async::ExecInfo& info) override {
+  std::size_t count(const async::ExecInfo& /*info*/) override {
     return getTargetSize() / datatype()->size();
   }
 

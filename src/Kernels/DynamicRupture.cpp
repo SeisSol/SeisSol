@@ -10,6 +10,7 @@
 
 #include "Alignment.h"
 #include "Common/Constants.h"
+#include "Common/Marker.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -22,6 +23,7 @@
 #include <cstring>
 #include <stdint.h>
 #include <utils/logger.h>
+#include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
@@ -29,7 +31,6 @@
 
 #include <Device/device.h>
 #endif
-#include <yateto.h>
 
 #ifndef NDEBUG
 #include <cstdint>
@@ -49,9 +50,7 @@ void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
 
 void DynamicRupture::spaceTimeInterpolation(
     const DRFaceInformation& faceInfo,
-    const GlobalData* global,
     const DRGodunovData* godunovData,
-    DREnergyOutput* drEnergyOutput,
     const real* timeDerivativePlus,
     const real* timeDerivativeMinus,
     real qInterpolatedPlus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
@@ -103,9 +102,9 @@ void DynamicRupture::spaceTimeInterpolation(
 }
 
 void DynamicRupture::batchedSpaceTimeInterpolation(
-    recording::DrConditionalPointersToRealsTable& table,
-    const real* coeffs,
-    seissol::parallel::runtime::StreamRuntime& runtime) {
+    SEISSOL_GPU_PARAM recording::DrConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
   real** degreesOfFreedomPlus{nullptr};

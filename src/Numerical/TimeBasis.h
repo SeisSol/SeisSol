@@ -54,7 +54,7 @@ class MonomialBasis : public TimeBasis<RealT> {
   ~MonomialBasis() override = default;
   explicit MonomialBasis(std::size_t order) : order(order) {}
 
-  [[nodiscard]] std::vector<RealT> derivative(double position, double timestep) const override {
+  [[nodiscard]] std::vector<RealT> derivative(double position, double /*timestep*/) const override {
     std::vector<RealT> coeffs(order);
     coeffs[0] = 0;
     if (coeffs.size() > 1) {
@@ -68,7 +68,7 @@ class MonomialBasis : public TimeBasis<RealT> {
     return coeffs;
   }
 
-  [[nodiscard]] std::vector<RealT> point(double position, double timestep) const override {
+  [[nodiscard]] std::vector<RealT> point(double position, double /*timestep*/) const override {
     std::vector<RealT> coeffs(order);
     coeffs[0] = 1;
     double coeffCache = 1;
@@ -80,7 +80,7 @@ class MonomialBasis : public TimeBasis<RealT> {
   }
 
   [[nodiscard]] std::vector<RealT>
-      integrate(double start, double end, double timestep) const override {
+      integrate(double start, double end, double /*timestep*/) const override {
     std::vector<RealT> coeffs(order);
     double coeffStart = start;
     double coeffEnd = end;

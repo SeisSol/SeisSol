@@ -53,8 +53,8 @@ real BiMaterialFault::strengthHook(real faultStrength,
 #pragma omp declare simd
 real TPApprox::stateVariableHook(real localAccumulatedSlip,
                                  real localDc,
-                                 std::size_t ltsFace,
-                                 std::uint32_t pointIndex) {
+                                 std::size_t /*ltsFace*/,
+                                 std::uint32_t /*pointIndex*/) {
   const real factor = (1.0 + std::fabs(localAccumulatedSlip) / localDc);
   return 1.0 - std::pow(factor, -drParameters->tpProxyExponent);
 }

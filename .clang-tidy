@@ -40,7 +40,7 @@ Checks:
   - -bugprone-easily-swappable-parameters
   - -bugprone-unchecked-optional-access
   - -bugprone-crtp-constructor-accessibility
-  - -bugprone-branch-clone,
+  - -bugprone-branch-clone
   - clang-diagnostic-*
   - cppcoreguidelines-*
   - -cppcoreguidelines-avoid-c-arrays
@@ -65,7 +65,6 @@ Checks:
   - -llvm-prefer-static-over-anonymous-namespace
   - misc-*
   - -misc-non-private-member-variables-in-classes
-  - -misc-unused-parameters
   - -misc-no-recursion
   - modernize-*
   - -modernize-avoid-c-arrays

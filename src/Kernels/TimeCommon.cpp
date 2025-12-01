@@ -10,6 +10,7 @@
 #include "TimeCommon.h"
 
 #include "Common/Constants.h"
+#include "Common/Marker.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
@@ -86,11 +87,12 @@ void TimeCommon::computeIntegrals(Time& time,
   }
 }
 
-void TimeCommon::computeBatchedIntegrals(Time& time,
-                                         const real* timeCoeffs,
-                                         const real* subtimeCoeffs,
-                                         recording::ConditionalPointersToRealsTable& table,
-                                         seissol::parallel::runtime::StreamRuntime& runtime) {
+void TimeCommon::computeBatchedIntegrals(
+    SEISSOL_GPU_PARAM Time& time,
+    SEISSOL_GPU_PARAM const real* timeCoeffs,
+    SEISSOL_GPU_PARAM const real* subtimeCoeffs,
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
   // Compute time integrated dofs using neighbors derivatives using the GTS relation,

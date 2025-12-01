@@ -90,9 +90,9 @@ template <class T>
 class IdentityRefiner : public TetrahedronRefiner<T> {
   public:
   void refine(const Tetrahedron<T>& in,
-              unsigned int addVertexStart,
+              unsigned int /*addVertexStart*/,
               Tetrahedron<T>* out,
-              Eigen::Matrix<T, 3, 1>* addVertices) const override {
+              Eigen::Matrix<T, 3, 1>* /*addVertices*/) const override {
     out[0] = in;
   }
 

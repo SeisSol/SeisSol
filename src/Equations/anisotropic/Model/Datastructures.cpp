@@ -186,7 +186,7 @@ double AnisotropicMaterial::getSWaveSpeed() const {
 
 MaterialType AnisotropicMaterial::getMaterialType() const { return MaterialType::Anisotropic; }
 
-void AnisotropicMaterial::setLameParameters(double mu, double lambda) {
+void AnisotropicMaterial::setLameParameters(double /*mu*/, double /*lambda*/) {
   // no idea.
   logError() << "Setting the Lamé parameters for anisotropic materials is not yet implemented.";
 }

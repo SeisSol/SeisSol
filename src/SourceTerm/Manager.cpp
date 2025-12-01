@@ -12,6 +12,7 @@
 #include "Manager.h"
 
 #include "Common/Constants.h"
+#include "Common/Marker.h"
 #include "Equations/Datastructures.h"
 #include "FSRMReader.h"
 #include "GeneratedCode/init.h"
@@ -114,8 +115,7 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
                                         const seissol::model::Material* material,
                                         PointSources& pointSources,
                                         std::size_t index,
-                                        std::size_t tensorIndex,
-                                        seissol::memory::Memkind memkind) {
+                                        std::size_t tensorIndex) {
   std::array<real, 9> faultBasis{};
   faultBasis[0] = subfault.tan1(0);
   faultBasis[1] = subfault.tan1(1);
@@ -178,7 +178,7 @@ struct NrfFile : public SourceFile {
 
   [[nodiscard]] const std::vector<Eigen::Vector3d>& points() const { return nrf.centres; }
 
-  [[nodiscard]] std::size_t dataSources(std::size_t sourceIndex) const { return 3; }
+  [[nodiscard]] std::size_t dataSources(std::size_t /*sourceIndex*/) const { return 3; }
 
   [[nodiscard]] std::size_t sampleCount(std::size_t sourceIndex) const {
     const std::size_t nrfIndex = originalIndex[sourceIndex];
@@ -192,8 +192,7 @@ struct NrfFile : public SourceFile {
   void transform(PointSources& sources,
                  std::size_t sourceIndex,
                  std::size_t index,
-                 const seissol::model::Material& material,
-                 memory::Memkind memkind) {
+                 const seissol::model::Material& material) {
     const std::size_t nrfIndex = originalIndex[sourceIndex];
     transformNRFSourceToInternalSource(nrf.subfaults[nrfIndex],
                                        nrf.sroffsets[nrfIndex],
@@ -202,8 +201,7 @@ struct NrfFile : public SourceFile {
                                        &material,
                                        sources,
                                        index,
-                                       sources.sampleRange[index],
-                                       memkind);
+                                       sources.sampleRange[index]);
   }
 };
 #endif // defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
@@ -214,17 +212,16 @@ struct FsrmFile : public SourceFile {
 
   [[nodiscard]] const std::vector<Eigen::Vector3d>& points() const { return fsrm.centers; }
 
-  [[nodiscard]] std::size_t dataSources(std::size_t sourceIndex) const { return 1; }
+  [[nodiscard]] std::size_t dataSources(std::size_t /*sourceIndex*/) const { return 1; }
 
-  [[nodiscard]] std::size_t sampleCount(std::size_t sourceIndex) const {
+  [[nodiscard]] std::size_t sampleCount(std::size_t /*sourceIndex*/) const {
     return fsrm.numberOfSamples;
   }
 
   void transform(PointSources& sources,
                  std::size_t sourceIndex,
                  std::size_t index,
-                 const seissol::model::Material& material,
-                 memory::Memkind memkind) {
+                 const seissol::model::Material& material) {
     const std::size_t fsrmIndex = originalIndex[sourceIndex];
 
     auto* tensor = sources.tensor.data() + sources.sampleRange[index] * tensor::update::Size;
@@ -346,9 +343,10 @@ auto mapPointSourcesToClusters(const std::size_t* meshIds,
 
 auto makePointSourceCluster(const ClusterMapping& mapping,
                             const PointSources& sources,
-                            const std::size_t* meshIds,
-                            LTS::Storage& ltsStorage,
-                            LTS::Backmap& backmap) -> seissol::kernels::PointSourceClusterPair {
+                            SEISSOL_GPU_PARAM const std::size_t* meshIds,
+                            SEISSOL_GPU_PARAM LTS::Storage& ltsStorage,
+                            SEISSOL_GPU_PARAM LTS::Backmap& backmap)
+    -> seissol::kernels::PointSourceClusterPair {
   auto hostData = std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources>>(
       std::make_shared<ClusterMapping>(mapping), std::make_shared<PointSources>(sources));
 
@@ -484,7 +482,7 @@ auto loadSourceFile(const char* fileName,
 
       const auto position = backmap.get(meshIds[sourceIndex]);
       const auto& material = *ltsStorage.lookup<LTS::Material>(position).local;
-      file.transform(sources, sourceIndex, clusterSource, material, memkind);
+      file.transform(sources, sourceIndex, clusterSource, material);
     }
 
     sourceCluster[cluster] = makePointSourceCluster(
