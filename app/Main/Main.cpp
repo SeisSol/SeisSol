@@ -44,7 +44,7 @@
 namespace {
 using namespace seissol;
 
-auto readYamlParams(const std::string& parameterFile) -> std::shared_ptr<YAML::Node> {
+std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
   // Read parameter file input from file
   fty::Loader<fty::AsLowercase> loader{};
   std::shared_ptr<YAML::Node> inputParams = nullptr;
@@ -57,7 +57,7 @@ auto readYamlParams(const std::string& parameterFile) -> std::shared_ptr<YAML::N
 }
 } // namespace
 
-auto main(int argc, char* argv[]) -> int {
+int main(int argc, char* argv[]) {
   try {
 #ifdef ACL_DEVICE
     seissol::Mpi::mpi.bindAcceleratorDevice();

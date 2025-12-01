@@ -305,21 +305,23 @@ struct MaterialSetup<PoroElasticMaterial> {
         chiPlus(i, i) = 1.0;
       }
     }
-    CMatrix mR = localEigenvectors * chiMinus + neighborEigenvectors * chiPlus;
+
+    // matR == eigenvector matrix
+    CMatrix matR = localEigenvectors * chiMinus + neighborEigenvectors * chiPlus;
     // set null space eigenvectors manually
-    mR(1, 4) = 1.0;
-    mR(2, 5) = 1.0;
-    mR(12, 6) = 1.0;
-    mR(11, 7) = 1.0;
-    mR(4, 8) = 1.0;
+    matR(1, 4) = 1.0;
+    matR(2, 5) = 1.0;
+    matR(12, 6) = 1.0;
+    matR(11, 7) = 1.0;
+    matR(4, 8) = 1.0;
     if (faceType == FaceType::FreeSurface) {
-      Matrix realR = mR.real();
+      Matrix realR = matR.real();
       getTransposedFreeSurfaceGodunovState(
           MaterialType::Poroelastic, qGodLocal, qGodNeighbor, realR);
     } else {
-      CMatrix invR = mR.inverse();
-      CMatrix godunovMinus = mR * chiMinus * invR;
-      CMatrix godunovPlus = mR * chiPlus * invR;
+      CMatrix invR = matR.inverse();
+      CMatrix godunovMinus = matR * chiMinus * invR;
+      CMatrix godunovPlus = matR * chiPlus * invR;
 
       for (unsigned i = 0; i < qGodLocal.shape(1); ++i) {
         for (unsigned j = 0; j < qGodLocal.shape(0); ++j) {

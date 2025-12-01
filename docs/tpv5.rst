@@ -20,7 +20,7 @@ fault surface. As it propagates away from the nucleation zone, it
 encounters two square patches with initial stress conditions that are
 different from the rest of the fault surface.
 
-.. figure:: ./figures/tpv5_mesh.png
+.. figure:: figures/tpv5_mesh.png
    :alt: Diagram of TPV5.
    :width: 9.00000cm
    :align: center

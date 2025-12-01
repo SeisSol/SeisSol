@@ -26,25 +26,25 @@ template <>
 struct MaterialSetup<AcousticMaterial> {
   template <typename T>
   static void
-      getTransposedCoefficientMatrix(const AcousticMaterial& material, unsigned dim, T& mM) {
-    mM.setZero();
+      getTransposedCoefficientMatrix(const AcousticMaterial& material, unsigned dim, T& matM) {
+    matM.setZero();
 
     const double rhoInv = 1.0 / material.rho;
 
     switch (dim) {
     case 0:
-      mM(1, 0) = material.lambda;
-      mM(0, 1) = rhoInv;
+      matM(1, 0) = material.lambda;
+      matM(0, 1) = rhoInv;
       break;
 
     case 1:
-      mM(2, 0) = material.lambda;
-      mM(0, 2) = rhoInv;
+      matM(2, 0) = material.lambda;
+      matM(0, 2) = rhoInv;
       break;
 
     case 2:
-      mM(3, 0) = material.lambda;
-      mM(0, 3) = rhoInv;
+      matM(3, 0) = material.lambda;
+      matM(0, 3) = rhoInv;
       break;
 
     default:
@@ -60,15 +60,17 @@ struct MaterialSetup<AcousticMaterial> {
                                         Tneigh& qGodNeighbor) {
     qGodNeighbor.setZero();
 
+    // matR == eigenvector matrix
+
     // Eigenvectors are precomputed
-    Matrix44 mR = Matrix44::Zero();
+    Matrix44 matR = Matrix44::Zero();
     // scale for better condition number of R
-    mR(0, 0) = std::sqrt(local.lambda * local.rho);
-    mR(1, 0) = -local.lambda;
-    mR(0, 1) = std::sqrt(neighbor.lambda * neighbor.rho);
-    mR(1, 1) = neighbor.lambda;
-    mR(2, 2) = local.lambda;
-    mR(3, 3) = local.lambda;
+    matR(0, 0) = std::sqrt(local.lambda * local.rho);
+    matR(1, 0) = -local.lambda;
+    matR(0, 1) = std::sqrt(neighbor.lambda * neighbor.rho);
+    matR(1, 1) = neighbor.lambda;
+    matR(2, 2) = local.lambda;
+    matR(3, 3) = local.lambda;
 
     if (faceType == FaceType::FreeSurface) {
       for (size_t i = 0; i < 4; i++) {
@@ -77,13 +79,13 @@ struct MaterialSetup<AcousticMaterial> {
         }
       }
       qGodLocal.setZero();
-      qGodLocal(0, 1) = -1 * mR(1, 0) * 1 / mR(0, 0);
+      qGodLocal(0, 1) = -1 * matR(1, 0) * 1 / matR(0, 0);
       qGodLocal(1, 1) = 1.0;
     } else {
       Matrix44 chi = Matrix44::Zero();
       chi(0, 0) = 1.0;
 
-      const auto godunov = ((mR * chi) * mR.inverse()).eval();
+      const auto godunov = ((matR * chi) * matR.inverse()).eval();
 
       // qGodLocal = I - qGodNeighbor
       for (unsigned i = 0; i < godunov.cols(); ++i) {

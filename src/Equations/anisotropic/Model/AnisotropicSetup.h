@@ -27,82 +27,82 @@ template <>
 struct MaterialSetup<AnisotropicMaterial> {
   template <typename T>
   static void
-      getTransposedCoefficientMatrix(const AnisotropicMaterial& material, unsigned dim, T& mM) {
-    mM.setZero();
+      getTransposedCoefficientMatrix(const AnisotropicMaterial& material, unsigned dim, T& matM) {
+    matM.setZero();
 
     const auto rhoInv = 1.0 / material.rho;
 
     switch (dim) {
     case 0:
-      mM(6, 0) = -material.c11;
-      mM(7, 0) = -material.c16;
-      mM(8, 0) = -material.c15;
-      mM(6, 1) = -material.c12;
-      mM(7, 1) = -material.c26;
-      mM(8, 1) = -material.c25;
-      mM(6, 2) = -material.c13;
-      mM(7, 2) = -material.c36;
-      mM(8, 2) = -material.c35;
-      mM(6, 3) = -material.c16;
-      mM(7, 3) = -material.c66;
-      mM(8, 3) = -material.c56;
-      mM(6, 4) = -material.c14;
-      mM(7, 4) = -material.c46;
-      mM(8, 4) = -material.c45;
-      mM(6, 5) = -material.c15;
-      mM(7, 5) = -material.c56;
-      mM(8, 5) = -material.c55;
-      mM(0, 6) = -rhoInv;
-      mM(3, 7) = -rhoInv;
-      mM(5, 8) = -rhoInv;
+      matM(6, 0) = -material.c11;
+      matM(7, 0) = -material.c16;
+      matM(8, 0) = -material.c15;
+      matM(6, 1) = -material.c12;
+      matM(7, 1) = -material.c26;
+      matM(8, 1) = -material.c25;
+      matM(6, 2) = -material.c13;
+      matM(7, 2) = -material.c36;
+      matM(8, 2) = -material.c35;
+      matM(6, 3) = -material.c16;
+      matM(7, 3) = -material.c66;
+      matM(8, 3) = -material.c56;
+      matM(6, 4) = -material.c14;
+      matM(7, 4) = -material.c46;
+      matM(8, 4) = -material.c45;
+      matM(6, 5) = -material.c15;
+      matM(7, 5) = -material.c56;
+      matM(8, 5) = -material.c55;
+      matM(0, 6) = -rhoInv;
+      matM(3, 7) = -rhoInv;
+      matM(5, 8) = -rhoInv;
       break;
 
     case 1:
-      mM(6, 0) = -material.c16;
-      mM(7, 0) = -material.c12;
-      mM(8, 0) = -material.c14;
-      mM(6, 1) = -material.c26;
-      mM(7, 1) = -material.c22;
-      mM(8, 1) = -material.c24;
-      mM(6, 2) = -material.c36;
-      mM(7, 2) = -material.c23;
-      mM(8, 2) = -material.c34;
-      mM(6, 3) = -material.c66;
-      mM(7, 3) = -material.c26;
-      mM(8, 3) = -material.c46;
-      mM(6, 4) = -material.c46;
-      mM(7, 4) = -material.c24;
-      mM(8, 4) = -material.c44;
-      mM(6, 5) = -material.c56;
-      mM(7, 5) = -material.c25;
-      mM(8, 5) = -material.c45;
-      mM(3, 6) = -rhoInv;
-      mM(1, 7) = -rhoInv;
-      mM(4, 8) = -rhoInv;
+      matM(6, 0) = -material.c16;
+      matM(7, 0) = -material.c12;
+      matM(8, 0) = -material.c14;
+      matM(6, 1) = -material.c26;
+      matM(7, 1) = -material.c22;
+      matM(8, 1) = -material.c24;
+      matM(6, 2) = -material.c36;
+      matM(7, 2) = -material.c23;
+      matM(8, 2) = -material.c34;
+      matM(6, 3) = -material.c66;
+      matM(7, 3) = -material.c26;
+      matM(8, 3) = -material.c46;
+      matM(6, 4) = -material.c46;
+      matM(7, 4) = -material.c24;
+      matM(8, 4) = -material.c44;
+      matM(6, 5) = -material.c56;
+      matM(7, 5) = -material.c25;
+      matM(8, 5) = -material.c45;
+      matM(3, 6) = -rhoInv;
+      matM(1, 7) = -rhoInv;
+      matM(4, 8) = -rhoInv;
       break;
 
     case 2:
-      mM(6, 0) = -material.c15;
-      mM(7, 0) = -material.c14;
-      mM(8, 0) = -material.c13;
-      mM(6, 1) = -material.c25;
-      mM(7, 1) = -material.c24;
-      mM(8, 1) = -material.c23;
-      mM(6, 2) = -material.c35;
-      mM(7, 2) = -material.c34;
-      mM(8, 2) = -material.c33;
-      mM(6, 3) = -material.c56;
-      mM(7, 3) = -material.c46;
-      mM(8, 3) = -material.c36;
-      mM(6, 4) = -material.c45;
-      mM(7, 4) = -material.c44;
-      mM(8, 4) = -material.c34;
-      mM(6, 5) = -material.c55;
-      mM(7, 5) = -material.c45;
-      mM(8, 5) = -material.c35;
-      mM(5, 6) = -rhoInv;
-      mM(4, 7) = -rhoInv;
-      mM(2, 8) = -rhoInv;
+      matM(6, 0) = -material.c15;
+      matM(7, 0) = -material.c14;
+      matM(8, 0) = -material.c13;
+      matM(6, 1) = -material.c25;
+      matM(7, 1) = -material.c24;
+      matM(8, 1) = -material.c23;
+      matM(6, 2) = -material.c35;
+      matM(7, 2) = -material.c34;
+      matM(8, 2) = -material.c33;
+      matM(6, 3) = -material.c56;
+      matM(7, 3) = -material.c46;
+      matM(8, 3) = -material.c36;
+      matM(6, 4) = -material.c45;
+      matM(7, 4) = -material.c44;
+      matM(8, 4) = -material.c34;
+      matM(6, 5) = -material.c55;
+      matM(7, 5) = -material.c45;
+      matM(8, 5) = -material.c35;
+      matM(5, 6) = -rhoInv;
+      matM(4, 7) = -rhoInv;
+      matM(2, 8) = -rhoInv;
       break;
 
     default:
@@ -112,17 +112,19 @@ struct MaterialSetup<AnisotropicMaterial> {
 
   static void getEigenBasisForAnisotropicMaterial(const AnisotropicMaterial& local,
                                                   const AnisotropicMaterial& neighbor,
-                                                  Matrix99& mR) {
+                                                  Matrix99& matR) {
     using Matrix33 = Eigen::Matrix<double, 3, 3, Eigen::ColMajor>;
     using Matrix63 = Eigen::Matrix<double, 6, 3, Eigen::ColMajor>;
+
+    // matR == eigenvector matrix
 
     /* Calculate Eigenvectors and Eigenvalues
      * We want to solve
      * /0  A\  /s\ = l /s\
-     * \mR  0/  \u/     \u/
+     * \matR  0/  \u/     \u/
      * which is equivalent to
-     * mR * A * u = l*l * u && s = 1/l A * u
-     * Here A has shape 6x3 and mR has shape 3x6
+     * matR * A * u = l*l * u && s = 1/l A * u
+     * Here A has shape 6x3 and matR has shape 3x6
      */
     Eigen::SelfAdjointEigenSolver<Matrix33> saes;
 
@@ -214,7 +216,7 @@ struct MaterialSetup<AnisotropicMaterial> {
     nullSpaceEigenvectors(2, 1) = 1;
     nullSpaceEigenvectors(4, 2) = 1;
 
-    mR << localA * eigenvectorsLocal, nullSpaceEigenvectors, neighborA * eigenvectorsNeighbor,
+    matR << localA * eigenvectorsLocal, nullSpaceEigenvectors, neighborA * eigenvectorsNeighbor,
         -eigenvectorsLocal * lambdaLocal, Matrix33::Zero(), eigenvectorsNeighbor * lambdaNeighbor;
   }
 
@@ -224,11 +226,12 @@ struct MaterialSetup<AnisotropicMaterial> {
                                         init::QgodLocal::view::type& qGodLocal,
                                         init::QgodNeighbor::view::type& qGodNeighbor) {
 
-    Matrix99 mR = Matrix99::Zero();
-    getEigenBasisForAnisotropicMaterial(local, neighbor, mR);
+    Matrix99 matR = Matrix99::Zero();
+    getEigenBasisForAnisotropicMaterial(local, neighbor, matR);
 
     if (faceType == FaceType::FreeSurface) {
-      getTransposedFreeSurfaceGodunovState(MaterialType::Anisotropic, qGodLocal, qGodNeighbor, mR);
+      getTransposedFreeSurfaceGodunovState(
+          MaterialType::Anisotropic, qGodLocal, qGodNeighbor, matR);
 
     } else {
       Matrix99 chi = Matrix99::Zero();
@@ -236,7 +239,7 @@ struct MaterialSetup<AnisotropicMaterial> {
       chi(1, 1) = 1.0;
       chi(2, 2) = 1.0;
 
-      const auto godunov = ((mR * chi) * mR.inverse()).eval();
+      const auto godunov = ((matR * chi) * matR.inverse()).eval();
 
       // qGodLocal = I - qGodNeighbor
       for (unsigned i = 0; i < qGodLocal.shape(1); ++i) {

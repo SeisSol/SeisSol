@@ -171,7 +171,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                                              this->deltaT[timeIndex],
                                                              localSlipRate[pointIndex]);
       }
-      this->tpMethod.calcFluidPressure(
+      tpMethod.calcFluidPressure(
           normalStress, this->mu, localSlipRate, this->deltaT[timeIndex], false, ltsFace);
 
       updateNormalStress(normalStress, faultStresses, timeIndex, ltsFace);

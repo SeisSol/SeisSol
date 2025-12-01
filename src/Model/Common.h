@@ -35,8 +35,8 @@ constexpr bool testIfAcoustic(T mu) {
 }
 
 template <typename Tmaterial, typename Tmatrix>
-void getTransposedCoefficientMatrix(const Tmaterial& material, unsigned dim, Tmatrix& mM) {
-  MaterialSetup<Tmaterial>::getTransposedCoefficientMatrix(material, dim, mM);
+void getTransposedCoefficientMatrix(const Tmaterial& material, unsigned dim, Tmatrix& matM) {
+  MaterialSetup<Tmaterial>::getTransposedCoefficientMatrix(material, dim, matM);
 }
 
 template <typename Tmaterial, typename T>
@@ -63,7 +63,7 @@ template <typename T, typename Tmatrix>
 void getTransposedFreeSurfaceGodunovState(MaterialType materialtype,
                                           T& qGodLocal,
                                           T& qGodNeighbor,
-                                          Tmatrix& mR);
+                                          Tmatrix& matR);
 
 template <typename T>
 void getPlaneWaveOperator(const T& material,
@@ -130,9 +130,9 @@ void getElasticPlaneWaveOperator(
     const MaterialT& material,
     const double n[3],
     std::complex<double> mdata[MaterialT::NumQuantities * MaterialT::NumQuantities]) {
-  yateto::DenseTensorView<2, std::complex<double>> mM(
+  yateto::DenseTensorView<2, std::complex<double>> matM(
       mdata, {MaterialT::NumQuantities, MaterialT::NumQuantities});
-  mM.setZero();
+  matM.setZero();
 
   double data[MaterialT::NumQuantities * MaterialT::NumQuantities];
   yateto::DenseTensorView<2, double> coeff(data,
@@ -144,7 +144,7 @@ void getElasticPlaneWaveOperator(
 
     for (unsigned i = 0; i < MaterialT::NumQuantities; ++i) {
       for (unsigned j = 0; j < MaterialT::NumQuantities; ++j) {
-        mM(i, j) += n[d] * coeff(j, i);
+        matM(i, j) += n[d] * coeff(j, i);
       }
     }
   }
@@ -153,7 +153,7 @@ void getElasticPlaneWaveOperator(
 
   for (unsigned i = 0; i < MaterialT::NumQuantities; ++i) {
     for (unsigned j = 0; j < MaterialT::NumQuantities; ++j) {
-      mM(i, j) -= std::complex<double>(0.0, coeff(j, i));
+      matM(i, j) -= std::complex<double>(0.0, coeff(j, i));
     }
   }
 }
@@ -250,19 +250,21 @@ template <typename T, typename Tmatrix>
 void seissol::model::getTransposedFreeSurfaceGodunovState(MaterialType materialtype,
                                                           T& qGodLocal,
                                                           T& qGodNeighbor,
-                                                          Tmatrix& mR) {
+                                                          Tmatrix& matR) {
   for (size_t i = 0; i < seissol::model::MaterialT::NumElasticQuantities; i++) {
     for (size_t j = 0; j < seissol::model::MaterialT::NumElasticQuantities; j++) {
       qGodNeighbor(i, j) = std::numeric_limits<double>::signaling_NaN();
     }
   }
 
+  // matR == eigenvector matrix
+
   qGodLocal.setZero();
   switch (materialtype) {
   case MaterialType::Acoustic: {
     // Acoustic material only has one traction (=pressure) and one velocity comp.
     // relevant to the Riemann problem
-    qGodLocal(0, 6) = -1 * mR(6, 0) * 1 / mR(0, 0); // mS
+    qGodLocal(0, 6) = -1 * matR(6, 0) * 1 / matR(0, 0); // mS
     qGodLocal(6, 6) = 1.0;
     break;
   }
@@ -273,8 +275,8 @@ void seissol::model::getTransposedFreeSurfaceGodunovState(MaterialType materialt
     const std::array<int, 4> tractionIndices = {0, 3, 5, 9};
     const std::array<int, 6> velocityIndices = {6, 7, 8, 10, 11, 12};
     const std::array<int, 4> columnIndices = {0, 1, 2, 3};
-    const Matrix44 matR11 = mR(tractionIndices, columnIndices);
-    const Matrix64 matR21 = mR(velocityIndices, columnIndices);
+    const Matrix44 matR11 = matR(tractionIndices, columnIndices);
+    const Matrix64 matR21 = matR(velocityIndices, columnIndices);
     const Matrix64 matS = (-(matR21 * matR11.inverse())).eval();
     setBlocks(qGodLocal, matS, tractionIndices, velocityIndices);
     break;
@@ -283,8 +285,8 @@ void seissol::model::getTransposedFreeSurfaceGodunovState(MaterialType materialt
     const std::array<int, 3> tractionIndices = {0, 3, 5};
     const std::array<int, 3> velocityIndices = {6, 7, 8};
     using Matrix33 = Eigen::Matrix<double, 3, 3>;
-    const Matrix33 matR11 = mR(tractionIndices, {0, 1, 2});
-    const Matrix33 matR21 = mR(velocityIndices, {0, 1, 2});
+    const Matrix33 matR11 = matR(tractionIndices, {0, 1, 2});
+    const Matrix33 matR21 = matR(velocityIndices, {0, 1, 2});
     const Matrix33 matS = (-(matR21 * matR11.inverse())).eval();
     setBlocks(qGodLocal, matS, tractionIndices, velocityIndices);
     break;

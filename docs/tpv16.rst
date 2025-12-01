@@ -120,7 +120,7 @@ due to the heterogenous stress ratio on the fault. Figure
 [fig:tpv16slip] shows the fault slip rate along strike-direction at
 T=5.5 s.
 
-.. figure:: ./figures/PSR_16.png
+.. figure:: figures/PSR_16.png
    :alt: Mapview of fault slip rate along strike-direction.
    :width: 11.00000cm
    :align: center
@@ -131,14 +131,14 @@ There are several receivers on the fault surface. Figure
 [fig:tpv16fault] shows slip rate along the strike- and downdip-direction
 on the fault at point (15 km, 0 km, -9 km).
 
-.. figure:: ./figures/sliprate_16.png
+.. figure:: figures/sliprate_16.png
    :alt: Fault slip along strike- (left)and downdip- (right) direction.
    :width: 11.00000cm
    :align: center
 
    Fault slip along strike- (left)and downdip- (right) direction.
 
-.. figure:: ./figures/tpv16_uvw1.png
+.. figure:: figures/tpv16_uvw1.png
    :alt: Velocity at two opposite stations across the fault surface.
    :width: 11.00000cm
    :align: center

@@ -17,11 +17,11 @@ void testResidual(std::array<std::complex<double>, Dim * Dim>& m,
   constexpr auto Epsilon = std::numeric_limits<double>::epsilon() * 1e3;
 
   // compute M*R
-  std::array<std::complex<double>, Dim * Dim> mR{};
+  std::array<std::complex<double>, Dim * Dim> matR{};
   for (std::size_t i = 0; i < Dim; i++) {
     for (std::size_t j = 0; j < Dim; j++) {
       for (std::size_t k = 0; k < Dim; k++) {
-        mR[i + Dim * j] += m[i + Dim * k] * eigenpair.vectors[k + Dim * j];
+        matR[i + Dim * j] += m[i + Dim * k] * eigenpair.vectors[k + Dim * j];
       }
     }
   }
@@ -34,7 +34,7 @@ void testResidual(std::array<std::complex<double>, Dim * Dim>& m,
   }
   // compare residual
   for (std::size_t i = 0; i < Dim * Dim; i++) {
-    REQUIRE(std::abs(mR[i] - rL[i]) == AbsApprox(0.0).epsilon(Epsilon));
+    REQUIRE(std::abs(matR[i] - rL[i]) == AbsApprox(0.0).epsilon(Epsilon));
   }
 }
 

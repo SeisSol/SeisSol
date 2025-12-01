@@ -84,62 +84,64 @@ struct MaterialSetup<ElasticMaterial> {
                                         Tneigh& qGodNeighbor) {
     qGodNeighbor.setZero();
 
+    // matR == eigenvector matrix
+
     // Eigenvectors are precomputed
-    Matrix99 mR = Matrix99::Zero();
+    Matrix99 matR = Matrix99::Zero();
 
     if (testIfAcoustic(local.mu)) {
-      mR(0, 0) = local.lambda;
-      mR(1, 0) = local.lambda;
-      mR(2, 0) = local.lambda;
-      mR(6, 0) = std::sqrt((local.lambda) / local.rho);
+      matR(0, 0) = local.lambda;
+      matR(1, 0) = local.lambda;
+      matR(2, 0) = local.lambda;
+      matR(6, 0) = std::sqrt((local.lambda) / local.rho);
 
-      // scale for better condition number of mR
-      mR(3, 1) = local.lambda;
-      mR(5, 2) = local.lambda;
+      // scale for better condition number of matR
+      matR(3, 1) = local.lambda;
+      matR(5, 2) = local.lambda;
     } else {
-      mR(0, 0) = local.lambda + 2 * local.mu;
-      mR(1, 0) = local.lambda;
-      mR(2, 0) = local.lambda;
-      mR(6, 0) = std::sqrt((local.lambda + 2 * local.mu) / local.rho);
+      matR(0, 0) = local.lambda + 2 * local.mu;
+      matR(1, 0) = local.lambda;
+      matR(2, 0) = local.lambda;
+      matR(6, 0) = std::sqrt((local.lambda + 2 * local.mu) / local.rho);
 
-      mR(3, 1) = local.mu;
-      mR(7, 1) = std::sqrt(local.mu / local.rho);
+      matR(3, 1) = local.mu;
+      matR(7, 1) = std::sqrt(local.mu / local.rho);
 
-      mR(5, 2) = local.mu;
-      mR(8, 2) = std::sqrt(local.mu / local.rho);
+      matR(5, 2) = local.mu;
+      matR(8, 2) = std::sqrt(local.mu / local.rho);
     }
 
-    // scale for better condition number of mR
-    mR(4, 3) = local.lambda + 2 * local.mu;
-    mR(1, 4) = local.lambda + 2 * local.mu;
-    mR(2, 5) = local.lambda + 2 * local.mu;
+    // scale for better condition number of matR
+    matR(4, 3) = local.lambda + 2 * local.mu;
+    matR(1, 4) = local.lambda + 2 * local.mu;
+    matR(2, 5) = local.lambda + 2 * local.mu;
 
     if (testIfAcoustic(neighbor.mu)) {
-      // scale for better condition number of mR
-      mR(7, 6) = neighbor.lambda;
-      mR(8, 7) = neighbor.lambda;
+      // scale for better condition number of matR
+      matR(7, 6) = neighbor.lambda;
+      matR(8, 7) = neighbor.lambda;
 
-      mR(0, 8) = neighbor.lambda;
-      mR(1, 8) = neighbor.lambda;
-      mR(2, 8) = neighbor.lambda;
-      mR(6, 8) = -std::sqrt((neighbor.lambda + 2 * neighbor.mu) / neighbor.rho);
+      matR(0, 8) = neighbor.lambda;
+      matR(1, 8) = neighbor.lambda;
+      matR(2, 8) = neighbor.lambda;
+      matR(6, 8) = -std::sqrt((neighbor.lambda + 2 * neighbor.mu) / neighbor.rho);
     } else {
-      mR(5, 6) = neighbor.mu;
-      mR(8, 6) = -std::sqrt(neighbor.mu / neighbor.rho);
+      matR(5, 6) = neighbor.mu;
+      matR(8, 6) = -std::sqrt(neighbor.mu / neighbor.rho);
 
-      mR(3, 7) = neighbor.mu;
-      mR(7, 7) = -std::sqrt(neighbor.mu / neighbor.rho);
+      matR(3, 7) = neighbor.mu;
+      matR(7, 7) = -std::sqrt(neighbor.mu / neighbor.rho);
 
-      mR(0, 8) = neighbor.lambda + 2 * neighbor.mu;
-      mR(1, 8) = neighbor.lambda;
-      mR(2, 8) = neighbor.lambda;
-      mR(6, 8) = -std::sqrt((neighbor.lambda + 2 * neighbor.mu) / neighbor.rho);
+      matR(0, 8) = neighbor.lambda + 2 * neighbor.mu;
+      matR(1, 8) = neighbor.lambda;
+      matR(2, 8) = neighbor.lambda;
+      matR(6, 8) = -std::sqrt((neighbor.lambda + 2 * neighbor.mu) / neighbor.rho);
     }
 
     if (faceType == FaceType::FreeSurface) {
       const MaterialType materialtype =
           testIfAcoustic(local.mu) ? MaterialType::Acoustic : MaterialType::Elastic;
-      getTransposedFreeSurfaceGodunovState(materialtype, qGodLocal, qGodNeighbor, mR);
+      getTransposedFreeSurfaceGodunovState(materialtype, qGodLocal, qGodNeighbor, matR);
     } else {
       Matrix99 chi = Matrix99::Zero();
       if (!testIfAcoustic(local.mu)) {
@@ -148,7 +150,7 @@ struct MaterialSetup<ElasticMaterial> {
       }
       chi(0, 0) = 1.0;
 
-      const auto godunov = ((mR * chi) * mR.inverse()).eval();
+      const auto godunov = ((matR * chi) * matR.inverse()).eval();
 
       // qGodLocal = I - qGodNeighbor
       for (unsigned i = 0; i < godunov.cols(); ++i) {

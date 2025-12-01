@@ -26,7 +26,7 @@
 
 using namespace seissol::proxy;
 
-auto main(int argc, char* argv[]) -> int {
+int main(int argc, char* argv[]) {
   std::stringstream kernelHelp;
   auto allowedKernels = Aux::getAllowedKernels();
   kernelHelp << "Kernels to benchmark. A comma-separated list of (those kernels will be run "
