@@ -130,9 +130,9 @@ inline std::string tpath(const std::string& subpath) {
 namespace std {
 template <typename T>
 ostream& operator<<(ostream& stream, const std::vector<T>& vec) {
-  stream << "{";
+  stream << "{ ";
   for (const auto& item : vec) {
-    stream << item << ",";
+    stream << item << ", ";
   }
   stream << "}";
   return stream;
@@ -140,9 +140,9 @@ ostream& operator<<(ostream& stream, const std::vector<T>& vec) {
 
 template <typename T, std::size_t N>
 ostream& operator<<(ostream& stream, const std::array<T, N>& vec) {
-  stream << "{";
+  stream << "{ ";
   for (const auto& item : vec) {
-    stream << item << ",";
+    stream << item << ", ";
   }
   stream << "}";
   return stream;

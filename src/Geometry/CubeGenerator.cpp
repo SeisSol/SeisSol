@@ -1531,12 +1531,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   // Get maximum number of neighbors (required to get collective MPI-IO right)
   const int maxNeighbors = bndSize;
-  // MPI_Allreduce(MPI_IN_PLACE, &maxNeighbors, 1, MPI_INT, MPI_MAX, seissol::Mpi::mpi.comm());
   int* bndElemLocalIds = new int[bndElemSize];
-
-  //        SCOREP_USER_REGION_DEFINE( r_read_boundaries );
-  //        SCOREP_USER_REGION_BEGIN( r_read_boundaries, "read_boundaries",
-  //        SCOREP_USER_REGION_TYPE_COMMON );
 
   size_t bndStart[3] = {0, 0, 0};
   for (int i = 0; i < maxNeighbors; i++) {
@@ -1561,8 +1556,6 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   delete[] bndLocalIds;
   delete[] bndElemLocalIds;
-
-  //        SCOREP_USER_REGION_END( r_read_boundaries )
 
   delete[] sizes;
 

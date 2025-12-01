@@ -180,7 +180,7 @@ PUMLReader::PUMLReader(const std::string& meshFile,
                        seissol::initializer::parameters::TopologyFormat topologyFormat,
                        initializer::time_stepping::LtsWeights* ltsWeights,
                        double tpwgt)
-    : MeshReader(seissol::Mpi::mpi.rank()), boundaryFormat(boundaryFormat) {
+    : MeshReader(seissol::Mpi::mpi.rank()) {
   // we need up to two meshes, potentially:
   // one mesh for the geometry
   // one mesh for the topology
@@ -191,7 +191,7 @@ PUMLReader::PUMLReader(const std::string& meshFile,
   meshTopologyExtra.setComm(seissol::Mpi::mpi.comm());
   meshGeometry.setComm(seissol::Mpi::mpi.comm());
 
-  read(meshGeometry, meshFile, false);
+  read(meshGeometry, meshFile, false, boundaryFormat);
 
   // Note: we need to call generatePUML in order to create the dual graph of the mesh
   // Note 2: we also need it for vertex identification
@@ -200,9 +200,10 @@ PUMLReader::PUMLReader(const std::string& meshFile,
   if (topologyFormat != initializer::parameters::TopologyFormat::Geometric) {
     // we have a topology mesh; separate from the physical mesh
 
-    read(meshTopologyExtra,
-         meshFile,
-         topologyFormat == initializer::parameters::TopologyFormat::IdentifyFace);
+    const bool readTopology =
+        topologyFormat == initializer::parameters::TopologyFormat::IdentifyFace;
+
+    read(meshTopologyExtra, meshFile, readTopology, boundaryFormat);
 
     int id = -1;
     if (topologyFormat == initializer::parameters::TopologyFormat::IdentifyVertex) {
@@ -231,10 +232,13 @@ PUMLReader::PUMLReader(const std::string& meshFile,
 
   generatePUML(meshTopology, meshGeometry);
 
-  getMesh(meshTopology, meshGeometry);
+  getMesh(meshTopology, meshGeometry, boundaryFormat);
 }
 
-void PUMLReader::read(PumlMesh& meshTopology, const std::string& file, bool topology) {
+void PUMLReader::read(PumlMesh& meshTopology,
+                      const std::string& file,
+                      bool topology,
+                      seissol::initializer::parameters::BoundaryFormat boundaryFormat) {
   SCOREP_USER_REGION("PUMLReader_read", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   if (topology) {
@@ -321,7 +325,9 @@ void PUMLReader::generatePUML(PumlMesh& meshTopology, PumlMesh& meshGeometry) {
   meshGeometry.generateMesh();
 }
 
-void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeometry) {
+void PUMLReader::getMesh(const PumlMesh& meshTopology,
+                         const PumlMesh& meshGeometry,
+                         seissol::initializer::parameters::BoundaryFormat boundaryFormat) {
   SCOREP_USER_REGION("PUMLReader_getmesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   const int rank = Mpi::mpi.rank();

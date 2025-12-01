@@ -15,7 +15,6 @@ namespace seissol {
 // NOLINTBEGIN (bugprone-macro-parentheses)
 
 // IMPORTANT: these macros use member names directly; and thus cannot be safeguarded by parentheses.
-// (I'm sorry, clang-tidy)
 
 #define SEISSOL_OFFSET(type, member) (offsetof(type, member) / sizeof(real))
 

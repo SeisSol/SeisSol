@@ -58,12 +58,13 @@ class PUMLReader : public seissol::geometry::MeshReader {
   bool inlineClusterCompute() const override;
 
   private:
-  seissol::initializer::parameters::BoundaryFormat boundaryFormat;
-
   /**
    * Read the mesh
    */
-  void read(PumlMesh& meshTopology, const std::string& file, bool topology);
+  static void read(PumlMesh& meshTopology,
+                   const std::string& file,
+                   bool topology,
+                   seissol::initializer::parameters::BoundaryFormat boundaryFormat);
 
   /**
    * Create the partitioning
@@ -81,7 +82,9 @@ class PUMLReader : public seissol::geometry::MeshReader {
   /**
    * Get the mesh
    */
-  void getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeometry);
+  void getMesh(const PumlMesh& meshTopology,
+               const PumlMesh& meshGeometry,
+               seissol::initializer::parameters::BoundaryFormat boundaryFormat);
 
   void
       addMPINeighor(const PumlMesh& meshTopology, int rank, const std::vector<unsigned int>& faces);

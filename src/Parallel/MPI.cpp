@@ -82,8 +82,6 @@ void seissol::Mpi::printAcceleratorDeviceInfo() {
 }
 
 void seissol::Mpi::setDataTransferModeFromEnv() {
-  // TODO (Ravil, David): switch to reading this option from the parameter-file.
-  // Waiting for David to finish his `no-fortran` PR
   const auto envVariable =
       utils::Env("SEISSOL_").getOptional<std::string>("PREFERRED_MPI_DATA_TRANSFER_MODE");
   if (envVariable.has_value()) {

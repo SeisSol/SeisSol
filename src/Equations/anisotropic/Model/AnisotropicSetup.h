@@ -126,7 +126,7 @@ struct MaterialSetup<AnisotropicMaterial> {
      */
     Eigen::SelfAdjointEigenSolver<Matrix33> saes;
 
-    double localRAData[9];
+    std::array<double, 9> localRAData{};
     localRAData[0] = local.c11 / local.rho;
     localRAData[1] = local.c16 / local.rho;
     localRAData[2] = local.c15 / local.rho;
@@ -136,12 +136,12 @@ struct MaterialSetup<AnisotropicMaterial> {
     localRAData[6] = local.c15 / local.rho;
     localRAData[7] = local.c56 / local.rho;
     localRAData[8] = local.c55 / local.rho;
-    const Matrix33 localRA(localRAData);
+    const Matrix33 localRA(localRAData.data());
     saes.compute(localRA);
     auto eigenvaluesLocal = saes.eigenvalues();
     auto eigenvectorsLocal = saes.eigenvectors();
 
-    double neighborRAData[9];
+    std::array<double, 9> neighborRAData{};
     neighborRAData[0] = neighbor.c11 / neighbor.rho;
     neighborRAData[1] = neighbor.c16 / neighbor.rho;
     neighborRAData[2] = neighbor.c15 / neighbor.rho;
@@ -151,12 +151,12 @@ struct MaterialSetup<AnisotropicMaterial> {
     neighborRAData[6] = neighbor.c15 / neighbor.rho;
     neighborRAData[7] = neighbor.c56 / neighbor.rho;
     neighborRAData[8] = neighbor.c55 / neighbor.rho;
-    const Matrix33 neighborRA(neighborRAData);
+    const Matrix33 neighborRA(neighborRAData.data());
     saes.compute(neighborRA);
     auto eigenvaluesNeighbor = saes.eigenvalues();
     const auto eigenvectorsNeighbor = saes.eigenvectors();
 
-    double localAData[18];
+    std::array<double, 18> localAData{};
     localAData[0] = -local.c11;
     localAData[1] = -local.c12;
     localAData[2] = -local.c13;
@@ -175,9 +175,9 @@ struct MaterialSetup<AnisotropicMaterial> {
     localAData[15] = -local.c46;
     localAData[16] = -local.c45;
     localAData[17] = -local.c55;
-    const Matrix63 localA(localAData);
+    const Matrix63 localA(localAData.data());
 
-    double neighborAData[18];
+    std::array<double, 18> neighborAData{};
     neighborAData[0] = -neighbor.c11;
     neighborAData[1] = -neighbor.c12;
     neighborAData[2] = -neighbor.c13;
@@ -196,7 +196,7 @@ struct MaterialSetup<AnisotropicMaterial> {
     neighborAData[15] = -neighbor.c46;
     neighborAData[16] = -neighbor.c45;
     neighborAData[17] = -neighbor.c55;
-    const Matrix63 neighborA(neighborAData);
+    const Matrix63 neighborA(neighborAData.data());
 
     // remember that the eigenvalues of the complete system are the square roots
     // of the eigenvalues of the reduced system

@@ -18,10 +18,10 @@ enum class ReflectionType { BothWaves = 1, BothWavesVelocity, Pwave, Swave };
 
 struct ITMParameters {
   bool itmEnabled{false};
-  double itmStartingTime{};
-  double itmDuration{};
-  double itmVelocityScalingFactor{};
-  ReflectionType itmReflectionType{};
+  double itmStartingTime{0.0};
+  double itmDuration{0.0};
+  double itmVelocityScalingFactor{1.0};
+  ReflectionType itmReflectionType{ReflectionType::BothWaves};
 };
 
 enum class NumericalFlux { Godunov, Rusanov };
@@ -33,7 +33,7 @@ struct ModelParameters {
   bool plasticity{false};
   bool useCellHomogenizedMaterial{true};
   double freqCentral{};
-  double freqRatio{};
+  double freqRatio{1.0};
   double gravitationalAcceleration{};
   double tv{};
   std::string boundaryFileName;

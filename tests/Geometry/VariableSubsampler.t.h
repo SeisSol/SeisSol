@@ -30,10 +30,11 @@ TEST_CASE("Variable Subsampler") {
   std::mt19937 rnggen(1234);
 
   SUBCASE("Divide by 4") {
+    constexpr std::size_t Alignment = 4;
     constexpr std::size_t ConvergenceOrder = 3;
     constexpr std::size_t Quantities = 9;
     constexpr std::size_t AlignedQuantities =
-        kernels::getNumberOfAlignedBasisFunctions(ConvergenceOrder, 4);
+        kernels::getNumberOfAlignedBasisFunctions(ConvergenceOrder, Alignment);
     constexpr std::size_t SubTriangles = 4;
 
     const seissol::refinement::DivideTetrahedronBy4<double> refineBy4;
@@ -44,7 +45,7 @@ TEST_CASE("Variable Subsampler") {
 
     std::uniform_real_distribution<> rngdist(0.0, 1.0);
 
-    // For order 3 there are 108 DOFs (taking alignment into account)
+    // For order 3 there are 108 DOFs (taking the alignment of 4 into account)
     std::array<real, AlignedQuantities * Quantities> dofs{};
     for (std::size_t i = 0; i < dofs.size(); ++i) {
       dofs[i] = rngdist(rnggen);
