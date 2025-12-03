@@ -9,8 +9,8 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_LINEARSLIPWEAKENING_H_
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
-#include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
-#include <Memory/Descriptor/DynamicRupture.h>
+#include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 
 namespace seissol::dr::friction_law::gpu {
 
@@ -21,8 +21,8 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Derived>
 class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBase<Derived>> {
   public:
-  LinearSlipWeakeningBase<Derived>(seissol::initializer::parameters::DRParameters* drParameters)
-      : BaseFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters){};
+  explicit LinearSlipWeakeningBase(seissol::initializer::parameters::DRParameters* drParameters)
+      : BaseFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters) {};
 
   std::unique_ptr<FrictionSolver> clone() override {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
@@ -130,10 +130,9 @@ template <class SpecializationT>
 class LinearSlipWeakeningLaw
     : public LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>> {
   public:
-  LinearSlipWeakeningLaw<SpecializationT>(
-      seissol::initializer::parameters::DRParameters* drParameters)
+  explicit LinearSlipWeakeningLaw(seissol::initializer::parameters::DRParameters* drParameters)
       : LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
-        specialization(drParameters){};
+        specialization(drParameters) {};
 
   static void copySpecificStorageDataToLocal(FrictionLawData* data,
                                              DynamicRupture::Layer& layerData) {
@@ -219,7 +218,7 @@ class LinearSlipWeakeningLaw
 
 class NoSpecialization {
   public:
-  NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
+  explicit NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
 
   static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
 
@@ -252,26 +251,26 @@ class NoSpecialization {
     return result;
   };
 
-  SEISSOL_DEVICE static real stateVariableHook(FrictionLawContext& ctx,
+  SEISSOL_DEVICE static real stateVariableHook(FrictionLawContext& /*ctx*/,
                                                real localAccumulatedSlip,
                                                real localDc,
-                                               real tpProxyExponent) {
+                                               real /*tpProxyExponent*/) {
     return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   };
 
-  SEISSOL_DEVICE static real strengthHook(FrictionLawContext& ctx,
+  SEISSOL_DEVICE static real strengthHook(FrictionLawContext& /*ctx*/,
                                           real strength,
-                                          real localSlipRate,
-                                          real deltaT,
-                                          real vStar,
-                                          real prakashLength) {
+                                          real /*localSlipRate*/,
+                                          real /*deltaT*/,
+                                          real /*vStar*/,
+                                          real /*prakashLength*/) {
     return strength;
   };
 };
 
 class BiMaterialFault {
   public:
-  BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters) {};
+  explicit BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters) {};
 
   static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
     data->regularizedStrength =
@@ -285,10 +284,10 @@ class BiMaterialFault {
     return slipRateMagnitude[ctx.pointIndex];
   };
 
-  SEISSOL_DEVICE static real stateVariableHook(FrictionLawContext& ctx,
+  SEISSOL_DEVICE static real stateVariableHook(FrictionLawContext& /*ctx*/,
                                                real localAccumulatedSlip,
                                                real localDc,
-                                               real tpProxyExponent) {
+                                               real /*tpProxyExponent*/) {
     return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   };
 
@@ -311,7 +310,7 @@ class BiMaterialFault {
 
 class TPApprox {
   public:
-  TPApprox(seissol::initializer::parameters::DRParameters* parameters) {};
+  explicit TPApprox(seissol::initializer::parameters::DRParameters* parameters) {};
 
   static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
 
@@ -321,7 +320,7 @@ class TPApprox {
     return slipRateMagnitude[ctx.pointIndex];
   };
 
-  SEISSOL_DEVICE static real stateVariableHook(FrictionLawContext& ctx,
+  SEISSOL_DEVICE static real stateVariableHook(FrictionLawContext& /*ctx*/,
                                                real localAccumulatedSlip,
                                                real localDc,
                                                real tpProxyExponent) {
@@ -329,12 +328,12 @@ class TPApprox {
     return 1.0 - std::pow(factor, -tpProxyExponent);
   };
 
-  SEISSOL_DEVICE static real strengthHook(FrictionLawContext& ctx,
+  SEISSOL_DEVICE static real strengthHook(FrictionLawContext& /*ctx*/,
                                           real strength,
-                                          real localSlipRate,
-                                          real deltaT,
-                                          real vStar,
-                                          real prakashLength) {
+                                          real /*localSlipRate*/,
+                                          real /*deltaT*/,
+                                          real /*vStar*/,
+                                          real /*prakashLength*/) {
     return strength;
   };
 };

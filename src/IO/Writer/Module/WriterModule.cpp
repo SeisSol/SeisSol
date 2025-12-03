@@ -6,21 +6,23 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "WriterModule.h"
+
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Module/AsyncWriter.h"
+#include "IO/Writer/Writer.h"
+#include "Modules/Modules.h"
+#include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
+#include "Parallel/Pin.h"
 #include "SeisSol.h"
-#include "utils/logger.h"
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Module/AsyncWriter.h>
-#include <IO/Writer/Writer.h>
-#include <Modules/Modules.h>
-#include <Parallel/Helper.h>
-#include <Parallel/MPI.h>
-#include <Parallel/Pin.h>
+
 #include <cassert>
 #include <cmath>
 #include <cstring>
 #include <optional>
 #include <string>
 #include <unordered_set>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::io::writer::module {
@@ -29,15 +31,15 @@ WriterModule::WriterModule(const std::string& prefix,
                            const ScheduledWriter& settings,
                            const parallel::Pinning& pinning,
                            SeisSol& seissolInstance)
-    : rank(seissol::MPI::mpi.rank()), prefix(prefix), settings(settings), pinning(pinning),
+    : rank(seissol::Mpi::mpi.rank()), prefix(prefix), settings(settings), pinning(pinning),
       seissolInstance(seissolInstance) {}
 
 void WriterModule::setUp() {
   logInfo() << "Output Writer" << settings.name << ": setup.";
-  executor.setComm(seissol::MPI::mpi.comm());
+  executor.setComm(seissol::Mpi::mpi.comm());
   setExecutor(executor);
   // TODO: adjust the CommThread call here
-  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, seissolInstance.env())) {
+  if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, seissolInstance.env())) {
     const auto freeCpus = pinning.getFreeCPUsMask();
     logInfo() << "Output Writer" << settings.name
               << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus);

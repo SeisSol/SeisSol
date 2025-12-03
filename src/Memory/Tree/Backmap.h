@@ -66,7 +66,7 @@ class StorageBackmap {
   std::vector<CellStoragePosition> data;
 
   public:
-  StorageBackmap(std::size_t size) : data(size) {}
+  explicit StorageBackmap(std::size_t size) : data(size) {}
 
   StorageBackmap() = default;
 

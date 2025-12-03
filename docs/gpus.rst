@@ -39,7 +39,7 @@ automatic, GPU-aware process pinning. Consider the following SLURM options:
 You can also enforce good GPU affinity with rankfiles if your GPU cluster or local server
 does not use a workload manager but is equipped with multiple GPUs per node.
 
-.. figure:: LatexFigures/GpuCpuProcessPinning.png
+.. figure:: figures/GpuCpuProcessPinning.png
    :alt: Process Pinning
    :width: 16.00000cm
    :align: center
@@ -138,7 +138,7 @@ The ``host`` value means that the data will be copied to/from the host memory
 before/after each ``MPI_Isend`` / ``MPI_Irecv``.
 The default value is ``direct`` which copies the data out of the GPU buffers directly.
 
-.. figure:: LatexFigures/gpu-comm-layer-data-flow.png
+.. figure:: figures/gpu-comm-layer-data-flow.png
    :alt: Data Flow Diagram
    :width: 10.0cm
    :align: center

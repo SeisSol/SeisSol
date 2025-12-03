@@ -8,17 +8,18 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_H_
 #define SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_H_
 
-#include "utils/logger.h"
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/Inference.h>
-#include <IO/Datatype/MPIType.h>
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Instructions/Hdf5.h>
-#include <IO/Writer/Instructions/Instruction.h>
-#include <IO/Writer/Writer.h>
-#include <Initializer/MemoryManager.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
+#include "IO/Datatype/MPIType.h"
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Hdf5.h"
+#include "IO/Writer/Instructions/Instruction.h"
+#include "IO/Writer/Writer.h"
+#include "Initializer/MemoryManager.h"
+
 #include <functional>
 #include <memory>
+#include <utils/logger.h>
 
 namespace seissol::io::instance::mesh {
 class VtkHdfWriter {
@@ -33,7 +34,7 @@ class VtkHdfWriter {
     auto selfLocalElementCount = localElementCount;
     auto selfPointsPerElement = pointsPerElement;
 
-    instructionsConst.emplace_back([=](const std::string& filename, double time) {
+    instructionsConst.emplace_back([=](const std::string& filename, double /*time*/) {
       return std::make_shared<writer::instructions::Hdf5DataWrite>(
           writer::instructions::Hdf5Location(filename, {GroupName}),
           "Points",
@@ -50,7 +51,7 @@ class VtkHdfWriter {
     auto selfLocalElementCount = localElementCount;
     auto selfPointsPerElement = pointsPerElement;
 
-    instructions.emplace_back([=](const std::string& filename, double time) {
+    instructions.emplace_back([=](const std::string& filename, double /*time*/) {
       return std::make_shared<writer::instructions::Hdf5DataWrite>(
           writer::instructions::Hdf5Location(filename, {GroupName, PointDataName}),
           name,
@@ -66,7 +67,7 @@ class VtkHdfWriter {
                    const F& cellMapper) {
     auto selfLocalElementCount = localElementCount;
 
-    instructions.emplace_back([=](const std::string& filename, double time) {
+    instructions.emplace_back([=](const std::string& filename, double /*time*/) {
       return std::make_shared<writer::instructions::Hdf5DataWrite>(
           writer::instructions::Hdf5Location(filename, {GroupName, CellDataName}),
           name,
@@ -80,7 +81,7 @@ class VtkHdfWriter {
   void addFieldData(const std::string& name,
                     const std::vector<std::size_t>& dimensions,
                     const std::vector<T>& data) {
-    instructions.emplace_back([=](const std::string& filename, double time) {
+    instructions.emplace_back([=](const std::string& filename, double /*time*/) {
       return std::make_shared<writer::instructions::Hdf5DataWrite>(
           writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
           name,
