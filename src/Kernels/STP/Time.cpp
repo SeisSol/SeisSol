@@ -5,12 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "TimeBase.h"
+#include "Time.h"
 
-#ifndef NDEBUG
-extern long long libxsmm_num_total_flops;
-#endif
-
+#include "Common/Marker.h"
+#include "Equations/poroelastic/Model/PoroelasticSetup.h"
 #include "Kernels/Common.h"
 #include "Kernels/MemoryOps.h"
 
@@ -18,14 +16,15 @@ extern long long libxsmm_num_total_flops;
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
+#include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #endif
 
-#include "Equations/poroelastic/Model/PoroelasticSetup.h"
-
-#include <yateto.h>
+#ifndef NDEBUG
+extern long long libxsmm_num_total_flops;
+#endif
 
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
@@ -159,15 +158,18 @@ std::uint64_t Spacetime::bytesAder() {
   return reals * sizeof(real);
 }
 
-void Spacetime::computeBatchedAder(const real* coeffs,
-                                   double timeStepWidth,
-                                   LTS::Layer& layer,
-                                   LocalTmp& tmp,
-                                   ConditionalPointersToRealsTable& dataTable,
-                                   ConditionalMaterialTable& materialTable,
-                                   bool updateDisplacement,
-                                   seissol::parallel::runtime::StreamRuntime& runtime) {
+void Spacetime::computeBatchedAder(
+    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM LTS::Layer& layer,
+    SEISSOL_GPU_PARAM LocalTmp& tmp,
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
+    SEISSOL_GPU_PARAM bool updateDisplacement,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
   kernel::gpu_spaceTimePredictor krnl = deviceKrnlPrototype;
 
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);

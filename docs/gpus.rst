@@ -111,7 +111,7 @@ That is especially useful, since some MPI implementations are not GPU-aware and 
 communication on device buffers.
 As a (subpar) alternative, you can also try using ``SEISSOL_USM_MPI=1`` and ``direct`` to utilize unified/managed memory.
 
-.. figure:: LatexFigures/gpu-comm-layer-data-flow.png
+.. figure:: figures/gpu-comm-layer-data-flow.png
    :alt: Data Flow Diagram
    :width: 10.0cm
    :align: center

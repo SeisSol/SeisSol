@@ -8,11 +8,12 @@
 #ifndef SEISSOL_SRC_IO_MANAGER_H_
 #define SEISSOL_SRC_IO_MANAGER_H_
 
+#include "IO/Instance/Checkpoint/CheckpointManager.h"
+#include "IO/Writer/Writer.h"
+#include "Modules/Module.h"
+#include "Modules/Modules.h"
 #include "Writer/Module/WriterModule.h"
-#include <IO/Instance/Checkpoint/CheckpointManager.h>
-#include <IO/Writer/Writer.h>
-#include <Modules/Module.h>
-#include <Modules/Modules.h>
+
 #include <memory>
 #include <vector>
 

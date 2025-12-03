@@ -8,16 +8,16 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_
 
-#include <Common/Executor.h>
-#include <cmath>
-#include <limits>
-#include <type_traits>
-
+#include "Common/Executor.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
 #include "Initializer/Typedefs.h"
 #include "Numerical/GaussianNucleationFunction.h"
 #include "Solver/MultipleSimulations.h"
+
+#include <cmath>
+#include <limits>
+#include <type_traits>
 
 /**
  * Contains common functions required both for CPU and GPU impl.
@@ -87,18 +87,22 @@ struct VariableIndexing<Executor::Host> {
 
 template <>
 struct VariableIndexing<Executor::Device> {
-  static constexpr real& index(real (&data)[misc::TimeSteps], int o, int i) { return data[o]; }
+  static constexpr real& index(real (&data)[misc::TimeSteps], int o, int /*i*/) { return data[o]; }
 
-  static constexpr real index(const real (&data)[misc::TimeSteps], int o, int i) { return data[o]; }
+  static constexpr real index(const real (&data)[misc::TimeSteps], int o, int /*i*/) {
+    return data[o];
+  }
 };
 
 /**
  * Asserts whether all relevant arrays are properly aligned
  */
 inline void checkAlignmentPreCompute(
-    const real qIPlus[misc::TimeSteps][dr::misc::NumQuantities][dr::misc::NumPaddedPoints],
-    const real qIMinus[misc::TimeSteps][dr::misc::NumQuantities][dr::misc::NumPaddedPoints],
-    const FaultStresses<Executor::Host>& faultStresses) {
+    [[maybe_unused]] const real qIPlus[misc::TimeSteps][dr::misc::NumQuantities]
+                                      [dr::misc::NumPaddedPoints],
+    [[maybe_unused]] const real qIMinus[misc::TimeSteps][dr::misc::NumQuantities]
+                                       [dr::misc::NumPaddedPoints],
+    [[maybe_unused]] const FaultStresses<Executor::Host>& faultStresses) {
   using namespace dr::misc::quantity_indices;
   for (unsigned o = 0; o < misc::TimeSteps; ++o) {
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % Alignment == 0);
@@ -140,7 +144,7 @@ template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
     const ImpedancesAndEta& impAndEta,
-    const ImpedanceMatrices& impedanceMatrices,
+    [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
     const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()],
     real etaPDamp,
@@ -255,12 +259,14 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
  * Asserts whether all relevant arrays are properly aligned
  */
 inline void checkAlignmentPostCompute(
-    const real qIPlus[misc::TimeSteps][dr::misc::NumQuantities][dr::misc::NumPaddedPoints],
-    const real qIMinus[misc::TimeSteps][dr::misc::NumQuantities][dr::misc::NumPaddedPoints],
-    const real imposedStateP[misc::TimeSteps][dr::misc::NumPaddedPoints],
-    const real imposedStateM[misc::TimeSteps][dr::misc::NumPaddedPoints],
-    const FaultStresses<Executor::Host>& faultStresses,
-    const TractionResults<Executor::Host>& tractionResults) {
+    [[maybe_unused]] const real qIPlus[misc::TimeSteps][dr::misc::NumQuantities]
+                                      [dr::misc::NumPaddedPoints],
+    [[maybe_unused]] const real qIMinus[misc::TimeSteps][dr::misc::NumQuantities]
+                                       [dr::misc::NumPaddedPoints],
+    [[maybe_unused]] const real imposedStateP[misc::TimeSteps][dr::misc::NumPaddedPoints],
+    [[maybe_unused]] const real imposedStateM[misc::TimeSteps][dr::misc::NumPaddedPoints],
+    [[maybe_unused]] const FaultStresses<Executor::Host>& faultStresses,
+    [[maybe_unused]] const TractionResults<Executor::Host>& tractionResults) {
   using namespace dr::misc::quantity_indices;
 
   assert(reinterpret_cast<uintptr_t>(imposedStateP[U]) % Alignment == 0);
@@ -317,7 +323,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     const FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
     const TractionResults<RangeExecutor<Type>::Exec>& tractionResults,
     const ImpedancesAndEta& impAndEta,
-    const ImpedanceMatrices& impedanceMatrices,
+    [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
     real imposedStatePlus[tensor::QInterpolated::size()],
     real imposedStateMinus[tensor::QInterpolated::size()],
     const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()],

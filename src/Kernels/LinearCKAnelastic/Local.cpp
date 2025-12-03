@@ -7,17 +7,18 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "LocalBase.h"
+#include "Local.h"
+
+#include "Common/Marker.h"
 
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
+#include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #endif
-
-#include <yateto.h>
 
 namespace seissol::kernels::solver::linearckanelastic {
 
@@ -137,12 +138,15 @@ std::uint64_t Local::bytesIntegral() {
   return reals * sizeof(real);
 }
 
-void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
-                                   ConditionalMaterialTable& materialTable,
-                                   ConditionalIndicesTable& indicesTable,
-                                   double timeStepWidth,
-                                   seissol::parallel::runtime::StreamRuntime& runtime) {
+void Local::computeBatchedIntegral(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
+    SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype;
@@ -213,8 +217,8 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
 #endif
 }
 
-void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
-                                           ConditionalIndicesTable& indicesTable,
+void Local::evaluateBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& dataTable,
+                                           recording::ConditionalIndicesTable& indicesTable,
                                            LTS::Layer& layer,
                                            double time,
                                            double timeStepWidth,

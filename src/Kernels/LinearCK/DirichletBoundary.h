@@ -8,51 +8,34 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_DIRICHLETBOUNDARY_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_DIRICHLETBOUNDARY_H_
 
+#include "Common/Offset.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-
 #include "Initializer/Typedefs.h"
-
-#include "Common/Offset.h"
-
 #include "Numerical/Quadrature.h"
-#include <Parallel/Runtime/Stream.h>
-
+#include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Kernels/LinearCK/DeviceAux/KernelsAux.h"
-#include "device.h"
-#include "yateto.h"
+
+#include <Device/device.h>
+#include <yateto.h>
 #endif
-
-namespace {
-// Helper functions, needed because C++ doesnt allow partial func. template specialisation
-template <typename MappingKrnl>
-void addRotationToProjectKernel(MappingKrnl& projectKernel,
-                                const seissol::CellBoundaryMapping& boundaryMapping) {
-  // do nothing
-}
-
-//
-// GCC warns that the method below is unused. This is not correct.
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
-template <>
-void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
-                                const seissol::CellBoundaryMapping& boundaryMapping) {
-  assert(boundaryMapping.dataTinv != nullptr);
-  projectKernel.Tinv = boundaryMapping.dataTinv;
-}
-#pragma GCC diagnostic pop
-
-} // namespace
 
 namespace seissol::kernels {
 
 class DirichletBoundary {
+  private:
+  // Helper functions, needed because C++ doesnt allow partial func. template specialization
+  template <typename MappingKrnl>
+  static void addRotationToProjectKernel(MappingKrnl& projectKernel,
+                                         const seissol::CellBoundaryMapping& boundaryMapping) {
+    // do nothing
+  }
+
   public:
   DirichletBoundary() { quadrature::GaussLegendre(quadPoints, quadWeights, ConvergenceOrder); }
 
@@ -84,14 +67,14 @@ class DirichletBoundary {
 #ifdef ACL_DEVICE
   template <typename Func, typename MappingKrnl, typename InverseMappingKrnl>
   void evaluateOnDevice(int faceIdx,
-                        ConditionalKey& key,
+                        recording::ConditionalKey& key,
                         MappingKrnl& projectKernelPrototype,
                         InverseMappingKrnl& nodalLfKrnlPrototype,
                         local_flux::aux::DirichletBoundaryAux<Func>& boundaryCondition,
-                        ConditionalPointersToRealsTable& dataTable,
+                        recording::ConditionalPointersToRealsTable& dataTable,
                         device::DeviceInstance& device,
                         seissol::parallel::runtime::StreamRuntime& runtime) const {
-
+    using namespace seissol::recording;
     const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize()};
 
     auto** dofsFaceBoundaryNodalPtrs =
@@ -117,7 +100,7 @@ class DirichletBoundary {
 
     boundaryCondition.evaluate(dofsFaceBoundaryNodalPtrs, numElements, deviceStream);
 
-    auto** dofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
+    auto** dofsPtrs = dataTable[key].get(recording::inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
 
     auto nodalLfKrnl = nodalLfKrnlPrototype;
     nodalLfKrnl.numElements = numElements;
@@ -134,11 +117,11 @@ class DirichletBoundary {
 #endif
 
   template <typename Func, typename MappingKrnl>
-  void evaluateTimeDependent(const real* dofsVolumeInteriorModal,
-                             int faceIdx,
+  void evaluateTimeDependent(const real* /*dofsVolumeInteriorModal*/,
+                             int /*faceIdx*/,
                              const CellBoundaryMapping& boundaryMapping,
-                             const MappingKrnl& projectKernelPrototype,
-                             Func&& evaluateBoundaryCondition,
+                             const MappingKrnl& /*projectKernelPrototype*/,
+                             const Func& evaluateBoundaryCondition,
                              real* dofsFaceBoundaryNodal,
                              double startTime,
                              double timeStepWidth) const {
@@ -172,8 +155,7 @@ class DirichletBoundary {
 
     for (unsigned i = 0; i < ConvergenceOrder; ++i) {
       boundaryDofsTmp.setZero();
-      std::forward<Func>(evaluateBoundaryCondition)(
-          boundaryMapping.nodes, timePoints[i], boundaryDofsTmp);
+      evaluateBoundaryCondition(boundaryMapping.nodes, timePoints[i], boundaryDofsTmp);
 
       updateKernel.factor = timeWeights[i];
       updateKernel.execute();
@@ -181,9 +163,22 @@ class DirichletBoundary {
   }
 
   private:
-  double quadPoints[ConvergenceOrder];
-  double quadWeights[ConvergenceOrder];
+  double quadPoints[ConvergenceOrder]{};
+  double quadWeights[ConvergenceOrder]{};
 };
+
+//
+// GCC warns that the method below is unused. This is not correct.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+template <>
+inline void DirichletBoundary::addRotationToProjectKernel(
+    seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
+    const seissol::CellBoundaryMapping& boundaryMapping) {
+  assert(boundaryMapping.dataTinv != nullptr);
+  projectKernel.Tinv = boundaryMapping.dataTinv;
+}
+#pragma GCC diagnostic pop
 
 } // namespace seissol::kernels
 

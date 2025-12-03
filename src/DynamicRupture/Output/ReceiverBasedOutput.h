@@ -8,15 +8,15 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RECEIVERBASEDOUTPUT_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RECEIVERBASEDOUTPUT_H_
 
+#include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/ParametersInitializer.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
+#include "Parallel/Runtime/Stream.h"
 
-#include <DynamicRupture/Misc.h>
-#include <Memory/Tree/Backmap.h>
-#include <Parallel/Runtime/Stream.h>
 #include <memory>
 #include <vector>
 
@@ -113,8 +113,8 @@ class ReceiverOutput {
   void getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side);
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
-  virtual real computeFluidPressure(LocalInfo& local) { return 0.0; }
-  virtual real computeStateVariable(LocalInfo& local) { return 0.0; }
+  virtual real computeFluidPressure(LocalInfo& /*local*/) { return 0.0; }
+  virtual real computeStateVariable(LocalInfo& /*local*/) { return 0.0; }
   static void updateLocalTractions(LocalInfo& local, real strength);
   real computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jacobiT2d, const LocalInfo& local);
   virtual void computeSlipRate(LocalInfo& local,

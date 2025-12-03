@@ -9,36 +9,34 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#include "Kernels/LinearCK/TimeBase.h"
+#include "Kernels/LinearCK/Time.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Common/Marker.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "GravitationalFreeSurfaceBC.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <DataTypes/ConditionalTable.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Interface.h>
-#include <Kernels/LinearCK/Solver.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
-#include <Parallel/Runtime/Stream.h>
-#include <algorithm>
-#include <cstdint>
-
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
+#include "Kernels/Interface.h"
+#include "Kernels/LinearCK/Solver.h"
 #include "Kernels/MemoryOps.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+#include "Parallel/Runtime/Stream.h"
 
+#include <algorithm>
 #include <cassert>
+#include <cstdint>
 #include <cstring>
 #include <stdint.h>
-
+#include <utils/logger.h>
 #include <yateto.h>
 #include <yateto/InitTools.h>
-
-#include "utils/logger.h"
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
@@ -138,15 +136,17 @@ void Spacetime::computeAder(const real* coeffs,
   }
 }
 
-void Spacetime::computeBatchedAder(const real* coeffs,
-                                   double timeStepWidth,
-                                   LTS::Layer& layer,
-                                   LocalTmp& tmp,
-                                   ConditionalPointersToRealsTable& dataTable,
-                                   ConditionalMaterialTable& materialTable,
-                                   bool updateDisplacement,
-                                   seissol::parallel::runtime::StreamRuntime& runtime) {
+void Spacetime::computeBatchedAder(
+    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM LTS::Layer& layer,
+    SEISSOL_GPU_PARAM LocalTmp& tmp,
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
+    SEISSOL_GPU_PARAM bool updateDisplacement,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+  using namespace seissol::recording;
   kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype;
 
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
@@ -250,12 +250,15 @@ void Time::evaluate(const real* coeffs,
   krnl.execute();
 }
 
-void Time::evaluateBatched(const real* coeffs,
-                           const real** timeDerivatives,
-                           real** timeIntegratedDofs,
-                           std::size_t numElements,
-                           seissol::parallel::runtime::StreamRuntime& runtime) {
+void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
+                           SEISSOL_GPU_PARAM const real** timeDerivatives,
+                           SEISSOL_GPU_PARAM real** timeIntegratedDofs,
+                           SEISSOL_GPU_PARAM std::size_t numElements,
+                           SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
+
   assert(timeDerivatives != nullptr);
   assert(timeIntegratedDofs != nullptr);
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
