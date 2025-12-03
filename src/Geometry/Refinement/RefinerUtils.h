@@ -9,9 +9,8 @@
 #ifndef SEISSOL_SRC_GEOMETRY_REFINEMENT_REFINERUTILS_H_
 #define SEISSOL_SRC_GEOMETRY_REFINEMENT_REFINERUTILS_H_
 
-#include <vector>
-
 #include <Eigen/Dense>
+#include <vector>
 
 namespace seissol::refinement {
 
@@ -57,7 +56,7 @@ struct Tetrahedron {
               unsigned int k,
               unsigned int l)
       : i(i), j(j), k(k), l(l), a(Eigen::Matrix<T, 3, 1>(a)), b(Eigen::Matrix<T, 3, 1>(b)),
-        c(Eigen::Matrix<T, 3, 1>(c)), d(Eigen::Matrix<T, 3, 1>(d)) {};
+        c(Eigen::Matrix<T, 3, 1>(c)), d(Eigen::Matrix<T, 3, 1>(d)) {}
 
   static Tetrahedron<T> unitTetrahedron() {
     return Tetrahedron(Eigen::Matrix<T, 3, 1>(0, 0, 0),
@@ -91,9 +90,9 @@ template <class T>
 class IdentityRefiner : public TetrahedronRefiner<T> {
   public:
   void refine(const Tetrahedron<T>& in,
-              unsigned int addVertexStart,
+              unsigned int /*addVertexStart*/,
               Tetrahedron<T>* out,
-              Eigen::Matrix<T, 3, 1>* addVertices) const override {
+              Eigen::Matrix<T, 3, 1>* /*addVertices*/) const override {
     out[0] = in;
   }
 

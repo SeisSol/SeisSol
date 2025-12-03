@@ -10,6 +10,7 @@
 
 #include "Common/Marker.h"
 #include "Kernels/Precision.h"
+
 #include <cstdint>
 #include <type_traits>
 
