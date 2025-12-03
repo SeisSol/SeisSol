@@ -8,14 +8,13 @@
 #ifndef SEISSOL_SRC_NUMERICAL_EIGENVALUES_H_
 #define SEISSOL_SRC_NUMERICAL_EIGENVALUES_H_
 
+#include "Kernels/Precision.h"
+
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 #include <numeric>
-
 #include <utils/logger.h>
 #include <yateto.h>
-
-#include "Kernels/Precision.h"
 
 namespace seissol::eigenvalues {
 
@@ -85,6 +84,7 @@ void computeEigenvaluesWithEigen3(std::array<std::complex<T>, Dim * Dim>& m,
 
 #ifdef USE_LAPACK
 #include "FC.h"
+
 #include <complex>
 
 namespace seissol::eigenvalues {

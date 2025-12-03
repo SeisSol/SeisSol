@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Xdmf.h"
+
 #include <IO/Datatype/Datatype.h>
 #include <IO/Datatype/Inference.h>
 #include <IO/Datatype/MPIType.h>
@@ -199,13 +200,13 @@ XdmfWriter::XdmfWriter(const std::string& name,
              1,
              datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
              MPI_SUM,
-             seissol::MPI::mpi.comm());
+             seissol::Mpi::mpi.comm());
   MPI_Allreduce(&localElementCount,
                 &globalElementCount,
                 1,
                 datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
                 MPI_SUM,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
   pointOffset = elementOffset * pointsPerElement;
   localPointCount = localElementCount * pointsPerElement;
   globalPointCount = globalElementCount * pointsPerElement;
@@ -244,7 +245,7 @@ void XdmfWriter::addData(const std::string& name,
                 1,
                 datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
                 MPI_SUM,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
 
   instrarray.emplace_back([=](const std::string& preFilename, std::size_t counter) {
     WriteResult result{};

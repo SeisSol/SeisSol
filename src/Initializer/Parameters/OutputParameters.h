@@ -8,13 +8,13 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_OUTPUTPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_OUTPUTPARAMETERS_H_
 
-#include <list>
-#include <string>
-#include <unordered_set>
-
 #include "Equations/Datastructures.h"
 #include "Initializer/InputAux.h"
 #include "ParameterReader.h"
+
+#include <list>
+#include <string>
+#include <unordered_set>
 
 namespace seissol::initializer::parameters {
 
@@ -29,8 +29,8 @@ enum class VolumeRefinement : int { NoRefine = 0, Refine4 = 1, Refine8 = 2, Refi
 enum class XdmfBackend : int { Posix, Hdf5 };
 
 struct CheckpointParameters {
-  bool enabled;
-  double interval;
+  bool enabled{false};
+  double interval{0};
 };
 
 struct ElementwiseFaultParameters {
@@ -42,19 +42,19 @@ struct ElementwiseFaultParameters {
 };
 
 struct EnergyOutputParameters {
-  bool enabled;
-  int computeVolumeEnergiesEveryOutput;
-  double interval;
-  bool terminalOutput;
-  int terminalPrecision;
-  double terminatorMaxTimePostRupture;
-  double terminatorMomentRateThreshold;
+  bool enabled{false};
+  int computeVolumeEnergiesEveryOutput{0};
+  double interval{0};
+  bool terminalOutput{false};
+  int terminalPrecision{0};
+  double terminatorMaxTimePostRupture{0};
+  double terminatorMomentRateThreshold{0};
 };
 
 struct FreeSurfaceOutputParameters {
-  bool enabled;
-  unsigned refinement;
-  double interval;
+  bool enabled{false};
+  unsigned refinement{0};
+  double interval{0};
   int vtkorder{-1};
 };
 
@@ -68,24 +68,24 @@ struct PickpointParameters {
 };
 
 struct ReceiverOutputParameters {
-  bool enabled;
-  bool computeRotation;
-  bool computeStrain;
-  double interval;
-  double samplingInterval;
+  bool enabled{false};
+  bool computeRotation{false};
+  bool computeStrain{false};
+  double interval{0};
+  double samplingInterval{0};
   std::string fileName;
   bool collectiveio{false};
 };
 
 struct OutputInterval {
-  double lower;
-  double upper;
+  double lower{0};
+  double upper{0};
 
   [[nodiscard]] bool contains(double value) const { return value >= lower && value <= upper; }
 };
 
 struct OutputBounds {
-  bool enabled;
+  bool enabled{false};
   OutputInterval boundsX, boundsY, boundsZ;
 
   OutputBounds() = default;
@@ -105,21 +105,21 @@ struct OutputBounds {
 };
 
 struct WaveFieldOutputParameters {
-  bool enabled;
-  int vtkorder;
-  double interval;
-  VolumeRefinement refinement;
+  bool enabled{false};
+  int vtkorder{-1};
+  double interval{0};
+  VolumeRefinement refinement{VolumeRefinement::NoRefine};
   OutputBounds bounds;
-  std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask;
-  std::array<bool, 7> plasticityMask;
-  std::array<bool, 9> integrationMask;
+  std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask{};
+  std::array<bool, 7> plasticityMask{};
+  std::array<bool, 9> integrationMask{};
   std::unordered_set<int> groups;
 };
 
 struct OutputParameters {
-  bool loopStatisticsNetcdfOutput;
-  OutputFormat format;
-  XdmfBackend xdmfWriterBackend;
+  bool loopStatisticsNetcdfOutput{false};
+  OutputFormat format{OutputFormat::None};
+  XdmfBackend xdmfWriterBackend{};
   std::string prefix;
   CheckpointParameters checkpointParameters;
   ElementwiseFaultParameters elementwiseParameters;

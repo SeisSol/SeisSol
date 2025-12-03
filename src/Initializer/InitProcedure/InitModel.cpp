@@ -5,13 +5,34 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "InitModel.h"
+
+#include "Common/Constants.h"
+#include "Common/Real.h"
+#include "Config.h"
 #include "Equations/Datastructures.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalMatrices.h"
+#include "Initializer/MemoryManager.h"
 #include "Initializer/ParameterDB.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
+#include "Model/Plasticity.h"
+#include "Modules/Modules.h"
+#include "Monitoring/Stopwatch.h"
+#include "Parallel/Helper.h"
+#include "Physics/InstantaneousTimeMirrorManager.h"
+#include "SeisSol.h"
+#include "Solver/Estimator.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <Common/Constants.h>
 #include <Common/Real.h>
 #include <Config.h>
@@ -41,14 +62,7 @@
 #include <utils/stringutils.h>
 #include <vector>
 
-#include "InitModel.h"
-#include "SeisSol.h"
-
-#if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
-#include "Physics/Attenuation.h"
-#endif
-
-using namespace seissol::initializer;
+namespace seissol::initializer::initprocedure {
 
 namespace {
 
@@ -135,9 +149,6 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   }
 
   logDebug() << "Setting cell materials in the storage (for interior and copy layers).";
-  const auto& elements = meshReader.getElements();
-
-  auto* materialDataArrayGlobal = memoryManager.getLtsStorage().var<LTS::MaterialData>();
 
   for (auto& layer : memoryManager.getLtsStorage().leaves()) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
@@ -203,7 +214,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
           auto& plasticity = plasticityArray[cell];
           assert(plasticityDB.size() == seissol::multisim::NumSimulations &&
                  "Plasticity database size mismatch with number of simulations");
-          std::array<Plasticity, seissol::multisim::NumSimulations> localPlasticity;
+          std::array<Plasticity, seissol::multisim::NumSimulations> localPlasticity{};
           for (size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
             localPlasticity[i] = plasticityDB[i][meshId];
           }
@@ -238,9 +249,7 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
                                                          memoryManager.getLtsStorage(),
                                                          memoryManager.getBackmap(),
-                                                         memoryManager.getDRStorage(),
-                                                         *memoryManager.getGlobalData().onHost,
-                                                         seissolParams.drParameters.etaDamp);
+                                                         memoryManager.getDRStorage());
 
   memoryManager.initFrictionData();
 
@@ -274,6 +283,8 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
 
 void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
   if constexpr (isDeviceOn()) {
+    logInfo() << "Determine Host-Device switchpoint";
+
     const auto hdswitch = seissolInstance.env().get<std::string>("DEVICE_HOST_SWITCH", "none");
     bool hdenabled = false;
     if (hdswitch == "none") {
@@ -301,8 +312,6 @@ void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
 }
 
 void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
-
   seissolInstance.getMemoryManager().initializeMemoryLayout();
 
   seissolInstance.getMemoryManager().fixateBoundaryStorage();
@@ -310,7 +319,7 @@ void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
 
 } // namespace
 
-void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolInstance) {
+void initModel(seissol::SeisSol& seissolInstance) {
   SCOREP_USER_REGION("init_model", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   logInfo() << "Begin init model.";
@@ -341,10 +350,7 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   logInfo() << "Initialize cell material parameters.";
   initializeCellMaterial(seissolInstance);
 
-  if constexpr (isDeviceOn()) {
-    logInfo() << "Determine Host-Device switchpoint";
-    hostDeviceCoexecution(seissolInstance);
-  }
+  hostDeviceCoexecution(seissolInstance);
 
   // init memory layout (needs cell material values to initialize e.g. displacements correctly)
   logInfo() << "Initialize Memory layout.";
@@ -362,3 +368,5 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
 
   logInfo() << "End init model.";
 }
+
+} // namespace seissol::initializer::initprocedure

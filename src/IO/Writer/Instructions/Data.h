@@ -8,8 +8,9 @@
 #ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_H_
 #define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_H_
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/Inference.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
+
 #include <cstring>
 #include <functional>
 #include <memory>
@@ -166,12 +167,12 @@ class AdhocBuffer : public DataSource {
     return node;
   }
 
-  const void* getPointer(const async::ExecInfo& info) override { return nullptr; }
+  const void* getPointer(const async::ExecInfo& /*info*/) override { return nullptr; }
 
   [[nodiscard]] const void* getLocalPointer() const override { return nullptr; }
   [[nodiscard]] size_t getLocalSize() const override { return getTargetSize(); }
 
-  std::size_t count(const async::ExecInfo& info) override {
+  std::size_t count(const async::ExecInfo& /*info*/) override {
     return getTargetSize() / datatype()->size();
   }
 
@@ -180,7 +181,7 @@ class AdhocBuffer : public DataSource {
   bool distributed() override { return true; }
 
   private:
-  int id;
+  int id{-1};
 };
 
 class GeneratedBuffer : public AdhocBuffer {

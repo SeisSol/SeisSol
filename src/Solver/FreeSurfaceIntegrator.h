@@ -9,14 +9,14 @@
 #ifndef SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
 #define SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
 
-#include <Memory/Descriptor/Surface.h>
-#include <Memory/Tree/Layer.h>
-#include <memory>
-
 #include "Geometry/MeshReader.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/Descriptor/Surface.h"
+#include "Memory/Tree/Layer.h"
+
+#include <memory>
 
 namespace seissol::solver {
 class FreeSurfaceIntegrator {
@@ -54,7 +54,6 @@ class FreeSurfaceIntegrator {
   auto operator=(FreeSurfaceIntegrator&&) -> FreeSurfaceIntegrator& = delete;
 
   void initialize(unsigned maxRefinementDepth,
-                  GlobalData* globalData,
                   LTS::Storage& ltsStorage,
                   SurfaceLTS::Storage& surfaceStorage);
 

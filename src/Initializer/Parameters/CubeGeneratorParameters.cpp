@@ -6,8 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "CubeGeneratorParameters.h"
-#include <Initializer/Parameters/ParameterReader.h>
 
+#include "Initializer/Parameters/ParameterReader.h"
 #include "Parallel/MPI.h"
 
 namespace seissol::initializer::parameters {
@@ -26,7 +26,7 @@ CubeGeneratorParameters readCubeGeneratorParameters(ParameterReader* baseReader)
   const unsigned int cubeZ = reader->readWithDefault("cubez", 2);
 
   // only x dimension has its number of partitions set to number of MPI processes
-  const unsigned int cubePx = seissol::MPI::mpi.size();
+  const unsigned int cubePx = seissol::Mpi::mpi.size();
   const unsigned int cubePy = 1;
   const unsigned int cubePz = 1;
 

@@ -12,12 +12,12 @@
 #include <limits>
 #include <utility>
 
-namespace seissol::initializer::recording {
+namespace seissol::recording {
 struct ConditionalKey {
-  ConditionalKey(size_t kernel,
-                 size_t type = std::numeric_limits<size_t>::max(),
-                 size_t face = std::numeric_limits<size_t>::max(),
-                 size_t relation = std::numeric_limits<size_t>::max())
+  explicit ConditionalKey(size_t kernel,
+                          size_t type = std::numeric_limits<size_t>::max(),
+                          size_t face = std::numeric_limits<size_t>::max(),
+                          size_t relation = std::numeric_limits<size_t>::max())
       : kernelId(kernel), typeId(type), faceId(face), faceRelationId(relation) {};
 
   bool operator==(const ConditionalKey& other) const {
@@ -51,6 +51,6 @@ struct ConditionalHash<ConditionalKey> {
     return result;
   }
 };
-} // namespace seissol::initializer::recording
+} // namespace seissol::recording
 
 #endif // SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_CONDITIONALKEY_H_
