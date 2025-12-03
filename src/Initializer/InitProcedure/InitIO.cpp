@@ -15,7 +15,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "IO/Instance/Geometry/Geometry.h"
-#include "IO/Instance/Mesh/VtkHdf.h"
+#include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Writer/Writer.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
@@ -30,18 +30,6 @@
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/MultipleSimulations.h"
 
-#include <Common/Constants.h>
-#include <Geometry/MeshDefinition.h>
-#include <IO/Instance/Geometry/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/DynamicRupture.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Descriptor/Surface.h>
-#include <Memory/MemoryAllocator.h>
-#include <Memory/Tree/Layer.h>
-#include <Model/Plasticity.h>
-#include <Solver/FreeSurfaceIntegrator.h>
-#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -237,7 +225,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
     const auto rank = seissol::Mpi::mpi.rank();
     writer.addCellData<int>(
-        "partition", {}, true, [=](int* target, std::size_t index) { target[0] = rank; });
+        "partition", {}, true, [=](int* target, std::size_t /*index*/) { target[0] = rank; });
 
     writer.addCellData<uint64_t>("clustering", {}, true, [=](uint64_t* target, std::size_t index) {
       target[0] = meshReader.getElements()[index].clusterId;
@@ -355,7 +343,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
     const auto rank = seissol::Mpi::mpi.rank();
     writer.addCellData<int>(
-        "partition", {}, true, [=](int* target, std::size_t index) { target[0] = rank; });
+        "partition", {}, true, [=](int* target, std::size_t /*index*/) { target[0] = rank; });
 
     writer.addCellData<std::uint8_t>(
         "locationFlag",

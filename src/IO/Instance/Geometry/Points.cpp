@@ -8,6 +8,7 @@
 #include "Points.h"
 
 #include <array>
+#include <cstddef>
 #include <vector>
 
 namespace {
@@ -132,8 +133,6 @@ std::vector<std::array<double, 3>> pointsTetrahedron(int order) {
   const auto line = innerLine(order);
   const auto face = pointsTriangle(order - 2);
   const auto inner = pointsTetrahedron(order - 3);
-  const auto offsetFace = 1.0 / static_cast<double>(order);
-  const auto scaleFace = (order - 2) / static_cast<double>(order);
   const auto offsetInner = 1.0 / static_cast<double>(order);
   const auto scaleInner = (order - 3) / static_cast<double>(order);
 

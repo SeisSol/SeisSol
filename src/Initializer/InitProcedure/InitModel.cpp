@@ -26,6 +26,7 @@
 #include "Model/CommonDatastructures.h"
 #include "Model/Plasticity.h"
 #include "Modules/Modules.h"
+#include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
 #include "Parallel/Helper.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
@@ -33,24 +34,6 @@
 #include "Solver/Estimator.h"
 #include "Solver/MultipleSimulations.h"
 
-#include <Common/Constants.h>
-#include <Common/Real.h>
-#include <Config.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/MemoryManager.h>
-#include <Initializer/Parameters/ModelParameters.h>
-#include <Initializer/TimeStepping/ClusterLayout.h>
-#include <Kernels/Common.h>
-#include <Memory/Tree/Layer.h>
-#include <Model/CommonDatastructures.h>
-#include <Model/Plasticity.h>
-#include <Modules/Modules.h>
-#include <Monitoring/Instrumentation.h>
-#include <Monitoring/Stopwatch.h>
-#include <Parallel/Helper.h>
-#include <Physics/InstantaneousTimeMirrorManager.h>
-#include <Solver/Estimator.h>
-#include <Solver/MultipleSimulations.h>
 #include <array>
 #include <cassert>
 #include <cstddef>

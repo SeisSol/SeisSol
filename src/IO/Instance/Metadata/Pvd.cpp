@@ -10,6 +10,7 @@
 #include "Xml.h"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace seissol::io::instance::metadata {

@@ -7,25 +7,26 @@
 
 #include "Xdmf.h"
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/Inference.h>
-#include <IO/Datatype/MPIType.h>
-#include <IO/Instance/Geometry/Typedefs.h>
-#include <IO/Instance/Metadata/Xml.h>
-#include <IO/Writer/Instructions/Binary.h>
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Instructions/Hdf5.h>
-#include <IO/Writer/Writer.h>
-#include <Parallel/MPI.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
+#include "IO/Datatype/MPIType.h"
+#include "IO/Instance/Geometry/Typedefs.h"
+#include "IO/Instance/Metadata/Xml.h"
+#include "IO/Writer/Instructions/Binary.h"
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Hdf5.h"
+#include "IO/Writer/Writer.h"
+#include "Parallel/MPI.h"
+
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
 #include <functional>
 #include <memory>
 #include <mpi.h>
 #include <sstream>
 #include <string>
 #include <utils/logger.h>
+#include <utils/stringutils.h>
 #include <vector>
 
 namespace {
@@ -42,7 +43,7 @@ struct XdmfDataset {
   std::vector<std::size_t> dimensions;
   std::string location;
 
-  XdmfDataset(const instance::mesh::XdmfWriter::WriteResult& result)
+  explicit XdmfDataset(const instance::mesh::XdmfWriter::WriteResult& result)
       : name(result.name), type(result.type), datatype(result.datatype), format(result.format),
         offset(result.offset), dimensions(result.dimensions), location(result.location) {}
 
@@ -192,9 +193,9 @@ XdmfWriter::XdmfWriter(const std::string& name,
                        std::size_t localElementCount,
                        geometry::Shape shape,
                        std::size_t targetDegree)
-    : localElementCount(localElementCount), globalElementCount(localElementCount), name(name),
-      pointsPerElement(geometry::numPoints(targetDegree, shape)),
-      type(geometry::xdmfType(shape, targetDegree)) {
+    : name(name), type(geometry::xdmfType(shape, targetDegree)),
+      localElementCount(localElementCount), globalElementCount(localElementCount),
+      pointsPerElement(geometry::numPoints(targetDegree, shape)) {
   MPI_Exscan(&localElementCount,
              &elementOffset,
              1,

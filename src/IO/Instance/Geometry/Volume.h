@@ -8,7 +8,8 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_GEOMETRY_VOLUME_H_
 #define SEISSOL_SRC_IO_INSTANCE_GEOMETRY_VOLUME_H_
 
-#include <IO/Instance/Geometry/Geometry.h>
+#include "IO/Instance/Geometry/Geometry.h"
+
 #include <vector>
 namespace seissol::io::instance::geometry {
 

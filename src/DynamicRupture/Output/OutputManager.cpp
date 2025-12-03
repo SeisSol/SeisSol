@@ -18,6 +18,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "IO/Instance/Geometry/Geometry.h"
+#include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Writer/Writer.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/OutputParameters.h"
@@ -31,7 +32,6 @@
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
 
-#include <IO/Instance/Geometry/Typedefs.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -194,7 +194,6 @@ void OutputManager::initElementwiseOutput() {
   const auto intMask = convertMaskFromBoolToInt<MaxNumVars>(outputMask);
 
   const double printTime = seissolParameters.output.elementwiseParameters.printTimeIntervalSec;
-  const auto backendType = seissolParameters.output.xdmfWriterBackend;
 
   auto order = seissolParameters.output.elementwiseParameters.vtkorder;
 
@@ -217,7 +216,7 @@ void OutputManager::initElementwiseOutput() {
 
   const auto rank = seissol::Mpi::mpi.rank();
   writer.addCellData<int>(
-      "partition", {}, true, [=](int* target, std::size_t index) { target[0] = rank; });
+      "partition", {}, true, [=](int* target, std::size_t /*index*/) { target[0] = rank; });
 
   writer.addCellData<int>(
       "fault-tag", {}, true, [=, &receiverPoints](int* target, std::size_t index) {

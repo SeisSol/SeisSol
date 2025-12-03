@@ -8,7 +8,6 @@
 
 #include "FreeSurfaceIntegrator.h"
 
-#include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
 #include "GeneratedCode/init.h"
@@ -16,21 +15,14 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/MemoryManager.h"
-#include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Descriptor/Surface.h"
-#include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
-#include "Numerical/Functions.h"
-#include "Numerical/Quadrature.h"
-#include "Numerical/Transformation.h"
 
-#include <algorithm>
 #include <array>
 #include <cassert>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -44,7 +36,7 @@ FreeSurfaceIntegrator::FreeSurfaceIntegrator() = default;
 
 FreeSurfaceIntegrator::~FreeSurfaceIntegrator() = default;
 
-void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
+void FreeSurfaceIntegrator::initialize(unsigned /*maxRefinementDepth*/,
                                        LTS::Storage& ltsStorage,
                                        SurfaceLTS::Storage& surfaceStorage) {
   this->surfaceStorage = &surfaceStorage;

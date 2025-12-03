@@ -8,8 +8,9 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_GEOMETRY_SURFACE_H_
 #define SEISSOL_SRC_IO_INSTANCE_GEOMETRY_SURFACE_H_
 
-#include <Geometry/MeshReader.h>
-#include <IO/Instance/Geometry/Geometry.h>
+#include "Geometry/MeshReader.h"
+#include "IO/Instance/Geometry/Geometry.h"
+
 #include <vector>
 namespace seissol::io::instance::geometry {
 

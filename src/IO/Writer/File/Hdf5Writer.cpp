@@ -379,7 +379,7 @@ void Hdf5Writer::writeData(const async::ExecInfo& info, const instructions::Hdf5
   }
 }
 
-void Hdf5Writer::writeLinkExternal(const async::ExecInfo& info,
+void Hdf5Writer::writeLinkExternal(const async::ExecInfo& /*info*/,
                                    const instructions::Hdf5LinkExternalWrite& write) {
   Hdf5File file(comm);
   if (openFiles.find(write.location.file()) == openFiles.end()) {

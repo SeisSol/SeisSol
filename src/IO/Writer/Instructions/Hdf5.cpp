@@ -146,7 +146,7 @@ Hdf5LinkExternalWrite::Hdf5LinkExternalWrite(const Hdf5Location& location,
     : location(location), name(name), remote(remote) {}
 
 Hdf5LinkExternalWrite::Hdf5LinkExternalWrite(YAML::Node node)
-    : name(node["name"].as<std::string>()), location(Hdf5Location(node["location"])),
+    : location(Hdf5Location(node["location"])), name(node["name"].as<std::string>()),
       remote(Hdf5Location(node["remote"])) {}
 
 std::vector<std::shared_ptr<DataSource>> Hdf5LinkExternalWrite::dataSources() { return {}; }

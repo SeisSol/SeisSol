@@ -10,12 +10,12 @@
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
+#include "IO/Instance/Geometry/Typedefs.h"
+#include "IO/Instance/Metadata/Pvd.h"
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Hdf5.h"
 #include "IO/Writer/Writer.h"
 
-#include <IO/Instance/Geometry/Typedefs.h>
-#include <IO/Instance/Metadata/Pvd.h>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -108,7 +108,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
               selfLocalElementCount,
               1,
               std::vector<std::size_t>(),
-              [=](uint8_t* target, std::size_t index) { target[0] = selfType; }));
+              [=](uint8_t* target, std::size_t /*index*/) { target[0] = selfType; }));
   addData("Connectivity",
           {},
           true,
@@ -157,7 +157,7 @@ void VtkHdfWriter::addData(const std::string& name,
 
   const auto append = !isConst && temporal;
 
-  instrarray.emplace_back([=](const std::string& filename, double time) {
+  instrarray.emplace_back([=](const std::string& filename, double /*time*/) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
         writer::instructions::Hdf5Location(filename, groups), name, data, data->datatype(), append);
   });
