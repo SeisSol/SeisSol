@@ -159,7 +159,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       uint32_t timeIndex,
       std::size_t ltsFace) {
     std::array<real, misc::NumPaddedPoints> testSlipRate{0};
-    for (unsigned j = 0; j < settings.numberStateVariableUpdates; j++) {
+    for (uint32_t j = 0; j < settings.numberStateVariableUpdates; j++) {
 #pragma omp simd
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         // fault strength using friction coefficient and fluid pressure from previous
@@ -288,11 +288,11 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                const std::array<real, misc::NumPaddedPoints>& normalStress,
                                const std::array<real, misc::NumPaddedPoints>& absoluteShearStress,
                                std::array<real, misc::NumPaddedPoints>& slipRateTest) {
-    // Note that we need double precision here, since single precision led to NaNs.
-    double muF[misc::NumPaddedPoints];
-    double dMuF[misc::NumPaddedPoints];
-    double g[misc::NumPaddedPoints];
-    double dG[misc::NumPaddedPoints];
+
+    real muF[misc::NumPaddedPoints]{};
+    real dMuF[misc::NumPaddedPoints]{};
+    real g[misc::NumPaddedPoints]{};
+    real dG[misc::NumPaddedPoints]{};
 
     const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
 
@@ -302,7 +302,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       slipRateTest[pointIndex] = this->slipRateMagnitude[ltsFace][pointIndex];
     }
 
-    for (unsigned i = 0; i < settings.maxNumberSlipRateUpdates; i++) {
+    for (uint32_t i = 0; i < settings.maxNumberSlipRateUpdates; i++) {
 #pragma omp simd
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         // calculate friction coefficient and objective function
