@@ -463,7 +463,6 @@ jobs:
           export OMP_NUM_THREADS=${{matrix.parallel.threads}}
           export SEISSOL_COMMTHREAD=${{matrix.parallel.commthread}}
           export SEISSOL_MINI_NUM_ELEMENTS=100
-          export DEVICE_STACK_MEM_SIZE=0.25
 
           # FIXME: compile the container with GPU-aware MPI
           export SEISSOL_USM_MPI=1
