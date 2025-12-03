@@ -15,8 +15,11 @@
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "IO/Instance/Geometry/Geometry.h"
+#include "IO/Instance/Geometry/Points.h"
+#include "IO/Instance/Geometry/Refinement.h"
 #include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Writer/Writer.h"
+#include "Initializer/Parameters/OutputParameters.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
@@ -121,16 +124,6 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   auto& backmap = memoryManager.getBackmap();
   auto& drStorage = memoryManager.getDRStorage();
   auto* globalData = memoryManager.getGlobalData().onHost;
-  const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
-
-  constexpr auto NumQuantities =
-      tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
-
-  // ill-defined for multisim; but irrelevant for it
-  constexpr auto NumAlignedBasisFunctions = tensor::Q::size() / NumQuantities;
-  // TODO(David): handle attenuation properly here. We'll probably not want it to be contained in
-  // numberOfQuantities. But the compile-time parameter
-  // seissol::model::MaterialT::NumQuantities contains it nonetheless.
 
   // TODO(David): change Yateto/TensorForge interface to make padded sizes more accessible
   constexpr auto QDofSizePadded =
@@ -188,52 +181,78 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     auto* cellIndices = new std::size_t[celllist.size()];
     std::copy(celllist.begin(), celllist.end(), cellIndices);
 
+    const auto dataOrder = order > 0 ? order : 0;
+    const auto trueOrder = order > 0 ? order : 1;
+    const auto trueBase = io::instance::geometry::pointsTetrahedron(trueOrder);
+    const auto dataBase = io::instance::geometry::pointsTetrahedron(dataOrder);
+
+    auto truePoints = std::vector<std::vector<std::array<double, 3>>>{trueBase};
+    auto dataPoints = std::vector<std::vector<std::array<double, 3>>>{dataBase};
+
+    if (seissolParams.output.waveFieldParameters.refinement ==
+        seissol::initializer::parameters::VolumeRefinement::Refine4) {
+      truePoints = io::instance::geometry::applySubdivide(
+          truePoints, io::instance::geometry::TetrahedronRefine4);
+      dataPoints = io::instance::geometry::applySubdivide(
+          dataPoints, io::instance::geometry::TetrahedronRefine4);
+    }
+    if (seissolParams.output.waveFieldParameters.refinement ==
+        seissol::initializer::parameters::VolumeRefinement::Refine8) {
+      truePoints = io::instance::geometry::applySubdivide(
+          truePoints, io::instance::geometry::TetrahedronRefine8);
+      dataPoints = io::instance::geometry::applySubdivide(
+          dataPoints, io::instance::geometry::TetrahedronRefine8);
+    }
+    if (seissolParams.output.waveFieldParameters.refinement ==
+        seissol::initializer::parameters::VolumeRefinement::Refine32) {
+      truePoints = io::instance::geometry::applySubdivide(
+          truePoints, io::instance::geometry::TetrahedronRefine4);
+      dataPoints = io::instance::geometry::applySubdivide(
+          dataPoints, io::instance::geometry::TetrahedronRefine4);
+      truePoints = io::instance::geometry::applySubdivide(
+          truePoints, io::instance::geometry::TetrahedronRefine8);
+      dataPoints = io::instance::geometry::applySubdivide(
+          dataPoints, io::instance::geometry::TetrahedronRefine8);
+    }
+
     io::writer::ScheduledWriter schedWriter;
     schedWriter.name = "wavefield";
     schedWriter.interval = seissolParams.output.waveFieldParameters.interval;
-    auto writer = io::instance::geometry::GeometryWriter(
-        "wavefield", celllist.size(), io::instance::geometry::Shape::Tetrahedron, order);
+    auto writer = io::instance::geometry::GeometryWriter("wavefield",
+                                                         celllist.size() * dataPoints.size(),
+                                                         io::instance::geometry::Shape::Tetrahedron,
+                                                         order);
 
     writer.addPointProjector([=](double* target, std::size_t index) {
       const auto& element = meshReader.getElements()[cellIndices[index]];
       const auto& vertexArray = meshReader.getVertices();
 
-      const auto trueOrder = order > 0 ? order : 1;
+      const auto subcell = index % truePoints.size();
 
-      // for the very time being, circumvent the bounding box mechanism of Yateto as follows.
-      const double zero[3] = {0, 0, 0};
-      seissol::transformations::tetrahedronReferenceToGlobal(
-          vertexArray[element.vertices[0]].coords,
-          vertexArray[element.vertices[1]].coords,
-          vertexArray[element.vertices[2]].coords,
-          vertexArray[element.vertices[3]].coords,
-          zero,
-          &target[0]);
-      for (std::size_t i = 1; i < tensor::vtk3d::Shape[trueOrder][1]; ++i) {
-        double point[3] = {init::vtk3d::Values[trueOrder][i * 3 - 3 + 0],
-                           init::vtk3d::Values[trueOrder][i * 3 - 3 + 1],
-                           init::vtk3d::Values[trueOrder][i * 3 - 3 + 2]};
+      for (std::size_t i = 0; i < truePoints[subcell].size(); ++i) {
         seissol::transformations::tetrahedronReferenceToGlobal(
             vertexArray[element.vertices[0]].coords,
             vertexArray[element.vertices[1]].coords,
             vertexArray[element.vertices[2]].coords,
             vertexArray[element.vertices[3]].coords,
-            point,
+            truePoints[subcell][i].data(),
             &target[i * 3]);
       }
     });
+
+    const auto subcells = dataPoints.size();
 
     const auto rank = seissol::Mpi::mpi.rank();
     writer.addCellData<int>(
         "partition", {}, true, [=](int* target, std::size_t /*index*/) { target[0] = rank; });
 
     writer.addCellData<uint64_t>("clustering", {}, true, [=](uint64_t* target, std::size_t index) {
-      target[0] = meshReader.getElements()[index].clusterId;
+      target[0] = meshReader.getElements()[index / subcells].clusterId;
     });
 
     writer.addCellData<std::size_t>(
         "global-id", {}, true, [=](std::size_t* target, std::size_t index) {
-          target[0] = meshReader.getElements()[index].globalId;
+          target[0] = meshReader.getElements()[index / subcells].globalId;
         });
 
     for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
@@ -245,7 +264,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               {},
               false,
               [=, &ltsStorage, &backmap](real* target, std::size_t index) {
-                const auto position = backmap.get(cellIndices[index]);
+                const auto position = backmap.get(cellIndices[index / subcells]);
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj{};
@@ -269,7 +288,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 {},
                 false,
                 [=, &ltsStorage, &backmap](real* target, std::size_t index) {
-                  const auto position = backmap.get(cellIndices[index]);
+                  const auto position = backmap.get(cellIndices[index / subcells]);
                   const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(position);
                   const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                   kernel::projectBasisToVtkVolume vtkproj{};
@@ -303,34 +322,38 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     auto* surfaceMeshSides = freeSurfaceIntegrator.surfaceStorage->var<SurfaceLTS::Side>();
     auto* surfaceLocationFlag =
         freeSurfaceIntegrator.surfaceStorage->var<SurfaceLTS::LocationFlag>();
-    auto writer =
-        io::instance::geometry::GeometryWriter("free-surface",
-                                               freeSurfaceIntegrator.totalNumberOfFreeSurfaces,
-                                               io::instance::geometry::Shape::Triangle,
-                                               order);
+
+    const auto dataOrder = order > 0 ? order : 0;
+    const auto trueOrder = order > 0 ? order : 1;
+    const auto trueBase = io::instance::geometry::pointsTriangle(trueOrder);
+    const auto dataBase = io::instance::geometry::pointsTriangle(dataOrder);
+
+    auto truePoints = std::vector<std::vector<std::array<double, 2>>>{trueBase};
+    auto dataPoints = std::vector<std::vector<std::array<double, 2>>>{dataBase};
+
+    for (std::size_t i = 0; i < seissolParams.output.freeSurfaceParameters.refinement; ++i) {
+      truePoints = io::instance::geometry::applySubdivide(truePoints,
+                                                          io::instance::geometry::TriangleRefine4);
+      dataPoints = io::instance::geometry::applySubdivide(dataPoints,
+                                                          io::instance::geometry::TriangleRefine4);
+    }
+
+    auto writer = io::instance::geometry::GeometryWriter(
+        "free-surface",
+        freeSurfaceIntegrator.surfaceStorage->size() * truePoints.size(),
+        io::instance::geometry::Shape::Triangle,
+        order);
     writer.addPointProjector([=, &freeSurfaceIntegrator](double* target, std::size_t index) {
       auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
       auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
       const auto& element = meshReader.getElements()[meshId];
       const auto& vertexArray = meshReader.getVertices();
 
-      const auto trueOrder = order > 0 ? order : 1;
+      const auto subcell = index % truePoints.size();
 
-      // for the very time being, circumvent the bounding box mechanism of Yateto as follows.
-      const double zero[2] = {0, 0};
-      double xez[3];
-      seissol::transformations::chiTau2XiEtaZeta(side, zero, xez);
-      seissol::transformations::tetrahedronReferenceToGlobal(
-          vertexArray[element.vertices[0]].coords,
-          vertexArray[element.vertices[1]].coords,
-          vertexArray[element.vertices[2]].coords,
-          vertexArray[element.vertices[3]].coords,
-          xez,
-          &target[0]);
-      for (std::size_t i = 1; i < tensor::vtk2d::Shape[trueOrder][1]; ++i) {
-        double point[2] = {init::vtk2d::Values[trueOrder][i * 2 - 2 + 0],
-                           init::vtk2d::Values[trueOrder][i * 2 - 2 + 1]};
-        seissol::transformations::chiTau2XiEtaZeta(side, point, xez);
+      double xez[3]{};
+      for (std::size_t i = 0; i < truePoints[subcell].size(); ++i) {
+        seissol::transformations::chiTau2XiEtaZeta(side, truePoints[subcell][i].data(), xez);
         seissol::transformations::tetrahedronReferenceToGlobal(
             vertexArray[element.vertices[0]].coords,
             vertexArray[element.vertices[1]].coords,
@@ -341,6 +364,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     });
 
+    const auto subcells = dataPoints.size();
+
     const auto rank = seissol::Mpi::mpi.rank();
     writer.addCellData<int>(
         "partition", {}, true, [=](int* target, std::size_t /*index*/) { target[0] = rank; });
@@ -350,13 +375,13 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         {},
         true,
         [=, &freeSurfaceIntegrator](std::uint8_t* target, std::size_t index) {
-          target[0] = surfaceLocationFlag[freeSurfaceIntegrator.backmap[index]];
+          target[0] = surfaceLocationFlag[freeSurfaceIntegrator.backmap[index / subcells]];
         });
 
     writer.addCellData<std::size_t>(
         "global-id", {}, true, [=, &freeSurfaceIntegrator](std::size_t* target, std::size_t index) {
-          const auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
-          const auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
+          const auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index / subcells]];
+          const auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index / subcells]];
           target[0] = meshReader.getElements()[meshId].globalId * 4 + side;
         });
 
@@ -370,8 +395,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             {},
             false,
             [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](real* target, std::size_t index) {
-              auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
-              auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
+              auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index / subcells]];
+              auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index / subcells]];
               const auto position = backmap.get(meshId);
               const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
               const auto* dofsSingleQuantity =
@@ -398,8 +423,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             {},
             false,
             [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](real* target, std::size_t index) {
-              auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
-              auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
+              auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index / subcells]];
+              auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index / subcells]];
               const auto position = backmap.get(meshId);
               const auto* faceDisplacements = ltsStorage.lookup<LTS::FaceDisplacements>(position);
               const auto* faceDisplacementVariable =

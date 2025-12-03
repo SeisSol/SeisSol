@@ -11,3 +11,4 @@
 #include "Distributor.t.h"
 #include "HdfWriteRead.t.h"
 #include "Instruction.t.h"
+#include "Points.t.h"
