@@ -46,7 +46,7 @@ struct Settings {
   Computes asinh(x * exp(c)). Reason is: exp(c) can grow really large (too large for float);
   but actually asinh(exp(c)) \approx c for large c.
 
-  Hence, we compute instead
+  Hence, we compute instead (x > 0)
   asinh(x * exp(c))
   = asinh((x * exp(c)) + sqrt((x * exp(c))**2 + 1))
   = asinh(exp(c) * (x + sqrt(x**2 + exp(-2c))))
@@ -59,9 +59,28 @@ struct Settings {
 #pragma omp declare simd
 template <typename T>
 SEISSOL_HOSTDEVICE constexpr T arsinhexp(T x, T expLog, T exp) {
-  if (expLog > 0) {
-    return expLog + std::log(x + std::sqrt(x * x + exp));
+  // Switch is empirically chosen; to prevent issues with
+  // or replacement formula not being accurate enough if x * exp(c) is small
+  constexpr T Switch = 10;
+  constexpr T Threshold = 50;
+  constexpr T Log2 = 0.69314718055994530943;
+  int xexp{};
+  (void)std::frexp(x, &xexp);
+
+  // make sure to invert the constant we'd use otherwise (if the exponent is too big/small)
+
+  // use the new code path only if we really need to
+  if (expLog + std::max(xexp, 0) * Log2 > Switch || expLog >= Threshold) {
+    if (expLog <= 0) {
+      exp = 1 / exp;
+    }
+    const T xa = std::abs(x);
+    const T xs = x >= 0 ? 1 : -1;
+    return xs * (expLog + std::log(xa + std::sqrt(xa * xa + exp * exp)));
   } else {
+    if (expLog > 0) {
+      exp = 1 / exp;
+    }
     const auto v = exp * x;
     return std::asinh(v);
   }
@@ -76,7 +95,7 @@ template <typename T>
 SEISSOL_HOSTDEVICE constexpr T computeCExp(T cExpLog) {
   T cExp{};
   if (cExpLog > 0) {
-    cExp = std::exp(-2 * cExpLog);
+    cExp = std::exp(-cExpLog);
   } else {
     cExp = std::exp(cExpLog);
   }
@@ -89,9 +108,23 @@ SEISSOL_HOSTDEVICE constexpr T computeCExp(T cExpLog) {
 #pragma omp declare simd
 template <typename T>
 SEISSOL_HOSTDEVICE constexpr T arsinhexpDerivative(T x, T expLog, T exp) {
-  if (expLog > 0) {
-    return 1 / std::sqrt(x * x + exp);
+  constexpr T Switch = 10;
+  constexpr T Threshold = 50;
+  constexpr T Log2 = 0.69314718055994530943;
+  int xexp{};
+  (void)std::frexp(x, &xexp);
+
+  // make sure to invert the constant we'd use otherwise (if the exponent is too big/small)
+
+  if (expLog + std::max(xexp, 0) * Log2 > Switch || expLog >= Threshold) {
+    if (expLog <= 0) {
+      exp = 1 / exp;
+    }
+    return 1 / std::sqrt(x * x + exp * exp);
   } else {
+    if (expLog > 0) {
+      exp = 1 / exp;
+    }
     const auto v = exp * x;
     return exp / std::sqrt(1 + v * v);
   }
@@ -113,7 +146,7 @@ SEISSOL_HOSTDEVICE constexpr T arsinhexpDerivative(T x, T expLog, T exp) {
 #pragma omp declare simd
 template <typename T>
 SEISSOL_HOSTDEVICE constexpr T logsinh(T x, T c) {
-  const T sign = c > 0 ? 1 : -1;
+  const T sign = c >= 0 ? 1 : -1;
   const T absC = std::abs(c);
   return absC + std::log(x / 2 * -sign * std::expm1(-2 * absC));
 }
