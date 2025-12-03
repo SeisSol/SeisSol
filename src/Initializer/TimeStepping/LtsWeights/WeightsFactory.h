@@ -8,12 +8,12 @@
 #ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_WEIGHTSFACTORY_H_
 #define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_WEIGHTSFACTORY_H_
 
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "WeightsModels.h"
+
 #include <memory>
 #include <sstream>
 #include <stdexcept>
-
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "WeightsModels.h"
 
 namespace seissol::initializer::time_stepping {
 

@@ -8,16 +8,16 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_SOURCEPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_SOURCEPARAMETERS_H_
 
-#include <string>
-
 #include "ParameterReader.h"
+
+#include <string>
 
 namespace seissol::initializer::parameters {
 
 enum class PointSourceType : int { None = 0, NrfSource = 42, FsrmSource = 50 };
 
 struct SourceParameters {
-  PointSourceType type;
+  PointSourceType type{PointSourceType::None};
   std::string fileName;
 };
 

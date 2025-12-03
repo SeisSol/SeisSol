@@ -6,7 +6,10 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
+#include "Modules.h"
+
 #include "Modules/Module.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -14,8 +17,6 @@
 #include <optional>
 #include <utility>
 #include <utils/logger.h>
-
-#include "Modules.h"
 
 namespace seissol {
 

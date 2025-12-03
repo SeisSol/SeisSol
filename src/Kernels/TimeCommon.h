@@ -11,9 +11,9 @@
 #define SEISSOL_SRC_KERNELS_TIMECOMMON_H_
 
 #include "GeneratedCode/tensor.h"
+#include "Initializer/LtsSetup.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Solver.h"
-#include <Initializer/LtsSetup.h>
 
 namespace seissol::kernels {
 struct TimeCommon {
@@ -57,7 +57,7 @@ struct TimeCommon {
   static void computeBatchedIntegrals(Time& time,
                                       const real* timeCoeffs,
                                       const real* subtimeCoeffs,
-                                      ConditionalPointersToRealsTable& table,
+                                      recording::ConditionalPointersToRealsTable& table,
                                       seissol::parallel::runtime::StreamRuntime& runtime);
 
   TimeCommon() = delete;

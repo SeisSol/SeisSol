@@ -7,7 +7,8 @@
 
 #include "TableWriter.h"
 
-#include <IO/Datatype/Datatype.h>
+#include "IO/Datatype/Datatype.h"
+
 #include <algorithm>
 #include <cstddef>
 #include <memory>

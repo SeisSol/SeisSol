@@ -7,27 +7,30 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "Receiver.h"
+
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Common/Executor.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Kernels/Interface.h"
+#include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
 #include "Monitoring/FlopCounter.h"
 #include "Numerical/BasisFunction.h"
+#include "Numerical/Transformation.h"
+#include "Parallel/DataCollector.h"
+#include "Parallel/Helper.h"
+#include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <Common/Executor.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Common.h>
-#include <Kernels/Interface.h>
-#include <Kernels/Precision.h>
-#include <Kernels/Solver.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
-#include <Numerical/Transformation.h>
-#include <Parallel/DataCollector.h>
-#include <Parallel/Helper.h>
-#include <Parallel/Runtime/Stream.h>
-#include <Solver/MultipleSimulations.h>
+#include "Solver/MultipleSimulations.h"
+
+#include <Eigen/Core>
 #include <cmath>
 #include <cstddef>
 #include <memory>
@@ -258,7 +261,7 @@ size_t ReceiverCluster::ncols() const {
 std::vector<std::string> ReceiverRotation::quantities() const { return {"rot1", "rot2", "rot3"}; }
 void ReceiverRotation::compute(size_t sim,
                                std::vector<real>& output,
-                               seissol::init::QAtPoint::view::type& qAtPoint,
+                               seissol::init::QAtPoint::view::type& /*qAtPoint*/,
                                seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
   output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 1) -
                    seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 2));
@@ -273,7 +276,7 @@ std::vector<std::string> ReceiverStrain::quantities() const {
 }
 void ReceiverStrain::compute(size_t sim,
                              std::vector<real>& output,
-                             seissol::init::QAtPoint::view::type& qAtPoint,
+                             seissol::init::QAtPoint::view::type& /*qAtPoint*/,
                              seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
   // actually 9 quantities; 3 removed due to symmetry
 

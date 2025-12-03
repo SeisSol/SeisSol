@@ -7,8 +7,9 @@
 
 #include "Distribution.h"
 
-#include <IO/Datatype/Inference.h>
-#include <IO/Datatype/MPIType.h>
+#include "IO/Datatype/Inference.h"
+#include "IO/Datatype/MPIType.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -20,9 +21,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
-
-#include "utils/logger.h"
 
 namespace {
 int getRank(std::size_t id, std::size_t count, int commsize) {

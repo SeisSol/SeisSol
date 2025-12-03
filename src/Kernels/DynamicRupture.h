@@ -12,8 +12,8 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
-#include <Kernels/Kernel.h>
-#include <Kernels/Solver.h>
+#include "Kernels/Kernel.h"
+#include "Kernels/Solver.h"
 
 namespace seissol::kernels {
 
@@ -33,9 +33,7 @@ class DynamicRupture : public Kernel {
 
   void spaceTimeInterpolation(
       const DRFaceInformation& faceInfo,
-      const GlobalData* global,
       const DRGodunovData* godunovData,
-      DREnergyOutput* drEnergyOutput,
       const real* timeDerivativePlus,
       const real* timeDerivativeMinus,
       real qInterpolatedPlus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
@@ -45,7 +43,7 @@ class DynamicRupture : public Kernel {
       const real* coeffs);
 
   // NOLINTNEXTLINE
-  void batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table,
+  void batchedSpaceTimeInterpolation(recording::DrConditionalPointersToRealsTable& table,
                                      const real* coeffs,
                                      seissol::parallel::runtime::StreamRuntime& runtime);
 

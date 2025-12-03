@@ -8,7 +8,7 @@
 
 #include "Tools.h"
 
-auto derive_cycles_from_time(double time) -> double {
+auto derive_cycles_from_time(double /*time*/) -> double {
   // first try to read proxy env variable with freq
   /*char* p_freq;
   double d_freq;

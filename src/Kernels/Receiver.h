@@ -9,20 +9,21 @@
 #ifndef SEISSOL_SRC_KERNELS_RECEIVER_H_
 #define SEISSOL_SRC_KERNELS_RECEIVER_H_
 
+#include "Common/Executor.h"
 #include "GeneratedCode/init.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/PointMapper.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
-#include <Common/Executor.h>
+#include "Parallel/Runtime/Stream.h"
+
 #include <Eigen/Dense>
-#include <Initializer/Typedefs.h>
-#include <Memory/Tree/Backmap.h>
-#include <Parallel/Runtime/Stream.h>
 #include <optional>
 #include <vector>
 

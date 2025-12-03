@@ -11,6 +11,7 @@
 
 #include "Geometry/MeshDefinition.h"
 #include "Initializer/Typedefs.h"
+
 #include <Eigen/Dense>
 #include <yateto.h>
 

@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_LINEARSLIPWEAKENINGBIMATERIAL_H_
 
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
-#include <Memory/Descriptor/DynamicRupture.h>
+#include "Memory/Descriptor/DynamicRupture.h"
 
 namespace seissol::dr::output {
 class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {

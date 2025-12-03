@@ -9,26 +9,23 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITER_H_
 
+#include "Geometry/Refinement/VariableSubSampler.h"
+#include "Modules/Module.h"
+#include "Monitoring/Stopwatch.h"
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
+#include "WaveFieldWriterExecutor.h"
 
 #include <algorithm>
 #include <array>
+#include <async/Module.h>
 #include <cassert>
 #include <cstddef>
 #include <memory>
 #include <string>
 #include <unordered_set>
+#include <utils/logger.h>
 #include <vector>
-
-#include "utils/logger.h"
-
-#include "async/Module.h"
-
-#include "Geometry/Refinement/VariableSubSampler.h"
-#include "Modules/Module.h"
-#include "Monitoring/Stopwatch.h"
-#include "WaveFieldWriterExecutor.h"
 
 // for OutputBounds
 #include "Initializer/Parameters/SeisSolParameters.h"

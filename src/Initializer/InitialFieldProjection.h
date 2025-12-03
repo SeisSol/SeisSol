@@ -9,20 +9,19 @@
 #ifndef SEISSOL_SRC_INITIALIZER_INITIALFIELDPROJECTION_H_
 #define SEISSOL_SRC_INITIALIZER_INITIALFIELDPROJECTION_H_
 
-#include <memory>
-#include <vector>
-
 #include "Geometry/MeshReader.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Physics/InitialField.h"
 
+#include <memory>
+#include <vector>
+
 namespace seissol::initializer {
 void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField>>& iniFields,
                          const GlobalData& globalData,
                          const seissol::geometry::MeshReader& meshReader,
-                         seissol::initializer::MemoryManager& memoryManager,
                          LTS::Storage& storage);
 
 std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
@@ -33,7 +32,6 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
 void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              const GlobalData& globalData,
                              const seissol::geometry::MeshReader& meshReader,
-                             seissol::initializer::MemoryManager& memoryManager,
                              LTS::Storage& storage,
                              bool needsTime);
 } // namespace seissol::initializer

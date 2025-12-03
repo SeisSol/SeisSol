@@ -6,13 +6,13 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "FSRMReader.h"
-#include <cstddef>
-#include <utils/logger.h>
 
 #include <cassert>
+#include <cstddef>
 #include <fstream>
 #include <stdexcept>
 #include <string>
+#include <utils/logger.h>
 
 // this code replicates the behavior of the corresponding FORTRAN code for legacy reasons. In
 // particular, this reader is not programmed to be very fail-safe...

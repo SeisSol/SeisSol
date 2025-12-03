@@ -9,11 +9,10 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_ASYNCCELLIDS_H_
 #define SEISSOL_SRC_RESULTWRITER_ASYNCCELLIDS_H_
 
-#include <mpi.h>
+#include "SeisSol.h"
 
 #include <cstddef>
-
-#include "SeisSol.h"
+#include <mpi.h>
 
 namespace seissol {
 

@@ -84,99 +84,6 @@ endif()
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
         "Release" "Debug" "RelWithDebInfo") # MinSizeRel is useless for us
 
-function(capitalize INARG OUTARG)
-  string(REPLACE "_" ";" PARTS ${INARG})
-  set(PREOUTARG "")
-  foreach(PART IN LISTS PARTS)
-    string(SUBSTRING ${PART} 0 1 FIRST)
-    string(TOUPPER ${FIRST} FIRSTU)
-    string(LENGTH ${PART} LEN)
-    string(SUBSTRING ${PART} 1 ${LEN} NEXT)
-    string(PREPEND NEXT ${FIRSTU})
-    string(APPEND PREOUTARG ${NEXT})
-  endforeach()
-  set(${OUTARG} ${PREOUTARG} PARENT_SCOPE)
-endfunction()
-
-set (BUILDTYPE_STR "Cpu")
-set (DEVICE_BACKEND_STR "None")
-if (WITH_GPU)
-  set (BUILDTYPE_STR "Gpu")
-  if (DEVICE_BACKEND STREQUAL "cuda")
-    set (DEVICE_BACKEND_STR "Cuda")
-  endif()
-  if (DEVICE_BACKEND STREQUAL "hip")
-    set (DEVICE_BACKEND_STR "Hip")
-  endif()
-  if (DEVICE_BACKEND STREQUAL "hipsycl" OR DEVICE_BACKEND STREQUAL "acpp" OR DEVICE_BACKEND STREQUAL "oneapi")
-    set (DEVICE_BACKEND_STR "Sycl")
-  endif()
-endif()
-
-configure_file("src/Alignment.h.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/src/Alignment.h")
-
-if (EQUATIONS STREQUAL "viscoelastic")
-  set(PARAMETER_MATERIAL "Viscoelastic")
-  set(PARAMETER_VISCOMODE "QuantityExtension")
-elseif (EQUATIONS STREQUAL "viscoelastic2")
-  set(PARAMETER_MATERIAL "Viscoelastic")
-  set(PARAMETER_VISCOMODE "AnelasticTensor")
-else()
-  capitalize(${EQUATIONS} PARAMETER_MATERIAL)
-  set(PARAMETER_VISCOMODE "None")
-endif()
-
-capitalize(${DR_QUAD_RULE} PARAMETER_DRQUADRULE)
-
-if (PRECISION STREQUAL "single")
-  set(PARAMETER_REALTYPE "F32")
-else()
-  set(PARAMETER_REALTYPE "F64")
-endif()
-
-configure_file("src/Config.h.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/src/Config.h")
-
-# Generate version.h
-include(GetGitRevisionDescription)
-
-# get GIT info
-git_describe(PACKAGE_GIT_VERSION --tags --always --dirty=\ \(dirty\) --broken=\ \(broken\))
-if (${PACKAGE_GIT_VERSION} MATCHES "NOTFOUND")
-  set(PACKAGE_GIT_VERSION "(unknown)")
-  set(PACKAGE_GIT_HASH "(unknown)")
-  set(PACKAGE_GIT_TIMESTAMP "9999-12-31T00:00:00+00:00")
-else()
-  get_git_commit_info(PACKAGE_GIT_HASH PACKAGE_GIT_TIMESTAMP)
-endif()
-string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
-
-# write file and print info
-configure_file("src/Version.h.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/src/Version.h")
-message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
-message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
-
-add_custom_target(build-time-make-directory ALL
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode")
-
-set(GENERATED_FILES_FOR_SEISSOL codegen/GeneratedCode/subroutine.h
-                                codegen/GeneratedCode/tensor.cpp
-                                codegen/GeneratedCode/subroutine.cpp
-                                codegen/GeneratedCode/gpulike_subroutine.cpp
-                                codegen/GeneratedCode/tensor.h
-                                codegen/GeneratedCode/init.cpp
-                                codegen/GeneratedCode/init.h
-                                codegen/GeneratedCode/kernel.h
-                                codegen/GeneratedCode/kernel.cpp)
-
-if (TESTING AND TESTING_GENERATED)
-  set(GENERATED_FILES_FOR_SEISSOL ${GENERATED_FILES_FOR_SEISSOL}
-                                codegen/GeneratedCode/test-kernel.cpp)
-endif()
-
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/)
 
 if(PROXY_PYBINDING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
@@ -184,74 +91,37 @@ else()
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
 endif()
 
-if(PREMULTIPLY_FLUX)
-  set(PREMULTIPLY_FLUX_VALUE "--enable_premultiply_flux")
-else()
-  set(PREMULTIPLY_FLUX_VALUE "--disable_premultiply_flux")
-endif()
-
-if (OVERRIDE_VECTORSIZE GREATER 0)
-  set(OVERRIDE_VECTORSIZE_PARAM "--vectorsize=${OVERRIDE_VECTORSIZE}")
-else()
-  set(OVERRIDE_VECTORSIZE_PARAM "")
-endif()
-
 find_package(GemmTools REQUIRED)
 
-add_custom_command(
-  COMMAND
-  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/codegen/generate.py"
-     "--equations" ${EQUATIONS}
-     "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/codegen/matrices
-     "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode
-     "--host_arch" ${HOST_ARCH}
-     "--device_codegen" ${DEVICE_CODEGEN}
-     "--device_arch" ${DEVICE_ARCH}
-     "--device_backend" ${DEVICE_BACKEND}
-     "--device_vendor" ${DEVICE_VENDOR}
-     "--precision" ${PRECISION_PREFIX}
-     "--order" ${ORDER}
-     "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
-     "--memLayout" ${MEMORY_LAYOUT}
-     "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
-     "--PlasticityMethod" ${PLASTICITY_METHOD}
-     "--gemm_tools" ${GEMM_TOOLS_LIST}
-     "--drQuadRule" ${DR_QUAD_RULE}
-     "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
-     "--executable_pspamm=${PSpaMM_PROGRAM}"
-     ${PREMULTIPLY_FLUX_VALUE} # boolean flag
-     ${OVERRIDE_VECTORSIZE_PARAM}
-     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/codegen
-     DEPENDS
-        build-time-make-directory
-        codegen/generate.py
-        codegen/kernels
-        codegen/matrices
-        codegen/config
-    OUTPUT
-        ${GENERATED_FILES_FOR_SEISSOL}
-    COMMENT "Code generation for tensor operations..."
-       )
+add_subdirectory(codegen)
 
-add_custom_target(seissol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
+add_library(seissol-common-properties INTERFACE)
 
-# TODO: remove IMPORTED here for clang-tidy to see the headers (and use "???.h" for internals)
-add_library(seissol-common-properties INTERFACE IMPORTED)
+if (WITH_GPU)
+  set(SEISSOL_DEVICE_INCLUDE ${DEVICE_INCLUDE_DIRS})
 
-include(src/sources.cmake)
+  if (DEVICE_BACKEND STREQUAL "cuda")
+    include(cmake/cuda.cmake)
+  endif()
+  if (DEVICE_BACKEND STREQUAL "hip")
+    include(cmake/hip.cmake)
+  endif()
+  if (DEVICE_BACKEND STREQUAL "hipsycl" OR DEVICE_BACKEND STREQUAL "acpp" OR DEVICE_BACKEND STREQUAL "oneapi")
+    include(cmake/sycl.cmake)
+  endif()
+endif()
 
+target_compile_options(seissol-common-properties INTERFACE ${EXTRA_CXX_FLAGS})
 target_compile_options(seissol-common-properties INTERFACE -fPIC)
+
+add_subdirectory(src)
 
 # enforce code generation to run before any other target
 add_dependencies(seissol-common-properties seissol-codegen)
 
 target_link_libraries(seissol-lib PUBLIC seissol-common-properties)
 target_link_libraries(seissol-kernel-lib PUBLIC seissol-common-properties)
-target_link_libraries(seissol-common-lib PUBLIC seissol-common-properties)
-
-target_link_libraries(seissol-common-lib PRIVATE seissol-kernel-lib)
 target_link_libraries(seissol-lib PRIVATE seissol-kernel-lib)
-target_link_libraries(seissol-lib PRIVATE seissol-common-lib)
 
 if (WITH_GPU)
   add_dependencies(seissol-device-lib seissol-codegen)
@@ -396,16 +266,14 @@ if (ADDRESS_SANITIZER_DEBUG)
   )
 endif()
 
-# Note: it is better to include `async` as
-# system headers because they emit lot's of warnings
-# from clang. Most of them are issues with respect
-# to overriden virtual methods
-target_include_directories(seissol-common-properties SYSTEM INTERFACE
-  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
-)
-
 find_package(Eigen3 REQUIRED)
 target_link_libraries(seissol-common-properties INTERFACE Eigen3::Eigen)
+
+# needed explicitly also to silence some clang-tidy differences
+if (NOT WITH_GPU)
+  # but: it still causes issues with some GPU builds until we refactor the DR parameter datastructures
+  target_compile_definitions(seissol-common-properties INTERFACE EIGEN_INITIALIZE_MATRICES_BY_ZERO)
+endif()
 
 # the following check is needed because allowing 3.4 and 5.0.0 at the same
 # time was not possible inline in the find_package
@@ -413,8 +281,8 @@ if ("${Eigen3_VERSION}" VERSION_LESS "3.4")
   message(FATAL_ERROR "Your installed Eigen version is too old. Needed: at least 3.4 .")
 endif()
 
-# only needed for "old" Eigen (i.e. below 5.0.0)
-if((${EQUATIONS} STREQUAL "poroelastic") AND ("${Eigen3_VERSION}" VERSION_LESS "5.0.0"))
+# needed because Eigen (also 5.0) still incorrectly computes some values and fails some unit tests
+if((${EQUATIONS} STREQUAL "poroelastic"))
   include(CheckLanguage)
   check_language(Fortran)
   if(CMAKE_Fortran_COMPILER)
@@ -465,10 +333,24 @@ endif()
 
 target_include_directories(seissol-common-properties INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/submodules
-    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
     ${CMAKE_CURRENT_BINARY_DIR}/src/
     ${CMAKE_CURRENT_BINARY_DIR}/codegen/
+)
+
+# submodule includes
+
+# Note: it is better to include `async` as
+# system headers because they emit lots of warnings
+# from clang. Most of them are issues with respect
+# to overriden virtual methods
+
+# for the same reason, do the same for all other submodules (for now)
+
+# not explicitly listed: PUML, utils, fty, xdmfwriter
+target_include_directories(seissol-common-properties SYSTEM INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
 if (PREMULTIPLY_FLUX)
@@ -536,7 +418,6 @@ if (WITH_GPU)
 
   # add device submodule
   add_subdirectory(submodules/Device)
-  target_include_directories(seissol-common-properties INTERFACE submodules/Device)
   target_link_libraries(seissol-common-properties INTERFACE device)
 
   # add SeisSol GPU part
@@ -552,50 +433,49 @@ if (WITH_GPU)
   # set up GPU install targets
   install(TARGETS seissol-device-lib LIBRARY)
   install(TARGETS device LIBRARY)
-  target_sources(seissol-common-lib PRIVATE ${SYCL_ONLY_SRC_FILES})
 endif()
 
 # C++ compiler settings
+# TODO: mostly remove or make optional? (except the EIGEN_DONT_VECTORIZE for NVHPC below)
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  target_compile_options(seissol-lib INTERFACE -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
+  target_compile_options(seissol-common-properties INTERFACE $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-pedantic -Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
 
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
   # todo remove std?, is ffreestanding needed?
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-pedantic -std=c++17>)
 
   # Activate interprocedual optimization.
   #set_property(TARGET seissol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Wno-unused-parameter")
+  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-pedantic -Wall -Wextra -Wno-unused-parameter>)
 
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
     # warning 186 - pointless comparison of unsigned integer with zero detected
     # warning 612 - overloaded virtual function is only partially overridden
     # warning 111 - statement is unreachable
-    set(WARNINGS "--display_error_number --diag_suppress186 --diag_suppress612 --diag_suppress111")
+    target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:--display_error_number --diag_suppress186 --diag_suppress612 --diag_suppress111>)
     if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.3.1")
-      set(WARNINGS "${WARNINGS} --diag_suppress1")
+      target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:--diag_suppress1>)
     endif()
 
     # NOTE:
     # 1. --pending_instantiations=0 allows an infinite recursive template instantiation
-    # 2. EIGEN_DONT_VECTORIZE=1 waiting for eigen3 support for nvhpc compiler collection w.r.t. vectorization
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wc,--pending_instantiations=0 ${WARNINGS} -DEIGEN_DONT_VECTORIZE=0")
+    target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-Wc,--pending_instantiations=0>)
+
+    if ("${Eigen3_VERSION}" VERSION_LESS "5.0")
+      # 2. EIGEN_DONT_VECTORIZE=1 ; Eigen3 3.4 does not have support for NVHPC vectorization
+      target_compile_definitions(seissol-common-properties INTERFACE EIGEN_DONT_VECTORIZE=0)
+    endif()
 endif()
 
 find_package(FILESYSTEM REQUIRED)
 target_link_libraries(seissol-common-properties INTERFACE std::filesystem)
 
-# Generated code does only work without red-zone.
-if (HAS_REDZONE)
-  set_source_files_properties(
-      ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
-  )
-endif()
-
-# put every executable in the root build directory at the end
+# put every executable and shared library in the root build directory at the end
+# (for compatibility reasons; TODO: remove at some point)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 if (LIKWID)
@@ -605,94 +485,13 @@ if (LIKWID)
   target_link_libraries(seissol-lib PUBLIC likwid::likwid)
 endif()
 
+add_subdirectory(external)
+
 if (TESTING)
   enable_testing()
   include(cmake/doctest.cmake)
 
-  set(seissol_test_sources
-          src/tests/Model/TestModel.cpp
-          src/tests/Initializer/TestInitializer.cpp
-          src/tests/Numerical/TestNumerical.cpp
-          src/tests/Geometry/TestGeometry.cpp
-          src/tests/Kernel/TestKernel.cpp
-          src/tests/Memory/TestMemory.cpp
-          src/tests/SourceTerm/TestSourceTerm.cpp
-          src/tests/Parallel/TestParallel.cpp
-          src/tests/ResultWriter/TestResultWriter.cpp
-          src/tests/Solver/TimeStepping/TestSolverTimeStepping.cpp
-          src/tests/DynamicRupture/TestDynamicRupture.cpp
-          src/tests/Common/TestCommon.cpp
-          src/tests/Modules/TestModule.cpp
-          )
-
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/TimeStepping/mesh.h5
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh.h5
-    COPYONLY
-    )
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/TimeStepping/material.yaml
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/material.yaml
-    COPYONLY
-    )
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/ResultWriter/receiver_correct.dat
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/receiver_correct.dat
-    COPYONLY
-  )
-
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/fsrm_source1.dat
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/fsrm_source1.dat
-    COPYONLY
-  )
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/fsrm_source2.dat
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/fsrm_source2.dat
-    COPYONLY
-  )
-
-  if (NETCDF)
-    configure_file(
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/source_loh.nrf
-            ${CMAKE_CURRENT_BINARY_DIR}/Testing/source_loh.nrf
-            COPYONLY
-    )
-    set(seissol_test_sources ${seissol_test_sources} ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/ReaderTest.cpp)
-  endif()
-
-  add_executable(seissol-serial-test
-            ${seissol_test_sources}
-            src/tests/TestMain.cpp)
-  target_link_libraries(seissol-serial-test PRIVATE seissol-lib)
-  target_include_directories(seissol-serial-test PUBLIC external/)
-
-  if (TESTING_GENERATED)
-    if (WITH_GPU)
-
-      # for the GPU, create an extra library with device linking flags etc.
-      make_device_lib(seissol-serial-test-device "${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/test-kernel.cpp")
-      target_link_libraries(seissol-serial-test-device PRIVATE seissol-kernel-lib)
-      target_include_directories(seissol-serial-test-device PRIVATE external/)
-      target_link_libraries(seissol-serial-test PRIVATE seissol-serial-test-device)
-      target_compile_definitions(seissol-serial-test-device PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
-
-    else()
-
-      # else (i.e. CPU only), just add it to the main test binary
-      target_sources(seissol-serial-test PRIVATE
-        "${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/test-kernel.cpp")
-    endif()
-  endif()
-
-  separate_arguments(TESTING_COMMAND_LIST NATIVE_COMMAND ${TESTING_COMMAND})
-  set_property(TARGET seissol-serial-test PROPERTY CROSSCOMPILING_EMULATOR ${TESTING_COMMAND_LIST})
-  if (NOT TESTING_BUILD_ONLY)
-    doctest_discover_tests(seissol-serial-test)
-  endif()
-
-  # Avoid duplicate definition of FLOP counters
-  target_compile_definitions(seissol-serial-test PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
+  add_subdirectory(tests)
 endif()
 
 add_subdirectory(app)
@@ -704,7 +503,7 @@ if(TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
           EXECUTABLE ctest -j
           EXCLUDE "/usr/*"
                   "submodules/*"
-                  "*/tests/*"
+                  "tests/*"
                   "external/*"
                   "*/codegen/GeneratedCode/*"
                   "/opt/*"
@@ -723,6 +522,14 @@ if (WITH_GPU)
   file(CHMOD ${PROJECT_BINARY_DIR}/seissol-launch PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
   install(FILES ${PROJECT_BINARY_DIR}/seissol-launch DESTINATION ${CMAKE_INSTALL_PREFIX}/share
           PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+endif()
+
+if (BUILD_DOXYGEN)
+  add_subdirectory(docs/doxygen)
+endif()
+
+if (BUILD_DOCS)
+  add_subdirectory(docs)
 endif()
 
 # https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/

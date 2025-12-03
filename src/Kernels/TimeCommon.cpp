@@ -8,28 +8,31 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "TimeCommon.h"
+
+#include "Common/Constants.h"
+#include "Common/Marker.h"
 #include "GeneratedCode/tensor.h"
-#include <Common/Constants.h>
-#include <DataTypes/ConditionalTable.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/LtsSetup.h>
-#include <Kernels/Precision.h>
-#include <Kernels/Solver.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/LtsSetup.h"
+#include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
+#include "Parallel/Runtime/Stream.h"
+
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <stdint.h>
-
-#include "utils/logger.h"
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include <DataTypes/ConditionalKey.h>
-#include <DataTypes/EncodedConstants.h>
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
 
 #ifndef NDEBUG
 #include "Alignment.h"
+
 #include <cstdint>
 #endif
 
@@ -84,12 +87,14 @@ void TimeCommon::computeIntegrals(Time& time,
   }
 }
 
-void TimeCommon::computeBatchedIntegrals(Time& time,
-                                         const real* timeCoeffs,
-                                         const real* subtimeCoeffs,
-                                         ConditionalPointersToRealsTable& table,
-                                         seissol::parallel::runtime::StreamRuntime& runtime) {
+void TimeCommon::computeBatchedIntegrals(
+    SEISSOL_GPU_PARAM Time& time,
+    SEISSOL_GPU_PARAM const real* timeCoeffs,
+    SEISSOL_GPU_PARAM const real* subtimeCoeffs,
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+  using namespace seissol::recording;
   // Compute time integrated dofs using neighbors derivatives using the GTS relation,
   // i.e. the expansion point is around 'timeStepStart'
   ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithGtsDerivatives);

@@ -8,13 +8,15 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "LtsSetup.h"
-#include <Common/Constants.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/CellLocalInformation.h>
-#include <Initializer/LtsSetup.h>
-#include <Initializer/TimeStepping/Halo.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
+
+#include "Common/Constants.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/CellLocalInformation.h"
+#include "Initializer/LtsSetup.h"
+#include "Initializer/TimeStepping/Halo.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -22,9 +24,9 @@
 #include <mpi.h>
 #include <vector>
 
-namespace {
+namespace seissol::initializer::internal {
 
-using namespace seissol;
+namespace {
 
 /**
  * Gets the lts setup in relation to the four face neighbors.
@@ -213,8 +215,6 @@ LtsSetup normalizeLtsSetup(const LtsSetup& localLtsSetup,
 
 } // namespace
 
-namespace seissol::initializer::internal {
-
 /**
  * Derives the lts setups of all given cells.
  **/
@@ -274,7 +274,6 @@ void deriveLtsSetups(const MeshLayout& layout, LTS::Storage& storage) {
 
   // iterate over cells and normalize the setups
   for (auto& layer : storage.leaves(Ghost)) {
-    const auto isCopy = layer.getIdentifier().halo == HaloType::Copy;
     auto* primaryInformationLocal = layer.var<LTS::CellInformation>();
     const auto* secondaryInformationLocal = layer.var<LTS::SecondaryInformation>();
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {

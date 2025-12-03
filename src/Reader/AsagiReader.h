@@ -24,13 +24,13 @@ enum class NumaCacheMode { Off, On, Cache };
 class AsagiReader : public easi::AsagiReader {
   private:
   /** Number of threads used by ASAGI */
-  unsigned int asagiThreads;
+  unsigned int asagiThreads{0};
 
   /** MPI communicator used by ASAGI */
   MPI_Comm comm;
 
   public:
-  AsagiReader(MPI_Comm comm = seissol::MPI::mpi.comm());
+  explicit AsagiReader(MPI_Comm comm = seissol::Mpi::mpi.comm());
 
   ::asagi::Grid* open(const char* file, const char* varname) override;
   [[nodiscard]] unsigned numberOfThreads() const override;

@@ -10,11 +10,11 @@
 #ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_VISCOELASTICSETUP_H_
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_VISCOELASTICSETUP_H_
 
+#include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 
-#include "GeneratedCode/init.h"
 #include <yateto.h>
 
 namespace seissol::model {
@@ -92,13 +92,13 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
   static void getTransposedGodunovState(const MaterialT& local,
                                         const MaterialT& neighbor,
                                         FaceType faceType,
-                                        init::QgodLocal::view::type& QgodLocal,
-                                        init::QgodNeighbor::view::type& QgodNeighbor) {
+                                        init::QgodLocal::view::type& qGodLocal,
+                                        init::QgodNeighbor::view::type& qGodNeighbor) {
     seissol::model::getTransposedGodunovState(dynamic_cast<const ElasticMaterial&>(local),
                                               dynamic_cast<const ElasticMaterial&>(neighbor),
                                               faceType,
-                                              QgodLocal,
-                                              QgodNeighbor);
+                                              qGodLocal,
+                                              qGodNeighbor);
   }
 
   static void initializeSpecificLocalData(const MaterialT& material,
@@ -129,8 +129,9 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
     }
   }
 
-  static MaterialT getRotatedMaterialCoefficients(double rotationParameters[36],
-                                                  MaterialT& material) {
+  static MaterialT
+      getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
+                                     MaterialT& material) {
     return material;
   }
 

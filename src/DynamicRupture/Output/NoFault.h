@@ -13,7 +13,7 @@
 namespace seissol::dr::output {
 class NoFault : public ReceiverOutput {
   protected:
-  real computeLocalStrength(LocalInfo& local) override { return 0.0; }
+  real computeLocalStrength(LocalInfo& /*local*/) override { return 0.0; }
 };
 } // namespace seissol::dr::output
 

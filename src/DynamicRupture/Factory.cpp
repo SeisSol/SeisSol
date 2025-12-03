@@ -12,6 +12,7 @@
 #include "Initializer/Parameters/DRParameters.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Output/Output.h"
+
 #include <memory>
 #include <utils/logger.h>
 
@@ -24,9 +25,9 @@ namespace friction_law_gpu = seissol::dr::friction_law::gpu;
 namespace friction_law_gpu = seissol::dr::friction_law::cpu;
 #endif
 
+namespace seissol::dr::factory {
+
 namespace {
-using namespace seissol::dr;
-using namespace seissol::dr::factory;
 
 class NoFaultFactory : public AbstractFactory {
   public:
@@ -271,7 +272,6 @@ class RateAndStateSevereVelocityWeakeningFactory : public AbstractFactory {
 };
 } // namespace
 
-namespace seissol::dr::factory {
 std::unique_ptr<AbstractFactory>
     getFactory(const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
                seissol::SeisSol& seissolInstance) {

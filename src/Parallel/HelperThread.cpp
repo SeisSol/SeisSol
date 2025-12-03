@@ -6,12 +6,13 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "HelperThread.h"
 
-#include <Parallel/Pin.h>
+#include "Parallel/Pin.h"
+
 #include <functional>
 #include <utility>
 
 #ifdef ACL_DEVICE
-#include <device.h>
+#include <Device/device.h>
 #endif
 
 namespace seissol::parallel {

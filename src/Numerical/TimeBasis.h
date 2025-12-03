@@ -8,6 +8,7 @@
 #define SEISSOL_SRC_NUMERICAL_TIMEBASIS_H_
 
 #include "Functions.h"
+
 #include <cstddef>
 #include <vector>
 namespace seissol::numerical {
@@ -53,7 +54,7 @@ class MonomialBasis : public TimeBasis<RealT> {
   ~MonomialBasis() override = default;
   explicit MonomialBasis(std::size_t order) : order(order) {}
 
-  [[nodiscard]] std::vector<RealT> derivative(double position, double timestep) const override {
+  [[nodiscard]] std::vector<RealT> derivative(double position, double /*timestep*/) const override {
     std::vector<RealT> coeffs(order);
     coeffs[0] = 0;
     if (coeffs.size() > 1) {
@@ -67,7 +68,7 @@ class MonomialBasis : public TimeBasis<RealT> {
     return coeffs;
   }
 
-  [[nodiscard]] std::vector<RealT> point(double position, double timestep) const override {
+  [[nodiscard]] std::vector<RealT> point(double position, double /*timestep*/) const override {
     std::vector<RealT> coeffs(order);
     coeffs[0] = 1;
     double coeffCache = 1;
@@ -79,7 +80,7 @@ class MonomialBasis : public TimeBasis<RealT> {
   }
 
   [[nodiscard]] std::vector<RealT>
-      integrate(double start, double end, double timestep) const override {
+      integrate(double start, double end, double /*timestep*/) const override {
     std::vector<RealT> coeffs(order);
     double coeffStart = start;
     double coeffEnd = end;
@@ -106,7 +107,7 @@ class LegendreBasis : public TimeBasis<RealT> {
   ~LegendreBasis() override = default;
   explicit LegendreBasis(std::size_t order) : order(order) {}
 
-  std::vector<RealT> derivative(double position, double timestep) const override {
+  [[nodiscard]] std::vector<RealT> derivative(double position, double timestep) const override {
     const double tau = position / timestep;
     std::vector<RealT> data(order);
     for (std::size_t i = 0; i < order; ++i) {
@@ -115,7 +116,7 @@ class LegendreBasis : public TimeBasis<RealT> {
     return data;
   }
 
-  std::vector<RealT> point(double position, double timestep) const override {
+  [[nodiscard]] std::vector<RealT> point(double position, double timestep) const override {
     const double tau = position / timestep;
     std::vector<RealT> data(order);
     for (std::size_t i = 0; i < order; ++i) {
@@ -124,7 +125,8 @@ class LegendreBasis : public TimeBasis<RealT> {
     return data;
   }
 
-  std::vector<RealT> integrate(double start, double end, double timestep) const override {
+  [[nodiscard]] std::vector<RealT>
+      integrate(double start, double end, double timestep) const override {
     const double tauS = start / timestep;
     const double tauE = end / timestep;
     std::vector<RealT> data(order);

@@ -9,22 +9,27 @@
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
 #include "MemoryManager.h"
+
+#include "Common/Constants.h"
+#include "Common/Iterator.h"
+#include "DynamicRupture/Factory.h"
+#include "DynamicRupture/Misc.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/CellLocalInformation.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/Boundary.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Descriptor/Surface.h"
 #include "Memory/GlobalData.h"
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
-#include <Common/Constants.h>
-#include <DynamicRupture/Factory.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/CellLocalInformation.h>
-#include <Initializer/Parameters/DRParameters.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/Boundary.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Descriptor/Surface.h>
+
 #include <array>
 #include <cstddef>
 #include <limits>
@@ -33,27 +38,23 @@
 #include <utils/logger.h>
 #include <yateto.h>
 
-#include <DynamicRupture/Misc.h>
-
-#include "Common/Iterator.h"
-
-#include "GeneratedCode/tensor.h"
-
 #ifdef ACL_DEVICE
 #include "BatchRecorders/Recorders.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
-#include "device.h"
-#include <Solver/MultipleSimulations.h>
+#include "Solver/MultipleSimulations.h"
+
+#include <Device/device.h>
 #endif // ACL_DEVICE
 
 namespace seissol::initializer {
 
 void MemoryManager::initialize() {
   // initialize global matrices
-  GlobalDataInitializerOnHost::init(m_globalDataOnHost, m_memoryAllocator, memory::Standard);
+  GlobalDataInitializerOnHost::init(
+      m_globalDataOnHost, m_memoryAllocator, memory::Memkind::Standard);
   if constexpr (seissol::isDeviceOn()) {
     GlobalDataInitializerOnDevice::init(
-        m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
+        m_globalDataOnDevice, m_memoryAllocator, memory::Memkind::DeviceGlobalMemory);
   }
 }
 
@@ -133,8 +134,7 @@ void MemoryManager::fixateBoundaryStorage() {
       outputParams.freeSurfaceParameters.vtkorder < 0) {
     refinement = outputParams.freeSurfaceParameters.refinement;
   }
-  seissolInstance.freeSurfaceIntegrator().initialize(
-      refinement, &m_globalDataOnHost, ltsStorage, surfaceStorage);
+  seissolInstance.freeSurfaceIntegrator().initialize(refinement, ltsStorage, surfaceStorage);
 }
 
 #ifdef ACL_DEVICE

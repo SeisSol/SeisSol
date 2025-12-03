@@ -8,11 +8,13 @@
 #ifndef SEISSOL_SRC_PARALLEL_HELPER_H_
 #define SEISSOL_SRC_PARALLEL_HELPER_H_
 
-#include "utils/env.h"
-#include "utils/logger.h"
+#include "Common/Marker.h"
+
+#include <utils/env.h>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include <device.h>
+#include <Device/device.h>
 #endif
 
 namespace seissol {
@@ -45,7 +47,7 @@ inline void printPersistentMpiInfo(utils::Env& env) {
   }
 }
 
-inline bool useUSM(utils::Env& env) {
+inline bool useUSM(SEISSOL_GPU_PARAM utils::Env& env) {
 #ifdef ACL_DEVICE
   return env.get<bool>("USM", device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
 #else
@@ -66,7 +68,7 @@ inline void printUSMInfo(utils::Env& env) {
   }
 }
 
-inline bool useMPIUSM(utils::Env& env) {
+inline bool useMPIUSM(SEISSOL_GPU_PARAM utils::Env& env) {
 #ifdef ACL_DEVICE
   return env.get<bool>("USM_MPI",
                        device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());

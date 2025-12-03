@@ -9,7 +9,8 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_ABSTRACTTIMECLUSTER_H_
 
 #include "ActorState.h"
-#include <Memory/Tree/Layer.h>
+#include "Memory/Tree/Layer.h"
+
 #include <chrono>
 #include <memory>
 #include <string>

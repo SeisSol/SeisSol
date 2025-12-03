@@ -11,6 +11,7 @@
 #include "Initializer/Typedefs.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
+
 #include <list>
 
 namespace seissol::time_stepping {

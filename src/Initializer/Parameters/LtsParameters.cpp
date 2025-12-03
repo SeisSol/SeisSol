@@ -7,8 +7,9 @@
 
 #include "LtsParameters.h"
 
-#include <Equations/Datastructures.h>
-#include <Initializer/Parameters/ParameterReader.h>
+#include "Equations/Datastructures.h"
+#include "Initializer/Parameters/ParameterReader.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -139,8 +140,6 @@ double LtsParameters::getWiggleFactorMinimum() const { return wiggleFactorMinimu
 
 double LtsParameters::getWiggleFactorStepsize() const { return wiggleFactorStepsize; }
 
-double LtsParameters::getWiggleFactor() const { return finalWiggleFactor; }
-
 bool LtsParameters::getWiggleFactorEnforceMaximumDifference() const {
   return wiggleFactorEnforceMaximumDifference;
 }
@@ -154,17 +153,6 @@ double LtsParameters::getAllowedPerformanceLossRatioAutoMerge() const {
 }
 AutoMergeCostBaseline LtsParameters::getAutoMergeCostBaseline() const {
   return autoMergeCostBaseline;
-}
-
-void LtsParameters::setWiggleFactor(double factor) {
-  assert(factor >= 1.0 / static_cast<double>(rate[0]));
-  assert(factor <= 1.0);
-  finalWiggleFactor = factor;
-}
-
-void LtsParameters::setMaxNumberOfClusters(int numClusters) {
-  assert(numClusters > 0);
-  maxNumberOfClusters = numClusters;
 }
 
 TimeSteppingParameters::TimeSteppingParameters(VertexWeightParameters vertexWeight,

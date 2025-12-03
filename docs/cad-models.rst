@@ -16,7 +16,7 @@ SimModeler CAD workflow
 
 Since September 2019, SimModeler features powerful tools for processing discrete data (geometry in the form of meshes), which allow building structural models without the need to rely on additional CAD software.
 We illustrate the SimModeler CAD workflow by building the structural model of the Palu earthquake dynamic rupture scenario (Ulrich et al., 2019).
-See :doc:`simmodelerCAD-workflow`.
+See :doc:`simmodeler-cad-workflow`.
 
 GOCAD CAD workflow
 ------------------

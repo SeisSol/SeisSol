@@ -8,11 +8,11 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_
 
+#include "Alignment.h"
 #include "Common/Constants.h"
+#include "Common/Executor.h"
 #include "DynamicRupture/Misc.h"
 #include "Kernels/Precision.h"
-#include <Alignment.h>
-#include <Common/Executor.h>
 
 namespace seissol::dr {
 
@@ -21,7 +21,17 @@ namespace seissol::dr {
  * Carsten Uphoff's dissertation equation (4.51)
  */
 struct ImpedancesAndEta {
-  real zp, zs, zpNeig, zsNeig, etaP, etaS, invEtaS, invZp, invZs, invZpNeig, invZsNeig;
+  real zp{};
+  real zs{};
+  real zpNeig{};
+  real zsNeig{};
+  real etaP{};
+  real etaS{};
+  real invEtaS{};
+  real invZp{};
+  real invZs{};
+  real invZpNeig{};
+  real invZsNeig{};
 };
 
 /**
