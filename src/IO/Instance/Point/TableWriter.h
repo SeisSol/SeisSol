@@ -8,13 +8,13 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_POINT_TABLEWRITER_H_
 #define SEISSOL_SRC_IO_INSTANCE_POINT_TABLEWRITER_H_
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Writer/Writer.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Writer/Writer.h"
+
 #include <functional>
 #include <memory>
 #include <string>
-
-#include "utils/logger.h"
+#include <utils/logger.h>
 
 namespace seissol::io::instance::point {
 

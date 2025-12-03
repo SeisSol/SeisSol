@@ -5,14 +5,20 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Physics/InitialField.h"
+
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
-#include <Equations/Datastructures.h>
-#include <Initializer/Parameters/InitializationParameters.h>
-#include <Initializer/Typedefs.h>
-#include <Model/Common.h>
-#include <Model/CommonDatastructures.h>
-#include <Solver/MultipleSimulations.h>
+#include "Initializer/Parameters/InitializationParameters.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Model/Common.h"
+#include "Model/CommonDatastructures.h"
+#include "Numerical/Eigenvalues.h"
+#include "Solver/MultipleSimulations.h"
+
+#include <Eigen/Core>
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -20,10 +26,6 @@
 #include <cstddef>
 #include <limits>
 #include <math.h>
-
-#include "Kernels/Precision.h"
-#include "Numerical/Eigenvalues.h"
-#include "Physics/InitialField.h"
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -101,7 +103,7 @@ void seissol::physics::Planarwave::evaluate(
     double time,
     const std::array<double, 3>* points,
     std::size_t count,
-    const CellMaterialData& materialData,
+    const CellMaterialData& /*materialData*/,
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
 
@@ -126,7 +128,7 @@ void seissol::physics::Planarwave::evaluate(
 
 seissol::physics::SuperimposedPlanarwave::SuperimposedPlanarwave(
     const CellMaterialData& materialData, real phase)
-    : m_kVec({{{M_PI, 0.0, 0.0}, {0.0, M_PI, 0.0}, {0.0, 0.0, M_PI}}}), m_phase(phase),
+    : m_kVec({{{M_PI, 0.0, 0.0}, {0.0, M_PI, 0.0}, {0.0, 0.0, M_PI}}}),
       m_pw({Planarwave(materialData, phase, m_kVec.at(0)),
             Planarwave(materialData, phase, m_kVec.at(1)),
             Planarwave(materialData, phase, m_kVec.at(2))}) {}
@@ -205,7 +207,7 @@ void seissol::physics::AcousticTravellingWaveITM::evaluate(
     double time,
     const std::array<double, 3>* points,
     std::size_t count,
-    const CellMaterialData& materialData,
+    const CellMaterialData& /*materialData*/,
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
   double pressure = 0.0;
@@ -273,7 +275,7 @@ void seissol::physics::TravellingWave::evaluate(
     double time,
     const std::array<double, 3>* points,
     std::size_t count,
-    const CellMaterialData& materialData,
+    const CellMaterialData& /*materialData*/,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
   dofsQp.setZero();
 
@@ -310,10 +312,10 @@ seissol::physics::PressureInjection::PressureInjection(
 }
 
 void seissol::physics::PressureInjection::evaluate(
-    double time,
+    double /*time*/,
     const std::array<double, 3>* points,
     std::size_t count,
-    const CellMaterialData& materialData,
+    const CellMaterialData& /*materialData*/,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
   const auto o1 = m_parameters.origin[0];
   const auto o2 = m_parameters.origin[1];

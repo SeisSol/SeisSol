@@ -8,8 +8,9 @@
 #ifndef SEISSOL_SRC_SOLVER_MULTIPLESIMULATIONS_H_
 #define SEISSOL_SRC_SOLVER_MULTIPLESIMULATIONS_H_
 
+#include "Config.h"
 #include "GeneratedCode/init.h"
-#include <Config.h>
+
 #include <cstddef>
 #include <functional>
 #include <tuple>
@@ -114,7 +115,7 @@ struct MultisimHelperWrapper<1> {
 #pragma omp declare simd
 #endif
   template <typename F, typename... Args>
-  static decltype(auto) multisimWrap(F&& function, size_t sim, Args&&... args) {
+  static decltype(auto) multisimWrap(F&& function, size_t /*sim*/, Args&&... args) {
     return std::invoke(std::forward<F>(function), std::forward<Args>(args)...);
   }
 
@@ -122,7 +123,7 @@ struct MultisimHelperWrapper<1> {
 #pragma omp declare simd
 #endif
   template <typename T, typename F, typename... Args>
-  static decltype(auto) multisimObjectWrap(F&& func, T& obj, int sim, Args&&... args) {
+  static decltype(auto) multisimObjectWrap(F&& func, T& obj, int /*sim*/, Args&&... args) {
     return std::invoke(std::forward<F>(func), obj, std::forward<Args>(args)...);
   }
 
@@ -138,7 +139,7 @@ struct MultisimHelperWrapper<1> {
 #pragma omp declare simd
 #endif
   template <typename TensorViewT>
-  static decltype(auto) simtensor(TensorViewT& tensor, int sim) {
+  static decltype(auto) simtensor(TensorViewT& tensor, int /*sim*/) {
     return tensor;
   }
   constexpr static size_t MultisimStart = 0;
