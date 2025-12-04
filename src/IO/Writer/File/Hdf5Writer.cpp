@@ -7,6 +7,7 @@
 
 #include "Hdf5Writer.h"
 
+#include "Common/Filesystem.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/HDF5Type.h"
 #include "IO/Datatype/Inference.h"
@@ -60,8 +61,12 @@ void Hdf5File::openFile(const std::string& name) {
   _eh(H5Pset_libver_bounds(h5falist, H5F_LIBVER_LATEST, H5F_LIBVER_LATEST));
 #endif
   _eh(H5Pset_fapl_mpio(h5falist, comm, MPI_INFO_NULL));
-  file = _eh(H5Fcreate(name.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, h5falist));
-  // file = _eh(H5Fopen(name.c_str(), H5F_ACC_DEFAULT, h5falist));
+
+  if (seissol::directoryExists(seissol::filesystem::directory_entry(name))) {
+    file = _eh(H5Fopen(name.c_str(), H5F_ACC_DEFAULT, h5falist));
+  } else {
+    file = _eh(H5Fcreate(name.c_str(), H5F_ACC_EXCL, H5P_DEFAULT, h5falist));
+  }
   _eh(H5Pclose(h5falist));
 
   handles.push(file);
