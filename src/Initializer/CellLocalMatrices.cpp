@@ -9,18 +9,35 @@
 
 #include "CellLocalMatrices.h"
 
-#include "Equations/Setup.h" // IWYU pragma: keep
+#include "Common/Constants.h"
+#include "DynamicRupture/Typedefs.h"
+#include "Equations/Datastructures.h" // IWYU pragma: keep
+#include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/ParameterDB.h"
+#include "Initializer/TimeStepping/ClusterLayout.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
+#include "Model/CommonDatastructures.h"
+#include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 #include "Parameters/ModelParameters.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <Common/Constants.h>
+#include <Eigen/Core>
 #include <Equations/Datastructures.h> // IWYU pragma: keep
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>
@@ -35,6 +52,7 @@
 #include <Numerical/Eigenvalues.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <complex>
 #include <cstddef>
@@ -42,6 +60,8 @@
 #include <optional>
 #include <utils/logger.h>
 #include <vector>
+
+namespace seissol::initializer {
 
 namespace {
 
@@ -126,8 +146,6 @@ Eigen::Matrix<T, N<Cfg>, N<Cfg>> extractMatrix(
 };
 
 } // namespace
-
-namespace seissol::initializer {
 
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
                                  LTS::Storage& ltsStorage,
@@ -241,7 +259,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             MeshTools::normalize(tangent1, tangent1);
             MeshTools::normalize(tangent2, tangent2);
 
-            double nLocalData[6 * 6];
+            std::array<double, 36> nLocalData{};
             seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
             seissol::model::getTransposedGodunovState<Cfg>(
                 seissol::model::getRotatedMaterialCoefficients<Cfg>(nLocalData, materialLocal),

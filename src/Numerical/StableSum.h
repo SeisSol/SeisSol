@@ -27,7 +27,7 @@ std::cout << acc.result() << std::endl;
 template <typename RealT>
 struct StableAccumulator {
   StableAccumulator() = default;
-  StableAccumulator(RealT start) : acc(start), corr(0) {}
+  explicit StableAccumulator(RealT start) : acc(start), corr(0) {}
 
   auto operator+(RealT number) -> StableAccumulator<RealT> {
     StableAccumulator<RealT> newacc;

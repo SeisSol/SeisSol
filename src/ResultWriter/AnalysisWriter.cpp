@@ -7,9 +7,29 @@
 
 #include "AnalysisWriter.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshReader.h"
+#include "Geometry/MeshTools.h"
+#include "Initializer/InitialFieldProjection.h"
+#include "Initializer/Parameters/InitializationParameters.h"
+#include "Initializer/PreProcessorMacros.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+#include "Numerical/Quadrature.h"
+#include "Numerical/Transformation.h"
+#include "Parallel/MPI.h"
+#include "Parallel/OpenMP.h"
+#include "Physics/InitialField.h"
+#include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <Alignment.h>
 #include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
@@ -37,13 +57,6 @@
 #include <utils/logger.h>
 #include <variant>
 #include <vector>
-
-#include "Geometry/MeshReader.h"
-#include "Initializer/PreProcessorMacros.h"
-#include "Parallel/OpenMP.h"
-#include "Physics/InitialField.h"
-#include "SeisSol.h"
-#include "Solver/MultipleSimulations.h"
 
 namespace seissol::writer {
 
@@ -78,7 +91,7 @@ CsvAnalysisWriter::~CsvAnalysisWriter() {
 }
 
 void AnalysisWriter::printAnalysis(double simulationTime) {
-  const auto& mpi = seissol::MPI::mpi;
+  const auto& mpi = seissol::Mpi::mpi;
 
   const auto initialConditionType = seissolInstance.getSeisSolParameters().initialization.type;
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero ||

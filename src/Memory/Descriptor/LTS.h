@@ -9,17 +9,17 @@
 #ifndef SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_
 
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/tensor.h"
 #include "IO/Instance/Checkpoint/CheckpointManager.h"
+#include "Initializer/CellLocalInformation.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
+#include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
-#include <Equations/Datastructures.h>
-#include <Initializer/CellLocalInformation.h>
-#include <Memory/Tree/Backmap.h>
-#include <Parallel/Helper.h>
+#include "Parallel/Helper.h"
 
 #ifdef ACL_DEVICE
 #include "Parallel/Helper.h"

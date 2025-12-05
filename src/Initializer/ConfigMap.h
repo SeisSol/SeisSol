@@ -7,9 +7,10 @@
 #ifndef SEISSOL_SRC_INITIALIZER_CONFIGMAP_H_
 #define SEISSOL_SRC_INITIALIZER_CONFIGMAP_H_
 
+#include "Config.h"
+
 #include <Common/ConfigHelper.h>
 #include <Common/Iterator.h>
-#include <Config.h>
 #include <unordered_map>
 #include <utils/env.h>
 

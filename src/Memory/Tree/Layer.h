@@ -12,18 +12,22 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/DeviceGraph.h"
 #include "Memory/MemoryAllocator.h"
-#include <Memory/Tree/Colormap.h>
+#include "Memory/Tree/Colormap.h"
+
 #include <bitset>
 #include <cstring>
 #include <limits>
 #include <type_traits>
 #include <typeindex>
+#include <utils/logger.h>
 #include <variant>
 #include <vector>
 
-#include <utils/logger.h>
+// TODO: remove the following
 
+// NOLINTBEGIN (-cppcoreguidelines-use-enum-class)
 enum LayerType { Ghost = (1U << 0U), Copy = (1U << 1U), Interior = (1U << 2U), NumLayers = 3U };
+// NOLINTEND (-cppcoreguidelines-use-enum-class)
 
 namespace seissol::initializer {
 using LayerMask = std::bitset<NumLayers>;
@@ -41,9 +45,9 @@ enum class AllocationMode {
 enum class AllocationPlace { Host, Device };
 
 struct DualMemoryContainer {
-  void* host = nullptr;
-  void* device = nullptr;
-  AllocationMode allocationMode;
+  void* host{nullptr};
+  void* device{nullptr};
+  AllocationMode allocationMode{AllocationMode::HostOnly};
   std::size_t allocationSize{};
   std::size_t allocationAlignment{};
   bool constant{};
@@ -196,8 +200,8 @@ struct MemoryInfo {
   size_t size{};
   size_t count{};
   LayerMask mask;
-  AllocationMode allocMode;
-  MemoryType type;
+  AllocationMode allocMode{AllocationMode::HostOnly};
+  MemoryType type{MemoryType::Variable};
   bool constant{false};
   bool filtered{false};
   bool initialized{false};
@@ -265,6 +269,7 @@ struct SpecificVarmap {
       return value;
     } else if constexpr (sizeof...(Ttail) == 0) {
       static_assert(sizeof(T) == 0, "Type not found.");
+      return std::numeric_limits<std::size_t>::max();
     } else {
       return innerIndex<T, Ttail...>(value + 1);
     }
@@ -286,7 +291,7 @@ struct SpecificVarmap {
   }
 
   template <typename T>
-  [[nodiscard]] std::size_t index(T& handle) const {
+  [[nodiscard]] std::size_t index(T& /*handle*/) const {
     static_assert(sizeof(T) == 0, "Type not found.");
     return 0;
   }
@@ -317,11 +322,12 @@ class Layer {
 
 #ifdef ACL_DEVICE
   std::unordered_map<GraphKey, device::DeviceGraphHandle, GraphKeyHash> m_computeGraphHandles{};
-  ConditionalPointersToRealsTable m_conditionalPointersToRealsTable{};
-  DrConditionalPointersToRealsTable m_drConditionalPointersToRealsTable{};
-  ConditionalMaterialTable m_conditionalMaterialTable{};
-  ConditionalIndicesTable m_conditionalIndicesTable;
 #endif
+
+  recording::ConditionalPointersToRealsTable m_conditionalPointersToRealsTable;
+  recording::DrConditionalPointersToRealsTable m_drConditionalPointersToRealsTable;
+  recording::ConditionalMaterialTable m_conditionalMaterialTable;
+  recording::ConditionalIndicesTable m_conditionalIndicesTable;
 
   public:
   Layer() = default;
@@ -388,7 +394,7 @@ public:
     }
 
     template <typename StorageT>
-    const StorageType<StorageT>& get() const {
+    [[nodiscard]] const StorageType<StorageT>& get() const {
       return *reinterpret_cast<const StorageType<StorageT>*>(
           pointers[varmap.template index<StorageT>()]);
     }
@@ -442,14 +448,15 @@ private:
   }
 
   template <typename StorageT>
-  const typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) const {
+  [[nodiscard]] const typename StorageT::Type*
+      var(AllocationPlace place = AllocationPlace::Host) const {
     const auto index = varmap.template index<StorageT>();
     assert(memoryContainer.size() > index);
     return static_cast<typename StorageT::Type*>(memoryContainer[index].get(place));
   }
 
   template <typename StorageT, typename ConfigT>
-  const typename StorageT::template VariantType<ConfigT>*
+  [[nodiscard]] const typename StorageT::template VariantType<ConfigT>*
       var(const ConfigT& /*...*/, AllocationPlace place = AllocationPlace::Host) const {
     const auto index = varmap.template index<StorageT>();
     assert(memoryContainer.size() > index);
@@ -484,15 +491,15 @@ private:
   }
 
   template <typename HandleT>
-  const typename HandleT::Type* var(const HandleT& handle,
-                                    AllocationPlace place = AllocationPlace::Host) const {
+  [[nodiscard]] const typename HandleT::Type*
+      var(const HandleT& handle, AllocationPlace place = AllocationPlace::Host) const {
     const auto index = varmap.index(handle);
     assert(memoryContainer.size() > index);
     return static_cast<typename HandleT::Type*>(memoryContainer[index].get(place));
   }
 
   template <typename HandleT, typename ConfigT>
-  const typename HandleT::template VariantType<ConfigT>*
+  [[nodiscard]] const typename HandleT::template VariantType<ConfigT>*
       var(const HandleT& handle,
           const ConfigT& /*...*/,
           AllocationPlace place = AllocationPlace::Host) const {
@@ -645,45 +652,45 @@ private:
     std::visit(std::forward<F>(function), identifier.config);
   }
 
-#ifdef ACL_DEVICE
   template <typename InnerKeyType>
   auto& getConditionalTable() {
-    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Wp>) {
+    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Wp>) {
       return m_conditionalPointersToRealsTable;
     }
 
-    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Dr>) {
+    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Dr>) {
       return m_drConditionalPointersToRealsTable;
     }
 
-    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Material>) {
+    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Material>) {
       return m_conditionalMaterialTable;
     }
 
-    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Indices>) {
+    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Indices>) {
       return m_conditionalIndicesTable;
     }
   }
 
   template <typename InnerKeyType>
   const auto& getConditionalTable() const {
-    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Wp>) {
+    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Wp>) {
       return m_conditionalPointersToRealsTable;
     }
 
-    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Dr>) {
+    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Dr>) {
       return m_drConditionalPointersToRealsTable;
     }
 
-    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Material>) {
+    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Material>) {
       return m_conditionalMaterialTable;
     }
 
-    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Indices>) {
+    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Indices>) {
       return m_conditionalIndicesTable;
     }
   }
 
+#ifdef ACL_DEVICE
   device::DeviceGraphHandle getDeviceComputeGraphHandle(GraphKey graphKey) {
     if (m_computeGraphHandles.find(graphKey) != m_computeGraphHandles.end()) {
       return m_computeGraphHandles[graphKey];

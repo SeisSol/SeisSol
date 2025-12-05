@@ -6,9 +6,12 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "NoFault.h"
+
 #include "Common/Executor.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
+#include "Kernels/Precision.h"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -18,9 +21,9 @@ template <typename Cfg>
 void NoFault<Cfg>::updateFrictionAndSlip(
     const FaultStresses<Cfg, Executor::Host>& faultStresses,
     TractionResults<Cfg, Executor::Host>& tractionResults,
-    std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
-    std::array<real, misc::NumPaddedPoints<Cfg>>& strengthBuffer,
-    std::size_t ltsFace,
+    std::array<real, misc::NumPaddedPoints<Cfg>>& /*stateVariableBuffer*/,
+    std::array<real, misc::NumPaddedPoints<Cfg>>& /*strengthBuffer*/,
+    std::size_t /*ltsFace*/,
     uint32_t timeIndex) {
   for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
     tractionResults.traction1[timeIndex][pointIndex] =

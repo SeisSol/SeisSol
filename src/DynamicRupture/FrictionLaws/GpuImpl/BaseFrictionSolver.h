@@ -8,17 +8,18 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_BASEFRICTIONSOLVER_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_BASEFRICTIONSOLVER_H_
 
+#include "Common/Constants.h"
+#include "Common/Marker.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
+#include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
+#include "DynamicRupture/Misc.h"
+#include "Equations/Datastructures.h"
 #include "FrictionSolverInterface.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "Numerical/Functions.h"
-#include <Common/Constants.h>
-#include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
-#include <DynamicRupture/Misc.h>
-#include <Memory/Descriptor/DynamicRupture.h>
-#include <algorithm>
 
-#include "Common/Marker.h"
+#include <algorithm>
 
 #ifdef SEISSOL_KERNELS_SYCL
 #include <sycl/sycl.hpp>
@@ -43,21 +44,21 @@ struct FrictionLawArgs {
   const Real<Cfg>* __restrict tpGridPoints{nullptr};
   const Real<Cfg>* __restrict heatSource{nullptr};
 
-  Real<Cfg> fullUpdateTime;
-  double* timeWeights;
-  Real<Cfg> deltaT[misc::TimeSteps<Cfg>];
-  Real<Cfg> sumDt;
+  Real<Cfg> fullUpdateTime{};
+  double* timeWeights{nullptr};
+  Real<Cfg> deltaT[misc::TimeSteps<Cfg>]{};
+  Real<Cfg> sumDt{};
 };
 
 template <typename Cfg>
 struct FrictionLawContext {
-  std::size_t ltsFace;
-  std::uint32_t pointIndex;
-  const FrictionLawData<Cfg>* __restrict data;
-  const FrictionLawArgs<Cfg>* __restrict args;
+  std::size_t ltsFace{0};
+  std::uint32_t pointIndex{0};
+  const FrictionLawData<Cfg>* __restrict data{nullptr};
+  const FrictionLawArgs<Cfg>* __restrict args{nullptr};
 
-  Real<Cfg>* __restrict sharedMemory;
-  void* item;
+  Real<Cfg>* __restrict sharedMemory{nullptr};
+  void* item{nullptr};
 
   FaultStresses<Cfg, Executor::Device> faultStresses{};
   TractionResults<Cfg, Executor::Device> tractionResults{};
@@ -222,7 +223,12 @@ class BaseFrictionSolver : public FrictionSolverDetails<Cfg> {
       return;
     }
 
-    evaluateKernel(runtime, fullUpdateTime, timeWeights, frictionTime);
+    if constexpr (model::MaterialTT<Cfg>::SupportsDR) {
+      evaluateKernel(runtime, fullUpdateTime, timeWeights, frictionTime);
+    } else {
+      logError() << "The material" << model::MaterialTT<Cfg>::Text
+                 << "does not support DR friction law computations.";
+    }
   }
 };
 } // namespace seissol::dr::friction_law::gpu

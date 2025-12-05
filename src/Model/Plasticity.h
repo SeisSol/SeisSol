@@ -8,9 +8,10 @@
 #ifndef SEISSOL_SRC_MODEL_PLASTICITY_H_
 #define SEISSOL_SRC_MODEL_PLASTICITY_H_
 
+#include "Kernels/Precision.h"
 #include "Model/CommonDatastructures.h"
-#include <Kernels/Precision.h>
-#include <Solver/MultipleSimulations.h>
+#include "Solver/MultipleSimulations.h"
+
 #include <cmath>
 #include <cstddef>
 #include <string>
@@ -23,10 +24,12 @@ template <typename Cfg>
 struct PlasticityData {
   using real = Real<Cfg>;
   // initial loading (stress tensor)
-  real initialLoading[6 * seissol::multisim::NumSimulations<Cfg>];
-  real cohesionTimesCosAngularFriction[seissol::multisim::NumSimulations<Cfg>];
-  real sinAngularFriction[seissol::multisim::NumSimulations<Cfg>];
-  real mufactor; // Only dependent on mu which is to be constant for all simulations
+  real initialLoading[6 * seissol::multisim::NumSimulations<Cfg>]{};
+  real cohesionTimesCosAngularFriction[seissol::multisim::NumSimulations<Cfg>]{};
+  real sinAngularFriction[seissol::multisim::NumSimulations<Cfg>]{};
+
+  // Only dependent on mu which is to be constant for all simulations
+  real mufactor;
 
   PlasticityData(const std::array<Plasticity, seissol::multisim::NumSimulations<Cfg>>& plasticity,
                  const Material* material) {

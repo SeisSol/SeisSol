@@ -7,16 +7,32 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "KernelHost.h"
+
+#include "Alignment.h"
 #include "Allocator.h"
 #include "Common.h"
+#include "Common/Constants.h"
+#include "Config.h"
 #include "Constants.h"
-#include "Kernel.h"
-
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/CellLocalInformation.h"
+#include "Initializer/Typedefs.h"
+#include "Kernel.h"
+#include "Kernels/Interface.h"
+#include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
+#include "Kernels/TimeCommon.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+#include "Monitoring/Instrumentation.h"
+#include "Numerical/Quadrature.h"
 #include "Parallel/OpenMP.h"
+#include "Parallel/Runtime/Stream.h"
+
 #include <Alignment.h>
 #include <Common/Constants.h>
-#include <Config.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/CellLocalInformation.h>
 #include <Initializer/Typedefs.h>
@@ -37,7 +53,7 @@
 namespace seissol::proxy {
 template <typename Cfg>
 void ProxyKernelHostAder<Cfg>::run(ProxyData& predata,
-                                   seissol::parallel::runtime::StreamRuntime& runtime) const {
+                                   seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
   auto& data = static_cast<ProxyDataImpl<Cfg>&>(predata);
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
@@ -95,7 +111,7 @@ auto ProxyKernelHostAder<Cfg>::needsDR() const -> bool {
 
 template <typename Cfg>
 void ProxyKernelHostLocalWOAder<Cfg>::run(
-    ProxyData& predata, seissol::parallel::runtime::StreamRuntime& runtime) const {
+    ProxyData& predata, seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
   auto& data = static_cast<ProxyDataImpl<Cfg>&>(predata);
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
@@ -151,7 +167,7 @@ auto ProxyKernelHostLocalWOAder<Cfg>::needsDR() const -> bool {
 
 template <typename Cfg>
 void ProxyKernelHostLocal<Cfg>::run(ProxyData& predata,
-                                    seissol::parallel::runtime::StreamRuntime& runtime) const {
+                                    seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
   auto& data = static_cast<ProxyDataImpl<Cfg>&>(predata);
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
@@ -180,8 +196,8 @@ void ProxyKernelHostLocal<Cfg>::run(ProxyData& predata,
 }
 
 template <typename Cfg>
-void ProxyKernelHostNeighbor<Cfg>::run(ProxyData& predata,
-                                       seissol::parallel::runtime::StreamRuntime& runtime) const {
+void ProxyKernelHostNeighbor<Cfg>::run(
+    ProxyData& predata, seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
   auto& data = static_cast<ProxyDataImpl<Cfg>&>(predata);
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
@@ -302,7 +318,6 @@ void ProxyKernelHostGodunovDR<Cfg>::run(ProxyData& predata,
   auto& layerData = data.drStorage.layer(data.layerId);
   const auto* faceInformation = layerData.template var<DynamicRupture::FaceInformation>();
   const auto* godunovData = layerData.template var<DynamicRupture::GodunovData>(Cfg());
-  auto* drEnergyOutput = layerData.template var<DynamicRupture::DREnergyOutputVar>(Cfg());
   auto* const* timeDerivativePlus =
       layerData.template var<DynamicRupture::TimeDerivativePlus>(Cfg());
   auto* const* timeDerivativeMinus =
@@ -322,7 +337,6 @@ void ProxyKernelHostGodunovDR<Cfg>::run(ProxyData& predata,
     const std::size_t prefetchFace = (face + 1 < layerData.size()) ? face + 1 : face;
     data.dynRupKernel.spaceTimeInterpolation(faceInformation[face],
                                              &godunovData[face],
-                                             &drEnergyOutput[face],
                                              timeDerivativePlus[face],
                                              timeDerivativeMinus[face],
                                              qInterpolatedPlus,

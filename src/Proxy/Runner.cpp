@@ -8,11 +8,15 @@
 
 #include "Runner.h"
 
+#include "Config.h"
 #include "GeneratedCode/kernel.h"
 #include "KernelDevice.h"
 #include "KernelHost.h"
+#include "Kernels/Common.h"
+#include "Parallel/Runtime/Stream.h"
+#include "Proxy/Kernel.h"
+
 #include <Common/ConfigHelper.h>
-#include <Config.h>
 #include <Kernels/Common.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Proxy/Kernel.h>
@@ -33,14 +37,17 @@
 #endif
 
 #include "Monitoring/FlopCounter.h"
+
 #include <cassert>
 
 // seissol_kernel includes
 #include "Allocator.h"
 #include "Tools.h"
 
+namespace seissol::proxy {
+
 namespace {
-using namespace seissol::proxy;
+
 void testKernel(std::shared_ptr<ProxyData>& data,
                 std::shared_ptr<parallel::runtime::StreamRuntime>& runtime,
                 std::shared_ptr<ProxyKernel>& kernel,
@@ -51,8 +58,6 @@ void testKernel(std::shared_ptr<ProxyData>& data,
 }
 
 } // namespace
-
-namespace seissol::proxy {
 
 auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   ConfigVariant cfg = ConfigVariantList[config.configId];
@@ -83,8 +88,8 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
     std::cerr << "...done" << std::endl;
   }
 
-  struct timeval startTime;
-  struct timeval endTime;
+  struct timeval startTime{};
+  struct timeval endTime{};
 #ifdef __USE_RDTSC
   size_t cyclesStart, cyclesEnd;
 #endif

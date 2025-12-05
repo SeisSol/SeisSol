@@ -26,8 +26,7 @@ struct RateAndState : public ReceiverOutputImpl<RateAndState> {
     return getCellData<LTSRateAndState::StateVariable>(Cfg(), local)[local.gpIndex];
   }
 
-  template <typename Cfg>
-  [[nodiscard]] std::vector<std::size_t> getOutputVariables() const {
+  [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
     auto baseVector = ReceiverOutputImpl::getOutputVariables();
     baseVector.push_back(drStorage->info<LTSRateAndState::StateVariable>().index);
     return baseVector;

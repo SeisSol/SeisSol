@@ -8,16 +8,17 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_H_
 #define SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_H_
 
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
+#include "IO/Datatype/MPIType.h"
+#include "IO/Instance/Geometry/Typedefs.h"
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Hdf5.h"
+#include "IO/Writer/Instructions/Instruction.h"
+#include "IO/Writer/Writer.h"
+#include "Initializer/MemoryManager.h"
 #include "utils/logger.h"
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/Inference.h>
-#include <IO/Datatype/MPIType.h>
-#include <IO/Instance/Geometry/Typedefs.h>
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Instructions/Hdf5.h>
-#include <IO/Writer/Instructions/Instruction.h>
-#include <IO/Writer/Writer.h>
-#include <Initializer/MemoryManager.h>
+
 #include <functional>
 #include <memory>
 

@@ -8,6 +8,7 @@
 #include "BaseDRInitializer.h"
 
 #include "DynamicRupture/Misc.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "Geometry/MeshDefinition.h"
@@ -15,8 +16,11 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <Eigen/Dense>
 #include <Equations/Datastructures.h>
 #include <Geometry/MeshReader.h>
@@ -36,8 +40,9 @@
 #include <cmath>
 #endif
 
+namespace seissol::dr::initializer {
+
 namespace {
-using namespace seissol::dr;
 
 /**
  * Stores the initialStresses.
@@ -175,7 +180,6 @@ void rotateStressToFaultCS(DynamicRupture::Layer& layer,
 
 } // namespace
 
-namespace seissol::dr::initializer {
 void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
   logInfo() << "Initializing Fault quadrature points...";
   for (auto& layer : drStorage.leaves(Ghost)) {

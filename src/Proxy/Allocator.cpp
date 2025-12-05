@@ -7,11 +7,28 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Allocator.h"
+
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Config.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
+#include "Kernels/Touch.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/GlobalData.h"
+#include "Memory/MemoryAllocator.h"
+#include "Memory/Tree/Colormap.h"
+#include "Memory/Tree/Layer.h"
 #include "Parallel/OpenMP.h"
+#include "Proxy/Constants.h"
+
 #include <Alignment.h>
 #include <Common/Constants.h>
-#include <Config.h>
 #include <Equations/Datastructures.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
@@ -34,10 +51,13 @@
 #include <variant>
 
 #ifdef ACL_DEVICE
-#include <Initializer/MemoryManager.h>
+#include "Initializer/MemoryManager.h"
 #endif
 
+namespace seissol::proxy {
+
 namespace {
+
 template <typename Cfg>
 void fakeData(Cfg cfg, LTS::Layer& layer, FaceType faceTp) {
   using real = Real<Cfg>;
@@ -135,8 +155,6 @@ void fakeData(Cfg cfg, LTS::Layer& layer, FaceType faceTp) {
 }
 } // namespace
 
-namespace seissol::proxy {
-
 template <typename Cfg>
 ProxyDataImpl<Cfg>::ProxyDataImpl(std::size_t cellCount, bool enableDR) : cellCount(cellCount) {
   layerId = initializer::LayerIdentifier(HaloType::Interior, ConfigVariant{Cfg()}, 0);
@@ -201,7 +219,7 @@ void ProxyDataImpl<Cfg>::initDataStructures(bool enableDR) {
     fakeDerivativesHost = reinterpret_cast<real*>(allocator.allocateMemory(
         cellCount * seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg> * sizeof(real),
         PagesizeHeap,
-        seissol::memory::Standard));
+        seissol::memory::Memkind::Standard));
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -223,7 +241,7 @@ void ProxyDataImpl<Cfg>::initDataStructures(bool enableDR) {
     fakeDerivatives = reinterpret_cast<real*>(allocator.allocateMemory(
         cellCount * seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg> * sizeof(real),
         PagesizeHeap,
-        seissol::memory::DeviceGlobalMemory));
+        seissol::memory::Memkind::DeviceGlobalMemory));
     const auto& device = ::device::DeviceInstance::getInstance();
     device.api->copyTo(fakeDerivatives,
                        fakeDerivativesHost,
@@ -317,11 +335,11 @@ void ProxyDataImpl<Cfg>::initDataStructuresOnDevice(bool enableDR) {
   seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(false, ltsStorage);
   ltsStorage.allocateScratchPads();
 
-  seissol::initializer::recording::CompositeRecorder<LTS::LTSVarmap> recorder;
-  recorder.addRecorder(new seissol::initializer::recording::LocalIntegrationRecorder);
-  recorder.addRecorder(new seissol::initializer::recording::NeighIntegrationRecorder);
+  seissol::recording::CompositeRecorder<LTS::LTSVarmap> recorder;
+  recorder.addRecorder(new seissol::recording::LocalIntegrationRecorder);
+  recorder.addRecorder(new seissol::recording::NeighIntegrationRecorder);
 
-  recorder.addRecorder(new seissol::initializer::recording::PlasticityRecorder);
+  recorder.addRecorder(new seissol::recording::PlasticityRecorder);
   recorder.record(layer);
   if (enableDR) {
     drStorage.synchronizeTo(seissol::initializer::AllocationPlace::Device,
@@ -330,8 +348,8 @@ void ProxyDataImpl<Cfg>::initDataStructuresOnDevice(bool enableDR) {
     seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(drStorage);
     drStorage.allocateScratchPads();
 
-    CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
-    drRecorder.addRecorder(new DynamicRuptureRecorder);
+    seissol::recording::CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
+    drRecorder.addRecorder(new seissol::recording::DynamicRuptureRecorder);
 
     auto& drLayer = drStorage.layer(layerId);
     drRecorder.record(drLayer);

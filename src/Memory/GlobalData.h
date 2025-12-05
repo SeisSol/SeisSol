@@ -9,16 +9,17 @@
 #ifndef SEISSOL_SRC_MEMORY_GLOBALDATA_H_
 #define SEISSOL_SRC_MEMORY_GLOBALDATA_H_
 
+#include "Config.h"
 #include "Initializer/Typedefs.h"
 #include "MemoryAllocator.h"
+
 #include <Common/Executor.h>
 #include <Common/Templating.h>
-#include <Config.h>
 #include <variant>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
-#include "device.h"
+#include <Device/device.h>
 #endif // ACL_DEVICE
 
 namespace seissol {

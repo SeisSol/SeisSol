@@ -11,6 +11,7 @@
 #include "DynamicRupture/Misc.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/Runtime/Stream.h"
+
 #include <Initializer/Typedefs.h>
 #include <Memory/GlobalData.h>
 #include <vector>

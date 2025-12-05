@@ -8,7 +8,20 @@
 
 #include "ReceiverWriter.h"
 
+#include "Equations/Datastructures.h"
+#include "Geometry/MeshReader.h"
+#include "Initializer/Parameters/OutputParameters.h"
+#include "Initializer/PointMapper.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Receiver.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
+#include "Modules/Modules.h"
+#include "Parallel/MPI.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <Common/Iterator.h>
+#include <Eigen/Core>
 #include <Equations/Datastructures.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/Parameters/OutputParameters.h>
@@ -37,16 +50,13 @@
 #include <utils/logger.h>
 #include <vector>
 
-#include "Modules/Modules.h"
-#include "Parallel/MPI.h"
-
 namespace seissol::writer {
 
 Eigen::Vector3d parseReceiverLine(const std::string& line) {
   const std::regex rgx("\\s+");
   std::sregex_token_iterator iter(line.begin(), line.end(), rgx, -1);
   const std::sregex_token_iterator end;
-  Eigen::Vector3d coordinates{};
+  Eigen::Vector3d coordinates;
   unsigned numberOfCoordinates = 0;
   for (; iter != end; ++iter, ++numberOfCoordinates) {
     if (numberOfCoordinates >= coordinates.size()) {
@@ -61,7 +71,7 @@ Eigen::Vector3d parseReceiverLine(const std::string& line) {
 }
 
 std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileName) {
-  std::vector<Eigen::Vector3d> points{};
+  std::vector<Eigen::Vector3d> points;
 
   std::ifstream file{receiverFileName};
   std::string line{};
@@ -89,7 +99,7 @@ void ReceiverWriter::writeHeader(std::size_t pointId,
   auto name = fileName(pointId);
 
   /// \todo Find a nicer solution that is not so hard-coded.
-  struct stat fileStat;
+  struct stat fileStat{};
   // Write header if file does not exist
   if (stat(name.c_str(), &fileStat) != 0) {
     std::ofstream file;
@@ -187,7 +197,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                 globalContained.size(),
                 MPI_SHORT,
                 MPI_MAX,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
 
   bool receiversMissing = false;
   for (std::size_t i = 0; i < numberOfPoints; ++i) {
@@ -243,7 +253,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   }
 }
 
-void ReceiverWriter::simulationStart(std::optional<double> checkpointTime) {
+void ReceiverWriter::simulationStart(std::optional<double> /*checkpointTime*/) {
   for (auto& cluster : m_receiverClusters) {
     cluster->allocateData();
   }

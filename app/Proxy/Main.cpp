@@ -6,13 +6,14 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Common/Executor.h"
+#include "Kernels/Common.h"
 #include "Proxy/Common.h"
 #include "Proxy/LikwidWrapper.h"
 #include "Proxy/Runner.h"
 #include "Proxy/Tools.h"
+
 #include <Common/ConfigHelper.h>
-#include <Common/Executor.h>
-#include <Kernels/Common.h>
 #include <cstddef>
 #include <iostream>
 #include <sstream>
@@ -22,12 +23,12 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include "device.h"
+#include <Device/device.h>
 #endif
 
 using namespace seissol::proxy;
 
-auto main(int argc, char* argv[]) -> int {
+int main(int argc, char* argv[]) {
   std::stringstream kernelHelp;
   auto allowedKernels = Aux::getAllowedKernels();
   kernelHelp << "Kernels to benchmark. A comma-separated list of (those kernels will be run "

@@ -7,7 +7,8 @@
 #ifndef SEISSOL_SRC_COMMON_CONFIGHELPER_H_
 #define SEISSOL_SRC_COMMON_CONFIGHELPER_H_
 
-#include <Config.h>
+#include "Config.h"
+
 #include <array>
 
 namespace seissol {

@@ -10,7 +10,7 @@
 
 #include "BaseFrictionLaw.h"
 
-#include "utils/logger.h"
+#include <utils/logger.h>
 
 namespace seissol::dr::friction_law::cpu {
 
@@ -238,17 +238,17 @@ class NoSpecialization {
 #pragma omp declare simd
   static real stateVariableHook(real localAccumulatedSlip,
                                 real localDc,
-                                std::size_t ltsFace,
-                                std::uint32_t pointIndex) {
+                                std::size_t /*ltsFace*/,
+                                std::uint32_t /*pointIndex*/) {
     return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   }
 
 #pragma omp declare simd
   static real strengthHook(real strength,
-                           real localSlipRate,
-                           real deltaT,
-                           std::size_t ltsFace,
-                           std::uint32_t pointIndex) {
+                           real /*localSlipRate*/,
+                           real /*deltaT*/,
+                           std::size_t /*ltsFace*/,
+                           std::uint32_t /*pointIndex*/) {
     return strength;
   };
 };
@@ -277,8 +277,8 @@ class BiMaterialFault {
 #pragma omp declare simd
   static real stateVariableHook(real localAccumulatedSlip,
                                 real localDc,
-                                std::size_t ltsFace,
-                                std::uint32_t pointIndex) {
+                                std::size_t /*ltsFace*/,
+                                std::uint32_t /*pointIndex*/) {
     return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   }
 
@@ -321,10 +321,10 @@ class TPApprox {
 
 #pragma omp declare simd
   static real strengthHook(real strength,
-                           real localSlipRate,
-                           real deltaT,
-                           std::size_t ltsFace,
-                           std::uint32_t pointIndex) {
+                           real /*localSlipRate*/,
+                           real /*deltaT*/,
+                           std::size_t /*ltsFace*/,
+                           std::uint32_t /*pointIndex*/) {
     return strength;
   };
 

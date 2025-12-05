@@ -28,8 +28,8 @@ class ImposedSlipRates : public BaseFrictionLaw<Cfg, ImposedSlipRates<Cfg, STF>>
 
   void updateFrictionAndSlip(const FaultStresses<Cfg, Executor::Host>& faultStresses,
                              TractionResults<Cfg, Executor::Host>& tractionResults,
-                             std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
-                             std::array<real, misc::NumPaddedPoints<Cfg>>& strengthBuffer,
+                             std::array<real, misc::NumPaddedPoints<Cfg>>& /*stateVariableBuffer*/,
+                             std::array<real, misc::NumPaddedPoints<Cfg>>& /*strengthBuffer*/,
                              std::size_t ltsFace,
                              uint32_t timeIndex) {
     const real timeIncrement = this->deltaT[timeIndex];

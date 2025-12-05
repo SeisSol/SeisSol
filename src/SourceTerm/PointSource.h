@@ -14,6 +14,7 @@
 #include "Kernels/Precision.h"
 #include "Memory/MemoryAllocator.h"
 #include "SourceTerm/Typedefs.h"
+
 #include <Model/CommonDatastructures.h>
 
 namespace seissol::sourceterm {

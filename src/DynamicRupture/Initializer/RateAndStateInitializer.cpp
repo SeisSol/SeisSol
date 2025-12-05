@@ -9,10 +9,11 @@
 
 #include "DynamicRupture/Initializer/BaseDRInitializer.h"
 #include "DynamicRupture/Misc.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
-#include <Initializer/Parameters/DRParameters.h>
+
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -148,10 +149,10 @@ RateAndStateInitializer::StateAndFriction
                                                                         double traction2,
                                                                         double pressure,
                                                                         double rsA,
-                                                                        double rsB,
-                                                                        double rsSl0,
+                                                                        double /*rsB*/,
+                                                                        double /*rsSl0*/,
                                                                         double rsSr0,
-                                                                        double rsF0,
+                                                                        double /*rsF0*/,
                                                                         double initialSlipRate) {
   StateAndFriction result{};
   const double absoluteTraction = misc::magnitude(traction1, traction2);

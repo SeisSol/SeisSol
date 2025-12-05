@@ -11,11 +11,13 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_
 #define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_
 
+#include "Equations/acoustic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
+
 #include <Equations/acoustic/Model/Datastructures.h>
 
 namespace seissol::model {
@@ -25,25 +27,26 @@ template <typename Cfg>
 struct MaterialSetup<Cfg, std::enable_if_t<Cfg::MaterialType == MaterialType::Acoustic>> {
   using MaterialT = model::MaterialTT<Cfg>;
   template <typename T>
-  static void getTransposedCoefficientMatrix(const AcousticMaterial& material, unsigned dim, T& M) {
-    M.setZero();
+  static void
+      getTransposedCoefficientMatrix(const AcousticMaterial& material, unsigned dim, T& matM) {
+    matM.setZero();
 
     const double rhoInv = 1.0 / material.rho;
 
     switch (dim) {
     case 0:
-      M(1, 0) = material.lambda;
-      M(0, 1) = rhoInv;
+      matM(1, 0) = material.lambda;
+      matM(0, 1) = rhoInv;
       break;
 
     case 1:
-      M(2, 0) = material.lambda;
-      M(0, 2) = rhoInv;
+      matM(2, 0) = material.lambda;
+      matM(0, 2) = rhoInv;
       break;
 
     case 2:
-      M(3, 0) = material.lambda;
-      M(0, 3) = rhoInv;
+      matM(3, 0) = material.lambda;
+      matM(0, 3) = rhoInv;
       break;
 
     default:
@@ -55,50 +58,53 @@ struct MaterialSetup<Cfg, std::enable_if_t<Cfg::MaterialType == MaterialType::Ac
   static void getTransposedGodunovState(const AcousticMaterial& local,
                                         const AcousticMaterial& neighbor,
                                         FaceType faceType,
-                                        Tloc& QgodLocal,
-                                        Tneigh& QgodNeighbor) {
-    QgodNeighbor.setZero();
+                                        Tloc& qGodLocal,
+                                        Tneigh& qGodNeighbor) {
+    qGodNeighbor.setZero();
+
+    // matR == eigenvector matrix
 
     // Eigenvectors are precomputed
-    Matrix44 R = Matrix44::Zero();
+    Matrix44 matR = Matrix44::Zero();
     // scale for better condition number of R
-    R(0, 0) = std::sqrt(local.lambda * local.rho);
-    R(1, 0) = -local.lambda;
-    R(0, 1) = std::sqrt(neighbor.lambda * neighbor.rho);
-    R(1, 1) = neighbor.lambda;
-    R(2, 2) = local.lambda;
-    R(3, 3) = local.lambda;
+    matR(0, 0) = std::sqrt(local.lambda * local.rho);
+    matR(1, 0) = -local.lambda;
+    matR(0, 1) = std::sqrt(neighbor.lambda * neighbor.rho);
+    matR(1, 1) = neighbor.lambda;
+    matR(2, 2) = local.lambda;
+    matR(3, 3) = local.lambda;
 
     if (faceType == FaceType::FreeSurface) {
       for (size_t i = 0; i < 4; i++) {
         for (size_t j = 0; j < 4; j++) {
-          QgodNeighbor(i, j) = std::numeric_limits<double>::signaling_NaN();
+          qGodNeighbor(i, j) = std::numeric_limits<double>::signaling_NaN();
         }
       }
-      QgodLocal.setZero();
-      QgodLocal(0, 1) = -1 * R(1, 0) * 1 / R(0, 0);
-      QgodLocal(1, 1) = 1.0;
+      qGodLocal.setZero();
+      qGodLocal(0, 1) = -1 * matR(1, 0) * 1 / matR(0, 0);
+      qGodLocal(1, 1) = 1.0;
     } else {
       Matrix44 chi = Matrix44::Zero();
       chi(0, 0) = 1.0;
 
-      const auto godunov = ((R * chi) * R.inverse()).eval();
+      const auto godunov = ((matR * chi) * matR.inverse()).eval();
 
-      // QgodLocal = I - QgodNeighbor
+      // qGodLocal = I - qGodNeighbor
       for (unsigned i = 0; i < godunov.cols(); ++i) {
         for (unsigned j = 0; j < godunov.rows(); ++j) {
-          QgodLocal(i, j) = -godunov(j, i);
-          QgodNeighbor(i, j) = godunov(j, i);
+          qGodLocal(i, j) = -godunov(j, i);
+          qGodNeighbor(i, j) = godunov(j, i);
         }
       }
       for (unsigned idx = 0; idx < 4; ++idx) {
-        QgodLocal(idx, idx) += 1.0;
+        qGodLocal(idx, idx) += 1.0;
       }
     }
   }
 
-  static AcousticMaterial getRotatedMaterialCoefficients(double rotationParameters[36],
-                                                         AcousticMaterial& material) {
+  static AcousticMaterial
+      getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
+                                     AcousticMaterial& material) {
     return material;
   }
   static void initializeSpecificLocalData(const AcousticMaterial& material,

@@ -8,8 +8,9 @@
 #ifndef SEISSOL_SRC_SOLVER_MULTIPLESIMULATIONS_H_
 #define SEISSOL_SRC_SOLVER_MULTIPLESIMULATIONS_H_
 
+#include "Config.h"
 #include "GeneratedCode/init.h"
-#include <Config.h>
+
 #include <cstddef>
 #include <functional>
 #include <tuple>
@@ -90,9 +91,6 @@ struct MultisimHelperWrapper {
     return reverseCall(std::forward<F>(function), std::forward<Args>(args)...);
   }
 
-#ifndef SEISSOL_NO_OMPSIMD
-#pragma omp declare simd
-#endif
   template <unsigned Rank, typename RealT, typename IdxT>
   static auto simtensor(::yateto::DenseTensorView<Rank, RealT, IdxT>& tensor, int sim) {
     static_assert(Rank > 0, "Tensor rank needs to be non-scalar (rank > 0)");
@@ -111,7 +109,7 @@ struct MultisimHelperWrapper<1> {
 #pragma omp declare simd
 #endif
   template <typename F, typename... Args>
-  static auto& multisimWrap(F&& function, size_t sim, Args&&... args) {
+  static auto& multisimWrap(F&& function, size_t /*sim*/, Args&&... args) {
     return std::invoke(std::forward<F>(function), std::forward<Args>(args)...);
   }
 
@@ -119,7 +117,7 @@ struct MultisimHelperWrapper<1> {
 #pragma omp declare simd
 #endif
   template <typename T, typename F, typename... Args>
-  static auto multisimObjectWrap(F&& func, T& obj, int sim, Args&&... args) {
+  static auto multisimObjectWrap(F&& func, T& obj, int /*sim*/, Args&&... args) {
     return std::invoke(std::forward<F>(func), obj, std::forward<Args>(args)...);
   }
 
@@ -131,11 +129,8 @@ struct MultisimHelperWrapper<1> {
     return std::invoke(std::forward<F>(function), std::forward<Args>(args)...);
   }
 
-#ifndef SEISSOL_NO_OMPSIMD
-#pragma omp declare simd
-#endif
   template <unsigned Rank, typename RealT, typename IdxT>
-  static auto simtensor(::yateto::DenseTensorView<Rank, RealT, IdxT>& tensor, int sim) {
+  static auto simtensor(::yateto::DenseTensorView<Rank, RealT, IdxT>& tensor, int /*sim*/) {
     return tensor;
   }
   constexpr static bool MultisimEnabled = false;

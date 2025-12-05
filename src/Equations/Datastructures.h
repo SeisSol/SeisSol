@@ -8,7 +8,8 @@
 #ifndef SEISSOL_SRC_EQUATIONS_DATASTRUCTURES_H_
 #define SEISSOL_SRC_EQUATIONS_DATASTRUCTURES_H_
 
-#include <Model/CommonDatastructures.h>
+#include "Config.h"
+#include "Model/CommonDatastructures.h"
 
 // IWYU pragma: begin_exports
 
@@ -17,15 +18,12 @@
 #include "Equations/anisotropic/Model/Datastructures.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
-#include "Equations/viscoelastic2/Model/Datastructures.h"
-
 #include "Equations/poroelastic/Model/IntegrationData.h"
 #include "Equations/viscoelastic/Model/IntegrationData.h"
+#include "Equations/viscoelastic2/Model/Datastructures.h"
 #include "Equations/viscoelastic2/Model/IntegrationData.h"
 
 // IWYU pragma: end_exports
-
-#include <Config.h>
 
 namespace seissol::model {
 template <MaterialType Type, std::size_t Mechanisms>

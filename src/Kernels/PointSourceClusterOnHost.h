@@ -10,7 +10,6 @@
 #define SEISSOL_SRC_KERNELS_POINTSOURCECLUSTERONHOST_H_
 
 #include "PointSourceCluster.h"
-
 #include "SourceTerm/Typedefs.h"
 
 namespace seissol::kernels {

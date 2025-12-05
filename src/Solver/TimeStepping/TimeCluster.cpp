@@ -10,20 +10,46 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "TimeCluster.h"
+
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Common/Executor.h"
+#include "Common/Marker.h"
+#include "Config.h"
+#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
+#include "DynamicRupture/Output/OutputManager.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Kernels/DynamicRupture.h"
+#include "Kernels/Interface.h"
+#include "Kernels/LinearCK/GravitationalFreeSurfaceBC.h"
+#include "Kernels/Plasticity.h"
+#include "Kernels/PointSourceCluster.h"
+#include "Kernels/Precision.h"
 #include "Kernels/Receiver.h"
+#include "Kernels/Solver.h"
 #include "Kernels/TimeCommon.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/MemoryAllocator.h"
+#include "Memory/Tree/Layer.h"
+#include "Monitoring/ActorStateStatistics.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Instrumentation.h"
+#include "Monitoring/LoopStatistics.h"
+#include "Numerical/Quadrature.h"
 #include "Parallel/OpenMP.h"
 #include "SeisSol.h"
+#include "Solver/TimeStepping/AbstractTimeCluster.h"
+#include "Solver/TimeStepping/ActorState.h"
+
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <Common/Executor.h>
-#include <Config.h>
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
 #include <DynamicRupture/Output/OutputManager.h>
 #include <Initializer/BasicTypedefs.h>
@@ -91,7 +117,9 @@ TimeCluster<Cfg>::TimeCluster(
       sourceCluster(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
       // cells
       loopStatistics(loopStatistics), actorStateStatistics(actorStateStatistics),
-      yieldCells(1, isDeviceOn() ? seissol::memory::PinnedMemory : seissol::memory::Standard),
+      yieldCells(1,
+                 isDeviceOn() ? seissol::memory::Memkind::PinnedMemory
+                              : seissol::memory::Memkind::Standard),
       layerType(layerType), printProgress(printProgress), clusterId(clusterId),
       globalClusterId(globalClusterId), profilingId(profilingId),
       dynamicRuptureScheduler(dynamicRuptureScheduler) {
@@ -192,7 +220,6 @@ void TimeCluster<Cfg>::computeDynamicRupture(DynamicRupture::Layer& layerData) {
 
   auto* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
   auto* godunovData = layerData.var<DynamicRupture::GodunovData>(Cfg());
-  auto* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>(Cfg());
   auto* const* timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>(Cfg());
   auto* const* timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>(Cfg());
   auto* qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>(Cfg());
@@ -217,7 +244,6 @@ void TimeCluster<Cfg>::computeDynamicRupture(DynamicRupture::Layer& layerData) {
     const std::size_t prefetchFace = (face + 1 < layerData.size()) ? face + 1 : face;
     dynamicRuptureKernel.spaceTimeInterpolation(faceInformation[face],
                                                 &godunovData[face],
-                                                &drEnergyOutput[face],
                                                 timeDerivativePlus[face],
                                                 timeDerivativeMinus[face],
                                                 qInterpolatedPlus[face],
@@ -247,8 +273,12 @@ void TimeCluster<Cfg>::computeDynamicRupture(DynamicRupture::Layer& layerData) {
 }
 
 template <typename Cfg>
-void TimeCluster<Cfg>::computeDynamicRuptureDevice(DynamicRupture::Layer& layerData) {
+void TimeCluster<Cfg>::computeDynamicRuptureDevice(
+    SEISSOL_GPU_PARAM DynamicRupture::Layer& layerData) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
+
   SCOREP_USER_REGION("computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   loopStatistics->begin(regionComputeDynamicRupture);
@@ -423,9 +453,11 @@ void TimeCluster<Cfg>::computeLocalIntegration(bool resetBuffers) {
 }
 
 template <typename Cfg>
-void TimeCluster<Cfg>::computeLocalIntegrationDevice(bool resetBuffers) {
+void TimeCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuffers) {
 
 #ifdef ACL_DEVICE
+  using namespace seissol::recording;
+
   SCOREP_USER_REGION("computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
   device.api->putProfilingMark("computeLocalIntegration", device::ProfilingColors::Yellow);
 
@@ -523,8 +555,11 @@ void TimeCluster<Cfg>::computeNeighboringIntegration(double subTimeStart) {
 }
 
 template <typename Cfg>
-void TimeCluster<Cfg>::computeNeighboringIntegrationDevice(double subTimeStart) {
+void TimeCluster<Cfg>::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double subTimeStart) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
+
   device.api->putProfilingMark("computeNeighboring", device::ProfilingColors::Red);
   SCOREP_USER_REGION("computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
   loopStatistics->begin(regionComputeNeighboringIntegration);

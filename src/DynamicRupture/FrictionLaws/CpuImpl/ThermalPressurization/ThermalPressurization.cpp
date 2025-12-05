@@ -6,9 +6,11 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "ThermalPressurization.h"
+
+#include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
 #include "Memory/Descriptor/DynamicRupture.h"
-#include <DynamicRupture/FrictionLaws/TPCommon.h>
+
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -41,7 +43,6 @@ void ThermalPressurization<Cfg>::calcFluidPressure(
     const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
     real deltaT,
     bool saveTPinLTS,
-    uint32_t timeIndex,
     std::size_t ltsFace) {
 #pragma omp simd
   for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {

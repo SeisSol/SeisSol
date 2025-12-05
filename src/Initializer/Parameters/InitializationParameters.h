@@ -8,11 +8,11 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_INITIALIZATIONPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_INITIALIZATIONPARAMETERS_H_
 
-#include <Eigen/Dense>
-
 #include "Equations/Datastructures.h"
 #include "Initializer/InputAux.h"
 #include "ParameterReader.h"
+
+#include <Eigen/Dense>
 
 namespace seissol::initializer::parameters {
 
@@ -32,16 +32,16 @@ enum class InitializationType : int {
 };
 
 struct InitializationParameters {
-  InitializationType type;
+  InitializationType type{InitializationType::Zero};
   Eigen::Vector3d origin;
   Eigen::Vector3d kVec;
   Eigen::VectorXd ampField;
-  double magnitude;
-  double width;
-  double k;
+  double magnitude{};
+  double width{};
+  double k{};
   std::string filename;
-  bool hasTime;
-  bool avoidIC;
+  bool hasTime{false};
+  bool avoidIC{false};
 };
 
 InitializationParameters readInitializationParameters(ParameterReader* baseReader);

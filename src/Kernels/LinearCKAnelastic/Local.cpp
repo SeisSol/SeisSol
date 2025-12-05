@@ -7,11 +7,13 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "LocalBase.h"
+#include "Local.h"
+
+#include "Common/Marker.h"
+#include "Memory/GlobalData.h"
 
 #include <Alignment.h>
 #include <Common/Constants.h>
-#include <DataTypes/ConditionalTable.h>
 #include <GeneratedCode/metagen/init.h>
 #include <GeneratedCode/metagen/tensor.h>
 #include <Initializer/BasicTypedefs.h>
@@ -25,14 +27,11 @@
 #include <cstring>
 #include <stdint.h>
 #include <utils/logger.h>
+#include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #endif
-
-#include <yateto.h>
-
-#include "Memory/GlobalData.h"
 
 namespace seissol::kernels::solver::linearckanelastic {
 
@@ -165,12 +164,15 @@ std::uint64_t Local<Cfg>::bytesIntegral() {
 }
 
 template <typename Cfg>
-void Local<Cfg>::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
-                                        ConditionalMaterialTable& materialTable,
-                                        ConditionalIndicesTable& indicesTable,
-                                        double timeStepWidth,
-                                        seissol::parallel::runtime::StreamRuntime& runtime) {
+void Local<Cfg>::computeBatchedIntegral(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
+    SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   kernel::gpu_volumeExt<Cfg> volKrnl = deviceVolumeKernelPrototype;
@@ -243,8 +245,8 @@ void Local<Cfg>::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTab
 
 template <typename Cfg>
 void Local<Cfg>::evaluateBatchedTimeDependentBc(
-    ConditionalPointersToRealsTable& dataTable,
-    ConditionalIndicesTable& indicesTable,
+    recording::ConditionalPointersToRealsTable& dataTable,
+    recording::ConditionalIndicesTable& indicesTable,
     LTS::Layer& layer,
     double time,
     double timeStepWidth,

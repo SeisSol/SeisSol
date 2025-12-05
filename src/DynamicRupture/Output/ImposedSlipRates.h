@@ -15,7 +15,7 @@ namespace seissol::dr::output {
 class ImposedSlipRates : public ReceiverOutputImpl<ImposedSlipRates> {
   public:
   template <typename Cfg>
-  Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
+  Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& /*local*/) {
     return 0.0;
   }
 

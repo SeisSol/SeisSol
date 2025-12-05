@@ -6,6 +6,9 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "ReceiverBasedOutput.h"
+
+#include "Alignment.h"
+#include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "GeneratedCode/init.h"
@@ -14,11 +17,15 @@
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/Parameters/DRParameters.h"
+#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Numerical/BasisFunction.h"
+#include "Parallel/Runtime/Stream.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <Alignment.h>
 #include <DynamicRupture/Output/ImposedSlipRates.h>
 #include <DynamicRupture/Output/LinearSlipWeakening.h>
@@ -26,6 +33,7 @@
 #include <DynamicRupture/Output/NoFault.h>
 #include <DynamicRupture/Output/RateAndState.h>
 #include <DynamicRupture/Output/RateAndStateThermalPressurization.h>
+#include <Eigen/Core>
 #include <Kernels/Common.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Solver/MultipleSimulations.h>
@@ -106,8 +114,7 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
   }
 
   const auto points = outputData->receiverPoints.size();
-  const auto handler = [this, outputData, &faultInfos, outputType, slipRateOutputType, level](
-                           std::size_t i) {
+  const auto handler = [this, outputData, &faultInfos, slipRateOutputType, level](std::size_t i) {
     // TODO: query the dofs, only once per simulation; once per face
 
     assert(outputData->receiverPoints[i].isInside == true &&

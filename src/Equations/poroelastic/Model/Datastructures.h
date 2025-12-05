@@ -9,8 +9,9 @@
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_DATASTRUCTURES_H_
 
 #include "Equations/elastic/Model/Datastructures.h"
+#include "Kernels/STP/Solver.h"
 #include "Model/CommonDatastructures.h"
-#include <Kernels/STP/Solver.h>
+
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -56,13 +57,13 @@ struct PoroElasticMaterial : public ElasticMaterial {
   template <typename Cfg>
   using Solver = kernels::solver::stp::Solver;
 
-  double bulkSolid;
-  double porosity;
-  double permeability;
-  double tortuosity;
-  double bulkFluid;
-  double rhoFluid;
-  double viscosity;
+  double bulkSolid{};
+  double porosity{};
+  double permeability{};
+  double tortuosity{};
+  double bulkFluid{};
+  double rhoFluid{};
+  double viscosity{};
 
   static const std::unordered_map<std::string, double PoroElasticMaterial::*> ParameterMap;
 

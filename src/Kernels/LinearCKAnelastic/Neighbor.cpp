@@ -7,11 +7,14 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "NeighborBase.h"
+#include "Neighbor.h"
+
+#include "Common/Marker.h"
+#include "GeneratedCode/init.h"
+#include "Memory/GlobalData.h"
 
 #include <Alignment.h>
 #include <Common/Constants.h>
-#include <DataTypes/ConditionalTable.h>
 #include <GeneratedCode/metagen/kernel.h>
 #include <GeneratedCode/metagen/tensor.h>
 #include <Initializer/BasicTypedefs.h>
@@ -29,10 +32,6 @@
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #endif
-
-#include "GeneratedCode/init.h"
-
-#include "Memory/GlobalData.h"
 
 namespace seissol::kernels::solver::linearckanelastic {
 
@@ -208,8 +207,11 @@ std::uint64_t Neighbor<Cfg>::bytesNeighborsIntegral() {
 
 template <typename Cfg>
 void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
-    ConditionalPointersToRealsTable& table, seissol::parallel::runtime::StreamRuntime& runtime) {
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
   kernel::gpu_neighborFluxExt<Cfg> neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux<Cfg> drKrnl = deviceDrKrnlPrototype;
 

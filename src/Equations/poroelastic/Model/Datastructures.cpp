@@ -6,6 +6,12 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Datastructures.h"
+
+#include "Equations/Datastructures.h"
+#include "Equations/Setup.h" // IWYU pragma: keep
+#include "Model/Common.h"
+#include "Model/CommonDatastructures.h"
+
 #include <Equations/Datastructures.h>
 #include <Equations/Setup.h> // IWYU pragma: keep
 #include <Equations/poroelastic/Model/PoroelasticSetup.h>

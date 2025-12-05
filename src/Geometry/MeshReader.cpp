@@ -7,17 +7,18 @@
 
 #include "MeshReader.h"
 
+#include "Common/Constants.h"
+#include "Common/Iterator.h"
+#include "Initializer/ParameterDB.h"
+#include "Initializer/Parameters/DRParameters.h"
+#include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "MeshDefinition.h"
 #include "MeshTools.h"
-
-#include "PUML/TypeInference.h"
 #include "Parallel/MPI.h"
-#include <Common/Constants.h>
-#include <Common/Iterator.h>
-#include <Initializer/ParameterDB.h>
-#include <Initializer/Parameters/DRParameters.h>
-#include <Initializer/TimeStepping/GlobalTimestep.h>
-#include <SeisSol.h>
+#include "SeisSol.h"
+
+#include <Eigen/Core>
+#include <PUML/TypeInference.h>
 #include <algorithm>
 #include <cstddef>
 #include <map>
@@ -263,7 +264,7 @@ void MeshReader::exchangeGhostlayerMetadata() {
   std::unordered_map<int, std::vector<GhostElementMetadata>> recvData;
 
   constexpr int Tag = 10;
-  MPI_Comm comm = seissol::MPI::mpi.comm();
+  MPI_Comm comm = seissol::Mpi::mpi.comm();
 
   std::vector<MPI_Request> requests(m_MPINeighbors.size() * 2);
 

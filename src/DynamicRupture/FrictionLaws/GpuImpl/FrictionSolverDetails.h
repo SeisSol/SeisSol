@@ -10,6 +10,7 @@
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/Misc.h"
+
 #include <Memory/GlobalData.h>
 
 namespace seissol::dr::friction_law::gpu {

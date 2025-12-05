@@ -5,9 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "BaseFrictionSolver.h"
-
 #include "AgingLaw.h"
+#include "BaseFrictionSolver.h"
+#include "Common/Constants.h"
+#include "DynamicRupture/Misc.h"
 #include "FastVelocityWeakeningLaw.h"
 #include "FrictionSolverInterface.h"
 #include "ImposedSlipRates.h"
@@ -20,15 +21,14 @@
 #include "SourceTimeFunction.h"
 #include "ThermalPressurization/NoTP.h"
 #include "ThermalPressurization/ThermalPressurization.h"
-#include <Common/Constants.h>
-#include <DynamicRupture/Misc.h>
 
 #ifdef __HIP__
 #include "hip/hip_runtime.h"
 #endif
 
+namespace seissol::dr::friction_law::gpu {
+
 namespace {
-using namespace seissol::dr::friction_law::gpu;
 
 constexpr std::size_t safeblockMultiple(std::size_t block, std::size_t maxmult) {
   const auto unsafe = (maxmult + block - 1) / block;
@@ -63,8 +63,6 @@ __launch_bounds__(PaddedMultiple* seissol::dr::misc::NumPaddedPoints<Cfg>) __glo
   }
 }
 } // namespace
-
-namespace seissol::dr::friction_law::gpu {
 
 template <typename Cfg, typename T>
 void BaseFrictionSolver<Cfg, T>::evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,

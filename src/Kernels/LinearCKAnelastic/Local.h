@@ -1,0 +1,69 @@
+// SPDX-FileCopyrightText: 2013 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Carsten Uphoff
+
+#ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCAL_H_
+#define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCAL_H_
+
+#include "GeneratedCode/kernel.h"
+#include "Kernels/Interface.h"
+#include "Kernels/Local.h"
+#include "Physics/InitialField.h"
+
+#include <memory>
+
+namespace seissol::kernels::solver::linearckanelastic {
+
+template <typename Cfg>
+class Local : public LocalKernel<Cfg> {
+  public:
+  using real = Real<Cfg>;
+
+  void setGlobalData(const GlobalData& global) override;
+
+  void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
+                       LTS::Ref<Cfg>& data,
+                       LocalTmp<Cfg>& tmp,
+                       const CellMaterialData* materialData,
+                       const CellBoundaryMapping<Cfg> (*cellBoundaryMapping)[4],
+                       double time,
+                       double timeStepWidth) override;
+
+  void computeBatchedIntegral(recording::ConditionalPointersToRealsTable& dataTable,
+                              recording::ConditionalMaterialTable& materialTable,
+                              recording::ConditionalIndicesTable& indicesTable,
+                              double timeStepWidth,
+                              seissol::parallel::runtime::StreamRuntime& runtime) override;
+
+  void evaluateBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& dataTable,
+                                      recording::ConditionalIndicesTable& indicesTable,
+                                      LTS::Layer& layer,
+                                      double time,
+                                      double timeStepWidth,
+                                      seissol::parallel::runtime::StreamRuntime& runtime) override;
+
+  void flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
+                     std::uint64_t& nonZeroFlops,
+                     std::uint64_t& hardwareFlops) override;
+
+  std::uint64_t bytesIntegral() override;
+
+  protected:
+  kernel::volumeExt<Cfg> m_volumeKernelPrototype;
+  kernel::localFluxExt<Cfg> m_localFluxKernelPrototype;
+  kernel::local<Cfg> m_localKernelPrototype;
+
+#ifdef ACL_DEVICE
+  kernel::gpu_volumeExt<Cfg> deviceVolumeKernelPrototype;
+  kernel::gpu_localFluxExt<Cfg> deviceLocalFluxKernelPrototype;
+  kernel::gpu_local<Cfg> deviceLocalKernelPrototype;
+#endif
+};
+} // namespace seissol::kernels::solver::linearckanelastic
+
+#endif // SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCAL_H_

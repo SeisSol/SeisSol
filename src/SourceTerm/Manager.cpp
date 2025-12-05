@@ -11,33 +11,35 @@
 
 #include "Manager.h"
 
+#include "Common/Constants.h"
+#include "Common/Marker.h"
+#include "Equations/Datastructures.h"
 #include "FSRMReader.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/MeshReader.h"
+#include "Geometry/MeshTools.h"
+#include "Initializer/Parameters/SourceParameters.h"
 #include "Initializer/PointMapper.h"
+#include "Kernels/PointSourceCluster.h"
 #include "Kernels/PointSourceClusterOnHost.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/MemoryAllocator.h"
+#include "Memory/Tree/Backmap.h"
+#include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
+#include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
 #include "PointSource.h"
-#include <Common/Constants.h>
-#include <Equations/Datastructures.h>
-#include <Geometry/MeshReader.h>
-#include <Geometry/MeshTools.h>
-#include <Initializer/Parameters/SourceParameters.h>
-#include <Kernels/PointSourceCluster.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/MemoryAllocator.h>
-#include <Memory/Tree/Backmap.h>
-#include <Memory/Tree/Layer.h>
-#include <Model/CommonDatastructures.h>
-#include <Numerical/BasisFunction.h>
-#include <Parallel/MPI.h>
-#include <Solver/MultipleSimulations.h>
-#include <Solver/TimeStepping/TimeManager.h>
-#include <SourceTerm/NRF.h>
-#include <SourceTerm/Typedefs.h>
+#include "Solver/MultipleSimulations.h"
+#include "Solver/TimeStepping/TimeManager.h"
+#include "SourceTerm/Typedefs.h"
+
+#include <Eigen/Core>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -52,17 +54,18 @@
 
 #ifdef USE_NETCDF
 #include "NRFReader.h"
+#include "SourceTerm/NRF.h"
+
 #include <mpi.h>
 #endif
 
 #ifdef ACL_DEVICE
 #include "Kernels/PointSourceClusterOnDevice.h"
-#include <Parallel/Helper.h>
 #endif
 
-namespace {
+namespace seissol::sourceterm {
 
-using namespace seissol::sourceterm;
+namespace {
 
 /**
  * Computes mInvJInvPhisAtSources[i] = |J|^-1 * M_ii^-1 * phi_i(xi, eta, zeta),
@@ -98,6 +101,12 @@ void computeMInvJInvPhisAtSources(
   krnl.execute();
 }
 
+struct SourceFile {
+  std::vector<std::size_t> originalIndex;
+  std::vector<std::size_t> meshIds;
+};
+
+#if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
 template <typename Cfg>
 void transformNRFSourceToInternalSource(const Subfault& subfault,
                                         const Offsets& offsets,
@@ -106,8 +115,7 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
                                         const seissol::model::Material* material,
                                         PointSources<Cfg>& pointSources,
                                         std::size_t index,
-                                        std::size_t tensorIndex,
-                                        seissol::memory::Memkind memkind) {
+                                        std::size_t tensorIndex) {
   std::array<Real<Cfg>, 9> faultBasis{};
   faultBasis[0] = subfault.tan1(0);
   faultBasis[1] = subfault.tan1(1);
@@ -164,19 +172,13 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
   }
 }
 
-struct SourceFile {
-  std::vector<std::size_t> originalIndex;
-  std::vector<std::size_t> meshIds;
-};
-
-#if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
 struct NrfFile : public SourceFile {
   NRF nrf;
   void read(const std::string& file) { readNRF(file.c_str(), nrf); }
 
   [[nodiscard]] const std::vector<Eigen::Vector3d>& points() const { return nrf.centres; }
 
-  [[nodiscard]] std::size_t dataSources(std::size_t sourceIndex) const { return 3; }
+  [[nodiscard]] std::size_t dataSources(std::size_t /*sourceIndex*/) const { return 3; }
 
   [[nodiscard]] std::size_t sampleCount(std::size_t sourceIndex) const {
     const std::size_t nrfIndex = originalIndex[sourceIndex];
@@ -191,8 +193,7 @@ struct NrfFile : public SourceFile {
   void transform(PointSources<Cfg>& sources,
                  std::size_t sourceIndex,
                  std::size_t index,
-                 const seissol::model::Material& material,
-                 memory::Memkind memkind) {
+                 const seissol::model::Material& material) {
     const std::size_t nrfIndex = originalIndex[sourceIndex];
     transformNRFSourceToInternalSource<Cfg>(nrf.subfaults[nrfIndex],
                                             nrf.sroffsets[nrfIndex],
@@ -201,8 +202,7 @@ struct NrfFile : public SourceFile {
                                             &material,
                                             sources,
                                             index,
-                                            sources.sampleRange[index],
-                                            memkind);
+                                            sources.sampleRange[index]);
   }
 };
 #endif // defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
@@ -213,9 +213,9 @@ struct FsrmFile : public SourceFile {
 
   [[nodiscard]] const std::vector<Eigen::Vector3d>& points() const { return fsrm.centers; }
 
-  [[nodiscard]] std::size_t dataSources(std::size_t sourceIndex) const { return 1; }
+  [[nodiscard]] std::size_t dataSources(std::size_t /*sourceIndex*/) const { return 1; }
 
-  [[nodiscard]] std::size_t sampleCount(std::size_t sourceIndex) const {
+  [[nodiscard]] std::size_t sampleCount(std::size_t /*sourceIndex*/) const {
     return fsrm.numberOfSamples;
   }
 
@@ -223,8 +223,7 @@ struct FsrmFile : public SourceFile {
   void transform(PointSources<Cfg>& sources,
                  std::size_t sourceIndex,
                  std::size_t index,
-                 const seissol::model::Material& material,
-                 memory::Memkind memkind) {
+                 const seissol::model::Material& material) {
     const std::size_t fsrmIndex = originalIndex[sourceIndex];
 
     auto* tensor = sources.tensor.data() + sources.sampleRange[index] * tensor::update<Cfg>::Size;
@@ -350,9 +349,10 @@ auto mapPointSourcesToClusters(const std::size_t* meshIds,
 template <typename Cfg>
 auto makePointSourceCluster(const ClusterMapping& mapping,
                             const PointSources<Cfg>& sources,
-                            const std::size_t* meshIds,
-                            LTS::Storage& ltsStorage,
-                            LTS::Backmap& backmap) -> seissol::kernels::PointSourceClusterPair {
+                            SEISSOL_GPU_PARAM const std::size_t* meshIds,
+                            SEISSOL_GPU_PARAM LTS::Storage& ltsStorage,
+                            SEISSOL_GPU_PARAM LTS::Backmap& backmap)
+    -> seissol::kernels::PointSourceClusterPair {
   auto hostData = std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources<Cfg>>>(
       std::make_shared<ClusterMapping>(mapping), std::make_shared<PointSources<Cfg>>(sources));
 
@@ -428,13 +428,13 @@ auto loadSourceFile(const char* fileName,
   MPI_Reduce(&numSources,
              &globalnumSources,
              1,
-             MPI::castToMpiType<std::size_t>(),
+             Mpi::castToMpiType<std::size_t>(),
              MPI_SUM,
              0,
-             seissol::MPI::mpi.comm());
+             seissol::Mpi::mpi.comm());
 
   logInfo() << "Found" << globalnumSources << "point sources.";
-  const int rank = seissol::MPI::mpi.rank();
+  const int rank = seissol::Mpi::mpi.rank();
   if (rank == 0 && points.size() > globalnumSources) {
     logError() << (points.size() - globalnumSources) << " point sources are outside the domain.";
   }
@@ -491,7 +491,7 @@ auto loadSourceFile(const char* fileName,
 
         const auto position = backmap.get(meshIds[sourceIndex]);
         const auto& material = *ltsStorage.lookup<LTS::Material>(position).local;
-        file.template transform<Cfg>(sources, sourceIndex, clusterSource, material, memkind);
+        file.template transform<Cfg>(sources, sourceIndex, clusterSource, material);
       }
 
       sourceCluster[cluster] = makePointSourceCluster<Cfg>(
@@ -506,15 +506,14 @@ auto loadSourceFile(const char* fileName,
 
 } // namespace
 
-namespace seissol::sourceterm {
-
 void Manager::loadSources(seissol::initializer::parameters::PointSourceType sourceType,
                           const char* fileName,
                           const seissol::geometry::MeshReader& mesh,
                           LTS::Storage& ltsStorage,
                           LTS::Backmap& backmap,
                           time_stepping::TimeManager& timeManager) {
-  const auto memkind = useUSM() ? seissol::memory::DeviceUnifiedMemory : seissol::memory::Standard;
+  const auto memkind =
+      useUSM() ? seissol::memory::Memkind::DeviceUnifiedMemory : seissol::memory::Memkind::Standard;
   auto sourceClusters = std::vector<seissol::kernels::PointSourceClusterPair>();
   if (sourceType == seissol::initializer::parameters::PointSourceType::NrfSource) {
     logInfo() << "Reading an NRF source (type 42).";

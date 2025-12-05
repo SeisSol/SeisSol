@@ -5,21 +5,20 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "SeisSol.h"
-
 #include "InitSideConditions.h"
 
+#include "Equations/Datastructures.h"
 #include "Initializer/InitialFieldProjection.h"
+#include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Model/CommonDatastructures.h"
+#include "Physics/InitialField.h"
+#include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
+#include "SourceTerm/Manager.h"
 
-#include <Equations/Datastructures.h>
-#include <Initializer/Parameters/InitializationParameters.h>
-#include <Initializer/Typedefs.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Model/CommonDatastructures.h>
-#include <Physics/InitialField.h>
-#include <Solver/MultipleSimulations.h>
-#include <SourceTerm/Manager.h>
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
@@ -29,6 +28,8 @@
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
+
+namespace seissol::initializer::initprocedure {
 
 namespace {
 
@@ -174,7 +175,6 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
     seissol::initializer::projectEasiInitialField({initConditionParams.filename},
                                                   memoryManager.getGlobalData(),
                                                   seissolInstance.meshReader(),
-                                                  seissolInstance.getMemoryManager(),
                                                   memoryManager.getLtsStorage(),
                                                   initConditionParams.hasTime);
   } else {
@@ -184,7 +184,6 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
       seissol::initializer::projectInitialField(initConditions,
                                                 memoryManager.getGlobalData(),
                                                 seissolInstance.meshReader(),
-                                                seissolInstance.getMemoryManager(),
                                                 memoryManager.getLtsStorage());
     }
     memoryManager.setInitialConditions(std::move(initConditions));
@@ -212,7 +211,7 @@ void initBoundary(seissol::SeisSol& seissolInstance) {
 
 } // namespace
 
-void seissol::initializer::initprocedure::initSideConditions(seissol::SeisSol& seissolInstance) {
+void initSideConditions(seissol::SeisSol& seissolInstance) {
   logInfo() << "Setting initial conditions.";
   initInitialCondition(seissolInstance);
   logInfo() << "Reading source.";
@@ -220,3 +219,5 @@ void seissol::initializer::initprocedure::initSideConditions(seissol::SeisSol& s
   logInfo() << "Setting up boundary conditions.";
   initBoundary(seissolInstance);
 }
+
+} // namespace seissol::initializer::initprocedure

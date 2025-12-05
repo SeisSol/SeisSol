@@ -32,7 +32,7 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
   void updateFrictionAndSlip(const FaultStresses<Cfg, Executor::Host>& faultStresses,
                              TractionResults<Cfg, Executor::Host>& tractionResults,
                              std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
-                             std::array<real, misc::NumPaddedPoints<Cfg>>& strengthBuffer,
+                             std::array<real, misc::NumPaddedPoints<Cfg>>& /*strengthBuffer*/,
                              std::size_t ltsFace,
                              uint32_t timeIndex) {
     bool hasConverged = false;
@@ -65,7 +65,7 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
     }
     // compute final thermal pressure and normalStress
     tpMethod.calcFluidPressure(
-        normalStress, this->mu, localSlipRate, this->deltaT[timeIndex], true, timeIndex, ltsFace);
+        normalStress, this->mu, localSlipRate, this->deltaT[timeIndex], true, ltsFace);
     updateNormalStress(normalStress, faultStresses, timeIndex, ltsFace);
     // compute final slip rates and traction from average of the iterative solution and initial
     // guess
@@ -176,13 +176,8 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
                                                              this->deltaT[timeIndex],
                                                              localSlipRate[pointIndex]);
       }
-      this->tpMethod.calcFluidPressure(normalStress,
-                                       this->mu,
-                                       localSlipRate,
-                                       this->deltaT[timeIndex],
-                                       false,
-                                       timeIndex,
-                                       ltsFace);
+      tpMethod.calcFluidPressure(
+          normalStress, this->mu, localSlipRate, this->deltaT[timeIndex], false, ltsFace);
 
       updateNormalStress(normalStress, faultStresses, timeIndex, ltsFace);
 
@@ -204,16 +199,16 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
     }
   }
 
-  void
-      calcSlipRateAndTraction(const std::array<real, misc::NumPaddedPoints<Cfg>>& stateVarReference,
-                              const std::array<real, misc::NumPaddedPoints<Cfg>>& localSlipRate,
-                              std::array<real, misc::NumPaddedPoints<Cfg>>& localStateVariable,
-                              const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
-                              const std::array<real, misc::NumPaddedPoints<Cfg>>& absoluteTraction,
-                              const FaultStresses<Cfg, Executor::Host>& faultStresses,
-                              TractionResults<Cfg, Executor::Host>& tractionResults,
-                              uint32_t timeIndex,
-                              std::size_t ltsFace) {
+  void calcSlipRateAndTraction(
+      const std::array<real, misc::NumPaddedPoints<Cfg>>& stateVarReference,
+      const std::array<real, misc::NumPaddedPoints<Cfg>>& localSlipRate,
+      std::array<real, misc::NumPaddedPoints<Cfg>>& localStateVariable,
+      const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+      const std::array<real, misc::NumPaddedPoints<Cfg>>& /*absoluteTraction*/,
+      const FaultStresses<Cfg, Executor::Host>& faultStresses,
+      TractionResults<Cfg, Executor::Host>& tractionResults,
+      uint32_t timeIndex,
+      std::size_t ltsFace) {
     const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {

@@ -10,11 +10,13 @@
 #ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_VISCOELASTICSETUP_H_
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_VISCOELASTICSETUP_H_
 
+#include "Equations/viscoelastic2/Model/Datastructures.h"
+#include "Equations/viscoelastic2/Model/IntegrationData.h"
+#include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 
-#include "GeneratedCode/init.h"
 #include <Common/Typedefs.h>
 #include <Equations/elastic/Model/ElasticSetup.h>
 #include <Equations/viscoelastic2/Model/Datastructures.h>
@@ -197,8 +199,9 @@ struct MaterialSetup<Cfg,
                                                              MaterialT::NumElasticQuantities);
   }
 
-  static MaterialT getRotatedMaterialCoefficients(double rotationParameters[36],
-                                                  MaterialT& material) {
+  static MaterialT
+      getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
+                                     MaterialT& material) {
     return material;
   }
 };

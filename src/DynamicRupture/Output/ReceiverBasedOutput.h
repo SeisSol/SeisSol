@@ -8,15 +8,15 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RECEIVERBASEDOUTPUT_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RECEIVERBASEDOUTPUT_H_
 
+#include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/ParametersInitializer.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
+#include "Parallel/Runtime/Stream.h"
 
-#include <DynamicRupture/Misc.h>
-#include <Memory/Tree/Backmap.h>
-#include <Parallel/Runtime/Stream.h>
 #include <memory>
 #include <vector>
 
@@ -153,17 +153,17 @@ class ReceiverOutputImpl : public ReceiverOutput {
                               const std::array<double, 3>& dip);
 
   template <typename Cfg>
-  Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
+  Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& /*local*/) {
     return 0;
   }
 
   template <typename Cfg>
-  Real<Cfg> computeFluidPressure(LocalInfo<Cfg>& local) {
+  Real<Cfg> computeFluidPressure(LocalInfo<Cfg>& /*local*/) {
     return 0;
   }
 
   template <typename Cfg>
-  Real<Cfg> computeStateVariable(LocalInfo<Cfg>& local) {
+  Real<Cfg> computeStateVariable(LocalInfo<Cfg>& /*local*/) {
     return 0;
   }
 

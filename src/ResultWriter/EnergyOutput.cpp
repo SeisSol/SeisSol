@@ -7,13 +7,31 @@
 
 #include "EnergyOutput.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshTools.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/CellLocalInformation.h"
+#include "Initializer/Parameters/OutputParameters.h"
+#include "Initializer/PreProcessorMacros.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
+#include "Modules/Modules.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <Alignment.h>
 #include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
@@ -52,9 +70,11 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include <DataTypes/ConditionalKey.h>
-#include <DataTypes/EncodedConstants.h>
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
+
+namespace seissol::writer {
 
 namespace {
 template <typename MaterialT>
@@ -120,7 +140,7 @@ std::array<Real<Cfg>, multisim::NumSimulations<Cfg>>
   feKrnl.minusSurfaceArea = -0.5 * godunovData.doubledSurfaceArea;
   feKrnl.execute();
 
-  std::array<real, multisim::NumSimulations<Cfg>> frictionalWorkReturn;
+  std::array<real, multisim::NumSimulations<Cfg>> frictionalWorkReturn{};
   std::copy(staticFrictionalWork,
             staticFrictionalWork + multisim::NumSimulations<Cfg>,
             std::begin(frictionalWorkReturn));
@@ -128,8 +148,6 @@ std::array<Real<Cfg>, multisim::NumSimulations<Cfg>>
 }
 
 } // namespace
-
-namespace seissol::writer {
 
 double& EnergiesStorage::gravitationalEnergy(size_t sim) { return energies[sim][0]; }
 double& EnergiesStorage::acousticEnergy(size_t sim) { return energies[sim][1]; }
@@ -159,7 +177,7 @@ void EnergyOutput::init(
   } else {
     return;
   }
-  const auto rank = MPI::mpi.rank();
+  const auto rank = Mpi::mpi.rank();
   logInfo() << "Initializing energy output.";
 
   std::size_t maxSims = 1;
@@ -227,7 +245,7 @@ void EnergyOutput::init(
 
 void EnergyOutput::syncPoint(double time) {
   assert(isEnabled);
-  const auto rank = MPI::mpi.rank();
+  const auto rank = Mpi::mpi.rank();
   logInfo() << "Writing energy output at time" << time;
   computeEnergies();
   reduceEnergies();
@@ -303,6 +321,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
         /// (We'd need to send the dofs over the network in order to fix this.)
 #ifdef ACL_DEVICE
+        using namespace seissol::recording;
         constexpr auto QSize = tensor::Q<Cfg>::size();
         const ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
         auto& table = layer.getConditionalTable<inner_keys::Dr>();
@@ -631,7 +650,7 @@ void EnergyOutput::computeEnergies() {
 }
 
 void EnergyOutput::reduceEnergies() {
-  const auto& comm = MPI::mpi.comm();
+  const auto& comm = Mpi::mpi.comm();
   MPI_Allreduce(
       MPI_IN_PLACE,
       energiesStorage.energies.data(),
@@ -642,11 +661,11 @@ void EnergyOutput::reduceEnergies() {
 }
 
 void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
-  const auto& comm = MPI::mpi.comm();
+  const auto& comm = Mpi::mpi.comm();
   MPI_Allreduce(MPI_IN_PLACE,
                 minTimeSinceSlipRateBelowThreshold.data(),
                 static_cast<int>(minTimeSinceSlipRateBelowThreshold.size()),
-                MPI::castToMpiType<double>(),
+                Mpi::castToMpiType<double>(),
                 MPI_MIN,
                 comm);
 }
@@ -749,7 +768,7 @@ void EnergyOutput::checkAbortCriterion(const std::vector<double>& timeSinceThres
   }
 
   bool abort = abortCount == timeSinceThreshold.size();
-  const auto& comm = MPI::mpi.comm();
+  const auto& comm = Mpi::mpi.comm();
   MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);
   if (abort) {
     seissolInstance.simulator().abort();

@@ -13,8 +13,8 @@
 
 #include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
+#include "Kernels/Kernel.h"
 #include "Parallel/Runtime/Stream.h"
-#include <Kernels/Kernel.h>
 
 namespace seissol::kernels {
 
@@ -31,7 +31,7 @@ class NeighborKernel : public Kernel {
                                         real* faceNeighborsPrefetch[4]) = 0;
 
   virtual void
-      computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
+      computeBatchedNeighborsIntegral(recording::ConditionalPointersToRealsTable& table,
                                       seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   virtual void flopsNeighborsIntegral(

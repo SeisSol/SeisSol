@@ -8,16 +8,17 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
 
+#include "Config.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/DataCollector.h"
+#include "Parallel/Runtime/Stream.h"
+
 #include <Common/Templating.h>
-#include <Config.h>
 #include <Eigen/Dense>
-#include <Parallel/Runtime/Stream.h>
 #include <array>
 #include <cassert>
 #include <cstring>

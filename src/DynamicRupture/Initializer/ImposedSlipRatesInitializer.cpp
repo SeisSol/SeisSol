@@ -15,6 +15,8 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <Geometry/MeshReader.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
@@ -27,8 +29,9 @@
 #include <utils/logger.h>
 #include <vector>
 
+namespace seissol::dr::initializer {
+
 namespace {
-using namespace seissol::dr;
 /**
  * Rotate slip from strike/dip cooordinate system to the fault aligned coordinate system.
  * @param it
@@ -71,7 +74,6 @@ void rotateSlipToFaultCS(
 }
 } // namespace
 
-namespace seissol::dr::initializer {
 void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
   logInfo() << "Initializing Fault...";
   for (auto& layer : drStorage.leaves(Ghost)) {

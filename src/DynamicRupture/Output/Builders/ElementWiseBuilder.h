@@ -15,6 +15,7 @@
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Numerical/Transformation.h"
 #include "ReceiverBasedOutputBuilder.h"
+
 #include <Common/ConfigHelper.h>
 
 namespace seissol::dr::output {
@@ -148,9 +149,6 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
           }
 
           const auto faceSideIdx = fault.side;
-
-          // init reference coordinates of the fault face
-          const ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);
 
           // init global coordinates of the fault face
           const ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);

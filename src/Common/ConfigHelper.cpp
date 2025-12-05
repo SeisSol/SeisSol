@@ -7,7 +7,8 @@
 
 #include "ConfigHelper.h"
 
-#include <Config.h>
+#include "Config.h"
+
 #include <Equations/Datastructures.h>
 #include <array>
 #include <sstream>

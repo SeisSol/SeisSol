@@ -11,33 +11,31 @@
 #ifndef SEISSOL_SRC_INITIALIZER_MEMORYMANAGER_H_
 #define SEISSOL_SRC_INITIALIZER_MEMORYMANAGER_H_
 
+#include "Config.h"
+#include "DynamicRupture/Factory.h"
+#include "Initializer/InputAux.h"
+#include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/TimeStepping/ClusterLayout.h"
+#include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/Boundary.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Descriptor/Surface.h"
+#include "Memory/MemoryAllocator.h"
+#include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
-#include <Config.h>
+#include "Physics/InitialField.h"
+
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Memory/Descriptor/Surface.h>
 #include <Memory/GlobalData.h>
 #include <Memory/Tree/Backmap.h>
-#include <mpi.h>
-
-#include <utils/logger.h>
-
-#include "Initializer/Typedefs.h"
-#include "Memory/MemoryAllocator.h"
-
-#include "Initializer/InputAux.h"
-#include "Initializer/ParameterDB.h"
-#include "Memory/Descriptor/Boundary.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
-
-#include "Physics/InitialField.h"
-
 #include <memory>
+#include <mpi.h>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
-
-#include "DynamicRupture/Factory.h"
 #include <yaml-cpp/yaml.h>
 
 namespace seissol {
@@ -87,7 +85,7 @@ class MemoryManager {
   /**
    * Constructor
    **/
-  MemoryManager(seissol::SeisSol& instance) : seissolInstance(instance) {}
+  explicit MemoryManager(seissol::SeisSol& instance) : seissolInstance(instance) {}
 
   /**
    * Destructor, memory is freed by managed allocator

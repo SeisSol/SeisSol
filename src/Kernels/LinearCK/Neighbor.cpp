@@ -9,11 +9,20 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#include "Kernels/LinearCK/NeighborBase.h"
+#include "Kernels/LinearCK/Neighbor.h"
 
+#include "Common/Constants.h"
+#include "Common/Marker.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+#include "Parallel/Runtime/Stream.h"
+
 #include <Common/Constants.h>
-#include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Memory/Descriptor/LTS.h>
@@ -28,7 +37,7 @@
 #include "Common/Offset.h"
 #endif
 
-#include "utils/logger.h"
+#include <utils/logger.h>
 
 #ifndef NDEBUG
 #include "Alignment.h"
@@ -110,8 +119,10 @@ void Neighbor<Cfg>::computeNeighborsIntegral(LTS::Ref<Cfg>& data,
 
 template <typename Cfg>
 void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
-    ConditionalPointersToRealsTable& table, seissol::parallel::runtime::StreamRuntime& runtime) {
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+  using namespace seissol::recording;
   kernel::gpu_neighboringFlux<Cfg> neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux<Cfg> drKrnl = deviceDrKrnlPrototype;
 

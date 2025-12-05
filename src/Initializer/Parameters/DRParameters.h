@@ -8,16 +8,13 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
 
-#include <string>
-
-#include <Eigen/Dense>
-
 #include "Kernels/Precision.h"
 #include "ParameterReader.h"
+#include "Solver/MultipleSimulations.h"
 
-#include <Solver/MultipleSimulations.h>
-
+#include <Eigen/Dense>
 #include <numeric>
+#include <string>
 
 namespace seissol::initializer::parameters {
 

@@ -8,9 +8,10 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_GEOMETRY_GEOMETRY_H_
 #define SEISSOL_SRC_IO_INSTANCE_GEOMETRY_GEOMETRY_H_
 
-#include <IO/Instance/Geometry/Typedefs.h>
-#include <IO/Instance/Mesh/VtkHdf.h>
-#include <IO/Instance/Mesh/Xdmf.h>
+#include "IO/Instance/Geometry/Typedefs.h"
+#include "IO/Instance/Mesh/VtkHdf.h"
+#include "IO/Instance/Mesh/Xdmf.h"
+
 #include <variant>
 
 namespace seissol::io::instance::geometry {
@@ -85,8 +86,8 @@ class GeometryWriter {
   }
 
   protected:
-  int order;
-  int refinement;
+  int order{};
+  int refinement{};
   std::variant<mesh::VtkHdfWriter, mesh::XdmfWriter> underlying;
 };
 

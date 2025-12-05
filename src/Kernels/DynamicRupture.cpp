@@ -8,27 +8,33 @@
 
 #include "DynamicRupture.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Common/Marker.h"
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Parallel/Runtime/Stream.h"
+
 #include <Alignment.h>
-#include <DataTypes/ConditionalTable.h>
 #include <Initializer/Typedefs.h>
 #include <Memory/GlobalData.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
-
-#include "utils/logger.h"
-
-#include "GeneratedCode/kernel.h"
+#include <utils/logger.h>
+#include <yateto.h>
 
 #ifdef ACL_DEVICE
-#include "device.h"
-#include <DataTypes/ConditionalKey.h>
-#include <DataTypes/EncodedConstants.h>
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+
+#include <Device/device.h>
 #endif
-#include <yateto.h>
 
 #ifndef NDEBUG
 #include <cstdint>
@@ -51,7 +57,6 @@ template <typename Cfg>
 void DynamicRupture<Cfg>::spaceTimeInterpolation(
     const DRFaceInformation& faceInfo,
     const DRGodunovData<Cfg>* godunovData,
-    DREnergyOutput<Cfg>* drEnergyOutput,
     const real* timeDerivativePlus,
     const real* timeDerivativeMinus,
     real qInterpolatedPlus[dr::misc::TimeSteps<Cfg>][seissol::tensor::QInterpolated<Cfg>::size()],
@@ -104,11 +109,11 @@ void DynamicRupture<Cfg>::spaceTimeInterpolation(
 
 template <typename Cfg>
 void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
-    DrConditionalPointersToRealsTable& table,
-    const real* coeffs,
-    seissol::parallel::runtime::StreamRuntime& runtime) {
+    SEISSOL_GPU_PARAM recording::DrConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
-
+  using namespace seissol::recording;
   real** degreesOfFreedomPlus{nullptr};
   real** degreesOfFreedomMinus{nullptr};
 

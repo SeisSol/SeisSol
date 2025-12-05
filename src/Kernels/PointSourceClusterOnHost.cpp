@@ -11,12 +11,13 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-#include <Kernels/Common.h>
-#include <Kernels/PointSourceCluster.h>
-#include <Kernels/Precision.h>
-#include <Parallel/Runtime/Stream.h>
-#include <Solver/MultipleSimulations.h>
-#include <SourceTerm/Typedefs.h>
+#include "Kernels/Common.h"
+#include "Kernels/PointSourceCluster.h"
+#include "Kernels/Precision.h"
+#include "Parallel/Runtime/Stream.h"
+#include "Solver/MultipleSimulations.h"
+#include "SourceTerm/Typedefs.h"
+
 #include <array>
 #include <cstddef>
 #include <memory>
@@ -34,7 +35,7 @@ PointSourceClusterOnHost<Cfg>::PointSourceClusterOnHost(
 
 template <typename Cfg>
 void PointSourceClusterOnHost<Cfg>::addTimeIntegratedPointSources(
-    double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) {
+    double from, double to, seissol::parallel::runtime::StreamRuntime& /*runtime*/) {
   auto& mapping = clusterMapping_->cellToSources;
   if (mapping.size() > 0) {
 #ifdef _OPENMP

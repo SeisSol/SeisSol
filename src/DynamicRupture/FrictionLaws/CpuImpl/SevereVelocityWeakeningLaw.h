@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SEVEREVELOCITYWEAKENINGLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SEVEREVELOCITYWEAKENINGLAW_H_
 
+#include "DynamicRupture/Misc.h"
 #include "RateAndState.h"
-#include <DynamicRupture/Misc.h>
 
 namespace seissol::dr::friction_law::cpu {
 template <typename Cfg, class TPMethod>

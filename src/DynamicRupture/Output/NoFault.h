@@ -14,7 +14,7 @@ namespace seissol::dr::output {
 class NoFault : public ReceiverOutputImpl<NoFault> {
   public:
   template <typename Cfg>
-  Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
+  Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& /*local*/) {
     return 0.0;
   }
 };

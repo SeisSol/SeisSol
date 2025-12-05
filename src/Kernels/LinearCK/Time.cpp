@@ -9,13 +9,28 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#include "Kernels/LinearCK/TimeBase.h"
+#include "Kernels/LinearCK/Time.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Common/Marker.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "GravitationalFreeSurfaceBC.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Kernels/Interface.h"
+#include "Kernels/LinearCK/Solver.h"
+#include "Kernels/MemoryOps.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/GlobalData.h"
+#include "Memory/Tree/Layer.h"
+#include "Parallel/Runtime/Stream.h"
+
 #include <Alignment.h>
-#include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Kernels/Interface.h>
 #include <Kernels/LinearCK/Solver.h>
@@ -23,25 +38,17 @@
 #include <Memory/Tree/Layer.h>
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>
-#include <cstdint>
-
-#include "Kernels/Common.h"
-#include "Kernels/MemoryOps.h"
-
 #include <cassert>
+#include <cstdint>
 #include <cstring>
 #include <stdint.h>
-
+#include <utils/logger.h>
 #include <yateto.h>
 #include <yateto/InitTools.h>
-
-#include "utils/logger.h"
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #endif
-
-#include "Memory/GlobalData.h"
 
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
@@ -139,14 +146,16 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
 }
 
 template <typename Cfg>
-void Spacetime<Cfg>::computeBatchedAder(const real* coeffs,
-                                        double timeStepWidth,
-                                        LocalTmp<Cfg>& tmp,
-                                        ConditionalPointersToRealsTable& dataTable,
-                                        ConditionalMaterialTable& materialTable,
-                                        bool updateDisplacement,
-                                        seissol::parallel::runtime::StreamRuntime& runtime) {
+void Spacetime<Cfg>::computeBatchedAder(
+    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM LocalTmp<Cfg>& tmp,
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
+    SEISSOL_GPU_PARAM bool updateDisplacement,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+  using namespace seissol::recording;
   kernel::gpu_derivative<Cfg> derivativesKrnl = deviceKrnlPrototype;
 
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
@@ -249,12 +258,16 @@ void Time<Cfg>::evaluate(const real* coeffs,
 }
 
 template <typename Cfg>
-void Time<Cfg>::evaluateBatched(const real* coeffs,
-                                const real** timeDerivatives,
-                                real** timeIntegratedDofs,
-                                std::size_t numElements,
-                                seissol::parallel::runtime::StreamRuntime& runtime) {
+void Time<Cfg>::evaluateBatched(
+    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM const real** timeDerivatives,
+    SEISSOL_GPU_PARAM real** timeIntegratedDofs,
+    SEISSOL_GPU_PARAM std::size_t numElements,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
+
   assert(timeDerivatives != nullptr);
   assert(timeIntegratedDofs != nullptr);
   static_assert(tensor::I<Cfg>::size() == tensor::Q<Cfg>::size(),

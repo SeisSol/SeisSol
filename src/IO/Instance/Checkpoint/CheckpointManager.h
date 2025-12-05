@@ -8,16 +8,16 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_H_
 #define SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_H_
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/Inference.h>
-#include <IO/Writer/Instructions/Data.h>
-#include <Memory/Tree/LTSTree.h>
-#include <Memory/Tree/Layer.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
+#include "IO/Writer/Instructions/Data.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Layer.h"
+
 #include <map>
 #include <string>
 #include <type_traits>
-
-#include "utils/logger.h"
+#include <utils/logger.h>
 
 namespace seissol::io::writer {
 class Writer;
@@ -27,7 +27,7 @@ namespace seissol::io::instance::checkpoint {
 
 struct CheckpointVariable {
   std::string name;
-  void* data;
+  void* data{nullptr};
   std::shared_ptr<datatype::Datatype> datatype;
   std::shared_ptr<datatype::Datatype> memoryDatatype;
   std::optional<std::function<void(void*, const void*)>> pack;
@@ -36,7 +36,7 @@ struct CheckpointVariable {
 
 struct CheckpointTree {
   std::string name;
-  std::size_t cells;
+  std::size_t cells{};
   std::vector<std::size_t> ids;
   std::vector<CheckpointVariable> variables;
 };
@@ -64,7 +64,9 @@ class CheckpointManager {
           CheckpointVariable{name,
                              storage.template var<StorageT>(),
                              datatype::inferDatatype<typename StorageT::Type>(),
-                             datatype::inferDatatype<typename StorageT::Type>()});
+                             datatype::inferDatatype<typename StorageT::Type>(),
+                             {},
+                             {}});
     }
   }
 

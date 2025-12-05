@@ -7,8 +7,9 @@
 #ifndef SEISSOL_SRC_KERNELS_STP_SOLVER_H_
 #define SEISSOL_SRC_KERNELS_STP_SOLVER_H_
 
-#include <GeneratedCode/tensor.h>
-#include <Kernels/Common.h>
+#include "GeneratedCode/tensor.h"
+#include "Kernels/Common.h"
+
 #include <cstddef>
 
 namespace seissol::numerical {

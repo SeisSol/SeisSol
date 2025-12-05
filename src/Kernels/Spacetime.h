@@ -15,9 +15,10 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
+#include "Kernels/Kernel.h"
 #include "Numerical/BasisFunction.h"
-#include <Kernels/Kernel.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Parallel/Runtime/Stream.h"
+
 #include <cassert>
 #include <limits>
 #include <memory>
@@ -52,8 +53,8 @@ class SpacetimeKernel : public Kernel {
   virtual void computeBatchedAder(const real* coeffs,
                                   double timeStepWidth,
                                   LocalTmp<Cfg>& tmp,
-                                  ConditionalPointersToRealsTable& dataTable,
-                                  ConditionalMaterialTable& materialTable,
+                                  recording::ConditionalPointersToRealsTable& dataTable,
+                                  recording::ConditionalMaterialTable& materialTable,
                                   bool updateDisplacement,
                                   seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 

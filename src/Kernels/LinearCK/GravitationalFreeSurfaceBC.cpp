@@ -6,11 +6,13 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "GravitationalFreeSurfaceBC.h"
+
+#include "Common/Constants.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-#include <Common/Constants.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Solver/MultipleSimulations.h>
+#include "Initializer/BasicTypedefs.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <utility>
@@ -20,7 +22,7 @@ namespace seissol {
 template <typename Cfg>
 std::pair<std::uint64_t, std::uint64_t>
     GravitationalFreeSurfaceBc<Cfg>::getFlopsDisplacementFace(unsigned int face,
-                                                              FaceType faceType) {
+                                                              FaceType /*faceType*/) {
   std::uint64_t hardwareFlops = 0;
   std::uint64_t nonZeroFlops = 0;
 

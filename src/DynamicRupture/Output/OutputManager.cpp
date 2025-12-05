@@ -6,7 +6,9 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "DynamicRupture/Output/OutputManager.h"
+
 #include "Common/Filesystem.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.h"
 #include "DynamicRupture/Output/Builders/PickPointBuilder.h"
@@ -17,7 +19,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "IO/Instance/Geometry/Geometry.h"
-#include "IO/Instance/Mesh/VtkHdf.h"
+#include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Writer/Writer.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/OutputParameters.h"
@@ -25,10 +27,13 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <Common/ConfigHelper.h>
-#include <Config.h>
 #include <IO/Instance/Geometry/Typedefs.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Parallel/Runtime/Stream.h>
@@ -104,7 +109,7 @@ std::string buildIndexedMPIFileName(const std::string& namePrefix,
   if (index >= 0) {
     suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index);
   } else {
-    suffix << nameSuffix << "-r" << makeFormatted<int, WideFormat>(seissol::MPI::mpi.rank());
+    suffix << nameSuffix << "-r" << makeFormatted<int, WideFormat>(seissol::Mpi::mpi.rank());
   }
   return buildFileName(namePrefix, suffix.str(), fileExtension);
 }
@@ -200,7 +205,6 @@ void OutputManager::initElementwiseOutput() {
   const auto intMask = convertMaskFromBoolToInt<MaxNumVars>(outputMask);
 
   const double printTime = seissolParameters.output.elementwiseParameters.printTimeIntervalSec;
-  const auto backendType = seissolParameters.output.xdmfWriterBackend;
 
   auto order = seissolParameters.output.elementwiseParameters.vtkorder;
 
@@ -223,9 +227,9 @@ void OutputManager::initElementwiseOutput() {
     }
   });
 
-  const auto rank = seissol::MPI::mpi.rank();
+  const auto rank = seissol::Mpi::mpi.rank();
   writer.addCellData<int>(
-      "partition", {}, true, [=](int* target, std::size_t index) { target[0] = rank; });
+      "partition", {}, true, [=](int* target, std::size_t /*index*/) { target[0] = rank; });
 
   writer.addCellData<int>(
       "fault-tag", {}, true, [=, &receiverPoints](int* target, std::size_t index) {
@@ -284,9 +288,9 @@ void OutputManager::initPickpointOutput() {
   MPI_Allreduce(MPI_IN_PLACE,
                 &maxSims,
                 1,
-                seissol::MPI::castToMpiType<std::size_t>(),
+                seissol::Mpi::castToMpiType<std::size_t>(),
                 MPI_MAX,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
 
   for (auto& [id, outputData] : ppOutputData) {
     const bool allReceiversInOneFilePerRank =

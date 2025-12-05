@@ -8,13 +8,13 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_BASEDRINITIALIZER_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_BASEDRINITIALIZER_H_
 
-#include <Model/CommonDatastructures.h>
-#include <yaml-cpp/yaml.h>
-
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+
+#include <Model/CommonDatastructures.h>
+#include <yaml-cpp/yaml.h>
 
 namespace seissol {
 class SeisSol;

@@ -6,6 +6,12 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "DRParameters.h"
+
+#include "Initializer/Parameters/ParameterReader.h"
+#include "Kernels/Precision.h"
+#include "Solver/MultipleSimulations.h"
+
+#include <Eigen/Core>
 #include <Initializer/Parameters/ParameterReader.h>
 #include <array>
 #include <cmath>
@@ -76,8 +82,8 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
     logError() << "You requested more nucleations than supported by this build of SeisSol. Either "
                   "adjust that yourself, or complain to the developers. :)";
   }
-  std::array<double, MaxNucleactions> t0;
-  std::array<double, MaxNucleactions> s0;
+  std::array<double, MaxNucleactions> t0{};
+  std::array<double, MaxNucleactions> s0{};
   for (std::size_t i = 0; i < nucleationCount; ++i) {
     const std::string t0name = i == 0 ? "t_0" : ("t" + std::to_string(i + 1) + "_0");
     t0[i] = static_cast<double>(reader->readWithDefault(t0name, 0.0));

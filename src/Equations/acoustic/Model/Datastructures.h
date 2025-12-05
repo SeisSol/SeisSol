@@ -13,8 +13,9 @@
 
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "Kernels/LinearCK/Solver.h"
 #include "Model/CommonDatastructures.h"
-#include <Kernels/LinearCK/Solver.h>
+
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -47,7 +48,7 @@ struct AcousticMaterial : public Material {
   template <typename Cfg>
   using Solver = kernels::solver::linearck::Solver;
 
-  double lambda;
+  double lambda{};
 
   static const std::unordered_map<std::string, double AcousticMaterial::*> ParameterMap;
 
@@ -56,7 +57,7 @@ struct AcousticMaterial : public Material {
   [[nodiscard]] double getMuBar() const override { return 0.0; }
 
   AcousticMaterial() = default;
-  AcousticMaterial(const std::vector<double>& materialValues)
+  explicit AcousticMaterial(const std::vector<double>& materialValues)
       : Material(materialValues), lambda(materialValues.at(1)) {}
 
   ~AcousticMaterial() override = default;
@@ -86,7 +87,7 @@ struct AcousticMaterial : public Material {
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 
-  void setLameParameters(double mu, double lambda) override { this->lambda = lambda; }
+  void setLameParameters(double /*mu*/, double lambda) override { this->lambda = lambda; }
 };
 
 inline const std::unordered_map<std::string, double AcousticMaterial::*>

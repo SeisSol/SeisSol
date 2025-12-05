@@ -19,10 +19,10 @@ template <typename Cfg>
 struct PoroelasticLocalData {
   using real = Real<Cfg>;
 
-  real sourceMatrix[seissol::tensor::ET<Cfg>::size()];
-  real G[PoroElasticMaterial::NumQuantities];
-  real typicalTimeStepWidth;
-  real Zinv[PoroElasticMaterial::NumQuantities][Cfg::ConvergenceOrder * Cfg::ConvergenceOrder];
+  real sourceMatrix[seissol::tensor::ET<Cfg>::size()]{};
+  real G[PoroElasticMaterial::NumQuantities]{};
+  real typicalTimeStepWidth{};
+  real Zinv[PoroElasticMaterial::NumQuantities][Cfg::ConvergenceOrder * Cfg::ConvergenceOrder]{};
 };
 struct PoroelasticNeighborData {};
 

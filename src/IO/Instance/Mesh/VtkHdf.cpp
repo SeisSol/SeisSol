@@ -7,14 +7,15 @@
 
 #include "VtkHdf.h"
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/Inference.h>
-#include <IO/Datatype/MPIType.h>
-#include <IO/Instance/Geometry/Typedefs.h>
-#include <IO/Instance/Metadata/Pvd.h>
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Instructions/Hdf5.h>
-#include <IO/Writer/Writer.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
+#include "IO/Datatype/MPIType.h"
+#include "IO/Instance/Geometry/Typedefs.h"
+#include "IO/Instance/Metadata/Pvd.h"
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Hdf5.h"
+#include "IO/Writer/Writer.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -22,10 +23,9 @@
 #include <mpi.h>
 #include <optional>
 #include <string>
+#include <utils/logger.h>
 #include <utils/stringutils.h>
 #include <vector>
-
-#include "utils/logger.h"
 
 namespace seissol::io::instance::mesh {
 VtkHdfWriter::VtkHdfWriter(const std::string& name,
@@ -40,13 +40,13 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
              1,
              datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
              MPI_SUM,
-             seissol::MPI::mpi.comm());
+             seissol::Mpi::mpi.comm());
   MPI_Allreduce(&localElementCount,
                 &globalElementCount,
                 1,
                 datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
                 MPI_SUM,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
   pointOffset = elementOffset * pointsPerElement;
   localPointCount = localElementCount * pointsPerElement;
   globalPointCount = globalElementCount * pointsPerElement;
@@ -90,7 +90,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
       temporal,
       writer::WriteInline::createArray<int64_t>({1}, {static_cast<int64_t>(selfGlobalPointCount)}));
 
-  const bool isLastRank = MPI::mpi.size() == MPI::mpi.rank() + 1;
+  const bool isLastRank = Mpi::mpi.size() == Mpi::mpi.rank() + 1;
   addData("Offsets",
           {},
           true,
@@ -108,7 +108,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
               selfLocalElementCount,
               1,
               std::vector<std::size_t>(),
-              [=](uint8_t* target, std::size_t index) { target[0] = selfType; }));
+              [=](uint8_t* target, std::size_t /*index*/) { target[0] = selfType; }));
   addData("Connectivity",
           {},
           true,
@@ -157,7 +157,7 @@ void VtkHdfWriter::addData(const std::string& name,
 
   const auto append = !isConst && temporal;
 
-  instrarray.emplace_back([=](const std::string& filename, double time) {
+  instrarray.emplace_back([=](const std::string& filename, double /*time*/) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
         writer::instructions::Hdf5Location(filename, groups), name, data, data->datatype(), append);
   });

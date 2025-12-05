@@ -5,9 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "BaseFrictionSolver.h"
-
 #include "AgingLaw.h"
+#include "BaseFrictionSolver.h"
 #include "FastVelocityWeakeningLaw.h"
 #include "FrictionSolverInterface.h"
 #include "ImposedSlipRates.h"

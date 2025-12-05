@@ -18,8 +18,9 @@
 #include "GeneratedCode/tensor.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <Eigen/Dense>
-#include <Solver/MultipleSimulations.h>
 #include <complex>
 #include <cstddef>
 #include <vector>
@@ -211,16 +212,16 @@ struct NeighboringIntegrationData {
 
 // material constants per cell
 struct CellMaterialData {
-  seissol::model::Material* local;
-  seissol::model::Material* neighbor[4];
+  seissol::model::Material* local{};
+  seissol::model::Material* neighbor[4]{};
 };
 
 struct DRFaceInformation {
-  std::size_t meshFace;
-  std::uint8_t plusSide;
-  std::uint8_t minusSide;
-  std::uint8_t faceRelation;
-  bool plusSideOnThisRank;
+  std::size_t meshFace{};
+  std::uint8_t plusSide{};
+  std::uint8_t minusSide{};
+  std::uint8_t faceRelation{};
+  bool plusSideOnThisRank{};
 };
 
 template <typename Cfg>
@@ -271,10 +272,10 @@ struct DREnergyOutput {
 
 template <typename Cfg>
 struct CellDRMapping {
-  unsigned side;
-  unsigned faceRelation;
-  Real<Cfg>* godunov;
-  Real<Cfg>* fluxSolver;
+  unsigned side{};
+  unsigned faceRelation{};
+  Real<Cfg>* godunov{nullptr};
+  Real<Cfg>* fluxSolver{nullptr};
 };
 
 template <typename Cfg>
@@ -296,7 +297,7 @@ struct CellBoundaryMapping {
   Real<Cfg>* easiBoundaryMap{nullptr};
 
   CellBoundaryMapping() = default;
-  CellBoundaryMapping(BoundaryFaceInformation<Cfg>& faceInfo)
+  explicit CellBoundaryMapping(BoundaryFaceInformation<Cfg>& faceInfo)
       : nodes(faceInfo.nodes), dataT(faceInfo.dataT), dataTinv(faceInfo.dataTinv),
         easiBoundaryConstant(faceInfo.easiBoundaryConstant),
         easiBoundaryMap(faceInfo.easiBoundaryMap) {}
@@ -314,16 +315,16 @@ struct TravellingWaveParameters {
 };
 
 struct AcousticTravellingWaveParametersITM {
-  double k;
-  double itmStartingTime;
-  double itmDuration;
-  double itmVelocityScalingFactor;
+  double k{};
+  double itmStartingTime{};
+  double itmDuration{};
+  double itmVelocityScalingFactor{};
 };
 
 struct PressureInjectionParameters {
-  std::array<double, 3> origin;
-  double magnitude;
-  double width;
+  std::array<double, 3> origin{};
+  double magnitude{};
+  double width{};
 };
 
 } // namespace seissol

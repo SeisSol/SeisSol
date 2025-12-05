@@ -8,6 +8,8 @@
 #include "Binary.h"
 
 #include "Data.h"
+
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <utility>

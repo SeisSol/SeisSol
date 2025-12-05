@@ -8,17 +8,17 @@
 #include "Hdf5.h"
 
 #include "Data.h"
-#include <IO/Datatype/Datatype.h>
+#include "IO/Datatype/Datatype.h"
+
 #include <cassert>
 #include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
+#include <utils/stringutils.h>
 #include <vector>
 #include <yaml-cpp/yaml.h>
-
-#include "utils/stringutils.h"
 
 namespace seissol::io::writer::instructions {
 Hdf5Location::Hdf5Location(const std::string& longstring) {
@@ -146,7 +146,7 @@ Hdf5LinkExternalWrite::Hdf5LinkExternalWrite(const Hdf5Location& location,
     : location(location), name(name), remote(remote) {}
 
 Hdf5LinkExternalWrite::Hdf5LinkExternalWrite(YAML::Node node)
-    : name(node["name"].as<std::string>()), location(Hdf5Location(node["location"])),
+    : location(Hdf5Location(node["location"])), name(node["name"].as<std::string>()),
       remote(Hdf5Location(node["remote"])) {}
 
 std::vector<std::shared_ptr<DataSource>> Hdf5LinkExternalWrite::dataSources() { return {}; }

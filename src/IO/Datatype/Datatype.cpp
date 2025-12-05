@@ -111,7 +111,7 @@ Datatype::~Datatype() = default;
 Array::Array(std::shared_ptr<Datatype> type, const std::vector<std::size_t>& dimensions)
     : type(std::move(type)), dimensions(dimensions) {}
 
-Array Datatype::unwrap(std::size_t maxDimensions) { return Array(shared_from_this(), {}); }
+Array Datatype::unwrap(std::size_t /*maxDimensions*/) { return Array(shared_from_this(), {}); }
 
 OpaqueDatatype::OpaqueDatatype(std::size_t size) : sizeP(size) {}
 
@@ -321,7 +321,7 @@ std::size_t ArrayDatatype::size() const {
   return totalSize;
 }
 
-Array ArrayDatatype::unwrap(std::size_t maxDimensions) { return Array(baseP, dimensionsP); }
+Array ArrayDatatype::unwrap(std::size_t /*maxDimensions*/) { return Array(baseP, dimensionsP); }
 
 const std::vector<std::size_t>& ArrayDatatype::dimensions() const { return dimensionsP; }
 
@@ -335,14 +335,14 @@ YAML::Node ArrayDatatype::serialize() const {
   return node;
 }
 
-std::string ArrayDatatype::toStringRaw(const void* data) const { return ""; }
-std::optional<std::vector<char>> ArrayDatatype::fromStringRaw(const std::string& str) const {
+std::string ArrayDatatype::toStringRaw(const void* /*data*/) const { return ""; }
+std::optional<std::vector<char>> ArrayDatatype::fromStringRaw(const std::string& /*str*/) const {
   return std::optional<std::vector<char>>();
 }
 
 struct MemberInfo {
   std::string name;
-  std::size_t offset;
+  std::size_t offset{};
   std::shared_ptr<Datatype> datatype;
 };
 
@@ -377,8 +377,8 @@ YAML::Node StructDatatype::serialize() const {
   return node;
 }
 
-std::string StructDatatype::toStringRaw(const void* data) const { return ""; }
-std::optional<std::vector<char>> StructDatatype::fromStringRaw(const std::string& str) const {
+std::string StructDatatype::toStringRaw(const void* /*data*/) const { return ""; }
+std::optional<std::vector<char>> StructDatatype::fromStringRaw(const std::string& /*str*/) const {
   return std::optional<std::vector<char>>();
 }
 

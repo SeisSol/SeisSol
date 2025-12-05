@@ -8,6 +8,7 @@
 #include "Points.h"
 
 #include <array>
+#include <cstddef>
 #include <vector>
 
 namespace {
@@ -102,14 +103,14 @@ std::vector<std::array<double, 2>> pointsTriangle(int order) {
   }
 
   const auto line = innerLine(order);
-  const auto inner = pointsTriangle(order - 2);
+  const auto inner = pointsTriangle(order - 3);
   const auto offset = 1.0 / static_cast<double>(order);
-  const auto scale = (order - 2) / static_cast<double>(order);
+  const auto scale = (order - 3) / static_cast<double>(order);
 
   return concat<2>(simplex<2>(),
                    transform<2>(line, {{1}, {0}}, {0, 0}),
-                   transform<2>(line, {{0}, {1}}, {0, 0}),
-                   transform<2>(line, {{-1}, {-1}}, {1, 1}),
+                   transform<2>(line, {{-1}, {1}}, {1, 0}),
+                   transform<2>(line, {{0}, {-1}}, {0, 1}),
                    transform<2>(inner, {{scale, 0}, {0, scale}}, {offset, offset}));
 }
 
@@ -130,28 +131,31 @@ std::vector<std::array<double, 3>> pointsTetrahedron(int order) {
   }
 
   const auto line = innerLine(order);
-  const auto face = pointsTriangle(order - 2);
-  const auto inner = pointsTetrahedron(order - 3);
+  const auto face = pointsTriangle(order - 3);
+  const auto inner = pointsTetrahedron(order - 4);
   const auto offsetFace = 1.0 / static_cast<double>(order);
-  const auto scaleFace = (order - 2) / static_cast<double>(order);
   const auto offsetInner = 1.0 / static_cast<double>(order);
-  const auto scaleInner = (order - 3) / static_cast<double>(order);
+  const auto scaleFace = (order - 3) / static_cast<double>(order);
+  const auto scaleInner = (order - 4) / static_cast<double>(order);
 
-  return concat<3>(simplex<3>(),
-                   transform<3>(line, {{1}, {0}, {0}}, {0, 0, 0}),
-                   transform<3>(line, {{-1}, {1}, {0}}, {1, 0, 0}),
-                   transform<3>(line, {{0}, {-1}, {0}}, {0, 1, 0}),
-                   transform<3>(line, {{0}, {0}, {1}}, {0, 0, 0}),
-                   transform<3>(line, {{-1}, {0}, {1}}, {1, 0, 0}),
-                   transform<3>(line, {{0}, {-1}, {1}}, {0, 1, 0}),
+  return concat<3>(
+      simplex<3>(),
+      transform<3>(line, {{1}, {0}, {0}}, {0, 0, 0}),
+      transform<3>(line, {{-1}, {1}, {0}}, {1, 0, 0}),
+      transform<3>(line, {{0}, {-1}, {0}}, {0, 1, 0}),
+      transform<3>(line, {{0}, {0}, {1}}, {0, 0, 0}),
+      transform<3>(line, {{-1}, {0}, {1}}, {1, 0, 0}),
+      transform<3>(line, {{0}, {-1}, {1}}, {0, 1, 0}),
 
-                   transform<3>(face, {{1, 0}, {0, 0}, {0, 1}}, {0, 0, 0}),
-                   transform<3>(face, {{0, 1}, {-1, -1}, {1, 0}}, {0, 1, 0}),
-                   transform<3>(face, {{0, 0}, {0, 1}, {1, 0}}, {0, 0, 0}),
-                   transform<3>(face, {{0, 1}, {1, 0}, {0, 0}}, {0, 0, 0}),
+      transform<3>(face, {{scaleFace, 0}, {0, 0}, {0, scaleFace}}, {offsetFace, 0, offsetFace}),
+      transform<3>(face,
+                   {{0, scaleFace}, {-scaleFace, -scaleFace}, {scaleFace, 0}},
+                   {offsetFace, 1 - 2 * offsetFace, offsetFace}),
+      transform<3>(face, {{0, 0}, {0, scaleFace}, {scaleFace, 0}}, {0, offsetFace, offsetFace}),
+      transform<3>(face, {{0, scaleFace}, {scaleFace, 0}, {0, 0}}, {offsetFace, offsetFace, 0}),
 
-                   transform<3>(inner,
-                                {{scaleInner, 0, 0}, {0, scaleInner, 0}, {0, 0, scaleInner}},
-                                {offsetInner, offsetInner, offsetInner}));
+      transform<3>(inner,
+                   {{scaleInner, 0, 0}, {0, scaleInner, 0}, {0, 0, scaleInner}},
+                   {offsetInner, offsetInner, offsetInner}));
 }
 } // namespace seissol::io::instance::geometry

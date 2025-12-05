@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_KERNELS_PRECISION_H_
 #define SEISSOL_SRC_KERNELS_PRECISION_H_
 
-#include <Common/Real.h>
-#include <Config.h>
+#include "Common/Real.h"
+#include "Config.h"
 
 // (real should be lower-case)
 

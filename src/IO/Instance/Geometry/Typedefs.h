@@ -38,6 +38,7 @@ constexpr std::size_t numPoints(std::size_t order, Shape shape) {
   case Shape::Hexahedron:
     return (order + 1) * (order + 1) * (order + 1);
   }
+  return 0;
 }
 
 constexpr std::size_t vtkType(Shape shape) {
@@ -53,6 +54,7 @@ constexpr std::size_t vtkType(Shape shape) {
   case Shape::Hexahedron:
     return 1;
   }
+  return 0;
 }
 
 inline std::string xdmfType(Shape shape, std::size_t order) {
@@ -71,6 +73,7 @@ inline std::string xdmfType(Shape shape, std::size_t order) {
   case Shape::Hexahedron:
     return "Hexahedron";
   }
+  return "(invalid)";
 }
 
 constexpr std::size_t dimension(Shape shape) {
@@ -86,6 +89,7 @@ constexpr std::size_t dimension(Shape shape) {
   case Shape::Hexahedron:
     return 3;
   }
+  return 0;
 }
 
 } // namespace seissol::io::instance::geometry

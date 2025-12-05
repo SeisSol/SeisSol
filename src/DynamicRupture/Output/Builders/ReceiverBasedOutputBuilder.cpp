@@ -6,6 +6,10 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.h"
+
+#include "Common/Constants.h"
+#include "Common/Typedefs.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/OutputAux.h"
@@ -16,11 +20,15 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <Common/ConfigHelper.h>
 #include <Common/Typedefs.h>
-#include <Config.h>
+#include <Eigen/Core>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Descriptor/LTS.h>
 #include <algorithm>
@@ -37,16 +45,17 @@
 
 #ifdef ACL_DEVICE
 #include "GeneratedCode/tensor.h"
+#include "Memory/Tree/Layer.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Helper.h"
-#include <Memory/Tree/Layer.h>
+
 #include <memory>
 #endif
 
 namespace seissol::dr::output {
 void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshReader* reader) {
   meshReader = reader;
-  localRank = MPI::mpi.rank();
+  localRank = Mpi::mpi.rank();
 }
 
 void ReceiverBasedOutputBuilder::setLtsData(LTS::Storage& userWpStorage,

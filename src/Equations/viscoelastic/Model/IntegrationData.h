@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_INTEGRATIONDATA_H_
 
 #include "GeneratedCode/tensor.h"
+
 #include <Kernels/Precision.h>
 
 namespace seissol::model {

@@ -9,8 +9,13 @@
 // SPDX-FileContributor: Sebastian Wolf
 
 #include "PointSource.h"
+
+#include "GeneratedCode/tensor.h"
+#include "Kernels/Precision.h"
+
 #include <GeneratedCode/tensor.h>
 #include <Model/CommonDatastructures.h>
+#include <algorithm>
 #include <cmath>
 
 template <typename RealT>

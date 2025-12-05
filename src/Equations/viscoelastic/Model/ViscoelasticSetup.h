@@ -10,11 +10,11 @@
 #ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_VISCOELASTICSETUP_H_
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_VISCOELASTICSETUP_H_
 
+#include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 
-#include "GeneratedCode/init.h"
 #include <Common/Typedefs.h>
 #include <Equations/elastic/Model/ElasticSetup.h>
 #include <yateto.h>
@@ -97,13 +97,13 @@ struct MaterialSetup<Cfg,
       getTransposedGodunovState(const MaterialT& local,
                                 const MaterialT& neighbor,
                                 FaceType faceType,
-                                typename init::QgodLocal<Cfg>::view::type& QgodLocal,
-                                typename init::QgodNeighbor<Cfg>::view::type& QgodNeighbor) {
-    seissol::model::getTransposedGodunovStateElastic(dynamic_cast<const ElasticMaterial&>(local),
-                                                     dynamic_cast<const ElasticMaterial&>(neighbor),
-                                                     faceType,
-                                                     QgodLocal,
-                                                     QgodNeighbor);
+                                typename init::QgodLocal<Cfg>::view::type& qGodLocal,
+                                typename init::QgodNeighbor<Cfg>::view::type& qGodNeighbor) {
+    seissol::model::getTransposedGodunovState(dynamic_cast<const ElasticMaterial&>(local),
+                                              dynamic_cast<const ElasticMaterial&>(neighbor),
+                                              faceType,
+                                              qGodLocal,
+                                              qGodNeighbor);
   }
 
   static void initializeSpecificLocalData(const MaterialT& material,
@@ -132,8 +132,9 @@ struct MaterialSetup<Cfg,
     }
   }
 
-  static MaterialT getRotatedMaterialCoefficients(double rotationParameters[36],
-                                                  MaterialT& material) {
+  static MaterialT
+      getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
+                                     MaterialT& material) {
     return material;
   }
 

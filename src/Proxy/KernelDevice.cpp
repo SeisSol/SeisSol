@@ -6,19 +6,24 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "KernelDevice.h"
+
 #include "Allocator.h"
 #include "Common.h"
+#include "Config.h"
 #include "Kernel.h"
-#include <Config.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Parallel/Runtime/Stream.h"
+
 #include <memory>
 #include <variant>
 
 #ifdef ACL_DEVICE
 #include "Constants.h"
-#include <Kernels/TimeCommon.h>
-#include <device.h>
+#include "Kernels/TimeCommon.h"
+
+#include <Device/device.h>
 #endif
+
+using namespace seissol::recording;
 
 namespace seissol::proxy {
 #ifdef ACL_DEVICE

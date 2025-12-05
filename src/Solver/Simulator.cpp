@@ -9,13 +9,17 @@
 
 #include "Simulator.h"
 
+#include "Memory/Tree/Layer.h"
 #include "Modules/Modules.h"
 #include "Monitoring/FlopCounter.h"
+#include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
+#include "Parallel/Runtime/Stream.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
 #include "TimeStepping/TimeManager.h"
+
 #include <Memory/Tree/Layer.h>
 #include <Monitoring/Instrumentation.h>
 #include <algorithm>
@@ -141,7 +145,6 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   const auto& outputParams = seissolInstance.getSeisSolParameters().output;
 
-  const auto& memoryManager = seissolInstance.getMemoryManager();
   const bool isLoopStatisticsNetcdfOutputOn = outputParams.loopStatisticsNetcdfOutput;
   const auto& outputPrefix = outputParams.prefix;
   seissolInstance.timeManager().printComputationTime(outputPrefix, isLoopStatisticsNetcdfOutputOn);

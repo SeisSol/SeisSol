@@ -8,21 +8,20 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 #define SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 
+#include "Geometry/MeshReader.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Modules/Module.h"
+#include "Modules/Modules.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <Memory/GlobalData.h>
 #include <array>
 #include <fstream>
 #include <iostream>
 #include <string>
-
-#include "Geometry/MeshReader.h"
-#include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
-
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "Modules/Module.h"
-#include "Modules/Modules.h"
-#include <Solver/MultipleSimulations.h>
 
 namespace seissol {
 class SeisSol;

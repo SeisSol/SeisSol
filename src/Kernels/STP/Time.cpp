@@ -5,9 +5,14 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "TimeBase.h"
+#include "Time.h"
+
+#include "Common/Marker.h"
+#include "Equations/poroelastic/Model/PoroelasticSetup.h"
+#include "Kernels/Common.h"
+
 #include <Alignment.h>
-#include <DataTypes/ConditionalTable.h>
+#include <Eigen/Dense>
 #include <Equations/Datastructures.h>
 #include <GeneratedCode/metagen/init.h>
 #include <GeneratedCode/metagen/kernel.h>
@@ -15,27 +20,20 @@
 #include <Kernels/Interface.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Parallel/Runtime/Stream.h>
-#include <cstdint>
-#include <utils/logger.h>
-
-#ifndef NDEBUG
-extern long long libxsmm_num_total_flops;
-#endif
-
-#include "Kernels/Common.h"
-
-#include <Eigen/Dense>
 #include <cassert>
+#include <cstdint>
 #include <cstring>
 #include <stdint.h>
+#include <utils/logger.h>
+#include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #endif
 
-#include "Equations/poroelastic/Model/PoroelasticSetup.h"
-
-#include <yateto.h>
+#ifndef NDEBUG
+extern long long libxsmm_num_total_flops;
+#endif
 
 #include "Memory/GlobalData.h"
 
@@ -203,14 +201,17 @@ std::uint64_t Spacetime<Cfg>::bytesAder() {
 }
 
 template <typename Cfg>
-void Spacetime<Cfg>::computeBatchedAder(const real* coeffs,
-                                        double timeStepWidth,
-                                        LocalTmp<Cfg>& tmp,
-                                        ConditionalPointersToRealsTable& dataTable,
-                                        ConditionalMaterialTable& materialTable,
-                                        bool updateDisplacement,
-                                        seissol::parallel::runtime::StreamRuntime& runtime) {
+void Spacetime<Cfg>::computeBatchedAder(
+    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM LocalTmp<Cfg>& tmp,
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
+    SEISSOL_GPU_PARAM bool updateDisplacement,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
   kernel::gpu_spaceTimePredictor<Cfg> krnl = deviceKrnlPrototype;
 
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);

@@ -7,9 +7,17 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "GlobalData.h"
+
+#include "Common/Marker.h"
+#include "DynamicRupture/FrictionLaws/TPCommon.h"
+#include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Memory/MemoryAllocator.h"
 #include "Parallel/OpenMP.h"
+
 #include <Alignment.h>
 #include <Common/ConfigHelper.h>
 #include <DynamicRupture/FrictionLaws/TPCommon.h>
@@ -99,7 +107,7 @@ void OnHost<Cfg>::negateStiffnessMatrix(GlobalDataCfg<Cfg>& globalData) {
 template <typename Cfg>
 void OnHost<Cfg>::initSpecificGlobalData(GlobalDataCfg<Cfg>& globalData,
                                          memory::ManagedAllocator& allocator,
-                                         CopyManagerT& copyManager,
+                                         CopyManagerT& /*copyManager*/,
                                          size_t alignment,
                                          seissol::memory::Memkind memkind) {
   // thread-local LTS integration buffers
@@ -150,11 +158,11 @@ void OnDevice<Cfg>::negateStiffnessMatrix(GlobalDataCfg<Cfg>& globalData) {
 }
 
 template <typename Cfg>
-void OnDevice<Cfg>::initSpecificGlobalData(GlobalDataCfg<Cfg>& globalData,
-                                           memory::ManagedAllocator& allocator,
-                                           CopyManagerT& copyManager,
-                                           size_t alignment,
-                                           seissol::memory::Memkind memkind) {
+void OnDevice<Cfg>::initSpecificGlobalData(SEISSOL_GPU_PARAM GlobalDataCfg<Cfg>& globalData,
+                                           SEISSOL_GPU_PARAM memory::ManagedAllocator& allocator,
+                                           SEISSOL_GPU_PARAM CopyManagerT& copyManager,
+                                           SEISSOL_GPU_PARAM size_t alignment,
+                                           SEISSOL_GPU_PARAM seissol::memory::Memkind memkind) {
 #ifdef ACL_DEVICE
   const size_t size = yateto::alignedUpper(tensor::replicateInitialLoadingM<Cfg>::size(),
                                            yateto::alignedReals<Real<Cfg>>(alignment));
@@ -167,9 +175,9 @@ void OnDevice<Cfg>::initSpecificGlobalData(GlobalDataCfg<Cfg>& globalData,
 }
 
 template <typename Cfg>
-Real<Cfg>* OnDevice<Cfg>::DeviceCopyPolicy::copy(const Real<Cfg>* first,
-                                                 const Real<Cfg>* last,
-                                                 Real<Cfg>*& mem) {
+Real<Cfg>* OnDevice<Cfg>::DeviceCopyPolicy::copy(SEISSOL_GPU_PARAM const Real<Cfg>* first,
+                                                 SEISSOL_GPU_PARAM const Real<Cfg>* last,
+                                                 SEISSOL_GPU_PARAM Real<Cfg>*& mem) {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   const std::size_t bytes = (last - first) * sizeof(Real<Cfg>);
@@ -301,7 +309,7 @@ void GlobalDataInitializer<Cfg, MatrixManipPolicyT>::init(GlobalDataCfg<Cfg>& gl
                                              data.data().data(),
                                              dr::misc::NumTpGridPoints,
                                              memkind,
-                                             memory::Standard);
+                                             memory::Memkind::Standard);
   }
 
   {
@@ -314,7 +322,7 @@ void GlobalDataInitializer<Cfg, MatrixManipPolicyT>::init(GlobalDataCfg<Cfg>& gl
                                              data.data().data(),
                                              dr::misc::NumTpGridPoints,
                                              memkind,
-                                             memory::Standard);
+                                             memory::Memkind::Standard);
   }
 
   {
@@ -328,7 +336,7 @@ void GlobalDataInitializer<Cfg, MatrixManipPolicyT>::init(GlobalDataCfg<Cfg>& gl
                                              data.data().data(),
                                              dr::misc::NumTpGridPoints,
                                              memkind,
-                                             memory::Standard);
+                                             memory::Memkind::Standard);
   }
 
   assert(globalMatrixMemPtr == globalMatrixMem + globalMatrixMemSize);

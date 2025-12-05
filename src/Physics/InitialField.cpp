@@ -5,8 +5,22 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Physics/InitialField.h"
+
+#include "Equations/Datastructures.h"
+#include "Equations/Setup.h" // IWYU pragma: keep
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/Parameters/InitializationParameters.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Model/Common.h"
+#include "Model/CommonDatastructures.h"
+#include "Numerical/Eigenvalues.h"
+#include "Physics/InitialField.h"
+#include "Solver/MultipleSimulations.h"
+
+#include <Eigen/Core>
 #include <Equations/Datastructures.h>
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
@@ -18,14 +32,10 @@
 #include <cstddef>
 #include <limits>
 #include <math.h>
-
-#include "Physics/InitialField.h"
 #include <stdexcept>
 #include <string>
 #include <utils/logger.h>
 #include <yateto.h>
-
-#include "Equations/Setup.h" // IWYU pragma: keep
 
 seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(
     const CellMaterialData& materialData,
@@ -52,7 +62,7 @@ void seissol::physics::AcousticTravellingWaveITM::init(const CellMaterialData& m
 void seissol::physics::AcousticTravellingWaveITM::evaluate(double time,
                                                            const std::array<double, 3>* points,
                                                            std::size_t count,
-                                                           const CellMaterialData& materialData,
+                                                           const CellMaterialData& /*materialData*/,
                                                            TensorWrapper dofsQP) const {
   dofsQP.setZero();
   double pressure = 0.0;
@@ -128,10 +138,10 @@ seissol::physics::PressureInjection::PressureInjection(
             << o3 << "), magnitude = " << magnitude << ", width = " << width << ".";
 }
 
-void seissol::physics::PressureInjection::evaluate(double time,
+void seissol::physics::PressureInjection::evaluate(double /*time*/,
                                                    const std::array<double, 3>* points,
                                                    std::size_t count,
-                                                   const CellMaterialData& materialData,
+                                                   const CellMaterialData& /*materialData*/,
                                                    TensorWrapper dofsQp) const {
   const auto o1 = m_parameters.origin[0];
   const auto o2 = m_parameters.origin[1];

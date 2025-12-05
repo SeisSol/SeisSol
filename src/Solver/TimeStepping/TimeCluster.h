@@ -11,32 +11,30 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMECLUSTER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMECLUSTER_H_
 
-#include <list>
-#include <memory>
-#include <mpi.h>
-
-#include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/LTS.h"
-#include "SourceTerm/Typedefs.h"
-#include <utils/logger.h>
-
+#include "AbstractTimeCluster.h"
+#include "Common/Executor.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Output/OutputManager.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/DynamicRupture.h"
 #include "Kernels/Plasticity.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Kernels/Solver.h"
 #include "Kernels/TimeCommon.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Monitoring/ActorStateStatistics.h"
 #include "Monitoring/LoopStatistics.h"
 #include "Solver/FreeSurfaceIntegrator.h"
-#include <Common/Executor.h>
+#include "SourceTerm/Typedefs.h"
 
-#include "AbstractTimeCluster.h"
+#include <list>
+#include <memory>
+#include <mpi.h>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include <device.h>
+#include <Device/device.h>
 #endif
 
 namespace seissol::kernels {
@@ -70,11 +68,11 @@ class TimeCluster : public TimeClusterInterface {
   using real = Real<Cfg>;
 
   // Last correction time of the neighboring cluster with higher dt
-  double lastSubTime;
+  double lastSubTime{0};
 
   // The timestep of the largest neighbor. Not well-defined (and not used) for the largest local
   // timecluster.
-  double neighborTimestep;
+  double neighborTimestep{0};
 
   void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
   void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
@@ -82,9 +80,6 @@ class TimeCluster : public TimeClusterInterface {
   void predict() override;
   void correct() override;
   bool usePlasticity;
-
-  //! number of time steps
-  unsigned long m_numberOfTimeSteps;
 
   seissol::SeisSol& seissolInstance;
   /*
@@ -138,8 +133,8 @@ class TimeCluster : public TimeClusterInterface {
     NumComputeParts
   };
 
-  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsNonZero;
-  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsHardware;
+  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsNonZero{};
+  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsHardware{};
 
   //! Stopwatch of TimeManager
   LoopStatistics* loopStatistics;

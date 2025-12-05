@@ -7,16 +7,32 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#include "Parallel/MPI.h"
-
-#include "CommunicationManager.h"
-#include "Parallel/Helper.h"
-#include "ResultWriter/ClusteringWriter.h"
-#include "SeisSol.h"
 #include "TimeManager.h"
+
+#include "Common/Iterator.h"
+#include "CommunicationManager.h"
+#include "Config.h"
+#include "DynamicRupture/Output/OutputManager.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/MemoryManager.h"
+#include "Initializer/TimeStepping/ClusterLayout.h"
+#include "Kernels/PointSourceCluster.h"
+#include "Memory/Tree/Layer.h"
+#include "Monitoring/Instrumentation.h"
+#include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
+#include "ResultWriter/ClusteringWriter.h"
+#include "ResultWriter/ReceiverWriter.h"
+#include "SeisSol.h"
+#include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
+#include "Solver/TimeStepping/AbstractTimeCluster.h"
+#include "Solver/TimeStepping/ActorState.h"
+#include "Solver/TimeStepping/GhostTimeClusterFactory.h"
+#include "Solver/TimeStepping/HaloCommunication.h"
+#include "Solver/TimeStepping/TimeCluster.h"
+
 #include <Common/ConfigHelper.h>
 #include <Common/Iterator.h>
-#include <Config.h>
 #include <DynamicRupture/Output/OutputManager.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
@@ -44,7 +60,7 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include <device.h>
+#include <Device/device.h>
 #endif
 
 namespace seissol::time_stepping {
@@ -102,9 +118,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   MPI_Allreduce(MPI_IN_PLACE,
                 &drClusterOutput,
                 1,
-                MPI::castToMpiType<std::size_t>(),
+                Mpi::castToMpiType<std::size_t>(),
                 MPI_MIN,
-                MPI::mpi.comm());
+                Mpi::mpi.comm());
 
   const auto drOutputTimestep = drClusterOutput == std::numeric_limits<std::size_t>::max()
                                     ? std::numeric_limits<double>::infinity()
@@ -205,7 +221,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   }
 
   // Create ghost time clusters for MPI
-  const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
+  const auto preferredDataTransferMode = Mpi::mpi.getPreferredDataTransferMode();
   const auto persistent = usePersistentMpi(seissolInstance.env());
   for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost | Interior)) {
 
@@ -257,7 +273,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
   std::sort(ghostClusters.begin(), ghostClusters.end(), rateSorter);
 
-  if (seissol::useCommThread(MPI::mpi, seissolInstance.env())) {
+  if (seissol::useCommThread(Mpi::mpi, seissolInstance.env())) {
     communicationManager = std::make_unique<ThreadedCommunicationManager>(
         std::move(ghostClusters), &seissolInstance.getPinning());
   } else {
@@ -305,7 +321,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 
   communicationManager->reset(synchronizationTime);
 
-  seissol::MPI::barrier(seissol::MPI::mpi.comm());
+  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
@@ -371,7 +387,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 void TimeManager::printComputationTime(const std::string& outputPrefix,
                                        bool isLoopStatisticsNetcdfOutputOn) {
   actorStateStatisticsManager.finish();
-  loopStatistics.printSummary(MPI::mpi.comm());
+  loopStatistics.printSummary(Mpi::mpi.comm());
   loopStatistics.writeSamples(outputPrefix, isLoopStatisticsNetcdfOutputOn);
 }
 

@@ -7,11 +7,13 @@
 // SPDX-FileContributor: Vishal Sontakke
 
 #include "PostProcessor.h"
+
+#include "Alignment.h"
 #include "GeneratedCode/tensor.h"
-#include <Alignment.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+
 #include <array>
 #include <cstddef>
 #include <vector>

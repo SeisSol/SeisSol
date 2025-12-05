@@ -7,11 +7,26 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Wolf
 
+#include "Common/Constants.h"
+#include "Equations/Datastructures.h"
+#include "Equations/acoustic/Model/Datastructures.h"
+#include "Equations/anisotropic/Model/Datastructures.h"
+#include "Equations/elastic/Model/Datastructures.h"
+#include "Equations/poroelastic/Model/Datastructures.h"
+#include "Equations/viscoelastic2/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshTools.h"
+#include "Geometry/PUMLReader.h"
+#include "Kernels/Precision.h"
+#include "Model/CommonDatastructures.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
 #include <Common/Templating.h>
+#include <Eigen/Core>
 #include <Equations/Datastructures.h>
 #include <Equations/anisotropic/Model/Datastructures.h>
 #include <Equations/elastic/Model/Datastructures.h>
@@ -26,7 +41,9 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <easi/Component.h>
 #include <easi/Query.h>
+#include <exception>
 #include <iterator>
 #include <set>
 #include <stdexcept>
@@ -37,26 +54,44 @@
 #ifdef USE_HDF
 // PUML.h needs to be included before Downward.h
 
-#include "PUML/Downward.h"
-
 #include "GeneratedCode/kernel.h"
-#endif
-#include "ParameterDB.h"
-#include <algorithm>
-#include <cmath>
 
+#include <PUML/Downward.h>
+#endif
 #include "DynamicRupture/Misc.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
+#include "ParameterDB.h"
 #include "SeisSol.h"
 #include "easi/ResultAdapter.h"
 #include "easi/YAMLParser.h"
+
+#include <algorithm>
+#include <cmath>
 #ifdef USE_ASAGI
 #include "Reader/AsagiReader.h"
 #endif
-#include "utils/logger.h"
+#include <utils/logger.h>
+
+using namespace seissol::model;
 
 namespace seissol::initializer {
+
+namespace {
+
+void easiEvalSafe(easi::Component* model,
+                  easi::Query& query,
+                  easi::ResultAdapter& adapter,
+                  const std::string& hint) {
+  try {
+    model->evaluate(query, adapter);
+  } catch (const std::exception& error) {
+    logError() << "Error while evaluating an easi model for" << hint.c_str() << ":"
+               << std::string(error.what());
+  }
+}
+
+} // namespace
 
 CellToVertexArray::CellToVertexArray(size_t size,
                                      const CellToVertexFunction& elementCoordinates,
@@ -331,7 +366,7 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
   for (const auto& [name, pointer] : T::ParameterMap) {
     adapter.addBindingPoint(name, pointer);
   }
-  model->evaluate(query, adapter);
+  easiEvalSafe(model, query, adapter, "volume material");
 
   // Only use homogenization when ElementAverageGenerator has been supplied
   if (const auto* gen = dynamic_cast<const ElementAverageGenerator*>(&queryGen)) {
@@ -382,7 +417,7 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
     for (const auto& [name, pointer] : AnisotropicMaterial::ParameterMap) {
       arrayOfStructsAdapter.addBindingPoint(name, pointer);
     }
-    model->evaluate(query, arrayOfStructsAdapter);
+    easiEvalSafe(model, query, arrayOfStructsAdapter, "volume material (anisotropic)");
   }
   delete model;
 }
@@ -503,7 +538,8 @@ void FaultParameterDB<T>::evaluateModel(const std::string& fileName,
     adapter.addBindingPoint(
         kv.first, kv.second.first + this->simid, kv.second.second * this->simCount);
   }
-  model->evaluate(query, adapter);
+
+  easiEvalSafe(model, query, adapter, "fault material");
 
   delete model;
 }
@@ -616,7 +652,7 @@ void EasiBoundary<Cfg>::query(const real* nodes,
       ++offset;
     }
   }
-  model->evaluate(query, adapter);
+  easiEvalSafe(model, query, adapter, "Dirichlet BC data");
 }
 
 easi::Component* loadEasiModel(const std::string& fileName) {
@@ -626,7 +662,13 @@ easi::Component* loadEasiModel(const std::string& fileName) {
 #else
   easi::YAMLParser parser(3);
 #endif
-  return parser.parse(fileName);
+  try {
+    return parser.parse(fileName);
+  } catch (const std::exception& error) {
+    logError() << "Error while parsing easi file" << fileName << ":" << std::string(error.what());
+    // silence no-return warnings
+    return nullptr;
+  }
 }
 
 template <typename... Materials>

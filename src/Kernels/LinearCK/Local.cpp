@@ -7,14 +7,29 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "Kernels/LinearCK/LocalBase.h"
+#include "Kernels/LinearCK/Local.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Common/Marker.h"
+#include "DirichletBoundary.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Kernels/Interface.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+#include "Parallel/Runtime/Stream.h"
+#include "Physics/InitialField.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <Alignment.h>
 #include <Common/Constants.h>
-#include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
@@ -23,26 +38,15 @@
 #include <Parallel/Runtime/Stream.h>
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>
+#include <array>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <stdint.h>
+#include <utils/logger.h>
 #include <vector>
 #include <yateto.h>
-
-#include <array>
-#include <cassert>
-#include <stdint.h>
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
-#include "DirichletBoundary.h"
-#pragma GCC diagnostic pop
-
-#include "Kernels/Common.h"
-
-#include "Memory/GlobalData.h"
-
-#include "utils/logger.h"
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
@@ -89,7 +93,7 @@ struct ApplyAnalyticalSolution {
 
   void operator()(const Real<Cfg>* nodes,
                   double time,
-                  typename seissol::init::INodal<Cfg>::view::type& boundaryDofs) {
+                  typename seissol::init::INodal<Cfg>::view::type& boundaryDofs) const {
     assert(initConditions != nullptr);
 
     constexpr auto NodeCount = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg>];
@@ -211,7 +215,7 @@ void Local<Cfg>::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<C
       assert(easiBoundaryConstant != nullptr);
       assert(easiBoundaryMap != nullptr);
       auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
-                                   const real* nodes,
+                                   const real* /*nodes*/,
                                    typename init::INodal<Cfg>::view::type& boundaryDofs) {
         seissol::kernel::createEasiBoundaryGhostCells<Cfg> easiBoundaryKernel;
         easiBoundaryKernel.easiBoundaryMap = easiBoundaryMap;
@@ -239,7 +243,7 @@ void Local<Cfg>::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<C
     case FaceType::Analytical: {
       assert(cellBoundaryMapping != nullptr);
       assert(this->initConds != nullptr);
-      ApplyAnalyticalSolution<Cfg> applyAnalyticalSolution(this->initConds, data);
+      const auto applyAnalyticalSolution = ApplyAnalyticalSolution(this->initConds, data);
 
       dirichletBoundary.evaluateTimeDependent(timeIntegratedDegreesOfFreedom,
                                               face,
@@ -260,12 +264,15 @@ void Local<Cfg>::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<C
 }
 
 template <typename Cfg>
-void Local<Cfg>::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
-                                        ConditionalMaterialTable& materialTable,
-                                        ConditionalIndicesTable& indicesTable,
-                                        double timeStepWidth,
-                                        seissol::parallel::runtime::StreamRuntime& runtime) {
+void Local<Cfg>::computeBatchedIntegral(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
+    SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   kernel::gpu_volume<Cfg> volKrnl = deviceVolumeKernelPrototype;
@@ -364,14 +371,16 @@ void Local<Cfg>::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTab
 
 template <typename Cfg>
 void Local<Cfg>::evaluateBatchedTimeDependentBc(
-    ConditionalPointersToRealsTable& dataTable,
-    ConditionalIndicesTable& indicesTable,
-    LTS::Layer& layer,
-    double time,
-    double timeStepWidth,
-    seissol::parallel::runtime::StreamRuntime& runtime) {
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
+    SEISSOL_GPU_PARAM LTS::Layer& layer,
+    SEISSOL_GPU_PARAM double time,
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 
 #ifdef ACL_DEVICE
+  using namespace seissol::recording;
+
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     ConditionalKey analyticalKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);

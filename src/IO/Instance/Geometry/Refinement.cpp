@@ -10,6 +10,7 @@
 #include "Refinement.h"
 
 #include <array>
+#include <cstddef>
 #include <vector>
 
 namespace {

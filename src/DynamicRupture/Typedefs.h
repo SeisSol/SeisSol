@@ -8,9 +8,12 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_
 
+#include "Alignment.h"
 #include "Common/Constants.h"
+#include "Common/Executor.h"
 #include "DynamicRupture/Misc.h"
 #include "Kernels/Precision.h"
+
 #include <Alignment.h>
 #include <Common/Executor.h>
 #include <GeneratedCode/tensor.h>
@@ -23,7 +26,17 @@ namespace seissol::dr {
  */
 template <typename RealT>
 struct ImpedancesAndEta {
-  RealT zp, zs, zpNeig, zsNeig, etaP, etaS, invEtaS, invZp, invZs, invZpNeig, invZsNeig;
+  RealT zp{};
+  RealT zs{};
+  RealT zpNeig{};
+  RealT zsNeig{};
+  RealT etaP{};
+  RealT etaS{};
+  RealT invEtaS{};
+  RealT invZp{};
+  RealT invZs{};
+  RealT invZpNeig{};
+  RealT invZsNeig{};
 };
 
 /**

@@ -6,11 +6,13 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "LinearSlipWeakening.h"
+
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -56,8 +58,8 @@ Real<Cfg> BiMaterialFault<Cfg>::strengthHook(real faultStrength,
 template <typename Cfg>
 Real<Cfg> TPApprox<Cfg>::stateVariableHook(real localAccumulatedSlip,
                                            real localDc,
-                                           std::size_t ltsFace,
-                                           std::uint32_t pointIndex) {
+                                           std::size_t /*ltsFace*/,
+                                           std::uint32_t /*pointIndex*/) {
   const real factor = (1.0 + std::fabs(localAccumulatedSlip) / localDc);
   return 1.0 - std::pow(factor, -drParameters->tpProxyExponent);
 }

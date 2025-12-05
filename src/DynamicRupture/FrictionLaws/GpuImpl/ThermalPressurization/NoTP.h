@@ -9,8 +9,8 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_THERMALPRESSURIZATION_NOTP_H_
 
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
-#include <DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h>
-#include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
+#include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
+#include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 
 namespace seissol::dr::friction_law::gpu {
 template <typename Cfg>

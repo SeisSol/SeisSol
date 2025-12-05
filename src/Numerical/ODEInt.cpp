@@ -6,6 +6,10 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "ODEInt.h"
+
+#include "Kernels/Precision.h"
+
+#include <Eigen/Core>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -14,8 +18,10 @@
 
 namespace seissol::ode {
 
+namespace {
+
 int getNumberOfStages(RungeKuttaVariant variant) {
-  std::unordered_map<RungeKuttaVariant, int> variantToNumberOfStages = {
+  static std::unordered_map<RungeKuttaVariant, int> variantToNumberOfStages = {
       {RungeKuttaVariant::RK4, 4},
       {RungeKuttaVariant::RK4Ralston, 4},
       {RungeKuttaVariant::RK438, 4},
@@ -239,28 +245,56 @@ void initializeRungeKuttaScheme(RungeKuttaVariant variant,
   }
 }
 
+} // namespace
+
 RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storageSizes,
                                          ODESolverConfig config)
     : config(config) {
-  initializeRungeKuttaScheme(config.solver, numberOfStages, a, b, c);
+
+  // NOTE: we initialize in Eigen, but copy to std vectors afterwards.
+  // Because e.g. NVHPC seemed to have a big problem with this case somehow after some refactor.
+  // And, to be honest, I (David) am not yet sure why.
+
+  {
+    Eigen::MatrixXd an;
+    Eigen::VectorXd bn;
+    Eigen::VectorXd cn;
+
+    initializeRungeKuttaScheme(config.solver, numberOfStages, an, bn, cn);
+
+    a.resize(static_cast<long>(numberOfStages) * numberOfStages);
+    b.resize(numberOfStages);
+    c.resize(numberOfStages);
+
+    for (int i = 0; i < numberOfStages; ++i) {
+      for (int j = 0; j < numberOfStages; ++j) {
+        a[i * numberOfStages + j] = an(i, j);
+      }
+      b[i] = bn[i];
+      c[i] = cn[i];
+    }
+  }
+
+  const auto allocateStorage = [&]() {
+    auto curStoragePtrs = std::vector<double*>();
+    curStoragePtrs.reserve(storageSizes.size());
+    for (const auto storageSize : storageSizes) {
+      curStoragePtrs.push_back(storages.emplace_back(storageSize).data());
+    }
+    return curStoragePtrs;
+  };
+
+  // TODO: maybe combine everything in a single buffer sometime?
+
   // Initialize storages for stages
   stages.reserve(numberOfStages);
   storages.reserve((numberOfStages + 1) * storageSizes.size()); // +1 due to buffer
-  auto curStoragePtrs = std::vector<double*>(storageSizes.size());
-  for (auto i = 0; i < numberOfStages; ++i) {
-    curStoragePtrs.clear();
-    for (const unsigned long storageSize : storageSizes) {
-      curStoragePtrs.push_back(storages.emplace_back(storageSize).data());
-    }
-    stages.emplace_back(curStoragePtrs, storageSizes);
+  for (int i = 0; i < numberOfStages; ++i) {
+    stages.emplace_back(allocateStorage(), storageSizes);
   }
 
   // Initialize buffer
-  curStoragePtrs.clear();
-  for (const unsigned long storageSize : storageSizes) {
-    curStoragePtrs.push_back(storages.emplace_back(storageSize).data());
-  }
-  buffer.updateStoragesAndSizes(curStoragePtrs, storageSizes);
+  buffer.updateStoragesAndSizes(allocateStorage(), storageSizes);
 }
 
 void RungeKuttaODESolver::setConfig(ODESolverConfig newConfig) { config = newConfig; }

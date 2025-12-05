@@ -14,6 +14,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 #include "Memory/MemoryAllocator.h"
+
 #include <array>
 #include <cstdlib>
 
@@ -81,7 +82,7 @@ struct PointSources {
   /** Number of point sources in this struct. */
   std::size_t numberOfSources{0};
 
-  PointSources(seissol::memory::Memkind memkind)
+  explicit PointSources(seissol::memory::Memkind memkind)
       : mInvJInvPhisAtSources(memkind), simulationIndex(memkind), tensor(memkind),
         onsetTime(memkind), samplingInterval(memkind), sampleRange(memkind), sampleOffsets(memkind),
         sample(memkind) {}
@@ -110,7 +111,8 @@ struct ClusterMapping {
   seissol::memory::MemkindArray<std::size_t> sources;
   seissol::memory::MemkindArray<CellToPointSourcesMapping> cellToSources;
 
-  ClusterMapping(seissol::memory::Memkind memkind) : sources(memkind), cellToSources(memkind) {}
+  explicit ClusterMapping(seissol::memory::Memkind memkind)
+      : sources(memkind), cellToSources(memkind) {}
   ClusterMapping(const ClusterMapping& mapping, seissol::memory::Memkind memkind)
       : sources(mapping.sources, memkind), cellToSources(mapping.cellToSources, memkind) {}
 };

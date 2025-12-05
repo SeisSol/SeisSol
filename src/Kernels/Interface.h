@@ -9,9 +9,9 @@
 #ifndef SEISSOL_SRC_KERNELS_INTERFACE_H_
 #define SEISSOL_SRC_KERNELS_INTERFACE_H_
 
+#include "Common/Constants.h"
 #include "Kernels/LinearCK/GravitationalFreeSurfaceBC.h"
 #include "Memory/Descriptor/LTS.h"
-#include <Common/Constants.h>
 
 namespace seissol::kernels {
 
@@ -22,8 +22,8 @@ struct LocalTmp {
   GravitationalFreeSurfaceBc<Cfg> gravitationalFreeSurfaceBc;
   alignas(Alignment) std::array<
       Real<Cfg>,
-      tensor::averageNormalDisplacement<Cfg>::size()> nodalAvgDisplacements[Cell::NumFaces];
-  LocalTmp(double graviationalAcceleration)
+      tensor::averageNormalDisplacement<Cfg>::size()> nodalAvgDisplacements[Cell::NumFaces]{};
+  explicit LocalTmp(double graviationalAcceleration)
       : gravitationalFreeSurfaceBc(graviationalAcceleration) {};
 };
 } // namespace seissol::kernels

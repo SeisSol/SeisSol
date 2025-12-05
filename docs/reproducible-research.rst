@@ -149,7 +149,7 @@ A non-exhaustive list is given below:
 
 SeisSol setups for community benchmark are described in the cookbook  (see :ref:`cookbook overview<cookbook overview>`), and the input files are available at https://github.com/SeisSol/Examples.
 
-.. include:: table_cookbook.rst
+.. include:: table-cookbook.rst
 
 
 We provide the following small-scale examples, specifically designed for SeisSol training and tutorials. These example scenarios are part of the `SeisSol Docker container <https://github.com/SeisSol/Training>`_  which also includes related open-source tools (Gmsh and ParaView), as well as all required input files.

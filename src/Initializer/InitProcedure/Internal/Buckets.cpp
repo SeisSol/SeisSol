@@ -5,10 +5,25 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Buckets.h"
+
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Common/Real.h"
+#include "Config.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/CellLocalInformation.h"
+#include "Initializer/TimeStepping/Halo.h"
+#include "Kernels/Common.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
+#include "Memory/Tree/Layer.h"
+#include "Solver/TimeStepping/HaloCommunication.h"
+
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <Common/Real.h>
-#include <Config.h>
 #include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/CellLocalInformation.h>
@@ -28,9 +43,9 @@
 #include <vector>
 #include <yateto/InitTools.h>
 
+namespace seissol::initializer::internal {
+
 namespace {
-using namespace seissol::initializer;
-using namespace seissol::initializer::internal;
 
 class BucketManager {
   private:
@@ -140,7 +155,6 @@ std::vector<solver::RemoteCluster>
   auto* buffersDevice = layer.var<LTS::BuffersDevice>(cfg);
   auto* derivativesDevice = layer.var<LTS::DerivativesDevice>(cfg);
   const auto* cellInformation = layer.var<LTS::CellInformation>();
-  const auto* secondaryCellInformation = layer.var<LTS::SecondaryInformation>();
   BucketManager manager;
 
   const auto datatype = Cfg::Precision;
@@ -328,7 +342,6 @@ void setupFaceNeighbors(Cfg cfg, LTS::Storage& storage, LTS::Layer& layer) {
 }
 } // namespace
 
-namespace seissol::initializer::internal {
 solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const MeshLayout& layout) {
   std::vector<std::vector<solver::RemoteCluster>> commInfo(storage.getColorMap().size());
 
