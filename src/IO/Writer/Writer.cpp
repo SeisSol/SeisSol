@@ -33,6 +33,10 @@ void WriteInstance::write(const async::ExecInfo& info,
   if (dynamic_cast<instructions::Hdf5AttributeWrite*>(instruction.get()) != nullptr) {
     hdf5.writeAttribute(info, *dynamic_cast<instructions::Hdf5AttributeWrite*>(instruction.get()));
   }
+  if (dynamic_cast<instructions::Hdf5LinkExternalWrite*>(instruction.get()) != nullptr) {
+    hdf5.writeLinkExternal(info,
+                           *dynamic_cast<instructions::Hdf5LinkExternalWrite*>(instruction.get()));
+  }
   if (dynamic_cast<instructions::BinaryWrite*>(instruction.get()) != nullptr) {
     binary.write(info, *dynamic_cast<instructions::BinaryWrite*>(instruction.get()));
   }

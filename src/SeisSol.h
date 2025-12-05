@@ -19,10 +19,7 @@
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/AsyncIO.h"
 #include "ResultWriter/EnergyOutput.h"
-#include "ResultWriter/FaultWriter.h"
-#include "ResultWriter/FreeSurfaceWriter.h"
 #include "ResultWriter/PostProcessor.h"
-#include "ResultWriter/WaveFieldWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/Simulator.h"
 #include "Solver/TimeStepping/TimeManager.h"
@@ -89,8 +86,6 @@ class SeisSol {
 
   solver::FreeSurfaceIntegrator& freeSurfaceIntegrator() { return m_freeSurfaceIntegrator; }
 
-  writer::FreeSurfaceWriter& freeSurfaceWriter() { return m_freeSurfaceWriter; }
-
   writer::AnalysisWriter& analysisWriter() { return m_analysisWriter; }
 
   /** Get the post processor module
@@ -98,16 +93,6 @@ class SeisSol {
   writer::PostProcessor& postProcessor() { return m_postProcessor; }
 
   io::AsyncIO& asyncIO() { return m_asyncIO; }
-
-  /**
-   * Get the wave field writer module
-   */
-  writer::WaveFieldWriter& waveFieldWriter() { return m_waveFieldWriter; }
-
-  /**
-   * Get the fault writer module
-   */
-  writer::FaultWriter& faultWriter() { return m_faultWriter; }
 
   /**
    * Get the receiver writer module
@@ -237,17 +222,8 @@ class SeisSol {
   //! Free surface integrator module
   solver::FreeSurfaceIntegrator m_freeSurfaceIntegrator;
 
-  //! Free surface writer module
-  writer::FreeSurfaceWriter m_freeSurfaceWriter;
-
   //! Analysis writer module
   writer::AnalysisWriter m_analysisWriter;
-
-  //! Wavefield output module
-  writer::WaveFieldWriter m_waveFieldWriter;
-
-  //! Fault output module
-  writer::FaultWriter m_faultWriter;
 
   //! Receiver writer module
   writer::ReceiverWriter m_receiverWriter;
@@ -278,8 +254,7 @@ class SeisSol {
   SeisSol(const initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)
       : outputManager(*this), m_seissolParameters(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
-        m_freeSurfaceWriter(*this), m_analysisWriter(*this), m_waveFieldWriter(*this),
-        m_faultWriter(*this), m_receiverWriter(*this), m_energyOutput(*this),
+        m_analysisWriter(*this), m_receiverWriter(*this), m_energyOutput(*this),
         timeMirrorManagers(*this, *this), m_env(env) {}
 
   SeisSol(const SeisSol&) = delete;

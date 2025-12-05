@@ -20,12 +20,9 @@
 namespace seissol::io::writer::file {
 
 BinaryFile::BinaryFile(MPI_Comm comm) : comm(comm) {}
-void BinaryFile::openFile(const std::string& name) {
-  MPI_File_open(comm,
-                name.c_str(),
-                MPI_MODE_CREATE | MPI_MODE_WRONLY | MPI_MODE_APPEND,
-                MPI_INFO_NULL,
-                &file);
+void BinaryFile::openFile(const std::string& name, bool append) {
+  const auto mode = append ? MPI_MODE_APPEND : 0;
+  MPI_File_open(comm, name.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY | mode, MPI_INFO_NULL, &file);
 }
 void BinaryFile::writeGlobal(const void* data, std::size_t size) {
   int rank = 0;
@@ -39,6 +36,13 @@ void BinaryFile::writeDistributed(const void* data, std::size_t size) {
   // TODO: get max write size
   MPI_File_write_all(file, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
 }
+void BinaryFile::align(std::size_t alignment) {
+  MPI_Offset position = 0;
+  MPI_File_get_position(file, &position);
+
+  const auto alignedPosition = ((position + alignment - 1) / alignment) * alignment;
+  MPI_File_seek(file, alignedPosition, MPI_SEEK_SET);
+}
 void BinaryFile::closeFile() { MPI_File_close(&file); }
 
 BinaryWriter::BinaryWriter(MPI_Comm comm) : comm(comm) {}
@@ -46,13 +50,17 @@ BinaryWriter::BinaryWriter(MPI_Comm comm) : comm(comm) {}
 void BinaryWriter::write(const async::ExecInfo& info, const instructions::BinaryWrite& write) {
   if (openFiles.find(write.filename) == openFiles.end()) {
     openFiles[write.filename] = std::make_unique<BinaryFile>(BinaryFile(comm));
-    openFiles[write.filename]->openFile(write.filename);
+    openFiles[write.filename]->openFile(write.filename, write.append);
   }
 
   const void* dataPointer = write.dataSource->getPointer(info);
 
   // TODO: add dimensions
   const auto dataSize = write.dataSource->count(info) * write.dataSource->datatype()->size();
+
+  if (write.alignment > 0) {
+    openFiles[write.filename]->align(write.alignment);
+  }
 
   if (write.dataSource->distributed()) {
     openFiles[write.filename]->writeDistributed(dataPointer, dataSize);

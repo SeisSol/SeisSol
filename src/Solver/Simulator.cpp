@@ -12,6 +12,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Modules/Modules.h"
 #include "Monitoring/FlopCounter.h"
+#include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
 #include "Parallel/Runtime/Stream.h"
 #include "ResultWriter/AnalysisWriter.h"

@@ -15,6 +15,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+
 namespace seissol::io::instance::metadata {
 
 class XmlInstructor {
@@ -23,6 +24,11 @@ class XmlInstructor {
 
   void addText(const std::string& text);
 
+  void newLine();
+
+  void indentLeft();
+  void indentRight();
+
   void addBuffer(const std::shared_ptr<writer::DataSource>& dataSource);
 
   void flush();
@@ -30,6 +36,8 @@ class XmlInstructor {
   std::vector<std::shared_ptr<writer::instructions::WriteInstruction>> instructions();
 
   private:
+  bool written{false};
+  int indent{0};
   std::string file;
   std::ostringstream cache;
   std::vector<std::shared_ptr<writer::instructions::WriteInstruction>> instructionList;
@@ -38,13 +46,6 @@ class XmlInstructor {
 class XmlAttribute {
   public:
   explicit XmlAttribute(const std::string& name);
-
-  template <typename T>
-  static XmlAttribute create(const std::string& name, const T& value) {
-    auto attribute = XmlAttribute(name);
-    attribute.setImmediate(value);
-    return attribute;
-  }
 
   template <typename T>
   void setImmediate(const T& data) {
@@ -57,6 +58,8 @@ class XmlAttribute {
     const auto* dataConv = reinterpret_cast<const T*>(data);
     return *dataConv;
   }
+
+  static XmlAttribute create(const std::string& name, const std::string& value);
 
   void write(XmlInstructor& instructor) const;
 
@@ -77,6 +80,12 @@ inline std::string XmlAttribute::getImmediate<std::string>() const {
   return std::string(dataConv, dataConv + this->data->getLocalSize());
 }
 
+inline XmlAttribute XmlAttribute::create(const std::string& name, const std::string& value) {
+  auto attribute = XmlAttribute(name);
+  attribute.setImmediate(value);
+  return attribute;
+}
+
 class XmlEntry {
   public:
   virtual ~XmlEntry() = default;
@@ -88,6 +97,7 @@ class XmlEntry {
 
   protected:
   virtual void innerWrite(XmlInstructor& instructor) const = 0;
+  [[nodiscard]] virtual bool isEmpty() const = 0;
 
   private:
   std::string name;
@@ -103,6 +113,7 @@ class XmlNode : public XmlEntry {
 
   protected:
   void innerWrite(XmlInstructor& instructor) const override;
+  [[nodiscard]] bool isEmpty() const override;
 
   private:
   std::vector<std::shared_ptr<XmlEntry>> entries;
@@ -125,14 +136,13 @@ class XmlData : public XmlEntry {
     return *dataConv;
   }
 
-  template <typename T>
-  void setBuffer(const T* /*unused*/) {}
+  void setDataSource(const std::shared_ptr<writer::DataSource>& dataSource);
 
-  template <typename T>
-  const T* getBuffer() const;
+  [[nodiscard]] const std::shared_ptr<writer::DataSource>& getDataSource() const;
 
   protected:
   void innerWrite(XmlInstructor& instructor) const override;
+  [[nodiscard]] bool isEmpty() const override;
 
   private:
   std::shared_ptr<writer::DataSource> data;
