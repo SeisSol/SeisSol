@@ -156,8 +156,6 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
             locationFlagLayer[surfaceCell] = static_cast<std::uint8_t>(getLocationFlag(
                 cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
 
-            const auto globalId = secondaryInformation[cell].globalId * 4 + face;
-
             if (secondaryInformation[cell].duplicate == 0) {
               outputPosition[surfaceCell] = surfaceCellOffset;
               backmap[surfaceCellOffset] = surfaceCellGlobal;

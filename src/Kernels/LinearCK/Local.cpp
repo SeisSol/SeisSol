@@ -330,10 +330,9 @@ void Local<Cfg>::computeBatchedIntegral(
       auto nodalAvgDisplacements = dataTable[fsgKey]
                                        .get(inner_keys::Wp::Id::NodalAvgDisplacements)
                                        ->getDeviceDataPtrAs<real*>();
-      auto rhos =
-          materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtrAs<real*>();
-      local_flux::aux::FreeSurfaceGravity freeSurfaceGravityBc;
-      freeSurfaceGravityBc.g = gravitationalAcceleration;
+      auto rhos = materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
+      local_flux::aux::FreeSurfaceGravity<Cfg> freeSurfaceGravityBc;
+      freeSurfaceGravityBc.g = this->gravitationalAcceleration;
       freeSurfaceGravityBc.rhos = rhos;
       freeSurfaceGravityBc.displacementDataPtrs = nodalAvgDisplacements;
       dirichletBoundary.evaluateOnDevice(face,
@@ -356,7 +355,7 @@ void Local<Cfg>::computeBatchedIntegral(
                                           .get(inner_keys::Wp::Id::EasiBoundaryConstant)
                                           ->getDeviceDataPtrAs<real*>();
 
-      local_flux::aux::EasiBoundary easiBoundaryBc;
+      local_flux::aux::EasiBoundary<Cfg> easiBoundaryBc;
       easiBoundaryBc.easiBoundaryMapPtrs = easiBoundaryMapPtrs;
       easiBoundaryBc.easiBoundaryConstantPtrs = easiBoundaryConstantPtrs;
 

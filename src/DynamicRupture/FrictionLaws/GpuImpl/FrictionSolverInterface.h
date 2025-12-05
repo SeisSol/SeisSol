@@ -104,7 +104,8 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
     return seissol::initializer::AllocationPlace::Device;
   }
 
-  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
+  static void copyStorageToLocalDevice(FrictionLawData<Cfg>* data,
+                                       DynamicRupture::Layer& layerData) {
     const seissol::initializer::AllocationPlace place =
         seissol::initializer::AllocationPlace::Device;
     data->impAndEta = layerData.var<DynamicRupture::ImpAndEta>(Cfg(), place);

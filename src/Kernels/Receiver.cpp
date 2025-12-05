@@ -251,7 +251,7 @@ void ReceiverClusterImpl<Cfg>::allocateData() {
     std::unordered_map<real*, size_t> indexMap;
     for (size_t i = 0; i < m_receivers.size(); ++i) {
       // NOLINTNEXTLINE(misc-const-correctness)
-      real* const currentDofs = m_receivers[i].dataDevice.template get<LTS::Dofs>(Cfg());
+      real* const currentDofs = m_receivers[i].dataDevice.template get<LTS::Dofs>();
       if (indexMap.find(currentDofs) == indexMap.end()) {
         // point to the current array end
         indexMap[currentDofs] = dofs.size();

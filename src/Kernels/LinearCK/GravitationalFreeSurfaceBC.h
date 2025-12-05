@@ -33,7 +33,7 @@ namespace seissol {
 template <typename Cfg>
 class GravitationalFreeSurfaceBc {
   private:
-  double gravitationalAcceleration;
+  double gravitationalAcceleration{};
 
   // NOLINTNEXTLINE
   using real = Real<Cfg>;

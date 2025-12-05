@@ -211,8 +211,6 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 
         // if enabled, set up the plasticity as well
         if (seissolParams.model.plasticity) {
-          const auto& localPlasticity = plasticityDB[meshId];
-
           layer.wrap([&](auto cfg) {
             using Cfg = decltype(cfg);
 

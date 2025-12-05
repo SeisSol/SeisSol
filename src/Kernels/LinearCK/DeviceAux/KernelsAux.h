@@ -19,17 +19,16 @@ void taylorSum(
 } // namespace seissol::kernels::time::aux
 
 namespace seissol::kernels::local_flux::aux {
-template <typename Cfg, template <typename> typename Derived>
+template <typename Cfg, typename Derived>
 struct DirichletBoundaryAux {
   using real = Real<Cfg>;
   void evaluate(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) {
-    static_cast<Derived<Cfg>*>(this)->dispatch(
-        dofsFaceBoundaryNodalPtrs, numElements, deviceStream);
+    static_cast<Derived*>(this)->dispatch(dofsFaceBoundaryNodalPtrs, numElements, deviceStream);
   }
 };
 
 template <typename Cfg>
-struct FreeSurfaceGravity : public DirichletBoundaryAux<Cfg, FreeSurfaceGravity> {
+struct FreeSurfaceGravity : public DirichletBoundaryAux<Cfg, FreeSurfaceGravity<Cfg>> {
   using real = Real<Cfg>;
   real** displacementDataPtrs{};
   double* rhos{};
@@ -39,7 +38,7 @@ struct FreeSurfaceGravity : public DirichletBoundaryAux<Cfg, FreeSurfaceGravity>
 };
 
 template <typename Cfg>
-struct EasiBoundary : public DirichletBoundaryAux<Cfg, EasiBoundary> {
+struct EasiBoundary : public DirichletBoundaryAux<Cfg, EasiBoundary<Cfg>> {
   using real = Real<Cfg>;
   real** easiBoundaryMapPtrs{};
   real** easiBoundaryConstantPtrs{};

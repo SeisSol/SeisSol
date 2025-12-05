@@ -18,6 +18,7 @@ template <typename Cfg, typename TPMethod>
 class FastVelocityWeakeningLaw
     : public RateAndStateBase<Cfg, FastVelocityWeakeningLaw<Cfg, TPMethod>, TPMethod> {
   public:
+  using real = Real<Cfg>;
   using RateAndStateBase<Cfg, FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {}

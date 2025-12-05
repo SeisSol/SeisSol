@@ -129,7 +129,7 @@ void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
   std::size_t ltsUnsupported = 0;
   std::string unsupportedExample;
   for (std::size_t i = 0; i < meshGeometry.cells().size(); ++i) {
-    const auto config = 0; // groups[i];
+    const auto config = configMap.toConfig(groups[i]);
 
     std::visit(
         [&](auto cfg) {

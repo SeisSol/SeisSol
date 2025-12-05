@@ -227,10 +227,11 @@ class SuperimposedPlanarwave : public InitialField {
     dofsQP.setZero();
 
     std::vector<double> dofsPwVector(dofsQP.size());
-    auto dofsPW = yateto::DenseTensorView<2, double, unsigned>(dofsPwVector.data(),
-                                                               {count, MaterialT::NumQuantities},
-                                                               {0, 0},
-                                                               {count, MaterialT::NumQuantities});
+    auto dofsPW = yateto::DenseTensorView<2, double, unsigned>(
+        dofsPwVector.data(),
+        {static_cast<unsigned>(count), MaterialT::NumQuantities},
+        {0, 0},
+        {static_cast<unsigned>(count), MaterialT::NumQuantities});
 
     for (int pw = 0; pw < 3; pw++) {
       // evaluate each planarwave

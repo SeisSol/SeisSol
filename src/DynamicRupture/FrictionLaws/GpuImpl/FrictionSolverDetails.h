@@ -26,6 +26,8 @@ class FrictionSolverDetails : public FrictionSolverInterface<Cfg> {
   protected:
   size_t currLayerSize{};
 
+  using real = Real<Cfg>;
+
   real* resampleMatrix{nullptr};
   real* devSpaceWeights{nullptr};
   real* devTpInverseFourierCoefficients{nullptr};

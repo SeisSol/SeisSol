@@ -504,8 +504,7 @@ void TimeCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool rese
                 entry.get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtrAs<real*>();
             displacementKrnl.integratedVelocities = const_cast<const real**>(
                 entry.get(inner_keys::Wp::Id::Ivelocities)->getDeviceDataPtrAs<real*>());
-            displacementKrnl.V3mTo2nFace =
-                globalData->get<Cfg>(initializer::AllocationPlace::Device).v3mTo2nFace;
+            displacementKrnl.V3mTo2nFace = globalData->get<Cfg, Executor::Device>().v3mTo2nFace;
 
             // Note: this kernel doesn't require tmp. memory
             displacementKrnl.numElements =
@@ -587,7 +586,7 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM dou
   if (usePlasticity) {
     auto plasticityGraphKey = initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);
     auto* plasticity =
-        clusterData->var<LTS::Plasticity>(seissol::initializer::AllocationPlace::Device);
+        clusterData->var<LTS::Plasticity>(Cfg(), seissol::initializer::AllocationPlace::Device);
     auto* isAdjustableVector =
         clusterData->var<LTS::FlagScratch>(seissol::initializer::AllocationPlace::Device);
     streamRuntime.runGraph(plasticityGraphKey,
@@ -596,7 +595,7 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM dou
                              seissol::kernels::Plasticity<Cfg>::computePlasticityBatched(
                                  timeStepWidth,
                                  seissolInstance.getSeisSolParameters().model.tv,
-                                 globalData->get<Cfg>(initializer::AllocationPlace::Device),
+                                 *globalData,
                                  table,
                                  plasticity,
                                  yieldCells.data(),

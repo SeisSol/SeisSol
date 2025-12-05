@@ -223,14 +223,20 @@ void EnergyOutput::init(
   isPlasticityEnabled = newIsPlasticityEnabled;
 
 #ifdef ACL_DEVICE
-  const auto maxCells = ltsStorage->getMaxClusterSize();
+  std::size_t maxsize = 0;
+  for (const auto& layer : newStorage.leaves(Ghost)) {
+    std::visit(
+        [&](auto cfg) {
+          using Cfg = decltype(cfg);
+          const std::size_t currsize = sizeof(Real<Cfg>) * layer.size() * tensor::Q<Cfg>::size();
+          maxsize = std::max(maxsize, currsize);
+        },
+        layer.getIdentifier().config);
+  }
 
-  if (maxCells > 0) {
-    constexpr auto QSize = tensor::Q<Cfg>::size();
-    timeDerivativePlusHost =
-        device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * QSize * sizeof(real));
-    timeDerivativeMinusHost =
-        device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * QSize * sizeof(real));
+  if (maxsize > 0) {
+    timeDerivativePlusHost = device::DeviceInstance::getInstance().api->allocPinnedMem(maxsize);
+    timeDerivativeMinusHost = device::DeviceInstance::getInstance().api->allocPinnedMem(maxsize);
     timeDerivativePlusHostMapped =
         device::DeviceInstance::getInstance().api->devicePointer(timeDerivativePlusHost);
     timeDerivativeMinusHostMapped =
@@ -316,11 +322,11 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     for (const auto& layer : drStorage->leaves()) {
       layer.wrap([&](auto cfg) {
         using Cfg = decltype(cfg);
-        using real = Real<Cfg>;
 
         /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
         /// (We'd need to send the dofs over the network in order to fix this.)
 #ifdef ACL_DEVICE
+        using real = Real<Cfg>;
         using namespace seissol::recording;
         constexpr auto QSize = tensor::Q<Cfg>::size();
         const ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
@@ -333,14 +339,14 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
               (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtrAs<real*>());
           device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
               timeDerivativePlusDevice,
-              timeDerivativePlusHostMapped,
+              reinterpret_cast<real*>(timeDerivativePlusHostMapped),
               QSize,
               QSize,
               layer.size(),
               stream);
           device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
               timeDerivativeMinusDevice,
-              timeDerivativeMinusHostMapped,
+              reinterpret_cast<real*>(timeDerivativeMinusHostMapped),
               QSize,
               QSize,
               layer.size(),
@@ -348,10 +354,10 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
           device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
         }
         const auto timeDerivativePlusPtr = [&](std::size_t i) {
-          return timeDerivativePlusHost + QSize * i;
+          return reinterpret_cast<const real*>(timeDerivativePlusHost) + QSize * i;
         };
         const auto timeDerivativeMinusPtr = [&](std::size_t i) {
-          return timeDerivativeMinusHost + QSize * i;
+          return reinterpret_cast<const real*>(timeDerivativeMinusHost) + QSize * i;
         };
 #else
         // TODO: for fused simulations, do this once and reuse

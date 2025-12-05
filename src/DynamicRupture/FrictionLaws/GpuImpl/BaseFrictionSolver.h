@@ -203,7 +203,7 @@ class BaseFrictionSolver : public FrictionSolverDetails<Cfg> {
   void setupLayer(DynamicRupture::Layer& layerData,
                   seissol::parallel::runtime::StreamRuntime& runtime) override {
     this->currLayerSize = layerData.size();
-    FrictionSolverInterface<Cfg>::copyStorageToLocal(&this->dataHost, layerData);
+    FrictionSolverInterface<Cfg>::copyStorageToLocalDevice(&this->dataHost, layerData);
     Derived::copySpecificStorageDataToLocal(&this->dataHost, layerData);
     this->dataHost.drParameters = *this->drParameters;
     device::DeviceInstance::getInstance().api->copyToAsync(

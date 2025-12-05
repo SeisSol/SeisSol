@@ -72,7 +72,7 @@ class DirichletBoundary {
   }
 
 #ifdef ACL_DEVICE
-  template <template <typename> typename Func, typename MappingKrnl, typename InverseMappingKrnl>
+  template <typename Func, typename MappingKrnl, typename InverseMappingKrnl>
   void evaluateOnDevice(int faceIdx,
                         recording::ConditionalKey& key,
                         MappingKrnl& projectKernelPrototype,
