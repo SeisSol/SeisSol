@@ -221,28 +221,30 @@ void Spacetime<Cfg>::computeBatchedAder(
     const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
     krnl.numElements = numElements;
 
-    krnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
-    krnl.Q = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
+    krnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtrAs<real*>();
+    krnl.Q = const_cast<const real**>(
+        (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtrAs<real*>());
     krnl.timestep = timeStepWidth;
 
     // TODO: maybe zero init?
-    krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Stp))->getDeviceDataPtr();
-    krnl.spaceTimePredictorRhs = (entry.get(inner_keys::Wp::Id::StpRhs))->getDeviceDataPtr();
+    krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Stp))->getDeviceDataPtrAs<real*>();
+    krnl.spaceTimePredictorRhs =
+        (entry.get(inner_keys::Wp::Id::StpRhs))->getDeviceDataPtrAs<real*>();
 
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
       krnl.star(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-      krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
+          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtrAs<real*>());
+      krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Cfg>, starMatrices, i);
     }
 
     krnl.streamPtr = runtime.stream();
 
     krnl.Gkt = const_cast<const real**>(
-        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtrAs<real*>());
     krnl.Glt = const_cast<const real**>(
-        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtrAs<real*>());
     krnl.Gmt = const_cast<const real**>(
-        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtrAs<real*>());
     krnl.extraOffset_Gkt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[10]);
     krnl.extraOffset_Glt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[11]);
     krnl.extraOffset_Gmt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[12]);
@@ -263,8 +265,8 @@ void Spacetime<Cfg>::computeBatchedAder(
 
     std::size_t zinvOffset = SEISSOL_OFFSET(LocalIntegrationData, specific.Zinv);
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::Zinv<Cfg>>(); i++) {
-      krnl.Zinv(i) =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Zinv))->getDeviceDataPtr());
+      krnl.Zinv(i) = const_cast<const real**>(
+          (entry.get(inner_keys::Wp::Id::Zinv))->getDeviceDataPtrAs<real*>());
       krnl.extraOffset_Zinv(i) = zinvOffset;
       zinvOffset += tensor::Zinv<Cfg>::size(i);
     }

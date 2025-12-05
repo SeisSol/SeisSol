@@ -237,8 +237,9 @@ void TimeCommon<Cfg>::computeBatchedIntegrals(
     auto& entry = table[key];
     time.evaluateBatched(
         timeCoeffs,
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
-        (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
+        const_cast<const real**>(
+            (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtrAs<real*>()),
+        (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtrAs<real*>(),
         (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
         runtime);
   }
@@ -250,8 +251,9 @@ void TimeCommon<Cfg>::computeBatchedIntegrals(
     auto& entry = table[key];
     time.evaluateBatched(
         subtimeCoeffs,
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
-        (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
+        const_cast<const real**>(
+            (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtrAs<real*>()),
+        (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtrAs<real*>(),
         (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
         runtime);
   }

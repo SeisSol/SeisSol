@@ -240,18 +240,18 @@ void Spacetime<Cfg>::computeBatchedAder(
 
     const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
     krnl.numElements = numElements;
-    krnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
-    krnl.Iane = (entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr();
+    krnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtrAs<real*>();
+    krnl.Iane = (entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtrAs<real*>();
 
     unsigned derivativesOffset = tensor::dQ<Cfg>::size(0);
-    krnl.dQ(0) = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-    krnl.dQane(0) = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+    krnl.dQ(0) = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtrAs<real*>();
+    krnl.dQane(0) = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtrAs<real*>();
     for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
-      krnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
+      krnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtrAs<real*>();
       krnl.extraOffset_dQ(i) = derivativesOffset;
-      krnl.dQane(i) = (entry.get(inner_keys::Wp::Id::DerivativesAne))->getDeviceDataPtr();
+      krnl.dQane(i) = (entry.get(inner_keys::Wp::Id::DerivativesAne))->getDeviceDataPtrAs<real*>();
       krnl.extraOffset_dQane(i) = i % 2 == 1 ? 0 : tensor::dQane<Cfg>::size(1);
-      krnl.dQext(i) = (entry.get(inner_keys::Wp::Id::DerivativesExt))->getDeviceDataPtr();
+      krnl.dQext(i) = (entry.get(inner_keys::Wp::Id::DerivativesExt))->getDeviceDataPtrAs<real*>();
       krnl.extraOffset_dQext(i) = i % 2 == 1 ? 0 : tensor::dQext<Cfg>::size(1);
 
       // TODO: compress
@@ -260,18 +260,18 @@ void Spacetime<Cfg>::computeBatchedAder(
 
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
       krnl.star(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-      krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
+          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtrAs<real*>());
+      krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Cfg>, starMatrices, i);
     }
 
     krnl.W = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtrAs<real*>());
     krnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData, specific.W);
     krnl.w = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtrAs<real*>());
     krnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
     krnl.E = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtrAs<real*>());
     krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
 
     for (std::size_t der = 0; der < Cfg::ConvergenceOrder; ++der) {
@@ -280,8 +280,9 @@ void Spacetime<Cfg>::computeBatchedAder(
     }
 
     device.algorithms.streamBatchedData(
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
-        (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
+        const_cast<const real**>(
+            (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtrAs<real*>()),
+        (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtrAs<real*>(),
         tensor::Q<Cfg>::Size,
         krnl.numElements,
         runtime.stream());

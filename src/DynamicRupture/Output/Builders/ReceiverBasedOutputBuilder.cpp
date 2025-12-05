@@ -290,7 +290,7 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
 
   // init Rotation Matrices
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-    const auto configId =
+    const size_t configId =
         meshReader->getElements()[outputData->receiverPoints[receiverId].elementIndex].configId;
 
     std::visit(
@@ -391,7 +391,7 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
     const auto* tangent1 = faultInfo[faultIndex].tangent1;
     const auto* tangent2 = faultInfo[faultIndex].tangent2;
 
-    const auto configId =
+    const size_t configId =
         meshReader->getElements()[outputData->receiverPoints[receiverId].elementIndex].configId;
     std::visit(
         [&](auto cfg) {

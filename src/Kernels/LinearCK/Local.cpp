@@ -290,14 +290,15 @@ void Local<Cfg>::computeBatchedIntegral(
 
     volKrnl.numElements = maxNumElements;
 
-    volKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-    volKrnl.I =
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+    volKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtrAs<real*>();
+    volKrnl.I = const_cast<const real**>(
+        (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtrAs<real*>());
 
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
       volKrnl.star(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-      volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
+          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtrAs<real*>());
+      volKrnl.extraOffset_star(i) =
+          SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Cfg>, starMatrices, i);
     }
     volKrnl.linearAllocator.initialize(tmpMem.get());
     volKrnl.streamPtr = runtime.stream();
@@ -311,12 +312,13 @@ void Local<Cfg>::computeBatchedIntegral(
     if (dataTable.find(key) != dataTable.end()) {
       auto& entry = dataTable[key];
       localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-      localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-      localFluxKrnl.I =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+      localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtrAs<real*>();
+      localFluxKrnl.I = const_cast<const real**>(
+          (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtrAs<real*>());
       localFluxKrnl.AplusT = const_cast<const real**>(
-          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-      localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
+          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtrAs<real*>());
+      localFluxKrnl.extraOffset_AplusT =
+          SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Cfg>, nApNm1, face);
       localFluxKrnl.linearAllocator.initialize(tmpMem.get());
       localFluxKrnl.streamPtr = runtime.stream();
       localFluxKrnl.execute(face);
@@ -325,9 +327,11 @@ void Local<Cfg>::computeBatchedIntegral(
     ConditionalKey fsgKey(
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, face);
     if (dataTable.find(fsgKey) != dataTable.end()) {
-      auto nodalAvgDisplacements =
-          dataTable[fsgKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
-      auto rhos = materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
+      auto nodalAvgDisplacements = dataTable[fsgKey]
+                                       .get(inner_keys::Wp::Id::NodalAvgDisplacements)
+                                       ->getDeviceDataPtrAs<real*>();
+      auto rhos =
+          materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtrAs<real*>();
       local_flux::aux::FreeSurfaceGravity freeSurfaceGravityBc;
       freeSurfaceGravityBc.g = gravitationalAcceleration;
       freeSurfaceGravityBc.rhos = rhos;
@@ -345,10 +349,12 @@ void Local<Cfg>::computeBatchedIntegral(
     ConditionalKey dirichletKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Dirichlet, face);
     if (dataTable.find(dirichletKey) != dataTable.end()) {
-      auto easiBoundaryMapPtrs =
-          dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryMap)->getDeviceDataPtr();
-      auto easiBoundaryConstantPtrs =
-          dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryConstant)->getDeviceDataPtr();
+      auto easiBoundaryMapPtrs = dataTable[dirichletKey]
+                                     .get(inner_keys::Wp::Id::EasiBoundaryMap)
+                                     ->getDeviceDataPtrAs<real*>();
+      auto easiBoundaryConstantPtrs = dataTable[dirichletKey]
+                                          .get(inner_keys::Wp::Id::EasiBoundaryConstant)
+                                          ->getDeviceDataPtrAs<real*>();
 
       local_flux::aux::EasiBoundary easiBoundaryBc;
       easiBoundaryBc.easiBoundaryMapPtrs = easiBoundaryMapPtrs;
@@ -413,15 +419,17 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
       });
 
       auto nodalLfKrnl = deviceNodalLfKrnlPrototype;
-      nodalLfKrnl.INodal = const_cast<const real**>(
-          dataTable[analyticalKey].get(inner_keys::Wp::Id::Analytical)->getDeviceDataPtr());
+      nodalLfKrnl.INodal = const_cast<const real**>(dataTable[analyticalKey]
+                                                        .get(inner_keys::Wp::Id::Analytical)
+                                                        ->getDeviceDataPtrAs<real*>());
       nodalLfKrnl.AminusT =
           const_cast<const real**>(dataTable[analyticalKey]
                                        .get(inner_keys::Wp::Id::NeighborIntegrationData)
-                                       ->getDeviceDataPtr());
+                                       ->getDeviceDataPtrAs<real*>());
       nodalLfKrnl.extraOffset_AminusT =
-          SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
-      nodalLfKrnl.Q = dataTable[analyticalKey].get(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
+          SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData<Cfg>, nAmNm1, face);
+      nodalLfKrnl.Q =
+          dataTable[analyticalKey].get(inner_keys::Wp::Id::Dofs)->getDeviceDataPtrAs<real*>();
       nodalLfKrnl.streamPtr = runtime.stream();
       nodalLfKrnl.numElements = numElements;
       nodalLfKrnl.execute(face);

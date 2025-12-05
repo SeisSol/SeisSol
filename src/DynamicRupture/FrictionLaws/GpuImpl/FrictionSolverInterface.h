@@ -18,6 +18,8 @@ namespace seissol::dr::friction_law::gpu {
 
 template <typename Cfg>
 struct FrictionLawData {
+  using real = Real<Cfg>;
+
   seissol::initializer::parameters::DRParameters drParameters;
 
   const ImpedancesAndEta<Real<Cfg>>* __restrict impAndEta{};

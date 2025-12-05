@@ -451,12 +451,14 @@ def main():
         "stpTestRhs",
     ]
 
+    declarationsKernelsGpu = [f"gpu_{name}" for name in declarationsKernels]
+
     metagen.generate(
         os.path.join(cmdLineArgs.outputDir, "metagen"),
         "seissol",
         ["Config.h"],
         declarationsTensors,
-        declarationsKernels,
+        declarationsKernels + declarationsKernelsGpu,
     )
     subfolders += ["metagen"]
 

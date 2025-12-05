@@ -219,11 +219,12 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
     ConditionalKey key(KernelNames::Time || KernelNames::Volume);
     if (table.find(key) != table.end()) {
       auto& entry = table[key];
-      device.algorithms.setToValue((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr(),
-                                   static_cast<real>(0.0),
-                                   tensor::Qext<Cfg>::Size,
-                                   (entry.get(inner_keys::Wp::Id::DofsExt))->getSize(),
-                                   runtime.stream());
+      device.algorithms.setToValue(
+          (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtrAs<real*>(),
+          static_cast<real>(0.0),
+          tensor::Qext<Cfg>::Size,
+          (entry.get(inner_keys::Wp::Id::DofsExt))->getSize(),
+          runtime.stream());
     }
   }
 
@@ -246,13 +247,15 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
               const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
               neighFluxKrnl.numElements = numElements;
 
-              neighFluxKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+              neighFluxKrnl.Qext =
+                  (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtrAs<real*>();
               neighFluxKrnl.I = const_cast<const real**>(
-                  (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-              neighFluxKrnl.AminusT = const_cast<const real**>(
-                  entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+                  (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtrAs<real*>());
+              neighFluxKrnl.AminusT =
+                  const_cast<const real**>(entry.get(inner_keys::Wp::Id::NeighborIntegrationData)
+                                               ->getDeviceDataPtrAs<real*>());
               neighFluxKrnl.extraOffset_AminusT =
-                  SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
+                  SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData<Cfg>, nAmNm1, face);
 
               neighFluxKrnl.streamPtr = stream;
               (neighFluxKrnl.*
@@ -272,10 +275,10 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
               drKrnl.numElements = numElements;
 
               drKrnl.fluxSolver = const_cast<const real**>(
-                  (entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+                  (entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtrAs<real*>());
               drKrnl.QInterpolated = const_cast<const real**>(
-                  (entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
-              drKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+                  (entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtrAs<real*>());
+              drKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtrAs<real*>();
 
               drKrnl.streamPtr = stream;
               (drKrnl.*
@@ -290,13 +293,13 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
     auto& entry = table[key];
     kernel::gpu_neighbor<Cfg> nKrnl = deviceNKrnlPrototype;
     nKrnl.numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
-    nKrnl.Qext =
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
-    nKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-    nKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+    nKrnl.Qext = const_cast<const real**>(
+        (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtrAs<real*>());
+    nKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtrAs<real*>();
+    nKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtrAs<real*>();
     nKrnl.w = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    nKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtrAs<real*>());
+    nKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.w);
 
     nKrnl.streamPtr = runtime.stream();
 

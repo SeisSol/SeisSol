@@ -289,20 +289,20 @@ void Plasticity<Cfg>::computePlasticityBatched(
     // copy dofs for later comparison, only first dof of stresses required
     constexpr auto DofsSize = tensor::Q<Cfg>::Size;
 
-    real** prevDofs = (entry.get(inner_keys::Wp::Id::PrevDofs))->getDeviceDataPtr();
-    real** dofsPtrs = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    real** prevDofs = (entry.get(inner_keys::Wp::Id::PrevDofs))->getDeviceDataPtrAs<real*>();
+    real** dofsPtrs = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtrAs<real*>();
     device.algorithms.streamBatchedData(
         const_cast<const real**>(dofsPtrs), prevDofs, DofsSize, numElements, defaultStream);
 
     // Convert modal to nodal
-    real** modalStressTensors = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    real** modalStressTensors = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtrAs<real*>();
     real** nodalStressTensors =
-        (entry.get(inner_keys::Wp::Id::NodalStressTensor))->getDeviceDataPtr();
+        (entry.get(inner_keys::Wp::Id::NodalStressTensor))->getDeviceDataPtrAs<real*>();
 
-    assert(global.get<Cfg, Executor::Device>().replicateStresses != nullptr &&
+    assert((global.get<Cfg, Executor::Device>().replicateStresses) != nullptr &&
            "replicateStresses has not been initialized");
     static_assert(kernel::gpu_plConvertToNodal<Cfg>::TmpMaxMemRequiredInBytes == 0);
-    real** initLoad = (entry.get(inner_keys::Wp::Id::InitialLoad))->getDeviceDataPtr();
+    real** initLoad = (entry.get(inner_keys::Wp::Id::InitialLoad))->getDeviceDataPtrAs<real*>();
     kernel::gpu_plConvertToNodal<Cfg> m2nKrnl;
     m2nKrnl.v = global.get<Cfg, Executor::Device>().vandermondeMatrix;
     m2nKrnl.QStress = const_cast<const real**>(modalStressTensors);
@@ -313,12 +313,12 @@ void Plasticity<Cfg>::computePlasticityBatched(
     m2nKrnl.numElements = numElements;
     m2nKrnl.execute();
 
-    device::aux::plasticity::adjustDeviatoricTensors(nodalStressTensors,
-                                                     isAdjustableVector,
-                                                     plasticityData,
-                                                     oneMinusIntegratingFactor,
-                                                     numElements,
-                                                     defaultStream);
+    device::aux::Plasticity<Cfg>::adjustDeviatoricTensors(nodalStressTensors,
+                                                          isAdjustableVector,
+                                                          plasticityData,
+                                                          oneMinusIntegratingFactor,
+                                                          numElements,
+                                                          defaultStream);
 
     // count how many elements needs to be adjusted
     device.algorithms.reduceVector(yieldCounter,
@@ -340,25 +340,26 @@ void Plasticity<Cfg>::computePlasticityBatched(
     n2mKrnl.execute();
 
     // prepare memory
-    real** qEtaNodalPtrs = (entry.get(inner_keys::Wp::Id::QEtaNodal))->getDeviceDataPtr();
-    real** dUdTpstrainPtrs = (entry.get(inner_keys::Wp::Id::DuDtStrain))->getDeviceDataPtr();
+    real** qEtaNodalPtrs = (entry.get(inner_keys::Wp::Id::QEtaNodal))->getDeviceDataPtrAs<real*>();
+    real** dUdTpstrainPtrs =
+        (entry.get(inner_keys::Wp::Id::DuDtStrain))->getDeviceDataPtrAs<real*>();
 
     static_assert(tensor::QStress<Cfg>::Size == tensor::QStressNodal<Cfg>::Size);
 
     // ------------------------------------------------------------------------------
-    real** pstrains = entry.get(inner_keys::Wp::Id::Pstrains)->getDeviceDataPtr();
+    real** pstrains = entry.get(inner_keys::Wp::Id::Pstrains)->getDeviceDataPtrAs<real*>();
     real** dofs = modalStressTensors;
-    device::aux::plasticity::computePstrains(pstrains,
-                                             plasticityData,
-                                             dofs,
-                                             prevDofs,
-                                             dUdTpstrainPtrs,
-                                             tV,
-                                             oneMinusIntegratingFactor,
-                                             timeStepWidth,
-                                             isAdjustableVector,
-                                             numElements,
-                                             defaultStream);
+    device::aux::Plasticity<Cfg>::computePstrains(pstrains,
+                                                  plasticityData,
+                                                  dofs,
+                                                  prevDofs,
+                                                  dUdTpstrainPtrs,
+                                                  tV,
+                                                  oneMinusIntegratingFactor,
+                                                  timeStepWidth,
+                                                  isAdjustableVector,
+                                                  numElements,
+                                                  defaultStream);
 
     // Convert modal to nodal
     static_assert(kernel::gpu_plConvertToNodalNoLoading<Cfg>::TmpMaxMemRequiredInBytes == 0);
@@ -384,12 +385,12 @@ void Plasticity<Cfg>::computePlasticityBatched(
     m2nEtaKrnl.execute();
 
     // adjust: QEtaNodal
-    device::aux::plasticity::updateQEtaNodal(qEtaNodalPtrs,
-                                             nodalStressTensors,
-                                             timeStepWidth,
-                                             isAdjustableVector,
-                                             numElements,
-                                             defaultStream);
+    device::aux::Plasticity<Cfg>::updateQEtaNodal(qEtaNodalPtrs,
+                                                  nodalStressTensors,
+                                                  timeStepWidth,
+                                                  isAdjustableVector,
+                                                  numElements,
+                                                  defaultStream);
 
     // Convert nodal to modal
     static_assert(kernel::gpu_plConvertEtaNodal2Modal<Cfg>::TmpMaxMemRequiredInBytes == 0);

@@ -501,10 +501,11 @@ void TimeCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool rese
 
             kernel::gpu_addVelocity<Cfg> displacementKrnl;
             displacementKrnl.faceDisplacement =
-                entry.get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
+                entry.get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtrAs<real*>();
             displacementKrnl.integratedVelocities = const_cast<const real**>(
-                entry.get(inner_keys::Wp::Id::Ivelocities)->getDeviceDataPtr());
-            displacementKrnl.V3mTo2nFace = globalDataOnDevice->v3mTo2nFace;
+                entry.get(inner_keys::Wp::Id::Ivelocities)->getDeviceDataPtrAs<real*>());
+            displacementKrnl.V3mTo2nFace =
+                globalData->get<Cfg>(initializer::AllocationPlace::Device).v3mTo2nFace;
 
             // Note: this kernel doesn't require tmp. memory
             displacementKrnl.numElements =
@@ -521,16 +522,16 @@ void TimeCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool rese
           if (resetBuffers) {
             device.algorithms.streamBatchedData(
                 const_cast<const real**>(
-                    (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
-                (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
+                    (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtrAs<real*>()),
+                (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtrAs<real*>(),
                 tensor::I<Cfg>::Size,
                 (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
                 streamRuntime.stream());
           } else {
             device.algorithms.accumulateBatchedData(
                 const_cast<const real**>(
-                    (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
-                (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
+                    (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtrAs<real*>()),
+                (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtrAs<real*>(),
                 tensor::I<Cfg>::Size,
                 (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
                 streamRuntime.stream());
@@ -595,7 +596,7 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM dou
                              seissol::kernels::Plasticity<Cfg>::computePlasticityBatched(
                                  timeStepWidth,
                                  seissolInstance.getSeisSolParameters().model.tv,
-                                 globalDataOnDevice,
+                                 globalData->get<Cfg>(initializer::AllocationPlace::Device),
                                  table,
                                  plasticity,
                                  yieldCells.data(),

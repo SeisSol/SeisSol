@@ -23,8 +23,6 @@ class LinearSlipWeakeningBase
     : public BaseFrictionSolver<Cfg, LinearSlipWeakeningBase<Cfg, Derived>> {
   public:
   using real = Real<Cfg>;
-  LinearSlipWeakeningBase<Derived>(seissol::initializer::parameters::DRParameters* drParameters)
-      : BaseFrictionSolver<Cfg, LinearSlipWeakeningBase<Cfg, Derived>>(drParameters){};
 
   std::unique_ptr<FrictionSolver> clone() override {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
@@ -130,13 +128,11 @@ class LinearSlipWeakeningBase
   static constexpr real U0 = 10e-14;
 };
 
-template <class SpecializationT>
+template <typename Cfg, class SpecializationT>
 class LinearSlipWeakeningLaw
-    : public LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>> {
+    : public LinearSlipWeakeningBase<Cfg, LinearSlipWeakeningLaw<Cfg, SpecializationT>> {
   public:
-  explicit LinearSlipWeakeningLaw(seissol::initializer::parameters::DRParameters* drParameters)
-      : LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
-        specialization(drParameters) {};
+  using real = Real<Cfg>;
 
   static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
@@ -221,9 +217,10 @@ class LinearSlipWeakeningLaw
   SpecializationT specialization;
 };
 
+template <typename Cfg>
 class NoSpecialization {
   public:
-  explicit NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
+  using real = Real<Cfg>;
 
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {}
 
@@ -273,9 +270,10 @@ class NoSpecialization {
   };
 };
 
+template <typename Cfg>
 class BiMaterialFault {
   public:
-  explicit BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters) {};
+  using real = Real<Cfg>;
 
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     data->regularizedStrength =
@@ -313,9 +311,10 @@ class BiMaterialFault {
   };
 };
 
+template <typename Cfg>
 class TPApprox {
   public:
-  explicit TPApprox(seissol::initializer::parameters::DRParameters* parameters) {};
+  using real = Real<Cfg>;
 
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {}
 

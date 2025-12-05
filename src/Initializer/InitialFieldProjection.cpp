@@ -202,8 +202,8 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
                                       double time,
                                       const seissol::geometry::MeshReader& meshReader,
                                       bool needsTime) {
-  const auto& vertices = meshReader.getVertices();
-  const auto& elements = meshReader.getElements();
+  // const auto& vertices = meshReader.getVertices();
+  // const auto& elements = meshReader.getElements();
 
   /*
   constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;

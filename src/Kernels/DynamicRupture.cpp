@@ -124,8 +124,9 @@ void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
 
       unsigned maxNumElements = (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getSize();
       real** timeDerivativePlus =
-          (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
-      degreesOfFreedomPlus = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr();
+          (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtrAs<real*>();
+      degreesOfFreedomPlus =
+          (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtrAs<real*>();
 
       m_timeKernel.evaluateBatched(&coeffs[timeInterval * Cfg::ConvergenceOrder],
                                    const_cast<const real**>(timeDerivativePlus),
@@ -134,8 +135,9 @@ void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
                                    runtime);
 
       real** timeDerivativeMinus =
-          (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
-      degreesOfFreedomMinus = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr();
+          (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtrAs<real*>();
+      degreesOfFreedomMinus =
+          (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtrAs<real*>();
       m_timeKernel.evaluateBatched(&coeffs[timeInterval * Cfg::ConvergenceOrder],
                                    const_cast<const real**>(timeDerivativeMinus),
                                    degreesOfFreedomMinus,
@@ -163,12 +165,12 @@ void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
           krnl.numElements = numElements;
 
           krnl.QInterpolated =
-              (entry.get(inner_keys::Dr::Id::QInterpolatedPlus))->getDeviceDataPtr();
+              (entry.get(inner_keys::Dr::Id::QInterpolatedPlus))->getDeviceDataPtrAs<real*>();
           krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated<Cfg>::size();
           krnl.Q = const_cast<const real**>(
-              (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr());
-          krnl.TinvT =
-              const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
+              (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtrAs<real*>());
+          krnl.TinvT = const_cast<const real**>(
+              (entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtrAs<real*>());
           krnl.execute(side, 0);
 
           device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
@@ -188,12 +190,12 @@ void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
           krnl.numElements = numElements;
 
           krnl.QInterpolated =
-              (entry.get(inner_keys::Dr::Id::QInterpolatedMinus))->getDeviceDataPtr();
+              (entry.get(inner_keys::Dr::Id::QInterpolatedMinus))->getDeviceDataPtrAs<real*>();
           krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated<Cfg>::size();
           krnl.Q = const_cast<const real**>(
-              (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr());
-          krnl.TinvT =
-              const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
+              (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtrAs<real*>());
+          krnl.TinvT = const_cast<const real**>(
+              (entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtrAs<real*>());
           krnl.execute(side, faceRelation);
 
           device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);

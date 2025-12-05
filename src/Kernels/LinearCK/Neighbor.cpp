@@ -144,13 +144,14 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
               const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
               neighFluxKrnl.numElements = numElements;
 
-              neighFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+              neighFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtrAs<real*>();
               neighFluxKrnl.I = const_cast<const real**>(
-                  (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-              neighFluxKrnl.AminusT = const_cast<const real**>(
-                  entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+                  (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtrAs<real*>());
+              neighFluxKrnl.AminusT =
+                  const_cast<const real**>(entry.get(inner_keys::Wp::Id::NeighborIntegrationData)
+                                               ->getDeviceDataPtrAs<real*>());
               neighFluxKrnl.extraOffset_AminusT =
-                  SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
+                  SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData<Cfg>, nAmNm1, face);
 
               real* tmpMem = reinterpret_cast<real*>(device.api->allocMemAsync(
                   neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements, stream));
@@ -173,10 +174,10 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
               drKrnl.numElements = numElements;
 
               drKrnl.fluxSolver = const_cast<const real**>(
-                  (entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+                  (entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtrAs<real*>());
               drKrnl.QInterpolated = const_cast<const real**>(
-                  (entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
-              drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+                  (entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtrAs<real*>());
+              drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtrAs<real*>();
 
               real* tmpMem = reinterpret_cast<real*>(
                   device.api->allocMemAsync(drKrnl.TmpMaxMemRequiredInBytes * numElements, stream));

@@ -28,15 +28,15 @@ __launch_bounds__(Blocksize) __global__ void launchKernel(
     double to,
     sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
     const seissol::memory::AlignedArray<
-        real,
+        Real<Cfg>,
         tensor::mInvJInvPhisAtSources<Cfg>::size()>* __restrict mInvJInvPhisAtSources,
     const std::uint32_t* __restrict simulationIndex,
-    const real* __restrict tensor,
+    const Real<Cfg>* __restrict tensor,
     const double* __restrict onsetTime,
     const double* __restrict samplingInterval,
     const std::size_t* __restrict sampleRange,
     const std::size_t* __restrict sampleOffsets,
-    const real* __restrict sample) {
+    const Real<Cfg>* __restrict sample) {
   const auto index = threadIdx.y + PerBlock * blockIdx.x;
   if (index < numElements) {
     pointSourceKernelDevice<Cfg, SubBlock>(threadIdx.x,

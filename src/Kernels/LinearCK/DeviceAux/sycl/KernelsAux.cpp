@@ -427,7 +427,7 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
     const int elementId = item.get_group().get_group_id(0);
     if (elementId < numElements) {
       constexpr int pIdx = 0;
-      constexpr int uIdx = model::MaterialT::TractionQuantities;
+      constexpr int uIdx = model::MaterialTT<Cfg>::TractionQuantities;
       constexpr auto num2dNodes = linearDim<seissol::nodal::init::nodes2D<Cfg>>();
 
       const int tid = item.get_local_id(0);

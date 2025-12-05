@@ -72,12 +72,12 @@ class DirichletBoundary {
   }
 
 #ifdef ACL_DEVICE
-  template <typename Func, typename MappingKrnl, typename InverseMappingKrnl>
+  template <template <typename> typename Func, typename MappingKrnl, typename InverseMappingKrnl>
   void evaluateOnDevice(int faceIdx,
                         recording::ConditionalKey& key,
                         MappingKrnl& projectKernelPrototype,
                         InverseMappingKrnl& nodalLfKrnlPrototype,
-                        local_flux::aux::DirichletBoundaryAux<Func>& boundaryCondition,
+                        local_flux::aux::DirichletBoundaryAux<Cfg, Func>& boundaryCondition,
                         recording::ConditionalPointersToRealsTable& dataTable,
                         device::DeviceInstance& device,
                         seissol::parallel::runtime::StreamRuntime& runtime) const {
@@ -85,7 +85,7 @@ class DirichletBoundary {
     const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize()};
 
     auto** dofsFaceBoundaryNodalPtrs =
-        dataTable[key].get(inner_keys::Wp::Id::DofsFaceBoundaryNodal)->getDeviceDataPtr();
+        dataTable[key].get(inner_keys::Wp::Id::DofsFaceBoundaryNodal)->getDeviceDataPtrAs<real*>();
 
     auto* deviceStream = runtime.stream();
 
@@ -93,8 +93,8 @@ class DirichletBoundary {
         yateto::getMaxTmpMemRequired(nodalLfKrnlPrototype, projectKernelPrototype);
     auto auxTmpMem = runtime.memoryHandle<real>((auxTmpMemSize * numElements) / sizeof(real));
 
-    auto** dataTinv = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
-    auto** idofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
+    auto** dataTinv = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtrAs<real*>();
+    auto** idofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtrAs<real*>();
 
     auto projectKrnl = projectKernelPrototype;
     projectKrnl.numElements = numElements;
@@ -107,16 +107,19 @@ class DirichletBoundary {
 
     boundaryCondition.evaluate(dofsFaceBoundaryNodalPtrs, numElements, deviceStream);
 
-    auto** dofsPtrs = dataTable[key].get(recording::inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
+    auto** dofsPtrs =
+        dataTable[key].get(recording::inner_keys::Wp::Id::Dofs)->getDeviceDataPtrAs<real*>();
 
     auto nodalLfKrnl = nodalLfKrnlPrototype;
     nodalLfKrnl.numElements = numElements;
     nodalLfKrnl.Q = dofsPtrs;
     nodalLfKrnl.INodal = const_cast<const real**>(dofsFaceBoundaryNodalPtrs);
-    nodalLfKrnl.AminusT = const_cast<const real**>(
-        dataTable[key].get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+    nodalLfKrnl.AminusT =
+        const_cast<const real**>(dataTable[key]
+                                     .get(inner_keys::Wp::Id::NeighborIntegrationData)
+                                     ->getDeviceDataPtrAs<real*>());
     nodalLfKrnl.extraOffset_AminusT =
-        SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, faceIdx);
+        SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData<Cfg>, nAmNm1, faceIdx);
     nodalLfKrnl.linearAllocator.initialize(auxTmpMem.get());
     nodalLfKrnl.streamPtr = deviceStream;
     nodalLfKrnl.execute(faceIdx);

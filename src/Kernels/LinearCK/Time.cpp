@@ -164,24 +164,26 @@ void Spacetime<Cfg>::computeBatchedAder(
 
     const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
     derivativesKrnl.numElements = numElements;
-    derivativesKrnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
+    derivativesKrnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtrAs<real*>();
 
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
       derivativesKrnl.star(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtrAs<real*>());
       derivativesKrnl.extraOffset_star(i) =
-          SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
+          SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Cfg>, starMatrices, i);
     }
 
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
-      derivativesKrnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
+      derivativesKrnl.dQ(i) =
+          (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtrAs<real*>();
       derivativesKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
     }
 
     // stream dofs to the zero derivative
     device.algorithms.streamBatchedData(
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
-        (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
+        const_cast<const real**>(
+            (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtrAs<real*>()),
+        (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtrAs<real*>(),
         tensor::Q<Cfg>::Size,
         derivativesKrnl.numElements,
         runtime.stream());
