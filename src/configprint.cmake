@@ -74,7 +74,10 @@ endif()
 string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
 
 # write file and print info
-configure_file("Version.h.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/Version.h")
+configure_file("Version.cpp.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/Version.cpp")
 message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
 message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
+
+add_library(seissol-version OBJECT ${CMAKE_CURRENT_BINARY_DIR}/Version.cpp)
+target_include_directories(seissol-version PRIVATE .)

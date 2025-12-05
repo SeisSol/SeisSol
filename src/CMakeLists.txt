@@ -10,6 +10,8 @@ include(configprint.cmake)
 # TODO: maybe split into subdirectories
 include(sources.cmake)
 
+target_link_libraries(seissol-lib PUBLIC seissol-version)
+
 add_subdirectory(IO)
 target_link_libraries(seissol-lib PUBLIC seissol-io)
 
