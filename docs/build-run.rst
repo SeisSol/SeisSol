@@ -115,7 +115,7 @@ Thus, care needs to be taken, as some systems make all GPUs on a node visible to
 selecting the same GPU.
 To avoid that, SeisSol provides a launch script given as ``shared/seissol-launch`` which selects the GPU according to the node-local SLURM rank.
 
-.. figure:: LatexFigures/GpuCpuProcessPinning.png
+.. figure:: figures/GpuCpuProcessPinning.png
    :alt: Process Pinning
    :width: 16.00000cm
    :align: center

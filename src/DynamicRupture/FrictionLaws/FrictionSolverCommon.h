@@ -450,7 +450,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
           const auto handleEntry = [&](auto linear, auto index) {
             real acc = 0;
 #pragma unroll
-            for (int k = 0; k < Count; ++k) {
+            for (std::uint32_t k = 0; k < Count; ++k) {
               acc += mZ[Count * k + linear] * diff[k];
             }
             imposedState[index][i] += weight * (qI[o][index][i] + acc);
