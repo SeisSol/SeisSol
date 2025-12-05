@@ -71,9 +71,6 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     Modules::callSimulationStartHook(std::optional<double>{});
   }
 
-  // intialize wave field and checkpoint time
-  Modules::setSimulationStartTime(currentTime);
-
   // derive next synchronization time
   double upcomingTime = finalTime;
   // NOTE: This will not call the module specific implementation of the synchronization hook
