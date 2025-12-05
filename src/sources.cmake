@@ -6,26 +6,6 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 # Source code
-add_library(seissol-kernel-lib
-
-# run YATeTo first, since kernel.cpp usually takes really long
-
-# kernel.cpp usually takes the longest
-# (for CPUs, at least; for GPUs, we have a different library alltogether)
-${CMAKE_BINARY_DIR}/codegen/GeneratedCode/kernel.cpp
-${CMAKE_BINARY_DIR}/codegen/GeneratedCode/tensor.cpp
-${CMAKE_BINARY_DIR}/codegen/GeneratedCode/subroutine.cpp
-${CMAKE_BINARY_DIR}/codegen/GeneratedCode/init.cpp
-)
-
-# Generated code does only work without red-zone.
-if (HAS_REDZONE)
-  set_source_files_properties(
-      ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
-  )
-endif()
-
-target_compile_options(seissol-kernel-lib PRIVATE -fPIC)
 
 if (SHARED)
   add_library(seissol-lib SHARED)
