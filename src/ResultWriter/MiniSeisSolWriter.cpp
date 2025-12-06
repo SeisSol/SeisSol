@@ -32,8 +32,8 @@ void seissol::writer::MiniSeisSolWriter::write(double elapsedTime, double weight
       return elapsedTimeVector[i] > elapsedTimeVector[j];
     });
 
-    seissol::filesystem::path path(outputDirectory);
-    path += seissol::filesystem::path("-miniSeissol.csv");
+    std::filesystem::path path(outputDirectory);
+    path += std::filesystem::path("-miniSeissol.csv");
 
     std::fstream fileStream(path, std::ios::out);
     fileStream << "hostname,rank,localRank,elapsedTime,weight\n";

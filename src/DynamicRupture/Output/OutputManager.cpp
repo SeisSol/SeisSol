@@ -375,7 +375,7 @@ void OutputManager::initPickpointOutput() {
   for (size_t i = 0; i < ppFiles.size(); ++i) {
     const auto& ppfile = ppFiles[i];
 
-    if (!seissol::filesystem::exists(ppfile.fileName)) {
+    if (!std::filesystem::exists(ppfile.fileName)) {
       std::ofstream file(ppfile.fileName, std::ios_base::out);
       if (file.is_open()) {
         std::stringstream title;

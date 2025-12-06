@@ -532,12 +532,12 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
   logInfo() << "Begin init output.";
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  const filesystem::path outputPath(seissolParams.output.prefix);
-  const auto outputDir = filesystem::directory_entry(outputPath.parent_path());
-  if (!filesystem::exists(outputDir)) {
+  const std::filesystem::path outputPath(seissolParams.output.prefix);
+  const auto outputDir = std::filesystem::directory_entry(outputPath.parent_path());
+  if (!std::filesystem::exists(outputDir)) {
     logWarning() << "Output directory does not exist yet. We therefore create it now.";
     if (rank == 0) {
-      filesystem::create_directory(outputDir);
+      std::filesystem::create_directory(outputDir);
     }
   }
   seissol::Mpi::barrier(Mpi::mpi.comm());

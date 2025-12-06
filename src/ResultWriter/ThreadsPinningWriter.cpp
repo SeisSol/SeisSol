@@ -97,8 +97,8 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
   auto numNProcs = seissol::Mpi::mpi.collect(get_nprocs());
 
   if (seissol::Mpi::mpi.rank() == 0) {
-    seissol::filesystem::path path(outputDirectory);
-    path += seissol::filesystem::path("-threadPinning.csv");
+    std::filesystem::path path(outputDirectory);
+    path += std::filesystem::path("-threadPinning.csv");
 
     std::fstream fileStream(path, std::ios::out);
     fileStream << "hostname,device,rank,localRank,workermask,workernuma,commthread_mask,commthread_"

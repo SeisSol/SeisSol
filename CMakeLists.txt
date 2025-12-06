@@ -470,9 +470,6 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
     endif()
 endif()
 
-find_package(FILESYSTEM REQUIRED)
-target_link_libraries(seissol-common-properties INTERFACE std::filesystem)
-
 # put every executable and shared library in the root build directory at the end
 # (for compatibility reasons; TODO: remove at some point)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})

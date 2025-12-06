@@ -23,8 +23,8 @@ ParameterReader::ParameterReader(const YAML::Node& node, const std::string& root
 std::optional<std::string> ParameterReader::readPath(const std::string& field) {
   const auto fileName = read<std::string>(field);
   if (fileName.has_value()) {
-    const auto lastPath = filesystem::path(rootPath);
-    auto nextPath = filesystem::path(fileName.value());
+    const auto lastPath = std::filesystem::path(rootPath);
+    auto nextPath = std::filesystem::path(fileName.value());
     const auto loadFileName = [&]() {
       if (nextPath.is_relative()) {
         // remove file
@@ -34,10 +34,10 @@ std::optional<std::string> ParameterReader::readPath(const std::string& field) {
       }
     }();
     // try to get the full file name (if that works)
-    if (filesystem::exists(loadFileName)) {
-      return filesystem::canonical(loadFileName);
-    } else if (filesystem::exists(nextPath)) {
-      return filesystem::canonical(nextPath);
+    if (std::filesystem::exists(loadFileName)) {
+      return std::filesystem::canonical(loadFileName);
+    } else if (std::filesystem::exists(nextPath)) {
+      return std::filesystem::canonical(nextPath);
     } else {
       // otherwise, just return the string (TODO: or should be fail here then?)
       return nextPath;
