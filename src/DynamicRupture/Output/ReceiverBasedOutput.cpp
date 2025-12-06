@@ -152,10 +152,14 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
       const auto& faultInfo = faultInfos[faceIndex];
 
       if constexpr (isDeviceOn()) {
-        const real* dofsPlusData =
-            outputData->deviceDataCollector->get(outputData->deviceDataPlus[i]);
-        const real* dofsMinusData =
-            outputData->deviceDataCollector->get(outputData->deviceDataMinus[i]);
+        const real* dofsPlusData = nullptr;
+        const real* dofsMinusData = nullptr;
+        std::visit(
+            [&](const auto& collector) {
+              dofsPlusData = collector.get(outputData->deviceDataPlus[i]);
+              dofsMinusData = collector.get(outputData->deviceDataMinus[i]);
+            },
+            *outputData->deviceDataCollector);
 
         std::memcpy(dofsPlus, dofsPlusData, sizeof(dofsPlus));
         std::memcpy(dofsMinus, dofsMinusData, sizeof(dofsMinus));

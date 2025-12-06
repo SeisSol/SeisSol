@@ -157,6 +157,9 @@ struct TransformData {
 
 using TransformDataVariant = TransformVariadicT<TransformData, ConfigVariant>;
 
+using DataCollectorVariant =
+    std::variant<parallel::DataCollector<float>, parallel::DataCollector<double>>;
+
 struct ReceiverOutputData {
   output::DrVarsT vars;
 
@@ -171,12 +174,12 @@ struct ReceiverOutputData {
   std::optional<int64_t> clusterId;
 
   // TODO: adapt
-  std::unique_ptr<parallel::DataCollector<int>> deviceDataCollector;
+  std::unique_ptr<DataCollectorVariant> deviceDataCollector;
   std::vector<std::size_t> deviceDataPlus;
   std::vector<std::size_t> deviceDataMinus;
   std::size_t cellCount{0};
 
-  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector<int>>> deviceVariables;
+  std::unordered_map<std::size_t, std::unique_ptr<DataCollectorVariant>> deviceVariables;
   std::vector<std::size_t> deviceIndices;
   std::optional<parallel::runtime::StreamRuntime> extraRuntime;
 };
