@@ -436,7 +436,7 @@ target_include_directories(seissol-common-properties SYSTEM INTERFACE
   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
-find_package(Eigen3 3.4 REQUIRED)
+find_package(Eigen3 REQUIRED)
 target_link_libraries(seissol-common-properties INTERFACE Eigen3::Eigen)
 
 find_package(yaml-cpp REQUIRED)
