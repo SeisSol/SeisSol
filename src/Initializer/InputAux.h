@@ -141,7 +141,7 @@ std::array<T, N> convertStringToArray(const std::string& inputString,
                                       char delimiter = ' ') {
   const auto vec = convertStringToVector<T>(
       inputString, exactLength ? N : std::optional<std::size_t>(), skipEmpty, delimiter);
-  std::array<T, N> array;
+  std::array<T, N> array{};
   for (std::size_t i = 0; i < std::min(vec.size(), N); ++i) {
     array[i] = vec[i];
   }

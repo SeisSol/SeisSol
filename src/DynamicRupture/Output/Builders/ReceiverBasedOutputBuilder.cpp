@@ -110,6 +110,8 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
     outputData->transformData.resize(outputData->receiverPoints.size());
   }
 
+  std::unordered_set<std::size_t> configIds;
+
   constexpr size_t NumVertices{4};
   for (const auto& point : outputData->receiverPoints) {
     if (point.isInside) {
@@ -123,6 +125,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       const auto& element = elementsInfo[elementIndex];
 
       const std::size_t configId = element.configId;
+      configIds.insert(configId);
 
       if (elementIndices.find(elementIndex) == elementIndices.end()) {
         const auto index = elementIndices.size();
@@ -186,43 +189,54 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
   outputData->cellCount = elementIndices.size() + elementIndicesGhost.size();
 
+  if (configIds.size() != 1) {
+    logError() << "Error while setting up receiver data.";
+  }
+
 #ifdef ACL_DEVICE
-  std::vector<real*> indexPtrs(outputData->cellCount);
+  std::visit(
+      [&](auto cfg) {
+        using Cfg = decltype(cfg);
+        using real = Real<Cfg>;
+        std::vector<real*> indexPtrs(outputData->cellCount);
 
-  for (const auto& [index, arrayIndex] : elementIndices) {
-    const auto position = wpBackmap->get(index);
-    indexPtrs[arrayIndex] = wpStorage->lookup<LTS::DerivativesDevice>(position);
-    assert(indexPtrs[arrayIndex] != nullptr);
-  }
-  for (const auto& [_, ghost] : elementIndicesGhost) {
-    const auto neighbor = ghost.data;
-    const auto arrayIndex = ghost.index + elementIndices.size();
+        for (const auto& [index, arrayIndex] : elementIndices) {
+          const auto position = wpBackmap->get(index);
+          indexPtrs[arrayIndex] = wpStorage->lookup<LTS::DerivativesDevice>(cfg, position);
+          assert(indexPtrs[arrayIndex] != nullptr);
+        }
+        for (const auto& [_, ghost] : elementIndicesGhost) {
+          const auto neighbor = ghost.data;
+          const auto arrayIndex = ghost.index + elementIndices.size();
 
-    const auto position = wpBackmap->get(neighbor.first);
-    indexPtrs[arrayIndex] = wpStorage->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second];
-    assert(indexPtrs[arrayIndex] != nullptr);
-  }
+          const auto position = wpBackmap->get(neighbor.first);
+          indexPtrs[arrayIndex] = reinterpret_cast<real*>(
+              wpStorage->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second]);
+          assert(indexPtrs[arrayIndex] != nullptr);
+        }
 
-  outputData->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
-      indexPtrs, seissol::tensor::Q<Cfg>::size(), useMPIUSM());
+        outputData->deviceDataCollector =
+            std::make_unique<DataCollectorVariant>(seissol::parallel::DataCollector<real>(
+                indexPtrs, seissol::tensor::Q<Cfg>::size(), useMPIUSM()));
 
-  for (const auto& variable : variables) {
-    auto* var = drStorage->varUntyped(variable, initializer::AllocationPlace::Device);
-    const std::size_t elementSize = drStorage->info(variable).bytes;
+        for (const auto& variable : variables) {
+          auto* var = drStorage->varUntyped(variable, initializer::AllocationPlace::Device);
+          const std::size_t elementSize = drStorage->info(variable).bytes;
 
-    assert(elementSize % sizeof(real) == 0);
+          assert(elementSize % sizeof(real) == 0);
 
-    const std::size_t elementCount = elementSize / sizeof(real);
-    std::vector<real*> dataPointers(faceIndices.size());
-    for (const auto& [index, arrayIndex] : faceIndices) {
-      dataPointers[arrayIndex] = reinterpret_cast<real*>(var) + elementCount * index;
-    }
+          const std::size_t elementCount = elementSize / sizeof(real);
+          std::vector<real*> dataPointers(faceIndices.size());
+          for (const auto& [index, arrayIndex] : faceIndices) {
+            dataPointers[arrayIndex] = reinterpret_cast<real*>(var) + elementCount * index;
+          }
 
-    const bool hostAccessible = useUSM() && !outputData->extraRuntime.has_value();
-    outputData->deviceVariables[variable] =
-        std::make_unique<seissol::parallel::DataCollector<real>>(
-            dataPointers, elementCount, hostAccessible);
-  }
+          const bool hostAccessible = useUSM() && !outputData->extraRuntime.has_value();
+          outputData->deviceVariables[variable] = std::make_unique<DataCollectorVariant>(
+              seissol::parallel::DataCollector<real>(dataPointers, elementCount, hostAccessible));
+        }
+      },
+      ConfigVariantList[*configIds.begin()]);
 #endif
 
   outputData->deviceDataPlus.resize(foundPoints);

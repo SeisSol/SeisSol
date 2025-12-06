@@ -104,9 +104,11 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
     if (outputData->extraRuntime.has_value()) {
       runtime.eventSync(outputData->extraRuntime->eventRecord());
     }
-    outputData->deviceDataCollector->gatherToHost(runtime.stream());
+    std::visit([&](auto& collector) { collector.gatherToHost(runtime.stream()); },
+               *outputData->deviceDataCollector);
     for (auto& [_, dataCollector] : outputData->deviceVariables) {
-      dataCollector->gatherToHost(runtime.stream());
+      std::visit([&](auto& collector) { collector.gatherToHost(runtime.stream()); },
+                 *dataCollector);
     }
     if (outputData->extraRuntime.has_value()) {
       outputData->extraRuntime->eventSync(runtime.eventRecord());
@@ -152,13 +154,15 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
       const auto& faultInfo = faultInfos[faceIndex];
 
       if constexpr (isDeviceOn()) {
-        const real* dofsPlusData =
-            outputData->deviceDataCollector->get(outputData->deviceDataPlus[i]);
-        const real* dofsMinusData =
-            outputData->deviceDataCollector->get(outputData->deviceDataMinus[i]);
+        std::visit(
+            [&](const auto& collector) {
+              const auto* dofsPlusData = collector.get(outputData->deviceDataPlus[i]);
+              const auto* dofsMinusData = collector.get(outputData->deviceDataMinus[i]);
 
-        std::memcpy(dofsPlus, dofsPlusData, sizeof(dofsPlus));
-        std::memcpy(dofsMinus, dofsMinusData, sizeof(dofsMinus));
+              std::copy_n(dofsPlusData, tensor::Q<Cfg>::size(), dofsPlus);
+              std::copy_n(dofsMinusData, tensor::Q<Cfg>::size(), dofsMinus);
+            },
+            *outputData->deviceDataCollector);
       } else {
         getDofs<Cfg>(dofsPlus, faultInfo.element);
         if (faultInfo.neighborElement >= 0) {
