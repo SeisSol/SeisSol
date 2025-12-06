@@ -24,7 +24,7 @@ include(CMakePushCheckState)
 cmake_push_check_state()
 
 set(_PARENT_CMAKE_CXX_STANDARD ${CMAKE_CXX_STANDARD})
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 
 set(_FILESYSTEM_TEST_RPOGRAM "
