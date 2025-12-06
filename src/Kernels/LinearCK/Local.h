@@ -76,6 +76,9 @@ class Local : public LocalKernel {
   kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype;
   kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype;
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
+
+  kernel::gpu_bcFreeSurfaceGravity deviceBCFSG;
+  kernel::gpu_bcDirichlet deviceBCDirichlet;
 #endif
 };
 

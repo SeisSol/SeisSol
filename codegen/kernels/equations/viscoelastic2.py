@@ -109,6 +109,9 @@ class Viscoelastic2ADERDG(ADERDGBase):
     def numberOfQuantities(self):
         return 9
 
+    def velocityOffset(self):
+        return 6
+
     def numberOfAnelasticQuantities(self):
         return 6
 

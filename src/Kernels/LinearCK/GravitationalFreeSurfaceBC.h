@@ -201,118 +201,50 @@ class GravitationalFreeSurfaceBc {
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, faceIdx);
     if (dataTable.find(key) != dataTable.end()) {
       const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getSize()};
+      // const double g = gravitationalAcceleration;
 
-      auto** rotateDisplacementToFaceNormalPtrs =
-          dataTable[key]
-              .get(inner_keys::Wp::Id::RotateDisplacementToFaceNormal)
-              ->getDeviceDataPtr();
-      auto** rotateDisplacementToGlobalPtrs =
-          dataTable[key].get(inner_keys::Wp::Id::RotateDisplacementToGlobal)->getDeviceDataPtr();
-      auto** rotatedFaceDisplacementPtrs =
-          dataTable[key].get(inner_keys::Wp::Id::RotatedFaceDisplacement)->getDeviceDataPtr();
-      auto** dofsFaceNodalPtrs =
-          dataTable[key].get(inner_keys::Wp::Id::DofsFaceNodal)->getDeviceDataPtr();
-      auto** prevCoefficientsPtrs =
-          dataTable[key].get(inner_keys::Wp::Id::PrevCoefficients)->getDeviceDataPtr();
       auto* invImpedances =
           materialTable[key].get(inner_keys::Material::Id::InvImpedances)->getDeviceDataPtr();
-
-      auto** TinvDataPtrs = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
-      auto** TDataPtrs = dataTable[key].get(inner_keys::Wp::Id::T)->getDeviceDataPtr();
-      kernels::time::aux::extractRotationMatrices(rotateDisplacementToFaceNormalPtrs,
-                                                  rotateDisplacementToGlobalPtrs,
-                                                  TDataPtrs,
-                                                  TinvDataPtrs,
-                                                  numElements,
-                                                  deviceStream);
-
-      auto rotateFaceDisplacementKrnl = kernel::gpu_rotateFaceDisplacement();
-      const auto auxTmpMemSize =
-          yateto::getMaxTmpMemRequired(rotateFaceDisplacementKrnl, projectKernelPrototype);
-      auto auxTmpMem = runtime.memoryHandle<real>(auxTmpMemSize * numElements);
-
-      auto** displacementsPtrs =
-          dataTable[key].get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
-      rotateFaceDisplacementKrnl.numElements = numElements;
-      rotateFaceDisplacementKrnl.faceDisplacement = const_cast<const real**>(displacementsPtrs);
-      rotateFaceDisplacementKrnl.displacementRotationMatrix =
-          const_cast<const real**>(rotateDisplacementToFaceNormalPtrs);
-      rotateFaceDisplacementKrnl.rotatedFaceDisplacement = rotatedFaceDisplacementPtrs;
-      rotateFaceDisplacementKrnl.linearAllocator.initialize(auxTmpMem.get());
-      rotateFaceDisplacementKrnl.streamPtr = deviceStream;
-      rotateFaceDisplacementKrnl.execute();
-
-      const double deltaT = timeStepWidth;
-      const double deltaTInt = timeStepWidth;
-
-      auto** integratedDisplacementNodalPtrs =
-          dataTable[key].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
-      kernels::time::aux::initializeTaylorSeriesForGravitationalBoundary(
-          prevCoefficientsPtrs,
-          integratedDisplacementNodalPtrs,
-          rotatedFaceDisplacementPtrs,
-          deltaTInt,
-          numElements,
-          deviceStream);
 
       auto* rhos = materialTable[key].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
       auto* lambdas = materialTable[key].get(inner_keys::Material::Id::Lambda)->getDeviceDataPtr();
       kernels::time::aux::computeInvAcousticImpedance(
           invImpedances, rhos, lambdas, numElements, deviceStream);
 
-      double factorEvaluated = 1;
-      double factorInt = deltaTInt;
-      const double g = gravitationalAcceleration;
-
+      auto** TinvDataPtrs = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
+      auto** TDataPtrs = dataTable[key].get(inner_keys::Wp::Id::T)->getDeviceDataPtr();
       auto** derivativesPtrs =
           dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
-      for (std::size_t order = 1; order < ConvergenceOrder + 1; ++order) {
 
-        factorEvaluated *= deltaT / (1.0 * order);
-        factorInt *= deltaTInt / (order + 1.0);
+      auto** displacementsPtrs =
+          dataTable[key].get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
+      auto** integratedDisplacementNodalPtrs =
+          dataTable[key].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
 
-        device.algorithms.setToValue(dofsFaceNodalPtrs,
-                                     static_cast<real>(0.0),
-                                     tensor::INodal::size(),
-                                     numElements,
-                                     deviceStream);
+      kernel::gpu_fsgKernel kernel;
+      for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+        kernel.dQ(i) = const_cast<const real**>(derivativesPtrs);
+        kernel.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
+      }
+      kernel.Tinv = const_cast<const real**>(TinvDataPtrs);
+      kernel.T = const_cast<const real**>(TDataPtrs);
+      kernel.faceDisplacement = displacementsPtrs;
+      kernel.Iint = integratedDisplacementNodalPtrs;
 
-        auto projectKernel = projectKernelPrototype;
-        projectKernel.numElements = numElements;
-        projectKernel.Tinv = const_cast<const real**>(TinvDataPtrs);
-        projectKernel.INodal = dofsFaceNodalPtrs;
-        projectKernel.linearAllocator.initialize(auxTmpMem.get());
-        projectKernel.streamPtr = deviceStream;
+      double coeffInt = timeStepWidth;
+      double coeff = 1;
 
-        for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-          projectKernel.dQ(i) = const_cast<const real**>(derivativesPtrs);
-          projectKernel.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
-        }
+      kernel.power(0) = timeStepWidth;
+      for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+        coeffInt *= timeStepWidth / (i + 1);
+        coeff *= timeStepWidth / i;
 
-        projectKernel.execute(order - 1, faceIdx);
-
-        kernels::time::aux::updateRotatedFaceDisplacement(rotatedFaceDisplacementPtrs,
-                                                          prevCoefficientsPtrs,
-                                                          integratedDisplacementNodalPtrs,
-                                                          dofsFaceNodalPtrs,
-                                                          invImpedances,
-                                                          rhos,
-                                                          g,
-                                                          factorEvaluated,
-                                                          factorInt,
-                                                          numElements,
-                                                          deviceStream);
+        kernel.coeff(i) = coeff;
+        kernel.power(i) = coeffInt;
       }
 
-      rotateFaceDisplacementKrnl.numElements = numElements;
-      rotateFaceDisplacementKrnl.faceDisplacement =
-          const_cast<const real**>(rotatedFaceDisplacementPtrs);
-      rotateFaceDisplacementKrnl.displacementRotationMatrix =
-          const_cast<const real**>(rotateDisplacementToGlobalPtrs);
-      rotateFaceDisplacementKrnl.rotatedFaceDisplacement = displacementsPtrs;
-      rotateFaceDisplacementKrnl.linearAllocator.initialize(auxTmpMem.get());
-      rotateFaceDisplacementKrnl.streamPtr = deviceStream;
-      rotateFaceDisplacementKrnl.execute();
+      kernel.streamPtr = deviceStream;
+      kernel.execute(faceIdx);
     }
   }
 #endif // ACL_DEVICE

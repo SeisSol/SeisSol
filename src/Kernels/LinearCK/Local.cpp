@@ -68,8 +68,11 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
   deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
 #endif
-  deviceNodalLfKrnlPrototype.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
-  deviceProjectRotatedKrnlPrototype.V3mTo2nFace = global.onDevice->v3mTo2nFace;
+
+  deviceBCFSG.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
+  deviceBCFSG.V3mTo2nFace = global.onDevice->v3mTo2nFace;
+  deviceBCDirichlet.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
+  deviceBCDirichlet.V3mTo2nFace = global.onDevice->v3mTo2nFace;
 #endif
 }
 
@@ -313,21 +316,29 @@ void Local::computeBatchedIntegral(
     ConditionalKey fsgKey(
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, face);
     if (dataTable.find(fsgKey) != dataTable.end()) {
-      auto nodalAvgDisplacements =
+      auto** nodalAvgDisplacements =
           dataTable[fsgKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
-      auto rhos = materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
-      local_flux::aux::FreeSurfaceGravity freeSurfaceGravityBc;
-      freeSurfaceGravityBc.g = gravitationalAcceleration;
-      freeSurfaceGravityBc.rhos = rhos;
-      freeSurfaceGravityBc.displacementDataPtrs = nodalAvgDisplacements;
-      dirichletBoundary.evaluateOnDevice(face,
-                                         fsgKey,
-                                         deviceProjectRotatedKrnlPrototype,
-                                         deviceNodalLfKrnlPrototype,
-                                         freeSurfaceGravityBc,
-                                         dataTable,
-                                         device,
-                                         runtime);
+      auto* rhos = materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
+
+      auto** dataTinv = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
+      auto** idofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
+
+      auto bcKernel = deviceBCFSG;
+      bcKernel.g2m = -2 * gravitationalAcceleration;
+      bcKernel.rho = rhos;
+      bcKernel.averageNormalDisplacement = const_cast<const real**>(nodalAvgDisplacements);
+      bcKernel.Tinv = const_cast<const real**>(dataTinv);
+      bcKernel.I = const_cast<const real**>(idofsPtrs);
+      bcKernel.Q = (dataTable[key].get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+      bcKernel.AminusT = const_cast<const real**>(
+          dataTable[key].get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+      bcKernel.extraOffset_AminusT = SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
+
+      bcKernel.numElements = dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize();
+
+      bcKernel.streamPtr = runtime.stream();
+
+      bcKernel.execute(face);
     }
 
     ConditionalKey dirichletKey(
@@ -338,18 +349,24 @@ void Local::computeBatchedIntegral(
       auto easiBoundaryConstantPtrs =
           dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryConstant)->getDeviceDataPtr();
 
-      local_flux::aux::EasiBoundary easiBoundaryBc;
-      easiBoundaryBc.easiBoundaryMapPtrs = easiBoundaryMapPtrs;
-      easiBoundaryBc.easiBoundaryConstantPtrs = easiBoundaryConstantPtrs;
+      auto** dataTinv = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
+      auto** idofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
 
-      dirichletBoundary.evaluateOnDevice(face,
-                                         dirichletKey,
-                                         deviceProjectRotatedKrnlPrototype,
-                                         deviceNodalLfKrnlPrototype,
-                                         easiBoundaryBc,
-                                         dataTable,
-                                         device,
-                                         runtime);
+      auto bcKernel = deviceBCDirichlet;
+      bcKernel.easiBoundaryConstant = const_cast<const real**>(easiBoundaryConstantPtrs);
+      bcKernel.easiBoundaryMap = const_cast<const real**>(easiBoundaryMapPtrs);
+      bcKernel.Tinv = const_cast<const real**>(dataTinv);
+      bcKernel.I = const_cast<const real**>(idofsPtrs);
+      bcKernel.Q = (dataTable[key].get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+      bcKernel.AminusT = const_cast<const real**>(
+          dataTable[key].get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+      bcKernel.extraOffset_AminusT = SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
+
+      bcKernel.numElements = dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize();
+
+      bcKernel.streamPtr = runtime.stream();
+
+      bcKernel.execute(face);
     }
   }
 #else

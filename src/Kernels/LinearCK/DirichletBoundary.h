@@ -64,58 +64,6 @@ class DirichletBoundary {
     std::forward<Func>(evaluateBoundaryCondition)(boundaryMapping.nodes, boundaryDofs);
   }
 
-#ifdef ACL_DEVICE
-  template <typename Func, typename MappingKrnl, typename InverseMappingKrnl>
-  void evaluateOnDevice(int faceIdx,
-                        recording::ConditionalKey& key,
-                        MappingKrnl& projectKernelPrototype,
-                        InverseMappingKrnl& nodalLfKrnlPrototype,
-                        local_flux::aux::DirichletBoundaryAux<Func>& boundaryCondition,
-                        recording::ConditionalPointersToRealsTable& dataTable,
-                        device::DeviceInstance& device,
-                        seissol::parallel::runtime::StreamRuntime& runtime) const {
-    using namespace seissol::recording;
-    const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize()};
-
-    auto** dofsFaceBoundaryNodalPtrs =
-        dataTable[key].get(inner_keys::Wp::Id::DofsFaceBoundaryNodal)->getDeviceDataPtr();
-
-    auto* deviceStream = runtime.stream();
-
-    const auto auxTmpMemSize =
-        yateto::getMaxTmpMemRequired(nodalLfKrnlPrototype, projectKernelPrototype);
-    auto auxTmpMem = runtime.memoryHandle<real>((auxTmpMemSize * numElements) / sizeof(real));
-
-    auto** dataTinv = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
-    auto** idofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
-
-    auto projectKrnl = projectKernelPrototype;
-    projectKrnl.numElements = numElements;
-    projectKrnl.Tinv = const_cast<const real**>(dataTinv);
-    projectKrnl.I = const_cast<const real**>(idofsPtrs);
-    projectKrnl.INodal = dofsFaceBoundaryNodalPtrs;
-    projectKrnl.linearAllocator.initialize(auxTmpMem.get());
-    projectKrnl.streamPtr = deviceStream;
-    projectKrnl.execute(faceIdx);
-
-    boundaryCondition.evaluate(dofsFaceBoundaryNodalPtrs, numElements, deviceStream);
-
-    auto** dofsPtrs = dataTable[key].get(recording::inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
-
-    auto nodalLfKrnl = nodalLfKrnlPrototype;
-    nodalLfKrnl.numElements = numElements;
-    nodalLfKrnl.Q = dofsPtrs;
-    nodalLfKrnl.INodal = const_cast<const real**>(dofsFaceBoundaryNodalPtrs);
-    nodalLfKrnl.AminusT = const_cast<const real**>(
-        dataTable[key].get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
-    nodalLfKrnl.extraOffset_AminusT =
-        SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, faceIdx);
-    nodalLfKrnl.linearAllocator.initialize(auxTmpMem.get());
-    nodalLfKrnl.streamPtr = deviceStream;
-    nodalLfKrnl.execute(faceIdx);
-  }
-#endif
-
   template <typename Func, typename MappingKrnl>
   void evaluateTimeDependent(const real* /*dofsVolumeInteriorModal*/,
                              int /*faceIdx*/,

@@ -8,7 +8,7 @@
 
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
-from yateto import Tensor, simpleParameterSpace
+from yateto import Scalar, Tensor, simpleParameterSpace
 
 
 def addKernels(generator, aderdg, include_tensors, targets):
@@ -157,4 +157,95 @@ def addKernels(generator, aderdg, include_tensors, targets):
             simpleParameterSpace(4),
             addVelocity,
             target="gpu",
+        )
+
+    Iprev = OptionalDimTensor(
+        "Iprev",
+        aderdg.INodal.optName(),
+        aderdg.INodal.optSize(),
+        aderdg.INodal.optPos(),
+        (aderdg.numberOf2DBasisFunctions(), 1),
+        alignStride=True,
+        temporary=True,
+    )
+    averageNormalDisplacement = OptionalDimTensor(
+        "Iint",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (numberOf2DBasisFunctions, 1),
+        alignStride=True,
+    )
+    faceDisplacementTmp = OptionalDimTensor(
+        "IAcc",
+        aderdg.INodal.optName(),
+        aderdg.INodal.optSize(),
+        aderdg.INodal.optPos(),
+        (aderdg.numberOf2DBasisFunctions(), 3),
+        alignStride=True,
+        temporary=True,
+    )
+    INodalTmp = OptionalDimTensor(
+        "INodalTmp",
+        aderdg.INodal.optName(),
+        aderdg.INodal.optSize(),
+        aderdg.INodal.optPos(),
+        (aderdg.numberOf2DBasisFunctions(), aderdg.numberOfQuantities()),
+        alignStride=True,
+        temporary=True,
+    )
+
+    coeffs = [Scalar(f"coeff({i})") for i in range(aderdg.order)]
+    factor = Tensor("invImpFactor", ())
+
+    vidx = aderdg.velocityOffset()
+
+    for target in targets:
+        name_prefix = generate_kernel_name_prefix(target)
+
+        def kernelPerFace(f):
+            kernel = [
+                faceDisplacementTmp["mp"]
+                <= faceDisplacement["mn"]
+                * aderdg.Tinv["pn"].subslice("p", vidx, 9).subslice("n", vidx, 9),
+                Iprev["mp"] <= faceDisplacementTmp["mp"].subslice("p", 0, 1),
+                averageNormalDisplacement["mp"]
+                <= aderdg.powers[0] * faceDisplacementTmp["mp"].subslice("p", 0, 1),
+            ]
+
+            for i in range(1, aderdg.order):
+
+                kernel += [
+                    INodalTmp["nq"]
+                    <= aderdg.db.V3mTo2nFace[f]["nk"] * aderdg.dQs[i]["kq"]
+                ]
+                velocitiesVW = INodalTmp["nq"].subslice("q", vidx + 1, vidx + 3)
+                velocitiesU = INodalTmp["nq"].subslice("q", vidx, vidx + 1)
+                pressure = INodalTmp["nq"].subslice("q", 0, 1)
+
+                kernel += [
+                    Iprev["nq"] <= velocitiesU + factor[""] * Iprev["nq"] + pressure,
+                    faceDisplacementTmp["nq"].subslice("q", 0, 1)
+                    <= coeffs[i] * Iprev["nq"],
+                    faceDisplacementTmp["nq"].subslice("q", 1, 3)
+                    <= coeffs[i] * velocitiesVW,
+                    averageNormalDisplacement["nq"]
+                    <= averageNormalDisplacement["nq"] + aderdg.powers[i] * Iprev["nq"],
+                ]
+
+            kernel += [
+                faceDisplacement["mp"]
+                <= faceDisplacementTmp["mn"]
+                * aderdg.T["pn"]
+                .subslice("p", vidx, vidx + 3)
+                .subslice("n", vidx, vidx + 3),
+            ]
+
+            return kernel
+
+        generator.addFamily(
+            f"{name_prefix}fsgKernel",
+            simpleParameterSpace(4),
+            kernelPerFace,
+            target=target,
         )

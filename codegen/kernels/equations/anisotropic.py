@@ -27,6 +27,12 @@ class AnisotropicADERDG(ADERDGBase):
     def name(self):
         return "anisotropic"
 
+    def numberOfQuantities(self):
+        return 9
+
+    def velocityOffset(self):
+        return 6
+
     def addInit(self, generator):
         super().addInit(generator)
 

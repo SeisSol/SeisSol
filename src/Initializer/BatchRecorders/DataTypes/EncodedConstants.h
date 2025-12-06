@@ -49,12 +49,6 @@ struct Wp {
     PrevDofs,
     QEtaNodal,
     DuDtStrain,
-    RotateDisplacementToFaceNormal,
-    RotateDisplacementToGlobal,
-    RotatedFaceDisplacement,
-    DofsFaceNodal,
-    PrevCoefficients,
-    DofsFaceBoundaryNodal,
     Count
   };
 };
