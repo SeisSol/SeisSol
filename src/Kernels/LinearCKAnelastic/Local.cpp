@@ -230,13 +230,13 @@ void Local<Cfg>::computeBatchedIntegral(
         (entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtrAs<real*>());
     localKrnl.W = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtrAs<real*>());
-    localKrnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData, specific.W);
+    localKrnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.W);
     localKrnl.w = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtrAs<real*>());
-    localKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+    localKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.w);
     localKrnl.E = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtrAs<real*>());
-    localKrnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
+    localKrnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.E);
     localKrnl.streamPtr = runtime.stream();
     localKrnl.execute();
   }

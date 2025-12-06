@@ -366,7 +366,6 @@ void OutputManager::initPickpointOutput() {
     }
 
     for (size_t i = 0; i < files.size(); ++i) {
-      const auto& receiver = outputData->receiverPoints[i];
 
       const auto& ppfile = files[i];
 

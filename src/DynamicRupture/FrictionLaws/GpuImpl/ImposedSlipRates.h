@@ -23,8 +23,10 @@ class ImposedSlipRates : public BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, ST
   static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->imposedSlipDirection1 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>(place);
-    data->imposedSlipDirection2 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>(place);
+    data->imposedSlipDirection1 =
+        layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>(Cfg(), place);
+    data->imposedSlipDirection2 =
+        layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>(Cfg(), place);
     STF::copyStorageToLocal(data, layerData);
   }
 

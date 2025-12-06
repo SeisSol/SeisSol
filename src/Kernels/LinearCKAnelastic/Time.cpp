@@ -266,13 +266,13 @@ void Spacetime<Cfg>::computeBatchedAder(
 
     krnl.W = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtrAs<real*>());
-    krnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData, specific.W);
+    krnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.W);
     krnl.w = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtrAs<real*>());
-    krnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+    krnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.w);
     krnl.E = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtrAs<real*>());
-    krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
+    krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.E);
 
     for (std::size_t der = 0; der < Cfg::ConvergenceOrder; ++der) {
       // update scalar for this derivative

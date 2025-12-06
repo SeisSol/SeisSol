@@ -26,7 +26,7 @@ class FastVelocityWeakeningLaw
   static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
     data->srW = layerData.var<LTSRateAndStateFastVelocityWeakening::RsSrW>(
-        seissol::initializer::AllocationPlace::Device);
+        Cfg(), seissol::initializer::AllocationPlace::Device);
   }
 
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& ctx,

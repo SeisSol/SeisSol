@@ -206,9 +206,10 @@ class LinearSlipWeakeningLaw
       f2 =
           1.0 * static_cast<double>(tn >= ctx.data->forcedRuptureTime[ctx.ltsFace][ctx.pointIndex]);
     } else {
-      f2 = misc::clamp((tn - ctx.data->forcedRuptureTime[ctx.ltsFace][ctx.pointIndex]) / t0,
-                       static_cast<real>(0.0),
-                       static_cast<real>(1.0));
+      f2 = misc::clamp(
+          static_cast<real>((tn - ctx.data->forcedRuptureTime[ctx.ltsFace][ctx.pointIndex]) / t0),
+          static_cast<real>(0.0),
+          static_cast<real>(1.0));
     }
     ctx.stateVariableBuffer = std::max(localStateVariable, f2);
   }

@@ -245,9 +245,9 @@ void Spacetime<Cfg>::computeBatchedAder(
         (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtrAs<real*>());
     krnl.Gmt = const_cast<const real**>(
         (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtrAs<real*>());
-    krnl.extraOffset_Gkt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[10]);
-    krnl.extraOffset_Glt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[11]);
-    krnl.extraOffset_Gmt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[12]);
+    krnl.extraOffset_Gkt = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.G[10]);
+    krnl.extraOffset_Glt = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.G[11]);
+    krnl.extraOffset_Gmt = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.G[12]);
 
     /*
     // TODO: port
@@ -263,7 +263,7 @@ void Spacetime<Cfg>::computeBatchedAder(
       }
     });*/
 
-    std::size_t zinvOffset = SEISSOL_OFFSET(LocalIntegrationData, specific.Zinv);
+    std::size_t zinvOffset = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.Zinv);
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::Zinv<Cfg>>(); i++) {
       krnl.Zinv(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::Zinv))->getDeviceDataPtrAs<real*>());

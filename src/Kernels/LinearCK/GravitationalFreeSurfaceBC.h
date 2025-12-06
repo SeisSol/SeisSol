@@ -221,9 +221,8 @@ class GravitationalFreeSurfaceBc {
           dataTable[key].get(inner_keys::Wp::Id::DofsFaceNodal)->getDeviceDataPtrAs<real*>();
       auto** prevCoefficientsPtrs =
           dataTable[key].get(inner_keys::Wp::Id::PrevCoefficients)->getDeviceDataPtrAs<real*>();
-      auto* invImpedances = materialTable[key]
-                                .get(inner_keys::Material::Id::InvImpedances)
-                                ->getDeviceDataPtrAs<real*>();
+      auto* invImpedances =
+          materialTable[key].get(inner_keys::Material::Id::InvImpedances)->getDeviceDataPtr();
 
       auto** TinvDataPtrs =
           dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtrAs<real*>();
@@ -265,10 +264,8 @@ class GravitationalFreeSurfaceBc {
           numElements,
           deviceStream);
 
-      auto* rhos =
-          materialTable[key].get(inner_keys::Material::Id::Rho)->getDeviceDataPtrAs<real*>();
-      auto* lambdas =
-          materialTable[key].get(inner_keys::Material::Id::Lambda)->getDeviceDataPtrAs<real*>();
+      auto* rhos = materialTable[key].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
+      auto* lambdas = materialTable[key].get(inner_keys::Material::Id::Lambda)->getDeviceDataPtr();
       kernels::time::aux::TimeAux<Cfg>::computeInvAcousticImpedance(
           invImpedances, rhos, lambdas, numElements, deviceStream);
 
