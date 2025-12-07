@@ -143,8 +143,8 @@ double AnisotropicMaterial::getMaxWaveSpeed() const {
   // An analytic solution for the maximal wave speed is hard to obtain.
   // Instead of solving an optimization problem we sample the velocitiy for
   // different directions and take the maximum.
-  auto samplingDirections = seissol_general::init::samplingDirections::view::create(
-      const_cast<double*>(seissol_general::init::samplingDirections::Values));
+  const auto samplingDirections = seissol_general::init::samplingDirections::view::create(
+      seissol_general::init::samplingDirections::Values);
 
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 3, 3>> saes;
 
