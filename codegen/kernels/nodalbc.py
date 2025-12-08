@@ -82,7 +82,8 @@ def addKernels(
 
     rho = Tensor("rho", ())
 
-    blowup = Tensor("blowup", (3,), spp=np.array([1, 1, 1]))
+    mainstresscnt = 3 if aderdg.velocityOffset() > 1 else 1
+    blowup = Tensor("blowup", (mainstresscnt,), spp=np.ones((mainstresscnt,)))
 
     averageNormalDisplacement = OptionalDimTensor(
         "averageNormalDisplacement",
@@ -143,9 +144,11 @@ def addKernels(
             + easi_ident_map["abl"] * easi_boundary_constant["bl"]
         )
 
-        fsg_boundary = tmp["kp"].subslice("p", 0, 3) <= g2m * rho[
+        fsg_boundary = tmp["kp"].subslice("p", 0, mainstresscnt) <= g2m * rho[
             ""
-        ] * averageNormalDisplacement["k"] * blowup["p"] - tmp["kp"].subslice("p", 0, 3)
+        ] * averageNormalDisplacement["k"] * blowup["p"] - tmp["kp"].subslice(
+            "p", 0, mainstresscnt
+        )
 
         generator.addFamily(
             f"{name_prefix}bcDirichlet",

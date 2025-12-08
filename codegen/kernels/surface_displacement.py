@@ -207,7 +207,9 @@ def addKernels(generator, aderdg, include_tensors, targets):
             kernel = [
                 faceDisplacementTmp["mp"]
                 <= faceDisplacement["mn"]
-                * aderdg.Tinv["pn"].subslice("p", vidx, 9).subslice("n", vidx, 9),
+                * aderdg.Tinv["pn"]
+                .subslice("p", vidx, vidx + 3)
+                .subslice("n", vidx, vidx + 3),
                 Iprev["mp"] <= faceDisplacementTmp["mp"].subslice("p", 0, 1),
                 averageNormalDisplacement["mp"]
                 <= aderdg.powers[0] * faceDisplacementTmp["mp"].subslice("p", 0, 1),
@@ -219,7 +221,6 @@ def addKernels(generator, aderdg, include_tensors, targets):
                     INodalTmp["nq"]
                     <= aderdg.db.V3mTo2nFace[f]["nk"] * aderdg.dQs[i]["kq"]
                 ]
-                velocitiesVW = INodalTmp["nq"].subslice("q", vidx + 1, vidx + 3)
                 velocitiesU = INodalTmp["nq"].subslice("q", vidx, vidx + 1)
                 pressure = INodalTmp["nq"].subslice("q", 0, 1)
 
@@ -227,8 +228,16 @@ def addKernels(generator, aderdg, include_tensors, targets):
                     Iprev["nq"] <= velocitiesU + factor[""] * Iprev["nq"] + pressure,
                     faceDisplacementTmp["nq"].subslice("q", 0, 1)
                     <= coeffs[i] * Iprev["nq"],
-                    faceDisplacementTmp["nq"].subslice("q", 1, 3)
-                    <= coeffs[i] * velocitiesVW,
+                ]
+
+                if aderdg.velocityOffset() > 1:
+                    velocitiesVW = INodalTmp["nq"].subslice("q", vidx + 1, vidx + 3)
+                    kernel += [
+                        faceDisplacementTmp["nq"].subslice("q", 1, 3)
+                        <= coeffs[i] * velocitiesVW,
+                    ]
+
+                kernel += [
                     averageNormalDisplacement["nq"]
                     <= averageNormalDisplacement["nq"] + aderdg.powers[i] * Iprev["nq"],
                 ]

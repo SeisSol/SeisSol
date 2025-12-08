@@ -58,6 +58,11 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   m_projectKrnlPrototype.V3mTo2nFace = global.onHost->v3mTo2nFace;
   m_projectRotatedKrnlPrototype.V3mTo2nFace = global.onHost->v3mTo2nFace;
 
+  bcFreeSurfaceGravity.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
+  bcFreeSurfaceGravity.V3mTo2nFace = global.onHost->v3mTo2nFace;
+  bcDirichlet.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
+  bcDirichlet.V3mTo2nFace = global.onHost->v3mTo2nFace;
+
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
 
@@ -69,8 +74,8 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
 #endif
 
-  deviceBCFSG.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
-  deviceBCFSG.V3mTo2nFace = global.onDevice->v3mTo2nFace;
+  deviceBCFreeSurfaceGravity.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
+  deviceBCFreeSurfaceGravity.V3mTo2nFace = global.onDevice->v3mTo2nFace;
   deviceBCDirichlet.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
   deviceBCDirichlet.V3mTo2nFace = global.onDevice->v3mTo2nFace;
 #endif
@@ -160,70 +165,44 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
     case FaceType::FreeSurfaceGravity: {
       assert(cellBoundaryMapping != nullptr);
       assert(materialData != nullptr);
-      auto* displ = tmp.nodalAvgDisplacements[face].data();
-      auto displacement = init::averageNormalDisplacement::view::create(displ);
-      // lambdas can't catch gravitationalAcceleration directly, so have to make a copy here.
-      const auto localG = gravitationalAcceleration;
-      auto applyFreeSurfaceBc =
-          [&displacement, &materialData, &localG](const real*, // nodes are unused
-                                                  init::INodal::view::type& boundaryDofs) {
-            for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-              auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
-              auto slicedDisplacement = multisim::simtensor(displacement, s);
 
-              for (unsigned int i = 0;
-                   i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
-                   ++i) {
-                const double rho = materialData->local->getDensity();
-                assert(localG > 0);
-                const double pressureAtBnd = -1 * rho * localG * slicedDisplacement(i);
+      auto kernel = bcFreeSurfaceGravity;
+      kernel.g2m = -2 * this->gravitationalAcceleration;
 
-                slicedBoundaryDofs(i, 0) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 0);
-                slicedBoundaryDofs(i, 1) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 1);
-                slicedBoundaryDofs(i, 2) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 2);
-              }
-            }
-          };
+      real localRho = materialData->local->getDensity();
+      kernel.rho = &localRho;
+      kernel.averageNormalDisplacement = tmp.nodalAvgDisplacements[face].data();
 
-      dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
-                                 face,
-                                 (*cellBoundaryMapping)[face],
-                                 m_projectRotatedKrnlPrototype,
-                                 applyFreeSurfaceBc,
-                                 dofsFaceBoundaryNodal);
+      kernel.Q = data.get<LTS::Dofs>();
+      kernel.I = timeIntegratedDegreesOfFreedom;
+      // TODO: prefetch
+      kernel.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
 
-      nodalLfKrnl.execute(face);
+      kernel.Tinv = (*cellBoundaryMapping)[face].dataTinv;
+      kernel.blowup = init::blowup::Values;
+
+      kernel.execute(face);
       break;
     }
     case FaceType::Dirichlet: {
       assert(cellBoundaryMapping != nullptr);
-      auto* easiBoundaryMap = (*cellBoundaryMapping)[face].easiBoundaryMap;
-      auto* easiBoundaryConstant = (*cellBoundaryMapping)[face].easiBoundaryConstant;
+      const auto* easiBoundaryMap = (*cellBoundaryMapping)[face].easiBoundaryMap;
+      const auto* easiBoundaryConstant = (*cellBoundaryMapping)[face].easiBoundaryConstant;
       assert(easiBoundaryConstant != nullptr);
       assert(easiBoundaryMap != nullptr);
-      auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
-                                   const real* /*nodes*/, init::INodal::view::type& boundaryDofs) {
-        seissol::kernel::createEasiBoundaryGhostCells easiBoundaryKernel;
-        easiBoundaryKernel.easiBoundaryMap = easiBoundaryMap;
-        easiBoundaryKernel.easiBoundaryConstant = easiBoundaryConstant;
-        easiBoundaryKernel.easiIdentMap = init::easiIdentMap::Values;
-        easiBoundaryKernel.INodal = boundaryDofs.data();
-        easiBoundaryKernel.execute();
-      };
 
-      // Compute boundary in [n, t_1, t_2] basis
-      dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
-                                 face,
-                                 (*cellBoundaryMapping)[face],
-                                 m_projectRotatedKrnlPrototype,
-                                 applyEasiBoundary,
-                                 dofsFaceBoundaryNodal);
+      auto kernel = bcDirichlet;
+      kernel.easiBoundaryConstant = easiBoundaryConstant;
+      kernel.easiBoundaryMap = easiBoundaryMap;
 
-      // We do not need to rotate the boundary data back to the [x,y,z] basis
-      // as we set the Tinv matrix to the identity matrix in the flux solver
-      // See init. in CellLocalMatrices.initializeCellLocalMatrices!
+      kernel.Q = data.get<LTS::Dofs>();
+      kernel.I = timeIntegratedDegreesOfFreedom;
+      // TODO: prefetch
+      kernel.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
 
-      nodalLfKrnl.execute(face);
+      kernel.Tinv = (*cellBoundaryMapping)[face].dataTinv;
+
+      kernel.execute(face);
       break;
     }
     case FaceType::Analytical: {
@@ -323,7 +302,7 @@ void Local::computeBatchedIntegral(
       auto** dataTinv = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
       auto** idofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
 
-      auto bcKernel = deviceBCFSG;
+      auto bcKernel = deviceBCFreeSurfaceGravity;
       bcKernel.g2m = -2 * gravitationalAcceleration;
       bcKernel.rho = rhos;
       bcKernel.averageNormalDisplacement = const_cast<const real**>(nodalAvgDisplacements);

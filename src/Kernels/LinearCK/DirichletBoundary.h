@@ -28,41 +28,8 @@
 namespace seissol::kernels {
 
 class DirichletBoundary {
-  private:
-  // Helper functions, needed because C++ doesnt allow partial func. template specialization
-  template <typename MappingKrnl>
-  static void addRotationToProjectKernel(MappingKrnl& projectKernel,
-                                         const seissol::CellBoundaryMapping& boundaryMapping) {
-    // do nothing
-  }
-
   public:
   DirichletBoundary() { quadrature::GaussLegendre(quadPoints, quadWeights, ConvergenceOrder); }
-
-  template <typename Func, typename MappingKrnl>
-  void evaluate(const real* dofsVolumeInteriorModal,
-                int faceIdx,
-                const CellBoundaryMapping& boundaryMapping,
-                MappingKrnl&& projectKernelPrototype,
-                Func&& evaluateBoundaryCondition,
-                real* dofsFaceBoundaryNodal) const {
-    auto projectKrnl = std::forward<MappingKrnl>(projectKernelPrototype);
-    addRotationToProjectKernel(projectKrnl, boundaryMapping);
-    projectKrnl.I = dofsVolumeInteriorModal;
-    projectKrnl.INodal = dofsFaceBoundaryNodal;
-    projectKrnl.execute(faceIdx);
-
-    auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
-
-    static_assert(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] ==
-                      tensor::INodal::Shape[multisim::BasisFunctionDimension],
-                  "Need evaluation at all nodes!");
-
-    assert(boundaryMapping.nodes != nullptr);
-
-    // Evaluate boundary conditions at precomputed nodes (in global coordinates).
-    std::forward<Func>(evaluateBoundaryCondition)(boundaryMapping.nodes, boundaryDofs);
-  }
 
   template <typename Func, typename MappingKrnl>
   void evaluateTimeDependent(const real* /*dofsVolumeInteriorModal*/,
@@ -114,19 +81,6 @@ class DirichletBoundary {
   double quadPoints[ConvergenceOrder]{};
   double quadWeights[ConvergenceOrder]{};
 };
-
-//
-// GCC warns that the method below is unused. This is not correct.
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
-template <>
-inline void DirichletBoundary::addRotationToProjectKernel(
-    seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
-    const seissol::CellBoundaryMapping& boundaryMapping) {
-  assert(boundaryMapping.dataTinv != nullptr);
-  projectKernel.Tinv = boundaryMapping.dataTinv;
-}
-#pragma GCC diagnostic pop
 
 } // namespace seissol::kernels
 
