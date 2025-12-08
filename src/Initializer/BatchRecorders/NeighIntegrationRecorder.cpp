@@ -36,203 +36,221 @@ void NeighIntegrationRecorder::record(LTS::Layer& layer) {
 }
 
 void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
-  real*(*faceNeighborsDevice)[4] = currentLayer->var<LTS::FaceNeighborsDevice>();
-  real* integratedDofsScratch =
-      static_cast<real*>(currentLayer->var<LTS::IntegratedDofsScratch>(AllocationPlace::Device));
+  currentLayer->wrap([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    using real = Real<Cfg>;
 
-  const auto size = currentLayer->size();
-  if (size > 0) {
-    std::vector<real*> ltsIDofsPtrs{};
-    std::vector<real*> ltsDerivativesPtrs{};
-    std::vector<real*> gtsDerivativesPtrs{};
-    std::vector<real*> gtsIDofsPtrs{};
+    void*(*faceNeighborsDevice)[4] = currentLayer->var<LTS::FaceNeighborsDevice>();
+    real* integratedDofsScratch = static_cast<real*>(
+        currentLayer->var<LTS::IntegratedDofsScratch>(cfg, AllocationPlace::Device));
 
-    for (std::size_t cell = 0; cell < size; ++cell) {
-      auto dataHost = currentLayer->cellRef<Cfg>(cell, AllocationPlace::Host);
+    const auto size = currentLayer->size();
+    if (size > 0) {
+      std::vector<void*> ltsIDofsPtrs{};
+      std::vector<void*> ltsDerivativesPtrs{};
+      std::vector<void*> gtsDerivativesPtrs{};
+      std::vector<void*> gtsIDofsPtrs{};
 
-      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        real* neighborBuffer = faceNeighborsDevice[cell][face];
+      for (std::size_t cell = 0; cell < size; ++cell) {
+        auto dataHost = currentLayer->cellRef<Cfg>(cell, AllocationPlace::Host);
 
-        // check whether a neighbor element idofs has not been counted twice
-        if ((idofsAddressRegistry.find(neighborBuffer) == idofsAddressRegistry.end())) {
+        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+          void* neighborBuffer = faceNeighborsDevice[cell][face];
 
-          // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
-          if (neighborBuffer != nullptr) {
-            if (dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::Outflow &&
-                dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
+          // check whether a neighbor element idofs has not been counted twice
+          if ((idofsAddressRegistry.find(neighborBuffer) == idofsAddressRegistry.end())) {
 
-              const bool isNeighbProvidesDerivatives =
-                  dataHost.get<LTS::CellInformation>().ltsSetup.neighborHasDerivatives(face);
+            // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
+            if (neighborBuffer != nullptr) {
+              if (dataHost.template get<LTS::CellInformation>().faceTypes[face] !=
+                      FaceType::Outflow &&
+                  dataHost.template get<LTS::CellInformation>().faceTypes[face] !=
+                      FaceType::DynamicRupture) {
 
-              if (isNeighbProvidesDerivatives) {
-                real* nextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter];
+                const bool isNeighbProvidesDerivatives =
+                    dataHost.template get<LTS::CellInformation>().ltsSetup.neighborHasDerivatives(
+                        face);
 
-                const bool isGtsNeighbor =
-                    dataHost.get<LTS::CellInformation>().ltsSetup.neighborGTSRelation(face);
-                if (isGtsNeighbor) {
+                if (isNeighbProvidesDerivatives) {
+                  real* nextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter];
 
-                  idofsAddressRegistry[neighborBuffer] = nextTempIDofsPtr;
-                  gtsIDofsPtrs.push_back(nextTempIDofsPtr);
-                  gtsDerivativesPtrs.push_back(neighborBuffer);
+                  const bool isGtsNeighbor =
+                      dataHost.template get<LTS::CellInformation>().ltsSetup.neighborGTSRelation(
+                          face);
+                  if (isGtsNeighbor) {
 
+                    idofsAddressRegistry[neighborBuffer] = nextTempIDofsPtr;
+                    gtsIDofsPtrs.push_back(nextTempIDofsPtr);
+                    gtsDerivativesPtrs.push_back(neighborBuffer);
+
+                  } else {
+                    idofsAddressRegistry[neighborBuffer] = nextTempIDofsPtr;
+                    ltsIDofsPtrs.push_back(nextTempIDofsPtr);
+                    ltsDerivativesPtrs.push_back(neighborBuffer);
+                  }
+                  integratedDofsAddressCounter += tensor::I<Cfg>::size();
                 } else {
-                  idofsAddressRegistry[neighborBuffer] = nextTempIDofsPtr;
-                  ltsIDofsPtrs.push_back(nextTempIDofsPtr);
-                  ltsDerivativesPtrs.push_back(neighborBuffer);
+                  idofsAddressRegistry[neighborBuffer] = neighborBuffer;
                 }
-                integratedDofsAddressCounter += tensor::I<Cfg>::size();
-              } else {
-                idofsAddressRegistry[neighborBuffer] = neighborBuffer;
               }
             }
           }
         }
       }
-    }
 
-    if (!gtsIDofsPtrs.empty()) {
-      const ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithGtsDerivatives);
-      checkKey(key);
-      (*currentTable)[key].set(inner_keys::Wp::Id::Derivatives, gtsDerivativesPtrs);
-      (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, gtsIDofsPtrs);
-    }
+      if (!gtsIDofsPtrs.empty()) {
+        const ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithGtsDerivatives);
+        checkKey(key);
+        (*currentTable)[key].set(inner_keys::Wp::Id::Derivatives, gtsDerivativesPtrs);
+        (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, gtsIDofsPtrs);
+      }
 
-    if (!ltsIDofsPtrs.empty()) {
-      const ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithLtsDerivatives);
-      checkKey(key);
-      (*currentTable)[key].set(inner_keys::Wp::Id::Derivatives, ltsDerivativesPtrs);
-      (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, ltsIDofsPtrs);
+      if (!ltsIDofsPtrs.empty()) {
+        const ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithLtsDerivatives);
+        checkKey(key);
+        (*currentTable)[key].set(inner_keys::Wp::Id::Derivatives, ltsDerivativesPtrs);
+        (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, ltsIDofsPtrs);
+      }
     }
-  }
+  });
 }
 
 void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
-  real*(*faceNeighborsDevice)[4] = currentLayer->var<LTS::FaceNeighborsDevice>();
+  currentLayer->wrap([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    using real = Real<Cfg>;
 
-  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicDofs {};
-  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicIDofs {};
-  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicAminusT {};
+    void*(*faceNeighborsDevice)[4] = currentLayer->var<LTS::FaceNeighborsDevice>();
 
-  std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofs {};
-  std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drGodunov {};
-  std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drFluxSolver {};
+    std::array<std::vector<void*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicDofs {};
+    std::array<std::vector<void*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicIDofs {};
+    std::array<std::vector<void*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicAminusT {};
 
-  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularDofsExt {};
-  std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofsExt {};
+    std::array<std::vector<void*>[*DrFaceRelations::Count], *FaceId::Count> drDofs {};
+    std::array<std::vector<void*>[*DrFaceRelations::Count], *FaceId::Count> drGodunov {};
+    std::array<std::vector<void*>[*DrFaceRelations::Count], *FaceId::Count> drFluxSolver {};
 
-  CellDRMapping<Cfg>(*drMappingDevice)[4] = currentLayer->var<LTS::DRMappingDevice>(Cfg());
+    std::array<std::vector<void*>[*FaceRelations::Count], *FaceId::Count> regularDofsExt {};
+    std::array<std::vector<void*>[*DrFaceRelations::Count], *FaceId::Count> drDofsExt {};
+
+    CellDRMapping<Cfg>(*drMappingDevice)[4] = currentLayer->var<LTS::DRMappingDevice>(Cfg());
 
 #ifdef USE_VISCOELASTIC2
-  auto* dofsExt = currentLayer->var<LTS::DofsExtScratch>(AllocationPlace::Device);
+    auto* dofsExt = currentLayer->var<LTS::DofsExtScratch>(AllocationPlace::Device);
 #endif
 
-  const auto size = currentLayer->size();
-  for (std::size_t cell = 0; cell < size; ++cell) {
-    auto data = currentLayer->cellRef<Cfg>(cell, AllocationPlace::Device);
-    auto dataHost = currentLayer->cellRef<Cfg>(cell, AllocationPlace::Host);
+    const auto size = currentLayer->size();
+    for (std::size_t cell = 0; cell < size; ++cell) {
+      auto data = currentLayer->cellRef<Cfg>(cell, AllocationPlace::Device);
+      auto dataHost = currentLayer->cellRef<Cfg>(cell, AllocationPlace::Host);
 
-    for (std::size_t face = 0; face < Cell::NumFaces; face++) {
-      switch (dataHost.get<LTS::CellInformation>().faceTypes[face]) {
-      case FaceType::Regular:
-        [[fallthrough]];
-      case FaceType::Periodic: {
-        // compute face type relation
+      for (std::size_t face = 0; face < Cell::NumFaces; face++) {
+        switch (dataHost.template get<LTS::CellInformation>().faceTypes[face]) {
+        case FaceType::Regular:
+          [[fallthrough]];
+        case FaceType::Periodic: {
+          // compute face type relation
 
-        real* neighborBufferPtr = faceNeighborsDevice[cell][face];
-        // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
-        if (neighborBufferPtr != nullptr) {
-          const auto faceRelation =
-              dataHost.get<LTS::CellInformation>().faceRelations[face][1] +
-              3 * dataHost.get<LTS::CellInformation>().faceRelations[face][0] + 12 * face;
+          void* neighborBufferPtr = faceNeighborsDevice[cell][face];
+          // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
+          if (neighborBufferPtr != nullptr) {
+            const auto faceRelation =
+                dataHost.template get<LTS::CellInformation>().faceRelations[face][1] +
+                3 * dataHost.template get<LTS::CellInformation>().faceRelations[face][0] +
+                12 * face;
 
-          assert((*FaceRelations::Count) > faceRelation &&
-                 "incorrect face relation count has been detected");
+            assert((*FaceRelations::Count) > faceRelation &&
+                   "incorrect face relation count has been detected");
 
-          regularPeriodicDofs[face][faceRelation].push_back(
-              static_cast<real*>(data.get<LTS::Dofs>()));
-          regularPeriodicIDofs[face][faceRelation].push_back(
-              idofsAddressRegistry[neighborBufferPtr]);
-          regularPeriodicAminusT[face][faceRelation].push_back(
-              reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
+            regularPeriodicDofs[face][faceRelation].push_back(
+                static_cast<real*>(data.template get<LTS::Dofs>()));
+            regularPeriodicIDofs[face][faceRelation].push_back(
+                idofsAddressRegistry[neighborBufferPtr]);
+            regularPeriodicAminusT[face][faceRelation].push_back(
+                reinterpret_cast<real*>(&data.template get<LTS::NeighboringIntegration>()));
 #ifdef USE_VISCOELASTIC2
-          regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
-                                                       tensor::Qext<Cfg>::size() * cell);
+            regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
+                                                         tensor::Qext<Cfg>::size() * cell);
+#endif
+          }
+          break;
+        }
+        case FaceType::FreeSurface: {
+          break;
+        }
+        case FaceType::DynamicRupture: {
+          const auto faceRelation =
+              drMappingDevice[cell][face].side + 4 * drMappingDevice[cell][face].faceRelation;
+          assert((*DrFaceRelations::Count) > faceRelation &&
+                 "incorrect face relation count in dyn. rupture has been detected");
+          drDofs[face][faceRelation].push_back(static_cast<real*>(data.template get<LTS::Dofs>()));
+          drGodunov[face][faceRelation].push_back(drMappingDevice[cell][face].godunov);
+          drFluxSolver[face][faceRelation].push_back(drMappingDevice[cell][face].fluxSolver);
+#ifdef USE_VISCOELASTIC2
+          drDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
+                                                  tensor::Qext<Cfg>::size() * cell);
+#endif
+          break;
+        }
+        case FaceType::Outflow:
+          [[fallthrough]];
+        case FaceType::Analytical:
+          [[fallthrough]];
+        case FaceType::FreeSurfaceGravity:
+          [[fallthrough]];
+        case FaceType::Dirichlet: {
+          // Do not need to compute anything in the neighboring macro-kernel
+          // for outflow, analytical, freeSurfaceGravity and dirichlet
+          // boundary conditions
+          break;
+        }
+        default: {
+          logError() << "unknown boundary condition type: "
+                     << static_cast<int>(
+                            dataHost.template get<LTS::CellInformation>().faceTypes[face]);
+        }
+        }
+      }
+    }
+
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      // regular and periodic
+      for (size_t faceRelation = 0; faceRelation < (*FaceRelations::Count); ++faceRelation) {
+        if (!regularPeriodicDofs[face][faceRelation].empty()) {
+          const ConditionalKey key(*KernelNames::NeighborFlux,
+                                   (FaceKinds::Regular || FaceKinds::Periodic),
+                                   face,
+                                   faceRelation);
+          checkKey(key);
+
+          (*currentTable)[key].set(inner_keys::Wp::Id::Idofs,
+                                   regularPeriodicIDofs[face][faceRelation]);
+          (*currentTable)[key].set(inner_keys::Wp::Id::Dofs,
+                                   regularPeriodicDofs[face][faceRelation]);
+          (*currentTable)[key].set(inner_keys::Wp::Id::NeighborIntegrationData,
+                                   regularPeriodicAminusT[face][faceRelation]);
+#ifdef USE_VISCOELASTIC2
+          (*currentTable)[key].set(inner_keys::Wp::Id::DofsExt, regularDofsExt[face][faceRelation]);
 #endif
         }
-        break;
       }
-      case FaceType::FreeSurface: {
-        break;
-      }
-      case FaceType::DynamicRupture: {
-        const auto faceRelation =
-            drMappingDevice[cell][face].side + 4 * drMappingDevice[cell][face].faceRelation;
-        assert((*DrFaceRelations::Count) > faceRelation &&
-               "incorrect face relation count in dyn. rupture has been detected");
-        drDofs[face][faceRelation].push_back(static_cast<real*>(data.get<LTS::Dofs>()));
-        drGodunov[face][faceRelation].push_back(drMappingDevice[cell][face].godunov);
-        drFluxSolver[face][faceRelation].push_back(drMappingDevice[cell][face].fluxSolver);
+
+      // dynamic rupture
+      for (std::size_t faceRelation = 0; faceRelation < (*DrFaceRelations::Count); ++faceRelation) {
+        if (!drDofs[face][faceRelation].empty()) {
+          const ConditionalKey key(
+              *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);
+          checkKey(key);
+
+          (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, drDofs[face][faceRelation]);
+          (*currentTable)[key].set(inner_keys::Wp::Id::Godunov, drGodunov[face][faceRelation]);
+          (*currentTable)[key].set(inner_keys::Wp::Id::FluxSolver,
+                                   drFluxSolver[face][faceRelation]);
 #ifdef USE_VISCOELASTIC2
-        drDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
-                                                tensor::Qext<Cfg>::size() * cell);
+          (*currentTable)[key].set(inner_keys::Wp::Id::DofsExt, drDofsExt[face][faceRelation]);
 #endif
-        break;
-      }
-      case FaceType::Outflow:
-        [[fallthrough]];
-      case FaceType::Analytical:
-        [[fallthrough]];
-      case FaceType::FreeSurfaceGravity:
-        [[fallthrough]];
-      case FaceType::Dirichlet: {
-        // Do not need to compute anything in the neighboring macro-kernel
-        // for outflow, analytical, freeSurfaceGravity and dirichlet
-        // boundary conditions
-        break;
-      }
-      default: {
-        logError() << "unknown boundary condition type: "
-                   << static_cast<int>(dataHost.get<LTS::CellInformation>().faceTypes[face]);
-      }
+        }
       }
     }
-  }
-
-  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    // regular and periodic
-    for (size_t faceRelation = 0; faceRelation < (*FaceRelations::Count); ++faceRelation) {
-      if (!regularPeriodicDofs[face][faceRelation].empty()) {
-        const ConditionalKey key(*KernelNames::NeighborFlux,
-                                 (FaceKinds::Regular || FaceKinds::Periodic),
-                                 face,
-                                 faceRelation);
-        checkKey(key);
-
-        (*currentTable)[key].set(inner_keys::Wp::Id::Idofs,
-                                 regularPeriodicIDofs[face][faceRelation]);
-        (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, regularPeriodicDofs[face][faceRelation]);
-        (*currentTable)[key].set(inner_keys::Wp::Id::NeighborIntegrationData,
-                                 regularPeriodicAminusT[face][faceRelation]);
-#ifdef USE_VISCOELASTIC2
-        (*currentTable)[key].set(inner_keys::Wp::Id::DofsExt, regularDofsExt[face][faceRelation]);
-#endif
-      }
-    }
-
-    // dynamic rupture
-    for (std::size_t faceRelation = 0; faceRelation < (*DrFaceRelations::Count); ++faceRelation) {
-      if (!drDofs[face][faceRelation].empty()) {
-        const ConditionalKey key(
-            *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);
-        checkKey(key);
-
-        (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, drDofs[face][faceRelation]);
-        (*currentTable)[key].set(inner_keys::Wp::Id::Godunov, drGodunov[face][faceRelation]);
-        (*currentTable)[key].set(inner_keys::Wp::Id::FluxSolver, drFluxSolver[face][faceRelation]);
-#ifdef USE_VISCOELASTIC2
-        (*currentTable)[key].set(inner_keys::Wp::Id::DofsExt, drDofsExt[face][faceRelation]);
-#endif
-      }
-    }
-  }
+  });
 }
