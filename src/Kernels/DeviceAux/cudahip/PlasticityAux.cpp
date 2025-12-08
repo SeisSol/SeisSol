@@ -93,7 +93,7 @@ __global__ void
   Real<Cfg>* elementTensors = nodalStressTensors[blockIdx.x];
   Real<Cfg> localStresses[NumStressComponents<Cfg>];
 
-  constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal<Cfg>>();
+  constexpr auto ElementTensorsColumn = leadDim<Cfg, init::QStressNodal<Cfg>>();
 #pragma unroll
   for (int i = 0; i < NumStressComponents<Cfg>; ++i) {
     localStresses[i] = elementTensors[linearidx<Cfg>() + ElementTensorsColumn * i];
@@ -183,11 +183,11 @@ __global__ void kernel_computePstrains(Real<Cfg>** pstrains,
 
 #pragma unroll
     for (int i = 0; i < NumStressComponents<Cfg>; ++i) {
-      const int q = linearidx<Cfg>() + i * leadDim<init::Q<Cfg>>();
+      const int q = linearidx<Cfg>() + i * leadDim<Cfg, init::Q<Cfg>>();
       const Real<Cfg> factor = localData->mufactor / (tV * oneMinusIntegratingFactor);
       const Real<Cfg> nodeDuDtPstrain = factor * (localPrevDofs[q] - localDofs[q]);
 
-      static_assert(leadDim<init::QStress<Cfg>>() == leadDim<init::Q<Cfg>>(), "");
+      static_assert(leadDim<Cfg, init::QStress<Cfg>>() == leadDim<Cfg, init::Q<Cfg>>(), "");
       localPstrain[q] += timeStepWidth * nodeDuDtPstrain;
       localDuDtPstrain[q] = nodeDuDtPstrain;
     }
@@ -233,7 +233,7 @@ __global__ void kernel_updateQEtaNodal(Real<Cfg>** qEtaNodalPtrs,
     Real<Cfg>* localQStressNodal = qStressNodalPtrs[blockIdx.x];
     Real<Cfg> factor{0.0};
 
-    constexpr auto Ld = leadDim<init::QStressNodal<Cfg>>();
+    constexpr auto Ld = leadDim<Cfg, init::QStressNodal<Cfg>>();
 #pragma unroll
     for (int i = 0; i < NumStressComponents<Cfg>; ++i) {
       factor += localQStressNodal[tid + i * Ld] * localQStressNodal[tid + i * Ld];
@@ -257,6 +257,9 @@ void Plasticity<Cfg>::updateQEtaNodal(Real<Cfg>** qEtaNodalPtrs,
   kernel_updateQEtaNodal<Cfg><<<grid, block, 0, stream>>>(
       qEtaNodalPtrs, qStressNodalPtrs, timeStepWidth, isAdjustableVector);
 }
+
+#define SEISSOL_CONFIGITER(cfg) template class Plasticity<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace aux
 } // namespace device

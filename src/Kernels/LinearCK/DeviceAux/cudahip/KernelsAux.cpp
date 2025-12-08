@@ -271,9 +271,9 @@ __global__ void kernelFreeSurfaceGravity(Real<Cfg>** dofsFaceBoundaryNodalPtrs,
     Real<Cfg>* elementBoundaryDofs = dofsFaceBoundaryNodalPtrs[elementId];
     Real<Cfg>* elementDisplacement = displacementDataPtrs[elementId];
 
-    constexpr auto numNodes = linearDim<seissol::nodal::init::nodes2D<Cfg>>();
+    constexpr auto numNodes = linearDim<Cfg, seissol::nodal::init::nodes2D<Cfg>>();
     if (tid < numNodes) {
-      constexpr auto ldINodal = linearDim<seissol::init::INodal<Cfg>>();
+      constexpr auto ldINodal = linearDim<Cfg, seissol::init::INodal<Cfg>>();
 
       const auto pressureAtBnd = static_cast<Real<Cfg>>(-1.0) * rho * g * elementDisplacement[tid];
 
@@ -292,7 +292,7 @@ void FreeSurfaceGravity<Cfg>::dispatch(Real<Cfg>** dofsFaceBoundaryNodalPtrs,
                                        void* deviceStream) {
   assert(displacementDataPtrs != nullptr);
   assert(rhos != nullptr);
-  dim3 block = getblock<Cfg>(leadDim<seissol::nodal::init::nodes2D<Cfg>>());
+  dim3 block = getblock<Cfg>(leadDim<Cfg, seissol::nodal::init::nodes2D<Cfg>>());
   dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(deviceStream);
   kernelFreeSurfaceGravity<Cfg><<<grid, block, 0, stream>>>(
@@ -308,13 +308,13 @@ __global__ void kernelEasiBoundary(Real<Cfg>** dofsFaceBoundaryNodalPtrs,
   const int tid = validx<Cfg>();
   const int elementId = blockIdx.x;
 
-  constexpr auto ldINodalDim = linearDim<seissol::init::INodal<Cfg>>();
+  constexpr auto ldINodalDim = linearDim<Cfg, seissol::init::INodal<Cfg>>();
   constexpr auto iNodalDim0 = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 0];
   constexpr auto iNodalDim1 = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
   __shared__ __align__(8) Real<Cfg> resultTerm[iNodalDim1][iNodalDim0]
                                               [multisim::NumSimulations<Cfg>];
 
-  constexpr auto ldConstantDim = linearDim<seissol::init::easiBoundaryConstant<Cfg>>();
+  constexpr auto ldConstantDim = linearDim<Cfg, seissol::init::easiBoundaryConstant<Cfg>>();
   constexpr auto constantDim0 =
       seissol::tensor::easiBoundaryConstant<Cfg>::Shape[multisim::BasisDim<Cfg> + 0];
   constexpr auto constantDim1 =
@@ -322,7 +322,7 @@ __global__ void kernelEasiBoundary(Real<Cfg>** dofsFaceBoundaryNodalPtrs,
   __shared__ __align__(8) Real<Cfg> rightTerm[constantDim0][constantDim1]
                                              [multisim::NumSimulations<Cfg>];
 
-  constexpr auto ldMapDim = leadDim<seissol::init::easiBoundaryMap<Cfg>>();
+  constexpr auto ldMapDim = leadDim<Cfg, seissol::init::easiBoundaryMap<Cfg>>();
   constexpr auto mapDim0 = seissol::tensor::easiBoundaryMap<Cfg>::Shape[0];
   constexpr auto mapDim1 = seissol::tensor::easiBoundaryMap<Cfg>::Shape[1];
   constexpr auto mapDim2 = seissol::tensor::easiBoundaryMap<Cfg>::Shape[2];
@@ -386,12 +386,25 @@ void EasiBoundary<Cfg>::dispatch(Real<Cfg>** dofsFaceBoundaryNodalPtrs,
   assert(easiBoundaryMapPtrs != nullptr);
   assert(easiBoundaryConstantPtrs != nullptr);
 
-  dim3 block = getblock<Cfg>(leadDim<seissol::init::INodal<Cfg>>());
+  dim3 block = getblock<Cfg>(leadDim<Cfg, seissol::init::INodal<Cfg>>());
   dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(deviceStream);
   kernelEasiBoundary<Cfg><<<grid, block, 0, stream>>>(
       dofsFaceBoundaryNodalPtrs, easiBoundaryMapPtrs, easiBoundaryConstantPtrs, numElements);
 }
+
+#define SEISSOL_CONFIGITER(cfg) template class FreeSurfaceGravity<cfg>;
+#include "ConfigIncludeLinearCK.h"
+
+#define SEISSOL_CONFIGITER(cfg) template class FreeSurfaceGravity<cfg>;
+#include "ConfigIncludeSTP.h"
+
+#define SEISSOL_CONFIGITER(cfg) template class EasiBoundary<cfg>;
+#include "ConfigIncludeLinearCK.h"
+
+#define SEISSOL_CONFIGITER(cfg) template class EasiBoundary<cfg>;
+#include "ConfigIncludeSTP.h"
+
 } // namespace seissol::kernels::local_flux::aux
 
 namespace seissol::kernels::time::aux {
@@ -449,11 +462,11 @@ __global__ void kernelInitializeTaylorSeriesForGravitationalBoundary(
     auto* integratedDisplacementNodal = integratedDisplacementNodalPtrs[elementId];
     const auto* rotatedFaceDisplacement = rotatedFaceDisplacementPtrs[elementId];
 
-    assert(linearDim<seissol::nodal::init::nodes2D<Cfg>>() <=
-           linearDim<seissol::init::rotatedFaceDisplacement<Cfg>>());
+    assert((linearDim<Cfg, seissol::nodal::init::nodes2D<Cfg>>()) <=
+           (linearDim<Cfg, seissol::init::rotatedFaceDisplacement<Cfg>>()));
 
     const int tid = linearidx<Cfg>();
-    constexpr auto num2dNodes = linearDim<seissol::nodal::init::nodes2D<Cfg>>();
+    constexpr auto num2dNodes = linearDim<Cfg, seissol::nodal::init::nodes2D<Cfg>>();
     if (tid < num2dNodes) {
       prevCoefficients[tid] = rotatedFaceDisplacement[tid];
       integratedDisplacementNodal[tid] = deltaTInt * rotatedFaceDisplacement[tid];
@@ -470,7 +483,7 @@ void TimeAux<Cfg>::initializeTaylorSeriesForGravitationalBoundary(
     size_t numElements,
     void* deviceStream) {
 
-  dim3 block = getblock<Cfg>(leadDim<seissol::nodal::init::nodes2D<Cfg>>());
+  dim3 block = getblock<Cfg>(leadDim<Cfg, seissol::nodal::init::nodes2D<Cfg>>());
   dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(deviceStream);
   kernelInitializeTaylorSeriesForGravitationalBoundary<Cfg>
@@ -519,13 +532,13 @@ __global__ void kernelUpdateRotatedFaceDisplacement(Real<Cfg>** rotatedFaceDispl
   if (elementId < numElements) {
     constexpr int pIdx = 0;
     constexpr int uIdx = model::MaterialTT<Cfg>::TractionQuantities;
-    constexpr auto num2dNodes = linearDim<seissol::nodal::init::nodes2D<Cfg>>();
+    constexpr auto num2dNodes = linearDim<Cfg, seissol::nodal::init::nodes2D<Cfg>>();
 
     const int tid = linearidx<Cfg>();
     if (tid < num2dNodes) {
 
       Real<Cfg>* dofsFaceNodal = dofsFaceNodalPtrs[elementId];
-      constexpr auto ldINodal = linearDim<seissol::init::INodal<Cfg>>();
+      constexpr auto ldINodal = linearDim<Cfg, seissol::init::INodal<Cfg>>();
 
       const auto uInside = dofsFaceNodal[tid + (uIdx + 0) * ldINodal];
       const auto vInside = dofsFaceNodal[tid + (uIdx + 1) * ldINodal];
@@ -540,7 +553,7 @@ __global__ void kernelUpdateRotatedFaceDisplacement(Real<Cfg>** rotatedFaceDispl
           uInside - invImpedance * (rho * g * prevCoefficients[tid] + pressureInside);
       prevCoefficients[tid] = curCoeff;
 
-      constexpr auto ldFaceDisplacement = linearDim<seissol::init::faceDisplacement<Cfg>>();
+      constexpr auto ldFaceDisplacement = linearDim<Cfg, seissol::init::faceDisplacement<Cfg>>();
       static_assert(num2dNodes <= ldFaceDisplacement, "");
 
       Real<Cfg>* rotatedFaceDisplacement = rotatedFaceDisplacementPtrs[elementId];
@@ -549,7 +562,7 @@ __global__ void kernelUpdateRotatedFaceDisplacement(Real<Cfg>** rotatedFaceDispl
       rotatedFaceDisplacement[tid + 2 * ldFaceDisplacement] += factorEvaluated * wInside;
 
       constexpr auto ldIntegratedFaceDisplacement =
-          linearDim<seissol::init::averageNormalDisplacement<Cfg>>();
+          linearDim<Cfg, seissol::init::averageNormalDisplacement<Cfg>>();
       static_assert(num2dNodes <= ldIntegratedFaceDisplacement, "");
 
       Real<Cfg>* integratedDisplacementNodal = integratedDisplacementNodalPtrs[elementId];
@@ -570,7 +583,7 @@ void TimeAux<Cfg>::updateRotatedFaceDisplacement(Real<Cfg>** rotatedFaceDisplace
                                                  double factorInt,
                                                  size_t numElements,
                                                  void* deviceStream) {
-  dim3 block = getblock<Cfg>(leadDim<seissol::nodal::init::nodes2D<Cfg>>());
+  dim3 block = getblock<Cfg>(leadDim<Cfg, seissol::nodal::init::nodes2D<Cfg>>());
   dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(deviceStream);
   kernelUpdateRotatedFaceDisplacement<Cfg>
@@ -585,4 +598,11 @@ void TimeAux<Cfg>::updateRotatedFaceDisplacement(Real<Cfg>** rotatedFaceDisplace
                                    factorInt,
                                    numElements);
 }
+
+#define SEISSOL_CONFIGITER(cfg) template class TimeAux<cfg>;
+#include "ConfigIncludeLinearCK.h"
+
+#define SEISSOL_CONFIGITER(cfg) template class TimeAux<cfg>;
+#include "ConfigIncludeSTP.h"
+
 } // namespace seissol::kernels::time::aux

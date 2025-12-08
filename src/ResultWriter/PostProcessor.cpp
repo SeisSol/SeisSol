@@ -39,7 +39,7 @@ void seissol::writer::PostProcessor::integrateQuantities(const double timestep,
 
 void seissol::writer::PostProcessor::setIntegrationMask(const std::vector<bool>& integrationMask) {
   m_integrationMask = integrationMask;
-  for (int i = 0; i < integrationMask.size(); i++) {
+  for (std::size_t i = 0; i < integrationMask.size(); i++) {
     if (m_integrationMask[i]) {
       m_integerMap.push_back(i);
       m_numberOfVariables++;
@@ -50,7 +50,7 @@ void seissol::writer::PostProcessor::setIntegrationMask(const std::vector<bool>&
 int seissol::writer::PostProcessor::getNumberOfVariables() const { return m_numberOfVariables; }
 
 void seissol::writer::PostProcessor::getIntegrationMask(bool* transferTo) {
-  for (int i = 0; i < m_integrationMask.size(); i++) {
+  for (std::size_t i = 0; i < m_integrationMask.size(); i++) {
     transferTo[i] = m_integrationMask[i];
   }
 }

@@ -222,9 +222,9 @@ void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
       real* elementBoundaryDofs = dofsFaceBoundaryNodalPtrs[elementId];
       real* elementDisplacement = displacementDataPtrs[elementId];
 
-      constexpr auto numNodes = linearDim<seissol::nodal::init::nodes2D<Cfg>>();
+      constexpr auto numNodes = linearDim<Cfg, seissol::nodal::init::nodes2D<Cfg>>();
       if (tid < numNodes) {
-        constexpr auto ldINodal = linearDim<seissol::init::INodal<Cfg>>();
+        constexpr auto ldINodal = linearDim<Cfg, seissol::init::INodal<Cfg>>();
 
         const auto pressureAtBnd = static_cast<real>(-1.0) * rho * g * elementDisplacement[tid];
 
@@ -248,11 +248,11 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
   const size_t workGroupSize = leadDim<seissol::init::INodal<Cfg>>();
   auto rng = getrange(workGroupSize, numElements);
 
-  constexpr auto ldINodalDim = linearDim<seissol::init::INodal<Cfg>>();
+  constexpr auto ldINodalDim = linearDim<Cfg, seissol::init::INodal<Cfg>>();
   constexpr auto INodalDim0 = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 0];
   constexpr auto INodalDim1 = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
 
-  constexpr auto ldConstantDim = linearDim<seissol::init::easiBoundaryConstant<Cfg>>();
+  constexpr auto ldConstantDim = linearDim<Cfg, seissol::init::easiBoundaryConstant<Cfg>>();
   constexpr auto ConstantDim0 =
       seissol::tensor::easiBoundaryConstant<Cfg>::Shape[multisim::BasisDim<Cfg> + 0];
   constexpr auto ConstantDim1 =
@@ -381,11 +381,11 @@ void initializeTaylorSeriesForGravitationalBoundary(real** prevCoefficientsPtrs,
       auto* integratedDisplacementNodal = integratedDisplacementNodalPtrs[elementId];
       const auto* rotatedFaceDisplacement = rotatedFaceDisplacementPtrs[elementId];
 
-      assert(linearDim<seissol::nodal::init::nodes2D<Cfg>>() <=
-             linearDim<seissol::init::rotatedFaceDisplacement<Cfg>>());
+      assert((linearDim<Cfg, seissol::nodal::init::nodes2D<Cfg>>()) <=
+             (linearDim<Cfg, seissol::init::rotatedFaceDisplacement<Cfg>>()));
 
       const int tid = item.get_local_id(0);
-      constexpr auto num2dNodes = linearDim<seissol::nodal::init::nodes2D<Cfg>>();
+      constexpr auto num2dNodes = linearDim<Cfg, seissol::nodal::init::nodes2D<Cfg>>();
       if (tid < num2dNodes) {
         prevCoefficients[tid] = rotatedFaceDisplacement[tid];
         integratedDisplacementNodal[tid] = deltaTInt * rotatedFaceDisplacement[tid];
@@ -428,13 +428,13 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
     if (elementId < numElements) {
       constexpr int pIdx = 0;
       constexpr int uIdx = model::MaterialTT<Cfg>::TractionQuantities;
-      constexpr auto num2dNodes = linearDim<seissol::nodal::init::nodes2D<Cfg>>();
+      constexpr auto num2dNodes = linearDim<Cfg, seissol::nodal::init::nodes2D<Cfg>>();
 
       const int tid = item.get_local_id(0);
       if (tid < num2dNodes) {
 
         real* dofsFaceNodal = dofsFaceNodalPtrs[elementId];
-        constexpr auto ldINodal = linearDim<seissol::init::INodal<Cfg>>();
+        constexpr auto ldINodal = linearDim<Cfg, seissol::init::INodal<Cfg>>();
 
         const auto uInside = dofsFaceNodal[tid + (uIdx + 0) * ldINodal];
         const auto vInside = dofsFaceNodal[tid + (uIdx + 1) * ldINodal];
@@ -449,7 +449,7 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
             uInside - invImpedance * (rho * g * prevCoefficients[tid] + pressureInside);
         prevCoefficients[tid] = curCoeff;
 
-        constexpr auto ldFaceDisplacement = linearDim<seissol::init::faceDisplacement<Cfg>>();
+        constexpr auto ldFaceDisplacement = linearDim<Cfg, seissol::init::faceDisplacement<Cfg>>();
         static_assert(num2dNodes <= ldFaceDisplacement, "");
 
         real* rotatedFaceDisplacement = rotatedFaceDisplacementPtrs[elementId];
@@ -458,7 +458,7 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
         rotatedFaceDisplacement[tid + 2 * ldFaceDisplacement] += factorEvaluated * wInside;
 
         constexpr auto ldIntegratedFaceDisplacement =
-            linearDim<seissol::init::averageNormalDisplacement<Cfg>>();
+            linearDim<Cfg, seissol::init::averageNormalDisplacement<Cfg>>();
         static_assert(num2dNodes <= ldIntegratedFaceDisplacement, "");
 
         real* integratedDisplacementNodal = integratedDisplacementNodalPtrs[elementId];

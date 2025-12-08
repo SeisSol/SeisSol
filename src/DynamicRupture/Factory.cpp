@@ -174,7 +174,7 @@ class LinearSlipWeakeningTPApproxFactory : public AbstractFactory {
   template <typename Cfg>
   using SpecializationGpu = friction_law_gpu::TPApprox<Cfg>;
   template <typename Cfg>
-  using FrictionLawTypeGpu = friction_law_gpu::LinearSlipWeakeningLaw<Cfg, Specialization<Cfg>>;
+  using FrictionLawTypeGpu = friction_law_gpu::LinearSlipWeakeningLaw<Cfg, SpecializationGpu<Cfg>>;
 
   public:
   using AbstractFactory::AbstractFactory;
@@ -197,7 +197,7 @@ class ImposedSlipRatesYoffeFactory : public AbstractFactory {
   template <typename Cfg>
   using SpecializationGpu = friction_law_gpu::YoffeSTF<Cfg>;
   template <typename Cfg>
-  using FrictionLawTypeGpu = friction_law_gpu::ImposedSlipRates<Cfg, Specialization<Cfg>>;
+  using FrictionLawTypeGpu = friction_law_gpu::ImposedSlipRates<Cfg, SpecializationGpu<Cfg>>;
 
   public:
   using AbstractFactory::AbstractFactory;
@@ -220,7 +220,7 @@ class ImposedSlipRatesGaussianFactory : public AbstractFactory {
   template <typename Cfg>
   using SpecializationGpu = friction_law_gpu::GaussianSTF<Cfg>;
   template <typename Cfg>
-  using FrictionLawTypeGpu = friction_law_gpu::ImposedSlipRates<Cfg, Specialization<Cfg>>;
+  using FrictionLawTypeGpu = friction_law_gpu::ImposedSlipRates<Cfg, SpecializationGpu<Cfg>>;
 
   public:
   using AbstractFactory::AbstractFactory;
@@ -243,7 +243,7 @@ class ImposedSlipRatesDeltaFactory : public AbstractFactory {
   template <typename Cfg>
   using SpecializationGpu = friction_law_gpu::DeltaSTF<Cfg>;
   template <typename Cfg>
-  using FrictionLawTypeGpu = friction_law_gpu::ImposedSlipRates<Cfg, Specialization<Cfg>>;
+  using FrictionLawTypeGpu = friction_law_gpu::ImposedSlipRates<Cfg, SpecializationGpu<Cfg>>;
 
   public:
   using AbstractFactory::AbstractFactory;

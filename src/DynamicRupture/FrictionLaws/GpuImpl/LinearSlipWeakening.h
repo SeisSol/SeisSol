@@ -24,6 +24,9 @@ class LinearSlipWeakeningBase
   public:
   using real = Real<Cfg>;
 
+  explicit LinearSlipWeakeningBase(seissol::initializer::parameters::DRParameters* drParameters)
+      : BaseFrictionSolver<Cfg, LinearSlipWeakeningBase<Cfg, Derived>>(drParameters) {}
+
   std::unique_ptr<FrictionSolver> clone() override {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
   }
@@ -133,6 +136,9 @@ class LinearSlipWeakeningLaw
     : public LinearSlipWeakeningBase<Cfg, LinearSlipWeakeningLaw<Cfg, SpecializationT>> {
   public:
   using real = Real<Cfg>;
+
+  explicit LinearSlipWeakeningLaw(seissol::initializer::parameters::DRParameters* drParameters)
+      : LinearSlipWeakeningBase<Cfg, LinearSlipWeakeningLaw<Cfg, SpecializationT>>(drParameters) {}
 
   static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
