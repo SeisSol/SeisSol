@@ -140,7 +140,7 @@ void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
             unsupportedExample = model::MaterialTT<Cfg>::Text;
           }
         },
-        ConfigVariantList[config]);
+        config);
   }
 
   MPI_Allreduce(MPI_IN_PLACE,

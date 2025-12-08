@@ -53,6 +53,7 @@ class Neighbor : public NeighborKernel<Cfg> {
   kernel::gpu_neighborFluxExt<Cfg> deviceNfKrnlPrototype;
   kernel::gpu_neighbor<Cfg> deviceNKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux<Cfg> deviceDrKrnlPrototype;
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 };
 } // namespace seissol::kernels::solver::linearckanelastic

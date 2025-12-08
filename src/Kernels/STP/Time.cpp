@@ -265,8 +265,8 @@ void Spacetime<Cfg>::computeBatchedAder(
 
     std::size_t zinvOffset = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.Zinv);
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::Zinv<Cfg>>(); i++) {
-      krnl.Zinv(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::Zinv))->getDeviceDataPtrAs<real*>());
+      // krnl.Zinv(i) = const_cast<const real**>(
+      //     (entry.get(inner_keys::Wp::Id::Zinv))->getDeviceDataPtrAs<real*>());
       krnl.extraOffset_Zinv(i) = zinvOffset;
       zinvOffset += tensor::Zinv<Cfg>::size(i);
     }

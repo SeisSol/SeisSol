@@ -33,10 +33,10 @@ void ProxyKernelDeviceAder<Cfg>::run(ProxyData& predata,
   auto& data = static_cast<ProxyDataImpl<Cfg>&>(predata);
   auto& layer = data.ltsStorage.layer(data.layerId);
 
-  kernels::<Cfg>tmp(9.81);
+  kernels::LocalTmp<Cfg> tmp(9.81);
 
-  auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
-  auto& materialTable = layer.getConditionalTable<inner_keys::Material>();
+  auto& dataTable = layer.template getConditionalTable<inner_keys::Wp>();
+  auto& materialTable = layer.template getConditionalTable<inner_keys::Material>();
 
   ComputeGraphType graphType{ComputeGraphType::AccumulatedVelocities};
   auto computeGraphKey = initializer::GraphKey(graphType, Timestep, false);
@@ -55,9 +55,9 @@ void ProxyKernelDeviceLocalWOAder<Cfg>::run(
   auto& data = static_cast<ProxyDataImpl<Cfg>&>(predata);
   auto& layer = data.ltsStorage.layer(data.layerId);
 
-  auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
-  auto& materialTable = layer.getConditionalTable<inner_keys::Material>();
-  auto& indicesTable = layer.getConditionalTable<inner_keys::Indices>();
+  auto& dataTable = layer.template getConditionalTable<inner_keys::Wp>();
+  auto& materialTable = layer.template getConditionalTable<inner_keys::Material>();
+  auto& indicesTable = layer.template getConditionalTable<inner_keys::Indices>();
 
   ComputeGraphType graphType{ComputeGraphType::AccumulatedVelocities};
   auto computeGraphKey = initializer::GraphKey(graphType, Timestep, false);
@@ -76,9 +76,9 @@ void ProxyKernelDeviceLocal<Cfg>::run(ProxyData& predata,
 
   kernels::LocalTmp<Cfg> tmp(9.81);
 
-  auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
-  auto& materialTable = layer.getConditionalTable<inner_keys::Material>();
-  auto& indicesTable = layer.getConditionalTable<inner_keys::Indices>();
+  auto& dataTable = layer.template getConditionalTable<inner_keys::Wp>();
+  auto& materialTable = layer.template getConditionalTable<inner_keys::Material>();
+  auto& indicesTable = layer.template getConditionalTable<inner_keys::Indices>();
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
 
@@ -97,7 +97,7 @@ void ProxyKernelDeviceNeighbor<Cfg>::run(ProxyData& predata,
   auto& data = static_cast<ProxyDataImpl<Cfg>&>(predata);
   auto& layer = data.ltsStorage.layer(data.layerId);
 
-  auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
+  auto& dataTable = layer.template getConditionalTable<inner_keys::Wp>();
 
   const auto timeBasis = seissol::kernels::timeBasis<Cfg>();
   const auto timeCoeffs = timeBasis.integrate(0, Timestep, Timestep);
@@ -118,7 +118,7 @@ void ProxyKernelDeviceGodunovDR<Cfg>::run(
   auto& data = static_cast<ProxyDataImpl<Cfg>&>(predata);
   auto& layer = data.drStorage.layer(data.layerId);
 
-  auto& dataTable = layer.getConditionalTable<inner_keys::Dr>();
+  auto& dataTable = layer.template getConditionalTable<inner_keys::Dr>();
 
   const auto [timePoints, timeWeights] =
       seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, Timestep);
