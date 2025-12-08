@@ -39,16 +39,15 @@ class SevereVelocityWeakeningLaw
   // Note that we need double precision here, since single precision led to NaNs.
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& ctx,
                                                  double timeIncrement) {
+    const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
+    const real localSlipRate = ctx.initialVariables.localSlipRate;
 
-    const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
-    const double localSlipRate = ctx.initialVariables.localSlipRate;
-
-    const double steadyStateStateVariable = localSlipRate * localSl0 / ctx.data->drParameters.rsSr0;
+    const real steadyStateStateVariable = localSlipRate * localSl0 / ctx.data->drParameters.rsSr0;
 
     const double preexp1 = -ctx.data->drParameters.rsSr0 * (timeIncrement / localSl0);
     const double exp1v = std::exp(preexp1);
     const double exp1m = -std::expm1(preexp1);
-    const double localStateVariable =
+    const real localStateVariable =
         steadyStateStateVariable * exp1m + exp1v * ctx.initialVariables.stateVarReference;
 
     ctx.stateVariableBuffer = localStateVariable;
@@ -70,33 +69,33 @@ class SevereVelocityWeakeningLaw
   */
 
   struct MuDetails {
-    double a{};
-    double c{};
+    real a{};
+    real c{};
   };
 
   SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext<Cfg>& ctx,
-                                               double localStateVariable) {
-    const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
-    const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
-    const double c = ctx.data->b[ctx.ltsFace][ctx.pointIndex] * localStateVariable /
-                     (localStateVariable + localSl0);
+                                               real localStateVariable) {
+    const real localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
+    const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
+    const real c = ctx.data->b[ctx.ltsFace][ctx.pointIndex] * localStateVariable /
+                   (localStateVariable + localSl0);
     return MuDetails{localA, c};
   }
 
-  SEISSOL_DEVICE static double updateMu(FrictionLawContext<Cfg>& ctx,
-                                        double localSlipRateMagnitude,
-                                        const MuDetails& details) {
+  SEISSOL_DEVICE static real updateMu(FrictionLawContext<Cfg>& ctx,
+                                      real localSlipRateMagnitude,
+                                      const MuDetails& details) {
     return ctx.data->f0[ctx.ltsFace][ctx.pointIndex] +
            details.a * localSlipRateMagnitude /
                (localSlipRateMagnitude + ctx.data->drParameters.rsSr0) -
            details.c;
   }
 
-  SEISSOL_DEVICE static double updateMuDerivative(FrictionLawContext<Cfg>& ctx,
-                                                  double localSlipRateMagnitude,
-                                                  const MuDetails& details) {
+  SEISSOL_DEVICE static real updateMuDerivative(FrictionLawContext<Cfg>& ctx,
+                                                real localSlipRateMagnitude,
+                                                const MuDetails& details) {
     // note that: d/dx (x/(x+c)) = ((x+c)-x)/(x+c)**2 = c/(x+c)**2
-    const double divisor = (localSlipRateMagnitude + ctx.data->drParameters.rsSr0);
+    const real divisor = (localSlipRateMagnitude + ctx.data->drParameters.rsSr0);
     return details.a * ctx.data->drParameters.rsSr0 / (divisor * divisor);
   }
 
