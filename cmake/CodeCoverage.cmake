@@ -231,10 +231,11 @@ function(setup_target_for_coverage_lcov)
     set(multiValueArgs EXCLUDE EXECUTABLE EXECUTABLE_ARGS DEPENDENCIES LCOV_ARGS GENHTML_ARGS)
     cmake_parse_arguments(Coverage "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-    get_property(crosscompiling_emulator
-            TARGET ${Coverage_EXECUTABLE}
-            PROPERTY CROSSCOMPILING_EMULATOR
-            )
+    # if you supply seissol-serial-test or similar:
+    # get_property(crosscompiling_emulator
+    #        TARGET ${Coverage_EXECUTABLE}
+    #        PROPERTY CROSSCOMPILING_EMULATOR
+    #        )
 
     if(NOT LCOV_PATH)
         message(FATAL_ERROR "lcov not found! Aborting...")
