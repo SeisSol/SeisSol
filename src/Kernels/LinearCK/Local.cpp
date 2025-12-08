@@ -68,8 +68,6 @@ void Local<Cfg>::setGlobalData(const GlobalData& global) {
   m_projectRotatedKrnlPrototype.V3mTo2nFace = global.get<Cfg>().v3mTo2nFace;
 
 #ifdef ACL_DEVICE
-  assert(global.onDevice != nullptr);
-
   deviceVolumeKernelPrototype.kDivM = global.get<Cfg, Executor::Device>().stiffnessMatrices;
 #ifdef USE_PREMULTIPLY_FLUX
   deviceLocalFluxKernelPrototype.plusFluxMatrices =

@@ -46,7 +46,6 @@ template <typename Cfg>
 void DynamicRupture<Cfg>::setGlobalData(const GlobalData& global) {
   m_krnlPrototype.V3mTo2n = global.get<Cfg>().faceToNodalMatrices;
 #ifdef ACL_DEVICE
-  assert(global.onDevice != nullptr);
   m_gpuKrnlPrototype.V3mTo2n = global.get<Cfg, Executor::Device>().faceToNodalMatrices;
 #endif
 

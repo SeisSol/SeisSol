@@ -45,7 +45,7 @@ struct FrictionLawArgs {
   const Real<Cfg>* __restrict heatSource{nullptr};
 
   Real<Cfg> fullUpdateTime{};
-  double* timeWeights{nullptr};
+  double timeWeights[misc::TimeSteps<Cfg>]{};
   Real<Cfg> deltaT[misc::TimeSteps<Cfg>]{};
   Real<Cfg> sumDt{};
 };

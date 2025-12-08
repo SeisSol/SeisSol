@@ -56,8 +56,6 @@ void Neighbor<Cfg>::setGlobalData(const GlobalData& global) {
   m_drKrnlPrototype.V3mTo2nTWDivM = global.get<Cfg>().nodalFluxMatrices;
 
 #ifdef ACL_DEVICE
-  assert(global.onDevice != nullptr);
-
 #ifdef USE_PREMULTIPLY_FLUX
   deviceNfKrnlPrototype.minusFluxMatrices = global.get<Cfg, Executor::Device>().minusFluxMatrices;
 #else

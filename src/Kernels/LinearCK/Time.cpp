@@ -61,8 +61,6 @@ void Spacetime<Cfg>::setGlobalData(const GlobalData& global) {
   projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.get<Cfg>().v3mTo2nFace;
 
 #ifdef ACL_DEVICE
-  assert(global.onDevice != nullptr);
-
   deviceKrnlPrototype.kDivMT = global.get<Cfg, Executor::Device>().stiffnessMatricesTransposed;
   deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace =
       global.get<Cfg, Executor::Device>().v3mTo2nFace;
