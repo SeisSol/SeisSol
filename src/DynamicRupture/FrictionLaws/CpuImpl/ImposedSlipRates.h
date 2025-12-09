@@ -19,19 +19,16 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   public:
   using BaseFrictionLaw<ImposedSlipRates>::BaseFrictionLaw;
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup) {
-    const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSImposedSlipRates*>(dynRup);
-    imposedSlipDirection1 = layerData.var(concreteLts->imposedSlipDirection1);
-    imposedSlipDirection2 = layerData.var(concreteLts->imposedSlipDirection2);
-    stf.copyLtsTreeToLocal(layerData, dynRup);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {
+    imposedSlipDirection1 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>();
+    imposedSlipDirection2 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>();
+    stf.copyStorageToLocal(layerData);
   }
 
   void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
                              TractionResults<Executor::Host>& tractionResults,
-                             std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
-                             std::array<real, misc::NumPaddedPoints>& strengthBuffer,
+                             std::array<real, misc::NumPaddedPoints>& /*stateVariableBuffer*/,
+                             std::array<real, misc::NumPaddedPoints>& /*strengthBuffer*/,
                              std::size_t ltsFace,
                              uint32_t timeIndex) {
     const real timeIncrement = this->deltaT[timeIndex];
@@ -72,7 +69,7 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {}
   void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
   }
-  void saveDynamicStressOutput(std::size_t ltsFace) {}
+  void saveDynamicStressOutput(std::size_t ltsFace, real time) {}
 
   protected:
   real (*__restrict imposedSlipDirection1)[misc::NumPaddedPoints]{};

@@ -5,12 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "TimeBase.h"
+#include "Time.h"
 
-#ifndef NDEBUG
-extern long long libxsmm_num_total_flops;
-#endif
-
+#include "Common/Marker.h"
+#include "Equations/poroelastic/Model/PoroelasticSetup.h"
 #include "Kernels/Common.h"
 #include "Kernels/MemoryOps.h"
 
@@ -18,14 +16,15 @@ extern long long libxsmm_num_total_flops;
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
+#include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #endif
 
-#include "Equations/poroelastic/Model/PoroelasticSetup.h"
-
-#include <yateto.h>
+#ifndef NDEBUG
+extern long long libxsmm_num_total_flops;
+#endif
 
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
@@ -73,7 +72,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 }
 
 void Spacetime::executeSTP(double timeStepWidth,
-                           LocalData& data,
+                           LTS::Ref& data,
                            real timeIntegrated[tensor::I::size()],
                            real* stp)
 
@@ -90,19 +89,19 @@ void Spacetime::executeSTP(double timeStepWidth,
   real B_values[init::star::size(1)];
   real C_values[init::star::size(2)];
   for (std::size_t i = 0; i < init::star::size(0); i++) {
-    A_values[i] = timeStepWidth * data.localIntegration().starMatrices[0][i];
-    B_values[i] = timeStepWidth * data.localIntegration().starMatrices[1][i];
-    C_values[i] = timeStepWidth * data.localIntegration().starMatrices[2][i];
+    A_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[0][i];
+    B_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[1][i];
+    C_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[2][i];
   }
   krnl.star(0) = A_values;
   krnl.star(1) = B_values;
   krnl.star(2) = C_values;
 
-  krnl.Gk = data.localIntegration().specific.G[10] * timeStepWidth;
-  krnl.Gl = data.localIntegration().specific.G[11] * timeStepWidth;
-  krnl.Gm = data.localIntegration().specific.G[12] * timeStepWidth;
+  krnl.Gk = data.get<LTS::LocalIntegration>().specific.G[10] * timeStepWidth;
+  krnl.Gl = data.get<LTS::LocalIntegration>().specific.G[11] * timeStepWidth;
+  krnl.Gm = data.get<LTS::LocalIntegration>().specific.G[12] * timeStepWidth;
 
-  krnl.Q = const_cast<real*>(data.dofs());
+  krnl.Q = const_cast<real*>(data.get<LTS::Dofs>());
   krnl.I = timeIntegrated;
   krnl.timestep = timeStepWidth;
   krnl.spaceTimePredictor = stp;
@@ -111,8 +110,9 @@ void Spacetime::executeSTP(double timeStepWidth,
   // The matrix Zinv depends on the timestep
   // If the timestep is not as expected e.g. when approaching a sync point
   // we have to recalculate it
-  if (timeStepWidth != data.localIntegration().specific.typicalTimeStepWidth) {
-    auto sourceMatrix = init::ET::view::create(data.localIntegration().specific.sourceMatrix);
+  if (timeStepWidth != data.get<LTS::LocalIntegration>().specific.typicalTimeStepWidth) {
+    auto sourceMatrix =
+        init::ET::view::create(data.get<LTS::LocalIntegration>().specific.sourceMatrix);
     real ZinvData[seissol::model::MaterialT::NumQuantities][ConvergenceOrder * ConvergenceOrder];
     model::zInvInitializerForLoop<0,
                                   seissol::model::MaterialT::NumQuantities,
@@ -124,7 +124,7 @@ void Spacetime::executeSTP(double timeStepWidth,
     krnl.execute();
   } else {
     for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
-      krnl.Zinv(i) = data.localIntegration().specific.Zinv[i];
+      krnl.Zinv(i) = data.get<LTS::LocalIntegration>().specific.Zinv[i];
     }
     krnl.execute();
   }
@@ -132,7 +132,7 @@ void Spacetime::executeSTP(double timeStepWidth,
 
 void Spacetime::computeAder(const real* coeffs,
                             double timeStepWidth,
-                            LocalData& data,
+                            LTS::Ref& data,
                             LocalTmp& tmp,
                             real timeIntegrated[tensor::I::size()],
                             real* timeDerivatives,
@@ -140,7 +140,7 @@ void Spacetime::computeAder(const real* coeffs,
   /*
    * assert alignments.
    */
-  assert((reinterpret_cast<uintptr_t>(data.dofs())) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0 ||
          timeDerivatives == NULL);
@@ -179,14 +179,17 @@ std::uint64_t Spacetime::bytesAder() {
   return reals * sizeof(real);
 }
 
-void Spacetime::computeBatchedAder(const real* coeffs,
-                                   double timeStepWidth,
-                                   LocalTmp& tmp,
-                                   ConditionalPointersToRealsTable& dataTable,
-                                   ConditionalMaterialTable& materialTable,
-                                   bool updateDisplacement,
-                                   seissol::parallel::runtime::StreamRuntime& runtime) {
+void Spacetime::computeBatchedAder(
+    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM LocalTmp& tmp,
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
+    SEISSOL_GPU_PARAM bool updateDisplacement,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
   kernel::gpu_spaceTimePredictor krnl = deviceKrnlPrototype;
 
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);

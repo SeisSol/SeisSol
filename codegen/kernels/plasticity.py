@@ -55,6 +55,8 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         iShape,
     )
 
+
+    iShape = (numberOfNodes, 6)
     QStressNodal = OptionalDimTensor(
         "QStressNodal",
         aderdg.Q.optName(),

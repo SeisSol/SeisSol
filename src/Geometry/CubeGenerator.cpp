@@ -6,14 +6,14 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "CubeGenerator.h"
-#include "utils/logger.h"
 
+#include "Common/Constants.h"
+#include "Geometry/MeshDefinition.h"
+#include "Initializer/Parameters/CubeGeneratorParameters.h"
+#include "MeshReader.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
 
-#include <Common/Constants.h>
-#include <Geometry/MeshDefinition.h>
-#include <Initializer/Parameters/CubeGeneratorParameters.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -24,9 +24,8 @@
 #include <mpi.h>
 #include <string>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
-
-#include "MeshReader.h"
 
 namespace {
 using TVertex = std::array<int, 3>;
@@ -84,6 +83,12 @@ std::pair<B, A> flip_pair(const std::pair<A, B>& p) {
 } // anonymous namespace
 
 namespace seissol::geometry {
+
+// ignore the function size problem for now.
+// The whole cube generator will need to be completely revamped anyways.
+// (maybe by copying PUMLcube?)
+
+// NOLINTBEGIN (-google-readability-function-size)
 
 CubeGenerator::CubeGenerator(
     int rank,
@@ -224,7 +229,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   // Setup MPI Communicator
   MPI_Comm commMaster = MPI_COMM_NULL;
-  MPI_Comm_split(seissol::MPI::mpi.comm(), rank % 1 == 0 ? 1 : MPI_UNDEFINED, rank, &commMaster);
+  MPI_Comm_split(seissol::Mpi::mpi.comm(), rank % 1 == 0 ? 1 : MPI_UNDEFINED, rank, &commMaster);
 
   size_t bndSize = -1;
   size_t bndElemSize = -1;
@@ -1164,7 +1169,6 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   int* bndElemSizePtr = new int[numPartitions[3] * bndSize];
   int* bndElemRankPtr = new int[numPartitions[3] * bndSize];
   int* bndElemLocalIdsPtr = new int[numPartitions[3] * bndSize * bndElemSize];
-  int* elemMPIIndicesPtr = new int[numPartitions[3] * numElemPerPart[3] * 4];
 
   const int bndSizeGlobal = bndSize;
 
@@ -1527,12 +1531,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   // Get maximum number of neighbors (required to get collective MPI-IO right)
   const int maxNeighbors = bndSize;
-  // MPI_Allreduce(MPI_IN_PLACE, &maxNeighbors, 1, MPI_INT, MPI_MAX, seissol::MPI::mpi.comm());
   int* bndElemLocalIds = new int[bndElemSize];
-
-  //        SCOREP_USER_REGION_DEFINE( r_read_boundaries );
-  //        SCOREP_USER_REGION_BEGIN( r_read_boundaries, "read_boundaries",
-  //        SCOREP_USER_REGION_TYPE_COMMON );
 
   size_t bndStart[3] = {0, 0, 0};
   for (int i = 0; i < maxNeighbors; i++) {
@@ -1558,15 +1557,12 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   delete[] bndLocalIds;
   delete[] bndElemLocalIds;
 
-  //        SCOREP_USER_REGION_END( r_read_boundaries )
-
   delete[] sizes;
 
   delete[] bndSizePtr;
   delete[] bndElemSizePtr;
   delete[] bndElemRankPtr;
   delete[] bndElemLocalIdsPtr;
-  delete[] elemMPIIndicesPtr;
 
   // Close MPI communicator
   MPI_Comm_free(&commMaster);
@@ -1576,6 +1572,8 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   logInfo() << "Finished";
 }
+
+// NOLINTEND
 
 void CubeGenerator::findElementsPerVertex() {
   for (auto& element : m_elements) {

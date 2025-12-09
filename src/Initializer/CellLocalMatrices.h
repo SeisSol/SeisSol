@@ -11,13 +11,11 @@
 
 #include "Geometry/MeshReader.h"
 #include "Initializer/Parameters/ModelParameters.h"
+#include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/Boundary.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Lut.h"
-#include <Initializer/TimeStepping/ClusterLayout.h>
+#include "Memory/Tree/Backmap.h"
 
 namespace seissol::initializer {
 class EasiBoundary;
@@ -25,27 +23,19 @@ class EasiBoundary;
  * Computes the star matrices A*, B*, and C*, and solves the Riemann problems at the interfaces.
  **/
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
-                                 LTSTree* ltsTree,
-                                 LTS* lts,
-                                 Lut* ltsLut,
+                                 LTS::Storage& ltsStorage,
                                  const ClusterLayout& clusterLayout,
                                  const parameters::ModelParameters& modelParameters);
 
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
                                 const EasiBoundary* easiBoundary,
-                                LTSTree* ltsTree,
-                                LTS* lts,
-                                Lut* ltsLut);
+                                LTS::Storage& ltsStorage);
 
 void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,
-                                      LTSTree* ltsTree,
-                                      LTS* lts,
-                                      Lut* ltsLut,
-                                      LTSTree* dynRupTree,
-                                      DynamicRupture* dynRup,
-                                      unsigned* ltsFaceToMeshFace,
-                                      const GlobalData& global,
-                                      double etaHack);
+                                      LTS::Storage& ltsStorage,
+                                      const LTS::Backmap& backmap,
+                                      DynamicRupture::Storage& drStorage);
+
 } // namespace seissol::initializer
 
 #endif // SEISSOL_SRC_INITIALIZER_CELLLOCALMATRICES_H_

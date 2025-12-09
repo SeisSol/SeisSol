@@ -13,15 +13,16 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Kernels/LinearCK/Solver.h"
 #include "Model/CommonDatastructures.h"
-#include <Kernels/LinearCK/Solver.h>
+
 #include <array>
 #include <cstddef>
 #include <string>
 
 namespace seissol::model {
-class AnisotropicLocalData;
-class AnisotropicNeighborData;
+struct AnisotropicLocalData;
+struct AnisotropicNeighborData;
 
 struct AnisotropicMaterial : public Material {
   static constexpr std::size_t NumQuantities = 9;
@@ -42,27 +43,27 @@ struct AnisotropicMaterial : public Material {
   using NeighborSpecificData = AnisotropicNeighborData;
   using Solver = kernels::solver::linearck::Solver;
 
-  double c11;
-  double c12;
-  double c13;
-  double c14;
-  double c15;
-  double c16;
-  double c22;
-  double c23;
-  double c24;
-  double c25;
-  double c26;
-  double c33;
-  double c34;
-  double c35;
-  double c36;
-  double c44;
-  double c45;
-  double c46;
-  double c55;
-  double c56;
-  double c66;
+  double c11{};
+  double c12{};
+  double c13{};
+  double c14{};
+  double c15{};
+  double c16{};
+  double c22{};
+  double c23{};
+  double c24{};
+  double c25{};
+  double c26{};
+  double c33{};
+  double c34{};
+  double c35{};
+  double c36{};
+  double c44{};
+  double c45{};
+  double c46{};
+  double c55{};
+  double c56{};
+  double c66{};
 
   [[nodiscard]] double getLambdaBar() const override;
 

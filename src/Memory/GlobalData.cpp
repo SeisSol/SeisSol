@@ -7,14 +7,17 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "GlobalData.h"
+
+#include "Common/Marker.h"
+#include "DynamicRupture/FrictionLaws/TPCommon.h"
+#include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Memory/MemoryAllocator.h"
 #include "Parallel/OpenMP.h"
-#include <DynamicRupture/FrictionLaws/TPCommon.h>
-#include <DynamicRupture/Misc.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Memory/MemoryAllocator.h>
+
 #include <cassert>
 #include <cstddef>
 #include <yateto.h>
@@ -37,7 +40,7 @@ void OnHost::negateStiffnessMatrix(GlobalData& globalData) {
 
 void OnHost::initSpecificGlobalData(GlobalData& globalData,
                                     memory::ManagedAllocator& allocator,
-                                    CopyManagerT& copyManager,
+                                    CopyManagerT& /*copyManager*/,
                                     size_t alignment,
                                     seissol::memory::Memkind memkind) {
   // thread-local LTS integration buffers
@@ -84,14 +87,16 @@ void OnDevice::negateStiffnessMatrix(GlobalData& globalData) {
   }
 #endif // ACL_DEVICE
 }
-void OnDevice::initSpecificGlobalData(GlobalData& globalData,
-                                      memory::ManagedAllocator& allocator,
-                                      CopyManagerT& copyManager,
-                                      size_t alignment,
-                                      seissol::memory::Memkind memkind) {
+void OnDevice::initSpecificGlobalData(GlobalData& /*globalData*/,
+                                      memory::ManagedAllocator& /*allocator*/,
+                                      CopyManagerT& /*copyManager*/,
+                                      size_t /*alignment*/,
+                                      seissol::memory::Memkind /*memkind*/) {
 }
 
-real* OnDevice::DeviceCopyPolicy::copy(const real* first, const real* last, real*& mem) {
+real* OnDevice::DeviceCopyPolicy::copy(SEISSOL_GPU_PARAM const real* first,
+                                       SEISSOL_GPU_PARAM const real* last,
+                                       SEISSOL_GPU_PARAM real*& mem) {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   const std::size_t bytes = (last - first) * sizeof(real);
@@ -218,7 +223,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                         data.data().data(),
                                         dr::misc::NumTpGridPoints,
                                         memkind,
-                                        memory::Standard);
+                                        memory::Memkind::Standard);
   }
 
   {
@@ -230,7 +235,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                         data.data().data(),
                                         dr::misc::NumTpGridPoints,
                                         memkind,
-                                        memory::Standard);
+                                        memory::Memkind::Standard);
   }
 
   {
@@ -244,7 +249,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                         data.data().data(),
                                         dr::misc::NumTpGridPoints,
                                         memkind,
-                                        memory::Standard);
+                                        memory::Memkind::Standard);
   }
 
   assert(globalMatrixMemPtr == globalMatrixMem + globalMatrixMemSize);
@@ -262,6 +267,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   real* drGlobalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory(
       drGlobalMatrixMemSize * sizeof(real), prop.pagesizeHeap, memkind));
 
+  // NOLINTNEXTLINE(misc-const-correctness)
   real* drGlobalMatrixMemPtr = drGlobalMatrixMem;
   copyManager.template copyFamilyToMemAndSetPtr<init::V3mTo2nTWDivM>(
       drGlobalMatrixMemPtr, globalData.nodalFluxMatrices, prop.alignment);
@@ -280,6 +286,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   real* plasticityGlobalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory(
       plasticityGlobalMatrixMemSize * sizeof(real), prop.pagesizeHeap, memkind));
 
+  // NOLINTNEXTLINE(misc-const-correctness)
   real* plasticityGlobalMatrixMemPtr = plasticityGlobalMatrixMem;
   copyManager.template copyTensorToMemAndSetPtr<init::v>(
       plasticityGlobalMatrixMemPtr, globalData.vandermondeMatrix, prop.alignment);

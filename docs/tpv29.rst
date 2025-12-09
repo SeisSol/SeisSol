@@ -16,7 +16,7 @@ interface** (Figure [fig:tpv29]). The fault surface has 3D stochastic
 geometrical roughness (blue and red colors). In TPV 29, the surrounding
 rocks respond elastically.
 
-.. figure:: LatexFigures/tpv29.png
+.. figure:: figures/tpv29.png
    :alt: Diagram of TPV 29.
    :width: 9.00000cm
    :align: center
@@ -48,7 +48,7 @@ Using `generate_mytopo_tpv29.py <https://github.com/SeisSol/Examples/blob/master
 2.Make a model with plane fault as Figure [fig:tpv29geo]. The Gmsh
 tpv29.geo file can be found at https://github.com/SeisSol/Examples/blob/master/tpv29/tpv29.geo.
 
-.. figure:: LatexFigures/tpv29geo.png
+.. figure:: figures/tpv29geo.png
    :alt: Diagram showing the geometry of TPV 29.
    :width: 11.00000cm
    :align: center
@@ -67,7 +67,7 @@ This will generate a step1\_modified.msh file which containing rough fault surfa
 4.Make a new step2.geo file that contains the new rough fault and mesh
 following general Gmsh process.
 
-.. figure:: LatexFigures/tpv29mesh.png
+.. figure:: figures/tpv29mesh.png
    :alt: Diagram showing the geometry of TPV 29.
    :width: 11.00000cm
    :align: center
@@ -219,10 +219,9 @@ Results
 The earthquake rupture is artificially nucleated in a circular zone on
 the fault surface.
 
-.. figure:: LatexFigures/tpv29_srs.png
+.. figure:: figures/tpv29_srs.png
    :alt: Snapshot of slip rate along the strike
    :width: 11.00000cm
    :align: center
 
    Snapshot of slip rate along the strike at T=3 s in TPV 29. The fault has a rough surface.
-

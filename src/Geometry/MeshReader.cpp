@@ -7,23 +7,25 @@
 
 #include "MeshReader.h"
 
+#include "Common/Constants.h"
+#include "Common/Iterator.h"
+#include "Initializer/ParameterDB.h"
+#include "Initializer/Parameters/DRParameters.h"
+#include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "MeshDefinition.h"
 #include "MeshTools.h"
-
-#include "PUML/TypeInference.h"
 #include "Parallel/MPI.h"
-#include <Common/Constants.h>
-#include <Common/Iterator.h>
-#include <Initializer/ParameterDB.h>
-#include <Initializer/Parameters/DRParameters.h>
-#include <Initializer/TimeStepping/GlobalTimestep.h>
-#include <SeisSol.h>
+#include "SeisSol.h"
+
+#include <Eigen/Core>
+#include <PUML/TypeInference.h>
 #include <algorithm>
 #include <cstddef>
 #include <map>
 #include <mpi.h>
 #include <unordered_map>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::geometry {
@@ -52,6 +54,14 @@ const std::vector<Fault>& MeshReader::getFault() const { return m_fault; }
 bool MeshReader::hasFault() const { return !m_fault.empty(); }
 
 bool MeshReader::hasPlusFault() const { return m_hasPlusFault; }
+
+const std::vector<LinearGhostCell>& MeshReader::linearGhostlayer() const {
+  return m_linearGhostlayer;
+}
+
+const std::map<std::pair<int, std::size_t>, std::size_t>& MeshReader::toLinearGhostlayer() const {
+  return m_toLinearGhostlayer;
+}
 
 void MeshReader::displaceMesh(const Eigen::Vector3d& displacement) {
   for (std::size_t vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
@@ -254,7 +264,7 @@ void MeshReader::exchangeGhostlayerMetadata() {
   std::unordered_map<int, std::vector<GhostElementMetadata>> recvData;
 
   constexpr int Tag = 10;
-  MPI_Comm comm = seissol::MPI::mpi.comm();
+  MPI_Comm comm = seissol::Mpi::mpi.comm();
 
   std::vector<MPI_Request> requests(m_MPINeighbors.size() * 2);
 
@@ -337,6 +347,26 @@ void MeshReader::exchangeGhostlayerMetadata() {
   MPI_Type_free(&ghostElementType);
 }
 
+void MeshReader::linearizeGhostlayer() {
+  m_linearGhostlayer.clear();
+  m_toLinearGhostlayer.clear();
+
+  // basic assumption: each cell appears only on exactly one rank
+  for (const auto& [rank, cells] : m_ghostlayerMetadata) {
+    // map for deterministic ordering (for now)
+    std::map<std::size_t, std::vector<std::size_t>> ordering;
+    for (std::size_t i = 0; i < cells.size(); ++i) {
+      ordering[cells[i].globalId].emplace_back(i);
+    }
+    for (const auto& [_, ids] : ordering) {
+      for (const auto& index : ids) {
+        m_toLinearGhostlayer[{rank, index}] = m_linearGhostlayer.size();
+      }
+      m_linearGhostlayer.push_back(LinearGhostCell{ids, rank});
+    }
+  }
+}
+
 void MeshReader::computeTimestepIfNecessary(const seissol::SeisSol& seissolInstance) {
   if (!inlineTimestepCompute()) {
     const auto ctvarray = seissol::initializer::CellToVertexArray::fromMeshReader(*this);
@@ -348,6 +378,39 @@ void MeshReader::computeTimestepIfNecessary(const seissol::SeisSol& seissolInsta
       // enforce GTS in the case here
       cell.clusterId = 0;
     }
+  }
+}
+
+void MeshReader::verifyMeshOrientation() {
+  // for now, only check the tetrahedron orientation here
+
+  bool correct = true;
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+  for (std::size_t i = 0; i < m_elements.size(); ++i) {
+    const auto& element = m_elements[i];
+
+    // check orientation
+    Eigen::Matrix<double, 4, 4> mat;
+    const auto& v1 = m_vertices[element.vertices[0]].coords;
+    const auto& v2 = m_vertices[element.vertices[1]].coords;
+    const auto& v3 = m_vertices[element.vertices[2]].coords;
+    const auto& v4 = m_vertices[element.vertices[3]].coords;
+
+    mat << v1[0], v1[1], v1[2], 1, v2[0], v2[1], v2[2], 1, v3[0], v3[1], v3[2], 1, v4[0], v4[1],
+        v4[2], 1;
+
+    if (mat.determinant() >= 0) {
+      logWarning()
+          << "The cell" << i
+          << "has an incorrect orientation. Thus, SeisSol would produce incorrect results.";
+      correct = false;
+    }
+  }
+
+  if (!correct) {
+    logError() << "There are geometric problems with the given mesh.";
   }
 }
 

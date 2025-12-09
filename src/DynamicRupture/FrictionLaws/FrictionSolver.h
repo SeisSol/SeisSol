@@ -11,6 +11,7 @@
 #include "DynamicRupture/Misc.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/Runtime/Stream.h"
+
 #include <vector>
 
 namespace seissol::dr::friction_law {
@@ -34,17 +35,16 @@ class FrictionSolver {
   virtual ~FrictionSolver() = default;
 
   struct FrictionTime {
-    real sumDt;
-    std::vector<real> deltaT;
+    double sumDt;
+    std::vector<double> deltaT;
   };
 
-  virtual void setupLayer(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup,
+  virtual void setupLayer(DynamicRupture::Layer& layerData,
                           seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   virtual void evaluate(real fullUpdateTime,
                         const FrictionTime& frictionTime,
-                        const double timeWeights[ConvergenceOrder],
+                        const double* timeWeights,
                         seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   /**
@@ -56,8 +56,7 @@ class FrictionSolver {
   /**
    * copies all common parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData);
 
   virtual void allocateAuxiliaryMemory(GlobalData* globalData) {}
 
@@ -70,7 +69,7 @@ class FrictionSolver {
    * Adjust initial stress by adding nucleation stress * nucleation function
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf.
    */
-  real deltaT[ConvergenceOrder] = {};
+  real deltaT[misc::TimeSteps] = {};
   real sumDt{};
 
   seissol::initializer::parameters::DRParameters* __restrict drParameters;
@@ -79,8 +78,7 @@ class FrictionSolver {
   real mFullUpdateTime{};
   // CS = coordinate system
   real (*__restrict initialStressInFaultCS)[6][misc::NumPaddedPoints]{};
-  real (*__restrict nucleationStressInFaultCS[seissol::initializer::parameters::MaxNucleactions])
-      [6][misc::NumPaddedPoints]{};
+  real (*__restrict nucleationStressInFaultCS)[6][misc::NumPaddedPoints]{};
   real (*__restrict cohesion)[misc::NumPaddedPoints]{};
   real (*__restrict mu)[misc::NumPaddedPoints]{};
   real (*__restrict accumulatedSlipMagnitude)[misc::NumPaddedPoints]{};
@@ -100,15 +98,14 @@ class FrictionSolver {
   DREnergyOutput* __restrict energyData{};
   DRGodunovData* __restrict godunovData{};
   real (*__restrict initialPressure)[misc::NumPaddedPoints]{};
-  real (*__restrict nucleationPressure[initializer::parameters::MaxNucleactions])
-      [misc::NumPaddedPoints]{};
+  real (*__restrict nucleationPressure)[misc::NumPaddedPoints]{};
 
   // be careful only for some FLs initialized:
   real (*__restrict dynStressTime)[misc::NumPaddedPoints]{};
   bool (*__restrict dynStressTimePending)[misc::NumPaddedPoints]{};
 
-  real (*__restrict qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
-  real (*__restrict qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
+  real (*__restrict qInterpolatedPlus)[misc::TimeSteps][tensor::QInterpolated::size()]{};
+  real (*__restrict qInterpolatedMinus)[misc::TimeSteps][tensor::QInterpolated::size()]{};
 };
 } // namespace seissol::dr::friction_law
 

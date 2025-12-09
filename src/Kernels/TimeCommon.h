@@ -11,6 +11,7 @@
 #define SEISSOL_SRC_KERNELS_TIMECOMMON_H_
 
 #include "GeneratedCode/tensor.h"
+#include "Initializer/LtsSetup.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Solver.h"
 
@@ -45,8 +46,8 @@ struct TimeCommon {
    *(either local integration buffer or integration buffer of input).
    **/
   static void computeIntegrals(Time& time,
-                               unsigned short ltsSetup,
-                               const FaceType faceTypes[4],
+                               const LtsSetup& ltsSetup,
+                               const std::array<FaceType, Cell::NumFaces>& faceTypes,
                                const real* timeCoeffs,
                                const real* subtimeCoeffs,
                                real* const timeDofs[4],
@@ -56,7 +57,7 @@ struct TimeCommon {
   static void computeBatchedIntegrals(Time& time,
                                       const real* timeCoeffs,
                                       const real* subtimeCoeffs,
-                                      ConditionalPointersToRealsTable& table,
+                                      recording::ConditionalPointersToRealsTable& table,
                                       seissol::parallel::runtime::StreamRuntime& runtime);
 
   TimeCommon() = delete;

@@ -9,18 +9,17 @@
 #ifndef SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_
 #define SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_
 
+#include "Common/Constants.h"
+#include "Functions.h"
 #include "GeneratedCode/init.h"
-#include <Common/Constants.h>
+#include "Transformation.h"
+
 #include <cmath>
 #include <numeric>
 #include <type_traits>
 #include <vector>
 
-#include "Functions.h"
-#include "Transformation.h"
-
-namespace seissol {
-namespace basisFunction {
+namespace seissol::basisFunction {
 
 //------------------------------------------------------------------------------
 
@@ -114,15 +113,13 @@ inline unsigned int basisFunctionsForOrder(unsigned int order) {
  */
 template <class T>
 class SampledBasisFunctions {
-  static_assert(std::is_arithmetic<T>::value,
-                "Type T for SampledBasisFunctions must be arithmetic.");
+  static_assert(std::is_arithmetic_v<T>, "Type T for SampledBasisFunctions must be arithmetic.");
 
   public:
   /** The basis function samples */
   std::vector<T> m_data{};
 
-  public:
-  SampledBasisFunctions() {};
+  SampledBasisFunctions() = default;
   /**
    * Constructor to generate the sampled basis functions of given order
    * and at a given point in the reference tetrahedron.
@@ -134,16 +131,18 @@ class SampledBasisFunctions {
    */
   SampledBasisFunctions(unsigned int order, T xi, T eta, T zeta)
       : m_data(basisFunctionsForOrder(order)) {
-    BasisFunctionGenerator<T> gen(xi, eta, zeta);
+    const BasisFunctionGenerator<T> gen(xi, eta, zeta);
 
     unsigned int i = 0;
-    for (unsigned int ord = 0; ord < order; ord++)
-      for (unsigned int k = 0; k <= ord; k++)
-        for (unsigned int j = 0; j <= ord - k; j++)
+    for (unsigned int ord = 0; ord < order; ord++) {
+      for (unsigned int k = 0; k <= ord; k++) {
+        for (unsigned int j = 0; j <= ord - k; j++) {
           m_data[i++] = gen(ord - j - k, j, k);
+        }
+      }
+    }
   }
 
-  public:
   /**
    * Function to evaluate the samples by multiplying the sampled Basis
    * function with its coefficient and summing up the products.
@@ -158,7 +157,7 @@ class SampledBasisFunctions {
   /**
    * Returns the amount of Basis functions this class represents.
    */
-  unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
 };
 
 //------------------------------------------------------------------------------
@@ -169,8 +168,7 @@ class SampledBasisFunctions {
  */
 template <class T>
 class SampledBasisFunctionDerivatives {
-  static_assert(std::is_arithmetic<T>::value,
-                "Type T for SampledBasisFunctions must be arithmetic.");
+  static_assert(std::is_arithmetic_v<T>, "Type T for SampledBasisFunctions must be arithmetic.");
 
   public:
   /**
@@ -179,8 +177,7 @@ class SampledBasisFunctionDerivatives {
    */
   std::vector<T> m_data{};
 
-  public:
-  SampledBasisFunctionDerivatives() {};
+  SampledBasisFunctionDerivatives() = default;
   /**
    * Constructor to generate the sampled basis functions of given order
    * and at a given point in the reference tetrahedron.
@@ -192,7 +189,7 @@ class SampledBasisFunctionDerivatives {
    */
   SampledBasisFunctionDerivatives(unsigned int order, T xi, T eta, T zeta)
       : m_data(3 * basisFunctionsForOrder(order)) {
-    BasisFunctionDerivativeGenerator<T> gen(xi, eta, zeta);
+    const BasisFunctionDerivativeGenerator<T> gen(xi, eta, zeta);
     auto dataView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
 
     unsigned int i = 0;
@@ -251,7 +248,7 @@ class SampledBasisFunctionDerivatives {
   /**
    * Returns the amount of Basis functions this class represents.
    */
-  unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
 };
 
 //==============================================================================
@@ -266,20 +263,19 @@ class TimeBasisFunctionGenerator {
   }
 
   public:
-  TimeBasisFunctionGenerator(T tau) : tau_(tau) {}
+  explicit TimeBasisFunctionGenerator(T tau) : tau_(tau) {}
 
   T operator()(unsigned int i) const { return functions::DubinerP<1>({i}, {tau_}); }
 };
 
 template <class T>
 class SampledTimeBasisFunctions {
-  static_assert(std::is_arithmetic<T>::value,
+  static_assert(std::is_arithmetic_v<T>,
                 "Type T for SampledTimeBasisFunctions must be arithmetic.");
 
   public:
   std::vector<T> m_data;
 
-  public:
   SampledTimeBasisFunctions(unsigned int order, T tau) : m_data(order) {
     TimeBasisFunctionGenerator<T> gen(tau);
 
@@ -293,7 +289,7 @@ class SampledTimeBasisFunctions {
     return std::inner_product(m_data.begin(), m_data.end(), coeffIter, static_cast<T>(0));
   }
 
-  unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
 };
 
 namespace tri_dubiner {
@@ -320,7 +316,6 @@ inline void evaluateGradPolynomials(double* phis, double xi, double eta, int num
   }
 }
 } // namespace tri_dubiner
-} // namespace basisFunction
-} // namespace seissol
+} // namespace seissol::basisFunction
 
 #endif // SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_

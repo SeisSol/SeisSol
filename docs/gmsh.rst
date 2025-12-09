@@ -217,7 +217,7 @@ The format of step2.geo is following:
 
 The new geometry with topography:
 
-.. figure:: LatexFigures/GmshTopo.jpg
+.. figure:: figures/GmshTopo.jpg
    :alt: Diagram showing the mesh with topography.
    :width: 11.00000cm
 
@@ -229,4 +229,3 @@ The new geometry with topography:
   & gmsh step2.geo -3 -optimize_netgen -o step2.msh
 
 option optimize_netgen is necessary for optimizing meshing with good quality.
-

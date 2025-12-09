@@ -8,7 +8,8 @@
 #ifndef SEISSOL_SRC_PROXY_COMMON_H_
 #define SEISSOL_SRC_PROXY_COMMON_H_
 
-#include <Common/Executor.h>
+#include "Common/Executor.h"
+
 #include <string>
 #include <vector>
 

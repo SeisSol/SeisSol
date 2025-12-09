@@ -91,7 +91,7 @@ At this point we have 2 connected surfaces, subduction interface and terminal sp
 This sharp angle can be smoothed by extracting the discrete mesh as inp file (see :ref:`Remeshing the topography`), converting to ts and applying the refine_and_smooth_mesh.py script.
 
 
-.. figure:: LatexFigures/Tohoku_building_fault_model.png
+.. figure:: figures/Tohoku_building_fault_model.png
    :alt: Discrete surface for generating Tohoku's fault model
    :width: 11.00000cm
    :align: center
@@ -108,13 +108,11 @@ Finally, we create a box mesh box domain with pygmsh as follow:
 
     generate_box.py --proj "$myproj" --rangeFromTopo $topofile tmp/box.stl --zdim " -500e3" 5e3 --shrink 0.9
 
-The final step consists in intersecting all objects (topography, faults and domain box) in the GUI of SimModeler, as presented in :doc:`simmodelerCAD-workflow`.
+The final step consists in intersecting all objects (topography, faults and domain box) in the GUI of SimModeler, as presented in :doc:`simmodeler-cad-workflow`.
 
-.. figure:: LatexFigures/Tohoku_final_cut_view.png
+.. figure:: figures/Tohoku_final_cut_view.png
    :alt: Cut view of the final Tohoku's model
    :width: 11.00000cm
    :align: center
 
    Cut view of the final Tohoku's model
-
-

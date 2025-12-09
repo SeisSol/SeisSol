@@ -7,12 +7,13 @@
 
 #include "Writer.h"
 
+#include "IO/Writer/File/BinaryWriter.h"
+#include "IO/Writer/File/Hdf5Writer.h"
+#include "IO/Writer/Instructions/Binary.h"
+#include "IO/Writer/Instructions/Hdf5.h"
 #include "Instructions/Instruction.h"
-#include "async/ExecInfo.h"
-#include <IO/Writer/File/BinaryWriter.h>
-#include <IO/Writer/File/Hdf5Writer.h>
-#include <IO/Writer/Instructions/Binary.h>
-#include <IO/Writer/Instructions/Hdf5.h>
+
+#include <async/ExecInfo.h>
 #include <memory>
 #include <mpi.h>
 #include <sstream>
@@ -68,8 +69,8 @@ std::string Writer::serialize() {
   return sstr.str();
 }
 
-WriteInstance Writer::beginWrite(const async::ExecInfo& info) {
-  WriteInstance instance(MPI_COMM_WORLD);
+WriteInstance Writer::beginWrite(const async::ExecInfo& info, MPI_Comm comm) {
+  WriteInstance instance(comm);
   for (const auto& instruction : instructions) {
     instance.write(info, instruction);
   }

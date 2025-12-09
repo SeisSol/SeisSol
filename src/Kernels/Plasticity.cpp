@@ -9,28 +9,31 @@
 
 #include "Plasticity.h"
 
+#include "Alignment.h"
+#include "Common/Marker.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-#include <Alignment.h>
-#include <DataTypes/ConditionalTable.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Model/Plasticity.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Model/Plasticity.h"
+#include "Parallel/Runtime/Stream.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
-
-#include "utils/logger.h"
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "DeviceAux/PlasticityAux.h"
-#include "device.h"
-#include <DataTypes/ConditionalKey.h>
-#include <DataTypes/EncodedConstants.h>
-#include <Solver/MultipleSimulations.h>
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Solver/MultipleSimulations.h"
+
+#include <Device/device.h>
 using namespace device;
 #endif
 
@@ -243,15 +246,18 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 }
 
 void Plasticity::computePlasticityBatched(
-    double timeStepWidth,
-    double tV,
-    const GlobalData* global,
-    initializer::recording::ConditionalPointersToRealsTable& table,
-    seissol::model::PlasticityData* plasticityData,
-    std::size_t* yieldCounter,
-    unsigned* isAdjustableVector,
-    seissol::parallel::runtime::StreamRuntime& runtime) {
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM double tV,
+    SEISSOL_GPU_PARAM const GlobalData* global,
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM seissol::model::PlasticityData* plasticityData,
+    SEISSOL_GPU_PARAM std::size_t* yieldCounter,
+    SEISSOL_GPU_PARAM unsigned* isAdjustableVector,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
+
   static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
                 "modal and nodal dofs must have the same leading dimensions");
   static_assert(tensor::Q::Shape[multisim::BasisFunctionDimension] == tensor::v::Shape[0],

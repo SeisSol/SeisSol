@@ -10,13 +10,13 @@
 #define SEISSOL_SRC_KERNELS_POINTSOURCECLUSTER_H_
 
 #include "Common/Marker.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Precision.h"
+#include "Memory/MemoryAllocator.h"
 #include "Parallel/Runtime/Stream.h"
+#include "Solver/MultipleSimulations.h"
 #include "SourceTerm/Typedefs.h"
-#include <Equations/Datastructures.h>
-#include <Memory/MemoryAllocator.h>
-#include <Solver/MultipleSimulations.h>
 
 #include <algorithm>
 #include <cmath>
@@ -143,7 +143,7 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelDevice(
   const auto endSource =
       mappingPtr[index].pointSourcesOffset + mappingPtr[index].numberOfPointSources;
 
-  auto* __restrict dofs = *mappingPtr[index].dofs;
+  auto* __restrict dofs = mappingPtr[index].dofs;
   for (std::size_t source = startSource; source < endSource; ++source) {
     const auto base = sampleRange[source];
     const std::uint32_t localSamples = sampleRange[source + 1] - base;

@@ -8,35 +8,37 @@
 #include "ClusteringWriter.h"
 
 #include "Common/Filesystem.h"
-#include <Memory/Tree/Layer.h>
-#include <Numerical/Statistics.h>
+#include "Initializer/BasicTypedefs.h"
+#include "Numerical/Statistics.h"
+#include "Parallel/MPI.h"
+
 #include <cstddef>
 #include <fstream>
 #include <ios>
 #include <string>
+#include <type_traits>
 #include <utils/logger.h>
 #include <vector>
-
-#include "Parallel/MPI.h"
 namespace seissol::writer {
 
 ClusteringWriter::ClusteringWriter(const std::string& outputPrefix) : outputPrefix(outputPrefix) {}
 
 void ClusteringWriter::addCluster(unsigned profilingId,
                                   unsigned localClusterId,
-                                  LayerType layerType,
+                                  HaloType layerType,
                                   std::size_t size,
                                   std::size_t dynRupSize) {
   clusteringInformation.profilingIds.push_back(profilingId);
   clusteringInformation.localClusterIds.push_back(localClusterId);
-  clusteringInformation.layerTypes.push_back(layerType);
+  clusteringInformation.layerTypes.push_back(
+      static_cast<std::underlying_type_t<HaloType>>(layerType));
   clusteringInformation.sizes.push_back(size);
   clusteringInformation.dynamicRuptureSizes.push_back(dynRupSize);
 }
 
 void ClusteringWriter::write() const {
   using namespace seissol::filesystem;
-  const auto& mpi = MPI::mpi;
+  const auto& mpi = Mpi::mpi;
 
   const auto localRanks = mpi.collect(mpi.sharedMemMpiRank());
   const auto profilingIds = mpi.collectContainer(clusteringInformation.profilingIds);
@@ -53,8 +55,8 @@ void ClusteringWriter::write() const {
         sizestat[j] = sizes[j][i];
       }
       const auto sizeSummary = statistics::Summary(sizestat);
-      const auto layerType = static_cast<LayerType>(clusteringInformation.layerTypes[i]);
-      const std::string layerTypeStr = layerType == Interior ? "interior" : "copy";
+      const auto layerType = static_cast<HaloType>(clusteringInformation.layerTypes[i]);
+      const std::string layerTypeStr = layerType == HaloType::Interior ? "interior" : "copy";
       logInfo() << "cell" << layerTypeStr.c_str() << localClusterIds[0][i] << ":" << sizeSummary.sum
                 << "(per rank:" << sizeSummary.mean << "±" << sizeSummary.std << "; range: ["
                 << sizeSummary.min << ";" << sizeSummary.max << "])";
@@ -65,8 +67,8 @@ void ClusteringWriter::write() const {
         sizestat[j] = dynamicRuptureSizes[j][i];
       }
       const auto sizeSummary = statistics::Summary(sizestat);
-      const auto layerType = static_cast<LayerType>(clusteringInformation.layerTypes[i]);
-      const std::string layerTypeStr = layerType == Interior ? "interior" : "copy";
+      const auto layerType = static_cast<HaloType>(clusteringInformation.layerTypes[i]);
+      const std::string layerTypeStr = layerType == HaloType::Interior ? "interior" : "copy";
       logInfo() << "DR" << layerTypeStr.c_str() << localClusterIds[0][i] << ":" << sizeSummary.sum
                 << "(per rank:" << sizeSummary.mean << "±" << sizeSummary.std << "; range: ["
                 << sizeSummary.min << ";" << sizeSummary.max << "])";
@@ -88,11 +90,11 @@ void ClusteringWriter::write() const {
       const auto& curDynamicRuptureSizes = dynamicRuptureSizes[rank];
 
       for (std::size_t i = 0; i < curProfilingIds.size(); ++i) {
-        const auto layerType = static_cast<LayerType>(curLayerTypes[i]);
-        if (layerType != LayerType::Interior && layerType != LayerType::Copy) {
+        const auto layerType = static_cast<HaloType>(curLayerTypes[i]);
+        if (layerType != HaloType::Interior && layerType != HaloType::Copy) {
           logError() << "Encountered illegal layer type in ClusteringWriter.";
         }
-        const auto* layerTypeStr = layerType == Interior ? "Interior" : "Copy";
+        const auto* layerTypeStr = layerType == HaloType::Interior ? "Interior" : "Copy";
         fileStream << curProfilingIds[i] << "," << curLocalClusterIds[i] << "," << layerTypeStr
                    << "," << curSizes[i] << "," << curDynamicRuptureSizes[i] << "," << rank << ","
                    << localRank << "\n";

@@ -8,13 +8,15 @@
 #ifndef SEISSOL_SRC_MODEL_PLASTICITY_H_
 #define SEISSOL_SRC_MODEL_PLASTICITY_H_
 
+#include "Kernels/Precision.h"
 #include "Model/CommonDatastructures.h"
-#include <Alignment.h>
-#include <Kernels/Precision.h>
-#include <Solver/MultipleSimulations.h>
+#include "Alignment.h"
+#include "Solver/MultipleSimulations.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
+
 #include <cmath>
-#include <GeneratedCode/init.h>
-#include <GeneratedCode/tensor.h>
+#include <cstddef>
 #include <string>
 
 namespace seissol::model {
@@ -24,12 +26,12 @@ struct PlasticityData {
   static constexpr auto PointCount = tensor::v::Shape[0];
 
   // initial loading (stress tensor)
-  alignas(Alignment) real initialLoading[tensor::QStressNodal::size()];
-  alignas(Alignment) real cohesionTimesCosAngularFriction[tensor::meanStress::size()];
-  alignas(Alignment) real sinAngularFriction[tensor::meanStress::size()];
+  alignas(Alignment) real initialLoading[tensor::QStressNodal::size()]{};
+  alignas(Alignment) real cohesionTimesCosAngularFriction[tensor::meanStress::size()]{};
+  alignas(Alignment) real sinAngularFriction[tensor::meanStress::size()]{};
 
   // depends on the material only (i.e. #1297 or multi-fused-material relevant only)
-  real mufactor;
+  real mufactor{};
 
   PlasticityData(const std::array<const Plasticity*, seissol::multisim::NumSimulations>& plasticity,
                  const Material* material) {

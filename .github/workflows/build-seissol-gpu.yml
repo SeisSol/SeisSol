@@ -18,16 +18,6 @@ jobs:
     runs-on: ${{ matrix.setup.runner }}
     container: ${{ matrix.setup.container }}
     continue-on-error: true
-    env:
-      EXENAME: |
-        ${{
-          format('gpu-{0}-{1}-p{2}{3}',
-            matrix.equation.type,
-            matrix.precision == 'single' && 's' || 'd',
-            matrix.equation.order,
-            matrix.equation.multisim != 1 && format('-f{0}', matrix.equation.multisim) || ''
-          )
-        }}
     strategy:
       fail-fast: false
       matrix:
@@ -116,7 +106,7 @@ jobs:
             pythonbreak: false
     steps:
       - name: checkout-seissol
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -127,11 +117,11 @@ jobs:
               if [ "${{ matrix.setup.pythonbreak }}" = false ]; then
                   # the Intel image still works with an older Python version. Hence, use the following hack.
                   pip3 install pyyaml
-                  git clone --branch develop https://github.com/seissol/tensorforge.git
+                  git clone https://github.com/seissol/tensorforge.git
                   export PYTHONPATH=$(pwd)/tensorforge:$PYTHONPATH
                   export CMAKE_PREFIX_PATH=$(python3 -c 'import tensorforge; tensorforge.print_cmake_path()'):$CMAKE_PREFIX_PATH
               else
-                  pip3 install --break-system-packages git+https://github.com/seissol/tensorforge.git@develop
+                  pip3 install --break-system-packages git+https://github.com/seissol/tensorforge.git
               fi
               DEVICE_CODEGEN=tensorforge
           else
@@ -151,7 +141,41 @@ jobs:
           export CXX=${{matrix.setup.cxx}}
           export FC=${{matrix.setup.fc}}
 
-          cmake .. -GNinja -DNEW_BINARY_NAMING=ON -DDEVICE_CODEGEN=${DEVICE_CODEGEN} -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.equation.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }} -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
+          mkdir -p /opt/seissol
+
+          if [ ${{matrix.setup.cc}} = nvc ]; then
+            TESTING_COMMAND="mpirun -np 1 --oversubscribe --allow-run-as-root";
+          else
+            TESTING_COMMAND="";
+          fi;
+
+          # HIP may consume too much memory; hence disable the codegen tests for now
+          if [ ${{matrix.setup.backend}} = hip ]; then
+            TESTING_GENERATED=OFF;
+          else
+            TESTING_GENERATED=ON;
+          fi;
+
+          cmake .. \
+            -GNinja \
+            -DNEW_BINARY_NAMING=ON \
+            -DTESTING_COMMAND="${TESTING_COMMAND}" \
+            -DCMAKE_INSTALL_PREFIX=/opt/seissol \
+            -DTESTING=ON \
+            -DTESTING_GENERATED=$TESTING_GENERATED \
+            -DTESTING_BUILD_ONLY=ON \
+            -DASAGI=ON \
+            -DHOST_ARCH=${{matrix.arch}} \
+            -DDEVICE_CODEGEN=${DEVICE_CODEGEN} \
+            -DDEVICE_BACKEND=${{matrix.setup.backend}} \
+            -DDEVICE_ARCH=${{matrix.setup.arch}} \
+            -DORDER=${{matrix.equation.order}} \
+            -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
+            -DEQUATIONS=${{matrix.equation.type}} \
+            -DPRECISION=${{matrix.precision}} \
+            -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} \
+            -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }}
+
           ninja install
 
       - name: upload-seissol
@@ -177,7 +201,7 @@ jobs:
           clean-key: true
       - id: get-precomputed-solutions
         name: get-precomputed-solutions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         if: steps.cache-precomputed-solutions.outputs.cache-hit != 'true'
         with:
           repository: seissol/precomputed-seissol
@@ -194,11 +218,11 @@ jobs:
     env:
       EXENAME: |
         ${{
-          format('gpu-{0}-{1}-p{2}{3}',
+          format('gpu-{0}-p{2}-{1}{3}',
             matrix.case.equation,
-            matrix.precision == 'single' && 's' || 'd',
-            matrix.case.order,
-            matrix.case.multisim != 1 && format('-f{0}', matrix.case.multisim) || ''
+            matrix.precision == 'single' && 'f32' || 'f64',
+            matrix.order,
+            matrix.case.multisim != 1 && format('-s{0}', matrix.case.multisim) || ''
           )
         }}
     strategy:
@@ -407,7 +431,7 @@ jobs:
           else
             pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
           fi
-      
+
       - id: load-precomputed-solutions
         name: load-precomputed-solutions
         uses: corca-ai/local-cache@v3
@@ -416,7 +440,7 @@ jobs:
           path: precomputed
           base: /home/runner/_cache
       - name: get-seissol
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.case.order}}-${{matrix.case.equation}}-${{matrix.setup.cc}}
           path: install
@@ -435,7 +459,7 @@ jobs:
           export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:$LD_LIBRARY_PATH
 
           chmod +x $(pwd)/install/bin/*
-          
+
           export OMP_NUM_THREADS=${{matrix.parallel.threads}}
           export SEISSOL_COMMTHREAD=${{matrix.parallel.commthread}}
           export SEISSOL_MINI_NUM_ELEMENTS=100
@@ -445,15 +469,15 @@ jobs:
           export SEISSOL_USM_MPI=1
 
           cd precomputed/${{matrix.case.name}}
-          
+
           mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-${EXENAME}
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: scripts
-      
+
       # for now, compare faults only on single-rank setups
       - name: check-fault
         if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.fault }}

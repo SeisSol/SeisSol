@@ -6,23 +6,21 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "SourceTimeFunction.h"
+
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Tree/Layer.h"
 #include "Numerical/DeltaPulse.h"
 #include "Numerical/GaussianNucleationFunction.h"
 #include "Numerical/RegularizedYoffe.h"
+
 #include <cstddef>
 #include <cstdint>
 
 namespace seissol::dr::friction_law::cpu {
-void YoffeSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                  const seissol::initializer::DynamicRupture* dynRup) {
-  const auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesYoffe*>(dynRup);
-  onsetTime = layerData.var(concreteLts->onsetTime);
-  tauS = layerData.var(concreteLts->tauS);
-  tauR = layerData.var(concreteLts->tauR);
+void YoffeSTF::copyStorageToLocal(DynamicRupture::Layer& layerData) {
+  onsetTime = layerData.var<LTSImposedSlipRatesYoffe::OnsetTime>();
+  tauS = layerData.var<LTSImposedSlipRatesYoffe::TauS>();
+  tauR = layerData.var<LTSImposedSlipRatesYoffe::TauR>();
 }
 
 real YoffeSTF::evaluate(real currentTime,
@@ -34,12 +32,9 @@ real YoffeSTF::evaluate(real currentTime,
                                             tauR[ltsFace][pointIndex]);
 }
 
-void GaussianSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* dynRup) {
-  const auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesGaussian*>(dynRup);
-  onsetTime = layerData.var(concreteLts->onsetTime);
-  riseTime = layerData.var(concreteLts->riseTime);
+void GaussianSTF::copyStorageToLocal(DynamicRupture::Layer& layerData) {
+  onsetTime = layerData.var<LTSImposedSlipRatesGaussian::OnsetTime>();
+  riseTime = layerData.var<LTSImposedSlipRatesGaussian::RiseTime>();
 }
 
 real GaussianSTF::evaluate(real currentTime,
@@ -51,11 +46,8 @@ real GaussianSTF::evaluate(real currentTime,
   return smoothStepIncrement / timeIncrement;
 }
 
-void DeltaSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                  const seissol::initializer::DynamicRupture* const dynRup) {
-  const auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesDelta*>(dynRup);
-  onsetTime = layerData.var(concreteLts->onsetTime);
+void DeltaSTF::copyStorageToLocal(DynamicRupture::Layer& layerData) {
+  onsetTime = layerData.var<LTSImposedSlipRatesDelta::OnsetTime>();
 }
 
 real DeltaSTF::evaluate(real currentTime, real timeIncrement, size_t ltsFace, uint32_t pointIndex) {

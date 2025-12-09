@@ -11,6 +11,7 @@
 #include "Equations/Datastructures.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Model/Plasticity.h"
+
 #include <stddef.h>
 
 namespace seissol::kernels::device::aux::plasticity {

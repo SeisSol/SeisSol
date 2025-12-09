@@ -12,8 +12,7 @@ from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor, simpleParameterSpace
 from yateto.ast.node import Add
-from yateto.input import (memoryLayoutFromFile, parseJSONMatrixFile,
-                          parseXMLMatrixFile)
+from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile, parseXMLMatrixFile
 from yateto.memory import CSCMemoryLayout
 from yateto.util import tensor_collection_from_constant_expression
 
@@ -86,11 +85,11 @@ class Viscoelastic2ADERDG(ADERDGBase):
         )
         self.w = Tensor("w", (self.numberOfMechanisms,))
 
-        # TODO(David): re-enable CSCMemoryLayout here for GPUs
         self.W = Tensor(
             "W",
             (self.numberOfMechanisms, self.numberOfMechanisms),
-            np.eye(self.numberOfMechanisms, dtype=bool),
+            spp=np.eye(self.numberOfMechanisms, dtype=bool),
+            memoryLayoutClass=CSCMemoryLayout,
         )
 
         selectElaSpp = np.zeros(
