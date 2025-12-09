@@ -15,7 +15,6 @@
 #include "Initializer/Typedefs.h"
 #include "Numerical/ODEInt.h"
 #include "Numerical/Quadrature.h"
-#include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <utility>
@@ -185,18 +184,16 @@ class GravitationalFreeSurfaceBc {
   }
 
 #ifdef ACL_DEVICE
-  template <typename TimeKrnl, typename MappingKrnl>
+  template <typename MappingKrnl>
   void evaluateOnDevice(unsigned faceIdx,
                         MappingKrnl&& projectKernelPrototype,
-                        TimeKrnl& timeKernel,
                         recording::ConditionalPointersToRealsTable& dataTable,
                         recording::ConditionalMaterialTable& materialTable,
                         double timeStepWidth,
                         device::DeviceInstance& device,
-                        seissol::parallel::runtime::StreamRuntime& runtime) {
+                        void* deviceStream) {
 
     using namespace seissol::recording;
-    auto* deviceStream = runtime.stream();
     ConditionalKey key(
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, faceIdx);
     if (dataTable.find(key) != dataTable.end()) {
@@ -227,9 +224,6 @@ class GravitationalFreeSurfaceBc {
                                                   deviceStream);
 
       auto rotateFaceDisplacementKrnl = kernel::gpu_rotateFaceDisplacement();
-      const auto auxTmpMemSize =
-          yateto::getMaxTmpMemRequired(rotateFaceDisplacementKrnl, projectKernelPrototype);
-      auto auxTmpMem = runtime.memoryHandle<real>(auxTmpMemSize * numElements);
 
       auto** displacementsPtrs =
           dataTable[key].get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
@@ -238,7 +232,6 @@ class GravitationalFreeSurfaceBc {
       rotateFaceDisplacementKrnl.displacementRotationMatrix =
           const_cast<const real**>(rotateDisplacementToFaceNormalPtrs);
       rotateFaceDisplacementKrnl.rotatedFaceDisplacement = rotatedFaceDisplacementPtrs;
-      rotateFaceDisplacementKrnl.linearAllocator.initialize(auxTmpMem.get());
       rotateFaceDisplacementKrnl.streamPtr = deviceStream;
       rotateFaceDisplacementKrnl.execute();
 
@@ -281,7 +274,6 @@ class GravitationalFreeSurfaceBc {
         projectKernel.numElements = numElements;
         projectKernel.Tinv = const_cast<const real**>(TinvDataPtrs);
         projectKernel.INodal = dofsFaceNodalPtrs;
-        projectKernel.linearAllocator.initialize(auxTmpMem.get());
         projectKernel.streamPtr = deviceStream;
 
         for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
@@ -310,7 +302,6 @@ class GravitationalFreeSurfaceBc {
       rotateFaceDisplacementKrnl.displacementRotationMatrix =
           const_cast<const real**>(rotateDisplacementToGlobalPtrs);
       rotateFaceDisplacementKrnl.rotatedFaceDisplacement = displacementsPtrs;
-      rotateFaceDisplacementKrnl.linearAllocator.initialize(auxTmpMem.get());
       rotateFaceDisplacementKrnl.streamPtr = deviceStream;
       rotateFaceDisplacementKrnl.execute();
     }

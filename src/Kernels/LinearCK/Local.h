@@ -45,6 +45,7 @@ class Local : public LocalKernel {
                               recording::ConditionalMaterialTable& materialTable,
                               recording::ConditionalIndicesTable& indicesTable,
                               double timeStepWidth,
+                              LocalTmp& tmp,
                               seissol::parallel::runtime::StreamRuntime& runtime) override;
 
   void evaluateBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& dataTable,
@@ -75,6 +76,7 @@ class Local : public LocalKernel {
   kernel::gpu_localFlux deviceLocalFluxKernelPrototype;
   kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype;
   kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype;
+  kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 };

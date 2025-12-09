@@ -54,7 +54,6 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   assert(global.onDevice != nullptr);
 
   deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
-  deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onDevice->v3mTo2nFace;
 #endif
 }
 
@@ -138,10 +137,8 @@ void Spacetime::computeAder(const real* coeffs,
 void Spacetime::computeBatchedAder(
     SEISSOL_GPU_PARAM const real* coeffs,
     SEISSOL_GPU_PARAM double timeStepWidth,
-    SEISSOL_GPU_PARAM LocalTmp& tmp,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
     SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
-    SEISSOL_GPU_PARAM bool updateDisplacement,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
@@ -184,20 +181,6 @@ void Spacetime::computeBatchedAder(
     derivativesKrnl.linearAllocator.initialize(tmpMem.get());
     derivativesKrnl.streamPtr = runtime.stream();
     derivativesKrnl.execute();
-  }
-
-  if (updateDisplacement) {
-    auto& bc = tmp.gravitationalFreeSurfaceBc;
-    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      bc.evaluateOnDevice(face,
-                          deviceDerivativeToNodalBoundaryRotated,
-                          *this,
-                          dataTable,
-                          materialTable,
-                          timeStepWidth,
-                          device,
-                          runtime);
-    }
   }
 #else
   logError() << "No GPU implementation provided";

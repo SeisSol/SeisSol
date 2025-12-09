@@ -34,6 +34,7 @@ class Local : public LocalKernel {
                               recording::ConditionalMaterialTable& materialTable,
                               recording::ConditionalIndicesTable& indicesTable,
                               double timeStepWidth,
+                              LocalTmp& tmp,
                               seissol::parallel::runtime::StreamRuntime& runtime) override;
 
   void evaluateBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& dataTable,
