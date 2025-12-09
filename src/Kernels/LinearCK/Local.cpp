@@ -286,63 +286,71 @@ void Local::computeBatchedIntegral(
 
   // Local Flux Integral
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
+    runtime.envMany(3, [&](void* stream, size_t i) {
+      if (i == 0) {
+        key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
 
-    if (dataTable.find(key) != dataTable.end()) {
-      auto& entry = dataTable[key];
-      localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-      localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-      localFluxKrnl.I =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-      localFluxKrnl.AplusT = const_cast<const real**>(
-          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-      localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
-      localFluxKrnl.linearAllocator.initialize(tmpMem.get());
-      localFluxKrnl.streamPtr = runtime.stream();
-      localFluxKrnl.execute(face);
-    }
+        if (dataTable.find(key) != dataTable.end()) {
+          auto& entry = dataTable[key];
+          localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
+          localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+          localFluxKrnl.I =
+              const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+          localFluxKrnl.AplusT = const_cast<const real**>(
+              entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+          localFluxKrnl.extraOffset_AplusT =
+              SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
+          localFluxKrnl.linearAllocator.initialize(tmpMem.get());
+          localFluxKrnl.streamPtr = stream;
+          localFluxKrnl.execute(face);
+        }
+      }
+      if (i == 1) {
+        ConditionalKey fsgKey(
+            *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, face);
+        if (dataTable.find(fsgKey) != dataTable.end()) {
+          auto nodalAvgDisplacements =
+              dataTable[fsgKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
+          auto rhos = materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
+          local_flux::aux::FreeSurfaceGravity freeSurfaceGravityBc;
+          freeSurfaceGravityBc.g = gravitationalAcceleration;
+          freeSurfaceGravityBc.rhos = rhos;
+          freeSurfaceGravityBc.displacementDataPtrs = nodalAvgDisplacements;
+          dirichletBoundary.evaluateOnDevice(face,
+                                             fsgKey,
+                                             deviceProjectRotatedKrnlPrototype,
+                                             deviceNodalLfKrnlPrototype,
+                                             freeSurfaceGravityBc,
+                                             dataTable,
+                                             device,
+                                             stream);
+        }
+      }
+      if (i == 2) {
+        ConditionalKey dirichletKey(
+            *KernelNames::BoundaryConditions, *ComputationKind::Dirichlet, face);
+        if (dataTable.find(dirichletKey) != dataTable.end()) {
+          auto easiBoundaryMapPtrs =
+              dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryMap)->getDeviceDataPtr();
+          auto easiBoundaryConstantPtrs = dataTable[dirichletKey]
+                                              .get(inner_keys::Wp::Id::EasiBoundaryConstant)
+                                              ->getDeviceDataPtr();
 
-    ConditionalKey fsgKey(
-        *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, face);
-    if (dataTable.find(fsgKey) != dataTable.end()) {
-      auto nodalAvgDisplacements =
-          dataTable[fsgKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
-      auto rhos = materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
-      local_flux::aux::FreeSurfaceGravity freeSurfaceGravityBc;
-      freeSurfaceGravityBc.g = gravitationalAcceleration;
-      freeSurfaceGravityBc.rhos = rhos;
-      freeSurfaceGravityBc.displacementDataPtrs = nodalAvgDisplacements;
-      dirichletBoundary.evaluateOnDevice(face,
-                                         fsgKey,
-                                         deviceProjectRotatedKrnlPrototype,
-                                         deviceNodalLfKrnlPrototype,
-                                         freeSurfaceGravityBc,
-                                         dataTable,
-                                         device,
-                                         runtime);
-    }
+          local_flux::aux::EasiBoundary easiBoundaryBc;
+          easiBoundaryBc.easiBoundaryMapPtrs = easiBoundaryMapPtrs;
+          easiBoundaryBc.easiBoundaryConstantPtrs = easiBoundaryConstantPtrs;
 
-    ConditionalKey dirichletKey(
-        *KernelNames::BoundaryConditions, *ComputationKind::Dirichlet, face);
-    if (dataTable.find(dirichletKey) != dataTable.end()) {
-      auto easiBoundaryMapPtrs =
-          dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryMap)->getDeviceDataPtr();
-      auto easiBoundaryConstantPtrs =
-          dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryConstant)->getDeviceDataPtr();
-
-      local_flux::aux::EasiBoundary easiBoundaryBc;
-      easiBoundaryBc.easiBoundaryMapPtrs = easiBoundaryMapPtrs;
-      easiBoundaryBc.easiBoundaryConstantPtrs = easiBoundaryConstantPtrs;
-
-      dirichletBoundary.evaluateOnDevice(face,
-                                         dirichletKey,
-                                         deviceProjectRotatedKrnlPrototype,
-                                         deviceNodalLfKrnlPrototype,
-                                         easiBoundaryBc,
-                                         dataTable,
-                                         device,
-                                         runtime);
-    }
+          dirichletBoundary.evaluateOnDevice(face,
+                                             dirichletKey,
+                                             deviceProjectRotatedKrnlPrototype,
+                                             deviceNodalLfKrnlPrototype,
+                                             easiBoundaryBc,
+                                             dataTable,
+                                             device,
+                                             stream);
+        }
+      }
+    });
   }
 #else
   logError() << "No GPU implementation provided";
