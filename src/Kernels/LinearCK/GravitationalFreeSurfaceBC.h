@@ -38,8 +38,7 @@ class GravitationalFreeSurfaceBc {
   explicit GravitationalFreeSurfaceBc(double gravitationalAcceleration)
       : gravitationalAcceleration(gravitationalAcceleration) {};
 
-  static std::pair<std::uint64_t, std::uint64_t>
-      getFlopsDisplacementFace(unsigned face, [[maybe_unused]] FaceType faceType);
+  static std::pair<std::uint64_t, std::uint64_t> getFlopsDisplacementFace(unsigned face);
 
   template <typename MappingKrnl>
   void evaluate(unsigned faceIdx,
@@ -48,7 +47,7 @@ class GravitationalFreeSurfaceBc {
                 real* displacementNodalData,
                 real* integratedDisplacementNodalData,
                 const real* derivatives,
-                const real* power,
+                const real* /*power*/,
                 double timeStepWidth,
                 CellMaterialData& materialData) {
     // This function does two things:
@@ -68,8 +67,6 @@ class GravitationalFreeSurfaceBc {
     } else {
       kernel::fsgKernel kernel = std::forward<MappingKrnl>(fsgKernelBase);
 
-      // Prepare kernel that projects volume data to face and rotates it to face-nodal basis.
-      assert(boundaryMapping.nodes != nullptr);
       assert(boundaryMapping.dataTinv != nullptr);
       assert(boundaryMapping.dataT != nullptr);
 
@@ -78,23 +75,29 @@ class GravitationalFreeSurfaceBc {
       kernel.faceDisplacement = displacementNodalData;
       kernel.Iint = integratedDisplacementNodalData;
 
-      double coeffTmp = timeStepWidth;
+      double coeffTmp = 1;
+      double powerTmp = timeStepWidth;
+
+      kernel.fsgpower(0) = timeStepWidth;
 
       for (std::size_t i = 0; i < ConvergenceOrder; ++i) {
         kernel.dQ(i) = derivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
-        if (i > 0) {
-          kernel.coeff(i) = coeffTmp;
-          coeffTmp *= timeStepWidth / static_cast<double>(i);
-        }
-        kernel.power(i) = power[i];
+
+        coeffTmp *= timeStepWidth / static_cast<double>(i + 1);
+        powerTmp *= timeStepWidth / static_cast<double>(i + 2);
+
+        kernel.coeff(i + 1) = coeffTmp;
+        kernel.fsgpower(i + 1) = powerTmp;
       }
 
       const double rho = materialData.local->getDensity();
       const double g = gravitationalAcceleration; // [m/s^2]
       const double z = std::sqrt(materialData.local->getLambdaBar() * rho);
-      const real factor = (rho * g / z);
+      const real invImp = 1 / z;
+      const real rhoG = rho * g;
 
-      kernel.invImpFactor = &factor;
+      kernel.invImp = &invImp;
+      kernel.rhoG = &rhoG;
 
       kernel.execute(faceIdx);
     }

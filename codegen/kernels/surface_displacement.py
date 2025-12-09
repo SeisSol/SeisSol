@@ -195,8 +195,10 @@ def addKernels(generator, aderdg, include_tensors, targets):
         temporary=True,
     )
 
-    coeffs = [Scalar(f"coeff({i})") for i in range(aderdg.order)]
-    factor = Tensor("invImpFactor", ())
+    coeffs = [Scalar(f"coeff({i})") for i in range(aderdg.order + 1)]
+    powers = [Scalar(f"fsgpower({i})") for i in range(aderdg.order + 1)]
+    invImp = Tensor("invImp", ())
+    rhoG = Tensor("rhoG", ())
 
     vidx = aderdg.velocityOffset()
 
@@ -212,22 +214,25 @@ def addKernels(generator, aderdg, include_tensors, targets):
                 .subslice("n", vidx, vidx + 3),
                 Iprev["mp"] <= faceDisplacementTmp["mp"].subslice("p", 0, 1),
                 averageNormalDisplacement["mp"]
-                <= aderdg.powers[0] * faceDisplacementTmp["mp"].subslice("p", 0, 1),
+                <= powers[0] * faceDisplacementTmp["mp"].subslice("p", 0, 1),
             ]
 
-            for i in range(1, aderdg.order):
+            for i in range(1, aderdg.order + 1):
 
                 kernel += [
                     INodalTmp["nq"]
-                    <= aderdg.db.V3mTo2nFace[f]["nk"] * aderdg.dQs[i]["kq"]
+                    <= aderdg.db.V3mTo2nFace[f][aderdg.t("nk")]
+                    * aderdg.dQs[i - 1]["kq"]
                 ]
                 velocitiesU = INodalTmp["nq"].subslice("q", vidx, vidx + 1)
                 pressure = INodalTmp["nq"].subslice("q", 0, 1)
 
                 kernel += [
-                    Iprev["nq"] <= velocitiesU + factor[""] * Iprev["nq"] + pressure,
+                    Iprev["nq"]
+                    <= velocitiesU - invImp[""] * (rhoG[""] * Iprev["nq"] + pressure),
                     faceDisplacementTmp["nq"].subslice("q", 0, 1)
-                    <= coeffs[i] * Iprev["nq"],
+                    <= faceDisplacementTmp["nq"].subslice("q", 0, 1)
+                    + coeffs[i] * Iprev["nq"],
                 ]
 
                 if aderdg.velocityOffset() > 1:
@@ -239,7 +244,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
 
                 kernel += [
                     averageNormalDisplacement["nq"]
-                    <= averageNormalDisplacement["nq"] + aderdg.powers[i] * Iprev["nq"],
+                    <= averageNormalDisplacement["nq"] + powers[i] * Iprev["nq"],
                 ]
 
             kernel += [

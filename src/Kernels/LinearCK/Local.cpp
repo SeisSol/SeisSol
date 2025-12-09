@@ -169,7 +169,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       auto kernel = bcFreeSurfaceGravity;
       kernel.g2m = -2 * this->gravitationalAcceleration;
 
-      real localRho = materialData->local->getDensity();
+      const real localRho = materialData->local->getDensity();
       kernel.rho = &localRho;
       kernel.averageNormalDisplacement = tmp.nodalAvgDisplacements[face].data();
 
@@ -436,16 +436,12 @@ void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
     // The (probably incorrect) assumption is that they are negligible.
     switch (faceTypes[face]) {
     case FaceType::FreeSurfaceGravity:
-      nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-                      seissol::kernel::projectToNodalBoundary::nonZeroFlops(face);
-      hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-                       seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
+      nonZeroFlops += seissol::kernel::bcFreeSurfaceGravity::nonZeroFlops(face);
+      hardwareFlops += seissol::kernel::bcFreeSurfaceGravity::hardwareFlops(face);
       break;
     case FaceType::Dirichlet:
-      nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-                      seissol::kernel::projectToNodalBoundaryRotated::nonZeroFlops(face);
-      hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-                       seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
+      nonZeroFlops += seissol::kernel::bcDirichlet::nonZeroFlops(face);
+      hardwareFlops += seissol::kernel::bcDirichlet::hardwareFlops(face);
       break;
     case FaceType::Analytical:
       nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
