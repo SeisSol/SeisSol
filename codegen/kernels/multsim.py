@@ -23,12 +23,15 @@ class OptionalDimTensor(Tensor):
         spp=None,
         memoryLayoutClass=DenseMemoryLayout,
         alignStride=False,
+        temporary=False,
     ):
         self._optName = optName
         self._optSize = optSize
         self._optPos = optPos
         shape = self.insertOptDim(shape, (self._optSize,))
-        super().__init__(name, shape, spp, memoryLayoutClass, alignStride)
+        super().__init__(
+            name, shape, spp, memoryLayoutClass, alignStride, temporary=temporary
+        )
 
     def hasOptDim(self):
         return self._optSize > 1
