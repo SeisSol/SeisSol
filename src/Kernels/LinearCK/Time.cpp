@@ -57,7 +57,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 
   deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
   deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onDevice->v3mTo2nFace;
-  fsgKernelPrototype.V3mTo2nFace = global.onDevice->v3mTo2nFace;
+  deviceFsgKernelPrototype.V3mTo2nFace = global.onDevice->v3mTo2nFace;
 #endif
 }
 
@@ -198,13 +198,8 @@ void Spacetime::computeBatchedAder(
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      bc.evaluateOnDevice(face,
-                          deviceDerivativeToNodalBoundaryRotated,
-                          dataTable,
-                          materialTable,
-                          timeStepWidth,
-                          device,
-                          runtime);
+      bc.evaluateOnDevice(
+          face, deviceFsgKernelPrototype, dataTable, materialTable, timeStepWidth, device, runtime);
     }
   }
 #else

@@ -104,7 +104,7 @@ class GravitationalFreeSurfaceBc {
   }
 
 #ifdef ACL_DEVICE
-  template <typename TimeKrnl, typename MappingKrnl>
+  template <typename MappingKrnl>
   void evaluateOnDevice(unsigned faceIdx,
                         MappingKrnl&& fsgKernelBase,
                         recording::ConditionalPointersToRealsTable& dataTable,
@@ -119,15 +119,14 @@ class GravitationalFreeSurfaceBc {
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, faceIdx);
     if (dataTable.find(key) != dataTable.end()) {
       const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getSize()};
-      // const double g = gravitationalAcceleration;
+      const double g = this->gravitationalAcceleration;
 
-      auto* invImpedances =
-          materialTable[key].get(inner_keys::Material::Id::InvImpedances)->getDeviceDataPtr();
+      auto** constantData = dataTable[key].get(inner_keys::Wp::Id::FSGData)->getDeviceDataPtr();
 
       auto* rhos = materialTable[key].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
       auto* lambdas = materialTable[key].get(inner_keys::Material::Id::Lambda)->getDeviceDataPtr();
       kernels::time::aux::computeInvAcousticImpedance(
-          invImpedances, rhos, lambdas, numElements, deviceStream);
+          constantData, g, rhos, lambdas, numElements, deviceStream);
 
       auto** TinvDataPtrs = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
       auto** TDataPtrs = dataTable[key].get(inner_keys::Wp::Id::T)->getDeviceDataPtr();
@@ -140,6 +139,12 @@ class GravitationalFreeSurfaceBc {
           dataTable[key].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
 
       kernel::gpu_fsgKernel kernel = std::forward<MappingKrnl>(fsgKernelBase);
+
+      kernel.invImp = const_cast<const real**>(constantData);
+      kernel.rhoG = const_cast<const real**>(constantData);
+      kernel.extraOffset_invImp = 0;
+      kernel.extraOffset_rhoG = 1;
+
       for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
         kernel.dQ(i) = const_cast<const real**>(derivativesPtrs);
         kernel.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
@@ -149,16 +154,17 @@ class GravitationalFreeSurfaceBc {
       kernel.faceDisplacement = displacementsPtrs;
       kernel.Iint = integratedDisplacementNodalPtrs;
 
-      double coeffInt = timeStepWidth;
-      double coeff = 1;
+      double coeffTmp = 1;
+      double powerTmp = timeStepWidth;
 
-      kernel.power(0) = timeStepWidth;
-      for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-        coeffInt *= timeStepWidth / (i + 1);
-        coeff *= timeStepWidth / i;
+      kernel.fsgpower(0) = timeStepWidth;
 
-        kernel.coeff(i) = coeff;
-        kernel.power(i) = coeffInt;
+      for (std::size_t i = 0; i < ConvergenceOrder; ++i) {
+        coeffTmp *= timeStepWidth / static_cast<double>(i + 1);
+        powerTmp *= timeStepWidth / static_cast<double>(i + 2);
+
+        kernel.coeff(i + 1) = coeffTmp;
+        kernel.fsgpower(i + 1) = powerTmp;
       }
 
       kernel.streamPtr = deviceStream;

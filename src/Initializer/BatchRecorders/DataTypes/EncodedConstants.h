@@ -37,6 +37,8 @@ struct Wp {
     NodalAvgDisplacements,
     T,
     Tinv,
+    FSGData,
+    Rhos,
     EasiBoundaryMap,
     EasiBoundaryConstant,
     ZinvExtra,
@@ -73,7 +75,7 @@ struct Dr {
 
 struct Material {
   using DataType = double;
-  enum struct Id : size_t { Rho = 0, Lambda, InvImpedances, Count };
+  enum struct Id : size_t { Rho = 0, Lambda, Count };
 };
 
 struct Indices {

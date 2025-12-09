@@ -198,6 +198,7 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
                                                 sizeof(real));
     layer.setEntrySize<LTS::NodalAvgDisplacements>(nodalDisplacementsCounter *
                                                    nodalDisplacementsSize * sizeof(real));
+    layer.setEntrySize<LTS::FSGData>(nodalDisplacementsCounter * 2 * sizeof(real));
 #ifdef USE_VISCOELASTIC2
     layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * tensor::Iane::size() * sizeof(real));
     layer.setEntrySize<LTS::DerivativesExtScratch>(

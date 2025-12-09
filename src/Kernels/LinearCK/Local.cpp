@@ -297,14 +297,14 @@ void Local::computeBatchedIntegral(
     if (dataTable.find(fsgKey) != dataTable.end()) {
       auto** nodalAvgDisplacements =
           dataTable[fsgKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
-      auto* rhos = materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
+      auto** rhos = dataTable[fsgKey].get(inner_keys::Wp::Id::Rhos)->getDeviceDataPtr();
 
       auto** dataTinv = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
       auto** idofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
 
       auto bcKernel = deviceBCFreeSurfaceGravity;
       bcKernel.g2m = -2 * gravitationalAcceleration;
-      bcKernel.rho = rhos;
+      bcKernel.rho = const_cast<const real**>(rhos);
       bcKernel.averageNormalDisplacement = const_cast<const real**>(nodalAvgDisplacements);
       bcKernel.Tinv = const_cast<const real**>(dataTinv);
       bcKernel.I = const_cast<const real**>(idofsPtrs);
@@ -412,7 +412,6 @@ void Local::evaluateBatchedTimeDependentBc(
   }
 #else
   logError() << "No GPU implementation provided";
-  ;
 #endif // ACL_DEVICE
 }
 
