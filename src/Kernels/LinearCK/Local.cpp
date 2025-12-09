@@ -284,8 +284,12 @@ void Local::computeBatchedIntegral(
       volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
 
+    const auto sourceMatrixOffset =
+        offsetof(LocalIntegrationData, specific) +
+        get_offset_sourceMatrix<decltype(LocalIntegrationData::specific)>();
+
     set_ET(volKrnl, localIntegrationPtrs);
-    set_extraOffset_ET(volKrnl, SEISSOL_OFFSET(LocalIntegrationData, specific.sourceMatrix));
+    set_extraOffset_ET(volKrnl, sourceMatrixOffset / sizeof(real));
 
     volKrnl.linearAllocator.initialize(tmpMem.get());
     volKrnl.streamPtr = runtime.stream();
