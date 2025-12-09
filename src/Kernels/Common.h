@@ -70,6 +70,14 @@
       return nullptr;                                                                              \
     }                                                                                              \
   }                                                                                                \
+  template <typename T>                                                                            \
+  constexpr auto get_offset_##NAME() -> size_t {                                                   \
+    if constexpr (has_##NAME<T>::value) {                                                          \
+      return offsetof(T, NAME);                                                                    \
+    } else {                                                                                       \
+      return 0;                                                                                    \
+    }                                                                                              \
+  }                                                                                                \
   } // namespace
 
 namespace seissol {
