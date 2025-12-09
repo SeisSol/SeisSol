@@ -91,8 +91,7 @@ void OnDevice::initSpecificGlobalData(GlobalData& /*globalData*/,
                                       memory::ManagedAllocator& /*allocator*/,
                                       CopyManagerT& /*copyManager*/,
                                       size_t /*alignment*/,
-                                      seissol::memory::Memkind /*memkind*/) {
-}
+                                      seissol::memory::Memkind /*memkind*/) {}
 
 real* OnDevice::DeviceCopyPolicy::copy(SEISSOL_GPU_PARAM const real* first,
                                        SEISSOL_GPU_PARAM const real* last,

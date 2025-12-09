@@ -8,12 +8,12 @@
 #ifndef SEISSOL_SRC_MODEL_PLASTICITY_H_
 #define SEISSOL_SRC_MODEL_PLASTICITY_H_
 
-#include "Kernels/Precision.h"
-#include "Model/CommonDatastructures.h"
 #include "Alignment.h"
-#include "Solver/MultipleSimulations.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Kernels/Precision.h"
+#include "Model/CommonDatastructures.h"
+#include "Solver/MultipleSimulations.h"
 
 #include <cmath>
 #include <cstddef>
@@ -47,7 +47,8 @@ struct PlasticityData {
 
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
       auto initialLoadingVS = multisim::simtensor(initialLoadingV, s);
-      auto cohesionTimesCosAngularFrictionVS = multisim::simtensor(cohesionTimesCosAngularFrictionV, s);
+      auto cohesionTimesCosAngularFrictionVS =
+          multisim::simtensor(cohesionTimesCosAngularFrictionV, s);
       auto sinAngularFrictionVS = multisim::simtensor(sinAngularFrictionV, s);
 
       for (std::size_t i = 0; i < PointCount; ++i) {

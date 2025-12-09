@@ -200,8 +200,8 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
                  "Plasticity database size mismatch with number of simulations");
           std::array<const Plasticity*, seissol::multisim::NumSimulations> localPlasticity{};
           for (size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
-            localPlasticity[i] =
-                &plasticityDB[i][static_cast<std::size_t>(meshId) * model::PlasticityData::PointCount];
+            localPlasticity[i] = &plasticityDB[i][static_cast<std::size_t>(meshId) *
+                                                  model::PlasticityData::PointCount];
           }
           initAssign(plasticity, seissol::model::PlasticityData(localPlasticity, material.local));
         }

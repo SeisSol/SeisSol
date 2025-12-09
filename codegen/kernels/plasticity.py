@@ -6,7 +6,6 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 # SPDX-FileContributor: Carsten Uphoff
 
-import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Tensor
@@ -54,7 +53,6 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         aderdg.Q.optPos(),
         iShape,
     )
-
 
     iShape = (numberOfNodes, 6)
     QStressNodal = OptionalDimTensor(
