@@ -197,6 +197,8 @@ easi::Query PlasticityPointGenerator::generate() const {
   // Generate query using quadrature points for each element
   easi::Query query(m_cellToVertex.size * PlasticityPoints, Cell::Dim);
 
+  auto nodes = init::vNodes::view::create(const_cast<real*>(init::vNodes::Values));
+
 // Transform quadrature points to global coordinates for all elements
 #pragma omp parallel for schedule(static)
   for (std::size_t elem = 0; elem < m_cellToVertex.size; ++elem) {
@@ -205,15 +207,23 @@ easi::Query PlasticityPointGenerator::generate() const {
 
     for (std::size_t i = 0; i < PlasticityPoints; ++i) {
 
-      // TODO: adjust
-      std::array<double, 3> barycenter = {1 / 3., 1 / 3., 1 / 3.};
+      std::array<double, Cell::Dim> point{};
+
+      // to emulate the "old" (barycentric) behavior
+      // point = {1 / 4., 1 / 4., 1 / 4.};
+
+      for (std::size_t j = 0; j < Cell::Dim; ++j) {
+        point[j] = nodes(i, j);
+      }
+
+      const auto pointIdx = elem * PlasticityPoints + i;
 
       Eigen::Vector3d transformed = seissol::transformations::tetrahedronReferenceToGlobal(
-          vertices[0], vertices[1], vertices[2], vertices[3], barycenter.data());
-      query.x(elem * PlasticityPoints + i, 0) = transformed(0);
-      query.x(elem * PlasticityPoints + i, 1) = transformed(1);
-      query.x(elem * PlasticityPoints + i, 2) = transformed(2);
-      query.group(elem * PlasticityPoints + i) = m_cellToVertex.elementGroups(elem);
+          vertices[0], vertices[1], vertices[2], vertices[3], point.data());
+      query.x(pointIdx, 0) = transformed(0);
+      query.x(pointIdx, 1) = transformed(1);
+      query.x(pointIdx, 2) = transformed(2);
+      query.group(pointIdx) = m_cellToVertex.elementGroups(elem);
     }
   }
 

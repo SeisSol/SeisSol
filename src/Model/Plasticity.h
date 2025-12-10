@@ -23,7 +23,7 @@ namespace seissol::model {
 
 // plasticity information per cell
 struct PlasticityData {
-  static constexpr auto PointCount = tensor::v::Shape[0];
+  static constexpr auto PointCount = tensor::vNodes::Shape[0];
 
   // initial loading (stress tensor)
   alignas(Alignment) real initialLoading[tensor::QStressNodal::size()]{};
