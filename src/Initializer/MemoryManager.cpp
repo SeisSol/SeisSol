@@ -153,9 +153,6 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
     std::size_t nodalDisplacementsCounter{0};
     std::size_t analyticCounter = 0;
 
-    std::array<std::size_t, 4> freeSurfacePerFace{};
-    std::array<std::size_t, 4> dirichletPerFace{};
-
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       bool needsScratchMemForDerivatives = !cellInformation[cell].ltsSetup.hasDerivatives();
       if (needsScratchMemForDerivatives) {
@@ -192,23 +189,8 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
         if (cellInformation[cell].faceTypes[face] == FaceType::Analytical) {
           ++analyticCounter;
         }
-
-        if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity) {
-          ++freeSurfacePerFace[face];
-        }
-
-        if (cellInformation[cell].faceTypes[face] == FaceType::Dirichlet) {
-          ++dirichletPerFace[face];
-        }
       }
     }
-    const auto freeSurfaceCount =
-        *std::max_element(freeSurfacePerFace.begin(), freeSurfacePerFace.end());
-    const auto dirichletCountPre =
-        *std::max_element(dirichletPerFace.begin(), dirichletPerFace.end());
-
-    // FSG also counts as Dirichlet
-    const auto dirichletCount = std::max(dirichletCountPre, freeSurfaceCount);
 
     layer.setEntrySize<LTS::IntegratedDofsScratch>(integratedDofsCounter * tensor::I::size() *
                                                    sizeof(real));
@@ -216,6 +198,7 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
                                                 sizeof(real));
     layer.setEntrySize<LTS::NodalAvgDisplacements>(nodalDisplacementsCounter *
                                                    nodalDisplacementsSize * sizeof(real));
+    layer.setEntrySize<LTS::FSGData>(nodalDisplacementsCounter * 2 * sizeof(real));
 #ifdef USE_VISCOELASTIC2
     layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * tensor::Iane::size() * sizeof(real));
     layer.setEntrySize<LTS::DerivativesExtScratch>(
@@ -235,20 +218,10 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
                                                    sizeof(real));
     }
 
-    layer.setEntrySize<LTS::DofsFaceBoundaryNodalScratch>(sizeof(real) * dirichletCount *
-                                                          tensor::INodal::size());
-
-    layer.setEntrySize<LTS::RotateDisplacementToFaceNormalScratch>(
-        sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
-    layer.setEntrySize<LTS::RotateDisplacementToGlobalScratch>(
-        sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
-    layer.setEntrySize<LTS::RotatedFaceDisplacementScratch>(sizeof(real) * freeSurfaceCount *
-                                                            init::rotatedFaceDisplacement::Size);
-    layer.setEntrySize<LTS::DofsFaceNodalScratch>(sizeof(real) * freeSurfaceCount *
-                                                  tensor::INodal::size());
-    layer.setEntrySize<LTS::PrevCoefficientsScratch>(
-        sizeof(real) * freeSurfaceCount *
-        nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
+#ifdef USE_POROELASTIC
+    layer.setEntrySize<LTS::ZinvExtra>(layer.size() * yateto::computeFamilySize<tensor::Zinv>() *
+                                       sizeof(real));
+#endif
   }
 }
 

@@ -24,6 +24,9 @@ class ElasticADERDG(LinearADERDG):
     def numberOfQuantities(self):
         return 9
 
+    def velocityOffset(self):
+        return 6
+
     def name(self):
         return "elastic"
 

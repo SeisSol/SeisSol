@@ -445,6 +445,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
       computeGraphKey, *clusterData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
         spacetimeKernel.computeBatchedAder(integrationCoeffs.data(),
                                            timeStepWidth,
+                                           *clusterData,
                                            tmp,
                                            dataTable,
                                            materialTable,
@@ -599,8 +600,7 @@ void TimeCluster::computeLocalIntegrationFlops() {
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       if (cellInformation->faceTypes[face] == FaceType::FreeSurfaceGravity) {
         const auto [nonZeroFlopsDisplacement, hardwareFlopsDisplacement] =
-            GravitationalFreeSurfaceBc::getFlopsDisplacementFace(
-                face, cellInformation[cell].faceTypes[face]);
+            GravitationalFreeSurfaceBc::getFlopsDisplacementFace(face);
         flopsNonZero += nonZeroFlopsDisplacement;
         flopsHardware += hardwareFlopsDisplacement;
       }
