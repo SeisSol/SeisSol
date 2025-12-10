@@ -9,15 +9,13 @@
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Tensor
-from yateto.input import parseXMLMatrixFile
+from yateto.input import parseJSONMatrixFile
 
 
 def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
     # Load matrices
-    db = parseXMLMatrixFile(
-        "{}/plasticity_{}_matrices_{}.xml".format(
-            matricesDir, PlasticityMethod, aderdg.order
-        ),
+    db = parseJSONMatrixFile(
+        f"{matricesDir}/plasticity-{PlasticityMethod}-matrices-{aderdg.order}.json",
         clones=dict(),
         alignStride=aderdg.alignStride,
     )
@@ -178,3 +176,12 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
             <= QStress["kp"] + db.vInv[aderdg.t("kl")] * QStressNodal["lp"],
             target=gpu_target,
         )
+
+
+def includeTensors(matricesDir, aderdg, PlasticityMethod, includeTensors):
+    db = parseJSONMatrixFile(
+        f"{matricesDir}/plasticity-{PlasticityMethod}-matrices-{aderdg.order}.json",
+        clones=dict(),
+        alignStride=aderdg.alignStride,
+    )
+    includeTensors.add(db.vNodes)
