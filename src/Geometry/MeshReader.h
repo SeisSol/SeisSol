@@ -13,6 +13,7 @@
 #include "MeshDefinition.h"
 
 #include <Eigen/Dense>
+#include <Initializer/ConfigMap.h>
 #include <cmath>
 #include <map>
 #include <unordered_map>
@@ -40,6 +41,7 @@ struct GhostElementMetadata {
   GlobalElemId globalId;
   int clusterId;
   double timestep;
+  int configId;
 };
 
 struct LinearGhostCell {
@@ -115,6 +117,8 @@ class MeshReader {
                                seissol::initializer::parameters::RefPointMethod refPointMethod);
 
   void exchangeGhostlayerMetadata();
+
+  void setupConfigs(const ConfigMap& map);
 
   /**
     Create a linearized ghost layer view.

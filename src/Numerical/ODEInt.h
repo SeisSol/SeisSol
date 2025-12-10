@@ -50,9 +50,9 @@ class RungeKuttaODESolver {
   std::vector<double> c;
 
   // Temporary storage
-  std::vector<ODEVector> stages;
-  std::vector<std::vector<real>> storages;
-  ODEVector buffer;
+  std::vector<ODEVector<double>> stages;
+  std::vector<std::vector<double>> storages;
+  ODEVector<double> buffer;
 
   public:
   RungeKuttaODESolver(const std::vector<std::size_t>& storageSizes, ODESolverConfig config);
@@ -62,14 +62,14 @@ class RungeKuttaODESolver {
   /*!
    * @tparam Func is a callable type (e.g. functor/lambda)
    * @param f is a function with arguments
-        f(ODEVector& du, ODEVector& u, double evaluationTime).
+        f(ODEVector<RealT>& du, ODEVector<RealT>& u, double evaluationTime).
         which sets the right hand side of the ODE in du
         and takes u, du and evaluationTime as input.
    * @param curValue is the current solution of the ODE
    * @param timeSpan is the time span in which the ODE should be solved.
    */
   template <typename Func>
-  void solve(Func f, ODEVector& curValue, TimeSpan timeSpan) {
+  void solve(Func f, ODEVector<double>& curValue, TimeSpan timeSpan) {
     assert(timeSpan.begin <= timeSpan.end);
     double curTime = timeSpan.begin;
     const double dt = config.initialDt;

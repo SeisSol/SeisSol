@@ -19,6 +19,10 @@
 #include "Kernels/Precision.h"
 #include "Parallel/Runtime/Stream.h"
 
+#include <Alignment.h>
+#include <Initializer/Typedefs.h>
+#include <Memory/GlobalData.h>
+#include <Parallel/Runtime/Stream.h>
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
@@ -38,23 +42,24 @@
 
 namespace seissol::kernels {
 
-void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
-  m_krnlPrototype.V3mTo2n = global.onHost->faceToNodalMatrices;
+template <typename Cfg>
+void DynamicRupture<Cfg>::setGlobalData(const GlobalData& global) {
+  m_krnlPrototype.V3mTo2n = global.get<Cfg>().faceToNodalMatrices;
 #ifdef ACL_DEVICE
-  assert(global.onDevice != nullptr);
-  m_gpuKrnlPrototype.V3mTo2n = global.onDevice->faceToNodalMatrices;
+  m_gpuKrnlPrototype.V3mTo2n = global.get<Cfg, Executor::Device>().faceToNodalMatrices;
 #endif
 
   m_timeKernel.setGlobalData(global);
 }
 
-void DynamicRupture::spaceTimeInterpolation(
+template <typename Cfg>
+void DynamicRupture<Cfg>::spaceTimeInterpolation(
     const DRFaceInformation& faceInfo,
-    const DRGodunovData* godunovData,
+    const DRGodunovData<Cfg>* godunovData,
     const real* timeDerivativePlus,
     const real* timeDerivativeMinus,
-    real qInterpolatedPlus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
-    real qInterpolatedMinus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
+    real qInterpolatedPlus[dr::misc::TimeSteps<Cfg>][seissol::tensor::QInterpolated<Cfg>::size()],
+    real qInterpolatedMinus[dr::misc::TimeSteps<Cfg>][seissol::tensor::QInterpolated<Cfg>::size()],
     const real* timeDerivativePlusPrefetch,
     const real* timeDerivativeMinusPrefetch,
     const real* coeffs) {
@@ -66,24 +71,24 @@ void DynamicRupture::spaceTimeInterpolation(
   assert((reinterpret_cast<uintptr_t>(timeDerivativeMinus)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(&qInterpolatedPlus[0])) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(&qInterpolatedMinus[0])) % Alignment == 0);
-  static_assert(tensor::Q::size() == tensor::I::size(),
+  static_assert(tensor::Q<Cfg>::size() == tensor::I<Cfg>::size(),
                 "The tensors Q and I need to match in size");
 #endif
 
-  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()];
-  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
+  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q<Cfg>::size()];
+  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q<Cfg>::size()];
 
-  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
-  for (std::size_t timeInterval = 0; timeInterval < dr::misc::TimeSteps; ++timeInterval) {
+  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg> krnl = m_krnlPrototype;
+  for (std::size_t timeInterval = 0; timeInterval < dr::misc::TimeSteps<Cfg>; ++timeInterval) {
     m_timeKernel.evaluate(
-        &coeffs[timeInterval * ConvergenceOrder], timeDerivativePlus, degreesOfFreedomPlus);
+        &coeffs[timeInterval * Cfg::ConvergenceOrder], timeDerivativePlus, degreesOfFreedomPlus);
     m_timeKernel.evaluate(
-        &coeffs[timeInterval * ConvergenceOrder], timeDerivativeMinus, degreesOfFreedomMinus);
+        &coeffs[timeInterval * Cfg::ConvergenceOrder], timeDerivativeMinus, degreesOfFreedomMinus);
 
-    const real* plusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps)
+    const real* plusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps<Cfg>)
                                    ? &qInterpolatedPlus[timeInterval + 1][0]
                                    : timeDerivativePlusPrefetch;
-    const real* minusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps)
+    const real* minusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps<Cfg>)
                                     ? &qInterpolatedMinus[timeInterval + 1][0]
                                     : timeDerivativeMinusPrefetch;
 
@@ -101,7 +106,8 @@ void DynamicRupture::spaceTimeInterpolation(
   }
 }
 
-void DynamicRupture::batchedSpaceTimeInterpolation(
+template <typename Cfg>
+void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
     SEISSOL_GPU_PARAM recording::DrConditionalPointersToRealsTable& table,
     SEISSOL_GPU_PARAM const real* coeffs,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
@@ -110,26 +116,28 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
   real** degreesOfFreedomPlus{nullptr};
   real** degreesOfFreedomMinus{nullptr};
 
-  for (unsigned timeInterval = 0; timeInterval < dr::misc::TimeSteps; ++timeInterval) {
+  for (unsigned timeInterval = 0; timeInterval < dr::misc::TimeSteps<Cfg>; ++timeInterval) {
     ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
     if (table.find(timeIntegrationKey) != table.end()) {
       auto& entry = table[timeIntegrationKey];
 
       unsigned maxNumElements = (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getSize();
       real** timeDerivativePlus =
-          (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
-      degreesOfFreedomPlus = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr();
+          (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtrAs<real*>();
+      degreesOfFreedomPlus =
+          (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtrAs<real*>();
 
-      m_timeKernel.evaluateBatched(&coeffs[timeInterval * ConvergenceOrder],
+      m_timeKernel.evaluateBatched(&coeffs[timeInterval * Cfg::ConvergenceOrder],
                                    const_cast<const real**>(timeDerivativePlus),
                                    degreesOfFreedomPlus,
                                    maxNumElements,
                                    runtime);
 
       real** timeDerivativeMinus =
-          (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
-      degreesOfFreedomMinus = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr();
-      m_timeKernel.evaluateBatched(&coeffs[timeInterval * ConvergenceOrder],
+          (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtrAs<real*>();
+      degreesOfFreedomMinus =
+          (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtrAs<real*>();
+      m_timeKernel.evaluateBatched(&coeffs[timeInterval * Cfg::ConvergenceOrder],
                                    const_cast<const real**>(timeDerivativeMinus),
                                    degreesOfFreedomMinus,
                                    maxNumElements,
@@ -156,12 +164,12 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
           krnl.numElements = numElements;
 
           krnl.QInterpolated =
-              (entry.get(inner_keys::Dr::Id::QInterpolatedPlus))->getDeviceDataPtr();
-          krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
+              (entry.get(inner_keys::Dr::Id::QInterpolatedPlus))->getDeviceDataPtrAs<real*>();
+          krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated<Cfg>::size();
           krnl.Q = const_cast<const real**>(
-              (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr());
-          krnl.TinvT =
-              const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
+              (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtrAs<real*>());
+          krnl.TinvT = const_cast<const real**>(
+              (entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtrAs<real*>());
           krnl.execute(side, 0);
 
           device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
@@ -181,12 +189,12 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
           krnl.numElements = numElements;
 
           krnl.QInterpolated =
-              (entry.get(inner_keys::Dr::Id::QInterpolatedMinus))->getDeviceDataPtr();
-          krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
+              (entry.get(inner_keys::Dr::Id::QInterpolatedMinus))->getDeviceDataPtrAs<real*>();
+          krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated<Cfg>::size();
           krnl.Q = const_cast<const real**>(
-              (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr());
-          krnl.TinvT =
-              const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
+              (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtrAs<real*>());
+          krnl.TinvT = const_cast<const real**>(
+              (entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtrAs<real*>());
           krnl.execute(side, faceRelation);
 
           device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
@@ -199,27 +207,35 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 #endif
 }
 
-void DynamicRupture::flopsGodunovState(const DRFaceInformation& faceInfo,
-                                       std::uint64_t& nonZeroFlops,
-                                       std::uint64_t& hardwareFlops) {
+template <typename Cfg>
+void DynamicRupture<Cfg>::flopsGodunovState(const DRFaceInformation& faceInfo,
+                                            std::uint64_t& nonZeroFlops,
+                                            std::uint64_t& hardwareFlops) {
   m_timeKernel.flopsEvaluate(nonZeroFlops, hardwareFlops);
 
   // 2x evaluateTaylorExpansion
   nonZeroFlops *= 2;
   hardwareFlops *= 2;
 
-  nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(
-      faceInfo.plusSide, 0);
-  hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(
-      faceInfo.plusSide, 0);
+  nonZeroFlops +=
+      dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::nonZeroFlops(
+          faceInfo.plusSide, 0);
+  hardwareFlops +=
+      dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::hardwareFlops(
+          faceInfo.plusSide, 0);
 
-  nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(
-      faceInfo.minusSide, faceInfo.faceRelation);
-  hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(
-      faceInfo.minusSide, faceInfo.faceRelation);
+  nonZeroFlops +=
+      dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::nonZeroFlops(
+          faceInfo.minusSide, faceInfo.faceRelation);
+  hardwareFlops +=
+      dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::hardwareFlops(
+          faceInfo.minusSide, faceInfo.faceRelation);
 
-  nonZeroFlops *= dr::misc::TimeSteps;
-  hardwareFlops *= dr::misc::TimeSteps;
+  nonZeroFlops *= dr::misc::TimeSteps<Cfg>;
+  hardwareFlops *= dr::misc::TimeSteps<Cfg>;
 }
+
+#define SEISSOL_CONFIGITER(cfg) template class DynamicRupture<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol::kernels

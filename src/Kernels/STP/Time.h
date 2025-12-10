@@ -22,19 +22,22 @@
 
 namespace seissol::kernels::solver::stp {
 
-class Spacetime : public SpacetimeKernel {
+template <typename Cfg>
+class Spacetime : public SpacetimeKernel<Cfg> {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  using real = Real<Cfg>;
+
+  void setGlobalData(const GlobalData& global) override;
   void computeAder(const real* coeffs,
                    double timeStepWidth,
-                   LTS::Ref& data,
-                   LocalTmp& tmp,
-                   real timeIntegrated[tensor::I::size()],
+                   LTS::Ref<Cfg>& data,
+                   LocalTmp<Cfg>& tmp,
+                   real timeIntegrated[tensor::I<Cfg>::size()],
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
   void computeBatchedAder(const real* coeffs,
                           double timeStepWidth,
-                          LocalTmp& tmp,
+                          LocalTmp<Cfg>& tmp,
                           recording::ConditionalPointersToRealsTable& dataTable,
                           recording::ConditionalMaterialTable& materialTable,
                           bool updateDisplacement,
@@ -46,25 +49,28 @@ class Spacetime : public SpacetimeKernel {
 
   private:
   void executeSTP(double timeStepWidth,
-                  LTS::Ref& data,
-                  real timeIntegrated[tensor::I::size()],
+                  LTS::Ref<Cfg>& data,
+                  real timeIntegrated[tensor::I<Cfg>::size()],
                   real* stp);
 
-  kernel::spaceTimePredictor m_krnlPrototype;
-  kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
+  kernel::spaceTimePredictor<Cfg> m_krnlPrototype;
+  kernel::projectDerivativeToNodalBoundaryRotated<Cfg> projectDerivativeToNodalBoundaryRotated;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_spaceTimePredictor deviceKrnlPrototype;
-  kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
+  kernel::gpu_spaceTimePredictor<Cfg> deviceKrnlPrototype;
+  kernel::gpu_projectDerivativeToNodalBoundaryRotated<Cfg> deviceDerivativeToNodalBoundaryRotated;
 #endif
 };
 
-class Time : public TimeKernel {
+template <typename Cfg>
+class Time : public TimeKernel<Cfg> {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  using real = Real<Cfg>;
+
+  void setGlobalData(const GlobalData& global) override;
   void evaluate(const real* coeffs,
                 const real* timeDerivatives,
-                real timeEvaluated[tensor::I::size()]) override;
+                real timeEvaluated[tensor::I<Cfg>::size()]) override;
   void evaluateBatched(const real* coeffs,
                        const real** timeDerivatives,
                        real** timeIntegratedDofs,

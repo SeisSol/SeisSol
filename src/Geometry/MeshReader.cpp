@@ -274,20 +274,22 @@ void MeshReader::exchangeGhostlayerMetadata() {
   MPI_Datatype ghostElementTypePre = MPI_DATATYPE_NULL;
 
   // assume that all vertices are stored contiguously
-  const int datatypeCount = 6;
-  const std::vector<int> datatypeBlocklen{Cell::NumVertices * Cell::Dim, 1, 1, 1, 1, 1};
+  const int datatypeCount = 7;
+  const std::vector<int> datatypeBlocklen{Cell::NumVertices * Cell::Dim, 1, 1, 1, 1, 1, 1};
   const std::vector<MPI_Aint> datatypeDisplacement{offsetof(GhostElementMetadata, vertices),
                                                    offsetof(GhostElementMetadata, group),
                                                    offsetof(GhostElementMetadata, localId),
                                                    offsetof(GhostElementMetadata, globalId),
                                                    offsetof(GhostElementMetadata, clusterId),
-                                                   offsetof(GhostElementMetadata, timestep)};
+                                                   offsetof(GhostElementMetadata, timestep),
+                                                   offsetof(GhostElementMetadata, configId)};
   const std::vector<MPI_Datatype> datatypeDatatype{MPI_DOUBLE,
                                                    MPI_INT,
                                                    PUML::MPITypeInfer<LocalElemId>::type(),
                                                    PUML::MPITypeInfer<GlobalElemId>::type(),
                                                    MPI_INT,
-                                                   MPI_DOUBLE};
+                                                   MPI_DOUBLE,
+                                                   MPI_INT};
 
   MPI_Type_create_struct(datatypeCount,
                          datatypeBlocklen.data(),
@@ -321,6 +323,7 @@ void MeshReader::exchangeGhostlayerMetadata() {
       ghost.globalId = element.globalId;
       ghost.clusterId = element.clusterId;
       ghost.timestep = element.timestep;
+      ghost.configId = element.configId;
     }
 
     // TODO(David): evaluate, if MPI_Ssend (instead of just MPI_Send) makes sense here?
@@ -378,6 +381,12 @@ void MeshReader::computeTimestepIfNecessary(const seissol::SeisSol& seissolInsta
       // enforce GTS in the case here
       cell.clusterId = 0;
     }
+  }
+}
+
+void MeshReader::setupConfigs(const ConfigMap& map) {
+  for (auto& cell : m_elements) {
+    cell.configId = map.toConfig(cell.group).index();
   }
 }
 

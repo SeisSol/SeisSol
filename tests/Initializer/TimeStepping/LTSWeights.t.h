@@ -42,13 +42,14 @@ TEST_CASE("LTS Weights") {
   seissolParameters.model.materialFileName = tpath("Testing/material.yaml");
   seissolParameters.model.useCellHomogenizedMaterial = false;
   seissolParameters.model.plasticity = false;
-  const utils::Env env("SEISSOL_");
+  utils::Env env("SEISSOL_");
   seissol::SeisSol seissolInstance(seissolParameters, env);
 
   auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
   const auto pumlReader =
       seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
                                     "Default",
+                                    ConfigMap({}, env),
                                     seissol::initializer::parameters::BoundaryFormat::I32,
                                     seissol::initializer::parameters::TopologyFormat::Geometric,
                                     ltsWeights.get());

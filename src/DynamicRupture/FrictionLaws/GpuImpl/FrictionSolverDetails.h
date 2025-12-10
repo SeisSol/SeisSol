@@ -11,19 +11,22 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/Misc.h"
 
-#include <yaml-cpp/yaml.h>
+#include <Memory/GlobalData.h>
 
 namespace seissol::dr::friction_law::gpu {
 
-class FrictionSolverDetails : public FrictionSolverInterface {
+template <typename Cfg>
+class FrictionSolverDetails : public FrictionSolverInterface<Cfg> {
   public:
   explicit FrictionSolverDetails(seissol::initializer::parameters::DRParameters* drParameters);
   ~FrictionSolverDetails() override;
 
-  void allocateAuxiliaryMemory(GlobalData* globalData) override;
+  void allocateAuxiliaryMemory(const GlobalData& globalData) override;
 
   protected:
   size_t currLayerSize{};
+
+  using real = Real<Cfg>;
 
   real* resampleMatrix{nullptr};
   real* devSpaceWeights{nullptr};
@@ -31,7 +34,7 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   real* devTpGridPoints{nullptr};
   real* devHeatSource{nullptr};
 
-  FrictionLawData* data{nullptr};
+  FrictionLawData<Cfg>* data{nullptr};
 };
 } // namespace seissol::dr::friction_law::gpu
 

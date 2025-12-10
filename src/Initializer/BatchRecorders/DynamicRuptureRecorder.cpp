@@ -31,95 +31,106 @@ void DynamicRuptureRecorder::record(DynamicRupture::Layer& layer) {
 }
 
 void DynamicRuptureRecorder::recordDofsTimeEvaluation() {
-  real** timeDerivativePlus = currentLayer->var<DynamicRupture::TimeDerivativePlusDevice>();
-  real** timeDerivativeMinus = currentLayer->var<DynamicRupture::TimeDerivativeMinusDevice>();
-  real* idofsPlus = static_cast<real*>(
-      currentLayer->var<DynamicRupture::IdofsPlusOnDevice>(AllocationPlace::Device));
-  real* idofsMinus = static_cast<real*>(
-      currentLayer->var<DynamicRupture::IdofsMinusOnDevice>(AllocationPlace::Device));
+  currentLayer->wrap([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    using real = Real<Cfg>;
 
-  const auto size = currentLayer->size();
-  if (size > 0) {
-    std::vector<real*> timeDerivativePlusPtrs(size, nullptr);
-    std::vector<real*> timeDerivativeMinusPtrs(size, nullptr);
-    std::vector<real*> idofsPlusPtrs(size, nullptr);
-    std::vector<real*> idofsMinusPtrs(size, nullptr);
+    real** timeDerivativePlus = currentLayer->var<DynamicRupture::TimeDerivativePlusDevice>(cfg);
+    real** timeDerivativeMinus = currentLayer->var<DynamicRupture::TimeDerivativeMinusDevice>(cfg);
+    real* idofsPlus = static_cast<real*>(
+        currentLayer->var<DynamicRupture::IdofsPlusOnDevice>(cfg, AllocationPlace::Device));
+    real* idofsMinus = static_cast<real*>(
+        currentLayer->var<DynamicRupture::IdofsMinusOnDevice>(cfg, AllocationPlace::Device));
 
-    const size_t idofsSize = tensor::Q::size();
-    for (std::size_t faceId = 0; faceId < size; ++faceId) {
-      timeDerivativePlusPtrs[faceId] = timeDerivativePlus[faceId];
-      timeDerivativeMinusPtrs[faceId] = timeDerivativeMinus[faceId];
-      idofsPlusPtrs[faceId] = &idofsPlus[faceId * idofsSize];
-      idofsMinusPtrs[faceId] = &idofsMinus[faceId * idofsSize];
+    const auto size = currentLayer->size();
+    if (size > 0) {
+      std::vector<void*> timeDerivativePlusPtrs(size, nullptr);
+      std::vector<void*> timeDerivativeMinusPtrs(size, nullptr);
+      std::vector<void*> idofsPlusPtrs(size, nullptr);
+      std::vector<void*> idofsMinusPtrs(size, nullptr);
+
+      const size_t idofsSize = tensor::Q<Cfg>::size();
+      for (std::size_t faceId = 0; faceId < size; ++faceId) {
+        timeDerivativePlusPtrs[faceId] = timeDerivativePlus[faceId];
+        timeDerivativeMinusPtrs[faceId] = timeDerivativeMinus[faceId];
+        idofsPlusPtrs[faceId] = &idofsPlus[faceId * idofsSize];
+        idofsMinusPtrs[faceId] = &idofsMinus[faceId * idofsSize];
+      }
+
+      const ConditionalKey key(*KernelNames::DrTime);
+      checkKey(key);
+
+      (*currentDrTable)[key].set(inner_keys::Dr::Id::DerivativesPlus, timeDerivativePlusPtrs);
+      (*currentDrTable)[key].set(inner_keys::Dr::Id::DerivativesMinus, timeDerivativeMinusPtrs);
+      (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsPlus, idofsPlusPtrs);
+      (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsMinus, idofsMinusPtrs);
     }
-
-    const ConditionalKey key(*KernelNames::DrTime);
-    checkKey(key);
-
-    (*currentDrTable)[key].set(inner_keys::Dr::Id::DerivativesPlus, timeDerivativePlusPtrs);
-    (*currentDrTable)[key].set(inner_keys::Dr::Id::DerivativesMinus, timeDerivativeMinusPtrs);
-    (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsPlus, idofsPlusPtrs);
-    (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsMinus, idofsMinusPtrs);
-  }
+  });
 }
 
 void DynamicRuptureRecorder::recordSpaceInterpolation() {
-  auto* qInterpolatedPlus =
-      currentLayer->var<DynamicRupture::QInterpolatedPlus>(AllocationPlace::Device);
-  auto* qInterpolatedMinus =
-      currentLayer->var<DynamicRupture::QInterpolatedMinus>(AllocationPlace::Device);
+  currentLayer->wrap([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    using real = Real<Cfg>;
 
-  real* idofsPlus = static_cast<real*>(
-      currentLayer->var<DynamicRupture::IdofsPlusOnDevice>(AllocationPlace::Device));
-  real* idofsMinus = static_cast<real*>(
-      currentLayer->var<DynamicRupture::IdofsMinusOnDevice>(AllocationPlace::Device));
+    auto* qInterpolatedPlus =
+        currentLayer->var<DynamicRupture::QInterpolatedPlus>(cfg, AllocationPlace::Device);
+    auto* qInterpolatedMinus =
+        currentLayer->var<DynamicRupture::QInterpolatedMinus>(cfg, AllocationPlace::Device);
 
-  DRGodunovData* godunovData =
-      currentLayer->var<DynamicRupture::GodunovData>(AllocationPlace::Device);
-  DRFaceInformation* faceInfo = currentLayer->var<DynamicRupture::FaceInformation>();
+    real* idofsPlus = static_cast<real*>(
+        currentLayer->var<DynamicRupture::IdofsPlusOnDevice>(cfg, AllocationPlace::Device));
+    real* idofsMinus = static_cast<real*>(
+        currentLayer->var<DynamicRupture::IdofsMinusOnDevice>(cfg, AllocationPlace::Device));
 
-  const auto size = currentLayer->size();
-  if (size > 0) {
-    std::array<std::vector<real*>, *FaceId::Count> qInterpolatedPlusPtr{};
-    std::array<std::vector<real*>, *FaceId::Count> idofsPlusPtr{};
-    std::array<std::vector<real*>, *FaceId::Count> tInvTPlusPtr{};
+    DRGodunovData<Cfg>* godunovData =
+        currentLayer->var<DynamicRupture::GodunovData>(cfg, AllocationPlace::Device);
+    DRFaceInformation* faceInfo = currentLayer->var<DynamicRupture::FaceInformation>();
 
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> qInterpolatedMinusPtr {};
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> idofsMinusPtr {};
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> tInvTMinusPtr {};
+    const auto size = currentLayer->size();
+    if (size > 0) {
+      std::array<std::vector<void*>, *FaceId::Count> qInterpolatedPlusPtr{};
+      std::array<std::vector<void*>, *FaceId::Count> idofsPlusPtr{};
+      std::array<std::vector<void*>, *FaceId::Count> tInvTPlusPtr{};
 
-    const size_t idofsSize = tensor::Q::size();
-    for (std::size_t faceId = 0; faceId < size; ++faceId) {
-      const auto plusSide = faceInfo[faceId].plusSide;
-      qInterpolatedPlusPtr[plusSide].push_back(&qInterpolatedPlus[faceId][0][0]);
-      idofsPlusPtr[plusSide].push_back(&idofsPlus[faceId * idofsSize]);
-      tInvTPlusPtr[plusSide].push_back((&godunovData[faceId])->dataTinvT);
+      std::array<std::vector<void*>[*FaceId::Count], *FaceId::Count> qInterpolatedMinusPtr {};
+      std::array<std::vector<void*>[*FaceId::Count], *FaceId::Count> idofsMinusPtr {};
+      std::array<std::vector<void*>[*FaceId::Count], *FaceId::Count> tInvTMinusPtr {};
 
-      const auto minusSide = faceInfo[faceId].minusSide;
-      const auto faceRelation = faceInfo[faceId].faceRelation;
-      qInterpolatedMinusPtr[minusSide][faceRelation].push_back(&qInterpolatedMinus[faceId][0][0]);
-      idofsMinusPtr[minusSide][faceRelation].push_back(&idofsMinus[faceId * idofsSize]);
-      tInvTMinusPtr[minusSide][faceRelation].push_back((&godunovData[faceId])->dataTinvT);
-    }
+      const size_t idofsSize = tensor::Q<Cfg>::size();
+      for (std::size_t faceId = 0; faceId < size; ++faceId) {
+        const auto plusSide = faceInfo[faceId].plusSide;
+        qInterpolatedPlusPtr[plusSide].push_back(&qInterpolatedPlus[faceId][0][0]);
+        idofsPlusPtr[plusSide].push_back(&idofsPlus[faceId * idofsSize]);
+        tInvTPlusPtr[plusSide].push_back((&godunovData[faceId])->dataTinvT);
 
-    for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-      if (!qInterpolatedPlusPtr[side].empty()) {
-        const ConditionalKey key(*KernelNames::DrSpaceMap, side);
-        (*currentDrTable)[key].set(inner_keys::Dr::Id::QInterpolatedPlus,
-                                   qInterpolatedPlusPtr[side]);
-        (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsPlus, idofsPlusPtr[side]);
-        (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, tInvTPlusPtr[side]);
+        const auto minusSide = faceInfo[faceId].minusSide;
+        const auto faceRelation = faceInfo[faceId].faceRelation;
+        qInterpolatedMinusPtr[minusSide][faceRelation].push_back(&qInterpolatedMinus[faceId][0][0]);
+        idofsMinusPtr[minusSide][faceRelation].push_back(&idofsMinus[faceId * idofsSize]);
+        tInvTMinusPtr[minusSide][faceRelation].push_back((&godunovData[faceId])->dataTinvT);
       }
-      for (std::size_t faceRelation = 0; faceRelation < Cell::NumFaces; ++faceRelation) {
-        if (!qInterpolatedMinusPtr[side][faceRelation].empty()) {
-          const ConditionalKey key(*KernelNames::DrSpaceMap, side, faceRelation);
-          (*currentDrTable)[key].set(inner_keys::Dr::Id::QInterpolatedMinus,
-                                     qInterpolatedMinusPtr[side][faceRelation]);
-          (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsMinus,
-                                     idofsMinusPtr[side][faceRelation]);
-          (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, tInvTMinusPtr[side][faceRelation]);
+
+      for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
+        if (!qInterpolatedPlusPtr[side].empty()) {
+          const ConditionalKey key(*KernelNames::DrSpaceMap, side);
+          (*currentDrTable)[key].set(inner_keys::Dr::Id::QInterpolatedPlus,
+                                     qInterpolatedPlusPtr[side]);
+          (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsPlus, idofsPlusPtr[side]);
+          (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, tInvTPlusPtr[side]);
+        }
+        for (std::size_t faceRelation = 0; faceRelation < Cell::NumFaces; ++faceRelation) {
+          if (!qInterpolatedMinusPtr[side][faceRelation].empty()) {
+            const ConditionalKey key(*KernelNames::DrSpaceMap, side, faceRelation);
+            (*currentDrTable)[key].set(inner_keys::Dr::Id::QInterpolatedMinus,
+                                       qInterpolatedMinusPtr[side][faceRelation]);
+            (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsMinus,
+                                       idofsMinusPtr[side][faceRelation]);
+            (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT,
+                                       tInvTMinusPtr[side][faceRelation]);
+          }
         }
       }
     }
-  }
+  });
 }

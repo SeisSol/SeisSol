@@ -53,6 +53,9 @@ add_custom_command(
      "--PlasticityMethod" ${PLASTICITY_METHOD}
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      "--drQuadRule" ${DR_QUAD_RULE}
+     "--enabled_order" ${ENABLED_ORDER}
+     "--enabled_material" ${ENABLED_MATERIAL}
+     "--enabled_precision" ${ENABLED_PRECISION}
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
      "--executable_pspamm=${PSpaMM_PROGRAM}"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag

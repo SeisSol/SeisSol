@@ -14,7 +14,7 @@ namespace seissol::unit_test {
 
 TEST_CASE("Test tetrahedron global to reference") {
   // We do all tests in double precision
-  constexpr real Epsilon = 10 * std::numeric_limits<double>::epsilon();
+  constexpr auto Epsilon = 10 * std::numeric_limits<double>::epsilon();
 
   // NOLINTNEXTLINE (-cert-dcl59-cpp)
   std::mt19937 rnggen(9);

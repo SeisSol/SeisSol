@@ -19,7 +19,7 @@ namespace seissol::recording::inner_keys {
  * of the Wave Propagation (Wp) solver.
  */
 struct Wp {
-  using DataType = real*;
+  using DataType = void*;
   enum struct Id : size_t {
     Dofs = 0,
     Idofs,
@@ -65,7 +65,7 @@ struct Wp {
  * of the Dynamic Rupture (Dr) solver.
  */
 struct Dr {
-  using DataType = real*;
+  using DataType = void*;
   enum struct Id : size_t {
     DerivativesPlus = 0,
     DerivativesMinus,

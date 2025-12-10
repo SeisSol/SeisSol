@@ -18,15 +18,19 @@
 #include <memory>
 
 namespace seissol::kernels::solver::linearckanelastic {
-class Local : public LocalKernel {
-  public:
-  void setGlobalData(const CompoundGlobalData& global) override;
 
-  void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                       LTS::Ref& data,
-                       LocalTmp& tmp,
+template <typename Cfg>
+class Local : public LocalKernel<Cfg> {
+  public:
+  using real = Real<Cfg>;
+
+  void setGlobalData(const GlobalData& global) override;
+
+  void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
+                       LTS::Ref<Cfg>& data,
+                       LocalTmp<Cfg>& tmp,
                        const CellMaterialData* materialData,
-                       const CellBoundaryMapping (*cellBoundaryMapping)[4],
+                       const CellBoundaryMapping<Cfg> (*cellBoundaryMapping)[4],
                        double time,
                        double timeStepWidth) override;
 
@@ -50,14 +54,14 @@ class Local : public LocalKernel {
   std::uint64_t bytesIntegral() override;
 
   protected:
-  kernel::volumeExt m_volumeKernelPrototype;
-  kernel::localFluxExt m_localFluxKernelPrototype;
-  kernel::local m_localKernelPrototype;
+  kernel::volumeExt<Cfg> m_volumeKernelPrototype;
+  kernel::localFluxExt<Cfg> m_localFluxKernelPrototype;
+  kernel::local<Cfg> m_localKernelPrototype;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_volumeExt deviceVolumeKernelPrototype;
-  kernel::gpu_localFluxExt deviceLocalFluxKernelPrototype;
-  kernel::gpu_local deviceLocalKernelPrototype;
+  kernel::gpu_volumeExt<Cfg> deviceVolumeKernelPrototype;
+  kernel::gpu_localFluxExt<Cfg> deviceLocalFluxKernelPrototype;
+  kernel::gpu_local<Cfg> deviceLocalKernelPrototype;
 #endif
 };
 } // namespace seissol::kernels::solver::linearckanelastic

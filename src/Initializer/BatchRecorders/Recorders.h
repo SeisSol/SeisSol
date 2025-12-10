@@ -89,8 +89,8 @@ class LocalIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   void recordLocalFluxIntegral();
   void recordDisplacements();
 
-  std::unordered_map<size_t, real*> idofsAddressRegistry;
-  std::vector<real*> dQPtrs;
+  std::unordered_map<size_t, void*> idofsAddressRegistry;
+  std::vector<void*> dQPtrs;
 
   size_t integratedDofsAddressCounter{0};
   size_t derivativesAddressCounter{0};
@@ -107,7 +107,7 @@ class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   }
   void recordDofsTimeEvaluation();
   void recordNeighborFluxIntegrals();
-  std::unordered_map<real*, real*> idofsAddressRegistry;
+  std::unordered_map<void*, void*> idofsAddressRegistry;
   size_t integratedDofsAddressCounter{0};
 };
 
@@ -126,7 +126,7 @@ class DynamicRuptureRecorder : public AbstractRecorder<DynamicRupture::DynrupVar
   void setUpContext(DynamicRupture::Layer& layer) { AbstractRecorder::setUpContext(layer); }
   void recordDofsTimeEvaluation();
   void recordSpaceInterpolation();
-  std::unordered_map<real*, real*> idofsAddressRegistry;
+  std::unordered_map<void*, void*> idofsAddressRegistry;
 };
 
 } // namespace seissol::recording

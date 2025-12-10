@@ -22,15 +22,15 @@
 
 namespace seissol::model {
 
-template <typename Tview>
-static void calcZinv(yateto::DenseTensorView<2, real, unsigned>& Zinv,
+template <typename Cfg, typename Tview>
+static void calcZinv(yateto::DenseTensorView<2, Real<Cfg>, unsigned>& Zinv,
                      Tview& sourceMatrix,
                      size_t quantity,
-                     real timeStepWidth) {
-  using Matrix = Eigen::Matrix<real, ConvergenceOrder, ConvergenceOrder>;
-  using Vector = Eigen::Matrix<real, ConvergenceOrder, 1>;
+                     Real<Cfg> timeStepWidth) {
+  using Matrix = Eigen::Matrix<Real<Cfg>, Cfg::ConvergenceOrder, Cfg::ConvergenceOrder>;
+  using Vector = Eigen::Matrix<Real<Cfg>, Cfg::ConvergenceOrder, 1>;
 
-  Matrix Z(init::Z::Values);
+  Matrix Z(init::Z<Cfg>::Values);
   // sourceMatrix[i,i] = 0 for i < 10
   // This is specific to poroelasticity, so change this for another equation
   // We need this check, because otherwise the lookup sourceMatrix(quantity, quantity) fails
@@ -39,11 +39,11 @@ static void calcZinv(yateto::DenseTensorView<2, real, unsigned>& Zinv,
   }
 
   auto solver = Z.colPivHouseholderQr();
-  for (std::size_t col = 0; col < ConvergenceOrder; col++) {
+  for (std::size_t col = 0; col < Cfg::ConvergenceOrder; col++) {
     Vector rhs = Vector::Zero();
     rhs(col) = 1.0;
     auto ZinvCol = solver.solve(rhs);
-    for (std::size_t row = 0; row < ConvergenceOrder; row++) {
+    for (std::size_t row = 0; row < Cfg::ConvergenceOrder; row++) {
       // save as transposed
       Zinv(col, row) = ZinvCol(row);
     }
@@ -51,63 +51,208 @@ static void calcZinv(yateto::DenseTensorView<2, real, unsigned>& Zinv,
 }
 
 // constexpr for loop since we need to instatiate the view templates
-template <size_t iStart, size_t iEnd, typename Tview>
+template <typename Cfg, size_t iStart, size_t iEnd, typename Tview>
 struct zInvInitializerForLoop {
-  zInvInitializerForLoop(
-      real ZinvData[PoroElasticMaterial::NumQuantities][ConvergenceOrder * ConvergenceOrder],
-      Tview& sourceMatrix,
-      real timeStepWidth) {
-    auto Zinv = init::Zinv::view<iStart>::create(ZinvData[iStart]);
-    calcZinv(Zinv, sourceMatrix, iStart, timeStepWidth);
-    if constexpr (iStart < iEnd - 1) {
-      zInvInitializerForLoop<iStart + 1, iEnd, Tview>(ZinvData, sourceMatrix, timeStepWidth);
+  zInvInitializerForLoop(Real<Cfg> ZinvData[PoroElasticMaterial::NumQuantities]
+                                           [Cfg::ConvergenceOrder * Cfg::ConvergenceOrder],
+                         Tview& sourceMatrix,
+                         Real<Cfg> timeStepWidth) {
+    auto Zinv = init::Zinv<Cfg>::template view<iStart>::create(ZinvData[iStart]);
+    calcZinv<Cfg>(Zinv, sourceMatrix, iStart, timeStepWidth);
+    if constexpr (iStart + 1 < iEnd) {
+      zInvInitializerForLoop<Cfg, iStart + 1, iEnd, Tview>(ZinvData, sourceMatrix, timeStepWidth);
     }
   };
 };
 
-template <>
-struct MaterialSetup<PoroElasticMaterial> {
-  struct AdditionalPoroelasticParameters {
-    Eigen::Matrix<double, 6, 1> alpha;
-    double KBar;
-    double M;
-    double m;
-    Eigen::Matrix<double, 6, 6> cBar;
-    double rhoBar;
-    double rho1;
-    double rho2;
-    double beta1;
-    double beta2;
-  };
+struct AdditionalPoroelasticParameters {
+  Eigen::Matrix<double, 6, 1> alpha;
+  double KBar;
+  double M;
+  double m;
+  Eigen::Matrix<double, 6, 6> cBar;
+  double rhoBar;
+  double rho1;
+  double rho2;
+  double beta1;
+  double beta2;
+};
 
-  static AdditionalPoroelasticParameters
-      getAdditionalParameters(const PoroElasticMaterial& material) {
-    Eigen::Matrix<double, 6, 1> alpha;
-    alpha << 1 - (3 * material.lambda + 2 * material.mu) / (3 * material.bulkSolid),
-        1 - (3 * material.lambda + 2 * material.mu) / (3 * material.bulkSolid),
-        1 - (3 * material.lambda + 2 * material.mu) / (3 * material.bulkSolid), -0.0, -0.0, -0.0;
+static AdditionalPoroelasticParameters
+    getAdditionalParameters(const PoroElasticMaterial& material) {
+  Eigen::Matrix<double, 6, 1> alpha;
+  alpha << 1 - (3 * material.lambda + 2 * material.mu) / (3 * material.bulkSolid),
+      1 - (3 * material.lambda + 2 * material.mu) / (3 * material.bulkSolid),
+      1 - (3 * material.lambda + 2 * material.mu) / (3 * material.bulkSolid), -0.0, -0.0, -0.0;
 
-    Eigen::Matrix<double, 6, 6> c;
-    c << material.lambda + 2 * material.mu, material.lambda, material.lambda, 0, 0, 0,
-        material.lambda, material.lambda + 2 * material.mu, material.lambda, 0, 0, 0,
-        material.lambda, material.lambda, material.lambda + 2 * material.mu, 0, 0, 0, 0, 0, 0,
-        material.mu, 0, 0, 0, 0, 0, 0, material.mu, 0, 0, 0, 0, 0, 0, material.mu;
+  Eigen::Matrix<double, 6, 6> c;
+  c << material.lambda + 2 * material.mu, material.lambda, material.lambda, 0, 0, 0,
+      material.lambda, material.lambda + 2 * material.mu, material.lambda, 0, 0, 0, material.lambda,
+      material.lambda, material.lambda + 2 * material.mu, 0, 0, 0, 0, 0, 0, material.mu, 0, 0, 0, 0,
+      0, 0, material.mu, 0, 0, 0, 0, 0, 0, material.mu;
 
-    double KBar = material.lambda + 2 * material.mu / 3;
-    double M = material.bulkSolid / (1 - material.porosity - KBar / material.bulkSolid +
-                                     material.porosity * material.bulkSolid / material.bulkFluid);
-    double m = material.rhoFluid * material.tortuosity / material.porosity;
+  double KBar = material.lambda + 2 * material.mu / 3;
+  double M = material.bulkSolid / (1 - material.porosity - KBar / material.bulkSolid +
+                                   material.porosity * material.bulkSolid / material.bulkFluid);
+  double m = material.rhoFluid * material.tortuosity / material.porosity;
 
-    Eigen::Matrix<double, 6, 6> cBar = c + M * alpha * alpha.transpose();
+  Eigen::Matrix<double, 6, 6> cBar = c + M * alpha * alpha.transpose();
 
-    double rhoBar = (1 - material.porosity) * material.rho + material.porosity * material.rhoFluid;
-    double rho1 = rhoBar - material.rhoFluid * material.rhoFluid / m;
-    double rho2 = material.rhoFluid - m * rhoBar / material.rhoFluid;
-    double beta1 = material.rhoFluid / m;
-    double beta2 = rhoBar / material.rhoFluid;
+  double rhoBar = (1 - material.porosity) * material.rho + material.porosity * material.rhoFluid;
+  double rho1 = rhoBar - material.rhoFluid * material.rhoFluid / m;
+  double rho2 = material.rhoFluid - m * rhoBar / material.rhoFluid;
+  double beta1 = material.rhoFluid / m;
+  double beta2 = rhoBar / material.rhoFluid;
 
-    return {alpha, KBar, M, m, cBar, rhoBar, rho1, rho2, beta1, beta2};
+  return {alpha, KBar, M, m, cBar, rhoBar, rho1, rho2, beta1, beta2};
+}
+
+template <typename T>
+static void getTransposedCoefficientMatrixPoroelastic(const PoroElasticMaterial& material,
+                                                      unsigned dim,
+                                                      T& AT) {
+  AT.setZero();
+  const AdditionalPoroelasticParameters params = getAdditionalParameters(material);
+  switch (dim) {
+  case 0:
+    AT(0, 6) = -1 / params.rho1;
+    AT(0, 10) = -1 / params.rho2;
+    AT(3, 7) = -1 / params.rho1;
+    AT(3, 11) = -1 / params.rho2;
+    AT(5, 8) = -1 / params.rho1;
+    AT(5, 12) = -1 / params.rho2;
+
+    AT(6, 0) = -params.cBar(0, 0);
+    AT(6, 1) = -params.cBar(1, 0);
+    AT(6, 2) = -params.cBar(2, 0);
+    AT(6, 3) = -params.cBar(5, 0);
+    AT(6, 4) = -params.cBar(3, 0);
+    AT(6, 5) = -params.cBar(4, 0);
+    AT(6, 9) = params.M * params.alpha(0);
+
+    AT(7, 0) = -params.cBar(0, 5);
+    AT(7, 1) = -params.cBar(1, 5);
+    AT(7, 2) = -params.cBar(2, 5);
+    AT(7, 3) = -params.cBar(5, 5);
+    AT(7, 4) = -params.cBar(3, 5);
+    AT(7, 5) = -params.cBar(4, 5);
+    AT(7, 9) = params.M * params.alpha(5);
+
+    AT(8, 0) = -params.cBar(0, 4);
+    AT(8, 1) = -params.cBar(1, 4);
+    AT(8, 2) = -params.cBar(2, 4);
+    AT(8, 3) = -params.cBar(5, 4);
+    AT(8, 4) = -params.cBar(3, 4);
+    AT(8, 5) = -params.cBar(4, 4);
+    AT(8, 9) = params.M * params.alpha(4);
+
+    AT(9, 6) = -params.beta1 / params.rho1;
+    AT(9, 10) = -params.beta2 / params.rho2;
+
+    AT(10, 0) = -params.M * params.alpha(0);
+    AT(10, 1) = -params.M * params.alpha(1);
+    AT(10, 2) = -params.M * params.alpha(2);
+    AT(10, 3) = -params.M * params.alpha(5);
+    AT(10, 4) = -params.M * params.alpha(3);
+    AT(10, 5) = -params.M * params.alpha(4);
+    AT(10, 9) = params.M;
+    break;
+  case 1:
+    AT(1, 7) = -1 / params.rho1;
+    AT(1, 11) = -1 / params.rho2;
+    AT(3, 6) = -1 / params.rho1;
+    AT(3, 10) = -1 / params.rho2;
+    AT(4, 8) = -1 / params.rho1;
+    AT(4, 12) = -1 / params.rho2;
+
+    AT(6, 0) = -params.cBar(0, 5);
+    AT(6, 1) = -params.cBar(1, 5);
+    AT(6, 2) = -params.cBar(2, 5);
+    AT(6, 3) = -params.cBar(5, 5);
+    AT(6, 4) = -params.cBar(3, 5);
+    AT(6, 5) = -params.cBar(4, 5);
+    AT(6, 9) = params.M * params.alpha(5);
+
+    AT(7, 0) = -params.cBar(0, 1);
+    AT(7, 1) = -params.cBar(1, 1);
+    AT(7, 2) = -params.cBar(2, 1);
+    AT(7, 3) = -params.cBar(5, 1);
+    AT(7, 4) = -params.cBar(3, 1);
+    AT(7, 5) = -params.cBar(4, 1);
+    AT(7, 9) = params.M * params.alpha(1);
+
+    AT(8, 0) = -params.cBar(0, 3);
+    AT(8, 1) = -params.cBar(1, 3);
+    AT(8, 2) = -params.cBar(2, 3);
+    AT(8, 3) = -params.cBar(5, 3);
+    AT(8, 4) = -params.cBar(3, 3);
+    AT(8, 5) = -params.cBar(4, 3);
+    AT(8, 9) = params.M * params.alpha(3);
+
+    AT(9, 7) = -params.beta1 / params.rho1;
+    AT(9, 11) = -params.beta2 / params.rho2;
+
+    AT(11, 0) = -params.M * params.alpha(0);
+    AT(11, 1) = -params.M * params.alpha(1);
+    AT(11, 2) = -params.M * params.alpha(2);
+    AT(11, 3) = -params.M * params.alpha(5);
+    AT(11, 4) = -params.M * params.alpha(3);
+    AT(11, 5) = -params.M * params.alpha(4);
+    AT(11, 9) = params.M;
+    break;
+  case 2:
+    AT(2, 8) = -1 / params.rho1;
+    AT(2, 12) = -1 / params.rho2;
+    AT(4, 7) = -1 / params.rho1;
+    AT(4, 11) = -1 / params.rho2;
+    AT(5, 6) = -1 / params.rho1;
+    AT(5, 10) = -1 / params.rho2;
+
+    AT(6, 0) = -params.cBar(0, 4);
+    AT(6, 1) = -params.cBar(1, 4);
+    AT(6, 2) = -params.cBar(2, 4);
+    AT(6, 3) = -params.cBar(5, 4);
+    AT(6, 4) = -params.cBar(3, 4);
+    AT(6, 5) = -params.cBar(4, 4);
+    AT(6, 9) = params.M * params.alpha(4);
+
+    AT(7, 0) = -params.cBar(0, 3);
+    AT(7, 1) = -params.cBar(1, 3);
+    AT(7, 2) = -params.cBar(2, 3);
+    AT(7, 3) = -params.cBar(5, 3);
+    AT(7, 4) = -params.cBar(3, 3);
+    AT(7, 5) = -params.cBar(4, 3);
+    AT(7, 9) = params.M * params.alpha(3);
+
+    AT(8, 0) = -params.cBar(0, 2);
+    AT(8, 1) = -params.cBar(1, 2);
+    AT(8, 2) = -params.cBar(2, 2);
+    AT(8, 3) = -params.cBar(5, 2);
+    AT(8, 4) = -params.cBar(3, 2);
+    AT(8, 5) = -params.cBar(4, 2);
+    AT(8, 9) = params.M * params.alpha(2);
+
+    AT(9, 8) = -params.beta1 / params.rho1;
+    AT(9, 12) = -params.beta2 / params.rho2;
+
+    AT(12, 0) = -params.M * params.alpha(0);
+    AT(12, 1) = -params.M * params.alpha(1);
+    AT(12, 2) = -params.M * params.alpha(2);
+    AT(12, 3) = -params.M * params.alpha(5);
+    AT(12, 4) = -params.M * params.alpha(3);
+    AT(12, 5) = -params.M * params.alpha(4);
+    AT(12, 9) = params.M;
+    break;
+
+  default:
+    logError() << "Cannot create transposed coefficient matrix for dimension " << dim
+               << ", has to be either 0, 1 or 2.";
   }
+}
+
+template <typename Cfg>
+struct MaterialSetup<Cfg, std::enable_if_t<Cfg::MaterialType == MaterialType::Poroelastic>> {
+  using MaterialT = model::MaterialTT<Cfg>;
 
   template <typename T>
   static void setToZero(T& AT) {
@@ -272,11 +417,12 @@ struct MaterialSetup<PoroElasticMaterial> {
     ET(12, 12) = e2;
   }
 
-  static void getTransposedGodunovState(const PoroElasticMaterial& local,
-                                        const PoroElasticMaterial& neighbor,
-                                        FaceType faceType,
-                                        init::QgodLocal::view::type& qGodLocal,
-                                        init::QgodNeighbor::view::type& qGodNeighbor) {
+  static void
+      getTransposedGodunovState(const PoroElasticMaterial& local,
+                                const PoroElasticMaterial& neighbor,
+                                FaceType faceType,
+                                typename init::QgodLocal<Cfg>::view::type& qGodLocal,
+                                typename init::QgodNeighbor<Cfg>::view::type& qGodNeighbor) {
     // Will be used to check, whether numbers are (numerically) zero
     constexpr auto ZeroThreshold = 1e-7;
     using CMatrix = Eigen::Matrix<std::complex<double>,
@@ -287,7 +433,7 @@ struct MaterialSetup<PoroElasticMaterial> {
     using CVector = Eigen::Matrix<std::complex<double>, PoroElasticMaterial::NumQuantities, 1>;
 
     auto splitEigenDecomposition = [&ZeroThreshold](const PoroElasticMaterial& material) {
-      auto eigenpair = getEigenDecomposition(material, ZeroThreshold);
+      auto eigenpair = getEigenDecomposition<Cfg>(material, ZeroThreshold);
       return std::pair<CVector, CMatrix>{eigenpair.getValuesAsVector(),
                                          eigenpair.getVectorsAsMatrix()};
     };
@@ -316,7 +462,7 @@ struct MaterialSetup<PoroElasticMaterial> {
     matR(4, 8) = 1.0;
     if (faceType == FaceType::FreeSurface) {
       Matrix realR = matR.real();
-      getTransposedFreeSurfaceGodunovState(
+      getTransposedFreeSurfaceGodunovState<MaterialT>(
           MaterialType::Poroelastic, qGodLocal, qGodNeighbor, realR);
     } else {
       CMatrix invR = matR.inverse();
@@ -336,12 +482,12 @@ struct MaterialSetup<PoroElasticMaterial> {
 
   static void initializeSpecificLocalData(const PoroElasticMaterial& material,
                                           double timeStepWidth,
-                                          PoroelasticLocalData* localData) {
-    auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
+                                          PoroelasticLocalData<Cfg>* localData) {
+    auto sourceMatrix = init::ET<Cfg>::view::create(localData->sourceMatrix);
     sourceMatrix.setZero();
     getTransposedSourceCoefficientTensor(material, sourceMatrix);
 
-    zInvInitializerForLoop<0, PoroElasticMaterial::NumQuantities, decltype(sourceMatrix)>(
+    zInvInitializerForLoop<Cfg, 0, PoroElasticMaterial::NumQuantities, decltype(sourceMatrix)>(
         localData->Zinv, sourceMatrix, timeStepWidth);
     std::fill(localData->G, localData->G + PoroElasticMaterial::NumQuantities, 0.0);
     localData->G[10] = sourceMatrix(10, 6);
@@ -351,16 +497,15 @@ struct MaterialSetup<PoroElasticMaterial> {
     localData->typicalTimeStepWidth = timeStepWidth;
   }
 
-  static void initializeSpecificNeighborData(const PoroElasticMaterial& material,
-                                             PoroelasticNeighborData* localData) {}
+  static void initializeSpecificNeighborData(const PoroElasticMaterial& material, void* localData) {
+  }
 
   static void getFaceRotationMatrix(const VrtxCoords normal,
                                     const VrtxCoords tangent1,
                                     const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
-    ::seissol::model::getFaceRotationMatrix<ElasticMaterial>(
-        normal, tangent1, tangent2, matT, matTinv);
+                                    typename init::T<Cfg>::view::type& matT,
+                                    typename init::Tinv<Cfg>::view::type& matTinv) {
+    ::seissol::model::getFaceRotationMatrixElastic<Cfg>(normal, tangent1, tangent2, matT, matTinv);
     // pressure
     matT(9, 9) = 1;
     matTinv(9, 9) = 1;
@@ -382,7 +527,7 @@ struct MaterialSetup<PoroElasticMaterial> {
                                    const double n[3],
                                    std::complex<double> mdata[PoroElasticMaterial::NumQuantities *
                                                               PoroElasticMaterial::NumQuantities]) {
-    getElasticPlaneWaveOperator(material, n, mdata);
+    getElasticPlaneWaveOperator<Cfg>(material, n, mdata);
   }
 };
 

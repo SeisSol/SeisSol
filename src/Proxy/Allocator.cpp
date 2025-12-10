@@ -25,40 +25,59 @@
 #include "Memory/Tree/Colormap.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/OpenMP.h"
+#include "Proxy/Constants.h"
 
+#include <Alignment.h>
+#include <Common/Constants.h>
+#include <Equations/Datastructures.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Common.h>
+#include <Kernels/Precision.h>
+#include <Kernels/Solver.h>
+#include <Kernels/Touch.h>
+#include <Memory/Descriptor/DynamicRupture.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/GlobalData.h>
+#include <Memory/MemoryAllocator.h>
+#include <Memory/Tree/Colormap.h>
+#include <Memory/Tree/Layer.h>
+#include <Model/CommonDatastructures.h>
+#include <Proxy/Constants.h>
 #include <cstddef>
+#include <memory>
 #include <random>
 #include <stdlib.h>
+#include <variant>
 
 #ifdef ACL_DEVICE
 #include "Initializer/MemoryManager.h"
-#endif
-
-#ifdef USE_POROELASTIC
-#include "Proxy/Constants.h"
 #endif
 
 namespace seissol::proxy {
 
 namespace {
 
-void fakeData(LTS::Layer& layer, FaceType faceTp) {
-  real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
-  real** buffers = layer.var<LTS::Buffers>();
-  real** derivatives = layer.var<LTS::Derivatives>();
-  real*(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
-  auto* localIntegration = layer.var<LTS::LocalIntegration>();
-  auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
+template <typename Cfg>
+void fakeData(Cfg cfg, LTS::Layer& layer, FaceType faceTp) {
+  using real = Real<Cfg>;
+
+  real(*dofs)[tensor::Q<Cfg>::size()] = layer.var<LTS::Dofs>(cfg);
+  real** buffers = layer.var<LTS::Buffers>(cfg);
+  real** derivatives = layer.var<LTS::Derivatives>(cfg);
+  void*(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
+  auto* localIntegration = layer.var<LTS::LocalIntegration>(cfg);
+  auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>(cfg);
   auto* cellInformation = layer.var<LTS::CellInformation>();
   auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-  real* bucket =
-      static_cast<real*>(layer.var<LTS::BuffersDerivatives>(initializer::AllocationPlace::Host));
+  real* bucket = static_cast<real*>(
+      layer.var<LTS::BuffersDerivatives>(cfg, initializer::AllocationPlace::Host));
 
-  real** buffersDevice = layer.var<LTS::BuffersDevice>();
-  real** derivativesDevice = layer.var<LTS::DerivativesDevice>();
-  real*(*faceNeighborsDevice)[4] = layer.var<LTS::FaceNeighborsDevice>();
-  real* bucketDevice =
-      static_cast<real*>(layer.var<LTS::BuffersDerivatives>(initializer::AllocationPlace::Device));
+  real** buffersDevice = layer.var<LTS::BuffersDevice>(cfg);
+  real** derivativesDevice = layer.var<LTS::DerivativesDevice>(cfg);
+  void*(*faceNeighborsDevice)[4] = layer.var<LTS::FaceNeighborsDevice>();
+  real* bucketDevice = static_cast<real*>(
+      layer.var<LTS::BuffersDerivatives>(cfg, initializer::AllocationPlace::Device));
 
   std::mt19937 rng(layer.size());
   std::uniform_int_distribution<unsigned> sideDist(0, 3);
@@ -66,15 +85,16 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
   std::uniform_int_distribution<std::size_t> cellDist(0, layer.size() - 1);
 
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-    buffers[cell] = bucket + cell * tensor::I::size();
+    buffers[cell] = bucket + cell * tensor::I<Cfg>::size();
     derivatives[cell] = nullptr;
-    buffersDevice[cell] = bucketDevice + cell * tensor::I::size();
+    buffersDevice[cell] = bucketDevice + cell * tensor::I<Cfg>::size();
     derivativesDevice[cell] = nullptr;
 
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       cellInformation[cell].faceTypes[f] = faceTp;
       cellInformation[cell].faceRelations[f][0] = sideDist(rng);
       cellInformation[cell].faceRelations[f][1] = orientationDist(rng);
+      cellInformation[cell].neighborConfigIds[f] = ConfigVariant(Cfg()).index();
 
       const auto neighbor = cellDist(rng);
       secondaryInformation[cell].faceNeighbors[f].global = neighbor;
@@ -107,23 +127,24 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
     }
   }
 
-  kernels::fillWithStuff(reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.size(), false);
-  kernels::fillWithStuff(bucket, tensor::I::size() * layer.size(), false);
+  kernels::fillWithStuff(
+      reinterpret_cast<real*>(dofs), tensor::Q<Cfg>::size() * layer.size(), false);
+  kernels::fillWithStuff(bucket, tensor::I<Cfg>::size() * layer.size(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
-                         sizeof(LocalIntegrationData) / sizeof(real) * layer.size(),
+                         sizeof(LocalIntegrationData<Cfg>) / sizeof(real) * layer.size(),
                          false);
   kernels::fillWithStuff(reinterpret_cast<real*>(neighboringIntegration),
-                         sizeof(NeighboringIntegrationData) / sizeof(real) * layer.size(),
+                         sizeof(NeighboringIntegrationData<Cfg>) / sizeof(real) * layer.size(),
                          false);
 
-#ifdef USE_POROELASTIC
+  if constexpr (model::MaterialTT<Cfg>::Type == model::MaterialType::Poroelastic) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-  for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-    localIntegration[cell].specific.typicalTimeStepWidth = seissol::proxy::Timestep;
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      localIntegration[cell].specific.typicalTimeStepWidth = seissol::proxy::Timestep;
+    }
   }
-#endif
 
 #ifdef ACL_DEVICE
   const auto& device = device::DeviceInstance::getInstance();
@@ -134,27 +155,19 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
 }
 } // namespace
 
-ProxyData::ProxyData(std::size_t cellCount, bool enableDR) : cellCount(cellCount) {
-  layerId =
-      initializer::LayerIdentifier(HaloType::Interior, initializer::ConfigVariant{Config()}, 0);
+template <typename Cfg>
+ProxyDataImpl<Cfg>::ProxyDataImpl(std::size_t cellCount, bool enableDR) : cellCount(cellCount) {
+  layerId = initializer::LayerIdentifier(HaloType::Interior, ConfigVariant{Cfg()}, 0);
 
   initGlobalData();
   initDataStructures(enableDR);
   initDataStructuresOnDevice(enableDR);
 }
 
-void ProxyData::initGlobalData() {
-  seissol::initializer::GlobalDataInitializerOnHost::init(
-      globalDataOnHost, allocator, seissol::memory::Memkind::Standard);
+template <typename Cfg>
+void ProxyDataImpl<Cfg>::initGlobalData() {
+  globalData.init(ConfigVariant(Cfg()).index());
 
-  CompoundGlobalData globalData{};
-  globalData.onHost = &globalDataOnHost;
-  globalData.onDevice = nullptr;
-  if constexpr (seissol::isDeviceOn()) {
-    seissol::initializer::GlobalDataInitializerOnDevice::init(
-        globalDataOnDevice, allocator, seissol::memory::Memkind::DeviceGlobalMemory);
-    globalData.onDevice = &globalDataOnDevice;
-  }
   spacetimeKernel.setGlobalData(globalData);
   timeKernel.setGlobalData(globalData);
   localKernel.setGlobalData(globalData);
@@ -162,11 +175,14 @@ void ProxyData::initGlobalData() {
   dynRupKernel.setGlobalData(globalData);
 }
 
-void ProxyData::initDataStructures(bool enableDR) {
+template <typename Cfg>
+void ProxyDataImpl<Cfg>::initDataStructures(bool enableDR) {
   const initializer::LTSColorMap map(
       initializer::EnumLayer<HaloType>({HaloType::Interior}),
       initializer::EnumLayer<std::size_t>({0}),
-      initializer::TraitLayer<initializer::ConfigVariant>({initializer::ConfigVariant(Config())}));
+      initializer::TraitLayer<ConfigVariant>({ConfigVariant(Cfg())}));
+
+  Cfg cfg;
 
   // init RNG
   LTS::addTo(ltsStorage, false); // proxy does not use plasticity
@@ -176,7 +192,9 @@ void ProxyData::initDataStructures(bool enableDR) {
   ltsStorage.layer(layerId).setNumberOfCells(cellCount);
 
   LTS::Layer& layer = ltsStorage.layer(layerId);
-  layer.setEntrySize<LTS::BuffersDerivatives>(sizeof(real) * tensor::I::size() * layer.size());
+
+  layer.setEntrySize<LTS::BuffersDerivatives>(sizeof(Real<Cfg>) * tensor::I<Cfg>::size() *
+                                              layer.size());
 
   ltsStorage.allocateVariables();
   ltsStorage.touchVariables();
@@ -192,9 +210,14 @@ void ProxyData::initDataStructures(bool enableDR) {
 
     drStorage.allocateVariables();
     drStorage.touchVariables();
+  }
 
+  // NOLINTNEXTLINE
+  using real = Real<Cfg>;
+
+  if (enableDR) {
     fakeDerivativesHost = reinterpret_cast<real*>(allocator.allocateMemory(
-        cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
+        cellCount * seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg> * sizeof(real),
         PagesizeHeap,
         seissol::memory::Memkind::Standard));
 
@@ -206,51 +229,54 @@ void ProxyData::initDataStructures(bool enableDR) {
       std::mt19937 rng(cellCount + offset);
       std::uniform_real_distribution<real> urd;
       for (std::size_t cell = 0; cell < cellCount; ++cell) {
-        for (std::size_t i = 0; i < seissol::kernels::Solver::DerivativesSize; i++) {
-          fakeDerivativesHost[cell * seissol::kernels::Solver::DerivativesSize + i] = urd(rng);
+        for (std::size_t i = 0; i < seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg>;
+             i++) {
+          fakeDerivativesHost[cell * seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg> +
+                              i] = urd(rng);
         }
       }
     }
 
 #ifdef ACL_DEVICE
     fakeDerivatives = reinterpret_cast<real*>(allocator.allocateMemory(
-        cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
+        cellCount * seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg> * sizeof(real),
         PagesizeHeap,
         seissol::memory::Memkind::DeviceGlobalMemory));
     const auto& device = ::device::DeviceInstance::getInstance();
     device.api->copyTo(fakeDerivatives,
                        fakeDerivativesHost,
-                       cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real));
+                       cellCount * seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg> *
+                           sizeof(real));
 #else
     fakeDerivatives = fakeDerivativesHost;
 #endif
   }
 
   /* cell information and integration data*/
-  fakeData(layer, (enableDR) ? FaceType::DynamicRupture : FaceType::Regular);
+  fakeData(cfg, layer, (enableDR) ? FaceType::DynamicRupture : FaceType::Regular);
 
   if (enableDR) {
     // From lts storage
-    CellDRMapping(*drMapping)[4] =
-        isDeviceOn() ? ltsStorage.var<LTS::DRMappingDevice>() : ltsStorage.var<LTS::DRMapping>();
+    CellDRMapping<Cfg>(*drMapping)[4] =
+        isDeviceOn() ? layer.var<LTS::DRMappingDevice>(cfg) : layer.var<LTS::DRMapping>(cfg);
 
     constexpr initializer::AllocationPlace Place =
         isDeviceOn() ? initializer::AllocationPlace::Device : initializer::AllocationPlace::Host;
 
     // From dynamic rupture storage
     auto& interior = drStorage.layer(layerId);
-    real(*imposedStatePlus)[seissol::tensor::QInterpolated::size()] =
-        interior.var<DynamicRupture::ImposedStatePlus>(Place);
-    real(*fluxSolverPlus)[seissol::tensor::fluxSolver::size()] =
-        interior.var<DynamicRupture::FluxSolverPlus>(Place);
-    real** timeDerivativeHostPlus = interior.var<DynamicRupture::TimeDerivativePlus>();
-    real** timeDerivativeHostMinus = interior.var<DynamicRupture::TimeDerivativeMinus>();
+    real(*imposedStatePlus)[seissol::tensor::QInterpolated<Cfg>::size()] =
+        interior.var<DynamicRupture::ImposedStatePlus>(cfg, Place);
+    real(*fluxSolverPlus)[seissol::tensor::fluxSolver<Cfg>::size()] =
+        interior.var<DynamicRupture::FluxSolverPlus>(cfg, Place);
+    real** timeDerivativeHostPlus = interior.var<DynamicRupture::TimeDerivativePlus>(cfg);
+    real** timeDerivativeHostMinus = interior.var<DynamicRupture::TimeDerivativeMinus>(cfg);
     real** timeDerivativePlus = isDeviceOn()
-                                    ? interior.var<DynamicRupture::TimeDerivativePlusDevice>()
-                                    : interior.var<DynamicRupture::TimeDerivativePlus>();
+                                    ? interior.var<DynamicRupture::TimeDerivativePlusDevice>(cfg)
+                                    : interior.var<DynamicRupture::TimeDerivativePlus>(cfg);
     real** timeDerivativeMinus = isDeviceOn()
-                                     ? interior.var<DynamicRupture::TimeDerivativeMinusDevice>()
-                                     : interior.var<DynamicRupture::TimeDerivativeMinus>();
+                                     ? interior.var<DynamicRupture::TimeDerivativeMinusDevice>(cfg)
+                                     : interior.var<DynamicRupture::TimeDerivativeMinus>(cfg);
     DRFaceInformation* faceInformation = interior.var<DynamicRupture::FaceInformation>();
 
     std::mt19937 rng(cellCount);
@@ -262,7 +288,7 @@ void ProxyData::initDataStructures(bool enableDR) {
     /* init drMapping */
     for (std::size_t cell = 0; cell < cellCount; ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        CellDRMapping& drm = drMapping[cell][face];
+        auto& drm = drMapping[cell][face];
         const auto side = sideDist(rng);
         const auto orientation = orientationDist(rng);
         const auto drFace = drDist(rng);
@@ -278,13 +304,16 @@ void ProxyData::initDataStructures(bool enableDR) {
       const auto plusCell = cellDist(rng);
       const auto minusCell = cellDist(rng);
       timeDerivativeHostPlus[face] =
-          &fakeDerivativesHost[plusCell * seissol::kernels::Solver::DerivativesSize];
+          &fakeDerivativesHost[plusCell *
+                               seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg>];
       timeDerivativeHostMinus[face] =
-          &fakeDerivativesHost[minusCell * seissol::kernels::Solver::DerivativesSize];
+          &fakeDerivativesHost[minusCell *
+                               seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg>];
       timeDerivativePlus[face] =
-          &fakeDerivatives[plusCell * seissol::kernels::Solver::DerivativesSize];
+          &fakeDerivatives[plusCell * seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg>];
       timeDerivativeMinus[face] =
-          &fakeDerivatives[minusCell * seissol::kernels::Solver::DerivativesSize];
+          &fakeDerivatives[minusCell *
+                           seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg>];
 
       faceInformation[face].plusSide = sideDist(rng);
       faceInformation[face].minusSide = sideDist(rng);
@@ -293,7 +322,8 @@ void ProxyData::initDataStructures(bool enableDR) {
   }
 }
 
-void ProxyData::initDataStructuresOnDevice(bool enableDR) {
+template <typename Cfg>
+void ProxyDataImpl<Cfg>::initDataStructuresOnDevice(bool enableDR) {
 #ifdef ACL_DEVICE
   const auto& device = ::device::DeviceInstance::getInstance();
   ltsStorage.synchronizeTo(seissol::initializer::AllocationPlace::Device,
@@ -325,6 +355,16 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
     drRecorder.record(drLayer);
   }
 #endif // ACL_DEVICE
+}
+
+std::shared_ptr<ProxyData>
+    ProxyData::get(ConfigVariant variant, std::size_t cellCount, bool enableDR) {
+  return std::visit(
+      [&](auto cfg) -> std::shared_ptr<ProxyData> {
+        using Cfg = decltype(cfg);
+        return std::make_shared<ProxyDataImpl<Cfg>>(cellCount, enableDR);
+      },
+      variant);
 }
 
 } // namespace seissol::proxy

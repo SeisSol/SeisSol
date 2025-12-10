@@ -17,19 +17,13 @@
 
 // IWYU pragma: begin_exports
 
-#ifdef USE_VISCOELASTIC2
-#include "Kernels/LinearCKAnelastic/Local.h"
-#include "Kernels/LinearCKAnelastic/Neighbor.h"
-#include "Kernels/LinearCKAnelastic/Time.h"
-#elif defined(USE_POROELASTIC)
-#include "Kernels/LinearCK/Local.h"
-#include "Kernels/LinearCK/Neighbor.h"
-#include "Kernels/STP/Time.h"
-#else
 #include "Kernels/LinearCK/Local.h"
 #include "Kernels/LinearCK/Neighbor.h"
 #include "Kernels/LinearCK/Time.h"
-#endif
+#include "Kernels/LinearCKAnelastic/Local.h"
+#include "Kernels/LinearCKAnelastic/Neighbor.h"
+#include "Kernels/LinearCKAnelastic/Time.h"
+#include "Kernels/STP/Time.h"
 
 // IWYU pragma: end_exports
 
@@ -37,15 +31,27 @@ namespace seissol::kernels {
 
 // some typename shortcuts
 
-using Solver = typename model::MaterialT::Solver;
+template <typename Cfg>
+using Solver = typename model::MaterialTT<Cfg>::template Solver<Cfg>;
 
-using Time = typename Solver::TimeKernelT;
-using Spacetime = typename Solver::SpacetimeKernelT;
-using Local = typename Solver::LocalKernelT;
-using Neighbor = typename Solver::NeighborKernelT;
+template <typename Cfg>
+using Time = typename Solver<Cfg>::template TimeKernelT<Cfg>;
 
-inline typename Solver::TimeBasis<real> timeBasis() {
-  return Solver::TimeBasis<real>(Config::ConvergenceOrder);
+template <typename Cfg>
+using Spacetime = typename Solver<Cfg>::template SpacetimeKernelT<Cfg>;
+
+template <typename Cfg>
+using Local = typename Solver<Cfg>::template LocalKernelT<Cfg>;
+
+template <typename Cfg>
+using Neighbor = typename Solver<Cfg>::template NeighborKernelT<Cfg>;
+
+template <typename Cfg>
+using TimeBasisT = typename Solver<Cfg>::template TimeBasis<Real<Cfg>>;
+
+template <typename Cfg>
+inline TimeBasisT<Cfg> timeBasis() {
+  return TimeBasisT<Cfg>(Cfg::ConvergenceOrder);
 }
 
 } // namespace seissol::kernels

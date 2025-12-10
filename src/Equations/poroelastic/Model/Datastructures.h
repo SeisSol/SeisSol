@@ -19,8 +19,8 @@
 #include <vector>
 
 namespace seissol::model {
-struct PoroelasticLocalData;
-struct PoroelasticNeighborData;
+template <typename>
+class PoroelasticLocalData;
 
 struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t NumQuantities = 13;
@@ -48,8 +48,13 @@ struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr bool SupportsDR = true;
   static constexpr bool SupportsLTS = true;
 
-  using LocalSpecificData = PoroelasticLocalData;
-  using NeighborSpecificData = PoroelasticNeighborData;
+  template <typename Cfg>
+  using LocalSpecificData = PoroelasticLocalData<Cfg>;
+
+  template <typename Cfg>
+  using NeighborSpecificData = std::monostate;
+
+  template <typename Cfg>
   using Solver = kernels::solver::stp::Solver;
 
   double bulkSolid{};
@@ -59,6 +64,8 @@ struct PoroElasticMaterial : public ElasticMaterial {
   double bulkFluid{};
   double rhoFluid{};
   double viscosity{};
+
+  static const std::unordered_map<std::string, double PoroElasticMaterial::*> ParameterMap;
 
   PoroElasticMaterial() = default;
 
@@ -91,6 +98,21 @@ struct PoroElasticMaterial : public ElasticMaterial {
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 };
+
+inline const std::unordered_map<std::string, double PoroElasticMaterial::*>
+    PoroElasticMaterial::ParameterMap{
+        {"rho", &PoroElasticMaterial::rho},
+        {"lambda", &PoroElasticMaterial::lambda},
+        {"mu", &PoroElasticMaterial::mu},
+        {"bulk_solid", &PoroElasticMaterial::bulkSolid},
+        {"porosity", &PoroElasticMaterial::porosity},
+        {"permeability", &PoroElasticMaterial::permeability},
+        {"tortuosity", &PoroElasticMaterial::tortuosity},
+        {"bulk_fluid", &PoroElasticMaterial::bulkFluid},
+        {"rho_fluid", &PoroElasticMaterial::rhoFluid},
+        {"viscosity", &PoroElasticMaterial::viscosity},
+    };
+
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_DATASTRUCTURES_H_

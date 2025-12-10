@@ -31,7 +31,7 @@ class CsvAnalysisWriter {
 
   void writeHeader();
 
-  void addObservation(std::string_view variable, std::string_view normType, real error);
+  void addObservation(std::string_view variable, std::string_view normType, double error);
 
   void enable();
 

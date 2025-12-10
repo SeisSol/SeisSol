@@ -11,11 +11,16 @@
 #include "Initializer/Typedefs.h"
 #include "Parallel/Runtime/Stream.h"
 
+#include <Common/Executor.h>
+#include <Initializer/Typedefs.h>
+#include <Memory/GlobalData.h>
+#include <Parallel/Runtime/Stream.h>
+
 namespace seissol::kernels {
 
 class Kernel {
   public:
-  virtual void setGlobalData(const CompoundGlobalData& global) {}
+  virtual void setGlobalData(const GlobalData& global) {}
   virtual ~Kernel() = default;
 
 #ifdef ACL_DEVICE

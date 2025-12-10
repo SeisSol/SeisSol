@@ -12,6 +12,7 @@
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
+#include "Monitoring/Instrumentation.h"
 #include "Solver/Estimator.h"
 
 #include <Eigen/Core>
@@ -106,6 +107,7 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
 }
 
 void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
+                  const ConfigMap& configMap,
                   seissol::SeisSol& seissolInstance) {
 #ifdef USE_HDF
   double nodeWeight = 1.0;
@@ -284,6 +286,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       seissolParams.timeStepping.lts.getLtsWeightsType(), config, seissolInstance);
   auto* meshReader = new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName,
                                                        seissolParams.mesh.partitioningLib,
+                                                       configMap,
                                                        boundaryFormat,
                                                        topologyFormat,
                                                        ltsWeights.get(),
@@ -331,6 +334,8 @@ void initMesh(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   const auto commSize = seissol::Mpi::mpi.size();
 
+  const auto configMap = ConfigMap(seissolParams.model.configMap, seissolInstance.env());
+
   logInfo() << "Begin init mesh.";
 
   // Call the pre mesh initialization hook
@@ -345,7 +350,7 @@ void initMesh(seissol::SeisSol& seissolInstance) {
 
   switch (meshFormat) {
   case seissol::initializer::parameters::MeshFormat::PUML: {
-    readMeshPUML(seissolParams, seissolInstance);
+    readMeshPUML(seissolParams, configMap, seissolInstance);
     break;
   }
   case seissol::initializer::parameters::MeshFormat::CubeGenerator: {
@@ -357,6 +362,9 @@ void initMesh(seissol::SeisSol& seissolInstance) {
   }
 
   auto& meshReader = seissolInstance.meshReader();
+
+  meshReader.setupConfigs(configMap);
+
   postMeshread(
       meshReader, seissolParams.mesh.displacement, seissolParams.mesh.scaling, seissolInstance);
 

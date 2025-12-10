@@ -5,6 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Common/ConfigHelper.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Memory/Tree/Colormap.h"
 #include "Memory/Tree/LTSTree.h"
@@ -29,7 +30,7 @@ TEST_CASE("Storage") {
       initializer::EnumLayer(
           std::vector<HaloType>{HaloType::Interior, HaloType::Copy, HaloType::Ghost}),
       initializer::EnumLayer(std::vector<std::size_t>{1, 2, 3}),
-      initializer::TraitLayer(std::vector<initializer::ConfigVariant>{Config()}));
+      initializer::TraitLayer(std::vector<ConfigVariant>{ConfigVariantList[0]}));
 
   storage.add<TestDescriptor::Var1>(Ghost, 1, initializer::AllocationMode::HostOnly);
   storage.add<TestDescriptor::Var2>(Copy, 4, initializer::AllocationMode::HostOnly);

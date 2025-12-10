@@ -12,94 +12,75 @@
 #include "Kernels/Precision.h"
 
 namespace seissol::kernels::time::aux {
+#ifdef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
 void taylorSum(
     std::size_t count, real** target, const real** source, const real* coeffs, void* stream);
+#endif
 } // namespace seissol::kernels::time::aux
 
-namespace seissol::kernels::local_flux::aux::details {
-void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
-                              real** displacementDataPtrs,
-                              double* rhos,
-                              double g,
-                              size_t numElements,
-                              void* deviceStream);
-
-void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
-                        real** easiBoundaryMapPtrs,
-                        real** easiBoundaryConstantPtrs,
-                        size_t numElements,
-                        void* deviceStream);
-} // namespace seissol::kernels::local_flux::aux::details
-
 namespace seissol::kernels::local_flux::aux {
-template <typename Derived>
+template <typename Cfg, typename Derived>
 struct DirichletBoundaryAux {
+  using real = Real<Cfg>;
   void evaluate(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) {
     static_cast<Derived*>(this)->dispatch(dofsFaceBoundaryNodalPtrs, numElements, deviceStream);
   }
 };
 
-struct FreeSurfaceGravity : public DirichletBoundaryAux<FreeSurfaceGravity> {
+template <typename Cfg>
+struct FreeSurfaceGravity : public DirichletBoundaryAux<Cfg, FreeSurfaceGravity<Cfg>> {
+  using real = Real<Cfg>;
   real** displacementDataPtrs{};
-  double* rhos;
+  double* rhos{};
   double g{};
 
-  void dispatch(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) {
-
-    assert(displacementDataPtrs != nullptr);
-    assert(rhos != nullptr);
-    details::launchFreeSurfaceGravity(
-        dofsFaceBoundaryNodalPtrs, displacementDataPtrs, rhos, g, numElements, deviceStream);
-  }
+  void dispatch(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream);
 };
 
-struct EasiBoundary : public DirichletBoundaryAux<EasiBoundary> {
+template <typename Cfg>
+struct EasiBoundary : public DirichletBoundaryAux<Cfg, EasiBoundary<Cfg>> {
+  using real = Real<Cfg>;
   real** easiBoundaryMapPtrs{};
   real** easiBoundaryConstantPtrs{};
 
-  void dispatch(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) {
-
-    assert(easiBoundaryMapPtrs != nullptr);
-    assert(easiBoundaryConstantPtrs != nullptr);
-    details::launchEasiBoundary(dofsFaceBoundaryNodalPtrs,
-                                easiBoundaryMapPtrs,
-                                easiBoundaryConstantPtrs,
-                                numElements,
-                                deviceStream);
-  }
+  void dispatch(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream);
 };
 
 } // namespace seissol::kernels::local_flux::aux
 
 namespace seissol::kernels::time::aux {
-void extractRotationMatrices(real** displacementToFaceNormalPtrs,
-                             real** displacementToGlobalDataPtrs,
-                             real** TPtrs,
-                             real** TinvPtrs,
-                             size_t numElements,
-                             void* deviceStream);
+template <typename Cfg>
+struct TimeAux {
+  using real = Real<Cfg>;
+  static void extractRotationMatrices(real** displacementToFaceNormalPtrs,
+                                      real** displacementToGlobalDataPtrs,
+                                      real** TPtrs,
+                                      real** TinvPtrs,
+                                      size_t numElements,
+                                      void* deviceStream);
 
-void initializeTaylorSeriesForGravitationalBoundary(real** prevCoefficientsPtrs,
-                                                    real** integratedDisplacementNodalPtrs,
-                                                    real** rotatedFaceDisplacementPtrs,
-                                                    double deltaTInt,
-                                                    size_t numElements,
-                                                    void* deviceStream);
+  static void initializeTaylorSeriesForGravitationalBoundary(real** prevCoefficientsPtrs,
+                                                             real** integratedDisplacementNodalPtrs,
+                                                             real** rotatedFaceDisplacementPtrs,
+                                                             double deltaTInt,
+                                                             size_t numElements,
+                                                             void* deviceStream);
 
-void computeInvAcousticImpedance(
-    double* invImpedances, double* rhos, double* lambdas, size_t numElements, void* deviceStream);
+  static void computeInvAcousticImpedance(
+      double* invImpedances, double* rhos, double* lambdas, size_t numElements, void* deviceStream);
 
-void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
-                                   real** prevCoefficientsPtrs,
-                                   real** integratedDisplacementNodalPtrs,
-                                   real** dofsFaceNodalPtrs,
-                                   double* invImpedances,
-                                   double* rhos,
-                                   double g,
-                                   double factorEvaluated,
-                                   double factorInt,
-                                   size_t numElements,
-                                   void* deviceStream);
+  static void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
+                                            real** prevCoefficientsPtrs,
+                                            real** integratedDisplacementNodalPtrs,
+                                            real** dofsFaceNodalPtrs,
+                                            double* invImpedances,
+                                            double* rhos,
+                                            double g,
+                                            double factorEvaluated,
+                                            double factorInt,
+                                            size_t numElements,
+                                            void* deviceStream);
+};
 } // namespace seissol::kernels::time::aux
 
 #endif // SEISSOL_SRC_KERNELS_LINEARCK_DEVICEAUX_KERNELSAUX_H_

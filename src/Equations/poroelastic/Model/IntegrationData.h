@@ -15,11 +15,14 @@
 
 namespace seissol::model {
 
+template <typename Cfg>
 struct PoroelasticLocalData {
-  real sourceMatrix[seissol::tensor::ET::size()]{};
+  using real = Real<Cfg>;
+
+  real sourceMatrix[seissol::tensor::ET<Cfg>::size()]{};
   real G[PoroElasticMaterial::NumQuantities]{};
   real typicalTimeStepWidth{};
-  real Zinv[PoroElasticMaterial::NumQuantities][ConvergenceOrder * ConvergenceOrder]{};
+  real Zinv[PoroElasticMaterial::NumQuantities][Cfg::ConvergenceOrder * Cfg::ConvergenceOrder]{};
 };
 struct PoroelasticNeighborData {};
 

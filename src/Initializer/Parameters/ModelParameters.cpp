@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <string>
 #include <utils/logger.h>
+#include <utils/stringutils.h>
 #include <vector>
 
 namespace seissol::initializer::parameters {
@@ -56,7 +57,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   const auto boundaryFileName = reader->readPath("boundaryfileName");
   const std::string materialFileName =
       reader->readPathOrFail("materialfilename", "No material file given.");
-  std::vector<std::string> plasticityFileNames(seissol::multisim::NumSimulations);
+  std::vector<std::string> plasticityFileNames(128); // TODO num simulations
 
   for (std::size_t i = 0; i < plasticityFileNames.size(); ++i) {
     const auto fieldname = "plasticityfilename" + (i == 0 ? std::string{} : std::to_string(i));
@@ -73,15 +74,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
       reader->readWithDefault("gravitationalacceleration", 9.81);
   const double tv = reader->readWithDefault("tv", 0.1);
 
-  constexpr auto IsAnelastic = model::MaterialT::Mechanisms > 0;
-
-  const auto freqCentral = reader->readIfRequired<double>("freqcentral", IsAnelastic);
-  const auto freqRatio = reader->readIfRequired<double>("freqratio", IsAnelastic);
-  if constexpr (IsAnelastic) {
-    if (freqRatio <= 0) {
-      logError() << "The freqratio parameter must be positive; but that is currently not the case.";
-    }
-  }
+  const auto freqCentral = reader->readWithDefault("freqcentral", 0.0);
+  const auto freqRatio = reader->readWithDefault("freqratio", 0.0);
 
   const ITMParameters itmParameters = readITMParameters(baseReader);
 
@@ -103,6 +97,23 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                                                            {"rusanov", NumericalFlux::Rusanov},
                                                        });
 
+  const auto rawConfigMap = reader->read<std::string>("configmap");
+  std::unordered_map<int, std::string> configMap;
+  if (rawConfigMap.has_value()) {
+    const auto parts = utils::StringUtils::split(rawConfigMap.value(), ';');
+    for (const auto& part : parts) {
+      auto kv = utils::StringUtils::split(part, ':');
+      if (kv.size() != 2) {
+        logError() << "Invalid configmap string:" << rawConfigMap.value();
+      }
+      const auto keys = utils::StringUtils::split(kv[0], ',');
+      utils::StringUtils::trim(kv[1]);
+      for (const auto& key : keys) {
+        configMap[std::stoi(key)] = kv[1];
+      }
+    }
+  }
+
   return ModelParameters{hasBoundaryFile,
                          plasticity,
                          useCellHomogenizedMaterial,
@@ -115,7 +126,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          plasticityFileNames,
                          itmParameters,
                          flux,
-                         fluxNearFault};
+                         fluxNearFault,
+                         configMap};
 }
 
 std::string fluxToString(NumericalFlux flux) {

@@ -8,7 +8,14 @@
 #include <doctest.h>
 
 #include "PointSourceCluster.t.h"
-
-#ifdef USE_POROELASTIC
 #include "STP.t.h"
-#endif // USE_POROELASTIC
+
+namespace seissol::unit_test {
+#define SEISSOL_CONFIGITER(cfg) TEST_CASE_TEMPLATE_INVOKE(configId1, cfg);
+#include "ConfigInclude.h"
+
+// TODO: update doctest first
+// #define SEISSOL_CONFIGITER(cfg) TYPE_TO_STRING_AS(ConfigString[ConfigVariant(cfg()).index()],
+// cfg); #include "ConfigInclude.h"
+
+} // namespace seissol::unit_test

@@ -16,13 +16,17 @@
 #include "Model/Plasticity.h"
 #include "Parallel/Runtime/Stream.h"
 
+#include <Memory/GlobalData.h>
 #include <cmath>
 #include <limits>
 
 namespace seissol::kernels {
 
+template <typename Cfg>
 class Plasticity {
   public:
+  using real = Real<Cfg>;
+
   static constexpr double computeRelaxTime(double tV, double timestep) {
     return (tV > 0.0) ? -std::expm1(-timestep / tV) : 1.0;
   }
@@ -32,16 +36,16 @@ class Plasticity {
   static std::size_t computePlasticity(double oneMinusIntegratingFactor,
                                        double timeStepWidth,
                                        double tV,
-                                       const GlobalData* global,
-                                       const seissol::model::PlasticityData* plasticityData,
-                                       real degreesOfFreedom[tensor::Q::size()],
+                                       const GlobalData& global,
+                                       const seissol::model::PlasticityData<Cfg>* plasticityData,
+                                       real degreesOfFreedom[tensor::Q<Cfg>::size()],
                                        real* pstrain);
 
   static void computePlasticityBatched(double timeStepWidth,
                                        double tV,
-                                       const GlobalData* global,
+                                       const GlobalData& global,
                                        recording::ConditionalPointersToRealsTable& table,
-                                       seissol::model::PlasticityData* plasticityData,
+                                       seissol::model::PlasticityData<Cfg>* plasticityData,
                                        std::size_t* yieldCounter,
                                        unsigned* isAdjustableVector,
                                        seissol::parallel::runtime::StreamRuntime& runtime);

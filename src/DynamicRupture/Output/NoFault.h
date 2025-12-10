@@ -11,9 +11,12 @@
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 
 namespace seissol::dr::output {
-class NoFault : public ReceiverOutput {
-  protected:
-  real computeLocalStrength(LocalInfo& /*local*/) override { return 0.0; }
+class NoFault : public ReceiverOutputImpl<NoFault> {
+  public:
+  template <typename Cfg>
+  Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& /*local*/) {
+    return 0.0;
+  }
 };
 } // namespace seissol::dr::output
 

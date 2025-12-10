@@ -84,7 +84,6 @@ endif()
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
         "Release" "Debug" "RelWithDebInfo") # MinSizeRel is useless for us
 
-
 if(PROXY_PYBINDING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 else()
@@ -282,7 +281,7 @@ if ("${Eigen3_VERSION}" VERSION_LESS "3.4")
 endif()
 
 # needed because Eigen (also 5.0) still incorrectly computes some values and fails some unit tests
-if((${EQUATIONS} STREQUAL "poroelastic"))
+if(ENABLE_MATERIAL_POROELASTIC)
   include(CheckLanguage)
   check_language(Fortran)
   if(CMAKE_Fortran_COMPILER)
@@ -333,8 +332,8 @@ endif()
 
 target_include_directories(seissol-common-properties INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_BINARY_DIR}/src/
-    ${CMAKE_CURRENT_BINARY_DIR}/codegen/
+    ${CMAKE_BINARY_DIR}/src/
+    ${CMAKE_BINARY_DIR}/codegen/
 )
 
 # submodule includes
@@ -374,22 +373,24 @@ else()
   else()
     set(NAME_SUFFIX "cpu")
   endif()
-  if (EQUATIONS STREQUAL "viscoelastic2")
-    set(NAME_SUFFIX "${NAME_SUFFIX}-viscoelastic")
-  else()
-    set(NAME_SUFFIX "${NAME_SUFFIX}-${EQUATIONS}")
-  endif()
-  if (NUMBER_OF_MECHANISMS GREATER 0)
-    set(NAME_SUFFIX "${NAME_SUFFIX}-${NUMBER_OF_MECHANISMS}")
-  endif()
-  set(NAME_SUFFIX "${NAME_SUFFIX}-p${ORDER}")
-  if (PRECISION STREQUAL "single")
-    set(NAME_SUFFIX "${NAME_SUFFIX}-f32")
-  else()
-    set(NAME_SUFFIX "${NAME_SUFFIX}-f64")
-  endif()
-  if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
-    set(NAME_SUFFIX "${NAME_SUFFIX}-s${NUMBER_OF_FUSED_SIMULATIONS}")
+  if (NOT MULTISETUP)
+    if (EQUATIONS STREQUAL "viscoelastic2")
+      set(NAME_SUFFIX "${NAME_SUFFIX}-viscoelastic")
+    else()
+      set(NAME_SUFFIX "${NAME_SUFFIX}-${EQUATIONS}")
+    endif()
+    if (NUMBER_OF_MECHANISMS GREATER 0)
+      set(NAME_SUFFIX "${NAME_SUFFIX}-${NUMBER_OF_MECHANISMS}")
+    endif()
+    set(NAME_SUFFIX "${NAME_SUFFIX}-p${ORDER}")
+    if (PRECISION STREQUAL "single")
+      set(NAME_SUFFIX "${NAME_SUFFIX}-f32")
+    else()
+      set(NAME_SUFFIX "${NAME_SUFFIX}-f64")
+    endif()
+    if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
+      set(NAME_SUFFIX "${NAME_SUFFIX}-s${NUMBER_OF_FUSED_SIMULATIONS}")
+    endif()
   endif()
 endif()
 

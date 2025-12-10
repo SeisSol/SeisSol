@@ -21,9 +21,6 @@
 #include <string>
 
 namespace seissol::model {
-struct AnisotropicLocalData;
-struct AnisotropicNeighborData;
-
 struct AnisotropicMaterial : public Material {
   static constexpr std::size_t NumQuantities = 9;
   static constexpr std::size_t NumElasticQuantities = 9;
@@ -39,8 +36,13 @@ struct AnisotropicMaterial : public Material {
   static constexpr bool SupportsDR = false;
   static constexpr bool SupportsLTS = true;
 
-  using LocalSpecificData = AnisotropicLocalData;
-  using NeighborSpecificData = AnisotropicNeighborData;
+  template <typename Cfg>
+  using LocalSpecificData = std::monostate;
+
+  template <typename Cfg>
+  using NeighborSpecificData = std::monostate;
+
+  template <typename Cfg>
   using Solver = kernels::solver::linearck::Solver;
 
   double c11{};
@@ -64,6 +66,8 @@ struct AnisotropicMaterial : public Material {
   double c55{};
   double c56{};
   double c66{};
+
+  static const std::unordered_map<std::string, double AnisotropicMaterial::*> ParameterMap;
 
   [[nodiscard]] double getLambdaBar() const override;
 
@@ -92,6 +96,22 @@ struct AnisotropicMaterial : public Material {
 
   void setLameParameters(double mu, double lambda) override;
 };
+
+inline const std::unordered_map<std::string, double AnisotropicMaterial::*>
+    AnisotropicMaterial::ParameterMap{
+        {"rho", &AnisotropicMaterial::rho}, {"c11", &AnisotropicMaterial::c11},
+        {"c12", &AnisotropicMaterial::c12}, {"c13", &AnisotropicMaterial::c13},
+        {"c14", &AnisotropicMaterial::c14}, {"c15", &AnisotropicMaterial::c15},
+        {"c16", &AnisotropicMaterial::c16}, {"c22", &AnisotropicMaterial::c22},
+        {"c23", &AnisotropicMaterial::c23}, {"c24", &AnisotropicMaterial::c24},
+        {"c25", &AnisotropicMaterial::c25}, {"c26", &AnisotropicMaterial::c26},
+        {"c33", &AnisotropicMaterial::c33}, {"c34", &AnisotropicMaterial::c34},
+        {"c35", &AnisotropicMaterial::c35}, {"c36", &AnisotropicMaterial::c36},
+        {"c44", &AnisotropicMaterial::c44}, {"c45", &AnisotropicMaterial::c45},
+        {"c46", &AnisotropicMaterial::c46}, {"c55", &AnisotropicMaterial::c55},
+        {"c56", &AnisotropicMaterial::c56}, {"c66", &AnisotropicMaterial::c66},
+    };
+
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_DATASTRUCTURES_H_

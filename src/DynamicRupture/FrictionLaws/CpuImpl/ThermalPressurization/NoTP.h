@@ -12,15 +12,18 @@
 #include "Initializer/Parameters/DRParameters.h"
 
 namespace seissol::dr::friction_law::cpu {
+template <typename Cfg>
 class NoTP {
   public:
+  using real = Real<Cfg>;
+
   explicit NoTP(seissol::initializer::parameters::DRParameters* drParameters) {};
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
 
-  void calcFluidPressure(std::array<real, misc::NumPaddedPoints>& normalStress,
-                         real (*mu)[misc::NumPaddedPoints],
-                         std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
+  void calcFluidPressure(std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+                         real (*mu)[misc::NumPaddedPoints<Cfg>],
+                         std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
                          real deltaT,
                          bool saveTmpInTP,
                          std::size_t ltsFace) {}

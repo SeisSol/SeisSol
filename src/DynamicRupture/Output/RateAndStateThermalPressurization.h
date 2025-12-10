@@ -13,33 +13,51 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 
 namespace seissol::dr::output {
-class RateAndStateThermalPressurization : public RateAndState {
+struct RateAndStateThermalPressurization
+    : public ReceiverOutputImpl<RateAndStateThermalPressurization> {
   public:
-  using RateAndState::RateAndState;
+  template <typename Cfg>
+  Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
+    const auto effectiveNormalStress =
+        local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
+    return -1.0 * local.frictionCoefficient *
+           std::min(effectiveNormalStress, static_cast<Real<Cfg>>(0.0));
+  }
 
-  protected:
-  real computeFluidPressure(LocalInfo& local) override {
-    const auto* const pressure = getCellData<LTSThermalPressurization::Pressure>(local);
+  template <typename Cfg>
+  Real<Cfg> computeStateVariable(LocalInfo<Cfg>& local) {
+    return getCellData<LTSRateAndState::StateVariable>(Cfg(), local)[local.gpIndex];
+  }
+
+  template <typename Cfg>
+  Real<Cfg> computeFluidPressure(LocalInfo<Cfg>& local) {
+    const auto* const pressure =
+        ReceiverOutputImpl::getCellData<LTSThermalPressurization::Pressure>(Cfg(), local);
     return pressure[local.gpIndex];
   }
+
+  template <typename Cfg>
   void outputSpecifics(const std::shared_ptr<ReceiverOutputData>& outputData,
-                       const LocalInfo& local,
+                       const LocalInfo<Cfg>& local,
                        size_t cacheLevel,
-                       size_t receiverIdx) override {
+                       size_t receiverIdx) {
     auto& tpVariables = std::get<VariableID::ThermalPressurizationVariables>(outputData->vars);
     if (tpVariables.isActive) {
-      const auto* const temperature = getCellData<LTSThermalPressurization::Temperature>(local);
+      const auto* const temperature =
+          getCellData<LTSThermalPressurization::Temperature>(Cfg(), local);
       tpVariables(TPID::Temperature, cacheLevel, receiverIdx) = temperature[local.gpIndex];
 
-      const auto* const pressure = getCellData<LTSThermalPressurization::Pressure>(local);
+      const auto* const pressure = getCellData<LTSThermalPressurization::Pressure>(Cfg(), local);
       tpVariables(TPID::Pressure, cacheLevel, receiverIdx) = pressure[local.gpIndex];
     }
   }
 
   [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
-    auto baseVector = RateAndState::getOutputVariables();
-    baseVector.push_back(drStorage->info<LTSThermalPressurization::Temperature>().index);
-    baseVector.push_back(drStorage->info<LTSThermalPressurization::Pressure>().index);
+    auto baseVector = ReceiverOutputImpl::getOutputVariables();
+    // manually add the R+S state var here for now
+    baseVector.push_back(drStorage->info<LTSRateAndState::StateVariable>().index);
+    baseVector.push_back(this->drStorage->info<LTSThermalPressurization::Temperature>().index);
+    baseVector.push_back(this->drStorage->info<LTSThermalPressurization::Pressure>().index);
     return baseVector;
   }
 };

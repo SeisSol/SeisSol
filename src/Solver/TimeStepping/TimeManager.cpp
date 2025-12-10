@@ -11,12 +11,14 @@
 
 #include "Common/Iterator.h"
 #include "CommunicationManager.h"
+#include "Config.h"
 #include "DynamicRupture/Output/OutputManager.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/Instrumentation.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/ClusteringWriter.h"
@@ -29,6 +31,22 @@
 #include "Solver/TimeStepping/HaloCommunication.h"
 #include "Solver/TimeStepping/TimeCluster.h"
 
+#include <Common/ConfigHelper.h>
+#include <Common/Iterator.h>
+#include <DynamicRupture/Output/OutputManager.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/MemoryManager.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
+#include <Kernels/PointSourceCluster.h>
+#include <Memory/Tree/Layer.h>
+#include <Monitoring/Instrumentation.h>
+#include <ResultWriter/ReceiverWriter.h>
+#include <Solver/TimeStepping/AbstractGhostTimeCluster.h>
+#include <Solver/TimeStepping/AbstractTimeCluster.h>
+#include <Solver/TimeStepping/ActorState.h>
+#include <Solver/TimeStepping/GhostTimeClusterFactory.h>
+#include <Solver/TimeStepping/HaloCommunication.h>
+#include <Solver/TimeStepping/TimeCluster.h>
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -38,6 +56,7 @@
 #include <memory>
 #include <mpi.h>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #ifdef ACL_DEVICE
@@ -72,36 +91,6 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   auto clusteringWriter =
       writer::ClusteringWriter(seissolInstance.getSeisSolParameters().output.prefix);
 
-  std::vector<std::size_t> drCellsPerCluster(clusterLayout.globalClusterCount);
-
-  // setup DR schedulers
-  for (const auto& layer : memoryManager.getDRStorage().leaves()) {
-    drCellsPerCluster[layer.getIdentifier().lts] += layer.size();
-  }
-
-  std::size_t drClusterOutput = std::numeric_limits<std::size_t>::max();
-  for (std::size_t clusterId = 0; clusterId < drCellsPerCluster.size(); ++clusterId) {
-    if (drCellsPerCluster[clusterId] > 0) {
-      drClusterOutput = clusterId;
-      break;
-    }
-  }
-  MPI_Allreduce(MPI_IN_PLACE,
-                &drClusterOutput,
-                1,
-                Mpi::castToMpiType<std::size_t>(),
-                MPI_MIN,
-                Mpi::mpi.comm());
-
-  for (std::size_t clusterId = 0; clusterId < drCellsPerCluster.size(); ++clusterId) {
-    const bool isFirstDynamicRuptureCluster = drClusterOutput == clusterId;
-    dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(
-        drCellsPerCluster[clusterId], isFirstDynamicRuptureCluster));
-  }
-
-  std::vector<AbstractTimeCluster*> cellClusterBackmap(
-      memoryManager.getLtsStorage().getColorMap().size());
-
   const auto deltaId = [&](const auto& id, HaloType halo, int32_t offset) {
     auto cloned = id;
     cloned.halo = halo;
@@ -109,9 +98,47 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     return memoryManager.getLtsStorage().getColorMap().colorId(cloned);
   };
 
+  std::vector<std::size_t> drCellsPerCluster(memoryManager.getLtsStorage().getColorMap().size());
+  std::vector<std::size_t> drCellsPerLTS(clusterLayout.globalClusterCount);
+
+  // setup DR schedulers
+  for (const auto& layer : memoryManager.getDRStorage().leaves()) {
+    drCellsPerCluster[deltaId(layer.getIdentifier(), HaloType::Interior, 0)] += layer.size();
+    drCellsPerLTS[layer.getIdentifier().lts] += layer.size();
+  }
+
+  std::size_t drClusterOutput = std::numeric_limits<std::size_t>::max();
+  for (std::size_t clusterId = 0; clusterId < drCellsPerLTS.size(); ++clusterId) {
+    if (drCellsPerLTS[clusterId] > 0) {
+      drClusterOutput = clusterId;
+      break;
+    }
+  }
+
+  MPI_Allreduce(MPI_IN_PLACE,
+                &drClusterOutput,
+                1,
+                Mpi::castToMpiType<std::size_t>(),
+                MPI_MIN,
+                Mpi::mpi.comm());
+
+  const auto drOutputTimestep = drClusterOutput == std::numeric_limits<std::size_t>::max()
+                                    ? std::numeric_limits<double>::infinity()
+                                    : clusterLayout.timestepRate(drClusterOutput);
+
+  dynamicRuptureSchedulers.resize(memoryManager.getLtsStorage().getColorMap().size());
+
+  for (std::size_t clusterId = 0; clusterId < drCellsPerCluster.size(); ++clusterId) {
+    dynamicRuptureSchedulers[clusterId] =
+        std::make_unique<DynamicRuptureScheduler>(drCellsPerCluster[clusterId], drOutputTimestep);
+  }
+
+  std::vector<AbstractTimeCluster*> cellClusterBackmap(
+      memoryManager.getLtsStorage().getColorMap().size());
+
   // iterate over local time clusters
   for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost)) {
-    auto globalData = memoryManager.getGlobalData();
+    const auto& globalData = memoryManager.getGlobalData();
 
     const auto clusterId = layer.getIdentifier().lts;
 
@@ -130,26 +157,34 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     auto* dynRupCopyData =
         &memoryManager.getDRStorage().layer(deltaId(layer.getIdentifier(), HaloType::Copy, 0));
 
-    auto& cluster = clusters.emplace_back(
-        std::make_unique<TimeCluster>(clusterId,
-                                      clusterId,
-                                      profilingId,
-                                      usePlasticity,
-                                      layer.getIdentifier().halo,
-                                      timeStepSize,
-                                      timeStepRate,
-                                      printProgress,
-                                      dynamicRuptureSchedulers[clusterId].get(),
-                                      globalData,
-                                      &layer,
-                                      dynRupInteriorData,
-                                      dynRupCopyData,
-                                      memoryManager.getFrictionLaw(),
-                                      memoryManager.getFrictionLawDevice(),
-                                      memoryManager.getFaultOutputManager(),
-                                      seissolInstance,
-                                      &loopStatistics,
-                                      &actorStateStatisticsManager.addCluster(profilingId)));
+    AbstractTimeCluster* cluster = nullptr;
+    layer.wrap([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      cluster =
+          clusters
+              .emplace_back(std::make_unique<TimeCluster<Cfg>>(
+                  clusterId,
+                  clusterId,
+                  profilingId,
+                  usePlasticity,
+                  layer.getIdentifier().halo,
+                  timeStepSize,
+                  timeStepRate,
+                  printProgress,
+                  dynamicRuptureSchedulers[deltaId(layer.getIdentifier(), HaloType::Interior, 0)]
+                      .get(),
+                  globalData,
+                  &layer,
+                  dynRupInteriorData,
+                  dynRupCopyData,
+                  memoryManager.getFrictionLaw(),
+                  memoryManager.getFrictionLawDevice(),
+                  memoryManager.getFaultOutputManager(),
+                  seissolInstance,
+                  &loopStatistics,
+                  &actorStateStatisticsManager.addCluster(profilingId)))
+              .get();
+    });
 
     const auto clusterSize = layer.size();
     const auto dynRupSize = memoryManager.getDRStorage().layer(layer.id()).size();
@@ -163,7 +198,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       cluster->setPriority(ActorPriority::Low);
     }
 
-    cellClusterBackmap[layer.id()] = cluster.get();
+    cellClusterBackmap[layer.id()] = cluster;
   }
 
   const auto connectIfBothExist = [](auto& a, auto& b) {

@@ -9,6 +9,7 @@
 
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
+#include "Config.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
 #include "GeneratedCode/init.h"
@@ -20,15 +21,22 @@
 #include "Numerical/Transformation.h"
 #include "Solver/MultipleSimulations.h"
 
+#include <Common/ConfigHelper.h>
+#include <Common/Iterator.h>
 #include <Eigen/Core>
 #include <Eigen/Dense>
+#include <GeneratedCode/init.h>
+#include <Geometry/MeshReader.h>
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <tuple>
+#include <unordered_map>
 #include <utility>
 #include <utils/logger.h>
+#include <variant>
 #include <vector>
 
 namespace {
@@ -108,19 +116,31 @@ ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2) {
   return midPoint;
 }
 
-TriangleQuadratureData generateTriangleQuadrature() {
+TriangleQuadratureData generateTriangleQuadrature(ConfigVariant variant) {
   TriangleQuadratureData data{};
 
-  // Generate triangle quadrature points and weights (Factory Method)
-  auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
-  auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
+  std::visit(
+      [&](auto cfg) {
+        using Cfg = decltype(cfg);
+        using real = Real<Cfg>;
 
-  auto* reshapedPoints = unsafe_reshape<2>((data.points).data());
-  for (size_t i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
-    reshapedPoints[i][0] = seissol::multisim::multisimTranspose(pointsView, i, 0);
-    reshapedPoints[i][1] = seissol::multisim::multisimTranspose(pointsView, i, 1);
-    data.weights[i] = seissol::multisim::multisimWrap(weightsView, 0, i);
-  }
+        // Generate triangle quadrature points and weights (Factory Method)
+        auto pointsView =
+            init::quadpoints<Cfg>::view::create(const_cast<real*>(init::quadpoints<Cfg>::Values));
+        auto weightsView =
+            init::quadweights<Cfg>::view::create(const_cast<real*>(init::quadweights<Cfg>::Values));
+
+        data.points.resize(2 * init::quadweights<Cfg>::size());
+        data.weights.resize(init::quadweights<Cfg>::size());
+
+        auto* reshapedPoints = unsafe_reshape<2>((data.points).data());
+        for (size_t i = 0; i < init::quadweights<Cfg>::size(); ++i) {
+          reshapedPoints[i][0] = seissol::multisim::multisimTranspose<Cfg>(pointsView, i, 0);
+          reshapedPoints[i][1] = seissol::multisim::multisimTranspose<Cfg>(pointsView, i, 1);
+          data.weights[i] = seissol::multisim::multisimWrap<Cfg>(weightsView, 0, i);
+        }
+      },
+      variant);
 
   return data;
 }
@@ -144,11 +164,17 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
   return std::make_pair(nearestPoint, shortestDistance);
 }
 
-void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
-  auto quadratureData = generateTriangleQuadrature();
-  const double (*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
+void assignNearestGaussianPoints(ReceiverPoints& geoPoints, const geometry::MeshReader& mesh) {
+  std::unordered_map<std::size_t, TriangleQuadratureData> quadData;
 
   for (auto& geoPoint : geoPoints) {
+    const auto configId = mesh.getElements()[geoPoint.elementIndex].configId;
+    if (quadData.find(configId) == quadData.end()) {
+      quadData[configId] = generateTriangleQuadrature(ConfigVariantList[configId]);
+    }
+    auto quadratureData = quadData.at(configId);
+
+    double (*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
 
     double targetPoint2D[2];
     transformations::XiEtaZeta2chiTau(
@@ -156,8 +182,8 @@ void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
 
     int nearestPoint{-1};
     double shortestDistance = std::numeric_limits<double>::max();
-    std::tie(nearestPoint, shortestDistance) = getNearestFacePoint(
-        targetPoint2D, trianglePoints2D, seissol::dr::TriangleQuadratureData::Size);
+    std::tie(nearestPoint, shortestDistance) =
+        getNearestFacePoint(targetPoint2D, trianglePoints2D, quadratureData.weights.size());
     geoPoint.nearestGpIndex = nearestPoint;
   }
 }
@@ -226,26 +252,45 @@ double
   return sidemin;
 }
 
-PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
-                                                   const VrtxCoords* plusElementCoords[4],
-                                                   const VrtxCoords* minusElementCoords[4]) {
+template <typename RealT>
+PlusMinusBasisFunctions<RealT> getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
+                                                          const VrtxCoords* plusElementCoords[4],
+                                                          const VrtxCoords* minusElementCoords[4],
+                                                          ConfigVariant config) {
 
   Eigen::Vector3d point(pointCoords[0], pointCoords[1], pointCoords[2]);
+  PlusMinusBasisFunctions<RealT> basisFunctions{};
 
-  auto getBasisFunctions = [&point](const VrtxCoords* elementCoords[4]) {
-    auto referenceCoords = transformations::tetrahedronGlobalToReference(
-        *elementCoords[0], *elementCoords[1], *elementCoords[2], *elementCoords[3], point);
-    const basisFunction::SampledBasisFunctions<real> sampler(
-        ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
-    return sampler.m_data;
-  };
+  std::visit(
+      [&](auto cfg) {
+        using Cfg = decltype(cfg);
 
-  PlusMinusBasisFunctions basisFunctions{};
-  basisFunctions.plusSide = getBasisFunctions(plusElementCoords);
-  basisFunctions.minusSide = getBasisFunctions(minusElementCoords);
+        auto getBasisFunctions = [&point](const VrtxCoords* elementCoords[4]) {
+          auto referenceCoords = transformations::tetrahedronGlobalToReference(
+              *elementCoords[0], *elementCoords[1], *elementCoords[2], *elementCoords[3], point);
+          const basisFunction::SampledBasisFunctions<RealT> sampler(
+              Cfg::ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
+          return sampler.m_data;
+        };
+
+        basisFunctions.plusSide = getBasisFunctions(plusElementCoords);
+        basisFunctions.minusSide = getBasisFunctions(minusElementCoords);
+      },
+      config);
 
   return basisFunctions;
 }
+
+template PlusMinusBasisFunctions<float>
+    getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
+                               const VrtxCoords* plusElementCoords[4],
+                               const VrtxCoords* minusElementCoords[4],
+                               ConfigVariant config);
+template PlusMinusBasisFunctions<double>
+    getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
+                               const VrtxCoords* plusElementCoords[4],
+                               const VrtxCoords* minusElementCoords[4],
+                               ConfigVariant config);
 
 std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints) {
   std::vector<double> vertices(3 * (3 * receiverPoints.size()), 0.0);
@@ -284,7 +329,7 @@ std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiv
   return faultTags;
 }
 
-real computeTriangleArea(ExtTriangle& triangle) {
+double computeTriangleArea(ExtTriangle& triangle) {
   const auto p0 = triangle.point(0).getAsEigen3LibVector();
   const auto p1 = triangle.point(1).getAsEigen3LibVector();
   const auto p2 = triangle.point(2).getAsEigen3LibVector();

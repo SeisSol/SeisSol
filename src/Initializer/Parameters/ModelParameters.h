@@ -42,6 +42,7 @@ struct ModelParameters {
   ITMParameters itmParameters;
   NumericalFlux flux{NumericalFlux::Godunov};
   NumericalFlux fluxNearFault{NumericalFlux::Godunov};
+  std::unordered_map<int, std::string> configMap;
 };
 
 ModelParameters readModelParameters(ParameterReader* baseReader);

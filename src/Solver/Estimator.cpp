@@ -21,6 +21,7 @@ namespace seissol::solver {
 auto miniSeisSol() -> double {
   const auto config = proxy::ProxyConfig{50000,
                                          10,
+                                         0,
                                          {seissol::proxy::Kernel::Local},
                                          false,
                                          isDeviceOn() ? Executor::Device : Executor::Host};
@@ -47,6 +48,7 @@ auto hostDeviceSwitch() -> int {
   for (int i = 0; i < 20; ++i) {
     auto config = proxy::ProxyConfig{clusterSize,
                                      static_cast<unsigned int>(clusterSize < 100 ? 100 : 10),
+                                     0,
                                      {seissol::proxy::Kernel::Local},
                                      false,
                                      Executor::Host};

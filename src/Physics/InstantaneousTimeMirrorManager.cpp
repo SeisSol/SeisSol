@@ -103,18 +103,20 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
   };
 
   for (auto& layer : ltsStorage->leaves(Ghost)) {
-    auto* materialData = layer.var<LTS::MaterialData>();
+    layer.wrap([&](auto cfg) {
+      auto* materialData = layer.var<LTS::MaterialData>(cfg);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      // for now, keep the NOLINTNEXTLINE here (due to polymorphic access)
-      // NOLINTNEXTLINE
-      auto& material = materialData[cell];
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+        // for now, keep the NOLINTNEXTLINE here (due to polymorphic access)
+        // NOLINTNEXTLINE
+        auto& material = materialData[cell];
 
-      updateMaterial(material);
-    }
+        updateMaterial(material);
+      }
+    });
   }
 }
 

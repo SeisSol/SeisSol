@@ -9,11 +9,12 @@
 #include "Numerical/ODEVector.h"
 
 #include <Eigen/Dense>
+#include <type_traits>
 
 namespace seissol::unit_test {
 
-TEST_CASE("Test ODE Solver") {
-  constexpr real Eps = Config::Precision == RealType::F32 ? 10e-4 : 10e-11;
+TEST_CASE_TEMPLATE("Test ODE Solver", real, double) {
+  constexpr real Eps = std::is_same_v<real, float> ? 10e-4 : 10e-11;
   SUBCASE("Test simple integration") {
     constexpr auto SizeSolution = 5;
     constexpr auto SizeIntegratedSolution = SizeSolution;
@@ -21,8 +22,8 @@ TEST_CASE("Test ODE Solver") {
     alignas(Alignment) real curUSolutionIntegrated[SizeIntegratedSolution] = {};
     alignas(Alignment) real curUSolution[SizeSolution] = {};
 
-    auto curU = seissol::ode::ODEVector{{curUSolutionIntegrated, curUSolution},
-                                        {SizeIntegratedSolution, SizeSolution}};
+    auto curU = seissol::ode::ODEVector<real>{{curUSolutionIntegrated, curUSolution},
+                                              {SizeIntegratedSolution, SizeSolution}};
 
     // Setup ODE solver
     const auto timeSpan = seissol::ode::TimeSpan{0, 2};
@@ -31,29 +32,30 @@ TEST_CASE("Test ODE Solver") {
 
     auto solver =
         seissol::ode::RungeKuttaODESolver({SizeIntegratedSolution, SizeSolution}, odeSolverConfig);
-    const auto f = [&](seissol::ode::ODEVector& du, seissol::ode::ODEVector& u, double /*time*/) {
-      // Unpack du
-      auto [dUIntegratedStorage, dUIntegratedSize] = du.getSubvector(0);
-      REQUIRE(dUIntegratedSize == SizeIntegratedSolution);
-      auto [dUStorage, dUSize] = du.getSubvector(1);
-      REQUIRE(dUSize == SizeSolution);
+    const auto f =
+        [&](seissol::ode::ODEVector<real>& du, seissol::ode::ODEVector<real>& u, double /*time*/) {
+          // Unpack du
+          auto [dUIntegratedStorage, dUIntegratedSize] = du.getSubvector(0);
+          REQUIRE(dUIntegratedSize == SizeIntegratedSolution);
+          auto [dUStorage, dUSize] = du.getSubvector(1);
+          REQUIRE(dUSize == SizeSolution);
 
-      // Unpack u
-      auto [uIntegrated, uIntegratedSize] = u.getSubvector(0);
-      REQUIRE(uIntegratedSize == SizeIntegratedSolution);
-      auto [uStorage, uSize] = u.getSubvector(1);
-      REQUIRE(uSize == SizeSolution);
+          // Unpack u
+          auto [uIntegrated, uIntegratedSize] = u.getSubvector(0);
+          REQUIRE(uIntegratedSize == SizeIntegratedSolution);
+          auto [uStorage, uSize] = u.getSubvector(1);
+          REQUIRE(uSize == SizeSolution);
 
-      // f(x)' = 2f(x) and f(0) = 1
-      // Solution: exp(2x)
-      // Solution for int u dx is exp(2x)/2 - C (C=0.5)
-      // du[0] = u[1];
-      // du[1] = 2 * u[1];
-      for (int i = 0; i < SizeSolution; ++i) {
-        dUIntegratedStorage[i] = uStorage[i];
-        dUStorage[i] = 2 * uStorage[i];
-      }
-    };
+          // f(x)' = 2f(x) and f(0) = 1
+          // Solution: exp(2x)
+          // Solution for int u dx is exp(2x)/2 - C (C=0.5)
+          // du[0] = u[1];
+          // du[1] = 2 * u[1];
+          for (int i = 0; i < SizeSolution; ++i) {
+            dUIntegratedStorage[i] = uStorage[i];
+            dUStorage[i] = 2 * uStorage[i];
+          }
+        };
     for (int i = 0; i < SizeSolution; ++i) {
       curUSolution[i] = 1.0;
       curUSolutionIntegrated[i] = 0.0;
@@ -72,7 +74,7 @@ TEST_CASE("Test ODE Solver") {
 
     alignas(Alignment) real curUSolution[SizeSolution] = {};
 
-    auto curU = seissol::ode::ODEVector{{curUSolution}, {SizeSolution}};
+    auto curU = seissol::ode::ODEVector<real>{{curUSolution}, {SizeSolution}};
 
     // Setup ODE solver
     const auto timeSpan = seissol::ode::TimeSpan{0, 1};
@@ -82,16 +84,17 @@ TEST_CASE("Test ODE Solver") {
 
     auto solver = seissol::ode::RungeKuttaODESolver({SizeSolution}, odeSolverConfig);
     auto parameters = std::array<real, 4>{1.5, 1.0, 3.0, 1.0};
-    const auto f = [&](seissol::ode::ODEVector& du, seissol::ode::ODEVector& u, double /*time*/) {
-      // A simple Lotka-Volterra model
-      // See: https://en.wikipedia.org/wiki/Lotka%E2%80%93Volterra_equations
+    const auto f =
+        [&](seissol::ode::ODEVector<real>& du, seissol::ode::ODEVector<real>& u, double /*time*/) {
+          // A simple Lotka-Volterra model
+          // See: https://en.wikipedia.org/wiki/Lotka%E2%80%93Volterra_equations
 
-      // dx/dt = \alpha x - \beta x y
-      // dy/dt = \delta x y - \gamma y
-      auto& [alpha, beta, delta, gamma] = parameters;
-      du[0] = alpha * u[0] - beta * u[0] * u[1];
-      du[1] = delta * u[0] * u[1] - gamma * u[1];
-    };
+          // dx/dt = \alpha x - \beta x y
+          // dy/dt = \delta x y - \gamma y
+          auto& [alpha, beta, delta, gamma] = parameters;
+          du[0] = alpha * u[0] - beta * u[0] * u[1];
+          du[1] = delta * u[0] * u[1] - gamma * u[1];
+        };
 
     // Initial conditions
     curU[0] = 10.0;

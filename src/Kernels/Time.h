@@ -23,8 +23,11 @@
 
 namespace seissol::kernels {
 
+template <typename Cfg>
 class TimeKernel : public Kernel {
   public:
+  using real = Real<Cfg>;
+
   ~TimeKernel() override = default;
 
   /**
@@ -40,7 +43,7 @@ class TimeKernel : public Kernel {
   */
   virtual void evaluate(const real* coeffs,
                         const real* timeDerivatives,
-                        real timeEvaluated[tensor::I::size()]) = 0;
+                        real timeEvaluated[tensor::I<Cfg>::size()]) = 0;
 
   /**
     @brief Evaluates a given space-time representation in time.

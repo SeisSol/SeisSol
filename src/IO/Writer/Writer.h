@@ -45,6 +45,12 @@ class Writer {
   explicit Writer(const std::string& data);
 
   void addInstruction(const std::shared_ptr<instructions::WriteInstruction>& instruction);
+  void addInstructions(
+      const std::vector<std::shared_ptr<instructions::WriteInstruction>>& instructions) {
+    for (const auto& instruction : instructions) {
+      addInstruction(instruction);
+    }
+  }
 
   std::string serialize();
 

@@ -14,35 +14,38 @@
 
 #include <stddef.h>
 
-namespace seissol::kernels::device::aux::plasticity {
-constexpr static int NumStressComponents = model::MaterialT::TractionQuantities;
+namespace seissol::kernels::device::aux {
 
-void adjustDeviatoricTensors(real** nodalStressTensors,
-                             unsigned* isAdjustableVector,
-                             const seissol::model::PlasticityData* plasticity,
-                             double oneMinusIntegratingFactor,
-                             size_t numElements,
-                             void* streamPtr);
+template <typename Cfg>
+struct Plasticity {
+  using real = Real<Cfg>;
 
-void computePstrains(real** pstrains,
-                     const seissol::model::PlasticityData* plasticityData,
-                     real** dofs,
-                     real** prevDofs,
-                     real** dUdTpstrain,
-                     double tV,
-                     double oneMinusIntegratingFactor,
-                     double timeStepWidth,
-                     unsigned* isAdjustableVector,
-                     size_t numElements,
-                     void* streamPtr);
+  static void adjustDeviatoricTensors(real** nodalStressTensors,
+                                      unsigned* isAdjustableVector,
+                                      const seissol::model::PlasticityData<Cfg>* plasticity,
+                                      double oneMinusIntegratingFactor,
+                                      size_t numElements,
+                                      void* streamPtr);
 
-void updateQEtaNodal(real** qEtaNodalPtrs,
-                     real** qStressNodalPtrs,
-                     double timeStepWidth,
-                     unsigned* isAdjustableVector,
-                     size_t numElements,
-                     void* streamPtr);
+  static void computePstrains(real** pstrains,
+                              const seissol::model::PlasticityData<Cfg>* plasticityData,
+                              real** dofs,
+                              real** prevDofs,
+                              real** dUdTpstrain,
+                              double tV,
+                              double oneMinusIntegratingFactor,
+                              double timeStepWidth,
+                              unsigned* isAdjustableVector,
+                              size_t numElements,
+                              void* streamPtr);
 
-} // namespace seissol::kernels::device::aux::plasticity
+  static void updateQEtaNodal(real** qEtaNodalPtrs,
+                              real** qStressNodalPtrs,
+                              double timeStepWidth,
+                              unsigned* isAdjustableVector,
+                              size_t numElements,
+                              void* streamPtr);
+};
+} // namespace seissol::kernels::device::aux
 
 #endif // SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_

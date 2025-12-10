@@ -12,6 +12,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Modules/Modules.h"
 #include "Monitoring/FlopCounter.h"
+#include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
 #include "Parallel/Runtime/Stream.h"
 #include "ResultWriter/AnalysisWriter.h"
@@ -19,6 +20,8 @@
 #include "SeisSol.h"
 #include "TimeStepping/TimeManager.h"
 
+#include <Memory/Tree/Layer.h>
+#include <Monitoring/Instrumentation.h>
 #include <algorithm>
 #include <cassert>
 #include <optional>
@@ -47,9 +50,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   SCOREP_USER_REGION("simulate", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   auto* faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
-  parallel::runtime::StreamRuntime runtime;
-  faultOutputManager->writePickpointOutput(0.0, 0.0, runtime);
-  runtime.wait();
+  faultOutputManager->writePickpointOutput(0.0, 0.0);
 
   Stopwatch simulationStopwatch;
   simulationStopwatch.start();

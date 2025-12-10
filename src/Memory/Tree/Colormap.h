@@ -199,8 +199,6 @@ class ColorMap {
   using Type = typename NestedLayerSets::Type;
 };
 
-using ConfigVariant = std::variant<Config>;
-
 /**
   A convenience data structure for the Layer identifier type we use.
   In essence, it provides basic infos about the layer, like e.g. if it is a ghost, copy or interior

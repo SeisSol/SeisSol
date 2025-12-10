@@ -42,7 +42,7 @@ TEST_CASE("Test Jacobi polynomials") {
 }
 
 TEST_CASE("Test first derivative of Jacobi polynomials") {
-  constexpr double Epsilon = 100 * std::numeric_limits<real>::epsilon();
+  constexpr double Epsilon = 100 * std::numeric_limits<double>::epsilon();
   // Compare to Maple reference solution
   REQUIRE(seissol::functions::JacobiPDerivative(0, 1, 0, 0.5) == AbsApprox(0.0).epsilon(Epsilon));
   REQUIRE(seissol::functions::JacobiPDerivative(1, 0, 0, -0.3) ==

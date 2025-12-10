@@ -8,6 +8,7 @@
 
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
+#include "Config.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/Internal/Buckets.h"
@@ -24,6 +25,25 @@
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 
+#include <Common/ConfigHelper.h>
+#include <Common/Constants.h>
+#include <Common/Iterator.h>
+#include <Geometry/MeshReader.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/CellLocalMatrices.h>
+#include <Initializer/InitProcedure/InitModel.h>
+#include <Initializer/InitProcedure/Internal/Buckets.h>
+#include <Initializer/InitProcedure/Internal/LtsSetup.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
+#include <Initializer/TimeStepping/Halo.h>
+#include <Memory/Descriptor/DynamicRupture.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/Backmap.h>
+#include <Memory/Tree/Colormap.h>
+#include <Memory/Tree/LTSTree.h>
+#include <Memory/Tree/Layer.h>
+#include <Parallel/MPI.h>
+#include <Physics/InstantaneousTimeMirrorManager.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -39,6 +59,62 @@
 namespace seissol::initializer::initprocedure {
 
 namespace {
+
+void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
+  const auto& seissolParams = seissolInstance.getSeisSolParameters();
+
+  // \todo Move this to some common initialization place
+  auto& meshReader = seissolInstance.meshReader();
+  auto& memoryManager = seissolInstance.getMemoryManager();
+
+  seissol::initializer::initializeCellLocalMatrices(meshReader,
+                                                    memoryManager.getLtsStorage(),
+                                                    memoryManager.clusterLayout(),
+                                                    seissolParams.model);
+
+  if (seissolParams.drParameters.etaDamp != 1.0) {
+    logWarning() << "The \"eta damp\" (=" << seissolParams.drParameters.etaDamp
+                 << ") has been enabled in the timeframe [0,"
+                 << seissolParams.drParameters.etaDampEnd
+                 << ") to mitigate quasi-divergent solutions in the "
+                    "friction law. The results may not conform to the existing benchmarks (which "
+                    "are (mostly) computed with \"eta damp\" = 1).";
+  }
+
+  seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
+                                                         memoryManager.getLtsStorage(),
+                                                         memoryManager.getBackmap(),
+                                                         memoryManager.getDRStorage());
+
+  memoryManager.initFrictionData();
+
+  seissol::initializer::initializeBoundaryMappings(
+      meshReader, memoryManager.getEasiBoundaryReader(), memoryManager.getLtsStorage());
+
+#ifdef ACL_DEVICE
+  memoryManager.recordExecutionPaths(seissolParams.model.plasticity);
+#endif
+
+  auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
+
+  if (itmParameters.itmEnabled) {
+    auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();
+    const double scalingFactor = itmParameters.itmVelocityScalingFactor;
+    const double startingTime = itmParameters.itmStartingTime;
+
+    auto& ltsStorage = memoryManager.getLtsStorage();
+    const auto* timeStepping = &seissolInstance.timeManager().getClusterLayout();
+
+    initializeTimeMirrorManagers(scalingFactor,
+                                 startingTime,
+                                 &meshReader,
+                                 ltsStorage,
+                                 timeMirrorManagers.first,
+                                 timeMirrorManagers.second,
+                                 seissolInstance,
+                                 timeStepping);
+  }
+}
 
 void verifyHaloSetup(const LTS::Storage& ltsStorage, const std::vector<ClusterMap>& meshLayout) {
   // just verify everything. I.e. exchange the global IDs of copy and ghost layers, and see if they
@@ -115,16 +191,35 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   std::vector<std::size_t> clusterMap(clusterLayout.globalClusterCount);
   std::iota(clusterMap.begin(), clusterMap.end(), 0);
 
+  std::vector<uint8_t> configUsed(ConfigVariantList.size());
+  for (const auto& element : meshReader.getElements()) {
+    configUsed[element.configId] = 1;
+  }
+  MPI_Allreduce(MPI_IN_PLACE,
+                configUsed.data(),
+                configUsed.size(),
+                MPI_UINT8_T,
+                MPI_MAX,
+                seissol::Mpi::mpi.comm());
+
+  std::vector<ConfigVariant> configVariants;
+  for (std::size_t i = 0; i < configUsed.size(); ++i) {
+    if (configUsed[i] != 0) {
+      configVariants.push_back(ConfigVariantList[i]);
+      seissolInstance.getMemoryManager().getGlobalData().init(i);
+    }
+  }
+
   const LTSColorMap colorMap(
       initializer::EnumLayer<HaloType>({HaloType::Ghost, HaloType::Copy, HaloType::Interior}),
       initializer::EnumLayer<std::size_t>(clusterMap),
-      initializer::TraitLayer<initializer::ConfigVariant>({initializer::ConfigVariant(Config())}));
+      initializer::TraitLayer<ConfigVariant>(configVariants));
 
   std::vector<std::size_t> colors(meshReader.getElements().size());
   for (std::size_t i = 0; i < colors.size(); ++i) {
     const auto& element = meshReader.getElements()[i];
     const auto halo = geometry::isCopy(element, rank) ? HaloType::Copy : HaloType::Interior;
-    colors[i] = colorMap.color(halo, element.clusterId, Config());
+    colors[i] = colorMap.color(halo, element.clusterId, ConfigVariantList[element.configId]);
   }
 
   const auto ghostSize = meshReader.linearGhostlayer().size();
@@ -134,7 +229,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     const auto& element =
         meshReader.getGhostlayerMetadata().at(linearGhost.rank)[linearGhost.inRankIndices[0]];
     const auto halo = HaloType::Ghost;
-    colorsGhost[i] = colorMap.color(halo, element.clusterId, Config());
+    colorsGhost[i] = colorMap.color(halo, element.clusterId, ConfigVariantList[element.configId]);
   }
 
   logInfo() << "Creating mesh layout...";
@@ -234,8 +329,12 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           if (static_cast<std::size_t>(element.neighbors[face]) !=
                   meshReader.getElements().size() ||
               element.neighborRanks[face] != rank) {
-            const auto& neighbor = [&]() {
-              const bool ghostNeighbor = element.neighborRanks[face] != rank;
+
+            const bool ghostNeighbor = element.neighborRanks[face] != rank;
+            const auto rank = element.neighborRanks[face];
+            const auto mpiIndex = element.mpiIndices[face];
+
+            secondaryCellInformation[index].faceNeighbors[face] = [&]() {
               if (ghostNeighbor) {
                 const auto rank = element.neighborRanks[face];
                 const auto mpiIndex = element.mpiIndices[face];
@@ -248,12 +347,20 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
               }
             }();
 
-            secondaryCellInformation[index].faceNeighbors[face] = neighbor;
-            cellInformation[index].neighborConfigIds[face] = 0;
+            cellInformation[index].neighborConfigIds[face] = [&]() {
+              if (ghostNeighbor) {
+                // ghost layer
+                return meshReader.getGhostlayerMetadata().at(rank)[mpiIndex].configId;
+              } else {
+                // copy/interior layer
+                return meshReader.getElements()[element.neighbors[face]].configId;
+              }
+            }();
+
           } else {
+
             secondaryCellInformation[index].faceNeighbors[face] = StoragePosition::NullPosition;
-            cellInformation[index].neighborConfigIds[face] =
-                std::numeric_limits<std::uint32_t>::max();
+            cellInformation[index].neighborConfigIds[face] = element.configId;
           }
         }
       }
@@ -282,7 +389,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           secondaryCellInformation[i].faceNeighbors[face] = neighbor;
 
           secondaryCellInformation[i].neighborRanks[face] = rank;
-          cellInformation[i].neighborConfigIds[face] = neighbor.color;
+          cellInformation[i].neighborConfigIds[face] = elementNeighbor.configId;
           cellInformation[i].faceTypes[face] =
               static_cast<FaceType>(elementNeighbor.boundaries[boundaryElement.localSide]);
           cellInformation[i].faceRelations[face][0] = boundaryElement.localSide;
@@ -338,9 +445,19 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   seissolInstance.getMemoryManager().fixateLtsStorage();
 
+  seissol::initializer::initprocedure::initModel(seissolInstance);
+
   // pass 4: correct LTS setup, again. Do bucket setup, determine communication datastructures
   logInfo() << "Setting up data exchange and face displacements (buckets)...";
   const auto haloCommunication = internal::bucketsAndCommunication(ltsStorage, meshLayout);
+
+  logInfo() << "Finish setting up the DR etc.";
+  seissolInstance.getMemoryManager().initializeMemoryLayout();
+
+  seissolInstance.getMemoryManager().fixateBoundaryStorage();
+
+  logInfo() << "Initializing cell materials...";
+  initializeCellMatrices(seissolInstance);
 
   logInfo() << "Setting up kernel clusters...";
   seissolInstance.timeManager().addClusters(clusterLayout,

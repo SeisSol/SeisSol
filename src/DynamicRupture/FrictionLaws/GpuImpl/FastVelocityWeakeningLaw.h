@@ -15,21 +15,22 @@
 
 namespace seissol::dr::friction_law::gpu {
 
-template <typename TPMethod>
+template <typename Cfg, typename TPMethod>
 class FastVelocityWeakeningLaw
-    : public RateAndStateBase<FastVelocityWeakeningLaw<TPMethod>, TPMethod> {
+    : public RateAndStateBase<Cfg, FastVelocityWeakeningLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  using real = Real<Cfg>;
+  using RateAndStateBase<Cfg, FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
-  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {}
 
-  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
     data->srW = layerData.var<LTSRateAndStateFastVelocityWeakening::RsSrW>(
-        seissol::initializer::AllocationPlace::Device);
+        Cfg(), seissol::initializer::AllocationPlace::Device);
   }
 
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, real timeIncrement) {
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& ctx, real timeIncrement) {
     const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const real localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const real localSrW = ctx.data->srW[ctx.ltsFace][ctx.pointIndex];
@@ -47,8 +48,8 @@ class FastVelocityWeakeningLaw
                        std::pow(1.0 + std::pow(localSlipRate / localSrW, 8), 1.0 / 8.0);
 
     const real steadyStateStateVariable =
-        localA * rs::logsinh(ctx.data->drParameters.rsSr0 / localSlipRate * 2,
-                             steadyStateFrictionCoefficient / localA);
+        localA * rs::logsinh<real>(ctx.data->drParameters.rsSr0 / localSlipRate * 2,
+                                   steadyStateFrictionCoefficient / localA);
 
     const double preexp1 = -localSlipRate * (timeIncrement / localSl0);
     const double exp1v = std::exp(preexp1);
@@ -67,7 +68,8 @@ class FastVelocityWeakeningLaw
     real acLin{};
   };
 
-  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& ctx, double localStateVariable) {
+  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext<Cfg>& ctx,
+                                               double localStateVariable) {
     const real localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const real cLin = 0.5 / ctx.data->drParameters.rsSr0;
     const real cExpLog = localStateVariable / localA;
@@ -76,37 +78,38 @@ class FastVelocityWeakeningLaw
     return MuDetails{localA, cLin, cExpLog, cExp, acLin};
   }
 
-  SEISSOL_DEVICE static real
-      updateMu(FrictionLawContext& ctx, real localSlipRateMagnitude, const MuDetails& details) {
+  SEISSOL_DEVICE static real updateMu(FrictionLawContext<Cfg>& ctx,
+                                      real localSlipRateMagnitude,
+                                      const MuDetails& details) {
     const real lx = details.cLin * localSlipRateMagnitude;
     return details.a * rs::arsinhexp(lx, details.cExpLog, details.cExp);
   }
 
-  SEISSOL_DEVICE static real updateMuDerivative(FrictionLawContext& ctx,
+  SEISSOL_DEVICE static real updateMuDerivative(FrictionLawContext<Cfg>& ctx,
                                                 real localSlipRateMagnitude,
                                                 const MuDetails& details) {
     const real lx = details.cLin * localSlipRateMagnitude;
     return details.acLin * rs::arsinhexpDerivative(lx, details.cExpLog, details.cExp);
   }
 
-  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {
-    constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
-    constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
-    static_assert(Dim0 == misc::NumPaddedPointsSingleSim);
+  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext<Cfg>& ctx) {
+    constexpr auto Dim0 = misc::dimSize<init::resample<Cfg>, 0>();
+    constexpr auto Dim1 = misc::dimSize<init::resample<Cfg>, 1>();
+    static_assert(Dim0 == misc::NumPaddedPointsSingleSim<Cfg>);
     static_assert(Dim0 >= Dim1);
 
     const auto localStateVariable = ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex];
     ctx.sharedMemory[ctx.pointIndex] = ctx.stateVariableBuffer - localStateVariable;
     deviceBarrier(ctx);
 
-    const auto simPointIndex = ctx.pointIndex / multisim::NumSimulations;
-    const auto simId = ctx.pointIndex % multisim::NumSimulations;
+    const auto simPointIndex = ctx.pointIndex / multisim::NumSimulations<Cfg>;
+    const auto simId = ctx.pointIndex % multisim::NumSimulations<Cfg>;
 
     real resampledDeltaStateVar{0.0};
     for (size_t i{0}; i < Dim1; ++i) {
-      if constexpr (multisim::MultisimEnabled) {
+      if constexpr (multisim::MultisimEnabled<Cfg>) {
         resampledDeltaStateVar += ctx.args->resampleMatrix[simPointIndex * Dim1 + i] *
-                                  ctx.sharedMemory[i * multisim::NumSimulations + simId];
+                                  ctx.sharedMemory[i * multisim::NumSimulations<Cfg> + simId];
       } else {
         resampledDeltaStateVar +=
             ctx.args->resampleMatrix[simPointIndex + i * Dim0] * ctx.sharedMemory[i];

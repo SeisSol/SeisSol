@@ -69,7 +69,7 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
   // initialization procedure
   seissol::initializer::initprocedure::initMesh(seissolInstance);
   seissol::initializer::initprocedure::initLayout(seissolInstance);
-  seissol::initializer::initprocedure::initModel(seissolInstance);
+  // seissol::initializer::initprocedure::initModel(seissolInstance);
   seissol::initializer::initprocedure::initSideConditions(seissolInstance);
   seissol::initializer::initprocedure::initIO(seissolInstance);
 
@@ -91,11 +91,7 @@ void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
 }
 
 void closeSeisSol(seissol::SeisSol& seissolInstance) {
-  logInfo() << "Closing IO.";
-  // cleanup IO
-  seissolInstance.waveFieldWriter().close();
-  seissolInstance.faultWriter().close();
-  seissolInstance.freeSurfaceWriter().close();
+  logInfo() << "Cleaning up memory.";
 
   // deallocate memory manager
   seissolInstance.deleteMemoryManager();

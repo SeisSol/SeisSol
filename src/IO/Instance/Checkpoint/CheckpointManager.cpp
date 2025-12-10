@@ -17,6 +17,14 @@
 #include "IO/Writer/Writer.h"
 #include "Parallel/MPI.h"
 
+#include <IO/Datatype/Inference.h>
+#include <IO/Datatype/MPIType.h>
+#include <IO/Reader/Distribution.h>
+#include <IO/Reader/File/Hdf5Reader.h>
+#include <IO/Writer/Instructions/Data.h>
+#include <IO/Writer/Instructions/Hdf5.h>
+#include <IO/Writer/Writer.h>
+#include <Parallel/MPI.h>
 #include <cassert>
 #include <cstddef>
 #include <cstdlib>
@@ -85,10 +93,10 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
         writer::instructions::Hdf5Location(filename, {"checkpoint"}),
         "__time",
         writer::WriteInline::create(time)));
-    writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+    /*writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
         writer::instructions::Hdf5Location(filename, {"checkpoint"}),
         "__order",
-        writer::WriteInline::create(ConvergenceOrder)));
+        writer::WriteInline::create(Cfg::ConvergenceOrder)));*/
     return writer;
   };
 }
@@ -103,10 +111,10 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   auto reader = reader::file::Hdf5Reader(seissol::Mpi::mpi.comm());
   reader.openFile(file);
   reader.openGroup("checkpoint");
-  const auto convergenceOrderRead = reader.readAttributeScalar<int>("__order");
-  if (convergenceOrderRead != ConvergenceOrder) {
+  /*const auto convergenceOrderRead = reader.readAttributeScalar<int>("__order");
+  if (convergenceOrderRead != Cfg::ConvergenceOrder) {
     logError() << "Convergence order does not match. Read:" << convergenceOrderRead;
-  }
+  }*/
   for (auto& [_, ckpTree] : dataRegistry) {
     reader.openGroup(ckpTree.name);
     auto distributor = reader::Distributor(seissol::Mpi::mpi.comm());

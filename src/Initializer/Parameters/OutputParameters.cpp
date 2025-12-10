@@ -11,6 +11,8 @@
 #include "Initializer/InputAux.h"
 #include "Initializer/Parameters/ParameterReader.h"
 
+#include <Initializer/InputAux.h>
+#include <Initializer/Parameters/ParameterReader.h>
 #include <algorithm>
 #include <array>
 #include <limits>
@@ -210,18 +212,15 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
 
   const auto outputMaskString =
       reader->readOrFail<std::string>("ioutputmask", "No output mask given.");
-  const std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask =
-      convertStringToArray<bool, seissol::model::MaterialT::NumQuantities>(outputMaskString, false);
+  const auto outputMask = convertStringToVector<bool>(outputMaskString, {});
 
   const auto plasticityMaskString =
       reader->readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));
-  const std::array<bool, 7> plasticityMask =
-      convertStringToArray<bool, 7>(plasticityMaskString, false);
+  const auto plasticityMask = convertStringToVector<bool>(plasticityMaskString, {});
 
   const auto integrationMaskString =
       reader->readWithDefault("integrationmask", std::string("0 0 0 0 0 0 0 0 0"));
-  const std::array<bool, 9> integrationMask =
-      convertStringToArray<bool, 9>(integrationMaskString, false);
+  const auto integrationMask = convertStringToVector<bool>(integrationMaskString, {});
 
   const auto groupsRaw = reader->readWithDefault("outputgroups", std::vector<int>());
   const auto groups = std::unordered_set<int>(groupsRaw.begin(), groupsRaw.end());
@@ -250,15 +249,15 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
       reader->readWithDefault("loopstatisticsnetcdfoutput", false);
   const auto format = reader->readWithDefaultEnum<OutputFormat>(
       "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
-  const auto xdmfWriterBackend = reader->readWithDefaultStringEnum<xdmfwriter::BackendType>(
-      "xdmfwriterbackend",
-      "posix",
-      {
-          {"posix", xdmfwriter::BackendType::POSIX},
+  const auto xdmfWriterBackend =
+      reader->readWithDefaultStringEnum<XdmfBackend>("xdmfwriterbackend",
+                                                     "posix",
+                                                     {
+                                                         {"posix", XdmfBackend::Posix},
 #ifdef USE_HDF
-          {"hdf5", xdmfwriter::BackendType::H5},
+                                                         {"hdf5", XdmfBackend::Hdf5},
 #endif
-      });
+                                                     });
   const auto prefix =
       reader->readOrFail<std::string>("outputfile", "Output file prefix not defined.");
 

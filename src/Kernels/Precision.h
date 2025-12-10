@@ -15,7 +15,8 @@
 
 namespace seissol {
 // NOLINTNEXTLINE
-using real = RealT<Config::Precision>;
+template <typename Config>
+using Real = RealT<Config::Precision>;
 } // namespace seissol
 
 #endif // SEISSOL_SRC_KERNELS_PRECISION_H_

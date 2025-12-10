@@ -11,6 +11,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_MEMORYMANAGER_H_
 #define SEISSOL_SRC_INITIALIZER_MEMORYMANAGER_H_
 
+#include "Config.h"
 #include "DynamicRupture/Factory.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/ParameterDB.h"
@@ -26,6 +27,10 @@
 #include "Memory/Tree/Layer.h"
 #include "Physics/InitialField.h"
 
+#include <Initializer/TimeStepping/ClusterLayout.h>
+#include <Memory/Descriptor/Surface.h>
+#include <Memory/GlobalData.h>
+#include <Memory/Tree/Backmap.h>
 #include <memory>
 #include <mpi.h>
 #include <utility>
@@ -51,8 +56,7 @@ class MemoryManager {
    * Cross-cluster
    */
   //! global data
-  GlobalData m_globalDataOnHost;
-  GlobalData m_globalDataOnDevice;
+  GlobalData global;
 
   //! Memory organization storage
   LTS::Storage ltsStorage;
@@ -65,15 +69,15 @@ class MemoryManager {
   DynamicRupture::Storage drStorage;
   std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
   std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
-  std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
-  std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLawDevice = nullptr;
+  dr::friction_law::FrictionSolverFactory m_FrictionLaw = nullptr;
+  dr::friction_law::FrictionSolverFactory m_FrictionLawDevice = nullptr;
   std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
 
   Boundary::Storage m_boundaryTree;
 
   SurfaceLTS::Storage surfaceStorage;
 
-  EasiBoundary m_easiBoundary;
+  EasiBoundaryT m_easiBoundary;
 
   std::optional<ClusterLayout> layout;
 
@@ -110,15 +114,7 @@ class MemoryManager {
   /**
    * Gets the global data on both host and device.
    **/
-  CompoundGlobalData getGlobalData() {
-    CompoundGlobalData global{};
-    global.onHost = &m_globalDataOnHost;
-    global.onDevice = nullptr;
-    if constexpr (seissol::isDeviceOn()) {
-      global.onDevice = &m_globalDataOnDevice;
-    }
-    return global;
-  }
+  GlobalData& getGlobalData() { return global; }
 
   void setClusterLayout(const ClusterLayout& extLayout) { layout.emplace(extLayout); }
 
@@ -146,10 +142,10 @@ class MemoryManager {
 
   void initializeEasiBoundaryReader(const char* fileName);
 
-  EasiBoundary* getEasiBoundaryReader() { return &m_easiBoundary; }
+  EasiBoundaryT& getEasiBoundaryReader() { return m_easiBoundary; }
 
-  dr::friction_law::FrictionSolver* getFrictionLaw() { return m_FrictionLaw.get(); }
-  dr::friction_law::FrictionSolver* getFrictionLawDevice() { return m_FrictionLawDevice.get(); }
+  dr::friction_law::FrictionSolverFactory& getFrictionLaw() { return m_FrictionLaw; }
+  dr::friction_law::FrictionSolverFactory& getFrictionLawDevice() { return m_FrictionLawDevice; }
   seissol::dr::output::OutputManager* getFaultOutputManager() { return m_faultOutputManager.get(); }
 
 #ifdef ACL_DEVICE

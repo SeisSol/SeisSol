@@ -15,6 +15,10 @@
 #include "Parallel/Runtime/Stream.h"
 #include "ReceiverBasedOutputBuilder.h"
 
+#include <Common/ConfigHelper.h>
+#include <Common/Iterator.h>
+#include <DynamicRupture/Output/DataTypes.h>
+#include <Parallel/Runtime/Stream.h>
 #include <exception>
 #include <memory>
 #include <optional>
@@ -26,25 +30,27 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   void setParams(seissol::initializer::parameters::PickpointParameters params) {
     pickpointParams = std::move(params);
   }
-  void build(std::shared_ptr<ReceiverOutputData> pickPointOutputData) override {
-    outputData = pickPointOutputData;
-
-    // TODO: enable after #1407 has been merged
-    // outputData->extraRuntime.emplace(0);
-
+  void
+      build(std::unordered_map<int64_t, std::shared_ptr<ReceiverOutputData>>& pickPointOutputData) {
     readCoordsFromFile();
-    initReceiverLocations();
-    assignNearestGaussianPoints(outputData->receiverPoints);
-    assignNearestInternalGaussianPoints();
-    assignFusedIndices();
-    assignFaultTags();
-    initTimeCaching();
-    initFaultDirections();
-    initOutputVariables(pickpointParams.outputMask);
-    initRotationMatrices();
-    initBasisFunctions();
-    initJacobian2dMatrices();
-    outputData->isActive = true;
+    initReceiverLocations(pickPointOutputData);
+    for (auto& [id, singleClusterOutputData] : pickPointOutputData) {
+      singleClusterOutputData->clusterId = id;
+      outputData = singleClusterOutputData;
+      outputData->extraRuntime.emplace(0);
+
+      assignNearestGaussianPoints(outputData->receiverPoints, *meshReader);
+      assignNearestInternalGaussianPoints();
+      assignFusedIndices();
+      assignFaultTags();
+      initTimeCaching();
+      initFaultDirections();
+      initOutputVariables(pickpointParams.outputMask);
+      initRotationMatrices();
+      initBasisFunctions();
+      initJacobian2dMatrices();
+      outputData->isActive = true;
+    }
   }
 
   protected:
@@ -62,7 +68,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
     // iterate line by line and initialize DrRecordPoints
     for (const auto& line : content) {
-      std::array<real, 3> coords{};
+      std::array<double, 3> coords{};
       convertStringToMask(line, coords);
 
       ReceiverPoint point{};
@@ -74,7 +80,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     }
   }
 
-  void initReceiverLocations() {
+  void initReceiverLocations(
+      std::unordered_map<int64_t, std::shared_ptr<ReceiverOutputData>>& outputDataPerCluster) {
     const auto numReceiverPoints = potentialReceivers.size();
 
     const auto& meshElements = meshReader->getElements();
@@ -123,10 +130,19 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     reportFoundReceivers(contained);
     for (auto& receiver : potentialReceivers) {
       if (receiver.isInside) {
-        for (std::size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
+        const auto& element = meshElements.at(receiver.elementIndex);
+        std::size_t simcount = 1;
+        std::visit([&](auto cfg) { simcount = decltype(cfg)::NumSimulations; },
+                   ConfigVariantList[element.configId]);
+
+        for (std::size_t i = 0; i < simcount; ++i) {
           auto singleReceiver = receiver;
+          const auto& element = meshElements.at(receiver.elementIndex);
           singleReceiver.simIndex = i;
-          outputData->receiverPoints.push_back(singleReceiver);
+          if (outputDataPerCluster[element.clusterId] == nullptr) {
+            outputDataPerCluster[element.clusterId] = std::make_shared<ReceiverOutputData>();
+          }
+          outputDataPerCluster[element.clusterId]->receiverPoints.push_back(singleReceiver);
         }
       }
     }

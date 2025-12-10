@@ -15,55 +15,48 @@
 
 // Gather all datastructure Headers here
 #include "Equations/acoustic/Model/Datastructures.h"
-#include "Equations/acoustic/Model/IntegrationData.h"
 #include "Equations/anisotropic/Model/Datastructures.h"
-#include "Equations/anisotropic/Model/IntegrationData.h"
 #include "Equations/elastic/Model/Datastructures.h"
-#include "Equations/elastic/Model/IntegrationData.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
-#include "Equations/viscoelastic2/Model/Datastructures.h"
-#ifdef USE_POROELASTIC
 #include "Equations/poroelastic/Model/IntegrationData.h"
-#endif
-#ifdef USE_VISCOELASTIC
 #include "Equations/viscoelastic/Model/IntegrationData.h"
-#endif
-#ifdef USE_VISCOELASTIC2
+#include "Equations/viscoelastic2/Model/Datastructures.h"
 #include "Equations/viscoelastic2/Model/IntegrationData.h"
-#endif
 
 // IWYU pragma: end_exports
 
 namespace seissol::model {
-template <MaterialType Type>
+template <MaterialType Type, std::size_t Mechanisms>
 struct MaterialTypeSelector;
 
-template <>
-struct MaterialTypeSelector<MaterialType::Elastic> {
+template <std::size_t Mechanisms>
+struct MaterialTypeSelector<MaterialType::Elastic, Mechanisms> {
   using Type = ElasticMaterial;
 };
 
-template <>
-struct MaterialTypeSelector<MaterialType::Anisotropic> {
+template <std::size_t Mechanisms>
+struct MaterialTypeSelector<MaterialType::Anisotropic, Mechanisms> {
   using Type = AnisotropicMaterial;
 };
 
-template <>
-struct MaterialTypeSelector<MaterialType::Viscoelastic> {
-  using Type = ViscoElasticMaterial;
+template <std::size_t Mechanisms>
+struct MaterialTypeSelector<MaterialType::Viscoelastic, Mechanisms> {
+  using Type = ViscoElasticMaterialParametrized<Mechanisms>;
 };
 
-template <>
-struct MaterialTypeSelector<MaterialType::Acoustic> {
+template <std::size_t Mechanisms>
+struct MaterialTypeSelector<MaterialType::Acoustic, Mechanisms> {
   using Type = AcousticMaterial;
 };
 
-template <>
-struct MaterialTypeSelector<MaterialType::Poroelastic> {
+template <std::size_t Mechanisms>
+struct MaterialTypeSelector<MaterialType::Poroelastic, Mechanisms> {
   using Type = PoroElasticMaterial;
 };
 
-using MaterialT = typename MaterialTypeSelector<Config::MaterialType>::Type;
+template <typename Config>
+using MaterialTT =
+    typename MaterialTypeSelector<Config::MaterialType, Config::RelaxationMechanisms>::Type;
 
 } // namespace seissol::model
 

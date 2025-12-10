@@ -23,9 +23,6 @@
 #include <vector>
 
 namespace seissol::model {
-struct AcousticLocalData;
-struct AcousticNeighborData;
-
 struct AcousticMaterial : public Material {
   static constexpr std::size_t NumQuantities = 4;
   static constexpr std::size_t NumElasticQuantities = 4;
@@ -42,11 +39,18 @@ struct AcousticMaterial : public Material {
   static constexpr bool SupportsDR = false;
   static constexpr bool SupportsLTS = true;
 
-  using LocalSpecificData = AcousticLocalData;
-  using NeighborSpecificData = AcousticNeighborData;
+  template <typename Cfg>
+  using LocalSpecificData = std::monostate;
+
+  template <typename Cfg>
+  using NeighborSpecificData = std::monostate;
+
+  template <typename Cfg>
   using Solver = kernels::solver::linearck::Solver;
 
   double lambda{};
+
+  static const std::unordered_map<std::string, double AcousticMaterial::*> ParameterMap;
 
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
@@ -85,6 +89,13 @@ struct AcousticMaterial : public Material {
 
   void setLameParameters(double /*mu*/, double lambda) override { this->lambda = lambda; }
 };
+
+inline const std::unordered_map<std::string, double AcousticMaterial::*>
+    AcousticMaterial::ParameterMap{
+        {"rho", &AcousticMaterial::rho},
+        {"lambda", &AcousticMaterial::lambda},
+    };
+
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_DATASTRUCTURES_H_

@@ -276,7 +276,7 @@ RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storage
   }
 
   const auto allocateStorage = [&]() {
-    auto curStoragePtrs = std::vector<real*>();
+    auto curStoragePtrs = std::vector<double*>();
     curStoragePtrs.reserve(storageSizes.size());
     for (const auto storageSize : storageSizes) {
       curStoragePtrs.push_back(storages.emplace_back(storageSize).data());

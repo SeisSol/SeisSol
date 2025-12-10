@@ -21,42 +21,45 @@ constexpr std::size_t SubBlock = 64;
 constexpr std::size_t Blocksize = 256;
 constexpr auto PerBlock = Blocksize / SubBlock;
 
+template <typename Cfg>
 __launch_bounds__(Blocksize) __global__ void launchKernel(
     std::size_t numElements,
     double from,
     double to,
     sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
-    const seissol::memory::
-        AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>* __restrict mInvJInvPhisAtSources,
+    const seissol::memory::AlignedArray<
+        Real<Cfg>,
+        tensor::mInvJInvPhisAtSources<Cfg>::size()>* __restrict mInvJInvPhisAtSources,
     const std::uint32_t* __restrict simulationIndex,
-    const real* __restrict tensor,
+    const Real<Cfg>* __restrict tensor,
     const double* __restrict onsetTime,
     const double* __restrict samplingInterval,
     const std::size_t* __restrict sampleRange,
     const std::size_t* __restrict sampleOffsets,
-    const real* __restrict sample) {
+    const Real<Cfg>* __restrict sample) {
   const auto index = threadIdx.y + PerBlock * blockIdx.x;
   if (index < numElements) {
-    pointSourceKernelDevice<SubBlock>(threadIdx.x,
-                                      index,
-                                      from,
-                                      to,
-                                      mappingPtr,
-                                      mInvJInvPhisAtSources,
-                                      simulationIndex,
-                                      tensor,
-                                      onsetTime,
-                                      samplingInterval,
-                                      sampleRange,
-                                      sampleOffsets,
-                                      sample);
+    pointSourceKernelDevice<Cfg, SubBlock>(threadIdx.x,
+                                           index,
+                                           from,
+                                           to,
+                                           mappingPtr,
+                                           mInvJInvPhisAtSources,
+                                           simulationIndex,
+                                           tensor,
+                                           onsetTime,
+                                           samplingInterval,
+                                           sampleRange,
+                                           sampleOffsets,
+                                           sample);
   }
 }
 
 } // namespace
 
+template <typename Cfg>
 void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
-                       sourceterm::PointSources& sources,
+                       sourceterm::PointSources<Cfg>& sources,
                        double from,
                        double to,
                        seissol::parallel::runtime::StreamRuntime& runtime) {
@@ -88,19 +91,27 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
       block.y = mapping.size();
     }
 
-    launchKernel<<<grid, block, 0, stream>>>(mapping.size(),
-                                             from,
-                                             to,
-                                             mappingPtr,
-                                             mInvJInvPhisAtSources,
-                                             simulationIndex,
-                                             tensor,
-                                             onsetTime,
-                                             samplingInterval,
-                                             sampleRange,
-                                             sampleOffsets,
-                                             sample);
+    launchKernel<Cfg><<<grid, block, 0, stream>>>(mapping.size(),
+                                                  from,
+                                                  to,
+                                                  mappingPtr,
+                                                  mInvJInvPhisAtSources,
+                                                  simulationIndex,
+                                                  tensor,
+                                                  onsetTime,
+                                                  samplingInterval,
+                                                  sampleRange,
+                                                  sampleOffsets,
+                                                  sample);
   }
 }
+
+#define SEISSOL_CONFIGITER(cfg)                                                                    \
+  template void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,                      \
+                                  sourceterm::PointSources<cfg>& sources,                          \
+                                  double from,                                                     \
+                                  double to,                                                       \
+                                  seissol::parallel::runtime::StreamRuntime& runtime);
+#include "ConfigInclude.h"
 
 } // namespace seissol::kernels

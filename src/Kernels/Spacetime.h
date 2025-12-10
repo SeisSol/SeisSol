@@ -25,8 +25,11 @@
 
 namespace seissol::kernels {
 
+template <typename Cfg>
 class SpacetimeKernel : public Kernel {
   public:
+  using real = Real<Cfg>;
+
   ~SpacetimeKernel() override = default;
 
   /**
@@ -41,15 +44,15 @@ class SpacetimeKernel : public Kernel {
   */
   virtual void computeAder(const real* coeffs,
                            double timeStepWidth,
-                           LTS::Ref& data,
-                           LocalTmp& tmp,
-                           real timeIntegrated[tensor::I::size()],
+                           LTS::Ref<Cfg>& data,
+                           LocalTmp<Cfg>& tmp,
+                           real timeIntegrated[tensor::I<Cfg>::size()],
                            real* timeDerivativesOrSTP = nullptr,
                            bool updateDisplacement = false) = 0;
 
   virtual void computeBatchedAder(const real* coeffs,
                                   double timeStepWidth,
-                                  LocalTmp& tmp,
+                                  LocalTmp<Cfg>& tmp,
                                   recording::ConditionalPointersToRealsTable& dataTable,
                                   recording::ConditionalMaterialTable& materialTable,
                                   bool updateDisplacement,

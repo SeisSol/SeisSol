@@ -11,9 +11,11 @@
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
-#include "Model/PoroelasticSetup.h"
 #include "Numerical/Transformation.h"
 
+#include <Equations/Datastructures.h>
+#include <Equations/poroelastic/Model/PoroelasticSetup.h>
+#include <Model/CommonDatastructures.h>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
@@ -23,27 +25,29 @@
 
 namespace seissol::unit_test {
 
+template <typename Cfg>
 class SpaceTimePredictorTestFixture {
-  protected:
+  public:
+  using real = Real<Cfg>;
   constexpr static const double Epsilon = std::numeric_limits<real>::epsilon();
   constexpr static const double Dt = 1.05109e-06;
-  real starMatrices0[tensor::star::size(0)];
-  real starMatrices1[tensor::star::size(1)];
-  real starMatrices2[tensor::star::size(2)];
-  real sourceMatrix[tensor::ET::size()];
-  real zMatrix[seissol::model::MaterialT::NumQuantities][tensor::Zinv::size(0)];
+  real starMatrices0[tensor::star<Cfg>::size(0)];
+  real starMatrices1[tensor::star<Cfg>::size(1)];
+  real starMatrices2[tensor::star<Cfg>::size(2)];
+  real sourceMatrix[tensor::ET<Cfg>::size()];
+  real zMatrix[seissol::model::MaterialTT<Cfg>::NumQuantities][tensor::Zinv<Cfg>::size(0)];
 
   void setStarMatrix(
       const real* at, const real* bt, const real* ct, const double grad[3], real* starMatrix) {
-    for (unsigned idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
+    for (std::size_t idx = 0; idx < seissol::tensor::star<Cfg>::size(0); ++idx) {
       starMatrix[idx] = grad[0] * at[idx];
     }
 
-    for (unsigned idx = 0; idx < seissol::tensor::star::size(1); ++idx) {
+    for (std::size_t idx = 0; idx < seissol::tensor::star<Cfg>::size(1); ++idx) {
       starMatrix[idx] += grad[1] * bt[idx];
     }
 
-    for (unsigned idx = 0; idx < seissol::tensor::star::size(2); ++idx) {
+    for (std::size_t idx = 0; idx < seissol::tensor::star<Cfg>::size(2); ++idx) {
       starMatrix[idx] += grad[2] * ct[idx];
     }
   }
@@ -76,90 +80,92 @@ class SpaceTimePredictorTestFixture {
     transformations::tetrahedronGlobalToReferenceJacobian(x, y, z, gradXi, gradEta, gradZeta);
 
     // prepare starmatrices
-    real atData[tensor::star::size(0)];
-    real btData[tensor::star::size(1)];
-    real ctData[tensor::star::size(2)];
-    auto at = init::star::view<0>::create(atData);
-    auto bt = init::star::view<0>::create(btData);
-    auto ct = init::star::view<0>::create(ctData);
-    model::getTransposedCoefficientMatrix(material, 0, at);
-    model::getTransposedCoefficientMatrix(material, 1, bt);
-    model::getTransposedCoefficientMatrix(material, 2, ct);
+    real atData[tensor::star<Cfg>::size(0)];
+    real btData[tensor::star<Cfg>::size(1)];
+    real ctData[tensor::star<Cfg>::size(2)];
+    auto at = init::star<Cfg>::template view<0>::create(atData);
+    auto bt = init::star<Cfg>::template view<0>::create(btData);
+    auto ct = init::star<Cfg>::template view<0>::create(ctData);
+    model::getTransposedCoefficientMatrix<Cfg>(material, 0, at);
+    model::getTransposedCoefficientMatrix<Cfg>(material, 1, bt);
+    model::getTransposedCoefficientMatrix<Cfg>(material, 2, ct);
     setStarMatrix(atData, btData, ctData, gradXi, starMatrices0);
     setStarMatrix(atData, btData, ctData, gradEta, starMatrices1);
     setStarMatrix(atData, btData, ctData, gradZeta, starMatrices2);
 
     // prepare sourceterm
-    auto et = init::ET::view::create(sourceMatrix);
-    model::getTransposedSourceCoefficientTensor(material, et);
+    auto et = init::ET<Cfg>::view::create(sourceMatrix);
+    model::getTransposedSourceCoefficientTensor<Cfg>(material, et);
 
     // prepare Zinv
-    auto zinv = init::Zinv::view<0>::create(zMatrix[0]);
-    model::calcZinv(zinv, et, 0, Dt);
-    auto zinv1 = init::Zinv::view<1>::create(zMatrix[1]);
-    model::calcZinv(zinv1, et, 1, Dt);
-    auto zinv2 = init::Zinv::view<2>::create(zMatrix[2]);
-    model::calcZinv(zinv2, et, 2, Dt);
-    auto zinv3 = init::Zinv::view<3>::create(zMatrix[3]);
-    model::calcZinv(zinv3, et, 3, Dt);
-    auto zinv4 = init::Zinv::view<4>::create(zMatrix[4]);
-    model::calcZinv(zinv4, et, 4, Dt);
-    auto zinv5 = init::Zinv::view<5>::create(zMatrix[5]);
-    model::calcZinv(zinv5, et, 5, Dt);
-    auto zinv6 = init::Zinv::view<6>::create(zMatrix[6]);
-    model::calcZinv(zinv6, et, 6, Dt);
-    auto zinv7 = init::Zinv::view<7>::create(zMatrix[7]);
-    model::calcZinv(zinv7, et, 7, Dt);
-    auto zinv8 = init::Zinv::view<8>::create(zMatrix[8]);
-    model::calcZinv(zinv8, et, 8, Dt);
-    auto zinv9 = init::Zinv::view<9>::create(zMatrix[9]);
-    model::calcZinv(zinv9, et, 9, Dt);
-    auto zinv10 = init::Zinv::view<10>::create(zMatrix[10]);
-    model::calcZinv(zinv10, et, 10, Dt);
-    auto zinv11 = init::Zinv::view<11>::create(zMatrix[11]);
-    model::calcZinv(zinv11, et, 11, Dt);
-    auto zinv12 = init::Zinv::view<12>::create(zMatrix[12]);
-    model::calcZinv(zinv12, et, 12, Dt);
+    auto zinv = init::Zinv<Cfg>::template view<0>::create(zMatrix[0]);
+    model::calcZinv<Cfg>(zinv, et, 0, Dt);
+    auto zinv1 = init::Zinv<Cfg>::template view<1>::create(zMatrix[1]);
+    model::calcZinv<Cfg>(zinv1, et, 1, Dt);
+    auto zinv2 = init::Zinv<Cfg>::template view<2>::create(zMatrix[2]);
+    model::calcZinv<Cfg>(zinv2, et, 2, Dt);
+    auto zinv3 = init::Zinv<Cfg>::template view<3>::create(zMatrix[3]);
+    model::calcZinv<Cfg>(zinv3, et, 3, Dt);
+    auto zinv4 = init::Zinv<Cfg>::template view<4>::create(zMatrix[4]);
+    model::calcZinv<Cfg>(zinv4, et, 4, Dt);
+    auto zinv5 = init::Zinv<Cfg>::template view<5>::create(zMatrix[5]);
+    model::calcZinv<Cfg>(zinv5, et, 5, Dt);
+    auto zinv6 = init::Zinv<Cfg>::template view<6>::create(zMatrix[6]);
+    model::calcZinv<Cfg>(zinv6, et, 6, Dt);
+    auto zinv7 = init::Zinv<Cfg>::template view<7>::create(zMatrix[7]);
+    model::calcZinv<Cfg>(zinv7, et, 7, Dt);
+    auto zinv8 = init::Zinv<Cfg>::template view<8>::create(zMatrix[8]);
+    model::calcZinv<Cfg>(zinv8, et, 8, Dt);
+    auto zinv9 = init::Zinv<Cfg>::template view<9>::create(zMatrix[9]);
+    model::calcZinv<Cfg>(zinv9, et, 9, Dt);
+    auto zinv10 = init::Zinv<Cfg>::template view<10>::create(zMatrix[10]);
+    model::calcZinv<Cfg>(zinv10, et, 10, Dt);
+    auto zinv11 = init::Zinv<Cfg>::template view<11>::create(zMatrix[11]);
+    model::calcZinv<Cfg>(zinv11, et, 11, Dt);
+    auto zinv12 = init::Zinv<Cfg>::template view<12>::create(zMatrix[12]);
+    model::calcZinv<Cfg>(zinv12, et, 12, Dt);
   }
 
-  void prepareKernel(seissol::kernel::spaceTimePredictor& krnlPrototype) {
-    for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
+  void prepareKernel(seissol::kernel::spaceTimePredictor<Cfg>& krnlPrototype) {
+    for (std::size_t n = 0; n < Cfg::ConvergenceOrder; ++n) {
       if (n > 0) {
         for (int d = 0; d < 3; ++d) {
           krnlPrototype.kDivMTSub(d, n) =
-              seissol::init::kDivMTSub::Values[seissol::tensor::kDivMTSub::index(d, n)];
+              seissol::init::kDivMTSub<Cfg>::Values[seissol::tensor::kDivMTSub<Cfg>::index(d, n)];
         }
       }
       krnlPrototype.selectModes(n) =
-          seissol::init::selectModes::Values[seissol::tensor::selectModes::index(n)];
+          seissol::init::selectModes<Cfg>::Values[seissol::tensor::selectModes<Cfg>::index(n)];
     }
-    for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
+    for (std::size_t k = 0; k < seissol::model::MaterialTT<Cfg>::NumQuantities; k++) {
       krnlPrototype.selectQuantity(k) =
-          seissol::init::selectQuantity::Values[seissol::tensor::selectQuantity::index(k)];
+          seissol::init::selectQuantity<Cfg>::Values[seissol::tensor::selectQuantity<Cfg>::index(
+              k)];
       krnlPrototype.selectQuantityG(k) =
-          init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
+          init::selectQuantityG<Cfg>::Values[tensor::selectQuantityG<Cfg>::index(k)];
     }
-    krnlPrototype.timeInt = seissol::init::timeInt::Values;
-    krnlPrototype.wHat = seissol::init::wHat::Values;
+    krnlPrototype.timeInt = seissol::init::timeInt<Cfg>::Values;
+    krnlPrototype.wHat = seissol::init::wHat<Cfg>::Values;
   }
 
-  void prepareLHS(seissol::kernel::stpTestLhs& krnlPrototype) {
-    krnlPrototype.Z = seissol::init::Z::Values;
-    krnlPrototype.deltaLarge = seissol::init::deltaLarge::Values;
-    krnlPrototype.deltaSmall = seissol::init::deltaSmall::Values;
+  void prepareLHS(seissol::kernel::stpTestLhs<Cfg>& krnlPrototype) {
+    krnlPrototype.Z = seissol::init::Z<Cfg>::Values;
+    krnlPrototype.deltaLarge = seissol::init::deltaLarge<Cfg>::Values;
+    krnlPrototype.deltaSmall = seissol::init::deltaSmall<Cfg>::Values;
   }
 
-  void prepareRHS(seissol::kernel::stpTestRhs& krnlPrototype) {
+  void prepareRHS(seissol::kernel::stpTestRhs<Cfg>& krnlPrototype) {
     for (size_t i = 0; i < 3; i++) {
-      krnlPrototype.kDivMT(i) = seissol::init::kDivMT::Values[seissol::init::kDivMT::index(i)];
+      krnlPrototype.kDivMT(i) =
+          seissol::init::kDivMT<Cfg>::Values[seissol::init::kDivMT<Cfg>::index(i)];
     }
-    krnlPrototype.wHat = seissol::init::wHat::Values;
+    krnlPrototype.wHat = seissol::init::wHat<Cfg>::Values;
   }
 
   void prepareQ(real* qData) {
     // scale quantities to make it more realistic
     std::array<real, 13> factor = {{1e9, 1e9, 1e9, 1e9, 1e9, 1e9, 1, 1, 1, 1e9, 1, 1, 1}};
-    auto q = init::Q::view::create(qData);
+    auto q = init::Q<Cfg>::view::create(qData);
 
     // NOLINTNEXTLINE (-cert-dcl59-cpp)
     std::mt19937 rnggen(1234);
@@ -173,17 +179,17 @@ class SpaceTimePredictorTestFixture {
   }
 
   void solveWithKernel(real stp[], const real* qData) {
-    real timeIntegrated[seissol::tensor::I::size()];
-    alignas(PagesizeStack) real stpRhs[seissol::tensor::spaceTimePredictorRhs::size()];
+    real timeIntegrated[seissol::tensor::I<Cfg>::size()];
+    alignas(PagesizeStack) real stpRhs[seissol::tensor::spaceTimePredictorRhs<Cfg>::size()];
     std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
 
-    seissol::kernel::spaceTimePredictor krnl;
+    seissol::kernel::spaceTimePredictor<Cfg> krnl;
     prepareKernel(krnl);
 
-    real aValues[seissol::tensor::star::size(0)] = {0};
-    real bValues[seissol::tensor::star::size(0)] = {0};
-    real cValues[seissol::tensor::star::size(0)] = {0};
-    for (size_t i = 0; i < seissol::tensor::star::size(0); i++) {
+    real aValues[seissol::tensor::star<Cfg>::size(0)] = {0};
+    real bValues[seissol::tensor::star<Cfg>::size(0)] = {0};
+    real cValues[seissol::tensor::star<Cfg>::size(0)] = {0};
+    for (size_t i = 0; i < seissol::tensor::star<Cfg>::size(0); i++) {
       aValues[i] = starMatrices0[i] * Dt;
       bValues[i] = starMatrices1[i] * Dt;
       cValues[i] = starMatrices2[i] * Dt;
@@ -193,11 +199,11 @@ class SpaceTimePredictorTestFixture {
     krnl.star(1) = bValues;
     krnl.star(2) = cValues;
 
-    for (size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
+    for (size_t i = 0; i < seissol::model::MaterialTT<Cfg>::NumQuantities; i++) {
       krnl.Zinv(i) = zMatrix[i];
     }
 
-    auto sourceView = init::ET::view::create(sourceMatrix);
+    auto sourceView = init::ET<Cfg>::view::create(sourceMatrix);
     krnl.Gk = sourceView(10, 6) * Dt;
     krnl.Gl = sourceView(11, 7) * Dt;
     krnl.Gm = sourceView(12, 8) * Dt;
@@ -211,7 +217,7 @@ class SpaceTimePredictorTestFixture {
   }
 
   void computeLhs(const real* stp, real* lhs) {
-    kernel::stpTestLhs testLhsKrnl;
+    kernel::stpTestLhs<Cfg> testLhsKrnl;
     prepareLHS(testLhsKrnl);
     testLhsKrnl.ET = sourceMatrix;
     testLhsKrnl.spaceTimePredictor = stp;
@@ -221,7 +227,7 @@ class SpaceTimePredictorTestFixture {
   };
 
   void computeRhs(const real* stp, const real* qData, real* rhs) {
-    kernel::stpTestRhs testRhsKrnl;
+    kernel::stpTestRhs<Cfg> testRhsKrnl;
     prepareRHS(testRhsKrnl);
     testRhsKrnl.Q = qData;
     testRhsKrnl.star(0) = starMatrices0;
@@ -233,45 +239,48 @@ class SpaceTimePredictorTestFixture {
     testRhsKrnl.execute();
   };
 
-  public:
   SpaceTimePredictorTestFixture() { prepareModel(); };
 };
 
-TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture, "Solve Space Time Predictor") {
-  alignas(PagesizeStack) real stp[seissol::tensor::spaceTimePredictor::size()];
-  alignas(PagesizeStack) real rhs[seissol::tensor::testLhs::size()];
-  alignas(PagesizeStack) real lhs[seissol::tensor::testRhs::size()];
-  alignas(PagesizeStack) real qData[seissol::tensor::Q::size()];
-  std::fill(std::begin(stp), std::end(stp), 0);
-  std::fill(std::begin(rhs), std::end(rhs), 0);
-  std::fill(std::begin(lhs), std::end(lhs), 0);
-  std::fill(std::begin(qData), std::end(qData), 0);
+TEST_CASE_TEMPLATE_DEFINE("Solve Space Time Predictor", Cfg, configId1) {
+  if constexpr (model::MaterialTT<Cfg>::Type == model::MaterialType::Poroelastic) {
+    using real = Real<Cfg>;
+    SpaceTimePredictorTestFixture<Cfg> fixture;
+    alignas(PagesizeStack) real stp[seissol::tensor::spaceTimePredictor<Cfg>::size()];
+    alignas(PagesizeStack) real rhs[seissol::tensor::testLhs<Cfg>::size()];
+    alignas(PagesizeStack) real lhs[seissol::tensor::testRhs<Cfg>::size()];
+    alignas(PagesizeStack) real qData[seissol::tensor::Q<Cfg>::size()];
+    std::fill(std::begin(stp), std::end(stp), 0);
+    std::fill(std::begin(rhs), std::end(rhs), 0);
+    std::fill(std::begin(lhs), std::end(lhs), 0);
+    std::fill(std::begin(qData), std::end(qData), 0);
 
-  prepareQ(qData);
+    fixture.prepareQ(qData);
 
-  solveWithKernel(stp, qData);
+    fixture.solveWithKernel(stp, qData);
 
-  computeLhs(stp, lhs);
-  computeRhs(stp, qData, rhs);
+    fixture.computeLhs(stp, lhs);
+    fixture.computeRhs(stp, qData, rhs);
 
-  double diffNorm = 0;
-  double refNorm = 0;
+    double diffNorm = 0;
+    double refNorm = 0;
 
-  auto lhsView = init::testLhs::view::create(lhs);
-  auto rhsView = init::testRhs::view::create(rhs);
+    auto lhsView = init::testLhs<Cfg>::view::create(lhs);
+    auto rhsView = init::testRhs<Cfg>::view::create(rhs);
 
-  for (size_t b = 0; b < tensor::spaceTimePredictor::Shape[0]; b++) {
-    for (size_t q = 0; q < tensor::spaceTimePredictor::Shape[1]; q++) {
-      for (size_t o = 0; o < tensor::spaceTimePredictor::Shape[2]; o++) {
-        const double d = std::abs(lhsView(b, q, o) - rhsView(b, q, o));
-        const double a = std::abs(lhsView(b, q, o));
-        diffNorm += d * d;
-        refNorm += a * a;
+    for (size_t b = 0; b < tensor::spaceTimePredictor<Cfg>::Shape[0]; b++) {
+      for (size_t q = 0; q < tensor::spaceTimePredictor<Cfg>::Shape[1]; q++) {
+        for (size_t o = 0; o < tensor::spaceTimePredictor<Cfg>::Shape[2]; o++) {
+          const double d = std::abs(lhsView(b, q, o) - rhsView(b, q, o));
+          const double a = std::abs(lhsView(b, q, o));
+          diffNorm += d * d;
+          refNorm += a * a;
+        }
       }
     }
-  }
 
-  REQUIRE(diffNorm / refNorm < Epsilon);
+    REQUIRE(diffNorm / refNorm < SpaceTimePredictorTestFixture<Cfg>::Epsilon);
+  }
 }
 
 } // namespace seissol::unit_test

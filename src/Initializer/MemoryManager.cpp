@@ -30,12 +30,25 @@
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
 
+#include <Common/ConfigHelper.h>
+#include <Common/Constants.h>
+#include <DynamicRupture/Factory.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/CellLocalInformation.h>
+#include <Initializer/ParameterDB.h>
+#include <Initializer/Parameters/DRParameters.h>
+#include <Initializer/Typedefs.h>
+#include <Memory/Descriptor/Boundary.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Descriptor/Surface.h>
 #include <array>
 #include <cstddef>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <utils/logger.h>
+#include <variant>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
@@ -50,12 +63,6 @@ namespace seissol::initializer {
 
 void MemoryManager::initialize() {
   // initialize global matrices
-  GlobalDataInitializerOnHost::init(
-      m_globalDataOnHost, m_memoryAllocator, memory::Memkind::Standard);
-  if constexpr (seissol::isDeviceOn()) {
-    GlobalDataInitializerOnDevice::init(
-        m_globalDataOnDevice, m_memoryAllocator, memory::Memkind::DeviceGlobalMemory);
-  }
 }
 
 void MemoryManager::fixateLtsStorage() {
@@ -102,27 +109,31 @@ void MemoryManager::fixateBoundaryStorage() {
   // We do this by, once again, iterating over both storages at the same time.
   for (auto [layer, boundaryLayer] :
        seissol::common::zip(ltsStorage.leaves(ghostMask), m_boundaryTree.leaves(ghostMask))) {
-    auto* cellInformation = layer.var<LTS::CellInformation>();
-    auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
-    auto* boundaryMappingDevice = layer.var<LTS::BoundaryMappingDevice>();
-    auto* faceInformation = boundaryLayer.var<Boundary::FaceInformation>(AllocationPlace::Host);
-    auto* faceInformationDevice =
-        boundaryLayer.var<Boundary::FaceInformation>(AllocationPlace::Device);
+    layer.wrap([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      auto* cellInformation = layer.var<LTS::CellInformation>();
+      auto* boundaryMapping = layer.var<LTS::BoundaryMapping>(cfg);
+      auto* boundaryMappingDevice = layer.var<LTS::BoundaryMappingDevice>(cfg);
+      auto* faceInformation =
+          boundaryLayer.var<Boundary::FaceInformation>(cfg, AllocationPlace::Host);
+      auto* faceInformationDevice =
+          boundaryLayer.var<Boundary::FaceInformation>(cfg, AllocationPlace::Device);
 
-    std::size_t boundaryFace = 0;
-    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
-          boundaryMapping[cell][face] = CellBoundaryMapping(faceInformation[boundaryFace]);
-          boundaryMappingDevice[cell][face] =
-              CellBoundaryMapping(faceInformationDevice[boundaryFace]);
-          ++boundaryFace;
-        } else {
-          boundaryMapping[cell][face] = CellBoundaryMapping();
-          boundaryMappingDevice[cell][face] = CellBoundaryMapping();
+      std::size_t boundaryFace = 0;
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+          if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
+            boundaryMapping[cell][face] = CellBoundaryMapping<Cfg>(faceInformation[boundaryFace]);
+            boundaryMappingDevice[cell][face] =
+                CellBoundaryMapping<Cfg>(faceInformationDevice[boundaryFace]);
+            ++boundaryFace;
+          } else {
+            boundaryMapping[cell][face] = CellBoundaryMapping<Cfg>();
+            boundaryMappingDevice[cell][face] = CellBoundaryMapping<Cfg>();
+          }
         }
       }
-    }
+    });
   }
 
   surfaceStorage.setName("surface");
@@ -139,125 +150,140 @@ void MemoryManager::fixateBoundaryStorage() {
 
 #ifdef ACL_DEVICE
 void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStorage) {
-  constexpr size_t totalDerivativesSize = kernels::Solver::DerivativesSize;
-  constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
   for (auto& layer : ltsStorage.leaves(Ghost)) {
 
-    CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
-    std::unordered_set<real*> registry{};
-    real*(*faceNeighbors)[Cell::NumFaces] = layer.var<LTS::FaceNeighborsDevice>();
+    layer.wrap([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      using real = Real<Cfg>;
 
-    std::size_t derivativesCounter{0};
-    std::size_t integratedDofsCounter{0};
-    std::size_t nodalDisplacementsCounter{0};
-    std::size_t analyticCounter = 0;
+      constexpr size_t TotalDerivativesSize = kernels::Solver<Cfg>::template DerivativesSize<Cfg>;
+      constexpr size_t NodalDisplacementsSize = tensor::averageNormalDisplacement<Cfg>::size();
 
-    std::array<std::size_t, 4> freeSurfacePerFace{};
-    std::array<std::size_t, 4> dirichletPerFace{};
+      CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
+      std::unordered_set<void*> registry{};
+      void*(*faceNeighbors)[Cell::NumFaces] = layer.var<LTS::FaceNeighborsDevice>();
 
-    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      bool needsScratchMemForDerivatives = !cellInformation[cell].ltsSetup.hasDerivatives();
-      if (needsScratchMemForDerivatives) {
-        ++derivativesCounter;
-      }
-      ++integratedDofsCounter;
+      std::size_t derivativesCounter{0};
+      std::size_t integratedDofsCounter{0};
+      std::size_t nodalDisplacementsCounter{0};
+      std::size_t analyticCounter = 0;
 
-      // include data provided by ghost layers
-      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        real* neighborBuffer = faceNeighbors[cell][face];
+      std::array<std::size_t, 4> freeSurfacePerFace{};
+      std::array<std::size_t, 4> dirichletPerFace{};
 
-        // check whether a neighbor element idofs has not been counted twice
-        if ((registry.find(neighborBuffer) == registry.end())) {
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+        bool needsScratchMemForDerivatives = !cellInformation[cell].ltsSetup.hasDerivatives();
+        if (needsScratchMemForDerivatives) {
+          ++derivativesCounter;
+        }
+        ++integratedDofsCounter;
 
-          // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
-          if (neighborBuffer != nullptr) {
-            if (cellInformation[cell].faceTypes[face] != FaceType::Outflow &&
-                cellInformation[cell].faceTypes[face] != FaceType::DynamicRupture) {
+        // include data provided by ghost layers
+        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+          void* neighborBuffer = faceNeighbors[cell][face];
 
-              const bool isNeighbProvidesDerivatives =
-                  cellInformation[cell].ltsSetup.neighborHasDerivatives(face);
-              if (isNeighbProvidesDerivatives) {
-                ++integratedDofsCounter;
+          // check whether a neighbor element idofs has not been counted twice
+          if ((registry.find(neighborBuffer) == registry.end())) {
+
+            // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
+            if (neighborBuffer != nullptr) {
+              if (cellInformation[cell].faceTypes[face] != FaceType::Outflow &&
+                  cellInformation[cell].faceTypes[face] != FaceType::DynamicRupture) {
+
+                const bool isNeighbProvidesDerivatives =
+                    cellInformation[cell].ltsSetup.neighborHasDerivatives(face);
+                if (isNeighbProvidesDerivatives) {
+                  ++integratedDofsCounter;
+                }
+                registry.insert(neighborBuffer);
               }
-              registry.insert(neighborBuffer);
             }
           }
-        }
 
-        if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity) {
-          ++nodalDisplacementsCounter;
-        }
+          if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity) {
+            ++nodalDisplacementsCounter;
+          }
 
-        if (cellInformation[cell].faceTypes[face] == FaceType::Analytical) {
-          ++analyticCounter;
-        }
+          if (cellInformation[cell].faceTypes[face] == FaceType::Analytical) {
+            ++analyticCounter;
+          }
 
-        if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity) {
-          ++freeSurfacePerFace[face];
-        }
+          if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity) {
+            ++freeSurfacePerFace[face];
+          }
 
-        if (cellInformation[cell].faceTypes[face] == FaceType::Dirichlet) {
-          ++dirichletPerFace[face];
+          if (cellInformation[cell].faceTypes[face] == FaceType::Dirichlet) {
+            ++dirichletPerFace[face];
+          }
         }
       }
-    }
-    const auto freeSurfaceCount =
-        *std::max_element(freeSurfacePerFace.begin(), freeSurfacePerFace.end());
-    const auto dirichletCountPre =
-        *std::max_element(dirichletPerFace.begin(), dirichletPerFace.end());
+      const auto freeSurfaceCount =
+          *std::max_element(freeSurfacePerFace.begin(), freeSurfacePerFace.end());
+      const auto dirichletCountPre =
+          *std::max_element(dirichletPerFace.begin(), dirichletPerFace.end());
 
-    // FSG also counts as Dirichlet
-    const auto dirichletCount = std::max(dirichletCountPre, freeSurfaceCount);
+      // FSG also counts as Dirichlet
+      const auto dirichletCount = std::max(dirichletCountPre, freeSurfaceCount);
 
-    layer.setEntrySize<LTS::IntegratedDofsScratch>(integratedDofsCounter * tensor::I::size() *
-                                                   sizeof(real));
-    layer.setEntrySize<LTS::DerivativesScratch>(derivativesCounter * totalDerivativesSize *
-                                                sizeof(real));
-    layer.setEntrySize<LTS::NodalAvgDisplacements>(nodalDisplacementsCounter *
-                                                   nodalDisplacementsSize * sizeof(real));
+      layer.setEntrySize<LTS::IntegratedDofsScratch>(integratedDofsCounter *
+                                                     tensor::I<Cfg>::size() * sizeof(real));
+      layer.setEntrySize<LTS::DerivativesScratch>(derivativesCounter * TotalDerivativesSize *
+                                                  sizeof(real));
+      layer.setEntrySize<LTS::NodalAvgDisplacements>(nodalDisplacementsCounter *
+                                                     NodalDisplacementsSize * sizeof(real));
 #ifdef USE_VISCOELASTIC2
-    layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * tensor::Iane::size() * sizeof(real));
-    layer.setEntrySize<LTS::DerivativesExtScratch>(
-        layer.size() * (tensor::dQext::size(1) + tensor::dQext::size(2)) * sizeof(real));
-    layer.setEntrySize<LTS::DerivativesAneScratch>(
-        layer.size() * (tensor::dQane::size(1) + tensor::dQane::size(2)) * sizeof(real));
-    layer.setEntrySize<LTS::DofsExtScratch>(layer.size() * tensor::Qext::size() * sizeof(real));
+      layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * tensor::Iane<Cfg>::size() *
+                                               sizeof(real));
+      layer.setEntrySize<LTS::DerivativesExtScratch>(
+          layer.size() * (tensor::dQext<Cfg>::size(1) + tensor::dQext<Cfg>::size(2)) *
+          sizeof(real));
+      layer.setEntrySize<LTS::DerivativesAneScratch>(
+          layer.size() * (tensor::dQane<Cfg>::size(1) + tensor::dQane<Cfg>::size(2)) *
+          sizeof(real));
+      layer.setEntrySize<LTS::DofsExtScratch>(layer.size() * tensor::Qext<Cfg>::size() *
+                                              sizeof(real));
 #endif
-    layer.setEntrySize<LTS::AnalyticScratch>(analyticCounter * tensor::INodal::size() *
-                                             sizeof(real));
-    if (plasticity) {
-      layer.setEntrySize<LTS::FlagScratch>(layer.size() * sizeof(unsigned));
-      layer.setEntrySize<LTS::PrevDofsScratch>(layer.size() * tensor::Q::Size * sizeof(real));
-      layer.setEntrySize<LTS::QEtaNodalScratch>(layer.size() * tensor::QEtaNodal::Size *
-                                                sizeof(real));
-      layer.setEntrySize<LTS::QStressNodalScratch>(layer.size() * tensor::QStressNodal::Size *
-                                                   sizeof(real));
-    }
+      layer.setEntrySize<LTS::AnalyticScratch>(analyticCounter * tensor::INodal<Cfg>::size() *
+                                               sizeof(real));
+      if (plasticity) {
+        layer.setEntrySize<LTS::FlagScratch>(layer.size() * sizeof(unsigned));
+        layer.setEntrySize<LTS::PrevDofsScratch>(layer.size() * tensor::Q<Cfg>::Size *
+                                                 sizeof(real));
+        layer.setEntrySize<LTS::QEtaNodalScratch>(layer.size() * tensor::QEtaNodal<Cfg>::Size *
+                                                  sizeof(real));
+        layer.setEntrySize<LTS::QStressNodalScratch>(
+            layer.size() * tensor::QStressNodal<Cfg>::Size * sizeof(real));
+      }
 
-    layer.setEntrySize<LTS::DofsFaceBoundaryNodalScratch>(sizeof(real) * dirichletCount *
-                                                          tensor::INodal::size());
+      layer.setEntrySize<LTS::DofsFaceBoundaryNodalScratch>(sizeof(real) * dirichletCount *
+                                                            tensor::INodal<Cfg>::size());
 
-    layer.setEntrySize<LTS::RotateDisplacementToFaceNormalScratch>(
-        sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
-    layer.setEntrySize<LTS::RotateDisplacementToGlobalScratch>(
-        sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
-    layer.setEntrySize<LTS::RotatedFaceDisplacementScratch>(sizeof(real) * freeSurfaceCount *
-                                                            init::rotatedFaceDisplacement::Size);
-    layer.setEntrySize<LTS::DofsFaceNodalScratch>(sizeof(real) * freeSurfaceCount *
-                                                  tensor::INodal::size());
-    layer.setEntrySize<LTS::PrevCoefficientsScratch>(
-        sizeof(real) * freeSurfaceCount *
-        nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
+      layer.setEntrySize<LTS::RotateDisplacementToFaceNormalScratch>(
+          sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix<Cfg>::Size);
+      layer.setEntrySize<LTS::RotateDisplacementToGlobalScratch>(
+          sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix<Cfg>::Size);
+      layer.setEntrySize<LTS::RotatedFaceDisplacementScratch>(
+          sizeof(real) * freeSurfaceCount * init::rotatedFaceDisplacement<Cfg>::Size);
+      layer.setEntrySize<LTS::DofsFaceNodalScratch>(sizeof(real) * freeSurfaceCount *
+                                                    tensor::INodal<Cfg>::size());
+      layer.setEntrySize<LTS::PrevCoefficientsScratch>(
+          sizeof(real) * freeSurfaceCount *
+          nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisDim<Cfg>]);
+    });
   }
 }
 
 void MemoryManager::deriveRequiredScratchpadMemoryForDr(DynamicRupture::Storage& drStorage) {
-  constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
   for (auto& layer : drStorage.leaves()) {
     const auto layerSize = layer.size();
-    layer.setEntrySize<DynamicRupture::IdofsPlusOnDevice>(idofsSize * layerSize);
-    layer.setEntrySize<DynamicRupture::IdofsMinusOnDevice>(idofsSize * layerSize);
+
+    layer.wrap([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      constexpr size_t idofsSize = tensor::Q<Cfg>::size() * sizeof(Real<Cfg>);
+      layer.setEntrySize<DynamicRupture::IdofsPlusOnDevice>(idofsSize * layerSize);
+      layer.setEntrySize<DynamicRupture::IdofsMinusOnDevice>(idofsSize * layerSize);
+    });
   }
 }
 #endif
@@ -273,7 +299,15 @@ void MemoryManager::initializeMemoryLayout() {
 void MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
   const auto fileNameStr = std::string{fileName};
   if (!fileNameStr.empty()) {
-    m_easiBoundary = EasiBoundary(fileNameStr);
+    for (std::size_t i = 0; i < ConfigVariantList.size(); ++i) {
+      std::visit(
+          [&](auto cfg) {
+            using Cfg = decltype(cfg);
+            std::get<std::optional<EasiBoundary<Cfg>>>(m_easiBoundary) =
+                EasiBoundary<Cfg>(fileNameStr);
+          },
+          ConfigVariantList[i]);
+    }
   }
 }
 
@@ -300,11 +334,11 @@ void MemoryManager::recordExecutionPaths(bool usePlasticity) {
 #endif // ACL_DEVICE
 
 bool isAcousticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
-  constexpr auto Eps = std::numeric_limits<real>::epsilon();
+  constexpr auto Eps = std::numeric_limits<float>::epsilon();
   return material.neighbor[face]->getMuBar() > Eps && material.local->getMuBar() < Eps;
 }
 bool isElasticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
-  constexpr auto Eps = std::numeric_limits<real>::epsilon();
+  constexpr auto Eps = std::numeric_limits<float>::epsilon();
   return material.local->getMuBar() > Eps && material.neighbor[face]->getMuBar() < Eps;
 }
 

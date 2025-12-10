@@ -176,6 +176,7 @@ namespace seissol::geometry {
 
 PUMLReader::PUMLReader(const std::string& meshFile,
                        const std::string& partitioningLib,
+                       const ConfigMap& configMap,
                        seissol::initializer::parameters::BoundaryFormat boundaryFormat,
                        seissol::initializer::parameters::TopologyFormat topologyFormat,
                        initializer::time_stepping::LtsWeights* ltsWeights,
@@ -226,7 +227,7 @@ PUMLReader::PUMLReader(const std::string& meshFile,
                            : meshTopologyExtra;
 
   if (ltsWeights != nullptr) {
-    ltsWeights->computeWeights(meshTopology, meshGeometry);
+    ltsWeights->computeWeights(meshTopology, meshGeometry, configMap);
   }
   partition(meshTopology, meshGeometry, ltsWeights, tpwgt, partitioningLib);
 
@@ -356,6 +357,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
     m_elements[i].localId = i;
     m_elements[i].clusterId = clusterIds[i];
     m_elements[i].timestep = timestep[i];
+    m_elements[i].configId = 0;
 
     // Vertices
     PUML::Downward::vertices(

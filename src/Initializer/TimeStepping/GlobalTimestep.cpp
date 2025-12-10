@@ -14,12 +14,15 @@
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Parallel/MPI.h"
 
+#include <Common/ConfigHelper.h>
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <mpi.h>
+#include <variant>
 #include <vector>
 
 namespace {
@@ -27,7 +30,8 @@ namespace {
 double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
                            double pWaveVel,
                            double cfl,
-                           double maximumAllowedTimeStep) {
+                           double maximumAllowedTimeStep,
+                           std::size_t convergenceOrder) {
   // Compute insphere radius
   std::array<Eigen::Vector3d, 4> x = vertices;
   Eigen::Matrix4d a;
@@ -43,7 +47,7 @@ double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
 
   // Compute maximum timestep
   return std::fmin(maximumAllowedTimeStep,
-                   cfl * 2.0 * insphere / (pWaveVel * (2 * seissol::ConvergenceOrder - 1)));
+                   cfl * 2.0 * insphere / (pWaveVel * (2 * convergenceOrder - 1)));
 }
 
 } // namespace
@@ -53,26 +57,30 @@ namespace seissol::initializer {
 GlobalTimestep
     computeTimesteps(const seissol::initializer::CellToVertexArray& cellToVertex,
                      const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
-  using Material = seissol::model::MaterialT;
 
-  const auto queryGen = seissol::initializer::getBestQueryGenerator(
-      seissolParams.model.plasticity, seissolParams.model.useCellHomogenizedMaterial, cellToVertex);
-  std::vector<Material> materials(cellToVertex.size);
-  seissol::initializer::MaterialParameterDB<Material> parameterDB;
-  parameterDB.setMaterialVector(&materials);
-  parameterDB.evaluateModel(seissolParams.model.materialFileName, *queryGen);
+  const auto materials = queryMaterials(seissolParams.model, cellToVertex);
 
   GlobalTimestep timestep;
   timestep.cellTimeStepWidths.resize(cellToVertex.size);
 
-  for (unsigned cell = 0; cell < cellToVertex.size; ++cell) {
-    const double pWaveVel = materials[cell].getMaxWaveSpeed();
-    const std::array<Eigen::Vector3d, 4> vertices = cellToVertex.elementCoordinates(cell);
-    const auto materialMaxTimestep = materials[cell].maximumTimestep();
-    const auto cellMaxTimestep =
-        std::min(materialMaxTimestep, seissolParams.timeStepping.maxTimestepWidth);
-    timestep.cellTimeStepWidths[cell] =
-        computeCellTimestep(vertices, pWaveVel, seissolParams.timeStepping.cfl, cellMaxTimestep);
+  for (std::size_t cell = 0; cell < cellToVertex.size; ++cell) {
+    std::visit(
+        [&](auto cfg) {
+          using Cfg = decltype(cfg);
+          using MaterialT = model::MaterialTT<Cfg>;
+          const auto& material = std::get<MaterialT>(materials[cell]);
+          const double pWaveVel = material.getMaxWaveSpeed();
+          const std::array<Eigen::Vector3d, 4> vertices = cellToVertex.elementCoordinates(cell);
+          const auto materialMaxTimestep = material.maximumTimestep();
+          const auto cellMaxTimestep =
+              std::min(materialMaxTimestep, seissolParams.timeStepping.maxTimestepWidth);
+          timestep.cellTimeStepWidths[cell] = computeCellTimestep(vertices,
+                                                                  pWaveVel,
+                                                                  seissolParams.timeStepping.cfl,
+                                                                  cellMaxTimestep,
+                                                                  Cfg::ConvergenceOrder);
+        },
+        ConfigVariantList[cellToVertex.elementConfigs(cell)]);
   }
 
   const auto minmaxCellPosition =

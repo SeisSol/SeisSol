@@ -18,11 +18,13 @@ namespace seissol::dr::friction_law::gpu {
  * General implementation of a rate and state solver
  * Methods are inherited via CRTP and must be implemented in the child class.
  */
-template <class Derived, class TPMethod>
-class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>> {
+template <typename Cfg, class Derived, class TPMethod>
+class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, Derived, TPMethod>> {
   public:
+  using real = Real<Cfg>;
   explicit RateAndStateBase(seissol::initializer::parameters::DRParameters* drParameters)
-      : BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>>::BaseFrictionSolver(drParameters) {}
+      : BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, Derived, TPMethod>>::BaseFrictionSolver(
+            drParameters) {}
 
   std::unique_ptr<FrictionSolver> clone() override {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
@@ -30,22 +32,26 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
   ~RateAndStateBase() = default;
 
-  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
-    data->a = layerData.var<LTSRateAndState::RsA>(seissol::initializer::AllocationPlace::Device);
+    data->a =
+        layerData.var<LTSRateAndState::RsA>(Cfg(), seissol::initializer::AllocationPlace::Device);
     data->sl0 =
-        layerData.var<LTSRateAndState::RsSl0>(seissol::initializer::AllocationPlace::Device);
+        layerData.var<LTSRateAndState::RsSl0>(Cfg(), seissol::initializer::AllocationPlace::Device);
     data->stateVariable = layerData.var<LTSRateAndState::StateVariable>(
-        seissol::initializer::AllocationPlace::Device);
-    data->f0 = layerData.var<LTSRateAndState::RsF0>(seissol::initializer::AllocationPlace::Device);
+        Cfg(), seissol::initializer::AllocationPlace::Device);
+    data->f0 =
+        layerData.var<LTSRateAndState::RsF0>(Cfg(), seissol::initializer::AllocationPlace::Device);
     data->muW =
-        layerData.var<LTSRateAndState::RsMuW>(seissol::initializer::AllocationPlace::Device);
-    data->b = layerData.var<LTSRateAndState::RsB>(seissol::initializer::AllocationPlace::Device);
+        layerData.var<LTSRateAndState::RsMuW>(Cfg(), seissol::initializer::AllocationPlace::Device);
+    data->b =
+        layerData.var<LTSRateAndState::RsB>(Cfg(), seissol::initializer::AllocationPlace::Device);
     Derived::copySpecificStorageDataToLocal(data, layerData);
     TPMethod::copyStorageToLocal(data, layerData);
   }
 
-  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, uint32_t timeIndex) {
+  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg>& ctx,
+                                                   uint32_t timeIndex) {
     // compute initial slip rate and reference values
     Derived::calcInitialVariables(ctx, timeIndex);
 
@@ -57,18 +63,21 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     calcSlipRateAndTraction(ctx, timeIndex);
   }
 
-  SEISSOL_DEVICE static void preHook(FrictionLawContext& ctx) {
+  SEISSOL_DEVICE static void preHook(FrictionLawContext<Cfg>& ctx) {
     // copy state variable from last time step
     ctx.stateVariableBuffer = ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex];
   }
 
-  SEISSOL_DEVICE static void postHook(FrictionLawContext& ctx) { Derived::resampleStateVar(ctx); }
+  SEISSOL_DEVICE static void postHook(FrictionLawContext<Cfg>& ctx) {
+    Derived::resampleStateVar(ctx);
+  }
 
   /*
    * Compute shear stress magnitude, localSlipRate, effective normal stress, reference state
    * variable. Also sets slipRateMagnitude member to reference value.
    */
-  SEISSOL_DEVICE static void calcInitialVariables(FrictionLawContext& ctx, uint32_t timeIndex) {
+  SEISSOL_DEVICE static void calcInitialVariables(FrictionLawContext<Cfg>& ctx,
+                                                  uint32_t timeIndex) {
     auto& devStateVariableBuffer{ctx.stateVariableBuffer};
     auto& devFaultStresses{ctx.faultStresses};
     auto* devSlipRateMagnitude{ctx.data->slipRateMagnitude};
@@ -96,12 +105,12 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto localSlipRateMagnitude = misc::magnitude(devSlipRate1[ctx.ltsFace][ctx.pointIndex],
                                                   devSlipRate2[ctx.ltsFace][ctx.pointIndex]);
 
-    localSlipRateMagnitude = std::max(rs::almostZero(), localSlipRateMagnitude);
+    localSlipRateMagnitude = std::max(rs::almostZero<real>(), localSlipRateMagnitude);
     devSlipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = localSlipRateMagnitude;
     devLocalSlipRate = localSlipRateMagnitude;
   }
 
-  SEISSOL_DEVICE static void updateStateVariableIterative(FrictionLawContext& ctx,
+  SEISSOL_DEVICE static void updateStateVariableIterative(FrictionLawContext<Cfg>& ctx,
                                                           uint32_t timeIndex) {
     auto& devLocalSlipRate{ctx.initialVariables.localSlipRate};
     auto& devStateVariableBuffer{ctx.stateVariableBuffer};
@@ -144,7 +153,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     }
   }
 
-  SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext& ctx, uint32_t timeIndex) {
+  SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext<Cfg>& ctx,
+                                                     uint32_t timeIndex) {
     auto& devStateVarReference{ctx.initialVariables.stateVarReference};
     auto& devLocalSlipRate{ctx.initialVariables.localSlipRate};
     auto& devStateVariableBuffer{ctx.stateVariableBuffer}; // localStateVariable
@@ -205,9 +215,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] = slipRate2;
   }
 
-  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& ctx, real time) {
-    auto muW{ctx.data->muW[ctx.ltsFace][ctx.pointIndex]};
-    auto rsF0{ctx.data->f0[ctx.ltsFace][ctx.pointIndex]};
+  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& ctx, real time) {
+    auto muW{ctx.data->drParameters.muW};
+    auto rsF0{ctx.data->drParameters.rsF0};
 
     const auto localRuptureTime = ctx.data->ruptureTime[ctx.ltsFace][ctx.pointIndex];
     if (localRuptureTime > 0.0 && localRuptureTime <= time &&
@@ -218,7 +228,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     }
   }
 
-  SEISSOL_DEVICE static bool invertSlipRateIterative(FrictionLawContext& ctx,
+  SEISSOL_DEVICE static bool invertSlipRateIterative(FrictionLawContext<Cfg>& ctx,
                                                      real& slipRateTest,
                                                      real localStateVariable,
                                                      real normalStress,
@@ -255,12 +265,12 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
       dMuF = Derived::updateMuDerivative(ctx, slipRateTest, details);
       dG = -invEtaS * (std::fabs(normalStress) * dMuF) - 1.0;
-      slipRateTest = std::max(friction_law::rs::almostZero(), slipRateTest - (g / dG));
+      slipRateTest = std::max(friction_law::rs::almostZero<real>(), slipRateTest - (g / dG));
     }
     return false;
   }
 
-  SEISSOL_DEVICE static void updateNormalStress(FrictionLawContext& ctx, size_t timeIndex) {
+  SEISSOL_DEVICE static void updateNormalStress(FrictionLawContext<Cfg>& ctx, size_t timeIndex) {
     ctx.initialVariables.normalStress =
         std::min(static_cast<real>(0.0),
                  ctx.faultStresses.normalStress[timeIndex] +

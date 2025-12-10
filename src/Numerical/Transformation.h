@@ -58,12 +58,19 @@ void tetrahedronGlobalToReferenceJacobian(const double iX[4],
 /**
  * Inverse of Tensor1RotationMatrix().
  **/
+template <typename T>
 void inverseTensor1RotationMatrix(const VrtxCoords iNormal,
                                   const VrtxCoords iTangent1,
                                   const VrtxCoords iTangent2,
-                                  yateto::DenseTensorView<2, real, unsigned>& oTinv,
+                                  yateto::DenseTensorView<2, T, unsigned>& oTinv,
                                   unsigned row = 0,
-                                  unsigned col = 0);
+                                  unsigned col = 0) {
+  for (unsigned i = 0; i < 3; ++i) {
+    oTinv(row + 0, col + i) = iNormal[i];
+    oTinv(row + 1, col + i) = iTangent1[i];
+    oTinv(row + 2, col + i) = iTangent2[i];
+  }
+}
 
 /**
  * Returns a column-major matrix that rotates a first-order tensor
@@ -71,12 +78,19 @@ void inverseTensor1RotationMatrix(const VrtxCoords iNormal,
  * and tangents.
  * u' = T*u
  **/
+template <typename T>
 void tensor1RotationMatrix(const VrtxCoords iNormal,
                            const VrtxCoords iTangent1,
                            const VrtxCoords iTangent2,
-                           yateto::DenseTensorView<2, real, unsigned>& oT,
+                           yateto::DenseTensorView<2, T, unsigned>& oT,
                            unsigned row = 0,
-                           unsigned col = 0);
+                           unsigned col = 0) {
+  for (unsigned i = 0; i < 3; ++i) {
+    oT(row + i, col + 0) = iNormal[i];
+    oT(row + i, col + 1) = iTangent1[i];
+    oT(row + i, col + 2) = iTangent2[i];
+  }
+}
 
 /**
  * Inverse of SymmetricTensor2RotationMatrix().
@@ -142,12 +156,60 @@ void inverseSymmetricTensor2RotationMatrix(const VrtxCoords iNormal,
  * into a new coordinate system aligned with normal and tangents.
  * u' = T*u
  **/
+template <typename T>
 void symmetricTensor2RotationMatrix(const VrtxCoords iNormal,
                                     const VrtxCoords iTangent1,
                                     const VrtxCoords iTangent2,
-                                    yateto::DenseTensorView<2, real, unsigned>& oTinv,
+                                    yateto::DenseTensorView<2, T, unsigned>& oT,
                                     unsigned row = 0,
-                                    unsigned col = 0);
+                                    unsigned col = 0) {
+  const auto nx = iNormal[0];
+  const auto ny = iNormal[1];
+  const auto nz = iNormal[2];
+  const auto sx = iTangent1[0];
+  const auto sy = iTangent1[1];
+  const auto sz = iTangent1[2];
+  const auto tx = iTangent2[0];
+  const auto ty = iTangent2[1];
+  const auto tz = iTangent2[2];
+
+  oT(row + 0, col + 0) = nx * nx;
+  oT(row + 1, col + 0) = ny * ny;
+  oT(row + 2, col + 0) = nz * nz;
+  oT(row + 3, col + 0) = ny * nx;
+  oT(row + 4, col + 0) = nz * ny;
+  oT(row + 5, col + 0) = nz * nx;
+  oT(row + 0, col + 1) = sx * sx;
+  oT(row + 1, col + 1) = sy * sy;
+  oT(row + 2, col + 1) = sz * sz;
+  oT(row + 3, col + 1) = sy * sx;
+  oT(row + 4, col + 1) = sz * sy;
+  oT(row + 5, col + 1) = sz * sx;
+  oT(row + 0, col + 2) = tx * tx;
+  oT(row + 1, col + 2) = ty * ty;
+  oT(row + 2, col + 2) = tz * tz;
+  oT(row + 3, col + 2) = ty * tx;
+  oT(row + 4, col + 2) = tz * ty;
+  oT(row + 5, col + 2) = tz * tx;
+  oT(row + 0, col + 3) = 2.0 * nx * sx;
+  oT(row + 1, col + 3) = 2.0 * ny * sy;
+  oT(row + 2, col + 3) = 2.0 * nz * sz;
+  oT(row + 3, col + 3) = ny * sx + nx * sy;
+  oT(row + 4, col + 3) = nz * sy + ny * sz;
+  oT(row + 5, col + 3) = nz * sx + nx * sz;
+  oT(row + 0, col + 4) = 2.0 * sx * tx;
+  oT(row + 1, col + 4) = 2.0 * sy * ty;
+  oT(row + 2, col + 4) = 2.0 * sz * tz;
+  oT(row + 3, col + 4) = sy * tx + sx * ty;
+  oT(row + 4, col + 4) = sz * ty + sy * tz;
+  oT(row + 5, col + 4) = sz * tx + sx * tz;
+  oT(row + 0, col + 5) = 2.0 * nx * tx;
+  oT(row + 1, col + 5) = 2.0 * ny * ty;
+  oT(row + 2, col + 5) = 2.0 * nz * tz;
+  oT(row + 3, col + 5) = ny * tx + nx * ty;
+  oT(row + 4, col + 5) = nz * ty + ny * tz;
+  oT(row + 5, col + 5) = nz * tx + nx * tz;
+}
 
 void chiTau2XiEtaZeta(unsigned face,
                       const double chiTau[2],

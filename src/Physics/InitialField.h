@@ -8,17 +8,68 @@
 #ifndef SEISSOL_SRC_PHYSICS_INITIALFIELD_H_
 #define SEISSOL_SRC_PHYSICS_INITIALFIELD_H_
 
+#include "Equations/Setup.h"
 #include "GeneratedCode/init.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+#include "Model/Common.h"
 
 #include <Eigen/Dense>
+#include <Numerical/Eigenvalues.h>
 #include <array>
 #include <complex>
 #include <vector>
 
 namespace seissol::physics {
+struct TensorWrapper {
+  std::variant<yateto::DenseTensorView<2, double, unsigned>,
+               yateto::DenseTensorView<2, float, unsigned>>
+      view;
+
+  TensorWrapper(yateto::DenseTensorView<2, double, unsigned> tensor) : view(tensor) {}
+  TensorWrapper(yateto::DenseTensorView<2, float, unsigned> tensor) : view(tensor) {}
+
+  struct ValRef {
+    std::variant<float*, double*> data;
+
+    ValRef(double& val) : data(&val) {}
+    ValRef(float& val) : data(&val) {}
+
+    auto& operator=(double value) {
+      std::visit([&](auto* dataval) { *dataval = value; }, data);
+      return *this;
+    }
+
+    auto& operator+=(double value) {
+      std::visit([&](auto* dataval) { *dataval += value; }, data);
+      return *this;
+    }
+
+    auto& operator-=(double value) {
+      std::visit([&](auto* dataval) { *dataval -= value; }, data);
+      return *this;
+    }
+  };
+
+  template <typename... Args>
+  ValRef operator()(Args... args) {
+    return std::visit([&](auto& tensor) { return ValRef(tensor(args...)); }, view);
+  }
+
+  [[nodiscard]] auto shape(int dim) const {
+    return std::visit([&](auto& tensor) { return tensor.shape(dim); }, view);
+  }
+
+  [[nodiscard]] auto size() const {
+    return std::visit([&](auto& tensor) { return tensor.size(); }, view);
+  }
+
+  void setZero() {
+    std::visit([&](auto& tensor) { tensor.setZero(); }, view);
+  }
+};
+
 class InitialField {
   public:
   virtual ~InitialField() = default;
@@ -26,7 +77,7 @@ class InitialField {
                         const std::array<double, 3>* points,
                         std::size_t count,
                         const CellMaterialData& materialData,
-                        yateto::DenseTensorView<2, real, unsigned>& dofsQP) const = 0;
+                        TensorWrapper dofsQP) const = 0;
 };
 
 class ZeroField : public InitialField {
@@ -35,7 +86,7 @@ class ZeroField : public InitialField {
                 const std::array<double, 3>* /*points*/,
                 std::size_t /*count*/,
                 const CellMaterialData& /*materialData*/,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override {
+                TensorWrapper dofsQP) const override {
     dofsQP.setZero();
   }
 };
@@ -49,73 +100,210 @@ class PressureInjection : public InitialField {
                 const std::array<double, 3>* points,
                 std::size_t count,
                 const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+                TensorWrapper dofsQP) const override;
 
   private:
   seissol::initializer::parameters::InitializationParameters m_parameters;
 };
 
 // A planar wave travelling in direction kVec
+template <typename Cfg>
 class Planarwave : public InitialField {
   public:
+  using MaterialT = model::MaterialTT<Cfg>;
   // Choose phase in [0, 2*pi]
   Planarwave(const CellMaterialData& materialData,
              double phase,
              Eigen::Vector3d kVec,
              std::vector<int> varField,
-             std::vector<std::complex<double>> ampField);
+             std::vector<std::complex<double>> ampField)
+      : m_varField(std::move(varField)), m_ampField(std::move(ampField)), m_phase(phase),
+        m_kVec(std::move(kVec)) {
+    init(materialData);
+  }
   explicit Planarwave(const CellMaterialData& materialData,
                       double phase = 0.0,
-                      Eigen::Vector3d kVec = {M_PI, M_PI, M_PI});
+                      Eigen::Vector3d kVec = {M_PI, M_PI, M_PI})
+      : m_phase(phase), m_kVec(std::move(kVec)) {
+
+    if constexpr (MaterialT::Type == model::MaterialType::Acoustic) {
+      // Acoustic materials has the following wave modes:
+      // P, N, N, -P
+      // Here we impose the P mode
+      m_varField = {0};
+      m_ampField = {1.0};
+    } else if constexpr (MaterialT::Type == model::MaterialType::Poroelastic) {
+      // Poroelastic materials have the following wave modes:
+      //-P, -S2, -S1, -Ps, N, N, N, N, N, Ps, S1, S2, P
+      // Here we impose -S1, -Ps and P
+      m_varField = {2, 3, 12};
+      m_ampField = {1.0, 1.0, 1.0};
+    } else {
+      const auto isAcoustic = materialData.local->getMuBar() <= 1e-15;
+      if (isAcoustic) {
+        // Acoustic materials has the following wave modes:
+        // -P, N, N, N, N, N, N, N, P
+        // Here we impose the P mode
+        m_varField = {8};
+        m_ampField = {1.0};
+      } else {
+        // Elastic materials have the following wave modes:
+        // -P, -S2, -S1, N, N, N, S1, S2, P
+        // Here we impose the -S2 and P mode
+        m_varField = {1, 8};
+        m_ampField = {1.0, 1.0};
+      }
+    }
+    init(materialData);
+  }
 
   void evaluate(double time,
                 const std::array<double, 3>* points,
                 std::size_t count,
                 const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+                TensorWrapper dofsQP) const override {
+    dofsQP.setZero();
+
+    auto r = yateto::DenseTensorView<2, std::complex<double>>(
+        const_cast<std::complex<double>*>(m_eigenvectors.data()),
+        {MaterialT::NumQuantities, MaterialT::NumQuantities});
+    for (unsigned v = 0; v < m_varField.size(); ++v) {
+      const auto omega = m_lambdaA[m_varField[v]];
+      for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
+        for (size_t i = 0; i < count; ++i) {
+          dofsQP(i, j) +=
+              (r(j, m_varField[v]) * m_ampField[v] *
+               std::exp(std::complex<double>(0.0, 1.0) *
+                        (omega * time - m_kVec[0] * points[i][0] - m_kVec[1] * points[i][1] -
+                         m_kVec[2] * points[i][2] + std::complex<double>(m_phase, 0))))
+                  .real();
+        }
+      }
+    }
+  }
 
   protected:
   std::vector<int> m_varField;
   std::vector<std::complex<double>> m_ampField;
   double m_phase;
   Eigen::Vector3d m_kVec;
-  std::array<std::complex<double>, seissol::model::MaterialT::NumQuantities> m_lambdaA;
-  std::array<std::complex<double>,
-             seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
+  std::array<std::complex<double>, MaterialT::NumQuantities> m_lambdaA;
+  std::array<std::complex<double>, MaterialT::NumQuantities * MaterialT::NumQuantities>
       m_eigenvectors;
 
   private:
-  void init(const CellMaterialData& materialData);
+  void init(const CellMaterialData& materialData) {
+    assert(m_varField.size() == m_ampField.size());
+
+    std::array<std::complex<double>, MaterialT::NumQuantities * MaterialT::NumQuantities>
+        planeWaveOperator{};
+    seissol::model::getPlaneWaveOperator<Cfg>(
+        *dynamic_cast<MaterialT*>(materialData.local), m_kVec.data(), planeWaveOperator.data());
+    seissol::eigenvalues::Eigenpair<std::complex<double>, MaterialT::NumQuantities>
+        eigendecomposition;
+    computeEigenvalues(planeWaveOperator, eigendecomposition);
+    m_lambdaA = eigendecomposition.values;
+    m_eigenvectors = eigendecomposition.vectors;
+  }
 };
 
 // superimpose three planar waves travelling into different directions
+template <typename Cfg>
 class SuperimposedPlanarwave : public InitialField {
   public:
+  using MaterialT = model::MaterialTT<Cfg>;
   //! Choose phase in [0, 2*pi]
-  explicit SuperimposedPlanarwave(const CellMaterialData& materialData, real phase = 0.0);
+  explicit SuperimposedPlanarwave(const CellMaterialData& materialData, double phase = 0.0)
+      : m_kVec({{{M_PI, 0.0, 0.0}, {0.0, M_PI, 0.0}, {0.0, 0.0, M_PI}}}),
+        m_pw({Planarwave<Cfg>(materialData, phase, m_kVec.at(0)),
+              Planarwave<Cfg>(materialData, phase, m_kVec.at(1)),
+              Planarwave<Cfg>(materialData, phase, m_kVec.at(2))}) {}
 
   void evaluate(double time,
                 const std::array<double, 3>* points,
                 std::size_t count,
                 const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+                TensorWrapper dofsQP) const override {
+    dofsQP.setZero();
+
+    std::vector<double> dofsPwVector(dofsQP.size());
+    auto dofsPW = yateto::DenseTensorView<2, double, unsigned>(
+        dofsPwVector.data(),
+        {static_cast<unsigned>(count), MaterialT::NumQuantities},
+        {0, 0},
+        {static_cast<unsigned>(count), MaterialT::NumQuantities});
+
+    for (int pw = 0; pw < 3; pw++) {
+      // evaluate each planarwave
+      m_pw.at(pw).evaluate(time, points, count, materialData, dofsPW);
+      // and add results together
+      for (size_t j = 0; j < dofsQP.shape(1); ++j) {
+        for (size_t i = 0; i < count; ++i) {
+          dofsQP(i, j) += dofsPW(i, j);
+        }
+      }
+    }
+  }
 
   private:
   std::array<Eigen::Vector3d, 3> m_kVec;
-  std::array<Planarwave, 3> m_pw;
+  std::array<Planarwave<Cfg>, 3> m_pw;
 };
 
 // A part of a planar wave travelling in one direction
-class TravellingWave : public Planarwave {
+template <typename Cfg>
+class TravellingWave : public Planarwave<Cfg> {
   public:
-  TravellingWave(const CellMaterialData& materialData,
-                 const TravellingWaveParameters& travellingWaveParameters);
+  using MaterialT = model::MaterialTT<Cfg>;
+  TravellingWave(
+      const CellMaterialData& materialData,
+      const TravellingWaveParameters&
+          travellingWaveParameters) // Set phase to 0.5*M_PI, so we have a zero at the origin
+      // The wave travels in direction of kVec
+      // 2*pi / magnitude(kVec) is the wave length of the wave
+      : Planarwave<Cfg>(materialData,
+                        0.5 * M_PI,
+                        travellingWaveParameters.kVec,
+                        travellingWaveParameters.varField,
+                        travellingWaveParameters.ampField),
+        // origin is a point on the wavefront at time zero
+        m_origin(travellingWaveParameters.origin) {
+    logInfo() << "Impose a travelling wave as initial condition";
+    logInfo() << "Origin = (" << m_origin[0] << ", " << m_origin[1] << ", " << m_origin[2] << ")";
+    logInfo() << "kVec = (" << this->m_kVec[0] << ", " << this->m_kVec[1] << ", " << this->m_kVec[2]
+              << ")";
+    logInfo() << "Combine following wave modes";
+    for (size_t i = 0; i < this->m_ampField.size(); i++) {
+      logInfo() << "(" << this->m_varField[i] << ": " << this->m_ampField[i] << ")";
+    }
+  }
 
   void evaluate(double time,
                 const std::array<double, 3>* points,
                 std::size_t count,
                 const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+                TensorWrapper dofsQp) const override {
+    dofsQp.setZero();
+
+    auto r = yateto::DenseTensorView<2, std::complex<double>>(
+        const_cast<std::complex<double>*>(this->m_eigenvectors.data()),
+        {MaterialT::NumQuantities, MaterialT::NumQuantities});
+    for (unsigned v = 0; v < this->m_varField.size(); ++v) {
+      const auto omega = this->m_lambdaA[this->m_varField[v]];
+      for (unsigned j = 0; j < dofsQp.shape(1); ++j) {
+        for (size_t i = 0; i < count; ++i) {
+          auto arg = std::complex<double>(0.0, 1.0) *
+                     (omega * time - this->m_kVec[0] * (points[i][0] - m_origin[0]) -
+                      this->m_kVec[1] * (points[i][1] - m_origin[1]) -
+                      this->m_kVec[2] * (points[i][2] - m_origin[2]) + this->m_phase);
+          if (arg.imag() > -0.5 * M_PI && arg.imag() < 1.5 * M_PI) {
+            dofsQp(i, j) +=
+                (r(j, this->m_varField[v]) * this->m_ampField[v] * std::exp(arg)).real();
+          }
+        }
+      }
+    }
+  }
 
   private:
   Eigen::Vector3d m_origin;
@@ -130,7 +318,7 @@ class AcousticTravellingWaveITM : public InitialField {
                 const std::array<double, 3>* points,
                 std::size_t count,
                 const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+                TensorWrapper dofsQP) const override;
 
   private:
   void init(const CellMaterialData& materialData);
@@ -150,7 +338,7 @@ class ScholteWave : public InitialField {
                 const std::array<double, 3>* points,
                 std::size_t count,
                 const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+                TensorWrapper dofsQP) const override;
 };
 class SnellsLaw : public InitialField {
   public:
@@ -159,7 +347,7 @@ class SnellsLaw : public InitialField {
                 const std::array<double, 3>* points,
                 std::size_t count,
                 const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+                TensorWrapper dofsQP) const override;
 };
 /*
  * From
@@ -182,7 +370,7 @@ class Ocean : public InitialField {
                 const std::array<double, 3>* points,
                 std::size_t count,
                 const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+                TensorWrapper dofsQP) const override;
 };
 } // namespace seissol::physics
 

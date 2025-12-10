@@ -21,6 +21,20 @@
 #include "Memory/Tree/Layer.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
 
+#include <Alignment.h>
+#include <Common/Constants.h>
+#include <Common/Real.h>
+#include <GeneratedCode/tensor.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/CellLocalInformation.h>
+#include <Initializer/TimeStepping/Halo.h>
+#include <Kernels/Common.h>
+#include <Kernels/Precision.h>
+#include <Kernels/Solver.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/Backmap.h>
+#include <Memory/Tree/Layer.h>
+#include <Solver/TimeStepping/HaloCommunication.h>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
@@ -38,7 +52,8 @@ class BucketManager {
   std::size_t dataSize{0};
 
   public:
-  real* markAllocate(std::size_t size, bool align = true) {
+  template <typename T>
+  T* markAllocate(std::size_t size, bool align = true) {
     if (align) {
       // round up by Alignment
       this->dataSize = ((this->dataSize + Alignment - 1) / Alignment) * Alignment;
@@ -49,7 +64,7 @@ class BucketManager {
 
     // the following "hack" was copied from the MemoryManager. Add +1 to pointers to differentiate
     // from nullptr NOLINTNEXTLINE
-    return reinterpret_cast<real*>(offset + 1);
+    return reinterpret_cast<T*>(offset + 1);
   }
 
   [[nodiscard]] std::size_t position() const { return dataSize; }
@@ -129,32 +144,36 @@ auto useBuffersDerivatives(const LTS::Storage& storage,
   return std::pair<bool, bool>{buffers, derivatives};
 }
 
-std::vector<solver::RemoteCluster> allocateTransferInfo(
-    const LTS::Storage& storage, LTS::Layer& layer, const std::vector<RemoteCellRegion>& regions) {
-  auto* buffers = layer.var<LTS::Buffers>();
-  auto* derivatives = layer.var<LTS::Derivatives>();
-  auto* buffersDevice = layer.var<LTS::BuffersDevice>();
-  auto* derivativesDevice = layer.var<LTS::DerivativesDevice>();
+template <typename Cfg>
+std::vector<solver::RemoteCluster>
+    allocateTransferInfo(Cfg cfg,
+                         const LTS::Storage& storage,
+                         LTS::Layer& layer,
+                         const std::vector<RemoteCellRegion>& regions) {
+  auto* buffers = layer.var<LTS::Buffers>(cfg);
+  auto* derivatives = layer.var<LTS::Derivatives>(cfg);
+  auto* buffersDevice = layer.var<LTS::BuffersDevice>(cfg);
+  auto* derivativesDevice = layer.var<LTS::DerivativesDevice>(cfg);
   const auto* cellInformation = layer.var<LTS::CellInformation>();
   BucketManager manager;
 
-  const auto datatype = Config::Precision;
+  const auto datatype = Cfg::Precision;
   const auto typeSize = sizeOfRealType(datatype);
 
-  const auto bufferSize = typeSize * tensor::I::size();
-  const auto derivativeSize = typeSize * yateto::computeFamilySize<tensor::dQ>();
+  const auto bufferSize = typeSize * tensor::I<Cfg>::size();
+  const auto derivativeSize = typeSize * kernels::Solver<Cfg>::template DerivativesSize<Cfg>;
 
   const auto allocate = [&](std::size_t index, bool useDerivatives) {
     if (useDerivatives) {
       const bool hasDerivatives = cellInformation[index].ltsSetup.hasDerivatives();
       if (hasDerivatives) {
-        derivatives[index] = manager.markAllocate(derivativeSize);
+        derivatives[index] = manager.markAllocate<Real<Cfg>>(derivativeSize);
         derivativesDevice[index] = derivatives[index];
       }
     } else {
       const bool hasBuffers = cellInformation[index].ltsSetup.hasBuffers();
       if (hasBuffers) {
-        buffers[index] = manager.markAllocate(bufferSize);
+        buffers[index] = manager.markAllocate<Real<Cfg>>(bufferSize);
         buffersDevice[index] = buffers[index];
       }
     }
@@ -220,19 +239,20 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   return remoteClusters;
 }
 
-void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
-  auto* buffers = layer.var<LTS::Buffers>();
-  auto* derivatives = layer.var<LTS::Derivatives>();
+template <typename Cfg>
+void setupBuckets(Cfg cfg, LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
+  auto* buffers = layer.var<LTS::Buffers>(cfg);
+  auto* derivatives = layer.var<LTS::Derivatives>(cfg);
 
-  auto* buffersDerivatives = layer.var<LTS::BuffersDerivatives>();
+  auto* buffersDerivatives = layer.var<LTS::BuffersDerivatives>(cfg);
 
-  auto* buffersDevice = layer.var<LTS::BuffersDevice>();
-  auto* derivativesDevice = layer.var<LTS::DerivativesDevice>();
+  auto* buffersDevice = layer.var<LTS::BuffersDevice>(cfg);
+  auto* derivativesDevice = layer.var<LTS::DerivativesDevice>(cfg);
 
-  auto* buffersDerivativesDevice = layer.var<LTS::BuffersDerivatives>(AllocationPlace::Device);
+  auto* buffersDerivativesDevice = layer.var<LTS::BuffersDerivatives>(cfg, AllocationPlace::Device);
 
-  const auto bufferSize = tensor::I::size();
-  const auto derivativeSize = yateto::computeFamilySize<tensor::dQ>();
+  const auto bufferSize = tensor::I<Cfg>::size();
+  const auto derivativeSize = kernels::Solver<Cfg>::template DerivativesSize<Cfg>;
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -269,7 +289,8 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
   }
 }
 
-void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
+template <typename Cfg>
+void setupFaceNeighbors(Cfg cfg, LTS::Storage& storage, LTS::Layer& layer) {
   const auto* cellInformation = layer.var<LTS::CellInformation>();
   const auto* secondaryCellInformation = layer.var<LTS::SecondaryInformation>();
 
@@ -285,27 +306,28 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
       if (cellInformation[cell].faceTypes[face] != FaceType::Outflow) {
         if (faceNeighbor == StoragePosition::NullPosition) {
           if (cellInformation[cell].ltsSetup.neighborHasDerivatives(face)) {
-            faceNeighbors[cell][face] = layer.var<LTS::Derivatives>()[cell];
+            faceNeighbors[cell][face] = layer.var<LTS::Derivatives>(cfg)[cell];
             if constexpr (isDeviceOn()) {
-              faceNeighborsDevice[cell][face] = layer.var<LTS::DerivativesDevice>()[cell];
+              faceNeighborsDevice[cell][face] = layer.var<LTS::DerivativesDevice>(cfg)[cell];
             }
           } else {
-            faceNeighbors[cell][face] = layer.var<LTS::Buffers>()[cell];
+            faceNeighbors[cell][face] = layer.var<LTS::Buffers>(cfg)[cell];
             if constexpr (isDeviceOn()) {
-              faceNeighborsDevice[cell][face] = layer.var<LTS::BuffersDevice>()[cell];
+              faceNeighborsDevice[cell][face] = layer.var<LTS::BuffersDevice>(cfg)[cell];
             }
           }
         } else {
           if (cellInformation[cell].ltsSetup.neighborHasDerivatives(face)) {
-            faceNeighbors[cell][face] = storage.lookup<LTS::Derivatives>(faceNeighbor);
+            faceNeighbors[cell][face] = storage.lookup<LTS::Derivatives>(cfg, faceNeighbor);
             if constexpr (isDeviceOn()) {
               faceNeighborsDevice[cell][face] =
-                  storage.lookup<LTS::DerivativesDevice>(faceNeighbor);
+                  storage.lookup<LTS::DerivativesDevice>(cfg, faceNeighbor);
             }
           } else {
-            faceNeighbors[cell][face] = storage.lookup<LTS::Buffers>(faceNeighbor);
+            faceNeighbors[cell][face] = storage.lookup<LTS::Buffers>(cfg, faceNeighbor);
             if constexpr (isDeviceOn()) {
-              faceNeighborsDevice[cell][face] = storage.lookup<LTS::BuffersDevice>(faceNeighbor);
+              faceNeighborsDevice[cell][face] =
+                  storage.lookup<LTS::BuffersDevice>(cfg, faceNeighbor);
             }
           }
         }
@@ -324,16 +346,18 @@ solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const M
   std::vector<std::vector<solver::RemoteCluster>> commInfo(storage.getColorMap().size());
 
   for (auto& layer : storage.leaves()) {
-    commInfo[layer.id()] = allocateTransferInfo(storage, layer, layout[layer.id()].regions);
+    layer.wrap([&](auto cfg) {
+      commInfo[layer.id()] = allocateTransferInfo(cfg, storage, layer, layout[layer.id()].regions);
+    });
   }
 
   storage.allocateBuckets();
 
   for (auto& layer : storage.leaves()) {
-    setupBuckets(layer, commInfo[layer.id()]);
+    layer.wrap([&](auto cfg) { setupBuckets(cfg, layer, commInfo[layer.id()]); });
   }
   for (auto& layer : storage.leaves(Ghost)) {
-    setupFaceNeighbors(storage, layer);
+    layer.wrap([&](auto cfg) { setupFaceNeighbors(cfg, storage, layer); });
   }
 
   solver::HaloCommunication communication;

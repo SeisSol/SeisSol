@@ -11,7 +11,6 @@
 #define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ANISOTROPICSETUP_H_
 
 #include "Datastructures.h"
-#include "Equations/anisotropic/Model/IntegrationData.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
@@ -19,12 +18,14 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
+#include <Equations/elastic/Model/ElasticSetup.h>
 
 namespace seissol::model {
 using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
-template <>
-struct MaterialSetup<AnisotropicMaterial> {
+template <typename Cfg>
+struct MaterialSetup<Cfg, std::enable_if_t<Cfg::MaterialType == MaterialType::Anisotropic>> {
+  using MaterialT = model::MaterialTT<Cfg>;
   template <typename T>
   static void
       getTransposedCoefficientMatrix(const AnisotropicMaterial& material, unsigned dim, T& matM) {
@@ -220,17 +221,18 @@ struct MaterialSetup<AnisotropicMaterial> {
         -eigenvectorsLocal * lambdaLocal, Matrix33::Zero(), eigenvectorsNeighbor * lambdaNeighbor;
   }
 
-  static void getTransposedGodunovState(const AnisotropicMaterial& local,
-                                        const AnisotropicMaterial& neighbor,
-                                        FaceType faceType,
-                                        init::QgodLocal::view::type& qGodLocal,
-                                        init::QgodNeighbor::view::type& qGodNeighbor) {
+  static void
+      getTransposedGodunovState(const AnisotropicMaterial& local,
+                                const AnisotropicMaterial& neighbor,
+                                FaceType faceType,
+                                typename init::QgodLocal<Cfg>::view::type& qGodLocal,
+                                typename init::QgodNeighbor<Cfg>::view::type& qGodNeighbor) {
 
     Matrix99 matR = Matrix99::Zero();
     getEigenBasisForAnisotropicMaterial(local, neighbor, matR);
 
     if (faceType == FaceType::FreeSurface) {
-      getTransposedFreeSurfaceGodunovState(
+      getTransposedFreeSurfaceGodunovState<MaterialT>(
           MaterialType::Anisotropic, qGodLocal, qGodNeighbor, matR);
 
     } else {
@@ -327,16 +329,16 @@ struct MaterialSetup<AnisotropicMaterial> {
 
   static void initializeSpecificLocalData(const AnisotropicMaterial& material,
                                           double timeStepWidth,
-                                          AnisotropicLocalData* localData) {}
+                                          void* localData) {}
 
-  static void initializeSpecificNeighborData(const AnisotropicMaterial& material,
-                                             AnisotropicNeighborData* localData) {}
+  static void initializeSpecificNeighborData(const AnisotropicMaterial& material, void* localData) {
+  }
 
   static void getPlaneWaveOperator(const AnisotropicMaterial& material,
                                    const double n[3],
                                    std::complex<double> mdata[AnisotropicMaterial::NumQuantities *
                                                               AnisotropicMaterial::NumQuantities]) {
-    getElasticPlaneWaveOperator(material, n, mdata);
+    getElasticPlaneWaveOperator<Cfg>(material, n, mdata);
   }
   template <typename T>
   static void getTransposedSourceCoefficientTensor(const AnisotropicMaterial& material,
@@ -345,10 +347,9 @@ struct MaterialSetup<AnisotropicMaterial> {
   static void getFaceRotationMatrix(const VrtxCoords normal,
                                     const VrtxCoords tangent1,
                                     const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
-    ::seissol::model::getFaceRotationMatrix<ElasticMaterial>(
-        normal, tangent1, tangent2, matT, matTinv);
+                                    typename init::T<Cfg>::view::type& matT,
+                                    typename init::Tinv<Cfg>::view::type& matTinv) {
+    ::seissol::model::getFaceRotationMatrixElastic<Cfg>(normal, tangent1, tangent2, matT, matTinv);
   }
 };
 

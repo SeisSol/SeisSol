@@ -19,6 +19,9 @@
 #include "easi/Query.h"
 #include "easi/ResultAdapter.h"
 
+#include <Common/Templating.h>
+#include <Geometry/PUMLReader.h>
+#include <Initializer/ConfigMap.h>
 #include <memory>
 #include <set>
 #include <string>
@@ -35,7 +38,8 @@ class Component;
 } // namespace easi
 
 namespace seissol::initializer {
-constexpr auto NumQuadpoints = ConvergenceOrder * ConvergenceOrder * ConvergenceOrder;
+constexpr std::size_t AveragingOrder = 4;
+constexpr auto NumQuadpoints = AveragingOrder * AveragingOrder * AveragingOrder;
 
 class QueryGenerator;
 
@@ -44,28 +48,33 @@ class QueryGenerator;
 struct CellToVertexArray {
   using CellToVertexFunction = std::function<std::array<Eigen::Vector3d, 4>(size_t)>;
   using CellToGroupFunction = std::function<int(size_t)>;
+  using CellToConfigFunction = std::function<int(size_t)>;
 
   CellToVertexArray(size_t size,
                     const CellToVertexFunction& elementCoordinates,
-                    const CellToGroupFunction& elementGroups);
+                    const CellToGroupFunction& elementGroups,
+                    const CellToConfigFunction& elementConfigs);
 
   size_t size;
   CellToVertexFunction elementCoordinates;
   CellToGroupFunction elementGroups;
+  CellToConfigFunction elementConfigs;
 
   static CellToVertexArray fromMeshReader(const seissol::geometry::MeshReader& meshReader);
 #ifdef USE_HDF
-  static CellToVertexArray fromPUML(const seissol::geometry::PumlMesh& mesh);
+  static CellToVertexArray fromPUML(const seissol::geometry::PumlMesh& mesh,
+                                    const ConfigMap& configs);
 #endif
   static CellToVertexArray
       fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
-                  const std::vector<int>& groups);
+                  const std::vector<int>& groups,
+                  const std::vector<int>& configs);
+  static CellToVertexArray join(std::vector<CellToVertexArray> arrays);
+
+  [[nodiscard]] CellToVertexArray filter(const std::vector<bool>& keep) const;
 };
 
 easi::Component* loadEasiModel(const std::string& fileName);
-std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
-                                                      bool useCellHomogenizedMaterial,
-                                                      const CellToVertexArray& cellToVertex);
 
 class QueryGenerator {
   public:
@@ -97,27 +106,18 @@ class ElementAverageGenerator : public QueryGenerator {
   std::array<std::array<double, 3>, NumQuadpoints> m_quadraturePoints{};
 };
 
-class FaultBarycenterGenerator : public QueryGenerator {
-  public:
-  FaultBarycenterGenerator(const seissol::geometry::MeshReader& meshReader, unsigned numberOfPoints)
-      : m_meshReader(meshReader), m_numberOfPoints(numberOfPoints) {}
-  [[nodiscard]] easi::Query generate() const override;
-
-  private:
-  const seissol::geometry::MeshReader& m_meshReader;
-  unsigned m_numberOfPoints;
-};
-
 class FaultGPGenerator : public QueryGenerator {
   public:
   FaultGPGenerator(const seissol::geometry::MeshReader& meshReader,
-                   const std::vector<unsigned>& faceIDs)
-      : m_meshReader(meshReader), m_faceIDs(faceIDs) {}
+                   const std::vector<std::size_t>& faceIDs,
+                   std::size_t configId)
+      : m_meshReader(meshReader), m_faceIDs(faceIDs), configId(configId) {}
   [[nodiscard]] easi::Query generate() const override;
 
   private:
   const seissol::geometry::MeshReader& m_meshReader;
-  const std::vector<unsigned>& m_faceIDs;
+  const std::vector<std::size_t>& m_faceIDs;
+  std::size_t configId;
 };
 
 class ParameterDB {
@@ -127,25 +127,33 @@ class ParameterDB {
   static easi::Component* loadModel(const std::string& fileName);
 };
 
+template <typename T>
+struct MaterialAverager {
+  static constexpr bool Implemented = false;
+  static T computeAveragedMaterial(std::size_t elementIdx,
+                                   const std::vector<double>& quadratureWeights,
+                                   const std::vector<T>& materialsFromQuery) {
+    throw;
+  }
+};
+
 template <class T>
 class MaterialParameterDB : ParameterDB {
   public:
-  T computeAveragedMaterial(unsigned elementIdx,
-                            const std::array<double, NumQuadpoints>& quadratureWeights,
-                            const std::vector<T>& materialsFromQuery);
   void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
   void setMaterialVector(std::vector<T>* materials) { m_materials = materials; }
-  void addBindingPoints(easi::ArrayOfStructsAdapter<T>& adapter) {};
 
   private:
   std::vector<T>* m_materials{};
 };
 
+template <typename T>
 class FaultParameterDB : ParameterDB {
   public:
-  explicit FaultParameterDB(std::size_t simulation) : simid(simulation) {}
+  explicit FaultParameterDB(std::size_t simulation, std::size_t simCount)
+      : simid(simulation), simCount(simCount) {}
   ~FaultParameterDB() override = default;
-  void addParameter(const std::string& parameter, real* memory, unsigned stride = 1) {
+  void addParameter(const std::string& parameter, T* memory, unsigned stride = 1) {
     m_parameters[parameter] = std::make_pair(memory, stride);
   }
   void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
@@ -153,11 +161,14 @@ class FaultParameterDB : ParameterDB {
 
   private:
   std::size_t simid;
-  std::unordered_map<std::string, std::pair<real*, unsigned>> m_parameters;
+  std::size_t simCount;
+  std::unordered_map<std::string, std::pair<T*, unsigned>> m_parameters;
 };
 
+template <typename Cfg>
 class EasiBoundary {
   public:
+  using real = Real<Cfg>;
   explicit EasiBoundary(const std::string& fileName);
 
   EasiBoundary() : model(nullptr) {};
@@ -173,6 +184,53 @@ class EasiBoundary {
   private:
   easi::Component* model;
 };
+
+using EasiBoundaryT =
+    TransformVariadicT<std::optional, TransformVariadicT<EasiBoundary, ConfigVariant>>;
+
+template <typename MaterialT>
+std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
+                                                      bool useCellHomogenizedMaterial,
+                                                      const CellToVertexArray& cellToVertex) {
+  std::shared_ptr<QueryGenerator> queryGen;
+  if (!useCellHomogenizedMaterial) {
+    queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
+  } else {
+    if (MaterialT::Type != model::MaterialType::Viscoelastic &&
+        MaterialT::Type != model::MaterialType::Elastic) {
+      logWarning() << "Material Averaging is not implemented for " << MaterialT::Text
+                   << " materials. Falling back to "
+                      "material properties sampled from the element barycenters instead.";
+      queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
+    } else if (plasticity) {
+      logWarning()
+          << "Material Averaging is not implemented for plastic materials. Falling back to "
+             "material properties sampled from the element barycenters instead.";
+      queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
+    } else {
+      queryGen = std::make_shared<ElementAverageGenerator>(cellToVertex);
+    }
+  }
+  return queryGen;
+}
+
+using MaterialVariant =
+    RemoveDuplicateVariadicT<TransformVariadicT<model::MaterialTT, ConfigVariant>>;
+
+template <typename T>
+std::vector<T> queryDB(const std::shared_ptr<seissol::initializer::QueryGenerator>& queryGen,
+                       const std::string& fileName,
+                       size_t size) {
+  std::vector<T> vectorDB(size);
+  seissol::initializer::MaterialParameterDB<T> parameterDB;
+  parameterDB.setMaterialVector(&vectorDB);
+  parameterDB.evaluateModel(fileName, *queryGen);
+  return vectorDB;
+}
+
+std::vector<MaterialVariant>
+    queryMaterials(const parameters::ModelParameters& params,
+                   const seissol::initializer::CellToVertexArray& ctvArray);
 
 } // namespace seissol::initializer
 

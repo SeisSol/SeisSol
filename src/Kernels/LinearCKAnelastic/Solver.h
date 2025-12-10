@@ -19,21 +19,33 @@ class MonomialBasis;
 
 namespace seissol::kernels::solver::linearckanelastic {
 
+template <typename>
 class Spacetime;
+template <typename>
 class Time;
+template <typename>
 class Local;
+template <typename>
 class Neighbor;
 
 struct Solver {
-  using SpacetimeKernelT = Spacetime;
-  using TimeKernelT = Time;
-  using LocalKernelT = Local;
-  using NeighborKernelT = Neighbor;
+  template <typename Cfg>
+  using SpacetimeKernelT = Spacetime<Cfg>;
+
+  template <typename Cfg>
+  using TimeKernelT = Time<Cfg>;
+
+  template <typename Cfg>
+  using LocalKernelT = Local<Cfg>;
+
+  template <typename Cfg>
+  using NeighborKernelT = Neighbor<Cfg>;
 
   template <typename RealT>
   using TimeBasis = seissol::numerical::MonomialBasis<RealT>;
 
-  static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ>();
+  template <typename Cfg>
+  static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ<Cfg>>();
 };
 
 } // namespace seissol::kernels::solver::linearckanelastic

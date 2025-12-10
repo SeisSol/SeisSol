@@ -7,6 +7,7 @@
 #ifndef SEISSOL_SRC_KERNELS_STP_SOLVER_H_
 #define SEISSOL_SRC_KERNELS_STP_SOLVER_H_
 
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 
 #include <cstddef>
@@ -17,29 +18,34 @@ class LegendreBasis;
 } // namespace seissol::numerical
 
 namespace seissol::kernels::solver::linearck {
+template <typename>
 class Local;
+template <typename>
 class Neighbor;
 } // namespace seissol::kernels::solver::linearck
 
-namespace seissol::tensor {
-class spaceTimePredictor;
-} // namespace seissol::tensor
-
 namespace seissol::kernels::solver::stp {
 
+template <typename>
 class Spacetime;
+template <typename>
 class Time;
 
 struct Solver {
-  using SpacetimeKernelT = Spacetime;
-  using TimeKernelT = Time;
-  using LocalKernelT = linearck::Local;
-  using NeighborKernelT = linearck::Neighbor;
+  template <typename Cfg>
+  using SpacetimeKernelT = Spacetime<Cfg>;
+  template <typename Cfg>
+  using TimeKernelT = Time<Cfg>;
+  template <typename Cfg>
+  using LocalKernelT = linearck::Local<Cfg>;
+  template <typename Cfg>
+  using NeighborKernelT = linearck::Neighbor<Cfg>;
 
   template <typename RealT>
   using TimeBasis = seissol::numerical::LegendreBasis<RealT>;
 
-  static constexpr std::size_t DerivativesSize = kernels::size<tensor::spaceTimePredictor>();
+  template <typename Cfg>
+  static constexpr std::size_t DerivativesSize = kernels::size<tensor::spaceTimePredictor<Cfg>>();
 };
 
 } // namespace seissol::kernels::solver::stp

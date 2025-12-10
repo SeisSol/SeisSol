@@ -13,9 +13,12 @@
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 
+#include <GeneratedCode/tensor.h>
+#include <Model/CommonDatastructures.h>
 #include <algorithm>
 #include <cmath>
 
+template <typename RealT>
 void seissol::sourceterm::transformMomentTensor(const double localMomentTensor[3][3],
                                                 const double localSolidVelocityComponent[3],
                                                 double localPressureComponent,
@@ -23,7 +26,8 @@ void seissol::sourceterm::transformMomentTensor(const double localMomentTensor[3
                                                 double strike,
                                                 double dip,
                                                 double rake,
-                                                real* forceComponents) {
+                                                RealT* forceComponents,
+                                                model::MaterialType type) {
   const double cstrike = std::cos(strike);
   const double sstrike = std::sin(strike);
   const double cdip = std::cos(dip);
@@ -63,13 +67,12 @@ void seissol::sourceterm::transformMomentTensor(const double localMomentTensor[3
     }
   }
 
-  std::fill(forceComponents, forceComponents + tensor::update::Size, 0);
   // Save in order (\sigma_{xx}, \sigma_{yy}, \sigma_{zz}, \sigma_{xy}, \sigma_{yz}, \sigma_{xz}, u,
   // v, w, p, u_f, v_f, w_f)
 
   // TODO: prettify the code
   forceComponents[0] = m[0][0];
-  if constexpr (tensor::update::Size == 4) {
+  if (type == model::MaterialType::Acoustic) {
     forceComponents[1] = f[0];
     forceComponents[2] = f[1];
     forceComponents[3] = f[2];
@@ -82,7 +85,7 @@ void seissol::sourceterm::transformMomentTensor(const double localMomentTensor[3
     forceComponents[6] = f[0];
     forceComponents[7] = f[1];
     forceComponents[8] = f[2];
-    if constexpr (tensor::update::Size >= 13) {
+    if (type == model::MaterialType::Poroelastic) {
       forceComponents[9] = localPressureComponent;
       forceComponents[10] = f[3];
       forceComponents[11] = f[4];
@@ -90,3 +93,25 @@ void seissol::sourceterm::transformMomentTensor(const double localMomentTensor[3
     }
   }
 }
+
+template void
+    seissol::sourceterm::transformMomentTensor(const double localMomentTensor[3][3],
+                                               const double localSolidVelocityComponent[3],
+                                               double localPressureComponent,
+                                               const double localFluidVelocityComponent[3],
+                                               double strike,
+                                               double dip,
+                                               double rake,
+                                               float* forceComponents,
+                                               model::MaterialType type);
+
+template void
+    seissol::sourceterm::transformMomentTensor(const double localMomentTensor[3][3],
+                                               const double localSolidVelocityComponent[3],
+                                               double localPressureComponent,
+                                               const double localFluidVelocityComponent[3],
+                                               double strike,
+                                               double dip,
+                                               double rake,
+                                               double* forceComponents,
+                                               model::MaterialType type);

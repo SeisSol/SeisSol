@@ -27,19 +27,22 @@ struct GlobalData;
 
 namespace seissol::kernels::solver::linearck {
 
-class Spacetime : public SpacetimeKernel {
+template <typename Cfg>
+class Spacetime : public SpacetimeKernel<Cfg> {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  using real = Real<Cfg>;
+
+  void setGlobalData(const GlobalData& global) override;
   void computeAder(const real* coeffs,
                    double timeStepWidth,
-                   LTS::Ref& data,
-                   LocalTmp& tmp,
-                   real timeIntegrated[tensor::I::size()],
+                   LTS::Ref<Cfg>& data,
+                   LocalTmp<Cfg>& tmp,
+                   real timeIntegrated[tensor::I<Cfg>::size()],
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
   void computeBatchedAder(const real* coeffs,
                           double timeStepWidth,
-                          LocalTmp& tmp,
+                          LocalTmp<Cfg>& tmp,
                           recording::ConditionalPointersToRealsTable& dataTable,
                           recording::ConditionalMaterialTable& materialTable,
                           bool updateDisplacement,
@@ -50,22 +53,25 @@ class Spacetime : public SpacetimeKernel {
   std::uint64_t bytesAder() override;
 
   protected:
-  kernel::derivative m_krnlPrototype;
-  kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
+  kernel::derivative<Cfg> m_krnlPrototype;
+  kernel::projectDerivativeToNodalBoundaryRotated<Cfg> projectDerivativeToNodalBoundaryRotated;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_derivative deviceKrnlPrototype;
-  kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
+  kernel::gpu_derivative<Cfg> deviceKrnlPrototype;
+  kernel::gpu_projectDerivativeToNodalBoundaryRotated<Cfg> deviceDerivativeToNodalBoundaryRotated;
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 };
 
-class Time : public TimeKernel {
+template <typename Cfg>
+class Time : public TimeKernel<Cfg> {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  using real = Real<Cfg>;
+
+  void setGlobalData(const GlobalData& global) override;
   void evaluate(const real* coeffs,
                 const real* timeDerivatives,
-                real timeEvaluated[tensor::I::size()]) override;
+                real timeEvaluated[tensor::I<Cfg>::size()]) override;
   void evaluateBatched(const real* coeffs,
                        const real** timeDerivatives,
                        real** timeIntegratedDofs,

@@ -25,10 +25,6 @@
 #include "Parallel/Helper.h"
 #endif
 
-namespace seissol::tensor {
-struct Qane;
-} // namespace seissol::tensor
-
 namespace seissol {
 
 struct LTS {
@@ -44,8 +40,7 @@ struct LTS {
     PlasticityData
   };
 
-  static auto allocationModeWP(AllocationPreset preset,
-                               int convergenceOrder = seissol::ConvergenceOrder) {
+  static auto allocationModeWP(AllocationPreset preset, int convergenceOrder = 6) {
     using namespace seissol::initializer;
     if constexpr (!isDeviceOn()) {
       switch (preset) {
@@ -90,58 +85,117 @@ struct LTS {
     }
   }
 
-  struct Dofs : public initializer::Variable<real[tensor::Q::size()]> {};
-  // size is zero if Qane is not defined
-  struct DofsAne
-      : public initializer::Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> {
+  // to prevent a clang-format bug
+  template <typename Cfg>
+  using RealPtr = Real<Cfg>*;
+
+  struct Dofs : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = Real<Cfg>[tensor::Q<Cfg>::size()];
   };
-  struct Buffers : public initializer::Variable<real*> {};
-  struct Derivatives : public initializer::Variable<real*> {};
+  // size is zero if Qane is not defined
+  struct DofsAne : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = Real<Cfg>[zeroLengthArrayHandler(kernels::size<tensor::Qane<Cfg>>())];
+  };
+  struct Buffers : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = RealPtr<Cfg>;
+  };
+  struct Derivatives : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = RealPtr<Cfg>;
+  };
   struct CellInformation : public initializer::Variable<CellLocalInformation> {};
   struct SecondaryInformation : public initializer::Variable<SecondaryCellLocalInformation> {};
-  struct FaceNeighbors : public initializer::Variable<real* [Cell::NumFaces]> {};
-  struct LocalIntegration : public initializer::Variable<LocalIntegrationData> {};
-  struct NeighboringIntegration : public initializer::Variable<NeighboringIntegrationData> {};
-  struct MaterialData : public initializer::Variable<model::MaterialT> {};
+  struct FaceNeighbors : public initializer::Variable<void* [Cell::NumFaces]> {};
+  struct LocalIntegration : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = LocalIntegrationData<Cfg>;
+  };
+  struct NeighboringIntegration : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = NeighboringIntegrationData<Cfg>;
+  };
+  struct MaterialData : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = model::MaterialTT<Cfg>;
+  };
   struct Material : public initializer::Variable<CellMaterialData> {};
-  struct Plasticity : public initializer::Variable<seissol::model::PlasticityData> {};
-  struct DRMapping : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
-  struct BoundaryMapping : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {};
-  struct PStrain
-      : public initializer::Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> {};
-  struct FaceDisplacements : public initializer::Variable<real* [Cell::NumFaces]> {};
-  struct BuffersDerivatives : public initializer::Bucket<real> {};
-
-  struct BuffersDevice : public initializer::Variable<real*> {};
-  struct DerivativesDevice : public initializer::Variable<real*> {};
-  struct FaceNeighborsDevice : public initializer::Variable<real* [Cell::NumFaces]> {};
-  struct FaceDisplacementsDevice : public initializer::Variable<real* [Cell::NumFaces]> {};
-  struct DRMappingDevice : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
-  struct BoundaryMappingDevice : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {
+  struct Plasticity : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = seissol::model::PlasticityData<Cfg>;
+  };
+  struct DRMapping : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = CellDRMapping<Cfg>[Cell::NumFaces];
+  };
+  struct BoundaryMapping : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = CellBoundaryMapping<Cfg>[Cell::NumFaces];
+  };
+  struct PStrain : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = Real<Cfg>[tensor::QStress<Cfg>::size() + tensor::QEtaModal<Cfg>::size()];
+  };
+  struct FaceDisplacements : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = RealPtr<Cfg>[Cell::NumFaces];
+  };
+  struct BuffersDerivatives : public initializer::Bucket<void> {
+    template <typename Cfg>
+    using VariantType = Real<Cfg>;
   };
 
-  struct IntegratedDofsScratch : public initializer::Scratchpad<real> {};
-  struct DerivativesScratch : public initializer::Scratchpad<real> {};
-  struct NodalAvgDisplacements : public initializer::Scratchpad<real> {};
-  struct AnalyticScratch : public initializer::Scratchpad<real> {};
-  struct DerivativesExtScratch : public initializer::Scratchpad<real> {};
-  struct DerivativesAneScratch : public initializer::Scratchpad<real> {};
-  struct IDofsAneScratch : public initializer::Scratchpad<real> {};
-  struct DofsExtScratch : public initializer::Scratchpad<real> {};
+  struct BuffersDevice : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = RealPtr<Cfg>;
+  };
+  struct DerivativesDevice : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = RealPtr<Cfg>;
+  };
+  struct FaceNeighborsDevice : public initializer::Variable<void* [Cell::NumFaces]> {};
+  struct FaceDisplacementsDevice : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = RealPtr<Cfg>[Cell::NumFaces];
+  };
+  struct DRMappingDevice : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = CellDRMapping<Cfg>[Cell::NumFaces];
+  };
+  struct BoundaryMappingDevice : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType = CellBoundaryMapping<Cfg>[Cell::NumFaces];
+  };
+
+  struct ScratchBase : public initializer::Scratchpad<void> {
+    template <typename Cfg>
+    using VariantType = Real<Cfg>;
+  };
+
+  struct IntegratedDofsScratch : public ScratchBase {};
+  struct DerivativesScratch : public ScratchBase {};
+  struct NodalAvgDisplacements : public ScratchBase {};
+  struct AnalyticScratch : public ScratchBase {};
+  struct DerivativesExtScratch : public ScratchBase {};
+  struct DerivativesAneScratch : public ScratchBase {};
+  struct IDofsAneScratch : public ScratchBase {};
+  struct DofsExtScratch : public ScratchBase {};
 
   struct FlagScratch : public initializer::Scratchpad<unsigned> {};
-  struct PrevDofsScratch : public initializer::Scratchpad<real> {};
-  struct QEtaNodalScratch : public initializer::Scratchpad<real> {};
-  struct QStressNodalScratch : public initializer::Scratchpad<real> {};
+  struct PrevDofsScratch : public ScratchBase {};
+  struct QEtaNodalScratch : public ScratchBase {};
+  struct QStressNodalScratch : public ScratchBase {};
 
-  struct RotateDisplacementToFaceNormalScratch : public initializer::Scratchpad<real> {};
-  struct RotateDisplacementToGlobalScratch : public initializer::Scratchpad<real> {};
-  struct RotatedFaceDisplacementScratch : public initializer::Scratchpad<real> {};
-  struct DofsFaceNodalScratch : public initializer::Scratchpad<real> {};
-  struct PrevCoefficientsScratch : public initializer::Scratchpad<real> {};
-  struct DofsFaceBoundaryNodalScratch : public initializer::Scratchpad<real> {};
+  struct RotateDisplacementToFaceNormalScratch : public ScratchBase {};
+  struct RotateDisplacementToGlobalScratch : public ScratchBase {};
+  struct RotatedFaceDisplacementScratch : public ScratchBase {};
+  struct DofsFaceNodalScratch : public ScratchBase {};
+  struct PrevCoefficientsScratch : public ScratchBase {};
+  struct DofsFaceBoundaryNodalScratch : public ScratchBase {};
 
-  struct Integrals : public initializer::Variable<real> {};
+  struct Integrals : public initializer::VariantVariable<Real> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
                                                         DofsAne,
@@ -188,7 +242,8 @@ struct LTS {
 
   using Storage = initializer::Storage<LTSVarmap>;
   using Layer = initializer::Layer<LTSVarmap>;
-  using Ref = initializer::Layer<LTSVarmap>::CellRef;
+  template <typename Config>
+  using Ref = initializer::Layer<LTSVarmap>::CellRef<Config>;
   using Backmap = initializer::StorageBackmap<Cell::NumFaces>;
 
   static void addTo(Storage& storage, bool usePlasticity) {
@@ -201,14 +256,9 @@ struct LTS {
     }
 
     storage.add<Dofs>(LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
-    if (kernels::size<tensor::Qane>() > 0) {
-      storage.add<DofsAne>(
-          LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
-    } else {
-      storage.add<DofsAne>(LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior),
-                           PagesizeHeap,
-                           allocationModeWP(AllocationPreset::Dofs));
-    }
+
+    storage.add<DofsAne>(LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
+
     storage.add<Buffers>(
         LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
     storage.add<Derivatives>(
@@ -273,9 +323,7 @@ struct LTS {
   static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
                                           Storage& storage) {
     manager.registerData<Dofs>("dofs", storage);
-    if constexpr (kernels::size<tensor::Qane>() > 0) {
-      manager.registerData<DofsAne>("dofsAne", storage);
-    }
+    manager.registerData<DofsAne>("dofsAne", storage);
     // check plasticity usage over the layer mask (for now)
     if (storage.info<Plasticity>().mask == initializer::LayerMask(Ghost)) {
       manager.registerData<Plasticity>("pstrain", storage);

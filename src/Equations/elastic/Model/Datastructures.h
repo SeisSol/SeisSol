@@ -19,12 +19,10 @@
 #include <cmath>
 #include <cstddef>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace seissol::model {
-struct ElasticLocalData;
-struct ElasticNeighborData;
-
 struct ElasticMaterial : Material {
   static constexpr std::size_t NumQuantities = 9;
   static constexpr std::size_t NumElasticQuantities = 9;
@@ -40,12 +38,19 @@ struct ElasticMaterial : Material {
   static constexpr bool SupportsDR = true;
   static constexpr bool SupportsLTS = true;
 
-  using LocalSpecificData = ElasticLocalData;
-  using NeighborSpecificData = ElasticNeighborData;
+  template <typename Cfg>
+  using LocalSpecificData = std::monostate;
+
+  template <typename Cfg>
+  using NeighborSpecificData = std::monostate;
+
+  template <typename Cfg>
   using Solver = kernels::solver::linearck::Solver;
 
   double lambda{};
   double mu{};
+
+  static const std::unordered_map<std::string, double ElasticMaterial::*> ParameterMap;
 
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
@@ -97,6 +102,12 @@ struct ElasticMaterial : Material {
     this->lambda = lambda;
   }
 };
+
+inline const std::unordered_map<std::string, double ElasticMaterial::*>
+    ElasticMaterial::ParameterMap{{"rho", &ElasticMaterial::rho},
+                                  {"lambda", &ElasticMaterial::lambda},
+                                  {"mu", &ElasticMaterial::mu}};
+
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_DATASTRUCTURES_H_

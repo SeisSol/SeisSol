@@ -33,7 +33,11 @@ class Hdf5File {
                  const std::string& name,
                  const std::shared_ptr<DataSource>& source,
                  const std::shared_ptr<datatype::Datatype>& targetType,
-                 int compress);
+                 int compress,
+                 bool append);
+  void writeLinkExternal(const std::string& name,
+                         const std::string& targetFile,
+                         const std::string& targetPath);
   void closeDataset();
   void closeGroup();
   void closeFile();
@@ -51,6 +55,9 @@ class Hdf5Writer {
   void writeAttribute(const async::ExecInfo& info, const instructions::Hdf5AttributeWrite& write);
 
   void writeData(const async::ExecInfo& info, const instructions::Hdf5DataWrite& write);
+
+  void writeLinkExternal(const async::ExecInfo& info,
+                         const instructions::Hdf5LinkExternalWrite& write);
 
   void finalize();
 

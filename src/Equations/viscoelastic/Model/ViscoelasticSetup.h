@@ -15,12 +15,16 @@
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 
+#include <Common/Typedefs.h>
+#include <Equations/elastic/Model/ElasticSetup.h>
 #include <yateto.h>
 
 namespace seissol::model {
-template <std::size_t N>
-struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
-  using MaterialT = ViscoElasticMaterialParametrized<N>;
+template <typename Cfg>
+struct MaterialSetup<Cfg,
+                     std::enable_if_t<Cfg::MaterialType == MaterialType::Viscoelastic &&
+                                      Cfg::ViscoMode == ViscoImplementation::QuantityExtension>> {
+  using MaterialT = model::MaterialTT<Cfg>;
 
   template <typename T>
   static void
@@ -82,18 +86,19 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
 
   template <typename T>
   static void getTransposedCoefficientMatrix(const MaterialT& material, unsigned dim, T& AT) {
-    getTransposedCoefficientMatrix(dynamic_cast<const ElasticMaterial&>(material), dim, AT);
+    getTransposedCoefficientMatrixElastic(dynamic_cast<const ElasticMaterial&>(material), dim, AT);
 
     for (unsigned mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       getTransposedViscoelasticCoefficientMatrix(material.omega[mech], dim, mech, AT);
     }
   }
 
-  static void getTransposedGodunovState(const MaterialT& local,
-                                        const MaterialT& neighbor,
-                                        FaceType faceType,
-                                        init::QgodLocal::view::type& qGodLocal,
-                                        init::QgodNeighbor::view::type& qGodNeighbor) {
+  static void
+      getTransposedGodunovState(const MaterialT& local,
+                                const MaterialT& neighbor,
+                                FaceType faceType,
+                                typename init::QgodLocal<Cfg>::view::type& qGodLocal,
+                                typename init::QgodNeighbor<Cfg>::view::type& qGodNeighbor) {
     seissol::model::getTransposedGodunovState(dynamic_cast<const ElasticMaterial&>(local),
                                               dynamic_cast<const ElasticMaterial&>(neighbor),
                                               faceType,
@@ -103,21 +108,19 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
 
   static void initializeSpecificLocalData(const MaterialT& material,
                                           double timeStepWidth,
-                                          ViscoElasticLocalData* localData) {
-    auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
+                                          ViscoElasticQELocalData<Cfg>* localData) {
+    auto sourceMatrix = init::ET<Cfg>::view::create(localData->sourceMatrix);
     getTransposedSourceCoefficientTensor(material, sourceMatrix);
   }
 
-  static void initializeSpecificNeighborData(const MaterialT& material,
-                                             ViscoElasticLocalData* localData) {}
+  static void initializeSpecificNeighborData(const MaterialT& material, void* localData) {}
 
   static void getFaceRotationMatrix(const VrtxCoords normal,
                                     const VrtxCoords tangent1,
                                     const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
-    seissol::model::getFaceRotationMatrix<ElasticMaterial>(
-        normal, tangent1, tangent2, matT, matTinv);
+                                    typename init::T<Cfg>::view::type& matT,
+                                    typename init::Tinv<Cfg>::view::type& matTinv) {
+    seissol::model::getFaceRotationMatrixElastic<Cfg>(normal, tangent1, tangent2, matT, matTinv);
 
     for (unsigned mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       const unsigned origin =
@@ -139,7 +142,7 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
       const MaterialT& material,
       const double n[3],
       std::complex<double> mdata[MaterialT::NumQuantities * MaterialT::NumQuantities]) {
-    getElasticPlaneWaveOperator(material, n, mdata);
+    getElasticPlaneWaveOperator<Cfg>(material, n, mdata);
   }
 };
 } // namespace seissol::model

@@ -18,7 +18,7 @@
 namespace seissol::dr::friction_law {
 
 FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<double>& timePoints) {
-  std::vector<double> deltaT(misc::TimeSteps);
+  std::vector<double> deltaT(timePoints.size());
 
   if (timePoints.size() != deltaT.size()) {
     logError() << "Internal time point count mismatch. Given vs. expected:" << timePoints.size()
@@ -26,7 +26,7 @@ FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<dou
   }
 
   deltaT[0] = timePoints[0]; // - 0
-  for (std::size_t timeIndex = 1; timeIndex < misc::TimeSteps; ++timeIndex) {
+  for (std::size_t timeIndex = 1; timeIndex < timePoints.size(); ++timeIndex) {
     deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
   }
 
@@ -39,37 +39,44 @@ FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<dou
   return {sumDt, deltaT};
 }
 
-void FrictionSolver::copyStorageToLocal(DynamicRupture::Layer& layerData) {
+template <typename Cfg>
+void FrictionSolverImpl<Cfg>::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   const seissol::initializer::AllocationPlace place = allocationPlace();
-  impAndEta = layerData.var<DynamicRupture::ImpAndEta>(place);
-  impedanceMatrices = layerData.var<DynamicRupture::ImpedanceMatrices>(place);
-  initialStressInFaultCS = layerData.var<DynamicRupture::InitialStressInFaultCS>(place);
-  nucleationStressInFaultCS = layerData.var<DynamicRupture::NucleationStressInFaultCS>(place);
-  mu = layerData.var<DynamicRupture::Mu>(place);
-  accumulatedSlipMagnitude = layerData.var<DynamicRupture::AccumulatedSlipMagnitude>(place);
-  slip1 = layerData.var<DynamicRupture::Slip1>(place);
-  slip2 = layerData.var<DynamicRupture::Slip2>(place);
-  slipRateMagnitude = layerData.var<DynamicRupture::SlipRateMagnitude>(place);
-  slipRate1 = layerData.var<DynamicRupture::SlipRate1>(place);
-  slipRate2 = layerData.var<DynamicRupture::SlipRate2>(place);
-  ruptureTime = layerData.var<DynamicRupture::RuptureTime>(place);
-  ruptureTimePending = layerData.var<DynamicRupture::RuptureTimePending>(place);
-  peakSlipRate = layerData.var<DynamicRupture::PeakSlipRate>(place);
-  traction1 = layerData.var<DynamicRupture::Traction1>(place);
-  traction2 = layerData.var<DynamicRupture::Traction2>(place);
-  imposedStatePlus = layerData.var<DynamicRupture::ImposedStatePlus>(place);
-  imposedStateMinus = layerData.var<DynamicRupture::ImposedStateMinus>(place);
-  energyData = layerData.var<DynamicRupture::DREnergyOutputVar>(place);
-  godunovData = layerData.var<DynamicRupture::GodunovData>(place);
-  dynStressTime = layerData.var<DynamicRupture::DynStressTime>(place);
-  dynStressTimePending = layerData.var<DynamicRupture::DynStressTimePending>(place);
-  qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>(place);
-  qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>(place);
-  initialPressure = layerData.var<DynamicRupture::InitialPressure>(place);
-  nucleationPressure = layerData.var<DynamicRupture::NucleationPressure>(place);
+  impAndEta = layerData.var<DynamicRupture::ImpAndEta>(Cfg(), place);
+  impedanceMatrices = layerData.var<DynamicRupture::ImpedanceMatrices>(Cfg(), place);
+  initialStressInFaultCS = layerData.var<DynamicRupture::InitialStressInFaultCS>(Cfg(), place);
+  nucleationStressInFaultCS =
+      layerData.var<DynamicRupture::NucleationStressInFaultCS>(Cfg(), place);
+  mu = layerData.var<DynamicRupture::Mu>(Cfg(), place);
+  accumulatedSlipMagnitude = layerData.var<DynamicRupture::AccumulatedSlipMagnitude>(Cfg(), place);
+  slip1 = layerData.var<DynamicRupture::Slip1>(Cfg(), place);
+  slip2 = layerData.var<DynamicRupture::Slip2>(Cfg(), place);
+  slipRateMagnitude = layerData.var<DynamicRupture::SlipRateMagnitude>(Cfg(), place);
+  slipRate1 = layerData.var<DynamicRupture::SlipRate1>(Cfg(), place);
+  slipRate2 = layerData.var<DynamicRupture::SlipRate2>(Cfg(), place);
+  ruptureTime = layerData.var<DynamicRupture::RuptureTime>(Cfg(), place);
+  ruptureTimePending = layerData.var<DynamicRupture::RuptureTimePending>(Cfg(), place);
+  peakSlipRate = layerData.var<DynamicRupture::PeakSlipRate>(Cfg(), place);
+  traction1 = layerData.var<DynamicRupture::Traction1>(Cfg(), place);
+  traction2 = layerData.var<DynamicRupture::Traction2>(Cfg(), place);
+  imposedStatePlus = layerData.var<DynamicRupture::ImposedStatePlus>(Cfg(), place);
+  imposedStateMinus = layerData.var<DynamicRupture::ImposedStateMinus>(Cfg(), place);
+  energyData = layerData.var<DynamicRupture::DREnergyOutputVar>(Cfg(), place);
+  godunovData = layerData.var<DynamicRupture::GodunovData>(Cfg(), place);
+  dynStressTime = layerData.var<DynamicRupture::DynStressTime>(Cfg(), place);
+  dynStressTimePending = layerData.var<DynamicRupture::DynStressTimePending>(Cfg(), place);
+  qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>(Cfg(), place);
+  qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>(Cfg(), place);
+  initialPressure = layerData.var<DynamicRupture::InitialPressure>(Cfg(), place);
+  nucleationPressure = layerData.var<DynamicRupture::NucleationPressure>(Cfg(), place);
 }
-seissol::initializer::AllocationPlace FrictionSolver::allocationPlace() {
+
+template <typename Cfg>
+seissol::initializer::AllocationPlace FrictionSolverImpl<Cfg>::allocationPlace() {
   return seissol::initializer::AllocationPlace::Host;
 }
+
+#define SEISSOL_CONFIGITER(cfg) template class FrictionSolverImpl<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol::dr::friction_law

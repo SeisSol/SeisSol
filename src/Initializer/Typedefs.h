@@ -28,10 +28,14 @@
 namespace seissol {
 
 namespace kernels {
-constexpr std::size_t NumSpaceQuadraturePoints = (ConvergenceOrder + 1) * (ConvergenceOrder + 1);
+template <typename Config>
+constexpr std::size_t NumSpaceQuadraturePoints =
+    (Config::ConvergenceOrder + 1) * (Config::ConvergenceOrder + 1);
 } // namespace kernels
 
-struct GlobalData {
+template <typename Cfg>
+struct GlobalDataCfg {
+  using real = Real<Cfg>;
   /**
    * Addresses of the global change of basis matrices (multiplied by the inverse diagonal mass
    *matrix):
@@ -41,7 +45,7 @@ struct GlobalData {
    *    2: \f$ M^{-1} R^3 \f$
    *    3: \f$ M^{-1} R^4 \f$
    **/
-  seissol::tensor::rDivM::Container<const real*> changeOfBasisMatrices;
+  typename seissol::tensor::rDivM<Cfg>::template Container<const real*> changeOfBasisMatrices;
 
   /**
    * Addresses of the transposed global change of basis matrices left-multiplied with the local flux
@@ -52,7 +56,8 @@ struct GlobalData {
    *    2: \f$ F^- ( R^3 )^T \f$
    *    3: \f$ F^- ( R^4 )^T \f$
    **/
-  seissol::tensor::fMrT::Container<const real*> localChangeOfBasisMatricesTransposed;
+  typename seissol::tensor::fMrT<Cfg>::template Container<const real*>
+      localChangeOfBasisMatricesTransposed;
 
   /**
    * Addresses of the transposed global change of basis matrices:
@@ -62,7 +67,8 @@ struct GlobalData {
    *    2: \f$ ( R^3 )^T \f$
    *    3: \f$ ( R^4 )^T \f$
    **/
-  seissol::tensor::rT::Container<const real*> neighborChangeOfBasisMatricesTransposed;
+  typename seissol::tensor::rT<Cfg>::template Container<const real*>
+      neighborChangeOfBasisMatricesTransposed;
 
   /**
    * Addresses of the global flux matrices:
@@ -71,7 +77,7 @@ struct GlobalData {
    *    1: \f$ F^{+,2} \f$
    *    2: \f$ F^{+,3} \f$
    **/
-  seissol::tensor::fP::Container<const real*> neighborFluxMatrices;
+  typename seissol::tensor::fP<Cfg>::template Container<const real*> neighborFluxMatrices;
 
   /**
    * Addresses of the global stiffness matrices (multiplied by the inverse diagonal mass matrix):
@@ -83,7 +89,7 @@ struct GlobalData {
    *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks
    *(except for the additional flux matrix).
    **/
-  seissol::tensor::kDivM::Container<const real*> stiffnessMatrices;
+  typename seissol::tensor::kDivM<Cfg>::template Container<const real*> stiffnessMatrices;
 
   /**
    * Addresses of the transposed global stiffness matrices (multiplied by the inverse diagonal mass
@@ -96,7 +102,8 @@ struct GlobalData {
    *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks
    *(except for the additional flux matrix).
    **/
-  seissol::tensor::kDivMT::Container<const real*> stiffnessMatricesTransposed;
+  typename seissol::tensor::kDivMT<Cfg>::template Container<const real*>
+      stiffnessMatricesTransposed;
 
   /**
    * Address of the (thread-local) local time stepping integration buffers used in the neighbor
@@ -118,10 +125,11 @@ struct GlobalData {
    *    [..]
    *    15: \f$ P^{-,4,3} \f$
    **/
-  seissol::tensor::V3mTo2nTWDivM::Container<const real*> nodalFluxMatrices;
+  typename seissol::tensor::V3mTo2nTWDivM<Cfg>::template Container<const real*> nodalFluxMatrices;
 
-  seissol::nodal::tensor::V3mTo2nFace::Container<const real*> v3mTo2nFace;
-  seissol::tensor::project2nFaceTo3m::Container<const real*> project2nFaceTo3m;
+  typename seissol::nodal::tensor::V3mTo2nFace<Cfg>::template Container<const real*> v3mTo2nFace;
+  typename seissol::tensor::project2nFaceTo3m<Cfg>::template Container<const real*>
+      project2nFaceTo3m;
 
   /**
    * Addresses of the global face to nodal matrices
@@ -139,11 +147,12 @@ struct GlobalData {
    **/
 
 #if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
-  seissol::tensor::plusFluxMatrices::Container<real const*> plusFluxMatrices;
-  seissol::tensor::minusFluxMatrices::Container<const real*> minusFluxMatrices;
+  typename seissol::tensor::plusFluxMatrices<Cfg>::template Container<real const*> plusFluxMatrices;
+  typename seissol::tensor::minusFluxMatrices<Cfg>::template Container<const real*>
+      minusFluxMatrices;
 #endif // ACL_DEVICE
 
-  seissol::tensor::V3mTo2n::Container<real const*> faceToNodalMatrices;
+  typename seissol::tensor::V3mTo2n<Cfg>::template Container<real const*> faceToNodalMatrices;
 
   //! Modal basis to quadrature points
   real* evalAtQPMatrix{nullptr};
@@ -178,30 +187,27 @@ struct GlobalData {
   real* heatSource{nullptr};
 };
 
-struct CompoundGlobalData {
-  GlobalData* onHost{nullptr};
-  GlobalData* onDevice{nullptr};
-};
-
 // data for the cell local integration
+template <typename Cfg>
 struct LocalIntegrationData {
   // star matrices
-  real starMatrices[3][seissol::tensor::star::size(0)];
+  Real<Cfg> starMatrices[Cell::Dim][seissol::tensor::star<Cfg>::size(0)];
 
   // flux solver for element local contribution
-  real nApNm1[4][seissol::tensor::AplusT::size()];
+  Real<Cfg> nApNm1[Cell::NumFaces][seissol::tensor::AplusT<Cfg>::size()];
 
   // equation-specific data
-  seissol::model::MaterialT::LocalSpecificData specific;
+  typename seissol::model::MaterialTT<Cfg>::template LocalSpecificData<Cfg> specific;
 };
 
 // data for the neighboring boundary integration
+template <typename Cfg>
 struct NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
-  real nAmNm1[4][seissol::tensor::AminusT::size()];
+  Real<Cfg> nAmNm1[Cell::NumFaces][seissol::tensor::AminusT<Cfg>::size()];
 
   // equation-specific data
-  seissol::model::MaterialT::NeighborSpecificData specific;
+  typename seissol::model::MaterialTT<Cfg>::template NeighborSpecificData<Cfg> specific;
 };
 
 // material constants per cell
@@ -218,10 +224,11 @@ struct DRFaceInformation {
   bool plusSideOnThisRank{};
 };
 
+template <typename Cfg>
 struct DRGodunovData {
-  real dataTinvT[seissol::tensor::TinvT::size()];
-  real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix::size()];
-  real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix::size()];
+  Real<Cfg> dataTinvT[seissol::tensor::TinvT<Cfg>::size()];
+  Real<Cfg> tractionPlusMatrix[seissol::tensor::tractionPlusMatrix<Cfg>::size()];
+  Real<Cfg> tractionMinusMatrix[seissol::tensor::tractionMinusMatrix<Cfg>::size()];
   // When integrating quantities over the fault
   // we need to integrate over each physical element.
   // The integration is effectively done in the reference element, and the scaling factor of
@@ -234,11 +241,12 @@ struct DRGodunovData {
   double doubledSurfaceArea;
 };
 
+template <typename Cfg>
 struct DREnergyOutput {
-  real slip[seissol::tensor::slipInterpolated::size()];
-  real accumulatedSlip[seissol::dr::misc::NumPaddedPoints];
-  real frictionalEnergy[seissol::dr::misc::NumPaddedPoints];
-  real timeSinceSlipRateBelowThreshold[seissol::dr::misc::NumPaddedPoints];
+  Real<Cfg> slip[seissol::tensor::slipInterpolated<Cfg>::size()];
+  Real<Cfg> accumulatedSlip[seissol::dr::misc::NumPaddedPoints<Cfg>];
+  Real<Cfg> frictionalEnergy[seissol::dr::misc::NumPaddedPoints<Cfg>];
+  Real<Cfg> timeSinceSlipRateBelowThreshold[seissol::dr::misc::NumPaddedPoints<Cfg>];
 
   static std::vector<seissol::io::datatype::StructDatatype::MemberInfo> datatypeLayout() {
     return {
@@ -262,31 +270,34 @@ struct DREnergyOutput {
   }
 };
 
+template <typename Cfg>
 struct CellDRMapping {
   unsigned side{};
   unsigned faceRelation{};
-  real* godunov{nullptr};
-  real* fluxSolver{nullptr};
+  Real<Cfg>* godunov{nullptr};
+  Real<Cfg>* fluxSolver{nullptr};
 };
 
+template <typename Cfg>
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
-  real nodes[seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] * 3]{};
-  real dataT[seissol::tensor::T::size()]{};
-  real dataTinv[seissol::tensor::Tinv::size()]{};
-  real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()]{};
-  real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()]{};
+  Real<Cfg> nodes[seissol::nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisDim<Cfg>] * 3]{};
+  Real<Cfg> dataT[seissol::tensor::T<Cfg>::size()]{};
+  Real<Cfg> dataTinv[seissol::tensor::Tinv<Cfg>::size()]{};
+  Real<Cfg> easiBoundaryConstant[seissol::tensor::easiBoundaryConstant<Cfg>::size()]{};
+  Real<Cfg> easiBoundaryMap[seissol::tensor::easiBoundaryMap<Cfg>::size()]{};
 };
 
+template <typename Cfg>
 struct CellBoundaryMapping {
-  real* nodes{nullptr};
-  real* dataT{nullptr};
-  real* dataTinv{nullptr};
-  real* easiBoundaryConstant{nullptr};
-  real* easiBoundaryMap{nullptr};
+  Real<Cfg>* nodes{nullptr};
+  Real<Cfg>* dataT{nullptr};
+  Real<Cfg>* dataTinv{nullptr};
+  Real<Cfg>* easiBoundaryConstant{nullptr};
+  Real<Cfg>* easiBoundaryMap{nullptr};
 
   CellBoundaryMapping() = default;
-  explicit CellBoundaryMapping(BoundaryFaceInformation& faceInfo)
+  explicit CellBoundaryMapping(BoundaryFaceInformation<Cfg>& faceInfo)
       : nodes(faceInfo.nodes), dataT(faceInfo.dataT), dataTinv(faceInfo.dataTinv),
         easiBoundaryConstant(faceInfo.easiBoundaryConstant),
         easiBoundaryMap(faceInfo.easiBoundaryMap) {}

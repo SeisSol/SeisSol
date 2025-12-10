@@ -17,36 +17,37 @@
 #include "SlipLaw.h"
 #include "SlowVelocityWeakeningLaw.h"
 #include "SourceTimeFunction.h"
-#include "ThermalPressurization/NoTP.h"
-#include "ThermalPressurization/ThermalPressurization.h"
+#include "ThermalPressurization<Cfg>/NoTP<Cfg>.h"
+#include "ThermalPressurization<Cfg>/ThermalPressurization<Cfg>.h"
 
 #include <sycl/sycl.hpp>
 
 namespace seissol::dr::friction_law::gpu {
 
-template <typename T>
-void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
-                                           real fullUpdateTime,
-                                           const double* timeWeights,
-                                           const FrictionTime& frictionTime) {
+template <typename Cfg, typename T>
+void BaseFrictionSolver<Cfg, T>::evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
+                                                real fullUpdateTime,
+                                                const double* timeWeights,
+                                                const FrictionTime& frictionTime) {
   auto* queue = reinterpret_cast<sycl::queue*>(runtime.stream());
 
-  FrictionLawArgs args{};
+  FrictionLawArgs<Cfg> args{};
   args.data = data;
   args.spaceWeights = devSpaceWeights;
   args.resampleMatrix = resampleMatrix;
   args.tpInverseFourierCoefficients = devTpInverseFourierCoefficients;
   args.tpGridPoints = devTpGridPoints;
   args.heatSource = devHeatSource;
-  std::copy_n(timeWeights, misc::TimeSteps, args.timeWeights);
-  std::copy_n(frictionTime.deltaT.data(), misc::TimeSteps, args.deltaT);
+  std::copy_n(timeWeights, misc::TimeSteps<Cfg>, args.timeWeights);
+  std::copy_n(frictionTime.deltaT.data(), misc::TimeSteps<Cfg>, args.deltaT);
   args.sumDt = frictionTime.sumDt;
   args.fullUpdateTime = fullUpdateTime;
 
-  sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
+  sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints<Cfg>},
+                     {misc::NumPaddedPoints<Cfg>}};
   queue->submit([&](sycl::handler& cgh) {
     // NOLINTNEXTLINE
-    sycl::local_accessor<real> sharedMemory(misc::NumPaddedPoints, cgh);
+    sycl::local_accessor<real> sharedMemory(misc::NumPaddedPoints<Cfg>, cgh);
 
     cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
       FrictionLawContext ctx{};
@@ -66,29 +67,61 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   });
 }
 
-template class BaseFrictionSolver<NoFault>;
-template class BaseFrictionSolver<
-    LinearSlipWeakeningBase<LinearSlipWeakeningLaw<NoSpecialization>>>;
-template class BaseFrictionSolver<LinearSlipWeakeningBase<LinearSlipWeakeningLaw<BiMaterialFault>>>;
-template class BaseFrictionSolver<LinearSlipWeakeningBase<LinearSlipWeakeningLaw<TPApprox>>>;
-template class BaseFrictionSolver<
-    RateAndStateBase<SlowVelocityWeakeningLaw<AgingLaw<NoTP>, NoTP>, NoTP>>;
-template class BaseFrictionSolver<
-    RateAndStateBase<SlowVelocityWeakeningLaw<SlipLaw<NoTP>, NoTP>, NoTP>>;
-template class BaseFrictionSolver<RateAndStateBase<FastVelocityWeakeningLaw<NoTP>, NoTP>>;
-template class BaseFrictionSolver<RateAndStateBase<SevereVelocityWeakeningLaw<NoTP>, NoTP>>;
-template class BaseFrictionSolver<RateAndStateBase<
-    SlowVelocityWeakeningLaw<AgingLaw<ThermalPressurization>, ThermalPressurization>,
-    ThermalPressurization>>;
-template class BaseFrictionSolver<RateAndStateBase<
-    SlowVelocityWeakeningLaw<SlipLaw<ThermalPressurization>, ThermalPressurization>,
-    ThermalPressurization>>;
-template class BaseFrictionSolver<
-    RateAndStateBase<FastVelocityWeakeningLaw<ThermalPressurization>, ThermalPressurization>>;
-template class BaseFrictionSolver<
-    RateAndStateBase<SevereVelocityWeakeningLaw<ThermalPressurization>, ThermalPressurization>>;
-template class BaseFrictionSolver<ImposedSlipRates<YoffeSTF>>;
-template class BaseFrictionSolver<ImposedSlipRates<GaussianSTF>>;
-template class BaseFrictionSolver<ImposedSlipRates<DeltaSTF>>;
+#define SEISSOL_CONFIGITER(cfg)                                                                    \
+  template class BaseFrictionSolver<cfg, NoFault<cfg>>;                                            \
+  template class BaseFrictionSolver<                                                               \
+      cfg,                                                                                         \
+      LinearSlipWeakeningBase<cfg, LinearSlipWeakeningLaw<cfg, NoSpecialization<cfg>>>>;           \
+  template class BaseFrictionSolver<                                                               \
+      cfg,                                                                                         \
+      LinearSlipWeakeningBase<cfg, LinearSlipWeakeningLaw<cfg, BiMaterialFault<cfg>>>>;            \
+  template class BaseFrictionSolver<                                                               \
+      cfg,                                                                                         \
+      LinearSlipWeakeningBase<cfg, LinearSlipWeakeningLaw<cfg, TPApprox<cfg>>>>;                   \
+  template class BaseFrictionSolver<                                                               \
+      cfg,                                                                                         \
+      RateAndStateBase<cfg,                                                                        \
+                       SlowVelocityWeakeningLaw<cfg, AgingLaw<cfg, NoTP<cfg>>, NoTP<cfg>>,         \
+                       NoTP<cfg>>>;                                                                \
+  template class BaseFrictionSolver<                                                               \
+      cfg,                                                                                         \
+      RateAndStateBase<cfg,                                                                        \
+                       SlowVelocityWeakeningLaw<cfg, SlipLaw<cfg, NoTP<cfg>>, NoTP<cfg>>,          \
+                       NoTP<cfg>>>;                                                                \
+  template class BaseFrictionSolver<                                                               \
+      cfg,                                                                                         \
+      RateAndStateBase<cfg, FastVelocityWeakeningLaw<cfg, NoTP<cfg>>, NoTP<cfg>>>;                 \
+  template class BaseFrictionSolver<                                                               \
+      cfg,                                                                                         \
+      RateAndStateBase<cfg, SevereVelocityWeakeningLaw<cfg, NoTP<cfg>>, NoTP<cfg>>>;               \
+  template class BaseFrictionSolver<                                                               \
+      cfg,                                                                                         \
+      RateAndStateBase<cfg,                                                                        \
+                       SlowVelocityWeakeningLaw<cfg,                                               \
+                                                AgingLaw<cfg, ThermalPressurization<cfg>>,         \
+                                                ThermalPressurization<cfg>>,                       \
+                       ThermalPressurization<cfg>>>;                                               \
+  template class BaseFrictionSolver<                                                               \
+      cfg,                                                                                         \
+      RateAndStateBase<cfg,                                                                        \
+                       SlowVelocityWeakeningLaw<cfg,                                               \
+                                                SlipLaw<cfg, ThermalPressurization<cfg>>,          \
+                                                ThermalPressurization<cfg>>,                       \
+                       ThermalPressurization<cfg>>>;                                               \
+  template class BaseFrictionSolver<                                                               \
+      cfg,                                                                                         \
+      RateAndStateBase<cfg,                                                                        \
+                       FastVelocityWeakeningLaw<cfg, ThermalPressurization<cfg>>,                  \
+                       ThermalPressurization<cfg>>>;                                               \
+  template class BaseFrictionSolver<                                                               \
+      cfg,                                                                                         \
+      RateAndStateBase<cfg,                                                                        \
+                       SevereVelocityWeakeningLaw<cfg, ThermalPressurization<cfg>>,                \
+                       ThermalPressurization<cfg>>>;                                               \
+  template class BaseFrictionSolver<cfg, ImposedSlipRates<cfg, YoffeSTF<cfg>>>;                    \
+  template class BaseFrictionSolver<cfg, ImposedSlipRates<cfg, GaussianSTF<cfg>>>;                 \
+  template class BaseFrictionSolver<cfg, ImposedSlipRates<cfg, DeltaSTF<cfg>>>;
+
+#include "ConfigInclude.h"
 
 } // namespace seissol::dr::friction_law::gpu

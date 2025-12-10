@@ -17,6 +17,7 @@
 #include "Modules/Modules.h"
 #include "Solver/MultipleSimulations.h"
 
+#include <Memory/GlobalData.h>
 #include <array>
 #include <fstream>
 #include <iostream>
@@ -28,7 +29,11 @@ namespace writer {
 
 struct EnergiesStorage {
   static constexpr size_t NumberOfEnergies = 13;
-  std::array<double, multisim::NumSimulations * NumberOfEnergies> energies{};
+  std::vector<std::array<double, NumberOfEnergies>> energies;
+
+  void setSimcount(std::size_t simcount) { energies.resize(simcount); }
+
+  [[nodiscard]] std::size_t simcount() const { return energies.size(); }
 
   double& gravitationalEnergy(size_t sim);
 
@@ -57,7 +62,7 @@ struct EnergiesStorage {
 
 class EnergyOutput : public Module {
   public:
-  void init(GlobalData* newGlobal,
+  void init(const GlobalData& newGlobal,
             const DynamicRupture::Storage& newDynRuptTree,
             const seissol::geometry::MeshReader& newMeshReader,
             const LTS::Storage& newStorage,
@@ -91,7 +96,7 @@ class EnergyOutput : public Module {
 
   void printEnergies();
 
-  void checkAbortCriterion(const std::array<double, multisim::NumSimulations>& timeSinceThreshold,
+  void checkAbortCriterion(const std::vector<double>& timeSinceThreshold,
                            const std::string& prefixMessage);
 
   void writeHeader();
@@ -115,10 +120,10 @@ class EnergyOutput : public Module {
   std::ofstream out;
 
 #ifdef ACL_DEVICE
-  real* timeDerivativePlusHost = nullptr;
-  real* timeDerivativeMinusHost = nullptr;
-  real* timeDerivativePlusHostMapped = nullptr;
-  real* timeDerivativeMinusHostMapped = nullptr;
+  void* timeDerivativePlusHost = nullptr;
+  void* timeDerivativeMinusHost = nullptr;
+  void* timeDerivativePlusHostMapped = nullptr;
+  void* timeDerivativeMinusHostMapped = nullptr;
 #endif
 
   const GlobalData* global = nullptr;
@@ -126,13 +131,15 @@ class EnergyOutput : public Module {
   const seissol::geometry::MeshReader* meshReader = nullptr;
   const LTS::Storage* ltsStorage = nullptr;
 
-  EnergiesStorage energiesStorage{};
-  std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold{};
-  std::array<double, multisim::NumSimulations> minTimeSinceMomentRateBelowThreshold{};
+  EnergiesStorage energiesStorage;
+  std::vector<double> minTimeSinceSlipRateBelowThreshold;
+  std::vector<double> minTimeSinceMomentRateBelowThreshold;
   double terminatorMaxTimePostRupture{};
   double energyOutputInterval{};
   double terminatorMomentRateThreshold{};
-  std::array<double, multisim::NumSimulations> seismicMomentPrevious{};
+  std::vector<double> seismicMomentPrevious;
+
+  std::size_t approxElements;
 };
 
 } // namespace writer

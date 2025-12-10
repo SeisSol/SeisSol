@@ -36,70 +36,73 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
             << rsF0Param << "- muW" << rsMuWParam << "- b" << rsBParam;
 
   for (auto& layer : drStorage.leaves(Ghost)) {
+    layer.wrap([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      using real = Real<Cfg>;
+      auto* dynStressTimePending = layer.var<LTSRateAndState::DynStressTimePending>(cfg);
+      real(*slipRate1)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSRateAndState::SlipRate1>(cfg);
+      real(*slipRate2)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSRateAndState::SlipRate2>(cfg);
+      real(*mu)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSRateAndState::Mu>(cfg);
 
-    auto* dynStressTimePending = layer.var<LTSRateAndState::DynStressTimePending>();
-    real(*slipRate1)[misc::NumPaddedPoints] = layer.var<LTSRateAndState::SlipRate1>();
-    real(*slipRate2)[misc::NumPaddedPoints] = layer.var<LTSRateAndState::SlipRate2>();
-    real(*mu)[misc::NumPaddedPoints] = layer.var<LTSRateAndState::Mu>();
+      real(*stateVariable)[misc::NumPaddedPoints<Cfg>] =
+          layer.var<LTSRateAndState::StateVariable>(cfg);
+      real(*rsSl0)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSRateAndState::RsSl0>(cfg);
+      real(*rsA)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSRateAndState::RsA>(cfg);
+      auto* initialStressInFaultCS = layer.var<LTSRateAndState::InitialStressInFaultCS>(cfg);
 
-    real(*stateVariable)[misc::NumPaddedPoints] = layer.var<LTSRateAndState::StateVariable>();
-    const real(*rsSl0)[misc::NumPaddedPoints] = layer.var<LTSRateAndState::RsSl0>();
-    const real(*rsA)[misc::NumPaddedPoints] = layer.var<LTSRateAndState::RsA>();
+      auto* rsF0 = layer.var<LTSRateAndState::RsF0>(cfg);
+      auto* rsMuW = layer.var<LTSRateAndState::RsMuW>(cfg);
+      auto* rsB = layer.var<LTSRateAndState::RsB>(cfg);
 
-    auto* rsF0 = layer.var<LTSRateAndState::RsF0>();
-    auto* rsMuW = layer.var<LTSRateAndState::RsMuW>();
-    auto* rsB = layer.var<LTSRateAndState::RsB>();
+      const double initialSlipRate =
+          misc::magnitude(drParameters->rsInitialSlipRate1, drParameters->rsInitialSlipRate2);
 
-    auto* initialStressInFaultCS = layer.var<LTSRateAndState::InitialStressInFaultCS>();
+      using namespace dr::misc::quantity_indices;
+      for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+        for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
+          dynStressTimePending[ltsFace][pointIndex] = true;
+          slipRate1[ltsFace][pointIndex] = drParameters->rsInitialSlipRate1;
+          slipRate2[ltsFace][pointIndex] = drParameters->rsInitialSlipRate2;
 
-    const real initialSlipRate =
-        misc::magnitude(drParameters->rsInitialSlipRate1, drParameters->rsInitialSlipRate2);
+          if (rsF0Param) {
+            rsF0[ltsFace][pointIndex] = drParameters->rsF0;
+          }
+          if (rsMuWParam) {
+            rsMuW[ltsFace][pointIndex] = drParameters->muW;
+          }
+          if (rsBParam) {
+            rsB[ltsFace][pointIndex] = drParameters->rsB;
+          }
 
-    using namespace dr::misc::quantity_indices;
-    for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-        dynStressTimePending[ltsFace][pointIndex] = true;
-        slipRate1[ltsFace][pointIndex] = drParameters->rsInitialSlipRate1;
-        slipRate2[ltsFace][pointIndex] = drParameters->rsInitialSlipRate2;
-
-        if (rsF0Param) {
-          rsF0[ltsFace][pointIndex] = drParameters->rsF0;
+          // compute initial friction and state
+          auto stateAndFriction =
+              computeInitialStateAndFriction(initialStressInFaultCS[ltsFace][XY][pointIndex],
+                                             initialStressInFaultCS[ltsFace][XZ][pointIndex],
+                                             initialStressInFaultCS[ltsFace][XX][pointIndex],
+                                             rsA[ltsFace][pointIndex],
+                                             drParameters->rsB,
+                                             rsSl0[ltsFace][pointIndex],
+                                             drParameters->rsSr0,
+                                             drParameters->rsF0,
+                                             initialSlipRate);
+          stateVariable[ltsFace][pointIndex] = stateAndFriction.stateVariable;
+          mu[ltsFace][pointIndex] = stateAndFriction.frictionCoefficient;
         }
-        if (rsMuWParam) {
-          rsMuW[ltsFace][pointIndex] = drParameters->muW;
-        }
-        if (rsBParam) {
-          rsB[ltsFace][pointIndex] = drParameters->rsB;
-        }
-
-        // compute initial friction and state
-        const auto stateAndFriction =
-            computeInitialStateAndFriction(initialStressInFaultCS[ltsFace][XY][pointIndex],
-                                           initialStressInFaultCS[ltsFace][XZ][pointIndex],
-                                           initialStressInFaultCS[ltsFace][XX][pointIndex],
-                                           rsA[ltsFace][pointIndex],
-                                           rsB[ltsFace][pointIndex],
-                                           rsSl0[ltsFace][pointIndex],
-                                           drParameters->rsSr0,
-                                           rsF0[ltsFace][pointIndex],
-                                           initialSlipRate);
-        stateVariable[ltsFace][pointIndex] = stateAndFriction.stateVariable;
-        mu[ltsFace][pointIndex] = stateAndFriction.frictionCoefficient;
       }
-    }
+    });
   }
 }
 
 RateAndStateInitializer::StateAndFriction
-    RateAndStateInitializer::computeInitialStateAndFriction(real traction1,
-                                                            real traction2,
-                                                            real pressure,
-                                                            real rsA,
-                                                            real rsB,
-                                                            real rsSl0,
-                                                            real rsSr0,
-                                                            real rsF0,
-                                                            real initialSlipRate) {
+    RateAndStateInitializer::computeInitialStateAndFriction(double traction1,
+                                                            double traction2,
+                                                            double pressure,
+                                                            double rsA,
+                                                            double rsB,
+                                                            double rsSl0,
+                                                            double rsSr0,
+                                                            double rsF0,
+                                                            double initialSlipRate) {
   StateAndFriction result{};
   const double absoluteTraction = misc::magnitude(traction1, traction2);
   const double tmp = std::abs(absoluteTraction / (rsA * pressure));
@@ -119,38 +122,41 @@ RateAndStateInitializer::StateAndFriction
 }
 
 void RateAndStateInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
-  real(*rsSl0)[misc::NumPaddedPoints] = layer.var<LTSRateAndState::RsSl0>();
-  real(*rsA)[misc::NumPaddedPoints] = layer.var<LTSRateAndState::RsA>();
+    std::unordered_map<std::string, void*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
+  layer.wrap([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    using real = Real<Cfg>;
+    real(*rsSl0)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSRateAndState::RsSl0>(cfg);
+    real(*rsA)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSRateAndState::RsA>(cfg);
+    const auto sl0Name = faultNameAlternatives({"rs_sl0", "RS_sl0"});
 
-  const auto sl0Name = faultNameAlternatives({"rs_sl0", "RS_sl0"});
+    parameterToStorageMap.insert({sl0Name, reinterpret_cast<real*>(rsSl0)});
+    parameterToStorageMap.insert({"rs_a", reinterpret_cast<real*>(rsA)});
 
-  parameterToStorageMap.insert({sl0Name, reinterpret_cast<real*>(rsSl0)});
-  parameterToStorageMap.insert({"rs_a", reinterpret_cast<real*>(rsA)});
-
-  const auto insertIfPresent = [&](const auto& name, auto* var) {
-    if (faultProvides(name)) {
-      parameterToStorageMap.insert({name, reinterpret_cast<real*>(var)});
-    }
-  };
-  insertIfPresent("rs_f0", layer.var<LTSRateAndState::RsF0>());
-  insertIfPresent("rs_muw", layer.var<LTSRateAndState::RsMuW>());
-  insertIfPresent("rs_b", layer.var<LTSRateAndState::RsB>());
+    const auto insertIfPresent = [&](const auto& name, auto* var) {
+      if (faultProvides(name)) {
+        parameterToStorageMap.insert({name, reinterpret_cast<real*>(var)});
+      }
+    };
+    insertIfPresent("rs_f0", layer.var<LTSRateAndState::RsF0>());
+    insertIfPresent("rs_muw", layer.var<LTSRateAndState::RsMuW>());
+    insertIfPresent("rs_b", layer.var<LTSRateAndState::RsB>());
+  });
 }
 
 RateAndStateInitializer::StateAndFriction
-    RateAndStateFastVelocityInitializer::computeInitialStateAndFriction(real traction1,
-                                                                        real traction2,
-                                                                        real pressure,
-                                                                        real rsA,
-                                                                        real /*rsB*/,
-                                                                        real /*rsSl0*/,
-                                                                        real rsSr0,
-                                                                        real /*rsF0*/,
-                                                                        real initialSlipRate) {
+    RateAndStateFastVelocityInitializer::computeInitialStateAndFriction(double traction1,
+                                                                        double traction2,
+                                                                        double pressure,
+                                                                        double rsA,
+                                                                        double /*rsB*/,
+                                                                        double /*rsSl0*/,
+                                                                        double rsSr0,
+                                                                        double /*rsF0*/,
+                                                                        double initialSlipRate) {
   StateAndFriction result{};
-  const real absoluteTraction = misc::magnitude(traction1, traction2);
-  const real tmp = std::abs(absoluteTraction / (rsA * pressure));
+  const double absoluteTraction = misc::magnitude(traction1, traction2);
+  const double tmp = std::abs(absoluteTraction / (rsA * pressure));
   result.stateVariable =
       rsA * std::log(2.0 * rsSr0 / initialSlipRate * (std::exp(tmp) - std::exp(-tmp)) / 2.0);
   if (result.stateVariable < 0) {
@@ -158,16 +164,21 @@ RateAndStateInitializer::StateAndFriction
         << "Found a negative state variable while initializing the fault. Are you sure your "
            "setup is correct?";
   }
-  const real tmp2 = initialSlipRate * 0.5 / rsSr0 * std::exp(result.stateVariable / rsA);
+  const double tmp2 = initialSlipRate * 0.5 / rsSr0 * std::exp(result.stateVariable / rsA);
   result.frictionCoefficient = rsA * std::asinh(tmp2);
   return result;
 }
 
 void RateAndStateFastVelocityInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
-  RateAndStateInitializer::addAdditionalParameters(parameterToStorageMap, layer);
-  real(*rsSrW)[misc::NumPaddedPoints] = layer.var<LTSRateAndStateFastVelocityWeakening::RsSrW>();
-  parameterToStorageMap.insert({"rs_srW", reinterpret_cast<real*>(rsSrW)});
+    std::unordered_map<std::string, void*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
+  layer.wrap([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    using real = Real<Cfg>;
+    RateAndStateInitializer::addAdditionalParameters(parameterToStorageMap, layer);
+    real(*rsSrW)[misc::NumPaddedPoints<Cfg>] =
+        layer.var<LTSRateAndStateFastVelocityWeakening::RsSrW>(cfg);
+    parameterToStorageMap.insert({"rs_srW", reinterpret_cast<real*>(rsSrW)});
+  });
 }
 
 ThermalPressurizationInitializer::ThermalPressurizationInitializer(
@@ -177,41 +188,50 @@ ThermalPressurizationInitializer::ThermalPressurizationInitializer(
 
 void ThermalPressurizationInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
   for (auto& layer : drStorage.leaves(Ghost)) {
-    real(*temperature)[misc::NumPaddedPoints] = layer.var<LTSThermalPressurization::Temperature>();
-    real(*pressure)[misc::NumPaddedPoints] = layer.var<LTSThermalPressurization::Pressure>();
-    auto* theta = layer.var<LTSThermalPressurization::Theta>();
-    auto* sigma = layer.var<LTSThermalPressurization::Sigma>();
+    layer.wrap([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      using real = Real<Cfg>;
+      real(*temperature)[misc::NumPaddedPoints<Cfg>] =
+          layer.var<LTSThermalPressurization::Temperature>(cfg);
+      real(*pressure)[misc::NumPaddedPoints<Cfg>] =
+          layer.var<LTSThermalPressurization::Pressure>(cfg);
+      auto* theta = layer.var<LTSThermalPressurization::Theta>(cfg);
+      auto* sigma = layer.var<LTSThermalPressurization::Sigma>(cfg);
 
-    for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-        temperature[ltsFace][pointIndex] = drParameters->initialTemperature;
-        pressure[ltsFace][pointIndex] = drParameters->initialPressure;
-        for (unsigned tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
-             ++tpGridPointIndex) {
-          theta[ltsFace][tpGridPointIndex][pointIndex] = 0.0;
-          sigma[ltsFace][tpGridPointIndex][pointIndex] = 0.0;
+      for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+        for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
+          temperature[ltsFace][pointIndex] = drParameters->initialTemperature;
+          pressure[ltsFace][pointIndex] = drParameters->initialPressure;
+          for (unsigned tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
+               ++tpGridPointIndex) {
+            theta[ltsFace][tpGridPointIndex][pointIndex] = 0.0;
+            sigma[ltsFace][tpGridPointIndex][pointIndex] = 0.0;
+          }
         }
       }
-    }
+    });
   }
 }
 
 void ThermalPressurizationInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
-  real(*halfWidthShearZone)[misc::NumPaddedPoints] =
-      layer.var<LTSThermalPressurization::HalfWidthShearZone>();
-  real(*hydraulicDiffusivity)[misc::NumPaddedPoints] =
-      layer.var<LTSThermalPressurization::HydraulicDiffusivity>();
+    std::unordered_map<std::string, void*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
+  layer.wrap([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    using real = Real<Cfg>;
+    real(*halfWidthShearZone)[misc::NumPaddedPoints<Cfg>] =
+        layer.var<LTSThermalPressurization::HalfWidthShearZone>(cfg);
+    real(*hydraulicDiffusivity)[misc::NumPaddedPoints<Cfg>] =
+        layer.var<LTSThermalPressurization::HydraulicDiffusivity>(cfg);
+    const auto halfWidthShearZoneName =
+        faultNameAlternatives({"tp_halfWidthShearZone", "TP_half_width_shear_zone"});
+    const auto hydraulicDiffusivityName =
+        faultNameAlternatives({"tp_hydraulicDiffusivity", "alpha_hy"});
 
-  const auto halfWidthShearZoneName =
-      faultNameAlternatives({"tp_halfWidthShearZone", "TP_half_width_shear_zone"});
-  const auto hydraulicDiffusivityName =
-      faultNameAlternatives({"tp_hydraulicDiffusivity", "alpha_hy"});
-
-  parameterToStorageMap.insert(
-      {halfWidthShearZoneName, reinterpret_cast<real*>(halfWidthShearZone)});
-  parameterToStorageMap.insert(
-      {hydraulicDiffusivityName, reinterpret_cast<real*>(hydraulicDiffusivity)});
+    parameterToStorageMap.insert(
+        {halfWidthShearZoneName, reinterpret_cast<real*>(halfWidthShearZone)});
+    parameterToStorageMap.insert(
+        {hydraulicDiffusivityName, reinterpret_cast<real*>(hydraulicDiffusivity)});
+  });
 }
 
 RateAndStateThermalPressurizationInitializer::RateAndStateThermalPressurizationInitializer(
@@ -228,7 +248,7 @@ void RateAndStateThermalPressurizationInitializer::initializeFault(
 }
 
 void RateAndStateThermalPressurizationInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
+    std::unordered_map<std::string, void*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   RateAndStateInitializer::addAdditionalParameters(parameterToStorageMap, layer);
   ThermalPressurizationInitializer::addAdditionalParameters(parameterToStorageMap, layer);
 }
@@ -248,7 +268,7 @@ void RateAndStateFastVelocityThermalPressurizationInitializer::initializeFault(
 }
 
 void RateAndStateFastVelocityThermalPressurizationInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
+    std::unordered_map<std::string, void*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   RateAndStateFastVelocityInitializer::addAdditionalParameters(parameterToStorageMap, layer);
   ThermalPressurizationInitializer::addAdditionalParameters(parameterToStorageMap, layer);
 }

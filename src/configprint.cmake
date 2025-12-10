@@ -56,8 +56,9 @@ else()
   set(PARAMETER_REALTYPE "F64")
 endif()
 
-configure_file("Config.h.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/Config.h")
+# TODO: remove again
+#configure_file("Config.h.in"
+#               "${CMAKE_CURRENT_BINARY_DIR}/Config.h")
 
 # Generate version.h
 include(GetGitRevisionDescription)

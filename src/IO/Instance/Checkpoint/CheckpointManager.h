@@ -16,6 +16,7 @@
 
 #include <map>
 #include <string>
+#include <type_traits>
 #include <utils/logger.h>
 
 namespace seissol::io::writer {
@@ -51,34 +52,22 @@ class CheckpointManager {
     dataRegistry[&storage].ids = ids;
   }
 
-  template <typename HandleT, typename VarmapT>
-  void registerData(const std::string& name,
-                    initializer::Storage<VarmapT>& storage,
-                    const HandleT& var) {
-    if (storage.info(var).mask != initializer::LayerMask(Ghost)) {
-      logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
-    }
-    dataRegistry[&storage].variables.emplace_back(
-        CheckpointVariable{name,
-                           storage.var(var),
-                           datatype::inferDatatype<typename HandleT::Type>(),
-                           datatype::inferDatatype<typename HandleT::Type>(),
-                           {},
-                           {}});
-  }
-
   template <typename StorageT, typename VarmapT>
   void registerData(const std::string& name, initializer::Storage<VarmapT>& storage) {
     if (storage.template info<StorageT>().mask != initializer::LayerMask(Ghost)) {
       logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
     }
-    dataRegistry[&storage].variables.emplace_back(
-        CheckpointVariable{name,
-                           storage.template var<StorageT>(),
-                           datatype::inferDatatype<typename StorageT::Type>(),
-                           datatype::inferDatatype<typename StorageT::Type>(),
-                           {},
-                           {}});
+    if constexpr (std::is_same_v<typename StorageT::Type, void>) {
+      logWarning() << "Variable skipped for checkpointing. NYI.";
+    } else {
+      dataRegistry[&storage].variables.emplace_back(
+          CheckpointVariable{name,
+                             storage.template var<StorageT>(),
+                             datatype::inferDatatype<typename StorageT::Type>(),
+                             datatype::inferDatatype<typename StorageT::Type>(),
+                             {},
+                             {}});
+    }
   }
 
   template <typename S, typename T, typename VarmapT>

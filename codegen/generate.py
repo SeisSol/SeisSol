@@ -15,6 +15,7 @@ import os
 import re
 import sys
 
+import kernels.config
 import kernels.dynamic_rupture
 import kernels.general
 import kernels.memlayout
@@ -36,6 +37,7 @@ from yateto import (
 )
 from yateto.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
 from yateto.gemm_configuration import GeneratorCollection
+from yateto.metagen import MetaGenerator
 
 
 def main():
@@ -60,6 +62,9 @@ def main():
     cmdLineParser.add_argument("--gemm_tools")
     cmdLineParser.add_argument("--device_codegen")
     cmdLineParser.add_argument("--drQuadRule")
+    cmdLineParser.add_argument("--enabled_order")
+    cmdLineParser.add_argument("--enabled_material")
+    cmdLineParser.add_argument("--enabled_precision")
     cmdLineParser.add_argument("--enable_premultiply_flux", action="store_true")
     cmdLineParser.add_argument(
         "--disable_premultiply_flux",
@@ -78,22 +83,27 @@ def main():
     if cmdLineArgs.vectorsize == 0:
         cmdLineArgs.vectorsize = None
 
-    host_arch = HostArchDefinition(
-        cmdLineArgs.host_arch, cmdLineArgs.precision, cmdLineArgs.vectorsize, None
-    )
-    device_arch = None
-
-    if cmdLineArgs.device_backend != "none":
-        device_arch = DeviceArchDefinition(
-            cmdLineArgs.device_arch,
-            cmdLineArgs.device_vendor,
-            cmdLineArgs.device_backend,
-            cmdLineArgs.precision,
-            cmdLineArgs.vectorsize,
+    def setup_arch(precision):
+        host_arch = HostArchDefinition(
+            cmdLineArgs.host_arch, precision, cmdLineArgs.vectorsize, None
         )
+        device_arch = None
 
-    arch = deriveArchitecture(host_arch, device_arch)
-    fixArchitectureGlobal(arch)
+        if cmdLineArgs.device_backend != "none":
+            device_arch = DeviceArchDefinition(
+                cmdLineArgs.device_arch,
+                cmdLineArgs.device_vendor,
+                cmdLineArgs.device_backend,
+                precision,
+                cmdLineArgs.vectorsize,
+            )
+
+        arch = deriveArchitecture(host_arch, device_arch)
+        fixArchitectureGlobal(arch)
+
+        return arch
+
+    arch = setup_arch(cmdLineArgs.precision)
 
     # pick up the gemm tools defined by the user
     gemm_tool_list = re.split(r"[,;]", cmdLineArgs.gemm_tools.replace(" ", ""))
@@ -151,36 +161,99 @@ def main():
 
     subfolders = []
 
-    equationsSpec = importlib.util.find_spec(
-        f"kernels.equations.{cmdLineArgs.equations}"
-    )
-    if equationsSpec is None:
-        raise RuntimeError("Could not find kernels for " + cmdLineArgs.equations)
-    equations = equationsSpec.loader.load_module()
-
-    equation_class = equations.EQUATION_CLASS
-
     routine_cache = GlobalRoutineCache()
 
     gemmTools = GeneratorCollection(gemm_generators)
 
-    def generate_equation(subfolders, equation, order):
-        precision = "double" if cmdLineArgs.precision in ["d", "f64"] else "single"
-        fusedSuffix = (
-            "-f" + str(cmdLineArgs.multipleSimulations)
-            if cmdLineArgs.multipleSimulations > 1
-            else ""
+    metagen = MetaGenerator(["typename"])
+
+    quadrule = cmdLineArgs.drQuadRule[0].upper() + cmdLineArgs.drQuadRule[1:]
+
+    quadrule = cmdLineArgs.drQuadRule[0].upper() + cmdLineArgs.drQuadRule[1:]
+
+    configs = []
+    configsTemp = []
+    counter = 0
+
+    enabled_precision = cmdLineArgs.enabled_precision.split(",")
+    enabled_material = cmdLineArgs.enabled_material.split(",")
+    enabled_order = [int(order) for order in cmdLineArgs.enabled_order.split(",")]
+
+    for p in enabled_precision:
+        for equation in enabled_material:
+            viscomode = "None"
+            if equation == "viscoelastic":
+                viscomode = "QuantityExtension"
+                equations = "Viscoelastic"
+                mechanisms = 3
+                simcount = 1
+            elif equation == "viscoelastic2":
+                viscomode = "AnelasticTensor"
+                equations = "Viscoelastic"
+                mechanisms = 3
+                simcount = 1
+            elif equation == "elastic-f8":
+                viscomode = "None"
+                equations = "Elastic"
+                equation = "elastic"
+                mechanisms = 0
+                simcount = 8
+            else:
+                viscomode = "None"
+                equations = equation[0].upper() + equation[1:]
+                mechanisms = 0
+                simcount = 1
+
+            for i in enabled_order:
+                configs += [
+                    {
+                        "order": i,
+                        "mechanisms": mechanisms,
+                        "equation": equations,
+                        "precision": p,
+                        "viscomode": viscomode,
+                        "drquadrule": quadrule,
+                        "numsims": simcount,
+                        "name": f"Config{counter}",
+                    }
+                ]
+                configsTemp += [
+                    {
+                        "order": i,
+                        "mechanisms": mechanisms,
+                        "equation": equation,
+                        "precision": p,
+                        "viscomode": viscomode,
+                        "drquadrule": cmdLineArgs.drQuadRule,
+                        "numsims": simcount,
+                        "name": f"Config{counter}",
+                    }
+                ]
+                counter += 1
+
+    arch = setup_arch("d")
+
+    def generate_equation(subfolders, config):
+        arch = setup_arch("d" if config["precision"] == "F64" else "s")
+
+        equationsSpec = importlib.util.find_spec(
+            f"kernels.equations.{config['equation']}"
         )
+        if equationsSpec is None:
+            raise RuntimeError("Could not find kernels for " + config["equation"])
+        equations = equationsSpec.loader.load_module()
+
+        equation_class = equations.EQUATION_CLASS
 
         if cmdLineArgs.memLayout == "auto":
             # TODO(Lukas) Don't hardcode this
             env = {
-                "precision": cmdLineArgs.precision,
-                "equations": cmdLineArgs.equations,
-                "order": order,
+                "precision": config["precision"],
+                "equations": config["equation"],
+                "order": config["order"],
                 "arch": cmdLineArgs.host_arch,
                 "device_arch": cmdLineArgs.device_arch,
-                "multipleSimulations": cmdLineArgs.multipleSimulations,
+                "multipleSimulations": config["numsims"],
                 "targets": targets,
                 "gemmgen": gemm_tool_list,
             }
@@ -198,7 +271,12 @@ def main():
         cmdArgsDict = vars(cmdLineArgs)
         cmdArgsDict["memLayout"] = mem_layout
 
-        adg = equation(**cmdArgsDict)
+        cmdArgsDict["drQuadRule"] = config["drquadrule"]
+        cmdArgsDict["multipleSimulations"] = config["numsims"]
+        cmdArgsDict["order"] = config["order"]
+        cmdArgsDict["numberOfMechanisms"] = config["mechanisms"]
+
+        adg = equation_class(**cmdArgsDict)
 
         include_tensors = set()
         generator = Generator(arch)
@@ -244,17 +322,9 @@ def main():
         )
         kernels.point.addKernels(generator, adg)
 
-        outputDirName = f"equation-{adg.name()}-{order}-{precision}{fusedSuffix}"
-        trueOutputDir = os.path.join(cmdLineArgs.outputDir, outputDirName)
-        if not os.path.exists(trueOutputDir):
-            os.mkdir(trueOutputDir)
-
-        subfolders += [outputDirName]
-
-        # Generate code
-        generator.generate(
-            outputDir=trueOutputDir,
-            namespace="seissol",
+        metagen.add_generator(
+            [config["name"]],
+            generator,
             gemm_cfg=gemmTools,
             cost_estimator=cost_estimators,
             include_tensors=include_tensors,
@@ -265,11 +335,7 @@ def main():
     def generate_general(subfolders):
         # we use always use double here,
         # since these kernels are only used in the initialization
-        new_host_arch = HostArchDefinition(
-            host_arch.archname, "d", host_arch.alignment, host_arch.prefetch
-        )
-        arch = deriveArchitecture(new_host_arch, None)
-        fixArchitectureGlobal(arch)
+        arch = setup_arch("d")
 
         outputDir = os.path.join(cmdLineArgs.outputDir, "general")
         if not os.path.exists(outputDir):
@@ -302,8 +368,99 @@ def main():
             )
             file.writelines(["// IWYU pragma: end_exports\n"])
 
-    generate_equation(subfolders, equation_class, cmdLineArgs.order)
+    for config in configsTemp:
+        generate_equation(subfolders, config)
     generate_general(subfolders)
+
+    with open(os.path.join(cmdLineArgs.outputDir, "..", "Config.h"), "w") as file:
+        file.write(kernels.config.make_configfile(configs))
+
+    with open(
+        os.path.join(cmdLineArgs.outputDir, "..", "ConfigInclude.h"), "w"
+    ) as file:
+        file.write(kernels.config.make_configincludefile(configs))
+
+    with open(
+        os.path.join(cmdLineArgs.outputDir, "..", "ConfigIncludeLinearCK.h"), "w"
+    ) as file:
+        configsLocal = [
+            config
+            for config in configs
+            if config["viscomode"] != "AnelasticTensor"
+            and config["equation"] != "Poroelastic"
+        ]
+        file.write(kernels.config.make_configincludefile(configsLocal))
+
+    with open(
+        os.path.join(cmdLineArgs.outputDir, "..", "ConfigIncludeLinearCKAne.h"), "w"
+    ) as file:
+        configsLocal = [
+            config for config in configs if config["viscomode"] == "AnelasticTensor"
+        ]
+        file.write(kernels.config.make_configincludefile(configsLocal))
+
+    with open(
+        os.path.join(cmdLineArgs.outputDir, "..", "ConfigIncludeSTP.h"), "w"
+    ) as file:
+        configsLocal = [
+            config for config in configs if config["equation"] == "Poroelastic"
+        ]
+        file.write(kernels.config.make_configincludefile(configsLocal))
+
+    declarationsTensors = [
+        "Iane",
+        "Qane",
+        "Qext",
+        "dQane",
+        "dQext",
+        "selectAne",
+        "selectEla",
+        "selectAneFull",
+        "selectElaFull",
+        "w",
+        "W",
+        "E",
+        "ET",
+        "Z",
+        "Zinv",
+        "spaceTimePredictor",
+        "spaceTimePredictorRhs",
+        "wHat",
+        "timeInt",
+        "selectQuantityG",
+        "selectQuantity",
+        "selectModes",
+        "kDivMTSub",
+        "deltaSmall",
+        "deltaLarge",
+        "testLhs",
+        "testRhs",
+    ]
+
+    declarationsKernels = [
+        "spaceTimePredictor",
+        "evaluateDOFSAtTimeSTP",
+        "volume",
+        "volumeExt",
+        "local",
+        "localFluxExt",
+        "neighbor",
+        "neighborFluxExt",
+        "derivativeTaylorExpansionEla",
+        "stpTestLhs",
+        "stpTestRhs",
+    ]
+
+    declarationsKernelsGpu = [f"gpu_{name}" for name in declarationsKernels]
+
+    metagen.generate(
+        os.path.join(cmdLineArgs.outputDir, "metagen"),
+        "seissol",
+        ["Config.h"],
+        declarationsTensors,
+        declarationsKernels + declarationsKernelsGpu,
+    )
+    subfolders += ["metagen"]
 
     routine_cache.generate(cmdLineArgs.outputDir, "seissol")
 

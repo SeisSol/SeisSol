@@ -17,19 +17,26 @@
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 
+#include <Common/Typedefs.h>
+#include <Equations/elastic/Model/ElasticSetup.h>
+#include <Equations/viscoelastic2/Model/Datastructures.h>
+#include <Equations/viscoelastic2/Model/IntegrationData.h>
+#include <Model/CommonDatastructures.h>
 #include <yateto.h>
 
 namespace seissol::model {
-template <std::size_t N>
-struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
-  using MaterialT = ViscoElasticMaterialParametrized<N>;
+template <typename Cfg>
+struct MaterialSetup<Cfg,
+                     std::enable_if_t<Cfg::MaterialType == MaterialType::Viscoelastic &&
+                                      Cfg::ViscoMode == ViscoImplementation::AnelasticTensor>> {
+  using MaterialT = model::MaterialTT<Cfg>;
 
   using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
   template <typename T>
   static void
       getTransposedViscoelasticCoefficientMatrix(double omega, unsigned dim, unsigned mech, T& M) {
-    unsigned col = 9 + mech * 6;
+    const auto col = 9 + mech * 6;
     switch (dim) {
     case 0:
       M(6, col) = -omega;
@@ -76,23 +83,24 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
 
   template <typename T>
   static void getTransposedCoefficientMatrix(const MaterialT& material, unsigned dim, T& AT) {
-    ::seissol::model::getTransposedCoefficientMatrix(
+    ::seissol::model::getTransposedCoefficientMatrixElastic(
         dynamic_cast<const ElasticMaterial&>(material), dim, AT);
 
     getTransposedViscoelasticCoefficientMatrix(1.0, dim, 0, AT);
   }
 
-  static void getTransposedGodunovState(const MaterialT& local,
-                                        const MaterialT& neighbor,
-                                        FaceType faceType,
-                                        init::QgodLocal::view::type& qGodLocal,
-                                        init::QgodNeighbor::view::type& qGodNeighbor) {
-    ::seissol::model::getTransposedGodunovState<ElasticMaterial>(
+  static void
+      getTransposedGodunovState(const MaterialT& local,
+                                const MaterialT& neighbor,
+                                FaceType faceType,
+                                typename init::QgodLocal<Cfg>::view::type& QgodLocal,
+                                typename init::QgodNeighbor<Cfg>::view::type& QgodNeighbor) {
+    ::seissol::model::getTransposedGodunovStateElastic(
         dynamic_cast<const ElasticMaterial&>(local),
         dynamic_cast<const ElasticMaterial&>(neighbor),
         faceType,
-        qGodLocal,
-        qGodNeighbor);
+        QgodLocal,
+        QgodNeighbor);
   }
 
   static void getPlaneWaveOperator(
@@ -121,14 +129,14 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
       }
     }
     double Edata[MaterialT::NumQuantities * MaterialT::NumQuantities];
-    yateto::DenseTensorView<3, double> E(Edata, tensor::E::Shape);
+    yateto::DenseTensorView<3, double> E(Edata, tensor::E<Cfg>::Shape);
     E.setZero();
     getTransposedSourceCoefficientTensor(material, E);
     Coeff.setZero();
     for (unsigned mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       unsigned offset = MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
-      for (unsigned i = 0; i < tensor::E::Shape[0]; ++i) {
-        for (unsigned j = 0; j < tensor::E::Shape[2]; ++j) {
+      for (unsigned i = 0; i < tensor::E<Cfg>::Shape[0]; ++i) {
+        for (unsigned j = 0; j < tensor::E<Cfg>::Shape[2]; ++j) {
           Coeff(offset + i, j) = E(i, mech, j);
         }
       }
@@ -153,13 +161,13 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
 
   static void initializeSpecificLocalData(const MaterialT& material,
                                           double timeStepWidth,
-                                          ViscoElasticLocalData* localData) {
-    auto E = init::E::view::create(localData->E);
+                                          ViscoElasticATLocalData<Cfg>* localData) {
+    auto E = init::E<Cfg>::view::create(localData->E);
     E.setZero();
     getTransposedSourceCoefficientTensor(material, E);
 
-    auto w = init::w::view::create(localData->w);
-    auto W = init::W::view::create(localData->W);
+    auto w = init::w<Cfg>::view::create(localData->w);
+    auto W = init::W<Cfg>::view::create(localData->W);
     W.setZero();
     for (unsigned mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       w(mech) = material.omega[mech];
@@ -168,9 +176,9 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
   }
 
   static void initializeSpecificNeighborData(const MaterialT& localMaterial,
-                                             ViscoElasticNeighborData* neighborData) {
+                                             ViscoElasticATNeighborData<Cfg>* neighborData) {
     // We only need the local omegas
-    auto w = init::w::view::create(neighborData->w);
+    auto w = init::w<Cfg>::view::create(neighborData->w);
     for (unsigned mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       w(mech) = localMaterial.omega[mech];
     }
@@ -179,10 +187,9 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
   static void getFaceRotationMatrix(const VrtxCoords normal,
                                     const VrtxCoords tangent1,
                                     const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
-    ::seissol::model::getFaceRotationMatrix<ElasticMaterial>(
-        normal, tangent1, tangent2, matT, matTinv);
+                                    typename init::T<Cfg>::view::type& matT,
+                                    typename init::Tinv<Cfg>::view::type& matTinv) {
+    ::seissol::model::getFaceRotationMatrixElastic<Cfg>(normal, tangent1, tangent2, matT, matTinv);
 
     seissol::transformations::symmetricTensor2RotationMatrix(normal,
                                                              tangent1,

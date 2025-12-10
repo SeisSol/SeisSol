@@ -51,6 +51,7 @@ struct Element {
   ElemFaultTags faultTags; // member of struct Element
   int clusterId;
   double timestep;
+  int configId;
 };
 
 struct Vertex {

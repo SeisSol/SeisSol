@@ -63,6 +63,12 @@ class GenericTableEntry {
     return deviceDataPtr;
   }
 
+  template <typename T>
+  T* getDeviceDataPtrAs() {
+    PointerType dataPtr = getDeviceDataPtr();
+    return reinterpret_cast<T*>(dataPtr);
+  }
+
   std::vector<Type> getHostData() { return hostVector; }
   const std::vector<Type>& getHostData() const { return hostVector; }
 

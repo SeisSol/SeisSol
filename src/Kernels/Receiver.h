@@ -32,95 +32,158 @@ struct GlobalData;
 class SeisSol;
 
 namespace kernels {
+template <typename Cfg>
 struct Receiver {
-  Receiver(unsigned pointId,
+  using real = Real<Cfg>;
+  Receiver(std::size_t pointId,
            Eigen::Vector3d position,
            const double* elementCoords[4],
-           LTS::Ref dataHost,
-           LTS::Ref dataDevice,
+           LTS::Ref<Cfg> dataHost,
+           LTS::Ref<Cfg> dataDevice,
            size_t reserved);
-  unsigned pointId;
+  std::size_t pointId;
   Eigen::Vector3d position;
   basisFunction::SampledBasisFunctions<real> basisFunctions;
-  basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
-  LTS::Ref dataHost;
-  LTS::Ref dataDevice;
+  basisFunction::SampledBasisFunctionDerivatives<Cfg> basisFunctionDerivatives;
+  LTS::Ref<Cfg> dataHost;
+  LTS::Ref<Cfg> dataDevice;
   std::vector<real> output;
 };
 
+template <typename Cfg>
 struct DerivedReceiverQuantity {
   virtual ~DerivedReceiverQuantity() = default;
   [[nodiscard]] virtual std::vector<std::string> quantities() const = 0;
   virtual void compute(size_t sim,
-                       std::vector<real>&,
-                       seissol::init::QAtPoint::view::type&,
-                       seissol::init::QDerivativeAtPoint::view::type&) = 0;
+                       std::vector<Real<Cfg>>&,
+                       typename seissol::init::QAtPoint<Cfg>::view::type&,
+                       typename seissol::init::QDerivativeAtPoint<Cfg>::view::type&) = 0;
 };
 
-struct ReceiverRotation : public DerivedReceiverQuantity {
+template <typename Cfg>
+struct ReceiverRotation : public DerivedReceiverQuantity<Cfg> {
   ~ReceiverRotation() override = default;
-  [[nodiscard]] std::vector<std::string> quantities() const override;
-  void compute(size_t sim,
-               std::vector<real>& /*output*/,
-               seissol::init::QAtPoint::view::type& /*qAtPoint*/,
-               seissol::init::QDerivativeAtPoint::view::type& /*qDerivativeAtPoint*/) override;
+  [[nodiscard]] std::vector<std::string> quantities() const override {
+    return {"rot1", "rot2", "rot3"};
+  }
+  void compute(
+      size_t sim,
+      std::vector<Real<Cfg>>& output,
+      typename seissol::init::QAtPoint<Cfg>::view::type& qAtPoint,
+      typename seissol::init::QDerivativeAtPoint<Cfg>::view::type& qDerivativeAtPoint) override {
+    output.push_back(seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 8, 1) -
+                     seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 7, 2));
+    output.push_back(seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 6, 2) -
+                     seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 8, 0));
+    output.push_back(seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 7, 0) -
+                     seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 6, 1));
+  }
 };
 
-struct ReceiverStrain : public DerivedReceiverQuantity {
+template <typename Cfg>
+struct ReceiverStrain : public DerivedReceiverQuantity<Cfg> {
   ~ReceiverStrain() override = default;
-  [[nodiscard]] std::vector<std::string> quantities() const override;
-  void compute(size_t sim,
-               std::vector<real>& /*output*/,
-               seissol::init::QAtPoint::view::type& /*qAtPoint*/,
-               seissol::init::QDerivativeAtPoint::view::type& /*qDerivativeAtPoint*/) override;
+  [[nodiscard]] std::vector<std::string> quantities() const override {
+    return {"epsxx", "epsxy", "epsxz", "epsyy", "epsyz", "epszz"};
+  }
+  void compute(
+      size_t sim,
+      std::vector<Real<Cfg>>& output,
+      typename seissol::init::QAtPoint<Cfg>::view::type& qAtPoint,
+      typename seissol::init::QDerivativeAtPoint<Cfg>::view::type& qDerivativeAtPoint) override {
+    // actually 9 quantities; 3 removed due to symmetry
+
+    output.push_back(seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 6, 0));
+    output.push_back((seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 6, 1) +
+                      seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 7, 0)) /
+                     2);
+    output.push_back((seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 6, 2) +
+                      seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 8, 0)) /
+                     2);
+    output.push_back(seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 7, 1));
+    output.push_back((seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 7, 2) +
+                      seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 8, 1)) /
+                     2);
+    output.push_back(seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 8, 2));
+  }
 };
 
 class ReceiverCluster {
   public:
-  explicit ReceiverCluster(seissol::SeisSol& seissolInstance);
+  virtual ~ReceiverCluster() = default;
 
-  ReceiverCluster(const CompoundGlobalData& global,
-                  const std::vector<unsigned>& quantities,
-                  double samplingInterval,
-                  double syncPointInterval,
-                  const std::vector<std::shared_ptr<DerivedReceiverQuantity>>& derivedQuantities,
-                  seissol::SeisSol& seissolInstance);
+  virtual void addReceiver(std::size_t meshId,
+                           std::size_t pointId,
+                           const Eigen::Vector3d& point,
+                           const seissol::geometry::MeshReader& mesh,
+                           const LTS::Backmap& backmap) = 0;
 
-  void addReceiver(unsigned meshId,
-                   unsigned pointId,
+  //! Returns new receiver time
+  virtual double calcReceivers(double time,
+                               double expansionPoint,
+                               double timeStepWidth,
+                               Executor executor,
+                               parallel::runtime::StreamRuntime& runtime) = 0;
+
+  [[nodiscard]] virtual size_t ncols() const = 0;
+
+  [[nodiscard]] virtual std::vector<std::string> header() const = 0;
+
+  virtual void allocateData() = 0;
+  virtual void freeData() = 0;
+};
+
+template <typename Cfg>
+class ReceiverClusterImpl : public ReceiverCluster {
+  public:
+  using real = Real<Cfg>;
+  explicit ReceiverClusterImpl(seissol::SeisSol& seissolInstance);
+
+  ReceiverClusterImpl(
+      const GlobalData& global,
+      const std::vector<std::size_t>& quantities,
+      double samplingInterval,
+      double syncPointInterval,
+      const std::vector<std::shared_ptr<DerivedReceiverQuantity<Cfg>>>& derivedQuantities,
+      seissol::SeisSol& seissolInstance);
+
+  void addReceiver(std::size_t meshId,
+                   std::size_t pointId,
                    const Eigen::Vector3d& point,
                    const seissol::geometry::MeshReader& mesh,
-                   const LTS::Backmap& backmap);
+                   const LTS::Backmap& backmap) override;
 
   //! Returns new receiver time
   double calcReceivers(double time,
                        double expansionPoint,
                        double timeStepWidth,
                        Executor executor,
-                       parallel::runtime::StreamRuntime& runtime);
+                       parallel::runtime::StreamRuntime& runtime) override;
 
-  std::vector<Receiver>::iterator begin() { return m_receivers.begin(); }
+  typename std::vector<Receiver<Cfg>>::iterator begin() { return m_receivers.begin(); }
 
-  std::vector<Receiver>::iterator end() { return m_receivers.end(); }
+  typename std::vector<Receiver<Cfg>>::iterator end() { return m_receivers.end(); }
 
-  [[nodiscard]] size_t ncols() const;
+  [[nodiscard]] size_t ncols() const override;
 
-  void allocateData();
-  void freeData();
+  [[nodiscard]] std::vector<std::string> header() const override;
+
+  void allocateData() override;
+  void freeData() override;
 
   private:
   std::optional<parallel::runtime::StreamRuntime> extraRuntime;
   std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollector{nullptr};
   std::vector<size_t> deviceIndices;
-  std::vector<Receiver> m_receivers;
-  seissol::kernels::Spacetime spacetimeKernel;
-  seissol::kernels::Time timeKernel;
-  std::vector<unsigned> m_quantities;
+  std::vector<Receiver<Cfg>> m_receivers;
+  seissol::kernels::Spacetime<Cfg> spacetimeKernel;
+  seissol::kernels::Time<Cfg> timeKernel;
+  std::vector<std::size_t> m_quantities;
   std::uint64_t m_nonZeroFlops{};
   std::uint64_t m_hardwareFlops{};
   double m_samplingInterval;
   double m_syncPointInterval;
-  std::vector<std::shared_ptr<DerivedReceiverQuantity>> derivedQuantities;
+  std::vector<std::shared_ptr<DerivedReceiverQuantity<Cfg>>> derivedQuantities;
   seissol::SeisSol& seissolInstance;
 };
 } // namespace kernels

@@ -18,6 +18,12 @@ ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/subroutine.cpp
 ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/init.cpp
 )
 
+target_precompile_headers(seissol-kernel-lib PRIVATE
+${CMAKE_BINARY_DIR}/codegen/GeneratedCode/kernel.h
+${CMAKE_BINARY_DIR}/codegen/GeneratedCode/tensor.h
+${CMAKE_BINARY_DIR}/codegen/GeneratedCode/init.h
+)
+
 # Generated code does only work without red-zone.
 if (HAS_REDZONE)
   set_source_files_properties(
@@ -34,6 +40,8 @@ else()
 endif()
 
 target_sources(seissol-lib PRIVATE
+
+Common/ConfigHelper.cpp
 
 Initializer/CellLocalMatrices.cpp
 Memory/GlobalData.cpp
@@ -111,15 +119,10 @@ Parallel/DataCollector.cpp
 Solver/Estimator.cpp
 
 ResultWriter/EnergyOutput.cpp
-ResultWriter/FreeSurfaceWriter.cpp
-ResultWriter/FreeSurfaceWriterExecutor.cpp
 ResultWriter/MiniSeisSolWriter.cpp
 ResultWriter/PostProcessor.cpp
 ResultWriter/ReceiverWriter.cpp
 ResultWriter/ThreadsPinningWriter.cpp
-ResultWriter/WaveFieldWriter.cpp
-ResultWriter/FaultWriter.cpp
-ResultWriter/FaultWriterExecutor.cpp
 
 DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp
 DynamicRupture/Output/FaultRefiner/FaultRefiners.cpp
@@ -174,6 +177,8 @@ Reader/AsagiReader.cpp
 Geometry/CubeGenerator.cpp
 )
 
+target_precompile_headers(seissol-lib REUSE_FROM seissol-kernel-lib)
+
 if (HDF5 AND MPI)
   target_sources(seissol-lib PRIVATE
     Geometry/PartitioningLib.cpp
@@ -187,63 +192,15 @@ if (NETCDF)
   target_sources(seissol-lib PRIVATE SourceTerm/NRFReader.cpp)
 endif()
 
-
-# Eqations have to be set at compile time currently.
-if ("${EQUATIONS}" STREQUAL "elastic")
-  target_sources(seissol-lib PRIVATE
+target_sources(seissol-lib PRIVATE
     Kernels/LinearCK/Local.cpp
     Kernels/LinearCK/Neighbor.cpp
     Kernels/LinearCK/Time.cpp
-    )
-  target_include_directories(seissol-common-properties INTERFACE Equations/elastic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_ELASTIC)
-
-elseif ("${EQUATIONS}" STREQUAL "acoustic")
-  target_sources(seissol-lib PRIVATE
-    Kernels/LinearCK/Local.cpp
-    Kernels/LinearCK/Neighbor.cpp
-    Kernels/LinearCK/Time.cpp
-    )
-  target_include_directories(seissol-common-properties INTERFACE Equations/acoustic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_ACOUSTIC)
-
-elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
-  target_sources(seissol-lib PRIVATE
-    Kernels/LinearCK/Local.cpp
-    Kernels/LinearCK/Neighbor.cpp
-    Kernels/LinearCK/Time.cpp
-    )
-  target_include_directories(seissol-common-properties INTERFACE Equations/viscoelastic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_VISCOELASTIC)
-
-elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
-  target_sources(seissol-lib PRIVATE
     Kernels/LinearCKAnelastic/Neighbor.cpp
     Kernels/LinearCKAnelastic/Local.cpp
     Kernels/LinearCKAnelastic/Time.cpp
-  )
-  target_include_directories(seissol-common-properties INTERFACE Equations/viscoelastic2)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_VISCOELASTIC2)
-
-elseif ("${EQUATIONS}" STREQUAL "anisotropic")
-  target_sources(seissol-lib PRIVATE
-    Kernels/LinearCK/Neighbor.cpp
-    Kernels/LinearCK/Local.cpp
-    Kernels/LinearCK/Time.cpp
-  )
-  target_include_directories(seissol-common-properties INTERFACE Equations/anisotropic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_ANISOTROPIC)
-
-elseif ("${EQUATIONS}" STREQUAL "poroelastic")
-  target_sources(seissol-lib PRIVATE
-    Kernels/LinearCK/Neighbor.cpp
-    Kernels/LinearCK/Local.cpp
-    Kernels/LinearCK/Time.cpp
     Kernels/STP/Time.cpp
-  )
-  target_include_directories(seissol-common-properties INTERFACE Equations/poroelastic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_POROELASTIC)
-endif()
+    )
 
 
 # GPU code

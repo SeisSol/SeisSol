@@ -15,6 +15,8 @@
 #include "Memory/MemoryAllocator.h"
 #include "SourceTerm/Typedefs.h"
 
+#include <Model/CommonDatastructures.h>
+
 namespace seissol::sourceterm {
 /** The local moment tensor shall be transformed into the global coordinate system.
  *
@@ -34,6 +36,7 @@ namespace seissol::sourceterm {
  *                   |                1 | |    sin d  cos d |  |                1 |
  *
  **/
+template <typename RealT>
 void transformMomentTensor(const double localMomentTensor[3][3],
                            const double localSolidVelocityComponent[3],
                            double localPressureComponent,
@@ -41,7 +44,8 @@ void transformMomentTensor(const double localMomentTensor[3][3],
                            double strike,
                            double dip,
                            double rake,
-                           real* forceComponents);
+                           RealT* forceComponents,
+                           model::MaterialType type);
 } // namespace seissol::sourceterm
 
 #endif // SEISSOL_SRC_SOURCETERM_POINTSOURCE_H_
