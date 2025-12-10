@@ -90,7 +90,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   // just a helper function for better readability
   const auto getBestQueryGenerator = [&](const seissol::initializer::CellToVertexArray& ctvArray) {
     return seissol::initializer::getBestQueryGenerator(
-        false, seissolParams.model.useCellHomogenizedMaterial, ctvArray);
+        seissolParams.model.useCellHomogenizedMaterial, ctvArray);
   };
 
   // material retrieval for copy+interior layers

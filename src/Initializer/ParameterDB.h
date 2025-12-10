@@ -63,8 +63,7 @@ struct CellToVertexArray {
 };
 
 easi::Component* loadEasiModel(const std::string& fileName);
-std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
-                                                      bool useCellHomogenizedMaterial,
+std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMaterial,
                                                       const CellToVertexArray& cellToVertex);
 
 class QueryGenerator {

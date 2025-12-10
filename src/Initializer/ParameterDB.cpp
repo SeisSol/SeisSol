@@ -696,8 +696,7 @@ easi::Component* loadEasiModel(const std::string& fileName) {
   }
 }
 
-std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
-                                                      bool useCellHomogenizedMaterial,
+std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMaterial,
                                                       const CellToVertexArray& cellToVertex) {
   std::shared_ptr<QueryGenerator> queryGen;
   if (!useCellHomogenizedMaterial) {
@@ -707,11 +706,6 @@ std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
       logWarning() << "Material Averaging is not implemented for " << MaterialT::Text
                    << " materials. Falling back to "
                       "material properties sampled from the element barycenters instead.";
-      queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
-    } else if (plasticity) {
-      logWarning()
-          << "Material Averaging is not implemented for plastic materials. Falling back to "
-             "material properties sampled from the element barycenters instead.";
       queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
     } else {
       queryGen = std::make_shared<ElementAverageGenerator>(cellToVertex);
