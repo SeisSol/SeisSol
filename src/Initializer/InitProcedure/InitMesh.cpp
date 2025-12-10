@@ -334,7 +334,7 @@ void initMesh(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   const auto commSize = seissol::Mpi::mpi.size();
 
-  const auto configMap = ConfigMap({}, seissolInstance.env());
+  const auto configMap = ConfigMap(seissolParams.model.configMap, seissolInstance.env());
 
   logInfo() << "Begin init mesh.";
 

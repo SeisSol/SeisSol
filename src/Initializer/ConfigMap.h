@@ -42,7 +42,7 @@ class ConfigMap {
 
     for (const auto& [group, configString] : input) {
       for (auto [i, str] : common::enumerate(ConfigString)) {
-        if (str == defaultCfgString.value()) {
+        if (str == configString) {
           map[group] = ConfigVariantList[i];
           break;
         }
