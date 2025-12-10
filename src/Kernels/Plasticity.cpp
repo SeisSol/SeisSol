@@ -84,7 +84,6 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   m2nKrnl.v = global->vandermondeMatrix;
   m2nKrnl.QStress = degreesOfFreedom;
   m2nKrnl.QStressNodal = qStressNodal;
-  m2nKrnl.replicateInitialLoading = init::replicateInitialLoading::Values;
   m2nKrnl.initialLoading = plasticityData->initialLoading;
   m2nKrnl.execute();
 
@@ -118,11 +117,9 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 
   // Compute tau_c for every node
   for (std::size_t ip = 0; ip < tensor::meanStress::size(); ++ip) {
-    taulim[ip] = std::max(
-        static_cast<real>(0.0),
-        plasticityData->cohesionTimesCosAngularFriction[ip % seissol::multisim::NumSimulations] -
-            meanStress[ip] *
-                plasticityData->sinAngularFriction[ip % seissol::multisim::NumSimulations]);
+    taulim[ip] = std::max(static_cast<real>(0.0),
+                          plasticityData->cohesionTimesCosAngularFriction[ip] -
+                              meanStress[ip] * plasticityData->sinAngularFriction[ip]);
   }
 
   bool adjust = false;
@@ -289,15 +286,13 @@ void Plasticity::computePlasticityBatched(
     real** nodalStressTensors =
         (entry.get(inner_keys::Wp::Id::NodalStressTensor))->getDeviceDataPtr();
 
-    assert(global->replicateStresses != nullptr && "replicateStresses has not been initialized");
     static_assert(kernel::gpu_plConvertToNodal::TmpMaxMemRequiredInBytes == 0);
     real** initLoad = (entry.get(inner_keys::Wp::Id::InitialLoad))->getDeviceDataPtr();
     kernel::gpu_plConvertToNodal m2nKrnl;
     m2nKrnl.v = global->vandermondeMatrix;
     m2nKrnl.QStress = const_cast<const real**>(modalStressTensors);
     m2nKrnl.QStressNodal = nodalStressTensors;
-    m2nKrnl.replicateInitialLoadingM = global->replicateStresses;
-    m2nKrnl.initialLoadingM = const_cast<const real**>(initLoad);
+    m2nKrnl.initialLoading = const_cast<const real**>(initLoad);
     m2nKrnl.streamPtr = defaultStream;
     m2nKrnl.numElements = numElements;
     m2nKrnl.execute();

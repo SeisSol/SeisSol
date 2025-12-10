@@ -6,19 +6,16 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 # SPDX-FileContributor: Carsten Uphoff
 
-import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Tensor
-from yateto.input import parseXMLMatrixFile
+from yateto.input import parseJSONMatrixFile
 
 
 def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
     # Load matrices
-    db = parseXMLMatrixFile(
-        "{}/plasticity_{}_matrices_{}.xml".format(
-            matricesDir, PlasticityMethod, aderdg.order
-        ),
+    db = parseJSONMatrixFile(
+        f"{matricesDir}/plasticity-{PlasticityMethod}-matrices-{aderdg.order}.json",
         clones=dict(),
         alignStride=aderdg.alignStride,
     )
@@ -45,22 +42,14 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         alignStride=True,
     )
 
+    iShape = (numberOfNodes, 6)
+
     initialLoading = OptionalDimTensor(
         "initialLoading",
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (6,),
-    )
-
-    replicateIniLShape = (numberOfNodes,)
-    replicateIniLSpp = np.ones(replicateIniLShape)
-
-    replicateInitialLoading = Tensor(
-        "replicateInitialLoading",
-        replicateIniLShape,
-        spp=replicateIniLSpp,
-        alignStride=aderdg.multipleSimulations == 1,
+        iShape,
     )
 
     iShape = (numberOfNodes, 6)
@@ -118,15 +107,15 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         (numberOfNodes,),
     )
 
-    generator.add(
-        "plConvertToNodal",
-        QStressNodal["kp"]
-        <= db.v["kl"] * QStress["lp"]
-        + replicateInitialLoading["k"] * initialLoading["p"],
-    )
-
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
+
+        generator.add(
+            name=f"{name_prefix}plConvertToNodal",
+            ast=QStressNodal["kp"] <= db.v["kl"] * QStress["lp"] + initialLoading["kp"],
+            target=target,
+        )
+
         generator.add(
             name=f"{name_prefix}plConvertToNodalNoLoading",
             ast=QStressNodal["kp"] <= db.v["kl"] * QStress["lp"],
@@ -169,49 +158,18 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
     if gpu_target in targets:
         name_prefix = generate_kernel_name_prefix(gpu_target)
 
-        if aderdg.multipleSimulations > 1:
-            # for now, copy the tensors into here and rename them; until gemmforge/chainforge is deprecated
-            initialLoadingM = OptionalDimTensor(
-                "initialLoadingM",
-                aderdg.Q.optName(),
-                aderdg.Q.optSize(),
-                aderdg.Q.optPos(),
-                (6,),
-            )
-            replicateInitialLoadingM = Tensor(
-                "replicateInitialLoadingM",
-                replicateIniLShape,
-                spp=replicateIniLSpp,
-                alignStride=False,
-            )
-
-            matreplace = replicateInitialLoadingM["k"] * initialLoadingM["p"]
-        else:
-            # suffix `M` stands for `Matrix`
-            replicateInitialLoadingM = Tensor(
-                name="replicateInitialLoadingM",
-                shape=(numberOfNodes, 1),
-                spp=np.ones((numberOfNodes, 1)),
-            )
-            initialLoadingM = Tensor("initialLoadingM", (1, 6))
-
-            matreplace = replicateInitialLoadingM["km"] * initialLoadingM["mp"]
-
-        # Note: the last term was changed on purpose because
-        # GemmForge doesn't currently support tensor product operation
-        convert_to_nodal = (
-            QStressNodal["kp"] <= db.v[aderdg.t("kl")] * QStress["lp"] + matreplace
-        )
-
-        generator.add(
-            name=f"{name_prefix}plConvertToNodal",
-            ast=convert_to_nodal,
-            target=gpu_target,
-        )
-
         generator.add(
             f"{name_prefix}plConvertToModal",
             QStress["kp"]
             <= QStress["kp"] + db.vInv[aderdg.t("kl")] * QStressNodal["lp"],
             target=gpu_target,
         )
+
+
+def includeTensors(matricesDir, aderdg, PlasticityMethod, includeTensors):
+    db = parseJSONMatrixFile(
+        f"{matricesDir}/plasticity-{PlasticityMethod}-matrices-{aderdg.order}.json",
+        clones=dict(),
+        alignStride=aderdg.alignStride,
+    )
+    includeTensors.add(db.vNodes)
