@@ -30,11 +30,12 @@ struct PlasticityData {
   alignas(Alignment) real cohesionTimesCosAngularFriction[tensor::meanStress::size()]{};
   alignas(Alignment) real sinAngularFriction[tensor::meanStress::size()]{};
 
-  // depends on the material only (i.e. #1297 or multi-fused-material relevant only)
+  // depends only on the material (i.e. only relevant for #1297 or multi-fused-material)
   real mufactor{};
 
   PlasticityData(const std::array<const Plasticity*, seissol::multisim::NumSimulations>& plasticity,
-                 const Material* material) {
+                 const Material* material,
+                 bool pointwise) {
     auto initialLoadingV = init::initialLoading::view::create(initialLoading);
     initialLoadingV.setZero();
 
@@ -52,16 +53,18 @@ struct PlasticityData {
       auto sinAngularFrictionVS = multisim::simtensor(sinAngularFrictionV, s);
 
       for (std::size_t i = 0; i < PointCount; ++i) {
-        initialLoadingVS(i, 0) = plasticity[s][i].sXX;
-        initialLoadingVS(i, 1) = plasticity[s][i].sYY;
-        initialLoadingVS(i, 2) = plasticity[s][i].sZZ;
-        initialLoadingVS(i, 3) = plasticity[s][i].sXY;
-        initialLoadingVS(i, 4) = plasticity[s][i].sYZ;
-        initialLoadingVS(i, 5) = plasticity[s][i].sXZ;
+        const auto ii = pointwise ? i : 0;
+        initialLoadingVS(i, 0) = plasticity[s][ii].sXX;
+        initialLoadingVS(i, 1) = plasticity[s][ii].sYY;
+        initialLoadingVS(i, 2) = plasticity[s][ii].sZZ;
+        initialLoadingVS(i, 3) = plasticity[s][ii].sXY;
+        initialLoadingVS(i, 4) = plasticity[s][ii].sYZ;
+        initialLoadingVS(i, 5) = plasticity[s][ii].sXZ;
 
-        const double angularFriction = std::atan(plasticity[s][i].bulkFriction);
+        const double angularFriction = std::atan(plasticity[s][ii].bulkFriction);
 
-        cohesionTimesCosAngularFrictionVS(i) = plasticity[s][i].plastCo * std::cos(angularFriction);
+        cohesionTimesCosAngularFrictionVS(i) =
+            plasticity[s][ii].plastCo * std::cos(angularFriction);
         sinAngularFrictionVS(i) = std::sin(angularFriction);
       }
     }

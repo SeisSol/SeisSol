@@ -31,6 +31,7 @@ std::string fluxToString(NumericalFlux flux);
 struct ModelParameters {
   bool hasBoundaryFile{false};
   bool plasticity{false};
+  bool plasticityPointwise{true};
   bool useCellHomogenizedMaterial{true};
   double freqCentral{};
   double freqRatio{1.0};

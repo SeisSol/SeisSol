@@ -24,6 +24,7 @@
 #include "Geometry/PUMLReader.h"
 #include "Kernels/Precision.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/Plasticity.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
@@ -197,12 +198,17 @@ easi::Query ElementAverageGenerator::generate() const {
   return query;
 }
 
+std::size_t PlasticityPointGenerator::outputPerCell() const {
+  constexpr auto PlasticityPoints = model::PlasticityData::PointCount;
+  return pointwise ? PlasticityPoints : 1;
+}
+
 easi::Query PlasticityPointGenerator::generate() const {
 
-  constexpr auto PlasticityPoints = model::PlasticityData::PointCount;
+  const auto pointsPerCell = outputPerCell();
 
   // Generate query using quadrature points for each element
-  easi::Query query(m_cellToVertex.size * PlasticityPoints, Cell::Dim);
+  easi::Query query(m_cellToVertex.size * pointsPerCell, Cell::Dim);
 
   auto nodes = init::vNodes::view::create(const_cast<real*>(init::vNodes::Values));
 
@@ -212,18 +218,19 @@ easi::Query PlasticityPointGenerator::generate() const {
 
     const auto vertices = m_cellToVertex.elementCoordinates(elem);
 
-    for (std::size_t i = 0; i < PlasticityPoints; ++i) {
+    for (std::size_t i = 0; i < pointsPerCell; ++i) {
 
       std::array<double, Cell::Dim> point{};
 
-      // to emulate the "old" (barycentric) behavior
-      // point = {1 / 4., 1 / 4., 1 / 4.};
-
-      for (std::size_t j = 0; j < Cell::Dim; ++j) {
-        point[j] = nodes(i, j);
+      if (pointwise) {
+        for (std::size_t j = 0; j < Cell::Dim; ++j) {
+          point[j] = nodes(i, j);
+        }
+      } else {
+        point = {1 / 4., 1 / 4., 1 / 4.};
       }
 
-      const auto pointIdx = elem * PlasticityPoints + i;
+      const auto pointIdx = elem * pointsPerCell + i;
 
       const Eigen::Vector3d transformed = seissol::transformations::tetrahedronReferenceToGlobal(
           vertices[0], vertices[1], vertices[2], vertices[3], point.data());
@@ -403,13 +410,17 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
   // NOLINTNEXTLINE(misc-const-correctness)
   easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
-  const unsigned numPoints = query.numPoints();
+  const auto numPoints = query.numPoints();
 
   std::vector<T> materialsFromQuery(numPoints);
   easi::ArrayOfStructsAdapter<T> adapter(materialsFromQuery.data());
   MaterialParameterDB<T>().addBindingPoints(adapter);
 
   easiEvalSafe(model, query, adapter, "volume material");
+
+  if (m_materials->size() < numPoints) {
+    m_materials->resize(numPoints);
+  }
 
   // Only use homogenization when ElementAverageGenerator has been supplied
   if (const auto* gen = dynamic_cast<const ElementAverageGenerator*>(&queryGen)) {

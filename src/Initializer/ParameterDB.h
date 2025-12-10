@@ -19,6 +19,7 @@
 #include "easi/Query.h"
 #include "easi/ResultAdapter.h"
 
+#include <cstddef>
 #include <memory>
 #include <set>
 #include <string>
@@ -70,6 +71,7 @@ class QueryGenerator {
   public:
   virtual ~QueryGenerator() = default;
   [[nodiscard]] virtual easi::Query generate() const = 0;
+  [[nodiscard]] virtual std::size_t outputPerCell() const { return 1; }
 };
 
 class ElementBarycenterGenerator : public QueryGenerator {
@@ -98,12 +100,14 @@ class ElementAverageGenerator : public QueryGenerator {
 
 class PlasticityPointGenerator : public QueryGenerator {
   public:
-  explicit PlasticityPointGenerator(const CellToVertexArray& cellToVertex)
-      : m_cellToVertex(cellToVertex) {}
+  explicit PlasticityPointGenerator(const CellToVertexArray& cellToVertex, bool pointwise = true)
+      : m_cellToVertex(cellToVertex), pointwise(pointwise) {}
   [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] std::size_t outputPerCell() const override;
 
   private:
   CellToVertexArray m_cellToVertex;
+  bool pointwise{true};
 };
 
 class FaultBarycenterGenerator : public QueryGenerator {

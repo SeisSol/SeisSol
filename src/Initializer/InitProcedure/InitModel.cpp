@@ -53,9 +53,8 @@ using Plasticity = seissol::model::Plasticity;
 
 template <typename T>
 std::vector<T> queryDB(const std::shared_ptr<seissol::initializer::QueryGenerator>& queryGen,
-                       const std::string& fileName,
-                       size_t size) {
-  std::vector<T> vectorDB(size);
+                       const std::string& fileName) {
+  std::vector<T> vectorDB;
   seissol::initializer::MaterialParameterDB<T> parameterDB;
   parameterDB.setMaterialVector(&vectorDB);
   parameterDB.evaluateModel(fileName, *queryGen);
@@ -96,26 +95,28 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   // material retrieval for copy+interior layers
   const auto ctv = seissol::initializer::CellToVertexArray::fromMeshReader(meshReader);
   const auto queryGen = getBestQueryGenerator(ctv);
-  auto materialsDB = queryDB<MaterialT>(
-      queryGen, seissolParams.model.materialFileName, meshReader.getElements().size());
+  auto materialsDB = queryDB<MaterialT>(queryGen, seissolParams.model.materialFileName);
 
   // plasticity (if needed)
+
+  const auto plasticityPointwise = seissolParams.model.plasticityPointwise;
+
   std::array<std::vector<Plasticity>, seissol::multisim::NumSimulations> plasticityDB;
+
   if (seissolParams.model.plasticity) {
+
     // plasticity information is only needed on all interior+copy cells.
     for (size_t i = 0; i < seissol::multisim::NumSimulations; i++) {
       plasticityDB[i] =
-          queryDB<Plasticity>(std::make_shared<PlasticityPointGenerator>(ctv),
-                              seissolParams.model.plasticityFileNames[i],
-                              meshReader.getElements().size() * model::PlasticityData::PointCount);
+          queryDB<Plasticity>(std::make_shared<PlasticityPointGenerator>(ctv, plasticityPointwise),
+                              seissolParams.model.plasticityFileNames[i]);
     }
   }
 
   // material retrieval for ghost layers
   auto queryGenGhost = getBestQueryGenerator(
       seissol::initializer::CellToVertexArray::fromVectors(ghostVertices, ghostGroups));
-  auto materialsDBGhost =
-      queryDB<MaterialT>(queryGenGhost, seissolParams.model.materialFileName, ghostVertices.size());
+  auto materialsDBGhost = queryDB<MaterialT>(queryGenGhost, seissolParams.model.materialFileName);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -200,10 +201,12 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
                  "Plasticity database size mismatch with number of simulations");
           std::array<const Plasticity*, seissol::multisim::NumSimulations> localPlasticity{};
           for (size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
-            localPlasticity[i] = &plasticityDB[i][static_cast<std::size_t>(meshId) *
-                                                  model::PlasticityData::PointCount];
+            const auto pointsPerCell = plasticityPointwise ? model::PlasticityData::PointCount : 1;
+            localPlasticity[i] = &plasticityDB[i][static_cast<std::size_t>(meshId) * pointsPerCell];
           }
-          initAssign(plasticity, seissol::model::PlasticityData(localPlasticity, material.local));
+          initAssign(
+              plasticity,
+              seissol::model::PlasticityData(localPlasticity, material.local, plasticityPointwise));
         }
       }
     }

@@ -66,6 +66,9 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   const bool hasBoundaryFile = !boundaryFileName.value_or("").empty();
 
   const bool plasticity = reader->readWithDefault("plasticity", false);
+
+  const bool plasticityPointwise = reader->readWithDefault("plasticitypointwise", true);
+
   const bool useCellHomogenizedMaterial =
       reader->readWithDefault("usecellhomogenizedmaterial", true);
 
@@ -105,6 +108,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
 
   return ModelParameters{hasBoundaryFile,
                          plasticity,
+                         plasticityPointwise,
                          useCellHomogenizedMaterial,
                          freqCentral,
                          freqRatio,
