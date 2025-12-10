@@ -83,7 +83,6 @@ def addKernels(
     rho = Tensor("rho", ())
 
     mainstresscnt = 3 if aderdg.velocityOffset() > 1 else 1
-    blowup = Tensor("blowup", (mainstresscnt,), spp=np.ones((mainstresscnt,)))
 
     averageNormalDisplacement = OptionalDimTensor(
         "averageNormalDisplacement",
@@ -146,9 +145,7 @@ def addKernels(
 
         fsg_boundary = tmp["kp"].subslice("p", 0, mainstresscnt) <= g2m * rho[
             ""
-        ] * averageNormalDisplacement["k"] * blowup["p"] - tmp["kp"].subslice(
-            "p", 0, mainstresscnt
-        )
+        ] * averageNormalDisplacement["k"] - tmp["kp"].subslice("p", 0, mainstresscnt)
 
         generator.addFamily(
             f"{name_prefix}bcDirichlet",

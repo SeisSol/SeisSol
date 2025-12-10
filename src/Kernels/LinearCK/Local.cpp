@@ -179,7 +179,6 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       kernel.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
 
       kernel.Tinv = (*cellBoundaryMapping)[face].dataTinv;
-      kernel.blowup = init::blowup::Values;
 
       kernel.execute(face);
       break;
@@ -303,8 +302,8 @@ void Local::computeBatchedIntegral(
           dataTable[fsgKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
       auto** rhos = dataTable[fsgKey].get(inner_keys::Wp::Id::Rhos)->getDeviceDataPtr();
 
-      auto** dataTinv = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
-      auto** idofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
+      auto** dataTinv = dataTable[fsgKey].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
+      auto** idofsPtrs = dataTable[fsgKey].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
 
       auto bcKernel = deviceBCFreeSurfaceGravity;
       bcKernel.g2m = -2 * gravitationalAcceleration;
@@ -312,12 +311,12 @@ void Local::computeBatchedIntegral(
       bcKernel.averageNormalDisplacement = const_cast<const real**>(nodalAvgDisplacements);
       bcKernel.Tinv = const_cast<const real**>(dataTinv);
       bcKernel.I = const_cast<const real**>(idofsPtrs);
-      bcKernel.Q = (dataTable[key].get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+      bcKernel.Q = (dataTable[fsgKey].get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
       bcKernel.AminusT = const_cast<const real**>(
-          dataTable[key].get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+          dataTable[fsgKey].get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
       bcKernel.extraOffset_AminusT = SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
 
-      bcKernel.numElements = dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize();
+      bcKernel.numElements = dataTable[fsgKey].get(inner_keys::Wp::Id::Dofs)->getSize();
 
       bcKernel.streamPtr = runtime.stream();
 
@@ -332,20 +331,22 @@ void Local::computeBatchedIntegral(
       auto easiBoundaryConstantPtrs =
           dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryConstant)->getDeviceDataPtr();
 
-      auto** dataTinv = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
-      auto** idofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
+      auto** dataTinv = dataTable[dirichletKey].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
+      auto** idofsPtrs = dataTable[dirichletKey].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
 
       auto bcKernel = deviceBCDirichlet;
       bcKernel.easiBoundaryConstant = const_cast<const real**>(easiBoundaryConstantPtrs);
       bcKernel.easiBoundaryMap = const_cast<const real**>(easiBoundaryMapPtrs);
       bcKernel.Tinv = const_cast<const real**>(dataTinv);
       bcKernel.I = const_cast<const real**>(idofsPtrs);
-      bcKernel.Q = (dataTable[key].get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-      bcKernel.AminusT = const_cast<const real**>(
-          dataTable[key].get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+      bcKernel.Q = (dataTable[dirichletKey].get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+      bcKernel.AminusT =
+          const_cast<const real**>(dataTable[dirichletKey]
+                                       .get(inner_keys::Wp::Id::NeighborIntegrationData)
+                                       ->getDeviceDataPtr());
       bcKernel.extraOffset_AminusT = SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
 
-      bcKernel.numElements = dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize();
+      bcKernel.numElements = dataTable[dirichletKey].get(inner_keys::Wp::Id::Dofs)->getSize();
 
       bcKernel.streamPtr = runtime.stream();
 

@@ -167,6 +167,7 @@ class GravitationalFreeSurfaceBc {
         kernel.fsgpower(i + 1) = powerTmp;
       }
 
+      kernel.numElements = numElements;
       kernel.streamPtr = deviceStream;
       kernel.execute(faceIdx);
     }

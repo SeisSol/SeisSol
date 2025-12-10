@@ -306,6 +306,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
           fsgdata[face].push_back(fsgdataPtr);
           fsgdataPtr += 2;
 
+          *dataHost.getPointer<LTS::Rhos>() = dataHost.get<LTS::Material>().local->getDensity();
           rhosPtr[face].push_back(data.getPointer<LTS::Rhos>());
 
           ++counter[face];

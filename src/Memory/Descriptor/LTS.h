@@ -259,6 +259,8 @@ struct LTS {
       storage.add<ZinvExtra>(LayerMask(), 1, AllocationMode::HostDevicePinned);
 
       storage.add<FSGData>(LayerMask(), 1, AllocationMode::DeviceOnly);
+
+      storage.add<Rhos>(LayerMask(), 1, AllocationMode::HostDeviceSplit);
     }
   }
 
