@@ -107,13 +107,15 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         (numberOfNodes,),
     )
 
-    generator.add(
-        "plConvertToNodal",
-        QStressNodal["kp"] <= db.v["kl"] * QStress["lp"] + initialLoading["kp"],
-    )
-
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
+
+        generator.add(
+            name=f"{name_prefix}plConvertToNodal",
+            ast=QStressNodal["kp"] <= db.v["kl"] * QStress["lp"] + initialLoading["kp"],
+            target=target,
+        )
+
         generator.add(
             name=f"{name_prefix}plConvertToNodalNoLoading",
             ast=QStressNodal["kp"] <= db.v["kl"] * QStress["lp"],
@@ -155,20 +157,6 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
     gpu_target = "gpu"
     if gpu_target in targets:
         name_prefix = generate_kernel_name_prefix(gpu_target)
-
-        matreplace = initialLoading["kp"]
-
-        # Note: the last term was changed on purpose because
-        # GemmForge doesn't currently support tensor product operation
-        convert_to_nodal = (
-            QStressNodal["kp"] <= db.v[aderdg.t("kl")] * QStress["lp"] + matreplace
-        )
-
-        generator.add(
-            name=f"{name_prefix}plConvertToNodal",
-            ast=convert_to_nodal,
-            target=gpu_target,
-        )
 
         generator.add(
             f"{name_prefix}plConvertToModal",

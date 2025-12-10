@@ -7,7 +7,10 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Wolf
 
+#include "ParameterDB.h"
+
 #include "Common/Constants.h"
+#include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "Equations/acoustic/Model/Datastructures.h"
 #include "Equations/anisotropic/Model/Datastructures.h"
@@ -21,11 +24,18 @@
 #include "Geometry/PUMLReader.h"
 #include "Kernels/Precision.h"
 #include "Model/CommonDatastructures.h"
+#include "Numerical/Quadrature.h"
+#include "Numerical/Transformation.h"
+#include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
+#include "easi/ResultAdapter.h"
+#include "easi/YAMLParser.h"
 
 #include <Eigen/Core>
+#include <algorithm>
 #include <array>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <easi/Component.h>
 #include <easi/Query.h>
@@ -35,7 +45,9 @@
 #include <set>
 #include <string>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
+
 #ifdef USE_HDF
 // PUML.h needs to be included before Downward.h
 
@@ -43,20 +55,10 @@
 
 #include <PUML/Downward.h>
 #endif
-#include "DynamicRupture/Misc.h"
-#include "Numerical/Quadrature.h"
-#include "Numerical/Transformation.h"
-#include "ParameterDB.h"
-#include "SeisSol.h"
-#include "easi/ResultAdapter.h"
-#include "easi/YAMLParser.h"
 
-#include <algorithm>
-#include <cmath>
 #ifdef USE_ASAGI
 #include "Reader/AsagiReader.h"
 #endif
-#include <utils/logger.h>
 
 using namespace seissol::model;
 
@@ -145,7 +147,7 @@ easi::Query ElementBarycenterGenerator::generate() const {
   easi::Query query(m_cellToVertex.size, Cell::Dim);
 
 #pragma omp parallel for schedule(static)
-  for (unsigned elem = 0; elem < m_cellToVertex.size; ++elem) {
+  for (std::size_t elem = 0; elem < m_cellToVertex.size; ++elem) {
     auto vertices = m_cellToVertex.elementCoordinates(elem);
     Eigen::Vector3d barycenter = (vertices[0] + vertices[1] + vertices[2] + vertices[3]) * 0.25;
     query.x(elem, 0) = barycenter(0);
@@ -177,14 +179,17 @@ easi::Query ElementAverageGenerator::generate() const {
 
 // Transform quadrature points to global coordinates for all elements
 #pragma omp parallel for schedule(static) collapse(2)
-  for (unsigned elem = 0; elem < m_cellToVertex.size; ++elem) {
-    for (unsigned i = 0; i < NumQuadpoints; ++i) {
-      auto vertices = m_cellToVertex.elementCoordinates(elem);
-      Eigen::Vector3d transformed = seissol::transformations::tetrahedronReferenceToGlobal(
+  for (std::size_t elem = 0; elem < m_cellToVertex.size; ++elem) {
+    for (std::size_t i = 0; i < NumQuadpoints; ++i) {
+      const auto vertices = m_cellToVertex.elementCoordinates(elem);
+
+      const Eigen::Vector3d transformed = seissol::transformations::tetrahedronReferenceToGlobal(
           vertices[0], vertices[1], vertices[2], vertices[3], m_quadraturePoints[i].data());
-      query.x(elem * NumQuadpoints + i, 0) = transformed(0);
-      query.x(elem * NumQuadpoints + i, 1) = transformed(1);
-      query.x(elem * NumQuadpoints + i, 2) = transformed(2);
+
+      for (std::size_t j = 0; j < Cell::Dim; ++j) {
+        query.x(elem * NumQuadpoints + i, j) = transformed(j);
+      }
+
       query.group(elem * NumQuadpoints + i) = m_cellToVertex.elementGroups(elem);
     }
   }
@@ -193,7 +198,9 @@ easi::Query ElementAverageGenerator::generate() const {
 }
 
 easi::Query PlasticityPointGenerator::generate() const {
+
   constexpr auto PlasticityPoints = model::PlasticityData::PointCount;
+
   // Generate query using quadrature points for each element
   easi::Query query(m_cellToVertex.size * PlasticityPoints, Cell::Dim);
 
@@ -218,11 +225,12 @@ easi::Query PlasticityPointGenerator::generate() const {
 
       const auto pointIdx = elem * PlasticityPoints + i;
 
-      Eigen::Vector3d transformed = seissol::transformations::tetrahedronReferenceToGlobal(
+      const Eigen::Vector3d transformed = seissol::transformations::tetrahedronReferenceToGlobal(
           vertices[0], vertices[1], vertices[2], vertices[3], point.data());
-      query.x(pointIdx, 0) = transformed(0);
-      query.x(pointIdx, 1) = transformed(1);
-      query.x(pointIdx, 2) = transformed(2);
+
+      for (std::size_t j = 0; j < Cell::Dim; ++j) {
+        query.x(pointIdx, j) = transformed(j);
+      }
       query.group(pointIdx) = m_cellToVertex.elementGroups(elem);
     }
   }

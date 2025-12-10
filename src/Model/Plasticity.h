@@ -26,7 +26,7 @@ struct PlasticityData {
   static constexpr auto PointCount = tensor::vNodes::Shape[0];
 
   // initial loading (stress tensor)
-  alignas(Alignment) real initialLoading[tensor::QStressNodal::size()]{};
+  alignas(Alignment) real initialLoading[tensor::initialLoading::size()]{};
   alignas(Alignment) real cohesionTimesCosAngularFriction[tensor::meanStress::size()]{};
   alignas(Alignment) real sinAngularFriction[tensor::meanStress::size()]{};
 
@@ -35,7 +35,7 @@ struct PlasticityData {
 
   PlasticityData(const std::array<const Plasticity*, seissol::multisim::NumSimulations>& plasticity,
                  const Material* material) {
-    auto initialLoadingV = init::QStressNodal::view::create(initialLoading);
+    auto initialLoadingV = init::initialLoading::view::create(initialLoading);
     initialLoadingV.setZero();
 
     auto cohesionTimesCosAngularFrictionV =
