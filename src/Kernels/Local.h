@@ -48,6 +48,7 @@ class LocalKernel : public Kernel {
                                       recording::ConditionalMaterialTable& materialTable,
                                       recording::ConditionalIndicesTable& indicesTable,
                                       double timeStepWidth,
+                                      LocalTmp& tmp,
                                       seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   virtual void
