@@ -22,7 +22,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         clones=dict(),
         alignStride=aderdg.alignStride,
     )
-    numberOfNodes = aderdg.t(db.v.shape())[0]
+    numberOfNodes = db.v.shape()[0]
 
     numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
     sShape = (numberOf3DBasisFunctions, 6)
@@ -143,7 +143,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
 
     generator.add(
         "plConvertToModal",
-        QStress["kp"] <= QStress["kp"] + db.vInv[aderdg.t("kl")] * QStressNodal["lp"],
+        QStress["kp"] <= QStress["kp"] + db.vInv["kl"] * QStressNodal["lp"],
     )
 
     generator.add(
@@ -198,7 +198,6 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
 
         generator.add(
             f"{name_prefix}plConvertToModal",
-            QStress["kp"]
-            <= QStress["kp"] + db.vInv[aderdg.t("kl")] * QStressNodal["lp"],
+            QStress["kp"] <= QStress["kp"] + db.vInv["kl"] * QStressNodal["lp"],
             target=gpu_target,
         )

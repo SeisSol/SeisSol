@@ -142,11 +142,11 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
     // calculate plastic strain
     constexpr std::size_t NumNodes = tensor::QStressNodal::Shape[multisim::BasisFunctionDimension];
 
-    real* __restrict qEtaNodal = &pstrain[tensor::QStress::size()];
+    real* __restrict qEtaNodal = &pstrain[tensor::QStressNodal::size()];
 
 #pragma omp simd collapse(2)
-    for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-      for (std::size_t i = 0; i < NumNodes; ++i) {
+    for (std::size_t i = 0; i < NumNodes; ++i) {
+      for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
         const auto qp = s + multisim::NumSimulations * i;
 
         real dudtPstrainSqAcc = 0;

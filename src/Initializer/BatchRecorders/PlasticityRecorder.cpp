@@ -51,7 +51,7 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
       pstransPtrs[cell] = static_cast<real*>(pstrains[cell]);
       initialLoadPtrs[cell] = static_cast<real*>(data.get<LTS::Plasticity>().initialLoading);
       qStressNodalPtrs[cell] = qStressNodalScratch + cell * tensor::QStressNodal::size();
-      prevDofsPtrs[cell] = prevDofsScratch + cell * tensor::Q::size();
+      prevDofsPtrs[cell] = prevDofsScratch + cell * tensor::QStressNodal::size();
     }
 
     const ConditionalKey key(*KernelNames::Plasticity);
@@ -61,6 +61,5 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
     (*currentTable)[key].set(inner_keys::Wp::Id::Pstrains, pstransPtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::InitialLoad, initialLoadPtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::PrevDofs, prevDofsPtrs);
-    (*currentTable)[key].set(inner_keys::Wp::Id::DuDtStrain, qStressNodalPtrs);
   }
 }

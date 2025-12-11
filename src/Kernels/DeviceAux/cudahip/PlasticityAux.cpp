@@ -33,7 +33,7 @@ namespace aux {
 namespace plasticity {
 
 template <typename Tensor>
-__forceinline__ __device__ constexpr size_t leadDim() {
+__forceinline__ __device__ __host__ constexpr size_t leadDim() {
   if constexpr (multisim::MultisimEnabled) {
     return (Tensor::Stop[1] - Tensor::Start[1]) * (Tensor::Stop[0] - Tensor::Start[0]);
   } else {
@@ -65,15 +65,6 @@ __forceinline__ __device__ auto simidx() {
   }
 }
 
-__forceinline__ __device__ auto validx() {
-  if constexpr (multisim::MultisimEnabled) {
-    return threadIdx.y;
-  } else {
-    return threadIdx.x;
-  }
-}
-
-//--------------------------------------------------------------------------------------------------
 __global__ void
     kernel_plasticityNonlinear(real** __restrict nodalStressTensors,
                                real** __restrict prevNodal,
@@ -175,7 +166,9 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
                          double timeStepWidth,
                          size_t numElements,
                          void* streamPtr) {
-  constexpr unsigned NumNodes = tensor::QStressNodal::Shape[multisim::BasisFunctionDimension];
+  // use Stop/Start to include padding (and possibly avoid masked warps/wavefronts)
+  constexpr unsigned NumNodes = init::QStressNodal::Stop[multisim::BasisFunctionDimension] -
+                                init::QStressNodal::Start[multisim::BasisFunctionDimension];
   const auto block = getblock(NumNodes);
   const dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(streamPtr);
