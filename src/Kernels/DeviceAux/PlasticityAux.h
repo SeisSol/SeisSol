@@ -17,32 +17,17 @@
 namespace seissol::kernels::device::aux::plasticity {
 constexpr static int NumStressComponents = model::MaterialT::TractionQuantities;
 
-void adjustDeviatoricTensors(real** nodalStressTensors,
-                             unsigned* isAdjustableVector,
-                             const seissol::model::PlasticityData* plasticity,
-                             double oneMinusIntegratingFactor,
-                             size_t numElements,
-                             void* streamPtr);
-
-void computePstrains(real** pstrains,
-                     const seissol::model::PlasticityData* plasticityData,
-                     real** dofs,
-                     real** prevDofs,
-                     real** dUdTpstrain,
-                     double tV,
-                     double oneMinusIntegratingFactor,
-                     double timeStepWidth,
-                     unsigned* isAdjustableVector,
-                     size_t numElements,
-                     void* streamPtr);
-
-void updateQEtaNodal(real** qEtaNodalPtrs,
-                     real** qStressNodalPtrs,
-                     double timeStepWidth,
-                     unsigned* isAdjustableVector,
-                     size_t numElements,
-                     void* streamPtr);
-
+void plasticityNonlinear(real** __restrict nodalStressTensors,
+                         real** __restrict prevNodal,
+                         real** __restrict pstrainPtr,
+                         unsigned* __restrict isAdjustableVector,
+                         std::size_t* __restrict yieldCounter,
+                         const seissol::model::PlasticityData* __restrict plasticity,
+                         double oneMinusIntegratingFactor,
+                         double tV,
+                         double timeStepWidth,
+                         size_t numElements,
+                         void* streamPtr);
 } // namespace seissol::kernels::device::aux::plasticity
 
 #endif // SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_

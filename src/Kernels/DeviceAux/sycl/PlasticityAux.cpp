@@ -38,10 +38,15 @@ auto getrange(std::size_t size, std::size_t numElements) {
   }
 }
 
-void adjustDeviatoricTensors(real** nodalStressTensors,
-                             unsigned* isAdjustableVector,
-                             const seissol::model::PlasticityData* plasticity,
-                             const double oneMinusIntegratingFactor,
+void adjustDeviatoricTensors(real** __restrict nodalStressTensors,
+                             real** __restrict prevNodal,
+                             real** __restrict pstrainPtr,
+                             unsigned* __restrict isAdjustableVector,
+                             std::size_t* __restrict yieldCounter,
+                             const seissol::model::PlasticityData* __restrict plasticity,
+                             double oneMinusIntegratingFactor,
+                             double tV,
+                             double timeStepWidth,
                              const size_t numElements,
                              void* queuePtr) {
   constexpr unsigned NumNodes = tensor::QStressNodal::Shape[multisim::BasisFunctionDimension];
@@ -55,13 +60,13 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
       auto wid = item.get_group().get_group_id(0);
       auto tid = item.get_local_id(0);
 
-      real* elementTensors = nodalStressTensors[wid];
+      real* qStressNodal = nodalStressTensors[wid];
       real localStresses[NumStressComponents];
 
-      constexpr auto elementTensorsColumn = leadDim<init::QStressNodal>();
+      constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal>();
 #pragma unroll
       for (int i = 0; i < NumStressComponents; ++i) {
-        localStresses[i] = elementTensors[tid + elementTensorsColumn * i];
+        localStresses[i] = qStressNodal[tid + ElementTensorsColumn * i];
       }
 
       // 1. Compute the mean stress for each node
@@ -94,19 +99,47 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
       item.barrier();
 
       // 5. Compute the yield factor
-      real factor = 0.0;
+      real yieldfactor = 0.0;
       if (tau > taulim) {
         isAdjusted[0] = static_cast<unsigned>(true);
-        factor = ((taulim / tau) - 1.0) * oneMinusIntegratingFactor;
+        yieldfactor = ((taulim / tau) - 1.0) * oneMinusIntegratingFactor;
       }
 
       // 6. Adjust deviatoric stress tensor if a node within a node exceeds the elasticity region
       item.barrier();
       if (isAdjusted[0]) {
+        const real factor = plasticity[wid].mufactor / (tV * oneMinusIntegratingFactor);
+
+        const real* __restrict localPrevNodal = prevNodal[wid];
+        real* __restrict eta = pstrainPtr[wid] + tensor::QStressNodal::size();
+        real* __restrict localPstrain = pstrainPtr[wid];
+
+        real dudtUpdate = 0;
+
 #pragma unroll
         for (int i = 0; i < NumStressComponents; ++i) {
-          elementTensors[tid + elementTensorsColumn * i] = localStresses[i] * factor;
+          const int q = tid + ElementTensorsColumn * i;
+
+          const auto updatedStressNodal = localStresses[i] * yieldfactor;
+
+          const real nodeDuDtPstrain = factor * (localPrevNodal[q] - updatedStressNodal);
+
+          localPstrain[q] += timeStepWidth * nodeDuDtPstrain;
+          qStressNodal[q] = updatedStressNodal;
+
+          dudtUpdate += nodeDuDtPstrain * nodeDuDtPstrain;
         }
+
+        eta[tid] += timeStepWidth * std::sqrt(static_cast<real>(0.5) * dudtUpdate);
+
+        auto yieldCounterAR =
+            sycl::atomic_ref<std::size_t,
+                             sycl::memory_order::relaxed,
+                             sycl::memory_scope::device,
+                             sycl::access::address_space::global_space>(yieldCounter);
+
+        // update the FLOPs that we've been here
+        yieldCounterAR.fetch_add(1, sycl::memory_order::relaxed);
       }
       if (tid == 0) {
         isAdjustableVector[wid] = isAdjusted[0];

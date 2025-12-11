@@ -107,8 +107,8 @@ struct LTS {
   struct Plasticity : public initializer::Variable<seissol::model::PlasticityData> {};
   struct DRMapping : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
   struct BoundaryMapping : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {};
-  struct PStrain
-      : public initializer::Variable<real[tensor::QStress::size() + tensor::QEtaNodal::size()]> {};
+  struct PStrain : public initializer::Variable<
+                       real[tensor::QStressNodal::size() + tensor::QEtaNodal::size()]> {};
   struct FaceDisplacements : public initializer::Variable<real* [Cell::NumFaces]> {};
   struct BuffersDerivatives : public initializer::Bucket<real> {};
 
