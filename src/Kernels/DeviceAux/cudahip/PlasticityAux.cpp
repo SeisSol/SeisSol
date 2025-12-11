@@ -213,8 +213,8 @@ __global__ void kernel_updateQEtaNodal(real** qEtaNodalPtrs,
                                        const unsigned* isAdjustableVector) {
   if (isAdjustableVector[blockIdx.x]) {
     const size_t tid = linearidx();
-    real* localQEtaNodal = qEtaNodalPtrs[blockIdx.x];
-    real* localQStressNodal = qStressNodalPtrs[blockIdx.x];
+    real* __restrict localQEtaNodal = qEtaNodalPtrs[blockIdx.x] + tensor::QStress::size();
+    real* __restrict localQStressNodal = qStressNodalPtrs[blockIdx.x];
     real factor{0.0};
 
     constexpr auto Ld = leadDim<init::QStressNodal>();
@@ -223,8 +223,7 @@ __global__ void kernel_updateQEtaNodal(real** qEtaNodalPtrs,
       factor += localQStressNodal[tid + i * Ld] * localQStressNodal[tid + i * Ld];
     }
 
-    localQEtaNodal[tid] = std::max(static_cast<real>(0.0), localQEtaNodal[tid]) +
-                          timeStepWidth * std::sqrt(static_cast<real>(0.5) * factor);
+    localQEtaNodal[tid] += timeStepWidth * std::sqrt(static_cast<real>(0.5) * factor);
   }
 }
 

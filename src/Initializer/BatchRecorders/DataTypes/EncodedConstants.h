@@ -48,7 +48,6 @@ struct Wp {
     DerivativesExt,
     Analytical,
     PrevDofs,
-    QEtaNodal,
     DuDtStrain,
     RotateDisplacementToFaceNormal,
     RotateDisplacementToGlobal,

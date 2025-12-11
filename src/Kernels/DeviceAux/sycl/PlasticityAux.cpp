@@ -172,8 +172,8 @@ void updateQEtaNodal(real** QEtaNodalPtrs,
       auto lid = item.get_local_id(0);
 
       if (isAdjustableVector[wid]) {
-        real* localQEtaNodal = QEtaNodalPtrs[wid];
-        real* localQStressNodal = QStressNodalPtrs[wid];
+        real* __restrict localQEtaNodal = QEtaNodalPtrs[wid] + tensor::QStress::size();
+        real* __restrict localQStressNodal = QStressNodalPtrs[wid];
         real factor{0.0};
 
         constexpr auto ld = leadDim<init::QStressNodal>();
@@ -182,8 +182,7 @@ void updateQEtaNodal(real** QEtaNodalPtrs,
           factor += localQStressNodal[lid + i * ld] * localQStressNodal[lid + i * ld];
         }
 
-        localQEtaNodal[lid] = std::max(static_cast<real>(0.0), localQEtaNodal[lid]) +
-                              timeStepWidth * std::sqrt(static_cast<real>(0.5) * factor);
+        localQEtaNodal[lid] += timeStepWidth * std::sqrt(static_cast<real>(0.5) * factor);
       }
     });
   });

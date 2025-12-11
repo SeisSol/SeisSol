@@ -597,7 +597,13 @@ void EnergyOutput::computeVolumeEnergies() {
           // plastic moment
           const real* pstrainCell = pstrainData[cell];
           const double mu = material.getMuBar();
-          totalPlasticMoment += mu * volume * pstrainCell[tensor::QStress::size() + sim];
+
+          // TODO: integrate
+          // pstrainCell[tensor::QStress::size()]
+          double pMoment = 0;
+          (void)pstrainCell;
+
+          totalPlasticMoment += mu * volume * pMoment;
         }
       }
     }

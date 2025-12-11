@@ -229,8 +229,6 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
     if (plasticity) {
       layer.setEntrySize<LTS::FlagScratch>(layer.size() * sizeof(unsigned));
       layer.setEntrySize<LTS::PrevDofsScratch>(layer.size() * tensor::Q::Size * sizeof(real));
-      layer.setEntrySize<LTS::QEtaNodalScratch>(layer.size() * tensor::QEtaNodal::Size *
-                                                sizeof(real));
       layer.setEntrySize<LTS::QStressNodalScratch>(layer.size() * tensor::QStressNodal::Size *
                                                    sizeof(real));
     }

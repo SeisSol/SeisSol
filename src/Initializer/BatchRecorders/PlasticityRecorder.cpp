@@ -29,8 +29,6 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
   size_t nodalStressTensorCounter = 0;
   real* scratchMem =
       static_cast<real*>(currentLayer->var<LTS::IntegratedDofsScratch>(AllocationPlace::Device));
-  real* qEtaNodalScratch =
-      static_cast<real*>(currentLayer->var<LTS::QEtaNodalScratch>(AllocationPlace::Device));
   real* qStressNodalScratch =
       static_cast<real*>(currentLayer->var<LTS::QStressNodalScratch>(AllocationPlace::Device));
   real* prevDofsScratch =
@@ -52,7 +50,6 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
       nodalStressTensorCounter += tensor::QStressNodal::size();
       pstransPtrs[cell] = static_cast<real*>(pstrains[cell]);
       initialLoadPtrs[cell] = static_cast<real*>(data.get<LTS::Plasticity>().initialLoading);
-      qEtaNodalPtrs[cell] = qEtaNodalScratch + cell * tensor::QEtaNodal::size();
       qStressNodalPtrs[cell] = qStressNodalScratch + cell * tensor::QStressNodal::size();
       prevDofsPtrs[cell] = prevDofsScratch + cell * tensor::Q::size();
     }
@@ -64,7 +61,6 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
     (*currentTable)[key].set(inner_keys::Wp::Id::Pstrains, pstransPtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::InitialLoad, initialLoadPtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::PrevDofs, prevDofsPtrs);
-    (*currentTable)[key].set(inner_keys::Wp::Id::QEtaNodal, qEtaNodalPtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::DuDtStrain, qStressNodalPtrs);
   }
 }
