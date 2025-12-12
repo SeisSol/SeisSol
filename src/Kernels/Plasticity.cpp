@@ -178,8 +178,10 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
            */
           const auto qStressNodalUpdate = qStressNodal[q] * yieldFactor[qp];
           const auto dudtPstrain = factor * (qStressNodalPrev[q] - qStressNodalUpdate);
+
           // Integrate with explicit Euler
           pstrain[q] += timeStepWidth * dudtPstrain;
+          qStressNodal[q] = qStressNodalUpdate;
 
           dudtPstrainSqAcc += dudtPstrain * dudtPstrain;
         }
