@@ -52,11 +52,11 @@ set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic
 set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
 
-set(HOST_ARCH "hsw" CACHE STRING "Type of host architecture")
-set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx naples rome milan bergamo turin thunderx2t99 power9 power10 power11 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1 apple-m2 apple-m3 apple-m4 rvv128 rvv256 rvv512 rvv1024 rvv2048 rvv4096 avx2-128 avx2-256 avx10-128 avx10-256 avx10-512 lsx lasx)
+set(HOST_ARCH "auto" CACHE STRING "Type of host architecture")
+set(HOST_ARCH_OPTIONS noarch auto wsm snb hsw knc knl skx naples rome milan bergamo turin thunderx2t99 power9 power10 power11 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1 apple-m2 apple-m3 apple-m4 rvv128 rvv256 rvv512 rvv1024 rvv2048 rvv4096 avx2-128 avx2-256 avx10-128 avx10-256 avx10-512 lsx lasx)
 # size of a vector registers in bytes for a given architecture
-set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64     32   32    32      64    64    16     16 16 16   256     16     16     32     64     128     256      128      128      128      128     16     32     64     128     256     512    64       64       64        64        64 16 32)
-set(HOST_ARCH_VECTORSIZE  16  16  32  32  64  64  64     32   32    32      64    64    16     16 16 16    64     16     16     32     64     128     256       16       16       16       16     16     32     64     128     256     512    16       32       16        32        64 16 32)
+set(HOST_ARCH_ALIGNMENT   16   64 16  32  32  64  64  64     32   32    32      64    64    16     16 16 16   256     16     16     32     64     128     256      128      128      128      128     16     32     64     128     256     512    64       64       64        64        64 16 32)
+set(HOST_ARCH_VECTORSIZE  16   16 16  32  32  64  64  64     32   32    32      64    64    16     16 16 16    64     16     16     32     64     128     256       16       16       16       16     16     32     64     128     256     512    16       32       16        32        64 16 32)
 set_property(CACHE HOST_ARCH PROPERTY STRINGS ${HOST_ARCH_OPTIONS})
 
 
@@ -71,7 +71,7 @@ set(DEVICE_ARCH "none" CACHE STRING "Type of GPU architecture")
 
 # TODO: add vendor name here
 # (NOTE: bdw,skl,pvc as labels are kept for legacy reasons; prefer 8_0_0, 9_0_9, 12_60_7 resp.)
-set(DEVICE_ARCH_OPTIONS none
+set(DEVICE_ARCH_OPTIONS none auto generic
         sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86 sm_87 sm_89 sm_90 sm_100 sm_101 sm_103 sm_110 sm_120 sm_121 # Nvidia
         gfx900 gfx906 gfx908 gfx90a gfx942 gfx950 gfx1010 gfx1030 gfx1100 gfx1101 gfx1102 gfx1103 gfx1200 gfx1201   # AMD
         8_0_0 9_0_9 12_10_0 12_55_8 12_56_5 12_57_0 12_60_7 12_61_7 20_1_4 20_2_0 bdw skl pvc)                      # Intel
@@ -157,6 +157,32 @@ check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}"
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
 
 string(REPLACE "," ";" GEMM_TOOLS_LIST ${GEMM_TOOLS_LIST})
+
+include(cmake/auto_arch.cmake)
+
+if (HOST_ARCH STREQUAL "auto")
+    message(STATUS "Determining host arch supported on the current system")
+
+    set(_HOST_ARCH "noarch")
+    determine_host_arch(_HOST_ARCH)
+
+    set(HOST_ARCH "${_HOST_ARCH}" CACHE STRING "" FORCE)
+    message(STATUS "Fixed the host arch to ${HOST_ARCH}")
+endif()
+
+if (DEVICE_ARCH STREQUAL "auto")
+    message(STATUS "Determining device arch supported on the current system")
+
+    set(_DEVICE_ARCH "generic")
+    if (DEVICE_BACKEND STREQUAL "cuda")
+        determine_nvidia_arch(_DEVICE_ARCH)
+    elseif (DEVICE_BACKEND STREQUAL "hip")
+        determine_amd_arch(_DEVICE_ARCH)
+    endif()
+
+    set(DEVICE_ARCH "${_DEVICE_ARCH}" CACHE STRING "" FORCE)
+    message(STATUS "Fixed the device arch to ${DEVICE_ARCH}")
+endif()
 
 # deduce GEMM_TOOLS_LIST based on the host arch
 if (GEMM_TOOLS_LIST STREQUAL "auto")
