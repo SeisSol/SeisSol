@@ -21,6 +21,7 @@
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
@@ -53,6 +54,9 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
+
+GENERATE_HAS_MEMBER(vInv)
+GENERATE_HAS_MEMBER(evalAtQP)
 
 namespace seissol::writer {
 
@@ -598,12 +602,24 @@ void EnergyOutput::computeVolumeEnergies() {
           const real* pstrainCell = pstrainData[cell];
           const double mu = material.getMuBar();
 
-          // TODO: integrate
-          // pstrainCell[tensor::QStress::size()]
-          double pMoment = 0;
-          (void)pstrainCell;
+          // integrating over all collocation points suffices
+          const real* __restrict qEta = &pstrainCell[tensor::QStressNodal::size()];
 
-          totalPlasticMoment += mu * volume * pMoment;
+          alignas(Alignment) real qEtaQuad[tensor::QEtaNodalProject::size()]{};
+
+          kernel::plProject krnl;
+          set_evalAtQP(krnl, global->evalAtQPMatrix);
+          set_vInv(krnl, global->vandermondeMatrixInverse);
+          krnl.QEtaNodal = qEta;
+          krnl.QEtaNodalProject = qEtaQuad;
+          krnl.execute();
+
+          double pMoment = 0;
+          for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
+            pMoment += quadratureWeightsTet[qp] * qEtaQuad[qp];
+          }
+
+          totalPlasticMoment += mu * jacobiDet * pMoment;
         }
       }
     }

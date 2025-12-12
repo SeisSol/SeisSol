@@ -95,6 +95,14 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         (numberOfNodes,),
         alignStride=True,
     )
+    QEtaNodalProject = OptionalDimTensor(
+        "QEtaNodalProject",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (aderdg.numberOf3DQuadraturePoints(),),
+        alignStride=True,
+    )
 
     selectBulkAverage = Tensor(
         "selectBulkAverage", (6,), spp={(i,): str(1.0 / 3.0) for i in range(3)}
@@ -146,10 +154,20 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         QStress["kp"] <= QStress["kp"] + db.vInv["kl"] * QStressNodal["lp"],
     )
 
+    # keep the following matrices
     generator.add(
         "plKeep",
-        [QEtaNodal["k"] <= QEtaNodal["k"], yieldFactor["k"] <= yieldFactor["k"]],
+        [yieldFactor["k"] <= QEtaNodal["k"], QEtaNodal["k"] <= yieldFactor["k"]],
     )
+
+    if QEtaNodal.shape() == QEtaNodalProject.shape():
+        generator.add("plProject", QEtaNodalProject["l"] <= QEtaNodal["l"])
+    else:
+        generator.add(
+            "plProject",
+            QEtaNodalProject["p"]
+            <= aderdg.db.evalAtQP[aderdg.t("pk")] * db.vInv["kl"] * QEtaNodal["l"],
+        )
 
     gpu_target = "gpu"
     if gpu_target in targets:
