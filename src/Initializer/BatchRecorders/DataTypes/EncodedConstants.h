@@ -47,7 +47,6 @@ struct Wp {
     DerivativesAne,
     DerivativesExt,
     Analytical,
-    PrevDofs,
     RotateDisplacementToFaceNormal,
     RotateDisplacementToGlobal,
     RotatedFaceDisplacement,

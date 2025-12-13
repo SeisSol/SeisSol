@@ -62,14 +62,6 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         iShape,
         alignStride=True,
     )
-    QStressNodalPrev = OptionalDimTensor(
-        "QStressNodalPrev",
-        aderdg.Q.optName(),
-        aderdg.Q.optSize(),
-        aderdg.Q.optPos(),
-        iShape,
-        alignStride=True,
-    )
     meanStress = OptionalDimTensor(
         "meanStress",
         aderdg.Q.optName(),
@@ -122,16 +114,14 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
         (numberOfNodes,),
+        alignStride=True,
     )
 
     generator.add(
         "plConvertToNodal",
-        [
-            QStressNodalPrev["kp"] <= db.v["kl"] * QStress["lp"],
-            QStressNodal["kp"]
-            <= QStressNodalPrev["kp"]
-            + replicateInitialLoading["k"] * initialLoading["p"],
-        ],
+        QStressNodal["kp"]
+        <= db.v["kl"] * QStress["lp"]
+        + replicateInitialLoading["k"] * initialLoading["p"],
     )
 
     generator.add(
@@ -203,10 +193,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
 
         # Note: the last term was changed on purpose because
         # GemmForge doesn't currently support tensor product operation
-        convert_to_nodal = [
-            QStressNodalPrev["kp"] <= db.v["kl"] * QStress["lp"],
-            QStressNodal["kp"] <= QStressNodalPrev["kp"] + matreplace,
-        ]
+        convert_to_nodal = QStressNodal["kp"] <= db.v["kl"] * QStress["lp"] + matreplace
 
         generator.add(
             name=f"{name_prefix}plConvertToNodal",

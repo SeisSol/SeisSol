@@ -34,7 +34,6 @@ auto getrange(std::size_t size, std::size_t numElements) {
 }
 
 void adjustDeviatoricTensors(real** __restrict nodalStressTensors,
-                             real** __restrict prevNodal,
                              real** __restrict pstrainPtr,
                              unsigned* __restrict isAdjustableVector,
                              std::size_t* __restrict yieldCounter,
@@ -107,7 +106,6 @@ void adjustDeviatoricTensors(real** __restrict nodalStressTensors,
       if (isAdjusted[0]) {
         const real factor = plasticity[wid].mufactor / (tV * oneMinusIntegratingFactor);
 
-        const real* __restrict localPrevNodal = prevNodal[wid];
         real* __restrict eta = pstrainPtr[wid] + tensor::QStressNodal::size();
         real* __restrict localPstrain = pstrainPtr[wid];
 
@@ -119,7 +117,7 @@ void adjustDeviatoricTensors(real** __restrict nodalStressTensors,
 
           const auto updatedStressNodal = localStresses[i] * yieldfactor;
 
-          const real nodeDuDtPstrain = factor * (localPrevNodal[q] - updatedStressNodal);
+          const real nodeDuDtPstrain = -factor * updatedStressNodal;
 
           localPstrain[q] += timeStepWidth * nodeDuDtPstrain;
           qStressNodal[q] = updatedStressNodal;

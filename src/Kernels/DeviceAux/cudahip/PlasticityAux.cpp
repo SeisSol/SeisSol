@@ -67,7 +67,6 @@ __forceinline__ __device__ auto simidx() {
 
 __global__ void
     kernel_plasticityNonlinear(real** __restrict nodalStressTensors,
-                               real** __restrict prevNodal,
                                real** __restrict pstrainPtr,
                                unsigned* __restrict isAdjustableVector,
                                std::size_t* __restrict yieldCounter,
@@ -125,7 +124,6 @@ __global__ void
   if (isAdjusted) {
     const real factor = plasticity[blockIdx.x].mufactor / (tV * oneMinusIntegratingFactor);
 
-    const real* __restrict localPrevNodal = prevNodal[blockIdx.x];
     real* __restrict eta = pstrainPtr[blockIdx.x] + tensor::QStressNodal::size();
     real* __restrict localPstrain = pstrainPtr[blockIdx.x];
 
@@ -137,7 +135,7 @@ __global__ void
 
       const auto updatedStressNodal = localStresses[i] * yieldfactor;
 
-      const real nodeDuDtPstrain = factor * (localPrevNodal[q] - updatedStressNodal);
+      const real nodeDuDtPstrain = -factor * updatedStressNodal;
 
       localPstrain[q] += timeStepWidth * nodeDuDtPstrain;
       qStressNodal[q] = updatedStressNodal;
@@ -148,6 +146,8 @@ __global__ void
     eta[linearidx()] += timeStepWidth * std::sqrt(static_cast<real>(0.5) * dudtUpdate);
 
     // update the FLOPs that we've been here
+    // (there's no atomicAdd for unsigned long / sometimes size_t, so take one of the other ones)
+    static_assert(sizeof(unsigned long long) == sizeof(std::size_t));
     atomicAdd(reinterpret_cast<unsigned long long*>(yieldCounter), 1);
   }
   if (linearidx() == 0) {
@@ -156,7 +156,6 @@ __global__ void
 }
 
 void plasticityNonlinear(real** __restrict nodalStressTensors,
-                         real** __restrict prevNodal,
                          real** __restrict pstrainPtr,
                          unsigned* __restrict isAdjustableVector,
                          std::size_t* __restrict yieldCounter,
@@ -173,7 +172,6 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
   const dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(streamPtr);
   kernel_plasticityNonlinear<<<grid, block, 0, stream>>>(nodalStressTensors,
-                                                         prevNodal,
                                                          pstrainPtr,
                                                          isAdjustableVector,
                                                          yieldCounter,

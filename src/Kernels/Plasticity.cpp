@@ -55,7 +55,6 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Alignment == 0);
 
   alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()]{};
-  alignas(Alignment) real qStressNodalPrev[tensor::QStressNodal::size()]{};
 
   alignas(Alignment) real meanStress[tensor::meanStress::size()]{};
   alignas(Alignment) real secondInvariant[tensor::secondInvariant::size()]{};
@@ -77,7 +76,6 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   kernel::plConvertToNodal m2nKrnl;
   m2nKrnl.v = global->vandermondeMatrix;
   m2nKrnl.QStress = degreesOfFreedom;
-  m2nKrnl.QStressNodalPrev = qStressNodalPrev;
   m2nKrnl.QStressNodal = qStressNodal;
   m2nKrnl.replicateInitialLoading = init::replicateInitialLoading::Values;
   m2nKrnl.initialLoading = plasticityData->initialLoading;
@@ -140,9 +138,27 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
     const real factor = plasticityData->mufactor / (tV * oneMinusIntegratingFactor);
 
     // calculate plastic strain
-    constexpr std::size_t NumNodes = tensor::QStressNodal::Shape[multisim::BasisFunctionDimension];
+    constexpr std::size_t NumNodes = init::QStressNodal::Stop[multisim::BasisFunctionDimension] -
+                                     init::QStressNodal::Start[multisim::BasisFunctionDimension];
 
     real* __restrict qEtaNodal = &pstrain[tensor::QStressNodal::size()];
+
+    /**
+     * Compute sigma_{ij} := sigma_{ij} + yield s_{ij} for every node
+     * and store as modal basis.
+     *
+     * Remark: According to Wollherr et al., the update formula (13) should be
+     *
+     * sigmaNew_{ij} := f^* s_{ij} + m delta_{ij} - sigma0_{ij}
+     *
+     * where f^* = r tau_c / tau + (1 - r) = 1 + yield. Adding 0 to (13) gives
+     *
+     * sigmaNew_{ij} := f^* s_{ij} + m delta_{ij} - sigma0_{ij}
+     *                  + sigma_{ij} + sigma0_{ij} - sigma_{ij} - sigma0_{ij}
+     *                = f^* s_{ij} + sigma_{ij} - s_{ij}
+     *                = sigma_{ij} + (f^* - 1) s_{ij}
+     *                = sigma_{ij} + yield s_{ij}
+     */
 
 #pragma omp simd collapse(2)
     for (std::size_t i = 0; i < NumNodes; ++i) {
@@ -173,39 +189,29 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
            * d/dt strain_{ij} = -1 / (2mu tV r) yield s_{ij}
            *                  = -1 / (2mu tV r) (sigmaNew_{ij} - sigma_{ij})
            *                  = (sigma_{ij} - sigmaNew_{ij}) / (2mu tV r)
+           *                  = -yield s_{ij} / (2mu tV r)
            *
            * If tau < taulim, then sigma_{ij} - sigmaNew_{ij} = 0.
            */
           const auto qStressNodalUpdate = qStressNodal[q] * yieldFactor[qp];
-          const auto dudtPstrain = factor * (qStressNodalPrev[q] - qStressNodalUpdate);
+          const auto dudtPstrain = -factor * qStressNodalUpdate;
 
           // Integrate with explicit Euler
           pstrain[q] += timeStepWidth * dudtPstrain;
+
+          // now contains the update for qStressNodal (cf. below)
           qStressNodal[q] = qStressNodalUpdate;
 
           dudtPstrainSqAcc += dudtPstrain * dudtPstrain;
         }
 
+        // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
+        // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
+
         qEtaNodal[qp] += timeStepWidth * std::sqrt(0.5 * dudtPstrainSqAcc);
       }
     }
 
-    /**
-     * Compute sigma_{ij} := sigma_{ij} + yield s_{ij} for every node
-     * and store as modal basis.
-     *
-     * Remark: According to Wollherr et al., the update formula (13) should be
-     *
-     * sigmaNew_{ij} := f^* s_{ij} + m delta_{ij} - sigma0_{ij}
-     *
-     * where f^* = r tau_c / tau + (1 - r) = 1 + yield. Adding 0 to (13) gives
-     *
-     * sigmaNew_{ij} := f^* s_{ij} + m delta_{ij} - sigma0_{ij}
-     *                  + sigma_{ij} + sigma0_{ij} - sigma_{ij} - sigma0_{ij}
-     *                = f^* s_{ij} + sigma_{ij} - s_{ij}
-     *                = sigma_{ij} + (f^* - 1) s_{ij}
-     *                = sigma_{ij} + yield s_{ij}
-     */
     kernel::plConvertToModal adjKrnl;
     adjKrnl.QStress = degreesOfFreedom;
     adjKrnl.vInv = global->vandermondeMatrixInverse;
@@ -245,7 +251,6 @@ void Plasticity::computePlasticityBatched(
     const size_t numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
 
     // Convert modal to nodal
-    real** nodalPrev = (entry.get(inner_keys::Wp::Id::PrevDofs))->getDeviceDataPtr();
     real** modalStressTensors = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
     real** nodalStressTensors =
         (entry.get(inner_keys::Wp::Id::NodalStressTensor))->getDeviceDataPtr();
@@ -257,7 +262,6 @@ void Plasticity::computePlasticityBatched(
     m2nKrnl.v = global->vandermondeMatrix;
     m2nKrnl.QStress = const_cast<const real**>(modalStressTensors);
     m2nKrnl.QStressNodal = nodalStressTensors;
-    m2nKrnl.QStressNodalPrev = nodalPrev;
     m2nKrnl.replicateInitialLoadingM = global->replicateStresses;
     m2nKrnl.initialLoadingM = const_cast<const real**>(initLoad);
     m2nKrnl.streamPtr = defaultStream;
@@ -267,7 +271,6 @@ void Plasticity::computePlasticityBatched(
     real** pstrains = entry.get(inner_keys::Wp::Id::Pstrains)->getDeviceDataPtr();
 
     device::aux::plasticity::plasticityNonlinear(nodalStressTensors,
-                                                 nodalPrev,
                                                  pstrains,
                                                  isAdjustableVector,
                                                  yieldCounter,

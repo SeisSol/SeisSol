@@ -130,7 +130,6 @@ struct LTS {
   struct DofsExtScratch : public initializer::Scratchpad<real> {};
 
   struct FlagScratch : public initializer::Scratchpad<unsigned> {};
-  struct PrevDofsScratch : public initializer::Scratchpad<real> {};
   struct QStressNodalScratch : public initializer::Scratchpad<real> {};
 
   struct RotateDisplacementToFaceNormalScratch : public initializer::Scratchpad<real> {};
@@ -174,7 +173,6 @@ struct LTS {
                                                         IDofsAneScratch,
                                                         DofsExtScratch,
                                                         FlagScratch,
-                                                        PrevDofsScratch,
                                                         QStressNodalScratch,
                                                         RotateDisplacementToFaceNormalScratch,
                                                         RotateDisplacementToGlobalScratch,
@@ -254,7 +252,6 @@ struct LTS {
       storage.add<AnalyticScratch>(LayerMask(), 1, AllocationMode::HostDevicePinned);
 
       storage.add<FlagScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      storage.add<PrevDofsScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
       storage.add<QStressNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
 
       storage.add<RotateDisplacementToFaceNormalScratch>(

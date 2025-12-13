@@ -18,7 +18,6 @@ namespace seissol::kernels::device::aux::plasticity {
 constexpr static int NumStressComponents = model::MaterialT::TractionQuantities;
 
 void plasticityNonlinear(real** __restrict nodalStressTensors,
-                         real** __restrict prevNodal,
                          real** __restrict pstrainPtr,
                          unsigned* __restrict isAdjustableVector,
                          std::size_t* __restrict yieldCounter,
