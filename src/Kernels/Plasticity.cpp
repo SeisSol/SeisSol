@@ -332,9 +332,9 @@ void Plasticity::flopsPlasticity(std::uint64_t& nonZeroFlopsCheck,
   hardwareFlopsYield += kernel::plConvertToModal::HardwareFlops;
 
   // manually counted
-  nonZeroFlopsYield += tensor::QStressNodal::size() * 6;
-  hardwareFlopsYield += tensor::QStressNodal::size() * 6;
-  nonZeroFlopsYield += tensor::QEtaNodal::size() * 3;
-  hardwareFlopsYield += tensor::QEtaNodal::size() * 3;
+  nonZeroFlopsYield += static_cast<std::uint64_t>(tensor::QStressNodal::size() * 6);
+  hardwareFlopsYield += static_cast<std::uint64_t>(tensor::QStressNodal::size() * 6);
+  nonZeroFlopsYield += static_cast<std::uint64_t>(tensor::QEtaNodal::size() * 3);
+  hardwareFlopsYield += static_cast<std::uint64_t>(tensor::QEtaNodal::size() * 3);
 }
 } // namespace seissol::kernels
