@@ -108,15 +108,6 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         spp={(i,): str(1.0 / 2.0) if i < 3 else "1.0" for i in range(6)},
     )
 
-    yieldFactor = OptionalDimTensor(
-        "yieldFactor",
-        aderdg.Q.optName(),
-        aderdg.Q.optSize(),
-        aderdg.Q.optPos(),
-        (numberOfNodes,),
-        alignStride=True,
-    )
-
     generator.add(
         "plConvertToNodal",
         QStressNodal["kp"]
@@ -144,11 +135,28 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         QStress["kp"] <= QStress["kp"] + db.vInv["kl"] * QStressNodal["lp"],
     )
 
-    # keep the following matrices
-    generator.add(
-        "plKeep",
-        [yieldFactor["k"] <= QEtaNodal["k"], QEtaNodal["k"] <= yieldFactor["k"]],
+    # for the "old" output
+    nodalVar = OptionalDimTensor(
+        "nodalVar",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (numberOfNodes,),
+        alignStride=True,
     )
+    modalVar = OptionalDimTensor(
+        "modalVar",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (numberOf3DBasisFunctions,),
+        alignStride=True,
+    )
+    generator.add(
+        "plOutput",
+        modalVar["k"] <= db.vInv["kl"] * nodalVar["l"],
+    )
+    # end for the "old" output
 
     if QEtaNodal.shape() == QEtaNodalProject.shape():
         generator.add("plProject", QEtaNodalProject["l"] <= QEtaNodal["l"])
@@ -206,3 +214,25 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
             QStress["kp"] <= QStress["kp"] + db.vInv["kl"] * QStressNodal["lp"],
             target=gpu_target,
         )
+
+
+def includeTensors(matricesDir, aderdg, PlasticityMethod, includeTensors):
+    # TODO: maybe make class?
+    db = parseXMLMatrixFile(
+        "{}/plasticity_{}_matrices_{}.xml".format(
+            matricesDir, PlasticityMethod, aderdg.order
+        ),
+        clones=dict(),
+        alignStride=aderdg.alignStride,
+    )
+    numberOfNodes = db.v.shape()[0]
+
+    yieldFactor = OptionalDimTensor(
+        "yieldFactor",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (numberOfNodes,),
+        alignStride=True,
+    )
+    includeTensors.add(yieldFactor)
