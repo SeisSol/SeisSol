@@ -13,7 +13,9 @@
 
 #include <cstddef>
 #include <string>
+#include <unordered_set>
 #include <utils/logger.h>
+#include <utils/stringutils.h>
 #include <vector>
 
 namespace seissol::initializer::parameters {
@@ -66,6 +68,16 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   const bool hasBoundaryFile = !boundaryFileName.value_or("").empty();
 
   const bool plasticity = reader->readWithDefault("plasticity", false);
+
+  const auto plasticityDisableRaw = reader->readWithDefault<std::string>("plasticitydisable", "");
+  std::unordered_set<int> plasticityDisable;
+  {
+    const auto groups = utils::StringUtils::split(plasticityDisableRaw, ',');
+    for (const auto& group : groups) {
+      plasticityDisable.emplace(std::stoi(group));
+    }
+  }
+
   const bool useCellHomogenizedMaterial =
       reader->readWithDefault("usecellhomogenizedmaterial", true);
 
@@ -105,6 +117,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
 
   return ModelParameters{hasBoundaryFile,
                          plasticity,
+                         plasticityDisable,
                          useCellHomogenizedMaterial,
                          freqCentral,
                          freqRatio,

@@ -31,6 +31,9 @@ struct CellLocalInformation {
 
   // LTS setup
   LtsSetup ltsSetup;
+
+  // plasticity enabled
+  bool plasticity{false};
 };
 
 // cell local information which is not needed during the main iterations, but only during setup and
@@ -62,6 +65,9 @@ struct SecondaryCellLocalInformation {
 
   // rank of the own cell
   int rank{-1};
+
+  // cell group (for material parameters etc.)
+  int group{0};
 
   // rank of all neighboring cells
   std::array<int, Cell::NumFaces> neighborRanks{};

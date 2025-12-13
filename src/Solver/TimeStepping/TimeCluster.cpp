@@ -957,14 +957,16 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
         data, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
 
     if constexpr (UsePlasticity) {
-      numberOfTetsWithPlasticYielding +=
-          seissol::kernels::Plasticity::computePlasticity(oneMinusIntegratingFactor,
-                                                          timestep,
-                                                          tV,
-                                                          globalDataOnHost,
-                                                          &plasticity[cell],
-                                                          data.get<LTS::Dofs>(),
-                                                          pstrain[cell]);
+      if (data.get<LTS::CellInformation>().plasticity) {
+        numberOfTetsWithPlasticYielding +=
+            seissol::kernels::Plasticity::computePlasticity(oneMinusIntegratingFactor,
+                                                            timestep,
+                                                            tV,
+                                                            globalDataOnHost,
+                                                            &plasticity[cell],
+                                                            data.get<LTS::Dofs>(),
+                                                            pstrain[cell]);
+      }
     }
 #ifdef INTEGRATE_QUANTITIES
     seissolInstance.postProcessor().integrateQuantities(
