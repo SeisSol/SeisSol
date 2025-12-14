@@ -136,6 +136,13 @@ TimeCluster::TimeCluster(unsigned int clusterId,
   regionComputePointSources = loopStatistics->getRegion("computePointSources");
 
   yieldCells[0] = 0;
+
+  const auto* cellInfo = clusterData->var<LTS::CellInformation>();
+  for (std::size_t i = 0; i < clusterData->size(); ++i) {
+    if (cellInfo[i].plasticity) {
+      ++plasticityCells;
+    }
+  }
 }
 
 void TimeCluster::setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) {
@@ -567,9 +574,9 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
                            });
 
     seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
-        clusterData->size() * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
+        plasticityCells * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
     seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
-        clusterData->size() * accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
+        plasticityCells * accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
   }
 
   device.api->popLastProfilingMark();
@@ -977,9 +984,9 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   if constexpr (UsePlasticity) {
     yieldCells[0] += numberOfTetsWithPlasticYielding;
     seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
-        clusterSize * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
+        plasticityCells * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
     seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
-        clusterSize * accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
+        plasticityCells * accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
   }
 
   loopStatistics->end(regionComputeNeighboringIntegration, clusterSize, profilingId);
