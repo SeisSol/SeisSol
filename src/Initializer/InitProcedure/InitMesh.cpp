@@ -76,7 +76,7 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   const VrtxCoords center{drParameters.referencePoint[0],
                           drParameters.referencePoint[1],
                           drParameters.referencePoint[2]};
-  if (true) {
+  if (!drParameters.isDynamicRuptureEnabled) {
     logInfo() << "The Dynamic Rupture component has been disabled for this simulation.";
     meshReader.disableDR();
   } else {

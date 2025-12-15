@@ -116,6 +116,9 @@ class MeshReader {
 
   void exchangeGhostlayerMetadata();
 
+  /**
+   * Disable the DR by converting all DR faces (BC = 3) to regular faces (BC = 0).
+   */
   void disableDR();
 
   /**
