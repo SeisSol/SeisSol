@@ -58,7 +58,7 @@ avoidic = 0    ! 1 iff use the IC only for analytical boundary conditions
 /
 
 &DynamicRupture
-enabled = 1                  ! explicitly enable/disable the DR (different to setting FL=0; it'll remove all DR faces)
+enabled = 1                  ! explicitly enable/disable the DR (different to setting FL=0; disabling it converts all DR faces to default inner faces, and disables any DR-related I/O)
 FL = 16                      ! Friction law
 !0: none, 16:LSW, 103: RS with strong velocity weakening
 !yaml file defining spatial dependance of fault properties
