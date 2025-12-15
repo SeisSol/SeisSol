@@ -116,6 +116,8 @@ class MeshReader {
 
   void exchangeGhostlayerMetadata();
 
+  void disableDR();
+
   /**
     Create a linearized ghost layer view.
     Currently, the ghost layer arrays copy each cell per rank-boundary face.
