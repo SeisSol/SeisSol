@@ -49,11 +49,12 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
     sycl::local_accessor<real> sharedMemory(misc::NumPaddedPoints, cgh);
 
     cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
+      FrictionLawArgs argsLocal = args;
       FrictionLawContext ctx{};
       ctx.sharedMemory = &sharedMemory[0];
       ctx.item = reinterpret_cast<void*>(&item);
-      ctx.data = args.data;
-      ctx.args = &args;
+      ctx.data = argsLocal.data;
+      ctx.args = &argsLocal;
 
       const auto ltsFace = item.get_group().get_group_id(0);
       const auto pointIndex = item.get_local_id(0);
