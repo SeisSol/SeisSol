@@ -30,6 +30,9 @@ class AcousticADERDG(LinearADERDG):
     def numberOfQuantities(self):
         return 4
 
+    def velocityOffset(self):
+        return 1
+
     def starMatrix(self, dim):
         return self.db.star[dim]
 

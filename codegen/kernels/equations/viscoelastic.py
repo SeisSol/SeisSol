@@ -77,6 +77,9 @@ class ViscoelasticADERDG(LinearADERDG):
     def numberOfQuantities(self):
         return 9 + 6 * self.numberOfMechanisms
 
+    def velocityOffset(self):
+        return 6
+
     def starMatrix(self, dim):
         return self.db.star[dim]
 
