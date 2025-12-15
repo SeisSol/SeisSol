@@ -9,12 +9,12 @@
 #ifndef SEISSOL_SRC_SOURCETERM_FSRMREADER_H_
 #define SEISSOL_SRC_SOURCETERM_FSRMREADER_H_
 
+#include "Kernels/Precision.h"
+
 #include <Eigen/Dense>
 #include <cstddef>
 #include <string>
 #include <vector>
-
-#include "Kernels/Precision.h"
 
 namespace seissol::sourceterm {
 

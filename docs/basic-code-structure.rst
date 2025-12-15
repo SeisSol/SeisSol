@@ -31,7 +31,6 @@ Reader        Code for reading parameter files.
 ResultWriter  Fault, element, and surface output.
 Solver        Time-stepping and code executed during a simulation.
 SourceTerm    Everything related to kinematic rupture models.
-tests         Unit tests.
 ============= =============
 
 codegen/
@@ -54,6 +53,11 @@ Folder        Description
 Proxy         Code for the SeisSol Proxy executable. Compiled when compiling SeisSol.
 Main          Code for the main SeisSol executable.
 ============= =============
+
+tests/
+------------
+
+Contains unit tests; roughly mirroring the src/ directory structure.
 
 preprocessing/
 --------------

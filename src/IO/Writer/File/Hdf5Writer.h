@@ -7,8 +7,9 @@
 
 #ifndef SEISSOL_SRC_IO_WRITER_FILE_HDF5WRITER_H_
 #define SEISSOL_SRC_IO_WRITER_FILE_HDF5WRITER_H_
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Instructions/Hdf5.h>
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Hdf5.h"
+
 #include <hdf5.h>
 #include <memory>
 #include <mpi.h>

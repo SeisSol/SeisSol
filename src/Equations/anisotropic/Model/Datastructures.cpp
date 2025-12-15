@@ -7,13 +7,17 @@
 // SPDX-FileContributor: Sebastian Wolf
 
 #include "Datastructures.h"
+
+#include "Equations/acoustic/Model/Datastructures.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Model/CommonDatastructures.h"
+
+#include <Eigen/Core>
 #include <Eigen/Dense>
-#include <Equations/acoustic/Model/Datastructures.h>
+#include <Eigen/Eigenvalues>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -150,7 +154,7 @@ double AnisotropicMaterial::getMaxWaveSpeed() const {
 
   double maxEv = 0;
 
-  std::array<double, 81> fullTensor;
+  std::array<double, 81> fullTensor{};
   getFullStiffnessTensor(fullTensor);
   seissol_general::kernel::computeChristoffel computeChristoffel;
   computeChristoffel.stiffnessTensor = fullTensor.data();
@@ -186,7 +190,7 @@ double AnisotropicMaterial::getSWaveSpeed() const {
 
 MaterialType AnisotropicMaterial::getMaterialType() const { return MaterialType::Anisotropic; }
 
-void AnisotropicMaterial::setLameParameters(double mu, double lambda) {
+void AnisotropicMaterial::setLameParameters(double /*mu*/, double /*lambda*/) {
   // no idea.
   logError() << "Setting the Lamé parameters for anisotropic materials is not yet implemented.";
 }

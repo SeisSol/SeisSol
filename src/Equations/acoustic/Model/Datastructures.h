@@ -13,8 +13,9 @@
 
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "Kernels/LinearCK/Solver.h"
 #include "Model/CommonDatastructures.h"
-#include <Kernels/LinearCK/Solver.h>
+
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -22,8 +23,8 @@
 #include <vector>
 
 namespace seissol::model {
-class AcousticLocalData;
-class AcousticNeighborData;
+struct AcousticLocalData;
+struct AcousticNeighborData;
 
 struct AcousticMaterial : public Material {
   static constexpr std::size_t NumQuantities = 4;
@@ -84,7 +85,7 @@ struct AcousticMaterial : public Material {
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 
-  void setLameParameters(double mu, double lambda) override { this->lambda = lambda; }
+  void setLameParameters(double /*mu*/, double lambda) override { this->lambda = lambda; }
 };
 
 inline const std::unordered_map<std::string, double AcousticMaterial::*>

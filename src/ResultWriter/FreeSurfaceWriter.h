@@ -10,14 +10,14 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_FREESURFACEWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_FREESURFACEWRITER_H_
 
-#include "Parallel/MPI.h"
-#include "Parallel/Pin.h"
-
 #include "FreeSurfaceWriterExecutor.h"
 #include "Geometry/MeshReader.h"
 #include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
+#include "Parallel/MPI.h"
+#include "Parallel/Pin.h"
 #include "Solver/FreeSurfaceIntegrator.h"
+
 #include <async/Module.h>
 #include <utils/logger.h>
 

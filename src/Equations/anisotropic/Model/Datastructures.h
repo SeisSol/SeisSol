@@ -13,15 +13,16 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Kernels/LinearCK/Solver.h"
 #include "Model/CommonDatastructures.h"
-#include <Kernels/LinearCK/Solver.h>
+
 #include <array>
 #include <cstddef>
 #include <string>
 
 namespace seissol::model {
-class AnisotropicLocalData;
-class AnisotropicNeighborData;
+struct AnisotropicLocalData;
+struct AnisotropicNeighborData;
 
 struct AnisotropicMaterial : public Material {
   static constexpr std::size_t NumQuantities = 9;

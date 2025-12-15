@@ -9,24 +9,19 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITEREXECUTOR_H_
 #define SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITEREXECUTOR_H_
 
+#include "Equations/Datastructures.h"
+#include "Kernels/Precision.h"
+#include "Model/Plasticity.h"
+#include "Monitoring/Stopwatch.h"
 #include "Parallel/MPI.h"
+#include "xdmfwriter/XdmfWriter.h"
 
-#include <Kernels/Precision.h>
+#include <async/ExecInfo.h>
 #include <cassert>
 #include <memory>
 #include <string>
+#include <utils/logger.h>
 #include <vector>
-
-#include "utils/logger.h"
-
-#include "xdmfwriter/XdmfWriter.h"
-
-#include "async/ExecInfo.h"
-
-#include "Monitoring/Stopwatch.h"
-
-#include "Equations/Datastructures.h"
-#include "Model/Plasticity.h"
 
 namespace seissol::writer {
 
@@ -47,14 +42,14 @@ enum BufferTags {
 };
 
 struct WaveFieldInitParam {
-  int timestep;
-  int bufferIds[BuffertagMax + 1];
-  xdmfwriter::BackendType backend;
+  int timestep{};
+  int bufferIds[BuffertagMax + 1]{};
+  xdmfwriter::BackendType backend{};
   std::string backupTimeStamp;
 };
 
 struct WaveFieldParam {
-  double time;
+  double time{};
 };
 
 class WaveFieldWriterExecutor {
@@ -66,7 +61,7 @@ class WaveFieldWriterExecutor {
   xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>* m_lowWaveFieldWriter{nullptr};
 
   /** Buffer id for the first variable for high and low order output */
-  unsigned int m_variableBufferIds[2];
+  unsigned int m_variableBufferIds[2]{};
 
   /** The total number of (high order) variables */
   unsigned int m_numVariables{0};
@@ -97,7 +92,7 @@ class WaveFieldWriterExecutor {
       logError() << "Wave field writer already initialized";
     }
 
-    int rank = seissol::MPI::mpi.rank();
+    int rank = seissol::Mpi::mpi.rank();
 
     const xdmfwriter::BackendType type = param.backend;
 
@@ -132,7 +127,7 @@ class WaveFieldWriterExecutor {
     // Split the communicator into two - those containing vertices and those
     //  not containing any vertices.
     const int commColour = (info.bufferSize(param.bufferIds[Cells]) == 0) ? 0 : 1;
-    MPI_Comm_split(seissol::MPI::mpi.comm(), commColour, rank, &m_comm);
+    MPI_Comm_split(seissol::Mpi::mpi.comm(), commColour, rank, &m_comm);
     // Start the if statement
     if (info.bufferSize(param.bufferIds[Cells]) != 0) {
       // Get the new rank
@@ -159,6 +154,7 @@ class WaveFieldWriterExecutor {
           param.timestep != 0);
 
       setClusteringData(static_cast<const unsigned int*>(info.buffer(param.bufferIds[Clustering])));
+
       m_waveFieldWriter->writeExtraIntCellData(
           1, static_cast<const unsigned int*>(info.buffer(param.bufferIds[GlobalIds])));
       logInfo() << "High order output initialized";

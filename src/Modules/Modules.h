@@ -11,11 +11,11 @@
 
 #include "Module.h"
 
-#include "utils/logger.h"
 #include <array>
 #include <limits>
 #include <map>
 #include <optional>
+#include <utils/logger.h>
 
 namespace seissol {
 

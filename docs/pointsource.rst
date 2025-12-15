@@ -41,7 +41,7 @@ are listed in Table [table:loh1].
 
 Table: Material properties in LOH1.
 
-.. figure:: LatexFigures/LOH1.jpg
+.. figure:: figures/LOH1.jpg
    :alt: Geometry of LOH1 .
    :width: 11.00000cm
    :align: center
@@ -53,7 +53,7 @@ Geometry
 
 The mesh is generated using Gmsh.
 
-.. figure:: LatexFigures/loh1_mesh.png
+.. figure:: figures/loh1_mesh.png
    :alt: Geometry of LOH1 model (Gmsh)
    :width: 11.00000cm
    :align: center
@@ -81,13 +81,10 @@ Results
 
 | The comparison with solution is shown in Figure [fig:compare\_loh1].
 
-.. figure:: LatexFigures/loh1_benchmark.png
+.. figure:: figures/loh1_benchmark.png
    :alt: Benchmark of x-component particle velocity
    :width: 11.00000cm
    :align: center
 
    Benchmark of x-component particle velocity at receiver point 1 (0.0,
    693.0,0.1). Bule is 4-order SeisSol and orange is SISMOWINE result.
-
-
-

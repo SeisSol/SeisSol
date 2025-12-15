@@ -8,24 +8,23 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_GRAVITATIONALFREESURFACEBC_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_GRAVITATIONALFREESURFACEBC_H_
 
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-
 #include "Initializer/Typedefs.h"
-
 #include "Numerical/ODEInt.h"
 #include "Numerical/Quadrature.h"
-#include <Equations/Datastructures.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Parallel/Runtime/Stream.h"
+#include "Solver/MultipleSimulations.h"
 
-#include <Solver/MultipleSimulations.h>
 #include <utility>
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Kernels/LinearCK/DeviceAux/KernelsAux.h"
-#include "device.h"
+
+#include <Device/device.h>
 #include <tuple>
 #endif
 
@@ -48,11 +47,11 @@ class GravitationalFreeSurfaceBc {
                 const CellBoundaryMapping& boundaryMapping,
                 real* displacementNodalData,
                 real* integratedDisplacementNodalData,
-                TimeKrnl& timeKernel,
+                TimeKrnl& /*timeKernel*/,
                 const real* derivatives,
                 double timeStepWidth,
                 CellMaterialData& materialData,
-                FaceType faceType) {
+                FaceType /*faceType*/) {
     // This function does two things:
     // 1: Compute eta (for all three dimensions) at the end of the timestep
     // 2: Compute the integral of eta in normal direction over the timestep
@@ -116,7 +115,7 @@ class GravitationalFreeSurfaceBc {
       auto dofsFaceNodal = init::INodal::view::create(dofsFaceNodalStorage);
 
       // Temporary buffer to store nodal face coefficients at some time t
-      alignas(Alignment) std::array<real, nodal::tensor::nodes2D::Shape[0]> prevCoefficients;
+      alignas(Alignment) std::array<real, nodal::tensor::nodes2D::Shape[0]> prevCoefficients{};
 
       const double deltaT = timeStepWidth;
       const double deltaTInt = timeStepWidth;
@@ -190,12 +189,13 @@ class GravitationalFreeSurfaceBc {
   void evaluateOnDevice(unsigned faceIdx,
                         MappingKrnl&& projectKernelPrototype,
                         TimeKrnl& timeKernel,
-                        ConditionalPointersToRealsTable& dataTable,
-                        ConditionalMaterialTable& materialTable,
+                        recording::ConditionalPointersToRealsTable& dataTable,
+                        recording::ConditionalMaterialTable& materialTable,
                         double timeStepWidth,
                         device::DeviceInstance& device,
                         seissol::parallel::runtime::StreamRuntime& runtime) {
 
+    using namespace seissol::recording;
     auto* deviceStream = runtime.stream();
     ConditionalKey key(
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, faceIdx);

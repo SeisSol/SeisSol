@@ -6,10 +6,12 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "ResultWriter/ThreadsPinningWriter.h"
+
 #include "Common/Filesystem.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
-#include <Parallel/Pin.h>
+#include "Parallel/Pin.h"
+
 #include <fstream>
 #include <ios>
 #include <sched.h>
@@ -76,7 +78,7 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
   auto workerInfo = getPinningInfo(seissol::parallel::Pinning::getWorkerUnionMask().set);
 
   PinningInfo commThreadInfo;
-  if (seissol::useCommThread(seissol::MPI::mpi, env)) {
+  if (seissol::useCommThread(seissol::Mpi::mpi, env)) {
     auto freeCpus = pinning.getFreeCPUsMask();
     commThreadInfo = getPinningInfo(freeCpus.set);
   } else {
@@ -85,16 +87,16 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
     commThreadInfo = getPinningInfo(emptyUnion);
   }
 
-  auto workerThreads = seissol::MPI::mpi.collectContainer(workerInfo.coreIds);
-  auto workerNumas = seissol::MPI::mpi.collectContainer(workerInfo.numaIds);
+  auto workerThreads = seissol::Mpi::mpi.collectContainer(workerInfo.coreIds);
+  auto workerNumas = seissol::Mpi::mpi.collectContainer(workerInfo.numaIds);
 
-  auto commThreads = seissol::MPI::mpi.collectContainer(commThreadInfo.coreIds);
-  auto commNumas = seissol::MPI::mpi.collectContainer(commThreadInfo.numaIds);
+  auto commThreads = seissol::Mpi::mpi.collectContainer(commThreadInfo.coreIds);
+  auto commNumas = seissol::Mpi::mpi.collectContainer(commThreadInfo.numaIds);
 
-  auto localRanks = seissol::MPI::mpi.collect(seissol::MPI::mpi.sharedMemMpiRank());
-  auto numNProcs = seissol::MPI::mpi.collect(get_nprocs());
+  auto localRanks = seissol::Mpi::mpi.collect(seissol::Mpi::mpi.sharedMemMpiRank());
+  auto numNProcs = seissol::Mpi::mpi.collect(get_nprocs());
 
-  if (seissol::MPI::mpi.rank() == 0) {
+  if (seissol::Mpi::mpi.rank() == 0) {
     seissol::filesystem::path path(outputDirectory);
     path += seissol::filesystem::path("-threadPinning.csv");
 
@@ -102,10 +104,10 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
     fileStream << "hostname,device,rank,localRank,workermask,workernuma,commthread_mask,commthread_"
                   "numa,nproc\n";
 
-    const auto& hostNames = seissol::MPI::mpi.getHostNames();
-    const auto& pcis = seissol::MPI::mpi.getPCIAddresses();
+    const auto& hostNames = seissol::Mpi::mpi.getHostNames();
+    const auto& pcis = seissol::Mpi::mpi.getPCIAddresses();
     const std::string nullstring;
-    for (int rank = 0; rank < seissol::MPI::mpi.size(); ++rank) {
+    for (int rank = 0; rank < seissol::Mpi::mpi.size(); ++rank) {
       const auto& pci = pcis.empty() ? nullstring : pcis[rank];
       fileStream << "\"" << hostNames[rank] << "\",\"" << pci << "\"," << rank << ','
                  << localRanks[rank] << ",\"" << workerThreads[rank] << "\",\"" << workerNumas[rank]

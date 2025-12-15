@@ -8,12 +8,14 @@
 #ifndef SEISSOL_SRC_IO_WRITER_WRITER_H_
 #define SEISSOL_SRC_IO_WRITER_WRITER_H_
 
+#include "IO/Writer/File/BinaryWriter.h"
+#include "IO/Writer/File/Hdf5Writer.h"
+#include "IO/Writer/Instructions/Binary.h"
+#include "IO/Writer/Instructions/Hdf5.h"
 #include "Instructions/Instruction.h"
-#include <IO/Writer/File/BinaryWriter.h>
-#include <IO/Writer/File/Hdf5Writer.h>
-#include <IO/Writer/Instructions/Binary.h>
-#include <IO/Writer/Instructions/Hdf5.h>
+
 #include <memory>
+#include <mpi.h>
 #include <yaml-cpp/yaml.h>
 
 namespace async {
@@ -46,7 +48,7 @@ class Writer {
 
   std::string serialize();
 
-  WriteInstance beginWrite(const async::ExecInfo& info);
+  WriteInstance beginWrite(const async::ExecInfo& info, MPI_Comm comm);
 
   void endWrite();
 
@@ -59,7 +61,7 @@ class Writer {
 
 struct ScheduledWriter {
   std::string name;
-  double interval;
+  double interval{};
   std::function<Writer(const std::string&, std::size_t, double)> planWrite;
 };
 

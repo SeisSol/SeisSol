@@ -18,8 +18,9 @@
 #include "GeneratedCode/tensor.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <Eigen/Dense>
-#include <Solver/MultipleSimulations.h>
 #include <complex>
 #include <cstddef>
 #include <vector>
@@ -29,88 +30,6 @@ namespace seissol {
 namespace kernels {
 constexpr std::size_t NumSpaceQuadraturePoints = (ConvergenceOrder + 1) * (ConvergenceOrder + 1);
 } // namespace kernels
-
-struct MeshStructure {
-  /*
-   * Number of regions in the ghost and copy layer.
-   * This is equivalent to the number of ranks in a MPI setting.
-   */
-  unsigned int numberOfRegions;
-
-  /*
-   * Region-specific neighboring clusters
-   * [0]: rank
-   * [1]: global time cluster id
-   */
-  int (*neighboringClusters)[2];
-
-  /*
-   * Total number of ghost cells.
-   */
-  unsigned int numberOfGhostCells;
-
-  /*
-   * Number of ghost cells in each region of the ghost layer.
-   */
-  unsigned int* numberOfGhostRegionCells;
-
-  /*
-   * Number of cells with derivatives in each region of the ghost layer.
-   */
-  unsigned int* numberOfGhostRegionDerivatives;
-
-  /*
-   * Pointers to the memory chunks of the ghost regions.
-   */
-  real** ghostRegions;
-
-  /*
-   * Sizes of the ghost regions (in reals).
-   */
-  unsigned int* ghostRegionSizes;
-
-  /*
-   * Total number of copy cells.
-   */
-  unsigned int numberOfCopyCells;
-
-  /*
-   * Number of copy cells in each region of the copy layer.
-   */
-  unsigned int* numberOfCopyRegionCells;
-
-  /*
-   * Number of cells with communicating derivatives in each region of the ghost layer.
-   */
-  unsigned int* numberOfCommunicatedCopyRegionDerivatives;
-
-  /*
-   * Pointers to the memory chunks of the copy regions.
-   *   Remark: For the cells in the copy layer more information will be stored (in general).
-   *           The pointers only point to communcation related chunks.
-   */
-  real** copyRegions;
-
-  /*
-   * Sizes of the copy regions (in reals).
-   */
-  unsigned int* copyRegionSizes;
-
-  /*
-   * Total number of interior cells without MPI-face-neighbors.
-   */
-  unsigned int numberOfInteriorCells;
-
-  /*
-   * Message identifiers for the sends.
-   */
-  int* sendIdentifiers;
-
-  /*
-   * Message identifiers for the receives.
-   */
-  int* receiveIdentifiers;
-};
 
 struct GlobalData {
   /**
@@ -287,16 +206,16 @@ struct NeighboringIntegrationData {
 
 // material constants per cell
 struct CellMaterialData {
-  seissol::model::Material* local;
-  seissol::model::Material* neighbor[4];
+  seissol::model::Material* local{};
+  seissol::model::Material* neighbor[4]{};
 };
 
 struct DRFaceInformation {
-  unsigned meshFace;
-  unsigned plusSide;
-  unsigned minusSide;
-  unsigned faceRelation;
-  bool plusSideOnThisRank;
+  std::size_t meshFace{};
+  std::uint8_t plusSide{};
+  std::uint8_t minusSide{};
+  std::uint8_t faceRelation{};
+  bool plusSideOnThisRank{};
 };
 
 struct DRGodunovData {
@@ -344,27 +263,33 @@ struct DREnergyOutput {
 };
 
 struct CellDRMapping {
-  unsigned side;
-  unsigned faceRelation;
-  real* godunov;
-  real* fluxSolver;
-};
-
-struct CellBoundaryMapping {
-  real* nodes;
-  real* dataT;
-  real* dataTinv;
-  real* easiBoundaryConstant;
-  real* easiBoundaryMap;
+  unsigned side{};
+  unsigned faceRelation{};
+  real* godunov{nullptr};
+  real* fluxSolver{nullptr};
 };
 
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
-  real nodes[seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] * 3];
-  real dataT[seissol::tensor::T::size()];
-  real dataTinv[seissol::tensor::Tinv::size()];
-  real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()];
-  real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
+  real nodes[seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] * 3]{};
+  real dataT[seissol::tensor::T::size()]{};
+  real dataTinv[seissol::tensor::Tinv::size()]{};
+  real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()]{};
+  real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()]{};
+};
+
+struct CellBoundaryMapping {
+  real* nodes{nullptr};
+  real* dataT{nullptr};
+  real* dataTinv{nullptr};
+  real* easiBoundaryConstant{nullptr};
+  real* easiBoundaryMap{nullptr};
+
+  CellBoundaryMapping() = default;
+  explicit CellBoundaryMapping(BoundaryFaceInformation& faceInfo)
+      : nodes(faceInfo.nodes), dataT(faceInfo.dataT), dataTinv(faceInfo.dataTinv),
+        easiBoundaryConstant(faceInfo.easiBoundaryConstant),
+        easiBoundaryMap(faceInfo.easiBoundaryMap) {}
 };
 
 struct GravitationSetup {
@@ -379,16 +304,16 @@ struct TravellingWaveParameters {
 };
 
 struct AcousticTravellingWaveParametersITM {
-  double k;
-  double itmStartingTime;
-  double itmDuration;
-  double itmVelocityScalingFactor;
+  double k{};
+  double itmStartingTime{};
+  double itmDuration{};
+  double itmVelocityScalingFactor{};
 };
 
 struct PressureInjectionParameters {
-  std::array<double, 3> origin;
-  double magnitude;
-  double width;
+  std::array<double, 3> origin{};
+  double magnitude{};
+  double width{};
 };
 
 } // namespace seissol

@@ -5,20 +5,21 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Memory/MemoryAllocator.h"
 #include "PointSourceCluster.h"
-#include <Memory/MemoryAllocator.h>
+
 #include <cstddef>
 
 #ifdef __HIP__
 #include "hip/hip_runtime.h"
 #endif
 
+namespace seissol::kernels {
+
 namespace {
 constexpr std::size_t SubBlock = 64;
 constexpr std::size_t Blocksize = 256;
 constexpr auto PerBlock = Blocksize / SubBlock;
-
-using namespace seissol::kernels;
 
 __launch_bounds__(Blocksize) __global__ void launchKernel(
     std::size_t numElements,
@@ -53,8 +54,6 @@ __launch_bounds__(Blocksize) __global__ void launchKernel(
 }
 
 } // namespace
-
-namespace seissol::kernels {
 
 void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
                        sourceterm::PointSources& sources,

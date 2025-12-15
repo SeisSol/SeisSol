@@ -21,11 +21,11 @@ jobs:
 
           # keep, for once clang-21 or higher is needed
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main"
-          sudo add-apt-repository "deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main"
+          sudo add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main"
+          sudo add-apt-repository "deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main"
           sudo apt-get update
 
-          sudo apt-get -y install clang-20 clang-tidy-20 libomp-20-dev
+          sudo apt-get -y install clang-21 clang-tidy-21 libomp-21-dev
 
           sudo pip3 install numpy --break-system-packages
           sudo mkdir -p /opt/dependencies
@@ -42,19 +42,19 @@ jobs:
           make -j $(nproc) && make install
 
       - name: checkout-seissol
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: SeisSol/SeisSol
 
       - name: clang-tidy
         run: |
           set -euo pipefail
-          clang-tidy-20 --version
-          which clang-tidy-20
+          clang-tidy-21 --version
+          which clang-tidy-21
           git submodule update --init
           mkdir -p build && cd build
           CMAKE_PREFIX_PATH=/opt/dependencies cmake -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DORDER=6 -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=double -DEQUATIONS=elastic -DNUMBER_OF_MECHANISMS=0 -DTESTING=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
           make seissol-codegen
           # clang-tidy can not handle -fprofile-abs-path, so we remove it from the compile commands.
           sed -i 's/-fprofile-abs-path //g' compile_commands.json
-          ../.ci/tidy.sh ../ ./ -clang-tidy-binary=$(which clang-tidy-20) -quiet -j $(nproc)
+          ../.ci/tidy.sh ../ ./ -clang-tidy-binary=$(which clang-tidy-21) -quiet -j $(nproc)

@@ -8,10 +8,12 @@
 #ifndef SEISSOL_SRC_MODEL_PLASTICITY_H_
 #define SEISSOL_SRC_MODEL_PLASTICITY_H_
 
+#include "Kernels/Precision.h"
 #include "Model/CommonDatastructures.h"
-#include <Kernels/Precision.h>
-#include <Solver/MultipleSimulations.h>
+#include "Solver/MultipleSimulations.h"
+
 #include <cmath>
+#include <cstddef>
 #include <string>
 
 namespace seissol::model {
@@ -20,21 +22,29 @@ namespace seissol::model {
 
 struct PlasticityData {
   // initial loading (stress tensor)
-  real initialLoading[6 * seissol::multisim::NumSimulations];
-  real cohesionTimesCosAngularFriction[seissol::multisim::NumSimulations];
-  real sinAngularFriction[seissol::multisim::NumSimulations];
-  real mufactor; // Only dependent on mu which is to be constant for all simulations
+  real initialLoading[6 * seissol::multisim::NumSimulations]{};
+  real cohesionTimesCosAngularFriction[seissol::multisim::NumSimulations]{};
+  real sinAngularFriction[seissol::multisim::NumSimulations]{};
+
+  // Only dependent on mu which is to be constant for all simulations
+  real mufactor{};
 
   PlasticityData(const std::array<Plasticity, seissol::multisim::NumSimulations>& plasticity,
                  const Material* material) {
     for (std::size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
       // interleave these so that the kernel does not need any modifications
-      initialLoading[0 * seissol::multisim::NumSimulations + i] = plasticity[i].sXX;
-      initialLoading[1 * seissol::multisim::NumSimulations + i] = plasticity[i].sYY;
-      initialLoading[2 * seissol::multisim::NumSimulations + i] = plasticity[i].sZZ;
-      initialLoading[3 * seissol::multisim::NumSimulations + i] = plasticity[i].sXY;
-      initialLoading[4 * seissol::multisim::NumSimulations + i] = plasticity[i].sYZ;
-      initialLoading[5 * seissol::multisim::NumSimulations + i] = plasticity[i].sXZ;
+      initialLoading[static_cast<std::size_t>(0 * seissol::multisim::NumSimulations) + i] =
+          plasticity[i].sXX;
+      initialLoading[static_cast<std::size_t>(1 * seissol::multisim::NumSimulations) + i] =
+          plasticity[i].sYY;
+      initialLoading[static_cast<std::size_t>(2 * seissol::multisim::NumSimulations) + i] =
+          plasticity[i].sZZ;
+      initialLoading[static_cast<std::size_t>(3 * seissol::multisim::NumSimulations) + i] =
+          plasticity[i].sXY;
+      initialLoading[static_cast<std::size_t>(4 * seissol::multisim::NumSimulations) + i] =
+          plasticity[i].sYZ;
+      initialLoading[static_cast<std::size_t>(5 * seissol::multisim::NumSimulations) + i] =
+          plasticity[i].sXZ;
 
       const double angularFriction = std::atan(plasticity[i].bulkFriction);
 

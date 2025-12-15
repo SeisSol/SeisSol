@@ -10,6 +10,7 @@
 
 #include "Alignment.h"
 #include "Config.h"
+
 #include <cstddef>
 
 namespace seissol {

@@ -10,11 +10,11 @@
 #
 #  NOTE: it is not an official cmake search file
 #  author: Ravil Dorozhinskii
-#  email: ravil.dorozhinskii@tum.de 
+#  email: ravil.dorozhinskii@tum.de
 #
 #  PSpaMM_FOUND - system has Libxsmm_executable
 #
-#  Additional env. variables that may be used by this module. 
+#  Additional env. variables that may be used by this module.
 #  They can change the default behaviour and
 #  could to be set before calling find_package:
 #

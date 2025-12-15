@@ -9,7 +9,7 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_ASYNCIO_H_
 #define SEISSOL_SRC_RESULTWRITER_ASYNCIO_H_
 
-#include "async/Dispatcher.h"
+#include <async/Dispatcher.h>
 
 namespace seissol::io {
 

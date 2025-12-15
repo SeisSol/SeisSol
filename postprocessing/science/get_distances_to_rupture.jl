@@ -54,15 +54,15 @@ end
 
 
 function get_ASl(xdmf, timestep_range::Vector{Int})
-    
+
     ntimesteps = size(timesteps_of(xdmf))[1]
     timestep_range[2] = (timestep_range[2] == -1 ? ntimesteps : timestep_range[2])
-    
-    if !(timestep_range[1] > 0 && timestep_range[1] < timestep_range[2] && 
+
+    if !(timestep_range[1] > 0 && timestep_range[1] < timestep_range[2] &&
          timestep_range[2] <= ntimesteps)
         error("Parsed timestep range is not compatible with the fault output.")
     end
-    
+
     if timestep_range[1] == 1
         ASl = data_of(xdmf, timestep_range[2], "ASl")
     else
@@ -72,18 +72,18 @@ function get_ASl(xdmf, timestep_range::Vector{Int})
 end
 
 
-function get_distances_to_rupture(ASl::Vector{Float32}, xyz_fault::Matrix{Float32}, xyz_receiver::Matrix{Float32}, 
+function get_distances_to_rupture(ASl::Vector{Float32}, xyz_fault::Matrix{Float32}, xyz_receiver::Matrix{Float32},
         slip_threshold::Float32, JB_distance::Bool=false)
-    
+
     distances = Vector{Float32}(undef, size(xyz_receiver)[1])
     xyz_rupturing_fault = xyz_fault[ASl .> slip_threshold,:]
     coord_index = (JB_distance ? 2 : 3)
-    
+
     if rank::Int == 0
         println("Using $(Threads.nthreads()) threads per MPI rank...")
     end
     Threads.@threads for i in 1:size(xyz_receiver)[1]
-        distances[i] = minimum(sqrt.(sum(((xyz_rupturing_fault[:,1:coord_index] .- reshape(xyz_receiver[i,1:coord_index], 
+        distances[i] = minimum(sqrt.(sum(((xyz_rupturing_fault[:,1:coord_index] .- reshape(xyz_receiver[i,1:coord_index],
                                 1,coord_index)).^2), dims=2)))
     end
     return distances
@@ -92,18 +92,18 @@ end
 
 if use_gpu::Bool
     using CUDA
-    function get_distances_to_rupture(ASl::CuArray{Float32, 1, CUDA.Mem.DeviceBuffer}, 
-                        xyz_fault::CuArray{Float32, 2, CUDA.Mem.DeviceBuffer}, 
-                        xyz_receiver::CuArray{Float32, 2, CUDA.Mem.DeviceBuffer}, 
+    function get_distances_to_rupture(ASl::CuArray{Float32, 1, CUDA.Mem.DeviceBuffer},
+                        xyz_fault::CuArray{Float32, 2, CUDA.Mem.DeviceBuffer},
+                        xyz_receiver::CuArray{Float32, 2, CUDA.Mem.DeviceBuffer},
                         slip_threshold::Float32, JB_distance::Bool=false)
         # gpu version of the function (employing multiple dispatch)
 
         xyz_rupturing_fault = xyz_fault[ASl .> slip_threshold,:]
         distances = Vector{Float32}(undef, size(xyz_receiver)[1])
         coord_index = (JB_distance ? 2 : 3)
-        
+
         for i in 1:size(xyz_receiver)[1]
-            distances[i] = minimum(sqrt.(sum(((xyz_rupturing_fault[:,1:coord_index] .- reshape(xyz_receiver[i,1:coord_index], 
+            distances[i] = minimum(sqrt.(sum(((xyz_rupturing_fault[:,1:coord_index] .- reshape(xyz_receiver[i,1:coord_index],
                                     1,coord_index)).^2), dims=2)))
         end
         return distances
@@ -145,7 +145,7 @@ function main()
         else
             error("The specified filename needs to be a SeisSol .xdmf file")
         end
-        
+
         if !isfile(filename2)
             error("Filename deviates from standard SeisSol output, can not find ...-fault.xdmf")
         end
@@ -169,8 +169,8 @@ function main()
             xyz_receiver = get_cell_barycenters(xdmf)
             ASl = get_ASl(xdmf_fault, timestep_range::Vector{Int})
         end
-        
-        if rank::Int == 0            
+
+        if rank::Int == 0
             distance_type = (joyner_boore_distance ? "JB_" : "to_rupture_")
             outputname = "distance_"*distance_type*split(filename::String, '/')[end][1:end-5]
             println("Writing receiver xyz values to $(outputname)_xyz.npy")

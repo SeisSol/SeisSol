@@ -9,10 +9,9 @@
 
 #include "Pin.h"
 
+#include "Common/IntegerMaskParser.h"
 #include "Parallel/MPI.h"
-#include "utils/env.h"
-#include "utils/logger.h"
-#include <Common/IntegerMaskParser.h>
+
 #include <async/as/Pin.h>
 #include <cassert>
 #include <cstdlib>
@@ -23,6 +22,8 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <utils/env.h>
+#include <utils/logger.h>
 #include <vector>
 
 #ifndef __APPLE__
@@ -121,7 +122,7 @@ void Pinning::checkEnvVariables() {
       parsedFreeCPUsMask = parsedResult.value();
 
       bool isMaskGood{true};
-      const auto numLocalProcesses = MPI::mpi.sharedMemMpiSize();
+      const auto numLocalProcesses = Mpi::mpi.sharedMemMpiSize();
       if (numLocalProcesses > static_cast<int>(parsedFreeCPUsMask.size())) {
         logInfo() << "There are more communication (and/or output-writing) threads"
                   << "to pin than locations defined in `SEISSOL_FREE_CPUS_MASK`";
@@ -192,7 +193,7 @@ CpuMask Pinning::getFreeCPUsMask() const {
   CPU_ZERO(&freeMask);
 
   if (not parsedFreeCPUsMask.empty()) {
-    const auto localProcessor = MPI::mpi.sharedMemMpiRank();
+    const auto localProcessor = Mpi::mpi.sharedMemMpiRank();
     for (const auto& cpu : parsedFreeCPUsMask[localProcessor]) {
       CPU_SET(cpu, &freeMask);
     }
@@ -300,7 +301,7 @@ CpuMask Pinning::getNodeMask() {
                 workerMaskArray.size(),
                 MPI_CHAR,
                 MPI_BOR,
-                MPI::mpi.sharedMemComm());
+                Mpi::mpi.sharedMemComm());
 
   cpu_set_t nodeMask;
   CPU_ZERO(&nodeMask);

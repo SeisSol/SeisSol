@@ -8,10 +8,10 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PREPROCESSORMACROS_H_
 #define SEISSOL_SRC_INITIALIZER_PREPROCESSORMACROS_H_
 
-#include "Monitoring/Instrumentation.h"
-#include <cstddef>
-
 #include "Common/Constants.h"
+#include "Monitoring/Instrumentation.h"
+
+#include <cstddef>
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)

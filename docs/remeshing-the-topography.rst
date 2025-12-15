@@ -38,6 +38,5 @@ region away from which a fine discretization is not necessary.
 | We finally convert the inp file to a ts file readable by gocad using:
 | ``python3 convertInp.py test.inp --isolate``
 
-.. |topography in SimModeler| image:: LatexFigures/fine2coarse2.png
-.. |meshed topography| image:: LatexFigures/fine2coarse.png
-
+.. |topography in SimModeler| image:: figures/fine2coarse2.png
+.. |meshed topography| image:: figures/fine2coarse.png

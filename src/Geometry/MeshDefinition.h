@@ -9,7 +9,8 @@
 #ifndef SEISSOL_SRC_GEOMETRY_MESHDEFINITION_H_
 #define SEISSOL_SRC_GEOMETRY_MESHDEFINITION_H_
 
-#include <Common/Constants.h>
+#include "Common/Constants.h"
+
 #include <cstddef>
 #include <vector>
 
@@ -63,7 +64,7 @@ struct MPINeighborElement {
   LocalElemId localElement;
   /** Side of the local element */
   SideId localSide;
-  /** Global number neighbor element */
+  /** Global number neighbor element (for now: MPI index) */
   LocalElemId neighborElement;
   /** Side of the neighbor element */
   SideId neighborSide;

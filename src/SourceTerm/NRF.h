@@ -19,7 +19,8 @@ namespace seissol::sourceterm {
 
 // (NOTE: naming also used in rconv; hence avoid clang-tidy styleguiding here)
 
-// NOLINTNEXTLINE
+// NOLINTBEGIN
+
 typedef struct Subfault_units {
   char* tinit;
   char* timestep;
@@ -28,8 +29,9 @@ typedef struct Subfault_units {
   char* tan1;
   char* tan2;
   char* normal;
-  // NOLINTNEXTLINE
 } Subfault_units;
+
+// NOLINTEND
 
 using Subfault = struct Subfault {
   double tinit{};

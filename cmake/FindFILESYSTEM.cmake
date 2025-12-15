@@ -13,7 +13,7 @@
 #
 #  NOTE: it is not an official cmake search file
 #  authors: Carsten Uphoff, Ravil Dorozhinskii
-#  email: uphoff@in.tum.de, ravil.dorozhinskii@tum.de 
+#  email: uphoff@in.tum.de, ravil.dorozhinskii@tum.de
 #
 
 

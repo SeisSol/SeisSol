@@ -11,8 +11,9 @@
 
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
-#include "Memory/Tree/LTSTree.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+
 #include <array>
 #include <vector>
 
@@ -23,7 +24,6 @@ class PostProcessor {
   bool m_integrationMask[9]{};
   int m_numberOfVariables{0};
   std::vector<int> m_integerMap;
-  seissol::initializer::Variable<real> m_integrals;
 
   public:
   PostProcessor() : m_integerMap(0L) {
@@ -33,14 +33,14 @@ class PostProcessor {
   }
   virtual ~PostProcessor() = default;
   void integrateQuantities(double timestep,
-                           seissol::initializer::Layer& layerData,
+                           LTS::Layer& layerData,
                            unsigned int cell,
                            const double* dofs);
   void setIntegrationMask(const std::array<bool, 9>& integrationMask);
   [[nodiscard]] int getNumberOfVariables() const;
   void getIntegrationMask(bool* transferTo);
-  void allocateMemory(seissol::initializer::LTSTree* ltsTree);
-  const real* getIntegrals(seissol::initializer::LTSTree* ltsTree);
+  void allocateMemory(LTS::Storage& ltsStorage) const;
+  const real* getIntegrals(LTS::Storage& ltsStorage) const;
 };
 
 } // namespace seissol::writer

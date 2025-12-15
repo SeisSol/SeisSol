@@ -5,7 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <Common/Executor.h>
+#include "ActorState.h"
+
+#include "Common/Executor.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -14,8 +17,6 @@
 #include <string>
 #include <type_traits>
 #include <variant>
-
-#include "ActorState.h"
 
 namespace seissol::time_stepping {
 
@@ -48,12 +49,12 @@ std::string actorStateToString(ActorState state) {
 }
 
 void MessageQueue::push(const Message& message) {
-  const std::lock_guard lock{mutex};
+  const std::scoped_lock lock{mutex};
   queue.push(message);
 }
 
 Message MessageQueue::pop() {
-  const std::lock_guard lock{mutex};
+  const std::scoped_lock lock{mutex};
   const Message message = queue.front();
   queue.pop();
   return message;

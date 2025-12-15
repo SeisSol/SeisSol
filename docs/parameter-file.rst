@@ -108,4 +108,3 @@ the slip rate, a positive slip rate indicates left-lateral motion.
 Read the article `Left-lateral, right-lateral, normal,
 reverse <Left-lateral,-right-lateral,-normal,-reverse>`__ for more
 information.
-

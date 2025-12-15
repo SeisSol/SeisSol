@@ -9,21 +9,21 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_FREESURFACEWRITEREXECUTOR_H_
 #define SEISSOL_SRC_RESULTWRITER_FREESURFACEWRITEREXECUTOR_H_
 
-#include "async/ExecInfo.h"
+#include "Kernels/Precision.h"
+#include "Monitoring/Stopwatch.h"
 #include "xdmfwriter/XdmfWriter.h"
 
-#include "Monitoring/Stopwatch.h"
-#include <Kernels/Precision.h>
+#include <async/ExecInfo.h>
 
 namespace seissol::writer {
 struct FreeSurfaceInitParam {
-  int timestep;
-  xdmfwriter::BackendType backend;
+  int timestep{};
+  xdmfwriter::BackendType backend{};
   std::string backupTimeStamp;
 };
 
 struct FreeSurfaceParam {
-  double time;
+  double time{};
 };
 
 class FreeSurfaceWriterExecutor {

@@ -8,8 +8,9 @@
 #ifndef SEISSOL_SRC_IO_READER_FILE_HDF5READER_H_
 #define SEISSOL_SRC_IO_READER_FILE_HDF5READER_H_
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/Inference.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
+
 #include <hdf5.h>
 #include <memory>
 #include <stack>
@@ -32,8 +33,9 @@ class Hdf5Reader {
     return output;
   }
   template <typename T>
-  T readAttributeScalar(const std::string& name,
-                        std::shared_ptr<datatype::Datatype> type = datatype::inferDatatype<T>()) {
+  T readAttributeScalar(
+      const std::string& name,
+      const std::shared_ptr<datatype::Datatype>& type = datatype::inferDatatype<T>()) {
     T attr;
     readAttributeRaw(&attr, name, type);
     return attr;
@@ -43,9 +45,9 @@ class Hdf5Reader {
                         const std::string& name,
                         const std::shared_ptr<datatype::Datatype>& type);
   template <typename T>
-  std::vector<T>
-      readData(const std::string& name,
-               std::shared_ptr<datatype::Datatype> targetType = datatype::inferDatatype<T>()) {
+  std::vector<T> readData(
+      const std::string& name,
+      const std::shared_ptr<datatype::Datatype>& targetType = datatype::inferDatatype<T>()) {
     const auto count = dataCount(name);
     std::vector<T> output(count);
     readDataRaw(output.data(), name, count, targetType);

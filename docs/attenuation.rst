@@ -119,4 +119,3 @@ This leads  to :math:`f_1 = \mathrm{FreqCentral} / \sqrt{\mathrm{FreqRatio}}` an
 
 Outside of the frequency band :math:`f_1 - f_3`, Q goes to infinity, yielding
 elastic behavior.
-

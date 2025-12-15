@@ -8,16 +8,13 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
 
-#include <string>
-
-#include <Eigen/Dense>
-
 #include "Kernels/Precision.h"
 #include "ParameterReader.h"
+#include "Solver/MultipleSimulations.h"
 
-#include <Solver/MultipleSimulations.h>
-
+#include <Eigen/Dense>
 #include <numeric>
+#include <string>
 
 namespace seissol::initializer::parameters {
 
@@ -88,8 +85,8 @@ struct DRParameters {
   std::array<std::optional<std::string>, seissol::multisim::NumSimulations> faultFileNames;
   Eigen::Vector3d referencePoint;
   real terminatorSlipRateThreshold{0.0};
-  double etaHack{1.0};
-  double etaStop{std::numeric_limits<double>::infinity()};
+  double etaDamp{1.0};
+  double etaDampEnd{std::numeric_limits<double>::infinity()};
   unsigned nucleationCount{0};
 };
 

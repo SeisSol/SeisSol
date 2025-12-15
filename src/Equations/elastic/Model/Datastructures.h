@@ -10,11 +10,12 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_DATASTRUCTURES_H_
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_DATASTRUCTURES_H_
 
+#include "Equations/acoustic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "Kernels/LinearCK/Solver.h"
 #include "Model/CommonDatastructures.h"
-#include <Equations/acoustic/Model/Datastructures.h>
-#include <Kernels/LinearCK/Solver.h>
+
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -23,8 +24,8 @@
 #include <vector>
 
 namespace seissol::model {
-class ElasticLocalData;
-class ElasticNeighborData;
+struct ElasticLocalData;
+struct ElasticNeighborData;
 
 struct ElasticMaterial : Material {
   static constexpr std::size_t NumQuantities = 9;

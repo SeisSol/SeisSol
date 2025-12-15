@@ -41,23 +41,17 @@ Run ``pwd`` and copy the path there. Run the following script there.
 Next, we load the necessary modules for our SeisSol build.
 We set the compilers to the cray compiler wrappers (which in our case use ``amdclang`` internally).
 
-**NOTE: these modules are outdated.**
-
 .. code-block:: bash
 
-    module load LUMI/23.09 partition/G
-    module load cpeAMD/23.09
-    module load rocm/5.6.1
-    module load amd/5.6.1
-
-    module load buildtools/23.09
-
-    module load Boost/1.82.0-cpeAMD-23.09
+    module load LUMI/24.03 partition/G
+    module load cpeAMD/24.03
+    module load rocm/6.0.3
+    module load amd/6.0.3
     module load Eigen/3.4.0
 
-    module load cray-hdf5-parallel/1.12.2.7
-    module load cray-netcdf-hdf5parallel/4.9.0.7
-    module load cray-python/3.10.10
+    module load cray-hdf5-parallel
+    module load cray-netcdf-hdf5parallel
+    module load cray-python/3.11.7
 
     export CC=cc
     export CXX=CC
@@ -67,7 +61,33 @@ We also require a small hotfix for pkg-config, as required by easi (and subseque
 
 .. code-block:: bash
 
-    export PKG_CONFIG_PATH=/opt/cray/pe/netcdf/4.9.0.7/amd/5.0/lib/pkgconfig:/opt/cray/pe/hdf5/1.12.2.7/amd/5.0/lib/pkgconfig:$PKG_CONFIG_PATH
+    export PKG_CONFIG_PATH=/opt/cray/pe/netcdf/4.9.0.11/amd/5.0/lib/pkgconfig:/opt/cray/pe/hdf5/1.12.2.11/amd/5.0/lib/pkgconfig:$PKG_CONFIG_PATH
+
+
+All things put together, your `~/.bashrc` file should look like:
+
+.. code-block:: bash
+
+    module load LUMI/24.03 partition/G
+    module load cpeAMD/24.03
+    module load rocm/6.0.3
+    module load amd/6.0.3
+    module load Eigen/3.4.0
+
+    module load cray-hdf5-parallel
+    module load cray-netcdf-hdf5parallel
+    module load cray-python/3.11.7
+
+    export PKG_CONFIG_PATH=/opt/cray/pe/netcdf/4.9.0.11/amd/5.0/lib/pkgconfig:/opt/cray/pe/hdf5/1.12.2.11/amd/5.0/lib/pkgconfig:$PKG_CONFIG_PATH
+
+    export SEISSOL_BASE=/project/project_465002391/<your_name>/seissol_base
+    export SEISSOL_PREFIX=$SEISSOL_BASE/local
+    export CMAKE_PREFIX_PATH=$SEISSOL_PREFIX:$CMAKE_PREFIX_PATH
+    source $SEISSOL_PREFIX/bin/activate
+    export CC=cc
+    export CXX=CC
+    export FC=ftn
+
 
 Next, we also start up our Python installation. The virtual environment sets additional paths for e.g. executables to our prefix directory automatically.
 
@@ -77,6 +97,7 @@ Next, we also start up our Python installation. The virtual environment sets add
     source $SEISSOL_PREFIX/bin/activate
     pip install setuptools
     pip install numpy
+    pip install ninja
     pip install git+https://github.com/SeisSol/PSpaMM.git
     pip install git+https://github.com/SeisSol/gemmforge.git
     pip install git+https://github.com/SeisSol/chainforge.git
@@ -89,8 +110,8 @@ METIS/ParMETIS:
 
 .. code-block:: bash
 
-    wget https://ftp.mcs.anl.gov/pub/pdetools/spack-pkgs/parmetis-4.0.3.tar.gz
-    tar -xvf parmetis-4.0.3.tar.gz
+    wget https://deb.debian.org/debian/pool/non-free/p/parmetis/parmetis_4.0.3.orig.tar.gz
+    tar -xvf parmetis_4.0.3.orig.tar.gz
     cd parmetis-4.0.3
     sed -i 's/IDXTYPEWIDTH 32/IDXTYPEWIDTH 64/g'  ./metis/include/metis.h
     make config cc=mpicc cxx=mpicxx prefix=$SEISSOL_PREFIX
@@ -149,7 +170,7 @@ For libxsmm (note that we need 1.17 sharp; the latest main will not work as inte
 
 .. code-block:: bash
 
-    git clone --branch 1.17 --depth 1 https://github.com/hfp/libxsmm
+    git clone --branch 1.17 --depth 1 https://github.com/libxsmm/libxsmm
     cd libxsmm
     make generator
     cp bin/libxsmm_gemm_generator $SEISSOL_PREFIX/bin
@@ -163,7 +184,6 @@ Compiling SeisSol
 Finally, it's time to clone SeisSol and build it.
 
 However, we need to apply a small hotfix here, since the Cray compiler environment does not work with AdaptiveCpp (it causes problems with finding MPI, the filesystem headers etc.). As a workaround, we compile SeisSol with ``amdclang`` directly, and add the necessary flags from the Cray environment as compiler flags (that can be done by ``CC --cray-print-opts=all``, the same with ``cc`` and ``ftn``).
-Also, for LUMI, we disable the ROCm graphs, since they are not fully functional with SeisSol and ROCm 5.6.
 
 In total, we get the following:
 
@@ -172,7 +192,7 @@ In total, we get the following:
     git clone --recursive https://github.com/SeisSol/SeisSol.git seissol
     mkdir -p seissol/build
     cd seissol/build
-    CC=amdclang CXX=amdclang++ CFLAGS=$(cc --cray-print-opts=all) CXXFLAGS=$(CC --cray-print-opts=all) cmake .. -GNinja -DPRECISION=single -DDEVICE_BACKEND=hip -DDEVICE_ARCH=gfx90a -DHOST_ARCH=milan -DORDER=4 -DASAGI=ON -DNUMA_AWARE_PINNING=ON -DUSE_GRAPH_CAPTURING=OFF -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
+    CC=amdclang CXX=amdclang++ CFLAGS=$(cc --cray-print-opts=all) CXXFLAGS=$(CC --cray-print-opts=all) cmake .. -DPython3_EXECUTABLE=$(which python3.11) -GNinja -DPRECISION=single -DDEVICE_BACKEND=hip -DDEVICE_ARCH=gfx90a -DHOST_ARCH=milan -DORDER=5 -DASAGI=ON -DNUMA_AWARE_PINNING=ON -DUSE_GRAPH_CAPTURING=ON -DDR_QUAD_RULE=dunavant -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
     ninja
 
 Optionally, you can install SeisSol to ``$SEISSOL_PREFIX``.
@@ -182,9 +202,6 @@ Running Jobs
 
 Attached is a job script which does the pinning for us.
 The pinning on the LUMI nodes needs some special attention, since 8 out of the 64 cores are reserved for the OS (cf. https://lumi-supercomputer.github.io/LUMI-training-materials/User-Updates/Update-202308/lumig-lownoise/ ).
-
-Also, for now we disable the ``HSA_XNACK`` feature, as it is known to cause problems with ROCm 5.6 (cf. https://lumi-supercomputer.github.io/LUMI-EasyBuild-docs/r/rocm ).
-Thus, the unified memory functionality may be very slow (``SEISSOL_USM=1`` or ``SEISSOL_USM_MPI=1``).
 
 .. code-block:: bash
 

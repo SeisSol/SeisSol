@@ -8,19 +8,19 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_
 
-#include "Geometry/MeshDefinition.h"
-#include "Kernels/Precision.h"
-
+#include "Common/Constants.h"
+#include "Common/Marker.h"
 #include "GeneratedCode/init.h"
-#include <Initializer/Parameters/DRParameters.h>
+#include "Geometry/MeshDefinition.h"
+#include "Initializer/Parameters/DRParameters.h"
+#include "Kernels/Precision.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <cmath>
+#include <cstdint>
 #include <string>
 #include <tuple>
 #include <type_traits>
-
-#include <Solver/MultipleSimulations.h>
-
-#include "Common/Marker.h"
 
 namespace seissol::dr::misc {
 // TODO: this can be moved to yateto headers
@@ -46,6 +46,12 @@ static constexpr inline size_t NumPaddedPointsSingleSim =
 static constexpr inline size_t NumQuantities =
     misc::dimSize<init::QInterpolated, multisim::BasisFunctionDimension + 1>();
 
+/*
+ * Time integration point count
+ */
+
+static constexpr inline uint32_t TimeSteps = ConvergenceOrder;
+
 /**
  * Constants for Thermal Pressurization
  */
@@ -59,19 +65,19 @@ static constexpr double TpMaxWaveNumber = 10.0;
 static constexpr unsigned int NumBoundaryGaussPoints =
     init::QInterpolated::Shape[multisim::BasisFunctionDimension];
 
-template <class TupleT, class F, std::size_t... I>
-constexpr F forEachImpl(TupleT&& tuple, F&& functor, std::index_sequence<I...> /*unused*/) {
-  return (void)std::initializer_list<int>{
-             (std::forward<F>(functor)(std::get<I>(std::forward<TupleT>(tuple)), I), 0)...},
-         functor;
+template <std::size_t I, typename F, typename TupleT>
+constexpr F forEachElement(F&& functor, TupleT&& tuple) {
+  // TODO: maybe forward here somehow?
+  functor(std::get<I>(tuple), I);
+  if constexpr (I + 1 < std::tuple_size_v<std::remove_reference_t<TupleT>>) {
+    return forEachElement<I + 1>(std::forward<F>(functor), std::forward<TupleT>(tuple));
+  }
+  return std::forward<F>(functor);
 }
 
 template <typename TupleT, typename F>
 constexpr F forEach(TupleT&& tuple, F&& functor) {
-  return forEachImpl(
-      std::forward<TupleT>(tuple),
-      std::forward<F>(functor),
-      std::make_index_sequence<std::tuple_size<std::remove_reference_t<TupleT>>::value>{});
+  return forEachElement<0>(std::forward<F>(functor), std::forward<TupleT>(tuple));
 }
 /**
  * Compute base^exp
@@ -116,7 +122,7 @@ SEISSOL_HOSTDEVICE inline T magnitude(T t1, Tn... tn) {
   if constexpr (sizeof...(Tn) == 1) {
     return std::hypot(t1, tn...);
   }
-  return std::sqrt(square(t1) + square(tn...));
+  return std::sqrt(square(t1, tn...));
 }
 
 #pragma omp declare simd
@@ -140,6 +146,8 @@ void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, Vrtx
 
 std::string frictionLawName(seissol::initializer::parameters::FrictionLawType type);
 
+// NOLINTBEGIN (-cppcoreguidelines-use-enum-class)
+
 namespace quantity_indices {
 /**
  * Defines the indices under which one can find a specific quantity.
@@ -153,7 +161,7 @@ namespace quantity_indices {
  * real normalStress = quantities[N];
  * ```
  * */
-enum QuantityIndices : size_t {
+enum QuantityIndices : uint32_t {
   U = 6,
   V = 7,
   W = 8,
@@ -169,5 +177,7 @@ enum QuantityIndices : size_t {
 };
 } // namespace quantity_indices
 } // namespace seissol::dr::misc
+
+// NOLINTEND ()
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_

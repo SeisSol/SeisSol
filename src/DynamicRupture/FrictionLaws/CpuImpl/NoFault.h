@@ -18,8 +18,7 @@ class NoFault : public BaseFrictionLaw<NoFault> {
   public:
   using BaseFrictionLaw::BaseFrictionLaw;
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup) {}
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
 
   static void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
                                     TractionResults<Executor::Host>& tractionResults,
@@ -32,7 +31,7 @@ class NoFault : public BaseFrictionLaw<NoFault> {
   };
   void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
   };
-  void saveDynamicStressOutput(std::size_t ltsFace) {};
+  void saveDynamicStressOutput(std::size_t ltsFace, real time) {};
 };
 } // namespace seissol::dr::friction_law::cpu
 

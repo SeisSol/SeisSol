@@ -10,13 +10,13 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_ELASTICSETUP_H_
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_ELASTICSETUP_H_
 
+#include "Equations/elastic/Model/Datastructures.h"
+#include "Equations/elastic/Model/IntegrationData.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
-#include <Model/Datastructures.h>
-#include <Model/IntegrationData.h>
 
 namespace seissol::model {
 using Matrix99 = Eigen::Matrix<double, 9, 9>;
@@ -80,66 +80,68 @@ struct MaterialSetup<ElasticMaterial> {
   static void getTransposedGodunovState(const ElasticMaterial& local,
                                         const ElasticMaterial& neighbor,
                                         FaceType faceType,
-                                        Tloc& QgodLocal,
-                                        Tneigh& QgodNeighbor) {
-    QgodNeighbor.setZero();
+                                        Tloc& qGodLocal,
+                                        Tneigh& qGodNeighbor) {
+    qGodNeighbor.setZero();
+
+    // matR == eigenvector matrix
 
     // Eigenvectors are precomputed
-    Matrix99 R = Matrix99::Zero();
+    Matrix99 matR = Matrix99::Zero();
 
     if (testIfAcoustic(local.mu)) {
-      R(0, 0) = local.lambda;
-      R(1, 0) = local.lambda;
-      R(2, 0) = local.lambda;
-      R(6, 0) = std::sqrt((local.lambda) / local.rho);
+      matR(0, 0) = local.lambda;
+      matR(1, 0) = local.lambda;
+      matR(2, 0) = local.lambda;
+      matR(6, 0) = std::sqrt((local.lambda) / local.rho);
 
-      // scale for better condition number of R
-      R(3, 1) = local.lambda;
-      R(5, 2) = local.lambda;
+      // scale for better condition number of matR
+      matR(3, 1) = local.lambda;
+      matR(5, 2) = local.lambda;
     } else {
-      R(0, 0) = local.lambda + 2 * local.mu;
-      R(1, 0) = local.lambda;
-      R(2, 0) = local.lambda;
-      R(6, 0) = std::sqrt((local.lambda + 2 * local.mu) / local.rho);
+      matR(0, 0) = local.lambda + 2 * local.mu;
+      matR(1, 0) = local.lambda;
+      matR(2, 0) = local.lambda;
+      matR(6, 0) = std::sqrt((local.lambda + 2 * local.mu) / local.rho);
 
-      R(3, 1) = local.mu;
-      R(7, 1) = std::sqrt(local.mu / local.rho);
+      matR(3, 1) = local.mu;
+      matR(7, 1) = std::sqrt(local.mu / local.rho);
 
-      R(5, 2) = local.mu;
-      R(8, 2) = std::sqrt(local.mu / local.rho);
+      matR(5, 2) = local.mu;
+      matR(8, 2) = std::sqrt(local.mu / local.rho);
     }
 
-    // scale for better condition number of R
-    R(4, 3) = local.lambda + 2 * local.mu;
-    R(1, 4) = local.lambda + 2 * local.mu;
-    R(2, 5) = local.lambda + 2 * local.mu;
+    // scale for better condition number of matR
+    matR(4, 3) = local.lambda + 2 * local.mu;
+    matR(1, 4) = local.lambda + 2 * local.mu;
+    matR(2, 5) = local.lambda + 2 * local.mu;
 
     if (testIfAcoustic(neighbor.mu)) {
-      // scale for better condition number of R
-      R(7, 6) = neighbor.lambda;
-      R(8, 7) = neighbor.lambda;
+      // scale for better condition number of matR
+      matR(7, 6) = neighbor.lambda;
+      matR(8, 7) = neighbor.lambda;
 
-      R(0, 8) = neighbor.lambda;
-      R(1, 8) = neighbor.lambda;
-      R(2, 8) = neighbor.lambda;
-      R(6, 8) = -std::sqrt((neighbor.lambda + 2 * neighbor.mu) / neighbor.rho);
+      matR(0, 8) = neighbor.lambda;
+      matR(1, 8) = neighbor.lambda;
+      matR(2, 8) = neighbor.lambda;
+      matR(6, 8) = -std::sqrt((neighbor.lambda + 2 * neighbor.mu) / neighbor.rho);
     } else {
-      R(5, 6) = neighbor.mu;
-      R(8, 6) = -std::sqrt(neighbor.mu / neighbor.rho);
+      matR(5, 6) = neighbor.mu;
+      matR(8, 6) = -std::sqrt(neighbor.mu / neighbor.rho);
 
-      R(3, 7) = neighbor.mu;
-      R(7, 7) = -std::sqrt(neighbor.mu / neighbor.rho);
+      matR(3, 7) = neighbor.mu;
+      matR(7, 7) = -std::sqrt(neighbor.mu / neighbor.rho);
 
-      R(0, 8) = neighbor.lambda + 2 * neighbor.mu;
-      R(1, 8) = neighbor.lambda;
-      R(2, 8) = neighbor.lambda;
-      R(6, 8) = -std::sqrt((neighbor.lambda + 2 * neighbor.mu) / neighbor.rho);
+      matR(0, 8) = neighbor.lambda + 2 * neighbor.mu;
+      matR(1, 8) = neighbor.lambda;
+      matR(2, 8) = neighbor.lambda;
+      matR(6, 8) = -std::sqrt((neighbor.lambda + 2 * neighbor.mu) / neighbor.rho);
     }
 
     if (faceType == FaceType::FreeSurface) {
-      MaterialType materialtype =
+      const MaterialType materialtype =
           testIfAcoustic(local.mu) ? MaterialType::Acoustic : MaterialType::Elastic;
-      getTransposedFreeSurfaceGodunovState(materialtype, QgodLocal, QgodNeighbor, R);
+      getTransposedFreeSurfaceGodunovState(materialtype, qGodLocal, qGodNeighbor, matR);
     } else {
       Matrix99 chi = Matrix99::Zero();
       if (!testIfAcoustic(local.mu)) {
@@ -148,17 +150,17 @@ struct MaterialSetup<ElasticMaterial> {
       }
       chi(0, 0) = 1.0;
 
-      const auto godunov = ((R * chi) * R.inverse()).eval();
+      const auto godunov = ((matR * chi) * matR.inverse()).eval();
 
-      // QgodLocal = I - QgodNeighbor
+      // qGodLocal = I - qGodNeighbor
       for (unsigned i = 0; i < godunov.cols(); ++i) {
         for (unsigned j = 0; j < godunov.rows(); ++j) {
-          QgodLocal(i, j) = -godunov(j, i);
-          QgodNeighbor(i, j) = godunov(j, i);
+          qGodLocal(i, j) = -godunov(j, i);
+          qGodNeighbor(i, j) = godunov(j, i);
         }
       }
       for (unsigned idx = 0; idx < 9; ++idx) {
-        QgodLocal(idx, idx) += 1.0;
+        qGodLocal(idx, idx) += 1.0;
       }
     }
   }
@@ -181,8 +183,9 @@ struct MaterialSetup<ElasticMaterial> {
         normal, tangent1, tangent2, matTinv, 6, 6);
   }
 
-  static ElasticMaterial getRotatedMaterialCoefficients(double rotationParameters[36],
-                                                        ElasticMaterial& material) {
+  static ElasticMaterial
+      getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
+                                     ElasticMaterial& material) {
     return material;
   }
 

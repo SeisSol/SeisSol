@@ -8,18 +8,17 @@
 #ifndef SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_POROELASTICSETUP_H_
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_POROELASTICSETUP_H_
 
-#include <Equations/elastic/Model/ElasticSetup.h>
-#include <Equations/poroelastic/Model/Datastructures.h>
-#include <cassert>
-
-#include <Eigen/Dense>
-#include <yateto.h>
-
+#include "Equations/elastic/Model/ElasticSetup.h"
+#include "Equations/poroelastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
+
+#include <Eigen/Dense>
+#include <cassert>
+#include <yateto.h>
 
 namespace seissol::model {
 
@@ -276,8 +275,8 @@ struct MaterialSetup<PoroElasticMaterial> {
   static void getTransposedGodunovState(const PoroElasticMaterial& local,
                                         const PoroElasticMaterial& neighbor,
                                         FaceType faceType,
-                                        init::QgodLocal::view::type& QgodLocal,
-                                        init::QgodNeighbor::view::type& QgodNeighbor) {
+                                        init::QgodLocal::view::type& qGodLocal,
+                                        init::QgodNeighbor::view::type& qGodNeighbor) {
     // Will be used to check, whether numbers are (numerically) zero
     constexpr auto ZeroThreshold = 1e-7;
     using CMatrix = Eigen::Matrix<std::complex<double>,
@@ -306,26 +305,28 @@ struct MaterialSetup<PoroElasticMaterial> {
         chiPlus(i, i) = 1.0;
       }
     }
-    CMatrix R = localEigenvectors * chiMinus + neighborEigenvectors * chiPlus;
-    // set null space eigenvectors manually
-    R(1, 4) = 1.0;
-    R(2, 5) = 1.0;
-    R(12, 6) = 1.0;
-    R(11, 7) = 1.0;
-    R(4, 8) = 1.0;
-    if (faceType == FaceType::FreeSurface) {
-      Matrix realR = R.real();
-      getTransposedFreeSurfaceGodunovState(
-          MaterialType::Poroelastic, QgodLocal, QgodNeighbor, realR);
-    } else {
-      CMatrix invR = R.inverse();
-      CMatrix godunovMinus = R * chiMinus * invR;
-      CMatrix godunovPlus = R * chiPlus * invR;
 
-      for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
-        for (unsigned j = 0; j < QgodLocal.shape(0); ++j) {
-          QgodLocal(j, i) = godunovPlus(i, j).real();
-          QgodNeighbor(j, i) = godunovMinus(i, j).real();
+    // matR == eigenvector matrix
+    CMatrix matR = localEigenvectors * chiMinus + neighborEigenvectors * chiPlus;
+    // set null space eigenvectors manually
+    matR(1, 4) = 1.0;
+    matR(2, 5) = 1.0;
+    matR(12, 6) = 1.0;
+    matR(11, 7) = 1.0;
+    matR(4, 8) = 1.0;
+    if (faceType == FaceType::FreeSurface) {
+      Matrix realR = matR.real();
+      getTransposedFreeSurfaceGodunovState(
+          MaterialType::Poroelastic, qGodLocal, qGodNeighbor, realR);
+    } else {
+      CMatrix invR = matR.inverse();
+      CMatrix godunovMinus = matR * chiMinus * invR;
+      CMatrix godunovPlus = matR * chiPlus * invR;
+
+      for (unsigned i = 0; i < qGodLocal.shape(1); ++i) {
+        for (unsigned j = 0; j < qGodLocal.shape(0); ++j) {
+          qGodLocal(j, i) = godunovPlus(i, j).real();
+          qGodNeighbor(j, i) = godunovMinus(i, j).real();
           assert(std::abs(godunovPlus(j, i).imag()) < ZeroThreshold);
           assert(std::abs(godunovMinus(j, i).imag()) < ZeroThreshold);
         }
@@ -371,8 +372,9 @@ struct MaterialSetup<PoroElasticMaterial> {
         normal, tangent1, tangent2, matTinv, origin, origin);
   }
 
-  static PoroElasticMaterial getRotatedMaterialCoefficients(double rotationParameters[36],
-                                                            PoroElasticMaterial& material) {
+  static PoroElasticMaterial
+      getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
+                                     PoroElasticMaterial& material) {
     return material;
   }
 

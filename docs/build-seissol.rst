@@ -65,7 +65,7 @@ Note that currently that compiling the proxy only will still require all necessa
 
 You can also run ``ccmake ..`` to see all available options and toggle them.
 
-.. figure:: LatexFigures/ccmake.png
+.. figure:: figures/ccmake.png
    :alt: An example of ccmake with some options
 
 Building for GPUs

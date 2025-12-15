@@ -10,6 +10,7 @@
 
 #include "DataTypes.h"
 #include "Geometry/MeshReader.h"
+
 #include <array>
 #include <memory>
 
@@ -40,7 +41,7 @@ struct TriangleQuadratureData {
   std::array<double, Size> weights{};
 };
 
-TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree);
+TriangleQuadratureData generateTriangleQuadrature();
 
 void assignNearestGaussianPoints(ReceiverPoints& geoPoints);
 

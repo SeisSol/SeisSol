@@ -7,6 +7,9 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "LoopStatistics.h"
+
+#include "Monitoring/Stopwatch.h"
+#include "Numerical/Statistics.h"
 #include "Unit.h"
 
 #include <algorithm>
@@ -20,6 +23,7 @@
 #include <time.h>
 #include <utils/logger.h>
 #include <vector>
+
 #ifdef USE_NETCDF
 #include <fstream>
 #include <netcdf.h>
@@ -27,9 +31,6 @@
 #include <ostream>
 #include <sstream>
 #endif // USE_NETCDF
-
-#include "Monitoring/Stopwatch.h"
-#include "Numerical/Statistics.h"
 
 #ifdef USE_NETCDF
 namespace {
@@ -221,7 +222,7 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
       // https://en.wikipedia.org/wiki/Simple_linear_regression#Normality_assumption
       const double se = std::sqrt((stderror[region] / (n - 2)) / xv);
 
-      const char* names[] = {"constant", "per element"};
+      const auto names = std::vector<std::string>{"constant", "per element"};
       logInfo() << regions[region].name << "(total time):" << y
                 << "s ( =" << UnitTime.formatTime(y).c_str() << ")";
       for (unsigned c = 0; c < 2; ++c) {
@@ -237,12 +238,12 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
   }
 }
 
-void LoopStatistics::writeSamples(const std::string& outputPrefix,
+void LoopStatistics::writeSamples([[maybe_unused]] const std::string& outputPrefix,
                                   bool isLoopStatisticsNetcdfOutputOn) {
   if (isLoopStatisticsNetcdfOutputOn) {
-#if defined(USE_NETCDF)
+#ifdef USE_NETCDF
     const auto loopStatFile = outputPrefix + "-loopStat-";
-    const auto rank = MPI::mpi.rank();
+    const auto rank = Mpi::mpi.rank();
     logInfo() << "Starting to write loop statistics samples to disk.";
     const unsigned nRegions = regions.size();
     for (unsigned region = 0; region < nRegions; ++region) {
@@ -253,13 +254,13 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
 
       long nSamples = regions[region].times.size();
       long sampleOffset = 0;
-      MPI_Scan(&nSamples, &sampleOffset, 1, MPI_LONG, MPI_SUM, MPI::mpi.comm());
+      MPI_Scan(&nSamples, &sampleOffset, 1, MPI_LONG, MPI_SUM, Mpi::mpi.comm());
 
       int ncid = 0;
       int stat = 0;
       stat = nc_create_par(fileName.c_str(),
                            NC_MPIIO | NC_CLOBBER | NC_NETCDF4,
-                           MPI::mpi.comm(),
+                           Mpi::mpi.comm(),
                            MPI_INFO_NULL,
                            &ncid);
       check_err(stat, __LINE__, __FILE__);
@@ -271,7 +272,7 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
       int offsetid = 0;
       int sampleid = 0;
 
-      stat = nc_def_dim(ncid, "rank", 1 + MPI::mpi.size(), &rankdim);
+      stat = nc_def_dim(ncid, "rank", 1 + Mpi::mpi.size(), &rankdim);
       check_err(stat, __LINE__, __FILE__);
       stat = nc_def_dim(ncid, "sample", NC_UNLIMITED, &sampledim);
       check_err(stat, __LINE__, __FILE__);

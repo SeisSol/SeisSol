@@ -5,19 +5,20 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "utils/logger.h"
-#include <Common/Executor.h>
-#include <Solver/TimeStepping/ActorState.h>
+#include "AbstractTimeCluster.h"
+
+#include "Common/Executor.h"
+#include "Solver/TimeStepping/ActorState.h"
+
 #include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <iostream>
 #include <memory>
 #include <type_traits>
+#include <utils/logger.h>
 #include <variant>
 #include <vector>
-
-#include "AbstractTimeCluster.h"
 
 namespace seissol::time_stepping {
 double AbstractTimeCluster::timeStepSize() const { return ct.timeStepSize(syncTime); }

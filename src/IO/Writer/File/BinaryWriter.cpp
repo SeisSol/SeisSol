@@ -6,7 +6,9 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "BinaryWriter.h"
-#include <IO/Writer/Instructions/Binary.h>
+
+#include "IO/Writer/Instructions/Binary.h"
+
 #include <async/ExecInfo.h>
 #include <cstddef>
 #include <hdf5.h>

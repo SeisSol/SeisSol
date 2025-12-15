@@ -8,20 +8,20 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_
 
-#include <string>
-
 #include "ParameterReader.h"
+
+#include <string>
 
 namespace seissol::initializer::parameters {
 
 enum class ReflectionType { BothWaves = 1, BothWavesVelocity, Pwave, Swave };
 
 struct ITMParameters {
-  bool itmEnabled;
-  double itmStartingTime;
-  double itmDuration;
-  double itmVelocityScalingFactor;
-  ReflectionType itmReflectionType;
+  bool itmEnabled{false};
+  double itmStartingTime{0.0};
+  double itmDuration{0.0};
+  double itmVelocityScalingFactor{1.0};
+  ReflectionType itmReflectionType{ReflectionType::BothWaves};
 };
 
 enum class NumericalFlux { Godunov, Rusanov };
@@ -29,19 +29,20 @@ enum class NumericalFlux { Godunov, Rusanov };
 std::string fluxToString(NumericalFlux flux);
 
 struct ModelParameters {
-  bool hasBoundaryFile;
-  bool plasticity;
-  bool useCellHomogenizedMaterial;
-  double freqCentral;
-  double freqRatio;
-  double gravitationalAcceleration;
-  double tv;
+  bool hasBoundaryFile{false};
+  bool plasticity{false};
+  std::unordered_set<int> plasticityDisabledGroups;
+  bool useCellHomogenizedMaterial{true};
+  double freqCentral{};
+  double freqRatio{1.0};
+  double gravitationalAcceleration{};
+  double tv{};
   std::string boundaryFileName;
   std::string materialFileName;
   std::vector<std::string> plasticityFileNames;
   ITMParameters itmParameters;
-  NumericalFlux flux;
-  NumericalFlux fluxNearFault;
+  NumericalFlux flux{NumericalFlux::Godunov};
+  NumericalFlux fluxNearFault{NumericalFlux::Godunov};
 };
 
 ModelParameters readModelParameters(ParameterReader* baseReader);

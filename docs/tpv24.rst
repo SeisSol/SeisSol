@@ -18,7 +18,7 @@ fault and a branch fault intersecting at an angle of 30 degrees (Figure
 circular zone on the main fault surface and then spontaneously
 propagates to the branching fault.
 
-.. figure:: LatexFigures/tpv24.png
+.. figure:: figures/tpv24.png
    :alt: Diagram of TPV24 branching fault geometry.
    :width: 11.00000cm
    :align: center
@@ -50,7 +50,7 @@ junction point, and 10 000 m deep.
 Figure [fig:tpv24mesh] shows the fault model generated in Gmsh. The mesh
 file can be generated using https://github.com/SeisSol/Examples/blob/master/tpv24/generating_the_mesh.sh.
 
-.. figure:: LatexFigures/tpv24mesh.png
+.. figure:: figures/tpv24mesh.png
    :alt: Geometry generated in Gmsh of TPV24. Main fault lies in y-plane.
    :width: 9.00000cm
    :align: center
@@ -171,18 +171,16 @@ encounters a branching fault. The branching fault continues to rupture
 as well as the rest main fault. The fault slip rate is shown in Figure
 [fig:tpv24result1].
 
-.. figure:: LatexFigures/tpv24snap1.png
+.. figure:: figures/tpv24snap1.png
    :alt: snapshot1 of TPV24.
    :width: 9.00000cm
    :align: center
 
    Snapshot of slip rate in branching fault system. Slip rate at 2 s.
 
-.. figure:: LatexFigures/tpv24snap2.png
+.. figure:: figures/tpv24snap2.png
    :alt: snapshot1 of TPV24.
    :width: 9.00000cm
    :align: center
 
    Snapshot of slip rate in branching fault system. Slip rate at 3.5 s.
-
-

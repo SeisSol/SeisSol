@@ -8,12 +8,13 @@
 #ifndef SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_
 #define SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_
 
-#include <Memory/Tree/Layer.h>
+#include "Memory/Tree/Layer.h"
+
 #include <functional>
 #include <utility>
 
 #ifdef ACL_DEVICE
-#include "device.h"
+#include <Device/device.h>
 #endif
 
 namespace seissol::parallel::runtime {
@@ -166,9 +167,9 @@ class StreamRuntime {
     }
   }
 
-  template <typename F>
+  template <typename VarmapT, typename F>
   void runGraph(seissol::initializer::GraphKey computeGraphKey,
-                seissol::initializer::Layer& layer,
+                initializer::Layer<VarmapT>& layer,
                 F&& handler) {
     auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
 
@@ -216,10 +217,10 @@ class StreamRuntime {
   public:
   StreamRuntime() : StreamRuntime(0) {}
 
-  StreamRuntime(std::size_t ringbufferSize) {}
+  explicit StreamRuntime(std::size_t ringbufferSize) {}
 
   template <typename F>
-  void enqueueLoop(std::size_t elemCount, F handler) {
+  void enqueueLoop(std::size_t elemCount, const F& handler) {
 #pragma omp parallel for schedule(static)
     for (std::size_t i = 0; i < elemCount; ++i) {
       std::invoke(handler, i);

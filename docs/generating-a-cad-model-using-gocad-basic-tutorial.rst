@@ -132,8 +132,7 @@ Sanity check
 | Display tab > check Mesh Stats > then check Aspect Ratio, and see if
   the maximum aspect ratio has a reasonable value (~20). |final mesh|
 
-.. |objects in gocad| image:: LatexFigures/gocadtuto1.png
-.. |objects in gocad 2| image:: LatexFigures/gocadtuto2.png
-.. |alternative side| image:: LatexFigures/gocad_alternative.png
-.. |final mesh| image:: LatexFigures/gocadtuto3.png
-
+.. |objects in gocad| image:: figures/gocadtuto1.png
+.. |objects in gocad 2| image:: figures/gocadtuto2.png
+.. |alternative side| image:: figures/gocad_alternative.png
+.. |final mesh| image:: figures/gocadtuto3.png

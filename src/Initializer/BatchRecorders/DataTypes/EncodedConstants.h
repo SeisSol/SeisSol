@@ -9,9 +9,10 @@
 #define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_ENCODEDCONSTANTS_H_
 
 #include "Kernels/Precision.h"
+
 #include <cstdlib>
 
-namespace seissol::initializer::recording::inner_keys {
+namespace seissol::recording::inner_keys {
 
 /**
  * The structure contains encoded variables names
@@ -86,9 +87,9 @@ struct Indices {
   using DataType = unsigned;
   enum struct Id : size_t { Cells = 0, Count };
 };
-} // namespace seissol::initializer::recording::inner_keys
+} // namespace seissol::recording::inner_keys
 
-namespace seissol::initializer::recording {
+namespace seissol::recording {
 constexpr size_t AllBits = ~static_cast<size_t>(0);
 constexpr size_t encodeAny(unsigned count) { return ~(AllBits << count); }
 
@@ -141,6 +142,6 @@ enum struct ExchangeInfo : size_t {
   Any = encodeAny(Count)
 };
 
-} // namespace seissol::initializer::recording
+} // namespace seissol::recording
 
 #endif // SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_ENCODEDCONSTANTS_H_

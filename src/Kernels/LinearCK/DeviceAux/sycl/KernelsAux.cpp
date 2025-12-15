@@ -10,11 +10,11 @@
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <cstdio>
 #include <sycl/sycl.hpp>
 #include <yateto.h>
-
-#include <Solver/MultipleSimulations.h>
 
 #ifdef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
 namespace {

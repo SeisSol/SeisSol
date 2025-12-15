@@ -6,12 +6,13 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "LinearSlipWeakening.h"
+
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Tree/Layer.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -28,11 +29,8 @@ void NoSpecialization::resampleSlipRate(
   resampleKrnl.resampledQ = resampledSlipRate;
   resampleKrnl.execute();
 }
-void BiMaterialFault::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                         const seissol::initializer::DynamicRupture* const dynRup) {
-  const auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup);
-  regularizedStrength = layerData.var(concreteLts->regularizedStrength);
+void BiMaterialFault::copyStorageToLocal(DynamicRupture::Layer& layerData) {
+  regularizedStrength = layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>();
 }
 
 #pragma omp declare simd
@@ -55,8 +53,8 @@ real BiMaterialFault::strengthHook(real faultStrength,
 #pragma omp declare simd
 real TPApprox::stateVariableHook(real localAccumulatedSlip,
                                  real localDc,
-                                 std::size_t ltsFace,
-                                 std::uint32_t pointIndex) {
+                                 std::size_t /*ltsFace*/,
+                                 std::uint32_t /*pointIndex*/) {
   const real factor = (1.0 + std::fabs(localAccumulatedSlip) / localDc);
   return 1.0 - std::pow(factor, -drParameters->tpProxyExponent);
 }

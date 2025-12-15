@@ -15,21 +15,19 @@ template <typename TPMethod>
 class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
   public:
   using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
-  using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::copyLtsTreeToLocal;
+  using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::copyStorageToLocal;
 
-  static void
-      copySpecificLtsDataTreeToLocal(FrictionLawData* data,
-                                     seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* const dynRup) {}
+  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+                                             DynamicRupture::Layer& layerData) {}
 
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
     const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const double localSlipRate = ctx.initialVariables.localSlipRate;
-    const double exp1 = std::exp(-localSlipRate * (timeIncrement / localSl0));
+    const double exp1v = std::exp(-localSlipRate * (timeIncrement / localSl0));
 
     const double stateVarReference = ctx.initialVariables.stateVarReference;
     ctx.stateVariableBuffer =
-        localSl0 / localSlipRate * std::pow(localSlipRate * stateVarReference / localSl0, exp1);
+        localSl0 / localSlipRate * std::pow(localSlipRate * stateVarReference / localSl0, exp1v);
   }
 };
 

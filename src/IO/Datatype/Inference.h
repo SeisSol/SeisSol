@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_IO_DATATYPE_INFERENCE_H_
 
 #include "Datatype.h"
+
 #include <limits>
 #include <memory>
 #include <type_traits>

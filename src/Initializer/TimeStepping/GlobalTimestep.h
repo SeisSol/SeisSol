@@ -7,10 +7,10 @@
 
 #ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_GLOBALTIMESTEP_H_
 #define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_GLOBALTIMESTEP_H_
+#include "Initializer/ParameterDB.h"
+
 #include <string>
 #include <vector>
-
-#include "Initializer/ParameterDB.h"
 
 namespace seissol::initializer {
 struct GlobalTimestep {

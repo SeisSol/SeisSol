@@ -86,10 +86,9 @@ discussions.
 
 
 .. _TP13_figure_1:
-.. figure:: LatexFigures/SRs_12_13.png
+.. figure:: figures/SRs_12_13.png
    :alt: along-strike and along-dip slip rate in TPV12 and 13
    :width: 12.00000cm
    :align: center
 
    Figure 1: along-strike (left) and along-dip (right) slip rate in TPV12 (blue) and 13 (orange).
-

@@ -9,17 +9,16 @@
 #ifndef SEISSOL_SRC_GEOMETRY_REFINEMENT_VARIABLESUBSAMPLER_H_
 #define SEISSOL_SRC_GEOMETRY_REFINEMENT_VARIABLESUBSAMPLER_H_
 
-#include <algorithm>
-#include <cassert>
-
-#include <Eigen/Dense>
-
 #include "Geometry/MeshReader.h"
 #include "Numerical/BasisFunction.h"
 #include "RefinerUtils.h"
 
-namespace seissol {
-namespace refinement {
+#include <Eigen/Dense>
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+
+namespace seissol::refinement {
 
 //------------------------------------------------------------------------------
 
@@ -29,45 +28,45 @@ class VariableSubsampler {
   std::vector<basisFunction::SampledBasisFunctions<T>> m_BasisFunctions;
 
   /** The original number of cells (without refinement) */
-  const unsigned int m_numCells;
+  unsigned int mNumCells;
 
-  const unsigned int kSubCellsPerCell;
-  const unsigned int kNumVariables;
-  const unsigned int kNumAlignedDOF;
+  std::size_t kSubCellsPerCell;
+  std::size_t kNumVariables;
+  std::size_t kNumAlignedDOF;
 
   std::size_t
-      getInVarOffset(unsigned int cell, unsigned int variable, const unsigned int* cellMap) const {
+      getInVarOffset(std::size_t cell, std::size_t variable, const unsigned int* cellMap) const {
     return (cellMap[cell] * kNumVariables + variable) * kNumAlignedDOF;
   }
 
-  std::size_t getOutVarOffset(unsigned cell, unsigned int subcell) const {
+  [[nodiscard]] std::size_t getOutVarOffset(std::size_t cell, std::size_t subcell) const {
     return kSubCellsPerCell * cell + subcell;
   }
 
   public:
-  VariableSubsampler(unsigned int numCells,
+  VariableSubsampler(std::size_t numCells,
                      const TetrahedronRefiner<T>& tetRefiner,
                      unsigned int order,
-                     unsigned int numVariables,
-                     unsigned int numAlignedDOF);
+                     std::size_t numVariables,
+                     std::size_t numAlignedDOF);
 
+  // NOLINTNEXTLINE
   void get(const real* inData, const unsigned int* cellMap, int variable, real* outData) const;
 };
 
 //------------------------------------------------------------------------------
 
 template <typename T>
-VariableSubsampler<T>::VariableSubsampler(unsigned int numCells,
+VariableSubsampler<T>::VariableSubsampler(std::size_t numCells,
                                           const TetrahedronRefiner<T>& tetRefiner,
                                           unsigned int order,
-                                          unsigned int numVariables,
-                                          unsigned int numAlignedDOF)
-    : m_numCells(numCells), kSubCellsPerCell(tetRefiner.getDivisionCount()),
+                                          std::size_t numVariables,
+                                          std::size_t numAlignedDOF)
+    : mNumCells(numCells), kSubCellsPerCell(tetRefiner.getDivisionCount()),
       kNumVariables(numVariables), kNumAlignedDOF(numAlignedDOF) {
   // Generate cell centerpoints in the reference or unit tetrahedron.
-  Tetrahedron<T>* subCells = new Tetrahedron<T>[kSubCellsPerCell];
-  Eigen::Matrix<T, 3, 1>* additionalVertices =
-      new Eigen::Matrix<T, 3, 1>[tetRefiner.additionalVerticesPerCell()];
+  auto* subCells = new Tetrahedron<T>[kSubCellsPerCell];
+  auto* additionalVertices = new Eigen::Matrix<T, 3, 1>[tetRefiner.additionalVerticesPerCell()];
 
   tetRefiner.refine(Tetrahedron<T>::unitTetrahedron(), 0, subCells, additionalVertices);
 
@@ -88,12 +87,13 @@ template <typename T>
 void VariableSubsampler<T>::get(const real* inData,
                                 const unsigned int* cellMap,
                                 int variable,
+                                // NOLINTNEXTLINE
                                 real* outData) const {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
   // Iterate over original Cells
-  for (unsigned int c = 0; c < m_numCells; ++c) {
+  for (unsigned int c = 0; c < mNumCells; ++c) {
     for (unsigned int sc = 0; sc < kSubCellsPerCell; ++sc) {
       outData[getOutVarOffset(c, sc)] =
           m_BasisFunctions[sc].evalWithCoeffs(&inData[getInVarOffset(c, variable, cellMap)]);
@@ -103,7 +103,6 @@ void VariableSubsampler<T>::get(const real* inData,
 
 //------------------------------------------------------------------------------
 
-} // namespace refinement
-} // namespace seissol
+} // namespace seissol::refinement
 
 #endif // SEISSOL_SRC_GEOMETRY_REFINEMENT_VARIABLESUBSAMPLER_H_

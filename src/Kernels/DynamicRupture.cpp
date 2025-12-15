@@ -8,26 +8,29 @@
 
 #include "DynamicRupture.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Common/Marker.h"
+#include "DynamicRupture/Misc.h"
+#include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <DataTypes/ConditionalTable.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Parallel/Runtime/Stream.h"
+
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
-
-#include "utils/logger.h"
-
-#include "GeneratedCode/kernel.h"
-#ifdef ACL_DEVICE
-#include "device.h"
-#include <DataTypes/ConditionalKey.h>
-#include <DataTypes/EncodedConstants.h>
-#endif
+#include <utils/logger.h>
 #include <yateto.h>
+
+#ifdef ACL_DEVICE
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+
+#include <Device/device.h>
+#endif
 
 #ifndef NDEBUG
 #include <cstdint>
@@ -47,13 +50,11 @@ void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
 
 void DynamicRupture::spaceTimeInterpolation(
     const DRFaceInformation& faceInfo,
-    const GlobalData* global,
     const DRGodunovData* godunovData,
-    DREnergyOutput* drEnergyOutput,
     const real* timeDerivativePlus,
     const real* timeDerivativeMinus,
-    real qInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
-    real qInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
+    real qInterpolatedPlus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
+    real qInterpolatedMinus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
     const real* timeDerivativePlusPrefetch,
     const real* timeDerivativeMinusPrefetch,
     const real* coeffs) {
@@ -73,16 +74,16 @@ void DynamicRupture::spaceTimeInterpolation(
   alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
-  for (std::size_t timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
+  for (std::size_t timeInterval = 0; timeInterval < dr::misc::TimeSteps; ++timeInterval) {
     m_timeKernel.evaluate(
         &coeffs[timeInterval * ConvergenceOrder], timeDerivativePlus, degreesOfFreedomPlus);
     m_timeKernel.evaluate(
         &coeffs[timeInterval * ConvergenceOrder], timeDerivativeMinus, degreesOfFreedomMinus);
 
-    const real* plusPrefetch = (timeInterval < ConvergenceOrder - 1)
+    const real* plusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps)
                                    ? &qInterpolatedPlus[timeInterval + 1][0]
                                    : timeDerivativePlusPrefetch;
-    const real* minusPrefetch = (timeInterval < ConvergenceOrder - 1)
+    const real* minusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps)
                                     ? &qInterpolatedMinus[timeInterval + 1][0]
                                     : timeDerivativeMinusPrefetch;
 
@@ -101,15 +102,15 @@ void DynamicRupture::spaceTimeInterpolation(
 }
 
 void DynamicRupture::batchedSpaceTimeInterpolation(
-    DrConditionalPointersToRealsTable& table,
-    const real* coeffs,
-    seissol::parallel::runtime::StreamRuntime& runtime) {
+    SEISSOL_GPU_PARAM recording::DrConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
-
+  using namespace seissol::recording;
   real** degreesOfFreedomPlus{nullptr};
   real** degreesOfFreedomMinus{nullptr};
 
-  for (unsigned timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
+  for (unsigned timeInterval = 0; timeInterval < dr::misc::TimeSteps; ++timeInterval) {
     ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
     if (table.find(timeIntegrationKey) != table.end()) {
       auto& entry = table[timeIntegrationKey];
@@ -217,8 +218,8 @@ void DynamicRupture::flopsGodunovState(const DRFaceInformation& faceInfo,
   hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(
       faceInfo.minusSide, faceInfo.faceRelation);
 
-  nonZeroFlops *= ConvergenceOrder;
-  hardwareFlops *= ConvergenceOrder;
+  nonZeroFlops *= dr::misc::TimeSteps;
+  hardwareFlops *= dr::misc::TimeSteps;
 }
 
 } // namespace seissol::kernels

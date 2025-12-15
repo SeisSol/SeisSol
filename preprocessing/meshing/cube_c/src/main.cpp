@@ -1250,8 +1250,8 @@ int main(int argc, char* argv[])
 	writes_done++; loadBar(writes_done, netcdf_writes);
 
 	double *vrtxCoords = new double[uniqueVertices.size()*3];
-  
-  
+
+
   double scale = args.getArgument<double>("scale", 100.0);
   double scaleX = args.getArgument<double>("sx", scale);
   double scaleY = args.getArgument<double>("sy", scale);
@@ -1259,7 +1259,7 @@ int main(int argc, char* argv[])
   double halfWidthX = scaleX / 2.0;
   double halfWidthY = scaleY / 2.0;
   double halfWidthZ = scaleZ / 2.0;
-  
+
   double tx = args.getArgument<double>("tx", 0.0);
   double ty = args.getArgument<double>("ty", 0.0);
   double tz = args.getArgument<double>("tz", 0.0);

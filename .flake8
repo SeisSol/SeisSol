@@ -16,7 +16,7 @@
 # reason(s) for directory exclusion:
 # * preprocessing: TODO, to be exluded from the repository
 # * postprocessing: TODO, to be exluded from the repository
-# * submodules: submodules, need to be handled separately 
+# * submodules: submodules, need to be handled separately
 
 [flake8]
 extend-ignore = BLK100,E501,E741,E731,E203,D100,D101,D102,D103,D104,D105,D106,D107

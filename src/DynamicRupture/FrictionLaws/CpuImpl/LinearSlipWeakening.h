@@ -10,7 +10,7 @@
 
 #include "BaseFrictionLaw.h"
 
-#include "utils/logger.h"
+#include <utils/logger.h>
 
 namespace seissol::dr::friction_law::cpu {
 
@@ -46,16 +46,13 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     this->frictionFunctionHook(stateVariableBuffer, ltsFace);
   }
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup) {
-    const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening*>(dynRup);
-    this->dC = layerData.var(concreteLts->dC);
-    this->muS = layerData.var(concreteLts->muS);
-    this->muD = layerData.var(concreteLts->muD);
-    this->cohesion = layerData.var(concreteLts->cohesion);
-    this->forcedRuptureTime = layerData.var(concreteLts->forcedRuptureTime);
-    specialization.copyLtsTreeToLocal(layerData, dynRup);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {
+    this->dC = layerData.var<LTSLinearSlipWeakening::DC>();
+    this->muS = layerData.var<LTSLinearSlipWeakening::MuS>();
+    this->muD = layerData.var<LTSLinearSlipWeakening::MuD>();
+    this->cohesion = layerData.var<LTSLinearSlipWeakening::Cohesion>();
+    this->forcedRuptureTime = layerData.var<LTSLinearSlipWeakening::ForcedRuptureTime>();
+    specialization.copyStorageToLocal(layerData);
   }
 
   /**
@@ -134,13 +131,13 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   /**
    * output time when shear stress is equal to the dynamic stress after rupture arrived
    */
-  void saveDynamicStressOutput(std::size_t ltsFace) {
+  void saveDynamicStressOutput(std::size_t ltsFace, real time) {
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       if (this->dynStressTimePending[ltsFace][pointIndex] &&
           std::fabs(this->accumulatedSlipMagnitude[ltsFace][pointIndex]) >=
               dC[ltsFace][pointIndex]) {
-        this->dynStressTime[ltsFace][pointIndex] = this->mFullUpdateTime;
+        this->dynStressTime[ltsFace][pointIndex] = time;
         this->dynStressTimePending[ltsFace][pointIndex] = false;
       }
     }
@@ -225,8 +222,7 @@ class NoSpecialization {
   public:
   explicit NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup) {};
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {};
   /**
    * Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as
    * the degrees of freedom resampleMatrix first projects LocSR on the two-dimensional basis on
@@ -238,17 +234,17 @@ class NoSpecialization {
 #pragma omp declare simd
   static real stateVariableHook(real localAccumulatedSlip,
                                 real localDc,
-                                std::size_t ltsFace,
-                                std::uint32_t pointIndex) {
+                                std::size_t /*ltsFace*/,
+                                std::uint32_t /*pointIndex*/) {
     return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   }
 
 #pragma omp declare simd
   static real strengthHook(real strength,
-                           real localSlipRate,
-                           real deltaT,
-                           std::size_t ltsFace,
-                           std::uint32_t pointIndex) {
+                           real /*localSlipRate*/,
+                           real /*deltaT*/,
+                           std::size_t /*ltsFace*/,
+                           std::uint32_t /*pointIndex*/) {
     return strength;
   };
 };
@@ -261,8 +257,7 @@ class BiMaterialFault {
   explicit BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters)
       : drParameters(parameters) {};
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData);
   /**
    * Resampling of the sliprate introduces artificial oscillations into the solution, if we use it
    * together with Prakash-Clifton regularization, so for the BiMaterialFault specialization, we
@@ -276,8 +271,8 @@ class BiMaterialFault {
 #pragma omp declare simd
   static real stateVariableHook(real localAccumulatedSlip,
                                 real localDc,
-                                std::size_t ltsFace,
-                                std::uint32_t pointIndex) {
+                                std::size_t /*ltsFace*/,
+                                std::uint32_t /*pointIndex*/) {
     return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   }
 
@@ -301,8 +296,7 @@ class TPApprox {
   explicit TPApprox(seissol::initializer::parameters::DRParameters* parameters)
       : drParameters(parameters) {};
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup) {}
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
   /**
    * Use a simple copy for now, maybe use proper resampling later
    */
@@ -319,10 +313,10 @@ class TPApprox {
 
 #pragma omp declare simd
   static real strengthHook(real strength,
-                           real localSlipRate,
-                           real deltaT,
-                           std::size_t ltsFace,
-                           std::uint32_t pointIndex) {
+                           real /*localSlipRate*/,
+                           real /*deltaT*/,
+                           std::size_t /*ltsFace*/,
+                           std::uint32_t /*pointIndex*/) {
     return strength;
   };
 

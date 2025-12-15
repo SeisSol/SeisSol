@@ -9,40 +9,52 @@
 #ifndef SEISSOL_SRC_MEMORY_DESCRIPTOR_SURFACE_H_
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_SURFACE_H_
 
-#include <Initializer/Typedefs.h>
-#include <Memory/Descriptor/Boundary.h>
-#include <Memory/Tree/LTSTree.h>
-#include <Memory/Tree/Layer.h>
+#include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/Boundary.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Layer.h"
 namespace seissol {
 
 struct SurfaceLTS {
   using FaceDisplacementType = real[tensor::faceDisplacement::size()];
 
-  seissol::initializer::Variable<real*> dofs;
-  seissol::initializer::Variable<std::uint8_t> side;
-  seissol::initializer::Variable<std::size_t> meshId;
-  seissol::initializer::Variable<std::size_t> outputPosition;
-  seissol::initializer::Variable<CellBoundaryMapping*> boundaryMapping;
-  seissol::initializer::Variable<std::uint8_t> locationFlag;
+  struct Dofs : public seissol::initializer::Variable<real*> {};
+  struct Side : public seissol::initializer::Variable<std::uint8_t> {};
+  struct MeshId : public seissol::initializer::Variable<std::size_t> {};
+  struct OutputPosition : public seissol::initializer::Variable<std::size_t> {};
+  struct BoundaryMapping : public seissol::initializer::Variable<CellBoundaryMapping*> {};
+  struct LocationFlag : public seissol::initializer::Variable<std::uint8_t> {};
 
-  seissol::initializer::Variable<FaceDisplacementType> displacementDofs;
+  struct DisplacementDofs : public seissol::initializer::Variable<FaceDisplacementType> {};
 
-  void addTo(seissol::initializer::LTSTree& surfaceLtsTree) {
+  struct SurfaceVarmap : public initializer::SpecificVarmap<Dofs,
+                                                            Side,
+                                                            MeshId,
+                                                            OutputPosition,
+                                                            BoundaryMapping,
+                                                            LocationFlag,
+                                                            DisplacementDofs> {};
+
+  using Storage = initializer::Storage<SurfaceVarmap>;
+  using Layer = initializer::Layer<SurfaceVarmap>;
+  using Ref = initializer::Layer<SurfaceVarmap>::CellRef;
+  using Backmap = initializer::StorageBackmap<1>;
+
+  static void addTo(Storage& storage) {
     const seissol::initializer::LayerMask ghostMask(Ghost);
-    surfaceLtsTree.add(dofs, ghostMask, 1, initializer::AllocationMode::HostOnly);
-    surfaceLtsTree.add(side, ghostMask, 1, initializer::AllocationMode::HostOnly);
-    surfaceLtsTree.add(meshId, ghostMask, 1, initializer::AllocationMode::HostOnly);
-    surfaceLtsTree.add(outputPosition, ghostMask, 1, initializer::AllocationMode::HostOnly);
-    surfaceLtsTree.add(boundaryMapping, ghostMask, 1, initializer::AllocationMode::HostOnly);
-    surfaceLtsTree.add(locationFlag, ghostMask, 1, initializer::AllocationMode::HostOnly);
+    storage.add<Dofs>(ghostMask, 1, initializer::AllocationMode::HostOnly);
+    storage.add<Side>(ghostMask, 1, initializer::AllocationMode::HostOnly);
+    storage.add<MeshId>(ghostMask, 1, initializer::AllocationMode::HostOnly);
+    storage.add<OutputPosition>(ghostMask, 1, initializer::AllocationMode::HostOnly);
+    storage.add<BoundaryMapping>(ghostMask, 1, initializer::AllocationMode::HostOnly);
+    storage.add<LocationFlag>(ghostMask, 1, initializer::AllocationMode::HostOnly);
 
-    surfaceLtsTree.add(
-        displacementDofs, ghostMask, PagesizeHeap, initializer::allocationModeBoundary());
+    storage.add<DisplacementDofs>(ghostMask, PagesizeHeap, allocationModeBoundary());
   }
 
-  void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   initializer::LTSTree* tree) const {
-    manager.registerData("displacementDofs", tree, displacementDofs);
+  static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
+                                          Storage& storage) {
+    manager.registerData<DisplacementDofs>("displacementDofs", storage);
   }
 };
 

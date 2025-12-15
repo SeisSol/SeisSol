@@ -14,7 +14,7 @@ namespace seissol {
 /**
  * Basic MPI abstraction
  */
-class MPIBasic {
+class MpiBasic {
   protected:
   /** This rank */
   int m_rank{0};
@@ -28,10 +28,10 @@ class MPIBasic {
   /** Number of ranks in the shared memory sub-communicator */
   int m_sharedMemMpiSize{1};
 
-  MPIBasic() = default;
+  MpiBasic() = default;
 
   public:
-  virtual ~MPIBasic() = default;
+  virtual ~MpiBasic() = default;
 
   /**
    * @return The rank of this process

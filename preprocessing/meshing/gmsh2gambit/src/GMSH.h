@@ -8,17 +8,17 @@
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -50,8 +50,8 @@
 template<unsigned N>
 struct Simplex {
   /* According to MSH mesh format documentation:
-   * 1 = 2-node line. 
-   * 2 = 3-node triangle. 
+   * 1 = 2-node line.
+   * 2 = 3-node triangle.
    * 4 = 4-node tetrahedron.
    * Will not work for other types (e.g. 11 = 10-node second order tetrahedron).
    */
@@ -76,16 +76,16 @@ template<unsigned DIM>
 struct GMSH {
   typedef Simplex<DIM> Element;
   typedef Simplex<DIM-1> Face;
-  
+
   double (*vertices)[3];
   Element* elements;
   unsigned numVertices;
   unsigned numElements;
   std::unordered_map< unsigned, std::vector<unsigned> > materialGroups;
   std::unordered_map< unsigned, std::vector<Boundary> > boundaryConditions;
-  
+
   explicit GMSH(char const* filename);
-  
+
   ~GMSH() {
     delete[] vertices;
     delete[] elements;
@@ -102,9 +102,9 @@ GMSH<DIM>::GMSH(char const* filename)
 
   Face* faces = NULL;
   unsigned numFaces = 0;
-  
+
   std::ifstream in(filename, std::ifstream::in);
-  
+
   unsigned tags[MAX_NUMBER_OF_TAGS];
 
   // Parse MSH
@@ -130,7 +130,7 @@ GMSH<DIM>::GMSH(char const* filename)
       in >> numGeoShapes;
       faces = new Face[numGeoShapes];
       elements = new Element[numGeoShapes];
-      
+
       for (unsigned geoShape = 0; geoShape < numGeoShapes; ++geoShape) {
         unsigned id, type, numTags;
         in >> id >> type >> numTags;
@@ -163,20 +163,20 @@ GMSH<DIM>::GMSH(char const* filename)
       }
     }
   }
-  
+
   in.close();
 
   // vertex to triangle map
-  std::vector<unsigned>* vertex2face = vertex2face = new std::vector<unsigned>[numVertices];  
+  std::vector<unsigned>* vertex2face = vertex2face = new std::vector<unsigned>[numVertices];
   for (unsigned face = 0; face < numFaces; ++face) {
     for (unsigned node = 0; node < Face::NumNodes; ++node) {
       vertex2face[faces[face].nodes[node]].push_back(face);
     }
-  }  
+  }
   for (unsigned vertex = 0; vertex < numVertices; ++vertex) {
     std::sort(vertex2face[vertex].begin(), vertex2face[vertex].end());
   }
-  
+
   for (unsigned element = 0; element < numElements; ++element) {
     for (unsigned elmtFace = 0; elmtFace < Element::NumFaces; ++elmtFace) {
       unsigned nodes[Face::NumNodes];
@@ -204,7 +204,7 @@ GMSH<DIM>::GMSH(char const* filename)
       }
     }
   }
-  
+
   delete[] vertex2face;
   delete[] faces;
 }

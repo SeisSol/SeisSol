@@ -11,10 +11,11 @@
 #include "Parallel/MPI.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
-#include <device.h>
+
+#include <Device/device.h>
 
 namespace seissol::time_stepping {
-template <MPI::DataTransferMode CommType>
+template <Mpi::DataTransferMode CommType>
 class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
   public:
   GhostTimeClusterWithCopy(double maxTimeStepSize,
@@ -42,7 +43,6 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
   void prefetchGhostRegion(std::size_t region);
 
   private:
-  std::size_t numberOfRegions{};
   std::vector<void*> duplicatedCopyRegions;
   std::vector<void*> duplicatedGhostRegions;
 

@@ -15,6 +15,7 @@
 #include "Common/Constants.h"
 #include "Common/Marker.h"
 #include "Kernels/Precision.h"
+
 #include <cassert>
 #include <cstdlib>
 #include <vector>
@@ -24,8 +25,8 @@
 #endif
 
 #ifdef ACL_DEVICE
-#include <UsmAllocator.h>
-#include <device.h>
+#include <Device/UsmAllocator.h>
+#include <Device/device.h>
 #endif
 
 namespace seissol::memory {
@@ -43,10 +44,10 @@ class AlignedArray {
   public:
   SEISSOL_HOSTDEVICE T* begin() noexcept { return data_; }
   SEISSOL_HOSTDEVICE T* end() noexcept { return data_ + N; }
-  SEISSOL_HOSTDEVICE const T* begin() const noexcept { return data_; }
-  SEISSOL_HOSTDEVICE const T* end() const noexcept { return data_ + N; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE const T* begin() const noexcept { return data_; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE const T* end() const noexcept { return data_ + N; }
   SEISSOL_HOSTDEVICE T* data() { return data_; }
-  SEISSOL_HOSTDEVICE const T* data() const { return data_; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE const T* data() const { return data_; }
   SEISSOL_HOSTDEVICE constexpr T& operator[](std::size_t pos) { return data_[pos]; }
   SEISSOL_HOSTDEVICE constexpr const T& operator[](std::size_t pos) const { return data_[pos]; }
   [[nodiscard]] SEISSOL_HOSTDEVICE constexpr std::size_t size() const noexcept { return N; }
@@ -55,22 +56,22 @@ class AlignedArray {
   alignas(Alignment) T data_[N];
 };
 
-// TODO(David): make enum class
-enum Memkind {
+enum class Memkind {
   Standard = 0,
   HighBandwidth = 1,
   DeviceGlobalMemory = 3,
   DeviceUnifiedMemory = 4,
   PinnedMemory = 5
 };
-void* allocate(size_t size, size_t alignment = 1, enum Memkind memkind = Standard);
+
+void* allocate(size_t size, size_t alignment = 1, Memkind memkind = Memkind::Standard);
 
 template <typename T>
-T* allocTyped(size_t count, size_t alignment = 1, enum Memkind memkind = Standard) {
+T* allocTyped(size_t count, size_t alignment = 1, Memkind memkind = Memkind::Standard) {
   return reinterpret_cast<T*>(allocate(count * sizeof(T), alignment, memkind));
 }
 
-void free(void* pointer, enum Memkind memkind = Standard);
+void free(void* pointer, Memkind memkind = Memkind::Standard);
 
 void memcopy(
     void* dst, const void* src, std::size_t size, enum Memkind dstMemkind, enum Memkind srcMemkind);
@@ -78,7 +79,12 @@ void memcopy(
 template <typename T>
 void memcopyTyped(
     T* dst, const T* src, std::size_t count, enum Memkind dstMemkind, enum Memkind srcMemkind) {
-  memcopy(dst, src, count * sizeof(T), dstMemkind, srcMemkind);
+  // explicit cast to silence clang-tidy
+  memcopy(static_cast<void*>(dst),
+          static_cast<const void*>(src),
+          count * sizeof(T),
+          dstMemkind,
+          srcMemkind);
 }
 
 void memzero(void* dst, std::size_t size, enum Memkind memkind);
@@ -91,7 +97,7 @@ void memzeroTyped(T* dst, std::size_t count, enum Memkind memkind) {
 template <typename T>
 void meminit(T* dst, std::size_t count, enum Memkind memkind) {
   std::vector<T> local(count);
-  memcopyTyped<T>(dst, local, count, memkind, Memkind::Standard);
+  memcopyTyped<T>(dst, local.data(), count, memkind, Memkind::Standard);
 }
 
 void* hostToDevicePointer(void* host, enum Memkind memkind);
@@ -106,7 +112,7 @@ T* hostToDevicePointerTyped(T* host, enum Memkind memkind) {
  *
  * @param memoryAlignment memory alignment.
  **/
-void printMemoryAlignment(std::vector<std::vector<unsigned long long>> memoryAlignment);
+void printMemoryAlignment(const std::vector<std::vector<unsigned long long>>& memoryAlignment);
 
 /**
  * Automatically frees allocated memory on destruction.
@@ -141,7 +147,7 @@ class ManagedAllocator {
    * @param  alignment alignment of the memory chunk in byte.
    * @return pointer, which points to the aligned memory of the given size.
    **/
-  void* allocateMemory(size_t size, size_t alignment = 1, enum Memkind memkind = Standard);
+  void* allocateMemory(size_t size, size_t alignment = 1, Memkind memkind = Memkind::Standard);
 };
 
 template <typename T>
@@ -187,11 +193,11 @@ class MemkindArray {
   }
   ~MemkindArray() { free(dataPtr, memkind); }
   SEISSOL_HOSTDEVICE T* data() noexcept { return dataPtr; }
-  SEISSOL_HOSTDEVICE const T* data() const noexcept { return dataPtr; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE const T* data() const noexcept { return dataPtr; }
   SEISSOL_HOSTDEVICE T* begin() noexcept { return dataPtr; }
   SEISSOL_HOSTDEVICE T* end() noexcept { return dataPtr + capacity; }
-  SEISSOL_HOSTDEVICE const T* begin() const noexcept { return dataPtr; }
-  SEISSOL_HOSTDEVICE const T* end() const noexcept { return dataPtr + capacity; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE const T* begin() const noexcept { return dataPtr; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE const T* end() const noexcept { return dataPtr + capacity; }
   SEISSOL_HOSTDEVICE constexpr T& operator[](std::size_t index) { return dataPtr[index]; }
   SEISSOL_HOSTDEVICE constexpr const T& operator[](std::size_t index) const {
     return dataPtr[index];
@@ -201,7 +207,7 @@ class MemkindArray {
   private:
   T* dataPtr{nullptr};
   std::size_t capacity{0};
-  enum Memkind memkind;
+  Memkind memkind{Memkind::Standard};
 };
 
 } // namespace seissol::memory

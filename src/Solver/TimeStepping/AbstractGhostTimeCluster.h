@@ -10,18 +10,18 @@
 
 #include "AbstractTimeCluster.h"
 #include "Initializer/Typedefs.h"
-#include <list>
-
 #include "Parallel/MPI.h"
-
 #include "Solver/TimeStepping/HaloCommunication.h"
+
+#include <list>
+#include <string>
 
 namespace seissol::time_stepping {
 class AbstractGhostTimeCluster : public AbstractTimeCluster {
   protected:
   std::size_t globalClusterId;
   std::size_t otherGlobalClusterId;
-  std::vector<solver::RemoteClusterPair> meshStructure;
+  solver::RemoteClusterPair meshStructure;
   std::vector<MPI_Request> sendRequests;
   std::vector<MPI_Request> recvRequests;
   std::list<unsigned int> sendQueue;
@@ -55,6 +55,8 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
 
   void reset() override;
   ActResult act() override;
+
+  [[nodiscard]] std::string description() const override;
 };
 } // namespace seissol::time_stepping
 

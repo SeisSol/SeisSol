@@ -8,13 +8,13 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_TPCOMMON_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_TPCOMMON_H_
 
-#include <array>
-#include <cstddef>
-
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+
+#include <array>
+#include <cstddef>
 
 namespace seissol::dr::friction_law::tp {
 
@@ -34,7 +34,7 @@ class GridPoints {
 
 #pragma omp declare simd
   const RealT& operator[](size_t i) const { return values[i]; };
-  const std::array<RealT, N>& data() const { return values; }
+  [[nodiscard]] const std::array<RealT, N>& data() const { return values; }
 
   private:
   std::array<RealT, N> values;
@@ -58,7 +58,7 @@ class InverseFourierCoefficients {
 
 #pragma omp declare simd
   const RealT& operator[](size_t i) const { return values[i]; };
-  const std::array<RealT, N>& data() const { return values; }
+  [[nodiscard]] const std::array<RealT, N>& data() const { return values; }
 
   private:
   std::array<RealT, N> values;
@@ -82,7 +82,7 @@ class GaussianHeatSource {
 
 #pragma omp declare simd
   const RealT& operator[](size_t i) const { return values[i]; };
-  const std::array<RealT, N>& data() const { return values; }
+  [[nodiscard]] const std::array<RealT, N>& data() const { return values; }
 
   private:
   std::array<RealT, N> values;

@@ -11,7 +11,7 @@
 
 // Manual instrumentation for Scalasca with epik.
 // Override function calls if not compiled with EPIK.
-#if defined(EPIK)
+#ifdef EPIK
 #include "epik_user.h"
 #else
 #define EPIK_FUNC_REG(str)
@@ -24,7 +24,7 @@
 #endif
 
 // empty score-p definitions without usage
-#if defined(SCOREP_USER_ENABLE)
+#ifdef SCOREP_USER_ENABLE
 #include <scorep/SCOREP_User.h>
 #else
 #define SCOREP_USER_REGION(name, type)
@@ -56,7 +56,7 @@
 #endif
 
 // likwid
-#if defined(LIKWID_PERFMON)
+#ifdef LIKWID_PERFMON
 #include <likwid-marker.h>
 #else
 #define LIKWID_MARKER_INIT

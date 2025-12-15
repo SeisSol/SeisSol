@@ -15,7 +15,7 @@ template <typename TPMethod>
 class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
   public:
   using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
-  using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::copyLtsTreeToLocal;
+  using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::copyStorageToLocal;
 
 /**
  * Integrates the state variable ODE in time
@@ -37,8 +37,8 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
                              double timeIncrement,
                              double localSlipRate) {
     const double localSl0 = this->sl0[faceIndex][pointIndex];
-    const double exp1 = std::exp(-localSlipRate * (timeIncrement / localSl0));
-    return localSl0 / localSlipRate * std::pow(localSlipRate * stateVarReference / localSl0, exp1);
+    const double exp1v = std::exp(-localSlipRate * (timeIncrement / localSl0));
+    return localSl0 / localSlipRate * std::pow(localSlipRate * stateVarReference / localSl0, exp1v);
   }
 };
 

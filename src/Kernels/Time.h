@@ -13,9 +13,10 @@
 
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
-#include <Kernels/Kernel.h>
-#include <Numerical/BasisFunction.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Kernels/Kernel.h"
+#include "Numerical/BasisFunction.h"
+#include "Parallel/Runtime/Stream.h"
+
 #include <cassert>
 #include <cstddef>
 #include <memory>
