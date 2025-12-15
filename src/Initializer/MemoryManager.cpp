@@ -152,7 +152,7 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
     std::size_t integratedDofsCounter{0};
     std::size_t nodalDisplacementsCounter{0};
     std::size_t analyticCounter = 0;
-    std::size_t plasticityCells = 0;
+    std::size_t numPlasticCells = 0;
 
     std::array<std::size_t, 4> freeSurfacePerFace{};
     std::array<std::size_t, 4> dirichletPerFace{};
@@ -202,8 +202,8 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
           ++dirichletPerFace[face];
         }
 
-        if (cellInformation[cell].plasticity) {
-          ++plasticityCells;
+        if (cellInformation[cell].plasticityEnabled) {
+          ++numPlasticCells;
         }
       }
     }
@@ -232,11 +232,11 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
     layer.setEntrySize<LTS::AnalyticScratch>(analyticCounter * tensor::INodal::size() *
                                              sizeof(real));
     if (plasticity) {
-      layer.setEntrySize<LTS::FlagScratch>(plasticityCells * sizeof(unsigned));
-      layer.setEntrySize<LTS::PrevDofsScratch>(plasticityCells * tensor::Q::Size * sizeof(real));
-      layer.setEntrySize<LTS::QEtaNodalScratch>(plasticityCells * tensor::QEtaNodal::Size *
+      layer.setEntrySize<LTS::FlagScratch>(numPlasticCells * sizeof(unsigned));
+      layer.setEntrySize<LTS::PrevDofsScratch>(numPlasticCells * tensor::Q::Size * sizeof(real));
+      layer.setEntrySize<LTS::QEtaNodalScratch>(numPlasticCells * tensor::QEtaNodal::Size *
                                                 sizeof(real));
-      layer.setEntrySize<LTS::QStressNodalScratch>(plasticityCells * tensor::QStressNodal::Size *
+      layer.setEntrySize<LTS::QStressNodalScratch>(numPlasticCells * tensor::QStressNodal::Size *
                                                    sizeof(real));
     }
 

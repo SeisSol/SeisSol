@@ -303,7 +303,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   if (seissolParams.model.plasticity) {
     // remove disabled plasticity groups from the list
-    const auto& pdis = seissolParams.model.plasticityDisable;
+    const auto& pdis = seissolParams.model.plasticityDisabledGroups;
     for (auto& layer : ltsStorage.leaves(Ghost)) {
       const std::size_t size = layer.size();
       auto* cellInfo = layer.var<LTS::CellInformation>();
@@ -312,7 +312,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 #pragma omp parallel for schedule(static)
 #endif
       for (std::size_t i = 0; i < size; ++i) {
-        cellInfo[i].plasticity = pdis.find(cellInfo2[i].group) == pdis.end();
+        cellInfo[i].plasticityEnabled = pdis.find(cellInfo2[i].group) == pdis.end();
       }
     }
   }

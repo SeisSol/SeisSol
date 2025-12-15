@@ -40,7 +40,7 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
   for (std::size_t cell = 0; cell < size; ++cell) {
     auto dataHost = currentLayer->cellRef(cell);
 
-    if (dataHost.get<LTS::CellInformation>().plasticity) {
+    if (dataHost.get<LTS::CellInformation>().plasticityEnabled) {
       ++psize;
     }
   }
@@ -59,7 +59,7 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
       const auto dataHost = currentLayer->cellRef(cell);
       auto data = currentLayer->cellRef(cell, AllocationPlace::Device);
 
-      if (dataHost.get<LTS::CellInformation>().plasticity) {
+      if (dataHost.get<LTS::CellInformation>().plasticityEnabled) {
         dofsPtrs[pcell] = static_cast<real*>(data.get<LTS::Dofs>());
         qstressNodalPtrs[pcell] = &scratchMem[nodalStressTensorCounter];
         nodalStressTensorCounter += tensor::QStressNodal::size();

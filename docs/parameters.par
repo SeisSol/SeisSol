@@ -15,7 +15,7 @@ UseCellHomogenizedMaterial = 1
 !off-fault plasticity parameters (disabled iff Plasticity=0)
 Plasticity=0
 !comma-separated list of groups for which plasticity is disabled, even if we enable it globally
-plasticitydisable=''
+plasticitydisabledgroups=''
 Tv=0.05
 !yaml file defining spatial dependance of properties necessary for plasticity. MaterialFileName is taken for plasticity if this is not provided
 PlasticityFileName = ''

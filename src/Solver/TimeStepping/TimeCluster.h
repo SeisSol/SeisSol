@@ -130,7 +130,7 @@ class TimeCluster : public AbstractTimeCluster {
 
   seissol::memory::MemkindArray<std::size_t> yieldCells;
 
-  std::size_t plasticityCells{0};
+  std::size_t numPlasticCells{0};
 
   /**
    * Writes the receiver output if applicable (receivers present, receivers have to be written).

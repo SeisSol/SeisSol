@@ -139,8 +139,8 @@ TimeCluster::TimeCluster(unsigned int clusterId,
 
   const auto* cellInfo = clusterData->var<LTS::CellInformation>();
   for (std::size_t i = 0; i < clusterData->size(); ++i) {
-    if (cellInfo[i].plasticity) {
-      ++plasticityCells;
+    if (cellInfo[i].plasticityEnabled) {
+      ++numPlasticCells;
     }
   }
 }
@@ -574,9 +574,9 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
                            });
 
     seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
-        plasticityCells * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
+        numPlasticCells * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
     seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
-        plasticityCells * accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
+        numPlasticCells * accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
   }
 
   device.api->popLastProfilingMark();
@@ -964,7 +964,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
         data, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
 
     if constexpr (UsePlasticity) {
-      if (data.get<LTS::CellInformation>().plasticity) {
+      if (data.get<LTS::CellInformation>().plasticityEnabled) {
         numberOfTetsWithPlasticYielding +=
             seissol::kernels::Plasticity::computePlasticity(oneMinusIntegratingFactor,
                                                             timestep,
@@ -984,9 +984,9 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   if constexpr (UsePlasticity) {
     yieldCells[0] += numberOfTetsWithPlasticYielding;
     seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
-        plasticityCells * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
+        numPlasticCells * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
     seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
-        plasticityCells * accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
+        numPlasticCells * accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
   }
 
   loopStatistics->end(regionComputeNeighboringIntegration, clusterSize, profilingId);

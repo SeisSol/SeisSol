@@ -33,7 +33,7 @@ struct CellLocalInformation {
   LtsSetup ltsSetup;
 
   // plasticity enabled
-  bool plasticity{false};
+  bool plasticityEnabled{false};
 };
 
 // cell local information which is not needed during the main iterations, but only during setup and

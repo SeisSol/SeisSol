@@ -69,12 +69,13 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
 
   const bool plasticity = reader->readWithDefault("plasticity", false);
 
-  const auto plasticityDisableRaw = reader->readWithDefault<std::string>("plasticitydisable", "");
-  std::unordered_set<int> plasticityDisable;
+  const auto plasticityDisabledGroupsRaw =
+      reader->readWithDefault<std::string>("plasticitydisabledgroups", "");
+  std::unordered_set<int> plasticityDisabledGroups;
   {
-    const auto groups = utils::StringUtils::split(plasticityDisableRaw, ',');
+    const auto groups = utils::StringUtils::split(plasticityDisabledGroupsRaw, ',');
     for (const auto& group : groups) {
-      plasticityDisable.emplace(std::stoi(group));
+      plasticityDisabledGroups.emplace(std::stoi(group));
     }
   }
 
@@ -117,7 +118,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
 
   return ModelParameters{hasBoundaryFile,
                          plasticity,
-                         plasticityDisable,
+                         plasticityDisabledGroups,
                          useCellHomogenizedMaterial,
                          freqCentral,
                          freqRatio,
