@@ -8,7 +8,8 @@
 #ifndef SEISSOL_SRC_IO_READER_FILE_BINARYREADER_H_
 #define SEISSOL_SRC_IO_READER_FILE_BINARYREADER_H_
 
-#include <IO/Datatype/Datatype.h>
+#include "IO/Datatype/Datatype.h"
+
 #include <memory>
 #include <mpi.h>
 #include <stack>

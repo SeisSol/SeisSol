@@ -8,9 +8,9 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RATEANDSTATETHERMALPRESSURIZATION_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RATEANDSTATETHERMALPRESSURIZATION_H_
 
+#include "DynamicRupture/Output/RateAndState.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
-#include <DynamicRupture/Output/RateAndState.h>
-#include <Memory/Descriptor/DynamicRupture.h>
+#include "Memory/Descriptor/DynamicRupture.h"
 
 namespace seissol::dr::output {
 class RateAndStateThermalPressurization : public RateAndState {

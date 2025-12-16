@@ -9,22 +9,27 @@
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
 #include "MemoryManager.h"
+
+#include "Common/Constants.h"
+#include "Common/Iterator.h"
+#include "DynamicRupture/Factory.h"
+#include "DynamicRupture/Misc.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/CellLocalInformation.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/Boundary.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Descriptor/Surface.h"
 #include "Memory/GlobalData.h"
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
-#include <Common/Constants.h>
-#include <DynamicRupture/Factory.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/CellLocalInformation.h>
-#include <Initializer/Parameters/DRParameters.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/Boundary.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Descriptor/Surface.h>
+
 #include <array>
 #include <cstddef>
 #include <limits>
@@ -33,27 +38,23 @@
 #include <utils/logger.h>
 #include <yateto.h>
 
-#include <DynamicRupture/Misc.h>
-
-#include "Common/Iterator.h"
-
-#include "GeneratedCode/tensor.h"
-
 #ifdef ACL_DEVICE
 #include "BatchRecorders/Recorders.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
-#include "device.h"
-#include <Solver/MultipleSimulations.h>
+#include "Solver/MultipleSimulations.h"
+
+#include <Device/device.h>
 #endif // ACL_DEVICE
 
 namespace seissol::initializer {
 
 void MemoryManager::initialize() {
   // initialize global matrices
-  GlobalDataInitializerOnHost::init(m_globalDataOnHost, m_memoryAllocator, memory::Standard);
+  GlobalDataInitializerOnHost::init(
+      m_globalDataOnHost, m_memoryAllocator, memory::Memkind::Standard);
   if constexpr (seissol::isDeviceOn()) {
     GlobalDataInitializerOnDevice::init(
-        m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
+        m_globalDataOnDevice, m_memoryAllocator, memory::Memkind::DeviceGlobalMemory);
   }
 }
 
@@ -133,8 +134,7 @@ void MemoryManager::fixateBoundaryStorage() {
       outputParams.freeSurfaceParameters.vtkorder < 0) {
     refinement = outputParams.freeSurfaceParameters.refinement;
   }
-  seissolInstance.freeSurfaceIntegrator().initialize(
-      refinement, &m_globalDataOnHost, ltsStorage, surfaceStorage);
+  seissolInstance.freeSurfaceIntegrator().initialize(refinement, ltsStorage, surfaceStorage);
 }
 
 #ifdef ACL_DEVICE
@@ -152,6 +152,7 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
     std::size_t integratedDofsCounter{0};
     std::size_t nodalDisplacementsCounter{0};
     std::size_t analyticCounter = 0;
+    std::size_t numPlasticCells = 0;
 
     std::array<std::size_t, 4> freeSurfacePerFace{};
     std::array<std::size_t, 4> dirichletPerFace{};
@@ -200,6 +201,10 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
         if (cellInformation[cell].faceTypes[face] == FaceType::Dirichlet) {
           ++dirichletPerFace[face];
         }
+
+        if (cellInformation[cell].plasticityEnabled) {
+          ++numPlasticCells;
+        }
       }
     }
     const auto freeSurfaceCount =
@@ -227,11 +232,11 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
     layer.setEntrySize<LTS::AnalyticScratch>(analyticCounter * tensor::INodal::size() *
                                              sizeof(real));
     if (plasticity) {
-      layer.setEntrySize<LTS::FlagScratch>(layer.size() * sizeof(unsigned));
-      layer.setEntrySize<LTS::PrevDofsScratch>(layer.size() * tensor::Q::Size * sizeof(real));
-      layer.setEntrySize<LTS::QEtaNodalScratch>(layer.size() * tensor::QEtaNodal::Size *
+      layer.setEntrySize<LTS::FlagScratch>(numPlasticCells * sizeof(unsigned));
+      layer.setEntrySize<LTS::PrevDofsScratch>(numPlasticCells * tensor::Q::Size * sizeof(real));
+      layer.setEntrySize<LTS::QEtaNodalScratch>(numPlasticCells * tensor::QEtaNodal::Size *
                                                 sizeof(real));
-      layer.setEntrySize<LTS::QStressNodalScratch>(layer.size() * tensor::QStressNodal::Size *
+      layer.setEntrySize<LTS::QStressNodalScratch>(numPlasticCells * tensor::QStressNodal::Size *
                                                    sizeof(real));
     }
 

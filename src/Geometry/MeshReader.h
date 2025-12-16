@@ -9,16 +9,14 @@
 #ifndef SEISSOL_SRC_GEOMETRY_MESHREADER_H_
 #define SEISSOL_SRC_GEOMETRY_MESHREADER_H_
 
+#include "Initializer/Parameters/DRParameters.h"
 #include "MeshDefinition.h"
 
+#include <Eigen/Dense>
 #include <cmath>
 #include <map>
 #include <unordered_map>
 #include <vector>
-
-#include <Eigen/Dense>
-
-#include "Initializer/Parameters/DRParameters.h"
 
 namespace seissol {
 class SeisSol;
@@ -117,6 +115,11 @@ class MeshReader {
                                seissol::initializer::parameters::RefPointMethod refPointMethod);
 
   void exchangeGhostlayerMetadata();
+
+  /**
+   * Disable the DR by converting all DR faces (BC = 3) to regular faces (BC = 0).
+   */
+  void disableDR();
 
   /**
     Create a linearized ghost layer view.

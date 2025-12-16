@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_INITIALIZER_POINTMAPPER_H_
 
 #include "Geometry/MeshReader.h"
+
 #include <Eigen/Dense>
 
 namespace seissol::initializer {

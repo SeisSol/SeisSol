@@ -8,6 +8,7 @@
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
 #include "tests/TestHelper.h"
+
 #include <cstdint>
 namespace seissol::unit_test {
 
