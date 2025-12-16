@@ -138,6 +138,13 @@ TimeCluster::TimeCluster(unsigned int clusterId,
 
   conditionalCounterHost[0] = 0;
   conditionalCounterDevice.copyFrom(conditionalCounterHost);
+
+  const auto* cellInfo = clusterData->var<LTS::CellInformation>();
+  for (std::size_t i = 0; i < clusterData->size(); ++i) {
+    if (cellInfo[i].plasticityEnabled) {
+      ++numPlasticCells;
+    }
+  }
 }
 
 void TimeCluster::setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) {
@@ -569,9 +576,9 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
                            });
 
     seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
-        clusterData->size() * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
+        numPlasticCells * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
     seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
-        clusterData->size() * accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
+        numPlasticCells * accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
   }
 
   device.api->popLastProfilingMark();
@@ -959,14 +966,16 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
         data, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
 
     if constexpr (UsePlasticity) {
-      numberOfTetsWithPlasticYielding +=
-          seissol::kernels::Plasticity::computePlasticity(oneMinusIntegratingFactor,
-                                                          timestep,
-                                                          tV,
-                                                          globalDataOnHost,
-                                                          &plasticity[cell],
-                                                          data.get<LTS::Dofs>(),
-                                                          pstrain[cell]);
+      if (data.get<LTS::CellInformation>().plasticityEnabled) {
+        numberOfTetsWithPlasticYielding +=
+            seissol::kernels::Plasticity::computePlasticity(oneMinusIntegratingFactor,
+                                                            timestep,
+                                                            tV,
+                                                            globalDataOnHost,
+                                                            &plasticity[cell],
+                                                            data.get<LTS::Dofs>(),
+                                                            pstrain[cell]);
+      }
     }
 #ifdef INTEGRATE_QUANTITIES
     seissolInstance.postProcessor().integrateQuantities(
@@ -977,9 +986,9 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   if constexpr (UsePlasticity) {
     conditionalCounterHost[0] += numberOfTetsWithPlasticYielding;
     seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
-        clusterSize * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
+        numPlasticCells * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
     seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
-        clusterSize * accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
+        numPlasticCells * accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
   }
 
   loopStatistics->end(regionComputeNeighboringIntegration, clusterSize, profilingId);

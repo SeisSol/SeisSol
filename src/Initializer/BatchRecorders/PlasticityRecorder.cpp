@@ -28,18 +28,34 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
   real* qStressNodalScratch =
       static_cast<real*>(currentLayer->var<LTS::QStressNodalScratch>(AllocationPlace::Device));
   const auto size = currentLayer->size();
-  if (size > 0) {
-    std::vector<real*> dofsPtrs(size, nullptr);
-    std::vector<real*> pstrainsPtrs(size, nullptr);
-    std::vector<real*> initialLoadPtrs(size, nullptr);
-    std::vector<real*> qStressNodalPtrs(size, nullptr);
 
+  std::size_t psize = 0;
+  for (std::size_t cell = 0; cell < size; ++cell) {
+    auto dataHost = currentLayer->cellRef(cell);
+
+    if (dataHost.get<LTS::CellInformation>().plasticityEnabled) {
+      ++psize;
+    }
+  }
+
+  if (psize > 0) {
+    std::vector<real*> dofsPtrs(psize, nullptr);
+    std::vector<real*> pstrainsPtrs(psize, nullptr);
+    std::vector<real*> initialLoadPtrs(psize, nullptr);
+    std::vector<real*> qStressNodalPtrs(psize, nullptr);
+
+    std::size_t pcell = 0;
     for (std::size_t cell = 0; cell < size; ++cell) {
+      const auto dataHost = currentLayer->cellRef(cell);
       auto data = currentLayer->cellRef(cell, AllocationPlace::Device);
-      dofsPtrs[cell] = static_cast<real*>(data.get<LTS::Dofs>());
-      pstrainsPtrs[cell] = static_cast<real*>(data.get<LTS::PStrain>());
-      initialLoadPtrs[cell] = static_cast<real*>(data.get<LTS::Plasticity>().initialLoading);
-      qStressNodalPtrs[cell] = qStressNodalScratch + cell * tensor::QStressNodal::size();
+
+      if (dataHost.get<LTS::CellInformation>().plasticityEnabled) {
+        dofsPtrs[pcell] = static_cast<real*>(data.get<LTS::Dofs>());
+        pstrainsPtrs[pcell] = static_cast<real*>(data.get<LTS::PStrain>());
+        initialLoadPtrs[pcell] = static_cast<real*>(data.get<LTS::Plasticity>().initialLoading);
+        qStressNodalPtrs[pcell] = qStressNodalScratch + pcell * tensor::QStressNodal::size();
+        ++pcell;
+      }
     }
 
     const ConditionalKey key(*KernelNames::Plasticity);

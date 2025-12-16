@@ -131,6 +131,8 @@ class TimeCluster : public AbstractTimeCluster {
   seissol::memory::MemkindArray<std::size_t> conditionalCounterHost;
   seissol::memory::MemkindArray<std::size_t> conditionalCounterDevice;
 
+  std::size_t numPlasticCells{0};
+
   /**
    * Writes the receiver output if applicable (receivers present, receivers have to be written).
    **/
