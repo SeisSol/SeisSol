@@ -86,6 +86,16 @@ void MeshReader::scaleMesh(const Eigen::Matrix3d& scalingMatrix) {
   }
 }
 
+void MeshReader::disableDR() {
+  for (auto& elem : m_elements) {
+    for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
+      if (elem.boundaries[j] == 3) {
+        elem.boundaries[j] = 0;
+      }
+    }
+  }
+}
+
 /**
  * Reconstruct the fault information from the boundary conditions
  */

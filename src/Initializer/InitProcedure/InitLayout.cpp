@@ -225,6 +225,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
         secondaryCellInformation[index].rank = rank;
         secondaryCellInformation[index].globalId = element.globalId;
+        secondaryCellInformation[index].group = element.group;
         for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           secondaryCellInformation[index].neighborRanks[face] = element.neighborRanks[face];
           cellInformation[index].faceTypes[face] = static_cast<FaceType>(element.boundaries[face]);
@@ -299,6 +300,22 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   // pass 3: LTS setup
   logInfo() << "Setting up LTS configuration...";
   internal::deriveLtsSetups(meshLayout, ltsStorage);
+
+  if (seissolParams.model.plasticity) {
+    // remove disabled plasticity groups from the list
+    const auto& pdis = seissolParams.model.plasticityDisabledGroups;
+    for (auto& layer : ltsStorage.leaves(Ghost)) {
+      const std::size_t size = layer.size();
+      auto* cellInfo = layer.var<LTS::CellInformation>();
+      const auto* cellInfo2 = layer.var<LTS::SecondaryInformation>();
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+      for (std::size_t i = 0; i < size; ++i) {
+        cellInfo[i].plasticityEnabled = pdis.find(cellInfo2[i].group) == pdis.end();
+      }
+    }
+  }
 
   seissolInstance.getMemoryManager().initializeFrictionLaw();
 
