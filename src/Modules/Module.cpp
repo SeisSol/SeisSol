@@ -31,14 +31,20 @@ double Module::potentialSyncPoint(double currentTime, double timeTolerance, bool
 }
 
 void Module::setSimulationStartTime(double time) {
-  assert(isyncInterval > 0);
   lastSyncPoint = time;
 
   // take the next expected sync point TODO: forward tolerance
   // (calculated from time point 0)
   nextSyncPoint = 0;
   while (nextSyncPoint - time < 1e-6) {
+    const auto currNextSyncPoint = nextSyncPoint;
     nextSyncPoint += isyncInterval;
+    if (currNextSyncPoint == nextSyncPoint) {
+      // no time advancement (i.e. 0 or too small)
+      // just jump to the init time
+      nextSyncPoint = time;
+      break;
+    }
   }
 }
 
