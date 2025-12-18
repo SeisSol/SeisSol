@@ -199,16 +199,16 @@ __device__ __forceinline__ auto readlane(T value, int lane) -> T {
 
 // TODO: test using the scalar cache much more?
 
-__launch_bounds__(512) __global__ void kernel_local7(const float** A,
-                                                     const float** B,
-                                                     unsigned Boffset,
-                                                     const float* C1,
-                                                     const float* C2,
-                                                     const float* C3,
-                                                     const float* C4,
-                                                     float** D,
-                                                     size_t numElements,
-                                                     const unsigned* flags) {
+__launch_bounds__(1024) __global__ void kernel_local7(const float** A,
+                                                      const float** B,
+                                                      unsigned Boffset,
+                                                      const float* C1,
+                                                      const float* C2,
+                                                      const float* C3,
+                                                      const float* C4,
+                                                      float** D,
+                                                      size_t numElements,
+                                                      const unsigned* flags) {
 
   constexpr int Quantities = 9;
   constexpr int Faces = 4;
@@ -1550,7 +1550,7 @@ void launch_local(const float** A,
     int device{}, smCount{}, blocksPerSM{};
     hipGetDevice(&device);
     hipDeviceGetAttribute(&smCount, hipDeviceAttributeMultiprocessorCount, device);
-    hipOccupancyMaxActiveBlocksPerMultiprocessor(&blocksPerSM, kernel_local7, 512, 0);
+    hipOccupancyMaxActiveBlocksPerMultiprocessor(&blocksPerSM, kernel_local7, 1024, 0);
     if (blocksPerSM > 0) {
       gridsize = smCount * blocksPerSM;
     } else {
@@ -1558,7 +1558,7 @@ void launch_local(const float** A,
     }
   }
 
-  dim3 block(64, 8, 1);
+  dim3 block(64, 16, 1);
   dim3 grid(gridsize, 1, 1);
   hipStream_t stream = (streamPtr != nullptr) ? static_cast<hipStream_t>(streamPtr) : 0;
   kernel_local7<<<grid, block, 0, stream>>>(A, B, Boffset, C1, C2, C3, C4, D, numElements, flags);
