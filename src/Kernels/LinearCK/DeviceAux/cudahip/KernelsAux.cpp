@@ -197,7 +197,323 @@ __device__ __forceinline__ auto readlane(T value, int lane) -> T {
   return *reinterpret_cast<T*>(&vcr);
 }
 
-// TODO: test using the scalar cache much more?
+template <int dpp1, int dpp2, int dpp3, bool dpp4, typename T>
+__device__ __forceinline__ auto dpp(T value) -> T {
+  static_assert(sizeof(T) == sizeof(int), "NYI");
+  int vc = *reinterpret_cast<int*>(&value);
+  int vcr = __builtin_amdgcn_mov_dpp(vc, dpp1, dpp2, dpp3, dpp4);
+  return *reinterpret_cast<T*>(&vcr);
+}
+
+template <int lane, typename T>
+__device__ __forceinline__ auto dpp4(T value) -> T {
+  return dpp<(lane << 6) | (lane << 4) | (lane << 2) | lane, 0b1111, 0b1111, true>(value);
+}
+
+#define ISTRINGIFY(x) #x
+#define STR(x) ISTRINGIFY(x)
+#define CM4STR(pos, c, a, b)                                                                       \
+  "v_cndmask_b32_dpp " c ", " a ", " b ", vcc quad_perm:[" STR(pos) "," STR(pos) "," STR(          \
+      pos) "," STR(pos) "] row_mask:0xf bank_mask:0xf bound_ctrl:1"
+#define CNDMASKDPP4(pos, c, a, b)                                                                  \
+  __asm(CM4STR(pos, "%0", "%1", "%2") : "+v"(c) : "v"(a), "v"(b) : "vcc");
+
+template <typename T>
+__device__ __forceinline__ auto transpose4x4(T& w1, T& w2, T& w3, T& w4, T v1, T v2, T v3, T v4) {
+
+  const uint64_t mask1 = 0x3333333333333333ULL;
+  const uint64_t mask2 = 0x5555555555555555ULL;
+
+  T u1, u2, u3, u4;
+  T y1, y2, y3, y4;
+
+  // clang-format off
+
+  __asm("s_mov_b64 vcc, %[mask] \n\t"
+     CM4STR(0, "%[u1]", "%[v1]", "%[v2]") "\n\t"
+     CM4STR(1, "%[u2]", "%[v1]", "%[v2]") "\n\t"
+     CM4STR(2, "%[u3]", "%[v1]", "%[v2]") "\n\t"
+     CM4STR(3, "%[u4]", "%[v1]", "%[v2]") "\n\t"
+     CM4STR(0, "%[y1]", "%[v3]", "%[v4]") "\n\t"
+     CM4STR(1, "%[y2]", "%[v3]", "%[v4]") "\n\t"
+     CM4STR(2, "%[y3]", "%[v3]", "%[v4]") "\n\t"
+     CM4STR(3, "%[y4]", "%[v3]", "%[v4]")
+      : [u1] "=v" (u1), [u2] "=v" (u2), [u3] "=v" (u3), [u4] "=v" (u4), [y1] "=v" (y1), [y2] "=v" (y2), [y3] "=v" (y3), [y4] "=v" (y4)
+      : [mask] "s" (mask1), [v1] "v" (v1), [v2] "v" (v2), [v3] "v" (v3), [v4] "v" (v4)
+      : "vcc");
+  __asm("s_mov_b64 vcc, %[mask] \n\t"
+     CM4STR(0, "%[w1]", "%[u1]", "%[y1]") "\n\t"
+     CM4STR(1, "%[w2]", "%[u2]", "%[y2]") "\n\t"
+     CM4STR(2, "%[w3]", "%[u3]", "%[y3]") "\n\t"
+     CM4STR(3, "%[w4]", "%[u4]", "%[y4]")
+      : [w1] "=v" (w1), [w2] "=v" (w2), [w3] "=v" (w3), [w4] "=v" (w4)
+      : [mask] "s" (mask2), [u1] "v" (u1), [u2] "v" (u2), [u3] "v" (u3), [u4] "v" (u4), [y1] "v" (y1), [y2] "v" (y2), [y3] "v" (y3), [y4] "v" (y4)
+      : "vcc");
+
+  // clang-format on
+
+  /*
+    const auto lane = __lane_id() % 4;
+
+    if (lane == 0) {
+      const auto v11 = dpp4<0>(v1);
+      const auto v12 = dpp4<1>(v1);
+      const auto v13 = dpp4<2>(v1);
+      const auto v14 = dpp4<3>(v1);
+      w1 = v11;
+      w2 = v12;
+      w3 = v13;
+      w4 = v14;
+    }
+    if (lane == 1) {
+      const auto v21 = dpp4<0>(v2);
+    const auto v22 = dpp4<1>(v2);
+    const auto v23 = dpp4<2>(v2);
+    const auto v24 = dpp4<3>(v2);
+      w1 = v21;
+      w2 = v22;
+      w3 = v23;
+      w4 = v24;
+    }
+    if (lane == 2) {
+      const auto v31 = dpp4<0>(v3);
+    const auto v32 = dpp4<1>(v3);
+    const auto v33 = dpp4<2>(v3);
+    const auto v34 = dpp4<3>(v3);
+      w1 = v31;
+      w2 = v32;
+      w3 = v33;
+      w4 = v34;
+    }
+    if (lane == 3) {
+
+    const auto v41 = dpp4<0>(v4);
+    const auto v42 = dpp4<1>(v4);
+    const auto v43 = dpp4<2>(v4);
+    const auto v44 = dpp4<3>(v4);
+      w1 = v41;
+      w2 = v42;
+      w3 = v43;
+      w4 = v44;
+    }*/
+}
+
+__launch_bounds__(1024) __global__ void kernel_local8(const float** A,
+                                                      const float** B,
+                                                      unsigned Boffset,
+                                                      const float* C1,
+                                                      const float* C2,
+                                                      const float* C3,
+                                                      const float* C4,
+                                                      float** D,
+                                                      size_t numElements,
+                                                      const unsigned* flags) {
+
+  constexpr int Quantities = 9;
+  constexpr int Faces = 4;
+
+  __shared__ float kdivCache[64 * 56 * Faces];
+  // TODO: maybe try add __shared__ float broadcastCache[64 * 4 * 8]; ?
+
+  constexpr int Count = Faces * Quantities * Quantities;
+  constexpr int CountH = Count / 64;
+  constexpr int CountR = Count % 64;
+
+  const auto linear = threadIdx.y * blockDim.x + threadIdx.x;
+
+  const float* const __restrict__ glbC1 = C1;
+  const float* const __restrict__ glbC2 = C2;
+  const float* const __restrict__ glbC3 = C3;
+  const float* const __restrict__ glbC4 = C4;
+
+#pragma unroll
+  for (int i = 0; i < 56 / 8; ++i) {
+    auto x1 = __builtin_nontemporal_load(&glbC1[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x2 = __builtin_nontemporal_load(&glbC2[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x3 = __builtin_nontemporal_load(&glbC3[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x4 = __builtin_nontemporal_load(&glbC4[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+
+    if (threadIdx.x >= 56) {
+      x1 = 0;
+      x2 = 0;
+      x3 = 0;
+      x4 = 0;
+    }
+
+    float4 x{};
+    x.x = x1;
+    x.y = x2;
+    x.z = x3;
+    x.w = x4;
+
+    *(float4*)&kdivCache[i * 256 * 8 + linear * 4] = x;
+  }
+  __syncthreads();
+
+  for (int b = blockIdx.x * blockDim.y + threadIdx.y; b < numElements;
+       b += gridDim.x * blockDim.y) {
+    const float* const __restrict__ glbA = A[b];
+    const float* const __restrict__ glbB = B[b] + Boffset;
+    float* const __restrict__ glbD = D[b];
+
+    float result[Quantities]{};
+    float dq[Quantities]{};
+    float star[CountH + 1]{};
+
+    const auto flag = flags[b];
+
+    const bool has1 = (flag & 1) != 0;
+    const bool has2 = (flag & 2) != 0;
+    const bool has3 = (flag & 4) != 0;
+    const bool has4 = (flag & 8) != 0;
+
+    const bool has[4]{has1, has2, has3, has4};
+
+    // load matrices
+
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      dq[i] = __builtin_nontemporal_load(&glbA[i * 64 + threadIdx.x]);
+    }
+
+#pragma unroll
+    for (int i = 0; i < CountH; ++i) {
+      star[i] = glbB[threadIdx.x + i * 64];
+    }
+    if (threadIdx.x < CountR) {
+      star[CountH] = glbB[threadIdx.x + CountH * 64];
+    }
+
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      result[i] = __builtin_nontemporal_load(&glbD[i * 64 + threadIdx.x]);
+    }
+
+    // matmul #1 X = (M @ I) × 4
+    float interm[Faces][Quantities]{};
+
+    using af4 = __attribute__((__vector_size__(4 * sizeof(float)))) float;
+
+    af4 acc[Faces][Quantities / 4]{};
+
+#pragma unroll 8
+    for (int k = 0; k < 56; k += 4) {
+      const auto kdivLocal0 = *(float4*)&kdivCache[k * 256 + threadIdx.x * 4];
+      const auto kdivLocal1 = *(float4*)&kdivCache[(k + 1) * 256 + threadIdx.x * 4];
+      const auto kdivLocal2 = *(float4*)&kdivCache[(k + 2) * 256 + threadIdx.x * 4];
+      const auto kdivLocal3 = *(float4*)&kdivCache[(k + 3) * 256 + threadIdx.x * 4];
+
+      float4 kdT[4]{};
+
+      transpose4x4(kdT[0].x,
+                   kdT[1].x,
+                   kdT[2].x,
+                   kdT[3].x,
+                   kdivLocal0.x,
+                   kdivLocal1.x,
+                   kdivLocal2.x,
+                   kdivLocal3.x);
+      transpose4x4(kdT[0].y,
+                   kdT[1].y,
+                   kdT[2].y,
+                   kdT[3].y,
+                   kdivLocal0.y,
+                   kdivLocal1.y,
+                   kdivLocal2.y,
+                   kdivLocal3.y);
+      transpose4x4(kdT[0].z,
+                   kdT[1].z,
+                   kdT[2].z,
+                   kdT[3].z,
+                   kdivLocal0.z,
+                   kdivLocal1.z,
+                   kdivLocal2.z,
+                   kdivLocal3.z);
+      transpose4x4(kdT[0].w,
+                   kdT[1].w,
+                   kdT[2].w,
+                   kdT[3].w,
+                   kdivLocal0.w,
+                   kdivLocal1.w,
+                   kdivLocal2.w,
+                   kdivLocal3.w);
+
+#pragma unroll
+      for (int j = 0; j < Quantities; j += 4) {
+#pragma unroll
+        for (int f = 0; f < 4; ++f) {
+          acc[f][j / 4] =
+              __builtin_amdgcn_mfma_f32_4x4x1f32(kdT[f].x, dq[j + 0], acc[f][j / 4], 0, 0, 0);
+          acc[f][j / 4] =
+              __builtin_amdgcn_mfma_f32_4x4x1f32(kdT[f].y, dq[j + 1], acc[f][j / 4], 0, 0, 0);
+          acc[f][j / 4] =
+              __builtin_amdgcn_mfma_f32_4x4x1f32(kdT[f].z, dq[j + 2], acc[f][j / 4], 0, 0, 0);
+          acc[f][j / 4] =
+              __builtin_amdgcn_mfma_f32_4x4x1f32(kdT[f].w, dq[j + 3], acc[f][j / 4], 0, 0, 0);
+        }
+      }
+
+#pragma unroll
+      for (int j = ((Quantities + 3) / 4) * 4; j < Quantities; ++j) {
+        const auto value = readlane(dq[j], k);
+
+        interm[0][j] += kdivLocal0.x * value;
+        interm[1][j] += kdivLocal0.y * value;
+        interm[2][j] += kdivLocal0.z * value;
+        interm[3][j] += kdivLocal0.w * value;
+
+        const auto value1 = readlane(dq[j], k + 1);
+
+        interm[0][j] += kdivLocal1.x * value1;
+        interm[1][j] += kdivLocal1.y * value1;
+        interm[2][j] += kdivLocal1.z * value1;
+        interm[3][j] += kdivLocal1.w * value1;
+
+        const auto value2 = readlane(dq[j], k + 2);
+
+        interm[0][j] += kdivLocal2.x * value2;
+        interm[1][j] += kdivLocal2.y * value2;
+        interm[2][j] += kdivLocal2.z * value2;
+        interm[3][j] += kdivLocal2.w * value2;
+
+        const auto value3 = readlane(dq[j], k + 3);
+
+        interm[0][j] += kdivLocal3.x * value3;
+        interm[1][j] += kdivLocal3.y * value3;
+        interm[2][j] += kdivLocal3.z * value3;
+        interm[3][j] += kdivLocal3.w * value3;
+      }
+    }
+
+#pragma unroll
+    for (int j = 0; j < Quantities; ++j) {
+#pragma unroll
+      for (int f = 0; f < 4; ++f) {
+        interm[f][j] = acc[f][j / 4][j % 4];
+      }
+    }
+
+    // matmul #2 Q += (X @ A*) × 4
+#pragma unroll
+    for (int d = 0; d < Faces; ++d) {
+      if (has[d]) {
+#pragma unroll
+        for (int n = 0; n < Quantities; ++n) {
+#pragma unroll
+          for (int k = 0; k < Quantities; ++k) {
+            const auto staridx = k + n * Quantities + Quantities * Quantities * d;
+            result[n] += interm[d][k] * readlane(star[staridx / 64], staridx % 64);
+          }
+        }
+      }
+    }
+
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      __builtin_nontemporal_store(result[i], &glbD[i * 64 + threadIdx.x]);
+    }
+  }
+}
 
 __launch_bounds__(1024) __global__ void kernel_local7(const float** A,
                                                       const float** B,
