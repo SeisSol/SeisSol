@@ -316,6 +316,80 @@ __device__ __forceinline__ auto transpose4x4(T& w1, T& w2, T& w3, T& w4, T v1, T
     }*/
 }
 
+/*
+
+const auto kdivLocal0 = *(float4*)&kdivCache[k * 256 + threadIdx.x * 4];
+const auto kdivLocal1 = *(float4*)&kdivCache[(k + 1) * 256 + threadIdx.x * 4];
+const auto kdivLocal2 = *(float4*)&kdivCache[(k + 2) * 256 + threadIdx.x * 4];
+const auto kdivLocal3 = *(float4*)&kdivCache[(k + 3) * 256 + threadIdx.x * 4];
+
+float4 kdT[4]{};
+
+transpose4x4(kdT[0].x,
+kdT[1].x,
+kdT[2].x,
+kdT[3].x,
+kdivLocal0.x,
+kdivLocal1.x,
+kdivLocal2.x,
+kdivLocal3.x);
+transpose4x4(kdT[0].y,
+kdT[1].y,
+kdT[2].y,
+kdT[3].y,
+kdivLocal0.y,
+kdivLocal1.y,
+kdivLocal2.y,
+kdivLocal3.y);
+transpose4x4(kdT[0].z,
+kdT[1].z,
+kdT[2].z,
+kdT[3].z,
+kdivLocal0.z,
+kdivLocal1.z,
+kdivLocal2.z,
+kdivLocal3.z);
+transpose4x4(kdT[0].w,
+kdT[1].w,
+kdT[2].w,
+kdT[3].w,
+kdivLocal0.w,
+kdivLocal1.w,
+kdivLocal2.w,
+kdivLocal3.w);
+
+#pragma unroll
+for (int j = 0; j < Quantities; j += 4) {
+  float4 dq4{};
+  transpose4x4(dq4.x, dq4.y, dq4.z, dq4.w, dq[j + 0], dq[j + 1], dq[j + 2], dq[j + 3]);
+
+  acc[0][j / 4] = __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal.x, dq4.x, acc[0][j / 4], 0, 0, 0);
+  acc[1][j / 4] = __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal.y, dq4.y, acc[0][j / 4], 0, 0, 0);
+  acc[2][j / 4] = __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal.z, dq4.z, acc[0][j / 4], 0, 0, 0);
+  acc[3][j / 4] = __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal.w, dq4.w, acc[0][j / 4], 0, 0, 0);
+
+  #pragma unroll
+  for (int kk = 0; kk < 4; ++kk) {
+    acc[f][j / 4] =
+    __builtin_amdgcn_mfma_f32_4x4x1f32(kdT[jj].x, dq[j + 0], acc[f][j / 4], 0, 0, 0);
+    acc[f][j / 4] =
+    __builtin_amdgcn_mfma_f32_4x4x1f32(kdT[1].x, dq[j + 1], acc[f][j / 4], 0, 0, 0);
+    acc[f][j / 4] =
+    __builtin_amdgcn_mfma_f32_4x4x1f32(kdT[2].x, dq[j + 2], acc[f][j / 4], 0, 0, 0);
+    acc[f][j / 4] =
+    __builtin_amdgcn_mfma_f32_4x4x1f32(kdT[3].x, dq[j + 3], acc[f][j / 4], 0, 0, 0);
+}
+acc[f][j / 4] =
+__builtin_amdgcn_mfma_f32_4x4x1f32(kdT[0].x, dq[j + 0], acc[f][j / 4], 0, 0, 0);
+acc[f][j / 4] =
+__builtin_amdgcn_mfma_f32_4x4x1f32(kdT[1].x, dq[j + 1], acc[f][j / 4], 0, 0, 0);
+acc[f][j / 4] =
+__builtin_amdgcn_mfma_f32_4x4x1f32(kdT[2].x, dq[j + 2], acc[f][j / 4], 0, 0, 0);
+acc[f][j / 4] =
+__builtin_amdgcn_mfma_f32_4x4x1f32(kdT[3].x, dq[j + 3], acc[f][j / 4], 0, 0, 0);
+}
+*/
+
 __launch_bounds__(1024) __global__ void kernel_local8(const float** A,
                                                       const float** B,
                                                       unsigned Boffset,
@@ -414,97 +488,87 @@ __launch_bounds__(1024) __global__ void kernel_local8(const float** A,
 
     af4 acc[Faces][Quantities / 4]{};
 
-#pragma unroll 8
+#pragma unroll 2
     for (int k = 0; k < 56; k += 4) {
-      const auto kdivLocal0 = *(float4*)&kdivCache[k * 256 + threadIdx.x * 4];
+      const auto kdivLocal0 = *(float4*)&kdivCache[(k + 0) * 256 + threadIdx.x * 4];
       const auto kdivLocal1 = *(float4*)&kdivCache[(k + 1) * 256 + threadIdx.x * 4];
       const auto kdivLocal2 = *(float4*)&kdivCache[(k + 2) * 256 + threadIdx.x * 4];
       const auto kdivLocal3 = *(float4*)&kdivCache[(k + 3) * 256 + threadIdx.x * 4];
 
-      float4 kdT[4]{};
-
-      transpose4x4(kdT[0].x,
-                   kdT[1].x,
-                   kdT[2].x,
-                   kdT[3].x,
-                   kdivLocal0.x,
-                   kdivLocal1.x,
-                   kdivLocal2.x,
-                   kdivLocal3.x);
-      transpose4x4(kdT[0].y,
-                   kdT[1].y,
-                   kdT[2].y,
-                   kdT[3].y,
-                   kdivLocal0.y,
-                   kdivLocal1.y,
-                   kdivLocal2.y,
-                   kdivLocal3.y);
-      transpose4x4(kdT[0].z,
-                   kdT[1].z,
-                   kdT[2].z,
-                   kdT[3].z,
-                   kdivLocal0.z,
-                   kdivLocal1.z,
-                   kdivLocal2.z,
-                   kdivLocal3.z);
-      transpose4x4(kdT[0].w,
-                   kdT[1].w,
-                   kdT[2].w,
-                   kdT[3].w,
-                   kdivLocal0.w,
-                   kdivLocal1.w,
-                   kdivLocal2.w,
-                   kdivLocal3.w);
-
 #pragma unroll
-      for (int j = 0; j < Quantities; j += 4) {
-#pragma unroll
-        for (int f = 0; f < 4; ++f) {
-          acc[f][j / 4] =
-              __builtin_amdgcn_mfma_f32_4x4x1f32(kdT[f].x, dq[j + 0], acc[f][j / 4], 0, 0, 0);
-          acc[f][j / 4] =
-              __builtin_amdgcn_mfma_f32_4x4x1f32(kdT[f].y, dq[j + 1], acc[f][j / 4], 0, 0, 0);
-          acc[f][j / 4] =
-              __builtin_amdgcn_mfma_f32_4x4x1f32(kdT[f].z, dq[j + 2], acc[f][j / 4], 0, 0, 0);
-          acc[f][j / 4] =
-              __builtin_amdgcn_mfma_f32_4x4x1f32(kdT[f].w, dq[j + 3], acc[f][j / 4], 0, 0, 0);
-        }
+      for (int j = 0; j < (Quantities / 4) * 4; j += 4) {
+        float4 dq4{};
+        transpose4x4(dq4.x, dq4.y, dq4.z, dq4.w, dq[j + 0], dq[j + 1], dq[j + 2], dq[j + 3]);
+
+        acc[0][j / 4] =
+            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal0.x, dq4.x, acc[0][j / 4], 0, 0, 0);
+        acc[1][j / 4] =
+            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal0.y, dq4.x, acc[1][j / 4], 0, 0, 0);
+        acc[2][j / 4] =
+            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal0.z, dq4.x, acc[2][j / 4], 0, 0, 0);
+        acc[3][j / 4] =
+            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal0.w, dq4.x, acc[3][j / 4], 0, 0, 0);
+        acc[0][j / 4] =
+            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal1.x, dq4.y, acc[0][j / 4], 0, 0, 0);
+        acc[1][j / 4] =
+            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal1.y, dq4.y, acc[1][j / 4], 0, 0, 0);
+        acc[2][j / 4] =
+            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal1.z, dq4.y, acc[2][j / 4], 0, 0, 0);
+        acc[3][j / 4] =
+            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal1.w, dq4.y, acc[3][j / 4], 0, 0, 0);
+        acc[0][j / 4] =
+            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal2.x, dq4.z, acc[0][j / 4], 0, 0, 0);
+        acc[1][j / 4] =
+            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal2.y, dq4.z, acc[1][j / 4], 0, 0, 0);
+        acc[2][j / 4] =
+            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal2.z, dq4.z, acc[2][j / 4], 0, 0, 0);
+        acc[3][j / 4] =
+            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal2.w, dq4.z, acc[3][j / 4], 0, 0, 0);
+        acc[0][j / 4] =
+            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal3.x, dq4.w, acc[0][j / 4], 0, 0, 0);
+        acc[1][j / 4] =
+            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal3.y, dq4.w, acc[1][j / 4], 0, 0, 0);
+        acc[2][j / 4] =
+            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal3.z, dq4.w, acc[2][j / 4], 0, 0, 0);
+        acc[3][j / 4] =
+            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal3.w, dq4.w, acc[3][j / 4], 0, 0, 0);
       }
 
 #pragma unroll
-      for (int j = ((Quantities + 3) / 4) * 4; j < Quantities; ++j) {
-        const auto value = readlane(dq[j], k);
-
-        interm[0][j] += kdivLocal0.x * value;
-        interm[1][j] += kdivLocal0.y * value;
-        interm[2][j] += kdivLocal0.z * value;
-        interm[3][j] += kdivLocal0.w * value;
-
-        const auto value1 = readlane(dq[j], k + 1);
-
-        interm[0][j] += kdivLocal1.x * value1;
-        interm[1][j] += kdivLocal1.y * value1;
-        interm[2][j] += kdivLocal1.z * value1;
-        interm[3][j] += kdivLocal1.w * value1;
-
-        const auto value2 = readlane(dq[j], k + 2);
-
-        interm[0][j] += kdivLocal2.x * value2;
-        interm[1][j] += kdivLocal2.y * value2;
-        interm[2][j] += kdivLocal2.z * value2;
-        interm[3][j] += kdivLocal2.w * value2;
-
-        const auto value3 = readlane(dq[j], k + 3);
-
-        interm[0][j] += kdivLocal3.x * value3;
-        interm[1][j] += kdivLocal3.y * value3;
-        interm[2][j] += kdivLocal3.z * value3;
-        interm[3][j] += kdivLocal3.w * value3;
+      for (int j = (Quantities / 4) * 4; j < Quantities; ++j) {
+        {
+          const auto value = readlane(dq[j], k + 0);
+          interm[0][j] += kdivLocal0.x * value;
+          interm[1][j] += kdivLocal0.y * value;
+          interm[2][j] += kdivLocal0.z * value;
+          interm[3][j] += kdivLocal0.w * value;
+        }
+        {
+          const auto value = readlane(dq[j], k + 1);
+          interm[0][j] += kdivLocal1.x * value;
+          interm[1][j] += kdivLocal1.y * value;
+          interm[2][j] += kdivLocal1.z * value;
+          interm[3][j] += kdivLocal1.w * value;
+        }
+        {
+          const auto value = readlane(dq[j], k + 2);
+          interm[0][j] += kdivLocal2.x * value;
+          interm[1][j] += kdivLocal2.y * value;
+          interm[2][j] += kdivLocal2.z * value;
+          interm[3][j] += kdivLocal2.w * value;
+        }
+        {
+          const auto value = readlane(dq[j], k + 3);
+          interm[0][j] += kdivLocal3.x * value;
+          interm[1][j] += kdivLocal3.y * value;
+          interm[2][j] += kdivLocal3.z * value;
+          interm[3][j] += kdivLocal3.w * value;
+        }
       }
     }
 
 #pragma unroll
-    for (int j = 0; j < Quantities; ++j) {
+    for (int j = 0; j < (Quantities / 4) * 4; ++j) {
 #pragma unroll
       for (int f = 0; f < 4; ++f) {
         interm[f][j] = acc[f][j / 4][j % 4];
