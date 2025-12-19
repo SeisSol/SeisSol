@@ -217,6 +217,41 @@ __device__ __forceinline__ auto dpp4(T value) -> T {
       p3) "," STR(p4) "] row_mask:0xf bank_mask:0xf bound_ctrl:1"
 
 template <typename T>
+__device__ __forceinline__ auto
+    transpose4x4bcst(T v1, T v2, T v3, T v4, int i1, int i2, int i3, int i4) -> T {
+  const auto r1 = readlane(v1, i1);
+  const auto r2 = readlane(v2, i2);
+  const auto r3 = readlane(v3, i3);
+  const auto r4 = readlane(v4, i4);
+
+  const uint64_t mask1a = 0x1111111111111111ULL;
+  const uint64_t mask1b = 0x4444444444444444ULL;
+  const uint64_t mask2 = 0x3333333333333333ULL;
+
+  T w1;
+  T w2;
+  T w;
+
+  // NOTE: we upcast SRC0 AND SRC1 to VGPR, because of constant bus restrictions
+  // (on e.g. gfx1103 wave32, one of SRC0/SRC1 could stay SGPR)
+
+  __asm("v_cndmask_b32_e64 %[w], %[r2], %[r1], %[mask]"
+        : [w] "=v"(w1)
+        : [r2] "v"(r2), [r1] "v"(r1), [mask] "s"(mask1a)
+        :);
+  __asm("v_cndmask_b32_e64 %[w], %[r2], %[r1], %[mask]"
+        : [w] "=v"(w2)
+        : [r2] "v"(r4), [r1] "v"(r3), [mask] "s"(mask1b)
+        :);
+  __asm("v_cndmask_b32_e64 %[w], %[r2], %[r1], %[mask]"
+        : [w] "=v"(w)
+        : [r2] "v"(w2), [r1] "v"(w1), [mask] "s"(mask2)
+        :);
+
+  return w;
+}
+
+template <typename T>
 __device__ __forceinline__ auto transpose4x4(T& w1, T& w2, T& w3, T& w4, T v1, T v2, T v3, T v4) {
 
   const uint64_t mask1a = 0x5555555555555555ULL;
@@ -390,16 +425,50 @@ __builtin_amdgcn_mfma_f32_4x4x1f32(kdT[3].x, dq[j + 3], acc[f][j / 4], 0, 0, 0);
 }
 */
 
-__launch_bounds__(1024) __global__ void kernel_local8(const float** A,
-                                                      const float** B,
-                                                      unsigned Boffset,
-                                                      const float* C1,
-                                                      const float* C2,
-                                                      const float* C3,
-                                                      const float* C4,
-                                                      float** D,
-                                                      size_t numElements,
-                                                      const unsigned* flags) {
+using af4 = __attribute__((__vector_size__(4 * sizeof(float)))) float;
+
+/*
+template<int k>
+__device__ __forceinline__ void local_step(const float* __restrict kdivLocal, float dq4[2], float
+dq[9], af4 acc[4][2], float interm[4][9]) { constexpr int Quantities = 9; constexpr int Faces = 4;
+
+  const auto kdivLocal = *(const float4* __restrict)&kdivCache[k * 256 + threadIdx.x * 4];
+
+  for (int j = 0; j < (Quantities / 4) * 4; j += 4) {
+    acc[0][j / 4] =
+    __builtin_amdgcn_mfma_f32_4x4x1f32(dq4[k % 4], kdivLocal.x, acc[0][j / 4], 4, k / 4, 0);
+    acc[1][j / 4] =
+    __builtin_amdgcn_mfma_f32_4x4x1f32(dq4[k % 4], kdivLocal.y, acc[1][j / 4], 4, k / 4, 0);
+    acc[2][j / 4] =
+    __builtin_amdgcn_mfma_f32_4x4x1f32(dq4[k % 4], kdivLocal.z, acc[2][j / 4], 4, k / 4, 0);
+    acc[3][j / 4] =
+    __builtin_amdgcn_mfma_f32_4x4x1f32(dq4[k % 4], kdivLocal.w, acc[3][j / 4], 4, k / 4, 0);
+  }
+
+  for (int j = (Quantities / 4) * 4; j < Quantities; ++j) {
+    {
+      const auto value = readlane(dq[j], k);
+      interm[0][j] += kdivLocal.x * value;
+      interm[1][j] += kdivLocal.y * value;
+      interm[2][j] += kdivLocal.z * value;
+      interm[3][j] += kdivLocal.w * value;
+    }
+  }
+}
+*/
+
+constexpr auto LaunchSize = 1024;
+
+__launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
+                                                            const float** B,
+                                                            unsigned Boffset,
+                                                            const float* C1,
+                                                            const float* C2,
+                                                            const float* C3,
+                                                            const float* C4,
+                                                            float** D,
+                                                            size_t numElements,
+                                                            const unsigned* flags) {
 
   constexpr int Quantities = 9;
   constexpr int Faces = 4;
@@ -484,8 +553,6 @@ __launch_bounds__(1024) __global__ void kernel_local8(const float** A,
     // matmul #1 X = (M @ I) × 4
     float interm[Faces][Quantities]{};
 
-    using af4 = __attribute__((__vector_size__(4 * sizeof(float)))) float;
-
     af4 acc[Faces][Quantities / 4]{};
 
 #pragma unroll 2
@@ -498,7 +565,15 @@ __launch_bounds__(1024) __global__ void kernel_local8(const float** A,
 #pragma unroll
       for (int j = 0; j < (Quantities / 4) * 4; j += 4) {
         float4 dq4{};
-        transpose4x4(dq4.x, dq4.y, dq4.z, dq4.w, dq[j + 0], dq[j + 1], dq[j + 2], dq[j + 3]);
+
+        dq4.x = transpose4x4bcst(
+            dq[j + 0], dq[j + 1], dq[j + 2], dq[j + 3], k + 0, k + 0, k + 0, k + 0);
+        dq4.y = transpose4x4bcst(
+            dq[j + 0], dq[j + 1], dq[j + 2], dq[j + 3], k + 1, k + 1, k + 1, k + 1);
+        dq4.z = transpose4x4bcst(
+            dq[j + 0], dq[j + 1], dq[j + 2], dq[j + 3], k + 2, k + 2, k + 2, k + 2);
+        dq4.w = transpose4x4bcst(
+            dq[j + 0], dq[j + 1], dq[j + 2], dq[j + 3], k + 3, k + 3, k + 3, k + 3);
 
         acc[0][j / 4] =
             __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal0.x, dq4.x, acc[0][j / 4], 0, 0, 0);
@@ -597,16 +672,16 @@ __launch_bounds__(1024) __global__ void kernel_local8(const float** A,
   }
 }
 
-__launch_bounds__(1024) __global__ void kernel_local7(const float** A,
-                                                      const float** B,
-                                                      unsigned Boffset,
-                                                      const float* C1,
-                                                      const float* C2,
-                                                      const float* C3,
-                                                      const float* C4,
-                                                      float** D,
-                                                      size_t numElements,
-                                                      const unsigned* flags) {
+__launch_bounds__(LaunchSize) __global__ void kernel_local7(const float** A,
+                                                            const float** B,
+                                                            unsigned Boffset,
+                                                            const float* C1,
+                                                            const float* C2,
+                                                            const float* C3,
+                                                            const float* C4,
+                                                            float** D,
+                                                            size_t numElements,
+                                                            const unsigned* flags) {
 
   constexpr int Quantities = 9;
   constexpr int Faces = 4;
@@ -1948,7 +2023,7 @@ void launch_local(const float** A,
     int device{}, smCount{}, blocksPerSM{};
     hipGetDevice(&device);
     hipDeviceGetAttribute(&smCount, hipDeviceAttributeMultiprocessorCount, device);
-    hipOccupancyMaxActiveBlocksPerMultiprocessor(&blocksPerSM, kernel_local7, 1024, 0);
+    hipOccupancyMaxActiveBlocksPerMultiprocessor(&blocksPerSM, kernel_local7, LaunchSize, 0);
     if (blocksPerSM > 0) {
       gridsize = smCount * blocksPerSM;
     } else {
@@ -1956,7 +2031,7 @@ void launch_local(const float** A,
     }
   }
 
-  dim3 block(64, 16, 1);
+  dim3 block(64, LaunchSize / 64, 1);
   dim3 grid(gridsize, 1, 1);
   hipStream_t stream = (streamPtr != nullptr) ? static_cast<hipStream_t>(streamPtr) : 0;
   kernel_local7<<<grid, block, 0, stream>>>(A, B, Boffset, C1, C2, C3, C4, D, numElements, flags);
