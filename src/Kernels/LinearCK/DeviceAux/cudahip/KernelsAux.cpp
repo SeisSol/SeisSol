@@ -427,22 +427,26 @@ __builtin_amdgcn_mfma_f32_4x4x1f32(kdT[3].x, dq[j + 3], acc[f][j / 4], 0, 0, 0);
 
 using af4 = __attribute__((__vector_size__(4 * sizeof(float)))) float;
 
-/*
-template<int k>
-__device__ __forceinline__ void local_step(const float* __restrict kdivLocal, float dq4[2], float
-dq[9], af4 acc[4][2], float interm[4][9]) { constexpr int Quantities = 9; constexpr int Faces = 4;
+template <int k>
+__device__ __forceinline__ void local_step(const float* __restrict kdivCache,
+                                           float4 dq4[2],
+                                           float dq[9],
+                                           af4 acc[4][2],
+                                           float interm[4][9]) {
+  constexpr int Quantities = 9;
+  constexpr int Faces = 4;
 
   const auto kdivLocal = *(const float4* __restrict)&kdivCache[k * 256 + threadIdx.x * 4];
 
   for (int j = 0; j < (Quantities / 4) * 4; j += 4) {
-    acc[0][j / 4] =
-    __builtin_amdgcn_mfma_f32_4x4x1f32(dq4[k % 4], kdivLocal.x, acc[0][j / 4], 4, k / 4, 0);
-    acc[1][j / 4] =
-    __builtin_amdgcn_mfma_f32_4x4x1f32(dq4[k % 4], kdivLocal.y, acc[1][j / 4], 4, k / 4, 0);
-    acc[2][j / 4] =
-    __builtin_amdgcn_mfma_f32_4x4x1f32(dq4[k % 4], kdivLocal.z, acc[2][j / 4], 4, k / 4, 0);
-    acc[3][j / 4] =
-    __builtin_amdgcn_mfma_f32_4x4x1f32(dq4[k % 4], kdivLocal.w, acc[3][j / 4], 4, k / 4, 0);
+    acc[0][j / 4] = __builtin_amdgcn_mfma_f32_4x4x1f32(
+        dq4[j / 4][k % 4], kdivLocal.x, acc[0][j / 4], 4, k / 4, 0);
+    acc[1][j / 4] = __builtin_amdgcn_mfma_f32_4x4x1f32(
+        dq4[j / 4][k % 4], kdivLocal.y, acc[1][j / 4], 4, k / 4, 0);
+    acc[2][j / 4] = __builtin_amdgcn_mfma_f32_4x4x1f32(
+        dq4[j / 4][k % 4], kdivLocal.z, acc[2][j / 4], 4, k / 4, 0);
+    acc[3][j / 4] = __builtin_amdgcn_mfma_f32_4x4x1f32(
+        dq4[j / 4][k % 4], kdivLocal.w, acc[3][j / 4], 4, k / 4, 0);
   }
 
   for (int j = (Quantities / 4) * 4; j < Quantities; ++j) {
@@ -455,9 +459,8 @@ dq[9], af4 acc[4][2], float interm[4][9]) { constexpr int Quantities = 9; conste
     }
   }
 }
-*/
 
-constexpr auto LaunchSize = 1024;
+constexpr auto LaunchSize = 256;
 
 __launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
                                                             const float** B,
@@ -555,12 +558,83 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
 
     af4 acc[Faces][Quantities / 4]{};
 
-#pragma unroll 2
+    float4 dq4[2]{};
+
+    for (int i = 0; i < 2; ++i) {
+      transpose4x4(dq4[i].x,
+                   dq4[i].y,
+                   dq4[i].z,
+                   dq4[i].w,
+                   dq[4 * i + 0],
+                   dq[4 * i + 1],
+                   dq[4 * i + 2],
+                   dq[4 * i + 3]);
+    }
+
+    local_step<0>(kdivCache, dq4, dq, acc, interm);
+    local_step<1>(kdivCache, dq4, dq, acc, interm);
+    local_step<2>(kdivCache, dq4, dq, acc, interm);
+    local_step<3>(kdivCache, dq4, dq, acc, interm);
+    local_step<4>(kdivCache, dq4, dq, acc, interm);
+    local_step<5>(kdivCache, dq4, dq, acc, interm);
+    local_step<6>(kdivCache, dq4, dq, acc, interm);
+    local_step<7>(kdivCache, dq4, dq, acc, interm);
+    local_step<8>(kdivCache, dq4, dq, acc, interm);
+    local_step<9>(kdivCache, dq4, dq, acc, interm);
+    local_step<10>(kdivCache, dq4, dq, acc, interm);
+    local_step<11>(kdivCache, dq4, dq, acc, interm);
+    local_step<12>(kdivCache, dq4, dq, acc, interm);
+    local_step<13>(kdivCache, dq4, dq, acc, interm);
+    local_step<14>(kdivCache, dq4, dq, acc, interm);
+    local_step<15>(kdivCache, dq4, dq, acc, interm);
+    local_step<16>(kdivCache, dq4, dq, acc, interm);
+    local_step<17>(kdivCache, dq4, dq, acc, interm);
+    local_step<18>(kdivCache, dq4, dq, acc, interm);
+    local_step<19>(kdivCache, dq4, dq, acc, interm);
+    local_step<20>(kdivCache, dq4, dq, acc, interm);
+    local_step<21>(kdivCache, dq4, dq, acc, interm);
+    local_step<22>(kdivCache, dq4, dq, acc, interm);
+    local_step<23>(kdivCache, dq4, dq, acc, interm);
+    local_step<24>(kdivCache, dq4, dq, acc, interm);
+    local_step<25>(kdivCache, dq4, dq, acc, interm);
+    local_step<26>(kdivCache, dq4, dq, acc, interm);
+    local_step<27>(kdivCache, dq4, dq, acc, interm);
+    local_step<28>(kdivCache, dq4, dq, acc, interm);
+    local_step<29>(kdivCache, dq4, dq, acc, interm);
+    local_step<30>(kdivCache, dq4, dq, acc, interm);
+    local_step<31>(kdivCache, dq4, dq, acc, interm);
+    local_step<32>(kdivCache, dq4, dq, acc, interm);
+    local_step<33>(kdivCache, dq4, dq, acc, interm);
+    local_step<34>(kdivCache, dq4, dq, acc, interm);
+    local_step<35>(kdivCache, dq4, dq, acc, interm);
+    local_step<36>(kdivCache, dq4, dq, acc, interm);
+    local_step<37>(kdivCache, dq4, dq, acc, interm);
+    local_step<38>(kdivCache, dq4, dq, acc, interm);
+    local_step<39>(kdivCache, dq4, dq, acc, interm);
+    local_step<40>(kdivCache, dq4, dq, acc, interm);
+    local_step<41>(kdivCache, dq4, dq, acc, interm);
+    local_step<42>(kdivCache, dq4, dq, acc, interm);
+    local_step<43>(kdivCache, dq4, dq, acc, interm);
+    local_step<44>(kdivCache, dq4, dq, acc, interm);
+    local_step<45>(kdivCache, dq4, dq, acc, interm);
+    local_step<46>(kdivCache, dq4, dq, acc, interm);
+    local_step<47>(kdivCache, dq4, dq, acc, interm);
+    local_step<48>(kdivCache, dq4, dq, acc, interm);
+    local_step<49>(kdivCache, dq4, dq, acc, interm);
+    local_step<50>(kdivCache, dq4, dq, acc, interm);
+    local_step<51>(kdivCache, dq4, dq, acc, interm);
+    local_step<52>(kdivCache, dq4, dq, acc, interm);
+    local_step<53>(kdivCache, dq4, dq, acc, interm);
+    local_step<54>(kdivCache, dq4, dq, acc, interm);
+    local_step<55>(kdivCache, dq4, dq, acc, interm);
+
+    /*
+#pragma unroll //4
     for (int k = 0; k < 56; k += 4) {
-      const auto kdivLocal0 = *(float4*)&kdivCache[(k + 0) * 256 + threadIdx.x * 4];
-      const auto kdivLocal1 = *(float4*)&kdivCache[(k + 1) * 256 + threadIdx.x * 4];
-      const auto kdivLocal2 = *(float4*)&kdivCache[(k + 2) * 256 + threadIdx.x * 4];
-      const auto kdivLocal3 = *(float4*)&kdivCache[(k + 3) * 256 + threadIdx.x * 4];
+      const auto kdivLocal0 = *(const float4* __restrict)&kdivCache[(k + 0) * 256 + threadIdx.x *
+4]; const auto kdivLocal1 = *(const float4* __restrict)&kdivCache[(k + 1) * 256 + threadIdx.x * 4];
+      const auto kdivLocal2 = *(const float4* __restrict)&kdivCache[(k + 2) * 256 + threadIdx.x *
+4]; const auto kdivLocal3 = *(const float4* __restrict)&kdivCache[(k + 3) * 256 + threadIdx.x * 4];
 
 #pragma unroll
       for (int j = 0; j < (Quantities / 4) * 4; j += 4) {
@@ -576,37 +650,37 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
             dq[j + 0], dq[j + 1], dq[j + 2], dq[j + 3], k + 3, k + 3, k + 3, k + 3);
 
         acc[0][j / 4] =
-            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal0.x, dq4.x, acc[0][j / 4], 0, 0, 0);
+            __builtin_amdgcn_mfma_f32_4x4x1f32(dq4.x, kdivLocal0.x, acc[0][j / 4], 0, 0, 0);
         acc[1][j / 4] =
-            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal0.y, dq4.x, acc[1][j / 4], 0, 0, 0);
+            __builtin_amdgcn_mfma_f32_4x4x1f32(dq4.x, kdivLocal0.y, acc[1][j / 4], 0, 0, 0);
         acc[2][j / 4] =
-            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal0.z, dq4.x, acc[2][j / 4], 0, 0, 0);
+            __builtin_amdgcn_mfma_f32_4x4x1f32(dq4.x, kdivLocal0.z, acc[2][j / 4], 0, 0, 0);
         acc[3][j / 4] =
-            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal0.w, dq4.x, acc[3][j / 4], 0, 0, 0);
+            __builtin_amdgcn_mfma_f32_4x4x1f32(dq4.x, kdivLocal0.w, acc[3][j / 4], 0, 0, 0);
         acc[0][j / 4] =
-            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal1.x, dq4.y, acc[0][j / 4], 0, 0, 0);
+            __builtin_amdgcn_mfma_f32_4x4x1f32(dq4.y, kdivLocal1.x, acc[0][j / 4], 0, 0, 0);
         acc[1][j / 4] =
-            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal1.y, dq4.y, acc[1][j / 4], 0, 0, 0);
+            __builtin_amdgcn_mfma_f32_4x4x1f32(dq4.y, kdivLocal1.y, acc[1][j / 4], 0, 0, 0);
         acc[2][j / 4] =
-            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal1.z, dq4.y, acc[2][j / 4], 0, 0, 0);
+            __builtin_amdgcn_mfma_f32_4x4x1f32(dq4.y, kdivLocal1.z, acc[2][j / 4], 0, 0, 0);
         acc[3][j / 4] =
-            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal1.w, dq4.y, acc[3][j / 4], 0, 0, 0);
+            __builtin_amdgcn_mfma_f32_4x4x1f32(dq4.y, kdivLocal1.w, acc[3][j / 4], 0, 0, 0);
         acc[0][j / 4] =
-            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal2.x, dq4.z, acc[0][j / 4], 0, 0, 0);
+            __builtin_amdgcn_mfma_f32_4x4x1f32(dq4.z, kdivLocal2.x, acc[0][j / 4], 0, 0, 0);
         acc[1][j / 4] =
-            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal2.y, dq4.z, acc[1][j / 4], 0, 0, 0);
+            __builtin_amdgcn_mfma_f32_4x4x1f32(dq4.z, kdivLocal2.y, acc[1][j / 4], 0, 0, 0);
         acc[2][j / 4] =
-            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal2.z, dq4.z, acc[2][j / 4], 0, 0, 0);
+            __builtin_amdgcn_mfma_f32_4x4x1f32(dq4.z, kdivLocal2.z, acc[2][j / 4], 0, 0, 0);
         acc[3][j / 4] =
-            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal2.w, dq4.z, acc[3][j / 4], 0, 0, 0);
+            __builtin_amdgcn_mfma_f32_4x4x1f32(dq4.z, kdivLocal2.w, acc[3][j / 4], 0, 0, 0);
         acc[0][j / 4] =
-            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal3.x, dq4.w, acc[0][j / 4], 0, 0, 0);
+            __builtin_amdgcn_mfma_f32_4x4x1f32(dq4.w, kdivLocal3.x, acc[0][j / 4], 0, 0, 0);
         acc[1][j / 4] =
-            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal3.y, dq4.w, acc[1][j / 4], 0, 0, 0);
+            __builtin_amdgcn_mfma_f32_4x4x1f32(dq4.w, kdivLocal3.y, acc[1][j / 4], 0, 0, 0);
         acc[2][j / 4] =
-            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal3.z, dq4.w, acc[2][j / 4], 0, 0, 0);
+            __builtin_amdgcn_mfma_f32_4x4x1f32(dq4.w, kdivLocal3.z, acc[2][j / 4], 0, 0, 0);
         acc[3][j / 4] =
-            __builtin_amdgcn_mfma_f32_4x4x1f32(kdivLocal3.w, dq4.w, acc[3][j / 4], 0, 0, 0);
+            __builtin_amdgcn_mfma_f32_4x4x1f32(dq4.w, kdivLocal3.w, acc[3][j / 4], 0, 0, 0);
       }
 
 #pragma unroll
@@ -641,6 +715,7 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
         }
       }
     }
+    */
 
 #pragma unroll
     for (int j = 0; j < (Quantities / 4) * 4; ++j) {
