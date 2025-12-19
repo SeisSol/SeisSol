@@ -212,43 +212,61 @@ __device__ __forceinline__ auto dpp4(T value) -> T {
 
 #define ISTRINGIFY(x) #x
 #define STR(x) ISTRINGIFY(x)
-#define CM4STR(pos, c, a, b)                                                                       \
-  "v_cndmask_b32_dpp " c ", " a ", " b ", vcc quad_perm:[" STR(pos) "," STR(pos) "," STR(          \
-      pos) "," STR(pos) "] row_mask:0xf bank_mask:0xf bound_ctrl:1"
-#define CNDMASKDPP4(pos, c, a, b)                                                                  \
-  __asm(CM4STR(pos, "%0", "%1", "%2") : "+v"(c) : "v"(a), "v"(b) : "vcc");
+#define CM4STR(p1, p2, p3, p4, c, a, b)                                                            \
+  "v_cndmask_b32_dpp " c ", " a ", " b ", vcc quad_perm:[" STR(p1) "," STR(p2) "," STR(            \
+      p3) "," STR(p4) "] row_mask:0xf bank_mask:0xf bound_ctrl:1"
 
 template <typename T>
 __device__ __forceinline__ auto transpose4x4(T& w1, T& w2, T& w3, T& w4, T v1, T v2, T v3, T v4) {
 
-  const uint64_t mask1 = 0x3333333333333333ULL;
-  const uint64_t mask2 = 0x5555555555555555ULL;
+  const uint64_t mask1a = 0x5555555555555555ULL;
+  const uint64_t mask1b = 0xaaaaaaaaaaaaaaaaULL;
+  const uint64_t mask2a = 0x3333333333333333ULL;
+  const uint64_t mask2b = 0xccccccccccccccccULL;
 
   T u1, u2, u3, u4;
-  T y1, y2, y3, y4;
+
+  // 11 12 13 14
+  // 21 22 23 24
+  // 31 32 33 34
+  // 41 42 43 44
+
+  // 11 21 13 23 (DPP for row 2)
+  // 12 22 14 24 (DPP for row 1)
+  // 31 41 33 43 (DPP for row 4)
+  // 32 42 34 44 (DPP for row 3)
+
+  // 11 21 31 41 (DPP for row 3)
+  // 12 22 32 42 (DPP for row 4)
+  // 13 23 33 43 (DPP for row 1)
+  // 14 24 34 44 (DPP for row 2)
 
   // clang-format off
 
   __asm("s_mov_b64 vcc, %[mask] \n\t"
-     CM4STR(0, "%[u1]", "%[v1]", "%[v2]") "\n\t"
-     CM4STR(1, "%[u2]", "%[v1]", "%[v2]") "\n\t"
-     CM4STR(2, "%[u3]", "%[v1]", "%[v2]") "\n\t"
-     CM4STR(3, "%[u4]", "%[v1]", "%[v2]") "\n\t"
-     CM4STR(0, "%[y1]", "%[v3]", "%[v4]") "\n\t"
-     CM4STR(1, "%[y2]", "%[v3]", "%[v4]") "\n\t"
-     CM4STR(2, "%[y3]", "%[v3]", "%[v4]") "\n\t"
-     CM4STR(3, "%[y4]", "%[v3]", "%[v4]")
-      : [u1] "=v" (u1), [u2] "=v" (u2), [u3] "=v" (u3), [u4] "=v" (u4), [y1] "=v" (y1), [y2] "=v" (y2), [y3] "=v" (y3), [y4] "=v" (y4)
-      : [mask] "s" (mask1), [v1] "v" (v1), [v2] "v" (v2), [v3] "v" (v3), [v4] "v" (v4)
-      : "vcc");
+  CM4STR(0, 0, 2, 2, "%[u1]", "%[v2]", "%[v1]") "\n\t"
+  CM4STR(0, 0, 2, 2, "%[u3]", "%[v4]", "%[v3]") "\n\t"
+  : [u1] "=v" (u1), [u3] "=v" (u3)
+  : [mask] "s" (mask1a), [v1] "v" (v1), [v2] "v" (v2), [v3] "v" (v3), [v4] "v" (v4)
+  : "vcc");
   __asm("s_mov_b64 vcc, %[mask] \n\t"
-     CM4STR(0, "%[w1]", "%[u1]", "%[y1]") "\n\t"
-     CM4STR(1, "%[w2]", "%[u2]", "%[y2]") "\n\t"
-     CM4STR(2, "%[w3]", "%[u3]", "%[y3]") "\n\t"
-     CM4STR(3, "%[w4]", "%[u4]", "%[y4]")
-      : [w1] "=v" (w1), [w2] "=v" (w2), [w3] "=v" (w3), [w4] "=v" (w4)
-      : [mask] "s" (mask2), [u1] "v" (u1), [u2] "v" (u2), [u3] "v" (u3), [u4] "v" (u4), [y1] "v" (y1), [y2] "v" (y2), [y3] "v" (y3), [y4] "v" (y4)
-      : "vcc");
+  CM4STR(1, 1, 3, 3, "%[u2]", "%[v1]", "%[v2]") "\n\t"
+  CM4STR(1, 1, 3, 3, "%[u4]", "%[v3]", "%[v4]") "\n\t"
+  : [u2] "=v" (u2), [u4] "=v" (u4)
+  : [mask] "s" (mask1b), [v1] "v" (v1), [v2] "v" (v2), [v3] "v" (v3), [v4] "v" (v4)
+  : "vcc");
+  __asm("s_mov_b64 vcc, %[mask] \n\t"
+  CM4STR(0, 1, 0, 1, "%[w1]", "%[u3]", "%[u1]") "\n\t"
+  CM4STR(0, 1, 0, 1, "%[w2]", "%[u4]", "%[u2]") "\n\t"
+  : [w1] "=v" (w1), [w2] "=v" (w2)
+  : [mask] "s" (mask2a), [u1] "v" (u1), [u2] "v" (u2), [u3] "v" (u3), [u4] "v" (u4)
+  : "vcc");
+  __asm("s_mov_b64 vcc, %[mask] \n\t"
+  CM4STR(2, 3, 2, 3, "%[w3]", "%[u1]", "%[u3]") "\n\t"
+  CM4STR(2, 3, 2, 3, "%[w4]", "%[u2]", "%[u4]")
+  : [w3] "=v" (w3), [w4] "=v" (w4)
+  : [mask] "s" (mask2b), [u1] "v" (u1), [u2] "v" (u2), [u3] "v" (u3), [u4] "v" (u4)
+  : "vcc");
 
   // clang-format on
 
