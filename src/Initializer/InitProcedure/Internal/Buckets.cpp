@@ -38,12 +38,12 @@ class BucketManager {
   std::size_t dataSize{0};
 
   public:
-  real* markAllocate(std::size_t size, bool align = true) {
-    if (align) {
-      // round up by Alignment
-      this->dataSize = ((this->dataSize + Alignment - 1) / Alignment) * Alignment;
-    }
+  void align() {
+    // round up by Alignment
+    this->dataSize = ((this->dataSize + Alignment - 1) / Alignment) * Alignment;
+  }
 
+  real* markAllocate(std::size_t size) {
     const uintptr_t offset = this->dataSize;
     this->dataSize += size;
 
@@ -195,9 +195,11 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
       allocationPass(counter, region, false, false);
 
       // transfer allocation
+      manager.align();
       auto startPosition = manager.position();
       allocationPass(counter, region, true, false);
       allocationPass(counter, region, true, true);
+      manager.align();
       auto endPosition = manager.position();
       auto size = endPosition - startPosition;
       assert(size % typeSize == 0);
