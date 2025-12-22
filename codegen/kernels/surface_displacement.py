@@ -220,9 +220,10 @@ def addKernels(generator, aderdg, include_tensors, targets):
             for i in range(1, aderdg.order + 1):
 
                 kernel += [
-                    INodalTmp["nq"]
-                    <= aderdg.db.V3mTo2nFace[f][aderdg.t("nk")]
-                    * aderdg.dQs[i - 1]["kq"]
+                    INodalTmp["kp"]
+                    <= aderdg.db.V3mTo2nFace[f][aderdg.t("kl")]
+                    * aderdg.dQs[i - 1]["lm"]
+                    * aderdg.Tinv["pm"]
                 ]
                 velocitiesU = INodalTmp["nq"].subslice("q", vidx, vidx + 1)
                 pressure = INodalTmp["nq"].subslice("q", 0, 1)
@@ -239,7 +240,8 @@ def addKernels(generator, aderdg, include_tensors, targets):
                     velocitiesVW = INodalTmp["nq"].subslice("q", vidx + 1, vidx + 3)
                     kernel += [
                         faceDisplacementTmp["nq"].subslice("q", 1, 3)
-                        <= coeffs[i] * velocitiesVW,
+                        <= faceDisplacementTmp["nq"].subslice("q", 1, 3)
+                        + coeffs[i] * velocitiesVW,
                     ]
 
                 kernel += [
