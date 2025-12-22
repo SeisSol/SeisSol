@@ -246,8 +246,7 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
     layer.setEntrySize<LTS::DofsFaceNodalScratch>(sizeof(real) * freeSurfaceCount *
                                                   tensor::INodal::size());
     layer.setEntrySize<LTS::PrevCoefficientsScratch>(
-        sizeof(real) * freeSurfaceCount *
-        nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
+        sizeof(real) * freeSurfaceCount * seissol::init::averageNormalDisplacement::size());
   }
 }
 

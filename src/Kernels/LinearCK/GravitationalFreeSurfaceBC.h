@@ -114,13 +114,14 @@ class GravitationalFreeSurfaceBc {
       auto dofsFaceNodal = init::INodal::view::create(dofsFaceNodalStorage);
 
       // Temporary buffer to store nodal face coefficients at some time t
-      alignas(Alignment) std::array<real, nodal::tensor::nodes2D::Shape[0]> prevCoefficients{};
+      alignas(Alignment) std::array<real, tensor::averageNormalDisplacement::size()>
+          prevCoefficients{};
 
       const double deltaT = timeStepWidth;
       const double deltaTInt = timeStepWidth;
 
       // Initialize first component of Taylor series
-      for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+      for (unsigned int i = 0; i < tensor::averageNormalDisplacement::size(); ++i) {
         const auto localCoeff = rotatedFaceDisplacement(i, 0);
         prevCoefficients[i] = localCoeff;
         // This is clearly a zeroth order approximation of the integral!
@@ -150,7 +151,7 @@ class GravitationalFreeSurfaceBc {
         factorInt *= deltaTInt / (order + 1.0);
 
 #pragma omp simd
-        for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+        for (unsigned int i = 0; i < seissol::init::averageNormalDisplacement::size(); ++i) {
           // Derivatives of interior variables
           const auto uInside = dofsFaceNodal(i, UIdx + 0);
           const auto vInside = dofsFaceNodal(i, UIdx + 1);

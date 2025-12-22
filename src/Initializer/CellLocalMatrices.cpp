@@ -391,9 +391,8 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
           continue;
         }
         // Compute nodal points in global coordinates for each side.
-        real nodesReferenceData[nodal::tensor::nodes2D::Size];
-        std::copy_n(nodal::init::nodes2D::Values, nodal::tensor::nodes2D::Size, nodesReferenceData);
-        auto nodesReference = nodal::init::nodes2D::view::create(nodesReferenceData);
+        auto nodesReference =
+            nodal::init::nodes2D::view::create(const_cast<real*>(nodal::init::nodes2D::Values));
         auto* nodes = boundary[cell][side].nodes;
         assert(nodes != nullptr);
         auto offset = 0;

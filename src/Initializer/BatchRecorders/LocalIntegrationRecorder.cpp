@@ -326,7 +326,7 @@ std::array<std::size_t, 4> LocalIntegrationRecorder::recordFreeSurfaceGravityBc(
                                             counter[face] * tensor::INodal::size());
           prevCoefficientsPtrs[face].push_back(
               prevCoefficientsScratch +
-              counter[face] * nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
+              counter[face] * seissol::init::averageNormalDisplacement::size());
           invImpedances[face].push_back(0);
 
           ++counter[face];
