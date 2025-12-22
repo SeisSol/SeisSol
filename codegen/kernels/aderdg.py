@@ -41,8 +41,8 @@ class ADERDGBase(ABC):
         )
         clonesQP = {"v": ["evalAtQP"], "vInv": ["projectQP"]}
         self.db.update(
-            parseXMLMatrixFile(
-                "{}/plasticity_ip_matrices_{}.xml".format(matricesDir, order),
+            parseJSONMatrixFile(
+                f"{matricesDir}/plasticity-ip-matrices-{order}.json",
                 clonesQP,
                 transpose=self.transpose,
                 alignStride=self.alignStride,
