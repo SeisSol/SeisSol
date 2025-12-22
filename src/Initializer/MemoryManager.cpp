@@ -195,6 +195,9 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
 
         if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity) {
           ++freeSurfacePerFace[face];
+
+          // FSG also counts as Dirichlet
+          ++dirichletPerFace[face];
         }
 
         if (cellInformation[cell].faceTypes[face] == FaceType::Dirichlet) {
@@ -204,11 +207,7 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
     }
     const auto freeSurfaceCount =
         *std::max_element(freeSurfacePerFace.begin(), freeSurfacePerFace.end());
-    const auto dirichletCountPre =
-        *std::max_element(dirichletPerFace.begin(), dirichletPerFace.end());
-
-    // FSG also counts as Dirichlet
-    const auto dirichletCount = std::max(dirichletCountPre, freeSurfaceCount);
+    const auto dirichletCount = *std::max_element(dirichletPerFace.begin(), dirichletPerFace.end());
 
     layer.setEntrySize<LTS::IntegratedDofsScratch>(integratedDofsCounter * tensor::I::size() *
                                                    sizeof(real));
