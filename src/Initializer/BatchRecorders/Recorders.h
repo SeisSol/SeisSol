@@ -83,8 +83,8 @@ class LocalIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   }
 
   void recordTimeAndVolumeIntegrals();
-  void recordFreeSurfaceGravityBc();
-  void recordDirichletBc();
+  std::array<std::size_t, 4> recordFreeSurfaceGravityBc();
+  void recordDirichletBc(const std::array<std::size_t, 4>& offset);
   void recordAnalyticalBc(LTS::Layer& layer);
   void recordLocalFluxIntegral();
   void recordDisplacements();

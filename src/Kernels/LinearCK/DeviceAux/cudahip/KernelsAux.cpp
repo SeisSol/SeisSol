@@ -260,7 +260,7 @@ __global__ void kernelFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
     real* elementBoundaryDofs = dofsFaceBoundaryNodalPtrs[elementId];
     real* elementDisplacement = displacementDataPtrs[elementId];
 
-    constexpr auto numNodes = linearDim<seissol::nodal::init::nodes2D>();
+    constexpr auto numNodes = linearDim<seissol::init::averageNormalDisplacement>();
     if (tid < numNodes) {
       constexpr auto ldINodal = linearDim<seissol::init::INodal>();
 
@@ -281,7 +281,7 @@ void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
                               double g,
                               size_t numElements,
                               void* deviceStream) {
-  dim3 block = getblock(leadDim<seissol::nodal::init::nodes2D>());
+  dim3 block = getblock(leadDim<seissol::init::averageNormalDisplacement>());
   dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(deviceStream);
   kernelFreeSurfaceGravity<<<grid, block, 0, stream>>>(
@@ -430,11 +430,11 @@ __global__ void
     auto* integratedDisplacementNodal = integratedDisplacementNodalPtrs[elementId];
     const auto* rotatedFaceDisplacement = rotatedFaceDisplacementPtrs[elementId];
 
-    assert(linearDim<seissol::nodal::init::nodes2D>() <=
+    assert(linearDim<seissol::init::averageNormalDisplacement>() <=
            linearDim<seissol::init::rotatedFaceDisplacement>());
 
     const int tid = linearidx();
-    constexpr auto num2dNodes = linearDim<seissol::nodal::init::nodes2D>();
+    constexpr auto num2dNodes = linearDim<seissol::init::averageNormalDisplacement>();
     if (tid < num2dNodes) {
       prevCoefficients[tid] = rotatedFaceDisplacement[tid];
       integratedDisplacementNodal[tid] = deltaTInt * rotatedFaceDisplacement[tid];
@@ -449,7 +449,7 @@ void initializeTaylorSeriesForGravitationalBoundary(real** prevCoefficientsPtrs,
                                                     size_t numElements,
                                                     void* deviceStream) {
 
-  dim3 block = getblock(leadDim<seissol::nodal::init::nodes2D>());
+  dim3 block = getblock(leadDim<seissol::init::averageNormalDisplacement>());
   dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(deviceStream);
   kernelInitializeTaylorSeriesForGravitationalBoundary<<<grid, block, 0, stream>>>(
@@ -495,7 +495,7 @@ __global__ void kernelUpdateRotatedFaceDisplacement(real** rotatedFaceDisplaceme
   if (elementId < numElements) {
     constexpr int pIdx = 0;
     constexpr int uIdx = model::MaterialT::TractionQuantities;
-    constexpr auto num2dNodes = linearDim<seissol::nodal::init::nodes2D>();
+    constexpr auto num2dNodes = linearDim<seissol::init::averageNormalDisplacement>();
 
     const int tid = linearidx();
     if (tid < num2dNodes) {
@@ -545,7 +545,7 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
                                    double factorInt,
                                    size_t numElements,
                                    void* deviceStream) {
-  dim3 block = getblock(leadDim<seissol::nodal::init::nodes2D>());
+  dim3 block = getblock(leadDim<seissol::init::averageNormalDisplacement>());
   dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(deviceStream);
   kernelUpdateRotatedFaceDisplacement<<<grid, block, 0, stream>>>(rotatedFaceDisplacementPtrs,
