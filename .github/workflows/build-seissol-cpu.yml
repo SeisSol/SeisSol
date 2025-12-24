@@ -10,7 +10,7 @@ on:
   - push
 
 env:
-  precomputed-hash: c14d215d93875759cb6f5820aedeee8731cc27f7
+  precomputed-hash: 10de0b5a17bb9b37602ed9fe4c51b3483579c726
 
 jobs:
   seissol-build-test:
@@ -342,8 +342,8 @@ jobs:
           - ranks: 1
             threads: 32
             commthread: false
-          - ranks: 32
-            threads: 1
+          - ranks: 8
+            threads: 4
             commthread: false
     env:
       commsize: ${{matrix.parallel.ranks}}
@@ -383,6 +383,12 @@ jobs:
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
           case: tpv5-nuc/double
+
+      - name: tpv5-4nuc/double
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          case: tpv5-4nuc/double
 
       - name: tpv6/double
         uses: ./.github/actions/test
@@ -498,6 +504,12 @@ jobs:
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
           case: tpv5-nuc/single
+
+      - name: tpv5-4nuc/single
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          case: tpv5-4nuc/single
 
       - name: tpv6/single
         uses: ./.github/actions/test

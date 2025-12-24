@@ -10,7 +10,7 @@ on:
   - push
 
 env:
-  precomputed-hash: c14d215d93875759cb6f5820aedeee8731cc27f7
+  precomputed-hash: 10de0b5a17bb9b37602ed9fe4c51b3483579c726
 
 jobs:
   seissol-build-test:
@@ -267,6 +267,12 @@ jobs:
         if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
         with:
           case: tpv5-nuc/single
+
+      - name: tpv5-4nuc/single
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          case: tpv5-4nuc/single
 
       - name: tpv6/single
         uses: ./.github/actions/test

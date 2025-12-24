@@ -100,7 +100,12 @@ runs:
         MODE=${{ fromJSON(env.COMPARE_FILE).receiver.mode || 'lsw' }}
         SCRIPTS=$GITHUB_WORKSPACE/scripts/postprocessing/validation
 
-        python3 $SCRIPTS/compare-receivers.py ./output ${{env.REFERENCE_DIR}} --epsilon ${EPSILON} --mode ${MODE}
+        DIRFULL=${{env.REFERENCE_DIR}}
+
+        DIRPREFIX=${DIRFULL##*/}
+        DIRPATH=${DIRFULL%/*}
+
+        python3 $SCRIPTS/compare-receivers.py ./output ${DIRPATH} --prefix ${DIRPREFIX} --epsilon ${EPSILON} --mode ${MODE}
 
     - name: cleanup
       if: ${{ !cancelled() && steps.runtest.outcome == 'success' }}
