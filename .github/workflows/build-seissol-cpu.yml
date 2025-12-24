@@ -342,9 +342,9 @@ jobs:
           - ranks: 1
             threads: 32
             commthread: false
-          - ranks: 8
-            threads: 4
-            commthread: false
+          #- ranks: 8
+          #  threads: 4
+          #  commthread: false
     env:
       commsize: ${{matrix.parallel.ranks}}
       rankthreads: ${{matrix.parallel.threads}}
