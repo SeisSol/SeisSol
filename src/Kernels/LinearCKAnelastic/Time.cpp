@@ -7,24 +7,24 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "TimeBase.h"
+#include "Time.h"
 
-#ifndef NDEBUG
-extern long long libxsmm_num_total_flops;
-#endif
+#include "Common/Marker.h"
+#include "GeneratedCode/init.h"
+#include "Kernels/MemoryOps.h"
 
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
-
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #endif
 
-#include "GeneratedCode/init.h"
-#include "Kernels/MemoryOps.h"
+#ifndef NDEBUG
+extern long long libxsmm_num_total_flops;
+#endif
 
 namespace seissol::kernels::solver::linearckanelastic {
 
@@ -165,11 +165,11 @@ void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlo
   hardwareFlops = kernel::derivativeTaylorExpansionEla::HardwareFlops;
 }
 
-void Time::evaluateBatched(const real* coeffs,
-                           const real** timeDerivatives,
-                           real** timeIntegratedDofs,
-                           std::size_t numElements,
-                           seissol::parallel::runtime::StreamRuntime& runtime) {
+void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
+                           SEISSOL_GPU_PARAM const real** timeDerivatives,
+                           SEISSOL_GPU_PARAM real** timeIntegratedDofs,
+                           SEISSOL_GPU_PARAM std::size_t numElements,
+                           SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   assert(timeDerivatives != nullptr);
   assert(timeIntegratedDofs != nullptr);
@@ -194,14 +194,17 @@ void Time::evaluateBatched(const real* coeffs,
 #endif
 }
 
-void Spacetime::computeBatchedAder(const real* coeffs,
-                                   double timeStepWidth,
-                                   LocalTmp& tmp,
-                                   ConditionalPointersToRealsTable& dataTable,
-                                   ConditionalMaterialTable& materialTable,
-                                   bool updateDisplacement,
-                                   seissol::parallel::runtime::StreamRuntime& runtime) {
+void Spacetime::computeBatchedAder(
+    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM LocalTmp& tmp,
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
+    SEISSOL_GPU_PARAM bool updateDisplacement,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
   /*
    * compute ADER scheme.
    */

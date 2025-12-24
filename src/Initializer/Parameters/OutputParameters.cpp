@@ -6,9 +6,11 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "OutputParameters.h"
-#include <Equations/Datastructures.h>
-#include <Initializer/InputAux.h>
-#include <Initializer/Parameters/ParameterReader.h>
+
+#include "Equations/Datastructures.h"
+#include "Initializer/InputAux.h"
+#include "Initializer/Parameters/ParameterReader.h"
+
 #include <algorithm>
 #include <array>
 #include <limits>
@@ -150,16 +152,17 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
 
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
 
-  if (!fileName.has_value()) {
+  if (enabled && !fileName.has_value()) {
     logError() << "The off-fault receiver output is enabled, but no receiver point file was given.";
   }
 
+  // note: we'll need to supply a filename, even if we don't use the receivers
   return ReceiverOutputParameters{enabled,
                                   computeRotation,
                                   computeStrain,
                                   interval,
                                   samplingInterval,
-                                  fileName.value(),
+                                  fileName.value_or(""),
                                   collectiveio};
 }
 

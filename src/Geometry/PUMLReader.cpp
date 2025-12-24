@@ -6,11 +6,23 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
+#include "PUMLReader.h"
+
+#include "Common/Constants.h"
+#include "Common/Iterator.h"
 #include "Geometry/MeshDefinition.h"
-#include <Common/Constants.h>
-#include <Common/Iterator.h>
-#include <Geometry/MeshReader.h>
-#include <Initializer/Parameters/MeshParameters.h>
+#include "Geometry/MeshReader.h"
+#include "Initializer/Parameters/MeshParameters.h"
+#include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
+#include "Monitoring/Instrumentation.h"
+#include "PartitioningLib.h"
+
+#include <PUML/Downward.h>
+#include <PUML/Neighbor.h>
+#include <PUML/PUML.h>
+#include <PUML/Partition.h>
+#include <PUML/PartitionGraph.h>
+#include <PUML/PartitionTarget.h>
 #include <PUML/Topology.h>
 #include <PUML/TypeInference.h>
 #include <PUML/Upward.h>
@@ -20,26 +32,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <hdf5.h>
 #include <mpi.h>
 #include <numeric>
-#include <string>
-
-#include "PUMLReader.h"
-#include "PartitioningLib.h"
-
-#include "PUML/Downward.h"
-#include "PUML/Neighbor.h"
-#include "PUML/PUML.h"
-#include "PUML/Partition.h"
-#include "PUML/PartitionGraph.h"
-#include "PUML/PartitionTarget.h"
-
-#include "Monitoring/Instrumentation.h"
-
-#include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
-
-#include <hdf5.h>
 #include <sstream>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
@@ -177,14 +174,13 @@ const std::array<std::int32_t, 4> FirstFaceVertex = {0, 0, 0, 1};
 
 namespace seissol::geometry {
 
-PUMLReader::PUMLReader(const char* meshFile,
-                       const char* partitioningLib,
+PUMLReader::PUMLReader(const std::string& meshFile,
+                       const std::string& partitioningLib,
                        seissol::initializer::parameters::BoundaryFormat boundaryFormat,
                        seissol::initializer::parameters::TopologyFormat topologyFormat,
                        initializer::time_stepping::LtsWeights* ltsWeights,
                        double tpwgt)
-    : MeshReader(seissol::MPI::mpi.rank()), boundaryFormat(boundaryFormat),
-      topologyFormat(topologyFormat) {
+    : MeshReader(seissol::Mpi::mpi.rank()) {
   // we need up to two meshes, potentially:
   // one mesh for the geometry
   // one mesh for the topology
@@ -192,10 +188,10 @@ PUMLReader::PUMLReader(const char* meshFile,
 
   PumlMesh meshTopologyExtra;
   PumlMesh meshGeometry;
-  meshTopologyExtra.setComm(seissol::MPI::mpi.comm());
-  meshGeometry.setComm(seissol::MPI::mpi.comm());
+  meshTopologyExtra.setComm(seissol::Mpi::mpi.comm());
+  meshGeometry.setComm(seissol::Mpi::mpi.comm());
 
-  read(meshGeometry, meshFile, false);
+  read(meshGeometry, meshFile, false, boundaryFormat);
 
   // Note: we need to call generatePUML in order to create the dual graph of the mesh
   // Note 2: we also need it for vertex identification
@@ -204,9 +200,10 @@ PUMLReader::PUMLReader(const char* meshFile,
   if (topologyFormat != initializer::parameters::TopologyFormat::Geometric) {
     // we have a topology mesh; separate from the physical mesh
 
-    read(meshTopologyExtra,
-         meshFile,
-         topologyFormat == initializer::parameters::TopologyFormat::IdentifyFace);
+    const bool readTopology =
+        topologyFormat == initializer::parameters::TopologyFormat::IdentifyFace;
+
+    read(meshTopologyExtra, meshFile, readTopology, boundaryFormat);
 
     int id = -1;
     if (topologyFormat == initializer::parameters::TopologyFormat::IdentifyVertex) {
@@ -231,17 +228,18 @@ PUMLReader::PUMLReader(const char* meshFile,
   if (ltsWeights != nullptr) {
     ltsWeights->computeWeights(meshTopology, meshGeometry);
   }
-  partition(meshTopology, meshGeometry, ltsWeights, tpwgt, meshFile, partitioningLib);
+  partition(meshTopology, meshGeometry, ltsWeights, tpwgt, partitioningLib);
 
   generatePUML(meshTopology, meshGeometry);
 
-  getMesh(meshTopology, meshGeometry);
+  getMesh(meshTopology, meshGeometry, boundaryFormat);
 }
 
-void PUMLReader::read(PumlMesh& meshTopology, const char* meshFile, bool topology) {
+void PUMLReader::read(PumlMesh& meshTopology,
+                      const std::string& file,
+                      bool topology,
+                      seissol::initializer::parameters::BoundaryFormat boundaryFormat) {
   SCOREP_USER_REGION("PUMLReader_read", SCOREP_USER_REGION_TYPE_FUNCTION);
-
-  const std::string file(meshFile);
 
   if (topology) {
     meshTopology.open((file + ":/topology").c_str(), (file + ":/geometry").c_str());
@@ -277,8 +275,7 @@ void PUMLReader::partition(PumlMesh& meshTopology,
                            PumlMesh& meshGeometry,
                            initializer::time_stepping::LtsWeights* ltsWeights,
                            double tpwgt,
-                           const char* meshFile,
-                           const char* partitioningLib) {
+                           const std::string& partitioningLib) {
   SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   auto partType = toPartitionerType(std::string_view(partitioningLib));
@@ -294,8 +291,8 @@ void PUMLReader::partition(PumlMesh& meshTopology,
   auto graph = PUML::TETPartitionGraph(meshTopology);
   graph.setVertexWeights(ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex());
 
-  auto nodeWeights = std::vector<double>(MPI::mpi.size());
-  MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights.data(), 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
+  auto nodeWeights = std::vector<double>(Mpi::mpi.size());
+  MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights.data(), 1, MPI_DOUBLE, seissol::Mpi::mpi.comm());
   double sum = 0.0;
   for (const auto& w : nodeWeights) {
     sum += w;
@@ -328,10 +325,12 @@ void PUMLReader::generatePUML(PumlMesh& meshTopology, PumlMesh& meshGeometry) {
   meshGeometry.generateMesh();
 }
 
-void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeometry) {
+void PUMLReader::getMesh(const PumlMesh& meshTopology,
+                         const PumlMesh& meshGeometry,
+                         seissol::initializer::parameters::BoundaryFormat boundaryFormat) {
   SCOREP_USER_REGION("PUMLReader_getmesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-  const int rank = MPI::mpi.rank();
+  const int rank = Mpi::mpi.rank();
 
   const std::vector<PumlMesh::cell_t>& cells = meshTopology.cells();
   const std::vector<PumlMesh::face_t>& faces = meshTopology.faces();
@@ -466,14 +465,14 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
               MPI_CHAR,
               info.first,
               0,
-              MPI::mpi.comm(),
+              Mpi::mpi.comm(),
               &requests[k]);
     MPI_Irecv(ghostFirstVertex[k].data(),
               info.second.size(),
               MPI_UNSIGNED_LONG,
               info.first,
               0,
-              MPI::mpi.comm(),
+              Mpi::mpi.comm(),
               &requests[neighborInfo.size() + k]);
 
     // Neighbor side
@@ -482,7 +481,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
       std::array<int, 2> cellIds{};
       PUML::Upward::cells(meshTopology, faces[info.second[i]], cellIds.data());
       const auto side = PUML::Downward::faceSide(meshTopology, cells[cellIds[0]], info.second[i]);
-      logassert(side >= 0 && side < Cell::NumFaces);
+      logassert(side >= 0 && static_cast<std::size_t>(side) < Cell::NumFaces);
       copySide[k][i] = side;
 
       std::array<unsigned int, Cell::NumVertices> topoVertices{};
@@ -502,14 +501,14 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
               MPI_CHAR,
               info.first,
               0,
-              MPI::mpi.comm(),
+              Mpi::mpi.comm(),
               &requests[neighborInfo.size() * 2 + k]);
     MPI_Isend(copyFirstVertex[k].data(),
               info.second.size(),
               MPI_UNSIGNED_LONG,
               info.first,
               0,
-              MPI::mpi.comm(),
+              Mpi::mpi.comm(),
               &requests[neighborInfo.size() * 3 + k]);
   }
   logassert(t.size() == sum);
@@ -549,6 +548,13 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
 
     PUML::Upward::cells(meshGeometry, verticesGeometry[i], m_vertices[i].elements);
   }
+
+  // the neighborSide needs to be _inferred_ here.
+  for (auto& [_, neighbor] : m_MPINeighbors) {
+    for (auto& element : neighbor.elements) {
+      element.neighborSide = m_elements[element.localElement].neighborSides[element.localSide];
+    }
+  }
 }
 
 void PUMLReader::addMPINeighor(const PumlMesh& meshTopology,
@@ -561,10 +567,23 @@ void PUMLReader::addMPINeighor(const PumlMesh& meshTopology,
   neighbor.elements.resize(faces.size());
 
   for (std::size_t i = 0; i < faces.size(); i++) {
-    int cellIds[2];
-    PUML::Upward::cells(meshTopology, meshTopology.faces()[faces[i]], cellIds);
+    std::array<int, 2> cellIds{};
+    PUML::Upward::cells(meshTopology, meshTopology.faces()[faces[i]], cellIds.data());
 
     neighbor.elements[i].localElement = cellIds[0];
+
+    neighbor.elements[i].neighborElement = i;
+
+    std::array<unsigned int, Cell::NumFaces> sides{};
+    PUML::Downward::faces(meshTopology, meshTopology.cells()[cellIds[0]], sides.data());
+    neighbor.elements[i].localSide = [&]() {
+      for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
+        if (sides[PumlFaceToSeisSol[f]] == faces[i]) {
+          return f;
+        }
+      }
+      throw;
+    }();
   }
 }
 

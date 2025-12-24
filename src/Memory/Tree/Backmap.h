@@ -23,9 +23,9 @@ namespace seissol::initializer {
   that layer. (and the global ID as extra info)
  */
 struct StoragePosition {
-  std::size_t color;
-  std::size_t cell;
-  std::size_t global;
+  std::size_t color{std::numeric_limits<std::size_t>::max()};
+  std::size_t cell{std::numeric_limits<std::size_t>::max()};
+  std::size_t global{std::numeric_limits<std::size_t>::max()};
 
   bool operator==(const StoragePosition& other) const {
     return color == other.color && cell == other.cell;
@@ -34,6 +34,11 @@ struct StoragePosition {
   bool operator!=(const StoragePosition& other) const { return !(*this == other); }
 
   const static StoragePosition NullPosition;
+
+  StoragePosition() = default;
+
+  StoragePosition(std::size_t color, std::size_t cell, std::size_t global)
+      : color(color), cell(cell), global(global) {}
 };
 
 /**
@@ -58,25 +63,10 @@ class StorageBackmap {
   private:
   using CellStoragePosition = std::array<StoragePosition, MaxDuplicates>;
 
-  static StoragePosition getNullPosition(std::size_t index) {
-    return StoragePosition::NullPosition;
-  }
-
-  template <std::size_t... Indices>
-  static CellStoragePosition getNullStoragePosition(std::index_sequence<Indices...> /*...*/) {
-    return CellStoragePosition{getNullPosition(Indices)...};
-  }
-
-  const inline static std::vector<StoragePosition> PreNullCellStoragePosition =
-      std::vector<StoragePosition>(MaxDuplicates, StoragePosition::NullPosition);
-
-  const inline static CellStoragePosition NullCellStoragePosition =
-      getNullStoragePosition(std::make_index_sequence<MaxDuplicates>());
-
   std::vector<CellStoragePosition> data;
 
   public:
-  StorageBackmap(std::size_t size) : data(NullCellStoragePosition, size) {}
+  explicit StorageBackmap(std::size_t size) : data(size) {}
 
   StorageBackmap() = default;
 
@@ -99,7 +89,7 @@ class StorageBackmap {
     }
   }
 
-  void setSize(std::size_t size) { data.resize(size, NullCellStoragePosition); }
+  void setSize(std::size_t size) { data.resize(size); }
 
   template <typename TRef>
   std::size_t addElement(std::size_t color,
@@ -112,6 +102,12 @@ class StorageBackmap {
                                sizeof(TRef);
     const auto position = layerPosition + index;
     const auto storagePosition = StoragePosition{color, index, position};
+
+    if (cell >= data.size()) {
+      logError() << "Tried to add cell" << cell << "to a backmap of size" << data.size()
+                 << ". Out of capacity.";
+    }
+
     for (std::size_t j = 0; j < MaxDuplicates; ++j) {
       if (data[cell][j] == StoragePosition::NullPosition) {
         data[cell][j] = storagePosition;

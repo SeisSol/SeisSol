@@ -9,15 +9,8 @@
 
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
-#include <Initializer/TimeStepping/ClusterLayout.h>
-#include <cassert>
-#include <list>
-#include <memory>
-#include <queue>
-#include <vector>
-
 #include "Initializer/MemoryManager.h"
-#include "Initializer/TimeStepping/LtsLayout.h"
+#include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Monitoring/Stopwatch.h"
@@ -26,7 +19,13 @@
 #include "Solver/TimeStepping/GhostTimeClusterFactory.h"
 #include "SourceTerm/Typedefs.h"
 #include "TimeCluster.h"
+
+#include <cassert>
+#include <list>
+#include <memory>
+#include <queue>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol::time_stepping {
 class AbstractCommunicationManager;
@@ -63,7 +62,7 @@ class TimeManager {
   /**
    * Construct a new time manager.
    **/
-  TimeManager(seissol::SeisSol& seissolInstance);
+  explicit TimeManager(seissol::SeisSol& seissolInstance);
 
   /**
    * Destruct the time manager.
@@ -79,7 +78,7 @@ class TimeManager {
    * @param i_meshToClusters mapping from the mesh to the clusters.
    **/
   void addClusters(const initializer::ClusterLayout& clusterLayout,
-                   MeshStructure* meshStructure,
+                   const solver::HaloCommunication& haloStructure,
                    initializer::MemoryManager& memoryManager,
                    bool usePlasticity);
 

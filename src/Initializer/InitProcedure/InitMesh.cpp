@@ -7,36 +7,38 @@
 
 #include "InitMesh.h"
 
-#include <Geometry/MeshDefinition.h>
-#include <Initializer/Parameters/MeshParameters.h>
-#include <Initializer/Parameters/SeisSolParameters.h>
-#include <Initializer/TimeStepping/LtsWeights/LtsWeights.h>
-#include <Solver/Estimator.h>
+#include "Geometry/CubeGenerator.h"
+#include "Geometry/MeshDefinition.h"
+#include "Initializer/Parameters/MeshParameters.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
+#include "Solver/Estimator.h"
+
+#include <Eigen/Core>
+#include <Eigen/Dense>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-
-#include "utils/env.h"
-#include "utils/logger.h"
-#include <Eigen/Dense>
 #include <math.h>
 #include <mpi.h>
 #include <optional>
+#include <utils/env.h>
+#include <utils/logger.h>
 #include <vector>
-
-#include "Geometry/CubeGenerator.h"
 #ifdef USE_HDF
 #include "Geometry/PUMLReader.h"
+
 #include <hdf5.h>
 #endif // defined(USE_HDF)
 #include "Initializer/TimeStepping/LtsWeights/WeightsFactory.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Stopwatch.h"
 #include "Numerical/Statistics.h"
+#include "Parallel/MPI.h"
 #include "ResultWriter/MiniSeisSolWriter.h"
 #include "SeisSol.h"
 
-#include "Parallel/MPI.h"
+namespace seissol::initializer::initprocedure {
 
 namespace {
 
@@ -68,17 +70,22 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   logInfo() << "Exchanging ghostlayer metadata.";
   meshReader.exchangeGhostlayerMetadata();
 
-  logInfo() << "Extracting fault information.";
+  meshReader.linearizeGhostlayer();
+
   const auto& drParameters = seissolInstance.getSeisSolParameters().drParameters;
   const VrtxCoords center{drParameters.referencePoint[0],
                           drParameters.referencePoint[1],
                           drParameters.referencePoint[2]};
-  meshReader.extractFaultInformation(center, drParameters.refPointMethod);
+  if (!drParameters.isDynamicRuptureEnabled) {
+    logInfo() << "The Dynamic Rupture component has been disabled for this simulation.";
+    meshReader.disableDR();
+  } else {
+    logInfo() << "Extracting fault information.";
+    meshReader.extractFaultInformation(center, drParameters.refPointMethod);
+  }
 
   logInfo() << "Check the mesh for geometric errors.";
   meshReader.verifyMeshOrientation();
-
-  seissolInstance.getLtsLayout().setMesh(meshReader);
 
   double maxPointValue[3]{-INFINITY, -INFINITY, -INFINITY};
   double minPointValue[3]{INFINITY, INFINITY, INFINITY};
@@ -95,8 +102,8 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
     }
   }
 
-  MPI_Allreduce(MPI_IN_PLACE, maxPointValue, 3, MPI_DOUBLE, MPI_MAX, seissol::MPI::mpi.comm());
-  MPI_Allreduce(MPI_IN_PLACE, minPointValue, 3, MPI_DOUBLE, MPI_MIN, seissol::MPI::mpi.comm());
+  MPI_Allreduce(MPI_IN_PLACE, maxPointValue, 3, MPI_DOUBLE, MPI_MAX, seissol::Mpi::mpi.comm());
+  MPI_Allreduce(MPI_IN_PLACE, minPointValue, 3, MPI_DOUBLE, MPI_MIN, seissol::Mpi::mpi.comm());
 
   logInfo() << "Smallest bounding box around the mesh: <" << minPointValue[0] << minPointValue[1]
             << minPointValue[2] << "> to <" << maxPointValue[0] << maxPointValue[1]
@@ -109,7 +116,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   double nodeWeight = 1.0;
 
   if (seissolInstance.env().get<bool>("MINISEISSOL", true)) {
-    if (seissol::MPI::mpi.size() > 1) {
+    if (seissol::Mpi::mpi.size() > 1) {
       logInfo() << "Running mini SeisSol to determine node weights.";
       auto elapsedTime = seissol::solver::miniSeisSol();
       nodeWeight = 1.0 / elapsedTime;
@@ -138,7 +145,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
     logInfo() << "Inferring boundary format.";
     MPI_Info info = MPI_INFO_NULL;
     const hid_t plistId = _eh(H5Pcreate(H5P_FILE_ACCESS));
-    _eh(H5Pset_fapl_mpio(plistId, seissol::MPI::mpi.comm(), info));
+    _eh(H5Pset_fapl_mpio(plistId, seissol::Mpi::mpi.comm(), info));
     const hid_t dataFile =
         _eh(H5Fopen(seissolParams.mesh.meshFileName.c_str(), H5F_ACC_RDONLY, plistId));
 
@@ -280,13 +287,14 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
 
   auto ltsWeights = getLtsWeightsImplementation(
       seissolParams.timeStepping.lts.getLtsWeightsType(), config, seissolInstance);
-  auto* meshReader = new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName.c_str(),
-                                                       seissolParams.mesh.partitioningLib.c_str(),
+  auto* meshReader = new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName,
+                                                       seissolParams.mesh.partitioningLib,
                                                        boundaryFormat,
                                                        topologyFormat,
                                                        ltsWeights.get(),
                                                        nodeWeight);
   seissolInstance.setMeshReader(meshReader);
+  seissolInstance.setTimestepScale(ltsWeights->getWiggleFactor());
 
   watch.pause();
   watch.printTime("PUML mesh read in:");
@@ -312,8 +320,8 @@ void readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters
   // unpack seissolParams
   const auto cubeParameters = seissolParams.cubeGenerator;
 
-  const auto commRank = seissol::MPI::mpi.rank();
-  const auto commSize = seissol::MPI::mpi.size();
+  const auto commRank = seissol::Mpi::mpi.rank();
+  const auto commSize = seissol::Mpi::mpi.size();
   const std::string realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
 
   seissolInstance.setMeshReader(
@@ -322,11 +330,11 @@ void readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters
 
 } // namespace
 
-void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInstance) {
+void initMesh(seissol::SeisSol& seissolInstance) {
   SCOREP_USER_REGION("init_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  const auto commSize = seissol::MPI::mpi.size();
+  const auto commSize = seissol::Mpi::mpi.size();
 
   logInfo() << "Begin init mesh.";
 
@@ -374,3 +382,5 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
               << " max =" << summary.max;
   }
 }
+
+} // namespace seissol::initializer::initprocedure

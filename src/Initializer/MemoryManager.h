@@ -11,253 +11,146 @@
 #ifndef SEISSOL_SRC_INITIALIZER_MEMORYMANAGER_H_
 #define SEISSOL_SRC_INITIALIZER_MEMORYMANAGER_H_
 
-#include "Memory/Tree/Layer.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include <Memory/Descriptor/Surface.h>
-#include <Initializer/TimeStepping/ClusterLayout.h>
-#include <Memory/Tree/Backmap.h>
-#include <mpi.h>
-
-#include <utils/logger.h>
-
-#include "Initializer/Typedefs.h"
-#include "Memory/MemoryAllocator.h"
-
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Descriptor/DynamicRupture.h"
+#include "DynamicRupture/Factory.h"
 #include "Initializer/InputAux.h"
-#include "Memory/Descriptor/Boundary.h"
 #include "Initializer/ParameterDB.h"
-
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/TimeStepping/ClusterLayout.h"
+#include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/Boundary.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Descriptor/Surface.h"
+#include "Memory/MemoryAllocator.h"
+#include "Memory/Tree/Backmap.h"
+#include "Memory/Tree/Layer.h"
 #include "Physics/InitialField.h"
 
-#include <utility>
-#include <vector>
 #include <memory>
-
-#include "DynamicRupture/Factory.h"
+#include <mpi.h>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol {
-  class SeisSol;
-  namespace initializer {
+class SeisSol;
+namespace initializer {
 
 /**
  * Memory manager of SeisSol.
  **/
 class MemoryManager {
   private: // explicit private for unit tests
-    seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance;
 
-    //! memory allocator
-    seissol::memory::ManagedAllocator m_memoryAllocator;
+  //! memory allocator
+  seissol::memory::ManagedAllocator m_memoryAllocator;
 
-    //! LTS mesh structure
-    struct MeshStructure *m_meshStructure;
+  /*
+   * Cross-cluster
+   */
+  //! global data
+  GlobalData m_globalDataOnHost;
+  GlobalData m_globalDataOnDevice;
 
-    unsigned int* ltsToFace;
+  //! Memory organization storage
+  LTS::Storage ltsStorage;
+  LTS::Backmap backmap;
 
-    /*
-     * Interior
-     */
-    //! number of buffers in the interior per cluster
-    unsigned int *m_numberOfInteriorBuffers;
+  std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
-    //! number of derivatives in the interior per cluster
-    unsigned int *m_numberOfInteriorDerivatives;
+  DynamicRupture::Backmap drBackmap;
 
-    /*
-     * Ghost layer
-     */
-    //! number of buffers in the ghost layer per cluster
-    unsigned int  *m_numberOfGhostBuffers;
+  DynamicRupture::Storage drStorage;
+  std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
+  std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
+  std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
+  std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLawDevice = nullptr;
+  std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
 
-    //! number of buffers in the ghost regions per cluster
-    unsigned int **m_numberOfGhostRegionBuffers;
+  Boundary::Storage m_boundaryTree;
 
-    //! number of derivatives in the ghost layer per cluster
-    unsigned int  *m_numberOfGhostDerivatives;
+  SurfaceLTS::Storage surfaceStorage;
 
-    //! number of derivatives in the ghost regions per cluster
-    unsigned int **m_numberOfGhostRegionDerivatives;
+  EasiBoundary m_easiBoundary;
 
-    /*
-     * Copy Layer
-     */
-    //! number of buffers in the copy layer per cluster
-    unsigned int  *m_numberOfCopyBuffers;
-
-    //! number of buffers in the copy regions per cluster
-    unsigned int **m_numberOfCopyRegionBuffers;
-
-    //! number of derivatives in the copy layer per cluster
-    unsigned int  *m_numberOfCopyDerivatives;
-
-    //! number of derivatives in the copy regionsper cluster
-    unsigned int **m_numberOfCopyRegionDerivatives;
-
-    /*
-     * Cross-cluster
-     */
-    //! global data
-    GlobalData            m_globalDataOnHost;
-    GlobalData            m_globalDataOnDevice;
-
-    //! Memory organization storage
-    LTS::Storage               ltsStorage;
-    LTS::Backmap backmap;
-
-    std::optional<ClusterLayout> clusterLayout;
-
-    std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
-
-    DynamicRupture::Storage drStorage;
-    std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
-    std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
-    std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
-    std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLawDevice = nullptr;
-    std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
-
-    Boundary::Storage m_boundaryTree;
-
-    SurfaceLTS::Storage surfaceStorage;
-
-    EasiBoundary m_easiBoundary;
-
-    /**
-     * Corrects the LTS Setups (buffer or derivatives, never both) in the ghost region
-     **/
-    void correctGhostRegionSetups();
-
-    /**
-     * Derives the layouts -- number of buffers and derivatives -- of the layers.
-     **/
-    void deriveLayerLayouts();
-
-    /**
-     * Initializes the face neighbor pointers of the internal state.
-     **/
-    void initializeFaceNeighbors( unsigned    cluster,
-                                  LTS::Layer& layer);
-
-    /**
-     * Initializes the pointers of the internal state.
-     **/
-    void initializeBuffersDerivatives();
-
-    /**
-     * Derives the size of the displacement accumulation buffer.
-     */
-    void deriveDisplacementsBucket();
-
-    /**
-     * Initializes the displacement accumulation buffer.
-     */
-    void initializeDisplacements();
-
-    /**
-     * Initializes the communication structure.
-     **/
-    void initializeCommunicationStructure();
+  std::optional<ClusterLayout> layout;
 
   public:
-    /**
-     * Constructor
-     **/
-    MemoryManager(seissol::SeisSol& instance) : seissolInstance(instance) {}
+  /**
+   * Constructor
+   **/
+  explicit MemoryManager(seissol::SeisSol& instance) : seissolInstance(instance) {}
 
-    /**
-     * Destructor, memory is freed by managed allocator
-     **/
-    ~MemoryManager() = default;
+  /**
+   * Destructor, memory is freed by managed allocator
+   **/
+  ~MemoryManager() = default;
 
-    /**
-     * Initialization function, which allocates memory for the global matrices and initializes them.
-     **/
-    void initialize();
+  /**
+   * Initialization function, which allocates memory for the global matrices and initializes them.
+   **/
+  void initialize();
 
-    /**
-     * Sets the number of cells in each leaf of the lts storage, fixates the variables, and allocates memory.
-     * Afterwards the storage cannot be changed anymore.
-     *
-     * @param i_meshStructrue mesh structure.
-     **/
-    void fixateLtsStorage(struct ClusterLayout& clusterLayout,
-                       struct MeshStructure* meshStructure,
-                       unsigned* numberOfDRCopyFaces,
-                       unsigned* numberOfDRInteriorFaces,
-                       bool usePlasticity);
+  /**
+   * Sets the number of cells in each leaf of the lts storage, fixates the variables, and allocates
+   *memory. Afterwards the storage cannot be changed anymore.
+   *
+   * @param i_meshStructrue mesh structure.
+   **/
+  void fixateLtsStorage();
 
-    void fixateBoundaryStorage();
-    /**
-     * Set up the internal structure.
-     **/
-    void initializeMemoryLayout();
+  void fixateBoundaryStorage();
+  /**
+   * Set up the internal structure.
+   **/
+  void initializeMemoryLayout();
 
-    /**
-     * Gets the global data on both host and device.
-    **/
-    CompoundGlobalData getGlobalData() {
-      CompoundGlobalData global{};
-      global.onHost = &m_globalDataOnHost;
-      global.onDevice = nullptr;
-      if constexpr (seissol::isDeviceOn()) {
-        global.onDevice = &m_globalDataOnDevice;
-      }
-      return global;
+  /**
+   * Gets the global data on both host and device.
+   **/
+  CompoundGlobalData getGlobalData() {
+    CompoundGlobalData global{};
+    global.onHost = &m_globalDataOnHost;
+    global.onDevice = nullptr;
+    if constexpr (seissol::isDeviceOn()) {
+      global.onDevice = &m_globalDataOnDevice;
     }
+    return global;
+  }
 
-    LTS::Storage& getLtsStorage() {
-      return ltsStorage;
-    }
+  void setClusterLayout(const ClusterLayout& extLayout) { layout.emplace(extLayout); }
 
-    LTS::Backmap& getBackmap() {
-      return backmap;
-    }
+  ClusterLayout& clusterLayout() { return layout.value(); }
 
-    DynamicRupture::Storage& getDRStorage() {
-      return drStorage;
-    }
+  LTS::Storage& getLtsStorage() { return ltsStorage; }
 
-    DynamicRupture& getDynamicRupture() {
-      return *m_dynRup;
-    }
+  LTS::Backmap& getBackmap() { return backmap; }
 
-    SurfaceLTS::Storage& getSurfaceStorage() {
-      return surfaceStorage;
-    }
+  DynamicRupture::Storage& getDRStorage() { return drStorage; }
 
-    void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
-      m_iniConds = std::move(iniConds);
-    }
+  DynamicRupture::Backmap& getDRBackmap() { return drBackmap; }
 
-    const std::vector<std::unique_ptr<physics::InitialField>>& getInitialConditions() {
-      return m_iniConds;
-    }
+  DynamicRupture& getDynamicRupture() { return *m_dynRup; }
 
-    void setLtsToFace(unsigned int* ptr) {
-      ltsToFace = ptr;
-    }
+  SurfaceLTS::Storage& getSurfaceStorage() { return surfaceStorage; }
 
-    unsigned int* ltsToFaceMap() const {
-      return ltsToFace;
-    }
+  void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
+    m_iniConds = std::move(iniConds);
+  }
 
-    void initializeEasiBoundaryReader(const char* fileName);
+  const std::vector<std::unique_ptr<physics::InitialField>>& getInitialConditions() {
+    return m_iniConds;
+  }
 
-    EasiBoundary* getEasiBoundaryReader() {
-      return &m_easiBoundary;
-    }
+  void initializeEasiBoundaryReader(const char* fileName);
 
-    dr::friction_law::FrictionSolver* getFrictionLaw() {
-        return m_FrictionLaw.get();
-    }
-    dr::friction_law::FrictionSolver* getFrictionLawDevice() {
-        return m_FrictionLawDevice.get();
-    }
-    seissol::dr::output::OutputManager* getFaultOutputManager() {
-        return m_faultOutputManager.get();
-    }
+  EasiBoundary* getEasiBoundaryReader() { return &m_easiBoundary; }
+
+  dr::friction_law::FrictionSolver* getFrictionLaw() { return m_FrictionLaw.get(); }
+  dr::friction_law::FrictionSolver* getFrictionLawDevice() { return m_FrictionLawDevice.get(); }
+  seissol::dr::output::OutputManager* getFaultOutputManager() { return m_faultOutputManager.get(); }
 
 #ifdef ACL_DEVICE
   void recordExecutionPaths(bool usePlasticity);
@@ -279,19 +172,15 @@ class MemoryManager {
   void synchronizeTo(seissol::initializer::AllocationPlace place);
 };
 
+bool isAcousticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face);
+bool isElasticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face);
+bool isAtElasticAcousticInterface(CellMaterialData& material, std::size_t face);
 
-    bool isAcousticSideOfElasticAcousticInterface(CellMaterialData &material,
-                                                  unsigned int face);
-    bool isElasticSideOfElasticAcousticInterface(CellMaterialData &material,
-                                                 unsigned int face);
-    bool isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face);
-
-    bool requiresDisplacement(CellLocalInformation cellLocalInformation,
-                              CellMaterialData &material,
-                              unsigned int face);
-    bool requiresNodalFlux(FaceType f);
-    }
-}
-
+bool requiresDisplacement(CellLocalInformation cellLocalInformation,
+                          CellMaterialData& material,
+                          std::size_t face);
+bool requiresNodalFlux(FaceType f);
+} // namespace initializer
+} // namespace seissol
 
 #endif // SEISSOL_SRC_INITIALIZER_MEMORYMANAGER_H_

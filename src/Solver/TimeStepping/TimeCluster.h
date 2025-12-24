@@ -11,32 +11,30 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMECLUSTER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMECLUSTER_H_
 
-#include <list>
-#include <memory>
-#include <mpi.h>
-
-#include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/LTS.h"
-#include "SourceTerm/Typedefs.h"
-#include <utils/logger.h>
-
+#include "AbstractTimeCluster.h"
+#include "Common/Executor.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Output/OutputManager.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/DynamicRupture.h"
 #include "Kernels/Plasticity.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Kernels/Solver.h"
 #include "Kernels/TimeCommon.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Monitoring/ActorStateStatistics.h"
 #include "Monitoring/LoopStatistics.h"
 #include "Solver/FreeSurfaceIntegrator.h"
-#include <Common/Executor.h>
+#include "SourceTerm/Typedefs.h"
 
-#include "AbstractTimeCluster.h"
+#include <list>
+#include <memory>
+#include <mpi.h>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include <device.h>
+#include <Device/device.h>
 #endif
 
 namespace seissol::kernels {
@@ -51,11 +49,11 @@ namespace seissol::time_stepping {
 class TimeCluster : public AbstractTimeCluster {
   private:
   // Last correction time of the neighboring cluster with higher dt
-  double lastSubTime;
+  double lastSubTime{0};
 
   // The timestep of the largest neighbor. Not well-defined (and not used) for the largest local
   // timecluster.
-  double neighborTimestep;
+  double neighborTimestep{0};
 
   void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
   void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
@@ -63,9 +61,6 @@ class TimeCluster : public AbstractTimeCluster {
   void predict() override;
   void correct() override;
   bool usePlasticity;
-
-  //! number of time steps
-  unsigned long m_numberOfTimeSteps;
 
   seissol::SeisSol& seissolInstance;
   /*
@@ -120,8 +115,8 @@ class TimeCluster : public AbstractTimeCluster {
     NumComputeParts
   };
 
-  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsNonZero;
-  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsHardware;
+  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsNonZero{};
+  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsHardware{};
 
   //! Stopwatch of TimeManager
   LoopStatistics* loopStatistics;
@@ -134,6 +129,8 @@ class TimeCluster : public AbstractTimeCluster {
   kernels::ReceiverCluster* receiverCluster{nullptr};
 
   seissol::memory::MemkindArray<std::size_t> yieldCells;
+
+  std::size_t numPlasticCells{0};
 
   /**
    * Writes the receiver output if applicable (receivers present, receivers have to be written).
@@ -209,20 +206,20 @@ class TimeCluster : public AbstractTimeCluster {
 
   void computeFlops();
 
-  const LayerType layerType;
+  HaloType layerType;
   //! time of the next receiver output
   double receiverTime;
 
   //! print status every 100th timestep
   bool printProgress;
   //! cluster id on this rank
-  const unsigned int clusterId;
+  unsigned int clusterId;
 
   //! global cluster cluster id
-  const unsigned int globalClusterId;
+  unsigned int globalClusterId;
 
   //! id used to identify this cluster (including layer type) when profiling
-  const unsigned int profilingId;
+  unsigned int profilingId;
 
   DynamicRuptureScheduler* dynamicRuptureScheduler;
 
@@ -242,7 +239,7 @@ class TimeCluster : public AbstractTimeCluster {
               unsigned int globalClusterId,
               unsigned int profilingId,
               bool usePlasticity,
-              LayerType layerType,
+              HaloType layerType,
               double maxTimeStepSize,
               long timeStepRate,
               bool printProgress,
@@ -282,7 +279,7 @@ class TimeCluster : public AbstractTimeCluster {
   [[nodiscard]] std::size_t layerId() const;
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;
-  [[nodiscard]] LayerType getLayerType() const;
+  [[nodiscard]] HaloType getLayerType() const;
   void setTime(double time) override;
 
   std::vector<NeighborCluster>* getNeighborClusters();
@@ -290,6 +287,8 @@ class TimeCluster : public AbstractTimeCluster {
   void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) override;
 
   void finishPhase() override;
+
+  [[nodiscard]] std::string description() const override;
 };
 
 } // namespace seissol::time_stepping

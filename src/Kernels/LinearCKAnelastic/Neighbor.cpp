@@ -7,7 +7,10 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "NeighborBase.h"
+#include "Neighbor.h"
+
+#include "Common/Marker.h"
+#include "GeneratedCode/init.h"
 
 #include <cassert>
 #include <cstddef>
@@ -17,8 +20,6 @@
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #endif
-
-#include "GeneratedCode/init.h"
 
 namespace seissol::kernels::solver::linearckanelastic {
 
@@ -132,13 +133,14 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
   nKrnl.execute();
 }
 
-void Neighbor::flopsNeighborsIntegral(const FaceType faceTypes[4],
-                                      const int neighboringIndices[4][2],
-                                      const CellDRMapping (&cellDrMapping)[4],
-                                      std::uint64_t& nonZeroFlops,
-                                      std::uint64_t& hardwareFlops,
-                                      std::uint64_t& drNonZeroFlops,
-                                      std::uint64_t& drHardwareFlops) {
+void Neighbor::flopsNeighborsIntegral(
+    const std::array<FaceType, Cell::NumFaces>& faceTypes,
+    const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
+    const CellDRMapping (&cellDrMapping)[4],
+    std::uint64_t& nonZeroFlops,
+    std::uint64_t& hardwareFlops,
+    std::uint64_t& drNonZeroFlops,
+    std::uint64_t& drHardwareFlops) {
   // reset flops
   nonZeroFlops = 0;
   hardwareFlops = 0;
@@ -184,9 +186,12 @@ std::uint64_t Neighbor::bytesNeighborsIntegral() {
   return reals * sizeof(real);
 }
 
-void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
-                                               seissol::parallel::runtime::StreamRuntime& runtime) {
+void Neighbor::computeBatchedNeighborsIntegral(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
   kernel::gpu_neighborFluxExt neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
 

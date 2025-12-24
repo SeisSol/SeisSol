@@ -10,6 +10,7 @@
 #include "DynamicRupture/Misc.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
+
 #include <cstddef>
 #include <utils/logger.h>
 #include <vector>

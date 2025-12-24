@@ -7,35 +7,36 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "KernelHost.h"
+
+#include "Alignment.h"
 #include "Allocator.h"
 #include "Common.h"
+#include "Common/Constants.h"
 #include "Constants.h"
-#include "Kernel.h"
-
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/CellLocalInformation.h"
+#include "Initializer/Typedefs.h"
+#include "Kernel.h"
+#include "Kernels/Interface.h"
+#include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
+#include "Kernels/TimeCommon.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+#include "Monitoring/Instrumentation.h"
+#include "Numerical/Quadrature.h"
 #include "Parallel/OpenMP.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/CellLocalInformation.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Interface.h>
-#include <Kernels/Precision.h>
-#include <Kernels/Solver.h>
-#include <Kernels/TimeCommon.h>
-#include <Memory/Descriptor/DynamicRupture.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
-#include <Monitoring/Instrumentation.h>
-#include <Numerical/Quadrature.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Parallel/Runtime/Stream.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 
 namespace seissol::proxy {
 void ProxyKernelHostAder::run(ProxyData& data,
-                              seissol::parallel::runtime::StreamRuntime& runtime) const {
+                              seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
   real* const* buffers = layer.var<LTS::Buffers>();
@@ -83,7 +84,7 @@ auto ProxyKernelHostAder::performanceEstimate(ProxyData& data) const -> Performa
 auto ProxyKernelHostAder::needsDR() const -> bool { return false; }
 
 void ProxyKernelHostLocalWOAder::run(ProxyData& data,
-                                     seissol::parallel::runtime::StreamRuntime& runtime) const {
+                                     seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
   real* const* buffers = layer.var<LTS::Buffers>();
@@ -111,7 +112,7 @@ auto ProxyKernelHostLocalWOAder::performanceEstimate(ProxyData& data) const -> P
 
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
+  const auto* cellInformation = layer.var<LTS::CellInformation>();
   for (std::size_t cell = 0; cell < nrOfCells; ++cell) {
     std::uint64_t nonZeroFlops = 0;
     std::uint64_t hardwareFlops = 0;
@@ -129,7 +130,7 @@ auto ProxyKernelHostLocalWOAder::performanceEstimate(ProxyData& data) const -> P
 auto ProxyKernelHostLocalWOAder::needsDR() const -> bool { return false; }
 
 void ProxyKernelHostLocal::run(ProxyData& data,
-                               seissol::parallel::runtime::StreamRuntime& runtime) const {
+                               seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
   real* const* buffers = layer.var<LTS::Buffers>();
@@ -157,7 +158,7 @@ void ProxyKernelHostLocal::run(ProxyData& data,
 }
 
 void ProxyKernelHostNeighbor::run(ProxyData& data,
-                                  seissol::parallel::runtime::StreamRuntime& runtime) const {
+                                  seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
   real* const(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
@@ -258,11 +259,10 @@ auto ProxyKernelHostNeighbor::needsDR() const -> bool { return false; }
 auto ProxyKernelHostNeighborDR::needsDR() const -> bool { return true; }
 
 void ProxyKernelHostGodunovDR::run(ProxyData& data,
-                                   seissol::parallel::runtime::StreamRuntime& runtime) const {
+                                   seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
   auto& layerData = data.drStorage.layer(data.layerId);
   const DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
   const DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
-  DREnergyOutput* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>();
   real* const* timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
   real* const* timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
   alignas(Alignment) real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()];
@@ -277,9 +277,7 @@ void ProxyKernelHostGodunovDR::run(ProxyData& data,
   for (std::size_t face = 0; face < layerData.size(); ++face) {
     const std::size_t prefetchFace = (face + 1 < layerData.size()) ? face + 1 : face;
     data.dynRupKernel.spaceTimeInterpolation(faceInformation[face],
-                                             &data.globalDataOnHost,
                                              &godunovData[face],
-                                             &drEnergyOutput[face],
                                              timeDerivativePlus[face],
                                              timeDerivativeMinus[face],
                                              qInterpolatedPlus,

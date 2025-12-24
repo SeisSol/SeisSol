@@ -7,36 +7,41 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Allocator.h"
+
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Config.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
+#include "Kernels/Touch.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/GlobalData.h"
+#include "Memory/MemoryAllocator.h"
+#include "Memory/Tree/Colormap.h"
+#include "Memory/Tree/Layer.h"
 #include "Parallel/OpenMP.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <Config.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Common.h>
-#include <Kernels/Precision.h>
-#include <Kernels/Solver.h>
-#include <Kernels/Touch.h>
-#include <Memory/Descriptor/DynamicRupture.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/GlobalData.h>
-#include <Memory/MemoryAllocator.h>
-#include <Memory/Tree/Colormap.h>
-#include <Memory/Tree/Layer.h>
+
 #include <cstddef>
 #include <random>
 #include <stdlib.h>
 
 #ifdef ACL_DEVICE
-#include <Initializer/MemoryManager.h>
+#include "Initializer/MemoryManager.h"
 #endif
 
 #ifdef USE_POROELASTIC
 #include "Proxy/Constants.h"
 #endif
 
+namespace seissol::proxy {
+
 namespace {
+
 void fakeData(LTS::Layer& layer, FaceType faceTp) {
   real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
   real** buffers = layer.var<LTS::Buffers>();
@@ -70,9 +75,13 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
       cellInformation[cell].faceTypes[f] = faceTp;
       cellInformation[cell].faceRelations[f][0] = sideDist(rng);
       cellInformation[cell].faceRelations[f][1] = orientationDist(rng);
-      secondaryInformation[cell].faceNeighborIds[f] = cellDist(rng);
+
+      const auto neighbor = cellDist(rng);
+      secondaryInformation[cell].faceNeighbors[f].global = neighbor;
+      secondaryInformation[cell].faceNeighbors[f].color = 0;
+      secondaryInformation[cell].faceNeighbors[f].cell = neighbor;
     }
-    cellInformation[cell].ltsSetup = 0;
+    cellInformation[cell].ltsSetup = LtsSetup();
   }
 
 #ifdef _OPENMP
@@ -87,8 +96,9 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
         break;
       case FaceType::Periodic:
       case FaceType::Regular:
-        faceNeighbors[cell][f] = buffers[secondaryInformation[cell].faceNeighborIds[f]];
-        faceNeighborsDevice[cell][f] = buffersDevice[secondaryInformation[cell].faceNeighborIds[f]];
+        faceNeighbors[cell][f] = buffers[secondaryInformation[cell].faceNeighbors[f].cell];
+        faceNeighborsDevice[cell][f] =
+            buffersDevice[secondaryInformation[cell].faceNeighbors[f].cell];
         break;
       default:
         faceNeighbors[cell][f] = nullptr;
@@ -124,9 +134,10 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
 }
 } // namespace
 
-namespace seissol::proxy {
-
 ProxyData::ProxyData(std::size_t cellCount, bool enableDR) : cellCount(cellCount) {
+  layerId =
+      initializer::LayerIdentifier(HaloType::Interior, initializer::ConfigVariant{Config()}, 0);
+
   initGlobalData();
   initDataStructures(enableDR);
   initDataStructuresOnDevice(enableDR);
@@ -134,14 +145,14 @@ ProxyData::ProxyData(std::size_t cellCount, bool enableDR) : cellCount(cellCount
 
 void ProxyData::initGlobalData() {
   seissol::initializer::GlobalDataInitializerOnHost::init(
-      globalDataOnHost, allocator, seissol::memory::Standard);
+      globalDataOnHost, allocator, seissol::memory::Memkind::Standard);
 
   CompoundGlobalData globalData{};
   globalData.onHost = &globalDataOnHost;
   globalData.onDevice = nullptr;
   if constexpr (seissol::isDeviceOn()) {
     seissol::initializer::GlobalDataInitializerOnDevice::init(
-        globalDataOnDevice, allocator, seissol::memory::DeviceGlobalMemory);
+        globalDataOnDevice, allocator, seissol::memory::Memkind::DeviceGlobalMemory);
     globalData.onDevice = &globalDataOnDevice;
   }
   spacetimeKernel.setGlobalData(globalData);
@@ -155,7 +166,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   const initializer::LTSColorMap map(
       initializer::EnumLayer<HaloType>({HaloType::Interior}),
       initializer::EnumLayer<std::size_t>({0}),
-      initializer::TraitLayer<initializer::ConfigVariant>({Config()}));
+      initializer::TraitLayer<initializer::ConfigVariant>({initializer::ConfigVariant(Config())}));
 
   // init RNG
   LTS::addTo(ltsStorage, false); // proxy does not use plasticity
@@ -185,7 +196,7 @@ void ProxyData::initDataStructures(bool enableDR) {
     fakeDerivativesHost = reinterpret_cast<real*>(allocator.allocateMemory(
         cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
         PagesizeHeap,
-        seissol::memory::Standard));
+        seissol::memory::Memkind::Standard));
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -205,7 +216,7 @@ void ProxyData::initDataStructures(bool enableDR) {
     fakeDerivatives = reinterpret_cast<real*>(allocator.allocateMemory(
         cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
         PagesizeHeap,
-        seissol::memory::DeviceGlobalMemory));
+        seissol::memory::Memkind::DeviceGlobalMemory));
     const auto& device = ::device::DeviceInstance::getInstance();
     device.api->copyTo(fakeDerivatives,
                        fakeDerivativesHost,
@@ -294,11 +305,11 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
   seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(false, ltsStorage);
   ltsStorage.allocateScratchPads();
 
-  seissol::initializer::recording::CompositeRecorder<LTS::LTSVarmap> recorder;
-  recorder.addRecorder(new seissol::initializer::recording::LocalIntegrationRecorder);
-  recorder.addRecorder(new seissol::initializer::recording::NeighIntegrationRecorder);
+  seissol::recording::CompositeRecorder<LTS::LTSVarmap> recorder;
+  recorder.addRecorder(new seissol::recording::LocalIntegrationRecorder);
+  recorder.addRecorder(new seissol::recording::NeighIntegrationRecorder);
 
-  recorder.addRecorder(new seissol::initializer::recording::PlasticityRecorder);
+  recorder.addRecorder(new seissol::recording::PlasticityRecorder);
   recorder.record(layer);
   if (enableDR) {
     drStorage.synchronizeTo(seissol::initializer::AllocationPlace::Device,
@@ -307,8 +318,8 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
     seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(drStorage);
     drStorage.allocateScratchPads();
 
-    CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
-    drRecorder.addRecorder(new DynamicRuptureRecorder);
+    seissol::recording::CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
+    drRecorder.addRecorder(new seissol::recording::DynamicRuptureRecorder);
 
     auto& drLayer = drStorage.layer(layerId);
     drRecorder.record(drLayer);
