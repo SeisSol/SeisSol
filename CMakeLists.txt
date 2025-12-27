@@ -216,8 +216,10 @@ if (HDF5)
     target_link_libraries(seissol-common-properties INTERFACE ${HDF5_C_LIBRARIES})
   endif()
   target_compile_definitions(seissol-common-properties INTERFACE USE_HDF)
-  if (NOT HDF5_IS_PARALLEL)
-    message(WARNING "The found parallel Hdf5 installation is not parallel. Compile errors will occur.")
+
+  # HDF5_PROVIDES_PARALLEL needed for Hdf5 2.0 upwards
+  if (NOT (HDF5_IS_PARALLEL OR HDF5_PROVIDES_PARALLEL))
+    message(WARNING "The found parallel Hdf5 installation is not parallel (i.e. MPI-ready). Compile errors will occur.")
   endif()
 endif()
 
