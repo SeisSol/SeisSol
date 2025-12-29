@@ -31,8 +31,12 @@ class CCLNeighborCluster : public AbstractTimeCluster {
   void* event{nullptr};
 
 #ifdef ACL_DEVICE
-  device::DeviceGraphHandle handle;
+  device::DeviceGraphHandle handle1;
+  device::DeviceGraphHandle handle2;
+  device::DeviceGraphHandle handle3;
 #endif
+
+  void launch(bool send, bool recv);
 
   std::size_t globalClusterId;
   std::size_t otherGlobalClusterId;

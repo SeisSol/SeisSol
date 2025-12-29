@@ -15,25 +15,35 @@
 #ifdef CCL_NCCL
 #include <nccl.h>
 using StreamT = cudaStream_t;
+#define CCL(name) nccl##name
+#define CCLM(name) NCCL_##name
 #endif
 #ifdef CCL_RCCL
 #include <rccl/rccl.h>
 using StreamT = hipStream_t;
+#define CCL(name) nccl##name
+#define CCLM(name) NCCL_##name
+#endif
+#ifdef CCL_ONECCL
+#include <oneapi/ccl.h>
+using StreamT = void*;
+#define CCL(name) oneccl##name
+#define CCLM(name) ONECCL_##name
 #endif
 
 #include "utils/logger.h"
 #include <device.h>
 
 namespace {
-constexpr ncclDataType_t cclDatatype(RealType type) {
+constexpr CCL(DataType_t) cclDatatype(RealType type) {
   switch (type) {
   case RealType::F32:
-    return ncclDataType_t::ncclFloat32;
+    return CCL(DataType_t)::CCL(Float32);
   case RealType::F64:
-    return ncclDataType_t::ncclFloat64;
+    return CCL(DataType_t)::CCL(Float64);
   default:
     logError() << "Unsupported CCL datatype";
-    return ncclDataType_t::ncclChar;
+    return CCL(DataType_t)::CCL(Char);
   }
 }
 } // namespace
@@ -48,19 +58,19 @@ namespace {
 std::vector<void*> createComms(std::size_t count) {
 #ifdef USE_CCL
   // cf. partially https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/examples.html
-  std::vector<ncclUniqueId> cclIds(count);
+  std::vector<CCL(UniqueId)> cclIds(count);
   std::vector<void*> comms(count);
   if (seissol::MPI::mpi.rank() == 0) {
     for (std::size_t i = 0; i < count; ++i) {
-      ncclGetUniqueId(&cclIds[i]);
+      CCL(GetUniqueId)(&cclIds[i]);
     }
   }
   MPI_Bcast(
-      cclIds.data(), sizeof(ncclUniqueId) * cclIds.size(), MPI_BYTE, 0, seissol::MPI::mpi.comm());
+      cclIds.data(), sizeof(CCL(UniqueId)) * cclIds.size(), MPI_BYTE, 0, seissol::MPI::mpi.comm());
   MPI_Barrier(seissol::MPI::mpi.comm());
   for (std::size_t i = 0; i < count; ++i) {
-    ncclComm_t preComm = NCCL_COMM_NULL;
-    ncclCommInitRank(&preComm, seissol::MPI::mpi.size(), cclIds[i], seissol::MPI::mpi.rank());
+    CCL(Comm_t) preComm = CCLM(COMM_NULL);
+    CCL(CommInitRank)(&preComm, seissol::MPI::mpi.size(), cclIds[i], seissol::MPI::mpi.rank());
     comms[i] = static_cast<void*>(preComm);
   }
   return comms;
@@ -72,6 +82,55 @@ std::vector<void*> createComms(std::size_t count) {
 
 namespace seissol::time_stepping {
 
+#ifdef ACL_DEVICE
+void CCLNeighborCluster::launch(bool send, bool recv) {
+  // we need to split between sends and receives for LTS interfaces
+  // (i.e. cluster IDs of copy and ghost don't match)
+  // otherwise, we can send+recv everything at once
+
+  auto& handle = [&]() -> device::DeviceGraphHandle& {
+    if (send && recv) {
+      return handle1;
+    }
+    if (send && !recv) {
+      return handle2;
+    }
+    if (!send && recv) {
+      return handle3;
+    }
+    throw;
+  }();
+  stream->runGraphGeneric(handle, [&](parallel::runtime::StreamRuntime& runtime) {
+#ifdef USE_CCL
+    CCL(GroupStart)();
+    for (std::size_t i = 0; i < remote.size(); ++i) {
+      const auto& cluster = remote[i];
+      if (isSend[i]) {
+        if (send) {
+          CCL(Send)(cluster.data,
+                    cluster.size,
+                    cclDatatype(cluster.datatype),
+                    cluster.rank,
+                    static_cast<CCL(Comm_t)>(comm),
+                    static_cast<StreamT>(runtime.stream()));
+        }
+      } else {
+        if (recv) {
+          CCL(Recv)(cluster.data,
+                    cluster.size,
+                    cclDatatype(cluster.datatype),
+                    cluster.rank,
+                    static_cast<CCL(Comm_t)>(comm),
+                    static_cast<StreamT>(runtime.stream()));
+        }
+      }
+    }
+    CCL(GroupEnd)();
+#endif
+  });
+}
+#endif
+
 bool CCLNeighborCluster::mayCorrect() {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
@@ -82,45 +141,50 @@ bool CCLNeighborCluster::mayCorrect() {
 }
 
 void CCLNeighborCluster::handleAdvancedPredictionTimeMessage(
-    const NeighborCluster& /*neighborCluster*/) {
-  assert(stream.test());
+    const NeighborCluster& neighborCluster) {
   if (remote.size() > 0) {
-#ifdef USE_CCL
-    stream->runGraphGeneric(handle, [&](parallel::runtime::StreamRuntime& runtime) {
-      ncclGroupStart();
-      for (std::size_t i = 0; i < remote.size(); ++i) {
-        const auto& cluster = remote[i];
-        if (isSend[i]) {
-          ncclSend(cluster.data,
-                   cluster.size,
-                   cclDatatype(cluster.datatype),
-                   cluster.rank,
-                   static_cast<ncclComm_t>(comm),
-                   static_cast<StreamT>(runtime.stream()));
-        } else {
-          ncclRecv(cluster.data,
-                   cluster.size,
-                   cclDatatype(cluster.datatype),
-                   cluster.rank,
-                   static_cast<ncclComm_t>(comm),
-                   static_cast<StreamT>(runtime.stream()));
-        }
+    if (globalClusterId == otherGlobalClusterId) {
+      launch(true, true);
+      event = stream->eventRecord();
+    } else {
+      launch(true, false);
+      if (globalClusterId > otherGlobalClusterId) {
+        launch(false, true);
+        event = stream->eventRecord();
       }
-      ncclGroupEnd();
-    });
-#endif
-    event = stream->eventRecord();
+    }
   }
 }
 
 void CCLNeighborCluster::handleAdvancedCorrectionTimeMessage(
-    const NeighborCluster& neighborCluster) {}
+    const NeighborCluster& neighborCluster) {
+
+  auto upcomingCorrectionSteps = ct.stepsSinceLastSync;
+  if (state == ActorState::Predicted) {
+    upcomingCorrectionSteps = ct.nextCorrectionSteps();
+  }
+
+  const bool ignoreMessage = upcomingCorrectionSteps >= ct.stepsUntilSync;
+
+  // If we are already at a sync point, we must not post an additional receive, as otherwise start()
+  // posts an additional request. This is also true for the last sync point (i.e. end of
+  // simulation), as in this case we do not want to have any hanging request.
+  if (!ignoreMessage && remote.size() > 0 && globalClusterId < otherGlobalClusterId) {
+    launch(false, true);
+  }
+}
 
 void CCLNeighborCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
   logError() << "CCL timeout. More info TBD.";
 }
 
-void CCLNeighborCluster::start() {}
+void CCLNeighborCluster::start() {
+  if (remote.size() > 0) {
+    if (globalClusterId < otherGlobalClusterId) {
+      launch(false, true);
+    }
+  }
+}
 void CCLNeighborCluster::predict() {}
 void CCLNeighborCluster::correct() {}
 
@@ -183,10 +247,10 @@ CCLNeighborCluster::CCLNeighborCluster(double maxTimeStepSize,
 #ifdef USE_CCL_REGISTER
   for (const auto& cluster : remote) {
     void* handle = nullptr;
-    ncclCommRegister(reinterpret_cast<ncclComm_t>(comm),
-                     cluster.data,
-                     cluster.size * sizeof(real), // TODO(David): use cluster.datatype here instead
-                     &handle);
+    CCL(CommRegister)(reinterpret_cast<CCL(Comm_t)>(comm),
+                      cluster.data,
+                      cluster.size * sizeOfRealType(cluster.datatype),
+                      &handle);
     memoryHandles.push_back(handle);
   }
 #endif
@@ -195,7 +259,7 @@ CCLNeighborCluster::CCLNeighborCluster(double maxTimeStepSize,
 CCLNeighborCluster::~CCLNeighborCluster() {
 #ifdef USE_CCL_REGISTER
   for (void* handle : memoryHandles) {
-    ncclCommDeregister(reinterpret_cast<ncclComm_t>(comm), &handle);
+    CCL(CommDeregister)(reinterpret_cast<CCL(Comm_t)>(comm), &handle);
   }
 #endif
 }

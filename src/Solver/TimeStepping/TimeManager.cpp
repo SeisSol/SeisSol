@@ -210,8 +210,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
         auto ghostCluster = GhostTimeClusterFactory::get(otherTimeStepSize,
                                                          otherTimeStepRate,
-                                                         layer.id(),
-                                                         i,
+                                                         clusterId,
+                                                         other.lts,
                                                          haloStructure,
                                                          preferredDataTransferMode,
                                                          persistent);
