@@ -215,9 +215,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     const auto& cells = layout.cellMap;
     if (layer.getIdentifier().halo == HaloType::Interior ||
         layer.getIdentifier().halo == HaloType::Copy) {
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
       for (std::size_t i = 0; i < cells.size(); ++i) {
         const auto cell = cells[i];
         const auto index = i;
@@ -259,9 +258,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
         }
       }
     } else if (layer.getIdentifier().halo == HaloType::Ghost) {
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
       for (std::size_t i = 0; i < cells.size(); ++i) {
         const auto cell = cells[i];
 
@@ -308,9 +306,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       const std::size_t size = layer.size();
       auto* cellInfo = layer.var<LTS::CellInformation>();
       const auto* cellInfo2 = layer.var<LTS::SecondaryInformation>();
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
       for (std::size_t i = 0; i < size; ++i) {
         cellInfo[i].plasticityEnabled = pdis.find(cellInfo2[i].group) == pdis.end();
       }

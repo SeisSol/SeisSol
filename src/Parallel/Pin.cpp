@@ -163,6 +163,7 @@ CpuMask Pinning::getWorkerUnionMask() {
 #ifndef __APPLE__
   cpu_set_t workerUnion;
   CPU_ZERO(&workerUnion);
+
 #ifdef _OPENMP
 #pragma omp parallel default(none) shared(workerUnion)
   {

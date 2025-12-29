@@ -421,9 +421,8 @@ int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWig
     if (lb != clusteringCache.end()) {
       // use the cache
       const auto newClusterIds = computeClusterIds(curWiggleFactor);
-#ifdef _OPENMP
+
 #pragma omp parallel for reduction(+ : cellchanges)
-#endif
       for (std::size_t cell = 0; cell < m_meshTopology->cells().size(); ++cell) {
         if (lb->second[cell] > newClusterIds[cell]) {
           ++cellchanges;
@@ -450,9 +449,8 @@ int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWig
 std::vector<int> LtsWeights::computeClusterIds(double curWiggleFactor) {
   const auto& cells = m_meshTopology->cells();
   std::vector<int> clusterIds(cells.size(), 0);
-#ifdef _OPENMP
+
 #pragma omp parallel for
-#endif
   for (std::size_t cell = 0; cell < cells.size(); ++cell) {
     clusterIds[cell] = getCluster(
         m_details.cellTimeStepWidths[cell], m_details.globalMinTimeStep, curWiggleFactor, m_rate);
@@ -554,9 +552,7 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
   const auto& faces = m_meshTopology->faces();
   const void* boundaryCond = m_meshTopology->cellData(1);
 
-#ifdef _OPENMP
 #pragma omp parallel for reduction(+ : numberOfReductions)
-#endif
   for (std::size_t cell = 0; cell < cells.size(); ++cell) {
     int timeCluster = m_clusterIds[cell];
 
@@ -622,9 +618,7 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
 
   MPI_Waitall(2 * numExchanges, requests.data(), MPI_STATUSES_IGNORE);
 
-#ifdef _OPENMP
 #pragma omp parallel for reduction(+ : numberOfReductions)
-#endif
   for (std::size_t bcell = 0; bcell < boundaryCells.size(); ++bcell) {
     const auto cell = boundaryCells[bcell];
     int& timeCluster = m_clusterIds[cell];

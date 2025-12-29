@@ -322,9 +322,7 @@ Distributor::DistributionInstance Distributor::distributeRaw(
   char* sourceReordered = reinterpret_cast<char*>(std::malloc(typesize * sendReorder.size()));
   char* targetReordered = reinterpret_cast<char*>(std::malloc(typesize * recvReorder.size()));
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t i = 0; i < sendReorder.size(); ++i) {
     std::memcpy(sourceReordered + i * typesize, sourceChar + sendReorder[i] * typesize, typesize);
   }
@@ -366,9 +364,7 @@ Distributor::DistributionInstance Distributor::distributeRaw(
     auto requests2 = requests;
     MPI_Waitall(requests2.size(), requests2.data(), MPI_STATUSES_IGNORE);
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
     for (std::size_t i = 0; i < recvReorder.size(); ++i) {
       copyFn(targetChar + i * typesizeTarget, targetReordered + recvReorder[i] * typesize);
     }

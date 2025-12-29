@@ -88,10 +88,10 @@ void FreeSurfaceIntegrator::calculateOutput() const {
     const auto* side = surfaceLayer.var<SurfaceLTS::Side>();
     const auto* outputPosition = surfaceLayer.var<SurfaceLTS::OutputPosition>();
 
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#if !NVHPC_AVOID_OMP
 #pragma omp parallel for schedule(static) default(none)                                            \
     shared(surfaceLayer, dofs, displacementDofs, side, outputPosition)
-#endif // _OPENMP
+#endif
     for (std::size_t face = 0; face < surfaceLayer.size(); ++face) {
       if (outputPosition[face] != std::numeric_limits<std::size_t>::max()) {
         alignas(Alignment) real subTriangleDofs[tensor::subTriangleDofs::size(MaxRefinement)];
@@ -286,10 +286,9 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
     std::size_t numberOfFreeSurfaces = 0;
     std::size_t numberOfOutputFreeSurfaces = 0;
     const auto layerSize = layer.size();
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)                                                          \
     reduction(+ : numberOfFreeSurfaces, numberOfOutputFreeSurfaces)
-#endif // _OPENMP
     for (std::size_t cell = 0; cell < layerSize; ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (initializer::requiresDisplacement(

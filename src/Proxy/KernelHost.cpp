@@ -44,15 +44,12 @@ void ProxyKernelHostAder::run(ProxyData& data,
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
 
-#ifdef _OPENMP
 #pragma omp parallel
-#endif
   {
     LIKWID_MARKER_START("ader");
     kernels::LocalTmp tmp(9.81);
-#ifdef _OPENMP
+
 #pragma omp for schedule(static)
-#endif
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
       data.spacetimeKernel.computeAder(
@@ -89,15 +86,12 @@ void ProxyKernelHostLocalWOAder::run(ProxyData& data,
   const auto nrOfCells = layer.size();
   real* const* buffers = layer.var<LTS::Buffers>();
 
-#ifdef _OPENMP
 #pragma omp parallel
-#endif
   {
     LIKWID_MARKER_START("localwoader");
     kernels::LocalTmp tmp(9.81);
-#ifdef _OPENMP
+
 #pragma omp for schedule(static)
-#endif
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
       data.localKernel.computeIntegral(buffers[cell], local, tmp, nullptr, nullptr, 0, 0);
@@ -138,15 +132,12 @@ void ProxyKernelHostLocal::run(ProxyData& data,
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
 
-#ifdef _OPENMP
 #pragma omp parallel
-#endif
   {
     LIKWID_MARKER_START("local");
     kernels::LocalTmp tmp(9.81);
-#ifdef _OPENMP
+
 #pragma omp for schedule(static)
-#endif
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
       data.spacetimeKernel.computeAder(
@@ -173,14 +164,11 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
 
   // note: we use GTS here, in all cases
 
-#ifdef _OPENMP
 #pragma omp parallel private(timeIntegrated, faceNeighborsPrefetch)
-#endif
   {
     LIKWID_MARKER_START("neighboring");
-#ifdef _OPENMP
+
 #pragma omp for schedule(static)
-#endif
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
       seissol::kernels::TimeCommon::computeIntegrals(
@@ -271,9 +259,7 @@ void ProxyKernelHostGodunovDR::run(ProxyData& data,
       seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, Timestep);
   const auto coeffsCollocate = seissol::kernels::timeBasis().collocate(timePoints, Timestep);
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static) private(qInterpolatedPlus, qInterpolatedMinus)
-#endif
   for (std::size_t face = 0; face < layerData.size(); ++face) {
     const std::size_t prefetchFace = (face + 1 < layerData.size()) ? face + 1 : face;
     data.dynRupKernel.spaceTimeInterpolation(faceInformation[face],

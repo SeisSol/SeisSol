@@ -255,9 +255,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   std::vector<CubeVertex> vertices;
   vertices.resize(numElemPerPart[3] * 4);
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(3)
-#endif // _OPENMP
   for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
     for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
       for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -337,9 +335,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
        3}};
 
   // Calculate elemNeighbors
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(3)
-#endif // _OPENMP
   for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
     for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
       for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -471,9 +467,8 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
       memset(elemBoundaries, 0, sizeof(int) * numElemPerPart[3] * 4);
 
       if (x == 0) { // first partition in x dimension
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
         for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy) % 2;
@@ -492,9 +487,8 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         }
       }
       if (x == numPartitions[0] - 1) { // last partition in x dimension
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
         for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy + 1) % 2;
@@ -521,9 +515,8 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         }
       }
       if (y == 0) { // first partition in y dimension
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
         for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (zz + xx) % 2;
@@ -542,9 +535,8 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         }
       }
       if (y == numPartitions[1] - 1) { // last partition in y dimension
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
         for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (zz + xx + 1) % 2;
@@ -571,9 +563,9 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         }
       }
       if (z == 0) { // first partition in z dimension
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (yy + xx) % 2;
@@ -589,9 +581,9 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         }
       }
       if (z == numPartitions[2] - 1) { // last partition in z dimension
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             //                                                                    int odd =
@@ -630,9 +622,9 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   int* elemNeighborSides = new int[numElemPerPart[3] * 4];
   int* elemNeighborSidesDef = new int[numElemPerPart[3] * 4];
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(3)
-#endif // _OPENMP
+
   for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
     for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
       for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -650,9 +642,9 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
       memcpy(elemNeighborSides, elemNeighborSidesDef, sizeof(int) * numElemPerPart[3] * 4);
 
       if (boundaryMinx != 6 && x == 0) { // first partition in x dimension
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy) % 2;
@@ -668,9 +660,9 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         }
       }
       if (boundaryMaxx != 6 && x == numPartitions[0] - 1) { // last partition in x dimension
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy + 1) % 2;
@@ -697,9 +689,9 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         }
       }
       if (boundaryMiny != 6 && y == 0) { // first partition in y dimension
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (zz + xx) % 2;
@@ -714,9 +706,9 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         }
       }
       if (boundaryMaxy != 6 && y == numPartitions[1] - 1) { // last partition in y dimension
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (zz + xx + 1) % 2;
@@ -743,9 +735,9 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         }
       }
       if (boundaryMinz != 6 && z == 0) { // first partition in z dimension
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (yy + xx) % 2;
@@ -760,9 +752,9 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         }
       }
       if (boundaryMaxz != 6 && z == numPartitions[2] - 1) { // last partition in z dimension
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             //                                                                    int odd =
@@ -801,9 +793,9 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   int* elemSideOrientations = new int[numElemPerPart[3] * 4];
   int* elemSideOrientationsDef = new int[numElemPerPart[3] * 4];
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(3)
-#endif // _OPENMP
+
   for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
     for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
       for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -822,9 +814,9 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
       memcpy(elemSideOrientations, elemSideOrientationsDef, sizeof(int) * numElemPerPart[3] * 4);
 
       if (boundaryMinx != 6 && x == 0) { // first partition in x dimension
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy) % 2;
@@ -843,9 +835,9 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         }
       }
       if (boundaryMaxx != 6 && x == numPartitions[0] - 1) { // last partition in x dimension
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy + 1) % 2;
@@ -871,59 +863,12 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
           }
         }
       }
-      // There are zero anyway
-      //                              if (boundaryMiny != 6 && y == 0) { // first partition in y
-      //                              dimension
-      //                                      #ifdef _OPENMP
-      //                                      #pragma omp parallel for schedule(static) collapse(2)
-      //                                      #endig // _OPENMP
-      //                                      for (std::size_t zz = 0; zz < numCubesPerPart[2];
-      //                                      zz++) {
-      //                                              for (std::size_t xx = 0; xx <
-      //                                              numCubesPerPart[0]; xx++) {
-      //                                                      int odd = (zz+xx) % 2;
-      //                                                      if (odd) {
-      //                                                              elemSideOrientations[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx)
-      //                                                              * 20 + 6] = 0;
-      //                                                              elemSideOrientations[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx)
-      //                                                              * 20 + 9] = 0;
-      //                                                      } else {
-      //                                                              elemSideOrientations[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx)
-      //                                                              * 20 + 1] = 0;
-      //                                                              elemSideOrientations[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx)
-      //                                                              * 20 + 10] = 0;
-      //                                                      }
-      //                                              }
-      //                                      }
-      //                              }
-      //                              if (boundaryMaxy != 6 && y == numPartitions[1]-1) { //
-      //                              last partition in y dimension
-      //                                      #ifdef _OPENMP
-      //                                      #pragma omp parallel for schedule(static) collapse(2)
-      //                                      #endig // _OPENMP
-      //                                      for (std::size_t zz = 0; zz < numCubesPerPart[2];
-      //                                      zz++) {
-      //                                              for (std::size_t xx = 0; xx <
-      //                                              numCubesPerPart[0]; xx++) {
-      //                                                      int odd = (zz+xx+1) % 2;
-      //                                                      if (odd) {
-      //                                                              elemSideOrientations[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx)
-      //                                                              * 20 + 3] = 0;
-      //                                                              elemSideOrientations[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx)
-      //                                                              * 20 + 14] = 0;
-      //                                                      } else {
-      //                                                              elemSideOrientations[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx)
-      //                                                              * 20 + 7] = 0;
-      //                                                              elemSideOrientations[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx)
-      //                                                              * 20 + 13] = 0;
-      //                                                      }
-      //                                              }
-      //                                      }
-      //                              }
+      // The rest are zero anyways
+
       if (boundaryMinz != 6 && z == 0) { // first partition in z dimension
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (yy + xx) % 2;
@@ -938,9 +883,9 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         }
       }
       if (boundaryMaxz != 6 && z == numPartitions[2] - 1) { // last partition in z dimension
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             //                                                                    int odd =
@@ -990,9 +935,8 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         const int rank = (z * numPartitions[1] + y) * numPartitions[0] +
                          (x - 1 + numPartitions[0]) % numPartitions[0];
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy) % 2;
@@ -1014,9 +958,8 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
           x != numPartitions[0] - 1) { // last partition in x dimension
         const int rank = (z * numPartitions[1] + y) * numPartitions[0] + (x + 1) % numPartitions[0];
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
             const int odd = (zz + yy + 1) % 2;
@@ -1047,9 +990,8 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
                              numPartitions[0] +
                          x;
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (zz + xx) % 2;
@@ -1071,9 +1013,8 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
           y != numPartitions[1] - 1) { // last partition in y dimension
         const int rank = (z * numPartitions[1] + (y + 1) % numPartitions[1]) * numPartitions[0] + x;
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (zz + xx + 1) % 2;
@@ -1104,9 +1045,8 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
                              numPartitions[0] +
                          x;
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (yy + xx) % 2;
@@ -1125,9 +1065,8 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         const int rank =
             (((z + 1) % numPartitions[2]) * numPartitions[1] + y) * numPartitions[0] + x;
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
-#endif // _OPENMP
+
         for (std::size_t yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             //                                                                    int odd =
@@ -1498,9 +1437,8 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   for (std::size_t z = 0; z < numPartitions[2]; z++) {
     for (std::size_t y = 0; y < numPartitions[1]; y++) {
       const std::size_t x = rank;
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif // _OPENMP
       for (std::size_t i = 0; i < uniqueVertices.size(); i++) {
         vrtxCoords[static_cast<size_t>(i * 3)] =
             static_cast<double>(uniqueVertices.at(i).v[0] + x * numCubesPerPart[0]) /

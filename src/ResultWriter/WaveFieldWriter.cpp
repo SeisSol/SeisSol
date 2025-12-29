@@ -482,9 +482,7 @@ void seissol::writer::WaveFieldWriter::write(double time) {
           async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>::managedBuffer<
               real*>(m_variableBufferIds[1] + nextId);
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif // _OPENMP
       for (unsigned int j = 0; j < m_numLowCells; j++) {
         managedBuffer[j] = m_integrals[m_map[j] * m_numIntegratedVariables + nextId];
       }
