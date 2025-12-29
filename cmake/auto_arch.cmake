@@ -174,7 +174,36 @@ function(determine_host_arch arch)
         endif()
     endif()
     if (CMAKE_SYSTEM_PROCESSOR STREQUAL "loongarch64")
-        # TODO: lsx lasx
+        check_source_runs(CXX
+            "
+            int main() {
+            #ifdef __loongarch_sx
+                return 0;
+            #else
+                return 1;
+            #endif
+            }
+            "
+            HAS_LSX
+        )
+        check_source_runs(CXX
+            "
+            int main() {
+            #ifdef __loongarch_asx
+                return 0;
+            #else
+                return 1;
+            #endif
+            }
+            "
+            HAS_LASX
+        )
+
+        if (HAS_LASX)
+            set(myarch "lasx")
+        elseif(HAS_LSX)
+            set(myarch "lsx")
+        endif()
     endif()
 
     cmake_pop_check_state()
@@ -183,21 +212,72 @@ function(determine_host_arch arch)
 endfunction()
 
 function(determine_nvidia_arch arch)
-    # TODO: just call CUDA?
 
-    execute_process(COMMAND nvptx-arch OUTPUT_VARIABLE myarch)
+    execute_process(COMMAND "nvptx-arch" OUTPUT_VARIABLE myarch RESULT_VARIABLE res)
 
-    string(REGEX REPLACE "[ \t\r\n]" "" myarch "${myarch}")
+    if (res EQUAL "0")
 
-    set(${arch} "${myarch}" PARENT_SCOPE)
+        string(REGEX MATCH "[ \t\r\n]" "" myarch "${myarch}")
+
+        set(${arch} "${myarch}" PARENT_SCOPE)
+
+    else()
+
+        execute_process(COMMAND "nvidia-smi --query-gpu="compute_cap" --format=noheader --id=0"
+            OUTPUT_VARIABLE premyarch RESULT_VARIABLE res)
+
+        if (res EQUAL "0")
+
+            string(REGEX REPLACE "\." "" premyarch "${premyarch}")
+
+            set(${arch} "${myarch}" PARENT_SCOPE)
+
+        endif()
+
+    endif()
+
 endfunction()
 
 function(determine_amd_arch arch)
-    # TODO: just call HIP?
 
-    execute_process(COMMAND amdgpu-arch OUTPUT_VARIABLE myarch)
+    execute_process(COMMAND amdgpu-arch OUTPUT_VARIABLE myarch RESULT_VARIABLE res)
 
-    string(REGEX REPLACE "[ \t\r\n]" "" myarch "${myarch}")
+    if (res EQUAL "0")
 
-    set(${arch} "${myarch}" PARENT_SCOPE)
+        string(REGEX MATCH "\s+" "" myarch "${myarch}")
+
+        set(${arch} "${myarch}" PARENT_SCOPE)
+
+    else()
+
+        execute_process(COMMAND rocm_agent_enumerator OUTPUT_VARIABLE myarch RESULT_VARIABLE res)
+
+        if (res EQUAL "0")
+
+            string(REGEX MATCH "\s+" "" myarch "${myarch}")
+
+            set(${arch} "${myarch}" PARENT_SCOPE)
+
+        endif()
+
+    endif()
+
+endfunction()
+
+function(determine_oneapi_arch arch)
+
+    execute_process(COMMAND sycl-ls --verbose OUTPUT_VARIABLE premyarch RESULT_VARIABLE res)
+
+    if (res EQUAL "0")
+
+        string(REGEX MATCH "Architecture: \s+_gpu_(\s+)" _ "${premyarch}")
+
+        if (CMAKE_MATCH_COUNT GREATER 1)
+            set(myarch ${CMAKE_MATCH_1})
+        endif()
+
+        set(${arch} "${myarch}" PARENT_SCOPE)
+
+    endif()
+
 endfunction()
