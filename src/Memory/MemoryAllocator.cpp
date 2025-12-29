@@ -22,6 +22,86 @@
 #include "device.h"
 #endif
 
+#ifdef USE_SHMEM
+
+#ifdef USE_NVSHMEM
+#include <nvshmem.h>
+#include <nvshmemx.h>
+#endif
+
+#ifdef USE_ROCSHMEM
+#include <rocshmem.h>
+#endif
+
+#ifdef USE_ISHMEM
+#include <ishmem.h>
+#include <ishmemx.h>
+#endif
+
+namespace {
+
+void* mallocShmemInternal(std::size_t size, std::size_t alignment) {
+#ifdef USE_NVSHMEM
+  return nvshmem_align(alignment, size);
+#endif
+#ifdef USE_ROCSHMEM
+  return rocshmem_align(alignment, size);
+#endif
+#ifdef USE_ISHMEM
+  return ishmem_align(alignment, size);
+#endif
+}
+
+void* mallocShmem(std::size_t size, std::size_t alignment) {
+  std::size_t trueSize = ((size + alignment - 1) / alignment) * alignment;
+  std::size_t totalSize = trueSize;
+
+  std::size_t start = 0;
+
+  MPI_Allreduce(&trueSize,
+                &totalSize,
+                1,
+                seissol::MPI::castToMpiType<std::size_t>(),
+                MPI_SUM,
+                seissol::MPI::mpi.comm());
+  MPI_Exscan(&trueSize,
+             &start,
+             1,
+             seissol::MPI::castToMpiType<std::size_t>(),
+             MPI_SUM,
+             seissol::MPI::mpi.comm());
+
+  void* ptr = mallocShmemInternal(totalSize, alignment);
+
+  uint8_t* dataPtr = reinterpret_cast<uint8_t*>(ptr);
+  dataPtr += start;
+
+  return reinterpret_cast<void*>(dataPtr);
+}
+
+void* freeShmemInternal(void* ptr) {
+#ifdef USE_NVSHMEM
+  nvshmem_free(ptr);
+#endif
+#ifdef USE_ROCSHMEM
+  rocshmem_free(ptr);
+#endif
+#ifdef USE_ISHMEM
+  ishmem_free(ptr);
+#endif
+}
+
+void freeShmem(void* ptr) {
+  void* startPtr = ptr;
+  MPI_Bcast(&startPtr, 1, seissol::MPI::castToMpiType<std::size_t>(), 0, seissol::MPI::mpi.comm());
+
+  freeShmemInternal(startPtr);
+}
+
+} // namespace
+
+#endif
+
 namespace seissol::memory {
 
 void* allocate(size_t size, size_t alignment, enum Memkind memkind) {
@@ -31,7 +111,7 @@ void* allocate(size_t size, size_t alignment, enum Memkind memkind) {
   bool error = false;
 
   /* handle zero allocation */
-  if (size == 0) {
+  if (size == 0 && memkind != Memkind::Shmem) {
     // logWarning() << "allocation of size 0 requested, returning nullptr; (alignment: " <<
     // alignment << ", memkind: " << memkind << ").";
     ptrBuffer = nullptr;
@@ -64,6 +144,13 @@ void* allocate(size_t size, size_t alignment, enum Memkind memkind) {
     ptrBuffer = device::DeviceInstance::getInstance().api->allocUnifiedMem(size);
   } else if (memkind == PinnedMemory) {
     ptrBuffer = device::DeviceInstance::getInstance().api->allocPinnedMem(size);
+  } else if (memkind == DeviceGlobalCompressed) {
+    ptrBuffer = device::DeviceInstance::getInstance().api->allocGlobMem(size, true);
+#endif
+
+#ifdef USE_SHMEM
+  } else if (memkind == Memkind::Shmem) {
+    ptrBuffer = mallocShmem(size);
 #endif
 
 #if defined(USE_MEMKIND) || defined(ACL_DEVICE)
@@ -98,6 +185,13 @@ void free(void* pointer, enum Memkind memkind) {
     device::DeviceInstance::getInstance().api->freeUnifiedMem(pointer);
   } else if (memkind == PinnedMemory) {
     device::DeviceInstance::getInstance().api->freePinnedMem(pointer);
+  } else if (memkind == DeviceGlobalCompressed) {
+    device::DeviceInstance::getInstance().api->freeGlobMem(pointer);
+#endif
+
+#ifdef USE_SHMEM
+  } else if (memkind == Memkind::Shmem) {
+    freeShmem(pointer);
 #endif
 
 #if defined(USE_MEMKIND) || defined(ACL_DEVICE)

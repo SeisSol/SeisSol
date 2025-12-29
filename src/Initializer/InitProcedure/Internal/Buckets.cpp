@@ -204,7 +204,11 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
     assert(counter == layer.size());
   }
 
-  layer.setEntrySize<LTS::BuffersDerivatives>(manager.size());
+  if (layer.getIdentifier().halo != HaloType::Interior) {
+    layer.setEntrySize<LTS::BuffersDerivativesComm>(manager.size());
+  } else {
+    layer.setEntrySize<LTS::BuffersDerivatives>(manager.size());
+  }
 
   return remoteClusters;
 }
@@ -213,12 +217,18 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
   auto* buffers = layer.var<LTS::Buffers>();
   auto* derivatives = layer.var<LTS::Derivatives>();
 
-  auto* buffersDerivatives = layer.var<LTS::BuffersDerivatives>();
+  const auto commAlloc = layer.getIdentifier().halo != HaloType::Interior;
+  auto* buffersDerivatives = [&]() {
+    return commAlloc ? layer.var<LTS::BuffersDerivativesComm>()
+                     : layer.var<LTS::BuffersDerivatives>();
+  }();
+  auto* buffersDerivativesDevice = [&]() {
+    return commAlloc ? layer.var<LTS::BuffersDerivativesComm>(AllocationPlace::Device)
+                     : layer.var<LTS::BuffersDerivatives>(AllocationPlace::Device);
+  }();
 
   auto* buffersDevice = layer.var<LTS::BuffersDevice>();
   auto* derivativesDevice = layer.var<LTS::DerivativesDevice>();
-
-  auto* buffersDerivativesDevice = layer.var<LTS::BuffersDerivatives>(AllocationPlace::Device);
 
   const auto bufferSize = tensor::I::size();
   const auto derivativeSize = yateto::computeFamilySize<tensor::dQ>();
