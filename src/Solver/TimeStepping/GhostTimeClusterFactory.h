@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_GHOSTTIMECLUSTERFACTORY_H_
 
 #include "Solver/TimeStepping/DirectGhostTimeCluster.h"
-#include <Solver/TimeStepping/HaloCommunication.h>
+#include "Solver/TimeStepping/HaloCommunication.h"
 #ifdef ACL_DEVICE
 #include "Solver/TimeStepping/GhostTimeClusterWithCopy.h"
 #ifdef USE_CCL
@@ -27,12 +27,12 @@ struct GhostTimeClusterFactory {
                                                   int globalTimeClusterId,
                                                   int otherGlobalTimeClusterId,
                                                   const solver::HaloCommunication& meshStructure,
-                                                  MPI::DataTransferMode mode,
+                                                  Mpi::DataTransferMode mode,
                                                   bool persistent) {
     switch (mode) {
 #ifdef ACL_DEVICE
-    case MPI::DataTransferMode::CopyInCopyOutHost: {
-      using GhostClusterT = GhostTimeClusterWithCopy<MPI::DataTransferMode::CopyInCopyOutHost>;
+    case Mpi::DataTransferMode::CopyInCopyOutHost: {
+      using GhostClusterT = GhostTimeClusterWithCopy<Mpi::DataTransferMode::CopyInCopyOutHost>;
       return std::make_unique<GhostClusterT>(maxTimeStepSize,
                                              timeStepRate,
                                              globalTimeClusterId,
@@ -42,7 +42,7 @@ struct GhostTimeClusterFactory {
     }
 #endif // ACL_DEVICE
 #if defined(ACL_DEVICE) && defined(USE_CCL)
-    case MPI::DataTransferMode::DirectCcl: {
+    case Mpi::DataTransferMode::DirectCcl: {
       return std::make_unique<CCLNeighborCluster>(maxTimeStepSize,
                                                   timeStepRate,
                                                   globalTimeClusterId,
@@ -51,7 +51,7 @@ struct GhostTimeClusterFactory {
                                                   persistent);
     }
 #endif // defined(ACL_DEVICE) && defined(USE_CCL)
-    case MPI::DataTransferMode::Direct: {
+    case Mpi::DataTransferMode::Direct: {
       return std::make_unique<DirectGhostTimeCluster>(maxTimeStepSize,
                                                       timeStepRate,
                                                       globalTimeClusterId,

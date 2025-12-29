@@ -6,25 +6,26 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
 #include "Recorders.h"
-#include "utils/logger.h"
-#include <DataTypes/ConditionalKey.h>
-#include <DataTypes/EncodedConstants.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
+
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <utils/logger.h>
 #include <vector>
 #include <yateto.h>
 
 using namespace device;
 using namespace seissol::initializer;
-using namespace seissol::initializer::recording;
+using namespace seissol::recording;
 
 void NeighIntegrationRecorder::record(LTS::Layer& layer) {
   setUpContext(layer);
@@ -67,7 +68,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
                 real* nextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter];
 
                 const bool isGtsNeighbor =
-                    dataHost.get<LTS::CellInformation>().ltsSetup.neighborGTS(face);
+                    dataHost.get<LTS::CellInformation>().ltsSetup.neighborGTSRelation(face);
                 if (isGtsNeighbor) {
 
                   idofsAddressRegistry[neighborBuffer] = nextTempIDofsPtr;

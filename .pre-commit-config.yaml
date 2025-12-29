@@ -48,7 +48,7 @@ repos:
         name: '[MARKDOWN] lint'
 
 -   repo: https://github.com/fsfe/reuse-tool
-    rev: v5.1.1
+    rev: v6.0.0
     hooks:
     -   id: reuse
         name: '[GENERIC] REUSE compatibiltiy'
@@ -57,7 +57,6 @@ repos:
     rev: 25.1.0
     hooks:
     -   id: black
-        language_version: python3.13
         files: ^(?!preprocessing|postprocessing)
         name: '[PYTHON] black'
 -   repo: https://github.com/pycqa/isort
@@ -90,13 +89,13 @@ repos:
     hooks:
     -   id: check-filename
         language: system
-        entry: .ci/filename.py --fix src app
+        entry: .ci/filename.py --fix src app tests
         pass_filenames: false
         name: '[C++] filename check'
     -   id: check-headers
         name: check header conformity
         language: system
-        entry: .ci/header.py --fix src app
+        entry: .ci/header.py --fix src app tests
         pass_filenames: false
         name: '[C++] header check'
 
@@ -105,7 +104,7 @@ repos:
     hooks:
     -   id: clang-format
         name: '[C++] clang-format'
-        files: ^(src|app)
+        files: ^(src|app|tests)
 
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0

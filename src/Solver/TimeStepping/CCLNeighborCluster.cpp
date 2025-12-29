@@ -5,13 +5,16 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "CCLNeighborCluster.h"
-#include <Parallel/MPI.h>
-#include <Parallel/Runtime/Stream.h>
-#include <Solver/TimeStepping/AbstractTimeCluster.h>
-#include <Solver/TimeStepping/HaloCommunication.h>
+
+#include "Parallel/MPI.h"
+#include "Parallel/Runtime/Stream.h"
+#include "Solver/TimeStepping/AbstractTimeCluster.h"
+#include "Solver/TimeStepping/HaloCommunication.h"
+
 #include <memory>
 
 #ifdef USE_CCL
+
 #ifdef CCL_NCCL
 #include <nccl.h>
 using StreamT = cudaStream_t;
@@ -31,9 +34,10 @@ using StreamT = void*;
 #define CCLM(name) ONECCL_##name
 #endif
 
-#include "utils/logger.h"
-#include <device.h>
+#include <Device/device.h>
+#include <utils/logger.h>
 
+namespace seissol {
 namespace {
 constexpr CCL(DataType_t) cclDatatype(RealType type) {
   switch (type) {
@@ -47,6 +51,7 @@ constexpr CCL(DataType_t) cclDatatype(RealType type) {
   }
 }
 } // namespace
+} // namespace seissol
 
 #if defined(CCL_NCCL) || (defined(CCL_RCCL) && NCCL_VERSION_CODE >= 22005)
 #define USE_CCL_REGISTER
@@ -55,22 +60,22 @@ constexpr CCL(DataType_t) cclDatatype(RealType type) {
 #endif
 
 namespace {
-std::vector<void*> createComms(std::size_t count) {
+std::vector<void*> createComms([[maybe_unused]] std::size_t count) {
 #ifdef USE_CCL
   // cf. partially https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/examples.html
   std::vector<CCL(UniqueId)> cclIds(count);
   std::vector<void*> comms(count);
-  if (seissol::MPI::mpi.rank() == 0) {
+  if (seissol::Mpi::mpi.rank() == 0) {
     for (std::size_t i = 0; i < count; ++i) {
       CCL(GetUniqueId)(&cclIds[i]);
     }
   }
   MPI_Bcast(
-      cclIds.data(), sizeof(CCL(UniqueId)) * cclIds.size(), MPI_BYTE, 0, seissol::MPI::mpi.comm());
-  MPI_Barrier(seissol::MPI::mpi.comm());
+      cclIds.data(), sizeof(CCL(UniqueId)) * cclIds.size(), MPI_BYTE, 0, seissol::Mpi::mpi.comm());
+  MPI_Barrier(seissol::Mpi::mpi.comm());
   for (std::size_t i = 0; i < count; ++i) {
     CCL(Comm_t) preComm = CCLM(COMM_NULL);
-    CCL(CommInitRank)(&preComm, seissol::MPI::mpi.size(), cclIds[i], seissol::MPI::mpi.rank());
+    CCL(CommInitRank)(&preComm, seissol::Mpi::mpi.size(), cclIds[i], seissol::Mpi::mpi.rank());
     comms[i] = static_cast<void*>(preComm);
   }
   return comms;
@@ -221,7 +226,7 @@ CCLNeighborCluster::CCLNeighborCluster(double maxTimeStepSize,
     temp[i + local.copy.size()].second = false;
   }
 
-  const auto ownRank = seissol::MPI::mpi.rank();
+  const auto ownRank = seissol::Mpi::mpi.rank();
 
   std::sort(temp.begin(), temp.end(), [&](const auto& a, const auto& b) {
     const auto& rA = a.first;

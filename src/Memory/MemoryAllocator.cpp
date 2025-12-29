@@ -11,15 +11,18 @@
 
 #include "MemoryAllocator.h"
 
+#include "Kernels/Common.h"
+
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
 #include <stdlib.h>
+#include <type_traits>
 #include <utils/logger.h>
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include "device.h"
+#include <Device/device.h>
 #endif
 
 #ifdef USE_SHMEM
@@ -61,15 +64,15 @@ void* mallocShmem(std::size_t size, std::size_t alignment) {
   MPI_Allreduce(&trueSize,
                 &totalSize,
                 1,
-                seissol::MPI::castToMpiType<std::size_t>(),
+                seissol::Mpi::castToMpiType<std::size_t>(),
                 MPI_SUM,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
   MPI_Exscan(&trueSize,
              &start,
              1,
-             seissol::MPI::castToMpiType<std::size_t>(),
+             seissol::Mpi::castToMpiType<std::size_t>(),
              MPI_SUM,
-             seissol::MPI::mpi.comm());
+             seissol::Mpi::mpi.comm());
 
   void* ptr = mallocShmemInternal(totalSize, alignment);
 
@@ -93,7 +96,7 @@ void* freeShmemInternal(void* ptr) {
 
 void freeShmem(void* ptr) {
   void* startPtr = ptr;
-  MPI_Bcast(&startPtr, 1, seissol::MPI::castToMpiType<std::size_t>(), 0, seissol::MPI::mpi.comm());
+  MPI_Bcast(&startPtr, 1, seissol::Mpi::castToMpiType<std::size_t>(), 0, seissol::Mpi::mpi.comm());
 
   freeShmemInternal(startPtr);
 }
@@ -102,33 +105,48 @@ void freeShmem(void* ptr) {
 
 #endif
 
+// TODO: add Device/#48; then refactor away most ifdefs in this file
+
+namespace {
+#ifdef USE_MEMKIND
+constexpr bool HasHBM = true;
+#else
+constexpr bool HasHBM = false;
+#endif
+} // namespace
+
 namespace seissol::memory {
 
-void* allocate(size_t size, size_t alignment, enum Memkind memkind) {
+void* allocate(size_t size, size_t alignment, Memkind memkind) {
   // presumably a clang-tidy bug; it'd want to make ptrBuffer const
   // NOLINTNEXTLINE(misc-const-correctness)
   void* ptrBuffer{nullptr};
   bool error = false;
 
-  /* handle zero allocation */
+  // handle zero-size allocations
   if (size == 0 && memkind != Memkind::Shmem) {
-    // logWarning() << "allocation of size 0 requested, returning nullptr; (alignment: " <<
-    // alignment << ", memkind: " << memkind << ").";
     ptrBuffer = nullptr;
     return ptrBuffer;
   }
 
-#if defined(USE_MEMKIND) || defined(ACL_DEVICE)
-  if (memkind == 0) {
-#endif
+  // switch memkind; reproducing legacy behavior
+  if (memkind == Memkind::HighBandwidth && !HasHBM) {
+    memkind = Memkind::Standard;
+  }
+  if ((memkind == Memkind::DeviceUnifiedMemory || memkind == Memkind::PinnedMemory) &&
+      !isDeviceOn()) {
+    memkind = Memkind::Standard;
+  }
+
+  if (memkind == Memkind::Standard) {
     if (alignment % (sizeof(void*)) != 0) {
       ptrBuffer = malloc(size);
       error = (ptrBuffer == nullptr);
     } else {
       error = (posix_memalign(&ptrBuffer, alignment, size) != 0);
     }
+  } else if (memkind == Memkind::HighBandwidth) {
 #ifdef USE_MEMKIND
-  } else if (memkind == HighBandwidth) {
     if (alignment % (sizeof(void*)) != 0) {
       ptrBuffer = hbw_malloc(size);
       error = (ptrBuffer == nullptr);
@@ -136,86 +154,95 @@ void* allocate(size_t size, size_t alignment, enum Memkind memkind) {
       error = (hbw_posix_memalign(&ptrBuffer, alignment, size) != 0);
     }
 #endif
-
+  } else if (memkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
-  } else if (memkind == DeviceGlobalMemory) {
     ptrBuffer = device::DeviceInstance::getInstance().api->allocGlobMem(size);
-  } else if (memkind == DeviceUnifiedMemory) {
+#endif
+  } else if (memkind == Memkind::DeviceUnifiedMemory) {
+#ifdef ACL_DEVICE
     ptrBuffer = device::DeviceInstance::getInstance().api->allocUnifiedMem(size);
-  } else if (memkind == PinnedMemory) {
+#endif
+  } else if (memkind == Memkind::PinnedMemory) {
+#ifdef ACL_DEVICE
     ptrBuffer = device::DeviceInstance::getInstance().api->allocPinnedMem(size);
-  } else if (memkind == DeviceGlobalCompressed) {
+#endif
+  } else if (memkind == Memkind::DeviceGlobalCompressed) {
+#ifdef ACL_DEVICE
     ptrBuffer = device::DeviceInstance::getInstance().api->allocGlobMem(size, true);
 #endif
-
-#ifdef USE_SHMEM
   } else if (memkind == Memkind::Shmem) {
+#ifdef USE_SHMEM
     ptrBuffer = mallocShmem(size);
 #endif
-
-#if defined(USE_MEMKIND) || defined(ACL_DEVICE)
   } else {
-    logError() << "unknown memkind type used (" << memkind
+    logError() << "unknown memkind type used ("
+               << static_cast<std::underlying_type_t<Memkind>>(memkind)
                << "). Please, refer to the documentation";
   }
-#endif
 
-  if (error) {
-    logError() << "The malloc failed (bytes: " << size << ", alignment: " << alignment
-               << ", memkind: " << memkind << ").";
+  if (error || ptrBuffer == nullptr) {
+    logError() << "The malloc failed (bytes:" << size << ", alignment:" << alignment
+               << ", memkind:" << static_cast<std::underlying_type_t<Memkind>>(memkind) << ").";
   }
 
   return ptrBuffer;
 }
 
-void free(void* pointer, enum Memkind memkind) {
-#if defined(USE_MEMKIND) || defined(ACL_DEVICE)
-  if (memkind == Standard) {
-#endif
+void free(void* pointer, Memkind memkind) {
+
+  if (memkind == Memkind::HighBandwidth && !HasHBM) {
+    memkind = Memkind::Standard;
+  }
+  if ((memkind == Memkind::DeviceUnifiedMemory || memkind == Memkind::PinnedMemory) &&
+      !isDeviceOn()) {
+    memkind = Memkind::Standard;
+  }
+
+  if (memkind == Memkind::Standard) {
     ::free(pointer);
+  } else if (memkind == Memkind::HighBandwidth) {
 #ifdef USE_MEMKIND
-  } else if (memkind == HighBandwidth) {
     hbw_free(pointer);
 #endif
-
+  } else if (memkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
-  } else if (memkind == DeviceGlobalMemory) {
-    device::DeviceInstance::getInstance().api->freeGlobMem(pointer);
-  } else if (memkind == DeviceUnifiedMemory) {
-    device::DeviceInstance::getInstance().api->freeUnifiedMem(pointer);
-  } else if (memkind == PinnedMemory) {
-    device::DeviceInstance::getInstance().api->freePinnedMem(pointer);
-  } else if (memkind == DeviceGlobalCompressed) {
     device::DeviceInstance::getInstance().api->freeGlobMem(pointer);
 #endif
-
-#ifdef USE_SHMEM
+  } else if (memkind == Memkind::DeviceUnifiedMemory) {
+#ifdef ACL_DEVICE
+    device::DeviceInstance::getInstance().api->freeUnifiedMem(pointer);
+#endif
+  } else if (memkind == Memkind::PinnedMemory) {
+#ifdef ACL_DEVICE
+    device::DeviceInstance::getInstance().api->freePinnedMem(pointer);
+#endif
+  } else if (memkind == Memkind::DeviceGlobalCompressed) {
+#ifdef ACL_DEVICE
+    device::DeviceInstance::getInstance().api->freeGlobMem(pointer);
+#endif
   } else if (memkind == Memkind::Shmem) {
+#ifdef USE_SHMEM
     freeShmem(pointer);
 #endif
-
-#if defined(USE_MEMKIND) || defined(ACL_DEVICE)
   } else {
-    logError() << "unknown memkind type used (" << memkind
+    logError() << "unknown memkind type used ("
+               << static_cast<std::underlying_type_t<Memkind>>(memkind)
                << "). Please, refer to the documentation";
   }
-#endif
 }
 
-void memcopy(void* dst,
-             const void* src,
-             std::size_t size,
-             enum Memkind dstMemkind,
-             enum Memkind srcMemkind) {
-  if (dstMemkind == DeviceGlobalMemory && srcMemkind != DeviceGlobalMemory) {
+void memcopy(void* dst, const void* src, std::size_t size, Memkind dstMemkind, Memkind srcMemkind) {
+  if (dstMemkind == Memkind::DeviceGlobalMemory && srcMemkind != Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
     device::DeviceInstance::getInstance().api->copyTo(dst, src, size);
 #endif
-  } else if (dstMemkind != DeviceGlobalMemory && srcMemkind == DeviceGlobalMemory) {
+  } else if (dstMemkind != Memkind::DeviceGlobalMemory &&
+             srcMemkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
     device::DeviceInstance::getInstance().api->copyFrom(dst, src, size);
 #endif
-  } else if (dstMemkind == DeviceGlobalMemory && srcMemkind == DeviceGlobalMemory) {
+  } else if (dstMemkind == Memkind::DeviceGlobalMemory &&
+             srcMemkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
     device::DeviceInstance::getInstance().api->copyBetween(dst, src, size);
 #endif
@@ -254,10 +281,10 @@ void* hostToDevicePointer(void* host, enum Memkind memkind) {
   }
 }
 
-void printMemoryAlignment(std::vector<std::vector<unsigned long long>> memoryAlignment) {
-  logDebug() << "printing memory alignment per struct";
+void printMemoryAlignment(const std::vector<std::vector<unsigned long long>>& memoryAlignment) {
+  logDebug() << "Printing memory alignment per struct";
   for (unsigned long long i = 0; i < memoryAlignment.size(); i++) {
-    logDebug() << memoryAlignment[i][0] << ", " << memoryAlignment[i][1];
+    logDebug() << memoryAlignment[i][0] << "," << memoryAlignment[i][1];
   }
 }
 

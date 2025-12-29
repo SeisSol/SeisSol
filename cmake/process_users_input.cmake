@@ -102,6 +102,10 @@ option(SHARED "Build SeisSol as shared library" OFF)
 
 option(PROXY_PYBINDING "Enable pybind11 for proxy (everything will be compiled with -fPIC)" OFF)
 
+option(BUILD_DOCS "Build the SeisSol Documentation" OFF)
+
+option(BUILD_DOXYGEN "Build the SeisSol Doxygen docs" OFF)
+
 # FIXME: currently unused
 #set(LOG_LEVEL "warning" CACHE STRING "Log level for the code")
 #set(LOG_LEVEL_OPTIONS "debug" "info" "warning" "error")
@@ -321,21 +325,18 @@ if (NOT ${DEVICE_ARCH} STREQUAL "none")
 
     if (${DEVICE_VENDOR} STREQUAL "nvidia")
         set(ALIGNMENT  64)
-        set(VECTORSIZE 128)
+        set(VECTORSIZE 64)
     elseif(${DEVICE_VENDOR} STREQUAL "amd")
-        set(ALIGNMENT 128)
-        set(VECTORSIZE 256)
+        set(ALIGNMENT  128)
+        set(VECTORSIZE 128)
     elseif(${DEVICE_VENDOR} STREQUAL "intel")
-        set(ALIGNMENT 128)
+        set(ALIGNMENT  128)
         set(VECTORSIZE 32)
     else()
-        set(ALIGNMENT 128)
+        set(ALIGNMENT  128)
         set(VECTORSIZE 32)
         message(STATUS "Assume device alignment = 128, for DEVICE_ARCH=${DEVICE_ARCH}")
     endif()
-
-    # for now
-    set(VECTORSIZE ${ALIGNMENT})
 else()
     list(FIND HOST_ARCH_OPTIONS ${HOST_ARCH} INDEX)
     list(GET HOST_ARCH_ALIGNMENT ${INDEX} ALIGNMENT)

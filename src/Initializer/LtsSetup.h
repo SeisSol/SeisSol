@@ -7,43 +7,52 @@
 #ifndef SEISSOL_SRC_INITIALIZER_LTSSETUP_H_
 #define SEISSOL_SRC_INITIALIZER_LTSSETUP_H_
 
-#include <Common/Constants.h>
+#include "Common/Constants.h"
+
 #include <cassert>
 #include <cstdint>
 
 namespace seissol {
 
+/**
+  Encapsules LTS-relevant data, i.e. if pre-time-integrated buffers
+  or a full space-time evolution should be used.
+ */
 class LtsSetup {
   private:
-  constexpr static int IndexNeighborHasDerivatives = 0;
-  constexpr static int IndexNeighborHasGTS = Cell::NumFaces;
-  constexpr static int IndexBuffers = Cell::NumFaces * 2;
-  constexpr static int IndexDerivatives = IndexBuffers + 1;
-  constexpr static int IndexCache = IndexDerivatives + 1;
+  constexpr static std::uint32_t IndexNeighborHasDerivatives = 0;
+  constexpr static std::uint32_t IndexNeighborGTSRelation = Cell::NumFaces;
+  constexpr static std::uint32_t IndexBuffers = Cell::NumFaces * 2;
+  constexpr static std::uint32_t IndexDerivatives = IndexBuffers + 1;
+  constexpr static std::uint32_t IndexCache = IndexDerivatives + 1;
+  constexpr static std::uint32_t CountIndex = IndexCache + 1;
 
   public:
+  using BitmapType = std::uint16_t;
+  static_assert(CountIndex <= sizeof(BitmapType) * 8, "Capacity of the LtsSetup exceeded");
+
   LtsSetup() = default;
 
-  LtsSetup(uint16_t data) : data(data) {}
+  explicit LtsSetup(BitmapType data) : data(data) {}
 
-  constexpr auto setNeighborHasDerivatives(int face, bool derivatives) -> LtsSetup& {
+  constexpr auto setNeighborHasDerivatives(std::uint32_t face, bool derivatives) -> LtsSetup& {
     assert(face < Cell::NumFaces);
     return set(face + IndexNeighborHasDerivatives, derivatives);
   }
 
-  [[nodiscard]] constexpr auto neighborHasDerivatives(int face) const -> bool {
+  [[nodiscard]] constexpr auto neighborHasDerivatives(std::uint32_t face) const -> bool {
     assert(face < Cell::NumFaces);
     return test(face + IndexNeighborHasDerivatives);
   }
 
-  constexpr auto setNeighborGTS(int face, bool gts) -> LtsSetup& {
+  constexpr auto setNeighborGTSRelation(std::uint32_t face, bool gts) -> LtsSetup& {
     assert(face < Cell::NumFaces);
-    return set(face + IndexNeighborHasGTS, gts);
+    return set(face + IndexNeighborGTSRelation, gts);
   }
 
-  [[nodiscard]] constexpr auto neighborGTS(int face) const -> bool {
+  [[nodiscard]] constexpr auto neighborGTSRelation(std::uint32_t face) const -> bool {
     assert(face < Cell::NumFaces);
-    return test(face + IndexNeighborHasGTS);
+    return test(face + IndexNeighborGTSRelation);
   }
 
   constexpr auto setHasBuffers(bool val) -> LtsSetup& { return set(IndexBuffers, val); }
@@ -54,13 +63,15 @@ class LtsSetup {
 
   [[nodiscard]] constexpr auto hasDerivatives() const -> bool { return test(IndexDerivatives); }
 
-  constexpr auto setCacheBuffers(bool val) -> LtsSetup& { return set(IndexCache, val); }
+  constexpr auto setAccumulateBuffers(bool val) -> LtsSetup& { return set(IndexCache, val); }
 
-  [[nodiscard]] constexpr auto cacheBuffers() const -> bool { return test(IndexCache); }
+  [[nodiscard]] constexpr auto accumulateBuffers() const -> bool { return test(IndexCache); }
 
-  [[nodiscard]] constexpr auto test(int index) const -> bool { return (data & (1 << index)) != 0; }
+  [[nodiscard]] constexpr auto test(std::uint32_t index) const -> bool {
+    return (data & (1 << index)) != 0;
+  }
 
-  constexpr auto set(int index, bool value) -> LtsSetup& {
+  constexpr auto set(std::uint32_t index, bool value) -> LtsSetup& {
     if (value) {
       data |= 1 << index;
     } else {
@@ -69,10 +80,10 @@ class LtsSetup {
     return *this;
   }
 
-  [[nodiscard]] constexpr auto unwrap() const -> uint16_t { return data; }
+  [[nodiscard]] constexpr auto unwrap() const -> BitmapType { return data; }
 
   private:
-  uint16_t data{0};
+  BitmapType data{0};
 };
 
 } // namespace seissol

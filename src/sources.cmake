@@ -8,276 +8,276 @@
 # Source code
 add_library(seissol-kernel-lib
 
-# do YATeTo first, since kernel.cpp usually takes really long
+# run YATeTo first, since kernel.cpp usually takes really long
 
 # kernel.cpp usually takes the longest
 # (for CPUs, at least; for GPUs, we have a different library alltogether)
-${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/kernel.cpp
-${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/tensor.cpp
-${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/subroutine.cpp
-${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/init.cpp
+${CMAKE_BINARY_DIR}/codegen/GeneratedCode/kernel.cpp
+${CMAKE_BINARY_DIR}/codegen/GeneratedCode/tensor.cpp
+${CMAKE_BINARY_DIR}/codegen/GeneratedCode/subroutine.cpp
+${CMAKE_BINARY_DIR}/codegen/GeneratedCode/init.cpp
 )
 
-add_library(seissol-common-lib
+# Generated code does only work without red-zone.
+if (HAS_REDZONE)
+  set_source_files_properties(
+      ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
+  )
+endif()
 
-src/Initializer/CellLocalMatrices.cpp
-src/Memory/GlobalData.cpp
-src/Solver/TimeStepping/AbstractGhostTimeCluster.cpp
-src/Solver/TimeStepping/AbstractTimeCluster.cpp
-src/Solver/TimeStepping/ActorState.cpp
-src/Solver/TimeStepping/CommunicationManager.cpp
-src/Solver/TimeStepping/DirectGhostTimeCluster.cpp
-src/Solver/TimeStepping/GhostTimeClusterWithCopy.cpp
-src/Solver/TimeStepping/CCLNeighborCluster.cpp
-src/Solver/TimeStepping/TimeCluster.cpp
-src/Solver/TimeStepping/TimeManager.cpp
-
-src/Kernels/DynamicRupture.cpp
-src/Kernels/Plasticity.cpp
-src/Kernels/TimeCommon.cpp
-src/Kernels/Touch.cpp
-src/Kernels/PointSourceClusterOnHost.cpp
-
-src/Common/Filesystem.cpp
-src/Common/IntegerMaskParser.cpp
-src/DynamicRupture/FrictionLaws/FrictionSolver.cpp
-src/DynamicRupture/FrictionLaws/CpuImpl/LinearSlipWeakening.cpp
-src/DynamicRupture/FrictionLaws/CpuImpl/NoFault.cpp
-src/DynamicRupture/FrictionLaws/CpuImpl/SourceTimeFunction.cpp
-src/DynamicRupture/FrictionLaws/CpuImpl/ThermalPressurization/ThermalPressurization.cpp
-src/DynamicRupture/Initializer/BaseDRInitializer.cpp
-src/DynamicRupture/Initializer/ImposedSlipRatesInitializer.cpp
-src/DynamicRupture/Initializer/LinearSlipWeakeningInitializer.cpp
-src/DynamicRupture/Initializer/RateAndStateInitializer.cpp
-src/DynamicRupture/Misc.cpp
-
-src/Equations/anisotropic/Model/Datastructures.cpp
-src/Equations/poroelastic/Model/Datastructures.cpp
-src/Kernels/LinearCK/GravitationalFreeSurfaceBC.cpp
-
-src/Initializer/InitialFieldProjection.cpp
-src/Initializer/PointMapper.cpp
-src/Modules/Module.cpp
-src/Modules/Modules.cpp
-
-src/Monitoring/FlopCounter.cpp
-src/Monitoring/ActorStateStatistics.cpp
-src/Monitoring/LoopStatistics.cpp
-src/Monitoring/Stopwatch.cpp
-src/Monitoring/Unit.cpp
-
-src/Kernels/Receiver.cpp
-src/Model/Common.cpp
-src/Numerical/Functions.cpp
-src/Numerical/Statistics.cpp
-src/Parallel/Pin.cpp
-src/Parallel/HelperThread.cpp
-src/Physics/InstantaneousTimeMirrorManager.cpp
-src/ResultWriter/ClusteringWriter.cpp
-src/ResultWriter/AsyncIO.cpp
-
-src/SourceTerm/FSRMReader.cpp
-src/SourceTerm/PointSource.cpp
-src/SourceTerm/Manager.cpp
-
-src/Solver/Simulator.cpp
-src/ResultWriter/AnalysisWriter.cpp
-
-src/Initializer/TimeStepping/ClusterLayout.cpp
-src/Solver/TimeStepping/HaloCommunication.cpp
-src/Initializer/TimeStepping/Halo.cpp
-
-${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
-${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
-
-src/Parallel/OpenMP.cpp
-src/Parallel/Runtime/Stream.cpp
-src/Parallel/DataCollector.cpp
-)
-
-# target_link_options(seissol-common-lib PUBLIC seissol-kernel-lib)
 target_compile_options(seissol-kernel-lib PRIVATE -fPIC)
-target_compile_options(seissol-common-lib PRIVATE -fPIC)
 
 if (SHARED)
-add_library(seissol-lib SHARED)
+  add_library(seissol-lib SHARED)
 else()
-add_library(seissol-lib STATIC)
+  add_library(seissol-lib STATIC)
 endif()
 
 target_sources(seissol-lib PRIVATE
 
-src/Solver/Estimator.cpp
+Initializer/CellLocalMatrices.cpp
+Memory/GlobalData.cpp
+Solver/TimeStepping/AbstractGhostTimeCluster.cpp
+Solver/TimeStepping/AbstractTimeCluster.cpp
+Solver/TimeStepping/ActorState.cpp
+Solver/TimeStepping/CommunicationManager.cpp
+Solver/TimeStepping/DirectGhostTimeCluster.cpp
+Solver/TimeStepping/GhostTimeClusterWithCopy.cpp
+Solver/TimeStepping/TimeCluster.cpp
+Solver/TimeStepping/TimeManager.cpp
 
-src/ResultWriter/EnergyOutput.cpp
-src/ResultWriter/FreeSurfaceWriter.cpp
-src/ResultWriter/FreeSurfaceWriterExecutor.cpp
-src/ResultWriter/MiniSeisSolWriter.cpp
-src/ResultWriter/PostProcessor.cpp
-src/ResultWriter/ReceiverWriter.cpp
-src/ResultWriter/ThreadsPinningWriter.cpp
-src/ResultWriter/WaveFieldWriter.cpp
-src/ResultWriter/FaultWriter.cpp
-src/ResultWriter/FaultWriterExecutor.cpp
 
-src/DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp
-src/DynamicRupture/Output/FaultRefiner/FaultRefiners.cpp
-src/DynamicRupture/Output/OutputAux.cpp
-src/DynamicRupture/Output/OutputManager.cpp
-src/DynamicRupture/Output/ReceiverBasedOutput.cpp
+Solver/TimeStepping/CCLNeighborCluster.cpp
 
-src/Geometry/MeshReader.cpp
-src/Geometry/MeshTools.cpp
+Kernels/DynamicRupture.cpp
+Kernels/Plasticity.cpp
+Kernels/TimeCommon.cpp
+Kernels/Touch.cpp
+Kernels/PointSourceClusterOnHost.cpp
 
-src/Initializer/InitProcedure/Init.cpp
-src/Initializer/InitProcedure/InitIO.cpp
-src/Initializer/InitProcedure/InitMesh.cpp
-src/Initializer/InitProcedure/InitModel.cpp
-src/Initializer/InitProcedure/InitIO.cpp
-src/Initializer/InitProcedure/InitSideConditions.cpp
-src/Memory/MemoryAllocator.cpp
-src/Initializer/MemoryManager.cpp
-src/Initializer/ParameterDB.cpp
+Common/Filesystem.cpp
+Common/IntegerMaskParser.cpp
+DynamicRupture/FrictionLaws/FrictionSolver.cpp
+DynamicRupture/FrictionLaws/CpuImpl/LinearSlipWeakening.cpp
+DynamicRupture/FrictionLaws/CpuImpl/NoFault.cpp
+DynamicRupture/FrictionLaws/CpuImpl/SourceTimeFunction.cpp
+DynamicRupture/FrictionLaws/CpuImpl/ThermalPressurization/ThermalPressurization.cpp
+DynamicRupture/Initializer/BaseDRInitializer.cpp
+DynamicRupture/Initializer/ImposedSlipRatesInitializer.cpp
+DynamicRupture/Initializer/LinearSlipWeakeningInitializer.cpp
+DynamicRupture/Initializer/RateAndStateInitializer.cpp
+DynamicRupture/Misc.cpp
 
-src/Initializer/InitProcedure/InitLayout.cpp
-src/Initializer/InitProcedure/Internal/Buckets.cpp
-src/Initializer/InitProcedure/Internal/MeshLayout.cpp
-src/Initializer/InitProcedure/Internal/LtsSetup.cpp
+Equations/anisotropic/Model/Datastructures.cpp
+Equations/poroelastic/Model/Datastructures.cpp
+Kernels/LinearCK/GravitationalFreeSurfaceBC.cpp
 
-src/Initializer/Parameters/CubeGeneratorParameters.cpp
-src/Initializer/Parameters/DRParameters.cpp
-src/Initializer/Parameters/InitializationParameters.cpp
-src/Initializer/Parameters/LtsParameters.cpp
-src/Initializer/Parameters/MeshParameters.cpp
-src/Initializer/Parameters/ModelParameters.cpp
-src/Initializer/Parameters/OutputParameters.cpp
-src/Initializer/Parameters/ParameterReader.cpp
-src/Initializer/Parameters/SeisSolParameters.cpp
-src/Initializer/Parameters/SourceParameters.cpp
+Initializer/InitialFieldProjection.cpp
+Initializer/PointMapper.cpp
+Modules/Module.cpp
+Modules/Modules.cpp
 
-src/Initializer/TimeStepping/GlobalTimestep.cpp
+Monitoring/FlopCounter.cpp
+Monitoring/ActorStateStatistics.cpp
+Monitoring/LoopStatistics.cpp
+Monitoring/Stopwatch.cpp
+Monitoring/Unit.cpp
 
-src/Numerical/ODEInt.cpp
-src/Numerical/ODEVector.cpp
-src/Numerical/Transformation.cpp
+Kernels/Receiver.cpp
+Model/Common.cpp
+Numerical/Functions.cpp
+Numerical/Statistics.cpp
+Parallel/Pin.cpp
+Parallel/HelperThread.cpp
+Physics/InstantaneousTimeMirrorManager.cpp
+ResultWriter/ClusteringWriter.cpp
+ResultWriter/AsyncIO.cpp
 
-src/Physics/InitialField.cpp
+SourceTerm/FSRMReader.cpp
+SourceTerm/PointSource.cpp
+SourceTerm/Manager.cpp
 
-src/SeisSol.cpp
+Solver/Simulator.cpp
+ResultWriter/AnalysisWriter.cpp
 
-src/Solver/FreeSurfaceIntegrator.cpp
+Initializer/TimeStepping/ClusterLayout.cpp
+Solver/TimeStepping/HaloCommunication.cpp
+Initializer/TimeStepping/Halo.cpp
 
-src/Reader/AsagiModule.cpp
-src/Reader/AsagiReader.cpp
+DynamicRupture/Factory.cpp
+Parallel/MPI.cpp
 
-src/Geometry/CubeGenerator.cpp
+Parallel/OpenMP.cpp
+Parallel/Runtime/Stream.cpp
+Parallel/DataCollector.cpp
+
+Solver/Estimator.cpp
+
+ResultWriter/EnergyOutput.cpp
+ResultWriter/FreeSurfaceWriter.cpp
+ResultWriter/FreeSurfaceWriterExecutor.cpp
+ResultWriter/MiniSeisSolWriter.cpp
+ResultWriter/PostProcessor.cpp
+ResultWriter/ReceiverWriter.cpp
+ResultWriter/ThreadsPinningWriter.cpp
+ResultWriter/WaveFieldWriter.cpp
+ResultWriter/FaultWriter.cpp
+ResultWriter/FaultWriterExecutor.cpp
+
+DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp
+DynamicRupture/Output/FaultRefiner/FaultRefiners.cpp
+DynamicRupture/Output/OutputAux.cpp
+DynamicRupture/Output/OutputManager.cpp
+DynamicRupture/Output/ReceiverBasedOutput.cpp
+
+Geometry/MeshReader.cpp
+Geometry/MeshTools.cpp
+
+Initializer/InitProcedure/Init.cpp
+Initializer/InitProcedure/InitIO.cpp
+Initializer/InitProcedure/InitMesh.cpp
+Initializer/InitProcedure/InitModel.cpp
+Initializer/InitProcedure/InitIO.cpp
+Initializer/InitProcedure/InitSideConditions.cpp
+Memory/MemoryAllocator.cpp
+Initializer/MemoryManager.cpp
+Initializer/ParameterDB.cpp
+
+Initializer/InitProcedure/InitLayout.cpp
+Initializer/InitProcedure/Internal/Buckets.cpp
+Initializer/InitProcedure/Internal/MeshLayout.cpp
+Initializer/InitProcedure/Internal/LtsSetup.cpp
+
+Initializer/Parameters/CubeGeneratorParameters.cpp
+Initializer/Parameters/DRParameters.cpp
+Initializer/Parameters/InitializationParameters.cpp
+Initializer/Parameters/LtsParameters.cpp
+Initializer/Parameters/MeshParameters.cpp
+Initializer/Parameters/ModelParameters.cpp
+Initializer/Parameters/OutputParameters.cpp
+Initializer/Parameters/ParameterReader.cpp
+Initializer/Parameters/SeisSolParameters.cpp
+Initializer/Parameters/SourceParameters.cpp
+
+Initializer/TimeStepping/GlobalTimestep.cpp
+
+Numerical/ODEInt.cpp
+Numerical/ODEVector.cpp
+Numerical/Transformation.cpp
+
+Physics/InitialField.cpp
+
+SeisSol.cpp
+
+Solver/FreeSurfaceIntegrator.cpp
+
+Reader/AsagiModule.cpp
+Reader/AsagiReader.cpp
+
+Geometry/CubeGenerator.cpp
 )
-
-set(SYCL_ONLY_SRC_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/AcceleratorDevice.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterOnDevice.cpp)
-
-target_compile_options(seissol-common-properties INTERFACE ${EXTRA_CXX_FLAGS})
 
 if (HDF5 AND MPI)
   target_sources(seissol-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/PartitioningLib.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/PUMLReader.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/TimeStepping/LtsWeights/LtsWeights.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/TimeStepping/LtsWeights/WeightsModels.cpp
+    Geometry/PartitioningLib.cpp
+    Geometry/PUMLReader.cpp
+    Initializer/TimeStepping/LtsWeights/LtsWeights.cpp
+    Initializer/TimeStepping/LtsWeights/WeightsModels.cpp
     )
 endif()
 
 if (NETCDF)
-  target_sources(seissol-common-lib PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/NRFReader.cpp)
+  target_sources(seissol-lib PRIVATE SourceTerm/NRFReader.cpp)
 endif()
 
 
 # Eqations have to be set at compile time currently.
 if ("${EQUATIONS}" STREQUAL "elastic")
-  target_sources(seissol-common-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Local.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Neighbor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Time.cpp
+  target_sources(seissol-lib PRIVATE
+    Kernels/LinearCK/Local.cpp
+    Kernels/LinearCK/Neighbor.cpp
+    Kernels/LinearCK/Time.cpp
     )
-  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic)
+  target_include_directories(seissol-common-properties INTERFACE Equations/elastic)
   target_compile_definitions(seissol-common-properties INTERFACE USE_ELASTIC)
 
 elseif ("${EQUATIONS}" STREQUAL "acoustic")
-  target_sources(seissol-common-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Local.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Neighbor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Time.cpp
+  target_sources(seissol-lib PRIVATE
+    Kernels/LinearCK/Local.cpp
+    Kernels/LinearCK/Neighbor.cpp
+    Kernels/LinearCK/Time.cpp
     )
-  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/acoustic)
+  target_include_directories(seissol-common-properties INTERFACE Equations/acoustic)
   target_compile_definitions(seissol-common-properties INTERFACE USE_ACOUSTIC)
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
-  target_sources(seissol-common-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Local.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Neighbor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Time.cpp
+  target_sources(seissol-lib PRIVATE
+    Kernels/LinearCK/Local.cpp
+    Kernels/LinearCK/Neighbor.cpp
+    Kernels/LinearCK/Time.cpp
     )
-  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic)
+  target_include_directories(seissol-common-properties INTERFACE Equations/viscoelastic)
   target_compile_definitions(seissol-common-properties INTERFACE USE_VISCOELASTIC)
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
-  target_sources(seissol-common-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCKAnelastic/Neighbor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCKAnelastic/Local.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCKAnelastic/Time.cpp
+  target_sources(seissol-lib PRIVATE
+    Kernels/LinearCKAnelastic/Neighbor.cpp
+    Kernels/LinearCKAnelastic/Local.cpp
+    Kernels/LinearCKAnelastic/Time.cpp
   )
-  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2)
+  target_include_directories(seissol-common-properties INTERFACE Equations/viscoelastic2)
   target_compile_definitions(seissol-common-properties INTERFACE USE_VISCOELASTIC2)
 
 elseif ("${EQUATIONS}" STREQUAL "anisotropic")
-  target_sources(seissol-common-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Neighbor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Local.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Time.cpp
+  target_sources(seissol-lib PRIVATE
+    Kernels/LinearCK/Neighbor.cpp
+    Kernels/LinearCK/Local.cpp
+    Kernels/LinearCK/Time.cpp
   )
-  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic)
+  target_include_directories(seissol-common-properties INTERFACE Equations/anisotropic)
   target_compile_definitions(seissol-common-properties INTERFACE USE_ANISOTROPIC)
 
 elseif ("${EQUATIONS}" STREQUAL "poroelastic")
-  target_sources(seissol-common-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Neighbor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Local.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Time.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/STP/Time.cpp
+  target_sources(seissol-lib PRIVATE
+    Kernels/LinearCK/Neighbor.cpp
+    Kernels/LinearCK/Local.cpp
+    Kernels/LinearCK/Time.cpp
+    Kernels/STP/Time.cpp
   )
-  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic)
+  target_include_directories(seissol-common-properties INTERFACE Equations/poroelastic)
   target_compile_definitions(seissol-common-properties INTERFACE USE_POROELASTIC)
 endif()
-
-target_include_directories(seissol-common-properties INTERFACE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders)
 
 
 # GPU code
 if (WITH_GPU)
   target_sources(seissol-lib PRIVATE
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/LocalIntegrationRecorder.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/NeighIntegrationRecorder.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/PlasticityRecorder.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/DynamicRuptureRecorder.cpp)
-
-
-  set(SEISSOL_DEVICE_INCLUDE ${DEVICE_INCLUDE_DIRS}
-                             ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
-                             ${CMAKE_BINARY_DIR}/src
-                             ${CMAKE_BINARY_DIR}/codegen
-                             ${CMAKE_CURRENT_SOURCE_DIR}/src)
+          Initializer/BatchRecorders/LocalIntegrationRecorder.cpp
+          Initializer/BatchRecorders/NeighIntegrationRecorder.cpp
+          Initializer/BatchRecorders/PlasticityRecorder.cpp
+          Initializer/BatchRecorders/DynamicRuptureRecorder.cpp
+          Parallel/AcceleratorDevice.cpp
+          DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.cpp
+          Kernels/PointSourceClusterOnDevice.cpp)
 
   # include cmake files will define seissol-device-lib target
-  if ("${DEVICE_BACKEND}" STREQUAL "cuda")
-    include(${CMAKE_SOURCE_DIR}/src/cuda.cmake)
-  elseif ("${DEVICE_BACKEND}" STREQUAL "hip")
-    include(${CMAKE_SOURCE_DIR}/src/hip.cmake)
+  if ("${DEVICE_BACKEND}" STREQUAL "cuda" OR "${DEVICE_BACKEND}" STREQUAL "hip")
+    set(DEVICE_SRC ${DEVICE_SRC}
+      ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/gpulike_subroutine.cpp
+      Kernels/DeviceAux/cudahip/PlasticityAux.cpp
+      Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
+      DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
+      Kernels/PointSourceClusterCudaHip.cpp)
   elseif ("${DEVICE_BACKEND}" STREQUAL "hipsycl" OR "${DEVICE_BACKEND}" STREQUAL "acpp" OR "${DEVICE_BACKEND}" STREQUAL "oneapi")
-    include(${CMAKE_SOURCE_DIR}/src/sycl.cmake)
+    set(DEVICE_SRC ${DEVICE_SRC}
+          ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/gpulike_subroutine.cpp
+          Kernels/DeviceAux/sycl/PlasticityAux.cpp
+          Kernels/LinearCK/DeviceAux/sycl/KernelsAux.cpp
+          DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverSycl.cpp
+          Kernels/PointSourceClusterSycl.cpp)
   endif()
+
+  make_device_lib(seissol-device-lib "${DEVICE_SRC}")
 
   target_link_libraries(seissol-device-lib PRIVATE seissol-common-properties)
 
@@ -305,8 +305,3 @@ if (WITH_GPU)
     target_compile_definitions(seissol-device-lib PRIVATE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
   endif()
 endif()
-
-add_subdirectory(src/IO)
-target_link_libraries(seissol-lib PUBLIC seissol-io)
-
-add_subdirectory(src/Proxy)

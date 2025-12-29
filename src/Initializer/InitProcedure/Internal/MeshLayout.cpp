@@ -6,13 +6,14 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "MeshLayout.h"
 
-#include <Common/Constants.h>
-#include <Common/Iterator.h>
-#include <Geometry/MeshReader.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/TimeStepping/Halo.h>
-#include <Memory/Tree/Colormap.h>
-#include <Parallel/MPI.h>
+#include "Common/Constants.h"
+#include "Common/Iterator.h"
+#include "Geometry/MeshReader.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/TimeStepping/Halo.h"
+#include "Memory/Tree/Colormap.h"
+#include "Parallel/MPI.h"
+
 #include <algorithm>
 #include <cstddef>
 #include <map>
@@ -60,7 +61,7 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
         for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
           const auto& element = meshReader.getElements()[cell];
 
-          if (element.neighborRanks[f] != seissol::MPI::mpi.rank()) {
+          if (element.neighborRanks[f] != seissol::Mpi::mpi.rank()) {
             const auto ghostLinear = meshReader.toLinearGhostlayer().at(
                 {element.neighborRanks[f], element.mpiIndices[f]});
             const auto colorGhost = ghostColor[ghostLinear];
@@ -182,7 +183,9 @@ std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& c
     const auto minusColor = getColor(fault.neighborElement, fault.element, fault.side);
 
     if (!colorCompare(plusColor, minusColor)) {
-      logError() << "";
+      logError()
+          << "The element setup differs around a fault face (currently, SeisSol requires both "
+             "sides of a fault face to use the same configuration and LTS cluster). Aborting.";
     }
 
     clusters[determineColor(plusColor, minusColor)].emplace_back(i);

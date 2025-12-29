@@ -5,36 +5,45 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Buckets.h"
-#include <Common/Constants.h>
-#include <Common/Real.h>
-#include <Config.h>
-#include <GeneratedCode/tensor.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/CellLocalInformation.h>
-#include <Initializer/TimeStepping/Halo.h>
-#include <Kernels/Common.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Backmap.h>
-#include <Memory/Tree/Layer.h>
-#include <Solver/TimeStepping/HaloCommunication.h>
+
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Common/Real.h"
+#include "Config.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/CellLocalInformation.h"
+#include "Initializer/TimeStepping/Halo.h"
+#include "Kernels/Common.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
+#include "Memory/Tree/Layer.h"
+#include "Solver/TimeStepping/HaloCommunication.h"
+
 #include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
 #include <yateto/InitTools.h>
 
+namespace seissol::initializer::internal {
+
 namespace {
-using namespace seissol::initializer;
-using namespace seissol::initializer::internal;
 
 class BucketManager {
   private:
   std::size_t dataSize{0};
 
   public:
-  real* markAllocate(std::size_t size) {
+  real* markAllocate(std::size_t size, bool align = true) {
+    if (align) {
+      // round up by Alignment
+      this->dataSize = ((this->dataSize + Alignment - 1) / Alignment) * Alignment;
+    }
+
     const uintptr_t offset = this->dataSize;
     this->dataSize += size;
 
@@ -49,21 +58,16 @@ class BucketManager {
 };
 
 template <typename T>
-void initBucketItem(T*& data, void* bucket, std::size_t count, bool memsetCpu) {
+void initBucketItem(T*& data, void* bucket, std::size_t count, bool init) {
   if (data != nullptr) {
     const auto ddata = reinterpret_cast<uintptr_t>(data);
     const auto offset = ddata - 1;
     auto* bucketPtr = reinterpret_cast<uint8_t*>(bucket);
     // this rather strange offset behavior is required by clang-tidy (and the reason makes sense)
     data = reinterpret_cast<T*>(bucketPtr + offset);
-    if (memsetCpu) {
-      std::memset(data, 0, sizeof(T) * count);
-    } else {
-#ifdef ACL_DEVICE
-      void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-      device::DeviceInstance::getInstance().algorithms.fillArray(
-          reinterpret_cast<char*>(data), static_cast<char>(0), sizeof(T) * count, stream);
-#endif
+
+    if (init) {
+      std::memset(data, 0, count * sizeof(T));
     }
   }
 }
@@ -78,9 +82,10 @@ auto useBuffersDerivatives(const LTS::Storage& storage,
   const auto& myPrimary = layer.var<LTS::CellInformation>()[index];
   const auto& mySecondary = layer.var<LTS::SecondaryInformation>()[index];
 
-  // what we do here: we check whether one of our neighbor cells demands derivatives from us.
-  // i.e. we jump onto the neighboring cell (if existent), look for the same face we jumped over
-  // from the other side, and check the `neighborHasDerivatives` for the original cell.
+  // what we do here: we check whether one of our neighbor cells demands derivatives from us which
+  // is in the same region. i.e. we jump onto the neighboring cell (if existent), look for the same
+  // face we jumped over from the other side, and check the `neighborHasDerivatives` for the
+  // original cell.
   for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
     if (mySecondary.faceNeighbors[j] != StoragePosition::NullPosition) {
       const auto& primary = storage.lookup<LTS::CellInformation>(mySecondary.faceNeighbors[j]);
@@ -91,17 +96,24 @@ auto useBuffersDerivatives(const LTS::Storage& storage,
                                mySecondary.halo != HaloType::Interior &&
                                secondary.halo != HaloType::Interior;
 
-      if (isCopyGhost && (secondary.rank == region.rank || mySecondary.rank == region.rank)) {
+      const auto colorCorrect = secondary.color == region.remoteId;
+
+      if (colorCorrect && isCopyGhost &&
+          (secondary.rank == region.rank || mySecondary.rank == region.rank)) {
         for (std::size_t k = 0; k < Cell::NumFaces; ++k) {
           if (secondary.faceNeighbors[k] != StoragePosition::NullPosition) {
             const auto& reverseSecondary =
                 storage.lookup<LTS::SecondaryInformation>(secondary.faceNeighbors[k]);
             if (reverseSecondary.globalId == mySecondary.globalId) {
               if (primary.ltsSetup.neighborHasDerivatives(k)) {
-                assert(myPrimary.ltsSetup.hasDerivatives());
+                if (!myPrimary.ltsSetup.hasDerivatives()) {
+                  logError() << "Setup error: derivatives were requested, but are not present.";
+                }
                 derivatives = true;
               } else {
-                assert(myPrimary.ltsSetup.hasBuffers());
+                if (!myPrimary.ltsSetup.hasBuffers()) {
+                  logError() << "Setup error: buffers were requested, but are not present.";
+                }
                 buffers = true;
               }
             }
@@ -124,7 +136,6 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   auto* buffersDevice = layer.var<LTS::BuffersDevice>();
   auto* derivativesDevice = layer.var<LTS::DerivativesDevice>();
   const auto* cellInformation = layer.var<LTS::CellInformation>();
-  const auto* secondaryCellInformation = layer.var<LTS::SecondaryInformation>();
   BucketManager manager;
 
   const auto datatype = Config::Precision;
@@ -234,35 +245,25 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
   const auto derivativeSize = yateto::computeFamilySize<tensor::dQ>();
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel for schedule(static)
 #endif
-  {
-#ifdef ACL_DEVICE
-    device::DeviceInstance& device = device::DeviceInstance::getInstance();
-    device.api->setDevice(0);
-#endif // ACL_DEVICE
+  for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+    initBucketItem(buffers[cell], buffersDerivatives, bufferSize, true);
+    initBucketItem(derivatives[cell], buffersDerivatives, derivativeSize, true);
 
-#ifdef _OPENMP
-#pragma omp for schedule(static)
-#endif
-    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      initBucketItem(buffers[cell], buffersDerivatives, bufferSize, true);
-      initBucketItem(derivatives[cell], buffersDerivatives, derivativeSize, true);
+    assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffers() ||
+           buffers[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
+    assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasDerivatives() ||
+           derivatives[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
+
+    if constexpr (isDeviceOn()) {
+      initBucketItem(buffersDevice[cell], buffersDerivativesDevice, bufferSize, false);
+      initBucketItem(derivativesDevice[cell], buffersDerivativesDevice, derivativeSize, false);
 
       assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffers() ||
-             buffers[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
+             buffersDevice[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
       assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasDerivatives() ||
-             derivatives[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
-
-      if constexpr (isDeviceOn()) {
-        initBucketItem(buffersDevice[cell], buffersDerivativesDevice, bufferSize, false);
-        initBucketItem(derivativesDevice[cell], buffersDerivativesDevice, derivativeSize, false);
-
-        assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffers() ||
-               buffersDevice[cell] != nullptr);
-        assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasDerivatives() ||
-               derivativesDevice[cell] != nullptr);
-      }
+             derivativesDevice[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
     }
   }
 
@@ -329,7 +330,6 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
 }
 } // namespace
 
-namespace seissol::initializer::internal {
 solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const MeshLayout& layout) {
   std::vector<std::vector<solver::RemoteCluster>> commInfo(storage.getColorMap().size());
 
@@ -345,10 +345,6 @@ solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const M
   for (auto& layer : storage.leaves(Ghost)) {
     setupFaceNeighbors(storage, layer);
   }
-
-#ifdef ACL_DEVICE
-  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
-#endif
 
   solver::HaloCommunication communication;
 

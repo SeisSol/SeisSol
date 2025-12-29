@@ -73,7 +73,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   :maxdepth: 2
   :caption: SeisSol on Supercomputers
 
-  behind_firewall
+  behind-firewall
   supermuc
   shaheen
   frontera
@@ -92,7 +92,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   meshing-with-pumgen
   gmsh
   asagi
-  PUML-mesh-format
+  puml-mesh-format
 
 .. toctree::
   :maxdepth: 2
@@ -100,7 +100,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
 
   dynamic-rupture
   standard-rupture-format
-  slip-rate-on-DR
+  slip-rate-on-dr
   point-source-older-implementation
 
 .. toctree::
@@ -134,7 +134,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   :maxdepth: 2
   :caption: Tutorials
 
-  simmodelerCAD-workflow
+  simmodeler-cad-workflow
   generating-a-cad-model-using-gocad-basic-tutorial
   generating-a-megathrust-geometry
   fully-coupled-mesh-tutorial
@@ -146,7 +146,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   :maxdepth: 2
   :caption: Cookbook
 
-  cookbook_overview
+  cookbook-overview
   tpv5
   tpv6
   tpv12

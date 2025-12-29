@@ -5,30 +5,30 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Common/Constants.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/Condition.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Kernels/Interface.h"
+#include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
 #include "Recorders.h"
-#include <Common/Constants.h>
-#include <DataTypes/ConditionalKey.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Kernels/Precision.h>
-#include <Kernels/Solver.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
+
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <vector>
 #include <yateto.h>
 
-#include "DataTypes/Condition.h"
-#include "DataTypes/ConditionalTable.h"
-#include "DataTypes/EncodedConstants.h"
-
 using namespace device;
 using namespace seissol::initializer;
-using namespace seissol::initializer::recording;
+using namespace seissol::recording;
 
 void LocalIntegrationRecorder::record(LTS::Layer& layer) {
   setUpContext(layer);
@@ -77,7 +77,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       // idofs
       real* nextIdofPtr = &integratedDofsScratch[integratedDofsAddressCounter];
       const bool isBuffersProvided = dataHost.get<LTS::CellInformation>().ltsSetup.hasBuffers();
-      const bool isLtsBuffers = dataHost.get<LTS::CellInformation>().ltsSetup.cacheBuffers();
+      const bool isLtsBuffers = dataHost.get<LTS::CellInformation>().ltsSetup.accumulateBuffers();
 
       if (isBuffersProvided) {
         if (isLtsBuffers) {

@@ -8,12 +8,12 @@
 #ifndef SEISSOL_SRC_NUMERICAL_FUNCTIONS_H_
 #define SEISSOL_SRC_NUMERICAL_FUNCTIONS_H_
 
+#include "Common/Marker.h"
+
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-
-#include "Common/Marker.h"
 
 namespace seissol::functions {
 

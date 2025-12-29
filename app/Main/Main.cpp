@@ -6,9 +6,14 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
+#include "Initializer/InitProcedure/Init.h"
 #include "Initializer/Parameters/ParameterReader.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Instrumentation.h"
+#include "Parallel/MPI.h"
+#include "SeisSol.h"
+
 #include <ctime>
 #include <exception>
 #include <fty/fty.hpp>
@@ -18,21 +23,14 @@
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <utils/timeutils.h>
-#include <xdmfwriter/scorep_wrapper.h>
 #include <yaml-cpp/yaml.h>
-
-#include "Initializer/InitProcedure/Init.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "SeisSol.h"
-
-#include "Parallel/MPI.h"
 
 #ifdef USE_ASAGI
 #include "Reader/AsagiModule.h"
 #endif
 
 #ifdef ACL_DEVICE
-#include "device.h"
+#include <Device/device.h>
 #endif
 
 #if defined(__GNUC__) || defined(__linux__)
@@ -83,6 +81,8 @@ void initShmem(MPI_Comm comm) {
 #include "Version.h"
 
 namespace {
+using namespace seissol;
+
 std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
   // Read parameter file input from file
   fty::Loader<fty::AsLowercase> loader{};
@@ -97,135 +97,150 @@ std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
 } // namespace
 
 int main(int argc, char* argv[]) {
+  try {
 #ifdef ACL_DEVICE
-  seissol::MPI::mpi.bindAcceleratorDevice();
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  device.api->initialize();
+    seissol::Mpi::mpi.bindAcceleratorDevice();
+    device::DeviceInstance& device = device::DeviceInstance::getInstance();
+    device.api->initialize();
 #endif // ACL_DEVICE
 
-  utils::Env env("SEISSOL_");
+    utils::Env env("SEISSOL_");
 
 #ifdef USE_ASAGI
-  // Construct an instance of AsagiModule, to initialize it.
-  // It needs to be done here, as it registers PRE_MPI hooks
-  seissol::asagi::AsagiModule::initInstance(env);
+    // Construct an instance of AsagiModule, to initialize it.
+    // It needs to be done here, as it registers PRE_MPI hooks
+    seissol::asagi::AsagiModule::initInstance(env);
 #endif
-  // Call pre MPI hooks
-  seissol::Modules::callHook<ModuleHook::PreMPI>();
+    // Call pre MPI hooks
+    seissol::Modules::callHook<ModuleHook::PreMPI>();
 
-  seissol::MPI::mpi.init(argc, argv);
-  const int rank = seissol::MPI::mpi.rank();
+    seissol::Mpi::mpi.init(argc, argv);
+    const int rank = seissol::Mpi::mpi.rank();
 
-  utils::Logger::setRank(rank);
+    utils::Logger::setRank(rank);
 
 #ifdef USE_SHMEM
-  initShmem(seissol::MPI::mpi.comm());
+    initShmem(seissol::Mpi::mpi.comm());
 #endif
 
-  LIKWID_MARKER_INIT;
-#pragma omp parallel
-  {
-    LIKWID_MARKER_THREADINIT;
-    LIKWID_MARKER_REGISTER("SeisSol");
-    LIKWID_MARKER_REGISTER("computeDynamicRuptureFrictionLaw");
-    LIKWID_MARKER_REGISTER("computeDynamicRupturePostHook");
-    LIKWID_MARKER_REGISTER("computeDynamicRupturePostcomputeImposedState");
-    LIKWID_MARKER_REGISTER("computeDynamicRupturePreHook");
-    LIKWID_MARKER_REGISTER("computeDynamicRupturePrecomputeStress");
-    LIKWID_MARKER_REGISTER("computeDynamicRuptureSpaceTimeInterpolation");
-    LIKWID_MARKER_REGISTER("computeDynamicRuptureUpdateFrictionAndSlip");
-  }
+    LIKWID_MARKER_INIT;
 
 #pragma omp parallel
-  {
-    LIKWID_MARKER_START("SeisSol");
-  }
+    {
+      LIKWID_MARKER_THREADINIT;
+      LIKWID_MARKER_REGISTER("SeisSol");
+      LIKWID_MARKER_REGISTER("computeDynamicRuptureFrictionLaw");
+      LIKWID_MARKER_REGISTER("computeDynamicRupturePostHook");
+      LIKWID_MARKER_REGISTER("computeDynamicRupturePostcomputeImposedState");
+      LIKWID_MARKER_REGISTER("computeDynamicRupturePreHook");
+      LIKWID_MARKER_REGISTER("computeDynamicRupturePrecomputeStress");
+      LIKWID_MARKER_REGISTER("computeDynamicRuptureSpaceTimeInterpolation");
+      LIKWID_MARKER_REGISTER("computeDynamicRuptureUpdateFrictionAndSlip");
+    }
 
-  EPIK_TRACER("SeisSol");
-  SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
+#pragma omp parallel
+    {
+      LIKWID_MARKER_START("SeisSol");
+    }
 
-  // Print welcome message
-  logInfo() << "Welcome to SeisSol";
-  logInfo() << "Copyright (c) 2012 -" << BuildInfo::CommitYear.c_str() << " SeisSol Group";
-  logInfo() << "Version:" << BuildInfo::VersionString.c_str();
-  logInfo() << "Built on:" << __DATE__ << __TIME__;
-  logInfo() << "Last commit:" << BuildInfo::CommitHash.c_str() << "at"
-            << BuildInfo::CommitTimestamp.c_str();
-  logInfo() << "Compiled with HOST_ARCH =" << BuildInfo::SeisSolHostArch.c_str();
+    EPIK_TRACER("SeisSol");
+    SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
+
+    // Print welcome message
+    logInfo() << "Welcome to SeisSol";
+    logInfo() << "Copyright (c) 2012 -" << BuildInfo::CommitYear.c_str() << " SeisSol Group";
+    logInfo() << "Version:" << BuildInfo::VersionString.c_str();
+    logInfo() << "Built on:" << __DATE__ << __TIME__;
+    logInfo() << "Last commit:" << BuildInfo::CommitHash.c_str() << "at"
+              << BuildInfo::CommitTimestamp.c_str();
+    logInfo() << "Compiled with HOST_ARCH =" << BuildInfo::SeisSolHostArch.c_str();
 #ifdef ACL_DEVICE
-  logInfo() << "Compiled with DEVICE_BACKEND =" << BuildInfo::SeisSolDeviceBackend.c_str();
-  logInfo() << "Compiled with DEVICE_ARCH =" << BuildInfo::SeisSolDeviceArch.c_str();
+    logInfo() << "Compiled with DEVICE_BACKEND =" << BuildInfo::SeisSolDeviceBackend.c_str();
+    logInfo() << "Compiled with DEVICE_ARCH =" << BuildInfo::SeisSolDeviceArch.c_str();
 #endif
 
-  if (env.get<bool>("FLOATING_POINT_EXCEPTION", false)) {
-    // Check if on a GNU system (Linux) or other platform
+    if (env.get<bool>("FLOATING_POINT_EXCEPTION", false)) {
+      // Check if on a GNU system (Linux) or other platform
 #if defined(__GNUC__) || defined(__linux__)
-    feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
-    logInfo() << "Enabling floating point exception handlers.";
+      feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
+      logInfo() << "Enabling floating point exception handlers.";
 #else
-    logInfo() << "Floating-point exception handling was requested, but is not supported on this "
-                 "platform.";
+      logInfo() << "Floating-point exception handling was requested, but is not supported on this "
+                   "platform.";
 #endif
-  }
+    }
 
-  // TODO Read parameters here
-  // Parse command line arguments
-  utils::Args args("SeisSol is a scientific software for the numerical simulation of seismic wave "
-                   "phenomena and earthquake dynamics.");
-  args.addAdditionalOption("file", "The parameter file", false);
-  args.addOption(
-      "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Optional, false);
-  switch (args.parse(argc, argv)) {
-  case utils::Args::Help: {
-    [[fallthrough]];
-  }
-  case utils::Args::Error: {
-    seissol::MPI::finalize();
-    return 1;
-  }
-  case utils::Args::Success: {
-    break;
-  }
-  }
-  const auto* parameterFile = args.getAdditionalArgument("file", "parameters.par");
-  logInfo() << "Using the parameter file" << parameterFile;
-  // read parameter file input
-  const auto yamlParams = readYamlParams(parameterFile);
-  seissol::initializer::parameters::ParameterReader parameterReader(
-      *yamlParams, parameterFile, false);
-  auto parameters = seissol::initializer::parameters::readSeisSolParameters(&parameterReader);
-  parameterReader.warnUnknown();
+    // TODO Read parameters here
+    // Parse command line arguments
+    utils::Args args(
+        "SeisSol is a scientific software for the numerical simulation of seismic wave "
+        "phenomena and earthquake dynamics.");
+    args.addAdditionalOption("file", "The parameter file", false);
+    args.addOption(
+        "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Optional, false);
+    switch (args.parse(argc, argv)) {
+    case utils::Args::Help: {
+      [[fallthrough]];
+    }
+    case utils::Args::Error: {
+      seissol::Mpi::finalize();
+      return 1;
+    }
+    case utils::Args::Success: {
+      break;
+    }
+    }
+    const auto* parameterFile = args.getAdditionalArgument("file", "parameters.par");
+    logInfo() << "Using the parameter file" << parameterFile;
+    // read parameter file input
+    const auto yamlParams = readYamlParams(parameterFile);
+    seissol::initializer::parameters::ParameterReader parameterReader(
+        *yamlParams, parameterFile, false);
+    auto parameters = [&]() {
+      try {
+        return seissol::initializer::parameters::readSeisSolParameters(&parameterReader);
+      } catch (const std::exception& error) {
+        logError() << "Uncaught error while parsing the parameter file:"
+                   << std::string(error.what());
+      }
+      return initializer::parameters::SeisSolParameters();
+    }();
+    parameterReader.warnUnknown();
 
-  // Initialize SeisSol
-  seissol::SeisSol seissolInstance(parameters, env);
+    // Initialize SeisSol
+    seissol::SeisSol seissolInstance(parameters, env);
 
-  if (args.isSet("checkpoint")) {
-    const auto* checkpointFile = args.getArgument<const char*>("checkpoint");
-    seissolInstance.loadCheckpoint(checkpointFile);
-  }
+    if (args.isSet("checkpoint")) {
+      const auto* checkpointFile = args.getArgument<const char*>("checkpoint");
+      seissolInstance.loadCheckpoint(checkpointFile);
+    }
 
-  // run SeisSol
-  const bool runSeisSol = seissolInstance.init(argc, argv);
+    // run SeisSol
+    const bool runSeisSol = seissolInstance.init();
 
-  const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr));
-  seissolInstance.setBackupTimeStamp(stamp);
+    const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr));
+    seissolInstance.setBackupTimeStamp(stamp);
 
-  // Run SeisSol
-  if (runSeisSol) {
-    seissol::initializer::initprocedure::seissolMain(seissolInstance);
-  }
+    // Run SeisSol
+    if (runSeisSol) {
+      seissol::initializer::initprocedure::seissolMain(seissolInstance);
+    }
 
 #pragma omp parallel
-  {
-    LIKWID_MARKER_STOP("SeisSol");
-  }
+    {
+      LIKWID_MARKER_STOP("SeisSol");
+    }
 
-  LIKWID_MARKER_CLOSE;
-  // Finalize SeisSol
-  seissolInstance.finalize();
+    LIKWID_MARKER_CLOSE;
+    // Finalize SeisSol
+    seissolInstance.finalize();
 
 #ifdef ACL_DEVICE
-  device.api->finalize();
+    device.api->finalize();
 #endif
-  return 0;
+    return 0;
+  } catch (const std::exception& error) {
+    logError() << "An uncaught error occurred while running SeisSol:" << std::string(error.what());
+  }
+  return 1;
 }
