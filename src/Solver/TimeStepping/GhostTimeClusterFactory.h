@@ -15,6 +15,9 @@
 #ifdef USE_CCL
 #include "Solver/TimeStepping/CCLNeighborCluster.h"
 #endif
+#ifdef USE_SHMEM
+#include "Solver/TimeStepping/ShmemCluster.h"
+#endif
 #endif // ACL_DEVICE
 #include "Parallel/MPI.h"
 #include "memory"
@@ -51,6 +54,16 @@ struct GhostTimeClusterFactory {
                                                   persistent);
     }
 #endif // defined(ACL_DEVICE) && defined(USE_CCL)
+#if defined(ACL_DEVICE) && defined(USE_SHMEM)
+    case Mpi::DataTransferMode::DirectShmem: {
+      return std::make_unique<ShmemCluster>(maxTimeStepSize,
+                                            timeStepRate,
+                                            globalTimeClusterId,
+                                            otherGlobalTimeClusterId,
+                                            meshStructure,
+                                            persistent);
+    }
+#endif // defined(ACL_DEVICE) && defined(USE_SHMEM)
     case Mpi::DataTransferMode::Direct: {
       return std::make_unique<DirectGhostTimeCluster>(maxTimeStepSize,
                                                       timeStepRate,

@@ -15,23 +15,36 @@
 
 #ifdef USE_CCL
 
+// we need some macros since the libraries implement (roughly) the same functionality, but with
+// differently-prefixed functions
+
 #ifdef CCL_NCCL
+
 #include <nccl.h>
 using StreamT = cudaStream_t;
 #define CCL(name) nccl##name
 #define CCLM(name) NCCL_##name
+
 #endif
+
 #ifdef CCL_RCCL
+
 #include <rccl/rccl.h>
 using StreamT = hipStream_t;
 #define CCL(name) nccl##name
 #define CCLM(name) NCCL_##name
+
 #endif
+
 #ifdef CCL_ONECCL
+
+// we only use the C API
+// (https://github.com/uxlfoundation/oneCCL/blob/rfcs/rfcs/20240806-c-api/README.md )
 #include <oneapi/ccl.h>
 using StreamT = void*;
 #define CCL(name) oneccl##name
 #define CCLM(name) ONECCL_##name
+
 #endif
 
 #include <Device/device.h>

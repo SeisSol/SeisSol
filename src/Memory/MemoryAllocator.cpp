@@ -56,30 +56,19 @@ void* mallocShmemInternal(std::size_t size, std::size_t alignment) {
 }
 
 void* mallocShmem(std::size_t size, std::size_t alignment) {
-  std::size_t trueSize = ((size + alignment - 1) / alignment) * alignment;
-  std::size_t totalSize = trueSize;
+  std::size_t trueSize = size;
 
-  std::size_t start = 0;
+  // shmem_align/shmem_malloc needs to be called with the same size on all ranks
+  // (so just take the max of all regions)
 
-  MPI_Allreduce(&trueSize,
-                &totalSize,
+  MPI_Allreduce(&size,
+                &trueSize,
                 1,
                 seissol::Mpi::castToMpiType<std::size_t>(),
-                MPI_SUM,
+                MPI_MAX,
                 seissol::Mpi::mpi.comm());
-  MPI_Exscan(&trueSize,
-             &start,
-             1,
-             seissol::Mpi::castToMpiType<std::size_t>(),
-             MPI_SUM,
-             seissol::Mpi::mpi.comm());
 
-  void* ptr = mallocShmemInternal(totalSize, alignment);
-
-  uint8_t* dataPtr = reinterpret_cast<uint8_t*>(ptr);
-  dataPtr += start;
-
-  return reinterpret_cast<void*>(dataPtr);
+  return mallocShmemInternal(trueSize, alignment);
 }
 
 void* freeShmemInternal(void* ptr) {
@@ -94,12 +83,7 @@ void* freeShmemInternal(void* ptr) {
 #endif
 }
 
-void freeShmem(void* ptr) {
-  void* startPtr = ptr;
-  MPI_Bcast(&startPtr, 1, seissol::Mpi::castToMpiType<std::size_t>(), 0, seissol::Mpi::mpi.comm());
-
-  freeShmemInternal(startPtr);
-}
+void freeShmem(void* ptr) { freeShmemInternal(ptr); }
 
 } // namespace
 

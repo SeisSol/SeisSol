@@ -128,11 +128,11 @@ the following will force SeisSol to allocate 1.5GB of stack GPU memory for tempo
 
 The following device-specific environment variable is supported right now:
 
-* ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE``
+* ``SEISSOL_TRANSFER_MODE``
 
 Currently, SeisSol allocates MPI buffers using the global memory type.
 Some MPI implementations are not GPU-aware and do not support direct point-to-point
-communication on device buffers. SeisSol provides the ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE``
+communication on device buffers. SeisSol provides the ``SEISSOL_TRANSFER_MODE``
 environment variable that can be used to select the memory type for the buffers.
 The ``host`` value means that the data will be copied to/from the host memory
 before/after each ``MPI_Isend`` / ``MPI_Irecv``.
@@ -142,3 +142,7 @@ The default value is ``direct`` which copies the data out of the GPU buffers dir
    :alt: Data Flow Diagram
    :width: 10.0cm
    :align: center
+
+Alternative values for ``SEISSOL_TRANSFER_MODE`` are given by ``ccl`` and ``shmem``
+which use NCCL/RCCL/oneCCL and NVSHMEM/ROCSHMEM/ISHMEM, respectively.
+However, note that both of these are considered experimental.

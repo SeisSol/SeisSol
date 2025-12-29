@@ -95,6 +95,8 @@ void seissol::Mpi::setDataTransferModeFromEnv() {
       preferredDataTransferMode = DataTransferMode::Direct;
     } else if (option == "ccl") {
       preferredDataTransferMode = DataTransferMode::DirectCcl;
+    } else if (option == "shmem") {
+      preferredDataTransferMode = DataTransferMode::DirectShmem;
     } else if (option == "host") {
       preferredDataTransferMode = DataTransferMode::CopyInCopyOutHost;
     } else {

@@ -434,10 +434,7 @@ if (WITH_GPU)
   install(TARGETS seissol-device-lib LIBRARY)
   install(TARGETS device LIBRARY)
 
-  # TODO: add oneCCL support, once the C API is published
-  # see https://github.com/uxlfoundation/oneCCL/blob/cd05d52e6ba8b324a8e498c2228f279cdb7fc3dd/README.md#notice-of-deprecation
-  # and https://github.com/uxlfoundation/oneCCL/blob/rfcs/rfcs/20240806-c-api/README.md
-  option(CCL "Enable NCCL/RCCL support" OFF)
+  option(CCL "Enable NCCL/RCCL/oneCCL support" OFF)
 
   if (CCL)
     if (DEVICE_BACKEND STREQUAL "cuda")
