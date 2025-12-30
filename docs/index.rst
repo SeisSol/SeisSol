@@ -57,21 +57,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
 
 .. toctree::
   :maxdepth: 2
-  :caption: Invoking SeisSol
-
-  configuration
-  parameter-file
-  initial-condition
-  local-timestepping
-  left-lateral-right-lateral-normal-reverse.rst
-  easi
-  fault-tagging
-  environment-variables
-  memory-requirements
-
-.. toctree::
-  :maxdepth: 2
-  :caption: SeisSol on Supercomputers
+  :caption: Running SeisSol on Supercomputers
 
   behind-firewall
   supermuc
@@ -82,6 +68,20 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   leonardo
   lumi
   supermuc-ng-phase2
+
+.. toctree::
+  :maxdepth: 2
+  :caption: Setting Up Simulations
+
+  configuration
+  parameter-file
+  initial-condition
+  local-timestepping
+  left-lateral-right-lateral-normal-reverse
+  easi
+  environment-variables
+  memory-requirements
+  fault-tagging
 
 .. toctree::
   :maxdepth: 2
@@ -96,11 +96,11 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
 
 .. toctree::
   :maxdepth: 2
-  :caption: Seismic source
+  :caption: Seismic Source
 
   dynamic-rupture
-  standard-rupture-format
   slip-rate-on-dr
+  standard-rupture-format
   point-source-older-implementation
 
 .. toctree::
@@ -120,7 +120,6 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   :maxdepth: 2
   :caption: Further documentation
 
-  sycl
   computing-time-vs-order-of-accuracy
   performance-measurement
   attenuation
@@ -132,7 +131,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
 
 .. toctree::
   :maxdepth: 2
-  :caption: Tutorials
+  :caption: Meshing Tutorials
 
   simmodeler-cad-workflow
   generating-a-cad-model-using-gocad-basic-tutorial
