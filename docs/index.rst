@@ -53,6 +53,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   a-first-example
   build-parameters
   build-archs
+  environment-variables
   build-problems
 
 .. toctree::
@@ -79,7 +80,6 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   local-timestepping
   left-lateral-right-lateral-normal-reverse
   easi
-  environment-variables
   memory-requirements
   fault-tagging
 
