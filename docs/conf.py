@@ -105,7 +105,7 @@ html_static_path = ["_static"]
 #
 # html_sidebars = {}
 
-html_logo = "figures/logo_sans_darkred_border.svg"
+html_logo = "figures/logo-sans-darkred-border.svg"
 
 
 # -- Options for HTMLHelp output ---------------------------------------------
