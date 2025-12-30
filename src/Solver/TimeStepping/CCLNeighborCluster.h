@@ -13,6 +13,8 @@
 
 namespace seissol::time_stepping {
 
+std::vector<void*> createComms(std::size_t count);
+
 class CCLNeighborCluster : public AbstractTimeCluster {
   protected:
   bool mayCorrect() override;
@@ -48,7 +50,8 @@ class CCLNeighborCluster : public AbstractTimeCluster {
                      int globalTimeClusterId,
                      int otherGlobalTimeClusterId,
                      const seissol::solver::HaloCommunication& meshStructure,
-                     bool persistent);
+                     bool persistent,
+                     const std::vector<void*>& comms);
   ~CCLNeighborCluster() override;
 
   [[nodiscard]] std::string description() const override;

@@ -72,7 +72,8 @@ constexpr CCL(DataType_t) cclDatatype(RealType type) {
 
 #endif
 
-namespace {
+namespace seissol::time_stepping {
+
 std::vector<void*> createComms([[maybe_unused]] std::size_t count) {
 #ifdef USE_CCL
   // cf. partially https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/examples.html
@@ -96,9 +97,6 @@ std::vector<void*> createComms([[maybe_unused]] std::size_t count) {
   return {};
 #endif
 }
-} // namespace
-
-namespace seissol::time_stepping {
 
 #ifdef ACL_DEVICE
 void CCLNeighborCluster::launch(bool send, bool recv) {
@@ -211,11 +209,20 @@ CCLNeighborCluster::CCLNeighborCluster(double maxTimeStepSize,
                                        int globalTimeClusterId,
                                        int otherGlobalTimeClusterId,
                                        const seissol::solver::HaloCommunication& meshStructure,
-                                       bool persistent)
+                                       bool persistent,
+                                       const std::vector<void*>& comms)
     : AbstractTimeCluster(
           maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
       globalClusterId(globalTimeClusterId), otherGlobalClusterId(otherGlobalTimeClusterId) {
-  comm = createComms(1)[0];
+
+  // project onto symmetric layout
+
+  const auto commMin = std::min(globalTimeClusterId, otherGlobalTimeClusterId);
+  const auto commMax = std::max(globalTimeClusterId, otherGlobalTimeClusterId);
+  const auto remove = ((meshStructure.size() - commMin) * (meshStructure.size() - commMin + 1)) / 2;
+  const auto commId = comms.size() - remove + (commMax - commMin);
+
+  comm = comms[commId];
 
   // TODO: make session-specific
   static std::shared_ptr<parallel::runtime::StreamRuntime> rt{nullptr};

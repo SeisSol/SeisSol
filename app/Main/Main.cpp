@@ -74,6 +74,18 @@ void initShmem(MPI_Comm comm) {
 #endif
 }
 
+void finalizeShmem() {
+#ifdef USE_NVSHMEM
+  nvshmem_finalize();
+#endif
+#ifdef USE_ROCSHMEM
+  rocshmem_finalize();
+#endif
+#ifdef USE_ISHMEM
+  ishmem_finalize();
+#endif
+}
+
 } // namespace
 #endif
 
@@ -232,6 +244,11 @@ int main(int argc, char* argv[]) {
     }
 
     LIKWID_MARKER_CLOSE;
+
+#ifdef USE_SHMEM
+    finalizeShmem();
+#endif
+
     // Finalize SeisSol
     seissolInstance.finalize();
 

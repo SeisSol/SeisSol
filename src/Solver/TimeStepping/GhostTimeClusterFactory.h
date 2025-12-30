@@ -25,12 +25,25 @@
 namespace seissol::time_stepping {
 struct GhostTimeClusterFactory {
   public:
+  static std::vector<void*> setup(Mpi::DataTransferMode mode, std::size_t clusters) {
+    if (mode == Mpi::DataTransferMode::DirectCcl) {
+      const auto commCount = (clusters * (clusters + 1)) / 2;
+
+#if defined(ACL_DEVICE) && defined(USE_CCL)
+      return createComms(commCount);
+#endif
+    }
+
+    return {};
+  }
+
   static std::unique_ptr<AbstractTimeCluster> get(double maxTimeStepSize,
                                                   int timeStepRate,
                                                   int globalTimeClusterId,
                                                   int otherGlobalTimeClusterId,
                                                   const solver::HaloCommunication& meshStructure,
                                                   Mpi::DataTransferMode mode,
+                                                  const std::vector<void*>& comms,
                                                   bool persistent) {
     switch (mode) {
 #ifdef ACL_DEVICE
@@ -51,7 +64,8 @@ struct GhostTimeClusterFactory {
                                                   globalTimeClusterId,
                                                   otherGlobalTimeClusterId,
                                                   meshStructure,
-                                                  persistent);
+                                                  persistent,
+                                                  comms);
     }
 #endif // defined(ACL_DEVICE) && defined(USE_CCL)
 #if defined(ACL_DEVICE) && defined(USE_SHMEM)

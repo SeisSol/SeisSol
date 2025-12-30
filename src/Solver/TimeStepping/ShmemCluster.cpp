@@ -57,12 +57,42 @@ void putOnStream(void* remote,
         remote, local, size, signal, 1, NVSHMEM_SIGNAL_ADD, rank, nativeStream);
   }
 #endif
+#ifdef USE_ROCSHMEM
+  // TODO: nbi?
+  rocshmem_putmem_signal_on_stream(remote,
+                                   local,
+                                   size * sizeOfRealType(cluster.datatype),
+                                   signal,
+                                   1,
+                                   ROCSHMEM_SIGNAL_ADD,
+                                   rank,
+                                   nativeStream);
+#endif
+#ifdef USE_ISHMEM
+  if (datatype == RealType::F64) {
+    ishmemx_double_put_signal_nbi_on_queue(
+        remote, local, size, signal, 1, ISHMEM_SIGNAL_ADD, rank, nativeStream);
+  } else if (datatype == RealType::F32) {
+    ishmemx_float_put_signal_nbi_on_queue(
+        remote, local, size, signal, 1, ISHMEM_SIGNAL_ADD, rank, nativeStream);
+  }
+#endif
 }
+
+#ifdef USE_ROCSHMEM
+__global__ rocshmem_quiet_on_stream() { rocshmem_quiet(); }
+#endif
 
 void synchronize(void* stream) {
   StreamT nativeStream = static_cast<StreamT>(stream);
 #ifdef USE_NVSHMEM
   nvshmemx_quiet_on_stream(nativeStream);
+#endif
+#ifdef USE_ROCSHMEM
+  rocshmem_quiet_on_stream<<<1, 1, 0, nativeStream>>>();
+#endif
+#ifdef USE_ISHMEM
+  ishmemx_quiet_on_queue(nativeStream, {});
 #endif
 }
 
@@ -120,10 +150,10 @@ void ShmemCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate)
   logError() << "Shmem timeout. More info TBD.";
 }
 
-void ShmemCluster::start() {}
+void ShmemCluster::start() { signal[0] = 0; }
 
 void ShmemCluster::predict() {}
-void ShmemCluster::correct() {}
+void ShmemCluster::correct() { signal[0] = 0; }
 
 ShmemCluster::ShmemCluster(double maxTimeStepSize,
                            int timeStepRate,

@@ -188,6 +188,10 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // Create ghost time clusters for MPI
   const auto preferredDataTransferMode = Mpi::mpi.getPreferredDataTransferMode();
   const auto persistent = usePersistentMpi(seissolInstance.env());
+
+  const auto comms =
+      GhostTimeClusterFactory::setup(preferredDataTransferMode, clusterLayout.globalClusterCount);
+
   for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost | Interior)) {
 
     for (const auto [i, halo] : common::enumerate(haloStructure.at(layer.id()))) {
@@ -211,6 +215,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                                          other.lts,
                                                          haloStructure,
                                                          preferredDataTransferMode,
+                                                         comms,
                                                          persistent);
         ghostClusters.push_back(std::move(ghostCluster));
 
