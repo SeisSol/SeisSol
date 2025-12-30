@@ -83,7 +83,11 @@ struct LTS {
       case AllocationPreset::PlasticityData:
         return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplitPinned;
       case AllocationPreset::Timebucket:
+#ifdef USE_SHMEM
+        return AllocationMode::HostDeviceShmem;
+#else
         return useMPIUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
+#endif
       default:
         return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
       }
@@ -110,7 +114,9 @@ struct LTS {
   struct PStrain
       : public initializer::Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> {};
   struct FaceDisplacements : public initializer::Variable<real* [Cell::NumFaces]> {};
+
   struct BuffersDerivatives : public initializer::Bucket<real> {};
+  struct BuffersDerivativesComm : public initializer::Bucket<real> {};
 
   struct BuffersDevice : public initializer::Variable<real*> {};
   struct DerivativesDevice : public initializer::Variable<real*> {};
@@ -160,6 +166,7 @@ struct LTS {
                                                         PStrain,
                                                         FaceDisplacements,
                                                         BuffersDerivatives,
+                                                        BuffersDerivativesComm,
                                                         BuffersDevice,
                                                         DerivativesDevice,
                                                         FaceNeighborsDevice,
@@ -236,7 +243,9 @@ struct LTS {
     // TODO(David): remove/rename "constant" flag (the data is temporary; and copying it for IO is
     // handled differently)
     storage.add<BuffersDerivatives>(
-        LayerMask(), PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
+        LayerMask(Copy | Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Timedofs), true);
+    storage.add<BuffersDerivativesComm>(
+        LayerMask(Interior), PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
 
     storage.add<BuffersDevice>(LayerMask(), 1, AllocationMode::HostOnly, true);
     storage.add<DerivativesDevice>(LayerMask(), 1, AllocationMode::HostOnly, true);
