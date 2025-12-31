@@ -117,7 +117,7 @@ RUN pip3 install git+https://github.com/SeisSol/gemmforge.git
 
 RUN pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
 
-RUN pip3 install git+https://github.com/SeisSol/tensorforge.git@develop-freed
+RUN pip3 install git+https://github.com/SeisSol/tensorforge.git
 
 # ## setup and cleanup
 

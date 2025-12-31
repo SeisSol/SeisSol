@@ -123,7 +123,7 @@ RUN apt-get install -y libboost-all-dev && \
     ninja install && \
     cd ../.. && rm -rf gitbuild
 
-RUN pip3 install --break-system-packages git+https://github.com/SeisSol/tensorforge.git@develop-freed
+RUN pip3 install --break-system-packages git+https://github.com/SeisSol/tensorforge.git
 
 # ## setup and cleanup
 
