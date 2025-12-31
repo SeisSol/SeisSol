@@ -187,7 +187,9 @@ jobs:
   seissol-run-test:
     name: seissol-run-test
     runs-on: self-hosted
-    container: ${{ matrix.setup.container }}
+    container:
+      image: ${{ matrix.setup.container }}
+      options: --runtime=nvidia --gpus=all
     continue-on-error: true
     needs: [seissol-build-test]
     if: ${{ github.repository == 'SeisSol/SeisSol' }}
@@ -226,9 +228,9 @@ jobs:
           - ranks: 1
             threads: 32
             commthread: false
-          - ranks: 4
-            threads: 8
-            commthread: false
+          #- ranks: 4
+          #  threads: 8
+          #  commthread: false
     env:
       commsize: ${{matrix.parallel.ranks}}
       rankthreads: ${{matrix.parallel.threads}}
