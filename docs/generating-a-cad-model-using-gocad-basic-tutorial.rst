@@ -134,5 +134,5 @@ Sanity check
 
 .. |objects in gocad| image:: figures/gocadtuto1.png
 .. |objects in gocad 2| image:: figures/gocadtuto2.png
-.. |alternative side| image:: figures/gocad_alternative.png
+.. |alternative side| image:: figures/gocad-alternative.png
 .. |final mesh| image:: figures/gocadtuto3.png

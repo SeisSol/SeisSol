@@ -128,14 +128,14 @@ circular patch surrounding the hypocenter.
 Figure [fig:tpv104sr] shows the slip rate on the fault along the downdip
 direction at T=5s.
 
-.. figure:: figures/SRs_2s.png
+.. figure:: figures/srs-2s.png
    :alt: Diagram shows the tetrahedral meshing of TPV104
    :width: 12.00000cm
    :align: center
 
    Slip rate along-strike on the fault at 2 s of TPV104.
 
-.. figure:: figures/SRs_5s.png
+.. figure:: figures/srs-5s.png
    :alt: Diagram shows the tetrahedral meshing of TPV104
    :width: 12.00000cm
    :align: center

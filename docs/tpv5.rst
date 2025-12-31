@@ -20,7 +20,7 @@ fault surface. As it propagates away from the nucleation zone, it
 encounters two square patches with initial stress conditions that are
 different from the rest of the fault surface.
 
-.. figure:: figures/tpv5_mesh.png
+.. figure:: figures/tpv5-mesh.png
    :alt: Diagram of TPV5.
    :width: 9.00000cm
    :align: center
@@ -129,7 +129,7 @@ The fault dynamic rupture and wavefield files can be loaded in Paraview.
 For example, open Paraview and then go through File
 :math:`>>` import :math:`>>`\ prefix-fault.xdmf.
 
-.. figure:: figures/tpv5_SRs_3s.png
+.. figure:: figures/tpv5-srs-3s.png
    :alt: Fault slip rate in the along-strike direction
    :width: 12.00000cm
    :align: center

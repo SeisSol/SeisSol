@@ -93,7 +93,7 @@ GPU-specific parameters
     * ``oneapi``: SYCL, more specifically Intel Data Parallel C++ (DPC++). Provides support for Intel, AMD, and Nvidia GPUs. The open source variant is located under https://github.com/intel/llvm
 - ``DEVICE_ARCH``: the parameter to tune and compile the kernels for. See build-archs for an overview.
 - ``SYCL_USE_NVHPC``: if AdaptiveCpp is compiled with NVHPC support, and we use NVHPC
-- ``USE_GRAPH_CAPTURING``: if a compute graph feature is available, then use it. This is currently the case for CUDA (since 11.0) and HIP (requires ROCm 6.1 or higher). Compute graph support for SYCL is still experimental, although DPC++/oneAPI implements an extension for it
+- ``USE_GRAPH_CAPTURING``: if a compute graph feature is available, then use it. This is currently the case for CUDA (since 11.0), HIP (requires ROCm 6.1 or higher), or oneAPI.
 - ``ENABLE_PROFILING_MARKERS``: Currently available for CUDA and HIP
 
 Options currently known to be broken

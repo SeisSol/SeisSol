@@ -24,7 +24,7 @@ Each node consists of:
 
 Due to the 8 GCDs, we will launch SeisSol with 8 processes per node. The architecture settings we will need for SeisSol are
 ``milan`` for the CPU architecture (optimizing for Zen 3), and ``gfx90a`` for the GPU architecture (targeting the MI250X).
-As device backend, we use HIP, and for the SYCL implementation, we use AdaptiveCpp.
+As device backend, we use HIP.
 
 Installing Modules (without Spack)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

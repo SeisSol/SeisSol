@@ -100,6 +100,6 @@ DR Traction Computation
 There was an adjustment in the Rate-and-State friction law computation; thus the results differ slightly between 1.0.1, and 1.1.0 onwards for the CPU computation.
 The adjustment was propagated to the GPU implementation after 1.3.0.
 
-The respective `commit <https://github.com/SeisSol/SeisSol/commit/73b284b7a8a2323170766f3ab594312a31f514c1>_`
+The respective `commit <https://github.com/SeisSol/SeisSol/commit/73b284b7a8a2323170766f3ab594312a31f514c1>`_
 updated the CPU implementation; the GPU implementation was updated by
 `#1288 <https://github.com/SeisSol/SeisSol/pull/1288>`_.

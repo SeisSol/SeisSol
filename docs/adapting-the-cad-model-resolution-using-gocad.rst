@@ -44,6 +44,6 @@ the border. Here is the final result.
 Finally, the new surface can possibly be merged into the coarse
 topography.
 
-.. |coarse and fine topography| image:: figures/topo_coarse_fine1.png
-.. |adding border Extremities| image:: figures/topo_coarse_fine2.png
-.. |gap filled| image:: figures/topo_coarse_fine3.png
+.. |coarse and fine topography| image:: figures/topo-coarse-fine1.png
+.. |adding border Extremities| image:: figures/topo-coarse-fine2.png
+.. |gap filled| image:: figures/topo-coarse-fine3.png

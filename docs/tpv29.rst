@@ -219,7 +219,7 @@ Results
 The earthquake rupture is artificially nucleated in a circular zone on
 the fault surface.
 
-.. figure:: figures/tpv29_srs.png
+.. figure:: figures/tpv29-srs.png
    :alt: Snapshot of slip rate along the strike
    :width: 11.00000cm
    :align: center
