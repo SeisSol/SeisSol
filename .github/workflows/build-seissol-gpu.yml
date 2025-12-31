@@ -189,7 +189,7 @@ jobs:
     runs-on: self-hosted
     container:
       image: ${{ matrix.setup.container }}
-      options: --runtime=nvidia --gpus=all
+      options: ${{ matrix.setup.container-options || ' ' }}
     continue-on-error: true
     needs: [seissol-build-test]
     if: ${{ github.repository == 'SeisSol/SeisSol' }}
@@ -210,6 +210,7 @@ jobs:
             arch: sm_60
             backend: cuda
             ompi: true
+            container-options: --runtime=nvidia --gpus=all
           - cc: nvc
             cxx: nvc++
             fc: nvfortran
@@ -217,6 +218,7 @@ jobs:
             arch: sm_60
             backend: cuda
             ompi: true
+            container-options: --runtime=nvidia --gpus=all
           - cc: icx
             cxx: icpx
             fc: ifx
@@ -224,6 +226,7 @@ jobs:
             arch: skl
             backend: oneapi
             ompi: false
+            container-options: --device /dev/dri
         parallel:
           - ranks: 1
             threads: 32
