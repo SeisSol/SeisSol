@@ -35,6 +35,9 @@ struct SIUnit {
 const inline SIUnit UnitTime = SIUnit("s", false);
 const inline SIUnit UnitFlop = SIUnit("FLOP", false);
 const inline SIUnit UnitFlopPerS = SIUnit("FLOP/s", false);
+const inline SIUnit UnitEnergy = SIUnit("J", false);
+const inline SIUnit UnitMoment = SIUnit("Nm", false);
+const inline SIUnit UnitMomentum = SIUnit("Ns", false);
 const inline SIUnit UnitByte = SIUnit("B", true);
 } // namespace seissol
 
