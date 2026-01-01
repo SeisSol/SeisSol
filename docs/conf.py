@@ -27,7 +27,7 @@
 # -- Project information -----------------------------------------------------
 
 project = "SeisSol"
-copyright = "2012-2025 SeisSol Group"
+copyright = "2012-2026 SeisSol Group"
 author = "SeisSol Group"
 
 # The short X.Y version
