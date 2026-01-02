@@ -25,7 +25,6 @@
 #include "Parallel/Runtime/Stream.h"
 
 #include <Eigen/Dense>
-#include <Initializer/Typedefs.h>
 #include <optional>
 #include <vector>
 
@@ -37,7 +36,7 @@ namespace kernels {
 struct Receiver {
   Receiver(unsigned pointId,
            Eigen::Vector3d position,
-           const seissol::geometry::CellTransform& elementCoords,
+           const seissol::geometry::CellTransform& transform,
            LTS::Ref dataHost,
            LTS::Ref dataDevice,
            size_t reserved);

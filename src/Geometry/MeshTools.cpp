@@ -11,6 +11,7 @@
 #include "Common/Constants.h"
 #include "Geometry/MeshDefinition.h"
 
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <cstddef>

@@ -16,6 +16,7 @@
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
@@ -120,13 +121,9 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
       const auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
 
-      std::array<const CoordinateT*, NumVertices> elemCoords{};
-      for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
-        const auto address = elementsInfo[elementIndex].vertices[vertexIdx];
-        elemCoords[vertexIdx] = &(verticesInfo[address].coords);
-      }
+      const auto elemTransform = geometry::AffineTransform::fromMeshCell(elementIndex, *meshReader);
 
-      std::array<const CoordinateT*, NumVertices> neighborElemCoords{};
+      std::array<CoordinateT, NumVertices> neighborElemCoords{};
       if (neighborElementIndex < elementsInfo.size()) {
         if (elementIndices.find(neighborElementIndex) == elementIndices.end()) {
           const auto index = elementIndices.size();
@@ -134,7 +131,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
         }
         for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
           const auto address = elementsInfo[neighborElementIndex].vertices[vertexIdx];
-          neighborElemCoords[vertexIdx] = &(verticesInfo[address].coords);
+          neighborElemCoords[vertexIdx] = verticesInfo[address].coords;
         }
       } else {
         const auto faultSide = faultInfo[point.faultFaceIndex].side;
@@ -153,13 +150,14 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
         for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
           const auto& array3d = ghostMetadataItr->second[neighborIndex].vertices[vertexIdx];
-          auto* data = const_cast<double*>(array3d);
-          neighborElemCoords[vertexIdx] = reinterpret_cast<CoordinateT*>(data);
+          neighborElemCoords[vertexIdx] = array3d;
         }
       }
 
+      const auto neighTransform = geometry::AffineTransform(neighborElemCoords);
+
       outputData->basisFunctions.emplace_back(
-          getPlusMinusBasisFunctions(point.global.coords, elemCoords, neighborElemCoords));
+          getPlusMinusBasisFunctions(point.global.coords, elemTransform, neighTransform));
     }
   }
 

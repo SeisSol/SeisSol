@@ -16,6 +16,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
@@ -42,6 +43,7 @@
 #include <cassert>
 #include <complex>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <optional>
 #include <utils/logger.h>
@@ -403,7 +405,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
           nodeReference[0] = nodesReference(i, 0);
           nodeReference[1] = nodesReference(i, 1);
           // Compute the global coordinates for the nodal points.
-          std::array<double, 3> xiEtaZeta;
+          std::array<double, 3> xiEtaZeta{};
           seissol::transformations::chiTau2XiEtaZeta(side, nodeReference, xiEtaZeta);
           const auto xyz = transform.refToSpace(xiEtaZeta);
           nodes[offset++] = xyz[0];

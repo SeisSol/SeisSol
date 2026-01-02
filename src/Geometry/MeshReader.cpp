@@ -21,6 +21,7 @@
 #include <PUML/TypeInference.h>
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <map>
 #include <mpi.h>

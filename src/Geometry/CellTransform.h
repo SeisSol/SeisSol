@@ -77,7 +77,7 @@ class CellTransform {
 
 class AffineTransform : public CellTransform {
   public:
-  AffineTransform(const std::array<CoordinateT, Cell::NumVertices>& vertices) {
+  explicit AffineTransform(const std::array<CoordinateT, Cell::NumVertices>& vertices) {
     offset = VectorEigenT(vertices[0].data());
 
     for (std::size_t i = 0; i < Cell::Dim; ++i) {
@@ -90,7 +90,7 @@ class AffineTransform : public CellTransform {
     itransform = transform.inverse();
   }
 
-  AffineTransform(const std::array<VectorEigenT, Cell::NumVertices>& vertices) {
+  explicit AffineTransform(const std::array<VectorEigenT, Cell::NumVertices>& vertices) {
     offset = VectorEigenT(vertices[0]);
 
     for (std::size_t i = 0; i < Cell::Dim; ++i) {
@@ -107,14 +107,14 @@ class AffineTransform : public CellTransform {
     return transform * input + offset;
   }
 
-  [[nodiscard]] MatrixEigenT refToSpaceJacobianImpl(const VectorEigenT& input) const override {
+  [[nodiscard]] MatrixEigenT refToSpaceJacobianImpl(const VectorEigenT& /*input*/) const override {
     // since we're linear—no dependency on the input vector here
     return transform;
   }
 
   static AffineTransform fromMeshCell(std::size_t id, const MeshReader& mesh) {
     const auto& vertexIndices = mesh.getElements()[id].vertices;
-    std::array<CoordinateT, Cell::NumVertices> vertices;
+    std::array<CoordinateT, Cell::NumVertices> vertices{};
     for (std::size_t i = 0; i < vertexIndices.size(); ++i) {
       vertices[i] = mesh.getVertices()[vertexIndices[i]].coords;
     }

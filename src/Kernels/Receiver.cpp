@@ -24,7 +24,6 @@
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/FlopCounter.h"
 #include "Numerical/BasisFunction.h"
-#include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Helper.h"
 #include "Parallel/Runtime/Stream.h"
@@ -85,9 +84,6 @@ void ReceiverCluster::addReceiver(unsigned meshId,
                                   const Eigen::Vector3d& point,
                                   const seissol::geometry::MeshReader& mesh,
                                   const LTS::Backmap& backmap) {
-  const auto& elements = mesh.getElements();
-  const auto& vertices = mesh.getVertices();
-
   const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, mesh);
 
   if (!extraRuntime.has_value()) {

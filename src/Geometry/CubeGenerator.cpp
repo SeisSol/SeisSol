@@ -1584,7 +1584,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 void CubeGenerator::findElementsPerVertex() {
   for (auto& element : m_elements) {
     for (std::size_t j = 0; j < Cell::NumVertices; j++) {
-      assert(element.vertices[j] < static_cast<int>(m_vertices.size()));
+      assert(element.vertices[j] < m_vertices.size());
       // push back the localIds for each element of a vertex
       m_vertices[element.vertices[j]].elements.push_back(element.localId);
     }

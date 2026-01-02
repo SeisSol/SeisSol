@@ -140,7 +140,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
             const real nullpoint[2] = {0, 0};
             const real* prepoint =
                 i > 0 ? (seissol::init::vtk2d::Values[order] + (i - 1) * 2) : nullpoint;
-            std::array<double, 2> point = {prepoint[0], prepoint[1]};
+            const std::array<double, 2> point = {prepoint[0], prepoint[1]};
             transformations::chiTau2XiEtaZeta(faceSideIdx, point, receiverPoint.reference.coords);
             receiverPoint.global.coords = transform.refToSpace(receiverPoint.reference.coords);
             receiverPoint.globalTriangle = globalFace;

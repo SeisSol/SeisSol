@@ -13,6 +13,7 @@
 #include "DynamicRupture/Output/Geometry.h"
 #include "GeneratedCode/init.h"
 #include "Geometry.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Precision.h"
@@ -23,6 +24,7 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -150,7 +152,7 @@ void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
 
   for (auto& geoPoint : geoPoints) {
 
-    std::array<double, 2> targetPoint2D;
+    std::array<double, 2> targetPoint2D{};
     transformations::XiEtaZeta2chiTau(
         geoPoint.localFaceSideId, geoPoint.reference.coords, targetPoint2D);
 
@@ -227,25 +229,22 @@ double isInsideFace(const ExtVrtxCoords& point,
   return sidemin;
 }
 
-PlusMinusBasisFunctions getPlusMinusBasisFunctions(
-    const CoordinateT& pointCoords,
-    const std::array<const CoordinateT*, Cell::NumVertices>& plusElementCoords,
-    const std::array<const CoordinateT*, Cell::NumVertices>& minusElementCoords) {
+PlusMinusBasisFunctions getPlusMinusBasisFunctions(const CoordinateT& pointCoords,
+                                                   const geometry::CellTransform& plusTransform,
+                                                   const geometry::CellTransform& minusTransform) {
 
   Eigen::Vector3d point(pointCoords[0], pointCoords[1], pointCoords[2]);
 
-  auto getBasisFunctions =
-      [&point](const std::array<const CoordinateT*, Cell::NumVertices>& elementCoords) {
-        auto referenceCoords = transformations::tetrahedronGlobalToReference(
-            *elementCoords[0], *elementCoords[1], *elementCoords[2], *elementCoords[3], point);
-        const basisFunction::SampledBasisFunctions<real> sampler(
-            ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
-        return sampler.m_data;
-      };
+  auto getBasisFunctions = [&point](const geometry::CellTransform& transform) {
+    const auto referenceCoords = transform.spaceToRef(point);
+    const basisFunction::SampledBasisFunctions<real> sampler(
+        ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
+    return sampler.m_data;
+  };
 
   PlusMinusBasisFunctions basisFunctions{};
-  basisFunctions.plusSide = getBasisFunctions(plusElementCoords);
-  basisFunctions.minusSide = getBasisFunctions(minusElementCoords);
+  basisFunctions.plusSide = getBasisFunctions(plusTransform);
+  basisFunctions.minusSide = getBasisFunctions(minusTransform);
 
   return basisFunctions;
 }

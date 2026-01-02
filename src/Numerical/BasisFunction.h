@@ -221,7 +221,7 @@ class SampledBasisFunctionDerivatives {
                                     T xi,
                                     T eta,
                                     T zeta) {
-    Eigen::Vector3d vec(xi, eta, zeta);
+    const Eigen::Vector3d vec(xi, eta, zeta);
     const Eigen::Matrix3d grad = transform.spaceToRefJacobian(vec);
     std::vector<T> oldData = m_data;
 

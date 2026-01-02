@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_
 
 #include "DataTypes.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
 
 #include <array>
@@ -63,10 +64,9 @@ double getDistanceFromPointToFace(const ExtVrtxCoords& point,
                                   const ExtTriangle& face,
                                   const CoordinateT& faceNormal);
 
-PlusMinusBasisFunctions getPlusMinusBasisFunctions(
-    const CoordinateT& pointCoords,
-    const std::array<const CoordinateT*, Cell::NumVertices>& plusElementCoords,
-    const std::array<const CoordinateT*, Cell::NumVertices>& minusElementCoords);
+PlusMinusBasisFunctions getPlusMinusBasisFunctions(const CoordinateT& pointCoords,
+                                                   const geometry::CellTransform& plusTransform,
+                                                   const geometry::CellTransform& minusTransform);
 
 std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints);
 

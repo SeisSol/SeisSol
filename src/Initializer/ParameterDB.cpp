@@ -28,6 +28,7 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <easi/Component.h>
 #include <easi/Query.h>
 #include <exception>

@@ -13,6 +13,7 @@
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
+#include <array>
 #include <cassert>
 #include <utils/logger.h>
 #include <yateto.h>
