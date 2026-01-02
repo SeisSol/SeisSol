@@ -8,6 +8,7 @@
 
 #include "PUMLReader.h"
 
+#include "Common/CompactOptional.h"
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
 #include "Geometry/MeshDefinition.h"
@@ -377,7 +378,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
           faces[faceids[j]], neighbors, j, bcCurrentFace, cellIdsAsInFile[i]);
       isMeshCorrect &= isLocallyCorrect;
       if (neighbors[j] < 0) {
-        m_elements[i].neighbors[PumlFaceToSeisSol[j]] = cellsGeometry.size();
+        m_elements[i].neighbors[PumlFaceToSeisSol[j]] = OptionalSize();
 
         if (!faces[faceids[j]].isShared()) {
           // Boundary sides

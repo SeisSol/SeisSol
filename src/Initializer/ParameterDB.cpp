@@ -203,11 +203,15 @@ easi::Query FaultBarycenterGenerator::generate() const {
   for (const Fault& f : fault) {
     std::size_t element = 0;
     std::int8_t side = 0;
-    if (f.element < elements.size()) {
-      element = f.element;
+    if (f.element.hasValue()) {
+
+      element = f.element.value();
       side = f.side;
     } else {
-      element = f.neighborElement;
+
+      assert(f.neighborElement.hasValue());
+
+      element = f.neighborElement.value();
       side = f.neighborSide;
     }
 
@@ -239,14 +243,18 @@ easi::Query FaultGPGenerator::generate() const {
     std::size_t element = 0;
     std::int8_t side = 0;
     std::int8_t sideOrientation = 0;
-    if (f.element < elements.size()) {
-      element = f.element;
+    if (f.element.hasValue()) {
+
+      element = f.element.value();
       side = f.side;
       sideOrientation = -1;
+
     } else {
-      element = f.neighborElement;
+      assert(f.neighborElement.hasValue());
+
+      element = f.neighborElement.value();
       side = f.neighborSide;
-      sideOrientation = elements[f.neighborElement].sideOrientations[f.neighborSide];
+      sideOrientation = elements[f.neighborElement.value()].sideOrientations[f.neighborSide];
     }
 
     auto coords = cellToVertex.elementCoordinates(element);

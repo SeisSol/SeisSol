@@ -95,7 +95,9 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
         if (closest.has_value()) {
           const auto& faultItem = faultInfos.at(closest.value());
-          const auto& element = meshElements.at(faultItem.element);
+
+          assert(faultItem.element.hasValue());
+          const auto& element = meshElements.at(faultItem.element.value());
 
           receiver.globalTriangle = getGlobalTriangle(faultItem.side, element, meshVertices);
           projectPointToFace(receiver.global, receiver.globalTriangle, faultItem.normal);
@@ -108,8 +110,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
           receiver.elementIndex = element.localId;
           receiver.elementGlobalIndex = element.globalId;
 
-          const auto transform =
-              seissol::geometry::AffineTransform::fromMeshCell(faultItem.element, *meshReader);
+          const auto transform = seissol::geometry::AffineTransform::fromMeshCell(
+              faultItem.element.value(), *meshReader);
 
           receiver.reference = transform.spaceToRef(receiver.global.getAsEigen3LibVector());
         }
@@ -140,9 +142,9 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     auto closest = std::optional<std::size_t>();
 
     for (auto [faceIdx, faultItem] : seissol::common::enumerate(fault)) {
-      if (faultItem.element < meshElements.size()) {
-        const auto face =
-            getGlobalTriangle(faultItem.side, meshElements.at(faultItem.element), meshVertices);
+      if (faultItem.element.hasValue()) {
+        const auto face = getGlobalTriangle(
+            faultItem.side, meshElements.at(faultItem.element.value()), meshVertices);
         const auto insideQuantifier = isInsideFace(point, face, faultItem.normal);
 
         if (insideQuantifier > -1e-12) {

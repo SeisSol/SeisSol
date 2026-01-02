@@ -68,8 +68,8 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         const auto& fault = faultInfo[faceIdx];
         const auto elementIdx = fault.element;
 
-        if (elementIdx < elementsInfo.size()) {
-          const auto& element = elementsInfo[elementIdx];
+        if (elementIdx.hasValue()) {
+          const auto& element = elementsInfo[elementIdx.value()];
 
           const auto faceSideIdx = fault.side;
 
@@ -82,7 +82,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
           faultRefiner->refineAndAccumulate({elementwiseParams.refinement,
                                              static_cast<int>(faceIdx),
                                              faceSideIdx,
-                                             elementIdx,
+                                             elementIdx.value(),
                                              element.globalId},
                                             std::make_pair(globalFace, referenceTriangle));
         }
@@ -108,7 +108,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         const auto& fault = faultInfo[faceIdx];
         const auto elementIdx = fault.element;
 
-        if (elementIdx < elementsInfo.size()) {
+        if (elementIdx.hasValue()) {
           ++faceCount;
         }
       }
@@ -123,11 +123,11 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         const auto& fault = faultInfo[faceIdx];
         const auto elementIdx = fault.element;
 
-        if (elementIdx < elementsInfo.size()) {
-          const auto& element = elementsInfo[elementIdx];
+        if (elementIdx.hasValue()) {
+          const auto& element = elementsInfo[elementIdx.value()];
 
           const auto transform =
-              seissol::geometry::AffineTransform::fromMeshCell(elementIdx, *meshReader);
+              seissol::geometry::AffineTransform::fromMeshCell(elementIdx.value(), *meshReader);
 
           const auto faceSideIdx = fault.side;
 

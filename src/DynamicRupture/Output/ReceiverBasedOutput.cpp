@@ -80,8 +80,6 @@ void ReceiverOutput::calcFaultOutput(
                            : 0;
   const auto& faultInfos = meshReader->getFault();
 
-  const auto elementCount = meshReader->getElements().size();
-
   auto& callRuntime =
       outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
 
@@ -99,8 +97,7 @@ void ReceiverOutput::calcFaultOutput(
   }
 
   const auto points = outputData->receiverPoints.size();
-  const auto handler = [this, outputData, &faultInfos, slipRateOutputType, level, elementCount](
-                           std::size_t i) {
+  const auto handler = [this, outputData, &faultInfos, slipRateOutputType, level](std::size_t i) {
     // TODO: query the dofs, only once per simulation; once per face
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
     alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
@@ -138,11 +135,11 @@ void ReceiverOutput::calcFaultOutput(
       std::memcpy(dofsPlus, dofsPlusData, sizeof(dofsPlus));
       std::memcpy(dofsMinus, dofsMinusData, sizeof(dofsMinus));
     } else {
-      getDofs(dofsPlus, faultInfo.element);
-      if (faultInfo.neighborElement < elementCount) {
-        getDofs(dofsMinus, faultInfo.neighborElement);
+      getDofs(dofsPlus, faultInfo.element.value());
+      if (faultInfo.neighborElement.hasValue()) {
+        getDofs(dofsMinus, faultInfo.neighborElement.value());
       } else {
-        getNeighborDofs(dofsMinus, faultInfo.element, faultInfo.side);
+        getNeighborDofs(dofsMinus, faultInfo.element.value(), faultInfo.side);
       }
     }
 

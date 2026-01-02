@@ -455,13 +455,20 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       LTS::Storage& ltsStorage,
                                       const LTS::Backmap& backmap,
                                       DynamicRupture::Storage& drStorage) {
-  real matTData[tensor::T::size()];
-  real matTinvData[tensor::Tinv::size()];
-  real matAPlusData[tensor::star::size(0)];
-  real matAMinusData[tensor::star::size(0)];
+  real matTData[tensor::T::size()]{};
+  real matTinvData[tensor::Tinv::size()]{};
+  real matAPlusData[tensor::star::size(0)]{};
+  real matAMinusData[tensor::star::size(0)]{};
 
   const auto& fault = meshReader.getFault();
   const auto& elements = meshReader.getElements();
+
+  const auto getDupOpt = [&](const auto& elem, std::size_t duplicate) {
+    if (elem.hasValue()) {
+      return backmap.getDup(elem.value(), duplicate);
+    }
+    return std::optional<StoragePosition>();
+  };
 
   for (auto& layer : drStorage.leaves(Ghost)) {
     auto* timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();
@@ -492,21 +499,21 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 #endif
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       const std::size_t meshFace = faceInformation[ltsFace].meshFace;
-      assert(fault[meshFace].element < elements.size() ||
-             fault[meshFace].neighborElement < elements.size());
+      assert(fault[meshFace].element.hasValue() || fault[meshFace].neighborElement.hasValue());
 
       /// Face information
       // already set: faceInformation[ltsFace].meshFace = meshFace;
       faceInformation[ltsFace].plusSide = fault[meshFace].side;
       faceInformation[ltsFace].minusSide = fault[meshFace].neighborSide;
-      if (fault[meshFace].element < elements.size()) {
+      if (fault[meshFace].element.hasValue()) {
         faceInformation[ltsFace].faceRelation =
-            elements[fault[meshFace].element].sideOrientations[fault[meshFace].side] + 1;
+            elements[fault[meshFace].element.value()].sideOrientations[fault[meshFace].side] + 1;
         faceInformation[ltsFace].plusSideOnThisRank = true;
       } else {
-        /// \todo check if this is correct
+        assert(fault[meshFace].neighborElement.hasValue());
+
         faceInformation[ltsFace].faceRelation =
-            elements[fault[meshFace].neighborElement]
+            elements[fault[meshFace].neighborElement.value()]
                 .sideOrientations[fault[meshFace].neighborSide] +
             1;
         faceInformation[ltsFace].plusSideOnThisRank = false;
@@ -515,11 +522,14 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       /// Look for time derivative mapping in all duplicates
       size_t derivativesMeshId = 0;
       int8_t derivativesSide = 0;
-      if (fault[meshFace].element < elements.size()) {
-        derivativesMeshId = fault[meshFace].element;
+      if (fault[meshFace].element.hasValue()) {
+
+        derivativesMeshId = fault[meshFace].element.value();
         derivativesSide = faceInformation[ltsFace].plusSide;
       } else {
-        derivativesMeshId = fault[meshFace].neighborElement;
+
+        assert(fault[meshFace].neighborElement.hasValue());
+        derivativesMeshId = fault[meshFace].neighborElement.value();
         derivativesSide = faceInformation[ltsFace].minusSide;
       }
       real* timeDerivative1 = nullptr;
@@ -546,7 +556,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       assert(timeDerivative1 != nullptr && timeDerivative2 != nullptr);
 
-      if (fault[meshFace].element < elements.size()) {
+      if (fault[meshFace].element.hasValue()) {
         timeDerivativePlus[ltsFace] = timeDerivative1;
         timeDerivativeMinus[ltsFace] = timeDerivative2;
         timeDerivativePlusDevice[ltsFace] = timeDerivative1Device;
@@ -562,12 +572,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       /// DR mapping for elements
       for (std::size_t duplicate = 0; duplicate < LTS::Backmap::MaxDuplicates; ++duplicate) {
-        const auto plusLtsId = (fault[meshFace].element < elements.size())
-                                   ? backmap.getDup(fault[meshFace].element, duplicate)
-                                   : std::optional<StoragePosition>();
-        const auto minusLtsId = (fault[meshFace].neighborElement < elements.size())
-                                    ? backmap.getDup(fault[meshFace].neighborElement, duplicate)
-                                    : std::optional<StoragePosition>();
+        const auto plusLtsId = getDupOpt(fault[meshFace].element, duplicate);
+        const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, duplicate);
 
         assert(duplicate != 0 || plusLtsId.has_value() || minusLtsId.has_value());
 
@@ -623,12 +629,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       /// Materials
       const seissol::model::MaterialT* plusMaterial = nullptr;
       const seissol::model::MaterialT* minusMaterial = nullptr;
-      const auto plusLtsId = (fault[meshFace].element < elements.size())
-                                 ? backmap.getDup(fault[meshFace].element, 0)
-                                 : std::optional<StoragePosition>();
-      const auto minusLtsId = (fault[meshFace].neighborElement < elements.size())
-                                  ? backmap.getDup(fault[meshFace].neighborElement, 0)
-                                  : std::optional<StoragePosition>();
+      const auto plusLtsId = getDupOpt(fault[meshFace].element, 0);
+      const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, 0);
 
       assert(plusLtsId.has_value() || minusLtsId.has_value());
 
@@ -755,9 +757,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       double minusSurfaceArea = 0;
       double minusVolume = 0;
       double surfaceArea = 0;
-      if (fault[meshFace].element < elements.size()) {
+      if (fault[meshFace].element.hasValue()) {
         surfaceAreaAndVolume(meshReader,
-                             fault[meshFace].element,
+                             fault[meshFace].element.value(),
                              fault[meshFace].side,
                              &plusSurfaceArea,
                              &plusVolume);
@@ -767,9 +769,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         plusSurfaceArea = 1.e99;
         plusVolume = 1.0;
       }
-      if (fault[meshFace].neighborElement < elements.size()) {
+      if (fault[meshFace].neighborElement.hasValue()) {
         surfaceAreaAndVolume(meshReader,
-                             fault[meshFace].neighborElement,
+                             fault[meshFace].neighborElement.value(),
                              fault[meshFace].neighborSide,
                              &minusSurfaceArea,
                              &minusVolume);

@@ -111,7 +111,9 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       }
 
       ++foundPoints;
-      const auto elementIndex = faultInfo[point.faultFaceIndex].element;
+
+      assert(faultInfo[point.faultFaceIndex].element.hasValue());
+      const auto elementIndex = faultInfo[point.faultFaceIndex].element.value();
       const auto& element = elementsInfo[elementIndex];
 
       if (elementIndices.find(elementIndex) == elementIndices.end()) {
@@ -124,13 +126,13 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       const auto elemTransform = geometry::AffineTransform::fromMeshCell(elementIndex, *meshReader);
 
       std::array<CoordinateT, NumVertices> neighborElemCoords{};
-      if (neighborElementIndex < elementsInfo.size()) {
-        if (elementIndices.find(neighborElementIndex) == elementIndices.end()) {
+      if (neighborElementIndex.hasValue()) {
+        if (elementIndices.find(neighborElementIndex.value()) == elementIndices.end()) {
           const auto index = elementIndices.size();
-          elementIndices[neighborElementIndex] = index;
+          elementIndices[neighborElementIndex.value()] = index;
         }
         for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
-          const auto address = elementsInfo[neighborElementIndex].vertices[vertexIdx];
+          const auto address = elementsInfo[neighborElementIndex.value()].vertices[vertexIdx];
           neighborElemCoords[vertexIdx] = verticesInfo[address].coords;
         }
       } else {
@@ -209,7 +211,8 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   for (std::size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
     const auto& point = outputData->receiverPoints[i];
     if (point.isInside) {
-      const auto elementIndex = faultInfo[point.faultFaceIndex].element;
+      assert(faultInfo[point.faultFaceIndex].element.hasValue());
+      const auto elementIndex = faultInfo[point.faultFaceIndex].element.value();
       const auto& element = elementsInfo[elementIndex];
       outputData->deviceIndices[pointCounter] =
           faceIndices.at(faceToLtsMap->at(point.faultFaceIndex));
@@ -217,8 +220,8 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       outputData->deviceDataPlus[pointCounter] = elementIndices.at(elementIndex);
 
       const auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
-      if (neighborElementIndex < elementsInfo.size()) {
-        outputData->deviceDataMinus[pointCounter] = elementIndices.at(neighborElementIndex);
+      if (neighborElementIndex.hasValue()) {
+        outputData->deviceDataMinus[pointCounter] = elementIndices.at(neighborElementIndex.value());
       } else {
         const auto faultSide = faultInfo[point.faultFaceIndex].side;
         const auto neighborRank = element.neighborRanks[faultSide];

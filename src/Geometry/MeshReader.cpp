@@ -20,9 +20,9 @@
 #include <Eigen/Core>
 #include <PUML/TypeInference.h>
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <map>
 #include <mpi.h>
 #include <unordered_map>
@@ -106,9 +106,6 @@ void MeshReader::extractFaultInformation(
   for (auto& i : m_elements) {
 
     for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
-      // Set default mpi fault indices
-      i.mpiFaultIndices[j] = std::numeric_limits<std::size_t>::max();
-
       if (i.boundaries[j] != 3) {
         continue;
       }
@@ -118,7 +115,9 @@ void MeshReader::extractFaultInformation(
       if (i.neighborRanks[j] == mRank) {
         // Completely local DR boundary
 
-        if (i.neighbors[j] < i.localId) {
+        assert(i.neighbors[j].hasValue());
+
+        if (i.neighbors[j].value() < i.localId) {
           // This was already handled by the other side
           continue;
         }
@@ -127,8 +126,8 @@ void MeshReader::extractFaultInformation(
 
         // FIXME we use the MPI number here for the neighbor element id
         // It is not very nice but should generate the correct ordering.
-        const MPINeighborElement neighbor = {
-            i.localId, static_cast<int8_t>(j), i.mpiIndices[j], i.neighborSides[j]};
+        const auto neighbor = MPINeighborElement{
+            i.localId, i.mpiIndices[j], static_cast<int8_t>(j), i.neighborSides[j]};
         m_MPIFaultNeighbors[i.neighborRanks[j]].push_back(neighbor);
       }
 
@@ -207,14 +206,14 @@ void MeshReader::extractFaultInformation(
       // Compute second vector in the plane, orthogonal to the normal and tangent 1 vectors
       MeshTools::cross(f.normal, f.tangent1, f.tangent2);
 
-      const auto remoteNeighbor = i.neighbors[j] >= m_elements.size();
+      const auto remoteNeighbor = !i.neighbors[j].hasValue();
 
       // Index of the element on the other side
-      const int neighborIndex = remoteNeighbor ? -1 : i.neighbors[j];
+      const auto neighborIndex = i.neighbors[j];
 
       const auto neighborGlobalId =
           remoteNeighbor ? m_ghostlayerMetadata[i.neighborRanks[j]][i.mpiIndices[j]].globalId
-                         : m_elements[i.neighbors[j]].globalId;
+                         : m_elements[i.neighbors[j].value()].globalId;
 
       if (isPlus) {
         f.globalId = i.globalId;
@@ -237,7 +236,7 @@ void MeshReader::extractFaultInformation(
       m_fault.push_back(f);
 
       // Check if we have a plus fault side
-      if (isPlus || neighborIndex >= 0) {
+      if (isPlus || neighborIndex.hasValue()) {
         m_hasPlusFault = true;
       }
     }
@@ -262,11 +261,6 @@ void MeshReader::extractFaultInformation(
                          (elem1.neighborElement == elem2.neighborElement &&
                           elem1.neighborSide < elem2.neighborSide);
                 });
-    }
-
-    // Set the MPI fault number of all elements
-    for (std::size_t j = 0; j < i.second.size(); ++j) {
-      m_elements[i.second[j].localElement].mpiFaultIndices[i.second[j].localSide] = j;
     }
   }
 }
