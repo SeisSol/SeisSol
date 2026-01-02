@@ -8,14 +8,15 @@
 
 #include "Touch.h"
 
-#include "generated_code/tensor.h"
-#include <Kernels/Precision.h>
-#include <Kernels/Solver.h>
+#include "GeneratedCode/tensor.h"
+#include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
+
 #include <cstddef>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
-#include "device.h"
+#include <Device/device.h>
 #endif
 
 namespace seissol::kernels {

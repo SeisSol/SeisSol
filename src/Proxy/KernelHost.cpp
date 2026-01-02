@@ -7,61 +7,59 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "KernelHost.h"
+
+#include "Alignment.h"
 #include "Allocator.h"
 #include "Common.h"
+#include "Common/Constants.h"
 #include "Constants.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/CellLocalInformation.h"
+#include "Initializer/Typedefs.h"
 #include "Kernel.h"
+#include "Kernels/Interface.h"
+#include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
+#include "Kernels/TimeCommon.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+#include "Monitoring/Instrumentation.h"
+#include "Numerical/Quadrature.h"
+#include "Parallel/OpenMP.h"
+#include "Parallel/Runtime/Stream.h"
 
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/CellLocalInformation.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Interface.h>
-#include <Kernels/Precision.h>
-#include <Kernels/Solver.h>
-#include <Kernels/TimeCommon.h>
-#include <Memory/Tree/Layer.h>
-#include <Monitoring/Instrumentation.h>
-#include <Numerical/Quadrature.h>
-#include <Parallel/Runtime/Stream.h>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <omp.h>
-#include <tensor.h>
 
 namespace seissol::proxy {
 void ProxyKernelHostAder::run(ProxyData& data,
-                              seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.child(0).child<Interior>();
+                              seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
+  auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  real** buffers = layer.var(data.lts.buffers);
-  real** derivatives = layer.var(data.lts.derivatives);
-
-  kernels::LocalData::Loader loader;
-  loader.load(data.lts, layer);
+  real* const* buffers = layer.var<LTS::Buffers>();
+  real* const* derivatives = layer.var<LTS::Derivatives>();
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
 
 #ifdef _OPENMP
 #pragma omp parallel
+#endif
   {
     LIKWID_MARKER_START("ader");
-#endif
     kernels::LocalTmp tmp(9.81);
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
-      auto local = loader.entry(cell);
+      auto local = layer.cellRef(cell);
       data.spacetimeKernel.computeAder(
           integrationCoeffs.data(), Timestep, local, tmp, buffers[cell], derivatives[cell]);
     }
-#ifdef _OPENMP
     LIKWID_MARKER_STOP("ader");
   }
-#endif
 }
 auto ProxyKernelHostAder::performanceEstimate(ProxyData& data) const -> PerformanceEstimate {
   PerformanceEstimate ret;
@@ -69,7 +67,7 @@ auto ProxyKernelHostAder::performanceEstimate(ProxyData& data) const -> Performa
   ret.hardwareFlop = 0;
 
   // iterate over cells
-  const auto nrOfCells = data.ltsTree.child(0).child<Interior>().size();
+  const auto nrOfCells = data.ltsStorage.layer(data.layerId).size();
   for (std::size_t cell = 0; cell < nrOfCells; ++cell) {
     std::uint64_t nonZeroFlops = 0;
     std::uint64_t hardwareFlops = 0;
@@ -86,40 +84,35 @@ auto ProxyKernelHostAder::performanceEstimate(ProxyData& data) const -> Performa
 auto ProxyKernelHostAder::needsDR() const -> bool { return false; }
 
 void ProxyKernelHostLocalWOAder::run(ProxyData& data,
-                                     seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.child(0).child<Interior>();
+                                     seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
+  auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  real** buffers = layer.var(data.lts.buffers);
-
-  kernels::LocalData::Loader loader;
-  loader.load(data.lts, layer);
+  real* const* buffers = layer.var<LTS::Buffers>();
 
 #ifdef _OPENMP
 #pragma omp parallel
+#endif
   {
     LIKWID_MARKER_START("localwoader");
-#endif
     kernels::LocalTmp tmp(9.81);
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
-      auto local = loader.entry(cell);
+      auto local = layer.cellRef(cell);
       data.localKernel.computeIntegral(buffers[cell], local, tmp, nullptr, nullptr, 0, 0);
     }
-#ifdef _OPENMP
     LIKWID_MARKER_STOP("localwoader");
   }
-#endif
 }
 auto ProxyKernelHostLocalWOAder::performanceEstimate(ProxyData& data) const -> PerformanceEstimate {
   PerformanceEstimate ret;
   ret.nonzeroFlop = 0.0;
   ret.hardwareFlop = 0.0;
 
-  auto& layer = data.ltsTree.child(0).child<Interior>();
+  auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  CellLocalInformation* cellInformation = layer.var(data.lts.cellInformation);
+  const auto* cellInformation = layer.var<LTS::CellInformation>();
   for (std::size_t cell = 0; cell < nrOfCells; ++cell) {
     std::uint64_t nonZeroFlops = 0;
     std::uint64_t hardwareFlops = 0;
@@ -137,48 +130,40 @@ auto ProxyKernelHostLocalWOAder::performanceEstimate(ProxyData& data) const -> P
 auto ProxyKernelHostLocalWOAder::needsDR() const -> bool { return false; }
 
 void ProxyKernelHostLocal::run(ProxyData& data,
-                               seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.child(0).child<Interior>();
+                               seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
+  auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  real** buffers = layer.var(data.lts.buffers);
-  real** derivatives = layer.var(data.lts.derivatives);
-
-  kernels::LocalData::Loader loader;
-  loader.load(data.lts, layer);
+  real* const* buffers = layer.var<LTS::Buffers>();
+  real* const* derivatives = layer.var<LTS::Derivatives>();
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
 
 #ifdef _OPENMP
 #pragma omp parallel
+#endif
   {
     LIKWID_MARKER_START("local");
-#endif
     kernels::LocalTmp tmp(9.81);
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
-      auto local = loader.entry(cell);
+      auto local = layer.cellRef(cell);
       data.spacetimeKernel.computeAder(
           integrationCoeffs.data(), Timestep, local, tmp, buffers[cell], derivatives[cell]);
       data.localKernel.computeIntegral(buffers[cell], local, tmp, nullptr, nullptr, 0, 0);
     }
-#ifdef _OPENMP
     LIKWID_MARKER_STOP("local");
   }
-#endif
 }
 
 void ProxyKernelHostNeighbor::run(ProxyData& data,
-                                  seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.child(0).child<Interior>();
+                                  seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
+  auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  real*(*faceNeighbors)[4] = layer.var(data.lts.faceNeighbors);
-  CellDRMapping(*drMapping)[4] = layer.var(data.lts.drMapping);
-  CellLocalInformation* cellInformation = layer.var(data.lts.cellInformation);
-
-  kernels::NeighborData::Loader loader;
-  loader.load(data.lts, layer);
+  real* const(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
+  const CellDRMapping(*drMapping)[4] = layer.var<LTS::DRMapping>();
+  const CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
 
   real* timeIntegrated[4];
   real* faceNeighborsPrefetch[4];
@@ -190,12 +175,14 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
 
 #ifdef _OPENMP
 #pragma omp parallel private(timeIntegrated, faceNeighborsPrefetch)
+#endif
   {
     LIKWID_MARKER_START("neighboring");
+#ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
-      auto local = loader.entry(cell);
+      auto local = layer.cellRef(cell);
       seissol::kernels::TimeCommon::computeIntegrals(
           data.timeKernel,
           cellInformation[cell].ltsSetup,
@@ -203,14 +190,10 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
           timeCoeffs.data(),
           timeCoeffs.data(),
           faceNeighbors[cell],
-#ifdef _OPENMP
           *reinterpret_cast<real(*)[4][tensor::I::size()]>(
-              &(data.globalDataOnHost.integrationBufferLTS[static_cast<size_t>(
-                  omp_get_thread_num() * 4 * tensor::I::size())])),
-#else
-        *reinterpret_cast<real(*)[4][tensor::I::size()]>(
-            data.globalDataOnHost.integrationBufferLTS),
-#endif
+              &data.globalDataOnHost
+                   .integrationBufferLTS[OpenMP::threadId() *
+                                         static_cast<size_t>(tensor::I::size()) * 4]),
           timeIntegrated);
 
       faceNeighborsPrefetch[0] = (cellInformation[cell].faceTypes[1] != FaceType::DynamicRupture)
@@ -237,10 +220,8 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
           local, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
     }
 
-#ifdef _OPENMP
     LIKWID_MARKER_STOP("neighboring");
   }
-#endif
 }
 auto ProxyKernelHostNeighbor::performanceEstimate(ProxyData& data) const -> PerformanceEstimate {
   PerformanceEstimate ret;
@@ -248,10 +229,10 @@ auto ProxyKernelHostNeighbor::performanceEstimate(ProxyData& data) const -> Perf
   ret.hardwareFlop = 0.0;
 
   // iterate over cells
-  auto& layer = data.ltsTree.child(0).child<Interior>();
+  auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  CellLocalInformation* cellInformation = layer.var(data.lts.cellInformation);
-  CellDRMapping(*drMapping)[4] = layer.var(data.lts.drMapping);
+  const CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
+  const CellDRMapping(*drMapping)[4] = layer.var<LTS::DRMapping>();
   for (std::size_t cell = 0; cell < nrOfCells; cell++) {
     std::uint64_t nonZeroFlops = 0;
     std::uint64_t hardwareFlops = 0;
@@ -278,13 +259,12 @@ auto ProxyKernelHostNeighbor::needsDR() const -> bool { return false; }
 auto ProxyKernelHostNeighborDR::needsDR() const -> bool { return true; }
 
 void ProxyKernelHostGodunovDR::run(ProxyData& data,
-                                   seissol::parallel::runtime::StreamRuntime& runtime) const {
-  seissol::initializer::Layer& layerData = data.dynRupTree.child(0).child<Interior>();
-  DRFaceInformation* faceInformation = layerData.var(data.dynRup.faceInformation);
-  DRGodunovData* godunovData = layerData.var(data.dynRup.godunovData);
-  DREnergyOutput* drEnergyOutput = layerData.var(data.dynRup.drEnergyOutput);
-  real** timeDerivativePlus = layerData.var(data.dynRup.timeDerivativePlus);
-  real** timeDerivativeMinus = layerData.var(data.dynRup.timeDerivativeMinus);
+                                   seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
+  auto& layerData = data.drStorage.layer(data.layerId);
+  const DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
+  const DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
+  real* const* timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
+  real* const* timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
   alignas(Alignment) real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()];
   alignas(Alignment) real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()];
   const auto [timePoints, timeWeights] =
@@ -297,9 +277,7 @@ void ProxyKernelHostGodunovDR::run(ProxyData& data,
   for (std::size_t face = 0; face < layerData.size(); ++face) {
     const std::size_t prefetchFace = (face + 1 < layerData.size()) ? face + 1 : face;
     data.dynRupKernel.spaceTimeInterpolation(faceInformation[face],
-                                             &data.globalDataOnHost,
                                              &godunovData[face],
-                                             &drEnergyOutput[face],
                                              timeDerivativePlus[face],
                                              timeDerivativeMinus[face],
                                              qInterpolatedPlus,
@@ -315,8 +293,8 @@ auto ProxyKernelHostGodunovDR::performanceEstimate(ProxyData& data) const -> Per
   ret.hardwareFlop = 0.0;
 
   // iterate over cells
-  seissol::initializer::Layer& interior = data.dynRupTree.child(0).child<Interior>();
-  DRFaceInformation* faceInformation = interior.var(data.dynRup.faceInformation);
+  auto& interior = data.drStorage.layer(data.layerId);
+  const DRFaceInformation* faceInformation = interior.var<DynamicRupture::FaceInformation>();
   for (std::size_t face = 0; face < interior.size(); ++face) {
     std::uint64_t drNonZeroFlops = 0;
     std::uint64_t drHardwareFlops = 0;

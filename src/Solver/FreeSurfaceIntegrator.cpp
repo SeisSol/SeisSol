@@ -8,24 +8,26 @@
 
 #include "FreeSurfaceIntegrator.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Common/Iterator.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
+#include "Geometry/Refinement/TriangleRefiner.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Initializer/MemoryManager.h"
+#include "Initializer/PreProcessorMacros.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Descriptor/Surface.h"
 #include "Memory/MemoryAllocator.h"
+#include "Memory/Tree/Layer.h"
 #include "Numerical/Functions.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
-#include "generated_code/kernel.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <Common/Iterator.h>
-#include <Geometry/Refinement/TriangleRefiner.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/PreProcessorMacros.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Descriptor/Surface.h>
-#include <Memory/Tree/LTSTree.h>
-#include <Memory/Tree/Layer.h>
+
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -33,9 +35,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <init.h>
 #include <limits>
-#include <tensor.h>
 #include <utils/logger.h>
 #include <vector>
 
@@ -63,33 +63,30 @@ FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
 }
 
 void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
-                                       GlobalData* globalData,
-                                       seissol::initializer::LTS* lts,
-                                       seissol::initializer::LTSTree* ltsTree,
-                                       seissol::SurfaceLTS* surfacelts,
-                                       seissol::initializer::LTSTree* surfaceltsTree) {
-  this->surfaceLts = surfacelts;
-  this->surfaceLtsTree = surfaceltsTree;
+                                       LTS::Storage& ltsStorage,
+                                       SurfaceLTS::Storage& surfaceStorage) {
+  this->surfaceStorage = &surfaceStorage;
   if (maxRefinementDepth > MaxRefinement) {
     logError()
         << "Free surface integrator: Currently more than 3 levels of refinements are unsupported.";
+    return;
   }
 
   m_enabled = true;
 
   logInfo() << "Initializing free surface integrator.";
   initializeProjectionMatrices(maxRefinementDepth);
-  initializeSurfaceLTSTree(lts, ltsTree);
+  initializeSurfaceStorage(ltsStorage);
   logInfo() << "Initializing free surface integrator. Done.";
 }
 
 void FreeSurfaceIntegrator::calculateOutput() const {
   const seissol::initializer::LayerMask ghostMask(Ghost);
-  for (auto& surfaceLayer : surfaceLtsTree->leaves(ghostMask)) {
-    real** dofs = surfaceLayer.var(surfaceLts->dofs);
-    auto* displacementDofs = surfaceLayer.var(surfaceLts->displacementDofs);
-    auto* side = surfaceLayer.var(surfaceLts->side);
-    auto* outputPosition = surfaceLayer.var(surfaceLts->outputPosition);
+  for (auto& surfaceLayer : surfaceStorage->leaves(ghostMask)) {
+    real* const* dofs = surfaceLayer.var<SurfaceLTS::Dofs>();
+    const auto* displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>();
+    const auto* side = surfaceLayer.var<SurfaceLTS::Side>();
+    const auto* outputPosition = surfaceLayer.var<SurfaceLTS::OutputPosition>();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for schedule(static) default(none)                                            \
@@ -110,7 +107,7 @@ void FreeSurfaceIntegrator::calculateOutput() const {
           for (std::size_t component = 0; component < NumComponents; ++component) {
             real* target = output[component] + outputPosition[face] * numberOfSubTriangles;
             /// @yateto_todo fix for multiple simulations
-            real* source =
+            const real* source =
                 subTriangleDofs + static_cast<size_t>(component * numberOfAlignedSubTriangles);
             for (std::size_t subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
               target[subtri] = source[subtri];
@@ -269,19 +266,18 @@ FreeSurfaceIntegrator::LocationFlag FreeSurfaceIntegrator::getLocationFlag(
   }
 }
 
-void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* lts,
-                                                     seissol::initializer::LTSTree* ltsTree) {
+void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
   const seissol::initializer::LayerMask ghostMask(Ghost);
 
-  surfaceLtsTree->setNumberOfTimeClusters(ltsTree->numChildren());
-  surfaceLtsTree->fixate();
+  surfaceStorage->setLayerCount(ltsStorage.getColorMap());
+  surfaceStorage->fixate();
 
   totalNumberOfFreeSurfaces = 0;
   for (auto [layer, surfaceLayer] :
-       seissol::common::zip(ltsTree->leaves(ghostMask), surfaceLtsTree->leaves(ghostMask))) {
-    auto* cellInformation = layer.var(lts->cellInformation);
-    auto* secondaryInformation = layer.var(lts->secondaryInformation);
-    auto* cellMaterialData = layer.var(lts->material);
+       seissol::common::zip(ltsStorage.leaves(ghostMask), surfaceStorage->leaves(ghostMask))) {
+    auto* cellInformation = layer.var<LTS::CellInformation>();
+    auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    auto* cellMaterialData = layer.var<LTS::Material>();
 
     std::size_t numberOfFreeSurfaces = 0;
     std::size_t numberOfOutputFreeSurfaces = 0;
@@ -308,40 +304,40 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* 
   totalNumberOfTriangles = totalNumberOfFreeSurfaces * numberOfSubTriangles;
   backmap.resize(totalNumberOfFreeSurfaces);
 
-  surfaceLtsTree->allocateVariables();
-  surfaceLtsTree->touchVariables();
+  surfaceStorage->allocateVariables();
+  surfaceStorage->touchVariables();
 
   for (std::size_t dim = 0; dim < NumComponents; ++dim) {
     velocities[dim] = seissol::memory::allocTyped<real>(totalNumberOfTriangles, Alignment);
     displacements[dim] = seissol::memory::allocTyped<real>(totalNumberOfTriangles, Alignment);
   }
-  locationFlags = std::vector<std::uint8_t>(totalNumberOfTriangles, 0);
+  locationFlags.resize(totalNumberOfTriangles);
   globalIds.resize(totalNumberOfTriangles);
 
-  // NOTE: we store also for space tree duplicates here
+  // NOTE: we store also for space storage duplicates here
   // thus, we need a non-duplicate lookup table (backmap)
 
   std::size_t surfaceCellOffset = 0; // Counts all surface cells of all layers
   std::size_t surfaceCellGlobal = 0;
   for (auto [layer, surfaceLayer] :
-       seissol::common::zip(ltsTree->leaves(ghostMask), surfaceLtsTree->leaves(ghostMask))) {
-    auto* cellInformation = layer.var(lts->cellInformation);
-    real(*dofs)[tensor::Q::size()] = layer.var(lts->dofs);
-    real*(*faceDisplacements)[4] = layer.var(lts->faceDisplacements);
-    real*(*faceDisplacementsDevice)[4] = layer.var(lts->faceDisplacementsDevice);
-    real** surfaceDofs = surfaceLayer.var(surfaceLts->dofs);
-    auto* displacementDofs = surfaceLayer.var(surfaceLts->displacementDofs);
+       seissol::common::zip(ltsStorage.leaves(ghostMask), surfaceStorage->leaves(ghostMask))) {
+    auto* cellInformation = layer.var<LTS::CellInformation>();
+    real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
+    real*(*faceDisplacements)[4] = layer.var<LTS::FaceDisplacements>();
+    real*(*faceDisplacementsDevice)[4] = layer.var<LTS::FaceDisplacementsDevice>();
+    real** surfaceDofs = surfaceLayer.var<SurfaceLTS::Dofs>();
+    auto* displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>();
     auto* displacementDofsDevice =
-        surfaceLayer.var(surfaceLts->displacementDofs, initializer::AllocationPlace::Device);
-    auto* cellMaterialData = layer.var(lts->material);
-    auto* surfaceBoundaryMapping = surfaceLayer.var(surfaceLts->boundaryMapping);
-    auto* boundaryMapping = layer.var(lts->boundaryMapping);
-    auto* secondaryInformation = layer.var(lts->secondaryInformation);
-    auto* locationFlagLayer = surfaceLayer.var(surfaceLts->locationFlag);
+        surfaceLayer.var<SurfaceLTS::DisplacementDofs>(initializer::AllocationPlace::Device);
+    auto* cellMaterialData = layer.var<LTS::Material>();
+    auto* surfaceBoundaryMapping = surfaceLayer.var<SurfaceLTS::BoundaryMapping>();
+    auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
+    auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    auto* locationFlagLayer = surfaceLayer.var<SurfaceLTS::LocationFlag>();
 
-    auto* side = surfaceLayer.var(surfaceLts->side);
-    auto* meshId = surfaceLayer.var(surfaceLts->meshId);
-    auto* outputPosition = surfaceLayer.var(surfaceLts->outputPosition);
+    auto* side = surfaceLayer.var<SurfaceLTS::Side>();
+    auto* meshId = surfaceLayer.var<SurfaceLTS::MeshId>();
+    auto* outputPosition = surfaceLayer.var<SurfaceLTS::OutputPosition>();
     std::size_t surfaceCell = 0;
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
@@ -349,7 +345,7 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* 
                 cellInformation[cell], cellMaterialData[cell], face)) {
           surfaceDofs[surfaceCell] = dofs[cell];
 
-          // NOTE: assign LTSTree data here
+          // NOTE: assign LTS::Storage data here
           faceDisplacements[cell][face] = displacementDofs[surfaceCell];
           faceDisplacementsDevice[cell][face] = displacementDofsDevice[surfaceCell];
 

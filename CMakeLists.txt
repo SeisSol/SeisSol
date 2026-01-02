@@ -5,7 +5,7 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.20)
 
 # use <PackageName>_ROOT variables
 if(POLICY CMP0074)
@@ -84,102 +84,6 @@ endif()
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
         "Release" "Debug" "RelWithDebInfo") # MinSizeRel is useless for us
 
-# LTO
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO})
-
-function(capitalize INARG OUTARG)
-  string(REPLACE "_" ";" PARTS ${INARG})
-  set(PREOUTARG "")
-  foreach(PART IN LISTS PARTS)
-    string(SUBSTRING ${PART} 0 1 FIRST)
-    string(TOUPPER ${FIRST} FIRSTU)
-    string(LENGTH ${PART} LEN)
-    string(SUBSTRING ${PART} 1 ${LEN} NEXT)
-    string(PREPEND NEXT ${FIRSTU})
-    string(APPEND PREOUTARG ${NEXT})
-  endforeach()
-  set(${OUTARG} ${PREOUTARG} PARENT_SCOPE)
-endfunction()
-
-set (BUILDTYPE_STR "Cpu")
-set (DEVICE_BACKEND_STR "None")
-if (WITH_GPU)
-  set (BUILDTYPE_STR "Gpu")
-  if (DEVICE_BACKEND STREQUAL "cuda")
-    set (DEVICE_BACKEND_STR "Cuda")
-  endif()
-  if (DEVICE_BACKEND STREQUAL "hip")
-    set (DEVICE_BACKEND_STR "Hip")
-  endif()
-  if (DEVICE_BACKEND STREQUAL "hipsycl" OR DEVICE_BACKEND STREQUAL "acpp" OR DEVICE_BACKEND STREQUAL "oneapi")
-    set (DEVICE_BACKEND_STR "Sycl")
-  endif()
-endif()
-
-configure_file("src/Alignment.h.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/src/Alignment.h")
-
-if (EQUATIONS STREQUAL "viscoelastic")
-  set(PARAMETER_MATERIAL "Viscoelastic")
-  set(PARAMETER_VISCOMODE "QuantityExtension")
-elseif (EQUATIONS STREQUAL "viscoelastic2")
-  set(PARAMETER_MATERIAL "Viscoelastic")
-  set(PARAMETER_VISCOMODE "AnelasticTensor")
-else()
-  capitalize(${EQUATIONS} PARAMETER_MATERIAL)
-  set(PARAMETER_VISCOMODE "None")
-endif()
-
-capitalize(${DR_QUAD_RULE} PARAMETER_DRQUADRULE)
-
-if (PRECISION STREQUAL "single")
-  set(PARAMETER_REALTYPE "F32")
-else()
-  set(PARAMETER_REALTYPE "F64")
-endif()
-
-configure_file("src/Config.h.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/src/Config.h")
-
-# Generate version.h
-include(GetGitRevisionDescription)
-
-# get GIT info
-git_describe(PACKAGE_GIT_VERSION --tags --always --dirty=\ \(dirty\) --broken=\ \(broken\))
-if (${PACKAGE_GIT_VERSION} MATCHES "NOTFOUND")
-  set(PACKAGE_GIT_VERSION "(unknown)")
-  set(PACKAGE_GIT_HASH "(unknown)")
-  set(PACKAGE_GIT_TIMESTAMP "9999-12-31T00:00:00+00:00")
-else()
-  get_git_commit_info(PACKAGE_GIT_HASH PACKAGE_GIT_TIMESTAMP)
-endif()
-string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
-
-# write file and print info
-configure_file("src/Version.h.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/src/Version.h")
-message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
-message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
-
-add_custom_target(build-time-make-directory ALL
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code")
-
-set(GENERATED_FILES_FOR_SEISSOL src/generated_code/subroutine.h
-                                src/generated_code/tensor.cpp
-                                src/generated_code/subroutine.cpp
-                                src/generated_code/gpulike_subroutine.cpp
-                                src/generated_code/tensor.h
-                                src/generated_code/init.cpp
-                                src/generated_code/init.h
-                                src/generated_code/kernel.h
-                                src/generated_code/kernel.cpp)
-
-if (TESTING AND TESTING_GENERATED)
-  set(GENERATED_FILES_FOR_SEISSOL ${GENERATED_FILES_FOR_SEISSOL}
-                                src/generated_code/test-kernel.cpp)
-endif()
-
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/)
 
 if(PROXY_PYBINDING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
@@ -187,72 +91,37 @@ else()
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
 endif()
 
-if(PREMULTIPLY_FLUX)
-  set(PREMULTIPLY_FLUX_VALUE "--enable_premultiply_flux")
-else()
-  set(PREMULTIPLY_FLUX_VALUE "--disable_premultiply_flux")
-endif()
-
-if (OVERRIDE_VECTORSIZE GREATER 0)
-  set(OVERRIDE_VECTORSIZE_PARAM "--vectorsize ${OVERRIDE_VECTORSIZE}")
-else()
-  set(OVERRIDE_VECTORSIZE_PARAM "")
-endif()
-
 find_package(GemmTools REQUIRED)
 
-add_custom_command(
-  COMMAND
-  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated-code/generate.py"
-     "--equations" ${EQUATIONS}
-     "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated-code/matrices
-     "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
-     "--host_arch" ${HOST_ARCH}
-     "--device_codegen" ${DEVICE_CODEGEN}
-     "--device_arch" ${DEVICE_ARCH}
-     "--device_backend" ${DEVICE_BACKEND}
-     "--device_vendor" ${DEVICE_VENDOR}
-     "--precision" ${PRECISION_PREFIX}
-     "--order" ${ORDER}
-     "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
-     "--memLayout" ${MEMORY_LAYOUT}
-     "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
-     "--PlasticityMethod" ${PLASTICITY_METHOD}
-     "--gemm_tools" ${GEMM_TOOLS_LIST}
-     "--drQuadRule" ${DR_QUAD_RULE}
-     "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
-     "--executable_pspamm=${PSpaMM_PROGRAM}"
-     ${PREMULTIPLY_FLUX_VALUE} # boolean flag
-     ${OVERRIDE_VECTORSIZE_PARAM}
-     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated-code
-     DEPENDS
-        build-time-make-directory
-        generated-code/generate.py
-        generated-code/kernels
-        generated-code/matrices
-        generated-code/config
-    OUTPUT
-        ${GENERATED_FILES_FOR_SEISSOL}
-    COMMENT "Code generation for tensor operations..."
-       )
+add_subdirectory(codegen)
 
-add_custom_target(seissol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
-add_library(seissol-common-properties INTERFACE IMPORTED)
+add_library(seissol-common-properties INTERFACE)
 
-include(src/sources.cmake)
+if (WITH_GPU)
+  set(SEISSOL_DEVICE_INCLUDE ${DEVICE_INCLUDE_DIRS})
 
+  if (DEVICE_BACKEND STREQUAL "cuda")
+    include(cmake/cuda.cmake)
+  endif()
+  if (DEVICE_BACKEND STREQUAL "hip")
+    include(cmake/hip.cmake)
+  endif()
+  if (DEVICE_BACKEND STREQUAL "hipsycl" OR DEVICE_BACKEND STREQUAL "acpp" OR DEVICE_BACKEND STREQUAL "oneapi")
+    include(cmake/sycl.cmake)
+  endif()
+endif()
+
+target_compile_options(seissol-common-properties INTERFACE ${EXTRA_CXX_FLAGS})
 target_compile_options(seissol-common-properties INTERFACE -fPIC)
+
+add_subdirectory(src)
 
 # enforce code generation to run before any other target
 add_dependencies(seissol-common-properties seissol-codegen)
 
 target_link_libraries(seissol-lib PUBLIC seissol-common-properties)
 target_link_libraries(seissol-kernel-lib PUBLIC seissol-common-properties)
-target_link_libraries(seissol-common-lib PUBLIC seissol-common-properties)
-
-target_link_libraries(seissol-common-lib PRIVATE seissol-kernel-lib)
 target_link_libraries(seissol-lib PRIVATE seissol-kernel-lib)
-target_link_libraries(seissol-lib PRIVATE seissol-common-lib)
 
 if (WITH_GPU)
   add_dependencies(seissol-device-lib seissol-codegen)
@@ -280,10 +149,6 @@ target_compile_options(seissol-common-properties INTERFACE ${CPU_ARCH_FLAGS})
 target_compile_definitions(seissol-common-properties INTERFACE LOGLEVEL=${LOG_LEVEL})
 target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_LEVEL_MASTER}
                                                      LOGLEVEL0=${LOG_LEVEL_MASTER})
-
-if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
-  target_compile_definitions(seissol-common-properties INTERFACE MULTIPLE_SIMULATIONS=${NUMBER_OF_FUSED_SIMULATIONS})
-endif()
 
 # enable interproc. opts for small cores
 #if cpu in ['knc', 'knl', 'skx']:
@@ -354,7 +219,7 @@ if (HDF5)
   if (NOT HDF5_IS_PARALLEL)
     message(WARNING "The found parallel Hdf5 installation is not parallel. Compile errors will occur.")
   endif()
-endif()  
+endif()
 
 # Parmetis
 if ("parmetis" IN_LIST GRAPH_PARTITIONING_LIBS)
@@ -387,23 +252,6 @@ if (MEMKIND)
   target_compile_definitions(seissol-common-properties INTERFACE USE_MEMKIND)
 endif()
 
-if(${EQUATIONS} STREQUAL "poroelastic")
-  include(CheckLanguage)
-  check_language(Fortran)
-  if(CMAKE_Fortran_COMPILER)
-    enable_language(Fortran)
-    include(FortranCInterface)
-    FortranCInterface_HEADER(FC.h MACRO_NAMESPACE "FC_")
-    find_package(LAPACK REQUIRED)
-    target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
-    target_link_libraries(seissol-common-properties INTERFACE ${LAPACK_LIBRARIES})
-    target_compile_definitions(seissol-common-properties INTERFACE USE_LAPACK)
-  else()
-    message(FATAL_ERROR "SeisSol needs a Fortran compiler.")
-  endif()
-endif()
-
-
 if (INTEGRATE_QUANTITIES)
   target_compile_definitions(seissol-common-properties INTERFACE INTEGRATE_QUANTITIES)
 endif()
@@ -418,16 +266,37 @@ if (ADDRESS_SANITIZER_DEBUG)
   )
 endif()
 
-# Note: it is better to include `async` as
-# system headers because they emit lot's of warnings
-# from clang. Most of them are issues with respect
-# to overriden virtual methods
-target_include_directories(seissol-common-properties SYSTEM INTERFACE
-  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
-)
-
-find_package(Eigen3 3.4 REQUIRED)
+find_package(Eigen3 REQUIRED)
 target_link_libraries(seissol-common-properties INTERFACE Eigen3::Eigen)
+
+# needed explicitly also to silence some clang-tidy differences
+if (NOT WITH_GPU)
+  # but: it still causes issues with some GPU builds until we refactor the DR parameter datastructures
+  target_compile_definitions(seissol-common-properties INTERFACE EIGEN_INITIALIZE_MATRICES_BY_ZERO)
+endif()
+
+# the following check is needed because allowing 3.4 and 5.0.0 at the same
+# time was not possible inline in the find_package
+if ("${Eigen3_VERSION}" VERSION_LESS "3.4")
+  message(FATAL_ERROR "Your installed Eigen version is too old. Needed: at least 3.4 .")
+endif()
+
+# needed because Eigen (also 5.0) still incorrectly computes some values and fails some unit tests
+if((${EQUATIONS} STREQUAL "poroelastic"))
+  include(CheckLanguage)
+  check_language(Fortran)
+  if(CMAKE_Fortran_COMPILER)
+    enable_language(Fortran)
+    include(FortranCInterface)
+    FortranCInterface_HEADER(FC.h MACRO_NAMESPACE "FC_")
+    find_package(LAPACK REQUIRED)
+    target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
+    target_link_libraries(seissol-common-properties INTERFACE ${LAPACK_LIBRARIES})
+    target_compile_definitions(seissol-common-properties INTERFACE USE_LAPACK)
+  else()
+    message(FATAL_ERROR "SeisSol needs a Fortran compiler.")
+  endif()
+endif()
 
 find_package(yaml-cpp REQUIRED)
 
@@ -464,9 +333,24 @@ endif()
 
 target_include_directories(seissol-common-properties INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}/src/
+    ${CMAKE_CURRENT_BINARY_DIR}/codegen/
+)
+
+# submodule includes
+
+# Note: it is better to include `async` as
+# system headers because they emit lots of warnings
+# from clang. Most of them are issues with respect
+# to overriden virtual methods
+
+# for the same reason, do the same for all other submodules (for now)
+
+# not explicitly listed: PUML, utils, fty, xdmfwriter
+target_include_directories(seissol-common-properties SYSTEM INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
-    ${CMAKE_CURRENT_BINARY_DIR}/src/
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
 if (PREMULTIPLY_FLUX)
@@ -490,15 +374,22 @@ else()
   else()
     set(NAME_SUFFIX "cpu")
   endif()
-  set(NAME_SUFFIX "${NAME_SUFFIX}-${EQUATIONS}")
-  if (PRECISION STREQUAL "single")
-    set(NAME_SUFFIX "${NAME_SUFFIX}-s")
+  if (EQUATIONS STREQUAL "viscoelastic2")
+    set(NAME_SUFFIX "${NAME_SUFFIX}-viscoelastic")
   else()
-    set(NAME_SUFFIX "${NAME_SUFFIX}-d")
+    set(NAME_SUFFIX "${NAME_SUFFIX}-${EQUATIONS}")
+  endif()
+  if (NUMBER_OF_MECHANISMS GREATER 0)
+    set(NAME_SUFFIX "${NAME_SUFFIX}-${NUMBER_OF_MECHANISMS}")
   endif()
   set(NAME_SUFFIX "${NAME_SUFFIX}-p${ORDER}")
+  if (PRECISION STREQUAL "single")
+    set(NAME_SUFFIX "${NAME_SUFFIX}-f32")
+  else()
+    set(NAME_SUFFIX "${NAME_SUFFIX}-f64")
+  endif()
   if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
-    set(NAME_SUFFIX "${NAME_SUFFIX}-f${NUMBER_OF_FUSED_SIMULATIONS}")
+    set(NAME_SUFFIX "${NAME_SUFFIX}-s${NUMBER_OF_FUSED_SIMULATIONS}")
   endif()
 endif()
 
@@ -527,7 +418,6 @@ if (WITH_GPU)
 
   # add device submodule
   add_subdirectory(submodules/Device)
-  target_include_directories(seissol-common-properties INTERFACE submodules/Device)
   target_link_libraries(seissol-common-properties INTERFACE device)
 
   # add SeisSol GPU part
@@ -537,56 +427,55 @@ if (WITH_GPU)
     set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
     set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_BACKEND}")
   else()
-    set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "seissol-gpucode-${EXE_NAME_PREFIX}")
+    set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "seissol-gpucode-${NAME_SUFFIX}")
   endif()
 
   # set up GPU install targets
   install(TARGETS seissol-device-lib LIBRARY)
   install(TARGETS device LIBRARY)
-  target_sources(seissol-common-lib PRIVATE ${SYCL_ONLY_SRC_FILES})
 endif()
 
 # C++ compiler settings
+# TODO: mostly remove or make optional? (except the EIGEN_DONT_VECTORIZE for NVHPC below)
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  target_compile_options(seissol-lib INTERFACE -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
+  target_compile_options(seissol-common-properties INTERFACE $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-pedantic -Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
 
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
   # todo remove std?, is ffreestanding needed?
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-pedantic -std=c++17>)
 
   # Activate interprocedual optimization.
-  #set_property(TARGET seissol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
+  #set_property(TARGET seissol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Wno-unused-parameter")
+  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-pedantic -Wall -Wextra -Wno-unused-parameter>)
 
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
     # warning 186 - pointless comparison of unsigned integer with zero detected
     # warning 612 - overloaded virtual function is only partially overridden
     # warning 111 - statement is unreachable
-    set(WARNINGS "--display_error_number --diag_suppress186 --diag_suppress612 --diag_suppress111")
+    target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:--display_error_number --diag_suppress186 --diag_suppress612 --diag_suppress111>)
     if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.3.1")
-      set(WARNINGS "${WARNINGS} --diag_suppress1")
+      target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:--diag_suppress1>)
     endif()
 
     # NOTE:
     # 1. --pending_instantiations=0 allows an infinite recursive template instantiation
-    # 2. EIGEN_DONT_VECTORIZE=1 waiting for eigen3 support for nvhpc compiler collection w.r.t. vectorization
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wc,--pending_instantiations=0 ${WARNINGS} -DEIGEN_DONT_VECTORIZE=0")
+    target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-Wc,--pending_instantiations=0>)
+
+    if ("${Eigen3_VERSION}" VERSION_LESS "5.0")
+      # 2. EIGEN_DONT_VECTORIZE=1 ; Eigen3 3.4 does not have support for NVHPC vectorization
+      target_compile_definitions(seissol-common-properties INTERFACE EIGEN_DONT_VECTORIZE=0)
+    endif()
 endif()
 
 find_package(FILESYSTEM REQUIRED)
 target_link_libraries(seissol-common-properties INTERFACE std::filesystem)
 
-# Generated code does only work without red-zone.
-if (HAS_REDZONE)
-  set_source_files_properties(
-      ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
-  )
-endif()
-
-# put every executable in the root build directory at the end
+# put every executable and shared library in the root build directory at the end
+# (for compatibility reasons; TODO: remove at some point)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 if (LIKWID)
@@ -596,83 +485,13 @@ if (LIKWID)
   target_link_libraries(seissol-lib PUBLIC likwid::likwid)
 endif()
 
+add_subdirectory(external)
+
 if (TESTING)
   enable_testing()
   include(cmake/doctest.cmake)
 
-  set(seissol_test_sources
-          src/tests/Model/TestModel.cpp
-          src/tests/Initializer/TestInitializer.cpp
-          src/tests/Numerical/TestNumerical.cpp
-          src/tests/Geometry/TestGeometry.cpp
-          src/tests/Kernel/TestKernel.cpp
-          src/tests/SourceTerm/TestSourceTerm.cpp
-          src/tests/Parallel/TestParallel.cpp
-          src/tests/ResultWriter/TestResultWriter.cpp
-          src/tests/Solver/TimeStepping/TestSolverTimeStepping.cpp
-          src/tests/DynamicRupture/TestDynamicRupture.cpp
-          src/tests/Common/TestCommon.cpp
-          )
-
-
-  if (TESTING_GENERATED)
-    # FIXME: fix by removing the `using namespace` in the test files
-    # and replace by ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp
-    file(GLOB_RECURSE KERNEL_TESTFILES ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/**/test-kernel.cpp)
-    set(seissol_test_sources
-            ${seissol_test_sources}
-            ${KERNEL_TESTFILES}
-            )
-  endif()
-
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/TimeStepping/mesh.h5
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh.h5
-    COPYONLY
-    )
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/TimeStepping/material.yaml
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/material.yaml
-    COPYONLY
-    )
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/ResultWriter/receiver_correct.dat
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/receiver_correct.dat
-    COPYONLY
-  )
-
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/fsrm_source1.dat
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/fsrm_source1.dat
-    COPYONLY
-  )
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/fsrm_source2.dat
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/fsrm_source2.dat
-    COPYONLY
-  )
-
-  if (NETCDF)
-    configure_file(
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/source_loh.nrf
-            ${CMAKE_CURRENT_BINARY_DIR}/Testing/source_loh.nrf
-            COPYONLY
-    )
-    set(seissol_test_sources ${seissol_test_sources} ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/ReaderTest.cpp)
-  endif()
-
-  add_executable(seissol-serial-test
-            ${seissol_test_sources}
-            src/tests/TestMain.cpp)
-  target_link_libraries(seissol-serial-test PRIVATE seissol-lib)
-  target_include_directories(seissol-serial-test PUBLIC external/)
-
-  separate_arguments(TESTING_COMMAND_LIST NATIVE_COMMAND ${TESTING_COMMAND})
-  set_property(TARGET seissol-serial-test PROPERTY CROSSCOMPILING_EMULATOR ${TESTING_COMMAND_LIST})
-  doctest_discover_tests(seissol-serial-test)
-
-  # Avoid duplicate definition of FLOP counters
-  target_compile_definitions(seissol-serial-test PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
+  add_subdirectory(tests)
 
   # Coverage
   if(COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
@@ -681,9 +500,9 @@ if (TESTING)
             EXECUTABLE seissol-serial-test
             EXCLUDE "/usr/*"
                     "submodules/*"
-                    "*/tests/*"
+                    "tests/*"
                     "external/*"
-                    "*/src/generated_code/*"
+                    "*/codegen/GeneratedCode/*"
                     "/opt/*"
             LCOV_ARGS --ignore-errors inconsistent
                       --ignore-errors unused
@@ -692,22 +511,7 @@ if (TESTING)
   endif()
 endif()
 
-# build seissol-bin
-add_executable(seissol-bin src/Main.cpp)
-if (NOT NEW_BINARY_NAMING)
-  set_target_properties(seissol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
-else()
-  set_target_properties(seissol-bin PROPERTIES OUTPUT_NAME "seissol-${NAME_SUFFIX}")
-endif()
-
-target_link_libraries(seissol-bin PUBLIC seissol-lib)
-
-install(TARGETS seissol-bin RUNTIME)
-# end build seissol-bin
-
-# build seissol-proxy
-add_subdirectory(auto-tuning/proxy/src)
-# end build seissol-proxy
+add_subdirectory(app)
 
 if (WITH_GPU)
   string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
@@ -720,6 +524,13 @@ if (WITH_GPU)
           PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
 endif()
 
+if (BUILD_DOXYGEN)
+  add_subdirectory(docs/doxygen)
+endif()
+
+if (BUILD_DOCS)
+  add_subdirectory(docs)
+endif()
+
 # https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/
 # https://ortogonal.github.io/cmake-clang-tidy/
-

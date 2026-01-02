@@ -9,19 +9,22 @@
 #ifndef SEISSOL_SRC_KERNELS_RECEIVER_H_
 #define SEISSOL_SRC_KERNELS_RECEIVER_H_
 
+#include "Common/Executor.h"
+#include "GeneratedCode/init.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/PointMapper.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Lut.h"
+#include "Memory/Tree/Backmap.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
-#include "generated_code/init.h"
-#include <Common/Executor.h>
+#include "Parallel/Runtime/Stream.h"
+
 #include <Eigen/Dense>
-#include <Geometry/CellTransform.h>
 #include <Initializer/Typedefs.h>
 #include <optional>
 #include <vector>
@@ -35,15 +38,15 @@ struct Receiver {
   Receiver(unsigned pointId,
            Eigen::Vector3d position,
            const seissol::geometry::CellTransform& elementCoords,
-           kernels::LocalData dataHost,
-           kernels::LocalData dataDevice,
+           LTS::Ref dataHost,
+           LTS::Ref dataDevice,
            size_t reserved);
   unsigned pointId;
   Eigen::Vector3d position;
   basisFunction::SampledBasisFunctions<real> basisFunctions;
   basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
-  kernels::LocalData dataHost;
-  kernels::LocalData dataDevice;
+  LTS::Ref dataHost;
+  LTS::Ref dataDevice;
   std::vector<real> output;
 };
 
@@ -89,12 +92,14 @@ class ReceiverCluster {
                    unsigned pointId,
                    const Eigen::Vector3d& point,
                    const seissol::geometry::MeshReader& mesh,
-                   const seissol::initializer::Lut& ltsLut,
-                   seissol::initializer::LTS const& lts);
+                   const LTS::Backmap& backmap);
 
   //! Returns new receiver time
-  double calcReceivers(
-      double time, double expansionPoint, double timeStepWidth, Executor executor, void* stream);
+  double calcReceivers(double time,
+                       double expansionPoint,
+                       double timeStepWidth,
+                       Executor executor,
+                       parallel::runtime::StreamRuntime& runtime);
 
   std::vector<Receiver>::iterator begin() { return m_receivers.begin(); }
 
@@ -106,7 +111,8 @@ class ReceiverCluster {
   void freeData();
 
   private:
-  std::unique_ptr<seissol::parallel::DataCollector> deviceCollector{nullptr};
+  std::optional<parallel::runtime::StreamRuntime> extraRuntime;
+  std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollector{nullptr};
   std::vector<size_t> deviceIndices;
   std::vector<Receiver> m_receivers;
   seissol::kernels::Spacetime spacetimeKernel;

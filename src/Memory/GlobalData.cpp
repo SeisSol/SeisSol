@@ -7,18 +7,20 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "GlobalData.h"
-#include "generated_code/init.h"
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Memory/MemoryAllocator.h>
+
+#include "Common/Marker.h"
+#include "DynamicRupture/FrictionLaws/TPCommon.h"
+#include "DynamicRupture/Misc.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Memory/MemoryAllocator.h"
+#include "Parallel/OpenMP.h"
+
 #include <cassert>
 #include <cstddef>
-#include <tensor.h>
 #include <yateto.h>
-
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 namespace seissol::initializer {
 namespace matrixmanip {
@@ -38,35 +40,25 @@ void OnHost::negateStiffnessMatrix(GlobalData& globalData) {
 
 void OnHost::initSpecificGlobalData(GlobalData& globalData,
                                     memory::ManagedAllocator& allocator,
-                                    CopyManagerT& copyManager,
+                                    CopyManagerT& /*copyManager*/,
                                     size_t alignment,
                                     seissol::memory::Memkind memkind) {
   // thread-local LTS integration buffers
-  int numberOfThreads = 1;
-#ifdef _OPENMP
-  numberOfThreads = omp_get_max_threads();
-#endif
+  const auto numThreads = OpenMP::threadCount();
+  const auto allocSize = 4 * static_cast<std::size_t>(tensor::I::size());
   auto* integrationBufferLTS = reinterpret_cast<real*>(
-      allocator.allocateMemory(static_cast<std::size_t>(numberOfThreads) *
-                                   static_cast<std::size_t>(4 * tensor::I::size()) * sizeof(real),
-                               alignment,
-                               memkind));
+      allocator.allocateMemory(numThreads * allocSize * sizeof(real), alignment, memkind));
 
 // initialize w.r.t. NUMA
 #ifdef _OPENMP
 #pragma omp parallel
-  {
-    const auto threadOffset = static_cast<std::size_t>(omp_get_thread_num()) *
-                              static_cast<std::size_t>(4 * tensor::I::size());
-#else
-  std::size_t threadOffset = 0;
 #endif
-    for (std::size_t dof = 0; dof < (static_cast<std::size_t>(4 * tensor::I::size())); ++dof) {
+  {
+    const auto threadOffset = OpenMP::threadId() * allocSize;
+    for (std::size_t dof = 0; dof < allocSize; ++dof) {
       integrationBufferLTS[dof + threadOffset] = static_cast<real>(0.0);
     }
-#ifdef _OPENMP
   }
-#endif
 
   globalData.integrationBufferLTS = integrationBufferLTS;
 }
@@ -95,11 +87,11 @@ void OnDevice::negateStiffnessMatrix(GlobalData& globalData) {
   }
 #endif // ACL_DEVICE
 }
-void OnDevice::initSpecificGlobalData(GlobalData& globalData,
-                                      memory::ManagedAllocator& allocator,
-                                      CopyManagerT& copyManager,
-                                      size_t alignment,
-                                      seissol::memory::Memkind memkind) {
+void OnDevice::initSpecificGlobalData(SEISSOL_GPU_PARAM GlobalData& globalData,
+                                      SEISSOL_GPU_PARAM memory::ManagedAllocator& allocator,
+                                      SEISSOL_GPU_PARAM CopyManagerT& copyManager,
+                                      SEISSOL_GPU_PARAM size_t alignment,
+                                      SEISSOL_GPU_PARAM seissol::memory::Memkind memkind) {
 #ifdef ACL_DEVICE
   const size_t size = yateto::alignedUpper(tensor::replicateInitialLoadingM::size(),
                                            yateto::alignedReals<real>(alignment));
@@ -111,7 +103,9 @@ void OnDevice::initSpecificGlobalData(GlobalData& globalData,
 #endif // ACL_DEVICE
 }
 
-real* OnDevice::DeviceCopyPolicy::copy(const real* first, const real* last, real*& mem) {
+real* OnDevice::DeviceCopyPolicy::copy(SEISSOL_GPU_PARAM const real* first,
+                                       SEISSOL_GPU_PARAM const real* last,
+                                       SEISSOL_GPU_PARAM real*& mem) {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   const std::size_t bytes = (last - first) * sizeof(real);
@@ -170,6 +164,17 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
       yateto::alignedReals<real>(prop.alignment));
 #endif // ACL_DEVICE
 
+  globalMatrixMemSize +=
+      yateto::alignedUpper(tensor::resample::size(), yateto::alignedReals<real>(prop.alignment));
+  globalMatrixMemSize +=
+      yateto::alignedUpper(tensor::quadweights::size(), yateto::alignedReals<real>(prop.alignment));
+  globalMatrixMemSize +=
+      yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
+  globalMatrixMemSize +=
+      yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
+  globalMatrixMemSize +=
+      yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
+
   real* globalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory(
       globalMatrixMemSize * sizeof(real), prop.pagesizeHeap, memkind));
 
@@ -211,6 +216,51 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
       globalMatrixMemPtr, globalData.minusFluxMatrices, prop.alignment);
 #endif // ACL_DEVICE
 
+  copyManager.template copyTensorToMemAndSetPtr<init::resample>(
+      globalMatrixMemPtr, globalData.resampleMatrix, prop.alignment);
+  copyManager.template copyTensorToMemAndSetPtr<init::quadweights>(
+      globalMatrixMemPtr, globalData.spaceWeights, prop.alignment);
+
+  // a bit more manual
+  {
+    const auto data =
+        seissol::dr::friction_law::tp::InverseFourierCoefficients<dr::misc::NumTpGridPoints>();
+    globalData.tpInverseFourierCoefficients = globalMatrixMemPtr;
+    globalMatrixMemPtr +=
+        yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
+    seissol::memory::memcopyTyped<real>(globalData.tpInverseFourierCoefficients,
+                                        data.data().data(),
+                                        dr::misc::NumTpGridPoints,
+                                        memkind,
+                                        memory::Memkind::Standard);
+  }
+
+  {
+    const auto data = seissol::dr::friction_law::tp::GridPoints<dr::misc::NumTpGridPoints>();
+    globalData.tpGridPoints = globalMatrixMemPtr;
+    globalMatrixMemPtr +=
+        yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
+    seissol::memory::memcopyTyped<real>(globalData.tpGridPoints,
+                                        data.data().data(),
+                                        dr::misc::NumTpGridPoints,
+                                        memkind,
+                                        memory::Memkind::Standard);
+  }
+
+  {
+    const auto data =
+        seissol::dr::friction_law::tp::GaussianHeatSource<dr::misc::NumTpGridPoints>();
+    globalData.heatSource = globalMatrixMemPtr;
+    globalMatrixMemPtr +=
+        yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
+
+    seissol::memory::memcopyTyped<real>(globalData.heatSource,
+                                        data.data().data(),
+                                        dr::misc::NumTpGridPoints,
+                                        memkind,
+                                        memory::Memkind::Standard);
+  }
+
   assert(globalMatrixMemPtr == globalMatrixMem + globalMatrixMemSize);
 
   // @TODO Integrate this step into the code generator
@@ -226,6 +276,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   real* drGlobalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory(
       drGlobalMatrixMemSize * sizeof(real), prop.pagesizeHeap, memkind));
 
+  // NOLINTNEXTLINE(misc-const-correctness)
   real* drGlobalMatrixMemPtr = drGlobalMatrixMem;
   copyManager.template copyFamilyToMemAndSetPtr<init::V3mTo2nTWDivM>(
       drGlobalMatrixMemPtr, globalData.nodalFluxMatrices, prop.alignment);
@@ -244,6 +295,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   real* plasticityGlobalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory(
       plasticityGlobalMatrixMemSize * sizeof(real), prop.pagesizeHeap, memkind));
 
+  // NOLINTNEXTLINE(misc-const-correctness)
   real* plasticityGlobalMatrixMemPtr = plasticityGlobalMatrixMem;
   copyManager.template copyTensorToMemAndSetPtr<init::v>(
       plasticityGlobalMatrixMemPtr, globalData.vandermondeMatrix, prop.alignment);

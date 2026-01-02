@@ -8,33 +8,49 @@
 #ifndef SEISSOL_SRC_MODEL_PLASTICITY_H_
 #define SEISSOL_SRC_MODEL_PLASTICITY_H_
 
+#include "Kernels/Precision.h"
 #include "Model/CommonDatastructures.h"
-#include <Kernels/Precision.h>
+#include "Solver/MultipleSimulations.h"
+
 #include <cmath>
+#include <cstddef>
 #include <string>
 
 namespace seissol::model {
-// plasticity information per cell
+// plasticity information per cell. In case of multiple simulations, it contains data of all
+// simulations
+
 struct PlasticityData {
   // initial loading (stress tensor)
-  real initialLoading[6];
-  real cohesionTimesCosAngularFriction;
-  real sinAngularFriction;
-  real mufactor;
+  real initialLoading[6 * seissol::multisim::NumSimulations]{};
+  real cohesionTimesCosAngularFriction[seissol::multisim::NumSimulations]{};
+  real sinAngularFriction[seissol::multisim::NumSimulations]{};
 
-  PlasticityData(const Plasticity& plasticity, const Material* material) {
-    initialLoading[0] = plasticity.sXX;
-    initialLoading[1] = plasticity.sYY;
-    initialLoading[2] = plasticity.sZZ;
-    initialLoading[3] = plasticity.sXY;
-    initialLoading[4] = plasticity.sYZ;
-    initialLoading[5] = plasticity.sXZ;
+  // Only dependent on mu which is to be constant for all simulations
+  real mufactor{};
 
-    const double angularFriction = std::atan(plasticity.bulkFriction);
+  PlasticityData(const std::array<Plasticity, seissol::multisim::NumSimulations>& plasticity,
+                 const Material* material) {
+    for (std::size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
+      // interleave these so that the kernel does not need any modifications
+      initialLoading[static_cast<std::size_t>(0 * seissol::multisim::NumSimulations) + i] =
+          plasticity[i].sXX;
+      initialLoading[static_cast<std::size_t>(1 * seissol::multisim::NumSimulations) + i] =
+          plasticity[i].sYY;
+      initialLoading[static_cast<std::size_t>(2 * seissol::multisim::NumSimulations) + i] =
+          plasticity[i].sZZ;
+      initialLoading[static_cast<std::size_t>(3 * seissol::multisim::NumSimulations) + i] =
+          plasticity[i].sXY;
+      initialLoading[static_cast<std::size_t>(4 * seissol::multisim::NumSimulations) + i] =
+          plasticity[i].sYZ;
+      initialLoading[static_cast<std::size_t>(5 * seissol::multisim::NumSimulations) + i] =
+          plasticity[i].sXZ;
 
-    cohesionTimesCosAngularFriction = plasticity.plastCo * std::cos(angularFriction);
-    sinAngularFriction = std::sin(angularFriction);
+      const double angularFriction = std::atan(plasticity[i].bulkFriction);
 
+      cohesionTimesCosAngularFriction[i] = plasticity[i].plastCo * std::cos(angularFriction);
+      sinAngularFriction[i] = std::sin(angularFriction);
+    }
     const auto mubar = material->getMuBar();
     mufactor = 1.0 / (2.0 * mubar);
   }

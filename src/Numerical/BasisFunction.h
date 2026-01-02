@@ -9,18 +9,18 @@
 #ifndef SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_
 #define SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_
 
-#include "generated_code/init.h"
-#include <Common/Constants.h>
+#include "Common/Constants.h"
+#include "Functions.h"
+#include "GeneratedCode/init.h"
+#include "Geometry/CellTransform.h"
+#include "Geometry/MeshDefinition.h"
+#include "Transformation.h"
+
 #include <Eigen/Dense>
-#include <Geometry/CellTransform.h>
-#include <Geometry/MeshDefinition.h>
 #include <cmath>
 #include <numeric>
 #include <type_traits>
 #include <vector>
-
-#include "Functions.h"
-#include "Transformation.h"
 
 namespace seissol::basisFunction {
 
@@ -134,7 +134,7 @@ class SampledBasisFunctions {
    */
   SampledBasisFunctions(unsigned int order, T xi, T eta, T zeta)
       : m_data(basisFunctionsForOrder(order)) {
-    BasisFunctionGenerator<T> gen(xi, eta, zeta);
+    const BasisFunctionGenerator<T> gen(xi, eta, zeta);
 
     unsigned int i = 0;
     for (unsigned int ord = 0; ord < order; ord++) {
@@ -192,7 +192,7 @@ class SampledBasisFunctionDerivatives {
    */
   SampledBasisFunctionDerivatives(unsigned int order, T xi, T eta, T zeta)
       : m_data(3 * basisFunctionsForOrder(order)) {
-    BasisFunctionDerivativeGenerator<T> gen(xi, eta, zeta);
+    const BasisFunctionDerivativeGenerator<T> gen(xi, eta, zeta);
     auto dataView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
 
     unsigned int i = 0;
@@ -256,7 +256,7 @@ class TimeBasisFunctionGenerator {
   }
 
   public:
-  TimeBasisFunctionGenerator(T tau) : tau_(tau) {}
+  explicit TimeBasisFunctionGenerator(T tau) : tau_(tau) {}
 
   T operator()(unsigned int i) const { return functions::DubinerP<1>({i}, {tau_}); }
 };

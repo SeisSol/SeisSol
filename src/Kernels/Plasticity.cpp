@@ -9,28 +9,31 @@
 
 #include "Plasticity.h"
 
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
-#include <Alignment.h>
-#include <DataTypes/ConditionalTable.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Model/Plasticity.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Alignment.h"
+#include "Common/Marker.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Model/Plasticity.h"
+#include "Parallel/Runtime/Stream.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
-#include <tensor.h>
-
-#include "utils/logger.h"
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "DeviceAux/PlasticityAux.h"
-#include "device.h"
-#include <DataTypes/ConditionalKey.h>
-#include <DataTypes/EncodedConstants.h>
-#include <Solver/MultipleSimulations.h>
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Solver/MultipleSimulations.h"
+
+#include <Device/device.h>
 using namespace device;
 #endif
 
@@ -76,6 +79,7 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   /* Convert modal to nodal and add sigma0.
    * Stores s_{ij} := sigma_{ij} + sigma0_{ij} for every node.
    * sigma0 is constant */
+
   kernel::plConvertToNodal m2nKrnl;
   m2nKrnl.v = global->vandermondeMatrix;
   m2nKrnl.QStress = degreesOfFreedom;
@@ -114,9 +118,11 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 
   // Compute tau_c for every node
   for (std::size_t ip = 0; ip < tensor::meanStress::size(); ++ip) {
-    taulim[ip] = std::max(static_cast<real>(0.0),
-                          plasticityData->cohesionTimesCosAngularFriction -
-                              meanStress[ip] * plasticityData->sinAngularFriction);
+    taulim[ip] = std::max(
+        static_cast<real>(0.0),
+        plasticityData->cohesionTimesCosAngularFriction[ip % seissol::multisim::NumSimulations] -
+            meanStress[ip] *
+                plasticityData->sinAngularFriction[ip % seissol::multisim::NumSimulations]);
   }
 
   bool adjust = false;
@@ -243,19 +249,22 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 }
 
 void Plasticity::computePlasticityBatched(
-    double timeStepWidth,
-    double tV,
-    const GlobalData* global,
-    initializer::recording::ConditionalPointersToRealsTable& table,
-    seissol::model::PlasticityData* plasticityData,
-    std::size_t* yieldCounter,
-    unsigned* isAdjustableVector,
-    seissol::parallel::runtime::StreamRuntime& runtime) {
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM double tV,
+    SEISSOL_GPU_PARAM const GlobalData* global,
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM seissol::model::PlasticityData* plasticityData,
+    SEISSOL_GPU_PARAM std::size_t* yieldCounter,
+    SEISSOL_GPU_PARAM unsigned* isAdjustableVector,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
+
   static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
                 "modal and nodal dofs must have the same leading dimensions");
   static_assert(tensor::Q::Shape[multisim::BasisFunctionDimension] == tensor::v::Shape[0],
-                "modal dofs and vandermonde matrix must hage the same leading dimensions");
+                "modal dofs and vandermonde matrix must have the same leading dimensions");
 
   DeviceInstance& device = DeviceInstance::getInstance();
   ConditionalKey key(*KernelNames::Plasticity);

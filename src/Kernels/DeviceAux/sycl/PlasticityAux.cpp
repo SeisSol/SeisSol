@@ -6,9 +6,11 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Kernels/DeviceAux/PlasticityAux.h"
-#include <Solver/MultipleSimulations.h>
+
+#include "GeneratedCode/init.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <cmath>
-#include <init.h>
 #include <sycl/sycl.hpp>
 
 namespace seissol::kernels::device::aux::plasticity {
@@ -79,8 +81,10 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
       tau = std::sqrt(tau);
 
       // 4. Compute the plasticity criteria
-      const real cohesionTimesCosAngularFriction = plasticity[wid].cohesionTimesCosAngularFriction;
-      const real sinAngularFriction = plasticity[wid].sinAngularFriction;
+      const real cohesionTimesCosAngularFriction =
+          plasticity[wid].cohesionTimesCosAngularFriction[tid % seissol::multisim::NumSimulations];
+      const real sinAngularFriction =
+          plasticity[wid].sinAngularFriction[tid % seissol::multisim::NumSimulations];
       real taulim = cohesionTimesCosAngularFriction - meanStress * sinAngularFriction;
       taulim = std::max(static_cast<real>(0.0), taulim);
 

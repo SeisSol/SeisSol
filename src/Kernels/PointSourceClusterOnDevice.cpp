@@ -8,28 +8,22 @@
 
 #include "PointSourceClusterOnDevice.h"
 
-#include "generated_code/init.h"
-#include "generated_code/tensor.h"
+#include "Kernels/PointSourceCluster.h"
+#include "Kernels/Precision.h"
+#include "Parallel/Runtime/Stream.h"
+#include "SourceTerm/Typedefs.h"
 
-// needs to be loaded after Eigen at the moment, due to SYCL
-#include "Parallel/AcceleratorDevice.h"
-
-#include <Kernels/PointSourceCluster.h>
-#include <Kernels/Precision.h>
-#include <Parallel/Runtime/Stream.h>
-#include <SourceTerm/Typedefs.h>
-#include <array>
-#include <cstddef>
 #include <memory>
+#include <utility>
 
 namespace seissol::kernels {
 
 PointSourceClusterOnDevice::PointSourceClusterOnDevice(
     std::shared_ptr<sourceterm::ClusterMapping> mapping,
     std::shared_ptr<sourceterm::PointSources> sources)
-    : clusterMapping_(mapping), sources_(sources) {}
+    : clusterMapping_(std::move(mapping)), sources_(std::move(sources)) {}
 
-unsigned PointSourceClusterOnDevice::size() const { return sources_->numberOfSources; }
+std::size_t PointSourceClusterOnDevice::size() const { return sources_->numberOfSources; }
 
 void PointSourceClusterOnDevice::addTimeIntegratedPointSources(
     double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) {

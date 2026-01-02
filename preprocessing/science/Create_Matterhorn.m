@@ -8,21 +8,21 @@
 % @section LICENSE
 % Copyright (c) 2005, SeisSol Group
 % All rights reserved.
-% 
+%
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
-% 
+%
 % 1. Redistributions of source code must retain the above copyright notice,
 %    this list of conditions and the following disclaimer.
-% 
+%
 % 2. Redistributions in binary form must reproduce the above copyright notice,
 %    this list of conditions and the following disclaimer in the documentation
 %    and/or other materials provided with the distribution.
-% 
+%
 % 3. Neither the name of the copyright holder nor the names of its
 %    contributors may be used to endorse or promote products derived from this
 %    software without specific prior written permission.
-% 
+%
 % THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 % AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 % IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -52,7 +52,7 @@ load mmma50.xyz
 a  = mmma50;
 fid = fopen('matterhorn50.jou','w');
 
-x = reshape(a(:,1),nx,ny); 
+x = reshape(a(:,1),nx,ny);
 y = reshape(a(:,2),nx,ny); y = fliplr(y);
 z = reshape(a(:,3),nx,ny); z = fliplr(z);
 
@@ -81,14 +81,14 @@ for j = 1:ny
         fprintf(fid,'vertex create coordinates %g %g %g\n',x(i,j),y(i,j),z(i,j));
         vertices(i,j) = counter;
     end
-end  
+end
 %Create bottom vertices
 fprintf(fid,'vertex create coordinates %g %g %g\n',x(1,1),y(1,1),d);
 fprintf(fid,'vertex create coordinates %g %g %g\n',x(nx,1),y(nx,1),d);
 fprintf(fid,'vertex create coordinates %g %g %g\n',x(nx,ny),y(nx,ny),d);
 fprintf(fid,'vertex create coordinates %g %g %g\n',x(1,ny),y(1,ny),d);
 
-num_surf_edges = (nx-1)*2 + (ny-1)*2; 
+num_surf_edges = (nx-1)*2 + (ny-1)*2;
 
 %Create bottom edges
 fprintf(fid,'edge create straight "vertex.%i" "vertex.%i" real\n',nx*ny+1,nx*ny+2);
@@ -137,5 +137,3 @@ fprintf(fid,'physics create "101" btype "ELEMENT_SIDE" face "face.1"\n');
 fprintf(fid,'physics create "105" btype "ELEMENT_SIDE" face "face.2" "face.3" "face.4" "face.5" "face.6"\n');
 
 fclose(fid);
-   
-       

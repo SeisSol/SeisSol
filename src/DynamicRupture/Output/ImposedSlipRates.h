@@ -13,7 +13,7 @@
 namespace seissol::dr::output {
 class ImposedSlipRates : public ReceiverOutput {
   protected:
-  real computeLocalStrength(LocalInfo& local) override { return 0.0; }
+  real computeLocalStrength(LocalInfo& /*local*/) override { return 0.0; }
 
   void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
                                   const std::array<real, 6>& rotatedStress) override {

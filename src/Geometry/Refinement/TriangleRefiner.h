@@ -13,23 +13,21 @@
 #include <cmath>
 #include <vector>
 
-namespace seissol {
-namespace refinement {
+namespace seissol::refinement {
 struct Triangle;
 class TriangleRefiner;
-} // namespace refinement
-} // namespace seissol
+} // namespace seissol::refinement
 
 struct seissol::refinement::Triangle {
   Eigen::Vector2d x[3];
-  double area;
+  double area{};
 };
 
 class seissol::refinement::TriangleRefiner {
   private:
-  void refine(Eigen::Vector2d x0,
-              Eigen::Vector2d x1,
-              Eigen::Vector2d x2,
+  void refine(const Eigen::Vector2d& x0,
+              const Eigen::Vector2d& x1,
+              const Eigen::Vector2d& x2,
               unsigned depth,
               unsigned maxDepth) {
     Eigen::Vector2d chi = x1 - x0;
@@ -37,9 +35,9 @@ class seissol::refinement::TriangleRefiner {
 
     if (depth < maxDepth) {
       // Edge midpoints
-      Eigen::Vector2d m0 = 0.5 * chi + 0.5 * tau + x0;
-      Eigen::Vector2d m1 = 0.5 * tau + x0;
-      Eigen::Vector2d m2 = 0.5 * chi + x0;
+      const Eigen::Vector2d m0 = 0.5 * chi + 0.5 * tau + x0;
+      const Eigen::Vector2d m1 = 0.5 * tau + x0;
+      const Eigen::Vector2d m2 = 0.5 * chi + x0;
 
       refine(x0, m2, m1, depth + 1, maxDepth);
       refine(m2, x1, m0, depth + 1, maxDepth);
@@ -57,9 +55,9 @@ class seissol::refinement::TriangleRefiner {
 
   public:
   std::vector<Triangle> subTris;
-  unsigned maxDepth;
+  unsigned maxDepth{0};
 
-  explicit TriangleRefiner() {}
+  explicit TriangleRefiner() = default;
 
   void refine(unsigned maxRefinementDepth) {
     subTris.clear();

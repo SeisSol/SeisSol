@@ -10,6 +10,7 @@
 
 #include "DataTypes.h"
 #include "Geometry/MeshReader.h"
+
 #include <array>
 #include <memory>
 
@@ -40,7 +41,7 @@ struct TriangleQuadratureData {
   std::array<double, Size> weights{};
 };
 
-TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree);
+TriangleQuadratureData generateTriangleQuadrature();
 
 void assignNearestGaussianPoints(ReceiverPoints& geoPoints);
 
@@ -62,9 +63,10 @@ double getDistanceFromPointToFace(const ExtVrtxCoords& point,
                                   const ExtTriangle& face,
                                   const CoordinateT& faceNormal);
 
-PlusMinusBasisFunctions getPlusMinusBasisFunctions(const CoordinateT& point,
-                                                   const CoordinateT* plusElementCoords[4],
-                                                   const CoordinateT* minusElementCoords[4]);
+PlusMinusBasisFunctions getPlusMinusBasisFunctions(
+    const CoordinateT& pointCoords,
+    const std::array<const CoordinateT*, Cell::NumVertices>& plusElementCoords,
+    const std::array<const CoordinateT*, Cell::NumVertices>& minusElementCoords);
 
 std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints);
 

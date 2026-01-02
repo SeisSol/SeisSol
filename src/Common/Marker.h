@@ -19,4 +19,11 @@
 #endif
 #define SEISSOL_HOSTDEVICE SEISSOL_DEVICE SEISSOL_HOST
 
+// unused for CPU-only builds
+#ifdef ACL_DEVICE
+#define SEISSOL_GPU_PARAM
+#else
+#define SEISSOL_GPU_PARAM [[maybe_unused]]
+#endif
+
 #endif // SEISSOL_SRC_COMMON_MARKER_H_

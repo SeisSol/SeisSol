@@ -10,11 +10,14 @@
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
 #include "PointMapper.h"
+
+#include "Common/Constants.h"
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshReader.h"
+#include "Geometry/MeshTools.h"
 #include "Parallel/MPI.h"
-#include <Common/Constants.h>
-#include <Geometry/MeshDefinition.h>
-#include <Geometry/MeshReader.h>
-#include <Geometry/MeshTools.h>
+
+#include <Eigen/Core>
 #include <array>
 #include <cstring>
 #include <mpi.h>
@@ -84,8 +87,8 @@ void findMeshIds(const Eigen::Vector3d* points,
       if (notInside == 0) {
 #ifdef _OPENMP
 #pragma omp critical
-        {
 #endif
+        {
           /* It might actually happen that a point is found in two tetrahedrons
            * if it lies on the boundary. In this case we arbitrarily assign
            * it to the one with the higher meshId.
@@ -99,17 +102,15 @@ void findMeshIds(const Eigen::Vector3d* points,
             contained[point] = 1;
             meshIds[point] = localId;
           }
-#ifdef _OPENMP
         }
-#endif
       }
     }
   }
 }
 
 void cleanDoubles(short* contained, std::size_t numPoints) {
-  const auto myrank = seissol::MPI::mpi.rank();
-  const auto size = seissol::MPI::mpi.size();
+  const auto myrank = seissol::Mpi::mpi.rank();
+  const auto size = seissol::Mpi::mpi.size();
 
   auto globalContained = std::vector<short>(size * numPoints);
   MPI_Allgather(contained,
@@ -118,7 +119,7 @@ void cleanDoubles(short* contained, std::size_t numPoints) {
                 globalContained.data(),
                 numPoints,
                 MPI_SHORT,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
 
   std::size_t cleaned = 0;
   for (std::size_t point = 0; point < numPoints; ++point) {

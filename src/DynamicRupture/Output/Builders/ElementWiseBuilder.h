@@ -11,11 +11,11 @@
 #include "DynamicRupture/Output/FaultRefiner/FaultRefiners.h"
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
+#include "GeneratedCode/init.h"
+#include "Geometry/CellTransform.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Numerical/Transformation.h"
 #include "ReceiverBasedOutputBuilder.h"
-#include <Geometry/CellTransform.h>
-#include <init.h>
 
 namespace seissol::dr::output {
 class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
@@ -68,16 +68,16 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         const auto& fault = faultInfo[faceIdx];
         const auto elementIdx = fault.element;
 
-        if (elementIdx >= 0) {
+        if (elementIdx < elementsInfo.size()) {
           const auto& element = elementsInfo[elementIdx];
 
           const auto faceSideIdx = fault.side;
 
           // init reference coordinates of the fault face
-          ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);
+          const ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);
 
           // init global coordinates of the fault face
-          ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
+          const ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
 
           faultRefiner->refineAndAccumulate({elementwiseParams.refinement,
                                              static_cast<int>(faceIdx),
@@ -108,7 +108,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         const auto& fault = faultInfo[faceIdx];
         const auto elementIdx = fault.element;
 
-        if (elementIdx >= 0) {
+        if (elementIdx < elementsInfo.size()) {
           ++faceCount;
         }
       }
@@ -123,7 +123,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         const auto& fault = faultInfo[faceIdx];
         const auto elementIdx = fault.element;
 
-        if (elementIdx >= 0) {
+        if (elementIdx < elementsInfo.size()) {
           const auto& element = elementsInfo[elementIdx];
 
           const auto transform =
@@ -131,16 +131,13 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
 
           const auto faceSideIdx = fault.side;
 
-          // init reference coordinates of the fault face
-          ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);
-
           // init global coordinates of the fault face
-          ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
+          const ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
 
           for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
             auto& receiverPoint =
                 outputData->receiverPoints[faceOffset * seissol::init::vtk2d::Shape[order][1] + i];
-            real nullpoint[2] = {0, 0};
+            const real nullpoint[2] = {0, 0};
             const real* prepoint =
                 i > 0 ? (seissol::init::vtk2d::Values[order] + (i - 1) * 2) : nullpoint;
             std::array<double, 2> point = {prepoint[0], prepoint[1]};

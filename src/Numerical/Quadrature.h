@@ -9,14 +9,17 @@
 #ifndef SEISSOL_SRC_NUMERICAL_QUADRATURE_H_
 #define SEISSOL_SRC_NUMERICAL_QUADRATURE_H_
 
-#include <Geometry/MeshDefinition.h>
+// NOLINTNEXTLINE
 #define _USE_MATH_DEFINES
-#include <cmath>
-#include <limits>
-#include <vector>
 
+#include "Geometry/MeshDefinition.h"
 #include "Numerical/Functions.h"
-#include "utils/logger.h"
+
+#include <cmath>
+#include <cstddef>
+#include <limits>
+#include <utils/logger.h>
+#include <vector>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -34,7 +37,7 @@ static const double Tolerance = 10. * std::numeric_limits<double>::epsilon();
  */
 inline void GaussLegendre(double* points, double* weights, unsigned n) {
   // The polynomials are symmetric, thus we only need to find the first half.
-  unsigned nh = (n + 1) / 2;
+  const unsigned nh = (n + 1) / 2;
   for (unsigned i = 1; i <= nh; ++i) {
     // x = Initial guess for polynomial root
     double x = cos(M_PI * (4. * i - 1.) / (4. * n + 2.));
@@ -98,7 +101,7 @@ inline std::pair<std::vector<double>, std::vector<double>>
  *  Note: Initial guess ported from Fortran gauss_jacobi routine.
  */
 inline void GaussJacobi(double* points, double* weights, unsigned n, unsigned a, unsigned b) {
-  double weightFactor =
+  const double weightFactor =
       -(2.0 * n + a + b + 2) * functions::factorial(n + a) * functions::factorial(n + b) *
       (1 << (a + b)) /
       ((n + a + b + 1.0) * functions::factorial(n + a + b) * functions::factorial(n + 1));

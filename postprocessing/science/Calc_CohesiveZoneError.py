@@ -8,21 +8,21 @@
 # @section LICENSE
 # Copyright (c) 2005-2018, SeisSol Group
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice,
 #    this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice,
 #    this list of conditions and the following disclaimer in the documentation
 #    and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its
 #    contributors may be used to endorse or promote products derived from this
 #    software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -40,7 +40,7 @@
 
 import numpy as np
 
-#INPUT: PLEASE CHANGE! 
+#INPUT: PLEASE CHANGE!
 #example from Landers simulation
 import argparse
 parser = argparse.ArgumentParser(description='compute expected errors on a range of fault output, using Wollherr et al. (2018) convergence study')
@@ -58,9 +58,9 @@ else:
    pla=0
    print('plasticity was not enabled')
 #cohesive zone width in m: make sure that it converged
-#how to calculate the cohesive zone width? 
+#how to calculate the cohesive zone width?
 #run the simulation with fault output for Vr, DS and RF with refining mesh size until the minimum cohesive zone width does not change anymore (very important!)
-#formula for the cohesive zone width: (RF-DS)*Vr 
+#formula for the cohesive zone width: (RF-DS)*Vr
 #coh = 760.0
 coh = args.coh
 #mesh element size

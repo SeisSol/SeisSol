@@ -6,22 +6,25 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "OutputAux.h"
+
 #include "Common/Constants.h"
+#include "Common/Iterator.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
+#include "GeneratedCode/init.h"
 #include "Geometry.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Precision.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
-#include <Common/Iterator.h>
+#include "Solver/MultipleSimulations.h"
+
+#include <Eigen/Core>
 #include <Eigen/Dense>
-#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <init.h>
 #include <limits>
 #include <tuple>
 #include <utility>
@@ -105,7 +108,7 @@ ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2) {
   return midPoint;
 }
 
-TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
+TriangleQuadratureData generateTriangleQuadrature() {
   TriangleQuadratureData data{};
 
   // Generate triangle quadrature points and weights (Factory Method)
@@ -142,8 +145,8 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
 }
 
 void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
-  auto quadratureData = generateTriangleQuadrature(ConvergenceOrder + 1);
-  double (*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
+  auto quadratureData = generateTriangleQuadrature();
+  const double (*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
 
   for (auto& geoPoint : geoPoints) {
 
@@ -224,19 +227,21 @@ double isInsideFace(const ExtVrtxCoords& point,
   return sidemin;
 }
 
-PlusMinusBasisFunctions getPlusMinusBasisFunctions(const CoordinateT& pointCoords,
-                                                   const CoordinateT* plusElementCoords[4],
-                                                   const CoordinateT* minusElementCoords[4]) {
+PlusMinusBasisFunctions getPlusMinusBasisFunctions(
+    const CoordinateT& pointCoords,
+    const std::array<const CoordinateT*, Cell::NumVertices>& plusElementCoords,
+    const std::array<const CoordinateT*, Cell::NumVertices>& minusElementCoords) {
 
   Eigen::Vector3d point(pointCoords[0], pointCoords[1], pointCoords[2]);
 
-  auto getBasisFunctions = [&point](const CoordinateT* elementCoords[4]) {
-    auto referenceCoords = transformations::tetrahedronGlobalToReference(
-        *elementCoords[0], *elementCoords[1], *elementCoords[2], *elementCoords[3], point);
-    const basisFunction::SampledBasisFunctions<real> sampler(
-        ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
-    return sampler.m_data;
-  };
+  auto getBasisFunctions =
+      [&point](const std::array<const CoordinateT*, Cell::NumVertices>& elementCoords) {
+        auto referenceCoords = transformations::tetrahedronGlobalToReference(
+            *elementCoords[0], *elementCoords[1], *elementCoords[2], *elementCoords[3], point);
+        const basisFunction::SampledBasisFunctions<real> sampler(
+            ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
+        return sampler.m_data;
+      };
 
   PlusMinusBasisFunctions basisFunctions{};
   basisFunctions.plusSide = getBasisFunctions(plusElementCoords);
