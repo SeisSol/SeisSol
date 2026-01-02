@@ -84,8 +84,8 @@ MeshRefiner<T>::MeshRefiner(const seissol::geometry::MeshReader& meshReader,
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
-  for (unsigned int i = 0; i < kInVertexCount; i++) {
-    memcpy(&m_vertices[static_cast<size_t>(i * 3)], kVertices[i].coords, sizeof(double) * 3);
+  for (std::size_t i = 0; i < kInVertexCount; i++) {
+    memcpy(&m_vertices[i * 3], kVertices[i].coords.data(), sizeof(double) * 3);
   }
 
   // The pointer to the new vertices
@@ -166,8 +166,8 @@ MeshRefiner<T>::MeshRefiner(const std::vector<const Element*>& subElements,
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
-  for (unsigned int i = 0; i < kInVertexCount; i++) {
-    memcpy(&m_vertices[static_cast<size_t>(i * 3)], kVertices[i]->coords, sizeof(double) * 3);
+  for (std::size_t i = 0; i < kInVertexCount; i++) {
+    memcpy(&m_vertices[i * 3], kVertices[i]->coords.data(), sizeof(double) * 3);
   }
 
   // The pointer to the new vertices

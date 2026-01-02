@@ -34,17 +34,17 @@ constexpr bool isCopy(const Element& element, int rank) {
 }
 
 struct GhostElementMetadata {
-  double vertices[Cell::NumVertices][Cell::Dim];
-  int group;
-  LocalElemId localId;
-  GlobalElemId globalId;
-  int clusterId;
-  double timestep;
+  std::array<std::array<double, Cell::Dim>, Cell::NumVertices> vertices{};
+  int group{};
+  size_t localId{};
+  size_t globalId{};
+  int clusterId{};
+  double timestep{};
 };
 
 struct LinearGhostCell {
   std::vector<std::size_t> inRankIndices;
-  int rank;
+  int rank{};
 };
 
 class MeshReader {
@@ -111,7 +111,7 @@ class MeshReader {
   /**
    * Reconstruct the fault information from the boundary conditions
    */
-  void extractFaultInformation(const VrtxCoords& refPoint,
+  void extractFaultInformation(const CoordinateT& refPoint,
                                seissol::initializer::parameters::RefPointMethod refPointMethod);
 
   void exchangeGhostlayerMetadata();

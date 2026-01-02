@@ -263,8 +263,8 @@ struct DREnergyOutput {
 };
 
 struct CellDRMapping {
-  unsigned side{};
-  unsigned faceRelation{};
+  std::int8_t side{};
+  std::int8_t faceRelation{};
   real* godunov{nullptr};
   real* fluxSolver{nullptr};
 };

@@ -14,6 +14,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
@@ -23,7 +24,6 @@
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/FlopCounter.h"
 #include "Numerical/BasisFunction.h"
-#include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Helper.h"
 #include "Parallel/Runtime/Stream.h"
@@ -45,20 +45,20 @@ namespace seissol::kernels {
 
 Receiver::Receiver(unsigned pointId,
                    Eigen::Vector3d position,
-                   const double* elementCoords[4],
+                   const seissol::geometry::CellTransform& transform,
                    LTS::Ref dataHost,
                    LTS::Ref dataDevice,
                    size_t reserved)
     : pointId(pointId), position(std::move(position)), dataHost(dataHost), dataDevice(dataDevice) {
   output.reserve(reserved);
 
-  auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(
-      elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], this->position);
+  auto xiEtaZeta = transform.spaceToRef(position);
   basisFunctions = basisFunction::SampledBasisFunctions<real>(
       ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
   basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<real>(
       ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
-  basisFunctionDerivatives.transformToGlobalCoordinates(elementCoords);
+  basisFunctionDerivatives.transformToGlobalCoordinates(
+      transform, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
 }
 
 ReceiverCluster::ReceiverCluster(seissol::SeisSol& seissolInstance)
@@ -84,13 +84,7 @@ void ReceiverCluster::addReceiver(unsigned meshId,
                                   const Eigen::Vector3d& point,
                                   const seissol::geometry::MeshReader& mesh,
                                   const LTS::Backmap& backmap) {
-  const auto& elements = mesh.getElements();
-  const auto& vertices = mesh.getVertices();
-
-  const double* coords[Cell::NumVertices];
-  for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
-    coords[v] = vertices[elements[meshId].vertices[v]].coords;
-  }
+  const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, mesh);
 
   if (!extraRuntime.has_value()) {
     // use an extra stream if we have receivers
@@ -104,7 +98,7 @@ void ReceiverCluster::addReceiver(unsigned meshId,
   auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
   m_receivers.emplace_back(pointId,
                            point,
-                           coords,
+                           transform,
                            ltsStorage.lookupRef(position),
                            ltsStorage.lookupRef(position,
                                                 isDeviceOn() ? initializer::AllocationPlace::Device

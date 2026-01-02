@@ -11,6 +11,7 @@
 #include "DynamicRupture/Output/DataTypes.h"
 #include "Initializer/Parameters/OutputParameters.h"
 
+#include <limits>
 #include <memory>
 #include <tuple>
 
@@ -21,7 +22,7 @@ class FaultRefiner {
     int refinementLevel{};
     int faultFaceIndex{};
     int localFaceSideId{};
-    int elementId{-1};
+    std::size_t elementId{std::numeric_limits<std::size_t>::max()};
     std::size_t globalId{};
   };
   using PointsPair = std::pair<ExtVrtxCoords, ExtVrtxCoords>;

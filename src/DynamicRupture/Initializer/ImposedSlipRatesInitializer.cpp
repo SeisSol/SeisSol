@@ -108,13 +108,13 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
     const auto meshFace = drFaceInformation[ltsFace].meshFace;
     const Fault& fault = seissolInstance.meshReader().getFault().at(meshFace);
 
-    VrtxCoords strikeVector{};
-    VrtxCoords dipVector{};
+    CoordinateT strikeVector{};
+    CoordinateT dipVector{};
     misc::computeStrikeAndDipVectors(fault.normal, strikeVector, dipVector);
 
     // cos^2 can be greater than 1 because of rounding errors
     const real cos = std::clamp(MeshTools::dot(strikeVector, fault.tangent1), -1.0, 1.0);
-    VrtxCoords crossProduct{};
+    CoordinateT crossProduct{};
     MeshTools::cross(strikeVector, fault.tangent1, crossProduct);
     const real scalarProduct = MeshTools::dot(crossProduct, fault.normal);
     const real sin = std::sqrt(1 - cos * cos) * std::copysign(1.0, scalarProduct);

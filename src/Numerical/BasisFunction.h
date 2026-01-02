@@ -12,8 +12,11 @@
 #include "Common/Constants.h"
 #include "Functions.h"
 #include "GeneratedCode/init.h"
+#include "Geometry/CellTransform.h"
+#include "Geometry/MeshDefinition.h"
 #include "Transformation.h"
 
+#include <Eigen/Dense>
 #include <cmath>
 #include <numeric>
 #include <type_traits>
@@ -157,7 +160,7 @@ class SampledBasisFunctions {
   /**
    * Returns the amount of Basis functions this class represents.
    */
-  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] std::size_t getSize() const { return m_data.size(); }
 };
 
 //------------------------------------------------------------------------------
@@ -214,22 +217,12 @@ class SampledBasisFunctionDerivatives {
    * @param coords coords[i] contains the 3 coordinates of the ith vertex of the
    * physical tetrahedron.
    */
-  void transformToGlobalCoordinates(const double* coords[Cell::NumVertices]) {
-    double xCoords[Cell::NumVertices];
-    double yCoords[Cell::NumVertices];
-    double zCoords[Cell::NumVertices];
-    for (size_t i = 0; i < Cell::NumVertices; ++i) {
-      xCoords[i] = coords[i][0];
-      yCoords[i] = coords[i][1];
-      zCoords[i] = coords[i][2];
-    }
-
-    double gradXi[3];
-    double gradEta[3];
-    double gradZeta[3];
-
-    seissol::transformations::tetrahedronGlobalToReferenceJacobian(
-        xCoords, yCoords, zCoords, gradXi, gradEta, gradZeta);
+  void transformToGlobalCoordinates(const seissol::geometry::CellTransform& transform,
+                                    T xi,
+                                    T eta,
+                                    T zeta) {
+    const Eigen::Vector3d vec(xi, eta, zeta);
+    const Eigen::Matrix3d grad = transform.spaceToRefJacobian(vec);
     std::vector<T> oldData = m_data;
 
     auto oldView = init::basisFunctionDerivativesAtPoint::view::create(oldData.data());
@@ -238,9 +231,9 @@ class SampledBasisFunctionDerivatives {
       for (size_t direction = 0; direction < init::basisFunctionDerivativesAtPoint::Shape[1];
            ++direction) {
         // dpsi / di = dphi / dxi * dxi / di + dphi / deta * deta / di + dphi / dzeta * dzeta / di
-        newView(i, direction) = oldView(i, 0) * gradXi[direction] +
-                                oldView(i, 1) * gradEta[direction] +
-                                oldView(i, 2) * gradZeta[direction];
+        newView(i, direction) = oldView(i, 0) * grad(0, direction) +
+                                oldView(i, 1) * grad(1, direction) +
+                                oldView(i, 2) * grad(2, direction);
       }
     }
   }
@@ -248,7 +241,7 @@ class SampledBasisFunctionDerivatives {
   /**
    * Returns the amount of Basis functions this class represents.
    */
-  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] std::size_t getSize() const { return m_data.size(); }
 };
 
 //==============================================================================
@@ -289,7 +282,7 @@ class SampledTimeBasisFunctions {
     return std::inner_product(m_data.begin(), m_data.end(), coeffIter, static_cast<T>(0));
   }
 
-  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] std::size_t getSize() const { return m_data.size(); }
 };
 
 namespace tri_dubiner {

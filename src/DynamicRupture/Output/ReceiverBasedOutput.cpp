@@ -34,6 +34,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -105,7 +106,7 @@ void ReceiverOutput::calcFaultOutput(
            "a receiver is not within any tetrahedron adjacent to a fault");
 
     const auto faceIndex = outputData->receiverPoints[i].faultFaceIndex;
-    assert(faceIndex != -1 && "receiver is not initialized");
+    assert(faceIndex != std::numeric_limits<std::size_t>::max() && "receiver is not initialized");
     LocalInfo local{};
 
     auto [layer, ltsId] = (*faceToLtsMap)[faceIndex];
@@ -134,11 +135,11 @@ void ReceiverOutput::calcFaultOutput(
       std::memcpy(dofsPlus, dofsPlusData, sizeof(dofsPlus));
       std::memcpy(dofsMinus, dofsMinusData, sizeof(dofsMinus));
     } else {
-      getDofs(dofsPlus, faultInfo.element);
-      if (faultInfo.neighborElement >= 0) {
-        getDofs(dofsMinus, faultInfo.neighborElement);
+      getDofs(dofsPlus, faultInfo.element.value());
+      if (faultInfo.neighborElement.hasValue()) {
+        getDofs(dofsMinus, faultInfo.neighborElement.value());
       } else {
-        getNeighborDofs(dofsMinus, faultInfo.element, faultInfo.side);
+        getNeighborDofs(dofsMinus, faultInfo.element.value(), faultInfo.side);
       }
     }
 
@@ -312,11 +313,11 @@ void ReceiverOutput::calcFaultOutput(
 
     auto& slipVectors = std::get<VariableID::Slip>(outputData->vars);
     if (slipVectors.isActive) {
-      VrtxCoords crossProduct = {0.0, 0.0, 0.0};
-      MeshTools::cross(strike.data(), tangent1.data(), crossProduct);
+      CoordinateT crossProduct = {0.0, 0.0, 0.0};
+      MeshTools::cross(strike, tangent1, crossProduct);
 
-      const double cos1t = MeshTools::dot(strike.data(), tangent1.data());
-      const double scalarProd = MeshTools::dot(crossProduct, normal.data());
+      const double cos1t = MeshTools::dot(strike, tangent1);
+      const double scalarProd = MeshTools::dot(crossProduct, normal);
 
       // Note: cos1t**2 can be greater than 1.0 because of rounding errors -> min
       double sin1t = std::sqrt(1.0 - std::min(1.0, cos1t * cos1t));
