@@ -7,6 +7,7 @@
 
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/OutputAux.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MockReader.h"
 #include "Initializer/PointMapper.h"
@@ -176,7 +177,7 @@ TEST_CASE("DR Geometry") {
 
   SUBCASE("XiEtaZeta2chiTau") {
     constexpr double Epsilon = 1e-6;
-    double testChiTau[2] = {0.0, 0.0};
+    std::array<double, 2> testChiTau = {0.0, 0.0};
     {
       const unsigned face = 0;
       CoordinateT xiEtaZeta{0.25, 0.1, 0.0};
@@ -225,22 +226,21 @@ TEST_CASE("DR Geometry") {
     CoordinateT point{0.25, 0.25, 0.0};
 
     // placing two elements in such a way that basis functions on both sides end up being the same
-    const CoordinateT plusElementCoords[4]{
-        {2.0, 0.0, 0.0}, {0.0, 2.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 2.0}};
+    const auto plusElementCoords = std::array<CoordinateT, 4>{CoordinateT{2.0, 0.0, 0.0},
+                                                              CoordinateT{0.0, 2.0, 0.0},
+                                                              CoordinateT{0.0, 0.0, 0.0},
+                                                              CoordinateT{0.0, 0.0, 2.0}};
 
-    const CoordinateT minusElementCoords[4]{
-        {2.0, 0.0, 0.0}, {0.0, 2.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, -2.0}};
+    const auto minusElementCoords = std::array<CoordinateT, 4>{CoordinateT{2.0, 0.0, 0.0},
+                                                               CoordinateT{0.0, 2.0, 0.0},
+                                                               CoordinateT{0.0, 0.0, 0.0},
+                                                               CoordinateT{0.0, 0.0, -2.0}};
 
-    const CoordinateT* plusElementCoordsPtr[4]{
-        &plusElementCoords[0], &plusElementCoords[1], &plusElementCoords[2], &plusElementCoords[3]};
+    const auto plusTransform = geometry::AffineTransform(plusElementCoords);
 
-    const CoordinateT* minusElementCoordsPtr[4]{&minusElementCoords[0],
-                                                &minusElementCoords[1],
-                                                &minusElementCoords[2],
-                                                &minusElementCoords[3]};
+    const auto minusTransform = geometry::AffineTransform(minusElementCoords);
 
-    auto basisFunctions =
-        getPlusMinusBasisFunctions(point, plusElementCoordsPtr, minusElementCoordsPtr);
+    auto basisFunctions = getPlusMinusBasisFunctions(point, plusTransform, minusTransform);
 
     constexpr double Epsilon = 1e-6;
     for (unsigned i = 0; i < basisFunctions.plusSide.size(); ++i) {

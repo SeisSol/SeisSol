@@ -21,7 +21,7 @@ class MockReader : public seissol::geometry::MeshReader {
       : seissol::geometry::MeshReader(0) {
     m_vertices.resize(4);
     for (std::size_t i = 0; i < Cell::NumVertices; ++i) {
-      std::copy(vertices[i].data(), vertices[i].data() + 3, m_vertices.at(i).coords);
+      std::copy_n(vertices[i].data(), 3, m_vertices.at(i).coords.begin());
       m_vertices.at(i).elements = {1};
     }
 
