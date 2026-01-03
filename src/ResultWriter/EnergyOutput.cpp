@@ -295,55 +295,9 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
     for (const auto& layer : drStorage->leaves()) {
 
-      // NOTE: (0, 1) is again a dummy range (to be adjusted)
-      kernels::Time time;
-      const auto timeCoeffs = kernels::timeBasis().point(0, 1);
-#ifdef ACL_DEVICE
+      real* const* timeDofsPlus = layer.var<DynamicRupture::TimeDerivativePlus>();
+      real* const* timeDofsMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
 
-      using namespace seissol::recording;
-      constexpr auto QSize = tensor::Q::size();
-      const ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
-      auto& table = layer.getConditionalTable<inner_keys::Dr>();
-      if (table.find(timeIntegrationKey) != table.end()) {
-        const auto& entry = table.at(timeIntegrationKey);
-        const real** timeDerivativePlusDevice = const_cast<const real**>(
-            (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr());
-        const real** timeDerivativeMinusDevice = const_cast<const real**>(
-            (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr());
-
-        time.evaluateBatched(timeCoeffs.data(),
-                             timeDerivativePlusDevice,
-                             timeDerivativePlusHostPtrs.data(),
-                             layer.size(),
-                             stream);
-        time.evaluateBatched(timeCoeffs.data(),
-                             timeDerivativeMinusDevice,
-                             timeDerivativeMinusHostPtrs.data(),
-                             layer.size(),
-                             stream);
-        stream.wait();
-      }
-      const auto timeDerivativePlusPtr = [&](std::size_t i, real* /*...*/) {
-        return timeDerivativePlusHost.data() + QSize * i;
-      };
-      const auto timeDerivativeMinusPtr = [&](std::size_t i, real* /*...*/) {
-        return timeDerivativeMinusHost.data() + QSize * i;
-      };
-#else
-      // TODO: for fused simulations, do this once and reuse
-      // TODO response: maybe switch loops? Let the layers be outside, the sims inside
-
-      real* const* timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();
-      real* const* timeDerivativeMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
-      const auto timeDerivativePlusPtr = [&](std::size_t i, real* temp) {
-        time.evaluate(timeCoeffs.data(), timeDerivativePlus[i], temp);
-        return temp;
-      };
-      const auto timeDerivativeMinusPtr = [&](std::size_t i, real* temp) {
-        time.evaluate(timeCoeffs.data(), timeDerivativeMinus[i], temp);
-        return temp;
-      };
-#endif
       const auto* godunovData = layer.var<DynamicRupture::GodunovData>();
       const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
       const auto* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>();
@@ -357,8 +311,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     shared(layerSize,                                                                              \
                drEnergyOutput,                                                                     \
                faceInformation,                                                                    \
-               timeDerivativeMinusPtr,                                                             \
-               timeDerivativePlusPtr,                                                              \
+               timeDofsMinus,                                                                      \
+               timeDofsPlus,                                                                       \
                godunovData,                                                                        \
                waveSpeedsPlus,                                                                     \
                waveSpeedsMinus,                                                                    \
@@ -366,15 +320,13 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #endif
       for (std::size_t i = 0; i < layerSize; ++i) {
         if (faceInformation[i].plusSideOnThisRank) {
-          alignas(Alignment) real timePointPlus[tensor::I::size()];
-          alignas(Alignment) real timePointMinus[tensor::I::size()];
 
           for (std::size_t j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
             totalFrictionalWork +=
                 drEnergyOutput[i].frictionalEnergy[j * seissol::multisim::NumSimulations + sim];
           }
-          staticFrictionalWork += computeStaticWork(timeDerivativePlusPtr(i, timePointPlus),
-                                                    timeDerivativeMinusPtr(i, timePointMinus),
+          staticFrictionalWork += computeStaticWork(timeDofsPlus[i],
+                                                    timeDofsMinus[i],
                                                     faceInformation[i],
                                                     godunovData[i],
                                                     drEnergyOutput[i].slip,
