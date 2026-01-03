@@ -6,9 +6,12 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "DRParameters.h"
-#include <Initializer/Parameters/ParameterReader.h>
-#include <Kernels/Precision.h>
-#include <Solver/MultipleSimulations.h>
+
+#include "Initializer/Parameters/ParameterReader.h"
+#include "Kernels/Precision.h"
+#include "Solver/MultipleSimulations.h"
+
+#include <Eigen/Core>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -77,8 +80,8 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
     logError() << "You requested more nucleations than supported by this build of SeisSol. Either "
                   "adjust that yourself, or complain to the developers. :)";
   }
-  std::array<real, MaxNucleactions> t0;
-  std::array<real, MaxNucleactions> s0;
+  std::array<real, MaxNucleactions> t0{};
+  std::array<real, MaxNucleactions> s0{};
   for (std::size_t i = 0; i < nucleationCount; ++i) {
     const std::string t0name = i == 0 ? "t_0" : ("t" + std::to_string(i + 1) + "_0");
     t0[i] = static_cast<real>(reader->readWithDefault(t0name, 0.0));
@@ -137,6 +140,10 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
       isDynamicRuptureEnabled = true;
     }
   }
+
+  // allow switching off the DR like that (but take `enabled=1` as default for compatibility)
+  const auto explicitEnabled = reader->read<bool>("enabled");
+  isDynamicRuptureEnabled &= explicitEnabled.value_or(true);
 
   auto* outputReader = baseReader->readSubNode("output");
   const bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);

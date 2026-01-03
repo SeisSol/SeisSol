@@ -9,11 +9,11 @@
 #ifndef SEISSOL_SRC_GEOMETRY_REFINEMENT_MESHREFINER_H_
 #define SEISSOL_SRC_GEOMETRY_REFINEMENT_MESHREFINER_H_
 
-#include <cstddef>
-#include <cstring>
-
 #include "Geometry/MeshReader.h"
 #include "RefinerUtils.h"
+
+#include <cstddef>
+#include <cstring>
 
 namespace seissol::refinement {
 
@@ -43,6 +43,11 @@ class MeshRefiner {
               const TetrahedronRefiner<T>& tetRefiner);
 
   ~MeshRefiner();
+
+  auto operator=(const MeshRefiner&) = delete;
+  auto operator=(MeshRefiner&&) = delete;
+  MeshRefiner(const MeshRefiner&) = delete;
+  MeshRefiner(MeshRefiner&&) = delete;
 
   [[nodiscard]] const unsigned int* getCellData() const;
   const T* getVertexData() const;

@@ -8,16 +8,15 @@
 #ifndef SEISSOL_SRC_PHYSICS_INITIALFIELD_H_
 #define SEISSOL_SRC_PHYSICS_INITIALFIELD_H_
 
-#include <array>
-#include <complex>
-#include <vector>
-
-#include <Eigen/Dense>
-
 #include "GeneratedCode/init.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+
+#include <Eigen/Dense>
+#include <array>
+#include <complex>
+#include <vector>
 
 namespace seissol::physics {
 class InitialField {
@@ -32,10 +31,10 @@ class InitialField {
 
 class ZeroField : public InitialField {
   public:
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
+  void evaluate(double /*time*/,
+                const std::array<double, 3>* /*points*/,
+                std::size_t /*count*/,
+                const CellMaterialData& /*materialData*/,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override {
     dofsQP.setZero();
   }
@@ -43,7 +42,7 @@ class ZeroField : public InitialField {
 
 class PressureInjection : public InitialField {
   public:
-  PressureInjection(
+  explicit PressureInjection(
       const seissol::initializer::parameters::InitializationParameters& initializationParameters);
 
   void evaluate(double time,
@@ -93,7 +92,7 @@ class Planarwave : public InitialField {
 class SuperimposedPlanarwave : public InitialField {
   public:
   //! Choose phase in [0, 2*pi]
-  SuperimposedPlanarwave(const CellMaterialData& materialData, real phase = 0.0);
+  explicit SuperimposedPlanarwave(const CellMaterialData& materialData, real phase = 0.0);
 
   void evaluate(double time,
                 const std::array<double, 3>* points,
@@ -103,7 +102,6 @@ class SuperimposedPlanarwave : public InitialField {
 
   private:
   std::array<Eigen::Vector3d, 3> m_kVec;
-  double m_phase;
   std::array<Planarwave, 3> m_pw;
 };
 

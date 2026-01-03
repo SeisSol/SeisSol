@@ -6,27 +6,29 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "InitIO.h"
+
+#include "Common/Constants.h"
 #include "Common/Filesystem.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/MeshDefinition.h"
 #include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Writer/Writer.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Descriptor/Surface.h"
+#include "Memory/MemoryAllocator.h"
+#include "Memory/Tree/Layer.h"
+#include "Model/Plasticity.h"
 #include "Numerical/Transformation.h"
+#include "Parallel/MPI.h"
 #include "SeisSol.h"
-#include <Common/Constants.h>
-#include <Geometry/MeshDefinition.h>
-#include <Kernels/Common.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/DynamicRupture.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Descriptor/Surface.h>
-#include <Memory/MemoryAllocator.h>
-#include <Memory/Tree/Layer.h>
-#include <Model/Plasticity.h>
-#include <Solver/FreeSurfaceIntegrator.h>
-#include <Solver/MultipleSimulations.h>
+#include "Solver/FreeSurfaceIntegrator.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -36,9 +38,9 @@
 #include <utils/logger.h>
 #include <vector>
 
-#include "Parallel/MPI.h"
-
 namespace {
+
+using namespace seissol;
 
 void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   auto& checkpoint = seissolInstance.getOutputManager().getCheckpointManager();
@@ -115,13 +117,15 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   auto& memoryManager = seissolInstance.getMemoryManager();
   auto& ltsStorage = memoryManager.getLtsStorage();
   auto& backmap = memoryManager.getBackmap();
-  auto& dynRup = memoryManager.getDynamicRupture();
   auto& drStorage = memoryManager.getDRStorage();
   auto* globalData = memoryManager.getGlobalData().onHost;
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
 
   constexpr auto NumQuantities =
       tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
+
+  // ill-defined for multisim; but irrelevant for it
+  constexpr auto NumAlignedBasisFunctions = tensor::Q::size() / NumQuantities;
   // TODO(David): handle attenuation properly here. We'll probably not want it to be contained in
   // numberOfQuantities. But the compile-time parameter
   // seissol::model::MaterialT::NumQuantities contains it nonetheless.
@@ -289,7 +293,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj{};
-                memory::AlignedArray<real, multisim::NumSimulations> simselect;
+                memory::AlignedArray<real, multisim::NumSimulations> simselect{};
                 simselect[sim] = 1;
                 vtkproj.simselect = simselect.data();
                 vtkproj.qb = dofsSingleQuantity;
@@ -312,7 +316,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                   const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(position);
                   const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                   kernel::projectBasisToVtkVolume vtkproj{};
-                  memory::AlignedArray<real, multisim::NumSimulations> simselect;
+                  memory::AlignedArray<real, multisim::NumSimulations> simselect{};
                   simselect[sim] = 1;
                   vtkproj.simselect = simselect.data();
                   vtkproj.qb = dofsSingleQuantity;
@@ -418,7 +422,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               const auto* dofsSingleQuantity =
                   dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
               kernel::projectBasisToVtkFaceFromVolume vtkproj{};
-              memory::AlignedArray<real, multisim::NumSimulations> simselect;
+              memory::AlignedArray<real, multisim::NumSimulations> simselect{};
               simselect[sim] = 1;
               vtkproj.simselect = simselect.data();
               vtkproj.qb = dofsSingleQuantity;
@@ -445,7 +449,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               const auto* faceDisplacementVariable =
                   faceDisplacements[side] + FaceDisplacementPadded * quantity;
               kernel::projectNodalToVtkFace vtkproj{};
-              memory::AlignedArray<real, multisim::NumSimulations> simselect;
+              memory::AlignedArray<real, multisim::NumSimulations> simselect{};
               simselect[sim] = 1;
               vtkproj.simselect = simselect.data();
               vtkproj.pn = faceDisplacementVariable;
@@ -524,7 +528,7 @@ void setIntegralMask(seissol::SeisSol& seissolInstance) {
 } // namespace
 
 void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstance) {
-  const auto rank = MPI::mpi.rank();
+  const auto rank = Mpi::mpi.rank();
   logInfo() << "Begin init output.";
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
@@ -536,7 +540,7 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
       filesystem::create_directory(outputDir);
     }
   }
-  seissol::MPI::barrier(MPI::mpi.comm());
+  seissol::Mpi::barrier(Mpi::mpi.comm());
 
   enableWaveFieldOutput(seissolInstance);
   setIntegralMask(seissolInstance);

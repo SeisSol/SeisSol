@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "DynamicRupture/Output/OutputManager.h"
+
 #include "Common/Filesystem.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.h"
@@ -24,13 +25,14 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
+#include "Parallel/Runtime/Stream.h"
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Backmap.h>
-#include <Parallel/Runtime/Stream.h>
-#include <Solver/MultipleSimulations.h>
+#include "Solver/MultipleSimulations.h"
+
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -101,7 +103,7 @@ std::string buildIndexedMPIFileName(const std::string& namePrefix,
   if (index >= 0) {
     suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index);
   } else {
-    suffix << nameSuffix << "-r" << makeFormatted<int, WideFormat>(seissol::MPI::mpi.rank());
+    suffix << nameSuffix << "-r" << makeFormatted<int, WideFormat>(seissol::Mpi::mpi.rank());
   }
   return buildFileName(namePrefix, suffix.str(), fileExtension);
 }

@@ -7,10 +7,11 @@
 
 #include "Halo.h"
 
-#include <Initializer/BasicTypedefs.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
-#include <Parallel/MPI.h>
+#include "Initializer/BasicTypedefs.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+#include "Parallel/MPI.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <mpi.h>
@@ -34,7 +35,7 @@ void haloCommunication(const MeshLayout& comm,
                   datatype,
                   remote.rank,
                   remote.tag,
-                  seissol::MPI::mpi.comm(),
+                  seissol::Mpi::mpi.comm(),
                   &request);
         data += elemsize * remote.count;
       }
@@ -46,7 +47,7 @@ void haloCommunication(const MeshLayout& comm,
                   datatype,
                   remote.rank,
                   remote.tag,
-                  seissol::MPI::mpi.comm(),
+                  seissol::Mpi::mpi.comm(),
                   &request);
         data += elemsize * remote.count;
       }

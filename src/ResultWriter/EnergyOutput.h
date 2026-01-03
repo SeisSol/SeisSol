@@ -8,22 +8,21 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 #define SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 
-#include <Memory/MemoryAllocator.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Geometry/MeshReader.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/MemoryAllocator.h"
+#include "Modules/Module.h"
+#include "Modules/Modules.h"
+#include "Parallel/Runtime/Stream.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <array>
 #include <fstream>
 #include <iostream>
 #include <string>
-
-#include "Geometry/MeshReader.h"
-#include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
-
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "Modules/Module.h"
-#include "Modules/Modules.h"
-#include <Solver/MultipleSimulations.h>
 
 namespace seissol {
 class SeisSol;
@@ -130,12 +129,12 @@ class EnergyOutput : public Module {
   parallel::runtime::StreamRuntime stream;
 
   EnergiesStorage energiesStorage{};
-  std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold;
-  std::array<double, multisim::NumSimulations> minTimeSinceMomentRateBelowThreshold;
+  std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold{};
+  std::array<double, multisim::NumSimulations> minTimeSinceMomentRateBelowThreshold{};
   double terminatorMaxTimePostRupture{};
   double energyOutputInterval{};
   double terminatorMomentRateThreshold{};
-  std::array<double, multisim::NumSimulations> seismicMomentPrevious;
+  std::array<double, multisim::NumSimulations> seismicMomentPrevious{};
 };
 
 } // namespace writer

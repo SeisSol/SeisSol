@@ -16,10 +16,11 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
-#include <Memory/Tree/Backmap.h>
+
 #include <memory>
 #include <vector>
 
@@ -49,10 +50,10 @@ class ReceiverBasedOutputBuilder {
   void assignFaultTags();
   void assignFusedIndices();
 
-  const seissol::geometry::MeshReader* meshReader{};
-  LTS::Storage* wpStorage;
-  LTS::Backmap* wpBackmap;
-  DynamicRupture::Storage* drStorage;
+  const seissol::geometry::MeshReader* meshReader{nullptr};
+  LTS::Storage* wpStorage{nullptr};
+  LTS::Backmap* wpBackmap{nullptr};
+  DynamicRupture::Storage* drStorage{nullptr};
   std::shared_ptr<ReceiverOutputData> outputData;
   std::vector<std::size_t> variables;
   std::vector<::seissol::initializer::StoragePosition>* faceToLtsMap{nullptr};
