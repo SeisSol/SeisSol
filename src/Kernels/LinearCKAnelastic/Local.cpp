@@ -46,15 +46,15 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   localKernelPrototype_.selectAne = init::selectAne::Values;
 
 #ifdef ACL_DEVICE
-  deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
+  deviceVolumeKernelPrototype_.kDivM = global.onDevice->stiffnessMatrices;
 #ifdef USE_PREMULTIPLY_FLUX
-  deviceLocalFluxKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
+  deviceLocalFluxKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
 #else
-  deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+  deviceLocalFluxKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
+  deviceLocalFluxKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
 #endif
-  deviceLocalKernelPrototype.selectEla = global.onDevice->selectEla;
-  deviceLocalKernelPrototype.selectAne = global.onDevice->selectAne;
+  deviceLocalKernelPrototype_.selectEla = global.onDevice->selectEla;
+  deviceLocalKernelPrototype_.selectAne = global.onDevice->selectAne;
 #endif
 }
 
@@ -153,9 +153,9 @@ void Local::computeBatchedIntegral(
   using namespace seissol::recording;
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
-  kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype;
-  kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype;
-  kernel::gpu_local localKrnl = deviceLocalKernelPrototype;
+  kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype_;
+  kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype_;
+  kernel::gpu_local localKrnl = deviceLocalKernelPrototype_;
 
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];

@@ -43,10 +43,10 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   krnlPrototype_.selectEla = init::selectEla::Values;
 
 #ifdef ACL_DEVICE
-  deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
+  deviceKrnlPrototype_.kDivMT = global.onDevice->stiffnessMatricesTransposed;
   // the selectAne/selectEla are inlined
-  deviceKrnlPrototype.selectAne = global.onDevice->selectAne;
-  deviceKrnlPrototype.selectEla = global.onDevice->selectEla;
+  deviceKrnlPrototype_.selectAne = global.onDevice->selectAne;
+  deviceKrnlPrototype_.selectEla = global.onDevice->selectEla;
 #endif
 }
 
@@ -210,7 +210,7 @@ void Spacetime::computeBatchedAder(
    */
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
-    kernel::gpu_derivative krnl = deviceKrnlPrototype;
+    kernel::gpu_derivative krnl = deviceKrnlPrototype_;
     auto& entry = dataTable[timeVolumeKernelKey];
 
     const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();

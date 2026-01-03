@@ -59,15 +59,15 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 
 #ifdef ACL_DEVICE
 #ifdef USE_PREMULTIPLY_FLUX
-  deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
+  deviceNfKrnlPrototype_.minusFluxMatrices = global.onDevice->minusFluxMatrices;
 #else
-  deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceNfKrnlPrototype.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
-  deviceNfKrnlPrototype.fP = global.onDevice->neighborFluxMatrices;
+  deviceNfKrnlPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
+  deviceNfKrnlPrototype_.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
+  deviceNfKrnlPrototype_.fP = global.onDevice->neighborFluxMatrices;
 #endif
-  deviceDrKrnlPrototype.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
-  deviceNKrnlPrototype.selectEla = global.onDevice->selectEla;
-  deviceNKrnlPrototype.selectAne = global.onDevice->selectAne;
+  deviceDrKrnlPrototype_.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
+  deviceNKrnlPrototype_.selectEla = global.onDevice->selectEla;
+  deviceNKrnlPrototype_.selectAne = global.onDevice->selectAne;
 #endif
 }
 
@@ -192,8 +192,8 @@ void Neighbor::computeBatchedNeighborsIntegral(
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;
-  kernel::gpu_neighborFluxExt neighFluxKrnl = deviceNfKrnlPrototype;
-  dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
+  kernel::gpu_neighborFluxExt neighFluxKrnl = deviceNfKrnlPrototype_;
+  dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype_;
 
   {
     ConditionalKey key(KernelNames::Time || KernelNames::Volume);
@@ -266,7 +266,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   if (table.find(key) != table.end()) {
     auto& entry = table[key];
-    kernel::gpu_neighbor nKrnl = deviceNKrnlPrototype;
+    kernel::gpu_neighbor nKrnl = deviceNKrnlPrototype_;
     nKrnl.numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
     nKrnl.Qext =
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());

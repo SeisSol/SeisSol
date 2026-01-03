@@ -51,11 +51,9 @@ class Spacetime : public SpacetimeKernel {
                   real* stp);
 
   kernel::spaceTimePredictor krnlPrototype_;
-  kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_spaceTimePredictor deviceKrnlPrototype;
-  kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
+  kernel::gpu_spaceTimePredictor deviceKrnlPrototype_;
 #endif
 };
 

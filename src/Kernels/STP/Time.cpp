@@ -54,20 +54,20 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
-        deviceKrnlPrototype.kDivMTSub(d, n) =
+        deviceKrnlPrototype_.kDivMTSub(d, n) =
             init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
       }
     }
-    deviceKrnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
+    deviceKrnlPrototype_.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
   }
   for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
-    deviceKrnlPrototype.selectQuantity(k) =
+    deviceKrnlPrototype_.selectQuantity(k) =
         init::selectQuantity::Values[tensor::selectQuantity::index(k)];
-    deviceKrnlPrototype.selectQuantityG(k) =
+    deviceKrnlPrototype_.selectQuantityG(k) =
         init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
   }
-  deviceKrnlPrototype.timeInt = init::timeInt::Values;
-  deviceKrnlPrototype.wHat = init::wHat::Values;
+  deviceKrnlPrototype_.timeInt = init::timeInt::Values;
+  deviceKrnlPrototype_.wHat = init::wHat::Values;
 #endif
 }
 
@@ -190,7 +190,7 @@ void Spacetime::computeBatchedAder(
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;
-  kernel::gpu_spaceTimePredictor krnl = deviceKrnlPrototype;
+  kernel::gpu_spaceTimePredictor krnl = deviceKrnlPrototype_;
 
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {

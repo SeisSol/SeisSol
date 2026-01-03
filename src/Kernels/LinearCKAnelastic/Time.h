@@ -41,7 +41,7 @@ class Spacetime : public SpacetimeKernel {
   kernel::derivative krnlPrototype_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_derivative deviceKrnlPrototype;
+  kernel::gpu_derivative deviceKrnlPrototype_;
 #endif
 };
 

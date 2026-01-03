@@ -55,9 +55,9 @@ class Local : public LocalKernel {
   kernel::local localKernelPrototype_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_volumeExt deviceVolumeKernelPrototype;
-  kernel::gpu_localFluxExt deviceLocalFluxKernelPrototype;
-  kernel::gpu_local deviceLocalKernelPrototype;
+  kernel::gpu_volumeExt deviceVolumeKernelPrototype_;
+  kernel::gpu_localFluxExt deviceLocalFluxKernelPrototype_;
+  kernel::gpu_local deviceLocalKernelPrototype_;
 #endif
 };
 } // namespace seissol::kernels::solver::linearckanelastic
