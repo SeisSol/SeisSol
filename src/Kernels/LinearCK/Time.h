@@ -50,7 +50,7 @@ class Spacetime : public SpacetimeKernel {
   std::uint64_t bytesAder() override;
 
   protected:
-  kernel::derivative m_krnlPrototype;
+  kernel::derivative krnlPrototype_;
   kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
 
 #ifdef ACL_DEVICE

@@ -61,12 +61,12 @@ class Local : public LocalKernel {
   std::uint64_t bytesIntegral() override;
 
   protected:
-  kernel::volume m_volumeKernelPrototype;
-  kernel::localFlux m_localFluxKernelPrototype;
-  kernel::localFluxNodal m_nodalLfKrnlPrototype;
+  kernel::volume volumeKernelPrototype_;
+  kernel::localFlux localFluxKernelPrototype_;
+  kernel::localFluxNodal nodalLfKrnlPrototype_;
 
-  kernel::projectToNodalBoundary m_projectKrnlPrototype;
-  kernel::projectToNodalBoundaryRotated m_projectRotatedKrnlPrototype;
+  kernel::projectToNodalBoundary projectKrnlPrototype_;
+  kernel::projectToNodalBoundaryRotated projectRotatedKrnlPrototype_;
 
   kernels::DirichletBoundary dirichletBoundary;
 

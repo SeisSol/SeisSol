@@ -60,12 +60,12 @@ class ReceiverWriter : public seissol::Module {
   [[nodiscard]] std::string fileName(unsigned pointId) const;
   void writeHeader(unsigned pointId, const Eigen::Vector3d& point);
 
-  std::string m_receiverFileName;
-  std::string m_fileNamePrefix;
-  double m_samplingInterval{};
+  std::string receiverFileName_;
+  std::string fileNamePrefix_;
+  double samplingInterval_{};
   std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity>> derivedQuantities;
-  std::vector<std::shared_ptr<kernels::ReceiverCluster>> m_receiverClusters;
-  Stopwatch m_stopwatch;
+  std::vector<std::shared_ptr<kernels::ReceiverCluster>> receiverClusters_;
+  Stopwatch stopwatch_;
 };
 } // namespace seissol::writer
 

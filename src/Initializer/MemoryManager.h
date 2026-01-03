@@ -45,35 +45,35 @@ class MemoryManager {
   seissol::SeisSol& seissolInstance;
 
   //! memory allocator
-  seissol::memory::ManagedAllocator m_memoryAllocator;
+  seissol::memory::ManagedAllocator memoryAllocator_;
 
   /*
    * Cross-cluster
    */
   //! global data
-  GlobalData m_globalDataOnHost;
-  GlobalData m_globalDataOnDevice;
+  GlobalData globalDataOnHost_;
+  GlobalData globalDataOnDevice_;
 
   //! Memory organization storage
   LTS::Storage ltsStorage;
   LTS::Backmap backmap;
 
-  std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
+  std::vector<std::unique_ptr<physics::InitialField>> iniConds_;
 
   DynamicRupture::Backmap drBackmap;
 
   DynamicRupture::Storage drStorage;
-  std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
-  std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
-  std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
-  std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLawDevice = nullptr;
-  std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
+  std::unique_ptr<DynamicRupture> dynRup_ = nullptr;
+  std::unique_ptr<dr::initializer::BaseDRInitializer> DRInitializer_ = nullptr;
+  std::unique_ptr<dr::friction_law::FrictionSolver> FrictionLaw_ = nullptr;
+  std::unique_ptr<dr::friction_law::FrictionSolver> FrictionLawDevice_ = nullptr;
+  std::unique_ptr<dr::output::OutputManager> faultOutputManager_ = nullptr;
 
-  Boundary::Storage m_boundaryTree;
+  Boundary::Storage boundaryTree_;
 
   SurfaceLTS::Storage surfaceStorage;
 
-  EasiBoundary m_easiBoundary;
+  EasiBoundary easiBoundary_;
 
   std::optional<ClusterLayout> layout;
 
@@ -112,10 +112,10 @@ class MemoryManager {
    **/
   CompoundGlobalData getGlobalData() {
     CompoundGlobalData global{};
-    global.onHost = &m_globalDataOnHost;
+    global.onHost = &globalDataOnHost_;
     global.onDevice = nullptr;
     if constexpr (seissol::isDeviceOn()) {
-      global.onDevice = &m_globalDataOnDevice;
+      global.onDevice = &globalDataOnDevice_;
     }
     return global;
   }
@@ -132,25 +132,25 @@ class MemoryManager {
 
   DynamicRupture::Backmap& getDRBackmap() { return drBackmap; }
 
-  DynamicRupture& getDynamicRupture() { return *m_dynRup; }
+  DynamicRupture& getDynamicRupture() { return *dynRup_; }
 
   SurfaceLTS::Storage& getSurfaceStorage() { return surfaceStorage; }
 
   void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
-    m_iniConds = std::move(iniConds);
+    iniConds_ = std::move(iniConds);
   }
 
   const std::vector<std::unique_ptr<physics::InitialField>>& getInitialConditions() {
-    return m_iniConds;
+    return iniConds_;
   }
 
   void initializeEasiBoundaryReader(const char* fileName);
 
-  EasiBoundary* getEasiBoundaryReader() { return &m_easiBoundary; }
+  EasiBoundary* getEasiBoundaryReader() { return &easiBoundary_; }
 
-  dr::friction_law::FrictionSolver* getFrictionLaw() { return m_FrictionLaw.get(); }
-  dr::friction_law::FrictionSolver* getFrictionLawDevice() { return m_FrictionLawDevice.get(); }
-  seissol::dr::output::OutputManager* getFaultOutputManager() { return m_faultOutputManager.get(); }
+  dr::friction_law::FrictionSolver* getFrictionLaw() { return FrictionLaw_.get(); }
+  dr::friction_law::FrictionSolver* getFrictionLawDevice() { return FrictionLawDevice_.get(); }
+  seissol::dr::output::OutputManager* getFaultOutputManager() { return faultOutputManager_.get(); }
 
 #ifdef ACL_DEVICE
   void recordExecutionPaths(bool usePlasticity);

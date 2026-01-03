@@ -48,7 +48,7 @@ class SeisSol {
   /**
    * Cleanup data structures
    */
-  virtual ~SeisSol() { delete m_meshReader; }
+  virtual ~SeisSol() { delete meshReader_; }
 
   const parallel::Pinning& getPinning() { return pinning; }
 
@@ -79,50 +79,50 @@ class SeisSol {
 
   void setExecutionPlaceCutoff(std::size_t size);
 
-  initializer::MemoryManager& getMemoryManager() { return *m_memoryManager; }
+  initializer::MemoryManager& getMemoryManager() { return *memoryManager_; }
 
-  time_stepping::TimeManager& timeManager() { return m_timeManager; }
+  time_stepping::TimeManager& timeManager() { return timeManager_; }
 
-  Simulator& simulator() { return m_simulator; }
+  Simulator& simulator() { return simulator_; }
 
-  sourceterm::Manager& sourceTermManager() { return m_sourceTermManager; }
+  sourceterm::Manager& sourceTermManager() { return sourceTermManager_; }
 
-  solver::FreeSurfaceIntegrator& freeSurfaceIntegrator() { return m_freeSurfaceIntegrator; }
+  solver::FreeSurfaceIntegrator& freeSurfaceIntegrator() { return freeSurfaceIntegrator_; }
 
-  writer::FreeSurfaceWriter& freeSurfaceWriter() { return m_freeSurfaceWriter; }
+  writer::FreeSurfaceWriter& freeSurfaceWriter() { return freeSurfaceWriter_; }
 
-  writer::AnalysisWriter& analysisWriter() { return m_analysisWriter; }
+  writer::AnalysisWriter& analysisWriter() { return analysisWriter_; }
 
   /** Get the post processor module
    */
-  writer::PostProcessor& postProcessor() { return m_postProcessor; }
+  writer::PostProcessor& postProcessor() { return postProcessor_; }
 
-  io::AsyncIO& asyncIO() { return m_asyncIO; }
+  io::AsyncIO& asyncIO() { return asyncIO_; }
 
   /**
    * Get the wave field writer module
    */
-  writer::WaveFieldWriter& waveFieldWriter() { return m_waveFieldWriter; }
+  writer::WaveFieldWriter& waveFieldWriter() { return waveFieldWriter_; }
 
   /**
    * Get the fault writer module
    */
-  writer::FaultWriter& faultWriter() { return m_faultWriter; }
+  writer::FaultWriter& faultWriter() { return faultWriter_; }
 
   /**
    * Get the receiver writer module
    */
-  writer::ReceiverWriter& receiverWriter() { return m_receiverWriter; }
+  writer::ReceiverWriter& receiverWriter() { return receiverWriter_; }
 
   /**
    * Get the energy writer module
    */
-  writer::EnergyOutput& energyOutput() { return m_energyOutput; }
+  writer::EnergyOutput& energyOutput() { return energyOutput_; }
 
   /**
    * Get the flop counter
    */
-  monitoring::FlopCounter& flopCounter() { return m_flopCounter; }
+  monitoring::FlopCounter& flopCounter() { return flopCounter_; }
 
   const std::optional<std::string>& getCheckpointLoadFile() { return checkpointLoadFile; }
   /**
@@ -138,11 +138,11 @@ class SeisSol {
    * Set the mesh reader
    */
   void setMeshReader(seissol::geometry::MeshReader* meshReader) {
-    if (m_meshReader != nullptr) {
+    if (meshReader_ != nullptr) {
       logError() << "Mesh reader already initialized";
     }
 
-    m_meshReader = meshReader;
+    meshReader_ = meshReader;
   }
 
   /**
@@ -151,22 +151,22 @@ class SeisSol {
    * Should be called after initialization
    */
   void freeMeshReader() {
-    delete m_meshReader;
-    m_meshReader = nullptr;
+    delete meshReader_;
+    meshReader_ = nullptr;
   }
 
   /**
    * Get the mesh reader
    */
-  const seissol::geometry::MeshReader& meshReader() const { return *m_meshReader; }
+  const seissol::geometry::MeshReader& meshReader() const { return *meshReader_; }
 
   /**
    * Get the mesh reader
    */
-  seissol::geometry::MeshReader& meshReader() { return *m_meshReader; }
+  seissol::geometry::MeshReader& meshReader() { return *meshReader_; }
 
   const seissol::initializer::parameters::SeisSolParameters& getSeisSolParameters() const {
-    return m_seissolParameters;
+    return seissolParameters_;
   }
 
   /**
@@ -174,7 +174,7 @@ class SeisSol {
    * memoryAllocator i.e., the main components of SeisSol. Therefore, call this function
    * at the very end of a program execution
    */
-  void deleteMemoryManager() { m_memoryManager.reset(nullptr); }
+  void deleteMemoryManager() { memoryManager_.reset(nullptr); }
 
   GravitationSetup& getGravitationSetup() { return gravitationSetup; }
 
@@ -190,11 +190,11 @@ class SeisSol {
   /*
    * returns the backup time stamp
    * */
-  const std::string& getBackupTimeStamp() { return m_backupTimeStamp; }
+  const std::string& getBackupTimeStamp() { return backupTimeStamp_; }
 
   seissol::io::OutputManager& getOutputManager() { return outputManager; }
 
-  utils::Env& env() { return m_env; }
+  utils::Env& env() { return env_; }
 
   private:
   // Note: This HAS to be the first member so that it is initialized before all others!
@@ -208,55 +208,55 @@ class SeisSol {
   seissol::io::OutputManager outputManager;
 
   //! Collection of Parameters
-  const seissol::initializer::parameters::SeisSolParameters& m_seissolParameters;
+  const seissol::initializer::parameters::SeisSolParameters& seissolParameters_;
 
   //! Gravitation setup for tsunami boundary condition
   GravitationSetup gravitationSetup;
 
   //! Async I/O handler (needs to be initialize before other I/O modules)
-  io::AsyncIO m_asyncIO;
+  io::AsyncIO asyncIO_;
 
   //! Mesh Reader
-  seissol::geometry::MeshReader* m_meshReader{nullptr};
+  seissol::geometry::MeshReader* meshReader_{nullptr};
 
   //! Memory Manager
-  std::unique_ptr<initializer::MemoryManager> m_memoryManager{nullptr};
+  std::unique_ptr<initializer::MemoryManager> memoryManager_{nullptr};
 
   //! Time Manager
-  time_stepping::TimeManager m_timeManager;
+  time_stepping::TimeManager timeManager_;
 
   //! Simulator
-  Simulator m_simulator;
+  Simulator simulator_;
 
   //! Source term module
-  sourceterm::Manager m_sourceTermManager;
+  sourceterm::Manager sourceTermManager_;
 
   //! PostProcessor module
-  writer::PostProcessor m_postProcessor;
+  writer::PostProcessor postProcessor_;
 
   //! Free surface integrator module
-  solver::FreeSurfaceIntegrator m_freeSurfaceIntegrator;
+  solver::FreeSurfaceIntegrator freeSurfaceIntegrator_;
 
   //! Free surface writer module
-  writer::FreeSurfaceWriter m_freeSurfaceWriter;
+  writer::FreeSurfaceWriter freeSurfaceWriter_;
 
   //! Analysis writer module
-  writer::AnalysisWriter m_analysisWriter;
+  writer::AnalysisWriter analysisWriter_;
 
   //! Wavefield output module
-  writer::WaveFieldWriter m_waveFieldWriter;
+  writer::WaveFieldWriter waveFieldWriter_;
 
   //! Fault output module
-  writer::FaultWriter m_faultWriter;
+  writer::FaultWriter faultWriter_;
 
   //! Receiver writer module
-  writer::ReceiverWriter m_receiverWriter;
+  writer::ReceiverWriter receiverWriter_;
 
   //! Energy writer module
-  writer::EnergyOutput m_energyOutput;
+  writer::EnergyOutput energyOutput_;
 
   //! Flop Counter
-  monitoring::FlopCounter m_flopCounter;
+  monitoring::FlopCounter flopCounter_;
 
   //! TimeMirror Managers
   std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
@@ -264,23 +264,23 @@ class SeisSol {
       timeMirrorManagers;
 
   //! time stamp which can be used for backuping files of previous runs
-  std::string m_backupTimeStamp;
+  std::string backupTimeStamp_;
 
   std::optional<std::string> checkpointLoadFile;
 
   std::optional<std::size_t> executionPlaceCutoff;
 
-  utils::Env m_env;
+  utils::Env env_;
 
   double timestepScale{1.0};
 
   public:
   SeisSol(const initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)
-      : outputManager(*this), m_seissolParameters(parameters),
-        m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
-        m_freeSurfaceWriter(*this), m_analysisWriter(*this), m_waveFieldWriter(*this),
-        m_faultWriter(*this), m_receiverWriter(*this), m_energyOutput(*this),
-        timeMirrorManagers(*this, *this), m_env(env) {}
+      : outputManager(*this), seissolParameters_(parameters),
+        memoryManager_(std::make_unique<initializer::MemoryManager>(*this)), timeManager_(*this),
+        freeSurfaceWriter_(*this), analysisWriter_(*this), waveFieldWriter_(*this),
+        faultWriter_(*this), receiverWriter_(*this), energyOutput_(*this),
+        timeMirrorManagers(*this, *this), env_(env) {}
 
   SeisSol(const SeisSol&) = delete;
   SeisSol(SeisSol&&) = delete;

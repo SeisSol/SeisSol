@@ -38,9 +38,9 @@ class Neighbor : public NeighborKernel {
   std::uint64_t bytesNeighborsIntegral() override;
 
   protected:
-  kernel::neighborFluxExt m_nfKrnlPrototype;
-  kernel::neighbor m_nKrnlPrototype;
-  dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;
+  kernel::neighborFluxExt nfKrnlPrototype_;
+  kernel::neighbor nKrnlPrototype_;
+  dynamicRupture::kernel::nodalFlux drKrnlPrototype_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_neighborFluxExt deviceNfKrnlPrototype;

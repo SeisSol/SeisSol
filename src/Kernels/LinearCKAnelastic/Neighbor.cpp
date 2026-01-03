@@ -50,12 +50,12 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
     }
   }
 #endif
-  m_nfKrnlPrototype.rDivM = global.onHost->changeOfBasisMatrices;
-  m_nfKrnlPrototype.rT = global.onHost->neighborChangeOfBasisMatricesTransposed;
-  m_nfKrnlPrototype.fP = global.onHost->neighborFluxMatrices;
-  m_drKrnlPrototype.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
-  m_nKrnlPrototype.selectEla = init::selectEla::Values;
-  m_nKrnlPrototype.selectAne = init::selectAne::Values;
+  nfKrnlPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
+  nfKrnlPrototype_.rT = global.onHost->neighborChangeOfBasisMatricesTransposed;
+  nfKrnlPrototype_.fP = global.onHost->neighborFluxMatrices;
+  drKrnlPrototype_.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
+  nKrnlPrototype_.selectEla = init::selectEla::Values;
+  nKrnlPrototype_.selectAne = init::selectAne::Values;
 
 #ifdef ACL_DEVICE
 #ifdef USE_PREMULTIPLY_FLUX
@@ -91,7 +91,7 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
 
   alignas(PagesizeStack) real Qext[tensor::Qext::size()] = {};
 
-  kernel::neighborFluxExt nfKrnl = m_nfKrnlPrototype;
+  kernel::neighborFluxExt nfKrnl = nfKrnlPrototype_;
   nfKrnl.Qext = Qext;
 
   // iterate over faces
@@ -115,7 +115,7 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
     } else if (data.get<LTS::CellInformation>().faceTypes[face] == FaceType::DynamicRupture) {
       assert((reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov)) % Alignment == 0);
 
-      dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
+      dynamicRupture::kernel::nodalFlux drKrnl = drKrnlPrototype_;
       drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
       drKrnl.QInterpolated = cellDrMapping[face].godunov;
       drKrnl.Qext = Qext;
@@ -124,7 +124,7 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
     }
   }
 
-  kernel::neighbor nKrnl = m_nKrnlPrototype;
+  kernel::neighbor nKrnl = nKrnlPrototype_;
   nKrnl.Qext = Qext;
   nKrnl.Q = data.get<LTS::Dofs>();
   nKrnl.Qane = data.get<LTS::DofsAne>();

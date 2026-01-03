@@ -24,16 +24,16 @@ enum class AsagiMPIMode { Off, Windows, CommThread, Unknown };
 
 class AsagiModule : public Module {
   private:
-  utils::Env m_env;
+  utils::Env env_;
 
   /** The MPI mode used for ASAGI communication */
-  AsagiMPIMode m_mpiMode;
+  AsagiMPIMode mpiMode_;
 
   /** The real name set via the environment variable */
-  std::string m_mpiModeName;
+  std::string mpiModeName_;
 
   /** The total number of threads (including the communication thread */
-  int m_totalThreads;
+  int totalThreads_;
 
   parallel::Pinning* pinning{};
 

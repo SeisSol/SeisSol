@@ -72,7 +72,7 @@ void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
     return;
   }
 
-  m_enabled = true;
+  enabled_ = true;
 
   logInfo() << "Initializing free surface integrator.";
   initializeProjectionMatrices(maxRefinementDepth);

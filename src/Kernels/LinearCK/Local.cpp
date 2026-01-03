@@ -47,14 +47,14 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::linearck {
 
 void Local::setGlobalData(const CompoundGlobalData& global) {
-  m_volumeKernelPrototype.kDivM = global.onHost->stiffnessMatrices;
-  m_localFluxKernelPrototype.rDivM = global.onHost->changeOfBasisMatrices;
-  m_localFluxKernelPrototype.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
+  volumeKernelPrototype_.kDivM = global.onHost->stiffnessMatrices;
+  localFluxKernelPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
+  localFluxKernelPrototype_.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
 
-  m_nodalLfKrnlPrototype.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
+  nodalLfKrnlPrototype_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
 
-  m_projectKrnlPrototype.V3mTo2nFace = global.onHost->v3mTo2nFace;
-  m_projectRotatedKrnlPrototype.V3mTo2nFace = global.onHost->v3mTo2nFace;
+  projectKrnlPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
+  projectRotatedKrnlPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
@@ -117,7 +117,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
   assert(reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
 
-  kernel::volume volKrnl = m_volumeKernelPrototype;
+  kernel::volume volKrnl = volumeKernelPrototype_;
   volKrnl.Q = data.get<LTS::Dofs>();
   volKrnl.I = timeIntegratedDegreesOfFreedom;
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
@@ -127,7 +127,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
   // Optional source term
   set_ET(volKrnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
 
-  kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
+  kernel::localFlux lfKrnl = localFluxKernelPrototype_;
   lfKrnl.Q = data.get<LTS::Dofs>();
   lfKrnl.I = timeIntegratedDegreesOfFreedom;
   lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
@@ -143,7 +143,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
     }
 
     alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
-    auto nodalLfKrnl = m_nodalLfKrnlPrototype;
+    auto nodalLfKrnl = nodalLfKrnlPrototype_;
     nodalLfKrnl.Q = data.get<LTS::Dofs>();
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
     nodalLfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
@@ -183,7 +183,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
                                  face,
                                  (*cellBoundaryMapping)[face],
-                                 m_projectRotatedKrnlPrototype,
+                                 projectRotatedKrnlPrototype_,
                                  applyFreeSurfaceBc,
                                  dofsFaceBoundaryNodal);
 
@@ -210,7 +210,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
                                  face,
                                  (*cellBoundaryMapping)[face],
-                                 m_projectRotatedKrnlPrototype,
+                                 projectRotatedKrnlPrototype_,
                                  applyEasiBoundary,
                                  dofsFaceBoundaryNodal);
 
@@ -229,7 +229,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       dirichletBoundary.evaluateTimeDependent(timeIntegratedDegreesOfFreedom,
                                               face,
                                               (*cellBoundaryMapping)[face],
-                                              m_projectKrnlPrototype,
+                                              projectKrnlPrototype_,
                                               applyAnalyticalSolution,
                                               dofsFaceBoundaryNodal,
                                               time,
@@ -382,7 +382,7 @@ void Local::evaluateBatchedTimeDependentBc(
         dirichletBoundary.evaluateTimeDependent(nullptr,
                                                 face,
                                                 data.get<LTS::BoundaryMapping>()[face],
-                                                m_projectKrnlPrototype,
+                                                projectKrnlPrototype_,
                                                 applyAnalyticalSolution,
                                                 dofsFaceBoundaryNodal,
                                                 time,

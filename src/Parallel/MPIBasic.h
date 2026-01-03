@@ -17,16 +17,16 @@ namespace seissol {
 class MpiBasic {
   protected:
   /** This rank */
-  int m_rank{0};
+  int rank_{0};
 
   /** Rank in the shared memory sub-communicator */
-  int m_sharedMemMpiRank{0};
+  int sharedMemMpiRank_{0};
 
   /** Number of processors */
-  int m_size{1};
+  int size_{1};
 
   /** Number of ranks in the shared memory sub-communicator */
-  int m_sharedMemMpiSize{1};
+  int sharedMemMpiSize_{1};
 
   MpiBasic() = default;
 
@@ -36,22 +36,22 @@ class MpiBasic {
   /**
    * @return The rank of this process
    */
-  [[nodiscard]] int rank() const { return m_rank; }
+  [[nodiscard]] int rank() const { return rank_; }
 
   /**
    * @return The rank within the shared memory sub-communicator
    */
-  [[nodiscard]] int sharedMemMpiRank() const { return m_sharedMemMpiRank; }
+  [[nodiscard]] int sharedMemMpiRank() const { return sharedMemMpiRank_; }
 
   /**
    * @return The total number of processes
    */
-  [[nodiscard]] int size() const { return m_size; }
+  [[nodiscard]] int size() const { return size_; }
 
   /**
    * @return The number of ranks within the shared memory sub-communicator
    */
-  [[nodiscard]] int sharedMemMpiSize() const { return m_sharedMemMpiSize; }
+  [[nodiscard]] int sharedMemMpiSize() const { return sharedMemMpiSize_; }
 
   [[nodiscard]] bool isSingleProcess() const { return size() == 1; }
 

@@ -28,7 +28,7 @@
 #include <utils/logger.h>
 
 void seissol::writer::FaultWriter::setUp() {
-  setExecutor(m_executor);
+  setExecutor(executor_);
 
   utils::Env env("SEISSOL_");
   if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, env)) {
@@ -58,10 +58,10 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
   // Initialize the asynchronous module
   async::Module<FaultWriterExecutor, FaultInitParam, FaultParam>::init();
 
-  m_enabled = true;
+  enabled_ = true;
 
   FaultInitParam param;
-  param.timestep = m_timestep;
+  param.timestep = timestep_;
   param.backend = backend;
   param.backupTimeStamp = backupTimeStamp;
 
@@ -135,7 +135,7 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
   }
   for (unsigned int i = 0; i < FaultInitParam::OutputMaskSize; i++) {
     if (param.outputMask[i]) {
-      addBuffer(dataBuffer[m_numVariables++], nCells * sizeof(real));
+      addBuffer(dataBuffer[numVariables_++], nCells * sizeof(real));
     }
   }
 

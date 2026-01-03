@@ -50,7 +50,7 @@ class Spacetime : public SpacetimeKernel {
                   real timeIntegrated[tensor::I::size()],
                   real* stp);
 
-  kernel::spaceTimePredictor m_krnlPrototype;
+  kernel::spaceTimePredictor krnlPrototype_;
   kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
 
 #ifdef ACL_DEVICE

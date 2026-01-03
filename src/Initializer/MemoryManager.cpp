@@ -50,11 +50,10 @@ namespace seissol::initializer {
 
 void MemoryManager::initialize() {
   // initialize global matrices
-  GlobalDataInitializerOnHost::init(
-      m_globalDataOnHost, m_memoryAllocator, memory::Memkind::Standard);
+  GlobalDataInitializerOnHost::init(globalDataOnHost_, memoryAllocator_, memory::Memkind::Standard);
   if constexpr (seissol::isDeviceOn()) {
     GlobalDataInitializerOnDevice::init(
-        m_globalDataOnDevice, m_memoryAllocator, memory::Memkind::DeviceGlobalMemory);
+        globalDataOnDevice_, memoryAllocator_, memory::Memkind::DeviceGlobalMemory);
   }
 }
 
@@ -68,16 +67,16 @@ void MemoryManager::fixateLtsStorage() {
 void MemoryManager::fixateBoundaryStorage() {
   const LayerMask ghostMask(Ghost);
 
-  m_boundaryTree.setName("boundary");
+  boundaryTree_.setName("boundary");
 
   // Boundary face storage
-  Boundary::addTo(m_boundaryTree);
-  m_boundaryTree.setLayerCount(ltsStorage.getColorMap());
-  m_boundaryTree.fixate();
+  Boundary::addTo(boundaryTree_);
+  boundaryTree_.setLayerCount(ltsStorage.getColorMap());
+  boundaryTree_.fixate();
 
   // Iterate over layers of standard lts storage and face lts storage together.
   for (auto [layer, boundaryLayer] :
-       seissol::common::zip(ltsStorage.leaves(ghostMask), m_boundaryTree.leaves(ghostMask))) {
+       seissol::common::zip(ltsStorage.leaves(ghostMask), boundaryTree_.leaves(ghostMask))) {
     CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
 
     std::size_t numberOfBoundaryFaces = 0;
@@ -94,14 +93,14 @@ void MemoryManager::fixateBoundaryStorage() {
     }
     boundaryLayer.setNumberOfCells(numberOfBoundaryFaces);
   }
-  m_boundaryTree.allocateVariables();
-  m_boundaryTree.touchVariables();
+  boundaryTree_.allocateVariables();
+  boundaryTree_.touchVariables();
 
   // The boundary storage is now allocated, now we only need to map from cell lts
   // to face lts.
   // We do this by, once again, iterating over both storages at the same time.
   for (auto [layer, boundaryLayer] :
-       seissol::common::zip(ltsStorage.leaves(ghostMask), m_boundaryTree.leaves(ghostMask))) {
+       seissol::common::zip(ltsStorage.leaves(ghostMask), boundaryTree_.leaves(ghostMask))) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
     auto* boundaryMappingDevice = layer.var<LTS::BoundaryMappingDevice>();
@@ -278,7 +277,7 @@ void MemoryManager::initializeMemoryLayout() {
 void MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
   const auto fileNameStr = std::string{fileName};
   if (!fileNameStr.empty()) {
-    m_easiBoundary = EasiBoundary(fileNameStr);
+    easiBoundary_ = EasiBoundary(fileNameStr);
   }
 }
 
@@ -345,21 +344,21 @@ void MemoryManager::initializeFrictionLaw() {
 
   const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance);
   auto product = factory->produce();
-  m_dynRup = std::move(product.storage);
-  m_DRInitializer = std::move(product.initializer);
-  m_FrictionLaw = std::move(product.frictionLaw);
-  m_FrictionLawDevice = std::move(product.frictionLawDevice);
-  m_faultOutputManager = std::move(product.output);
+  dynRup_ = std::move(product.storage);
+  DRInitializer_ = std::move(product.initializer);
+  FrictionLaw_ = std::move(product.frictionLaw);
+  FrictionLawDevice_ = std::move(product.frictionLawDevice);
+  faultOutputManager_ = std::move(product.output);
 }
 
 void MemoryManager::initFaultOutputManager(const std::string& backupTimeStamp) {
   const auto& params = seissolInstance.getSeisSolParameters().drParameters;
-  // TODO: switch m_dynRup to shared or weak pointer
+  // TODO: switch dynRup_ to shared or weak pointer
   if (params.isDynamicRuptureEnabled) {
-    m_faultOutputManager->setInputParam(seissolInstance.meshReader());
-    m_faultOutputManager->setLtsData(ltsStorage, backmap, drStorage);
-    m_faultOutputManager->setBackupTimeStamp(backupTimeStamp);
-    m_faultOutputManager->init();
+    faultOutputManager_->setInputParam(seissolInstance.meshReader());
+    faultOutputManager_->setLtsData(ltsStorage, backmap, drStorage);
+    faultOutputManager_->setBackupTimeStamp(backupTimeStamp);
+    faultOutputManager_->init();
   }
 }
 
@@ -367,7 +366,7 @@ void MemoryManager::initFrictionData() {
   const auto& params = seissolInstance.getSeisSolParameters().drParameters;
   if (params.isDynamicRuptureEnabled) {
 
-    m_DRInitializer->initializeFault(drStorage);
+    DRInitializer_->initializeFault(drStorage);
   }
 }
 
@@ -381,7 +380,7 @@ void MemoryManager::synchronizeTo(AllocationPlace place) {
   const auto& defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
   ltsStorage.synchronizeTo(place, defaultStream);
   drStorage.synchronizeTo(place, defaultStream);
-  m_boundaryTree.synchronizeTo(place, defaultStream);
+  boundaryTree_.synchronizeTo(place, defaultStream);
   surfaceStorage.synchronizeTo(place, defaultStream);
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif

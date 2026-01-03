@@ -26,16 +26,16 @@
 namespace seissol::asagi {
 
 AsagiModule::AsagiModule(utils::Env& env)
-    : m_env(env), m_mpiMode(getMPIMode(env)), m_totalThreads(getTotalThreads(env)) {
+    : env_(env), mpiMode_(getMPIMode(env)), totalThreads_(getTotalThreads(env)) {
   // Register for the pre MPI hook
   Modules::registerHook(*this, ModuleHook::PreMPI);
 
   // Emit a warning/error later
   // TODO use a general logger that can buffer log messages and emit them later
-  if (m_mpiMode == AsagiMPIMode::Unknown) {
+  if (mpiMode_ == AsagiMPIMode::Unknown) {
     Modules::registerHook(*this, ModuleHook::PostMPIInit);
-  } else if (m_mpiMode == AsagiMPIMode::CommThread && m_totalThreads == 1) {
-    m_mpiMode = AsagiMPIMode::Windows;
+  } else if (mpiMode_ == AsagiMPIMode::CommThread && totalThreads_ == 1) {
+    mpiMode_ = AsagiMPIMode::Windows;
 
     Modules::registerHook(*this, ModuleHook::PostMPIInit);
   }
@@ -70,11 +70,11 @@ int AsagiModule::getTotalThreads(utils::Env& env) {
   return totalThreads;
 }
 
-utils::Env& AsagiModule::getEnv() { return m_env; }
+utils::Env& AsagiModule::getEnv() { return env_; }
 
 void AsagiModule::preMPI() {
   // Communication threads required
-  if (m_mpiMode == AsagiMPIMode::CommThread) {
+  if (mpiMode_ == AsagiMPIMode::CommThread) {
     // Comm threads has to be started before model initialization
     Modules::registerHook(*this, ModuleHook::PreMesh, ModulePriority::Highest);
     // Comm threads has to be stoped after model initialization
@@ -83,8 +83,8 @@ void AsagiModule::preMPI() {
 }
 
 void AsagiModule::postMPIInit() {
-  if (m_mpiMode == AsagiMPIMode::Unknown) {
-    const std::string mpiModeName = m_env.get(EnvMpiMode, "");
+  if (mpiMode_ == AsagiMPIMode::Unknown) {
+    const std::string mpiModeName = env_.get(EnvMpiMode, "");
     logError() << "Unknown ASAGI MPI mode:" << mpiModeName;
   } else {
     logWarning() << "Running with only one OMP thread."
@@ -93,7 +93,7 @@ void AsagiModule::postMPIInit() {
 }
 
 void AsagiModule::preMesh() {
-  if (m_mpiMode == AsagiMPIMode::CommThread) {
+  if (mpiMode_ == AsagiMPIMode::CommThread) {
     int cpu = -1;
 #ifndef __APPLE__
     const auto cpuSet = pinning->getFreeCPUsMask().set;
@@ -109,7 +109,7 @@ void AsagiModule::preMesh() {
 }
 
 void AsagiModule::postModel() {
-  if (m_mpiMode == AsagiMPIMode::CommThread) {
+  if (mpiMode_ == AsagiMPIMode::CommThread) {
     ::asagi::Grid::stopCommThread();
   }
 }
@@ -120,9 +120,9 @@ void AsagiModule::initInstance(utils::Env& env) {
 
 AsagiModule& AsagiModule::getInstance() { return *AsagiModule::instance; }
 
-AsagiMPIMode AsagiModule::mpiMode() { return getInstance().m_mpiMode; }
+AsagiMPIMode AsagiModule::mpiMode() { return getInstance().mpiMode_; }
 
-int AsagiModule::totalThreads() { return getInstance().m_totalThreads; }
+int AsagiModule::totalThreads() { return getInstance().totalThreads_; }
 
 std::shared_ptr<AsagiModule> AsagiModule::instance{nullptr};
 

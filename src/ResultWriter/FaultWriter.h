@@ -34,19 +34,19 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
   seissol::SeisSol& seissolInstance;
 
   /** Is enabled? */
-  bool m_enabled{false};
+  bool enabled_{false};
 
   /** The asynchronous executor */
-  FaultWriterExecutor m_executor;
+  FaultWriterExecutor executor_;
 
   /** Total number of variables */
-  unsigned int m_numVariables{0};
+  unsigned int numVariables_{0};
 
   /** The current output time step */
-  unsigned int m_timestep{0};
+  unsigned int timestep_{0};
 
   /** Frontend stopwatch */
-  Stopwatch m_stopwatch;
+  Stopwatch stopwatch_;
 
   dr::output::OutputManager* callbackObject{nullptr};
 
@@ -61,7 +61,7 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
    */
   void setUp() override;
 
-  void setTimestep(unsigned int timestep) { m_timestep = timestep; }
+  void setTimestep(unsigned int timestep) { timestep_ = timestep; }
 
   void init(const unsigned int* cells,
             const double* vertices,
@@ -79,16 +79,16 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
   /**
    * @return The current time step of the fault output
    */
-  [[nodiscard]] unsigned int timestep() const { return m_timestep; }
+  [[nodiscard]] unsigned int timestep() const { return timestep_; }
 
   void write(double time) {
     SCOREP_USER_REGION("FaultWriter_write", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-    if (!m_enabled) {
+    if (!enabled_) {
       logError() << "Trying to write fault output, but fault output is not enabled";
     }
 
-    m_stopwatch.start();
+    stopwatch_.start();
 
     wait();
 
@@ -97,35 +97,35 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
     FaultParam param;
     param.time = time;
 
-    for (unsigned int i = 0; i < m_numVariables; i++) {
+    for (unsigned int i = 0; i < numVariables_; i++) {
       sendBuffer(FaultWriterExecutor::Variables0 + i);
     }
 
     call(param);
 
     // Update the timestep count
-    m_timestep++;
+    timestep_++;
 
-    m_stopwatch.pause();
+    stopwatch_.pause();
 
     logInfo() << "Writing faultoutput at time" << utils::nospace << time << ". Done.";
   }
 
   void close() {
-    if (m_enabled) {
+    if (enabled_) {
       wait();
     }
 
     finalize();
 
-    if (!m_enabled) {
+    if (!enabled_) {
       return;
     }
 
-    m_stopwatch.printTime("Time fault writer frontend:");
+    stopwatch_.printTime("Time fault writer frontend:");
   }
 
-  void tearDown() override { m_executor.finalize(); }
+  void tearDown() override { executor_.finalize(); }
 
   void setupCallbackObject(dr::output::OutputManager* faultOutputManager) {
     callbackObject = faultOutputManager;

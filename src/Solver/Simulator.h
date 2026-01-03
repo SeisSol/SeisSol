@@ -63,7 +63,7 @@ class Simulator {
   void setCurrentTime(double currentTime);
 
   /**
-   * update m_abort to abort the main loop of the simulation (see terminator)
+   * update abort_ to abort the main loop of the simulation (see terminator)
    */
   void abort();
 

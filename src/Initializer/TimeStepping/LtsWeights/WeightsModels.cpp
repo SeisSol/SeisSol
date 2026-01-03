@@ -16,70 +16,70 @@
 namespace seissol::initializer::time_stepping {
 
 void ExponentialWeights::setVertexWeights() {
-  assert(m_ncon == 1 && "single constraint partitioning");
+  assert(ncon_ == 1 && "single constraint partitioning");
   const int maxCluster =
-      getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, wiggleFactor, m_rate);
+      getCluster(details_.globalMaxTimeStep, details_.globalMinTimeStep, wiggleFactor, rate_);
 
-  for (std::size_t cell = 0; cell < m_cellCosts.size(); ++cell) {
-    const auto factor = ratepow(m_rate, m_clusterIds[cell], maxCluster);
-    m_vertexWeights[m_ncon * cell] = factor * m_cellCosts[cell];
+  for (std::size_t cell = 0; cell < cellCosts_.size(); ++cell) {
+    const auto factor = ratepow(rate_, clusterIds_[cell], maxCluster);
+    vertexWeights_[ncon_ * cell] = factor * cellCosts_[cell];
   }
 }
 
 void ExponentialWeights::setAllowedImbalances() {
-  assert(m_ncon == 1 && "single constraint partitioning");
-  m_imbalances.resize(m_ncon);
+  assert(ncon_ == 1 && "single constraint partitioning");
+  imbalances_.resize(ncon_);
 
   constexpr double TinyLtsWeightImbalance{1.01};
-  m_imbalances[0] = TinyLtsWeightImbalance;
+  imbalances_[0] = TinyLtsWeightImbalance;
 }
 
 void ExponentialBalancedWeights::setVertexWeights() {
-  assert(m_ncon == 2 && "binary constaints partitioning");
+  assert(ncon_ == 2 && "binary constaints partitioning");
   const int maxCluster =
-      getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, wiggleFactor, m_rate);
+      getCluster(details_.globalMaxTimeStep, details_.globalMinTimeStep, wiggleFactor, rate_);
 
-  for (std::size_t cell = 0; cell < m_cellCosts.size(); ++cell) {
-    const auto factor = ratepow(m_rate, m_clusterIds[cell], maxCluster);
-    m_vertexWeights[m_ncon * cell] = factor * m_cellCosts[cell];
+  for (std::size_t cell = 0; cell < cellCosts_.size(); ++cell) {
+    const auto factor = ratepow(rate_, clusterIds_[cell], maxCluster);
+    vertexWeights_[ncon_ * cell] = factor * cellCosts_[cell];
 
     constexpr int MemoryWeight{1};
-    m_vertexWeights[m_ncon * cell + 1] = MemoryWeight;
+    vertexWeights_[ncon_ * cell + 1] = MemoryWeight;
   }
 }
 
 void ExponentialBalancedWeights::setAllowedImbalances() {
-  assert(m_ncon == 2 && "binary constaints partitioning");
-  m_imbalances.resize(m_ncon);
+  assert(ncon_ == 2 && "binary constaints partitioning");
+  imbalances_.resize(ncon_);
 
   constexpr double TinyLtsWeightImbalance{1.01};
-  m_imbalances[0] = TinyLtsWeightImbalance;
+  imbalances_[0] = TinyLtsWeightImbalance;
 
   constexpr double MediumLtsMemoryImbalance{1.05};
-  m_imbalances[1] = MediumLtsMemoryImbalance;
+  imbalances_[1] = MediumLtsMemoryImbalance;
 }
 
 int EncodedBalancedWeights::evaluateNumberOfConstraints() {
   const int maxCluster =
-      getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, wiggleFactor, m_rate);
+      getCluster(details_.globalMaxTimeStep, details_.globalMinTimeStep, wiggleFactor, rate_);
   return maxCluster + 1;
 }
 
 void EncodedBalancedWeights::setVertexWeights() {
-  for (std::size_t cell = 0; cell < m_cellCosts.size(); ++cell) {
-    for (int i = 0; i < m_ncon; ++i) {
-      m_vertexWeights[m_ncon * cell + i] = 0;
+  for (std::size_t cell = 0; cell < cellCosts_.size(); ++cell) {
+    for (int i = 0; i < ncon_; ++i) {
+      vertexWeights_[ncon_ * cell + i] = 0;
     }
-    m_vertexWeights[m_ncon * cell + m_clusterIds[cell]] = m_cellCosts[cell];
+    vertexWeights_[ncon_ * cell + clusterIds_[cell]] = cellCosts_[cell];
   }
 }
 
 void EncodedBalancedWeights::setAllowedImbalances() {
-  m_imbalances.resize(m_ncon);
+  imbalances_.resize(ncon_);
 
   constexpr double MediumLtsWeightImbalance{1.05};
-  for (int i = 0; i < m_ncon; ++i) {
-    m_imbalances[i] = MediumLtsWeightImbalance;
+  for (int i = 0; i < ncon_; ++i) {
+    imbalances_[i] = MediumLtsWeightImbalance;
   }
 }
 } // namespace seissol::initializer::time_stepping

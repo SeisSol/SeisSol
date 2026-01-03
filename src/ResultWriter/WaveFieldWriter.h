@@ -45,59 +45,59 @@ class WaveFieldWriter
   seissol::SeisSol& seissolInstance;
 
   /** True if wave field output is enabled */
-  bool m_enabled{false};
+  bool enabled_{false};
 
   /** False if entire region is to be written */
   bool isExtractRegionEnabled{false};
 
   /** The asynchronous executor */
-  WaveFieldWriterExecutor m_executor;
+  WaveFieldWriterExecutor executor_;
 
   /** Variable buffer ids (high and low order variables) */
-  int m_variableBufferIds[2]{};
+  int variableBufferIds_[2]{};
 
   /** The output prefix for the filename */
-  std::string m_outputPrefix;
+  std::string outputPrefix_;
 
   /** The variable subsampler for the refined mesh */
-  std::unique_ptr<refinement::VariableSubsampler<double>> m_variableSubsampler;
+  std::unique_ptr<refinement::VariableSubsampler<double>> variableSubsampler_;
 
   /** The variable subsampler for the refined mesh (plastic strain) */
-  std::unique_ptr<refinement::VariableSubsampler<double>> m_variableSubsamplerPStrain;
+  std::unique_ptr<refinement::VariableSubsampler<double>> variableSubsamplerPStrain_;
 
   /** Number of variables */
 
-  unsigned int m_numVariables{0};
+  unsigned int numVariables_{0};
 
   /** Number of integrated variables */
-  unsigned int m_numIntegratedVariables{};
+  unsigned int numIntegratedVariables_{};
 
   /** Flag indicated which variables should be written */
-  bool* m_outputFlags{nullptr};
+  bool* outputFlags_{nullptr};
 
   /** Flag indicated which low variables should be written */
-  bool* m_lowOutputFlags{nullptr};
+  bool* lowOutputFlags_{nullptr};
 
   /** Refined number of cells */
-  unsigned int m_numCells{0};
+  unsigned int numCells_{0};
 
   /** Unrefined (low order) number of cells */
-  unsigned int m_numLowCells{0};
+  unsigned int numLowCells_{0};
 
   /** Pointer to the degrees of freedom */
-  const real* m_dofs{nullptr};
+  const real* dofs_{nullptr};
 
   /** Pointer to the plastic strain */
-  const real* m_pstrain{nullptr};
+  const real* pstrain_{nullptr};
 
   /** Pointer to the integrals */
-  const real* m_integrals{nullptr};
+  const real* integrals_{nullptr};
 
   /** Mapping from the cell order to dofs order */
-  std::vector<unsigned int> m_map;
+  std::vector<unsigned int> map_;
 
   /** The stopwatch for the frontend */
-  Stopwatch m_stopwatch;
+  Stopwatch stopwatch_;
 
   /** Checks if a vertex given by the vertexCoords lies inside the boxBounds */
   /*   The boxBounds is in the format: xMin, xMax, yMin, yMax, zMin, zMax */
@@ -126,12 +126,12 @@ class WaveFieldWriter
   /**
    * @return True if wave field output is enabled, false otherwise
    */
-  [[nodiscard]] bool isEnabled() const { return m_enabled; }
+  [[nodiscard]] bool isEnabled() const { return enabled_; }
 
   /**
    * Set the output prefix for the filename
    */
-  void setFilename(const char* outputPrefix) { m_outputPrefix = outputPrefix; }
+  void setFilename(const char* outputPrefix) { outputPrefix_ = outputPrefix; }
 
   /**
    * Called by ASYNC on all ranks
@@ -170,25 +170,25 @@ class WaveFieldWriter
    */
   void close() {
     // Cleanup the executor
-    if (m_enabled) {
+    if (enabled_) {
       wait();
     }
 
     finalize();
 
-    if (!m_enabled) {
+    if (!enabled_) {
       return;
     }
 
-    m_stopwatch.printTime("Time wave field writer frontend:");
+    stopwatch_.printTime("Time wave field writer frontend:");
 
-    delete[] m_outputFlags;
-    m_outputFlags = nullptr;
-    delete[] m_lowOutputFlags;
-    m_lowOutputFlags = nullptr;
+    delete[] outputFlags_;
+    outputFlags_ = nullptr;
+    delete[] lowOutputFlags_;
+    lowOutputFlags_ = nullptr;
   }
 
-  void tearDown() override { m_executor.finalize(); }
+  void tearDown() override { executor_.finalize(); }
 
   //
   // Hooks

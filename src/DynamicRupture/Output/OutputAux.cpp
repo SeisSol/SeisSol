@@ -237,7 +237,7 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
         *elementCoords[0], *elementCoords[1], *elementCoords[2], *elementCoords[3], point);
     const basisFunction::SampledBasisFunctions<real> sampler(
         ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
-    return sampler.m_data;
+    return sampler.data_;
   };
 
   PlusMinusBasisFunctions basisFunctions{};

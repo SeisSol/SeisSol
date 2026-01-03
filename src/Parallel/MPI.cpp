@@ -42,7 +42,7 @@ void seissol::Mpi::init(int& argc, char**& argv) {
   }
   hostNames = collectContainer(hostName);
 
-  // Test this after setComm() to get the correct m_rank
+  // Test this after setComm() to get the correct rank_
   if (provided < required) {
     logError() << utils::nospace << "Provided MPI thread support (" << provided
                << ") is smaller than required thread support (" << required << ").";
@@ -50,14 +50,14 @@ void seissol::Mpi::init(int& argc, char**& argv) {
 }
 
 void seissol::Mpi::setComm(MPI_Comm comm) {
-  m_comm = comm;
+  comm_ = comm;
 
-  MPI_Comm_rank(comm, &m_rank);
-  MPI_Comm_size(comm, &m_size);
+  MPI_Comm_rank(comm, &rank_);
+  MPI_Comm_size(comm, &size_);
 
-  MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &m_sharedMemComm);
-  MPI_Comm_rank(m_sharedMemComm, &m_sharedMemMpiRank);
-  MPI_Comm_size(m_sharedMemComm, &m_sharedMemMpiSize);
+  MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &sharedMemComm_);
+  MPI_Comm_rank(sharedMemComm_, &sharedMemMpiRank_);
+  MPI_Comm_size(sharedMemComm_, &sharedMemMpiSize_);
 }
 
 void seissol::Mpi::bindAcceleratorDevice() {
@@ -74,7 +74,7 @@ void seissol::Mpi::printAcceleratorDeviceInfo() {
 
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   const auto pci = device.api->getPciAddress(0);
-  const auto pcisNode = collectContainer(pci, m_sharedMemComm);
+  const auto pcisNode = collectContainer(pci, sharedMemComm_);
   pcis = collectContainer(pci);
   logInfo() << "Device PCI address (rank=0): " << pci;
   logInfo() << "Device PCI addresses (node of rank=0):" << pcisNode;

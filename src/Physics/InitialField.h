@@ -52,7 +52,7 @@ class PressureInjection : public InitialField {
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 
   private:
-  seissol::initializer::parameters::InitializationParameters m_parameters;
+  seissol::initializer::parameters::InitializationParameters parameters_;
 };
 
 // A planar wave travelling in direction kVec
@@ -75,14 +75,14 @@ class Planarwave : public InitialField {
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 
   protected:
-  std::vector<int> m_varField;
-  std::vector<std::complex<double>> m_ampField;
-  double m_phase;
-  Eigen::Vector3d m_kVec;
-  std::array<std::complex<double>, seissol::model::MaterialT::NumQuantities> m_lambdaA;
+  std::vector<int> varField_;
+  std::vector<std::complex<double>> ampField_;
+  double phase_;
+  Eigen::Vector3d kVec_;
+  std::array<std::complex<double>, seissol::model::MaterialT::NumQuantities> lambdaA_;
   std::array<std::complex<double>,
              seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
-      m_eigenvectors;
+      eigenvectors_;
 
   private:
   void init(const CellMaterialData& materialData);
@@ -101,8 +101,8 @@ class SuperimposedPlanarwave : public InitialField {
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 
   private:
-  std::array<Eigen::Vector3d, 3> m_kVec;
-  std::array<Planarwave, 3> m_pw;
+  std::array<Eigen::Vector3d, 3> kVec_;
+  std::array<Planarwave, 3> pw_;
 };
 
 // A part of a planar wave travelling in one direction
@@ -118,7 +118,7 @@ class TravellingWave : public Planarwave {
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 
   private:
-  Eigen::Vector3d m_origin;
+  Eigen::Vector3d origin_;
 };
 
 class AcousticTravellingWaveITM : public InitialField {

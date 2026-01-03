@@ -38,10 +38,10 @@ bool SeisSol::init() {
   // TODO (Ravil, David): switch to reading MPI options from the parameter-file.
   seissol::Mpi::mpi.setDataTransferModeFromEnv();
 
-  printPersistentMpiInfo(m_env);
+  printPersistentMpiInfo(env_);
 #ifdef ACL_DEVICE
-  printUSMInfo(m_env);
-  printMPIUSMInfo(m_env);
+  printUSMInfo(env_);
+  printMPIUSMInfo(env_);
 #endif
   pinning.checkEnvVariables();
   if (OpenMP::enabled()) {
@@ -59,8 +59,8 @@ bool SeisSol::init() {
   logInfo() << "OpenMP worker affinity (this node)   :"
             << parallel::Pinning::maskToString(seissol::parallel::Pinning::getNodeMask());
 
-  seissol::printCommThreadInfo(seissol::Mpi::mpi, m_env);
-  if (seissol::useCommThread(seissol::Mpi::mpi, m_env)) {
+  seissol::printCommThreadInfo(seissol::Mpi::mpi, env_);
+  if (seissol::useCommThread(seissol::Mpi::mpi, env_)) {
     auto freeCpus = pinning.getFreeCPUsMask();
     logInfo() << "Communication thread affinity        :"
               << parallel::Pinning::maskToString(freeCpus);
@@ -103,22 +103,22 @@ bool SeisSol::init() {
   seissol::Modules::callHook<ModuleHook::PostMPIInit>();
 
   // Initialize the ASYNC I/O library
-  if (!m_asyncIO.init()) {
+  if (!asyncIO_.init()) {
     return false;
   }
 
-  m_memoryManager->initialize();
+  memoryManager_->initialize();
 
   return true;
 }
 
 void SeisSol::finalize() {
   // Cleanup ASYNC I/O library
-  m_asyncIO.finalize();
+  asyncIO_.finalize();
 
   Modules::callHook<ModuleHook::Shutdown>();
 
-  m_timeManager.freeDynamicResources();
+  timeManager_.freeDynamicResources();
 
   seissol::Mpi::finalize();
 
@@ -126,8 +126,8 @@ void SeisSol::finalize() {
 }
 
 void SeisSol::setBackupTimeStamp(const std::string& stamp) {
-  m_backupTimeStamp = stamp;
-  seissol::Mpi::mpi.broadcastContainer(m_backupTimeStamp, 0);
+  backupTimeStamp_ = stamp;
+  seissol::Mpi::mpi.broadcastContainer(backupTimeStamp_, 0);
 }
 
 void SeisSol::loadCheckpoint(const std::string& file) {

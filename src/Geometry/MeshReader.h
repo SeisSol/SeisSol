@@ -51,34 +51,34 @@ class MeshReader {
   protected:
   int mRank{0};
 
-  std::vector<Element> m_elements;
+  std::vector<Element> elements_;
 
-  std::vector<Vertex> m_vertices;
+  std::vector<Vertex> vertices_;
 
   /** Convert global element index to local */
-  std::map<int, int> m_g2lElements;
+  std::map<int, int> g_2lElements;
 
   /** Convert global vertex index to local */
-  std::map<int, int> m_g2lVertices;
+  std::map<int, int> g_2lVertices;
 
   /** Number of MPI neighbors */
-  std::map<int, MPINeighbor> m_MPINeighbors;
+  std::map<int, MPINeighbor> MPINeighbors_;
 
   /** Number of MPI fault neighbors */
-  std::map<int, std::vector<MPINeighborElement>> m_MPIFaultNeighbors;
+  std::map<int, std::vector<MPINeighborElement>> MPIFaultNeighbors_;
 
   /** Fault information */
-  std::vector<Fault> m_fault;
+  std::vector<Fault> fault_;
 
   /** Vertices of MPI Neighbors*/
-  std::unordered_map<int, std::vector<GhostElementMetadata>> m_ghostlayerMetadata;
+  std::unordered_map<int, std::vector<GhostElementMetadata>> ghostlayerMetadata_;
 
-  std::vector<LinearGhostCell> m_linearGhostlayer;
+  std::vector<LinearGhostCell> linearGhostlayer_;
 
-  std::map<std::pair<int, std::size_t>, std::size_t> m_toLinearGhostlayer;
+  std::map<std::pair<int, std::size_t>, std::size_t> toLinearGhostlayer_;
 
   /** Has a plus fault side */
-  bool m_hasPlusFault{false};
+  bool hasPlusFault_{false};
 
   explicit MeshReader(int rank);
 

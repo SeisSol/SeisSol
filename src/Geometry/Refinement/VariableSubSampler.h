@@ -25,7 +25,7 @@ namespace seissol::refinement {
 template <class T>
 class VariableSubsampler {
   private:
-  std::vector<basisFunction::SampledBasisFunctions<T>> m_BasisFunctions;
+  std::vector<basisFunction::SampledBasisFunctions<T>> BasisFunctions_;
 
   /** The original number of cells (without refinement) */
   unsigned int mNumCells;
@@ -73,7 +73,7 @@ VariableSubsampler<T>::VariableSubsampler(std::size_t numCells,
   // Generate sampled basicfunctions
   for (unsigned int i = 0; i < kSubCellsPerCell; i++) {
     const Eigen::Matrix<T, 3, 1> pnt = subCells[i].center();
-    m_BasisFunctions.push_back(
+    BasisFunctions_.push_back(
         basisFunction::SampledBasisFunctions<T>(order, pnt(0), pnt(1), pnt(2)));
   }
 
@@ -96,7 +96,7 @@ void VariableSubsampler<T>::get(const real* inData,
   for (unsigned int c = 0; c < mNumCells; ++c) {
     for (unsigned int sc = 0; sc < kSubCellsPerCell; ++sc) {
       outData[getOutVarOffset(c, sc)] =
-          m_BasisFunctions[sc].evalWithCoeffs(&inData[getInVarOffset(c, variable, cellMap)]);
+          BasisFunctions_[sc].evalWithCoeffs(&inData[getInVarOffset(c, variable, cellMap)]);
     }
   }
 }

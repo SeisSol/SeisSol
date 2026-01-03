@@ -41,10 +41,10 @@
 namespace seissol::kernels::solver::linearck {
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 
-  m_nfKrnlPrototype.rDivM = global.onHost->changeOfBasisMatrices;
-  m_nfKrnlPrototype.rT = global.onHost->neighborChangeOfBasisMatricesTransposed;
-  m_nfKrnlPrototype.fP = global.onHost->neighborFluxMatrices;
-  m_drKrnlPrototype.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
+  nfKrnlPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
+  nfKrnlPrototype_.rT = global.onHost->neighborChangeOfBasisMatricesTransposed;
+  nfKrnlPrototype_.fP = global.onHost->neighborFluxMatrices;
+  drKrnlPrototype_.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
@@ -76,7 +76,7 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
       assert(reinterpret_cast<uintptr_t>(timeIntegrated[face]) % Alignment == 0);
       assert(data.get<LTS::CellInformation>().faceRelations[face][0] < Cell::NumFaces &&
              data.get<LTS::CellInformation>().faceRelations[face][1] < 3);
-      kernel::neighboringFlux nfKrnl = m_nfKrnlPrototype;
+      kernel::neighboringFlux nfKrnl = nfKrnlPrototype_;
       nfKrnl.Q = data.get<LTS::Dofs>();
       nfKrnl.I = timeIntegrated[face];
       nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
@@ -90,7 +90,7 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
       // No neighboring cell contribution, interior bc.
       assert(reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov) % Alignment == 0);
 
-      dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
+      dynamicRupture::kernel::nodalFlux drKrnl = drKrnlPrototype_;
       drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
       drKrnl.QInterpolated = cellDrMapping[face].godunov;
       drKrnl.Q = data.get<LTS::Dofs>();

@@ -39,11 +39,11 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   }
 #endif
 
-  m_volumeKernelPrototype.kDivM = global.onHost->stiffnessMatrices;
-  m_localFluxKernelPrototype.rDivM = global.onHost->changeOfBasisMatrices;
-  m_localFluxKernelPrototype.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
-  m_localKernelPrototype.selectEla = init::selectEla::Values;
-  m_localKernelPrototype.selectAne = init::selectAne::Values;
+  volumeKernelPrototype_.kDivM = global.onHost->stiffnessMatrices;
+  localFluxKernelPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
+  localFluxKernelPrototype_.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
+  localKernelPrototype_.selectEla = init::selectEla::Values;
+  localKernelPrototype_.selectAne = init::selectAne::Values;
 
 #ifdef ACL_DEVICE
   deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
@@ -75,14 +75,14 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
 
   alignas(Alignment) real Qext[tensor::Qext::size()];
 
-  kernel::volumeExt volKrnl = m_volumeKernelPrototype;
+  kernel::volumeExt volKrnl = volumeKernelPrototype_;
   volKrnl.Qext = Qext;
   volKrnl.I = timeIntegratedDegreesOfFreedom;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
 
-  kernel::localFluxExt lfKrnl = m_localFluxKernelPrototype;
+  kernel::localFluxExt lfKrnl = localFluxKernelPrototype_;
   lfKrnl.Qext = Qext;
   lfKrnl.I = timeIntegratedDegreesOfFreedom;
   lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
@@ -98,7 +98,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
     }
   }
 
-  kernel::local lKrnl = m_localKernelPrototype;
+  kernel::local lKrnl = localKernelPrototype_;
   lKrnl.E = data.get<LTS::LocalIntegration>().specific.E;
   lKrnl.Iane = tmp.timeIntegratedAne;
   lKrnl.Q = data.get<LTS::Dofs>();

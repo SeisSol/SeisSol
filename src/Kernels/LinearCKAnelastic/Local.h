@@ -50,9 +50,9 @@ class Local : public LocalKernel {
   std::uint64_t bytesIntegral() override;
 
   protected:
-  kernel::volumeExt m_volumeKernelPrototype;
-  kernel::localFluxExt m_localFluxKernelPrototype;
-  kernel::local m_localKernelPrototype;
+  kernel::volumeExt volumeKernelPrototype_;
+  kernel::localFluxExt localFluxKernelPrototype_;
+  kernel::local localKernelPrototype_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_volumeExt deviceVolumeKernelPrototype;

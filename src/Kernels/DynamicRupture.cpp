@@ -39,13 +39,13 @@
 namespace seissol::kernels {
 
 void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
-  m_krnlPrototype.V3mTo2n = global.onHost->faceToNodalMatrices;
+  krnlPrototype_.V3mTo2n = global.onHost->faceToNodalMatrices;
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
-  m_gpuKrnlPrototype.V3mTo2n = global.onDevice->faceToNodalMatrices;
+  gpuKrnlPrototype_.V3mTo2n = global.onDevice->faceToNodalMatrices;
 #endif
 
-  m_timeKernel.setGlobalData(global);
+  timeKernel_.setGlobalData(global);
 }
 
 void DynamicRupture::spaceTimeInterpolation(
@@ -73,11 +73,11 @@ void DynamicRupture::spaceTimeInterpolation(
   alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()];
   alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
 
-  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
+  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = krnlPrototype_;
   for (std::size_t timeInterval = 0; timeInterval < dr::misc::TimeSteps; ++timeInterval) {
-    m_timeKernel.evaluate(
+    timeKernel_.evaluate(
         &coeffs[timeInterval * ConvergenceOrder], timeDerivativePlus, degreesOfFreedomPlus);
-    m_timeKernel.evaluate(
+    timeKernel_.evaluate(
         &coeffs[timeInterval * ConvergenceOrder], timeDerivativeMinus, degreesOfFreedomMinus);
 
     const real* plusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps)
@@ -120,20 +120,20 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
           (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
       degreesOfFreedomPlus = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr();
 
-      m_timeKernel.evaluateBatched(&coeffs[timeInterval * ConvergenceOrder],
-                                   const_cast<const real**>(timeDerivativePlus),
-                                   degreesOfFreedomPlus,
-                                   maxNumElements,
-                                   runtime);
+      timeKernel_.evaluateBatched(&coeffs[timeInterval * ConvergenceOrder],
+                                  const_cast<const real**>(timeDerivativePlus),
+                                  degreesOfFreedomPlus,
+                                  maxNumElements,
+                                  runtime);
 
       real** timeDerivativeMinus =
           (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
       degreesOfFreedomMinus = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr();
-      m_timeKernel.evaluateBatched(&coeffs[timeInterval * ConvergenceOrder],
-                                   const_cast<const real**>(timeDerivativeMinus),
-                                   degreesOfFreedomMinus,
-                                   maxNumElements,
-                                   runtime);
+      timeKernel_.evaluateBatched(&coeffs[timeInterval * ConvergenceOrder],
+                                  const_cast<const real**>(timeDerivativeMinus),
+                                  degreesOfFreedomMinus,
+                                  maxNumElements,
+                                  runtime);
     }
 
     // finish all previous work in the default stream
@@ -147,7 +147,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
           auto& entry = table[plusSideKey];
           const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getSize();
 
-          auto krnl = m_gpuKrnlPrototype;
+          auto krnl = gpuKrnlPrototype_;
           real* tmpMem = reinterpret_cast<real*>(
               device.api->allocMemAsync(krnl.TmpMaxMemRequiredInBytes * numElements, stream));
           ++streamCounter;
@@ -172,7 +172,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
           auto& entry = table[minusSideKey];
           const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getSize();
 
-          auto krnl = m_gpuKrnlPrototype;
+          auto krnl = gpuKrnlPrototype_;
           real* tmpMem = reinterpret_cast<real*>(
               device.api->allocMemAsync(krnl.TmpMaxMemRequiredInBytes * numElements, stream));
           ++streamCounter;
@@ -202,7 +202,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 void DynamicRupture::flopsGodunovState(const DRFaceInformation& faceInfo,
                                        std::uint64_t& nonZeroFlops,
                                        std::uint64_t& hardwareFlops) {
-  m_timeKernel.flopsEvaluate(nonZeroFlops, hardwareFlops);
+  timeKernel_.flopsEvaluate(nonZeroFlops, hardwareFlops);
 
   // 2x evaluateTaylorExpansion
   nonZeroFlops *= 2;

@@ -977,7 +977,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
     }
 #ifdef INTEGRATE_QUANTITIES
     seissolInstance.postProcessor().integrateQuantities(
-        m_timeStepWidth, *clusterData, cell, dofs[cell]);
+        timeStepWidth_, *clusterData, cell, dofs[cell]);
 #endif // INTEGRATE_QUANTITIES
   }
 

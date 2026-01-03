@@ -35,19 +35,19 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
-        m_krnlPrototype.kDivMTSub(d, n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
+        krnlPrototype_.kDivMTSub(d, n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
       }
     }
-    m_krnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
+    krnlPrototype_.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
   }
   for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
-    m_krnlPrototype.selectQuantity(k) =
+    krnlPrototype_.selectQuantity(k) =
         init::selectQuantity::Values[tensor::selectQuantity::index(k)];
-    m_krnlPrototype.selectQuantityG(k) =
+    krnlPrototype_.selectQuantityG(k) =
         init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
   }
-  m_krnlPrototype.timeInt = init::timeInt::Values;
-  m_krnlPrototype.wHat = init::wHat::Values;
+  krnlPrototype_.timeInt = init::timeInt::Values;
+  krnlPrototype_.wHat = init::wHat::Values;
 
 #ifdef ACL_DEVICE
   // TODO: adjust pointers
@@ -81,7 +81,7 @@ void Spacetime::executeSTP(double timeStepWidth,
   assert((reinterpret_cast<uintptr_t>(stp)) % Alignment == 0);
   std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
   std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
-  kernel::spaceTimePredictor krnl = m_krnlPrototype;
+  kernel::spaceTimePredictor krnl = krnlPrototype_;
 
   // libxsmm can not generate GEMMs with alpha!=1. As a workaround we multiply the
   // star matrices with dt before we execute the kernel.
