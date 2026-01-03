@@ -29,22 +29,22 @@ class GenericTableEntry {
 
   public:
   explicit GenericTableEntry(std::vector<Type> userVector)
-      : hostVector(std::move(userVector)), deviceDataPtr(nullptr) {
-    if (!hostVector.empty()) {
-      deviceDataPtr =
-          static_cast<PointerType>(device.api->allocGlobMem(hostVector.size() * sizeof(Type)));
-      device.api->copyTo(deviceDataPtr, hostVector.data(), hostVector.size() * sizeof(Type));
+      : hostVector_(std::move(userVector)), deviceDataPtr_(nullptr) {
+    if (!hostVector_.empty()) {
+      deviceDataPtr_ =
+          static_cast<PointerType>(device_.api->allocGlobMem(hostVector_.size() * sizeof(Type)));
+      device_.api->copyTo(deviceDataPtr_, hostVector_.data(), hostVector_.size() * sizeof(Type));
     }
   }
 
   GenericTableEntry(const GenericTableEntry& other)
-      : hostVector(other.hostVector), deviceDataPtr(nullptr) {
-    if (!hostVector.empty()) {
-      if (other.deviceDataPtr != nullptr) {
-        deviceDataPtr = static_cast<PointerType>(
-            device.api->allocGlobMem(other.hostVector.size() * sizeof(Type)));
-        device.api->copyBetween(
-            deviceDataPtr, other.deviceDataPtr, other.hostVector.size() * sizeof(Type));
+      : hostVector_(other.hostVector_), deviceDataPtr_(nullptr) {
+    if (!hostVector_.empty()) {
+      if (other.deviceDataPtr_ != nullptr) {
+        deviceDataPtr_ = static_cast<PointerType>(
+            device_.api->allocGlobMem(other.hostVector_.size() * sizeof(Type)));
+        device_.api->copyBetween(
+            deviceDataPtr_, other.deviceDataPtr_, other.hostVector_.size() * sizeof(Type));
       }
     }
   }
@@ -52,26 +52,26 @@ class GenericTableEntry {
   GenericTableEntry& operator=(const GenericTableEntry& other) = delete;
 
   virtual ~GenericTableEntry() {
-    if (deviceDataPtr != nullptr) {
-      device.api->freeGlobMem(deviceDataPtr);
-      deviceDataPtr = nullptr;
+    if (deviceDataPtr_ != nullptr) {
+      device_.api->freeGlobMem(deviceDataPtr_);
+      deviceDataPtr_ = nullptr;
     }
   }
 
   PointerType getDeviceDataPtr() {
     assert(deviceDataPtr != nullptr && "requested batch has not been recorded");
-    return deviceDataPtr;
+    return deviceDataPtr_;
   }
 
-  std::vector<Type> getHostData() { return hostVector; }
-  const std::vector<Type>& getHostData() const { return hostVector; }
+  std::vector<Type> getHostData() { return hostVector_; }
+  [[nodiscard]] const std::vector<Type>& getHostData() const { return hostVector_; }
 
-  size_t getSize() { return hostVector.size(); }
+  size_t getSize() { return hostVector_.size(); }
 
   private:
-  std::vector<Type> hostVector{};
-  PointerType deviceDataPtr{nullptr};
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  std::vector<Type> hostVector_{};
+  PointerType deviceDataPtr_{nullptr};
+  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 };
 
 template <typename KeyType>
@@ -83,15 +83,15 @@ struct GenericTable {
   GenericTable() = default;
 
   void set(VariableIdType id, std::vector<DataType>& data) {
-    content[*id] = std::make_shared<GenericTableEntry<DataType>>(data);
+    content_[*id] = std::make_shared<GenericTableEntry<DataType>>(data);
   }
 
-  auto get(VariableIdType id) { return content.at(*id).get(); }
+  auto get(VariableIdType id) { return content_.at(*id).get(); }
 
-  const auto get(VariableIdType id) const { return content.at(*id).get(); }
+  [[nodiscard]] auto get(VariableIdType id) const { return content_.at(*id).get(); }
 
   private:
-  std::array<std::shared_ptr<GenericTableEntry<DataType>>, *VariableIdType::Count> content{};
+  std::array<std::shared_ptr<GenericTableEntry<DataType>>, *VariableIdType::Count> content_{};
 };
 
 using PointersToRealsTable = GenericTable<inner_keys::Wp>;

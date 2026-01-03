@@ -200,14 +200,14 @@ void EnergyOutput::init(
 
   if (maxCells > 0) {
     constexpr auto QSize = tensor::Q::size();
-    timeDerivativePlusHost = reinterpret_cast<real*>(
+    timeDerivativePlusHost_ = reinterpret_cast<real*>(
         device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * QSize * sizeof(real)));
-    timeDerivativeMinusHost = reinterpret_cast<real*>(
+    timeDerivativeMinusHost_ = reinterpret_cast<real*>(
         device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * QSize * sizeof(real)));
-    timeDerivativePlusHostMapped = reinterpret_cast<real*>(
-        device::DeviceInstance::getInstance().api->devicePointer(timeDerivativePlusHost));
-    timeDerivativeMinusHostMapped = reinterpret_cast<real*>(
-        device::DeviceInstance::getInstance().api->devicePointer(timeDerivativeMinusHost));
+    timeDerivativePlusHostMapped_ = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->devicePointer(timeDerivativePlusHost_));
+    timeDerivativeMinusHostMapped_ = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->devicePointer(timeDerivativeMinusHost_));
   }
 #endif
 
@@ -267,11 +267,11 @@ void EnergyOutput::simulationStart(std::optional<double> checkpointTime) {
 
 EnergyOutput::~EnergyOutput() {
 #ifdef ACL_DEVICE
-  if (timeDerivativePlusHost != nullptr) {
-    device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
+  if (timeDerivativePlusHost_ != nullptr) {
+    device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost_);
   }
-  if (timeDerivativeMinusHost != nullptr) {
-    device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost);
+  if (timeDerivativeMinusHost_ != nullptr) {
+    device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost_);
   }
 #endif
 }
@@ -295,7 +295,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       using namespace seissol::recording;
       constexpr auto QSize = tensor::Q::size();
       const ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
-      auto& table = layer.getConditionalTable<inner_keys::Dr>();
+      const auto& table = layer.getConditionalTable<inner_keys::Dr>();
       if (table.find(timeIntegrationKey) != table.end()) {
         const auto& entry = table.at(timeIntegrationKey);
         const real** timeDerivativePlusDevice = const_cast<const real**>(
@@ -304,14 +304,14 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr());
         device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
             timeDerivativePlusDevice,
-            timeDerivativePlusHostMapped,
+            timeDerivativePlusHostMapped_,
             QSize,
             QSize,
             layer.size(),
             stream);
         device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
             timeDerivativeMinusDevice,
-            timeDerivativeMinusHostMapped,
+            timeDerivativeMinusHostMapped_,
             QSize,
             QSize,
             layer.size(),
@@ -319,10 +319,10 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
       }
       const auto timeDerivativePlusPtr = [&](std::size_t i) {
-        return timeDerivativePlusHost + QSize * i;
+        return timeDerivativePlusHost_ + QSize * i;
       };
       const auto timeDerivativeMinusPtr = [&](std::size_t i) {
-        return timeDerivativeMinusHost + QSize * i;
+        return timeDerivativeMinusHost_ + QSize * i;
       };
 #else
       // TODO: for fused simulations, do this once and reuse

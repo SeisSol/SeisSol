@@ -35,7 +35,7 @@ class FrictionSolver {
   virtual ~FrictionSolver() = default;
 
   struct FrictionTime {
-    double sumDt;
+    double sumDt{};
     std::vector<double> deltaT;
   };
 

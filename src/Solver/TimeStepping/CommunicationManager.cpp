@@ -13,10 +13,6 @@
 #include <utility>
 #include <vector>
 
-#ifdef ACL_DEVICE
-#include <Device/device.h>
-#endif // ACL_DEVICE
-
 namespace seissol::time_stepping {
 
 AbstractCommunicationManager::AbstractCommunicationManager(

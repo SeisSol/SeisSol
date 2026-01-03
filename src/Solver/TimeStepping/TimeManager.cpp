@@ -41,6 +41,7 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
+#include <Device/AbstractAPI.h>
 #include <Device/device.h>
 #endif
 

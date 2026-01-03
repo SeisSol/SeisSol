@@ -9,13 +9,11 @@
 
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
-#include "Kernels/Precision.h"
 #include "Model/Plasticity.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <cmath>
 #include <cstddef>
-#include <type_traits>
 
 #ifdef __HIP__
 #include "hip/hip_runtime.h"
@@ -25,12 +23,7 @@ using StreamT = hipStream_t;
 using StreamT = cudaStream_t;
 #endif
 
-// NOTE: using c++14 because of cuda@10
-namespace seissol {
-namespace kernels {
-namespace device {
-namespace aux {
-namespace plasticity {
+namespace seissol::kernels::device::aux::plasticity {
 
 template <typename Tensor>
 __forceinline__ __device__ constexpr size_t leadDim() {
@@ -41,7 +34,7 @@ __forceinline__ __device__ constexpr size_t leadDim() {
   }
 }
 
-constexpr auto getblock(int size) {
+static constexpr auto getblock(int size) {
   if constexpr (multisim::MultisimEnabled) {
     return dim3(multisim::NumSimulations, size);
   } else {
@@ -88,7 +81,7 @@ __global__ void kernel_adjustDeviatoricTensors(real** nodalStressTensors,
   }
 
   // 1. Compute the mean stress for each node
-  const real meanStress = (localStresses[0] + localStresses[1] + localStresses[2]) / 3.0f;
+  const real meanStress = (localStresses[0] + localStresses[1] + localStresses[2]) / 3.0F;
 
 // 2. Compute deviatoric stress tensor
 #pragma unroll
@@ -125,7 +118,7 @@ __global__ void kernel_adjustDeviatoricTensors(real** nodalStressTensors,
 
   // 6. Adjust deviatoric stress tensor if a node within a node exceeds the elasticity region
   __syncthreads();
-  if (isAdjusted) {
+  if (isAdjusted != 0u) {
 #pragma unroll
     for (int i = 0; i < NumStressComponents; ++i) {
       elementTensors[linearidx() + ElementTensorsColumn * i] = localStresses[i] * factor;
@@ -160,7 +153,7 @@ __global__ void kernel_computePstrains(real** pstrains,
                                        double oneMinusIntegratingFactor,
                                        double timeStepWidth,
                                        const unsigned* isAdjustableVector) {
-  if (isAdjustableVector[blockIdx.x]) {
+  if (isAdjustableVector[blockIdx.x] != 0u) {
     real* localDofs = dofs[blockIdx.x];
     real* localPrevDofs = prevDofs[blockIdx.x];
     const seissol::model::PlasticityData* localData = &plasticityData[blockIdx.x];
@@ -173,7 +166,7 @@ __global__ void kernel_computePstrains(real** pstrains,
       const real factor = localData->mufactor / (tV * oneMinusIntegratingFactor);
       const real nodeDuDtPstrain = factor * (localPrevDofs[q] - localDofs[q]);
 
-      static_assert(leadDim<init::QStress>() == leadDim<init::Q>(), "");
+      static_assert(leadDim<init::QStress>() == leadDim<init::Q>());
       localPstrain[q] += timeStepWidth * nodeDuDtPstrain;
       localDuDtPstrain[q] = nodeDuDtPstrain;
     }
@@ -211,7 +204,7 @@ __global__ void kernel_updateQEtaNodal(real** qEtaNodalPtrs,
                                        real** qStressNodalPtrs,
                                        double timeStepWidth,
                                        const unsigned* isAdjustableVector) {
-  if (isAdjustableVector[blockIdx.x]) {
+  if (isAdjustableVector[blockIdx.x] != 0u) {
     const size_t tid = linearidx();
     real* localQEtaNodal = qEtaNodalPtrs[blockIdx.x];
     real* localQStressNodal = qStressNodalPtrs[blockIdx.x];
@@ -241,8 +234,4 @@ void updateQEtaNodal(real** qEtaNodalPtrs,
       qEtaNodalPtrs, qStressNodalPtrs, timeStepWidth, isAdjustableVector);
 }
 
-} // namespace plasticity
-} // namespace aux
-} // namespace device
-} // namespace kernels
-} // namespace seissol
+} // namespace seissol::kernels::device::aux::plasticity

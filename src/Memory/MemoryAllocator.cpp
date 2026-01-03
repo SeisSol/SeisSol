@@ -158,7 +158,7 @@ void memcopy(void* dst, const void* src, std::size_t size, Memkind dstMemkind, M
 void memzero(void* dst, std::size_t size, enum Memkind memkind) {
   if (memkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
-    auto defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
+    auto* defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
     device::DeviceInstance::getInstance().algorithms.fillArray(
         reinterpret_cast<char*>(dst), static_cast<char>(0), size, defaultStream);
     device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();

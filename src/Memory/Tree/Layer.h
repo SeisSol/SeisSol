@@ -102,7 +102,7 @@ struct DualMemoryContainer {
     allocationSize = size;
   }
 
-  void synchronizeTo(AllocationPlace place, void* stream) {
+  void synchronizeTo(AllocationPlace place, void* stream) const {
 #ifdef ACL_DEVICE
     if (allocationMode == AllocationMode::HostDeviceSplit ||
         allocationMode == AllocationMode::HostDeviceSplitPinned) {
@@ -148,11 +148,11 @@ struct DualMemoryContainer {
 enum class MemoryType { Variable, Bucket, Scratchpad };
 
 struct MemoryHandle {
-  std::shared_ptr<int> handle;
+  std::shared_ptr<int> handle{std::make_shared<int>()};
 
   [[nodiscard]] int* pointer() const { return handle.get(); }
 
-  MemoryHandle() : handle(std::make_shared<int>()) {}
+  MemoryHandle() = default;
 };
 
 struct VariableDescriptor : public MemoryHandle {
@@ -252,7 +252,7 @@ struct GenericVarmap {
 
   static constexpr std::size_t MinSize = 0;
 
-  std::vector<void*> pointerContainer() const { return std::vector<void*>(count); }
+  [[nodiscard]] std::vector<void*> pointerContainer() const { return std::vector<void*>(count); }
 
   using PointerContainerT = std::vector<void*>;
 };
@@ -321,7 +321,7 @@ class Layer {
   VarmapT varmap_;
 
 #ifdef ACL_DEVICE
-  std::unordered_map<GraphKey, device::DeviceGraphHandle, GraphKeyHash> computeGraphHandles_{};
+  std::unordered_map<GraphKey, device::DeviceGraphHandle, GraphKeyHash> computeGraphHandles_;
 #endif
 
   recording::ConditionalPointersToRealsTable conditionalPointersToRealsTable_;

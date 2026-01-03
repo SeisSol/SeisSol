@@ -72,7 +72,7 @@ class DirichletBoundary {
                         InverseMappingKrnl& nodalLfKrnlPrototype,
                         local_flux::aux::DirichletBoundaryAux<Func>& boundaryCondition,
                         recording::ConditionalPointersToRealsTable& dataTable,
-                        device::DeviceInstance& device,
+                        device::DeviceInstance& /*device*/,
                         seissol::parallel::runtime::StreamRuntime& runtime) const {
     using namespace seissol::recording;
     const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize()};

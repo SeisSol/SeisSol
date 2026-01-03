@@ -85,7 +85,7 @@ constexpr std::enable_if_t<seissol::recording::isEncodedConstant<T>(), size_t>
  */
 template <typename T>
 std::enable_if_t<seissol::recording::isEncodedConstant<T>(), size_t> operator!(const T& condition) {
-  size_t highBitsMask = ~((~static_cast<size_t>(0)) << static_cast<size_t>(T::Count));
+  const size_t highBitsMask = ~((~static_cast<size_t>(0)) << static_cast<size_t>(T::Count));
   return highBitsMask & (~static_cast<size_t>(condition));
 }
 

@@ -6,6 +6,10 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Stream.h"
 
+#ifdef ACL_DEVICE
+#include <Device/device.h>
+#endif
+
 namespace {
 #ifdef ACL_DEVICE
 device::DeviceInstance& dev() { return device::DeviceInstance::getInstance(); }

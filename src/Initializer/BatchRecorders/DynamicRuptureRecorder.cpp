@@ -31,14 +31,15 @@ void DynamicRuptureRecorder::record(DynamicRupture::Layer& layer) {
 }
 
 void DynamicRuptureRecorder::recordDofsTimeEvaluation() {
-  real** timeDerivativePlus = currentLayer->var<DynamicRupture::TimeDerivativePlusDevice>();
-  real** timeDerivativeMinus = currentLayer->var<DynamicRupture::TimeDerivativeMinusDevice>();
+  real* const* timeDerivativePlus = currentLayer_->var<DynamicRupture::TimeDerivativePlusDevice>();
+  real* const* timeDerivativeMinus =
+      currentLayer_->var<DynamicRupture::TimeDerivativeMinusDevice>();
   real* idofsPlus = static_cast<real*>(
-      currentLayer->var<DynamicRupture::IdofsPlusOnDevice>(AllocationPlace::Device));
+      currentLayer_->var<DynamicRupture::IdofsPlusOnDevice>(AllocationPlace::Device));
   real* idofsMinus = static_cast<real*>(
-      currentLayer->var<DynamicRupture::IdofsMinusOnDevice>(AllocationPlace::Device));
+      currentLayer_->var<DynamicRupture::IdofsMinusOnDevice>(AllocationPlace::Device));
 
-  const auto size = currentLayer->size();
+  const auto size = currentLayer_->size();
   if (size > 0) {
     std::vector<real*> timeDerivativePlusPtrs(size, nullptr);
     std::vector<real*> timeDerivativeMinusPtrs(size, nullptr);
@@ -56,29 +57,29 @@ void DynamicRuptureRecorder::recordDofsTimeEvaluation() {
     const ConditionalKey key(*KernelNames::DrTime);
     checkKey(key);
 
-    (*currentDrTable)[key].set(inner_keys::Dr::Id::DerivativesPlus, timeDerivativePlusPtrs);
-    (*currentDrTable)[key].set(inner_keys::Dr::Id::DerivativesMinus, timeDerivativeMinusPtrs);
-    (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsPlus, idofsPlusPtrs);
-    (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsMinus, idofsMinusPtrs);
+    (*currentDrTable_)[key].set(inner_keys::Dr::Id::DerivativesPlus, timeDerivativePlusPtrs);
+    (*currentDrTable_)[key].set(inner_keys::Dr::Id::DerivativesMinus, timeDerivativeMinusPtrs);
+    (*currentDrTable_)[key].set(inner_keys::Dr::Id::IdofsPlus, idofsPlusPtrs);
+    (*currentDrTable_)[key].set(inner_keys::Dr::Id::IdofsMinus, idofsMinusPtrs);
   }
 }
 
 void DynamicRuptureRecorder::recordSpaceInterpolation() {
   auto* qInterpolatedPlus =
-      currentLayer->var<DynamicRupture::QInterpolatedPlus>(AllocationPlace::Device);
+      currentLayer_->var<DynamicRupture::QInterpolatedPlus>(AllocationPlace::Device);
   auto* qInterpolatedMinus =
-      currentLayer->var<DynamicRupture::QInterpolatedMinus>(AllocationPlace::Device);
+      currentLayer_->var<DynamicRupture::QInterpolatedMinus>(AllocationPlace::Device);
 
   real* idofsPlus = static_cast<real*>(
-      currentLayer->var<DynamicRupture::IdofsPlusOnDevice>(AllocationPlace::Device));
+      currentLayer_->var<DynamicRupture::IdofsPlusOnDevice>(AllocationPlace::Device));
   real* idofsMinus = static_cast<real*>(
-      currentLayer->var<DynamicRupture::IdofsMinusOnDevice>(AllocationPlace::Device));
+      currentLayer_->var<DynamicRupture::IdofsMinusOnDevice>(AllocationPlace::Device));
 
   DRGodunovData* godunovData =
-      currentLayer->var<DynamicRupture::GodunovData>(AllocationPlace::Device);
-  DRFaceInformation* faceInfo = currentLayer->var<DynamicRupture::FaceInformation>();
+      currentLayer_->var<DynamicRupture::GodunovData>(AllocationPlace::Device);
+  const DRFaceInformation* faceInfo = currentLayer_->var<DynamicRupture::FaceInformation>();
 
-  const auto size = currentLayer->size();
+  const auto size = currentLayer_->size();
   if (size > 0) {
     std::array<std::vector<real*>, *FaceId::Count> qInterpolatedPlusPtr{};
     std::array<std::vector<real*>, *FaceId::Count> idofsPlusPtr{};
@@ -105,19 +106,19 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
     for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
       if (!qInterpolatedPlusPtr[side].empty()) {
         const ConditionalKey key(*KernelNames::DrSpaceMap, side);
-        (*currentDrTable)[key].set(inner_keys::Dr::Id::QInterpolatedPlus,
-                                   qInterpolatedPlusPtr[side]);
-        (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsPlus, idofsPlusPtr[side]);
-        (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, tInvTPlusPtr[side]);
+        (*currentDrTable_)[key].set(inner_keys::Dr::Id::QInterpolatedPlus,
+                                    qInterpolatedPlusPtr[side]);
+        (*currentDrTable_)[key].set(inner_keys::Dr::Id::IdofsPlus, idofsPlusPtr[side]);
+        (*currentDrTable_)[key].set(inner_keys::Dr::Id::TinvT, tInvTPlusPtr[side]);
       }
       for (std::size_t faceRelation = 0; faceRelation < Cell::NumFaces; ++faceRelation) {
         if (!qInterpolatedMinusPtr[side][faceRelation].empty()) {
           const ConditionalKey key(*KernelNames::DrSpaceMap, side, faceRelation);
-          (*currentDrTable)[key].set(inner_keys::Dr::Id::QInterpolatedMinus,
-                                     qInterpolatedMinusPtr[side][faceRelation]);
-          (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsMinus,
-                                     idofsMinusPtr[side][faceRelation]);
-          (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, tInvTMinusPtr[side][faceRelation]);
+          (*currentDrTable_)[key].set(inner_keys::Dr::Id::QInterpolatedMinus,
+                                      qInterpolatedMinusPtr[side][faceRelation]);
+          (*currentDrTable_)[key].set(inner_keys::Dr::Id::IdofsMinus,
+                                      idofsMinusPtr[side][faceRelation]);
+          (*currentDrTable_)[key].set(inner_keys::Dr::Id::TinvT, tInvTMinusPtr[side][faceRelation]);
         }
       }
     }

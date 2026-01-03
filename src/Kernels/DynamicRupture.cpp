@@ -111,11 +111,11 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
   real** degreesOfFreedomMinus{nullptr};
 
   for (unsigned timeInterval = 0; timeInterval < dr::misc::TimeSteps; ++timeInterval) {
-    ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
+    const ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
     if (table.find(timeIntegrationKey) != table.end()) {
       auto& entry = table[timeIntegrationKey];
 
-      unsigned maxNumElements = (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getSize();
+      const unsigned maxNumElements = (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getSize();
       real** timeDerivativePlus =
           (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
       degreesOfFreedomPlus = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr();
@@ -139,17 +139,20 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
     // finish all previous work in the default stream
     size_t streamCounter{0};
     runtime.envMany(20, [&](void* stream, size_t i) {
-      unsigned side = i / 5;
-      unsigned faceRelation = i % 5;
+      const unsigned side = i / 5;
+      const unsigned faceRelation = i % 5;
       if (faceRelation == 4) {
-        ConditionalKey plusSideKey(*KernelNames::DrSpaceMap, side);
+        const ConditionalKey plusSideKey(*KernelNames::DrSpaceMap, side);
         if (table.find(plusSideKey) != table.end()) {
           auto& entry = table[plusSideKey];
           const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getSize();
 
           auto krnl = gpuKrnlPrototype_;
-          real* tmpMem = reinterpret_cast<real*>(
-              device.api->allocMemAsync(krnl.TmpMaxMemRequiredInBytes * numElements, stream));
+          real* tmpMem = reinterpret_cast<real*>(device_.api->allocMemAsync(
+              seissol::dynamicRupture::kernel::gpu_evaluateAndRotateQAtInterpolationPoints::
+                      TmpMaxMemRequiredInBytes *
+                  numElements,
+              stream));
           ++streamCounter;
           krnl.linearAllocator.initialize(tmpMem);
           krnl.streamPtr = stream;
@@ -164,17 +167,20 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
               const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
           krnl.execute(side, 0);
 
-          device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
+          device_.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
         }
       } else {
-        ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
+        const ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
         if (table.find(minusSideKey) != table.end()) {
           auto& entry = table[minusSideKey];
           const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getSize();
 
           auto krnl = gpuKrnlPrototype_;
-          real* tmpMem = reinterpret_cast<real*>(
-              device.api->allocMemAsync(krnl.TmpMaxMemRequiredInBytes * numElements, stream));
+          real* tmpMem = reinterpret_cast<real*>(device_.api->allocMemAsync(
+              seissol::dynamicRupture::kernel::gpu_evaluateAndRotateQAtInterpolationPoints::
+                      TmpMaxMemRequiredInBytes *
+                  numElements,
+              stream));
           ++streamCounter;
           krnl.linearAllocator.initialize(tmpMem);
           krnl.streamPtr = stream;
@@ -189,7 +195,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
               const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
           krnl.execute(side, faceRelation);
 
-          device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
+          device_.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
         }
       }
     });

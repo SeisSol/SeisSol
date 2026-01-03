@@ -14,6 +14,7 @@
 #include "Common/Iterator.h"
 #include "DynamicRupture/Factory.h"
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
@@ -40,10 +41,13 @@
 
 #ifdef ACL_DEVICE
 #include "BatchRecorders/Recorders.h"
-#include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
+#include "Kernels/Solver.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <Device/device.h>
+#include <algorithm>
+#include <unordered_set>
 #endif // ACL_DEVICE
 
 namespace seissol::initializer {
@@ -138,13 +142,13 @@ void MemoryManager::fixateBoundaryStorage() {
 
 #ifdef ACL_DEVICE
 void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStorage) {
-  constexpr size_t totalDerivativesSize = kernels::Solver::DerivativesSize;
-  constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
+  constexpr size_t TotalDerivativesSize = kernels::Solver::DerivativesSize;
+  constexpr size_t NodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
   for (auto& layer : ltsStorage.leaves(Ghost)) {
 
-    CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
-    std::unordered_set<real*> registry{};
+    const auto* cellInformation = layer.var<LTS::CellInformation>();
+    std::unordered_set<real*> registry;
     real*(*faceNeighbors)[Cell::NumFaces] = layer.var<LTS::FaceNeighborsDevice>();
 
     std::size_t derivativesCounter{0};
@@ -157,7 +161,7 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
     std::array<std::size_t, 4> dirichletPerFace{};
 
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      bool needsScratchMemForDerivatives = !cellInformation[cell].ltsSetup.hasDerivatives();
+      const bool needsScratchMemForDerivatives = !cellInformation[cell].ltsSetup.hasDerivatives();
       if (needsScratchMemForDerivatives) {
         ++derivativesCounter;
       }
@@ -216,10 +220,10 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
 
     layer.setEntrySize<LTS::IntegratedDofsScratch>(integratedDofsCounter * tensor::I::size() *
                                                    sizeof(real));
-    layer.setEntrySize<LTS::DerivativesScratch>(derivativesCounter * totalDerivativesSize *
+    layer.setEntrySize<LTS::DerivativesScratch>(derivativesCounter * TotalDerivativesSize *
                                                 sizeof(real));
     layer.setEntrySize<LTS::NodalAvgDisplacements>(nodalDisplacementsCounter *
-                                                   nodalDisplacementsSize * sizeof(real));
+                                                   NodalDisplacementsSize * sizeof(real));
 #ifdef USE_VISCOELASTIC2
     layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * tensor::Iane::size() * sizeof(real));
     layer.setEntrySize<LTS::DerivativesExtScratch>(
@@ -257,11 +261,11 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
 }
 
 void MemoryManager::deriveRequiredScratchpadMemoryForDr(DynamicRupture::Storage& drStorage) {
-  constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
+  constexpr size_t IdofsSize = tensor::Q::size() * sizeof(real);
   for (auto& layer : drStorage.leaves()) {
     const auto layerSize = layer.size();
-    layer.setEntrySize<DynamicRupture::IdofsPlusOnDevice>(idofsSize * layerSize);
-    layer.setEntrySize<DynamicRupture::IdofsMinusOnDevice>(idofsSize * layerSize);
+    layer.setEntrySize<DynamicRupture::IdofsPlusOnDevice>(IdofsSize * layerSize);
+    layer.setEntrySize<DynamicRupture::IdofsMinusOnDevice>(IdofsSize * layerSize);
   }
 }
 #endif
