@@ -236,6 +236,9 @@ void EnergyOutput::syncPoint(double time) {
   assert(isEnabled);
   const auto rank = Mpi::mpi.rank();
   logInfo() << "Writing energy output at time" << time;
+
+  seissolInstance.dofSync().syncDofs(time);
+
   computeEnergies();
   reduceEnergies();
   if (isCheckAbortCriteraSlipRateEnabled) {

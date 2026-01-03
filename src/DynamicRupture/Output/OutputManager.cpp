@@ -285,7 +285,10 @@ void OutputManager::initElementwiseOutput() {
     });
 
     auto& self = *this;
-    writer.addHook([&](std::size_t, double) { self.updateElementwiseOutput(); });
+    writer.addHook([&](std::size_t, double currentTime) {
+      seissolInstance.dofSync().syncDofs(currentTime);
+      self.updateElementwiseOutput();
+    });
 
     io::writer::ScheduledWriter schedWriter;
     schedWriter.interval = printTime;
@@ -300,6 +303,15 @@ void OutputManager::initPickpointOutput() {
   logInfo() << "Setting up on-fault receivers.";
   ppOutputBuilder->build(ppOutputData);
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
+
+  /*
+  seissolInstance.pickpointWriter().enable(1);
+  seissolInstance.pickpointWriter().setupWriter([&]() {
+    for (const auto& [id, _] : ppOutputData) {
+      flushPickpointDataToFile(id);
+    }
+  });
+  */
 
   if (seissolParameters.output.pickpointParameters.collectiveio) {
     logError() << "Collective IO for the on-fault receiver output is still under construction.";
@@ -380,8 +392,6 @@ void OutputManager::initPickpointOutput() {
     }
 
     for (size_t i = 0; i < files.size(); ++i) {
-      const auto& receiver = outputData->receiverPoints[i];
-
       const auto& ppfile = files[i];
 
       if (!seissol::filesystem::exists(ppfile.fileName)) {
@@ -470,9 +480,6 @@ void OutputManager::init() {
 
 void OutputManager::initFaceToLtsMap() {
   if (drStorage != nullptr) {
-    const size_t readerFaultSize = meshReader->getFault().size();
-    const size_t ltsFaultSize = drStorage->size(Ghost);
-
     ::seissol::initializer::StorageBackmap<1> backmap;
     backmap.setSize(meshReader->getFault().size());
 
