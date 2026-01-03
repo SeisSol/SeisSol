@@ -271,7 +271,7 @@ void TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faul
 }
 
 seissol::dr::output::OutputManager* TimeManager::getFaultOutputManager() {
-  assert(faultOutputManager != nullptr);
+  assert(faultOutputManager_ != nullptr);
   return faultOutputManager_;
 }
 

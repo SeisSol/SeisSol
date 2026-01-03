@@ -17,19 +17,18 @@
 namespace seissol {
 class MockReader : public seissol::geometry::MeshReader {
   public:
-  explicit MockReader(const std::array<Eigen::Vector3d, 4>& vertices)
-      : seissol::geometry::MeshReader(0) {
-    m_vertices.resize(4);
+  explicit MockReader(const std::array<Eigen::Vector3d, 4>& vertices) {
+    vertices_.resize(4);
     for (std::size_t i = 0; i < Cell::NumVertices; ++i) {
-      std::copy(vertices[i].data(), vertices[i].data() + 3, m_vertices.at(i).coords);
-      m_vertices.at(i).elements = {1};
+      std::copy(vertices[i].data(), vertices[i].data() + 3, vertices_.at(i).coords);
+      vertices_.at(i).elements = {1};
     }
 
-    m_elements.resize(1);
-    m_elements.at(0).vertices[0] = 0;
-    m_elements.at(0).vertices[1] = 1;
-    m_elements.at(0).vertices[2] = 2;
-    m_elements.at(0).vertices[3] = 3;
+    elements_.resize(1);
+    elements_.at(0).vertices[0] = 0;
+    elements_.at(0).vertices[1] = 1;
+    elements_.at(0).vertices[2] = 2;
+    elements_.at(0).vertices[3] = 3;
   }
 };
 } // namespace seissol

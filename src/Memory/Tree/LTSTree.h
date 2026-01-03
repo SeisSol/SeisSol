@@ -180,7 +180,7 @@ class Storage {
 
   void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {
     assert(index != std::numeric_limits<std::size_t>::max());
-    assert(memoryContainer.size() > index);
+    assert(memoryContainer_.size() > index);
     return memoryContainer_[index].get(place);
   }
 
@@ -193,7 +193,7 @@ class Storage {
   template <typename StorageT>
   typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
     const auto index = varmap_.template index<StorageT>();
-    assert(memoryContainer.size() > index);
+    assert(memoryContainer_.size() > index);
     return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
@@ -206,33 +206,33 @@ class Storage {
   template <typename StorageT>
   const typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) const {
     const auto index = varmap_.template index<StorageT>();
-    assert(memoryContainer.size() > index);
+    assert(memoryContainer_.size() > index);
     return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
   template <typename StorageT>
   void varSynchronizeTo(AllocationPlace place, void* stream) {
     const auto index = varmap_.template index<StorageT>();
-    assert(memoryContainer.size() > index);
+    assert(memoryContainer_.size() > index);
     memoryContainer_[index].synchronizeTo(place, stream);
   }
 
   template <typename StorageT>
   [[nodiscard]] const MemoryInfo& info() const {
     const auto index = varmap_.template index<StorageT>();
-    assert(memoryInfo.size() > index);
+    assert(memoryInfo_.size() > index);
     return memoryInfo_[index];
   }
 
   template <typename HandleT>
   [[nodiscard]] const MemoryInfo& info(const HandleT& handle) const {
     const auto index = varmap_.index(handle);
-    assert(memoryInfo.size() > index);
+    assert(memoryInfo_.size() > index);
     return memoryInfo_[index];
   }
 
   [[nodiscard]] const MemoryInfo& info(std::size_t index) const {
-    assert(memoryInfo.size() > index);
+    assert(memoryInfo_.size() > index);
     return memoryInfo_[index];
   }
 

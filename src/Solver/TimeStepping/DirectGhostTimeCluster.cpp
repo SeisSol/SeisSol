@@ -19,7 +19,7 @@
 namespace seissol::time_stepping {
 void DirectGhostTimeCluster::sendCopyLayer() {
   SCOREP_USER_REGION("sendCopyLayer", SCOREP_USER_REGION_TYPE_FUNCTION)
-  assert(ct.correctionTime > lastSendTime);
+  assert(ct_.correctionTime > lastSendTime_);
   lastSendTime_ = ct_.correctionTime;
   if (persistent_) {
     MPI_Startall(sendRequests_.size(), sendRequests_.data());
@@ -40,7 +40,7 @@ void DirectGhostTimeCluster::sendCopyLayer() {
 
 void DirectGhostTimeCluster::receiveGhostLayer() {
   SCOREP_USER_REGION("receiveGhostLayer", SCOREP_USER_REGION_TYPE_FUNCTION)
-  assert(ct.predictionTime >= lastSendTime);
+  assert(ct_.predictionTime >= lastSendTime_);
   if (persistent_) {
     MPI_Startall(recvRequests_.size(), recvRequests_.data());
   }

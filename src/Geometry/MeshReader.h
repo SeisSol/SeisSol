@@ -49,23 +49,17 @@ struct LinearGhostCell {
 
 class MeshReader {
   protected:
-  int mRank_{0};
+  int rank_{0};
 
   std::vector<Element> elements_;
 
   std::vector<Vertex> vertices_;
 
-  /** Convert global element index to local */
-  std::map<int, int> g_2lElements_;
-
-  /** Convert global vertex index to local */
-  std::map<int, int> g_2lVertices_;
-
   /** Number of MPI neighbors */
-  std::map<int, MPINeighbor> MPINeighbors_;
+  std::map<int, MPINeighbor> mpiNeighbors_;
 
   /** Number of MPI fault neighbors */
-  std::map<int, std::vector<MPINeighborElement>> MPIFaultNeighbors_;
+  std::map<int, std::vector<MPINeighborElement>> mpiFaultNeighbors_;
 
   /** Fault information */
   std::vector<Fault> fault_;
@@ -73,14 +67,16 @@ class MeshReader {
   /** Vertices of MPI Neighbors*/
   std::unordered_map<int, std::vector<GhostElementMetadata>> ghostlayerMetadata_;
 
+  /** Indixes for the MPI neighbors and ghostlayer metadata list, to provide a linear indexing. */
   std::vector<LinearGhostCell> linearGhostlayer_;
 
+  /** Inverse to the linear ghostlayer array. */
   std::map<std::pair<int, std::size_t>, std::size_t> toLinearGhostlayer_;
 
   /** Has a plus fault side */
   bool hasPlusFault_{false};
 
-  explicit MeshReader(int rank);
+  MeshReader();
 
   public:
   virtual ~MeshReader();

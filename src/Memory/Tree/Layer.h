@@ -429,14 +429,14 @@ private:
 
   void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {
     assert(index != std::numeric_limits<std::size_t>::max());
-    assert(memoryContainer.size() > index);
+    assert(memoryContainer_.size() > index);
     return memoryContainer_[index].get(place);
   }
 
   template <typename StorageT>
   typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
     const auto index = varmap_.template index<StorageT>();
-    assert(memoryContainer.size() > index);
+    assert(memoryContainer_.size() > index);
     return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
@@ -444,7 +444,7 @@ private:
   typename StorageT::template VariantType<ConfigT>*
       var(const ConfigT& /*...*/, AllocationPlace place = AllocationPlace::Host) {
     const auto index = varmap_.template index<StorageT>();
-    assert(memoryContainer.size() > index);
+    assert(memoryContainer_.size() > index);
     return static_cast<typename StorageT::template VariantType<ConfigT>*>(
         memoryContainer_[index].get(place));
   }
@@ -453,7 +453,7 @@ private:
   [[nodiscard]] const typename StorageT::Type*
       var(AllocationPlace place = AllocationPlace::Host) const {
     const auto index = varmap_.template index<StorageT>();
-    assert(memoryContainer.size() > index);
+    assert(memoryContainer_.size() > index);
     return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
@@ -461,7 +461,7 @@ private:
   [[nodiscard]] const typename StorageT::template VariantType<ConfigT>*
       var(const ConfigT& /*...*/, AllocationPlace place = AllocationPlace::Host) const {
     const auto index = varmap_.template index<StorageT>();
-    assert(memoryContainer.size() > index);
+    assert(memoryContainer_.size() > index);
     return static_cast<typename StorageT::template VariantType<ConfigT>*>(
         memoryContainer_[index].get(place));
   }
@@ -469,7 +469,7 @@ private:
   template <typename StorageT>
   void varSynchronizeTo(AllocationPlace place, void* stream) {
     const auto index = varmap_.template index<StorageT>();
-    assert(memoryContainer.size() > index);
+    assert(memoryContainer_.size() > index);
     memoryContainer_[index].synchronizeTo(place, stream);
   }
 
@@ -477,7 +477,7 @@ private:
   typename HandleT::Type* var(const HandleT& handle,
                               AllocationPlace place = AllocationPlace::Host) {
     const auto index = varmap_.index(handle);
-    assert(memoryContainer.size() > index);
+    assert(memoryContainer_.size() > index);
     return static_cast<typename HandleT::Type*>(memoryContainer_[index].get(place));
   }
 
@@ -487,7 +487,7 @@ private:
           const ConfigT& /*...*/,
           AllocationPlace place = AllocationPlace::Host) {
     const auto index = varmap_.index(handle);
-    assert(memoryContainer.size() > index);
+    assert(memoryContainer_.size() > index);
     return static_cast<typename HandleT::template VariantType<ConfigT>*>(
         memoryContainer_[index].get(place));
   }
@@ -496,7 +496,7 @@ private:
   [[nodiscard]] const typename HandleT::Type*
       var(const HandleT& handle, AllocationPlace place = AllocationPlace::Host) const {
     const auto index = varmap_.index(handle);
-    assert(memoryContainer.size() > index);
+    assert(memoryContainer_.size() > index);
     return static_cast<typename HandleT::Type*>(memoryContainer_[index].get(place));
   }
 
@@ -506,7 +506,7 @@ private:
           const ConfigT& /*...*/,
           AllocationPlace place = AllocationPlace::Host) const {
     const auto index = varmap_.index(handle);
-    assert(memoryContainer.size() > index);
+    assert(memoryContainer_.size() > index);
     return static_cast<typename HandleT::template VariantType<ConfigT>*>(
         memoryContainer_[index].get(place));
   }
@@ -514,7 +514,7 @@ private:
   template <typename HandleT>
   void varSynchronizeTo(const HandleT& handle, AllocationPlace place, void* stream) {
     const auto index = varmap_.index(handle);
-    assert(memoryContainer.size() > index);
+    assert(memoryContainer_.size() > index);
     memoryContainer_[index].synchronizeTo(place, stream);
   }
 
@@ -549,7 +549,7 @@ private:
   template <typename HandleT>
   void setEntrySize(const HandleT& handle, size_t size) {
     const auto index = varmap_.index(handle);
-    assert(memoryInfo.size() > index);
+    assert(memoryInfo_.size() > index);
     static_assert(HandleT::Storage == MemoryType::Bucket ||
                   HandleT::Storage == MemoryType::Scratchpad);
     memoryInfo_[index].size = size;
@@ -558,14 +558,14 @@ private:
   template <typename HandleT>
   size_t getEntrySize(const HandleT& handle) {
     const auto index = varmap_.index(handle);
-    assert(memoryInfo.size() > index);
+    assert(memoryInfo_.size() > index);
     return memoryInfo_[index].size;
   }
 
   template <typename StorageT>
   void setEntrySize(size_t size) {
     const auto index = varmap_.template index<StorageT>();
-    assert(memoryInfo.size() > index);
+    assert(memoryInfo_.size() > index);
     static_assert(StorageT::Storage == MemoryType::Bucket ||
                   StorageT::Storage == MemoryType::Scratchpad);
     memoryInfo_[index].size = size;
@@ -574,7 +574,7 @@ private:
   template <typename StorageT>
   size_t getEntrySize() {
     const auto index = varmap_.template index<StorageT>();
-    assert(memoryInfo.size() > index);
+    assert(memoryInfo_.size() > index);
     return memoryInfo_[index].size;
   }
 

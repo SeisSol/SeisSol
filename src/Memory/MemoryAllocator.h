@@ -211,11 +211,11 @@ class MemkindArray {
   void resize(std::size_t capacity) { resize(capacity, memkind_); }
 
   void copyFrom(const std::vector<T>& source) {
-    assert(source.size() <= capacity);
+    assert(source.size() <= capacity_);
     memcopyTyped<T>(dataPtr_, source.data(), capacity_, memkind_, Memkind::Standard);
   }
   void copyFrom(const MemkindArray<T>& source) {
-    assert(source.size() <= capacity);
+    assert(source.size() <= capacity_);
     memcopyTyped<T>(dataPtr_, source.data(), capacity_, memkind_, source.memkind_);
   }
   ~MemkindArray() { freeTyped(dataPtr_, memkind_); }

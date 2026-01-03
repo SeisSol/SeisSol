@@ -78,7 +78,7 @@ unsigned LoopStatistics::getRegion(const std::string& name) const {
   auto first = regions_.cbegin();
   auto it =
       std::find_if(first, regions_.cend(), [&name](const auto& elem) { return elem.name == name; });
-  assert(it != regions.end());
+  assert(it != regions_.end());
   return std::distance(first, it);
 }
 

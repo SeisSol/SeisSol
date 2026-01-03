@@ -108,9 +108,9 @@ TimeCluster::TimeCluster(unsigned int clusterId,
       dynamicRuptureScheduler_(dynamicRuptureScheduler) {
   // assert all pointers are valid
   assert(clusterData_ != nullptr);
-  assert(globalDataOnHost != nullptr);
+  assert(globalDataOnHost_ != nullptr);
   if constexpr (seissol::isDeviceOn()) {
-    assert(globalDataOnDevice != nullptr);
+    assert(globalDataOnDevice_ != nullptr);
   }
 
   // set timings to zero
@@ -699,7 +699,7 @@ void TimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster& /*.
   // Doesn't do anything
 }
 void TimeCluster::predict() {
-  assert(state == ActorState::Corrected);
+  assert(state_ == ActorState::Corrected);
   if (clusterData_->size() == 0) {
     return;
   }
@@ -758,7 +758,7 @@ void TimeCluster::handleDynamicRupture(DynamicRupture::Layer& layerData) {
 }
 
 void TimeCluster::correct() {
-  assert(state == ActorState::Predicted);
+  assert(state_ == ActorState::Predicted);
   /* Sub start time of width respect to the next cluster; use 0 if not relevant, for example in GTS.
    * LTS requires to evaluate a partial time integration of the derivatives. The point zero in time
    * refers to the derivation of the surrounding time derivatives, which coincides with the last

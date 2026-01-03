@@ -66,7 +66,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
   case ActorAction::Nothing:
     break;
   case ActorAction::Correct:
-    assert(state == ActorState::Predicted);
+    assert(state_ == ActorState::Predicted);
     correct();
     ct_.correctionTime += timeStepSize();
     ++numberOfTimeSteps_;
@@ -86,7 +86,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     state_ = ActorState::Corrected;
     break;
   case ActorAction::Predict:
-    assert(state == ActorState::Corrected);
+    assert(state_ == ActorState::Corrected);
     predict();
     ct_.predictionsSinceLastSync += ct_.timeStepRate;
     ct_.predictionsSinceStart += ct_.timeStepRate;
@@ -107,7 +107,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     state_ = ActorState::Predicted;
     break;
   case ActorAction::Sync:
-    assert(state == ActorState::Corrected);
+    assert(state_ == ActorState::Corrected);
     logDebug() << "synced at" << syncTime_ << ", corrTime =" << ct_.correctionTime
                << "stepsSinceLastSync" << ct_.stepsSinceLastSync << "stepsUntilLastSync"
                << ct_.stepsUntilSync << std::endl;
@@ -212,14 +212,14 @@ void AbstractTimeCluster::connect(AbstractTimeCluster& other) {
 }
 
 void AbstractTimeCluster::setSyncTime(double newSyncTime) {
-  assert(newSyncTime > syncTime);
-  assert(state == ActorState::Synced);
+  assert(newSyncTime > syncTime_);
+  assert(state_ == ActorState::Synced);
   syncTime_ = newSyncTime;
 }
 
 bool AbstractTimeCluster::synced() const { return state_ == ActorState::Synced; }
 void AbstractTimeCluster::reset() {
-  assert(state == ActorState::Synced);
+  assert(state_ == ActorState::Synced);
 
   // There can be pending messages from before the sync point
   processMessages();

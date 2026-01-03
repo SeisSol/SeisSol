@@ -57,7 +57,7 @@ void WriterModule::startup() {
 
   // we want ASYNC to like us, hence we need to enter a non-zero size here
   planId_ = addBuffer(nullptr, 1, true);
-  assert(planId == 0);
+  assert(planId_ == 0);
 
   callInit(AsyncWriterInit{});
   // TODO: pinning

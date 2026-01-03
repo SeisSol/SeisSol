@@ -10,7 +10,6 @@
 #include "Common/Constants.h"
 #include "Geometry/MeshDefinition.h"
 #include "Initializer/Parameters/CubeGeneratorParameters.h"
-#include "MeshReader.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
 
@@ -91,12 +90,9 @@ namespace seissol::geometry {
 // NOLINTBEGIN (-google-readability-function-size)
 
 CubeGenerator::CubeGenerator(
-    int rank,
-    int nProcs,
     const std::string& meshFile,
     const seissol::initializer::parameters::CubeGeneratorParameters& cubeParams)
-    : MeshReader(rank), // init base class
-      rank_(rank), nProcs_(nProcs) {
+    : nProcs_(seissol::Mpi::mpi.size()) {
   // get cubeGenerator parameters
   const std::size_t cubeMinX = cubeParams.cubeMinX;
   const std::size_t cubeMaxX = cubeParams.cubeMaxX;
@@ -1599,7 +1595,7 @@ void CubeGenerator::addMPINeighbor(int localID,
     neighbor.elements[i].localElement = bndElemLocalIds[i];
   }
 
-  MPINeighbors_[bndRank] = neighbor;
+  mpiNeighbors_[bndRank] = neighbor;
 }
 
 bool CubeGenerator::inlineTimestepCompute() const { return false; }

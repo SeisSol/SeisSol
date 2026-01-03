@@ -145,9 +145,9 @@ void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementD
   numberOfAlignedSubTriangles_ =
       tensor::subTriangleProjection::size(maxRefinementDepth) / projectionMatrixNCols;
 
-  assert(numberOfAlignedSubTriangles * projectionMatrixNCols ==
+  assert(numberOfAlignedSubTriangles_ * projectionMatrixNCols ==
          tensor::subTriangleProjection::size(maxRefinementDepth));
-  assert(numberOfSubTriangles == (1U << (2U * maxRefinementDepth)));
+  assert(numberOfSubTriangles_ == (1U << (2U * maxRefinementDepth)));
 
   const auto projectionMatrixNumberOfReals =
       4 * tensor::subTriangleProjection::size(maxRefinementDepth);

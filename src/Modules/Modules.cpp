@@ -86,7 +86,7 @@ void Modules::_callSimulationStartHook(std::optional<double> checkpointTime) {
 }
 
 void Modules::_setSimulationStartTime(double time) {
-  assert(static_cast<int>(nextHook) <= static_cast<int>(ModuleHook::SynchronizationPoint));
+  assert(static_cast<int>(nextHook_) <= static_cast<int>(ModuleHook::SynchronizationPoint));
 
   // Set the simulation time in all modules that are called at synchronization points
   for (auto& [_, module] : hooks_[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {

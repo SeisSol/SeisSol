@@ -30,7 +30,7 @@
 
 namespace seissol::geometry {
 
-MeshReader::MeshReader(int rank) : mRank_(rank) {}
+MeshReader::MeshReader() : rank_(seissol::Mpi::mpi.rank()) {}
 
 MeshReader::~MeshReader() = default;
 
@@ -38,10 +38,10 @@ const std::vector<Element>& MeshReader::getElements() const { return elements_; 
 
 const std::vector<Vertex>& MeshReader::getVertices() const { return vertices_; }
 
-const std::map<int, MPINeighbor>& MeshReader::getMPINeighbors() const { return MPINeighbors_; }
+const std::map<int, MPINeighbor>& MeshReader::getMPINeighbors() const { return mpiNeighbors_; }
 
 const std::map<int, std::vector<MPINeighborElement>>& MeshReader::getMPIFaultNeighbors() const {
-  return MPIFaultNeighbors_;
+  return mpiFaultNeighbors_;
 }
 
 const std::unordered_map<int, std::vector<GhostElementMetadata>>&
@@ -113,7 +113,7 @@ void MeshReader::extractFaultInformation(
 
       // DR boundary
 
-      if (i.neighborRanks[j] == mRank_) {
+      if (i.neighborRanks[j] == rank_) {
         // Completely local DR boundary
 
         if (i.neighbors[j] < i.localId) {
@@ -127,7 +127,7 @@ void MeshReader::extractFaultInformation(
         // It is not very nice but should generate the correct ordering.
         const MPINeighborElement neighbor = {
             i.localId, static_cast<SideId>(j), i.mpiIndices[j], i.neighborSides[j]};
-        MPIFaultNeighbors_[i.neighborRanks[j]].push_back(neighbor);
+        mpiFaultNeighbors_[i.neighborRanks[j]].push_back(neighbor);
       }
 
       Fault f{};
@@ -242,9 +242,9 @@ void MeshReader::extractFaultInformation(
   }
 
   // Sort fault neighbor lists and update MPI fault indices
-  for (auto& i : MPIFaultNeighbors_) {
+  for (auto& i : mpiFaultNeighbors_) {
 
-    if (i.first > mRank_) {
+    if (i.first > rank_) {
       std::sort(i.second.begin(),
                 i.second.end(),
                 [](const MPINeighborElement& elem1, const MPINeighborElement& elem2) {
@@ -276,7 +276,7 @@ void MeshReader::exchangeGhostlayerMetadata() {
   constexpr int Tag = 10;
   MPI_Comm comm = seissol::Mpi::mpi.comm();
 
-  std::vector<MPI_Request> requests(MPINeighbors_.size() * 2);
+  std::vector<MPI_Request> requests(mpiNeighbors_.size() * 2);
 
   // TODO(David): Once a generic MPI type inference module is ready, replace this part here ...
   // Maybe.
@@ -308,7 +308,7 @@ void MeshReader::exchangeGhostlayerMetadata() {
   MPI_Type_commit(&ghostElementType);
 
   size_t counter = 0;
-  for (auto it = MPINeighbors_.begin(); it != MPINeighbors_.end(); ++it, counter += 2) {
+  for (auto it = mpiNeighbors_.begin(); it != mpiNeighbors_.end(); ++it, counter += 2) {
     const auto targetRank = it->first;
     const auto count = it->second.elements.size();
 

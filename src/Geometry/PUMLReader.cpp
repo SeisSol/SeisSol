@@ -11,7 +11,6 @@
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
 #include "Geometry/MeshDefinition.h"
-#include "Geometry/MeshReader.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
 #include "Monitoring/Instrumentation.h"
@@ -179,8 +178,7 @@ PUMLReader::PUMLReader(const std::string& meshFile,
                        seissol::initializer::parameters::BoundaryFormat boundaryFormat,
                        seissol::initializer::parameters::TopologyFormat topologyFormat,
                        initializer::time_stepping::LtsWeights* ltsWeights,
-                       double tpwgt)
-    : MeshReader(seissol::Mpi::mpi.rank()) {
+                       double tpwgt) {
   // we need up to two meshes, potentially:
   // one mesh for the geometry
   // one mesh for the topology
@@ -549,7 +547,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
   }
 
   // the neighborSide needs to be _inferred_ here.
-  for (auto& [_, neighbor] : MPINeighbors_) {
+  for (auto& [_, neighbor] : mpiNeighbors_) {
     for (auto& element : neighbor.elements) {
       element.neighborSide = elements_[element.localElement].neighborSides[element.localSide];
     }
@@ -559,8 +557,8 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
 void PUMLReader::addMPINeighor(const PumlMesh& meshTopology,
                                int rank,
                                const std::vector<unsigned int>& faces) {
-  const std::size_t id = MPINeighbors_.size();
-  MPINeighbor& neighbor = MPINeighbors_[rank];
+  const std::size_t id = mpiNeighbors_.size();
+  MPINeighbor& neighbor = mpiNeighbors_[rank];
 
   neighbor.localID = id;
   neighbor.elements.resize(faces.size());
