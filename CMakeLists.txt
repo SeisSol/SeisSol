@@ -416,6 +416,8 @@ if (WITH_GPU)
   # set SeisSol GPU definitions
   target_compile_definitions(seissol-common-properties INTERFACE ACL_DEVICE)
 
+  set(DEVICE_SUBMODULES "${CMAKE_CURRENT_SOURCE_DIR}/submodules")
+
   # add device submodule
   add_subdirectory(submodules/Device)
   target_link_libraries(seissol-common-properties INTERFACE device)
