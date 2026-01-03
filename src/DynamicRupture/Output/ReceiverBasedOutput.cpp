@@ -141,23 +141,33 @@ void ReceiverOutput::calcFaultOutput(
 
     const auto& faultInfo = faultInfos[faceIndex];
 
-    const real* stePlus = nullptr;
-    const real* steMinus = nullptr;
-
-    if constexpr (isDeviceOn()) {
-      stePlus = outputData->deviceDataCollector->get(outputData->deviceDataPlus[i]);
-      steMinus = outputData->deviceDataCollector->get(outputData->deviceDataMinus[i]);
+    if (outputType == initializer::parameters::OutputType::Elementwise) {
+      std::memcpy(dofsPlus,
+                  local.layer->var<DynamicRupture::TimeDofsPlus>()[local.ltsId],
+                  sizeof(dofsPlus));
+      std::memcpy(dofsMinus,
+                  local.layer->var<DynamicRupture::TimeDofsMinus>()[local.ltsId],
+                  sizeof(dofsMinus));
     } else {
-      getDofs(stePlus, faultInfo.element);
-      if (faultInfo.neighborElement >= 0) {
-        getDofs(steMinus, faultInfo.neighborElement);
-      } else {
-        getNeighborDofs(steMinus, faultInfo.element, faultInfo.side);
-      }
-    }
+      // only interpolate for the on-fault receivers
+      const real* stePlus = nullptr;
+      const real* steMinus = nullptr;
 
-    timeKernel.evaluate(timeCoeffs.data(), stePlus, dofsPlus);
-    timeKernel.evaluate(timeCoeffs.data(), steMinus, dofsMinus);
+      if constexpr (isDeviceOn()) {
+        stePlus = outputData->deviceDataCollector->get(outputData->deviceDataPlus[i]);
+        steMinus = outputData->deviceDataCollector->get(outputData->deviceDataMinus[i]);
+      } else {
+        getDofs(stePlus, faultInfo.element);
+        if (faultInfo.neighborElement >= 0) {
+          getDofs(steMinus, faultInfo.neighborElement);
+        } else {
+          getNeighborDofs(steMinus, faultInfo.element, faultInfo.side);
+        }
+      }
+
+      timeKernel.evaluate(timeCoeffs.data(), stePlus, dofsPlus);
+      timeKernel.evaluate(timeCoeffs.data(), steMinus, dofsMinus);
+    }
 
     const auto* initStresses = getCellData<DynamicRupture::InitialStressInFaultCS>(local);
 
