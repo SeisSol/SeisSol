@@ -175,6 +175,7 @@ void seissol::writer::FaultWriter::syncPoint(double currentTime) {
   SCOREP_USER_REGION("faultoutput_elementwise", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   if (callbackObject != nullptr) {
+    seissolInstance.dofSync().syncDofs(currentTime);
     callbackObject->updateElementwiseOutput();
   }
   write(currentTime);

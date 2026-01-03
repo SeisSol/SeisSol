@@ -159,6 +159,7 @@ struct ReceiverOutputData {
   size_t currentCacheLevel{0};
   size_t maxCacheLevel{50};
   bool isActive{false};
+  std::optional<int64_t> clusterId;
 
   std::unique_ptr<parallel::DataCollector<real>> deviceDataCollector;
   std::vector<std::size_t> deviceDataPlus;
