@@ -119,11 +119,7 @@ OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl,
   backupTimeStamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr));
 }
 
-OutputManager::~OutputManager() {
-  for (const auto& [id, _] : ppOutputData) {
-    flushPickpointDataToFile(id);
-  }
-}
+OutputManager::~OutputManager() = default;
 
 void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   using namespace initializer;
@@ -145,6 +141,8 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
     ppOutputBuilder = std::make_unique<PickPointBuilder>();
     ppOutputBuilder->setMeshReader(&userMesher);
     ppOutputBuilder->setParams(seissolParameters.output.pickpointParameters);
+    ppOutputBuilder->setTimestep(seissolInstance.getMemoryManager().clusterLayout().minimumTimestep,
+                                 seissolParameters.timeStepping.endTime);
   }
   if (elementwiseEnabled) {
     logInfo() << "Enabling 2D fault output";
@@ -304,14 +302,12 @@ void OutputManager::initPickpointOutput() {
   ppOutputBuilder->build(ppOutputData);
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
 
-  /*
-  seissolInstance.pickpointWriter().enable(1);
+  seissolInstance.pickpointWriter().enable(seissolParameters.output.pickpointParameters.interval);
   seissolInstance.pickpointWriter().setupWriter([&]() {
     for (const auto& [id, _] : ppOutputData) {
       flushPickpointDataToFile(id);
     }
   });
-  */
 
   if (seissolParameters.output.pickpointParameters.collectiveio) {
     logError() << "Collective IO for the on-fault receiver output is still under construction.";
@@ -531,6 +527,11 @@ void OutputManager::writePickpointOutput(std::size_t layerId,
       if (findResult != ppOutputData.end()) {
         const auto& outputData = findResult->second;
 
+        if (outputData->currentCacheLevel >= outputData->maxCacheLevel) {
+          logError() << "Error: not enough space for on-fault receiver allocated."
+                     << outputData->maxCacheLevel;
+        }
+
         impl->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
                               seissolParameters.drParameters.slipRateOutputType,
                               outputData,
@@ -538,20 +539,6 @@ void OutputManager::writePickpointOutput(std::size_t layerId,
                               time,
                               meshDt,
                               meshInDt);
-
-        const bool isMaxCacheLevel =
-            outputData->currentCacheLevel >=
-            static_cast<size_t>(seissolParameters.output.pickpointParameters.maxPickStore);
-        const bool isCloseToEnd = (seissolParameters.timeStepping.endTime - time) < dt * TimeMargin;
-
-        if (isMaxCacheLevel || isCloseToEnd) {
-          // we need to wait for all data to be (internally) written to write it out
-          auto& callRuntime =
-              outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
-          callRuntime.wait();
-
-          this->flushPickpointDataToFile(layerId);
-        }
       }
     }
     ++iterationStep;

@@ -16,6 +16,7 @@
 #include "Parallel/Runtime/Stream.h"
 #include "ReceiverBasedOutputBuilder.h"
 
+#include <limits>
 #include <memory>
 #include <optional>
 
@@ -26,6 +27,11 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   void setParams(seissol::initializer::parameters::PickpointParameters params) {
     pickpointParams = std::move(params);
   }
+  void setTimestep(double timestep, double endtime) {
+    timestep_ = timestep;
+    endtime_ = endtime;
+  }
+
   void build(
       std::unordered_map<std::size_t, std::shared_ptr<ReceiverOutputData>>& pickPointOutputData) {
     readCoordsFromFile();
@@ -167,7 +173,11 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   }
 
   void initTimeCaching() override {
-    outputData->maxCacheLevel = pickpointParams.maxPickStore;
+    const auto intervalOrEnd = std::min(pickpointParams.interval, endtime_);
+    const auto neededCacheLevel =
+        static_cast<std::size_t>(std::ceil(intervalOrEnd / timestep_) + 1);
+
+    outputData->maxCacheLevel = neededCacheLevel;
     outputData->cachedTime.resize(outputData->maxCacheLevel, 0.0);
     outputData->currentCacheLevel = 0;
   }
@@ -208,6 +218,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   private:
   seissol::initializer::parameters::PickpointParameters pickpointParams;
   std::vector<ReceiverPoint> potentialReceivers;
+  double timestep_{std::numeric_limits<double>::infinity()};
+  double endtime_{std::numeric_limits<double>::infinity()};
 };
 } // namespace seissol::dr::output
 
