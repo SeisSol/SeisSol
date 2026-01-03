@@ -205,10 +205,10 @@ void EnergyOutput::init(
       timeDerivativeMinusHost =
           memory::MemkindArray<real>(maxCells * QSize, memory::Memkind::PinnedMemory);
 
-      auto* plusBase =
-          memory::hostToDevicePointerTyped(timeDerivativePlusHost.data(), memory::PinnedMemory);
-      auto* minusBase =
-          memory::hostToDevicePointerTyped(timeDerivativeMinusHost.data(), memory::PinnedMemory);
+      auto* plusBase = memory::hostToDevicePointerTyped(timeDerivativePlusHost.data(),
+                                                        memory::Memkind::PinnedMemory);
+      auto* minusBase = memory::hostToDevicePointerTyped(timeDerivativeMinusHost.data(),
+                                                         memory::Memkind::PinnedMemory);
 
       std::vector<real*> pointersPlus(maxCells);
       std::vector<real*> pointersMinus(maxCells);

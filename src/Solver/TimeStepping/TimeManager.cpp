@@ -98,7 +98,6 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                     : clusterLayout.timestepRate(drClusterOutput);
 
   for (std::size_t clusterId = 0; clusterId < drCellsPerCluster.size(); ++clusterId) {
-    const bool isFirstDynamicRuptureCluster = drClusterOutput == clusterId;
     dynamicRuptureSchedulers.emplace_back(
         std::make_unique<DynamicRuptureScheduler>(drCellsPerCluster[clusterId], drOutputTimestep));
   }

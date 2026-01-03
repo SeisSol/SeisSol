@@ -128,7 +128,6 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       if (receiver.isInside) {
         for (std::size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
           auto singleReceiver = receiver;
-          const auto& element = meshElements.at(receiver.elementIndex);
           singleReceiver.simIndex = i;
 
           const auto layerId = faceToLtsMap->at(receiver.faultFaceIndex).color;
