@@ -75,16 +75,16 @@ void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage& drSto
       }
     }
 
-    for (unsigned i = 0; i < drParameters->nucleationCount; ++i) {
+    for (unsigned i = 0; i < drParameters_->nucleationCount; ++i) {
       auto* nucleationStressInFaultCS = layer.var<DynamicRupture::NucleationStressInFaultCS>();
       auto* nucleationPressure = layer.var<DynamicRupture::NucleationPressure>();
       for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
         for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
           for (unsigned int dim = 0; dim < 6; ++dim) {
-            nucleationStressInFaultCS[ltsFace * drParameters->nucleationCount + i][dim]
+            nucleationStressInFaultCS[ltsFace * drParameters_->nucleationCount + i][dim]
                                      [pointIndex] = 0;
           }
-          nucleationPressure[ltsFace * drParameters->nucleationCount + i][pointIndex] = 0;
+          nucleationPressure[ltsFace * drParameters_->nucleationCount + i][pointIndex] = 0;
         }
       }
     }
@@ -106,7 +106,7 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
     const auto& drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
     const auto meshFace = drFaceInformation[ltsFace].meshFace;
-    const Fault& fault = seissolInstance.meshReader().getFault().at(meshFace);
+    const Fault& fault = seissolInstance_.meshReader().getFault().at(meshFace);
 
     VrtxCoords strikeVector{};
     VrtxCoords dipVector{};

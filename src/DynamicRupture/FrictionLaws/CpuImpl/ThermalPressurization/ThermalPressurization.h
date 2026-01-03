@@ -47,7 +47,7 @@ namespace seissol::dr::friction_law::cpu {
 class ThermalPressurization {
   public:
   explicit ThermalPressurization(seissol::initializer::parameters::DRParameters* drParameters)
-      : drParameters(drParameters) {};
+      : drParameters_(drParameters) {};
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
@@ -67,19 +67,19 @@ class ThermalPressurization {
                          std::size_t ltsFace);
 
   [[nodiscard]] real getFluidPressure(std::size_t ltsFace, std::uint32_t pointIndex) const {
-    return pressure[ltsFace][pointIndex];
+    return pressure_[ltsFace][pointIndex];
   }
 
   protected:
-  real (*__restrict temperature)[misc::NumPaddedPoints]{};
-  real (*__restrict pressure)[misc::NumPaddedPoints]{};
-  real (*__restrict theta)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
-  real (*__restrict sigma)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
-  real (*__restrict halfWidthShearZone)[misc::NumPaddedPoints]{};
-  real (*__restrict hydraulicDiffusivity)[misc::NumPaddedPoints]{};
+  real (*__restrict temperature_)[misc::NumPaddedPoints]{};
+  real (*__restrict pressure_)[misc::NumPaddedPoints]{};
+  real (*__restrict theta_)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
+  real (*__restrict sigma_)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
+  real (*__restrict halfWidthShearZone_)[misc::NumPaddedPoints]{};
+  real (*__restrict hydraulicDiffusivity_)[misc::NumPaddedPoints]{};
 
   private:
-  seissol::initializer::parameters::DRParameters* drParameters;
+  seissol::initializer::parameters::DRParameters* drParameters_;
 };
 } // namespace seissol::dr::friction_law::cpu
 

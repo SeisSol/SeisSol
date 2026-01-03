@@ -31,11 +31,11 @@ class HelperThread {
   auto operator=(HelperThread&&) -> HelperThread& = delete;
 
   private:
-  std::function<bool()> function;
-  const Pinning* pinning;
-  std::atomic<bool> isFinished;
-  std::atomic<bool> shouldReset;
-  std::thread thread;
+  std::function<bool()> function_;
+  const Pinning* pinning_;
+  std::atomic<bool> isFinished_;
+  std::atomic<bool> shouldReset_;
+  std::thread thread_;
 };
 
 } // namespace seissol::parallel

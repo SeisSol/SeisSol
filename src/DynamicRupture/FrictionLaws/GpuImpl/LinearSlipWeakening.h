@@ -132,7 +132,7 @@ class LinearSlipWeakeningLaw
   public:
   explicit LinearSlipWeakeningLaw(seissol::initializer::parameters::DRParameters* drParameters)
       : LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
-        specialization(drParameters) {};
+        specialization_(drParameters) {};
 
   static void copySpecificStorageDataToLocal(FrictionLawData* data,
                                              DynamicRupture::Layer& layerData) {
@@ -213,7 +213,7 @@ class LinearSlipWeakeningLaw
   }
 
   protected:
-  SpecializationT specialization;
+  SpecializationT specialization_;
 };
 
 class NoSpecialization {

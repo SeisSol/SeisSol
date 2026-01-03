@@ -6,6 +6,10 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Stream.h"
 
+#ifdef ACL_DEVICE
+#include <Device/device.h>
+#endif
+
 namespace {
 #ifdef ACL_DEVICE
 device::DeviceInstance& dev() { return device::DeviceInstance::getInstance(); }
@@ -16,25 +20,25 @@ namespace seissol::parallel::runtime {
 
 ManagedStream::ManagedStream() {
 #ifdef ACL_DEVICE
-  streamPtr = dev().api->createStream();
+  streamPtr_ = dev().api->createStream();
 #endif
 }
 
 ManagedStream::~ManagedStream() {
 #ifdef ACL_DEVICE
-  dev().api->destroyGenericStream(streamPtr);
+  dev().api->destroyGenericStream(streamPtr_);
 #endif
 }
 
 ManagedEvent::ManagedEvent() {
 #ifdef ACL_DEVICE
-  eventPtr = dev().api->createEvent();
+  eventPtr_ = dev().api->createEvent();
 #endif
 }
 
 ManagedEvent::~ManagedEvent() {
 #ifdef ACL_DEVICE
-  dev().api->destroyEvent(eventPtr);
+  dev().api->destroyEvent(eventPtr_);
 #endif
 }
 

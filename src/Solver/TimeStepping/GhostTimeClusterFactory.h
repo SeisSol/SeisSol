@@ -30,13 +30,13 @@ struct GhostTimeClusterFactory {
     switch (mode) {
 #ifdef ACL_DEVICE
     case Mpi::DataTransferMode::CopyInCopyOutHost: {
-      using ghostCluster_t = GhostTimeClusterWithCopy<Mpi::DataTransferMode::CopyInCopyOutHost>;
-      return std::make_unique<ghostCluster_t>(maxTimeStepSize,
-                                              timeStepRate,
-                                              globalTimeClusterId,
-                                              otherGlobalTimeClusterId,
-                                              meshStructure,
-                                              persistent);
+      using GhostClusterT = GhostTimeClusterWithCopy<Mpi::DataTransferMode::CopyInCopyOutHost>;
+      return std::make_unique<GhostClusterT>(maxTimeStepSize,
+                                             timeStepRate,
+                                             globalTimeClusterId,
+                                             otherGlobalTimeClusterId,
+                                             meshStructure,
+                                             persistent);
     }
 #endif // ACL_DEVICE
     case Mpi::DataTransferMode::Direct: {

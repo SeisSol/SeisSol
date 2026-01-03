@@ -19,18 +19,18 @@ class SeisSol;
 class Simulator {
   // private:
   //! current time of the simulation
-  double currentTime{0};
+  double currentTime_{0};
 
   //! final time of the simulation
-  double finalTime{0};
+  double finalTime_{0};
 
   //! usePlasticity = true if plasticity is on
-  bool usePlasticity{false};
+  bool usePlasticity_{false};
 
   //! If true, the while loop of the simulation will be aborted (see terminator)
-  bool aborted{false};
+  bool aborted_{false};
 
-  bool checkpoint{false};
+  bool checkpoint_{false};
 
   public:
   /**
@@ -63,7 +63,7 @@ class Simulator {
   void setCurrentTime(double currentTime);
 
   /**
-   * update m_abort to abort the main loop of the simulation (see terminator)
+   * update abort_ to abort the main loop of the simulation (see terminator)
    */
   void abort();
 

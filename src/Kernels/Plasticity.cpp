@@ -31,8 +31,8 @@
 #include "DeviceAux/PlasticityAux.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
-#include "Solver/MultipleSimulations.h"
 
+#include <Device/Algorithms.h>
 #include <Device/device.h>
 using namespace device;
 #endif
@@ -267,8 +267,8 @@ void Plasticity::computePlasticityBatched(
                 "modal dofs and vandermonde matrix must have the same leading dimensions");
 
   DeviceInstance& device = DeviceInstance::getInstance();
-  ConditionalKey key(*KernelNames::Plasticity);
-  auto defaultStream = runtime.stream();
+  const ConditionalKey key(*KernelNames::Plasticity);
+  auto* defaultStream = runtime.stream();
 
   if (table.find(key) != table.end()) {
     const auto oneMinusIntegratingFactor = computeRelaxTime(tV, timeStepWidth);

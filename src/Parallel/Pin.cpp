@@ -79,7 +79,7 @@ std::deque<bool> Pinning::parseOnlineCpuMask(std::string s, unsigned numberOfCon
 
 CpuMask seissol::parallel::Pinning::computeOnlineCpuMask() {
 #ifndef __APPLE__
-  CPU_ZERO(&onlineMask.set);
+  CPU_ZERO(&onlineMask_.set);
   std::deque<bool> mask;
 
   const std::string onlineFilePath = "/sys/devices/system/cpu/online";
@@ -98,10 +98,10 @@ CpuMask seissol::parallel::Pinning::computeOnlineCpuMask() {
   assert(static_cast<int>(mask.size()) == get_nprocs_conf());
   for (unsigned cpu = 0; cpu < mask.size(); ++cpu) {
     if (mask[cpu]) {
-      CPU_SET(cpu, &onlineMask.set);
+      CPU_SET(cpu, &onlineMask_.set);
     }
   }
-  return CpuMask{onlineMask};
+  return CpuMask{onlineMask_};
 #else
   return {};
 #endif
@@ -109,7 +109,7 @@ CpuMask seissol::parallel::Pinning::computeOnlineCpuMask() {
 
 Pinning::Pinning() {
   // Affinity mask for the OpenMP workers
-  openmpMask = getWorkerUnionMask();
+  openmpMask_ = getWorkerUnionMask();
   computeOnlineCpuMask();
 }
 
@@ -119,20 +119,20 @@ void Pinning::checkEnvVariables() {
   if (envVariable.has_value()) {
     auto parsedResult = seissol::IntegerMaskParser::parse(envVariable.value());
     if (parsedResult) {
-      parsedFreeCPUsMask = parsedResult.value();
+      parsedFreeCPUsMask_ = parsedResult.value();
 
       bool isMaskGood{true};
       const auto numLocalProcesses = Mpi::mpi.sharedMemMpiSize();
-      if (numLocalProcesses > static_cast<int>(parsedFreeCPUsMask.size())) {
+      if (numLocalProcesses > static_cast<int>(parsedFreeCPUsMask_.size())) {
         logInfo() << "There are more communication (and/or output-writing) threads"
                   << "to pin than locations defined in `SEISSOL_FREE_CPUS_MASK`";
 
         isMaskGood = false;
       } else {
         const auto maxCpuId = get_nprocs();
-        for (auto localProcessId = 0; localProcessId < static_cast<int>(parsedFreeCPUsMask.size());
+        for (auto localProcessId = 0; localProcessId < static_cast<int>(parsedFreeCPUsMask_.size());
              ++localProcessId) {
-          for (auto cpu : parsedFreeCPUsMask[localProcessId]) {
+          for (auto cpu : parsedFreeCPUsMask_[localProcessId]) {
             if (cpu > maxCpuId) {
               logInfo() << "Free cpu mask of the local process" << localProcessId
                         << "is out of bounds. CPU/core id" << cpu << "exceeds max. value"
@@ -150,7 +150,7 @@ void Pinning::checkEnvVariables() {
         logWarning() << "Ignoring `SEISSOL_FREE_CPUS_MASK` env. variable.";
         logWarning() << "`SEISSOL_FREE_CPUS_MASK` Format:"
                      << "(<int>|<range: int-int>|<list: {int,+}>),+";
-        parsedFreeCPUsMask = IntegerMaskParser::MaskType{};
+        parsedFreeCPUsMask_ = IntegerMaskParser::MaskType{};
       }
     } else {
       logWarning() << "Failed to parse `SEISSOL_FREE_CPUS_MASK` env. variable";
@@ -192,9 +192,9 @@ CpuMask Pinning::getFreeCPUsMask() const {
   cpu_set_t freeMask{};
   CPU_ZERO(&freeMask);
 
-  if (not parsedFreeCPUsMask.empty()) {
+  if (not parsedFreeCPUsMask_.empty()) {
     const auto localProcessor = Mpi::mpi.sharedMemMpiRank();
-    for (const auto& cpu : parsedFreeCPUsMask[localProcessor]) {
+    for (const auto& cpu : parsedFreeCPUsMask_[localProcessor]) {
       CPU_SET(cpu, &freeMask);
     }
     return CpuMask{freeMask};
@@ -204,14 +204,14 @@ CpuMask Pinning::getFreeCPUsMask() const {
   // Find all numa nodes on which some OpenMP worker is pinned to
   std::set<int> numaDomainsOfThisProcess{};
   for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
-    if (CPU_ISSET(cpu, &openmpMask.set)) {
+    if (CPU_ISSET(cpu, &openmpMask_.set)) {
       numaDomainsOfThisProcess.insert(numa_node_of_cpu(cpu));
     }
   }
 
   // Set free mask to all free threads which are on one of our numa nodes
   for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
-    const bool isOnline = CPU_ISSET(cpu, &onlineMask.set);
+    const bool isOnline = CPU_ISSET(cpu, &onlineMask_.set);
     const bool isFree = !CPU_ISSET(cpu, &nodeOpenMpMask.set);
     if (isOnline && isFree) {
       const int numaNode = numa_node_of_cpu(cpu);
@@ -248,7 +248,7 @@ bool Pinning::freeCPUsMaskEmpty(const CpuMask& mask) {
 #endif // __APPLE__
 }
 
-CpuMask Pinning::getOnlineMask() const { return onlineMask; }
+CpuMask Pinning::getOnlineMask() const { return onlineMask_; }
 
 bool Pinning::areAllCpusOnline() {
 #ifndef __APPLE__
