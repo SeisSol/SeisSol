@@ -31,7 +31,7 @@ class DirectGhostTimeCluster : public AbstractGhostTimeCluster {
   void finalize() override;
 
   private:
-  bool persistent;
+  bool persistent_;
 };
 } // namespace seissol::time_stepping
 

@@ -68,7 +68,7 @@ class Local : public LocalKernel {
   kernel::projectToNodalBoundary projectKrnlPrototype_;
   kernel::projectToNodalBoundaryRotated projectRotatedKrnlPrototype_;
 
-  kernels::DirichletBoundary dirichletBoundary;
+  kernels::DirichletBoundary dirichletBoundary_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_volume deviceVolumeKernelPrototype;

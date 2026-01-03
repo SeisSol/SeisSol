@@ -28,19 +28,19 @@ class VariableSubsampler {
   std::vector<basisFunction::SampledBasisFunctions<T>> BasisFunctions_;
 
   /** The original number of cells (without refinement) */
-  unsigned int mNumCells;
+  unsigned int mNumCells_;
 
-  std::size_t kSubCellsPerCell;
-  std::size_t kNumVariables;
-  std::size_t kNumAlignedDOF;
+  std::size_t kSubCellsPerCell_;
+  std::size_t kNumVariables_;
+  std::size_t kNumAlignedDOF_;
 
   std::size_t
       getInVarOffset(std::size_t cell, std::size_t variable, const unsigned int* cellMap) const {
-    return (cellMap[cell] * kNumVariables + variable) * kNumAlignedDOF;
+    return (cellMap[cell] * kNumVariables_ + variable) * kNumAlignedDOF_;
   }
 
   [[nodiscard]] std::size_t getOutVarOffset(std::size_t cell, std::size_t subcell) const {
-    return kSubCellsPerCell * cell + subcell;
+    return kSubCellsPerCell_ * cell + subcell;
   }
 
   public:
@@ -62,16 +62,16 @@ VariableSubsampler<T>::VariableSubsampler(std::size_t numCells,
                                           unsigned int order,
                                           std::size_t numVariables,
                                           std::size_t numAlignedDOF)
-    : mNumCells(numCells), kSubCellsPerCell(tetRefiner.getDivisionCount()),
-      kNumVariables(numVariables), kNumAlignedDOF(numAlignedDOF) {
+    : mNumCells_(numCells), kSubCellsPerCell_(tetRefiner.getDivisionCount()),
+      kNumVariables_(numVariables), kNumAlignedDOF_(numAlignedDOF) {
   // Generate cell centerpoints in the reference or unit tetrahedron.
-  auto* subCells = new Tetrahedron<T>[kSubCellsPerCell];
+  auto* subCells = new Tetrahedron<T>[kSubCellsPerCell_];
   auto* additionalVertices = new Eigen::Matrix<T, 3, 1>[tetRefiner.additionalVerticesPerCell()];
 
   tetRefiner.refine(Tetrahedron<T>::unitTetrahedron(), 0, subCells, additionalVertices);
 
   // Generate sampled basicfunctions
-  for (unsigned int i = 0; i < kSubCellsPerCell; i++) {
+  for (unsigned int i = 0; i < kSubCellsPerCell_; i++) {
     const Eigen::Matrix<T, 3, 1> pnt = subCells[i].center();
     BasisFunctions_.push_back(
         basisFunction::SampledBasisFunctions<T>(order, pnt(0), pnt(1), pnt(2)));
@@ -93,8 +93,8 @@ void VariableSubsampler<T>::get(const real* inData,
 #pragma omp parallel for schedule(static)
 #endif
   // Iterate over original Cells
-  for (unsigned int c = 0; c < mNumCells; ++c) {
-    for (unsigned int sc = 0; sc < kSubCellsPerCell; ++sc) {
+  for (unsigned int c = 0; c < mNumCells_; ++c) {
+    for (unsigned int sc = 0; sc < kSubCellsPerCell_; ++sc) {
       outData[getOutVarOffset(c, sc)] =
           BasisFunctions_[sc].evalWithCoeffs(&inData[getInVarOffset(c, variable, cellMap)]);
     }

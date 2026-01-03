@@ -59,8 +59,8 @@ void MemoryManager::initialize() {
 
 void MemoryManager::fixateLtsStorage() {
 #ifdef ACL_DEVICE
-  MemoryManager::deriveRequiredScratchpadMemoryForDr(drStorage);
-  drStorage.allocateScratchPads();
+  MemoryManager::deriveRequiredScratchpadMemoryForDr(drStorage_);
+  drStorage_.allocateScratchPads();
 #endif
 }
 
@@ -71,12 +71,12 @@ void MemoryManager::fixateBoundaryStorage() {
 
   // Boundary face storage
   Boundary::addTo(boundaryTree_);
-  boundaryTree_.setLayerCount(ltsStorage.getColorMap());
+  boundaryTree_.setLayerCount(ltsStorage_.getColorMap());
   boundaryTree_.fixate();
 
   // Iterate over layers of standard lts storage and face lts storage together.
   for (auto [layer, boundaryLayer] :
-       seissol::common::zip(ltsStorage.leaves(ghostMask), boundaryTree_.leaves(ghostMask))) {
+       seissol::common::zip(ltsStorage_.leaves(ghostMask), boundaryTree_.leaves(ghostMask))) {
     CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
 
     std::size_t numberOfBoundaryFaces = 0;
@@ -100,7 +100,7 @@ void MemoryManager::fixateBoundaryStorage() {
   // to face lts.
   // We do this by, once again, iterating over both storages at the same time.
   for (auto [layer, boundaryLayer] :
-       seissol::common::zip(ltsStorage.leaves(ghostMask), boundaryTree_.leaves(ghostMask))) {
+       seissol::common::zip(ltsStorage_.leaves(ghostMask), boundaryTree_.leaves(ghostMask))) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
     auto* boundaryMappingDevice = layer.var<LTS::BoundaryMappingDevice>();
@@ -124,16 +124,16 @@ void MemoryManager::fixateBoundaryStorage() {
     }
   }
 
-  surfaceStorage.setName("surface");
-  SurfaceLTS::addTo(surfaceStorage);
+  surfaceStorage_.setName("surface");
+  SurfaceLTS::addTo(surfaceStorage_);
 
   int refinement = 0;
-  const auto& outputParams = seissolInstance.getSeisSolParameters().output;
+  const auto& outputParams = seissolInstance_.getSeisSolParameters().output;
   if (outputParams.freeSurfaceParameters.enabled &&
       outputParams.freeSurfaceParameters.vtkorder < 0) {
     refinement = outputParams.freeSurfaceParameters.refinement;
   }
-  seissolInstance.freeSurfaceIntegrator().initialize(refinement, ltsStorage, surfaceStorage);
+  seissolInstance_.freeSurfaceIntegrator().initialize(refinement, ltsStorage_, surfaceStorage_);
 }
 
 #ifdef ACL_DEVICE
@@ -269,8 +269,8 @@ void MemoryManager::deriveRequiredScratchpadMemoryForDr(DynamicRupture::Storage&
 void MemoryManager::initializeMemoryLayout() {
 #ifdef ACL_DEVICE
   MemoryManager::deriveRequiredScratchpadMemoryForWp(
-      seissolInstance.getSeisSolParameters().model.plasticity, ltsStorage);
-  ltsStorage.allocateScratchPads();
+      seissolInstance_.getSeisSolParameters().model.plasticity, ltsStorage_);
+  ltsStorage_.allocateScratchPads();
 #endif
 }
 
@@ -291,13 +291,13 @@ void MemoryManager::recordExecutionPaths(bool usePlasticity) {
     recorder.addRecorder(new recording::PlasticityRecorder);
   }
 
-  for (auto& layer : ltsStorage.leaves(Ghost)) {
+  for (auto& layer : ltsStorage_.leaves(Ghost)) {
     recorder.record(layer);
   }
 
   recording::CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
   drRecorder.addRecorder(new recording::DynamicRuptureRecorder);
-  for (auto& layer : drStorage.leaves(Ghost)) {
+  for (auto& layer : drStorage_.leaves(Ghost)) {
     drRecorder.record(layer);
   }
 }
@@ -334,7 +334,7 @@ bool requiresNodalFlux(FaceType f) {
 }
 
 void MemoryManager::initializeFrictionLaw() {
-  const auto& params = seissolInstance.getSeisSolParameters().drParameters;
+  const auto& params = seissolInstance_.getSeisSolParameters().drParameters;
   const auto drParameters = std::make_shared<parameters::DRParameters>(params);
   logInfo() << "Initialize Friction Model";
 
@@ -342,7 +342,7 @@ void MemoryManager::initializeFrictionLaw() {
             << "(" << static_cast<int>(drParameters->frictionLawType) << ")";
   logInfo() << "Thermal pressurization:" << (drParameters->isThermalPressureOn ? "on" : "off");
 
-  const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance);
+  const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance_);
   auto product = factory->produce();
   dynRup_ = std::move(product.storage);
   DRInitializer_ = std::move(product.initializer);
@@ -352,21 +352,21 @@ void MemoryManager::initializeFrictionLaw() {
 }
 
 void MemoryManager::initFaultOutputManager(const std::string& backupTimeStamp) {
-  const auto& params = seissolInstance.getSeisSolParameters().drParameters;
+  const auto& params = seissolInstance_.getSeisSolParameters().drParameters;
   // TODO: switch dynRup_ to shared or weak pointer
   if (params.isDynamicRuptureEnabled) {
-    faultOutputManager_->setInputParam(seissolInstance.meshReader());
-    faultOutputManager_->setLtsData(ltsStorage, backmap, drStorage);
+    faultOutputManager_->setInputParam(seissolInstance_.meshReader());
+    faultOutputManager_->setLtsData(ltsStorage_, backmap_, drStorage_);
     faultOutputManager_->setBackupTimeStamp(backupTimeStamp);
     faultOutputManager_->init();
   }
 }
 
 void MemoryManager::initFrictionData() {
-  const auto& params = seissolInstance.getSeisSolParameters().drParameters;
+  const auto& params = seissolInstance_.getSeisSolParameters().drParameters;
   if (params.isDynamicRuptureEnabled) {
 
-    DRInitializer_->initializeFault(drStorage);
+    DRInitializer_->initializeFault(drStorage_);
   }
 }
 
@@ -378,10 +378,10 @@ void MemoryManager::synchronizeTo(AllocationPlace place) {
     logInfo() << "Synchronizing data... (device->host)";
   }
   const auto& defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
-  ltsStorage.synchronizeTo(place, defaultStream);
-  drStorage.synchronizeTo(place, defaultStream);
+  ltsStorage_.synchronizeTo(place, defaultStream);
+  drStorage_.synchronizeTo(place, defaultStream);
   boundaryTree_.synchronizeTo(place, defaultStream);
-  surfaceStorage.synchronizeTo(place, defaultStream);
+  surfaceStorage_.synchronizeTo(place, defaultStream);
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 }

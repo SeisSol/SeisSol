@@ -29,8 +29,8 @@ class BinaryFile {
   void closeFile();
 
   private:
-  MPI_Comm comm{MPI_COMM_NULL};
-  MPI_File file{MPI_FILE_NULL};
+  MPI_Comm comm_{MPI_COMM_NULL};
+  MPI_File file_{MPI_FILE_NULL};
 };
 
 class BinaryWriter {
@@ -42,8 +42,8 @@ class BinaryWriter {
   void finalize();
 
   private:
-  std::unordered_map<std::string, std::unique_ptr<BinaryFile>> openFiles;
-  MPI_Comm comm{MPI_COMM_NULL};
+  std::unordered_map<std::string, std::unique_ptr<BinaryFile>> openFiles_;
+  MPI_Comm comm_{MPI_COMM_NULL};
 };
 } // namespace seissol::io::writer::file
 

@@ -48,7 +48,7 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::linearck {
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   krnlPrototype_.kDivMT = global.onHost->stiffnessMatricesTransposed;
-  projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onHost->v3mTo2nFace;
+  projectDerivativeToNodalBoundaryRotated_.V3mTo2nFace = global.onHost->v3mTo2nFace;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
@@ -121,7 +121,7 @@ void Spacetime::computeAder(const real* coeffs,
       if (data.get<LTS::FaceDisplacements>()[face] != nullptr &&
           data.get<LTS::CellInformation>().faceTypes[face] == FaceType::FreeSurfaceGravity) {
         bc.evaluate(face,
-                    projectDerivativeToNodalBoundaryRotated,
+                    projectDerivativeToNodalBoundaryRotated_,
                     data.get<LTS::BoundaryMapping>()[face],
                     data.get<LTS::FaceDisplacements>()[face],
                     tmp.nodalAvgDisplacements[face].data(),

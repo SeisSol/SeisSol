@@ -89,7 +89,7 @@ void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point)
 
   std::vector<std::string> names(seissol::model::MaterialT::Quantities.begin(),
                                  seissol::model::MaterialT::Quantities.end());
-  for (const auto& derived : derivedQuantities) {
+  for (const auto& derived : derivedQuantities_) {
     auto derivedNames = derived->quantities();
     names.insert(names.end(), derivedNames.begin(), derivedNames.end());
   }
@@ -161,10 +161,10 @@ void ReceiverWriter::init(
   samplingInterval_ = parameters.samplingInterval;
 
   if (parameters.computeRotation) {
-    derivedQuantities.push_back(std::make_shared<kernels::ReceiverRotation>());
+    derivedQuantities_.push_back(std::make_shared<kernels::ReceiverRotation>());
   }
   if (parameters.computeStrain) {
-    derivedQuantities.push_back(std::make_shared<kernels::ReceiverStrain>());
+    derivedQuantities_.push_back(std::make_shared<kernels::ReceiverStrain>());
   }
 
   setSyncInterval(std::min(endTime, parameters.interval));
@@ -229,12 +229,13 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
 
       // Make sure that needed empty clusters are initialized.
       for (std::size_t c = receiverClusters_.size(); c <= id; ++c) {
-        receiverClusters_.emplace_back(std::make_shared<kernels::ReceiverCluster>(global,
-                                                                                  quantities,
-                                                                                  samplingInterval_,
-                                                                                  syncInterval(),
-                                                                                  derivedQuantities,
-                                                                                  seissolInstance));
+        receiverClusters_.emplace_back(
+            std::make_shared<kernels::ReceiverCluster>(global,
+                                                       quantities,
+                                                       samplingInterval_,
+                                                       syncInterval(),
+                                                       derivedQuantities_,
+                                                       seissolInstance_));
       }
 
       writeHeader(point, points[point]);

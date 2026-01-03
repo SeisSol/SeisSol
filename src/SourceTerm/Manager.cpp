@@ -94,7 +94,7 @@ void computeMInvJInvPhisAtSources(
   const double jInv = 1.0 / (6.0 * volume);
 
   kernel::computeMInvJInvPhisAtSources krnl;
-  krnl.basisFunctionsAtPoint = basisFunctionsAtPoint.data_.data();
+  krnl.basisFunctionsAtPoint = basisFunctionsAtPoint.data.data();
   krnl.M3inv = init::M3inv::Values;
   krnl.mInvJInvPhisAtSources = mInvJInvPhisAtSources.data();
   krnl.JInv = jInv;

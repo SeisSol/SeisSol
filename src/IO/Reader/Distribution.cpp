@@ -179,7 +179,7 @@ std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
 } // namespace
 
 namespace seissol::io::reader {
-Distributor::Distributor(MPI_Comm comm) : comm(comm) {}
+Distributor::Distributor(MPI_Comm comm) : comm_(comm) {}
 
 void Distributor::setup(const std::vector<std::size_t>& sourceIds,
                         const std::vector<std::size_t>& targetIds) {
@@ -191,8 +191,8 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   constexpr int TagFromIntermediateSource = 22;
   constexpr int TagFromIntermediateTarget = 23;
 
-  MPI_Comm_size(comm, &commsize);
-  MPI_Comm_rank(comm, &commrank);
+  MPI_Comm_size(comm_, &commsize);
+  MPI_Comm_rank(comm_, &commrank);
 
   MPI_Datatype sizetype =
       seissol::io::datatype::convertToMPI(seissol::io::datatype::inferDatatype<std::size_t>());
@@ -207,7 +207,7 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
     localMax = std::max(localMax, targetId);
   }
   std::size_t globalMax = 0;
-  MPI_Allreduce(&localMax, &globalMax, 1, sizetype, MPI_MAX, comm);
+  MPI_Allreduce(&localMax, &globalMax, 1, sizetype, MPI_MAX, comm_);
   auto globalCount = globalMax + 1;
 
   // note that the following operations all need to be stable (i.e. order-preserving) for these
@@ -243,9 +243,9 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   }
 
   auto intermediateSource =
-      distributeIds<std::size_t>(source, comm, sizetype, sizetype, TagToIntermediateSource);
+      distributeIds<std::size_t>(source, comm_, sizetype, sizetype, TagToIntermediateSource);
   auto intermediateTarget =
-      distributeIds<std::size_t>(target, comm, sizetype, sizetype, TagToIntermediateTarget);
+      distributeIds<std::size_t>(target, comm_, sizetype, sizetype, TagToIntermediateTarget);
 
   // we need the same ordering, to transfer the IDs in the right order
   // TODO(David): may be removable
@@ -269,15 +269,20 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
     }
   }
 
-  auto sendResult = matchRanks(
-      sourceToTargetRankMap, sourceIds, false, comm, sizetype, pairtype, TagFromIntermediateSource);
-  sendOffsets = sendResult.first;
-  sendReorder = sendResult.second;
+  auto sendResult = matchRanks(sourceToTargetRankMap,
+                               sourceIds,
+                               false,
+                               comm_,
+                               sizetype,
+                               pairtype,
+                               TagFromIntermediateSource);
+  sendOffsets_ = sendResult.first;
+  sendReorder_ = sendResult.second;
 
   auto recvResult = matchRanks(
-      targetToSourceRankMap, targetIds, true, comm, sizetype, pairtype, TagFromIntermediateTarget);
-  recvOffsets = recvResult.first;
-  recvReorder = recvResult.second;
+      targetToSourceRankMap, targetIds, true, comm_, sizetype, pairtype, TagFromIntermediateTarget);
+  recvOffsets_ = recvResult.first;
+  recvReorder_ = recvResult.second;
 
   // selftest
   {
@@ -303,8 +308,8 @@ Distributor::DistributionInstance Distributor::distributeRaw(
   int commsize = 0;
   int commrank = 0;
 
-  MPI_Comm_size(comm, &commsize);
-  MPI_Comm_rank(comm, &commrank);
+  MPI_Comm_size(comm_, &commsize);
+  MPI_Comm_rank(comm_, &commrank);
 
   int typesizeInt = 0;
   MPI_Type_size(datatype, &typesizeInt);
@@ -319,33 +324,33 @@ Distributor::DistributionInstance Distributor::distributeRaw(
   const char* sourceChar = reinterpret_cast<const char*>(source);
   char* targetChar = reinterpret_cast<char*>(target);
 
-  char* sourceReordered = reinterpret_cast<char*>(std::malloc(typesize * sendReorder.size()));
-  char* targetReordered = reinterpret_cast<char*>(std::malloc(typesize * recvReorder.size()));
+  char* sourceReordered = reinterpret_cast<char*>(std::malloc(typesize * sendReorder_.size()));
+  char* targetReordered = reinterpret_cast<char*>(std::malloc(typesize * recvReorder_.size()));
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-  for (std::size_t i = 0; i < sendReorder.size(); ++i) {
-    std::memcpy(sourceReordered + i * typesize, sourceChar + sendReorder[i] * typesize, typesize);
+  for (std::size_t i = 0; i < sendReorder_.size(); ++i) {
+    std::memcpy(sourceReordered + i * typesize, sourceChar + sendReorder_[i] * typesize, typesize);
   }
 
   for (int i = 0; i < commsize; ++i) {
-    if (sendOffsets[i + 1] > sendOffsets[i]) {
-      MPI_Isend(sourceReordered + sendOffsets[i] * typesize,
-                sendOffsets[i + 1] - sendOffsets[i],
+    if (sendOffsets_[i + 1] > sendOffsets_[i]) {
+      MPI_Isend(sourceReordered + sendOffsets_[i] * typesize,
+                sendOffsets_[i + 1] - sendOffsets_[i],
                 datatype,
                 i,
                 Tag,
-                comm,
+                comm_,
                 &requests[i]);
     }
-    if (recvOffsets[i + 1] > recvOffsets[i]) {
-      MPI_Irecv(targetReordered + recvOffsets[i] * typesize,
-                recvOffsets[i + 1] - recvOffsets[i],
+    if (recvOffsets_[i + 1] > recvOffsets_[i]) {
+      MPI_Irecv(targetReordered + recvOffsets_[i] * typesize,
+                recvOffsets_[i + 1] - recvOffsets_[i],
                 datatype,
                 i,
                 Tag,
-                comm,
+                comm_,
                 &requests[static_cast<std::size_t>(commsize) + i]);
     }
   }
@@ -369,8 +374,8 @@ Distributor::DistributionInstance Distributor::distributeRaw(
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (std::size_t i = 0; i < recvReorder.size(); ++i) {
-      copyFn(targetChar + i * typesizeTarget, targetReordered + recvReorder[i] * typesize);
+    for (std::size_t i = 0; i < recvReorder_.size(); ++i) {
+      copyFn(targetChar + i * typesizeTarget, targetReordered + recvReorder_[i] * typesize);
     }
 
     std::free(sourceReordered);
@@ -380,12 +385,12 @@ Distributor::DistributionInstance Distributor::distributeRaw(
 }
 
 void Distributor::DistributionInstance::complete() {
-  if (!completed) {
-    std::invoke(completion);
+  if (!completed_) {
+    std::invoke(completion_);
   }
 }
 
 Distributor::DistributionInstance::DistributionInstance(const std::function<void()>& completion)
-    : completion(completion) {}
+    : completion_(completion) {}
 
 } // namespace seissol::io::reader

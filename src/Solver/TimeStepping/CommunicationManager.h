@@ -32,7 +32,7 @@ class AbstractCommunicationManager {
   protected:
   explicit AbstractCommunicationManager(GhostClustersT ghostClusters);
   bool poll();
-  GhostClustersT ghostClusters;
+  GhostClustersT ghostClusters_;
 };
 
 class SerialCommunicationManager : public AbstractCommunicationManager {
@@ -50,7 +50,7 @@ class ThreadedCommunicationManager : public AbstractCommunicationManager {
   void reset(double newSyncTime) override;
 
   private:
-  seissol::parallel::HelperThread helper;
+  seissol::parallel::HelperThread helper_;
 };
 
 } // end namespace seissol::time_stepping

@@ -41,7 +41,7 @@ void seissol::writer::WaveFieldWriter::setUp() {
   setExecutor(executor_);
   utils::Env env("SEISSOL_");
   if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, env)) {
-    const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
+    const auto freeCpus = seissolInstance_.getPinning().getFreeCPUsMask();
     logInfo() << "Wave field writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
@@ -91,7 +91,7 @@ const unsigned*
   // buffer We will add the offset later
 
   // Add the offset to the cells
-  MPI_Comm groupComm = seissolInstance.asyncIO().groupComm();
+  MPI_Comm groupComm = seissolInstance_.asyncIO().groupComm();
   unsigned int offset = meshRefiner->getNumVertices();
   MPI_Scan(MPI_IN_PLACE, &offset, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
   offset -= meshRefiner->getNumVertices();
@@ -116,7 +116,7 @@ std::vector<unsigned int> seissol::writer::WaveFieldWriter::generateRefinedClust
 
   auto kSubCellsPerCell = static_cast<size_t>(meshRefiner->getkSubCellsPerCell());
   for (size_t j = 0; j < meshRefiner->getNumCells(); j++) {
-    if (isExtractRegionEnabled) {
+    if (isExtractRegionEnabled_) {
       refinedClusteringData[j] = ltsClusteringData[newToOldCellMap[(j / kSubCellsPerCell)]];
     } else {
       refinedClusteringData[j] = ltsClusteringData[(j / kSubCellsPerCell)];
@@ -204,11 +204,11 @@ void seissol::writer::WaveFieldWriter::init(
   // If at least one group is explicitly enabled, extract
   const bool isExtractGroupEnabled = !parameters.groups.empty();
 
-  isExtractRegionEnabled = isExtractBoxEnabled || isExtractGroupEnabled;
+  isExtractRegionEnabled_ = isExtractBoxEnabled || isExtractGroupEnabled;
   // isExtractRegionEnabled = true  : Extract region
   // isExtractRegionEnabled = false : Entire region
 
-  if (isExtractRegionEnabled) {
+  if (isExtractRegionEnabled_) {
     const std::vector<Element>& allElements = meshReader.getElements();
     const std::vector<Vertex>& allVertices = meshReader.getVertices();
 
@@ -324,9 +324,9 @@ void seissol::writer::WaveFieldWriter::init(
   numCells_ = meshRefiner->getNumCells();
   // Set up for low order output flags
   lowOutputFlags_ = new bool[WaveFieldWriterExecutor::NumLowvariables];
-  numIntegratedVariables_ = seissolInstance.postProcessor().getNumberOfVariables();
+  numIntegratedVariables_ = seissolInstance_.postProcessor().getNumberOfVariables();
 
-  seissolInstance.postProcessor().getIntegrationMask(&lowOutputFlags_[0]);
+  seissolInstance_.postProcessor().getIntegrationMask(&lowOutputFlags_[0]);
   param.bufferIds[LowOutputFlags] =
       addSyncBuffer(lowOutputFlags_, WaveFieldWriterExecutor::NumLowvariables * sizeof(bool), true);
   //
@@ -341,7 +341,7 @@ void seissol::writer::WaveFieldWriter::init(
     const refinement::IdentityRefiner<double> lowTetRefiner;
 
     // Mesh refiner
-    if (isExtractRegionEnabled) {
+    if (isExtractRegionEnabled_) {
       pLowMeshRefiner = new refinement::MeshRefiner<double>(
           subElements, subVertices, oldToNewVertexMap, lowTetRefiner);
     } else {

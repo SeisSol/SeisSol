@@ -29,7 +29,7 @@ class FreeSurfaceWriter
     : private async::Module<FreeSurfaceWriterExecutor, FreeSurfaceInitParam, FreeSurfaceParam>,
       public seissol::Module {
   private:
-  seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance_;
 
   /** Is enabled? */
   bool enabled_{false};
@@ -51,7 +51,7 @@ class FreeSurfaceWriter
 
   public:
   explicit FreeSurfaceWriter(seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance) {}
+      : seissolInstance_(seissolInstance) {}
 
   /**
    * Called by ASYNC on all ranks

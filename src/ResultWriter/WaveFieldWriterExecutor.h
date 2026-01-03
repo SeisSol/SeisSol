@@ -78,8 +78,8 @@ class WaveFieldWriterExecutor {
   /** Stopwatch for the wave field backend */
   Stopwatch stopwatch_;
 
-  std::shared_ptr<std::vector<std::string>> varNames;
-  std::shared_ptr<std::vector<std::string>> varNamesLowRes;
+  std::shared_ptr<std::vector<std::string>> varNames_;
+  std::shared_ptr<std::vector<std::string>> varNamesLowRes_;
 
   public:
   WaveFieldWriterExecutor() = default;
@@ -104,15 +104,15 @@ class WaveFieldWriterExecutor {
     numVariables_ = info.bufferSize(param.bufferIds[OutputFlags]) / sizeof(bool);
     outputFlags_ = static_cast<const bool*>(info.buffer(param.bufferIds[OutputFlags]));
 
-    varNames = std::make_shared<std::vector<std::string>>();
-    varNamesLowRes = std::make_shared<std::vector<std::string>>();
+    varNames_ = std::make_shared<std::vector<std::string>>();
+    varNamesLowRes_ = std::make_shared<std::vector<std::string>>();
     for (const auto& quantity : seissol::model::MaterialT::Quantities) {
-      varNames->emplace_back(quantity);
-      varNamesLowRes->emplace_back("low_" + quantity);
+      varNames_->emplace_back(quantity);
+      varNamesLowRes_->emplace_back("low_" + quantity);
     }
     for (const auto& quantity : seissol::model::PlasticityData::Quantities) {
-      varNames->emplace_back(quantity);
-      varNamesLowRes->emplace_back("low_" + quantity);
+      varNames_->emplace_back(quantity);
+      varNamesLowRes_->emplace_back("low_" + quantity);
     }
 
     std::vector<const char*> variables;
@@ -120,7 +120,7 @@ class WaveFieldWriterExecutor {
       if (outputFlags_[i]) {
         assert(i < seissol::model::MaterialT::Quantities.size() +
                        seissol::model::PlasticityData::Quantities.size());
-        variables.push_back(varNames->at(i).c_str());
+        variables.push_back(varNames_->at(i).c_str());
       }
     }
 
@@ -169,7 +169,7 @@ class WaveFieldWriterExecutor {
         std::vector<const char*> lowVariables;
         for (size_t i = 0; i < NumLowvariables; i++) {
           if (lowOutputFlags_[i]) {
-            lowVariables.push_back(varNamesLowRes->at(i).c_str());
+            lowVariables.push_back(varNamesLowRes_->at(i).c_str());
           }
         }
 

@@ -35,7 +35,7 @@ class AsagiModule : public Module {
   /** The total number of threads (including the communication thread */
   int totalThreads_;
 
-  parallel::Pinning* pinning{};
+  parallel::Pinning* pinning_{};
 
   static std::shared_ptr<AsagiModule> instance;
 

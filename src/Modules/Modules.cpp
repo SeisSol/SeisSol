@@ -23,16 +23,16 @@ namespace seissol {
 void Modules::_registerHook(Module& module, ModuleHook hook, ModulePriority priority) {
   assert(static_cast<int>(hook) < static_cast<int>(ModuleHook::MaxHooks));
 
-  if (nextHook >= ModuleHook::MaxInitHooks) {
+  if (nextHook_ >= ModuleHook::MaxInitHooks) {
     logError() << "Trying to register for a hook after initialization phase";
   }
-  if (hook < nextHook) {
+  if (hook < nextHook_) {
     logError() << "Trying to register for hook" << strHook(hook)
                << "but SeisSol was already processing"
-               << strHook(static_cast<ModuleHook>(static_cast<int>(nextHook) - 1));
+               << strHook(static_cast<ModuleHook>(static_cast<int>(nextHook_) - 1));
   }
 
-  hooks[static_cast<size_t>(hook)].insert(std::pair<ModulePriority, Module*>(priority, &module));
+  hooks_[static_cast<size_t>(hook)].insert(std::pair<ModulePriority, Module*>(priority, &module));
 }
 
 const char* Modules::strHook(ModuleHook hook) {
@@ -71,7 +71,7 @@ Modules::Modules() = default;
 double Modules::_callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint) {
   double nextSyncTime = std::numeric_limits<double>::max();
 
-  for (auto& [_, module] : hooks[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
+  for (auto& [_, module] : hooks_[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
     nextSyncTime = std::min(nextSyncTime,
                             module->potentialSyncPoint(currentTime, timeTolerance, forceSyncPoint));
   }
@@ -80,7 +80,7 @@ double Modules::_callSyncHook(double currentTime, double timeTolerance, bool for
 }
 
 void Modules::_callSimulationStartHook(std::optional<double> checkpointTime) {
-  for (auto& [_, module] : hooks[static_cast<size_t>(ModuleHook::SimulationStart)]) {
+  for (auto& [_, module] : hooks_[static_cast<size_t>(ModuleHook::SimulationStart)]) {
     module->simulationStart(checkpointTime);
   }
 }
@@ -89,7 +89,7 @@ void Modules::_setSimulationStartTime(double time) {
   assert(static_cast<int>(nextHook) <= static_cast<int>(ModuleHook::SynchronizationPoint));
 
   // Set the simulation time in all modules that are called at synchronization points
-  for (auto& [_, module] : hooks[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
+  for (auto& [_, module] : hooks_[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
     module->setSimulationStartTime(time);
   }
 }

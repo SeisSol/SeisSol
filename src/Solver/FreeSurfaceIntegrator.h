@@ -33,11 +33,11 @@ class FreeSurfaceIntegrator {
     FreeSurfaceWithGravity = 3
   };
 
-  real* projectionMatrixMemory{nullptr};
-  real* projectionMatrix[4]{};
-  real* projectionMatrixFromFace{nullptr};
-  std::size_t numberOfSubTriangles{0};
-  std::size_t numberOfAlignedSubTriangles{0};
+  real* projectionMatrixMemory_{nullptr};
+  real* projectionMatrix_[4]{};
+  real* projectionMatrixFromFace_{nullptr};
+  std::size_t numberOfSubTriangles_{0};
+  std::size_t numberOfAlignedSubTriangles_{0};
 
   static constexpr auto PolyDegree = ConvergenceOrder - 1;
   static constexpr auto NumQuadraturePoints = PolyDegree * PolyDegree;

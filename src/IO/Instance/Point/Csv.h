@@ -35,10 +35,10 @@ class Csv : public TableWriter {
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter() override;
 
   private:
-  std::string rowcache;
-  char delimiterStr{';'};
-  char quoteStr{'\"'};
-  char newlineStr{'\n'};
+  std::string rowcache_;
+  char delimiterStr_{';'};
+  char quoteStr_{'\"'};
+  char newlineStr_{'\n'};
 };
 
 } // namespace seissol::io::instance::point

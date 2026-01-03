@@ -32,7 +32,7 @@ void seissol::writer::FaultWriter::setUp() {
 
   utils::Env env("SEISSOL_");
   if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, env)) {
-    const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
+    const auto freeCpus = seissolInstance_.getPinning().getFreeCPUsMask();
     logInfo() << "Fault writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
@@ -70,7 +70,7 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
   assert(bufferId == FaultWriterExecutor::OutputPrefix);
   NDBG_UNUSED(bufferId);
 
-  const AsyncCellIDs<3> cellIds(nCells, nVertices, cells, seissolInstance);
+  const AsyncCellIDs<3> cellIds(nCells, nVertices, cells, seissolInstance_);
 
   // Create mesh buffers
   bufferId = addSyncBuffer(cellIds.cells(), static_cast<unsigned long>(nCells * 3) * sizeof(int));
@@ -174,8 +174,8 @@ void seissol::writer::FaultWriter::simulationStart(std::optional<double> checkpo
 void seissol::writer::FaultWriter::syncPoint(double currentTime) {
   SCOREP_USER_REGION("faultoutput_elementwise", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-  if (callbackObject != nullptr) {
-    callbackObject->updateElementwiseOutput();
+  if (callbackObject_ != nullptr) {
+    callbackObject_->updateElementwiseOutput();
   }
   write(currentTime);
 }

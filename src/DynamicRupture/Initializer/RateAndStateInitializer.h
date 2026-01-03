@@ -140,8 +140,8 @@ class ThermalPressurizationInitializer {
                                DynamicRupture::Layer& layer);
 
   private:
-  std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters;
-  std::set<std::string> faultParameterNames;
+  std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters_;
+  std::set<std::string> faultParameterNames_;
 };
 
 /**

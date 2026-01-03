@@ -30,18 +30,18 @@ Simulator::Simulator() = default;
 
 void Simulator::setFinalTime(double finalTime) {
   assert(finalTime > 0);
-  this->finalTime = finalTime;
+  this->finalTime_ = finalTime;
 }
 
-void Simulator::setUsePlasticity(bool plasticity) { usePlasticity = plasticity; }
+void Simulator::setUsePlasticity(bool plasticity) { usePlasticity_ = plasticity; }
 
 void Simulator::setCurrentTime(double currentTime) {
   assert(currentTime >= 0);
-  this->currentTime = currentTime;
-  checkpoint = true;
+  this->currentTime_ = currentTime;
+  checkpoint_ = true;
 }
 
-void Simulator::abort() { aborted = true; }
+void Simulator::abort() { aborted_ = true; }
 
 void Simulator::simulate(SeisSol& seissolInstance) {
   SCOREP_USER_REGION("simulate", SCOREP_USER_REGION_TYPE_FUNCTION)
@@ -60,26 +60,26 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   ioStopwatch.start();
 
   // Set start time (required for checkpointing)
-  seissolInstance.timeManager().setInitialTimes(currentTime);
+  seissolInstance.timeManager().setInitialTimes(currentTime_);
 
   const double timeTolerance = seissolInstance.timeManager().getTimeTolerance();
 
   // Write initial wave field snapshot
-  if (checkpoint) {
-    Modules::callSimulationStartHook(currentTime);
+  if (checkpoint_) {
+    Modules::callSimulationStartHook(currentTime_);
   } else {
     Modules::callSimulationStartHook(std::optional<double>{});
   }
 
   // intialize wave field and checkpoint time
-  Modules::setSimulationStartTime(currentTime);
+  Modules::setSimulationStartTime(currentTime_);
 
   // derive next synchronization time
-  double upcomingTime = finalTime;
+  double upcomingTime = finalTime_;
   // NOTE: This will not call the module specific implementation of the synchronization hook
   // since the current time is the simulation start time. We only use this function here to
   // get correct upcoming time. To be on the safe side, we use zero time tolerance.
-  upcomingTime = std::min(upcomingTime, Modules::callSyncHook(currentTime, 0.0));
+  upcomingTime = std::min(upcomingTime, Modules::callSyncHook(currentTime_, 0.0));
 
   double lastSplit = 0;
 
@@ -90,11 +90,12 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   // use an empty log message as visual separator
   logInfo() << "";
 
-  while (finalTime > currentTime + timeTolerance) {
-    if (upcomingTime < currentTime + timeTolerance) {
-      logError() << "Simulator did not advance in time from" << currentTime << "to" << upcomingTime;
+  while (finalTime_ > currentTime_ + timeTolerance) {
+    if (upcomingTime < currentTime_ + timeTolerance) {
+      logError() << "Simulator did not advance in time from" << currentTime_ << "to"
+                 << upcomingTime;
     }
-    if (aborted) {
+    if (aborted_) {
       logInfo() << "Aborting simulation.";
       break;
     }
@@ -109,13 +110,13 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     ioStopwatch.start();
 
     // update current time
-    currentTime = upcomingTime;
+    currentTime_ = upcomingTime;
 
     // Synchronize data (TODO(David): synchronize lazily)
     seissolInstance.timeManager().synchronizeTo(initializer::AllocationPlace::Host);
 
     // Check all synchronization point hooks and set the new upcoming time
-    upcomingTime = std::min(finalTime, Modules::callSyncHook(currentTime, timeTolerance));
+    upcomingTime = std::min(finalTime_, Modules::callSyncHook(currentTime_, timeTolerance));
 
     ioStopwatch.pause();
 
@@ -133,7 +134,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   // synchronize data (TODO(David): synchronize lazily)
   seissolInstance.timeManager().synchronizeTo(initializer::AllocationPlace::Host);
 
-  Modules::callSyncHook(currentTime, timeTolerance, true);
+  Modules::callSyncHook(currentTime_, timeTolerance, true);
 
   const double wallTime = simulationStopwatch.pause();
   simulationStopwatch.printTime("Simulation time (total):");
@@ -148,7 +149,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   const auto& outputPrefix = outputParams.prefix;
   seissolInstance.timeManager().printComputationTime(outputPrefix, isLoopStatisticsNetcdfOutputOn);
 
-  seissolInstance.analysisWriter().printAnalysis(currentTime);
+  seissolInstance.analysisWriter().printAnalysis(currentTime_);
 
   seissolInstance.flopCounter().printPerformanceSummary(wallTime);
 }

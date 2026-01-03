@@ -31,17 +31,17 @@ WriterModule::WriterModule(const std::string& prefix,
                            const ScheduledWriter& settings,
                            const parallel::Pinning& pinning,
                            SeisSol& seissolInstance)
-    : rank(seissol::Mpi::mpi.rank()), prefix(prefix), settings(settings), pinning(pinning),
-      seissolInstance(seissolInstance) {}
+    : rank_(seissol::Mpi::mpi.rank()), prefix_(prefix), settings_(settings), pinning_(pinning),
+      seissolInstance_(seissolInstance) {}
 
 void WriterModule::setUp() {
-  logInfo() << "Output Writer" << settings.name << ": setup.";
-  executor.setComm(seissol::Mpi::mpi.comm());
-  setExecutor(executor);
+  logInfo() << "Output Writer" << settings_.name << ": setup.";
+  executor_.setComm(seissol::Mpi::mpi.comm());
+  setExecutor(executor_);
   // TODO: adjust the CommThread call here
-  if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, seissolInstance.env())) {
-    const auto freeCpus = pinning.getFreeCPUsMask();
-    logInfo() << "Output Writer" << settings.name
+  if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, seissolInstance_.env())) {
+    const auto freeCpus = pinning_.getFreeCPUsMask();
+    logInfo() << "Output Writer" << settings_.name
               << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
@@ -51,12 +51,12 @@ void WriterModule::setUp() {
 }
 
 void WriterModule::startup() {
-  logInfo() << "Output Writer" << settings.name << ": startup, running at interval"
-            << settings.interval;
+  logInfo() << "Output Writer" << settings_.name << ": startup, running at interval"
+            << settings_.interval;
   init();
 
   // we want ASYNC to like us, hence we need to enter a non-zero size here
-  planId = addBuffer(nullptr, 1, true);
+  planId_ = addBuffer(nullptr, 1, true);
   assert(planId == 0);
 
   callInit(AsyncWriterInit{});
@@ -66,7 +66,7 @@ void WriterModule::startup() {
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
   Modules::registerHook(*this, ModuleHook::SimulationEnd);
   Modules::registerHook(*this, ModuleHook::Shutdown);
-  setSyncInterval(settings.interval);
+  setSyncInterval(settings_.interval);
 }
 
 void WriterModule::simulationStart(std::optional<double> checkpointTime) {
@@ -76,15 +76,16 @@ void WriterModule::simulationStart(std::optional<double> checkpointTime) {
 }
 
 void WriterModule::syncPoint(double time) {
-  if (lastWrite >= 0) {
-    logInfo() << "Output Writer" << settings.name << ": finishing previous write from" << lastWrite;
+  if (lastWrite_ >= 0) {
+    logInfo() << "Output Writer" << settings_.name << ": finishing previous write from"
+              << lastWrite_;
   }
   wait();
-  logInfo() << "Output Writer" << settings.name << ": preparing write at" << time;
+  logInfo() << "Output Writer" << settings_.name << ": preparing write at" << time;
 
   // request the write plan
   auto writeCount = static_cast<int>(std::round(time / syncInterval()));
-  auto writer = settings.planWrite(prefix, writeCount, time);
+  auto writer = settings_.planWrite(prefix_, writeCount, time);
 
   // prepare the data in the plan
   std::unordered_set<DataSource*> handledSources;
@@ -104,14 +105,14 @@ void WriterModule::syncPoint(double time) {
               auto* writeBuffer = dynamic_cast<WriteBuffer*>(dataSource.get());
               const auto* pointer = writeBuffer->getLocalPointer();
               auto size = writeBuffer->getLocalSize();
-              if (pointerMap.find(pointer) == pointerMap.end()) {
+              if (pointerMap_.find(pointer) == pointerMap_.end()) {
                 BufferPointer repr;
                 repr.id = addBuffer(pointer, size);
                 repr.size = size;
-                pointerMap[pointer] = repr;
+                pointerMap_[pointer] = repr;
                 return repr.id;
               } else {
-                auto& repr = pointerMap.at(pointer);
+                auto& repr = pointerMap_.at(pointer);
                 if (repr.size != size) {
                   if (idSet.find(repr.id) != idSet.end()) {
                     // it is ok to request the same buffer multiple times, but not with different
@@ -132,13 +133,13 @@ void WriterModule::syncPoint(double time) {
               auto* adhocBuffer = dynamic_cast<AdhocBuffer*>(dataSource.get());
               auto targetSize = adhocBuffer->getTargetSize();
               const auto foundId = [&]() -> int {
-                for (auto id : bufferMap[targetSize]) {
+                for (auto id : bufferMap_[targetSize]) {
                   if (idSet.find(id) == idSet.end()) {
                     return id;
                   }
                 }
                 auto newId = addBuffer(nullptr, targetSize);
-                bufferMap[targetSize].push_back(newId);
+                bufferMap_[targetSize].push_back(newId);
                 return newId;
               }();
 
@@ -164,28 +165,28 @@ void WriterModule::syncPoint(double time) {
 
   // take care of the plan (i.e. resize our managed buffer and send it)
   auto serialized = writer.serialize();
-  resizeBuffer(planId, nullptr, serialized.size());
-  char* planBuffer = managedBuffer<char*>(planId);
+  resizeBuffer(planId_, nullptr, serialized.size());
+  char* planBuffer = managedBuffer<char*>(planId_);
   std::memcpy(planBuffer, serialized.c_str(), serialized.size());
-  sendBuffer(planId, serialized.size());
+  sendBuffer(planId_, serialized.size());
 
   // send the plan data
   for (const int id : idsToSend) {
     sendBuffer(id);
   }
 
-  logInfo() << "Output Writer" << settings.name << ": triggering write at" << time;
-  lastWrite = time;
+  logInfo() << "Output Writer" << settings_.name << ": triggering write at" << time;
+  lastWrite_ = time;
   call(AsyncWriterExec{});
 }
 
 void WriterModule::simulationEnd() {
-  logInfo() << "Output Writer" << settings.name << ": finishing output";
+  logInfo() << "Output Writer" << settings_.name << ": finishing output";
   wait();
 }
 
 void WriterModule::shutdown() {
-  logInfo() << "Output Writer" << settings.name << ": shutdown";
+  logInfo() << "Output Writer" << settings_.name << ": shutdown";
   finalize();
 }
 

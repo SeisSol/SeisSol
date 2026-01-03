@@ -96,7 +96,7 @@ void AsagiModule::preMesh() {
   if (mpiMode_ == AsagiMPIMode::CommThread) {
     int cpu = -1;
 #ifndef __APPLE__
-    const auto cpuSet = pinning->getFreeCPUsMask().set;
+    const auto cpuSet = pinning_->getFreeCPUsMask().set;
     for (int i = 0; i < CPU_COUNT(&cpuSet); ++i) {
       if (CPU_ISSET(i, &cpuSet)) {
         cpu = i;

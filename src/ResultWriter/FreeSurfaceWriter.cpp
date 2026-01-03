@@ -104,7 +104,7 @@ void seissol::writer::FreeSurfaceWriter::setUp() {
 
   utils::Env env("SEISSOL_");
   if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, env)) {
-    const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
+    const auto freeCpus = seissolInstance_.getPinning().getFreeCPUsMask();
     logInfo() << "Free surface writer thread affinity:"
               << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
@@ -142,7 +142,7 @@ void seissol::writer::FreeSurfaceWriter::init(
   unsigned nVertices = 0;
   constructSurfaceMesh(meshReader, cells, vertices, nCells, nVertices);
 
-  const AsyncCellIDs<3> cellIds(nCells, nVertices, cells, seissolInstance);
+  const AsyncCellIDs<3> cellIds(nCells, nVertices, cells, seissolInstance_);
 
   // Create buffer for output prefix
   unsigned int bufferId = addSyncBuffer(outputPrefix, strlen(outputPrefix) + 1, true);

@@ -96,7 +96,7 @@ CubeGenerator::CubeGenerator(
     const std::string& meshFile,
     const seissol::initializer::parameters::CubeGeneratorParameters& cubeParams)
     : MeshReader(rank), // init base class
-      rank(rank), nProcs(nProcs) {
+      rank_(rank), nProcs_(nProcs) {
   // get cubeGenerator parameters
   const std::size_t cubeMinX = cubeParams.cubeMinX;
   const std::size_t cubeMaxX = cubeParams.cubeMaxX;
@@ -229,7 +229,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   // Setup MPI Communicator
   MPI_Comm commMaster = MPI_COMM_NULL;
-  MPI_Comm_split(seissol::Mpi::mpi.comm(), rank % 1 == 0 ? 1 : MPI_UNDEFINED, rank, &commMaster);
+  MPI_Comm_split(seissol::Mpi::mpi.comm(), rank_ % 1 == 0 ? 1 : MPI_UNDEFINED, rank_, &commMaster);
 
   size_t bndSize = -1;
   size_t bndElemSize = -1;
@@ -239,7 +239,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   // Get important dimensions
   const size_t partitions = numPartitions[3];
 
-  if (partitions != static_cast<std::size_t>(nProcs)) {
+  if (partitions != static_cast<std::size_t>(nProcs_)) {
     logError() << "Number of partitions does not match number of MPI ranks.";
   }
 
@@ -467,7 +467,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   // Calculate elemBoundaries
   for (std::size_t z = 0; z < numPartitions[2]; z++) {
     for (std::size_t y = 0; y < numPartitions[1]; y++) {
-      const std::size_t x = rank;
+      const std::size_t x = rank_;
       memset(elemBoundaries, 0, sizeof(int) * numElemPerPart[3] * 4);
 
       if (x == 0) { // first partition in x dimension
@@ -646,7 +646,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   // Calculate elemNeighborSides
   for (std::size_t z = 0; z < numPartitions[2]; z++) {
     for (std::size_t y = 0; y < numPartitions[1]; y++) {
-      const std::size_t x = rank;
+      const std::size_t x = rank_;
       memcpy(elemNeighborSides, elemNeighborSidesDef, sizeof(int) * numElemPerPart[3] * 4);
 
       if (boundaryMinx != 6 && x == 0) { // first partition in x dimension
@@ -817,7 +817,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   // Calculate elemSideOrientations
   for (std::size_t z = 0; z < numPartitions[2]; z++) {
     for (std::size_t y = 0; y < numPartitions[1]; y++) {
-      const std::size_t x = rank;
+      const std::size_t x = rank_;
 
       memcpy(elemSideOrientations, elemSideOrientationsDef, sizeof(int) * numElemPerPart[3] * 4);
 
@@ -981,7 +981,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   for (std::size_t z = 0; z < numPartitions[2]; z++) {
     for (std::size_t y = 0; y < numPartitions[1]; y++) {
-      const std::size_t x = rank;
+      const std::size_t x = rank_;
       const int myrank = (z * numPartitions[1] + y) * numPartitions[0] + x;
 
       std::fill(elemNeighborRanks, elemNeighborRanks + numElemPerPart[3] * 4, myrank);
@@ -1175,7 +1175,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   // calculate bndElem variables, bndLocalIds and elemMPIIndices
   for (std::size_t z = 0; z < numPartitions[2]; z++) {
     for (std::size_t y = 0; y < numPartitions[1]; y++) {
-      const std::size_t x = rank;
+      const std::size_t x = rank_;
       memset(elemMPIIndices, 0, sizeof(int) * numElemPerPart[3] * 4);
 
       std::size_t bndSize = 0;
@@ -1497,7 +1497,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   for (std::size_t z = 0; z < numPartitions[2]; z++) {
     for (std::size_t y = 0; y < numPartitions[1]; y++) {
-      const std::size_t x = rank;
+      const std::size_t x = rank_;
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif // _OPENMP
@@ -1527,7 +1527,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   delete[] vrtxCoords;
 
   // Adjust sizes for the upcoming determination of neighbors
-  sizes[0] = bndSizePtr[static_cast<size_t>(rank)];
+  sizes[0] = bndSizePtr[static_cast<size_t>(rank_)];
 
   // Get maximum number of neighbors (required to get collective MPI-IO right)
   const int maxNeighbors = bndSize;
@@ -1535,7 +1535,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   size_t bndStart[3] = {0, 0, 0};
   for (int i = 0; i < maxNeighbors; i++) {
-    bndStart[0] = static_cast<size_t>(rank);
+    bndStart[0] = static_cast<size_t>(rank_);
     bndStart[1] = static_cast<size_t>(i);
 
     // Get neighbor rank

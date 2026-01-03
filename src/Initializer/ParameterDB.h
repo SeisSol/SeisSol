@@ -143,7 +143,7 @@ class MaterialParameterDB : ParameterDB {
 
 class FaultParameterDB : ParameterDB {
   public:
-  explicit FaultParameterDB(std::size_t simulation) : simid(simulation) {}
+  explicit FaultParameterDB(std::size_t simulation) : simid_(simulation) {}
   ~FaultParameterDB() override = default;
   void addParameter(const std::string& parameter, real* memory, unsigned stride = 1) {
     parameters_[parameter] = std::make_pair(memory, stride);
@@ -152,7 +152,7 @@ class FaultParameterDB : ParameterDB {
   static std::set<std::string> faultProvides(const std::string& fileName);
 
   private:
-  std::size_t simid;
+  std::size_t simid_;
   std::unordered_map<std::string, std::pair<real*, unsigned>> parameters_;
 };
 
@@ -160,7 +160,7 @@ class EasiBoundary {
   public:
   explicit EasiBoundary(const std::string& fileName);
 
-  EasiBoundary() : model(nullptr) {};
+  EasiBoundary() : model_(nullptr) {};
   EasiBoundary(const EasiBoundary&) = delete;
   EasiBoundary& operator=(const EasiBoundary&) = delete;
   EasiBoundary(EasiBoundary&& other) noexcept;
@@ -171,7 +171,7 @@ class EasiBoundary {
   void query(const real* nodes, real* mapTermsData, real* constantTermsData) const;
 
   private:
-  easi::Component* model;
+  easi::Component* model_;
 };
 
 } // namespace seissol::initializer

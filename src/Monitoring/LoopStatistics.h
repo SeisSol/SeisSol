@@ -68,8 +68,8 @@ class LoopStatistics {
     Region(const std::string& name, bool includeInSummary);
   };
 
-  std::vector<Region> regions;
-  bool outputSamples = false;
+  std::vector<Region> regions_;
+  bool outputSamples_ = false;
 };
 } // namespace seissol
 

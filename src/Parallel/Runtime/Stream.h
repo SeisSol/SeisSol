@@ -29,19 +29,19 @@ class ManagedStream {
   ManagedStream(const ManagedStream&) = delete;
   auto operator=(const ManagedStream&) = delete;
 
-  ManagedStream(ManagedStream&& old) noexcept : streamPtr(old.streamPtr) {}
+  ManagedStream(ManagedStream&& old) noexcept : streamPtr_(old.streamPtr_) {}
 
   auto operator=(ManagedStream&& old) noexcept -> ManagedStream& {
-    this->streamPtr = old.streamPtr;
+    this->streamPtr_ = old.streamPtr_;
     return *this;
   }
 
-  [[nodiscard]] void* get() const { return streamPtr; }
+  [[nodiscard]] void* get() const { return streamPtr_; }
 
   ~ManagedStream();
 
   private:
-  void* streamPtr{nullptr};
+  void* streamPtr_{nullptr};
 };
 
 class ManagedEvent {
@@ -51,19 +51,19 @@ class ManagedEvent {
   ManagedEvent(const ManagedEvent&) = delete;
   auto operator=(const ManagedEvent&) = delete;
 
-  ManagedEvent(ManagedEvent&& old) noexcept : eventPtr(old.eventPtr) {}
+  ManagedEvent(ManagedEvent&& old) noexcept : eventPtr_(old.eventPtr_) {}
 
   auto operator=(ManagedEvent&& old) noexcept -> ManagedEvent& {
-    this->eventPtr = old.eventPtr;
+    this->eventPtr_ = old.eventPtr_;
     return *this;
   }
 
-  [[nodiscard]] void* get() const { return eventPtr; }
+  [[nodiscard]] void* get() const { return eventPtr_; }
 
   ~ManagedEvent();
 
   private:
-  void* eventPtr{nullptr};
+  void* eventPtr_{nullptr};
 };
 
 class StreamRuntime {
@@ -257,7 +257,7 @@ template <typename T>
 class StreamMemoryHandle {
   public:
   StreamMemoryHandle(std::size_t count, StreamRuntime& runtime)
-      : data(runtime.allocMemory<T>(count)), runtime(runtime) {}
+      : data_(runtime.allocMemory<T>(count)), runtime_(runtime) {}
 
   StreamMemoryHandle(const StreamMemoryHandle&) = delete;
   auto operator=(const StreamMemoryHandle& stream) = delete;
@@ -265,15 +265,15 @@ class StreamMemoryHandle {
   StreamMemoryHandle(StreamMemoryHandle&&) = default;
   auto operator=(StreamMemoryHandle&& stream) -> StreamMemoryHandle& = default;
 
-  T* get() { return data; }
+  T* get() { return data_; }
 
-  const T* get() const { return data; }
+  const T* get() const { return data_; }
 
-  ~StreamMemoryHandle() { runtime.freeMemory(data); }
+  ~StreamMemoryHandle() { runtime_.freeMemory(data_); }
 
   private:
-  T* data;
-  StreamRuntime& runtime;
+  T* data_;
+  StreamRuntime& runtime_;
 };
 
 } // namespace seissol::parallel::runtime

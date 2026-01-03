@@ -134,13 +134,13 @@ class AcousticTravellingWaveITM : public InitialField {
 
   private:
   void init(const CellMaterialData& materialData);
-  double rho0;
-  double c0;
-  double k;
-  double tITMMinus;
-  double tau;
-  double tITMPlus;
-  double n;
+  double rho0_;
+  double c0_;
+  double k_;
+  double tITMMinus_;
+  double tau_;
+  double tITMPlus_;
+  double n_;
 };
 
 class ScholteWave : public InitialField {
@@ -173,8 +173,8 @@ class SnellsLaw : public InitialField {
  */
 class Ocean : public InitialField {
   private:
-  int mode;
-  double gravitationalAcceleration;
+  int mode_;
+  double gravitationalAcceleration_;
 
   public:
   Ocean(int mode, double gravitationalAcceleration);

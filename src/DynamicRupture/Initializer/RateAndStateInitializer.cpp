@@ -53,23 +53,23 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
     auto* initialStressInFaultCS = layer.var<LTSRateAndState::InitialStressInFaultCS>();
 
     const real initialSlipRate =
-        misc::magnitude(drParameters->rsInitialSlipRate1, drParameters->rsInitialSlipRate2);
+        misc::magnitude(drParameters_->rsInitialSlipRate1, drParameters_->rsInitialSlipRate2);
 
     using namespace dr::misc::quantity_indices;
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         dynStressTimePending[ltsFace][pointIndex] = true;
-        slipRate1[ltsFace][pointIndex] = drParameters->rsInitialSlipRate1;
-        slipRate2[ltsFace][pointIndex] = drParameters->rsInitialSlipRate2;
+        slipRate1[ltsFace][pointIndex] = drParameters_->rsInitialSlipRate1;
+        slipRate2[ltsFace][pointIndex] = drParameters_->rsInitialSlipRate2;
 
         if (rsF0Param) {
-          rsF0[ltsFace][pointIndex] = drParameters->rsF0;
+          rsF0[ltsFace][pointIndex] = drParameters_->rsF0;
         }
         if (rsMuWParam) {
-          rsMuW[ltsFace][pointIndex] = drParameters->muW;
+          rsMuW[ltsFace][pointIndex] = drParameters_->muW;
         }
         if (rsBParam) {
-          rsB[ltsFace][pointIndex] = drParameters->rsB;
+          rsB[ltsFace][pointIndex] = drParameters_->rsB;
         }
 
         // compute initial friction and state
@@ -80,7 +80,7 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
                                            rsA[ltsFace][pointIndex],
                                            rsB[ltsFace][pointIndex],
                                            rsSl0[ltsFace][pointIndex],
-                                           drParameters->rsSr0,
+                                           drParameters_->rsSr0,
                                            rsF0[ltsFace][pointIndex],
                                            initialSlipRate);
         stateVariable[ltsFace][pointIndex] = stateAndFriction.stateVariable;
@@ -173,7 +173,7 @@ void RateAndStateFastVelocityInitializer::addAdditionalParameters(
 ThermalPressurizationInitializer::ThermalPressurizationInitializer(
     const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
     const std::set<std::string>& faultParameterNames)
-    : drParameters(drParameters), faultParameterNames(faultParameterNames) {}
+    : drParameters_(drParameters), faultParameterNames_(faultParameterNames) {}
 
 void ThermalPressurizationInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
   for (auto& layer : drStorage.leaves(Ghost)) {
@@ -184,8 +184,8 @@ void ThermalPressurizationInitializer::initializeFault(DynamicRupture::Storage& 
 
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-        temperature[ltsFace][pointIndex] = drParameters->initialTemperature;
-        pressure[ltsFace][pointIndex] = drParameters->initialPressure;
+        temperature[ltsFace][pointIndex] = drParameters_->initialTemperature;
+        pressure[ltsFace][pointIndex] = drParameters_->initialPressure;
         for (unsigned tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
              ++tpGridPointIndex) {
           theta[ltsFace][tpGridPointIndex][pointIndex] = 0.0;
@@ -218,8 +218,8 @@ RateAndStateThermalPressurizationInitializer::RateAndStateThermalPressurizationI
     const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
     SeisSol& instance)
     : RateAndStateInitializer(drParameters, instance),
-      ThermalPressurizationInitializer(drParameters, RateAndStateInitializer::faultParameterNames) {
-}
+      ThermalPressurizationInitializer(drParameters,
+                                       RateAndStateInitializer::faultParameterNames_) {}
 
 void RateAndStateThermalPressurizationInitializer::initializeFault(
     DynamicRupture::Storage& drStorage) {
@@ -239,7 +239,7 @@ RateAndStateFastVelocityThermalPressurizationInitializer::
         SeisSol& instance)
     : RateAndStateFastVelocityInitializer(drParameters, instance),
       ThermalPressurizationInitializer(drParameters,
-                                       RateAndStateFastVelocityInitializer::faultParameterNames) {}
+                                       RateAndStateFastVelocityInitializer::faultParameterNames_) {}
 
 void RateAndStateFastVelocityThermalPressurizationInitializer::initializeFault(
     DynamicRupture::Storage& drStorage) {
@@ -256,7 +256,7 @@ void RateAndStateFastVelocityThermalPressurizationInitializer::addAdditionalPara
 std::string ThermalPressurizationInitializer::faultNameAlternatives(
     const std::vector<std::string>& parameter) {
   for (const auto& name : parameter) {
-    if (faultParameterNames.find(name) != faultParameterNames.end()) {
+    if (faultParameterNames_.find(name) != faultParameterNames_.end()) {
       if (name != parameter[0]) {
         logWarning() << "You are using the deprecated fault parameter name" << name << "for"
                      << parameter[0];

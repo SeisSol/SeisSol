@@ -30,26 +30,26 @@ class Condition {
   Condition() = delete;
 
   explicit Condition(T initialEncoding)
-      : highBitsMask(~((~static_cast<size_t>(0)) << static_cast<size_t>(T::Count))),
-        encoding(static_cast<size_t>(initialEncoding)) {}
+      : highBitsMask_(~((~static_cast<size_t>(0)) << static_cast<size_t>(T::Count))),
+        encoding_(static_cast<size_t>(initialEncoding)) {}
 
   Condition& operator!() {
-    encoding = highBitsMask & (~encoding);
+    encoding_ = highBitsMask_ & (~encoding_);
     return *this;
   }
 
   Condition& operator||(const Condition& other) {
-    encoding = encoding | other.encoding;
+    encoding_ = encoding_ | other.encoding_;
     return *this;
   }
 
   Condition& negate() { return !(*this); }
 
-  size_t getEncoding() { return encoding; }
+  size_t getEncoding() { return encoding_; }
 
   private:
-  size_t highBitsMask;
-  size_t encoding;
+  size_t highBitsMask_;
+  size_t encoding_;
 };
 } // namespace seissol::recording
 

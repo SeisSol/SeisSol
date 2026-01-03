@@ -195,7 +195,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     this->currLayerSize = layerData.size();
     FrictionSolverInterface::copyStorageToLocal(&dataHost, layerData);
     Derived::copySpecificStorageDataToLocal(&dataHost, layerData);
-    dataHost.drParameters = *this->drParameters;
+    dataHost.drParameters = *this->drParameters_;
     device::DeviceInstance::getInstance().api->copyToAsync(
         data, &dataHost, sizeof(FrictionLawData), runtime.stream());
   }

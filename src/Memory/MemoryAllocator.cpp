@@ -193,18 +193,18 @@ void printMemoryAlignment(const std::vector<std::vector<unsigned long long>>& me
 }
 
 ManagedAllocator::~ManagedAllocator() {
-  for (const auto& [memkind, pointer] : dataMemoryAddresses) {
+  for (const auto& [memkind, pointer] : dataMemoryAddresses_) {
     free(pointer, memkind);
   }
 
   // reset memory vectors
-  dataMemoryAddresses.clear();
+  dataMemoryAddresses_.clear();
 }
 
 void* ManagedAllocator::allocateMemory(size_t size, size_t alignment, enum Memkind memkind) {
   // NOLINTNEXTLINE(misc-const-correctness)
   void* const ptrBuffer = allocate(size, alignment, memkind);
-  dataMemoryAddresses.emplace_back(memkind, ptrBuffer);
+  dataMemoryAddresses_.emplace_back(memkind, ptrBuffer);
   return ptrBuffer;
 }
 

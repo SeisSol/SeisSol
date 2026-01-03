@@ -74,7 +74,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 struct ApplyAnalyticalSolution {
   ApplyAnalyticalSolution(const std::vector<std::unique_ptr<physics::InitialField>>* initConditions,
                           LTS::Ref& data)
-      : initConditions(initConditions), localData(data) {}
+      : initConditions_(initConditions), localData_(data) {}
 
   void operator()(const real* nodes,
                   double time,
@@ -96,14 +96,15 @@ struct ApplyAnalyticalSolution {
 
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
       auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
-      initConditions->at(s % initConditions->size())
-          ->evaluate(time, nodesVec, NodeCount, localData.get<LTS::Material>(), slicedBoundaryDofs);
+      initConditions_->at(s % initConditions_->size())
+          ->evaluate(
+              time, nodesVec, NodeCount, localData_.get<LTS::Material>(), slicedBoundaryDofs);
     }
   }
 
   private:
-  const std::vector<std::unique_ptr<physics::InitialField>>* initConditions;
-  LTS::Ref& localData;
+  const std::vector<std::unique_ptr<physics::InitialField>>* initConditions_;
+  LTS::Ref& localData_;
 };
 
 void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
@@ -158,7 +159,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       auto* displ = tmp.nodalAvgDisplacements[face].data();
       auto displacement = init::averageNormalDisplacement::view::create(displ);
       // lambdas can't catch gravitationalAcceleration directly, so have to make a copy here.
-      const auto localG = gravitationalAcceleration;
+      const auto localG = gravitationalAcceleration_;
       auto applyFreeSurfaceBc =
           [&displacement, &materialData, &localG](const real*, // nodes are unused
                                                   init::INodal::view::type& boundaryDofs) {
@@ -180,12 +181,12 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
             }
           };
 
-      dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
-                                 face,
-                                 (*cellBoundaryMapping)[face],
-                                 projectRotatedKrnlPrototype_,
-                                 applyFreeSurfaceBc,
-                                 dofsFaceBoundaryNodal);
+      dirichletBoundary_.evaluate(timeIntegratedDegreesOfFreedom,
+                                  face,
+                                  (*cellBoundaryMapping)[face],
+                                  projectRotatedKrnlPrototype_,
+                                  applyFreeSurfaceBc,
+                                  dofsFaceBoundaryNodal);
 
       nodalLfKrnl.execute(face);
       break;
@@ -207,12 +208,12 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       };
 
       // Compute boundary in [n, t_1, t_2] basis
-      dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
-                                 face,
-                                 (*cellBoundaryMapping)[face],
-                                 projectRotatedKrnlPrototype_,
-                                 applyEasiBoundary,
-                                 dofsFaceBoundaryNodal);
+      dirichletBoundary_.evaluate(timeIntegratedDegreesOfFreedom,
+                                  face,
+                                  (*cellBoundaryMapping)[face],
+                                  projectRotatedKrnlPrototype_,
+                                  applyEasiBoundary,
+                                  dofsFaceBoundaryNodal);
 
       // We do not need to rotate the boundary data back to the [x,y,z] basis
       // as we set the Tinv matrix to the identity matrix in the flux solver
@@ -224,16 +225,16 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
     case FaceType::Analytical: {
       assert(cellBoundaryMapping != nullptr);
       assert(initConds != nullptr);
-      const auto applyAnalyticalSolution = ApplyAnalyticalSolution(initConds, data);
+      const auto applyAnalyticalSolution = ApplyAnalyticalSolution(initConds_, data);
 
-      dirichletBoundary.evaluateTimeDependent(timeIntegratedDegreesOfFreedom,
-                                              face,
-                                              (*cellBoundaryMapping)[face],
-                                              projectKrnlPrototype_,
-                                              applyAnalyticalSolution,
-                                              dofsFaceBoundaryNodal,
-                                              time,
-                                              timeStepWidth);
+      dirichletBoundary_.evaluateTimeDependent(timeIntegratedDegreesOfFreedom,
+                                               face,
+                                               (*cellBoundaryMapping)[face],
+                                               projectKrnlPrototype_,
+                                               applyAnalyticalSolution,
+                                               dofsFaceBoundaryNodal,
+                                               time,
+                                               timeStepWidth);
       nodalLfKrnl.execute(face);
       break;
     }
@@ -309,17 +310,17 @@ void Local::computeBatchedIntegral(
           dataTable[fsgKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
       auto rhos = materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
       local_flux::aux::FreeSurfaceGravity freeSurfaceGravityBc;
-      freeSurfaceGravityBc.g = gravitationalAcceleration;
+      freeSurfaceGravityBc.g = gravitationalAcceleration_;
       freeSurfaceGravityBc.rhos = rhos;
       freeSurfaceGravityBc.displacementDataPtrs = nodalAvgDisplacements;
-      dirichletBoundary.evaluateOnDevice(face,
-                                         fsgKey,
-                                         deviceProjectRotatedKrnlPrototype,
-                                         deviceNodalLfKrnlPrototype,
-                                         freeSurfaceGravityBc,
-                                         dataTable,
-                                         device,
-                                         runtime);
+      dirichletBoundary_.evaluateOnDevice(face,
+                                          fsgKey,
+                                          deviceProjectRotatedKrnlPrototype,
+                                          deviceNodalLfKrnlPrototype,
+                                          freeSurfaceGravityBc,
+                                          dataTable,
+                                          device,
+                                          runtime);
     }
 
     ConditionalKey dirichletKey(
@@ -334,14 +335,14 @@ void Local::computeBatchedIntegral(
       easiBoundaryBc.easiBoundaryMapPtrs = easiBoundaryMapPtrs;
       easiBoundaryBc.easiBoundaryConstantPtrs = easiBoundaryConstantPtrs;
 
-      dirichletBoundary.evaluateOnDevice(face,
-                                         dirichletKey,
-                                         deviceProjectRotatedKrnlPrototype,
-                                         deviceNodalLfKrnlPrototype,
-                                         easiBoundaryBc,
-                                         dataTable,
-                                         device,
-                                         runtime);
+      dirichletBoundary_.evaluateOnDevice(face,
+                                          dirichletKey,
+                                          deviceProjectRotatedKrnlPrototype,
+                                          deviceNodalLfKrnlPrototype,
+                                          easiBoundaryBc,
+                                          dataTable,
+                                          device,
+                                          runtime);
     }
   }
 #else
@@ -377,16 +378,16 @@ void Local::evaluateBatchedTimeDependentBc(
         alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
 
         assert(initConds != nullptr);
-        ApplyAnalyticalSolution applyAnalyticalSolution(initConds, data);
+        ApplyAnalyticalSolution applyAnalyticalSolution(initConds_, data);
 
-        dirichletBoundary.evaluateTimeDependent(nullptr,
-                                                face,
-                                                data.get<LTS::BoundaryMapping>()[face],
-                                                projectKrnlPrototype_,
-                                                applyAnalyticalSolution,
-                                                dofsFaceBoundaryNodal,
-                                                time,
-                                                timeStepWidth);
+        dirichletBoundary_.evaluateTimeDependent(nullptr,
+                                                 face,
+                                                 data.get<LTS::BoundaryMapping>()[face],
+                                                 projectKrnlPrototype_,
+                                                 applyAnalyticalSolution,
+                                                 dofsFaceBoundaryNodal,
+                                                 time,
+                                                 timeStepWidth);
 
         std::memcpy(analytical[index], dofsFaceBoundaryNodal, sizeof(dofsFaceBoundaryNodal));
       });

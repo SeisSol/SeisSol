@@ -108,64 +108,64 @@ namespace seissol::io::datatype {
 Datatype::~Datatype() = default;
 
 Array::Array(std::shared_ptr<Datatype> type, const std::vector<std::size_t>& dimensions)
-    : type(std::move(type)), dimensions(dimensions) {}
+    : type_(std::move(type)), dimensions_(dimensions) {}
 
 Array Datatype::unwrap(std::size_t /*maxDimensions*/) { return Array(shared_from_this(), {}); }
 
-OpaqueDatatype::OpaqueDatatype(std::size_t size) : sizeP(size) {}
+OpaqueDatatype::OpaqueDatatype(std::size_t size) : sizeP_(size) {}
 
-std::size_t OpaqueDatatype::size() const { return sizeP; }
+std::size_t OpaqueDatatype::size() const { return sizeP_; }
 
 YAML::Node OpaqueDatatype::serialize() const {
   YAML::Node node;
   node["type"] = "opaque";
-  node["size"] = sizeP;
+  node["size"] = sizeP_;
   return node;
 }
 
-OpaqueDatatype::OpaqueDatatype(YAML::Node node) : sizeP(node["size"].as<size_t>()) {}
+OpaqueDatatype::OpaqueDatatype(YAML::Node node) : sizeP_(node["size"].as<size_t>()) {}
 
 std::string OpaqueDatatype::toStringRaw(const void* data) const {
   std::ostringstream sstr;
   const char* dataPtr = reinterpret_cast<const char*>(data);
-  for (std::size_t i = 0; i < sizeP; i += 3) {
+  for (std::size_t i = 0; i < sizeP_; i += 3) {
     base64Convert<4>(sstr, dataPtr[i], dataPtr[i + 1], dataPtr[i + 2]);
   }
-  if (sizeP % 3 == 1) {
-    base64Convert<2>(sstr, dataPtr[sizeP - 1], 0, 0);
+  if (sizeP_ % 3 == 1) {
+    base64Convert<2>(sstr, dataPtr[sizeP_ - 1], 0, 0);
     sstr << Base64Pad << Base64Pad;
   }
-  if (sizeP % 3 == 2) {
-    base64Convert<3>(sstr, dataPtr[sizeP - 2], dataPtr[sizeP - 3], 0);
+  if (sizeP_ % 3 == 2) {
+    base64Convert<3>(sstr, dataPtr[sizeP_ - 2], dataPtr[sizeP_ - 3], 0);
     sstr << Base64Pad;
   }
 
   return sstr.str();
 }
 std::optional<std::vector<char>> OpaqueDatatype::fromStringRaw(const std::string& str) const {
-  std::vector<char> data(sizeP);
-  for (std::size_t i = 0; i < (sizeP + 3) / 4; ++i) {
+  std::vector<char> data(sizeP_);
+  for (std::size_t i = 0; i < (sizeP_ + 3) / 4; ++i) {
     base64Revert<3>(str, 4 * i, data.data(), 3 * i);
   }
   return std::make_optional(data);
 }
 
-StringDatatype::StringDatatype(std::size_t size) : sizeP(size) {}
+StringDatatype::StringDatatype(std::size_t size) : sizeP_(size) {}
 
-std::size_t StringDatatype::size() const { return sizeP; }
+std::size_t StringDatatype::size() const { return sizeP_; }
 
 YAML::Node StringDatatype::serialize() const {
   YAML::Node node;
   node["type"] = "string";
-  node["size"] = sizeP;
+  node["size"] = sizeP_;
   return node;
 }
 
-StringDatatype::StringDatatype(YAML::Node node) : sizeP(node["size"].as<size_t>()) {}
+StringDatatype::StringDatatype(YAML::Node node) : sizeP_(node["size"].as<size_t>()) {}
 
 std::string StringDatatype::toStringRaw(const void* data) const {
   const char* dataPtr = reinterpret_cast<const char*>(data);
-  return std::string(dataPtr, dataPtr + sizeP);
+  return std::string(dataPtr, dataPtr + sizeP_);
 }
 std::optional<std::vector<char>> StringDatatype::fromStringRaw(const std::string& str) const {
   return std::make_optional(std::vector<char>(str.begin(), str.end()));
@@ -216,22 +216,22 @@ std::optional<std::vector<char>> F80Datatype::fromStringRaw(const std::string& s
   return fromStringRawPrimitive<long double>(str);
 }
 
-IntegerDatatype::IntegerDatatype(std::size_t size, bool sign) : sizeP(size), signP(sign) {
+IntegerDatatype::IntegerDatatype(std::size_t size, bool sign) : sizeP_(size), signP_(sign) {
   assert(size > 0);
 }
 
 IntegerDatatype::IntegerDatatype(YAML::Node node)
-    : sizeP(node["size"].as<std::size_t>()), signP(node["sign"].as<bool>()) {}
+    : sizeP_(node["size"].as<std::size_t>()), signP_(node["sign"].as<bool>()) {}
 
-std::size_t IntegerDatatype::size() const { return sizeP; }
+std::size_t IntegerDatatype::size() const { return sizeP_; }
 
-bool IntegerDatatype::sign() const { return signP; }
+bool IntegerDatatype::sign() const { return signP_; }
 
 YAML::Node IntegerDatatype::serialize() const {
   YAML::Node node;
   node["type"] = "int";
-  node["sign"] = signP;
-  node["size"] = sizeP;
+  node["sign"] = signP_;
+  node["size"] = sizeP_;
   return node;
 }
 
@@ -246,31 +246,31 @@ std::optional<std::vector<char>> IntegerDatatype::fromStringRaw(const std::strin
 
 ArrayDatatype::ArrayDatatype(std::shared_ptr<Datatype> base,
                              const std::vector<std::size_t>& dimensions)
-    : baseP(std::move(base)), dimensionsP(dimensions) {}
+    : baseP_(std::move(base)), dimensionsP_(dimensions) {}
 
 ArrayDatatype::ArrayDatatype(YAML::Node node)
-    : baseP(Datatype::deserialize(node["base"])),
-      dimensionsP(node["shape"].as<std::vector<std::size_t>>()) {}
+    : baseP_(Datatype::deserialize(node["base"])),
+      dimensionsP_(node["shape"].as<std::vector<std::size_t>>()) {}
 
 std::size_t ArrayDatatype::size() const {
-  std::size_t totalSize = baseP->size();
-  for (const auto& dim : dimensionsP) {
+  std::size_t totalSize = baseP_->size();
+  for (const auto& dim : dimensionsP_) {
     totalSize *= dim;
   }
   return totalSize;
 }
 
-Array ArrayDatatype::unwrap(std::size_t /*maxDimensions*/) { return Array(baseP, dimensionsP); }
+Array ArrayDatatype::unwrap(std::size_t /*maxDimensions*/) { return Array(baseP_, dimensionsP_); }
 
-const std::vector<std::size_t>& ArrayDatatype::dimensions() const { return dimensionsP; }
+const std::vector<std::size_t>& ArrayDatatype::dimensions() const { return dimensionsP_; }
 
-std::shared_ptr<Datatype> ArrayDatatype::base() const { return baseP; }
+std::shared_ptr<Datatype> ArrayDatatype::base() const { return baseP_; }
 
 YAML::Node ArrayDatatype::serialize() const {
   YAML::Node node;
   node["type"] = "array";
-  node["base"] = baseP->serialize();
-  node["shape"] = dimensionsP;
+  node["base"] = baseP_->serialize();
+  node["shape"] = dimensionsP_;
   return node;
 }
 
@@ -289,23 +289,23 @@ StructDatatype::StructDatatype(const std::vector<MemberInfo>& members)
     : StructDatatype(members, minSize(members)) {}
 
 StructDatatype::StructDatatype(const std::vector<MemberInfo>& members, std::size_t size)
-    : sizeP(size), membersP(members) {
+    : sizeP_(size), membersP_(members) {
   assert(size >= minSize(members));
 }
 
 StructDatatype::StructDatatype(YAML::Node node)
-    : sizeP(node["size"].as<std::size_t>()), membersP(deserializeMemberInfo(node["members"])) {}
+    : sizeP_(node["size"].as<std::size_t>()), membersP_(deserializeMemberInfo(node["members"])) {}
 
-std::size_t StructDatatype::size() const { return sizeP; }
+std::size_t StructDatatype::size() const { return sizeP_; }
 
-const std::vector<StructDatatype::MemberInfo>& StructDatatype::members() const { return membersP; }
+const std::vector<StructDatatype::MemberInfo>& StructDatatype::members() const { return membersP_; }
 
 YAML::Node StructDatatype::serialize() const {
   YAML::Node node;
   node["type"] = "struct";
-  node["size"] = sizeP;
+  node["size"] = sizeP_;
   std::vector<YAML::Node> members;
-  for (const auto& member : membersP) {
+  for (const auto& member : membersP_) {
     YAML::Node membernode;
     membernode["name"] = member.name;
     membernode["offset"] = member.offset;

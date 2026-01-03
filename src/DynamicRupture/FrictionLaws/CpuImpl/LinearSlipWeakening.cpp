@@ -30,7 +30,7 @@ void NoSpecialization::resampleSlipRate(
   resampleKrnl.execute();
 }
 void BiMaterialFault::copyStorageToLocal(DynamicRupture::Layer& layerData) {
-  regularizedStrength = layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>();
+  regularizedStrength_ = layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>();
 }
 
 #pragma omp declare simd
@@ -42,11 +42,11 @@ real BiMaterialFault::strengthHook(real faultStrength,
   // modify strength according to Prakash-Clifton
   // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
   const real expterm =
-      std::exp(-(std::max(static_cast<real>(0.0), localSlipRate) + drParameters->vStar) * deltaT /
-               drParameters->prakashLength);
+      std::exp(-(std::max(static_cast<real>(0.0), localSlipRate) + drParameters_->vStar) * deltaT /
+               drParameters_->prakashLength);
   const real newStrength =
-      regularizedStrength[ltsFace][pointIndex] * expterm + faultStrength * (1.0 - expterm);
-  regularizedStrength[ltsFace][pointIndex] = newStrength;
+      regularizedStrength_[ltsFace][pointIndex] * expterm + faultStrength * (1.0 - expterm);
+  regularizedStrength_[ltsFace][pointIndex] = newStrength;
   return newStrength;
 }
 
@@ -56,7 +56,7 @@ real TPApprox::stateVariableHook(real localAccumulatedSlip,
                                  std::size_t /*ltsFace*/,
                                  std::uint32_t /*pointIndex*/) {
   const real factor = (1.0 + std::fabs(localAccumulatedSlip) / localDc);
-  return 1.0 - std::pow(factor, -drParameters->tpProxyExponent);
+  return 1.0 - std::pow(factor, -drParameters_->tpProxyExponent);
 }
 
 } // namespace seissol::dr::friction_law::cpu

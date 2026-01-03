@@ -18,7 +18,7 @@ namespace seissol::initializer::time_stepping {
 void ExponentialWeights::setVertexWeights() {
   assert(ncon_ == 1 && "single constraint partitioning");
   const int maxCluster =
-      getCluster(details_.globalMaxTimeStep, details_.globalMinTimeStep, wiggleFactor, rate_);
+      getCluster(details_.globalMaxTimeStep, details_.globalMinTimeStep, wiggleFactor_, rate_);
 
   for (std::size_t cell = 0; cell < cellCosts_.size(); ++cell) {
     const auto factor = ratepow(rate_, clusterIds_[cell], maxCluster);
@@ -37,7 +37,7 @@ void ExponentialWeights::setAllowedImbalances() {
 void ExponentialBalancedWeights::setVertexWeights() {
   assert(ncon_ == 2 && "binary constaints partitioning");
   const int maxCluster =
-      getCluster(details_.globalMaxTimeStep, details_.globalMinTimeStep, wiggleFactor, rate_);
+      getCluster(details_.globalMaxTimeStep, details_.globalMinTimeStep, wiggleFactor_, rate_);
 
   for (std::size_t cell = 0; cell < cellCosts_.size(); ++cell) {
     const auto factor = ratepow(rate_, clusterIds_[cell], maxCluster);
@@ -61,7 +61,7 @@ void ExponentialBalancedWeights::setAllowedImbalances() {
 
 int EncodedBalancedWeights::evaluateNumberOfConstraints() {
   const int maxCluster =
-      getCluster(details_.globalMaxTimeStep, details_.globalMinTimeStep, wiggleFactor, rate_);
+      getCluster(details_.globalMaxTimeStep, details_.globalMinTimeStep, wiggleFactor_, rate_);
   return maxCluster + 1;
 }
 

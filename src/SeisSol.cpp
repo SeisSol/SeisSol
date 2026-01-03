@@ -43,7 +43,7 @@ bool SeisSol::init() {
   printUSMInfo(env_);
   printMPIUSMInfo(env_);
 #endif
-  pinning.checkEnvVariables();
+  pinning_.checkEnvVariables();
   if (OpenMP::enabled()) {
     logInfo() << "Using OpenMP with #threads/rank:" << seissol::OpenMP::threadCount();
   } else {
@@ -52,7 +52,7 @@ bool SeisSol::init() {
   if (!parallel::Pinning::areAllCpusOnline()) {
     logInfo() << "Some CPUs are offline. Only online CPUs are considered.";
     logInfo() << "Online Mask            (this node)   :"
-              << parallel::Pinning::maskToString(pinning.getOnlineMask());
+              << parallel::Pinning::maskToString(pinning_.getOnlineMask());
   }
   logInfo() << "OpenMP worker affinity (this process):"
             << parallel::Pinning::maskToString(seissol::parallel::Pinning::getWorkerUnionMask());
@@ -61,7 +61,7 @@ bool SeisSol::init() {
 
   seissol::printCommThreadInfo(seissol::Mpi::mpi, env_);
   if (seissol::useCommThread(seissol::Mpi::mpi, env_)) {
-    auto freeCpus = pinning.getFreeCPUsMask();
+    auto freeCpus = pinning_.getFreeCPUsMask();
     logInfo() << "Communication thread affinity        :"
               << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
@@ -131,9 +131,9 @@ void SeisSol::setBackupTimeStamp(const std::string& stamp) {
 }
 
 void SeisSol::loadCheckpoint(const std::string& file) {
-  checkpointLoadFile = std::make_optional<std::string>(file);
+  checkpointLoadFile_ = std::make_optional<std::string>(file);
 }
 
-void SeisSol::setExecutionPlaceCutoff(std::size_t size) { executionPlaceCutoff = size; }
+void SeisSol::setExecutionPlaceCutoff(std::size_t size) { executionPlaceCutoff_ = size; }
 
 } // namespace seissol

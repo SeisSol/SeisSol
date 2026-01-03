@@ -51,7 +51,7 @@ class Spacetime : public SpacetimeKernel {
 
   protected:
   kernel::derivative krnlPrototype_;
-  kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
+  kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_derivative deviceKrnlPrototype;

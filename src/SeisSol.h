@@ -50,7 +50,7 @@ class SeisSol {
    */
   virtual ~SeisSol() { delete meshReader_; }
 
-  const parallel::Pinning& getPinning() { return pinning; }
+  const parallel::Pinning& getPinning() { return pinning_; }
 
   /**
    * Initialize C++ part of the program
@@ -66,8 +66,8 @@ class SeisSol {
 
   Executor executionPlace(std::size_t clusterSize) {
     constexpr auto DefaultDevice = isDeviceOn() ? Executor::Device : Executor::Host;
-    if (executionPlaceCutoff.has_value()) {
-      if (executionPlaceCutoff.value() <= clusterSize) {
+    if (executionPlaceCutoff_.has_value()) {
+      if (executionPlaceCutoff_.value() <= clusterSize) {
         return DefaultDevice;
       } else {
         return Executor::Host;
@@ -124,14 +124,14 @@ class SeisSol {
    */
   monitoring::FlopCounter& flopCounter() { return flopCounter_; }
 
-  const std::optional<std::string>& getCheckpointLoadFile() { return checkpointLoadFile; }
+  const std::optional<std::string>& getCheckpointLoadFile() { return checkpointLoadFile_; }
   /**
    * Reference for timeMirrorManagers to be accessed externally when required
    */
   std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
             seissol::ITM::InstantaneousTimeMirrorManager>&
       getTimeMirrorManagers() {
-    return timeMirrorManagers;
+    return timeMirrorManagers_;
   }
 
   /**
@@ -176,23 +176,23 @@ class SeisSol {
    */
   void deleteMemoryManager() { memoryManager_.reset(nullptr); }
 
-  GravitationSetup& getGravitationSetup() { return gravitationSetup; }
+  GravitationSetup& getGravitationSetup() { return gravitationSetup_; }
 
   /*
    * sets a time stamp for backuping
    * */
   void setBackupTimeStamp(const std::string& stamp);
 
-  void setTimestepScale(double scale) { timestepScale = scale; }
+  void setTimestepScale(double scale) { timestepScale_ = scale; }
 
-  double getTimestepScale() const { return timestepScale; }
+  double getTimestepScale() const { return timestepScale_; }
 
   /*
    * returns the backup time stamp
    * */
   const std::string& getBackupTimeStamp() { return backupTimeStamp_; }
 
-  seissol::io::OutputManager& getOutputManager() { return outputManager; }
+  seissol::io::OutputManager& getOutputManager() { return outputManager_; }
 
   utils::Env& env() { return env_; }
 
@@ -203,15 +203,15 @@ class SeisSol {
   // MPI sets the affinity mask for the process
   // After the first OpenMP call, the OMP runtime sets the pining specified in e.g. OMP_PLACES
   // => Initialize it first, to avoid this.
-  parallel::Pinning pinning;
+  parallel::Pinning pinning_;
 
-  seissol::io::OutputManager outputManager;
+  seissol::io::OutputManager outputManager_;
 
   //! Collection of Parameters
   const seissol::initializer::parameters::SeisSolParameters& seissolParameters_;
 
   //! Gravitation setup for tsunami boundary condition
-  GravitationSetup gravitationSetup;
+  GravitationSetup gravitationSetup_;
 
   //! Async I/O handler (needs to be initialize before other I/O modules)
   io::AsyncIO asyncIO_;
@@ -261,26 +261,26 @@ class SeisSol {
   //! TimeMirror Managers
   std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
             seissol::ITM::InstantaneousTimeMirrorManager>
-      timeMirrorManagers;
+      timeMirrorManagers_;
 
   //! time stamp which can be used for backuping files of previous runs
   std::string backupTimeStamp_;
 
-  std::optional<std::string> checkpointLoadFile;
+  std::optional<std::string> checkpointLoadFile_;
 
-  std::optional<std::size_t> executionPlaceCutoff;
+  std::optional<std::size_t> executionPlaceCutoff_;
 
   utils::Env env_;
 
-  double timestepScale{1.0};
+  double timestepScale_{1.0};
 
   public:
   SeisSol(const initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)
-      : outputManager(*this), seissolParameters_(parameters),
+      : outputManager_(*this), seissolParameters_(parameters),
         memoryManager_(std::make_unique<initializer::MemoryManager>(*this)), timeManager_(*this),
         freeSurfaceWriter_(*this), analysisWriter_(*this), waveFieldWriter_(*this),
         faultWriter_(*this), receiverWriter_(*this), energyOutput_(*this),
-        timeMirrorManagers(*this, *this), env_(env) {}
+        timeMirrorManagers_(*this, *this), env_(env) {}
 
   SeisSol(const SeisSol&) = delete;
   SeisSol(SeisSol&&) = delete;

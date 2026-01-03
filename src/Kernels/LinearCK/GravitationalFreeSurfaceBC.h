@@ -32,11 +32,11 @@ namespace seissol {
 
 class GravitationalFreeSurfaceBc {
   private:
-  double gravitationalAcceleration;
+  double gravitationalAcceleration_;
 
   public:
   explicit GravitationalFreeSurfaceBc(double gravitationalAcceleration)
-      : gravitationalAcceleration(gravitationalAcceleration) {};
+      : gravitationalAcceleration_(gravitationalAcceleration) {};
 
   static std::pair<std::uint64_t, std::uint64_t>
       getFlopsDisplacementFace(unsigned face, [[maybe_unused]] FaceType faceType);
@@ -138,7 +138,7 @@ class GravitationalFreeSurfaceBc {
       }
 
       const double rho = materialData.local->getDensity();
-      const double g = gravitationalAcceleration; // [m/s^2]
+      const double g = gravitationalAcceleration_; // [m/s^2]
       const double z = std::sqrt(materialData.local->getLambdaBar() * rho);
 
       // Note: Probably need to increase ConvergenceOrderby 1 here!
@@ -262,7 +262,7 @@ class GravitationalFreeSurfaceBc {
 
       double factorEvaluated = 1;
       double factorInt = deltaTInt;
-      const double g = gravitationalAcceleration;
+      const double g = gravitationalAcceleration_;
 
       auto** derivativesPtrs =
           dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();

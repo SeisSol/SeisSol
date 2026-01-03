@@ -70,7 +70,7 @@ class LtsWeights {
   [[nodiscard]] double getWiggleFactor() const;
 
   private:
-  seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance_;
 
   protected:
   seissol::initializer::GlobalTimestep details_;
@@ -103,10 +103,10 @@ class LtsWeights {
   const geometry::PumlMesh* meshTopology_{nullptr};
   const geometry::PumlMesh* meshGeometry_{nullptr};
   std::vector<int> clusterIds_;
-  double wiggleFactor = 1.0;
+  double wiggleFactor_ = 1.0;
   std::map<double, decltype(clusterIds_), std::greater<>>
-      clusteringCache; // Maps wiggle factor to clustering
-  seissol::initializer::parameters::BoundaryFormat boundaryFormat;
+      clusteringCache_; // Maps wiggle factor to clustering
+  seissol::initializer::parameters::BoundaryFormat boundaryFormat_;
   struct ComputeWiggleFactorResult {
     int maxClusterId;
     double wiggleFactor;
@@ -116,10 +116,10 @@ class LtsWeights {
                                                     bool isAutoMergeUsed);
   void prepareDifferenceEnforcement();
 
-  std::vector<std::pair<int, std::vector<std::size_t>>> rankToSharedFaces;
-  std::unordered_map<std::size_t, std::size_t> localFaceIdToLocalCellId;
-  std::unordered_map<std::size_t, std::pair<std::size_t, std::size_t>> sharedFaceToExchangeId;
-  std::vector<std::size_t> boundaryCells;
+  std::vector<std::pair<int, std::vector<std::size_t>>> rankToSharedFaces_;
+  std::unordered_map<std::size_t, std::size_t> localFaceIdToLocalCellId_;
+  std::unordered_map<std::size_t, std::pair<std::size_t, std::size_t>> sharedFaceToExchangeId_;
+  std::vector<std::size_t> boundaryCells_;
 };
 } // namespace initializer::time_stepping
 } // namespace seissol

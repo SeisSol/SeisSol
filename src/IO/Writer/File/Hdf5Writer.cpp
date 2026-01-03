@@ -50,7 +50,7 @@ hid_t _ehh(hid_t data, const char* file, int line) {
 
 namespace seissol::io::writer::file {
 
-Hdf5File::Hdf5File(MPI_Comm comm) : comm(comm) {}
+Hdf5File::Hdf5File(MPI_Comm comm) : comm_(comm) {}
 
 void Hdf5File::openFile(const std::string& name) {
   const hid_t h5falist = _eh(H5Pcreate(H5P_FILE_ACCESS));
@@ -59,26 +59,26 @@ void Hdf5File::openFile(const std::string& name) {
 #else
   _eh(H5Pset_libver_bounds(h5falist, H5F_LIBVER_LATEST, H5F_LIBVER_LATEST));
 #endif
-  _eh(H5Pset_fapl_mpio(h5falist, comm, MPI_INFO_NULL));
-  file = _eh(H5Fcreate(name.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, h5falist));
+  _eh(H5Pset_fapl_mpio(h5falist, comm_, MPI_INFO_NULL));
+  file_ = _eh(H5Fcreate(name.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, h5falist));
   _eh(H5Pclose(h5falist));
 
-  handles.push(file);
+  handles_.push(file_);
 }
 void Hdf5File::openGroup(const std::string& name) {
   // cf. https://stackoverflow.com/a/18468735
-  auto existenceTest = _eh(H5Lexists(handles.top(), name.c_str(), H5P_DEFAULT));
+  auto existenceTest = _eh(H5Lexists(handles_.top(), name.c_str(), H5P_DEFAULT));
   hid_t handle = 0;
   if (existenceTest > 0) {
-    handle = _eh(H5Gopen(handles.top(), name.c_str(), H5P_DEFAULT));
+    handle = _eh(H5Gopen(handles_.top(), name.c_str(), H5P_DEFAULT));
   } else {
-    handle = _eh(H5Gcreate(handles.top(), name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+    handle = _eh(H5Gcreate(handles_.top(), name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
   }
-  handles.push(handle);
+  handles_.push(handle);
 }
 void Hdf5File::openDataset(const std::string& name) {
-  const hid_t handle = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
-  handles.push(handle);
+  const hid_t handle = _eh(H5Dopen(handles_.top(), name.c_str(), H5P_DEFAULT));
+  handles_.push(handle);
 }
 void Hdf5File::writeAttribute(const async::ExecInfo& info,
                               const std::string& name,
@@ -97,7 +97,7 @@ void Hdf5File::writeAttribute(const async::ExecInfo& info,
   }
   const hid_t h5type = datatype::convertToHdf5(source->datatype());
   const hid_t handle =
-      _eh(H5Acreate(handles.top(), name.c_str(), h5type, h5space, H5P_DEFAULT, H5P_DEFAULT));
+      _eh(H5Acreate(handles_.top(), name.c_str(), h5type, h5space, H5P_DEFAULT, H5P_DEFAULT));
   _eh(H5Awrite(handle, h5type, source->getPointer(info)));
   _eh(H5Aclose(handle));
   _eh(H5Sclose(h5space));
@@ -118,7 +118,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   }
 
   int rank = 0;
-  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_rank(comm_, &rank);
   // if we don't write distributed data, only one rank needs to do the work
   const std::size_t count = (source->distributed() || rank == 0) ? trueCount : 0;
   const auto& dimensions = source->shape();
@@ -136,9 +136,9 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   std::size_t localRounds = (count + chunksize - 1) / chunksize;
   std::size_t rounds = localRounds;
 
-  MPI_Allreduce(&localRounds, &rounds, 1, sizetype, MPI_MAX, comm);
-  MPI_Allreduce(&count, &allcount, 1, sizetype, MPI_SUM, comm);
-  MPI_Exscan(&count, &offset, 1, sizetype, MPI_SUM, comm);
+  MPI_Allreduce(&localRounds, &rounds, 1, sizetype, MPI_MAX, comm_);
+  MPI_Allreduce(&count, &allcount, 1, sizetype, MPI_SUM, comm_);
+  MPI_Exscan(&count, &offset, 1, sizetype, MPI_SUM, comm_);
 
   std::vector<hsize_t> globalSizes;
   std::vector<hsize_t> localSizes;
@@ -183,7 +183,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   if (_eh(H5Tget_class(h5type)) == H5T_COMPOUND) {
     _eh(H5Tpack(h5type));
   }
-  _eh(H5Tcommit(handles.top(),
+  _eh(H5Tcommit(handles_.top(),
                 (name + std::string("_Type")).c_str(),
                 h5type,
                 H5P_DEFAULT,
@@ -199,7 +199,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   }
 
   const hid_t h5data =
-      H5Dcreate(handles.top(), name.c_str(), h5type, h5space, H5P_DEFAULT, h5filter, H5P_DEFAULT);
+      H5Dcreate(handles_.top(), name.c_str(), h5type, h5space, H5P_DEFAULT, h5filter, H5P_DEFAULT);
 
   std::size_t written = 0;
 
@@ -259,28 +259,28 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   _eh(H5Pclose(h5dxlist));
 }
 void Hdf5File::closeDataset() {
-  _eh(H5Dclose(handles.top()));
-  handles.pop();
+  _eh(H5Dclose(handles_.top()));
+  handles_.pop();
 }
 void Hdf5File::closeGroup() {
-  _eh(H5Gclose(handles.top()));
-  handles.pop();
+  _eh(H5Gclose(handles_.top()));
+  handles_.pop();
 }
 void Hdf5File::closeFile() {
-  _eh(H5Fclose(file));
-  handles.pop();
+  _eh(H5Fclose(file_));
+  handles_.pop();
 }
 
-Hdf5Writer::Hdf5Writer(MPI_Comm comm) : comm(comm) {}
+Hdf5Writer::Hdf5Writer(MPI_Comm comm) : comm_(comm) {}
 
 void Hdf5Writer::writeAttribute(const async::ExecInfo& info,
                                 const instructions::Hdf5AttributeWrite& write) {
-  Hdf5File file(comm);
-  if (openFiles.find(write.location.file()) == openFiles.end()) {
+  Hdf5File file(comm_);
+  if (openFiles_.find(write.location.file()) == openFiles_.end()) {
     file.openFile(write.location.file());
-    openFiles.insert({write.location.file(), file});
+    openFiles_.insert({write.location.file(), file});
   }
-  file = openFiles.at(write.location.file());
+  file = openFiles_.at(write.location.file());
   for (const auto& groupname : write.location.groups()) {
     file.openGroup(groupname);
   }
@@ -297,12 +297,12 @@ void Hdf5Writer::writeAttribute(const async::ExecInfo& info,
 }
 
 void Hdf5Writer::writeData(const async::ExecInfo& info, const instructions::Hdf5DataWrite& write) {
-  Hdf5File file(comm);
-  if (openFiles.find(write.location.file()) == openFiles.end()) {
+  Hdf5File file(comm_);
+  if (openFiles_.find(write.location.file()) == openFiles_.end()) {
     file.openFile(write.location.file());
-    openFiles.insert({write.location.file(), file});
+    openFiles_.insert({write.location.file(), file});
   }
-  file = openFiles.at(write.location.file());
+  file = openFiles_.at(write.location.file());
   for (const auto& groupname : write.location.groups()) {
     file.openGroup(groupname);
   }
@@ -319,7 +319,7 @@ void Hdf5Writer::writeData(const async::ExecInfo& info, const instructions::Hdf5
 }
 
 void Hdf5Writer::finalize() {
-  for (auto [_, file] : openFiles) {
+  for (auto [_, file] : openFiles_) {
     file.closeFile();
   }
 }

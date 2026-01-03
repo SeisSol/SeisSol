@@ -42,7 +42,7 @@ namespace initializer {
  **/
 class MemoryManager {
   private: // explicit private for unit tests
-  seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance_;
 
   //! memory allocator
   seissol::memory::ManagedAllocator memoryAllocator_;
@@ -55,14 +55,14 @@ class MemoryManager {
   GlobalData globalDataOnDevice_;
 
   //! Memory organization storage
-  LTS::Storage ltsStorage;
-  LTS::Backmap backmap;
+  LTS::Storage ltsStorage_;
+  LTS::Backmap backmap_;
 
   std::vector<std::unique_ptr<physics::InitialField>> iniConds_;
 
-  DynamicRupture::Backmap drBackmap;
+  DynamicRupture::Backmap drBackmap_;
 
-  DynamicRupture::Storage drStorage;
+  DynamicRupture::Storage drStorage_;
   std::unique_ptr<DynamicRupture> dynRup_ = nullptr;
   std::unique_ptr<dr::initializer::BaseDRInitializer> DRInitializer_ = nullptr;
   std::unique_ptr<dr::friction_law::FrictionSolver> FrictionLaw_ = nullptr;
@@ -71,17 +71,17 @@ class MemoryManager {
 
   Boundary::Storage boundaryTree_;
 
-  SurfaceLTS::Storage surfaceStorage;
+  SurfaceLTS::Storage surfaceStorage_;
 
   EasiBoundary easiBoundary_;
 
-  std::optional<ClusterLayout> layout;
+  std::optional<ClusterLayout> layout_;
 
   public:
   /**
    * Constructor
    **/
-  explicit MemoryManager(seissol::SeisSol& instance) : seissolInstance(instance) {}
+  explicit MemoryManager(seissol::SeisSol& instance) : seissolInstance_(instance) {}
 
   /**
    * Destructor, memory is freed by managed allocator
@@ -120,21 +120,21 @@ class MemoryManager {
     return global;
   }
 
-  void setClusterLayout(const ClusterLayout& extLayout) { layout.emplace(extLayout); }
+  void setClusterLayout(const ClusterLayout& extLayout) { layout_.emplace(extLayout); }
 
-  ClusterLayout& clusterLayout() { return layout.value(); }
+  ClusterLayout& clusterLayout() { return layout_.value(); }
 
-  LTS::Storage& getLtsStorage() { return ltsStorage; }
+  LTS::Storage& getLtsStorage() { return ltsStorage_; }
 
-  LTS::Backmap& getBackmap() { return backmap; }
+  LTS::Backmap& getBackmap() { return backmap_; }
 
-  DynamicRupture::Storage& getDRStorage() { return drStorage; }
+  DynamicRupture::Storage& getDRStorage() { return drStorage_; }
 
-  DynamicRupture::Backmap& getDRBackmap() { return drBackmap; }
+  DynamicRupture::Backmap& getDRBackmap() { return drBackmap_; }
 
   DynamicRupture& getDynamicRupture() { return *dynRup_; }
 
-  SurfaceLTS::Storage& getSurfaceStorage() { return surfaceStorage; }
+  SurfaceLTS::Storage& getSurfaceStorage() { return surfaceStorage_; }
 
   void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
     iniConds_ = std::move(iniConds);

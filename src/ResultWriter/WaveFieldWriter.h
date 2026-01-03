@@ -42,13 +42,13 @@ namespace writer {
 class WaveFieldWriter
     : private async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>,
       public seissol::Module {
-  seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance_;
 
   /** True if wave field output is enabled */
   bool enabled_{false};
 
   /** False if entire region is to be written */
-  bool isExtractRegionEnabled{false};
+  bool isExtractRegionEnabled_{false};
 
   /** The asynchronous executor */
   WaveFieldWriterExecutor executor_;
@@ -116,7 +116,7 @@ class WaveFieldWriter
                                     std::map<int, int>& newToOldCellMap) const;
 
   public:
-  explicit WaveFieldWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
+  explicit WaveFieldWriter(seissol::SeisSol& seissolInstance) : seissolInstance_(seissolInstance) {}
 
   /**
    * Activate the wave field output

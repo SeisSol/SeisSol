@@ -109,19 +109,19 @@ class ReceiverCluster {
   void freeData();
 
   private:
-  std::optional<parallel::runtime::StreamRuntime> extraRuntime;
-  std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollector{nullptr};
-  std::vector<size_t> deviceIndices;
+  std::optional<parallel::runtime::StreamRuntime> extraRuntime_;
+  std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollector_{nullptr};
+  std::vector<size_t> deviceIndices_;
   std::vector<Receiver> receivers_;
-  seissol::kernels::Spacetime spacetimeKernel;
-  seissol::kernels::Time timeKernel;
+  seissol::kernels::Spacetime spacetimeKernel_;
+  seissol::kernels::Time timeKernel_;
   std::vector<unsigned> quantities_;
   std::uint64_t nonZeroFlops_{};
   std::uint64_t hardwareFlops_{};
   double samplingInterval_;
   double syncPointInterval_;
-  std::vector<std::shared_ptr<DerivedReceiverQuantity>> derivedQuantities;
-  seissol::SeisSol& seissolInstance;
+  std::vector<std::shared_ptr<DerivedReceiverQuantity>> derivedQuantities_;
+  seissol::SeisSol& seissolInstance_;
 };
 } // namespace kernels
 } // namespace seissol

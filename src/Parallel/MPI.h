@@ -236,9 +236,9 @@ class Mpi : public MpiBasic {
   /**
    * @return hostnames for all ranks in the communicator of the application
    */
-  const auto& getHostNames() { return hostNames; }
+  const auto& getHostNames() { return hostNames_; }
 
-  const auto& getPCIAddresses() { return pcis; }
+  const auto& getPCIAddresses() { return pcis_; }
 
   static void barrier(MPI_Comm comm) { MPI_Barrier(comm); }
 
@@ -250,7 +250,7 @@ class Mpi : public MpiBasic {
   void setDataTransferModeFromEnv();
 
   enum class DataTransferMode { Direct, CopyInCopyOutHost };
-  DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode; }
+  DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode_; }
 
   /** The only instance of the class */
   static Mpi mpi;
@@ -259,9 +259,9 @@ class Mpi : public MpiBasic {
   MPI_Comm comm_{MPI_COMM_NULL};
   MPI_Comm sharedMemComm_{};
   Mpi() = default;
-  DataTransferMode preferredDataTransferMode{DataTransferMode::Direct};
-  std::vector<std::string> hostNames;
-  std::vector<std::string> pcis;
+  DataTransferMode preferredDataTransferMode_{DataTransferMode::Direct};
+  std::vector<std::string> hostNames_;
+  std::vector<std::string> pcis_;
 };
 
 } // namespace seissol

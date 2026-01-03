@@ -311,14 +311,14 @@ struct SpecificVarmap {
 template <typename VarmapT = GenericVarmap>
 class Layer {
   private:
-  LayerIdentifier identifier;
-  std::size_t numCells{0};
-  std::vector<DualMemoryContainer> memoryContainer;
-  std::vector<MemoryInfo> memoryInfo;
+  LayerIdentifier identifier_;
+  std::size_t numCells_{0};
+  std::vector<DualMemoryContainer> memoryContainer_;
+  std::vector<MemoryInfo> memoryInfo_;
 
-  std::size_t posId{0};
+  std::size_t posId_{0};
 
-  VarmapT varmap;
+  VarmapT varmap_;
 
 #ifdef ACL_DEVICE
   std::unordered_map<GraphKey, device::DeviceGraphHandle, GraphKeyHash> computeGraphHandles_{};
@@ -333,7 +333,7 @@ class Layer {
   Layer() = default;
   ~Layer() = default;
 
-  [[nodiscard]] std::size_t id() const { return posId; }
+  [[nodiscard]] std::size_t id() const { return posId_; }
 
   /**
     Contains references to a specific cell for all stored internal data.
@@ -356,73 +356,73 @@ public:
             const VarmapT& varmap,
             Layer& layer,
             AllocationPlace place = AllocationPlace::Host)
-        : pointers(varmap.pointerContainer()) {
-      for (std::size_t i = 0; i < layer.memoryInfo.size(); ++i) {
-        if (layer.memoryInfo[i].type == MemoryType::Variable && !layer.memoryInfo[i].filtered &&
-            layer.memoryInfo[i].initialized) {
-          pointers[i] =
-              reinterpret_cast<void*>(reinterpret_cast<char*>(layer.memoryContainer[i].get(place)) +
-                                      layer.memoryInfo[i].bytes * id);
+        : pointers_(varmap.pointerContainer()) {
+      for (std::size_t i = 0; i < layer.memoryInfo_.size(); ++i) {
+        if (layer.memoryInfo_[i].type == MemoryType::Variable && !layer.memoryInfo_[i].filtered &&
+            layer.memoryInfo_[i].initialized) {
+          pointers_[i] = reinterpret_cast<void*>(
+              reinterpret_cast<char*>(layer.memoryContainer_[i].get(place)) +
+              layer.memoryInfo_[i].bytes * id);
         } else {
-          pointers[i] = nullptr;
+          pointers_[i] = nullptr;
         }
       }
     }
 
     template <typename HandleT>
     typename HandleT::Type& get(const HandleT& handle) {
-      return *reinterpret_cast<typename HandleT::Type*>(pointers[varmap.index(handle)]);
+      return *reinterpret_cast<typename HandleT::Type*>(pointers_[varmap_.index(handle)]);
     }
 
     template <typename HandleT>
     [[nodiscard]] const typename HandleT::Type& get(const HandleT& handle) const {
-      return *reinterpret_cast<const typename HandleT::Type*>(pointers[varmap.index(handle)]);
+      return *reinterpret_cast<const typename HandleT::Type*>(pointers_[varmap_.index(handle)]);
     }
 
     template <typename StorageT>
     typename StorageT::Type& get() {
       return *reinterpret_cast<typename StorageT::Type*>(
-          pointers[varmap.template index<StorageT>()]);
+          pointers_[varmap_.template index<StorageT>()]);
     }
 
     template <typename StorageT>
     [[nodiscard]] const typename StorageT::Type& get() const {
       return *reinterpret_cast<const typename StorageT::Type*>(
-          pointers[varmap.template index<StorageT>()]);
+          pointers_[varmap_.template index<StorageT>()]);
     }
 
     template <typename HandleT>
     void setPointer(const HandleT& handle, typename HandleT::Type* value) {
-      pointers[varmap.index(handle)] = reinterpret_cast<void*>(value);
+      pointers_[varmap_.index(handle)] = reinterpret_cast<void*>(value);
     }
 
     template <typename HandleT>
     typename HandleT::Type* getPointer(const HandleT& handle) {
-      return reinterpret_cast<typename HandleT::Type*>(pointers[varmap.index(handle)]);
+      return reinterpret_cast<typename HandleT::Type*>(pointers_[varmap_.index(handle)]);
     }
 
     template <typename StorageT>
     void setPointer(typename StorageT::Type* value) {
-      pointers[varmap.template index<StorageT>()] = reinterpret_cast<void*>(value);
+      pointers_[varmap_.template index<StorageT>()] = reinterpret_cast<void*>(value);
     }
 
     template <typename StorageT>
     typename StorageT::Type* getPointer() {
       return reinterpret_cast<typename StorageT::Type*>(
-          pointers[varmap.template index<StorageT>()]);
+          pointers_[varmap_.template index<StorageT>()]);
     }
 
 private:
-    VarmapT varmap;
-    typename VarmapT::PointerContainerT pointers;
+    VarmapT varmap_;
+    typename VarmapT::PointerContainerT pointers_;
   };
 
   CellRef cellRef(std::size_t id, AllocationPlace place = AllocationPlace::Host) {
-    return CellRef(id, varmap, *this, place);
+    return CellRef(id, varmap_, *this, place);
   }
 
   void synchronizeTo(AllocationPlace place, void* stream) {
-    for (auto& container : memoryContainer) {
+    for (auto& container : memoryContainer_) {
       container.synchronizeTo(place, stream);
     }
   }
@@ -430,55 +430,55 @@ private:
   void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {
     assert(index != std::numeric_limits<std::size_t>::max());
     assert(memoryContainer.size() > index);
-    return memoryContainer[index].get(place);
+    return memoryContainer_[index].get(place);
   }
 
   template <typename StorageT>
   typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
-    const auto index = varmap.template index<StorageT>();
+    const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer.size() > index);
-    return static_cast<typename StorageT::Type*>(memoryContainer[index].get(place));
+    return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
   template <typename StorageT, typename ConfigT>
   typename StorageT::template VariantType<ConfigT>*
       var(const ConfigT& /*...*/, AllocationPlace place = AllocationPlace::Host) {
-    const auto index = varmap.template index<StorageT>();
+    const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer.size() > index);
     return static_cast<typename StorageT::template VariantType<ConfigT>*>(
-        memoryContainer[index].get(place));
+        memoryContainer_[index].get(place));
   }
 
   template <typename StorageT>
   [[nodiscard]] const typename StorageT::Type*
       var(AllocationPlace place = AllocationPlace::Host) const {
-    const auto index = varmap.template index<StorageT>();
+    const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer.size() > index);
-    return static_cast<typename StorageT::Type*>(memoryContainer[index].get(place));
+    return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
   template <typename StorageT, typename ConfigT>
   [[nodiscard]] const typename StorageT::template VariantType<ConfigT>*
       var(const ConfigT& /*...*/, AllocationPlace place = AllocationPlace::Host) const {
-    const auto index = varmap.template index<StorageT>();
+    const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer.size() > index);
     return static_cast<typename StorageT::template VariantType<ConfigT>*>(
-        memoryContainer[index].get(place));
+        memoryContainer_[index].get(place));
   }
 
   template <typename StorageT>
   void varSynchronizeTo(AllocationPlace place, void* stream) {
-    const auto index = varmap.template index<StorageT>();
+    const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer.size() > index);
-    memoryContainer[index].synchronizeTo(place, stream);
+    memoryContainer_[index].synchronizeTo(place, stream);
   }
 
   template <typename HandleT>
   typename HandleT::Type* var(const HandleT& handle,
                               AllocationPlace place = AllocationPlace::Host) {
-    const auto index = varmap.index(handle);
+    const auto index = varmap_.index(handle);
     assert(memoryContainer.size() > index);
-    return static_cast<typename HandleT::Type*>(memoryContainer[index].get(place));
+    return static_cast<typename HandleT::Type*>(memoryContainer_[index].get(place));
   }
 
   template <typename HandleT, typename ConfigT>
@@ -486,18 +486,18 @@ private:
       var(const HandleT& handle,
           const ConfigT& /*...*/,
           AllocationPlace place = AllocationPlace::Host) {
-    const auto index = varmap.index(handle);
+    const auto index = varmap_.index(handle);
     assert(memoryContainer.size() > index);
     return static_cast<typename HandleT::template VariantType<ConfigT>*>(
-        memoryContainer[index].get(place));
+        memoryContainer_[index].get(place));
   }
 
   template <typename HandleT>
   [[nodiscard]] const typename HandleT::Type*
       var(const HandleT& handle, AllocationPlace place = AllocationPlace::Host) const {
-    const auto index = varmap.index(handle);
+    const auto index = varmap_.index(handle);
     assert(memoryContainer.size() > index);
-    return static_cast<typename HandleT::Type*>(memoryContainer[index].get(place));
+    return static_cast<typename HandleT::Type*>(memoryContainer_[index].get(place));
   }
 
   template <typename HandleT, typename ConfigT>
@@ -505,17 +505,17 @@ private:
       var(const HandleT& handle,
           const ConfigT& /*...*/,
           AllocationPlace place = AllocationPlace::Host) const {
-    const auto index = varmap.index(handle);
+    const auto index = varmap_.index(handle);
     assert(memoryContainer.size() > index);
     return static_cast<typename HandleT::template VariantType<ConfigT>*>(
-        memoryContainer[index].get(place));
+        memoryContainer_[index].get(place));
   }
 
   template <typename HandleT>
   void varSynchronizeTo(const HandleT& handle, AllocationPlace place, void* stream) {
-    const auto index = varmap.index(handle);
+    const auto index = varmap_.index(handle);
     assert(memoryContainer.size() > index);
-    memoryContainer[index].synchronizeTo(place, stream);
+    memoryContainer_[index].synchronizeTo(place, stream);
   }
 
   /// i-th bit of layerMask shall be set if data is masked on the i-th layer
@@ -523,91 +523,91 @@ private:
     return layerMask.test(static_cast<int>(getIdentifier().halo));
   }
 
-  [[nodiscard]] const LayerIdentifier& getIdentifier() const { return identifier; }
+  [[nodiscard]] const LayerIdentifier& getIdentifier() const { return identifier_; }
 
-  void setIdentifier(const LayerIdentifier& identifier) { this->identifier = identifier; }
+  void setIdentifier(const LayerIdentifier& identifier) { this->identifier_ = identifier; }
 
-  [[nodiscard]] std::size_t size() const { return numCells; }
+  [[nodiscard]] std::size_t size() const { return numCells_; }
 
-  void setNumberOfCells(std::size_t numberOfCells) { numCells = numberOfCells; }
+  void setNumberOfCells(std::size_t numberOfCells) { numCells_ = numberOfCells; }
 
   void fixPointers(std::size_t id, const std::vector<MemoryInfo>& info, const VarmapT& varmap) {
-    posId = id;
+    posId_ = id;
     const auto count = info.size();
-    memoryContainer.resize(count);
-    memoryInfo.resize(count);
+    memoryContainer_.resize(count);
+    memoryInfo_.resize(count);
     for (std::size_t i = 0; i < count; ++i) {
-      memoryInfo[i] = info[i];
-      if (memoryInfo[i].initialized) {
-        memoryInfo[i].filtered = info[i].filterLayer(identifier);
-        memoryInfo[i].bytes = info[i].bytesLayer(identifier);
+      memoryInfo_[i] = info[i];
+      if (memoryInfo_[i].initialized) {
+        memoryInfo_[i].filtered = info[i].filterLayer(identifier_);
+        memoryInfo_[i].bytes = info[i].bytesLayer(identifier_);
       }
     }
-    this->varmap = varmap;
+    this->varmap_ = varmap;
   }
 
   template <typename HandleT>
   void setEntrySize(const HandleT& handle, size_t size) {
-    const auto index = varmap.index(handle);
+    const auto index = varmap_.index(handle);
     assert(memoryInfo.size() > index);
     static_assert(HandleT::Storage == MemoryType::Bucket ||
                   HandleT::Storage == MemoryType::Scratchpad);
-    memoryInfo[index].size = size;
+    memoryInfo_[index].size = size;
   }
 
   template <typename HandleT>
   size_t getEntrySize(const HandleT& handle) {
-    const auto index = varmap.index(handle);
+    const auto index = varmap_.index(handle);
     assert(memoryInfo.size() > index);
-    return memoryInfo[index].size;
+    return memoryInfo_[index].size;
   }
 
   template <typename StorageT>
   void setEntrySize(size_t size) {
-    const auto index = varmap.template index<StorageT>();
+    const auto index = varmap_.template index<StorageT>();
     assert(memoryInfo.size() > index);
     static_assert(StorageT::Storage == MemoryType::Bucket ||
                   StorageT::Storage == MemoryType::Scratchpad);
-    memoryInfo[index].size = size;
+    memoryInfo_[index].size = size;
   }
 
   template <typename StorageT>
   size_t getEntrySize() {
-    const auto index = varmap.template index<StorageT>();
+    const auto index = varmap_.template index<StorageT>();
     assert(memoryInfo.size() > index);
-    return memoryInfo[index].size;
+    return memoryInfo_[index].size;
   }
 
   void addVariableSizes(std::vector<std::size_t>& sizes) {
-    for (std::size_t var = 0; var < memoryInfo.size(); ++var) {
-      if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Variable) {
-        sizes[var] += numCells * memoryInfo[var].bytes;
+    for (std::size_t var = 0; var < memoryInfo_.size(); ++var) {
+      if (!memoryInfo_[var].filtered && memoryInfo_[var].type == MemoryType::Variable) {
+        sizes[var] += numCells_ * memoryInfo_[var].bytes;
       }
     }
   }
 
   void addBucketSizes(std::vector<std::size_t>& sizes) {
-    for (std::size_t var = 0; var < memoryInfo.size(); ++var) {
-      if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Bucket) {
-        sizes[var] += memoryInfo[var].size;
+    for (std::size_t var = 0; var < memoryInfo_.size(); ++var) {
+      if (!memoryInfo_[var].filtered && memoryInfo_[var].type == MemoryType::Bucket) {
+        sizes[var] += memoryInfo_[var].size;
       }
     }
   }
 
   void findMaxScratchpadSizes(std::vector<std::size_t>& sizes) {
-    for (std::size_t var = 0; var < memoryInfo.size(); ++var) {
-      if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Scratchpad) {
-        sizes[var] = std::max(sizes[var], memoryInfo[var].size);
+    for (std::size_t var = 0; var < memoryInfo_.size(); ++var) {
+      if (!memoryInfo_[var].filtered && memoryInfo_[var].type == MemoryType::Scratchpad) {
+        sizes[var] = std::max(sizes[var], memoryInfo_[var].size);
       }
     }
   }
 
   void setMemoryRegionsForVariables(const std::vector<DualMemoryContainer>& memory,
                                     const std::vector<size_t>& offsets) {
-    for (std::size_t var = 0; var < memoryInfo.size(); ++var) {
-      if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Variable) {
-        memoryContainer[var].offsetFrom(
-            memory[var], offsets[var], numCells * memoryInfo[var].bytes);
+    for (std::size_t var = 0; var < memoryInfo_.size(); ++var) {
+      if (!memoryInfo_[var].filtered && memoryInfo_[var].type == MemoryType::Variable) {
+        memoryContainer_[var].offsetFrom(
+            memory[var], offsets[var], numCells_ * memoryInfo_[var].bytes);
       }
     }
   }
@@ -615,35 +615,35 @@ private:
   void setMemoryRegionsForBuckets(const std::vector<DualMemoryContainer>& memory,
                                   const std::vector<size_t>& offsets) {
     for (std::size_t bucket = 0; bucket < memory.size(); ++bucket) {
-      if (!memoryInfo[bucket].filtered && memoryInfo[bucket].type == MemoryType::Bucket) {
-        memoryContainer[bucket].offsetFrom(
-            memory[bucket], offsets[bucket], memoryInfo[bucket].size);
+      if (!memoryInfo_[bucket].filtered && memoryInfo_[bucket].type == MemoryType::Bucket) {
+        memoryContainer_[bucket].offsetFrom(
+            memory[bucket], offsets[bucket], memoryInfo_[bucket].size);
       }
     }
   }
 
   void setMemoryRegionsForScratchpads(const std::vector<DualMemoryContainer>& memory) {
     for (size_t id = 0; id < memory.size(); ++id) {
-      if (!memoryInfo[id].filtered && memoryInfo[id].type == MemoryType::Scratchpad) {
-        memoryContainer[id] = memory[id];
+      if (!memoryInfo_[id].filtered && memoryInfo_[id].type == MemoryType::Scratchpad) {
+        memoryContainer_[id] = memory[id];
       }
     }
   }
 
   void touchVariables() {
-    for (std::size_t var = 0; var < memoryInfo.size(); ++var) {
+    for (std::size_t var = 0; var < memoryInfo_.size(); ++var) {
 
       // NOTE: we don't touch device global memory because it is in a different address space
       // we will do deep-copy from the host to a device later on
-      if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Variable &&
-          (memoryContainer[var].host != nullptr) && numCells > 0) {
+      if (!memoryInfo_[var].filtered && memoryInfo_[var].type == MemoryType::Variable &&
+          (memoryContainer_[var].host != nullptr) && numCells_ > 0) {
 #ifdef _OPENMP
 #pragma omp for schedule(static) nowait
 #endif
-        for (std::size_t cell = 0; cell < numCells; ++cell) {
+        for (std::size_t cell = 0; cell < numCells_; ++cell) {
           auto* cellPointer =
-              static_cast<char*>(memoryContainer[var].host) + cell * memoryInfo[var].bytes;
-          memset(cellPointer, 0, memoryInfo[var].bytes);
+              static_cast<char*>(memoryContainer_[var].host) + cell * memoryInfo_[var].bytes;
+          memset(cellPointer, 0, memoryInfo_[var].bytes);
         }
       }
     }
@@ -651,7 +651,7 @@ private:
 
   template <typename F>
   void wrap(F&& function) {
-    std::visit(std::forward<F>(function), identifier.config);
+    std::visit(std::forward<F>(function), identifier_.config);
   }
 
   template <typename InnerKeyType>

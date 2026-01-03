@@ -536,7 +536,7 @@ void FaultParameterDB::evaluateModel(const std::string& fileName, const QueryGen
   easi::ArraysAdapter<real> adapter;
   for (auto& kv : parameters_) {
     adapter.addBindingPoint(
-        kv.first, kv.second.first + simid, kv.second.second * multisim::NumSimulations);
+        kv.first, kv.second.first + simid_, kv.second.second * multisim::NumSimulations);
   }
 
   easiEvalSafe(model, query, adapter, "fault material");
@@ -556,19 +556,19 @@ std::set<std::string> FaultParameterDB::faultProvides(const std::string& fileNam
   return supplied;
 }
 
-EasiBoundary::EasiBoundary(const std::string& fileName) : model(loadEasiModel(fileName)) {}
+EasiBoundary::EasiBoundary(const std::string& fileName) : model_(loadEasiModel(fileName)) {}
 
-EasiBoundary::EasiBoundary(EasiBoundary&& other) noexcept : model(other.model) {}
+EasiBoundary::EasiBoundary(EasiBoundary&& other) noexcept : model_(other.model_) {}
 
 EasiBoundary& EasiBoundary::operator=(EasiBoundary&& other) noexcept {
-  std::swap(model, other.model);
+  std::swap(model_, other.model_);
   return *this;
 }
 
-EasiBoundary::~EasiBoundary() { delete model; }
+EasiBoundary::~EasiBoundary() { delete model_; }
 
 void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTermsData) const {
-  if (model == nullptr) {
+  if (model_ == nullptr) {
     logError() << "Model for easi-provided boundary is not initialized.";
   }
   if (tensor::INodal::Shape[1] != 9) {
@@ -586,7 +586,7 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
     query.x(i, 2) = nodes[offset++];
     query.group(i) = 1;
   }
-  const auto& supplied = model->suppliedParameters();
+  const auto& supplied = model_->suppliedParameters();
 
   // Shear stresses are irrelevant for riemann problem
   // Hence they have dummy names and won't be used for this bc.
@@ -639,7 +639,7 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
       ++offset;
     }
   }
-  easiEvalSafe(model, query, adapter, "Dirichlet BC data");
+  easiEvalSafe(model_, query, adapter, "Dirichlet BC data");
 }
 
 easi::Component* loadEasiModel(const std::string& fileName) {

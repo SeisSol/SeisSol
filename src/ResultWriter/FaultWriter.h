@@ -31,7 +31,7 @@ namespace seissol::writer {
 class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, FaultParam>,
                     public seissol::Module {
   private:
-  seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance_;
 
   /** Is enabled? */
   bool enabled_{false};
@@ -48,11 +48,11 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
   /** Frontend stopwatch */
   Stopwatch stopwatch_;
 
-  dr::output::OutputManager* callbackObject{nullptr};
+  dr::output::OutputManager* callbackObject_{nullptr};
 
   public:
   explicit FaultWriter(seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance)
+      : seissolInstance_(seissolInstance)
 
   {}
 
@@ -128,7 +128,7 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
   void tearDown() override { executor_.finalize(); }
 
   void setupCallbackObject(dr::output::OutputManager* faultOutputManager) {
-    callbackObject = faultOutputManager;
+    callbackObject_ = faultOutputManager;
   }
 
   //

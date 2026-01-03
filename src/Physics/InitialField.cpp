@@ -182,18 +182,18 @@ seissol::physics::TravellingWave::TravellingWave(
 seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(
     const CellMaterialData& materialData,
     const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersItm)
-    : rho0(materialData.local->getDensity()),
-      c0(sqrt(materialData.local->getLambdaBar() / materialData.local->getDensity())),
-      k(acousticTravellingWaveParametersItm.k),
-      tITMMinus(acousticTravellingWaveParametersItm.itmStartingTime),
-      tau(acousticTravellingWaveParametersItm.itmDuration), tITMPlus(tITMMinus + tau),
-      n(acousticTravellingWaveParametersItm.itmVelocityScalingFactor) {
+    : rho0_(materialData.local->getDensity()),
+      c0_(sqrt(materialData.local->getLambdaBar() / materialData.local->getDensity())),
+      k_(acousticTravellingWaveParametersItm.k),
+      tITMMinus_(acousticTravellingWaveParametersItm.itmStartingTime),
+      tau_(acousticTravellingWaveParametersItm.itmDuration), tITMPlus_(tITMMinus_ + tau_),
+      n_(acousticTravellingWaveParametersItm.itmVelocityScalingFactor) {
   logInfo() << "Starting Test for Acoustic Travelling Wave with ITM";
 
-  logInfo() << "rho0 = " << rho0;
-  logInfo() << "c0 = " << c0;
+  logInfo() << "rho0 = " << rho0_;
+  logInfo() << "c0 = " << c0_;
 
-  logInfo() << "k = " << k;
+  logInfo() << "k = " << k_;
 
   logInfo() << "Setting up the Initial Conditions";
   init(materialData);
@@ -213,22 +213,23 @@ void seissol::physics::AcousticTravellingWaveITM::evaluate(
     const auto& coordinates = points[i];
     const auto x = coordinates[0];
     const auto t = time;
-    if (t <= tITMMinus) {
-      pressure = c0 * rho0 * std::cos(k * x - c0 * k * t);
-      dofsQP(i, 0) = -pressure;                    // sigma_xx
-      dofsQP(i, 1) = -pressure;                    // sigma_yy
-      dofsQP(i, 2) = -pressure;                    // sigma_zz
-      dofsQP(i, 3) = 0.0;                          // sigma_xy
-      dofsQP(i, 4) = 0.0;                          // sigma_yz
-      dofsQP(i, 5) = 0.0;                          // sigma_xz
-      dofsQP(i, 6) = std::cos(k * x - c0 * k * t); // u
-      dofsQP(i, 7) = 0.0;                          // v
-      dofsQP(i, 8) = 0.0;                          // w
-    } else if (t <= tITMPlus) {
-      pressure = -0.5 * (n - 1) * c0 * rho0 *
-                     std::cos(k * x + c0 * k * n * t - (c0 * k * n + c0 * k) * tITMMinus) +
-                 0.5 * (n + 1) * c0 * rho0 *
-                     std::cos(k * x - c0 * k * n * t + (c0 * k * n - c0 * k) * tITMMinus);
+    if (t <= tITMMinus_) {
+      pressure = c0_ * rho0_ * std::cos(k_ * x - c0_ * k_ * t);
+      dofsQP(i, 0) = -pressure;                       // sigma_xx
+      dofsQP(i, 1) = -pressure;                       // sigma_yy
+      dofsQP(i, 2) = -pressure;                       // sigma_zz
+      dofsQP(i, 3) = 0.0;                             // sigma_xy
+      dofsQP(i, 4) = 0.0;                             // sigma_yz
+      dofsQP(i, 5) = 0.0;                             // sigma_xz
+      dofsQP(i, 6) = std::cos(k_ * x - c0_ * k_ * t); // u
+      dofsQP(i, 7) = 0.0;                             // v
+      dofsQP(i, 8) = 0.0;                             // w
+    } else if (t <= tITMPlus_) {
+      pressure =
+          -0.5 * (n_ - 1) * c0_ * rho0_ *
+              std::cos(k_ * x + c0_ * k_ * n_ * t - (c0_ * k_ * n_ + c0_ * k_) * tITMMinus_) +
+          0.5 * (n_ + 1) * c0_ * rho0_ *
+              std::cos(k_ * x - c0_ * k_ * n_ * t + (c0_ * k_ * n_ - c0_ * k_) * tITMMinus_);
       dofsQP(i, 0) = -pressure; // sigma_xx
       dofsQP(i, 1) = -pressure; // sigma_yy
       dofsQP(i, 2) = -pressure; // sigma_zz
@@ -236,35 +237,39 @@ void seissol::physics::AcousticTravellingWaveITM::evaluate(
       dofsQP(i, 4) = 0.0;       // sigma_yz
       dofsQP(i, 5) = 0.0;       // sigma_xz
       dofsQP(i, 6) =
-          0.5 * (n - 1) * std::cos(k * x + c0 * k * n * t - (c0 * k * n + c0 * k) * tITMMinus) +
-          0.5 * (n + 1) * std::cos(k * x - c0 * k * n * t + (c0 * k * n - c0 * k) * tITMMinus); // u
+          0.5 * (n_ - 1) *
+              std::cos(k_ * x + c0_ * k_ * n_ * t - (c0_ * k_ * n_ + c0_ * k_) * tITMMinus_) +
+          0.5 * (n_ + 1) *
+              std::cos(k_ * x - c0_ * k_ * n_ * t + (c0_ * k_ * n_ - c0_ * k_) * tITMMinus_); // u
+      dofsQP(i, 7) = 0.0;                                                                     // v
+      dofsQP(i, 8) = 0.0;                                                                     // w
+    } else {
+      pressure = -0.25 * (1 / n_) * c0_ * rho0_ *
+                 ((-n_ * n_ + 1) * std::cos(k_ * x + c0_ * k_ * t - 2.0 * c0_ * k_ * tITMMinus_ -
+                                            (c0_ * k_ * n_ + c0_ * k_) * tau_) +
+                  (n_ * n_ - 1) * std::cos(k_ * x + c0_ * k_ * t - 2.0 * c0_ * k_ * tITMMinus_ +
+                                           (c0_ * k_ * n_ - c0_ * k_) * tau_) +
+                  (n_ * n_ - 2 * n_ + 1) *
+                      std::cos(k_ * x - c0_ * k_ * t + (c0_ * k_ * n_ + c0_ * k_) * tau_) +
+                  (-n_ * n_ - 2 * n_ - 1) *
+                      std::cos(k_ * x - c0_ * k_ * t - (c0_ * k_ * n_ - c0_ * k_) * tau_));
+      dofsQP(i, 0) = -pressure; // sigma_xx
+      dofsQP(i, 1) = -pressure; // sigma_yy
+      dofsQP(i, 2) = -pressure; // sigma_zz
+      dofsQP(i, 3) = 0.0;       // sigma_xy
+      dofsQP(i, 4) = 0.0;       // sigma_yz
+      dofsQP(i, 5) = 0.0;       // sigma_xz
+      dofsQP(i, 6) = (-0.25 / n_) *
+                     ((n_ * n_ - 1) * std::cos(k_ * x + c0_ * k_ * t - 2 * c0_ * k_ * tITMMinus_ -
+                                               (c0_ * k_ * n_ + c0_ * k_) * tau_) +
+                      (-n_ * n_ + 1) * std::cos(k_ * x + c0_ * k_ * t - 2 * c0_ * k_ * tITMMinus_ +
+                                                (c0_ * k_ * n_ - c0_ * k_) * tau_) +
+                      (n_ * n_ - 2 * n_ + 1) *
+                          std::cos(k_ * x - c0_ * k_ * t + (c0_ * k_ * n_ + c0_ * k_) * tau_) +
+                      (-n_ * n_ - 2 * n_ - 1) *
+                          std::cos(k_ * x - c0_ * k_ * t - (c0_ * k_ * n_ - c0_ * k_) * tau_)); // u
       dofsQP(i, 7) = 0.0;                                                                       // v
       dofsQP(i, 8) = 0.0;                                                                       // w
-    } else {
-      pressure =
-          -0.25 * (1 / n) * c0 * rho0 *
-          ((-n * n + 1) * std::cos(k * x + c0 * k * t - 2.0 * c0 * k * tITMMinus -
-                                   (c0 * k * n + c0 * k) * tau) +
-           (n * n - 1) * std::cos(k * x + c0 * k * t - 2.0 * c0 * k * tITMMinus +
-                                  (c0 * k * n - c0 * k) * tau) +
-           (n * n - 2 * n + 1) * std::cos(k * x - c0 * k * t + (c0 * k * n + c0 * k) * tau) +
-           (-n * n - 2 * n - 1) * std::cos(k * x - c0 * k * t - (c0 * k * n - c0 * k) * tau));
-      dofsQP(i, 0) = -pressure; // sigma_xx
-      dofsQP(i, 1) = -pressure; // sigma_yy
-      dofsQP(i, 2) = -pressure; // sigma_zz
-      dofsQP(i, 3) = 0.0;       // sigma_xy
-      dofsQP(i, 4) = 0.0;       // sigma_yz
-      dofsQP(i, 5) = 0.0;       // sigma_xz
-      dofsQP(i, 6) =
-          (-0.25 / n) *
-          ((n * n - 1) *
-               std::cos(k * x + c0 * k * t - 2 * c0 * k * tITMMinus - (c0 * k * n + c0 * k) * tau) +
-           (-n * n + 1) *
-               std::cos(k * x + c0 * k * t - 2 * c0 * k * tITMMinus + (c0 * k * n - c0 * k) * tau) +
-           (n * n - 2 * n + 1) * std::cos(k * x - c0 * k * t + (c0 * k * n + c0 * k) * tau) +
-           (-n * n - 2 * n - 1) * std::cos(k * x - c0 * k * t - (c0 * k * n - c0 * k) * tau)); // u
-      dofsQP(i, 7) = 0.0;                                                                      // v
-      dofsQP(i, 8) = 0.0;                                                                      // w
     }
   }
 }
@@ -519,7 +524,7 @@ void seissol::physics::SnellsLaw::evaluate(
 }
 
 seissol::physics::Ocean::Ocean(int mode, double gravitationalAcceleration)
-    : mode(mode), gravitationalAcceleration(gravitationalAcceleration) {
+    : mode_(mode), gravitationalAcceleration_(gravitationalAcceleration) {
   if (mode < 0 || mode > 3) {
     throw std::runtime_error("Wave mode " + std::to_string(mode) + " is not supported.");
   }
@@ -535,7 +540,7 @@ void seissol::physics::Ocean::evaluate(double time,
     const auto z = points[i][2];
     const auto t = time;
 
-    const auto g = gravitationalAcceleration;
+    const auto g = gravitationalAcceleration_;
     if (std::abs(g - 9.81e-3) > 10e-15) {
       logError() << "Ocean scenario only supports g=9.81e-3 currently!";
     }
@@ -557,8 +562,8 @@ void seissol::physics::Ocean::evaluate(double time,
     constexpr auto Omegas =
         std::array<double, 3>{0.0425599572628432, 2.4523337594491745, 7.1012991617572165};
 
-    const auto kStar = KStars[mode];
-    const auto omega = Omegas[mode];
+    const auto kStar = KStars[mode_];
+    const auto omega = Omegas[mode_];
 
     const auto b = g * kStar / (omega * omega);
     constexpr auto ScalingFactor = 1;
@@ -582,7 +587,7 @@ void seissol::physics::Ocean::evaluate(double time,
     constexpr auto VIdx = model::MaterialT::TractionQuantities + 1;
     constexpr auto WIdx = model::MaterialT::TractionQuantities + 2;
 
-    if (mode == 0) {
+    if (mode_ == 0) {
       // Gravity mode
       const auto pressure = -std::sin(kX * x) * std::sin(kY * y) * std::sin(omega * t) *
                             (std::sinh(kStar * z) + b * std::cosh(kStar * z));

@@ -22,8 +22,8 @@
 namespace seissol::geometry {
 
 class CubeGenerator : public seissol::geometry::MeshReader {
-  int rank;
-  int nProcs;
+  int rank_;
+  int nProcs_;
 
   public:
   CubeGenerator(int rank,

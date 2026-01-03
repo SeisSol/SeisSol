@@ -49,43 +49,43 @@ namespace seissol::time_stepping {
 class TimeCluster : public AbstractTimeCluster {
   private:
   // Last correction time of the neighboring cluster with higher dt
-  double lastSubTime{0};
+  double lastSubTime_{0};
 
   // The timestep of the largest neighbor. Not well-defined (and not used) for the largest local
   // timecluster.
-  double neighborTimestep{0};
+  double neighborTimestep_{0};
 
   void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
   void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
   void start() override {}
   void predict() override;
   void correct() override;
-  bool usePlasticity;
+  bool usePlasticity_;
 
-  seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance_;
   /*
    * integrators
    */
-  kernels::Spacetime spacetimeKernel;
+  kernels::Spacetime spacetimeKernel_;
   //! time kernel
-  kernels::Time timeKernel;
+  kernels::Time timeKernel_;
 
   //! local kernel
-  kernels::Local localKernel;
+  kernels::Local localKernel_;
 
   //! neighbor kernel
-  kernels::Neighbor neighborKernel;
+  kernels::Neighbor neighborKernel_;
 
-  kernels::DynamicRupture dynamicRuptureKernel;
+  kernels::DynamicRupture dynamicRuptureKernel_;
 
-  seissol::parallel::runtime::StreamRuntime streamRuntime;
+  seissol::parallel::runtime::StreamRuntime streamRuntime_;
 
   /*
    * global data
    */
   //! global data structures
-  GlobalData* globalDataOnHost{nullptr};
-  GlobalData* globalDataOnDevice{nullptr};
+  GlobalData* globalDataOnHost_{nullptr};
+  GlobalData* globalDataOnDevice_{nullptr};
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
@@ -93,16 +93,16 @@ class TimeCluster : public AbstractTimeCluster {
   /*
    * element data
    */
-  LTS::Layer* clusterData;
-  DynamicRupture::Layer* dynRupInteriorData;
-  DynamicRupture::Layer* dynRupCopyData;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolver;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverDevice;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverCopy;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverCopyDevice;
-  dr::output::OutputManager* faultOutputManager;
+  LTS::Layer* clusterData_;
+  DynamicRupture::Layer* dynRupInteriorData_;
+  DynamicRupture::Layer* dynRupCopyData_;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolver_;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverDevice_;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverCopy_;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverCopyDevice_;
+  dr::output::OutputManager* faultOutputManager_;
 
-  seissol::kernels::PointSourceClusterPair sourceCluster;
+  seissol::kernels::PointSourceClusterPair sourceCluster_;
 
   enum class ComputePart : int {
     Local = 0,
@@ -115,22 +115,22 @@ class TimeCluster : public AbstractTimeCluster {
     NumComputeParts
   };
 
-  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsNonZero{};
-  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsHardware{};
+  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsNonZero_{};
+  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsHardware_{};
 
   //! Stopwatch of TimeManager
-  LoopStatistics* loopStatistics;
-  ActorStateStatistics* actorStateStatistics;
-  unsigned regionComputeLocalIntegration;
-  unsigned regionComputeNeighboringIntegration;
-  unsigned regionComputeDynamicRupture;
-  unsigned regionComputePointSources;
+  LoopStatistics* loopStatistics_;
+  ActorStateStatistics* actorStateStatistics_;
+  unsigned regionComputeLocalIntegration_;
+  unsigned regionComputeNeighboringIntegration_;
+  unsigned regionComputeDynamicRupture_;
+  unsigned regionComputePointSources_;
 
-  kernels::ReceiverCluster* receiverCluster{nullptr};
+  kernels::ReceiverCluster* receiverCluster_{nullptr};
 
-  seissol::memory::MemkindArray<std::size_t> yieldCells;
+  seissol::memory::MemkindArray<std::size_t> yieldCells_;
 
-  std::size_t numPlasticCells{0};
+  std::size_t numPlasticCells_{0};
 
   /**
    * Writes the receiver output if applicable (receivers present, receivers have to be written).
@@ -206,22 +206,22 @@ class TimeCluster : public AbstractTimeCluster {
 
   void computeFlops();
 
-  HaloType layerType;
+  HaloType layerType_;
   //! time of the next receiver output
-  double receiverTime;
+  double receiverTime_;
 
   //! print status every 100th timestep
-  bool printProgress;
+  bool printProgress_;
   //! cluster id on this rank
-  unsigned int clusterId;
+  unsigned int clusterId_;
 
   //! global cluster cluster id
-  unsigned int globalClusterId;
+  unsigned int globalClusterId_;
 
   //! id used to identify this cluster (including layer type) when profiling
-  unsigned int profilingId;
+  unsigned int profilingId_;
 
-  DynamicRuptureScheduler* dynamicRuptureScheduler;
+  DynamicRuptureScheduler* dynamicRuptureScheduler_;
 
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
@@ -265,11 +265,11 @@ class TimeCluster : public AbstractTimeCluster {
   void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster);
 
   void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) {
-    this->receiverCluster = receiverCluster;
+    this->receiverCluster_ = receiverCluster;
   }
 
   void setFaultOutputManager(dr::output::OutputManager* outputManager) {
-    faultOutputManager = outputManager;
+    faultOutputManager_ = outputManager;
   }
 
   void reset() override;

@@ -41,32 +41,32 @@ FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<dou
 
 void FrictionSolver::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   const seissol::initializer::AllocationPlace place = allocationPlace();
-  impAndEta = layerData.var<DynamicRupture::ImpAndEta>(place);
-  impedanceMatrices = layerData.var<DynamicRupture::ImpedanceMatrices>(place);
-  initialStressInFaultCS = layerData.var<DynamicRupture::InitialStressInFaultCS>(place);
-  nucleationStressInFaultCS = layerData.var<DynamicRupture::NucleationStressInFaultCS>(place);
-  mu = layerData.var<DynamicRupture::Mu>(place);
-  accumulatedSlipMagnitude = layerData.var<DynamicRupture::AccumulatedSlipMagnitude>(place);
-  slip1 = layerData.var<DynamicRupture::Slip1>(place);
-  slip2 = layerData.var<DynamicRupture::Slip2>(place);
-  slipRateMagnitude = layerData.var<DynamicRupture::SlipRateMagnitude>(place);
-  slipRate1 = layerData.var<DynamicRupture::SlipRate1>(place);
-  slipRate2 = layerData.var<DynamicRupture::SlipRate2>(place);
-  ruptureTime = layerData.var<DynamicRupture::RuptureTime>(place);
-  ruptureTimePending = layerData.var<DynamicRupture::RuptureTimePending>(place);
-  peakSlipRate = layerData.var<DynamicRupture::PeakSlipRate>(place);
-  traction1 = layerData.var<DynamicRupture::Traction1>(place);
-  traction2 = layerData.var<DynamicRupture::Traction2>(place);
-  imposedStatePlus = layerData.var<DynamicRupture::ImposedStatePlus>(place);
-  imposedStateMinus = layerData.var<DynamicRupture::ImposedStateMinus>(place);
-  energyData = layerData.var<DynamicRupture::DREnergyOutputVar>(place);
-  godunovData = layerData.var<DynamicRupture::GodunovData>(place);
-  dynStressTime = layerData.var<DynamicRupture::DynStressTime>(place);
-  dynStressTimePending = layerData.var<DynamicRupture::DynStressTimePending>(place);
-  qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>(place);
-  qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>(place);
-  initialPressure = layerData.var<DynamicRupture::InitialPressure>(place);
-  nucleationPressure = layerData.var<DynamicRupture::NucleationPressure>(place);
+  impAndEta_ = layerData.var<DynamicRupture::ImpAndEta>(place);
+  impedanceMatrices_ = layerData.var<DynamicRupture::ImpedanceMatrices>(place);
+  initialStressInFaultCS_ = layerData.var<DynamicRupture::InitialStressInFaultCS>(place);
+  nucleationStressInFaultCS_ = layerData.var<DynamicRupture::NucleationStressInFaultCS>(place);
+  mu_ = layerData.var<DynamicRupture::Mu>(place);
+  accumulatedSlipMagnitude_ = layerData.var<DynamicRupture::AccumulatedSlipMagnitude>(place);
+  slip1_ = layerData.var<DynamicRupture::Slip1>(place);
+  slip2_ = layerData.var<DynamicRupture::Slip2>(place);
+  slipRateMagnitude_ = layerData.var<DynamicRupture::SlipRateMagnitude>(place);
+  slipRate1_ = layerData.var<DynamicRupture::SlipRate1>(place);
+  slipRate2_ = layerData.var<DynamicRupture::SlipRate2>(place);
+  ruptureTime_ = layerData.var<DynamicRupture::RuptureTime>(place);
+  ruptureTimePending_ = layerData.var<DynamicRupture::RuptureTimePending>(place);
+  peakSlipRate_ = layerData.var<DynamicRupture::PeakSlipRate>(place);
+  traction1_ = layerData.var<DynamicRupture::Traction1>(place);
+  traction2_ = layerData.var<DynamicRupture::Traction2>(place);
+  imposedStatePlus_ = layerData.var<DynamicRupture::ImposedStatePlus>(place);
+  imposedStateMinus_ = layerData.var<DynamicRupture::ImposedStateMinus>(place);
+  energyData_ = layerData.var<DynamicRupture::DREnergyOutputVar>(place);
+  godunovData_ = layerData.var<DynamicRupture::GodunovData>(place);
+  dynStressTime_ = layerData.var<DynamicRupture::DynStressTime>(place);
+  dynStressTimePending_ = layerData.var<DynamicRupture::DynStressTimePending>(place);
+  qInterpolatedPlus_ = layerData.var<DynamicRupture::QInterpolatedPlus>(place);
+  qInterpolatedMinus_ = layerData.var<DynamicRupture::QInterpolatedMinus>(place);
+  initialPressure_ = layerData.var<DynamicRupture::InitialPressure>(place);
+  nucleationPressure_ = layerData.var<DynamicRupture::NucleationPressure>(place);
 }
 seissol::initializer::AllocationPlace FrictionSolver::allocationPlace() {
   return seissol::initializer::AllocationPlace::Host;

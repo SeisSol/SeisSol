@@ -23,8 +23,8 @@ class Array {
   Array(std::shared_ptr<Datatype> type, const std::vector<std::size_t>& dimensions);
 
   private:
-  std::shared_ptr<Datatype> type;
-  std::vector<std::size_t> dimensions;
+  std::shared_ptr<Datatype> type_;
+  std::vector<std::size_t> dimensions_;
 };
 
 class Datatype : public std::enable_shared_from_this<Datatype> {
@@ -68,7 +68,7 @@ class OpaqueDatatype : public Datatype {
   std::optional<std::vector<char>> fromStringRaw(const std::string& str) const override;
 
   private:
-  std::size_t sizeP;
+  std::size_t sizeP_;
 };
 
 class StringDatatype : public Datatype {
@@ -85,7 +85,7 @@ class StringDatatype : public Datatype {
   std::optional<std::vector<char>> fromStringRaw(const std::string& str) const override;
 
   private:
-  std::size_t sizeP;
+  std::size_t sizeP_;
 };
 
 class F32Datatype : public Datatype {
@@ -134,8 +134,8 @@ class IntegerDatatype : public Datatype {
   std::optional<std::vector<char>> fromStringRaw(const std::string& str) const override;
 
   private:
-  std::size_t sizeP;
-  bool signP;
+  std::size_t sizeP_;
+  bool signP_;
 };
 
 class ArrayDatatype : public Datatype {
@@ -158,8 +158,8 @@ class ArrayDatatype : public Datatype {
   std::optional<std::vector<char>> fromStringRaw(const std::string& str) const override;
 
   private:
-  std::shared_ptr<Datatype> baseP;
-  std::vector<std::size_t> dimensionsP;
+  std::shared_ptr<Datatype> baseP_;
+  std::vector<std::size_t> dimensionsP_;
 };
 
 class StructDatatype : public Datatype {
@@ -188,8 +188,8 @@ class StructDatatype : public Datatype {
   private:
   static std::size_t minSize(const std::vector<MemberInfo>& members);
 
-  std::size_t sizeP;
-  std::vector<MemberInfo> membersP;
+  std::size_t sizeP_;
+  std::vector<MemberInfo> membersP_;
 };
 
 } // namespace seissol::io::datatype

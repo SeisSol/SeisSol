@@ -40,7 +40,7 @@ void seissol::Mpi::init(int& argc, char**& argv) {
     utils::StringUtils::rtrim(hostName);
     hostName.pop_back();
   }
-  hostNames = collectContainer(hostName);
+  hostNames_ = collectContainer(hostName);
 
   // Test this after setComm() to get the correct rank_
   if (provided < required) {
@@ -75,7 +75,7 @@ void seissol::Mpi::printAcceleratorDeviceInfo() {
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   const auto pci = device.api->getPciAddress(0);
   const auto pcisNode = collectContainer(pci, sharedMemComm_);
-  pcis = collectContainer(pci);
+  pcis_ = collectContainer(pci);
   logInfo() << "Device PCI address (rank=0): " << pci;
   logInfo() << "Device PCI addresses (node of rank=0):" << pcisNode;
 #endif
@@ -91,20 +91,20 @@ void seissol::Mpi::setDataTransferModeFromEnv() {
     });
 
     if (option == "direct") {
-      preferredDataTransferMode = DataTransferMode::Direct;
+      preferredDataTransferMode_ = DataTransferMode::Direct;
     } else if (option == "host") {
-      preferredDataTransferMode = DataTransferMode::CopyInCopyOutHost;
+      preferredDataTransferMode_ = DataTransferMode::CopyInCopyOutHost;
     } else {
       logWarning() << "Ignoring `SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`."
                    << "Expected values: direct, host.";
       option = "direct";
     }
 #ifndef ACL_DEVICE
-    if (preferredDataTransferMode != DataTransferMode::Direct) {
+    if (preferredDataTransferMode_ != DataTransferMode::Direct) {
       logWarning() << "The CPU version of SeisSol supports"
                    << "only the `direct` MPI transfer mode.";
       option = "direct";
-      preferredDataTransferMode = DataTransferMode::Direct;
+      preferredDataTransferMode_ = DataTransferMode::Direct;
     }
 #endif
     logInfo() << "Selected" << option << "MPI data transfer mode as the preferred one";

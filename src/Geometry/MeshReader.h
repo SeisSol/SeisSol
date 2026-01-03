@@ -49,17 +49,17 @@ struct LinearGhostCell {
 
 class MeshReader {
   protected:
-  int mRank{0};
+  int mRank_{0};
 
   std::vector<Element> elements_;
 
   std::vector<Vertex> vertices_;
 
   /** Convert global element index to local */
-  std::map<int, int> g_2lElements;
+  std::map<int, int> g_2lElements_;
 
   /** Convert global vertex index to local */
-  std::map<int, int> g_2lVertices;
+  std::map<int, int> g_2lVertices_;
 
   /** Number of MPI neighbors */
   std::map<int, MPINeighbor> MPINeighbors_;
