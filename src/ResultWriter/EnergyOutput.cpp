@@ -118,9 +118,7 @@ std::array<real, multisim::NumSimulations>
   feKrnl.execute();
 
   std::array<real, multisim::NumSimulations> frictionalWorkReturn;
-  std::copy(staticFrictionalWork,
-            staticFrictionalWork + multisim::NumSimulations,
-            std::begin(frictionalWorkReturn));
+  std::copy_n(staticFrictionalWork, multisim::NumSimulations, frictionalWorkReturn.begin());
   return frictionalWorkReturn;
 }
 
@@ -293,7 +291,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     double& potency = energiesStorage.potency(sim);
     minTimeSinceSlipRateBelowThreshold[sim] = std::numeric_limits<double>::infinity();
 
-    for (auto& layer : drStorage->leaves()) {
+    for (const auto& layer : drStorage->leaves()) {
 
       // NOTE: (0, 1) is again a dummy range (to be adjusted)
       kernels::Time time;
