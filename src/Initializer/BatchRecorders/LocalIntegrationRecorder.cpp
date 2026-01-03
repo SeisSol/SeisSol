@@ -26,9 +26,10 @@
 #include <vector>
 #include <yateto.h>
 
-using namespace device;
 using namespace seissol::initializer;
 using namespace seissol::recording;
+
+// NOLINTBEGIN (-misc-const-correctness)
 
 void LocalIntegrationRecorder::record(LTS::Layer& layer) {
   setUpContext(layer);
@@ -481,3 +482,5 @@ void LocalIntegrationRecorder::recordAnalyticalBc(LTS::Layer& layer) {
     }
   }
 }
+
+// NOLINTEND (-misc-const-correctness)

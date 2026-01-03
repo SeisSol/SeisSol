@@ -10,6 +10,7 @@
 
 #include "MemoryManager.h"
 
+#include "BatchRecorders/Recorders.h"
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
 #include "DynamicRupture/Factory.h"
@@ -17,37 +18,36 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/Recorders.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/Boundary.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Descriptor/Surface.h"
 #include "Memory/GlobalData.h"
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <limits>
 #include <memory>
+#include <unordered_set>
 #include <utility>
 #include <utils/logger.h>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
-#include "BatchRecorders/Recorders.h"
-#include "Kernels/Solver.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Solver/MultipleSimulations.h"
-
 #include <Device/device.h>
-#include <algorithm>
-#include <unordered_set>
 #endif // ACL_DEVICE
 
 namespace seissol::initializer {
@@ -62,10 +62,10 @@ void MemoryManager::initialize() {
 }
 
 void MemoryManager::fixateLtsStorage() {
-#ifdef ACL_DEVICE
-  MemoryManager::deriveRequiredScratchpadMemoryForDr(drStorage_);
-  drStorage_.allocateScratchPads();
-#endif
+  if constexpr (isDeviceOn()) {
+    MemoryManager::deriveRequiredScratchpadMemoryForDr(drStorage_);
+    drStorage_.allocateScratchPads();
+  }
 }
 
 void MemoryManager::fixateBoundaryStorage() {
@@ -140,7 +140,6 @@ void MemoryManager::fixateBoundaryStorage() {
   seissolInstance_.freeSurfaceIntegrator().initialize(refinement, ltsStorage_, surfaceStorage_);
 }
 
-#ifdef ACL_DEVICE
 void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStorage) {
   constexpr size_t TotalDerivativesSize = kernels::Solver::DerivativesSize;
   constexpr size_t NodalDisplacementsSize = tensor::averageNormalDisplacement::size();
@@ -148,8 +147,10 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
   for (auto& layer : ltsStorage.leaves(Ghost)) {
 
     const auto* cellInformation = layer.var<LTS::CellInformation>();
-    std::unordered_set<real*> registry;
-    real*(*faceNeighbors)[Cell::NumFaces] = layer.var<LTS::FaceNeighborsDevice>();
+
+    // look at const pointers (instead of non-const) to make clang-tidy happy
+    std::unordered_set<const real*> registry;
+    real* const(*faceNeighbors)[Cell::NumFaces] = layer.var<LTS::FaceNeighborsDevice>();
 
     std::size_t derivativesCounter{0};
     std::size_t integratedDofsCounter{0};
@@ -169,7 +170,7 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
 
       // include data provided by ghost layers
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        real* neighborBuffer = faceNeighbors[cell][face];
+        const real* neighborBuffer = faceNeighbors[cell][face];
 
         // check whether a neighbor element idofs has not been counted twice
         if ((registry.find(neighborBuffer) == registry.end())) {
@@ -268,14 +269,13 @@ void MemoryManager::deriveRequiredScratchpadMemoryForDr(DynamicRupture::Storage&
     layer.setEntrySize<DynamicRupture::IdofsMinusOnDevice>(IdofsSize * layerSize);
   }
 }
-#endif
 
 void MemoryManager::initializeMemoryLayout() {
-#ifdef ACL_DEVICE
-  MemoryManager::deriveRequiredScratchpadMemoryForWp(
-      seissolInstance_.getSeisSolParameters().model.plasticity, ltsStorage_);
-  ltsStorage_.allocateScratchPads();
-#endif
+  if constexpr (isDeviceOn()) {
+    MemoryManager::deriveRequiredScratchpadMemoryForWp(
+        seissolInstance_.getSeisSolParameters().model.plasticity, ltsStorage_);
+    ltsStorage_.allocateScratchPads();
+  }
 }
 
 void MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
@@ -285,7 +285,6 @@ void MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
   }
 }
 
-#ifdef ACL_DEVICE
 void MemoryManager::recordExecutionPaths(bool usePlasticity) {
   recording::CompositeRecorder<LTS::LTSVarmap> recorder;
   recorder.addRecorder(new recording::LocalIntegrationRecorder);
@@ -305,7 +304,6 @@ void MemoryManager::recordExecutionPaths(bool usePlasticity) {
     drRecorder.record(layer);
   }
 }
-#endif // ACL_DEVICE
 
 bool isAcousticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
   constexpr auto Eps = std::numeric_limits<real>::epsilon();
@@ -375,17 +373,23 @@ void MemoryManager::initFrictionData() {
 }
 
 void MemoryManager::synchronizeTo(AllocationPlace place) {
-#ifdef ACL_DEVICE
   if (place == AllocationPlace::Device) {
     logInfo() << "Synchronizing data... (host->device)";
   } else {
     logInfo() << "Synchronizing data... (device->host)";
   }
-  const auto& defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
+
+  void* defaultStream = nullptr;
+
+#ifdef ACL_DEVICE
+  defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
+#endif
   ltsStorage_.synchronizeTo(place, defaultStream);
   drStorage_.synchronizeTo(place, defaultStream);
   boundaryTree_.synchronizeTo(place, defaultStream);
   surfaceStorage_.synchronizeTo(place, defaultStream);
+
+#ifdef ACL_DEVICE
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 }

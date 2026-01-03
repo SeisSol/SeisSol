@@ -172,6 +172,15 @@ Reader/AsagiModule.cpp
 Reader/AsagiReader.cpp
 
 Geometry/CubeGenerator.cpp
+
+Initializer/BatchRecorders/LocalIntegrationRecorder.cpp
+Initializer/BatchRecorders/NeighIntegrationRecorder.cpp
+Initializer/BatchRecorders/PlasticityRecorder.cpp
+Initializer/BatchRecorders/DynamicRuptureRecorder.cpp
+Parallel/AcceleratorDevice.cpp
+DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.cpp
+Kernels/PointSourceClusterOnDevice.cpp
+
 )
 
 if (HDF5 AND MPI)
@@ -238,7 +247,6 @@ elseif ("${EQUATIONS}" STREQUAL "poroelastic")
   target_sources(seissol-lib PRIVATE
     Kernels/LinearCK/Neighbor.cpp
     Kernels/LinearCK/Local.cpp
-    Kernels/LinearCK/Time.cpp
     Kernels/STP/Time.cpp
   )
   target_include_directories(seissol-common-properties INTERFACE Equations/poroelastic)
@@ -248,15 +256,6 @@ endif()
 
 # GPU code
 if (WITH_GPU)
-  target_sources(seissol-lib PRIVATE
-          Initializer/BatchRecorders/LocalIntegrationRecorder.cpp
-          Initializer/BatchRecorders/NeighIntegrationRecorder.cpp
-          Initializer/BatchRecorders/PlasticityRecorder.cpp
-          Initializer/BatchRecorders/DynamicRuptureRecorder.cpp
-          Parallel/AcceleratorDevice.cpp
-          DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.cpp
-          Kernels/PointSourceClusterOnDevice.cpp)
-
   # include cmake files will define seissol-device-lib target
   if ("${DEVICE_BACKEND}" STREQUAL "cuda" OR "${DEVICE_BACKEND}" STREQUAL "hip")
     set(DEVICE_SRC ${DEVICE_SRC}

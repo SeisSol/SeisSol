@@ -17,7 +17,6 @@
 #include <vector>
 #include <yateto.h>
 
-using namespace device;
 using namespace seissol::initializer;
 using namespace seissol::recording;
 

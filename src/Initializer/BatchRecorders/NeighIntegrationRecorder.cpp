@@ -23,7 +23,8 @@
 #include <vector>
 #include <yateto.h>
 
-using namespace device;
+// NOLINTBEGIN (-misc-const-correctness)
+
 using namespace seissol::initializer;
 using namespace seissol::recording;
 
@@ -237,3 +238,5 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
     }
   }
 }
+
+// NOLINTEND (-misc-const-correctness)

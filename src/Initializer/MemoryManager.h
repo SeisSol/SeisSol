@@ -152,7 +152,6 @@ class MemoryManager {
   dr::friction_law::FrictionSolver* getFrictionLawDevice() { return FrictionLawDevice_.get(); }
   seissol::dr::output::OutputManager* getFaultOutputManager() { return faultOutputManager_.get(); }
 
-#ifdef ACL_DEVICE
   void recordExecutionPaths(bool usePlasticity);
 
   /**
@@ -164,7 +163,6 @@ class MemoryManager {
    * Derives sizes of scratch memory required during computations of Dynamic Rupture solver
    **/
   static void deriveRequiredScratchpadMemoryForDr(DynamicRupture::Storage& drStorage);
-#endif
 
   void initializeFrictionLaw();
   void initFaultOutputManager(const std::string& backupTimeStamp);

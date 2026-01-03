@@ -7,14 +7,18 @@
 
 #include "Parallel/AcceleratorDevice.h"
 
-#include <Device/device.h>
-#include <sstream>
 #include <string>
 #include <utils/logger.h>
+
+#ifdef ACL_DEVICE
+#include <Device/device.h>
+#include <sstream>
+#endif
 
 namespace seissol {
 
 void AcceleratorDevice::bindNativeDevice(int deviceId) {
+#ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   {
     std::ostringstream info;
@@ -27,6 +31,7 @@ void AcceleratorDevice::bindNativeDevice(int deviceId) {
     infoMessages_.push_back(info.str());
   }
   device.api->setDevice(deviceId);
+#endif
 }
 
 void AcceleratorDevice::printInfo() {
