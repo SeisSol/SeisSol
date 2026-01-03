@@ -33,7 +33,9 @@ void seissol::writer::FaultWriter::setUp() {
   utils::Env env("SEISSOL_");
   if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, env)) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
-    logInfo() << "Fault writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
+    logInfo() << "Fault writer thread affinity:" << parallel::Pinning::maskToString(freeCpus) << "("
+              << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
+    ;
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }

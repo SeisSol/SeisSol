@@ -36,6 +36,7 @@ class Pinning {
   [[nodiscard]] static bool areAllCpusOnline();
   void pinToFreeCPUs() const;
   static std::string maskToString(const async::as::CpuMask& mask);
+  static std::string maskToStringShort(const async::as::CpuMask& mask);
   [[nodiscard]] static async::as::CpuMask getNodeMask();
   void checkEnvVariables();
 };

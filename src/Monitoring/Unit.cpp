@@ -7,7 +7,10 @@
 
 #include "Unit.h"
 
+#include <array>
 #include <cmath>
+#include <cstdint>
+#include <iomanip>
 #include <ios>
 #include <optional>
 #include <sstream>
@@ -25,6 +28,36 @@ const std::vector<std::string> NegativePrefixes = {
 
 namespace seissol {
 SIUnit::SIUnit(const std::string& unit, bool binary) : unit(unit), binary(binary) {}
+
+std::string formatInteger(uint64_t value) {
+  std::stringstream out;
+
+  std::array<uint64_t, 8> parts{};
+
+  for (std::size_t i = 0; i < parts.size(); ++i) {
+    parts[i] = value % 1000;
+    value /= 1000;
+  }
+
+  out << std::setfill('0');
+  out << std::right;
+
+  bool started = false;
+  for (std::int32_t i = parts.size() - 1; i >= 0; --i) {
+    if (started) {
+      out << "'" << std::setw(3) << parts[i];
+    } else if (parts[i] > 0) {
+      started = true;
+      out << parts[i];
+    }
+  }
+
+  if (!started) {
+    out << "0";
+  }
+
+  return out.str();
+}
 
 std::string SIUnit::formatTime(double value, bool exact, int digits) const {
   const double byDay = std::floor(value / (60 * 60 * 24));
