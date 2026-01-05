@@ -18,6 +18,7 @@
 #include <deque>
 #include <fstream>
 #include <mpi.h>
+#include <optional>
 #include <sched.h>
 #include <set>
 #include <sstream>

@@ -27,6 +27,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
 #include "Modules/Modules.h"
+#include "Monitoring/Unit.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
