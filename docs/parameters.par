@@ -93,9 +93,10 @@ vtkorder = -1 ! positive values enable the high-order VTKHDF format for the elem
 
 ! parameterize ascii fault file outputs
 &Pickpoint
-printtimeinterval = 1       ! Index of printed info at timesteps
+printtimeinterval = 1       ! Timestep output frequency. Each ((timestep % printtimeinterval) == 0) is outputted.
 OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1  ! turn on and off fault outputs
 PPFileName = 'tpv33_faultreceivers.dat'
+outputinterval = 1.0 ! Write-out interval for the on-fault receivers.
 /
 
 &SourceType
