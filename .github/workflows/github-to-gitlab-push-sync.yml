@@ -20,7 +20,7 @@ jobs:
     name: Git Repo Sync
     if: ${{ github.repository == 'SeisSol/SeisSol' }} # disable on forks
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0
     - uses: cniethammer/git-repo-sync@cb1067d118c0c209bcded585b5c78e581bb0dfec
