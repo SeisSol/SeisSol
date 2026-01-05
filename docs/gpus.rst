@@ -42,12 +42,14 @@ does not use a workload manager but is equipped with multiple GPUs per node.
 Supported SeisSol features
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The SeisSol GPU version supports everything the SeisSol CPU version supports.
+The SeisSol GPU version supports everything the SeisSol CPU version supports,
+except for poroelasticity (which is currently being ported).
 
 In some cases, the features are still considered "beta" due to limited testing so far;
 see the following list:
 
-- acoustic, elastic (isotropic, anisotropic), visco-elastic, and poroelastic wave propagation models (all stable)
+- acoustic, elastic (isotropic, anisotropic), and visco-elastic wave propagation models (all stable)
+- elastic-acoustic interaction (stable)
 - fused simulations (beta)
 - kinematic point sources (stable)
 - dynamic rupture (stable; except TP in beta)

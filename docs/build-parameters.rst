@@ -42,6 +42,9 @@ You may explicitly compile and install multiple of these configurations at the s
     * ``single``: use single precision. Recommended in general for faster simulations. But especially for consumer GPUs (i.e. Nvidia GeForce, AMD Radeon, Intel ARC etc.), since these have usually a high performance difference between single and double precision.
     * ``double``: use double precision. Recommended, if your simulation fails with Inf/NaN errors in single precision builds. See also https://github.com/SeisSol/SeisSol/issues/200 .
 
+- ``NUMBER_OF_FUSED_SIMULATIONS``: the number of simulations run simultaneously.
+- ``NEW_BINARY_NAMING``: use an updated binary naming scheme which uses lower-case letters and a shorter notation
+
 Besides these, the host or, if enabled, the device architecture and backend are also encoded in the name of the executable.
 
 Generic parameters
@@ -61,10 +64,12 @@ Generic parameters
 - ``LTO``: enable link-time optimization
 - ``GRAPH_PARTITIONING_LIBS``: compile for the given graph partitioning libraries. Allowed options are:
 
-    * ``parmetis``: Repository: https://github.com/KarypisLab/ParMETIS
-    * ``PTScotch``: Repository:
-    * ``ParHIP``: Repository: https://github.com/KaHIP/KaHIP
-    * ``none``: Do not require a graph partitioning library. Recommended only for single-node/proxy builds.
+    * ``parmetis``: repository: https://github.com/KarypisLab/ParMETIS
+    * ``PTScotch``: repository: https://www.labri.fr/perso/pelegrin/scotch/
+    * ``ParHIP``: repository: https://github.com/KaHIP/KaHIP
+    * ``none``: do not require a graph partitioning library. Recommended only for single-node/proxy builds.
+- ``BUILD_DOCS``: build the (sphinx) documentation as HTML
+- ``BUILD_DOXYGEN``: build the doxygen docs for the SeisSol code
 
 CPU-specific parameters
 -----------------------
@@ -87,14 +92,23 @@ GPU-specific parameters
 
 - ``DEVICE_BACKEND``: enables or disables the GPU backend. The following backends are available at the moment:
 
+    * ``none``: compile for the CPU
     * ``cuda``: Nvidia CUDA
-    * ``hip``: AMD HIP, using ROCm (or CUDA).
+    * ``hip``: AMD HIP, using ROCm (or CUDA)
     * ``acpp``: SYCL, more specifically AdaptiveCpp, formerly known as Open SYCL and hipSYCL. Provides support for Intel, AMD, and Nvidia GPUs. Repository: https://github.com/AdaptiveCpp/AdaptiveCpp
     * ``oneapi``: SYCL, more specifically Intel Data Parallel C++ (DPC++). Provides support for Intel, AMD, and Nvidia GPUs. The open source variant is located under https://github.com/intel/llvm
 - ``DEVICE_ARCH``: the parameter to tune and compile the kernels for. See build-archs for an overview.
+- ``DEVICE_CODEGEN``: the GPU code generator to use. Unlike the CPU code generator list, you may only choose a single code generator here.
+
+    * ``gemmforge-chainforge``: Gemmforge and chainforge (auto-enabled if the latter is found)
+    * ``tensorforge``: TensorForge
+    * ``tinytc``: Tiny Tensor Compiler (for Intel)
+- ``DEVICE_KERNEL_INFOPRINT``: print register/resource usage info for each compiled kernel while compiling SeisSol.
+- ``DEVICE_KERNEL_SAVETEMPS``: store the temporary output (e.g. PTX, AMDGCN ISA) of the GPU compilers. Useful e.g. for kernel debugging.
 - ``SYCL_USE_NVHPC``: if AdaptiveCpp is compiled with NVHPC support, and we use NVHPC
 - ``USE_GRAPH_CAPTURING``: if a compute graph feature is available, then use it. This is currently the case for CUDA (since 11.0), HIP (requires ROCm 6.1 or higher), or oneAPI.
 - ``ENABLE_PROFILING_MARKERS``: Currently available for CUDA and HIP
+- ``DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS``: enable some faster, handwritten accumulation kernels (default for NVIDIA and AMD)
 
 Options currently known to be broken
 ------------------------------------
@@ -102,4 +116,3 @@ Options currently known to be broken
 The following options are available, but need to be left in the state that they are in. Not doing so will most likely break the build process or the software.
 
 - ``INTEGRATE_QUANTITIES``: assumed to be always disabled. Currently broken; it will probably be replaced in some version soon—when we refactor the IO component of SeisSol.
-- ``NUMBER_OF_FUSED_SIMULATIONS``: needs to be 0 or 1. Currently still broken for any higher number; but a fix is planned, cf. https://github.com/SeisSol/SeisSol/pull/385
