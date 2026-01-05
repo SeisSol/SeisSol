@@ -16,6 +16,9 @@ Currently, SeisSol needs information about the host architecture on which the co
 Besides setting the necessary compiler tuning variables (usually corresponding to ``-march=TARGET_ARCH -mtune=TARGET_ARCH``),
 it also sets the code generators.
 
+We recommend either using a ``HOST_ARCH`` that conforms to your target architecture (e.g. if you use a Zen 3 CPU, choose ``HOST_ARCH=milan``),
+or to set the ``-march``, ``-mtune``, and ``-mcpu`` settings manually and use a dummy arch (e.g. ``avx2-256`` or ``avx512-512``).
+
 CPU architectures
 ~~~~~~~~~~~~~~~~~
 
@@ -50,9 +53,9 @@ CPU architectures
      - Older Intel CPU clusters, clusters with AMD CPUs (up to 2023)
    * - ``skx``
      - Intel Skylake-X (including Skylake-SP)
-     - Generates AVX-512{F,CD,BW,DQ,VL} instructions. (NOTE: Skylake desktop processors are NOT included here, unless they contain an "X" in their name, such as e.g. i9 7800X)
+     - Generates AVX-512{F,CD,BW,DQ,VL} instructions and optimizes for the Skylake X architecture. (NOTE: Skylake desktop processors are NOT included here, unless they contain an "X" in their name, such as e.g. i9 7800X)
      - Intel Xeon v4 and onward (i.e. including the "metal"-branded Xeons), some Intel Core i9 models (check the Intel database), AMD Zen 4
-     - Most CPU clusters, e.g. SuperMUC NG (Phase 1), Frontera
+     - Most CPU clusters, e.g. SuperMUC-NG (Phase 1), Frontera
    * - ``knc``
      - Intel Knight's Corner (Xeon Phi coprocessor)
      - Generates Knight's Corner-specific instructions.
@@ -65,22 +68,22 @@ CPU architectures
      - (none known anymore)
    * - ``naples``
      - AMD Zen 1
-     - Generates AVX2 instructions. For the kernel generators, it is deemed equivalent to ``hsw``.
+     - Generates AVX2 instructions optimized for Zen 1. For the kernel generators, it is deemed equivalent to ``hsw``.
      - Ryzen 1xxx series
      -
    * - ``rome``
      - AMD Zen 2
-     - Generates AVX2 instructions. For the kernel generators, it is deemed equivalent to ``hsw``.
+     - Generates AVX2 instructions optimized for Zen 2. For the kernel generators, it is deemed equivalent to ``hsw``.
      - Ryzen 3??? series, 7?2?, 8?2? series
      - LUMI (CPU partition)
    * - ``milan``
      - AMD Zen 3
-     - Generates AVX2 instructions. For the kernel generators, it is deemed equivalent to ``hsw``.
+     - Generates AVX2 instructions optimized for Zen 3. For the kernel generators, it is deemed equivalent to ``hsw``.
      - Ryzen 5??? series, 7?3?, 8?3? series
      - LUMI (GPU partition), Frontier (GPU partition)
    * - ``bergamo``
      - AMD Zen 4
-     - Generates AVX512 instructions. For the kernel generators, it is deemed equivalent to ``skx``.
+     - Generates AVX512 instructions optimized for Zen 4. For the kernel generators, it is deemed equivalent to ``skx``.
      - Ryzen 7?4? series, MI300A
      -
    * - ``power9``
@@ -212,6 +215,9 @@ CPU architectures
 Note that any architecture besides x86-64, ARM/AARCH64, and PowerPC 9
 is to be considered "experimental", as we have had no real hardware to test them on.
 We merely provide forwards from the code generators for those other architectures.
+
+Older x86_64 feature levels and architectures (``wsm``, ``snb``, ``knc``, ``knl``)
+should still be functional, but usually rather untested.
 
 GPU architectures
 ~~~~~~~~~~~~~~~~~

@@ -195,17 +195,22 @@ And with that, we're good to go!
 Code generators for CPUs (optional, recommended)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We support the following CPU code generators:
+We suggest installing both LIBXSMM and PSpaMM for CPU code generation (or, as an alternative, only PSpaMM).
+Both of the two code generators are used for different matrix multiplications; LIBXSMM by default for dense-dense matrix multiplications,
+and PSpaMM for dense-sparse and sparse-dense matrix multiplications; which are used for most operations in SeisSol.
+Without PSpaMM installed, those operations are converted to dense-dense matrix multiplications for LIBXSMM or Eigen instead.
+
+In more detail, SeisSol supports the following CPU matrix code generators and libraries:
 
 - libxsmm (``libxsmm\_gemm\_generator``) will give reasonable performance on most ``x86`` machines. Its JIT variant also supports ARM and RISC-V CPUs.
+
 - PSpaMM (``pspamm-generator``): is the default for handling sparse matrix multiplications; and the LIBXSMM generator can come over as a bit dated in that area. It usually compares well against LIBXSMM; but is a tiny bit slower than it for dense-dense matrix multiplications.
-- Eigen: should work on all available architectures, but slower. Recommended, if you have trouble with the afore-mentioned code generators.
 
-Note that using Eigen does not result in any additional dependencies, since it is needed in SeisSol anyways.
+- Eigen: should work on all available architectures, but slower. Recommended, if you have trouble with the afore-mentioned code generators. Note that using Eigen does not result in any additional dependencies, since it is needed in SeisSol anyways.
 
-These GEMM generators are used to create optimized code for small matrix-matrix multiplications; as such their requirements differ from the usually-used BLAS libraries (the BLAS libraries are, in turn, rather ill-suited for our use cases).
+- BLAS libraries (e.g. OpenBLAS, BLIS): while they work for our case, BLAS libraries are usually rather ill-suited for the small matrix multiplications. We recommend using either LIBXSMM and/or PSpaMM instead.
 
-Installing Libxsmm (CPU)
+Installing LIBXSMM (CPU)
 """"""""""""""""""""""""
 
 .. code-block:: bash
@@ -239,7 +244,9 @@ For a good load balance on large clusters, SeisSol utilizes a mesh partitioning 
 Currently, the software supports the following libraries:
 
 -  ParMETIS (compile with ``IDXTYPEWIDTH=64``)
+
 -  SCOTCH
+
 -  ParHIP
 
 The partitioning of SeisSol meshes with ParMETIS was tested in large simulations and is

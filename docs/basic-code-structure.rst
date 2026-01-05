@@ -25,7 +25,7 @@ Keep all folders in ``PascalCase`` here.
 Folder          Description
 =============== =============
 Common          Routines which are used in several parts of the code, or are generic enough to not fit anywhere else.
-Dynamic Rupture Contains the Dynamic Rupture implementation (i.e. friction laws, input, output).
+DynamicRupture  Contains the Dynamic Rupture implementation (i.e. friction laws, input, output).
 Equations       Model-specific code; e.g. flux matrix construction.
 Geometry        Everything related to reading tetrahedral meshes and setting up geometry information.
 Initializer     Code that is called during initialization, e.g. allocating memory, setting up matrices, parsing material information. Also contains the parameter reader.
