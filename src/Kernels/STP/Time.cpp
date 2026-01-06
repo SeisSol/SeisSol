@@ -49,9 +49,7 @@ void Spacetime::executeSTP(double timeStepWidth,
                            real* stp)
 
 {
-  // alignas(PagesizeStack) real stpRhs[tensor::spaceTimePredictorRhs::size()];
   assert((reinterpret_cast<uintptr_t>(stp)) % Alignment == 0);
-  // std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
   std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
   kernel::spaceTimePredictor krnl = m_krnlPrototype;
 
@@ -77,7 +75,6 @@ void Spacetime::executeSTP(double timeStepWidth,
   krnl.I = timeIntegrated;
   krnl.timestep = timeStepWidth;
   krnl.spaceTimePredictor = stp;
-  // krnl.spaceTimePredictorRhs = stpRhs;
 
   // The matrix Zinv depends on the timestep
   // If the timestep is not as expected e.g. when approaching a sync point
