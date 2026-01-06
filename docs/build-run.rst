@@ -45,8 +45,8 @@ Note that it may be beneficial in some cases for the performance to set ``OMP_NU
 You should normally not require MPI to run SeisSol with only one process. If you have to, however, make sure to run as ``mpirun -n 1 -bind-to none ./SeisSol`` to still make use of all available cores.
 However, if you have two or more GPUs in your PC, you will be required to use N MPI ranks for utilizing all available N GPUs.
 
-Performance considerations
---------------------------
+Performance considerations (CPU Core Pinning)
+---------------------------------------------
 
 To run SeisSol at full speed, it is highly recommended pinning all threads to CPU cores explicitly, even for GPU builds.
 
@@ -105,6 +105,13 @@ For the IO, the following environment variables are recommended to be set, when 
     export ASYNC_MODE=THREAD
     export ASYNC_BUFFER_ALIGNMENT=8388608
 
+If there are problems during running SeisSol in IO segments, try setting ``ASYNC_MODE=SYNC`` instead.
+
+Environment Variables
+---------------------
+
+See the documents about :doc:`environment-variables` and, for GPUs, also :doc:`gpus`.
+
 GPU visibility
 --------------
 
@@ -115,7 +122,7 @@ Thus, care needs to be taken, as some systems make all GPUs on a node visible to
 selecting the same GPU.
 To avoid that, SeisSol provides a launch script given as ``shared/seissol-launch`` which selects the GPU according to the node-local SLURM rank.
 
-.. figure:: figures/GpuCpuProcessPinning.png
+.. figure:: figures/gpu-cpu-process-pinning.png
    :alt: Process Pinning
    :width: 16.00000cm
    :align: center

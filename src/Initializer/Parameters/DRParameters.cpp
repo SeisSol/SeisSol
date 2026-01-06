@@ -141,6 +141,10 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
     }
   }
 
+  // allow switching off the DR like that (but take `enabled=1` as default for compatibility)
+  const auto explicitEnabled = reader->read<bool>("enabled");
+  isDynamicRuptureEnabled &= explicitEnabled.value_or(true);
+
   auto* outputReader = baseReader->readSubNode("output");
   const bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);
   const bool energiesFromAcrossFaultVelocities =
