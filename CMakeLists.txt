@@ -7,15 +7,6 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-# use <PackageName>_ROOT variables
-if(POLICY CMP0074)
-  cmake_policy(SET CMP0074 NEW)
-endif()
-# honor CMAKE_REQUIRED_LIBRARIES in the include file check macros
-if(POLICY CMP0075)
-  cmake_policy(SET CMP0075 NEW)
-endif()
-
 project(SeisSol LANGUAGES C CXX)
 
 # TODO: Move one dir up.
