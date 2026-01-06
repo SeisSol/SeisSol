@@ -70,7 +70,7 @@ jobs:
     steps:
       - id: checkout
         name: checkout-seissol
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -410,7 +410,7 @@ jobs:
 
       - id: get-precomputed-solutions
         name: get-precomputed-solutions
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: seissol/precomputed-seissol
           ref: ${{env.precomputed-hash}}
@@ -444,7 +444,7 @@ jobs:
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: scripts
 
