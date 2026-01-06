@@ -198,7 +198,7 @@ void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
   setAllowedImbalances();
 
   logInfo() << "Computing LTS weights. Done. " << utils::nospace << '(' << finalNumberOfReductions
-            << " reductions.)";
+            << " reductions)";
 }
 
 double LtsWeights::getWiggleFactor() const { return wiggleFactor_; }

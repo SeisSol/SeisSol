@@ -27,6 +27,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
 #include "Modules/Modules.h"
+#include "Monitoring/Unit.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
@@ -669,42 +670,53 @@ void EnergyOutput::printEnergies() {
     if (shouldComputeVolumeEnergies()) {
       if (shouldPrint(totalElasticEnergy)) {
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                  << approxPrefix.c_str()
-                  << " Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
-                  << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
+                  << approxPrefix.c_str() << "Elastic energy (total, % kinematic, % potential): "
+                  << UnitEnergy.formatScientific(totalElasticEnergy, {}, outputPrecision).c_str()
+                  << "," << ratioElasticKinematic << "% ," << ratioElasticPotential << "%";
       }
       if (shouldPrint(totalAcousticEnergy)) {
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                  << approxPrefix.c_str()
-                  << " Acoustic energy (total, % kinematic, % potential): " << totalAcousticEnergy
-                  << " ," << ratioAcousticKinematic << " ," << ratioAcousticPotential;
+                  << approxPrefix.c_str() << "Acoustic energy (total, % kinematic, % potential): "
+                  << UnitEnergy.formatScientific(totalAcousticEnergy, {}, outputPrecision).c_str()
+                  << "," << ratioAcousticKinematic << "% ," << ratioAcousticPotential << "%";
       }
       if (shouldPrint(energiesStorage_.gravitationalEnergy(sim))) {
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                  << approxPrefix.c_str()
-                  << " Gravitational energy:" << energiesStorage_.gravitationalEnergy(sim);
+                  << approxPrefix.c_str() << "Gravitational energy:"
+                  << UnitEnergy
+                         .formatScientific(
+                             energiesStorage_.gravitationalEnergy(sim), {}, outputPrecision)
+                         .c_str();
       }
       if (shouldPrint(energiesStorage_.plasticMoment(sim))) {
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
                   << approxPrefix.c_str()
-                  << " Plastic moment (value, equivalent Mw, % total moment):"
-                  << energiesStorage_.plasticMoment(sim) << " ,"
-                  << 2.0 / 3.0 * std::log10(energiesStorage_.plasticMoment(sim)) - 6.07 << " ,"
-                  << ratioPlasticMoment;
+                  << "Plastic moment (value, equivalent Mw, % total moment):"
+                  << UnitMoment
+                         .formatScientific(energiesStorage_.plasticMoment(sim), {}, outputPrecision)
+                         .c_str()
+                  << "," << 2.0 / 3.0 * std::log10(energiesStorage_.plasticMoment(sim)) - 6.07
+                  << "," << ratioPlasticMoment << "%";
       }
     } else {
       logInfo() << "Volume energies skipped at this step";
     }
     logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-              << " Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY << " ,"
-              << totalMomentumZ;
+              << " Total momentum (X, Y, Z):"
+              << UnitMomentum.formatScientific(totalMomentumX, {}, outputPrecision).c_str() << ","
+              << UnitMomentum.formatScientific(totalMomentumY, {}, outputPrecision).c_str() << ","
+              << UnitMomentum.formatScientific(totalMomentumZ, {}, outputPrecision).c_str();
     if (shouldPrint(totalFrictionalWork)) {
       logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                << " Frictional work (total, % static, % radiated): " << totalFrictionalWork << " ,"
-                << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
+                << "Frictional work (total, % static, % radiated): "
+                << UnitEnergy.formatScientific(totalFrictionalWork, {}, outputPrecision).c_str()
+                << "," << ratioFrictionalStatic << "% ," << ratioFrictionalRadiated << "%";
       logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                << " Seismic moment (without plasticity):" << energiesStorage_.seismicMoment(sim)
-                << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage_.seismicMoment(sim)) - 6.07;
+                << "Seismic moment (without plasticity):"
+                << UnitMoment
+                       .formatScientific(energiesStorage_.seismicMoment(sim), {}, outputPrecision)
+                       .c_str()
+                << ", Mw:" << 2.0 / 3.0 * std::log10(energiesStorage_.seismicMoment(sim)) - 6.07;
     }
     if (!std::isfinite(totalElasticEnergy + totalAcousticEnergy)) {
       logError() << fusedPrefix << " Detected Inf/NaN in energies. Aborting.";

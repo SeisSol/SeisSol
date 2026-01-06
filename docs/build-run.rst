@@ -45,8 +45,8 @@ Note that it may be beneficial in some cases for the performance to set ``OMP_NU
 You should normally not require MPI to run SeisSol with only one process. If you have to, however, make sure to run as ``mpirun -n 1 -bind-to none ./SeisSol`` to still make use of all available cores.
 However, if you have two or more GPUs in your PC, you will be required to use N MPI ranks for utilizing all available N GPUs.
 
-Performance considerations
---------------------------
+Performance considerations (CPU Core Pinning)
+---------------------------------------------
 
 To run SeisSol at full speed, it is highly recommended pinning all threads to CPU cores explicitly, even for GPU builds.
 
@@ -56,9 +56,9 @@ so that it can be used by the MPI communication thread and the IO thread. Genera
 .. code-block:: bash
 
     if [ -n "$SLURM_NTASKS_PER_CORE" ]; then
-        SEISSOL_HYPERTHREADING = $SLURM_NTASKS_PER_CORE
+        SEISSOL_HYPERTHREADING=$SLURM_NTASKS_PER_CORE
     else
-        SEISSOL_HYPERTHREADING = 1
+        SEISSOL_HYPERTHREADING=1
     fi
 
     NUM_CORES=$(expr $SLURM_CPUS_PER_TASK / $SEISSOL_HYPERTHREADING)
@@ -74,7 +74,8 @@ Note that this list is non-exhaustive, and the exact variables are likely cluste
 You will need to take special care of some masked CPUs, as SeisSol currently does not detect them automatically.
 Offline CPUs are detected automatically on Linux systems and avoided in the free CPU masks.
 
-Use the environment variable ``SEISSOL_FREE_CPUS_MASK`` to explicitly specify the CPUs that can be used for communication/IO threads.
+In case MPI and/or Slurm to not manage get the pinning correctly and the above environment variables do not help,
+you can use the environment variable ``SEISSOL_FREE_CPUS_MASK`` to explicitly specify the CPUs that can be used for communication/IO threads.
 The variable accepts a comma separated list of elements where an element can be either 1) an integer, or 2) a range of
 integers defined as ``[start, end]`` or 3) a comma separated list of integers
 surrounded by the curly brackets. The *i*-th list element describes the free cpus
@@ -104,12 +105,30 @@ For the IO, the following environment variables are recommended to be set, when 
     export ASYNC_MODE=THREAD
     export ASYNC_BUFFER_ALIGNMENT=8388608
 
+If there are problems during running SeisSol in IO segments, try setting ``ASYNC_MODE=SYNC`` instead.
+
+Environment Variables
+---------------------
+
+See the documents about :doc:`environment-variables` and, for GPUs, also :doc:`gpus`.
+
 GPU visibility
 --------------
 
-For GPUs, SeisSol should be best launched with one rank per GPU. To select, SeisSol will automatically pick the first visible GPU to it.
-However, some systems make all GPUs on a node visible to all processes running on it—potentially resulting in all SeisSol processes
-selecting the same GPU. To avoid that, SeisSol provides a launch script given as ``shared/seissol-launch`` which selects the GPU according to the node-local SLURM rank.
+For GPUs, SeisSol will utilize one GPU per rank.
+If multiple GPUs are visible to SeisSol, it will automatically pick the first visible GPU when ordering.
+
+Thus, care needs to be taken, as some systems make all GPUs on a node visible to all processes running on it—potentially resulting in all SeisSol processes
+selecting the same GPU.
+To avoid that, SeisSol provides a launch script given as ``shared/seissol-launch`` which selects the GPU according to the node-local SLURM rank.
+
+.. figure:: figures/gpu-cpu-process-pinning.png
+   :alt: Process Pinning
+   :width: 16.00000cm
+   :align: center
+
+   Correct process pinning of 4 MPI processes where each process
+   controls 3 OpenMP threads and one communication thread.
 
 Starting SeisSol
 ----------------

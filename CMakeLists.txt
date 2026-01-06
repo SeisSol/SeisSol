@@ -517,6 +517,12 @@ add_subdirectory(app)
 
 if (WITH_GPU)
   string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
+
+  if ("${BACKEND_UPPER_CASE}" STREQUAL "HIP")
+    # ROCR needed for proper chiplet selection in TPX/CPX mode
+    set(BACKEND_UPPER_CASE "ROCR")
+  endif()
+
   set(RUN_GPU_TIME_SELECTOR "${BACKEND_UPPER_CASE}_VISIBLE_DEVICES")
   configure_file(${PROJECT_SOURCE_DIR}/cmake/gpu-launch-template.in
                  ${PROJECT_BINARY_DIR}/seissol-launch

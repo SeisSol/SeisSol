@@ -42,7 +42,8 @@ void WriterModule::setUp() {
   if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, seissolInstance_.env())) {
     const auto freeCpus = pinning_.getFreeCPUsMask();
     logInfo() << "Output Writer" << settings_.name
-              << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus);
+              << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus) << "("
+              << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
