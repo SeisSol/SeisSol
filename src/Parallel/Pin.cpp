@@ -18,6 +18,7 @@
 #include <deque>
 #include <fstream>
 #include <mpi.h>
+#include <optional>
 #include <sched.h>
 #include <set>
 #include <sstream>
@@ -262,6 +263,47 @@ void Pinning::pinToFreeCPUs() const {
   auto freeMask = getFreeCPUsMask();
 #ifndef __APPLE__
   sched_setaffinity(0, sizeof(cpu_set_t), &(freeMask.set));
+#endif // __APPLE__
+}
+
+std::string Pinning::maskToStringShort(const CpuMask& mask) {
+#ifndef __APPLE__
+  const auto& set = mask.set;
+  std::stringstream st;
+  std::optional<int> start = std::optional<int>();
+  bool hasText = false;
+
+  const auto printInterval = [&](int cpu) {
+    if (start.has_value()) {
+      if (hasText) {
+        st << ",";
+      }
+      hasText = true;
+      st << start.value();
+      if (start.value() + 1 < cpu) {
+        st << "-" << (cpu - 1);
+      }
+    }
+  };
+
+  for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
+    const bool isset = CPU_ISSET(cpu, &set) != 0;
+    if (isset && !start.has_value()) {
+      start = cpu;
+    } else if (!isset && start.has_value()) {
+      printInterval(cpu);
+      start = std::optional<int>();
+    }
+  }
+
+  if (start.has_value()) {
+    printInterval(get_nprocs_conf());
+  }
+
+  return st.str();
+
+#else
+  return "Affinity is not supported on MacOS.";
 #endif // __APPLE__
 }
 

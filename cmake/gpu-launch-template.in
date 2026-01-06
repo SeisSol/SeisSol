@@ -10,7 +10,7 @@
 # you can make a copy of the generated one
 # and adjust it based on your needs
 
-# Usage: mpirun -n <num_proc> ./launch ./SeisSol* ./parameters.par
+# Usage: mpirun -n <num_proc> ./seissol-launch ./SeisSol* ./parameters.par
 
 if [[ ! -z "${OMPI_COMM_WORLD_LOCAL_RANK}" ]]; then
   LOCAL="${OMPI_COMM_WORLD_LOCAL_RANK}"
