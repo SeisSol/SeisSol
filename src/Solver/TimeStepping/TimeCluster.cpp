@@ -217,9 +217,8 @@ void TimeCluster::computeDynamicRupture(DynamicRupture::Layer& layerData) {
   {
     LIKWID_MARKER_START("computeDynamicRuptureSpaceTimeInterpolation");
   }
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t face = 0; face < layerData.size(); ++face) {
     const std::size_t prefetchFace = (face + 1 < layerData.size()) ? face + 1 : face;
     dynamicRuptureKernel.spaceTimeInterpolation(faceInformation[face],
@@ -355,10 +354,8 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   const auto timeBasis = seissol::kernels::timeBasis();
   const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
 
-#ifdef _OPENMP
 #pragma omp parallel for private(bufferPointer, integrationBuffer),                                \
     firstprivate(tmp) schedule(static)
-#endif
   for (std::size_t cell = 0; cell < clusterData->size(); cell++) {
     auto data = clusterData->cellRef(cell);
 
@@ -908,7 +905,6 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   const auto subtimeCoeffs =
       timeBasis.integrate(subTimeStart, timestep + subTimeStart, neighborTimestep);
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static) default(none) private(timeIntegrated,                    \
                                                                     faceNeighborsPrefetch)         \
     shared(oneMinusIntegratingFactor,                                                              \
@@ -924,7 +920,6 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
                clusterData,                                                                        \
                timestep,                                                                           \
                clusterSize) reduction(+ : numberOfTetsWithPlasticYielding)
-#endif
   for (std::size_t cell = 0; cell < clusterSize; cell++) {
     auto data = clusterData->cellRef(cell);
 

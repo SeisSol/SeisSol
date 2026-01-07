@@ -115,16 +115,13 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   auto materialsDBGhost =
       queryDB<MaterialT>(queryGenGhost, seissolParams.model.materialFileName, ghostVertices.size());
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
   for (size_t i = 0; i < materialsDB.size(); ++i) {
     auto& cellMat = materialsDB[i];
     cellMat.initialize(seissolParams.model);
   }
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
   for (size_t i = 0; i < materialsDBGhost.size(); ++i) {
     auto& cellMat = materialsDBGhost[i];
     cellMat.initialize(seissolParams.model);
@@ -138,9 +135,8 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
     auto* materialDataArray = layer.var<LTS::MaterialData>();
 
     if (layer.getIdentifier().halo == HaloType::Ghost) {
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto& localSecondaryInformation = secondaryInformation[cell];
         const auto meshId = localSecondaryInformation.meshId;
@@ -160,9 +156,8 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
       auto* materialArray = layer.var<LTS::Material>();
       auto* plasticityArray =
           seissolParams.model.plasticity ? layer.var<LTS::Plasticity>() : nullptr;
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         // set the materials for the cell volume and its faces
         const auto& localSecondaryInformation = secondaryInformation[cell];

@@ -236,9 +236,7 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
   const auto bufferSize = tensor::I::size();
   const auto derivativeSize = yateto::computeFamilySize<tensor::dQ>();
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     initBucketItem(buffers[cell], buffersDerivatives, bufferSize, true);
     initBucketItem(derivatives[cell], buffersDerivatives, derivativeSize, true);
@@ -278,9 +276,7 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
   auto* faceNeighbors = layer.var<LTS::FaceNeighbors>();
   auto* faceNeighborsDevice = layer.var<LTS::FaceNeighborsDevice>();
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       const auto& faceNeighbor = secondaryCellInformation[cell].faceNeighbors[face];
