@@ -21,10 +21,6 @@
 #include "Model/Plasticity.h"
 #include "Parallel/Helper.h"
 
-#ifdef ACL_DEVICE
-#include "Parallel/Helper.h"
-#endif
-
 namespace seissol::tensor {
 struct Qane;
 } // namespace seissol::tensor

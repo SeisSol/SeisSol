@@ -38,9 +38,9 @@ class OutputManager : public seissol::Module {
   instance::checkpoint::CheckpointManager& getCheckpointManager();
 
   private:
-  instance::checkpoint::CheckpointManager checkpointManager;
-  std::vector<std::unique_ptr<seissol::io::writer::module::WriterModule>> modules;
-  SeisSol& seissolInstance;
+  instance::checkpoint::CheckpointManager checkpointManager_;
+  std::vector<std::unique_ptr<seissol::io::writer::module::WriterModule>> modules_;
+  SeisSol& seissolInstance_;
 };
 
 } // namespace seissol::io

@@ -13,36 +13,36 @@
 #include <utils/logger.h>
 
 namespace seissol {
-Module::Module() : lastSyncPoint(-std::numeric_limits<double>::infinity()) {}
+Module::Module() : lastSyncPoint_(-std::numeric_limits<double>::infinity()) {}
 
 Module::~Module() = default;
 
 double Module::potentialSyncPoint(double currentTime, double timeTolerance, bool forceSyncPoint) {
-  if (std::abs(currentTime - lastSyncPoint) < timeTolerance) {
+  if (std::abs(currentTime - lastSyncPoint_) < timeTolerance) {
     logInfo() << "Ignoring duplicate synchronization point at time" << currentTime
-              << "; the last sync point was at " << lastSyncPoint;
-  } else if (forceSyncPoint || std::abs(currentTime - nextSyncPoint) < timeTolerance) {
+              << "; the last sync point was at " << lastSyncPoint_;
+  } else if (forceSyncPoint || std::abs(currentTime - nextSyncPoint_) < timeTolerance) {
     syncPoint(currentTime);
-    lastSyncPoint = currentTime;
-    nextSyncPoint += isyncInterval;
+    lastSyncPoint_ = currentTime;
+    nextSyncPoint_ += isyncInterval_;
   }
 
-  return nextSyncPoint;
+  return nextSyncPoint_;
 }
 
 void Module::setSimulationStartTime(double time) {
-  lastSyncPoint = time;
+  lastSyncPoint_ = time;
 
   // take the next expected sync point TODO: forward tolerance
   // (calculated from time point 0)
-  nextSyncPoint = 0;
-  while (nextSyncPoint - time < 1e-6) {
-    const auto currNextSyncPoint = nextSyncPoint;
-    nextSyncPoint += isyncInterval;
-    if (currNextSyncPoint == nextSyncPoint) {
+  nextSyncPoint_ = 0;
+  while (nextSyncPoint_ - time < 1e-6) {
+    const auto currNextSyncPoint = nextSyncPoint_;
+    nextSyncPoint_ += isyncInterval_;
+    if (currNextSyncPoint == nextSyncPoint_) {
       // no time advancement (i.e. 0 or too small)
       // just jump to the init time
-      nextSyncPoint = time;
+      nextSyncPoint_ = time;
       break;
     }
   }
@@ -54,9 +54,9 @@ void Module::setSimulationStartTime(double time) {
  * This is only required for modules that register for {@link SYNCHRONIZATION_POINT}.
  */
 void Module::setSyncInterval(double interval) {
-  if (isyncInterval != 0) {
+  if (isyncInterval_ != 0) {
     logError() << "Synchronization interval is already set";
   }
-  isyncInterval = interval;
+  isyncInterval_ = interval;
 }
 } // namespace seissol

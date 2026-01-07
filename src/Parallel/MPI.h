@@ -105,10 +105,10 @@ class Mpi : public MpiBasic {
    */
   template <typename T>
   [[nodiscard]] auto collect(T value, std::optional<MPI_Comm> comm = {}) const {
-    auto collect = std::vector<T>(m_size);
+    auto collect = std::vector<T>(size_);
     auto type = castToMpiType<T>();
     if (not comm.has_value()) {
-      comm = std::optional<MPI_Comm>(m_comm);
+      comm = std::optional<MPI_Comm>(comm_);
     }
     MPI_Gather(&value, 1, type, collect.data(), 1, type, 0, comm.value());
     return collect;
@@ -126,7 +126,7 @@ class Mpi : public MpiBasic {
     using InternalType = typename ContainerType::value_type;
 
     if (not comm.has_value()) {
-      comm = std::optional<MPI_Comm>(m_comm);
+      comm = std::optional<MPI_Comm>(comm_);
     }
     int commSize{};
     MPI_Comm_size(comm.value(), &commSize);
@@ -169,7 +169,7 @@ class Mpi : public MpiBasic {
   template <typename F>
   void serialOrderExecute(F&& operation, std::optional<MPI_Comm> comm = {}) {
     if (!comm.has_value()) {
-      comm = std::optional<MPI_Comm>(m_comm);
+      comm = std::optional<MPI_Comm>(comm_);
     }
 
     int rank = 0;
@@ -197,7 +197,7 @@ class Mpi : public MpiBasic {
   template <typename T>
   void broadcast(T* value, int root, std::optional<MPI_Comm> comm = {}) const {
     if (not comm.has_value()) {
-      comm = std::optional<MPI_Comm>(m_comm);
+      comm = std::optional<MPI_Comm>(comm_);
     }
     auto mpiType = castToMpiType<T>();
     MPI_Bcast(value, 1, mpiType, root, comm.value());
@@ -212,11 +212,11 @@ class Mpi : public MpiBasic {
                           std::optional<MPI_Comm> comm = {}) const {
     using InternalType = typename ContainerType::value_type;
     if (not comm.has_value()) {
-      comm = std::optional<MPI_Comm>(m_comm);
+      comm = std::optional<MPI_Comm>(comm_);
     }
     auto size = static_cast<unsigned>(container.size());
     broadcast(&size, root);
-    if (m_rank != root) {
+    if (rank_ != root) {
       container.resize(size);
     }
     auto mpiType = castToMpiType<InternalType>();
@@ -226,19 +226,19 @@ class Mpi : public MpiBasic {
   /**
    * @return The main communicator for the application
    */
-  [[nodiscard]] MPI_Comm comm() const { return m_comm; }
+  [[nodiscard]] MPI_Comm comm() const { return comm_; }
 
   /**
    * @return The node communicator (shared memory) for the application
    */
-  [[nodiscard]] MPI_Comm sharedMemComm() const { return m_sharedMemComm; }
+  [[nodiscard]] MPI_Comm sharedMemComm() const { return sharedMemComm_; }
 
   /**
    * @return hostnames for all ranks in the communicator of the application
    */
-  const auto& getHostNames() { return hostNames; }
+  const auto& getHostNames() { return hostNames_; }
 
-  const auto& getPCIAddresses() { return pcis; }
+  const auto& getPCIAddresses() { return pcis_; }
 
   static void barrier(MPI_Comm comm) { MPI_Barrier(comm); }
 
@@ -250,18 +250,18 @@ class Mpi : public MpiBasic {
   void setDataTransferModeFromEnv();
 
   enum class DataTransferMode { Direct, CopyInCopyOutHost };
-  DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode; }
+  DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode_; }
 
   /** The only instance of the class */
   static Mpi mpi;
 
   private:
-  MPI_Comm m_comm{MPI_COMM_NULL};
-  MPI_Comm m_sharedMemComm{};
+  MPI_Comm comm_{MPI_COMM_NULL};
+  MPI_Comm sharedMemComm_{};
   Mpi() = default;
-  DataTransferMode preferredDataTransferMode{DataTransferMode::Direct};
-  std::vector<std::string> hostNames;
-  std::vector<std::string> pcis;
+  DataTransferMode preferredDataTransferMode_{DataTransferMode::Direct};
+  std::vector<std::string> hostNames_;
+  std::vector<std::string> pcis_;
 };
 
 } // namespace seissol

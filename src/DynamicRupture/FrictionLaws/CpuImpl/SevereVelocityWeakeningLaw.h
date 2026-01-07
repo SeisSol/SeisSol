@@ -30,11 +30,11 @@ class SevereVelocityWeakeningLaw
                              double stateVarReference,
                              double timeIncrement,
                              double localSlipRate) {
-    const real localSl0 = this->sl0[faceIndex][pointIndex];
+    const real localSl0 = this->sl0_[faceIndex][pointIndex];
 
-    const real steadyStateStateVariable = localSlipRate * localSl0 / this->drParameters->rsSr0;
+    const real steadyStateStateVariable = localSlipRate * localSl0 / this->drParameters_->rsSr0;
 
-    const double preexp1 = -this->drParameters->rsSr0 * (timeIncrement / localSl0);
+    const double preexp1 = -this->drParameters_->rsSr0 * (timeIncrement / localSl0);
     const double exp1v = std::exp(preexp1);
     const double exp1m = -std::expm1(preexp1);
     const double localStateVariable = steadyStateStateVariable * exp1m + exp1v * stateVarReference;
@@ -53,14 +53,14 @@ class SevereVelocityWeakeningLaw
     MuDetails details{};
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-      const real localA = this->a[ltsFace][pointIndex];
-      const real localSl0 = this->sl0[ltsFace][pointIndex];
-      const real c = this->b[ltsFace][pointIndex] * localStateVariable[pointIndex] /
+      const real localA = this->a_[ltsFace][pointIndex];
+      const real localSl0 = this->sl0_[ltsFace][pointIndex];
+      const real c = this->b_[ltsFace][pointIndex] * localStateVariable[pointIndex] /
                      (localStateVariable[pointIndex] + localSl0);
 
       details.a[pointIndex] = localA;
       details.c[pointIndex] = c;
-      details.f0[pointIndex] = this->f0[ltsFace][pointIndex];
+      details.f0[pointIndex] = this->f0_[ltsFace][pointIndex];
     }
     return details;
   }
@@ -69,7 +69,7 @@ class SevereVelocityWeakeningLaw
   real updateMu(std::uint32_t pointIndex, real localSlipRateMagnitude, const MuDetails& details) {
     return details.f0[pointIndex] +
            details.a[pointIndex] * localSlipRateMagnitude /
-               (localSlipRateMagnitude + this->drParameters->rsSr0) -
+               (localSlipRateMagnitude + this->drParameters_->rsSr0) -
            details.c[pointIndex];
   }
 
@@ -78,8 +78,8 @@ class SevereVelocityWeakeningLaw
                           real localSlipRateMagnitude,
                           const MuDetails& details) {
     // note that: d/dx (x/(x+c)) = ((x+c)-x)/(x+c)**2 = c/(x+c)**2
-    const real divisor = (localSlipRateMagnitude + this->drParameters->rsSr0);
-    return details.a[pointIndex] * this->drParameters->rsSr0 / (divisor * divisor);
+    const real divisor = (localSlipRateMagnitude + this->drParameters_->rsSr0);
+    return details.a[pointIndex] * this->drParameters_->rsSr0 / (divisor * divisor);
   }
 
   /**
@@ -90,7 +90,7 @@ class SevereVelocityWeakeningLaw
                         std::size_t ltsFace) const {
 #pragma omp simd
     for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-      this->stateVariable[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
+      this->stateVariable_[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
     }
   }
 

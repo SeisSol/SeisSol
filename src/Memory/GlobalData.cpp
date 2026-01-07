@@ -22,6 +22,10 @@
 #include <cstddef>
 #include <yateto.h>
 
+#ifdef ACL_DEVICE
+#include <Device/device.h>
+#endif
+
 namespace seissol::initializer {
 namespace matrixmanip {
 MemoryProperties OnHost::getProperties() {

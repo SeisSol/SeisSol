@@ -29,19 +29,19 @@ class FreeSurfaceWriter
     : private async::Module<FreeSurfaceWriterExecutor, FreeSurfaceInitParam, FreeSurfaceParam>,
       public seissol::Module {
   private:
-  seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance_;
 
   /** Is enabled? */
-  bool m_enabled{false};
+  bool enabled_{false};
 
   /** The asynchronous executor */
-  FreeSurfaceWriterExecutor m_executor;
+  FreeSurfaceWriterExecutor executor_;
 
   /** Frontend stopwatch */
-  Stopwatch m_stopwatch;
+  Stopwatch stopwatch_;
 
   /** free surface integration module. */
-  seissol::solver::FreeSurfaceIntegrator* m_freeSurfaceIntegrator{nullptr};
+  seissol::solver::FreeSurfaceIntegrator* freeSurfaceIntegrator_{nullptr};
 
   void constructSurfaceMesh(const seissol::geometry::MeshReader& meshReader,
                             unsigned*& cells,
@@ -51,7 +51,7 @@ class FreeSurfaceWriter
 
   public:
   explicit FreeSurfaceWriter(seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance) {}
+      : seissolInstance_(seissolInstance) {}
 
   /**
    * Called by ASYNC on all ranks
@@ -70,20 +70,20 @@ class FreeSurfaceWriter
   void write(double time);
 
   void close() {
-    if (m_enabled) {
+    if (enabled_) {
       wait();
     }
 
     finalize();
 
-    if (!m_enabled) {
+    if (!enabled_) {
       return;
     }
 
-    m_stopwatch.printTime("Time free surface writer frontend:");
+    stopwatch_.printTime("Time free surface writer frontend:");
   }
 
-  void tearDown() override { m_executor.finalize(); }
+  void tearDown() override { executor_.finalize(); }
 
   //
   // Hooks

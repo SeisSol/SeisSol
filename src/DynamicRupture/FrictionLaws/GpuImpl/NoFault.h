@@ -15,7 +15,7 @@ namespace seissol::dr::friction_law::gpu {
 
 class NoFault : public BaseFrictionSolver<NoFault> {
   public:
-  NoFault(seissol::initializer::parameters::DRParameters* drParameters)
+  explicit NoFault(seissol::initializer::parameters::DRParameters* drParameters)
       : BaseFrictionSolver<NoFault>(drParameters) {}
 
   static void copySpecificStorageDataToLocal(FrictionLawData* data,

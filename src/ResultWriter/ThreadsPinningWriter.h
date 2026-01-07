@@ -18,11 +18,11 @@ namespace seissol::writer {
 class ThreadsPinningWriter {
   public:
   explicit ThreadsPinningWriter(const std::string& outputDirectory)
-      : outputDirectory(outputDirectory) {}
+      : outputDirectory_(outputDirectory) {}
   void write(const seissol::parallel::Pinning& pinning, utils::Env& env);
 
   private:
-  std::string outputDirectory;
+  std::string outputDirectory_;
 };
 } // namespace seissol::writer
 

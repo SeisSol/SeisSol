@@ -5,10 +5,12 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Memory/MemoryAllocator.h"
+#include "Parallel/Runtime/Stream.h"
 #include "PointSourceCluster.h"
+#include "SourceTerm/Typedefs.h"
 
 #include <cstddef>
+#include <cstdint>
 
 #ifdef __HIP__
 #include "hip/hip_runtime.h"

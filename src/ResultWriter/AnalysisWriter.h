@@ -44,32 +44,32 @@ class CsvAnalysisWriter {
   auto operator=(CsvAnalysisWriter&&) = delete;
 
   private:
-  std::ofstream out;
-  bool isEnabled{false};
-  std::string fileName;
+  std::ofstream out_;
+  bool isEnabled_{false};
+  std::string fileName_;
 };
 
 class AnalysisWriter {
   private:
-  seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance_;
 
   struct Data {
     double val;
     int rank;
   };
 
-  bool isEnabled{false}; // TODO(Lukas) Do we need this?
-  const seissol::geometry::MeshReader* meshReader{};
+  bool isEnabled_{false}; // TODO(Lukas) Do we need this?
+  const seissol::geometry::MeshReader* meshReader_{};
 
-  std::string fileName;
+  std::string fileName_;
 
   public:
-  explicit AnalysisWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
+  explicit AnalysisWriter(seissol::SeisSol& seissolInstance) : seissolInstance_(seissolInstance) {}
 
   void init(const seissol::geometry::MeshReader* meshReader, std::string_view fileNamePrefix) {
-    isEnabled = true;
-    this->meshReader = meshReader;
-    fileName = std::string(fileNamePrefix) + "-analysis.csv";
+    isEnabled_ = true;
+    this->meshReader_ = meshReader;
+    fileName_ = std::string(fileNamePrefix) + "-analysis.csv";
   }
 
   void printAnalysis(double simulationTime);

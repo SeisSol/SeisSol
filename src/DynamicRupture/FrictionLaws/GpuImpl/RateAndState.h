@@ -28,7 +28,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
   }
 
-  ~RateAndStateBase() = default;
+  ~RateAndStateBase() override = default;
 
   static void copySpecificStorageDataToLocal(FrictionLawData* data,
                                              DynamicRupture::Layer& layerData) {
@@ -109,7 +109,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto& devAbsoluteShearStress{ctx.initialVariables.absoluteShearTraction};
     auto* devMu{ctx.data->mu};
 
-    rs::Settings settings{};
+    const rs::Settings settings{};
 
     for (uint32_t j = 0; j < settings.numberStateVariableUpdates; j++) {
 

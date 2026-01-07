@@ -35,26 +35,26 @@ namespace {
 
 class BucketManager {
   private:
-  std::size_t dataSize{0};
+  std::size_t dataSize_{0};
 
   public:
   real* markAllocate(std::size_t size, bool align = true) {
     if (align) {
       // round up by Alignment
-      this->dataSize = ((this->dataSize + Alignment - 1) / Alignment) * Alignment;
+      this->dataSize_ = ((this->dataSize_ + Alignment - 1) / Alignment) * Alignment;
     }
 
-    const uintptr_t offset = this->dataSize;
-    this->dataSize += size;
+    const uintptr_t offset = this->dataSize_;
+    this->dataSize_ += size;
 
     // the following "hack" was copied from the MemoryManager. Add +1 to pointers to differentiate
     // from nullptr NOLINTNEXTLINE
     return reinterpret_cast<real*>(offset + 1);
   }
 
-  [[nodiscard]] std::size_t position() const { return dataSize; }
+  [[nodiscard]] std::size_t position() const { return dataSize_; }
 
-  [[nodiscard]] std::size_t size() const { return dataSize; }
+  [[nodiscard]] std::size_t size() const { return dataSize_; }
 };
 
 template <typename T>
