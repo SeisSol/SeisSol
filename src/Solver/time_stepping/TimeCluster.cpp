@@ -877,11 +877,14 @@ std::pair<long, long>
   real* timeIntegrated[4];
   real* faceNeighborsPrefetch[4];
   auto timeStepLocal = timeStepSize();
+  const auto oneMinusIntegratingFactor = seissol::kernels::Plasticity::computeRelaxTime(
+      m_tv,
+      timeStepLocal);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) default(none) private(timeIntegrated,                   \
                                                                 faceNeighborsPrefetch)            \
-    shared(cellInformation,                                                                        \
+    shared(oneMinusIntegratingFactor, cellInformation,                                                                        \
                loader,                                                                             \
                faceNeighbors,                                                                      \
                pstrain,                                                                            \
@@ -948,9 +951,8 @@ std::pair<long, long>
         faceNeighborsPrefetch);
 
     if (usePlasticity) {
-      updateRelaxTime();
       numberOTetsWithPlasticYielding +=
-          seissol::kernels::Plasticity::computePlasticity(m_oneMinusIntegratingFactor,
+          seissol::kernels::Plasticity::computePlasticity(oneMinusIntegratingFactor,
                                                           timeStepLocal,
                                                           m_tv,
                                                           m_globalDataOnHost,
@@ -997,4 +999,3 @@ void TimeCluster::synchronizeTo(seissol::initializer::AllocationPlace place, voi
 }
 
 } // namespace seissol::time_stepping
-
