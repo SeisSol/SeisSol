@@ -831,9 +831,23 @@ template<bool usePlasticity>
 
       real *l_timeIntegrated[4];
       real *l_faceNeighbors_prefetch[4];
+      
+      const auto timestep = timeStepSize();
+      const auto oneMinusIntegratingFactor = seissol::kernels::Plasticity::computeRelaxTime(m_tv, timestep);
 
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared(cellInformation, loader, faceNeighbors, pstrain, i_layerData, plasticity, drMapping, subTimeStart) reduction(+:numberOTetsWithPlasticYielding)
+#pragma omp parallel for schedule(static) default(none) private(l_timeIntegrated,                  \
+                                                                    l_faceNeighbors_prefetch)      \
+    shared(oneMinusIntegratingFactor,                                                              \
+               cellInformation,                                                                    \
+               loader,                                                                             \
+               faceNeighbors,                                                                      \
+               pstrain,                                                                            \
+               i_layerData,                                                                        \
+               plasticity,                                                                         \
+               drMapping,                                                                          \
+               subTimeStart,                                                                       \
+               timestep) reduction(+ : numberOTetsWithPlasticYielding)
 #endif
       for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
         auto data = loader.entry(l_cell);
@@ -841,7 +855,7 @@ template<bool usePlasticity>
                                                        data.cellInformation().ltsSetup,
                                                        data.cellInformation().faceTypes,
                                                        subTimeStart,
-                                                       timeStepSize(),
+                                                       timestep,
                                                        faceNeighbors[l_cell],
 #ifdef _OPENMP
                                                        *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalDataOnHost->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
@@ -875,9 +889,8 @@ template<bool usePlasticity>
         );
 
         if constexpr (usePlasticity) {
-          updateRelaxTime();
-          numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_oneMinusIntegratingFactor,
-                                                                                             timeStepSize(),
+          numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( oneMinusIntegratingFactor,
+                                                                                             timestep,
                                                                                              m_tv,
                                                                                              m_globalDataOnHost,
                                                                                              &plasticity[l_cell],

@@ -21,6 +21,11 @@ namespace seissol::kernels {
 
 class Plasticity {
   public:
+
+  static constexpr double computeRelaxTime(double tV, double timestep){
+    return (tV > 0.0) ? -std::expm1(-timestep / tV) : 1.0;
+  }
+
   /** Returns 1 if there was plastic yielding otherwise 0.
    */
   static unsigned computePlasticity(double oneMinusIntegratingFactor,
