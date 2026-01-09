@@ -210,6 +210,8 @@ __device__ __forceinline__ auto dpp4(T value) -> T {
   return dpp<(lane << 6) | (lane << 4) | (lane << 2) | lane, 0b1111, 0b1111, true>(value);
 }
 
+using af4 = __attribute__((__vector_size__(4 * sizeof(float)))) float;
+
 #define ISTRINGIFY(x) #x
 #define STR(x) ISTRINGIFY(x)
 #define CM4STR(p1, p2, p3, p4, c, a, b)                                                            \
@@ -541,6 +543,61 @@ __builtin_amdgcn_mfma_f32_4x4x1f32(kdT[3].x, dq[j + 3], acc[f][j / 4], 0, 0, 0);
 }
 */
 
+template <typename T>
+__device__ __forceinline__ auto transpose4x4(af4& w, T v1, T v2, T v3, T v4) {
+
+  const uint64_t mask1a = 0x5555555555555555ULL;
+  const uint64_t mask1b = 0xaaaaaaaaaaaaaaaaULL;
+  const uint64_t mask2a = 0x3333333333333333ULL;
+  const uint64_t mask2b = 0xccccccccccccccccULL;
+
+  T u1, u2, u3, u4;
+
+  // 11 12 13 14
+  // 21 22 23 24
+  // 31 32 33 34
+  // 41 42 43 44
+
+  // 11 21 13 23 (DPP for row 2)
+  // 12 22 14 24 (DPP for row 1)
+  // 31 41 33 43 (DPP for row 4)
+  // 32 42 34 44 (DPP for row 3)
+
+  // 11 21 31 41 (DPP for row 3)
+  // 12 22 32 42 (DPP for row 4)
+  // 13 23 33 43 (DPP for row 1)
+  // 14 24 34 44 (DPP for row 2)
+
+  // clang-format off
+
+  __asm("s_mov_b64 vcc, %[mask] \n\t"
+  CM4STR(0, 0, 2, 2, "%[u1]", "%[v2]", "%[v1]") "\n\t"
+  CM4STR(0, 0, 2, 2, "%[u3]", "%[v4]", "%[v3]") "\n\t"
+  : [u1] "=v" (u1), [u3] "=v" (u3)
+  : [mask] "s" (mask1a), [v1] "v" (v1), [v2] "v" (v2), [v3] "v" (v3), [v4] "v" (v4)
+  : "vcc");
+  __asm("s_mov_b64 vcc, %[mask] \n\t"
+  CM4STR(1, 1, 3, 3, "%[u2]", "%[v1]", "%[v2]") "\n\t"
+  CM4STR(1, 1, 3, 3, "%[u4]", "%[v3]", "%[v4]") "\n\t"
+  : [u2] "=v" (u2), [u4] "=v" (u4)
+  : [mask] "s" (mask1b), [v1] "v" (v1), [v2] "v" (v2), [v3] "v" (v3), [v4] "v" (v4)
+  : "vcc");
+  __asm("s_mov_b64 vcc, %[mask] \n\t"
+  CM4STR(0, 1, 0, 1, "%[w1]", "%[u3]", "%[u1]") "\n\t"
+  CM4STR(0, 1, 0, 1, "%[w2]", "%[u4]", "%[u2]") "\n\t"
+  : [w1] "=v" (w[0]), [w2] "=v" (w[1])
+  : [mask] "s" (mask2a), [u1] "v" (u1), [u2] "v" (u2), [u3] "v" (u3), [u4] "v" (u4)
+  : "vcc");
+  __asm("s_mov_b64 vcc, %[mask] \n\t"
+  CM4STR(2, 3, 2, 3, "%[w3]", "%[u1]", "%[u3]") "\n\t"
+  CM4STR(2, 3, 2, 3, "%[w4]", "%[u2]", "%[u4]")
+  : [w3] "=v" (w[2]), [w4] "=v" (w[3])
+  : [mask] "s" (mask2b), [u1] "v" (u1), [u2] "v" (u2), [u3] "v" (u3), [u4] "v" (u4)
+  : "vcc");
+
+  // clang-format on
+}
+
 #define FMADPP4(pos, c, a, b)                                                                      \
   __asm("v_fmac_f32_dpp %0, %1, %2 quad_perm:[" STR(pos) "," STR(pos) "," STR(pos) "," STR(        \
             pos) "] row_mask:0xf bank_mask:0xf bound_ctrl:1"                                       \
@@ -723,8 +780,6 @@ template <>
 __device__ __forceinline__ void fmacdpp16<15>(double& c, double a, double b) {
   DMADPP16(0xf, c, a, b);
 }
-
-using af4 = __attribute__((__vector_size__(4 * sizeof(float)))) float;
 
 template <typename T>
 using gptr = __attribute__((address_space(1))) T* __restrict;
@@ -909,12 +964,10 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
 
     // load matrices
 
-    /*
 #pragma unroll
     for (int i = 0; i < Quantities; ++i) {
       dq[i] = __builtin_nontemporal_load(&glbA[i * 64 + threadIdx.x]);
     }
-    */
 
     float interm[Faces][Quantities]{};
 
@@ -922,21 +975,8 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
 
     af4 dq4[3]{};
 
-    /*for (int i = 0; i < 2; ++i) {
-      transpose4x4(dq4[i].x,
-                   dq4[i].y,
-                   dq4[i].z,
-                   dq4[i].w,
-                   dq[4 * i + 0],
-                   dq[4 * i + 1],
-                   dq[4 * i + 2],
-                   dq[4 * i + 3]);
-    }*/
-    for (int i = 0; i < 8; i += 4) {
-      dq4[i / 4] = __builtin_nontemporal_load((af4*)&glbA[i * 64 + threadIdx.x * 4]);
-    }
-    for (int i = 8; i < Quantities; ++i) {
-      dq[i] = __builtin_nontemporal_load(&glbA[i * 64 + threadIdx.x]);
+    for (int i = 0; i < 2; ++i) {
+      transpose4x4(dq4[i], dq[4 * i + 0], dq[4 * i + 1], dq[4 * i + 2], dq[4 * i + 3]);
     }
     transpose4x1(dq4[2], dq[8]);
 
