@@ -1050,17 +1050,18 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8a(const float** A,
     */
 
 #pragma unroll
-    for (int j = 0; j < (Quantities / 4) * 4; j += 4) {
+    for (int j = 0; j < (Quantities / 4) * 4; ++j) {
 #pragma unroll
       for (int f = 0; f < 4; ++f) {
-        transpose4x4(interm[f][j + 0],
+        interm[f][j] = acc[f][j / 4][j % 4];
+        /*transpose4x4(interm[f][j + 0],
                      interm[f][j + 1],
                      interm[f][j + 2],
                      interm[f][j + 3],
                      acc[f][j / 4][0],
                      acc[f][j / 4][1],
                      acc[f][j / 4][2],
-                     acc[f][j / 4][3]);
+                     acc[f][j / 4][3]);*/
       }
     }
 
@@ -1281,17 +1282,18 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
     local_step<55>(kdivCache, dq4, dq, acc, interm);
 
 #pragma unroll
-    for (int j = 0; j < (Quantities / 4) * 4; j += 4) {
+    for (int j = 0; j < (Quantities / 4) * 4; ++j) {
 #pragma unroll
       for (int f = 0; f < 4; ++f) {
-        transpose4x4(interm[f][j + 0],
+        interm[f][j] = acc[f][j / 4][j % 4];
+        /*transpose4x4(interm[f][j + 0],
                      interm[f][j + 1],
                      interm[f][j + 2],
                      interm[f][j + 3],
                      acc[f][j / 4][0],
                      acc[f][j / 4][1],
                      acc[f][j / 4][2],
-                     acc[f][j / 4][3]);
+                     acc[f][j / 4][3]);*/
       }
     }
 
