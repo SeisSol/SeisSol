@@ -769,16 +769,16 @@ __device__ __forceinline__ void haddMany(float result[9], float interm[4][9], fl
 
 constexpr auto LaunchSize = 256;
 
-__launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
-                                                            const float** B,
-                                                            unsigned Boffset,
-                                                            const float* C1,
-                                                            const float* C2,
-                                                            const float* C3,
-                                                            const float* C4,
-                                                            float** D,
-                                                            size_t numElements,
-                                                            const unsigned* flags) {
+__launch_bounds__(LaunchSize) __global__ void kernel_local8a(const float** A,
+                                                             const float** B,
+                                                             unsigned Boffset,
+                                                             const float* C1,
+                                                             const float* C2,
+                                                             const float* C3,
+                                                             const float* C4,
+                                                             float** D,
+                                                             size_t numElements,
+                                                             const unsigned* flags) {
 
   constexpr int Quantities = 9;
   constexpr int Faces = 4;
@@ -1050,7 +1050,7 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
     */
 
 #pragma unroll
-    for (int j = 0; j < (Quantities / 4) * 4; ++j) {
+    for (int j = 0; j < (Quantities / 4) * 4; j += 4) {
 #pragma unroll
       for (int f = 0; f < 4; ++f) {
         transpose4x4(interm[f][j + 0],
@@ -1112,16 +1112,16 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
   }
 }
 
-__launch_bounds__(LaunchSize) __global__ void kernel_local8a(const float** A,
-                                                             const float** B,
-                                                             unsigned Boffset,
-                                                             const float* C1,
-                                                             const float* C2,
-                                                             const float* C3,
-                                                             const float* C4,
-                                                             float** D,
-                                                             size_t numElements,
-                                                             const unsigned* flags) {
+__launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
+                                                            const float** B,
+                                                            unsigned Boffset,
+                                                            const float* C1,
+                                                            const float* C2,
+                                                            const float* C3,
+                                                            const float* C4,
+                                                            float** D,
+                                                            size_t numElements,
+                                                            const unsigned* flags) {
 
   constexpr int Quantities = 9;
   constexpr int Faces = 4;
@@ -1192,20 +1192,6 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8a(const float** A,
       dq[i] = __builtin_nontemporal_load(&glbA[i * 64 + threadIdx.x]);
     }
 
-#pragma unroll
-    for (int i = 0; i < CountH; ++i) {
-      star[i] = glbB[threadIdx.x % 16 + i * 16];
-    }
-    if (threadIdx.x % 16 < CountR) {
-      star[CountH] = glbB[threadIdx.x % 16 + CountH * 16];
-    }
-
-#pragma unroll
-    for (int i = 0; i < Quantities; ++i) {
-      result[i] = __builtin_nontemporal_load(&glbD[i * 64 + threadIdx.x]);
-    }
-
-    // matmul #1 X = (M @ I) × 4
     float interm[Faces][Quantities]{};
 
     af4 acc[Faces][Quantities / 4]{};
@@ -1223,6 +1209,20 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8a(const float** A,
                    dq[4 * i + 3]);
     }
 
+#pragma unroll
+    for (int i = 0; i < CountH; ++i) {
+      star[i] = glbB[threadIdx.x % 16 + i * 16];
+    }
+    if (threadIdx.x % 16 < CountR) {
+      star[CountH] = glbB[threadIdx.x % 16 + CountH * 16];
+    }
+
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      result[i] = __builtin_nontemporal_load(&glbD[i * 64 + threadIdx.x]);
+    }
+
+    // matmul #1 X = (M @ I) × 4
     local_step<0>(kdivCache, dq4, dq, acc, interm);
     local_step<1>(kdivCache, dq4, dq, acc, interm);
     local_step<2>(kdivCache, dq4, dq, acc, interm);
@@ -1281,7 +1281,7 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8a(const float** A,
     local_step<55>(kdivCache, dq4, dq, acc, interm);
 
 #pragma unroll
-    for (int j = 0; j < (Quantities / 4) * 4; ++j) {
+    for (int j = 0; j < (Quantities / 4) * 4; j += 4) {
 #pragma unroll
       for (int f = 0; f < 4; ++f) {
         transpose4x4(interm[f][j + 0],
