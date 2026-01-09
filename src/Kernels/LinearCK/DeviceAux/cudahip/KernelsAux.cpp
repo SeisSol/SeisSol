@@ -1581,6 +1581,136 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8a(const float** A,
   }
 }
 
+__launch_bounds__(LaunchSize) __global__ void kernel_local7b(const float** A,
+                                                             const float** B,
+                                                             unsigned Boffset,
+                                                             const float* C1,
+                                                             const float* C2,
+                                                             const float* C3,
+                                                             const float* C4,
+                                                             float** D,
+                                                             size_t numElements,
+                                                             const unsigned* flags) {
+
+  constexpr int Quantities = 9;
+  constexpr int Faces = 4;
+
+  __shared__ float kdivCache[64 * 56 * Faces];
+  // TODO: maybe try add __shared__ float broadcastCache[64 * 4 * 8]; ?
+
+  constexpr int Count = Faces * Quantities * Quantities;
+  constexpr int CountH = Count / 64;
+  constexpr int CountR = Count % 64;
+
+  const auto linear = threadIdx.y * blockDim.x + threadIdx.x;
+
+  const float* const __restrict__ glbC1 = C1;
+  const float* const __restrict__ glbC2 = C2;
+  const float* const __restrict__ glbC3 = C3;
+  const float* const __restrict__ glbC4 = C4;
+
+#pragma unroll
+  for (int i = 0; i < 56 / 8; ++i) {
+    auto x1 = __builtin_nontemporal_load(&glbC1[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x2 = __builtin_nontemporal_load(&glbC2[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x3 = __builtin_nontemporal_load(&glbC3[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x4 = __builtin_nontemporal_load(&glbC4[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+
+    if (threadIdx.x >= 56) {
+      x1 = 0;
+      x2 = 0;
+      x3 = 0;
+      x4 = 0;
+    }
+
+    float4 x{};
+    x.x = x1;
+    x.y = x2;
+    x.z = x3;
+    x.w = x4;
+
+    *(float4*)&kdivCache[i * 256 * 8 + linear * 4] = x;
+  }
+  __syncthreads();
+
+  for (int b = blockIdx.x * blockDim.y + threadIdx.y; b < numElements;
+       b += gridDim.x * blockDim.y) {
+    const float* const __restrict__ glbA = A[b];
+    const float* const __restrict__ glbB = B[b] + Boffset;
+    float* const __restrict__ glbD = D[b];
+
+    float result[Quantities]{};
+    float dq[Quantities]{};
+    float star[CountH + 1]{};
+
+    const auto flag = flags[b];
+
+    const bool has1 = (flag & 1) != 0;
+    const bool has2 = (flag & 2) != 0;
+    const bool has3 = (flag & 4) != 0;
+    const bool has4 = (flag & 8) != 0;
+
+    const bool has[4]{has1, has2, has3, has4};
+
+    // load matrices
+
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      dq[i] = __builtin_nontemporal_load(&glbA[i * 64 + threadIdx.x]);
+    }
+
+#pragma unroll
+    for (int i = 0; i < CountH; ++i) {
+      star[i] = glbB[threadIdx.x + i * 64];
+    }
+    if (threadIdx.x < CountR) {
+      star[CountH] = glbB[threadIdx.x + CountH * 64];
+    }
+
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      result[i] = __builtin_nontemporal_load(&glbD[i * 64 + threadIdx.x]);
+    }
+
+    // matmul #1 X = (M @ I) × 4
+    float interm[Faces][Quantities]{};
+
+#pragma unroll 8
+    for (int k = 0; k < 56; ++k) {
+      const auto kdivLocal = *(float4*)&kdivCache[k * 256 + threadIdx.x * 4];
+
+#pragma unroll
+      for (int j = 0; j < Quantities; ++j) {
+        const auto value = readlane(dq[j], k);
+
+        interm[0][j] += kdivLocal.x * value;
+        interm[1][j] += kdivLocal.y * value;
+        interm[2][j] += kdivLocal.z * value;
+        interm[3][j] += kdivLocal.w * value;
+      }
+    }
+
+    // matmul #2 Q += (X @ A*) × 4
+    if (has[0]) {
+      haddMany<0, 0, 81>(result, interm, star);
+    }
+    if (has[1]) {
+      haddMany<81 * 1, 0, 81>(result, interm, star);
+    }
+    if (has[2]) {
+      haddMany<81 * 2, 0, 81>(result, interm, star);
+    }
+    if (has[3]) {
+      haddMany<81 * 3, 0, 81>(result, interm, star);
+    }
+
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      __builtin_nontemporal_store(result[i], &glbD[i * 64 + threadIdx.x]);
+    }
+  }
+}
+
 __launch_bounds__(LaunchSize) __global__ void kernel_local7(const float** A,
                                                             const float** B,
                                                             unsigned Boffset,
