@@ -1599,8 +1599,8 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local7b(const float** A,
   // TODO: maybe try add __shared__ float broadcastCache[64 * 4 * 8]; ?
 
   constexpr int Count = Faces * Quantities * Quantities;
-  constexpr int CountH = Count / 64;
-  constexpr int CountR = Count % 64;
+  constexpr int CountH = Count / 16;
+  constexpr int CountR = Count % 16;
 
   const auto linear = threadIdx.y * blockDim.x + threadIdx.x;
 
@@ -1661,10 +1661,10 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local7b(const float** A,
 
 #pragma unroll
     for (int i = 0; i < CountH; ++i) {
-      star[i] = glbB[threadIdx.x + i * 64];
+      star[i] = glbB[threadIdx.x % 16 + i * 16];
     }
-    if (threadIdx.x < CountR) {
-      star[CountH] = glbB[threadIdx.x + CountH * 64];
+    if (threadIdx.x % 16 < CountR) {
+      star[CountH] = glbB[threadIdx.x % 16 + CountH * 16];
     }
 
 #pragma unroll
