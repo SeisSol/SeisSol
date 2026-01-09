@@ -533,6 +533,189 @@ __builtin_amdgcn_mfma_f32_4x4x1f32(kdT[3].x, dq[j + 3], acc[f][j / 4], 0, 0, 0);
 }
 */
 
+#define FMADPP4(pos, c, a, b)                                                                      \
+  __asm("v_fmac_f32_dpp %0, %1, %2 quad_perm:[" STR(pos) "," STR(pos) "," STR(pos) "," STR(        \
+            pos) "] row_mask:0xf bank_mask:0xf bound_ctrl:1"                                       \
+        : "+v"(c)                                                                                  \
+        : "v"(a), "v"(b)                                                                           \
+        :)
+#define FMADPP16(pos, c, a, b)                                                                     \
+  __asm("v_fmac_f32_dpp %0, %1, %2 row_newbcast:" STR(                                             \
+            pos) " row_mask:0xf bank_mask:0xf bound_ctrl:1"                                        \
+        : "+v"(c)                                                                                  \
+        : "v"(a), "v"(b)                                                                           \
+        :)
+#define DMADPP16(pos, c, a, b)                                                                     \
+  __asm("v_fmac_f64_dpp %0, %1, %2 row_newbcast:" STR(                                             \
+            pos) " row_mask:0xf bank_mask:0xf bound_ctrl:1"                                        \
+        : "+v"(c)                                                                                  \
+        : "v"(a), "v"(b)                                                                           \
+        :)
+
+// format:
+// c: accumulator
+// a: DPP-broadcasted register
+// b: multiplicand (vector reg)
+
+template <int Row>
+__device__ __forceinline__ void fmacdpp4(float& c, float a, float b);
+
+template <int Row>
+__device__ __forceinline__ void fmacdpp16(float& c, float a, float b);
+
+template <int Row>
+__device__ __forceinline__ void fmacdpp16(double& c, double a, double b);
+
+template <>
+__device__ __forceinline__ void fmacdpp4<0>(float& c, float a, float b) {
+  FMADPP4(0, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp4<1>(float& c, float a, float b) {
+  FMADPP4(1, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp4<2>(float& c, float a, float b) {
+  FMADPP4(2, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp4<3>(float& c, float a, float b) {
+  FMADPP4(3, c, a, b);
+}
+
+template <>
+__device__ __forceinline__ void fmacdpp16<0>(float& c, float a, float b) {
+  FMADPP16(0x0, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<1>(float& c, float a, float b) {
+  FMADPP16(0x1, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<2>(float& c, float a, float b) {
+  FMADPP16(0x2, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<3>(float& c, float a, float b) {
+  FMADPP16(0x3, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<4>(float& c, float a, float b) {
+  FMADPP16(0x4, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<5>(float& c, float a, float b) {
+  FMADPP16(0x5, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<6>(float& c, float a, float b) {
+  FMADPP16(0x6, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<7>(float& c, float a, float b) {
+  FMADPP16(0x7, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<8>(float& c, float a, float b) {
+  FMADPP16(0x8, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<9>(float& c, float a, float b) {
+  FMADPP16(0x9, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<10>(float& c, float a, float b) {
+  FMADPP16(0xa, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<11>(float& c, float a, float b) {
+  FMADPP16(0xb, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<12>(float& c, float a, float b) {
+  FMADPP16(0xc, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<13>(float& c, float a, float b) {
+  FMADPP16(0xd, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<14>(float& c, float a, float b) {
+  FMADPP16(0xe, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<15>(float& c, float a, float b) {
+  FMADPP16(0xf, c, a, b);
+}
+
+template <int row>
+__device__ __forceinline__ void fmacdpp16(double& c, double a, double b);
+
+template <>
+__device__ __forceinline__ void fmacdpp16<0>(double& c, double a, double b) {
+  DMADPP16(0x0, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<1>(double& c, double a, double b) {
+  DMADPP16(0x1, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<2>(double& c, double a, double b) {
+  DMADPP16(0x2, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<3>(double& c, double a, double b) {
+  DMADPP16(0x3, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<4>(double& c, double a, double b) {
+  DMADPP16(0x4, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<5>(double& c, double a, double b) {
+  DMADPP16(0x5, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<6>(double& c, double a, double b) {
+  DMADPP16(0x6, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<7>(double& c, double a, double b) {
+  DMADPP16(0x7, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<8>(double& c, double a, double b) {
+  DMADPP16(0x8, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<9>(double& c, double a, double b) {
+  DMADPP16(0x9, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<10>(double& c, double a, double b) {
+  DMADPP16(0xa, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<11>(double& c, double a, double b) {
+  DMADPP16(0xb, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<12>(double& c, double a, double b) {
+  DMADPP16(0xc, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<13>(double& c, double a, double b) {
+  DMADPP16(0xd, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<14>(double& c, double a, double b) {
+  DMADPP16(0xe, c, a, b);
+}
+template <>
+__device__ __forceinline__ void fmacdpp16<15>(double& c, double a, double b) {
+  DMADPP16(0xf, c, a, b);
+}
+
 using af4 = __attribute__((__vector_size__(4 * sizeof(float)))) float;
 
 template <typename T>
@@ -571,6 +754,19 @@ __device__ __forceinline__ void local_step(const float* __restrict kdivCache,
   }
 }
 
+template <int Idx>
+__device__ __forceinline__ void hadd(float result[9], float interm[4][9], float star[]) {
+  fmacdpp16<Idx % 16>(result[(Idx / 9) % 9], star[Idx / 16], interm[Idx / 81][Idx % 9]);
+}
+
+template <int Base, int Idx, int End>
+__device__ __forceinline__ void haddMany(float result[9], float interm[4][9], float star[]) {
+  if constexpr (Idx < End) {
+    hadd<Base + Idx>(result, interm, star);
+    haddMany<Base, Idx + 1, End>(result, interm, star);
+  }
+}
+
 constexpr auto LaunchSize = 256;
 
 __launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
@@ -591,8 +787,8 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
   // TODO: maybe try add __shared__ float broadcastCache[64 * 4 * 8]; ?
 
   constexpr int Count = Faces * Quantities * Quantities;
-  constexpr int CountH = Count / 64;
-  constexpr int CountR = Count % 64;
+  constexpr int CountH = Count / 16;
+  constexpr int CountR = Count % 16;
 
   const auto linear = threadIdx.y * blockDim.x + threadIdx.x;
 
@@ -655,10 +851,10 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
 
 #pragma unroll
     for (int i = 0; i < CountH; ++i) {
-      star[i] = glbB[threadIdx.x + i * 64];
+      star[i] = glbB[threadIdx.x % 16 + i * 16];
     }
-    if (threadIdx.x < CountR) {
-      star[CountH] = glbB[threadIdx.x + CountH * 64];
+    if (threadIdx.x % 16 < CountR) {
+      star[CountH] = glbB[threadIdx.x % 16 + CountH * 16];
     }
 
 #pragma unroll
@@ -845,6 +1041,19 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
       }
     }
 
+    if (has[0]) {
+      haddMany<0, 0, 81>(result, interm, star);
+    }
+    if (has[1]) {
+      haddMany<81 * 1, 0, 81>(result, interm, star);
+    }
+    if (has[2]) {
+      haddMany<81 * 2, 0, 81>(result, interm, star);
+    }
+    if (has[3]) {
+      haddMany<81 * 3, 0, 81>(result, interm, star);
+    }
+
     /*
 #pragma unroll
     for (int j = 0; j < (Quantities / 4) * 4; ++j) {
@@ -856,19 +1065,22 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
     */
 
     // matmul #2 Q += (X @ A*) × 4
+
+    /*
 #pragma unroll
     for (int d = 0; d < Faces; ++d) {
-      // if (has[d]) {
+      if (has[d]) {
 #pragma unroll
-      for (int n = 0; n < Quantities; ++n) {
+        for (int n = 0; n < Quantities; ++n) {
 #pragma unroll
-        for (int k = 0; k < Quantities; ++k) {
-          const auto staridx = k + n * Quantities + Quantities * Quantities * d;
-          result[n] += interm[d][k] * readlane(star[staridx / 64], staridx % 64);
+          for (int k = 0; k < Quantities; ++k) {
+            const auto staridx = k + n * Quantities + Quantities * Quantities * d;
+            //result[n] += interm[d][k] * readlane(star[staridx / 64], staridx % 64);
+            hadd(result[n], interm[d][k], star[staridx / 16], staridx % 16);
+          }
         }
       }
-      //}
-    }
+    }*/
 
 #pragma unroll
     for (int i = 0; i < Quantities; ++i) {
