@@ -127,7 +127,7 @@ class StreamRuntime {
 
   template <typename F>
   void envMany(size_t count, F&& handler) {
-    if (Backend != DeviceBackend::Hip && ringbufferSize > 0) {
+    if (Backend != DeviceBackend::Hip && ringbufferSize > 0 && count > 1) {
       void* forkEvent = nextEvent();
       device().api->recordEventOnStream(forkEvent, streamPtr->get());
       for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {

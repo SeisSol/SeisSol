@@ -68,6 +68,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 #endif
   deviceNodalLfKrnlPrototype.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
   deviceProjectRotatedKrnlPrototype.V3mTo2nFace = global.onDevice->v3mTo2nFace;
+  deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onDevice->v3mTo2nFace;
 #endif
 }
 
@@ -249,6 +250,7 @@ void Local::computeBatchedIntegral(
     SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
     SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
     SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM LocalTmp& tmp,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 
@@ -286,63 +288,94 @@ void Local::computeBatchedIntegral(
 
   // Local Flux Integral
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    std::array<std::size_t, 3> indices{};
     key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
-
-    if (dataTable.find(key) != dataTable.end()) {
-      auto& entry = dataTable[key];
-      localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-      localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-      localFluxKrnl.I =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-      localFluxKrnl.AplusT = const_cast<const real**>(
-          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-      localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
-      localFluxKrnl.linearAllocator.initialize(tmpMem.get());
-      localFluxKrnl.streamPtr = runtime.stream();
-      localFluxKrnl.execute(face);
-    }
-
     ConditionalKey fsgKey(
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, face);
-    if (dataTable.find(fsgKey) != dataTable.end()) {
-      auto nodalAvgDisplacements =
-          dataTable[fsgKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
-      auto rhos = materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
-      local_flux::aux::FreeSurfaceGravity freeSurfaceGravityBc;
-      freeSurfaceGravityBc.g = gravitationalAcceleration;
-      freeSurfaceGravityBc.rhos = rhos;
-      freeSurfaceGravityBc.displacementDataPtrs = nodalAvgDisplacements;
-      dirichletBoundary.evaluateOnDevice(face,
-                                         fsgKey,
-                                         deviceProjectRotatedKrnlPrototype,
-                                         deviceNodalLfKrnlPrototype,
-                                         freeSurfaceGravityBc,
-                                         dataTable,
-                                         device,
-                                         runtime);
-    }
-
     ConditionalKey dirichletKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Dirichlet, face);
-    if (dataTable.find(dirichletKey) != dataTable.end()) {
-      auto easiBoundaryMapPtrs =
-          dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryMap)->getDeviceDataPtr();
-      auto easiBoundaryConstantPtrs =
-          dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryConstant)->getDeviceDataPtr();
 
-      local_flux::aux::EasiBoundary easiBoundaryBc;
-      easiBoundaryBc.easiBoundaryMapPtrs = easiBoundaryMapPtrs;
-      easiBoundaryBc.easiBoundaryConstantPtrs = easiBoundaryConstantPtrs;
-
-      dirichletBoundary.evaluateOnDevice(face,
-                                         dirichletKey,
-                                         deviceProjectRotatedKrnlPrototype,
-                                         deviceNodalLfKrnlPrototype,
-                                         easiBoundaryBc,
-                                         dataTable,
-                                         device,
-                                         runtime);
+    std::size_t count = 0;
+    if (dataTable.find(key) != dataTable.end()) {
+      indices[count] = 0;
+      ++count;
     }
+    if (dataTable.find(fsgKey) != dataTable.end()) {
+      indices[count] = 1;
+      ++count;
+    }
+    if (dataTable.find(dirichletKey) != dataTable.end()) {
+      indices[count] = 2;
+      ++count;
+    }
+
+    runtime.envMany(count, [&](void* stream, size_t i) {
+      if (indices[i] == 0) {
+        if (dataTable.find(key) != dataTable.end()) {
+          auto& entry = dataTable[key];
+          localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
+          localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+          localFluxKrnl.I =
+              const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+          localFluxKrnl.AplusT = const_cast<const real**>(
+              entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+          localFluxKrnl.extraOffset_AplusT =
+              SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
+          localFluxKrnl.linearAllocator.initialize(tmpMem.get());
+          localFluxKrnl.streamPtr = stream;
+          localFluxKrnl.execute(face);
+        }
+      }
+      if (indices[i] == 1) {
+        auto& bc = tmp.gravitationalFreeSurfaceBc;
+        bc.evaluateOnDevice(face,
+                            deviceDerivativeToNodalBoundaryRotated,
+                            dataTable,
+                            materialTable,
+                            timeStepWidth,
+                            device,
+                            stream);
+        if (dataTable.find(fsgKey) != dataTable.end()) {
+          auto nodalAvgDisplacements =
+              dataTable[fsgKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
+          auto rhos = materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
+          local_flux::aux::FreeSurfaceGravity freeSurfaceGravityBc;
+          freeSurfaceGravityBc.g = gravitationalAcceleration;
+          freeSurfaceGravityBc.rhos = rhos;
+          freeSurfaceGravityBc.displacementDataPtrs = nodalAvgDisplacements;
+          dirichletBoundary.evaluateOnDevice(face,
+                                             fsgKey,
+                                             deviceProjectRotatedKrnlPrototype,
+                                             deviceNodalLfKrnlPrototype,
+                                             freeSurfaceGravityBc,
+                                             dataTable,
+                                             device,
+                                             stream);
+        }
+      }
+      if (indices[i] == 2) {
+        if (dataTable.find(dirichletKey) != dataTable.end()) {
+          auto easiBoundaryMapPtrs =
+              dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryMap)->getDeviceDataPtr();
+          auto easiBoundaryConstantPtrs = dataTable[dirichletKey]
+                                              .get(inner_keys::Wp::Id::EasiBoundaryConstant)
+                                              ->getDeviceDataPtr();
+
+          local_flux::aux::EasiBoundary easiBoundaryBc;
+          easiBoundaryBc.easiBoundaryMapPtrs = easiBoundaryMapPtrs;
+          easiBoundaryBc.easiBoundaryConstantPtrs = easiBoundaryConstantPtrs;
+
+          dirichletBoundary.evaluateOnDevice(face,
+                                             dirichletKey,
+                                             deviceProjectRotatedKrnlPrototype,
+                                             deviceNodalLfKrnlPrototype,
+                                             easiBoundaryBc,
+                                             dataTable,
+                                             device,
+                                             stream);
+        }
+      }
+    });
   }
 #else
   logError() << "No GPU implementation provided";

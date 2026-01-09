@@ -29,8 +29,6 @@ void ProxyKernelDeviceAder::run(ProxyData& data,
                                 seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
 
-  kernels::LocalTmp tmp(9.81);
-
   auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
   auto& materialTable = layer.getConditionalTable<inner_keys::Material>();
 
@@ -41,13 +39,15 @@ void ProxyKernelDeviceAder::run(ProxyData& data,
 
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
     data.spacetimeKernel.computeBatchedAder(
-        integrationCoeffs.data(), Timestep, tmp, dataTable, materialTable, false, runtime);
+        integrationCoeffs.data(), Timestep, dataTable, materialTable, runtime);
   });
 }
 
 void ProxyKernelDeviceLocalWOAder::run(ProxyData& data,
                                        seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
+
+  kernels::LocalTmp tmp(9.81);
 
   auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
   auto& materialTable = layer.getConditionalTable<inner_keys::Material>();
@@ -58,7 +58,7 @@ void ProxyKernelDeviceLocalWOAder::run(ProxyData& data,
 
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
     data.localKernel.computeBatchedIntegral(
-        dataTable, materialTable, indicesTable, Timestep, runtime);
+        dataTable, materialTable, indicesTable, Timestep, tmp, runtime);
   });
 }
 
@@ -78,8 +78,9 @@ void ProxyKernelDeviceLocal::run(ProxyData& data,
   auto computeGraphKey = initializer::GraphKey(graphType, Timestep, false);
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
     data.spacetimeKernel.computeBatchedAder(
-        integrationCoeffs.data(), Timestep, tmp, dataTable, materialTable, false, runtime);
-    data.localKernel.computeBatchedIntegral(dataTable, materialTable, indicesTable, 0.0, runtime);
+        integrationCoeffs.data(), Timestep, dataTable, materialTable, runtime);
+    data.localKernel.computeBatchedIntegral(
+        dataTable, materialTable, indicesTable, Timestep, tmp, runtime);
   });
 }
 
