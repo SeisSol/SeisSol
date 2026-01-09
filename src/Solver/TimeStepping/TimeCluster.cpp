@@ -814,14 +814,18 @@ void TimeCluster::correct() {
     dynamicRuptureScheduler->setLastFaultOutput(ct.stepsSinceStart);
   }
 
-  streamRuntime.wait();
+  if (printProgress) {
 
-  // TODO(Lukas) Adjust with time step rate? Relevant is maximum cluster is not on this node
-  const auto nextCorrectionSteps = ct.nextCorrectionSteps();
-  if (printProgress && (((nextCorrectionSteps / timeStepRate) % 100) == 0)) {
-    logInfo() << "#max-updates since sync: " << nextCorrectionSteps << " @ "
-              << ct.nextCorrectionTime(syncTime);
+    const auto nextCorrectionSteps = ct.nextCorrectionSteps();
+    if (((nextCorrectionSteps / timeStepRate) % 100) == 0) {
+      streamRuntime.enqueueHost([this, nextCorrectionSteps]() {
+        logInfo() << "Max cluster / LTS cycle updates since sync: " << nextCorrectionSteps
+                  << " at time " << ct.nextCorrectionTime(syncTime);
+      });
+    }
   }
+
+  streamRuntime.wait();
 }
 
 void TimeCluster::reset() {

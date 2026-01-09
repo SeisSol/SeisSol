@@ -227,6 +227,11 @@ class StreamRuntime {
     }
   }
 
+  template <typename F>
+  void enqueueHost(F&& handler) {
+    std::invoke(std::forward<F>(handler));
+  }
+
   void* stream() {
     // dummy
     return nullptr;
