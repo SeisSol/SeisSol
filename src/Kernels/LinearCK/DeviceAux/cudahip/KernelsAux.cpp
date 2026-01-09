@@ -856,12 +856,18 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
   const float* const __restrict__ glbC3 = C3;
   const float* const __restrict__ glbC4 = C4;
 
+  constexpr int Wavecount = LaunchSize / 64;
+
 #pragma unroll
-  for (int i = 0; i < 56 / 8; ++i) {
-    auto x1 = __builtin_nontemporal_load(&glbC1[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
-    auto x2 = __builtin_nontemporal_load(&glbC2[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
-    auto x3 = __builtin_nontemporal_load(&glbC3[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
-    auto x4 = __builtin_nontemporal_load(&glbC4[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+  for (int i = 0; i < 56 / Wavecount; ++i) {
+    auto x1 =
+        __builtin_nontemporal_load(&glbC1[i * 56 * Wavecount + threadIdx.y * 56 + threadIdx.x]);
+    auto x2 =
+        __builtin_nontemporal_load(&glbC2[i * 56 * Wavecount + threadIdx.y * 56 + threadIdx.x]);
+    auto x3 =
+        __builtin_nontemporal_load(&glbC3[i * 56 * Wavecount + threadIdx.y * 56 + threadIdx.x]);
+    auto x4 =
+        __builtin_nontemporal_load(&glbC4[i * 56 * Wavecount + threadIdx.y * 56 + threadIdx.x]);
 
     if (threadIdx.x >= 56) {
       x1 = 0;
@@ -876,7 +882,7 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
     x.z = x3;
     x.w = x4;
 
-    *(float4*)&kdivCache[i * 256 * 8 + linear * 4] = x;
+    *(float4*)&kdivCache[i * 256 * Wavecount + linear * 4] = x;
   }
   __syncthreads();
 
