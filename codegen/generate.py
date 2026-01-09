@@ -231,6 +231,10 @@ def main():
             cmdLineArgs.PlasticityMethod,
             targets,
         )
+        kernels.plasticity.includeTensors(
+            cmdLineArgs.matricesDir, adg, cmdLineArgs.PlasticityMethod, include_tensors
+        )
+
         kernels.nodalbc.addKernels(
             generator,
             adg,
