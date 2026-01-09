@@ -359,6 +359,14 @@ __device__ __forceinline__ auto
     }*/
 }
 
+template <typename T, typename S>
+__device__ __forceinline__ auto transpose4x1(T& w, S v) {
+  w[0] = dpp4<0>(v);
+  w[1] = dpp4<1>(v);
+  w[2] = dpp4<2>(v);
+  w[3] = dpp4<3>(v);
+}
+
 template <typename T>
 __device__ __forceinline__ auto transpose4x4(T& w1, T& w2, T& w3, T& w4, T v1, T v2, T v3, T v4) {
 
@@ -754,6 +762,57 @@ __device__ __forceinline__ void local_step(const float* __restrict kdivCache,
   }
 }
 
+template <int k>
+__device__ __forceinline__ void local_step(
+    const float* __restrict kdivCache, af4 dq4[2], float dq[9], af4 acc[4][2], float interm[4][9]) {
+  constexpr int Quantities = 9;
+  constexpr int Faces = 4;
+
+  const auto kdivLocal = *(const float4* __restrict)&kdivCache[k * 256 + threadIdx.x * 4];
+
+  for (int j = 0; j < (Quantities / 4) * 4; j += 4) {
+    acc[0][j / 4] = __builtin_amdgcn_mfma_f32_4x4x1f32(
+        dq4[j / 4][k % 4], kdivLocal.x, acc[0][j / 4], 4, k / 4, 0);
+    acc[1][j / 4] = __builtin_amdgcn_mfma_f32_4x4x1f32(
+        dq4[j / 4][k % 4], kdivLocal.y, acc[1][j / 4], 4, k / 4, 0);
+    acc[2][j / 4] = __builtin_amdgcn_mfma_f32_4x4x1f32(
+        dq4[j / 4][k % 4], kdivLocal.z, acc[2][j / 4], 4, k / 4, 0);
+    acc[3][j / 4] = __builtin_amdgcn_mfma_f32_4x4x1f32(
+        dq4[j / 4][k % 4], kdivLocal.w, acc[3][j / 4], 4, k / 4, 0);
+  }
+
+  for (int j = (Quantities / 4) * 4; j < Quantities; ++j) {
+    {
+      const auto value = readlane(dq[j], k);
+      interm[0][j] += kdivLocal.x * value;
+      interm[1][j] += kdivLocal.y * value;
+      interm[2][j] += kdivLocal.z * value;
+      interm[3][j] += kdivLocal.w * value;
+    }
+  }
+}
+
+template <int k>
+__device__ __forceinline__ void
+    local_step(const float* __restrict kdivCache, af4 dq4[3], af4 acc[4][3]) {
+  constexpr int Quantities = 9;
+  constexpr int Faces = 4;
+
+  const auto kdivLocal = *(const float4* __restrict)&kdivCache[k * 256 + threadIdx.x * 4];
+
+#pragma unroll
+  for (int j = 0; j < 12; j += 4) {
+    acc[0][j / 4] = __builtin_amdgcn_mfma_f32_4x4x1f32(
+        dq4[j / 4][k % 4], kdivLocal.x, acc[0][j / 4], 4, k / 4, 0);
+    acc[1][j / 4] = __builtin_amdgcn_mfma_f32_4x4x1f32(
+        dq4[j / 4][k % 4], kdivLocal.y, acc[1][j / 4], 4, k / 4, 0);
+    acc[2][j / 4] = __builtin_amdgcn_mfma_f32_4x4x1f32(
+        dq4[j / 4][k % 4], kdivLocal.z, acc[2][j / 4], 4, k / 4, 0);
+    acc[3][j / 4] = __builtin_amdgcn_mfma_f32_4x4x1f32(
+        dq4[j / 4][k % 4], kdivLocal.w, acc[3][j / 4], 4, k / 4, 0);
+  }
+}
+
 template <int Idx>
 __device__ __forceinline__ void hadd(float result[9], float interm[4][9], float star[]) {
   fmacdpp16<Idx % 16>(result[(Idx / 9) % 9], star[Idx / 16], interm[Idx / 81][Idx % 9]);
@@ -768,6 +827,415 @@ __device__ __forceinline__ void haddMany(float result[9], float interm[4][9], fl
 }
 
 constexpr auto LaunchSize = 256;
+
+__launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
+                                                            const float** B,
+                                                            unsigned Boffset,
+                                                            const float* C1,
+                                                            const float* C2,
+                                                            const float* C3,
+                                                            const float* C4,
+                                                            float** D,
+                                                            size_t numElements,
+                                                            const unsigned* flags) {
+
+  constexpr int Quantities = 9;
+  constexpr int Faces = 4;
+
+  __shared__ float kdivCache[64 * 56 * Faces];
+  // TODO: maybe try add __shared__ float broadcastCache[64 * 4 * 8]; ?
+
+  constexpr int Count = Faces * Quantities * Quantities;
+  constexpr int CountH = Count / 16;
+  constexpr int CountR = Count % 16;
+
+  const auto linear = threadIdx.y * blockDim.x + threadIdx.x;
+
+  const float* const __restrict__ glbC1 = C1;
+  const float* const __restrict__ glbC2 = C2;
+  const float* const __restrict__ glbC3 = C3;
+  const float* const __restrict__ glbC4 = C4;
+
+#pragma unroll
+  for (int i = 0; i < 56 / 8; ++i) {
+    auto x1 = __builtin_nontemporal_load(&glbC1[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x2 = __builtin_nontemporal_load(&glbC2[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x3 = __builtin_nontemporal_load(&glbC3[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x4 = __builtin_nontemporal_load(&glbC4[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+
+    if (threadIdx.x >= 56) {
+      x1 = 0;
+      x2 = 0;
+      x3 = 0;
+      x4 = 0;
+    }
+
+    float4 x{};
+    x.x = x1;
+    x.y = x2;
+    x.z = x3;
+    x.w = x4;
+
+    *(float4*)&kdivCache[i * 256 * 8 + linear * 4] = x;
+  }
+  __syncthreads();
+
+  for (int b = blockIdx.x * blockDim.y + threadIdx.y; b < numElements;
+       b += gridDim.x * blockDim.y) {
+    auto glbA = (__attribute__((address_space(1))) const float* const __restrict__)A[b];
+    // const float* const __restrict__ glbB = B[b] + Boffset;
+    auto glbB = (__attribute__((address_space(1))) const float* const __restrict__)(B[b] + Boffset);
+    // const gptr<float> glbB = B[b] + Boffset;
+    auto glbD = (__attribute__((address_space(1))) float* const __restrict__)D[b];
+
+    float result[Quantities]{};
+    float dq[Quantities]{};
+    float star[CountH + 1]{};
+
+    const auto flag = flags[b];
+
+    const bool has1 = (flag & 1) != 0;
+    const bool has2 = (flag & 2) != 0;
+    const bool has3 = (flag & 4) != 0;
+    const bool has4 = (flag & 8) != 0;
+
+    const bool has[4]{has1, has2, has3, has4};
+
+    // load matrices
+
+    /*
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      dq[i] = __builtin_nontemporal_load(&glbA[i * 64 + threadIdx.x]);
+    }
+    */
+
+    float interm[Faces][Quantities]{};
+
+    af4 acc[Faces][3]{};
+
+    af4 dq4[3]{};
+
+    /*for (int i = 0; i < 2; ++i) {
+      transpose4x4(dq4[i].x,
+                   dq4[i].y,
+                   dq4[i].z,
+                   dq4[i].w,
+                   dq[4 * i + 0],
+                   dq[4 * i + 1],
+                   dq[4 * i + 2],
+                   dq[4 * i + 3]);
+    }*/
+    for (int i = 0; i < 8; i += 4) {
+      dq4[i / 4] = __builtin_nontemporal_load((af4*)&glbA[i * 64 + threadIdx.x * 4]);
+    }
+    for (int i = 8; i < Quantities; ++i) {
+      dq[i] = __builtin_nontemporal_load(&glbA[i * 64 + threadIdx.x]);
+    }
+    transpose4x1(dq4[2], dq[8]);
+
+#pragma unroll
+    for (int i = 0; i < CountH; ++i) {
+      star[i] = glbB[threadIdx.x % 16 + i * 16];
+    }
+    if (threadIdx.x % 16 < CountR) {
+      star[CountH] = glbB[threadIdx.x % 16 + CountH * 16];
+    }
+
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      result[i] = __builtin_nontemporal_load(&glbD[i * 64 + threadIdx.x]);
+    }
+
+    // matmul #1 X = (M @ I) × 4
+    local_step<0>(kdivCache, dq4, acc);
+    local_step<1>(kdivCache, dq4, acc);
+    local_step<2>(kdivCache, dq4, acc);
+    local_step<3>(kdivCache, dq4, acc);
+    local_step<4>(kdivCache, dq4, acc);
+    local_step<5>(kdivCache, dq4, acc);
+    local_step<6>(kdivCache, dq4, acc);
+    local_step<7>(kdivCache, dq4, acc);
+    local_step<8>(kdivCache, dq4, acc);
+    local_step<9>(kdivCache, dq4, acc);
+    local_step<10>(kdivCache, dq4, acc);
+    local_step<11>(kdivCache, dq4, acc);
+    local_step<12>(kdivCache, dq4, acc);
+    local_step<13>(kdivCache, dq4, acc);
+    local_step<14>(kdivCache, dq4, acc);
+    local_step<15>(kdivCache, dq4, acc);
+    local_step<16>(kdivCache, dq4, acc);
+    local_step<17>(kdivCache, dq4, acc);
+    local_step<18>(kdivCache, dq4, acc);
+    local_step<19>(kdivCache, dq4, acc);
+    local_step<20>(kdivCache, dq4, acc);
+    local_step<21>(kdivCache, dq4, acc);
+    local_step<22>(kdivCache, dq4, acc);
+    local_step<23>(kdivCache, dq4, acc);
+    local_step<24>(kdivCache, dq4, acc);
+    local_step<25>(kdivCache, dq4, acc);
+    local_step<26>(kdivCache, dq4, acc);
+    local_step<27>(kdivCache, dq4, acc);
+    local_step<28>(kdivCache, dq4, acc);
+    local_step<29>(kdivCache, dq4, acc);
+    local_step<30>(kdivCache, dq4, acc);
+    local_step<31>(kdivCache, dq4, acc);
+    local_step<32>(kdivCache, dq4, acc);
+    local_step<33>(kdivCache, dq4, acc);
+    local_step<34>(kdivCache, dq4, acc);
+    local_step<35>(kdivCache, dq4, acc);
+    local_step<36>(kdivCache, dq4, acc);
+    local_step<37>(kdivCache, dq4, acc);
+    local_step<38>(kdivCache, dq4, acc);
+    local_step<39>(kdivCache, dq4, acc);
+    local_step<40>(kdivCache, dq4, acc);
+    local_step<41>(kdivCache, dq4, acc);
+    local_step<42>(kdivCache, dq4, acc);
+    local_step<43>(kdivCache, dq4, acc);
+    local_step<44>(kdivCache, dq4, acc);
+    local_step<45>(kdivCache, dq4, acc);
+    local_step<46>(kdivCache, dq4, acc);
+    local_step<47>(kdivCache, dq4, acc);
+    local_step<48>(kdivCache, dq4, acc);
+    local_step<49>(kdivCache, dq4, acc);
+    local_step<50>(kdivCache, dq4, acc);
+    local_step<51>(kdivCache, dq4, acc);
+    local_step<52>(kdivCache, dq4, acc);
+    local_step<53>(kdivCache, dq4, acc);
+    local_step<54>(kdivCache, dq4, acc);
+    local_step<55>(kdivCache, dq4, acc);
+
+#pragma unroll
+    for (int j = 0; j < Quantities; ++j) {
+#pragma unroll
+      for (int f = 0; f < 4; ++f) {
+        interm[f][j] = acc[f][j / 4][j % 4];
+      }
+    }
+
+    if (has[0]) {
+      haddMany<0, 0, 81>(result, interm, star);
+    }
+    if (has[1]) {
+      haddMany<81 * 1, 0, 81>(result, interm, star);
+    }
+    if (has[2]) {
+      haddMany<81 * 2, 0, 81>(result, interm, star);
+    }
+    if (has[3]) {
+      haddMany<81 * 3, 0, 81>(result, interm, star);
+    }
+
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      __builtin_nontemporal_store(result[i], &glbD[i * 64 + threadIdx.x]);
+    }
+  }
+}
+
+__launch_bounds__(LaunchSize) __global__ void kernel_local8b(const float** A,
+                                                             const float** B,
+                                                             unsigned Boffset,
+                                                             const float* C1,
+                                                             const float* C2,
+                                                             const float* C3,
+                                                             const float* C4,
+                                                             float** D,
+                                                             size_t numElements,
+                                                             const unsigned* flags) {
+
+  constexpr int Quantities = 9;
+  constexpr int Faces = 4;
+
+  __shared__ float kdivCache[64 * 56 * Faces];
+  // TODO: maybe try add __shared__ float broadcastCache[64 * 4 * 8]; ?
+
+  constexpr int Count = Faces * Quantities * Quantities;
+  constexpr int CountH = Count / 16;
+  constexpr int CountR = Count % 16;
+
+  const auto linear = threadIdx.y * blockDim.x + threadIdx.x;
+
+  const float* const __restrict__ glbC1 = C1;
+  const float* const __restrict__ glbC2 = C2;
+  const float* const __restrict__ glbC3 = C3;
+  const float* const __restrict__ glbC4 = C4;
+
+#pragma unroll
+  for (int i = 0; i < 56 / 8; ++i) {
+    auto x1 = __builtin_nontemporal_load(&glbC1[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x2 = __builtin_nontemporal_load(&glbC2[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x3 = __builtin_nontemporal_load(&glbC3[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+    auto x4 = __builtin_nontemporal_load(&glbC4[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
+
+    if (threadIdx.x >= 56) {
+      x1 = 0;
+      x2 = 0;
+      x3 = 0;
+      x4 = 0;
+    }
+
+    float4 x{};
+    x.x = x1;
+    x.y = x2;
+    x.z = x3;
+    x.w = x4;
+
+    *(float4*)&kdivCache[i * 256 * 8 + linear * 4] = x;
+  }
+  __syncthreads();
+
+  for (int b = blockIdx.x * blockDim.y + threadIdx.y; b < numElements;
+       b += gridDim.x * blockDim.y) {
+    auto glbA = (__attribute__((address_space(1))) const float* const __restrict__)A[b];
+    // const float* const __restrict__ glbB = B[b] + Boffset;
+    auto glbB = (__attribute__((address_space(1))) const float* const __restrict__)(B[b] + Boffset);
+    // const gptr<float> glbB = B[b] + Boffset;
+    auto glbD = (__attribute__((address_space(1))) float* const __restrict__)D[b];
+
+    float result[Quantities]{};
+    float dq[Quantities]{};
+    float star[CountH + 1]{};
+
+    const auto flag = flags[b];
+
+    const bool has1 = (flag & 1) != 0;
+    const bool has2 = (flag & 2) != 0;
+    const bool has3 = (flag & 4) != 0;
+    const bool has4 = (flag & 8) != 0;
+
+    const bool has[4]{has1, has2, has3, has4};
+
+    // load matrices
+
+    /*
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      dq[i] = __builtin_nontemporal_load(&glbA[i * 64 + threadIdx.x]);
+    }
+    */
+
+    float interm[Faces][Quantities]{};
+
+    af4 acc[Faces][Quantities / 4]{};
+
+    af4 dq4[2]{};
+
+    /*for (int i = 0; i < 2; ++i) {
+      transpose4x4(dq4[i].x,
+                   dq4[i].y,
+                   dq4[i].z,
+                   dq4[i].w,
+                   dq[4 * i + 0],
+                   dq[4 * i + 1],
+                   dq[4 * i + 2],
+                   dq[4 * i + 3]);
+    }*/
+    for (int i = 0; i < 8; i += 4) {
+      dq4[i / 4] = __builtin_nontemporal_load((af4*)&glbA[i * 64 + threadIdx.x * 4]);
+    }
+    for (int i = 8; i < Quantities; ++i) {
+      dq[i] = __builtin_nontemporal_load(&glbA[i * 64 + threadIdx.x]);
+    }
+
+#pragma unroll
+    for (int i = 0; i < CountH; ++i) {
+      star[i] = glbB[threadIdx.x % 16 + i * 16];
+    }
+    if (threadIdx.x % 16 < CountR) {
+      star[CountH] = glbB[threadIdx.x % 16 + CountH * 16];
+    }
+
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      result[i] = __builtin_nontemporal_load(&glbD[i * 64 + threadIdx.x]);
+    }
+
+    // matmul #1 X = (M @ I) × 4
+    local_step<0>(kdivCache, dq4, dq, acc, interm);
+    local_step<1>(kdivCache, dq4, dq, acc, interm);
+    local_step<2>(kdivCache, dq4, dq, acc, interm);
+    local_step<3>(kdivCache, dq4, dq, acc, interm);
+    local_step<4>(kdivCache, dq4, dq, acc, interm);
+    local_step<5>(kdivCache, dq4, dq, acc, interm);
+    local_step<6>(kdivCache, dq4, dq, acc, interm);
+    local_step<7>(kdivCache, dq4, dq, acc, interm);
+    local_step<8>(kdivCache, dq4, dq, acc, interm);
+    local_step<9>(kdivCache, dq4, dq, acc, interm);
+    local_step<10>(kdivCache, dq4, dq, acc, interm);
+    local_step<11>(kdivCache, dq4, dq, acc, interm);
+    local_step<12>(kdivCache, dq4, dq, acc, interm);
+    local_step<13>(kdivCache, dq4, dq, acc, interm);
+    local_step<14>(kdivCache, dq4, dq, acc, interm);
+    local_step<15>(kdivCache, dq4, dq, acc, interm);
+    local_step<16>(kdivCache, dq4, dq, acc, interm);
+    local_step<17>(kdivCache, dq4, dq, acc, interm);
+    local_step<18>(kdivCache, dq4, dq, acc, interm);
+    local_step<19>(kdivCache, dq4, dq, acc, interm);
+    local_step<20>(kdivCache, dq4, dq, acc, interm);
+    local_step<21>(kdivCache, dq4, dq, acc, interm);
+    local_step<22>(kdivCache, dq4, dq, acc, interm);
+    local_step<23>(kdivCache, dq4, dq, acc, interm);
+    local_step<24>(kdivCache, dq4, dq, acc, interm);
+    local_step<25>(kdivCache, dq4, dq, acc, interm);
+    local_step<26>(kdivCache, dq4, dq, acc, interm);
+    local_step<27>(kdivCache, dq4, dq, acc, interm);
+    local_step<28>(kdivCache, dq4, dq, acc, interm);
+    local_step<29>(kdivCache, dq4, dq, acc, interm);
+    local_step<30>(kdivCache, dq4, dq, acc, interm);
+    local_step<31>(kdivCache, dq4, dq, acc, interm);
+    local_step<32>(kdivCache, dq4, dq, acc, interm);
+    local_step<33>(kdivCache, dq4, dq, acc, interm);
+    local_step<34>(kdivCache, dq4, dq, acc, interm);
+    local_step<35>(kdivCache, dq4, dq, acc, interm);
+    local_step<36>(kdivCache, dq4, dq, acc, interm);
+    local_step<37>(kdivCache, dq4, dq, acc, interm);
+    local_step<38>(kdivCache, dq4, dq, acc, interm);
+    local_step<39>(kdivCache, dq4, dq, acc, interm);
+    local_step<40>(kdivCache, dq4, dq, acc, interm);
+    local_step<41>(kdivCache, dq4, dq, acc, interm);
+    local_step<42>(kdivCache, dq4, dq, acc, interm);
+    local_step<43>(kdivCache, dq4, dq, acc, interm);
+    local_step<44>(kdivCache, dq4, dq, acc, interm);
+    local_step<45>(kdivCache, dq4, dq, acc, interm);
+    local_step<46>(kdivCache, dq4, dq, acc, interm);
+    local_step<47>(kdivCache, dq4, dq, acc, interm);
+    local_step<48>(kdivCache, dq4, dq, acc, interm);
+    local_step<49>(kdivCache, dq4, dq, acc, interm);
+    local_step<50>(kdivCache, dq4, dq, acc, interm);
+    local_step<51>(kdivCache, dq4, dq, acc, interm);
+    local_step<52>(kdivCache, dq4, dq, acc, interm);
+    local_step<53>(kdivCache, dq4, dq, acc, interm);
+    local_step<54>(kdivCache, dq4, dq, acc, interm);
+    local_step<55>(kdivCache, dq4, dq, acc, interm);
+
+#pragma unroll
+    for (int j = 0; j < (Quantities / 4) * 4; ++j) {
+#pragma unroll
+      for (int f = 0; f < 4; ++f) {
+        interm[f][j] = acc[f][j / 4][j % 4];
+      }
+    }
+
+    if (has[0]) {
+      haddMany<0, 0, 81>(result, interm, star);
+    }
+    if (has[1]) {
+      haddMany<81 * 1, 0, 81>(result, interm, star);
+    }
+    if (has[2]) {
+      haddMany<81 * 2, 0, 81>(result, interm, star);
+    }
+    if (has[3]) {
+      haddMany<81 * 3, 0, 81>(result, interm, star);
+    }
+
+#pragma unroll
+    for (int i = 0; i < Quantities; ++i) {
+      __builtin_nontemporal_store(result[i], &glbD[i * 64 + threadIdx.x]);
+    }
+  }
+}
 
 __launch_bounds__(LaunchSize) __global__ void kernel_local8a(const float** A,
                                                              const float** B,
@@ -1105,210 +1573,6 @@ __launch_bounds__(LaunchSize) __global__ void kernel_local8a(const float** A,
         }
       }
     }*/
-
-#pragma unroll
-    for (int i = 0; i < Quantities; ++i) {
-      __builtin_nontemporal_store(result[i], &glbD[i * 64 + threadIdx.x]);
-    }
-  }
-}
-
-__launch_bounds__(LaunchSize) __global__ void kernel_local8(const float** A,
-                                                            const float** B,
-                                                            unsigned Boffset,
-                                                            const float* C1,
-                                                            const float* C2,
-                                                            const float* C3,
-                                                            const float* C4,
-                                                            float** D,
-                                                            size_t numElements,
-                                                            const unsigned* flags) {
-
-  constexpr int Quantities = 9;
-  constexpr int Faces = 4;
-
-  __shared__ float kdivCache[64 * 56 * Faces];
-  // TODO: maybe try add __shared__ float broadcastCache[64 * 4 * 8]; ?
-
-  constexpr int Count = Faces * Quantities * Quantities;
-  constexpr int CountH = Count / 16;
-  constexpr int CountR = Count % 16;
-
-  const auto linear = threadIdx.y * blockDim.x + threadIdx.x;
-
-  const float* const __restrict__ glbC1 = C1;
-  const float* const __restrict__ glbC2 = C2;
-  const float* const __restrict__ glbC3 = C3;
-  const float* const __restrict__ glbC4 = C4;
-
-#pragma unroll
-  for (int i = 0; i < 56 / 8; ++i) {
-    auto x1 = __builtin_nontemporal_load(&glbC1[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
-    auto x2 = __builtin_nontemporal_load(&glbC2[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
-    auto x3 = __builtin_nontemporal_load(&glbC3[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
-    auto x4 = __builtin_nontemporal_load(&glbC4[i * 56 * 8 + threadIdx.y * 56 + threadIdx.x]);
-
-    if (threadIdx.x >= 56) {
-      x1 = 0;
-      x2 = 0;
-      x3 = 0;
-      x4 = 0;
-    }
-
-    float4 x{};
-    x.x = x1;
-    x.y = x2;
-    x.z = x3;
-    x.w = x4;
-
-    *(float4*)&kdivCache[i * 256 * 8 + linear * 4] = x;
-  }
-  __syncthreads();
-
-  for (int b = blockIdx.x * blockDim.y + threadIdx.y; b < numElements;
-       b += gridDim.x * blockDim.y) {
-    auto glbA = (__attribute__((address_space(1))) const float* const __restrict__)A[b];
-    // const float* const __restrict__ glbB = B[b] + Boffset;
-    auto glbB = (__attribute__((address_space(1))) const float* const __restrict__)(B[b] + Boffset);
-    // const gptr<float> glbB = B[b] + Boffset;
-    auto glbD = (__attribute__((address_space(1))) float* const __restrict__)D[b];
-
-    float result[Quantities]{};
-    float dq[Quantities]{};
-    float star[CountH + 1]{};
-
-    const auto flag = flags[b];
-
-    const bool has1 = (flag & 1) != 0;
-    const bool has2 = (flag & 2) != 0;
-    const bool has3 = (flag & 4) != 0;
-    const bool has4 = (flag & 8) != 0;
-
-    const bool has[4]{has1, has2, has3, has4};
-
-    // load matrices
-
-#pragma unroll
-    for (int i = 0; i < Quantities; ++i) {
-      dq[i] = __builtin_nontemporal_load(&glbA[i * 64 + threadIdx.x]);
-    }
-
-    float interm[Faces][Quantities]{};
-
-    af4 acc[Faces][Quantities / 4]{};
-
-    float4 dq4[2]{};
-
-    for (int i = 0; i < 2; ++i) {
-      transpose4x4(dq4[i].x,
-                   dq4[i].y,
-                   dq4[i].z,
-                   dq4[i].w,
-                   dq[4 * i + 0],
-                   dq[4 * i + 1],
-                   dq[4 * i + 2],
-                   dq[4 * i + 3]);
-    }
-
-#pragma unroll
-    for (int i = 0; i < CountH; ++i) {
-      star[i] = glbB[threadIdx.x % 16 + i * 16];
-    }
-    if (threadIdx.x % 16 < CountR) {
-      star[CountH] = glbB[threadIdx.x % 16 + CountH * 16];
-    }
-
-#pragma unroll
-    for (int i = 0; i < Quantities; ++i) {
-      result[i] = __builtin_nontemporal_load(&glbD[i * 64 + threadIdx.x]);
-    }
-
-    // matmul #1 X = (M @ I) × 4
-    local_step<0>(kdivCache, dq4, dq, acc, interm);
-    local_step<1>(kdivCache, dq4, dq, acc, interm);
-    local_step<2>(kdivCache, dq4, dq, acc, interm);
-    local_step<3>(kdivCache, dq4, dq, acc, interm);
-    local_step<4>(kdivCache, dq4, dq, acc, interm);
-    local_step<5>(kdivCache, dq4, dq, acc, interm);
-    local_step<6>(kdivCache, dq4, dq, acc, interm);
-    local_step<7>(kdivCache, dq4, dq, acc, interm);
-    local_step<8>(kdivCache, dq4, dq, acc, interm);
-    local_step<9>(kdivCache, dq4, dq, acc, interm);
-    local_step<10>(kdivCache, dq4, dq, acc, interm);
-    local_step<11>(kdivCache, dq4, dq, acc, interm);
-    local_step<12>(kdivCache, dq4, dq, acc, interm);
-    local_step<13>(kdivCache, dq4, dq, acc, interm);
-    local_step<14>(kdivCache, dq4, dq, acc, interm);
-    local_step<15>(kdivCache, dq4, dq, acc, interm);
-    local_step<16>(kdivCache, dq4, dq, acc, interm);
-    local_step<17>(kdivCache, dq4, dq, acc, interm);
-    local_step<18>(kdivCache, dq4, dq, acc, interm);
-    local_step<19>(kdivCache, dq4, dq, acc, interm);
-    local_step<20>(kdivCache, dq4, dq, acc, interm);
-    local_step<21>(kdivCache, dq4, dq, acc, interm);
-    local_step<22>(kdivCache, dq4, dq, acc, interm);
-    local_step<23>(kdivCache, dq4, dq, acc, interm);
-    local_step<24>(kdivCache, dq4, dq, acc, interm);
-    local_step<25>(kdivCache, dq4, dq, acc, interm);
-    local_step<26>(kdivCache, dq4, dq, acc, interm);
-    local_step<27>(kdivCache, dq4, dq, acc, interm);
-    local_step<28>(kdivCache, dq4, dq, acc, interm);
-    local_step<29>(kdivCache, dq4, dq, acc, interm);
-    local_step<30>(kdivCache, dq4, dq, acc, interm);
-    local_step<31>(kdivCache, dq4, dq, acc, interm);
-    local_step<32>(kdivCache, dq4, dq, acc, interm);
-    local_step<33>(kdivCache, dq4, dq, acc, interm);
-    local_step<34>(kdivCache, dq4, dq, acc, interm);
-    local_step<35>(kdivCache, dq4, dq, acc, interm);
-    local_step<36>(kdivCache, dq4, dq, acc, interm);
-    local_step<37>(kdivCache, dq4, dq, acc, interm);
-    local_step<38>(kdivCache, dq4, dq, acc, interm);
-    local_step<39>(kdivCache, dq4, dq, acc, interm);
-    local_step<40>(kdivCache, dq4, dq, acc, interm);
-    local_step<41>(kdivCache, dq4, dq, acc, interm);
-    local_step<42>(kdivCache, dq4, dq, acc, interm);
-    local_step<43>(kdivCache, dq4, dq, acc, interm);
-    local_step<44>(kdivCache, dq4, dq, acc, interm);
-    local_step<45>(kdivCache, dq4, dq, acc, interm);
-    local_step<46>(kdivCache, dq4, dq, acc, interm);
-    local_step<47>(kdivCache, dq4, dq, acc, interm);
-    local_step<48>(kdivCache, dq4, dq, acc, interm);
-    local_step<49>(kdivCache, dq4, dq, acc, interm);
-    local_step<50>(kdivCache, dq4, dq, acc, interm);
-    local_step<51>(kdivCache, dq4, dq, acc, interm);
-    local_step<52>(kdivCache, dq4, dq, acc, interm);
-    local_step<53>(kdivCache, dq4, dq, acc, interm);
-    local_step<54>(kdivCache, dq4, dq, acc, interm);
-    local_step<55>(kdivCache, dq4, dq, acc, interm);
-
-#pragma unroll
-    for (int j = 0; j < (Quantities / 4) * 4; ++j) {
-#pragma unroll
-      for (int f = 0; f < 4; ++f) {
-        interm[f][j] = acc[f][j / 4][j % 4];
-        /*transpose4x4(interm[f][j + 0],
-                     interm[f][j + 1],
-                     interm[f][j + 2],
-                     interm[f][j + 3],
-                     acc[f][j / 4][0],
-                     acc[f][j / 4][1],
-                     acc[f][j / 4][2],
-                     acc[f][j / 4][3]);*/
-      }
-    }
-
-    if (has[0]) {
-      haddMany<0, 0, 81>(result, interm, star);
-    }
-    if (has[1]) {
-      haddMany<81 * 1, 0, 81>(result, interm, star);
-    }
-    if (has[2]) {
-      haddMany<81 * 2, 0, 81>(result, interm, star);
-    }
-    if (has[3]) {
-      haddMany<81 * 3, 0, 81>(result, interm, star);
-    }
 
 #pragma unroll
     for (int i = 0; i < Quantities; ++i) {
