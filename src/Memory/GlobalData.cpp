@@ -31,6 +31,9 @@ MemoryProperties OnHost::getProperties() {
 
 void OnHost::negateStiffnessMatrix(GlobalData& globalData) {
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
+    // TODO: move this initialization somewhere else, e.g. into the matrix files
+
+    // NOLINTNEXTLINE (cppcoreguidelines-pro-type-const-cast)
     real* matrix = const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness));
     for (unsigned i = 0; i < init::kDivMT::size(transposedStiffness); ++i) {
       matrix[i] *= -1.0;
@@ -79,6 +82,7 @@ void OnDevice::negateStiffnessMatrix(GlobalData& globalData) {
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
     const real scaleFactor = -1.0;
     device.algorithms.scaleArray(
+        // NOLINTNEXTLINE (cppcoreguidelines-pro-type-const-cast)
         const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness)),
         scaleFactor,
         init::kDivMT::size(transposedStiffness),
