@@ -69,6 +69,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   leonardo
   lumi
   supermuc-ng-phase2
+  coolmuc4
 
 .. toctree::
   :maxdepth: 2
