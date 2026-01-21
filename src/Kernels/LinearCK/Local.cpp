@@ -62,9 +62,12 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
 #ifdef USE_PREMULTIPLY_FLUX
   deviceLocalFluxKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
+  deviceLocalFluxAllKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
 #else
   deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
   deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+  deviceLocalFluxAllKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
+  deviceLocalFluxAllKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
 #endif
   deviceNodalLfKrnlPrototype.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
   deviceProjectRotatedKrnlPrototype.V3mTo2nFace = global.onDevice->v3mTo2nFace;
@@ -282,6 +285,22 @@ void Local::computeBatchedIntegral(
     volKrnl.linearAllocator.initialize(tmpMem.get());
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
+
+    kernel::gpu_localFluxAll localFluxKrnl = deviceLocalFluxAllKernelPrototype;
+    localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
+    localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    localFluxKrnl.I =
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      localFluxKrnl.AplusTz(face) = const_cast<const real**>(
+          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+      localFluxKrnl.extraOffset_AplusTz(face) =
+          SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
+    }
+    localFluxKrnl.linearAllocator.initialize(tmpMem.get());
+    localFluxKrnl.streamPtr = runtime.stream();
+    localFluxKrnl.execute();
   }
 
   // Local Flux Integral
@@ -299,7 +318,7 @@ void Local::computeBatchedIntegral(
       localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
       localFluxKrnl.linearAllocator.initialize(tmpMem.get());
       localFluxKrnl.streamPtr = runtime.stream();
-      localFluxKrnl.execute(face);
+      // localFluxKrnl.execute(face);
     }
 
     ConditionalKey fsgKey(
@@ -421,7 +440,8 @@ void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // Local flux is executed for all faces that are not dynamic rupture.
     // For those cells, the flux is taken into account during the neighbor kernel.
-    if (faceTypes[face] != FaceType::DynamicRupture) {
+    // Or we're on the GPU where we run the kernel anyways.
+    if (faceTypes[face] != FaceType::DynamicRupture || isDeviceOn()) {
       nonZeroFlops += seissol::kernel::localFlux::nonZeroFlops(face);
       hardwareFlops += seissol::kernel::localFlux::hardwareFlops(face);
     }

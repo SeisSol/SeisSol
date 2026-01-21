@@ -66,6 +66,10 @@ class ADERDGBase(ABC):
 
         Aplusminus_spp = self.flux_solver_spp()
         self.AplusT = Tensor("AplusT", Aplusminus_spp.shape, spp=Aplusminus_spp)
+        self.AplusTz = [
+            Tensor(f"AplusTz({i})", Aplusminus_spp.shape, spp=Aplusminus_spp)
+            for i in range(4)
+        ]
         self.AminusT = Tensor("AminusT", Aplusminus_spp.shape, spp=Aplusminus_spp)
         trans_spp = self.transformation_spp()
         self.T = Tensor("T", trans_spp.shape, spp=trans_spp)
@@ -403,6 +407,19 @@ class LinearADERDG(ADERDGBase):
                 "gpu_localFlux",
                 simpleParameterSpace(4),
                 localFlux,
+                target="gpu",
+            )
+
+            localFluxAll = self.Q["kp"] <= sum(
+                [
+                    plusFluxMatrixAccessor(i) * self.I["lq"] * self.AplusTz[i]["qp"]
+                    for i in range(4)
+                ],
+                start=self.Q["kp"],
+            )
+            generator.add(
+                "gpu_localFluxAll",
+                localFluxAll,
                 target="gpu",
             )
 
