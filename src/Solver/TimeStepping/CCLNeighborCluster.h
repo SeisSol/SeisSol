@@ -30,7 +30,8 @@ class CCLNeighborCluster : public AbstractTimeCluster {
   std::vector<solver::RemoteCluster> remote;
   std::vector<bool> isSend;
   std::vector<void*> memoryHandles;
-  void* comm;
+  void* commSend;
+  void* commRecv;
   void* event{nullptr};
 
 #ifdef ACL_DEVICE

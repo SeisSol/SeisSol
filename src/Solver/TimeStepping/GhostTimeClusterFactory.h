@@ -27,9 +27,9 @@ struct GhostTimeClusterFactory {
   public:
   static std::vector<void*> setup(Mpi::DataTransferMode mode, std::size_t clusters) {
     if (mode == Mpi::DataTransferMode::DirectCcl) {
-      const auto commCount = (clusters * (clusters + 1)) / 2;
-
 #if defined(ACL_DEVICE) && defined(USE_CCL)
+      const auto commCount = clusters * clusters;
+
       return createComms(commCount);
 #endif
     }

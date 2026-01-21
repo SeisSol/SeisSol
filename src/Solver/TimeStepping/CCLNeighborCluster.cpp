@@ -127,7 +127,7 @@ void CCLNeighborCluster::launch(bool send, bool recv) {
                     cluster.size,
                     cclDatatype(cluster.datatype),
                     cluster.rank,
-                    static_cast<CCL(Comm_t)>(comm),
+                    static_cast<CCL(Comm_t)>(commSend),
                     static_cast<StreamT>(runtime.stream()));
         }
       } else {
@@ -136,7 +136,7 @@ void CCLNeighborCluster::launch(bool send, bool recv) {
                     cluster.size,
                     cclDatatype(cluster.datatype),
                     cluster.rank,
-                    static_cast<CCL(Comm_t)>(comm),
+                    static_cast<CCL(Comm_t)>(commRecv),
                     static_cast<StreamT>(runtime.stream()));
         }
       }
@@ -209,20 +209,15 @@ CCLNeighborCluster::CCLNeighborCluster(double maxTimeStepSize,
                                        int globalTimeClusterId,
                                        int otherGlobalTimeClusterId,
                                        const seissol::solver::HaloCommunication& meshStructure,
-                                       bool persistent,
+                                       bool /*persistent*/,
                                        const std::vector<void*>& comms)
     : AbstractTimeCluster(
           maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
+      commSend(comms[globalTimeClusterId * meshStructure.size() + otherGlobalTimeClusterId]),
+      commRecv(comms[otherGlobalTimeClusterId * meshStructure.size() + globalTimeClusterId]),
       globalClusterId(globalTimeClusterId), otherGlobalClusterId(otherGlobalTimeClusterId) {
 
   // project onto symmetric layout
-
-  const auto commMin = std::min(globalTimeClusterId, otherGlobalTimeClusterId);
-  const auto commMax = std::max(globalTimeClusterId, otherGlobalTimeClusterId);
-  const auto remove = ((meshStructure.size() - commMin) * (meshStructure.size() - commMin + 1)) / 2;
-  const auto commId = comms.size() - remove + (commMax - commMin);
-
-  comm = comms[commId];
 
   // TODO: make session-specific
   static std::shared_ptr<parallel::runtime::StreamRuntime> rt{nullptr};
