@@ -211,7 +211,7 @@ class TimeCluster : public AbstractTimeCluster {
   //! time of the next receiver output
   double receiverTime;
 
-  //! print status every 100th timestep
+  //! print status
   bool printProgress;
   //! cluster id on this rank
   unsigned int clusterId;

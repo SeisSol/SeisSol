@@ -7,7 +7,7 @@
 
 from kernels.common import generate_kernel_name_prefix
 from yateto import Tensor, simpleParameterSpace
-from yateto.input import parseJSONMatrixFile, parseXMLMatrixFile
+from yateto.input import parseJSONMatrixFile
 
 
 def addKernels(generator, aderdg, PlasticityMethod, matricesDir, targets=["cpu"]):
@@ -20,10 +20,8 @@ def addKernels(generator, aderdg, PlasticityMethod, matricesDir, targets=["cpu"]
             f"{matricesDir}/vtko{aderdg.order}.json", alignStride=alignStride
         )
 
-        plasticityDB = parseXMLMatrixFile(
-            "{}/plasticity_{}_matrices_{}.xml".format(
-                matricesDir, PlasticityMethod, aderdg.order
-            ),
+        plasticityDB = parseJSONMatrixFile(
+            f"{matricesDir}/plasticity-{PlasticityMethod}-matrices-{aderdg.order}.json",
             clones=dict(),
             alignStride=aderdg.alignStride,
         )

@@ -93,9 +93,8 @@ void VariableSubsampler<T>::get(const real* inData,
                                 int variable,
                                 // NOLINTNEXTLINE
                                 real* outData) const {
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
   // Iterate over original Cells
   for (unsigned int c = 0; c < mNumCells; ++c) {
     for (unsigned int sc = 0; sc < kSubCellsPerCell; ++sc) {

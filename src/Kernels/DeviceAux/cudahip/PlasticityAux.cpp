@@ -101,8 +101,8 @@ __global__ void
 
   // 4. Compute the plasticity criteria
   const real cohesionTimesCosAngularFriction =
-      plasticity[blockIdx.x].cohesionTimesCosAngularFriction[simidx()];
-  const real sinAngularFriction = plasticity[blockIdx.x].sinAngularFriction[simidx()];
+      plasticity[blockIdx.x].cohesionTimesCosAngularFriction[linearidx()];
+  const real sinAngularFriction = plasticity[blockIdx.x].sinAngularFriction[linearidx()];
   const real taulim = std::max(static_cast<real>(0.0),
                                cohesionTimesCosAngularFriction - meanStress * sinAngularFriction);
 

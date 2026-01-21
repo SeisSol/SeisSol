@@ -43,7 +43,9 @@ void seissol::writer::WaveFieldWriter::setUp() {
   utils::Env env("SEISSOL_");
   if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, env)) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
-    logInfo() << "Wave field writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
+    logInfo() << "Wave field writer thread affinity:" << parallel::Pinning::maskToString(freeCpus)
+              << "(" << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
+    ;
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
@@ -484,9 +486,7 @@ void seissol::writer::WaveFieldWriter::write(double time) {
           async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>::managedBuffer<
               real*>(m_variableBufferIds[1] + nextId);
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif // _OPENMP
       for (unsigned int j = 0; j < m_numLowCells; j++) {
         managedBuffer[j] = m_integrals[m_map[j] * m_numIntegratedVariables + nextId];
       }
