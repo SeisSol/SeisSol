@@ -642,9 +642,8 @@ private:
       // we will do deep-copy from the host to a device later on
       if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Variable &&
           (memoryContainer[var].host != nullptr) && numCells > 0) {
-#ifdef _OPENMP
+
 #pragma omp for schedule(static) nowait
-#endif
         for (std::size_t cell = 0; cell < numCells; ++cell) {
           auto* cellPointer =
               static_cast<char*>(memoryContainer[var].host) + cell * memoryInfo[var].bytes;

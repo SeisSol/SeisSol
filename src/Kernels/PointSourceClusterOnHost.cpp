@@ -36,9 +36,8 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSources(
     double from, double to, seissol::parallel::runtime::StreamRuntime& /*runtime*/) {
   auto& mapping = clusterMapping_->cellToSources;
   if (mapping.size() > 0) {
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
     for (std::size_t m = 0; m < mapping.size(); ++m) {
       const auto startSource = mapping[m].pointSourcesOffset;
       const auto endSource = mapping[m].pointSourcesOffset + mapping[m].numberOfPointSources;

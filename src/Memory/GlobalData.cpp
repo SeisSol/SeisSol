@@ -49,10 +49,9 @@ void OnHost::initSpecificGlobalData(GlobalData& globalData,
   auto* integrationBufferLTS = reinterpret_cast<real*>(
       allocator.allocateMemory(numThreads * allocSize * sizeof(real), alignment, memkind));
 
-// initialize w.r.t. NUMA
-#ifdef _OPENMP
+  // initialize w.r.t. NUMA
+
 #pragma omp parallel
-#endif
   {
     const auto threadOffset = OpenMP::threadId() * allocSize;
     for (std::size_t dof = 0; dof < allocSize; ++dof) {
