@@ -25,6 +25,70 @@
 #include <Device/device.h>
 #endif
 
+#ifdef USE_SHMEM
+
+#ifdef USE_NVSHMEM
+#include <nvshmem.h>
+#include <nvshmemx.h>
+#endif
+
+#ifdef USE_ROCSHMEM
+#include <rocshmem.h>
+#endif
+
+#ifdef USE_ISHMEM
+#include <ishmem.h>
+#include <ishmemx.h>
+#endif
+
+namespace {
+
+void* mallocShmemInternal(std::size_t size, std::size_t alignment) {
+#ifdef USE_NVSHMEM
+  return nvshmem_align(alignment, size);
+#endif
+#ifdef USE_ROCSHMEM
+  return rocshmem_align(alignment, size);
+#endif
+#ifdef USE_ISHMEM
+  return ishmem_align(alignment, size);
+#endif
+}
+
+void* mallocShmem(std::size_t size, std::size_t alignment) {
+  std::size_t trueSize = size;
+
+  // shmem_align/shmem_malloc needs to be called with the same size on all ranks
+  // (so just take the max of all regions)
+
+  MPI_Allreduce(&size,
+                &trueSize,
+                1,
+                seissol::Mpi::castToMpiType<std::size_t>(),
+                MPI_MAX,
+                seissol::Mpi::mpi.comm());
+
+  return mallocShmemInternal(trueSize, alignment);
+}
+
+void* freeShmemInternal(void* ptr) {
+#ifdef USE_NVSHMEM
+  nvshmem_free(ptr);
+#endif
+#ifdef USE_ROCSHMEM
+  rocshmem_free(ptr);
+#endif
+#ifdef USE_ISHMEM
+  ishmem_free(ptr);
+#endif
+}
+
+void freeShmem(void* ptr) { freeShmemInternal(ptr); }
+
+} // namespace
+
+#endif
+
 // TODO: add Device/#48; then refactor away most ifdefs in this file
 
 namespace {
@@ -44,7 +108,7 @@ void* allocate(size_t size, size_t alignment, Memkind memkind) {
   bool error = false;
 
   // handle zero-size allocations
-  if (size == 0) {
+  if (size == 0 && memkind != Memkind::Shmem) {
     ptrBuffer = nullptr;
     return ptrBuffer;
   }
@@ -85,6 +149,14 @@ void* allocate(size_t size, size_t alignment, Memkind memkind) {
   } else if (memkind == Memkind::PinnedMemory) {
 #ifdef ACL_DEVICE
     ptrBuffer = device::DeviceInstance::getInstance().api->allocPinnedMem(size);
+#endif
+  } else if (memkind == Memkind::DeviceGlobalCompressed) {
+#ifdef ACL_DEVICE
+    ptrBuffer = device::DeviceInstance::getInstance().api->allocGlobMem(size, true);
+#endif
+  } else if (memkind == Memkind::Shmem) {
+#ifdef USE_SHMEM
+    ptrBuffer = mallocShmem(size);
 #endif
   } else {
     logError() << "unknown memkind type used ("
@@ -127,6 +199,14 @@ void free(void* pointer, Memkind memkind) {
   } else if (memkind == Memkind::PinnedMemory) {
 #ifdef ACL_DEVICE
     device::DeviceInstance::getInstance().api->freePinnedMem(pointer);
+#endif
+  } else if (memkind == Memkind::DeviceGlobalCompressed) {
+#ifdef ACL_DEVICE
+    device::DeviceInstance::getInstance().api->freeGlobMem(pointer);
+#endif
+  } else if (memkind == Memkind::Shmem) {
+#ifdef USE_SHMEM
+    freeShmem(pointer);
 #endif
   } else {
     logError() << "unknown memkind type used ("

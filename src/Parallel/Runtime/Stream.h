@@ -150,6 +150,8 @@ class StreamRuntime {
 
   void wait() { device().api->syncStreamWithHost(streamPtr->get()); }
 
+  bool test() { return device().api->isStreamWorkDone(streamPtr->get()); }
+
   void* stream() { return streamPtr->get(); }
 
   template <typename F>
@@ -251,6 +253,7 @@ class StreamRuntime {
   }
 
   void wait() {}
+  bool test() { return true; }
   void dispose() {}
 
   void eventSync(void* event) {}

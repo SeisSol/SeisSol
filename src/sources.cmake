@@ -46,6 +46,9 @@ Solver/TimeStepping/GhostTimeClusterWithCopy.cpp
 Solver/TimeStepping/TimeCluster.cpp
 Solver/TimeStepping/TimeManager.cpp
 
+Solver/TimeStepping/ShmemCluster.cpp
+Solver/TimeStepping/CCLNeighborCluster.cpp
+
 Kernels/DynamicRupture.cpp
 Kernels/Plasticity.cpp
 Kernels/TimeCommon.cpp
