@@ -9,15 +9,15 @@
 #ifndef SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_
 #define SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_
 
+#include "Common/Constants.h"
+#include "Functions.h"
 #include "GeneratedCode/init.h"
-#include <Common/Constants.h>
+#include "Transformation.h"
+
 #include <cmath>
 #include <numeric>
 #include <type_traits>
 #include <vector>
-
-#include "Functions.h"
-#include "Transformation.h"
 
 namespace seissol::basisFunction {
 
@@ -263,7 +263,7 @@ class TimeBasisFunctionGenerator {
   }
 
   public:
-  TimeBasisFunctionGenerator(T tau) : tau_(tau) {}
+  explicit TimeBasisFunctionGenerator(T tau) : tau_(tau) {}
 
   T operator()(unsigned int i) const { return functions::DubinerP<1>({i}, {tau_}); }
 };

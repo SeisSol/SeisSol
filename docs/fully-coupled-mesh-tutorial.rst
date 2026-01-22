@@ -58,7 +58,7 @@ We then do ``Unions Parts`` (Tolerance 0.1, smaller than the ``change_zero_eleva
 This leads to the creation of 3 regions and 1 face.
 Region 3 is the solid Earth below the sea floor, region 4 is the larger ocean region, and region 5 is the small dark green water region.
 
-.. figure:: LatexFigures/Samos_intersected.png
+.. figure:: figures/samos-intersected.png
    :alt: Three-regions model obtained after intersecting bathymetry and water-layer box.
    :width: 11.00000cm
    :align: center
@@ -80,7 +80,7 @@ The sea floor below the removed smaller water layer region can be merged with ``
 The obtained model has 2 regions.
 
 
-.. figure:: LatexFigures/Samos_2regions.png
+.. figure:: figures/samos-2regions.png
    :alt: Two-regions model of the Eastern Aegean Sea area, including water layer.
    :width: 11.00000cm
    :align: center

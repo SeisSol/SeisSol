@@ -8,12 +8,13 @@
 #ifndef SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_
 #define SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_
 
-#include <Memory/Tree/Layer.h>
+#include "Memory/Tree/Layer.h"
+
 #include <functional>
 #include <utility>
 
 #ifdef ACL_DEVICE
-#include "device.h"
+#include <Device/device.h>
 #endif
 
 namespace seissol::parallel::runtime {
@@ -216,7 +217,7 @@ class StreamRuntime {
   public:
   StreamRuntime() : StreamRuntime(0) {}
 
-  StreamRuntime(std::size_t ringbufferSize) {}
+  explicit StreamRuntime(std::size_t ringbufferSize) {}
 
   template <typename F>
   void enqueueLoop(std::size_t elemCount, const F& handler) {
@@ -224,6 +225,11 @@ class StreamRuntime {
     for (std::size_t i = 0; i < elemCount; ++i) {
       std::invoke(handler, i);
     }
+  }
+
+  template <typename F>
+  void enqueueHost(F&& handler) {
+    std::invoke(std::forward<F>(handler));
   }
 
   void* stream() {

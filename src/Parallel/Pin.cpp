@@ -9,20 +9,22 @@
 
 #include "Pin.h"
 
+#include "Common/IntegerMaskParser.h"
 #include "Parallel/MPI.h"
-#include "utils/env.h"
-#include "utils/logger.h"
-#include <Common/IntegerMaskParser.h>
+
 #include <async/as/Pin.h>
 #include <cassert>
 #include <cstdlib>
 #include <deque>
 #include <fstream>
 #include <mpi.h>
+#include <optional>
 #include <sched.h>
 #include <set>
 #include <sstream>
 #include <string>
+#include <utils/env.h>
+#include <utils/logger.h>
 #include <vector>
 
 #ifndef __APPLE__
@@ -121,7 +123,7 @@ void Pinning::checkEnvVariables() {
       parsedFreeCPUsMask = parsedResult.value();
 
       bool isMaskGood{true};
-      const auto numLocalProcesses = MPI::mpi.sharedMemMpiSize();
+      const auto numLocalProcesses = Mpi::mpi.sharedMemMpiSize();
       if (numLocalProcesses > static_cast<int>(parsedFreeCPUsMask.size())) {
         logInfo() << "There are more communication (and/or output-writing) threads"
                   << "to pin than locations defined in `SEISSOL_FREE_CPUS_MASK`";
@@ -162,6 +164,7 @@ CpuMask Pinning::getWorkerUnionMask() {
 #ifndef __APPLE__
   cpu_set_t workerUnion;
   CPU_ZERO(&workerUnion);
+
 #ifdef _OPENMP
 #pragma omp parallel default(none) shared(workerUnion)
   {
@@ -192,7 +195,7 @@ CpuMask Pinning::getFreeCPUsMask() const {
   CPU_ZERO(&freeMask);
 
   if (not parsedFreeCPUsMask.empty()) {
-    const auto localProcessor = MPI::mpi.sharedMemMpiRank();
+    const auto localProcessor = Mpi::mpi.sharedMemMpiRank();
     for (const auto& cpu : parsedFreeCPUsMask[localProcessor]) {
       CPU_SET(cpu, &freeMask);
     }
@@ -264,6 +267,47 @@ void Pinning::pinToFreeCPUs() const {
 #endif // __APPLE__
 }
 
+std::string Pinning::maskToStringShort(const CpuMask& mask) {
+#ifndef __APPLE__
+  const auto& set = mask.set;
+  std::stringstream st;
+  std::optional<int> start = std::optional<int>();
+  bool hasText = false;
+
+  const auto printInterval = [&](int cpu) {
+    if (start.has_value()) {
+      if (hasText) {
+        st << ",";
+      }
+      hasText = true;
+      st << start.value();
+      if (start.value() + 1 < cpu) {
+        st << "-" << (cpu - 1);
+      }
+    }
+  };
+
+  for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
+    const bool isset = CPU_ISSET(cpu, &set) != 0;
+    if (isset && !start.has_value()) {
+      start = cpu;
+    } else if (!isset && start.has_value()) {
+      printInterval(cpu);
+      start = std::optional<int>();
+    }
+  }
+
+  if (start.has_value()) {
+    printInterval(get_nprocs_conf());
+  }
+
+  return st.str();
+
+#else
+  return "Affinity is not supported on MacOS.";
+#endif // __APPLE__
+}
+
 std::string Pinning::maskToString(const CpuMask& mask) {
 #ifndef __APPLE__
   const auto& set = mask.set;
@@ -300,7 +344,7 @@ CpuMask Pinning::getNodeMask() {
                 workerMaskArray.size(),
                 MPI_CHAR,
                 MPI_BOR,
-                MPI::mpi.sharedMemComm());
+                Mpi::mpi.sharedMemComm());
 
   cpu_set_t nodeMask;
   CPU_ZERO(&nodeMask);

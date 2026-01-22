@@ -39,9 +39,11 @@ class SlowVelocityWeakeningLaw
   }
 
   struct MuDetails {
-    std::array<double, misc::NumPaddedPoints> a{};
-    std::array<double, misc::NumPaddedPoints> c{};
-    std::array<double, misc::NumPaddedPoints> ac{};
+    std::array<real, misc::NumPaddedPoints> a{};
+    std::array<real, misc::NumPaddedPoints> cLin{};
+    std::array<real, misc::NumPaddedPoints> cExpLog{};
+    std::array<real, misc::NumPaddedPoints> cExp{};
+    std::array<real, misc::NumPaddedPoints> acLin{};
   };
 
   MuDetails getMuDetails(std::size_t ltsFace,
@@ -49,16 +51,23 @@ class SlowVelocityWeakeningLaw
     MuDetails details{};
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-      const double localA = this->a[ltsFace][pointIndex];
-      const double localSl0 = this->sl0[ltsFace][pointIndex];
-      const double log1 = std::log(this->drParameters->rsSr0 *
-                                   static_cast<double>(localStateVariable[pointIndex]) / localSl0);
-      const double c =
-          0.5 / this->drParameters->rsSr0 *
-          std::exp((this->f0[ltsFace][pointIndex] + this->b[ltsFace][pointIndex] * log1) / localA);
+      const real localA = this->a[ltsFace][pointIndex];
+      const real localSl0 = this->sl0[ltsFace][pointIndex];
+      const real log1 =
+          std::log(this->drParameters->rsSr0 * localStateVariable[pointIndex] / localSl0);
+      const real localF0 = this->f0[ltsFace][pointIndex];
+      const real localB = this->b[ltsFace][pointIndex];
+
+      const real cLin = 0.5 / this->drParameters->rsSr0;
+      const real cExpLog = (localF0 + localB * log1) / localA;
+      const real cExp = rs::computeCExp(cExpLog);
+      const real acLin = localA * cLin;
+
       details.a[pointIndex] = localA;
-      details.c[pointIndex] = c;
-      details.ac[pointIndex] = localA * c;
+      details.cLin[pointIndex] = cLin;
+      details.cExpLog[pointIndex] = cExpLog;
+      details.cExp[pointIndex] = cExp;
+      details.acLin[pointIndex] = acLin;
     }
     return details;
   }
@@ -73,10 +82,10 @@ class SlowVelocityWeakeningLaw
    * @return \f$ \mu \f$
    */
 #pragma omp declare simd
-  double
-      updateMu(std::uint32_t pointIndex, double localSlipRateMagnitude, const MuDetails& details) {
-    const double x = localSlipRateMagnitude * details.c[pointIndex];
-    return details.a[pointIndex] * std::asinh(x);
+  real updateMu(std::uint32_t pointIndex, real localSlipRateMagnitude, const MuDetails& details) {
+    const real lx = details.cLin[pointIndex] * localSlipRateMagnitude;
+    return details.a[pointIndex] *
+           rs::arsinhexp(lx, details.cExpLog[pointIndex], details.cExp[pointIndex]);
   }
 
   /**
@@ -89,11 +98,12 @@ class SlowVelocityWeakeningLaw
    * @return \f$ \mu \f$
    */
 #pragma omp declare simd
-  double updateMuDerivative(std::uint32_t pointIndex,
-                            double localSlipRateMagnitude,
-                            const MuDetails& details) {
-    const double x = localSlipRateMagnitude * details.c[pointIndex];
-    return details.ac[pointIndex] / std::sqrt(x * x + 1.0);
+  real updateMuDerivative(std::uint32_t pointIndex,
+                          real localSlipRateMagnitude,
+                          const MuDetails& details) {
+    const real lx = details.cLin[pointIndex] * localSlipRateMagnitude;
+    return details.acLin[pointIndex] *
+           rs::arsinhexpDerivative(lx, details.cExpLog[pointIndex], details.cExp[pointIndex]);
   }
 
   /**

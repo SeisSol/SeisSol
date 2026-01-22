@@ -5,30 +5,34 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "InitModel.h"
+
+#include "Common/Constants.h"
+#include "Common/Real.h"
+#include "Config.h"
 #include "Equations/Datastructures.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalMatrices.h"
+#include "Initializer/MemoryManager.h"
 #include "Initializer/ParameterDB.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
-#include <Common/Constants.h>
-#include <Common/Real.h>
-#include <Config.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/MemoryManager.h>
-#include <Initializer/Parameters/ModelParameters.h>
-#include <Initializer/TimeStepping/ClusterLayout.h>
-#include <Kernels/Common.h>
-#include <Memory/Tree/Layer.h>
-#include <Model/CommonDatastructures.h>
-#include <Model/Plasticity.h>
-#include <Modules/Modules.h>
-#include <Monitoring/Stopwatch.h>
-#include <Parallel/Helper.h>
-#include <Physics/InstantaneousTimeMirrorManager.h>
-#include <Solver/Estimator.h>
-#include <Solver/MultipleSimulations.h>
+#include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
+#include "Model/Plasticity.h"
+#include "Modules/Modules.h"
+#include "Monitoring/Stopwatch.h"
+#include "Parallel/Helper.h"
+#include "Physics/InstantaneousTimeMirrorManager.h"
+#include "SeisSol.h"
+#include "Solver/Estimator.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -40,14 +44,7 @@
 #include <utils/stringutils.h>
 #include <vector>
 
-#include "InitModel.h"
-#include "SeisSol.h"
-
-#if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
-#include "Physics/Attenuation.h"
-#endif
-
-using namespace seissol::initializer;
+namespace seissol::initializer::initprocedure {
 
 namespace {
 
@@ -56,9 +53,8 @@ using Plasticity = seissol::model::Plasticity;
 
 template <typename T>
 std::vector<T> queryDB(const std::shared_ptr<seissol::initializer::QueryGenerator>& queryGen,
-                       const std::string& fileName,
-                       size_t size) {
-  std::vector<T> vectorDB(size);
+                       const std::string& fileName) {
+  std::vector<T> vectorDB;
   seissol::initializer::MaterialParameterDB<T> parameterDB;
   parameterDB.setMaterialVector(&vectorDB);
   parameterDB.evaluateModel(fileName, *queryGen);
@@ -93,50 +89,48 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   // just a helper function for better readability
   const auto getBestQueryGenerator = [&](const seissol::initializer::CellToVertexArray& ctvArray) {
     return seissol::initializer::getBestQueryGenerator(
-        seissolParams.model.plasticity, seissolParams.model.useCellHomogenizedMaterial, ctvArray);
+        seissolParams.model.useCellHomogenizedMaterial, ctvArray);
   };
 
   // material retrieval for copy+interior layers
-  const auto queryGen =
-      getBestQueryGenerator(seissol::initializer::CellToVertexArray::fromMeshReader(meshReader));
-  auto materialsDB = queryDB<MaterialT>(
-      queryGen, seissolParams.model.materialFileName, meshReader.getElements().size());
+  const auto ctv = seissol::initializer::CellToVertexArray::fromMeshReader(meshReader);
+  const auto queryGen = getBestQueryGenerator(ctv);
+  auto materialsDB = queryDB<MaterialT>(queryGen, seissolParams.model.materialFileName);
 
   // plasticity (if needed)
+
+  const auto plasticityPointwise = seissolParams.model.plasticityPointwise;
+
   std::array<std::vector<Plasticity>, seissol::multisim::NumSimulations> plasticityDB;
+
   if (seissolParams.model.plasticity) {
+
     // plasticity information is only needed on all interior+copy cells.
     for (size_t i = 0; i < seissol::multisim::NumSimulations; i++) {
-      plasticityDB[i] = queryDB<Plasticity>(
-          queryGen, seissolParams.model.plasticityFileNames[i], meshReader.getElements().size());
+      plasticityDB[i] =
+          queryDB<Plasticity>(std::make_shared<PlasticityPointGenerator>(ctv, plasticityPointwise),
+                              seissolParams.model.plasticityFileNames[i]);
     }
   }
 
   // material retrieval for ghost layers
   auto queryGenGhost = getBestQueryGenerator(
       seissol::initializer::CellToVertexArray::fromVectors(ghostVertices, ghostGroups));
-  auto materialsDBGhost =
-      queryDB<MaterialT>(queryGenGhost, seissolParams.model.materialFileName, ghostVertices.size());
+  auto materialsDBGhost = queryDB<MaterialT>(queryGenGhost, seissolParams.model.materialFileName);
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
   for (size_t i = 0; i < materialsDB.size(); ++i) {
     auto& cellMat = materialsDB[i];
     cellMat.initialize(seissolParams.model);
   }
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
   for (size_t i = 0; i < materialsDBGhost.size(); ++i) {
     auto& cellMat = materialsDBGhost[i];
     cellMat.initialize(seissolParams.model);
   }
 
   logDebug() << "Setting cell materials in the storage (for interior and copy layers).";
-  const auto& elements = meshReader.getElements();
-
-  auto* materialDataArrayGlobal = memoryManager.getLtsStorage().var<LTS::MaterialData>();
 
   for (auto& layer : memoryManager.getLtsStorage().leaves()) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
@@ -144,9 +138,8 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
     auto* materialDataArray = layer.var<LTS::MaterialData>();
 
     if (layer.getIdentifier().halo == HaloType::Ghost) {
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto& localSecondaryInformation = secondaryInformation[cell];
         const auto meshId = localSecondaryInformation.meshId;
@@ -166,9 +159,8 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
       auto* materialArray = layer.var<LTS::Material>();
       auto* plasticityArray =
           seissolParams.model.plasticity ? layer.var<LTS::Plasticity>() : nullptr;
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         // set the materials for the cell volume and its faces
         const auto& localSecondaryInformation = secondaryInformation[cell];
@@ -202,11 +194,14 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
           auto& plasticity = plasticityArray[cell];
           assert(plasticityDB.size() == seissol::multisim::NumSimulations &&
                  "Plasticity database size mismatch with number of simulations");
-          std::array<Plasticity, seissol::multisim::NumSimulations> localPlasticity;
+          std::array<const Plasticity*, seissol::multisim::NumSimulations> localPlasticity{};
           for (size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
-            localPlasticity[i] = plasticityDB[i][meshId];
+            const auto pointsPerCell = plasticityPointwise ? model::PlasticityData::PointCount : 1;
+            localPlasticity[i] = &plasticityDB[i][static_cast<std::size_t>(meshId) * pointsPerCell];
           }
-          initAssign(plasticity, seissol::model::PlasticityData(localPlasticity, material.local));
+          initAssign(
+              plasticity,
+              seissol::model::PlasticityData(localPlasticity, material.local, plasticityPointwise));
         }
       }
     }
@@ -237,9 +232,7 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
                                                          memoryManager.getLtsStorage(),
                                                          memoryManager.getBackmap(),
-                                                         memoryManager.getDRStorage(),
-                                                         *memoryManager.getGlobalData().onHost,
-                                                         seissolParams.drParameters.etaDamp);
+                                                         memoryManager.getDRStorage());
 
   memoryManager.initFrictionData();
 
@@ -273,6 +266,8 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
 
 void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
   if constexpr (isDeviceOn()) {
+    logInfo() << "Determine Host-Device switchpoint";
+
     const auto hdswitch = seissolInstance.env().get<std::string>("DEVICE_HOST_SWITCH", "none");
     bool hdenabled = false;
     if (hdswitch == "none") {
@@ -300,8 +295,6 @@ void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
 }
 
 void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
-
   seissolInstance.getMemoryManager().initializeMemoryLayout();
 
   seissolInstance.getMemoryManager().fixateBoundaryStorage();
@@ -309,7 +302,7 @@ void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
 
 } // namespace
 
-void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolInstance) {
+void initModel(seissol::SeisSol& seissolInstance) {
   SCOREP_USER_REGION("init_model", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   logInfo() << "Begin init model.";
@@ -340,10 +333,7 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   logInfo() << "Initialize cell material parameters.";
   initializeCellMaterial(seissolInstance);
 
-  if constexpr (isDeviceOn()) {
-    logInfo() << "Determine Host-Device switchpoint";
-    hostDeviceCoexecution(seissolInstance);
-  }
+  hostDeviceCoexecution(seissolInstance);
 
   // init memory layout (needs cell material values to initialize e.g. displacements correctly)
   logInfo() << "Initialize Memory layout.";
@@ -361,3 +351,5 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
 
   logInfo() << "End init model.";
 }
+
+} // namespace seissol::initializer::initprocedure

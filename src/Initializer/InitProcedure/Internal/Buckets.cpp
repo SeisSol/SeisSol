@@ -5,20 +5,22 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Buckets.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <Common/Real.h>
-#include <Config.h>
-#include <GeneratedCode/tensor.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/CellLocalInformation.h>
-#include <Initializer/TimeStepping/Halo.h>
-#include <Kernels/Common.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Backmap.h>
-#include <Memory/Tree/Layer.h>
-#include <Solver/TimeStepping/HaloCommunication.h>
+
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Common/Real.h"
+#include "Config.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/CellLocalInformation.h"
+#include "Initializer/TimeStepping/Halo.h"
+#include "Kernels/Common.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
+#include "Memory/Tree/Layer.h"
+#include "Solver/TimeStepping/HaloCommunication.h"
+
 #include <cassert>
 #include <cstdint>
 #include <cstring>
@@ -27,21 +29,21 @@
 #include <vector>
 #include <yateto/InitTools.h>
 
+namespace seissol::initializer::internal {
+
 namespace {
-using namespace seissol::initializer;
-using namespace seissol::initializer::internal;
 
 class BucketManager {
   private:
   std::size_t dataSize{0};
 
   public:
-  real* markAllocate(std::size_t size, bool align = true) {
-    if (align) {
-      // round up by Alignment
-      this->dataSize = ((this->dataSize + Alignment - 1) / Alignment) * Alignment;
-    }
+  void align() {
+    // round up by Alignment
+    this->dataSize = ((this->dataSize + Alignment - 1) / Alignment) * Alignment;
+  }
 
+  real* markAllocate(std::size_t size) {
     const uintptr_t offset = this->dataSize;
     this->dataSize += size;
 
@@ -134,7 +136,6 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   auto* buffersDevice = layer.var<LTS::BuffersDevice>();
   auto* derivativesDevice = layer.var<LTS::DerivativesDevice>();
   const auto* cellInformation = layer.var<LTS::CellInformation>();
-  const auto* secondaryCellInformation = layer.var<LTS::SecondaryInformation>();
   BucketManager manager;
 
   const auto datatype = Config::Precision;
@@ -194,9 +195,11 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
       allocationPass(counter, region, false, false);
 
       // transfer allocation
+      manager.align();
       auto startPosition = manager.position();
       allocationPass(counter, region, true, false);
       allocationPass(counter, region, true, true);
+      manager.align();
       auto endPosition = manager.position();
       auto size = endPosition - startPosition;
       assert(size % typeSize == 0);
@@ -233,9 +236,7 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
   const auto bufferSize = tensor::I::size();
   const auto derivativeSize = yateto::computeFamilySize<tensor::dQ>();
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     initBucketItem(buffers[cell], buffersDerivatives, bufferSize, true);
     initBucketItem(derivatives[cell], buffersDerivatives, derivativeSize, true);
@@ -275,9 +276,7 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
   auto* faceNeighbors = layer.var<LTS::FaceNeighbors>();
   auto* faceNeighborsDevice = layer.var<LTS::FaceNeighborsDevice>();
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       const auto& faceNeighbor = secondaryCellInformation[cell].faceNeighbors[face];
@@ -319,7 +318,6 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
 }
 } // namespace
 
-namespace seissol::initializer::internal {
 solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const MeshLayout& layout) {
   std::vector<std::vector<solver::RemoteCluster>> commInfo(storage.getColorMap().size());
 

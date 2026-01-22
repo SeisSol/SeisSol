@@ -7,9 +7,10 @@
 #ifndef SEISSOL_SRC_MEMORY_TREE_COLORMAP_H_
 #define SEISSOL_SRC_MEMORY_TREE_COLORMAP_H_
 
-#include <Common/Templating.h>
-#include <Config.h>
-#include <Initializer/BasicTypedefs.h>
+#include "Common/Templating.h"
+#include "Config.h"
+#include "Initializer/BasicTypedefs.h"
+
 #include <cstddef>
 #include <functional>
 #include <tuple>
@@ -25,7 +26,7 @@ namespace seissol::initializer {
 template <typename T>
 class EnumLayer {
   public:
-  EnumLayer(const std::vector<T>& supportedValues) : supportedValues(supportedValues) {
+  explicit EnumLayer(const std::vector<T>& supportedValues) : supportedValues(supportedValues) {
     for (std::size_t i = 0; i < supportedValues.size(); ++i) {
       reverse[supportedValues[i]] = i;
     }
@@ -52,7 +53,7 @@ class EnumLayer {
 template <typename T>
 class TraitLayer {
   public:
-  TraitLayer(const std::vector<T>& supportedValues) : supportedValues(supportedValues) {
+  explicit TraitLayer(const std::vector<T>& supportedValues) : supportedValues(supportedValues) {
     for (std::size_t i = 0; i < supportedValues.size(); ++i) {
       reverse[supportedValues[i].index()] = i;
     }
@@ -80,7 +81,7 @@ class TraitLayer {
 class StopLayerSet {
   public:
   template <typename F, typename... Args>
-  void call(std::size_t color, F&& func, Args... args) {
+  void call(std::size_t /*color*/, F&& func, Args... args) {
     std::invoke(std::forward<F>(func), args...);
   }
 
@@ -92,7 +93,7 @@ class StopLayerSet {
 
   using VariantType = std::variant<>;
 
-  [[nodiscard]] Type argument(std::size_t color) const { return {}; }
+  [[nodiscard]] Type argument(std::size_t /*color*/) const { return {}; }
 };
 
 /**
@@ -163,7 +164,7 @@ class ColorMap {
   NestedLayerSets layerSets;
 
   public:
-  ColorMap(Definitions&&... definitions)
+  explicit ColorMap(Definitions&&... definitions)
       : layerSets(NestTypes<Definitions...>::create(std::forward<Definitions>(definitions)...)) {}
 
   template <typename F, typename... Args>
@@ -207,9 +208,9 @@ using ConfigVariant = std::variant<Config>;
   and back.
   */
 struct LayerIdentifier {
-  HaloType halo;
+  HaloType halo{HaloType::Interior};
   ConfigVariant config;
-  std::size_t lts;
+  std::size_t lts{};
 
   LayerIdentifier() = default;
 

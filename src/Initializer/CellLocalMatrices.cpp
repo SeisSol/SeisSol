@@ -9,33 +9,36 @@
 
 #include "CellLocalMatrices.h"
 
-#include "Equations/Setup.h" // IWYU pragma: keep
+#include "Common/Constants.h"
+#include "DynamicRupture/Typedefs.h"
+#include "Equations/Datastructures.h" // IWYU pragma: keep
+#include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/ParameterDB.h"
+#include "Initializer/TimeStepping/ClusterLayout.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
+#include "Model/CommonDatastructures.h"
+#include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 #include "Parameters/ModelParameters.h"
-#include <Common/Constants.h>
-#include <DynamicRupture/Typedefs.h>
-#include <Equations/Datastructures.h> // IWYU pragma: keep
-#include <Geometry/MeshDefinition.h>
-#include <Geometry/MeshReader.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/TimeStepping/ClusterLayout.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/DynamicRupture.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Backmap.h>
-#include <Model/CommonDatastructures.h>
-#include <Numerical/Eigenvalues.h>
-#include <Solver/MultipleSimulations.h>
+#include "Solver/MultipleSimulations.h"
+
+#include <Eigen/Core>
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <complex>
 #include <cstddef>
@@ -43,6 +46,8 @@
 #include <optional>
 #include <utils/logger.h>
 #include <vector>
+
+namespace seissol::initializer {
 
 namespace {
 
@@ -130,8 +135,6 @@ Eigen::Matrix<T, N, N>
 
 } // namespace
 
-namespace seissol::initializer {
-
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
                                  LTS::Storage& ltsStorage,
                                  const ClusterLayout& clusterLayout,
@@ -148,7 +151,6 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
   assert(LayerMask(Ghost) == ltsStorage.info<LTS::LocalIntegration>().mask);
   assert(LayerMask(Ghost) == ltsStorage.info<LTS::NeighboringIntegration>().mask);
 
-  const auto* cellInformationAll = ltsStorage.var<LTS::CellInformation>();
   for (auto& layer : ltsStorage.leaves(Ghost)) {
     auto* material = layer.var<LTS::Material>();
     auto* materialData = layer.var<LTS::MaterialData>();
@@ -157,10 +159,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
 
-#ifdef _OPENMP
 #pragma omp parallel
     {
-#endif
       real matATData[tensor::star::size(0)];
       real matATtildeData[tensor::star::size(0)];
       real matBTData[tensor::star::size(0)];
@@ -184,9 +184,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
       real rusanovPlusNull[tensor::QcorrLocal::size()]{};
       real rusanovMinusNull[tensor::QcorrNeighbor::size()]{};
 
-#ifdef _OPENMP
 #pragma omp for schedule(static)
-#endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto clusterId = secondaryInformation[cell].clusterId;
         const auto timeStepWidth = clusterLayout.timestepRate(clusterId);
@@ -236,7 +234,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           MeshTools::normalize(tangent1, tangent1);
           MeshTools::normalize(tangent2, tangent2);
 
-          double nLocalData[6 * 6];
+          std::array<double, 36> nLocalData{};
           seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
           seissol::model::getTransposedGodunovState(
               seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
@@ -359,9 +357,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         seissol::model::initializeSpecificNeighborData(materialLocal,
                                                        &neighboringIntegration[cell].specific);
       }
-#ifdef _OPENMP
     }
-#endif
   }
 }
 
@@ -376,9 +372,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
     auto* boundary = layer.var<LTS::BoundaryMapping>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
 
-#ifdef _OPENMP
 #pragma omp for schedule(static)
-#endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       const auto& element = elements[secondaryInformation[cell].meshId];
       const double* coords[Cell::NumVertices];
@@ -455,9 +449,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,
                                       LTS::Storage& ltsStorage,
                                       const LTS::Backmap& backmap,
-                                      DynamicRupture::Storage& drStorage,
-                                      const GlobalData& global,
-                                      double etaDamp) {
+                                      DynamicRupture::Storage& drStorage) {
   real matTData[tensor::T::size()];
   real matTinvData[tensor::Tinv::size()];
   real matAPlusData[tensor::star::size(0)];
@@ -489,10 +481,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
     auto* impAndEta = layer.var<DynamicRupture::ImpAndEta>();
     auto* impedanceMatrices = layer.var<DynamicRupture::ImpedanceMatrices>();
 
-#ifdef _OPENMP
 #pragma omp parallel for private(matTData, matTinvData, matAPlusData, matAMinusData)               \
     schedule(static)
-#endif
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       const std::size_t meshFace = faceInformation[ltsFace].meshFace;
       assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
@@ -574,9 +564,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         assert(duplicate != 0 || plusLtsId.has_value() || minusLtsId.has_value());
 
         if (plusLtsId.has_value()) {
-#ifdef _OPENMP
+
 #pragma omp critical
-#endif // _OPENMP
           {
             CellDRMapping& mapping = ltsStorage.lookup<LTS::DRMapping>(
                 plusLtsId.value())[faceInformation[ltsFace].plusSide];
@@ -593,9 +582,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           }
         }
         if (minusLtsId.has_value()) {
-#ifdef _OPENMP
+
 #pragma omp critical
-#endif // _OPENMP
           {
             CellDRMapping& mapping = ltsStorage.lookup<LTS::DRMapping>(
                 minusLtsId.value())[faceInformation[ltsFace].minusSide];

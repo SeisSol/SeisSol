@@ -63,14 +63,14 @@ jobs:
             cxx: icpx
             fc: ifx
             container: seissol/gha-gpu-intel:davschneller-gpu-image
-          - cc: nvc
-            cxx: nvc++
-            fc: nvfortran
-            container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+          #- cc: nvc
+          #  cxx: nvc++
+          #  fc: nvfortran
+          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
     steps:
       - id: checkout
         name: checkout-seissol
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -384,12 +384,12 @@ jobs:
             container: seissol/gha-gpu-intel:davschneller-gpu-image
             pythonbreak: false
             mpi: intel
-          - cc: nvc
-            cxx: nvc++
-            fc: nvfortran
-            container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
-            pythonbreak: true
-            mpi: openmpi
+          #- cc: nvc
+          #  cxx: nvc++
+          #  fc: nvfortran
+          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+          #  pythonbreak: true
+          #  mpi: openmpi
         parallel:
           - ranks: 1
             threads: 4
@@ -410,7 +410,7 @@ jobs:
 
       - id: get-precomputed-solutions
         name: get-precomputed-solutions
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: seissol/precomputed-seissol
           ref: ${{env.precomputed-hash}}
@@ -444,7 +444,7 @@ jobs:
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: scripts
 

@@ -9,8 +9,9 @@
 
 #include "AsagiReader.h"
 
-#include <Monitoring/Instrumentation.h>
-#include <Reader/AsagiModule.h>
+#include "Monitoring/Instrumentation.h"
+#include "Reader/AsagiModule.h"
+
 #include <asagi.h>
 #include <mpi.h>
 #include <string>
@@ -96,9 +97,8 @@ namespace seissol::asagi {
   bool abort = false;
   // Read the data
   // SCOREP_RECORDING_OFF();
-#ifdef _OPENMP
+
 #pragma omp parallel shared(abort) num_threads(asagiThreads)
-#endif // _OPENMP
   {
     const ::asagi::Grid::Error err = grid->open(file);
     if (err != ::asagi::Grid::SUCCESS) {

@@ -16,7 +16,7 @@ set in a half-space. The velocity structure is the actual 3D velocity structure
 surrounding the Imperial Fault, as given by the SCEC Community Velocity Model
 `CVM-H <https://strike.scec.org/scecpedia/CVM-H>`_.
 
-.. figure:: LatexFigures/tpv34_imperialfault.png
+.. figure:: figures/tpv34-imperialfault.png
    :alt: The Imperial Fault.
    :width: 15.00000cm
    :align: center
@@ -34,7 +34,7 @@ allowed within a rectangular area measuring 30000 m along-strike and
 There is a circular nucleation zone on the fault surface. The hypocenter is
 located 15 km from the left edge of the fault, at a depth of 7.5 km.
 
-.. figure:: LatexFigures/tpv34.png
+.. figure:: figures/tpv34.png
    :alt: TPV34 overview.
    :width: 15.00000cm
    :align: center
@@ -45,7 +45,7 @@ The geometry is generated with `Gmsh <https://gmsh.info/>`_. All the files
 that are needed for the simulation are provided at
 https://github.com/SeisSol/Examples/tree/master/tpv34.
 
-.. figure:: LatexFigures/tpv34_gmshhalf.png
+.. figure:: figures/tpv34-gmshhalf.png
    :alt: Modeled TPV34 fault in Gmsh.
    :width: 15.00000cm
    :align: center
@@ -181,7 +181,7 @@ fault dynamic rupture (hdf5 and .xdmf), wavefield (hdf5 and .xdmf), on-fault rec
 off-fault receivers (.dat). The fault dynamic rupture and wavefield files can be loaded in Paraview.
 For example, open Paraview and then go through File > import > 'prefix'-fault.xdmf.
 
-.. figure:: LatexFigures/tpv34_SRs_3s.png
+.. figure:: figures/tpv34-srs-3s.png
    :alt: Fault slip rate along-strike direction
    :width: 15.00000cm
    :align: center

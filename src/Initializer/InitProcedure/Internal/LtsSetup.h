@@ -7,8 +7,8 @@
 #ifndef SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_LTSSETUP_H_
 #define SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_LTSSETUP_H_
 
-#include <Initializer/TimeStepping/Halo.h>
-#include <Memory/Descriptor/LTS.h>
+#include "Initializer/TimeStepping/Halo.h"
+#include "Memory/Descriptor/LTS.h"
 namespace seissol::initializer::internal {
 void deriveLtsSetups(const MeshLayout& layout, LTS::Storage& storage);
 } // namespace seissol::initializer::internal

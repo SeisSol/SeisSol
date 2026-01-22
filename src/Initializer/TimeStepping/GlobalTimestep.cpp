@@ -7,29 +7,27 @@
 
 #include "GlobalTimestep.h"
 
-#include <Common/Constants.h>
+#include "Common/Constants.h"
+#include "Equations/Datastructures.h"
+#include "Initializer/ParameterDB.h"
+#include "Initializer/Parameters//SeisSolParameters.h"
+#include "Initializer/Parameters/ModelParameters.h"
+#include "Parallel/MPI.h"
+
+#include <Eigen/Core>
 #include <Eigen/Dense>
-#include <Initializer/Parameters/ModelParameters.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <mpi.h>
 #include <vector>
 
-#include "Equations/Datastructures.h"
-#include "Initializer/ParameterDB.h"
-#include "Initializer/Parameters//SeisSolParameters.h"
-
-#include "Parallel/MPI.h"
-
 namespace {
 
-double
-    computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
-                        double pWaveVel,
-                        double cfl,
-                        double maximumAllowedTimeStep,
-                        const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
+double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
+                           double pWaveVel,
+                           double cfl,
+                           double maximumAllowedTimeStep) {
   // Compute insphere radius
   std::array<Eigen::Vector3d, 4> x = vertices;
   Eigen::Matrix4d a;
@@ -58,7 +56,7 @@ GlobalTimestep
   using Material = seissol::model::MaterialT;
 
   const auto queryGen = seissol::initializer::getBestQueryGenerator(
-      seissolParams.model.plasticity, seissolParams.model.useCellHomogenizedMaterial, cellToVertex);
+      seissolParams.model.useCellHomogenizedMaterial, cellToVertex);
   std::vector<Material> materials(cellToVertex.size);
   seissol::initializer::MaterialParameterDB<Material> parameterDB;
   parameterDB.setMaterialVector(&materials);
@@ -73,8 +71,8 @@ GlobalTimestep
     const auto materialMaxTimestep = materials[cell].maximumTimestep();
     const auto cellMaxTimestep =
         std::min(materialMaxTimestep, seissolParams.timeStepping.maxTimestepWidth);
-    timestep.cellTimeStepWidths[cell] = computeCellTimestep(
-        vertices, pWaveVel, seissolParams.timeStepping.cfl, cellMaxTimestep, seissolParams);
+    timestep.cellTimeStepWidths[cell] =
+        computeCellTimestep(vertices, pWaveVel, seissolParams.timeStepping.cfl, cellMaxTimestep);
   }
 
   const auto minmaxCellPosition =
@@ -88,13 +86,13 @@ GlobalTimestep
                 1,
                 MPI_DOUBLE,
                 MPI_MIN,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
   MPI_Allreduce(&localMaxTimestep,
                 &timestep.globalMaxTimeStep,
                 1,
                 MPI_DOUBLE,
                 MPI_MAX,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
   return timestep;
 }
 } // namespace seissol::initializer

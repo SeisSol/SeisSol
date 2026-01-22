@@ -11,6 +11,7 @@
 #include <Eigen/Dense>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 
 namespace seissol::model {
 template <std::size_t>
@@ -60,8 +61,11 @@ void fitAttenuation(seissol::model::ViscoElasticMaterialParametrized<Mechanisms>
       }
     }
 
-    const Eigen::VectorXd qpinv = Eigen::VectorXd::Constant(KMax, 1 / vm.qp);
-    const Eigen::VectorXd qsinv = Eigen::VectorXd::Constant(KMax, 1 / vm.qs);
+    // conversions are to silence NVHPC
+    const Eigen::VectorXd qpinv =
+        Eigen::VectorXd::Constant(static_cast<std::int64_t>(KMax), 1 / vm.qp);
+    const Eigen::VectorXd qsinv =
+        Eigen::VectorXd::Constant(static_cast<std::int64_t>(KMax), 1 / vm.qs);
 
     auto matAPodc = matAP.completeOrthogonalDecomposition();
     auto matASodc = matAS.completeOrthogonalDecomposition();

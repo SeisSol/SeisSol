@@ -9,26 +9,26 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_FAULTWRITEREXECUTOR_H_
 #define SEISSOL_SRC_RESULTWRITER_FAULTWRITEREXECUTOR_H_
 
-#include <mpi.h>
-
 #include "Kernels/Precision.h"
 #include "Monitoring/Stopwatch.h"
-#include "async/ExecInfo.h"
 #include "xdmfwriter/XdmfWriter.h"
+
+#include <async/ExecInfo.h>
+#include <mpi.h>
 
 namespace seissol::writer {
 
 struct FaultInitParam {
   static const unsigned int OutputMaskSize = 20;
 
-  bool outputMask[OutputMaskSize];
-  int timestep;
-  xdmfwriter::BackendType backend;
+  bool outputMask[OutputMaskSize]{};
+  int timestep{};
+  xdmfwriter::BackendType backend{};
   std::string backupTimeStamp;
 };
 
 struct FaultParam {
-  double time;
+  double time{};
 };
 
 class FaultWriterExecutor {

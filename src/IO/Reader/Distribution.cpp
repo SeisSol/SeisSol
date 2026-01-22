@@ -7,8 +7,9 @@
 
 #include "Distribution.h"
 
-#include <IO/Datatype/Inference.h>
-#include <IO/Datatype/MPIType.h>
+#include "IO/Datatype/Inference.h"
+#include "IO/Datatype/MPIType.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -20,9 +21,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
-
-#include "utils/logger.h"
 
 namespace {
 int getRank(std::size_t id, std::size_t count, int commsize) {
@@ -322,9 +322,7 @@ Distributor::DistributionInstance Distributor::distributeRaw(
   char* sourceReordered = reinterpret_cast<char*>(std::malloc(typesize * sendReorder.size()));
   char* targetReordered = reinterpret_cast<char*>(std::malloc(typesize * recvReorder.size()));
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t i = 0; i < sendReorder.size(); ++i) {
     std::memcpy(sourceReordered + i * typesize, sourceChar + sendReorder[i] * typesize, typesize);
   }
@@ -366,9 +364,7 @@ Distributor::DistributionInstance Distributor::distributeRaw(
     auto requests2 = requests;
     MPI_Waitall(requests2.size(), requests2.data(), MPI_STATUSES_IGNORE);
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
     for (std::size_t i = 0; i < recvReorder.size(); ++i) {
       copyFn(targetChar + i * typesizeTarget, targetReordered + recvReorder[i] * typesize);
     }

@@ -65,13 +65,13 @@ Note that currently that compiling the proxy only will still require all necessa
 
 You can also run ``ccmake ..`` to see all available options and toggle them.
 
-.. figure:: LatexFigures/ccmake.png
+.. figure:: figures/ccmake.png
    :alt: An example of ccmake with some options
 
 Building for GPUs
 ~~~~~~~~~~~~~~~~~
 
-When building for GPUs, you will need to install SYCL and gemmforge, chainforge, or TensorForge as well.
+When building for GPUs, you will need to install a GPU code generator as well.
 Also, you will need to supply the device backend and the device architecture.
 The backend can be ``cuda``, ``hip``, or one of the SYCL implementations, ``acpp`` or ``oneapi``.
 
@@ -83,7 +83,7 @@ To give some examples: for an NVIDIA GH200 Superchip, you would therefore need t
    cmake -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=sve128 -DORDER=4 -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 ..
    make -j 4
 
-For an AMD Instinct MI250X GPU with Zen 3 CPU, you could do
+For an AMD Instinct MI250X GPU with Zen 3 CPU, you could run
 
 .. code-block:: bash
 
