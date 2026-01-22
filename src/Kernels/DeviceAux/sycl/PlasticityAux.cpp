@@ -33,20 +33,20 @@ auto getrange(std::size_t size, std::size_t numElements) {
   }
 }
 
-void adjustDeviatoricTensors(real** __restrict nodalStressTensors,
-                             real** __restrict pstrainPtr,
-                             unsigned* __restrict isAdjustableVector,
-                             std::size_t* __restrict yieldCounter,
-                             const seissol::model::PlasticityData* __restrict plasticity,
-                             double oneMinusIntegratingFactor,
-                             double tV,
-                             double timeStepWidth,
-                             const size_t numElements,
-                             void* queuePtr) {
+void plasticityNonlinear(real** __restrict nodalStressTensors,
+                         real** __restrict pstrainPtr,
+                         unsigned* __restrict isAdjustableVector,
+                         std::size_t* __restrict yieldCounter,
+                         const seissol::model::PlasticityData* __restrict plasticity,
+                         double oneMinusIntegratingFactor,
+                         double tV,
+                         double timeStepWidth,
+                         const size_t numElements,
+                         void* streamPtr) {
   constexpr unsigned NumNodes = init::QStressNodal::Stop[multisim::BasisFunctionDimension] -
                                 init::QStressNodal::Start[multisim::BasisFunctionDimension];
 
-  auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
+  auto queue = reinterpret_cast<sycl::queue*>(streamPtr);
   auto rng = getrange(NumNodes, numElements);
 
   queue->submit([&](sycl::handler& cgh) {
@@ -130,7 +130,7 @@ void adjustDeviatoricTensors(real** __restrict nodalStressTensors,
             sycl::atomic_ref<std::size_t,
                              sycl::memory_order::relaxed,
                              sycl::memory_scope::device,
-                             sycl::access::address_space::global_space>(yieldCounter);
+                             sycl::access::address_space::global_space>(*yieldCounter);
 
         // update the FLOPs that we've been here
         yieldCounterAR.fetch_add(1, sycl::memory_order::relaxed);
