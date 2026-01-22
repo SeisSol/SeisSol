@@ -11,7 +11,8 @@
 CoolMUC4
 ========
 
-CoolMUC4 offers 106 Intel(R) Xeon(R) Platinum 8480+ compute nodes with 112 cores per node with two-way hyperthreading or 12 Intel(R) Xeon(R) Platinum 8380 CPU nodes with 80 cores per node. The official documentation can be found at: https://doku.lrz.de/coolmuc-4-1082337877.html
+CoolMUC4 offers 106 Intel(R) Xeon(R) Platinum 8480+ compute nodes with 112 cores per node with two-way hyperthreading and 12 Intel(R) Xeon(R) Platinum 8380 CPU nodes with 80 cores per node. The official documentation can be found at: https://doku.lrz.de/coolmuc-4-1082337877.html
+
 As the provided precompiled modules have mismatch in compiler versions quite often, we build all the dependencies using spack using a particular compiler from scratch in this installation workflow.
 
 Note: This is one way to install SeisSol on CoolMUC4 with spack. One could also install all dependencies in a private location manually.
@@ -95,11 +96,11 @@ Once all dependencies are installed, you can compile SeisSol with the following 
     cmake .. -DHOST_ARCH=skx -DCMAKE_BUILD_TYPE=Release -DORDER=4 -DEQUATIONS=elastic
     make -j
 
-This will create the SeisSol executable ``SeisSol_Release_skx_4_elastic`` or ``seissol-cpu-elastic-p4-f64`` if you use the CMake flag ``-DNEW_BINARY_NAMING=ON`` in the build directory.
+This will create the SeisSol executable according to CMake flag ``NEW_BINARY_NAMING`` you chose in the build directory. The default ``OFF`` option will create the executable with the name ``SeisSol_Release_skx_4_elastic``. If you choose ``ON``, the executable will have the name ``seissol-cpu-elastic-p4-f64``.
 
 Running SeisSol
 ---------------
-It is recommended to create an extra file in ``SEISSOL_BASE`` with the following content and source it in ``~/.bashrc`` to load the spack environment and the required modules automatically once the entire installation is done. This would load the required modules when you log in:
+When working with SeisSol, we recommend to create an extra file in ``SEISSOL_BASE`` with the following content and source it in ``~/.bashrc`` to load the spack environment and the required modules automatically once the entire installation is done. This would load the required modules when you log in:
 
 .. code-block:: bash
 
@@ -120,9 +121,11 @@ For quick testing, one could request for a node via ``salloc -M inter -p cm4_int
 
 .. code-block:: bash
 
+    LOGICAL_CORES=$(expr $SLURM_CPUS_PER_TASK - 1)
+    PHYSICAL_CORES=$((NUM_COMPUTE_CORES)/2)
     export I_MPI_PIN=0 # disable automatic pinning by I_MPI to allow OMP_PLACES to work correctly
-    export OMP_NUM_THREADS=110
-    export OMP_PLACES="cores(55)"
+    export OMP_NUM_THREADS=$LOGICAL_CORES
+    export OMP_PLACES="cores($PHYSICAL_CORES)"
     export OMP_PROC_BIND="close"
     unset KMP_AFFINITY
 
@@ -162,11 +165,12 @@ For bigger runs, this is an example job submission script for SeisSol on CoolMUC
     module list
 
     #Setup pinning:
+    LOGICAL_CORES=$(expr $SLURM_CPUS_PER_TASK - 1)
+    PHYSICAL_CORES=$((NUM_COMPUTE_CORES)/2)
     export I_MPI_PIN=0 # disable automatic pinning by I_MPI to allow OMP_PLACES to work correctly
-    export OMP_NUM_THREADS=110
-    export OMP_PLACES="cores(55)"
+    export OMP_NUM_THREADS=$LOGICAL_CORES
+    export OMP_PLACES="cores($PHYSICAL_CORES)"
     export OMP_PROC_BIND="close"
-    module load slurm_setup
     unset KMP_AFFINITY
 
     echo 'num_nodes:' $SLURM_JOB_NUM_NODES 'ntasks:' $SLURM_NTASKS
