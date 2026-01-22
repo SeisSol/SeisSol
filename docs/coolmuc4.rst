@@ -102,7 +102,7 @@ Running SeisSol
 It is recommended to create an extra file in ``SEISSOL_BASE`` with the following content and source it in ``~/.bashrc`` to load the spack environment and the required modules automatically once the entire installation is done. This would load the required modules when you log in:
 
 .. code-block:: bash
-    
+
     export SEISSOL_BASE=$HOME/seissol-env
     export SEISSOL_PREFIX=$SEISSOL_BASE/local
     export PATH=$SEISSOL_PREFIX/bin:$PATH
