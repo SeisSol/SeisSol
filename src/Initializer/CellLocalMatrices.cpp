@@ -51,11 +51,10 @@ namespace seissol::initializer {
 
 namespace {
 
-void setStarMatrix(int slice,
-                   const real* matAT,
+void setStarMatrix(const real* matAT,
                    const real* matBT,
                    const real* matCT,
-                   const double grad[3],
+                   const double grad[3][3],
                    real* starMatrix) {
   auto starView = init::starAll::view::create(starMatrix);
 
@@ -66,9 +65,10 @@ void setStarMatrix(int slice,
   starView.forall([&](const auto& index, auto& value) {
     const auto i1 = index[0];
     const auto i2 = index[2];
-    if (index[1] == slice) {
-      value = grad[0] * matA(i1, i2) + grad[1] * matB(i1, i2) + grad[2] * matC(i1, i2);
-    }
+
+    const auto j = index[1];
+
+    value = grad[j][0] * matA(i1, i2) + grad[j][1] * matB(i1, i2) + grad[j][2] * matC(i1, i2);
   });
 }
 
@@ -196,9 +196,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         double x[Cell::NumVertices];
         double y[Cell::NumVertices];
         double z[Cell::NumVertices];
-        double gradXi[3];
-        double gradEta[3];
-        double gradZeta[3];
+        double grad[3][3];
 
         // Iterate over all 4 vertices of the tetrahedron
         for (std::size_t vertex = 0; vertex < Cell::NumVertices; ++vertex) {
@@ -209,17 +207,13 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         }
 
         seissol::transformations::tetrahedronGlobalToReferenceJacobian(
-            x, y, z, gradXi, gradEta, gradZeta);
+            x, y, z, grad[0], grad[1], grad[2]);
 
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 0, matAT);
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 1, matBT);
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 2, matCT);
-        setStarMatrix(
-            0, matATData, matBTData, matCTData, gradXi, localIntegration[cell].starMatrices);
-        setStarMatrix(
-            1, matATData, matBTData, matCTData, gradEta, localIntegration[cell].starMatrices);
-        setStarMatrix(
-            2, matATData, matBTData, matCTData, gradZeta, localIntegration[cell].starMatrices);
+
+        setStarMatrix(matATData, matBTData, matCTData, grad, localIntegration[cell].starMatrices);
 
         const double volume = MeshTools::volume(elements[meshId], vertices);
 
