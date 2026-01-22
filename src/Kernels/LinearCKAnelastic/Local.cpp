@@ -49,12 +49,17 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
 #ifdef USE_PREMULTIPLY_FLUX
   deviceLocalFluxKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
+  deviceFluxLocalAllKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
 #else
   deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
   deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+  deviceFluxLocalAllKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
+  deviceFluxLocalAllKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
 #endif
   deviceLocalKernelPrototype.selectEla = global.onDevice->selectEla;
   deviceLocalKernelPrototype.selectAne = global.onDevice->selectAne;
+  deviceFluxLocalAllKernelPrototype.selectEla = global.onDevice->selectEla;
+  deviceFluxLocalAllKernelPrototype.selectAne = global.onDevice->selectAne;
 #endif
 }
 
@@ -189,7 +194,7 @@ void Local::computeBatchedIntegral(
           entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
       localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
       localFluxKrnl.streamPtr = runtime.stream();
-      localFluxKrnl.execute(face);
+      // localFluxKrnl.execute(face);
     }
   }
 
@@ -214,7 +219,36 @@ void Local::computeBatchedIntegral(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     localKrnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
     localKrnl.streamPtr = runtime.stream();
-    localKrnl.execute();
+    // localKrnl.execute();
+
+    auto krnl = deviceFluxLocalAllKernelPrototype;
+
+    krnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
+    krnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    krnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+    krnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+    krnl.Iane =
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
+    krnl.W = const_cast<const real**>(
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+    krnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData, specific.W);
+    krnl.w = const_cast<const real**>(
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+    krnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+    krnl.E = const_cast<const real**>(
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+    krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
+    krnl.streamPtr = runtime.stream();
+
+    krnl.I = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      krnl.AplusTz(face) = const_cast<const real**>(
+          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+      krnl.extraOffset_AplusTz(face) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
+    }
+
+    krnl.execute();
   }
 #else
   logError() << "No GPU implementation provided";
