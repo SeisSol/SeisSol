@@ -15,7 +15,7 @@ from yateto import Scalar, Tensor, simpleParameterSpace
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.input import parseJSONMatrixFile, parseXMLMatrixFile
-from yateto.memory import CSCMemoryLayout
+from yateto.memory import CSCMemoryLayout, DenseMemoryLayout, PatternMemoryLayout
 from yateto.util import (
     tensor_collection_from_constant_expression,
     tensor_from_constant_expression,
@@ -146,6 +146,30 @@ class ADERDGBase(ABC):
             self.selectTractionSpp.shape,
             self.selectTractionSpp,
             CSCMemoryLayout,
+        )
+
+        self.kDivMTAll = self.mergeFamily("kDivMTAll", self.db.kDivMT)
+        self.kDivMAll = self.mergeFamily("kDivMAll", self.db.kDivM)
+
+    def mergeFamily(self, name, family, alignStride=True, axis=1):
+        size = len(family)
+        if family[0].values() is None:
+            values = [family[d].spp().as_ndarray() for d in range(size)]
+        else:
+            values = [family[d].values_as_ndarray() for d in range(size)]
+
+        # TODO: maybe even half-interleave? (i.e. instead of "ABd" take "AdB")
+
+        fullSpp = np.stack(values, axis=axis)
+
+        isSparse = family[0].memoryLayout().isSparse()
+
+        return Tensor(
+            name,
+            fullSpp.shape,
+            spp=fullSpp,
+            alignStride=alignStride,
+            memoryLayoutClass=PatternMemoryLayout if isSparse else DenseMemoryLayout,
         )
 
     def name(self):
@@ -332,12 +356,9 @@ class LinearADERDG(ADERDGBase):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
             volumeSum = self.Q["kp"]
-            for i in range(3):
-                volumeSum += (
-                    self.db.kDivM[i][self.t("kl")]
-                    * self.I["lq"]
-                    * self.starMatrix(i)["qp"]
-                )
+            volumeSum += (
+                self.kDivMAll[self.t("kdl")] * self.I["lq"] * self.starAll["qdp"]
+            )
             if self.sourceMatrix():
                 volumeSum += self.I["kq"] * self.sourceMatrix()["qp"]
             volume = self.Q["kp"] <= volumeSum
@@ -486,23 +507,25 @@ class LinearADERDG(ADERDGBase):
                 derivativeSum = Add()
                 if self.sourceMatrix():
                     derivativeSum += derivatives[-1]["kq"] * self.sourceMatrix()["qp"]
-                for j in range(3):
-                    derivativeSum += (
-                        self.db.kDivMT[j][self.t("kl")]
-                        * derivatives[-1]["lq"]
-                        * self.starMatrix(j)["qp"]
-                    )
+                derivativeSum += (
+                    self.kDivMTAll[self.t("kdl")]
+                    * derivatives[-1]["lq"]
+                    * self.starAll["qdp"]
+                )
 
                 derivativeSum = DeduceIndices(self.Q["kp"].indices).visit(derivativeSum)
                 derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
+
+                dQAlign = True  # derivativeSum.eqspp().nnzbounds()[0][1] > 20
+
                 dQ = OptionalDimTensor(
-                    "dQ({})".format(i),
+                    f"dQ({i})",
                     self.Q.optName(),
                     self.Q.optSize(),
                     self.Q.optPos(),
                     qShape,
                     spp=derivativeSum.eqspp(),
-                    alignStride=True,
+                    alignStride=dQAlign,
                 )
                 self.dQs.append(dQ)
 

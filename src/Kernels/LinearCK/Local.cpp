@@ -52,7 +52,7 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::linearck {
 
 void Local::setGlobalData(const CompoundGlobalData& global) {
-  m_volumeKernelPrototype.kDivM = global.onHost->stiffnessMatrices;
+  m_volumeKernelPrototype.kDivMAll = global.onHost->stiffnessMatrices;
   m_localFluxKernelPrototype.rDivM = global.onHost->changeOfBasisMatrices;
   m_localFluxKernelPrototype.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
 
@@ -64,7 +64,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
 
-  deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
+  deviceVolumeKernelPrototype.kDivMAll = global.onDevice->stiffnessMatrices;
 #ifdef USE_PREMULTIPLY_FLUX
   deviceLocalFluxKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
 #else
@@ -123,9 +123,8 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
   kernel::volume volKrnl = m_volumeKernelPrototype;
   volKrnl.Q = data.get<LTS::Dofs>();
   volKrnl.I = timeIntegratedDegreesOfFreedom;
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
-  }
+
+  volKrnl.starAll = data.get<LTS::LocalIntegration>().starMatrices;
 
   // Optional source term
   set_ET(volKrnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
@@ -274,11 +273,10 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
     volKrnl.I =
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
-    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      volKrnl.star(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-      volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
-    }
+    volKrnl.starAll = const_cast<const real**>(
+        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+    volKrnl.extraOffset_starAll = SEISSOL_OFFSET(LocalIntegrationData, starMatrices);
+
     volKrnl.linearAllocator.initialize(tmpMem.get());
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();

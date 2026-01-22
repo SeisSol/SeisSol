@@ -49,13 +49,13 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 
 namespace seissol::kernels::solver::linearck {
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
-  m_krnlPrototype.kDivMT = global.onHost->stiffnessMatricesTransposed;
+  m_krnlPrototype.kDivMTAll = global.onHost->stiffnessMatricesTransposed;
   projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onHost->v3mTo2nFace;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
 
-  deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
+  deviceKrnlPrototype.kDivMTAll = global.onDevice->stiffnessMatricesTransposed;
   deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onDevice->v3mTo2nFace;
 #endif
 }
@@ -86,9 +86,7 @@ void Spacetime::computeAder(const real* coeffs,
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
   kernel::derivative krnl = m_krnlPrototype;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
-  }
+  krnl.starAll = data.get<LTS::LocalIntegration>().starMatrices;
 
   // Optional source term
   set_ET(krnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
@@ -155,12 +153,9 @@ void Spacetime::computeBatchedAder(const real* coeffs,
     derivativesKrnl.numElements = numElements;
     derivativesKrnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
 
-    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      derivativesKrnl.star(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-      derivativesKrnl.extraOffset_star(i) =
-          SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
-    }
+    derivativesKrnl.starAll = const_cast<const real**>(
+        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+    derivativesKrnl.extraOffset_starAll = SEISSOL_OFFSET(LocalIntegrationData, starMatrices);
 
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derivativesKrnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();

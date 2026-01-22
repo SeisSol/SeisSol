@@ -82,7 +82,7 @@ struct GlobalData {
    *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks
    *(except for the additional flux matrix).
    **/
-  seissol::tensor::kDivM::Container<const real*> stiffnessMatrices;
+  real* stiffnessMatrices;
 
   /**
    * Addresses of the transposed global stiffness matrices (multiplied by the inverse diagonal mass
@@ -95,7 +95,7 @@ struct GlobalData {
    *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks
    *(except for the additional flux matrix).
    **/
-  seissol::tensor::kDivMT::Container<const real*> stiffnessMatricesTransposed;
+  real* stiffnessMatricesTransposed;
 
   /**
    * Address of the (thread-local) local time stepping integration buffers used in the neighbor
@@ -185,7 +185,7 @@ struct CompoundGlobalData {
 // data for the cell local integration
 struct LocalIntegrationData {
   // star matrices
-  real starMatrices[3][seissol::tensor::star::size(0)];
+  real starMatrices[seissol::tensor::starAll::size()];
 
   // flux solver for element local contribution
   real nApNm1[4][seissol::tensor::AplusT::size()];
