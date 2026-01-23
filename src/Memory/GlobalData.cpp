@@ -30,11 +30,9 @@ MemoryProperties OnHost::getProperties() {
 }
 
 void OnHost::negateStiffnessMatrix(GlobalData& globalData) {
-  for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
-    real* matrix = const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness));
-    for (unsigned i = 0; i < init::kDivMT::size(transposedStiffness); ++i) {
-      matrix[i] *= -1.0;
-    }
+  auto* matrix = globalData.stiffnessMatricesTransposed;
+  for (std::size_t i = 0; i < init::kDivMTAll::size(); ++i) {
+    matrix[i] *= -1.0;
   }
 }
 
@@ -76,14 +74,11 @@ MemoryProperties OnDevice::getProperties() {
 void OnDevice::negateStiffnessMatrix(GlobalData& globalData) {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
-    const real scaleFactor = -1.0;
-    device.algorithms.scaleArray(
-        const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness)),
-        scaleFactor,
-        init::kDivMT::size(transposedStiffness),
-        device.api->getDefaultStream());
-  }
+  const real scaleFactor = -1.0;
+  device.algorithms.scaleArray(globalData.stiffnessMatricesTransposed,
+                               scaleFactor,
+                               init::kDivMTAll::size(),
+                               device.api->getDefaultStream());
 #endif // ACL_DEVICE
 }
 void OnDevice::initSpecificGlobalData(GlobalData& /*globalData*/,
@@ -118,9 +113,9 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   // such that mixed cases with aligned and non-aligned global matrices do also work.
   unsigned globalMatrixMemSize = 0;
   globalMatrixMemSize +=
-      yateto::computeFamilySize<init::kDivM>(yateto::alignedReals<real>(prop.alignment));
+      yateto::alignedUpper(init::kDivMTAll::size(), yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize +=
-      yateto::computeFamilySize<init::kDivMT>(yateto::alignedReals<real>(prop.alignment));
+      yateto::alignedUpper(init::kDivMAll::size(), yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize +=
       yateto::computeFamilySize<init::rDivM>(yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize +=
@@ -169,9 +164,9 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
 
   real* globalMatrixMemPtr = globalMatrixMem;
   typename MatrixManipPolicyT::CopyManagerT copyManager;
-  copyManager.template copyFamilyToMemAndSetPtr<init::kDivMT>(
+  copyManager.template copyTensorToMemAndSetPtr<init::kDivMTAll>(
       globalMatrixMemPtr, globalData.stiffnessMatricesTransposed, prop.alignment);
-  copyManager.template copyFamilyToMemAndSetPtr<init::kDivM>(
+  copyManager.template copyTensorToMemAndSetPtr<init::kDivMAll>(
       globalMatrixMemPtr, globalData.stiffnessMatrices, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<init::rDivM>(
       globalMatrixMemPtr, globalData.changeOfBasisMatrices, prop.alignment);

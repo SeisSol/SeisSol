@@ -145,8 +145,8 @@ def main():
         if "tensorforge" in device_codegen:
             import tensorforge
 
-            if tensorforge.use_fusedgemm_cost():
-                cost_estimators = FusedGemmsBoundingBoxCostEstimator
+            # if tensorforge.use_fusedgemm_cost():
+            #     cost_estimators = FusedGemmsBoundingBoxCostEstimator
             custom_routine_generators["gpu"] = tensorforge.get_routine_generator(yateto)
 
     subfolders = []

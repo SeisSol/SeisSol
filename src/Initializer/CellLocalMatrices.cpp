@@ -54,19 +54,22 @@ namespace {
 void setStarMatrix(const real* matAT,
                    const real* matBT,
                    const real* matCT,
-                   const double grad[3],
+                   const double grad[3][3],
                    real* starMatrix) {
-  for (std::size_t idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
-    starMatrix[idx] = grad[0] * matAT[idx];
-  }
+  auto starView = init::starAll::view::create(starMatrix);
 
-  for (std::size_t idx = 0; idx < seissol::tensor::star::size(1); ++idx) {
-    starMatrix[idx] += grad[1] * matBT[idx];
-  }
+  const auto matA = init::star::view<0>::create(const_cast<real*>(matAT));
+  const auto matB = init::star::view<0>::create(const_cast<real*>(matBT));
+  const auto matC = init::star::view<0>::create(const_cast<real*>(matCT));
 
-  for (std::size_t idx = 0; idx < seissol::tensor::star::size(2); ++idx) {
-    starMatrix[idx] += grad[2] * matCT[idx];
-  }
+  starView.forall([&](const auto& index, auto& value) {
+    const auto i1 = index[0];
+    const auto i2 = index[2];
+
+    const auto j = index[1];
+
+    value = grad[j][0] * matA(i1, i2) + grad[j][1] * matB(i1, i2) + grad[j][2] * matC(i1, i2);
+  });
 }
 
 void surfaceAreaAndVolume(const seissol::geometry::MeshReader& meshReader,
@@ -160,8 +163,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
     {
       real matATData[tensor::star::size(0)];
       real matATtildeData[tensor::star::size(0)];
-      real matBTData[tensor::star::size(1)];
-      real matCTData[tensor::star::size(2)];
+      real matBTData[tensor::star::size(0)];
+      real matCTData[tensor::star::size(0)];
       auto matAT = init::star::view<0>::create(matATData);
       // matAT with elastic parameters in local coordinate system, used for flux kernel
       auto matATtilde = init::star::view<0>::create(matATtildeData);
@@ -193,9 +196,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         double x[Cell::NumVertices];
         double y[Cell::NumVertices];
         double z[Cell::NumVertices];
-        double gradXi[3];
-        double gradEta[3];
-        double gradZeta[3];
+        double grad[3][3];
 
         // Iterate over all 4 vertices of the tetrahedron
         for (std::size_t vertex = 0; vertex < Cell::NumVertices; ++vertex) {
@@ -206,17 +207,13 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         }
 
         seissol::transformations::tetrahedronGlobalToReferenceJacobian(
-            x, y, z, gradXi, gradEta, gradZeta);
+            x, y, z, grad[0], grad[1], grad[2]);
 
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 0, matAT);
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 1, matBT);
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 2, matCT);
-        setStarMatrix(
-            matATData, matBTData, matCTData, gradXi, localIntegration[cell].starMatrices[0]);
-        setStarMatrix(
-            matATData, matBTData, matCTData, gradEta, localIntegration[cell].starMatrices[1]);
-        setStarMatrix(
-            matATData, matBTData, matCTData, gradZeta, localIntegration[cell].starMatrices[2]);
+
+        setStarMatrix(matATData, matBTData, matCTData, grad, localIntegration[cell].starMatrices);
 
         const double volume = MeshTools::volume(elements[meshId], vertices);
 

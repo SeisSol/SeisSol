@@ -74,7 +74,8 @@ struct GlobalData {
   seissol::tensor::fP::Container<const real*> neighborFluxMatrices;
 
   /**
-   * Addresses of the global stiffness matrices (multiplied by the inverse diagonal mass matrix):
+   * Address for a tensor of the global stiffness matrices (multiplied by the inverse diagonal mass
+   * matrix):
    *
    *    0:  \f$ M^{-1} K^\xi \f$
    *    1:  \f$ M^{-1} K^\eta \f$
@@ -83,11 +84,11 @@ struct GlobalData {
    *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks
    *(except for the additional flux matrix).
    **/
-  seissol::tensor::kDivM::Container<const real*> stiffnessMatrices;
+  real* stiffnessMatrices{nullptr};
 
   /**
-   * Addresses of the transposed global stiffness matrices (multiplied by the inverse diagonal mass
-   *matrix):
+   * Address for a tensor of the negated, transposed global stiffness matrices (multiplied by the
+   * inverse diagonal mass matrix):
    *
    *    0:  \f$ M^{-1} ( K^\xi )^T \f$
    *    1:  \f$ M^{-1} ( K^\eta )^T \f$
@@ -96,7 +97,7 @@ struct GlobalData {
    *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks
    *(except for the additional flux matrix).
    **/
-  seissol::tensor::kDivMT::Container<const real*> stiffnessMatricesTransposed;
+  real* stiffnessMatricesTransposed{nullptr};
 
   /**
    * Address of the (thread-local) local time stepping integration buffers used in the neighbor
@@ -182,7 +183,7 @@ struct CompoundGlobalData {
 // data for the cell local integration
 struct LocalIntegrationData {
   // star matrices
-  real starMatrices[3][seissol::tensor::star::size(0)];
+  real starMatrices[seissol::tensor::starAll::size()];
 
   // flux solver for element local contribution
   real nApNm1[4][seissol::tensor::AplusT::size()];

@@ -72,6 +72,8 @@ class ViscoelasticADERDG(LinearADERDG):
 
         memoryLayoutFromFile(memLayout, self.db, clones)
 
+        self.starAll = self.mergeFamily("starAll", self.db.star, alignStride=False)
+
         self.kwargs = kwargs
 
     def numberOfQuantities(self):

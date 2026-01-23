@@ -19,6 +19,9 @@ class ElasticADERDG(LinearADERDG):
         self.db.update(parseXMLMatrixFile("{}/star.xml".format(matricesDir), clones))
 
         memoryLayoutFromFile(memLayout, self.db, clones)
+
+        self.starAll = self.mergeFamily("starAll", self.db.star, alignStride=False)
+
         self.kwargs = kwargs
 
     def numberOfQuantities(self):
