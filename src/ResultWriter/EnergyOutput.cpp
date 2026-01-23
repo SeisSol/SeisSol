@@ -306,7 +306,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       const auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
       const auto layerSize = layer.size();
 
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#if !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(                                                                \
         + : totalFrictionalWork, staticFrictionalWork, seismicMoment, potency) default(none)       \
     shared(layerSize,                                                                              \
@@ -350,7 +350,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         }
       }
       double localMin = std::numeric_limits<double>::infinity();
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#if !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(min : localMin) default(none)                                   \
     shared(layerSize, drEnergyOutput, faceInformation, sim)
 #endif
@@ -401,7 +401,7 @@ void EnergyOutput::computeVolumeEnergies() {
       const auto* boundaryMappingData = layer.var<LTS::BoundaryMapping>();
       const auto* pstrainData = layer.var<LTS::PStrain>();
       const auto* dofsData = layer.var<LTS::Dofs>();
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#if !NVHPC_AVOID_OMP
 #pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal,             \
                                                         totalAcousticEnergyLocal,                  \
                                                         totalAcousticKineticEnergyLocal,           \
