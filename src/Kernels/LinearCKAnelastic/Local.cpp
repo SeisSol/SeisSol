@@ -10,6 +10,7 @@
 #include "Local.h"
 
 #include "Common/Marker.h"
+#include "Kernels/Common.h"
 
 #include <cassert>
 #include <cstring>
@@ -122,7 +123,7 @@ void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
   hardwareFlops = seissol::kernel::volumeExt::HardwareFlops;
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    if (faceTypes[face] != FaceType::DynamicRupture) {
+    if (faceTypes[face] != FaceType::DynamicRupture || isDeviceOn()) {
       nonZeroFlops += seissol::kernel::localFluxExt::nonZeroFlops(face);
       hardwareFlops += seissol::kernel::localFluxExt::hardwareFlops(face);
     }
@@ -178,48 +179,6 @@ void Local::computeBatchedIntegral(
     }
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
-  }
-
-  // Local Flux Integral
-  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
-
-    if (dataTable.find(key) != dataTable.end()) {
-      auto& entry = dataTable[key];
-      localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-      localFluxKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
-      localFluxKrnl.I =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-      localFluxKrnl.AplusT = const_cast<const real**>(
-          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-      localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
-      localFluxKrnl.streamPtr = runtime.stream();
-      // localFluxKrnl.execute(face);
-    }
-  }
-
-  key = ConditionalKey(KernelNames::Time || KernelNames::Volume);
-  if (dataTable.find(key) != dataTable.end()) {
-    auto& entry = dataTable[key];
-
-    localKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-    localKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-    localKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
-    localKrnl.Qext =
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
-    localKrnl.Iane =
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
-    localKrnl.W = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    localKrnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData, specific.W);
-    localKrnl.w = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    localKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
-    localKrnl.E = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    localKrnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
-    localKrnl.streamPtr = runtime.stream();
-    // localKrnl.execute();
 
     auto krnl = deviceFluxLocalAllKernelPrototype;
 
@@ -250,6 +209,51 @@ void Local::computeBatchedIntegral(
 
     krnl.execute();
   }
+
+#if 0 // deprecated code; kept for comparison reasons
+  // Local Flux Integral
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
+
+    if (dataTable.find(key) != dataTable.end()) {
+      auto& entry = dataTable[key];
+      localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
+      localFluxKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+      localFluxKrnl.I =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+      localFluxKrnl.AplusT = const_cast<const real**>(
+          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+      localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
+      localFluxKrnl.streamPtr = runtime.stream();
+      localFluxKrnl.execute(face);
+    }
+  }
+
+  key = ConditionalKey(KernelNames::Time || KernelNames::Volume);
+  if (dataTable.find(key) != dataTable.end()) {
+    auto& entry = dataTable[key];
+
+    localKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
+    localKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    localKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+    localKrnl.Qext =
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
+    localKrnl.Iane =
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
+    localKrnl.W = const_cast<const real**>(
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+    localKrnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData, specific.W);
+    localKrnl.w = const_cast<const real**>(
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+    localKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+    localKrnl.E = const_cast<const real**>(
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+    localKrnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
+    localKrnl.streamPtr = runtime.stream();
+    localKrnl.execute();
+  }
+#endif
+
 #else
   logError() << "No GPU implementation provided";
 #endif
