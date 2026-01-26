@@ -195,6 +195,9 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
 
         if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity) {
           ++freeSurfacePerFace[face];
+
+          // FSG also counts as Dirichlet
+          ++dirichletPerFace[face];
         }
 
         if (cellInformation[cell].faceTypes[face] == FaceType::Dirichlet) {
@@ -208,11 +211,7 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
     }
     const auto freeSurfaceCount =
         *std::max_element(freeSurfacePerFace.begin(), freeSurfacePerFace.end());
-    const auto dirichletCountPre =
-        *std::max_element(dirichletPerFace.begin(), dirichletPerFace.end());
-
-    // FSG also counts as Dirichlet
-    const auto dirichletCount = std::max(dirichletCountPre, freeSurfaceCount);
+    const auto dirichletCount = *std::max_element(dirichletPerFace.begin(), dirichletPerFace.end());
 
     layer.setEntrySize<LTS::IntegratedDofsScratch>(integratedDofsCounter * tensor::I::size() *
                                                    sizeof(real));
@@ -248,8 +247,7 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
     layer.setEntrySize<LTS::DofsFaceNodalScratch>(sizeof(real) * freeSurfaceCount *
                                                   tensor::INodal::size());
     layer.setEntrySize<LTS::PrevCoefficientsScratch>(
-        sizeof(real) * freeSurfaceCount *
-        nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
+        sizeof(real) * freeSurfaceCount * seissol::init::averageNormalDisplacement::size());
   }
 }
 

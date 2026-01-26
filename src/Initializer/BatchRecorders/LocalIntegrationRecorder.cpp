@@ -35,8 +35,8 @@ void LocalIntegrationRecorder::record(LTS::Layer& layer) {
   idofsAddressRegistry.clear();
 
   recordTimeAndVolumeIntegrals();
-  recordFreeSurfaceGravityBc();
-  recordDirichletBc();
+  const auto offset = recordFreeSurfaceGravityBc();
+  recordDirichletBc(offset);
   recordAnalyticalBc(layer);
   recordLocalFluxIntegral();
   recordDisplacements();
@@ -238,7 +238,7 @@ void LocalIntegrationRecorder::recordDisplacements() {
   }
 }
 
-void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
+std::array<std::size_t, 4> LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
   const auto size = currentLayer->size();
   constexpr size_t NodalAvgDisplacementsSize = tensor::averageNormalDisplacement::size();
 
@@ -258,6 +258,8 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 
   real* dofsFaceBoundaryNodalScratch = static_cast<real*>(
       currentLayer->var<LTS::DofsFaceBoundaryNodalScratch>(AllocationPlace::Device));
+
+  std::array<std::size_t, 4> counter{};
 
   if (size > 0) {
     std::array<std::vector<unsigned>, 4> cellIndices{};
@@ -281,8 +283,6 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
     std::array<std::vector<real*>, 4> prevCoefficientsPtrs{};
     std::array<std::vector<double>, 4> invImpedances{};
     std::array<std::vector<real*>, 4> dofsFaceBoundaryNodalPtrs{};
-
-    std::array<std::size_t, 4> counter{};
 
     size_t nodalAvgDisplacementsCounter{0};
 
@@ -326,7 +326,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
                                             counter[face] * tensor::INodal::size());
           prevCoefficientsPtrs[face].push_back(
               prevCoefficientsScratch +
-              counter[face] * nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
+              counter[face] * seissol::init::averageNormalDisplacement::size());
           invImpedances[face].push_back(0);
 
           ++counter[face];
@@ -371,9 +371,11 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
       }
     }
   }
+
+  return counter;
 }
 
-void LocalIntegrationRecorder::recordDirichletBc() {
+void LocalIntegrationRecorder::recordDirichletBc(const std::array<std::size_t, 4>& offset) {
   const auto size = currentLayer->size();
   if (size > 0) {
     std::array<std::vector<real*>, 4> dofsPtrs{};
@@ -386,7 +388,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
 
     std::array<std::vector<real*>, 4> dofsFaceBoundaryNodalPtrs{};
 
-    std::array<std::size_t, 4> counter{};
+    std::array<std::size_t, 4> counter = offset;
 
     real* dofsFaceBoundaryNodalScratch = static_cast<real*>(
         currentLayer->var<LTS::DofsFaceBoundaryNodalScratch>(AllocationPlace::Device));

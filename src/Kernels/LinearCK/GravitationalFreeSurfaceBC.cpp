@@ -11,7 +11,6 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -24,9 +23,7 @@ std::pair<std::uint64_t, std::uint64_t>
   std::uint64_t hardwareFlops = 0;
   std::uint64_t nonZeroFlops = 0;
 
-  constexpr std::uint64_t NumberOfNodes =
-      static_cast<std::uint64_t>(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]) *
-      multisim::NumSimulations;
+  constexpr std::uint64_t NumberOfNodes = tensor::averageNormalDisplacement::size();
 
   // initialize integral of displacement
   hardwareFlops += 1 * NumberOfNodes;
