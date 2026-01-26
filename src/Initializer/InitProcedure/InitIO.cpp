@@ -177,6 +177,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   // TODO(David): change Yateto/TensorForge interface to make padded sizes more accessible
   constexpr auto QDofSizePadded =
       tensor::Q::Size / tensor::Q::Shape[multisim::BasisFunctionDimension + 1];
+  constexpr auto QDofPointsPadded =
+      tensor::QStress::Size / tensor::QStress::Shape[multisim::BasisFunctionDimension + 1];
   constexpr auto FaceDisplacementPadded =
       tensor::faceDisplacement::Size /
       tensor::faceDisplacement::Shape[multisim::BasisFunctionDimension + 1];
@@ -309,12 +311,14 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 [=, &ltsStorage, &backmap](real* target, std::size_t index) {
                   const auto position = backmap.get(cellIndices[index]);
                   const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(position);
-                  const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
-                  kernel::projectBasisToVtkVolume vtkproj{};
+                  const auto* pointsSingleQuantity =
+                      dofsAllQuantities + QDofPointsPadded * quantity;
+                  kernel::projectNodalToVtkVolume vtkproj{};
                   memory::AlignedArray<real, multisim::NumSimulations> simselect{};
                   simselect[sim] = 1;
                   vtkproj.simselect = simselect.data();
-                  vtkproj.qb = dofsSingleQuantity;
+                  vtkproj.qn = pointsSingleQuantity;
+                  vtkproj.vInv = init::vInv::Values;
                   vtkproj.xv(order) = target;
                   vtkproj.collvv(ConvergenceOrder, order) =
                       init::collvv::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];

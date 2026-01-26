@@ -93,9 +93,10 @@ TimeCluster::TimeCluster(unsigned int clusterId,
       sourceCluster(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
       // cells
       loopStatistics(loopStatistics), actorStateStatistics(actorStateStatistics),
-      yieldCells(1,
-                 isDeviceOn() ? seissol::memory::Memkind::PinnedMemory
-                              : seissol::memory::Memkind::Standard),
+      conditionalCounterHost(1, seissol::memory::Memkind::Standard),
+      conditionalCounterDevice(1,
+                               isDeviceOn() ? seissol::memory::Memkind::DeviceGlobalMemory
+                                            : seissol::memory::Memkind::Standard),
       layerType(layerType), printProgress(printProgress), clusterId(clusterId),
       globalClusterId(globalClusterId), profilingId(profilingId),
       dynamicRuptureScheduler(dynamicRuptureScheduler) {
@@ -135,7 +136,8 @@ TimeCluster::TimeCluster(unsigned int clusterId,
   regionComputeDynamicRupture = loopStatistics->getRegion("computeDynamicRupture");
   regionComputePointSources = loopStatistics->getRegion("computePointSources");
 
-  yieldCells[0] = 0;
+  conditionalCounterHost[0] = 0;
+  conditionalCounterDevice.copyFrom(conditionalCounterHost);
 
   const auto* cellInfo = clusterData->var<LTS::CellInformation>();
   for (std::size_t i = 0; i < clusterData->size(); ++i) {
@@ -565,7 +567,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
                                  globalDataOnDevice,
                                  table,
                                  plasticity,
-                                 yieldCells.data(),
+                                 conditionalCounterDevice.data(),
                                  isAdjustableVector,
                                  streamRuntime);
                            });
@@ -993,7 +995,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   }
 
   if constexpr (UsePlasticity) {
-    yieldCells[0] += numberOfTetsWithPlasticYielding;
+    conditionalCounterHost[0] += numberOfTetsWithPlasticYielding;
     seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
         numPlasticCells * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
     seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
@@ -1019,12 +1021,21 @@ void TimeCluster::synchronizeTo(seissol::initializer::AllocationPlace place, voi
 }
 
 void TimeCluster::finishPhase() {
-  const auto cells = yieldCells[0];
+  const auto cells = conditionalCounterHost[0];
   seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
       cells * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityYield)]);
   seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
       cells * accFlopsHardware[static_cast<int>(ComputePart::PlasticityYield)]);
-  yieldCells[0] = 0;
+
+  conditionalCounterHost.copyFrom(conditionalCounterDevice);
+  const auto cells2 = conditionalCounterHost[0];
+  seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
+      cells2 * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityYield)]);
+  seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
+      cells2 * accFlopsHardware[static_cast<int>(ComputePart::PlasticityYield)]);
+
+  conditionalCounterHost[0] = 0;
+  conditionalCounterDevice.copyFrom(conditionalCounterHost);
 }
 
 std::string TimeCluster::description() const {

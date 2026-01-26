@@ -8,6 +8,7 @@
 
 #include "WaveFieldWriter.h"
 
+#include "GeneratedCode/init.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/Refinement/MeshRefiner.h"
@@ -281,13 +282,14 @@ void seissol::writer::WaveFieldWriter::init(
   logDebug() << "Vertices : " << numVerts << "refined-to ->" << meshRefiner->getNumVertices();
 
   m_variableSubsampler = std::make_unique<refinement::VariableSubsampler<double>>(
-      numElems, *tetRefiner, order, numVars, numAlignedDOF);
+      numElems, *tetRefiner, order, numVars, numAlignedDOF, false);
   m_variableSubsamplerPStrain = std::make_unique<refinement::VariableSubsampler<double>>(
       numElems,
       *tetRefiner,
       order,
       static_cast<unsigned int>(WaveFieldWriterExecutor::NumPlasticityVariables),
-      numAlignedDOF);
+      init::QEtaNodal::size(),
+      true);
 
   logInfo() << "VariableSubsampler initialized";
 
