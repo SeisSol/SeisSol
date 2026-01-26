@@ -15,11 +15,6 @@
 
 namespace seissol::kernels::device::aux::plasticity {
 
-template <typename T>
-typename std::enable_if<std::is_floating_point<T>::value, T>::type squareRoot(T x) {
-  return std::is_same<T, double>::value ? sqrt(x) : sqrtf(x);
-}
-
 template <typename Tensor>
 constexpr size_t leadDim() {
   if constexpr (multisim::MultisimEnabled) {
@@ -38,14 +33,20 @@ auto getrange(std::size_t size, std::size_t numElements) {
   }
 }
 
-void adjustDeviatoricTensors(real** nodalStressTensors,
-                             unsigned* isAdjustableVector,
-                             const seissol::model::PlasticityData* plasticity,
-                             const double oneMinusIntegratingFactor,
-                             const size_t numElements,
-                             void* queuePtr) {
-  constexpr unsigned NumNodes = tensor::QStressNodal::Shape[multisim::BasisFunctionDimension];
-  auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
+void plasticityNonlinear(real** __restrict nodalStressTensors,
+                         real** __restrict pstrainPtr,
+                         unsigned* __restrict isAdjustableVector,
+                         std::size_t* __restrict yieldCounter,
+                         const seissol::model::PlasticityData* __restrict plasticity,
+                         double oneMinusIntegratingFactor,
+                         double tV,
+                         double timeStepWidth,
+                         const size_t numElements,
+                         void* streamPtr) {
+  constexpr unsigned NumNodes = init::QStressNodal::Stop[multisim::BasisFunctionDimension] -
+                                init::QStressNodal::Start[multisim::BasisFunctionDimension];
+
+  auto queue = reinterpret_cast<sycl::queue*>(streamPtr);
   auto rng = getrange(NumNodes, numElements);
 
   queue->submit([&](sycl::handler& cgh) {
@@ -55,13 +56,13 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
       auto wid = item.get_group().get_group_id(0);
       auto tid = item.get_local_id(0);
 
-      real* elementTensors = nodalStressTensors[wid];
+      real* qStressNodal = nodalStressTensors[wid];
       real localStresses[NumStressComponents];
 
-      constexpr auto elementTensorsColumn = leadDim<init::QStressNodal>();
+      constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal>();
 #pragma unroll
       for (int i = 0; i < NumStressComponents; ++i) {
-        localStresses[i] = elementTensors[tid + elementTensorsColumn * i];
+        localStresses[i] = qStressNodal[tid + ElementTensorsColumn * i];
       }
 
       // 1. Compute the mean stress for each node
@@ -93,96 +94,49 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
       item.barrier();
 
       // 5. Compute the yield factor
-      real factor = 0.0;
+      real yieldfactor = 0.0;
       if (tau > taulim) {
         isAdjusted[0] = static_cast<unsigned>(true);
-        factor = ((taulim / tau) - 1.0) * oneMinusIntegratingFactor;
+        yieldfactor = ((taulim / tau) - 1.0) * oneMinusIntegratingFactor;
       }
 
       // 6. Adjust deviatoric stress tensor if a node within a node exceeds the elasticity region
       item.barrier();
       if (isAdjusted[0]) {
+        const real factor = plasticity[wid].mufactor / (tV * oneMinusIntegratingFactor);
+
+        real* __restrict eta = pstrainPtr[wid] + tensor::QStressNodal::size();
+        real* __restrict localPstrain = pstrainPtr[wid];
+
+        real dudtUpdate = 0;
+
 #pragma unroll
         for (int i = 0; i < NumStressComponents; ++i) {
-          elementTensors[tid + elementTensorsColumn * i] = localStresses[i] * factor;
+          const int q = tid + ElementTensorsColumn * i;
+
+          const auto updatedStressNodal = localStresses[i] * yieldfactor;
+
+          const real nodeDuDtPstrain = -factor * updatedStressNodal;
+
+          localPstrain[q] += timeStepWidth * nodeDuDtPstrain;
+          qStressNodal[q] = updatedStressNodal;
+
+          dudtUpdate += nodeDuDtPstrain * nodeDuDtPstrain;
         }
+
+        eta[tid] += timeStepWidth * std::sqrt(static_cast<real>(0.5) * dudtUpdate);
+
+        auto yieldCounterAR =
+            sycl::atomic_ref<std::size_t,
+                             sycl::memory_order::relaxed,
+                             sycl::memory_scope::device,
+                             sycl::access::address_space::global_space>(*yieldCounter);
+
+        // update the FLOPs that we've been here
+        yieldCounterAR.fetch_add(1, sycl::memory_order::relaxed);
       }
       if (tid == 0) {
         isAdjustableVector[wid] = isAdjusted[0];
-      }
-    });
-  });
-}
-
-void computePstrains(real** pstrains,
-                     const seissol::model::PlasticityData* plasticityData,
-                     real** dofs,
-                     real** prevDofs,
-                     real** dUdTpstrain,
-                     double T_v,
-                     double oneMinusIntegratingFactor,
-                     double timeStepWidth,
-                     unsigned* isAdjustableVector,
-                     size_t numElements,
-                     void* queuePtr) {
-  constexpr unsigned numNodes = tensor::Q::Shape[multisim::BasisFunctionDimension];
-  auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
-  auto rng = getrange(numNodes, numElements);
-
-  queue->submit([&](sycl::handler& cgh) {
-    cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-      auto wid = item.get_group().get_group_id(0);
-      auto lid = item.get_local_id(0);
-
-      if (isAdjustableVector[wid]) {
-        real* localDofs = dofs[wid];
-        real* localPrevDofs = prevDofs[wid];
-        const seissol::model::PlasticityData* localData = &plasticityData[wid];
-        real* localPstrain = pstrains[wid];
-        real* localDuDtPstrain = dUdTpstrain[wid];
-
-#pragma unroll
-        for (int i = 0; i < NumStressComponents; ++i) {
-          int q = lid + i * leadDim<init::Q>();
-          real factor = localData->mufactor / (T_v * oneMinusIntegratingFactor);
-          real nodeDuDtPstrain = factor * (localPrevDofs[q] - localDofs[q]);
-
-          static_assert(leadDim<init::QStress>() == leadDim<init::Q>());
-          localPstrain[q] += timeStepWidth * nodeDuDtPstrain;
-          localDuDtPstrain[q] = nodeDuDtPstrain;
-        }
-      }
-    });
-  });
-}
-
-void updateQEtaNodal(real** QEtaNodalPtrs,
-                     real** QStressNodalPtrs,
-                     double timeStepWidth,
-                     unsigned* isAdjustableVector,
-                     size_t numElements,
-                     void* queuePtr) {
-  auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
-  auto rng = getrange(tensor::QStressNodal::Shape[multisim::BasisFunctionDimension], numElements);
-
-  queue->submit([&](sycl::handler& cgh) {
-    cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-      auto wid = item.get_group().get_group_id(0);
-      auto lid = item.get_local_id(0);
-
-      if (isAdjustableVector[wid]) {
-        real* localQEtaNodal = QEtaNodalPtrs[wid];
-        real* localQStressNodal = QStressNodalPtrs[wid];
-        real factor{0.0};
-
-        constexpr auto ld = leadDim<init::QStressNodal>();
-#pragma unroll
-        for (int i = 0; i < NumStressComponents; ++i) {
-          factor += localQStressNodal[lid + i * ld] * localQStressNodal[lid + i * ld];
-        }
-
-        localQEtaNodal[lid] = std::max(static_cast<real>(0.0), localQEtaNodal[lid]) +
-                              timeStepWidth * std::sqrt(static_cast<real>(0.5) * factor);
       }
     });
   });

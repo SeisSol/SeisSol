@@ -128,7 +128,8 @@ class TimeCluster : public AbstractTimeCluster {
 
   kernels::ReceiverCluster* receiverCluster{nullptr};
 
-  seissol::memory::MemkindArray<std::size_t> yieldCells;
+  seissol::memory::MemkindArray<std::size_t> conditionalCounterHost;
+  seissol::memory::MemkindArray<std::size_t> conditionalCounterDevice;
 
   std::size_t numPlasticCells{0};
 
