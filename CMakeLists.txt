@@ -216,8 +216,10 @@ if (HDF5)
     target_link_libraries(seissol-common-properties INTERFACE ${HDF5_C_LIBRARIES})
   endif()
   target_compile_definitions(seissol-common-properties INTERFACE USE_HDF)
-  if (NOT HDF5_IS_PARALLEL)
-    message(WARNING "The found parallel Hdf5 installation is not parallel. Compile errors will occur.")
+
+  # HDF5_PROVIDES_PARALLEL needed for Hdf5 2.0 upwards (cf. https://www.hdfgroup.org/2025/11/10/release-of-hdf5-2-0-0-newsletter-207/ )
+  if (NOT (HDF5_IS_PARALLEL OR HDF5_ENABLE_PARALLEL OR HDF5_PROVIDES_PARALLEL))
+    message(WARNING "The found parallel Hdf5 installation is not parallel (i.e. MPI-ready). Compile errors will occur.")
   endif()
 endif()
 
@@ -515,6 +517,12 @@ endif()
 
 if (WITH_GPU)
   string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
+
+  if ("${BACKEND_UPPER_CASE}" STREQUAL "HIP")
+    # ROCR needed for proper chiplet selection in TPX/CPX mode
+    set(BACKEND_UPPER_CASE "ROCR")
+  endif()
+
   set(RUN_GPU_TIME_SELECTOR "${BACKEND_UPPER_CASE}_VISIBLE_DEVICES")
   configure_file(${PROJECT_SOURCE_DIR}/cmake/gpu-launch-template.in
                  ${PROJECT_BINARY_DIR}/seissol-launch

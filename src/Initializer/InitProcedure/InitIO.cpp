@@ -50,9 +50,8 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     std::vector<std::size_t> globalIds(storage.size(seissol::initializer::LayerMask(Ghost)));
     std::size_t offset = 0;
     for (const auto& layer : storage.leaves(Ghost)) {
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
       for (std::size_t i = 0; i < layer.size(); ++i) {
         const auto meshId = layer.var<LTS::SecondaryInformation>()[i].meshId;
         globalIds[offset + i] = seissolInstance.meshReader().getElements()[meshId].globalId;
@@ -68,9 +67,8 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     auto& dynrup = seissolInstance.getMemoryManager().getDynamicRupture();
     std::vector<std::size_t> faceIdentifiers(storage.size(seissol::initializer::LayerMask(Ghost)));
     const auto* drFaceInformation = storage.var<DynamicRupture::FaceInformation>();
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
     for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
       auto faultFace = drFaceInformation[i].meshFace;
       const auto& fault = seissolInstance.meshReader().getFault()[faultFace];
@@ -88,9 +86,8 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     std::vector<std::size_t> faceIdentifiers(storage.size(seissol::initializer::LayerMask(Ghost)));
     const auto* meshIds = storage.var<SurfaceLTS::MeshId>();
     const auto* sides = storage.var<SurfaceLTS::Side>();
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
     for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
       // same as for DR
       faceIdentifiers[i] = meshIds[i] * 4 + static_cast<std::size_t>(sides[i]);
@@ -138,9 +135,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     std::vector<unsigned> ltsIdData(meshElements.size());
     std::vector<std::size_t> meshToLts(meshElements.size());
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
     for (std::size_t i = 0; i < meshElements.size(); ++i) {
       const auto& element = meshElements[i];
       ltsClusteringData[element.localId] = element.clusterId;
@@ -182,6 +177,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   // TODO(David): change Yateto/TensorForge interface to make padded sizes more accessible
   constexpr auto QDofSizePadded =
       tensor::Q::Size / tensor::Q::Shape[multisim::BasisFunctionDimension + 1];
+  constexpr auto QDofPointsPadded =
+      tensor::QStress::Size / tensor::QStress::Shape[multisim::BasisFunctionDimension + 1];
   constexpr auto FaceDisplacementPadded =
       tensor::faceDisplacement::Size /
       tensor::faceDisplacement::Shape[multisim::BasisFunctionDimension + 1];
@@ -314,12 +311,14 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 [=, &ltsStorage, &backmap](real* target, std::size_t index) {
                   const auto position = backmap.get(cellIndices[index]);
                   const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(position);
-                  const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
-                  kernel::projectBasisToVtkVolume vtkproj{};
+                  const auto* pointsSingleQuantity =
+                      dofsAllQuantities + QDofPointsPadded * quantity;
+                  kernel::projectNodalToVtkVolume vtkproj{};
                   memory::AlignedArray<real, multisim::NumSimulations> simselect{};
                   simselect[sim] = 1;
                   vtkproj.simselect = simselect.data();
-                  vtkproj.qb = dofsSingleQuantity;
+                  vtkproj.qn = pointsSingleQuantity;
+                  vtkproj.vInv = init::vInv::Values;
                   vtkproj.xv(order) = target;
                   vtkproj.collvv(ConvergenceOrder, order) =
                       init::collvv::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
