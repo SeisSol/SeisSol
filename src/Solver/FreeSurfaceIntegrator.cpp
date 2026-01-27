@@ -8,25 +8,26 @@
 
 #include "FreeSurfaceIntegrator.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Common/Iterator.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/Refinement/TriangleRefiner.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Initializer/MemoryManager.h"
+#include "Initializer/PreProcessorMacros.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Descriptor/Surface.h"
 #include "Memory/MemoryAllocator.h"
+#include "Memory/Tree/Layer.h"
 #include "Numerical/Functions.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <Common/Iterator.h>
-#include <Geometry/Refinement/TriangleRefiner.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/PreProcessorMacros.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Descriptor/Surface.h>
-#include <Memory/Tree/Layer.h>
+
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -62,7 +63,6 @@ FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
 }
 
 void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
-                                       GlobalData* globalData,
                                        LTS::Storage& ltsStorage,
                                        SurfaceLTS::Storage& surfaceStorage) {
   this->surfaceStorage = &surfaceStorage;
@@ -88,10 +88,10 @@ void FreeSurfaceIntegrator::calculateOutput() const {
     const auto* side = surfaceLayer.var<SurfaceLTS::Side>();
     const auto* outputPosition = surfaceLayer.var<SurfaceLTS::OutputPosition>();
 
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#if !NVHPC_AVOID_OMP
 #pragma omp parallel for schedule(static) default(none)                                            \
     shared(surfaceLayer, dofs, displacementDofs, side, outputPosition)
-#endif // _OPENMP
+#endif
     for (std::size_t face = 0; face < surfaceLayer.size(); ++face) {
       if (outputPosition[face] != std::numeric_limits<std::size_t>::max()) {
         alignas(Alignment) real subTriangleDofs[tensor::subTriangleDofs::size(MaxRefinement)];
@@ -286,10 +286,9 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
     std::size_t numberOfFreeSurfaces = 0;
     std::size_t numberOfOutputFreeSurfaces = 0;
     const auto layerSize = layer.size();
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)                                                          \
     reduction(+ : numberOfFreeSurfaces, numberOfOutputFreeSurfaces)
-#endif // _OPENMP
     for (std::size_t cell = 0; cell < layerSize; ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (initializer::requiresDisplacement(

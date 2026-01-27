@@ -9,18 +9,24 @@
 
 #include "FreeSurfaceWriter.h"
 
-#include <Common/Constants.h>
+#include "AsyncCellIDs.h"
+#include "Common/Constants.h"
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshTools.h"
+#include "Geometry/Refinement/TriangleRefiner.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/Surface.h"
+#include "Memory/Tree/Layer.h"
+#include "Modules/Modules.h"
+#include "Monitoring/Instrumentation.h"
+#include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
+#include "ResultWriter/FreeSurfaceWriterExecutor.h"
+#include "SeisSol.h"
+#include "Solver/FreeSurfaceIntegrator.h"
+
+#include <Eigen/Core>
 #include <Eigen/Dense>
-#include <Geometry/MeshDefinition.h>
-#include <Geometry/Refinement/TriangleRefiner.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/Surface.h>
-#include <Memory/Tree/Layer.h>
-#include <Monitoring/Instrumentation.h>
-#include <Parallel/Helper.h>
-#include <Parallel/MPI.h>
-#include <ResultWriter/FreeSurfaceWriterExecutor.h>
-#include <Solver/FreeSurfaceIntegrator.h>
 #include <async/Module.h>
 #include <cassert>
 #include <cstring>
@@ -30,11 +36,6 @@
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
-
-#include "AsyncCellIDs.h"
-#include "Geometry/MeshTools.h"
-#include "Modules/Modules.h"
-#include "SeisSol.h"
 
 void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
     const seissol::geometry::MeshReader& meshReader,
@@ -102,10 +103,11 @@ void seissol::writer::FreeSurfaceWriter::setUp() {
   setExecutor(m_executor);
 
   utils::Env env("SEISSOL_");
-  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, env)) {
+  if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, env)) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
-    logInfo() << "Free surface writer thread affinity:"
-              << parallel::Pinning::maskToString(freeCpus);
+    logInfo() << "Free surface writer thread affinity:" << parallel::Pinning::maskToString(freeCpus)
+              << "(" << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
+    ;
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }

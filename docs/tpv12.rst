@@ -16,7 +16,7 @@ The rheology is linear elastic in TPV12 and non-associative Drucker-Prager visco
 Initial stress conditions are
 dependent on depth. Strongly super-shear rupture conditions are assumed.
 
-.. figure:: LatexFigures/tpv12_13.png
+.. figure:: figures/tpv12-13.png
    :alt: Geometry in SCEC benchmarks TPV12/13
    :width: 9.00000cm
    :align: center
@@ -36,7 +36,7 @@ The geometry and mesh generation process is similar to TPV5.
 
 .. _TP12_figure_2:
 
-.. figure:: LatexFigures/tpv12mesh2.png
+.. figure:: figures/tpv12mesh2.png
    :alt: TPV12/13 geometry modeled in Gmsh.
    :width: 9.00000cm
    :align: center
@@ -116,7 +116,7 @@ Results
 
 SeisSol output can be visualized directly in Paraview by loading their xdmf files.
 
-.. figure:: LatexFigures/SR_W_tpv12.png
+.. figure:: figures/sr-w-tpv12.png
    :alt: fault and volume output of TPV12 vizualized in Paraview.
    :width: 11.00000cm
    :align: center

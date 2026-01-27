@@ -9,29 +9,31 @@
 
 #include "Plasticity.h"
 
+#include "Alignment.h"
+#include "Common/Marker.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-#include <Alignment.h>
-#include <DataTypes/ConditionalTable.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Model/Plasticity.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Model/Plasticity.h"
+#include "Parallel/Runtime/Stream.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
-
-#include "Solver/MultipleSimulations.h"
-#include "utils/logger.h"
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "DeviceAux/PlasticityAux.h"
-#include "device.h"
-#include <DataTypes/ConditionalKey.h>
-#include <DataTypes/EncodedConstants.h>
-#include <Solver/MultipleSimulations.h>
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Solver/MultipleSimulations.h"
+
+#include <Device/device.h>
 using namespace device;
 #endif
 
@@ -82,7 +84,6 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   m2nKrnl.v = global->vandermondeMatrix;
   m2nKrnl.QStress = degreesOfFreedom;
   m2nKrnl.QStressNodal = qStressNodal;
-  m2nKrnl.replicateInitialLoading = init::replicateInitialLoading::Values;
   m2nKrnl.initialLoading = plasticityData->initialLoading;
   m2nKrnl.execute();
 
@@ -116,11 +117,9 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 
   // Compute tau_c for every node
   for (std::size_t ip = 0; ip < tensor::meanStress::size(); ++ip) {
-    taulim[ip] = std::max(
-        static_cast<real>(0.0),
-        plasticityData->cohesionTimesCosAngularFriction[ip % seissol::multisim::NumSimulations] -
-            meanStress[ip] *
-                plasticityData->sinAngularFriction[ip % seissol::multisim::NumSimulations]);
+    taulim[ip] = std::max(static_cast<real>(0.0),
+                          plasticityData->cohesionTimesCosAngularFriction[ip] -
+                              meanStress[ip] * plasticityData->sinAngularFriction[ip]);
   }
 
   bool adjust = false;
@@ -247,15 +246,18 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 }
 
 void Plasticity::computePlasticityBatched(
-    double timeStepWidth,
-    double tV,
-    const GlobalData* global,
-    initializer::recording::ConditionalPointersToRealsTable& table,
-    seissol::model::PlasticityData* plasticityData,
-    std::size_t* yieldCounter,
-    unsigned* isAdjustableVector,
-    seissol::parallel::runtime::StreamRuntime& runtime) {
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM double tV,
+    SEISSOL_GPU_PARAM const GlobalData* global,
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM seissol::model::PlasticityData* plasticityData,
+    SEISSOL_GPU_PARAM std::size_t* yieldCounter,
+    SEISSOL_GPU_PARAM unsigned* isAdjustableVector,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
+
   static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
                 "modal and nodal dofs must have the same leading dimensions");
   static_assert(tensor::Q::Shape[multisim::BasisFunctionDimension] == tensor::v::Shape[0],
@@ -284,15 +286,13 @@ void Plasticity::computePlasticityBatched(
     real** nodalStressTensors =
         (entry.get(inner_keys::Wp::Id::NodalStressTensor))->getDeviceDataPtr();
 
-    assert(global->replicateStresses != nullptr && "replicateStresses has not been initialized");
     static_assert(kernel::gpu_plConvertToNodal::TmpMaxMemRequiredInBytes == 0);
     real** initLoad = (entry.get(inner_keys::Wp::Id::InitialLoad))->getDeviceDataPtr();
     kernel::gpu_plConvertToNodal m2nKrnl;
     m2nKrnl.v = global->vandermondeMatrix;
     m2nKrnl.QStress = const_cast<const real**>(modalStressTensors);
     m2nKrnl.QStressNodal = nodalStressTensors;
-    m2nKrnl.replicateInitialLoadingM = global->replicateStresses;
-    m2nKrnl.initialLoadingM = const_cast<const real**>(initLoad);
+    m2nKrnl.initialLoading = const_cast<const real**>(initLoad);
     m2nKrnl.streamPtr = defaultStream;
     m2nKrnl.numElements = numElements;
     m2nKrnl.execute();

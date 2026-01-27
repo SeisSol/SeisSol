@@ -7,8 +7,9 @@
 
 #include "AsyncWriter.h"
 
-#include "async/ExecInfo.h"
-#include <IO/Writer/Writer.h>
+#include "IO/Writer/Writer.h"
+
+#include <async/ExecInfo.h>
 #include <cstddef>
 #include <mpi.h>
 #include <mutex>
@@ -30,7 +31,7 @@ void AsyncWriter::setComm(MPI_Comm comm) {
 void AsyncWriter::execInit(const async::ExecInfo& info, const AsyncWriterInit& params) {
   // (do nothing here)
 }
-void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& params) {
+void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& /*params*/) {
   const void* data = info.buffer(PlanId);
   const size_t size = info.bufferSize(PlanId);
   const char* strData = reinterpret_cast<const char*>(data);

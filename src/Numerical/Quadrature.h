@@ -10,13 +10,13 @@
 #define SEISSOL_SRC_NUMERICAL_QUADRATURE_H_
 
 #define USE_MATH_DEFINES
+#include "Numerical/Functions.h"
+
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <utils/logger.h>
 #include <vector>
-
-#include "Numerical/Functions.h"
-#include "utils/logger.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

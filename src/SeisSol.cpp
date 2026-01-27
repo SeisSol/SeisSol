@@ -8,12 +8,6 @@
 
 #include "SeisSol.h"
 
-#include <cstddef>
-#include <memory>
-#include <optional>
-#include <sys/resource.h>
-#include <utils/logger.h>
-
 #include "Modules/Modules.h"
 #include "Monitoring/Unit.h"
 #include "Parallel/Helper.h"
@@ -21,22 +15,28 @@
 #include "Parallel/OpenMP.h"
 #include "Parallel/Pin.h"
 
+#include <cstddef>
+#include <memory>
+#include <optional>
+#include <sys/resource.h>
+#include <utils/logger.h>
+
 namespace seissol {
 
-bool SeisSol::init(int argc, char* argv[]) {
-  const auto rank = seissol::MPI::mpi.rank();
+bool SeisSol::init() {
+  const auto rank = seissol::Mpi::mpi.rank();
 
   if (rank == 0) {
-    const auto& hostNames = seissol::MPI::mpi.getHostNames();
+    const auto& hostNames = seissol::Mpi::mpi.getHostNames();
     logInfo() << "Running on (rank=0):" << hostNames.front();
   }
 
-  logInfo() << "Using MPI with #ranks:" << seissol::MPI::mpi.size();
+  logInfo() << "Using MPI with #ranks:" << seissol::Mpi::mpi.size();
   logInfo() << "Node-wide (shared memory) MPI with #ranks/node:"
-            << seissol::MPI::mpi.sharedMemMpiSize();
-  seissol::MPI::mpi.printAcceleratorDeviceInfo();
+            << seissol::Mpi::mpi.sharedMemMpiSize();
+  seissol::Mpi::mpi.printAcceleratorDeviceInfo();
   // TODO (Ravil, David): switch to reading MPI options from the parameter-file.
-  seissol::MPI::mpi.setDataTransferModeFromEnv();
+  seissol::Mpi::mpi.setDataTransferModeFromEnv();
 
   printPersistentMpiInfo(m_env);
 #ifdef ACL_DEVICE
@@ -52,18 +52,28 @@ bool SeisSol::init(int argc, char* argv[]) {
   if (!parallel::Pinning::areAllCpusOnline()) {
     logInfo() << "Some CPUs are offline. Only online CPUs are considered.";
     logInfo() << "Online Mask            (this node)   :"
-              << parallel::Pinning::maskToString(pinning.getOnlineMask());
+              << parallel::Pinning::maskToString(pinning.getOnlineMask()) << "("
+              << parallel::Pinning::maskToStringShort(pinning.getOnlineMask()).c_str() << ")";
   }
   logInfo() << "OpenMP worker affinity (this process):"
-            << parallel::Pinning::maskToString(seissol::parallel::Pinning::getWorkerUnionMask());
-  logInfo() << "OpenMP worker affinity (this node)   :"
-            << parallel::Pinning::maskToString(seissol::parallel::Pinning::getNodeMask());
+            << parallel::Pinning::maskToString(seissol::parallel::Pinning::getWorkerUnionMask())
+            << "("
+            << parallel::Pinning::maskToStringShort(
+                   seissol::parallel::Pinning::getWorkerUnionMask())
+                   .c_str()
+            << ")";
+  logInfo()
+      << "OpenMP worker affinity (this node)   :"
+      << parallel::Pinning::maskToString(seissol::parallel::Pinning::getNodeMask()) << "("
+      << parallel::Pinning::maskToStringShort(seissol::parallel::Pinning::getNodeMask()).c_str()
+      << ")";
 
-  seissol::printCommThreadInfo(seissol::MPI::mpi, m_env);
-  if (seissol::useCommThread(seissol::MPI::mpi, m_env)) {
+  seissol::printCommThreadInfo(seissol::Mpi::mpi, m_env);
+  if (seissol::useCommThread(seissol::Mpi::mpi, m_env)) {
     auto freeCpus = pinning.getFreeCPUsMask();
     logInfo() << "Communication thread affinity        :"
-              << parallel::Pinning::maskToString(freeCpus);
+              << parallel::Pinning::maskToString(freeCpus) << "("
+              << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError()
           << "There are no free CPUs left. Make sure to leave one for the communication thread. If "
@@ -120,14 +130,14 @@ void SeisSol::finalize() {
 
   m_timeManager.freeDynamicResources();
 
-  seissol::MPI::finalize();
+  seissol::Mpi::finalize();
 
   logInfo() << "SeisSol done. Goodbye.";
 }
 
 void SeisSol::setBackupTimeStamp(const std::string& stamp) {
   m_backupTimeStamp = stamp;
-  seissol::MPI::mpi.broadcastContainer(m_backupTimeStamp, 0);
+  seissol::Mpi::mpi.broadcastContainer(m_backupTimeStamp, 0);
 }
 
 void SeisSol::loadCheckpoint(const std::string& file) {

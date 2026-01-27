@@ -7,17 +7,18 @@
 
 #include "MeshReader.h"
 
+#include "Common/Constants.h"
+#include "Common/Iterator.h"
+#include "Initializer/ParameterDB.h"
+#include "Initializer/Parameters/DRParameters.h"
+#include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "MeshDefinition.h"
 #include "MeshTools.h"
-
-#include "PUML/TypeInference.h"
 #include "Parallel/MPI.h"
-#include <Common/Constants.h>
-#include <Common/Iterator.h>
-#include <Initializer/ParameterDB.h>
-#include <Initializer/Parameters/DRParameters.h>
-#include <Initializer/TimeStepping/GlobalTimestep.h>
-#include <SeisSol.h>
+#include "SeisSol.h"
+
+#include <Eigen/Core>
+#include <PUML/TypeInference.h>
 #include <algorithm>
 #include <cstddef>
 #include <map>
@@ -81,6 +82,16 @@ void MeshReader::scaleMesh(const Eigen::Matrix3d& scalingMatrix) {
     const auto result = scalingMatrix * point;
     for (std::size_t i = 0; i < Cell::Dim; ++i) {
       m_vertices[vertexNo].coords[i] = result[i];
+    }
+  }
+}
+
+void MeshReader::disableDR() {
+  for (auto& elem : m_elements) {
+    for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
+      if (elem.boundaries[j] == 3) {
+        elem.boundaries[j] = 0;
+      }
     }
   }
 }
@@ -263,7 +274,7 @@ void MeshReader::exchangeGhostlayerMetadata() {
   std::unordered_map<int, std::vector<GhostElementMetadata>> recvData;
 
   constexpr int Tag = 10;
-  MPI_Comm comm = seissol::MPI::mpi.comm();
+  MPI_Comm comm = seissol::Mpi::mpi.comm();
 
   std::vector<MPI_Request> requests(m_MPINeighbors.size() * 2);
 
@@ -384,9 +395,8 @@ void MeshReader::verifyMeshOrientation() {
   // for now, only check the tetrahedron orientation here
 
   bool correct = true;
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t i = 0; i < m_elements.size(); ++i) {
     const auto& element = m_elements[i];
 

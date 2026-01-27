@@ -6,15 +6,17 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "InstantaneousTimeMirrorManager.h"
+
 #include "Initializer/CellLocalMatrices.h"
+#include "Initializer/Parameters/ModelParameters.h"
+#include "Initializer/TimeStepping/ClusterLayout.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
+#include "Modules/Module.h"
 #include "Modules/Modules.h"
 #include "SeisSol.h"
-#include <Initializer/Parameters/ModelParameters.h>
-#include <Initializer/TimeStepping/ClusterLayout.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
-#include <Model/CommonDatastructures.h>
-#include <Modules/Module.h>
+
 #include <cmath>
 #include <cstddef>
 #include <utils/logger.h>
@@ -103,9 +105,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
   for (auto& layer : ltsStorage->leaves(Ghost)) {
     auto* materialData = layer.var<LTS::MaterialData>();
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       // for now, keep the NOLINTNEXTLINE here (due to polymorphic access)
       // NOLINTNEXTLINE

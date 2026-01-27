@@ -7,14 +7,17 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "GlobalData.h"
+
+#include "Common/Marker.h"
+#include "DynamicRupture/FrictionLaws/TPCommon.h"
+#include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Memory/MemoryAllocator.h"
 #include "Parallel/OpenMP.h"
-#include <DynamicRupture/FrictionLaws/TPCommon.h>
-#include <DynamicRupture/Misc.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Memory/MemoryAllocator.h>
+
 #include <cassert>
 #include <cstddef>
 #include <yateto.h>
@@ -37,7 +40,7 @@ void OnHost::negateStiffnessMatrix(GlobalData& globalData) {
 
 void OnHost::initSpecificGlobalData(GlobalData& globalData,
                                     memory::ManagedAllocator& allocator,
-                                    CopyManagerT& copyManager,
+                                    CopyManagerT& /*copyManager*/,
                                     size_t alignment,
                                     seissol::memory::Memkind memkind) {
   // thread-local LTS integration buffers
@@ -46,10 +49,9 @@ void OnHost::initSpecificGlobalData(GlobalData& globalData,
   auto* integrationBufferLTS = reinterpret_cast<real*>(
       allocator.allocateMemory(numThreads * allocSize * sizeof(real), alignment, memkind));
 
-// initialize w.r.t. NUMA
-#ifdef _OPENMP
+  // initialize w.r.t. NUMA
+
 #pragma omp parallel
-#endif
   {
     const auto threadOffset = OpenMP::threadId() * allocSize;
     for (std::size_t dof = 0; dof < allocSize; ++dof) {
@@ -84,23 +86,15 @@ void OnDevice::negateStiffnessMatrix(GlobalData& globalData) {
   }
 #endif // ACL_DEVICE
 }
-void OnDevice::initSpecificGlobalData(GlobalData& globalData,
-                                      memory::ManagedAllocator& allocator,
-                                      CopyManagerT& copyManager,
-                                      size_t alignment,
-                                      seissol::memory::Memkind memkind) {
-#ifdef ACL_DEVICE
-  const size_t size = yateto::alignedUpper(tensor::replicateInitialLoadingM::size(),
-                                           yateto::alignedReals<real>(alignment));
-  real* plasticityStressReplication =
-      static_cast<real*>(allocator.allocateMemory(size * sizeof(real), alignment, memkind));
+void OnDevice::initSpecificGlobalData(GlobalData& /*globalData*/,
+                                      memory::ManagedAllocator& /*allocator*/,
+                                      CopyManagerT& /*copyManager*/,
+                                      size_t /*alignment*/,
+                                      seissol::memory::Memkind /*memkind*/) {}
 
-  copyManager.template copyTensorToMemAndSetPtr<init::replicateInitialLoadingM>(
-      plasticityStressReplication, globalData.replicateStresses, alignment);
-#endif // ACL_DEVICE
-}
-
-real* OnDevice::DeviceCopyPolicy::copy(const real* first, const real* last, real*& mem) {
+real* OnDevice::DeviceCopyPolicy::copy(SEISSOL_GPU_PARAM const real* first,
+                                       SEISSOL_GPU_PARAM const real* last,
+                                       SEISSOL_GPU_PARAM real*& mem) {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   const std::size_t bytes = (last - first) * sizeof(real);
@@ -227,7 +221,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                         data.data().data(),
                                         dr::misc::NumTpGridPoints,
                                         memkind,
-                                        memory::Standard);
+                                        memory::Memkind::Standard);
   }
 
   {
@@ -239,7 +233,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                         data.data().data(),
                                         dr::misc::NumTpGridPoints,
                                         memkind,
-                                        memory::Standard);
+                                        memory::Memkind::Standard);
   }
 
   {
@@ -253,7 +247,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                         data.data().data(),
                                         dr::misc::NumTpGridPoints,
                                         memkind,
-                                        memory::Standard);
+                                        memory::Memkind::Standard);
   }
 
   assert(globalMatrixMemPtr == globalMatrixMem + globalMatrixMemSize);

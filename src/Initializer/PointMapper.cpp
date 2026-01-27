@@ -10,11 +10,14 @@
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
 #include "PointMapper.h"
+
+#include "Common/Constants.h"
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshReader.h"
+#include "Geometry/MeshTools.h"
 #include "Parallel/MPI.h"
-#include <Common/Constants.h>
-#include <Geometry/MeshDefinition.h>
-#include <Geometry/MeshReader.h>
-#include <Geometry/MeshTools.h>
+
+#include <Eigen/Core>
 #include <array>
 #include <cstring>
 #include <mpi.h>
@@ -52,9 +55,7 @@ void findMeshIds(const Eigen::Vector3d* points,
   }
 
 /// @TODO Could use the code generator for the following
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t elem = 0; elem < elements.size(); ++elem) {
     auto planeEquations = std::array<std::array<double, Cell::Dim + 1>, Cell::Dim + 1>();
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
@@ -71,9 +72,8 @@ void findMeshIds(const Eigen::Vector3d* points,
     for (std::size_t point = 0; point < numPoints; ++point) {
       // NOLINTNEXTLINE
       int notInside = 0;
-#ifdef _OPENMP
+
 #pragma omp simd reduction(+ : notInside)
-#endif
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         double resultFace = 0;
         for (std::size_t dim = 0; dim < Cell::Dim + 1; ++dim) {
@@ -82,9 +82,8 @@ void findMeshIds(const Eigen::Vector3d* points,
         notInside += (resultFace > tolerance) ? 1 : 0;
       }
       if (notInside == 0) {
-#ifdef _OPENMP
+
 #pragma omp critical
-#endif
         {
           /* It might actually happen that a point is found in two tetrahedrons
            * if it lies on the boundary. In this case we arbitrarily assign
@@ -106,8 +105,8 @@ void findMeshIds(const Eigen::Vector3d* points,
 }
 
 void cleanDoubles(short* contained, std::size_t numPoints) {
-  const auto myrank = seissol::MPI::mpi.rank();
-  const auto size = seissol::MPI::mpi.size();
+  const auto myrank = seissol::Mpi::mpi.rank();
+  const auto size = seissol::Mpi::mpi.size();
 
   auto globalContained = std::vector<short>(size * numPoints);
   MPI_Allgather(contained,
@@ -116,7 +115,7 @@ void cleanDoubles(short* contained, std::size_t numPoints) {
                 globalContained.data(),
                 numPoints,
                 MPI_SHORT,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
 
   std::size_t cleaned = 0;
   for (std::size_t point = 0; point < numPoints; ++point) {

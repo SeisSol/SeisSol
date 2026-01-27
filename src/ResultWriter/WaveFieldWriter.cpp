@@ -6,14 +6,21 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#include <Geometry/MeshDefinition.h>
-#include <Geometry/Refinement/RefinerUtils.h>
-#include <Geometry/Refinement/VariableSubSampler.h>
-#include <Initializer/Parameters/OutputParameters.h>
-#include <Kernels/Precision.h>
-#include <Parallel/Helper.h>
-#include <Parallel/MPI.h>
-#include <ResultWriter/WaveFieldWriterExecutor.h>
+#include "WaveFieldWriter.h"
+
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshReader.h"
+#include "Geometry/Refinement/MeshRefiner.h"
+#include "Geometry/Refinement/RefinerUtils.h"
+#include "Geometry/Refinement/VariableSubSampler.h"
+#include "Initializer/Parameters/OutputParameters.h"
+#include "Kernels/Precision.h"
+#include "Modules/Modules.h"
+#include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
+#include "ResultWriter/WaveFieldWriterExecutor.h"
+#include "SeisSol.h"
+
 #include <algorithm>
 #include <async/Module.h>
 #include <cassert>
@@ -30,18 +37,14 @@
 #include <utils/logger.h>
 #include <vector>
 
-#include "Geometry/MeshReader.h"
-#include "Geometry/Refinement/MeshRefiner.h"
-#include "Modules/Modules.h"
-#include "SeisSol.h"
-#include "WaveFieldWriter.h"
-
 void seissol::writer::WaveFieldWriter::setUp() {
   setExecutor(m_executor);
   utils::Env env("SEISSOL_");
-  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, env)) {
+  if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, env)) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
-    logInfo() << "Wave field writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
+    logInfo() << "Wave field writer thread affinity:" << parallel::Pinning::maskToString(freeCpus)
+              << "(" << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
+    ;
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
@@ -481,9 +484,7 @@ void seissol::writer::WaveFieldWriter::write(double time) {
           async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>::managedBuffer<
               real*>(m_variableBufferIds[1] + nextId);
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif // _OPENMP
       for (unsigned int j = 0; j < m_numLowCells; j++) {
         managedBuffer[j] = m_integrals[m_map[j] * m_numIntegratedVariables + nextId];
       }

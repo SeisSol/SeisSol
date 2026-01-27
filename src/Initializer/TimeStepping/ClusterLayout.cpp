@@ -4,20 +4,22 @@
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
-#include <Geometry/MeshReader.h>
-#include <Initializer/TimeStepping/ClusterLayout.h>
-#include <Monitoring/Unit.h>
-#include <Numerical/StableSum.h>
-#include <Parallel/MPI.h>
+#include "Initializer/TimeStepping/ClusterLayout.h"
+
+#include "Geometry/MeshReader.h"
+#include "Monitoring/Unit.h"
+#include "Numerical/StableSum.h"
+#include "Numerical/Statistics.h"
+#include "Parallel/MPI.h"
+
 #include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <mpi.h>
 #include <utils/logger.h>
 #include <vector>
-
-#include <mpi.h>
 
 namespace seissol::initializer {
 
@@ -25,6 +27,18 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
                                       const geometry::MeshReader& mesh,
                                       double wiggle,
                                       bool infoprint) {
+
+  if (infoprint) {
+    std::size_t cellCount = mesh.getElements().size();
+    const auto summary = statistics::parallelSummary(cellCount);
+
+    MPI_Allreduce(
+        MPI_IN_PLACE, &cellCount, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, Mpi::mpi.comm());
+
+    logInfo() << "Cell count:" << formatInteger(cellCount).c_str() << "(per rank:" << summary.mean
+              << "±" << summary.std << "; range: [" << summary.min << ";" << summary.max << "])";
+  }
+
   std::uint64_t maxLtsId = 0;
   double minimumTimestep = std::numeric_limits<double>::max();
   for (const auto& element : mesh.getElements()) {
@@ -32,8 +46,8 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
     minimumTimestep = std::min(minimumTimestep, element.timestep);
   }
   MPI_Allreduce(
-      MPI_IN_PLACE, &maxLtsId, 1, MPI::castToMpiType<std::uint64_t>(), MPI_MAX, MPI::mpi.comm());
-  MPI_Allreduce(MPI_IN_PLACE, &minimumTimestep, 1, MPI_DOUBLE, MPI_MIN, MPI::mpi.comm());
+      MPI_IN_PLACE, &maxLtsId, 1, Mpi::castToMpiType<std::uint64_t>(), MPI_MAX, Mpi::mpi.comm());
+  MPI_Allreduce(MPI_IN_PLACE, &minimumTimestep, 1, MPI_DOUBLE, MPI_MIN, Mpi::mpi.comm());
   if (wiggle == 1) {
     if (infoprint) {
       logInfo() << "Minimum timestep:" << seissol::UnitTime.formatPrefix(minimumTimestep).c_str();
@@ -76,26 +90,26 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
     MPI_Allreduce(MPI_IN_PLACE,
                   clusters.data(),
                   clusters.size(),
-                  MPI::castToMpiType<std::uint64_t>(),
+                  Mpi::castToMpiType<std::uint64_t>(),
                   MPI_SUM,
-                  MPI::mpi.comm());
+                  Mpi::mpi.comm());
     MPI_Allreduce(MPI_IN_PLACE,
                   clustersDR.data(),
                   clustersDR.size(),
-                  MPI::castToMpiType<std::uint64_t>(),
+                  Mpi::castToMpiType<std::uint64_t>(),
                   MPI_SUM,
-                  MPI::mpi.comm());
+                  Mpi::mpi.comm());
     std::array<double, 3> timefactors{
         timefactorGTS, timefactorELTS.result(), timefactorCLTS.result()};
     MPI_Allreduce(
-        MPI_IN_PLACE, timefactors.data(), timefactors.size(), MPI_DOUBLE, MPI_SUM, MPI::mpi.comm());
+        MPI_IN_PLACE, timefactors.data(), timefactors.size(), MPI_DOUBLE, MPI_SUM, Mpi::mpi.comm());
 
     const auto eltsSpeedup = timefactors[1] / timefactors[0];
     const auto cltsSpeedup = timefactors[2] / timefactors[0];
     logInfo() << "Theoretical speedup to GTS:" << eltsSpeedup << "elementwise LTS;" << cltsSpeedup
               << "clustered LTS (current setup)";
 
-    logInfo() << "Cluster histogram (cell, DR):";
+    logInfo() << "Cluster histogram (cells, DR faces):";
     for (std::size_t i = 0; i <= maxLtsId; ++i) {
       // NOTE: we count the DR faces twice; hence divide by 2 here
       // (also we now ignore copy-layer DR faces in the histogram unlike @:1.3.2; see the actual
