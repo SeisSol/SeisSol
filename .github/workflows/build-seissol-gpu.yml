@@ -35,10 +35,10 @@ jobs:
             multisim: 1
             mechanisms: 0
             order: 6
-          #- type: poroelastic # Does not work yet
-          #  multisim: 1
-          #  mechanisms: 0
-          #  order: 6
+          - type: poroelastic
+            multisim: 1
+            mechanisms: 0
+            order: 6
           - type: viscoelastic2
             multisim: 1
             mechanisms: 3
@@ -257,15 +257,15 @@ jobs:
             volume: true
             surface: false
             order: 6
-          #- name: tpv5-poro
-          #  equation: poroelastic
-          #  multisim: 1
-          #  energies: false # incomplete, hence disabled
-          #  receivers: true
-          #  fault: true
-          #  volume: true
-          #  surface: false
-          #  order: 6
+          - name: tpv5-poro
+            equation: poroelastic
+            multisim: 1
+            energies: false # incomplete, hence disabled
+            receivers: true
+            fault: true
+            volume: true
+            surface: false
+            order: 6
           - name: tpv6
             equation: elastic
             multisim: 1
