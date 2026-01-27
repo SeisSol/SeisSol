@@ -128,7 +128,7 @@ For libxsmm (note that we need 1.17 sharp; the latest main will not work as inte
 
 .. code-block:: bash
 
-    git clone --branch 1.17 --depth 1 https://github.com/hfp/libxsmm
+    git clone --branch 1.17 --depth 1 https://github.com/libxsmm/libxsmm
     cd libxsmm
     make generator
     cp bin/libxsmm_gemm_generator $SEISSOL_PREFIX/bin
