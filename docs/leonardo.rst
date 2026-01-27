@@ -36,17 +36,15 @@ Run ``pwd`` and copy the path there. Run the following script there.
 Next, we load the necessary modules for our SeisSol build.
 We load GCC explicitly, so that the environment variables for ``CC``, ``CXX``, etc. are set for us automatically.
 
-**NOTE: these modules are outdated.**
-
 .. code-block:: bash
 
-    module load python/3.10.8--gcc--11.3.0
-    module load cuda/11.8
-    module load openmpi/4.1.4--gcc--11.3.0-cuda-11.8
-    module load gcc/11.3.0
+    module load python/3.11.7
+    module load cuda/12.6
+    module load openmpi/4.1.6--gcc--12.2.0-cuda-12.2
+    module load gcc/12.2.0
     module load ninja
-    module load hdf5/1.12.2--openmpi--4.1.4--gcc--11.3.0
-    module load netcdf-c/4.9.0--openmpi--4.1.4--gcc--11.3.0
+    module load hdf5/1.14.3--openmpi--4.1.6--gcc--12.2.0-spack0.22
+    module load netcdf-c/4.9.2--openmpi--4.1.6--gcc--12.2.0-spack0.22
 
 It can be useful to place these module loads into a script of their own for running jobs later-on.
 
