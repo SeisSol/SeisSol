@@ -108,8 +108,8 @@ struct LTS {
   struct Plasticity : public initializer::Variable<seissol::model::PlasticityData> {};
   struct DRMapping : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
   struct BoundaryMapping : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {};
-  struct PStrain
-      : public initializer::Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> {};
+  struct PStrain : public initializer::Variable<
+                       real[tensor::QStressNodal::size() + tensor::QEtaNodal::size()]> {};
   struct FaceDisplacements : public initializer::Variable<real* [Cell::NumFaces]> {};
   struct BuffersDerivatives : public initializer::Bucket<real> {};
 
@@ -131,8 +131,6 @@ struct LTS {
   struct DofsExtScratch : public initializer::Scratchpad<real> {};
 
   struct FlagScratch : public initializer::Scratchpad<unsigned> {};
-  struct PrevDofsScratch : public initializer::Scratchpad<real> {};
-  struct QEtaNodalScratch : public initializer::Scratchpad<real> {};
   struct QStressNodalScratch : public initializer::Scratchpad<real> {};
 
   struct RotateDisplacementToFaceNormalScratch : public initializer::Scratchpad<real> {};
@@ -177,8 +175,6 @@ struct LTS {
                                                         IDofsAneScratch,
                                                         DofsExtScratch,
                                                         FlagScratch,
-                                                        PrevDofsScratch,
-                                                        QEtaNodalScratch,
                                                         QStressNodalScratch,
                                                         RotateDisplacementToFaceNormalScratch,
                                                         RotateDisplacementToGlobalScratch,
@@ -263,8 +259,6 @@ struct LTS {
       storage.add<AnalyticScratch>(LayerMask(), 1, AllocationMode::HostDevicePinned);
 
       storage.add<FlagScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      storage.add<PrevDofsScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      storage.add<QEtaNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
       storage.add<QStressNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
 
       storage.add<RotateDisplacementToFaceNormalScratch>(
