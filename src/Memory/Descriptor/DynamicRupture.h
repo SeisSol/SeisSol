@@ -28,9 +28,9 @@ inline auto allocationModeDR() {
   if constexpr (!isDeviceOn()) {
     return AllocationMode::HostOnly;
   } else {
-    return useUSM() ? AllocationMode::HostDeviceUnified
-                    : (useDeviceL2Compress() ? AllocationMode::HostDeviceCompress
-                                             : AllocationMode::HostDeviceSplit);
+    const auto modeMaybeCompress = useDeviceL2Compress() ? AllocationMode::HostDeviceCompress
+                                                         : AllocationMode::HostDeviceSplit;
+    return useUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompress;
   }
 }
 

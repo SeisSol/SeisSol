@@ -71,6 +71,12 @@ struct LTS {
         return AllocationMode::HostOnly;
       }
     } else {
+      const auto modeMaybeCompress = useDeviceL2Compress() ? AllocationMode::HostDeviceCompress
+                                                           : AllocationMode::HostDeviceSplit;
+      const auto modeMaybeCompressPinned = useDeviceL2Compress()
+                                               ? AllocationMode::HostDeviceCompressPinned
+                                               : AllocationMode::HostDeviceSplitPinned;
+
       switch (preset) {
       case AllocationPreset::Global:
         [[fallthrough]];
@@ -81,17 +87,11 @@ struct LTS {
       case AllocationPreset::Dofs:
         [[fallthrough]];
       case AllocationPreset::PlasticityData:
-        return useUSM() ? AllocationMode::HostDeviceUnified
-                        : (useDeviceL2Compress() ? AllocationMode::HostDeviceCompressPinned
-                                                 : AllocationMode::HostDeviceSplitPinned);
+        return useUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompressPinned;
       case AllocationPreset::Timebucket:
-        return useMPIUSM() ? AllocationMode::HostDeviceUnified
-                           : (useDeviceL2Compress() ? AllocationMode::HostDeviceCompress
-                                                    : AllocationMode::HostDeviceSplit);
+        return useMPIUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompress;
       default:
-        return useUSM() ? AllocationMode::HostDeviceUnified
-                        : (useDeviceL2Compress() ? AllocationMode::HostDeviceCompress
-                                                 : AllocationMode::HostDeviceSplit);
+        return useUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompress;
       }
     }
   }
