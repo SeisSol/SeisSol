@@ -33,18 +33,18 @@ struct MaterialSetup<AcousticMaterial> {
 
     switch (dim) {
     case 0:
-      matM(1, 0) = material.lambda;
-      matM(0, 1) = rhoInv;
+      matM(1, 0) = -material.lambda;
+      matM(0, 1) = -rhoInv;
       break;
 
     case 1:
-      matM(2, 0) = material.lambda;
-      matM(0, 2) = rhoInv;
+      matM(2, 0) = -material.lambda;
+      matM(0, 2) = -rhoInv;
       break;
 
     case 2:
-      matM(3, 0) = material.lambda;
-      matM(0, 3) = rhoInv;
+      matM(3, 0) = -material.lambda;
+      matM(0, 3) = -rhoInv;
       break;
 
     default:
@@ -64,13 +64,16 @@ struct MaterialSetup<AcousticMaterial> {
 
     // Eigenvectors are precomputed
     Matrix44 matR = Matrix44::Zero();
-    // scale for better condition number of R
-    matR(0, 0) = std::sqrt(local.lambda * local.rho);
-    matR(1, 0) = -local.lambda;
-    matR(0, 1) = std::sqrt(neighbor.lambda * neighbor.rho);
-    matR(1, 1) = neighbor.lambda;
-    matR(2, 2) = local.lambda;
-    matR(3, 3) = local.lambda;
+    matR(0, 0) = local.lambda;
+    matR(1, 0) = std::sqrt(local.lambda / local.rho);
+    
+    // scale for better condition number of matR
+    matR(2, 1) = local.lambda;
+    matR(3, 2) = local.lambda;
+
+    //dont understand why this needs to be neighbor..
+    matR(0, 3) = neighbor.lambda;
+    matR(1, 3) = -std::sqrt(neighbor.lambda / neighbor.rho);
 
     if (faceType == FaceType::FreeSurface) {
       for (size_t i = 0; i < 4; i++) {
