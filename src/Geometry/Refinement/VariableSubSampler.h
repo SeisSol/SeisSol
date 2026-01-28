@@ -99,7 +99,7 @@ void VariableSubsampler<T>::get(const real* inData,
   for (unsigned int c = 0; c < mNumCells; ++c) {
     for (unsigned int sc = 0; sc < kSubCellsPerCell; ++sc) {
       const real* __restrict inCellData = &inData[getInVarOffset(c, variable, cellMap)];
-      real modalBuffer[tensor::modalVar::Size];
+      alignas(Alignment) real modalBuffer[tensor::modalVar::Size]{};
       if (nodal) {
         kernel::plOutput krnl{};
         krnl.nodalVar = inCellData;
