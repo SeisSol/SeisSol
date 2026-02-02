@@ -35,10 +35,10 @@ std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileNa
 
 class ReceiverWriter : public seissol::Module {
   private:
-  seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance_;
 
   public:
-  explicit ReceiverWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
+  explicit ReceiverWriter(seissol::SeisSol& seissolInstance) : seissolInstance_(seissolInstance) {}
 
   void init(const std::string& fileNamePrefix,
             double endTime,
@@ -60,12 +60,12 @@ class ReceiverWriter : public seissol::Module {
   [[nodiscard]] std::string fileName(unsigned pointId) const;
   void writeHeader(unsigned pointId, const Eigen::Vector3d& point);
 
-  std::string m_receiverFileName;
-  std::string m_fileNamePrefix;
-  double m_samplingInterval{};
-  std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity>> derivedQuantities;
-  std::vector<std::shared_ptr<kernels::ReceiverCluster>> m_receiverClusters;
-  Stopwatch m_stopwatch;
+  std::string receiverFileName_;
+  std::string fileNamePrefix_;
+  double samplingInterval_{};
+  std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity>> derivedQuantities_;
+  std::vector<std::shared_ptr<kernels::ReceiverCluster>> receiverClusters_;
+  Stopwatch stopwatch_;
 };
 } // namespace seissol::writer
 

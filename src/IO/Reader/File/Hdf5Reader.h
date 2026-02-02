@@ -64,8 +64,8 @@ class Hdf5Reader {
   void checkExistence(const std::string& name, const std::string& type);
 
   private:
-  std::stack<hid_t> handles;
-  MPI_Comm comm;
+  std::stack<hid_t> handles_;
+  MPI_Comm comm_;
 };
 } // namespace seissol::io::reader::file
 

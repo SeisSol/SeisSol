@@ -38,10 +38,10 @@ class Spacetime : public SpacetimeKernel {
   std::uint64_t bytesAder() override;
 
   protected:
-  kernel::derivative m_krnlPrototype;
+  kernel::derivative krnlPrototype_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_derivative deviceKrnlPrototype;
+  kernel::gpu_derivative deviceKrnlPrototype_;
 #endif
 };
 

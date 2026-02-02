@@ -7,16 +7,11 @@
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 
-#include "Common/Constants.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
-#include "DynamicRupture/FrictionLaws/TPCommon.h"
-#include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Kernels/Precision.h"
+#include "Initializer/Typedefs.h"
 #include "Memory/MemoryAllocator.h"
-
-#include <cstddef>
 
 namespace seissol::dr::friction_law::gpu {
 FrictionSolverDetails::FrictionSolverDetails(
@@ -27,13 +22,13 @@ FrictionSolverDetails::~FrictionSolverDetails() = default;
 
 void FrictionSolverDetails::allocateAuxiliaryMemory(GlobalData* globalData) {
   {
-    data = seissol::memory::allocTyped<FrictionLawData>(1, 1, memory::Memkind::DeviceGlobalMemory);
+    data_ = seissol::memory::allocTyped<FrictionLawData>(1, 1, memory::Memkind::DeviceGlobalMemory);
   }
 
-  resampleMatrix = globalData->resampleMatrix;
-  devSpaceWeights = globalData->spaceWeights;
-  devTpInverseFourierCoefficients = globalData->tpInverseFourierCoefficients;
-  devHeatSource = globalData->heatSource;
-  devTpGridPoints = globalData->tpGridPoints;
+  resampleMatrix_ = globalData->resampleMatrix;
+  devSpaceWeights_ = globalData->spaceWeights;
+  devTpInverseFourierCoefficients_ = globalData->tpInverseFourierCoefficients;
+  devHeatSource_ = globalData->heatSource;
+  devTpGridPoints_ = globalData->tpGridPoints;
 }
 } // namespace seissol::dr::friction_law::gpu

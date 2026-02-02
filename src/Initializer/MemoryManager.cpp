@@ -10,39 +10,43 @@
 
 #include "MemoryManager.h"
 
+#include "BatchRecorders/Recorders.h"
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
 #include "DynamicRupture/Factory.h"
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/Recorders.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/Boundary.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Descriptor/Surface.h"
 #include "Memory/GlobalData.h"
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <limits>
 #include <memory>
+#include <unordered_set>
 #include <utility>
 #include <utils/logger.h>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
-#include "BatchRecorders/Recorders.h"
-#include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
-#include "Solver/MultipleSimulations.h"
-
 #include <Device/device.h>
 #endif // ACL_DEVICE
 
@@ -50,34 +54,33 @@ namespace seissol::initializer {
 
 void MemoryManager::initialize() {
   // initialize global matrices
-  GlobalDataInitializerOnHost::init(
-      m_globalDataOnHost, m_memoryAllocator, memory::Memkind::Standard);
+  GlobalDataInitializerOnHost::init(globalDataOnHost_, memoryAllocator_, memory::Memkind::Standard);
   if constexpr (seissol::isDeviceOn()) {
     GlobalDataInitializerOnDevice::init(
-        m_globalDataOnDevice, m_memoryAllocator, memory::Memkind::DeviceGlobalMemory);
+        globalDataOnDevice_, memoryAllocator_, memory::Memkind::DeviceGlobalMemory);
   }
 }
 
 void MemoryManager::fixateLtsStorage() {
-#ifdef ACL_DEVICE
-  MemoryManager::deriveRequiredScratchpadMemoryForDr(drStorage);
-  drStorage.allocateScratchPads();
-#endif
+  if constexpr (isDeviceOn()) {
+    MemoryManager::deriveRequiredScratchpadMemoryForDr(drStorage_);
+    drStorage_.allocateScratchPads();
+  }
 }
 
 void MemoryManager::fixateBoundaryStorage() {
   const LayerMask ghostMask(Ghost);
 
-  m_boundaryTree.setName("boundary");
+  boundaryTree_.setName("boundary");
 
   // Boundary face storage
-  Boundary::addTo(m_boundaryTree);
-  m_boundaryTree.setLayerCount(ltsStorage.getColorMap());
-  m_boundaryTree.fixate();
+  Boundary::addTo(boundaryTree_);
+  boundaryTree_.setLayerCount(ltsStorage_.getColorMap());
+  boundaryTree_.fixate();
 
   // Iterate over layers of standard lts storage and face lts storage together.
   for (auto [layer, boundaryLayer] :
-       seissol::common::zip(ltsStorage.leaves(ghostMask), m_boundaryTree.leaves(ghostMask))) {
+       seissol::common::zip(ltsStorage_.leaves(ghostMask), boundaryTree_.leaves(ghostMask))) {
     CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
 
     std::size_t numberOfBoundaryFaces = 0;
@@ -93,14 +96,14 @@ void MemoryManager::fixateBoundaryStorage() {
     }
     boundaryLayer.setNumberOfCells(numberOfBoundaryFaces);
   }
-  m_boundaryTree.allocateVariables();
-  m_boundaryTree.touchVariables();
+  boundaryTree_.allocateVariables();
+  boundaryTree_.touchVariables();
 
   // The boundary storage is now allocated, now we only need to map from cell lts
   // to face lts.
   // We do this by, once again, iterating over both storages at the same time.
   for (auto [layer, boundaryLayer] :
-       seissol::common::zip(ltsStorage.leaves(ghostMask), m_boundaryTree.leaves(ghostMask))) {
+       seissol::common::zip(ltsStorage_.leaves(ghostMask), boundaryTree_.leaves(ghostMask))) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
     auto* boundaryMappingDevice = layer.var<LTS::BoundaryMappingDevice>();
@@ -124,28 +127,29 @@ void MemoryManager::fixateBoundaryStorage() {
     }
   }
 
-  surfaceStorage.setName("surface");
-  SurfaceLTS::addTo(surfaceStorage);
+  surfaceStorage_.setName("surface");
+  SurfaceLTS::addTo(surfaceStorage_);
 
   int refinement = 0;
-  const auto& outputParams = seissolInstance.getSeisSolParameters().output;
+  const auto& outputParams = seissolInstance_.getSeisSolParameters().output;
   if (outputParams.freeSurfaceParameters.enabled &&
       outputParams.freeSurfaceParameters.vtkorder < 0) {
     refinement = outputParams.freeSurfaceParameters.refinement;
   }
-  seissolInstance.freeSurfaceIntegrator().initialize(refinement, ltsStorage, surfaceStorage);
+  seissolInstance_.freeSurfaceIntegrator().initialize(refinement, ltsStorage_, surfaceStorage_);
 }
 
-#ifdef ACL_DEVICE
 void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStorage) {
-  constexpr size_t totalDerivativesSize = kernels::Solver::DerivativesSize;
-  constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
+  constexpr size_t TotalDerivativesSize = kernels::Solver::DerivativesSize;
+  constexpr size_t NodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
   for (auto& layer : ltsStorage.leaves(Ghost)) {
 
-    CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
-    std::unordered_set<real*> registry{};
-    real*(*faceNeighbors)[Cell::NumFaces] = layer.var<LTS::FaceNeighborsDevice>();
+    const auto* cellInformation = layer.var<LTS::CellInformation>();
+
+    // look at const pointers (instead of non-const) to make clang-tidy happy
+    std::unordered_set<const real*> registry;
+    real* const(*faceNeighbors)[Cell::NumFaces] = layer.var<LTS::FaceNeighborsDevice>();
 
     std::size_t derivativesCounter{0};
     std::size_t integratedDofsCounter{0};
@@ -157,7 +161,7 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
     std::array<std::size_t, 4> dirichletPerFace{};
 
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      bool needsScratchMemForDerivatives = !cellInformation[cell].ltsSetup.hasDerivatives();
+      const bool needsScratchMemForDerivatives = !cellInformation[cell].ltsSetup.hasDerivatives();
       if (needsScratchMemForDerivatives) {
         ++derivativesCounter;
       }
@@ -165,7 +169,7 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
 
       // include data provided by ghost layers
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        real* neighborBuffer = faceNeighbors[cell][face];
+        const real* neighborBuffer = faceNeighbors[cell][face];
 
         // check whether a neighbor element idofs has not been counted twice
         if ((registry.find(neighborBuffer) == registry.end())) {
@@ -216,10 +220,10 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
 
     layer.setEntrySize<LTS::IntegratedDofsScratch>(integratedDofsCounter * tensor::I::size() *
                                                    sizeof(real));
-    layer.setEntrySize<LTS::DerivativesScratch>(derivativesCounter * totalDerivativesSize *
+    layer.setEntrySize<LTS::DerivativesScratch>(derivativesCounter * TotalDerivativesSize *
                                                 sizeof(real));
     layer.setEntrySize<LTS::NodalAvgDisplacements>(nodalDisplacementsCounter *
-                                                   nodalDisplacementsSize * sizeof(real));
+                                                   NodalDisplacementsSize * sizeof(real));
 #ifdef USE_VISCOELASTIC2
     layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * tensor::Iane::size() * sizeof(real));
     layer.setEntrySize<LTS::DerivativesExtScratch>(
@@ -254,31 +258,29 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
 }
 
 void MemoryManager::deriveRequiredScratchpadMemoryForDr(DynamicRupture::Storage& drStorage) {
-  constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
+  constexpr size_t IdofsSize = tensor::Q::size() * sizeof(real);
   for (auto& layer : drStorage.leaves()) {
     const auto layerSize = layer.size();
-    layer.setEntrySize<DynamicRupture::IdofsPlusOnDevice>(idofsSize * layerSize);
-    layer.setEntrySize<DynamicRupture::IdofsMinusOnDevice>(idofsSize * layerSize);
+    layer.setEntrySize<DynamicRupture::IdofsPlusOnDevice>(IdofsSize * layerSize);
+    layer.setEntrySize<DynamicRupture::IdofsMinusOnDevice>(IdofsSize * layerSize);
   }
 }
-#endif
 
 void MemoryManager::initializeMemoryLayout() {
-#ifdef ACL_DEVICE
-  MemoryManager::deriveRequiredScratchpadMemoryForWp(
-      seissolInstance.getSeisSolParameters().model.plasticity, ltsStorage);
-  ltsStorage.allocateScratchPads();
-#endif
+  if constexpr (isDeviceOn()) {
+    MemoryManager::deriveRequiredScratchpadMemoryForWp(
+        seissolInstance_.getSeisSolParameters().model.plasticity, ltsStorage_);
+    ltsStorage_.allocateScratchPads();
+  }
 }
 
 void MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
   const auto fileNameStr = std::string{fileName};
   if (!fileNameStr.empty()) {
-    m_easiBoundary = EasiBoundary(fileNameStr);
+    easiBoundary_ = EasiBoundary(fileNameStr);
   }
 }
 
-#ifdef ACL_DEVICE
 void MemoryManager::recordExecutionPaths(bool usePlasticity) {
   recording::CompositeRecorder<LTS::LTSVarmap> recorder;
   recorder.addRecorder(new recording::LocalIntegrationRecorder);
@@ -288,17 +290,16 @@ void MemoryManager::recordExecutionPaths(bool usePlasticity) {
     recorder.addRecorder(new recording::PlasticityRecorder);
   }
 
-  for (auto& layer : ltsStorage.leaves(Ghost)) {
+  for (auto& layer : ltsStorage_.leaves(Ghost)) {
     recorder.record(layer);
   }
 
   recording::CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
   drRecorder.addRecorder(new recording::DynamicRuptureRecorder);
-  for (auto& layer : drStorage.leaves(Ghost)) {
+  for (auto& layer : drStorage_.leaves(Ghost)) {
     drRecorder.record(layer);
   }
 }
-#endif // ACL_DEVICE
 
 bool isAcousticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
   constexpr auto Eps = std::numeric_limits<real>::epsilon();
@@ -331,7 +332,7 @@ bool requiresNodalFlux(FaceType f) {
 }
 
 void MemoryManager::initializeFrictionLaw() {
-  const auto& params = seissolInstance.getSeisSolParameters().drParameters;
+  const auto& params = seissolInstance_.getSeisSolParameters().drParameters;
   const auto drParameters = std::make_shared<parameters::DRParameters>(params);
   logInfo() << "Initialize Friction Model";
 
@@ -339,46 +340,52 @@ void MemoryManager::initializeFrictionLaw() {
             << "(" << static_cast<int>(drParameters->frictionLawType) << ")";
   logInfo() << "Thermal pressurization:" << (drParameters->isThermalPressureOn ? "on" : "off");
 
-  const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance);
+  const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance_);
   auto product = factory->produce();
-  m_dynRup = std::move(product.storage);
-  m_DRInitializer = std::move(product.initializer);
-  m_FrictionLaw = std::move(product.frictionLaw);
-  m_FrictionLawDevice = std::move(product.frictionLawDevice);
-  m_faultOutputManager = std::move(product.output);
+  dynRup_ = std::move(product.storage);
+  DRInitializer_ = std::move(product.initializer);
+  FrictionLaw_ = std::move(product.frictionLaw);
+  FrictionLawDevice_ = std::move(product.frictionLawDevice);
+  faultOutputManager_ = std::move(product.output);
 }
 
 void MemoryManager::initFaultOutputManager(const std::string& backupTimeStamp) {
-  const auto& params = seissolInstance.getSeisSolParameters().drParameters;
-  // TODO: switch m_dynRup to shared or weak pointer
+  const auto& params = seissolInstance_.getSeisSolParameters().drParameters;
+  // TODO: switch dynRup_ to shared or weak pointer
   if (params.isDynamicRuptureEnabled) {
-    m_faultOutputManager->setInputParam(seissolInstance.meshReader());
-    m_faultOutputManager->setLtsData(ltsStorage, backmap, drStorage);
-    m_faultOutputManager->setBackupTimeStamp(backupTimeStamp);
-    m_faultOutputManager->init();
+    faultOutputManager_->setInputParam(seissolInstance_.meshReader());
+    faultOutputManager_->setLtsData(ltsStorage_, backmap_, drStorage_);
+    faultOutputManager_->setBackupTimeStamp(backupTimeStamp);
+    faultOutputManager_->init();
   }
 }
 
 void MemoryManager::initFrictionData() {
-  const auto& params = seissolInstance.getSeisSolParameters().drParameters;
+  const auto& params = seissolInstance_.getSeisSolParameters().drParameters;
   if (params.isDynamicRuptureEnabled) {
 
-    m_DRInitializer->initializeFault(drStorage);
+    DRInitializer_->initializeFault(drStorage_);
   }
 }
 
 void MemoryManager::synchronizeTo(AllocationPlace place) {
-#ifdef ACL_DEVICE
   if (place == AllocationPlace::Device) {
     logInfo() << "Synchronizing data... (host->device)";
   } else {
     logInfo() << "Synchronizing data... (device->host)";
   }
-  const auto& defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
-  ltsStorage.synchronizeTo(place, defaultStream);
-  drStorage.synchronizeTo(place, defaultStream);
-  m_boundaryTree.synchronizeTo(place, defaultStream);
-  surfaceStorage.synchronizeTo(place, defaultStream);
+
+  void* defaultStream = nullptr;
+
+#ifdef ACL_DEVICE
+  defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
+#endif
+  ltsStorage_.synchronizeTo(place, defaultStream);
+  drStorage_.synchronizeTo(place, defaultStream);
+  boundaryTree_.synchronizeTo(place, defaultStream);
+  surfaceStorage_.synchronizeTo(place, defaultStream);
+
+#ifdef ACL_DEVICE
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 }

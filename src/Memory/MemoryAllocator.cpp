@@ -162,7 +162,7 @@ void memcopy(void* dst, const void* src, std::size_t size, Memkind dstMemkind, M
 void memzero(void* dst, std::size_t size, enum Memkind memkind) {
   if (memkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
-    auto defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
+    auto* defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
     device::DeviceInstance::getInstance().algorithms.fillArray(
         reinterpret_cast<char*>(dst), static_cast<char>(0), size, defaultStream);
     device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
@@ -197,18 +197,18 @@ void printMemoryAlignment(const std::vector<std::vector<unsigned long long>>& me
 }
 
 ManagedAllocator::~ManagedAllocator() {
-  for (const auto& [memkind, pointer] : dataMemoryAddresses) {
+  for (const auto& [memkind, pointer] : dataMemoryAddresses_) {
     free(pointer, memkind);
   }
 
   // reset memory vectors
-  dataMemoryAddresses.clear();
+  dataMemoryAddresses_.clear();
 }
 
 void* ManagedAllocator::allocateMemory(size_t size, size_t alignment, enum Memkind memkind) {
   // NOLINTNEXTLINE(misc-const-correctness)
   void* const ptrBuffer = allocate(size, alignment, memkind);
-  dataMemoryAddresses.emplace_back(memkind, ptrBuffer);
+  dataMemoryAddresses_.emplace_back(memkind, ptrBuffer);
   return ptrBuffer;
 }
 

@@ -77,12 +77,12 @@ class FastVelocityWeakeningLaw
   }
 
   SEISSOL_DEVICE static real
-      updateMu(FrictionLawContext& ctx, real localSlipRateMagnitude, const MuDetails& details) {
+      updateMu(FrictionLawContext& /*ctx*/, real localSlipRateMagnitude, const MuDetails& details) {
     const real lx = details.cLin * localSlipRateMagnitude;
     return details.a * rs::arsinhexp(lx, details.cExpLog, details.cExp);
   }
 
-  SEISSOL_DEVICE static real updateMuDerivative(FrictionLawContext& ctx,
+  SEISSOL_DEVICE static real updateMuDerivative(FrictionLawContext& /*ctx*/,
                                                 real localSlipRateMagnitude,
                                                 const MuDetails& details) {
     const real lx = details.cLin * localSlipRateMagnitude;

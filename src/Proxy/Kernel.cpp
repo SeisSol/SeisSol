@@ -22,10 +22,10 @@ auto PerformanceEstimate::operator+(const PerformanceEstimate& other) const -> P
 }
 
 ChainKernel::ChainKernel(const std::vector<std::shared_ptr<ProxyKernel>>& kernels)
-    : kernels(kernels) {}
+    : kernels_(kernels) {}
 
 void ChainKernel::run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const {
-  for (const auto& kernel : kernels) {
+  for (const auto& kernel : kernels_) {
     kernel->run(data, runtime);
   }
 }
@@ -33,7 +33,7 @@ void ChainKernel::run(ProxyData& data, seissol::parallel::runtime::StreamRuntime
 auto ChainKernel::performanceEstimate(ProxyData& data) const -> PerformanceEstimate {
   PerformanceEstimate estimate{};
 
-  for (const auto& kernel : kernels) {
+  for (const auto& kernel : kernels_) {
     estimate = estimate + kernel->performanceEstimate(data);
   }
 
@@ -42,7 +42,7 @@ auto ChainKernel::performanceEstimate(ProxyData& data) const -> PerformanceEstim
 
 auto ChainKernel::needsDR() const -> bool {
   return std::any_of(
-      kernels.begin(), kernels.end(), [](const auto& kernel) { return kernel->needsDR(); });
+      kernels_.begin(), kernels_.end(), [](const auto& kernel) { return kernel->needsDR(); });
 }
 
 } // namespace seissol::proxy

@@ -27,7 +27,7 @@ class Pytables : public TableWriter {
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter() override;
 
   private:
-  std::vector<char> rowstorageCopy;
+  std::vector<char> rowstorageCopy_;
 };
 
 } // namespace seissol::io::instance::point

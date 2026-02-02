@@ -63,7 +63,7 @@ struct FrictionLawContext {
 };
 
 #ifdef __CUDACC__
-SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& ctx) { __syncthreads(); }
+SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& /*ctx*/) { __syncthreads(); }
 #elif defined(__HIP__)
 SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& ctx) { __syncthreads(); }
 #elif defined(SEISSOL_KERNELS_SYCL)
@@ -191,12 +191,12 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
   void setupLayer(DynamicRupture::Layer& layerData,
                   seissol::parallel::runtime::StreamRuntime& runtime) override {
-    this->currLayerSize = layerData.size();
-    FrictionSolverInterface::copyStorageToLocal(&dataHost, layerData);
-    Derived::copySpecificStorageDataToLocal(&dataHost, layerData);
-    dataHost.drParameters = *this->drParameters;
+    this->currLayerSize_ = layerData.size();
+    FrictionSolverInterface::copyStorageToLocal(&dataHost_, layerData);
+    Derived::copySpecificStorageDataToLocal(&dataHost_, layerData);
+    dataHost_.drParameters = *this->drParameters_;
     device::DeviceInstance::getInstance().api->copyToAsync(
-        data, &dataHost, sizeof(FrictionLawData), runtime.stream());
+        data_, &dataHost_, sizeof(FrictionLawData), runtime.stream());
   }
 
   void evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
@@ -208,7 +208,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                 const FrictionTime& frictionTime,
                 const double* timeWeights,
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
-    if (this->currLayerSize == 0) {
+    if (this->currLayerSize_ == 0) {
       return;
     }
 

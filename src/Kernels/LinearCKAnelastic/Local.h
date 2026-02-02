@@ -50,14 +50,14 @@ class Local : public LocalKernel {
   std::uint64_t bytesIntegral() override;
 
   protected:
-  kernel::volumeExt m_volumeKernelPrototype;
-  kernel::localFluxExt m_localFluxKernelPrototype;
-  kernel::local m_localKernelPrototype;
+  kernel::volumeExt volumeKernelPrototype_;
+  kernel::localFluxExt localFluxKernelPrototype_;
+  kernel::local localKernelPrototype_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_volumeExt deviceVolumeKernelPrototype;
-  kernel::gpu_localFluxExt deviceLocalFluxKernelPrototype;
-  kernel::gpu_local deviceLocalKernelPrototype;
+  kernel::gpu_volumeExt deviceVolumeKernelPrototype_;
+  kernel::gpu_localFluxExt deviceLocalFluxKernelPrototype_;
+  kernel::gpu_local deviceLocalKernelPrototype_;
 #endif
 };
 } // namespace seissol::kernels::solver::linearckanelastic

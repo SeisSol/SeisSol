@@ -13,17 +13,13 @@
 #include <utility>
 #include <vector>
 
-#ifdef ACL_DEVICE
-#include <Device/device.h>
-#endif // ACL_DEVICE
-
 namespace seissol::time_stepping {
 
 AbstractCommunicationManager::AbstractCommunicationManager(
     AbstractCommunicationManager::GhostClustersT ghostClusters)
-    : ghostClusters(std::move(ghostClusters)) {}
+    : ghostClusters_(std::move(ghostClusters)) {}
 void AbstractCommunicationManager::reset(double newSyncTime) {
-  for (auto& ghostCluster : ghostClusters) {
+  for (auto& ghostCluster : ghostClusters_) {
     ghostCluster->setSyncTime(newSyncTime);
 
     // dereference first due to clang-tidy recommendation
@@ -33,12 +29,12 @@ void AbstractCommunicationManager::reset(double newSyncTime) {
 
 std::vector<std::unique_ptr<AbstractGhostTimeCluster>>*
     AbstractCommunicationManager::getGhostClusters() {
-  return &ghostClusters;
+  return &ghostClusters_;
 }
 
 bool AbstractCommunicationManager::poll() {
   bool finished = true;
-  for (auto& ghostCluster : ghostClusters) {
+  for (auto& ghostCluster : ghostClusters_) {
     ghostCluster->act();
     finished = finished && ghostCluster->synced();
   }
@@ -50,7 +46,7 @@ SerialCommunicationManager::SerialCommunicationManager(
     : AbstractCommunicationManager(std::move(ghostClusters)) {}
 
 bool SerialCommunicationManager::checkIfFinished() const {
-  for (const auto& ghostCluster : ghostClusters) {
+  for (const auto& ghostCluster : ghostClusters_) {
     if (!ghostCluster->synced()) {
       return false;
     }
@@ -64,18 +60,18 @@ ThreadedCommunicationManager::ThreadedCommunicationManager(
     AbstractCommunicationManager::GhostClustersT ghostClusters,
     const seissol::parallel::Pinning* pinning)
     : AbstractCommunicationManager(std::move(ghostClusters)),
-      helper([&]() { return this->poll(); }, pinning) {}
+      helper_([&]() { return this->poll(); }, pinning) {}
 
 void ThreadedCommunicationManager::progression() {
   // Do nothing: Thread takes care of that.
 }
 
-bool ThreadedCommunicationManager::checkIfFinished() const { return helper.finished(); }
+bool ThreadedCommunicationManager::checkIfFinished() const { return helper_.finished(); }
 
 void ThreadedCommunicationManager::reset(double newSyncTime) {
-  helper.stop();
+  helper_.stop();
   AbstractCommunicationManager::reset(newSyncTime);
-  helper.start();
+  helper_.start();
 }
 
 } // namespace seissol::time_stepping

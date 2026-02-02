@@ -57,4 +57,4 @@ jobs:
           make seissol-codegen
           # clang-tidy can not handle -fprofile-abs-path, so we remove it from the compile commands.
           sed -i 's/-fprofile-abs-path //g' compile_commands.json
-          ../.ci/tidy.sh ../ ./ -clang-tidy-binary=$(which clang-tidy-21) -quiet -j $(nproc)
+          ../.ci/tidy.sh ../ ./ -clang-tidy-binary=$(which clang-tidy-21) -j $(nproc)
