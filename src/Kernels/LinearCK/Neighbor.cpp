@@ -53,9 +53,9 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 #ifdef USE_PREMULTIPLY_FLUX
   deviceNfKrnlPrototype_.minusFluxMatrices = global.onDevice->minusFluxMatrices;
 #else
-  deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceNfKrnlPrototype.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
-  deviceNfKrnlPrototype.fP = global.onDevice->neighborFluxMatrices;
+  deviceNfKrnlPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
+  deviceNfKrnlPrototype_.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
+  deviceNfKrnlPrototype_.fP = global.onDevice->neighborFluxMatrices;
 #endif
   deviceDrKrnlPrototype_.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
 #endif

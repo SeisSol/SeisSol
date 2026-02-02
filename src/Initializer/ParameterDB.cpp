@@ -200,7 +200,7 @@ easi::Query ElementAverageGenerator::generate() const {
 
 std::size_t PlasticityPointGenerator::outputPerCell() const {
   constexpr auto PlasticityPoints = model::PlasticityData::PointCount;
-  return pointwise ? PlasticityPoints : 1;
+  return pointwise_ ? PlasticityPoints : 1;
 }
 
 easi::Query PlasticityPointGenerator::generate() const {
@@ -208,21 +208,21 @@ easi::Query PlasticityPointGenerator::generate() const {
   const auto pointsPerCell = outputPerCell();
 
   // Generate query using quadrature points for each element
-  easi::Query query(m_cellToVertex.size * pointsPerCell, Cell::Dim);
+  easi::Query query(cellToVertex_.size * pointsPerCell, Cell::Dim);
 
   auto nodes = init::vNodes::view::create(const_cast<real*>(init::vNodes::Values));
 
 // Transform quadrature points to global coordinates for all elements
 #pragma omp parallel for schedule(static)
-  for (std::size_t elem = 0; elem < m_cellToVertex.size; ++elem) {
+  for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
 
-    const auto vertices = m_cellToVertex.elementCoordinates(elem);
+    const auto vertices = cellToVertex_.elementCoordinates(elem);
 
     for (std::size_t i = 0; i < pointsPerCell; ++i) {
 
       std::array<double, Cell::Dim> point{};
 
-      if (pointwise) {
+      if (pointwise_) {
         for (std::size_t j = 0; j < Cell::Dim; ++j) {
           if (nodes.isInRange(i, j)) {
             point[j] = nodes(i, j);
@@ -240,7 +240,7 @@ easi::Query PlasticityPointGenerator::generate() const {
       for (std::size_t j = 0; j < Cell::Dim; ++j) {
         query.x(pointIdx, j) = transformed(j);
       }
-      query.group(pointIdx) = m_cellToVertex.elementGroups(elem);
+      query.group(pointIdx) = cellToVertex_.elementGroups(elem);
     }
   }
 

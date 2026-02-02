@@ -101,13 +101,13 @@ class ElementAverageGenerator : public QueryGenerator {
 class PlasticityPointGenerator : public QueryGenerator {
   public:
   explicit PlasticityPointGenerator(const CellToVertexArray& cellToVertex, bool pointwise = true)
-      : m_cellToVertex(cellToVertex), pointwise(pointwise) {}
+      : cellToVertex_(cellToVertex), pointwise_(pointwise) {}
   [[nodiscard]] easi::Query generate() const override;
   [[nodiscard]] std::size_t outputPerCell() const override;
 
   private:
-  CellToVertexArray m_cellToVertex;
-  bool pointwise{true};
+  CellToVertexArray cellToVertex_;
+  bool pointwise_{true};
 };
 
 class FaultBarycenterGenerator : public QueryGenerator {

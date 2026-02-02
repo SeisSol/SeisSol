@@ -67,8 +67,8 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 #ifdef USE_PREMULTIPLY_FLUX
   deviceLocalFluxKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
 #else
-  deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+  deviceLocalFluxKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
+  deviceLocalFluxKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
 #endif
   deviceNodalLfKrnlPrototype_.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
   deviceProjectRotatedKrnlPrototype_.V3mTo2nFace = global.onDevice->v3mTo2nFace;
