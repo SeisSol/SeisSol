@@ -35,7 +35,6 @@ class FrictionSolver {
   virtual ~FrictionSolver() = default;
 
   struct FrictionTime {
-    double sumDt{};
     std::vector<double> deltaT;
   };
 
@@ -70,7 +69,6 @@ class FrictionSolver {
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf.
    */
   real deltaT_[misc::TimeSteps] = {};
-  real sumDt_{};
 
   seissol::initializer::parameters::DRParameters* __restrict drParameters_;
   ImpedancesAndEta* __restrict impAndEta_{};

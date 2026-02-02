@@ -100,9 +100,10 @@ TimeCluster::TimeCluster(unsigned int clusterId,
       sourceCluster_(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
       // cells
       loopStatistics_(loopStatistics), actorStateStatistics_(actorStateStatistics),
-      yieldCells_(1,
-                  isDeviceOn() ? seissol::memory::Memkind::PinnedMemory
-                               : seissol::memory::Memkind::Standard),
+      conditionalCounterHost_(1, seissol::memory::Memkind::Standard),
+      conditionalCounterDevice_(1,
+                                isDeviceOn() ? seissol::memory::Memkind::DeviceGlobalMemory
+                                             : seissol::memory::Memkind::Standard),
       layerType_(layerType), printProgress_(printProgress), clusterId_(clusterId),
       globalClusterId_(globalClusterId), profilingId_(profilingId),
       dynamicRuptureScheduler_(dynamicRuptureScheduler) {
@@ -143,7 +144,8 @@ TimeCluster::TimeCluster(unsigned int clusterId,
   regionComputeDynamicRupture_ = loopStatistics_->getRegion("computeDynamicRupture");
   regionComputePointSources_ = loopStatistics_->getRegion("computePointSources");
 
-  yieldCells_[0] = 0;
+  conditionalCounterHost_[0] = 0;
+  conditionalCounterDevice_.copyFrom(conditionalCounterHost_);
 
   const auto* cellInfo = clusterData_->var<LTS::CellInformation>();
   for (std::size_t i = 0; i < clusterData_->size(); ++i) {
@@ -225,9 +227,8 @@ void TimeCluster::computeDynamicRupture(DynamicRupture::Layer& layerData) {
   {
     LIKWID_MARKER_START("computeDynamicRuptureSpaceTimeInterpolation");
   }
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t face = 0; face < layerData.size(); ++face) {
     const std::size_t prefetchFace = (face + 1 < layerData.size()) ? face + 1 : face;
     dynamicRuptureKernel_.spaceTimeInterpolation(faceInformation[face],
@@ -364,10 +365,8 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   const auto timeBasis = seissol::kernels::timeBasis();
   const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
 
-#ifdef _OPENMP
 #pragma omp parallel for private(bufferPointer, integrationBuffer),                                \
     firstprivate(tmp) schedule(static)
-#endif
   for (std::size_t cell = 0; cell < clusterData_->size(); cell++) {
     auto data = clusterData_->cellRef(cell);
 
@@ -578,16 +577,16 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
         clusterData_->var<LTS::FlagScratch>(seissol::initializer::AllocationPlace::Device);
     streamRuntime_.runGraph(plasticityGraphKey,
                             *clusterData_,
-                            [&](seissol::parallel::runtime::StreamRuntime& /*streamRuntime*/) {
+                            [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
                               seissol::kernels::Plasticity::computePlasticityBatched(
                                   timeStepWidth,
                                   seissolInstance_.getSeisSolParameters().model.tv,
                                   globalDataOnDevice_,
                                   table,
                                   plasticity,
-                                  yieldCells_.data(),
+                                  conditionalCounterDevice_.data(),
                                   isAdjustableVector,
-                                  streamRuntime_);
+                                  streamRuntime);
                             });
 
     seissolInstance_.flopCounter().incrementNonZeroFlopsPlasticity(
@@ -834,14 +833,18 @@ void TimeCluster::correct() {
     dynamicRuptureScheduler_->setLastFaultOutput(ct_.stepsSinceStart);
   }
 
-  streamRuntime_.wait();
+  if (printProgress_) {
 
-  // TODO(Lukas) Adjust with time step rate? Relevant is maximum cluster is not on this node
-  const auto nextCorrectionSteps = ct_.nextCorrectionSteps();
-  if (printProgress_ && (((nextCorrectionSteps / timeStepRate_) % 100) == 0)) {
-    logInfo() << "#max-updates since sync: " << nextCorrectionSteps << " @ "
-              << ct_.nextCorrectionTime(syncTime_);
+    const auto nextCorrectionSteps = ct_.nextCorrectionSteps();
+    if (((nextCorrectionSteps / timeStepRate_) % 100) == 0) {
+      streamRuntime_.enqueueHost([this, nextCorrectionSteps]() {
+        logInfo() << "Max cluster / LTS cycle updates since sync: " << nextCorrectionSteps
+                  << " at time " << ct_.nextCorrectionTime(syncTime_);
+      });
+    }
   }
+
+  streamRuntime_.wait();
 }
 
 void TimeCluster::reset() {
@@ -925,7 +928,6 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   const auto subtimeCoeffs =
       timeBasis.integrate(subTimeStart, timestep + subTimeStart, neighborTimestep_);
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static) default(none) private(timeIntegrated,                    \
                                                                     faceNeighborsPrefetch)         \
     shared(oneMinusIntegratingFactor,                                                              \
@@ -941,7 +943,6 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
                clusterData_,                                                                       \
                timestep,                                                                           \
                clusterSize) reduction(+ : numberOfTetsWithPlasticYielding)
-#endif
   for (std::size_t cell = 0; cell < clusterSize; cell++) {
     auto data = clusterData_->cellRef(cell);
 
@@ -999,7 +1000,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   }
 
   if constexpr (UsePlasticity) {
-    yieldCells_[0] += numberOfTetsWithPlasticYielding;
+    conditionalCounterHost_[0] += numberOfTetsWithPlasticYielding;
     seissolInstance_.flopCounter().incrementNonZeroFlopsPlasticity(
         numPlasticCells_ * accFlopsNonZero_[static_cast<int>(ComputePart::PlasticityCheck)]);
     seissolInstance_.flopCounter().incrementHardwareFlopsPlasticity(
@@ -1025,12 +1026,21 @@ void TimeCluster::synchronizeTo(seissol::initializer::AllocationPlace place, voi
 }
 
 void TimeCluster::finishPhase() {
-  const auto cells = yieldCells_[0];
+  const auto cells = conditionalCounterHost_[0];
   seissolInstance_.flopCounter().incrementNonZeroFlopsPlasticity(
       cells * accFlopsNonZero_[static_cast<int>(ComputePart::PlasticityYield)]);
   seissolInstance_.flopCounter().incrementHardwareFlopsPlasticity(
       cells * accFlopsHardware_[static_cast<int>(ComputePart::PlasticityYield)]);
-  yieldCells_[0] = 0;
+
+  conditionalCounterHost_.copyFrom(conditionalCounterDevice_);
+  const auto cells2 = conditionalCounterHost_[0];
+  seissolInstance_.flopCounter().incrementNonZeroFlopsPlasticity(
+      cells2 * accFlopsNonZero_[static_cast<int>(ComputePart::PlasticityYield)]);
+  seissolInstance_.flopCounter().incrementHardwareFlopsPlasticity(
+      cells2 * accFlopsHardware_[static_cast<int>(ComputePart::PlasticityYield)]);
+
+  conditionalCounterHost_[0] = 0;
+  conditionalCounterDevice_.copyFrom(conditionalCounterHost_);
 }
 
 std::string TimeCluster::description() const {

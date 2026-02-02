@@ -397,9 +397,8 @@ class Storage {
   }
 
   void touchVariables() {
-#ifdef _OPENMP
+
 #pragma omp parallel
-#endif
     {
       for (auto& leaf : this->leaves()) {
         leaf.touchVariables();

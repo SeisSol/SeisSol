@@ -128,7 +128,8 @@ class TimeCluster : public AbstractTimeCluster {
 
   kernels::ReceiverCluster* receiverCluster_{nullptr};
 
-  seissol::memory::MemkindArray<std::size_t> yieldCells_;
+  seissol::memory::MemkindArray<std::size_t> conditionalCounterHost_;
+  seissol::memory::MemkindArray<std::size_t> conditionalCounterDevice_;
 
   std::size_t numPlasticCells_{0};
 
@@ -210,7 +211,7 @@ class TimeCluster : public AbstractTimeCluster {
   //! time of the next receiver output
   double receiverTime_;
 
-  //! print status every 100th timestep
+  //! print status
   bool printProgress_;
   //! cluster id on this rank
   unsigned int clusterId_;

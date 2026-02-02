@@ -105,9 +105,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
   for (auto& layer : ltsStorage_->leaves(Ghost)) {
     auto* materialData = layer.var<LTS::MaterialData>();
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       // for now, keep the NOLINTNEXTLINE here (due to polymorphic access)
       // NOLINTNEXTLINE

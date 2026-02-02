@@ -97,9 +97,8 @@ namespace seissol::asagi {
   bool abort = false;
   // Read the data
   // SCOREP_RECORDING_OFF();
-#ifdef _OPENMP
+
 #pragma omp parallel shared(abort) num_threads(asagiThreads_)
-#endif // _OPENMP
   {
     const ::asagi::Grid::Error err = grid->open(file);
     if (err != ::asagi::Grid::SUCCESS) {

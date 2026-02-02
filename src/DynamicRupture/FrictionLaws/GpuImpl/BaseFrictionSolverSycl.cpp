@@ -40,7 +40,6 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   args.heatSource = this->devHeatSource_;
   std::copy_n(timeWeights, misc::TimeSteps, args.timeWeights);
   std::copy_n(frictionTime.deltaT.data(), misc::TimeSteps, args.deltaT);
-  args.sumDt = frictionTime.sumDt;
   args.fullUpdateTime = fullUpdateTime;
 
   sycl::nd_range rng{{this->currLayerSize_ * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};

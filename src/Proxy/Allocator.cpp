@@ -87,9 +87,7 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
     cellInformation[cell].ltsSetup = LtsSetup();
   }
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       switch (faceTp) {
@@ -120,9 +118,8 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
                          false);
 
 #ifdef USE_POROELASTIC
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     localIntegration[cell].specific.typicalTimeStepWidth = seissol::proxy::Timestep;
   }
@@ -201,9 +198,7 @@ void ProxyData::initDataStructures(bool enableDR) {
         PagesizeHeap,
         seissol::memory::Memkind::Standard));
 
-#ifdef _OPENMP
 #pragma omp parallel
-#endif
     {
       const auto offset = OpenMP::threadId();
       std::mt19937 rng(cellCount + offset);

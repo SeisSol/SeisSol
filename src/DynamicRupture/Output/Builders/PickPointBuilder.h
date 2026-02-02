@@ -83,9 +83,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
     std::vector<short> contained(potentialReceivers_.size());
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
     for (size_t receiverIdx = 0; receiverIdx < numReceiverPoints; ++receiverIdx) {
       try {
         auto& receiver = potentialReceivers_[receiverIdx];

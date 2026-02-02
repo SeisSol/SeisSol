@@ -8,6 +8,7 @@
 
 #include "WaveFieldWriter.h"
 
+#include "GeneratedCode/init.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/Refinement/MeshRefiner.h"
@@ -280,13 +281,14 @@ void seissol::writer::WaveFieldWriter::init(
   logDebug() << "Vertices : " << numVerts << "refined-to ->" << meshRefiner->getNumVertices();
 
   variableSubsampler_ = std::make_unique<refinement::VariableSubsampler<double>>(
-      numElems, *tetRefiner, order, numVars, numAlignedDOF);
+      numElems, *tetRefiner, order, numVars, numAlignedDOF, false);
   variableSubsamplerPStrain_ = std::make_unique<refinement::VariableSubsampler<double>>(
       numElems,
       *tetRefiner,
       order,
       static_cast<unsigned int>(WaveFieldWriterExecutor::NumPlasticityVariables),
-      numAlignedDOF);
+      init::QEtaNodal::size(),
+      true);
 
   logInfo() << "VariableSubsampler initialized";
 
@@ -483,9 +485,7 @@ void seissol::writer::WaveFieldWriter::write(double time) {
           async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>::managedBuffer<
               real*>(variableBufferIds_[1] + nextId);
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif // _OPENMP
       for (unsigned int j = 0; j < numLowCells_; j++) {
         managedBuffer[j] = integrals_[map_[j] * numIntegratedVariables_ + nextId];
       }

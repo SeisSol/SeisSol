@@ -81,9 +81,8 @@ MeshRefiner<T>::MeshRefiner(const seissol::geometry::MeshReader& meshReader,
   const std::vector<Element>& kElements = meshReader.getElements();
 
   // Copy original vertices
-#ifdef _OPENMP
+
 #pragma omp parallel for
-#endif // _OPENMP
   for (unsigned int i = 0; i < kInVertexCount; i++) {
     memcpy(&vertices_[static_cast<size_t>(i * 3)], kVertices[i].coords, sizeof(double) * 3);
   }
@@ -92,16 +91,13 @@ MeshRefiner<T>::MeshRefiner(const seissol::geometry::MeshReader& meshReader,
   T* newVertices = &vertices_[kInVertexCount * 3];
 
   // Start the actual cell-refinement
-#ifdef _OPENMP
+
 #pragma omp parallel
   {
-#endif // _OPENMPI
     auto* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
     auto* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
 
-#ifdef _OPENMP
 #pragma omp for schedule(static) nowait
-#endif // _OPENMP
     for (size_t c = 0; c < kInCellCount; ++c) {
       // Build a Terahedron containing the coordinates of the vertices.
       const Tetrahedron<T> inTet = Tetrahedron<T>(kVertices[kElements[c].vertices[0]].coords,
@@ -134,9 +130,7 @@ MeshRefiner<T>::MeshRefiner(const seissol::geometry::MeshReader& meshReader,
 
     delete[] newVerticesTmp;
     delete[] newTetsTmp;
-#ifdef _OPENMP
   }
-#endif
 }
 
 template <typename T>
@@ -163,9 +157,7 @@ MeshRefiner<T>::MeshRefiner(const std::vector<const Element*>& subElements,
   const std::vector<const Element*>& kElements = subElements;
 
   // Copy original vertices
-#ifdef _OPENMP
 #pragma omp parallel for
-#endif // _OPENMP
   for (unsigned int i = 0; i < kInVertexCount; i++) {
     memcpy(&vertices_[static_cast<size_t>(i * 3)], kVertices[i]->coords, sizeof(double) * 3);
   }
@@ -174,16 +166,12 @@ MeshRefiner<T>::MeshRefiner(const std::vector<const Element*>& subElements,
   T* newVertices = &vertices_[kInVertexCount * 3];
 
   // Start the actual cell-refinement
-#ifdef _OPENMP
 #pragma omp parallel shared(oldToNewVertexMap)
   {
-#endif // _OPENMPI
     auto* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
     auto* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
 
-#ifdef _OPENMP
 #pragma omp for schedule(static) nowait
-#endif // _OPENMP
     for (size_t c = 0; c < kInCellCount; ++c) {
       // Build a Terahedron containing the coordinates of the vertices.
       const Tetrahedron<T> inTet =
@@ -217,9 +205,7 @@ MeshRefiner<T>::MeshRefiner(const std::vector<const Element*>& subElements,
 
     delete[] newVerticesTmp;
     delete[] newTetsTmp;
-#ifdef _OPENMP
   }
-#endif
 }
 
 template <typename T>

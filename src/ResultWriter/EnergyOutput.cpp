@@ -21,6 +21,7 @@
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
@@ -54,6 +55,9 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
+
+GENERATE_HAS_MEMBER(vInv)
+GENERATE_HAS_MEMBER(evalAtQP)
 
 namespace seissol::writer {
 
@@ -339,7 +343,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       const auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
       const auto layerSize = layer.size();
 
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#if !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(                                                                \
         + : totalFrictionalWork, staticFrictionalWork, seismicMoment, potency) default(none)       \
     shared(layerSize,                                                                              \
@@ -382,7 +386,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         }
       }
       double localMin = std::numeric_limits<double>::infinity();
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#if !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(min : localMin) default(none)                                   \
     shared(layerSize, drEnergyOutput, faceInformation, sim)
 #endif
@@ -434,7 +438,7 @@ void EnergyOutput::computeVolumeEnergies() {
       const auto* boundaryMappingData = layer.var<LTS::BoundaryMapping>();
       const auto* pstrainData = layer.var<LTS::PStrain>();
       const auto* dofsData = layer.var<LTS::Dofs>();
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#if !NVHPC_AVOID_OMP
 #pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal,             \
                                                         totalAcousticEnergyLocal,                  \
                                                         totalAcousticKineticEnergyLocal,           \
@@ -600,7 +604,25 @@ void EnergyOutput::computeVolumeEnergies() {
           // plastic moment
           const real* pstrainCell = pstrainData[cell];
           const double mu = material.getMuBar();
-          totalPlasticMoment += mu * volume * pstrainCell[tensor::QStress::size() + sim];
+
+          // integrating over all collocation points suffices
+          const real* __restrict qEta = &pstrainCell[tensor::QStressNodal::size()];
+
+          alignas(Alignment) real qEtaQuad[tensor::QEtaNodalProject::size()]{};
+
+          kernel::plProject krnl;
+          set_evalAtQP(krnl, global_->evalAtQPMatrix);
+          set_vInv(krnl, global_->vandermondeMatrixInverse);
+          krnl.QEtaNodal = qEta;
+          krnl.QEtaNodalProject = qEtaQuad;
+          krnl.execute();
+
+          double pMoment = 0;
+          for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
+            pMoment += quadratureWeightsTet[qp] * qEtaQuad[qp];
+          }
+
+          totalPlasticMoment += mu * jacobiDet * pMoment;
         }
       }
     }

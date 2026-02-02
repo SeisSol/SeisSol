@@ -395,9 +395,8 @@ void MeshReader::verifyMeshOrientation() {
   // for now, only check the tetrahedron orientation here
 
   bool correct = true;
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t i = 0; i < elements_.size(); ++i) {
     const auto& element = elements_[i];
 
