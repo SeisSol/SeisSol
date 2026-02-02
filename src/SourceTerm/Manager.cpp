@@ -132,7 +132,7 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
     [[fallthrough]];
   case seissol::model::MaterialType::Acoustic:
     logError() << "NRF sources are only compatible with isotropic (visco)elastic and "
-                    "poroelastic materials.";
+                  "poroelastic materials.";
     break;
   case seissol::model::MaterialType::Poroelastic:
     if (subfault.mu != 0) {

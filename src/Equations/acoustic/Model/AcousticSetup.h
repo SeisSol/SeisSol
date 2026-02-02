@@ -66,12 +66,12 @@ struct MaterialSetup<AcousticMaterial> {
     Matrix44 matR = Matrix44::Zero();
     matR(0, 0) = local.lambda;
     matR(1, 0) = std::sqrt(local.lambda / local.rho);
-    
+
     // scale for better condition number of matR
     matR(2, 1) = local.lambda;
     matR(3, 2) = local.lambda;
 
-    //dont understand why this needs to be neighbor..
+    // dont understand why this needs to be neighbor..
     matR(0, 3) = neighbor.lambda;
     matR(1, 3) = -std::sqrt(neighbor.lambda / neighbor.rho);
 

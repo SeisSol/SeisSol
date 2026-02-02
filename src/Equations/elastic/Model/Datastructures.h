@@ -84,6 +84,7 @@ struct ElasticMaterial : Material {
     stiffnessTensorView(2, 2, 2, 2) = lambda + 2 * mu;
   }
 
+  // TODO (VK): consider ITM scenario where only S-wave is reflected
   [[nodiscard]] double getMaxWaveSpeed() const override { return getPWaveSpeed(); }
 
   [[nodiscard]] double getPWaveSpeed() const override { return std::sqrt((lambda + 2 * mu) / rho); }

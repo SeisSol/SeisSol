@@ -59,6 +59,8 @@ struct AcousticMaterial : public Material {
   ~AcousticMaterial() override = default;
 
   // The stiffness tensor of the elastic model is reused.
+  // This function is used only for NRF sources for isotropic materials.
+  // This is not useful for acoustic materials as acoustic materials do not support NRF sources.
   void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const override {
 
     auto stiffnessTensorView =
