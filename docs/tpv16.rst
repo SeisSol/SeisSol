@@ -42,10 +42,10 @@ The portions of the fault below, to the left of, and to the right of the
 48000 m :math:`\times` 19500 m rectangle are a strength barrier, within
 which the fault is not allowed to rupture.
 
-In the example, a vertical fault is generated with Gmsh in Figure
-[fig:tpv16mesh]. All the files that are needed for the simulation are
+In the example, a vertical fault is generated with Gmsh in :numref:`figtpv16mesh`. All the files that are needed for the simulation are
 provided in https://github.com/SeisSol/Examples/tree/master/tpv16.
 
+.. _figtpv16mesh:
 .. figure:: figures/tpv16mesh.png
    :alt: Fault geometry of TPV16.
    :width: 10.00000cm
@@ -57,27 +57,29 @@ Material parameter
 ~~~~~~~~~~~~~~~~~~
 
 Rock properties are taken to be linear elastic throughout the 3D model
-volume. The problem description can be found at . Table
-[table:tpv16material] lists all the material parameters.
+volume. The problem description can be found at . :numref:`tabletpv16material` lists all the material parameters.
 
-+--------------------+--------------------------+-------------+--------------------+
-| Parameter          | Description              | Value       | Unit               |
-+====================+==========================+=============+====================+
-| :math:`\lambda`    | Lame’s first parameter   | 3.2044e10   | Pa                 |
-+--------------------+--------------------------+-------------+--------------------+
-| :math:`\mu`        | shear module             | 3.2038e10   | Pa                 |
-+--------------------+--------------------------+-------------+--------------------+
-| :math:`\rho`       | density                  | 2670        | :math:`kg/m^{3}`   |
-+--------------------+--------------------------+-------------+--------------------+
-| :math:`Q_p`        | P-wave attenuation       | 69.3        |                    |
-+--------------------+--------------------------+-------------+--------------------+
-| :math:`Q_s`        | S-wave attenuation       | 155.9       |                    |
-+--------------------+--------------------------+-------------+--------------------+
-| :math:`h_{edge}`   | element edge length      | 200         | m                  |
-+--------------------+--------------------------+-------------+--------------------+
+.. _tabletpv16material:
+.. table::
+   Bulk and material parameters in TPV16/17.
 
-Table: Table of bulk and material parameters in TPV16/17.
+   +--------------------+--------------------------+-------------+--------------------+
+   | Parameter          | Description              | Value       | Unit               |
+   +====================+==========================+=============+====================+
+   | :math:`\lambda`    | Lame’s first parameter   | 3.2044e10   | Pa                 |
+   +--------------------+--------------------------+-------------+--------------------+
+   | :math:`\mu`        | shear module             | 3.2038e10   | Pa                 |
+   +--------------------+--------------------------+-------------+--------------------+
+   | :math:`\rho`       | density                  | 2670        | :math:`kg/m^{3}`   |
+   +--------------------+--------------------------+-------------+--------------------+
+   | :math:`Q_p`        | P-wave attenuation       | 69.3        |                    |
+   +--------------------+--------------------------+-------------+--------------------+
+   | :math:`Q_s`        | S-wave attenuation       | 155.9       |                    |
+   +--------------------+--------------------------+-------------+--------------------+
+   | :math:`h_{edge}`   | element edge length      | 200         | m                  |
+   +--------------------+--------------------------+-------------+--------------------+
 
+.. _figtpv16ts:
 .. figure:: figures/tpv16-ts0.jpeg
    :alt: Mapview of fault randomly-generated initial stress in TPV16.
    :width: 11.00000cm
@@ -88,8 +90,7 @@ Table: Table of bulk and material parameters in TPV16/17.
 Nucleation parameters
 ~~~~~~~~~~~~~~~~~~~~~
 
-**Initial stress** (Ts0) is randomly-generated in TPV16/17 (Figure
-[fig:tpv16ts]).
+**Initial stress** (Ts0) is randomly-generated in TPV16/17 (:numref:`figtpv16ts`).
 
 In TPV16/17, a two-stage nucleation method is used. The first stage is a
 circular zone of forced rupture which surrounds the hypocenter. Its
@@ -116,10 +117,10 @@ Results
 ~~~~~~~
 
 The earthquake nucleates and the rupture propagates on the fault surface
-due to the heterogenous stress ratio on the fault. Figure
-[fig:tpv16slip] shows the fault slip rate along strike-direction at
+due to the heterogenous stress ratio on the fault. :numref:`figtpv16slip` shows the fault slip rate along strike-direction at
 T=5.5 s.
 
+.. _figtpv16slip:
 .. figure:: figures/psr-16.png
    :alt: Mapview of fault slip rate along strike-direction.
    :width: 11.00000cm
@@ -127,10 +128,10 @@ T=5.5 s.
 
    Mapview of fault slip rate along strike-direction.
 
-There are several receivers on the fault surface. Figure
-[fig:tpv16fault] shows slip rate along the strike- and downdip-direction
+There are several receivers on the fault surface. :numref:`figtpv16fault` shows slip rate along the strike- and downdip-direction
 on the fault at point (15 km, 0 km, -9 km).
 
+.. _figtpv16fault:
 .. figure:: figures/sliprate-16.png
    :alt: Fault slip along strike- (left)and downdip- (right) direction.
    :width: 11.00000cm

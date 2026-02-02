@@ -71,12 +71,13 @@ Table: Table of bi-material parameters used in SeisSol for Tpv6.
 Results
 ~~~~~~~
 
-Figure [fig:tpv6-4s] and [fig:tpv6-7s] show the fault slip rate at 4 s
+Figure :numref:`figtpv64s` and :numref:`figtpv67s` show the fault slip rate at 4 s
 and 7 s, respectively. The slip front is asymmetric when compared with
-TPV5 (Figure [fig:tpv5-4s]). Figure [fig:tpv6\_velocity] shows velocity
+TPV5 (:numref:`figtpv54s`). :numref:`figtpv6velocity` shows velocity
 recorded at two off-fault receivers. The wave picks arrives at the
 far-side receiver lower than those at the near-side receiver.
 
+.. _figtpv64s:
 .. figure:: figures/tpv6-srs-4s.jpg
    :alt: Fault slip rate at 4 seconds in the along-strike direction in
    :width: 12.00000cm
@@ -84,6 +85,7 @@ far-side receiver lower than those at the near-side receiver.
 
    Fault slip rate at 4 seconds in the along-strike direction in TPV6.
 
+.. _figtpv67s:
 .. figure:: figures/tpv6-srs-7s.jpg
    :alt: Fault slip rate at 7 seconds in the along-strike direction
    :width: 12.00000cm
@@ -91,7 +93,10 @@ far-side receiver lower than those at the near-side receiver.
 
    Fault slip rate at 7 seconds in the along-strike direction in TPV6.
 
+.. _figtpv6velocity:
 .. figure:: figures/tpv6-off-velocity.png
    :alt: Particle velocity at two opposite stations across the fault (+/- 9 km normal to the fault).
    :width: 12.00000cm
    :align: center
+
+   Particle velocity at two opposite stations across the fault (+/- 9 km normal to the fault).
