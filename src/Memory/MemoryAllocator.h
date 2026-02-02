@@ -73,6 +73,12 @@ T* allocTyped(size_t count, size_t alignment = 1, Memkind memkind = Memkind::Sta
 
 void free(void* pointer, Memkind memkind = Memkind::Standard);
 
+template <typename T>
+void freeTyped(T* pointer, Memkind memkind = Memkind::Standard) {
+  // mostly exists to silence clang-tidy (if T is a pointer)
+  free(reinterpret_cast<void*>(pointer), memkind);
+}
+
 void memcopy(
     void* dst, const void* src, std::size_t size, enum Memkind dstMemkind, enum Memkind srcMemkind);
 
@@ -198,7 +204,7 @@ class MemkindArray {
 
   void resize(std::size_t capacity, Memkind newMemkind) {
     this->capacity = capacity;
-    free(dataPtr, memkind);
+    freeTyped(dataPtr, memkind);
     dataPtr = allocTyped<T>(capacity, Alignment, newMemkind);
     this->memkind = newMemkind;
   }
@@ -213,7 +219,7 @@ class MemkindArray {
     memcopyTyped<T>(dataPtr, source.data(), capacity, memkind, source.memkind);
   }
 
-  ~MemkindArray() { free(dataPtr, memkind); }
+  ~MemkindArray() { freeTyped(dataPtr, memkind); }
   SEISSOL_HOSTDEVICE T* data() noexcept { return dataPtr; }
   [[nodiscard]] SEISSOL_HOSTDEVICE const T* data() const noexcept { return dataPtr; }
   SEISSOL_HOSTDEVICE T* begin() noexcept { return dataPtr; }

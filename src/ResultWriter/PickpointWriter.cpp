@@ -9,7 +9,10 @@
 
 #include "Modules/Modules.h"
 
+#include <functional>
 #include <limits>
+#include <optional>
+#include <utils/logger.h>
 
 namespace seissol::writer {
 

@@ -22,6 +22,7 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include "Solver/MultipleSimulations.h"

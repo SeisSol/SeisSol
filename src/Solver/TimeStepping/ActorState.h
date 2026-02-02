@@ -94,7 +94,6 @@ struct NeighborCluster {
 class DynamicRuptureScheduler {
   long lastCorrectionStepsInterior = -1;
   long lastCorrectionStepsCopy = -1;
-  long lastFaultOutput = -1;
   long numberOfDynamicRuptureFaces;
   double outputTimestep{};
 

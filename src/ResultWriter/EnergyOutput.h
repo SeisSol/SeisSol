@@ -116,11 +116,6 @@ class EnergyOutput : public Module {
   std::string outputFileName;
   std::ofstream out;
 
-  memory::MemkindArray<real> timeDerivativePlusHost{memory::Memkind::Standard};
-  memory::MemkindArray<real> timeDerivativeMinusHost{memory::Memkind::Standard};
-  memory::MemkindArray<real*> timeDerivativePlusHostPtrs{memory::Memkind::Standard};
-  memory::MemkindArray<real*> timeDerivativeMinusHostPtrs{memory::Memkind::Standard};
-
   const GlobalData* global = nullptr;
   const DynamicRupture::Storage* drStorage = nullptr;
   const seissol::geometry::MeshReader* meshReader = nullptr;

@@ -20,7 +20,7 @@ class DofSync : public seissol::Module {
 
   private:
   initializer::MeshLayout layout_;
-  LTS::Storage* storage_;
+  LTS::Storage* storage_{nullptr};
   double time_{-1};
 };
 

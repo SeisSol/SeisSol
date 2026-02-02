@@ -7,10 +7,16 @@
 
 #include "DofSync.h"
 
-#include "Modules/Modules.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/TimeStepping/Halo.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
 #include "Parallel/MPI.h"
 
-#include <limits>
+#include <cstdint>
+#include <mpi.h>
+#include <utils/logger.h>
+#include <vector>
 
 namespace seissol::writer {
 

@@ -199,39 +199,6 @@ void EnergyOutput::init(
 
   isPlasticityEnabled = newIsPlasticityEnabled;
 
-  const auto maxCells = ltsStorage->getMaxClusterSize();
-
-  if constexpr (isDeviceOn()) {
-    if (maxCells > 0) {
-      constexpr auto QSize = tensor::Q::size();
-
-      timeDerivativePlusHost =
-          memory::MemkindArray<real>(maxCells * QSize, memory::Memkind::PinnedMemory);
-      timeDerivativeMinusHost =
-          memory::MemkindArray<real>(maxCells * QSize, memory::Memkind::PinnedMemory);
-
-      auto* plusBase = memory::hostToDevicePointerTyped(timeDerivativePlusHost.data(),
-                                                        memory::Memkind::PinnedMemory);
-      auto* minusBase = memory::hostToDevicePointerTyped(timeDerivativeMinusHost.data(),
-                                                         memory::Memkind::PinnedMemory);
-
-      std::vector<real*> pointersPlus(maxCells);
-      std::vector<real*> pointersMinus(maxCells);
-      for (std::size_t i = 0; i < maxCells; ++i) {
-        pointersPlus[i] = plusBase + i * QSize;
-        pointersMinus[i] = minusBase + i * QSize;
-      }
-
-      timeDerivativePlusHostPtrs =
-          memory::MemkindArray<real*>(maxCells, memory::Memkind::DeviceGlobalMemory);
-      timeDerivativeMinusHostPtrs =
-          memory::MemkindArray<real*>(maxCells, memory::Memkind::DeviceGlobalMemory);
-
-      timeDerivativePlusHostPtrs.copyFrom(pointersPlus);
-      timeDerivativeMinusHostPtrs.copyFrom(pointersMinus);
-    }
-  }
-
   Modules::registerHook(*this, ModuleHook::SimulationStart);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
   setSyncInterval(parameters.interval);
