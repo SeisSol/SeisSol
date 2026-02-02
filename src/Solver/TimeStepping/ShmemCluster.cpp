@@ -170,23 +170,31 @@ ShmemCluster::ShmemCluster(double maxTimeStepSize,
   const auto& local = meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId);
 
   remotePointers.resize(local.ghost.size());
-  std::vector<MPI_Request> requests(remotePointers.size());
-  for (std::size_t i = 0; i < remotePointers.size(); ++i) {
-    const auto& cluster = local.ghost[i];
+  std::vector<MPI_Request> requests;
+  requests.reserve(local.ghost.size() + local.copy.size());
+
+  for (std::size_t i = 0; i < local.copy.size(); ++i) {
+    const auto& cluster = local.copy[i];
 
     // send pointer as uintptr_t
-    MPI_Isendrecv(static_cast<const void*>(&cluster.data),
-                  1,
-                  Mpi::castToMpiType<std::uintptr_t>(),
-                  cluster.rank,
-                  cluster.tag,
-                  static_cast<void*>(&remotePointers[i]),
-                  1,
-                  Mpi::castToMpiType<std::uintptr_t>(),
-                  cluster.rank,
-                  cluster.tag,
-                  Mpi::mpi.comm(),
-                  &requests[i]);
+    MPI_Isend(static_cast<const void*>(&cluster.data),
+              1,
+              Mpi::castToMpiType<std::uintptr_t>(),
+              cluster.rank,
+              cluster.tag,
+              Mpi::mpi.comm(),
+              &requests.emplace_back());
+  }
+
+  for (std::size_t i = 0; i < local.ghost.size(); ++i) {
+    const auto& cluster = local.ghost[i];
+    MPI_Irecv(static_cast<void*>(&remotePointers[i]),
+              1,
+              Mpi::castToMpiType<std::uintptr_t>(),
+              cluster.rank,
+              cluster.tag,
+              Mpi::mpi.comm(),
+              &requests.emplace_back());
   }
 
   MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
