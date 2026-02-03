@@ -97,7 +97,7 @@ Initial fault tractions
 
 It is worth noticing that **Ts0**,  **Td0**, and  **Pn0** outputted at t=0s are the initial tractions after a first step through the friction routines.
 In particular, if the shear traction read in the input files locally exceeds fault strength, the outputted traction at t=0s is reduced compared with the one read in the input files.
-To visualize the initial shear tractions (or any other parameters, e.g. d_c) given in the easi file, the script `read_ini_fault_parameter.py <https://github.com/SeisSol/SeisSol/blob/master/preprocessing/science/read_ini_fault_parameter.py>`__ can be used. It depends on the `easi python bindings <https://easyinit.readthedocs.io/en/latest/python_bindings.html>`__.
+To visualize the initial shear tractions (or any other parameters, e.g. d_c) given in the easi file, the script `compute_quantities_easi.py <https://github.com/SeisSol/SeisSol/blob/master/preprocessing/science/compute_quantities_easi.py>`__ can be used. It depends on the `easi python bindings <https://easyinit.readthedocs.io/en/latest/python_bindings.html>`__.
 
 .. code-block:: bash
 
