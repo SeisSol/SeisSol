@@ -47,7 +47,7 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
 void fillWithStuff(real* buffer, unsigned nValues, [[maybe_unused]] bool onDevice) {
   // No real point for these numbers. Should be just something != 0 and != NaN and != Inf
   const auto stuff = [](unsigned n) {
-    return static_cast<real>((214013.0 * n + 2531011.0) / 16777216.0);
+    return static_cast<real>((214013.0 * n + 2531011.0) / 1677721600.0);
   };
 #ifdef ACL_DEVICE
   if (onDevice) {

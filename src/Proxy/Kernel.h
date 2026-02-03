@@ -27,6 +27,7 @@ class ProxyKernel {
   virtual void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const = 0;
   virtual auto performanceEstimate(ProxyData& data) const -> PerformanceEstimate = 0;
   [[nodiscard]] virtual auto needsDR() const -> bool = 0;
+  [[nodiscard]] virtual auto needsPlasticity() const -> bool = 0;
   virtual ~ProxyKernel() = default;
 };
 
@@ -45,6 +46,10 @@ class CompoundKernel : public ProxyKernel {
   }
 
   [[nodiscard]] auto needsDR() const -> bool override { return (Kernels().needsDR() || ...); }
+
+  [[nodiscard]] auto needsPlasticity() const -> bool override {
+    return (Kernels().needsPlasticity() || ...);
+  }
 };
 
 class ChainKernel : public ProxyKernel {
@@ -56,6 +61,8 @@ class ChainKernel : public ProxyKernel {
   auto performanceEstimate(ProxyData& data) const -> PerformanceEstimate override;
 
   [[nodiscard]] auto needsDR() const -> bool override;
+
+  [[nodiscard]] auto needsPlasticity() const -> bool override;
 
   private:
   std::vector<std::shared_ptr<ProxyKernel>> kernels;

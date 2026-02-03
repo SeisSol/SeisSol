@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  const std::vector<std::string> formatValues = {"plain", "json"};
+  const std::vector<std::string> formatValues = {"plain", "json", "plaintflop"};
 
   utils::Args args("The SeisSol proxy is used to benchmark the kernels used in the SeisSol "
                    "earthquake simulation software.");
@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
   const auto kernelStr = args.getAdditionalArgument<std::string>("kernel");
   const auto formatValue = args.getArgument<int>("format", 0);
 
-  const auto format = formatValue == 1 ? OutputFormat::Json : OutputFormat::Plain;
+  const auto format = static_cast<OutputFormat>(formatValue);
 
   try {
     config.kernels = Aux::str2kernel(kernelStr);

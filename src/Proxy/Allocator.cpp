@@ -42,7 +42,7 @@ namespace seissol::proxy {
 
 namespace {
 
-void fakeData(LTS::Layer& layer, FaceType faceTp) {
+void fakeData(LTS::Layer& layer, FaceType faceTp, bool plasticity) {
   real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
   real** buffers = layer.var<LTS::Buffers>();
   real** derivatives = layer.var<LTS::Derivatives>();
@@ -61,9 +61,11 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
       static_cast<real*>(layer.var<LTS::BuffersDerivatives>(initializer::AllocationPlace::Device));
 
   std::mt19937 rng(layer.size());
-  std::uniform_int_distribution<unsigned> sideDist(0, 3);
-  std::uniform_int_distribution<unsigned> orientationDist(0, 2);
+  std::uniform_int_distribution<uint8_t> sideDist(0, 3);
+  std::uniform_int_distribution<uint8_t> orientationDist(0, 2);
   std::uniform_int_distribution<std::size_t> cellDist(0, layer.size() - 1);
+
+  std::uniform_real_distribution<double> varyDist(0.9, 1.1);
 
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     buffers[cell] = bucket + cell * tensor::I::size();
@@ -82,6 +84,18 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
       secondaryInformation[cell].faceNeighbors[f].cell = neighbor;
     }
     cellInformation[cell].ltsSetup = LtsSetup();
+
+    if (plasticity) {
+      auto ref = layer.cellRef(cell);
+      ref.get<LTS::Plasticity>().mufactor = varyDist(rng);
+      for (std::size_t i = 0; i < tensor::meanStress::size(); ++i) {
+        ref.get<LTS::Plasticity>().cohesionTimesCosAngularFriction[i] = varyDist(rng) * 1e10;
+        ref.get<LTS::Plasticity>().sinAngularFriction[i] = varyDist(rng) * 1e-20;
+      }
+      for (std::size_t i = 0; i < tensor::initialLoading::size(); ++i) {
+        ref.get<LTS::Plasticity>().initialLoading[i] = varyDist(rng);
+      }
+    }
   }
 
 #pragma omp parallel for schedule(static)
@@ -105,14 +119,20 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
     }
   }
 
-  kernels::fillWithStuff(reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.size(), false);
+  kernels::fillWithStuff(
+      reinterpret_cast<real*>(dofs), layer.getEntrySize<LTS::Dofs>() * layer.size(), false);
   kernels::fillWithStuff(bucket, tensor::I::size() * layer.size(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
-                         sizeof(LocalIntegrationData) / sizeof(real) * layer.size(),
+                         layer.getEntrySize<LTS::LocalIntegration>() * layer.size(),
                          false);
   kernels::fillWithStuff(reinterpret_cast<real*>(neighboringIntegration),
-                         sizeof(NeighboringIntegrationData) / sizeof(real) * layer.size(),
+                         layer.getEntrySize<LTS::NeighboringIntegration>() * layer.size(),
                          false);
+  if (plasticity) {
+    auto* pstrain = layer.var<LTS::PStrain>();
+    kernels::fillWithStuff(
+        reinterpret_cast<real*>(pstrain), layer.size() * layer.getEntrySize<LTS::PStrain>(), false);
+  }
 
 #ifdef USE_POROELASTIC
 
@@ -131,12 +151,13 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
 }
 } // namespace
 
-ProxyData::ProxyData(std::size_t cellCount, bool enableDR) : cellCount(cellCount) {
+ProxyData::ProxyData(std::size_t cellCount, bool enableDR, bool enablePlasticity)
+    : cellCount(cellCount) {
   layerId =
       initializer::LayerIdentifier(HaloType::Interior, initializer::ConfigVariant{Config()}, 0);
 
   initGlobalData();
-  initDataStructures(enableDR);
+  initDataStructures(enableDR, enablePlasticity);
   initDataStructuresOnDevice(enableDR);
 }
 
@@ -159,14 +180,14 @@ void ProxyData::initGlobalData() {
   dynRupKernel.setGlobalData(globalData);
 }
 
-void ProxyData::initDataStructures(bool enableDR) {
+void ProxyData::initDataStructures(bool enableDR, bool enablePlasticity) {
   const initializer::LTSColorMap map(
       initializer::EnumLayer<HaloType>({HaloType::Interior}),
       initializer::EnumLayer<std::size_t>({0}),
       initializer::TraitLayer<initializer::ConfigVariant>({initializer::ConfigVariant(Config())}));
 
   // init RNG
-  LTS::addTo(ltsStorage, false); // proxy does not use plasticity
+  LTS::addTo(ltsStorage, enablePlasticity);
   ltsStorage.setLayerCount(map);
   ltsStorage.fixate();
 
@@ -222,7 +243,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   }
 
   /* cell information and integration data*/
-  fakeData(layer, (enableDR) ? FaceType::DynamicRupture : FaceType::Regular);
+  fakeData(layer, (enableDR) ? FaceType::DynamicRupture : FaceType::Regular, enablePlasticity);
 
   if (enableDR) {
     // From lts storage

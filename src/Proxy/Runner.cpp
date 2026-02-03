@@ -68,12 +68,13 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   }();
 
   const bool enableDynamicRupture = kernel->needsDR();
+  const bool enablePlasticity = kernel->needsPlasticity();
 
   if (config.verbose) {
     std::cerr << "Allocating fake data... ";
   }
 
-  auto data = std::make_shared<ProxyData>(config.cells, enableDynamicRupture);
+  auto data = std::make_shared<ProxyData>(config.cells, enableDynamicRupture, enablePlasticity);
 
   auto runtime = std::make_shared<seissol::parallel::runtime::StreamRuntime>();
 

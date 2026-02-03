@@ -54,7 +54,7 @@ struct ProxyData {
 
   seissol::memory::ManagedAllocator allocator;
 
-  ProxyData(std::size_t cellCount, bool enableDR);
+  ProxyData(std::size_t cellCount, bool enableDR, bool enablePlasticity);
 
   initializer::LayerIdentifier layerId;
 
@@ -62,7 +62,7 @@ struct ProxyData {
 
   private:
   void initGlobalData();
-  void initDataStructures(bool enableDR);
+  void initDataStructures(bool enableDR, bool enablePlasticity);
   void initDataStructuresOnDevice(bool enableDR);
 };
 
