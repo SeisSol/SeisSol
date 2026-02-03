@@ -10,6 +10,7 @@
 
 #include "BaseFrictionLaw.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
+#include "DynamicRupture/Misc.h"
 
 namespace seissol::dr::friction_law::cpu {
 /**
@@ -290,9 +291,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                std::array<real, misc::NumPaddedPoints>& slipRateTest) {
 
     real muF[misc::NumPaddedPoints]{};
-    real dMuF[misc::NumPaddedPoints]{};
     real g[misc::NumPaddedPoints]{};
-    real dG[misc::NumPaddedPoints]{};
+
+    std::uint32_t index[misc::NumPaddedPoints]{};
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+      index[pointIndex] = pointIndex;
+    }
+    std::uint32_t looplen = misc::NumPaddedPoints;
 
     const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
 
@@ -304,20 +309,28 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
     for (uint32_t i = 0; i < settings.maxNumberSlipRateUpdates; i++) {
 #pragma omp simd
-      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      for (std::uint32_t linearIndex = 0; linearIndex < looplen; linearIndex++) {
+        const auto pointIndex = index[linearIndex];
+        const auto slipRateTestLocal = slipRateTest[pointIndex];
         // calculate friction coefficient and objective function
         muF[pointIndex] =
-            static_cast<Derived*>(this)->updateMu(pointIndex, slipRateTest[pointIndex], details);
+            static_cast<Derived*>(this)->updateMu(pointIndex, slipRateTestLocal, details);
         g[pointIndex] = -this->impAndEta[ltsFace].invEtaS *
                             (std::fabs(normalStress[pointIndex]) * muF[pointIndex] -
                              absoluteShearStress[pointIndex]) -
-                        slipRateTest[pointIndex];
+                        slipRateTestLocal;
       }
 
       // max element of g must be smaller than newtonTolerance
-      const bool hasConverged = std::all_of(std::begin(g), std::end(g), [&](auto val) {
-        return std::fabs(val) < settings.newtonTolerance;
-      });
+      uint32_t newLooplen = 0;
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+        if (std::fabs(g[pointIndex]) >= settings.newtonTolerance) {
+          index[newLooplen] = pointIndex;
+          ++newLooplen;
+        }
+      }
+      looplen = newLooplen;
+      const bool hasConverged = looplen == 0;
       if (hasConverged) {
 #pragma omp simd
         for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
@@ -326,17 +339,19 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         return hasConverged;
       }
 #pragma omp simd
-      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-        dMuF[pointIndex] = static_cast<Derived*>(this)->updateMuDerivative(
-            pointIndex, slipRateTest[pointIndex], details);
+      for (std::uint32_t linearIndex = 0; linearIndex < looplen; linearIndex++) {
+        const auto pointIndex = index[linearIndex];
+        const auto slipRateTestLocal = slipRateTest[pointIndex];
+
+        const auto dMuF =
+            static_cast<Derived*>(this)->updateMuDerivative(pointIndex, slipRateTestLocal, details);
 
         // derivative of g
-        dG[pointIndex] = -this->impAndEta[ltsFace].invEtaS *
-                             (std::fabs(normalStress[pointIndex]) * dMuF[pointIndex]) -
-                         1.0;
+        const auto dG =
+            -this->impAndEta[ltsFace].invEtaS * (std::fabs(normalStress[pointIndex]) * dMuF) - 1.0;
         // newton update
-        const real tmp3 = g[pointIndex] / dG[pointIndex];
-        slipRateTest[pointIndex] = std::max(rs::almostZero(), slipRateTest[pointIndex] - tmp3);
+        const real tmp3 = g[pointIndex] / dG;
+        slipRateTest[pointIndex] = std::max(rs::almostZero(), slipRateTestLocal - tmp3);
       }
     }
     return false;
