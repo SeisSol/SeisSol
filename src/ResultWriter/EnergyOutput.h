@@ -13,8 +13,10 @@
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/MemoryAllocator.h"
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
+#include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <array>
@@ -114,17 +116,12 @@ class EnergyOutput : public Module {
   std::string outputFileName;
   std::ofstream out;
 
-#ifdef ACL_DEVICE
-  real* timeDerivativePlusHost = nullptr;
-  real* timeDerivativeMinusHost = nullptr;
-  real* timeDerivativePlusHostMapped = nullptr;
-  real* timeDerivativeMinusHostMapped = nullptr;
-#endif
-
   const GlobalData* global = nullptr;
   const DynamicRupture::Storage* drStorage = nullptr;
   const seissol::geometry::MeshReader* meshReader = nullptr;
   const LTS::Storage* ltsStorage = nullptr;
+
+  parallel::runtime::StreamRuntime stream;
 
   EnergiesStorage energiesStorage{};
   std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold{};
