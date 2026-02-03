@@ -82,7 +82,7 @@ int main(int argc, char* argv[]) {
   device.api->setDevice(0);
   device.api->initialize();
 #endif
-  print_hostname();
+  printHostname();
 
   auto output = runProxy(config);
 

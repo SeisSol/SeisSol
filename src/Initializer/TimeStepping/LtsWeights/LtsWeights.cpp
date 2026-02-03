@@ -467,8 +467,8 @@ std::vector<int> LtsWeights::computeCostsPerTimestep() {
     int dynamicRupture = 0;
     int freeSurfaceWithGravity = 0;
 
-    unsigned int faceids[Cell::NumFaces];
-    PUML::Downward::faces(*m_meshTopology, cells[cell], faceids);
+    std::array<unsigned int, Cell::NumFaces> faceids{};
+    PUML::Downward::faces(*m_meshTopology, cells[cell], faceids.data());
 
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       const auto faceType = getBoundaryCondition(boundaryCond, cell, face);

@@ -9,11 +9,14 @@
 #ifndef SEISSOL_SRC_PROXY_TOOLS_H_
 #define SEISSOL_SRC_PROXY_TOOLS_H_
 
+#include <cstdint>
 #include <ctime>
 
-auto derive_cycles_from_time(double time) -> double;
+auto getCycles() -> std::uint64_t;
 
-void print_hostname();
+auto deriveCyclesFromTime(double time) -> double;
+
+void printHostname();
 
 auto sec(struct timeval start, struct timeval end) -> double;
 
