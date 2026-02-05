@@ -19,6 +19,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernel.h"
 #include "Kernels/Interface.h"
+#include "Kernels/Plasticity.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Kernels/TimeCommon.h"
@@ -80,6 +81,8 @@ auto ProxyKernelHostAder::performanceEstimate(ProxyData& data) const -> Performa
 }
 auto ProxyKernelHostAder::needsDR() const -> bool { return false; }
 
+auto ProxyKernelHostAder::needsPlasticity() const -> bool { return false; }
+
 void ProxyKernelHostLocalWOAder::run(ProxyData& data,
                                      seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
@@ -122,6 +125,8 @@ auto ProxyKernelHostLocalWOAder::performanceEstimate(ProxyData& data) const -> P
   return ret;
 }
 auto ProxyKernelHostLocalWOAder::needsDR() const -> bool { return false; }
+
+auto ProxyKernelHostLocalWOAder::needsPlasticity() const -> bool { return false; }
 
 void ProxyKernelHostLocal::run(ProxyData& data,
                                seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
@@ -244,6 +249,8 @@ auto ProxyKernelHostNeighbor::performanceEstimate(ProxyData& data) const -> Perf
 }
 auto ProxyKernelHostNeighbor::needsDR() const -> bool { return false; }
 
+auto ProxyKernelHostNeighbor::needsPlasticity() const -> bool { return false; }
+
 auto ProxyKernelHostNeighborDR::needsDR() const -> bool { return true; }
 
 void ProxyKernelHostGodunovDR::run(ProxyData& data,
@@ -293,6 +300,66 @@ auto ProxyKernelHostGodunovDR::performanceEstimate(ProxyData& data) const -> Per
 }
 auto ProxyKernelHostGodunovDR::needsDR() const -> bool { return true; }
 
+auto ProxyKernelHostGodunovDR::needsPlasticity() const -> bool { return false; }
+
+void ProxyKernelHostPlasticity::run(ProxyData& data,
+                                    seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
+  auto& layer = data.ltsStorage.layer(data.layerId);
+
+  const double tV = 0.1;
+  const auto omts = kernels::Plasticity::computeRelaxTime(tV, Timestep);
+
+#pragma omp parallel for schedule(static)
+  for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+    auto local = layer.cellRef(cell);
+    kernels::Plasticity::computePlasticity(omts,
+                                           Timestep,
+                                           tV,
+                                           &data.globalDataOnHost,
+                                           &local.get<LTS::Plasticity>(),
+                                           local.get<LTS::Dofs>(),
+                                           local.get<LTS::PStrain>());
+  }
+}
+auto ProxyKernelHostPlasticity::performanceEstimate(ProxyData& data) const -> PerformanceEstimate {
+  PerformanceEstimate ret;
+  ret.nonzeroFlop = 0.0;
+  ret.hardwareFlop = 0.0;
+
+  std::uint64_t plNonZeroFlops = 0;
+  std::uint64_t plHardwareFlops = 0;
+  std::uint64_t plyNonZeroFlops = 0;
+  std::uint64_t plyHardwareFlops = 0;
+  kernels::Plasticity::flopsPlasticity(
+      plNonZeroFlops, plHardwareFlops, plyNonZeroFlops, plyHardwareFlops);
+
+  ret.nonzeroFlop = data.ltsStorage.size() * plNonZeroFlops;
+  ret.hardwareFlop = data.ltsStorage.size() * plHardwareFlops;
+
+  return ret;
+}
+auto ProxyKernelHostPlasticity::needsDR() const -> bool { return false; }
+
+auto ProxyKernelHostPlasticity::needsPlasticity() const -> bool { return true; }
+
+void ProxyKernelHostFrictionLaw::run(ProxyData& data,
+                                     seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
+
+}
+auto ProxyKernelHostFrictionLaw::performanceEstimate(ProxyData& /*data*/) const
+    -> PerformanceEstimate {
+  PerformanceEstimate ret;
+  ret.nonzeroFlop = 0.0;
+  ret.hardwareFlop = 0.0;
+
+  // no estimate yet
+
+  return ret;
+}
+auto ProxyKernelHostFrictionLaw::needsDR() const -> bool { return true; }
+
+auto ProxyKernelHostFrictionLaw::needsPlasticity() const -> bool { return false; }
+
 std::shared_ptr<ProxyKernel> getProxyKernelHost(Kernel kernel) {
   switch (kernel) {
   case Kernel::All:
@@ -311,6 +378,11 @@ std::shared_ptr<ProxyKernel> getProxyKernelHost(Kernel kernel) {
     return std::make_shared<ProxyKernelHostNeighborDR>();
   case Kernel::GodunovDR:
     return std::make_shared<ProxyKernelHostGodunovDR>();
+  case Kernel::Plasticity:
+    return std::make_shared<ProxyKernelHostPlasticity>();
+  case Kernel::PlasticityYield:
+    throw;
+    return std::make_shared<ProxyKernelHostPlasticity>();
   }
   throw;
 }

@@ -45,4 +45,9 @@ auto ChainKernel::needsDR() const -> bool {
       kernels.begin(), kernels.end(), [](const auto& kernel) { return kernel->needsDR(); });
 }
 
+auto ChainKernel::needsPlasticity() const -> bool {
+  return std::any_of(
+      kernels.begin(), kernels.end(), [](const auto& kernel) { return kernel->needsPlasticity(); });
+}
+
 } // namespace seissol::proxy

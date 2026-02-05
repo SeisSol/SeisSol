@@ -46,8 +46,8 @@ namespace {
 void testKernel(std::shared_ptr<ProxyData>& data,
                 std::shared_ptr<parallel::runtime::StreamRuntime>& runtime,
                 std::shared_ptr<ProxyKernel>& kernel,
-                std::size_t timesteps) {
-  for (std::size_t i = 0; i < timesteps; ++i) {
+                std::uint64_t timesteps) {
+  for (std::uint64_t i = 0; i < timesteps; ++i) {
     kernel->run(*data, *runtime);
   }
 }
@@ -68,12 +68,13 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   }();
 
   const bool enableDynamicRupture = kernel->needsDR();
+  const bool enablePlasticity = kernel->needsPlasticity();
 
   if (config.verbose) {
     std::cerr << "Allocating fake data... ";
   }
 
-  auto data = std::make_shared<ProxyData>(config.cells, enableDynamicRupture);
+  auto data = std::make_shared<ProxyData>(config.cells, enableDynamicRupture, enablePlasticity);
 
   auto runtime = std::make_shared<seissol::parallel::runtime::StreamRuntime>();
 
@@ -83,9 +84,6 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
 
   struct timeval startTime{};
   struct timeval endTime{};
-#ifdef __USE_RDTSC
-  size_t cyclesStart, cyclesEnd;
-#endif
   double total = 0.0;
   double totalCycles = 0.0;
 
@@ -94,28 +92,22 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
 
   runtime->wait();
 
-  const seissol::monitoring::FlopCounter flopCounter{};
-
   gettimeofday(&startTime, nullptr);
-#ifdef __USE_RDTSC
-  cyclesStart = __rdtsc();
-#endif
+  const auto cyclesStart = getCycles();
 
   testKernel(data, runtime, kernel, config.timesteps);
 
   runtime->wait();
 
-#ifdef __USE_RDTSC
-  cyclesEnd = __rdtsc();
-#endif
+  const auto cyclesEnd = getCycles();
   gettimeofday(&endTime, nullptr);
   total = sec(startTime, endTime);
-#ifdef __USE_RDTSC
-  std::cout << "Cycles via __rdtsc()" << std::endl;
-  totalCycles = static_cast<double>(cyclesEnd - cyclesStart);
-#else
-  totalCycles = derive_cycles_from_time(total);
-#endif
+
+  if (cyclesEnd - cyclesStart > 0) {
+    totalCycles = static_cast<double>(cyclesEnd - cyclesStart);
+  } else {
+    totalCycles = deriveCyclesFromTime(total);
+  }
 
   const auto performanceEstimate = kernel->performanceEstimate(*data);
 

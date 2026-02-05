@@ -28,6 +28,9 @@ const std::unordered_map<Kernel, std::string> Map{
     {Kernel::NeighborDR, "neigh_dr"},
     {Kernel::GodunovDR, "godunov_dr"},
     {Kernel::AllDR, "all_dr"},
+    {Kernel::Plasticity, "plast"},
+    {Kernel::PlasticityYield, "plast_yield"},
+    {Kernel::FL0, "fl0"},
 };
 
 const std::unordered_map<std::string, Kernel> InvMap{{"all", Kernel::All},
@@ -37,7 +40,10 @@ const std::unordered_map<std::string, Kernel> InvMap{{"all", Kernel::All},
                                                      {"localwoader", Kernel::LocalWOAder},
                                                      {"neigh_dr", Kernel::NeighborDR},
                                                      {"godunov_dr", Kernel::GodunovDR},
-                                                     {"all_dr", Kernel::AllDR}};
+                                                     {"all_dr", Kernel::AllDR},
+                                                     {"plast", Kernel::Plasticity},
+                                                     {"plast_yield", Kernel::PlasticityYield},
+                                                     {"fl0", Kernel::FL0}};
 } // namespace
 
 namespace seissol::proxy {
@@ -111,6 +117,32 @@ void Aux::writeOutput(std::ostream& stream,
     stream << "GFLOPS (non-zero) for seissol proxy : " << output.nonZeroGFlops << '\n';
     stream << "GFLOPS (hardware) for seissol proxy : " << output.hardwareGFlops << '\n';
     stream << "GiB/s (estimate) for seissol proxy  : " << output.gibPerSecond << '\n';
+    stream << "=================================================\n";
+    stream << '\n';
+  } else if (format == OutputFormat::PlainTFlop) {
+    stream << "=================================================\n";
+    stream << "===            PERFORMANCE SUMMARY            ===\n";
+    stream << "=================================================\n";
+    stream << "seissol proxy mode                  : " << kernelStr << '\n';
+    stream << "time for seissol proxy              : " << output.time << '\n';
+    stream << "cycles                              : " << output.cycles << '\n';
+    stream << '\n';
+    stream << "TFLOP (libxsmm)                     : " << output.libxsmmNumTotalGFlop / 1000
+           << '\n';
+    stream << "TFLOP (pspamm)                      : " << output.pspammNumTotalGFlop / 1000 << '\n';
+    stream << "TFLOP (libxsmm + pspamm)            : "
+           << output.libxsmmAndpspammNumTotalGFlop / 1000 << '\n';
+    stream << "TFLOP (non-zero) for seissol proxy  : " << output.actualNonZeroGFlop / 1000 << '\n';
+    stream << "TFLOP (hardware) for seissol proxy  : " << output.actualHardwareGFlop / 1000 << '\n';
+    stream << "TiB (estimate) for seissol proxy    : " << output.gib / 1024 << '\n';
+    stream << '\n';
+    stream << "FLOPS/cycle (non-zero)              : " << output.nonZeroFlopPerCycle << '\n';
+    stream << "FLOPS/cycle (hardware)              : " << output.hardwareFlopPerCycle << '\n';
+    stream << "Bytes/cycle (estimate)              : " << output.bytesPerCycle << '\n';
+    stream << '\n';
+    stream << "TFLOPS (non-zero) for seissol proxy : " << output.nonZeroGFlops / 1000 << '\n';
+    stream << "TFLOPS (hardware) for seissol proxy : " << output.hardwareGFlops / 1000 << '\n';
+    stream << "TiB/s (estimate) for seissol proxy  : " << output.gibPerSecond / 1024 << '\n';
     stream << "=================================================\n";
     stream << '\n';
   } else {

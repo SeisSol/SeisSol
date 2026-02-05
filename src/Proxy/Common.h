@@ -10,18 +10,42 @@
 
 #include "Common/Executor.h"
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
 namespace seissol::proxy {
 
-enum class Kernel { All = 0, Local, Neighbor, Ader, LocalWOAder, NeighborDR, GodunovDR, AllDR };
+enum class Kernel {
+  All = 0,
+  Local,
+  Neighbor,
+  Ader,
+  LocalWOAder,
+  NeighborDR,
+  GodunovDR,
+  AllDR,
+  Plasticity,
+  PlasticityYield,
+  FL0,
+  FL3,
+  FL3TP,
+  FL4,
+  FL4TP,
+  FL6,
+  FL15,
+  FL16,
+  FL33,
+  FL34,
+  FL103,
+  FL103TP
+};
 
-enum class OutputFormat { Plain, Json };
+enum class OutputFormat : std::uint32_t { Plain = 0, Json, PlainTFlop };
 
 struct ProxyConfig {
-  unsigned cells{static_cast<unsigned>(1e5)};
-  unsigned timesteps{10};
+  std::uint64_t cells{static_cast<std::uint64_t>(1e6)};
+  std::uint64_t timesteps{10};
   std::vector<Kernel> kernels;
   bool verbose{true};
   Executor executor;

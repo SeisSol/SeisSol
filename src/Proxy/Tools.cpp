@@ -8,7 +8,23 @@
 
 #include "Tools.h"
 
-auto derive_cycles_from_time(double /*time*/) -> double {
+// use SSE3 macro to detect x86
+#ifdef __SSE3__
+#include <x86intrin.h>
+#endif
+
+auto getCycles() -> std::uint64_t {
+#ifdef __SSE3__
+  return __rdtsc();
+#endif
+  // #if defined(__aarch64__)
+  //   std::uint64_t aarchOut{};
+  //   asm volatile("mrs %[outval], pmccntr_el0" :[outval]"=r"(aarchOut)::);
+  // #endif
+  return 0;
+}
+
+auto deriveCyclesFromTime(double /*time*/) -> double {
   // first try to read proxy env variable with freq
   /*char* p_freq;
   double d_freq;
@@ -37,7 +53,7 @@ auto derive_cycles_from_time(double /*time*/) -> double {
   return 0;
 }
 
-void print_hostname() {
+void printHostname() {
   /*FILE* fp = popen("hostname", "r");
   if (fp > 0) {
     char buffer[256];
