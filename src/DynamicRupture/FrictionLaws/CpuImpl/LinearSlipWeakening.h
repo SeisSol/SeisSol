@@ -277,11 +277,21 @@ class BiMaterialFault {
   }
 
 #pragma omp declare simd
-  real strengthHook(real strength,
+  real strengthHook(real faultStrength,
                     real localSlipRate,
                     real deltaT,
                     std::size_t ltsFace,
-                    std::uint32_t pointIndex);
+                    std::uint32_t pointIndex) {
+    // modify strength according to Prakash-Clifton
+    // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
+    const real expterm =
+        std::exp(-(std::max(static_cast<real>(0.0), localSlipRate) + drParameters->vStar) * deltaT /
+                 drParameters->prakashLength);
+    const real newStrength =
+        regularizedStrength[ltsFace][pointIndex] * expterm + faultStrength * (1.0 - expterm);
+    regularizedStrength[ltsFace][pointIndex] = newStrength;
+    return newStrength;
+  }
 
   protected:
   seissol::initializer::parameters::DRParameters* drParameters;
@@ -308,8 +318,11 @@ class TPApprox {
 #pragma omp declare simd
   real stateVariableHook(real localAccumulatedSlip,
                          real localDc,
-                         std::size_t ltsFace,
-                         std::uint32_t pointIndex);
+                         std::size_t /*ltsFace*/,
+                         std::uint32_t /*pointIndex*/) {
+    const real factor = (1.0 + std::fabs(localAccumulatedSlip) / localDc);
+    return 1.0 - std::pow(factor, -drParameters->tpProxyExponent);
+  }
 
 #pragma omp declare simd
   static real strengthHook(real strength,
