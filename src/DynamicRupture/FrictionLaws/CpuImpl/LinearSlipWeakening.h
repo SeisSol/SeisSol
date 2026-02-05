@@ -284,11 +284,12 @@ class BiMaterialFault {
                     std::uint32_t pointIndex) {
     // modify strength according to Prakash-Clifton
     // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
-    const real expterm =
-        std::exp(-(std::max(static_cast<real>(0.0), localSlipRate) + drParameters->vStar) * deltaT /
-                 drParameters->prakashLength);
+    const auto expval = -(std::max(static_cast<real>(0.0), localSlipRate) + drParameters->vStar) *
+                        deltaT / drParameters->prakashLength;
+    const real expterm = std::exp(expval);
+    const real exp1mterm = -std::expm1(expval);
     const real newStrength =
-        regularizedStrength[ltsFace][pointIndex] * expterm + faultStrength * (1.0 - expterm);
+        regularizedStrength[ltsFace][pointIndex] * expterm + faultStrength * exp1mterm;
     regularizedStrength[ltsFace][pointIndex] = newStrength;
     return newStrength;
   }
