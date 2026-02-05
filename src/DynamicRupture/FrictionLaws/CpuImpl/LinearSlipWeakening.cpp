@@ -13,11 +13,6 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
-#include <algorithm>
-#include <cmath>
-#include <cstddef>
-#include <cstdint>
-
 namespace seissol::dr::friction_law::cpu {
 
 void NoSpecialization::resampleSlipRate(
