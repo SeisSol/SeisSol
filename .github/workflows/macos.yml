@@ -1,0 +1,90 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+name: macos
+on:
+  - push
+
+jobs:
+  macos:
+    name: build-macos
+    runs-on: macos-15
+    steps:
+      # for OMP cf. https://github.com/alecjacobson/openmp-on-macos/
+      # and also cf. https://gist.github.com/scivision/16c2ca1dc250f54d34f1a1a35596f4a0
+      - name: install-yamlcpp
+        run: |
+          brew install libomp
+          brew install yaml-cpp
+          brew install open-mpi
+          brew install hdf5-mpi
+          brew install eigen
+
+          brew install numpy
+          brew install scipy
+
+      - name: checkout-easi
+        uses: actions/checkout@v6
+        with:
+          repository: SeisSol/easi
+
+      - name: build-easi
+        run: |
+          mkdir build && cd build
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
+          sudo ninja install
+
+      - name: install-pspamm
+        run: |
+          sudo pip install git+https://github.com/SeisSol/PSpaMM.git
+
+      - id: checkout
+        name: checkout-seissol
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - id: build
+        name: build-seissol
+        run: |
+          mkdir build && cd build
+
+          sudo mkdir -p /opt/seissol
+
+          # run w/o netcdf for consistency with the clang-tidy check
+          export CMAKE_PREFIX_PATH=/opt/dependencies
+
+          # cf. https://gist.github.com/scivision/16c2ca1dc250f54d34f1a1a35596f4a0
+          export OpenMP_ROOT=$(brew --prefix)/opt/libomp
+          export LDFLAGS="$LDFLAGS -L${OpenMP_ROOT}/lib"
+
+          export CFLAGS="-mcpu=native ${CFLAGS}"
+          export CXXFLAGS="-mcpu=native ${CXXFLAGS}"
+
+          cmake --version
+
+          cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/seissol \
+            -DGEMM_TOOLS_LIST=PSpaMM \
+            -DNETCDF=OFF \
+            -DCOVERAGE=OFF \
+            -DTESTING=ON \
+            -DTESTING_GENERATED=ON \
+            -DHOST_ARCH=neon \
+            -DORDER=6 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DEQUATIONS=elastic \
+            -DPRECISION=double \
+            -DGRAPH_PARTITIONING_LIBS=none \
+            -DNUMA_AWARE_PINNING=OFF
+
+          ninja
+
+      - name: seissol-test
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          cd build
+          ctest -j --rerun-failed --output-on-failure

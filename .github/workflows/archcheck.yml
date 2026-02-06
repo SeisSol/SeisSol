@@ -1,0 +1,175 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+name: archcheck
+on:
+  - push
+
+jobs:
+  archcheck:
+    name: archcheck-${{matrix.setup.arch}}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        setup:
+          - arch: "x86_64"
+            gccpkg: gcc
+            gccname: gcc-13
+            gppname: g++-13
+            qemu: "qemu-x86_64-static -cpu Haswell"
+            hostarch: avx2-256
+            flags: -mavx2
+          - arch: aarch64
+            gccpkg: g++-aarch64-linux-gnu
+            gccname: aarch64-linux-gnu-gcc
+            gppname: aarch64-linux-gnu-g++
+            qemu: qemu-aarch64-static -cpu max,sve512=on,sve-default-vector-length=-1
+            hostarch: sve512 # take 512 for now
+            flags: -march=armv8.2-a+sve -msve-vector-bits=512
+    steps:
+      - name: apt-get
+        run: |
+          sudo apt-get update
+          sudo apt-get install ninja-build libeigen3-dev python3.10 python3-pip
+
+          sudo apt-get install qemu-user-static ${{matrix.setup.gccpkg}}
+
+          sudo pip3 install setuptools numpy --break-system-packages
+          sudo mkdir -p /opt/dependencies
+
+      - name: build-mpi
+        run: |
+          export CC=${{matrix.setup.gccname}}
+          export CXX=${{matrix.setup.gppname}}
+
+          export CFLAGS="-static ${{matrix.setup.flags}} ${CFLAGS}"
+          export CXXFLAGS="-static ${{matrix.setup.flags}} ${CXXFLAGS}"
+          export LDFLAGS="-static ${{matrix.setup.flags}} ${LDFLAGS}"
+
+          wget -q https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.9.tar.bz2
+          tar -xf openmpi-5.0.9.tar.bz2 && cd openmpi-5.0.9
+          ./configure --prefix=/opt/dependencies --enable-mpi-fortran=no --disable-oshmem --enable-static --without-memory-manager --disable-shared --disable-dlopen
+          make -j $(nproc) install
+          cd .. && rm -rf openmpi-5.0.9
+
+      - name: build-hdf5
+        run: |
+          export CC=/opt/dependencies/bin/mpicc
+          export CXX=/opt/dependencies/bin/mpicxx
+
+          export CFLAGS="-static ${{matrix.setup.flags}} ${CFLAGS}"
+          export CXXFLAGS="-static ${{matrix.setup.flags}} ${CXXFLAGS}"
+          export LDFLAGS="-static ${{matrix.setup.flags}} ${LDFLAGS}"
+
+          wget -q https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.12/hdf5-1.12.3/src/hdf5-1.12.3.tar.bz2
+          tar -xf hdf5-1.12.3.tar.bz2 && cd hdf5-1.12.3
+          CPPFLAGS="-fPIC ${CPPFLAGS}" ./configure --enable-parallel --prefix=/opt/dependencies --with-zlib --disable-shared --enable-static
+          make -j $(nproc) install
+          cd .. && rm -rf hdf5-1.12.3
+
+      - name: install-eigen
+        run: |
+          export CC=${{matrix.setup.gccname}}
+          export CXX=${{matrix.setup.gppname}}
+
+          export CFLAGS="-static ${{matrix.setup.flags}} ${CFLAGS}"
+          export CXXFLAGS="-static ${{matrix.setup.flags}} ${CXXFLAGS}"
+          export LDFLAGS="-static ${{matrix.setup.flags}} ${LDFLAGS}"
+
+          wget https://gitlab.com/libeigen/eigen/-/archive/5.0.0/eigen-5.0.0.tar.gz
+          tar -xf eigen-5.0.0.tar.gz
+          cd eigen-5.0.0
+          mkdir build && cd build
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
+          ninja install
+          cd ../..
+
+      - name: checkout-yamlcpp
+        uses: actions/checkout@v6
+        with:
+          repository: jbeder/yaml-cpp
+
+      - name: build-yamlcpp
+        run: |
+          export CC=${{matrix.setup.gccname}}
+          export CXX=${{matrix.setup.gppname}}
+
+          export CFLAGS="-static ${{matrix.setup.flags}} ${CFLAGS}"
+          export CXXFLAGS="-static ${{matrix.setup.flags}} ${CXXFLAGS}"
+          export LDFLAGS="-static ${{matrix.setup.flags}} ${LDFLAGS}"
+
+          mkdir build && cd build
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/dependencies
+          ninja install
+
+      - name: checkout-easi
+        uses: actions/checkout@v6
+        with:
+          repository: SeisSol/easi
+
+      - name: build-easi
+        run: |
+          export CC=${{matrix.setup.gccname}}
+          export CXX=${{matrix.setup.gppname}}
+
+          export CFLAGS="-static ${{matrix.setup.flags}} ${CFLAGS}"
+          export CXXFLAGS="-static ${{matrix.setup.flags}} ${CXXFLAGS}"
+          export LDFLAGS="-static ${{matrix.setup.flags}} ${LDFLAGS}"
+
+          mkdir build && cd build
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
+          ninja install
+
+      - name: install-pspamm
+        run: |
+          sudo pip3 install git+https://github.com/SeisSol/PSpaMM.git --break-system-packages
+
+      - id: checkout
+        name: checkout-seissol
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - id: build
+        name: build-seissol
+        run: |
+          mkdir build && cd build
+
+          export CC=${{matrix.setup.gccname}}
+          export CXX=${{matrix.setup.gppname}}
+
+          export CFLAGS="-static ${{matrix.setup.flags}} ${CFLAGS}"
+          export CXXFLAGS="-static ${{matrix.setup.flags}} ${CXXFLAGS}"
+          export LDFLAGS="-static ${{matrix.setup.flags}} ${LDFLAGS}"
+
+          mkdir -p /opt/seissol
+
+          # run w/o netcdf for consistency with the clang-tidy check
+          export CMAKE_PREFIX_PATH=/opt/dependencies
+
+          cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/seissol \
+            -DGEMM_TOOLS_LIST=PSpaMM \
+            -DNETCDF=OFF \
+            -DCOVERAGE=OFF \
+            -DTESTING=ON \
+            -DTESTING_GENERATED=ON \
+            -DHOST_ARCH=${{matrix.setup.hostarch}} \
+            -DORDER=6 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DEQUATIONS=elastic \
+            -DPRECISION=double \
+            -DGRAPH_PARTITIONING_LIBS=none \
+            -DTESTING_COMMAND="${{matrix.setup.qemu}}"
+
+          ninja
+
+      - name: seissol-test
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          cd build
+          ctest -j --rerun-failed --output-on-failure
