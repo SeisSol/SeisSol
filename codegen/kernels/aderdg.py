@@ -455,6 +455,22 @@ class LinearADERDG(ADERDGBase):
                 target="gpu",
             )
 
+            generator.addChain(
+                "gpu_neighboringFluxAll",
+                [
+                    (
+                        [
+                            f"gpu_neighboringFlux({h},{j},{i})"
+                            for j in range(4)
+                            for h in range(3)
+                        ]
+                        + [f"dynamicRupture::gpu_nodalFlux({i},{h})" for h in range(4)]
+                    )
+                    for i in range(4)
+                ],
+                target="gpu",
+            )
+
     def addTime(self, generator, targets):
         powers = [Scalar(f"power({i})") for i in range(self.order)]
         for target in targets:
