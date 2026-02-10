@@ -3,21 +3,66 @@ import argparse
 
 import easi
 import numpy as np
+import pyvista as pv
 import seissolxdmf
 import seissolxdmfwriter as sxw
 
 
 class SeissolxdmfExtended(seissolxdmf.seissolxdmf):
-    def __init__(self, xdmfFilename):
+    def __init__(self, xdmfFilename, subdivide_level=0):
         super().__init__(xdmfFilename)
+
         self.xyz = self.ReadGeometry()
-        self.connect = self.ReadConnect()
+        self.connect = self.ReadConnect().astype(np.int64)
         self.is_volume = self.connect.shape[1] == 4
+        self.subdivide_level = subdivide_level
+
+        if subdivide_level > 0:
+            n_elements = self.connect.shape[0]
+            points_per_element = 4 if self.is_volume else 3
+
+            # Prepare cells array with VTK cell format
+            cells = np.hstack(
+                [
+                    np.full((n_elements, 1), points_per_element, dtype=np.int64),
+                    self.connect,
+                ]
+            ).ravel()
+
+            # Create mesh and subdivide
+            if self.is_volume:
+                mesh = pv.UnstructuredGrid(
+                    cells,
+                    np.full(n_elements, pv.CellType.TETRA, dtype=np.uint8),
+                    self.xyz,
+                )
+                for _ in range(subdivide_level):
+                    mesh = mesh.subdivide_tetra()
+            else:
+                mesh = pv.PolyData(self.xyz, cells)
+                mesh = mesh.subdivide(subdivide_level, "linear")
+
+            # Update geometry and connectivity
+            self.xyz = mesh.points
+            n = points_per_element + 1
+            self.connect = mesh.cells.reshape(-1, n)[:, 1:n].astype(np.int64)
 
     def ReadFaultTagOrRegion(self):
-        """Read fault-tag or region array"""
+        """Read fault-tag or region array, optionally subdivided multiple levels."""
         var_name = "group" if self.is_volume else "fault-tag"
-        return self.Read1dData(var_name, self.nElements, isInt=True).T
+
+        # Read original tags as a 1D integer array
+        original_tags = self.Read1dData(var_name, self.nElements, isInt=True)
+
+        # If subdividing, repeat tags according to total number of children
+        if self.subdivide_level > 0:
+            children_per_parent = 12 if self.is_volume else 4
+            total_repeat = children_per_parent**self.subdivide_level
+            tags = np.repeat(original_tags, total_repeat)
+        else:
+            tags = original_tags
+
+        return tags
 
     def ComputeCellCenters(self):
         """compute cell center array"""
@@ -90,6 +135,13 @@ if __name__ == "__main__":
         help="reference vector (see seissol parameter file) used to choose fault normal (coma separated string)",
     )
     parser.add_argument(
+        "--subdivide_level",
+        default=0,
+        type=int,
+        help="subdivide mesh before evaluating",
+    )
+
+    parser.add_argument(
         "--output_prefix",
         help="path and prefix of the output file",
     )
@@ -97,7 +149,7 @@ if __name__ == "__main__":
     if not args.output_prefix:
         args.output_prefix = "_".join(args.parameters.split(","))
 
-    sx = SeissolxdmfExtended(args.seissol_filename)
+    sx = SeissolxdmfExtended(args.seissol_filename, args.subdivide_level)
     centers = sx.ComputeCellCenters()
     tags = sx.ReadFaultTagOrRegion()
 
@@ -105,7 +157,6 @@ if __name__ == "__main__":
     available = sx.ReadAvailableDataFields()
 
     param_evaluated = [p for p in parameters if p not in ["tractions", "Vp", "Vs"]]
-
     out = {}
 
     # Evaluate directly available fields
@@ -119,14 +170,13 @@ if __name__ == "__main__":
         base = easi.evaluate_model(
             centers, tags, ["rho", "mu", "lambda"], args.yaml_filename
         )
-        out.update(base)
 
         if "Vp" in parameters:
-            out["Vp"] = np.sqrt((out["lambda"] + 2 * out["mu"]) / out["rho"])
+            out["Vp"] = np.sqrt((base["lambda"] + 2.0 * base["mu"]) / base["rho"])
             parameters.remove("Vp")
 
         if "Vs" in parameters:
-            out["Vs"] = np.sqrt(out["mu"] / out["rho"])
+            out["Vs"] = np.sqrt(base["mu"] / base["rho"])
             parameters.remove("Vs")
 
     if "tractions" in parameters:
@@ -160,6 +210,7 @@ if __name__ == "__main__":
                 out_tractions = compute_tractions(dicStress, normals)
                 out.update(out_tractions)
             parameters.remove("tractions")
+
     sxw.write(
         args.output_prefix,
         sx.xyz,
