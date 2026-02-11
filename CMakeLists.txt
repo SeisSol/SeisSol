@@ -422,6 +422,10 @@ if (WITH_GPU)
 
   # add device submodule
   add_subdirectory(submodules/Device)
+
+  # for now, always enforce PIC here
+  target_compile_options(device PRIVATE -fPIC)
+
   target_link_libraries(seissol-common-properties INTERFACE device)
 
   # add SeisSol GPU part
