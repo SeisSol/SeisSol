@@ -160,8 +160,6 @@ void TimeCluster::writeReceivers() {
   }
 }
 
-std::vector<NeighborCluster>* TimeCluster::getNeighborClusters() { return &neighbors; }
-
 void TimeCluster::computeSources() {
 #ifdef ACL_DEVICE
   device.api->putProfilingMark("computeSources", device::ProfilingColors::Blue);

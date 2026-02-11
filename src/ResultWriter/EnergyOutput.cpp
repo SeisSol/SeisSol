@@ -528,7 +528,7 @@ void EnergyOutput::computeVolumeEnergies() {
             const auto sumUniaxialStresses = getStress(0, 0) + getStress(1, 1) + getStress(2, 2);
             auto computeStrain = [&](int i, int j) {
               double strain = 0.0;
-              const auto factor = -1.0 * (lambda) / (2.0 * mu * (3.0 * lambda + 2.0 * mu));
+              const auto factor = -lambda / (2.0 * mu * (3.0 * lambda + 2.0 * mu));
               if (i == j) {
                 strain += factor * sumUniaxialStresses;
               }
