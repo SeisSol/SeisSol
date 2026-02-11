@@ -60,20 +60,24 @@ struct MaterialSetup<AcousticMaterial> {
                                         Tneigh& qGodNeighbor) {
     qGodNeighbor.setZero();
 
-    // matR == eigenvector matrix
-
-    // Eigenvectors are precomputed
+    // Eigenvector matrix for acoustic wave equation
+    // The acoustic system has 4 quantities: pressure p and velocities (v1, v2, v3)
+    // Coefficient matrices use negative sign convention to match elastic: A = [[0, -λ], [-1/ρ, 0]]
+    // This gives eigenvalues ±√(λ/ρ) = ±c (acoustic wave speed)
     Matrix44 matR = Matrix44::Zero();
-    matR(0, 0) = local.lambda;
-    matR(1, 0) = std::sqrt(local.lambda / local.rho);
     
-    // scale for better condition number of matR
-    matR(2, 1) = local.lambda;
-    matR(3, 2) = local.lambda;
-
-    //dont understand why this needs to be neighbor..
-    matR(0, 3) = neighbor.lambda;
-    matR(1, 3) = -std::sqrt(neighbor.lambda / neighbor.rho);
+    // Column 0: outgoing acoustic wave (eigenvalue +c)
+    matR(0, 0) = local.lambda;  // pressure component
+    matR(1, 0) = std::sqrt(local.lambda / local.rho);  // normal velocity component
+    
+    // Column 1: incoming acoustic wave (eigenvalue -c)  
+    matR(0, 1) = neighbor.lambda;  // pressure component
+    matR(1, 1) = -std::sqrt(neighbor.lambda / neighbor.rho);  // normal velocity (opposite sign)
+    
+    // Columns 2-3: transverse modes (eigenvalue 0, non-propagating)
+    // These modes are needed for matrix invertibility but don't propagate
+    matR(2, 2) = local.lambda;
+    matR(3, 3) = local.lambda;
 
     if (faceType == FaceType::FreeSurface) {
       for (size_t i = 0; i < 4; i++) {
@@ -85,12 +89,13 @@ struct MaterialSetup<AcousticMaterial> {
       qGodLocal(0, 1) = -1 * matR(1, 0) * 1 / matR(0, 0);
       qGodLocal(1, 1) = 1.0;
     } else {
+      // Godunov flux: select outgoing characteristics (positive eigenvalue)
       Matrix44 chi = Matrix44::Zero();
-      chi(0, 0) = 1.0;
+      chi(0, 0) = 1.0;  // Select column 0 (outgoing wave)
 
       const auto godunov = ((matR * chi) * matR.inverse()).eval();
 
-      // qGodLocal = I - qGodNeighbor
+      // Godunov matrices: qGodLocal = I - godunov^T, qGodNeighbor = godunov^T
       for (unsigned i = 0; i < godunov.cols(); ++i) {
         for (unsigned j = 0; j < godunov.rows(); ++j) {
           qGodLocal(i, j) = -godunov(j, i);
@@ -133,8 +138,12 @@ struct MaterialSetup<AcousticMaterial> {
     matT.setZero();
     matTinv.setZero();
 
+    // Pressure (row 0) is a scalar, doesn't rotate - set to identity
+    matT(0, 0) = 1.0;
+    matTinv(0, 0) = 1.0;
+    
+    // Velocity (rows 1-3) is a vector, rotate it
     seissol::transformations::tensor1RotationMatrix(normal, tangent1, tangent2, matT, 1, 1);
-
     seissol::transformations::inverseTensor1RotationMatrix(
         normal, tangent1, tangent2, matTinv, 1, 1);
   }
