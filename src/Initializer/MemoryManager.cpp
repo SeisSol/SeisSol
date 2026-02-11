@@ -82,9 +82,8 @@ void MemoryManager::fixateBoundaryStorage() {
 
     std::size_t numberOfBoundaryFaces = 0;
     const auto layerSize = layer.size();
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static) reduction(+ : numberOfBoundaryFaces)
-#endif // _OPENMP
     for (std::size_t cell = 0; cell < layerSize; ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
@@ -233,9 +232,6 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
                                              sizeof(real));
     if (plasticity) {
       layer.setEntrySize<LTS::FlagScratch>(numPlasticCells * sizeof(unsigned));
-      layer.setEntrySize<LTS::PrevDofsScratch>(numPlasticCells * tensor::Q::Size * sizeof(real));
-      layer.setEntrySize<LTS::QEtaNodalScratch>(numPlasticCells * tensor::QEtaNodal::Size *
-                                                sizeof(real));
       layer.setEntrySize<LTS::QStressNodalScratch>(numPlasticCells * tensor::QStressNodal::Size *
                                                    sizeof(real));
     }

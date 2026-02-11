@@ -6,13 +6,10 @@
 
   SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-Point Source
-============
-
 .. _loh1:
 
 SISMOWINE WP2\_LOH1
-~~~~~~~~~~~~~~~~~~~
+===================
 
 SISMOWINE is intended as a long-term interactive web interface for
 verifying numerical modeling methods in seismology. Numerical-method
@@ -27,33 +24,36 @@ the `point source example <https://github.com/SeisSol/Examples/blob/master/WP2_L
 
 The model uses Right-handed Cartesian, x positive North, y positive
 East, z positive downward, all coordinates in meters. The source is
-buried at 2000 m in a half-space Earth (Figure [fig:loh1]. The top layer
+buried at 2000 m in a half-space Earth (:numref:`figloh1`). The top layer
 is 1000 m thick and the bottom layer is 33000 m. The material parameters
-are listed in Table [table:loh1].
+are listed in :numref:`tableloh1`.
 
-+--------------+------------+-----------+-----------+-------+-------+
-|              | Vp (m/s)   | Vs(m/s)   | density   | Qp    | Qs    |
-+==============+============+===========+===========+=======+=======+
-| layer        | 4000       | 2000      | 2600      | Inf   | Inf   |
-+--------------+------------+-----------+-----------+-------+-------+
-| half-space   | 6000       | 3464      | 2700      | Inf   | Inf   |
-+--------------+------------+-----------+-----------+-------+-------+
+.. _tableloh1:
+.. table::
+   The material properties in LOH1.
 
-Table: Material properties in LOH1.
+   +--------------+------------+-----------+-----------+-------+-------+
+   |              | Vp (m/s)   | Vs(m/s)   | density   | Qp    | Qs    |
+   +==============+============+===========+===========+=======+=======+
+   | layer        | 4000       | 2000      | 2600      | Inf   | Inf   |
+   +--------------+------------+-----------+-----------+-------+-------+
+   | half-space   | 6000       | 3464      | 2700      | Inf   | Inf   |
+   +--------------+------------+-----------+-----------+-------+-------+
 
-.. figure:: figures/LOH1.jpg
+.. _figloh1:
+.. figure:: figures/loh1.jpg
    :alt: Geometry of LOH1 .
    :width: 11.00000cm
    :align: center
 
-   Geometry of LOH1.
+   The geometry of LOH1.
 
 Geometry
 ~~~~~~~~
 
 The mesh is generated using Gmsh.
 
-.. figure:: figures/loh1_mesh.png
+.. figure:: figures/loh1-mesh.png
    :alt: Geometry of LOH1 model (Gmsh)
    :width: 11.00000cm
    :align: center
@@ -79,9 +79,10 @@ seconds.
 Results
 ~~~~~~~
 
-| The comparison with solution is shown in Figure [fig:compare\_loh1].
+| The comparison with solution is shown in :numref:`figcompareloh1`.
 
-.. figure:: figures/loh1_benchmark.png
+.. _figcompareloh1:
+.. figure:: figures/loh1-benchmark.png
    :alt: Benchmark of x-component particle velocity
    :width: 11.00000cm
    :align: center

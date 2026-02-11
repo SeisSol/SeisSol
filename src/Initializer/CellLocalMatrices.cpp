@@ -158,10 +158,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
 
-#ifdef _OPENMP
 #pragma omp parallel
     {
-#endif
       real matATData[tensor::star::size(0)];
       real matATtildeData[tensor::star::size(0)];
       real matBTData[tensor::star::size(1)];
@@ -185,9 +183,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
       real rusanovPlusNull[tensor::QcorrLocal::size()]{};
       real rusanovMinusNull[tensor::QcorrNeighbor::size()]{};
 
-#ifdef _OPENMP
 #pragma omp for schedule(static)
-#endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto clusterId = secondaryInformation[cell].clusterId;
         const auto timeStepWidth = clusterLayout.timestepRate(clusterId);
@@ -362,9 +358,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         seissol::model::initializeSpecificNeighborData(materialLocal,
                                                        &neighboringIntegration[cell].specific);
       }
-#ifdef _OPENMP
     }
-#endif
   }
 }
 
@@ -379,9 +373,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
     auto* boundary = layer.var<LTS::BoundaryMapping>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
 
-#ifdef _OPENMP
 #pragma omp for schedule(static)
-#endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       const auto& element = elements[secondaryInformation[cell].meshId];
       const auto transform = seissol::geometry::AffineTransform::fromMeshCell(
@@ -493,10 +485,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
     auto* impAndEta = layer.var<DynamicRupture::ImpAndEta>();
     auto* impedanceMatrices = layer.var<DynamicRupture::ImpedanceMatrices>();
 
-#ifdef _OPENMP
 #pragma omp parallel for private(matTData, matTinvData, matAPlusData, matAMinusData)               \
     schedule(static)
-#endif
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       const std::size_t meshFace = faceInformation[ltsFace].meshFace;
       assert(fault[meshFace].element.hasValue() || fault[meshFace].neighborElement.hasValue());
@@ -578,9 +568,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         assert(duplicate != 0 || plusLtsId.has_value() || minusLtsId.has_value());
 
         if (plusLtsId.has_value()) {
-#ifdef _OPENMP
+
 #pragma omp critical
-#endif // _OPENMP
           {
             CellDRMapping& mapping = ltsStorage.lookup<LTS::DRMapping>(
                 plusLtsId.value())[faceInformation[ltsFace].plusSide];
@@ -597,9 +586,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           }
         }
         if (minusLtsId.has_value()) {
-#ifdef _OPENMP
+
 #pragma omp critical
-#endif // _OPENMP
           {
             CellDRMapping& mapping = ltsStorage.lookup<LTS::DRMapping>(
                 minusLtsId.value())[faceInformation[ltsFace].minusSide];

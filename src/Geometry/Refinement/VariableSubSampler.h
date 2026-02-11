@@ -34,6 +34,8 @@ class VariableSubsampler {
   std::size_t kNumVariables;
   std::size_t kNumAlignedDOF;
 
+  bool nodal{false};
+
   std::size_t
       getInVarOffset(std::size_t cell, std::size_t variable, const unsigned int* cellMap) const {
     return (cellMap[cell] * kNumVariables + variable) * kNumAlignedDOF;
@@ -48,7 +50,8 @@ class VariableSubsampler {
                      const TetrahedronRefiner<T>& tetRefiner,
                      unsigned int order,
                      std::size_t numVariables,
-                     std::size_t numAlignedDOF);
+                     std::size_t numAlignedDOF,
+                     bool nodal);
 
   // NOLINTNEXTLINE
   void get(const real* inData, const unsigned int* cellMap, int variable, real* outData) const;
@@ -61,9 +64,10 @@ VariableSubsampler<T>::VariableSubsampler(std::size_t numCells,
                                           const TetrahedronRefiner<T>& tetRefiner,
                                           unsigned int order,
                                           std::size_t numVariables,
-                                          std::size_t numAlignedDOF)
+                                          std::size_t numAlignedDOF,
+                                          bool nodal)
     : mNumCells(numCells), kSubCellsPerCell(tetRefiner.getDivisionCount()),
-      kNumVariables(numVariables), kNumAlignedDOF(numAlignedDOF) {
+      kNumVariables(numVariables), kNumAlignedDOF(numAlignedDOF), nodal(nodal) {
   // Generate cell centerpoints in the reference or unit tetrahedron.
   auto* subCells = new Tetrahedron<T>[kSubCellsPerCell];
   auto* additionalVertices = new Eigen::Matrix<T, 3, 1>[tetRefiner.additionalVerticesPerCell()];
@@ -89,14 +93,23 @@ void VariableSubsampler<T>::get(const real* inData,
                                 int variable,
                                 // NOLINTNEXTLINE
                                 real* outData) const {
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
   // Iterate over original Cells
   for (unsigned int c = 0; c < mNumCells; ++c) {
     for (unsigned int sc = 0; sc < kSubCellsPerCell; ++sc) {
-      outData[getOutVarOffset(c, sc)] =
-          m_BasisFunctions[sc].evalWithCoeffs(&inData[getInVarOffset(c, variable, cellMap)]);
+      const real* __restrict inCellData = &inData[getInVarOffset(c, variable, cellMap)];
+      alignas(Alignment) real modalBuffer[tensor::modalVar::Size]{};
+      if (nodal) {
+        kernel::plOutput krnl{};
+        krnl.nodalVar = inCellData;
+        krnl.modalVar = modalBuffer;
+        krnl.vInv = init::vInv::Values;
+        krnl.execute();
+
+        inCellData = modalBuffer;
+      }
+      outData[getOutVarOffset(c, sc)] = m_BasisFunctions[sc].evalWithCoeffs(inCellData);
     }
   }
 }

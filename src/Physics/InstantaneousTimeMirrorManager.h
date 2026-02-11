@@ -22,7 +22,7 @@ namespace seissol {
 class SeisSol;
 namespace ITM {
 
-class InstantaneousTimeMirrorManager : Module {
+class InstantaneousTimeMirrorManager : public Module {
   seissol::SeisSol& seissolInstance;
   bool isEnabled{false};
   double velocityScalingFactor{1.0};

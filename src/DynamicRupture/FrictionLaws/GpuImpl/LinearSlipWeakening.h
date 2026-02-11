@@ -297,11 +297,13 @@ class BiMaterialFault {
                                           real deltaT,
                                           real vStar,
                                           real prakashLength) {
-    const real expterm = std::exp(-(std::max(static_cast<real>(0.0), localSlipRate) + vStar) *
-                                  deltaT / prakashLength);
+    const auto expval =
+        -(std::max(static_cast<real>(0.0), localSlipRate) + vStar) * deltaT / prakashLength;
+    const real expterm = std::exp(expval);
+    const real exp1mterm = -std::expm1(expval);
 
     const real newStrength = ctx.data->regularizedStrength[ctx.ltsFace][ctx.pointIndex] * expterm +
-                             faultStrength * (1.0 - expterm);
+                             faultStrength * exp1mterm;
 
     ctx.data->regularizedStrength[ctx.ltsFace][ctx.pointIndex] = newStrength;
     return newStrength;

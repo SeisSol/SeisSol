@@ -127,10 +127,10 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
   const auto& quadraturePoints = quadrature.first;
 
   for (auto& layer : storage.leaves(Ghost)) {
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#if !NVHPC_AVOID_OMP
 #pragma omp parallel
-    {
 #endif
+    {
       alignas(Alignment) real iniCondData[tensor::iniCond::size()] = {};
       auto iniCond = init::iniCond::view::create(iniCondData);
 
@@ -148,7 +148,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
       auto* dofs = layer.var<LTS::Dofs>();
       auto* dofsAne = layer.var<LTS::DofsAne>();
 
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#if !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
@@ -169,9 +169,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
         }
         krnl.execute();
       }
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
     }
-#endif
   }
 }
 
@@ -191,9 +189,8 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
   {
     const auto quadrature = seissol::quadrature::quadrature<Cell::Dim>(QuadPolyDegree);
     const auto& quadraturePoints = quadrature.first;
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
     for (std::size_t elem = 0; elem < elements.size(); ++elem) {
       const auto transform = seissol::geometry::AffineTransform::fromMeshCell(elem, meshReader);
       for (size_t i = 0; i < NumQuadPoints; ++i) {
@@ -247,7 +244,8 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
   const auto quantityCount = model::MaterialT::Quantities.size();
 
   for (auto& layer : storage.leaves(Ghost)) {
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+
+#if !NVHPC_AVOID_OMP
 #pragma omp parallel
 #endif
     {
@@ -267,7 +265,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       auto* dofs = layer.var<LTS::Dofs>();
       auto* dofsAne = layer.var<LTS::DofsAne>();
 
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#if !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {

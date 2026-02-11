@@ -91,9 +91,8 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   double minPointValue[3]{INFINITY, INFINITY, INFINITY};
 
   const auto vertexCount = meshReader.getVertices().size();
-#ifdef _OPENMP
+
 #pragma omp parallel for reduction(min : minPointValue[ : 3]) reduction(max : maxPointValue[ : 3])
-#endif
   for (std::size_t i = 0; i < vertexCount; ++i) {
     const auto& vertex = meshReader.getVertices()[i];
     for (int j = 0; j < 3; ++j) {
