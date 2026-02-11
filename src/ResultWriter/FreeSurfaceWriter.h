@@ -49,14 +49,16 @@ class FreeSurfaceWriter
                             unsigned& nCells,
                             unsigned& nVertices);
 
-  public:
-  explicit FreeSurfaceWriter(seissol::SeisSol& seissolInstance)
-      : seissolInstance_(seissolInstance) {}
-
   /**
    * Called by ASYNC on all ranks
    */
   void setUp() override;
+
+  void tearDown() override { executor_.finalize(); }
+
+  public:
+  explicit FreeSurfaceWriter(seissol::SeisSol& seissolInstance)
+      : seissolInstance_(seissolInstance) {}
 
   void enable();
 
@@ -82,8 +84,6 @@ class FreeSurfaceWriter
 
     stopwatch_.printTime("Time free surface writer frontend:");
   }
-
-  void tearDown() override { executor_.finalize(); }
 
   //
   // Hooks

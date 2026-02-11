@@ -55,11 +55,6 @@ class TimeCluster : public AbstractTimeCluster {
   // timecluster.
   double neighborTimestep_{0};
 
-  void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
-  void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
-  void start() override {}
-  void predict() override;
-  void correct() override;
   bool usePlasticity_;
 
   seissol::SeisSol& seissolInstance_;
@@ -224,7 +219,13 @@ class TimeCluster : public AbstractTimeCluster {
 
   DynamicRuptureScheduler* dynamicRuptureScheduler_;
 
+  protected:
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
+  void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
+  void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
+  void start() override {}
+  void predict() override;
+  void correct() override;
 
   public:
   ActResult act() override;
@@ -282,8 +283,6 @@ class TimeCluster : public AbstractTimeCluster {
   [[nodiscard]] unsigned int getGlobalClusterId() const;
   [[nodiscard]] HaloType getLayerType() const;
   void setTime(double time) override;
-
-  std::vector<NeighborCluster>* getNeighborClusters();
 
   void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) override;
 

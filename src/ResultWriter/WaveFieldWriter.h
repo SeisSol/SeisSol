@@ -115,6 +115,13 @@ class WaveFieldWriter
                                     const std::vector<unsigned>& ltsClusteringData,
                                     std::map<int, int>& newToOldCellMap) const;
 
+  /**
+   * Called by ASYNC on all ranks
+   */
+  void setUp() override;
+
+  void tearDown() override { executor_.finalize(); }
+
   public:
   explicit WaveFieldWriter(seissol::SeisSol& seissolInstance) : seissolInstance_(seissolInstance) {}
 
@@ -132,11 +139,6 @@ class WaveFieldWriter
    * Set the output prefix for the filename
    */
   void setFilename(const char* outputPrefix) { outputPrefix_ = outputPrefix; }
-
-  /**
-   * Called by ASYNC on all ranks
-   */
-  void setUp() override;
 
   void setWaveFieldInterval(double interval) { setSyncInterval(interval); }
 
@@ -187,8 +189,6 @@ class WaveFieldWriter
     delete[] lowOutputFlags_;
     lowOutputFlags_ = nullptr;
   }
-
-  void tearDown() override { executor_.finalize(); }
 
   //
   // Hooks

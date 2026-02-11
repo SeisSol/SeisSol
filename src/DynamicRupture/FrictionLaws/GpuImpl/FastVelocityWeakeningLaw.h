@@ -39,8 +39,10 @@ class FastVelocityWeakeningLaw
     const auto localB = ctx.data->b[ctx.ltsFace][ctx.pointIndex];
     const auto localMuW = ctx.data->muW[ctx.ltsFace][ctx.pointIndex];
 
-    const real lowVelocityFriction =
-        localF0 - (localB - localA) * std::log(localSlipRate / ctx.data->drParameters.rsSr0);
+    const real lowVelocityFriction = std::max(
+        static_cast<real>(0),
+        static_cast<real>(localF0 - (localB - localA) *
+                                        std::log(localSlipRate / ctx.data->drParameters.rsSr0)));
 
     const real steadyStateFrictionCoefficient =
         localMuW + (lowVelocityFriction - localMuW) /

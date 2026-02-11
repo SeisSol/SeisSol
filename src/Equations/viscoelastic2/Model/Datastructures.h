@@ -65,7 +65,7 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   using LocalSpecificData = ViscoElasticLocalData;
   using NeighborSpecificData = ViscoElasticNeighborData;
 
-  using Solver = typename ViscoSolver<Config::ViscoMode>::Type;
+  using Solver = ViscoSolver<Config::ViscoMode>::Type;
 
   //! Relaxation frequencies
   double omega[zeroLengthArrayHandler(Mechanisms)]{};

@@ -113,7 +113,7 @@ bool SeisSol::init() {
   seissol::Modules::callHook<ModuleHook::PostMPIInit>();
 
   // Initialize the ASYNC I/O library
-  if (!asyncIO_.init()) {
+  if (!asyncIO_.initDispatcher()) {
     return false;
   }
 
@@ -124,7 +124,7 @@ bool SeisSol::init() {
 
 void SeisSol::finalize() {
   // Cleanup ASYNC I/O library
-  asyncIO_.finalize();
+  asyncIO_.finalizeDispatcher();
 
   Modules::callHook<ModuleHook::Shutdown>();
 

@@ -50,16 +50,18 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
 
   dr::output::OutputManager* callbackObject_{nullptr};
 
+  /**
+   * Called by ASYNC on all ranks
+   */
+  void setUp() override;
+
+  void tearDown() override { executor_.finalize(); }
+
   public:
   explicit FaultWriter(seissol::SeisSol& seissolInstance)
       : seissolInstance_(seissolInstance)
 
   {}
-
-  /**
-   * Called by ASYNC on all ranks
-   */
-  void setUp() override;
 
   void setTimestep(unsigned int timestep) { timestep_ = timestep; }
 
@@ -124,8 +126,6 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
 
     stopwatch_.printTime("Time fault writer frontend:");
   }
-
-  void tearDown() override { executor_.finalize(); }
 
   void setupCallbackObject(dr::output::OutputManager* faultOutputManager) {
     callbackObject_ = faultOutputManager;

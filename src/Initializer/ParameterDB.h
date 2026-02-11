@@ -141,7 +141,7 @@ class ParameterDB {
 };
 
 template <class T>
-class MaterialParameterDB : ParameterDB {
+class MaterialParameterDB : public ParameterDB {
   public:
   T computeAveragedMaterial(unsigned elementIdx,
                             const std::array<double, NumQuadpoints>& quadratureWeights,
@@ -154,7 +154,7 @@ class MaterialParameterDB : ParameterDB {
   std::vector<T>* materials_{};
 };
 
-class FaultParameterDB : ParameterDB {
+class FaultParameterDB : public ParameterDB {
   public:
   explicit FaultParameterDB(std::size_t simulation) : simid_(simulation) {}
   ~FaultParameterDB() override = default;

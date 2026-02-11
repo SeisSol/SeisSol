@@ -66,7 +66,7 @@ std::string SIUnit::formatTime(double value, bool exact, int digits) const {
   const double byHour = std::floor(hours / (60 * 60));
   const double minutes = hours - byHour * (60 * 60);
   const double byMinute = std::floor(minutes / 60);
-  const double seconds = minutes - byMinute * (60);
+  const double seconds = minutes - byMinute * 60;
 
   std::ostringstream stream;
   stream.precision(0);
