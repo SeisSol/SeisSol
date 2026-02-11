@@ -63,6 +63,7 @@ enum class Memkind {
   DeviceUnifiedMemory = 4,
   PinnedMemory = 5,
   DeviceGlobalCompressed = 6,
+  Shmem = 10
 };
 
 void* allocate(size_t size, size_t alignment = 1, Memkind memkind = Memkind::Standard);

@@ -40,6 +40,7 @@ enum class AllocationMode {
   HostDeviceSplitPinned,
   HostDevicePinned,
   DeviceOnly,
+  HostDeviceShmem,
   HostDeviceCompress,
   HostDeviceCompressPinned,
   DeviceOnlyCompress,
@@ -100,6 +101,10 @@ struct DualMemoryContainer {
       host = allocator.allocateMemory(size, alignment, seissol::memory::Memkind::PinnedMemory);
       device =
           allocator.allocateMemory(size, alignment, seissol::memory::Memkind::DeviceGlobalMemory);
+    }
+    if (mode == AllocationMode::HostDeviceShmem) {
+      host = allocator.allocateMemory(size, alignment, seissol::memory::Memkind::Shmem);
+      device = host;
     }
     if (mode == AllocationMode::HostDeviceCompress) {
       host = allocator.allocateMemory(size, alignment, seissol::memory::Memkind::Standard);

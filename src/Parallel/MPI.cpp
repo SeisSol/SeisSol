@@ -82,32 +82,37 @@ void seissol::Mpi::printAcceleratorDeviceInfo() {
 }
 
 void seissol::Mpi::setDataTransferModeFromEnv() {
-  const auto envVariable =
+  const auto envVariable = utils::Env("SEISSOL_").getOptional<std::string>("TRANSFER_MODE");
+  const auto envVariable2 =
       utils::Env("SEISSOL_").getOptional<std::string>("PREFERRED_MPI_DATA_TRANSFER_MODE");
-  if (envVariable.has_value()) {
-    std::string option{envVariable.value()};
+  if (envVariable.has_value() || envVariable2.has_value()) {
+    std::string option{envVariable.value_or(envVariable2.value_or("direct"))};
     std::transform(option.begin(), option.end(), option.begin(), [](unsigned char c) {
       return std::tolower(c);
     });
 
     if (option == "direct") {
       preferredDataTransferMode = DataTransferMode::Direct;
+    } else if (option == "ccl") {
+      preferredDataTransferMode = DataTransferMode::DirectCcl;
+    } else if (option == "shmem") {
+      preferredDataTransferMode = DataTransferMode::DirectShmem;
     } else if (option == "host") {
       preferredDataTransferMode = DataTransferMode::CopyInCopyOutHost;
     } else {
-      logWarning() << "Ignoring `SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`."
-                   << "Expected values: direct, host.";
+      logWarning() << "Ignoring `TRANSFER_MODE`."
+                   << "Expected values: direct, host, ccl.";
       option = "direct";
     }
 #ifndef ACL_DEVICE
     if (preferredDataTransferMode != DataTransferMode::Direct) {
       logWarning() << "The CPU version of SeisSol supports"
-                   << "only the `direct` MPI transfer mode.";
+                   << "only the `direct` inter-process transfer mode.";
       option = "direct";
       preferredDataTransferMode = DataTransferMode::Direct;
     }
 #endif
-    logInfo() << "Selected" << option << "MPI data transfer mode as the preferred one";
+    logInfo() << "Selected" << option << "as inter-process data transfer mode.";
   }
 }
 
