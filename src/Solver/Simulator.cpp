@@ -52,6 +52,12 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   runtime.wait();
 
   Stopwatch simulationStopwatch;
+  if (checkpoint) {
+    logInfo() << "The simulation will run from" << currentTime << "s (checkpoint time) until"
+              << finalTime << "s.";
+  } else {
+    logInfo() << "The simulation will run until" << finalTime << "s.";
+  }
   simulationStopwatch.start();
 
   Stopwatch computeStopwatch;
@@ -59,7 +65,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   ioStopwatch.start();
 
-  // Set start time (required for checkpointing)
+  // Set start time (required when loading a check)
   seissolInstance.timeManager().setInitialTimes(currentTime);
 
   const double timeTolerance = seissolInstance.timeManager().getTimeTolerance();
@@ -70,9 +76,6 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   } else {
     Modules::callSimulationStartHook(std::optional<double>{});
   }
-
-  // intialize wave field and checkpoint time
-  Modules::setSimulationStartTime(currentTime);
 
   // derive next synchronization time
   double upcomingTime = finalTime;
@@ -92,7 +95,8 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   while (finalTime > currentTime + timeTolerance) {
     if (upcomingTime < currentTime + timeTolerance) {
-      logError() << "Simulator did not advance in time from" << currentTime << "to" << upcomingTime;
+      logError() << "Simulator did not advance in time from" << currentTime << "s to"
+                 << upcomingTime << "s.";
     }
     if (aborted) {
       logInfo() << "Aborting simulation.";
@@ -100,11 +104,11 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     }
 
     // update the DOFs
-    logInfo() << "Start simulation epoch.";
+    logInfo() << "Start simulation epoch. (from" << currentTime << "s to" << upcomingTime << "s)";
     computeStopwatch.start();
     seissolInstance.timeManager().advanceInTime(upcomingTime);
     computeStopwatch.pause();
-    logInfo() << "End simulation epoch. Sync point.";
+    logInfo() << "End simulation epoch. (at" << upcomingTime << "s)";
 
     ioStopwatch.start();
 

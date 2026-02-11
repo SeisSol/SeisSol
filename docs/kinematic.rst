@@ -125,7 +125,7 @@ Results
 The fault is ruptured over 7s, leading to a MW6.7 earthquake.
 A snapshot of the vertical ground-surface velocity at 7s after rupture onset in shown below.
 
-.. figure:: figures/1994_snap2_surface.png
+.. figure:: figures/1994-snap2-surface.png
    :alt: Cross-section of vertical velocity
    :width: 12.00000cm
    :align: center

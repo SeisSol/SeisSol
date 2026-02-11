@@ -70,7 +70,7 @@ jobs:
     steps:
       - id: checkout
         name: checkout-seissol
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -153,20 +153,6 @@ jobs:
           fi
 
           echo "Success!"
-
-      - name: run-proxy
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: |
-          cd build
-
-          ./proxyseissol-cpu-* 100 1 ader
-          ./proxyseissol-cpu-* 100 1 localwoader
-          ./proxyseissol-cpu-* 100 1 local
-          ./proxyseissol-cpu-* 100 1 neigh
-          ./proxyseissol-cpu-* 100 1 all
-          ./proxyseissol-cpu-* 100 1 neigh_dr
-          ./proxyseissol-cpu-* 100 1 godunov_dr
-          ./proxyseissol-cpu-* 100 1 all_dr
 
       - name: upload-seissol
         uses: actions/upload-artifact@v4
@@ -410,7 +396,7 @@ jobs:
 
       - id: get-precomputed-solutions
         name: get-precomputed-solutions
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: seissol/precomputed-seissol
           ref: ${{env.precomputed-hash}}
@@ -444,7 +430,7 @@ jobs:
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: scripts
 

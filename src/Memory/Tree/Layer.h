@@ -39,7 +39,10 @@ enum class AllocationMode {
   HostDeviceSplit,
   HostDeviceSplitPinned,
   HostDevicePinned,
-  DeviceOnly
+  DeviceOnly,
+  HostDeviceCompress,
+  HostDeviceCompressPinned,
+  DeviceOnlyCompress,
 };
 
 enum class AllocationPlace { Host, Device };
@@ -98,6 +101,21 @@ struct DualMemoryContainer {
       device =
           allocator.allocateMemory(size, alignment, seissol::memory::Memkind::DeviceGlobalMemory);
     }
+    if (mode == AllocationMode::HostDeviceCompress) {
+      host = allocator.allocateMemory(size, alignment, seissol::memory::Memkind::Standard);
+      device = allocator.allocateMemory(
+          size, alignment, seissol::memory::Memkind::DeviceGlobalCompressed);
+    }
+    if (mode == AllocationMode::HostDeviceCompressPinned) {
+      host = allocator.allocateMemory(size, alignment, seissol::memory::Memkind::PinnedMemory);
+      device = allocator.allocateMemory(
+          size, alignment, seissol::memory::Memkind::DeviceGlobalCompressed);
+    }
+    if (mode == AllocationMode::DeviceOnlyCompress) {
+      host = nullptr;
+      device = allocator.allocateMemory(
+          size, alignment, seissol::memory::Memkind::DeviceGlobalCompressed);
+    }
     allocationMode = mode;
     allocationSize = size;
   }
@@ -105,7 +123,9 @@ struct DualMemoryContainer {
   void synchronizeTo(AllocationPlace place, void* stream) {
 #ifdef ACL_DEVICE
     if (allocationMode == AllocationMode::HostDeviceSplit ||
-        allocationMode == AllocationMode::HostDeviceSplitPinned) {
+        allocationMode == AllocationMode::HostDeviceSplitPinned ||
+        allocationMode == AllocationMode::HostDeviceCompress ||
+        allocationMode == AllocationMode::HostDeviceCompressPinned) {
       if (place == AllocationPlace::Host) {
         // do not copy back constant data (we ignore the other direction for now)
         if (!constant) {
@@ -637,9 +657,8 @@ private:
       // we will do deep-copy from the host to a device later on
       if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Variable &&
           (memoryContainer[var].host != nullptr) && numCells > 0) {
-#ifdef _OPENMP
+
 #pragma omp for schedule(static) nowait
-#endif
         for (std::size_t cell = 0; cell < numCells; ++cell) {
           auto* cellPointer =
               static_cast<char*>(memoryContainer[var].host) + cell * memoryInfo[var].bytes;

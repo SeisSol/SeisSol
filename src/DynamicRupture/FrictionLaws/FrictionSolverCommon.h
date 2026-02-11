@@ -515,7 +515,7 @@ SEISSOL_HOSTDEVICE inline void
  * param[in] slipRateMagnitude
  * param[in] ruptureTimePending
  * param[in, out] timeSinceSlipRateBelowThreshold
- * param[in] sumDt
+ * param[in] dt
  */
 template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void
@@ -524,7 +524,7 @@ SEISSOL_HOSTDEVICE inline void
                                           // See https://github.com/llvm/llvm-project/issues/60163
                                           // NOLINTNEXTLINE
                                           DREnergyOutput& energyData,
-                                          const real sumDt,
+                                          const real dt,
                                           const real slipRateThreshold,
                                           unsigned startIndex = 0) {
 
@@ -538,7 +538,7 @@ SEISSOL_HOSTDEVICE inline void
     auto pointIndex{startIndex + index};
     if (not ruptureTimePending[pointIndex]) {
       if (slipRateMagnitude[pointIndex] < slipRateThreshold) {
-        timeSinceSlipRateBelowThreshold[pointIndex] += sumDt;
+        timeSinceSlipRateBelowThreshold[pointIndex] += dt;
       } else {
         timeSinceSlipRateBelowThreshold[pointIndex] = 0;
       }

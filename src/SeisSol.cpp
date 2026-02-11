@@ -52,18 +52,28 @@ bool SeisSol::init() {
   if (!parallel::Pinning::areAllCpusOnline()) {
     logInfo() << "Some CPUs are offline. Only online CPUs are considered.";
     logInfo() << "Online Mask            (this node)   :"
-              << parallel::Pinning::maskToString(pinning.getOnlineMask());
+              << parallel::Pinning::maskToString(pinning.getOnlineMask()) << "("
+              << parallel::Pinning::maskToStringShort(pinning.getOnlineMask()).c_str() << ")";
   }
   logInfo() << "OpenMP worker affinity (this process):"
-            << parallel::Pinning::maskToString(seissol::parallel::Pinning::getWorkerUnionMask());
-  logInfo() << "OpenMP worker affinity (this node)   :"
-            << parallel::Pinning::maskToString(seissol::parallel::Pinning::getNodeMask());
+            << parallel::Pinning::maskToString(seissol::parallel::Pinning::getWorkerUnionMask())
+            << "("
+            << parallel::Pinning::maskToStringShort(
+                   seissol::parallel::Pinning::getWorkerUnionMask())
+                   .c_str()
+            << ")";
+  logInfo()
+      << "OpenMP worker affinity (this node)   :"
+      << parallel::Pinning::maskToString(seissol::parallel::Pinning::getNodeMask()) << "("
+      << parallel::Pinning::maskToStringShort(seissol::parallel::Pinning::getNodeMask()).c_str()
+      << ")";
 
   seissol::printCommThreadInfo(seissol::Mpi::mpi, m_env);
   if (seissol::useCommThread(seissol::Mpi::mpi, m_env)) {
     auto freeCpus = pinning.getFreeCPUsMask();
     logInfo() << "Communication thread affinity        :"
-              << parallel::Pinning::maskToString(freeCpus);
+              << parallel::Pinning::maskToString(freeCpus) << "("
+              << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError()
           << "There are no free CPUs left. Make sure to leave one for the communication thread. If "
@@ -103,7 +113,7 @@ bool SeisSol::init() {
   seissol::Modules::callHook<ModuleHook::PostMPIInit>();
 
   // Initialize the ASYNC I/O library
-  if (!m_asyncIO.init()) {
+  if (!m_asyncIO.initDispatcher()) {
     return false;
   }
 
@@ -114,7 +124,7 @@ bool SeisSol::init() {
 
 void SeisSol::finalize() {
   // Cleanup ASYNC I/O library
-  m_asyncIO.finalize();
+  m_asyncIO.finalizeDispatcher();
 
   Modules::callHook<ModuleHook::Shutdown>();
 
