@@ -33,12 +33,12 @@ class AbstractRecorder {
     }
   }
 
-  void setUpContext(initializer::Layer<VarmapT>& layer) {
-    currentTable_ = &(layer.template getConditionalTable<inner_keys::Wp>());
-    currentDrTable_ = &(layer.template getConditionalTable<inner_keys::Dr>());
-    currentMaterialTable_ = &(layer.template getConditionalTable<inner_keys::Material>());
-    currentIndicesTable_ = &(layer.template getConditionalTable<inner_keys::Indices>());
-    currentLayer_ = &(layer);
+  virtual void setUpContext(initializer::Layer<VarmapT>& layer) {
+    currentTable_ = &layer.template getConditionalTable<inner_keys::Wp>();
+    currentDrTable_ = &layer.template getConditionalTable<inner_keys::Dr>();
+    currentMaterialTable_ = &layer.template getConditionalTable<inner_keys::Material>();
+    currentIndicesTable_ = &layer.template getConditionalTable<inner_keys::Indices>();
+    currentLayer_ = &layer;
   }
 
   ConditionalPointersToRealsTable* currentTable_{nullptr};
@@ -75,13 +75,14 @@ class LocalIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   public:
   void record(LTS::Layer& layer) override;
 
-  private:
-  void setUpContext(LTS::Layer& layer) {
+  protected:
+  void setUpContext(LTS::Layer& layer) override {
     integratedDofsAddressCounter_ = 0;
     derivativesAddressCounter_ = 0;
     AbstractRecorder::setUpContext(layer);
   }
 
+  private:
   void recordTimeAndVolumeIntegrals();
   void recordFreeSurfaceGravityBc();
   void recordDirichletBc();
@@ -100,11 +101,13 @@ class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   public:
   void record(LTS::Layer& layer) override;
 
-  private:
-  void setUpContext(LTS::Layer& layer) {
+  protected:
+  void setUpContext(LTS::Layer& layer) override {
     integratedDofsAddressCounter_ = 0;
     AbstractRecorder::setUpContext(layer);
   }
+
+  private:
   void recordDofsTimeEvaluation();
   void recordNeighborFluxIntegrals();
   std::unordered_map<real*, real*> idofsAddressRegistry_;
@@ -112,9 +115,10 @@ class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
 };
 
 class PlasticityRecorder : public AbstractRecorder<LTS::LTSVarmap> {
-  public:
-  void setUpContext(LTS::Layer& layer) { AbstractRecorder::setUpContext(layer); }
+  protected:
+  void setUpContext(LTS::Layer& layer) override { AbstractRecorder::setUpContext(layer); }
 
+  public:
   void record(LTS::Layer& layer) override;
 };
 
@@ -122,8 +126,12 @@ class DynamicRuptureRecorder : public AbstractRecorder<DynamicRupture::DynrupVar
   public:
   void record(DynamicRupture::Layer& layer) override;
 
+  protected:
+  void setUpContext(DynamicRupture::Layer& layer) override {
+    AbstractRecorder::setUpContext(layer);
+  }
+
   private:
-  void setUpContext(DynamicRupture::Layer& layer) { AbstractRecorder::setUpContext(layer); }
   void recordDofsTimeEvaluation();
   void recordSpaceInterpolation();
   std::unordered_map<real*, real*> idofsAddressRegistry_;
