@@ -82,6 +82,8 @@ The following two CMake options can be useful to improve performance:
 * ``PREMULTIPLY_FLUX``: enables the pre-multiplying of flux matrices (it was disabled for CPUs to free up cache space). This usually results in a speedup for AMD and Nvidia GPUs. By default, it is switched on when compiling for an AMD or Nvidia GPU and switched off in all other cases.
 * ``DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS``: enables a hand-written kernel to speed up some internal, heavily memory-bound computations. Enabled for AMD and NVIDIA GPUs by default; but it works on all others as well.
 
+.. _gpu-env:
+
 Execution
 ~~~~~~~~~
 
@@ -97,6 +99,8 @@ The following device-specific environment variable is supported right now:
 
 - ``SEISSOL_USM_MPI``
 
+- ``SEISSOL_L2_COMPRESS``
+
 - ``SEISSOL_TRANSFER_MODE``
 
 ``SEISSOL_USM`` specifies if the data buffers are allocated using unified/managed (i.e. CPU-accessible) memory,
@@ -106,6 +110,11 @@ and disabled on all other systems (see TODO for more information).
 ``SEISSOL_USM_MPI`` specifies the allocation mode for the buffers that are also used for MPI transfer.
 E.g. some MPI implementations, even if GPU-aware, will treat unified/managed memory buffers are CPU buffers
 otherwise.
+
+``SEISSOL_L2_COMPRESS`` enables L2 compression on those GPUs and frameworks where it is available.
+Currently, that is only CUDA; we recommend to check the respective guides for availability
+(generally, Hopper or newer should always support it; and Ampere slightly restricted).
+Disabled by default, and currently requires ``SEISSOL_USM=0`` and ``SEISSOL_USM_MPI=0``.
 
 ``SEISSOL_TRANSFER_MODE`` specifies how to copy GPU buffers via MPI.
 The default value is ``direct`` which copies the data out of the GPU buffers directly.

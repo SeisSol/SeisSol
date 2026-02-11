@@ -90,6 +90,19 @@ inline void printMPIUSMInfo(utils::Env& env) {
   }
 }
 
+inline bool useDeviceL2Compress(utils::Env& env) { return env.get<bool>("L2_COMPRESS", false); }
+
+inline bool useDeviceL2Compress() {
+  utils::Env env("SEISSOL_");
+  return useDeviceL2Compress(env);
+}
+
+inline void printDeviceL2Compress(utils::Env& env) {
+  if (useDeviceL2Compress(env)) {
+    logInfo() << "Using L2 compression (if available).";
+  }
+}
+
 } // namespace seissol
 
 #endif // SEISSOL_SRC_PARALLEL_HELPER_H_

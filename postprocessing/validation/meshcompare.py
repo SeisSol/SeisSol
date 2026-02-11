@@ -22,17 +22,25 @@ def compare(file, file_ref, epsilon):
     geom_ref = mesh_ref.ReadGeometry()
     connect_ref = mesh_ref.ReadConnect()
 
+    matching = False
+    global_id_correct = None
+
     # read reference mesh
     if "global-id" in mesh_ref.ReadAvailableDataFields():
         # rely on stably-sorting the refined cells here
         preIds = mesh.Read1dData("global-id", mesh.nElements, isInt=True)
         ids = np.argsort(preIds)
-        preIds_ref = mesh_ref.Read1dData("global-id", mesh.nElements, isInt=True)
-        ids_ref = np.argsort(preIds)
-    else:
+        preIds_ref = mesh_ref.Read1dData("global-id", mesh_ref.nElements, isInt=True)
+        ids_ref = np.argsort(preIds_ref)
+
+        global_id_correct = np.all(np.abs(geom[connect[ids]] - geom_ref[connect_ref[ids_ref]]) < 1e-10)
+        matching = global_id_correct
+        print(f'Global IDs present; conformant: {global_id_correct}')
+
+    if not matching:
         # if the reference solution has no global IDs, heuristically sort by barycenter, weighed by 3D cube position
         print(
-            "No global-id field found in the reference. Order the cells by their barycenter in a 3D array."
+            "No or incorrect global-id field found in the reference. Order the cells by their barycenter in a 3D array."
         )
         rngs = [(np.max(geom[:, i]), np.min(geom[:, i])) for i in range(3)]
         offset = np.array([rng[1] for rng in rngs])
@@ -136,7 +144,15 @@ def compare(file, file_ref, epsilon):
             print(f"{q:3}: {relative_error} [rel.]")
             errors[i] = relative_error
 
+    failure = False
+    if global_id_correct == False:
+        print('Global IDs present, but did not match.')
+        failure = True
+
     if np.any(errors > epsilon):
         print(f"Relative/absolute error {epsilon} exceeded for quantities")
         print([quantity_names[i] for i in np.where(errors > epsilon)[0]])
+        failure = True
+
+    if failure:
         sys.exit(1)

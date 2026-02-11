@@ -149,6 +149,8 @@ void* allocate(size_t size, size_t alignment, Memkind memkind) {
   } else if (memkind == Memkind::PinnedMemory) {
 #ifdef ACL_DEVICE
     ptrBuffer = device::DeviceInstance::getInstance().api->allocPinnedMem(size);
+  } else if (memkind == Memkind::DeviceGlobalCompressed) {
+    ptrBuffer = device::DeviceInstance::getInstance().api->allocGlobMem(size, true);
 #endif
   } else if (memkind == Memkind::DeviceGlobalCompressed) {
 #ifdef ACL_DEVICE
@@ -199,6 +201,8 @@ void free(void* pointer, Memkind memkind) {
   } else if (memkind == Memkind::PinnedMemory) {
 #ifdef ACL_DEVICE
     device::DeviceInstance::getInstance().api->freePinnedMem(pointer);
+  } else if (memkind == Memkind::DeviceGlobalCompressed) {
+    device::DeviceInstance::getInstance().api->freeGlobMem(pointer);
 #endif
   } else if (memkind == Memkind::DeviceGlobalCompressed) {
 #ifdef ACL_DEVICE

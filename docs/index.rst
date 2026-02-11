@@ -10,9 +10,9 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-=======
+========
 SeisSol
-=======
+========
 
 SeisSol is a software package for simulating wave propagation and dynamic
 rupture based on the arbitrary high-order accurate derivative discontinuous
@@ -69,6 +69,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   leonardo
   lumi
   supermuc-ng-phase2
+  coolmuc4
 
 .. toctree::
   :maxdepth: 2
