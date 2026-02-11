@@ -67,7 +67,7 @@ set_property(CACHE DEVICE_BACKEND PROPERTY STRINGS ${DEVICE_BACKEND_OPTIONS})
 option(DEVICE_KERNEL_INFOPRINT "Print infos on kernel resource usage during the build." ON)
 option(DEVICE_KERNEL_SAVETEMPS "Store intermediate kernel build files (e.g. PTX, AMDGPU); useful for debugging/profiling kernels." OFF)
 
-set(DEVICE_ARCH "none" CACHE STRING "Type of GPU architecture")
+set(DEVICE_ARCH "auto" CACHE STRING "Type of GPU architecture")
 
 # TODO: add vendor name here
 # (NOTE: bdw,skl,pvc as labels are kept for legacy reasons; prefer 8_0_0, 9_0_9, 12_60_7 resp.)
