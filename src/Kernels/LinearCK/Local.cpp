@@ -300,7 +300,7 @@ void Local::computeBatchedIntegral(
     if (dataTable.find(fsgKey) != dataTable.end()) {
       auto** nodalAvgDisplacements =
           dataTable[fsgKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
-      auto** rhos = dataTable[fsgKey].get(inner_keys::Wp::Id::Rhos)->getDeviceDataPtr();
+      auto** rhos = dataTable[fsgKey].get(inner_keys::Wp::Id::FSGData)->getDeviceDataPtr();
 
       auto** dataTinv = dataTable[fsgKey].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
       auto** idofsPtrs = dataTable[fsgKey].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
@@ -308,6 +308,7 @@ void Local::computeBatchedIntegral(
       auto bcKernel = deviceBCFreeSurfaceGravity;
       bcKernel.g2m = -2 * gravitationalAcceleration;
       bcKernel.rho = const_cast<const real**>(rhos);
+      bcKernel.extraOffset_rho = 2;
       bcKernel.averageNormalDisplacement = const_cast<const real**>(nodalAvgDisplacements);
       bcKernel.Tinv = const_cast<const real**>(dataTinv);
       bcKernel.I = const_cast<const real**>(idofsPtrs);

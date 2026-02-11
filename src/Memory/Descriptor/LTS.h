@@ -136,7 +136,7 @@ struct LTS {
 
   struct ZinvExtra : public initializer::Scratchpad<real> {};
 
-  struct FSGData : public initializer::Scratchpad<real> {};
+  struct FSGData : public initializer::Bucket<real> {};
 
   struct Rhos : public initializer::Variable<real> {};
 
@@ -258,7 +258,7 @@ struct LTS {
 
       storage.add<ZinvExtra>(LayerMask(), 1, AllocationMode::HostDevicePinned);
 
-      storage.add<FSGData>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<FSGData>(LayerMask(), 1, AllocationMode::HostDeviceSplit);
 
       storage.add<Rhos>(LayerMask(), 1, AllocationMode::HostDeviceSplit);
     }

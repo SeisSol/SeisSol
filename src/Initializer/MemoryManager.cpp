@@ -198,7 +198,7 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
                                                 sizeof(real));
     layer.setEntrySize<LTS::NodalAvgDisplacements>(nodalDisplacementsCounter *
                                                    nodalDisplacementsSize * sizeof(real));
-    layer.setEntrySize<LTS::FSGData>(nodalDisplacementsCounter * 2 * sizeof(real));
+    layer.setEntrySize<LTS::FSGData>(nodalDisplacementsCounter * 3 * sizeof(real));
 #ifdef USE_VISCOELASTIC2
     layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * tensor::Iane::size() * sizeof(real));
     layer.setEntrySize<LTS::DerivativesExtScratch>(
@@ -253,7 +253,8 @@ void MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
 #ifdef ACL_DEVICE
 void MemoryManager::recordExecutionPaths(bool usePlasticity) {
   recording::CompositeRecorder<LTS::LTSVarmap> recorder;
-  recorder.addRecorder(new recording::LocalIntegrationRecorder);
+  recorder.addRecorder(new recording::LocalIntegrationRecorder(
+      seissolInstance.getGravitationSetup().gravitationalAcceleration));
   recorder.addRecorder(new recording::NeighIntegrationRecorder);
 
   if (usePlasticity) {

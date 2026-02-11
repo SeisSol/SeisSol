@@ -123,11 +123,6 @@ class GravitationalFreeSurfaceBc {
 
       auto** constantData = dataTable[key].get(inner_keys::Wp::Id::FSGData)->getDeviceDataPtr();
 
-      auto* rhos = materialTable[key].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
-      auto* lambdas = materialTable[key].get(inner_keys::Material::Id::Lambda)->getDeviceDataPtr();
-      kernels::time::aux::computeInvAcousticImpedance(
-          constantData, g, rhos, lambdas, numElements, deviceStream);
-
       auto** TinvDataPtrs = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
       auto** TDataPtrs = dataTable[key].get(inner_keys::Wp::Id::T)->getDeviceDataPtr();
       auto** derivativesPtrs =

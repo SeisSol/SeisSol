@@ -170,24 +170,3 @@ void taylorSum(
 }
 } // namespace seissol::kernels::time::aux
 #endif
-
-namespace seissol::kernels::local_flux::aux::details {
-void computeInvAcousticImpedance(real** data,
-                                 double g,
-                                 const double* rhos,
-                                 const double* lambdas,
-                                 size_t numElements,
-                                 void* deviceStream) {
-  auto queue = reinterpret_cast<sycl::queue*>(deviceStream);
-  sycl::nd_range rng({numElements}, {1024});
-
-  queue->parallel_for(rng, [=](sycl::nd_item<1> item) {
-    size_t index = item.get_global_id(0);
-    if (index < numElements) {
-      data[index][0] = 1.0 / std::sqrt(lambdas[index] * rhos[index]);
-      data[index][1] = rhos[index] * g;
-    }
-  });
-}
-
-} // namespace seissol::kernels::local_flux::aux::details

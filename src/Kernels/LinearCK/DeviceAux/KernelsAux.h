@@ -16,13 +16,4 @@ void taylorSum(
     std::size_t count, real** target, const real** source, const real* coeffs, void* stream);
 } // namespace seissol::kernels::time::aux
 
-namespace seissol::kernels::time::aux {
-void computeInvAcousticImpedance(real** data,
-                                 double g,
-                                 const double* rhos,
-                                 const double* lambdas,
-                                 size_t numElements,
-                                 void* deviceStream);
-} // namespace seissol::kernels::time::aux
-
 #endif // SEISSOL_SRC_KERNELS_LINEARCK_DEVICEAUX_KERNELSAUX_H_

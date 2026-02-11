@@ -182,32 +182,3 @@ void taylorSum(
 }
 } // namespace seissol::kernels::time::aux
 #endif
-
-namespace seissol::kernels::time::aux {
-__global__ void kernelComputeInvAcousticImpedance(real* __restrict* __restrict data,
-                                                  double g,
-                                                  const double* __restrict rhos,
-                                                  const double* __restrict lambdas,
-                                                  size_t numElements) {
-
-  size_t index = threadIdx.x + blockIdx.x * blockDim.x;
-  if (index < numElements) {
-    data[index][0] = 1.0 / std::sqrt(lambdas[index] * rhos[index]);
-    data[index][1] = rhos[index] * g;
-  }
-}
-
-void computeInvAcousticImpedance(real** data,
-                                 double g,
-                                 const double* rhos,
-                                 const double* lambdas,
-                                 size_t numElements,
-                                 void* deviceStream) {
-  constexpr size_t blockSize{1024};
-  dim3 block(blockSize, 1, 1);
-  dim3 grid((numElements + blockSize - 1) / blockSize, 1, 1);
-  auto stream = reinterpret_cast<StreamT>(deviceStream);
-  kernelComputeInvAcousticImpedance<<<grid, block, 0, stream>>>(
-      data, g, rhos, lambdas, numElements);
-}
-} // namespace seissol::kernels::time::aux

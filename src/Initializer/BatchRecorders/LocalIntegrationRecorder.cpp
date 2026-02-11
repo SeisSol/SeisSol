@@ -253,6 +253,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
   real* nodalAvgDisplacements =
       static_cast<real*>(currentLayer->var<LTS::NodalAvgDisplacements>(AllocationPlace::Device));
   real* fsgdataPtr = static_cast<real*>(currentLayer->var<LTS::FSGData>(AllocationPlace::Device));
+  real* fsgdataPtrHost = static_cast<real*>(currentLayer->var<LTS::FSGData>());
 
   if (size > 0) {
     std::array<std::vector<unsigned>, 4> cellIndices{};
@@ -304,10 +305,12 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
           nodalAvgDisplacementsCounter += NodalAvgDisplacementsSize;
 
           fsgdata[face].push_back(fsgdataPtr);
-          fsgdataPtr += 2;
+          fsgdataPtr += 3;
+          fsgdataPtrHost += 3;
 
-          *dataHost.getPointer<LTS::Rhos>() = dataHost.get<LTS::Material>().local->getDensity();
-          rhosPtr[face].push_back(data.getPointer<LTS::Rhos>());
+          fsgdataPtrHost[0] = 1.0 / std::sqrt(rhos[face].back() * lambdas[face].back());
+          fsgdataPtrHost[1] = rhos[face].back() * g;
+          fsgdataPtrHost[2] = rhos[face].back();
 
           ++counter[face];
         }
