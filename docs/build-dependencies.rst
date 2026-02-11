@@ -83,7 +83,7 @@ For example, do ``mkdir ~/seissol; cd seissol``.
 
 In _all_ cases before building something manually,
 make sure to check the installed module files. That is, type ``module avail`` and look for the software you want to use.
-Type ``module load NAME`` to load the respective software (with ``NAME`` being the name of the software, including the text after the slash, e.g. ``module load cmake/3.20.0``).
+Type ``module load NAME`` to load the respective software (with ``NAME`` being the name of the software, including the text after the slash, e.g. ``module load cmake/4.2.0``).
 
 However, in some cases, the modules may be incomplete. Check that especially when using NVHPC, or the components for building AdaptiveCpp (LLVM, Boost).
 
@@ -128,13 +128,14 @@ We assume that you have a compiler already installed. The same goes for a suitab
 You will also need CMake in version 3.20.0 or above. Most likely, you system will already have a
 version of CMake installed; however, you may have to load a module to get a new enough version.
 
-If you do not have CMake in a new enough version available, you may also install it manually as follows.
+If you do not have CMake in a new enough version available, you may also install it manually into your folder as follows.
+(NOTE: you will need to adjust the ``x86_64`` on ARM machines; as e.g. using NVIDIA Grace or Vera)
 
 .. code-block:: bash
 
-  (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.20.0/cmake-3.20.0-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.20.0-linux-x86_64" "${SEISSOL_PREFIX}/bin/cmake")
+  (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v4.2.0/cmake-4.2.0-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-4.2.0-linux-x86_64/*" "${SEISSOL_PREFIX}")
 
-Note that this extracts CMake to the directory ``${SEISSOL_PREFIX}/bin/cmake``, if you wish you can adjust that path. Note that you may now also use ``ccmake`` to get a terminal UI for configuring the following libraries.
+Note that you may now also use ``ccmake`` to get a terminal UI for configuring the following libraries.
 
 Required libraries
 ~~~~~~~~~~~~~~~~~~

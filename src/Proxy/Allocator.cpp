@@ -222,7 +222,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   }
 
   /* cell information and integration data*/
-  fakeData(layer, (enableDR) ? FaceType::DynamicRupture : FaceType::Regular);
+  fakeData(layer, enableDR ? FaceType::DynamicRupture : FaceType::Regular);
 
   if (enableDR) {
     // From lts storage

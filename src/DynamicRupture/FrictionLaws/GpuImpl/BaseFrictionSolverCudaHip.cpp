@@ -88,7 +88,6 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   args.heatSource = devHeatSource;
   std::copy_n(timeWeights, misc::TimeSteps, args.timeWeights);
   std::copy_n(frictionTime.deltaT.data(), misc::TimeSteps, args.deltaT);
-  args.sumDt = frictionTime.sumDt;
   args.fullUpdateTime = fullUpdateTime;
 
   flkernelwrapper<T><<<grid, block, 0, stream>>>(this->currLayerSize, args);

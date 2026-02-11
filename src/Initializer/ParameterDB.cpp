@@ -661,7 +661,7 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
   // Note that easi only supports
 
   // Constant terms stores all terms of the vector b
-  auto constantTerms = init::easiBoundaryConstant::view::create((constantTermsData));
+  auto constantTerms = init::easiBoundaryConstant::view::create(constantTermsData);
 
   // Map terms stores all terms of the linear map A
   auto mapTerms = init::easiBoundaryMap::view::create(mapTermsData);

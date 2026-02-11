@@ -58,7 +58,6 @@ class BaseFrictionLaw : public FrictionSolver {
 
       SCOREP_USER_REGION_DEFINE(myRegionHandle)
       std::copy_n(frictionTime.deltaT.begin(), frictionTime.deltaT.size(), this->deltaT);
-      this->sumDt = frictionTime.sumDt;
       this->mFullUpdateTime = fullUpdateTime;
 
       // loop over all dynamic rupture faces, in this LTS layer
