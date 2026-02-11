@@ -217,18 +217,19 @@ function(determine_nvidia_arch arch)
 
     if (res EQUAL "0")
 
-        string(REGEX MATCH "[ \t\r\n]" "" myarch "${myarch}")
+        string(REGEX REPLACE "[ \t\r\n]" "" myarch "${myarch}")
 
         set(${arch} "${myarch}" PARENT_SCOPE)
 
     else()
 
-        execute_process(COMMAND "nvidia-smi --query-gpu="compute_cap" --format=noheader --id=0"
-            OUTPUT_VARIABLE premyarch RESULT_VARIABLE res)
+        execute_process(COMMAND "nvidia-smi --query-gpu=\"compute_cap\" --format=noheader --id=0"
+            OUTPUT_VARIABLE myarch RESULT_VARIABLE res)
 
         if (res EQUAL "0")
 
-            string(REGEX REPLACE "\." "" premyarch "${premyarch}")
+            string(REGEX REPLACE "\." "" myarch "${myarch}")
+            string(REGEX REPLACE "[ \t\r\n]" "" myarch "${premyarch}")
 
             set(${arch} "${myarch}" PARENT_SCOPE)
 
@@ -240,21 +241,23 @@ endfunction()
 
 function(determine_amd_arch arch)
 
-    execute_process(COMMAND amdgpu-arch OUTPUT_VARIABLE myarch RESULT_VARIABLE res)
+    execute_process(COMMAND "amdgpu-arch" OUTPUT_VARIABLE myarch RESULT_VARIABLE res)
 
     if (res EQUAL "0")
 
-        string(REGEX MATCH "\s+" "" myarch "${myarch}")
+        string(REGEX MATCH "gfx[0-9a-f]+" myarch "${myarch}")
+        string(REGEX REPLACE "[ \t\r\n]" "" myarch "${myarch}")
 
         set(${arch} "${myarch}" PARENT_SCOPE)
 
     else()
 
-        execute_process(COMMAND rocm_agent_enumerator OUTPUT_VARIABLE myarch RESULT_VARIABLE res)
+        execute_process(COMMAND "rocm_agent_enumerator" OUTPUT_VARIABLE myarch RESULT_VARIABLE res)
 
         if (res EQUAL "0")
 
-            string(REGEX MATCH "\s+" "" myarch "${myarch}")
+            string(REGEX MATCH "gfx[0-9a-f]+" myarch "${myarch}")
+            string(REGEX REPLACE "[ \t\r\n]" "" myarch "${myarch}")
 
             set(${arch} "${myarch}" PARENT_SCOPE)
 
@@ -266,7 +269,7 @@ endfunction()
 
 function(determine_oneapi_arch arch)
 
-    execute_process(COMMAND sycl-ls --verbose OUTPUT_VARIABLE premyarch RESULT_VARIABLE res)
+    execute_process(COMMAND "sycl-ls --verbose" OUTPUT_VARIABLE premyarch RESULT_VARIABLE res)
 
     if (res EQUAL "0")
 
@@ -274,9 +277,10 @@ function(determine_oneapi_arch arch)
 
         if (CMAKE_MATCH_COUNT GREATER 1)
             set(myarch ${CMAKE_MATCH_1})
-        endif()
+            string(REGEX REPLACE "[ \t\r\n]" "" myarch "${myarch}")
 
-        set(${arch} "${myarch}" PARENT_SCOPE)
+            set(${arch} "${myarch}" PARENT_SCOPE)
+        endif()
 
     endif()
 
