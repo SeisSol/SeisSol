@@ -52,7 +52,7 @@ Receiver::Receiver(unsigned pointId,
     : pointId(pointId), position(std::move(position)), dataHost(dataHost), dataDevice(dataDevice) {
   output.reserve(reserved);
 
-  auto xiEtaZeta = transform.spaceToRef(position);
+  const auto xiEtaZeta = transform.spaceToRef(this->position);
   basisFunctions = basisFunction::SampledBasisFunctions<real>(
       ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
   basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<real>(

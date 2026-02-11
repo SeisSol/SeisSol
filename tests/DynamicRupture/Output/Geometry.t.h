@@ -46,7 +46,7 @@ TEST_CASE("DR Geometry") {
     constexpr double Epsilon = 1e-6;
     {
       ExtVrtxCoords testPoint{0.0, 0.0, 0.0};
-      CoordinateT normalDirection{1.0, 1.0, 1.0};
+      const CoordinateT normalDirection{1.0, 1.0, 1.0};
 
       projectPointToFace(testPoint, face, normalDirection);
 
@@ -56,7 +56,7 @@ TEST_CASE("DR Geometry") {
     }
     {
       ExtVrtxCoords testPoint{1.0, 1.0, 1.0};
-      CoordinateT normalDirection{-1.0, -1.0, -1.0};
+      const CoordinateT normalDirection{-1.0, -1.0, -1.0};
 
       projectPointToFace(testPoint, face, normalDirection);
 
@@ -154,7 +154,7 @@ TEST_CASE("DR Geometry") {
   }
 
   SUBCASE("StrikeAndDipVectors") {
-    CoordinateT testNormal{-1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
+    const CoordinateT testNormal{-1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
     CoordinateT testStrike{0.0, 0.0, 0.0};
     CoordinateT testDip{0.0, 0.0, 0.0};
     misc::computeStrikeAndDipVectors(testNormal, testStrike, testDip);
@@ -180,28 +180,28 @@ TEST_CASE("DR Geometry") {
     std::array<double, 2> testChiTau = {0.0, 0.0};
     {
       const unsigned face = 0;
-      CoordinateT xiEtaZeta{0.25, 0.1, 0.0};
+      const CoordinateT xiEtaZeta{0.25, 0.1, 0.0};
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
       REQUIRE(testChiTau[0] == AbsApprox(0.1).epsilon(Epsilon));
       REQUIRE(testChiTau[1] == AbsApprox(0.25).epsilon(Epsilon));
     }
     {
       const unsigned face = 1;
-      CoordinateT xiEtaZeta{0.1, 0.0, 0.25};
+      const CoordinateT xiEtaZeta{0.1, 0.0, 0.25};
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
       REQUIRE(testChiTau[0] == AbsApprox(0.1).epsilon(Epsilon));
       REQUIRE(testChiTau[1] == AbsApprox(0.25).epsilon(Epsilon));
     }
     {
       const unsigned face = 2;
-      CoordinateT xiEtaZeta{0.0, 0.1, 0.25};
+      const CoordinateT xiEtaZeta{0.0, 0.1, 0.25};
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
       REQUIRE(testChiTau[0] == AbsApprox(0.25).epsilon(Epsilon));
       REQUIRE(testChiTau[1] == AbsApprox(0.1).epsilon(Epsilon));
     }
     {
       const unsigned face = 3;
-      CoordinateT xiEtaZeta{
+      const CoordinateT xiEtaZeta{
           1 / 3.0, 1 / 3.0, 1 / 3.0}; // center of the 4th face (triangle in 3D space)
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
       REQUIRE(testChiTau[0] == AbsApprox(1 / 3.0).epsilon(Epsilon));
@@ -212,7 +212,7 @@ TEST_CASE("DR Geometry") {
       ExtVrtxCoords xiEtaZeta{0.0, -0.15, 0.15};
       const ExtTriangle fourthFace(
           ExtVrtxCoords{1.0, 0.0, 0.0}, ExtVrtxCoords{0.0, 1.0, 0.0}, ExtVrtxCoords{0.0, 0.0, 1.0});
-      CoordinateT normalDirection{1.0, 1.0, 1.0};
+      const CoordinateT normalDirection{1.0, 1.0, 1.0};
       projectPointToFace(xiEtaZeta, fourthFace, normalDirection);
 
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta.coords, testChiTau);
@@ -223,7 +223,7 @@ TEST_CASE("DR Geometry") {
 
   SUBCASE("BasisFunctions") {
 
-    CoordinateT point{0.25, 0.25, 0.0};
+    const CoordinateT point{0.25, 0.25, 0.0};
 
     // placing two elements in such a way that basis functions on both sides end up being the same
     const auto plusElementCoords = std::array<CoordinateT, 4>{CoordinateT{2.0, 0.0, 0.0},
