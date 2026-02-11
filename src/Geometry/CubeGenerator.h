@@ -9,18 +9,15 @@
 #ifndef SEISSOL_SRC_GEOMETRY_CUBEGENERATOR_H_
 #define SEISSOL_SRC_GEOMETRY_CUBEGENERATOR_H_
 
+#include "Initializer/Parameters/CubeGeneratorParameters.h"
+#include "MeshReader.h"
+
 #include <algorithm>
 #include <cstring>
 #include <map>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
-
-#include <omp.h>
-
-#include "utils/logger.h"
-
-#include "Initializer/Parameters/CubeGeneratorParameters.h"
-#include "MeshReader.h"
 
 namespace seissol::geometry {
 

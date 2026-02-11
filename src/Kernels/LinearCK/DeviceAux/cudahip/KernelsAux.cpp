@@ -6,14 +6,14 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
-#include <cstdio>
-#include <init.h>
-#include <tensor.h>
-#include <yateto.h>
+#include "Solver/MultipleSimulations.h"
 
-#include <Solver/MultipleSimulations.h>
+#include <cstdio>
+#include <yateto.h>
 
 #ifdef __HIP__
 #include "hip/hip_runtime.h"
@@ -37,23 +37,21 @@ constexpr std::size_t RestFunctions(std::size_t SourceOrder, std::size_t ThisOrd
   return total;
 }
 
-template <bool Integral,
-          std::size_t Quantities,
+template <std::size_t Quantities,
           std::size_t ThisOrder,
           typename SourceRealT,
           typename TargetRealT,
           std::size_t SourceOrder,
           std::size_t TargetOrder,
           std::size_t Offset,
-          std::size_t SharedOffset>
+          std::size_t SharedOffset,
+          typename... Coeffs>
 static __device__ __forceinline__ void taylorSumInner(TargetRealT* const __restrict__ target,
                                                       const SourceRealT* const __restrict__ source,
-                                                      TargetRealT start,
-                                                      TargetRealT end,
-                                                      TargetRealT startCoeff,
-                                                      TargetRealT endCoeff,
                                                       SourceRealT* const __restrict__ shmem,
-                                                      TargetRealT reg[Quantities]) {
+                                                      TargetRealT reg[Quantities],
+                                                      TargetRealT coeff,
+                                                      Coeffs... coeffs) {
   constexpr std::size_t MemorySize =
       seissol::kernels::getNumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder) * Quantities;
   constexpr std::size_t SourceStride =
@@ -65,8 +63,6 @@ static __device__ __forceinline__ void taylorSumInner(TargetRealT* const __restr
   constexpr std::size_t SourceMemSize = SourceStride * Quantities;
   constexpr bool UseShared = MemorySize >= RestMemSize;
   constexpr std::size_t LoadSize = UseShared ? RestMemSize : SourceMemSize;
-  constexpr TargetRealT DivisionCoefficient =
-      Integral ? static_cast<TargetRealT>(ThisOrder + 2) : static_cast<TargetRealT>(ThisOrder + 1);
 
   static_assert(seissol::tensor::dQ::size(ThisOrder) == SourceMemSize,
                 "Tensor size mismatch in explicit kernel.");
@@ -89,7 +85,6 @@ static __device__ __forceinline__ void taylorSumInner(TargetRealT* const __restr
     __syncthreads();
   }
 
-  const TargetRealT coeff = endCoeff - startCoeff;
   constexpr std::size_t BasisFunctionsSize = std::min(SourceStride, TargetStride);
   if (threadIdx.x < BasisFunctionsSize) {
 #pragma unroll
@@ -100,33 +95,28 @@ static __device__ __forceinline__ void taylorSumInner(TargetRealT* const __restr
     }
   }
   // TODO(David): are we sure about this? Or is ThisOrder + 1 < SourceOrder enough?
-  if constexpr (ThisOrder + 1 < std::min(SourceOrder, TargetOrder)) {
+  if constexpr (ThisOrder + 1 < std::min(SourceOrder, TargetOrder) && sizeof...(Coeffs) > 0) {
     constexpr std::size_t SharedPosition = UseShared ? SharedOffset + SourceMemSize : 0;
-    const TargetRealT newStartCoeff = startCoeff * start / DivisionCoefficient;
-    const TargetRealT newEndCoeff = endCoeff * end / DivisionCoefficient;
-    taylorSumInner<Integral,
-                   Quantities,
+    taylorSumInner<Quantities,
                    ThisOrder + 1,
                    SourceRealT,
                    TargetRealT,
                    SourceOrder,
                    TargetOrder,
                    Offset + LoadSize,
-                   SharedPosition>(
-        target, source, start, end, newStartCoeff, newEndCoeff, shmem, reg);
+                   SharedPosition>(target, source, shmem, reg, coeffs...);
   }
 }
 
-template <bool Integral,
-          std::size_t Quantities,
+template <std::size_t Quantities,
           typename SourceRealT,
           typename TargetRealT,
           std::size_t SourceOrder,
-          std::size_t TargetOrder>
+          std::size_t TargetOrder,
+          typename... Coeffs>
 static __global__ __launch_bounds__(Blocksize) void taylorSumKernel(TargetRealT** targetBatch,
                                                                     const SourceRealT** sourceBatch,
-                                                                    TargetRealT start,
-                                                                    TargetRealT end) {
+                                                                    Coeffs... coeffs) {
   int batchId = blockIdx.x;
 
   __shared__ SourceRealT
@@ -138,11 +128,8 @@ static __global__ __launch_bounds__(Blocksize) void taylorSumKernel(TargetRealT*
       const_cast<const SourceRealT*>(sourceBatch[batchId]);
   TargetRealT* const __restrict__ target = targetBatch[batchId];
 
-  const TargetRealT startCoeff = Integral ? start : 0;
-  const TargetRealT endCoeff = Integral ? end : 1;
-
-  taylorSumInner<Integral, Quantities, 0, SourceRealT, TargetRealT, SourceOrder, TargetOrder, 0, 0>(
-      target, source, start, end, startCoeff, endCoeff, shmem, reg);
+  taylorSumInner<Quantities, 0, SourceRealT, TargetRealT, SourceOrder, TargetOrder, 0, 0>(
+      target, source, shmem, reg, coeffs...);
 
   constexpr std::size_t TargetStride =
       seissol::kernels::getNumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
@@ -155,19 +142,19 @@ static __global__ __launch_bounds__(Blocksize) void taylorSumKernel(TargetRealT*
   }
 }
 
-template <bool Integral,
-          std::size_t SourceQuantities,
+template <std::size_t SourceQuantities,
           std::size_t TargetQuantities,
           typename SourceRealT,
           typename TargetRealT,
           std::size_t SourceOrder,
-          std::size_t TargetOrder>
+          std::size_t TargetOrder,
+          std::size_t... Indices>
 void static taylorSumInternal(std::size_t count,
                               TargetRealT** target,
                               const SourceRealT** source,
-                              TargetRealT start,
-                              TargetRealT end,
-                              void* stream) {
+                              const TargetRealT* coeffs,
+                              void* stream,
+                              std::index_sequence<Indices...> indices) {
   constexpr std::size_t Quantities = std::min(SourceQuantities, TargetQuantities);
   constexpr std::size_t TargetStride =
       seissol::kernels::getNumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
@@ -177,37 +164,21 @@ void static taylorSumInternal(std::size_t count,
 
   StreamT castedStream = reinterpret_cast<StreamT>(stream);
 
-  taylorSumKernel<Integral, Quantities, SourceRealT, TargetRealT, SourceOrder, TargetOrder>
-      <<<blocks, threads, 0, castedStream>>>(target, source, start, end);
+  taylorSumKernel<Quantities, SourceRealT, TargetRealT, SourceOrder, TargetOrder>
+      <<<blocks, threads, 0, castedStream>>>(target, source, coeffs[Indices]...);
 }
 } // namespace
 
 namespace seissol::kernels::time::aux {
-void taylorSum(bool integral,
-               std::size_t count,
-               real** target,
-               const real** source,
-               real start,
-               real end,
-               void* stream) {
-  // TODO: now fixed to elastic
-  if (integral) {
-    taylorSumInternal<true,
-                      seissol::model::MaterialT::NumQuantities,
-                      seissol::model::MaterialT::NumQuantities,
-                      real,
-                      real,
-                      ConvergenceOrder,
-                      ConvergenceOrder>(count, target, source, start, end, stream);
-  } else {
-    taylorSumInternal<false,
-                      seissol::model::MaterialT::NumQuantities,
-                      seissol::model::MaterialT::NumQuantities,
-                      real,
-                      real,
-                      ConvergenceOrder,
-                      ConvergenceOrder>(count, target, source, start, end, stream);
-  }
+void taylorSum(
+    std::size_t count, real** target, const real** source, const real* coeffs, void* stream) {
+  taylorSumInternal<seissol::model::MaterialT::NumQuantities,
+                    seissol::model::MaterialT::NumQuantities,
+                    real,
+                    real,
+                    ConvergenceOrder,
+                    ConvergenceOrder>(
+      count, target, source, coeffs, stream, std::make_index_sequence<ConvergenceOrder>());
 }
 } // namespace seissol::kernels::time::aux
 #endif

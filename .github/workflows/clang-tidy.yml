@@ -19,13 +19,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install hdf5-tools libeigen3-dev libhdf5-openmpi-dev libmetis-dev libomp-dev libopenmpi-dev libparmetis-dev libyaml-cpp-dev openmpi-bin openmpi-common python3.10 python3-pip
 
-          # keep, for once clang-21 or higher is needed
+          # fetch the latest clang-tidy manually from the LLVM sources; since that's usually not provided in the Ubuntu default repos. (and we update the clang-tidy version more often than there are Ubuntu-LTS releases)
+
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main"
-          sudo add-apt-repository "deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main"
+          sudo add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main"
+          sudo add-apt-repository "deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main"
           sudo apt-get update
 
-          sudo apt-get -y install clang-20 clang-tidy-20 libomp-20-dev
+          sudo apt-get -y install clang-22 clang-tidy-22 libomp-22-dev
 
           sudo pip3 install numpy --break-system-packages
           sudo mkdir -p /opt/dependencies
@@ -42,19 +43,19 @@ jobs:
           make -j $(nproc) && make install
 
       - name: checkout-seissol
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: SeisSol/SeisSol
 
       - name: clang-tidy
         run: |
           set -euo pipefail
-          clang-tidy-20 --version
-          which clang-tidy-20
+          clang-tidy-22 --version
+          which clang-tidy-22
           git submodule update --init
           mkdir -p build && cd build
           CMAKE_PREFIX_PATH=/opt/dependencies cmake -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DORDER=6 -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=double -DEQUATIONS=elastic -DNUMBER_OF_MECHANISMS=0 -DTESTING=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
           make seissol-codegen
           # clang-tidy can not handle -fprofile-abs-path, so we remove it from the compile commands.
           sed -i 's/-fprofile-abs-path //g' compile_commands.json
-          ../.ci/tidy.sh ../ ./ -clang-tidy-binary=$(which clang-tidy-20) -quiet -j $(nproc)
+          ../.ci/tidy.sh ../ ./ -clang-tidy-binary=$(which clang-tidy-22) -quiet -j $(nproc)

@@ -8,11 +8,14 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_PICKPOINTBUILDER_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_PICKPOINTBUILDER_H_
 
+#include "Common/Iterator.h"
+#include "Initializer/InputAux.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PointMapper.h"
+#include "Parallel/Runtime/Stream.h"
 #include "ReceiverBasedOutputBuilder.h"
 
-#include <Common/Iterator.h>
+#include <exception>
 #include <memory>
 #include <optional>
 
@@ -25,6 +28,10 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   }
   void build(std::shared_ptr<ReceiverOutputData> pickPointOutputData) override {
     outputData = pickPointOutputData;
+
+    // TODO: enable after #1407 has been merged
+    // outputData->extraRuntime.emplace(0);
+
     readCoordsFromFile();
     initReceiverLocations();
     assignNearestGaussianPoints(outputData->receiverPoints);
@@ -42,9 +49,15 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
   protected:
   void readCoordsFromFile() {
-    using namespace seissol::initializer;
-    StringsType content = FileProcessor::getFileAsStrings(pickpointParams.pickpointFileName,
-                                                          "pickpoint/on-fault receiver file");
+    using seissol::initializer::convertStringToMask;
+    using seissol::initializer::FileProcessor;
+
+    if (!pickpointParams.pickpointFileName.has_value()) {
+      logError() << "Pickpoint/on-fault receiver file requested, but not given in the parameters.";
+    }
+
+    auto content = FileProcessor::getFileAsStrings(pickpointParams.pickpointFileName.value(),
+                                                   "pickpoint/on-fault receiver file");
     FileProcessor::removeEmptyLines(content);
 
     // iterate line by line and initialize DrRecordPoints
@@ -70,35 +83,38 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
     std::vector<short> contained(potentialReceivers.size());
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
     for (size_t receiverIdx = 0; receiverIdx < numReceiverPoints; ++receiverIdx) {
-      auto& receiver = potentialReceivers[receiverIdx];
+      try {
+        auto& receiver = potentialReceivers[receiverIdx];
 
-      const auto closest = findClosestFaultIndex(receiver.global);
+        const auto closest = findClosestFaultIndex(receiver.global);
 
-      if (closest.has_value()) {
-        const auto& faultItem = faultInfos.at(closest.value());
-        const auto& element = meshElements.at(faultItem.element);
+        if (closest.has_value()) {
+          const auto& faultItem = faultInfos.at(closest.value());
+          const auto& element = meshElements.at(faultItem.element);
 
-        receiver.globalTriangle = getGlobalTriangle(faultItem.side, element, meshVertices);
-        projectPointToFace(receiver.global, receiver.globalTriangle, faultItem.normal);
+          receiver.globalTriangle = getGlobalTriangle(faultItem.side, element, meshVertices);
+          projectPointToFace(receiver.global, receiver.globalTriangle, faultItem.normal);
 
-        contained[receiverIdx] = true;
-        receiver.isInside = true;
-        receiver.faultFaceIndex = closest.value();
-        receiver.localFaceSideId = faultItem.side;
-        receiver.globalReceiverIndex = receiverIdx;
-        receiver.elementIndex = element.localId;
-        receiver.elementGlobalIndex = element.globalId;
+          contained[receiverIdx] = 1;
+          receiver.isInside = true;
+          receiver.faultFaceIndex = closest.value();
+          receiver.localFaceSideId = faultItem.side;
+          receiver.globalReceiverIndex = receiverIdx;
+          receiver.elementIndex = element.localId;
+          receiver.elementGlobalIndex = element.globalId;
 
-        receiver.reference =
-            transformations::tetrahedronGlobalToReference(meshVertices[element.vertices[0]].coords,
-                                                          meshVertices[element.vertices[1]].coords,
-                                                          meshVertices[element.vertices[2]].coords,
-                                                          meshVertices[element.vertices[3]].coords,
-                                                          receiver.global.getAsEigen3LibVector());
+          receiver.reference = transformations::tetrahedronGlobalToReference(
+              meshVertices[element.vertices[0]].coords,
+              meshVertices[element.vertices[1]].coords,
+              meshVertices[element.vertices[2]].coords,
+              meshVertices[element.vertices[3]].coords,
+              receiver.global.getAsEigen3LibVector());
+        }
+      } catch (const std::exception& error) {
+        logError() << "An error occurred while trying to find an on-fault receiver point:"
+                   << std::string(error.what());
       }
     }
 
@@ -146,14 +162,13 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     outputData->currentCacheLevel = 0;
   }
 
-  protected:
   void reportFoundReceivers(std::vector<short>& localContainVector) {
     const auto size = localContainVector.size();
     std::vector<short> globalContainVector(size);
 
-    auto comm = MPI::mpi.comm();
-    MPI_Reduce(const_cast<short*>(&localContainVector[0]),
-               const_cast<short*>(&globalContainVector[0]),
+    MPI_Comm comm = Mpi::mpi.comm();
+    MPI_Reduce(const_cast<short*>(localContainVector.data()),
+               const_cast<short*>(globalContainVector.data()),
                size,
                MPI_SHORT,
                MPI_SUM,
@@ -165,7 +180,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       std::size_t missing = 0;
       for (size_t idx{0}; idx < size; ++idx) {
         const auto isFound = globalContainVector[idx];
-        if (!isFound) {
+        if (isFound == 0) {
           logWarning() << "On-fault receiver " << idx
                        << " is not inside any element along the rupture surface";
           allReceiversFound = false;
@@ -182,7 +197,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
   private:
   seissol::initializer::parameters::PickpointParameters pickpointParams;
-  std::vector<ReceiverPoint> potentialReceivers{};
+  std::vector<ReceiverPoint> potentialReceivers;
 };
 } // namespace seissol::dr::output
 

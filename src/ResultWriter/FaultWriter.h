@@ -9,17 +9,15 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_FAULTWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_FAULTWRITER_H_
 
-#include "Parallel/MPI.h"
-#include "Parallel/Pin.h"
-
-#include "utils/logger.h"
-
-#include "async/Module.h"
-
 #include "FaultWriterExecutor.h"
 #include "Modules/Module.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
+#include "Parallel/MPI.h"
+#include "Parallel/Pin.h"
+
+#include <async/Module.h>
+#include <utils/logger.h>
 
 namespace seissol {
 class SeisSol;
@@ -52,16 +50,18 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
 
   dr::output::OutputManager* callbackObject{nullptr};
 
+  /**
+   * Called by ASYNC on all ranks
+   */
+  void setUp() override;
+
+  void tearDown() override { m_executor.finalize(); }
+
   public:
   explicit FaultWriter(seissol::SeisSol& seissolInstance)
       : seissolInstance(seissolInstance)
 
   {}
-
-  /**
-   * Called by ASYNC on all ranks
-   */
-  void setUp() override;
 
   void setTimestep(unsigned int timestep) { m_timestep = timestep; }
 
@@ -126,8 +126,6 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
 
     m_stopwatch.printTime("Time fault writer frontend:");
   }
-
-  void tearDown() override { m_executor.finalize(); }
 
   void setupCallbackObject(dr::output::OutputManager* faultOutputManager) {
     callbackObject = faultOutputManager;

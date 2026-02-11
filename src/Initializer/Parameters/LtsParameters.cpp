@@ -7,17 +7,22 @@
 
 #include "LtsParameters.h"
 
-#include <Equations/Datastructures.h>
-#include <Initializer/Parameters/ParameterReader.h>
+#include "Equations/Datastructures.h"
+#include "Initializer/Parameters/ParameterReader.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <math.h>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <utils/logger.h>
+#include <utils/stringutils.h>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 
@@ -35,7 +40,30 @@ AutoMergeCostBaseline parseAutoMergeCostBaseline(std::string str) {
 
 LtsParameters readLtsParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("discretization");
-  const unsigned int rate = reader->readWithDefault("clusteredlts", 1);
+  const auto ratestr = reader->readWithDefault<std::string>("clusteredlts", "1");
+  std::vector<uint64_t> rates;
+  auto parts = utils::StringUtils::split(ratestr, ' ');
+  for (auto& part : parts) {
+    utils::StringUtils::trim(part);
+    rates.emplace_back(std::stoull(part));
+
+    if (rates.back() == 0) {
+      logError() << "Invalid LTS rate (0) found in" << ratestr << "after parsing" << rates
+                 << ". Aborting.";
+    }
+  }
+
+  if (rates.empty()) {
+    logWarning() << "No LTS rate given. Assuming GTS.";
+    rates.emplace_back(1);
+  }
+
+  for (std::size_t i = 0; i + 1 < rates.size(); ++i) {
+    if (rates[i] == 1) {
+      logError() << "Invalid LTS rate (1) found in" << rates << ". Aborting.";
+    }
+  }
+
   const double wiggleFactorMinimum = reader->readWithDefault("ltswigglefactormin", 1.0);
   const double wiggleFactorStepsize = reader->readWithDefault("ltswigglefactorstepsize", 0.01);
   const bool wiggleFactorEnforceMaximumDifference =
@@ -56,7 +84,7 @@ LtsParameters readLtsParameters(ParameterReader* baseReader) {
                                       LtsWeightsTypes::ExponentialBalancedWeights,
                                       LtsWeightsTypes::EncodedBalancedWeights,
                                   });
-  return {rate,
+  return {rates,
           wiggleFactorMinimum,
           wiggleFactorStepsize,
           wiggleFactorEnforceMaximumDifference,
@@ -67,7 +95,7 @@ LtsParameters readLtsParameters(ParameterReader* baseReader) {
           ltsWeightsType};
 }
 
-LtsParameters::LtsParameters(unsigned int rate,
+LtsParameters::LtsParameters(const std::vector<uint64_t>& rates,
                              double wiggleFactorMinimum,
                              double wiggleFactorStepsize,
                              bool wigleFactorEnforceMaximumDifference,
@@ -76,15 +104,20 @@ LtsParameters::LtsParameters(unsigned int rate,
                              double allowedPerformanceLossRatioAutoMerge,
                              AutoMergeCostBaseline autoMergeCostBaseline,
                              LtsWeightsTypes ltsWeightsType)
-    : rate(rate), wiggleFactorMinimum(wiggleFactorMinimum),
+    : rate(rates), wiggleFactorMinimum(wiggleFactorMinimum),
       wiggleFactorStepsize(wiggleFactorStepsize),
       wiggleFactorEnforceMaximumDifference(wigleFactorEnforceMaximumDifference),
       maxNumberOfClusters(maxNumberOfClusters), autoMergeClusters(ltsAutoMergeClusters),
       allowedPerformanceLossRatioAutoMerge(allowedPerformanceLossRatioAutoMerge),
       autoMergeCostBaseline(autoMergeCostBaseline), ltsWeightsType(ltsWeightsType) {
+
+  if (rate.empty()) {
+    rate.emplace_back(1);
+  }
+
   const bool isWiggleFactorValid =
-      (rate == 1 && wiggleFactorMinimum == 1.0) ||
-      (wiggleFactorMinimum <= 1.0 && wiggleFactorMinimum > (1.0 / rate));
+      (rate[0] == 1 && wiggleFactorMinimum == 1.0) ||
+      (wiggleFactorMinimum <= 1.0 && wiggleFactorMinimum > (1.0 / rate[0]));
   if (!isWiggleFactorValid) {
     logError() << "Minimal wiggle factor of " << wiggleFactorMinimum << "is not valid for rate"
                << rate;
@@ -99,15 +132,13 @@ LtsParameters::LtsParameters(unsigned int rate,
 
 bool LtsParameters::isWiggleFactorUsed() const { return wiggleFactorMinimum < 1.0; }
 
-unsigned int LtsParameters::getRate() const { return rate; }
+std::vector<uint64_t> LtsParameters::getRate() const { return rate; }
 
 LtsWeightsTypes LtsParameters::getLtsWeightsType() const { return ltsWeightsType; }
 
 double LtsParameters::getWiggleFactorMinimum() const { return wiggleFactorMinimum; }
 
 double LtsParameters::getWiggleFactorStepsize() const { return wiggleFactorStepsize; }
-
-double LtsParameters::getWiggleFactor() const { return finalWiggleFactor; }
 
 bool LtsParameters::getWiggleFactorEnforceMaximumDifference() const {
   return wiggleFactorEnforceMaximumDifference;
@@ -124,24 +155,13 @@ AutoMergeCostBaseline LtsParameters::getAutoMergeCostBaseline() const {
   return autoMergeCostBaseline;
 }
 
-void LtsParameters::setWiggleFactor(double factor) {
-  assert(factor >= 1.0 / static_cast<double>(rate));
-  assert(factor <= 1.0);
-  finalWiggleFactor = factor;
-}
-
-void LtsParameters::setMaxNumberOfClusters(int numClusters) {
-  assert(numClusters > 0);
-  maxNumberOfClusters = numClusters;
-}
-
 TimeSteppingParameters::TimeSteppingParameters(VertexWeightParameters vertexWeight,
                                                double cfl,
                                                double maxTimestepWidth,
                                                double endTime,
                                                LtsParameters lts)
     : vertexWeight(vertexWeight), cfl(cfl), maxTimestepWidth(maxTimestepWidth), endTime(endTime),
-      lts(lts) {}
+      lts(std::move(lts)) {}
 
 TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("discretization");

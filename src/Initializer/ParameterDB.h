@@ -10,23 +10,23 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 
+#include "Equations/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "Geometry/MeshReader.h"
+#include "Geometry/PUMLReader.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "easi/Query.h"
+#include "easi/ResultAdapter.h"
+
+#include <cstddef>
 #include <memory>
 #include <set>
 #include <string>
 #include <unordered_map>
 
-#include "Geometry/MeshReader.h"
-#include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
-
-#include "easi/Query.h"
-#include "easi/ResultAdapter.h"
-#include "generated_code/init.h"
-
-#include "Equations/Datastructures.h"
-
 #ifdef USE_HDF
-#include "PUML/PUML.h"
+#include <PUML/PUML.h>
 #endif
 
 #include <Eigen/Dense>
@@ -56,7 +56,7 @@ struct CellToVertexArray {
 
   static CellToVertexArray fromMeshReader(const seissol::geometry::MeshReader& meshReader);
 #ifdef USE_HDF
-  static CellToVertexArray fromPUML(const PUML::TETPUML& mesh);
+  static CellToVertexArray fromPUML(const seissol::geometry::PumlMesh& mesh);
 #endif
   static CellToVertexArray
       fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
@@ -64,14 +64,14 @@ struct CellToVertexArray {
 };
 
 easi::Component* loadEasiModel(const std::string& fileName);
-std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
-                                                      bool useCellHomogenizedMaterial,
+std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMaterial,
                                                       const CellToVertexArray& cellToVertex);
 
 class QueryGenerator {
   public:
   virtual ~QueryGenerator() = default;
   [[nodiscard]] virtual easi::Query generate() const = 0;
+  [[nodiscard]] virtual std::size_t outputPerCell() const { return 1; }
 };
 
 class ElementBarycenterGenerator : public QueryGenerator {
@@ -96,6 +96,18 @@ class ElementAverageGenerator : public QueryGenerator {
   CellToVertexArray m_cellToVertex;
   std::array<double, NumQuadpoints> m_quadratureWeights{};
   std::array<std::array<double, 3>, NumQuadpoints> m_quadraturePoints{};
+};
+
+class PlasticityPointGenerator : public QueryGenerator {
+  public:
+  explicit PlasticityPointGenerator(const CellToVertexArray& cellToVertex, bool pointwise = true)
+      : m_cellToVertex(cellToVertex), pointwise(pointwise) {}
+  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] std::size_t outputPerCell() const override;
+
+  private:
+  CellToVertexArray m_cellToVertex;
+  bool pointwise{true};
 };
 
 class FaultBarycenterGenerator : public QueryGenerator {
@@ -129,7 +141,7 @@ class ParameterDB {
 };
 
 template <class T>
-class MaterialParameterDB : ParameterDB {
+class MaterialParameterDB : public ParameterDB {
   public:
   T computeAveragedMaterial(unsigned elementIdx,
                             const std::array<double, NumQuadpoints>& quadratureWeights,
@@ -142,7 +154,7 @@ class MaterialParameterDB : ParameterDB {
   std::vector<T>* m_materials{};
 };
 
-class FaultParameterDB : ParameterDB {
+class FaultParameterDB : public ParameterDB {
   public:
   explicit FaultParameterDB(std::size_t simulation) : simid(simulation) {}
   ~FaultParameterDB() override = default;

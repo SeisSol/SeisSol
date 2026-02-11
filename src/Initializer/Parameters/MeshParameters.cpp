@@ -6,20 +6,21 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "MeshParameters.h"
-#include <Initializer/InputAux.h>
-#include <Initializer/Parameters/ParameterReader.h>
+
+#include "Initializer/InputAux.h"
+#include "Initializer/Parameters/ParameterReader.h"
+
+#include <Eigen/Core>
 
 namespace seissol::initializer::parameters {
 
 MeshParameters readMeshParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("meshnml");
 
-  const auto meshFormat =
-      reader->readWithDefaultStringEnum<MeshFormat>("meshgenerator",
-                                                    "puml",
-                                                    {{"netcdf", MeshFormat::Netcdf},
-                                                     {"puml", MeshFormat::PUML},
-                                                     {"cubegenerator", MeshFormat::CubeGenerator}});
+  const auto meshFormat = reader->readWithDefaultStringEnum<MeshFormat>(
+      "meshgenerator",
+      "puml",
+      {{"puml", MeshFormat::PUML}, {"cubegenerator", MeshFormat::CubeGenerator}});
   const std::string meshFileName = reader->readPathOrFail("meshfile", "No mesh file given.");
   const std::string partitioningLib =
       reader->readWithDefault("partitioninglib", std::string("Default"));
@@ -32,6 +33,15 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
                                                             {"i64", BoundaryFormat::I64},
                                                             {"i32x4", BoundaryFormat::I32x4},
                                                         });
+  const auto pumlTopologyFormat = reader->readWithDefaultStringEnum<TopologyFormat>(
+      "pumltopologyformat",
+      "auto",
+      {
+          {"auto", TopologyFormat::Auto},
+          {"geometric", TopologyFormat::Geometric},
+          {"identify-face", TopologyFormat::IdentifyFace},
+          {"identify-vertex", TopologyFormat::IdentifyVertex},
+      });
 
   const auto displacementRaw = seissol::initializer::convertStringToArray<double, 3>(
       reader->readWithDefault("displacement", std::string("0.0 0.0 0.0")));
@@ -52,6 +62,7 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
 
   return MeshParameters{showEdgeCutStatistics,
                         pumlBoundaryFormat,
+                        pumlTopologyFormat,
                         meshFormat,
                         meshFileName,
                         partitioningLib,

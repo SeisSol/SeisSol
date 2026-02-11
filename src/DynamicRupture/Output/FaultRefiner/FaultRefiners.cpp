@@ -8,15 +8,14 @@
 #include "FaultRefiners.h"
 
 #include "DynamicRupture/Output/Geometry.h"
+#include "DynamicRupture/Output/OutputAux.h"
+#include "Initializer/Parameters/OutputParameters.h"
+
 #include <array>
 #include <cstddef>
 #include <memory>
 #include <utility>
-
-#include "utils/logger.h"
-
-#include "DynamicRupture/Output/OutputAux.h"
-#include "Initializer/Parameters/OutputParameters.h"
+#include <utils/logger.h>
 
 namespace seissol::dr::output::refiner {
 std::unique_ptr<FaultRefiner> get(seissol::initializer::parameters::FaultRefinement strategy) {

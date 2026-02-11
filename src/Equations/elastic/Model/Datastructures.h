@@ -10,10 +10,11 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_DATASTRUCTURES_H_
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_DATASTRUCTURES_H_
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "Kernels/LinearCK/Solver.h"
 #include "Model/CommonDatastructures.h"
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
-#include <Kernels/LinearCK/Solver.h>
+
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -21,8 +22,8 @@
 #include <vector>
 
 namespace seissol::model {
-class ElasticLocalData;
-class ElasticNeighborData;
+struct ElasticLocalData;
+struct ElasticNeighborData;
 
 struct ElasticMaterial : Material {
   static constexpr std::size_t NumQuantities = 9;
@@ -43,15 +44,15 @@ struct ElasticMaterial : Material {
   using NeighborSpecificData = ElasticNeighborData;
   using Solver = kernels::solver::linearck::Solver;
 
-  double lambda;
-  double mu;
+  double lambda{};
+  double mu{};
 
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
   [[nodiscard]] double getMuBar() const override { return mu; }
 
   ElasticMaterial() = default;
-  ElasticMaterial(const std::vector<double>& materialValues)
+  explicit ElasticMaterial(const std::vector<double>& materialValues)
       : Material(materialValues), lambda(materialValues.at(2)), mu(materialValues.at(1)) {}
 
   ~ElasticMaterial() override = default;
@@ -90,6 +91,11 @@ struct ElasticMaterial : Material {
   [[nodiscard]] double getSWaveSpeed() const override { return std::sqrt(mu / rho); }
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
+
+  void setLameParameters(double mu, double lambda) override {
+    this->mu = mu;
+    this->lambda = lambda;
+  }
 };
 } // namespace seissol::model
 

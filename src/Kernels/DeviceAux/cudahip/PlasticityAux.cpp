@@ -6,15 +6,16 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Kernels/DeviceAux/PlasticityAux.h"
+
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 #include "Model/Plasticity.h"
-#include "tensor.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <cmath>
 #include <cstddef>
-#include <init.h>
 #include <type_traits>
-
-#include <Solver/MultipleSimulations.h>
 
 #ifdef __HIP__
 #include "hip/hip_runtime.h"
@@ -32,7 +33,7 @@ namespace aux {
 namespace plasticity {
 
 template <typename Tensor>
-__forceinline__ __device__ constexpr size_t leadDim() {
+__forceinline__ __device__ __host__ constexpr size_t leadDim() {
   if constexpr (multisim::MultisimEnabled) {
     return (Tensor::Stop[1] - Tensor::Start[1]) * (Tensor::Stop[0] - Tensor::Start[0]);
   } else {
@@ -64,26 +65,22 @@ __forceinline__ __device__ auto simidx() {
   }
 }
 
-__forceinline__ __device__ auto validx() {
-  if constexpr (multisim::MultisimEnabled) {
-    return threadIdx.y;
-  } else {
-    return threadIdx.x;
-  }
-}
-
-//--------------------------------------------------------------------------------------------------
-__global__ void kernel_adjustDeviatoricTensors(real** nodalStressTensors,
-                                               unsigned* isAdjustableVector,
-                                               const seissol::model::PlasticityData* plasticity,
-                                               const double oneMinusIntegratingFactor) {
-  real* elementTensors = nodalStressTensors[blockIdx.x];
+__global__ void
+    kernel_plasticityNonlinear(real** __restrict nodalStressTensors,
+                               real** __restrict pstrainPtr,
+                               unsigned* __restrict isAdjustableVector,
+                               std::size_t* __restrict yieldCounter,
+                               const seissol::model::PlasticityData* __restrict plasticity,
+                               double oneMinusIntegratingFactor,
+                               double tV,
+                               double timeStepWidth) {
+  real* __restrict qStressNodal = nodalStressTensors[blockIdx.x];
   real localStresses[NumStressComponents];
 
   constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal>();
 #pragma unroll
   for (int i = 0; i < NumStressComponents; ++i) {
-    localStresses[i] = elementTensors[linearidx() + ElementTensorsColumn * i];
+    localStresses[i] = qStressNodal[linearidx() + ElementTensorsColumn * i];
   }
 
   // 1. Compute the mean stress for each node
@@ -104,140 +101,84 @@ __global__ void kernel_adjustDeviatoricTensors(real** nodalStressTensors,
 
   // 4. Compute the plasticity criteria
   const real cohesionTimesCosAngularFriction =
-      plasticity[blockIdx.x].cohesionTimesCosAngularFriction;
-  const real sinAngularFriction = plasticity[blockIdx.x].sinAngularFriction;
-  real taulim = cohesionTimesCosAngularFriction - meanStress * sinAngularFriction;
-  taulim = std::max(static_cast<real>(0.0), taulim);
+      plasticity[blockIdx.x].cohesionTimesCosAngularFriction[linearidx()];
+  const real sinAngularFriction = plasticity[blockIdx.x].sinAngularFriction[linearidx()];
+  const real taulim = std::max(static_cast<real>(0.0),
+                               cohesionTimesCosAngularFriction - meanStress * sinAngularFriction);
 
-  __shared__ unsigned isAdjusted;
+  __shared__ bool isAdjusted;
   if (linearidx() == 0) {
-    isAdjusted = static_cast<unsigned>(false);
+    isAdjusted = false;
   }
   __syncthreads();
 
   // 5. Compute the yield factor
-  real factor = 0.0;
+  real yieldfactor = 0.0;
   if (tau > taulim) {
-    isAdjusted = static_cast<unsigned>(true);
-    factor = ((taulim / tau) - 1.0) * oneMinusIntegratingFactor;
+    isAdjusted = true;
+    yieldfactor = ((taulim / tau) - 1.0) * oneMinusIntegratingFactor;
   }
 
   // 6. Adjust deviatoric stress tensor if a node within a node exceeds the elasticity region
   __syncthreads();
   if (isAdjusted) {
+    const real factor = plasticity[blockIdx.x].mufactor / (tV * oneMinusIntegratingFactor);
+
+    real* __restrict eta = pstrainPtr[blockIdx.x] + tensor::QStressNodal::size();
+    real* __restrict localPstrain = pstrainPtr[blockIdx.x];
+
+    real dudtUpdate = 0;
+
 #pragma unroll
     for (int i = 0; i < NumStressComponents; ++i) {
-      elementTensors[linearidx() + ElementTensorsColumn * i] = localStresses[i] * factor;
+      const int q = linearidx() + ElementTensorsColumn * i;
+
+      const auto updatedStressNodal = localStresses[i] * yieldfactor;
+
+      const real nodeDuDtPstrain = -factor * updatedStressNodal;
+
+      localPstrain[q] += timeStepWidth * nodeDuDtPstrain;
+      qStressNodal[q] = updatedStressNodal;
+
+      dudtUpdate += nodeDuDtPstrain * nodeDuDtPstrain;
     }
+
+    eta[linearidx()] += timeStepWidth * std::sqrt(static_cast<real>(0.5) * dudtUpdate);
+
+    // update the FLOPs that we've been here
+    // (there's no atomicAdd for unsigned long / sometimes size_t, so take one of the other ones)
+    static_assert(sizeof(unsigned long long) == sizeof(std::size_t));
+    atomicAdd(reinterpret_cast<unsigned long long*>(yieldCounter), 1);
   }
   if (linearidx() == 0) {
     isAdjustableVector[blockIdx.x] = isAdjusted;
   }
 }
 
-void adjustDeviatoricTensors(real** nodalStressTensors,
-                             unsigned* isAdjustableVector,
-                             const seissol::model::PlasticityData* plasticity,
-                             const double oneMinusIntegratingFactor,
-                             const size_t numElements,
-                             void* streamPtr) {
-  constexpr unsigned NumNodes = tensor::QStressNodal::Shape[multisim::BasisFunctionDimension];
+void plasticityNonlinear(real** __restrict nodalStressTensors,
+                         real** __restrict pstrainPtr,
+                         unsigned* __restrict isAdjustableVector,
+                         std::size_t* __restrict yieldCounter,
+                         const seissol::model::PlasticityData* __restrict plasticity,
+                         double oneMinusIntegratingFactor,
+                         double tV,
+                         double timeStepWidth,
+                         size_t numElements,
+                         void* streamPtr) {
+  // use Stop/Start to include padding (and possibly avoid masked warps/wavefronts)
+  constexpr unsigned NumNodes = init::QStressNodal::Stop[multisim::BasisFunctionDimension] -
+                                init::QStressNodal::Start[multisim::BasisFunctionDimension];
   const auto block = getblock(NumNodes);
   const dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(streamPtr);
-  kernel_adjustDeviatoricTensors<<<grid, block, 0, stream>>>(
-      nodalStressTensors, isAdjustableVector, plasticity, oneMinusIntegratingFactor);
-}
-
-//--------------------------------------------------------------------------------------------------
-__global__ void kernel_computePstrains(real** pstrains,
-                                       const seissol::model::PlasticityData* plasticityData,
-                                       real** dofs,
-                                       real** prevDofs,
-                                       real** dUdTpstrain,
-                                       double tV,
-                                       double oneMinusIntegratingFactor,
-                                       double timeStepWidth,
-                                       const unsigned* isAdjustableVector) {
-  if (isAdjustableVector[blockIdx.x]) {
-    real* localDofs = dofs[blockIdx.x];
-    real* localPrevDofs = prevDofs[blockIdx.x];
-    const seissol::model::PlasticityData* localData = &plasticityData[blockIdx.x];
-    real* localPstrain = pstrains[blockIdx.x];
-    real* localDuDtPstrain = dUdTpstrain[blockIdx.x];
-
-#pragma unroll
-    for (int i = 0; i < NumStressComponents; ++i) {
-      const int q = linearidx() + i * leadDim<init::Q>();
-      const real factor = localData->mufactor / (tV * oneMinusIntegratingFactor);
-      const real nodeDuDtPstrain = factor * (localPrevDofs[q] - localDofs[q]);
-
-      static_assert(leadDim<init::QStress>() == leadDim<init::Q>(), "");
-      localPstrain[q] += timeStepWidth * nodeDuDtPstrain;
-      localDuDtPstrain[q] = nodeDuDtPstrain;
-    }
-  }
-}
-
-void computePstrains(real** pstrains,
-                     const seissol::model::PlasticityData* plasticityData,
-                     real** dofs,
-                     real** prevDofs,
-                     real** dUdTpstrain,
-                     double tV,
-                     double oneMinusIntegratingFactor,
-                     double timeStepWidth,
-                     unsigned* isAdjustableVector,
-                     size_t numElements,
-                     void* streamPtr) {
-  constexpr unsigned NumNodes = tensor::Q::Shape[multisim::BasisFunctionDimension];
-  const dim3 block = getblock(NumNodes);
-  const dim3 grid(numElements, 1, 1);
-  auto stream = reinterpret_cast<StreamT>(streamPtr);
-  kernel_computePstrains<<<grid, block, 0, stream>>>(pstrains,
-                                                     plasticityData,
-                                                     dofs,
-                                                     prevDofs,
-                                                     dUdTpstrain,
-                                                     tV,
-                                                     oneMinusIntegratingFactor,
-                                                     timeStepWidth,
-                                                     isAdjustableVector);
-}
-
-//--------------------------------------------------------------------------------------------------
-__global__ void kernel_updateQEtaNodal(real** qEtaNodalPtrs,
-                                       real** qStressNodalPtrs,
-                                       double timeStepWidth,
-                                       const unsigned* isAdjustableVector) {
-  if (isAdjustableVector[blockIdx.x]) {
-    const size_t tid = linearidx();
-    real* localQEtaNodal = qEtaNodalPtrs[blockIdx.x];
-    real* localQStressNodal = qStressNodalPtrs[blockIdx.x];
-    real factor{0.0};
-
-    constexpr auto Ld = leadDim<init::QStressNodal>();
-#pragma unroll
-    for (int i = 0; i < NumStressComponents; ++i) {
-      factor += localQStressNodal[tid + i * Ld] * localQStressNodal[tid + i * Ld];
-    }
-
-    localQEtaNodal[tid] = std::max(static_cast<real>(0.0), localQEtaNodal[tid]) +
-                          timeStepWidth * std::sqrt(static_cast<real>(0.5) * factor);
-  }
-}
-
-void updateQEtaNodal(real** qEtaNodalPtrs,
-                     real** qStressNodalPtrs,
-                     double timeStepWidth,
-                     unsigned* isAdjustableVector,
-                     size_t numElements,
-                     void* streamPtr) {
-  const dim3 block = getblock(tensor::QStressNodal::Shape[multisim::BasisFunctionDimension]);
-  const dim3 grid(numElements, 1, 1);
-  auto stream = reinterpret_cast<StreamT>(streamPtr);
-  kernel_updateQEtaNodal<<<grid, block, 0, stream>>>(
-      qEtaNodalPtrs, qStressNodalPtrs, timeStepWidth, isAdjustableVector);
+  kernel_plasticityNonlinear<<<grid, block, 0, stream>>>(nodalStressTensors,
+                                                         pstrainPtr,
+                                                         isAdjustableVector,
+                                                         yieldCounter,
+                                                         plasticity,
+                                                         oneMinusIntegratingFactor,
+                                                         tV,
+                                                         timeStepWidth);
 }
 
 } // namespace plasticity

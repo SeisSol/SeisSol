@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_RESULTWRITER_CLUSTERINGWRITER_H_
 
 #include "Memory/Tree/Layer.h"
+
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -20,9 +21,9 @@ class ClusteringWriter {
   explicit ClusteringWriter(const std::string& outputPrefix);
   void addCluster(unsigned profilingId,
                   unsigned localClusterId,
-                  LayerType layerType,
-                  unsigned size,
-                  unsigned dynRupSize);
+                  HaloType layerType,
+                  std::size_t size,
+                  std::size_t dynRupSize);
   void write() const;
 
   // SoA that contains info about clusters
@@ -31,9 +32,9 @@ class ClusteringWriter {
     std::vector<int> localRanks;
     std::vector<int> profilingIds;
     std::vector<int> localClusterIds;
-    std::vector<std::underlying_type_t<LayerType>> layerTypes;
-    std::vector<unsigned> sizes;
-    std::vector<unsigned> dynamicRuptureSizes;
+    std::vector<std::underlying_type_t<HaloType>> layerTypes;
+    std::vector<std::size_t> sizes;
+    std::vector<std::size_t> dynamicRuptureSizes;
   };
 
   private:

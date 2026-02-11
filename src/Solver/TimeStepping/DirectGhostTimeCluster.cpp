@@ -6,10 +6,12 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Solver/TimeStepping/DirectGhostTimeCluster.h"
+
+#include "Monitoring/Instrumentation.h"
 #include "Parallel/MPI.h"
-#include <Monitoring/Instrumentation.h>
-#include <Solver/TimeStepping/AbstractGhostTimeCluster.h>
-#include <Solver/TimeStepping/HaloCommunication.h>
+#include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
+#include "Solver/TimeStepping/HaloCommunication.h"
+
 #include <cassert>
 #include <cstddef>
 #include <mpi.h>
@@ -22,14 +24,14 @@ void DirectGhostTimeCluster::sendCopyLayer() {
   if (persistent) {
     MPI_Startall(sendRequests.size(), sendRequests.data());
   }
-  for (std::size_t region = 0; region < meshStructure.size(); ++region) {
+  for (std::size_t region = 0; region < meshStructure.copy.size(); ++region) {
     if (!persistent) {
-      MPI_Isend(meshStructure[region].copy.data,
-                static_cast<int>(meshStructure[region].copy.size),
-                MPI::precisionToMpiType(meshStructure[region].copy.datatype),
-                meshStructure[region].copy.rank,
-                meshStructure[region].copy.tag,
-                seissol::MPI::mpi.comm(),
+      MPI_Isend(meshStructure.copy[region].data,
+                static_cast<int>(meshStructure.copy[region].size),
+                Mpi::precisionToMpiType(meshStructure.copy[region].datatype),
+                meshStructure.copy[region].rank,
+                meshStructure.copy[region].tag,
+                seissol::Mpi::mpi.comm(),
                 sendRequests.data() + region);
     }
     sendQueue.push_back(region);
@@ -42,14 +44,14 @@ void DirectGhostTimeCluster::receiveGhostLayer() {
   if (persistent) {
     MPI_Startall(recvRequests.size(), recvRequests.data());
   }
-  for (std::size_t region = 0; region < meshStructure.size(); ++region) {
+  for (std::size_t region = 0; region < meshStructure.ghost.size(); ++region) {
     if (!persistent) {
-      MPI_Irecv(meshStructure[region].ghost.data,
-                static_cast<int>(meshStructure[region].ghost.size),
-                MPI::precisionToMpiType(meshStructure[region].ghost.datatype),
-                meshStructure[region].ghost.rank,
-                meshStructure[region].ghost.tag,
-                seissol::MPI::mpi.comm(),
+      MPI_Irecv(meshStructure.ghost[region].data,
+                static_cast<int>(meshStructure.ghost[region].size),
+                Mpi::precisionToMpiType(meshStructure.ghost[region].datatype),
+                meshStructure.ghost[region].rank,
+                meshStructure.ghost[region].tag,
+                seissol::Mpi::mpi.comm(),
                 recvRequests.data() + region);
     }
     receiveQueue.push_back(region);
@@ -75,20 +77,22 @@ DirectGhostTimeCluster::DirectGhostTimeCluster(
                                meshStructure),
       persistent(persistent) {
   if (persistent) {
-    for (std::size_t region = 0; region < this->meshStructure.size(); ++region) {
-      MPI_Send_init(this->meshStructure[region].copy.data,
-                    static_cast<int>(this->meshStructure[region].copy.size),
-                    MPI::precisionToMpiType(this->meshStructure[region].copy.datatype),
-                    this->meshStructure[region].copy.rank,
-                    this->meshStructure[region].copy.tag,
-                    seissol::MPI::mpi.comm(),
+    for (std::size_t region = 0; region < this->meshStructure.copy.size(); ++region) {
+      MPI_Send_init(this->meshStructure.copy[region].data,
+                    static_cast<int>(this->meshStructure.copy[region].size),
+                    Mpi::precisionToMpiType(this->meshStructure.copy[region].datatype),
+                    this->meshStructure.copy[region].rank,
+                    this->meshStructure.copy[region].tag,
+                    seissol::Mpi::mpi.comm(),
                     sendRequests.data() + region);
-      MPI_Recv_init(this->meshStructure[region].ghost.data,
-                    static_cast<int>(this->meshStructure[region].ghost.size),
-                    MPI::precisionToMpiType(this->meshStructure[region].ghost.datatype),
-                    this->meshStructure[region].ghost.rank,
-                    this->meshStructure[region].ghost.tag,
-                    seissol::MPI::mpi.comm(),
+    }
+    for (std::size_t region = 0; region < this->meshStructure.ghost.size(); ++region) {
+      MPI_Recv_init(this->meshStructure.ghost[region].data,
+                    static_cast<int>(this->meshStructure.ghost[region].size),
+                    Mpi::precisionToMpiType(this->meshStructure.ghost[region].datatype),
+                    this->meshStructure.ghost[region].rank,
+                    this->meshStructure.ghost[region].tag,
+                    seissol::Mpi::mpi.comm(),
                     recvRequests.data() + region);
     }
   }
@@ -96,8 +100,10 @@ DirectGhostTimeCluster::DirectGhostTimeCluster(
 
 void DirectGhostTimeCluster::finalize() {
   if (persistent) {
-    for (std::size_t region = 0; region < this->meshStructure.size(); ++region) {
+    for (std::size_t region = 0; region < this->meshStructure.copy.size(); ++region) {
       MPI_Request_free(sendRequests.data() + region);
+    }
+    for (std::size_t region = 0; region < this->meshStructure.ghost.size(); ++region) {
       MPI_Request_free(recvRequests.data() + region);
     }
   }

@@ -9,21 +9,21 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_FREESURFACEWRITEREXECUTOR_H_
 #define SEISSOL_SRC_RESULTWRITER_FREESURFACEWRITEREXECUTOR_H_
 
-#include "async/ExecInfo.h"
+#include "Kernels/Precision.h"
+#include "Monitoring/Stopwatch.h"
 #include "xdmfwriter/XdmfWriter.h"
 
-#include "Monitoring/Stopwatch.h"
-#include <Kernels/Precision.h>
+#include <async/ExecInfo.h>
 
 namespace seissol::writer {
 struct FreeSurfaceInitParam {
-  int timestep;
-  xdmfwriter::BackendType backend;
+  int timestep{};
+  xdmfwriter::BackendType backend{};
   std::string backupTimeStamp;
 };
 
 struct FreeSurfaceParam {
-  double time;
+  double time{};
 };
 
 class FreeSurfaceWriterExecutor {
@@ -46,6 +46,8 @@ class FreeSurfaceWriterExecutor {
 
   /** Backend stopwatch */
   Stopwatch m_stopwatch;
+
+  bool m_enabled{false};
 
   public:
   FreeSurfaceWriterExecutor() = default;
@@ -78,8 +80,10 @@ class FreeSurfaceWriterExecutor {
   }
 
   void finalize() {
-    // note: also includes some ranks which do nothing at all
-    m_stopwatch.printTime("Time free surface writer backend:");
+    if (m_enabled) {
+      // note: also includes some ranks which do nothing at all
+      m_stopwatch.printTime("Time free surface writer backend:");
+    }
 
     if (m_comm != MPI_COMM_NULL) {
       MPI_Comm_free(&m_comm);

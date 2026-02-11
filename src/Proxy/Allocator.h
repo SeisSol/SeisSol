@@ -9,21 +9,25 @@
 #ifndef SEISSOL_SRC_PROXY_ALLOCATOR_H_
 #define SEISSOL_SRC_PROXY_ALLOCATOR_H_
 
+#include "Config.h"
+#include "Kernels/DynamicRupture.h"
+#include "Kernels/Local.h"
+#include "Kernels/Neighbor.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/GlobalData.h"
 #include "Memory/Tree/LTSTree.h"
-#include <Kernels/DynamicRupture.h>
-#include <Kernels/Local.h>
-#include <Kernels/Neighbor.h>
-#include <Kernels/Solver.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Memory/Tree/Layer.h"
+#include "Parallel/Runtime/Stream.h"
+
 #include <unordered_set>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/Recorders.h"
-#include <device.h>
+
+#include <Device/device.h>
 #endif
 
 namespace seissol::proxy {
@@ -31,16 +35,16 @@ namespace seissol::proxy {
 struct ProxyData {
   std::size_t cellCount;
 
-  seissol::initializer::LTSTree ltsTree;
-  seissol::initializer::LTS lts;
-  seissol::initializer::LTSTree dynRupTree;
-  seissol::initializer::DynamicRupture dynRup;
+  LTS::Storage ltsStorage;
+  DynamicRupture::Storage drStorage;
 
   GlobalData globalDataOnHost;
   GlobalData globalDataOnDevice;
 
   real* fakeDerivatives = nullptr;
   real* fakeDerivativesHost = nullptr;
+
+  kernels::Solver::TimeBasis<real> timeBasis{Config::ConvergenceOrder};
 
   kernels::Spacetime spacetimeKernel;
   kernels::Time timeKernel;
@@ -51,6 +55,8 @@ struct ProxyData {
   seissol::memory::ManagedAllocator allocator;
 
   ProxyData(std::size_t cellCount, bool enableDR);
+
+  initializer::LayerIdentifier layerId;
 
   // TODO: check copyability (probably not)
 

@@ -8,25 +8,27 @@
 
 #include "Touch.h"
 
-#include "generated_code/tensor.h"
-#include <Kernels/Precision.h>
+#include "GeneratedCode/tensor.h"
+#include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
+
+#include <cstddef>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
-#include "device.h"
+#include <Device/device.h>
 #endif
 
 namespace seissol::kernels {
 
 void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned numberOfCells) {
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
-  for (unsigned cell = 0; cell < numberOfCells; ++cell) {
+  for (std::size_t cell = 0; cell < numberOfCells; ++cell) {
     // touch buffers
     real* buffer = buffers[cell];
     if (buffer != nullptr) {
-      for (unsigned dof = 0; dof < tensor::Q::size(); ++dof) {
+      for (std::size_t dof = 0; dof < tensor::Q::size(); ++dof) {
         // zero time integration buffers
         buffer[dof] = static_cast<real>(0);
       }
@@ -35,7 +37,7 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
     // touch derivatives
     real* derivative = derivatives[cell];
     if (derivative != nullptr) {
-      for (unsigned dof = 0; dof < yateto::computeFamilySize<tensor::dQ>(); ++dof) {
+      for (std::size_t dof = 0; dof < seissol::kernels::Solver::DerivativesSize; ++dof) {
         derivative[dof] = static_cast<real>(0);
       }
     }
@@ -58,9 +60,8 @@ void fillWithStuff(real* buffer, unsigned nValues, [[maybe_unused]] bool onDevic
     return;
   }
 #endif
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
   for (unsigned n = 0; n < nValues; ++n) {
     buffer[n] = stuff(n);
   }

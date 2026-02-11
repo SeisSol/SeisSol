@@ -11,10 +11,11 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_DATASTRUCTURES_H_
 #define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_DATASTRUCTURES_H_
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "Kernels/LinearCK/Solver.h"
 #include "Model/CommonDatastructures.h"
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
-#include <Kernels/LinearCK/Solver.h>
+
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -22,8 +23,8 @@
 #include <vector>
 
 namespace seissol::model {
-class AcousticLocalData;
-class AcousticNeighborData;
+struct AcousticLocalData;
+struct AcousticNeighborData;
 
 struct AcousticMaterial : public Material {
   static constexpr std::size_t NumQuantities = 4;
@@ -45,14 +46,14 @@ struct AcousticMaterial : public Material {
   using NeighborSpecificData = AcousticNeighborData;
   using Solver = kernels::solver::linearck::Solver;
 
-  double lambda;
+  double lambda{};
 
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
   [[nodiscard]] double getMuBar() const override { return 0.0; }
 
   AcousticMaterial() = default;
-  AcousticMaterial(const std::vector<double>& materialValues)
+  explicit AcousticMaterial(const std::vector<double>& materialValues)
       : Material(materialValues), lambda(materialValues.at(1)) {}
 
   ~AcousticMaterial() override = default;
@@ -81,6 +82,8 @@ struct AcousticMaterial : public Material {
   [[nodiscard]] double getSWaveSpeed() const override { return 0.0; }
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
+
+  void setLameParameters(double /*mu*/, double lambda) override { this->lambda = lambda; }
 };
 } // namespace seissol::model
 

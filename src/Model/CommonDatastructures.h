@@ -10,7 +10,8 @@
 #ifndef SEISSOL_SRC_MODEL_COMMONDATASTRUCTURES_H_
 #define SEISSOL_SRC_MODEL_COMMONDATASTRUCTURES_H_
 
-#include <Initializer/Parameters/ModelParameters.h>
+#include "Initializer/Parameters/ModelParameters.h"
+
 #include <array>
 #include <limits>
 #include <string>
@@ -44,9 +45,9 @@ struct Material {
 
   virtual ~Material() = default;
 
-  double rho;
+  double rho{};
   Material() = default;
-  Material(const std::vector<double>& data) : rho(data.at(0)) {}
+  explicit Material(const std::vector<double>& data) : rho(data.at(0)) {}
 
   virtual void initialize(const initializer::parameters::ModelParameters& parameters) {}
 
@@ -55,11 +56,15 @@ struct Material {
   [[nodiscard]] virtual double getSWaveSpeed() const = 0;
   [[nodiscard]] virtual double getMuBar() const = 0;
   [[nodiscard]] virtual double getLambdaBar() const = 0;
+  [[nodiscard]] virtual double getDensity() const { return rho; }
   [[nodiscard]] virtual double maximumTimestep() const {
     return std::numeric_limits<double>::infinity();
   }
   virtual void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const = 0;
   [[nodiscard]] virtual MaterialType getMaterialType() const = 0;
+
+  virtual void setLameParameters(double mu, double lambda) {}
+  virtual void setDensity(double rho) { this->rho = rho; }
 };
 
 struct Plasticity {
