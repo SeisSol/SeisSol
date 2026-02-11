@@ -61,7 +61,8 @@ enum class Memkind {
   HighBandwidth = 1,
   DeviceGlobalMemory = 3,
   DeviceUnifiedMemory = 4,
-  PinnedMemory = 5
+  PinnedMemory = 5,
+  DeviceGlobalCompressed = 6,
 };
 
 void* allocate(size_t size, size_t alignment = 1, Memkind memkind = Memkind::Standard);

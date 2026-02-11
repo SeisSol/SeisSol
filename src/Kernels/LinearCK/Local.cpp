@@ -81,6 +81,8 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
+namespace {
+
 struct ApplyAnalyticalSolution {
   ApplyAnalyticalSolution(const std::vector<std::unique_ptr<physics::InitialField>>* initConditions,
                           LTS::Ref& data)
@@ -115,6 +117,8 @@ struct ApplyAnalyticalSolution {
   const std::vector<std::unique_ptr<physics::InitialField>>* initConditions;
   LTS::Ref& localData;
 };
+
+} // namespace
 
 void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
                             LTS::Ref& data,

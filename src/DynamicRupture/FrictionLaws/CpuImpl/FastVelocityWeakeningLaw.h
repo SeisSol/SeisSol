@@ -48,21 +48,23 @@ class FastVelocityWeakeningLaw
                                          real localSlipRate) const {
     const double localMuW = this->muW[faceIndex][pointIndex];
     const double localSrW = this->srW[faceIndex][pointIndex];
-    const double localA = this->a[faceIndex][pointIndex];
+    const real localA = this->a[faceIndex][pointIndex];
     const double localSl0 = this->sl0[faceIndex][pointIndex];
 
     // low-velocity steady state friction coefficient
     const real lowVelocityFriction =
-        this->f0[faceIndex][pointIndex] -
-        (this->b[faceIndex][pointIndex] - localA) * log(localSlipRate / this->drParameters->rsSr0);
+        std::max(static_cast<real>(0),
+                 static_cast<real>(this->f0[faceIndex][pointIndex] -
+                                   (this->b[faceIndex][pointIndex] - localA) *
+                                       log(localSlipRate / this->drParameters->rsSr0)));
     const real steadyStateFrictionCoefficient =
         localMuW + (lowVelocityFriction - localMuW) /
                        std::pow(1.0 + misc::power<8, double>(localSlipRate / localSrW), 1.0 / 8.0);
     // TODO: check again, if double precision is necessary here (earlier, there were cancellation
     // issues)
     const real steadyStateStateVariable =
-        localA * std::log(this->drParameters->rsSr0 / localSlipRate * 2 *
-                          std::sinh(steadyStateFrictionCoefficient / localA));
+        localA * rs::logsinh(this->drParameters->rsSr0 / localSlipRate * 2,
+                             steadyStateFrictionCoefficient / localA);
 
     // exact integration of dSV/dt DGL, assuming constant V over integration step
 
@@ -76,9 +78,11 @@ class FastVelocityWeakeningLaw
   }
 
   struct MuDetails {
-    std::array<double, misc::NumPaddedPoints> a{};
-    std::array<double, misc::NumPaddedPoints> c{};
-    std::array<double, misc::NumPaddedPoints> ac{};
+    std::array<real, misc::NumPaddedPoints> a{};
+    std::array<real, misc::NumPaddedPoints> cLin{};
+    std::array<real, misc::NumPaddedPoints> cExpLog{};
+    std::array<real, misc::NumPaddedPoints> cExp{};
+    std::array<real, misc::NumPaddedPoints> acLin{};
   };
 
   MuDetails getMuDetails(std::size_t ltsFace,
@@ -86,14 +90,18 @@ class FastVelocityWeakeningLaw
     MuDetails details{};
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-      const double localA = this->a[ltsFace][pointIndex];
-      const double c = 0.5 / this->drParameters->rsSr0 *
-                       std::exp(static_cast<double>(localStateVariable[pointIndex]) / localA);
-      assert((std::isfinite(c) || pointIndex >= misc::NumBoundaryGaussPoints) &&
-             "Inf/NaN detected");
+      const real localA = this->a[ltsFace][pointIndex];
+
+      const real cLin = 0.5 / this->drParameters->rsSr0;
+      const real cExpLog = localStateVariable[pointIndex] / localA;
+      const real cExp = rs::computeCExp(cExpLog);
+      const real acLin = localA * cLin;
+
       details.a[pointIndex] = localA;
-      details.c[pointIndex] = c;
-      details.ac[pointIndex] = localA * c;
+      details.cLin[pointIndex] = cLin;
+      details.cExpLog[pointIndex] = cExpLog;
+      details.cExp[pointIndex] = cExp;
+      details.acLin[pointIndex] = acLin;
     }
     return details;
   }
@@ -107,10 +115,10 @@ class FastVelocityWeakeningLaw
  * @return \f$ \mu \f$
  */
 #pragma omp declare simd
-  double
-      updateMu(std::uint32_t pointIndex, double localSlipRateMagnitude, const MuDetails& details) {
-    const double x = details.c[pointIndex] * localSlipRateMagnitude;
-    return details.a[pointIndex] * std::asinh(x);
+  real updateMu(std::uint32_t pointIndex, real localSlipRateMagnitude, const MuDetails& details) {
+    const real lx = details.cLin[pointIndex] * localSlipRateMagnitude;
+    return details.a[pointIndex] *
+           rs::arsinhexp(lx, details.cExpLog[pointIndex], details.cExp[pointIndex]);
   }
 
 /**
@@ -122,11 +130,12 @@ class FastVelocityWeakeningLaw
  * @return \f$ \mu \f$
  */
 #pragma omp declare simd
-  double updateMuDerivative(std::uint32_t pointIndex,
-                            double localSlipRateMagnitude,
-                            const MuDetails& details) {
-    const double x = details.c[pointIndex] * localSlipRateMagnitude;
-    return details.ac[pointIndex] / std::sqrt(x * x + 1.0);
+  real updateMuDerivative(std::uint32_t pointIndex,
+                          real localSlipRateMagnitude,
+                          const MuDetails& details) {
+    const real lx = details.cLin[pointIndex] * localSlipRateMagnitude;
+    return details.acLin[pointIndex] *
+           rs::arsinhexpDerivative(lx, details.cExpLog[pointIndex], details.cExp[pointIndex]);
   }
 
   /**

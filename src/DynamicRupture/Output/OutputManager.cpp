@@ -208,9 +208,8 @@ void OutputManager::initElementwiseOutput() {
     misc::forEach(ewOutputData->vars, recordPointers);
 
     std::vector<unsigned> faceIdentifiers(receiverPoints.size());
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
     for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
       faceIdentifiers[i] =
           receiverPoints[i].elementGlobalIndex * 4 + receiverPoints[i].localFaceSideId;
