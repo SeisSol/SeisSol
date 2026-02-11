@@ -70,6 +70,31 @@ def addKernels(
         projectToNodalBoundary,
     )
 
+    tmp = OptionalDimTensor(
+        "INodalTmp",
+        aderdg.INodal.optName(),
+        aderdg.INodal.optSize(),
+        aderdg.INodal.optPos(),
+        (aderdg.numberOf2DBasisFunctions(), aderdg.numberOfQuantities()),
+        alignStride=True,
+        temporary=True,
+    )
+
+    rho = Tensor("rho", ())
+
+    mainstresscnt = 3 if aderdg.velocityOffset() > 1 else 1
+
+    averageNormalDisplacement = OptionalDimTensor(
+        "averageNormalDisplacement",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (aderdg.numberOf2DBasisFunctions(),),
+        alignStride=True,
+    )
+
+    g2m = Scalar("g2m")  # -2 * g
+
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
         projectToNodalBoundaryRotated = (
@@ -97,6 +122,50 @@ def addKernels(
             f"{name_prefix}projectDerivativeToNodalBoundaryRotated",
             simpleParameterSpace(aderdg.order, 4),
             projectDerivativeToNodalBoundaryRotated,
+            target=target,
+        )
+
+        projectToNodalBoundaryRotated = (
+            lambda i: tmp["kp"]
+            <= aderdg.db.V3mTo2nFace[i][aderdg.t("kl")]
+            * aderdg.I["lm"]
+            * aderdg.Tinv["pm"]
+        )
+        localFluxNodal = (
+            lambda i: aderdg.Q["kp"]
+            <= aderdg.Q["kp"]
+            + aderdg.db.project2nFaceTo3m[i]["kn"] * tmp["no"] * aderdg.AminusT["op"]
+        )
+
+        easi_boundary = (
+            tmp["la"]
+            <= easi_boundary_map["abl"] * tmp["lb"]
+            + easi_ident_map["abl"] * easi_boundary_constant["bl"]
+        )
+
+        fsg_boundary = tmp["kp"].subslice("p", 0, mainstresscnt) <= g2m * rho[
+            ""
+        ] * averageNormalDisplacement["k"] - tmp["kp"].subslice("p", 0, mainstresscnt)
+
+        generator.addFamily(
+            f"{name_prefix}bcDirichlet",
+            simpleParameterSpace(4),
+            lambda i: [
+                projectToNodalBoundaryRotated(i),
+                easi_boundary,
+                localFluxNodal(i),
+            ],
+            target=target,
+        )
+
+        generator.addFamily(
+            f"{name_prefix}bcFreeSurfaceGravity",
+            simpleParameterSpace(4),
+            lambda i: [
+                projectToNodalBoundaryRotated(i),
+                fsg_boundary,
+                localFluxNodal(i),
+            ],
             target=target,
         )
 

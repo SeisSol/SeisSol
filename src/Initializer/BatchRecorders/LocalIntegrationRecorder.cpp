@@ -60,6 +60,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     std::vector<real*> derivativesExtPtrs(size, nullptr);
     std::vector<real*> ltsBuffers{};
     std::vector<real*> idofsForLtsBuffers{};
+    std::vector<real*> zinvExtraPtrs(size, nullptr);
 
     idofsPtrs.reserve(size);
     dQPtrs.resize(size);
@@ -120,6 +121,10 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       auto* dofsExt = currentLayer->var<LTS::DofsExtScratch>(AllocationPlace::Device);
       dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + tensor::Qext::size() * cell;
 #endif
+#ifdef USE_POROELASTIC
+      auto* zinvExtraPtr = currentLayer->var<LTS::ZinvExtra>(AllocationPlace::Device);
+      zinvExtraPtrs[cell] = zinvExtraPtr + yateto::computeFamilySize<tensor::Zinv>() * cell;
+#endif
 
       // derivatives
       const bool isDerivativesProvided =
@@ -156,6 +161,9 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     (*currentTable)[key].set(inner_keys::Wp::Id::IdofsAne, idofsAnePtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::DerivativesAne, derivativesAnePtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::DerivativesExt, derivativesExtPtrs);
+#endif
+#ifdef USE_POROELASTIC
+    (*currentTable)[key].set(inner_keys::Wp::Id::ZinvExtra, zinvExtraPtrs);
 #endif
   }
 }
@@ -244,20 +252,8 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 
   real* nodalAvgDisplacements =
       static_cast<real*>(currentLayer->var<LTS::NodalAvgDisplacements>(AllocationPlace::Device));
-
-  real* rotateDisplacementToFaceNormalScratch = static_cast<real*>(
-      currentLayer->var<LTS::RotateDisplacementToFaceNormalScratch>(AllocationPlace::Device));
-  real* rotateDisplacementToGlobalScratch = static_cast<real*>(
-      currentLayer->var<LTS::RotateDisplacementToGlobalScratch>(AllocationPlace::Device));
-  real* rotatedFaceDisplacementScratch = static_cast<real*>(
-      currentLayer->var<LTS::RotatedFaceDisplacementScratch>(AllocationPlace::Device));
-  real* dofsFaceNodalScratch =
-      static_cast<real*>(currentLayer->var<LTS::DofsFaceNodalScratch>(AllocationPlace::Device));
-  real* prevCoefficientsScratch =
-      static_cast<real*>(currentLayer->var<LTS::PrevCoefficientsScratch>(AllocationPlace::Device));
-
-  real* dofsFaceBoundaryNodalScratch = static_cast<real*>(
-      currentLayer->var<LTS::DofsFaceBoundaryNodalScratch>(AllocationPlace::Device));
+  real* fsgdataPtr = static_cast<real*>(currentLayer->var<LTS::FSGData>(AllocationPlace::Device));
+  real* fsgdataPtrHost = static_cast<real*>(currentLayer->var<LTS::FSGData>());
 
   if (size > 0) {
     std::array<std::vector<unsigned>, 4> cellIndices{};
@@ -270,17 +266,13 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
     std::array<std::vector<real*>, 4> neighPtrs{};
     std::array<std::vector<real*>, 4> t{};
     std::array<std::vector<real*>, 4> tInv{};
+    std::array<std::vector<real*>, 4> fsgdata{};
+    std::array<std::vector<real*>, 4> rhosPtr{};
 
     std::array<std::vector<inner_keys::Material::DataType>, 4> rhos;
     std::array<std::vector<inner_keys::Material::DataType>, 4> lambdas;
 
-    std::array<std::vector<real*>, 4> rotateDisplacementToFaceNormalPtrs{};
-    std::array<std::vector<real*>, 4> rotateDisplacementToGlobalPtrs{};
-    std::array<std::vector<real*>, 4> rotatedFaceDisplacementPtrs{};
-    std::array<std::vector<real*>, 4> dofsFaceNodalPtrs{};
-    std::array<std::vector<real*>, 4> prevCoefficientsPtrs{};
     std::array<std::vector<double>, 4> invImpedances{};
-    std::array<std::vector<real*>, 4> dofsFaceBoundaryNodalPtrs{};
 
     std::array<std::size_t, 4> counter{};
 
@@ -312,22 +304,13 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
           nodalAvgDisplacementsPtrs[face].push_back(displ);
           nodalAvgDisplacementsCounter += NodalAvgDisplacementsSize;
 
-          rotateDisplacementToFaceNormalPtrs[face].push_back(
-              rotateDisplacementToFaceNormalScratch +
-              counter[face] * init::displacementRotationMatrix::Size);
-          rotateDisplacementToGlobalPtrs[face].push_back(
-              rotateDisplacementToGlobalScratch +
-              counter[face] * init::displacementRotationMatrix::Size);
-          rotatedFaceDisplacementPtrs[face].push_back(
-              rotatedFaceDisplacementScratch + counter[face] * init::rotatedFaceDisplacement::Size);
-          dofsFaceBoundaryNodalPtrs[face].push_back(dofsFaceBoundaryNodalScratch +
-                                                    counter[face] * tensor::INodal::size());
-          dofsFaceNodalPtrs[face].push_back(dofsFaceNodalScratch +
-                                            counter[face] * tensor::INodal::size());
-          prevCoefficientsPtrs[face].push_back(
-              prevCoefficientsScratch +
-              counter[face] * nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
-          invImpedances[face].push_back(0);
+          fsgdata[face].push_back(fsgdataPtr);
+          fsgdataPtr += 3;
+          fsgdataPtrHost += 3;
+
+          fsgdataPtrHost[0] = 1.0 / std::sqrt(rhos[face].back() * lambdas[face].back());
+          fsgdataPtrHost[1] = rhos[face].back() * g;
+          fsgdataPtrHost[2] = rhos[face].back();
 
           ++counter[face];
         }
@@ -356,18 +339,8 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
         (*currentTable)[key].set(inner_keys::Wp::Id::NodalAvgDisplacements,
                                  nodalAvgDisplacementsPtrs[face]);
 
-        (*currentTable)[key].set(inner_keys::Wp::Id::RotateDisplacementToFaceNormal,
-                                 rotateDisplacementToFaceNormalPtrs[face]);
-        (*currentTable)[key].set(inner_keys::Wp::Id::RotateDisplacementToGlobal,
-                                 rotateDisplacementToGlobalPtrs[face]);
-        (*currentTable)[key].set(inner_keys::Wp::Id::RotatedFaceDisplacement,
-                                 rotatedFaceDisplacementPtrs[face]);
-        (*currentTable)[key].set(inner_keys::Wp::Id::DofsFaceNodal, dofsFaceNodalPtrs[face]);
-        (*currentTable)[key].set(inner_keys::Wp::Id::PrevCoefficients, prevCoefficientsPtrs[face]);
-        (*currentMaterialTable)[key].set(inner_keys::Material::Id::InvImpedances,
-                                         invImpedances[face]);
-        (*currentTable)[key].set(inner_keys::Wp::Id::DofsFaceBoundaryNodal,
-                                 dofsFaceBoundaryNodalPtrs[face]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::FSGData, fsgdata[face]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::Rhos, rhosPtr[face]);
       }
     }
   }
@@ -384,12 +357,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
     std::array<std::vector<real*>, 4> easiBoundaryMapPtrs{};
     std::array<std::vector<real*>, 4> easiBoundaryConstantPtrs{};
 
-    std::array<std::vector<real*>, 4> dofsFaceBoundaryNodalPtrs{};
-
     std::array<std::size_t, 4> counter{};
-
-    real* dofsFaceBoundaryNodalScratch = static_cast<real*>(
-        currentLayer->var<LTS::DofsFaceBoundaryNodalScratch>(AllocationPlace::Device));
 
     for (std::size_t cell = 0; cell < size; ++cell) {
       auto data = currentLayer->cellRef(cell, AllocationPlace::Device);
@@ -410,8 +378,6 @@ void LocalIntegrationRecorder::recordDirichletBc() {
           easiBoundaryConstantPtrs[face].push_back(
               dataHost.get<LTS::BoundaryMappingDevice>()[face].easiBoundaryConstant);
 
-          dofsFaceBoundaryNodalPtrs[face].push_back(dofsFaceBoundaryNodalScratch +
-                                                    counter[face] * tensor::INodal::size());
           ++counter[face];
         }
       }
@@ -430,9 +396,6 @@ void LocalIntegrationRecorder::recordDirichletBc() {
         (*currentTable)[key].set(inner_keys::Wp::Id::EasiBoundaryMap, easiBoundaryMapPtrs[face]);
         (*currentTable)[key].set(inner_keys::Wp::Id::EasiBoundaryConstant,
                                  easiBoundaryConstantPtrs[face]);
-
-        (*currentTable)[key].set(inner_keys::Wp::Id::DofsFaceBoundaryNodal,
-                                 dofsFaceBoundaryNodalPtrs[face]);
       }
     }
   }

@@ -73,9 +73,13 @@ class CompositeRecorder : public AbstractRecorder<VarmapT> {
 
 class LocalIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   public:
+  explicit LocalIntegrationRecorder(double g) : g(g) {}
+
   void record(LTS::Layer& layer) override;
 
   private:
+  double g{9.81};
+
   void setUpContext(LTS::Layer& layer) {
     integratedDofsAddressCounter = 0;
     derivativesAddressCounter = 0;

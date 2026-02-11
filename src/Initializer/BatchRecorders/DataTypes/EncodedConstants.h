@@ -37,22 +37,18 @@ struct Wp {
     NodalAvgDisplacements,
     T,
     Tinv,
+    FSGData,
+    Rhos,
     EasiBoundaryMap,
     EasiBoundaryConstant,
-    Stp,
-    StpRhs,
+    ZinvExtra,
     IdofsAne,
     DofsAne,
     DofsExt,
     DerivativesAne,
     DerivativesExt,
     Analytical,
-    RotateDisplacementToFaceNormal,
-    RotateDisplacementToGlobal,
-    RotatedFaceDisplacement,
-    DofsFaceNodal,
-    PrevCoefficients,
-    DofsFaceBoundaryNodal,
+    QEtaNodal,
     Count
   };
 };
@@ -77,7 +73,7 @@ struct Dr {
 
 struct Material {
   using DataType = double;
-  enum struct Id : size_t { Rho = 0, Lambda, InvImpedances, Count };
+  enum struct Id : size_t { Rho = 0, Lambda, Count };
 };
 
 struct Indices {

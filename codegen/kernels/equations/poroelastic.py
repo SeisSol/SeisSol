@@ -50,6 +50,9 @@ class PoroelasticADERDG(LinearADERDG):
     def numberOfQuantities(self):
         return 13
 
+    def velocityOffset(self):
+        return 6
+
     def numberOfExtendedQuantities(self):
         return self.numberOfQuantities()
 
@@ -94,12 +97,6 @@ class PoroelasticADERDG(LinearADERDG):
     def addTime(self, generator, targets):
         super().addTime(generator, targets)
 
-        stiffnessValues = [self.db.kDivMT[d].values_as_ndarray() for d in range(3)]
-        fullShape = (
-            self.numberOf3DBasisFunctions(),
-            self.numberOf3DBasisFunctions(),
-        )
-
         stpShape = (
             self.numberOf3DBasisFunctions(),
             self.numberOfQuantities(),
@@ -112,6 +109,7 @@ class PoroelasticADERDG(LinearADERDG):
             self.Q.optPos(),
             stpShape,
             alignStride=True,
+            temporary=True,
         )
         spaceTimePredictor = OptionalDimTensor(
             "spaceTimePredictor",
@@ -153,64 +151,11 @@ class PoroelasticADERDG(LinearADERDG):
             Bn_upper = choose(n + 3, 3)
             return (Bn_lower, Bn_upper)
 
-        # Compute a matrix, which filters out all basis function of degree n
-        #
-        # Compute a matrix M, such that for any DOF vector Q, M*Q only contains
-        # the parts of Q, which correspond to basis functions of degree n
-        #
-        # @param n The desired polynomial degree
-        def selectModes(n):
-            Bn_1, Bn = modeRange(n)
-            selectModesSpp = np.zeros(fullShape)
-            selectModesSpp[Bn_1:Bn, Bn_1:Bn] = np.eye(Bn - Bn_1)
-            return Tensor("selectModes({})".format(n), fullShape, spp=selectModesSpp)
-
-        # Compute a matrix, which slices out one quantity
-        #
-        # @param quantityNumber The number of the quantity, which is sliced out
-        def selectQuantity(quantityNumber):
-            selectSpp = np.zeros((self.numberOfQuantities(), self.numberOfQuantities()))
-            selectSpp[quantityNumber, quantityNumber] = 1
-            return Tensor(
-                "selectQuantity({})".format(quantityNumber),
-                selectSpp.shape,
-                spp=selectSpp,
-            )
-
-        # Compute a matrix, which slides out one quantity from the upper triangular
-        #  part of the source matrix
-        #
-        # Note: G = E - diag(E)
-        #
-        # @param quantityNumber The number of the quantity, which is sliced out
-        def selectQuantityG(quantityNumber):
-            selectSpp = np.zeros((self.numberOfQuantities(), self.numberOfQuantities()))
-            # The source matrix G only contains values at (o-4, o)
-            selectSpp[quantityNumber - 4, quantityNumber] = 1
-            return Tensor(
-                "selectQuantityG({})".format(quantityNumber),
-                selectSpp.shape,
-                spp=selectSpp,
-            )
-
         # Zinv(o) = $(Z - E^*_{oo} * I)^{-1}$
         #
         # @param o Index as described above
         def Zinv(o):
             return Tensor("Zinv({})".format(o), (self.order, self.order))
-
-        # Submatrix of the stiffness matrix
-        #
-        # The stiffness matrix for derivatives in direction d, where only the
-        # contribution from basis functions of degree n is considered
-        #
-        # @param d The direction in which derivatives are taken 0 =< d < 3
-        # @param n The polynomial degree n, which is taken into account
-        def kSub(d, n):
-            Bn_1, Bn = modeRange(n)
-            stiffnessSpp = np.zeros(fullShape)
-            stiffnessSpp[:, Bn_1:Bn] = -stiffnessValues[d][:, Bn_1:Bn]
-            return Tensor("kDivMTSub({},{})".format(d, n), fullShape, spp=stiffnessSpp)
 
         QAtTimeSTP = OptionalDimTensor(
             "QAtTimeSTP",
@@ -227,12 +172,19 @@ class PoroelasticADERDG(LinearADERDG):
 
             if target == "cpu":
                 G = {10: Scalar("Gk"), 11: Scalar("Gl"), 12: Scalar("Gm")}
+                OptTimestep = lambda x: x
             else:
+                Gkt = Tensor("Gkt", ())
+                Glt = Tensor("Glt", ())
+                Gmt = Tensor("Gmt", ())
                 G = {
-                    10: Tensor("Gkt", ())[""] * timestep,
-                    11: Tensor("Glt", ())[""] * timestep,
-                    12: Tensor("Gmt", ())[""] * timestep,
+                    10: Gkt[""],
+                    11: Glt[""],
+                    12: Gmt[""],
                 }
+
+                # needed due to a current Yateto bug not allowing e.g. (Gkt * timestep)
+                OptTimestep = lambda x: x * timestep
 
             kernels = list()
 
@@ -243,24 +195,34 @@ class PoroelasticADERDG(LinearADERDG):
                 for o in range(self.numberOfQuantities() - 1, -1, -1):
                     kernels.append(
                         spaceTimePredictor["kpt"]
+                        .subslice("k", *modeRange(n))
+                        .subslice("p", o, o + 1)
                         <= spaceTimePredictor["kpt"]
-                        + selectModes(n)["kl"]
-                        * selectQuantity(o)["pq"]
-                        * spaceTimePredictorRhs["lqu"]
+                        .subslice("k", *modeRange(n))
+                        .subslice("p", o, o + 1)
+                        + spaceTimePredictorRhs["kpu"]
+                        .subslice("k", *modeRange(n))
+                        .subslice("p", o, o + 1)
                         * Zinv(o)["ut"]
                     )
                     # G only has one relevant non-zero entry in each iteration, so we make it a scalar
                     # G[o] = E[o-4, o] * timestep
                     # In addition E only has non-zero entries, if o > 10
                     if o >= 10:
+                        o2 = o - 4
                         kernels.append(
                             spaceTimePredictorRhs["kpt"]
+                            .subslice("k", *modeRange(n))
+                            .subslice("p", o2, o2 + 1)
                             <= spaceTimePredictorRhs["kpt"]
-                            + G[o]
-                            * selectQuantityG(o)["pv"]
-                            * selectQuantity(o)["vq"]
-                            * selectModes(n)["kl"]
-                            * spaceTimePredictor["lqt"]
+                            .subslice("k", *modeRange(n))
+                            .subslice("p", o2, o2 + 1)
+                            + OptTimestep(
+                                G[o]
+                                * spaceTimePredictor["kpt"]
+                                .subslice("k", *modeRange(n))
+                                .subslice("p", o, o + 1)
+                            )
                         )
                 if n > 0:
                     derivativeSum = spaceTimePredictorRhs["kpt"]
@@ -271,7 +233,9 @@ class PoroelasticADERDG(LinearADERDG):
                     )
                     for d in range(3):
                         derivativeSum += (
-                            kSub(d, n)["kl"] * spaceTimePredictor["lqt"] * star(d)
+                            self.db.kDivMT[d]["kl"].subslice("l", *modeRange(n))
+                            * spaceTimePredictor["lqt"].subslice("l", *modeRange(n))
+                            * star(d)
                         )
                 kernels.append(spaceTimePredictorRhs["kpt"] <= derivativeSum)
             kernels.append(

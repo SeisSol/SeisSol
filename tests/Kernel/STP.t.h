@@ -123,22 +123,6 @@ class SpaceTimePredictorTestFixture {
   }
 
   void prepareKernel(seissol::kernel::spaceTimePredictor& krnlPrototype) {
-    for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
-      if (n > 0) {
-        for (int d = 0; d < 3; ++d) {
-          krnlPrototype.kDivMTSub(d, n) =
-              seissol::init::kDivMTSub::Values[seissol::tensor::kDivMTSub::index(d, n)];
-        }
-      }
-      krnlPrototype.selectModes(n) =
-          seissol::init::selectModes::Values[seissol::tensor::selectModes::index(n)];
-    }
-    for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
-      krnlPrototype.selectQuantity(k) =
-          seissol::init::selectQuantity::Values[seissol::tensor::selectQuantity::index(k)];
-      krnlPrototype.selectQuantityG(k) =
-          init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
-    }
     krnlPrototype.timeInt = seissol::init::timeInt::Values;
     krnlPrototype.wHat = seissol::init::wHat::Values;
   }
@@ -174,8 +158,8 @@ class SpaceTimePredictorTestFixture {
 
   void solveWithKernel(real stp[], const real* qData) {
     real timeIntegrated[seissol::tensor::I::size()];
-    alignas(PagesizeStack) real stpRhs[seissol::tensor::spaceTimePredictorRhs::size()];
-    std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
+    // alignas(PagesizeStack) real stpRhs[seissol::tensor::spaceTimePredictorRhs::size()];
+    // std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
 
     seissol::kernel::spaceTimePredictor krnl;
     prepareKernel(krnl);
@@ -206,7 +190,7 @@ class SpaceTimePredictorTestFixture {
     krnl.I = timeIntegrated;
     krnl.timestep = Dt;
     krnl.spaceTimePredictor = stp;
-    krnl.spaceTimePredictorRhs = stpRhs;
+    // krnl.spaceTimePredictorRhs = stpRhs;
     krnl.execute();
   }
 

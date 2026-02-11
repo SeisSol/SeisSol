@@ -39,6 +39,7 @@ class Spacetime : public SpacetimeKernel {
                    bool updateDisplacement = false) override;
   void computeBatchedAder(const real* coeffs,
                           double timeStepWidth,
+                          LTS::Layer& layer,
                           LocalTmp& tmp,
                           recording::ConditionalPointersToRealsTable& dataTable,
                           recording::ConditionalMaterialTable& materialTable,
@@ -51,11 +52,12 @@ class Spacetime : public SpacetimeKernel {
 
   protected:
   kernel::derivative m_krnlPrototype;
-  kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
+
+  kernel::fsgKernel fsgKernelPrototype;
 
 #ifdef ACL_DEVICE
   kernel::gpu_derivative deviceKrnlPrototype;
-  kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
+  kernel::gpu_fsgKernel deviceFsgKernelPrototype;
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 };

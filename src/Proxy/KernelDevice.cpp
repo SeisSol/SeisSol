@@ -41,7 +41,7 @@ void ProxyKernelDeviceAder::run(ProxyData& data,
 
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
     data.spacetimeKernel.computeBatchedAder(
-        integrationCoeffs.data(), Timestep, tmp, dataTable, materialTable, false, runtime);
+        integrationCoeffs.data(), Timestep, layer, tmp, dataTable, materialTable, false, runtime);
   });
 }
 
@@ -78,7 +78,7 @@ void ProxyKernelDeviceLocal::run(ProxyData& data,
   auto computeGraphKey = initializer::GraphKey(graphType, Timestep, false);
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
     data.spacetimeKernel.computeBatchedAder(
-        integrationCoeffs.data(), Timestep, tmp, dataTable, materialTable, false, runtime);
+        integrationCoeffs.data(), Timestep, layer, tmp, dataTable, materialTable, false, runtime);
     data.localKernel.computeBatchedIntegral(dataTable, materialTable, indicesTable, 0.0, runtime);
   });
 }

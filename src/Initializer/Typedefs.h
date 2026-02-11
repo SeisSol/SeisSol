@@ -155,9 +155,6 @@ struct GlobalData {
   real* vandermondeMatrix{nullptr};
   real* vandermondeMatrixInverse{nullptr};
 
-  real* selectAne{nullptr};
-  real* selectEla{nullptr};
-
   // tensor::resample
   real* resampleMatrix{nullptr};
 

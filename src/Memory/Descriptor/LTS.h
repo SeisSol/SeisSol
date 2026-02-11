@@ -138,12 +138,11 @@ struct LTS {
   struct FlagScratch : public initializer::Scratchpad<unsigned> {};
   struct QStressNodalScratch : public initializer::Scratchpad<real> {};
 
-  struct RotateDisplacementToFaceNormalScratch : public initializer::Scratchpad<real> {};
-  struct RotateDisplacementToGlobalScratch : public initializer::Scratchpad<real> {};
-  struct RotatedFaceDisplacementScratch : public initializer::Scratchpad<real> {};
-  struct DofsFaceNodalScratch : public initializer::Scratchpad<real> {};
-  struct PrevCoefficientsScratch : public initializer::Scratchpad<real> {};
-  struct DofsFaceBoundaryNodalScratch : public initializer::Scratchpad<real> {};
+  struct ZinvExtra : public initializer::Scratchpad<real> {};
+
+  struct FSGData : public initializer::Bucket<real> {};
+
+  struct Rhos : public initializer::Variable<real> {};
 
   struct Integrals : public initializer::Variable<real> {};
 
@@ -180,13 +179,10 @@ struct LTS {
                                                         DofsExtScratch,
                                                         FlagScratch,
                                                         QStressNodalScratch,
-                                                        RotateDisplacementToFaceNormalScratch,
-                                                        RotateDisplacementToGlobalScratch,
-                                                        RotatedFaceDisplacementScratch,
-                                                        DofsFaceNodalScratch,
-                                                        PrevCoefficientsScratch,
-                                                        DofsFaceBoundaryNodalScratch,
-                                                        Integrals> {};
+                                                        Integrals,
+                                                        ZinvExtra,
+                                                        FSGData,
+                                                        Rhos> {};
 
   using Storage = initializer::Storage<LTSVarmap>;
   using Layer = initializer::Layer<LTSVarmap>;
@@ -262,12 +258,11 @@ struct LTS {
       storage.add<FlagScratch>(LayerMask(), 1, mode);
       storage.add<QStressNodalScratch>(LayerMask(), 1, mode);
 
-      storage.add<RotateDisplacementToFaceNormalScratch>(LayerMask(), 1, mode);
-      storage.add<RotateDisplacementToGlobalScratch>(LayerMask(), 1, mode);
-      storage.add<RotatedFaceDisplacementScratch>(LayerMask(), 1, mode);
-      storage.add<DofsFaceNodalScratch>(LayerMask(), 1, mode);
-      storage.add<PrevCoefficientsScratch>(LayerMask(), 1, mode);
-      storage.add<DofsFaceBoundaryNodalScratch>(LayerMask(), 1, mode);
+      storage.add<ZinvExtra>(LayerMask(), 1, AllocationMode::HostDevicePinned);
+
+      storage.add<FSGData>(LayerMask(), 1, mode);
+
+      storage.add<Rhos>(LayerMask(), 1, mode);
     }
   }
 
