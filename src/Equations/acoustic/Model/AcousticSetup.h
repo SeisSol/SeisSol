@@ -62,24 +62,24 @@ struct MaterialSetup<AcousticMaterial> {
 
     // Eigenvector matrix for acoustic wave equation
     // The acoustic system has 4 quantities: pressure p and velocities (v1, v2, v3)
-    // Coefficient matrices use negative sign convention to match elastic: A = [[0, -λ], [-1/ρ, 0]]
-    // This gives eigenvalues ±√(λ/ρ) = ±c (acoustic wave speed)
+    // Coefficient matrices use negative sign convention to match elastic: A = [[0, -lambda],
+    // [-1/rho, 0]] This gives eigenvalues ±√(lambda/rho) = ±c (acoustic wave speed)
     Matrix44 matR = Matrix44::Zero();
-    
+
     // Column 0: outgoing acoustic wave (eigenvalue +c) - ALWAYS uses local material
-    matR(0, 0) = local.lambda;  // pressure component
-    matR(1, 0) = std::sqrt(local.lambda / local.rho);  // normal velocity component
-    
+    matR(0, 0) = local.lambda;                        // pressure component
+    matR(1, 0) = std::sqrt(local.lambda / local.rho); // normal velocity component
+
     if (faceType != FaceType::FreeSurface) {
       // For internal faces: Column 1 is incoming wave from neighbor
-      matR(0, 1) = neighbor.lambda;  // pressure component
-      matR(1, 1) = -std::sqrt(neighbor.lambda / neighbor.rho);  // normal velocity (opposite sign)
+      matR(0, 1) = neighbor.lambda;                            // pressure component
+      matR(1, 1) = -std::sqrt(neighbor.lambda / neighbor.rho); // normal velocity (opposite sign)
     } else {
       // For free surface: Column 1 should also use local material (no neighbor)
-      matR(0, 1) = local.lambda;  // pressure component  
-      matR(1, 1) = -std::sqrt(local.lambda / local.rho);  // normal velocity (opposite sign)
+      matR(0, 1) = local.lambda;                         // pressure component
+      matR(1, 1) = -std::sqrt(local.lambda / local.rho); // normal velocity (opposite sign)
     }
-    
+
     // Columns 2-3: transverse modes (eigenvalue 0, non-propagating)
     // These modes are needed for matrix invertibility but don't propagate
     matR(2, 2) = local.lambda;
@@ -92,19 +92,16 @@ struct MaterialSetup<AcousticMaterial> {
         }
       }
       qGodLocal.setZero();
-      
+
       // Free surface boundary condition for acoustic materials
-      // Following the full elastic free surface pattern (Common.h setBlocks function):
-      // - Couple normal traction (pressure) to normal velocity: qGodLocal(0, 1) = -matR(1,0)/matR(0,0)
-      // - Set ALL velocity diagonals to identity
+      // - Couple normal traction (pressure) to normal velocity: qGodLocal(0, 1) =
+      // -matR(1,0)/matR(0,0)
       qGodLocal(0, 1) = -matR(1, 0) / matR(0, 0);
-      qGodLocal(1, 1) = 1.0;  // normal velocity
-      qGodLocal(2, 2) = 1.0;  // tangential velocity 1
-      qGodLocal(3, 3) = 1.0;  // tangential velocity 2
+      qGodLocal(1, 1) = 1.0; // normal velocity
     } else {
       // Godunov flux: select outgoing characteristics (positive eigenvalue)
       Matrix44 chi = Matrix44::Zero();
-      chi(0, 0) = 1.0;  // Select column 0 (outgoing wave)
+      chi(0, 0) = 1.0; // Select column 0 (outgoing wave)
 
       const auto godunov = ((matR * chi) * matR.inverse()).eval();
 
@@ -154,7 +151,7 @@ struct MaterialSetup<AcousticMaterial> {
     // Pressure (row 0) is a scalar, doesn't rotate - set to identity
     matT(0, 0) = 1.0;
     matTinv(0, 0) = 1.0;
-    
+
     // Velocity (rows 1-3) is a vector, rotate it
     seissol::transformations::tensor1RotationMatrix(normal, tangent1, tangent2, matT, 1, 1);
     seissol::transformations::inverseTensor1RotationMatrix(
