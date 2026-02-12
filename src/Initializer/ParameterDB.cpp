@@ -210,7 +210,7 @@ easi::Query PlasticityPointGenerator::generate() const {
   // Generate query using quadrature points for each element
   easi::Query query(m_cellToVertex.size * pointsPerCell, Cell::Dim);
 
-  auto nodes = init::vNodes::view::create(const_cast<real*>(init::vNodes::Values));
+  const auto nodes = init::vNodes::view::create(init::vNodes::Values);
 
 // Transform quadrature points to global coordinates for all elements
 #pragma omp parallel for schedule(static)
