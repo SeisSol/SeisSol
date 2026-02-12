@@ -257,7 +257,7 @@ void seissol::model::getTransposedFreeSurfaceGodunovState(MaterialType materialt
     }
   }
 
-  // matR == eigenvector matrix
+    // matR == eigenvector matrix
 
   qGodLocal.setZero();
   switch (materialtype) {
