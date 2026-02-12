@@ -106,7 +106,7 @@ jobs:
             pythonbreak: false
     steps:
       - name: checkout-seissol
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -201,7 +201,7 @@ jobs:
           clean-key: true
       - id: get-precomputed-solutions
         name: get-precomputed-solutions
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         if: steps.cache-precomputed-solutions.outputs.cache-hit != 'true'
         with:
           repository: seissol/precomputed-seissol
@@ -463,7 +463,6 @@ jobs:
           export OMP_NUM_THREADS=${{matrix.parallel.threads}}
           export SEISSOL_COMMTHREAD=${{matrix.parallel.commthread}}
           export SEISSOL_MINI_NUM_ELEMENTS=100
-          export DEVICE_STACK_MEM_SIZE=0.25
 
           # FIXME: compile the container with GPU-aware MPI
           export SEISSOL_USM_MPI=1
@@ -474,7 +473,7 @@ jobs:
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: scripts
 

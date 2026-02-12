@@ -52,10 +52,9 @@ void OnHost::initSpecificGlobalData(GlobalData& globalData,
   auto* integrationBufferLTS = reinterpret_cast<real*>(
       allocator.allocateMemory(numThreads * allocSize * sizeof(real), alignment, memkind));
 
-// initialize w.r.t. NUMA
-#ifdef _OPENMP
+  // initialize w.r.t. NUMA
+
 #pragma omp parallel
-#endif
   {
     const auto threadOffset = OpenMP::threadId() * allocSize;
     for (std::size_t dof = 0; dof < allocSize; ++dof) {
@@ -91,21 +90,11 @@ void OnDevice::negateStiffnessMatrix(GlobalData& globalData) {
   }
 #endif // ACL_DEVICE
 }
-void OnDevice::initSpecificGlobalData(SEISSOL_GPU_PARAM GlobalData& globalData,
-                                      SEISSOL_GPU_PARAM memory::ManagedAllocator& allocator,
-                                      SEISSOL_GPU_PARAM CopyManagerT& copyManager,
-                                      SEISSOL_GPU_PARAM size_t alignment,
-                                      SEISSOL_GPU_PARAM seissol::memory::Memkind memkind) {
-#ifdef ACL_DEVICE
-  const size_t size = yateto::alignedUpper(tensor::replicateInitialLoadingM::size(),
-                                           yateto::alignedReals<real>(alignment));
-  real* plasticityStressReplication =
-      static_cast<real*>(allocator.allocateMemory(size * sizeof(real), alignment, memkind));
-
-  copyManager.template copyTensorToMemAndSetPtr<init::replicateInitialLoadingM>(
-      plasticityStressReplication, globalData.replicateStresses, alignment);
-#endif // ACL_DEVICE
-}
+void OnDevice::initSpecificGlobalData(GlobalData& /*globalData*/,
+                                      memory::ManagedAllocator& /*allocator*/,
+                                      CopyManagerT& /*copyManager*/,
+                                      size_t /*alignment*/,
+                                      seissol::memory::Memkind /*memkind*/) {}
 
 real* OnDevice::DeviceCopyPolicy::copy(SEISSOL_GPU_PARAM const real* first,
                                        SEISSOL_GPU_PARAM const real* last,

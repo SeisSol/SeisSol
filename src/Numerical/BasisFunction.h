@@ -104,7 +104,7 @@ class BasisFunctionDerivativeGenerator {
 };
 
 inline unsigned int basisFunctionsForOrder(unsigned int order) {
-  return (order) * (order + 1) * (order + 2) / 6;
+  return (order * (order + 1) * (order + 2)) / 6;
 }
 
 /**

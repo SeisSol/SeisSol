@@ -63,7 +63,7 @@ struct MaterialTypeSelector<MaterialType::Poroelastic> {
   using Type = PoroElasticMaterial;
 };
 
-using MaterialT = typename MaterialTypeSelector<Config::MaterialType>::Type;
+using MaterialT = MaterialTypeSelector<Config::MaterialType>::Type;
 
 } // namespace seissol::model
 

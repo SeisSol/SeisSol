@@ -19,6 +19,7 @@
 #include "easi/Query.h"
 #include "easi/ResultAdapter.h"
 
+#include <cstddef>
 #include <memory>
 #include <set>
 #include <string>
@@ -63,14 +64,14 @@ struct CellToVertexArray {
 };
 
 easi::Component* loadEasiModel(const std::string& fileName);
-std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
-                                                      bool useCellHomogenizedMaterial,
+std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMaterial,
                                                       const CellToVertexArray& cellToVertex);
 
 class QueryGenerator {
   public:
   virtual ~QueryGenerator() = default;
   [[nodiscard]] virtual easi::Query generate() const = 0;
+  [[nodiscard]] virtual std::size_t outputPerCell() const { return 1; }
 };
 
 class ElementBarycenterGenerator : public QueryGenerator {
@@ -95,6 +96,18 @@ class ElementAverageGenerator : public QueryGenerator {
   CellToVertexArray m_cellToVertex;
   std::array<double, NumQuadpoints> m_quadratureWeights{};
   std::array<std::array<double, 3>, NumQuadpoints> m_quadraturePoints{};
+};
+
+class PlasticityPointGenerator : public QueryGenerator {
+  public:
+  explicit PlasticityPointGenerator(const CellToVertexArray& cellToVertex, bool pointwise = true)
+      : m_cellToVertex(cellToVertex), pointwise(pointwise) {}
+  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] std::size_t outputPerCell() const override;
+
+  private:
+  CellToVertexArray m_cellToVertex;
+  bool pointwise{true};
 };
 
 class FaultBarycenterGenerator : public QueryGenerator {
@@ -128,7 +141,7 @@ class ParameterDB {
 };
 
 template <class T>
-class MaterialParameterDB : ParameterDB {
+class MaterialParameterDB : public ParameterDB {
   public:
   T computeAveragedMaterial(unsigned elementIdx,
                             const std::array<double, NumQuadpoints>& quadratureWeights,
@@ -141,7 +154,7 @@ class MaterialParameterDB : ParameterDB {
   std::vector<T>* m_materials{};
 };
 
-class FaultParameterDB : ParameterDB {
+class FaultParameterDB : public ParameterDB {
   public:
   explicit FaultParameterDB(std::size_t simulation) : simid(simulation) {}
   ~FaultParameterDB() override = default;

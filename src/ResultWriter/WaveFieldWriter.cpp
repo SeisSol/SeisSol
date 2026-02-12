@@ -8,6 +8,7 @@
 
 #include "WaveFieldWriter.h"
 
+#include "GeneratedCode/init.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/Refinement/MeshRefiner.h"
@@ -42,7 +43,9 @@ void seissol::writer::WaveFieldWriter::setUp() {
   utils::Env env("SEISSOL_");
   if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, env)) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
-    logInfo() << "Wave field writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
+    logInfo() << "Wave field writer thread affinity:" << parallel::Pinning::maskToString(freeCpus)
+              << "(" << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
+    ;
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
@@ -279,13 +282,14 @@ void seissol::writer::WaveFieldWriter::init(
   logDebug() << "Vertices : " << numVerts << "refined-to ->" << meshRefiner->getNumVertices();
 
   m_variableSubsampler = std::make_unique<refinement::VariableSubsampler<double>>(
-      numElems, *tetRefiner, order, numVars, numAlignedDOF);
+      numElems, *tetRefiner, order, numVars, numAlignedDOF, false);
   m_variableSubsamplerPStrain = std::make_unique<refinement::VariableSubsampler<double>>(
       numElems,
       *tetRefiner,
       order,
       static_cast<unsigned int>(WaveFieldWriterExecutor::NumPlasticityVariables),
-      numAlignedDOF);
+      init::QEtaNodal::size(),
+      true);
 
   logInfo() << "VariableSubsampler initialized";
 
@@ -482,9 +486,7 @@ void seissol::writer::WaveFieldWriter::write(double time) {
           async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>::managedBuffer<
               real*>(m_variableBufferIds[1] + nextId);
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif // _OPENMP
       for (unsigned int j = 0; j < m_numLowCells; j++) {
         managedBuffer[j] = m_integrals[m_map[j] * m_numIntegratedVariables + nextId];
       }
