@@ -16,7 +16,6 @@
 
 namespace seissol::model {
 
-// Only for anisotropic materials. For isotropic materials, this is not needed.
 void getBondMatrix(const VrtxCoords normal,
                    const VrtxCoords tangent1,
                    const VrtxCoords tangent2,

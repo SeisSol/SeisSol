@@ -233,7 +233,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           MeshTools::normalize(tangent2, tangent2);
 
           // Defines a rotation matrix for computing material properties in face-local coordinates
-          // for anisotropy. Can be ignored for isotropic materials.
+          // for anisotropy. It has no effect for isotropic materials.
           std::array<double, 36> nLocalData{};
           seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
           seissol::model::getTransposedGodunovState(
