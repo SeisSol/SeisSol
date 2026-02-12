@@ -221,14 +221,14 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
           }
         }
 
-        auto numSub = seissol::multisim::simtensor(numericalSolution, sim);
-
         // Evaluate numerical solution at quad. nodes
         kernel::evalAtQP krnl;
         krnl.evalAtQP = globalData->evalAtQPMatrix;
         krnl.dofsQP = numericalSolutionData;
         krnl.Q = dofsData[cell];
         krnl.execute();
+
+        const auto numSub = seissol::multisim::simtensor(numericalSolution, sim);
 
         for (size_t i = 0; i < NumQuadPoints; ++i) {
           const auto curWeight = jacobiDet * quadratureWeights[i];
