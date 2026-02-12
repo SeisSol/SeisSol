@@ -172,6 +172,7 @@ void Local::computeBatchedIntegral(
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
     volKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
 
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
       volKrnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
@@ -200,8 +201,13 @@ void Local::computeBatchedIntegral(
     krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
     krnl.streamPtr = runtime.stream();
 
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.W);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.E);
+
     krnl.I = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, nApNm1);
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       krnl.AplusTAll(face) = const_cast<const real**>(
           entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
@@ -226,6 +232,8 @@ void Local::computeBatchedIntegral(
           const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
       localFluxKrnl.AplusT = const_cast<const real**>(
           entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+
+      SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, nApNm1);
       localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
       localFluxKrnl.streamPtr = runtime.stream();
       localFluxKrnl.execute(face);
@@ -253,6 +261,11 @@ void Local::computeBatchedIntegral(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     localKrnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
     localKrnl.streamPtr = runtime.stream();
+
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.W);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.E);
+
     localKrnl.execute();
   }
 #endif
