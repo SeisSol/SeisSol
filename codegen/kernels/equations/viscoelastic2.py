@@ -309,7 +309,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
                         [
                             plusFluxMatrixAccessor(i)
                             * self.I["lq"]
-                            * self.AplusTz[i]["qp"]
+                            * self.AplusTAll[i]["qp"]
                             for i in range(4)
                         ],
                         start=self.Qext["kp"],

@@ -66,8 +66,8 @@ class ADERDGBase(ABC):
 
         Aplusminus_spp = self.flux_solver_spp()
         self.AplusT = Tensor("AplusT", Aplusminus_spp.shape, spp=Aplusminus_spp)
-        self.AplusTz = [
-            Tensor(f"AplusTz({i})", Aplusminus_spp.shape, spp=Aplusminus_spp)
+        self.AplusTAll = [
+            Tensor(f"AplusTAll({i})", Aplusminus_spp.shape, spp=Aplusminus_spp)
             for i in range(4)
         ]
         self.AminusT = Tensor("AminusT", Aplusminus_spp.shape, spp=Aplusminus_spp)
@@ -412,7 +412,7 @@ class LinearADERDG(ADERDGBase):
 
             localFluxAll = self.Q["kp"] <= sum(
                 [
-                    plusFluxMatrixAccessor(i) * self.I["lq"] * self.AplusTz[i]["qp"]
+                    plusFluxMatrixAccessor(i) * self.I["lq"] * self.AplusTAll[i]["qp"]
                     for i in range(4)
                 ],
                 start=self.Q["kp"],

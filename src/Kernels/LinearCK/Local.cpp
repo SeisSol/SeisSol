@@ -286,6 +286,7 @@ void Local::computeBatchedIntegral(
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
 
+#ifdef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
     kernel::gpu_localFluxAll localFluxKrnl = deviceLocalFluxAllKernelPrototype;
     localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
     localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
@@ -293,21 +294,23 @@ void Local::computeBatchedIntegral(
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      localFluxKrnl.AplusTz(face) = const_cast<const real**>(
+      localFluxKrnl.AplusTAll(face) = const_cast<const real**>(
           entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-      localFluxKrnl.extraOffset_AplusTz(face) =
+      localFluxKrnl.extraOffset_AplusTAll(face) =
           SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
     }
     localFluxKrnl.linearAllocator.initialize(tmpMem.get());
     localFluxKrnl.streamPtr = runtime.stream();
     localFluxKrnl.execute();
+#endif
   }
 
   // Local Flux Integral
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
 
-#if 0 // deprecated code; kept for comparison reasons
+// deprecated code; kept for comparison reasons
+#ifndef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
     if (dataTable.find(key) != dataTable.end()) {
       auto& entry = dataTable[key];
       localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();

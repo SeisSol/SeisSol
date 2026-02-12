@@ -180,6 +180,7 @@ void Local::computeBatchedIntegral(
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
 
+#ifdef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
     auto krnl = deviceFluxLocalAllKernelPrototype;
 
     krnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
@@ -202,15 +203,17 @@ void Local::computeBatchedIntegral(
     krnl.I = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      krnl.AplusTz(face) = const_cast<const real**>(
+      krnl.AplusTAll(face) = const_cast<const real**>(
           entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-      krnl.extraOffset_AplusTz(face) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
+      krnl.extraOffset_AplusTAll(face) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
     }
 
     krnl.execute();
+#endif
   }
 
-#if 0 // deprecated code; kept for comparison reasons
+// deprecated code; kept for comparison reasons
+#ifndef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
   // Local Flux Integral
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
