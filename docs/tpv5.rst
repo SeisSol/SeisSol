@@ -91,30 +91,31 @@ Four friction constitutive parameters are: mu\_s, mu\_d, d\_c and
 cohesion. Six stress parameters are: s\_xx, s\_yy, s\_zz, s\_xy, s\_xz,
 and s\_yz. All the parameters are homogeneous on the fault except for
 the nucleation patch in the center of the fault, where s\_xy is larger
-compared with that elsewhere. The parameters in TPV5 are listed in Table
-[table:tpv5].
+compared with that elsewhere. The parameters in TPV5 are listed in :numref:`tabletpv5`.
 
-+----------------------------+--------------------------------+---------+-----------------+
-| Parameter                  | Description                    | Value   | Unit            |
-+============================+================================+=========+=================+
-| mu\_s                      | static friction coefficient    | 0.677   | dimensionless   |
-+----------------------------+--------------------------------+---------+-----------------+
-| mu\_d                      | dynamic friction coefficient   | 0.525   | dimensionless   |
-+----------------------------+--------------------------------+---------+-----------------+
-| d\_c                       | critical distance              | 0.40    | m               |
-+----------------------------+--------------------------------+---------+-----------------+
-| cohesion                   | friction cohesion              | 0.0     | MPa             |
-+----------------------------+--------------------------------+---------+-----------------+
-| s\_yy                      | stress                         | 120     | MPa             |
-+----------------------------+--------------------------------+---------+-----------------+
-| s\_xx,s\_zz,s\_yz,s\_xz    | stress                         | 0       | MPa             |
-+----------------------------+--------------------------------+---------+-----------------+
-| s\_xy                      | outside the nucleation zone    | 70      | MPa             |
-+----------------------------+--------------------------------+---------+-----------------+
-|                            | inside the nucleation zone     | 81.6    | MPa             |
-+----------------------------+--------------------------------+---------+-----------------+
+.. _tabletpv5:
+.. table::
+   LSR parameters on the fault in tpv5.
 
-Table: Table of LSR parameters on the fault in tpv5.
+   +----------------------------+--------------------------------+---------+-----------------+
+   | Parameter                  | Description                    | Value   | Unit            |
+   +============================+================================+=========+=================+
+   | mu\_s                      | static friction coefficient    | 0.677   | dimensionless   |
+   +----------------------------+--------------------------------+---------+-----------------+
+   | mu\_d                      | dynamic friction coefficient   | 0.525   | dimensionless   |
+   +----------------------------+--------------------------------+---------+-----------------+
+   | d\_c                       | critical distance              | 0.40    | m               |
+   +----------------------------+--------------------------------+---------+-----------------+
+   | cohesion                   | friction cohesion              | 0.0     | MPa             |
+   +----------------------------+--------------------------------+---------+-----------------+
+   | s\_yy                      | stress                         | 120     | MPa             |
+   +----------------------------+--------------------------------+---------+-----------------+
+   | s\_xx,s\_zz,s\_yz,s\_xz    | stress                         | 0       | MPa             |
+   +----------------------------+--------------------------------+---------+-----------------+
+   | s\_xy                      | outside the nucleation zone    | 70      | MPa             |
+   +----------------------------+--------------------------------+---------+-----------------+
+   |                            | inside the nucleation zone     | 81.6    | MPa             |
+   +----------------------------+--------------------------------+---------+-----------------+
 
 Notice that there are two patches with different initial stress: the one centered at (+7.5, -7.5) has 62 MPa and (-7.5, -7.5) has 78 MPa. This initial stress is included in the ``fault.yaml`` file.
 
@@ -126,9 +127,9 @@ The *output* folder contains a series of files for
 fault dynamic rupture (hdf5 and .xdmf), wavefield (hdf5 and .xdmf),
 on-fault receiver (.dat) and off-fault receivers (.dat).
 The fault dynamic rupture and wavefield files can be loaded in Paraview.
-For example, open Paraview and then go through File
-:math:`>>` import :math:`>>`\ prefix-fault.xdmf.
+For example, open Paraview and then go through ``File >> import >> prefix-fault.xdmf``.
 
+.. _figtpv54s:
 .. figure:: figures/tpv5-srs-3s.png
    :alt: Fault slip rate in the along-strike direction
    :width: 12.00000cm
@@ -137,57 +138,61 @@ For example, open Paraview and then go through File
    Fault slip rate in the along-strike direction (SRs) at 4 seconds in
    TPV5, illustrated in Paraview.
 
-In the wave filed output file (prefix.xdmf, prefix\_vertex.h5 and
-prefix\_cell.hf), the variables are shown in Table [table:wavefield]
+In the wave filed output file (``prefix.xdmf``, ``prefix_vertex.h5`` and
+``prefix_cell.h5``), the variables are shown in :numref:`tablewavefield`.
 
-+---------+-------------+---------------------------------+
-| Index   | Parameter   | Description                     |
-+=========+=============+=================================+
-| 1       | U           | displacement in x-axis          |
-+---------+-------------+---------------------------------+
-| 2       | V           | displacement in y-axis          |
-+---------+-------------+---------------------------------+
-| 3       | W           | displacement in z-axis          |
-+---------+-------------+---------------------------------+
-| 4       | u           | particular velocity in x-axis   |
-+---------+-------------+---------------------------------+
-| 5       | v           | particular velocity in y-axis   |
-+---------+-------------+---------------------------------+
-| 6       | w           | particular velocity in z-axis   |
-+---------+-------------+---------------------------------+
+.. _tablewavefield:
+.. table::
+   wavefield output in SeisSol. Index denotes the position
+   used in ``iOutputMask`` in SeisSol parameter file.
 
-Table: Table of wavefield output in SeisSol. Index denotes the position
-used in ``iOutputMask`` in SeisSol parameter file.
+   +---------+-------------+---------------------------------+
+   | Index   | Parameter   | Description                     |
+   +=========+=============+=================================+
+   | 1       | U           | displacement in x-axis          |
+   +---------+-------------+---------------------------------+
+   | 2       | V           | displacement in y-axis          |
+   +---------+-------------+---------------------------------+
+   | 3       | W           | displacement in z-axis          |
+   +---------+-------------+---------------------------------+
+   | 4       | u           | particular velocity in x-axis   |
+   +---------+-------------+---------------------------------+
+   | 5       | v           | particular velocity in y-axis   |
+   +---------+-------------+---------------------------------+
+   | 6       | w           | particular velocity in z-axis   |
+   +---------+-------------+---------------------------------+
 
-In the fault dynamics output file (prefix-fault.xdmf,
-prefix-fault\_vertex,h5 and prefix-fault\_cell,h5), the variables are
-shown in Table [table:faultout]
+In the fault dynamics output file (``prefix-fault.xdmf``,
+``prefix-fault_vertex.h5`` and ``prefix-fault_cell.h5``), the variables are
+shown in :numref:`tablefaultout`.
 
-+---------+--------------------+-------------------------------------------------------------------------------+
-| Index   | Parameter          | Description                                                                   |
-+=========+====================+===============================================================================+
-| 1       | SRs and SRd        | slip rates in strike and dip direction                                        |
-+---------+--------------------+-------------------------------------------------------------------------------+
-| 2       | T\_s, T\_d, P\_n   | transient shear stress in strike and dip direction, transient normal stress   |
-+---------+--------------------+-------------------------------------------------------------------------------+
-| 3       | U\_n               | normal velocity (note that there is no fault opening in SeisSol)              |
-+---------+--------------------+-------------------------------------------------------------------------------+
-| 4       | Mud, StV           | current friction and state variable in case of RS friction                    |
-+---------+--------------------+-------------------------------------------------------------------------------+
-| 5       | Ts0,Td0,Pn0        | total stress, including initial stress                                        |
-+---------+--------------------+-------------------------------------------------------------------------------+
-| 6       | Sls and Sld        | slip in strike and dip direction                                              |
-+---------+--------------------+-------------------------------------------------------------------------------+
-| 7       | Vr                 | rupture velocity, computed from the spatial derivatives of the rupture time   |
-+---------+--------------------+-------------------------------------------------------------------------------+
-| 8       | ASl                | absolute slip                                                                 |
-+---------+--------------------+-------------------------------------------------------------------------------+
-| 9       | PSR                | peak slip rate                                                                |
-+---------+--------------------+-------------------------------------------------------------------------------+
-| 10      | RT                 | rupture time                                                                  |
-+---------+--------------------+-------------------------------------------------------------------------------+
-| 11      | DS                 | only with LSW, time at which ASl :math:`>` d\_c                               |
-+---------+--------------------+-------------------------------------------------------------------------------+
+.. _tablefaultout:
+.. table::
+   fault dynamic output in SeisSol. Index denotes the
+   position used in ``iOutputMask`` in SeisSol parameter file.
 
-Table: Table of fault dynamic output in SeisSol. Index denotes the
-position used in ``iOutputMask`` in SeisSol parameter file.
+   +---------+--------------------+-------------------------------------------------------------------------------+
+   | Index   | Parameter          | Description                                                                   |
+   +=========+====================+===============================================================================+
+   | 1       | SRs and SRd        | slip rates in strike and dip direction                                        |
+   +---------+--------------------+-------------------------------------------------------------------------------+
+   | 2       | T\_s, T\_d, P\_n   | transient shear stress in strike and dip direction, transient normal stress   |
+   +---------+--------------------+-------------------------------------------------------------------------------+
+   | 3       | U\_n               | normal velocity (note that there is no fault opening in SeisSol)              |
+   +---------+--------------------+-------------------------------------------------------------------------------+
+   | 4       | Mud, StV           | current friction and state variable in case of RS friction                    |
+   +---------+--------------------+-------------------------------------------------------------------------------+
+   | 5       | Ts0,Td0,Pn0        | total stress, including initial stress                                        |
+   +---------+--------------------+-------------------------------------------------------------------------------+
+   | 6       | Sls and Sld        | slip in strike and dip direction                                              |
+   +---------+--------------------+-------------------------------------------------------------------------------+
+   | 7       | Vr                 | rupture velocity, computed from the spatial derivatives of the rupture time   |
+   +---------+--------------------+-------------------------------------------------------------------------------+
+   | 8       | ASl                | absolute slip                                                                 |
+   +---------+--------------------+-------------------------------------------------------------------------------+
+   | 9       | PSR                | peak slip rate                                                                |
+   +---------+--------------------+-------------------------------------------------------------------------------+
+   | 10      | RT                 | rupture time                                                                  |
+   +---------+--------------------+-------------------------------------------------------------------------------+
+   | 11      | DS                 | only with LSW, time at which ASl :math:`>` d\_c                               |
+   +---------+--------------------+-------------------------------------------------------------------------------+

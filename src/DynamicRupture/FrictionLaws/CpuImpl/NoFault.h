@@ -18,8 +18,6 @@ class NoFault : public BaseFrictionLaw<NoFault> {
   public:
   using BaseFrictionLaw::BaseFrictionLaw;
 
-  void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
-
   static void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
                                     TractionResults<Executor::Host>& tractionResults,
                                     std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,

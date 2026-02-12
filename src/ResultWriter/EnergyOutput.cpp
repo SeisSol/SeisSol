@@ -21,6 +21,7 @@
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
@@ -54,6 +55,9 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
+
+GENERATE_HAS_MEMBER(vInv)
+GENERATE_HAS_MEMBER(evalAtQP)
 
 namespace seissol::writer {
 
@@ -524,7 +528,7 @@ void EnergyOutput::computeVolumeEnergies() {
             const auto sumUniaxialStresses = getStress(0, 0) + getStress(1, 1) + getStress(2, 2);
             auto computeStrain = [&](int i, int j) {
               double strain = 0.0;
-              const auto factor = -1.0 * (lambda) / (2.0 * mu * (3.0 * lambda + 2.0 * mu));
+              const auto factor = -lambda / (2.0 * mu * (3.0 * lambda + 2.0 * mu));
               if (i == j) {
                 strain += factor * sumUniaxialStresses;
               }
@@ -598,7 +602,25 @@ void EnergyOutput::computeVolumeEnergies() {
           // plastic moment
           const real* pstrainCell = pstrainData[cell];
           const double mu = material.getMuBar();
-          totalPlasticMoment += mu * volume * pstrainCell[tensor::QStress::size() + sim];
+
+          // integrating over all collocation points suffices
+          const real* __restrict qEta = &pstrainCell[tensor::QStressNodal::size()];
+
+          alignas(Alignment) real qEtaQuad[tensor::QEtaNodalProject::size()]{};
+
+          kernel::plProject krnl;
+          set_evalAtQP(krnl, global->evalAtQPMatrix);
+          set_vInv(krnl, global->vandermondeMatrixInverse);
+          krnl.QEtaNodal = qEta;
+          krnl.QEtaNodalProject = qEtaQuad;
+          krnl.execute();
+
+          double pMoment = 0;
+          for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
+            pMoment += quadratureWeightsTet[qp] * qEtaQuad[qp];
+          }
+
+          totalPlasticMoment += mu * jacobiDet * pMoment;
         }
       }
     }

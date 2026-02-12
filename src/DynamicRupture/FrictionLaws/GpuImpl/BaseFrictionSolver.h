@@ -44,7 +44,6 @@ struct FrictionLawArgs {
   real fullUpdateTime{};
   double timeWeights[misc::TimeSteps]{};
   real deltaT[misc::TimeSteps]{};
-  real sumDt{};
 };
 
 struct FrictionLawContext {

@@ -498,26 +498,26 @@ if (TESTING)
   include(cmake/doctest.cmake)
 
   add_subdirectory(tests)
-
-  # Coverage
-  if(COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
-    setup_target_for_coverage_lcov(
-            NAME seissol-coverage
-            EXECUTABLE seissol-serial-test
-            EXCLUDE "/usr/*"
-                    "submodules/*"
-                    "tests/*"
-                    "external/*"
-                    "*/codegen/GeneratedCode/*"
-                    "/opt/*"
-            LCOV_ARGS --ignore-errors inconsistent
-                      --ignore-errors unused
-                      --ignore-errors mismatch
-    )
-  endif()
 endif()
 
 add_subdirectory(app)
+
+# Coverage (should run last; after all folders have been added)
+if(TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
+  setup_target_for_coverage_lcov(
+          NAME seissol-coverage
+          EXECUTABLE ctest -j
+          EXCLUDE "/usr/*"
+                  "submodules/*"
+                  "tests/*"
+                  "external/*"
+                  "*/codegen/GeneratedCode/*"
+                  "/opt/*"
+          LCOV_ARGS --ignore-errors inconsistent
+                    --ignore-errors unused
+                    --ignore-errors mismatch
+  )
+endif()
 
 if (WITH_GPU)
   string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)

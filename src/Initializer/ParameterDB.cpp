@@ -224,7 +224,9 @@ easi::Query PlasticityPointGenerator::generate() const {
 
       if (pointwise) {
         for (std::size_t j = 0; j < Cell::Dim; ++j) {
-          point[j] = nodes(i, j);
+          if (nodes.isInRange(i, j)) {
+            point[j] = nodes(i, j);
+          }
         }
       } else {
         point = {1 / 4., 1 / 4., 1 / 4.};
@@ -563,6 +565,10 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
   auto suppliedParameters = model->suppliedParameters();
   // TODO(Sebastian): inhomogeneous materials, where in some parts only mu and lambda are given
   //                  and in other parts the full elastic tensor is given
+  const auto numPoints = query.numPoints();
+  if (m_materials->size() < numPoints) {
+    m_materials->resize(numPoints);
+  }
 
   // if we look for an anisotropic material and only mu and lambda are supplied,
   // assume isotropic behavior and calculate the parameters accordingly
@@ -571,7 +577,6 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
     std::vector<ElasticMaterial> elasticMaterials(query.numPoints());
     easi::ArrayOfStructsAdapter<ElasticMaterial> adapter(elasticMaterials.data());
     MaterialParameterDB<ElasticMaterial>().addBindingPoints(adapter);
-    const unsigned numPoints = query.numPoints();
     easiEvalSafe(model, query, adapter, "volume material (anisotropic -> elastic)");
 
     for (unsigned i = 0; i < numPoints; i++) {
@@ -656,7 +661,7 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
   // Note that easi only supports
 
   // Constant terms stores all terms of the vector b
-  auto constantTerms = init::easiBoundaryConstant::view::create((constantTermsData));
+  auto constantTerms = init::easiBoundaryConstant::view::create(constantTermsData);
 
   // Map terms stores all terms of the linear map A
   auto mapTerms = init::easiBoundaryMap::view::create(mapTermsData);
