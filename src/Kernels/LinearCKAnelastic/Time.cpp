@@ -229,6 +229,7 @@ void Spacetime::computeBatchedAder(
       derivativesOffset += tensor::dQ::size(i);
     }
 
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
       krnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
@@ -244,6 +245,10 @@ void Spacetime::computeBatchedAder(
     krnl.E = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
+
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.W);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.E);
 
     for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
       // update scalar for this derivative

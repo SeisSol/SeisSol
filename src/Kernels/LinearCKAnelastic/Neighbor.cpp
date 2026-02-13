@@ -227,6 +227,8 @@ void Neighbor::computeBatchedNeighborsIntegral(
                   (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
               neighFluxKrnl.AminusT = const_cast<const real**>(
                   entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+
+              SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData, nAmNm1);
               neighFluxKrnl.extraOffset_AminusT =
                   SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
 
@@ -271,6 +273,8 @@ void Neighbor::computeBatchedNeighborsIntegral(
     nKrnl.w = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     nKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
 
     nKrnl.streamPtr = runtime.stream();
 
