@@ -156,6 +156,7 @@ void Spacetime::computeBatchedAder(
     derivativesKrnl.starAll = const_cast<const real**>(
         (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
     derivativesKrnl.extraOffset_starAll = SEISSOL_OFFSET(LocalIntegrationData, starMatrices);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
 
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derivativesKrnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();

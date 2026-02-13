@@ -210,7 +210,13 @@ def main():
         adg.addTime(generator, targets)
         adg.add_include_tensors(include_tensors)
 
-        kernels.vtkproject.addKernels(generator, adg, cmdLineArgs.matricesDir, targets)
+        kernels.vtkproject.addKernels(
+            generator,
+            adg,
+            cmdLineArgs.PlasticityMethod,
+            cmdLineArgs.matricesDir,
+            targets,
+        )
         kernels.vtkproject.includeTensors(cmdLineArgs.matricesDir, include_tensors)
 
         # Common kernels
