@@ -426,6 +426,20 @@ void EnergyOutput::computeVolumeEnergies() {
 
     [[maybe_unused]] const auto g = seissolInstance.getGravitationSetup().acceleration;
 
+    constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
+    constexpr auto NumQuadraturePointsTet = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
+
+    double quadraturePointsTet[NumQuadraturePointsTet][3]{};
+    double quadratureWeightsTet[NumQuadraturePointsTet]{};
+    seissol::quadrature::TetrahedronQuadrature(
+        quadraturePointsTet, quadratureWeightsTet, QuadPolyDegree);
+
+    constexpr auto NumQuadraturePointsTri = QuadPolyDegree * QuadPolyDegree;
+    double quadraturePointsTri[NumQuadraturePointsTri][2]{};
+    double quadratureWeightsTri[NumQuadraturePointsTri]{};
+    seissol::quadrature::TriangleQuadrature(
+        quadraturePointsTri, quadratureWeightsTri, QuadPolyDegree);
+
     // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
     // it
     for (const auto& layer : ltsStorage->leaves(Ghost)) {
@@ -458,20 +472,6 @@ void EnergyOutput::computeVolumeEnergies() {
         const auto& material = *materialData[cell].local;
         const auto& cellInformation = cellInformationData[cell];
         const auto& faceDisplacements = faceDisplacementsData[cell];
-
-        constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
-        constexpr auto NumQuadraturePointsTet = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
-
-        double quadraturePointsTet[NumQuadraturePointsTet][3];
-        double quadratureWeightsTet[NumQuadraturePointsTet];
-        seissol::quadrature::TetrahedronQuadrature(
-            quadraturePointsTet, quadratureWeightsTet, QuadPolyDegree);
-
-        constexpr auto NumQuadraturePointsTri = QuadPolyDegree * QuadPolyDegree;
-        double quadraturePointsTri[NumQuadraturePointsTri][2];
-        double quadratureWeightsTri[NumQuadraturePointsTri];
-        seissol::quadrature::TriangleQuadrature(
-            quadraturePointsTri, quadratureWeightsTri, QuadPolyDegree);
 
         // Needed to weight the integral.
         const auto jacobiDet = 6 * volume;
