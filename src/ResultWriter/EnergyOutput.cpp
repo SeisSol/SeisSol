@@ -74,11 +74,8 @@ std::array<real, multisim::NumSimulations>
                       const DRFaceInformation& faceInfo,
                       const DRGodunovData& godunovData,
                       const real slip[seissol::tensor::slipInterpolated::size()],
-                      const GlobalData* global) {
-  real points[seissol::kernels::NumSpaceQuadraturePoints][2];
-  alignas(Alignment) real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints];
-  seissol::quadrature::TriangleQuadrature(points, spaceWeights, ConvergenceOrder + 1);
-
+                      const GlobalData* global,
+                      const real* spaceWeights) {
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
   krnl.V3mTo2n = global->faceToNodalMatrices;
 
@@ -281,6 +278,10 @@ EnergyOutput::~EnergyOutput() {
 }
 
 void EnergyOutput::computeDynamicRuptureEnergies() {
+  alignas(Alignment) real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints];
+  const auto quadrature = seissol::quadrature::quadrature<2>(ConvergenceOrder + 1);
+  std::copy(quadrature.second.begin(), quadrature.second.end(), spaceWeights);
+
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
     double& totalFrictionalWork = energiesStorage.totalFrictionalWork(sim);
     double& staticFrictionalWork = energiesStorage.staticFrictionalWork(sim);
@@ -353,7 +354,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                godunovData,                                                                        \
                waveSpeedsPlus,                                                                     \
                waveSpeedsMinus,                                                                    \
-               sim)
+               sim,                                                                                \
+               spaceWeights)
 #endif
       for (std::size_t i = 0; i < layerSize; ++i) {
         if (faceInformation[i].plusSideOnThisRank) {
@@ -366,7 +368,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                                                     faceInformation[i],
                                                     godunovData[i],
                                                     drEnergyOutput[i].slip,
-                                                    global)[sim];
+                                                    global,
+                                                    spaceWeights)[sim];
 
           const double muPlus = waveSpeedsPlus[i].density * waveSpeedsPlus[i].sWaveVelocity *
                                 waveSpeedsPlus[i].sWaveVelocity;
@@ -426,6 +429,15 @@ void EnergyOutput::computeVolumeEnergies() {
 
     [[maybe_unused]] const auto g = seissolInstance.getGravitationSetup().acceleration;
 
+    constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
+    constexpr auto NumQuadraturePointsTet = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
+    constexpr auto NumQuadraturePointsTri = QuadPolyDegree * QuadPolyDegree;
+
+    const auto quadratureTri = seissol::quadrature::quadrature<2>(ConvergenceOrder + 1);
+    const auto quadratureTet = seissol::quadrature::quadrature<3>(ConvergenceOrder + 1);
+    const auto& quadratureWeightsTri = quadratureTri.second;
+    const auto& quadratureWeightsTet = quadratureTet.second;
+
     // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
     // it
     for (const auto& layer : ltsStorage->leaves(Ghost)) {
@@ -446,7 +458,7 @@ void EnergyOutput::computeVolumeEnergies() {
                                                         totalMomentumYLocal,                       \
                                                         totalMomentumZLocal,                       \
                                                         totalPlasticMoment)                        \
-    shared(elements, vertices, global)
+    shared(elements, vertices, global, quadratureWeightsTri, quadratureWeightsTet)
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         if (secondaryInformation[cell].duplicate > 0) {
@@ -458,20 +470,6 @@ void EnergyOutput::computeVolumeEnergies() {
         const auto& material = *materialData[cell].local;
         const auto& cellInformation = cellInformationData[cell];
         const auto& faceDisplacements = faceDisplacementsData[cell];
-
-        constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
-        constexpr auto NumQuadraturePointsTet = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
-
-        double quadraturePointsTet[NumQuadraturePointsTet][3];
-        double quadratureWeightsTet[NumQuadraturePointsTet];
-        seissol::quadrature::TetrahedronQuadrature(
-            quadraturePointsTet, quadratureWeightsTet, QuadPolyDegree);
-
-        constexpr auto NumQuadraturePointsTri = QuadPolyDegree * QuadPolyDegree;
-        double quadraturePointsTri[NumQuadraturePointsTri][2];
-        double quadratureWeightsTri[NumQuadraturePointsTri];
-        seissol::quadrature::TriangleQuadrature(
-            quadraturePointsTri, quadratureWeightsTri, QuadPolyDegree);
 
         // Needed to weight the integral.
         const auto jacobiDet = 6 * volume;

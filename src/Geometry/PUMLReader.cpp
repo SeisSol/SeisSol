@@ -8,6 +8,7 @@
 
 #include "PUMLReader.h"
 
+#include "Common/CompactOptional.h"
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
 #include "Geometry/MeshDefinition.h"
@@ -358,8 +359,9 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
     m_elements[i].timestep = timestep[i];
 
     // Vertices
-    PUML::Downward::vertices(
-        meshGeometry, cellsGeometry[i], reinterpret_cast<unsigned int*>(m_elements[i].vertices));
+    std::array<unsigned int, Cell::NumVertices> verticesRaw{};
+    PUML::Downward::vertices(meshGeometry, cellsGeometry[i], verticesRaw.data());
+    std::copy(verticesRaw.begin(), verticesRaw.end(), m_elements[i].vertices.begin());
 
     std::array<unsigned int, Cell::NumVertices> topoVertices{};
     PUML::Downward::vertices(meshTopology, cells[i], topoVertices.data());
@@ -376,7 +378,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
           faces[faceids[j]], neighbors, j, bcCurrentFace, cellIdsAsInFile[i]);
       isMeshCorrect &= isLocallyCorrect;
       if (neighbors[j] < 0) {
-        m_elements[i].neighbors[PumlFaceToSeisSol[j]] = cellsGeometry.size();
+        m_elements[i].neighbors[PumlFaceToSeisSol[j]] = OptionalSize();
 
         if (!faces[faceids[j]].isShared()) {
           // Boundary sides
@@ -544,9 +546,14 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
   // Set vertices
   m_vertices.resize(verticesGeometry.size());
   for (std::size_t i = 0; i < verticesGeometry.size(); i++) {
-    memcpy(m_vertices[i].coords, verticesGeometry[i].coordinate(), Cell::Dim * sizeof(double));
+    std::copy_n(verticesGeometry[i].coordinate(),
+                m_vertices[i].coords.size(),
+                m_vertices[i].coords.begin());
 
-    PUML::Upward::cells(meshGeometry, verticesGeometry[i], m_vertices[i].elements);
+    std::vector<int> preElements;
+    PUML::Upward::cells(meshGeometry, verticesGeometry[i], preElements);
+    m_vertices[i].elements.resize(preElements.size());
+    std::copy(preElements.begin(), preElements.end(), m_vertices[i].elements.begin());
   }
 
   // the neighborSide needs to be _inferred_ here.

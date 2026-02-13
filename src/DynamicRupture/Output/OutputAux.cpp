@@ -13,6 +13,7 @@
 #include "DynamicRupture/Output/Geometry.h"
 #include "GeneratedCode/init.h"
 #include "Geometry.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Precision.h"
@@ -23,6 +24,7 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -150,14 +152,14 @@ void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
 
   for (auto& geoPoint : geoPoints) {
 
-    double targetPoint2D[2];
+    std::array<double, 2> targetPoint2D{};
     transformations::XiEtaZeta2chiTau(
         geoPoint.localFaceSideId, geoPoint.reference.coords, targetPoint2D);
 
     int nearestPoint{-1};
     double shortestDistance = std::numeric_limits<double>::max();
     std::tie(nearestPoint, shortestDistance) = getNearestFacePoint(
-        targetPoint2D, trianglePoints2D, seissol::dr::TriangleQuadratureData::Size);
+        targetPoint2D.data(), trianglePoints2D, seissol::dr::TriangleQuadratureData::Size);
     geoPoint.nearestGpIndex = nearestPoint;
   }
 }
@@ -181,7 +183,7 @@ int getClosestInternalStroudGp(int nearestGpIndex, int nPoly) {
 
 void projectPointToFace(ExtVrtxCoords& point,
                         const ExtTriangle& face,
-                        const VrtxCoords faceNormal) {
+                        const CoordinateT& faceNormal) {
   const auto distance = getDistanceFromPointToFace(point, face, faceNormal);
   const double faceNormalLength = MeshTools::norm(faceNormal);
   const auto adjustedDistance = distance / faceNormalLength;
@@ -193,9 +195,9 @@ void projectPointToFace(ExtVrtxCoords& point,
 
 double getDistanceFromPointToFace(const ExtVrtxCoords& point,
                                   const ExtTriangle& face,
-                                  const VrtxCoords faceNormal) {
+                                  const CoordinateT& faceNormal) {
 
-  VrtxCoords diff{0.0, 0.0, 0.0};
+  CoordinateT diff{0.0, 0.0, 0.0};
   MeshTools::sub(face.point(0).coords, point.coords, diff);
 
   // Note: faceNormal may not be precisely a unit vector
@@ -205,8 +207,9 @@ double getDistanceFromPointToFace(const ExtVrtxCoords& point,
 
 // (NOTE: only the sign really has a meaning; except maybe for some small tolerance)
 // (reason: lack of normalization, probably)
-double
-    isInsideFace(const ExtVrtxCoords& point, const ExtTriangle& face, const VrtxCoords faceNormal) {
+double isInsideFace(const ExtVrtxCoords& point,
+                    const ExtTriangle& face,
+                    const CoordinateT& faceNormal) {
 
   // view the triangle as an intersection of hyperplanes
 
@@ -214,8 +217,8 @@ double
   for (auto [i1, i2] : seissol::common::zip(std::vector{0, 1, 2}, std::vector{1, 2, 0})) {
     const auto& p1 = face.point(i1).coords;
     const auto& p2 = face.point(i2).coords;
-    VrtxCoords sidevec{0.0, 0.0, 0.0};
-    VrtxCoords hypersupport{0.0, 0.0, 0.0};
+    CoordinateT sidevec{0.0, 0.0, 0.0};
+    CoordinateT hypersupport{0.0, 0.0, 0.0};
     MeshTools::sub(p2, p1, sidevec);
     MeshTools::cross(faceNormal, sidevec, hypersupport);
     const auto sidevalue = MeshTools::dot(hypersupport, p1);
@@ -226,23 +229,22 @@ double
   return sidemin;
 }
 
-PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
-                                                   const VrtxCoords* plusElementCoords[4],
-                                                   const VrtxCoords* minusElementCoords[4]) {
+PlusMinusBasisFunctions getPlusMinusBasisFunctions(const CoordinateT& pointCoords,
+                                                   const geometry::CellTransform& plusTransform,
+                                                   const geometry::CellTransform& minusTransform) {
 
   Eigen::Vector3d point(pointCoords[0], pointCoords[1], pointCoords[2]);
 
-  auto getBasisFunctions = [&point](const VrtxCoords* elementCoords[4]) {
-    auto referenceCoords = transformations::tetrahedronGlobalToReference(
-        *elementCoords[0], *elementCoords[1], *elementCoords[2], *elementCoords[3], point);
+  auto getBasisFunctions = [&point](const geometry::CellTransform& transform) {
+    const auto referenceCoords = transform.spaceToRef(point);
     const basisFunction::SampledBasisFunctions<real> sampler(
         ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
     return sampler.m_data;
   };
 
   PlusMinusBasisFunctions basisFunctions{};
-  basisFunctions.plusSide = getBasisFunctions(plusElementCoords);
-  basisFunctions.minusSide = getBasisFunctions(minusElementCoords);
+  basisFunctions.plusSide = getBasisFunctions(plusTransform);
+  basisFunctions.minusSide = getBasisFunctions(minusTransform);
 
   return basisFunctions;
 }

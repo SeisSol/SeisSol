@@ -20,15 +20,20 @@ TEST_CASE("Test tetrahedron global to reference") {
   std::mt19937 rnggen(9);
   std::uniform_real_distribution<> rngdist(0.0, 1.0);
 
-  const auto vertices = std::array<Eigen::Vector3d, 4>{
-      {Eigen::Vector3d(rngdist(rnggen), rngdist(rnggen), rngdist(rnggen)),
-       Eigen::Vector3d(rngdist(rnggen), rngdist(rnggen), rngdist(rnggen)),
-       Eigen::Vector3d(rngdist(rnggen), rngdist(rnggen), rngdist(rnggen)),
-       Eigen::Vector3d(rngdist(rnggen), rngdist(rnggen), rngdist(rnggen))}};
-  const auto center = 0.25 * (vertices[0] + vertices[1] + vertices[2] + vertices[3]);
+  const auto vertices =
+      std::array<CoordinateT, 4>{CoordinateT{rngdist(rnggen), rngdist(rnggen), rngdist(rnggen)},
+                                 CoordinateT{rngdist(rnggen), rngdist(rnggen), rngdist(rnggen)},
+                                 CoordinateT{rngdist(rnggen), rngdist(rnggen), rngdist(rnggen)},
+                                 CoordinateT{rngdist(rnggen), rngdist(rnggen), rngdist(rnggen)}};
+  const auto verticesE = std::array<Eigen::Vector3d, 4>{
+      Eigen::Vector3d{vertices[0][0], vertices[0][1], vertices[0][2]},
+      Eigen::Vector3d{vertices[1][0], vertices[1][1], vertices[1][2]},
+      Eigen::Vector3d{vertices[2][0], vertices[2][1], vertices[2][2]},
+      Eigen::Vector3d{vertices[3][0], vertices[3][1], vertices[3][2]}};
+  const auto center = 0.25 * (verticesE[0] + verticesE[1] + verticesE[2] + verticesE[3]);
 
   const auto res = seissol::transformations::tetrahedronGlobalToReference(
-      vertices[0].data(), vertices[1].data(), vertices[2].data(), vertices[3].data(), center);
+      vertices[0], vertices[1], vertices[2], vertices[3], center);
   REQUIRE(res(0) == AbsApprox(0.25).epsilon(Epsilon));
   REQUIRE(res(1) == AbsApprox(0.25).epsilon(Epsilon));
   REQUIRE(res(2) == AbsApprox(0.25).epsilon(Epsilon));

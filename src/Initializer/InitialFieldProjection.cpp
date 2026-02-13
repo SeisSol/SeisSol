@@ -14,6 +14,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
@@ -22,7 +23,6 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Numerical/Quadrature.h"
-#include "Numerical/Transformation.h"
 #include "ParameterDB.h"
 #include "Physics/InitialField.h"
 #include "Solver/MultipleSimulations.h"
@@ -119,15 +119,12 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
                          const GlobalData& globalData,
                          const seissol::geometry::MeshReader& meshReader,
                          LTS::Storage& storage) {
-  const auto& vertices = meshReader.getVertices();
-  const auto& elements = meshReader.getElements();
 
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  double quadraturePoints[NumQuadPoints][Cell::Dim];
-  double quadratureWeights[NumQuadPoints];
-  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
+  const auto quadrature = seissol::quadrature::quadrature<Cell::Dim>(ConvergenceOrder + 1);
+  const auto& quadraturePoints = quadrature.first;
 
   for (auto& layer : storage.leaves(Ghost)) {
 #if !NVHPC_AVOID_OMP
@@ -156,18 +153,8 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto meshId = secondaryInformation[cell].meshId;
-        const double* elementCoords[Cell::NumVertices];
-        for (size_t v = 0; v < Cell::NumVertices; ++v) {
-          elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
-        }
-        for (size_t i = 0; i < NumQuadPoints; ++i) {
-          seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
-                                                                 elementCoords[1],
-                                                                 elementCoords[2],
-                                                                 elementCoords[3],
-                                                                 quadraturePoints[i],
-                                                                 quadraturePointsXyz[i].data());
-        }
+        const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, meshReader);
+        quadraturePointsXyz = transform.refToSpace(quadraturePoints);
 
         const CellMaterialData& materialData = material[cell];
         for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
@@ -190,7 +177,6 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
                                       double time,
                                       const seissol::geometry::MeshReader& meshReader,
                                       bool needsTime) {
-  const auto& vertices = meshReader.getVertices();
   const auto& elements = meshReader.getElements();
 
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
@@ -201,24 +187,14 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
   easi::Query query(elements.size() * NumQuadPoints, dimensions);
 
   {
-    double quadraturePoints[NumQuadPoints][Cell::Dim];
-    double quadratureWeights[NumQuadPoints];
-    seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
+    const auto quadrature = seissol::quadrature::quadrature<Cell::Dim>(QuadPolyDegree);
+    const auto& quadraturePoints = quadrature.first;
 
 #pragma omp parallel for schedule(static)
     for (std::size_t elem = 0; elem < elements.size(); ++elem) {
-      const double* elementCoords[Cell::NumVertices];
-      for (size_t v = 0; v < Cell::NumVertices; ++v) {
-        elementCoords[v] = vertices[elements[elem].vertices[v]].coords;
-      }
+      const auto transform = seissol::geometry::AffineTransform::fromMeshCell(elem, meshReader);
       for (size_t i = 0; i < NumQuadPoints; ++i) {
-        std::array<double, Cell::Dim> transformed{};
-        seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
-                                                               elementCoords[1],
-                                                               elementCoords[2],
-                                                               elementCoords[3],
-                                                               quadraturePoints[i],
-                                                               transformed.data());
+        const auto transformed = transform.refToSpace(quadraturePoints[i]);
         for (std::size_t d = 0; d < Cell::Dim; ++d) {
           query.x(elem * NumQuadPoints + i, spaceStart + d) = transformed[d];
         }

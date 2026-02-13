@@ -231,9 +231,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           cellInformation[index].faceRelations[face][0] = element.neighborSides[face];
           cellInformation[index].faceRelations[face][1] = element.sideOrientations[face];
 
-          if (static_cast<std::size_t>(element.neighbors[face]) !=
-                  meshReader.getElements().size() ||
-              element.neighborRanks[face] != rank) {
+          if (element.neighbors[face].hasValue() || element.neighborRanks[face] != rank) {
             const auto& neighbor = [&]() {
               const bool ghostNeighbor = element.neighborRanks[face] != rank;
               if (ghostNeighbor) {
@@ -244,7 +242,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
                 return backmapGhostMap.at(linear).at(layer.id());
               } else {
                 // copy/interior layer
-                return backmap.get(element.neighbors[face]);
+                assert(element.neighbors[face].hasValue());
+                return backmap.get(element.neighbors[face].value());
               }
             }();
 

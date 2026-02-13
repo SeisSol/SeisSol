@@ -10,6 +10,8 @@
 
 #include "Common/Marker.h"
 
+#include <cmath>
+
 namespace seissol::regularizedYoffe {
 /**
  * Implementation of the regularized Yoffe function defined in Appendix of Tinti et al. (2005)

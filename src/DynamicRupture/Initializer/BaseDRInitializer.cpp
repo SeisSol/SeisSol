@@ -195,8 +195,8 @@ void BaseDRInitializer::rotateTractionToCartesianStress(DynamicRupture::Layer& l
 
     // if we read the traction in strike, dip and normal direction, we first transform it to stress
     // in cartesian coordinates
-    VrtxCoords strike{};
-    VrtxCoords dip{};
+    CoordinateT strike{};
+    CoordinateT dip{};
     misc::computeStrikeAndDipVectors(fault.normal, strike, dip);
     seissol::transformations::symmetricTensor2RotationMatrix(
         fault.normal, strike, dip, faultTractionToCartesianMatrixView, 0, 0);

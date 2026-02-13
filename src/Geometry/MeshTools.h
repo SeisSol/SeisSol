@@ -20,66 +20,66 @@ class MeshTools {
   /**
    * Computes the barycenter of the element
    */
-  static void center(const Element& e, const std::vector<Vertex>& vertices, VrtxCoords center);
+  static void center(const Element& e, const std::vector<Vertex>& vertices, CoordinateT& center);
 
   /**
    * Computes the barycenter of a face of the element
    */
   static void
-      center(const Element& e, int face, const std::vector<Vertex>& vertices, VrtxCoords center);
+      center(const Element& e, int face, const std::vector<Vertex>& vertices, CoordinateT& center);
 
   /**
    * Computes the normal of a face
    */
   static void
-      normal(const Element& e, int face, const std::vector<Vertex>& vertices, VrtxCoords normal);
+      normal(const Element& e, int face, const std::vector<Vertex>& vertices, CoordinateT& normal);
 
   static void normalAndTangents(const Element& e,
                                 int face,
                                 const std::vector<Vertex>& vertices,
-                                VrtxCoords nrmal,
-                                VrtxCoords tangent1,
-                                VrtxCoords tangent2);
+                                CoordinateT& nrmal,
+                                CoordinateT& tangent1,
+                                CoordinateT& tangent2);
 
   /**
    * Subtracts <code>v2</code> from <code>v1</code>
    */
-  static void sub(const VrtxCoords v1, const VrtxCoords v2, VrtxCoords diff);
+  static void sub(const CoordinateT& v1, const CoordinateT& v2, CoordinateT& diff);
 
   /**
    * Multiplies <code>v</code> by the scalar <code>s</code>
    */
-  static void mul(const VrtxCoords v, double s, VrtxCoords prod);
+  static void mul(const CoordinateT& v, double s, CoordinateT& prod);
 
   /**
    * Computes the cross product of to vectors
    */
-  static void cross(const VrtxCoords v1, const VrtxCoords v2, VrtxCoords cross);
+  static void cross(const CoordinateT& v1, const CoordinateT& v2, CoordinateT& cross);
 
   /**
    * Computes the dot product
    */
-  static double dot(const VrtxCoords v1, const VrtxCoords v2);
+  static double dot(const CoordinateT& v1, const CoordinateT& v2);
 
   /**
    * Computes the Euclidean norm
    */
-  static double norm(const VrtxCoords v);
+  static double norm(const CoordinateT& v);
 
   /**
    * Computes the square of the Euclidean norm
    */
-  static double norm2(const VrtxCoords v);
+  static double norm2(const CoordinateT& v);
 
   /**
    * Computes the Euclidean distance of two coordinates
    */
-  static double distance(const VrtxCoords v1, const VrtxCoords v2);
+  static double distance(const CoordinateT& v1, const CoordinateT& v2);
 
   /**
    * Calculates the surface of a triangle based on its (unnormalized) normal.
    **/
-  static double surface(VrtxCoords faceNormal);
+  static double surface(CoordinateT& faceNormal);
 
   /**
    * Returns the surface area of the side of a tetrahedron.
@@ -94,7 +94,7 @@ class MeshTools {
   /**
    * vnormalized = v / ||v||
    **/
-  static void normalize(const VrtxCoords v, VrtxCoords vnormalized);
+  static void normalize(const CoordinateT& v, CoordinateT& vnormalized);
 
   /**
    * Returns a point on the plane spanned by the face-th plane.
@@ -102,25 +102,25 @@ class MeshTools {
   static void pointOnPlane(const Element& e,
                            int face,
                            const std::vector<Vertex>& vertices,
-                           VrtxCoords result);
+                           CoordinateT& result);
 
   /**
    * Checks if a point p is inside a tetrahedron
    **/
-  static bool inside(const Element& e, const std::vector<Vertex>& vertices, const VrtxCoords p);
+  static bool inside(const Element& e, const std::vector<Vertex>& vertices, const CoordinateT& p);
 
   /** Maps from the face to the list of nodes */
-  const static int FACE2NODES[4][3];
+  const static std::array<std::array<int, 3>, 4> FACE2NODES;
 
   /** Maps from the face to missing node of the element */
-  const static int FACE2MISSINGNODE[4];
+  const static std::array<int, 4> FACE2MISSINGNODE;
 
   /**
    * Maps from the neighbor face node id, to the local face node
    * Use <code>(3 + i - orientation) % 3</code> to respect the orientation
    * of the faces.
    */
-  const static int NEIGHBORFACENODE2LOCAL[3];
+  const static std::array<int, 3> NEIGHBORFACENODE2LOCAL;
 
   private:
   static double square(double v);

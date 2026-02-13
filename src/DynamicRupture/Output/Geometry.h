@@ -60,7 +60,7 @@ struct ExtVrtxCoords {
 
   constexpr static std::size_t size() { return Cell::Dim; }
 
-  VrtxCoords coords = {0.0, 0.0, 0.0};
+  CoordinateT coords = {0.0, 0.0, 0.0};
 };
 
 struct ExtTriangle {
@@ -92,12 +92,15 @@ struct ReceiverPoint {
   ExtVrtxCoords global;       // physical coords of a receiver
   ExtVrtxCoords reference;    // reference coords of a receiver
   ExtTriangle globalTriangle; // a surrounding triangle of a receiver
-  int faultFaceIndex{-1};     // Face Fault index which the receiver belongs to
-  int localFaceSideId{-1};    // Side ID of a reference element
-  int elementIndex{-1};       // Element which the receiver belongs to
+  size_t faultFaceIndex{
+      std::numeric_limits<std::size_t>::max()}; // Face Fault index which the receiver belongs to
+  int8_t localFaceSideId{-1};                   // Side ID of a reference element
+  size_t elementIndex{
+      std::numeric_limits<std::size_t>::max()}; // Element which the receiver belongs to
   std::size_t elementGlobalIndex{
       std::numeric_limits<std::size_t>::max()}; // Element which the receiver belongs to
-  int globalReceiverIndex{-1};                  // receiver index of global list
+  size_t globalReceiverIndex{
+      std::numeric_limits<std::size_t>::max()}; // receiver index of global list
   bool isInside{false};                         // If a point is inside the mesh or not
   int nearestGpIndex{-1};
   int faultTag{-1};

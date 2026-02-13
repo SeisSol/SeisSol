@@ -16,6 +16,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
@@ -42,6 +43,7 @@
 #include <cassert>
 #include <complex>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <optional>
 #include <utils/logger.h>
@@ -54,7 +56,7 @@ namespace {
 void setStarMatrix(const real* matAT,
                    const real* matBT,
                    const real* matCT,
-                   const double grad[3],
+                   const std::array<double, 3> grad,
                    real* starMatrix) {
   for (std::size_t idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
     starMatrix[idx] = grad[0] * matAT[idx];
@@ -77,9 +79,9 @@ void surfaceAreaAndVolume(const seissol::geometry::MeshReader& meshReader,
   const std::vector<Vertex>& vertices = meshReader.getVertices();
   const std::vector<Element>& elements = meshReader.getElements();
 
-  VrtxCoords normal;
-  VrtxCoords tangent1;
-  VrtxCoords tangent2;
+  CoordinateT normal;
+  CoordinateT tangent1;
+  CoordinateT tangent2;
   MeshTools::normalAndTangents(elements[meshId], side, vertices, normal, tangent1, tangent2);
 
   *volume = MeshTools::volume(elements[meshId], vertices);
@@ -190,21 +192,23 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         // NOLINTNEXTLINE
         auto& materialLocal = materialData[cell];
 
-        double x[Cell::NumVertices];
-        double y[Cell::NumVertices];
-        double z[Cell::NumVertices];
-        double gradXi[3];
-        double gradEta[3];
-        double gradZeta[3];
+        std::array<double, Cell::NumVertices> x{};
+        std::array<double, Cell::NumVertices> y{};
+        std::array<double, Cell::NumVertices> z{};
+        std::array<double, Cell::Dim> gradXi{};
+        std::array<double, Cell::Dim> gradEta{};
+        std::array<double, Cell::Dim> gradZeta{};
 
         // Iterate over all 4 vertices of the tetrahedron
         for (std::size_t vertex = 0; vertex < Cell::NumVertices; ++vertex) {
-          const VrtxCoords& coords = vertices[elements[meshId].vertices[vertex]].coords;
+          const CoordinateT& coords = vertices[elements[meshId].vertices[vertex]].coords;
           x[vertex] = coords[0];
           y[vertex] = coords[1];
           z[vertex] = coords[2];
         }
 
+        // IMPORTANT NOTE: we rely on the linearity of the cell transform in this place.
+        // hence, you may use an AffineTransform with an arbitrary point here; but nothing more.
         seissol::transformations::tetrahedronGlobalToReferenceJacobian(
             x, y, z, gradXi, gradEta, gradZeta);
 
@@ -222,9 +226,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         const double volume = MeshTools::volume(elements[meshId], vertices);
 
         for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-          VrtxCoords normal;
-          VrtxCoords tangent1;
-          VrtxCoords tangent2;
+          CoordinateT normal;
+          CoordinateT tangent1;
+          CoordinateT tangent2;
           MeshTools::normalAndTangents(
               elements[meshId], side, vertices, normal, tangent1, tangent2);
           const double surface = MeshTools::surface(normal);
@@ -378,10 +382,8 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 #pragma omp for schedule(static)
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       const auto& element = elements[secondaryInformation[cell].meshId];
-      const double* coords[Cell::NumVertices];
-      for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
-        coords[v] = vertices[element.vertices[v]].coords;
-      }
+      const auto transform = seissol::geometry::AffineTransform::fromMeshCell(
+          secondaryInformation[cell].meshId, meshReader);
       for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
         if (cellInformation[cell].faceTypes[side] != FaceType::FreeSurfaceGravity &&
             cellInformation[cell].faceTypes[side] != FaceType::Dirichlet &&
@@ -397,15 +399,13 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         auto offset = 0;
         for (std::size_t i = 0; i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
              ++i) {
-          double nodeReference[2];
+          std::array<double, 2> nodeReference{};
           nodeReference[0] = nodesReference(i, 0);
           nodeReference[1] = nodesReference(i, 1);
           // Compute the global coordinates for the nodal points.
-          double xiEtaZeta[3];
-          double xyz[3];
+          std::array<double, 3> xiEtaZeta{};
           seissol::transformations::chiTau2XiEtaZeta(side, nodeReference, xiEtaZeta);
-          seissol::transformations::tetrahedronReferenceToGlobal(
-              coords[0], coords[1], coords[2], coords[3], xiEtaZeta, xyz);
+          const auto xyz = transform.refToSpace(xiEtaZeta);
           nodes[offset++] = xyz[0];
           nodes[offset++] = xyz[1];
           nodes[offset++] = xyz[2];
@@ -419,9 +419,9 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         auto matT = init::T::view::create(matTData);
         auto matTinv = init::Tinv::view::create(matTinvData);
 
-        VrtxCoords normal;
-        VrtxCoords tangent1;
-        VrtxCoords tangent2;
+        CoordinateT normal;
+        CoordinateT tangent1;
+        CoordinateT tangent2;
         MeshTools::normalAndTangents(element, side, vertices, normal, tangent1, tangent2);
         MeshTools::normalize(normal, normal);
         MeshTools::normalize(tangent1, tangent1);
@@ -453,13 +453,20 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       LTS::Storage& ltsStorage,
                                       const LTS::Backmap& backmap,
                                       DynamicRupture::Storage& drStorage) {
-  real matTData[tensor::T::size()];
-  real matTinvData[tensor::Tinv::size()];
-  real matAPlusData[tensor::star::size(0)];
-  real matAMinusData[tensor::star::size(0)];
+  real matTData[tensor::T::size()]{};
+  real matTinvData[tensor::Tinv::size()]{};
+  real matAPlusData[tensor::star::size(0)]{};
+  real matAMinusData[tensor::star::size(0)]{};
 
   const auto& fault = meshReader.getFault();
   const auto& elements = meshReader.getElements();
+
+  const auto getDupOpt = [&](const auto& elem, std::size_t duplicate) {
+    if (elem.hasValue()) {
+      return backmap.getDup(elem.value(), duplicate);
+    }
+    return std::optional<StoragePosition>();
+  };
 
   for (auto& layer : drStorage.leaves(Ghost)) {
     auto* timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();
@@ -488,33 +495,37 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
     schedule(static)
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       const std::size_t meshFace = faceInformation[ltsFace].meshFace;
-      assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
+      assert(fault[meshFace].element.hasValue() || fault[meshFace].neighborElement.hasValue());
 
       /// Face information
       // already set: faceInformation[ltsFace].meshFace = meshFace;
       faceInformation[ltsFace].plusSide = fault[meshFace].side;
       faceInformation[ltsFace].minusSide = fault[meshFace].neighborSide;
-      if (fault[meshFace].element >= 0) {
+      if (fault[meshFace].element.hasValue()) {
         faceInformation[ltsFace].faceRelation =
-            elements[fault[meshFace].element].sideOrientations[fault[meshFace].side] + 1;
+            elements[fault[meshFace].element.value()].sideOrientations[fault[meshFace].side] + 1;
         faceInformation[ltsFace].plusSideOnThisRank = true;
       } else {
-        /// \todo check if this is correct
+        assert(fault[meshFace].neighborElement.hasValue());
+
         faceInformation[ltsFace].faceRelation =
-            elements[fault[meshFace].neighborElement]
+            elements[fault[meshFace].neighborElement.value()]
                 .sideOrientations[fault[meshFace].neighborSide] +
             1;
         faceInformation[ltsFace].plusSideOnThisRank = false;
       }
 
       /// Look for time derivative mapping in all duplicates
-      int derivativesMeshId = 0;
-      unsigned derivativesSide = 0;
-      if (fault[meshFace].element >= 0) {
-        derivativesMeshId = fault[meshFace].element;
+      size_t derivativesMeshId = 0;
+      int8_t derivativesSide = 0;
+      if (fault[meshFace].element.hasValue()) {
+
+        derivativesMeshId = fault[meshFace].element.value();
         derivativesSide = faceInformation[ltsFace].plusSide;
       } else {
-        derivativesMeshId = fault[meshFace].neighborElement;
+
+        assert(fault[meshFace].neighborElement.hasValue());
+        derivativesMeshId = fault[meshFace].neighborElement.value();
         derivativesSide = faceInformation[ltsFace].minusSide;
       }
       real* timeDerivative1 = nullptr;
@@ -541,7 +552,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       assert(timeDerivative1 != nullptr && timeDerivative2 != nullptr);
 
-      if (fault[meshFace].element >= 0) {
+      if (fault[meshFace].element.hasValue()) {
         timeDerivativePlus[ltsFace] = timeDerivative1;
         timeDerivativeMinus[ltsFace] = timeDerivative2;
         timeDerivativePlusDevice[ltsFace] = timeDerivative1Device;
@@ -557,12 +568,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       /// DR mapping for elements
       for (std::size_t duplicate = 0; duplicate < LTS::Backmap::MaxDuplicates; ++duplicate) {
-        const auto plusLtsId = (fault[meshFace].element >= 0)
-                                   ? backmap.getDup(fault[meshFace].element, duplicate)
-                                   : std::optional<StoragePosition>();
-        const auto minusLtsId = (fault[meshFace].neighborElement >= 0)
-                                    ? backmap.getDup(fault[meshFace].neighborElement, duplicate)
-                                    : std::optional<StoragePosition>();
+        const auto plusLtsId = getDupOpt(fault[meshFace].element, duplicate);
+        const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, duplicate);
 
         assert(duplicate != 0 || plusLtsId.has_value() || minusLtsId.has_value());
 
@@ -616,12 +623,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       /// Materials
       const seissol::model::MaterialT* plusMaterial = nullptr;
       const seissol::model::MaterialT* minusMaterial = nullptr;
-      const auto plusLtsId = (fault[meshFace].element >= 0)
-                                 ? backmap.getDup(fault[meshFace].element, 0)
-                                 : std::optional<StoragePosition>();
-      const auto minusLtsId = (fault[meshFace].neighborElement >= 0)
-                                  ? backmap.getDup(fault[meshFace].neighborElement, 0)
-                                  : std::optional<StoragePosition>();
+      const auto plusLtsId = getDupOpt(fault[meshFace].element, 0);
+      const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, 0);
 
       assert(plusLtsId.has_value() || minusLtsId.has_value());
 
@@ -748,9 +751,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       double minusSurfaceArea = 0;
       double minusVolume = 0;
       double surfaceArea = 0;
-      if (fault[meshFace].element >= 0) {
+      if (fault[meshFace].element.hasValue()) {
         surfaceAreaAndVolume(meshReader,
-                             fault[meshFace].element,
+                             fault[meshFace].element.value(),
                              fault[meshFace].side,
                              &plusSurfaceArea,
                              &plusVolume);
@@ -760,9 +763,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         plusSurfaceArea = 1.e99;
         plusVolume = 1.0;
       }
-      if (fault[meshFace].neighborElement >= 0) {
+      if (fault[meshFace].neighborElement.hasValue()) {
         surfaceAreaAndVolume(meshReader,
-                             fault[meshFace].neighborElement,
+                             fault[meshFace].neighborElement.value(),
                              fault[meshFace].neighborSide,
                              &minusSurfaceArea,
                              &minusVolume);

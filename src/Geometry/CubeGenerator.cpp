@@ -126,12 +126,13 @@ CubeGenerator::CubeGenerator(
   }
 
   // create additional variables necessary for cubeGenerator()
-  const std::array<std::size_t, 4> numCubes = {cubeX, cubeY, cubeZ, cubeX * cubeY * cubeZ};
-  const std::array<std::size_t, 4> numPartitions = {
+  const std::array<std::size_t, Cell::Dim + 1> numCubes = {
+      cubeX, cubeY, cubeZ, cubeX * cubeY * cubeZ};
+  const std::array<std::size_t, Cell::Dim + 1> numPartitions = {
       cubePx, cubePy, cubePz, cubePx * cubePy * cubePz};
 
   // check input arguments
-  for (int i = 0; i < 3; i++) {
+  for (std::size_t i = 0; i < Cell::Dim; i++) {
     if (numCubes[i] < 2) {
       logError() << "Number of cubes in" << dim2str(i) << "dimension must be at least 2";
     }
@@ -152,22 +153,23 @@ CubeGenerator::CubeGenerator(
   }
 
   // Compute additional sizes
-  const std::array<std::size_t, 4> numCubesPerPart = {numCubes[0] / numPartitions[0],
-                                                      numCubes[1] / numPartitions[1],
-                                                      numCubes[2] / numPartitions[2],
-                                                      numCubes[3] / numPartitions[3]};
-  const std::array<std::size_t, 4> numElemPerPart = {numCubesPerPart[0] * 5,
-                                                     numCubesPerPart[1] * 5,
-                                                     numCubesPerPart[2] * 5,
-                                                     numCubesPerPart[3] * 5};
-  const std::array<std::size_t, 4> numVrtxPerPart = {numCubesPerPart[0] + 1,
-                                                     numCubesPerPart[1] + 1,
-                                                     numCubesPerPart[2] + 1,
-                                                     numCubesPerPart[0] * numCubesPerPart[1] *
-                                                         numCubesPerPart[2]};
-  const std::array<std::size_t, 3> numBndElements = {2 * numCubesPerPart[1] * numCubesPerPart[2],
-                                                     2 * numCubesPerPart[0] * numCubesPerPart[2],
-                                                     2 * numCubesPerPart[0] * numCubesPerPart[1]};
+  const std::array<std::size_t, Cell::Dim + 1> numCubesPerPart = {numCubes[0] / numPartitions[0],
+                                                                  numCubes[1] / numPartitions[1],
+                                                                  numCubes[2] / numPartitions[2],
+                                                                  numCubes[3] / numPartitions[3]};
+  const std::array<std::size_t, Cell::Dim + 1> numElemPerPart = {numCubesPerPart[0] * 5,
+                                                                 numCubesPerPart[1] * 5,
+                                                                 numCubesPerPart[2] * 5,
+                                                                 numCubesPerPart[3] * 5};
+  const std::array<std::size_t, Cell::Dim + 1> numVrtxPerPart = {
+      numCubesPerPart[0] + 1,
+      numCubesPerPart[1] + 1,
+      numCubesPerPart[2] + 1,
+      numCubesPerPart[0] * numCubesPerPart[1] * numCubesPerPart[2]};
+  const std::array<std::size_t, Cell::Dim> numBndElements = {
+      2 * numCubesPerPart[1] * numCubesPerPart[2],
+      2 * numCubesPerPart[0] * numCubesPerPart[2],
+      2 * numCubesPerPart[0] * numCubesPerPart[1]};
 
   // output file name
   const std::string& fileName = meshFile;
@@ -342,7 +344,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         const std::size_t c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
         const int odd = (zz + yy + xx) % 2;
 
-        memcpy(&elemNeighbors[c], tetNeighbors[odd], sizeof(int) * 20);
+        std::copy_n(tetNeighbors[odd], 20, &elemNeighbors[c]);
         const int offset = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 5;
         for (int i = 0; i < 20; i++) {
           elemNeighbors[c + i] += offset;
@@ -613,9 +615,8 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
       for (int i = 0; i < sizes[0]; i++) {
         // ElemBoundaries is an int array of size 4
-        memcpy(m_elements[i].boundaries,
-               &elemBoundaries[static_cast<ptrdiff_t>(i * 4)],
-               sizeof(ElemBoundaries));
+        std::copy_n(
+            &elemBoundaries[static_cast<ptrdiff_t>(i * 4)], 4, m_elements[i].boundaries.data());
       }
     }
   }
@@ -630,7 +631,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
       for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
         const int odd = (zz + yy + xx) % 2;
         const std::size_t c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
-        memcpy(&elemNeighborSidesDef[c], TetSideNeighbors[odd], sizeof(int) * 20);
+        std::copy_n(TetSideNeighbors[odd], 20, &elemNeighborSidesDef[c]);
       }
     }
   }
@@ -639,7 +640,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   for (std::size_t z = 0; z < numPartitions[2]; z++) {
     for (std::size_t y = 0; y < numPartitions[1]; y++) {
       const std::size_t x = rank;
-      memcpy(elemNeighborSides, elemNeighborSidesDef, sizeof(int) * numElemPerPart[3] * 4);
+      std::copy_n(elemNeighborSidesDef, numElemPerPart[3] * 4, elemNeighborSides);
 
       if (boundaryMinx != 6 && x == 0) { // first partition in x dimension
 
@@ -782,9 +783,9 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
       for (int i = 0; i < sizes[0]; i++) {
         // ElemNeighborSides is an int array of size 4
-        memcpy(m_elements[i].neighborSides,
-               &elemNeighborSides[static_cast<ptrdiff_t>(i * 4)],
-               sizeof(ElemNeighborSides));
+        std::copy_n(&elemNeighborSides[static_cast<ptrdiff_t>(i * 4)],
+                    4,
+                    m_elements[i].neighborSides.data());
       }
     }
   }
@@ -801,7 +802,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
       for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
         const int odd = (zz + yy + xx) % 2;
         const std::size_t c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
-        memcpy(&elemSideOrientationsDef[c], TetSideOrientations[odd], sizeof(int) * 20);
+        std::copy_n(TetSideOrientations[odd], 20, &elemSideOrientationsDef[c]);
       }
     }
   }
@@ -811,7 +812,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
     for (std::size_t y = 0; y < numPartitions[1]; y++) {
       const std::size_t x = rank;
 
-      memcpy(elemSideOrientations, elemSideOrientationsDef, sizeof(int) * numElemPerPart[3] * 4);
+      std::copy_n(elemSideOrientationsDef, numElemPerPart[3] * 4, elemSideOrientations);
 
       if (boundaryMinx != 6 && x == 0) { // first partition in x dimension
 
@@ -913,9 +914,9 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
       for (int i = 0; i < sizes[0]; i++) {
         // ElemSideOrientations is an int array of size 4
-        memcpy(m_elements[i].sideOrientations,
-               &elemSideOrientations[static_cast<ptrdiff_t>(i * 4)],
-               sizeof(ElemSideOrientations));
+        std::copy_n(&elemSideOrientations[static_cast<ptrdiff_t>(i * 4)],
+                    4,
+                    m_elements[i].sideOrientations.data());
       }
     }
   }
@@ -1094,9 +1095,9 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
       for (int i = 0; i < sizes[0]; i++) {
         // ElemNeighborRanks is an int array of size 4
-        memcpy(m_elements[i].neighborRanks,
-               &elemNeighborRanks[static_cast<ptrdiff_t>(i * 4)],
-               sizeof(ElemNeighborRanks));
+        std::copy_n(&elemNeighborRanks[static_cast<ptrdiff_t>(i * 4)],
+                    4,
+                    m_elements[i].neighborRanks.data());
       }
     }
   }
@@ -1147,9 +1148,10 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
         bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
         bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
-        memcpy(&bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]],
-               bndLocalIds,
-               sizeof(int) * count[2]);
+        std::copy_n(
+            bndLocalIds,
+            count[2],
+            &bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]]);
 
         bndSize++;
       }
@@ -1187,9 +1189,10 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
         bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
         bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
-        memcpy(&bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]],
-               bndLocalIds,
-               sizeof(int) * count[2]);
+        std::copy_n(
+            bndLocalIds,
+            count[2],
+            &bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]]);
 
         bndSize++;
       }
@@ -1225,9 +1228,10 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
         bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
         bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
-        memcpy(&bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]],
-               bndLocalIds,
-               sizeof(int) * count[2]);
+        std::copy_n(
+            bndLocalIds,
+            count[2],
+            &bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]]);
 
         bndSize++;
       }
@@ -1282,9 +1286,10 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
         bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
         bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
-        memcpy(&bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]],
-               bndLocalIds,
-               sizeof(int) * count[2]);
+        std::copy_n(
+            bndLocalIds,
+            count[2],
+            &bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]]);
 
         bndSize++;
       }
@@ -1338,9 +1343,10 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
         bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
         bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
-        memcpy(&bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]],
-               bndLocalIds,
-               sizeof(int) * count[2]);
+        std::copy_n(
+            bndLocalIds,
+            count[2],
+            &bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]]);
 
         bndSize++;
       }
@@ -1375,18 +1381,18 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
         bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
         bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
-        memcpy(&bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]],
-               bndLocalIds,
-               sizeof(int) * count[2]);
+        std::copy_n(
+            bndLocalIds,
+            count[2],
+            &bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]]);
 
         bndSize++;
       }
 
       for (int i = 0; i < sizes[0]; i++) {
         // ElemMPIIndices is an int array of size 4
-        memcpy(m_elements[i].mpiIndices,
-               &elemMPIIndices[static_cast<ptrdiff_t>(i * 4)],
-               sizeof(ElemMPIIndices));
+        std::copy_n(
+            &elemMPIIndices[static_cast<ptrdiff_t>(i * 4)], 4, m_elements[i].mpiIndices.data());
       }
 
       bndSizePtr[(z * numPartitions[1] + y) * numPartitions[0] + x] = bndSize;
@@ -1398,14 +1404,14 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   std::fill(elemGroup, elemGroup + numElemPerPart[3], 1);
 
   // copy the remaining Elem variables to m_elements
-  auto* elemVerticesCast = reinterpret_cast<ElemVertices*>(elemVertices);
-  auto* elemNeighborsCast = reinterpret_cast<ElemNeighbors*>(elemNeighbors);
+  auto* elemVerticesCast = reinterpret_cast<int (*)[Cell::NumVertices]>(elemVertices);
+  auto* elemNeighborsCast = reinterpret_cast<int (*)[Cell::NumFaces]>(elemNeighbors);
 
   for (int i = 0; i < sizes[0]; i++) {
     m_elements[i].localId = i;
 
-    memcpy(m_elements[i].vertices, &elemVerticesCast[i], sizeof(ElemVertices));
-    memcpy(m_elements[i].neighbors, &elemNeighborsCast[i], sizeof(ElemNeighbors));
+    std::copy_n(elemVerticesCast[i], Cell::NumVertices, m_elements[i].vertices.data());
+    std::copy_n(elemNeighborsCast[i], Cell::NumFaces, m_elements[i].neighbors.data());
     m_elements[i].group = elemGroup[i];
   }
 
@@ -1459,7 +1465,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   // Copy buffers to vertices
   for (std::size_t i = 0; i < uniqueVertices.size(); i++) {
     // VrtxCoord is defined as an int array of size 3
-    memcpy(m_vertices[i].coords, &vrtxCoords[i * 3], sizeof(VrtxCoords));
+    std::copy_n(&vrtxCoords[i * 3], Cell::Dim, m_vertices[i].coords.data());
   }
 
   delete[] vrtxCoords;
@@ -1483,9 +1489,9 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
     const int elemSize = bndElemSizePtr[bndStart[0] * bndSize + bndStart[1]];
 
     const size_t bndCount[3] = {1, 1, bndElemSize};
-    memcpy(bndElemLocalIds,
-           &bndElemLocalIdsPtr[(bndStart[0] * bndSize + bndStart[1]) * bndElemSize],
-           sizeof(int) * bndCount[2]);
+    std::copy_n(&bndElemLocalIdsPtr[(bndStart[0] * bndSize + bndStart[1]) * bndElemSize],
+                bndCount[2],
+                bndElemLocalIds);
 
     if (i < sizes[0]) {
       addMPINeighbor(i, bndRank, elemSize, bndElemLocalIds);
@@ -1516,7 +1522,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 void CubeGenerator::findElementsPerVertex() {
   for (auto& element : m_elements) {
     for (std::size_t j = 0; j < Cell::NumVertices; j++) {
-      assert(element.vertices[j] < static_cast<int>(m_vertices.size()));
+      assert(element.vertices[j] < m_vertices.size());
       // push back the localIds for each element of a vertex
       m_vertices[element.vertices[j]].elements.push_back(element.localId);
     }

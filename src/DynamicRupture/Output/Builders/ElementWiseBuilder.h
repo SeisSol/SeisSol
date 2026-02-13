@@ -12,6 +12,7 @@
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "GeneratedCode/init.h"
+#include "Geometry/CellTransform.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Numerical/Transformation.h"
 #include "ReceiverBasedOutputBuilder.h"
@@ -67,16 +68,8 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         const auto& fault = faultInfo[faceIdx];
         const auto elementIdx = fault.element;
 
-        if (elementIdx >= 0) {
-          const auto& element = elementsInfo[elementIdx];
-
-          // store coords of vertices of the current ELEMENT
-          constexpr size_t NumVertices{4};
-          std::array<const double*, NumVertices> elementVerticesCoords{};
-          for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
-            auto globalVertexIdx = element.vertices[vertexIdx];
-            elementVerticesCoords[vertexIdx] = verticesInfo[globalVertexIdx].coords;
-          }
+        if (elementIdx.hasValue()) {
+          const auto& element = elementsInfo[elementIdx.value()];
 
           const auto faceSideIdx = fault.side;
 
@@ -89,7 +82,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
           faultRefiner->refineAndAccumulate({elementwiseParams.refinement,
                                              static_cast<int>(faceIdx),
                                              faceSideIdx,
-                                             elementIdx,
+                                             elementIdx.value(),
                                              element.globalId},
                                             std::make_pair(globalFace, referenceTriangle));
         }
@@ -115,7 +108,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         const auto& fault = faultInfo[faceIdx];
         const auto elementIdx = fault.element;
 
-        if (elementIdx >= 0) {
+        if (elementIdx.hasValue()) {
           ++faceCount;
         }
       }
@@ -130,16 +123,11 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         const auto& fault = faultInfo[faceIdx];
         const auto elementIdx = fault.element;
 
-        if (elementIdx >= 0) {
-          const auto& element = elementsInfo[elementIdx];
+        if (elementIdx.hasValue()) {
+          const auto& element = elementsInfo[elementIdx.value()];
 
-          // store coords of vertices of the current ELEMENT
-          constexpr size_t NumVertices{4};
-          std::array<const double*, NumVertices> vertices{};
-          for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
-            auto globalVertexIdx = element.vertices[vertexIdx];
-            vertices[vertexIdx] = verticesInfo[globalVertexIdx].coords;
-          }
+          const auto transform =
+              seissol::geometry::AffineTransform::fromMeshCell(elementIdx.value(), *meshReader);
 
           const auto faceSideIdx = fault.side;
 
@@ -152,14 +140,9 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
             const real nullpoint[2] = {0, 0};
             const real* prepoint =
                 i > 0 ? (seissol::init::vtk2d::Values[order] + (i - 1) * 2) : nullpoint;
-            double point[2] = {prepoint[0], prepoint[1]};
+            const std::array<double, 2> point = {prepoint[0], prepoint[1]};
             transformations::chiTau2XiEtaZeta(faceSideIdx, point, receiverPoint.reference.coords);
-            transformations::tetrahedronReferenceToGlobal(vertices[0],
-                                                          vertices[1],
-                                                          vertices[2],
-                                                          vertices[3],
-                                                          receiverPoint.reference.coords,
-                                                          receiverPoint.global.coords);
+            receiverPoint.global.coords = transform.refToSpace(receiverPoint.reference.coords);
             receiverPoint.globalTriangle = globalFace;
             receiverPoint.isInside = true;
             receiverPoint.faultFaceIndex = faceIdx;

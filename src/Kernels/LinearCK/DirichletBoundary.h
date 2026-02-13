@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_DIRICHLETBOUNDARY_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_DIRICHLETBOUNDARY_H_
 
+#include "Common/Constants.h"
 #include "Common/Offset.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
@@ -37,7 +38,9 @@ class DirichletBoundary {
   }
 
   public:
-  DirichletBoundary() { quadrature::GaussLegendre(quadPoints, quadWeights, ConvergenceOrder); }
+  DirichletBoundary() {
+    quadrature::GaussLegendre(quadPoints.data(), quadWeights.data(), ConvergenceOrder);
+  }
 
   template <typename Func, typename MappingKrnl>
   void evaluate(const real* dofsVolumeInteriorModal,
@@ -165,8 +168,8 @@ class DirichletBoundary {
   }
 
   private:
-  double quadPoints[ConvergenceOrder]{};
-  double quadWeights[ConvergenceOrder]{};
+  std::array<double, ConvergenceOrder> quadPoints{};
+  std::array<double, ConvergenceOrder> quadWeights{};
 };
 
 //
