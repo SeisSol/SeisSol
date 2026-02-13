@@ -182,6 +182,7 @@ void Spacetime::computeBatchedAder(
 
     krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
 
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
     for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
       krnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
@@ -197,6 +198,9 @@ void Spacetime::computeBatchedAder(
     krnl.extraOffset_Gkt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[10]);
     krnl.extraOffset_Glt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[11]);
     krnl.extraOffset_Gmt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[12]);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[10]);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[11]);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[12]);
 
     // checking the first cell should suffice; if we always work on the same cluster.
     // (which we currently always do)
@@ -206,6 +210,7 @@ void Spacetime::computeBatchedAder(
             timeStepWidth) < 1e-7;
 
     if (defaultTimestep) {
+      SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, specific.Zinv);
       for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
         krnl.Zinv(i) = const_cast<const real**>(
             (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());

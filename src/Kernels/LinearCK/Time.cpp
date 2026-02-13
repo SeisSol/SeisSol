@@ -167,12 +167,14 @@ void Spacetime::computeBatchedAder(
           SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
 
-    const auto sourceMatrixOffset =
+    constexpr auto SourceMatrixOffset =
         offsetof(LocalIntegrationData, specific) +
         get_offset_sourceMatrix<decltype(LocalIntegrationData::specific)>();
+    static_assert(SourceMatrixOffset % sizeof(real) == 0,
+                  "SourceMatrixOffset is not dividable by the real size.");
 
     set_ET(derivativesKrnl, localIntegrationPtrs);
-    set_extraOffset_ET(derivativesKrnl, sourceMatrixOffset / sizeof(real));
+    set_extraOffset_ET(derivativesKrnl, SourceMatrixOffset / sizeof(real));
 
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derivativesKrnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
