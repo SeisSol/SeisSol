@@ -105,7 +105,7 @@ class BaseDRInitializer {
    * @param layer reference to a Storage layer
    * @return vector containing all faceIDs which are stored in the leaf_iterator
    */
-  static std::vector<unsigned> getFaceIDsInIterator(DynamicRupture::Layer& layer);
+  static std::vector<std::size_t> getFaceIDsInIterator(DynamicRupture::Layer& layer);
 
   /**
    * Initialize all other variables:
@@ -129,7 +129,7 @@ class BaseDRInitializer {
    * @param faceIDs faceIDs of the cells which are to be read
    */
   void queryModel(seissol::initializer::FaultParameterDB& faultParameterDB,
-                  const std::vector<unsigned>& faceIDs,
+                  const std::vector<std::size_t>& faceIDs,
                   std::size_t simid);
 
   /**
