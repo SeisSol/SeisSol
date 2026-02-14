@@ -43,6 +43,7 @@ void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
   m_gpuKrnlPrototype.V3mTo2n = global.onDevice->faceToNodalMatrices;
+  m_gpuCombinedKrnlPrototype.V3mTo2n = global.onDevice->faceToNodalMatrices;
 #endif
 
   m_timeKernel.setGlobalData(global);
@@ -107,7 +108,53 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
-  real** degreesOfFreedomPlus{nullptr};
+
+  runtime.envMany(16, [&](void* stream, size_t i) {
+    const auto side = i / 4;
+    const auto faceRelation = i % 4;
+
+    ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
+    if (table.find(minusSideKey) != table.end()) {
+      auto& entry = table[minusSideKey];
+      const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getSize();
+
+      auto krnl = m_gpuCombinedKrnlPrototype;
+      real* tmpMem = reinterpret_cast<real*>(
+          device.api->allocMemAsync(krnl.TmpMaxMemRequiredInBytes * numElements, stream));
+      krnl.linearAllocator.initialize(tmpMem);
+      krnl.streamPtr = stream;
+      krnl.numElements = numElements;
+
+      std::size_t offsetQDR = 0;
+      for (std::size_t s = 0; s < dr::misc::TimeSteps; ++s) {
+        krnl.QDR(s) = (entry.get(inner_keys::Dr::Id::QInterpolatedMinus))->getDeviceDataPtr();
+        krnl.extraOffset_QDR(s) = offsetQDR;
+        offsetQDR += tensor::QDR::size(s);
+      }
+
+      std::size_t offsetDQ = 0;
+      for (std::size_t p = 0; p < ConvergenceOrder; ++p) {
+        krnl.dQ(p) = const_cast<const real**>(
+            (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr());
+        krnl.extraOffset_dQ(p) = offsetDQ;
+        offsetDQ += tensor::dQ::size(p);
+      }
+
+      for (std::size_t s = 0; s < dr::misc::TimeSteps; ++s) {
+        for (std::size_t p = 0; p < ConvergenceOrder; ++p) {
+          krnl.coeffDR(s * ConvergenceOrder + p) = coeffs[s * ConvergenceOrder + p];
+        }
+      }
+
+      krnl.TinvT =
+          const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
+      krnl.execute(side, faceRelation);
+
+      device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
+    }
+  });
+
+  /*real** degreesOfFreedomPlus{nullptr};
   real** degreesOfFreedomMinus{nullptr};
 
   for (unsigned timeInterval = 0; timeInterval < dr::misc::TimeSteps; ++timeInterval) {
@@ -193,7 +240,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
         }
       }
     });
-  }
+  }*/
 #else
   logError() << "No GPU implementation provided";
 #endif

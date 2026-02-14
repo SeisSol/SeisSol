@@ -78,6 +78,9 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
       currentLayer->var<DynamicRupture::GodunovData>(AllocationPlace::Device);
   DRFaceInformation* faceInfo = currentLayer->var<DynamicRupture::FaceInformation>();
 
+  real** timeDerivativePlus = currentLayer->var<DynamicRupture::TimeDerivativePlusDevice>();
+  real** timeDerivativeMinus = currentLayer->var<DynamicRupture::TimeDerivativeMinusDevice>();
+
   const auto size = currentLayer->size();
   if (size > 0) {
     std::array<std::vector<real*>, *FaceId::Count> qInterpolatedPlusPtr{};
@@ -87,19 +90,25 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
     std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> qInterpolatedMinusPtr {};
     std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> idofsMinusPtr {};
     std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> tInvTMinusPtr {};
+    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> timeDerivativeMinusPtrs {};
 
     const size_t idofsSize = tensor::Q::size();
     for (std::size_t faceId = 0; faceId < size; ++faceId) {
       const auto plusSide = faceInfo[faceId].plusSide;
-      qInterpolatedPlusPtr[plusSide].push_back(&qInterpolatedPlus[faceId][0][0]);
-      idofsPlusPtr[plusSide].push_back(&idofsPlus[faceId * idofsSize]);
-      tInvTPlusPtr[plusSide].push_back((&godunovData[faceId])->dataTinvT);
+      // qInterpolatedPlusPtr[plusSide].push_back(&qInterpolatedPlus[faceId][0][0]);
+      // idofsPlusPtr[plusSide].push_back(&idofsPlus[faceId * idofsSize]);
+      // tInvTPlusPtr[plusSide].push_back((&godunovData[faceId])->dataTinvT);
+      qInterpolatedMinusPtr[plusSide][0].push_back(&qInterpolatedPlus[faceId][0][0]);
+      idofsMinusPtr[plusSide][0].push_back(&idofsPlus[faceId * idofsSize]);
+      tInvTMinusPtr[plusSide][0].push_back((&godunovData[faceId])->dataTinvT);
+      timeDerivativeMinusPtrs[plusSide][0].push_back(timeDerivativePlus[faceId]);
 
       const auto minusSide = faceInfo[faceId].minusSide;
       const auto faceRelation = faceInfo[faceId].faceRelation;
       qInterpolatedMinusPtr[minusSide][faceRelation].push_back(&qInterpolatedMinus[faceId][0][0]);
       idofsMinusPtr[minusSide][faceRelation].push_back(&idofsMinus[faceId * idofsSize]);
       tInvTMinusPtr[minusSide][faceRelation].push_back((&godunovData[faceId])->dataTinvT);
+      timeDerivativeMinusPtrs[minusSide][faceRelation].push_back(timeDerivativeMinus[faceId]);
     }
 
     for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
@@ -118,6 +127,8 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
           (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsMinus,
                                      idofsMinusPtr[side][faceRelation]);
           (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, tInvTMinusPtr[side][faceRelation]);
+          (*currentDrTable)[key].set(inner_keys::Dr::Id::DerivativesMinus,
+                                     timeDerivativeMinusPtrs[side][faceRelation]);
         }
       }
     }
