@@ -34,7 +34,7 @@ void seissol::Mpi::init(int& argc, char**& argv) {
   setComm(MPI_COMM_WORLD);
 
   std::string hostName(256, ' ');
-  if (gethostname(const_cast<char*>(hostName.c_str()), 256) != 0) {
+  if (gethostname(hostName.data(), 256) != 0) {
     hostName = "unknown-host";
   } else {
     utils::StringUtils::rtrim(hostName);
