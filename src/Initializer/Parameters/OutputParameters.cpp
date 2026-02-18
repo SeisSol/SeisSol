@@ -119,7 +119,8 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("pickpoint");
 
   const auto printTimeInterval = reader->readWithDefault("printtimeinterval", 1);
-  const auto maxPickStore = reader->readWithDefault("maxpickstore", 50);
+
+  const auto interval = reader->readWithDefault("outputinterval", VeryLongTime);
 
   const auto outputMaskString =
       reader->readWithDefault<std::string>("outputmask", "1 1 1 1 1 1 0 0 0 0 0 0");
@@ -130,10 +131,10 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
   const auto aggregate = reader->readWithDefault("aggregateperrank", false);
 
-  reader->warnDeprecated({"noutpoints"});
+  reader->warnDeprecated({"noutpoints", "maxpickstore"});
 
   return PickpointParameters{
-      printTimeInterval, maxPickStore, outputMask, pickpointFileName, aggregate, collectiveio};
+      printTimeInterval, interval, outputMask, pickpointFileName, aggregate, collectiveio};
 }
 
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
