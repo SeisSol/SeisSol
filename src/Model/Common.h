@@ -92,6 +92,7 @@ void initializeSpecificNeighborData(const T& material,
  * The Bond matrix transforms materials from one orthogonal coordinate system to
  * another one.
  * c.f. 10.1111/j.1365-246X.2007.03381.x
+ * This method is not needed for isotropic materials.
  */
 void getBondMatrix(const VrtxCoords normal,
                    const VrtxCoords tangent1,

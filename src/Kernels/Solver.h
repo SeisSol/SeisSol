@@ -37,14 +37,14 @@ namespace seissol::kernels {
 
 // some typename shortcuts
 
-using Solver = typename model::MaterialT::Solver;
+using Solver = model::MaterialT::Solver;
 
-using Time = typename Solver::TimeKernelT;
-using Spacetime = typename Solver::SpacetimeKernelT;
-using Local = typename Solver::LocalKernelT;
-using Neighbor = typename Solver::NeighborKernelT;
+using Time = Solver::TimeKernelT;
+using Spacetime = Solver::SpacetimeKernelT;
+using Local = Solver::LocalKernelT;
+using Neighbor = Solver::NeighborKernelT;
 
-inline typename Solver::TimeBasis<real> timeBasis() {
+inline Solver::TimeBasis<real> timeBasis() {
   return Solver::TimeBasis<real>(Config::ConvergenceOrder);
 }
 

@@ -412,7 +412,7 @@ void OutputManager::initPickpointOutput() {
             const auto& receiver = outputData->receiverPoints[gIdx];
             const size_t globalIndex = receiver.globalReceiverIndex + 1;
             const size_t simIndex = receiver.simIndex;
-            const auto& point = const_cast<ExtVrtxCoords&>(receiver.global);
+            const auto& point = receiver.global;
 
             // output coordinates
             if (simIndex == 0) {

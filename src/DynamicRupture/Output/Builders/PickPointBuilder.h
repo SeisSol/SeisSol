@@ -185,13 +185,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     std::vector<short> globalContainVector(size);
 
     MPI_Comm comm = Mpi::mpi.comm();
-    MPI_Reduce(const_cast<short*>(localContainVector.data()),
-               const_cast<short*>(globalContainVector.data()),
-               size,
-               MPI_SHORT,
-               MPI_SUM,
-               0,
-               comm);
+    MPI_Reduce(
+        localContainVector.data(), globalContainVector.data(), size, MPI_SHORT, MPI_SUM, 0, comm);
 
     if (localRank == 0) {
       bool allReceiversFound{true};

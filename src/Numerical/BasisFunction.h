@@ -104,7 +104,7 @@ class BasisFunctionDerivativeGenerator {
 };
 
 inline unsigned int basisFunctionsForOrder(unsigned int order) {
-  return (order) * (order + 1) * (order + 2) / 6;
+  return (order * (order + 1) * (order + 2)) / 6;
 }
 
 /**
@@ -232,7 +232,7 @@ class SampledBasisFunctionDerivatives {
         xCoords, yCoords, zCoords, gradXi, gradEta, gradZeta);
     std::vector<T> oldData = m_data;
 
-    auto oldView = init::basisFunctionDerivativesAtPoint::view::create(oldData.data());
+    const auto oldView = init::basisFunctionDerivativesAtPoint::view::create(oldData.data());
     auto newView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
     for (size_t i = 0; i < init::basisFunctionDerivativesAtPoint::Shape[0]; ++i) {
       for (size_t direction = 0; direction < init::basisFunctionDerivativesAtPoint::Shape[1];

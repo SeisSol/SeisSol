@@ -8,7 +8,6 @@
 # TODO: apply
 # * modernize-use-trailing-return-type
 # * readability-function-size
-# * cppcoreguidelines-pro-type-const-cast
 # * readability-convert-member-functions-to-static
 # * clang-analyzer-cplusplus.NewDeleteLeaks
 # * clang-analyzer-optin.cplusplus.VirtualCall
@@ -20,17 +19,21 @@
 # * bugprone-branch-clone,
 # * cppcoreguidelines-use-enum-class
 # * google-runtime-int
+# * google-runtime-float
+# * cppcoreguidelines-pro-bounds-avoid-unchecked-container-access (maybe)
 
 Checks:
   - google-*
   - -google-readability-todo
   - -google-runtime-int
+  - -google-runtime-float
   - -google-build-using-namespace
   - -google-default-arguments
   - cert-*
   - -cert-err58-cpp
   - openmp-*
   - -openmp-use-default-none
+  - -openmp-exception-escape
   - concurrency-*
   - -clang-analyzer-cplusplus.NewDeleteLeaks
   - -clang-analyzer-optin.cplusplus.VirtualCall
@@ -41,6 +44,7 @@ Checks:
   - -bugprone-unchecked-optional-access
   - -bugprone-crtp-constructor-accessibility
   - -bugprone-branch-clone
+  - -bugprone-throwing-static-initialization
   - clang-diagnostic-*
   - cppcoreguidelines-*
   - -cppcoreguidelines-avoid-c-arrays
@@ -56,9 +60,10 @@ Checks:
   - -cppcoreguidelines-pro-bounds-pointer-arithmetic
   - -cppcoreguidelines-pro-type-reinterpret-cast
   - -cppcoreguidelines-narrowing-conversions
-  - -cppcoreguidelines-pro-type-const-cast
   - -cppcoreguidelines-use-enum-class
+  - -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access
   - llvm-*
+  - -llvm-use-ranges
   - -llvm-else-after-return
   - -llvm-header-guard
   - -llvm-qualified-auto
@@ -66,6 +71,7 @@ Checks:
   - misc-*
   - -misc-non-private-member-variables-in-classes
   - -misc-no-recursion
+  - -misc-multiple-inheritance
   - modernize-*
   - -modernize-avoid-c-arrays
   - -modernize-deprecated-headers

@@ -10,7 +10,7 @@ on:
   - push
 
 env:
-  precomputed-hash: 4cc0993d4ba3b8f0aabc84af78e405af9d98f902
+  precomputed-hash: 0f623b3e263726bc547997ca29790936396847df
 
 jobs:
   seissol-build-test:
@@ -341,6 +341,14 @@ jobs:
             receivers: true
             fault: false
             volume: true
+            surface: false
+          - name: acoustic
+            equation: acoustic
+            multisim: 1
+            energies: false
+            receivers: true
+            fault: false
+            volume: false
             surface: false
         precision:
           - single
