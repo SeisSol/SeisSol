@@ -13,7 +13,7 @@ from yateto.ast.node import Add
 from yateto.input import parseJSONMatrixFile
 
 
-def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
+def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpu):
 
     clones = dict()
 
@@ -147,6 +147,12 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
             interm = Add()
             for p in range(aderdg.order):
                 interm = interm + scalars[c][p] * aderdg.dQs[p]["lq"]
+
+            if isOldGpu:
+                # the "old" GPU implementation (gemmforge/chainforge) needs an explicit intermediate
+                calc += [aderdg.I["lq"] <= interm]
+                interm = aderdg.I["lq"]
+
             calc += [
                 QDR[c]["kp"] <= db.V3mTo2n[i, h][aderdg.t("kl")] * interm * TinvT["qp"]
             ]

@@ -124,7 +124,6 @@ class DynamicRuptureRecorder : public AbstractRecorder<DynamicRupture::DynrupVar
 
   private:
   void setUpContext(DynamicRupture::Layer& layer) { AbstractRecorder::setUpContext(layer); }
-  void recordDofsTimeEvaluation();
   void recordSpaceInterpolation();
   std::unordered_map<real*, real*> idofsAddressRegistry;
 };

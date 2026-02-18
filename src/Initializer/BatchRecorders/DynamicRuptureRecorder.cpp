@@ -26,41 +26,7 @@ using namespace seissol::recording;
 
 void DynamicRuptureRecorder::record(DynamicRupture::Layer& layer) {
   setUpContext(layer);
-  recordDofsTimeEvaluation();
   recordSpaceInterpolation();
-}
-
-void DynamicRuptureRecorder::recordDofsTimeEvaluation() {
-  real** timeDerivativePlus = currentLayer->var<DynamicRupture::TimeDerivativePlusDevice>();
-  real** timeDerivativeMinus = currentLayer->var<DynamicRupture::TimeDerivativeMinusDevice>();
-  real* idofsPlus = static_cast<real*>(
-      currentLayer->var<DynamicRupture::IdofsPlusOnDevice>(AllocationPlace::Device));
-  real* idofsMinus = static_cast<real*>(
-      currentLayer->var<DynamicRupture::IdofsMinusOnDevice>(AllocationPlace::Device));
-
-  const auto size = currentLayer->size();
-  if (size > 0) {
-    std::vector<real*> timeDerivativePlusPtrs(size, nullptr);
-    std::vector<real*> timeDerivativeMinusPtrs(size, nullptr);
-    std::vector<real*> idofsPlusPtrs(size, nullptr);
-    std::vector<real*> idofsMinusPtrs(size, nullptr);
-
-    const size_t idofsSize = tensor::Q::size();
-    for (std::size_t faceId = 0; faceId < size; ++faceId) {
-      timeDerivativePlusPtrs[faceId] = timeDerivativePlus[faceId];
-      timeDerivativeMinusPtrs[faceId] = timeDerivativeMinus[faceId];
-      idofsPlusPtrs[faceId] = &idofsPlus[faceId * idofsSize];
-      idofsMinusPtrs[faceId] = &idofsMinus[faceId * idofsSize];
-    }
-
-    const ConditionalKey key(*KernelNames::DrTime);
-    checkKey(key);
-
-    (*currentDrTable)[key].set(inner_keys::Dr::Id::DerivativesPlus, timeDerivativePlusPtrs);
-    (*currentDrTable)[key].set(inner_keys::Dr::Id::DerivativesMinus, timeDerivativeMinusPtrs);
-    (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsPlus, idofsPlusPtrs);
-    (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsMinus, idofsMinusPtrs);
-  }
 }
 
 void DynamicRuptureRecorder::recordSpaceInterpolation() {
@@ -83,10 +49,6 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
 
   const auto size = currentLayer->size();
   if (size > 0) {
-    std::array<std::vector<real*>, *FaceId::Count> qInterpolatedPlusPtr{};
-    std::array<std::vector<real*>, *FaceId::Count> idofsPlusPtr{};
-    std::array<std::vector<real*>, *FaceId::Count> tInvTPlusPtr{};
-
     std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> qInterpolatedMinusPtr {};
     std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> idofsMinusPtr {};
     std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> tInvTMinusPtr {};
@@ -95,9 +57,6 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
     const size_t idofsSize = tensor::Q::size();
     for (std::size_t faceId = 0; faceId < size; ++faceId) {
       const auto plusSide = faceInfo[faceId].plusSide;
-      // qInterpolatedPlusPtr[plusSide].push_back(&qInterpolatedPlus[faceId][0][0]);
-      // idofsPlusPtr[plusSide].push_back(&idofsPlus[faceId * idofsSize]);
-      // tInvTPlusPtr[plusSide].push_back((&godunovData[faceId])->dataTinvT);
       qInterpolatedMinusPtr[plusSide][0].push_back(&qInterpolatedPlus[faceId][0][0]);
       idofsMinusPtr[plusSide][0].push_back(&idofsPlus[faceId * idofsSize]);
       tInvTMinusPtr[plusSide][0].push_back((&godunovData[faceId])->dataTinvT);
@@ -112,13 +71,6 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
     }
 
     for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-      if (!qInterpolatedPlusPtr[side].empty()) {
-        const ConditionalKey key(*KernelNames::DrSpaceMap, side);
-        (*currentDrTable)[key].set(inner_keys::Dr::Id::QInterpolatedPlus,
-                                   qInterpolatedPlusPtr[side]);
-        (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsPlus, idofsPlusPtr[side]);
-        (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, tInvTPlusPtr[side]);
-      }
       for (std::size_t faceRelation = 0; faceRelation < Cell::NumFaces; ++faceRelation) {
         if (!qInterpolatedMinusPtr[side][faceRelation].empty()) {
           const ConditionalKey key(*KernelNames::DrSpaceMap, side, faceRelation);

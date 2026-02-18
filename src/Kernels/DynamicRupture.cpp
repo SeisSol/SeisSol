@@ -16,6 +16,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -35,6 +36,8 @@
 #ifndef NDEBUG
 #include <cstdint>
 #endif
+
+GENERATE_HAS_MEMBER(I)
 
 namespace seissol::kernels {
 
@@ -109,6 +112,8 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
 
+  // interpolate all timesteps in a single kernel
+
   runtime.envMany(16, [&](void* stream, size_t i) {
     const auto side = i / 4;
     const auto faceRelation = i % 4;
@@ -146,6 +151,8 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
         }
       }
 
+      set_I(krnl, entry.get(inner_keys::Dr::Id::IdofsMinus)->getDeviceDataPtr());
+
       krnl.TinvT =
           const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
       krnl.execute(side, faceRelation);
@@ -153,94 +160,6 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
       device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
     }
   });
-
-  /*real** degreesOfFreedomPlus{nullptr};
-  real** degreesOfFreedomMinus{nullptr};
-
-  for (unsigned timeInterval = 0; timeInterval < dr::misc::TimeSteps; ++timeInterval) {
-    ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
-    if (table.find(timeIntegrationKey) != table.end()) {
-      auto& entry = table[timeIntegrationKey];
-
-      unsigned maxNumElements = (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getSize();
-      real** timeDerivativePlus =
-          (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
-      degreesOfFreedomPlus = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr();
-
-      m_timeKernel.evaluateBatched(&coeffs[timeInterval * ConvergenceOrder],
-                                   const_cast<const real**>(timeDerivativePlus),
-                                   degreesOfFreedomPlus,
-                                   maxNumElements,
-                                   runtime);
-
-      real** timeDerivativeMinus =
-          (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
-      degreesOfFreedomMinus = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr();
-      m_timeKernel.evaluateBatched(&coeffs[timeInterval * ConvergenceOrder],
-                                   const_cast<const real**>(timeDerivativeMinus),
-                                   degreesOfFreedomMinus,
-                                   maxNumElements,
-                                   runtime);
-    }
-
-    // finish all previous work in the default stream
-    size_t streamCounter{0};
-    runtime.envMany(20, [&](void* stream, size_t i) {
-      unsigned side = i / 5;
-      unsigned faceRelation = i % 5;
-      if (faceRelation == 4) {
-        ConditionalKey plusSideKey(*KernelNames::DrSpaceMap, side);
-        if (table.find(plusSideKey) != table.end()) {
-          auto& entry = table[plusSideKey];
-          const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getSize();
-
-          auto krnl = m_gpuKrnlPrototype;
-          real* tmpMem = reinterpret_cast<real*>(
-              device.api->allocMemAsync(krnl.TmpMaxMemRequiredInBytes * numElements, stream));
-          ++streamCounter;
-          krnl.linearAllocator.initialize(tmpMem);
-          krnl.streamPtr = stream;
-          krnl.numElements = numElements;
-
-          krnl.QInterpolated =
-              (entry.get(inner_keys::Dr::Id::QInterpolatedPlus))->getDeviceDataPtr();
-          krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
-          krnl.Q = const_cast<const real**>(
-              (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr());
-          krnl.TinvT =
-              const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
-          krnl.execute(side, 0);
-
-          device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
-        }
-      } else {
-        ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
-        if (table.find(minusSideKey) != table.end()) {
-          auto& entry = table[minusSideKey];
-          const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getSize();
-
-          auto krnl = m_gpuKrnlPrototype;
-          real* tmpMem = reinterpret_cast<real*>(
-              device.api->allocMemAsync(krnl.TmpMaxMemRequiredInBytes * numElements, stream));
-          ++streamCounter;
-          krnl.linearAllocator.initialize(tmpMem);
-          krnl.streamPtr = stream;
-          krnl.numElements = numElements;
-
-          krnl.QInterpolated =
-              (entry.get(inner_keys::Dr::Id::QInterpolatedMinus))->getDeviceDataPtr();
-          krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
-          krnl.Q = const_cast<const real**>(
-              (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr());
-          krnl.TinvT =
-              const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
-          krnl.execute(side, faceRelation);
-
-          device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
-        }
-      }
-    });
-  }*/
 #else
   logError() << "No GPU implementation provided";
 #endif
