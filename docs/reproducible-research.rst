@@ -100,6 +100,15 @@ A non-exhaustive list is given below:
      - `Wolf et al. (2021) <https://doi.org/10.1016/j.jcp.2021.110886>`_
      - `zenodo.org/record/5236133 <https://zenodo.org/record/5236133>`_
 
+   * - Dynamic rupture in poroelastic media
+     - dynamic
+     - S
+     - LSW
+     - 2
+     - `Wolf et al. (2025) <https://doi.org/10.1093/gji/ggaf184>`_
+     - `/zenodo.org/records/11401733 <https://zenodo.org/records/11401733>`_
+
+
    * - Low-angle normal fault |br| scenarios
      - dynamic
      - N
