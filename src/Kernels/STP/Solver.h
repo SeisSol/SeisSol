@@ -22,7 +22,7 @@ class Neighbor;
 } // namespace seissol::kernels::solver::linearck
 
 namespace seissol::tensor {
-class spaceTimePredictor;
+struct spaceTimePredictor;
 } // namespace seissol::tensor
 
 namespace seissol::kernels::solver::stp {

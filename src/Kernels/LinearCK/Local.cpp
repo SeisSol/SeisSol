@@ -43,7 +43,9 @@
 #endif
 
 GENERATE_HAS_MEMBER(ET)
+GENERATE_HAS_MEMBER(extraOffset_ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
+
 namespace seissol::kernels::solver::linearck {
 
 void Local::setGlobalData(const CompoundGlobalData& global) {
@@ -281,12 +283,24 @@ void Local::computeBatchedIntegral(
     volKrnl.I =
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
+    const auto** localIntegrationPtrs = const_cast<const real**>(
+        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      volKrnl.star(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+      volKrnl.star(i) = localIntegrationPtrs;
       volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
+
+    constexpr auto SourceMatrixOffset =
+        offsetof(LocalIntegrationData, specific) +
+        get_offset_sourceMatrix<decltype(LocalIntegrationData::specific)>();
+    static_assert(SourceMatrixOffset % sizeof(real) == 0,
+                  "SourceMatrixOffset is not dividable by the real size.");
+
+    set_ET(volKrnl, localIntegrationPtrs);
+    set_extraOffset_ET(volKrnl, SourceMatrixOffset / sizeof(real));
+
     volKrnl.linearAllocator.initialize(tmpMem.get());
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();

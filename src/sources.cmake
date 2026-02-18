@@ -241,7 +241,6 @@ elseif ("${EQUATIONS}" STREQUAL "poroelastic")
   target_sources(seissol-lib PRIVATE
     Kernels/LinearCK/Neighbor.cpp
     Kernels/LinearCK/Local.cpp
-    Kernels/LinearCK/Time.cpp
     Kernels/STP/Time.cpp
   )
   target_include_directories(seissol-common-properties INTERFACE Equations/poroelastic)

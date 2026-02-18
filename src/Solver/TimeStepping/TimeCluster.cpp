@@ -449,6 +449,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
       computeGraphKey, *clusterData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
         spacetimeKernel.computeBatchedAder(integrationCoeffs.data(),
                                            timeStepWidth,
+                                           *clusterData,
                                            tmp,
                                            dataTable,
                                            materialTable,

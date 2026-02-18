@@ -39,14 +39,9 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
          0);
 
   m_krnlPrototype.kDivMT = global.onHost->stiffnessMatricesTransposed;
-  m_krnlPrototype.selectAne = init::selectAne::Values;
-  m_krnlPrototype.selectEla = init::selectEla::Values;
 
 #ifdef ACL_DEVICE
   deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
-  // the selectAne/selectEla are inlined
-  deviceKrnlPrototype.selectAne = global.onDevice->selectAne;
-  deviceKrnlPrototype.selectEla = global.onDevice->selectEla;
 #endif
 }
 
@@ -197,6 +192,7 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
 void Spacetime::computeBatchedAder(
     SEISSOL_GPU_PARAM const real* coeffs,
     SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM LTS::Layer& layer,
     SEISSOL_GPU_PARAM LocalTmp& tmp,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
     SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,

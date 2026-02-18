@@ -54,8 +54,6 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   m_nfKrnlPrototype.rT = global.onHost->neighborChangeOfBasisMatricesTransposed;
   m_nfKrnlPrototype.fP = global.onHost->neighborFluxMatrices;
   m_drKrnlPrototype.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
-  m_nKrnlPrototype.selectEla = init::selectEla::Values;
-  m_nKrnlPrototype.selectAne = init::selectAne::Values;
 
 #ifdef ACL_DEVICE
 #ifdef USE_PREMULTIPLY_FLUX
@@ -66,8 +64,6 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   deviceNfKrnlPrototype.fP = global.onDevice->neighborFluxMatrices;
 #endif
   deviceDrKrnlPrototype.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
-  deviceNKrnlPrototype.selectEla = global.onDevice->selectEla;
-  deviceNKrnlPrototype.selectAne = global.onDevice->selectAne;
 #endif
 }
 
