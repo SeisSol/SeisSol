@@ -74,6 +74,12 @@ T* allocTyped(size_t count, size_t alignment = 1, Memkind memkind = Memkind::Sta
 
 void free(void* pointer, Memkind memkind = Memkind::Standard);
 
+template <typename T>
+void freeTyped(T* pointer, Memkind memkind = Memkind::Standard) {
+  // mostly exists to silence clang-tidy (if T is a pointer)
+  free(reinterpret_cast<void*>(pointer), memkind);
+}
+
 void memcopy(
     void* dst, const void* src, std::size_t size, enum Memkind dstMemkind, enum Memkind srcMemkind);
 
@@ -154,19 +160,35 @@ class ManagedAllocator {
 template <typename T>
 class MemkindArray {
   public:
-  MemkindArray(MemkindArray<T>&& source) = default;
+  MemkindArray(MemkindArray<T>&& source) noexcept
+      : dataPtr(source.dataPtr), capacity(source.capacity), memkind(source.memkind) {
+    source.dataPtr = nullptr;
+    source.memkind = Memkind::Standard;
+    source.capacity = 0;
+  }
   MemkindArray(const MemkindArray<T>& source) : MemkindArray(source, source.memkind) {}
 
   auto operator=(const MemkindArray<T>& source) -> MemkindArray& {
     if (&source != this) {
-      if (capacity != source.capacity) {
-        resize(source.capacity);
+      if (capacity != source.capacity || memkind != source.memkind) {
+        resize(source.capacity, source.memkind);
       }
       copyFrom(source);
     }
     return *this;
   }
-  auto operator=(MemkindArray<T>&& source) noexcept -> MemkindArray& = default;
+  auto operator=(MemkindArray<T>&& source) noexcept -> MemkindArray& {
+    if (&source != this) {
+      dataPtr = source.dataPtr;
+      memkind = source.memkind;
+      capacity = source.capacity;
+
+      source.dataPtr = nullptr;
+      source.memkind = Memkind::Standard;
+      source.capacity = 0;
+    }
+    return *this;
+  }
 
   MemkindArray(const MemkindArray<T>& source, Memkind memkind)
       : MemkindArray(source.size(), memkind) {
@@ -176,14 +198,19 @@ class MemkindArray {
       : MemkindArray(source.size(), memkind) {
     copyFrom(source);
   }
-  MemkindArray(std::size_t capacity, Memkind memkind) : MemkindArray(memkind) { resize(capacity); }
+  MemkindArray(std::size_t capacity, Memkind memkind) : MemkindArray(memkind) {
+    resize(capacity, memkind);
+  }
   explicit MemkindArray(Memkind memkind) : memkind(memkind) {}
 
-  void resize(std::size_t capacity) {
+  void resize(std::size_t capacity, Memkind newMemkind) {
     this->capacity = capacity;
-    free(dataPtr, memkind);
-    dataPtr = allocTyped<T>(capacity, Alignment, memkind);
+    freeTyped(dataPtr, memkind);
+    dataPtr = allocTyped<T>(capacity, Alignment, newMemkind);
+    this->memkind = newMemkind;
   }
+  void resize(std::size_t capacity) { resize(capacity, memkind); }
+
   void copyFrom(const std::vector<T>& source) {
     assert(source.size() <= capacity);
     memcopyTyped<T>(dataPtr, source.data(), capacity, memkind, Memkind::Standard);
@@ -192,7 +219,8 @@ class MemkindArray {
     assert(source.size() <= capacity);
     memcopyTyped<T>(dataPtr, source.data(), capacity, memkind, source.memkind);
   }
-  ~MemkindArray() { free(dataPtr, memkind); }
+
+  ~MemkindArray() { freeTyped(dataPtr, memkind); }
   SEISSOL_HOSTDEVICE T* data() noexcept { return dataPtr; }
   [[nodiscard]] SEISSOL_HOSTDEVICE const T* data() const noexcept { return dataPtr; }
   SEISSOL_HOSTDEVICE T* begin() noexcept { return dataPtr; }

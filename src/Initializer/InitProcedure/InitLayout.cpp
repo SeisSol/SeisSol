@@ -361,6 +361,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
                                             haloCommunication,
                                             seissolInstance.getMemoryManager(),
                                             seissolParams.model.plasticity);
+
+  seissolInstance.dofSync().setup(meshLayout, &ltsStorage);
 }
 
 } // namespace
