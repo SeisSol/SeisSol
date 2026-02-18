@@ -115,7 +115,7 @@ Save this file as *mytopo.dat*.
 
 2.Make a model with a plane surface first (step1.geo).
 
-::
+.. code-block:: c++
 
     cl = 1;
 
@@ -155,22 +155,22 @@ Save this file as *mytopo.dat*.
 
 then generate msh file by:
 
-::
+.. code-block:: bash
 
-  $ gmsh step1.geo -2 -o step1.msh
+  gmsh step1.geo -2 -o step1.msh
 
 3.Use *gmsh_plane2topo.f90* and interpol_topo.in* to shift the planar
 surface according to positions given in *mytopo.dat*.
 
-::
+.. code-block:: bash
 
-  $ ./gmsh_plane2topo interpol_topo.in
+  ./gmsh_plane2topo interpol_topo.in
 
-gmsh_plane2topo.f90 can be found in https://github.com/daisy20170101/SeisSol_Cookbook/tree/master/tpv29
+gmsh_plane2topo.f90 can be found in https://github.com/SeisSol/Examples/tree/master/tpv29 .
 
 The format of interpol_topo.in is following:
 
-::
+.. code-block:: fortran
 
   &input ! this is the input file for "interpol_topo"
 
@@ -205,7 +205,7 @@ follow the general GMSH process.
 
 The format of step2.geo is following:
 
-::
+.. code-block:: c++
 
   Merge "step1_modified.msh"; // merge modified msh
 
@@ -224,8 +224,9 @@ The new geometry with topography:
    Diagram showing the geometry with topography.
 
 5. Generate MSH mesh with the command line:
-::
 
-  & gmsh step2.geo -3 -optimize_netgen -o step2.msh
+.. code-block:: bash
+
+  gmsh step2.geo -3 -optimize_netgen -o step2.msh
 
 option optimize_netgen is necessary for optimizing meshing with good quality.

@@ -12,16 +12,15 @@ easi
 ====
 
 easi is a library for the Easy Initialization of model parameters in
-three (or less) dimensional domains. easi offers the possibility to
-parameterize the simulation without having to recompile SeisSol. Thanks
-to easi, all user can run their simulations with the same executable (no
-more hardcoded fortran initialization routines).
+three (or less) dimensional domains. It serves as a domain-specific
+scripting language in SeisSol, to calculate initial conditions
+and material properties for setting up simulations.
 
 Writing easi models
 -------------------
 
-easi uses configuration files written in Yet Another Markup Language (YAML).
-For example, a simple model with constant material parameters could be
+easi is written as YAML files with its custom blocks.
+For example, a simple model with constant material parameters is
 described in the following way:
 
 .. code-block:: YAML
@@ -34,20 +33,20 @@ described in the following way:
     Qp:     69.3
     Qs:     155.9
 
-Complex models may be easily built, too.
-For example, built-in with easi come `linear <https://easyinit.readthedocs.io/en/latest/maps.html#affinemap>`__ or `polynomial <https://easyinit.readthedocs.io/en/latest/maps.html#polynomialmap>`__ models
+For more complex models, easi e.g. offers `linear <https://easyinit.readthedocs.io/en/latest/maps.html#affinemap>`__ or `polynomial <https://easyinit.readthedocs.io/en/latest/maps.html#polynomialmap>`__ models
 (e.g. to build depth-dependent models).
 Furthermore, one may sample parameters from large two- or three-dimensional `uniform grids <https://easyinit.readthedocs.io/en/latest/maps.html#asagi>`__.
-Lastly, code may be supplied written in a `C-like language <https://easyinit.readthedocs.io/en/latest/maps.html#functionmap>`__, which is compiled at run-time.
+Lastly, code may be supplied written in `Lua <https://easyinit.readthedocs.io/en/latest/maps.html#luamap>`__ which is interpreted on the fly.
 
-Please refer to `easi's documentation <https://easyinit.readthedocs.io/>`__
-and to `easi's examples <https://github.com/SeisSol/easi/tree/master/examples>`__ for further details.
+For further details, see the `easi documentation <https://easyinit.readthedocs.io/>`__
+and the `easi examples <https://github.com/SeisSol/easi/tree/master/examples>`__.
 
 Invoking SeisSol
 ----------------
 
-It is recommended to place easi models in the folder that also contains
-the parameter file.
+The material files are sought relative to the parameter file.
+I.e. you may specify them as a relativ path w.r.t. the parameter file folder.
+
 Within the parameter-file, add the parameter ``MaterialFileName`` to
 the equations block, e.g.
 
@@ -58,7 +57,7 @@ the equations block, e.g.
   /
 
 When using :doc:`dynamic-rupture`, add the parameter ``ModelFileName`` to
-the DynamicRupture block, e.g.
+the ``DynamicRupture`` block, e.g.
 
 .. code-block:: Fortran
 
@@ -68,10 +67,10 @@ the DynamicRupture block, e.g.
 
 Rheological model parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-The following parameters need to be set by easi.
-The columms E, A, V, and P denote if the respective parameter is required
-when using an (isotropic) elastic, anisotropic (elastic), viscoelastic, and viscoplastic rheological model.
 
+The following parameters need to be set by easi.
+The columns E, A, V, and P denote if the respective parameter is required
+when using an (isotropic) elastic, anisotropic (elastic), viscoelastic, and viscoplastic rheological model.
 
 .. |checkmark| unicode:: U+2713
 
@@ -135,7 +134,6 @@ when using an (isotropic) elastic, anisotropic (elastic), viscoelastic, and visc
      -
      - |checkmark|
      - Initial stress tensor.
-
 
 .. [#] See :ref:`anisotropic` for more details.
 
