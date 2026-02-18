@@ -437,10 +437,21 @@ class Viscoelastic2ADERDG(ADERDGBase):
             # which are smaller than the whole tensor families
             # (even indices share the same buffer,
             # and odd indices share the same buffer)
-            derivativeExpr = [
-                self.I["kp"] <= powers[0] * dQ[0]["kp"],
+
+            if target == "gpu":
+                derivativeExpr = [
+                    dQ[0]["kp"] <= self.Q["kp"],
+                    self.I["kp"] <= powers[0] * self.Q["kp"],  # == dQ[0]
+                ]
+            else:
+                derivativeExpr = [
+                    self.I["kp"] <= powers[0] * dQ[0]["kp"],
+                ]
+
+            derivativeExpr += [
                 self.Iane["kpm"] <= powers[0] * dQane[0]["kpm"],
             ]
+
             for d in range(1, self.order):
                 derivativeExpr += [
                     dQext[d]["kp"] <= derivative(d),
