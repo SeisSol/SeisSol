@@ -48,7 +48,7 @@ class OutputManager {
                             double meshDt,
                             double meshInDt,
                             parallel::runtime::StreamRuntime& runtime);
-  void flushPickpointDataToFile(std::size_t layerId);
+  void flushPickpointDataToFile();
   void updateElementwiseOutput();
 
   private:

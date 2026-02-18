@@ -299,12 +299,9 @@ void OutputManager::initPickpointOutput() {
   ppOutputBuilder->build(ppOutputData);
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
 
-  seissolInstance.pickpointWriter().enable(seissolParameters.output.pickpointParameters.interval);
-  seissolInstance.pickpointWriter().setupWriter([&]() {
-    for (const auto& [id, _] : ppOutputData) {
-      flushPickpointDataToFile(id);
-    }
-  });
+  seissolInstance.pickpointWriter().enable(
+      seissolParameters.output.pickpointParameters.writeInterval);
+  seissolInstance.pickpointWriter().setupWriter([&]() { flushPickpointDataToFile(); });
 
   if (seissolParameters.output.pickpointParameters.collectiveio) {
     logError() << "Collective IO for the on-fault receiver output is still under construction.";
@@ -548,35 +545,35 @@ void OutputManager::writePickpointOutput(double time, double dt) {
   }
 }
 
-void OutputManager::flushPickpointDataToFile(std::size_t layerId) {
-  auto& outputData = ppOutputData.at(layerId);
-
-  for (const auto& ppfile : ppFiles.at(layerId)) {
-    std::stringstream data;
-    for (size_t level = 0; level < outputData->currentCacheLevel; ++level) {
-      data << makeFormatted(outputData->cachedTime[level]) << '\t';
-      for (std::size_t pointId : ppfile.indices) {
-        auto recordResults = [pointId, level, &data](auto& var, int) {
-          if (var.isActive) {
-            for (std::size_t dim = 0; dim < var.dim(); ++dim) {
-              data << makeFormatted(var(dim, level, pointId)) << '\t';
+void OutputManager::flushPickpointDataToFile() {
+  for (auto& [layerId, outputData] : ppOutputData) {
+    for (const auto& ppfile : ppFiles.at(layerId)) {
+      std::stringstream data;
+      for (size_t level = 0; level < outputData->currentCacheLevel; ++level) {
+        data << makeFormatted(outputData->cachedTime[level]) << '\t';
+        for (std::size_t pointId : ppfile.indices) {
+          auto recordResults = [pointId, level, &data](auto& var, int) {
+            if (var.isActive) {
+              for (std::size_t dim = 0; dim < var.dim(); ++dim) {
+                data << makeFormatted(var(dim, level, pointId)) << '\t';
+              }
             }
-          }
-        };
-        misc::forEach(outputData->vars, recordResults);
+          };
+          misc::forEach(outputData->vars, recordResults);
+        }
+        data << '\n';
       }
-      data << '\n';
-    }
 
-    std::ofstream file(ppfile.fileName, std::ios_base::app);
-    if (file.is_open()) {
-      file << data.str();
-    } else {
-      logError() << "cannot open " << ppfile.fileName;
+      std::ofstream file(ppfile.fileName, std::ios_base::app);
+      if (file.is_open()) {
+        file << data.str();
+      } else {
+        logError() << "cannot open" << ppfile.fileName;
+      }
+      file.close();
     }
-    file.close();
+    outputData->currentCacheLevel = 0;
   }
-  outputData->currentCacheLevel = 0;
 }
 
 void OutputManager::updateElementwiseOutput() {
