@@ -99,7 +99,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
     std::vector<bool> nucleationStressParameterizedByTraction(drParameters->nucleationCount);
     std::vector<StressTensor> nucleationStresses;
     nucleationStresses.reserve(drParameters->nucleationCount);
-    for (unsigned i = 0; i < drParameters->nucleationCount; ++i) {
+    for (std::uint32_t i = 0; i < drParameters->nucleationCount; ++i) {
       nucleationStresses.emplace_back(layer.size());
       nucleationStressParameterizedByTraction[i] =
           addStressesToStorageMap(nucleationStresses[i], i + 1);
@@ -126,7 +126,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
     auto* initialStressInFaultCS = layer.var<DynamicRupture::InitialStressInFaultCS>();
     rotateStressToFaultCS(layer, initialStressInFaultCS, 0, 1, initialStress);
     // rotate nucleation stress to fault coordinate system
-    for (unsigned i = 0; i < drParameters->nucleationCount; ++i) {
+    for (std::uint32_t i = 0; i < drParameters->nucleationCount; ++i) {
       if (nucleationStressParameterizedByTraction[i]) {
         rotateTractionToCartesianStress(layer, nucleationStresses[i]);
       }
@@ -142,7 +142,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         initialPressure[ltsFace][pointIndex] = initialStress.p[ltsFace][pointIndex];
-        for (unsigned i = 0; i < drParameters->nucleationCount; ++i) {
+        for (std::uint32_t i = 0; i < drParameters->nucleationCount; ++i) {
           auto* nucleationPressure = layer.var<DynamicRupture::NucleationPressure>();
           nucleationPressure[ltsFace * drParameters->nucleationCount + i][pointIndex] =
               nucleationStresses[i].p[ltsFace][pointIndex];
@@ -154,9 +154,9 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
   }
 }
 
-std::vector<unsigned> BaseDRInitializer::getFaceIDsInIterator(DynamicRupture::Layer& layer) {
+std::vector<std::size_t> BaseDRInitializer::getFaceIDsInIterator(DynamicRupture::Layer& layer) {
   const auto& drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
-  std::vector<unsigned> faceIDs;
+  std::vector<std::size_t> faceIDs;
   faceIDs.reserve(layer.size());
   // collect all face IDs within this lts leaf
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
@@ -166,7 +166,7 @@ std::vector<unsigned> BaseDRInitializer::getFaceIDsInIterator(DynamicRupture::La
 }
 
 void BaseDRInitializer::queryModel(seissol::initializer::FaultParameterDB& faultParameterDB,
-                                   const std::vector<unsigned>& faceIDs,
+                                   const std::vector<std::size_t>& faceIDs,
                                    std::size_t simid) {
   // create a query and evaluate the model
   if (!drParameters->faultFileNames[simid].has_value()) {
@@ -190,7 +190,7 @@ void BaseDRInitializer::rotateTractionToCartesianStress(DynamicRupture::Layer& l
 
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
     const auto& drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
-    const unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
+    const auto meshFace = drFaceInformation[ltsFace].meshFace;
     const Fault& fault = seissolInstance.meshReader().getFault().at(meshFace);
 
     // if we read the traction in strike, dip and normal direction, we first transform it to stress
@@ -240,9 +240,9 @@ void BaseDRInitializer::rotateStressToFaultCS(DynamicRupture::Layer& layer,
   cartesianToFaultCSRotationKernel.stressRotationMatrix = cartesianToFaultCSMatrixValues;
 
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-    constexpr unsigned int NumStressComponents = model::MaterialT::TractionQuantities;
+    constexpr auto NumStressComponents = model::MaterialT::TractionQuantities;
     const auto& drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
-    const unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
+    const auto meshFace = drFaceInformation[ltsFace].meshFace;
     const Fault& fault = seissolInstance.meshReader().getFault().at(meshFace);
 
     // now rotate the stress in cartesian coordinates to the element aligned coordinate system.
@@ -356,13 +356,13 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
   bool allCartesianParametersSupplied = true;
   bool anyTractionParametersSupplied = false;
   bool anyCartesianParametersSupplied = false;
-  for (size_t i = 0; i < 3; ++i) {
-    const auto b = faultProvides(tractionNames[i]);
+  for (const auto& name : tractionNames) {
+    const auto b = faultProvides(name);
     allTractionParametersSupplied &= b;
     anyTractionParametersSupplied |= b;
   }
-  for (size_t i = 0; i < 6; ++i) {
-    const auto b = faultProvides(cartesianNames[i]);
+  for (const auto& name : cartesianNames) {
+    const auto b = faultProvides(name);
     allCartesianParametersSupplied &= b;
     anyCartesianParametersSupplied |= b;
   }

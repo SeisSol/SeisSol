@@ -13,6 +13,7 @@
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Dense>
+#include <cstdint>
 #include <numeric>
 #include <string>
 
@@ -87,7 +88,7 @@ struct DRParameters {
   real terminatorSlipRateThreshold{0.0};
   double etaDamp{1.0};
   double etaDampEnd{std::numeric_limits<double>::infinity()};
-  unsigned nucleationCount{0};
+  std::uint32_t nucleationCount{0};
 };
 
 DRParameters readDRParameters(ParameterReader* baseReader);
