@@ -97,6 +97,7 @@ struct LTS {
   }
 
   struct Dofs : public initializer::Variable<real[tensor::Q::size()]> {};
+  struct DofsHalo : public initializer::Variable<real[tensor::Q::size()]> {};
   // size is zero if Qane is not defined
   struct DofsAne
       : public initializer::Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> {
@@ -150,6 +151,7 @@ struct LTS {
   struct Integrals : public initializer::Variable<real> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
+                                                        DofsHalo,
                                                         DofsAne,
                                                         Buffers,
                                                         Derivatives,
@@ -206,6 +208,10 @@ struct LTS {
     }
 
     storage.add<Dofs>(LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
+    storage.add<DofsHalo>(LayerMask(Copy) | LayerMask(Interior),
+                          PagesizeHeap,
+                          allocationModeWP(AllocationPreset::Dofs));
+
     if (kernels::size<tensor::Qane>() > 0) {
       storage.add<DofsAne>(
           LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
@@ -214,6 +220,7 @@ struct LTS {
                            PagesizeHeap,
                            allocationModeWP(AllocationPreset::Dofs));
     }
+
     storage.add<Buffers>(
         LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
     storage.add<Derivatives>(

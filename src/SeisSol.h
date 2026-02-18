@@ -18,9 +18,11 @@
 #include "Physics/InstantaneousTimeMirrorManager.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/AsyncIO.h"
+#include "ResultWriter/DofSync.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "ResultWriter/FaultWriter.h"
 #include "ResultWriter/FreeSurfaceWriter.h"
+#include "ResultWriter/PickpointWriter.h"
 #include "ResultWriter/PostProcessor.h"
 #include "ResultWriter/WaveFieldWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
@@ -113,6 +115,16 @@ class SeisSol {
    * Get the receiver writer module
    */
   writer::ReceiverWriter& receiverWriter() { return m_receiverWriter; }
+
+  /**
+   * Get the receiver writer module
+   */
+  writer::PickpointWriter& pickpointWriter() { return pickpointWriter_; }
+
+  /**
+   * Get the receiver writer module
+   */
+  writer::DofSync& dofSync() { return dofSync_; }
 
   /**
    * Get the energy writer module
@@ -249,8 +261,14 @@ class SeisSol {
   //! Fault output module
   writer::FaultWriter m_faultWriter;
 
-  //! Receiver writer module
+  //! Receiver (off-fault) writer module
   writer::ReceiverWriter m_receiverWriter;
+
+  //! Receiver (on-fault) writer module
+  writer::PickpointWriter pickpointWriter_;
+
+  //! Dof sync (for output) module
+  writer::DofSync dofSync_;
 
   //! Energy writer module
   writer::EnergyOutput m_energyOutput;
