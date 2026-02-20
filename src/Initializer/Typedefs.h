@@ -11,6 +11,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
 #define SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
 
+#include "Alignment.h"
 #include "BasicTypedefs.h"
 #include "CellLocalInformation.h"
 #include "DynamicRupture/Misc.h"
@@ -180,7 +181,7 @@ struct CompoundGlobalData {
 };
 
 // data for the cell local integration
-struct LocalIntegrationData {
+struct alignas(Alignment) LocalIntegrationData {
   // star matrices
   real starMatrices[3][seissol::tensor::star::size(0)];
 
@@ -192,7 +193,7 @@ struct LocalIntegrationData {
 };
 
 // data for the neighboring boundary integration
-struct NeighboringIntegrationData {
+struct alignas(Alignment) NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
   real nAmNm1[4][seissol::tensor::AminusT::size()];
 
