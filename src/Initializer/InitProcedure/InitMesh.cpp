@@ -12,6 +12,7 @@
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
+#include "Monitoring/Instrumentation.h"
 #include "Solver/Estimator.h"
 
 #include <Eigen/Core>

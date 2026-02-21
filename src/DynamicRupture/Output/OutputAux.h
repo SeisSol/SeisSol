@@ -32,6 +32,9 @@ ExtTriangle getGlobalTriangle(int localSideId,
 
 ExtVrtxCoords getMidPointTriangle(const ExtTriangle& triangle);
 
+ExtVrtxCoords getTrianglePointByCoords(const ExtTriangle& triangle,
+                                       const std::array<double, 2>& point);
+
 ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2);
 
 struct TriangleQuadratureData {

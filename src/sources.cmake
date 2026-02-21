@@ -114,15 +114,10 @@ Parallel/DataCollector.cpp
 Solver/Estimator.cpp
 
 ResultWriter/EnergyOutput.cpp
-ResultWriter/FreeSurfaceWriter.cpp
-ResultWriter/FreeSurfaceWriterExecutor.cpp
 ResultWriter/MiniSeisSolWriter.cpp
 ResultWriter/PostProcessor.cpp
 ResultWriter/ReceiverWriter.cpp
 ResultWriter/ThreadsPinningWriter.cpp
-ResultWriter/WaveFieldWriter.cpp
-ResultWriter/FaultWriter.cpp
-ResultWriter/FaultWriterExecutor.cpp
 
 DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp
 DynamicRupture/Output/FaultRefiner/FaultRefiners.cpp

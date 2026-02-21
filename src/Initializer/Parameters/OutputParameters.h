@@ -11,7 +11,6 @@
 #include "Equations/Datastructures.h"
 #include "Initializer/InputAux.h"
 #include "ParameterReader.h"
-#include "xdmfwriter/backends/Backend.h"
 
 #include <list>
 #include <string>
@@ -26,6 +25,8 @@ enum class FaultRefinement { Triple = 1, Quad = 2, None = 3 };
 enum class OutputFormat : int { None = 10, Xdmf = 6 };
 
 enum class VolumeRefinement : int { NoRefine = 0, Refine4 = 1, Refine8 = 2, Refine32 = 3 };
+
+enum class XdmfBackend : int { Posix, Hdf5 };
 
 struct CheckpointParameters {
   bool enabled{false};
@@ -118,7 +119,8 @@ struct WaveFieldOutputParameters {
 struct OutputParameters {
   bool loopStatisticsNetcdfOutput{false};
   OutputFormat format{OutputFormat::None};
-  xdmfwriter::BackendType xdmfWriterBackend{};
+  XdmfBackend xdmfWriterBackend{};
+  uint32_t hdfcompress{0};
   std::string prefix;
   CheckpointParameters checkpointParameters;
   ElementwiseFaultParameters elementwiseParameters;
@@ -131,7 +133,8 @@ struct OutputParameters {
   OutputParameters() = default;
   OutputParameters(bool loopStatisticsNetcdfOutput,
                    OutputFormat format,
-                   xdmfwriter::BackendType xdmfWriterBackend,
+                   XdmfBackend xdmfWriterBackend,
+                   uint32_t hdfcompress,
                    const std::string& prefix,
                    const CheckpointParameters& checkpointParameters,
                    const ElementwiseFaultParameters& elementwiseParameters,
@@ -141,7 +144,7 @@ struct OutputParameters {
                    const ReceiverOutputParameters& receiverParameters,
                    const WaveFieldOutputParameters& waveFieldParameters)
       : loopStatisticsNetcdfOutput(loopStatisticsNetcdfOutput), format(format),
-        xdmfWriterBackend(xdmfWriterBackend), prefix(prefix),
+        xdmfWriterBackend(xdmfWriterBackend), hdfcompress(hdfcompress), prefix(prefix),
         checkpointParameters(checkpointParameters), elementwiseParameters(elementwiseParameters),
         energyParameters(energyParameters), freeSurfaceParameters(freeSurfaceParameters),
         pickpointParameters(pickpointParameters), receiverParameters(receiverParameters),

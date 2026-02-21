@@ -247,19 +247,20 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
 OutputParameters readOutputParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
+  const auto hdfcompress = reader->readWithDefault("hdfcompress", 0);
   const auto loopStatisticsNetcdfOutput =
       reader->readWithDefault("loopstatisticsnetcdfoutput", false);
   const auto format = reader->readWithDefaultEnum<OutputFormat>(
       "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
-  const auto xdmfWriterBackend = reader->readWithDefaultStringEnum<xdmfwriter::BackendType>(
-      "xdmfwriterbackend",
-      "posix",
-      {
-          {"posix", xdmfwriter::BackendType::POSIX},
+  const auto xdmfWriterBackend =
+      reader->readWithDefaultStringEnum<XdmfBackend>("xdmfwriterbackend",
+                                                     "posix",
+                                                     {
+                                                         {"posix", XdmfBackend::Posix},
 #ifdef USE_HDF
-          {"hdf5", xdmfwriter::BackendType::H5},
+                                                         {"hdf5", XdmfBackend::Hdf5},
 #endif
-      });
+                                                     });
   const auto prefix =
       reader->readOrFail<std::string>("outputfile", "Output file prefix not defined.");
 
@@ -282,6 +283,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
   return OutputParameters(loopStatisticsNetcdfOutput,
                           format,
                           xdmfWriterBackend,
+                          hdfcompress,
                           prefix,
                           checkpointParameters,
                           elementwiseParameters,
