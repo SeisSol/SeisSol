@@ -131,7 +131,7 @@ class ManagedAllocator {
 
   //! holds all memory addresses, which point to data arrays and have been returned by mallocs
   //! calling functions of the memory allocator.
-  AddressVector dataMemoryAddresses;
+  AddressVector dataMemoryAddresses_;
 
   public:
   ManagedAllocator() = default;
@@ -161,17 +161,17 @@ template <typename T>
 class MemkindArray {
   public:
   MemkindArray(MemkindArray<T>&& source) noexcept
-      : dataPtr(source.dataPtr), capacity(source.capacity), memkind(source.memkind) {
-    source.dataPtr = nullptr;
-    source.memkind = Memkind::Standard;
-    source.capacity = 0;
+      : dataPtr_(source.dataPtr_), capacity_(source.capacity_), memkind_(source.memkind_) {
+    source.dataPtr_ = nullptr;
+    source.memkind_ = Memkind::Standard;
+    source.capacity_ = 0;
   }
-  MemkindArray(const MemkindArray<T>& source) : MemkindArray(source, source.memkind) {}
+  MemkindArray(const MemkindArray<T>& source) : MemkindArray(source, source.memkind_) {}
 
   auto operator=(const MemkindArray<T>& source) -> MemkindArray& {
     if (&source != this) {
-      if (capacity != source.capacity || memkind != source.memkind) {
-        resize(source.capacity, source.memkind);
+      if (capacity_ != source.capacity_ || memkind_ != source.memkind_) {
+        resize(source.capacity_, source.memkind_);
       }
       copyFrom(source);
     }
@@ -179,13 +179,13 @@ class MemkindArray {
   }
   auto operator=(MemkindArray<T>&& source) noexcept -> MemkindArray& {
     if (&source != this) {
-      dataPtr = source.dataPtr;
-      memkind = source.memkind;
-      capacity = source.capacity;
+      this->dataPtr_ = source.dataPtr_;
+      this->memkind_ = source.memkind_;
+      this->capacity_ = source.capacity_;
 
-      source.dataPtr = nullptr;
-      source.memkind = Memkind::Standard;
-      source.capacity = 0;
+      source.dataPtr_ = nullptr;
+      source.memkind_ = Memkind::Standard;
+      source.capacity_ = 0;
     }
     return *this;
   }
@@ -201,42 +201,42 @@ class MemkindArray {
   MemkindArray(std::size_t capacity, Memkind memkind) : MemkindArray(memkind) {
     resize(capacity, memkind);
   }
-  explicit MemkindArray(Memkind memkind) : memkind(memkind) {}
+  explicit MemkindArray(Memkind memkind) : memkind_(memkind) {}
 
   void resize(std::size_t capacity, Memkind newMemkind) {
-    this->capacity = capacity;
-    freeTyped(dataPtr, memkind);
-    dataPtr = allocTyped<T>(capacity, Alignment, newMemkind);
-    this->memkind = newMemkind;
+    this->capacity_ = capacity;
+    freeTyped(dataPtr_, memkind_);
+    dataPtr_ = allocTyped<T>(capacity, Alignment, newMemkind);
+    this->memkind_ = newMemkind;
   }
-  void resize(std::size_t capacity) { resize(capacity, memkind); }
+  void resize(std::size_t capacity) { resize(capacity, memkind_); }
 
   void copyFrom(const std::vector<T>& source) {
-    assert(source.size() <= capacity);
-    memcopyTyped<T>(dataPtr, source.data(), capacity, memkind, Memkind::Standard);
+    assert(source.size() <= capacity_);
+    memcopyTyped<T>(dataPtr_, source.data(), capacity_, memkind_, Memkind::Standard);
   }
   void copyFrom(const MemkindArray<T>& source) {
-    assert(source.size() <= capacity);
-    memcopyTyped<T>(dataPtr, source.data(), capacity, memkind, source.memkind);
+    assert(source.size() <= capacity_);
+    memcopyTyped<T>(dataPtr_, source.data(), capacity_, memkind_, source.memkind_);
   }
 
-  ~MemkindArray() { freeTyped(dataPtr, memkind); }
-  SEISSOL_HOSTDEVICE T* data() noexcept { return dataPtr; }
-  [[nodiscard]] SEISSOL_HOSTDEVICE const T* data() const noexcept { return dataPtr; }
-  SEISSOL_HOSTDEVICE T* begin() noexcept { return dataPtr; }
-  SEISSOL_HOSTDEVICE T* end() noexcept { return dataPtr + capacity; }
-  [[nodiscard]] SEISSOL_HOSTDEVICE const T* begin() const noexcept { return dataPtr; }
-  [[nodiscard]] SEISSOL_HOSTDEVICE const T* end() const noexcept { return dataPtr + capacity; }
-  SEISSOL_HOSTDEVICE constexpr T& operator[](std::size_t index) { return dataPtr[index]; }
+  ~MemkindArray() { freeTyped(dataPtr_, memkind_); }
+  SEISSOL_HOSTDEVICE T* data() noexcept { return dataPtr_; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE const T* data() const noexcept { return dataPtr_; }
+  SEISSOL_HOSTDEVICE T* begin() noexcept { return dataPtr_; }
+  SEISSOL_HOSTDEVICE T* end() noexcept { return dataPtr_ + capacity_; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE const T* begin() const noexcept { return dataPtr_; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE const T* end() const noexcept { return dataPtr_ + capacity_; }
+  SEISSOL_HOSTDEVICE constexpr T& operator[](std::size_t index) { return dataPtr_[index]; }
   SEISSOL_HOSTDEVICE constexpr const T& operator[](std::size_t index) const {
-    return dataPtr[index];
+    return dataPtr_[index];
   }
-  [[nodiscard]] SEISSOL_HOSTDEVICE constexpr std::size_t size() const noexcept { return capacity; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE constexpr std::size_t size() const noexcept { return capacity_; }
 
   private:
-  T* dataPtr{nullptr};
-  std::size_t capacity{0};
-  Memkind memkind{Memkind::Standard};
+  T* dataPtr_{nullptr};
+  std::size_t capacity_{0};
+  Memkind memkind_{Memkind::Standard};
 };
 
 } // namespace seissol::memory

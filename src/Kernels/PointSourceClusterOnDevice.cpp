@@ -9,10 +9,10 @@
 #include "PointSourceClusterOnDevice.h"
 
 #include "Kernels/PointSourceCluster.h"
-#include "Kernels/Precision.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SourceTerm/Typedefs.h"
 
+#include <cstddef>
 #include <memory>
 #include <utility>
 

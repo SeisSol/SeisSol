@@ -37,7 +37,7 @@ class DirichletBoundary {
   }
 
   public:
-  DirichletBoundary() { quadrature::GaussLegendre(quadPoints, quadWeights, ConvergenceOrder); }
+  DirichletBoundary() { quadrature::GaussLegendre(quadPoints_, quadWeights_, ConvergenceOrder); }
 
   template <typename Func, typename MappingKrnl>
   void evaluate(const real* dofsVolumeInteriorModal,
@@ -72,7 +72,7 @@ class DirichletBoundary {
                         InverseMappingKrnl& nodalLfKrnlPrototype,
                         local_flux::aux::DirichletBoundaryAux<Func>& boundaryCondition,
                         recording::ConditionalPointersToRealsTable& dataTable,
-                        device::DeviceInstance& device,
+                        device::DeviceInstance& /*device*/,
                         seissol::parallel::runtime::StreamRuntime& runtime) const {
     using namespace seissol::recording;
     const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize()};
@@ -140,8 +140,8 @@ class DirichletBoundary {
     double timePoints[ConvergenceOrder];
     double timeWeights[ConvergenceOrder];
     for (unsigned point = 0; point < ConvergenceOrder; ++point) {
-      timePoints[point] = (timeStepWidth * quadPoints[point] + 2 * startTime + timeStepWidth) / 2;
-      timeWeights[point] = 0.5 * timeStepWidth * quadWeights[point];
+      timePoints[point] = (timeStepWidth * quadPoints_[point] + 2 * startTime + timeStepWidth) / 2;
+      timeWeights[point] = 0.5 * timeStepWidth * quadWeights_[point];
     }
 
     alignas(Alignment) real dofsFaceBoundaryNodalTmp[tensor::INodal::size()];
@@ -165,8 +165,8 @@ class DirichletBoundary {
   }
 
   private:
-  double quadPoints[ConvergenceOrder]{};
-  double quadWeights[ConvergenceOrder]{};
+  double quadPoints_[ConvergenceOrder]{};
+  double quadWeights_[ConvergenceOrder]{};
 };
 
 //

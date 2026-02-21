@@ -83,6 +83,8 @@ Checks:
   - performance-*
   - -performance-enum-size
   - -performance-avoid-endl
+  - portability-*
+  - -portability-template-virtual-member-function
   - readability-*
   - -readability-else-after-return
   - -readability-identifier-length
@@ -248,8 +250,6 @@ CheckOptions:
 #    value:           CamelCase
   - key:             readability-identifier-naming.MemberCase
     value:           camelBack
-  - key:             readability-identifier-naming.MemberIgnoredRegexp
-    value:           "^m_|_$" # TODO: temporary! Remove after more refactoring.
 #  - key:             readability-identifier-naming.MemberPrefix
 #    value:           ""
 #  - key:             readability-identifier-naming.MemberSuffix
@@ -288,8 +288,8 @@ CheckOptions:
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.PrivateMemberPrefix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.PrivateMemberSuffix
-#    value:           CamelCase
+  - key:             readability-identifier-naming.PrivateMemberSuffix
+    value:           "_"
 #  - key:             readability-identifier-naming.PrivateMethodCase
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.PrivateMethodPrefix
@@ -300,8 +300,8 @@ CheckOptions:
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.ProtectedMemberPrefix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.ProtectedMemberSuffix
-#    value:           CamelCase
+  - key:             readability-identifier-naming.ProtectedMemberSuffix
+    value:           "_"
 #  - key:             readability-identifier-naming.ProtectedMethodCase
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.ProtectedMethodPrefix

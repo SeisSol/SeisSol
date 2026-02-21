@@ -52,15 +52,15 @@ template <typename RealT>
 class MonomialBasis : public TimeBasis<RealT> {
   public:
   ~MonomialBasis() override = default;
-  explicit MonomialBasis(std::size_t order) : order(order) {}
+  explicit MonomialBasis(std::size_t order) : order_(order) {}
 
   [[nodiscard]] std::vector<RealT> derivative(double position, double /*timestep*/) const override {
-    std::vector<RealT> coeffs(order);
+    std::vector<RealT> coeffs(order_);
     coeffs[0] = 0;
     if (coeffs.size() > 1) {
       coeffs[1] = 1;
       double coeffCache = 1;
-      for (std::size_t i = 1; i + 1 < order; ++i) {
+      for (std::size_t i = 1; i + 1 < order_; ++i) {
         coeffCache *= position / i;
         coeffs[i + 1] = coeffCache;
       }
@@ -69,10 +69,10 @@ class MonomialBasis : public TimeBasis<RealT> {
   }
 
   [[nodiscard]] std::vector<RealT> point(double position, double /*timestep*/) const override {
-    std::vector<RealT> coeffs(order);
+    std::vector<RealT> coeffs(order_);
     coeffs[0] = 1;
     double coeffCache = 1;
-    for (std::size_t i = 1; i < order; ++i) {
+    for (std::size_t i = 1; i < order_; ++i) {
       coeffCache *= position / i;
       coeffs[i] = coeffCache;
     }
@@ -81,10 +81,10 @@ class MonomialBasis : public TimeBasis<RealT> {
 
   [[nodiscard]] std::vector<RealT>
       integrate(double start, double end, double /*timestep*/) const override {
-    std::vector<RealT> coeffs(order);
+    std::vector<RealT> coeffs(order_);
     double coeffStart = start;
     double coeffEnd = end;
-    for (std::size_t i = 0; i < order; ++i) {
+    for (std::size_t i = 0; i < order_; ++i) {
       coeffs[i] = coeffEnd - coeffStart;
       coeffStart *= start / (i + 2);
       coeffEnd *= end / (i + 2);
@@ -93,7 +93,7 @@ class MonomialBasis : public TimeBasis<RealT> {
   }
 
   private:
-  std::size_t order;
+  std::size_t order_;
 };
 
 /**
@@ -105,12 +105,12 @@ template <typename RealT>
 class LegendreBasis : public TimeBasis<RealT> {
   public:
   ~LegendreBasis() override = default;
-  explicit LegendreBasis(std::size_t order) : order(order) {}
+  explicit LegendreBasis(std::size_t order) : order_(order) {}
 
   [[nodiscard]] std::vector<RealT> derivative(double position, double timestep) const override {
     const double tau = position / timestep;
-    std::vector<RealT> data(order);
-    for (std::size_t i = 0; i < order; ++i) {
+    std::vector<RealT> data(order_);
+    for (std::size_t i = 0; i < order_; ++i) {
       data[i] = seissol::functions::shiftedLegendre(i, tau, 1) / timestep;
     }
     return data;
@@ -118,8 +118,8 @@ class LegendreBasis : public TimeBasis<RealT> {
 
   [[nodiscard]] std::vector<RealT> point(double position, double timestep) const override {
     const double tau = position / timestep;
-    std::vector<RealT> data(order);
-    for (std::size_t i = 0; i < order; ++i) {
+    std::vector<RealT> data(order_);
+    for (std::size_t i = 0; i < order_; ++i) {
       data[i] = seissol::functions::shiftedLegendre(i, tau, 0);
     }
     return data;
@@ -129,8 +129,8 @@ class LegendreBasis : public TimeBasis<RealT> {
       integrate(double start, double end, double timestep) const override {
     const double tauS = start / timestep;
     const double tauE = end / timestep;
-    std::vector<RealT> data(order);
-    for (std::size_t i = 0; i < order; ++i) {
+    std::vector<RealT> data(order_);
+    for (std::size_t i = 0; i < order_; ++i) {
       // apply integral transform with x |-> (x * timestep)
 
       const auto fE = seissol::functions::shiftedLegendre(i, tauE, -1);
@@ -141,7 +141,7 @@ class LegendreBasis : public TimeBasis<RealT> {
   }
 
   private:
-  std::size_t order;
+  std::size_t order_;
 };
 
 } // namespace seissol::numerical

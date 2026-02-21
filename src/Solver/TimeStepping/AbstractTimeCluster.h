@@ -20,16 +20,16 @@ namespace seissol::time_stepping {
 
 class AbstractTimeCluster {
   private:
-  ActorPriority priority = ActorPriority::Low;
-  std::chrono::steady_clock::time_point timeOfLastStageChange;
+  ActorPriority priority_ = ActorPriority::Low;
+  std::chrono::steady_clock::time_point timeOfLastStageChange_;
   const std::chrono::seconds timeout = std::chrono::minutes(15);
-  bool alreadyPrintedTimeOut = false;
+  bool alreadyPrintedTimeOut_ = false;
 
   protected:
-  ActorState state = ActorState::Synced;
-  ClusterTimes ct;
-  std::vector<NeighborCluster> neighbors;
-  double syncTime = 0.0;
+  ActorState state_ = ActorState::Synced;
+  ClusterTimes ct_;
+  std::vector<NeighborCluster> neighbors_;
+  double syncTime_ = 0.0;
 
   [[nodiscard]] double timeStepSize() const;
 
@@ -49,10 +49,10 @@ class AbstractTimeCluster {
 
   bool hasDifferentExecutorNeighbor();
 
-  long timeStepRate;
+  long timeStepRate_;
   //! number of time steps
-  long numberOfTimeSteps{0};
-  Executor executor;
+  long numberOfTimeSteps_{0};
+  Executor executor_;
 
   public:
   virtual ~AbstractTimeCluster() = default;
@@ -86,7 +86,7 @@ class AbstractTimeCluster {
   [[nodiscard]] long getTimeStepRate() const;
 
   [[nodiscard]] std::string identifier() const {
-    return description() + "-" + std::to_string(ct.timeStepRate);
+    return description() + "-" + std::to_string(ct_.timeStepRate);
   }
 
   /**

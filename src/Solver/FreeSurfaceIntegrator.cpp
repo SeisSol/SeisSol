@@ -42,7 +42,7 @@
 namespace seissol::solver {
 
 FreeSurfaceIntegrator::FreeSurfaceIntegrator() {
-  for (auto& face : projectionMatrix) {
+  for (auto& face : projectionMatrix_) {
     face = nullptr;
   }
 
@@ -58,8 +58,8 @@ FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
     seissol::memory::free(displacements[dim]);
   }
 
-  seissol::memory::free(projectionMatrixMemory);
-  seissol::memory::free(projectionMatrixFromFace);
+  seissol::memory::free(projectionMatrixMemory_);
+  seissol::memory::free(projectionMatrixFromFace_);
 }
 
 void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
@@ -72,7 +72,7 @@ void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
     return;
   }
 
-  m_enabled = true;
+  enabled_ = true;
 
   logInfo() << "Initializing free surface integrator.";
   initializeProjectionMatrices(maxRefinementDepth);
@@ -99,17 +99,17 @@ void FreeSurfaceIntegrator::calculateOutput() const {
         kernel::subTriangleVelocity vkrnl;
         vkrnl.Q = dofs[face];
         vkrnl.selectVelocity = init::selectVelocity::Values;
-        vkrnl.subTriangleProjection(triRefiner.maxDepth) = projectionMatrix[side[face]];
+        vkrnl.subTriangleProjection(triRefiner.maxDepth) = projectionMatrix_[side[face]];
         vkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
         vkrnl.execute(triRefiner.maxDepth);
 
         auto addOutput = [&](const std::array<real*, NumComponents>& output) {
           for (std::size_t component = 0; component < NumComponents; ++component) {
-            real* target = output[component] + outputPosition[face] * numberOfSubTriangles;
+            real* target = output[component] + outputPosition[face] * numberOfSubTriangles_;
             /// @yateto_todo fix for multiple simulations
             const real* source =
-                subTriangleDofs + static_cast<size_t>(component * numberOfAlignedSubTriangles);
-            for (std::size_t subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
+                subTriangleDofs + static_cast<size_t>(component * numberOfAlignedSubTriangles_);
+            for (std::size_t subtri = 0; subtri < numberOfSubTriangles_; ++subtri) {
               target[subtri] = source[subtri];
               if (!std::isfinite(source[subtri])) {
                 logError() << "Detected Inf/NaN in free surface output. Aborting.";
@@ -123,7 +123,7 @@ void FreeSurfaceIntegrator::calculateOutput() const {
         kernel::subTriangleDisplacement dkrnl;
         dkrnl.faceDisplacement = displacementDofs[face];
         dkrnl.MV2nTo2m = nodal::init::MV2nTo2m::Values;
-        dkrnl.subTriangleProjectionFromFace(triRefiner.maxDepth) = projectionMatrixFromFace;
+        dkrnl.subTriangleProjectionFromFace(triRefiner.maxDepth) = projectionMatrixFromFace_;
         dkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
         dkrnl.execute(triRefiner.maxDepth);
 
@@ -141,30 +141,30 @@ void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementD
       tensor::subTriangleProjection::Shape[tensor::subTriangleProjection::index(maxRefinementDepth)]
                                           [1];
 
-  numberOfSubTriangles = triRefiner.subTris.size();
-  numberOfAlignedSubTriangles =
+  numberOfSubTriangles_ = triRefiner.subTris.size();
+  numberOfAlignedSubTriangles_ =
       tensor::subTriangleProjection::size(maxRefinementDepth) / projectionMatrixNCols;
 
-  assert(numberOfAlignedSubTriangles * projectionMatrixNCols ==
+  assert(numberOfAlignedSubTriangles_ * projectionMatrixNCols ==
          tensor::subTriangleProjection::size(maxRefinementDepth));
-  assert(numberOfSubTriangles == (1U << (2U * maxRefinementDepth)));
+  assert(numberOfSubTriangles_ == (1U << (2U * maxRefinementDepth)));
 
   const auto projectionMatrixNumberOfReals =
       4 * tensor::subTriangleProjection::size(maxRefinementDepth);
   const auto projectionMatrixFromFaceMemoryNumberOfReals =
       tensor::subTriangleProjectionFromFace::size(maxRefinementDepth);
 
-  projectionMatrixMemory =
+  projectionMatrixMemory_ =
       seissol::memory::allocTyped<real>(projectionMatrixNumberOfReals, Alignment);
-  projectionMatrixFromFace =
+  projectionMatrixFromFace_ =
       seissol::memory::allocTyped<real>(projectionMatrixFromFaceMemoryNumberOfReals, Alignment);
 
-  std::fill_n(projectionMatrixMemory, 0, projectionMatrixNumberOfReals);
-  std::fill_n(projectionMatrixFromFace, 0, projectionMatrixFromFaceMemoryNumberOfReals);
+  std::fill_n(projectionMatrixMemory_, 0, projectionMatrixNumberOfReals);
+  std::fill_n(projectionMatrixFromFace_, 0, projectionMatrixFromFaceMemoryNumberOfReals);
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    projectionMatrix[face] =
-        projectionMatrixMemory +
+    projectionMatrix_[face] =
+        projectionMatrixMemory_ +
         static_cast<size_t>(face * tensor::subTriangleProjection::size(maxRefinementDepth));
   }
 
@@ -181,7 +181,7 @@ void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementD
 
   // Compute projection matrices
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    for (std::size_t tri = 0; tri < numberOfSubTriangles; ++tri) {
+    for (std::size_t tri = 0; tri < numberOfSubTriangles_; ++tri) {
       for (std::size_t qp = 0; qp < NumQuadraturePoints; ++qp) {
         const seissol::refinement::Triangle& subTri = triRefiner.subTris[tri];
         const auto chiTau = std::array<double, 2>{
@@ -192,9 +192,9 @@ void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementD
         seissol::transformations::chiTau2XiEtaZeta(face, chiTau.data(), points3D[qp].data());
         points2D[qp] = chiTau;
       }
-      computeSubTriangleAverages(projectionMatrix[face] + tri, points3D, weights);
+      computeSubTriangleAverages(projectionMatrix_[face] + tri, points3D, weights);
       if (face == 0) {
-        computeSubTriangleAveragesFromFaces(projectionMatrixFromFace + tri, points2D, weights);
+        computeSubTriangleAveragesFromFaces(projectionMatrixFromFace_ + tri, points2D, weights);
       }
     }
   }
@@ -223,7 +223,7 @@ void FreeSurfaceIntegrator::computeSubTriangleAverages(
         // We have a factor J / area. As J = 2*area we have to multiply the average by 2.
         average *= 2.0;
 
-        projectionMatrixRow[static_cast<size_t>(nbf * numberOfAlignedSubTriangles)] = average;
+        projectionMatrixRow[static_cast<size_t>(nbf * numberOfAlignedSubTriangles_)] = average;
 
         ++nbf;
       }
@@ -247,7 +247,8 @@ void FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces(
       // We have a factor J / area. As J = 2*area we have to multiply the average by 2.
       average *= 2.0;
 
-      projectionMatrixFromFaceRow[static_cast<size_t>(nbf * numberOfAlignedSubTriangles)] = average;
+      projectionMatrixFromFaceRow[static_cast<size_t>(nbf * numberOfAlignedSubTriangles_)] =
+          average;
       ++nbf;
     }
   }
@@ -304,7 +305,7 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
     surfaceLayer.setNumberOfCells(numberOfFreeSurfaces);
     totalNumberOfFreeSurfaces += numberOfOutputFreeSurfaces;
   }
-  totalNumberOfTriangles = totalNumberOfFreeSurfaces * numberOfSubTriangles;
+  totalNumberOfTriangles = totalNumberOfFreeSurfaces * numberOfSubTriangles_;
   backmap.resize(totalNumberOfFreeSurfaces);
 
   surfaceStorage->allocateVariables();
@@ -361,10 +362,10 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
           const auto globalId = secondaryInformation[cell].globalId * 4 + face;
 
           if (secondaryInformation[cell].duplicate == 0) {
-            for (std::size_t i = 0; i < numberOfSubTriangles; ++i) {
-              locationFlags[surfaceCellOffset * numberOfSubTriangles + i] =
+            for (std::size_t i = 0; i < numberOfSubTriangles_; ++i) {
+              locationFlags[surfaceCellOffset * numberOfSubTriangles_ + i] =
                   locationFlagLayer[surfaceCell];
-              globalIds[surfaceCellOffset * numberOfSubTriangles + i] = globalId;
+              globalIds[surfaceCellOffset * numberOfSubTriangles_ + i] = globalId;
             }
             outputPosition[surfaceCell] = surfaceCellOffset;
             backmap[surfaceCellOffset] = surfaceCellGlobal;

@@ -18,13 +18,13 @@ namespace seissol {
 class Module {
   private:
   /** The synchronization interval for this module */
-  double isyncInterval{0};
+  double isyncInterval_{0};
 
   /** The next synchronization point for this module */
-  double nextSyncPoint{0};
+  double nextSyncPoint_{0};
 
   /** The last time when syncPoint was called */
-  double lastSyncPoint;
+  double lastSyncPoint_;
 
   public:
   Module();
@@ -109,7 +109,7 @@ class Module {
   virtual void syncPoint(double currentTime) {}
 
   protected:
-  [[nodiscard]] double syncInterval() const { return isyncInterval; }
+  [[nodiscard]] double syncInterval() const { return isyncInterval_; }
 
   /**
    * Set the synchronization interval for this module

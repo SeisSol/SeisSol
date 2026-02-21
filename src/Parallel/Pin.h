@@ -20,9 +20,9 @@ namespace seissol::parallel {
 
 class Pinning {
   private:
-  async::as::CpuMask openmpMask{};
-  async::as::CpuMask onlineMask{};
-  IntegerMaskParser::MaskType parsedFreeCPUsMask;
+  async::as::CpuMask openmpMask_{};
+  async::as::CpuMask onlineMask_{};
+  IntegerMaskParser::MaskType parsedFreeCPUsMask_;
 
   public:
   Pinning();

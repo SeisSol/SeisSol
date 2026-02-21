@@ -25,8 +25,9 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   public:
   ~PickPointBuilder() override = default;
   void setParams(seissol::initializer::parameters::PickpointParameters params) {
-    pickpointParams = std::move(params);
+    pickpointParams_ = std::move(params);
   }
+
   void setTimestep(double timestep, double endtime) {
     timestep_ = timestep;
     endtime_ = endtime;
@@ -38,20 +39,20 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     initReceiverLocations(pickPointOutputData);
     for (auto& [id, singleClusterOutputData] : pickPointOutputData) {
       singleClusterOutputData->clusterId = id;
-      outputData = singleClusterOutputData;
-      outputData->extraRuntime.emplace(0);
+      outputData_ = singleClusterOutputData;
+      outputData_->extraRuntime.emplace(0);
 
-      assignNearestGaussianPoints(outputData->receiverPoints);
+      assignNearestGaussianPoints(outputData_->receiverPoints);
       assignNearestInternalGaussianPoints();
       assignFusedIndices();
       assignFaultTags();
       initTimeCaching();
       initFaultDirections();
-      initOutputVariables(pickpointParams.outputMask);
+      initOutputVariables(pickpointParams_.outputMask);
       initRotationMatrices();
       initBasisFunctions();
       initJacobian2dMatrices();
-      outputData->isActive = true;
+      outputData_->isActive = true;
     }
   }
 
@@ -60,11 +61,11 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     using seissol::initializer::convertStringToMask;
     using seissol::initializer::FileProcessor;
 
-    if (!pickpointParams.pickpointFileName.has_value()) {
+    if (!pickpointParams_.pickpointFileName.has_value()) {
       logError() << "Pickpoint/on-fault receiver file requested, but not given in the parameters.";
     }
 
-    auto content = FileProcessor::getFileAsStrings(pickpointParams.pickpointFileName.value(),
+    auto content = FileProcessor::getFileAsStrings(pickpointParams_.pickpointFileName.value(),
                                                    "pickpoint/on-fault receiver file");
     FileProcessor::removeEmptyLines(content);
 
@@ -78,24 +79,24 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
         point.global.coords[i] = coords[i];
       }
 
-      potentialReceivers.push_back(point);
+      potentialReceivers_.push_back(point);
     }
   }
 
   void initReceiverLocations(
       std::unordered_map<std::size_t, std::shared_ptr<ReceiverOutputData>>& outputDataPerCluster) {
-    const auto numReceiverPoints = potentialReceivers.size();
+    const auto numReceiverPoints = potentialReceivers_.size();
 
-    const auto& meshElements = meshReader->getElements();
-    const auto& meshVertices = meshReader->getVertices();
-    const auto& faultInfos = meshReader->getFault();
+    const auto& meshElements = meshReader_->getElements();
+    const auto& meshVertices = meshReader_->getVertices();
+    const auto& faultInfos = meshReader_->getFault();
 
-    std::vector<short> contained(potentialReceivers.size());
+    std::vector<short> contained(potentialReceivers_.size());
 
 #pragma omp parallel for schedule(static)
     for (size_t receiverIdx = 0; receiverIdx < numReceiverPoints; ++receiverIdx) {
       try {
-        auto& receiver = potentialReceivers[receiverIdx];
+        auto& receiver = potentialReceivers_[receiverIdx];
 
         const auto closest = findClosestFaultIndex(receiver.global);
 
@@ -128,13 +129,13 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     }
 
     reportFoundReceivers(contained);
-    for (auto& receiver : potentialReceivers) {
+    for (auto& receiver : potentialReceivers_) {
       if (receiver.isInside) {
         for (std::size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
           auto singleReceiver = receiver;
           singleReceiver.simIndex = i;
 
-          const auto layerId = faceToLtsMap->at(receiver.faultFaceIndex).color;
+          const auto layerId = faceToLtsMap_->at(receiver.faultFaceIndex).color;
           if (outputDataPerCluster[layerId] == nullptr) {
             outputDataPerCluster[layerId] = std::make_shared<ReceiverOutputData>();
           }
@@ -145,9 +146,9 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   }
 
   std::optional<size_t> findClosestFaultIndex(const ExtVrtxCoords& point) {
-    const auto& meshElements = meshReader->getElements();
-    const auto& meshVertices = meshReader->getVertices();
-    const auto& fault = meshReader->getFault();
+    const auto& meshElements = meshReader_->getElements();
+    const auto& meshVertices = meshReader_->getVertices();
+    const auto& fault = meshReader_->getFault();
 
     auto minDistance = std::numeric_limits<double>::max();
     auto closest = std::optional<std::size_t>();
@@ -171,13 +172,13 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   }
 
   void initTimeCaching() override {
-    const auto intervalOrEnd = std::min(pickpointParams.writeInterval, endtime_);
+    const auto intervalOrEnd = std::min(pickpointParams_.writeInterval, endtime_);
     const auto neededCacheLevel =
         static_cast<std::size_t>(std::ceil(intervalOrEnd / timestep_) + 1);
 
-    outputData->maxCacheLevel = neededCacheLevel;
-    outputData->cachedTime.resize(outputData->maxCacheLevel, 0.0);
-    outputData->currentCacheLevel = 0;
+    outputData_->maxCacheLevel = neededCacheLevel;
+    outputData_->cachedTime.resize(outputData_->maxCacheLevel, 0.0);
+    outputData_->currentCacheLevel = 0;
   }
 
   void reportFoundReceivers(std::vector<short>& localContainVector) {
@@ -188,7 +189,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     MPI_Reduce(
         localContainVector.data(), globalContainVector.data(), size, MPI_SHORT, MPI_SUM, 0, comm);
 
-    if (localRank == 0) {
+    if (localRank_ == 0) {
       bool allReceiversFound{true};
       std::size_t missing = 0;
       for (size_t idx{0}; idx < size; ++idx) {
@@ -209,8 +210,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   }
 
   private:
-  seissol::initializer::parameters::PickpointParameters pickpointParams;
-  std::vector<ReceiverPoint> potentialReceivers;
+  seissol::initializer::parameters::PickpointParameters pickpointParams_;
+  std::vector<ReceiverPoint> potentialReceivers_;
   double timestep_{std::numeric_limits<double>::infinity()};
   double endtime_{std::numeric_limits<double>::infinity()};
 };

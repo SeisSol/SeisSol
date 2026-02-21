@@ -23,24 +23,24 @@
 
 namespace seissol::io::writer {
 
-WriteInstance::WriteInstance(MPI_Comm comm) : hdf5(comm), binary(comm) {}
+WriteInstance::WriteInstance(MPI_Comm comm) : hdf5_(comm), binary_(comm) {}
 
 void WriteInstance::write(const async::ExecInfo& info,
                           const std::shared_ptr<instructions::WriteInstruction>& instruction) {
   if (dynamic_cast<instructions::Hdf5DataWrite*>(instruction.get()) != nullptr) {
-    hdf5.writeData(info, *dynamic_cast<instructions::Hdf5DataWrite*>(instruction.get()));
+    hdf5_.writeData(info, *dynamic_cast<instructions::Hdf5DataWrite*>(instruction.get()));
   }
   if (dynamic_cast<instructions::Hdf5AttributeWrite*>(instruction.get()) != nullptr) {
-    hdf5.writeAttribute(info, *dynamic_cast<instructions::Hdf5AttributeWrite*>(instruction.get()));
+    hdf5_.writeAttribute(info, *dynamic_cast<instructions::Hdf5AttributeWrite*>(instruction.get()));
   }
   if (dynamic_cast<instructions::BinaryWrite*>(instruction.get()) != nullptr) {
-    binary.write(info, *dynamic_cast<instructions::BinaryWrite*>(instruction.get()));
+    binary_.write(info, *dynamic_cast<instructions::BinaryWrite*>(instruction.get()));
   }
 }
 
 void WriteInstance::close() {
-  hdf5.finalize();
-  binary.finalize();
+  hdf5_.finalize();
+  binary_.finalize();
 }
 
 Writer::Writer() = default;
@@ -48,12 +48,12 @@ Writer::Writer() = default;
 Writer::Writer(const std::string& data) {
   const YAML::Node plan = YAML::Load(data);
   for (const YAML::Node& instruction : plan) {
-    instructions.push_back(instructions::WriteInstruction::deserialize(instruction));
+    instructions_.push_back(instructions::WriteInstruction::deserialize(instruction));
   }
 }
 
 void Writer::addInstruction(const std::shared_ptr<instructions::WriteInstruction>& instruction) {
-  instructions.push_back(instruction);
+  instructions_.push_back(instruction);
 }
 
 std::string Writer::serialize() {
@@ -61,7 +61,7 @@ std::string Writer::serialize() {
   {
     YAML::Emitter output(sstr);
     output << YAML::BeginSeq;
-    for (const auto& instruction : instructions) {
+    for (const auto& instruction : instructions_) {
       output << instruction->serialize();
     }
     output << YAML::EndSeq;
@@ -71,7 +71,7 @@ std::string Writer::serialize() {
 
 WriteInstance Writer::beginWrite(const async::ExecInfo& info, MPI_Comm comm) {
   WriteInstance instance(comm);
-  for (const auto& instruction : instructions) {
+  for (const auto& instruction : instructions_) {
     instance.write(info, instruction);
   }
   return instance;
@@ -81,7 +81,7 @@ void Writer::endWrite() {}
 
 const std::vector<std::shared_ptr<instructions::WriteInstruction>>&
     Writer::getInstructions() const {
-  return instructions;
+  return instructions_;
 }
 
 } // namespace seissol::io::writer

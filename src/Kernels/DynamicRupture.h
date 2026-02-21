@@ -19,11 +19,11 @@ namespace seissol::kernels {
 
 class DynamicRupture : public Kernel {
   private:
-  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints m_krnlPrototype;
-  kernels::Time m_timeKernel;
+  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnlPrototype_;
+  kernels::Time timeKernel_;
 #ifdef ACL_DEVICE
-  dynamicRupture::kernel::gpu_evaluateAndRotateQAtInterpolationPoints m_gpuKrnlPrototype;
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  dynamicRupture::kernel::gpu_evaluateAndRotateQAtInterpolationPoints gpuKrnlPrototype_;
+  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 #endif
 
   public:

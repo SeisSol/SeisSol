@@ -117,7 +117,7 @@ class SampledBasisFunctions {
 
   public:
   /** The basis function samples */
-  std::vector<T> m_data{};
+  std::vector<T> data{};
 
   SampledBasisFunctions() = default;
   /**
@@ -130,14 +130,14 @@ class SampledBasisFunctions {
    * @param xi The xi coordinate in the reference tetrahedron.
    */
   SampledBasisFunctions(unsigned int order, T xi, T eta, T zeta)
-      : m_data(basisFunctionsForOrder(order)) {
+      : data(basisFunctionsForOrder(order)) {
     const BasisFunctionGenerator<T> gen(xi, eta, zeta);
 
     unsigned int i = 0;
     for (unsigned int ord = 0; ord < order; ord++) {
       for (unsigned int k = 0; k <= ord; k++) {
         for (unsigned int j = 0; j <= ord - k; j++) {
-          m_data[i++] = gen(ord - j - k, j, k);
+          data[i++] = gen(ord - j - k, j, k);
         }
       }
     }
@@ -151,13 +151,13 @@ class SampledBasisFunctions {
    */
   template <class ConstIterator>
   T evalWithCoeffs(ConstIterator coeffIter) const {
-    return std::inner_product(m_data.begin(), m_data.end(), coeffIter, static_cast<T>(0));
+    return std::inner_product(data.begin(), data.end(), coeffIter, static_cast<T>(0));
   }
 
   /**
    * Returns the amount of Basis functions this class represents.
    */
-  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] unsigned int getSize() const { return data.size(); }
 };
 
 //------------------------------------------------------------------------------
@@ -175,7 +175,7 @@ class SampledBasisFunctionDerivatives {
    * The basis function derivative samples w.r.t. the three spatial dimension
    * Use DenseTensorView to access data
    */
-  std::vector<T> m_data{};
+  std::vector<T> data{};
 
   SampledBasisFunctionDerivatives() = default;
   /**
@@ -188,9 +188,9 @@ class SampledBasisFunctionDerivatives {
    * @param xi The xi coordinate in the reference tetrahedron.
    */
   SampledBasisFunctionDerivatives(unsigned int order, T xi, T eta, T zeta)
-      : m_data(3 * basisFunctionsForOrder(order)) {
+      : data(3 * basisFunctionsForOrder(order)) {
     const BasisFunctionDerivativeGenerator<T> gen(xi, eta, zeta);
-    auto dataView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
+    auto dataView = init::basisFunctionDerivativesAtPoint::view::create(data.data());
 
     unsigned int i = 0;
     for (unsigned int ord = 0; ord < order; ord++) {
@@ -207,7 +207,7 @@ class SampledBasisFunctionDerivatives {
   }
 
   /**
-   * After a call to the constructor m_data contains the sampled derivatives
+   * After a call to the constructor data_ contains the sampled derivatives
    * w.r.t. xi, eta, zeta on the reference triangle. Use this function to
    * transform the derivatives to derivatives w.r.t. to x, y, z in a physical
    * tetrahedron.
@@ -230,10 +230,10 @@ class SampledBasisFunctionDerivatives {
 
     seissol::transformations::tetrahedronGlobalToReferenceJacobian(
         xCoords, yCoords, zCoords, gradXi, gradEta, gradZeta);
-    std::vector<T> oldData = m_data;
+    std::vector<T> oldData = data;
 
     const auto oldView = init::basisFunctionDerivativesAtPoint::view::create(oldData.data());
-    auto newView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
+    auto newView = init::basisFunctionDerivativesAtPoint::view::create(data.data());
     for (size_t i = 0; i < init::basisFunctionDerivativesAtPoint::Shape[0]; ++i) {
       for (size_t direction = 0; direction < init::basisFunctionDerivativesAtPoint::Shape[1];
            ++direction) {
@@ -248,7 +248,7 @@ class SampledBasisFunctionDerivatives {
   /**
    * Returns the amount of Basis functions this class represents.
    */
-  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] unsigned int getSize() const { return data.size(); }
 };
 
 //==============================================================================
@@ -274,22 +274,22 @@ class SampledTimeBasisFunctions {
                 "Type T for SampledTimeBasisFunctions must be arithmetic.");
 
   public:
-  std::vector<T> m_data;
+  std::vector<T> data;
 
-  SampledTimeBasisFunctions(unsigned int order, T tau) : m_data(order) {
+  SampledTimeBasisFunctions(unsigned int order, T tau) : data(order) {
     TimeBasisFunctionGenerator<T> gen(tau);
 
     for (unsigned int ord = 0; ord < order; ord++) {
-      m_data[ord] = gen(ord);
+      data[ord] = gen(ord);
     }
   }
 
   template <class ConstIterator>
   T evalWithCoeffs(ConstIterator coeffIter) const {
-    return std::inner_product(m_data.begin(), m_data.end(), coeffIter, static_cast<T>(0));
+    return std::inner_product(data.begin(), data.end(), coeffIter, static_cast<T>(0));
   }
 
-  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] unsigned int getSize() const { return data.size(); }
 };
 
 namespace tri_dubiner {

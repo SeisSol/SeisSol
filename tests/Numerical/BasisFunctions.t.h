@@ -74,7 +74,7 @@ TEST_CASE("Sampled Basis Functions") {
 
   basisFunction::SampledBasisFunctions<real> sampledBasisFunctions(6, 0.3, 0.3, 0.3);
   for (size_t i = 0; i < precomputedValues.size(); ++i) {
-    REQUIRE(sampledBasisFunctions.m_data.at(i) ==
+    REQUIRE(sampledBasisFunctions.data.at(i) ==
             AbsApprox(precomputedValues.at(i)).epsilon(Epsilon));
   }
 }
@@ -254,7 +254,7 @@ TEST_CASE("Sampled Derivatives Functions") {
   basisFunction::SampledBasisFunctionDerivatives<real> sampledBasisFunctionDerivatives(
       6, 0.3, 0.3, 0.3);
   const auto dataView = init::basisFunctionDerivativesAtPoint::view::create(
-      sampledBasisFunctionDerivatives.m_data.data());
+      sampledBasisFunctionDerivatives.data.data());
   for (size_t i = 0; i < precomputedValues[0].size(); ++i) {
     for (size_t direction = 0; direction < 3; ++direction) {
       REQUIRE(dataView(i, direction) ==

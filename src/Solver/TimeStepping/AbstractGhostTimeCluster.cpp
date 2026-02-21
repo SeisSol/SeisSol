@@ -38,7 +38,7 @@ bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests, std::list<unsign
 
 bool AbstractGhostTimeCluster::testForCopyLayerSends() {
   SCOREP_USER_REGION("testForCopyLayerSends", SCOREP_USER_REGION_TYPE_FUNCTION)
-  return testQueue(sendRequests.data(), sendQueue);
+  return testQueue(sendRequests_.data(), sendQueue_);
 }
 
 ActResult AbstractGhostTimeCluster::act() {
@@ -83,12 +83,12 @@ void AbstractGhostTimeCluster::handleAdvancedCorrectionTimeMessage(
     const NeighborCluster& /*neighborCluster*/) {
   assert(testForGhostLayerReceives());
 
-  auto upcomingCorrectionSteps = ct.stepsSinceLastSync;
-  if (state == ActorState::Predicted) {
-    upcomingCorrectionSteps = ct.nextCorrectionSteps();
+  auto upcomingCorrectionSteps = ct_.stepsSinceLastSync;
+  if (state_ == ActorState::Predicted) {
+    upcomingCorrectionSteps = ct_.nextCorrectionSteps();
   }
 
-  const bool ignoreMessage = upcomingCorrectionSteps >= ct.stepsUntilSync;
+  const bool ignoreMessage = upcomingCorrectionSteps >= ct_.stepsUntilSync;
 
   // If we are already at a sync point, we must not post an additional receive, as otherwise start()
   // posts an additional request! This is also true for the last sync point (i.e. end of
@@ -106,28 +106,28 @@ AbstractGhostTimeCluster::AbstractGhostTimeCluster(
     const seissol::solver::HaloCommunication& meshStructure)
     : AbstractTimeCluster(
           maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
-      globalClusterId(globalTimeClusterId), otherGlobalClusterId(otherGlobalTimeClusterId),
-      meshStructure(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId)),
-      sendRequests(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).copy.size()),
-      recvRequests(
+      globalClusterId_(globalTimeClusterId), otherGlobalClusterId_(otherGlobalTimeClusterId),
+      meshStructure_(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId)),
+      sendRequests_(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).copy.size()),
+      recvRequests_(
           meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).ghost.size()) {}
 
 void AbstractGhostTimeCluster::reset() {
   AbstractTimeCluster::reset();
   assert(testForGhostLayerReceives());
-  lastSendTime = -1;
+  lastSendTime_ = -1;
 }
 
 void AbstractGhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
   logError() << "Ghost: No update since " << timeSinceLastUpdate.count()
-             << "[s] for global cluster " << globalClusterId << " with other cluster id "
-             << otherGlobalClusterId << " at state " << actorStateToString(state)
+             << "[s] for global cluster " << globalClusterId_ << " with other cluster id "
+             << otherGlobalClusterId_ << " at state " << actorStateToString(state_)
              << " mayPredict = " << mayPredict()
              << " mayPredict (steps) = " << AbstractTimeCluster::mayPredict()
              << " mayCorrect = " << mayCorrect()
              << " mayCorrect (steps) = " << AbstractTimeCluster::mayCorrect()
              << " maySync = " << maySync();
-  for (auto& neighbor : neighbors) {
+  for (auto& neighbor : neighbors_) {
     logError() << "Neighbor with rate = " << neighbor.ct.timeStepRate
                << "PredTime = " << neighbor.ct.predictionTime
                << "CorrTime = " << neighbor.ct.correctionTime
@@ -137,7 +137,7 @@ void AbstractGhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinc
 }
 
 std::string AbstractGhostTimeCluster::description() const {
-  return "comm-" + std::to_string(globalClusterId) + "-" + std::to_string(otherGlobalClusterId);
+  return "comm-" + std::to_string(globalClusterId_) + "-" + std::to_string(otherGlobalClusterId_);
 }
 
 } // namespace seissol::time_stepping

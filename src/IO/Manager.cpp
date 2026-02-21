@@ -21,31 +21,31 @@ class SeisSol;
 
 namespace seissol::io {
 
-OutputManager::OutputManager(SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
+OutputManager::OutputManager(SeisSol& seissolInstance) : seissolInstance_(seissolInstance) {}
 
 void OutputManager::addOutput(const writer::ScheduledWriter& writer) {
-  modules.emplace_back(std::make_unique<seissol::io::writer::module::WriterModule>(
-      seissolInstance.getSeisSolParameters().output.prefix,
+  modules_.emplace_back(std::make_unique<seissol::io::writer::module::WriterModule>(
+      seissolInstance_.getSeisSolParameters().output.prefix,
       writer,
-      seissolInstance.getPinning(),
-      seissolInstance));
-  modules.back()->startup();
+      seissolInstance_.getPinning(),
+      seissolInstance_));
+  modules_.back()->startup();
 }
 
 double OutputManager::loadCheckpoint(const std::string& path) {
-  return checkpointManager.loadCheckpoint(path);
+  return checkpointManager_.loadCheckpoint(path);
 }
 
 void OutputManager::setupCheckpoint(double interval) {
   writer::ScheduledWriter checkpointScheduled;
   checkpointScheduled.name = "checkpoint";
-  checkpointScheduled.planWrite = checkpointManager.makeWriter();
+  checkpointScheduled.planWrite = checkpointManager_.makeWriter();
   checkpointScheduled.interval = interval;
   addOutput(checkpointScheduled);
 }
 
 instance::checkpoint::CheckpointManager& OutputManager::getCheckpointManager() {
-  return checkpointManager;
+  return checkpointManager_;
 }
 
 } // namespace seissol::io

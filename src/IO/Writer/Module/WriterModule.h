@@ -44,18 +44,18 @@ class WriterModule : public seissol::Module, private AsyncWriterModule {
   private:
   void setUp() override;
 
-  int rank;
-  std::string prefix;
-  unsigned planId{std::numeric_limits<unsigned>::max()};
-  AsyncWriter executor;
-  std::unordered_map<const void*, BufferPointer> pointerMap;
-  std::unordered_map<std::size_t, std::vector<int>> bufferMap;
-  ScheduledWriter settings;
-  double lastWrite{-1};
-  const parallel::Pinning& pinning;
+  int rank_;
+  std::string prefix_;
+  unsigned planId_{std::numeric_limits<unsigned>::max()};
+  AsyncWriter executor_;
+  std::unordered_map<const void*, BufferPointer> pointerMap_;
+  std::unordered_map<std::size_t, std::vector<int>> bufferMap_;
+  ScheduledWriter settings_;
+  double lastWrite_{-1};
+  const parallel::Pinning& pinning_;
 
   // TODO: remove?
-  SeisSol& seissolInstance;
+  SeisSol& seissolInstance_;
 };
 
 } // namespace seissol::io::writer::module
