@@ -23,6 +23,8 @@ class FaultRefiner {
     int localFaceSideId{};
     int elementId{-1};
     std::size_t globalId{};
+    std::uint32_t order{0};
+    std::size_t simcount{1};
   };
   using PointsPair = std::pair<ExtVrtxCoords, ExtVrtxCoords>;
   using TrianglePair = std::pair<ExtTriangle, ExtTriangle>;
@@ -38,6 +40,8 @@ class FaultRefiner {
 
   static constexpr size_t Global = 0;
   static constexpr size_t Reference = 1;
+
+  std::unordered_map<std::uint32_t, std::vector<std::array<double, 2>>> orderPoints;
 
   inline void
       repeatRefinement(Data data, PointsPair& point1, PointsPair& point2, PointsPair& point3);

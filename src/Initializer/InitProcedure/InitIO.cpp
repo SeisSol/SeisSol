@@ -27,6 +27,7 @@
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
+#include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
@@ -36,6 +37,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -215,6 +217,22 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           dataPoints, io::instance::geometry::TetrahedronRefine8);
     }
 
+    // TODO: exact size (for now, just silence the warning)
+    std::vector<
+        memory::AlignedArray<real, static_cast<std::size_t>(tensor::Q::Size) * tensor::Q::Size>>
+        proj;
+    for (const auto& tetrahedron : dataPoints) {
+      auto& coll = proj.emplace_back();
+      std::size_t idx = 0;
+      for (const auto& point : tetrahedron) {
+        const auto data = basisFunction::SampledBasisFunctions<real>(
+                              ConvergenceOrder, point[0], point[1], point[2])
+                              .m_data;
+        std::copy(data.begin(), data.end(), coll.begin() + idx);
+        idx += data.size();
+      }
+    }
+
     io::writer::ScheduledWriter schedWriter;
     schedWriter.name = "wavefield";
     schedWriter.interval = seissolParams.output.waveFieldParameters.interval;
@@ -273,8 +291,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 vtkproj.simselect = simselect.data();
                 vtkproj.qb = dofsSingleQuantity;
                 vtkproj.xv(order) = target;
-                vtkproj.collvv(ConvergenceOrder, order) =
-                    init::collvv::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
+                vtkproj.collvv(ConvergenceOrder, order) = proj[index % subcells].data();
                 vtkproj.execute(order);
               });
         }
@@ -297,8 +314,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                   vtkproj.simselect = simselect.data();
                   vtkproj.qb = dofsSingleQuantity;
                   vtkproj.xv(order) = target;
-                  vtkproj.collvv(ConvergenceOrder, order) =
-                      init::collvv::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
+                  vtkproj.collvv(ConvergenceOrder, order) = proj[index % subcells].data();
                   vtkproj.execute(order);
                 });
           }
@@ -364,6 +380,35 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     });
 
+    // TODO: exact size (for now, just silence the warning)
+    std::array<std::vector<memory::AlignedArray<real,
+                                                static_cast<std::size_t>(tensor::Q::Size) *
+                                                    tensor::Q::Size>>,
+               Cell::NumFaces>
+        proj;
+    for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
+      for (const auto& tetrahedron : dataPoints) {
+        auto& coll = proj[f].emplace_back();
+        std::size_t idx = 0;
+        for (const auto& point : tetrahedron) {
+          double xez[3]{};
+          seissol::transformations::chiTau2XiEtaZeta(f, point.data(), xez);
+          const auto data =
+              basisFunction::SampledBasisFunctions<real>(ConvergenceOrder, xez[0], xez[1], xez[2])
+                  .m_data;
+          std::copy(data.begin(), data.end(), coll.begin() + idx);
+          idx += data.size();
+        }
+      }
+    }
+
+    /*std::vector<memory::AlignedArray<real, static_cast<std::size_t>(tensor::Q::Size) *
+    tensor::Q::Size>> projf; for (const auto& tetrahedron : dataPoints) { auto& coll =
+    projf.emplace_back(); std::size_t idx = 0; for (const auto& point : tetrahedron) { const auto
+    data = TODO; std::copy(data.begin(), data.end(), coll.begin() + idx); idx += data.size();
+      }
+    }*/
+
     const auto subcells = dataPoints.size();
 
     const auto rank = seissol::Mpi::mpi.rank();
@@ -407,9 +452,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               vtkproj.simselect = simselect.data();
               vtkproj.qb = dofsSingleQuantity;
               vtkproj.xf(order) = target;
-              vtkproj.collvf(ConvergenceOrder, order, side) =
-                  init::collvf::Values[ConvergenceOrder +
-                                       (ConvergenceOrder + 1) * (order + 9 * side)];
+              vtkproj.collvf(ConvergenceOrder, order, side) = proj[side][index % subcells].data();
               vtkproj.execute(order, side);
             });
       }

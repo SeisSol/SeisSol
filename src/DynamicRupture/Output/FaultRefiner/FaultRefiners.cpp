@@ -9,6 +9,7 @@
 
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
+#include "IO/Instance/Geometry/Points.h"
 #include "Initializer/Parameters/OutputParameters.h"
 
 #include <array>
@@ -48,18 +49,28 @@ void FaultRefiner::repeatRefinement(Data data,
 }
 
 void FaultRefiner::addReceiver(Data data, TrianglePair& face) {
-  ReceiverPoint receiver{};
-  receiver.isInside = true;
-  receiver.faultFaceIndex = data.faultFaceIndex;
-  receiver.localFaceSideId = data.localFaceSideId;
-  receiver.elementIndex = data.elementId;
-  receiver.elementGlobalIndex = data.globalId;
-  receiver.globalReceiverIndex = points.size();
-  receiver.global = getMidPointTriangle(std::get<Global>(face));
-  receiver.reference = getMidPointTriangle(std::get<Reference>(face));
-  receiver.globalTriangle = std::get<Global>(face);
+  if (orderPoints.find(data.order) == orderPoints.end()) {
+    orderPoints[data.order] = seissol::io::instance::geometry::pointsTriangle(data.order);
+  }
 
-  points.push_back(receiver);
+  for (const auto& point : orderPoints.at(data.order)) {
+    for (std::size_t s = 0; s < data.simcount; ++s) {
+      ReceiverPoint receiver{};
+      receiver.isInside = true;
+      receiver.faultFaceIndex = data.faultFaceIndex;
+      receiver.localFaceSideId = data.localFaceSideId;
+      receiver.elementIndex = data.elementId;
+      receiver.elementGlobalIndex = data.globalId;
+      receiver.globalReceiverIndex = points.size();
+      receiver.global = getTrianglePointByCoords(std::get<Global>(face), point);
+      receiver.reference = getTrianglePointByCoords(std::get<Reference>(face), point);
+      receiver.globalTriangle = std::get<Global>(face);
+
+      receiver.simIndex = s;
+
+      points.emplace_back(receiver);
+    }
+  }
 }
 
 void NoRefiner::refineAndAccumulate(Data data, TrianglePair face) { addReceiver(data, face); }

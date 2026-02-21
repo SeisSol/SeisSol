@@ -94,15 +94,32 @@ ExtVrtxCoords getMidPointTriangle(const ExtTriangle& triangle) {
   const auto p0 = triangle.point(0);
   const auto p1 = triangle.point(1);
   const auto p2 = triangle.point(2);
-  for (int axis = 0; axis < 3; ++axis) {
+  for (std::size_t axis = 0; axis < Cell::Dim; ++axis) {
     avgPoint.coords[axis] = (p0.coords[axis] + p1.coords[axis] + p2.coords[axis]) / 3.0;
+  }
+  return avgPoint;
+}
+
+ExtVrtxCoords getTrianglePointByCoords(const ExtTriangle& triangle,
+                                       const std::array<double, 2>& point) {
+  ExtVrtxCoords avgPoint{};
+  const auto p0 = triangle.point(0);
+  const auto p1 = triangle.point(1);
+  const auto p2 = triangle.point(2);
+
+  // barycentric coordinates
+  const auto w0 = 1 - point[0] - point[1];
+  const auto w1 = point[0];
+  const auto w2 = point[1];
+  for (std::size_t axis = 0; axis < Cell::Dim; ++axis) {
+    avgPoint.coords[axis] = w0 * p0.coords[axis] + w1 * p1.coords[axis] + w2 * p2.coords[axis];
   }
   return avgPoint;
 }
 
 ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2) {
   ExtVrtxCoords midPoint{};
-  for (int axis = 0; axis < 3; ++axis) {
+  for (std::size_t axis = 0; axis < Cell::Dim; ++axis) {
     midPoint.coords[axis] = 0.5 * (p1.coords[axis] + p2.coords[axis]);
   }
   return midPoint;

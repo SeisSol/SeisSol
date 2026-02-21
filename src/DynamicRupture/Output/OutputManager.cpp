@@ -198,18 +198,20 @@ void OutputManager::initElementwiseOutput() {
   auto order = seissolParameters.output.elementwiseParameters.vtkorder;
 
   const auto pointCount =
-      order > 1 ? seissol::init::vtk2d::Shape[order][1] : seissol::init::vtk2d::Shape[1][1];
+      (order > 1 ? seissol::init::vtk2d::Shape[order][1] : seissol::init::vtk2d::Shape[1][1]);
   const auto dataCount = order > 1 ? seissol::init::vtk2d::Shape[order][1] : 1;
 
   io::instance::geometry::GeometryWriter writer("fault-elementwise",
-                                                receiverPoints.size() / pointCount,
+                                                receiverPoints.size() / pointCount /
+                                                    multisim::NumSimulations,
                                                 io::instance::geometry::Shape::Triangle,
                                                 order);
 
   writer.addPointProjector([=](double* target, std::size_t index) {
     for (std::size_t i = 0; i < pointCount; ++i) {
       for (int j = 0; j < 3; ++j) {
-        target[i * 3 + j] = receiverPoints[pointCount * index + i].global.coords[j];
+        target[i * 3 + j] =
+            receiverPoints[(pointCount * index + i) * multisim::NumSimulations].global.coords[j];
       }
     }
   });
@@ -220,26 +222,37 @@ void OutputManager::initElementwiseOutput() {
 
   writer.addCellData<int>(
       "fault-tag", {}, true, [=, &receiverPoints](int* target, std::size_t index) {
-        *target = receiverPoints[index].faultTag;
+        *target = receiverPoints[index * multisim::NumSimulations].faultTag;
       });
 
   writer.addCellData<std::size_t>(
       "global-id", {}, true, [=, &receiverPoints](std::size_t* target, std::size_t index) {
-        *target =
-            receiverPoints[index].elementGlobalIndex * 4 + receiverPoints[index].localFaceSideId;
+        *target = receiverPoints[index * multisim::NumSimulations].elementGlobalIndex * 4 +
+                  receiverPoints[index * multisim::NumSimulations].localFaceSideId;
       });
 
   misc::forEach(ewOutputData->vars, [&](auto& var, int i) {
     if (var.isActive) {
       for (std::size_t d = 0; d < var.dim(); ++d) {
         auto* data = var.data[d];
-        writer.addGeometryOutput<real>(
-            VariableLabels[i][d],
-            std::vector<std::size_t>(),
-            false,
-            [=](real* target, std::size_t index) {
-              std::memcpy(target, data + dataCount * index, sizeof(real) * dataCount);
-            });
+        const auto variableName = [&](std::size_t d, std::size_t s) {
+          if constexpr (multisim::MultisimEnabled) {
+            return VariableLabels[i][d] + "_" + std::to_string(s);
+          } else {
+            return VariableLabels[i][d];
+          }
+        };
+        for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
+          writer.addGeometryOutput<real>(
+              variableName(d, s),
+              std::vector<std::size_t>(),
+              false,
+              [=](real* target, std::size_t index) {
+                for (std::size_t i = 0; i < dataCount; ++i) {
+                  target[index + i] = data[(dataCount * index + i) * multisim::NumSimulations + s];
+                }
+              });
+        }
       }
     }
   });
