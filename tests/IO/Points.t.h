@@ -29,27 +29,27 @@ TEST_CASE("IO/Points") {
   SUBCASE("Triangle (2D)") {
     using init::vtk2d;
     using io::instance::geometry::pointsTriangle;
-    pointsCompare(vtk2d::view<1>::create(const_cast<real*>(vtk2d::Values1)), pointsTriangle(1));
-    pointsCompare(vtk2d::view<2>::create(const_cast<real*>(vtk2d::Values2)), pointsTriangle(2));
-    pointsCompare(vtk2d::view<3>::create(const_cast<real*>(vtk2d::Values3)), pointsTriangle(3));
-    pointsCompare(vtk2d::view<4>::create(const_cast<real*>(vtk2d::Values4)), pointsTriangle(4));
-    pointsCompare(vtk2d::view<5>::create(const_cast<real*>(vtk2d::Values5)), pointsTriangle(5));
-    pointsCompare(vtk2d::view<6>::create(const_cast<real*>(vtk2d::Values6)), pointsTriangle(6));
-    pointsCompare(vtk2d::view<7>::create(const_cast<real*>(vtk2d::Values7)), pointsTriangle(7));
-    pointsCompare(vtk2d::view<8>::create(const_cast<real*>(vtk2d::Values8)), pointsTriangle(8));
+    pointsCompare(vtk2d::view<1>::create(vtk2d::Values1), pointsTriangle(1));
+    pointsCompare(vtk2d::view<2>::create(vtk2d::Values2), pointsTriangle(2));
+    pointsCompare(vtk2d::view<3>::create(vtk2d::Values3), pointsTriangle(3));
+    pointsCompare(vtk2d::view<4>::create(vtk2d::Values4), pointsTriangle(4));
+    pointsCompare(vtk2d::view<5>::create(vtk2d::Values5), pointsTriangle(5));
+    pointsCompare(vtk2d::view<6>::create(vtk2d::Values6), pointsTriangle(6));
+    pointsCompare(vtk2d::view<7>::create(vtk2d::Values7), pointsTriangle(7));
+    pointsCompare(vtk2d::view<8>::create(vtk2d::Values8), pointsTriangle(8));
   }
 
   SUBCASE("Tetrahedron (3D)") {
     using init::vtk3d;
     using io::instance::geometry::pointsTetrahedron;
-    pointsCompare(vtk3d::view<1>::create(const_cast<real*>(vtk3d::Values1)), pointsTetrahedron(1));
-    pointsCompare(vtk3d::view<2>::create(const_cast<real*>(vtk3d::Values2)), pointsTetrahedron(2));
-    pointsCompare(vtk3d::view<3>::create(const_cast<real*>(vtk3d::Values3)), pointsTetrahedron(3));
-    pointsCompare(vtk3d::view<4>::create(const_cast<real*>(vtk3d::Values4)), pointsTetrahedron(4));
-    pointsCompare(vtk3d::view<5>::create(const_cast<real*>(vtk3d::Values5)), pointsTetrahedron(5));
-    pointsCompare(vtk3d::view<6>::create(const_cast<real*>(vtk3d::Values6)), pointsTetrahedron(6));
-    pointsCompare(vtk3d::view<7>::create(const_cast<real*>(vtk3d::Values7)), pointsTetrahedron(7));
-    pointsCompare(vtk3d::view<8>::create(const_cast<real*>(vtk3d::Values8)), pointsTetrahedron(8));
+    pointsCompare(vtk3d::view<1>::create(vtk3d::Values1), pointsTetrahedron(1));
+    pointsCompare(vtk3d::view<2>::create(vtk3d::Values2), pointsTetrahedron(2));
+    pointsCompare(vtk3d::view<3>::create(vtk3d::Values3), pointsTetrahedron(3));
+    pointsCompare(vtk3d::view<4>::create(vtk3d::Values4), pointsTetrahedron(4));
+    pointsCompare(vtk3d::view<5>::create(vtk3d::Values5), pointsTetrahedron(5));
+    pointsCompare(vtk3d::view<6>::create(vtk3d::Values6), pointsTetrahedron(6));
+    pointsCompare(vtk3d::view<7>::create(vtk3d::Values7), pointsTetrahedron(7));
+    pointsCompare(vtk3d::view<8>::create(vtk3d::Values8), pointsTetrahedron(8));
   }
 }
 

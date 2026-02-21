@@ -196,22 +196,36 @@ void OutputManager::initElementwiseOutput() {
 
   const double printTime = seissolParameters.output.elementwiseParameters.printTimeIntervalSec;
 
-  auto order = seissolParameters.output.elementwiseParameters.vtkorder;
+  const auto orderPre = seissolParameters.output.elementwiseParameters.vtkorder;
+
+  const auto order = static_cast<uint32_t>(std::max(0, orderPre));
 
   const auto pointCount =
-      (order > 1 ? seissol::init::vtk2d::Shape[order][1] : seissol::init::vtk2d::Shape[1][1]);
-  const auto dataCount = order > 1 ? seissol::init::vtk2d::Shape[order][1] : 1;
+      io::instance::geometry::numPoints(order, io::instance::geometry::Shape::Triangle);
+  const auto dataCount = std::max(pointCount, static_cast<std::size_t>(1));
 
-  io::instance::geometry::GeometryWriter writer("fault-elementwise",
-                                                receiverPoints.size() / pointCount /
-                                                    multisim::NumSimulations,
-                                                io::instance::geometry::Shape::Triangle,
-                                                order);
+  const auto config = io::instance::geometry::WriterConfig{
+      order,
+      orderPre < 0 ? io::instance::geometry::WriterFormat::Xdmf
+                   : io::instance::geometry::WriterFormat::Vtk,
+      seissolParameters.output.xdmfWriterBackend ==
+              seissol::initializer::parameters::XdmfBackend::Posix
+          ? io::instance::geometry::WriterBackend::Binary
+          : io::instance::geometry::WriterBackend::Hdf5,
+      io::instance::geometry::WriterGroup::FullSnapshot,
+      0};
 
-  writer.addPointProjector([=](double* target, std::size_t index) {
+  auto writer = io::instance::geometry::GeometryWriter("fault-elementwise",
+                                                       receiverPoints.size() / pointCount /
+                                                           multisim::NumSimulations,
+                                                       io::instance::geometry::Shape::Triangle,
+                                                       config,
+                                                       1);
+
+  writer.addPointProjector([=](double* target, std::size_t index, std::size_t) {
     for (std::size_t i = 0; i < pointCount; ++i) {
-      for (int j = 0; j < 3; ++j) {
-        target[i * 3 + j] =
+      for (std::size_t j = 0; j < Cell::Dim; ++j) {
+        target[i * Cell::Dim + j] =
             receiverPoints[(pointCount * index + i) * multisim::NumSimulations].global.coords[j];
       }
     }
@@ -219,15 +233,18 @@ void OutputManager::initElementwiseOutput() {
 
   const auto rank = seissol::Mpi::mpi.rank();
   writer.addCellData<int>(
-      "partition", {}, true, [=](int* target, std::size_t /*index*/) { target[0] = rank; });
+      "partition", {}, true, [=](int* target, std::size_t, std::size_t) { target[0] = rank; });
 
   writer.addCellData<int>(
-      "fault-tag", {}, true, [=, &receiverPoints](int* target, std::size_t index) {
+      "fault-tag", {}, true, [=, &receiverPoints](int* target, std::size_t index, std::size_t) {
         *target = receiverPoints[index * multisim::NumSimulations].faultTag;
       });
 
   writer.addCellData<std::size_t>(
-      "global-id", {}, true, [=, &receiverPoints](std::size_t* target, std::size_t index) {
+      "global-id",
+      {},
+      true,
+      [=, &receiverPoints](std::size_t* target, std::size_t index, std::size_t) {
         *target = receiverPoints[index * multisim::NumSimulations].elementGlobalIndex * 4 +
                   receiverPoints[index * multisim::NumSimulations].localFaceSideId;
       });
@@ -248,7 +265,7 @@ void OutputManager::initElementwiseOutput() {
               variableName(d, s),
               std::vector<std::size_t>(),
               false,
-              [=](real* target, std::size_t index) {
+              [=](real* target, std::size_t index, std::size_t) {
                 for (std::size_t i = 0; i < dataCount; ++i) {
                   target[index + i] = data[(dataCount * index + i) * multisim::NumSimulations + s];
                 }

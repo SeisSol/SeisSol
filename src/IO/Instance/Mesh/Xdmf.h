@@ -33,7 +33,9 @@ class XdmfWriter {
   XdmfWriter(const std::string& name,
              std::size_t localElementCount,
              geometry::Shape shape,
-             std::size_t targetDegree);
+             std::size_t targetDegree,
+             bool binary,
+             int32_t compress);
 
   void addData(const std::string& name,
                const std::string& type,
@@ -80,6 +82,7 @@ class XdmfWriter {
   std::string name;
   std::string type;
   bool binary{false};
+  int32_t compress{0};
   std::size_t localElementCount;
   std::size_t globalElementCount;
   std::size_t elementOffset{0};

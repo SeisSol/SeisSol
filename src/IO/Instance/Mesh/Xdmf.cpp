@@ -192,8 +192,10 @@ namespace seissol::io::instance::mesh {
 XdmfWriter::XdmfWriter(const std::string& name,
                        std::size_t localElementCount,
                        geometry::Shape shape,
-                       std::size_t targetDegree)
-    : name(name), type(geometry::xdmfType(shape, targetDegree)),
+                       std::size_t targetDegree,
+                       bool binary,
+                       int32_t compress)
+    : name(name), type(geometry::xdmfType(shape, targetDegree)), binary(binary), compress(compress),
       localElementCount(localElementCount), globalElementCount(localElementCount),
       pointsPerElement(geometry::numPoints(targetDegree, shape)) {
   MPI_Exscan(&localElementCount,

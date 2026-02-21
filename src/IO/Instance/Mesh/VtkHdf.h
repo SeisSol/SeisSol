@@ -28,7 +28,9 @@ class VtkHdfWriter {
   VtkHdfWriter(const std::string& name,
                std::size_t localElementCount,
                geometry::Shape shape,
-               std::size_t targetDegree);
+               std::size_t targetDegree,
+               bool temporal,
+               std::int32_t compress);
 
   void addData(const std::string& name,
                const std::optional<std::string>& group,
@@ -123,6 +125,7 @@ class VtkHdfWriter {
   std::size_t type;
   std::size_t targetDegree;
   bool temporal{false};
+  int32_t compress{0};
   const static inline std::string GroupName = "VTKHDF";
   const static inline std::string FieldDataName = "FieldData";
   const static inline std::string CellDataName = "CellData";

@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_GEOMETRY_GEOMETRY_H_
 #define SEISSOL_SRC_IO_INSTANCE_GEOMETRY_GEOMETRY_H_
 
+#include "Common/Real.h"
 #include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Instance/Mesh/Xdmf.h"
@@ -16,14 +17,45 @@
 
 namespace seissol::io::instance::geometry {
 
+enum class WriterFormat : int32_t { Xdmf, Vtk };
+
+enum class WriterBackend : int32_t { Binary, Hdf5 };
+
+enum class WriterGroup : int32_t {
+  FullSnapshot,
+  // IncrementalSnapshot, ?
+  Monolith
+};
+
+struct WriterConfig {
+  uint32_t order{0};
+  WriterFormat format{WriterFormat::Vtk};
+  WriterBackend backend{WriterBackend::Hdf5};
+  WriterGroup time{WriterGroup::FullSnapshot};
+  int32_t compress{0};
+};
+
 class GeometryWriter {
   private:
-  static std::variant<mesh::VtkHdfWriter, mesh::XdmfWriter> getUnderlyingWriter(
-      const std::string& name, std::size_t localElementCount, Shape shape, int targetDegree) {
-    if (targetDegree < 0) {
-      return mesh::XdmfWriter(name, localElementCount, shape, 0);
+  static std::variant<mesh::VtkHdfWriter, mesh::XdmfWriter>
+      getUnderlyingWriter(const std::string& name,
+                          std::size_t localElementCount,
+                          Shape shape,
+                          const WriterConfig& config) {
+    if (config.format == WriterFormat::Xdmf) {
+      return mesh::XdmfWriter(name,
+                              localElementCount,
+                              shape,
+                              config.order,
+                              config.backend == WriterBackend::Binary,
+                              config.compress);
     } else {
-      return mesh::VtkHdfWriter(name, localElementCount, shape, targetDegree);
+      return mesh::VtkHdfWriter(name,
+                                localElementCount,
+                                shape,
+                                config.order,
+                                config.time == WriterGroup::Monolith,
+                                config.compress);
     }
   }
 
@@ -31,13 +63,21 @@ class GeometryWriter {
   GeometryWriter(const std::string& name,
                  std::size_t localElementCount,
                  Shape shape,
-                 int targetDegree)
-      : underlying(getUnderlyingWriter(name, localElementCount, shape, targetDegree)) {}
+                 const WriterConfig& config,
+                 std::size_t subdivide = 1)
+      : config(config), subdivide(subdivide),
+        underlying(getUnderlyingWriter(name, subdivide * localElementCount, shape, config)) {}
 
   template <typename F>
   void addPointProjector(F projector) {
-    std::visit([&](auto& writer) { writer.addPointProjector(std::forward<F>(projector)); },
-               underlying);
+    const auto subdivide = this->subdivide;
+    std::visit(
+        [&](auto& writer) {
+          writer.addPointProjector([projector, subdivide](auto* data, std::size_t index) {
+            std::invoke(projector, data, index / subdivide, index % subdivide);
+          });
+        },
+        underlying);
   }
 
   template <typename T, typename F>
@@ -45,12 +85,19 @@ class GeometryWriter {
                          const std::vector<std::size_t>& dimensions,
                          bool isConst,
                          F writerFunction) {
-    if (order <= 0) {
+
+    const auto subdivide = this->subdivide;
+    if (config.order == 0) {
       // cell output
       std::visit(
           [&](auto& writer) {
             writer.template addCellData<T>(
-                name, dimensions, isConst, std::forward<F>(writerFunction));
+                name,
+                dimensions,
+                isConst,
+                [writerFunction, subdivide](auto* data, std::size_t index) {
+                  std::invoke(writerFunction, data, index / subdivide, index % subdivide);
+                });
           },
           underlying);
     } else {
@@ -58,7 +105,12 @@ class GeometryWriter {
       std::visit(
           [&](auto& writer) {
             writer.template addPointData<T>(
-                name, dimensions, isConst, std::forward<F>(writerFunction));
+                name,
+                dimensions,
+                isConst,
+                [writerFunction, subdivide](auto* data, std::size_t index) {
+                  std::invoke(writerFunction, data, index / subdivide, index % subdivide);
+                });
           },
           underlying);
     }
@@ -69,10 +121,17 @@ class GeometryWriter {
                    const std::vector<std::size_t>& dimensions,
                    bool isConst,
                    F writerFunction) {
+
+    const auto subdivide = this->subdivide;
     std::visit(
         [&](auto& writer) {
           writer.template addCellData<T>(
-              name, dimensions, isConst, std::forward<F>(writerFunction));
+              name,
+              dimensions,
+              isConst,
+              [writerFunction, subdivide](auto* data, std::size_t index) {
+                std::invoke(writerFunction, data, index / subdivide, index % subdivide);
+              });
         },
         underlying);
   }
@@ -86,8 +145,8 @@ class GeometryWriter {
   }
 
   protected:
-  int order{};
-  int refinement{};
+  WriterConfig config;
+  std::size_t subdivide;
   std::variant<mesh::VtkHdfWriter, mesh::XdmfWriter> underlying;
 };
 

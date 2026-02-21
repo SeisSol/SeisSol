@@ -143,7 +143,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
   if (seissolParams.output.waveFieldParameters.enabled) {
     const auto orderIO = seissolParams.output.waveFieldParameters.vtkorder;
-    const auto order = std::max(0, orderIO);
+    const auto order = static_cast<uint32_t>(std::max(0, orderIO));
     auto& meshReader = seissolInstance.meshReader();
 
     // TODO: store somewhere
@@ -232,19 +232,29 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     }
 
+    const auto config = io::instance::geometry::WriterConfig{
+        order,
+        orderIO < 0 ? io::instance::geometry::WriterFormat::Xdmf
+                    : io::instance::geometry::WriterFormat::Vtk,
+        seissolParams.output.xdmfWriterBackend ==
+                seissol::initializer::parameters::XdmfBackend::Posix
+            ? io::instance::geometry::WriterBackend::Binary
+            : io::instance::geometry::WriterBackend::Hdf5,
+        io::instance::geometry::WriterGroup::FullSnapshot,
+        0};
+
     io::writer::ScheduledWriter schedWriter;
     schedWriter.name = "wavefield";
     schedWriter.interval = seissolParams.output.waveFieldParameters.interval;
     auto writer = io::instance::geometry::GeometryWriter("wavefield",
                                                          celllist.size() * dataPoints.size(),
                                                          io::instance::geometry::Shape::Tetrahedron,
-                                                         order);
+                                                         config,
+                                                         dataPoints.size());
 
-    writer.addPointProjector([=](double* target, std::size_t index) {
+    writer.addPointProjector([=](double* target, std::size_t index, std::size_t subcell) {
       const auto& element = meshReader.getElements()[cellIndices[index]];
       const auto& vertexArray = meshReader.getVertices();
-
-      const auto subcell = index % truePoints.size();
 
       for (std::size_t i = 0; i < truePoints[subcell].size(); ++i) {
         seissol::transformations::tetrahedronReferenceToGlobal(
@@ -261,14 +271,20 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
     const auto rank = seissol::Mpi::mpi.rank();
     writer.addCellData<int>(
-        "partition", {}, true, [=](int* target, std::size_t /*index*/) { target[0] = rank; });
+        "partition", {}, true, [=](int* target, std::size_t /*index*/, std::size_t /*subcell*/) {
+          target[0] = rank;
+        });
 
-    writer.addCellData<uint64_t>("clustering", {}, true, [=](uint64_t* target, std::size_t index) {
-      target[0] = meshReader.getElements()[index / subcells].clusterId;
-    });
+    writer.addCellData<uint64_t>(
+        "clustering", {}, true, [=](uint64_t* target, std::size_t index, std::size_t /*subcell*/) {
+          target[0] = meshReader.getElements()[index / subcells].clusterId;
+        });
 
     writer.addCellData<std::size_t>(
-        "global-id", {}, true, [=](std::size_t* target, std::size_t index) {
+        "global-id",
+        {},
+        true,
+        [=](std::size_t* target, std::size_t index, std::size_t /*subcell*/) {
           target[0] = meshReader.getElements()[index / subcells].globalId;
         });
 
@@ -280,8 +296,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               namewrap(seissol::model::MaterialT::Quantities[quantity], sim),
               {},
               false,
-              [=, &ltsStorage, &backmap](real* target, std::size_t index) {
-                const auto position = backmap.get(cellIndices[index / subcells]);
+              [=, &ltsStorage, &backmap](real* target, std::size_t index, std::size_t subcell) {
+                const auto position = backmap.get(cellIndices[index]);
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj{};
@@ -290,7 +306,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 vtkproj.simselect = simselect.data();
                 vtkproj.qb = dofsSingleQuantity;
                 vtkproj.xv(order) = target;
-                vtkproj.collvv(ConvergenceOrder, order) = proj[index % subcells].data();
+                vtkproj.collvv(ConvergenceOrder, order) = proj[subcell].data();
                 vtkproj.execute(order);
               });
         }
@@ -303,8 +319,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 namewrap(seissol::model::PlasticityData::Quantities[quantity], sim),
                 {},
                 false,
-                [=, &ltsStorage, &backmap](real* target, std::size_t index) {
-                  const auto position = backmap.get(cellIndices[index / subcells]);
+                [=, &ltsStorage, &backmap](real* target, std::size_t index, std::size_t subcell) {
+                  const auto position = backmap.get(cellIndices[index]);
                   const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(position);
                   const auto* pointsSingleQuantity =
                       dofsAllQuantities + QDofPointsPadded * quantity;
@@ -315,7 +331,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                   vtkproj.qn = pointsSingleQuantity;
                   vtkproj.vInv = init::vInv::Values;
                   vtkproj.xv(order) = target;
-                  vtkproj.collvv(ConvergenceOrder, order) = proj[index % subcells].data();
+                  vtkproj.collvv(ConvergenceOrder, order) = proj[subcell].data();
                   vtkproj.execute(order);
                 });
           }
@@ -328,7 +344,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
   if (seissolParams.output.freeSurfaceParameters.enabled) {
     const auto orderIO = seissolParams.output.freeSurfaceParameters.vtkorder;
-    const auto order = std::max(0, orderIO);
+    const auto order = static_cast<std::uint32_t>(std::max(0, orderIO));
 
     auto& freeSurfaceIntegrator = seissolInstance.freeSurfaceIntegrator();
     auto& meshReader = seissolInstance.meshReader();
@@ -355,31 +371,43 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                                                           io::instance::geometry::TriangleRefine4);
     }
 
+    const auto config = io::instance::geometry::WriterConfig{
+        order,
+        orderIO < 0 ? io::instance::geometry::WriterFormat::Xdmf
+                    : io::instance::geometry::WriterFormat::Vtk,
+        seissolParams.output.xdmfWriterBackend ==
+                seissol::initializer::parameters::XdmfBackend::Posix
+            ? io::instance::geometry::WriterBackend::Binary
+            : io::instance::geometry::WriterBackend::Hdf5,
+        io::instance::geometry::WriterGroup::FullSnapshot,
+        0};
+
     auto writer = io::instance::geometry::GeometryWriter(
         "free-surface",
         freeSurfaceIntegrator.surfaceStorage->size() * truePoints.size(),
         io::instance::geometry::Shape::Triangle,
-        order);
-    writer.addPointProjector([=, &freeSurfaceIntegrator](double* target, std::size_t index) {
-      auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
-      auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
-      const auto& element = meshReader.getElements()[meshId];
-      const auto& vertexArray = meshReader.getVertices();
+        config,
+        dataPoints.size());
 
-      const auto subcell = index % truePoints.size();
+    writer.addPointProjector(
+        [=, &freeSurfaceIntegrator](double* target, std::size_t index, std::size_t subcell) {
+          auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
+          auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
+          const auto& element = meshReader.getElements()[meshId];
+          const auto& vertexArray = meshReader.getVertices();
 
-      double xez[3]{};
-      for (std::size_t i = 0; i < truePoints[subcell].size(); ++i) {
-        seissol::transformations::chiTau2XiEtaZeta(side, truePoints[subcell][i].data(), xez);
-        seissol::transformations::tetrahedronReferenceToGlobal(
-            vertexArray[element.vertices[0]].coords,
-            vertexArray[element.vertices[1]].coords,
-            vertexArray[element.vertices[2]].coords,
-            vertexArray[element.vertices[3]].coords,
-            xez,
-            &target[i * 3]);
-      }
-    });
+          double xez[3]{};
+          for (std::size_t i = 0; i < truePoints[subcell].size(); ++i) {
+            seissol::transformations::chiTau2XiEtaZeta(side, truePoints[subcell][i].data(), xez);
+            seissol::transformations::tetrahedronReferenceToGlobal(
+                vertexArray[element.vertices[0]].coords,
+                vertexArray[element.vertices[1]].coords,
+                vertexArray[element.vertices[2]].coords,
+                vertexArray[element.vertices[3]].coords,
+                xez,
+                &target[i * 3]);
+          }
+        });
 
     // TODO: exact size (for now, just silence the warning)
     std::array<std::vector<memory::AlignedArray<real,
@@ -410,24 +438,29 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     }*/
 
-    const auto subcells = dataPoints.size();
-
     const auto rank = seissol::Mpi::mpi.rank();
     writer.addCellData<int>(
-        "partition", {}, true, [=](int* target, std::size_t /*index*/) { target[0] = rank; });
+        "partition", {}, true, [=](int* target, std::size_t /*index*/, std::size_t /*subcell*/) {
+          target[0] = rank;
+        });
 
     writer.addCellData<std::uint8_t>(
         "locationFlag",
         {},
         true,
-        [=, &freeSurfaceIntegrator](std::uint8_t* target, std::size_t index) {
-          target[0] = surfaceLocationFlag[freeSurfaceIntegrator.backmap[index / subcells]];
+        [=,
+         &freeSurfaceIntegrator](std::uint8_t* target, std::size_t index, std::size_t /*subcell*/) {
+          target[0] = surfaceLocationFlag[freeSurfaceIntegrator.backmap[index]];
         });
 
     writer.addCellData<std::size_t>(
-        "global-id", {}, true, [=, &freeSurfaceIntegrator](std::size_t* target, std::size_t index) {
-          const auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index / subcells]];
-          const auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index / subcells]];
+        "global-id",
+        {},
+        true,
+        [=,
+         &freeSurfaceIntegrator](std::size_t* target, std::size_t index, std::size_t /*subcell*/) {
+          const auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
+          const auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
           target[0] = meshReader.getElements()[meshId].globalId * 4 + side;
         });
 
@@ -440,20 +473,24 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             namewrap(quantityLabels[quantity], sim),
             {},
             false,
-            [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](real* target, std::size_t index) {
-              auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index / subcells]];
-              auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index / subcells]];
+            [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](
+                real* target, std::size_t index, std::size_t subcell) {
+              auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
+              auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
               const auto position = backmap.get(meshId);
               const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
+
+              // velocities start at model::MaterialT::TractionQuantities
               const auto* dofsSingleQuantity =
-                  dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
+                  dofsAllQuantities +
+                  QDofSizePadded * (model::MaterialT::TractionQuantities + quantity);
               kernel::projectBasisToVtkFaceFromVolume vtkproj{};
               memory::AlignedArray<real, multisim::NumSimulations> simselect{};
               simselect[sim] = 1;
               vtkproj.simselect = simselect.data();
               vtkproj.qb = dofsSingleQuantity;
               vtkproj.xf(order) = target;
-              vtkproj.collvf(ConvergenceOrder, order, side) = proj[side][index % subcells].data();
+              vtkproj.collvf(ConvergenceOrder, order, side) = proj[side][subcell].data();
               vtkproj.execute(order, side);
             });
       }
@@ -466,9 +503,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 sim),
             {},
             false,
-            [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](real* target, std::size_t index) {
-              auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index / subcells]];
-              auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index / subcells]];
+            [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](
+                real* target, std::size_t index, std::size_t /*subcell*/) {
+              auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
+              auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
               const auto position = backmap.get(meshId);
               const auto* faceDisplacements = ltsStorage.lookup<LTS::FaceDisplacements>(position);
               const auto* faceDisplacementVariable =

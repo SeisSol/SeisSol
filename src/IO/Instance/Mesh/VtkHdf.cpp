@@ -31,10 +31,12 @@ namespace seissol::io::instance::mesh {
 VtkHdfWriter::VtkHdfWriter(const std::string& name,
                            std::size_t localElementCount,
                            geometry::Shape shape,
-                           std::size_t targetDegree)
+                           std::size_t targetDegree,
+                           bool temporal,
+                           std::int32_t compress)
     : name(name), localElementCount(localElementCount), globalElementCount(localElementCount),
       pointsPerElement(geometry::numPoints(targetDegree, shape)), type(geometry::vtkType(shape)),
-      targetDegree(targetDegree) {
+      targetDegree(targetDegree), temporal(temporal), compress(compress) {
   MPI_Exscan(&localElementCount,
              &elementOffset,
              1,
@@ -72,7 +74,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
   const auto selfPointsPerElement = pointsPerElement;
   const auto selfType = type;
 
-  // TODO: auto-generate using a managed buffer maybe
+  // TODO: auto-generate using a managed buffer maybe?
 
   addData("NumberOfCells",
           {},
