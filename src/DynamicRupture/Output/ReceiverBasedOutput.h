@@ -51,7 +51,7 @@ class ReceiverOutput {
   FaceToLtsMapType* faceToLtsMap_{nullptr};
   real* deviceCopyMemory_{nullptr};
 
-  kernels::Time timeKernel;
+  kernels::Time timeKernel_;
 
   struct LocalInfo {
     DynamicRupture::Layer* layer{};

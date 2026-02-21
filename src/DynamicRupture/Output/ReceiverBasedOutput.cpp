@@ -165,8 +165,8 @@ void ReceiverOutput::calcFaultOutput(
         }
       }
 
-      timeKernel.evaluate(timeCoeffs.data(), stePlus, dofsPlus);
-      timeKernel.evaluate(timeCoeffs.data(), steMinus, dofsMinus);
+      timeKernel_.evaluate(timeCoeffs.data(), stePlus, dofsPlus);
+      timeKernel_.evaluate(timeCoeffs.data(), steMinus, dofsMinus);
     }
 
     const auto* initStresses = getCellData<DynamicRupture::InitialStressInFaultCS>(local);

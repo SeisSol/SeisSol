@@ -278,9 +278,10 @@ void PUMLReader::partition(PumlMesh& meshTopology,
 
   auto partType = toPartitionerType(std::string_view(partitioningLib));
   logInfo() << "Using the" << toStringView(partType) << "partition library and strategy.";
-  if (partType == PUML::PartitionerType::None) {
-    logWarning() << partitioningLib
-                 << "not found. Expect poor performance as the mesh is not properly partitioned.";
+  if (partType == PUML::PartitionerType::None && Mpi::mpi.size() > 1) {
+    logWarning()
+        << partitioningLib
+        << "not found. The performance of this run will probably be much lower than it could be.";
   }
   auto partitioner = PUML::TETPartition::getPartitioner(partType);
   if (partitioner == nullptr) {
