@@ -213,7 +213,7 @@ void OutputManager::initElementwiseOutput() {
           ? io::instance::geometry::WriterBackend::Binary
           : io::instance::geometry::WriterBackend::Hdf5,
       io::instance::geometry::WriterGroup::FullSnapshot,
-      0};
+      seissolParameters.output.hdfcompress};
 
   auto writer = io::instance::geometry::GeometryWriter("fault-elementwise",
                                                        receiverPoints.size() / pointCount /

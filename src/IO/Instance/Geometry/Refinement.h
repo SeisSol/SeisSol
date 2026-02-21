@@ -8,7 +8,9 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_GEOMETRY_REFINEMENT_H_
 #define SEISSOL_SRC_IO_INSTANCE_GEOMETRY_REFINEMENT_H_
 
+#include <array>
 #include <vector>
+
 namespace seissol::io::instance::geometry {
 
 extern const std::vector<std::vector<std::array<double, 3>>> TetrahedronRefine4;

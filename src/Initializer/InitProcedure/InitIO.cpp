@@ -241,7 +241,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             ? io::instance::geometry::WriterBackend::Binary
             : io::instance::geometry::WriterBackend::Hdf5,
         io::instance::geometry::WriterGroup::FullSnapshot,
-        0};
+        seissolParams.output.hdfcompress};
 
     io::writer::ScheduledWriter schedWriter;
     schedWriter.name = "wavefield";
@@ -380,7 +380,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             ? io::instance::geometry::WriterBackend::Binary
             : io::instance::geometry::WriterBackend::Hdf5,
         io::instance::geometry::WriterGroup::FullSnapshot,
-        0};
+        seissolParams.output.hdfcompress};
 
     auto writer = io::instance::geometry::GeometryWriter(
         "free-surface",

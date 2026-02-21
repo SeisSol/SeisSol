@@ -159,9 +159,16 @@ void VtkHdfWriter::addData(const std::string& name,
 
   const auto append = !isConst && temporal;
 
+  const auto compress = this->compress;
+
   instrarray.emplace_back([=](const std::string& filename, double /*time*/) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, groups), name, data, data->datatype(), append);
+        writer::instructions::Hdf5Location(filename, groups),
+        name,
+        data,
+        data->datatype(),
+        append,
+        compress);
   });
 
   if (isConst && !temporal) {

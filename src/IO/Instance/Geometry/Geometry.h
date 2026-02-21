@@ -32,7 +32,7 @@ struct WriterConfig {
   WriterFormat format{WriterFormat::Vtk};
   WriterBackend backend{WriterBackend::Hdf5};
   WriterGroup time{WriterGroup::FullSnapshot};
-  int32_t compress{0};
+  uint32_t compress{0};
 };
 
 class GeometryWriter {

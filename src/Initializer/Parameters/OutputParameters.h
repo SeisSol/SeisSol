@@ -120,6 +120,7 @@ struct OutputParameters {
   bool loopStatisticsNetcdfOutput{false};
   OutputFormat format{OutputFormat::None};
   XdmfBackend xdmfWriterBackend{};
+  uint32_t hdfcompress{0};
   std::string prefix;
   CheckpointParameters checkpointParameters;
   ElementwiseFaultParameters elementwiseParameters;
@@ -133,6 +134,7 @@ struct OutputParameters {
   OutputParameters(bool loopStatisticsNetcdfOutput,
                    OutputFormat format,
                    XdmfBackend xdmfWriterBackend,
+                   uint32_t hdfcompress,
                    const std::string& prefix,
                    const CheckpointParameters& checkpointParameters,
                    const ElementwiseFaultParameters& elementwiseParameters,
@@ -142,7 +144,7 @@ struct OutputParameters {
                    const ReceiverOutputParameters& receiverParameters,
                    const WaveFieldOutputParameters& waveFieldParameters)
       : loopStatisticsNetcdfOutput(loopStatisticsNetcdfOutput), format(format),
-        xdmfWriterBackend(xdmfWriterBackend), prefix(prefix),
+        xdmfWriterBackend(xdmfWriterBackend), hdfcompress(hdfcompress), prefix(prefix),
         checkpointParameters(checkpointParameters), elementwiseParameters(elementwiseParameters),
         energyParameters(energyParameters), freeSurfaceParameters(freeSurfaceParameters),
         pickpointParameters(pickpointParameters), receiverParameters(receiverParameters),

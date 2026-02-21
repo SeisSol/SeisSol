@@ -290,7 +290,8 @@ void XdmfWriter::addData(const std::string& name,
           datasetName,
           data,
           data->datatype(),
-          true);
+          true,
+          compress);
     }
 
     result.dimensions.emplace_back(globalCount);

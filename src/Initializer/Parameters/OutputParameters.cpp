@@ -247,6 +247,7 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
 OutputParameters readOutputParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
+  const auto hdfcompress = reader->readWithDefault("hdfcompress", 0);
   const auto loopStatisticsNetcdfOutput =
       reader->readWithDefault("loopstatisticsnetcdfoutput", false);
   const auto format = reader->readWithDefaultEnum<OutputFormat>(
@@ -282,6 +283,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
   return OutputParameters(loopStatisticsNetcdfOutput,
                           format,
                           xdmfWriterBackend,
+                          hdfcompress,
                           prefix,
                           checkpointParameters,
                           elementwiseParameters,
