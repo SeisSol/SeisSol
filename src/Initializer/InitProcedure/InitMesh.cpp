@@ -73,12 +73,17 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
 
   meshReader.linearizeGhostlayer();
 
-  logInfo() << "Extracting fault information.";
   const auto& drParameters = seissolInstance.getSeisSolParameters().drParameters;
   const VrtxCoords center{drParameters.referencePoint[0],
                           drParameters.referencePoint[1],
                           drParameters.referencePoint[2]};
-  meshReader.extractFaultInformation(center, drParameters.refPointMethod);
+  if (!drParameters.isDynamicRuptureEnabled) {
+    logInfo() << "The Dynamic Rupture component has been disabled for this simulation.";
+    meshReader.disableDR();
+  } else {
+    logInfo() << "Extracting fault information.";
+    meshReader.extractFaultInformation(center, drParameters.refPointMethod);
+  }
 
   logInfo() << "Check the mesh for geometric errors.";
   meshReader.verifyMeshOrientation();
@@ -87,9 +92,8 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   double minPointValue[3]{INFINITY, INFINITY, INFINITY};
 
   const auto vertexCount = meshReader.getVertices().size();
-#ifdef _OPENMP
+
 #pragma omp parallel for reduction(min : minPointValue[ : 3]) reduction(max : maxPointValue[ : 3])
-#endif
   for (std::size_t i = 0; i < vertexCount; ++i) {
     const auto& vertex = meshReader.getVertices()[i];
     for (int j = 0; j < 3; ++j) {

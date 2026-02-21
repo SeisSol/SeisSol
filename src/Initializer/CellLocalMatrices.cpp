@@ -156,10 +156,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
 
-#ifdef _OPENMP
 #pragma omp parallel
     {
-#endif
       real matATData[tensor::star::size(0)];
       real matATtildeData[tensor::star::size(0)];
       real matBTData[tensor::star::size(1)];
@@ -183,9 +181,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
       real rusanovPlusNull[tensor::QcorrLocal::size()]{};
       real rusanovMinusNull[tensor::QcorrNeighbor::size()]{};
 
-#ifdef _OPENMP
 #pragma omp for schedule(static)
-#endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto clusterId = secondaryInformation[cell].clusterId;
         const auto timeStepWidth = clusterLayout.timestepRate(clusterId);
@@ -215,6 +211,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 0, matAT);
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 1, matBT);
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 2, matCT);
+
         setStarMatrix(
             matATData, matBTData, matCTData, gradXi, localIntegration[cell].starMatrices[0]);
         setStarMatrix(
@@ -235,6 +232,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           MeshTools::normalize(tangent1, tangent1);
           MeshTools::normalize(tangent2, tangent2);
 
+          // Defines a rotation matrix for computing material properties in face-local coordinates
+          // for anisotropy. It has no effect for isotropic materials.
           std::array<double, 36> nLocalData{};
           seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
           seissol::model::getTransposedGodunovState(
@@ -249,7 +248,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
               0,
               matATtilde);
 
-          // Calculate transposed T instead
+          // Calculate transposed T and Tinv instead
           seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, matT, matTinv);
 
           // Scale with |S_side|/|J| and multiply with -1 as the flux matrices
@@ -319,6 +318,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           kernel::computeFluxSolverLocal localKrnl;
           localKrnl.fluxScale = fluxScale;
           localKrnl.AplusT = localIntegration[cell].nApNm1[side];
+          if (cellInformation[cell].faceTypes[side] == FaceType::DynamicRupture) {
+            localKrnl.fluxScale = 0;
+          }
           if (flux == parameters::NumericalFlux::Rusanov) {
             localKrnl.QgodLocal = centralFluxData;
             localKrnl.QcorrLocal = rusanovPlusData;
@@ -358,9 +360,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         seissol::model::initializeSpecificNeighborData(materialLocal,
                                                        &neighboringIntegration[cell].specific);
       }
-#ifdef _OPENMP
     }
-#endif
   }
 }
 
@@ -375,9 +375,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
     auto* boundary = layer.var<LTS::BoundaryMapping>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
 
-#ifdef _OPENMP
 #pragma omp for schedule(static)
-#endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       const auto& element = elements[secondaryInformation[cell].meshId];
       const double* coords[Cell::NumVertices];
@@ -464,6 +462,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
   const auto& elements = meshReader.getElements();
 
   for (auto& layer : drStorage.leaves(Ghost)) {
+    auto* timeDofsPlus = layer.var<DynamicRupture::TimeDofsPlus>();
+    auto* timeDofsMinus = layer.var<DynamicRupture::TimeDofsMinus>();
     auto* timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();
     auto* timeDerivativeMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
     auto* timeDerivativePlusDevice = layer.var<DynamicRupture::TimeDerivativePlusDevice>();
@@ -486,10 +486,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
     auto* impAndEta = layer.var<DynamicRupture::ImpAndEta>();
     auto* impedanceMatrices = layer.var<DynamicRupture::ImpedanceMatrices>();
 
-#ifdef _OPENMP
 #pragma omp parallel for private(matTData, matTinvData, matAPlusData, matAMinusData)               \
     schedule(static)
-#endif
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       const std::size_t meshFace = faceInformation[ltsFace].meshFace;
       assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
@@ -521,10 +519,22 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         derivativesMeshId = fault[meshFace].neighborElement;
         derivativesSide = faceInformation[ltsFace].minusSide;
       }
+      real* timeDofs1 = nullptr;
+      real* timeDofs2 = nullptr;
       real* timeDerivative1 = nullptr;
       real* timeDerivative2 = nullptr;
       real* timeDerivative1Device = nullptr;
       real* timeDerivative2Device = nullptr;
+
+      const auto getDofs = [&](const auto& position) -> real* {
+        const auto halo = ltsStorage.getColorMap().argument(position.color).halo;
+        if (halo == HaloType::Ghost) {
+          return ltsStorage.lookup<LTS::DofsHalo>(position);
+        } else {
+          return ltsStorage.lookup<LTS::Dofs>(position);
+        }
+      };
+
       for (std::size_t duplicate = 0; duplicate < LTS::Backmap::MaxDuplicates; ++duplicate) {
         const auto positionOpt = backmap.getDup(derivativesMeshId, duplicate);
         if (positionOpt.has_value()) {
@@ -533,12 +543,18 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           if (timeDerivative1 == nullptr && cellInformation.ltsSetup.hasDerivatives()) {
             timeDerivative1 = ltsStorage.lookup<LTS::Derivatives>(position);
             timeDerivative1Device = ltsStorage.lookup<LTS::DerivativesDevice>(position);
+
+            timeDofs1 = getDofs(position);
           }
           if (timeDerivative2 == nullptr &&
               cellInformation.ltsSetup.neighborHasDerivatives(derivativesSide)) {
             timeDerivative2 = ltsStorage.lookup<LTS::FaceNeighbors>(position)[derivativesSide];
             timeDerivative2Device =
                 ltsStorage.lookup<LTS::FaceNeighborsDevice>(position)[derivativesSide];
+
+            const auto& secondaryInformation =
+                ltsStorage.lookup<LTS::SecondaryInformation>(position);
+            timeDofs2 = getDofs(secondaryInformation.faceNeighbors[derivativesSide]);
           }
         }
       }
@@ -546,11 +562,15 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       assert(timeDerivative1 != nullptr && timeDerivative2 != nullptr);
 
       if (fault[meshFace].element >= 0) {
+        timeDofsPlus[ltsFace] = timeDofs1;
+        timeDofsMinus[ltsFace] = timeDofs2;
         timeDerivativePlus[ltsFace] = timeDerivative1;
         timeDerivativeMinus[ltsFace] = timeDerivative2;
         timeDerivativePlusDevice[ltsFace] = timeDerivative1Device;
         timeDerivativeMinusDevice[ltsFace] = timeDerivative2Device;
       } else {
+        timeDofsPlus[ltsFace] = timeDofs2;
+        timeDofsMinus[ltsFace] = timeDofs1;
         timeDerivativePlus[ltsFace] = timeDerivative2;
         timeDerivativeMinus[ltsFace] = timeDerivative1;
         timeDerivativePlusDevice[ltsFace] = timeDerivative2Device;
@@ -571,9 +591,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         assert(duplicate != 0 || plusLtsId.has_value() || minusLtsId.has_value());
 
         if (plusLtsId.has_value()) {
-#ifdef _OPENMP
+
 #pragma omp critical
-#endif // _OPENMP
           {
             CellDRMapping& mapping = ltsStorage.lookup<LTS::DRMapping>(
                 plusLtsId.value())[faceInformation[ltsFace].plusSide];
@@ -590,9 +609,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           }
         }
         if (minusLtsId.has_value()) {
-#ifdef _OPENMP
+
 #pragma omp critical
-#endif // _OPENMP
           {
             CellDRMapping& mapping = ltsStorage.lookup<LTS::DRMapping>(
                 minusLtsId.value())[faceInformation[ltsFace].minusSide];

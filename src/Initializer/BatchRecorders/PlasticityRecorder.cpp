@@ -25,46 +25,44 @@ using namespace seissol::recording;
 void PlasticityRecorder::record(LTS::Layer& layer) {
   setUpContext(layer);
 
-  auto* pstrains = currentLayer->var<LTS::PStrain>(AllocationPlace::Device);
-  size_t nodalStressTensorCounter = 0;
-  real* scratchMem =
-      static_cast<real*>(currentLayer->var<LTS::IntegratedDofsScratch>(AllocationPlace::Device));
-  real* qEtaNodalScratch =
-      static_cast<real*>(currentLayer->var<LTS::QEtaNodalScratch>(AllocationPlace::Device));
   real* qStressNodalScratch =
       static_cast<real*>(currentLayer->var<LTS::QStressNodalScratch>(AllocationPlace::Device));
-  real* prevDofsScratch =
-      static_cast<real*>(currentLayer->var<LTS::PrevDofsScratch>(AllocationPlace::Device));
   const auto size = currentLayer->size();
-  if (size > 0) {
-    std::vector<real*> dofsPtrs(size, nullptr);
-    std::vector<real*> qstressNodalPtrs(size, nullptr);
-    std::vector<real*> pstransPtrs(size, nullptr);
-    std::vector<real*> initialLoadPtrs(size, nullptr);
-    std::vector<real*> qEtaNodalPtrs(size, nullptr);
-    std::vector<real*> qStressNodalPtrs(size, nullptr);
-    std::vector<real*> prevDofsPtrs(size, nullptr);
 
-    for (unsigned cell = 0; cell < size; ++cell) {
+  std::size_t psize = 0;
+  for (std::size_t cell = 0; cell < size; ++cell) {
+    auto dataHost = currentLayer->cellRef(cell);
+
+    if (dataHost.get<LTS::CellInformation>().plasticityEnabled) {
+      ++psize;
+    }
+  }
+
+  if (psize > 0) {
+    std::vector<real*> dofsPtrs(psize, nullptr);
+    std::vector<real*> pstrainsPtrs(psize, nullptr);
+    std::vector<real*> initialLoadPtrs(psize, nullptr);
+    std::vector<real*> qStressNodalPtrs(psize, nullptr);
+
+    std::size_t pcell = 0;
+    for (std::size_t cell = 0; cell < size; ++cell) {
+      const auto dataHost = currentLayer->cellRef(cell);
       auto data = currentLayer->cellRef(cell, AllocationPlace::Device);
-      dofsPtrs[cell] = static_cast<real*>(data.get<LTS::Dofs>());
-      qstressNodalPtrs[cell] = &scratchMem[nodalStressTensorCounter];
-      nodalStressTensorCounter += tensor::QStressNodal::size();
-      pstransPtrs[cell] = static_cast<real*>(pstrains[cell]);
-      initialLoadPtrs[cell] = static_cast<real*>(data.get<LTS::Plasticity>().initialLoading);
-      qEtaNodalPtrs[cell] = qEtaNodalScratch + cell * tensor::QEtaNodal::size();
-      qStressNodalPtrs[cell] = qStressNodalScratch + cell * tensor::QStressNodal::size();
-      prevDofsPtrs[cell] = prevDofsScratch + cell * tensor::Q::size();
+
+      if (dataHost.get<LTS::CellInformation>().plasticityEnabled) {
+        dofsPtrs[pcell] = static_cast<real*>(data.get<LTS::Dofs>());
+        pstrainsPtrs[pcell] = static_cast<real*>(data.get<LTS::PStrain>());
+        initialLoadPtrs[pcell] = static_cast<real*>(data.get<LTS::Plasticity>().initialLoading);
+        qStressNodalPtrs[pcell] = qStressNodalScratch + pcell * tensor::QStressNodal::size();
+        ++pcell;
+      }
     }
 
     const ConditionalKey key(*KernelNames::Plasticity);
     checkKey(key);
     (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs);
-    (*currentTable)[key].set(inner_keys::Wp::Id::NodalStressTensor, qstressNodalPtrs);
-    (*currentTable)[key].set(inner_keys::Wp::Id::Pstrains, pstransPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::NodalStressTensor, qStressNodalPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::Pstrains, pstrainsPtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::InitialLoad, initialLoadPtrs);
-    (*currentTable)[key].set(inner_keys::Wp::Id::PrevDofs, prevDofsPtrs);
-    (*currentTable)[key].set(inner_keys::Wp::Id::QEtaNodal, qEtaNodalPtrs);
-    (*currentTable)[key].set(inner_keys::Wp::Id::DuDtStrain, qStressNodalPtrs);
   }
 }

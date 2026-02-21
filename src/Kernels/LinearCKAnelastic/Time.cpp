@@ -219,7 +219,7 @@ void Spacetime::computeBatchedAder(
     krnl.Iane = (entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr();
 
     unsigned derivativesOffset = tensor::dQ::size(0);
-    krnl.dQ(0) = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    krnl.dQ(0) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
     krnl.dQane(0) = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
     for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       krnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
@@ -232,7 +232,9 @@ void Spacetime::computeBatchedAder(
       // TODO: compress
       derivativesOffset += tensor::dQ::size(i);
     }
+    krnl.Q = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
 
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
       krnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
@@ -249,17 +251,14 @@ void Spacetime::computeBatchedAder(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
 
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.W);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.E);
+
     for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
       // update scalar for this derivative
       krnl.power(der) = coeffs[der];
     }
-
-    device.algorithms.streamBatchedData(
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
-        (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
-        tensor::Q::Size,
-        krnl.numElements,
-        runtime.stream());
 
     krnl.streamPtr = runtime.stream();
     krnl.execute();

@@ -221,9 +221,8 @@ class GeneratedBuffer : public AdhocBuffer {
         targetCount,
         [=](void* targetPtr) {
           T* target = reinterpret_cast<T*>(targetPtr);
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
           for (std::size_t i = 0; i < sourceCount; ++i) {
             std::invoke(handler, &target[i * localTargetStride], i);
           }

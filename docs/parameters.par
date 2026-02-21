@@ -12,8 +12,10 @@
 MaterialFileName = '33_layered_constant.yaml'
 !1: Compute average materials for each cell, 0: sample material values at element barycenters
 UseCellHomogenizedMaterial = 1
-!off-fault plasticity parameters (ignored if Plasticity=0)
+!off-fault plasticity parameters (disabled iff Plasticity=0)
 Plasticity=0
+!comma-separated list of groups for which plasticity is disabled, even if we enable it globally
+plasticitydisabledgroups=''
 Tv=0.05
 !yaml file defining spatial dependance of properties necessary for plasticity. MaterialFileName is taken for plasticity if this is not provided
 PlasticityFileName = ''
@@ -58,6 +60,7 @@ avoidic = 0    ! 1 iff use the IC only for analytical boundary conditions
 /
 
 &DynamicRupture
+enabled = 1                  ! explicitly enable/disable the DR (different to setting FL=0; disabling it converts all DR faces to default inner faces, and disables any DR-related I/O)
 FL = 16                      ! Friction law
 !0: none, 16:LSW, 103: RS with strong velocity weakening
 !yaml file defining spatial dependance of fault properties
@@ -90,9 +93,10 @@ vtkorder = -1 ! positive values enable the high-order VTKHDF format for the elem
 
 ! parameterize ascii fault file outputs
 &Pickpoint
-printtimeinterval = 1       ! Index of printed info at timesteps
+printtimeinterval = 1       ! Timestep output frequency. Each ((timestep % printtimeinterval) == 0) is outputted.
 OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1  ! turn on and off fault outputs
 PPFileName = 'tpv33_faultreceivers.dat'
+outputinterval = 1.0 ! Write-out interval for the on-fault receivers.
 /
 
 &SourceType

@@ -71,6 +71,12 @@ struct LTS {
         return AllocationMode::HostOnly;
       }
     } else {
+      const auto modeMaybeCompress = useDeviceL2Compress() ? AllocationMode::HostDeviceCompress
+                                                           : AllocationMode::HostDeviceSplit;
+      const auto modeMaybeCompressPinned = useDeviceL2Compress()
+                                               ? AllocationMode::HostDeviceCompressPinned
+                                               : AllocationMode::HostDeviceSplitPinned;
+
       switch (preset) {
       case AllocationPreset::Global:
         [[fallthrough]];
@@ -81,16 +87,17 @@ struct LTS {
       case AllocationPreset::Dofs:
         [[fallthrough]];
       case AllocationPreset::PlasticityData:
-        return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplitPinned;
+        return useUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompressPinned;
       case AllocationPreset::Timebucket:
-        return useMPIUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
+        return useMPIUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompress;
       default:
-        return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
+        return useUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompress;
       }
     }
   }
 
   struct Dofs : public initializer::Variable<real[tensor::Q::size()]> {};
+  struct DofsHalo : public initializer::Variable<real[tensor::Q::size()]> {};
   // size is zero if Qane is not defined
   struct DofsAne
       : public initializer::Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> {
@@ -107,8 +114,8 @@ struct LTS {
   struct Plasticity : public initializer::Variable<seissol::model::PlasticityData> {};
   struct DRMapping : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
   struct BoundaryMapping : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {};
-  struct PStrain
-      : public initializer::Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> {};
+  struct PStrain : public initializer::Variable<
+                       real[tensor::QStressNodal::size() + tensor::QEtaNodal::size()]> {};
   struct FaceDisplacements : public initializer::Variable<real* [Cell::NumFaces]> {};
   struct BuffersDerivatives : public initializer::Bucket<real> {};
 
@@ -130,8 +137,6 @@ struct LTS {
   struct DofsExtScratch : public initializer::Scratchpad<real> {};
 
   struct FlagScratch : public initializer::Scratchpad<unsigned> {};
-  struct PrevDofsScratch : public initializer::Scratchpad<real> {};
-  struct QEtaNodalScratch : public initializer::Scratchpad<real> {};
   struct QStressNodalScratch : public initializer::Scratchpad<real> {};
 
   struct RotateDisplacementToFaceNormalScratch : public initializer::Scratchpad<real> {};
@@ -144,6 +149,7 @@ struct LTS {
   struct Integrals : public initializer::Variable<real> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
+                                                        DofsHalo,
                                                         DofsAne,
                                                         Buffers,
                                                         Derivatives,
@@ -175,8 +181,6 @@ struct LTS {
                                                         IDofsAneScratch,
                                                         DofsExtScratch,
                                                         FlagScratch,
-                                                        PrevDofsScratch,
-                                                        QEtaNodalScratch,
                                                         QStressNodalScratch,
                                                         RotateDisplacementToFaceNormalScratch,
                                                         RotateDisplacementToGlobalScratch,
@@ -201,6 +205,10 @@ struct LTS {
     }
 
     storage.add<Dofs>(LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
+    storage.add<DofsHalo>(LayerMask(Copy) | LayerMask(Interior),
+                          PagesizeHeap,
+                          allocationModeWP(AllocationPreset::Dofs));
+
     if (kernels::size<tensor::Qane>() > 0) {
       storage.add<DofsAne>(
           LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
@@ -209,6 +217,7 @@ struct LTS {
                            PagesizeHeap,
                            allocationModeWP(AllocationPreset::Dofs));
     }
+
     storage.add<Buffers>(
         LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
     storage.add<Derivatives>(
@@ -246,27 +255,26 @@ struct LTS {
     storage.add<BoundaryMappingDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
 
     if constexpr (isDeviceOn()) {
-      storage.add<DerivativesExtScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      storage.add<DerivativesAneScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      storage.add<IDofsAneScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      storage.add<DofsExtScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      storage.add<IntegratedDofsScratch>(LayerMask(), 1, AllocationMode::HostDeviceSplit);
-      storage.add<DerivativesScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      storage.add<NodalAvgDisplacements>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      const auto mode = AllocationMode::DeviceOnly;
+
+      storage.add<DerivativesExtScratch>(LayerMask(), 1, mode);
+      storage.add<DerivativesAneScratch>(LayerMask(), 1, mode);
+      storage.add<IDofsAneScratch>(LayerMask(), 1, mode);
+      storage.add<DofsExtScratch>(LayerMask(), 1, mode);
+      storage.add<IntegratedDofsScratch>(LayerMask(), 1, mode);
+      storage.add<DerivativesScratch>(LayerMask(), 1, mode);
+      storage.add<NodalAvgDisplacements>(LayerMask(), 1, mode);
       storage.add<AnalyticScratch>(LayerMask(), 1, AllocationMode::HostDevicePinned);
 
-      storage.add<FlagScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      storage.add<PrevDofsScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      storage.add<QEtaNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      storage.add<QStressNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<FlagScratch>(LayerMask(), 1, mode);
+      storage.add<QStressNodalScratch>(LayerMask(), 1, mode);
 
-      storage.add<RotateDisplacementToFaceNormalScratch>(
-          LayerMask(), 1, AllocationMode::DeviceOnly);
-      storage.add<RotateDisplacementToGlobalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      storage.add<RotatedFaceDisplacementScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      storage.add<DofsFaceNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      storage.add<PrevCoefficientsScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      storage.add<DofsFaceBoundaryNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<RotateDisplacementToFaceNormalScratch>(LayerMask(), 1, mode);
+      storage.add<RotateDisplacementToGlobalScratch>(LayerMask(), 1, mode);
+      storage.add<RotatedFaceDisplacementScratch>(LayerMask(), 1, mode);
+      storage.add<DofsFaceNodalScratch>(LayerMask(), 1, mode);
+      storage.add<PrevCoefficientsScratch>(LayerMask(), 1, mode);
+      storage.add<DofsFaceBoundaryNodalScratch>(LayerMask(), 1, mode);
     }
   }
 

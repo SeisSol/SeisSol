@@ -19,8 +19,8 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
   using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::copyStorageToLocal;
 
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
-    const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
-    const double localSlipRate = ctx.initialVariables.localSlipRate;
+    const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
+    const real localSlipRate = ctx.initialVariables.localSlipRate;
     const double preexp1 = -localSlipRate * (timeIncrement / localSl0);
     const double exp1v = std::exp(preexp1);
     const double exp1m = -std::expm1(preexp1);

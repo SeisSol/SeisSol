@@ -81,10 +81,9 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
     std::size_t numberOfFreeSurfaces = 0;
     std::size_t numberOfOutputFreeSurfaces = 0;
     const auto layerSize = layer.size();
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)                                                          \
     reduction(+ : numberOfFreeSurfaces, numberOfOutputFreeSurfaces)
-#endif // _OPENMP
     for (std::size_t cell = 0; cell < layerSize; ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (initializer::requiresDisplacement(

@@ -340,12 +340,6 @@ std::optional<std::vector<char>> ArrayDatatype::fromStringRaw(const std::string&
   return std::optional<std::vector<char>>();
 }
 
-struct MemberInfo {
-  std::string name;
-  std::size_t offset{};
-  std::shared_ptr<Datatype> datatype;
-};
-
 StructDatatype::StructDatatype(const std::vector<MemberInfo>& members)
     : StructDatatype(members, minSize(members)) {}
 

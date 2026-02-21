@@ -149,13 +149,12 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     // cells that are duplicates.
     std::vector<std::array<double, 3>> quadraturePointsXyz(NumQuadPoints);
 
-    alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
-    alignas(Alignment) real analyticalSolutionData[NumQuadPoints * NumQuantities];
     for (const auto& layer : ltsStorage.leaves(Ghost)) {
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       const auto* materialData = layer.var<LTS::Material>();
       const auto* dofsData = layer.var<LTS::Dofs>();
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+
+#if !NVHPC_AVOID_OMP
       // Note: Adding default(none) leads error when using gcc-8
 #pragma omp parallel for shared(elements,                                                          \
                                     vertices,                                                      \
@@ -171,8 +170,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                                     errsL1Local,                                                   \
                                     analyticalsL1Local,                                            \
                                     analyticalsL2Local,                                            \
-                                    analyticalsLInfLocal)                                          \
-    firstprivate(quadraturePointsXyz) private(numericalSolutionData, analyticalSolutionData)
+                                    analyticalsLInfLocal) firstprivate(quadraturePointsXyz)
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         if (secondaryInformation[cell].duplicate > 0) {
@@ -181,6 +179,9 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         }
         const auto meshId = secondaryInformation[cell].meshId;
         const int curThreadId = OpenMP::threadId();
+
+        alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()]{};
+        alignas(Alignment) real analyticalSolutionData[NumQuadPoints * NumQuantities]{};
 
         auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
         auto analyticalSolution = yateto::DenseTensorView<2, real>(analyticalSolutionData,
@@ -221,14 +222,14 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
           }
         }
 
-        auto numSub = seissol::multisim::simtensor(numericalSolution, sim);
-
         // Evaluate numerical solution at quad. nodes
         kernel::evalAtQP krnl;
         krnl.evalAtQP = globalData->evalAtQPMatrix;
         krnl.dofsQP = numericalSolutionData;
         krnl.Q = dofsData[cell];
         krnl.execute();
+
+        const auto numSub = seissol::multisim::simtensor(numericalSolution, sim);
 
         for (size_t i = 0; i < NumQuadPoints; ++i) {
           const auto curWeight = jacobiDet * quadratureWeights[i];
