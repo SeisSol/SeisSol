@@ -58,6 +58,7 @@ class Local : public LocalKernel {
   kernel::gpu_volumeExt deviceVolumeKernelPrototype_;
   kernel::gpu_localFluxExt deviceLocalFluxKernelPrototype_;
   kernel::gpu_local deviceLocalKernelPrototype_;
+  kernel::gpu_fluxLocalAll deviceFluxLocalAllKernelPrototype_;
 #endif
 };
 } // namespace seissol::kernels::solver::linearckanelastic

@@ -316,6 +316,8 @@ if (WITH_GPU)
     else()
         set(USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS OFF)
     endif()
+
+    option(DEVICE_COMBINE_LOCAL_FLUX "Combine the local flux kernels into a single one (usually increases performance; unless you have a mesh with over 50% DR faces)." ON)
 endif()
 
 

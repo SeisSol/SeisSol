@@ -219,6 +219,7 @@ class MemkindArray {
     assert(source.size() <= capacity_);
     memcopyTyped<T>(dataPtr_, source.data(), capacity_, memkind_, source.memkind_);
   }
+
   ~MemkindArray() { freeTyped(dataPtr_, memkind_); }
   SEISSOL_HOSTDEVICE T* data() noexcept { return dataPtr_; }
   [[nodiscard]] SEISSOL_HOSTDEVICE const T* data() const noexcept { return dataPtr_; }

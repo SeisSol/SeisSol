@@ -106,8 +106,8 @@ void seissol::physics::Planarwave::evaluate(
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
 
-  auto r = yateto::DenseTensorView<2, std::complex<double>>(
-      const_cast<std::complex<double>*>(eigenvectors_.data()),
+  const auto r = yateto::DenseTensorView<2, std::complex<double>, unsigned, true>(
+      eigenvectors_.data(),
       {seissol::model::MaterialT::NumQuantities, seissol::model::MaterialT::NumQuantities});
   for (unsigned v = 0; v < varField_.size(); ++v) {
     const auto omega = lambdaA_[varField_[v]];
@@ -282,8 +282,8 @@ void seissol::physics::TravellingWave::evaluate(
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
   dofsQp.setZero();
 
-  auto r = yateto::DenseTensorView<2, std::complex<double>>(
-      const_cast<std::complex<double>*>(eigenvectors_.data()),
+  const auto r = yateto::DenseTensorView<2, std::complex<double>, unsigned, true>(
+      eigenvectors_.data(),
       {seissol::model::MaterialT::NumQuantities, seissol::model::MaterialT::NumQuantities});
   for (unsigned v = 0; v < varField_.size(); ++v) {
     const auto omega = lambdaA_[varField_[v]];

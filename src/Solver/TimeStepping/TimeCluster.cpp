@@ -737,11 +737,31 @@ void TimeCluster::predict() {
 }
 
 void TimeCluster::handleDynamicRupture(DynamicRupture::Layer& layerData) {
+  if (layerData.size() == 0) {
+    return;
+  }
+
   if (executor_ == Executor::Device) {
     computeDynamicRuptureDevice(layerData);
   } else {
     computeDynamicRupture(layerData);
   }
+
+  double time = ct_.correctionTime;
+
+  // repeat the current solution for some times---to match the existing output scheme.
+  // maybe replace with just writePickpointOutput(layerId(), time + dt, dt); some day?
+
+  const double meshDt = ct_.getTimeStepSize();
+
+  do {
+    const auto oldTime = time;
+    time += dynamicRuptureScheduler_->getOutputTimestep();
+    const auto trueTime = std::min(time, syncTime_);
+    const auto trueDt = trueTime - oldTime;
+    faultOutputManager_->writePickpointOutput(
+        layerData.id(), trueTime, trueDt, meshDt, 0, streamRuntime_);
+  } while (time * (1 + 1e-8) < ct_.correctionTime + ct_.maxTimeStepSize);
 
   // TODO(David): restrict to copy/interior of same cluster type
   if (hasDifferentExecutorNeighbor()) {
@@ -786,23 +806,23 @@ void TimeCluster::correct() {
   // Otherwise, this is an interior layer actor, and we need only the FL_Int.
   // We need to avoid computing it twice.
   if (dynamicRuptureScheduler_->mayComputeInterior(ct_.stepsSinceStart)) {
-    if (dynamicRuptureScheduler_->hasDynamicRuptureFaces()) {
-      handleDynamicRupture(*dynRupInteriorData_);
-      seissolInstance_.flopCounter().incrementNonZeroFlopsDynamicRupture(
-          accFlopsNonZero_[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
-      seissolInstance_.flopCounter().incrementHardwareFlopsDynamicRupture(
-          accFlopsHardware_[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
-    }
+    handleDynamicRupture(*dynRupInteriorData_);
+
+    seissolInstance_.flopCounter().incrementNonZeroFlopsDynamicRupture(
+        accFlopsNonZero_[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
+    seissolInstance_.flopCounter().incrementHardwareFlopsDynamicRupture(
+        accFlopsHardware_[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
+
     dynamicRuptureScheduler_->setLastCorrectionStepsInterior(ct_.stepsSinceStart);
   }
   if (layerType_ == HaloType::Copy) {
-    if (dynamicRuptureScheduler_->hasDynamicRuptureFaces()) {
-      handleDynamicRupture(*dynRupCopyData_);
-      seissolInstance_.flopCounter().incrementNonZeroFlopsDynamicRupture(
-          accFlopsNonZero_[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
-      seissolInstance_.flopCounter().incrementHardwareFlopsDynamicRupture(
-          accFlopsHardware_[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
-    }
+    handleDynamicRupture(*dynRupCopyData_);
+
+    seissolInstance_.flopCounter().incrementNonZeroFlopsDynamicRupture(
+        accFlopsNonZero_[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
+    seissolInstance_.flopCounter().incrementHardwareFlopsDynamicRupture(
+        accFlopsHardware_[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
+
     dynamicRuptureScheduler_->setLastCorrectionStepsCopy((ct_.stepsSinceStart));
   }
 
@@ -820,16 +840,6 @@ void TimeCluster::correct() {
       accFlopsNonZero_[static_cast<int>(ComputePart::DRNeighbor)]);
   seissolInstance_.flopCounter().incrementHardwareFlopsDynamicRupture(
       accFlopsHardware_[static_cast<int>(ComputePart::DRNeighbor)]);
-
-  // First cluster calls fault receiver output
-  // Call fault output only if both interior and copy parts of DR were computed
-  // TODO: Change from iteration based to time based
-  if (dynamicRuptureScheduler_->isFirstClusterWithDynamicRuptureFaces() &&
-      dynamicRuptureScheduler_->mayComputeFaultOutput(ct_.stepsSinceStart)) {
-    faultOutputManager_->writePickpointOutput(
-        ct_.correctionTime + timeStepSize(), timeStepSize(), streamRuntime_);
-    dynamicRuptureScheduler_->setLastFaultOutput(ct_.stepsSinceStart);
-  }
 
   if (printProgress_) {
 

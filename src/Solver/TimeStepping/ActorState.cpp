@@ -90,17 +90,11 @@ NeighborCluster::NeighborCluster(double maxTimeStepSize,
 }
 
 DynamicRuptureScheduler::DynamicRuptureScheduler(long numberOfDynamicRuptureFaces,
-                                                 bool isFirstDynamicRuptureCluster)
-    : numberOfDynamicRuptureFaces_(numberOfDynamicRuptureFaces),
-      firstClusterWithDynamicRuptureFaces_(isFirstDynamicRuptureCluster) {}
+                                                 double outputTimestep)
+    : numberOfDynamicRuptureFaces_(numberOfDynamicRuptureFaces), outputTimestep_(outputTimestep) {}
 
 bool DynamicRuptureScheduler::mayComputeInterior(long curCorrectionSteps) const {
   return curCorrectionSteps > lastCorrectionStepsInterior_;
-}
-
-bool DynamicRuptureScheduler::mayComputeFaultOutput(long curCorrectionSteps) const {
-  return curCorrectionSteps == lastCorrectionStepsInterior_ &&
-         curCorrectionSteps == lastCorrectionStepsCopy_ && curCorrectionSteps > lastFaultOutput_;
 }
 
 void DynamicRuptureScheduler::setLastCorrectionStepsInterior(long steps) {
@@ -111,13 +105,9 @@ void DynamicRuptureScheduler::setLastCorrectionStepsCopy(long steps) {
   lastCorrectionStepsCopy_ = steps;
 }
 
-void DynamicRuptureScheduler::setLastFaultOutput(long steps) { lastFaultOutput_ = steps; }
-
 bool DynamicRuptureScheduler::hasDynamicRuptureFaces() const {
   return numberOfDynamicRuptureFaces_ > 0;
 }
 
-bool DynamicRuptureScheduler::isFirstClusterWithDynamicRuptureFaces() const {
-  return firstClusterWithDynamicRuptureFaces_;
-}
+double DynamicRuptureScheduler::getOutputTimestep() const { return outputTimestep_; }
 } // namespace seissol::time_stepping

@@ -94,26 +94,21 @@ struct NeighborCluster {
 class DynamicRuptureScheduler {
   long lastCorrectionStepsInterior_ = -1;
   long lastCorrectionStepsCopy_ = -1;
-  long lastFaultOutput_ = -1;
   long numberOfDynamicRuptureFaces_;
-  bool firstClusterWithDynamicRuptureFaces_;
+  double outputTimestep_{};
 
   public:
-  DynamicRuptureScheduler(long numberOfDynamicRuptureFaces, bool isFirstDynamicRuptureCluster);
+  DynamicRuptureScheduler(long numberOfDynamicRuptureFaces, double outputTimestep);
 
   [[nodiscard]] bool mayComputeInterior(long curCorrectionSteps) const;
-
-  [[nodiscard]] bool mayComputeFaultOutput(long curCorrectionSteps) const;
 
   void setLastCorrectionStepsInterior(long steps);
 
   void setLastCorrectionStepsCopy(long steps);
 
-  void setLastFaultOutput(long steps);
-
   [[nodiscard]] bool hasDynamicRuptureFaces() const;
 
-  [[nodiscard]] bool isFirstClusterWithDynamicRuptureFaces() const;
+  [[nodiscard]] double getOutputTimestep() const;
 };
 
 struct ActResult {

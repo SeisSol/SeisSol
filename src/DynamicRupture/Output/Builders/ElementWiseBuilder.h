@@ -23,8 +23,8 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   void setParams(const seissol::initializer::parameters::ElementwiseFaultParameters& params) {
     elementwiseParams_ = params;
   }
-  void build(std::shared_ptr<ReceiverOutputData> elementwiseOutputData) override {
-    outputData_ = elementwiseOutputData;
+  void build(std::shared_ptr<ReceiverOutputData> elementwiseOutputData) {
+    outputData_ = std::move(elementwiseOutputData);
     initReceiverLocations();
     assignNearestGaussianPoints(outputData_->receiverPoints);
     assignNearestInternalGaussianPoints();

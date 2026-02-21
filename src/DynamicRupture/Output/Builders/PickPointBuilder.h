@@ -9,13 +9,14 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_PICKPOINTBUILDER_H_
 
 #include "Common/Iterator.h"
+#include "DynamicRupture/Output/DataTypes.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PointMapper.h"
 #include "Parallel/Runtime/Stream.h"
 #include "ReceiverBasedOutputBuilder.h"
 
-#include <exception>
+#include <limits>
 #include <memory>
 #include <optional>
 
@@ -26,25 +27,33 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   void setParams(seissol::initializer::parameters::PickpointParameters params) {
     pickpointParams_ = std::move(params);
   }
-  void build(std::shared_ptr<ReceiverOutputData> pickPointOutputData) override {
-    outputData_ = pickPointOutputData;
 
-    // TODO: enable after #1407 has been merged
-    // outputData->extraRuntime.emplace(0);
+  void setTimestep(double timestep, double endtime) {
+    timestep_ = timestep;
+    endtime_ = endtime;
+  }
 
+  void build(
+      std::unordered_map<std::size_t, std::shared_ptr<ReceiverOutputData>>& pickPointOutputData) {
     readCoordsFromFile();
-    initReceiverLocations();
-    assignNearestGaussianPoints(outputData_->receiverPoints);
-    assignNearestInternalGaussianPoints();
-    assignFusedIndices();
-    assignFaultTags();
-    initTimeCaching();
-    initFaultDirections();
-    initOutputVariables(pickpointParams_.outputMask);
-    initRotationMatrices();
-    initBasisFunctions();
-    initJacobian2dMatrices();
-    outputData_->isActive = true;
+    initReceiverLocations(pickPointOutputData);
+    for (auto& [id, singleClusterOutputData] : pickPointOutputData) {
+      singleClusterOutputData->clusterId = id;
+      outputData_ = singleClusterOutputData;
+      outputData_->extraRuntime.emplace(0);
+
+      assignNearestGaussianPoints(outputData_->receiverPoints);
+      assignNearestInternalGaussianPoints();
+      assignFusedIndices();
+      assignFaultTags();
+      initTimeCaching();
+      initFaultDirections();
+      initOutputVariables(pickpointParams_.outputMask);
+      initRotationMatrices();
+      initBasisFunctions();
+      initJacobian2dMatrices();
+      outputData_->isActive = true;
+    }
   }
 
   protected:
@@ -62,7 +71,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
     // iterate line by line and initialize DrRecordPoints
     for (const auto& line : content) {
-      std::array<real, 3> coords{};
+      std::array<double, 3> coords{};
       convertStringToMask(line, coords);
 
       ReceiverPoint point{};
@@ -74,7 +83,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     }
   }
 
-  void initReceiverLocations() {
+  void initReceiverLocations(
+      std::unordered_map<std::size_t, std::shared_ptr<ReceiverOutputData>>& outputDataPerCluster) {
     const auto numReceiverPoints = potentialReceivers_.size();
 
     const auto& meshElements = meshReader_->getElements();
@@ -124,7 +134,12 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
         for (std::size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
           auto singleReceiver = receiver;
           singleReceiver.simIndex = i;
-          outputData_->receiverPoints.push_back(singleReceiver);
+
+          const auto layerId = faceToLtsMap_->at(receiver.faultFaceIndex).color;
+          if (outputDataPerCluster[layerId] == nullptr) {
+            outputDataPerCluster[layerId] = std::make_shared<ReceiverOutputData>();
+          }
+          outputDataPerCluster[layerId]->receiverPoints.push_back(singleReceiver);
         }
       }
     }
@@ -157,7 +172,11 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   }
 
   void initTimeCaching() override {
-    outputData_->maxCacheLevel = pickpointParams_.maxPickStore;
+    const auto intervalOrEnd = std::min(pickpointParams_.writeInterval, endtime_);
+    const auto neededCacheLevel =
+        static_cast<std::size_t>(std::ceil(intervalOrEnd / timestep_) + 1);
+
+    outputData_->maxCacheLevel = neededCacheLevel;
     outputData_->cachedTime.resize(outputData_->maxCacheLevel, 0.0);
     outputData_->currentCacheLevel = 0;
   }
@@ -167,13 +186,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     std::vector<short> globalContainVector(size);
 
     MPI_Comm comm = Mpi::mpi.comm();
-    MPI_Reduce(const_cast<short*>(localContainVector.data()),
-               const_cast<short*>(globalContainVector.data()),
-               size,
-               MPI_SHORT,
-               MPI_SUM,
-               0,
-               comm);
+    MPI_Reduce(
+        localContainVector.data(), globalContainVector.data(), size, MPI_SHORT, MPI_SUM, 0, comm);
 
     if (localRank_ == 0) {
       bool allReceiversFound{true};
@@ -198,6 +212,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   private:
   seissol::initializer::parameters::PickpointParameters pickpointParams_;
   std::vector<ReceiverPoint> potentialReceivers_;
+  double timestep_{std::numeric_limits<double>::infinity()};
+  double endtime_{std::numeric_limits<double>::infinity()};
 };
 } // namespace seissol::dr::output
 

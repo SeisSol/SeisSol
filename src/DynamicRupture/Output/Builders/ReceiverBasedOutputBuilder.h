@@ -28,7 +28,6 @@ namespace seissol::dr::output {
 class ReceiverBasedOutputBuilder {
   public:
   virtual ~ReceiverBasedOutputBuilder() = default;
-  virtual void build(std::shared_ptr<ReceiverOutputData> outputData) = 0;
 
   void setMeshReader(const seissol::geometry::MeshReader* reader);
   void setLtsData(LTS::Storage& userWpStorage,
@@ -36,7 +35,7 @@ class ReceiverBasedOutputBuilder {
                   DynamicRupture::Storage& userDrStorage);
 
   void setVariableList(const std::vector<std::size_t>& variables);
-  void setFaceToLtsMap(std::vector<std::size_t>* faceToLtsMap);
+  void setFaceToLtsMap(std::vector<::seissol::initializer::StoragePosition>* faceToLtsMap);
 
   protected:
   virtual void initTimeCaching() = 0;
@@ -56,7 +55,7 @@ class ReceiverBasedOutputBuilder {
   DynamicRupture::Storage* drStorage_{nullptr};
   std::shared_ptr<ReceiverOutputData> outputData_;
   std::vector<std::size_t> variables_;
-  std::vector<std::size_t>* faceToLtsMap_{nullptr};
+  std::vector<::seissol::initializer::StoragePosition>* faceToLtsMap_{nullptr};
   int localRank_{-1};
 };
 } // namespace seissol::dr::output

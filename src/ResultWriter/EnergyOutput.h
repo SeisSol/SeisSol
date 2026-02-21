@@ -13,8 +13,10 @@
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/MemoryAllocator.h"
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
+#include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <array>
@@ -113,13 +115,6 @@ class EnergyOutput : public Module {
 
   std::string outputFileName_;
   std::ofstream out_;
-
-#ifdef ACL_DEVICE
-  real* timeDerivativePlusHost_ = nullptr;
-  real* timeDerivativeMinusHost_ = nullptr;
-  real* timeDerivativePlusHostMapped_ = nullptr;
-  real* timeDerivativeMinusHostMapped_ = nullptr;
-#endif
 
   const GlobalData* global_ = nullptr;
   const DynamicRupture::Storage* drStorage_ = nullptr;

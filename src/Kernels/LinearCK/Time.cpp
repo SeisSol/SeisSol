@@ -157,6 +157,7 @@ void Spacetime::computeBatchedAder(
     derivativesKrnl.numElements = numElements;
     derivativesKrnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
 
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
       derivativesKrnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
@@ -169,13 +170,8 @@ void Spacetime::computeBatchedAder(
       derivativesKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
     }
 
-    // stream dofs to the zero derivative
-    device_.algorithms.streamBatchedData(
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
-        (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
-        tensor::Q::Size,
-        derivativesKrnl.numElements,
-        runtime.stream());
+    derivativesKrnl.Q =
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
 
     const auto maxTmpMem = yateto::getMaxTmpMemRequired(derivativesKrnl);
     auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * numElements) / sizeof(real));

@@ -167,7 +167,7 @@ void ReceiverWriter::init(
     derivedQuantities_.push_back(std::make_shared<kernels::ReceiverStrain>());
   }
 
-  setSyncInterval(std::min(endTime, parameters.interval));
+  setSyncInterval(std::min(endTime, parameters.writeInterval));
   Modules::registerHook(*this, ModuleHook::SimulationStart);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
   Modules::registerHook(*this, ModuleHook::Shutdown);

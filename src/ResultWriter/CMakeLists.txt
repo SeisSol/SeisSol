@@ -9,12 +9,14 @@ add_library(seissol-resultwriter OBJECT
     AnalysisWriter.cpp
     AsyncIO.cpp
     ClusteringWriter.cpp
+    DofSync.cpp
     EnergyOutput.cpp
     FaultWriter.cpp
     FaultWriterExecutor.cpp
     FreeSurfaceWriter.cpp
     FreeSurfaceWriterExecutor.cpp
     MiniSeisSolWriter.cpp
+    PickpointWriter.cpp
     PostProcessor.cpp
     ReceiverWriter.cpp
     ThreadsPinningWriter.cpp

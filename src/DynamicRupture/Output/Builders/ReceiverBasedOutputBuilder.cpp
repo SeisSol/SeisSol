@@ -22,6 +22,7 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include "Solver/MultipleSimulations.h"
@@ -40,6 +41,7 @@
 
 #ifdef ACL_DEVICE
 #include "GeneratedCode/tensor.h"
+#include "Kernels/Solver.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Helper.h"
@@ -65,7 +67,8 @@ void ReceiverBasedOutputBuilder::setVariableList(const std::vector<std::size_t>&
   this->variables_ = variables;
 }
 
-void ReceiverBasedOutputBuilder::setFaceToLtsMap(std::vector<std::size_t>* faceToLtsMap) {
+void ReceiverBasedOutputBuilder::setFaceToLtsMap(
+    std::vector<::seissol::initializer::StoragePosition>* faceToLtsMap) {
   this->faceToLtsMap_ = faceToLtsMap;
 }
 
@@ -104,9 +107,9 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   constexpr size_t NumVertices{4};
   for (const auto& point : outputData_->receiverPoints) {
     if (point.isInside) {
-      if (faceIndices.find(faceToLtsMap_->at(point.faultFaceIndex)) == faceIndices.end()) {
+      if (faceIndices.find(faceToLtsMap_->at(point.faultFaceIndex).global) == faceIndices.end()) {
         const auto faceIndex = faceIndices.size();
-        faceIndices[faceToLtsMap_->at(point.faultFaceIndex)] = faceIndex;
+        faceIndices[faceToLtsMap_->at(point.faultFaceIndex).global] = faceIndex;
       }
 
       ++foundPoints;
@@ -153,8 +156,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
         for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
           const auto& array3d = ghostMetadataItr->second[neighborIndex].vertices[vertexIdx];
-          auto* data = const_cast<double*>(array3d);
-          neighborElemCoords[vertexIdx] = reinterpret_cast<double (*)[3]>(data);
+          neighborElemCoords[vertexIdx] = reinterpret_cast<const double (*)[3]>(array3d);
         }
       }
 
@@ -183,7 +185,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   }
 
   outputData_->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
-      indexPtrs, seissol::tensor::Q::size(), useMPIUSM());
+      indexPtrs, seissol::kernels::Solver::DerivativesSize, useMPIUSM());
 
   for (const auto& variable : variables_) {
     auto* var = drStorage_->varUntyped(variable, initializer::AllocationPlace::Device);
@@ -214,7 +216,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       const auto elementIndex = faultInfo[point.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
       outputData_->deviceIndices[pointCounter] =
-          faceIndices.at(faceToLtsMap_->at(point.faultFaceIndex));
+          faceIndices.at(faceToLtsMap_->at(point.faultFaceIndex).global);
 
       outputData_->deviceDataPlus[pointCounter] = elementIndices.at(elementIndex);
 

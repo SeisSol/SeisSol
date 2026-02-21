@@ -210,7 +210,7 @@ easi::Query PlasticityPointGenerator::generate() const {
   // Generate query using quadrature points for each element
   easi::Query query(cellToVertex_.size * pointsPerCell, Cell::Dim);
 
-  auto nodes = init::vNodes::view::create(const_cast<real*>(init::vNodes::Values));
+  const auto nodes = init::vNodes::view::create(init::vNodes::Values);
 
 // Transform quadrature points to global coordinates for all elements
 #pragma omp parallel for schedule(static)
@@ -283,7 +283,7 @@ easi::Query FaultGPGenerator::generate() const {
   auto cellToVertex = CellToVertexArray::fromMeshReader(meshReader_);
 
   constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim;
-  auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
+  const auto pointsView = init::quadpoints::view::create(init::quadpoints::Values);
   easi::Query query(NumPoints * faceIDs_.size(), Cell::Dim);
   unsigned q = 0;
   // loop over all fault elements which are managed by this generator
