@@ -21,19 +21,14 @@ struct SurfaceLTS {
   struct Dofs : public seissol::initializer::Variable<real*> {};
   struct Side : public seissol::initializer::Variable<std::uint8_t> {};
   struct MeshId : public seissol::initializer::Variable<std::size_t> {};
-  struct OutputPosition : public seissol::initializer::Variable<std::size_t> {};
   struct BoundaryMapping : public seissol::initializer::Variable<CellBoundaryMapping*> {};
   struct LocationFlag : public seissol::initializer::Variable<std::uint8_t> {};
 
   struct DisplacementDofs : public seissol::initializer::Variable<FaceDisplacementType> {};
 
-  struct SurfaceVarmap : public initializer::SpecificVarmap<Dofs,
-                                                            Side,
-                                                            MeshId,
-                                                            OutputPosition,
-                                                            BoundaryMapping,
-                                                            LocationFlag,
-                                                            DisplacementDofs> {};
+  struct SurfaceVarmap
+      : public initializer::
+            SpecificVarmap<Dofs, Side, MeshId, BoundaryMapping, LocationFlag, DisplacementDofs> {};
 
   using Storage = initializer::Storage<SurfaceVarmap>;
   using Layer = initializer::Layer<SurfaceVarmap>;
@@ -45,7 +40,6 @@ struct SurfaceLTS {
     storage.add<Dofs>(ghostMask, 1, initializer::AllocationMode::HostOnly);
     storage.add<Side>(ghostMask, 1, initializer::AllocationMode::HostOnly);
     storage.add<MeshId>(ghostMask, 1, initializer::AllocationMode::HostOnly);
-    storage.add<OutputPosition>(ghostMask, 1, initializer::AllocationMode::HostOnly);
     storage.add<BoundaryMapping>(ghostMask, 1, initializer::AllocationMode::HostOnly);
     storage.add<LocationFlag>(ghostMask, 1, initializer::AllocationMode::HostOnly);
 

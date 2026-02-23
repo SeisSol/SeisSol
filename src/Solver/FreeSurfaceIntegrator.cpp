@@ -127,7 +127,6 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
 
     auto* side = surfaceLayer.var<SurfaceLTS::Side>();
     auto* meshId = surfaceLayer.var<SurfaceLTS::MeshId>();
-    auto* outputPosition = surfaceLayer.var<SurfaceLTS::OutputPosition>();
     std::size_t surfaceCell = 0;
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
@@ -146,11 +145,8 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
               getLocationFlag(cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
 
           if (secondaryInformation[cell].duplicate == 0) {
-            outputPosition[surfaceCell] = surfaceCellOffset;
             backmap[surfaceCellOffset] = surfaceCellGlobal;
             ++surfaceCellOffset;
-          } else {
-            outputPosition[surfaceCell] = std::numeric_limits<std::size_t>::max();
           }
           ++surfaceCell;
           ++surfaceCellGlobal;

@@ -408,12 +408,11 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         io::instance::geometry::WriterGroup::FullSnapshot,
         seissolParams.output.hdfcompress};
 
-    auto writer =
-        io::instance::geometry::GeometryWriter("free-surface",
-                                               freeSurfaceIntegrator.surfaceStorage->size(),
-                                               io::instance::geometry::Shape::Triangle,
-                                               config,
-                                               dataPoints.size());
+    auto writer = io::instance::geometry::GeometryWriter("free-surface",
+                                                         freeSurfaceIntegrator.backmap.size(),
+                                                         io::instance::geometry::Shape::Triangle,
+                                                         config,
+                                                         dataPoints.size());
 
     writer.addPointProjector(
         [=, &freeSurfaceIntegrator](double* target, std::size_t index, std::size_t subcell) {

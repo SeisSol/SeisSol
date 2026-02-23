@@ -8,6 +8,7 @@
 #include "BinaryWriter.h"
 
 #include "IO/Writer/Instructions/Binary.h"
+#include "Parallel/MPI.h"
 
 #include <async/ExecInfo.h>
 #include <cstddef>
@@ -33,8 +34,17 @@ void BinaryFile::writeGlobal(const void* data, std::size_t size) {
   MPI_Barrier(comm);
 }
 void BinaryFile::writeDistributed(const void* data, std::size_t size) {
-  // TODO: get max write size
-  MPI_File_write_all(file, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
+  // TODO: handle size > usable
+  MPI_Offset filesize = 0;
+  MPI_File_get_size(file, &filesize);
+  std::size_t offset = 0;
+  std::size_t total = 0;
+  MPI_Exscan(&size, &offset, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, comm);
+  MPI_Allreduce(&size, &total, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, comm);
+  offset += filesize;
+
+  MPI_File_write_at_all(file, offset, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
+  MPI_File_seek(file, 0, MPI_SEEK_END);
 }
 void BinaryFile::align(std::size_t alignment) {
   MPI_Offset position = 0;
