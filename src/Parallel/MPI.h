@@ -92,6 +92,8 @@ class Mpi : public MpiBasic {
       return MPI_FLOAT;
     case seissol::RealType::F64:
       return MPI_DOUBLE;
+    case seissol::RealType::F128:
+      return MPI_REAL16;
     default:
       return MPI_BYTE;
     }

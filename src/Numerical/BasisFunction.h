@@ -31,7 +31,7 @@ namespace seissol::basisFunction {
 template <class T>
 class BasisFunctionGenerator {
   private:
-  T xi_, eta_, zeta_;
+  double xi_, eta_, zeta_;
 
   /**
    * Function to sample a Jacobi Polynomial.
@@ -76,7 +76,7 @@ class BasisFunctionGenerator {
 template <class T>
 class BasisFunctionDerivativeGenerator {
   private:
-  T xi_, eta_, zeta_;
+  double xi_, eta_, zeta_;
 
   public:
   /**

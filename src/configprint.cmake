@@ -52,8 +52,10 @@ capitalize(${DR_QUAD_RULE} PARAMETER_DRQUADRULE)
 
 if (PRECISION STREQUAL "single")
   set(PARAMETER_REALTYPE "F32")
-else()
+elseif (PRECISION STREQUAL "double")
   set(PARAMETER_REALTYPE "F64")
+elseif (PRECISION STREQUAL "quad")
+  set(PARAMETER_REALTYPE "F128")
 endif()
 
 configure_file("Config.h.in"

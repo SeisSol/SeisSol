@@ -97,30 +97,30 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
       (frictionLawType == FrictionLawType::RateAndStateSevereVelocityWeakening) or
       (frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening);
 
-  const auto rsF0 = reader->readIfRequired<real>("rs_f0", isRateAndState);
-  const auto rsB = reader->readIfRequired<real>("rs_b", isRateAndState);
-  const auto rsSr0 = reader->readIfRequired<real>("rs_sr0", isRateAndState);
-  const auto rsInitialSlipRate1 = reader->readIfRequired<real>("rs_inisliprate1", isRateAndState);
-  const auto rsInitialSlipRate2 = reader->readIfRequired<real>("rs_inisliprate2", isRateAndState);
+  const auto rsF0 = reader->readIfRequired<double>("rs_f0", isRateAndState);
+  const auto rsB = reader->readIfRequired<double>("rs_b", isRateAndState);
+  const auto rsSr0 = reader->readIfRequired<double>("rs_sr0", isRateAndState);
+  const auto rsInitialSlipRate1 = reader->readIfRequired<double>("rs_inisliprate1", isRateAndState);
+  const auto rsInitialSlipRate2 = reader->readIfRequired<double>("rs_inisliprate2", isRateAndState);
 
-  const auto muW = reader->readIfRequiredAlternatives<real>(
+  const auto muW = reader->readIfRequiredAlternatives<double>(
       {"rs_muw", "mu_w"}, frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening);
 
-  const auto thermalDiffusivity = reader->readIfRequiredAlternatives<real>(
+  const auto thermalDiffusivity = reader->readIfRequiredAlternatives<double>(
       {"tp_thermaldiffusivity", "alpha_th"}, isThermalPressureOn);
   const auto heatCapacity =
-      reader->readIfRequiredAlternatives<real>({"tp_heatcapacity", "rho_c"}, isThermalPressureOn);
-  const auto undrainedTPResponse = reader->readIfRequiredAlternatives<real>(
+      reader->readIfRequiredAlternatives<double>({"tp_heatcapacity", "rho_c"}, isThermalPressureOn);
+  const auto undrainedTPResponse = reader->readIfRequiredAlternatives<double>(
       {"tp_undrainedtpresponse", "tp_lambda"}, isThermalPressureOn);
   const auto initialTemperature =
-      reader->readIfRequiredAlternatives<real>({"tp_initemp", "initemp"}, isThermalPressureOn);
-  const auto initialPressure = reader->readIfRequiredAlternatives<real>(
+      reader->readIfRequiredAlternatives<double>({"tp_initemp", "initemp"}, isThermalPressureOn);
+  const auto initialPressure = reader->readIfRequiredAlternatives<double>(
       {"tp_inipressure", "inipressure"}, isThermalPressureOn);
 
   const bool isBiMaterial = frictionLawType == FrictionLawType::LinearSlipWeakeningBimaterial;
-  const auto vStar = reader->readIfRequiredAlternatives<real>({"pc_vstar", "v_star"}, isBiMaterial);
+  const auto vStar = reader->readIfRequiredAlternatives<double>({"pc_vstar", "v_star"}, isBiMaterial);
   const auto prakashLength =
-      reader->readIfRequiredAlternatives<real>({"pc_prakashlength", "l"}, isBiMaterial);
+      reader->readIfRequiredAlternatives<double>({"pc_prakashlength", "l"}, isBiMaterial);
 
   const auto faultFileName = reader->readPath("modelfilename");
 
@@ -152,7 +152,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
 
   auto* abortCriteriaReader = baseReader->readSubNode("abortcriteria");
   const auto terminatorSlipRateThreshold = static_cast<real>(abortCriteriaReader->readWithDefault(
-      "terminatorslipratethreshold", std::numeric_limits<real>::infinity()));
+      "terminatorslipratethreshold", std::numeric_limits<double>::infinity()));
   const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
       "terminatormaxtimepostrupture", std::numeric_limits<double>::infinity());
   const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);

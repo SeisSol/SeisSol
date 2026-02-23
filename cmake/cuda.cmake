@@ -23,7 +23,7 @@ function(make_device_lib NAME FILES)
     set_target_properties(${NAME} PROPERTIES CUDA_ARCHITECTURES "${CUDA_DEVICE_ARCH}")
 
     target_compile_options(${NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
-            -std=c++17;
+            -std=c++20;
             --expt-relaxed-constexpr;
             >)
 

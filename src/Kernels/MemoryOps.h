@@ -11,6 +11,8 @@
 
 #include "Kernels/Precision.h"
 
+#include <cfloat>
+
 #ifdef __AVX512F__
 
 #include <immintrin.h>
@@ -116,6 +118,16 @@ inline void streamstore<double>(std::size_t numberOfReals, const double* x, doub
 
   for (std::size_t i = 0; i < numberOfReals; i += DMO_INCREMENT64) {
     DMO_STREAM64(&x[i], &y[i])
+  }
+}
+
+template <>
+inline void streamstore<_Float128>(std::size_t numberOfReals, const _Float128* x, _Float128* y) {
+  constexpr auto Increment = std::max(DMO_INCREMENT64 / 2, 1);
+  assert(numberOfReals % Increment == 0);
+
+  for (std::size_t i = 0; i < numberOfReals; i += Increment) {
+    DMO_STREAM64((const double*)&x[i], (double*)&y[i])
   }
 }
 } // namespace seissol::kernels

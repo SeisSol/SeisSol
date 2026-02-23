@@ -318,7 +318,7 @@ void initModel(seissol::SeisSol& seissolInstance) {
   logInfo() << "Material:" << MaterialT::Text.c_str();
   logInfo() << "Order:" << ConvergenceOrder;
   logInfo() << "Precision:"
-            << (Config::Precision == RealType::F32 ? "single (f32)" : "double (f64)");
+            << (Config::Precision == RealType::F32 ? "single (f32)" : "double (f64)"); // TODO: F128
   logInfo() << "Number of simulations: " << Config::NumSimulations;
   logInfo() << "Plasticity:"
             << (seissolInstance.getSeisSolParameters().model.plasticity ? "on" : "off");

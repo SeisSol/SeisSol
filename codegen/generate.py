@@ -50,7 +50,7 @@ def main():
     cmdLineParser.add_argument("--device_vendor", default=None)
     cmdLineParser.add_argument("--order", type=int)
     cmdLineParser.add_argument(
-        "--precision", type=str, choices=["s", "d", "f32", "f64"]
+        "--precision", type=str, choices=["s", "d", "q", "f32", "f64", "f128"]
     )
     cmdLineParser.add_argument("--numberOfMechanisms", type=int)
     cmdLineParser.add_argument("--vectorsize", default=0, type=int)

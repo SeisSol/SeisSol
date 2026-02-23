@@ -74,7 +74,7 @@ if (TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
   append_coverage_compiler_flags()
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 if(NOT CMAKE_BUILD_TYPE)
@@ -391,12 +391,18 @@ else()
   set(NAME_SUFFIX "${NAME_SUFFIX}-p${ORDER}")
   if (PRECISION STREQUAL "single")
     set(NAME_SUFFIX "${NAME_SUFFIX}-f32")
-  else()
+  elseif (PRECISION STREQUAL "double")
     set(NAME_SUFFIX "${NAME_SUFFIX}-f64")
+  elseif (PRECISION STREQUAL "quad")
+    set(NAME_SUFFIX "${NAME_SUFFIX}-f128")
   endif()
   if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
     set(NAME_SUFFIX "${NAME_SUFFIX}-s${NUMBER_OF_FUSED_SIMULATIONS}")
   endif()
+endif()
+
+if (PRECISION STREQUAL "quad")
+target_compile_options(seissol-common-properties INTERFACE -fext-numeric-literals)
 endif()
 
 if (SHARED)
@@ -450,7 +456,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
   # todo remove std?, is ffreestanding needed?
-  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-pedantic -std=c++17>)
+  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-pedantic -std=c++23>)
 
   # Activate interprocedual optimization.
   #set_property(TARGET seissol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)

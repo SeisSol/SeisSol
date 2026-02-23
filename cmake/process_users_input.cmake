@@ -77,8 +77,8 @@ set(DEVICE_ARCH_OPTIONS none
         8_0_0 9_0_9 12_10_0 12_55_8 12_56_5 12_57_0 12_60_7 12_61_7 20_1_4 20_2_0 bdw skl pvc)                      # Intel
 set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
-set(PRECISION "double" CACHE STRING "Type of floating point precision, namely: double/single")
-set(PRECISION_OPTIONS single double)
+set(PRECISION "double" CACHE STRING "Type of floating point precision, namely: double/single, or quad (experimental)")
+set(PRECISION_OPTIONS single double quad)
 set_property(CACHE PRECISION PROPERTY STRINGS ${PRECISION_OPTIONS})
 
 
@@ -367,7 +367,9 @@ endif()
 
 
 # derive a byte representation of real numbers
-if ("${PRECISION}" STREQUAL "double")
+if ("${PRECISION}" STREQUAL "quad")
+    set(REAL_SIZE_IN_BYTES 16)
+elseif ("${PRECISION}" STREQUAL "double")
     set(REAL_SIZE_IN_BYTES 8)
 elseif ("${PRECISION}" STREQUAL "single")
     set(REAL_SIZE_IN_BYTES 4)
