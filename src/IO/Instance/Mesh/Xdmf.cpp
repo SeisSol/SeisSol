@@ -239,7 +239,8 @@ void XdmfWriter::addData(const std::string& name,
   const auto datasetId = datasetCount;
   ++datasetCount;
 
-  auto binary{this->binary};
+  const auto binary{this->binary};
+  const auto compress{this->compress};
 
   std::size_t globalCount = localCount;
 

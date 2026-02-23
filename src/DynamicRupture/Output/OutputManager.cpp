@@ -249,13 +249,13 @@ void OutputManager::initElementwiseOutput() {
                   receiverPoints[index * multisim::NumSimulations].localFaceSideId;
       });
 
-  misc::forEach(ewOutputData->vars, [&](auto& var, int i) {
+  misc::forEach(ewOutputData->vars, [&](const auto& var, int i) {
     if (var.isActive) {
       for (std::size_t d = 0; d < var.dim(); ++d) {
-        auto* data = var.data[d];
+        const auto* data = var[d];
         const auto variableName = [&](std::size_t d, std::size_t s) {
           if constexpr (multisim::MultisimEnabled) {
-            return VariableLabels[i][d] + "_" + std::to_string(s);
+            return VariableLabels[i][d] + "-" + std::to_string(s);
           } else {
             return VariableLabels[i][d];
           }
@@ -358,7 +358,7 @@ void OutputManager::initPickpointOutput() {
       for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
         size_t labelCounter = 0;
         auto collectVariableNames =
-            [&baseHeader, &labelCounter, &simIndex, &pointIndex, suffix](auto& var, int i) {
+            [&baseHeader, &labelCounter, &simIndex, &pointIndex, suffix](const auto& var, int i) {
               if (var.isActive) {
                 for (std::size_t dim = 0; dim < var.dim(); ++dim) {
                   baseHeader << " ,\"" << VariableLabels[i][dim]
@@ -544,7 +544,7 @@ void OutputManager::flushPickpointDataToFile() {
       for (size_t level = 0; level < outputData->currentCacheLevel; ++level) {
         data << makeFormatted(outputData->cachedTime[level]) << '\t';
         for (std::size_t pointId : ppfile.indices) {
-          auto recordResults = [pointId, level, &data](auto& var, int) {
+          auto recordResults = [pointId, level, &data](const auto& var, int) {
             if (var.isActive) {
               for (std::size_t dim = 0; dim < var.dim(); ++dim) {
                 data << makeFormatted(var(dim, level, pointId)) << '\t';

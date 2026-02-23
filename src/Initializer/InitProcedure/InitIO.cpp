@@ -28,6 +28,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
 #include "Numerical/BasisFunction.h"
+#include "Numerical/Functions.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
@@ -232,6 +233,31 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     }
 
+    std::vector<
+        memory::AlignedArray<real, static_cast<std::size_t>(tensor::Q::Size) * tensor::Q::Size>>
+        projD1;
+    std::vector<
+        memory::AlignedArray<real, static_cast<std::size_t>(tensor::Q::Size) * tensor::Q::Size>>
+        projD2;
+    std::vector<
+        memory::AlignedArray<real, static_cast<std::size_t>(tensor::Q::Size) * tensor::Q::Size>>
+        projD3;
+    for (const auto& tetrahedron : dataPoints) {
+      auto& coll1 = projD1.emplace_back();
+      auto& coll2 = projD2.emplace_back();
+      auto& coll3 = projD3.emplace_back();
+      std::size_t idx = 0;
+      for (const auto& point : tetrahedron) {
+        const auto data = basisFunction::SampledBasisFunctionDerivatives<real>(
+                              ConvergenceOrder, point[0], point[1], point[2])
+                              .m_data;
+        std::copy(data.begin(), data.end(), coll1.begin() + idx);
+        std::copy(data.begin(), data.end(), coll2.begin() + idx);
+        std::copy(data.begin(), data.end(), coll3.begin() + idx);
+        idx += data.size();
+      }
+    }
+
     const auto config = io::instance::geometry::WriterConfig{
         order,
         orderIO < 0 ? io::instance::geometry::WriterFormat::Xdmf
@@ -247,7 +273,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     schedWriter.name = "wavefield";
     schedWriter.interval = seissolParams.output.waveFieldParameters.interval;
     auto writer = io::instance::geometry::GeometryWriter("wavefield",
-                                                         celllist.size() * dataPoints.size(),
+                                                         celllist.size(),
                                                          io::instance::geometry::Shape::Tetrahedron,
                                                          config,
                                                          dataPoints.size());
@@ -382,12 +408,12 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         io::instance::geometry::WriterGroup::FullSnapshot,
         seissolParams.output.hdfcompress};
 
-    auto writer = io::instance::geometry::GeometryWriter(
-        "free-surface",
-        freeSurfaceIntegrator.surfaceStorage->size() * truePoints.size(),
-        io::instance::geometry::Shape::Triangle,
-        config,
-        dataPoints.size());
+    auto writer =
+        io::instance::geometry::GeometryWriter("free-surface",
+                                               freeSurfaceIntegrator.surfaceStorage->size(),
+                                               io::instance::geometry::Shape::Triangle,
+                                               config,
+                                               dataPoints.size());
 
     writer.addPointProjector(
         [=, &freeSurfaceIntegrator](double* target, std::size_t index, std::size_t subcell) {
@@ -416,10 +442,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                Cell::NumFaces>
         proj;
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-      for (const auto& tetrahedron : dataPoints) {
+      for (const auto& triangle : dataPoints) {
         auto& coll = proj[f].emplace_back();
         std::size_t idx = 0;
-        for (const auto& point : tetrahedron) {
+        for (const auto& point : triangle) {
           double xez[3]{};
           seissol::transformations::chiTau2XiEtaZeta(f, point.data(), xez);
           const auto data =
@@ -431,12 +457,15 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     }
 
-    /*std::vector<memory::AlignedArray<real, static_cast<std::size_t>(tensor::Q::Size) *
-    tensor::Q::Size>> projf; for (const auto& tetrahedron : dataPoints) { auto& coll =
-    projf.emplace_back(); std::size_t idx = 0; for (const auto& point : tetrahedron) { const auto
-    data = TODO; std::copy(data.begin(), data.end(), coll.begin() + idx); idx += data.size();
-      }
-    }*/
+    std::vector<
+        memory::AlignedArray<real, static_cast<std::size_t>(tensor::Q::Size) * tensor::Q::Size>>
+        projf;
+    for (const auto& triangle : dataPoints) {
+      auto& coll = projf.emplace_back();
+      const auto values =
+          seissol::basisFunction::evaluateSimplexBasis<2>(triangle, ConvergenceOrder);
+      std::copy(values.begin(), values.end(), coll.begin());
+    }
 
     const auto rank = seissol::Mpi::mpi.rank();
     writer.addCellData<int>(
@@ -464,13 +493,12 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           target[0] = meshReader.getElements()[meshId].globalId * 4 + side;
         });
 
-    std::vector<std::string> quantityLabels = {"v1", "v2", "v3", "u1", "u2", "u3"};
+    std::vector<std::string> quantityLabelsVelocities = {"v1", "v2", "v3"};
+    std::vector<std::string> quantityLabelsDisplacement = {"u1", "u2", "u3"};
     for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
-      for (std::size_t quantity = 0;
-           quantity < seissol::solver::FreeSurfaceIntegrator::NumComponents;
-           ++quantity) {
+      for (std::size_t quantity = 0; quantity < quantityLabelsVelocities.size(); ++quantity) {
         writer.addGeometryOutput<real>(
-            namewrap(quantityLabels[quantity], sim),
+            namewrap(quantityLabelsVelocities[quantity], sim),
             {},
             false,
             [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](
@@ -494,17 +522,13 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               vtkproj.execute(order, side);
             });
       }
-      for (std::size_t quantity = 0;
-           quantity < seissol::solver::FreeSurfaceIntegrator::NumComponents;
-           ++quantity) {
+      for (std::size_t quantity = 0; quantity < quantityLabelsDisplacement.size(); ++quantity) {
         writer.addGeometryOutput<real>(
-            namewrap(
-                quantityLabels[quantity + seissol::solver::FreeSurfaceIntegrator::NumComponents],
-                sim),
+            namewrap(quantityLabelsDisplacement[quantity], sim),
             {},
             false,
             [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](
-                real* target, std::size_t index, std::size_t /*subcell*/) {
+                real* target, std::size_t index, std::size_t subcell) {
               auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
               auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
               const auto position = backmap.get(meshId);
@@ -518,8 +542,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               vtkproj.pn = faceDisplacementVariable;
               vtkproj.MV2nTo2m = nodal::init::MV2nTo2m::Values;
               vtkproj.xf(order) = target;
-              vtkproj.collff(ConvergenceOrder, order) =
-                  init::collff::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
+              vtkproj.collff(ConvergenceOrder, order) = projf[subcell].data();
               vtkproj.execute(order);
             });
       }

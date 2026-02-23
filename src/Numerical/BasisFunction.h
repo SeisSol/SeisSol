@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_
 
 #include "Common/Constants.h"
+#include "Common/Iterator.h"
 #include "Functions.h"
 #include "GeneratedCode/init.h"
 #include "Transformation.h"
@@ -316,6 +317,53 @@ inline void evaluateGradPolynomials(double* phis, double xi, double eta, int num
   }
 }
 } // namespace tri_dubiner
+
+template <std::size_t Dim>
+std::vector<double> evaluateSimplexBasis(const std::vector<std::array<double, Dim>>& points,
+                                         std::size_t order) {
+  static_assert(Dim <= 3, "Dimensions larger than 3 are not supported.");
+  static_assert(Dim > 0, "The dimension needs to be a positive number.");
+
+  // (order + Dim - 1) C Dim
+  std::size_t count = order;
+  for (std::size_t i = 1; i < Dim; ++i) {
+    count *= order + i;
+    count /= (i + 1);
+  }
+
+  std::vector<double> output(points.size() * count);
+  for (const auto [p, point] : common::enumerate(points)) {
+    std::array<unsigned, Dim> indices{};
+    std::size_t ord = 0;
+    for (std::size_t i = 0; i < count; ++i) {
+      output[i + count * p] = functions::DubinerP<Dim>(indices, point);
+
+      std::size_t sum = 0;
+      for (std::size_t j = 1; j < Dim; ++j) {
+        ++indices[j];
+        if (indices[j] + sum < ord) {
+          break;
+        } else {
+          indices[j] = 0;
+        }
+        sum += indices[j];
+      }
+
+      indices[0] = ord - sum;
+
+      std::array<unsigned, Dim> compare{};
+      compare[0] = ord;
+
+      if (indices == compare) {
+        ++ord;
+        indices[0] = ord;
+      }
+    }
+  }
+
+  return output;
+}
+
 } // namespace seissol::basisFunction
 
 #endif // SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_

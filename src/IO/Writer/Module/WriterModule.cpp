@@ -99,7 +99,7 @@ void WriterModule::syncPoint(double time) {
           // NOTE: the following structure is suboptimal, because it's not respecting basic OOP
           // practices. Not sure, if it's important to really care about that... But there may be
           // more beautiful ways for some day.
-          auto id = [&]() -> int {
+          const auto id = [&]() -> int {
             if (dynamic_cast<WriteBuffer*>(dataSource.get()) != nullptr) {
               // pass-through buffer
               auto* writeBuffer = dynamic_cast<WriteBuffer*>(dataSource.get());
