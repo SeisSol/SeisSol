@@ -76,7 +76,6 @@ struct VarT {
     size = dataSize;
     if (isActive) {
       for (std::size_t dim = 0; dim < Dim; ++dim) {
-        data[dim].resize(0);
         data[dim].resize(size * maxCacheLevel);
       }
     } else {
