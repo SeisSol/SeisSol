@@ -524,8 +524,9 @@ void OutputManager::writePickpointOutput(std::size_t layerId,
         if (outputData->currentCacheLevel >= outputData->maxCacheLevel) {
           // our calculation was off (maybe due to many intermediate sync points), so resize
 
-          ++outputData->maxCacheLevel;
+          outputData->maxCacheLevel = outputData->currentCacheLevel + 1;
           const auto newCacheLevel = outputData->maxCacheLevel;
+          outputData->cachedTime.resize(newCacheLevel);
           misc::forEach(outputData->vars,
                         [newCacheLevel](auto& var, int) { var.resizeCache(newCacheLevel); });
         }
