@@ -84,7 +84,6 @@ void WriterModule::syncPoint(double time) {
   logInfo() << "Output Writer" << settings.name << ": preparing write at" << time;
 
   // request the write plan
-  auto writeCount = static_cast<int>(std::round(time / syncInterval()));
   auto writer = settings.planWrite(prefix, writeCount, time);
 
   // prepare the data in the plan
@@ -177,6 +176,7 @@ void WriterModule::syncPoint(double time) {
 
   logInfo() << "Output Writer" << settings.name << ": triggering write at" << time;
   lastWrite = time;
+  ++writeCount;
   call(AsyncWriterExec{});
 }
 

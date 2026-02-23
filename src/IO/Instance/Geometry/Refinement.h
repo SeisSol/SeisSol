@@ -35,7 +35,7 @@ std::vector<std::vector<std::array<double, Dim>>>
       std::array<std::array<double, Dim>, Dim> transform{};
       for (std::size_t i = 0; i < Dim; ++i) {
         for (std::size_t j = 0; j < Dim; ++j) {
-          transform[i][j] = refTet[i + 1][j] - offset[i];
+          transform[i][j] = refTet[i + 1][j] - offset[j];
         }
       }
       for (std::size_t i = 0; i < tetrahedron.size(); ++i) {

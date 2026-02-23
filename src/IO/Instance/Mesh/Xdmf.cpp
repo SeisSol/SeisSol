@@ -25,6 +25,7 @@
 #include <mpi.h>
 #include <sstream>
 #include <string>
+#include <utils/env.h>
 #include <utils/logger.h>
 #include <utils/stringutils.h>
 #include <vector>
@@ -261,6 +262,9 @@ void XdmfWriter::addData(const std::string& name,
                 MPI_SUM,
                 seissol::Mpi::mpi.comm());
 
+  [[maybe_unused]] const auto alignment =
+      utils::Env("").getOptional<std::size_t>("XDMFWRITER_ALIGNMENT");
+
   instrarray.emplace_back([=](const std::string& preFilename, std::size_t counter) {
     WriteResult result{};
     result.name = name;
@@ -295,13 +299,13 @@ void XdmfWriter::addData(const std::string& name,
     } else {
       const std::string datasetName = "dataset" + std::to_string(datasetId);
       result.format = "HDF";
-      result.location = filename + ":/" + datasetName;
+      result.location = filename + ".h5:/" + datasetName;
       result.instruction = std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(preFilename, {}),
+          writer::instructions::Hdf5Location(preFilename + ".h5", {}),
           datasetName,
           data,
           data->datatype(),
-          true,
+          !isConst,
           compress);
     }
 

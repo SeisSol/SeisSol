@@ -382,8 +382,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     auto* surfaceLocationFlag =
         freeSurfaceIntegrator.surfaceStorage->var<SurfaceLTS::LocationFlag>();
 
-    const auto dataOrder = order > 0 ? order : 0;
     const auto trueOrder = order > 0 ? order : 1;
+    const auto dataOrder = order > 0 ? order : 0;
     const auto trueBase = io::instance::geometry::pointsTriangle(trueOrder);
     const auto dataBase = io::instance::geometry::pointsTriangle(dataOrder);
 

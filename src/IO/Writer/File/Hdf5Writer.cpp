@@ -62,8 +62,10 @@ void Hdf5File::openFile(const std::string& name) {
 #endif
   _eh(H5Pset_fapl_mpio(h5falist, comm, MPI_INFO_NULL));
 
+  _eh(H5Pset_all_coll_metadata_ops(h5falist, false));
+
   if (seissol::directoryExists(seissol::filesystem::directory_entry(name))) {
-    file = _eh(H5Fopen(name.c_str(), H5F_ACC_DEFAULT, h5falist));
+    file = _eh(H5Fopen(name.c_str(), H5F_ACC_RDWR, h5falist));
   } else {
     file = _eh(H5Fcreate(name.c_str(), H5F_ACC_EXCL, H5P_DEFAULT, h5falist));
   }
@@ -201,16 +203,26 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   hid_t h5space = H5S_NULL;
   hid_t h5data = H5S_NULL;
+
+  const auto exists = _eh(H5Lexists(handles.top(), name.c_str(), H5P_DEFAULT));
+
   bool create = true;
-  if (append) {
-    const auto exists = _eh(H5Lexists(handles.top(), name.c_str(), H5P_DEFAULT));
-    if (exists > 0) {
+  if (exists > 0) {
+    if (append) {
       h5data = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
+
+      h5space = _eh(H5Dget_space(h5data));
 
       std::vector<hsize_t> newGlobalSizes(globalSizes.size());
       std::vector<hsize_t> newGlobalSizesMax(globalSizes.size());
-      _eh(H5Sget_simple_extent_dims(
-          newGlobalSizes.size(), newGlobalSizes.data(), newGlobalSizesMax.data()));
+      _eh(H5Sget_simple_extent_dims(h5space, newGlobalSizes.data(), newGlobalSizesMax.data()));
+
+      _eh(H5Sclose(h5space));
+
+      if (newGlobalSizesMax[0] != H5S_UNLIMITED) {
+        logError()
+            << "Hdf5 writer error: tried to append to a dataset where there is nothing to append.";
+      }
 
       writeStart[0] = newGlobalSizes[0];
       newGlobalSizes[0] += 1;
@@ -220,6 +232,8 @@ void Hdf5File::writeData(const async::ExecInfo& info,
       create = false;
 
       h5space = _eh(H5Dget_space(h5data));
+    } else {
+      logError() << "TODO";
     }
   }
 
@@ -234,7 +248,6 @@ void Hdf5File::writeData(const async::ExecInfo& info,
       }
     }
 
-    // TODO: move filter+type creation here
     const hid_t preh5type = datatype::convertToHdf5(targetType);
     const hid_t h5type = _eh(H5Tcopy(preh5type));
     if (_eh(H5Tget_class(h5type)) == H5T_COMPOUND) {
