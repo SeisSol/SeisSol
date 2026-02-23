@@ -173,7 +173,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   void initTimeCaching() override {
     const auto intervalOrEnd = std::min(pickpointParams.writeInterval, endtime_);
     const auto neededCacheLevel =
-        static_cast<std::size_t>(std::ceil(intervalOrEnd / timestep_) + 1);
+        static_cast<std::size_t>(std::ceil(intervalOrEnd / timestep_) + 2);
 
     outputData->maxCacheLevel = neededCacheLevel;
     outputData->cachedTime.resize(outputData->maxCacheLevel, 0.0);
