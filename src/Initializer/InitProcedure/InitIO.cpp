@@ -28,7 +28,6 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
 #include "Numerical/BasisFunction.h"
-#include "Numerical/Functions.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"

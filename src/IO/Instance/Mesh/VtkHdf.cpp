@@ -16,6 +16,7 @@
 #include "IO/Writer/Instructions/Hdf5.h"
 #include "IO/Writer/Writer.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -123,7 +124,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
               [=](int64_t* target, std::size_t index) { target[0] = index + selfPointOffset; }));
 
   if (temporal) {
-    // we need to use a direct instruction here; since we store the time
+    // we need to use a direct instruction here (no addData); since we store the time
     instructions.emplace_back([=](const std::string& filename, double time) {
       const auto data = writer::WriteInline::createArray<double>({1}, {time});
       return std::make_shared<writer::instructions::Hdf5DataWrite>(

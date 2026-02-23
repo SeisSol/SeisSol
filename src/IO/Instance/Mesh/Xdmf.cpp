@@ -18,6 +18,7 @@
 #include "IO/Writer/Writer.h"
 #include "Parallel/MPI.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <functional>

@@ -9,7 +9,6 @@
 #define SEISSOL_SRC_IO_INSTANCE_MESH_XDMF_H_
 
 #include "IO/Instance/Geometry/Typedefs.h"
-#include "IO/Writer/Instructions/Binary.h"
 #include "IO/Writer/Instructions/Instruction.h"
 #include "IO/Writer/Writer.h"
 

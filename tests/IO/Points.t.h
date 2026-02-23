@@ -12,6 +12,8 @@
 #include "Kernels/Precision.h"
 #include "TestHelper.h"
 
+#include <limits>
+
 namespace seissol::unit_test {
 
 TEST_CASE("IO/Points") {
@@ -21,7 +23,9 @@ TEST_CASE("IO/Points") {
     for (std::size_t pointId = 0; pointId < generated.size(); ++pointId) {
       for (std::size_t coord = 0; coord < generated[pointId].size(); ++coord) {
         const auto ref = pointsView.isInRange(coord, pointId) ? pointsView(coord, pointId) : 0;
-        REQUIRE(ref == AbsApprox(generated[pointId][coord]));
+        REQUIRE(ref == AbsApprox(generated[pointId][coord])
+                           .epsilon(std::numeric_limits<real>::epsilon())
+                           .delta(std::numeric_limits<real>::epsilon()));
       }
     }
   };

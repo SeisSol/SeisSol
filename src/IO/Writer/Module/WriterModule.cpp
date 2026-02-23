@@ -17,7 +17,6 @@
 #include "SeisSol.h"
 
 #include <cassert>
-#include <cmath>
 #include <cstring>
 #include <optional>
 #include <string>
