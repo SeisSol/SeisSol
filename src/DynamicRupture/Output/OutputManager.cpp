@@ -187,22 +187,17 @@ void OutputManager::initElementwiseOutput() {
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
 
   const auto& receiverPoints = ewOutputData->receiverPoints;
-  const auto cellConnectivity = getCellConnectivity(receiverPoints);
-  const auto faultTags = getFaultTags(receiverPoints);
-  const auto vertices = getAllVertices(receiverPoints);
-  constexpr auto MaxNumVars = std::tuple_size_v<DrVarsT>;
-  const auto outputMask = seissolParameters.output.elementwiseParameters.outputMask;
-  const auto intMask = convertMaskFromBoolToInt<MaxNumVars>(outputMask);
 
-  const double printTime = seissolParameters.output.elementwiseParameters.printTimeIntervalSec;
+  const double writeInterval = seissolParameters.output.elementwiseParameters.printTimeIntervalSec;
 
   const auto orderPre = seissolParameters.output.elementwiseParameters.vtkorder;
 
   const auto order = static_cast<uint32_t>(std::max(0, orderPre));
 
-  const auto pointCount =
+  const auto dataCount =
       io::instance::geometry::numPoints(order, io::instance::geometry::Shape::Triangle);
-  const auto dataCount = std::max(pointCount, static_cast<std::size_t>(1));
+  const auto pointCount = io::instance::geometry::numPoints(
+      std::max(order, 1U), io::instance::geometry::Shape::Triangle);
 
   const auto config = io::instance::geometry::WriterConfig{
       order,
@@ -216,17 +211,26 @@ void OutputManager::initElementwiseOutput() {
       seissolParameters.output.hdfcompress};
 
   auto writer = io::instance::geometry::GeometryWriter("fault-elementwise",
-                                                       receiverPoints.size() / pointCount /
+                                                       receiverPoints.size() / dataCount /
                                                            multisim::NumSimulations,
                                                        io::instance::geometry::Shape::Triangle,
                                                        config,
                                                        1);
 
   writer.addPointProjector([=](double* target, std::size_t index, std::size_t) {
-    for (std::size_t i = 0; i < pointCount; ++i) {
-      for (std::size_t j = 0; j < Cell::Dim; ++j) {
-        target[i * Cell::Dim + j] =
-            receiverPoints[(pointCount * index + i) * multisim::NumSimulations].global.coords[j];
+    if (order > 0) {
+      for (std::size_t i = 0; i < pointCount; ++i) {
+        for (std::size_t j = 0; j < Cell::Dim; ++j) {
+          target[i * Cell::Dim + j] =
+              receiverPoints[(pointCount * index + i) * multisim::NumSimulations].global.coords[j];
+        }
+      }
+    } else {
+      const auto& triangle = receiverPoints[index * multisim::NumSimulations].globalTriangle;
+      for (std::size_t i = 0; i < pointCount; ++i) {
+        for (std::size_t j = 0; j < Cell::Dim; ++j) {
+          target[i * Cell::Dim + j] = triangle.point(i).coords[j];
+        }
       }
     }
   });
@@ -267,7 +271,7 @@ void OutputManager::initElementwiseOutput() {
               false,
               [=](real* target, std::size_t index, std::size_t) {
                 for (std::size_t i = 0; i < dataCount; ++i) {
-                  target[index + i] = data[(dataCount * index + i) * multisim::NumSimulations + s];
+                  target[i] = data[(dataCount * index + i) * multisim::NumSimulations + s];
                 }
               });
         }
@@ -279,7 +283,7 @@ void OutputManager::initElementwiseOutput() {
   writer.addHook([&](std::size_t, double) { self.updateElementwiseOutput(); });
 
   io::writer::ScheduledWriter schedWriter;
-  schedWriter.interval = printTime;
+  schedWriter.interval = writeInterval;
   schedWriter.name = "fault-elementwise";
   schedWriter.planWrite = writer.makeWriter();
 

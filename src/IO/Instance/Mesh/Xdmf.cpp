@@ -29,8 +29,9 @@
 #include <utils/stringutils.h>
 #include <vector>
 
+namespace seissol::io::instance::mesh {
+
 namespace {
-using namespace seissol::io;
 using namespace seissol::io::instance::metadata;
 
 struct XdmfDataset {
@@ -72,16 +73,19 @@ struct XdmfDataset {
                const std::string& format,
                const std::vector<std::size_t>& dimensions,
                const std::string& payload) const {
+
+    std::string itemType = "invalid";
     if (dynamic_cast<datatype::IntegerDatatype*>(datatype.get()) != nullptr) {
-      return dataItem("Int", datatype->size(), format, dimensions, payload);
+      itemType = "Int";
     } else if (dynamic_cast<datatype::F32Datatype*>(datatype.get()) != nullptr) {
-      return dataItem("Float", datatype->size(), format, dimensions, payload);
+      itemType = "Float";
     } else if (dynamic_cast<datatype::F64Datatype*>(datatype.get()) != nullptr) {
-      return dataItem("Float", datatype->size(), format, dimensions, payload);
+      itemType = "Float";
     } else {
       logError() << "Internal error while writing an Xdmf file.";
-      throw;
     }
+
+    return dataItem(itemType, datatype->size(), format, dimensions, payload);
   }
 
   [[nodiscard]] std::shared_ptr<XmlNode>
@@ -107,7 +111,7 @@ struct XdmfDataset {
     }
     hyperslab->addAttribute(XmlAttribute::create("ItemType", "HyperSlab"))
         .addAttribute(XmlAttribute::create("Dimensions", std::to_string(dimensions[1])));
-    hyperslab->addNode(dataItem("Int", 8, "XML", {3, dimensions.size()}, dimensionStream.str()));
+    hyperslab->addNode(dataItem("UInt", 8, "XML", {3, dimensions.size()}, dimensionStream.str()));
     hyperslab->addNode(dataItem(datatype, format, dimensions, payload));
     return hyperslab;
   }
@@ -145,6 +149,7 @@ struct XdmfDataset {
 struct XdmfGrid {
   std::vector<XdmfDataset> datasets;
   std::string name;
+  double time{0};
 };
 
 struct XdmfMeta {
@@ -166,6 +171,12 @@ struct XdmfMeta {
       auto grid = std::make_shared<XmlNode>("Grid");
       grid->addAttribute(XmlAttribute::create("Name", entry.name))
           .addAttribute(XmlAttribute::create("GridType", "Uniform"));
+
+      // add the time node here already
+      auto gridTime = std::make_shared<XmlNode>("Time");
+      gridTime->addAttribute(XmlAttribute::create("Value", std::to_string(entry.time)));
+      grid->addNode(gridTime);
+
       for (const auto& datasetEntry : entriesConst) {
         grid->addNode(datasetEntry.makeNode());
       }
@@ -187,8 +198,6 @@ struct XdmfMeta {
 
 } // namespace
 
-namespace seissol::io::instance::mesh {
-
 XdmfWriter::XdmfWriter(const std::string& name,
                        std::size_t localElementCount,
                        geometry::Shape shape,
@@ -197,7 +206,8 @@ XdmfWriter::XdmfWriter(const std::string& name,
                        int32_t compress)
     : name(name), type(geometry::xdmfType(shape, targetDegree)), binary(binary), compress(compress),
       localElementCount(localElementCount), globalElementCount(localElementCount),
-      pointsPerElement(geometry::numPoints(targetDegree, shape)) {
+      pointsPerElement(
+          geometry::numPoints(std::max(targetDegree, static_cast<std::size_t>(1)), shape)) {
   MPI_Exscan(&localElementCount,
              &elementOffset,
              1,
@@ -272,7 +282,7 @@ void XdmfWriter::addData(const std::string& name,
         result.offset.emplace_back(0);
       }
 
-      result.dimensions.emplace_back(counter + 1);
+      result.dimensions.emplace_back(1);
     }
 
     if (binary) {
@@ -323,6 +333,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> XdmfWrite
 
     auto grid = XdmfGrid{};
     grid.name = "step-" + std::to_string(counter);
+    grid.time = time;
     if (counter == 0) {
       for (const auto& instruction : self.instructionsConst) {
         const auto invoked = instruction(foldernameData, counter);

@@ -25,7 +25,6 @@ enum class Shape {
 };
 
 constexpr std::size_t numPoints(std::size_t order, Shape shape) {
-  order = std::max(static_cast<std::size_t>(1), order);
   switch (shape) {
   case Shape::Line:
     return order + 1;

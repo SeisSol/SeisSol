@@ -124,6 +124,7 @@ class VtkHdfWriter {
       instructions;
   std::size_t type;
   std::size_t targetDegree;
+  bool constFile{false};
   bool temporal{false};
   int32_t compress{0};
   const static inline std::string GroupName = "VTKHDF";

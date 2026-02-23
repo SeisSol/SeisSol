@@ -35,8 +35,10 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
                            bool temporal,
                            std::int32_t compress)
     : name(name), localElementCount(localElementCount), globalElementCount(localElementCount),
-      pointsPerElement(geometry::numPoints(targetDegree, shape)), type(geometry::vtkType(shape)),
-      targetDegree(targetDegree), temporal(temporal), compress(compress) {
+      pointsPerElement(
+          geometry::numPoints(std::max(targetDegree, static_cast<std::size_t>(1)), shape)),
+      type(geometry::vtkType(shape)), targetDegree(targetDegree), temporal(temporal),
+      compress(compress) {
   MPI_Exscan(&localElementCount,
              &elementOffset,
              1,
@@ -150,7 +152,7 @@ void VtkHdfWriter::addData(const std::string& name,
                            const std::optional<std::string>& group,
                            bool isConst,
                            const std::shared_ptr<writer::DataSource>& data) {
-  auto& instrarray = isConst ? instructionsConst : instructions;
+  auto& instrarray = isConst && constFile ? instructionsConst : instructions;
 
   std::vector<std::string> groups{GroupName};
   if (group.has_value()) {
@@ -171,7 +173,7 @@ void VtkHdfWriter::addData(const std::string& name,
         compress);
   });
 
-  if (isConst && !temporal) {
+  if (isConst && constFile && !temporal) {
     instructionsConstLink.emplace_back(
         [=](const std::string& filename, const std::string& filenameConst) {
           return std::make_shared<writer::instructions::Hdf5LinkExternalWrite>(
