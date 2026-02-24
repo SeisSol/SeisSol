@@ -44,7 +44,7 @@ AsagiModule::AsagiModule(utils::Env& env)
 AsagiMPIMode AsagiModule::getMPIMode(utils::Env& env) {
   // USE_MPI kept on purpose
 #ifdef USE_MPI
-  const std::string mpiModeName = env.get(EnvMpiMode, "WINDOWS");
+  const std::string mpiModeName = env.get(EnvMpiMode, "OFF");
   if (mpiModeName == "WINDOWS") {
     return AsagiMPIMode::Windows;
   }
