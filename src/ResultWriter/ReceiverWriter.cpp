@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cctype>
+#include <cmath>
 #include <cstddef>
 #include <fstream>
 #include <iomanip>
@@ -111,6 +112,7 @@ namespace seissol::writer
         m_fileNamePrefix = fileNamePrefix;
         m_receiverFileName = parameters.fileName;
         m_samplingInterval = parameters.samplingInterval;
+        m_endTime = endTime;
 
         if (parameters.computeRotation)
         {
@@ -160,7 +162,7 @@ namespace seissol::writer
 
         logInfo() << "Cleaning possible double occurring receivers for multi-rank setups...";
         initializer::cleanDoubles(contained.data(), numberOfPoints);
-        
+
         // Then reduce to see which points exist globally
         std::vector<short> globalContained(contained);
 
@@ -218,7 +220,7 @@ namespace seissol::writer
 
                 m_receiverClusters[layer][cluster].addReceiver(
                     meshId, point, points[point], mesh, ltsLut, lts);
-                
+
 
             }
         }
@@ -269,10 +271,14 @@ namespace seissol::writer
     logInfo(rank) << "Global number of columns: " << globalNcols;
 
     // Create the HDF5 writer
+    // Compute total number of time steps from simulation end time and sampling interval
+    hsize_t totalTimeSteps = static_cast<hsize_t>(std::ceil(m_endTime / m_samplingInterval));
+
     g_hdf5Writer = std::make_unique<ParallelHdf5ReceiverWriter>(seissol::MPI::mpi.comm(),
                                                                 hdf5FileName(m_fileNamePrefix),
                                                                 g_totalReceivers,
-                                                                globalNcols);
+                                                                globalNcols,
+                                                                totalTimeSteps);
   }
 
   g_hdf5Writer->writeCoordinates(points);
@@ -387,4 +393,3 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
   }
 
 } // namespace seissol::writer
-

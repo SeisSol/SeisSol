@@ -12,7 +12,8 @@ class ParallelHdf5ReceiverWriter {
   ParallelHdf5ReceiverWriter(MPI_Comm comm,
                              const std::string& filename,
                              hsize_t totalReceivers,
-                             hsize_t numVariables);
+                             hsize_t numVariables,
+                             hsize_t totalTimeSteps);
 
   void writeChunk(hsize_t timeOffset,
                   hsize_t receiverOffset,

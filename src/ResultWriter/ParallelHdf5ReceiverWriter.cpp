@@ -6,11 +6,10 @@
 ParallelHdf5ReceiverWriter::ParallelHdf5ReceiverWriter(MPI_Comm comm,
                                                        const std::string& filename,
                                                        hsize_t totalReceivers,
-                                                       hsize_t numVariables)
+                                                       hsize_t numVariables,
+                                                       hsize_t totalTimeSteps)
     : comm_(comm)
 {
-
-  hsize_t totalTimeSteps = 12000;
 
 
   dims_[0] = totalTimeSteps;

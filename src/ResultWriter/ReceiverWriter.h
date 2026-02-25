@@ -113,7 +113,7 @@ class ReceiverWriter : public seissol::Module {
   void syncPoint(double currentTime) override;
   /// Called at simulation start.
   void simulationStart(std::optional<double> checkpointTime) override;
-  
+
   /// Called at shutdown.
   void shutdown() override;
 
@@ -128,6 +128,7 @@ class ReceiverWriter : public seissol::Module {
   std::string m_receiverFileName;
   std::string m_fileNamePrefix;
   double m_samplingInterval{0.0};
+  double m_endTime{0.0};
 
   /// Additional derived quantities (e.g., rotation, strain)
   std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity>> derivedQuantities;
