@@ -13,3 +13,5 @@
 168791fd96bcec6f26116a5a91d613691d0d93ec
 # apply clang-format to the src/Solver folder for the first time
 13521382a42216233e913484424c982ae02a25d7
+# clang-format 22
+b52b1d876eff7d0fac007ab64f7cb05907147019
