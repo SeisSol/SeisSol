@@ -113,6 +113,7 @@ class ReceiverWriter : public seissol::Module {
   void syncPoint(double currentTime) override;
   /// Called at simulation start.
   void simulationStart(std::optional<double> checkpointTime) override;
+  
   /// Called at shutdown.
   void shutdown() override;
 
