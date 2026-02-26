@@ -40,7 +40,7 @@ namespace seissol::asagi {
   if (AsagiModule::mpiMode() != AsagiMPIMode::Off) {
     // USE_MPI kept on purpose
 #ifdef USE_MPI
-    ::asagi::Grid::Error const err = grid->setComm(comm_);
+    const ::asagi::Grid::Error err = grid->setComm(comm_);
     if (err != ::asagi::Grid::SUCCESS) {
       logError() << "Could not set ASAGI communicator:" << err;
     }
