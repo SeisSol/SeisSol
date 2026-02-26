@@ -183,10 +183,10 @@ struct CompoundGlobalData {
 // data for the cell local integration
 struct alignas(Alignment) LocalIntegrationData {
   // star matrices
-  real starMatrices[3][seissol::tensor::star::size(0)];
+  real starMatrices[3][seissol::tensor::star::size(0)]{};
 
   // flux solver for element local contribution
-  real nApNm1[4][seissol::tensor::AplusT::size()];
+  real nApNm1[4][seissol::tensor::AplusT::size()]{};
 
   // equation-specific data
   seissol::model::MaterialT::LocalSpecificData specific;
@@ -195,7 +195,7 @@ struct alignas(Alignment) LocalIntegrationData {
 // data for the neighboring boundary integration
 struct alignas(Alignment) NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
-  real nAmNm1[4][seissol::tensor::AminusT::size()];
+  real nAmNm1[4][seissol::tensor::AminusT::size()]{};
 
   // equation-specific data
   seissol::model::MaterialT::NeighborSpecificData specific;
@@ -216,9 +216,9 @@ struct DRFaceInformation {
 };
 
 struct DRGodunovData {
-  real dataTinvT[seissol::tensor::TinvT::size()];
-  real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix::size()];
-  real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix::size()];
+  real dataTinvT[seissol::tensor::TinvT::size()]{};
+  real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix::size()]{};
+  real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix::size()]{};
   // When integrating quantities over the fault
   // we need to integrate over each physical element.
   // The integration is effectively done in the reference element, and the scaling factor of
@@ -228,14 +228,14 @@ struct DRGodunovData {
   // Uphoff, C., May, D. A., & Gabriel, A. A. (2023). A discontinuous Galerkin method for
   // sequences of earthquakes and aseismic slip on multiple faults using unstructured curvilinear
   // grids. Geophysical Journal International, 233(1), 586-626.
-  double doubledSurfaceArea;
+  double doubledSurfaceArea{};
 };
 
 struct DREnergyOutput {
-  real slip[seissol::tensor::slipInterpolated::size()];
-  real accumulatedSlip[seissol::dr::misc::NumPaddedPoints];
-  real frictionalEnergy[seissol::dr::misc::NumPaddedPoints];
-  real timeSinceSlipRateBelowThreshold[seissol::dr::misc::NumPaddedPoints];
+  real slip[seissol::tensor::slipInterpolated::size()]{};
+  real accumulatedSlip[seissol::dr::misc::NumPaddedPoints]{};
+  real frictionalEnergy[seissol::dr::misc::NumPaddedPoints]{};
+  real timeSinceSlipRateBelowThreshold[seissol::dr::misc::NumPaddedPoints]{};
 
   static std::vector<seissol::io::datatype::StructDatatype::MemberInfo> datatypeLayout() {
     return {

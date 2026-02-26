@@ -31,7 +31,10 @@
 #include <stdlib.h>
 
 #ifdef ACL_DEVICE
+#include "Initializer/BatchRecorders/Recorders.h"
 #include "Initializer/MemoryManager.h"
+
+#include <Device/device.h>
 #endif
 
 #ifdef USE_POROELASTIC

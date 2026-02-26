@@ -22,13 +22,11 @@
 namespace seissol::geometry {
 
 class CubeGenerator : public seissol::geometry::MeshReader {
-  int rank;
-  int nProcs;
+  int rank_;
+  int nProcs_;
 
   public:
-  CubeGenerator(int rank,
-                int nProcs,
-                const std::string& meshFile,
+  CubeGenerator(const std::string& meshFile,
                 const seissol::initializer::parameters::CubeGeneratorParameters& cubeParams);
 
   void cubeGenerator(std::array<std::size_t, 4> numCubes,

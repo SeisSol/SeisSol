@@ -43,22 +43,22 @@ class FaultWriterExecutor {
   };
 
   private:
-  xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>* m_xdmfWriter{nullptr};
+  xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>* xdmfWriter_{nullptr};
 
   /** The MPI communicator for the writer */
-  MPI_Comm m_comm;
+  MPI_Comm comm_;
 
   /** The number of variables that should be written */
-  unsigned int m_numVariables{0};
+  unsigned int numVariables_{0};
 
   /** Backend stopwatch */
-  Stopwatch m_stopwatch;
+  Stopwatch stopwatch_;
 
-  bool m_enabled{false};
+  bool enabled_{false};
 
   public:
   FaultWriterExecutor()
-      : m_comm(MPI_COMM_NULL)
+      : comm_(MPI_COMM_NULL)
 
   {}
 
@@ -68,40 +68,40 @@ class FaultWriterExecutor {
   void execInit(const async::ExecInfo& info, const FaultInitParam& param);
 
   void exec(const async::ExecInfo& info, const FaultParam& param) {
-    if (m_xdmfWriter == nullptr) {
+    if (xdmfWriter_ == nullptr) {
       return;
     }
 
-    m_stopwatch.start();
+    stopwatch_.start();
 
-    m_xdmfWriter->addTimeStep(param.time);
+    xdmfWriter_->addTimeStep(param.time);
 
-    for (unsigned int i = 0; i < m_numVariables; i++) {
-      m_xdmfWriter->writeCellData(i, static_cast<const real*>(info.buffer(Variables0 + i)));
+    for (unsigned int i = 0; i < numVariables_; i++) {
+      xdmfWriter_->writeCellData(i, static_cast<const real*>(info.buffer(Variables0 + i)));
     }
 
-    m_xdmfWriter->flush();
+    xdmfWriter_->flush();
 
-    m_stopwatch.pause();
+    stopwatch_.pause();
   }
 
   void setFaultTagsData(const unsigned int* faultTags) {
-    m_xdmfWriter->writeExtraIntCellData(0, faultTags);
+    xdmfWriter_->writeExtraIntCellData(0, faultTags);
   }
 
   void finalize() {
-    if (m_enabled) {
+    if (enabled_) {
       // note: also includes some ranks which do nothing at all
-      m_stopwatch.printTime("Time fault writer backend:");
+      stopwatch_.printTime("Time fault writer backend:");
     }
 
-    if (m_comm != MPI_COMM_NULL) {
-      MPI_Comm_free(&m_comm);
-      m_comm = MPI_COMM_NULL;
+    if (comm_ != MPI_COMM_NULL) {
+      MPI_Comm_free(&comm_);
+      comm_ = MPI_COMM_NULL;
     }
 
-    delete m_xdmfWriter;
-    m_xdmfWriter = nullptr;
+    delete xdmfWriter_;
+    xdmfWriter_ = nullptr;
   }
 
   static std::string getLabelName(size_t index) { return Labels[index]; }

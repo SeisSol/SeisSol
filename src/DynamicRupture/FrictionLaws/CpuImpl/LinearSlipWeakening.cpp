@@ -25,7 +25,7 @@ void NoSpecialization::resampleSlipRate(
   resampleKrnl.execute();
 }
 void BiMaterialFault::copyStorageToLocal(DynamicRupture::Layer& layerData) {
-  regularizedStrength = layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>();
+  regularizedStrength_ = layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>();
 }
 
 } // namespace seissol::dr::friction_law::cpu

@@ -54,12 +54,12 @@ void FaultRefiner::addReceiver(Data data, TrianglePair& face) {
   receiver.localFaceSideId = data.localFaceSideId;
   receiver.elementIndex = data.elementId;
   receiver.elementGlobalIndex = data.globalId;
-  receiver.globalReceiverIndex = points.size();
+  receiver.globalReceiverIndex = points_.size();
   receiver.global = getMidPointTriangle(std::get<Global>(face));
   receiver.reference = getMidPointTriangle(std::get<Reference>(face));
   receiver.globalTriangle = std::get<Global>(face);
 
-  points.push_back(receiver);
+  points_.push_back(receiver);
 }
 
 void NoRefiner::refineAndAccumulate(Data data, TrianglePair face) { addReceiver(data, face); }

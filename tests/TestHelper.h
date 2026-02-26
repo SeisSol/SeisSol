@@ -58,32 +58,32 @@ class AbsApprox {
   friend doctest::String toString(const AbsApprox& in);
 
   private:
-  double m_epsilon{std::numeric_limits<double>::epsilon()};
-  double m_delta{0.0};
-  double m_value{0.0};
+  double epsilon_{std::numeric_limits<double>::epsilon()};
+  double delta_{0.0};
+  double value_{0.0};
 };
 
-AbsApprox::AbsApprox(double value) : m_value(value) {}
+AbsApprox::AbsApprox(double value) : value_(value) {}
 
 AbsApprox AbsApprox::operator()(double newValue) const {
   AbsApprox approx(newValue);
-  approx.epsilon(m_epsilon);
-  approx.delta(m_delta);
+  approx.epsilon(epsilon_);
+  approx.delta(delta_);
   return approx;
 }
 
 AbsApprox& AbsApprox::epsilon(double newEpsilon) {
-  m_epsilon = newEpsilon;
+  epsilon_ = newEpsilon;
   return *this;
 }
 
 AbsApprox& AbsApprox::delta(double newDelta) {
-  m_delta = newDelta;
+  delta_ = newDelta;
   return *this;
 }
 
 inline bool operator==(double lhs, const AbsApprox& rhs) {
-  return std::abs(lhs - rhs.m_value) < rhs.m_epsilon + rhs.m_delta * std::abs(rhs.m_value);
+  return std::abs(lhs - rhs.value_) < rhs.epsilon_ + rhs.delta_ * std::abs(rhs.value_);
 }
 
 inline bool operator==(const AbsApprox& lhs, double rhs) { return operator==(rhs, lhs); }
@@ -92,25 +92,25 @@ inline bool operator!=(double lhs, const AbsApprox& rhs) { return !operator==(lh
 
 inline bool operator!=(const AbsApprox& lhs, double rhs) { return !operator==(rhs, lhs); }
 
-inline bool operator<=(double lhs, const AbsApprox& rhs) { return lhs < rhs.m_value || lhs == rhs; }
+inline bool operator<=(double lhs, const AbsApprox& rhs) { return lhs < rhs.value_ || lhs == rhs; }
 
-inline bool operator<=(const AbsApprox& lhs, double rhs) { return lhs.m_value < rhs || lhs == rhs; }
+inline bool operator<=(const AbsApprox& lhs, double rhs) { return lhs.value_ < rhs || lhs == rhs; }
 
-inline bool operator>=(double lhs, const AbsApprox& rhs) { return lhs > rhs.m_value || lhs == rhs; }
+inline bool operator>=(double lhs, const AbsApprox& rhs) { return lhs > rhs.value_ || lhs == rhs; }
 
-inline bool operator>=(const AbsApprox& lhs, double rhs) { return lhs.m_value > rhs || lhs == rhs; }
+inline bool operator>=(const AbsApprox& lhs, double rhs) { return lhs.value_ > rhs || lhs == rhs; }
 
-inline bool operator<(double lhs, const AbsApprox& rhs) { return lhs < rhs.m_value && lhs != rhs; }
+inline bool operator<(double lhs, const AbsApprox& rhs) { return lhs < rhs.value_ && lhs != rhs; }
 
-inline bool operator<(const AbsApprox& lhs, double rhs) { return lhs.m_value < rhs && lhs != rhs; }
+inline bool operator<(const AbsApprox& lhs, double rhs) { return lhs.value_ < rhs && lhs != rhs; }
 
-inline bool operator>(double lhs, const AbsApprox& rhs) { return lhs > rhs.m_value && lhs != rhs; }
+inline bool operator>(double lhs, const AbsApprox& rhs) { return lhs > rhs.value_ && lhs != rhs; }
 
-inline bool operator>(const AbsApprox& lhs, double rhs) { return lhs.m_value > rhs && lhs != rhs; }
+inline bool operator>(const AbsApprox& lhs, double rhs) { return lhs.value_ > rhs && lhs != rhs; }
 
 inline doctest::String toString(const AbsApprox& in) {
   // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-  return doctest::String("AbsApprox( ") + doctest::toString(in.m_value) + " )";
+  return doctest::String("AbsApprox( ") + doctest::toString(in.value_) + " )";
 }
 
 // test file path derelativizer.

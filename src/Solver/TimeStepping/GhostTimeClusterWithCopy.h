@@ -43,18 +43,18 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
   void prefetchGhostRegion(std::size_t region);
 
   private:
-  std::vector<void*> duplicatedCopyRegions;
-  std::vector<void*> duplicatedGhostRegions;
+  std::vector<void*> duplicatedCopyRegions_;
+  std::vector<void*> duplicatedGhostRegions_;
 
-  std::vector<void*> prefetchCopyRegionsStreams;
-  std::vector<void*> prefetchGhostRegionsStreams;
+  std::vector<void*> prefetchCopyRegionsStreams_;
+  std::vector<void*> prefetchGhostRegionsStreams_;
 
   enum class ReceiveState { RequiresMpiTesting, RequiresPrefetchTesting, Ready };
-  std::vector<ReceiveState> receiveRegionsStates{};
+  std::vector<ReceiveState> receiveRegionsStates_;
 
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 
-  bool persistent;
+  bool persistent_;
 };
 } // namespace seissol::time_stepping
 

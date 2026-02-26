@@ -40,7 +40,7 @@ namespace seissol::asagi {
   if (AsagiModule::mpiMode() != AsagiMPIMode::Off) {
     // USE_MPI kept on purpose
 #ifdef USE_MPI
-    const ::asagi::Grid::Error err = grid->setComm(comm);
+    const ::asagi::Grid::Error err = grid->setComm(comm_);
     if (err != ::asagi::Grid::SUCCESS) {
       logError() << "Could not set ASAGI communicator:" << err;
     }
@@ -52,21 +52,21 @@ namespace seissol::asagi {
   }
 
   // Set NUMA mode
-  asagiThreads = env.get("ASAGI_NUM_THREADS", 0U);
-  if (asagiThreads == 0) {
-    asagiThreads = AsagiModule::totalThreads();
-  } else if (static_cast<int>(asagiThreads) > AsagiModule::totalThreads()) {
+  asagiThreads_ = env.get("ASAGI_NUM_THREADS", 0U);
+  if (asagiThreads_ == 0) {
+    asagiThreads_ = AsagiModule::totalThreads();
+  } else if (static_cast<int>(asagiThreads_) > AsagiModule::totalThreads()) {
     logWarning() << "Only" << AsagiModule::totalThreads()
                  << "threads can be used for ASAGI initialization.";
-    asagiThreads = AsagiModule::totalThreads();
+    asagiThreads_ = AsagiModule::totalThreads();
   }
 
   if (AsagiModule::mpiMode() == AsagiMPIMode::CommThread) {
     // one thread is used for communication
-    --asagiThreads;
+    --asagiThreads_;
   }
 
-  grid->setThreads(asagiThreads);
+  grid->setThreads(asagiThreads_);
 
   switch (getNumaMode()) {
   case NumaCacheMode::On:
@@ -98,7 +98,7 @@ namespace seissol::asagi {
   // Read the data
   // SCOREP_RECORDING_OFF();
 
-#pragma omp parallel shared(abort) num_threads(asagiThreads)
+#pragma omp parallel shared(abort) num_threads(asagiThreads_)
   {
     const ::asagi::Grid::Error err = grid->open(file);
     if (err != ::asagi::Grid::SUCCESS) {
@@ -131,9 +131,9 @@ NumaCacheMode AsagiReader::getNumaMode() {
   return NumaCacheMode::Off;
 }
 
-unsigned AsagiReader::numberOfThreads() const { return asagiThreads; }
+unsigned AsagiReader::numberOfThreads() const { return asagiThreads_; }
 
-AsagiReader::AsagiReader(MPI_Comm comm) : comm(comm) {}
+AsagiReader::AsagiReader(MPI_Comm comm) : comm_(comm) {}
 
 } // namespace seissol::asagi
 

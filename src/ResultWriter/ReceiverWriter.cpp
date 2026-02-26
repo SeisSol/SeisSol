@@ -79,7 +79,7 @@ std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileNa
 
 std::string ReceiverWriter::fileName(unsigned pointId) const {
   std::stringstream fns;
-  fns << std::setfill('0') << m_fileNamePrefix << "-receiver-" << std::setw(5) << (pointId + 1);
+  fns << std::setfill('0') << fileNamePrefix_ << "-receiver-" << std::setw(5) << (pointId + 1);
   fns << ".dat";
   return fns.str();
 }
@@ -89,7 +89,7 @@ void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point)
 
   std::vector<std::string> names(seissol::model::MaterialT::Quantities.begin(),
                                  seissol::model::MaterialT::Quantities.end());
-  for (const auto& derived : derivedQuantities) {
+  for (const auto& derived : derivedQuantities_) {
     auto derivedNames = derived->quantities();
     names.insert(names.end(), derivedNames.begin(), derivedNames.end());
   }
@@ -123,13 +123,13 @@ void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point)
 }
 
 void ReceiverWriter::syncPoint(double /*currentTime*/) {
-  if (m_receiverClusters.empty()) {
+  if (receiverClusters_.empty()) {
     return;
   }
 
-  m_stopwatch.start();
+  stopwatch_.start();
 
-  for (auto& cluster : m_receiverClusters) {
+  for (auto& cluster : receiverClusters_) {
     auto ncols = cluster->ncols();
     for (auto& receiver : *cluster) {
       assert(receiver.output.size() % ncols == 0);
@@ -149,22 +149,22 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
     }
   }
 
-  auto time = m_stopwatch.stop();
+  auto time = stopwatch_.stop();
   logInfo() << "Wrote receivers in" << time << "seconds.";
 }
 void ReceiverWriter::init(
     const std::string& fileNamePrefix,
     double endTime,
     const seissol::initializer::parameters::ReceiverOutputParameters& parameters) {
-  m_fileNamePrefix = fileNamePrefix;
-  m_receiverFileName = parameters.fileName;
-  m_samplingInterval = parameters.samplingInterval;
+  fileNamePrefix_ = fileNamePrefix;
+  receiverFileName_ = parameters.fileName;
+  samplingInterval_ = parameters.samplingInterval;
 
   if (parameters.computeRotation) {
-    derivedQuantities.push_back(std::make_shared<kernels::ReceiverRotation>());
+    derivedQuantities_.push_back(std::make_shared<kernels::ReceiverRotation>());
   }
   if (parameters.computeStrain) {
-    derivedQuantities.push_back(std::make_shared<kernels::ReceiverStrain>());
+    derivedQuantities_.push_back(std::make_shared<kernels::ReceiverStrain>());
   }
 
   setSyncInterval(std::min(endTime, parameters.writeInterval));
@@ -178,9 +178,9 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                                const CompoundGlobalData& global) {
   std::vector<Eigen::Vector3d> points;
   // Only parse if we have a receiver file
-  if (!m_receiverFileName.empty()) {
-    points = parseReceiverFile(m_receiverFileName);
-    logInfo() << "Record points read from" << m_receiverFileName;
+  if (!receiverFileName_.empty()) {
+    points = parseReceiverFile(receiverFileName_);
+    logInfo() << "Record points read from" << receiverFileName_;
     logInfo() << "Number of record points =" << points.size();
   } else {
     logInfo() << "No record points read.";
@@ -221,44 +221,44 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   }
 
   logInfo() << "Mapping receivers to LTS cells...";
-  m_receiverClusters.clear();
+  receiverClusters_.clear();
   for (std::size_t point = 0; point < numberOfPoints; ++point) {
     if (contained[point] == 1) {
       const std::size_t meshId = meshIds[point];
       const auto id = backmap.get(meshId).color;
 
       // Make sure that needed empty clusters are initialized.
-      for (std::size_t c = m_receiverClusters.size(); c <= id; ++c) {
-        m_receiverClusters.emplace_back(
+      for (std::size_t c = receiverClusters_.size(); c <= id; ++c) {
+        receiverClusters_.emplace_back(
             std::make_shared<kernels::ReceiverCluster>(global,
                                                        quantities,
-                                                       m_samplingInterval,
+                                                       samplingInterval_,
                                                        syncInterval(),
-                                                       derivedQuantities,
-                                                       seissolInstance));
+                                                       derivedQuantities_,
+                                                       seissolInstance_));
       }
 
       writeHeader(point, points[point]);
-      m_receiverClusters[id]->addReceiver(meshId, point, points[point], mesh, backmap);
+      receiverClusters_[id]->addReceiver(meshId, point, points[point], mesh, backmap);
     }
   }
 }
 
 void ReceiverWriter::simulationStart(std::optional<double> /*checkpointTime*/) {
-  for (auto& cluster : m_receiverClusters) {
+  for (auto& cluster : receiverClusters_) {
     cluster->allocateData();
   }
 }
 
 void ReceiverWriter::shutdown() {
-  for (auto& cluster : m_receiverClusters) {
+  for (auto& cluster : receiverClusters_) {
     cluster->freeData();
   }
 }
 
 kernels::ReceiverCluster* ReceiverWriter::receiverCluster(std::size_t id) {
-  if (id < m_receiverClusters.size()) {
-    return m_receiverClusters[id].get();
+  if (id < receiverClusters_.size()) {
+    return receiverClusters_[id].get();
   }
   return nullptr;
 }

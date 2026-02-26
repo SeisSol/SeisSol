@@ -26,8 +26,8 @@ class AcceleratorDevice {
   private:
   void bindNativeDevice(int deviceId);
 
-  std::vector<std::string> infoMessages;
-  std::vector<std::string> warnMessages;
+  std::vector<std::string> infoMessages_;
+  std::vector<std::string> warnMessages_;
 };
 } // namespace seissol
 

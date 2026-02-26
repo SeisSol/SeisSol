@@ -27,20 +27,20 @@ std::cout << acc.result() << std::endl;
 template <typename RealT>
 struct StableAccumulator {
   StableAccumulator() = default;
-  explicit StableAccumulator(RealT start) : acc(start), corr(0) {}
+  explicit StableAccumulator(RealT start) : acc_(start), corr_(0) {}
 
   auto operator+(RealT number) -> StableAccumulator<RealT> {
     StableAccumulator<RealT> newacc;
-    const auto numberC = number - corr;
-    newacc.acc = acc + numberC;
-    newacc.corr = (newacc.acc - acc) - numberC;
+    const auto numberC = number - corr_;
+    newacc.acc_ = acc_ + numberC;
+    newacc.corr_ = (newacc.acc_ - acc_) - numberC;
     return newacc;
   }
 
   auto operator+=(RealT number) -> StableAccumulator<RealT>& {
     const auto tempnew = *this + number;
-    this->acc = tempnew.acc;
-    this->corr = tempnew.corr;
+    this->acc_ = tempnew.acc_;
+    this->corr_ = tempnew.corr_;
     return *this;
   }
 
@@ -48,11 +48,11 @@ struct StableAccumulator {
 
   auto operator-=(RealT number) -> StableAccumulator<RealT> { return (*this += (-number)); }
 
-  [[nodiscard]] RealT result() const { return acc; }
+  [[nodiscard]] RealT result() const { return acc_; }
 
   private:
-  RealT acc{0};
-  RealT corr{0};
+  RealT acc_{0};
+  RealT corr_{0};
 };
 
 } // namespace seissol::numerical

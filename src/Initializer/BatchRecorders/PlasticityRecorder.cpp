@@ -8,7 +8,6 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
-#include "Kernels/Interface.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
@@ -18,7 +17,6 @@
 #include <vector>
 #include <yateto.h>
 
-using namespace device;
 using namespace seissol::initializer;
 using namespace seissol::recording;
 
@@ -26,12 +24,12 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
   setUpContext(layer);
 
   real* qStressNodalScratch =
-      static_cast<real*>(currentLayer->var<LTS::QStressNodalScratch>(AllocationPlace::Device));
-  const auto size = currentLayer->size();
+      static_cast<real*>(currentLayer_->var<LTS::QStressNodalScratch>(AllocationPlace::Device));
+  const auto size = currentLayer_->size();
 
   std::size_t psize = 0;
   for (std::size_t cell = 0; cell < size; ++cell) {
-    auto dataHost = currentLayer->cellRef(cell);
+    const auto dataHost = currentLayer_->cellRef(cell);
 
     if (dataHost.get<LTS::CellInformation>().plasticityEnabled) {
       ++psize;
@@ -46,8 +44,8 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
 
     std::size_t pcell = 0;
     for (std::size_t cell = 0; cell < size; ++cell) {
-      const auto dataHost = currentLayer->cellRef(cell);
-      auto data = currentLayer->cellRef(cell, AllocationPlace::Device);
+      const auto dataHost = currentLayer_->cellRef(cell);
+      auto data = currentLayer_->cellRef(cell, AllocationPlace::Device);
 
       if (dataHost.get<LTS::CellInformation>().plasticityEnabled) {
         dofsPtrs[pcell] = static_cast<real*>(data.get<LTS::Dofs>());
@@ -60,9 +58,9 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
 
     const ConditionalKey key(*KernelNames::Plasticity);
     checkKey(key);
-    (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs);
-    (*currentTable)[key].set(inner_keys::Wp::Id::NodalStressTensor, qStressNodalPtrs);
-    (*currentTable)[key].set(inner_keys::Wp::Id::Pstrains, pstrainsPtrs);
-    (*currentTable)[key].set(inner_keys::Wp::Id::InitialLoad, initialLoadPtrs);
+    (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs);
+    (*currentTable_)[key].set(inner_keys::Wp::Id::NodalStressTensor, qStressNodalPtrs);
+    (*currentTable_)[key].set(inner_keys::Wp::Id::Pstrains, pstrainsPtrs);
+    (*currentTable_)[key].set(inner_keys::Wp::Id::InitialLoad, initialLoadPtrs);
   }
 }

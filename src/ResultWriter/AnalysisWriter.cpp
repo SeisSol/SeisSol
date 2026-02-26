@@ -44,31 +44,31 @@
 
 namespace seissol::writer {
 
-CsvAnalysisWriter::CsvAnalysisWriter(std::string fileName) : fileName(std::move(fileName)) {}
+CsvAnalysisWriter::CsvAnalysisWriter(std::string fileName) : fileName_(std::move(fileName)) {}
 
 void CsvAnalysisWriter::writeHeader() {
-  if (isEnabled) {
-    out << "variable,norm,error\n";
+  if (isEnabled_) {
+    out_ << "variable,norm,error\n";
   }
 }
 
 void CsvAnalysisWriter::addObservation(std::string_view variable,
                                        std::string_view normType,
                                        real error) {
-  if (isEnabled) {
-    out << variable << "," << normType << "," << error << "\n";
+  if (isEnabled_) {
+    out_ << variable << "," << normType << "," << error << "\n";
   }
 }
 
 void CsvAnalysisWriter::enable() {
-  isEnabled = true;
-  out.open(fileName);
+  isEnabled_ = true;
+  out_.open(fileName_);
 }
 
 CsvAnalysisWriter::~CsvAnalysisWriter() {
-  if (isEnabled) {
-    out.close();
-    if (!out) {
+  if (isEnabled_) {
+    out_.close();
+    if (!out_) {
       logError() << "Error when writing analysis output to file";
     }
   }
@@ -77,7 +77,7 @@ CsvAnalysisWriter::~CsvAnalysisWriter() {
 void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::Mpi::mpi;
 
-  const auto initialConditionType = seissolInstance.getSeisSolParameters().initialization.type;
+  const auto initialConditionType = seissolInstance_.getSeisSolParameters().initialization.type;
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero ||
       initialConditionType == seissol::initializer::parameters::InitializationType::Travelling ||
       initialConditionType ==
@@ -88,13 +88,13 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   logInfo() << "Print analysis for initial conditions" << static_cast<int>(initialConditionType)
             << " at time " << simulationTime;
 
-  const auto& iniFields = seissolInstance.getMemoryManager().getInitialConditions();
+  const auto& iniFields = seissolInstance_.getMemoryManager().getInitialConditions();
 
-  const auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
-  const auto* globalData = seissolInstance.getMemoryManager().getGlobalData().onHost;
+  const auto& ltsStorage = seissolInstance_.getMemoryManager().getLtsStorage();
+  const auto* globalData = seissolInstance_.getMemoryManager().getGlobalData().onHost;
 
-  const std::vector<Vertex>& vertices = meshReader->getVertices();
-  const std::vector<Element>& elements = meshReader->getElements();
+  const std::vector<Vertex>& vertices = meshReader_->getVertices();
+  const std::vector<Element>& elements = meshReader_->getElements();
 
   constexpr auto NumQuantities =
       tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
@@ -108,10 +108,10 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Easi) {
     data = initializer::projectEasiFields(
-        {seissolInstance.getSeisSolParameters().initialization.filename},
+        {seissolInstance_.getSeisSolParameters().initialization.filename},
         simulationTime,
-        *meshReader,
-        seissolInstance.getSeisSolParameters().initialization.hasTime);
+        *meshReader_,
+        seissolInstance_.getSeisSolParameters().initialization.hasTime);
   }
 
   double quadraturePoints[NumQuadPoints][3];
@@ -320,7 +320,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                0,
                comm);
 
-    auto csvWriter = CsvAnalysisWriter(fileName);
+    auto csvWriter = CsvAnalysisWriter(fileName_);
 
     if (mpi.rank() == 0) {
       csvWriter.enable();

@@ -58,22 +58,22 @@ public:
     Iterator(bool lenient,
              const std::tuple<IteratorTs...>& iterators,
              const std::tuple<IteratorTs...>& iteratorEnds)
-        : iterators(iterators), iteratorEnds(iteratorEnds),
-          ended(tupleAnyEqual(iterators, iteratorEnds)), lenient(lenient) {
-      if (!lenient && ended && iterators != iteratorEnds) {
+        : iterators_(iterators), iteratorEnds_(iteratorEnds),
+          ended_(tupleAnyEqual(iterators, iteratorEnds)), lenient_(lenient) {
+      if (!lenient && ended_ && iterators != iteratorEnds) {
         throw std::runtime_error("Not all iterators are finished (but they should be).");
       }
     }
 
-    constexpr auto operator*() -> reference { return makeReference(iterators); }
+    constexpr auto operator*() -> reference { return makeReference(iterators_); }
 
-    constexpr auto operator*() const -> reference { return makeReference(iterators); }
+    constexpr auto operator*() const -> reference { return makeReference(iterators_); }
 
     constexpr auto operator++() -> Iterator& {
-      iterators = tupleTransform([](auto& value) { return ++value; }, iterators);
+      iterators_ = tupleTransform([](auto& value) { return ++value; }, iterators_);
 
-      ended = tupleAnyEqual(iterators, iteratorEnds);
-      if (!lenient && ended && iterators != iteratorEnds) {
+      ended_ = tupleAnyEqual(iterators_, iteratorEnds_);
+      if (!lenient_ && ended_ && iterators_ != iteratorEnds_) {
         throw std::runtime_error("Not all iterators are finished (but they should be).");
       }
 
@@ -81,46 +81,47 @@ public:
     }
 
     constexpr auto operator==(const Iterator& other) const -> bool {
-      return (ended && other.ended) || (!ended && !other.ended && iterators == other.iterators);
+      return (ended_ && other.ended_) ||
+             (!ended_ && !other.ended_ && iterators_ == other.iterators_);
     }
 
     constexpr auto operator!=(const Iterator& other) const -> bool { return !(*this == other); }
 
 private:
-    std::tuple<IteratorTs...> iterators;
-    std::tuple<IteratorTs...> iteratorEnds;
-    bool ended;
-    bool lenient;
+    std::tuple<IteratorTs...> iterators_;
+    std::tuple<IteratorTs...> iteratorEnds_;
+    bool ended_;
+    bool lenient_;
   };
 
-  explicit Zip(bool lenient, RangeTs&&... ranges) : ranges(ranges...), lenient(lenient) {}
+  explicit Zip(bool lenient, RangeTs&&... ranges) : ranges_(ranges...), lenient_(lenient) {}
 
   constexpr auto begin() {
     return Iterator<IteratorType<RangeTs>...>(
-        lenient,
-        tupleTransform([](auto& value) { return std::begin(value); }, ranges),
-        tupleTransform([](auto&& value) { return std::end(value); }, ranges));
+        lenient_,
+        tupleTransform([](auto& value) { return std::begin(value); }, ranges_),
+        tupleTransform([](auto&& value) { return std::end(value); }, ranges_));
   }
 
   constexpr auto end() {
     return Iterator<IteratorType<RangeTs>...>(
-        lenient,
-        tupleTransform([](auto& value) { return std::end(value); }, ranges),
-        tupleTransform([](auto&& value) { return std::end(value); }, ranges));
+        lenient_,
+        tupleTransform([](auto& value) { return std::end(value); }, ranges_),
+        tupleTransform([](auto&& value) { return std::end(value); }, ranges_));
   }
 
   [[nodiscard]] constexpr auto begin() const {
     return Iterator<IteratorType<RangeTs>...>(
-        lenient,
-        tupleTransform([](const auto& value) { return std::cbegin(value); }, ranges),
-        tupleTransform([](const auto& value) { return std::cend(value); }, ranges));
+        lenient_,
+        tupleTransform([](const auto& value) { return std::cbegin(value); }, ranges_),
+        tupleTransform([](const auto& value) { return std::cend(value); }, ranges_));
   }
 
   [[nodiscard]] constexpr auto end() const {
     return Iterator<IteratorType<RangeTs>...>(
-        lenient,
-        tupleTransform([](const auto& value) { return std::cend(value); }, ranges),
-        tupleTransform([](const auto& value) { return std::cend(value); }, ranges));
+        lenient_,
+        tupleTransform([](const auto& value) { return std::cend(value); }, ranges_),
+        tupleTransform([](const auto& value) { return std::cend(value); }, ranges_));
   }
 
   private:
@@ -148,8 +149,8 @@ private:
                       tuple);
   }
 
-  std::tuple<RangeTs...> ranges;
-  bool lenient;
+  std::tuple<RangeTs...> ranges_;
+  bool lenient_;
 };
 
 /**
@@ -195,50 +196,50 @@ public:
                            T,
                            const T&>;
 
-    Iterator(T value, T step, T end) : value(value), step(step), end(end) {
+    Iterator(T value, T step, T end) : value_(value), step_(step), end_(end) {
       if (value > end) {
         value = end;
       }
     }
 
     constexpr auto operator++() {
-      value += step;
-      if (value > end) {
-        value = end;
+      value_ += step_;
+      if (value_ > end_) {
+        value_ = end_;
       }
       return *this;
     }
 
-    constexpr auto operator*() -> reference { return value; }
+    constexpr auto operator*() -> reference { return value_; }
 
-    constexpr auto operator*() const -> reference { return value; }
+    constexpr auto operator*() const -> reference { return value_; }
 
     constexpr auto operator==(const Iterator& other) const -> bool {
-      return value == other.value && step == other.step && end == other.end;
+      return value_ == other.value_ && step_ == other.step_ && end_ == other.end_;
     }
 
     constexpr auto operator!=(const Iterator& other) const -> bool { return !(*this == other); }
 
 private:
-    T value;
-    T step;
-    T end;
+    T value_;
+    T step_;
+    T end_;
   };
 
-  Range(T start, T stop, T step) : startVal(start), stopVal(stop), stepVal(step) {}
+  Range(T start, T stop, T step) : startVal_(start), stopVal_(stop), stepVal_(step) {}
 
-  [[nodiscard]] constexpr auto begin() const { return Iterator(startVal, stepVal, stopVal); }
+  [[nodiscard]] constexpr auto begin() const { return Iterator(startVal_, stepVal_, stopVal_); }
 
-  [[nodiscard]] constexpr auto end() const { return Iterator(stopVal, stepVal, stopVal); }
+  [[nodiscard]] constexpr auto end() const { return Iterator(stopVal_, stepVal_, stopVal_); }
 
-  [[nodiscard]] constexpr auto cbegin() const { return Iterator(startVal, stepVal, stopVal); }
+  [[nodiscard]] constexpr auto cbegin() const { return Iterator(startVal_, stepVal_, stopVal_); }
 
-  [[nodiscard]] constexpr auto cend() const { return Iterator(stopVal, stepVal, stopVal); }
+  [[nodiscard]] constexpr auto cend() const { return Iterator(stopVal_, stepVal_, stopVal_); }
 
   private:
-  T startVal;
-  T stopVal;
-  T stepVal;
+  T startVal_;
+  T stopVal_;
+  T stepVal_;
 };
 
 /**
@@ -334,32 +335,32 @@ class FilteredIterator {
   using reference = typename std::iterator_traits<T>::reference;
 
   FilteredIterator(T base, T end, const std::function<bool(reference)>& filter)
-      : base(base), end(end), filter(filter) {
+      : base_(base), end_(end), filter_(filter) {
     // skip initially-filtered elements
-    while (this->base != end && !filter(*this->base)) {
-      ++this->base;
+    while (this->base_ != end && !filter(*this->base_)) {
+      ++this->base_;
     }
   }
 
   constexpr auto operator++() {
     // advance, and skip if needed
-    ++base;
-    while (base != end && !filter(*base)) {
-      ++base;
+    ++base_;
+    while (base_ != end_ && !filter_(*base_)) {
+      ++base_;
     }
     return *this;
   }
 
-  constexpr auto operator*() -> reference { return *base; }
+  constexpr auto operator*() -> reference { return *base_; }
 
-  constexpr auto operator*() const -> reference { return *base; }
+  constexpr auto operator*() const -> reference { return *base_; }
 
-  constexpr auto operator==(const T& other) const -> bool { return other == base; }
+  constexpr auto operator==(const T& other) const -> bool { return other == base_; }
 
   constexpr auto operator!=(const T& other) const -> bool { return !(*this == other); }
 
   constexpr auto operator==(const FilteredIterator<T>& other) const -> bool {
-    return other.base == base;
+    return other.base_ == base_;
   }
 
   constexpr auto operator!=(const FilteredIterator<T>& other) const -> bool {
@@ -367,9 +368,9 @@ class FilteredIterator {
   }
 
   private:
-  T base;
-  T end;
-  std::function<bool(reference)> filter;
+  T base_;
+  T end_;
+  std::function<bool(reference)> filter_;
 };
 
 } // namespace seissol::common

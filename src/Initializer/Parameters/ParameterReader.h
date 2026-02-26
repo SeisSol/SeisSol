@@ -146,14 +146,14 @@ class ParameterReader {
   private:
   template <typename T>
   T readUnsafe(const std::string& field) {
-    visited.emplace(field);
+    visited_.emplace(field);
     logDebug() << "The field" << field << "was read.";
     try {
       // booleans are stored as integers
       if constexpr (std::is_same_v<T, bool>) {
-        return node[field].as<int>() > 0;
+        return node_[field].as<int>() > 0;
       } else {
-        return node[field].as<T>();
+        return node_[field].as<T>();
       }
     } catch (std::exception& e) {
       logError() << "Error while reading field" << field << ":" << e.what();
@@ -161,11 +161,12 @@ class ParameterReader {
     }
   }
 
-  YAML::Node node; // apparently the YAML nodes use a reference semantic. Hence, we do it like this.
-  std::string rootPath;
-  bool empty;
-  std::unordered_set<std::string> visited;
-  std::unordered_map<std::string, std::shared_ptr<ParameterReader>> subreaders;
+  YAML::Node
+      node_; // apparently the YAML nodes use a reference semantic. Hence, we do it like this.
+  std::string rootPath_;
+  bool empty_;
+  std::unordered_set<std::string> visited_;
+  std::unordered_map<std::string, std::shared_ptr<ParameterReader>> subreaders_;
 };
 } // namespace seissol::initializer::parameters
 

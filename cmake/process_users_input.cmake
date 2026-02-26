@@ -100,6 +100,8 @@ option(NUMA_AWARE_PINNING "Use libnuma to pin threads to correct NUMA nodes" ON)
 
 option(SHARED "Build SeisSol as shared library" OFF)
 
+option(DEVICE_SHARED "Build the device kernel libraries as shared libraries" OFF)
+
 option(PROXY_PYBINDING "Enable pybind11 for proxy (everything will be compiled with -fPIC)" OFF)
 
 option(BUILD_DOCS "Build the SeisSol Documentation" OFF)
@@ -411,4 +413,13 @@ if (PROXY_PYBINDING)
     # Note: ENABLE_PIC_COMPILATION can be used to signal other sub-modules
     # generate position independent code
     set(ENABLE_PIC_COMPILATION ON)
+endif()
+
+if (DEVICE_SHARED)
+    set(DEVICE_STATIC OFF)
+    set(DEVICE_LIBTYPE SHARED)
+else()
+    # we need to set DEVICE_STATIC extra due to the Device submodule
+    set(DEVICE_STATIC ON)
+    set(DEVICE_LIBTYPE STATIC)
 endif()

@@ -38,8 +38,8 @@ class ClusteringWriter {
   };
 
   private:
-  std::string outputPrefix;
-  ClusteringInformation clusteringInformation;
+  std::string outputPrefix_;
+  ClusteringInformation clusteringInformation_;
 };
 
 } // namespace seissol::writer

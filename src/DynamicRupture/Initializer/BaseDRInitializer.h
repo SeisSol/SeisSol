@@ -26,16 +26,16 @@ namespace dr::initializer {
  */
 class BaseDRInitializer {
   protected:
-  seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance_;
   /**
    * reference to the dynamic rupture parameters, which describe the global behaviour
    */
-  std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters;
+  std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters_;
 
   /**
    * Set which contains all parameteres, which are provided by easi for the fault
    */
-  std::set<std::string> faultParameterNames;
+  std::set<std::string> faultParameterNames_;
 
   /**
    * Characterizes how the initial stress on the fault is provided.
@@ -73,8 +73,8 @@ class BaseDRInitializer {
   BaseDRInitializer(
       const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
       seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance), drParameters(drParameters),
-        faultParameterNames(
+      : seissolInstance_(seissolInstance), drParameters_(drParameters),
+        faultParameterNames_(
             seissol::initializer::FaultParameterDB::faultProvides(drParameters->faultFileName)) {};
 
   virtual ~BaseDRInitializer() = default;
