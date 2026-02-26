@@ -19,8 +19,7 @@
 #include <Initializer/Typedefs.h>
 #include <Kernels/Receiver.h>
 #include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
-#include <Memory/Tree/Lut.h>
+#include <Memory/Tree/Backmap.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cassert>
@@ -118,8 +117,7 @@ void ReceiverWriter::init(
 }
 
 void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
-                               const seissol::initializer::Lut& ltsLut,
-                               const seissol::initializer::LTS& lts,
+                               const LTS::Backmap& backmap,
                                const CompoundGlobalData& global) {
   std::vector<Eigen::Vector3d> points;
   const auto rank = seissol::MPI::mpi.rank();
@@ -148,11 +146,11 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   initializer::cleanDoubles(contained.data(), numberOfPoints);
 
   // Then reduce to see which points exist globally
-  std::vector<short> globalContained(contained);
+  std::vector<short> globalContained(contained.begin(), contained.end());
 
   MPI_Allreduce(MPI_IN_PLACE,
                 globalContained.data(),
-                numberOfPoints,
+                globalContained.size(),
                 MPI_SHORT,
                 MPI_MAX,
                 seissol::MPI::mpi.comm());
@@ -170,34 +168,32 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   }
 
   logInfo() << "Mapping receivers to LTS cells...";
-  m_receiverClusters[Interior].clear();
-  m_receiverClusters[Copy].clear();
+  m_receiverClusters.clear();
 
   size_t localReceiverCount = 0;
 
   for (std::size_t point = 0; point < numberOfPoints; ++point) {
     if (contained[point] == 1) {
       const std::size_t meshId = meshIds[point];
-      const unsigned cluster = ltsLut.cluster(meshId);
-      const LayerType layer = ltsLut.layer(meshId);
+      const auto id = backmap.get(meshId).color;
 
-      auto& clusters = m_receiverClusters[layer];
       // Make sure that needed empty clusters are initialized.
-      for (unsigned c = clusters.size(); c <= cluster; ++c) {
-        clusters.emplace_back(global,
-                              quantities,
-                              m_samplingInterval,
-                              syncInterval(),
-                              derivedQuantities,
-                              seissolInstance);
+      for (std::size_t c = m_receiverClusters.size(); c <= id; ++c) {
+        m_receiverClusters.emplace_back(
+            std::make_shared<kernels::ReceiverCluster>(global,
+                                                       quantities,
+                                                       m_samplingInterval,
+                                                       syncInterval(),
+                                                       derivedQuantities,
+                                                       seissolInstance));
       }
 
       // For ASCII, we used to call writeHeader(point, points[point]) here,
       // but not needed for HDF5 (unless you want coordinate attributes).
       localReceiverCount++;
 
-      m_receiverClusters[layer][cluster].addReceiver(
-          meshId, point, points[point], mesh, ltsLut, lts);
+      m_receiverClusters[id]->addReceiver(
+          meshId, point, points[point], mesh, backmap);
     }
   }
 
@@ -227,14 +223,11 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
 
     // Find the local maximum ncols
     unsigned localNcols = 0;
-    for (auto& [layer, cvec] : m_receiverClusters) {
-      for (auto& cluster : cvec) {
-        // Instead of checking cluster.empty(), check if ncols() is nonzero
-        if (cluster.ncols() > 0) {
-          unsigned c = cluster.ncols();
-          if (c > localNcols) {
-            localNcols = c;
-          }
+    for (auto& cluster : m_receiverClusters) {
+      if (cluster->ncols() > 0) {
+        unsigned c = cluster->ncols();
+        if (c > localNcols) {
+          localNcols = c;
         }
       }
     }
@@ -269,15 +262,13 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
   size_t totalNewSamples = 0;
   size_t localReceiverCount = 0;
 
-  for (auto& [layer, clusters] : m_receiverClusters) {
-    for (auto& cluster : clusters) {
-      for (auto& receiver : cluster) {
-        size_t thisReceiverSamples = receiver.output.size() / cluster.ncols();
-        if (thisReceiverSamples > totalNewSamples) {
-          totalNewSamples = thisReceiverSamples;
-        }
-        localReceiverCount++;
+  for (auto& cluster : m_receiverClusters) {
+    for (auto& receiver : *cluster) {
+      size_t thisReceiverSamples = receiver.output.size() / cluster->ncols();
+      if (thisReceiverSamples > totalNewSamples) {
+        totalNewSamples = thisReceiverSamples;
       }
+      localReceiverCount++;
     }
   }
 
@@ -296,12 +287,10 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
   std::vector<hsize_t> pointIds;
   pointIds.reserve(localReceiverCount);
 
-  for (auto& [layer, clusters] : m_receiverClusters) {
-    for (auto& cluster : clusters) {
-      for (auto& receiver : cluster) {
-        localReceivers.push_back({&receiver, &cluster});
-        pointIds.push_back(receiver.pointId);
-      }
+  for (auto& cluster : m_receiverClusters) {
+    for (auto& receiver : *cluster) {
+      localReceivers.push_back({&receiver, cluster.get()});
+      pointIds.push_back(receiver.pointId);
     }
   }
 
@@ -338,30 +327,23 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
 
 // --------------------------------------------------------------------------
 void ReceiverWriter::simulationStart(std::optional<double> checkpointTime) {
-  for (auto& [layer, clusters] : m_receiverClusters) {
-    for (auto& cluster : clusters) {
-      cluster.allocateData();
-    }
+  for (auto& cluster : m_receiverClusters) {
+    cluster->allocateData();
   }
 }
 
 // --------------------------------------------------------------------------
 void ReceiverWriter::shutdown() {
-  for (auto& [layer, clusters] : m_receiverClusters) {
-    for (auto& cluster : clusters) {
-      cluster.freeData();
-    }
+  for (auto& cluster : m_receiverClusters) {
+    cluster->freeData();
   }
   g_hdf5Writer.reset();
 }
 
 // --------------------------------------------------------------------------
-kernels::ReceiverCluster* ReceiverWriter::receiverCluster(unsigned clusterId, LayerType layer) {
-  assert(layer != Ghost);
-  assert(m_receiverClusters.find(layer) != m_receiverClusters.end());
-  auto& clusters = m_receiverClusters[layer];
-  if (clusterId < clusters.size()) {
-    return &clusters[clusterId];
+kernels::ReceiverCluster* ReceiverWriter::receiverCluster(std::size_t id) {
+  if (id < m_receiverClusters.size()) {
+    return m_receiverClusters[id].get();
   }
   return nullptr;
 }
