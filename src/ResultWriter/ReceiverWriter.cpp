@@ -110,7 +110,7 @@ void ReceiverWriter::init(
     derivedQuantities.push_back(std::make_shared<kernels::ReceiverStrain>());
   }
 
-  setSyncInterval(std::min(endTime, parameters.interval));
+  setSyncInterval(std::min(endTime, parameters.writeInterval));
   Modules::registerHook(*this, ModuleHook::SimulationStart);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
   Modules::registerHook(*this, ModuleHook::Shutdown);
@@ -120,7 +120,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                                const LTS::Backmap& backmap,
                                const CompoundGlobalData& global) {
   std::vector<Eigen::Vector3d> points;
-  const auto rank = seissol::MPI::mpi.rank();
+  const auto rank = seissol::Mpi::mpi.rank();
   // Only parse if we have a receiver file
   if (!m_receiverFileName.empty()) {
     points = parseReceiverFile(m_receiverFileName);
@@ -153,7 +153,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                 globalContained.size(),
                 MPI_SHORT,
                 MPI_MAX,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
 
   bool receiversMissing = false;
   for (std::size_t i = 0; i < numberOfPoints; ++i) {
@@ -205,7 +205,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                 1,
                 MPI_UNSIGNED_LONG_LONG,
                 MPI_SUM,
-                seissol::MPI::mpi.comm());
+                seissol::Mpi::mpi.comm());
 
   logInfo(rank) << "Total number of receivers: " << g_totalReceivers;
 
@@ -215,7 +215,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
            1,
            MPI_UNSIGNED_LONG_LONG,
            MPI_SUM,
-           seissol::MPI::mpi.comm());
+           seissol::Mpi::mpi.comm());
   g_localReceiverOffset -= localCountH; // so the rank's chunk starts at "offset"
 
   // We can now open the single HDF5 file if not done yet:
@@ -234,7 +234,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
 
     // Gather the global maximum ncols
     unsigned globalNcols = 0;
-    MPI_Allreduce(&localNcols, &globalNcols, 1, MPI_UNSIGNED, MPI_MAX, seissol::MPI::mpi.comm());
+    MPI_Allreduce(&localNcols, &globalNcols, 1, MPI_UNSIGNED, MPI_MAX, seissol::Mpi::mpi.comm());
 
     // Now use globalNcols
     logInfo(rank) << "Global number of columns: " << globalNcols;
@@ -243,7 +243,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
     // Compute total number of time steps from simulation end time and sampling interval
     hsize_t totalTimeSteps = static_cast<hsize_t>(std::ceil(m_endTime / m_samplingInterval));
 
-    g_hdf5Writer = std::make_unique<ParallelHdf5ReceiverWriter>(seissol::MPI::mpi.comm(),
+    g_hdf5Writer = std::make_unique<ParallelHdf5ReceiverWriter>(seissol::Mpi::mpi.comm(),
                                                                 hdf5FileName(m_fileNamePrefix),
                                                                 g_totalReceivers,
                                                                 globalNcols,
@@ -257,7 +257,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
 
 void ReceiverWriter::syncPoint(double /*currentTime*/) {
 
-  const auto rank = seissol::MPI::mpi.rank();
+  const auto rank = seissol::Mpi::mpi.rank();
 
   size_t totalNewSamples = 0;
   size_t localReceiverCount = 0;
@@ -299,7 +299,6 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
 
   for (size_t lr = 0; lr < localReceivers.size(); ++lr) {
     auto& rec = *localReceivers[lr].rcv;
-    auto& cluster = *localReceivers[lr].clus;
     const size_t nSamples = rec.output.size() / ncols;
 
     for (size_t t = 0; t < nSamples; ++t) {
