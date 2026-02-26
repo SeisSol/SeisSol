@@ -257,8 +257,6 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
 
 void ReceiverWriter::syncPoint(double /*currentTime*/) {
 
-  const auto rank = seissol::Mpi::mpi.rank();
-
   size_t totalNewSamples = 0;
   size_t localReceiverCount = 0;
 
