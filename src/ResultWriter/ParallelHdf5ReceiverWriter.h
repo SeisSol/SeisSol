@@ -1,11 +1,11 @@
 #pragma once
 
+#include <Eigen/Dense>
 #include <hdf5.h>
 #include <mpi.h>
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <Eigen/Dense>
 
 class ParallelHdf5ReceiverWriter {
   public:
@@ -41,8 +41,7 @@ class ParallelHdf5ReceiverWriter {
 
   hsize_t dims_[RANK];
 
-      void
-      checkStatus(herr_t status, const std::string& msg) const {
+  void checkStatus(herr_t status, const std::string& msg) const {
     if (status < 0) {
       throw std::runtime_error("HDF5 error in: " + msg);
     }

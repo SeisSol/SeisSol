@@ -1,6 +1,7 @@
 // ParallelHdf5ReceiverWriter.cpp
 
 #include "ParallelHdf5ReceiverWriter.h"
+
 #include <iostream>
 
 ParallelHdf5ReceiverWriter::ParallelHdf5ReceiverWriter(MPI_Comm comm,
@@ -8,9 +9,7 @@ ParallelHdf5ReceiverWriter::ParallelHdf5ReceiverWriter(MPI_Comm comm,
                                                        hsize_t totalReceivers,
                                                        hsize_t numVariables,
                                                        hsize_t totalTimeSteps)
-    : comm_(comm)
-{
-
+    : comm_(comm) {
 
   dims_[0] = totalTimeSteps;
   dims_[1] = totalReceivers;
@@ -25,9 +24,9 @@ ParallelHdf5ReceiverWriter::ParallelHdf5ReceiverWriter(MPI_Comm comm,
   H5Pclose(plistId);
 
   // Create dataspace
-  //hsize_t initialDims[RANK] = {0, totalReceivers, numVariables};
+  // hsize_t initialDims[RANK] = {0, totalReceivers, numVariables};
   // hsize_t maxDims[RANK] = {H5S_UNLIMITED, totalReceivers, numVariables};
-  //filespaceId_ = H5Screate_simple(RANK, initialDims, maxDims);
+  // filespaceId_ = H5Screate_simple(RANK, initialDims, maxDims);
 
   hsize_t datasetDims[RANK] = {totalTimeSteps, totalReceivers, numVariables};
   filespaceId_ = H5Screate_simple(RANK, datasetDims, nullptr); // No maxDims needed
@@ -236,4 +235,4 @@ ParallelHdf5ReceiverWriter::~ParallelHdf5ReceiverWriter() {
   H5Sclose(filespaceId_);    // Close the main dataspace
   H5Sclose(pointIdSpaceId_); // Close the point ID dataspace
   H5Fclose(fileId_);         // Finally, close the file
-  }
+}
