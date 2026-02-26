@@ -37,22 +37,30 @@ def velocity_norm(receiver, fused_index=""):
 
 
 def stress_norm(receiver, fused_index=""):
-    names = [
+    # (-p == acoustic right now; "p" is used in poroelastic)
+    possible_names = [
         f"s_xx{fused_index}",
         f"s_yy{fused_index}",
         f"s_zz{fused_index}",
         f"s_xy{fused_index}",
         f"s_yz{fused_index}",
         f"s_xz{fused_index}",
+        f"-p{fused_index}",
     ]
-    return np.sqrt(
-        receiver[names[0]] ** 2
-        + receiver[names[1]] ** 2
-        + receiver[names[2]] ** 2
-        + receiver[names[3]] ** 2
-        + receiver[names[4]] ** 2
-        + receiver[names[5]] ** 2
-    )
+
+    # not sure about the shape of receiver, so we play it safe
+    output = None
+    for name in possible_names:
+        if name in receiver:
+            if output is None:
+                output = receiver[name] ** 2
+            else:
+                output += receiver[name] ** 2
+
+    if output is None:
+        return 0
+    else:
+        return np.sqrt(output)
 
 
 def absolute_slip_norm(receiver, fused_suffix=""):
@@ -246,9 +254,6 @@ def receiver_diff(args, i):
 
     number_of_fused_sims = get_number_of_fused_sims(sim_receiver.columns)
     if number_of_fused_sims < 1:
-        print(
-            "Setting the number of fused simulations to 1, because the receiver file does not contain any fused simulations."
-        )
         number_of_fused_sims = 1
 
     max_velocity = 0
@@ -302,9 +307,6 @@ def faultreceiver_diff(args, i, quantities):
         get_number_of_fused_sims(sim_receiver.columns) - 1
     )  # -1 because the numbering of fault receivers is different for fused when compared to off-fault receivers
     if number_of_fused_sims < 1:
-        print(
-            "Setting the number of fused simulations to 1, because the receiver file does not contain any fused simulations."
-        )
         number_of_fused_sims = 1
     # We still want to use the same time and not the difference in time steps.
     difference["Time"] = ref_receiver["Time"]
@@ -370,9 +372,12 @@ if __name__ == "__main__":
     parser.add_argument("output", type=str)
     parser.add_argument("output_ref", type=str)
     parser.add_argument("--epsilon", type=float, default=0.01)
+
+    # effectless by now
     parser.add_argument(
         "--mode", type=str, default="rs", required=False, choices=["rs", "lsw", "tp"]
     )
+
     parser.add_argument("--prefix", type=str, default="tpv", required=False)
     parser.add_argument(
         "--compare_fault_receivers", type=bool, default=True, required=False
@@ -413,8 +418,6 @@ if __name__ == "__main__":
         print(
             f"{q} exceeds relative error of {args.epsilon} at receivers {broken_receivers}"
         )
-        if len(broken_receivers) > 0:
-            sys.exit(1)
 
     quantities = [
         "absolute slip",
@@ -425,14 +428,11 @@ if __name__ == "__main__":
         "sliprate",
         "slip",
         "normal velocity",
+        "dynstress time",
+        "state variable",
+        "pressure",
+        "temperature"
     ]
-    if args.mode == "lsw":
-        quantities.append("dynstress time")
-    if args.mode == "rs":
-        quantities.append("state variable")
-    if args.mode == "tp":
-        quantities.append("pressure")
-        quantities.append("temperature")
 
     faultreceiver_errors = pd.DataFrame(index=faultreceiver_ids, columns=quantities)
     for i in ref_faultreceiver_ids:
@@ -455,7 +455,7 @@ if __name__ == "__main__":
 
     if (receiver_errors > args.epsilon).any().any() or (
         faultreceiver_errors > args.epsilon
-    ).any().any():
+    ).any().any() or len(broken_receivers) > 0:
         sys.exit(1)
 
     sys.exit(0)
