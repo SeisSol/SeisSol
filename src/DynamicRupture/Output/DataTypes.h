@@ -69,25 +69,6 @@ struct VarT {
     return this->operator()(0, level, index);
   }
 
-  const real* operator[](std::size_t dim) const {
-    assert(dim < DIM && "access is out of the DIM. bounds");
-    assert(data[dim] != nullptr && "data has not been initialized yet");
-    return data[dim];
-  }
-
-  const real& operator()(std::size_t dim, size_t level, size_t index) const {
-    assert(dim < DIM && "access is out of DIM. bounds");
-    assert(level < maxCacheLevel && "access is out of cache bounds");
-    assert(index < size && "access is out of size bounds");
-    assert(data[dim] != nullptr && "data has not been initialized yet");
-    return data[dim][index + level * size];
-  }
-
-  const real& operator()(size_t level, size_t index) const {
-    static_assert(DIM == 1, "access of the overload is allowed only for 1 dim variables");
-    return this->operator()(0, level, index);
-  }
-
   // allocates data for a var (for all dimensions and cache levels)
   // initialized to zeros if var is active.
   // Otherwise, inits with nullptr
