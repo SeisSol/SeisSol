@@ -140,11 +140,11 @@ struct GlobalData {
    **/
 
 #if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
-  seissol::tensor::plusFluxMatrices::Container<real const*> plusFluxMatrices;
+  seissol::tensor::plusFluxMatrices::Container<const real*> plusFluxMatrices;
   seissol::tensor::minusFluxMatrices::Container<const real*> minusFluxMatrices;
 #endif // ACL_DEVICE
 
-  seissol::tensor::V3mTo2n::Container<real const*> faceToNodalMatrices;
+  seissol::tensor::V3mTo2n::Container<const real*> faceToNodalMatrices;
 
   //! Modal basis to quadrature points
   real* evalAtQPMatrix{nullptr};
