@@ -6,9 +6,17 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "ModelParameters.h"
-#include <Equations/Datastructures.h>
-#include <Initializer/Parameters/ParameterReader.h>
+
+#include "Equations/Datastructures.h"
+#include "Initializer/Parameters/ParameterReader.h"
+#include "Solver/MultipleSimulations.h"
+
+#include <cstddef>
+#include <string>
+#include <unordered_set>
 #include <utils/logger.h>
+#include <utils/stringutils.h>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 
@@ -50,9 +58,29 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   const auto boundaryFileName = reader->readPath("boundaryfileName");
   const std::string materialFileName =
       reader->readPathOrFail("materialfilename", "No material file given.");
+  std::vector<std::string> plasticityFileNames(seissol::multisim::NumSimulations);
+
+  for (std::size_t i = 0; i < plasticityFileNames.size(); ++i) {
+    const auto fieldname = "plasticityfilename" + (i == 0 ? std::string{} : std::to_string(i));
+    plasticityFileNames[i] = reader->readPath(fieldname).value_or(materialFileName);
+  }
+
   const bool hasBoundaryFile = !boundaryFileName.value_or("").empty();
 
   const bool plasticity = reader->readWithDefault("plasticity", false);
+
+  const bool plasticityPointwise = reader->readWithDefault("plasticitypointwise", true);
+
+  const auto plasticityDisabledGroupsRaw =
+      reader->readWithDefault<std::string>("plasticitydisabledgroups", "");
+  std::unordered_set<int> plasticityDisabledGroups;
+  {
+    const auto groups = utils::StringUtils::split(plasticityDisabledGroupsRaw, ',');
+    for (const auto& group : groups) {
+      plasticityDisabledGroups.emplace(std::stoi(group));
+    }
+  }
+
   const bool useCellHomogenizedMaterial =
       reader->readWithDefault("usecellhomogenizedmaterial", true);
 
@@ -92,6 +120,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
 
   return ModelParameters{hasBoundaryFile,
                          plasticity,
+                         plasticityPointwise,
+                         plasticityDisabledGroups,
                          useCellHomogenizedMaterial,
                          freqCentral,
                          freqRatio,
@@ -99,6 +129,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          tv,
                          boundaryFileName.value_or(""),
                          materialFileName,
+                         plasticityFileNames,
                          itmParameters,
                          flux,
                          fluxNearFault};

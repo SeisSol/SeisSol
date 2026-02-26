@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
 # SPDX-FileCopyrightText: 2022 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -10,7 +11,7 @@
 # you can make a copy of the generated one
 # and adjust it based on your needs
 
-# Usage: mpirun -n <num_proc> ./launch ./SeisSol* ./parameters.par
+# Usage: mpirun -n <num_proc> ./seissol-launch ./SeisSol* ./parameters.par
 
 if [[ ! -z "${OMPI_COMM_WORLD_LOCAL_RANK}" ]]; then
   LOCAL="${OMPI_COMM_WORLD_LOCAL_RANK}"
@@ -18,8 +19,8 @@ if [[ ! -z "${OMPI_COMM_WORLD_LOCAL_RANK}" ]]; then
 elif [[ ! -z "${MV2_COMM_WORLD_LOCAL_RANK}" ]]; then
   LOCAL="${MV2_COMM_WORLD_LOCAL_RANK}"
 
-elif [[ ! -z "${PMI_RANK}" ]]; then
-  LOCAL="${PMI_RANK}"
+elif [[ ! -z "${PMI_LOCAL_RANK}" ]]; then
+  LOCAL="${PMI_LOCAL_RANK}"
 
 elif [[ ! -z "${SLURM_LOCALID}" ]]; then
   LOCAL="${SLURM_LOCALID}"
@@ -29,5 +30,4 @@ else
 fi
 
 export @RUN_GPU_TIME_SELECTOR@="${LOCAL}"
-"$@"
-
+exec $*

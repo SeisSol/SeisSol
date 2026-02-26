@@ -7,8 +7,9 @@
 
 #include "WeightsModels.h"
 
-#include "generated_code/init.h"
-#include <Initializer/TimeStepping/LtsWeights/LtsWeights.h>
+#include "GeneratedCode/init.h"
+#include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
+
 #include <cassert>
 #include <cstddef>
 

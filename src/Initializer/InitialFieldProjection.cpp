@@ -8,39 +8,39 @@
 
 #include "InitialFieldProjection.h"
 
-#include "Initializer/MemoryManager.h"
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Equations/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
+#include "Geometry/MeshReader.h"
+#include "Initializer/PreProcessorMacros.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
 #include "ParameterDB.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
-
-#include "Initializer/PreProcessorMacros.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <Equations/Datastructures.h>
-#include <Geometry/MeshReader.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Common.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/LTSTree.h>
-#include <Memory/Tree/Layer.h>
-#include <Physics/InitialField.h>
-#include <Solver/MultipleSimulations.h>
+#include "Physics/InitialField.h"
+#include "Solver/MultipleSimulations.h"
 
 #include <array>
 #include <cstddef>
 #include <easi/Query.h>
 #include <easi/ResultAdapter.h>
 #include <easi/YAMLParser.h>
-#include <init.h>
+#include <exception>
 #include <memory>
 #include <string>
+#include <utils/logger.h>
 #include <vector>
 
 #ifdef USE_ASAGI
-#include <Reader/AsagiReader.h>
+#include "Reader/AsagiReader.h"
+
 #include <easi/util/AsagiReader.h>
 #endif
 
@@ -63,8 +63,8 @@ GENERATE_HAS_MEMBER(Values)
 GENERATE_HAS_MEMBER(Qane)
 
 namespace seissol::init {
-class selectAneFull;
-class selectElaFull;
+struct selectAneFull;
+struct selectElaFull;
 } // namespace seissol::init
 
 #ifndef USE_ASAGI
@@ -102,7 +102,12 @@ struct EasiLoader {
 #endif
     components.resize(files.size());
     for (std::size_t i = 0; i < files.size(); ++i) {
-      components[i] = std::unique_ptr<easi::Component>(parser->parse(files.at(i)));
+      try {
+        components[i] = std::unique_ptr<easi::Component>(parser->parse(files.at(i)));
+      } catch (const std::exception& error) {
+        logError() << "Error while parsing easi file" << files.at(i) << ":"
+                   << std::string(error.what());
+      }
     }
   }
 };
@@ -113,9 +118,7 @@ namespace seissol::initializer {
 void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField>>& iniFields,
                          const GlobalData& globalData,
                          const seissol::geometry::MeshReader& meshReader,
-                         seissol::initializer::MemoryManager& memoryManager,
-                         LTSTree& tree,
-                         LTS const& lts) {
+                         LTS::Storage& storage) {
   const auto& vertices = meshReader.getVertices();
   const auto& elements = meshReader.getElements();
 
@@ -126,11 +129,11 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
   double quadratureWeights[NumQuadPoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
 
-  for (auto& layer : tree.leaves(Ghost)) {
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+  for (auto& layer : storage.leaves(Ghost)) {
+#if !NVHPC_AVOID_OMP
 #pragma omp parallel
-    {
 #endif
+    {
       alignas(Alignment) real iniCondData[tensor::iniCond::size()] = {};
       auto iniCond = init::iniCond::view::create(iniCondData);
 
@@ -140,15 +143,15 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
       kernel::projectIniCond krnl;
       krnl.projectQP = globalData.projectQPMatrix;
       krnl.iniCond = iniCondData;
-      kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
-      kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
+      set_selectAneFull(krnl, get_static_ptr_Values<init::selectAneFull>());
+      set_selectElaFull(krnl, get_static_ptr_Values<init::selectElaFull>());
 
-      const auto* secondaryInformation = layer.var(lts.secondaryInformation);
-      const auto* material = layer.var(lts.material);
-      auto* dofs = layer.var(lts.dofs);
-      auto* dofsAne = layer.var(lts.dofsAne);
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      const auto* material = layer.var<LTS::Material>();
+      auto* dofs = layer.var<LTS::Dofs>();
+      auto* dofsAne = layer.var<LTS::DofsAne>();
 
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#if !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
@@ -169,18 +172,17 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
         const CellMaterialData& materialData = material[cell];
         for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
           auto sub = multisim::simtensor(iniCond, s);
-          iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, materialData, sub);
+          iniFields[s % iniFields.size()]->evaluate(
+              0.0, quadraturePointsXyz.data(), quadraturePointsXyz.size(), materialData, sub);
         }
 
         krnl.Q = dofs[cell];
         if constexpr (kernels::HasSize<tensor::Qane>::Value) {
-          kernels::set_Qane(krnl, dofsAne[cell]);
+          set_Qane(krnl, dofsAne[cell]);
         }
         krnl.execute();
       }
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
     }
-#endif
   }
 }
 
@@ -202,16 +204,15 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
     double quadraturePoints[NumQuadPoints][Cell::Dim];
     double quadratureWeights[NumQuadPoints];
     seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
     for (std::size_t elem = 0; elem < elements.size(); ++elem) {
       const double* elementCoords[Cell::NumVertices];
       for (size_t v = 0; v < Cell::NumVertices; ++v) {
         elementCoords[v] = vertices[elements[elem].vertices[v]].coords;
       }
       for (size_t i = 0; i < NumQuadPoints; ++i) {
-        std::array<double, Cell::Dim> transformed;
+        std::array<double, Cell::Dim> transformed{};
         seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
                                                                elementCoords[1],
                                                                elementCoords[2],
@@ -222,7 +223,7 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
           query.x(elem * NumQuadPoints + i, spaceStart + d) = transformed[d];
         }
         if (needsTime) {
-          query.x(elem * NumQuadPoints + i, 0) = 0;
+          query.x(elem * NumQuadPoints + i, 0) = time;
         }
         query.group(elem * NumQuadPoints + i) = elements[elem].group;
       }
@@ -241,7 +242,12 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
         const std::size_t bindOffset = i + j * iniFields.size();
         adapter.addBindingPoint(quantity, data.data() + bindOffset, dataPointStride);
       }
-      models.components.at(i)->evaluate(query, adapter);
+      try {
+        models.components.at(i)->evaluate(query, adapter);
+      } catch (const std::exception& error) {
+        logError() << "Error while applying easi file" << iniFields.at(i) << ":"
+                   << std::string(error.what());
+      }
     }
   }
 
@@ -251,9 +257,7 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
 void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              const GlobalData& globalData,
                              const seissol::geometry::MeshReader& meshReader,
-                             seissol::initializer::MemoryManager& memoryManager,
-                             LTSTree& tree,
-                             LTS const& lts,
+                             LTS::Storage& storage,
                              bool needsTime) {
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
@@ -263,11 +267,12 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
   const auto dataStride = NumQuadPoints * iniFields.size() * model::MaterialT::Quantities.size();
   const auto quantityCount = model::MaterialT::Quantities.size();
 
-  for (auto& layer : tree.leaves(Ghost)) {
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+  for (auto& layer : storage.leaves(Ghost)) {
+
+#if !NVHPC_AVOID_OMP
 #pragma omp parallel
-    {
 #endif
+    {
       alignas(Alignment) real iniCondData[tensor::iniCond::size()] = {};
       auto iniCond = init::iniCond::view::create(iniCondData);
 
@@ -277,14 +282,14 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       kernel::projectIniCond krnl;
       krnl.projectQP = globalData.projectQPMatrix;
       krnl.iniCond = iniCondData;
-      kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
-      kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
+      set_selectAneFull(krnl, get_static_ptr_Values<init::selectAneFull>());
+      set_selectElaFull(krnl, get_static_ptr_Values<init::selectElaFull>());
 
-      const auto* secondaryInformation = layer.var(lts.secondaryInformation);
-      auto* dofs = layer.var(lts.dofs);
-      auto* dofsAne = layer.var(lts.dofsAne);
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      auto* dofs = layer.var<LTS::Dofs>();
+      auto* dofsAne = layer.var<LTS::DofsAne>();
 
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#if !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
@@ -302,13 +307,11 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
 
         krnl.Q = dofs[cell];
         if constexpr (kernels::HasSize<tensor::Qane>::Value) {
-          kernels::set_Qane(krnl, dofsAne[cell]);
+          set_Qane(krnl, dofsAne[cell]);
         }
         krnl.execute();
       }
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
     }
-#endif
   }
 }
 

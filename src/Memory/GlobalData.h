@@ -11,10 +11,11 @@
 
 #include "Initializer/Typedefs.h"
 #include "MemoryAllocator.h"
+
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
-#include "device.h"
+#include <Device/device.h>
 #endif // ACL_DEVICE
 
 namespace seissol::initializer {
@@ -34,7 +35,7 @@ struct MemoryProperties {
 
 namespace matrixmanip {
 struct OnHost {
-  using CopyManagerT = typename yateto::DefaultCopyManager<real>;
+  using CopyManagerT = yateto::DefaultCopyManager<real>;
   static MemoryProperties getProperties();
   static void negateStiffnessMatrix(GlobalData& globalData);
   static void initSpecificGlobalData(GlobalData& globalData,
@@ -48,7 +49,7 @@ struct OnDevice {
   struct DeviceCopyPolicy {
     static real* copy(const real* first, const real* last, real*& mem);
   };
-  using CopyManagerT = typename yateto::CopyManager<real, DeviceCopyPolicy>;
+  using CopyManagerT = yateto::CopyManager<real, DeviceCopyPolicy>;
   static MemoryProperties getProperties();
   static void negateStiffnessMatrix(GlobalData& globalData);
   static void initSpecificGlobalData(GlobalData& globalData,

@@ -9,16 +9,13 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_THERMALPRESSURIZATION_NOTP_H_
 
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
-#include <DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h>
-#include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
+#include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
+#include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 
 namespace seissol::dr::friction_law::gpu {
 class NoTP {
   public:
-  static void copyLtsTreeToLocal(FrictionLawData* data,
-                                 seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup,
-                                 real fullUpdateTime) {}
+  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
 
   SEISSOL_DEVICE static void
       calcFluidPressure(FrictionLawContext& ctx, uint32_t timeIndex, bool saveTmpInTP) {}

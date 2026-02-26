@@ -9,6 +9,7 @@
 
 #include "Simulator.h"
 
+#include "Memory/Tree/Layer.h"
 #include "Modules/Modules.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Stopwatch.h"
@@ -16,12 +17,11 @@
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
 #include "TimeStepping/TimeManager.h"
-#include <Memory/Tree/Layer.h>
+
 #include <algorithm>
 #include <cassert>
 #include <optional>
 #include <utils/logger.h>
-#include <xdmfwriter/scorep_wrapper.h>
 
 namespace seissol {
 
@@ -49,6 +49,12 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   faultOutputManager->writePickpointOutput(0.0, 0.0);
 
   Stopwatch simulationStopwatch;
+  if (checkpoint) {
+    logInfo() << "The simulation will run from" << currentTime << "s (checkpoint time) until"
+              << finalTime << "s.";
+  } else {
+    logInfo() << "The simulation will run until" << finalTime << "s.";
+  }
   simulationStopwatch.start();
 
   Stopwatch computeStopwatch;
@@ -56,7 +62,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   ioStopwatch.start();
 
-  // Set start time (required for checkpointing)
+  // Set start time (required when loading a check)
   seissolInstance.timeManager().setInitialTimes(currentTime);
 
   const double timeTolerance = seissolInstance.timeManager().getTimeTolerance();
@@ -67,9 +73,6 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   } else {
     Modules::callSimulationStartHook(std::optional<double>{});
   }
-
-  // intialize wave field and checkpoint time
-  Modules::setSimulationStartTime(currentTime);
 
   // derive next synchronization time
   double upcomingTime = finalTime;
@@ -89,7 +92,8 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   while (finalTime > currentTime + timeTolerance) {
     if (upcomingTime < currentTime + timeTolerance) {
-      logError() << "Simulator did not advance in time from" << currentTime << "to" << upcomingTime;
+      logError() << "Simulator did not advance in time from" << currentTime << "s to"
+                 << upcomingTime << "s.";
     }
     if (aborted) {
       logInfo() << "Aborting simulation.";
@@ -97,11 +101,11 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     }
 
     // update the DOFs
-    logInfo() << "Start simulation epoch.";
+    logInfo() << "Start simulation epoch. (from" << currentTime << "s to" << upcomingTime << "s)";
     computeStopwatch.start();
     seissolInstance.timeManager().advanceInTime(upcomingTime);
     computeStopwatch.pause();
-    logInfo() << "End simulation epoch. Sync point.";
+    logInfo() << "End simulation epoch. (at" << upcomingTime << "s)";
 
     ioStopwatch.start();
 
@@ -117,9 +121,9 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     ioStopwatch.pause();
 
     const double currentSplit = simulationStopwatch.split();
-    Stopwatch::print("Time spent this phase (total):", currentSplit - lastSplit);
-    Stopwatch::print("Time spent this phase (compute):", computeStopwatch.split());
-    Stopwatch::print("Time spent this phase (blocking IO):", ioStopwatch.split());
+    Stopwatch::print("Time spent this epoch (total):", currentSplit - lastSplit);
+    Stopwatch::print("Time spent this epoch (compute):", computeStopwatch.split());
+    Stopwatch::print("Time spent this epoch (blocking IO):", ioStopwatch.split());
     seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
     lastSplit = currentSplit;
 
@@ -139,9 +143,10 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   Modules::callHook<ModuleHook::SimulationEnd>();
 
-  const auto& memoryManager = seissolInstance.getMemoryManager();
-  const bool isLoopStatisticsNetcdfOutputOn = memoryManager.isLoopStatisticsNetcdfOutputOn();
-  const auto& outputPrefix = memoryManager.getOutputPrefix();
+  const auto& outputParams = seissolInstance.getSeisSolParameters().output;
+
+  const bool isLoopStatisticsNetcdfOutputOn = outputParams.loopStatisticsNetcdfOutput;
+  const auto& outputPrefix = outputParams.prefix;
   seissolInstance.timeManager().printComputationTime(outputPrefix, isLoopStatisticsNetcdfOutputOn);
 
   seissolInstance.analysisWriter().printAnalysis(currentTime);

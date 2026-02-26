@@ -7,54 +7,58 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Allocator.h"
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Common.h>
-#include <Kernels/Precision.h>
-#include <Kernels/Solver.h>
-#include <Kernels/Touch.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/GlobalData.h>
-#include <Memory/MemoryAllocator.h>
-#include <Memory/Tree/Layer.h>
-#include <Memory/Tree/TimeCluster.h>
+
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Config.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
+#include "Kernels/Touch.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/GlobalData.h"
+#include "Memory/MemoryAllocator.h"
+#include "Memory/Tree/Colormap.h"
+#include "Memory/Tree/Layer.h"
+#include "Parallel/OpenMP.h"
+
 #include <cstddef>
 #include <random>
 #include <stdlib.h>
-#include <tensor.h>
-
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 #ifdef ACL_DEVICE
-#include <Initializer/MemoryManager.h>
+#include "Initializer/MemoryManager.h"
 #endif
 
 #ifdef USE_POROELASTIC
 #include "Proxy/Constants.h"
 #endif
 
-namespace {
-void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp) {
-  real(*dofs)[tensor::Q::size()] = layer.var(lts.dofs);
-  real** buffers = layer.var(lts.buffers);
-  real** derivatives = layer.var(lts.derivatives);
-  real*(*faceNeighbors)[4] = layer.var(lts.faceNeighbors);
-  auto* localIntegration = layer.var(lts.localIntegration);
-  auto* neighboringIntegration = layer.var(lts.neighboringIntegration);
-  auto* cellInformation = layer.var(lts.cellInformation);
-  auto* secondaryInformation = layer.var(lts.secondaryInformation);
-  real* bucket =
-      static_cast<real*>(layer.var(lts.buffersDerivatives, initializer::AllocationPlace::Host));
+namespace seissol::proxy {
 
-  real** buffersDevice = layer.var(lts.buffersDevice);
-  real** derivativesDevice = layer.var(lts.derivativesDevice);
-  real*(*faceNeighborsDevice)[4] = layer.var(lts.faceNeighborsDevice);
+namespace {
+
+void fakeData(LTS::Layer& layer, FaceType faceTp) {
+  real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
+  real** buffers = layer.var<LTS::Buffers>();
+  real** derivatives = layer.var<LTS::Derivatives>();
+  real*(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
+  auto* localIntegration = layer.var<LTS::LocalIntegration>();
+  auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
+  auto* cellInformation = layer.var<LTS::CellInformation>();
+  auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+  real* bucket =
+      static_cast<real*>(layer.var<LTS::BuffersDerivatives>(initializer::AllocationPlace::Host));
+
+  real** buffersDevice = layer.var<LTS::BuffersDevice>();
+  real** derivativesDevice = layer.var<LTS::DerivativesDevice>();
+  real*(*faceNeighborsDevice)[4] = layer.var<LTS::FaceNeighborsDevice>();
   real* bucketDevice =
-      static_cast<real*>(layer.var(lts.buffersDerivatives, initializer::AllocationPlace::Device));
+      static_cast<real*>(layer.var<LTS::BuffersDerivatives>(initializer::AllocationPlace::Device));
 
   std::mt19937 rng(layer.size());
   std::uniform_int_distribution<unsigned> sideDist(0, 3);
@@ -71,14 +75,16 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
       cellInformation[cell].faceTypes[f] = faceTp;
       cellInformation[cell].faceRelations[f][0] = sideDist(rng);
       cellInformation[cell].faceRelations[f][1] = orientationDist(rng);
-      secondaryInformation[cell].faceNeighborIds[f] = cellDist(rng);
+
+      const auto neighbor = cellDist(rng);
+      secondaryInformation[cell].faceNeighbors[f].global = neighbor;
+      secondaryInformation[cell].faceNeighbors[f].color = 0;
+      secondaryInformation[cell].faceNeighbors[f].cell = neighbor;
     }
-    cellInformation[cell].ltsSetup = 0;
+    cellInformation[cell].ltsSetup = LtsSetup();
   }
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       switch (faceTp) {
@@ -88,8 +94,9 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
         break;
       case FaceType::Periodic:
       case FaceType::Regular:
-        faceNeighbors[cell][f] = buffers[secondaryInformation[cell].faceNeighborIds[f]];
-        faceNeighborsDevice[cell][f] = buffersDevice[secondaryInformation[cell].faceNeighborIds[f]];
+        faceNeighbors[cell][f] = buffers[secondaryInformation[cell].faceNeighbors[f].cell];
+        faceNeighborsDevice[cell][f] =
+            buffersDevice[secondaryInformation[cell].faceNeighbors[f].cell];
         break;
       default:
         faceNeighbors[cell][f] = nullptr;
@@ -108,9 +115,8 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
                          false);
 
 #ifdef USE_POROELASTIC
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     localIntegration[cell].specific.typicalTimeStepWidth = seissol::proxy::Timestep;
   }
@@ -125,9 +131,10 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
 }
 } // namespace
 
-namespace seissol::proxy {
-
 ProxyData::ProxyData(std::size_t cellCount, bool enableDR) : cellCount(cellCount) {
+  layerId =
+      initializer::LayerIdentifier(HaloType::Interior, initializer::ConfigVariant{Config()}, 0);
+
   initGlobalData();
   initDataStructures(enableDR);
   initDataStructuresOnDevice(enableDR);
@@ -135,14 +142,14 @@ ProxyData::ProxyData(std::size_t cellCount, bool enableDR) : cellCount(cellCount
 
 void ProxyData::initGlobalData() {
   seissol::initializer::GlobalDataInitializerOnHost::init(
-      globalDataOnHost, allocator, seissol::memory::Standard);
+      globalDataOnHost, allocator, seissol::memory::Memkind::Standard);
 
   CompoundGlobalData globalData{};
   globalData.onHost = &globalDataOnHost;
   globalData.onDevice = nullptr;
   if constexpr (seissol::isDeviceOn()) {
     seissol::initializer::GlobalDataInitializerOnDevice::init(
-        globalDataOnDevice, allocator, seissol::memory::DeviceGlobalMemory);
+        globalDataOnDevice, allocator, seissol::memory::Memkind::DeviceGlobalMemory);
     globalData.onDevice = &globalDataOnDevice;
   }
   spacetimeKernel.setGlobalData(globalData);
@@ -153,51 +160,44 @@ void ProxyData::initGlobalData() {
 }
 
 void ProxyData::initDataStructures(bool enableDR) {
+  const initializer::LTSColorMap map(
+      initializer::EnumLayer<HaloType>({HaloType::Interior}),
+      initializer::EnumLayer<std::size_t>({0}),
+      initializer::TraitLayer<initializer::ConfigVariant>({initializer::ConfigVariant(Config())}));
+
   // init RNG
-  lts.addTo(ltsTree, false); // proxy does not use plasticity
-  ltsTree.setNumberOfTimeClusters(1);
-  ltsTree.fixate();
+  LTS::addTo(ltsStorage, false); // proxy does not use plasticity
+  ltsStorage.setLayerCount(map);
+  ltsStorage.fixate();
 
-  seissol::initializer::TimeCluster& cluster = ltsTree.child(0);
-  cluster.child<Ghost>().setNumberOfCells(0);
-  cluster.child<Copy>().setNumberOfCells(0);
-  cluster.child<Interior>().setNumberOfCells(cellCount);
+  ltsStorage.layer(layerId).setNumberOfCells(cellCount);
 
-  seissol::initializer::Layer& layer = cluster.child<Interior>();
-  layer.setEntrySize(lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.size());
+  LTS::Layer& layer = ltsStorage.layer(layerId);
+  layer.setEntrySize<LTS::BuffersDerivatives>(sizeof(real) * tensor::I::size() * layer.size());
 
-  ltsTree.allocateVariables();
-  ltsTree.touchVariables();
-  ltsTree.allocateBuckets();
+  ltsStorage.allocateVariables();
+  ltsStorage.touchVariables();
+  ltsStorage.allocateBuckets();
 
   if (enableDR) {
-    dynRup.addTo(dynRupTree);
-    dynRupTree.setNumberOfTimeClusters(1);
-    dynRupTree.fixate();
+    DynamicRupture dynRup;
+    dynRup.addTo(drStorage);
+    drStorage.setLayerCount(ltsStorage.getColorMap());
+    drStorage.fixate();
 
-    seissol::initializer::TimeCluster& cluster = dynRupTree.child(0);
-    cluster.child<Ghost>().setNumberOfCells(0);
-    cluster.child<Copy>().setNumberOfCells(0);
-    cluster.child<Interior>().setNumberOfCells(
-        4 * cellCount); /// Every face is a potential dynamic rupture face
+    drStorage.layer(layerId).setNumberOfCells(4 * cellCount);
 
-    dynRupTree.allocateVariables();
-    dynRupTree.touchVariables();
+    drStorage.allocateVariables();
+    drStorage.touchVariables();
 
     fakeDerivativesHost = reinterpret_cast<real*>(allocator.allocateMemory(
         cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
         PagesizeHeap,
-        seissol::memory::Standard));
+        seissol::memory::Memkind::Standard));
 
-#ifdef _OPENMP
 #pragma omp parallel
-#endif
     {
-#ifdef _OPENMP
-      const auto offset = omp_get_thread_num();
-#else
-      const auto offset = 0;
-#endif
+      const auto offset = OpenMP::threadId();
       std::mt19937 rng(cellCount + offset);
       std::uniform_real_distribution<real> urd;
       for (std::size_t cell = 0; cell < cellCount; ++cell) {
@@ -211,7 +211,7 @@ void ProxyData::initDataStructures(bool enableDR) {
     fakeDerivatives = reinterpret_cast<real*>(allocator.allocateMemory(
         cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
         PagesizeHeap,
-        seissol::memory::DeviceGlobalMemory));
+        seissol::memory::Memkind::DeviceGlobalMemory));
     const auto& device = ::device::DeviceInstance::getInstance();
     device.api->copyTo(fakeDerivatives,
                        fakeDerivativesHost,
@@ -222,29 +222,31 @@ void ProxyData::initDataStructures(bool enableDR) {
   }
 
   /* cell information and integration data*/
-  fakeData(lts, layer, (enableDR) ? FaceType::DynamicRupture : FaceType::Regular);
+  fakeData(layer, enableDR ? FaceType::DynamicRupture : FaceType::Regular);
 
   if (enableDR) {
-    // From lts tree
+    // From lts storage
     CellDRMapping(*drMapping)[4] =
-        isDeviceOn() ? ltsTree.var(lts.drMappingDevice) : ltsTree.var(lts.drMapping);
+        isDeviceOn() ? ltsStorage.var<LTS::DRMappingDevice>() : ltsStorage.var<LTS::DRMapping>();
 
     constexpr initializer::AllocationPlace Place =
         isDeviceOn() ? initializer::AllocationPlace::Device : initializer::AllocationPlace::Host;
 
-    // From dynamic rupture tree
-    seissol::initializer::Layer& interior = dynRupTree.child(0).child<Interior>();
+    // From dynamic rupture storage
+    auto& interior = drStorage.layer(layerId);
     real(*imposedStatePlus)[seissol::tensor::QInterpolated::size()] =
-        interior.var(dynRup.imposedStatePlus, Place);
+        interior.var<DynamicRupture::ImposedStatePlus>(Place);
     real(*fluxSolverPlus)[seissol::tensor::fluxSolver::size()] =
-        interior.var(dynRup.fluxSolverPlus, Place);
-    real** timeDerivativeHostPlus = interior.var(dynRup.timeDerivativePlus);
-    real** timeDerivativeHostMinus = interior.var(dynRup.timeDerivativeMinus);
-    real** timeDerivativePlus = isDeviceOn() ? interior.var(dynRup.timeDerivativePlusDevice)
-                                             : interior.var(dynRup.timeDerivativePlus);
-    real** timeDerivativeMinus = isDeviceOn() ? interior.var(dynRup.timeDerivativeMinusDevice)
-                                              : interior.var(dynRup.timeDerivativeMinus);
-    DRFaceInformation* faceInformation = interior.var(dynRup.faceInformation);
+        interior.var<DynamicRupture::FluxSolverPlus>(Place);
+    real** timeDerivativeHostPlus = interior.var<DynamicRupture::TimeDerivativePlus>();
+    real** timeDerivativeHostMinus = interior.var<DynamicRupture::TimeDerivativeMinus>();
+    real** timeDerivativePlus = isDeviceOn()
+                                    ? interior.var<DynamicRupture::TimeDerivativePlusDevice>()
+                                    : interior.var<DynamicRupture::TimeDerivativePlus>();
+    real** timeDerivativeMinus = isDeviceOn()
+                                     ? interior.var<DynamicRupture::TimeDerivativeMinusDevice>()
+                                     : interior.var<DynamicRupture::TimeDerivativeMinus>();
+    DRFaceInformation* faceInformation = interior.var<DynamicRupture::FaceInformation>();
 
     std::mt19937 rng(cellCount);
     std::uniform_int_distribution<unsigned> sideDist(0, 3);
@@ -289,34 +291,33 @@ void ProxyData::initDataStructures(bool enableDR) {
 void ProxyData::initDataStructuresOnDevice(bool enableDR) {
 #ifdef ACL_DEVICE
   const auto& device = ::device::DeviceInstance::getInstance();
-  ltsTree.synchronizeTo(seissol::initializer::AllocationPlace::Device,
-                        device.api->getDefaultStream());
+  ltsStorage.synchronizeTo(seissol::initializer::AllocationPlace::Device,
+                           device.api->getDefaultStream());
   device.api->syncDefaultStreamWithHost();
 
-  seissol::initializer::TimeCluster& cluster = ltsTree.child(0);
-  seissol::initializer::Layer& layer = cluster.child<Interior>();
+  auto& layer = ltsStorage.layer(layerId);
 
-  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(false, ltsTree, lts);
-  ltsTree.allocateScratchPads();
+  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(false, ltsStorage);
+  ltsStorage.allocateScratchPads();
 
-  seissol::initializer::recording::CompositeRecorder<seissol::initializer::LTS> recorder;
-  recorder.addRecorder(new seissol::initializer::recording::LocalIntegrationRecorder);
-  recorder.addRecorder(new seissol::initializer::recording::NeighIntegrationRecorder);
+  seissol::recording::CompositeRecorder<LTS::LTSVarmap> recorder;
+  recorder.addRecorder(new seissol::recording::LocalIntegrationRecorder);
+  recorder.addRecorder(new seissol::recording::NeighIntegrationRecorder);
 
-  recorder.addRecorder(new seissol::initializer::recording::PlasticityRecorder);
-  recorder.record(lts, layer);
+  recorder.addRecorder(new seissol::recording::PlasticityRecorder);
+  recorder.record(layer);
   if (enableDR) {
-    dynRupTree.synchronizeTo(seissol::initializer::AllocationPlace::Device,
-                             device.api->getDefaultStream());
+    drStorage.synchronizeTo(seissol::initializer::AllocationPlace::Device,
+                            device.api->getDefaultStream());
     device.api->syncDefaultStreamWithHost();
-    seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(dynRupTree, dynRup);
-    dynRupTree.allocateScratchPads();
+    seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(drStorage);
+    drStorage.allocateScratchPads();
 
-    CompositeRecorder<seissol::initializer::DynamicRupture> drRecorder;
-    drRecorder.addRecorder(new DynamicRuptureRecorder);
+    seissol::recording::CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
+    drRecorder.addRecorder(new seissol::recording::DynamicRuptureRecorder);
 
-    auto& drLayer = dynRupTree.child(0).child<Interior>();
-    drRecorder.record(dynRup, drLayer);
+    auto& drLayer = drStorage.layer(layerId);
+    drRecorder.record(drLayer);
   }
 #endif // ACL_DEVICE
 }

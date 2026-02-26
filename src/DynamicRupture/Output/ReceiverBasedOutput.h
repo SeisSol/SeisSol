@@ -8,15 +8,16 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RECEIVERBASEDOUTPUT_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RECEIVERBASEDOUTPUT_H_
 
+#include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/ParametersInitializer.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Lut.h"
+#include "Memory/Tree/Backmap.h"
+#include "Parallel/Runtime/Stream.h"
 
-#include <DynamicRupture/Misc.h>
-#include <memory>
 #include <vector>
 
 namespace seissol::dr::output {
@@ -24,33 +25,34 @@ class ReceiverOutput {
   public:
   virtual ~ReceiverOutput() = default;
 
-  void setLtsData(seissol::initializer::LTSTree* userWpTree,
-                  seissol::initializer::LTS* userWpDescr,
-                  seissol::initializer::Lut* userWpLut,
-                  seissol::initializer::LTSTree* userDrTree,
-                  seissol::initializer::DynamicRupture* userDrDescr);
+  void setLtsData(LTS::Storage& userWpStorage,
+                  LTS::Backmap& userWpBackmap,
+                  DynamicRupture::Storage& userDrStorage);
 
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
   void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
-                       std::shared_ptr<ReceiverOutputData> outputData,
-                       double time = 0.0);
+                       const std::shared_ptr<ReceiverOutputData>& outputData,
+                       parallel::runtime::StreamRuntime& runtime,
+                       double time = 0.0,
+                       double dt = 1.0,
+                       double indt = 0.0);
 
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
 
   protected:
-  seissol::initializer::LTS* wpDescr{nullptr};
-  seissol::initializer::LTSTree* wpTree{nullptr};
-  seissol::initializer::Lut* wpLut{nullptr};
-  seissol::initializer::LTSTree* drTree{nullptr};
-  seissol::initializer::DynamicRupture* drDescr{nullptr};
+  LTS::Storage* wpStorage{nullptr};
+  LTS::Backmap* wpBackmap{nullptr};
+  DynamicRupture::Storage* drStorage{nullptr};
   seissol::geometry::MeshReader* meshReader{nullptr};
   FaceToLtsMapType* faceToLtsMap{nullptr};
   real* deviceCopyMemory{nullptr};
 
+  kernels::Time timeKernel;
+
   struct LocalInfo {
-    seissol::initializer::Layer* layer{};
+    DynamicRupture::Layer* layer{};
     size_t ltsId{};
     int nearestGpIndex{};
     int nearestInternalGpIndex{};
@@ -95,26 +97,30 @@ class ReceiverOutput {
     ReceiverOutputData* state{};
   };
 
-  template <typename T>
-  std::remove_extent_t<T>* getCellData(const LocalInfo& local,
-                                       const seissol::initializer::Variable<T>& variable) {
-    auto devVar = local.state->deviceVariables.find(drTree->info(variable).index);
+  /**
+    Gets the cell data defined by the type StorageT.
+    (we cannot just access the storage data structure in case we need to sparsely copy data for the
+    onfault receiver output on GPUs)
+   */
+  template <typename StorageT>
+  std::remove_extent_t<typename StorageT::Type>* getCellData(const LocalInfo& local) {
+    auto devVar = local.state->deviceVariables.find(drStorage->info<StorageT>().index);
     if (devVar != local.state->deviceVariables.end()) {
-      return reinterpret_cast<std::remove_extent_t<T>*>(
+      return reinterpret_cast<std::remove_extent_t<typename StorageT::Type>*>(
           devVar->second->get(local.state->deviceIndices[local.index]));
     } else {
-      return local.layer->var(variable)[local.ltsId];
+      return local.layer->var<StorageT>()[local.ltsId];
     }
   }
 
-  void getDofs(real dofs[tensor::Q::size()], int meshId);
-  void getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side);
+  void getDofs(const real*(&derivatives), std::size_t meshId);
+  void getNeighborDofs(const real*(&derivatives), std::size_t meshId, std::size_t side);
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
-  virtual real computeFluidPressure(LocalInfo& local) { return 0.0; }
-  virtual real computeStateVariable(LocalInfo& local) { return 0.0; }
+  virtual real computeFluidPressure(LocalInfo& /*local*/) { return 0.0; }
+  virtual real computeStateVariable(LocalInfo& /*local*/) { return 0.0; }
   static void updateLocalTractions(LocalInfo& local, real strength);
-  real computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d, const LocalInfo& local);
+  real computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jacobiT2d, const LocalInfo& local);
   virtual void computeSlipRate(LocalInfo& local,
                                const std::array<real, 6>& /*rotatedUpdatedStress*/,
                                const std::array<real, 6>& /*rotatedStress*/);
@@ -123,7 +129,7 @@ class ReceiverOutput {
                               const std::array<double, 3>& tangent2,
                               const std::array<double, 3>& strike,
                               const std::array<double, 3>& dip);
-  virtual void outputSpecifics(std::shared_ptr<ReceiverOutputData>& data,
+  virtual void outputSpecifics(const std::shared_ptr<ReceiverOutputData>& data,
                                const LocalInfo& local,
                                size_t outputSpecifics,
                                size_t receiverIdx) {}

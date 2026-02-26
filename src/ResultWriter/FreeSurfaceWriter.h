@@ -10,14 +10,14 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_FREESURFACEWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_FREESURFACEWRITER_H_
 
-#include "Parallel/MPI.h"
-#include "Parallel/Pin.h"
-
 #include "FreeSurfaceWriterExecutor.h"
 #include "Geometry/MeshReader.h"
 #include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
+#include "Parallel/MPI.h"
+#include "Parallel/Pin.h"
 #include "Solver/FreeSurfaceIntegrator.h"
+
 #include <async/Module.h>
 #include <utils/logger.h>
 
@@ -49,14 +49,16 @@ class FreeSurfaceWriter
                             unsigned& nCells,
                             unsigned& nVertices);
 
-  public:
-  explicit FreeSurfaceWriter(seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance) {}
-
   /**
    * Called by ASYNC on all ranks
    */
   void setUp() override;
+
+  void tearDown() override { m_executor.finalize(); }
+
+  public:
+  explicit FreeSurfaceWriter(seissol::SeisSol& seissolInstance)
+      : seissolInstance(seissolInstance) {}
 
   void enable();
 
@@ -82,8 +84,6 @@ class FreeSurfaceWriter
 
     m_stopwatch.printTime("Time free surface writer frontend:");
   }
-
-  void tearDown() override { m_executor.finalize(); }
 
   //
   // Hooks

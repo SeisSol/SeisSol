@@ -9,17 +9,24 @@
 
 #include "FreeSurfaceWriter.h"
 
-#include <Common/Constants.h>
+#include "AsyncCellIDs.h"
+#include "Common/Constants.h"
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshTools.h"
+#include "Geometry/Refinement/TriangleRefiner.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/Surface.h"
+#include "Memory/Tree/Layer.h"
+#include "Modules/Modules.h"
+#include "Monitoring/Instrumentation.h"
+#include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
+#include "ResultWriter/FreeSurfaceWriterExecutor.h"
+#include "SeisSol.h"
+#include "Solver/FreeSurfaceIntegrator.h"
+
+#include <Eigen/Core>
 #include <Eigen/Dense>
-#include <Geometry/MeshDefinition.h>
-#include <Geometry/Refinement/TriangleRefiner.h>
-#include <Kernels/Precision.h>
-#include <Memory/Tree/Layer.h>
-#include <Monitoring/Instrumentation.h>
-#include <Parallel/Helper.h>
-#include <Parallel/MPI.h>
-#include <ResultWriter/FreeSurfaceWriterExecutor.h>
-#include <Solver/FreeSurfaceIntegrator.h>
 #include <async/Module.h>
 #include <cassert>
 #include <cstring>
@@ -29,11 +36,6 @@
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
-
-#include "AsyncCellIDs.h"
-#include "Geometry/MeshTools.h"
-#include "Modules/Modules.h"
-#include "SeisSol.h"
 
 void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
     const seissol::geometry::MeshReader& meshReader,
@@ -58,13 +60,10 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
 
   const std::size_t numberOfSubTriangles = m_freeSurfaceIntegrator->triRefiner.subTris.size();
 
-  auto* meshIds =
-      m_freeSurfaceIntegrator->surfaceLtsTree->var(m_freeSurfaceIntegrator->surfaceLts->meshId);
-  auto* sides =
-      m_freeSurfaceIntegrator->surfaceLtsTree->var(m_freeSurfaceIntegrator->surfaceLts->side);
-  auto* outputPosition = m_freeSurfaceIntegrator->surfaceLtsTree->var(
-      m_freeSurfaceIntegrator->surfaceLts->outputPosition);
-  for (std::size_t fs = 0; fs < m_freeSurfaceIntegrator->surfaceLtsTree->size(Ghost); ++fs) {
+  auto* meshIds = m_freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::MeshId>();
+  auto* sides = m_freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::Side>();
+  auto* outputPosition = m_freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::OutputPosition>();
+  for (std::size_t fs = 0; fs < m_freeSurfaceIntegrator->surfaceStorage->size(Ghost); ++fs) {
     if (outputPosition[fs] != std::numeric_limits<std::size_t>::max()) {
       const auto meshId = meshIds[fs];
       const auto side = sides[fs];
@@ -86,7 +85,8 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
         const seissol::refinement::Triangle& subTri =
             m_freeSurfaceIntegrator->triRefiner.subTris[tri];
         for (std::size_t vertex = 0; vertex < Cell::Dim; ++vertex) {
-          const auto vertexPosition = 3 * outputPosition[fs] + vertex;
+          const auto vertexPosition =
+              3 * (outputPosition[fs] * numberOfSubTriangles + tri) + vertex;
 
           Eigen::Vector3d v = x[0] + subTri.x[vertex][0] * a + subTri.x[vertex][1] * b;
           vertices[3 * vertexPosition + 0] = v(0);
@@ -103,10 +103,11 @@ void seissol::writer::FreeSurfaceWriter::setUp() {
   setExecutor(m_executor);
 
   utils::Env env("SEISSOL_");
-  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, env)) {
+  if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, env)) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
-    logInfo() << "Free surface writer thread affinity:"
-              << parallel::Pinning::maskToString(freeCpus);
+    logInfo() << "Free surface writer thread affinity:" << parallel::Pinning::maskToString(freeCpus)
+              << "(" << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
+    ;
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
@@ -133,7 +134,10 @@ void seissol::writer::FreeSurfaceWriter::init(
   // Initialize the asynchronous module
   async::Module<FreeSurfaceWriterExecutor, FreeSurfaceInitParam, FreeSurfaceParam>::init();
 
+  // too aggressive clang-tidy (21); do not make const
+  // NOLINTNEXTLINE(misc-const-correctness)
   unsigned* cells = nullptr;
+  // NOLINTNEXTLINE(misc-const-correctness)
   double* vertices = nullptr;
   unsigned nCells = 0;
   unsigned nVertices = 0;

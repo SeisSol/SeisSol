@@ -6,22 +6,25 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "OutputAux.h"
+
 #include "Common/Constants.h"
+#include "Common/Iterator.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
+#include "GeneratedCode/init.h"
 #include "Geometry.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Precision.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
-#include <Common/Iterator.h>
+#include "Solver/MultipleSimulations.h"
+
+#include <Eigen/Core>
 #include <Eigen/Dense>
-#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <init.h>
 #include <limits>
 #include <tuple>
 #include <utility>
@@ -105,12 +108,12 @@ ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2) {
   return midPoint;
 }
 
-TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
+TriangleQuadratureData generateTriangleQuadrature() {
   TriangleQuadratureData data{};
 
   // Generate triangle quadrature points and weights (Factory Method)
-  auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
-  auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
+  const auto pointsView = init::quadpoints::view::create(init::quadpoints::Values);
+  const auto weightsView = init::quadweights::view::create(init::quadweights::Values);
 
   auto* reshapedPoints = unsafe_reshape<2>((data.points).data());
   for (size_t i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
@@ -142,8 +145,8 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
 }
 
 void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
-  auto quadratureData = generateTriangleQuadrature(ConvergenceOrder + 1);
-  double (*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
+  auto quadratureData = generateTriangleQuadrature();
+  const double (*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
 
   for (auto& geoPoint : geoPoints) {
 

@@ -6,7 +6,10 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
+#include "Modules.h"
+
 #include "Modules/Module.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -14,8 +17,6 @@
 #include <optional>
 #include <utility>
 #include <utils/logger.h>
-
-#include "Modules.h"
 
 namespace seissol {
 
@@ -79,17 +80,11 @@ double Modules::_callSyncHook(double currentTime, double timeTolerance, bool for
 }
 
 void Modules::_callSimulationStartHook(std::optional<double> checkpointTime) {
-  for (auto& [_, module] : hooks[static_cast<size_t>(ModuleHook::SimulationStart)]) {
-    module->simulationStart(checkpointTime);
-  }
-}
-
-void Modules::_setSimulationStartTime(double time) {
   assert(static_cast<int>(nextHook) <= static_cast<int>(ModuleHook::SynchronizationPoint));
 
-  // Set the simulation time in all modules that are called at synchronization points
-  for (auto& [_, module] : hooks[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
-    module->setSimulationStartTime(time);
+  for (auto& [_, module] : hooks[static_cast<size_t>(ModuleHook::SimulationStart)]) {
+    module->simulationStart(checkpointTime);
+    module->setSimulationStartTime(checkpointTime.value_or(0));
   }
 }
 
@@ -109,8 +104,6 @@ double Modules::callSyncHook(double currentTime, double timeTolerance, bool forc
 void Modules::callSimulationStartHook(std::optional<double> checkpointTime) {
   instance()._callSimulationStartHook(checkpointTime);
 }
-
-void Modules::setSimulationStartTime(double time) { instance()._setSimulationStartTime(time); }
 
 // Create all template instances for call
 #define MODULES_CALL_INSTANCE(enum, func)                                                          \

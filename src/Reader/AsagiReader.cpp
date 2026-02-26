@@ -9,8 +9,9 @@
 
 #include "AsagiReader.h"
 
-#include <Monitoring/Instrumentation.h>
-#include <Reader/AsagiModule.h>
+#include "Monitoring/Instrumentation.h"
+#include "Reader/AsagiModule.h"
+
 #include <asagi.h>
 #include <mpi.h>
 #include <string>
@@ -27,9 +28,11 @@ namespace seissol::asagi {
 ::asagi::Grid* AsagiReader::open(const char* file, const char* varname) {
   SCOREP_USER_REGION("AsagiReader_open", SCOREP_USER_REGION_TYPE_FUNCTION);
 
+  auto& env = AsagiModule::getInstance().getEnv();
+
   ::asagi::Grid* grid = ::asagi::Grid::createArray();
 
-  if (env.get<bool>("SPARSE", false)) {
+  if (env.get<bool>("ASAGI_SPARSE", false)) {
     grid->setParam("GRID", "CACHE");
   }
 
@@ -94,9 +97,8 @@ namespace seissol::asagi {
   bool abort = false;
   // Read the data
   // SCOREP_RECORDING_OFF();
-#ifdef _OPENMP
+
 #pragma omp parallel shared(abort) num_threads(asagiThreads)
-#endif // _OPENMP
   {
     const ::asagi::Grid::Error err = grid->open(file);
     if (err != ::asagi::Grid::SUCCESS) {

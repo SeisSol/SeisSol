@@ -9,26 +9,30 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#include "Kernels/LinearCK/NeighborBase.h"
+#include "Kernels/LinearCK/Neighbor.h"
 
-#include <Common/Constants.h>
-#include <DataTypes/ConditionalTable.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Interface.h>
-#include <Kernels/Precision.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Common/Constants.h"
+#include "Common/Marker.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+#include "Parallel/Runtime/Stream.h"
+
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <generated_code/tensor.h>
 #include <stdint.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #endif
 
-#include "utils/logger.h"
+#include <utils/logger.h>
 
 #ifndef NDEBUG
 #include "Alignment.h"
@@ -44,7 +48,6 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
-  const auto deviceAlignment = device.api->getGlobMemAlignment();
 
 #ifdef USE_PREMULTIPLY_FLUX
   deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
@@ -57,29 +60,29 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Neighbor::computeNeighborsIntegral(NeighborData& data,
+void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
                                         const CellDRMapping (&cellDrMapping)[4],
                                         real* timeIntegrated[4],
                                         real* faceNeighborsPrefetch[4]) {
-  assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
 
-  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    switch (data.cellInformation().faceTypes[face]) {
+  for (std::size_t face = 0; face < Cell::NumFaces; face++) {
+    switch (data.get<LTS::CellInformation>().faceTypes[face]) {
     case FaceType::Regular:
       // Fallthrough intended
     case FaceType::Periodic: {
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
       assert(reinterpret_cast<uintptr_t>(timeIntegrated[face]) % Alignment == 0);
-      assert(data.cellInformation().faceRelations[face][0] < Cell::NumFaces &&
-             data.cellInformation().faceRelations[face][1] < 3);
+      assert(data.get<LTS::CellInformation>().faceRelations[face][0] < Cell::NumFaces &&
+             data.get<LTS::CellInformation>().faceRelations[face][1] < 3);
       kernel::neighboringFlux nfKrnl = m_nfKrnlPrototype;
-      nfKrnl.Q = data.dofs();
+      nfKrnl.Q = data.get<LTS::Dofs>();
       nfKrnl.I = timeIntegrated[face];
-      nfKrnl.AminusT = data.neighboringIntegration().nAmNm1[face];
+      nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
       nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
-      nfKrnl.execute(data.cellInformation().faceRelations[face][1],
-                     data.cellInformation().faceRelations[face][0],
+      nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][1],
+                     data.get<LTS::CellInformation>().faceRelations[face][0],
                      face);
       break;
     }
@@ -90,7 +93,7 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
       drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
       drKrnl.QInterpolated = cellDrMapping[face].godunov;
-      drKrnl.Q = data.dofs();
+      drKrnl.Q = data.get<LTS::Dofs>();
       drKrnl._prefetch.I = faceNeighborsPrefetch[face];
       drKrnl.execute(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
       break;
@@ -103,9 +106,11 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
   }
 }
 
-void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
-                                               seissol::parallel::runtime::StreamRuntime& runtime) {
+void Neighbor::computeBatchedNeighborsIntegral(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+  using namespace seissol::recording;
   kernel::gpu_neighboringFlux neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
 
@@ -132,6 +137,8 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
                   (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
               neighFluxKrnl.AminusT = const_cast<const real**>(
                   entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+
+              SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData, nAmNm1);
               neighFluxKrnl.extraOffset_AminusT =
                   SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
 
@@ -177,13 +184,14 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
 #endif
 }
 
-void Neighbor::flopsNeighborsIntegral(const FaceType faceTypes[4],
-                                      const int neighboringIndices[4][2],
-                                      const CellDRMapping (&cellDrMapping)[4],
-                                      std::uint64_t& nonZeroFlops,
-                                      std::uint64_t& hardwareFlops,
-                                      std::uint64_t& drNonZeroFlops,
-                                      std::uint64_t& drHardwareFlops) {
+void Neighbor::flopsNeighborsIntegral(
+    const std::array<FaceType, Cell::NumFaces>& faceTypes,
+    const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
+    const CellDRMapping (&cellDrMapping)[4],
+    std::uint64_t& nonZeroFlops,
+    std::uint64_t& hardwareFlops,
+    std::uint64_t& drNonZeroFlops,
+    std::uint64_t& drHardwareFlops) {
   // reset flops
   nonZeroFlops = 0;
   hardwareFlops = 0;

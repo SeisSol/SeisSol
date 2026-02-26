@@ -6,11 +6,18 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#include <Kernels/Precision.h>
-#include <Monitoring/Instrumentation.h> // IWYU pragma: keep
-#include <Parallel/Helper.h>
-#include <Parallel/MPI.h>
-#include <ResultWriter/FaultWriterExecutor.h>
+#include "FaultWriter.h"
+
+#include "AsyncCellIDs.h"
+#include "DynamicRupture/Output/OutputManager.h"
+#include "Kernels/Precision.h"
+#include "Modules/Modules.h"
+#include "Monitoring/Instrumentation.h" // IWYU pragma: keep
+#include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
+#include "ResultWriter/FaultWriterExecutor.h"
+#include "SeisSol.h"
+
 #include <algorithm>
 #include <async/Module.h>
 #include <cassert>
@@ -20,19 +27,15 @@
 #include <utils/env.h>
 #include <utils/logger.h>
 
-#include "AsyncCellIDs.h"
-#include "DynamicRupture/Output/OutputManager.h"
-#include "FaultWriter.h"
-#include "Modules/Modules.h"
-#include "SeisSol.h"
-
 void seissol::writer::FaultWriter::setUp() {
   setExecutor(m_executor);
 
   utils::Env env("SEISSOL_");
-  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, env)) {
+  if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, env)) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
-    logInfo() << "Fault writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
+    logInfo() << "Fault writer thread affinity:" << parallel::Pinning::maskToString(freeCpus) << "("
+              << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
+    ;
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
@@ -174,6 +177,7 @@ void seissol::writer::FaultWriter::syncPoint(double currentTime) {
   SCOREP_USER_REGION("faultoutput_elementwise", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   if (callbackObject != nullptr) {
+    seissolInstance.dofSync().syncDofs(currentTime);
     callbackObject->updateElementwiseOutput();
   }
   write(currentTime);

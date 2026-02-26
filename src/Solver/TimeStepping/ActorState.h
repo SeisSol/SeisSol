@@ -8,12 +8,12 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTORSTATE_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTORSTATE_H_
 
+#include "Common/Executor.h"
+
 #include <memory>
 #include <mutex>
 #include <queue>
 #include <variant>
-
-#include <Common/Executor.h>
 
 namespace seissol::time_stepping {
 
@@ -94,26 +94,21 @@ struct NeighborCluster {
 class DynamicRuptureScheduler {
   long lastCorrectionStepsInterior = -1;
   long lastCorrectionStepsCopy = -1;
-  long lastFaultOutput = -1;
   long numberOfDynamicRuptureFaces;
-  bool firstClusterWithDynamicRuptureFaces;
+  double outputTimestep{};
 
   public:
-  DynamicRuptureScheduler(long numberOfDynamicRuptureFaces, bool isFirstDynamicRuptureCluster);
+  DynamicRuptureScheduler(long numberOfDynamicRuptureFaces, double outputTimestep);
 
   [[nodiscard]] bool mayComputeInterior(long curCorrectionSteps) const;
-
-  [[nodiscard]] bool mayComputeFaultOutput(long curCorrectionSteps) const;
 
   void setLastCorrectionStepsInterior(long steps);
 
   void setLastCorrectionStepsCopy(long steps);
 
-  void setLastFaultOutput(long steps);
-
   [[nodiscard]] bool hasDynamicRuptureFaces() const;
 
-  [[nodiscard]] bool isFirstClusterWithDynamicRuptureFaces() const;
+  [[nodiscard]] double getOutputTimestep() const;
 };
 
 struct ActResult {

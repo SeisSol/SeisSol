@@ -8,22 +8,22 @@
 
 #include "Touch.h"
 
-#include "generated_code/tensor.h"
-#include <Kernels/Precision.h>
-#include <Kernels/Solver.h>
+#include "GeneratedCode/tensor.h"
+#include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
+
 #include <cstddef>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
-#include "device.h"
+#include <Device/device.h>
 #endif
 
 namespace seissol::kernels {
 
 void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned numberOfCells) {
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t cell = 0; cell < numberOfCells; ++cell) {
     // touch buffers
     real* buffer = buffers[cell];
@@ -60,9 +60,8 @@ void fillWithStuff(real* buffer, unsigned nValues, [[maybe_unused]] bool onDevic
     return;
   }
 #endif
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
   for (unsigned n = 0; n < nValues; ++n) {
     buffer[n] = stuff(n);
   }

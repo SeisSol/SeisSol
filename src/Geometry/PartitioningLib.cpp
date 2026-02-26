@@ -7,7 +7,9 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "PartitioningLib.h"
+
 #include "Common/Fnv1a.h"
+
 #include <PUML/Partition.h>
 #include <string_view>
 
@@ -20,13 +22,13 @@ namespace seissol {
 PartitionerType toPartitionerType(std::string_view partitioningLib) {
   switch (fnv1a(partitioningLib)) {
   case "Default"_fnv1a:
-#if defined(USE_PARMETIS)
+#ifdef USE_PARMETIS
   case "Parmetis"_fnv1a:
     return PartitionerType::Parmetis;
   case "ParmetisGeometric"_fnv1a:
     return PartitionerType::ParmetisGeometric;
 #endif
-#if defined(USE_PTSCOTCH)
+#ifdef USE_PTSCOTCH
   case "PtScotch"_fnv1a:
     return PartitionerType::PtScotch;
   case "PtScotchQuality"_fnv1a:
@@ -40,7 +42,7 @@ PartitionerType toPartitionerType(std::string_view partitioningLib) {
   case "PtScotchBalanceSpeed"_fnv1a:
     return PartitionerType::PtScotchBalanceSpeed;
 #endif
-#if defined(USE_PARHIP)
+#ifdef USE_PARHIP
   case "ParHIPUltrafastMesh"_fnv1a:
     return PartitionerType::ParHIPUltrafastMesh;
   case "ParHIPFastMesh"_fnv1a:
@@ -62,13 +64,13 @@ PartitionerType toPartitionerType(std::string_view partitioningLib) {
 
 std::string_view toStringView(PartitionerType type) {
   switch (type) {
-#if defined(USE_PARMETIS)
+#ifdef USE_PARMETIS
   case PartitionerType::Parmetis:
     return "Parmetis"sv;
   case PartitionerType::ParmetisGeometric:
     return "ParmetisGeometric"sv;
 #endif
-#if defined(USE_PTSCOTCH)
+#ifdef USE_PTSCOTCH
   case PartitionerType::PtScotch:
     return "PtScotch"sv;
   case PartitionerType::PtScotchQuality:
@@ -82,7 +84,7 @@ std::string_view toStringView(PartitionerType type) {
   case PartitionerType::PtScotchBalanceSpeed:
     return "PtScotchBalanceSpeed"sv;
 #endif
-#if defined(USE_PARHIP)
+#ifdef USE_PARHIP
   case PartitionerType::ParHIPUltrafastMesh:
     return "ParHIPUltrafastMesh"sv;
   case PartitionerType::ParHIPFastMesh:

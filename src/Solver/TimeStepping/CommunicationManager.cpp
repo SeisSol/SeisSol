@@ -8,12 +8,13 @@
 #include "CommunicationManager.h"
 
 #include "Parallel/Pin.h"
+
 #include <memory>
 #include <utility>
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include "device.h"
+#include <Device/device.h>
 #endif // ACL_DEVICE
 
 namespace seissol::time_stepping {
@@ -24,7 +25,9 @@ AbstractCommunicationManager::AbstractCommunicationManager(
 void AbstractCommunicationManager::reset(double newSyncTime) {
   for (auto& ghostCluster : ghostClusters) {
     ghostCluster->setSyncTime(newSyncTime);
-    ghostCluster->reset();
+
+    // dereference first due to clang-tidy recommendation
+    (*ghostCluster).reset();
   }
 }
 

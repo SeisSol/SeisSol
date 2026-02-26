@@ -11,10 +11,10 @@
 #include "DynamicRupture/Output/FaultRefiner/FaultRefiners.h"
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
+#include "GeneratedCode/init.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Numerical/Transformation.h"
 #include "ReceiverBasedOutputBuilder.h"
-#include <init.h>
 
 namespace seissol::dr::output {
 class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
@@ -23,8 +23,8 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   void setParams(const seissol::initializer::parameters::ElementwiseFaultParameters& params) {
     elementwiseParams = params;
   }
-  void build(std::shared_ptr<ReceiverOutputData> elementwiseOutputData) override {
-    outputData = elementwiseOutputData;
+  void build(std::shared_ptr<ReceiverOutputData> elementwiseOutputData) {
+    outputData = std::move(elementwiseOutputData);
     initReceiverLocations();
     assignNearestGaussianPoints(outputData->receiverPoints);
     assignNearestInternalGaussianPoints();
@@ -81,10 +81,10 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
           const auto faceSideIdx = fault.side;
 
           // init reference coordinates of the fault face
-          ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);
+          const ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);
 
           // init global coordinates of the fault face
-          ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
+          const ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
 
           faultRefiner->refineAndAccumulate({elementwiseParams.refinement,
                                              static_cast<int>(faceIdx),
@@ -143,16 +143,13 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
 
           const auto faceSideIdx = fault.side;
 
-          // init reference coordinates of the fault face
-          ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);
-
           // init global coordinates of the fault face
-          ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
+          const ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
 
           for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
             auto& receiverPoint =
                 outputData->receiverPoints[faceOffset * seissol::init::vtk2d::Shape[order][1] + i];
-            real nullpoint[2] = {0, 0};
+            const real nullpoint[2] = {0, 0};
             const real* prepoint =
                 i > 0 ? (seissol::init::vtk2d::Values[order] + (i - 1) * 2) : nullpoint;
             double point[2] = {prepoint[0], prepoint[1]};

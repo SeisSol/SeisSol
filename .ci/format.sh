@@ -13,57 +13,16 @@
 # $ cd $SEISSOL_SOURCE_DIR/.ci; sh format.sh `which clang-format` ../
 
 format() {
+    # add all directories with source files here
     # don't use a directory with whitespace
     local allowlist_dir="
-        src/Common
-        src/DynamicRupture
-        src/Equations
-        src/Geometry
-        src/Initializer/BatchRecorders
-        src/Initializer/InitProcedure
-        src/Initializer/Parameters
-        src/Initializer/TimeStepping/LtsWeights
-        src/IO
-        src/Kernels
-        src/Memory
-        src/Modules
-        src/Monitoring
-        src/Model
-        src/Numerical
-        src/Parallel
-        src/Physics
-        src/Proxy
-        src/Reader
-        src/ResultWriter
-        src/Solver
-        src/SourceTerm
-        src/tests
+        app
+        src
+        tests
         "
 
-    # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
-    local allowlist_file="
-        src/Initializer/BasicTypedefs.h
-        src/Initializer/CellLocalInformation.h
-        src/Initializer/CellLocalMatrices.h
-        src/Initializer/CellLocalMatrices.cpp
-        src/Initializer/DeviceGraph.h
-        src/Initializer/InitialFieldProjection.h
-        src/Initializer/InitialFieldProjection.cpp
-        src/Initializer/InputAux.h
-        src/Initializer/Typedefs.h
-        src/Initializer/ParameterDB.h
-        src/Initializer/ParameterDB.cpp
-        src/Initializer/PointMapper.h
-        src/Initializer/PointMapper.cpp
-        src/Initializer/PreProcessorMacros.h
-        src/Initializer/TimeStepping/ClusterLayout.h
-        src/Initializer/TimeStepping/ClusterLayout.cpp
-        src/Initializer/TimeStepping/GlobalTimestep.h
-        src/Initializer/TimeStepping/GlobalTimestep.cpp
-        src/SeisSol.h
-        src/SeisSol.cpp
-        src/Main.cpp
-        "
+    # files outside the source directories
+    local allowlist_file=""
 
 
     local SEISSOL_SOURCE_DIR="${2}"
@@ -75,9 +34,9 @@ format() {
     fi
 
     local formatter_version=$(${formatter} --version)
-    if [ "${formatter_version}" != "clang-format version 20.1.0" ]; then
-        echo "Your clang-format tool in \"${formatter}\" does not have the correct version (should be 20.1.0). Given: ${formatter_version}"
-        echo "Hint: you may install the required clang-format via pip, by typing: pip3 install clang-format==20.1.0"
+    if [ "${formatter_version}" != "clang-format version 21.1.0" ]; then
+        echo "Your clang-format tool in \"${formatter}\" does not have the correct version (should be 21.1.0). Given: ${formatter_version}"
+        echo "Hint: you may install the required clang-format via pip, by typing: pip3 install clang-format==21.1.0"
         exit 176
     fi
 

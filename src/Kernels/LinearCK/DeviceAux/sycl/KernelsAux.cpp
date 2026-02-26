@@ -6,15 +6,15 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
-#include <cstdio>
-#include <init.h>
-#include <sycl/sycl.hpp>
-#include <tensor.h>
-#include <yateto.h>
+#include "Solver/MultipleSimulations.h"
 
-#include <Solver/MultipleSimulations.h>
+#include <cstdio>
+#include <sycl/sycl.hpp>
+#include <yateto.h>
 
 #ifdef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
 namespace {

@@ -8,22 +8,21 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 #define SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 
+#include "Geometry/MeshReader.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/MemoryAllocator.h"
+#include "Modules/Module.h"
+#include "Modules/Modules.h"
+#include "Parallel/Runtime/Stream.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <array>
 #include <fstream>
 #include <iostream>
 #include <string>
-
-#include "Geometry/MeshReader.h"
-#include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Lut.h"
-
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "Modules/Module.h"
-#include "Modules/Modules.h"
-#include <Solver/MultipleSimulations.h>
 
 namespace seissol {
 class SeisSol;
@@ -61,11 +60,9 @@ struct EnergiesStorage {
 class EnergyOutput : public Module {
   public:
   void init(GlobalData* newGlobal,
-            seissol::initializer::DynamicRupture* newDynRup,
-            seissol::initializer::LTSTree* newDynRuptTree,
-            seissol::geometry::MeshReader* newMeshReader,
-            seissol::initializer::LTSTree* newLtsTree,
-            seissol::initializer::LTS* newLts,
+            const DynamicRupture::Storage& newDynRuptTree,
+            const seissol::geometry::MeshReader& newMeshReader,
+            const LTS::Storage& newStorage,
             bool newIsPlasticityEnabled,
             const std::string& outputFileNamePrefix,
             const seissol::initializer::parameters::EnergyOutputParameters& parameters);
@@ -119,27 +116,20 @@ class EnergyOutput : public Module {
   std::string outputFileName;
   std::ofstream out;
 
-#ifdef ACL_DEVICE
-  real* timeDerivativePlusHost = nullptr;
-  real* timeDerivativeMinusHost = nullptr;
-  real* timeDerivativePlusHostMapped = nullptr;
-  real* timeDerivativeMinusHostMapped = nullptr;
-#endif
-
   const GlobalData* global = nullptr;
-  seissol::initializer::DynamicRupture* dynRup = nullptr;
-  seissol::initializer::LTSTree* dynRupTree = nullptr;
-  seissol::geometry::MeshReader* meshReader = nullptr;
-  seissol::initializer::LTSTree* ltsTree = nullptr;
-  seissol::initializer::LTS* lts = nullptr;
+  const DynamicRupture::Storage* drStorage = nullptr;
+  const seissol::geometry::MeshReader* meshReader = nullptr;
+  const LTS::Storage* ltsStorage = nullptr;
+
+  parallel::runtime::StreamRuntime stream;
 
   EnergiesStorage energiesStorage{};
-  std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold;
-  std::array<double, multisim::NumSimulations> minTimeSinceMomentRateBelowThreshold;
+  std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold{};
+  std::array<double, multisim::NumSimulations> minTimeSinceMomentRateBelowThreshold{};
   double terminatorMaxTimePostRupture{};
   double energyOutputInterval{};
   double terminatorMomentRateThreshold{};
-  std::array<double, multisim::NumSimulations> seismicMomentPrevious;
+  std::array<double, multisim::NumSimulations> seismicMomentPrevious{};
 };
 
 } // namespace writer

@@ -21,7 +21,7 @@ template <class TPMethod>
 class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
   public:
   using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
-  using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::copyLtsTreeToLocal;
+  using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::copyStorageToLocal;
 
 /**
  * Integrates the state variable ODE in time
@@ -43,9 +43,9 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
                                            double localSlipRate) const {
     const double localSl0 = this->sl0[faceIndex][pointIndex];
     const double preexp1 = -localSlipRate * (timeIncrement / localSl0);
-    const double exp1 = std::exp(preexp1);
+    const double exp1v = std::exp(preexp1);
     const double exp1m = -std::expm1(preexp1);
-    return stateVarReference * exp1 + localSl0 / localSlipRate * exp1m;
+    return stateVarReference * exp1v + localSl0 / localSlipRate * exp1m;
   }
 };
 

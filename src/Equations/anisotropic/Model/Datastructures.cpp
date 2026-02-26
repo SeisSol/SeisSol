@@ -7,15 +7,20 @@
 // SPDX-FileContributor: Sebastian Wolf
 
 #include "Datastructures.h"
+
 #include "Equations/elastic/Model/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Model/CommonDatastructures.h"
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
+
+#include <Eigen/Core>
 #include <Eigen/Dense>
+#include <Eigen/Eigenvalues>
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::model {
@@ -28,9 +33,8 @@ double AnisotropicMaterial::getMuBar() const { return (c44 + c55 + c66) / 3.0; }
 AnisotropicMaterial::AnisotropicMaterial() = default;
 
 AnisotropicMaterial::AnisotropicMaterial(const ElasticMaterial& m)
-    : c11(m.lambda + 2 * m.mu), c12(m.lambda), c13(m.lambda), c14(0), c15(0), c16(0),
-      c22(m.lambda + 2 * m.mu), c23(m.lambda), c24(0), c25(0), c26(0), c33(m.lambda + 2 * m.mu),
-      c34(0), c35(0), c36(0), c44(m.mu), c45(0), c46(0), c55(m.mu), c56(0), c66(m.mu) {
+    : c11(m.lambda + 2 * m.mu), c12(m.lambda), c13(m.lambda), c22(m.lambda + 2 * m.mu),
+      c23(m.lambda), c33(m.lambda + 2 * m.mu), c44(m.mu), c55(m.mu), c66(m.mu) {
   rho = m.rho;
 }
 
@@ -139,14 +143,14 @@ double AnisotropicMaterial::getMaxWaveSpeed() const {
   // An analytic solution for the maximal wave speed is hard to obtain.
   // Instead of solving an optimization problem we sample the velocitiy for
   // different directions and take the maximum.
-  auto samplingDirections = seissol_general::init::samplingDirections::view::create(
-      const_cast<double*>(seissol_general::init::samplingDirections::Values));
+  const auto samplingDirections = seissol_general::init::samplingDirections::view::create(
+      seissol_general::init::samplingDirections::Values);
 
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 3, 3>> saes;
 
   double maxEv = 0;
 
-  std::array<double, 81> fullTensor;
+  std::array<double, 81> fullTensor{};
   getFullStiffnessTensor(fullTensor);
   seissol_general::kernel::computeChristoffel computeChristoffel;
   computeChristoffel.stiffnessTensor = fullTensor.data();
@@ -181,4 +185,10 @@ double AnisotropicMaterial::getSWaveSpeed() const {
 }
 
 MaterialType AnisotropicMaterial::getMaterialType() const { return MaterialType::Anisotropic; }
+
+void AnisotropicMaterial::setLameParameters(double /*mu*/, double /*lambda*/) {
+  // no idea.
+  logError() << "Setting the Lamé parameters for anisotropic materials is not yet implemented.";
+}
+
 } // namespace seissol::model

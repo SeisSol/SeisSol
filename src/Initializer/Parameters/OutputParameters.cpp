@@ -6,9 +6,11 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "OutputParameters.h"
-#include <Equations/Datastructures.h>
-#include <Initializer/InputAux.h>
-#include <Initializer/Parameters/ParameterReader.h>
+
+#include "Equations/Datastructures.h"
+#include "Initializer/InputAux.h"
+#include "Initializer/Parameters/ParameterReader.h"
+
 #include <algorithm>
 #include <array>
 #include <limits>
@@ -117,21 +119,22 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("pickpoint");
 
   const auto printTimeInterval = reader->readWithDefault("printtimeinterval", 1);
-  const auto maxPickStore = reader->readWithDefault("maxpickstore", 50);
+
+  const auto interval = reader->readWithDefault("outputinterval", VeryLongTime);
 
   const auto outputMaskString =
       reader->readWithDefault<std::string>("outputmask", "1 1 1 1 1 1 0 0 0 0 0 0");
   const std::array<bool, 12> outputMask = convertStringToArray<bool, 12>(outputMaskString, false);
 
-  const auto pickpointFileName = reader->readWithDefault("ppfilename", std::string(""));
+  const auto pickpointFileName = reader->readPath("ppfilename");
 
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
   const auto aggregate = reader->readWithDefault("aggregateperrank", false);
 
-  reader->warnDeprecated({"noutpoints"});
+  reader->warnDeprecated({"noutpoints", "maxpickstore"});
 
   return PickpointParameters{
-      printTimeInterval, maxPickStore, outputMask, pickpointFileName, aggregate, collectiveio};
+      printTimeInterval, interval, outputMask, pickpointFileName, aggregate, collectiveio};
 }
 
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
@@ -144,14 +147,24 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
   const auto computeRotation = reader->readWithDefault("receivercomputerotation", false);
   const auto computeStrain = reader->readWithDefault("receivercomputestrain", false);
   const auto samplingInterval = reader->readWithDefault("pickdt", 0.005);
-  const auto fileName = reader->readWithDefault("rfilename", std::string(""));
+  const auto fileName = reader->readPath("rfilename");
 
   warnIntervalAndDisable(enabled, samplingInterval, "receiveroutput", "pickdt");
 
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
 
-  return ReceiverOutputParameters{
-      enabled, computeRotation, computeStrain, interval, samplingInterval, fileName, collectiveio};
+  if (enabled && !fileName.has_value()) {
+    logError() << "The off-fault receiver output is enabled, but no receiver point file was given.";
+  }
+
+  // note: we'll need to supply a filename, even if we don't use the receivers
+  return ReceiverOutputParameters{enabled,
+                                  computeRotation,
+                                  computeStrain,
+                                  interval,
+                                  samplingInterval,
+                                  fileName.value_or(""),
+                                  collectiveio};
 }
 
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {

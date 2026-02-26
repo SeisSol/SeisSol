@@ -8,11 +8,11 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_
 
+#include "Alignment.h"
 #include "Common/Constants.h"
+#include "Common/Executor.h"
 #include "DynamicRupture/Misc.h"
 #include "Kernels/Precision.h"
-#include <Alignment.h>
-#include <Common/Executor.h>
 
 namespace seissol::dr {
 
@@ -21,7 +21,17 @@ namespace seissol::dr {
  * Carsten Uphoff's dissertation equation (4.51)
  */
 struct ImpedancesAndEta {
-  real zp, zs, zpNeig, zsNeig, etaP, etaS, invEtaS, invZp, invZs, invZpNeig, invZsNeig;
+  real zp{};
+  real zs{};
+  real zpNeig{};
+  real zsNeig{};
+  real etaP{};
+  real etaS{};
+  real invEtaS{};
+  real invZp{};
+  real invZs{};
+  real invZpNeig{};
+  real invZsNeig{};
 };
 
 /**
@@ -47,10 +57,10 @@ struct TractionResults;
  */
 template <>
 struct FaultStresses<Executor::Host> {
-  alignas(Alignment) real normalStress[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real traction1[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real traction2[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real fluidPressure[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real normalStress[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real traction1[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real traction2[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real fluidPressure[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
 };
 
 /**
@@ -59,8 +69,8 @@ struct FaultStresses<Executor::Host> {
  */
 template <>
 struct TractionResults<Executor::Host> {
-  alignas(Alignment) real traction1[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real traction2[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real traction1[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real traction2[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
 };
 
 /**
@@ -70,10 +80,10 @@ struct TractionResults<Executor::Host> {
  */
 template <>
 struct FaultStresses<Executor::Device> {
-  real normalStress[ConvergenceOrder] = {{}};
-  real traction1[ConvergenceOrder] = {{}};
-  real traction2[ConvergenceOrder] = {{}};
-  real fluidPressure[ConvergenceOrder] = {{}};
+  real normalStress[misc::TimeSteps] = {{}};
+  real traction1[misc::TimeSteps] = {{}};
+  real traction2[misc::TimeSteps] = {{}};
+  real fluidPressure[misc::TimeSteps] = {{}};
 };
 
 /**
@@ -82,8 +92,8 @@ struct FaultStresses<Executor::Device> {
  */
 template <>
 struct TractionResults<Executor::Device> {
-  real traction1[ConvergenceOrder] = {{}};
-  real traction2[ConvergenceOrder] = {{}};
+  real traction1[misc::TimeSteps] = {{}};
+  real traction2[misc::TimeSteps] = {{}};
 };
 
 } // namespace seissol::dr
