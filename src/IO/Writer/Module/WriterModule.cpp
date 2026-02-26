@@ -17,7 +17,6 @@
 #include "SeisSol.h"
 
 #include <cassert>
-#include <cmath>
 #include <cstring>
 #include <optional>
 #include <string>
@@ -84,7 +83,6 @@ void WriterModule::syncPoint(double time) {
   logInfo() << "Output Writer" << settings.name << ": preparing write at" << time;
 
   // request the write plan
-  auto writeCount = static_cast<int>(std::round(time / syncInterval()));
   auto writer = settings.planWrite(prefix, writeCount, time);
 
   // prepare the data in the plan
@@ -99,7 +97,7 @@ void WriterModule::syncPoint(double time) {
           // NOTE: the following structure is suboptimal, because it's not respecting basic OOP
           // practices. Not sure, if it's important to really care about that... But there may be
           // more beautiful ways for some day.
-          auto id = [&]() -> int {
+          const auto id = [&]() -> int {
             if (dynamic_cast<WriteBuffer*>(dataSource.get()) != nullptr) {
               // pass-through buffer
               auto* writeBuffer = dynamic_cast<WriteBuffer*>(dataSource.get());
@@ -177,6 +175,7 @@ void WriterModule::syncPoint(double time) {
 
   logInfo() << "Output Writer" << settings.name << ": triggering write at" << time;
   lastWrite = time;
+  ++writeCount;
   call(AsyncWriterExec{});
 }
 

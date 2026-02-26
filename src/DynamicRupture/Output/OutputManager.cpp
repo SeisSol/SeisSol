@@ -7,17 +7,18 @@
 
 #include "DynamicRupture/Output/OutputManager.h"
 
+#include "Common/Constants.h"
 #include "Common/Filesystem.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.h"
 #include "DynamicRupture/Output/Builders/PickPointBuilder.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
-#include "DynamicRupture/Output/OutputAux.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
-#include "IO/Instance/Mesh/VtkHdf.h"
+#include "IO/Instance/Geometry/Geometry.h"
+#include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Writer/Writer.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/OutputParameters.h"
@@ -29,13 +30,14 @@
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Runtime/Stream.h"
-#include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <ctime>
 #include <fstream>
@@ -46,7 +48,6 @@
 #include <ostream>
 #include <sstream>
 #include <string>
-#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -187,111 +188,107 @@ void OutputManager::initElementwiseOutput() {
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
 
   const auto& receiverPoints = ewOutputData->receiverPoints;
-  const auto cellConnectivity = getCellConnectivity(receiverPoints);
-  const auto faultTags = getFaultTags(receiverPoints);
-  const auto vertices = getAllVertices(receiverPoints);
-  constexpr auto MaxNumVars = std::tuple_size_v<DrVarsT>;
-  const auto outputMask = seissolParameters.output.elementwiseParameters.outputMask;
-  const auto intMask = convertMaskFromBoolToInt<MaxNumVars>(outputMask);
 
-  const double printTime = seissolParameters.output.elementwiseParameters.printTimeIntervalSec;
-  const auto backendType = seissolParameters.output.xdmfWriterBackend;
+  const double writeInterval = seissolParameters.output.elementwiseParameters.printTimeIntervalSec;
 
-  if (seissolParameters.output.elementwiseParameters.vtkorder < 0) {
-    std::vector<real*> dataPointers;
-    auto recordPointers = [&dataPointers](auto& var, int) {
-      if (var.isActive) {
-        for (std::size_t dim = 0; dim < var.dim(); ++dim) {
-          dataPointers.push_back(var[dim]);
+  const auto orderPre = seissolParameters.output.elementwiseParameters.vtkorder;
+
+  const auto order = static_cast<uint32_t>(std::max(0, orderPre));
+
+  const auto dataCount =
+      io::instance::geometry::numPoints(order, io::instance::geometry::Shape::Triangle);
+  const auto pointCount = io::instance::geometry::numPoints(
+      std::max(order, 1U), io::instance::geometry::Shape::Triangle);
+
+  const auto config = io::instance::geometry::WriterConfig{
+      order,
+      orderPre < 0 ? io::instance::geometry::WriterFormat::Xdmf
+                   : io::instance::geometry::WriterFormat::Vtk,
+      seissolParameters.output.xdmfWriterBackend ==
+              seissol::initializer::parameters::XdmfBackend::Posix
+          ? io::instance::geometry::WriterBackend::Binary
+          : io::instance::geometry::WriterBackend::Hdf5,
+      io::instance::geometry::WriterGroup::FullSnapshot,
+      seissolParameters.output.hdfcompress};
+
+  auto writer = io::instance::geometry::GeometryWriter("fault-elementwise",
+                                                       receiverPoints.size() / dataCount /
+                                                           multisim::NumSimulations,
+                                                       io::instance::geometry::Shape::Triangle,
+                                                       config,
+                                                       1);
+
+  writer.addPointProjector([=](double* target, std::size_t index, std::size_t) {
+    if (order > 0) {
+      for (std::size_t i = 0; i < pointCount; ++i) {
+        for (std::size_t j = 0; j < Cell::Dim; ++j) {
+          target[i * Cell::Dim + j] =
+              receiverPoints[(pointCount * index + i) * multisim::NumSimulations].global.coords[j];
         }
       }
-    };
-    misc::forEach(ewOutputData->vars, recordPointers);
-
-    std::vector<unsigned> faceIdentifiers(receiverPoints.size());
-
-#pragma omp parallel for schedule(static)
-    for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
-      faceIdentifiers[i] =
-          receiverPoints[i].elementGlobalIndex * 4 + receiverPoints[i].localFaceSideId;
+    } else {
+      const auto& triangle = receiverPoints[index * multisim::NumSimulations].globalTriangle;
+      for (std::size_t i = 0; i < pointCount; ++i) {
+        for (std::size_t j = 0; j < Cell::Dim; ++j) {
+          target[i * Cell::Dim + j] = triangle.point(i).coords[j];
+        }
+      }
     }
+  });
 
-    seissolInstance.faultWriter().init(cellConnectivity.data(),
-                                       vertices.data(),
-                                       faultTags.data(),
-                                       faceIdentifiers.data(),
-                                       static_cast<unsigned int>(receiverPoints.size()),
-                                       static_cast<unsigned int>(3 * receiverPoints.size()),
-                                       &intMask[0],
-                                       const_cast<const real**>(dataPointers.data()),
-                                       seissolParameters.output.prefix.data(),
-                                       printTime,
-                                       backendType,
-                                       backupTimeStamp);
+  const auto rank = seissol::Mpi::mpi.rank();
+  writer.addCellData<int>(
+      "partition", {}, true, [=](int* target, std::size_t, std::size_t) { target[0] = rank; });
 
-    seissolInstance.faultWriter().setupCallbackObject(this);
-  } else {
-    // Code to be refactored.
+  writer.addCellData<int>(
+      "fault-tag", {}, true, [=, &receiverPoints](int* target, std::size_t index, std::size_t) {
+        *target = receiverPoints[index * multisim::NumSimulations].faultTag;
+      });
 
-    auto order = seissolParameters.output.elementwiseParameters.vtkorder;
-    if (order == 0) {
-      logError() << "VTK order 0 is currently not supported for the elementwise fault output.";
+  writer.addCellData<std::size_t>(
+      "global-id",
+      {},
+      true,
+      [=, &receiverPoints](std::size_t* target, std::size_t index, std::size_t) {
+        *target = receiverPoints[index * multisim::NumSimulations].elementGlobalIndex * 4 +
+                  receiverPoints[index * multisim::NumSimulations].localFaceSideId;
+      });
+
+  misc::forEach(ewOutputData->vars, [&](const auto& var, int i) {
+    if (var.isActive) {
+      for (std::size_t d = 0; d < var.dim(); ++d) {
+        const auto* data = var[d];
+        const auto variableName = [&](std::size_t d, std::size_t s) {
+          if constexpr (multisim::MultisimEnabled) {
+            return VariableLabels[i][d] + "-" + std::to_string(s);
+          } else {
+            return VariableLabels[i][d];
+          }
+        };
+        for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
+          writer.addGeometryOutput<real>(
+              variableName(d, s),
+              std::vector<std::size_t>(),
+              false,
+              [=](real* target, std::size_t index, std::size_t) {
+                for (std::size_t i = 0; i < dataCount; ++i) {
+                  target[i] = data[(dataCount * index + i) * multisim::NumSimulations + s];
+                }
+              });
+        }
+      }
     }
+  });
 
-    io::instance::mesh::VtkHdfWriter writer("fault-elementwise",
-                                            receiverPoints.size() /
-                                                seissol::init::vtk2d::Shape[order][1],
-                                            2,
-                                            order);
+  auto& self = *this;
+  writer.addHook([&](std::size_t, double) { self.updateElementwiseOutput(); });
 
-    writer.addPointProjector([=](double* target, std::size_t index) {
-      for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
-        for (int j = 0; j < 3; ++j) {
-          target[i * 3 + j] =
-              receiverPoints[seissol::init::vtk2d::Shape[order][1] * index + i].global.coords[j];
-        }
-      }
-    });
+  io::writer::ScheduledWriter schedWriter;
+  schedWriter.interval = writeInterval;
+  schedWriter.name = "fault-elementwise";
+  schedWriter.planWrite = writer.makeWriter();
 
-    writer.addCellData<int>("fault-tag", {}, [=, &receiverPoints](int* target, std::size_t index) {
-      *target = receiverPoints[index].faultTag;
-    });
-
-    writer.addCellData<std::size_t>(
-        "global-id", {}, [=, &receiverPoints](std::size_t* target, std::size_t index) {
-          *target =
-              receiverPoints[index].elementGlobalIndex * 4 + receiverPoints[index].localFaceSideId;
-        });
-
-    misc::forEach(ewOutputData->vars, [&](const auto& var, int i) {
-      if (var.isActive) {
-        for (std::size_t d = 0; d < var.dim(); ++d) {
-          auto* data = var[d];
-          writer.addPointData<real>(VariableLabels[i][d],
-                                    std::vector<std::size_t>(),
-                                    [=](real* target, std::size_t index) {
-                                      std::memcpy(
-                                          target,
-                                          data + seissol::init::vtk2d::Shape[order][1] * index,
-                                          sizeof(real) * seissol::init::vtk2d::Shape[order][1]);
-                                    });
-        }
-      }
-    });
-
-    auto& self = *this;
-    writer.addHook([&](std::size_t, double currentTime) {
-      seissolInstance.dofSync().syncDofs(currentTime);
-      self.updateElementwiseOutput();
-    });
-
-    io::writer::ScheduledWriter schedWriter;
-    schedWriter.interval = printTime;
-    schedWriter.name = "fault-elementwise";
-    schedWriter.planWrite = writer.makeWriter();
-
-    seissolInstance.getOutputManager().addOutput(schedWriter);
-  }
+  seissolInstance.getOutputManager().addOutput(schedWriter);
 }
 
 void OutputManager::initPickpointOutput() {
@@ -366,10 +363,10 @@ void OutputManager::initPickpointOutput() {
       for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
         size_t labelCounter = 0;
         auto collectVariableNames =
-            [&baseHeader, &labelCounter, &simIndex, &pointIndex, suffix](const auto& var, int) {
+            [&baseHeader, &labelCounter, &simIndex, &pointIndex, suffix](const auto& var, int i) {
               if (var.isActive) {
                 for (std::size_t dim = 0; dim < var.dim(); ++dim) {
-                  baseHeader << " ,\"" << writer::FaultWriterExecutor::getLabelName(labelCounter)
+                  baseHeader << " ,\"" << VariableLabels[i][dim]
                              << suffix(pointIndex + 1, simIndex + 1) << '\"';
                   ++labelCounter;
                 }

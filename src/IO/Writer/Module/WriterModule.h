@@ -52,6 +52,7 @@ class WriterModule : public seissol::Module, private AsyncWriterModule {
   std::unordered_map<std::size_t, std::vector<int>> bufferMap;
   ScheduledWriter settings;
   double lastWrite{-1};
+  std::size_t writeCount{0};
   const parallel::Pinning& pinning;
 
   // TODO: remove?

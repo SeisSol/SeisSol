@@ -91,11 +91,7 @@ void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
 }
 
 void closeSeisSol(seissol::SeisSol& seissolInstance) {
-  logInfo() << "Closing IO.";
-  // cleanup IO
-  seissolInstance.waveFieldWriter().close();
-  seissolInstance.faultWriter().close();
-  seissolInstance.freeSurfaceWriter().close();
+  logInfo() << "Cleaning up memory.";
 
   // deallocate memory manager
   seissolInstance.deleteMemoryManager();
