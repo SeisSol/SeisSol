@@ -111,7 +111,7 @@ class Storage {
             },
             identifier.config);
       };
-      m.alignmentLayer = [count](const LayerIdentifier& identifier) {
+      m.alignmentLayer = [](const LayerIdentifier& identifier) {
         return std::visit(
             [&](auto type) {
               using SelfT = typename TraitT::template VariantType<decltype(type)>;
@@ -128,7 +128,7 @@ class Storage {
       m.bytesLayer = [count](const LayerIdentifier& /*identifier*/) {
         return sizeof(SelfT) * count;
       };
-      m.alignmentLayer = [count](const LayerIdentifier& /*identifier*/) { return alignof(SelfT); };
+      m.alignmentLayer = [](const LayerIdentifier& /*identifier*/) { return alignof(SelfT); };
     }
 
     const auto bytesLayer = m.bytesLayer;
