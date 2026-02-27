@@ -111,12 +111,24 @@ class Storage {
             },
             identifier.config);
       };
+      m.alignmentLayer = [count](const LayerIdentifier& identifier) {
+        return std::visit(
+            [&](auto type) {
+              using SelfT = typename TraitT::template VariantType<decltype(type)>;
+              if constexpr (!std::is_same_v<void, SelfT>) {
+                return alignof(SelfT);
+              }
+              return static_cast<std::size_t>(sizeof(void*));
+            },
+            identifier.config);
+      };
     } else {
       using SelfT = typename TraitT::Type;
       m.bytes = sizeof(SelfT) * count;
       m.bytesLayer = [count](const LayerIdentifier& /*identifier*/) {
         return sizeof(SelfT) * count;
       };
+      m.alignmentLayer = [count](const LayerIdentifier& /*identifier*/) { return alignof(SelfT); };
     }
 
     const auto bytesLayer = m.bytesLayer;
