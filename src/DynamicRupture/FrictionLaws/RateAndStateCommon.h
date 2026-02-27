@@ -93,13 +93,7 @@ SEISSOL_HOSTDEVICE constexpr T arsinhexp(T x, T expLog, T exp) {
 #pragma omp declare simd
 template <typename T>
 SEISSOL_HOSTDEVICE constexpr T computeCExp(T cExpLog) {
-  T cExp{};
-  if (cExpLog > 0) {
-    cExp = std::exp(-cExpLog);
-  } else {
-    cExp = std::exp(cExpLog);
-  }
-  return cExp;
+  return std::exp(-std::fabs(cExpLog));
 }
 
 /**
