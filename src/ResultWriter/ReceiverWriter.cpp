@@ -79,20 +79,10 @@ std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileNa
 }
 
 // --------------------------------------------------------------------------
-// Instead of multiple ASCII files, we keep one HDF5 writer
-static std::unique_ptr<ParallelHdf5ReceiverWriter> g_hdf5Writer = nullptr;
-
-// We'll also keep track of how many time samples we've written so far
-static hsize_t g_nextTimeOffset = 0;
-
-// Keep track of how many receivers exist globally
-static hsize_t g_totalReceivers = 0;
-
-// We'll store each rank's offset in the "receiver" dimension
-static hsize_t g_localReceiverOffset = 0;
-
-// This is the new single-file name
-static std::string hdf5FileName(const std::string& prefix) { return prefix + "_receivers.h5"; }
+// Helper function for HDF5 output file name
+std::string ReceiverWriter::hdf5FileName(const std::string& prefix) {
+  return prefix + "_receivers.h5";
+}
 
 void ReceiverWriter::init(
     const std::string& fileNamePrefix,
@@ -192,8 +182,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
       // but not needed for HDF5 (unless you want coordinate attributes).
       localReceiverCount++;
 
-      m_receiverClusters[id]->addReceiver(
-          meshId, point, points[point], mesh, backmap);
+      m_receiverClusters[id]->addReceiver(meshId, point, points[point], mesh, backmap);
     }
   }
 
@@ -201,25 +190,25 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   // Now, sum up total # of receivers across ranks
   hsize_t localCountH = static_cast<hsize_t>(localReceiverCount);
   MPI_Allreduce(&localCountH,
-                &g_totalReceivers,
+                &m_totalReceivers,
                 1,
                 MPI_UNSIGNED_LONG_LONG,
                 MPI_SUM,
                 seissol::Mpi::mpi.comm());
 
-  logInfo(rank) << "Total number of receivers: " << g_totalReceivers;
+  logInfo(rank) << "Total number of receivers: " << m_totalReceivers;
 
   // We also need the offset in the "receivers" dimension for this rank
   MPI_Scan(&localCountH,
-           &g_localReceiverOffset,
+           &m_localReceiverOffset,
            1,
            MPI_UNSIGNED_LONG_LONG,
            MPI_SUM,
            seissol::Mpi::mpi.comm());
-  g_localReceiverOffset -= localCountH; // so the rank's chunk starts at "offset"
+  m_localReceiverOffset -= localCountH; // so the rank's chunk starts at "offset"
 
   // We can now open the single HDF5 file if not done yet:
-  if (g_hdf5Writer == nullptr) {
+  if (m_hdf5Writer == nullptr) {
 
     // Find the local maximum ncols
     unsigned localNcols = 0;
@@ -243,14 +232,14 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
     // Compute total number of time steps from simulation end time and sampling interval
     hsize_t totalTimeSteps = static_cast<hsize_t>(std::ceil(m_endTime / m_samplingInterval));
 
-    g_hdf5Writer = std::make_unique<ParallelHdf5ReceiverWriter>(seissol::Mpi::mpi.comm(),
+    m_hdf5Writer = std::make_unique<ParallelHdf5ReceiverWriter>(seissol::Mpi::mpi.comm(),
                                                                 hdf5FileName(m_fileNamePrefix),
-                                                                g_totalReceivers,
+                                                                m_totalReceivers,
                                                                 globalNcols,
                                                                 totalTimeSteps);
   }
 
-  g_hdf5Writer->writeCoordinates(points);
+  m_hdf5Writer->writeCoordinates(points);
 }
 
 // --------------------------------------------------------------------------
@@ -271,7 +260,7 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
   }
 
   bool noData = (localReceiverCount == 0 || totalNewSamples == 0);
-  auto actualOffset = noData ? 0 : g_localReceiverOffset;
+  auto actualOffset = noData ? 0 : m_localReceiverOffset;
   auto actualTimeCount = noData ? 0 : totalNewSamples;
   auto actualRecCount = noData ? 0 : localReceiverCount;
 
@@ -310,16 +299,16 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
   }
 
   std::vector<double> emptyBuffer;
-  g_hdf5Writer->writeChunk(g_nextTimeOffset,
+  m_hdf5Writer->writeChunk(m_nextTimeOffset,
                            actualTimeCount,
                            actualOffset,
                            actualRecCount,
                            noData ? emptyBuffer : hdf5Data);
 
   std::vector<hsize_t> emptyPointIds;
-  g_hdf5Writer->writePointIds(actualOffset, actualRecCount, noData ? emptyPointIds : pointIds);
+  m_hdf5Writer->writePointIds(actualOffset, actualRecCount, noData ? emptyPointIds : pointIds);
 
-  g_nextTimeOffset += totalNewSamples;
+  m_nextTimeOffset += totalNewSamples;
 }
 
 // --------------------------------------------------------------------------
@@ -334,7 +323,7 @@ void ReceiverWriter::shutdown() {
   for (auto& cluster : m_receiverClusters) {
     cluster->freeData();
   }
-  g_hdf5Writer.reset();
+  m_hdf5Writer.reset();
 }
 
 // --------------------------------------------------------------------------

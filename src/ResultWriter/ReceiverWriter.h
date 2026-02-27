@@ -51,6 +51,8 @@
 #include "Monitoring/Stopwatch.h"
 
 #include <Eigen/Dense>
+#include <hdf5.h>
+#include <memory>
 #include <string_view>
 #include <vector>
 
@@ -62,6 +64,8 @@ namespace initializer::parameters {
 struct ReceiverOutputParameters; // forward declaration
 } // namespace initializer::parameters
 } // namespace seissol
+
+class ParallelHdf5ReceiverWriter;
 
 namespace seissol::writer {
 
@@ -116,11 +120,7 @@ class ReceiverWriter : public seissol::Module {
   void shutdown() override;
 
   private:
-  /** Not used for HDF5, but remains for legacy or potential metadata. */
-  [[nodiscard]] std::string fileName(unsigned pointId) const;
-
-  /** Not used for HDF5, but remains for potential coordinate attributes, etc. */
-  void writeHeader(unsigned pointId, const Eigen::Vector3d& point);
+  static std::string hdf5FileName(const std::string& prefix);
 
   // -- Members --
   std::string m_receiverFileName;
@@ -132,6 +132,18 @@ class ReceiverWriter : public seissol::Module {
   std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity>> derivedQuantities;
 
   std::vector<std::shared_ptr<kernels::ReceiverCluster>> m_receiverClusters;
+
+  /// Parallel HDF5 writer for receiver data
+  std::unique_ptr<ParallelHdf5ReceiverWriter> m_hdf5Writer;
+
+  /// Current time offset for HDF5 writes
+  hsize_t m_nextTimeOffset{0};
+
+  /// Total number of receivers across all ranks
+  hsize_t m_totalReceivers{0};
+
+  /// This rank's offset in the receiver dimension
+  hsize_t m_localReceiverOffset{0};
 
   /// Stopwatch for timing I/O
   Stopwatch m_stopwatch;
