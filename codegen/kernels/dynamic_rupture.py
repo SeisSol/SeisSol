@@ -9,10 +9,11 @@
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor, simpleParameterSpace
+from yateto.ast.node import Add
 from yateto.input import parseJSONMatrixFile
 
 
-def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
+def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpu):
 
     clones = dict()
 
@@ -120,6 +121,53 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
             interpolateQPrefetch if target == "cpu" else None,
             target=target,
         )
+
+    steps = aderdg.order
+    scalars = [
+        [Scalar(f"coeffDR({i * aderdg.order + p})") for p in range(aderdg.order)]
+        for i in range(steps)
+    ]
+    QDR = [
+        OptionalDimTensor(
+            f"QDR({i})",
+            aderdg.Q.optName(),
+            aderdg.Q.optSize(),
+            aderdg.Q.optPos(),
+            gShape,
+            alignStride=True,
+        )
+        for i in range(steps)
+    ]
+
+    def multiInterpolateQ(i, h):
+        # TODO: tensorize?
+
+        calc = []
+        for c in range(steps):
+            interm = Add()
+            for p in range(aderdg.order):
+                interm = interm + scalars[c][p] * aderdg.dQs[p]["lq"]
+
+            if isOldGpu:
+                # the "old" GPU implementation (gemmforge/chainforge) needs an explicit intermediate
+                calc += [aderdg.I["lq"] <= interm]
+                interm = aderdg.I["lq"]
+
+            calc += [
+                QDR[c]["kp"] <= db.V3mTo2n[i, h][aderdg.t("kl")] * interm * TinvT["qp"]
+            ]
+        return calc
+
+    for target in targets:
+        if target == "gpu":
+            name_prefix = generate_kernel_name_prefix(target)
+            generator.addFamily(
+                f"{name_prefix}projectToDR",
+                simpleParameterSpace(4, 4),
+                multiInterpolateQ,
+                None,
+                target=target,
+            )
 
     nodalFluxGenerator = (
         lambda i, h: aderdg.extendedQTensor()["kp"]
