@@ -1,10 +1,17 @@
-#ifndef SEISSOL_ODEINT_H
-#define SEISSOL_ODEINT_H
+// SPDX-FileCopyrightText: 2020 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <Eigen/Dense>
+#ifndef SEISSOL_SRC_NUMERICAL_ODEINT_H_
+#define SEISSOL_SRC_NUMERICAL_ODEINT_H_
 
 #include "Kernels/Precision.h"
 #include "ODEVector.h"
+
+#include <Eigen/Dense>
 #include <cassert>
 
 namespace seissol::ode {
@@ -32,23 +39,15 @@ struct ODESolverConfig {
   explicit ODESolverConfig(double initialDt) : initialDt(initialDt) {};
 };
 
-int getNumberOfStages(RungeKuttaVariant variant);
-
-void initializeRungeKuttaScheme(RungeKuttaVariant variant,
-                                int& numberOfStages,
-                                Eigen::MatrixXd& a,
-                                Eigen::VectorXd& b,
-                                Eigen::VectorXd& c);
-
 class RungeKuttaODESolver {
   private:
   ODESolverConfig config;
   int numberOfStages{};
 
   // Coefficients
-  Eigen::MatrixXd a;
-  Eigen::VectorXd b;
-  Eigen::VectorXd c;
+  std::vector<double> a;
+  std::vector<double> b;
+  std::vector<double> c;
 
   // Temporary storage
   std::vector<ODEVector> stages;
@@ -81,8 +80,8 @@ class RungeKuttaODESolver {
         buffer.copyFrom(curValue);
         // j < i due to explict RK scheme
         for (auto j = 0U; j < i; ++j) {
-          if (a(i, j) != 0.0) {
-            const auto curWeight = a(i, j) * adjustedDt;
+          if (a[i * numberOfStages + j] != 0.0) {
+            const auto curWeight = a[i * numberOfStages + j] * adjustedDt;
             buffer.weightedAddInplace(curWeight, stages[j]);
           }
         }
@@ -102,4 +101,4 @@ class RungeKuttaODESolver {
 
 } // namespace seissol::ode
 
-#endif // SEISSOL_ODEINT_H
+#endif // SEISSOL_SRC_NUMERICAL_ODEINT_H_

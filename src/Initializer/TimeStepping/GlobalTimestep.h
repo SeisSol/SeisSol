@@ -1,9 +1,16 @@
-#ifndef GLOBAL_TIMESTEP_HPP_
-#define GLOBAL_TIMESTEP_HPP_
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_GLOBALTIMESTEP_H_
+#define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_GLOBALTIMESTEP_H_
+#include "Initializer/ParameterDB.h"
+
 #include <string>
 #include <vector>
-
-#include "Initializer/ParameterDB.h"
 
 namespace seissol::initializer {
 struct GlobalTimestep {
@@ -17,11 +24,8 @@ struct SeisSolParameters;
 } // namespace parameters
 
 GlobalTimestep
-    computeTimesteps(double cfl,
-                     double maximumAllowedTimeStep,
-                     const std::string& velocityModel,
-                     const seissol::initializer::CellToVertexArray& cellToVertex,
+    computeTimesteps(const seissol::initializer::CellToVertexArray& cellToVertex,
                      const seissol::initializer::parameters::SeisSolParameters& seissolParams);
 } // namespace seissol::initializer
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_TIMESTEPPING_GLOBALTIMESTEP_H_

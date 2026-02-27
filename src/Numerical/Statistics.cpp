@@ -1,19 +1,24 @@
-/**
- * @author Lukas Krenz (lukas.krenz AT tum.de)
- * @author Carsten Uphoff (c.uphoff AT tum.de)
- **/
+// SPDX-FileCopyrightText: 2019 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Lukas Krenz
+// SPDX-FileContributor: Carsten Uphoff
 
 #include "Statistics.h"
 
 #include "Parallel/MPI.h"
+
 #include <algorithm>
 #include <cmath>
 #include <vector>
 
 seissol::statistics::Summary::Summary(double value)
-    : mean(value), std(0.0), min(value), median(value), max(value) {}
+    : mean(value), min(value), median(value), max(value) {}
 
-seissol::statistics::Summary::Summary(const std::vector<double>& values) : median(-1) {
+seissol::statistics::Summary::Summary(const std::vector<double>& values) {
   std::vector<double> sortedValues(values);
   std::sort(sortedValues.begin(), sortedValues.end());
 
@@ -28,30 +33,28 @@ seissol::statistics::Summary::Summary(const std::vector<double>& values) : media
   min = sortedValues[0];
   max = sortedValues[n - 1];
 
-  mean = 0.0;
-  auto meanOfSquares = 0.0;
+  sum = 0.0;
   for (const auto num : sortedValues) {
-    mean += num;
-    meanOfSquares += num * num;
+    sum += num;
+  }
+  mean = sum / n;
+
+  auto variance = 0.0;
+  for (const auto num : sortedValues) {
+    const auto diff = mean - num;
+    variance += diff * diff;
   }
 
-  mean /= n;
-  meanOfSquares /= n;
+  variance /= n;
 
-  // Note that this computation is numerically unstable!
-  const auto variance = meanOfSquares - mean * mean;
   std = std::sqrt(variance);
 }
 
 auto seissol::statistics::parallelSummary(double value) -> Summary {
-#ifdef USE_MPI
-  auto collect = seissol::MPI::mpi.collect(value);
-  const int rank = seissol::MPI::mpi.rank();
+  auto collect = seissol::Mpi::mpi.collect(value);
+  const int rank = seissol::Mpi::mpi.rank();
   if (rank == 0) {
     return Summary(collect);
   }
-  return {};
-#else
-  return Summary(value);
-#endif
+  return Summary();
 }

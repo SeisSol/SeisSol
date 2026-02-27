@@ -1,12 +1,16 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_BINARY_H_
 #define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_BINARY_H_
 
 #include "Data.h"
 #include "Instruction.h"
+
 #include <memory>
 #include <string>
 #include <yaml-cpp/yaml.h>

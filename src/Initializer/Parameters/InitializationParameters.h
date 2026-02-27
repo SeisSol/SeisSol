@@ -1,11 +1,18 @@
-#ifndef SEISSOL_INITIALIZATION_PARAMETERS_H
-#define SEISSOL_INITIALIZATION_PARAMETERS_H
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <Eigen/Dense>
+#ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_INITIALIZATIONPARAMETERS_H_
+#define SEISSOL_SRC_INITIALIZER_PARAMETERS_INITIALIZATIONPARAMETERS_H_
 
 #include "Equations/Datastructures.h"
 #include "Initializer/InputAux.h"
 #include "ParameterReader.h"
+
+#include <Eigen/Dense>
 
 namespace seissol::initializer::parameters {
 
@@ -25,18 +32,19 @@ enum class InitializationType : int {
 };
 
 struct InitializationParameters {
-  InitializationType type;
+  InitializationType type{InitializationType::Zero};
   Eigen::Vector3d origin;
   Eigen::Vector3d kVec;
   Eigen::Vector<double, seissol::model::MaterialT::NumQuantities> ampField;
-  double magnitude;
-  double width;
-  double k;
+  double magnitude{};
+  double width{};
+  double k{};
   std::string filename;
-  bool hasTime;
+  bool hasTime{false};
+  bool avoidIC{false};
 };
 
 InitializationParameters readInitializationParameters(ParameterReader* baseReader);
 } // namespace seissol::initializer::parameters
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_INITIALIZATIONPARAMETERS_H_

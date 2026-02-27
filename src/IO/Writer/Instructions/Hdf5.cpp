@@ -1,21 +1,24 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Hdf5.h"
 
 #include "Data.h"
-#include <IO/Datatype/Datatype.h>
+#include "IO/Datatype/Datatype.h"
+
 #include <cassert>
 #include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
+#include <utils/stringutils.h>
 #include <vector>
 #include <yaml-cpp/yaml.h>
-
-#include "utils/stringutils.h"
 
 namespace seissol::io::writer::instructions {
 Hdf5Location::Hdf5Location(const std::string& longstring) {
@@ -82,9 +85,8 @@ Hdf5AttributeWrite::Hdf5AttributeWrite(const Hdf5Location& location,
     : location(location), name(name), dataSource(std::move(dataSource)) {}
 
 Hdf5AttributeWrite::Hdf5AttributeWrite(YAML::Node node)
-    : name(node["name"].as<std::string>()),
-      dataSource(writer::DataSource::deserialize(node["source"])),
-      location(Hdf5Location(node["location"])) {}
+    : location(Hdf5Location(node["location"])), name(node["name"].as<std::string>()),
+      dataSource(writer::DataSource::deserialize(node["source"])) {}
 
 std::vector<std::shared_ptr<DataSource>> Hdf5AttributeWrite::dataSources() { return {dataSource}; }
 
@@ -109,9 +111,9 @@ YAML::Node Hdf5DataWrite::serialize() {
 }
 
 Hdf5DataWrite::Hdf5DataWrite(YAML::Node node)
-    : name(node["name"].as<std::string>()),
+    : location(Hdf5Location(node["location"])), name(node["name"].as<std::string>()),
       dataSource(writer::DataSource::deserialize(node["source"])),
-      location(Hdf5Location(node["location"])),
+
       targetType(datatype::Datatype::deserialize(node["targetType"])),
       compress(node["compress"].as<int>()) {}
 

@@ -1,13 +1,23 @@
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "ResultWriter/ThreadsPinningWriter.h"
+
 #include "Common/Filesystem.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
-#include <Parallel/Pin.h>
+#include "Parallel/Pin.h"
+
 #include <fstream>
 #include <ios>
 #include <sched.h>
 #include <sstream>
 #include <string>
+#include <utils/env.h>
 
 #ifndef __APPLE__
 #include <sys/sysinfo.h>
@@ -62,12 +72,13 @@ PinningInfo getPinningInfo(const cpu_set_t& set) {
 } // namespace
 #endif // __APPLE__
 
-void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning) {
+void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning,
+                                                  utils::Env& env) {
 #ifndef __APPLE__
   auto workerInfo = getPinningInfo(seissol::parallel::Pinning::getWorkerUnionMask().set);
 
   PinningInfo commThreadInfo;
-  if (seissol::useCommThread(seissol::MPI::mpi)) {
+  if (seissol::useCommThread(seissol::Mpi::mpi, env)) {
     auto freeCpus = pinning.getFreeCPUsMask();
     commThreadInfo = getPinningInfo(freeCpus.set);
   } else {
@@ -76,34 +87,37 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
     commThreadInfo = getPinningInfo(emptyUnion);
   }
 
-  auto workerThreads = seissol::MPI::mpi.collectContainer(workerInfo.coreIds);
-  auto workerNumas = seissol::MPI::mpi.collectContainer(workerInfo.numaIds);
+  auto workerThreads = seissol::Mpi::mpi.collectContainer(workerInfo.coreIds);
+  auto workerNumas = seissol::Mpi::mpi.collectContainer(workerInfo.numaIds);
 
-  auto commThreads = seissol::MPI::mpi.collectContainer(commThreadInfo.coreIds);
-  auto commNumas = seissol::MPI::mpi.collectContainer(commThreadInfo.numaIds);
+  auto commThreads = seissol::Mpi::mpi.collectContainer(commThreadInfo.coreIds);
+  auto commNumas = seissol::Mpi::mpi.collectContainer(commThreadInfo.numaIds);
 
-  auto localRanks = seissol::MPI::mpi.collect(seissol::MPI::mpi.sharedMemMpiRank());
-  auto numNProcs = seissol::MPI::mpi.collect(get_nprocs());
+  auto localRanks = seissol::Mpi::mpi.collect(seissol::Mpi::mpi.sharedMemMpiRank());
+  auto numNProcs = seissol::Mpi::mpi.collect(get_nprocs());
 
-  if (seissol::MPI::mpi.rank() == 0) {
+  if (seissol::Mpi::mpi.rank() == 0) {
     seissol::filesystem::path path(outputDirectory);
     path += seissol::filesystem::path("-threadPinning.csv");
 
     std::fstream fileStream(path, std::ios::out);
-    fileStream
-        << "hostname,rank,localRank,workermask,workernuma,commthread_mask,commthread_numa,nproc\n";
+    fileStream << "hostname,device,rank,localRank,workermask,workernuma,commthread_mask,commthread_"
+                  "numa,nproc\n";
 
-    const auto& hostNames = seissol::MPI::mpi.getHostNames();
-    for (int rank = 0; rank < seissol::MPI::mpi.size(); ++rank) {
-      fileStream << "\"" << hostNames[rank] << "\"," << rank << ',' << localRanks[rank] << ",\""
-                 << workerThreads[rank] << "\",\"" << workerNumas[rank] << "\",\""
-                 << commThreads[rank] << "\",\"" << commNumas[rank] << "\"," << numNProcs[rank]
-                 << "\n";
+    const auto& hostNames = seissol::Mpi::mpi.getHostNames();
+    const auto& pcis = seissol::Mpi::mpi.getPCIAddresses();
+    const std::string nullstring;
+    for (int rank = 0; rank < seissol::Mpi::mpi.size(); ++rank) {
+      const auto& pci = pcis.empty() ? nullstring : pcis[rank];
+      fileStream << "\"" << hostNames[rank] << "\",\"" << pci << "\"," << rank << ','
+                 << localRanks[rank] << ",\"" << workerThreads[rank] << "\",\"" << workerNumas[rank]
+                 << "\",\"" << commThreads[rank] << "\",\"" << commNumas[rank] << "\","
+                 << numNProcs[rank] << "\n";
     }
 
     fileStream.close();
   }
 #else
-  logWarning(MPI::mpi.rank()) << "ThreadsPinningWriter is not supported on MacOS.";
+  logWarning() << "ThreadsPinningWriter is not supported on MacOS.";
 #endif // __APPLE__
 }

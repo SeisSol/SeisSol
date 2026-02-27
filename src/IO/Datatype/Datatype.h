@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_IO_DATATYPE_DATATYPE_H_
 #define SEISSOL_SRC_IO_DATATYPE_DATATYPE_H_
@@ -29,7 +32,7 @@ class Datatype : public std::enable_shared_from_this<Datatype> {
   virtual ~Datatype();
   virtual std::size_t size() const = 0;
   virtual YAML::Node serialize() const = 0;
-  virtual Array unwrap(std::size_t maxDimensions = 256);
+  virtual Array unwrap(std::size_t maxDimensions);
   virtual std::string toStringRaw(const void* data) const = 0;
   virtual std::optional<std::vector<char>> fromStringRaw(const std::string& str) const = 0;
 
@@ -53,7 +56,7 @@ class Datatype : public std::enable_shared_from_this<Datatype> {
 
 class OpaqueDatatype : public Datatype {
   public:
-  OpaqueDatatype(std::size_t size);
+  explicit OpaqueDatatype(std::size_t size);
 
   explicit OpaqueDatatype(YAML::Node node);
 
@@ -70,7 +73,7 @@ class OpaqueDatatype : public Datatype {
 
 class StringDatatype : public Datatype {
   public:
-  StringDatatype(std::size_t size);
+  explicit StringDatatype(std::size_t size);
 
   explicit StringDatatype(YAML::Node node);
 
@@ -143,7 +146,7 @@ class ArrayDatatype : public Datatype {
 
   std::size_t size() const override;
 
-  Array unwrap(std::size_t maxDimensions = 256) override;
+  Array unwrap(std::size_t maxDimensions) override;
 
   const std::vector<std::size_t>& dimensions() const;
 
@@ -163,11 +166,11 @@ class StructDatatype : public Datatype {
   public:
   struct MemberInfo {
     std::string name;
-    std::size_t offset;
+    std::size_t offset{};
     std::shared_ptr<Datatype> datatype;
   };
 
-  StructDatatype(const std::vector<MemberInfo>& members);
+  explicit StructDatatype(const std::vector<MemberInfo>& members);
 
   StructDatatype(const std::vector<MemberInfo>& members, std::size_t size);
 

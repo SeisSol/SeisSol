@@ -1,7 +1,16 @@
-#ifndef DR_TYPEDEFS
-#define DR_TYPEDEFS
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_
+
+#include "Alignment.h"
 #include "Common/Constants.h"
+#include "Common/Executor.h"
 #include "DynamicRupture/Misc.h"
 #include "Kernels/Precision.h"
 
@@ -12,7 +21,17 @@ namespace seissol::dr {
  * Carsten Uphoff's dissertation equation (4.51)
  */
 struct ImpedancesAndEta {
-  real zp, zs, zpNeig, zsNeig, etaP, etaS, invEtaS, invZp, invZs, invZpNeig, invZsNeig;
+  real zp{};
+  real zs{};
+  real zpNeig{};
+  real zsNeig{};
+  real etaP{};
+  real etaS{};
+  real invEtaS{};
+  real invZp{};
+  real invZs{};
+  real invZpNeig{};
+  real invZsNeig{};
 };
 
 /**
@@ -25,27 +44,58 @@ struct ImpedanceMatrices {
   alignas(Alignment) real eta[tensor::eta::size()] = {};
 };
 
+template <Executor Executor>
+struct FaultStresses;
+
+template <Executor Executor>
+struct TractionResults;
+
 /**
  * Struct that contains all input stresses
  * normalStress in direction of the face normal, traction1, traction2 in the direction of the
  * respective tangential vectors
  */
-struct FaultStresses {
-  alignas(Alignment) real normalStress[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real traction1[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real traction2[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real fluidPressure[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
+template <>
+struct FaultStresses<Executor::Host> {
+  alignas(Alignment) real normalStress[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real traction1[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real traction2[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real fluidPressure[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
 };
 
 /**
  * Struct that contains all traction results
  * traction1, traction2 in the direction of the respective tangential vectors
  */
-struct TractionResults {
-  alignas(Alignment) real traction1[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real traction2[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
+template <>
+struct TractionResults<Executor::Host> {
+  alignas(Alignment) real traction1[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real traction2[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
+};
+
+/**
+ * Struct that contains all input stresses
+ * normalStress in direction of the face normal, traction1, traction2 in the direction of the
+ * respective tangential vectors
+ */
+template <>
+struct FaultStresses<Executor::Device> {
+  real normalStress[misc::TimeSteps] = {{}};
+  real traction1[misc::TimeSteps] = {{}};
+  real traction2[misc::TimeSteps] = {{}};
+  real fluidPressure[misc::TimeSteps] = {{}};
+};
+
+/**
+ * Struct that contains all traction results
+ * traction1, traction2 in the direction of the respective tangential vectors
+ */
+template <>
+struct TractionResults<Executor::Device> {
+  real traction1[misc::TimeSteps] = {{}};
+  real traction2[misc::TimeSteps] = {{}};
 };
 
 } // namespace seissol::dr
 
-#endif
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_

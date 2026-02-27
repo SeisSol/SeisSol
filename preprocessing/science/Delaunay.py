@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 ##
 # @file
 # This file is part of SeisSol.
@@ -5,21 +6,21 @@
 # @section LICENSE
 # Copyright (c) SeisSol Group
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice,
 #    this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice,
 #    this list of conditions and the following disclaimer in the documentation
 #    and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its
 #    contributors may be used to endorse or promote products derived from this
 #    software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -285,9 +286,9 @@ class CheckStationsMesh(object):
         :param: 3xN-dim numpy array containing all coordinates that could
          successfully be moved into the mesh.
         """
-        
-      
-        
+
+
+
         try:
             self.hull = Delaunay(self.surface_volume)
         except:
@@ -327,10 +328,10 @@ class CheckStationsMesh(object):
                                                          finalstation_coordinates.flatten())) / 3, 3)
 
         return points_in_mesh
-        
+
 
 if __name__ == '__main__':
-    
+
     f=open('/home/msimon/svn/repos/verce/All/JRA/JRA1/python/'+\
             'test_ressources/inputfiles/input.par')
     strin=f.read()
@@ -341,8 +342,8 @@ if __name__ == '__main__':
     'wfs_input_generator_msimon00/wfs_input_generator/tests/data/'+\
     'seissol_example/most_simple_tet.neu', \
     station_coordinates=station_coordinates)
-    
+
     f.close()
     points_in_mesh = csm.move_points_to_mesh()
-    
+
     print points_in_mesh

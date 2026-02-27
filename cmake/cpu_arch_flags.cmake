@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2019 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 function(get_arch_flags architecture compiler)
     set(HAS_REDZONE OFF PARENT_SCOPE)
 
@@ -5,12 +12,12 @@ function(get_arch_flags architecture compiler)
     if ("${HOST_ARCH}" STREQUAL "wsm")
         set(HAS_REDZONE ON PARENT_SCOPE)
         set(CPU_ARCH_FLAGS "-msse3" PARENT_SCOPE)
-    
+
     # Sandy Bridge cpu architecture
     elseif ("${HOST_ARCH}" STREQUAL "snb")
         set(HAS_REDZONE ON PARENT_SCOPE)
         set(CPU_ARCH_FLAGS "-mavx" PARENT_SCOPE)
-    
+
     # Haswell cpu architecture
     elseif ("${HOST_ARCH}" STREQUAL "hsw")
         set(HAS_REDZONE ON PARENT_SCOPE)
@@ -24,7 +31,7 @@ function(get_arch_flags architecture compiler)
     elseif ("${HOST_ARCH}" STREQUAL "knc")
         set(HAS_REDZONE ON PARENT_SCOPE)
         set(CPU_ARCH_FLAGS "-mmic" "-fma" PARENT_SCOPE)
-    
+
     # Knight Landing (Xeon Phi)
     elseif ("${HOST_ARCH}" STREQUAL "knl")
         set(HAS_REDZONE ON PARENT_SCOPE)
@@ -33,7 +40,7 @@ function(get_arch_flags architecture compiler)
         elseif(compiler MATCHES "GNU|Clang|IntelLLVM")
             set(CPU_ARCH_FLAGS "-mavx512f" "-mavx512cd" "-mavx512pf" "-mavx512er" "-mfma" PARENT_SCOPE)
         endif()
-    
+
     # Skylake cpu architecture
     elseif ("${HOST_ARCH}" STREQUAL "skx")
         set(HAS_REDZONE ON PARENT_SCOPE)
@@ -80,6 +87,13 @@ function(get_arch_flags architecture compiler)
         elseif(compiler MATCHES "GNU|Clang|IntelLLVM")
             set(CPU_ARCH_FLAGS "-march=znver4" "-mtune=znver4" PARENT_SCOPE)
         endif()
+    elseif ("${HOST_ARCH}" STREQUAL "turin")
+        set(HAS_REDZONE ON PARENT_SCOPE)
+        if (compiler STREQUAL "Intel")
+            set(CPU_ARCH_FLAGS "-xCORE-AVX512" "-fma" PARENT_SCOPE)
+        elseif(compiler MATCHES "GNU|Clang|IntelLLVM")
+            set(CPU_ARCH_FLAGS "-march=znver5" "-mtune=znver5" PARENT_SCOPE)
+        endif()
 
     # IBM power 9
     elseif ("${HOST_ARCH}" STREQUAL "power9")
@@ -105,6 +119,18 @@ function(get_arch_flags architecture compiler)
         set(CPU_ARCH_FLAGS "" PARENT_SCOPE)
     elseif ("${HOST_ARCH}" STREQUAL "sve2048")
         set(CPU_ARCH_FLAGS "" PARENT_SCOPE)
+    elseif ("${HOST_ARCH}" STREQUAL "rvv128")
+        set(CPU_ARCH_FLAGS "" PARENT_SCOPE)
+    elseif ("${HOST_ARCH}" STREQUAL "rvv256")
+        set(CPU_ARCH_FLAGS "" PARENT_SCOPE)
+    elseif ("${HOST_ARCH}" STREQUAL "rvv512")
+        set(CPU_ARCH_FLAGS "" PARENT_SCOPE)
+    elseif ("${HOST_ARCH}" STREQUAL "rvv1024")
+        set(CPU_ARCH_FLAGS "" PARENT_SCOPE)
+    elseif ("${HOST_ARCH}" STREQUAL "rvv2048")
+        set(CPU_ARCH_FLAGS "" PARENT_SCOPE)
+    elseif ("${HOST_ARCH}" STREQUAL "rvv4096")
+        set(CPU_ARCH_FLAGS "" PARENT_SCOPE)
 
     elseif ("${HOST_ARCH}" STREQUAL "apple-m1")
         if (compiler MATCHES "GNU")
@@ -114,6 +140,14 @@ function(get_arch_flags architecture compiler)
     elseif ("${HOST_ARCH}" STREQUAL "apple-m2")
         if (compiler MATCHES "GNU")
             set(CPU_ARCH_FLAGS "-march=armv8.5-a" "-mtune=generic" PARENT_SCOPE)
+        endif()
+    elseif ("${HOST_ARCH}" STREQUAL "apple-m3")
+        if (compiler MATCHES "GNU")
+            set(CPU_ARCH_FLAGS "-march=armv8.6-a" "-mtune=generic" PARENT_SCOPE)
+        endif()
+    elseif ("${HOST_ARCH}" STREQUAL "apple-m4")
+        if (compiler MATCHES "GNU")
+            set(CPU_ARCH_FLAGS "-march=armv9.2-a" "-mtune=generic" PARENT_SCOPE)
         endif()
     endif()
 

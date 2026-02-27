@@ -1,24 +1,38 @@
+// SPDX-FileCopyrightText: 2022 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.h"
+
 #include "Common/Constants.h"
+#include "Common/Typedefs.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/OutputAux.h"
+#include "Equations/Datastructures.h" // IWYU pragma: keep
+#include "Equations/Setup.h"          // IWYU pragma: keep
+#include "GeneratedCode/init.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
-#include "Initializer/DynamicRupture.h"
-#include "Initializer/LTS.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Lut.h"
 #include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
+#include "Solver/MultipleSimulations.h"
+
+#include <Eigen/Core>
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <functional>
-#include <init.h>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -26,36 +40,35 @@
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
+#include "GeneratedCode/tensor.h"
+#include "Kernels/Solver.h"
+#include "Memory/Tree/Layer.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Helper.h"
-#include <Initializer/Tree/Layer.h>
+
 #include <memory>
-#include <tensor.h>
 #endif
 
 namespace seissol::dr::output {
 void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshReader* reader) {
   meshReader = reader;
-  localRank = MPI::mpi.rank();
+  localRank = Mpi::mpi.rank();
 }
 
-void ReceiverBasedOutputBuilder::setLtsData(seissol::initializer::LTSTree* userWpTree,
-                                            seissol::initializer::LTS* userWpDescr,
-                                            seissol::initializer::Lut* userWpLut,
-                                            seissol::initializer::LTSTree* userDrTree,
-                                            seissol::initializer::DynamicRupture* userDrDescr) {
-  wpTree = userWpTree;
-  wpDescr = userWpDescr;
-  wpLut = userWpLut;
-  drTree = userDrTree;
-  drDescr = userDrDescr;
+void ReceiverBasedOutputBuilder::setLtsData(LTS::Storage& userWpStorage,
+                                            LTS::Backmap& userWpBackmap,
+                                            DynamicRupture::Storage& userDrStorage) {
+  wpStorage = &userWpStorage;
+  wpBackmap = &userWpBackmap;
+  drStorage = &userDrStorage;
 }
 
 void ReceiverBasedOutputBuilder::setVariableList(const std::vector<std::size_t>& variables) {
   this->variables = variables;
 }
 
-void ReceiverBasedOutputBuilder::setFaceToLtsMap(std::vector<std::size_t>* faceToLtsMap) {
+void ReceiverBasedOutputBuilder::setFaceToLtsMap(
+    std::vector<::seissol::initializer::StoragePosition>* faceToLtsMap) {
   this->faceToLtsMap = faceToLtsMap;
 }
 
@@ -73,7 +86,7 @@ struct HashPair {
     const std::hash<T1> hasher1;
     const std::hash<T2> hasher2;
     std::size_t seed = hasher1(data.first);
-    seed ^= hasher2(data.second) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    seed ^= hasher2(data.second) + 0x9e3779b9 + (seed << 6U) + (seed >> 2U);
     return seed;
   }
 };
@@ -94,9 +107,9 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   constexpr size_t NumVertices{4};
   for (const auto& point : outputData->receiverPoints) {
     if (point.isInside) {
-      if (faceIndices.find(faceToLtsMap->at(point.faultFaceIndex)) == faceIndices.end()) {
+      if (faceIndices.find(faceToLtsMap->at(point.faultFaceIndex).global) == faceIndices.end()) {
         const auto faceIndex = faceIndices.size();
-        faceIndices[faceToLtsMap->at(point.faultFaceIndex)] = faceIndex;
+        faceIndices[faceToLtsMap->at(point.faultFaceIndex).global] = faceIndex;
       }
 
       ++foundPoints;
@@ -143,8 +156,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
         for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
           const auto& array3d = ghostMetadataItr->second[neighborIndex].vertices[vertexIdx];
-          auto* data = const_cast<double*>(array3d);
-          neighborElemCoords[vertexIdx] = reinterpret_cast<double(*)[3]>(data);
+          neighborElemCoords[vertexIdx] = reinterpret_cast<const double (*)[3]>(array3d);
         }
       }
 
@@ -159,23 +171,25 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   std::vector<real*> indexPtrs(outputData->cellCount);
 
   for (const auto& [index, arrayIndex] : elementIndices) {
-    indexPtrs[arrayIndex] = wpLut->lookup(wpDescr->derivativesDevice, index);
+    const auto position = wpBackmap->get(index);
+    indexPtrs[arrayIndex] = wpStorage->lookup<LTS::DerivativesDevice>(position);
     assert(indexPtrs[arrayIndex] != nullptr);
   }
   for (const auto& [_, ghost] : elementIndicesGhost) {
     const auto neighbor = ghost.data;
     const auto arrayIndex = ghost.index + elementIndices.size();
-    indexPtrs[arrayIndex] =
-        wpLut->lookup(wpDescr->faceNeighborsDevice, neighbor.first)[neighbor.second];
+
+    const auto position = wpBackmap->get(neighbor.first);
+    indexPtrs[arrayIndex] = wpStorage->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second];
     assert(indexPtrs[arrayIndex] != nullptr);
   }
 
-  outputData->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector>(
-      indexPtrs, seissol::tensor::Q::size(), useMPIUSM());
+  outputData->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
+      indexPtrs, seissol::kernels::Solver::DerivativesSize, useMPIUSM());
 
   for (const auto& variable : variables) {
-    auto* var = drTree->varUntyped(variable, initializer::AllocationPlace::Device);
-    const std::size_t elementSize = drTree->info(variable).elemsize;
+    auto* var = drStorage->varUntyped(variable, initializer::AllocationPlace::Device);
+    const std::size_t elementSize = drStorage->info(variable).bytes;
 
     assert(elementSize % sizeof(real) == 0);
 
@@ -184,8 +198,11 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
     for (const auto& [index, arrayIndex] : faceIndices) {
       dataPointers[arrayIndex] = reinterpret_cast<real*>(var) + elementCount * index;
     }
+
+    const bool hostAccessible = useUSM() && !outputData->extraRuntime.has_value();
     outputData->deviceVariables[variable] =
-        std::make_unique<seissol::parallel::DataCollector>(dataPointers, elementCount, useUSM());
+        std::make_unique<seissol::parallel::DataCollector<real>>(
+            dataPointers, elementCount, hostAccessible);
   }
 #endif
 
@@ -199,7 +216,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       const auto elementIndex = faultInfo[point.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
       outputData->deviceIndices[pointCounter] =
-          faceIndices.at(faceToLtsMap->at(point.faultFaceIndex));
+          faceIndices.at(faceToLtsMap->at(point.faultFaceIndex).global);
 
       outputData->deviceDataPlus[pointCounter] = elementIndices.at(elementIndex);
 
@@ -287,7 +304,7 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
 }
 
 void ReceiverBasedOutputBuilder::initOutputVariables(
-    std::array<bool, std::tuple_size<DrVarsT>::value>& outputMask) {
+    std::array<bool, std::tuple_size_v<DrVarsT>>& outputMask) {
   auto assignMask = [&outputMask](auto& var, int receiverId) {
     var.isActive = outputMask[receiverId];
   };
@@ -351,11 +368,12 @@ void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
 
   for (auto& geoPoint : geoPoints) {
     assert(geoPoint.nearestGpIndex != -1 && "nearestGpIndex must be initialized first");
-#ifdef stroud
-    geoPoint.nearestInternalGpIndex = getClosestInternalStroudGp(geoPoint.nearestGpIndex, NumPoly);
-#else
-    geoPoint.nearestInternalGpIndex = geoPoint.nearestGpIndex;
-#endif
+    if constexpr (Config::DRQuadRule == DRQuadRuleType::Stroud) {
+      geoPoint.nearestInternalGpIndex =
+          getClosestInternalStroudGp(geoPoint.nearestGpIndex, NumPoly);
+    } else {
+      geoPoint.nearestInternalGpIndex = geoPoint.nearestGpIndex;
+    }
   }
 }
 
@@ -364,6 +382,15 @@ void ReceiverBasedOutputBuilder::assignFaultTags() {
   const auto& faultInfo = meshReader->getFault();
   for (auto& geoPoint : geoPoints) {
     geoPoint.faultTag = faultInfo[geoPoint.faultFaceIndex].tag;
+  }
+}
+
+void ReceiverBasedOutputBuilder::assignFusedIndices() {
+  auto& geoPoints = outputData->receiverPoints;
+  for (auto& geoPoint : geoPoints) {
+    geoPoint.gpIndex = multisim::NumSimulations * geoPoint.nearestGpIndex + geoPoint.simIndex;
+    geoPoint.internalGpIndexFused =
+        multisim::NumSimulations * geoPoint.nearestInternalGpIndex + geoPoint.simIndex;
   }
 }
 

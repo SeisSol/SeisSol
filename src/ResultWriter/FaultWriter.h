@@ -1,57 +1,23 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef FAULTWRITER_H
-#define FAULTWRITER_H
-
-#include "Parallel/MPI.h"
-#include "Parallel/Pin.h"
-
-#include "utils/logger.h"
-
-#include "async/Module.h"
+#ifndef SEISSOL_SRC_RESULTWRITER_FAULTWRITER_H_
+#define SEISSOL_SRC_RESULTWRITER_FAULTWRITER_H_
 
 #include "FaultWriterExecutor.h"
 #include "Modules/Module.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
+#include "Parallel/MPI.h"
+#include "Parallel/Pin.h"
+
+#include <async/Module.h>
+#include <utils/logger.h>
 
 namespace seissol {
 class SeisSol;
@@ -84,22 +50,25 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
 
   dr::output::OutputManager* callbackObject{nullptr};
 
-  public:
-  FaultWriter(seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance)
-
-  {}
-
   /**
    * Called by ASYNC on all ranks
    */
   void setUp() override;
+
+  void tearDown() override { m_executor.finalize(); }
+
+  public:
+  explicit FaultWriter(seissol::SeisSol& seissolInstance)
+      : seissolInstance(seissolInstance)
+
+  {}
 
   void setTimestep(unsigned int timestep) { m_timestep = timestep; }
 
   void init(const unsigned int* cells,
             const double* vertices,
             const unsigned int* faultTags,
+            const unsigned int* ids,
             unsigned int nCells,
             unsigned int nVertices,
             const int* outputMask,
@@ -123,11 +92,9 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
 
     m_stopwatch.start();
 
-    const int rank = seissol::MPI::mpi.rank();
-
     wait();
 
-    logInfo(rank) << "Writing faultoutput at time" << utils::nospace << time << ".";
+    logInfo() << "Writing faultoutput at time" << utils::nospace << time << ".";
 
     FaultParam param;
     param.time = time;
@@ -143,7 +110,7 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
 
     m_stopwatch.pause();
 
-    logInfo(rank) << "Writing faultoutput at time" << utils::nospace << time << ". Done.";
+    logInfo() << "Writing faultoutput at time" << utils::nospace << time << ". Done.";
   }
 
   void close() {
@@ -160,8 +127,6 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
     m_stopwatch.printTime("Time fault writer frontend:");
   }
 
-  void tearDown() override { m_executor.finalize(); }
-
   void setupCallbackObject(dr::output::OutputManager* faultOutputManager) {
     callbackObject = faultOutputManager;
   }
@@ -169,11 +134,11 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
   //
   // Hooks
   //
-  void simulationStart() override;
+  void simulationStart(std::optional<double> checkpointTime) override;
 
   void syncPoint(double currentTime) override;
 };
 
 } // namespace seissol::writer
 
-#endif // FAULTWRITER_H
+#endif // SEISSOL_SRC_RESULTWRITER_FAULTWRITER_H_

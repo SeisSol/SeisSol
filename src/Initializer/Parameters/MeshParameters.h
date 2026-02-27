@@ -1,22 +1,32 @@
-#ifndef SEISSOL_MESH_PARAMETERS_H
-#define SEISSOL_MESH_PARAMETERS_H
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <Eigen/Dense>
-#include <string>
+#ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_MESHPARAMETERS_H_
+#define SEISSOL_SRC_INITIALIZER_PARAMETERS_MESHPARAMETERS_H_
 
 #include "Initializer/InputAux.h"
 #include "ParameterReader.h"
 
+#include <Eigen/Dense>
+#include <string>
+
 namespace seissol::initializer::parameters {
 
-enum class MeshFormat : int { Netcdf, PUML, CubeGenerator };
+enum class MeshFormat : int { PUML, CubeGenerator };
 
 enum class BoundaryFormat : int { Auto, I32, I64, I32x4 };
 
+enum class TopologyFormat : int { Auto, Geometric, IdentifyFace, IdentifyVertex };
+
 struct MeshParameters {
-  bool showEdgeCutStatistics;
-  BoundaryFormat pumlBoundaryFormat;
-  MeshFormat meshFormat;
+  bool showEdgeCutStatistics{false};
+  BoundaryFormat pumlBoundaryFormat{BoundaryFormat::Auto};
+  TopologyFormat pumlTopologyFormat{TopologyFormat::Auto};
+  MeshFormat meshFormat{MeshFormat::PUML};
   std::string meshFileName;
   std::string partitioningLib;
   Eigen::Vector3d displacement;
@@ -26,4 +36,4 @@ struct MeshParameters {
 MeshParameters readMeshParameters(ParameterReader* baseReader);
 } // namespace seissol::initializer::parameters
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_MESHPARAMETERS_H_

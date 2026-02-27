@@ -1,17 +1,20 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_IO_INSTANCE_POINT_TABLEWRITER_H_
 #define SEISSOL_SRC_IO_INSTANCE_POINT_TABLEWRITER_H_
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Writer/Writer.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Writer/Writer.h"
+
 #include <functional>
 #include <memory>
 #include <string>
-
-#include "utils/logger.h"
+#include <utils/logger.h>
 
 namespace seissol::io::instance::point {
 

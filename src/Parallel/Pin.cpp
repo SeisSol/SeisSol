@@ -1,60 +1,30 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Lukas Krenz
- *
- * @section LICENSE
- * Copyright (c) 2019-2022, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- *
- **/
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Lukas Krenz
 
 #include "Pin.h"
 
+#include "Common/IntegerMaskParser.h"
 #include "Parallel/MPI.h"
-#include "utils/logger.h"
-#include <Common/IntegerMaskParser.h>
+
 #include <async/as/Pin.h>
 #include <cassert>
 #include <cstdlib>
 #include <deque>
 #include <fstream>
 #include <mpi.h>
+#include <optional>
 #include <sched.h>
 #include <set>
 #include <sstream>
 #include <string>
+#include <utils/env.h>
+#include <utils/logger.h>
 #include <vector>
 
 #ifndef __APPLE__
@@ -122,8 +92,7 @@ CpuMask seissol::parallel::Pinning::computeOnlineCpuMask() {
     mask = parseOnlineCpuMask(buffer.str(), get_nprocs_conf());
 
   } else {
-    logWarning(MPI::mpi.rank()) << "Could not read" << onlineFilePath
-                                << "Assuming that all cpus are online.";
+    logWarning() << "Could not read" << onlineFilePath << "Assuming that all cpus are online.";
     mask = std::deque<bool>(get_nprocs_conf(), true);
   }
 
@@ -147,17 +116,17 @@ Pinning::Pinning() {
 
 void Pinning::checkEnvVariables() {
 #ifndef __APPLE__
-  const auto rank = MPI::mpi.rank();
-  if (const char* envVariable = std::getenv("SEISSOL_FREE_CPUS_MASK")) {
-    auto parsedResult = seissol::IntegerMaskParser::parse(std::string(envVariable));
+  const auto envVariable = utils::Env("SEISSOL_").getOptional<std::string>("FREE_CPUS_MASK");
+  if (envVariable.has_value()) {
+    auto parsedResult = seissol::IntegerMaskParser::parse(envVariable.value());
     if (parsedResult) {
       parsedFreeCPUsMask = parsedResult.value();
 
       bool isMaskGood{true};
-      const auto numLocalProcesses = MPI::mpi.sharedMemMpiSize();
+      const auto numLocalProcesses = Mpi::mpi.sharedMemMpiSize();
       if (numLocalProcesses > static_cast<int>(parsedFreeCPUsMask.size())) {
-        logInfo(rank) << "There are more communication (and/or output-writing) threads"
-                      << "to pin than locations defined in `SEISSOL_FREE_CPUS_MASK`";
+        logInfo() << "There are more communication (and/or output-writing) threads"
+                  << "to pin than locations defined in `SEISSOL_FREE_CPUS_MASK`";
 
         isMaskGood = false;
       } else {
@@ -166,9 +135,9 @@ void Pinning::checkEnvVariables() {
              ++localProcessId) {
           for (auto cpu : parsedFreeCPUsMask[localProcessId]) {
             if (cpu > maxCpuId) {
-              logInfo(rank) << "Free cpu mask of the local process" << localProcessId
-                            << "is out of bounds. CPU/core id" << cpu << "exceeds max. value"
-                            << maxCpuId;
+              logInfo() << "Free cpu mask of the local process" << localProcessId
+                        << "is out of bounds. CPU/core id" << cpu << "exceeds max. value"
+                        << maxCpuId;
               isMaskGood = false;
               break;
             }
@@ -177,15 +146,15 @@ void Pinning::checkEnvVariables() {
       }
 
       if (isMaskGood) {
-        logInfo(rank) << "Binding free cpus according to `SEISSOL_FREE_CPUS_MASK` env. variable.";
+        logInfo() << "Binding free cpus according to `SEISSOL_FREE_CPUS_MASK` env. variable.";
       } else {
-        logWarning(rank) << "Ignoring `SEISSOL_FREE_CPUS_MASK` env. variable.";
-        logWarning(rank) << "`SEISSOL_FREE_CPUS_MASK` Format:"
-                         << "(<int>|<range: int-int>|<list: {int,+}>),+";
+        logWarning() << "Ignoring `SEISSOL_FREE_CPUS_MASK` env. variable.";
+        logWarning() << "`SEISSOL_FREE_CPUS_MASK` Format:"
+                     << "(<int>|<range: int-int>|<list: {int,+}>),+";
         parsedFreeCPUsMask = IntegerMaskParser::MaskType{};
       }
     } else {
-      logWarning(rank) << "Failed to parse `SEISSOL_FREE_CPUS_MASK` env. variable";
+      logWarning() << "Failed to parse `SEISSOL_FREE_CPUS_MASK` env. variable";
     }
   }
 #endif // __APPLE__
@@ -195,6 +164,7 @@ CpuMask Pinning::getWorkerUnionMask() {
 #ifndef __APPLE__
   cpu_set_t workerUnion;
   CPU_ZERO(&workerUnion);
+
 #ifdef _OPENMP
 #pragma omp parallel default(none) shared(workerUnion)
   {
@@ -225,7 +195,7 @@ CpuMask Pinning::getFreeCPUsMask() const {
   CPU_ZERO(&freeMask);
 
   if (not parsedFreeCPUsMask.empty()) {
-    const auto localProcessor = MPI::mpi.sharedMemMpiRank();
+    const auto localProcessor = Mpi::mpi.sharedMemMpiRank();
     for (const auto& cpu : parsedFreeCPUsMask[localProcessor]) {
       CPU_SET(cpu, &freeMask);
     }
@@ -297,6 +267,47 @@ void Pinning::pinToFreeCPUs() const {
 #endif // __APPLE__
 }
 
+std::string Pinning::maskToStringShort(const CpuMask& mask) {
+#ifndef __APPLE__
+  const auto& set = mask.set;
+  std::stringstream st;
+  std::optional<int> start = std::optional<int>();
+  bool hasText = false;
+
+  const auto printInterval = [&](int cpu) {
+    if (start.has_value()) {
+      if (hasText) {
+        st << ",";
+      }
+      hasText = true;
+      st << start.value();
+      if (start.value() + 1 < cpu) {
+        st << "-" << (cpu - 1);
+      }
+    }
+  };
+
+  for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
+    const bool isset = CPU_ISSET(cpu, &set) != 0;
+    if (isset && !start.has_value()) {
+      start = cpu;
+    } else if (!isset && start.has_value()) {
+      printInterval(cpu);
+      start = std::optional<int>();
+    }
+  }
+
+  if (start.has_value()) {
+    printInterval(get_nprocs_conf());
+  }
+
+  return st.str();
+
+#else
+  return "Affinity is not supported on MacOS.";
+#endif // __APPLE__
+}
+
 std::string Pinning::maskToString(const CpuMask& mask) {
 #ifndef __APPLE__
   const auto& set = mask.set;
@@ -333,7 +344,7 @@ CpuMask Pinning::getNodeMask() {
                 workerMaskArray.size(),
                 MPI_CHAR,
                 MPI_BOR,
-                MPI::mpi.sharedMemComm());
+                Mpi::mpi.sharedMemComm());
 
   cpu_set_t nodeMask;
   CPU_ZERO(&nodeMask);

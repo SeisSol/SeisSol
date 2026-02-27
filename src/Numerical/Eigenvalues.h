@@ -1,14 +1,20 @@
-#ifndef EIGENVALUES_H
-#define EIGENVALUES_H
+// SPDX-FileCopyrightText: 2022 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_NUMERICAL_EIGENVALUES_H_
+#define SEISSOL_SRC_NUMERICAL_EIGENVALUES_H_
+
+#include "Kernels/Precision.h"
 
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 #include <numeric>
-
 #include <utils/logger.h>
 #include <yateto.h>
-
-#include "Kernels/Precision.h"
 
 namespace seissol::eigenvalues {
 
@@ -49,7 +55,7 @@ template <typename T, size_t Dim>
 void computeEigenvaluesWithEigen3(std::array<std::complex<T>, Dim * Dim>& m,
                                   Eigenpair<std::complex<T>, Dim>& output) {
   using Matrix = Eigen::Matrix<std::complex<T>, Dim, Dim, Eigen::ColMajor>;
-  Matrix op(m.data());
+  const Matrix op(m.data());
   Eigen::ComplexEigenSolver<Matrix> ces;
   ces.compute(op);
 
@@ -76,8 +82,9 @@ void computeEigenvaluesWithEigen3(std::array<std::complex<T>, Dim * Dim>& m,
 }
 } // namespace seissol::eigenvalues
 
-#ifdef USE_POROELASTIC
+#ifdef USE_LAPACK
 #include "FC.h"
+
 #include <complex>
 
 namespace seissol::eigenvalues {
@@ -228,6 +235,21 @@ void computeEigenvaluesWithLapack(std::array<std::complex<T>, Dim * Dim>& m,
     }
   }
 }
+
+template <typename T, size_t Dim>
+void computeEigenvalues(std::array<std::complex<T>, Dim * Dim>& m,
+                        Eigenpair<std::complex<T>, Dim>& output) {
+  computeEigenvaluesWithLapack(m, output);
+}
 } // namespace seissol::eigenvalues
-#endif // USE_POROELASTIC
-#endif // EIGENVALUES_H
+#else
+namespace seissol::eigenvalues {
+template <typename T, size_t Dim>
+void computeEigenvalues(std::array<std::complex<T>, Dim * Dim>& m,
+                        Eigenpair<std::complex<T>, Dim>& output) {
+  computeEigenvaluesWithEigen3(m, output);
+}
+} // namespace seissol::eigenvalues
+#endif // USE_LAPACK
+
+#endif // SEISSOL_SRC_NUMERICAL_EIGENVALUES_H_

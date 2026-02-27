@@ -1,10 +1,14 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "TableWriter.h"
 
-#include <IO/Datatype/Datatype.h>
+#include "IO/Datatype/Datatype.h"
+
 #include <algorithm>
 #include <cstddef>
 #include <memory>

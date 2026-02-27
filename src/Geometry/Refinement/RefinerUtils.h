@@ -1,58 +1,23 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef _REFINER_UTILS_H_
-#define _REFINER_UTILS_H_
-
-#include <vector>
+#ifndef SEISSOL_SRC_GEOMETRY_REFINEMENT_REFINERUTILS_H_
+#define SEISSOL_SRC_GEOMETRY_REFINEMENT_REFINERUTILS_H_
 
 #include <Eigen/Dense>
+#include <vector>
 
-namespace seissol {
-namespace refinement {
+namespace seissol::refinement {
 
 //------------------------------------------------------------------------------
 
 template <class T>
-const Eigen::Matrix<T, 3, 1> middle(const Eigen::Matrix<T, 3, 1>& a,
-                                    const Eigen::Matrix<T, 3, 1>& b) {
+Eigen::Matrix<T, 3, 1> middle(const Eigen::Matrix<T, 3, 1>& a, const Eigen::Matrix<T, 3, 1>& b) {
   return (a + b) / static_cast<T>(2);
 }
 
@@ -66,41 +31,41 @@ struct Tetrahedron {
 
   Tetrahedron() : i(0), j(0), k(0), l(0) {};
 
-  Tetrahedron(const Eigen::Matrix<T, 3, 1>& A,
-              const Eigen::Matrix<T, 3, 1>& B,
-              const Eigen::Matrix<T, 3, 1>& C,
-              const Eigen::Matrix<T, 3, 1>& D)
-      : i(0), j(0), k(0), l(0), a(A), b(B), c(C), d(D) {};
+  Tetrahedron(const Eigen::Matrix<T, 3, 1>& a,
+              const Eigen::Matrix<T, 3, 1>& b,
+              const Eigen::Matrix<T, 3, 1>& c,
+              const Eigen::Matrix<T, 3, 1>& d)
+      : i(0), j(0), k(0), l(0), a(a), b(b), c(c), d(d) {};
 
-  Tetrahedron(const Eigen::Matrix<T, 3, 1>& A,
-              const Eigen::Matrix<T, 3, 1>& B,
-              const Eigen::Matrix<T, 3, 1>& C,
-              const Eigen::Matrix<T, 3, 1>& D,
-              unsigned int I,
-              unsigned int J,
-              unsigned int K,
-              unsigned int L)
-      : i(I), j(J), k(K), l(L), a(A), b(B), c(C), d(D) {};
+  Tetrahedron(const Eigen::Matrix<T, 3, 1>& a,
+              const Eigen::Matrix<T, 3, 1>& b,
+              const Eigen::Matrix<T, 3, 1>& c,
+              const Eigen::Matrix<T, 3, 1>& d,
+              unsigned int i,
+              unsigned int j,
+              unsigned int k,
+              unsigned int l)
+      : i(i), j(j), k(k), l(l), a(a), b(b), c(c), d(d) {};
 
-  Tetrahedron(const T A[3],
-              const T B[3],
-              const T C[3],
-              const T D[3],
-              unsigned int I,
-              unsigned int J,
-              unsigned int K,
-              unsigned int L)
-      : i(I), j(J), k(K), l(L), a(Eigen::Matrix<T, 3, 1>(A)), b(Eigen::Matrix<T, 3, 1>(B)),
-        c(Eigen::Matrix<T, 3, 1>(C)), d(Eigen::Matrix<T, 3, 1>(D)) {};
+  Tetrahedron(const T a[3],
+              const T b[3],
+              const T c[3],
+              const T d[3],
+              unsigned int i,
+              unsigned int j,
+              unsigned int k,
+              unsigned int l)
+      : i(i), j(j), k(k), l(l), a(Eigen::Matrix<T, 3, 1>(a)), b(Eigen::Matrix<T, 3, 1>(b)),
+        c(Eigen::Matrix<T, 3, 1>(c)), d(Eigen::Matrix<T, 3, 1>(d)) {}
 
-  static const Tetrahedron<T> unitTetrahedron() {
+  static Tetrahedron<T> unitTetrahedron() {
     return Tetrahedron(Eigen::Matrix<T, 3, 1>(0, 0, 0),
                        Eigen::Matrix<T, 3, 1>(0, 0, 1),
                        Eigen::Matrix<T, 3, 1>(1, 0, 0),
                        Eigen::Matrix<T, 3, 1>(0, 1, 0));
   }
 
-  const Eigen::Matrix<T, 3, 1> center() const { return middle(middle(a, b), middle(c, d)); }
+  [[nodiscard]] Eigen::Matrix<T, 3, 1> center() const { return middle(middle(a, b), middle(c, d)); }
 };
 
 //------------------------------------------------------------------------------
@@ -108,15 +73,15 @@ struct Tetrahedron {
 template <class T>
 class TetrahedronRefiner {
   public:
-  virtual ~TetrahedronRefiner() {}
+  virtual ~TetrahedronRefiner() = default;
   /** Generates the new cells */
   virtual void refine(const Tetrahedron<T>& in,
                       unsigned int addVertexStart,
                       Tetrahedron<T>* out,
                       Eigen::Matrix<T, 3, 1>* addVertices) const = 0;
   /** The additional number of vertices generated per original tetrahedron */
-  virtual unsigned int additionalVerticesPerCell() const = 0;
-  virtual unsigned int getDivisionCount() const = 0;
+  [[nodiscard]] virtual unsigned int additionalVerticesPerCell() const = 0;
+  [[nodiscard]] virtual unsigned int getDivisionCount() const = 0;
 };
 
 //------------------------------------------------------------------------------
@@ -125,15 +90,15 @@ template <class T>
 class IdentityRefiner : public TetrahedronRefiner<T> {
   public:
   void refine(const Tetrahedron<T>& in,
-              unsigned int addVertexStart,
+              unsigned int /*addVertexStart*/,
               Tetrahedron<T>* out,
-              Eigen::Matrix<T, 3, 1>* addVertices) const {
+              Eigen::Matrix<T, 3, 1>* /*addVertices*/) const override {
     out[0] = in;
   }
 
-  unsigned int additionalVerticesPerCell() const { return 0; }
+  [[nodiscard]] unsigned int additionalVerticesPerCell() const override { return 0; }
 
-  unsigned int getDivisionCount() const { return 1; }
+  [[nodiscard]] unsigned int getDivisionCount() const override { return 1; }
 };
 
 //------------------------------------------------------------------------------
@@ -144,7 +109,7 @@ class DivideTetrahedronBy4 : public TetrahedronRefiner<T> {
   void refine(const Tetrahedron<T>& in,
               unsigned int addVertexStart,
               Tetrahedron<T>* out,
-              Eigen::Matrix<T, 3, 1>* addVertices) const {
+              Eigen::Matrix<T, 3, 1>* addVertices) const override {
     addVertices[0] = in.center();
 
     out[0] = Tetrahedron<T>(in.a, in.b, in.c, addVertices[0], in.i, in.j, in.k, addVertexStart);
@@ -153,9 +118,9 @@ class DivideTetrahedronBy4 : public TetrahedronRefiner<T> {
     out[3] = Tetrahedron<T>(in.b, in.c, in.d, addVertices[0], in.j, in.k, in.l, addVertexStart);
   }
 
-  unsigned int additionalVerticesPerCell() const { return 1; }
+  [[nodiscard]] unsigned int additionalVerticesPerCell() const override { return 1; }
 
-  unsigned int getDivisionCount() const { return 4; }
+  [[nodiscard]] unsigned int getDivisionCount() const override { return 4; }
 };
 
 //------------------------------------------------------------------------------
@@ -166,7 +131,7 @@ class DivideTetrahedronBy8 : public TetrahedronRefiner<T> {
   void refine(const Tetrahedron<T>& in,
               unsigned int addVertexStart,
               Tetrahedron<T>* out,
-              Eigen::Matrix<T, 3, 1>* addVertices) const {
+              Eigen::Matrix<T, 3, 1>* addVertices) const override {
     const Eigen::Matrix<T, 3, 1>& a = in.a;
     const Eigen::Matrix<T, 3, 1>& b = in.b;
     const Eigen::Matrix<T, 3, 1>& c = in.c;
@@ -204,9 +169,9 @@ class DivideTetrahedronBy8 : public TetrahedronRefiner<T> {
     out[7] = Tetrahedron<T>(ac, bc, bd, cd, iac, ibc, ibd, icd);
   }
 
-  unsigned int additionalVerticesPerCell() const { return 6; }
+  [[nodiscard]] unsigned int additionalVerticesPerCell() const override { return 6; }
 
-  unsigned int getDivisionCount() const { return 8; }
+  [[nodiscard]] unsigned int getDivisionCount() const override { return 8; }
 };
 
 //------------------------------------------------------------------------------
@@ -221,7 +186,7 @@ class DivideTetrahedronBy32 : public TetrahedronRefiner<T> {
   void refine(const Tetrahedron<T>& in,
               unsigned int addVertexStart,
               Tetrahedron<T>* out,
-              Eigen::Matrix<T, 3, 1>* addVertices) const {
+              Eigen::Matrix<T, 3, 1>* addVertices) const override {
     auto tmp = std::vector<Tetrahedron<T>>(div8.getDivisionCount());
 
     div8.refine(in, addVertexStart, tmp.data(), addVertices);
@@ -237,19 +202,18 @@ class DivideTetrahedronBy32 : public TetrahedronRefiner<T> {
     }
   }
 
-  unsigned int additionalVerticesPerCell() const {
+  [[nodiscard]] unsigned int additionalVerticesPerCell() const override {
     return div8.additionalVerticesPerCell() +
            div8.getDivisionCount() * div4.additionalVerticesPerCell();
   }
 
-  unsigned int getDivisionCount() const {
+  [[nodiscard]] unsigned int getDivisionCount() const override {
     return div4.getDivisionCount() * div8.getDivisionCount();
   }
 };
 
 //------------------------------------------------------------------------------
 
-} // namespace refinement
-} // namespace seissol
+} // namespace seissol::refinement
 
-#endif // _REFINER_UTILS_H_
+#endif // SEISSOL_SRC_GEOMETRY_REFINEMENT_REFINERUTILS_H_

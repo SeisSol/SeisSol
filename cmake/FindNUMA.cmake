@@ -1,43 +1,36 @@
-# Module for locating libnuma
+# SPDX-FileCopyrightText: 2025 SeisSol Group
 #
-# Read-only variables:
-#   NUMA_FOUND
-#     Indicates that the library has been found.
-#
-#   NUMA_INCLUDE_DIR
-#     Points to the libnuma include directory.
-#
-#   NUMA_LIBRARY_DIR
-#     Points to the directory that contains the libraries.
-#     The content of this variable can be passed to link_directories.
-#
-#   NUMA_LIBRARY
-#     Points to the libnuma that can be passed to target_link_libararies.
-#
-# Copyright (c) 2015 Steve Borho
+# SPDX-License-Identifier: BSD-3-Clause
 
-include(FindPackageHandleStandardArgs)
-
-find_path(NUMA_ROOT_DIR
-        NAMES include/numa.h
-        PATHS ENV NUMA_ROOT
-        DOC "NUMA root directory")
-
-find_path(NUMA_INCLUDE_DIR
-        NAMES numa.h
-        HINTS ${NUMA_ROOT_DIR}
+find_path(NUMA_INCLUDE_DIR numa.h
+        HINTS ${NUMA_INCLUDE_DIR} ENV NUMA_INCLUDE_DIR ${NUMA_DIR} ENV NUMA_DIR
         PATH_SUFFIXES include
-        DOC "NUMA include directory")
+        DOC "Directory where the libnuma header files are located"
+        )
 
 find_library(NUMA_LIBRARY
-        NAMES numa
-        HINTS ${NUMA_ROOT_DIR}
-        DOC "NUMA library")
+        NAMES numa numa${NUMA_LIB_SUFFIX}
+        HINTS ${NUMA_LIB_DIR} ENV NUMA_LIB_DIR ${NUMA_DIR} ENV NUMA_DIR
+        PATH_SUFFIXES lib
+        DOC "Directory where the libnuma is located"
+        )
 
-if (NUMA_LIBRARY)
-    get_filename_component(NUMA_LIBRARY_DIR ${NUMA_LIBRARY} PATH)
+# Standard package handling (for now, no versioning)
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(NUMA
+        REQUIRED_VARS NUMA_LIBRARY NUMA_INCLUDE_DIR)
+
+if(NUMA_FOUND)
+    set(NUMA_LIBRARIES ${NUMA_LIBRARY})
+    set(NUMA_INCLUDE_DIRS ${NUMA_INCLUDE_DIR})
 endif()
 
-mark_as_advanced(NUMA_INCLUDE_DIR NUMA_LIBRARY_DIR NUMA_LIBRARY)
+mark_as_advanced(NUMA_INCLUDE_DIR NUMA_LIBRARY)
 
-find_package_handle_standard_args(NUMA REQUIRED_VARS NUMA_ROOT_DIR NUMA_INCLUDE_DIR NUMA_LIBRARY)
+if(NUMA_FOUND AND NOT TARGET NUMA::NUMA)
+    add_library(NUMA::NUMA INTERFACE IMPORTED)
+    set_target_properties(NUMA::NUMA PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${NUMA_INCLUDE_DIRS}"
+        INTERFACE_LINK_LIBRARIES "${NUMA_LIBRARIES}"
+    )
+endif()

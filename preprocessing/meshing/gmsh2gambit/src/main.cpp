@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-3-Clause
 /**
  * @file
  * This file is part of SeisSol.
@@ -7,17 +8,17 @@
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -64,7 +65,7 @@ int main(int argc, char** argv)
     unsigned dim = args.getArgument<unsigned>("dim", 3);
     std::string in = args.getArgument<std::string>("input");
     std::string out = args.getArgument<std::string>("output");
-    
+
     std::cout << "Reading MSH..." << std::flush;
     switch (dim) {
       case 3:
@@ -77,10 +78,10 @@ int main(int argc, char** argv)
       default:
         std::cerr << "Error: Only dim=2 and dim=3 are supported." << std::endl;
         break;
-    }    
+    }
 	} else {
 		return -1;
 	}
-  
+
   return 0;
 }

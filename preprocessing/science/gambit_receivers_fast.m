@@ -1,27 +1,28 @@
 %%
 % @file
 % This file is part of SeisSol.
+% SPDX-License-Identifier: BSD-3-Clause
 %
 % @author Martin Kaeser (martin.kaeser AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/kaeser)
 %
 % @section LICENSE
 % Copyright (c) 2005, SeisSol Group
 % All rights reserved.
-% 
+%
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
-% 
+%
 % 1. Redistributions of source code must retain the above copyright notice,
 %    this list of conditions and the following disclaimer.
-% 
+%
 % 2. Redistributions in binary form must reproduce the above copyright notice,
 %    this list of conditions and the following disclaimer in the documentation
 %    and/or other materials provided with the distribution.
-% 
+%
 % 3. Neither the name of the copyright holder nor the names of its
 %    contributors may be used to endorse or promote products derived from this
 %    software without specific prior written permission.
-% 
+%
 % THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 % AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 % IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -68,18 +69,18 @@ figure; hold on
 trisurf(tri,X(:,1),X(:,2),X(:,3),X(:,3)); axis equal,xlabel('x'),ylabel('y'),zlabel('z')
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                          COMPUTE STATION ELEVATION          
+%                          COMPUTE STATION ELEVATION
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 t = tsearch(X(:,1),X(:,2),tri,st(:,1),st(:,2));
 for i = 1:size(st,1)
     %t(i) = tsearch(X(:,1),X(:,2),tri,st(i,1),st(i,2));
     v0 = X(tri(t(i),1),:);
-    v1 = X(tri(t(i),2),:);  
-    v2 = X(tri(t(i),3),:); 
+    v1 = X(tri(t(i),2),:);
+    v2 = X(tri(t(i),3),:);
     A = [1, v0(1), v0(2);1, v1(1), v1(2);1, v2(1), v2(2)];
     f = [v0(3);v1(3);v2(3)];
     c = A\f;
-    est(i) = c(1)+c(2)*st(i,1)+c(3)*st(i,2); 
+    est(i) = c(1)+c(2)*st(i,1)+c(3)*st(i,2);
 end
 depth = input('    Specify depth to burry the receivers under the surface (in meters):  ');
 receivers = [st(:,1),st(:,2),est'-depth];
@@ -89,7 +90,7 @@ disp('    Receiver coordinates under topography:'); disp(' ')
 %disp(receivers);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                          SAVE RECEIVER LOCATIONS TO FILE         
+%                          SAVE RECEIVER LOCATIONS TO FILE
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 choice = input(['    Save receiver coordinates as ',filename,'_receivers.dat ? (y/n)'], 's');
 if choice=='y'

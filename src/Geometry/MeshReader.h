@@ -1,69 +1,55 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (rettenbs AT in.tum.de,
- *http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2013, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Read a mesh file in memory efficient way
- **/
+// SPDX-FileCopyrightText: 2013 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef MESH_READER_H
-#define MESH_READER_H
+#ifndef SEISSOL_SRC_GEOMETRY_MESHREADER_H_
+#define SEISSOL_SRC_GEOMETRY_MESHREADER_H_
 
+#include "Initializer/Parameters/DRParameters.h"
 #include "MeshDefinition.h"
 
+#include <Eigen/Dense>
 #include <cmath>
 #include <map>
 #include <unordered_map>
 #include <vector>
 
-#include <Eigen/Dense>
-
-#include "Initializer/Parameters/DRParameters.h"
+namespace seissol {
+class SeisSol;
+} // namespace seissol
 
 namespace seissol::geometry {
 
+constexpr bool isCopy(const Element& element, int rank) {
+  for (int i = 0; i < 4; ++i) {
+    if (element.neighborRanks[i] != rank) {
+      return true;
+    }
+  }
+  return false;
+}
+
 struct GhostElementMetadata {
-  double vertices[4][3];
+  double vertices[Cell::NumVertices][Cell::Dim];
   int group;
+  LocalElemId localId;
   GlobalElemId globalId;
+  int clusterId;
+  double timestep;
+};
+
+struct LinearGhostCell {
+  std::vector<std::size_t> inRankIndices;
+  int rank;
 };
 
 class MeshReader {
   protected:
-  const int mRank;
+  int mRank{0};
 
   std::vector<Element> m_elements;
 
@@ -87,10 +73,14 @@ class MeshReader {
   /** Vertices of MPI Neighbors*/
   std::unordered_map<int, std::vector<GhostElementMetadata>> m_ghostlayerMetadata;
 
+  std::vector<LinearGhostCell> m_linearGhostlayer;
+
+  std::map<std::pair<int, std::size_t>, std::size_t> m_toLinearGhostlayer;
+
   /** Has a plus fault side */
   bool m_hasPlusFault{false};
 
-  MeshReader(int rank);
+  explicit MeshReader(int rank);
 
   public:
   virtual ~MeshReader();
@@ -104,7 +94,15 @@ class MeshReader {
   bool hasFault() const;
   bool hasPlusFault() const;
 
+  const std::vector<LinearGhostCell>& linearGhostlayer() const;
+  const std::map<std::pair<int, std::size_t>, std::size_t>& toLinearGhostlayer() const;
+
+  virtual bool inlineTimestepCompute() const { return false; }
+  virtual bool inlineClusterCompute() const { return false; }
+
   void displaceMesh(const Eigen::Vector3d& displacement);
+
+  void computeTimestepIfNecessary(const seissol::SeisSol& seissolInstance);
 
   // scalingMatrix is stored column-major, i.e.
   // scalingMatrix_ij = scalingMatrix[j][i]
@@ -117,8 +115,26 @@ class MeshReader {
                                seissol::initializer::parameters::RefPointMethod refPointMethod);
 
   void exchangeGhostlayerMetadata();
+
+  /**
+   * Disable the DR by converting all DR faces (BC = 3) to regular faces (BC = 0).
+   */
+  void disableDR();
+
+  /**
+    Create a linearized ghost layer view.
+    Currently, the ghost layer arrays copy each cell per rank-boundary face.
+    Meaning that a cell may appear multiple times remotely.
+
+    The linearization removes that, and also removes the map, so that the data
+    is easier to deal with.
+    */
+  void linearizeGhostlayer();
+
+  // verify the mesh, e.g. the tetrahedron orientation etc.
+  void verifyMeshOrientation();
 };
 
 } // namespace seissol::geometry
 
-#endif // MESH_READER_H
+#endif // SEISSOL_SRC_GEOMETRY_MESHREADER_H_

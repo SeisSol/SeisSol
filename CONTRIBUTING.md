@@ -1,7 +1,10 @@
 <!--
-    SPDX-FileCopyrightText: 2021-2024 SeisSol Group
-    
+    SPDX-FileCopyrightText: 2021 SeisSol Group
+
     SPDX-License-Identifier: BSD-3-Clause
+    SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+    SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 -->
 
 # Contributing to SeisSol
@@ -22,7 +25,7 @@ contribute to SeisSol. You are highly encouraged to include as much information
 as possible. That will give us a higher chance
 to reproduce the problem or maybe enable us to directly track it down.
 
-To raise a new issue, visit [here](https://github.com/SeisSol/SeisSol/issues)
+To raise a new issue, visit [the SeisSol Issue page](https://github.com/SeisSol/SeisSol/issues),
 and click on "New issue" there. Next, select either the "Bug report" or "Feature
 request" template and click on the corresponding "Get started" button.
 You will be given a template to fill in.
@@ -114,24 +117,10 @@ etc.
 ### Step 4
 
 Once you are done (and happy) with your changes, the next step is to turn them
-into a commit. That can be done by running the following commands:
+into one or more commit. Note that most source files of SeisSol
+adhere to formatting and code standards.
 
-```bash
-git add <files_to_be_part_of_the_commit>
-git commit --message <descriptive_message_of_this_particular_commit>
-```
-
-Note that some folders inside SeisSol adhere to formatting and code standards.
-
-If you change files in these folders, you can enforce a suitable formatting by
-running (running `clang-format` in version 18.1.5 in the background;
-you can install it e.g. via `pip`):
-
-```bash
-.ci/format.sh $(which clang-format) .
-```
-
-Similarly, a check for `clang-tidy` is being run. To set it up, go to your build
+That is, we run a check for `clang-tidy`. To set it up, go to your build
 folder (in our case here, it's called `build` inside your cloned repository),
 and run.
 
@@ -146,9 +135,29 @@ Then, you can run (in the main folder)
 .ci/tidy.sh ./ build/ -fix
 ```
 
-In the background, `clang-tidy` in version 18 is called.
+In the background, `clang-tidy` is called; the process may take some time.
 
-Once completed, you can push your changes to your remote repository
+Additionally, we run some clean-code checks for C++,
+but also e.g. our Python files. A convenient way to apply them
+is via **pre-commit**. That is, you can just run
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Then, `pre-commit` will be run before each commit and applies
+some linters and formatters that we use in SeisSol.
+
+Finally, once the pre-commit hook is set up and
+`clang-tidy` works, you can create your commit:
+
+```bash
+git add <files_to_be_part_of_the_commit>
+git commit --message <descriptive_message_of_this_particular_commit>
+```
+
+Once you have your commits ready, you can push your changes to your remote repository
 
 ```bash
 git push origin <descriptive_branch_name>
@@ -168,6 +177,23 @@ you still want to show it to SeisSol maintainers. In this case, click on a green
 downward arrow next to "Create pull request", select "Create draft pull request"
 and proceed.
 
+#### Step 4 (Alternative)
+
+You can also run most of the linters manually via the following few lines:
+
+```bash
+.ci/format.sh $(which clang-format) .
+python .ci/filename.py --fix src app
+python .ci/header.py --fix src app
+black codegen/kernels/**/*.py
+isort --profile black codegen/kernels
+markdownlint-cli2 **/*.md # ignore submodules errors here
+sphinx-lint **/*.rst
+```
+
+`clang-format` itself is available via e.g. `pip`; similarly for `black` and `isort`,
+as well as `sphinx-lint`. The `markdownlint-cli2` can be downloaded from `npm`.
+
 ### Step 5
 
 Once you submit your PR, the SeisSol maintainers will review it. After they are
@@ -180,11 +206,12 @@ into the SeisSol repository to let the tests run.
 
 In particular, the following status checks are mandatory right now:
 
-- There is no merge conflict with the SeisSol `master` branch
-- All required CI tests pass. That includes:
-  - `clang-format` has been applied (where enabled)
-  - `clang-tidy` has been applied (where enabled)
-  - All equation systems compile in Debug and Release mode, and the respective
+* There is no merge conflict with the SeisSol `master` branch
+* All required CI tests pass. That includes:
+  * `clang-format` has been applied
+  * `clang-tidy` has been applied
+  * All other linters pass
+  * All equation systems compile in Debug and Release mode, and the respective
     unit tests pass
 
 There is currently no enforced check for the end-to-end CPU and GPU tests;

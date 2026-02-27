@@ -1,66 +1,32 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Wolf (wolf.sebastian AT tum.de,
- *https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2017 - 2020, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Setup of SeisSol's cell local matrices.
- **/
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Sebastian Wolf
 
-#ifndef INITIALIZER_PARAMETERDB_H_
-#define INITIALIZER_PARAMETERDB_H_
+#ifndef SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
+#define SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 
+#include "Equations/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "Geometry/MeshReader.h"
+#include "Geometry/PUMLReader.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "easi/Query.h"
+#include "easi/ResultAdapter.h"
+
+#include <cstddef>
 #include <memory>
 #include <set>
 #include <string>
 #include <unordered_map>
 
-#include "Geometry/MeshReader.h"
-#include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
-
-#include "easi/Query.h"
-#include "easi/ResultAdapter.h"
-#include "generated_code/init.h"
-
-#include "Equations/Datastructures.h"
-
 #ifdef USE_HDF
-#include "PUML/PUML.h"
+#include <PUML/PUML.h>
 #endif
 
 #include <Eigen/Dense>
@@ -90,7 +56,7 @@ struct CellToVertexArray {
 
   static CellToVertexArray fromMeshReader(const seissol::geometry::MeshReader& meshReader);
 #ifdef USE_HDF
-  static CellToVertexArray fromPUML(const PUML::TETPUML& mesh);
+  static CellToVertexArray fromPUML(const seissol::geometry::PumlMesh& mesh);
 #endif
   static CellToVertexArray
       fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
@@ -98,22 +64,19 @@ struct CellToVertexArray {
 };
 
 easi::Component* loadEasiModel(const std::string& fileName);
-QueryGenerator* getBestQueryGenerator(bool anelasticity,
-                                      bool plasticity,
-                                      bool anisotropy,
-                                      bool poroelasticity,
-                                      bool useCellHomogenizedMaterial,
-                                      const CellToVertexArray& cellToVertex);
+std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMaterial,
+                                                      const CellToVertexArray& cellToVertex);
 
 class QueryGenerator {
   public:
   virtual ~QueryGenerator() = default;
   [[nodiscard]] virtual easi::Query generate() const = 0;
+  [[nodiscard]] virtual std::size_t outputPerCell() const { return 1; }
 };
 
-class ElementBarycentreGenerator : public QueryGenerator {
+class ElementBarycenterGenerator : public QueryGenerator {
   public:
-  explicit ElementBarycentreGenerator(const CellToVertexArray& cellToVertex)
+  explicit ElementBarycenterGenerator(const CellToVertexArray& cellToVertex)
       : m_cellToVertex(cellToVertex) {}
   [[nodiscard]] easi::Query generate() const override;
 
@@ -135,9 +98,21 @@ class ElementAverageGenerator : public QueryGenerator {
   std::array<std::array<double, 3>, NumQuadpoints> m_quadraturePoints{};
 };
 
-class FaultBarycentreGenerator : public QueryGenerator {
+class PlasticityPointGenerator : public QueryGenerator {
   public:
-  FaultBarycentreGenerator(const seissol::geometry::MeshReader& meshReader, unsigned numberOfPoints)
+  explicit PlasticityPointGenerator(const CellToVertexArray& cellToVertex, bool pointwise = true)
+      : m_cellToVertex(cellToVertex), pointwise(pointwise) {}
+  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] std::size_t outputPerCell() const override;
+
+  private:
+  CellToVertexArray m_cellToVertex;
+  bool pointwise{true};
+};
+
+class FaultBarycenterGenerator : public QueryGenerator {
+  public:
+  FaultBarycenterGenerator(const seissol::geometry::MeshReader& meshReader, unsigned numberOfPoints)
       : m_meshReader(meshReader), m_numberOfPoints(numberOfPoints) {}
   [[nodiscard]] easi::Query generate() const override;
 
@@ -161,17 +136,17 @@ class FaultGPGenerator : public QueryGenerator {
 class ParameterDB {
   public:
   virtual ~ParameterDB() = default;
-  virtual void evaluateModel(const std::string& fileName, const QueryGenerator* queryGen) = 0;
+  virtual void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) = 0;
   static easi::Component* loadModel(const std::string& fileName);
 };
 
 template <class T>
-class MaterialParameterDB : ParameterDB {
+class MaterialParameterDB : public ParameterDB {
   public:
   T computeAveragedMaterial(unsigned elementIdx,
                             const std::array<double, NumQuadpoints>& quadratureWeights,
                             const std::vector<T>& materialsFromQuery);
-  void evaluateModel(const std::string& fileName, const QueryGenerator* queryGen) override;
+  void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
   void setMaterialVector(std::vector<T>* materials) { m_materials = materials; }
   void addBindingPoints(easi::ArrayOfStructsAdapter<T>& adapter) {};
 
@@ -179,16 +154,18 @@ class MaterialParameterDB : ParameterDB {
   std::vector<T>* m_materials{};
 };
 
-class FaultParameterDB : ParameterDB {
+class FaultParameterDB : public ParameterDB {
   public:
+  explicit FaultParameterDB(std::size_t simulation) : simid(simulation) {}
   ~FaultParameterDB() override = default;
   void addParameter(const std::string& parameter, real* memory, unsigned stride = 1) {
     m_parameters[parameter] = std::make_pair(memory, stride);
   }
-  void evaluateModel(const std::string& fileName, const QueryGenerator* queryGen) override;
+  void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
   static std::set<std::string> faultProvides(const std::string& fileName);
 
   private:
+  std::size_t simid;
   std::unordered_map<std::string, std::pair<real*, unsigned>> m_parameters;
 };
 
@@ -212,4 +189,4 @@ class EasiBoundary {
 
 } // namespace seissol::initializer
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_

@@ -1,37 +1,49 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "WriterModule.h"
-#include "utils/logger.h"
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Module/AsyncWriter.h>
-#include <IO/Writer/Writer.h>
-#include <Modules/Modules.h>
-#include <Parallel/Helper.h>
-#include <Parallel/MPI.h>
-#include <Parallel/Pin.h>
+
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Module/AsyncWriter.h"
+#include "IO/Writer/Writer.h"
+#include "Modules/Modules.h"
+#include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
+#include "Parallel/Pin.h"
+#include "SeisSol.h"
+
 #include <cassert>
 #include <cmath>
 #include <cstring>
+#include <optional>
 #include <string>
 #include <unordered_set>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::io::writer::module {
 
 WriterModule::WriterModule(const std::string& prefix,
                            const ScheduledWriter& settings,
-                           const parallel::Pinning& pinning)
-    : rank(seissol::MPI::mpi.rank()), prefix(prefix), settings(settings), pinning(pinning) {}
+                           const parallel::Pinning& pinning,
+                           SeisSol& seissolInstance)
+    : rank(seissol::Mpi::mpi.rank()), prefix(prefix), settings(settings), pinning(pinning),
+      seissolInstance(seissolInstance) {}
 
 void WriterModule::setUp() {
-  logInfo(rank) << "Output Writer" << settings.name << ": setup.";
+  logInfo() << "Output Writer" << settings.name << ": setup.";
+  executor.setComm(seissol::Mpi::mpi.comm());
   setExecutor(executor);
-  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi)) {
+  // TODO: adjust the CommThread call here
+  if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, seissolInstance.env())) {
     const auto freeCpus = pinning.getFreeCPUsMask();
-    logInfo(rank) << "Output Writer" << settings.name
-                  << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus);
+    logInfo() << "Output Writer" << settings.name
+              << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus) << "("
+              << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
@@ -40,8 +52,8 @@ void WriterModule::setUp() {
 }
 
 void WriterModule::startup() {
-  logInfo(rank) << "Output Writer" << settings.name << ": startup, running at interval"
-                << settings.interval;
+  logInfo() << "Output Writer" << settings.name << ": startup, running at interval"
+            << settings.interval;
   init();
 
   // we want ASYNC to like us, hence we need to enter a non-zero size here
@@ -58,15 +70,18 @@ void WriterModule::startup() {
   setSyncInterval(settings.interval);
 }
 
-void WriterModule::simulationStart() { syncPoint(0); }
+void WriterModule::simulationStart(std::optional<double> checkpointTime) {
+  if (checkpointTime.value_or(0) == 0) {
+    syncPoint(0);
+  }
+}
 
 void WriterModule::syncPoint(double time) {
   if (lastWrite >= 0) {
-    logInfo(rank) << "Output Writer" << settings.name << ": finishing previous write from"
-                  << lastWrite;
+    logInfo() << "Output Writer" << settings.name << ": finishing previous write from" << lastWrite;
   }
   wait();
-  logInfo(rank) << "Output Writer" << settings.name << ": preparing write at" << time;
+  logInfo() << "Output Writer" << settings.name << ": preparing write at" << time;
 
   // request the write plan
   auto writeCount = static_cast<int>(std::round(time / syncInterval()));
@@ -127,7 +142,9 @@ void WriterModule::syncPoint(double time) {
                 bufferMap[targetSize].push_back(newId);
                 return newId;
               }();
-              void* bufferPtr = managedBuffer<void*>(foundId);
+
+              // avoid assert in ASYNC by checking targetSize == 0 explicitly
+              void* bufferPtr = targetSize == 0 ? nullptr : managedBuffer<void*>(foundId);
               adhocBuffer->setData(bufferPtr);
               return foundId;
             }
@@ -158,18 +175,18 @@ void WriterModule::syncPoint(double time) {
     sendBuffer(id);
   }
 
-  logInfo(rank) << "Output Writer" << settings.name << ": triggering write at" << time;
+  logInfo() << "Output Writer" << settings.name << ": triggering write at" << time;
   lastWrite = time;
   call(AsyncWriterExec{});
 }
 
 void WriterModule::simulationEnd() {
-  logInfo(rank) << "Output Writer" << settings.name << ": finishing output";
+  logInfo() << "Output Writer" << settings.name << ": finishing output";
   wait();
 }
 
 void WriterModule::shutdown() {
-  logInfo(rank) << "Output Writer" << settings.name << ": shutdown";
+  logInfo() << "Output Writer" << settings.name << ": shutdown";
   finalize();
 }
 

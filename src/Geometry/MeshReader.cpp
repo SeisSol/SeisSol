@@ -1,21 +1,32 @@
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "MeshReader.h"
 
+#include "Common/Constants.h"
+#include "Common/Iterator.h"
+#include "Initializer/ParameterDB.h"
+#include "Initializer/Parameters/DRParameters.h"
+#include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "MeshDefinition.h"
 #include "MeshTools.h"
-
-#include "PUML/TypeInference.h"
 #include "Parallel/MPI.h"
-#include <Initializer/Parameters/DRParameters.h>
+#include "SeisSol.h"
+
+#include <Eigen/Core>
+#include <PUML/TypeInference.h>
 #include <algorithm>
-#include <cmath>
 #include <cstddef>
 #include <map>
+#include <mpi.h>
 #include <unordered_map>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
-#ifdef USE_MPI
-#include <mpi.h>
-#endif
 
 namespace seissol::geometry {
 
@@ -44,9 +55,17 @@ bool MeshReader::hasFault() const { return !m_fault.empty(); }
 
 bool MeshReader::hasPlusFault() const { return m_hasPlusFault; }
 
+const std::vector<LinearGhostCell>& MeshReader::linearGhostlayer() const {
+  return m_linearGhostlayer;
+}
+
+const std::map<std::pair<int, std::size_t>, std::size_t>& MeshReader::toLinearGhostlayer() const {
+  return m_toLinearGhostlayer;
+}
+
 void MeshReader::displaceMesh(const Eigen::Vector3d& displacement) {
-  for (unsigned vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
-    for (unsigned i = 0; i < 3; ++i) {
+  for (std::size_t vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
+    for (std::size_t i = 0; i < Cell::Dim; ++i) {
       m_vertices[vertexNo].coords[i] += displacement[i];
     }
   }
@@ -56,13 +75,23 @@ void MeshReader::displaceMesh(const Eigen::Vector3d& displacement) {
 //  scalingMatrix is stored column-major, i.e.
 //  scalingMatrix_ij = scalingMatrix[j][i]
 void MeshReader::scaleMesh(const Eigen::Matrix3d& scalingMatrix) {
-  for (unsigned vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
+  for (std::size_t vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
     Eigen::Vector3d point;
     point << m_vertices[vertexNo].coords[0], m_vertices[vertexNo].coords[1],
         m_vertices[vertexNo].coords[2];
     const auto result = scalingMatrix * point;
-    for (unsigned i = 0; i < 3; ++i) {
+    for (std::size_t i = 0; i < Cell::Dim; ++i) {
       m_vertices[vertexNo].coords[i] = result[i];
+    }
+  }
+}
+
+void MeshReader::disableDR() {
+  for (auto& elem : m_elements) {
+    for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
+      if (elem.boundaries[j] == 3) {
+        elem.boundaries[j] = 0;
+      }
     }
   }
 }
@@ -74,7 +103,7 @@ void MeshReader::extractFaultInformation(
     const VrtxCoords& refPoint, seissol::initializer::parameters::RefPointMethod refPointMethod) {
   for (auto& i : m_elements) {
 
-    for (int j = 0; j < 4; j++) {
+    for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
       // Set default mpi fault indices
       i.mpiFaultIndices[j] = -1;
 
@@ -96,7 +125,8 @@ void MeshReader::extractFaultInformation(
 
         // FIXME we use the MPI number here for the neighbor element id
         // It is not very nice but should generate the correct ordering.
-        const MPINeighborElement neighbor = {i.localId, j, i.mpiIndices[j], i.neighborSides[j]};
+        const MPINeighborElement neighbor = {
+            i.localId, static_cast<SideId>(j), i.mpiIndices[j], i.neighborSides[j]};
         m_MPIFaultNeighbors[i.neighborRanks[j]].push_back(neighbor);
       }
 
@@ -233,40 +263,48 @@ void MeshReader::extractFaultInformation(
     }
 
     // Set the MPI fault number of all elements
-    for (int j = 0; j < static_cast<int>(i.second.size()); j++) {
+    for (std::size_t j = 0; j < i.second.size(); ++j) {
       m_elements[i.second[j].localElement].mpiFaultIndices[i.second[j].localSide] = j;
     }
   }
 }
 
 void MeshReader::exchangeGhostlayerMetadata() {
-#ifdef USE_MPI
   std::unordered_map<int, std::vector<GhostElementMetadata>> sendData;
   std::unordered_map<int, std::vector<GhostElementMetadata>> recvData;
 
   constexpr int Tag = 10;
-  MPI_Comm comm = seissol::MPI::mpi.comm();
+  MPI_Comm comm = seissol::Mpi::mpi.comm();
 
   std::vector<MPI_Request> requests(m_MPINeighbors.size() * 2);
 
   // TODO(David): Once a generic MPI type inference module is ready, replace this part here ...
   // Maybe.
   MPI_Datatype ghostElementType = MPI_DATATYPE_NULL;
+  MPI_Datatype ghostElementTypePre = MPI_DATATYPE_NULL;
 
   // assume that all vertices are stored contiguously
-  const int datatypeCount = 3;
-  const std::vector<int> datatypeBlocklen{12, 1, 1};
+  const int datatypeCount = 6;
+  const std::vector<int> datatypeBlocklen{Cell::NumVertices * Cell::Dim, 1, 1, 1, 1, 1};
   const std::vector<MPI_Aint> datatypeDisplacement{offsetof(GhostElementMetadata, vertices),
                                                    offsetof(GhostElementMetadata, group),
-                                                   offsetof(GhostElementMetadata, globalId)};
-  const std::vector<MPI_Datatype> datatypeDatatype{
-      MPI_DOUBLE, MPI_INT, PUML::MPITypeInfer<GlobalElemId>::type()};
+                                                   offsetof(GhostElementMetadata, localId),
+                                                   offsetof(GhostElementMetadata, globalId),
+                                                   offsetof(GhostElementMetadata, clusterId),
+                                                   offsetof(GhostElementMetadata, timestep)};
+  const std::vector<MPI_Datatype> datatypeDatatype{MPI_DOUBLE,
+                                                   MPI_INT,
+                                                   PUML::MPITypeInfer<LocalElemId>::type(),
+                                                   PUML::MPITypeInfer<GlobalElemId>::type(),
+                                                   MPI_INT,
+                                                   MPI_DOUBLE};
 
   MPI_Type_create_struct(datatypeCount,
                          datatypeBlocklen.data(),
                          datatypeDisplacement.data(),
                          datatypeDatatype.data(),
-                         &ghostElementType);
+                         &ghostElementTypePre);
+  MPI_Type_create_resized(ghostElementTypePre, 0, sizeof(GhostElementMetadata), &ghostElementType);
   MPI_Type_commit(&ghostElementType);
 
   size_t counter = 0;
@@ -282,14 +320,17 @@ void MeshReader::exchangeGhostlayerMetadata() {
       const auto& element = m_elements.at(elementIdx);
       auto& ghost = sendData[targetRank][j];
 
-      for (size_t v = 0; v < 4; ++v) {
+      for (size_t v = 0; v < Cell::NumVertices; ++v) {
         const auto& vertex = m_vertices[element.vertices[v]];
-        ghost.vertices[v][0] = vertex.coords[0];
-        ghost.vertices[v][1] = vertex.coords[1];
-        ghost.vertices[v][2] = vertex.coords[2];
+        for (std::size_t d = 0; d < Cell::Dim; ++d) {
+          ghost.vertices[v][d] = vertex.coords[d];
+        }
       }
       ghost.group = element.group;
+      ghost.localId = element.localId;
       ghost.globalId = element.globalId;
+      ghost.clusterId = element.clusterId;
+      ghost.timestep = element.timestep;
     }
 
     // TODO(David): evaluate, if MPI_Ssend (instead of just MPI_Send) makes sense here?
@@ -314,7 +355,72 @@ void MeshReader::exchangeGhostlayerMetadata() {
   m_ghostlayerMetadata = std::move(recvData);
 
   MPI_Type_free(&ghostElementType);
-#endif
+}
+
+void MeshReader::linearizeGhostlayer() {
+  m_linearGhostlayer.clear();
+  m_toLinearGhostlayer.clear();
+
+  // basic assumption: each cell appears only on exactly one rank
+  for (const auto& [rank, cells] : m_ghostlayerMetadata) {
+    // map for deterministic ordering (for now)
+    std::map<std::size_t, std::vector<std::size_t>> ordering;
+    for (std::size_t i = 0; i < cells.size(); ++i) {
+      ordering[cells[i].globalId].emplace_back(i);
+    }
+    for (const auto& [_, ids] : ordering) {
+      for (const auto& index : ids) {
+        m_toLinearGhostlayer[{rank, index}] = m_linearGhostlayer.size();
+      }
+      m_linearGhostlayer.push_back(LinearGhostCell{ids, rank});
+    }
+  }
+}
+
+void MeshReader::computeTimestepIfNecessary(const seissol::SeisSol& seissolInstance) {
+  if (!inlineTimestepCompute()) {
+    const auto ctvarray = seissol::initializer::CellToVertexArray::fromMeshReader(*this);
+    const auto timesteps =
+        seissol::initializer::computeTimesteps(ctvarray, seissolInstance.getSeisSolParameters());
+    for (auto [cell, timestep] : seissol::common::zip(m_elements, timesteps.cellTimeStepWidths)) {
+      cell.timestep = timestep;
+
+      // enforce GTS in the case here
+      cell.clusterId = 0;
+    }
+  }
+}
+
+void MeshReader::verifyMeshOrientation() {
+  // for now, only check the tetrahedron orientation here
+
+  bool correct = true;
+
+#pragma omp parallel for schedule(static)
+  for (std::size_t i = 0; i < m_elements.size(); ++i) {
+    const auto& element = m_elements[i];
+
+    // check orientation
+    Eigen::Matrix<double, 4, 4> mat;
+    const auto& v1 = m_vertices[element.vertices[0]].coords;
+    const auto& v2 = m_vertices[element.vertices[1]].coords;
+    const auto& v3 = m_vertices[element.vertices[2]].coords;
+    const auto& v4 = m_vertices[element.vertices[3]].coords;
+
+    mat << v1[0], v1[1], v1[2], 1, v2[0], v2[1], v2[2], 1, v3[0], v3[1], v3[2], 1, v4[0], v4[1],
+        v4[2], 1;
+
+    if (mat.determinant() >= 0) {
+      logWarning()
+          << "The cell" << i
+          << "has an incorrect orientation. Thus, SeisSol would produce incorrect results.";
+      correct = false;
+    }
+  }
+
+  if (!correct) {
+    logError() << "There are geometric problems with the given mesh.";
+  }
 }
 
 } // namespace seissol::geometry

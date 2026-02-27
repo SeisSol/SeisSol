@@ -1,15 +1,19 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_IO_MANAGER_H_
 #define SEISSOL_SRC_IO_MANAGER_H_
 
+#include "IO/Instance/Checkpoint/CheckpointManager.h"
+#include "IO/Writer/Writer.h"
+#include "Modules/Module.h"
+#include "Modules/Modules.h"
 #include "Writer/Module/WriterModule.h"
-#include <IO/Instance/Checkpoint/CheckpointManager.h>
-#include <IO/Writer/Writer.h>
-#include <Modules/Module.h>
-#include <Modules/Modules.h>
+
 #include <memory>
 #include <vector>
 
@@ -21,7 +25,7 @@ namespace seissol::io {
 
 class OutputManager : public seissol::Module {
   public:
-  OutputManager(SeisSol& seissolInstance);
+  explicit OutputManager(SeisSol& seissolInstance);
 
   void addOutput(const writer::ScheduledWriter& writer);
 

@@ -1,53 +1,21 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef MESH_REFINER_H_
-#define MESH_REFINER_H_
-
-#include <cstring>
+#ifndef SEISSOL_SRC_GEOMETRY_REFINEMENT_MESHREFINER_H_
+#define SEISSOL_SRC_GEOMETRY_REFINEMENT_MESHREFINER_H_
 
 #include "Geometry/MeshReader.h"
 #include "RefinerUtils.h"
 
-namespace seissol {
-namespace refinement {
+#include <cstddef>
+#include <cstring>
+
+namespace seissol::refinement {
 
 //------------------------------------------------------------------------------
 
@@ -61,7 +29,7 @@ class MeshRefiner {
   size_t m_numSubCells;
   size_t m_numVertices;
 
-  static const unsigned int kIndicesPerCell = 4;
+  static const unsigned int KIndicesPerCell = 4;
 
   const unsigned int kSubCellsPerCell;
 
@@ -76,12 +44,17 @@ class MeshRefiner {
 
   ~MeshRefiner();
 
-  const unsigned int* getCellData() const;
-  const T* getVertexData() const;
-  std::size_t getkSubCellsPerCell() const;
+  auto operator=(const MeshRefiner&) = delete;
+  auto operator=(MeshRefiner&&) = delete;
+  MeshRefiner(const MeshRefiner&) = delete;
+  MeshRefiner(MeshRefiner&&) = delete;
 
-  std::size_t getNumCells() const;
-  std::size_t getNumVertices() const;
+  [[nodiscard]] const unsigned int* getCellData() const;
+  const T* getVertexData() const;
+  [[nodiscard]] std::size_t getkSubCellsPerCell() const;
+
+  [[nodiscard]] std::size_t getNumCells() const;
+  [[nodiscard]] std::size_t getNumVertices() const;
 };
 
 //------------------------------------------------------------------------------
@@ -101,44 +74,40 @@ MeshRefiner<T>::MeshRefiner(const seissol::geometry::MeshReader& meshReader,
   const unsigned int additionalVertices = tetRefiner.additionalVerticesPerCell();
   m_numVertices = kInVertexCount + kInCellCount * additionalVertices;
 
-  m_cells = new unsigned int[m_numSubCells * kIndicesPerCell];
+  m_cells = new unsigned int[m_numSubCells * KIndicesPerCell];
   m_vertices = new T[m_numVertices * 3];
 
   const std::vector<Vertex>& kVertices = meshReader.getVertices();
   const std::vector<Element>& kElements = meshReader.getElements();
 
   // Copy original vertices
-#ifdef _OPENMP
+
 #pragma omp parallel for
-#endif // _OPENMP
   for (unsigned int i = 0; i < kInVertexCount; i++) {
-    memcpy(&m_vertices[i * 3], kVertices[i].coords, sizeof(double) * 3);
+    memcpy(&m_vertices[static_cast<size_t>(i * 3)], kVertices[i].coords, sizeof(double) * 3);
   }
 
   // The pointer to the new vertices
   T* newVertices = &m_vertices[kInVertexCount * 3];
 
   // Start the actual cell-refinement
-#ifdef _OPENMP
+
 #pragma omp parallel
   {
-#endif // _OPENMPI
-    Eigen::Matrix<T, 3, 1>* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
-    Tetrahedron<T>* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
+    auto* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
+    auto* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
 
-#ifdef _OPENMP
 #pragma omp for schedule(static) nowait
-#endif // _OPENMP
     for (size_t c = 0; c < kInCellCount; ++c) {
       // Build a Terahedron containing the coordinates of the vertices.
-      Tetrahedron<T> inTet = Tetrahedron<T>(kVertices[kElements[c].vertices[0]].coords,
-                                            kVertices[kElements[c].vertices[1]].coords,
-                                            kVertices[kElements[c].vertices[2]].coords,
-                                            kVertices[kElements[c].vertices[3]].coords,
-                                            kElements[c].vertices[0],
-                                            kElements[c].vertices[1],
-                                            kElements[c].vertices[2],
-                                            kElements[c].vertices[3]);
+      const Tetrahedron<T> inTet = Tetrahedron<T>(kVertices[kElements[c].vertices[0]].coords,
+                                                  kVertices[kElements[c].vertices[1]].coords,
+                                                  kVertices[kElements[c].vertices[2]].coords,
+                                                  kVertices[kElements[c].vertices[3]].coords,
+                                                  kElements[c].vertices[0],
+                                                  kElements[c].vertices[1],
+                                                  kElements[c].vertices[2],
+                                                  kElements[c].vertices[3]);
 
       // Generate the tets
       tetRefiner.refine(inTet, kInVertexCount + c * additionalVertices, newTetsTmp, newVerticesTmp);
@@ -161,9 +130,7 @@ MeshRefiner<T>::MeshRefiner(const seissol::geometry::MeshReader& meshReader,
 
     delete[] newVerticesTmp;
     delete[] newTetsTmp;
-#ifdef _OPENMP
   }
-#endif
 }
 
 template <typename T>
@@ -183,37 +150,31 @@ MeshRefiner<T>::MeshRefiner(const std::vector<const Element*>& subElements,
   const unsigned int additionalVertices = tetRefiner.additionalVerticesPerCell();
   m_numVertices = kInVertexCount + kInCellCount * additionalVertices;
 
-  m_cells = new unsigned int[m_numSubCells * kIndicesPerCell];
+  m_cells = new unsigned int[m_numSubCells * KIndicesPerCell];
   m_vertices = new T[m_numVertices * 3];
 
   const std::vector<const Vertex*>& kVertices = subVertices;
   const std::vector<const Element*>& kElements = subElements;
 
   // Copy original vertices
-#ifdef _OPENMP
 #pragma omp parallel for
-#endif // _OPENMP
   for (unsigned int i = 0; i < kInVertexCount; i++) {
-    memcpy(&m_vertices[i * 3], kVertices[i]->coords, sizeof(double) * 3);
+    memcpy(&m_vertices[static_cast<size_t>(i * 3)], kVertices[i]->coords, sizeof(double) * 3);
   }
 
   // The pointer to the new vertices
   T* newVertices = &m_vertices[kInVertexCount * 3];
 
   // Start the actual cell-refinement
-#ifdef _OPENMP
 #pragma omp parallel shared(oldToNewVertexMap)
   {
-#endif // _OPENMPI
-    Eigen::Matrix<T, 3, 1>* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
-    Tetrahedron<T>* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
+    auto* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
+    auto* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
 
-#ifdef _OPENMP
 #pragma omp for schedule(static) nowait
-#endif // _OPENMP
     for (size_t c = 0; c < kInCellCount; ++c) {
       // Build a Terahedron containing the coordinates of the vertices.
-      Tetrahedron<T> inTet =
+      const Tetrahedron<T> inTet =
           Tetrahedron<T>(kVertices[oldToNewVertexMap.at(kElements[c]->vertices[0])]->coords,
                          kVertices[oldToNewVertexMap.at(kElements[c]->vertices[1])]->coords,
                          kVertices[oldToNewVertexMap.at(kElements[c]->vertices[2])]->coords,
@@ -244,9 +205,7 @@ MeshRefiner<T>::MeshRefiner(const std::vector<const Element*>& subElements,
 
     delete[] newVerticesTmp;
     delete[] newTetsTmp;
-#ifdef _OPENMP
   }
-#endif
 }
 
 template <typename T>
@@ -290,7 +249,6 @@ std::size_t MeshRefiner<T>::getNumVertices() const {
 
 //------------------------------------------------------------------------------
 
-} // namespace refinement
-} // namespace seissol
+} // namespace seissol::refinement
 
-#endif // MESH_REFINER_H_
+#endif // SEISSOL_SRC_GEOMETRY_REFINEMENT_MESHREFINER_H_

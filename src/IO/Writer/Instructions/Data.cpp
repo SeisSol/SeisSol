@@ -1,9 +1,14 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Data.h"
-#include <IO/Datatype/Datatype.h>
+
+#include "IO/Datatype/Datatype.h"
+
 #include <algorithm>
 #include <async/ExecInfo.h>
 #include <cstddef>
@@ -52,12 +57,12 @@ YAML::Node WriteInline::serialize() {
   return node;
 }
 
-const void* WriteInline::getPointer(const async::ExecInfo& info) { return data.data(); }
+const void* WriteInline::getPointer(const async::ExecInfo& /*info*/) { return data.data(); }
 
 const void* WriteInline::getLocalPointer() const { return data.data(); }
 std::size_t WriteInline::getLocalSize() const { return data.size(); }
 
-std::size_t WriteInline::count(const async::ExecInfo& info) {
+std::size_t WriteInline::count(const async::ExecInfo& /*info*/) {
   return data.size() / datatype()->size();
 }
 
@@ -100,7 +105,7 @@ WriteBuffer::WriteBuffer(const void* data,
                          size_t size,
                          std::shared_ptr<datatype::Datatype> datatype,
                          const std::vector<std::size_t>& shape)
-    : data(data), size(size), DataSource(std::move(datatype), shape) {}
+    : DataSource(std::move(datatype), shape), data(data), size(size) {}
 
 YAML::Node WriteBuffer::serialize() {
   YAML::Node node;
@@ -120,7 +125,7 @@ size_t WriteBuffer::getLocalSize() const {
   return shapeprod * size * datatype()->size();
 }
 
-const void* WriteBuffer::getPointer(const async::ExecInfo& info) { return data; }
+const void* WriteBuffer::getPointer(const async::ExecInfo& /*info*/) { return data; }
 
 std::size_t WriteBuffer::count(const async::ExecInfo& info) {
   return info.bufferSize(id) / datatype()->size();

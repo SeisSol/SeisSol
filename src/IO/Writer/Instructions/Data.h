@@ -1,18 +1,25 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_H_
 #define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_H_
 
-#include "async/ExecInfo.h"
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/Inference.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
+
 #include <cstring>
 #include <functional>
 #include <memory>
 #include <utility>
 #include <yaml-cpp/yaml.h>
+
+namespace async {
+class ExecInfo;
+} // namespace async
 
 namespace seissol::io::writer {
 
@@ -64,7 +71,7 @@ class WriteInline : public DataSource {
   template <typename T>
   static std::shared_ptr<DataSource>
       create(const T& data,
-             std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
+             const std::shared_ptr<datatype::Datatype>& datatype = datatype::inferDatatype<T>()) {
     return std::make_shared<WriteInline>(&data, sizeof(T), datatype, std::vector<std::size_t>());
   }
 
@@ -77,10 +84,10 @@ class WriteInline : public DataSource {
   }
 
   template <typename T>
-  static std::shared_ptr<DataSource>
-      createArray(const std::vector<std::size_t>& shape,
-                  const std::vector<T>& data,
-                  std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
+  static std::shared_ptr<DataSource> createArray(
+      const std::vector<std::size_t>& shape,
+      const std::vector<T>& data,
+      const std::shared_ptr<datatype::Datatype>& datatype = datatype::inferDatatype<T>()) {
     return std::make_shared<WriteInline>(data.data(), sizeof(T) * data.size(), datatype, shape);
   }
 
@@ -134,7 +141,7 @@ class WriteBuffer : public DataSource {
       create(const T* data,
              size_t count,
              const std::vector<std::size_t>& shape = {},
-             std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
+             const std::shared_ptr<datatype::Datatype>& datatype = datatype::inferDatatype<T>()) {
     return std::make_shared<WriteBuffer>(data, count, datatype, shape);
   }
 
@@ -161,12 +168,12 @@ class AdhocBuffer : public DataSource {
     return node;
   }
 
-  const void* getPointer(const async::ExecInfo& info) override { return nullptr; }
+  const void* getPointer(const async::ExecInfo& /*info*/) override { return nullptr; }
 
   [[nodiscard]] const void* getLocalPointer() const override { return nullptr; }
   [[nodiscard]] size_t getLocalSize() const override { return getTargetSize(); }
 
-  std::size_t count(const async::ExecInfo& info) override {
+  std::size_t count(const async::ExecInfo& /*info*/) override {
     return getTargetSize() / datatype()->size();
   }
 
@@ -175,7 +182,7 @@ class AdhocBuffer : public DataSource {
   bool distributed() override { return true; }
 
   private:
-  int id;
+  int id{-1};
 };
 
 class GeneratedBuffer : public AdhocBuffer {
@@ -185,8 +192,8 @@ class GeneratedBuffer : public AdhocBuffer {
                   std::function<void(void*)> generator,
                   std::shared_ptr<datatype::Datatype> datatype,
                   const std::vector<std::size_t>& shape)
-      : generator(std::move(generator)), sourceCount(sourceCount), targetCount(targetCount),
-        targetStride(targetCount), AdhocBuffer(std::move(datatype), shape) {
+      : AdhocBuffer(std::move(datatype), shape), generator(std::move(generator)),
+        sourceCount(sourceCount), targetStride(targetCount) {
 
     for (auto dim : shape) {
       targetStride *= dim;
@@ -204,8 +211,8 @@ class GeneratedBuffer : public AdhocBuffer {
       std::size_t sourceCount,
       std::size_t targetCount,
       const std::vector<std::size_t>& shape,
-      F handler,
-      std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
+      const F& handler,
+      const std::shared_ptr<datatype::Datatype>& datatype = datatype::inferDatatype<T>()) {
     std::size_t localTargetStride = targetCount;
     for (auto dim : shape) {
       localTargetStride *= dim;
@@ -215,9 +222,8 @@ class GeneratedBuffer : public AdhocBuffer {
         targetCount,
         [=](void* targetPtr) {
           T* target = reinterpret_cast<T*>(targetPtr);
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
           for (std::size_t i = 0; i < sourceCount; ++i) {
             std::invoke(handler, &target[i * localTargetStride], i);
           }
@@ -229,7 +235,6 @@ class GeneratedBuffer : public AdhocBuffer {
   private:
   std::function<void(void*)> generator;
   std::size_t sourceCount;
-  std::size_t targetCount;
   std::size_t targetStride;
 };
 

@@ -1,57 +1,28 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2019, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- **/
+// SPDX-FileCopyrightText: 2019 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
 
-#ifndef KERNELS_RECEIVER_H_
-#define KERNELS_RECEIVER_H_
+#ifndef SEISSOL_SRC_KERNELS_RECEIVER_H_
+#define SEISSOL_SRC_KERNELS_RECEIVER_H_
 
+#include "Common/Executor.h"
+#include "GeneratedCode/init.h"
 #include "Geometry/MeshReader.h"
-#include "Initializer/LTS.h"
 #include "Initializer/PointMapper.h"
-#include "Initializer/Tree/Lut.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
-#include "Kernels/Time.h"
+#include "Kernels/Solver.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
-#include "generated_code/init.h"
-#include <Common/Executor.h>
+#include "Parallel/Runtime/Stream.h"
+
 #include <Eigen/Dense>
 #include <optional>
 #include <vector>
@@ -65,15 +36,15 @@ struct Receiver {
   Receiver(unsigned pointId,
            Eigen::Vector3d position,
            const double* elementCoords[4],
-           kernels::LocalData dataHost,
-           kernels::LocalData dataDevice,
+           LTS::Ref dataHost,
+           LTS::Ref dataDevice,
            size_t reserved);
   unsigned pointId;
   Eigen::Vector3d position;
   basisFunction::SampledBasisFunctions<real> basisFunctions;
   basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
-  kernels::LocalData dataHost;
-  kernels::LocalData dataDevice;
+  LTS::Ref dataHost;
+  LTS::Ref dataDevice;
   std::vector<real> output;
 };
 
@@ -106,9 +77,9 @@ struct ReceiverStrain : public DerivedReceiverQuantity {
 
 class ReceiverCluster {
   public:
-  ReceiverCluster(seissol::SeisSol& seissolInstance);
+  explicit ReceiverCluster(seissol::SeisSol& seissolInstance);
 
-  ReceiverCluster(const GlobalData* global,
+  ReceiverCluster(const CompoundGlobalData& global,
                   const std::vector<unsigned>& quantities,
                   double samplingInterval,
                   double syncPointInterval,
@@ -119,12 +90,14 @@ class ReceiverCluster {
                    unsigned pointId,
                    const Eigen::Vector3d& point,
                    const seissol::geometry::MeshReader& mesh,
-                   const seissol::initializer::Lut& ltsLut,
-                   seissol::initializer::LTS const& lts);
+                   const LTS::Backmap& backmap);
 
   //! Returns new receiver time
-  double calcReceivers(
-      double time, double expansionPoint, double timeStepWidth, Executor executor, void* stream);
+  double calcReceivers(double time,
+                       double expansionPoint,
+                       double timeStepWidth,
+                       Executor executor,
+                       parallel::runtime::StreamRuntime& runtime);
 
   std::vector<Receiver>::iterator begin() { return m_receivers.begin(); }
 
@@ -136,13 +109,15 @@ class ReceiverCluster {
   void freeData();
 
   private:
-  std::unique_ptr<seissol::parallel::DataCollector> deviceCollector{nullptr};
+  std::optional<parallel::runtime::StreamRuntime> extraRuntime;
+  std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollector{nullptr};
   std::vector<size_t> deviceIndices;
   std::vector<Receiver> m_receivers;
-  seissol::kernels::Time m_timeKernel;
+  seissol::kernels::Spacetime spacetimeKernel;
+  seissol::kernels::Time timeKernel;
   std::vector<unsigned> m_quantities;
-  unsigned m_nonZeroFlops{};
-  unsigned m_hardwareFlops{};
+  std::uint64_t m_nonZeroFlops{};
+  std::uint64_t m_hardwareFlops{};
   double m_samplingInterval;
   double m_syncPointInterval;
   std::vector<std::shared_ptr<DerivedReceiverQuantity>> derivedQuantities;
@@ -151,4 +126,4 @@ class ReceiverCluster {
 } // namespace kernels
 } // namespace seissol
 
-#endif
+#endif // SEISSOL_SRC_KERNELS_RECEIVER_H_

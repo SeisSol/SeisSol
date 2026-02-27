@@ -1,5 +1,13 @@
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "SourceParameters.h"
-#include <Initializer/Parameters/ParameterReader.h>
+
+#include "Initializer/Parameters/ParameterReader.h"
 
 namespace seissol::initializer::parameters {
 

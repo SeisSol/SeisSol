@@ -1,10 +1,9 @@
 ---
 name: Feature request
-about: Suggest adding a feature that is not yet in SeisSol  
-labels: feature
-
+about: Suggest adding a feature that is not yet in SeisSol
+labels: 'feature-request'
+type: 'Feature'
 ---
-
 <!-- markdownlint-disable MD041 -->
 
 <!--*Please add a concise summary of your suggestion here.*-->

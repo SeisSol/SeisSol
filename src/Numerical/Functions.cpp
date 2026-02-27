@@ -1,7 +1,15 @@
+// SPDX-FileCopyrightText: 2020 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "Functions.h"
 
+#include "Numerical/StableSum.h"
+
 #include <array>
-#include <cmath>
 #include <cstdint>
 
 namespace seissol::functions {
@@ -161,6 +169,38 @@ std::array<double, 3> gradTetraDubinerP(const std::array<unsigned, 3>& i,
           ddalpha(1.0, -1.0, 1.0, -1.0, 2.0)};
 }
 
+double shiftedLegendre(int n, double x, int d) {
+  // cf. https://en.wikipedia.org/wiki/Legendre_polynomials#Shifted_Legendre_polynomials
+  double xp = 1;
+  double coeff = 1;
+  numerical::StableAccumulator<double> y;
+  for (int i = 0; i < -d; ++i) {
+    xp *= x;
+  }
+  for (int k = 0; k <= n; ++k) {
+    if (k >= d) {
+      double dcoeff = 1;
+      for (int i = 0; i < -d; ++i) {
+        dcoeff /= (k + i + 1);
+      }
+      for (int i = 0; i < d; ++i) {
+        dcoeff *= (k - i);
+      }
+      if ((n + k) % 2 == 0) {
+        y += xp * coeff * dcoeff;
+      } else {
+        y -= xp * coeff * dcoeff;
+      }
+
+      xp *= x;
+    }
+
+    coeff *= (n - k) * (n + k + 1);
+    coeff /= (k + 1) * (k + 1);
+  }
+  return y.result();
+}
+
 template <>
 double DubinerP<1U>(const std::array<unsigned, 1U>& i, const std::array<double, 1U>& xi) {
   return JacobiP(i[0], 0, 0, 2.0 * xi[0] - 1.0);
@@ -177,7 +217,7 @@ double DubinerP<3U>(const std::array<unsigned, 3U>& i, const std::array<double, 
 template <>
 std::array<double, 1U> gradDubinerP<1U>(const std::array<unsigned, 1U>& i,
                                         const std::array<double, 1U>& xi) {
-  return {JacobiPDerivative(i[0], 0, 0, 2.0 * xi[0] - 1.0)};
+  return {2.0 * JacobiPDerivative(i[0], 0, 0, 2.0 * xi[0] - 1.0)};
 }
 template <>
 std::array<double, 2U> gradDubinerP<2U>(const std::array<unsigned, 2U>& i,
@@ -188,6 +228,12 @@ template <>
 std::array<double, 3U> gradDubinerP<3U>(const std::array<unsigned, 3U>& i,
                                         const std::array<double, 3U>& xi) {
   return gradTetraDubinerP(i, xi);
+}
+
+template <>
+std::array<double, 1U> antigradDubinerP<1U>(const std::array<unsigned, 1U>& i,
+                                            const std::array<double, 1U>& xi) {
+  return {shiftedLegendre(i[0], xi[0], -1)};
 }
 
 } // namespace seissol::functions

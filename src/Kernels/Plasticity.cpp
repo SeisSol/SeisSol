@@ -1,69 +1,39 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Stephanie Wollherr (wollherr AT geophysik.uni-muenchen.de,
- *https://www.geophysik.uni-muenchen.de/Members/wollherr)
- *
- * @section LICENSE
- * Copyright (c) 2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Plasticity kernel of SeisSol.
- **/
+// SPDX-FileCopyrightText: 2017 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Stephanie Wollherr
 
 #include "Plasticity.h"
 
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
-#include <Common/Constants.h>
-#include <DataTypes/ConditionalTable.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
-#include <Model/Plasticity.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Alignment.h"
+#include "Common/Marker.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Model/Plasticity.h"
+#include "Parallel/Runtime/Stream.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <cstring>
-#include <tensor.h>
-
-#include "utils/logger.h"
+#include <cstddef>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "DeviceAux/PlasticityAux.h"
-#include "device.h"
-#include <DataTypes/ConditionalKey.h>
-#include <DataTypes/EncodedConstants.h>
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Solver/MultipleSimulations.h"
+
+#include <Device/device.h>
 using namespace device;
 #endif
 
@@ -72,48 +42,41 @@ using namespace device;
 #endif
 
 namespace seissol::kernels {
-unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
-                                       double timeStepWidth,
-                                       double tV,
-                                       const GlobalData* global,
-                                       const seissol::model::PlasticityData* plasticityData,
-                                       real degreesOfFreedom[tensor::Q::size()],
-                                       real* pstrain) {
+std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
+                                          double timeStepWidth,
+                                          double tV,
+                                          const GlobalData* global,
+                                          const seissol::model::PlasticityData* plasticityData,
+                                          real degreesOfFreedom[tensor::Q::size()],
+                                          real* pstrain) {
+
   assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Alignment == 0);
 
-  alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()];
-  alignas(Alignment) real qEtaNodal[tensor::QEtaNodal::size()];
-  alignas(Alignment) real qEtaModal[tensor::QEtaModal::size()];
-  alignas(Alignment) real meanStress[tensor::meanStress::size()];
-  alignas(Alignment) real secondInvariant[tensor::secondInvariant::size()];
-  alignas(Alignment) real tau[tensor::secondInvariant::size()];
-  alignas(Alignment) real taulim[tensor::meanStress::size()];
-  alignas(Alignment) real yieldFactor[tensor::yieldFactor::size()];
-  alignas(Alignment) real dudtPstrain[tensor::QStress::size()];
+  alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()]{};
+
+  alignas(Alignment) real meanStress[tensor::meanStress::size()]{};
+  alignas(Alignment) real secondInvariant[tensor::secondInvariant::size()]{};
+  alignas(Alignment) real tau[tensor::secondInvariant::size()]{};
+  alignas(Alignment) real taulim[tensor::meanStress::size()]{};
+  alignas(Alignment) real yieldFactor[tensor::yieldFactor::size()]{};
 
   static_assert(tensor::secondInvariant::size() == tensor::meanStress::size(),
                 "Second invariant tensor and mean stress tensor must be of the same size().");
   static_assert(tensor::yieldFactor::size() <= tensor::meanStress::size(),
                 "Yield factor tensor must be smaller than mean stress tensor.");
 
-  // copy dofs for later comparison, only first dof of stresses required
-  //  @todo multiple sims
-
-  real prevDegreesOfFreedom[tensor::QStress::size()];
-  for (unsigned q = 0; q < tensor::QStress::size(); ++q) {
-    prevDegreesOfFreedom[q] = degreesOfFreedom[q];
-  }
-
   /* Convert modal to nodal and add sigma0.
    * Stores s_{ij} := sigma_{ij} + sigma0_{ij} for every node.
-   * sigma0 is constant */
+   * sigma0 is constant
+   * also stores the previous DOFs before adding the new initial loading
+   */
+
   kernel::plConvertToNodal m2nKrnl;
   m2nKrnl.v = global->vandermondeMatrix;
   m2nKrnl.QStress = degreesOfFreedom;
   m2nKrnl.QStressNodal = qStressNodal;
-  m2nKrnl.replicateInitialLoading = init::replicateInitialLoading::Values;
   m2nKrnl.initialLoading = plasticityData->initialLoading;
   m2nKrnl.execute();
 
@@ -140,31 +103,43 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   siKrnl.weightSecondInvariant = init::weightSecondInvariant::Values;
   siKrnl.execute();
 
-  // tau := sqrt(I_2) for every node
-  for (unsigned ip = 0; ip < tensor::secondInvariant::size(); ++ip) {
-    tau[ip] = sqrt(secondInvariant[ip]);
+// tau := sqrt(I_2) for every node
+#pragma omp simd
+  for (std::size_t ip = 0; ip < tensor::secondInvariant::size(); ++ip) {
+    tau[ip] = std::sqrt(secondInvariant[ip]);
   }
 
-  // Compute tau_c for every node
-  for (unsigned ip = 0; ip < tensor::meanStress::size(); ++ip) {
-    taulim[ip] = std::max((real)0.0,
-                          plasticityData->cohesionTimesCosAngularFriction -
-                              meanStress[ip] * plasticityData->sinAngularFriction);
+// Compute tau_c for every node
+#pragma omp simd
+  for (std::size_t ip = 0; ip < tensor::meanStress::size(); ++ip) {
+    taulim[ip] = std::max(static_cast<real>(0.0),
+                          plasticityData->cohesionTimesCosAngularFriction[ip] -
+                              meanStress[ip] * plasticityData->sinAngularFriction[ip]);
   }
 
-  bool adjust = false;
-  for (unsigned ip = 0; ip < tensor::yieldFactor::size(); ++ip) {
+  int adjust = 0;
+
+#pragma omp simd reduction(max : adjust)
+  for (std::size_t ip = 0; ip < tensor::yieldFactor::size(); ++ip) {
     // Compute yield := (t_c / tau - 1) r for every node,
-    // where r = 1 - exp(-timeStepWidth / T_v)
+    // where r = 1 - exp(-timeStepWidth / tV)
     if (tau[ip] > taulim[ip]) {
-      adjust = true;
+      adjust = 1;
       yieldFactor[ip] = (taulim[ip] / tau[ip] - 1.0) * oneMinusIntegratingFactor;
     } else {
       yieldFactor[ip] = 0.0;
     }
   }
 
-  if (adjust) {
+  if (adjust != 0) {
+    const real factor = plasticityData->mufactor / (tV * oneMinusIntegratingFactor);
+
+    // calculate plastic strain
+    constexpr std::size_t NumNodes = init::QStressNodal::Stop[multisim::BasisFunctionDimension] -
+                                     init::QStressNodal::Start[multisim::BasisFunctionDimension];
+
+    real* __restrict qEtaNodal = &pstrain[tensor::QStressNodal::size()];
+
     /**
      * Compute sigma_{ij} := sigma_{ij} + yield s_{ij} for every node
      * and store as modal basis.
@@ -181,160 +156,126 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
      *                = sigma_{ij} + (f^* - 1) s_{ij}
      *                = sigma_{ij} + yield s_{ij}
      */
-    kernel::plAdjustStresses adjKrnl;
+
+#pragma omp simd collapse(2)
+    for (std::size_t i = 0; i < NumNodes; ++i) {
+      for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
+        const auto qp = s + multisim::NumSimulations * i;
+
+        real dudtPstrainSqAcc = 0;
+
+        for (std::size_t x = 0; x < 6; ++x) {
+          const auto q = qp + multisim::NumSimulations * NumNodes * x;
+          /**
+           * Equation (10) from Wollherr et al.:
+           *
+           * d/dt strain_{ij} = (sigma_{ij} + sigma0_{ij} - P_{ij}(sigma)) / (2mu tV)
+           *
+           * where (11)
+           *
+           * P_{ij}(sigma) = { tau_c/tau s_{ij} + m delta_{ij}         if     tau >= taulim
+           *                 { sigma_{ij} + sigma0_{ij}                else
+           *
+           * Thus,
+           *
+           * d/dt strain_{ij} = { (1 - tau_c/tau) / (2mu tV) s_{ij}   if     tau >= taulim
+           *                    { 0                                    else
+           *
+           * Consider tau >= taulim first. We have (1 - tau_c/tau) = -yield / r. Therefore,
+           *
+           * d/dt strain_{ij} = -1 / (2mu tV r) yield s_{ij}
+           *                  = -1 / (2mu tV r) (sigmaNew_{ij} - sigma_{ij})
+           *                  = (sigma_{ij} - sigmaNew_{ij}) / (2mu tV r)
+           *                  = -yield s_{ij} / (2mu tV r)
+           *
+           * If tau < taulim, then sigma_{ij} - sigmaNew_{ij} = 0.
+           */
+          const auto qStressNodalUpdate = qStressNodal[q] * yieldFactor[qp];
+          const auto dudtPstrain = -factor * qStressNodalUpdate;
+
+          // Integrate with explicit Euler
+          pstrain[q] += timeStepWidth * dudtPstrain;
+
+          // now contains the update for qStressNodal (cf. below)
+          qStressNodal[q] = qStressNodalUpdate;
+
+          dudtPstrainSqAcc += dudtPstrain * dudtPstrain;
+        }
+
+        // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
+        // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
+
+        qEtaNodal[qp] += timeStepWidth * std::sqrt(0.5 * dudtPstrainSqAcc);
+      }
+    }
+
+    kernel::plConvertToModal adjKrnl;
     adjKrnl.QStress = degreesOfFreedom;
     adjKrnl.vInv = global->vandermondeMatrixInverse;
     adjKrnl.QStressNodal = qStressNodal;
-    adjKrnl.yieldFactor = yieldFactor;
     adjKrnl.execute();
 
-    // calculate plastic strain
-    for (unsigned q = 0; q < tensor::QStress::size(); ++q) {
-      /**
-       * Equation (10) from Wollherr et al.:
-       *
-       * d/dt strain_{ij} = (sigma_{ij} + sigma0_{ij} - P_{ij}(sigma)) / (2mu T_v)
-       *
-       * where (11)
-       *
-       * P_{ij}(sigma) = { tau_c/tau s_{ij} + m delta_{ij}         if     tau >= taulim
-       *                 { sigma_{ij} + sigma0_{ij}                else
-       *
-       * Thus,
-       *
-       * d/dt strain_{ij} = { (1 - tau_c/tau) / (2mu T_v) s_{ij}   if     tau >= taulim
-       *                    { 0                                    else
-       *
-       * Consider tau >= taulim first. We have (1 - tau_c/tau) = -yield / r. Therefore,
-       *
-       * d/dt strain_{ij} = -1 / (2mu T_v r) yield s_{ij}
-       *                  = -1 / (2mu T_v r) (sigmaNew_{ij} - sigma_{ij})
-       *                  = (sigma_{ij} - sigmaNew_{ij}) / (2mu T_v r)
-       *
-       * If tau < taulim, then sigma_{ij} - sigmaNew_{ij} = 0.
-       */
-      const real factor = plasticityData->mufactor / (tV * oneMinusIntegratingFactor);
-      dudtPstrain[q] = factor * (prevDegreesOfFreedom[q] - degreesOfFreedom[q]);
-      // Integrate with explicit Euler
-      pstrain[q] += timeStepWidth * dudtPstrain[q];
-    }
-    /* Convert modal to nodal */
-    kernel::plConvertToNodalNoLoading m2nKrnlDudtPstrain;
-    m2nKrnlDudtPstrain.v = global->vandermondeMatrix;
-    m2nKrnlDudtPstrain.QStress = dudtPstrain;
-    m2nKrnlDudtPstrain.QStressNodal = qStressNodal;
-    m2nKrnlDudtPstrain.execute();
-
-    // Sizes:
-    for (unsigned q = 0; q < tensor::QEtaModal::size(); ++q) {
-      qEtaModal[q] = pstrain[tensor::QStress::size() + q];
-    }
-
-    /* Convert modal to nodal */
-    kernel::plConvertEtaModal2Nodal m2nEtaKrnl;
-    m2nEtaKrnl.v = global->vandermondeMatrix;
-    m2nEtaKrnl.QEtaModal = qEtaModal;
-    m2nEtaKrnl.QEtaNodal = qEtaNodal;
-    m2nEtaKrnl.execute();
-
-    auto qStressNodalView = init::QStressNodal::view::create(qStressNodal);
-    const unsigned numNodes = qStressNodalView.shape(0);
-    for (unsigned i = 0; i < numNodes; ++i) {
-      // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
-      // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
-      qEtaNodal[i] = std::max((real)0.0, qEtaNodal[i]) +
-                     timeStepWidth * sqrt(0.5 * (qStressNodalView(i, 0) * qStressNodalView(i, 0) +
-                                                 qStressNodalView(i, 1) * qStressNodalView(i, 1) +
-                                                 qStressNodalView(i, 2) * qStressNodalView(i, 2) +
-                                                 qStressNodalView(i, 3) * qStressNodalView(i, 3) +
-                                                 qStressNodalView(i, 4) * qStressNodalView(i, 4) +
-                                                 qStressNodalView(i, 5) * qStressNodalView(i, 5)));
-    }
-
-    /* Convert nodal to modal */
-    kernel::plConvertEtaNodal2Modal n2mEtaKrnl;
-    n2mEtaKrnl.vInv = global->vandermondeMatrixInverse;
-    n2mEtaKrnl.QEtaNodal = qEtaNodal;
-    n2mEtaKrnl.QEtaModal = qEtaModal;
-    n2mEtaKrnl.execute();
-    for (unsigned q = 0; q < tensor::QEtaModal::size(); ++q) {
-      pstrain[tensor::QStress::size() + q] = qEtaModal[q];
-    }
     return 1;
   }
-
   return 0;
 }
 
-unsigned Plasticity::computePlasticityBatched(
-    double oneMinusIntegratingFactor,
-    double timeStepWidth,
-    double tV,
-    const GlobalData* global,
-    initializer::recording::ConditionalPointersToRealsTable& table,
-    seissol::model::PlasticityData* plasticityData,
-    seissol::parallel::runtime::StreamRuntime& runtime) {
+void Plasticity::computePlasticityBatched(
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM double tV,
+    SEISSOL_GPU_PARAM const GlobalData* global,
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM seissol::model::PlasticityData* plasticityData,
+    SEISSOL_GPU_PARAM std::size_t* yieldCounter,
+    SEISSOL_GPU_PARAM unsigned* isAdjustableVector,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
+
   static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
                 "modal and nodal dofs must have the same leading dimensions");
-  static_assert(tensor::Q::Shape[0] == tensor::v::Shape[0],
-                "modal dofs and vandermonde matrix must hage the same leading dimensions");
+  static_assert(tensor::Q::Shape[multisim::BasisFunctionDimension] == tensor::v::Shape[0],
+                "modal dofs and vandermonde matrix must have the same leading dimensions");
 
-  DeviceInstance& device = DeviceInstance::getInstance();
   ConditionalKey key(*KernelNames::Plasticity);
   auto defaultStream = runtime.stream();
 
   if (table.find(key) != table.end()) {
-    unsigned stackMemCounter{0};
+    const auto oneMinusIntegratingFactor = computeRelaxTime(tV, timeStepWidth);
+
     auto& entry = table[key];
     const size_t numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
-
-    // copy dofs for later comparison, only first dof of stresses required
-    constexpr unsigned DofsSize = tensor::Q::Size;
-    const size_t prevDofsSize = DofsSize * numElements * sizeof(real);
-    real* prevDofs = reinterpret_cast<real*>(device.api->getStackMemory(prevDofsSize));
-    ++stackMemCounter;
-
-    real** dofsPtrs = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-    device.algorithms.copyScatterToUniform(
-        dofsPtrs, prevDofs, DofsSize, DofsSize, numElements, defaultStream);
 
     // Convert modal to nodal
     real** modalStressTensors = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
     real** nodalStressTensors =
         (entry.get(inner_keys::Wp::Id::NodalStressTensor))->getDeviceDataPtr();
 
-    assert(global->replicateStresses != nullptr && "replicateStresses has not been initialized");
     static_assert(kernel::gpu_plConvertToNodal::TmpMaxMemRequiredInBytes == 0);
     real** initLoad = (entry.get(inner_keys::Wp::Id::InitialLoad))->getDeviceDataPtr();
     kernel::gpu_plConvertToNodal m2nKrnl;
     m2nKrnl.v = global->vandermondeMatrix;
     m2nKrnl.QStress = const_cast<const real**>(modalStressTensors);
     m2nKrnl.QStressNodal = nodalStressTensors;
-    m2nKrnl.replicateInitialLoadingM = global->replicateStresses;
-    m2nKrnl.initialLoadingM = const_cast<const real**>(initLoad);
+    m2nKrnl.initialLoading = const_cast<const real**>(initLoad);
     m2nKrnl.streamPtr = defaultStream;
     m2nKrnl.numElements = numElements;
     m2nKrnl.execute();
 
-    // adjust deviatoric tensors
-    auto* isAdjustableVector =
-        reinterpret_cast<unsigned*>(device.api->getStackMemory(numElements * sizeof(unsigned)));
-    ++stackMemCounter;
+    real** pstrains = entry.get(inner_keys::Wp::Id::Pstrains)->getDeviceDataPtr();
 
-    device::aux::plasticity::adjustDeviatoricTensors(nodalStressTensors,
-                                                     isAdjustableVector,
-                                                     plasticityData,
-                                                     oneMinusIntegratingFactor,
-                                                     numElements,
-                                                     defaultStream);
+    device::aux::plasticity::plasticityNonlinear(nodalStressTensors,
+                                                 pstrains,
+                                                 isAdjustableVector,
+                                                 yieldCounter,
+                                                 plasticityData,
+                                                 oneMinusIntegratingFactor,
+                                                 tV,
+                                                 timeStepWidth,
+                                                 numElements,
+                                                 defaultStream);
 
-    // count how many elements needs to be adjusted
-    unsigned numAdjustedElements = device.algorithms.reduceVector(
-        isAdjustableVector, numElements, ::device::ReductionType::Add, defaultStream);
-
-    // convert back to modal (taking into account the adjustment)
-    static_assert(kernel::gpu_plConvertToModal::TmpMaxMemRequiredInBytes == 0);
     kernel::gpu_plConvertToModal n2mKrnl;
     n2mKrnl.vInv = global->vandermondeMatrixInverse;
     n2mKrnl.QStressNodal = const_cast<const real**>(nodalStressTensors);
@@ -343,124 +284,16 @@ unsigned Plasticity::computePlasticityBatched(
     n2mKrnl.flags = isAdjustableVector;
     n2mKrnl.numElements = numElements;
     n2mKrnl.execute();
-
-    // prepare memory
-    const size_t qEtaNodalSize = tensor::QEtaNodal::Size * numElements * sizeof(real);
-    real* qEtaNodal = reinterpret_cast<real*>(device.api->getStackMemory(qEtaNodalSize));
-    real** qEtaNodalPtrs =
-        reinterpret_cast<real**>(device.api->getStackMemory(numElements * sizeof(real*)));
-
-    const size_t qEtaModalSize = tensor::QEtaModal::Size * numElements * sizeof(real);
-    real* qEtaModal = reinterpret_cast<real*>(device.api->getStackMemory(qEtaModalSize));
-    real** qEtaModalPtrs =
-        reinterpret_cast<real**>(device.api->getStackMemory(numElements * sizeof(real*)));
-
-    static_assert(tensor::QStress::Size == tensor::QStressNodal::Size);
-    const size_t dUdTpstrainSize = tensor::QStressNodal::Size * numElements * sizeof(real);
-    real* dUdTpstrain = reinterpret_cast<real*>(device.api->getStackMemory(dUdTpstrainSize));
-    real** dUdTpstrainPtrs =
-        reinterpret_cast<real**>(device.api->getStackMemory(numElements * sizeof(real*)));
-
-    stackMemCounter += 6;
-
-    device::aux::plasticity::adjustPointers(qEtaNodal,
-                                            qEtaNodalPtrs,
-                                            qEtaModal,
-                                            qEtaModalPtrs,
-                                            dUdTpstrain,
-                                            dUdTpstrainPtrs,
-                                            numElements,
-                                            defaultStream);
-
-    // ------------------------------------------------------------------------------
-    real** pstrains = entry.get(inner_keys::Wp::Id::Pstrains)->getDeviceDataPtr();
-    real** dofs = modalStressTensors;
-    device::aux::plasticity::computePstrains(pstrains,
-                                             plasticityData,
-                                             dofs,
-                                             prevDofs,
-                                             dUdTpstrainPtrs,
-                                             tV,
-                                             oneMinusIntegratingFactor,
-                                             timeStepWidth,
-                                             isAdjustableVector,
-                                             numElements,
-                                             defaultStream);
-
-    // Convert modal to nodal
-    static_assert(kernel::gpu_plConvertToNodalNoLoading::TmpMaxMemRequiredInBytes == 0);
-    kernel::gpu_plConvertToNodalNoLoading m2nKrnlDudtPstrain;
-    m2nKrnlDudtPstrain.v = global->vandermondeMatrix;
-    m2nKrnlDudtPstrain.QStress = const_cast<const real**>(dUdTpstrainPtrs);
-    m2nKrnlDudtPstrain.QStressNodal = nodalStressTensors;
-    m2nKrnlDudtPstrain.streamPtr = defaultStream;
-    m2nKrnlDudtPstrain.flags = isAdjustableVector;
-    m2nKrnlDudtPstrain.numElements = numElements;
-    m2nKrnlDudtPstrain.execute();
-
-    device::aux::plasticity::pstrainToQEtaModal(
-        pstrains, qEtaModalPtrs, isAdjustableVector, numElements, defaultStream);
-
-    // Convert modal to nodal
-    static_assert(kernel::gpu_plConvertEtaModal2Nodal::TmpMaxMemRequiredInBytes == 0);
-    kernel::gpu_plConvertEtaModal2Nodal m2nEtaKrnl;
-    m2nEtaKrnl.v = global->vandermondeMatrix;
-    m2nEtaKrnl.QEtaModal = const_cast<const real**>(qEtaModalPtrs);
-    m2nEtaKrnl.QEtaNodal = qEtaNodalPtrs;
-    m2nEtaKrnl.streamPtr = defaultStream;
-    m2nEtaKrnl.flags = isAdjustableVector;
-    m2nEtaKrnl.numElements = numElements;
-    m2nEtaKrnl.execute();
-
-    // adjust: QEtaNodal
-    device::aux::plasticity::updateQEtaNodal(qEtaNodalPtrs,
-                                             nodalStressTensors,
-                                             timeStepWidth,
-                                             isAdjustableVector,
-                                             numElements,
-                                             defaultStream);
-
-    // Convert nodal to modal
-    static_assert(kernel::gpu_plConvertEtaNodal2Modal::TmpMaxMemRequiredInBytes == 0);
-    kernel::gpu_plConvertEtaNodal2Modal n2mEtaKrnl;
-    n2mEtaKrnl.vInv = global->vandermondeMatrixInverse;
-    n2mEtaKrnl.QEtaNodal = const_cast<const real**>(qEtaNodalPtrs);
-    n2mEtaKrnl.QEtaModal = qEtaModalPtrs;
-    n2mEtaKrnl.streamPtr = defaultStream;
-    n2mEtaKrnl.flags = isAdjustableVector;
-    n2mEtaKrnl.numElements = numElements;
-    n2mEtaKrnl.execute();
-
-    // copy: QEtaModal -> pstrain
-    device::aux::plasticity::qEtaModalToPstrain(
-        qEtaModalPtrs, pstrains, isAdjustableVector, numElements, defaultStream);
-
-    // NOTE: Temp memory must be properly clean after using negative signed integers
-    // This kind of memory is mainly used for floating-point numbers. Negative signed ints might
-    // corrupt the most significant bits. We came to this conclusion by our first-hand experience
-    device.algorithms.fillArray(reinterpret_cast<char*>(isAdjustableVector),
-                                static_cast<char>(0),
-                                numElements * sizeof(int),
-                                defaultStream);
-
-    for (unsigned i = 0; i < stackMemCounter; ++i) {
-      device.api->popStackMemory();
-    }
-    return numAdjustedElements;
-  } else {
-    return 0;
   }
-
 #else
   logError() << "No GPU implementation provided";
-  return 0;
 #endif // ACL_DEVICE
 }
 
-void Plasticity::flopsPlasticity(long long& nonZeroFlopsCheck,
-                                 long long& hardwareFlopsCheck,
-                                 long long& nonZeroFlopsYield,
-                                 long long& hardwareFlopsYield) {
+void Plasticity::flopsPlasticity(std::uint64_t& nonZeroFlopsCheck,
+                                 std::uint64_t& hardwareFlopsCheck,
+                                 std::uint64_t& nonZeroFlopsYield,
+                                 std::uint64_t& hardwareFlopsYield) {
   // reset flops
   nonZeroFlopsCheck = 0;
   hardwareFlopsCheck = 0;
@@ -484,13 +317,19 @@ void Plasticity::flopsPlasticity(long long& nonZeroFlopsCheck,
   hardwareFlopsCheck += kernel::plComputeSecondInvariant::HardwareFlops;
 
   // compute taulim (1 add, 1 mul, max NOT counted)
-  nonZeroFlopsCheck += 2 * tensor::meanStress::size();
-  hardwareFlopsCheck += 2 * tensor::meanStress::size();
+  nonZeroFlopsCheck += static_cast<std::uint64_t>(2 * tensor::meanStress::size());
+  hardwareFlopsCheck += static_cast<std::uint64_t>(2 * tensor::meanStress::size());
 
   // check for yield (NOT counted, as it would require counting the number of yielding points)
 
   // flops from plastic yielding, i.e. inside if (adjust) {}
-  nonZeroFlopsYield += kernel::plAdjustStresses::NonZeroFlops;
-  hardwareFlopsYield += kernel::plAdjustStresses::HardwareFlops;
+  nonZeroFlopsYield += kernel::plConvertToModal::NonZeroFlops;
+  hardwareFlopsYield += kernel::plConvertToModal::HardwareFlops;
+
+  // manually counted
+  nonZeroFlopsYield += static_cast<std::uint64_t>(tensor::QStressNodal::size() * 6);
+  hardwareFlopsYield += static_cast<std::uint64_t>(tensor::QStressNodal::size() * 6);
+  nonZeroFlopsYield += static_cast<std::uint64_t>(tensor::QEtaNodal::size() * 3);
+  hardwareFlopsYield += static_cast<std::uint64_t>(tensor::QEtaNodal::size() * 3);
 }
 } // namespace seissol::kernels

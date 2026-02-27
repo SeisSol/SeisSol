@@ -1,15 +1,19 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Hdf5Writer.h"
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/HDF5Type.h>
-#include <IO/Datatype/Inference.h>
-#include <IO/Datatype/MPIType.h>
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Instructions/Hdf5.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/HDF5Type.h"
+#include "IO/Datatype/Inference.h"
+#include "IO/Datatype/MPIType.h"
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Hdf5.h"
+
 #include <algorithm>
 #include <async/ExecInfo.h>
 #include <cassert>
@@ -19,15 +23,16 @@
 #include <mpi.h>
 #include <stack>
 #include <string>
+#include <utility>
+#include <utils/logger.h>
 #include <vector>
-
-#include "utils/logger.h"
 
 namespace {
 #define _eh(x) _ehh(x, __FILE__, __LINE__)
 
 hid_t _ehh(hid_t data, const char* file, int line) {
   if (data < 0) {
+    H5Eprint(H5Eget_current_stack(), stdout);
     logError() << "HDF5 error:" << data << "at" << file << ":" << line;
   }
   return data;
@@ -72,8 +77,6 @@ void Hdf5File::openGroup(const std::string& name) {
   handles.push(handle);
 }
 void Hdf5File::openDataset(const std::string& name) {
-  // cf. https://stackoverflow.com/a/18468735
-  auto existenceTest = _eh(H5Lexists(handles.top(), name.c_str(), H5P_DEFAULT));
   const hid_t handle = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
   handles.push(handle);
 }
@@ -121,7 +124,8 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   const auto& dimensions = source->shape();
   // TODO: adjust chunksize according to dimensions and datatype size
   const std::size_t chunksize =
-      std::max(std::size_t(1), std::size_t(2'000'000'000) / (source->datatype()->size() * dimprod));
+      std::max(static_cast<std::size_t>(1),
+               static_cast<std::size_t>(2'000'000'000) / (source->datatype()->size() * dimprod));
 
   const std::size_t actualDimensions =
       source->distributed() ? dimensions.size() + 1 : dimensions.size();
@@ -152,6 +156,10 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   const hid_t h5space = _eh(H5Screate_simple(globalSizes.size(), globalSizes.data(), nullptr));
   const hid_t h5memspace = _eh(H5Screate_simple(localSizes.size(), localSizes.data(), nullptr));
 
+  // create empty spaces just in case (MPIO likes to get stuck otherwise)
+  const hid_t h5spaceEmpty = _eh(H5Screate(H5S_NULL));
+  const hid_t h5memspaceEmpty = _eh(H5Screate(H5S_NULL));
+
   std::vector<hsize_t> writeStart;
   std::vector<hsize_t> writeLength;
 
@@ -166,9 +174,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   const hid_t h5dxlist = H5Pcreate(H5P_DATASET_XFER);
   _eh(h5dxlist);
-#ifdef USE_MPI
   _eh(H5Pset_dxpl_mpio(h5dxlist, H5FD_MPIO_COLLECTIVE));
-#endif
 
   const hid_t h5memtype = datatype::convertToHdf5(source->datatype());
 
@@ -207,23 +213,31 @@ void Hdf5File::writeData(const async::ExecInfo& info,
     baseWriteSize *= dim;
   }
 
+  const char* dataloc = data;
+
   for (std::size_t i = 0; i < rounds; ++i) {
     if (source->distributed()) {
       writeStart[0] = offset + written;
       writeLength[0] = std::min(count - written, chunkcount);
     }
 
-    const char* dataloc = data;
+    const auto [memspace, space] = [&]() -> std::pair<hid_t, hid_t> {
+      if (nullstart.empty()) {
+        return {h5memspace, h5space};
+      } else if (writeLength[0] > 0 || !source->distributed()) {
+        _eh(H5Sselect_hyperslab(
+            h5memspace, H5S_SELECT_SET, nullstart.data(), nullptr, writeLength.data(), nullptr));
 
-    if (!nullstart.empty()) {
-      _eh(H5Sselect_hyperslab(
-          h5memspace, H5S_SELECT_SET, nullstart.data(), nullptr, writeLength.data(), nullptr));
+        _eh(H5Sselect_hyperslab(
+            h5space, H5S_SELECT_SET, writeStart.data(), nullptr, writeLength.data(), nullptr));
 
-      _eh(H5Sselect_hyperslab(
-          h5space, H5S_SELECT_SET, writeStart.data(), nullptr, writeLength.data(), nullptr));
-    }
+        return {h5memspace, h5space};
+      } else {
+        return {h5memspaceEmpty, h5spaceEmpty};
+      }
+    }();
 
-    _eh(H5Dwrite(h5data, h5memtype, h5memspace, h5space, h5dxlist, dataloc));
+    _eh(H5Dwrite(h5data, h5memtype, memspace, space, h5dxlist, dataloc));
 
     std::size_t writeSize = baseWriteSize;
     if (source->distributed()) {
@@ -239,6 +253,8 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   _eh(H5Tclose(h5type));
   _eh(H5Sclose(h5space));
   _eh(H5Sclose(h5memspace));
+  _eh(H5Sclose(h5spaceEmpty));
+  _eh(H5Sclose(h5memspaceEmpty));
   _eh(H5Dclose(h5data));
   _eh(H5Pclose(h5dxlist));
 }
@@ -275,7 +291,7 @@ void Hdf5Writer::writeAttribute(const async::ExecInfo& info,
   if (write.location.dataset().has_value()) {
     file.closeDataset();
   }
-  for (auto _ : write.location.groups()) {
+  for (const auto& _ [[maybe_unused]] : write.location.groups()) {
     file.closeGroup();
   }
 }
@@ -297,7 +313,7 @@ void Hdf5Writer::writeData(const async::ExecInfo& info, const instructions::Hdf5
   if (write.location.dataset().has_value()) {
     file.closeDataset();
   }
-  for (auto _ : write.location.groups()) {
+  for (const auto& _ [[maybe_unused]] : write.location.groups()) {
     file.closeGroup();
   }
 }

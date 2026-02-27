@@ -1,65 +1,31 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2015-2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef WAVE_FIELD_WRITER_H
-#define WAVE_FIELD_WRITER_H
-
-#include "Parallel/MPI.h"
-#include "Parallel/Pin.h"
-
-#include <algorithm>
-#include <array>
-#include <cassert>
-#include <memory>
-#include <string>
-#include <unordered_set>
-#include <vector>
-
-#include "utils/logger.h"
-
-#include "async/Module.h"
+#ifndef SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITER_H_
+#define SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITER_H_
 
 #include "Geometry/Refinement/VariableSubSampler.h"
 #include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
+#include "Parallel/MPI.h"
+#include "Parallel/Pin.h"
 #include "WaveFieldWriterExecutor.h"
+
+#include <algorithm>
+#include <array>
+#include <async/Module.h>
+#include <cassert>
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <unordered_set>
+#include <utils/logger.h>
+#include <vector>
 
 // for OutputBounds
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -141,7 +107,7 @@ class WaveFieldWriter
            vertexCoords[2] <= boxBounds[5] && vertexCoords[2] >= boxBounds[4];
   }
 
-  refinement::TetrahedronRefiner<double>* createRefiner(int refinement);
+  const refinement::TetrahedronRefiner<double>* createRefiner(int refinement);
 
   const unsigned* adjustOffsets(refinement::MeshRefiner<double>* meshRefiner);
   std::vector<unsigned int>
@@ -149,8 +115,15 @@ class WaveFieldWriter
                                     const std::vector<unsigned>& ltsClusteringData,
                                     std::map<int, int>& newToOldCellMap) const;
 
+  /**
+   * Called by ASYNC on all ranks
+   */
+  void setUp() override;
+
+  void tearDown() override { m_executor.finalize(); }
+
   public:
-  WaveFieldWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
+  explicit WaveFieldWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
   /**
    * Activate the wave field output
@@ -167,11 +140,6 @@ class WaveFieldWriter
    */
   void setFilename(const char* outputPrefix) { m_outputPrefix = outputPrefix; }
 
-  /**
-   * Called by ASYNC on all ranks
-   */
-  void setUp() override;
-
   void setWaveFieldInterval(double interval) { setSyncInterval(interval); }
 
   /**
@@ -185,10 +153,11 @@ class WaveFieldWriter
             int numAlignedDOF,
             const seissol::geometry::MeshReader& meshReader,
             const std::vector<unsigned>& ltsClusteringData,
+            const std::vector<unsigned>& ltsIdData,
             const real* dofs,
             const real* pstrain,
             const real* integrals,
-            const unsigned int* map,
+            const std::size_t* map,
             const seissol::initializer::parameters::WaveFieldOutputParameters& parameters,
             xdmfwriter::BackendType backend,
             const std::string& backupTimeStamp);
@@ -221,12 +190,10 @@ class WaveFieldWriter
     m_lowOutputFlags = nullptr;
   }
 
-  void tearDown() override { m_executor.finalize(); }
-
   //
   // Hooks
   //
-  void simulationStart() override;
+  void simulationStart(std::optional<double> checkpointTime) override;
 
   void syncPoint(double currentTime) override;
 };
@@ -235,4 +202,4 @@ class WaveFieldWriter
 
 } // namespace seissol
 
-#endif // WAVE_FIELD_WRITER_H
+#endif // SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITER_H_

@@ -1,27 +1,28 @@
 %%
 % @file
 % This file is part of SeisSol.
+% SPDX-License-Identifier: BSD-3-Clause
 %
 % @author Thomas Ulrich (ulrich AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/ulrich)
 %
 % @section LICENSE
 % Copyright (c) 2005-2012, SeisSol Group
 % All rights reserved.
-% 
+%
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
-% 
+%
 % 1. Redistributions of source code must retain the above copyright notice,
 %    this list of conditions and the following disclaimer.
-% 
+%
 % 2. Redistributions in binary form must reproduce the above copyright notice,
 %    this list of conditions and the following disclaimer in the documentation
 %    and/or other materials provided with the distribution.
-% 
+%
 % 3. Neither the name of the copyright holder nor the names of its
 %    contributors may be used to endorse or promote products derived from this
 %    software without specific prior written permission.
-% 
+%
 % THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 % AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 % IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -73,7 +74,7 @@ if plotmesh == 'y'
 else
   plotmarker = 'n';
 end
-SufaceId = str2num(SufaceId); 
+SufaceId = str2num(SufaceId);
 if SufaceId==1
    depthdecrement     = input('    depth (in m) to decrement for more accurate outputs (ex 0 or 50)        :  ','s');
    depthdecrement = str2double(depthdecrement);
@@ -81,8 +82,8 @@ end
 
 coords = strsplit(snormal,',');
 normal(1) = str2double(coords(1));
-normal(2) = str2double(coords(2));  
-normal(3) = str2double(coords(3));  
+normal(2) = str2double(coords(2));
+normal(3) = str2double(coords(3));
 normal = normal/norm(normal);
 %now determine 2 perpendicular vectors:
 randomV = rand(3,1);
@@ -152,7 +153,7 @@ for iPartition=1:nPartition
    end
 
    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-   %                          COMPUTE STATION ELEVATION          
+   %                          COMPUTE STATION ELEVATION
    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
    % Note, fault sides appear twice and therefore two faces will be found that
@@ -160,36 +161,36 @@ for iPartition=1:nPartition
    % also to branches lying behind the main fault.
    x1 = zeros(size(X,1),2);
    for kkk=1:size(X,1)
-      x1(kkk,1) = dot(X(kkk,:),ux); 
+      x1(kkk,1) = dot(X(kkk,:),ux);
       x1(kkk,2) = dot(X(kkk,:),uy);
    end
    TR = triangulation(tri,x1);
    x2 = zeros(size(st,1),2);
    for kkk=1:size(st,1)
-      x2(kkk,1) = dot(st(kkk,:),ux); 
+      x2(kkk,1) = dot(st(kkk,:),ux);
       x2(kkk,2) = dot(st(kkk,:),uy);
    end
    [t,barcoords] = pointLocation(TR,x2);
    indicesInTriangulation = find(~isnan(t));
    ninside  = size(indicesInTriangulation,1);
-   
+
       %Print mesh information on screen
    disp(sprintf('Partition %d:\tFound %g fault triangles,\t%d points inside the triangulation',iPartition, NS, ninside));
 
    t=t(indicesInTriangulation);
    barcoords = barcoords(indicesInTriangulation,:);
-   
-     
+
+
    newst=st(indicesInTriangulation,1:2);
    k=size(t);
-   
+
    for i=1:k
         % load the three vertices for the receiver position
        v0 = X(tri(t(i),1),:);
        v1 = X(tri(t(i),2),:);
        v2 = X(tri(t(i),3),:);
        receivers_part = barcoords(i,1)*v0 +  barcoords(i,2)*v1+barcoords(i,3)*v2;
-       receivers = vertcat(receivers,receivers_part);       
+       receivers = vertcat(receivers,receivers_part);
    end
 end
 if SufaceId==1
@@ -199,7 +200,7 @@ if SufaceId==1
     end
 end
 disp(sprintf(' %d/%d receiver(s) could be located on the fault', size(receivers,1), size(st,1)));
- 
+
 
 if plotmarker == 'y'
     plot3(receivers(:,1),receivers(:,2),receivers(:,3),'r*','MarkerSize',8)
@@ -211,7 +212,7 @@ end
 %disp(receivers);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                          SAVE RECEIVER LOCATIONS TO FILE         
+%                          SAVE RECEIVER LOCATIONS TO FILE
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %choice = input(['    Save receiver coordinates as ',filename,'_faultreceivers.dat ? (y/n)'], 's');
 disp(['    receiver coordinates saved as ',filename0,'_faultreceivers.dat']);

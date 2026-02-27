@@ -1,5 +1,12 @@
-#ifndef SEISSOL_DR_OUTPUT_RS_HPP
-#define SEISSOL_DR_OUTPUT_RS_HPP
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RATEANDSTATE_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RATEANDSTATE_H_
 
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 
@@ -14,17 +21,16 @@ class RateAndState : public ReceiverOutput {
   }
 
   real computeStateVariable(LocalInfo& local) override {
-    const auto* descr = reinterpret_cast<seissol::initializer::LTSRateAndState*>(drDescr);
-    assert((descr != nullptr) && "dr descr. must be a subtype of LTS_RateAndState");
-    return getCellData(local, descr->stateVariable)[local.nearestGpIndex];
+    return getCellData<LTSRateAndState::StateVariable>(local)[local.gpIndex];
   }
 
-  std::vector<std::size_t> getOutputVariables() const override {
+  public:
+  [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
     auto baseVector = ReceiverOutput::getOutputVariables();
-    baseVector.push_back(
-        static_cast<seissol::initializer::LTSRateAndState*>(drDescr)->stateVariable.index);
+    baseVector.push_back(drStorage->info<LTSRateAndState::StateVariable>().index);
     return baseVector;
   }
 };
 } // namespace seissol::dr::output
-#endif // SEISSOL_DR_OUTPUT_RS_HPP
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RATEANDSTATE_H_

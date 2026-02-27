@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: BSD-3-Clause
 ##
 # @file
 # This file is part of SeisSol.
@@ -8,21 +9,21 @@
 # @section LICENSE
 # Copyright (c) 2011, Martin van Driel
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice,
 #    this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice,
 #    this list of conditions and the following disclaimer in the documentation
 #    and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its
 #    contributors may be used to endorse or promote products derived from this
 #    software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -111,20 +112,20 @@ for i in range(nelem):
     if i in percent:
         print '%3d %% done' % (((percent == i)* np.arange(1, 11)).sum() * 10)
 
-    x[0] = points[elems[i,0],0]    
-    x[1] = points[elems[i,1],0]    
-    x[2] = points[elems[i,2],0]    
-    x[3] = points[elems[i,3],0]    
-    
-    y[0] = points[elems[i,0],1]    
-    y[1] = points[elems[i,1],1]    
-    y[2] = points[elems[i,2],1]    
-    y[3] = points[elems[i,3],1]    
-    
-    z[0] = points[elems[i,0],2]    
-    z[1] = points[elems[i,1],2]    
-    z[2] = points[elems[i,2],2]    
-    z[3] = points[elems[i,3],2]    
+    x[0] = points[elems[i,0],0]
+    x[1] = points[elems[i,1],0]
+    x[2] = points[elems[i,2],0]
+    x[3] = points[elems[i,3],0]
+
+    y[0] = points[elems[i,0],1]
+    y[1] = points[elems[i,1],1]
+    y[2] = points[elems[i,2],1]
+    y[3] = points[elems[i,3],1]
+
+    z[0] = points[elems[i,0],2]
+    z[1] = points[elems[i,1],2]
+    z[2] = points[elems[i,2],2]
+    z[3] = points[elems[i,3],2]
 
     # transform to reference tetrahedron
 
@@ -141,13 +142,13 @@ for i in range(nelem):
          (-y[0]*x[2]+y[2]*x[0]+y[0]*x[3]+y[3]*x[2]-y[2]*x[3]-y[3]*x[0])/J*zP +    \
          ( x[0]*z[2]*y[3]-z[2]*y[0]*x[3]+z[0]*x[3]*y[2]-x[0]*z[3]*y[2] -          \
            z[0]*x[2]*y[3]+z[3]*y[0]*x[2])/J
-    
+
     eta = -( z[3]*y[1]-z[0]*y[1]+z[0]*y[3]+z[1]*y[0]-z[1]*y[3]-z[3]*y[0])/J*xP -  \
            ( z[1]*x[3]-z[1]*x[0]-z[0]*x[3]-z[3]*x[1]+z[3]*x[0]+z[0]*x[1])/J*yP -  \
            (-y[1]*x[3]+y[0]*x[3]+y[3]*x[1]-y[0]*x[1]-y[3]*x[0]+y[1]*x[0])/J*zP -  \
            (-z[1]*y[0]*x[3]+x[0]*z[1]*y[3]-x[0]*z[3]*y[1]-z[0]*x[1]*y[3] +        \
              z[0]*x[3]*y[1]+z[3]*y[0]*x[1])/J
-    
+
     zeta = (z[0]*y[2]-z[2]*y[0]-z[0]*y[1]+z[2]*y[1]+z[1]*y[0]-z[1]*y[2])/J*xP +   \
            (x[0]*z[2]-z[1]*x[0]-z[2]*x[1]+z[0]*x[1]+z[1]*x[2]-z[0]*x[2])/J*yP +   \
            (y[1]*x[0]-y[2]*x[0]+x[1]*y[2]-y[0]*x[1]+y[0]*x[2]-x[2]*y[1])/J*zP +   \
@@ -156,9 +157,9 @@ for i in range(nelem):
              x[0]*z[1]*y[3]-x[0]*z[3]*y[1]-z[0]*x[1]*y[3]+z[0]*x[3]*y[1] +        \
              z[3]*y[0]*x[1]+x[0]*z[3]*y[2]+z[2]*y[3]*x[1]+z[3]*x[2]*y[1] -        \
              z[0]*x[3]*y[2]+z[1]*x[3]*y[2]+J)/J
-    
+
     # test if station is in this element
-    
+
     inelem = ((xi <= 0.) | (eta <= 0.) | (zeta <= 0.) | (zeta >= (1.-xi-eta)))
     inelem = (inelem == False)
 

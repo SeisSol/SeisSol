@@ -1,107 +1,78 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2015-2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Entry point of the simulation.
- **/
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef SIMULATOR_H_
-#define SIMULATOR_H_
+#ifndef SEISSOL_SRC_SOLVER_SIMULATOR_H_
+#define SEISSOL_SRC_SOLVER_SIMULATOR_H_
 
 namespace seissol {
-  class Simulator;
-  class SeisSol;
-}
+class SeisSol;
 
 /**
  * Simulator, which takes care of the simulation: Sync. times, wave field output, checkpoints.
  **/
-class seissol::Simulator {
+class Simulator {
   // private:
-    //! current time of the simulation
-    double m_currentTime;
+  //! current time of the simulation
+  double currentTime{0};
 
-    //! final time of the simulation
-    double m_finalTime;
+  //! final time of the simulation
+  double finalTime{0};
 
-    //! usePlasticity = true if plasticity is on
-    bool m_usePlasticity;
+  //! usePlasticity = true if plasticity is on
+  bool usePlasticity{false};
 
-    //! If true, the while loop of the simulation will be aborted (see terminator)
-    bool m_abort;
+  //! If true, the while loop of the simulation will be aborted (see terminator)
+  bool aborted{false};
+
+  bool checkpoint{false};
+
   public:
-    /**
-     * Constructor, which initializes all values.
-     * Default:
-     *  All times are set to zero.
-     *  Wave field and checkpoint are disabled, intervals set to infinity.
-     **/
-    Simulator();
+  /**
+   * Constructor, which initializes all values.
+   * Default:
+   *  All times are set to zero.
+   *  Wave field and checkpoint are disabled, intervals set to infinity.
+   **/
+  Simulator();
 
-    /**
-     * Sets the final time of the simulation.
-     *
-     * @param i_finalTime final time.
-     **/
-    void setFinalTime( double i_finalTime );
+  /**
+   * Sets the final time of the simulation.
+   *
+   * @param finalTime final time.
+   **/
+  void setFinalTime(double finalTime);
 
-    /**
-     * Sets the m_usePlasticity
-     *
-     * @param i_plasticity = 1 if plasticity is on
-     **/
-    void setUsePlasticity( bool plasticity );
+  /**
+   * Sets the usePlasticity
+   *
+   * @param plasticity = 1 if plasticity is on
+   **/
+  void setUsePlasticity(bool plasticity);
 
-    /**
-     * Sets the current time of the simulation (useful for checkpoints)
-     *
-     * @param i_currentTime current time
-     */
-    void setCurrentTime( double i_currentTime );
+  /**
+   * Sets the current time of the simulation (useful for checkpoints)
+   *
+   * @param currentTime current time
+   */
+  void setCurrentTime(double currentTime);
 
-    /**
-     * update m_abort to abort the main loop of the simulation (see terminator)
-     */
-    void abort();
+  /**
+   * update m_abort to abort the main loop of the simulation (see terminator)
+   */
+  void abort();
 
-    /**
-     * Simulates until finished.
-     **/
-    void simulate(seissol::SeisSol& seissolInstance);
+  /**
+   * Simulates until finished.
+   **/
+  void simulate(seissol::SeisSol& seissolInstance);
 };
 
-#endif
+} // namespace seissol
+
+#endif // SEISSOL_SRC_SOLVER_SIMULATOR_H_

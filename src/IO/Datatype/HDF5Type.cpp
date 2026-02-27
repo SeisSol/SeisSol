@@ -1,18 +1,21 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "HDF5Type.h"
 
 #include "Datatype.h"
+
 #include <H5Ipublic.h>
 #include <H5Tpublic.h>
 #include <H5public.h>
 #include <H5version.h>
 #include <memory>
+#include <utils/logger.h>
 #include <vector>
-
-#include "utils/logger.h"
 
 namespace {
 hid_t _eh(hid_t data) {

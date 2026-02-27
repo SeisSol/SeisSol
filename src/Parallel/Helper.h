@@ -1,81 +1,108 @@
-#ifndef SEISSOL_PARALLEL_HELPER_HPP_
-#define SEISSOL_PARALLEL_HELPER_HPP_
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "utils/env.h"
+#ifndef SEISSOL_SRC_PARALLEL_HELPER_H_
+#define SEISSOL_SRC_PARALLEL_HELPER_H_
+
+#include "Common/Marker.h"
+
+#include <utils/env.h>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include <device.h>
+#include <Device/device.h>
 #endif
 
 namespace seissol {
 template <typename T>
-void printCommThreadInfo(const T& mpiBasic) {
-  bool useThread = utils::Env::get<bool>("SEISSOL_COMMTHREAD", true);
+void printCommThreadInfo(const T& mpiBasic, utils::Env& env) {
+  const bool useThread = env.get<bool>("COMMTHREAD", true);
   if (mpiBasic.isSingleProcess()) {
-    logInfo(mpiBasic.rank()) << "Using polling for advancing MPI communication, due to having only "
-                                "one MPI rank running.";
+    logInfo() << "Using polling for advancing MPI communication, due to having only "
+                 "one MPI rank running.";
   } else if (useThread) {
-    logInfo(mpiBasic.rank()) << "Using a communication thread for advancing MPI communication.";
+    logInfo() << "Using a communication thread for advancing MPI communication.";
   } else {
-    logInfo(mpiBasic.rank()) << "Using polling for advancing MPI communication.";
+    logInfo() << "Using polling for advancing MPI communication.";
   }
 }
 
 template <typename T>
-bool useCommThread(const T& mpiBasic) {
-  bool useThread = utils::Env::get<bool>("SEISSOL_COMMTHREAD", true);
+bool useCommThread(const T& mpiBasic, utils::Env& env) {
+  const bool useThread = env.get<bool>("COMMTHREAD", true);
   return useThread && !mpiBasic.isSingleProcess();
 }
 
-inline bool usePersistentMpi() { return utils::Env::get<bool>("SEISSOL_MPI_PERSISTENT", true); }
+inline bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSISTENT", true); }
 
-template <typename T>
-void printPersistentMpiInfo(const T& mpiBasic) {
-  if (usePersistentMpi()) {
-    logInfo(mpiBasic.rank()) << "Using persistent MPI routines.";
+inline void printPersistentMpiInfo(utils::Env& env) {
+  if (usePersistentMpi(env)) {
+    logInfo() << "Using persistent MPI routines.";
   } else {
-    logInfo(mpiBasic.rank()) << "Using asynchronous MPI routines.";
+    logInfo() << "Using asynchronous MPI routines.";
   }
 }
 
+inline bool useUSM(SEISSOL_GPU_PARAM utils::Env& env) {
 #ifdef ACL_DEVICE
-inline bool useUSM() {
-  return utils::Env::get<bool>("SEISSOL_USM",
-                               device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
+  return env.get<bool>("USM", device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
+#else
+  return true;
+#endif
 }
 
-template <typename T>
-void printUSMInfo(const T& mpiBasic) {
-  if (useUSM()) {
-    logInfo(mpiBasic.rank()) << "Using unified buffers for CPU-GPU data.";
+inline bool useUSM() {
+  utils::Env env("SEISSOL_");
+  return useUSM(env);
+}
+
+inline void printUSMInfo(utils::Env& env) {
+  if (useUSM(env)) {
+    logInfo() << "Using unified buffers for CPU-GPU data.";
   } else {
-    logInfo(mpiBasic.rank()) << "Using separate buffers for CPU-GPU data.";
+    logInfo() << "Using separate buffers for CPU-GPU data.";
   }
+}
+
+inline bool useMPIUSM(SEISSOL_GPU_PARAM utils::Env& env) {
+#ifdef ACL_DEVICE
+  return env.get<bool>("USM_MPI",
+                       device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
+#else
+  return true;
+#endif
 }
 
 inline bool useMPIUSM() {
-  return utils::Env::get<bool>("SEISSOL_USM_MPI",
-                               device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
+  utils::Env env("SEISSOL_");
+  return useMPIUSM(env);
 }
 
-template <typename T>
-void printMPIUSMInfo(const T& mpiBasic) {
-  if (useMPIUSM()) {
-    logInfo(mpiBasic.rank()) << "Using unified buffers for CPU-GPU MPI data.";
+inline void printMPIUSMInfo(utils::Env& env) {
+  if (useMPIUSM(env)) {
+    logInfo() << "Using unified buffers for CPU-GPU MPI data.";
   } else {
-    logInfo(mpiBasic.rank()) << "Using separate buffers for CPU-GPU MPI data.";
+    logInfo() << "Using separate buffers for CPU-GPU MPI data.";
   }
 }
 
-inline int deviceHostSwitch() { return utils::Env::get<int>("SEISSOL_DEVICE_HOST_SWITCH", 0); }
+inline bool useDeviceL2Compress(utils::Env& env) { return env.get<bool>("L2_COMPRESS", false); }
 
-template <typename T>
-void printDeviceHostSwitch(const T& mpiBasic) {
-  logInfo(mpiBasic.rank()) << "Running clusters with" << deviceHostSwitch()
-                           << "or more cells on the GPU (and on the CPU otherwise)";
+inline bool useDeviceL2Compress() {
+  utils::Env env("SEISSOL_");
+  return useDeviceL2Compress(env);
 }
-#endif
+
+inline void printDeviceL2Compress(utils::Env& env) {
+  if (useDeviceL2Compress(env)) {
+    logInfo() << "Using L2 compression (if available).";
+  }
+}
 
 } // namespace seissol
 
-#endif // SEISSOL_PARALLEL_HELPER_HPP_
+#endif // SEISSOL_SRC_PARALLEL_HELPER_H_

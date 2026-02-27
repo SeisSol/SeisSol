@@ -1,4 +1,11 @@
-cmake_minimum_required(VERSION 3.13)
+# SPDX-FileCopyrightText: 2019 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+cmake_minimum_required(VERSION 3.20)
 
 # use <PackageName>_ROOT variables
 if(POLICY CMP0074)
@@ -20,7 +27,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
   if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.1.0")
     message(FATAL_ERROR "NVHPC version 22.1.0 or higher is required")
   endif()
-  if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "24.7.0")
+  if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "24.5.0")
     message(WARNING "NVHPC version 24.7.0 or higher is recommended")
   endif()
 endif()
@@ -32,13 +39,16 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   endif()
 endif()
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
   message(WARNING "The Intel Compiler Classic (ICC) is deprecated; consider switching to the Intel oneAPI C++ Compiler (ICX) instead.")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Cray|CrayClang")
   message(WARNING "The communication thread is not supported for the Cray compiler. Make sure to set `SEISSOL_COMMTHREAD=0` when running SeisSol in multi-node setups.")
 endif()
+
+# find Python early
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 # set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
@@ -57,67 +67,23 @@ endif()
 #       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, VECTORSIZE ARCH_STRING, WITH_GPU, DEVICE_VENDOR
 #
 include(cmake/process_users_input.cmake)
-set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
-                         "VECTORSIZE=${VECTORSIZE}"
-                         "REAL_SIZE=${REAL_SIZE_IN_BYTES}"
-                         "ALIGNED_REAL_SIZE=${REAL_SIZE_IN_BYTES}")
+
+if (TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
+  message(STATUS "Enable coverage computation.")
+  include(cmake/CodeCoverage.cmake)
+  append_coverage_compiler_flags()
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-        "Debug" "Release" "RelWithDebInfo") # MinSizeRel is useless for us
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
   message(STATUS "Set build type to Release as none was supplied.")
 endif()
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+        "Release" "Debug" "RelWithDebInfo") # MinSizeRel is useless for us
 
-if (NOT (DEVICE_BACKEND STREQUAL "hip" AND DEVICE_ARCH MATCHES "sm_*"))
-  # Note: hip 4.x has a bug during setting rpath while compiling
-  #       device code for nvidia gpus. This scenario is used in
-  #       SeisSol's GPU CI pipeline.
-  set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
-endif()
-
-if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
-  message(FATAL_ERROR "SeisSol does not support Fused Simulations yet")
-endif()
-
-# Generate version.h
-
-include(GetGitRevisionDescription)
-
-# get GIT info
-git_describe(PACKAGE_GIT_VERSION --tags --always --dirty=\ \(dirty\) --broken=\ \(broken\))
-if (${PACKAGE_GIT_VERSION} MATCHES "NOTFOUND")
-  set(PACKAGE_GIT_VERSION "(unknown)")
-  set(PACKAGE_GIT_HASH "(unknown)")
-  set(PACKAGE_GIT_TIMESTAMP "9999-12-31T00:00:00+00:00")
-else()
-  get_git_commit_info(PACKAGE_GIT_HASH PACKAGE_GIT_TIMESTAMP)
-endif()
-string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
-
-# write file and print info
-configure_file("src/VersionTemplate.h"
-               "${CMAKE_CURRENT_BINARY_DIR}/src/Version.h")
-message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
-message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
-
-add_custom_target(build-time-make-directory ALL
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code")
-
-set(GENERATED_FILES_FOR_SEISSOL src/generated_code/subroutine.h
-                                src/generated_code/tensor.cpp
-                                src/generated_code/subroutine.cpp
-                                src/generated_code/gpulike_subroutine.cpp
-                                src/generated_code/tensor.h
-                                src/generated_code/init.cpp
-                                src/generated_code/init.h
-                                src/generated_code/kernel.h
-                                src/generated_code/kernel.cpp)
-
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/)
 
 if(PROXY_PYBINDING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
@@ -125,73 +91,50 @@ else()
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
 endif()
 
-if(PREMULTIPLY_FLUX)
-  set(PREMULTIPLY_FLUX_VALUE "--enable_premultiply_flux")
-else()
-  set(PREMULTIPLY_FLUX_VALUE "--disable_premultiply_flux")
-endif()
-
 find_package(GemmTools REQUIRED)
 
-add_custom_command(
-  COMMAND
-  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated-code/generate.py"
-     "--equations" ${EQUATIONS}
-     "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated-code/matrices
-     "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
-     "--host_arch" ${HOST_ARCH_STR}
-     "--device_arch" ${DEVICE_ARCH_STR}
-     "--device_backend" ${DEVICE_BACKEND}
-     "--order" ${ORDER}
-     "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
-     "--memLayout" ${MEMORY_LAYOUT}
-     "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
-     "--PlasticityMethod" ${PLASTICITY_METHOD}
-     "--gemm_tools" ${GEMM_TOOLS_LIST}
-     "--drQuadRule" ${DR_QUAD_RULE}
-     "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
-     "--executable_pspamm=${PSpaMM_PROGRAM}"
-     ${PREMULTIPLY_FLUX_VALUE} # boolean flag
-     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated-code
-     DEPENDS
-        build-time-make-directory
-        generated-code/generate.py
-        generated-code/kernels
-        generated-code/matrices
-        generated-code/config
-    OUTPUT
-        ${GENERATED_FILES_FOR_SEISSOL}
-    COMMENT "Code generation for tensor operations..."
-       )
+add_subdirectory(codegen)
 
-add_custom_target(SeisSol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
-add_library(SeisSol-common-properties INTERFACE IMPORTED)
-
-include(src/sources.cmake)
-
-# enforce code generation to run before any other target
-add_dependencies(SeisSol-common-properties SeisSol-codegen)
-
-target_link_libraries(SeisSol-lib PUBLIC SeisSol-common-properties)
-target_link_libraries(SeisSol-kernel-lib PUBLIC SeisSol-common-properties)
-target_link_libraries(SeisSol-common-lib PUBLIC SeisSol-common-properties)
-
-target_link_libraries(SeisSol-common-lib PRIVATE SeisSol-kernel-lib)
-target_link_libraries(SeisSol-lib PRIVATE SeisSol-kernel-lib)
-target_link_libraries(SeisSol-lib PRIVATE SeisSol-common-lib)
+add_library(seissol-common-properties INTERFACE)
 
 if (WITH_GPU)
-  add_dependencies(SeisSol-device-lib SeisSol-codegen)
+  set(SEISSOL_DEVICE_INCLUDE ${DEVICE_INCLUDE_DIRS})
+
+  if (DEVICE_BACKEND STREQUAL "cuda")
+    include(cmake/cuda.cmake)
+  endif()
+  if (DEVICE_BACKEND STREQUAL "hip")
+    include(cmake/hip.cmake)
+  endif()
+  if (DEVICE_BACKEND STREQUAL "hipsycl" OR DEVICE_BACKEND STREQUAL "acpp" OR DEVICE_BACKEND STREQUAL "oneapi")
+    include(cmake/sycl.cmake)
+  endif()
+endif()
+
+target_compile_options(seissol-common-properties INTERFACE ${EXTRA_CXX_FLAGS})
+target_compile_options(seissol-common-properties INTERFACE -fPIC)
+
+add_subdirectory(src)
+
+# enforce code generation to run before any other target
+add_dependencies(seissol-common-properties seissol-codegen)
+
+target_link_libraries(seissol-lib PUBLIC seissol-common-properties)
+target_link_libraries(seissol-kernel-lib PUBLIC seissol-common-properties)
+target_link_libraries(seissol-lib PRIVATE seissol-kernel-lib)
+
+if (WITH_GPU)
+  add_dependencies(seissol-device-lib seissol-codegen)
 endif()
 
 if(GemmTools_INCLUDE_DIRS)
-  target_include_directories(SeisSol-common-properties INTERFACE ${GemmTools_INCLUDE_DIRS})
+  target_include_directories(seissol-common-properties INTERFACE ${GemmTools_INCLUDE_DIRS})
 endif()
 if(GemmTools_LIBRARIES)
-  target_link_libraries(SeisSol-common-properties INTERFACE ${GemmTools_LIBRARIES})
+  target_link_libraries(seissol-common-properties INTERFACE ${GemmTools_LIBRARIES})
 endif()
 if(GemmTools_COMPILER_DEFINITIONS)
-  target_compile_definitions(SeisSol-common-properties INTERFACE ${GemmTools_COMPILER_DEFINITIONS})
+  target_compile_definitions(seissol-common-properties INTERFACE ${GemmTools_COMPILER_DEFINITIONS})
 endif()
 
 # Find appropriate compiler flags based on the target computer architecture
@@ -201,20 +144,11 @@ include(cmake/cpu_arch_flags.cmake)
 get_arch_flags(${HOST_ARCH} ${CMAKE_CXX_COMPILER_ID})
 
 # set hardware/compiler specific definitions and flags
-target_compile_definitions(SeisSol-common-properties INTERFACE ${HARDWARE_DEFINITIONS})
-target_compile_options(SeisSol-common-properties INTERFACE ${CPU_ARCH_FLAGS})
+target_compile_options(seissol-common-properties INTERFACE ${CPU_ARCH_FLAGS})
 
-target_compile_definitions(SeisSol-common-properties INTERFACE LOGLEVEL=${LOG_LEVEL})
-target_compile_definitions(SeisSol-common-properties INTERFACE LOG_LEVEL=${LOG_LEVEL_MASTER}
+target_compile_definitions(seissol-common-properties INTERFACE LOGLEVEL=${LOG_LEVEL})
+target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_LEVEL_MASTER}
                                                      LOGLEVEL0=${LOG_LEVEL_MASTER})
-
-
-if (PLASTICITY_METHOD STREQUAL "ip")
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_PLASTICITY_IP)
-elseif (PLASTICITY_METHOD STREQUAL "nb")
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_PLASTICITY_NB)
-endif()
-
 
 # enable interproc. opts for small cores
 #if cpu in ['knc', 'knl', 'skx']:
@@ -224,51 +158,70 @@ endif()
 include(ExternalProject)
 
 find_package(easi 1.0.0 REQUIRED)
-target_link_libraries(SeisSol-common-properties INTERFACE easi::easi)
+target_link_libraries(seissol-common-properties INTERFACE easi::easi)
 
 if (OPENMP)
   find_package(OpenMP REQUIRED)
-  target_link_libraries(SeisSol-common-properties INTERFACE OpenMP::OpenMP_CXX)
-  target_compile_definitions(SeisSol-common-properties INTERFACE OMP OMPI_SKIP_MPICXX)
+  target_link_libraries(seissol-common-properties INTERFACE OpenMP::OpenMP_CXX)
+  target_compile_definitions(seissol-common-properties INTERFACE OMP OMPI_SKIP_MPICXX)
 endif()
 
 if (MPI)
   find_package(MPI REQUIRED)
 
-  target_include_directories(SeisSol-common-properties SYSTEM INTERFACE ${MPI_CXX_INCLUDE_PATH})
-  target_link_libraries(SeisSol-common-properties INTERFACE MPI::MPI_C)
+  target_include_directories(seissol-common-properties SYSTEM INTERFACE ${MPI_CXX_INCLUDE_PATH})
+  target_link_libraries(seissol-common-properties INTERFACE MPI::MPI_C)
 
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_MPI PARALLEL)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_MPI PARALLEL)
 endif()
 
 if (NUMA_AWARE_PINNING)
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_NUMA_AWARE_PINNING)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_NUMA_AWARE_PINNING)
   find_package(NUMA REQUIRED)
 
-  target_include_directories(SeisSol-common-properties SYSTEM INTERFACE ${NUMA_INCLUDE_DIR})
-  target_link_libraries(SeisSol-common-properties INTERFACE ${NUMA_LIBRARY})
+  target_link_libraries(seissol-common-properties INTERFACE NUMA::NUMA)
+endif()
+
+if (ASAGI)
+  find_package (asagi)
+  if (NOT asagi_FOUND)
+      find_package (PkgConfig REQUIRED)
+      pkg_check_modules (ASAGI REQUIRED IMPORTED_TARGET asagi)
+      add_library(asagi::asagi ALIAS PkgConfig::ASAGI)
+  endif()
+
+  target_link_libraries(seissol-common-properties INTERFACE asagi::asagi)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_ASAGI)
 endif()
 
 #set(HDF5_PREFER_PARALLEL True)
 if (NETCDF)
   find_package(NetCDF REQUIRED)
-  target_include_directories(SeisSol-common-properties INTERFACE ${NetCDF_INCLUDE_DIRS})
-  target_link_libraries(SeisSol-common-properties INTERFACE ${NetCDF_LIBRARY})
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_NETCDF)
+  target_include_directories(seissol-common-properties INTERFACE ${NetCDF_INCLUDE_DIRS})
+  target_link_libraries(seissol-common-properties INTERFACE ${NetCDF_LIBRARY})
+  target_compile_definitions(seissol-common-properties INTERFACE USE_NETCDF)
 endif()
 
 if (HDF5)
   if (MPI)
     set(HDF5_PREFER_PARALLEL True)
   endif()
-  find_package(HDF5 REQUIRED COMPONENTS C HL)
-  target_include_directories(SeisSol-common-properties INTERFACE ${HDF5_INCLUDE_DIRS})
-  target_link_libraries(SeisSol-common-properties INTERFACE ${HDF5_C_HL_LIBRARIES} ${HDF5_C_LIBRARIES})
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_HDF)
-  if (NOT HDF5_IS_PARALLEL)
-    message(WARNING "The found parallel Hdf5 installation is not parallel. Compile errors will occur.")
+  if (NETCDF)
+    find_package(HDF5 REQUIRED COMPONENTS C HL)
+    target_include_directories(seissol-common-properties INTERFACE ${HDF5_INCLUDE_DIRS})
+    target_link_libraries(seissol-common-properties INTERFACE ${HDF5_C_HL_LIBRARIES} ${HDF5_C_LIBRARIES})
+  else()
+    find_package(HDF5 REQUIRED COMPONENTS C)
+    target_include_directories(seissol-common-properties INTERFACE ${HDF5_INCLUDE_DIRS})
+    target_link_libraries(seissol-common-properties INTERFACE ${HDF5_C_LIBRARIES})
   endif()
-endif()  
+  target_compile_definitions(seissol-common-properties INTERFACE USE_HDF)
+
+  # HDF5_PROVIDES_PARALLEL needed for Hdf5 2.0 upwards (cf. https://www.hdfgroup.org/2025/11/10/release-of-hdf5-2-0-0-newsletter-207/ )
+  if (NOT (HDF5_IS_PARALLEL OR HDF5_ENABLE_PARALLEL OR HDF5_PROVIDES_PARALLEL))
+    message(WARNING "The found parallel Hdf5 installation is not parallel (i.e. MPI-ready). Compile errors will occur.")
+  endif()
+endif()
 
 # Parmetis
 if ("parmetis" IN_LIST GRAPH_PARTITIONING_LIBS)
@@ -277,42 +230,65 @@ if ("parmetis" IN_LIST GRAPH_PARTITIONING_LIBS)
       message(WARNING "Found METIS compiled with IDXTYPEWIDTH = 32. It is strongly recommend to compile METIS with IDXTYPEWIDTH = 64, because otherwise the partitioning of large meshes might fail.")
   endif()
   find_package(ParMETIS REQUIRED)
-  target_include_directories(SeisSol-common-properties INTERFACE ${PARMETIS_INCLUDE_DIRS})
-  target_link_libraries(SeisSol-common-properties INTERFACE ${PARMETIS_LIBRARIES})
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_METIS USE_PARMETIS)
+  target_link_libraries(seissol-common-properties INTERFACE ParMETIS::ParMETIS)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_METIS USE_PARMETIS)
 endif()
 if ("parhip" IN_LIST GRAPH_PARTITIONING_LIBS)
-    find_package(ParHIP REQUIRED)
-    target_link_libraries(SeisSol-common-properties INTERFACE ParHIP::ParHIP)
-    target_compile_definitions(SeisSol-common-properties INTERFACE USE_PARHIP)
+  find_package(ParHIP REQUIRED)
+  target_link_libraries(seissol-common-properties INTERFACE ParHIP::ParHIP)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_PARHIP)
 endif()
 if ("ptscotch" IN_LIST GRAPH_PARTITIONING_LIBS)
-    find_package(SCOTCH REQUIRED)
-    target_link_libraries(SeisSol-common-properties INTERFACE SCOTCH::ptscotch SCOTCH::ptscotcherr)
-    target_compile_definitions(SeisSol-common-properties INTERFACE USE_PTSCOTCH)
+  find_package(SCOTCH REQUIRED)
+  target_link_libraries(seissol-common-properties INTERFACE SCOTCH::ptscotch SCOTCH::ptscotcherr)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_PTSCOTCH)
 endif()
 if (NOT GRAPH_PARTITIONING_LIBS)
-    message(WARNING "Compiling without graph partitioning library; expect poor performance in multi-rank runs.")
-endif()
-
-find_package(PkgConfig REQUIRED) 
-if (ASAGI)
-  # todo warn if netcdf is off
-  pkg_check_modules(ASAGI REQUIRED IMPORTED_TARGET asagi) # asagi_nompi?
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_ASAGI)
-  target_link_libraries(SeisSol-common-properties INTERFACE ${ASAGI_LDFLAGS})
-  target_include_directories(SeisSol-common-properties INTERFACE ${ASAGI_INCLUDE_DIRS})
-  target_compile_options(SeisSol-common-properties INTERFACE ${ASAGI_CFLAGS} ${ASAGI_CFLAGS_OTHER})
+  message(WARNING "Compiling without graph partitioning library; expect poor performance in multi-rank runs.")
 endif()
 
 if (MEMKIND)
   find_package(Memkind REQUIRED)
-  target_include_directories(SeisSol-common-properties INTERFACE ${MEMKIND_INCLUDE_DIR})
-  target_link_libraries(SeisSol-common-properties INTERFACE ${MEMKIND_LIBRARIES})
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_MEMKIND)
+  target_include_directories(seissol-common-properties INTERFACE ${MEMKIND_INCLUDE_DIR})
+  target_link_libraries(seissol-common-properties INTERFACE ${MEMKIND_LIBRARIES})
+  target_compile_definitions(seissol-common-properties INTERFACE USE_MEMKIND)
 endif()
 
-if(${EQUATIONS} STREQUAL "poroelastic")
+if (INTEGRATE_QUANTITIES)
+  target_compile_definitions(seissol-common-properties INTERFACE INTEGRATE_QUANTITIES)
+endif()
+
+if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+  target_compile_definitions(seissol-common-properties INTERFACE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+endif()
+
+if (DEVICE_COMBINE_LOCAL_FLUX)
+  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_DEVICE_COMBINE_LOCAL_FLUX)
+endif()
+
+if (ADDRESS_SANITIZER_DEBUG)
+  target_link_libraries(seissol-common-properties INTERFACE debug
+          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address -static-libasan
+  )
+endif()
+
+find_package(Eigen3 REQUIRED)
+target_link_libraries(seissol-common-properties INTERFACE Eigen3::Eigen)
+
+# needed explicitly also to silence some clang-tidy differences
+if (NOT WITH_GPU)
+  # but: it still causes issues with some GPU builds until we refactor the DR parameter datastructures
+  target_compile_definitions(seissol-common-properties INTERFACE EIGEN_INITIALIZE_MATRICES_BY_ZERO)
+endif()
+
+# the following check is needed because allowing 3.4 and 5.0.0 at the same
+# time was not possible inline in the find_package
+if ("${Eigen3_VERSION}" VERSION_LESS "3.4")
+  message(FATAL_ERROR "Your installed Eigen version is too old. Needed: at least 3.4 .")
+endif()
+
+# needed because Eigen (also 5.0) still incorrectly computes some values and fails some unit tests
+if((${EQUATIONS} STREQUAL "poroelastic"))
   include(CheckLanguage)
   check_language(Fortran)
   if(CMAKE_Fortran_COMPILER)
@@ -320,54 +296,31 @@ if(${EQUATIONS} STREQUAL "poroelastic")
     include(FortranCInterface)
     FortranCInterface_HEADER(FC.h MACRO_NAMESPACE "FC_")
     find_package(LAPACK REQUIRED)
-    target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
-    target_link_libraries(SeisSol-common-properties INTERFACE ${LAPACK_LIBRARIES})
+    target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
+    target_link_libraries(seissol-common-properties INTERFACE ${LAPACK_LIBRARIES})
+    target_compile_definitions(seissol-common-properties INTERFACE USE_LAPACK)
   else()
     message(FATAL_ERROR "SeisSol needs a Fortran compiler.")
   endif()
 endif()
 
-
-if (INTEGRATE_QUANTITIES)
-  target_compile_definitions(SeisSol-common-properties INTERFACE INTEGRATE_QUANTITIES)
-endif()
-
-if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
-  target_compile_definitions(SeisSol-common-properties INTERFACE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
-endif()
-
-if (ADDRESS_SANITIZER_DEBUG)
-  target_link_libraries(SeisSol-common-properties INTERFACE debug
-          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address -static-libasan
-  )
-endif()
-
-# Note: it is better to include `async` as
-# system headers because they emit lot's of warnings
-# from clang. Most of them are issues with respect
-# to overriden virtual methods
-target_include_directories(SeisSol-common-properties SYSTEM INTERFACE
-  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
-)
-
-find_package(Eigen3 3.4 REQUIRED)
-target_link_libraries(SeisSol-common-properties INTERFACE Eigen3::Eigen)
-
 find_package(yaml-cpp REQUIRED)
 
 if ("${yaml-cpp_VERSION}" VERSION_GREATER_EQUAL "0.8")
-  target_link_libraries(SeisSol-common-properties INTERFACE yaml-cpp::yaml-cpp)
+  target_link_libraries(seissol-common-properties INTERFACE yaml-cpp::yaml-cpp)
+elseif ("${yaml-cpp_VERSION}" VERSION_GREATER_EQUAL "0.7")
+  target_link_libraries(seissol-common-properties INTERFACE yaml-cpp)
 else()
   # fallback code for old versions
   if (YAML_CPP_INCLUDE_DIR AND EXISTS "${YAML_CPP_INCLUDE_DIR}")
-    target_include_directories(SeisSol-common-properties INTERFACE ${YAML_CPP_INCLUDE_DIR})
+    target_include_directories(seissol-common-properties INTERFACE ${YAML_CPP_INCLUDE_DIR})
   endif()
   if (YAML_CPP_LIBRARIES)
     # use the YAML_CPP_LIBRARIES, if available (though it may just say `yaml-cpp`)
-    target_link_libraries(SeisSol-common-properties INTERFACE ${YAML_CPP_LIBRARIES})
+    target_link_libraries(seissol-common-properties INTERFACE ${YAML_CPP_LIBRARIES})
   else()
     # fallback
-    target_link_libraries(SeisSol-common-properties INTERFACE yaml-cpp)
+    target_link_libraries(seissol-common-properties INTERFACE yaml-cpp)
   endif()
 endif()
 
@@ -378,304 +331,202 @@ endif()
 # use eigen in GPU kernels. Therefore, it is better to change
 # the default behaviour (which assumes CUDA support) and
 # set `EIGEN_NO_CUDA`
-target_compile_definitions(SeisSol-common-properties INTERFACE EIGEN_NO_CUDA)
+target_compile_definitions(seissol-common-properties INTERFACE EIGEN_NO_CUDA)
 
 if (EIGEN3_INCLUDE_DIR)
-  target_include_directories(SeisSol-common-properties INTERFACE ${EIGEN3_INCLUDE_DIR})
+  target_include_directories(seissol-common-properties INTERFACE ${EIGEN3_INCLUDE_DIR})
 endif()
 
-target_include_directories(SeisSol-common-properties INTERFACE
+target_include_directories(seissol-common-properties INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/submodules
-    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
     ${CMAKE_CURRENT_BINARY_DIR}/src/
+    ${CMAKE_CURRENT_BINARY_DIR}/codegen/
 )
 
-target_compile_definitions(SeisSol-common-properties INTERFACE
-    CONVERGENCE_ORDER=${ORDER}
-    NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
-    ${DR_QUAD_RULE}
+# submodule includes
+
+# Note: it is better to include `async` as
+# system headers because they emit lots of warnings
+# from clang. Most of them are issues with respect
+# to overriden virtual methods
+
+# for the same reason, do the same for all other submodules (for now)
+
+# not explicitly listed: PUML, utils, fty, xdmfwriter
+target_include_directories(seissol-common-properties SYSTEM INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
 if (PREMULTIPLY_FLUX)
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_PREMULTIPLY_FLUX)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_PREMULTIPLY_FLUX)
 endif()
 
-# adjust prefix name of executables
-if ("${DEVICE_ARCH_STR}" STREQUAL "none")
-  set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}")
+if (NOT NEW_BINARY_NAMING)
+  # adjust prefix name of executables
+  if ("${DEVICE_ARCH}" STREQUAL "none")
+    set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${PRECISION_PREFIX}${HOST_ARCH}_${ORDER}_${EQUATIONS}")
+  else()
+    set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${PRECISION_PREFIX}${DEVICE_ARCH}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
+  endif()
+
+  if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
+    set(EXE_NAME_PREFIX "${EXE_NAME_PREFIX}_f${NUMBER_OF_FUSED_SIMULATIONS}")
+  endif()
 else()
-  set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
+  if (WITH_GPU)
+    set(NAME_SUFFIX "gpu")
+  else()
+    set(NAME_SUFFIX "cpu")
+  endif()
+  if (EQUATIONS STREQUAL "viscoelastic2")
+    set(NAME_SUFFIX "${NAME_SUFFIX}-viscoelastic")
+  else()
+    set(NAME_SUFFIX "${NAME_SUFFIX}-${EQUATIONS}")
+  endif()
+  if (NUMBER_OF_MECHANISMS GREATER 0)
+    set(NAME_SUFFIX "${NAME_SUFFIX}-${NUMBER_OF_MECHANISMS}")
+  endif()
+  set(NAME_SUFFIX "${NAME_SUFFIX}-p${ORDER}")
+  if (PRECISION STREQUAL "single")
+    set(NAME_SUFFIX "${NAME_SUFFIX}-f32")
+  else()
+    set(NAME_SUFFIX "${NAME_SUFFIX}-f64")
+  endif()
+  if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
+    set(NAME_SUFFIX "${NAME_SUFFIX}-s${NUMBER_OF_FUSED_SIMULATIONS}")
+  endif()
 endif()
 
 if (SHARED)
-  set_target_properties(SeisSol-lib PROPERTIES OUTPUT_NAME "SeisSol_lib_${EXE_NAME_PREFIX}")
-  install(TARGETS SeisSol-lib LIBRARY)
+  if (NOT NEW_BINARY_NAMING)
+    set_target_properties(seissol-lib PROPERTIES OUTPUT_NAME "SeisSol_lib_${EXE_NAME_PREFIX}")
+  else()
+    set_target_properties(seissol-lib PROPERTIES OUTPUT_NAME "seissollib-${NAME_SUFFIX}")
+  endif()
+  install(TARGETS seissol-lib LIBRARY)
 endif()
 
 if (WITH_GPU)
   if (DEVICE_BACKEND STREQUAL "cuda")
-    target_compile_definitions(SeisSol-common-properties INTERFACE SEISSOL_KERNELS_CUDA)
+    target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_CUDA)
   endif()
   if (DEVICE_BACKEND STREQUAL "hip")
-    target_compile_definitions(SeisSol-common-properties INTERFACE SEISSOL_KERNELS_HIP)
+    target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_HIP)
   endif()
-  if (DEVICE_BACKEND STREQUAL "hipsycl" OR DEVICE_BACKEND STREQUAL "oneapi")
-    target_compile_definitions(SeisSol-common-properties INTERFACE SEISSOL_KERNELS_SYCL)
+  if (DEVICE_BACKEND STREQUAL "hipsycl" OR DEVICE_BACKEND STREQUAL "acpp" OR DEVICE_BACKEND STREQUAL "oneapi")
+    target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_SYCL)
   endif()
 
   # set SeisSol GPU definitions
-  target_compile_definitions(SeisSol-common-properties INTERFACE ACL_DEVICE)
+  target_compile_definitions(seissol-common-properties INTERFACE ACL_DEVICE)
 
   # add device submodule
   add_subdirectory(submodules/Device)
-  target_include_directories(SeisSol-common-properties INTERFACE submodules/Device)
-  target_link_libraries(SeisSol-common-properties INTERFACE device)
+  target_link_libraries(seissol-common-properties INTERFACE device)
 
   # add SeisSol GPU part
-  target_link_libraries(SeisSol-common-properties INTERFACE SeisSol-device-lib)
+  target_link_libraries(seissol-common-properties INTERFACE seissol-device-lib)
 
-  add_library(general-sycl-offloading SHARED
-      ${SYCL_DEPENDENT_SRC_FILES}
-      ${SYCL_ONLY_SRC_FILES})
-  target_link_libraries(general-sycl-offloading PRIVATE SeisSol-common-properties)
-  target_link_libraries(general-sycl-offloading PRIVATE SeisSol-common-lib)
-
-  set(SYCL_CC "acpp" CACHE STRING "The SYCL Compiler used for general SYCL offloading")
-  set(SYCL_CC_OPTIONS acpp hipsycl dpcpp)
-  set_property(CACHE SYCL_CC PROPERTY STRINGS ${SYCL_CC_OPTIONS})
-
-  if (SYCL_CC MATCHES "hipsycl" OR SYCL_CC MATCHES "acpp")
-    message(STATUS "Using AdaptiveCpp for general SYCL offloading")
-    # add GPU dynamic rupture target
-    # always override ACPP_TARGETS, as we may need to override it when the architecture changes
-    if (DEVICE_ARCH MATCHES "sm_*")
-      if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
-        set(SYCL_USE_NVHPC_DEFAULT ON)
-      else()
-        set(SYCL_USE_NVHPC_DEFAULT OFF)
-      endif()
-      option(SYCL_USE_NVHPC "For Nvidia GPUs, use nvhpc instead of CUDA/nvcc." ${SYCL_USE_NVHPC_DEFAULT})
-      if (SYCL_USE_NVHPC)
-        # we assume that hipsycl was compiled with nvhpc compiler collection
-        string(REPLACE sm_ cc NVCPP_ARCH ${DEVICE_ARCH})
-        set(HIPSYCL_TARGETS "cuda-nvcxx:${NVCPP_ARCH}" CACHE STRING "" FORCE)
-        set(ACPP_TARGETS "cuda-nvcxx:${NVCPP_ARCH}" CACHE STRING "" FORCE)
-      else()
-        set(HIPSYCL_TARGETS "cuda:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-        set(ACPP_TARGETS "cuda:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-        target_compile_options(general-sycl-offloading PRIVATE -Wno-unknown-cuda-version)
-      endif()
-      target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_NVIDIA)
-    elseif(DEVICE_ARCH MATCHES "gfx*")
-      set(HIPSYCL_TARGETS "hip:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-      set(ACPP_TARGETS "hip:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-      target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_AMD)
-    else()
-      set(HIPSYCL_TARGETS "${DEVICE_BACKEND}:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-      set(ACPP_TARGETS "${DEVICE_BACKEND}:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-      target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_Intel)
-    endif()
-
-    find_package(AdaptiveCpp)
-    if (NOT AdaptiveCpp_FOUND)
-      message(WARNING "AdaptiveCpp was not found. Retrying with hipSYCL as package name...")
-      find_package(hipSYCL REQUIRED)
-    endif()
-
-    # note, we need to add openmp as a link option explicitly for some compilers.
-    # it is probably an issue of `add_sycl_to_target` macro
-    target_link_options(general-sycl-offloading PRIVATE ${OpenMP_CXX_FLAGS})
-    add_sycl_to_target(TARGET general-sycl-offloading SOURCES ${SYCL_ONLY_SRC_FILES})
+  if (NOT NEW_BINARY_NAMING)
+    set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
+    set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_BACKEND}")
   else()
-    find_package(DpcppFlags REQUIRED)
-    message(STATUS "Using DPC++ for general SYCL offloading")
-    target_link_libraries(general-sycl-offloading PRIVATE dpcpp::device_flags)
-    target_link_libraries(SeisSol-common-properties INTERFACE dpcpp::interface)
+    set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "seissol-gpucode-${NAME_SUFFIX}")
   endif()
 
-  add_dependencies(general-sycl-offloading SeisSol-codegen)
-
-  set_target_properties(general-sycl-offloading PROPERTIES OUTPUT_NAME "SeisSol_offloading_${EXE_NAME_PREFIX}")
-  set_target_properties(SeisSol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
-  set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}")
-
   # set up GPU install targets
-  install(TARGETS general-sycl-offloading LIBRARY)
-  install(TARGETS SeisSol-device-lib LIBRARY)
+  install(TARGETS seissol-device-lib LIBRARY)
   install(TARGETS device LIBRARY)
-else()
-  # add DR source files to SeisSol-lib if we are compiling without any GPU support
-  target_sources(SeisSol-common-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
 endif()
 
 # C++ compiler settings
+# TODO: mostly remove or make optional? (except the EIGEN_DONT_VECTORIZE for NVHPC below)
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  target_compile_options(SeisSol-lib INTERFACE -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
+  target_compile_options(seissol-common-properties INTERFACE $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-pedantic -Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
 
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
   # todo remove std?, is ffreestanding needed?
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-pedantic -std=c++17>)
 
   # Activate interprocedual optimization.
-  #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
+  #set_property(TARGET seissol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Wno-unused-parameter")
+  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-pedantic -Wall -Wextra -Wno-unused-parameter>)
 
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
     # warning 186 - pointless comparison of unsigned integer with zero detected
     # warning 612 - overloaded virtual function is only partially overridden
     # warning 111 - statement is unreachable
-    set(WARNINGS "--display_error_number --diag_suppress186 --diag_suppress612 --diag_suppress111")
+    target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:--display_error_number --diag_suppress186 --diag_suppress612 --diag_suppress111>)
     if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.3.1")
-      set(WARNINGS "${WARNINGS} --diag_suppress1")
+      target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:--diag_suppress1>)
     endif()
 
     # NOTE:
     # 1. --pending_instantiations=0 allows an infinite recursive template instantiation
-    # 2. EIGEN_DONT_VECTORIZE=1 waiting for eigen3 support for nvhpc compiler collection w.r.t. vectorization
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wc,--pending_instantiations=0 ${WARNINGS} -DEIGEN_DONT_VECTORIZE=0")
+    target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-Wc,--pending_instantiations=0>)
+
+    if ("${Eigen3_VERSION}" VERSION_LESS "5.0")
+      # 2. EIGEN_DONT_VECTORIZE=1 ; Eigen3 3.4 does not have support for NVHPC vectorization
+      target_compile_definitions(seissol-common-properties INTERFACE EIGEN_DONT_VECTORIZE=0)
+    endif()
 endif()
 
 find_package(FILESYSTEM REQUIRED)
-target_link_libraries(SeisSol-common-properties INTERFACE std::filesystem)
+target_link_libraries(seissol-common-properties INTERFACE std::filesystem)
 
-# Generated code does only work without red-zone.
-if (HAS_REDZONE)
-  set_source_files_properties(
-      ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
-  )
-endif()
-
-# put every executable in the root build directory at the end
+# put every executable and shared library in the root build directory at the end
+# (for compatibility reasons; TODO: remove at some point)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-
-# build SeisSol-bin
-  add_executable(SeisSol-bin src/Main.cpp)
-  set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
-
-  if (WITH_GPU)
-    target_link_libraries(SeisSol-bin PUBLIC general-sycl-offloading)
-  endif()
-  target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
-
-  install(TARGETS SeisSol-bin RUNTIME)
-# end build SeisSol-bin
-
-# build SeisSol-proxy
-  add_subdirectory(auto-tuning/proxy/src)
-# end build SeisSol-proxy
 
 if (LIKWID)
   find_package(likwid REQUIRED)
-  if (BUILD_PROXY)
-    target_compile_definitions(seissol-proxy-lib PUBLIC LIKWID_PERFMON)
-    target_include_directories(seissol-proxy-lib PUBLIC ${LIKWID_INCLUDE_DIR})
-    target_link_libraries(seissol-proxy-lib PUBLIC likwid::likwid)
-  endif()
-  target_compile_definitions(SeisSol-lib PUBLIC LIKWID_PERFMON)
-  target_include_directories(SeisSol-lib PUBLIC ${LIKWID_INCLUDE_DIR})
-  target_link_libraries(SeisSol-lib PUBLIC likwid::likwid)
+  target_compile_definitions(seissol-lib PUBLIC LIKWID_PERFMON)
+  target_include_directories(seissol-lib PUBLIC ${LIKWID_INCLUDE_DIR})
+  target_link_libraries(seissol-lib PUBLIC likwid::likwid)
 endif()
+
+add_subdirectory(external)
 
 if (TESTING)
   enable_testing()
   include(cmake/doctest.cmake)
 
-  # Coverage
-  if(COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
-    include(cmake/CodeCoverage.cmake)
-    append_coverage_compiler_flags()
-    setup_target_for_coverage_lcov(
-            NAME SeisSol-coverage
-            EXECUTABLE SeisSol-serial-test
-            EXCLUDE "/usr/*"
-                    "submodules/*"
-                    "*/tests/*"
-                    "external/*"
-                    "*/yaml-cpp-install/*"
-    )
-  endif()
-
-  set(seissol_test_sources
-          src/tests/Model/TestModel.cpp
-          src/tests/Initializer/TestInitializer.cpp
-          src/tests/Numerical/TestNumerical.cpp
-          src/tests/Geometry/TestGeometry.cpp
-          src/tests/Kernel/TestKernel.cpp
-          src/tests/SourceTerm/TestSourceTerm.cpp
-          src/tests/Parallel/TestParallel.cpp
-          src/tests/ResultWriter/TestResultWriter.cpp
-          src/tests/Solver/time_stepping/TestSolverTimeStepping.cpp
-          src/tests/DynamicRupture/TestDynamicRupture.cpp
-          src/tests/Common/TestCommon.cpp
-          )
-
-
-  if (TESTING_GENERATED)
-    set(seissol_test_sources
-            ${seissol_test_sources}
-            ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp
-            )
-  endif()
-
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/mesh.h5
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh.h5
-    COPYONLY
-    )
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/material.yaml
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/material.yaml
-    COPYONLY
-    )
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/ResultWriter/receiver_correct.dat
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/receiver_correct.dat
-    COPYONLY
-  )
-
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/fsrm_source1.dat
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/fsrm_source1.dat
-    COPYONLY
-  )
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/fsrm_source2.dat
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/fsrm_source2.dat
-    COPYONLY
-  )
-
-  if (NETCDF)
-    configure_file(
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/source_loh.nrf
-            ${CMAKE_CURRENT_BINARY_DIR}/Testing/source_loh.nrf
-            COPYONLY
-    )
-    set(seissol_test_sources ${seissol_test_sources} ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/ReaderTest.cpp)
-  endif()
-
-  add_executable(SeisSol-serial-test
-            ${seissol_test_sources}
-            src/tests/TestMain.cpp)
-  target_link_libraries(SeisSol-serial-test PRIVATE SeisSol-lib)
-if(WITH_GPU)
-  target_link_libraries(SeisSol-serial-test PRIVATE general-sycl-offloading)
+  add_subdirectory(tests)
 endif()
-  target_include_directories(SeisSol-serial-test PUBLIC external/)
 
-  separate_arguments(TESTING_COMMAND_LIST NATIVE_COMMAND ${TESTING_COMMAND})
-  set_property(TARGET SeisSol-serial-test PROPERTY CROSSCOMPILING_EMULATOR ${TESTING_COMMAND_LIST})
-  doctest_discover_tests(SeisSol-serial-test)
+add_subdirectory(app)
 
-  # Avoid duplicate definition of FLOP counters
-  target_compile_definitions(SeisSol-serial-test PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
+# Coverage (should run last; after all folders have been added)
+if(TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
+  setup_target_for_coverage_lcov(
+          NAME seissol-coverage
+          EXECUTABLE ctest -j
+          EXCLUDE "/usr/*"
+                  "submodules/*"
+                  "tests/*"
+                  "external/*"
+                  "*/codegen/GeneratedCode/*"
+                  "/opt/*"
+          LCOV_ARGS --ignore-errors inconsistent
+                    --ignore-errors unused
+                    --ignore-errors mismatch
+  )
 endif()
 
 if (WITH_GPU)
   string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
+
+  if ("${BACKEND_UPPER_CASE}" STREQUAL "HIP")
+    # ROCR needed for proper chiplet selection in TPX/CPX mode
+    set(BACKEND_UPPER_CASE "ROCR")
+  endif()
+
   set(RUN_GPU_TIME_SELECTOR "${BACKEND_UPPER_CASE}_VISIBLE_DEVICES")
   configure_file(${PROJECT_SOURCE_DIR}/cmake/gpu-launch-template.in
                  ${PROJECT_BINARY_DIR}/seissol-launch
@@ -683,6 +534,14 @@ if (WITH_GPU)
   file(CHMOD ${PROJECT_BINARY_DIR}/seissol-launch PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
   install(FILES ${PROJECT_BINARY_DIR}/seissol-launch DESTINATION ${CMAKE_INSTALL_PREFIX}/share
           PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+endif()
+
+if (BUILD_DOXYGEN)
+  add_subdirectory(docs/doxygen)
+endif()
+
+if (BUILD_DOCS)
+  add_subdirectory(docs)
 endif()
 
 # https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/

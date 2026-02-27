@@ -1,5 +1,12 @@
-#ifndef SEISSOL_ODEVECTOR_H
-#define SEISSOL_ODEVECTOR_H
+// SPDX-FileCopyrightText: 2020 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_NUMERICAL_ODEVECTOR_H_
+#define SEISSOL_SRC_NUMERICAL_ODEVECTOR_H_
 
 #include "Kernels/Precision.h"
 
@@ -104,4 +111,4 @@ class ODEVector {
 
 } // namespace seissol::ode
 
-#endif // SEISSOL_ODEVECTOR_H
+#endif // SEISSOL_SRC_NUMERICAL_ODEVECTOR_H_

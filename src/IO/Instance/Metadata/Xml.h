@@ -1,13 +1,17 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_IO_INSTANCE_METADATA_XML_H_
 #define SEISSOL_SRC_IO_INSTANCE_METADATA_XML_H_
 
-#include <IO/Writer/Instructions/Binary.h>
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Instructions/Instruction.h>
+#include "IO/Writer/Instructions/Binary.h"
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Instruction.h"
+
 #include <memory>
 #include <sstream>
 #include <string>
@@ -15,7 +19,7 @@ namespace seissol::io::instance::metadata {
 
 class XmlInstructor {
   public:
-  XmlInstructor(const std::string& file);
+  explicit XmlInstructor(const std::string& file);
 
   void addText(const std::string& text);
 
@@ -33,7 +37,7 @@ class XmlInstructor {
 
 class XmlAttribute {
   public:
-  XmlAttribute(const std::string& name);
+  explicit XmlAttribute(const std::string& name);
 
   template <typename T>
   static XmlAttribute create(const std::string& name, const T& value) {
@@ -76,7 +80,7 @@ inline std::string XmlAttribute::getImmediate<std::string>() const {
 class XmlEntry {
   public:
   virtual ~XmlEntry() = default;
-  XmlEntry(const std::string& name);
+  explicit XmlEntry(const std::string& name);
 
   XmlEntry& addAttribute(const XmlAttribute& attribute);
 
@@ -93,7 +97,7 @@ class XmlEntry {
 class XmlNode : public XmlEntry {
   public:
   ~XmlNode() override = default;
-  XmlNode(const std::string& name);
+  explicit XmlNode(const std::string& name);
 
   void addNode(const std::shared_ptr<XmlEntry>& entry);
 
@@ -107,7 +111,7 @@ class XmlNode : public XmlEntry {
 class XmlData : public XmlEntry {
   public:
   ~XmlData() override = default;
-  XmlData(const std::string& name);
+  explicit XmlData(const std::string& name);
 
   template <typename T>
   void setImmediate(const T& data) {

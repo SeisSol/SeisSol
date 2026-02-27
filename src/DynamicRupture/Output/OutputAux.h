@@ -1,8 +1,16 @@
-#ifndef SEISSOL_DR_OUTPUT_AUX_HPP
-#define SEISSOL_DR_OUTPUT_AUX_HPP
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_
 
 #include "DataTypes.h"
 #include "Geometry/MeshReader.h"
+
 #include <array>
 #include <memory>
 
@@ -27,12 +35,13 @@ ExtVrtxCoords getMidPointTriangle(const ExtTriangle& triangle);
 ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2);
 
 struct TriangleQuadratureData {
-  static constexpr size_t Size{tensor::quadweights::Shape[0]};
+  static constexpr size_t Size{
+      tensor::quadweights::Shape[seissol::multisim::BasisFunctionDimension]};
   std::array<double, 2 * Size> points{};
   std::array<double, Size> weights{};
 };
 
-TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree);
+TriangleQuadratureData generateTriangleQuadrature();
 
 void assignNearestGaussianPoints(ReceiverPoints& geoPoints);
 
@@ -41,6 +50,9 @@ int getClosestInternalStroudGp(int nearestGpIndex, int nPoly);
 std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
                                            const double (*facePoints)[2],
                                            unsigned numFacePoints);
+
+double
+    isInsideFace(const ExtVrtxCoords& point, const ExtTriangle& face, const VrtxCoords faceNormal);
 
 void projectPointToFace(ExtVrtxCoords& point, const ExtTriangle& face, const VrtxCoords faceNormal);
 
@@ -71,4 +83,4 @@ std::unique_ptr<int[]> convertMaskFromBoolToInt(const std::array<bool, Size>& bo
 }
 } // namespace seissol::dr
 
-#endif // SEISSOL_DR_OUTPUT_AUX_HPP
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_

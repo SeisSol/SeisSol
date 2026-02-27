@@ -1,57 +1,24 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef VARIABLE_SUBSAMPLER_H_
-#define VARIABLE_SUBSAMPLER_H_
-
-#include <algorithm>
-#include <cassert>
-
-#include <Eigen/Dense>
+#ifndef SEISSOL_SRC_GEOMETRY_REFINEMENT_VARIABLESUBSAMPLER_H_
+#define SEISSOL_SRC_GEOMETRY_REFINEMENT_VARIABLESUBSAMPLER_H_
 
 #include "Geometry/MeshReader.h"
 #include "Numerical/BasisFunction.h"
 #include "RefinerUtils.h"
 
-namespace seissol {
-namespace refinement {
+#include <Eigen/Dense>
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+
+namespace seissol::refinement {
 
 //------------------------------------------------------------------------------
 
@@ -61,45 +28,49 @@ class VariableSubsampler {
   std::vector<basisFunction::SampledBasisFunctions<T>> m_BasisFunctions;
 
   /** The original number of cells (without refinement) */
-  const unsigned int m_numCells;
+  unsigned int mNumCells;
 
-  const unsigned int kSubCellsPerCell;
-  const unsigned int kNumVariables;
-  const unsigned int kNumAlignedDOF;
+  std::size_t kSubCellsPerCell;
+  std::size_t kNumVariables;
+  std::size_t kNumAlignedDOF;
+
+  bool nodal{false};
 
   std::size_t
-      getInVarOffset(unsigned int cell, unsigned int variable, const unsigned int* cellMap) const {
+      getInVarOffset(std::size_t cell, std::size_t variable, const unsigned int* cellMap) const {
     return (cellMap[cell] * kNumVariables + variable) * kNumAlignedDOF;
   }
 
-  std::size_t getOutVarOffset(unsigned cell, unsigned int subcell) const {
+  [[nodiscard]] std::size_t getOutVarOffset(std::size_t cell, std::size_t subcell) const {
     return kSubCellsPerCell * cell + subcell;
   }
 
   public:
-  VariableSubsampler(unsigned int numCells,
+  VariableSubsampler(std::size_t numCells,
                      const TetrahedronRefiner<T>& tetRefiner,
                      unsigned int order,
-                     unsigned int numVariables,
-                     unsigned int numAlignedDOF);
+                     std::size_t numVariables,
+                     std::size_t numAlignedDOF,
+                     bool nodal);
 
+  // NOLINTNEXTLINE
   void get(const real* inData, const unsigned int* cellMap, int variable, real* outData) const;
 };
 
 //------------------------------------------------------------------------------
 
 template <typename T>
-VariableSubsampler<T>::VariableSubsampler(unsigned int numCells,
+VariableSubsampler<T>::VariableSubsampler(std::size_t numCells,
                                           const TetrahedronRefiner<T>& tetRefiner,
                                           unsigned int order,
-                                          unsigned int numVariables,
-                                          unsigned int numAlignedDOF)
-    : m_numCells(numCells), kSubCellsPerCell(tetRefiner.getDivisionCount()),
-      kNumVariables(numVariables), kNumAlignedDOF(numAlignedDOF) {
+                                          std::size_t numVariables,
+                                          std::size_t numAlignedDOF,
+                                          bool nodal)
+    : mNumCells(numCells), kSubCellsPerCell(tetRefiner.getDivisionCount()),
+      kNumVariables(numVariables), kNumAlignedDOF(numAlignedDOF), nodal(nodal) {
   // Generate cell centerpoints in the reference or unit tetrahedron.
-  Tetrahedron<T>* subCells = new Tetrahedron<T>[kSubCellsPerCell];
-  Eigen::Matrix<T, 3, 1>* additionalVertices =
-      new Eigen::Matrix<T, 3, 1>[tetRefiner.additionalVerticesPerCell()];
+  auto* subCells = new Tetrahedron<T>[kSubCellsPerCell];
+  auto* additionalVertices = new Eigen::Matrix<T, 3, 1>[tetRefiner.additionalVerticesPerCell()];
 
   tetRefiner.refine(Tetrahedron<T>::unitTetrahedron(), 0, subCells, additionalVertices);
 
@@ -120,22 +91,31 @@ template <typename T>
 void VariableSubsampler<T>::get(const real* inData,
                                 const unsigned int* cellMap,
                                 int variable,
+                                // NOLINTNEXTLINE
                                 real* outData) const {
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
   // Iterate over original Cells
-  for (unsigned int c = 0; c < m_numCells; ++c) {
+  for (unsigned int c = 0; c < mNumCells; ++c) {
     for (unsigned int sc = 0; sc < kSubCellsPerCell; ++sc) {
-      outData[getOutVarOffset(c, sc)] =
-          m_BasisFunctions[sc].evalWithCoeffs(&inData[getInVarOffset(c, variable, cellMap)]);
+      const real* __restrict inCellData = &inData[getInVarOffset(c, variable, cellMap)];
+      alignas(Alignment) real modalBuffer[tensor::modalVar::Size]{};
+      if (nodal) {
+        kernel::plOutput krnl{};
+        krnl.nodalVar = inCellData;
+        krnl.modalVar = modalBuffer;
+        krnl.vInv = init::vInv::Values;
+        krnl.execute();
+
+        inCellData = modalBuffer;
+      }
+      outData[getOutVarOffset(c, sc)] = m_BasisFunctions[sc].evalWithCoeffs(inCellData);
     }
   }
 }
 
 //------------------------------------------------------------------------------
 
-} // namespace refinement
-} // namespace seissol
+} // namespace seissol::refinement
 
-#endif // VARIABLE_SUBSAMPLER_H_
+#endif // SEISSOL_SRC_GEOMETRY_REFINEMENT_VARIABLESUBSAMPLER_H_

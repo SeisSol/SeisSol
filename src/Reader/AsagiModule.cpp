@@ -1,58 +1,32 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2016-2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Velocity field reader Fortran interface
- */
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
 #ifdef USE_ASAGI
 
 #include "AsagiModule.h"
-#include "Parallel/Helper.h"
-#include "utils/env.h"
-#include <string>
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif // _OPENMP
+#include "Modules/Modules.h"
+#include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
+#include "Parallel/OpenMP.h"
+#include "Parallel/Pin.h"
+
+#include <asagi.h>
+#include <memory>
+#include <sched.h>
+#include <string>
+#include <utils/env.h>
+#include <utils/logger.h>
 
 namespace seissol::asagi {
 
-AsagiModule::AsagiModule() : m_mpiMode(getMPIMode()), m_totalThreads(getTotalThreads()) {
+AsagiModule::AsagiModule(utils::Env& env)
+    : m_env(env), m_mpiMode(getMPIMode(env)), m_totalThreads(getTotalThreads(env)) {
   // Register for the pre MPI hook
   Modules::registerHook(*this, ModuleHook::PreMPI);
 
@@ -67,15 +41,19 @@ AsagiModule::AsagiModule() : m_mpiMode(getMPIMode()), m_totalThreads(getTotalThr
   }
 }
 
-AsagiMPIMode AsagiModule::getMPIMode() {
+AsagiMPIMode AsagiModule::getMPIMode(utils::Env& env) {
+  // USE_MPI kept on purpose
 #ifdef USE_MPI
-  std::string mpiModeName = utils::Env::get(EnvMPIMode, "WINDOWS");
-  if (mpiModeName == "WINDOWS")
+  const std::string mpiModeName = env.get(EnvMpiMode, "WINDOWS");
+  if (mpiModeName == "WINDOWS") {
     return AsagiMPIMode::Windows;
-  if (mpiModeName == "COMM_THREAD")
+  }
+  if (mpiModeName == "COMM_THREAD") {
     return AsagiMPIMode::CommThread;
-  if (mpiModeName == "OFF")
+  }
+  if (mpiModeName == "OFF") {
     return AsagiMPIMode::Off;
+  }
 
   return AsagiMPIMode::Unknown;
 #else  // USE_MPI
@@ -83,24 +61,22 @@ AsagiMPIMode AsagiModule::getMPIMode() {
 #endif // USE_MPI
 }
 
-int AsagiModule::getTotalThreads() {
-  int totalThreads = 1;
-
-#ifdef _OPENMP
-  totalThreads = omp_get_max_threads();
-  if (seissol::useCommThread(seissol::MPI::mpi)) {
+int AsagiModule::getTotalThreads(utils::Env& env) {
+  int totalThreads = OpenMP::threadCount();
+  if (seissol::useCommThread(seissol::Mpi::mpi, env)) {
     totalThreads++;
   }
-#endif // _OPENMP
 
   return totalThreads;
 }
+
+utils::Env& AsagiModule::getEnv() { return m_env; }
 
 void AsagiModule::preMPI() {
   // Communication threads required
   if (m_mpiMode == AsagiMPIMode::CommThread) {
     // Comm threads has to be started before model initialization
-    Modules::registerHook(*this, ModuleHook::PreModel, ModulePriority::Highest);
+    Modules::registerHook(*this, ModuleHook::PreMesh, ModulePriority::Highest);
     // Comm threads has to be stoped after model initialization
     Modules::registerHook(*this, ModuleHook::PostModel, ModulePriority::Lowest);
   }
@@ -108,37 +84,47 @@ void AsagiModule::preMPI() {
 
 void AsagiModule::postMPIInit() {
   if (m_mpiMode == AsagiMPIMode::Unknown) {
-    std::string mpiModeName = utils::Env::get(EnvMPIMode, "");
+    const std::string mpiModeName = m_env.get(EnvMpiMode, "");
     logError() << "Unknown ASAGI MPI mode:" << mpiModeName;
   } else {
-    const int rank = MPI::mpi.rank();
-    logWarning(rank) << "Running with only one OMP thread."
-                     << "Using MPI window communication instead of threads.";
+    logWarning() << "Running with only one OMP thread."
+                 << "Using MPI window communication instead of threads.";
   }
 }
 
-void AsagiModule::preModel() {
-#ifdef USE_MPI
-  // TODO check if ASAGI is required for model setup
-  ::asagi::Grid::startCommThread();
-#endif // USE_MPI
+void AsagiModule::preMesh() {
+  if (m_mpiMode == AsagiMPIMode::CommThread) {
+    int cpu = -1;
+#ifndef __APPLE__
+    const auto cpuSet = pinning->getFreeCPUsMask().set;
+    for (int i = 0; i < CPU_COUNT(&cpuSet); ++i) {
+      if (CPU_ISSET(i, &cpuSet)) {
+        cpu = i;
+        break;
+      }
+    }
+#endif
+    ::asagi::Grid::startCommThread(cpu);
+  }
 }
 
 void AsagiModule::postModel() {
-#ifdef USE_MPI
-  // TODO check if ASAGI is required for model setup
-  ::asagi::Grid::stopCommThread();
-#endif // USE_MPI
+  if (m_mpiMode == AsagiMPIMode::CommThread) {
+    ::asagi::Grid::stopCommThread();
+  }
 }
 
-AsagiModule& AsagiModule::getInstance() {
-  static AsagiModule instance;
-  return instance;
+void AsagiModule::initInstance(utils::Env& env) {
+  AsagiModule::instance = std::make_shared<AsagiModule>(env);
 }
+
+AsagiModule& AsagiModule::getInstance() { return *AsagiModule::instance; }
 
 AsagiMPIMode AsagiModule::mpiMode() { return getInstance().m_mpiMode; }
 
 int AsagiModule::totalThreads() { return getInstance().m_totalThreads; }
+
+std::shared_ptr<AsagiModule> AsagiModule::instance{nullptr};
 
 } // namespace seissol::asagi
 

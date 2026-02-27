@@ -1,10 +1,18 @@
-#ifndef INITIALIZER_INPUTAUX_H_
-#define INITIALIZER_INPUTAUX_H_
+// SPDX-FileCopyrightText: 2020 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_INPUTAUX_H_
+#define SEISSOL_SRC_INITIALIZER_INPUTAUX_H_
 
 #include <fstream>
 #include <iterator>
 #include <list>
 #include <sstream>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::initializer {
@@ -41,7 +49,7 @@ void convertStringToMask(const std::string& stringMask, ContainerT& mask) {
   auto end = std::istream_iterator<T>();
 
   for (int index = 0; it != end; ++index, ++it) {
-    if (std::is_same<T, bool>::value) {
+    if (std::is_same_v<T, bool>) {
       mask[index] = (*it) > 0;
     } else {
       mask[index] = (*it);
@@ -74,11 +82,11 @@ std::array<T, N> convertStringToArray(const std::string& inputString,
   }
 
   auto convert = [&inputString](size_t begin, size_t end) {
-    size_t count = end - begin;
-    std::string word = inputString.substr(begin, count);
-    if constexpr (std::is_integral<T>::value) {
+    const size_t count = end - begin;
+    const std::string word = inputString.substr(begin, count);
+    if constexpr (std::is_integral_v<T>) {
       return std::stoi(word);
-    } else if constexpr (std::is_floating_point<T>::value) {
+    } else if constexpr (std::is_floating_point_v<T>) {
       return std::stod(word);
     } else {
       return static_cast<T>(word);
@@ -131,11 +139,11 @@ std::array<T, N> convertStringToArray(const std::string& inputString,
 using StringsType = std::list<std::string>;
 class FileProcessor {
   public:
-  static StringsType getFileAsStrings(const std::string& fileName) {
+  static StringsType getFileAsStrings(const std::string& fileName, const std::string& what) {
     StringsType content;
     std::fstream paramFile(fileName, std::ios_base::in);
     if (!paramFile.is_open()) {
-      throw std::runtime_error("cannot open file: " + fileName);
+      logError() << "Cannot open file (" << what.c_str() << "):" << fileName;
     }
 
     std::string tmpString;
@@ -150,14 +158,15 @@ class FileProcessor {
   static void removeEmptyLines(StringsType& content) {
     const std::string whitespace = " \n\r\t\f\v";
     auto isEmptyString = [&whitespace](const std::string& string) -> bool {
-      size_t start = string.find_first_not_of(whitespace);
+      const size_t start = string.find_first_not_of(whitespace);
       return start == std::string::npos;
     };
 
     std::vector<StringsType::iterator> deletees;
     for (auto itr = content.begin(); itr != content.end(); ++itr) {
-      if (isEmptyString(*itr))
+      if (isEmptyString(*itr)) {
         deletees.push_back(itr);
+      }
     }
 
     for (auto& itr : deletees) {
@@ -166,4 +175,5 @@ class FileProcessor {
   }
 };
 } // namespace seissol::initializer
-#endif // INITIALIZER_INPUTAUX_H_
+
+#endif // SEISSOL_SRC_INITIALIZER_INPUTAUX_H_

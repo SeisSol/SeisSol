@@ -1,12 +1,16 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Csv.h"
 
-#include <IO/Writer/Instructions/Binary.h>
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Writer.h>
+#include "IO/Writer/Instructions/Binary.h"
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Writer.h"
+
 #include <cstddef>
 #include <functional>
 #include <memory>
@@ -60,7 +64,7 @@ std::string Csv::rows() const {
 }
 
 std::function<writer::Writer(const std::string&, std::size_t, double)> Csv::makeWriter() {
-  return [this](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
+  return [this](const std::string& prefix, std::size_t counter, double /*time*/) -> writer::Writer {
     const auto filename = prefix + "-" + name + ".csv";
     auto writer = writer::Writer();
 

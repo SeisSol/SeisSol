@@ -1,58 +1,29 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
 #include "MPI.h"
-#include "utils/stringutils.h"
+
 #include <algorithm>
 #include <cctype>
-#include <cstdlib>
 #include <mpi.h>
 #include <string>
 #include <unistd.h>
+#include <utils/env.h>
 #include <utils/logger.h>
+#include <utils/stringutils.h>
 
 #ifdef ACL_DEVICE
 #include "Parallel/AcceleratorDevice.h"
+
+#include <Device/device.h>
 #endif
 
-void seissol::MPI::init(int& argc, char**& argv) {
+void seissol::Mpi::init(int& argc, char**& argv) {
   // Note: Strictly speaking, we only require MPI_THREAD_MULTIPLE if using
   // a communication thread and/or async I/O.
   // The safer (and more sane) option is to enable it by default.
@@ -63,7 +34,7 @@ void seissol::MPI::init(int& argc, char**& argv) {
   setComm(MPI_COMM_WORLD);
 
   std::string hostName(256, ' ');
-  if (gethostname(const_cast<char*>(hostName.c_str()), 256) != 0) {
+  if (gethostname(hostName.data(), 256) != 0) {
     hostName = "unknown-host";
   } else {
     utils::StringUtils::rtrim(hostName);
@@ -78,7 +49,7 @@ void seissol::MPI::init(int& argc, char**& argv) {
   }
 }
 
-void seissol::MPI::setComm(MPI_Comm comm) {
+void seissol::Mpi::setComm(MPI_Comm comm) {
   m_comm = comm;
 
   MPI_Comm_rank(comm, &m_rank);
@@ -89,25 +60,32 @@ void seissol::MPI::setComm(MPI_Comm comm) {
   MPI_Comm_size(m_sharedMemComm, &m_sharedMemMpiSize);
 }
 
-void seissol::MPI::bindAcceleratorDevice() {
+void seissol::Mpi::bindAcceleratorDevice() {
 #ifdef ACL_DEVICE
   auto& instance = seissol::AcceleratorDevice::getInstance();
   instance.bindAcceleratorDevice(0);
 #endif
 }
 
-void seissol::MPI::printAcceleratorDeviceInfo() {
+void seissol::Mpi::printAcceleratorDeviceInfo() {
 #ifdef ACL_DEVICE
   auto& instance = seissol::AcceleratorDevice::getInstance();
   instance.printInfo();
+
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  const auto pci = device.api->getPciAddress(0);
+  const auto pcisNode = collectContainer(pci, m_sharedMemComm);
+  pcis = collectContainer(pci);
+  logInfo() << "Device PCI address (rank=0): " << pci;
+  logInfo() << "Device PCI addresses (node of rank=0):" << pcisNode;
 #endif
 }
 
-void seissol::MPI::setDataTransferModeFromEnv() {
-  // TODO (Ravil, David): switch to reading this option from the parameter-file.
-  // Waiting for David to finish his `no-fortran` PR
-  if (const char* envVariable = std::getenv("SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE")) {
-    std::string option{envVariable};
+void seissol::Mpi::setDataTransferModeFromEnv() {
+  const auto envVariable =
+      utils::Env("SEISSOL_").getOptional<std::string>("PREFERRED_MPI_DATA_TRANSFER_MODE");
+  if (envVariable.has_value()) {
+    std::string option{envVariable.value()};
     std::transform(option.begin(), option.end(), option.begin(), [](unsigned char c) {
       return std::tolower(c);
     });
@@ -117,20 +95,20 @@ void seissol::MPI::setDataTransferModeFromEnv() {
     } else if (option == "host") {
       preferredDataTransferMode = DataTransferMode::CopyInCopyOutHost;
     } else {
-      logWarning(m_rank) << "Ignoring `SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`."
-                         << "Expected values: direct, host.";
+      logWarning() << "Ignoring `SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`."
+                   << "Expected values: direct, host.";
       option = "direct";
     }
 #ifndef ACL_DEVICE
     if (preferredDataTransferMode != DataTransferMode::Direct) {
-      logWarning(m_rank) << "The CPU version of SeisSol supports"
-                         << "only the `direct` MPI transfer mode.";
+      logWarning() << "The CPU version of SeisSol supports"
+                   << "only the `direct` MPI transfer mode.";
       option = "direct";
       preferredDataTransferMode = DataTransferMode::Direct;
     }
 #endif
-    logInfo(m_rank) << "Selected" << option << "MPI data transfer mode as the preferred one";
+    logInfo() << "Selected" << option << "MPI data transfer mode as the preferred one";
   }
 }
 
-seissol::MPI seissol::MPI::mpi;
+seissol::Mpi seissol::Mpi::mpi;

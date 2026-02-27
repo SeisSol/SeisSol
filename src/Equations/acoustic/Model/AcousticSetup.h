@@ -1,139 +1,163 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Wolf (wolf.sebastian AT in.tum.de,
- *https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
- * @author Jinwen Pan (jinwen.pan AT tum.de)
- *
- * @section LICENSE
- * Copyright (c) 2015 - 2024, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * This header file contains functions related to the setup of acoustic materials.
- * Specifically, it includes:
- *
- * 1. A function to compute the transposed flux matrices for a given acoustic material,
- *    which involves the material's properties such as density (rho) and Lamé constant (lambda).
- *
- * 2. A function to compute the transposed Godunov state or the solution to the Riemann problem
- *    based on the face type (e.g., FreeSurface) and material properties.
- **/
-#ifndef ACOUSTIC_SETUP_H_
-#define ACOUSTIC_SETUP_H_
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Sebastian Wolf
+// SPDX-FileContributor: Jinwen Pan
 
+#ifndef SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_
+#define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_
+
+#include "Equations/acoustic/Model/Datastructures.h"
+#include "Equations/acoustic/Model/IntegrationData.h"
+#include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
-#include "generated_code/init.h"
 
-namespace seissol {
-namespace model {
+namespace seissol::model {
 using Matrix44 = Eigen::Matrix<double, 4, 4>;
 
-template <typename T>
-inline void
-    getTransposedCoefficientMatrix(const AcousticMaterial& i_material, unsigned i_dim, T& o_M) {
-  o_M.setZero();
+template <>
+struct MaterialSetup<AcousticMaterial> {
+  template <typename T>
+  static void
+      getTransposedCoefficientMatrix(const AcousticMaterial& material, unsigned dim, T& matM) {
+    matM.setZero();
 
-  real rhoInv = 1.0 / i_material.rho;
+    const double rhoInv = 1.0 / material.rho;
 
-  switch (i_dim) {
-  case 0:
-    o_M(1, 0) = i_material.lambda;
-    o_M(0, 1) = rhoInv;
-    break;
+    switch (dim) {
+    case 0:
+      matM(1, 0) = -material.lambda;
+      matM(0, 1) = -rhoInv;
+      break;
 
-  case 1:
-    o_M(2, 0) = i_material.lambda;
-    o_M(0, 2) = rhoInv;
-    break;
+    case 1:
+      matM(2, 0) = -material.lambda;
+      matM(0, 2) = -rhoInv;
+      break;
 
-  case 2:
-    o_M(3, 0) = i_material.lambda;
-    o_M(0, 3) = rhoInv;
-    break;
+    case 2:
+      matM(3, 0) = -material.lambda;
+      matM(0, 3) = -rhoInv;
+      break;
 
-  default:
-    break;
-  }
-}
-
-template <typename Tloc, typename Tneigh>
-inline void getTransposedGodunovState(const AcousticMaterial& local,
-                                      const AcousticMaterial& neighbor,
-                                      FaceType faceType,
-                                      Tloc& QgodLocal,
-                                      Tneigh& QgodNeighbor) {
-  QgodNeighbor.setZero();
-
-  // Eigenvectors are precomputed
-  Matrix44 R = Matrix44::Zero();
-  // scale for better condition number of R
-  R(0, 0) = std::sqrt(local.lambda * local.rho);
-  R(1, 0) = -local.lambda;
-  R(0, 1) = std::sqrt(neighbor.lambda * neighbor.rho);
-  R(1, 1) = neighbor.lambda;
-  R(2, 2) = local.lambda;
-  R(3, 3) = local.lambda;
-
-  if (faceType == FaceType::FreeSurface) {
-    for (size_t i = 0; i < 4; i++) {
-      for (size_t j = 0; j < 4; j++) {
-        QgodNeighbor(i, j) = std::numeric_limits<double>::signaling_NaN();
-      }
-    }
-    QgodLocal.setZero();
-    QgodLocal(0, 1) = -1 * R(1, 0) * 1 / R(0, 0);
-    QgodLocal(1, 1) = 1.0;
-  } else {
-    Matrix44 chi = Matrix44::Zero();
-    chi(0, 0) = 1.0;
-
-    const auto godunov = ((R * chi) * R.inverse()).eval();
-
-    // QgodLocal = I - QgodNeighbor
-    for (unsigned i = 0; i < godunov.cols(); ++i) {
-      for (unsigned j = 0; j < godunov.rows(); ++j) {
-        QgodLocal(i, j) = -godunov(j, i);
-        QgodNeighbor(i, j) = godunov(j, i);
-      }
-    }
-    for (unsigned idx = 0; idx < 4; ++idx) {
-      QgodLocal(idx, idx) += 1.0;
+    default:
+      break;
     }
   }
-}
-} // namespace model
-} // namespace seissol
-#endif
+
+  template <typename Tloc, typename Tneigh>
+  static void getTransposedGodunovState(const AcousticMaterial& local,
+                                        const AcousticMaterial& neighbor,
+                                        FaceType faceType,
+                                        Tloc& qGodLocal,
+                                        Tneigh& qGodNeighbor) {
+    qGodNeighbor.setZero();
+
+    // Eigenvector matrix for acoustic wave equation
+    // The acoustic system has 4 quantities: pressure p and velocities (v1, v2, v3)
+    // Coefficient matrices use negative sign convention to match elastic: A = [[0, -lambda],
+    // [-1/rho, 0]] This gives eigenvalues ±√(lambda/rho) = ±c (acoustic wave speed)
+    Matrix44 matR = Matrix44::Zero();
+
+    // Column 0: outgoing acoustic wave (eigenvalue +c) - ALWAYS uses local material
+    matR(0, 0) = local.lambda;                        // pressure component
+    matR(1, 0) = std::sqrt(local.lambda / local.rho); // normal velocity component
+
+    if (faceType != FaceType::FreeSurface) {
+      // For internal faces: Column 1 is incoming wave from neighbor
+      matR(0, 1) = neighbor.lambda;                            // pressure component
+      matR(1, 1) = -std::sqrt(neighbor.lambda / neighbor.rho); // normal velocity (opposite sign)
+    } else {
+      // For free surface: Column 1 should also use local material (no neighbor)
+      matR(0, 1) = local.lambda;                         // pressure component
+      matR(1, 1) = -std::sqrt(local.lambda / local.rho); // normal velocity (opposite sign)
+    }
+
+    // Columns 2-3: transverse modes (eigenvalue 0, non-propagating)
+    // These modes are needed for matrix invertibility but don't propagate
+    matR(2, 2) = local.lambda;
+    matR(3, 3) = local.lambda;
+
+    if (faceType == FaceType::FreeSurface) {
+      for (size_t i = 0; i < 4; i++) {
+        for (size_t j = 0; j < 4; j++) {
+          qGodNeighbor(i, j) = std::numeric_limits<double>::signaling_NaN();
+        }
+      }
+      qGodLocal.setZero();
+
+      // Free surface boundary condition for acoustic materials
+      // - Couple normal traction (pressure) to normal velocity: qGodLocal(0, 1) =
+      // -matR(1,0)/matR(0,0)
+      qGodLocal(0, 1) = -matR(1, 0) / matR(0, 0);
+      qGodLocal(1, 1) = 1.0; // normal velocity
+    } else {
+      // Godunov flux: select outgoing characteristics (positive eigenvalue)
+      Matrix44 chi = Matrix44::Zero();
+      chi(0, 0) = 1.0; // Select column 0 (outgoing wave)
+
+      const auto godunov = ((matR * chi) * matR.inverse()).eval();
+
+      // Godunov matrices: qGodLocal = I - godunov^T, qGodNeighbor = godunov^T
+      for (unsigned i = 0; i < godunov.cols(); ++i) {
+        for (unsigned j = 0; j < godunov.rows(); ++j) {
+          qGodLocal(i, j) = -godunov(j, i);
+          qGodNeighbor(i, j) = godunov(j, i);
+        }
+      }
+      for (unsigned idx = 0; idx < 4; ++idx) {
+        qGodLocal(idx, idx) += 1.0;
+      }
+    }
+  }
+
+  static AcousticMaterial
+      getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
+                                     AcousticMaterial& material) {
+    return material;
+  }
+  static void initializeSpecificLocalData(const AcousticMaterial& material,
+                                          double timeStepWidth,
+                                          AcousticLocalData* localData) {}
+
+  static void initializeSpecificNeighborData(const AcousticMaterial& material,
+                                             AcousticNeighborData* localData) {}
+
+  static void getPlaneWaveOperator(const AcousticMaterial& material,
+                                   const double n[3],
+                                   std::complex<double> mdata[AcousticMaterial::NumQuantities *
+                                                              AcousticMaterial::NumQuantities]) {
+    getElasticPlaneWaveOperator(material, n, mdata);
+  }
+  template <typename T>
+  static void getTransposedSourceCoefficientTensor(const AcousticMaterial& material,
+                                                   T& sourceMatrix) {}
+
+  static void getFaceRotationMatrix(const VrtxCoords normal,
+                                    const VrtxCoords tangent1,
+                                    const VrtxCoords tangent2,
+                                    init::T::view::type& matT,
+                                    init::Tinv::view::type& matTinv) {
+    matT.setZero();
+    matTinv.setZero();
+
+    // Pressure (row 0) is a scalar, doesn't rotate - set to identity
+    matT(0, 0) = 1.0;
+    matTinv(0, 0) = 1.0;
+
+    // Velocity (rows 1-3) is a vector, rotate it
+    seissol::transformations::tensor1RotationMatrix(normal, tangent1, tangent2, matT, 1, 1);
+    seissol::transformations::inverseTensor1RotationMatrix(
+        normal, tangent1, tangent2, matTinv, 1, 1);
+  }
+};
+} // namespace seissol::model
+
+#endif // SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_

@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-2-Clause
+
+# Adapted from FindMETIS.cmake which in turn seems to be adapted from FindParMETIS.cmake
+# Hence, BSD-2-Clause (not BSD-3-Clause)
+
 # - Try to find GKLIB
 # Once done this will define
 #
@@ -16,9 +23,9 @@
 # we take one of the header files here and check for it
 
 find_path(GKLIB_INCLUDE_DIR gk_defs.h
-  HINTS ${GKLIB_INCLUDE_DIR} 
+  HINTS ${GKLIB_INCLUDE_DIR}
         ENV GKLIB_INCLUDE_DIR
-        ${GKLIB_DIR} 
+        ${GKLIB_DIR}
         ENV GKLIB_DIR
   PATH_SUFFIXES include
   DOC "Directory where the GKlib header files are located"
@@ -26,9 +33,9 @@ find_path(GKLIB_INCLUDE_DIR gk_defs.h
 
 find_library(GKLIB_LIBRARY
   NAMES GKlib
-  HINTS ${GKLIB_LIB_DIR} 
+  HINTS ${GKLIB_LIB_DIR}
         ENV GKLIB_LIB_DIR
-        ${GKLIB_DIR} 
+        ${GKLIB_DIR}
         ENV GKLIB_DIR
   PATH_SUFFIXES lib
   DOC "Directory where the GKlib library is located"
@@ -56,9 +63,9 @@ endif()
 
 # Standard package handling
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(GKlib REQUIRED_VARS 
-                                  GKLIB_LIBRARY 
-                                  GKLIB_INCLUDE_DIR 
+find_package_handle_standard_args(GKlib REQUIRED_VARS
+                                  GKLIB_LIBRARY
+                                  GKLIB_INCLUDE_DIR
                                   GKLIB_TEST_RUNS)
 
 if(GKLIB_FOUND)

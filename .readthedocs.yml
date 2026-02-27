@@ -1,6 +1,9 @@
-# SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2022 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 # .readthedocs.yaml
 # Read the Docs configuration file
@@ -11,13 +14,13 @@ version: 2
 
 # Set the OS, Python version and other tools you might need
 build:
-   os: ubuntu-22.04
+   os: ubuntu-24.04
    tools:
-      python: "3.11"
+      python: "3.12"
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
-   configuration: Documentation/conf.py
+   configuration: docs/conf.py
 
 # Optionally build your docs in additional formats such as PDF
 formats:
@@ -27,7 +30,7 @@ formats:
 # Optionally set the version of Python and requirements required to build your docs
 python:
    install:
-   - requirements: Documentation/requirements.txt
+   - requirements: docs/requirements.txt
 
 submodules:
    exclude: all

@@ -1,66 +1,41 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2017 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Sebastian Rettenberger
 
 #include "FreeSurfaceWriter.h"
-#include "Parallel/MPI.h"
 
+#include "AsyncCellIDs.h"
+#include "Common/Constants.h"
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshTools.h"
+#include "Geometry/Refinement/TriangleRefiner.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/Surface.h"
+#include "Memory/Tree/Layer.h"
+#include "Modules/Modules.h"
+#include "Monitoring/Instrumentation.h"
+#include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
+#include "ResultWriter/FreeSurfaceWriterExecutor.h"
+#include "SeisSol.h"
+#include "Solver/FreeSurfaceIntegrator.h"
+
+#include <Eigen/Core>
 #include <Eigen/Dense>
-#include <Geometry/MeshDefinition.h>
-#include <Geometry/Refinement/TriangleRefiner.h>
-#include <Initializer/PreProcessorMacros.h>
-#include <Kernels/Precision.h>
-#include <ResultWriter/FreeSurfaceWriterExecutor.h>
-#include <Solver/FreeSurfaceIntegrator.h>
 #include <async/Module.h>
 #include <cassert>
 #include <cstring>
+#include <limits>
+#include <optional>
 #include <string>
+#include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
-
-#include "AsyncCellIDs.h"
-#include "Geometry/MeshTools.h"
-#include "Modules/Modules.h"
-#include "SeisSol.h"
 
 void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
     const seissol::geometry::MeshReader& meshReader,
@@ -77,46 +52,48 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
     return;
   }
 
-  cells = new unsigned[3 * nCells];
-  vertices = new double[3 * nVertices];
+  cells = new unsigned[static_cast<unsigned long>(3 * nCells)];
+  vertices = new double[static_cast<unsigned long>(3 * nVertices)];
 
   const std::vector<Element>& meshElements = meshReader.getElements();
   const std::vector<Vertex>& meshVertices = meshReader.getVertices();
 
-  const unsigned numberOfSubTriangles = m_freeSurfaceIntegrator->triRefiner.subTris.size();
+  const std::size_t numberOfSubTriangles = m_freeSurfaceIntegrator->triRefiner.subTris.size();
 
-  unsigned idx = 0;
-  unsigned* meshIds =
-      m_freeSurfaceIntegrator->surfaceLtsTree.var(m_freeSurfaceIntegrator->surfaceLts.meshId);
-  unsigned* sides =
-      m_freeSurfaceIntegrator->surfaceLtsTree.var(m_freeSurfaceIntegrator->surfaceLts.side);
-  for (unsigned fs = 0; fs < m_freeSurfaceIntegrator->totalNumberOfFreeSurfaces; ++fs) {
-    const unsigned meshId = meshIds[fs];
-    const unsigned side = sides[fs];
-    Eigen::Vector3d x[3];
-    Eigen::Vector3d a;
-    Eigen::Vector3d b;
-    for (unsigned vertex = 0; vertex < 3; ++vertex) {
-      const unsigned tetVertex = MeshTools::FACE2NODES[side][vertex];
-      const VrtxCoords& coords = meshVertices[meshElements[meshId].vertices[tetVertex]].coords;
+  auto* meshIds = m_freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::MeshId>();
+  auto* sides = m_freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::Side>();
+  auto* outputPosition = m_freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::OutputPosition>();
+  for (std::size_t fs = 0; fs < m_freeSurfaceIntegrator->surfaceStorage->size(Ghost); ++fs) {
+    if (outputPosition[fs] != std::numeric_limits<std::size_t>::max()) {
+      const auto meshId = meshIds[fs];
+      const auto side = sides[fs];
+      Eigen::Vector3d x[3];
+      Eigen::Vector3d a;
+      Eigen::Vector3d b;
+      for (std::size_t vertex = 0; vertex < Cell::Dim; ++vertex) {
+        const auto tetVertex = MeshTools::FACE2NODES[side][vertex];
+        const VrtxCoords& coords = meshVertices[meshElements[meshId].vertices[tetVertex]].coords;
 
-      x[vertex](0) = coords[0];
-      x[vertex](1) = coords[1];
-      x[vertex](2) = coords[2];
-    }
-    a = x[1] - x[0];
-    b = x[2] - x[0];
+        x[vertex](0) = coords[0];
+        x[vertex](1) = coords[1];
+        x[vertex](2) = coords[2];
+      }
+      a = x[1] - x[0];
+      b = x[2] - x[0];
 
-    for (unsigned tri = 0; tri < numberOfSubTriangles; ++tri) {
-      const seissol::refinement::Triangle& subTri =
-          m_freeSurfaceIntegrator->triRefiner.subTris[tri];
-      for (unsigned vertex = 0; vertex < 3; ++vertex) {
-        Eigen::Vector3d v = x[0] + subTri.x[vertex][0] * a + subTri.x[vertex][1] * b;
-        vertices[3 * idx + 0] = v(0);
-        vertices[3 * idx + 1] = v(1);
-        vertices[3 * idx + 2] = v(2);
-        cells[idx] = idx;
-        ++idx;
+      for (std::size_t tri = 0; tri < numberOfSubTriangles; ++tri) {
+        const seissol::refinement::Triangle& subTri =
+            m_freeSurfaceIntegrator->triRefiner.subTris[tri];
+        for (std::size_t vertex = 0; vertex < Cell::Dim; ++vertex) {
+          const auto vertexPosition =
+              3 * (outputPosition[fs] * numberOfSubTriangles + tri) + vertex;
+
+          Eigen::Vector3d v = x[0] + subTri.x[vertex][0] * a + subTri.x[vertex][1] * b;
+          vertices[3 * vertexPosition + 0] = v(0);
+          vertices[3 * vertexPosition + 1] = v(1);
+          vertices[3 * vertexPosition + 2] = v(2);
+          cells[vertexPosition] = vertexPosition;
+        }
       }
     }
   }
@@ -124,10 +101,13 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
 
 void seissol::writer::FreeSurfaceWriter::setUp() {
   setExecutor(m_executor);
-  if (isAffinityNecessary()) {
+
+  utils::Env env("SEISSOL_");
+  if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, env)) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
-    logInfo(seissol::MPI::mpi.rank())
-        << "Free surface writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
+    logInfo() << "Free surface writer thread affinity:" << parallel::Pinning::maskToString(freeCpus)
+              << "(" << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
+    ;
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
@@ -147,16 +127,17 @@ void seissol::writer::FreeSurfaceWriter::init(
     return;
   }
 
-  const int rank = seissol::MPI::mpi.rank();
-
   m_freeSurfaceIntegrator = freeSurfaceIntegrator;
 
-  logInfo(rank) << "Initializing free surface output.";
+  logInfo() << "Initializing free surface output.";
 
   // Initialize the asynchronous module
   async::Module<FreeSurfaceWriterExecutor, FreeSurfaceInitParam, FreeSurfaceParam>::init();
 
+  // too aggressive clang-tidy (21); do not make const
+  // NOLINTNEXTLINE(misc-const-correctness)
   unsigned* cells = nullptr;
+  // NOLINTNEXTLINE(misc-const-correctness)
   double* vertices = nullptr;
   unsigned nCells = 0;
   unsigned nVertices = 0;
@@ -170,13 +151,21 @@ void seissol::writer::FreeSurfaceWriter::init(
   NDBG_UNUSED(bufferId);
 
   // Create mesh buffers
-  bufferId = addSyncBuffer(cellIds.cells(), nCells * 3 * sizeof(unsigned));
+  bufferId =
+      addSyncBuffer(cellIds.cells(), static_cast<unsigned long>(nCells * 3) * sizeof(unsigned));
   assert(bufferId == FreeSurfaceWriterExecutor::Cells);
-  bufferId = addSyncBuffer(vertices, nVertices * 3 * sizeof(double));
+  NDBG_UNUSED(bufferId);
+  bufferId = addSyncBuffer(vertices, static_cast<unsigned long>(nVertices * 3) * sizeof(double));
   assert(bufferId == FreeSurfaceWriterExecutor::Vertices);
+  NDBG_UNUSED(bufferId);
   bufferId =
       addSyncBuffer(m_freeSurfaceIntegrator->locationFlags.data(), nCells * sizeof(unsigned));
   assert(bufferId == FreeSurfaceWriterExecutor::LocationFlags);
+  NDBG_UNUSED(bufferId);
+
+  bufferId = addSyncBuffer(m_freeSurfaceIntegrator->globalIds.data(), nCells * sizeof(unsigned));
+  assert(bufferId == FreeSurfaceWriterExecutor::GlobalIds);
+  NDBG_UNUSED(bufferId);
 
   for (auto& velocity : m_freeSurfaceIntegrator->velocities) {
     addBuffer(velocity, nCells * sizeof(real));
@@ -193,6 +182,7 @@ void seissol::writer::FreeSurfaceWriter::init(
   sendBuffer(FreeSurfaceWriterExecutor::Cells);
   sendBuffer(FreeSurfaceWriterExecutor::Vertices);
   sendBuffer(FreeSurfaceWriterExecutor::LocationFlags);
+  sendBuffer(FreeSurfaceWriterExecutor::GlobalIds);
 
   // Initialize the executor
   FreeSurfaceInitParam param;
@@ -206,6 +196,7 @@ void seissol::writer::FreeSurfaceWriter::init(
   removeBuffer(FreeSurfaceWriterExecutor::Cells);
   removeBuffer(FreeSurfaceWriterExecutor::Vertices);
   removeBuffer(FreeSurfaceWriterExecutor::LocationFlags);
+  removeBuffer(FreeSurfaceWriterExecutor::GlobalIds);
 
   // Register for the synchronization point hook
   Modules::registerHook(*this, ModuleHook::SimulationStart);
@@ -225,16 +216,14 @@ void seissol::writer::FreeSurfaceWriter::write(double time) {
 
   m_stopwatch.start();
 
-  const int rank = seissol::MPI::mpi.rank();
-
   wait();
 
-  logInfo(rank) << "Writing free surface at time" << utils::nospace << time << ".";
+  logInfo() << "Writing free surface at time" << utils::nospace << time << ".";
 
   FreeSurfaceParam param;
   param.time = time;
 
-  for (unsigned i = 0; i < 2 * FREESURFACE_NUMBER_OF_COMPONENTS; ++i) {
+  for (unsigned i = 0; i < 2 * seissol::solver::FreeSurfaceIntegrator::NumComponents; ++i) {
     sendBuffer(FreeSurfaceWriterExecutor::Variables0 + i);
   }
 
@@ -242,10 +231,14 @@ void seissol::writer::FreeSurfaceWriter::write(double time) {
 
   m_stopwatch.pause();
 
-  logInfo(rank) << "Writing free surface at time" << utils::nospace << time << ". Done.";
+  logInfo() << "Writing free surface at time" << utils::nospace << time << ". Done.";
 }
 
-void seissol::writer::FreeSurfaceWriter::simulationStart() { syncPoint(0.0); }
+void seissol::writer::FreeSurfaceWriter::simulationStart(std::optional<double> checkpointTime) {
+  if (checkpointTime.value_or(0) == 0) {
+    syncPoint(0.0);
+  }
+}
 
 void seissol::writer::FreeSurfaceWriter::syncPoint(double currentTime) {
   SCOREP_USER_REGION("freesurfaceoutput", SCOREP_USER_REGION_TYPE_FUNCTION)

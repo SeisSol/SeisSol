@@ -1,57 +1,25 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef BASIS_FUNCTION_H
-#define BASIS_FUNCTION_H
+#ifndef SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_
+#define SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_
 
-#include "generated_code/init.h"
+#include "Common/Constants.h"
+#include "Functions.h"
+#include "GeneratedCode/init.h"
+#include "Transformation.h"
+
 #include <cmath>
 #include <numeric>
 #include <type_traits>
 #include <vector>
 
-#include "Functions.h"
-#include "Transformation.h"
-
-namespace seissol {
-namespace basisFunction {
+namespace seissol::basisFunction {
 
 //------------------------------------------------------------------------------
 
@@ -136,7 +104,7 @@ class BasisFunctionDerivativeGenerator {
 };
 
 inline unsigned int basisFunctionsForOrder(unsigned int order) {
-  return (order) * (order + 1) * (order + 2) / 6;
+  return (order * (order + 1) * (order + 2)) / 6;
 }
 
 /**
@@ -145,15 +113,13 @@ inline unsigned int basisFunctionsForOrder(unsigned int order) {
  */
 template <class T>
 class SampledBasisFunctions {
-  static_assert(std::is_arithmetic<T>::value,
-                "Type T for SampledBasisFunctions must be arithmetic.");
+  static_assert(std::is_arithmetic_v<T>, "Type T for SampledBasisFunctions must be arithmetic.");
 
   public:
   /** The basis function samples */
   std::vector<T> m_data{};
 
-  public:
-  SampledBasisFunctions() {};
+  SampledBasisFunctions() = default;
   /**
    * Constructor to generate the sampled basis functions of given order
    * and at a given point in the reference tetrahedron.
@@ -165,16 +131,18 @@ class SampledBasisFunctions {
    */
   SampledBasisFunctions(unsigned int order, T xi, T eta, T zeta)
       : m_data(basisFunctionsForOrder(order)) {
-    BasisFunctionGenerator<T> gen(xi, eta, zeta);
+    const BasisFunctionGenerator<T> gen(xi, eta, zeta);
 
     unsigned int i = 0;
-    for (unsigned int ord = 0; ord < order; ord++)
-      for (unsigned int k = 0; k <= ord; k++)
-        for (unsigned int j = 0; j <= ord - k; j++)
+    for (unsigned int ord = 0; ord < order; ord++) {
+      for (unsigned int k = 0; k <= ord; k++) {
+        for (unsigned int j = 0; j <= ord - k; j++) {
           m_data[i++] = gen(ord - j - k, j, k);
+        }
+      }
+    }
   }
 
-  public:
   /**
    * Function to evaluate the samples by multiplying the sampled Basis
    * function with its coefficient and summing up the products.
@@ -189,7 +157,7 @@ class SampledBasisFunctions {
   /**
    * Returns the amount of Basis functions this class represents.
    */
-  unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
 };
 
 //------------------------------------------------------------------------------
@@ -200,8 +168,7 @@ class SampledBasisFunctions {
  */
 template <class T>
 class SampledBasisFunctionDerivatives {
-  static_assert(std::is_arithmetic<T>::value,
-                "Type T for SampledBasisFunctions must be arithmetic.");
+  static_assert(std::is_arithmetic_v<T>, "Type T for SampledBasisFunctions must be arithmetic.");
 
   public:
   /**
@@ -210,8 +177,7 @@ class SampledBasisFunctionDerivatives {
    */
   std::vector<T> m_data{};
 
-  public:
-  SampledBasisFunctionDerivatives() {};
+  SampledBasisFunctionDerivatives() = default;
   /**
    * Constructor to generate the sampled basis functions of given order
    * and at a given point in the reference tetrahedron.
@@ -223,7 +189,7 @@ class SampledBasisFunctionDerivatives {
    */
   SampledBasisFunctionDerivatives(unsigned int order, T xi, T eta, T zeta)
       : m_data(3 * basisFunctionsForOrder(order)) {
-    BasisFunctionDerivativeGenerator<T> gen(xi, eta, zeta);
+    const BasisFunctionDerivativeGenerator<T> gen(xi, eta, zeta);
     auto dataView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
 
     unsigned int i = 0;
@@ -248,25 +214,25 @@ class SampledBasisFunctionDerivatives {
    * @param coords coords[i] contains the 3 coordinates of the ith vertex of the
    * physical tetrahedron.
    */
-  void transformToGlobalCoordinates(const double* coords[4]) {
-    real xCoords[4];
-    real yCoords[4];
-    real zCoords[4];
-    for (size_t i = 0; i < 4; ++i) {
+  void transformToGlobalCoordinates(const double* coords[Cell::NumVertices]) {
+    double xCoords[Cell::NumVertices];
+    double yCoords[Cell::NumVertices];
+    double zCoords[Cell::NumVertices];
+    for (size_t i = 0; i < Cell::NumVertices; ++i) {
       xCoords[i] = coords[i][0];
       yCoords[i] = coords[i][1];
       zCoords[i] = coords[i][2];
     }
 
-    real gradXi[3];
-    real gradEta[3];
-    real gradZeta[3];
+    double gradXi[3];
+    double gradEta[3];
+    double gradZeta[3];
 
     seissol::transformations::tetrahedronGlobalToReferenceJacobian(
         xCoords, yCoords, zCoords, gradXi, gradEta, gradZeta);
     std::vector<T> oldData = m_data;
 
-    auto oldView = init::basisFunctionDerivativesAtPoint::view::create(oldData.data());
+    const auto oldView = init::basisFunctionDerivativesAtPoint::view::create(oldData.data());
     auto newView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
     for (size_t i = 0; i < init::basisFunctionDerivativesAtPoint::Shape[0]; ++i) {
       for (size_t direction = 0; direction < init::basisFunctionDerivativesAtPoint::Shape[1];
@@ -282,7 +248,7 @@ class SampledBasisFunctionDerivatives {
   /**
    * Returns the amount of Basis functions this class represents.
    */
-  unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
 };
 
 //==============================================================================
@@ -297,20 +263,19 @@ class TimeBasisFunctionGenerator {
   }
 
   public:
-  TimeBasisFunctionGenerator(T tau) : tau_(tau) {}
+  explicit TimeBasisFunctionGenerator(T tau) : tau_(tau) {}
 
   T operator()(unsigned int i) const { return functions::DubinerP<1>({i}, {tau_}); }
 };
 
 template <class T>
 class SampledTimeBasisFunctions {
-  static_assert(std::is_arithmetic<T>::value,
+  static_assert(std::is_arithmetic_v<T>,
                 "Type T for SampledTimeBasisFunctions must be arithmetic.");
 
   public:
   std::vector<T> m_data;
 
-  public:
   SampledTimeBasisFunctions(unsigned int order, T tau) : m_data(order) {
     TimeBasisFunctionGenerator<T> gen(tau);
 
@@ -324,7 +289,7 @@ class SampledTimeBasisFunctions {
     return std::inner_product(m_data.begin(), m_data.end(), coeffIter, static_cast<T>(0));
   }
 
-  unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
 };
 
 namespace tri_dubiner {
@@ -351,7 +316,6 @@ inline void evaluateGradPolynomials(double* phis, double xi, double eta, int num
   }
 }
 } // namespace tri_dubiner
-} // namespace basisFunction
-} // namespace seissol
+} // namespace seissol::basisFunction
 
-#endif // BASIS_FUNCTION_H
+#endif // SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_

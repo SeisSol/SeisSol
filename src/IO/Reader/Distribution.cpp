@@ -1,11 +1,15 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Distribution.h"
 
-#include <IO/Datatype/Inference.h>
-#include <IO/Datatype/MPIType.h>
+#include "IO/Datatype/Inference.h"
+#include "IO/Datatype/MPIType.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -13,12 +17,12 @@
 #include <cstring>
 #include <functional>
 #include <mpi.h>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
-
-#include "utils/logger.h"
 
 namespace {
 int getRank(std::size_t id, std::size_t count, int commsize) {
@@ -288,8 +292,12 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   }
 }
 
-Distributor::DistributionInstance
-    Distributor::distributeInternal(void* target, const void* source, MPI_Datatype datatype) {
+Distributor::DistributionInstance Distributor::distributeRaw(
+    void* target,
+    const void* source,
+    MPI_Datatype datatype,
+    MPI_Datatype datatypeTarget,
+    const std::optional<std::function<void(void*, const void*)>>& transform) {
   constexpr int Tag = 30;
 
   int commsize = 0;
@@ -302,6 +310,10 @@ Distributor::DistributionInstance
   MPI_Type_size(datatype, &typesizeInt);
   const std::size_t typesize = typesizeInt;
 
+  int typesizeTargetInt = 0;
+  MPI_Type_size(datatypeTarget, &typesizeTargetInt);
+  const std::size_t typesizeTarget = typesizeTargetInt;
+
   std::vector<MPI_Request> requests(static_cast<std::size_t>(commsize) * 2, MPI_REQUEST_NULL);
 
   const char* sourceChar = reinterpret_cast<const char*>(source);
@@ -310,9 +322,7 @@ Distributor::DistributionInstance
   char* sourceReordered = reinterpret_cast<char*>(std::malloc(typesize * sendReorder.size()));
   char* targetReordered = reinterpret_cast<char*>(std::malloc(typesize * recvReorder.size()));
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t i = 0; i < sendReorder.size(); ++i) {
     std::memcpy(sourceReordered + i * typesize, sourceChar + sendReorder[i] * typesize, typesize);
   }
@@ -337,23 +347,31 @@ Distributor::DistributionInstance
                 &requests[static_cast<std::size_t>(commsize) + i]);
     }
   }
-  const auto completion =
-      [this, requests, targetChar, sourceReordered, targetReordered, typesize]() {
-        // temporary hack to make requests non-const (as it will not matter)
-        auto requests2 = requests;
-        MPI_Waitall(requests2.size(), requests2.data(), MPI_STATUSES_IGNORE);
 
-#ifdef _OPENMP
+  const auto copyFn = transform.value_or([typesize](void* targetData, const void* sourceData) {
+    std::memcpy(targetData, sourceData, typesize);
+  });
+
+  const auto completion = [this,
+                           requests,
+                           targetChar,
+                           sourceReordered,
+                           targetReordered,
+                           typesize,
+                           typesizeTarget,
+                           copyFn]() {
+    // temporary hack to make requests non-const (as it will not matter)
+    auto requests2 = requests;
+    MPI_Waitall(requests2.size(), requests2.data(), MPI_STATUSES_IGNORE);
+
 #pragma omp parallel for schedule(static)
-#endif
-        for (std::size_t i = 0; i < recvReorder.size(); ++i) {
-          std::memcpy(
-              targetChar + i * typesize, targetReordered + recvReorder[i] * typesize, typesize);
-        }
+    for (std::size_t i = 0; i < recvReorder.size(); ++i) {
+      copyFn(targetChar + i * typesizeTarget, targetReordered + recvReorder[i] * typesize);
+    }
 
-        std::free(sourceReordered);
-        std::free(targetReordered);
-      };
+    std::free(sourceReordered);
+    std::free(targetReordered);
+  };
   return DistributionInstance(completion);
 }
 

@@ -1,61 +1,25 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2013-2020, SeisSol Group
- * All rights reserved.
- * 
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- * 
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- * 
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- * 
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Typedefs for the implementation.
- **/
+// SPDX-FileCopyrightText: 2013 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Sebastian Wolf
 
-#ifndef TYPEDEFS_HPP
-#define TYPEDEFS_HPP
-
-#ifdef USE_MPI
-#include <mpi.h>
-#endif
+#ifndef SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
+#define SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
 
 #include "BasicTypedefs.h"
+#include "CellLocalInformation.h"
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/tensor.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
-#include "Initializer/PreProcessorMacros.h"
-#include "Kernels/Common.h"
-#include "generated_code/tensor.h"
+#include "Solver/MultipleSimulations.h"
+
 #include <Eigen/Dense>
 #include <complex>
 #include <cstddef>
@@ -63,221 +27,84 @@
 
 namespace seissol {
 
-// cross-cluster time stepping information
-struct TimeStepping {
-  /*
-   * Number of lts clusters present throughout the entire domain.
-   */
-  unsigned int numberOfGlobalClusters;
+namespace kernels {
+constexpr std::size_t NumSpaceQuadraturePoints = (ConvergenceOrder + 1) * (ConvergenceOrder + 1);
+} // namespace kernels
 
-  /*
-   * Time step rate the cluster is smaller than the next one.
-   */
-  unsigned int *globalTimeStepRates;
-
-  /*
-   * Time step widths of the global time clusters according to CFL.
-   */
-  double *globalCflTimeStepWidths;
-
-  /*
-   * Time all clusters are aiming to reach.
-   */
-  double synchronizationTime;
-
-  /*
-   * Number of local clusters present on this rank.
-   */
-  unsigned int numberOfLocalClusters;
-
-  /*
-   * Ids of the local clusters with respect to global ordering.
-   */
-  unsigned int *clusterIds;
-};
-
-// cell local information
-struct CellLocalInformation {
-  // types of the faces
-  FaceType faceTypes[4];
-
-  // mapping of the neighboring elements to the references element in relation to this element
-  int faceRelations[4][2];
-
-  // ids of the face neighbors
-  unsigned int faceNeighborIds[4];
-
-  // LTS setup
-  unsigned short ltsSetup;
-
-  // unique global id of the time cluster
-  unsigned int clusterId;
-};
-
-struct MeshStructure {
-  /*
-   * Number of regions in the ghost and copy layer.
-   * This is equivalent to the number of ranks in a MPI setting.
-   */
-  unsigned int numberOfRegions;
-
-  /*
-   * Region-specific neighboring clusters
-   * [0]: rank
-   * [1]: global time cluster id
-   */
-  int (*neighboringClusters)[2];
-
-  /*
-   * Total number of ghost cells.
-   */
-  unsigned int numberOfGhostCells;
-
-  /*
-   * Number of ghost cells in each region of the ghost layer.
-   */
-  unsigned int *numberOfGhostRegionCells;
-
-  /*
-   * Number of cells with derivatives in each region of the ghost layer.
-   */
-  unsigned int *numberOfGhostRegionDerivatives;
-
-  /*
-   * Pointers to the memory chunks of the ghost regions.
-   */
-  real** ghostRegions;
-
-  /*
-   * Sizes of the ghost regions (in reals).
-   */
-  unsigned int *ghostRegionSizes;
-
-  /*
-   * Total number of copy cells.
-   */
-  unsigned int numberOfCopyCells;
-
-  /*
-   * Number of copy cells in each region of the copy layer.
-   */
-  unsigned int *numberOfCopyRegionCells;
-
-  /*
-   * Number of cells with communicating derivatives in each region of the ghost layer.
-   */
-  unsigned int *numberOfCommunicatedCopyRegionDerivatives;
-
-  /*
-   * Pointers to the memory chunks of the copy regions.
-   *   Remark: For the cells in the copy layer more information will be stored (in general).
-   *           The pointers only point to communcation related chunks.
-   */
-  real** copyRegions;
-
-  /*
-   * Sizes of the copy regions (in reals).
-   */
-  unsigned int *copyRegionSizes;
-
-
-  /*
-   * Total number of interior cells without MPI-face-neighbors.
-   */
-  unsigned int numberOfInteriorCells;
-
-  /*
-   * Message identifiers for the sends.
-   */
-  int *sendIdentifiers;
-
-  /*
-   * Message identifiers for the receives.
-   */
-  int *receiveIdentifiers;
-
-#ifdef USE_MPI
-  /*
-   * MPI send requests.
-   */
-  MPI_Request *sendRequests;
-
-  /*
-   * MPI receive requests.
-   */
-  MPI_Request *receiveRequests;
-#endif
-
-};
-
-struct GlobalData {  
+struct GlobalData {
   /**
-   * Addresses of the global change of basis matrices (multiplied by the inverse diagonal mass matrix):
-   * 
+   * Addresses of the global change of basis matrices (multiplied by the inverse diagonal mass
+   *matrix):
+   *
    *    0: \f$ M^{-1} R^1 \f$
    *    1: \f$ M^{-1} R^2 \f$
    *    2: \f$ M^{-1} R^3 \f$
    *    3: \f$ M^{-1} R^4 \f$
    **/
-  seissol::tensor::rDivM::Container<real const*> changeOfBasisMatrices;
-  
+  seissol::tensor::rDivM::Container<const real*> changeOfBasisMatrices;
+
   /**
-   * Addresses of the transposed global change of basis matrices left-multiplied with the local flux matrix:
-   * 
+   * Addresses of the transposed global change of basis matrices left-multiplied with the local flux
+   *matrix:
+   *
    *    0: \f$ F^- ( R^1 )^T \f$
    *    1: \f$ F^- ( R^2 )^T \f$
    *    2: \f$ F^- ( R^3 )^T \f$
    *    3: \f$ F^- ( R^4 )^T \f$
    **/
-  seissol::tensor::fMrT::Container<real const*> localChangeOfBasisMatricesTransposed;
-  
+  seissol::tensor::fMrT::Container<const real*> localChangeOfBasisMatricesTransposed;
+
   /**
    * Addresses of the transposed global change of basis matrices:
-   * 
+   *
    *    0: \f$ ( R^1 )^T \f$
    *    1: \f$ ( R^2 )^T \f$
    *    2: \f$ ( R^3 )^T \f$
    *    3: \f$ ( R^4 )^T \f$
    **/
-  seissol::tensor::rT::Container<real const*> neighbourChangeOfBasisMatricesTransposed;
-  
+  seissol::tensor::rT::Container<const real*> neighborChangeOfBasisMatricesTransposed;
+
   /**
    * Addresses of the global flux matrices:
-   * 
+   *
    *    0: \f$ F^{+,1} \f$
    *    1: \f$ F^{+,2} \f$
    *    2: \f$ F^{+,3} \f$
    **/
-  seissol::tensor::fP::Container<real const*> neighbourFluxMatrices;
+  seissol::tensor::fP::Container<const real*> neighborFluxMatrices;
 
-  /** 
+  /**
    * Addresses of the global stiffness matrices (multiplied by the inverse diagonal mass matrix):
    *
    *    0:  \f$ M^{-1} K^\xi \f$
    *    1:  \f$ M^{-1} K^\eta \f$
    *    2:  \f$ M^{-1} K^\zeta f$
    *
-   *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks (except for the additional flux matrix).
-   **/ 
-  seissol::tensor::kDivM::Container<real const*> stiffnessMatrices;
+   *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks
+   *(except for the additional flux matrix).
+   **/
+  seissol::tensor::kDivM::Container<const real*> stiffnessMatrices;
 
-  /** 
-   * Addresses of the transposed global stiffness matrices (multiplied by the inverse diagonal mass matrix):
+  /**
+   * Addresses of the transposed global stiffness matrices (multiplied by the inverse diagonal mass
+   *matrix):
    *
    *    0:  \f$ M^{-1} ( K^\xi )^T \f$
    *    1:  \f$ M^{-1} ( K^\eta )^T \f$
    *    2:  \f$ M^{-1} ( K^\zeta )^T \f$
    *
-   *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks (except for the additional flux matrix).
-   **/ 
-  seissol::tensor::kDivMT::Container<real const*> stiffnessMatricesTransposed;
+   *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks
+   *(except for the additional flux matrix).
+   **/
+  seissol::tensor::kDivMT::Container<const real*> stiffnessMatricesTransposed;
 
   /**
-   * Address of the (thread-local) local time stepping integration buffers used in the neighbor integral computation
+   * Address of the (thread-local) local time stepping integration buffers used in the neighbor
+   *integral computation
    **/
-  real *integrationBufferLTS{nullptr};
-  
-   /** 
+  real* integrationBufferLTS{nullptr};
+
+  /**
    * Addresses of the global nodal flux matrices
    *
    *    0:  \f$ P^{+,1} \f$
@@ -290,13 +117,13 @@ struct GlobalData {
    *    7 : \f$ P^{-,2,3} \f$
    *    [..]
    *    15: \f$ P^{-,4,3} \f$
-   **/ 
-  seissol::tensor::V3mTo2nTWDivM::Container<real const*> nodalFluxMatrices;
+   **/
+  seissol::tensor::V3mTo2nTWDivM::Container<const real*> nodalFluxMatrices;
 
-  seissol::nodal::tensor::V3mTo2nFace::Container<real const*> V3mTo2nFace;
-  seissol::tensor::project2nFaceTo3m::Container<real const*> project2nFaceTo3m;
+  seissol::nodal::tensor::V3mTo2nFace::Container<const real*> v3mTo2nFace;
+  seissol::tensor::project2nFaceTo3m::Container<const real*> project2nFaceTo3m;
 
-  /** 
+  /**
    * Addresses of the global face to nodal matrices
    *
    *    0:  \f$ N^{+,1} \f$
@@ -309,13 +136,13 @@ struct GlobalData {
    *    7 : \f$ N^{-,2,3} \f$
    *    [..]
    *    15: \f$ N^{-,4,3} \f$
-   **/ 
+   **/
 
 #if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
   seissol::tensor::plusFluxMatrices::Container<real const*> plusFluxMatrices;
-  seissol::tensor::minusFluxMatrices::Container<real const*> minusFluxMatrices;
-#endif //ACL_DEVICE
- 
+  seissol::tensor::minusFluxMatrices::Container<const real*> minusFluxMatrices;
+#endif // ACL_DEVICE
+
   seissol::tensor::V3mTo2n::Container<real const*> faceToNodalMatrices;
 
   //! Modal basis to quadrature points
@@ -323,14 +150,28 @@ struct GlobalData {
 
   //! Project function evaluated at quadrature points to modal basis
   real* projectQPMatrix{nullptr};
-  
+
   //! Switch to nodal for plasticity
   real* vandermondeMatrix{nullptr};
   real* vandermondeMatrixInverse{nullptr};
 
-  // A vector of ones. Note: It is only relevant for GPU computing.
-  // It allows us to allocate this vector only once in the GPU memory
-  real* replicateStresses{nullptr};
+  real* selectAne{nullptr};
+  real* selectEla{nullptr};
+
+  // tensor::resample
+  real* resampleMatrix{nullptr};
+
+  // tensor::quadweights
+  real* spaceWeights{nullptr};
+
+  // dr::friction_law::tp::InverseFourierCoefficients
+  real* tpInverseFourierCoefficients{nullptr};
+
+  // dr::friction_law::tp::GridPoints
+  real* tpGridPoints{nullptr};
+
+  // dr::friction_law::tp::GaussianHeatSource
+  real* heatSource{nullptr};
 };
 
 struct CompoundGlobalData {
@@ -361,20 +202,20 @@ struct NeighboringIntegrationData {
 
 // material constants per cell
 struct CellMaterialData {
-  seissol::model::MaterialT local;
-  seissol::model::MaterialT neighbor[4];
+  seissol::model::Material* local{};
+  seissol::model::Material* neighbor[4]{};
 };
 
 struct DRFaceInformation {
-  unsigned meshFace;
-  unsigned plusSide;
-  unsigned minusSide;
-  unsigned faceRelation;
-  bool     plusSideOnThisRank;
+  std::size_t meshFace{};
+  std::uint8_t plusSide{};
+  std::uint8_t minusSide{};
+  std::uint8_t faceRelation{};
+  bool plusSideOnThisRank{};
 };
 
 struct DRGodunovData {
-  real TinvT[seissol::tensor::TinvT::size()];
+  real dataTinvT[seissol::tensor::TinvT::size()];
   real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix::size()];
   real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix::size()];
   // When integrating quantities over the fault
@@ -397,36 +238,54 @@ struct DREnergyOutput {
 
   static std::vector<seissol::io::datatype::StructDatatype::MemberInfo> datatypeLayout() {
     return {
-      seissol::io::datatype::StructDatatype::MemberInfo{"slip", offsetof(DREnergyOutput, slip), seissol::io::datatype::inferDatatype<decltype(slip)>()},
-      seissol::io::datatype::StructDatatype::MemberInfo{"accumulatedSlip", offsetof(DREnergyOutput, accumulatedSlip), seissol::io::datatype::inferDatatype<decltype(accumulatedSlip)>()},
-      seissol::io::datatype::StructDatatype::MemberInfo{"frictionalEnergy", offsetof(DREnergyOutput, frictionalEnergy), seissol::io::datatype::inferDatatype<decltype(frictionalEnergy)>()},
-      seissol::io::datatype::StructDatatype::MemberInfo{"timeSinceSlipRateBelowThreshold", offsetof(DREnergyOutput, timeSinceSlipRateBelowThreshold), seissol::io::datatype::inferDatatype<decltype(timeSinceSlipRateBelowThreshold)>()},
+        seissol::io::datatype::StructDatatype::MemberInfo{
+            "slip",
+            offsetof(DREnergyOutput, slip),
+            seissol::io::datatype::inferDatatype<decltype(slip)>()},
+        seissol::io::datatype::StructDatatype::MemberInfo{
+            "accumulatedSlip",
+            offsetof(DREnergyOutput, accumulatedSlip),
+            seissol::io::datatype::inferDatatype<decltype(accumulatedSlip)>()},
+        seissol::io::datatype::StructDatatype::MemberInfo{
+            "frictionalEnergy",
+            offsetof(DREnergyOutput, frictionalEnergy),
+            seissol::io::datatype::inferDatatype<decltype(frictionalEnergy)>()},
+        seissol::io::datatype::StructDatatype::MemberInfo{
+            "timeSinceSlipRateBelowThreshold",
+            offsetof(DREnergyOutput, timeSinceSlipRateBelowThreshold),
+            seissol::io::datatype::inferDatatype<decltype(timeSinceSlipRateBelowThreshold)>()},
     };
   }
 };
 
 struct CellDRMapping {
-  unsigned side;
-  unsigned faceRelation;
-  real* godunov;
-  real* fluxSolver;
-};
-
-struct CellBoundaryMapping {
-  real* nodes;
-  real* TData;
-  real* TinvData;
-  real* easiBoundaryConstant;
-  real* easiBoundaryMap;
+  unsigned side{};
+  unsigned faceRelation{};
+  real* godunov{nullptr};
+  real* fluxSolver{nullptr};
 };
 
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
-  real nodes[seissol::nodal::tensor::nodes2D::Shape[0] * 3];
-  real TData[seissol::tensor::T::size()];
-  real TinvData[seissol::tensor::Tinv::size()];
-  real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()];
-  real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
+  real nodes[seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] * 3]{};
+  real dataT[seissol::tensor::T::size()]{};
+  real dataTinv[seissol::tensor::Tinv::size()]{};
+  real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()]{};
+  real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()]{};
+};
+
+struct CellBoundaryMapping {
+  real* nodes{nullptr};
+  real* dataT{nullptr};
+  real* dataTinv{nullptr};
+  real* easiBoundaryConstant{nullptr};
+  real* easiBoundaryMap{nullptr};
+
+  CellBoundaryMapping() = default;
+  explicit CellBoundaryMapping(BoundaryFaceInformation& faceInfo)
+      : nodes(faceInfo.nodes), dataT(faceInfo.dataT), dataTinv(faceInfo.dataTinv),
+        easiBoundaryConstant(faceInfo.easiBoundaryConstant),
+        easiBoundaryMap(faceInfo.easiBoundaryMap) {}
 };
 
 struct GravitationSetup {
@@ -441,18 +300,18 @@ struct TravellingWaveParameters {
 };
 
 struct AcousticTravellingWaveParametersITM {
-  double k;
-  double itmStartingTime;
-  double itmDuration;
-  double itmVelocityScalingFactor;
+  double k{};
+  double itmStartingTime{};
+  double itmDuration{};
+  double itmVelocityScalingFactor{};
 };
 
 struct PressureInjectionParameters {
-  std::array<double, 3> origin;
-  double magnitude;
-  double width;
+  std::array<double, 3> origin{};
+  double magnitude{};
+  double width{};
 };
 
 } // namespace seissol
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_

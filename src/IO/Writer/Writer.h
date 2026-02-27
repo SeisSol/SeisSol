@@ -1,24 +1,32 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_IO_WRITER_WRITER_H_
 #define SEISSOL_SRC_IO_WRITER_WRITER_H_
 
+#include "IO/Writer/File/BinaryWriter.h"
+#include "IO/Writer/File/Hdf5Writer.h"
+#include "IO/Writer/Instructions/Binary.h"
+#include "IO/Writer/Instructions/Hdf5.h"
 #include "Instructions/Instruction.h"
-#include "async/ExecInfo.h"
-#include <IO/Writer/File/BinaryWriter.h>
-#include <IO/Writer/File/Hdf5Writer.h>
-#include <IO/Writer/Instructions/Binary.h>
-#include <IO/Writer/Instructions/Hdf5.h>
+
 #include <memory>
+#include <mpi.h>
 #include <yaml-cpp/yaml.h>
+
+namespace async {
+class ExecInfo;
+} // namespace async
 
 namespace seissol::io::writer {
 
 class WriteInstance {
   public:
-  WriteInstance(MPI_Comm comm);
+  explicit WriteInstance(MPI_Comm comm);
 
   void write(const async::ExecInfo& info,
              const std::shared_ptr<instructions::WriteInstruction>& instruction);
@@ -40,7 +48,7 @@ class Writer {
 
   std::string serialize();
 
-  WriteInstance beginWrite(const async::ExecInfo& info);
+  WriteInstance beginWrite(const async::ExecInfo& info, MPI_Comm comm);
 
   void endWrite();
 
@@ -53,7 +61,7 @@ class Writer {
 
 struct ScheduledWriter {
   std::string name;
-  double interval;
+  double interval{};
   std::function<Writer(const std::string&, std::size_t, double)> planWrite;
 };
 

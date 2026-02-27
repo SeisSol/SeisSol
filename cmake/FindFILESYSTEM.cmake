@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2020 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #  FILESYSTEM - filesystem component of the standard library
 #
 #  FILESYSTEM_FOUND       - system has std::filesystem
@@ -6,7 +13,7 @@
 #
 #  NOTE: it is not an official cmake search file
 #  authors: Carsten Uphoff, Ravil Dorozhinskii
-#  email: uphoff@in.tum.de, ravil.dorozhinskii@tum.de 
+#  email: uphoff@in.tum.de, ravil.dorozhinskii@tum.de
 #
 
 

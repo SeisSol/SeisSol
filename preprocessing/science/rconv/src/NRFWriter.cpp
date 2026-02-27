@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-3-Clause
 /**
  * @file
  * This file is part of SeisSol.
@@ -7,17 +8,17 @@
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -61,11 +62,11 @@ void check_err(const int stat, const int line, const char *file) {
 }
 
 void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, Map const& map, bool normalizeOnset)
-{  
-  unsigned numSources = sources.size();  
+{
+  unsigned numSources = sources.size();
   double minTinit = std::numeric_limits<double>::max();
   unsigned numSamples[3] = { 0, 0, 0 };
-  
+
   for (std::vector<SRFPointSource>::const_iterator source = sources.begin(); source != sources.end(); ++source) {
     minTinit = std::min(minTinit, source->tinit);
     for (unsigned sr = 0; sr < 3; ++sr) {
@@ -77,7 +78,7 @@ void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, 
   } else {
     minTinit = 0.0;
   }
-  
+
   Offsets* offsets = new Offsets[numSources+1];
   memset(offsets, 0, (numSources+1) * sizeof(Offsets));
 
@@ -95,7 +96,7 @@ void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, 
     Subfault& sf = subfaults[i];
     sf.tinit = source.tinit - minTinit;
     sf.timestep = source.dt;
-    
+
 #ifdef noproj
     centre.x = source.longitude;
     centre.y = source.latitude;
@@ -107,9 +108,9 @@ void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, 
     map.toMCS(source.strike, source.dip, source.rake, 1.0, 0.0, 0.0, &sf.tan1(0), &sf.tan1(1), &sf.tan1(2));
     map.toMCS(source.strike, source.dip, source.rake, 0.0, 1.0, 0.0, &sf.tan2(0), &sf.tan2(1), &sf.tan2(2));
     map.toMCS(source.strike, source.dip, source.rake, 0.0, 0.0, 1.0, &sf.normal(0), &sf.normal(1), &sf.normal(2));
-    
+
     // g / (cm s^2) -> Pa (= kg / (m s^2))
-    sf.mu = source.shearModulus * 1.0e-1; 
+    sf.mu = source.shearModulus * 1.0e-1;
     // cm^2 -> m^2
     sf.area = source.area * 1.0e-4;
     for (unsigned sr = 0; sr < 3; ++sr) {
@@ -118,7 +119,7 @@ void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, 
       offsets[i+1][sr] = offset + source.slipRate[sr].size();
     }
   }
-  
+
   // convert cm / s -> m / s
   for (unsigned sr = 0; sr < 3; ++sr) {
     for (unsigned sample = 0; sample < numSamples[sr]; ++sample) {
@@ -297,10 +298,10 @@ void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, 
   check_err(stat,__LINE__,__FILE__);
 
   /* assign variable data */
-  
+
   stat = nc_put_var(ncid, centres_id, &centres[0]);
   check_err(stat,__LINE__,__FILE__);
-  
+
   stat = nc_put_var(ncid, subfaults_id, &subfaults[0]);
   check_err(stat,__LINE__,__FILE__);
 
@@ -327,4 +328,3 @@ void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, 
   delete[] sliprates;
   delete[] offsets;
 }
-

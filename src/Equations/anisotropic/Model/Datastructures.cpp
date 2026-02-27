@@ -1,52 +1,26 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Wolf (wolf.sebastian AT tum.de,
- *https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
- * @section LICENSE
- * Copyright (c) 2019 - 2020, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- **/
+// SPDX-FileCopyrightText: 2019 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Wolf
 
 #include "Datastructures.h"
+
 #include "Equations/elastic/Model/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Model/CommonDatastructures.h"
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
+
+#include <Eigen/Core>
 #include <Eigen/Dense>
+#include <Eigen/Eigenvalues>
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::model {
@@ -59,9 +33,8 @@ double AnisotropicMaterial::getMuBar() const { return (c44 + c55 + c66) / 3.0; }
 AnisotropicMaterial::AnisotropicMaterial() = default;
 
 AnisotropicMaterial::AnisotropicMaterial(const ElasticMaterial& m)
-    : c11(m.lambda + 2 * m.mu), c12(m.lambda), c13(m.lambda), c14(0), c15(0), c16(0),
-      c22(m.lambda + 2 * m.mu), c23(m.lambda), c24(0), c25(0), c26(0), c33(m.lambda + 2 * m.mu),
-      c34(0), c35(0), c36(0), c44(m.mu), c45(0), c46(0), c55(m.mu), c56(0), c66(m.mu) {
+    : c11(m.lambda + 2 * m.mu), c12(m.lambda), c13(m.lambda), c22(m.lambda + 2 * m.mu),
+      c23(m.lambda), c33(m.lambda + 2 * m.mu), c44(m.mu), c55(m.mu), c66(m.mu) {
   rho = m.rho;
 }
 
@@ -170,14 +143,14 @@ double AnisotropicMaterial::getMaxWaveSpeed() const {
   // An analytic solution for the maximal wave speed is hard to obtain.
   // Instead of solving an optimization problem we sample the velocitiy for
   // different directions and take the maximum.
-  auto samplingDirections = seissol_general::init::samplingDirections::view::create(
-      const_cast<double*>(seissol_general::init::samplingDirections::Values));
+  const auto samplingDirections = seissol_general::init::samplingDirections::view::create(
+      seissol_general::init::samplingDirections::Values);
 
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 3, 3>> saes;
 
   double maxEv = 0;
 
-  std::array<double, 81> fullTensor;
+  std::array<double, 81> fullTensor{};
   getFullStiffnessTensor(fullTensor);
   seissol_general::kernel::computeChristoffel computeChristoffel;
   computeChristoffel.stiffnessTensor = fullTensor.data();
@@ -212,4 +185,10 @@ double AnisotropicMaterial::getSWaveSpeed() const {
 }
 
 MaterialType AnisotropicMaterial::getMaterialType() const { return MaterialType::Anisotropic; }
+
+void AnisotropicMaterial::setLameParameters(double /*mu*/, double /*lambda*/) {
+  // no idea.
+  logError() << "Setting the Lamé parameters for anisotropic materials is not yet implemented.";
+}
+
 } // namespace seissol::model

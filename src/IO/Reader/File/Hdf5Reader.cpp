@@ -1,29 +1,34 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Hdf5Reader.h"
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/HDF5Type.h>
-#include <IO/Datatype/Inference.h>
-#include <IO/Datatype/MPIType.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/HDF5Type.h"
+#include "IO/Datatype/Inference.h"
+#include "IO/Datatype/MPIType.h"
+
 #include <algorithm>
 #include <cstddef>
+#include <cstdio>
 #include <hdf5.h>
 #include <memory>
 #include <mpi.h>
 #include <stack>
 #include <string>
+#include <utils/logger.h>
 #include <vector>
-
-#include "utils/logger.h"
 
 namespace {
 #define _eh(x) _ehh(x, __FILE__, __LINE__)
 
 hid_t _ehh(hid_t data, const char* file, int line) {
   if (data < 0) {
+    H5Eprint(H5Eget_current_stack(), stdout);
     logError() << "HDF5 error:" << data << "at" << file << ":" << line;
   }
   return data;
@@ -102,7 +107,7 @@ std::size_t Hdf5Reader::dataCount(const std::string& name) {
   MPI_Comm_size(comm, &mpisize);
   MPI_Comm_rank(comm, &mpirank);
 
-  return dims[0] / mpisize + ((dims[0] % mpisize) > mpirank ? 1 : 0);
+  return dims[0] / mpisize + ((dims[0] % mpisize) > static_cast<std::size_t>(mpirank) ? 1 : 0);
 }
 void Hdf5Reader::readDataRaw(void* data,
                              const std::string& name,
@@ -111,9 +116,7 @@ void Hdf5Reader::readDataRaw(void* data,
   checkExistence(name, "dataset");
   const hid_t h5alist = H5Pcreate(H5P_DATASET_XFER);
   _eh(h5alist);
-#ifdef USE_MPI
   _eh(H5Pset_dxpl_mpio(h5alist, H5FD_MPIO_COLLECTIVE));
-#endif // USE_MPI
 
   const hid_t dataset = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
   const hid_t dataspace = _eh(H5Dget_space(dataset));
@@ -125,12 +128,13 @@ void Hdf5Reader::readDataRaw(void* data,
   _eh(H5Sget_simple_extent_dims(dataspace, dims.data(), nullptr));
 
   std::size_t dimprod = 1;
-  for (auto dim : dims) {
-    dimprod *= dim;
+  for (std::size_t i = 1; i < dims.size(); ++i) {
+    dimprod *= dims[i];
   }
 
   const std::size_t chunksize =
-      std::max(std::size_t(1), std::size_t(2'000'000'000) / (targetType->size() * dimprod));
+      std::max(static_cast<std::size_t>(1),
+               static_cast<std::size_t>(2'000'000'000) / (targetType->size() * dimprod));
   std::size_t rounds = (count + chunksize - 1) / chunksize;
   std::size_t start = 0;
   MPI_Allreduce(MPI_IN_PLACE,

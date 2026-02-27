@@ -1,9 +1,14 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "BinaryWriter.h"
-#include <IO/Writer/Instructions/Binary.h>
+
+#include "IO/Writer/Instructions/Binary.h"
+
 #include <async/ExecInfo.h>
 #include <cstddef>
 #include <hdf5.h>
@@ -50,9 +55,9 @@ void BinaryWriter::write(const async::ExecInfo& info, const instructions::Binary
   const auto dataSize = write.dataSource->count(info) * write.dataSource->datatype()->size();
 
   if (write.dataSource->distributed()) {
-    openFiles[write.filename]->writeDistributed(write.dataSource->getPointer(info), dataSize);
+    openFiles[write.filename]->writeDistributed(dataPointer, dataSize);
   } else {
-    openFiles[write.filename]->writeGlobal(write.dataSource->getPointer(info), dataSize);
+    openFiles[write.filename]->writeGlobal(dataPointer, dataSize);
   }
 }
 

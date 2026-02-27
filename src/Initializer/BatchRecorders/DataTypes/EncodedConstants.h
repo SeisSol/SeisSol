@@ -1,10 +1,18 @@
-#ifndef SEISSOL_ENCODINGCONSTANTS_HPP
-#define SEISSOL_ENCODINGCONSTANTS_HPP
+// SPDX-FileCopyrightText: 2020 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_ENCODEDCONSTANTS_H_
+#define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_ENCODEDCONSTANTS_H_
 
 #include "Kernels/Precision.h"
+
 #include <cstdlib>
 
-namespace seissol::initializer::recording::inner_keys {
+namespace seissol::recording::inner_keys {
 
 /**
  * The structure contains encoded variables names
@@ -15,11 +23,10 @@ struct Wp {
   enum struct Id : size_t {
     Dofs = 0,
     Idofs,
-    Star,
+    LocalIntegrationData,
+    NeighborIntegrationData,
     Buffers,
     Derivatives,
-    AplusT,
-    AminusT,
     Godunov,
     FluxSolver,
     Ivelocities, // 6th, 7the and 8th columns of Idofs
@@ -32,7 +39,20 @@ struct Wp {
     Tinv,
     EasiBoundaryMap,
     EasiBoundaryConstant,
+    Stp,
+    StpRhs,
+    IdofsAne,
+    DofsAne,
+    DofsExt,
+    DerivativesAne,
+    DerivativesExt,
     Analytical,
+    RotateDisplacementToFaceNormal,
+    RotateDisplacementToGlobal,
+    RotatedFaceDisplacement,
+    DofsFaceNodal,
+    PrevCoefficients,
+    DofsFaceBoundaryNodal,
     Count
   };
 };
@@ -57,18 +77,18 @@ struct Dr {
 
 struct Material {
   using DataType = double;
-  enum struct Id : size_t { Rho = 0, Lambda, Count };
+  enum struct Id : size_t { Rho = 0, Lambda, InvImpedances, Count };
 };
 
 struct Indices {
   using DataType = unsigned;
   enum struct Id : size_t { Cells = 0, Count };
 };
-} // namespace seissol::initializer::recording::inner_keys
+} // namespace seissol::recording::inner_keys
 
-namespace seissol::initializer::recording {
-constexpr size_t ALL_BITS = ~static_cast<size_t>(0);
-constexpr size_t encodeAny(unsigned count) { return ~(ALL_BITS << count); }
+namespace seissol::recording {
+constexpr size_t AllBits = ~static_cast<size_t>(0);
+constexpr size_t encodeAny(unsigned count) { return ~(AllBits << count); }
 
 enum struct KernelNames : size_t {
   Time = 1 << 0,
@@ -108,9 +128,9 @@ enum struct FaceKinds : size_t {
   None = encodeAny(Count)
 };
 
-enum struct FaceId : size_t { Count = 4, Any = ALL_BITS };
-enum struct FaceRelations : size_t { Count = 48, Any = ALL_BITS };
-enum struct DrFaceRelations : size_t { Count = 16, Any = ALL_BITS };
+enum struct FaceId : size_t { Count = 4, Any = AllBits };
+enum struct FaceRelations : size_t { Count = 48, Any = AllBits };
+enum struct DrFaceRelations : size_t { Count = 16, Any = AllBits };
 
 enum struct ExchangeInfo : size_t {
   Buffers = 1 << 0,
@@ -119,6 +139,6 @@ enum struct ExchangeInfo : size_t {
   Any = encodeAny(Count)
 };
 
-} // namespace seissol::initializer::recording
+} // namespace seissol::recording
 
-#endif // SEISSOL_ENCODINGCONSTANTS_HPP
+#endif // SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_ENCODEDCONSTANTS_H_

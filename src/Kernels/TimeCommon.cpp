@@ -1,86 +1,58 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alexander Breuer (breuer AT mytum.de,
- *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- **/
+// SPDX-FileCopyrightText: 2016 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Carsten Uphoff
 
 #include "TimeCommon.h"
-#include <DataTypes/ConditionalTable.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Kernels/Precision.h>
-#include <Kernels/Time.h>
-#include <Parallel/Runtime/Stream.h>
-#include <cassert>
-#include <stdint.h>
-#include <tensor.h>
 
-#include "utils/logger.h"
+#include "Common/Constants.h"
+#include "Common/Marker.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/LtsSetup.h"
+#include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
+#include "Parallel/Runtime/Stream.h"
+
+#include <array>
+#include <cassert>
+#include <cstddef>
+#include <stdint.h>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include <DataTypes/ConditionalKey.h>
-#include <DataTypes/EncodedConstants.h>
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
 
 #ifndef NDEBUG
-#include "Common/Constants.h"
+#include "Alignment.h"
+
 #include <cstdint>
 #endif
 
 namespace seissol::kernels {
-
 void TimeCommon::computeIntegrals(Time& time,
-                                  unsigned short ltsSetup,
-                                  const FaceType faceTypes[4],
-                                  const double currentTime[5],
-                                  double timeStepWidth,
+                                  const LtsSetup& ltsSetup,
+                                  const std::array<FaceType, Cell::NumFaces>& faceTypes,
+                                  const real* timeCoeffs,
+                                  const real* subtimeCoeffs,
                                   real* const timeDofs[4],
                                   real integrationBuffer[4][tensor::I::size()],
                                   real* timeIntegrated[4]) {
+  // call the more general assembly
   /*
    * assert valid input.
    */
-  // only lower 10 bits are used for lts encoding
-  assert(ltsSetup < 2048);
 
 #ifndef NDEBUG
   // alignment of the time derivatives/integrated dofs and the buffer
-  for (int dofneighbor = 0; dofneighbor < 4; dofneighbor++) {
+  for (std::size_t dofneighbor = 0; dofneighbor < Cell::NumFaces; dofneighbor++) {
     assert(reinterpret_cast<uintptr_t>(timeDofs[dofneighbor]) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(integrationBuffer[dofneighbor]) % Alignment == 0);
   }
@@ -89,21 +61,25 @@ void TimeCommon::computeIntegrals(Time& time,
   /*
    * set/compute time integrated DOFs.
    */
-  for (int dofneighbor = 0; dofneighbor < 4; ++dofneighbor) {
+  for (std::size_t dofneighbor = 0; dofneighbor < Cell::NumFaces; ++dofneighbor) {
     // collect information only in the case that neighboring element contributions are required
     if (faceTypes[dofneighbor] != FaceType::Outflow &&
         faceTypes[dofneighbor] != FaceType::DynamicRupture) {
       // check if the time integration is already done (-> copy pointer)
-      if ((ltsSetup >> dofneighbor) % 2 == 0) {
+      if (!ltsSetup.neighborHasDerivatives(dofneighbor)) {
         timeIntegrated[dofneighbor] = timeDofs[dofneighbor];
       }
       // integrate the DOFs in time via the derivatives and set pointer to local buffer
       else {
-        time.computeIntegral(currentTime[dofneighbor + 1],
-                             currentTime[0],
-                             currentTime[0] + timeStepWidth,
-                             timeDofs[dofneighbor],
-                             integrationBuffer[dofneighbor]);
+        // select the time coefficients next: dependent on if we have GTS as a neighbor, use GTS
+        // coefficients (timeCoeffs); otherwise use LTS coefficients (subtimeCoeffs) for a large
+        // time cluster neighbor. IMPORTANT: make sure to not land in this code path if the neighbor
+        // time cluster is less than the local time cluster. It shouldn't happen with the current
+        // setup; but just be aware of it when changing things. In that case, enforce the "GTS
+        // relation" instead; then everything will work again.
+
+        const auto* coeffs = ltsSetup.neighborGTSRelation(dofneighbor) ? timeCoeffs : subtimeCoeffs;
+        time.evaluate(coeffs, timeDofs[dofneighbor], integrationBuffer[dofneighbor]);
 
         timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
       }
@@ -111,66 +87,34 @@ void TimeCommon::computeIntegrals(Time& time,
   }
 }
 
-void TimeCommon::computeIntegrals(Time& time,
-                                  unsigned short ltsSetup,
-                                  const FaceType faceTypes[4],
-                                  const double timeStepStart,
-                                  const double timeStepWidth,
-                                  real* const timeDofs[4],
-                                  real integrationBuffer[4][tensor::I::size()],
-                                  real* timeIntegrated[4]) {
-  double startTimes[5];
-  startTimes[0] = timeStepStart;
-  startTimes[1] = startTimes[2] = startTimes[3] = startTimes[4] = 0;
-
-  // adjust start times for GTS on derivatives
-  for (unsigned int face = 0; face < 4; face++) {
-    if (((ltsSetup >> (face + 4)) % 2) != 0) {
-      startTimes[face + 1] = timeStepStart;
-    }
-  }
-
-  // call the more general assembly
-  computeIntegrals(time,
-                   ltsSetup,
-                   faceTypes,
-                   startTimes,
-                   timeStepWidth,
-                   timeDofs,
-                   integrationBuffer,
-                   timeIntegrated);
-}
-
-void TimeCommon::computeBatchedIntegrals(Time& time,
-                                         const double timeStepStart,
-                                         const double timeStepWidth,
-                                         ConditionalPointersToRealsTable& table,
-                                         seissol::parallel::runtime::StreamRuntime& runtime) {
+void TimeCommon::computeBatchedIntegrals(
+    SEISSOL_GPU_PARAM Time& time,
+    SEISSOL_GPU_PARAM const real* timeCoeffs,
+    SEISSOL_GPU_PARAM const real* subtimeCoeffs,
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
-  // Compute time integrated dofs using neighbours derivatives using the GTS relation,
+  using namespace seissol::recording;
+  // Compute time integrated dofs using neighbors derivatives using the GTS relation,
   // i.e. the expansion point is around 'timeStepStart'
   ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithGtsDerivatives);
   if (table.find(key) != table.end()) {
     auto& entry = table[key];
-    time.computeBatchedIntegral(
-        timeStepStart,
-        timeStepStart,
-        timeStepStart + timeStepWidth,
+    time.evaluateBatched(
+        timeCoeffs,
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
         (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
         (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
         runtime);
   }
 
-  // Compute time integrated dofs using neighbours derivatives using the LTS relation,
+  // Compute time integrated dofs using neighbors derivatives using the LTS relation,
   // i.e. the expansion point is around '0'
   key = ConditionalKey(*KernelNames::NeighborFlux, *ComputationKind::WithLtsDerivatives);
   if (table.find(key) != table.end()) {
     auto& entry = table[key];
-    time.computeBatchedIntegral(
-        0.0,
-        timeStepStart,
-        timeStepStart + timeStepWidth,
+    time.evaluateBatched(
+        subtimeCoeffs,
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
         (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
         (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),

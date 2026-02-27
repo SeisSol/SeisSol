@@ -1,5 +1,12 @@
-#ifndef SEISSOL_LTS_PARAMETERS_H
-#define SEISSOL_LTS_PARAMETERS_H
+// SPDX-FileCopyrightText: 2022 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_LTSPARAMETERS_H_
+#define SEISSOL_SRC_INITIALIZER_PARAMETERS_LTSPARAMETERS_H_
 
 #include "ParameterReader.h"
 
@@ -29,19 +36,18 @@ AutoMergeCostBaseline parseAutoMergeCostBaseline(std::string str);
 
 class LtsParameters {
   private:
-  unsigned int rate{};
+  std::vector<uint64_t> rate;
   double wiggleFactorMinimum{};
   double wiggleFactorStepsize{};
   bool wiggleFactorEnforceMaximumDifference{};
-  int maxNumberOfClusters = std::numeric_limits<int>::max() - 1;
+  int maxNumberOfClusters{std::numeric_limits<int>::max() - 1};
   bool autoMergeClusters{};
   double allowedPerformanceLossRatioAutoMerge{};
-  AutoMergeCostBaseline autoMergeCostBaseline = AutoMergeCostBaseline::BestWiggleFactor;
-  LtsWeightsTypes ltsWeightsType;
-  double finalWiggleFactor = 1.0;
+  AutoMergeCostBaseline autoMergeCostBaseline{AutoMergeCostBaseline::BestWiggleFactor};
+  LtsWeightsTypes ltsWeightsType{LtsWeightsTypes::ExponentialWeights};
 
   public:
-  [[nodiscard]] unsigned int getRate() const;
+  [[nodiscard]] std::vector<uint64_t> getRate() const;
   [[nodiscard]] bool isWiggleFactorUsed() const;
   [[nodiscard]] double getWiggleFactorMinimum() const;
   [[nodiscard]] double getWiggleFactorStepsize() const;
@@ -50,14 +56,11 @@ class LtsParameters {
   [[nodiscard]] bool isAutoMergeUsed() const;
   [[nodiscard]] double getAllowedPerformanceLossRatioAutoMerge() const;
   [[nodiscard]] AutoMergeCostBaseline getAutoMergeCostBaseline() const;
-  [[nodiscard]] double getWiggleFactor() const;
   [[nodiscard]] LtsWeightsTypes getLtsWeightsType() const;
-  void setWiggleFactor(double factor);
-  void setMaxNumberOfClusters(int numClusters);
 
   LtsParameters() = default;
 
-  LtsParameters(unsigned int rate,
+  LtsParameters(const std::vector<uint64_t>& rates,
                 double wiggleFactorMinimum,
                 double wiggleFactorStepsize,
                 bool wigleFactorEnforceMaximumDifference,
@@ -89,4 +92,4 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader);
 
 } // namespace seissol::initializer::parameters
 
-#endif // SEISSOL_LTSCONFIGURATION_H
+#endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_LTSPARAMETERS_H_

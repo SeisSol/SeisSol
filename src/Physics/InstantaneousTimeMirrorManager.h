@@ -1,54 +1,53 @@
-#ifndef SEISSOL_INSTANTANEOUSTIMEMIRRORMANAGER_H
-#define SEISSOL_INSTANTANEOUSTIMEMIRRORMANAGER_H
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_PHYSICS_INSTANTANEOUSTIMEMIRRORMANAGER_H_
+#define SEISSOL_SRC_PHYSICS_INSTANTANEOUSTIMEMIRRORMANAGER_H_
 
 #include "Geometry/MeshReader.h"
-#include "Initializer/LTS.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Lut.h"
+#include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/LTSTree.h"
 #include "Modules/Module.h"
-#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
-#include "Solver/time_stepping/TimeCluster.h"
+#include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
+#include "Solver/TimeStepping/AbstractTimeCluster.h"
+#include "Solver/TimeStepping/TimeCluster.h"
 
 namespace seissol {
 class SeisSol;
 namespace ITM {
 
-class InstantaneousTimeMirrorManager : Module {
+class InstantaneousTimeMirrorManager : public Module {
   seissol::SeisSol& seissolInstance;
   bool isEnabled{false};
   double velocityScalingFactor{1.0};
   double timeStepScalingFactor{1.0};
   double triggerTime{};
 
-  seissol::geometry::MeshReader* meshReader{};
-  initializer::LTSTree* ltsTree{};
-  initializer::LTS* lts{};
-  initializer::Lut* ltsLut{};
-  const TimeStepping* timestepping{};
+  seissol::geometry::MeshReader* meshReader{nullptr};
+  LTS::Storage* ltsStorage{nullptr};
+  const initializer::ClusterLayout* clusterLayout{nullptr};
 
-  std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters{};
-  std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>*
-      ghostTimeClusters{};
+  std::vector<seissol::time_stepping::AbstractTimeCluster*> clusters;
 
   public:
-  InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
+  explicit InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
       : seissolInstance(seissolInstance) {};
 
-  void init(double velocityScalingFactor,
-            double triggerTime,
-            seissol::geometry::MeshReader* meshReader,
-            initializer::LTSTree* ltsTree,
-            initializer::LTS* lts,
-            initializer::Lut* ltsLut,
-            const TimeStepping* timestepping); // An empty timestepping is added. Need to discuss
-                                               // what exactly is to be sent here
+  void init(
+      double velocityScalingFactor,
+      double triggerTime,
+      seissol::geometry::MeshReader* meshReader,
+      LTS::Storage& ltsStorage,
+      const initializer::ClusterLayout* clusterLayout); // An empty timestepping is added. Need to
+                                                        // discuss what exactly is to be sent here
 
-  void setTimeClusterVector(
-      std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* clusters);
-
-  void setGhostClusterVector(
-      std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* clusters);
+  void setClusterVector(const std::vector<seissol::time_stepping::AbstractTimeCluster*>& clusters);
 
   void syncPoint(double currentTime) override;
 
@@ -61,15 +60,13 @@ void initializeTimeMirrorManagers(
     double scalingFactor,
     double triggerTime,
     seissol::geometry::MeshReader* meshReader,
-    initializer::LTSTree* ltsTree,
-    initializer::LTS* lts,
-    initializer::Lut* ltsLut,
+    LTS::Storage& ltsStorage,
     InstantaneousTimeMirrorManager& increaseManager,
     InstantaneousTimeMirrorManager& decreaseManager,
     seissol::SeisSol& seissolInstance,
-    const TimeStepping* timestepping); // An empty timestepping is added. Need to discuss what
-                                       // exactly is to be sent here
+    const initializer::ClusterLayout* clusterLayout); // An empty timestepping is added. Need to
+                                                      // discuss what exactly is to be sent here
 } // namespace ITM
 } // namespace seissol
 
-#endif // SEISSOL_INSTANTANEOUSTIMEMIRRORMANAGER_H
+#endif // SEISSOL_SRC_PHYSICS_INSTANTANEOUSTIMEMIRRORMANAGER_H_

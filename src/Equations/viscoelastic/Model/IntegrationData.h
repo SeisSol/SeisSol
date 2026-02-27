@@ -1,7 +1,14 @@
-#ifndef VISCOELASTIC_INTEGRATIONDATA_H_
-#define VISCOELASTIC_INTEGRATIONDATA_H_
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "generated_code/tensor.h"
+#ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_INTEGRATIONDATA_H_
+#define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_INTEGRATIONDATA_H_
+
+#include "GeneratedCode/tensor.h"
 
 namespace seissol::model {
 
@@ -11,4 +18,4 @@ struct ViscoElasticLocalData {
 struct ViscoElasticNeighborData {};
 } // namespace seissol::model
 
-#endif
+#endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_INTEGRATIONDATA_H_

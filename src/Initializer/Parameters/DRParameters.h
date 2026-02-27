@@ -1,14 +1,24 @@
-#ifndef SEISSOL_DR_PARAMETERS_H
-#define SEISSOL_DR_PARAMETERS_H
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <string>
-
-#include <Eigen/Dense>
+#ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
+#define SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
 
 #include "Kernels/Precision.h"
 #include "ParameterReader.h"
+#include "Solver/MultipleSimulations.h"
+
+#include <Eigen/Dense>
+#include <numeric>
+#include <string>
 
 namespace seissol::initializer::parameters {
+
+constexpr std::size_t MaxNucleactions = 16;
 
 /**
  * Stores the different types of friction laws
@@ -16,6 +26,7 @@ namespace seissol::initializer::parameters {
  */
 enum class FrictionLawType : unsigned int {
   NoFault = 0,
+  LinearSlipWeakeningLegacy = 2,
   LinearSlipWeakening = 16,
   LinearSlipWeakeningBimaterial = 6,
   LinearSlipWeakeningTPApprox = 1058,
@@ -25,7 +36,7 @@ enum class FrictionLawType : unsigned int {
   ImposedSlipRatesYoffe = 33,
   ImposedSlipRatesGaussian = 34,
   ImposedSlipRatesDelta = 35,
-  RateAndStateVelocityWeakening = 7,
+  RateAndStateSevereVelocityWeakening = 7,
   RateAndStateAgingNucleation = 101,
 };
 
@@ -48,12 +59,14 @@ struct DRParameters {
   bool isThermalPressureOn{false};
   bool isFrictionEnergyRequired{false};
   bool isCheckAbortCriteraEnabled{false};
+  bool energiesFromAcrossFaultVelocities{false};
   OutputType outputPointType{3};
   RefPointMethod refPointMethod{0};
   SlipRateOutputType slipRateOutputType{1};
   FrictionLawType frictionLawType{0};
   real healingThreshold{-1.0};
-  real t0{0.0};
+  std::array<real, MaxNucleactions> t0{};
+  std::array<real, MaxNucleactions> s0{};
   real tpProxyExponent{0.0};
   real rsF0{0.0};
   real rsB{0.0};
@@ -69,12 +82,16 @@ struct DRParameters {
   real vStar{0.0}; // Prakash-Clifton regularization parameter
   real prakashLength{0.0};
   std::string faultFileName;
+  std::array<std::optional<std::string>, seissol::multisim::NumSimulations> faultFileNames;
   Eigen::Vector3d referencePoint;
   real terminatorSlipRateThreshold{0.0};
-  double etaHack{1.0};
+  double etaDamp{1.0};
+  double etaDampEnd{std::numeric_limits<double>::infinity()};
+  unsigned nucleationCount{0};
 };
 
 DRParameters readDRParameters(ParameterReader* baseReader);
 
 } // namespace seissol::initializer::parameters
-#endif // SEISSOL_PARAMETERS_H
+
+#endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_

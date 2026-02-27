@@ -1,359 +1,357 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Wolf (wolf.sebastian AT in.tum.de
- *https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2015 - 2020, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- **/
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Sebastian Wolf
 
-#ifndef ANISOTROPIC_SETUP_H_
-#define ANISOTROPIC_SETUP_H_
+#ifndef SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ANISOTROPICSETUP_H_
+#define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ANISOTROPICSETUP_H_
+
+#include "Datastructures.h"
+#include "Equations/anisotropic/Model/IntegrationData.h"
+#include "GeneratedCode/init.h"
+#include "Kernels/Common.h"
+#include "Model/Common.h"
+#include "Numerical/Transformation.h"
 
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 
-#include "Datastructures.h"
-#include "Kernels/Common.h"
-#include "Model/Common.h"
-#include "Numerical/Transformation.h"
-#include "generated_code/init.h"
-
-namespace seissol {
-namespace model {
+namespace seissol::model {
 using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
-template <typename T>
-inline void
-    getTransposedCoefficientMatrix(const AnisotropicMaterial& material, unsigned dim, T& M) {
-  M.setZero();
-
-  real rhoInv = 1.0 / material.rho;
-
-  switch (dim) {
-  case 0:
-    M(6, 0) = -material.c11;
-    M(7, 0) = -material.c16;
-    M(8, 0) = -material.c15;
-    M(6, 1) = -material.c12;
-    M(7, 1) = -material.c26;
-    M(8, 1) = -material.c25;
-    M(6, 2) = -material.c13;
-    M(7, 2) = -material.c36;
-    M(8, 2) = -material.c35;
-    M(6, 3) = -material.c16;
-    M(7, 3) = -material.c66;
-    M(8, 3) = -material.c56;
-    M(6, 4) = -material.c14;
-    M(7, 4) = -material.c46;
-    M(8, 4) = -material.c45;
-    M(6, 5) = -material.c15;
-    M(7, 5) = -material.c56;
-    M(8, 5) = -material.c55;
-    M(0, 6) = -rhoInv;
-    M(3, 7) = -rhoInv;
-    M(5, 8) = -rhoInv;
-    break;
-
-  case 1:
-    M(6, 0) = -material.c16;
-    M(7, 0) = -material.c12;
-    M(8, 0) = -material.c14;
-    M(6, 1) = -material.c26;
-    M(7, 1) = -material.c22;
-    M(8, 1) = -material.c24;
-    M(6, 2) = -material.c36;
-    M(7, 2) = -material.c23;
-    M(8, 2) = -material.c34;
-    M(6, 3) = -material.c66;
-    M(7, 3) = -material.c26;
-    M(8, 3) = -material.c46;
-    M(6, 4) = -material.c46;
-    M(7, 4) = -material.c24;
-    M(8, 4) = -material.c44;
-    M(6, 5) = -material.c56;
-    M(7, 5) = -material.c25;
-    M(8, 5) = -material.c45;
-    M(3, 6) = -rhoInv;
-    M(1, 7) = -rhoInv;
-    M(4, 8) = -rhoInv;
-    break;
-
-  case 2:
-    M(6, 0) = -material.c15;
-    M(7, 0) = -material.c14;
-    M(8, 0) = -material.c13;
-    M(6, 1) = -material.c25;
-    M(7, 1) = -material.c24;
-    M(8, 1) = -material.c23;
-    M(6, 2) = -material.c35;
-    M(7, 2) = -material.c34;
-    M(8, 2) = -material.c33;
-    M(6, 3) = -material.c56;
-    M(7, 3) = -material.c46;
-    M(8, 3) = -material.c36;
-    M(6, 4) = -material.c45;
-    M(7, 4) = -material.c44;
-    M(8, 4) = -material.c34;
-    M(6, 5) = -material.c55;
-    M(7, 5) = -material.c45;
-    M(8, 5) = -material.c35;
-    M(5, 6) = -rhoInv;
-    M(4, 7) = -rhoInv;
-    M(2, 8) = -rhoInv;
-    break;
-
-  default:
-    break;
-  }
-}
-
-inline void getEigenBasisForAnisotropicMaterial(const AnisotropicMaterial& local,
-                                                const AnisotropicMaterial& neighbor,
-                                                Matrix99& R) {
-  using Matrix33 = Eigen::Matrix<double, 3, 3, Eigen::ColMajor>;
-  using Matrix63 = Eigen::Matrix<double, 6, 3, Eigen::ColMajor>;
-
-  /* Calculate Eigenvectors and Eigenvalues
-   * We want to solve
-   * /0  A\  /s\ = l /s\
-   * \R  0/  \u/     \u/
-   * which is equivalent to
-   * R * A * u = l*l * u && s = 1/l A * u
-   * Here A has shape 6x3 and R has shape 3x6
-   */
-  Eigen::SelfAdjointEigenSolver<Matrix33> saes;
-
-  double raLocal[9];
-  raLocal[0] = local.c11 / local.rho;
-  raLocal[1] = local.c16 / local.rho;
-  raLocal[2] = local.c15 / local.rho;
-  raLocal[3] = local.c16 / local.rho;
-  raLocal[4] = local.c66 / local.rho;
-  raLocal[5] = local.c56 / local.rho;
-  raLocal[6] = local.c15 / local.rho;
-  raLocal[7] = local.c56 / local.rho;
-  raLocal[8] = local.c55 / local.rho;
-  Matrix33 RALocal(raLocal);
-  saes.compute(RALocal);
-  auto eigenvaluesLocal = saes.eigenvalues();
-  auto eigenvectorsLocal = saes.eigenvectors();
-
-  double raNeighbor[9];
-  raNeighbor[0] = neighbor.c11 / neighbor.rho;
-  raNeighbor[1] = neighbor.c16 / neighbor.rho;
-  raNeighbor[2] = neighbor.c15 / neighbor.rho;
-  raNeighbor[3] = neighbor.c16 / neighbor.rho;
-  raNeighbor[4] = neighbor.c66 / neighbor.rho;
-  raNeighbor[5] = neighbor.c56 / neighbor.rho;
-  raNeighbor[6] = neighbor.c15 / neighbor.rho;
-  raNeighbor[7] = neighbor.c56 / neighbor.rho;
-  raNeighbor[8] = neighbor.c55 / neighbor.rho;
-  Matrix33 RANeighbor(raNeighbor);
-  saes.compute(RANeighbor);
-  auto eigenvaluesNeighbor = saes.eigenvalues();
-  auto eigenvectorsNeighbor = saes.eigenvectors();
-
-  double aLocal[18];
-  aLocal[0] = -local.c11;
-  aLocal[1] = -local.c12;
-  aLocal[2] = -local.c13;
-  aLocal[3] = -local.c16;
-  aLocal[4] = -local.c14;
-  aLocal[5] = -local.c15;
-  aLocal[6] = -local.c16;
-  aLocal[7] = -local.c26;
-  aLocal[8] = -local.c36;
-  aLocal[9] = -local.c66;
-  aLocal[10] = -local.c46;
-  aLocal[11] = -local.c56;
-  aLocal[12] = -local.c15;
-  aLocal[13] = -local.c25;
-  aLocal[14] = -local.c35;
-  aLocal[15] = -local.c46;
-  aLocal[16] = -local.c45;
-  aLocal[17] = -local.c55;
-  Matrix63 ALocal(aLocal);
-
-  double aNeighbor[18];
-  aNeighbor[0] = -neighbor.c11;
-  aNeighbor[1] = -neighbor.c12;
-  aNeighbor[2] = -neighbor.c13;
-  aNeighbor[3] = -neighbor.c16;
-  aNeighbor[4] = -neighbor.c14;
-  aNeighbor[5] = -neighbor.c15;
-  aNeighbor[6] = -neighbor.c16;
-  aNeighbor[7] = -neighbor.c26;
-  aNeighbor[8] = -neighbor.c36;
-  aNeighbor[9] = -neighbor.c66;
-  aNeighbor[10] = -neighbor.c46;
-  aNeighbor[11] = -neighbor.c56;
-  aNeighbor[12] = -neighbor.c15;
-  aNeighbor[13] = -neighbor.c25;
-  aNeighbor[14] = -neighbor.c35;
-  aNeighbor[15] = -neighbor.c46;
-  aNeighbor[16] = -neighbor.c45;
-  aNeighbor[17] = -neighbor.c55;
-  Matrix63 ANeighbor(aNeighbor);
-
-  // remember that the eigenvalues of the complete system are the square roots
-  // of the eigenvalues of the reduced system
-  for (unsigned i = 0; i < 3; i++) {
-    eigenvaluesLocal(i) = sqrt(eigenvaluesLocal(i));
-  }
-  auto lambdaLocal = Eigen::Matrix<double, 3, 3, Eigen::ColMajor>(eigenvaluesLocal.asDiagonal());
-  for (unsigned i = 0; i < 3; i++) {
-    eigenvaluesNeighbor(i) = sqrt(eigenvaluesNeighbor(i));
-  }
-  auto lambdaNeighbor = Matrix33(eigenvaluesNeighbor.asDiagonal());
-
-  Matrix63 nullSpaceEigenvectors = Matrix63::Zero();
-  nullSpaceEigenvectors(1, 0) = 1;
-  nullSpaceEigenvectors(2, 1) = 1;
-  nullSpaceEigenvectors(4, 2) = 1;
-
-  R << ALocal * eigenvectorsLocal, nullSpaceEigenvectors, ANeighbor * eigenvectorsNeighbor,
-      -eigenvectorsLocal * lambdaLocal, Matrix33::Zero(), eigenvectorsNeighbor * lambdaNeighbor;
-}
-
 template <>
-inline void getTransposedGodunovState(const AnisotropicMaterial& local,
-                                      const AnisotropicMaterial& neighbor,
-                                      FaceType faceType,
-                                      init::QgodLocal::view::type& QgodLocal,
-                                      init::QgodNeighbor::view::type& QgodNeighbor) {
+struct MaterialSetup<AnisotropicMaterial> {
+  template <typename T>
+  static void
+      getTransposedCoefficientMatrix(const AnisotropicMaterial& material, unsigned dim, T& matM) {
+    matM.setZero();
 
-  Matrix99 R = Matrix99::Zero();
-  getEigenBasisForAnisotropicMaterial(local, neighbor, R);
+    const auto rhoInv = 1.0 / material.rho;
 
-  if (faceType == FaceType::FreeSurface) {
-    getTransposedFreeSurfaceGodunovState(MaterialType::Anisotropic, QgodLocal, QgodNeighbor, R);
+    switch (dim) {
+    case 0:
+      matM(6, 0) = -material.c11;
+      matM(7, 0) = -material.c16;
+      matM(8, 0) = -material.c15;
+      matM(6, 1) = -material.c12;
+      matM(7, 1) = -material.c26;
+      matM(8, 1) = -material.c25;
+      matM(6, 2) = -material.c13;
+      matM(7, 2) = -material.c36;
+      matM(8, 2) = -material.c35;
+      matM(6, 3) = -material.c16;
+      matM(7, 3) = -material.c66;
+      matM(8, 3) = -material.c56;
+      matM(6, 4) = -material.c14;
+      matM(7, 4) = -material.c46;
+      matM(8, 4) = -material.c45;
+      matM(6, 5) = -material.c15;
+      matM(7, 5) = -material.c56;
+      matM(8, 5) = -material.c55;
+      matM(0, 6) = -rhoInv;
+      matM(3, 7) = -rhoInv;
+      matM(5, 8) = -rhoInv;
+      break;
 
-  } else {
-    Matrix99 chi = Matrix99::Zero();
-    chi(0, 0) = 1.0;
-    chi(1, 1) = 1.0;
-    chi(2, 2) = 1.0;
+    case 1:
+      matM(6, 0) = -material.c16;
+      matM(7, 0) = -material.c12;
+      matM(8, 0) = -material.c14;
+      matM(6, 1) = -material.c26;
+      matM(7, 1) = -material.c22;
+      matM(8, 1) = -material.c24;
+      matM(6, 2) = -material.c36;
+      matM(7, 2) = -material.c23;
+      matM(8, 2) = -material.c34;
+      matM(6, 3) = -material.c66;
+      matM(7, 3) = -material.c26;
+      matM(8, 3) = -material.c46;
+      matM(6, 4) = -material.c46;
+      matM(7, 4) = -material.c24;
+      matM(8, 4) = -material.c44;
+      matM(6, 5) = -material.c56;
+      matM(7, 5) = -material.c25;
+      matM(8, 5) = -material.c45;
+      matM(3, 6) = -rhoInv;
+      matM(1, 7) = -rhoInv;
+      matM(4, 8) = -rhoInv;
+      break;
 
-    const auto godunov = ((R * chi) * R.inverse()).eval();
+    case 2:
+      matM(6, 0) = -material.c15;
+      matM(7, 0) = -material.c14;
+      matM(8, 0) = -material.c13;
+      matM(6, 1) = -material.c25;
+      matM(7, 1) = -material.c24;
+      matM(8, 1) = -material.c23;
+      matM(6, 2) = -material.c35;
+      matM(7, 2) = -material.c34;
+      matM(8, 2) = -material.c33;
+      matM(6, 3) = -material.c56;
+      matM(7, 3) = -material.c46;
+      matM(8, 3) = -material.c36;
+      matM(6, 4) = -material.c45;
+      matM(7, 4) = -material.c44;
+      matM(8, 4) = -material.c34;
+      matM(6, 5) = -material.c55;
+      matM(7, 5) = -material.c45;
+      matM(8, 5) = -material.c35;
+      matM(5, 6) = -rhoInv;
+      matM(4, 7) = -rhoInv;
+      matM(2, 8) = -rhoInv;
+      break;
 
-    // QgodLocal = I - QgodNeighbor
-    for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
-      for (unsigned j = 0; j < QgodLocal.shape(0); ++j) {
-        QgodLocal(i, j) = -godunov(j, i);
-        QgodNeighbor(i, j) = godunov(j, i);
+    default:
+      break;
+    }
+  }
+
+  static void getEigenBasisForAnisotropicMaterial(const AnisotropicMaterial& local,
+                                                  const AnisotropicMaterial& neighbor,
+                                                  Matrix99& matR) {
+    using Matrix33 = Eigen::Matrix<double, 3, 3, Eigen::ColMajor>;
+    using Matrix63 = Eigen::Matrix<double, 6, 3, Eigen::ColMajor>;
+
+    // matR == eigenvector matrix
+
+    /* Calculate Eigenvectors and Eigenvalues
+     * We want to solve
+     * /0  A\  /s\ = l /s\
+     * \matR  0/  \u/     \u/
+     * which is equivalent to
+     * matR * A * u = l*l * u && s = 1/l A * u
+     * Here A has shape 6x3 and matR has shape 3x6
+     */
+    Eigen::SelfAdjointEigenSolver<Matrix33> saes;
+
+    std::array<double, 9> localRAData{};
+    localRAData[0] = local.c11 / local.rho;
+    localRAData[1] = local.c16 / local.rho;
+    localRAData[2] = local.c15 / local.rho;
+    localRAData[3] = local.c16 / local.rho;
+    localRAData[4] = local.c66 / local.rho;
+    localRAData[5] = local.c56 / local.rho;
+    localRAData[6] = local.c15 / local.rho;
+    localRAData[7] = local.c56 / local.rho;
+    localRAData[8] = local.c55 / local.rho;
+    const Matrix33 localRA(localRAData.data());
+    saes.compute(localRA);
+    auto eigenvaluesLocal = saes.eigenvalues();
+    auto eigenvectorsLocal = saes.eigenvectors();
+
+    std::array<double, 9> neighborRAData{};
+    neighborRAData[0] = neighbor.c11 / neighbor.rho;
+    neighborRAData[1] = neighbor.c16 / neighbor.rho;
+    neighborRAData[2] = neighbor.c15 / neighbor.rho;
+    neighborRAData[3] = neighbor.c16 / neighbor.rho;
+    neighborRAData[4] = neighbor.c66 / neighbor.rho;
+    neighborRAData[5] = neighbor.c56 / neighbor.rho;
+    neighborRAData[6] = neighbor.c15 / neighbor.rho;
+    neighborRAData[7] = neighbor.c56 / neighbor.rho;
+    neighborRAData[8] = neighbor.c55 / neighbor.rho;
+    const Matrix33 neighborRA(neighborRAData.data());
+    saes.compute(neighborRA);
+    auto eigenvaluesNeighbor = saes.eigenvalues();
+    const auto eigenvectorsNeighbor = saes.eigenvectors();
+
+    std::array<double, 18> localAData{};
+    localAData[0] = -local.c11;
+    localAData[1] = -local.c12;
+    localAData[2] = -local.c13;
+    localAData[3] = -local.c16;
+    localAData[4] = -local.c14;
+    localAData[5] = -local.c15;
+    localAData[6] = -local.c16;
+    localAData[7] = -local.c26;
+    localAData[8] = -local.c36;
+    localAData[9] = -local.c66;
+    localAData[10] = -local.c46;
+    localAData[11] = -local.c56;
+    localAData[12] = -local.c15;
+    localAData[13] = -local.c25;
+    localAData[14] = -local.c35;
+    localAData[15] = -local.c46;
+    localAData[16] = -local.c45;
+    localAData[17] = -local.c55;
+    const Matrix63 localA(localAData.data());
+
+    std::array<double, 18> neighborAData{};
+    neighborAData[0] = -neighbor.c11;
+    neighborAData[1] = -neighbor.c12;
+    neighborAData[2] = -neighbor.c13;
+    neighborAData[3] = -neighbor.c16;
+    neighborAData[4] = -neighbor.c14;
+    neighborAData[5] = -neighbor.c15;
+    neighborAData[6] = -neighbor.c16;
+    neighborAData[7] = -neighbor.c26;
+    neighborAData[8] = -neighbor.c36;
+    neighborAData[9] = -neighbor.c66;
+    neighborAData[10] = -neighbor.c46;
+    neighborAData[11] = -neighbor.c56;
+    neighborAData[12] = -neighbor.c15;
+    neighborAData[13] = -neighbor.c25;
+    neighborAData[14] = -neighbor.c35;
+    neighborAData[15] = -neighbor.c46;
+    neighborAData[16] = -neighbor.c45;
+    neighborAData[17] = -neighbor.c55;
+    const Matrix63 neighborA(neighborAData.data());
+
+    // remember that the eigenvalues of the complete system are the square roots
+    // of the eigenvalues of the reduced system
+    for (unsigned i = 0; i < 3; i++) {
+      eigenvaluesLocal(i) = sqrt(eigenvaluesLocal(i));
+    }
+    auto lambdaLocal = Eigen::Matrix<double, 3, 3, Eigen::ColMajor>(eigenvaluesLocal.asDiagonal());
+    for (unsigned i = 0; i < 3; i++) {
+      eigenvaluesNeighbor(i) = sqrt(eigenvaluesNeighbor(i));
+    }
+    auto lambdaNeighbor = Matrix33(eigenvaluesNeighbor.asDiagonal());
+
+    Matrix63 nullSpaceEigenvectors = Matrix63::Zero();
+    nullSpaceEigenvectors(1, 0) = 1;
+    nullSpaceEigenvectors(2, 1) = 1;
+    nullSpaceEigenvectors(4, 2) = 1;
+
+    matR << localA * eigenvectorsLocal, nullSpaceEigenvectors, neighborA * eigenvectorsNeighbor,
+        -eigenvectorsLocal * lambdaLocal, Matrix33::Zero(), eigenvectorsNeighbor * lambdaNeighbor;
+  }
+
+  static void getTransposedGodunovState(const AnisotropicMaterial& local,
+                                        const AnisotropicMaterial& neighbor,
+                                        FaceType faceType,
+                                        init::QgodLocal::view::type& qGodLocal,
+                                        init::QgodNeighbor::view::type& qGodNeighbor) {
+
+    Matrix99 matR = Matrix99::Zero();
+    getEigenBasisForAnisotropicMaterial(local, neighbor, matR);
+
+    if (faceType == FaceType::FreeSurface) {
+      getTransposedFreeSurfaceGodunovState(
+          MaterialType::Anisotropic, qGodLocal, qGodNeighbor, matR);
+
+    } else {
+      Matrix99 chi = Matrix99::Zero();
+      chi(0, 0) = 1.0;
+      chi(1, 1) = 1.0;
+      chi(2, 2) = 1.0;
+
+      const auto godunov = ((matR * chi) * matR.inverse()).eval();
+
+      // qGodLocal = I - qGodNeighbor
+      for (unsigned i = 0; i < qGodLocal.shape(1); ++i) {
+        for (unsigned j = 0; j < qGodLocal.shape(0); ++j) {
+          qGodLocal(i, j) = -godunov(j, i);
+          qGodNeighbor(i, j) = godunov(j, i);
+        }
+      }
+      for (unsigned idx = 0; idx < qGodLocal.shape(0) && idx < qGodLocal.shape(1); ++idx) {
+        qGodLocal(idx, idx) += 1.0;
       }
     }
-    for (unsigned idx = 0; idx < QgodLocal.shape(0) && idx < QgodLocal.shape(1); ++idx) {
-      QgodLocal(idx, idx) += 1.0;
-    }
   }
-}
 
-template <>
-inline AnisotropicMaterial getRotatedMaterialCoefficients(real rotationParameters[36],
-                                                          AnisotropicMaterial& material) {
-  AnisotropicMaterial rotatedMaterial;
-  rotatedMaterial.rho = material.rho;
-  using Matrix66 = Eigen::Matrix<real, 6, 6>;
-  Matrix66 N = Matrix66(rotationParameters);
-  Matrix66 C = Matrix66();
-  C(0, 0) = material.c11;
-  C(0, 1) = material.c12;
-  C(0, 2) = material.c13;
-  C(0, 3) = material.c14;
-  C(0, 4) = material.c15;
-  C(0, 5) = material.c16;
-  C(1, 0) = material.c12;
-  C(1, 1) = material.c22;
-  C(1, 2) = material.c23;
-  C(1, 3) = material.c24;
-  C(1, 4) = material.c25;
-  C(1, 5) = material.c26;
-  C(2, 0) = material.c13;
-  C(2, 1) = material.c23;
-  C(2, 2) = material.c33;
-  C(2, 3) = material.c34;
-  C(2, 4) = material.c35;
-  C(2, 5) = material.c36;
-  C(3, 0) = material.c14;
-  C(3, 1) = material.c24;
-  C(3, 2) = material.c34;
-  C(3, 3) = material.c44;
-  C(3, 4) = material.c45;
-  C(3, 5) = material.c46;
-  C(4, 0) = material.c15;
-  C(4, 1) = material.c25;
-  C(4, 2) = material.c35;
-  C(4, 3) = material.c45;
-  C(4, 4) = material.c55;
-  C(4, 5) = material.c56;
-  C(5, 0) = material.c16;
-  C(5, 1) = material.c26;
-  C(5, 2) = material.c36;
-  C(5, 3) = material.c46;
-  C(5, 4) = material.c56;
-  C(5, 5) = material.c66;
+  static AnisotropicMaterial
+      getRotatedMaterialCoefficients(const std::array<double, 36>& rotationParameters,
+                                     AnisotropicMaterial& material) {
+    AnisotropicMaterial rotatedMaterial;
+    rotatedMaterial.rho = material.rho;
+    using Matrix66 = Eigen::Matrix<double, 6, 6>;
+    const Matrix66 mN(rotationParameters.data());
+    Matrix66 mC = Matrix66();
+    mC(0, 0) = material.c11;
+    mC(0, 1) = material.c12;
+    mC(0, 2) = material.c13;
+    mC(0, 3) = material.c14;
+    mC(0, 4) = material.c15;
+    mC(0, 5) = material.c16;
+    mC(1, 0) = material.c12;
+    mC(1, 1) = material.c22;
+    mC(1, 2) = material.c23;
+    mC(1, 3) = material.c24;
+    mC(1, 4) = material.c25;
+    mC(1, 5) = material.c26;
+    mC(2, 0) = material.c13;
+    mC(2, 1) = material.c23;
+    mC(2, 2) = material.c33;
+    mC(2, 3) = material.c34;
+    mC(2, 4) = material.c35;
+    mC(2, 5) = material.c36;
+    mC(3, 0) = material.c14;
+    mC(3, 1) = material.c24;
+    mC(3, 2) = material.c34;
+    mC(3, 3) = material.c44;
+    mC(3, 4) = material.c45;
+    mC(3, 5) = material.c46;
+    mC(4, 0) = material.c15;
+    mC(4, 1) = material.c25;
+    mC(4, 2) = material.c35;
+    mC(4, 3) = material.c45;
+    mC(4, 4) = material.c55;
+    mC(4, 5) = material.c56;
+    mC(5, 0) = material.c16;
+    mC(5, 1) = material.c26;
+    mC(5, 2) = material.c36;
+    mC(5, 3) = material.c46;
+    mC(5, 4) = material.c56;
+    mC(5, 5) = material.c66;
 
-  Matrix66 rotatedC = N.transpose() * C * N;
+    Matrix66 rotatedC = mN.transpose() * mC * mN;
 
-  rotatedMaterial.c11 = rotatedC(0, 0);
-  rotatedMaterial.c12 = rotatedC(0, 1);
-  rotatedMaterial.c13 = rotatedC(0, 2);
-  rotatedMaterial.c14 = rotatedC(0, 3);
-  rotatedMaterial.c15 = rotatedC(0, 4);
-  rotatedMaterial.c16 = rotatedC(0, 5);
-  rotatedMaterial.c22 = rotatedC(1, 1);
-  rotatedMaterial.c23 = rotatedC(1, 2);
-  rotatedMaterial.c24 = rotatedC(1, 3);
-  rotatedMaterial.c25 = rotatedC(1, 4);
-  rotatedMaterial.c26 = rotatedC(1, 5);
-  rotatedMaterial.c33 = rotatedC(2, 2);
-  rotatedMaterial.c34 = rotatedC(2, 3);
-  rotatedMaterial.c35 = rotatedC(2, 4);
-  rotatedMaterial.c36 = rotatedC(2, 5);
-  rotatedMaterial.c44 = rotatedC(3, 3);
-  rotatedMaterial.c45 = rotatedC(3, 4);
-  rotatedMaterial.c46 = rotatedC(3, 5);
-  rotatedMaterial.c55 = rotatedC(4, 4);
-  rotatedMaterial.c56 = rotatedC(4, 5);
-  rotatedMaterial.c66 = rotatedC(5, 5);
-  return rotatedMaterial;
-}
-} // namespace model
-} // namespace seissol
+    rotatedMaterial.c11 = rotatedC(0, 0);
+    rotatedMaterial.c12 = rotatedC(0, 1);
+    rotatedMaterial.c13 = rotatedC(0, 2);
+    rotatedMaterial.c14 = rotatedC(0, 3);
+    rotatedMaterial.c15 = rotatedC(0, 4);
+    rotatedMaterial.c16 = rotatedC(0, 5);
+    rotatedMaterial.c22 = rotatedC(1, 1);
+    rotatedMaterial.c23 = rotatedC(1, 2);
+    rotatedMaterial.c24 = rotatedC(1, 3);
+    rotatedMaterial.c25 = rotatedC(1, 4);
+    rotatedMaterial.c26 = rotatedC(1, 5);
+    rotatedMaterial.c33 = rotatedC(2, 2);
+    rotatedMaterial.c34 = rotatedC(2, 3);
+    rotatedMaterial.c35 = rotatedC(2, 4);
+    rotatedMaterial.c36 = rotatedC(2, 5);
+    rotatedMaterial.c44 = rotatedC(3, 3);
+    rotatedMaterial.c45 = rotatedC(3, 4);
+    rotatedMaterial.c46 = rotatedC(3, 5);
+    rotatedMaterial.c55 = rotatedC(4, 4);
+    rotatedMaterial.c56 = rotatedC(4, 5);
+    rotatedMaterial.c66 = rotatedC(5, 5);
+    return rotatedMaterial;
+  }
 
-#endif
+  static void initializeSpecificLocalData(const AnisotropicMaterial& material,
+                                          double timeStepWidth,
+                                          AnisotropicLocalData* localData) {}
+
+  static void initializeSpecificNeighborData(const AnisotropicMaterial& material,
+                                             AnisotropicNeighborData* localData) {}
+
+  static void getPlaneWaveOperator(const AnisotropicMaterial& material,
+                                   const double n[3],
+                                   std::complex<double> mdata[AnisotropicMaterial::NumQuantities *
+                                                              AnisotropicMaterial::NumQuantities]) {
+    getElasticPlaneWaveOperator(material, n, mdata);
+  }
+  template <typename T>
+  static void getTransposedSourceCoefficientTensor(const AnisotropicMaterial& material,
+                                                   T& sourceMatrix) {}
+
+  static void getFaceRotationMatrix(const VrtxCoords normal,
+                                    const VrtxCoords tangent1,
+                                    const VrtxCoords tangent2,
+                                    init::T::view::type& matT,
+                                    init::Tinv::view::type& matTinv) {
+    ::seissol::model::getFaceRotationMatrix<ElasticMaterial>(
+        normal, tangent1, tangent2, matT, matTinv);
+  }
+};
+
+} // namespace seissol::model
+
+#endif // SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ANISOTROPICSETUP_H_

@@ -1,20 +1,31 @@
-#include <Equations/Datastructures.h>
-#include <Initializer/Parameters/InitializationParameters.h>
-#include <Initializer/Typedefs.h>
-#include <Model/Common.h>
+// SPDX-FileCopyrightText: 2019 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#include "Physics/InitialField.h"
+
+#include "Equations/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/Parameters/InitializationParameters.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Model/Common.h"
+#include "Model/CommonDatastructures.h"
+#include "Numerical/Eigenvalues.h"
+#include "Solver/MultipleSimulations.h"
+
+#include <Eigen/Core>
 #include <array>
 #include <cassert>
 #include <cmath>
 #include <complex>
 #include <cstddef>
-#include <init.h>
 #include <limits>
 #include <math.h>
-#include <tensor.h>
-
-#include "Kernels/Precision.h"
-#include "Numerical/Eigenvalues.h"
-#include "Physics/InitialField.h"
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -41,31 +52,34 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          Eigen::Vector3d kVec)
     : m_phase(phase), m_kVec(std::move(kVec)) {
 
-#ifndef USE_POROELASTIC
-  bool isAcoustic = false;
-#ifndef USE_ANISOTROPIC
-  isAcoustic = materialData.local.getMuBar() <= 1e-15;
-#endif
-  if (isAcoustic) {
+  if constexpr (model::MaterialT::Type == model::MaterialType::Acoustic) {
     // Acoustic materials has the following wave modes:
-    // -P, N, N, N, N, N, N, N, P
+    // P, N, N, -P
     // Here we impose the P mode
-    m_varField = {8};
+    m_varField = {0};
     m_ampField = {1.0};
+  } else if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+    // Poroelastic materials have the following wave modes:
+    //-P, -S2, -S1, -Ps, N, N, N, N, N, Ps, S1, S2, P
+    // Here we impose -S1, -Ps and P
+    m_varField = {2, 3, 12};
+    m_ampField = {1.0, 1.0, 1.0};
   } else {
-    // Elastic materials have the following wave modes:
-    // -P, -S2, -S1, N, N, N, S1, S2, P
-    // Here we impose the -S2 and P mode
-    m_varField = {1, 8};
-    m_ampField = {1.0, 1.0};
+    const auto isAcoustic = materialData.local->getMuBar() <= 1e-15;
+    if (isAcoustic) {
+      // Acoustic materials has the following wave modes:
+      // -P, N, N, N, N, N, N, N, P
+      // Here we impose the P mode
+      m_varField = {8};
+      m_ampField = {1.0};
+    } else {
+      // Elastic materials have the following wave modes:
+      // -P, -S2, -S1, N, N, N, S1, S2, P
+      // Here we impose the -S2 and P mode
+      m_varField = {1, 8};
+      m_ampField = {1.0, 1.0};
+    }
   }
-#else
-  // Poroelastic materials have the following wave modes:
-  //-P, -S2, -S1, -Ps, N, N, N, N, N, Ps, S1, S2, P
-  // Here we impose -S1, -Ps and P
-  m_varField = {2, 3, 12};
-  m_ampField = {1.0, 1.0, 1.0};
-#endif
   init(materialData);
 }
 
@@ -75,32 +89,31 @@ void seissol::physics::Planarwave::init(const CellMaterialData& materialData) {
   std::array<std::complex<double>,
              seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
       planeWaveOperator{};
-  seissol::model::getPlaneWaveOperator(materialData.local, m_kVec.data(), planeWaveOperator.data());
+  seissol::model::getPlaneWaveOperator(*dynamic_cast<model::MaterialT*>(materialData.local),
+                                       m_kVec.data(),
+                                       planeWaveOperator.data());
   seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities>
       eigendecomposition;
-#ifdef USE_POROELASTIC
-  computeEigenvaluesWithLapack(planeWaveOperator, eigendecomposition);
-#else
-  computeEigenvaluesWithEigen3(planeWaveOperator, eigendecomposition);
-#endif
+  computeEigenvalues(planeWaveOperator, eigendecomposition);
   m_lambdaA = eigendecomposition.values;
   m_eigenvectors = eigendecomposition.vectors;
 }
 
 void seissol::physics::Planarwave::evaluate(
     double time,
-    const std::vector<std::array<double, 3>>& points,
-    const CellMaterialData& materialData,
+    const std::array<double, 3>* points,
+    std::size_t count,
+    const CellMaterialData& /*materialData*/,
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
 
-  auto r = yateto::DenseTensorView<2, std::complex<double>>(
-      const_cast<std::complex<double>*>(m_eigenvectors.data()),
+  const auto r = yateto::DenseTensorView<2, std::complex<double>, unsigned, true>(
+      m_eigenvectors.data(),
       {seissol::model::MaterialT::NumQuantities, seissol::model::MaterialT::NumQuantities});
   for (unsigned v = 0; v < m_varField.size(); ++v) {
     const auto omega = m_lambdaA[m_varField[v]];
     for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
-      for (size_t i = 0; i < points.size(); ++i) {
+      for (size_t i = 0; i < count; ++i) {
         dofsQP(i, j) +=
             (r(j, m_varField[v]) * m_ampField[v] *
              std::exp(std::complex<double>(0.0, 1.0) *
@@ -114,27 +127,32 @@ void seissol::physics::Planarwave::evaluate(
 
 seissol::physics::SuperimposedPlanarwave::SuperimposedPlanarwave(
     const CellMaterialData& materialData, real phase)
-    : m_kVec({{{M_PI, 0.0, 0.0}, {0.0, M_PI, 0.0}, {0.0, 0.0, M_PI}}}), m_phase(phase),
+    : m_kVec({{{M_PI, 0.0, 0.0}, {0.0, M_PI, 0.0}, {0.0, 0.0, M_PI}}}),
       m_pw({Planarwave(materialData, phase, m_kVec.at(0)),
             Planarwave(materialData, phase, m_kVec.at(1)),
             Planarwave(materialData, phase, m_kVec.at(2))}) {}
 
 void seissol::physics::SuperimposedPlanarwave::evaluate(
     double time,
-    const std::vector<std::array<double, 3>>& points,
+    const std::array<double, 3>* points,
+    std::size_t count,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
 
-  real dofsPwData[tensor::dofsQP::size()];
-  yateto::DenseTensorView<2, real, unsigned> dofsPW = init::dofsQP::view::create(dofsPwData);
+  const std::size_t basisFunCount = init::Q::Shape[multisim::BasisFunctionDimension];
+  const std::size_t quantityCount = init::Q::Shape[multisim::BasisFunctionDimension + 1];
+
+  std::vector<real> dofsPwVector(quantityCount * basisFunCount);
+  auto dofsPW = yateto::DenseTensorView<2, real, unsigned>(
+      dofsPwVector.data(), {basisFunCount, quantityCount}, {0, 0}, {basisFunCount, quantityCount});
 
   for (int pw = 0; pw < 3; pw++) {
     // evaluate each planarwave
-    m_pw.at(pw).evaluate(time, points, materialData, dofsPW);
+    m_pw.at(pw).evaluate(time, points, count, materialData, dofsPW);
     // and add results together
     for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
-      for (size_t i = 0; i < points.size(); ++i) {
+      for (size_t i = 0; i < count; ++i) {
         dofsQP(i, j) += dofsPW(i, j);
       }
     }
@@ -165,15 +183,12 @@ seissol::physics::TravellingWave::TravellingWave(
 seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(
     const CellMaterialData& materialData,
     const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersItm)
-    : rho0(materialData.local.rho),
-      c0(sqrt(materialData.local.getLambdaBar() / materialData.local.rho)),
+    : rho0(materialData.local->getDensity()),
+      c0(sqrt(materialData.local->getLambdaBar() / materialData.local->getDensity())),
       k(acousticTravellingWaveParametersItm.k),
-      tITMMinus(acousticTravellingWaveParametersItm.itmStartingTime), tITMPlus(tITMMinus + tau),
-      tau(acousticTravellingWaveParametersItm.itmDuration),
+      tITMMinus(acousticTravellingWaveParametersItm.itmStartingTime),
+      tau(acousticTravellingWaveParametersItm.itmDuration), tITMPlus(tITMMinus + tau),
       n(acousticTravellingWaveParametersItm.itmVelocityScalingFactor) {
-#ifdef USE_ANISOTROPIC
-  logError() << "This has not been yet implemented for anisotropic material";
-#else
   logInfo() << "Starting Test for Acoustic Travelling Wave with ITM";
 
   logInfo() << "rho0 = " << rho0;
@@ -183,26 +198,19 @@ seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(
 
   logInfo() << "Setting up the Initial Conditions";
   init(materialData);
-#endif
 }
 
-void seissol::physics::AcousticTravellingWaveITM::init(const CellMaterialData& materialData) {
-#ifdef USE_ANISOTROPIC
-  logError() << "This has not been yet implemented for anisotropic material";
-#endif
-}
+void seissol::physics::AcousticTravellingWaveITM::init(const CellMaterialData& materialData) {}
 
 void seissol::physics::AcousticTravellingWaveITM::evaluate(
     double time,
-    const std::vector<std::array<double, 3>>& points,
-    const CellMaterialData& materialData,
+    const std::array<double, 3>* points,
+    std::size_t count,
+    const CellMaterialData& /*materialData*/,
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
-#ifdef USE_ANISOTROPIC
-  logError() << "This has not been yet implemented for anisotropic material";
-#else
   dofsQP.setZero();
   double pressure = 0.0;
-  for (size_t i = 0; i < points.size(); ++i) {
+  for (size_t i = 0; i < count; ++i) {
     const auto& coordinates = points[i];
     const auto x = coordinates[0];
     const auto t = time;
@@ -260,23 +268,23 @@ void seissol::physics::AcousticTravellingWaveITM::evaluate(
       dofsQP(i, 8) = 0.0;                                                                      // w
     }
   }
-#endif
 }
 
 void seissol::physics::TravellingWave::evaluate(
     double time,
-    const std::vector<std::array<double, 3>>& points,
-    const CellMaterialData& materialData,
+    const std::array<double, 3>* points,
+    std::size_t count,
+    const CellMaterialData& /*materialData*/,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
   dofsQp.setZero();
 
-  auto r = yateto::DenseTensorView<2, std::complex<double>>(
-      const_cast<std::complex<double>*>(m_eigenvectors.data()),
+  const auto r = yateto::DenseTensorView<2, std::complex<double>, unsigned, true>(
+      m_eigenvectors.data(),
       {seissol::model::MaterialT::NumQuantities, seissol::model::MaterialT::NumQuantities});
   for (unsigned v = 0; v < m_varField.size(); ++v) {
     const auto omega = m_lambdaA[m_varField[v]];
     for (unsigned j = 0; j < dofsQp.shape(1); ++j) {
-      for (size_t i = 0; i < points.size(); ++i) {
+      for (size_t i = 0; i < count; ++i) {
         auto arg = std::complex<double>(0.0, 1.0) *
                    (omega * time - m_kVec[0] * (points[i][0] - m_origin[0]) -
                     m_kVec[1] * (points[i][1] - m_origin[1]) -
@@ -297,14 +305,15 @@ seissol::physics::PressureInjection::PressureInjection(
   const auto o3 = m_parameters.origin[2];
   const auto magnitude = m_parameters.magnitude;
   const auto width = m_parameters.width;
-  logInfo(0) << "Prepare gaussian pressure perturbation with center at (" << o1 << ", " << o2
-             << ", " << o3 << "), magnitude = " << magnitude << ", width = " << width << ".";
+  logInfo() << "Prepare gaussian pressure perturbation with center at (" << o1 << ", " << o2 << ", "
+            << o3 << "), magnitude = " << magnitude << ", width = " << width << ".";
 }
 
 void seissol::physics::PressureInjection::evaluate(
-    double time,
-    const std::vector<std::array<double, 3>>& points,
-    const CellMaterialData& materialData,
+    double /*time*/,
+    const std::array<double, 3>* points,
+    std::size_t count,
+    const CellMaterialData& /*materialData*/,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
   const auto o1 = m_parameters.origin[0];
   const auto o2 = m_parameters.origin[1];
@@ -312,7 +321,7 @@ void seissol::physics::PressureInjection::evaluate(
   const auto magnitude = m_parameters.magnitude;
   const auto width = m_parameters.width;
 
-  for (size_t i = 0; i < points.size(); ++i) {
+  for (size_t i = 0; i < count; ++i) {
     const auto& x = points[i];
     const auto x1 = x[0];
     const auto x2 = x[1];
@@ -336,16 +345,16 @@ void seissol::physics::PressureInjection::evaluate(
 
 void seissol::physics::ScholteWave::evaluate(
     double time,
-    const std::vector<std::array<double, 3>>& points,
+    const std::array<double, 3>* points,
+    std::size_t count,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
-#ifndef USE_ANISOTROPIC
   const real omega = 2.0 * std::acos(-1);
 
-  for (size_t i = 0; i < points.size(); ++i) {
+  for (size_t i = 0; i < count; ++i) {
     const auto& x = points[i];
     const bool isAcousticPart =
-        std::abs(materialData.local.getMuBar()) < std::numeric_limits<real>::epsilon();
+        std::abs(materialData.local->getMuBar()) < std::numeric_limits<real>::epsilon();
     const auto x1 = x[0];
     const auto x3 = x[2];
     const auto t = time;
@@ -406,24 +415,21 @@ void seissol::physics::ScholteWave::evaluate(
               std::cos(omega * t - 1.406466352506808 * omega * x1); // w
     }
   }
-#else
-  dofsQp.setZero();
-#endif
 }
 
 void seissol::physics::SnellsLaw::evaluate(
     double time,
-    const std::vector<std::array<double, 3>>& points,
+    const std::array<double, 3>* points,
+    std::size_t count,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
-#ifndef USE_ANISOTROPIC
   const double pi = std::acos(-1);
   const double omega = 2.0 * pi;
 
-  for (size_t i = 0; i < points.size(); ++i) {
+  for (size_t i = 0; i < count; ++i) {
     const auto& x = points[i];
     const bool isAcousticPart =
-        std::abs(materialData.local.getMuBar()) < std::numeric_limits<real>::epsilon();
+        std::abs(materialData.local->getMuBar()) < std::numeric_limits<real>::epsilon();
 
     const auto x1 = x[0];
     const auto x3 = x[2];
@@ -511,9 +517,6 @@ void seissol::physics::SnellsLaw::evaluate(
                                        (0.59600799238518454 * x1 + 0.8029785009656123 * x3)); // w
     }
   }
-#else
-  dofsQp.setZero();
-#endif
 }
 
 seissol::physics::Ocean::Ocean(int mode, double gravitationalAcceleration)
@@ -523,11 +526,11 @@ seissol::physics::Ocean::Ocean(int mode, double gravitationalAcceleration)
   }
 }
 void seissol::physics::Ocean::evaluate(double time,
-                                       const std::vector<std::array<double, 3>>& points,
+                                       const std::array<double, 3>* points,
+                                       std::size_t count,
                                        const CellMaterialData& materialData,
                                        yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
-#ifndef USE_ANISOTROPIC
-  for (size_t i = 0; i < points.size(); ++i) {
+  for (size_t i = 0; i < count; ++i) {
     const auto x = points[i][0];
     const auto y = points[i][1];
     const auto z = points[i][2];
@@ -537,11 +540,11 @@ void seissol::physics::Ocean::evaluate(double time,
     if (std::abs(g - 9.81e-3) > 10e-15) {
       logError() << "Ocean scenario only supports g=9.81e-3 currently!";
     }
-    if (materialData.local.getMuBar() > 10e-15) {
+    if (materialData.local->getMuBar() > 10e-15) {
       logError() << "Ocean scenario only works for acoustic material (mu = 0.0)!";
     }
     const double pi = std::acos(-1);
-    const double rho = materialData.local.rho;
+    const double rho = materialData.local->getDensity();
 
     const double lx = 10.0;    // km
     const double ly = 10.0;    // km
@@ -561,41 +564,53 @@ void seissol::physics::Ocean::evaluate(double time,
     const auto b = g * kStar / (omega * omega);
     constexpr auto ScalingFactor = 1;
 
-    // Shear stresses are zero for elastic
-    dofsQp(i, 3) = 0.0;
-    dofsQp(i, 4) = 0.0;
-    dofsQp(i, 5) = 0.0;
+    const auto setStresses = [&](double value) {
+      if constexpr (model::MaterialT::Type == model::MaterialType::Elastic) {
+        dofsQp(i, 0) = value;
+        dofsQp(i, 1) = value;
+        dofsQp(i, 2) = value;
+
+        // Shear stresses are zero for elastic
+        dofsQp(i, 3) = 0.0;
+        dofsQp(i, 4) = 0.0;
+        dofsQp(i, 5) = 0.0;
+      } else {
+        dofsQp(i, 0) = value;
+      }
+    };
+
+    constexpr auto UIdx = model::MaterialT::TractionQuantities;
+    constexpr auto VIdx = model::MaterialT::TractionQuantities + 1;
+    constexpr auto WIdx = model::MaterialT::TractionQuantities + 2;
 
     if (mode == 0) {
       // Gravity mode
       const auto pressure = -std::sin(kX * x) * std::sin(kY * y) * std::sin(omega * t) *
                             (std::sinh(kStar * z) + b * std::cosh(kStar * z));
-      dofsQp(i, 0) = ScalingFactor * pressure;
-      dofsQp(i, 1) = ScalingFactor * pressure;
-      dofsQp(i, 2) = ScalingFactor * pressure;
 
-      dofsQp(i, 6) = ScalingFactor * (kX / (omega * rho)) * std::cos(kX * x) * std::sin(kY * y) *
-                     std::cos(omega * t) * (std::sinh(kStar * z) + b * std::cosh(kStar * z));
-      dofsQp(i, 7) = ScalingFactor * (kY / (omega * rho)) * std::sin(kX * x) * std::cos(kY * y) *
-                     std::cos(omega * t) * (std::sinh(kStar * z) + b * std::cosh(kStar * z));
-      dofsQp(i, 8) = ScalingFactor * (kStar / (omega * rho)) * std::sin(kX * x) * std::sin(kY * y) *
-                     std::cos(omega * t) * (std::cosh(kStar * z) + b * std::sinh(kStar * z));
+      setStresses(ScalingFactor * pressure);
+
+      dofsQp(i, UIdx) = ScalingFactor * (kX / (omega * rho)) * std::cos(kX * x) * std::sin(kY * y) *
+                        std::cos(omega * t) * (std::sinh(kStar * z) + b * std::cosh(kStar * z));
+      dofsQp(i, VIdx) = ScalingFactor * (kY / (omega * rho)) * std::sin(kX * x) * std::cos(kY * y) *
+                        std::cos(omega * t) * (std::sinh(kStar * z) + b * std::cosh(kStar * z));
+      dofsQp(i, WIdx) = ScalingFactor * (kStar / (omega * rho)) * std::sin(kX * x) *
+                        std::sin(kY * y) * std::cos(omega * t) *
+                        (std::cosh(kStar * z) + b * std::sinh(kStar * z));
     } else {
       // Elastic-acoustic mode
       const auto pressure = -std::sin(kX * x) * std::sin(kY * y) * std::sin(omega * t) *
                             (std::sin(kStar * z) + b * std::cos(kStar * z));
-      dofsQp(i, 0) = ScalingFactor * pressure;
-      dofsQp(i, 1) = ScalingFactor * pressure;
-      dofsQp(i, 2) = ScalingFactor * pressure;
-      dofsQp(i, 6) = ScalingFactor * (kX / (omega * rho)) * std::cos(kX * x) * std::sin(kY * y) *
-                     std::cos(omega * t) * (std::sin(kStar * z) + b * std::cos(kStar * z));
-      dofsQp(i, 7) = ScalingFactor * (kY / (omega * rho)) * std::sin(kX * x) * std::cos(kY * y) *
-                     std::cos(omega * t) * (std::sin(kStar * z) + b * std::cos(kStar * z));
-      dofsQp(i, 8) = ScalingFactor * (kStar / (omega * rho)) * std::sin(kX * x) * std::sin(kY * y) *
-                     std::cos(omega * t) * (std::cos(kStar * z) - b * std::sin(kStar * z));
+
+      setStresses(ScalingFactor * pressure);
+
+      dofsQp(i, UIdx) = ScalingFactor * (kX / (omega * rho)) * std::cos(kX * x) * std::sin(kY * y) *
+                        std::cos(omega * t) * (std::sin(kStar * z) + b * std::cos(kStar * z));
+      dofsQp(i, VIdx) = ScalingFactor * (kY / (omega * rho)) * std::sin(kX * x) * std::cos(kY * y) *
+                        std::cos(omega * t) * (std::sin(kStar * z) + b * std::cos(kStar * z));
+      dofsQp(i, WIdx) = ScalingFactor * (kStar / (omega * rho)) * std::sin(kX * x) *
+                        std::sin(kY * y) * std::cos(omega * t) *
+                        (std::cos(kStar * z) - b * std::sin(kStar * z));
     }
   }
-#else
-  dofsQp.setZero();
-#endif
 }

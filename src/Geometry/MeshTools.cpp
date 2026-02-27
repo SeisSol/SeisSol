@@ -1,44 +1,16 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (rettenbs AT in.tum.de,
- *http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2014, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- **/
+// SPDX-FileCopyrightText: 2014 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
 #include "MeshTools.h"
 
-#include <Geometry/MeshDefinition.h>
+#include "Common/Constants.h"
+#include "Geometry/MeshDefinition.h"
+
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -51,7 +23,7 @@ const int MeshTools::FACE2MISSINGNODE[4] = {3, 2, 1, 0};
 const int MeshTools::NEIGHBORFACENODE2LOCAL[3] = {0, 2, 1};
 
 void MeshTools::center(const Element& e, const std::vector<Vertex>& vertices, VrtxCoords center) {
-  for (int i = 0; i < 3; i++) {
+  for (std::size_t i = 0; i < Cell::Dim; i++) {
     center[i] = .25 * (vertices[e.vertices[0]].coords[i] + vertices[e.vertices[1]].coords[i] +
                        vertices[e.vertices[2]].coords[i] + vertices[e.vertices[3]].coords[i]);
   }
@@ -61,7 +33,7 @@ void MeshTools::center(const Element& e,
                        int face,
                        const std::vector<Vertex>& vertices,
                        VrtxCoords center) {
-  for (int i = 0; i < 3; i++) {
+  for (std::size_t i = 0; i < Cell::Dim; i++) {
     center[i] = (1.0 / 3.0) * (vertices[e.vertices[FACE2NODES[face][0]]].coords[i] +
                                vertices[e.vertices[FACE2NODES[face][1]]].coords[i] +
                                vertices[e.vertices[FACE2NODES[face][2]]].coords[i]);
@@ -97,13 +69,13 @@ void MeshTools::normalAndTangents(const Element& e,
 }
 
 void MeshTools::sub(const VrtxCoords v1, const VrtxCoords v2, VrtxCoords diff) {
-  for (int i = 0; i < 3; i++) {
+  for (std::size_t i = 0; i < Cell::Dim; i++) {
     diff[i] = v1[i] - v2[i];
   }
 }
 
 void MeshTools::mul(const VrtxCoords v, double s, VrtxCoords prod) {
-  for (int i = 0; i < 3; i++) {
+  for (std::size_t i = 0; i < Cell::Dim; i++) {
     prod[i] = v[i] * s;
   }
 }
@@ -169,7 +141,7 @@ void MeshTools::pointOnPlane(const Element& e,
                              VrtxCoords result) {
   const size_t index = e.vertices[FACE2NODES[face][0]];
   assert(index < vertices.size());
-  for (int i = 0; i < 3; i++) {
+  for (std::size_t i = 0; i < Cell::Dim; i++) {
     result[i] = vertices[index].coords[i];
   }
 }
@@ -180,7 +152,8 @@ bool MeshTools::inside(const Element& e, const std::vector<Vertex>& vertices, co
    * The point is inside the tetrahedron if it lies on the backside
    * of each of the 4 planes defined by the normal vectors (and a point
    * on the plane). */
-  for (unsigned face = 0; face < 4; ++face) {
+  static_assert(Cell::NumFaces == 4, "Non-tetrahedral meshes are not supported here yet.");
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     VrtxCoords pp;
     sub(p, vertices[e.vertices[FACE2NODES[face][0]]].coords, pp);
     normal(e, face, vertices, nrm);

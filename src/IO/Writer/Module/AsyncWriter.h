@@ -1,13 +1,17 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_IO_WRITER_MODULE_ASYNCWRITER_H_
 #define SEISSOL_SRC_IO_WRITER_MODULE_ASYNCWRITER_H_
 
-#include "async/ExecInfo.h"
-#include "async/Module.h"
-#include <IO/Writer/Writer.h>
+#include "IO/Writer/Writer.h"
+
+#include <async/ExecInfo.h>
+#include <async/Module.h>
 #include <mutex>
 
 namespace seissol::io::writer::module {
@@ -17,7 +21,15 @@ struct AsyncWriterExec {};
 
 class AsyncWriter {
   public:
-  AsyncWriter() = default;
+  AsyncWriter();
+  ~AsyncWriter();
+
+  AsyncWriter(const AsyncWriter&) = delete;
+  AsyncWriter(AsyncWriter&&) = delete;
+  auto operator=(const AsyncWriter&) = delete;
+  auto operator=(AsyncWriter&&) = delete;
+
+  void setComm(MPI_Comm comm);
   void execInit(const async::ExecInfo& info, const AsyncWriterInit& params);
   void exec(const async::ExecInfo& info, const AsyncWriterExec& params);
   void execWait(const async::ExecInfo& info);
@@ -28,6 +40,7 @@ class AsyncWriter {
   bool printPlan{false};
   seissol::io::writer::Writer writer;
   std::optional<seissol::io::writer::WriteInstance> instance;
+  MPI_Comm comm{MPI_COMM_WORLD};
 
   static std::mutex globalLock;
 };

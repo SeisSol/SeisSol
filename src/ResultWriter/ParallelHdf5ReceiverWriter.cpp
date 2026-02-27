@@ -1,16 +1,17 @@
 // ParallelHdf5ReceiverWriter.cpp
 
 #include "ParallelHdf5ReceiverWriter.h"
+
 #include <iostream>
 
 ParallelHdf5ReceiverWriter::ParallelHdf5ReceiverWriter(MPI_Comm comm,
                                                        const std::string& filename,
                                                        hsize_t totalReceivers,
-                                                       hsize_t numVariables)
-    : comm_(comm)
-{
+                                                       hsize_t numVariables,
+                                                       hsize_t totalTimeSteps)
+    : comm_(comm) {
 
-  dims_[0] = H5S_UNLIMITED;
+  dims_[0] = totalTimeSteps;
   dims_[1] = totalReceivers;
   dims_[2] = numVariables;
 
@@ -23,16 +24,19 @@ ParallelHdf5ReceiverWriter::ParallelHdf5ReceiverWriter(MPI_Comm comm,
   H5Pclose(plistId);
 
   // Create dataspace
-  hsize_t initialDims[RANK] = {0, totalReceivers, numVariables};
-  hsize_t maxDims[RANK] = {H5S_UNLIMITED, totalReceivers, numVariables};
-  filespaceId_ = H5Screate_simple(RANK, initialDims, maxDims);
+  // hsize_t initialDims[RANK] = {0, totalReceivers, numVariables};
+  // hsize_t maxDims[RANK] = {H5S_UNLIMITED, totalReceivers, numVariables};
+  // filespaceId_ = H5Screate_simple(RANK, initialDims, maxDims);
+
+  hsize_t datasetDims[RANK] = {totalTimeSteps, totalReceivers, numVariables};
+  filespaceId_ = H5Screate_simple(RANK, datasetDims, nullptr); // No maxDims needed
 
   // Create a dataset creation property list for "ReceiverData".
-  hid_t dcplId = H5Pcreate(H5P_DATASET_CREATE);
-  hsize_t chunkDims[RANK] = {5000, totalReceivers, numVariables};
+  // hid_t dcplId = H5Pcreate(H5P_DATASET_CREATE);
+  // hsize_t chunkDims[RANK] = {128, 4096, 10};
 
   // 4. Enable chunking
-  H5Pset_chunk(dcplId, 3, chunkDims);
+  // H5Pset_chunk(dcplId, 3, chunkDims);
 
   // Create dataset "ReceiverData"
   dsetId_ = H5Dcreate(fileId_,
@@ -40,10 +44,10 @@ ParallelHdf5ReceiverWriter::ParallelHdf5ReceiverWriter(MPI_Comm comm,
                       H5T_NATIVE_DOUBLE,
                       filespaceId_,
                       H5P_DEFAULT,
-                      dcplId,
+                      H5P_DEFAULT,
                       H5P_DEFAULT);
 
-  H5Pclose(dcplId);
+  // H5Pclose(dcplId);
 
   // Create dataspace for pointIds
   hsize_t pointIdDims_[1] = {totalReceivers}; // 1D array for pointIds
@@ -72,66 +76,9 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
             << " dataSize=" << data.size() << std::endl;
   std::fflush(stdout); // Force immediate flush to see this output in real time
 
-  // ----------------------------------------------------
-  // 1) Extend the dataset along the unlimited dimension
-  // ----------------------------------------------------
-  std::cout << "[Rank " << myRank << "] Getting current dataset dimensions..." << std::endl;
-  std::fflush(stdout);
-
-  // Get the current size of the dataset
-  hsize_t currentDims[RANK];
-  {
-    hid_t currentSpaceId = H5Dget_space(dsetId_);
-    checkStatus(currentSpaceId, "H5Dget_space in writeChunk");
-    H5Sget_simple_extent_dims(currentSpaceId, currentDims, nullptr);
-    H5Sclose(currentSpaceId);
-  }
-  std::cout << "[Rank " << myRank << "] Current dataset dims before extend: (" << currentDims[0]
-            << ", " << currentDims[1] << ", " << currentDims[2] << ")" << std::endl;
-  std::fflush(stdout);
-
-  hsize_t localExtent = timeOffset + timeCount;
-  hsize_t globalExtent = 0;
-
-  unsigned long long _localExtent = (unsigned long long)localExtent;
-  unsigned long long _globalExtent = (unsigned long long)globalExtent;
-
-  // Use MPI_UNSIGNED_LONG_LONG if 'hsize_t' is effectively 64-bit
-  // (comm_ is your MPI communicator stored in the class)
-  MPI_Allreduce(&_localExtent,  // sendbuf
-                &_globalExtent, // recvbuf
-                1,             // count
-                MPI_UNSIGNED_LONG_LONG,
-                MPI_MAX,
-                comm_);
-
-  localExtent = (hsize_t)_localExtent;
-  globalExtent = (hsize_t)_globalExtent;
-
-  // Compute new dimensions
-  hsize_t newDims[RANK];
-  newDims[0] = globalExtent;
-  newDims[1] = dims_[1]; // totalReceivers (fixed)
-  newDims[2] = dims_[2]; // numVariables   (fixed)
-
-  std::cout << "[Rank " << myRank << "] Extending dataset to dims: (" << newDims[0] << ", "
-            << newDims[1] << ", " << newDims[2] << ")" << std::endl;
-  std::fflush(stdout);
-
-  herr_t status = H5Dset_extent(dsetId_, newDims);
-  checkStatus(status, "H5Dset_extent in writeChunk");
-
-  std::cout << "[Rank " << myRank << "] Finished H5Dset_extent()" << std::endl;
-  std::fflush(stdout);
-
-  // ----------------------------------------------------
-  // 2) Re-acquire the dataset's new filespace
-  // ----------------------------------------------------
+  // Get the filespace directly
   hid_t filespaceId = H5Dget_space(dsetId_);
-  checkStatus(filespaceId, "H5Dget_space (after set_extent) in writeChunk");
-
-  std::cout << "[Rank " << myRank << "] Re-acquired dataset filespace." << std::endl;
-  std::fflush(stdout);
+  checkStatus(filespaceId, "H5Dget_space in writeChunk");
 
   // ----------------------------------------------------
   // 3) Define the hyperslab in the file where we'll write
@@ -145,7 +92,7 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
             << std::endl;
   std::fflush(stdout);
 
-  status = H5Sselect_hyperslab(filespaceId, H5S_SELECT_SET, start, nullptr, count, nullptr);
+  herr_t status = H5Sselect_hyperslab(filespaceId, H5S_SELECT_SET, start, nullptr, count, nullptr);
   checkStatus(status, "H5Sselect_hyperslab in writeChunk");
 
   std::cout << "[Rank " << myRank << "] Hyperslab selection successful." << std::endl;
@@ -208,7 +155,7 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
 
 void ParallelHdf5ReceiverWriter::writePointIds(hsize_t receiverOffset,
                                                hsize_t localReceiverCount,
-                                               const std::vector<unsigned long long>& pointIds) {
+                                               const std::vector<hsize_t>& pointIds) {
 
   std::cout << "localReceiverCount: " << localReceiverCount
             << ", pointIds.size(): " << pointIds.size() << std::endl;
@@ -288,4 +235,4 @@ ParallelHdf5ReceiverWriter::~ParallelHdf5ReceiverWriter() {
   H5Sclose(filespaceId_);    // Close the main dataspace
   H5Sclose(pointIdSpaceId_); // Close the point ID dataspace
   H5Fclose(fileId_);         // Finally, close the file
-  }
+}

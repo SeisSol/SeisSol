@@ -1,23 +1,25 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_HDF5_H_
 #define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_HDF5_H_
 
 #include "Data.h"
 #include "Instruction.h"
+
 #include <memory>
 #include <optional>
 #include <string>
 #include <yaml-cpp/yaml.h>
 
-#include "utils/stringutils.h"
-
 namespace seissol::io::writer::instructions {
 class Hdf5Location {
   public:
-  Hdf5Location(const std::string& longstring);
+  explicit Hdf5Location(const std::string& longstring);
 
   Hdf5Location(const std::string& file,
                const std::vector<std::string>& groups,

@@ -1,52 +1,25 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Setup of SeisSol's cell local matrices.
- **/
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
 
 #include "Transformation.h"
+
+#include "Geometry/MeshDefinition.h"
+#include "Kernels/Precision.h"
+
+#include <Eigen/Core>
 #include <Eigen/Dense>
-#include <Geometry/MeshDefinition.h>
-#include <Kernels/Precision.h>
 #include <cassert>
-#include <cmath>
 #include <utils/logger.h>
 #include <yateto.h>
+
+#ifndef NDEBUG
+#include <cmath>
+#endif
 
 void seissol::transformations::tetrahedronReferenceToGlobal(const double v0[3],
                                                             const double v1[3],
@@ -87,18 +60,18 @@ Eigen::Vector3d seissol::transformations::tetrahedronGlobalToReference(const dou
   return xiEtaZeta;
 }
 
-void seissol::transformations::tetrahedronGlobalToReferenceJacobian(const real iX[4],
-                                                                    const real iY[4],
-                                                                    const real iZ[4],
-                                                                    real oGradXi[3],
-                                                                    real oGradEta[3],
-                                                                    real oGradZeta[3]) {
-  const real determinant =
+void seissol::transformations::tetrahedronGlobalToReferenceJacobian(const double iX[4],
+                                                                    const double iY[4],
+                                                                    const double iZ[4],
+                                                                    double oGradXi[3],
+                                                                    double oGradEta[3],
+                                                                    double oGradZeta[3]) {
+  const double determinant =
       iX[0] * (iY[1] * (iZ[3] - iZ[2]) + iY[2] * (iZ[1] - iZ[3]) + iY[3] * (iZ[2] - iZ[1])) +
       iX[1] * (iY[0] * (iZ[2] - iZ[3]) + iY[2] * (iZ[3] - iZ[0]) + iY[3] * (iZ[0] - iZ[2])) +
       iX[2] * (iY[0] * (iZ[3] - iZ[1]) + iY[1] * (iZ[0] - iZ[3]) + iY[3] * (iZ[1] - iZ[0])) +
       iX[3] * (iY[0] * (iZ[1] - iZ[2]) + iY[1] * (iZ[2] - iZ[0]) + iY[2] * (iZ[0] - iZ[1]));
-  const real inverseDeterminant = 1.0 / determinant;
+  const double inverseDeterminant = 1.0 / determinant;
 
   // dxi_dx, dxi_dy, dxi_dz
   oGradXi[0] = inverseDeterminant *
@@ -159,15 +132,15 @@ void seissol::transformations::symmetricTensor2RotationMatrix(
     yateto::DenseTensorView<2, real, unsigned>& oT,
     unsigned row,
     unsigned col) {
-  const real nx = iNormal[0];
-  const real ny = iNormal[1];
-  const real nz = iNormal[2];
-  const real sx = iTangent1[0];
-  const real sy = iTangent1[1];
-  const real sz = iTangent1[2];
-  const real tx = iTangent2[0];
-  const real ty = iTangent2[1];
-  const real tz = iTangent2[2];
+  const auto nx = iNormal[0];
+  const auto ny = iNormal[1];
+  const auto nz = iNormal[2];
+  const auto sx = iTangent1[0];
+  const auto sy = iTangent1[1];
+  const auto sz = iTangent1[2];
+  const auto tx = iTangent2[0];
+  const auto ty = iTangent2[1];
+  const auto tz = iTangent2[2];
 
   oT(row + 0, col + 0) = nx * nx;
   oT(row + 1, col + 0) = ny * ny;

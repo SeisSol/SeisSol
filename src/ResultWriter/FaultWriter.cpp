@@ -1,68 +1,41 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2017 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
+#include "FaultWriter.h"
+
+#include "AsyncCellIDs.h"
+#include "DynamicRupture/Output/OutputManager.h"
+#include "Kernels/Precision.h"
+#include "Modules/Modules.h"
+#include "Monitoring/Instrumentation.h" // IWYU pragma: keep
+#include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
+#include "ResultWriter/FaultWriterExecutor.h"
+#include "SeisSol.h"
 
-#include <Initializer/PreProcessorMacros.h> // IWYU pragma: keep
-#include <Kernels/Precision.h>
-#include <ResultWriter/FaultWriterExecutor.h>
 #include <algorithm>
 #include <async/Module.h>
 #include <cassert>
 #include <cstring>
+#include <optional>
 #include <string>
+#include <utils/env.h>
 #include <utils/logger.h>
-
-#include "AsyncCellIDs.h"
-#include "DynamicRupture/Output/OutputManager.h"
-#include "FaultWriter.h"
-#include "Modules/Modules.h"
-#include "SeisSol.h"
 
 void seissol::writer::FaultWriter::setUp() {
   setExecutor(m_executor);
 
-  if (isAffinityNecessary()) {
+  utils::Env env("SEISSOL_");
+  if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, env)) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
-    logInfo(seissol::MPI::mpi.rank())
-        << "Fault writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
+    logInfo() << "Fault writer thread affinity:" << parallel::Pinning::maskToString(freeCpus) << "("
+              << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
+    ;
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
@@ -73,6 +46,7 @@ void seissol::writer::FaultWriter::setUp() {
 void seissol::writer::FaultWriter::init(const unsigned int* cells,
                                         const double* vertices,
                                         const unsigned int* faultTags,
+                                        const unsigned int* ids,
                                         unsigned int nCells,
                                         unsigned int nVertices,
                                         const int* outputMask,
@@ -81,9 +55,7 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
                                         double interval,
                                         xdmfwriter::BackendType backend,
                                         const std::string& backupTimeStamp) {
-  const int rank = seissol::MPI::mpi.rank();
-
-  logInfo(rank) << "Initializing XDMF fault output.";
+  logInfo() << "Initializing XDMF fault output.";
 
   // Initialize the asynchronous module
   async::Module<FaultWriterExecutor, FaultInitParam, FaultParam>::init();
@@ -103,13 +75,19 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
   const AsyncCellIDs<3> cellIds(nCells, nVertices, cells, seissolInstance);
 
   // Create mesh buffers
-  bufferId = addSyncBuffer(cellIds.cells(), nCells * 3 * sizeof(int));
+  bufferId = addSyncBuffer(cellIds.cells(), static_cast<unsigned long>(nCells * 3) * sizeof(int));
   assert(bufferId == FaultWriterExecutor::Cells);
-  bufferId = addSyncBuffer(vertices, nVertices * 3 * sizeof(double));
+  NDBG_UNUSED(bufferId);
+  bufferId = addSyncBuffer(vertices, static_cast<unsigned long>(nVertices * 3) * sizeof(double));
   assert(bufferId == FaultWriterExecutor::Vertices);
+  NDBG_UNUSED(bufferId);
 
   bufferId = addSyncBuffer(faultTags, nCells * sizeof(unsigned int));
   assert(bufferId == FaultWriterExecutor::FaultTags);
+  NDBG_UNUSED(bufferId);
+  bufferId = addSyncBuffer(ids, nCells * sizeof(unsigned int));
+  assert(bufferId == FaultWriterExecutor::GlobalIds);
+  NDBG_UNUSED(bufferId);
 
   // Create data buffers
   std::fill_n(param.outputMask, FaultInitParam::OutputMaskSize, false);
@@ -171,6 +149,7 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
   sendBuffer(FaultWriterExecutor::Cells);
   sendBuffer(FaultWriterExecutor::Vertices);
   sendBuffer(FaultWriterExecutor::FaultTags);
+  sendBuffer(FaultWriterExecutor::GlobalIds);
 
   // Initialize the executor
   callInit(param);
@@ -180,6 +159,7 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
   removeBuffer(FaultWriterExecutor::Cells);
   removeBuffer(FaultWriterExecutor::Vertices);
   removeBuffer(FaultWriterExecutor::FaultTags);
+  removeBuffer(FaultWriterExecutor::GlobalIds);
 
   // Register for the synchronization point hook
   Modules::registerHook(*this, ModuleHook::SimulationStart);
@@ -187,12 +167,17 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
   setSyncInterval(interval);
 }
 
-void seissol::writer::FaultWriter::simulationStart() { syncPoint(0.0); }
+void seissol::writer::FaultWriter::simulationStart(std::optional<double> checkpointTime) {
+  if (checkpointTime.value_or(0) == 0) {
+    syncPoint(0.0);
+  }
+}
 
 void seissol::writer::FaultWriter::syncPoint(double currentTime) {
   SCOREP_USER_REGION("faultoutput_elementwise", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   if (callbackObject != nullptr) {
+    seissolInstance.dofSync().syncDofs(currentTime);
     callbackObject->updateElementwiseOutput();
   }
   write(currentTime);

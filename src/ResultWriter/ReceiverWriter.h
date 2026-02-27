@@ -1,3 +1,4 @@
+
 /**
  * @file
  * This file is part of SeisSol.
@@ -39,22 +40,19 @@
  * @section DESCRIPTION
  **/
 
-#ifndef RESULTWRITER_RECEIVERWRITER_H_
-#define RESULTWRITER_RECEIVERWRITER_H_
-
-#include <memory>
-#include <string>
-#include <unordered_map>
-#include <vector>
-
-#include <Eigen/Dense>
+#ifndef SEISSOL_SRC_RESULTWRITER_RECEIVERWRITER_H_
+#define SEISSOL_SRC_RESULTWRITER_RECEIVERWRITER_H_
 
 #include "Geometry/MeshReader.h"
-#include "Initializer/LTS.h"
-#include "Initializer/Tree/Lut.h"
 #include "Kernels/Receiver.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
 #include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
+
+#include <Eigen/Dense>
+#include <string_view>
+#include <vector>
 
 namespace seissol {
 struct LocalIntegrationData;
@@ -98,14 +96,13 @@ class ReceiverWriter : public seissol::Module {
    *        mesh cells, then (optionally) creates the single parallel HDF5 file.
    */
   void addPoints(const seissol::geometry::MeshReader& mesh,
-                 const seissol::initializer::Lut& ltsLut,
-                 const seissol::initializer::LTS& lts,
-                 const seissol::GlobalData* global);
+                 const LTS::Backmap& backmap,
+                 const CompoundGlobalData& global);
 
   /**
    * \brief Returns the ReceiverCluster for a given cluster ID and layer type.
    */
-  kernels::ReceiverCluster* receiverCluster(unsigned clusterId, LayerType layer);
+  kernels::ReceiverCluster* receiverCluster(std::size_t id);
 
   //
   // Hooks
@@ -113,7 +110,8 @@ class ReceiverWriter : public seissol::Module {
   /// Called at each synchronization point (i.e., sampling) to flush data.
   void syncPoint(double currentTime) override;
   /// Called at simulation start.
-  void simulationStart() override;
+  void simulationStart(std::optional<double> checkpointTime) override;
+
   /// Called at shutdown.
   void shutdown() override;
 
@@ -128,12 +126,12 @@ class ReceiverWriter : public seissol::Module {
   std::string m_receiverFileName;
   std::string m_fileNamePrefix;
   double m_samplingInterval{0.0};
+  double m_endTime{0.0};
 
   /// Additional derived quantities (e.g., rotation, strain)
   std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity>> derivedQuantities;
 
-  /// Map layer type -> array of ReceiverClusters
-  std::unordered_map<LayerType, std::vector<kernels::ReceiverCluster>> m_receiverClusters;
+  std::vector<std::shared_ptr<kernels::ReceiverCluster>> m_receiverClusters;
 
   /// Stopwatch for timing I/O
   Stopwatch m_stopwatch;

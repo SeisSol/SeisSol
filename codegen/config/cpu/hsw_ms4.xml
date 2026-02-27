@@ -1,0 +1,23 @@
+<memory_layouts>
+
+<matrix name="kDivM(0)" sparse="True"/>
+<matrix name="kDivM(1)" sparse="True"/>
+<matrix name="kDivM(2)" sparse="True"/>
+
+<matrix name="fMrT(0)" sparse="True"/>
+<matrix name="fMrT(1)" sparse="True"/>
+<matrix name="fMrT(2)" sparse="True"/>
+<matrix name="fMrT(3)" sparse="True"/>
+
+<matrix name="rDivM(0)" sparse="True"/>
+<matrix name="rDivM(1)" sparse="True"/>
+<matrix name="rDivM(2)" sparse="True"/>
+<matrix name="rDivM(3)" sparse="True"/>
+
+<matrix name="rT(0)" sparse="True"/>
+<matrix name="rT(1)" sparse="True"/>
+<matrix name="rT(2)" sparse="True"/>
+<matrix name="rT(3)" sparse="True"/>
+
+<matrix name="star" sparse="True"/>
+</memory_layouts>

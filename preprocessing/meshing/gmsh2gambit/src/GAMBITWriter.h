@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-3-Clause
 /**
  * @file
  * This file is part of SeisSol.
@@ -7,17 +8,17 @@
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -66,7 +67,7 @@ void writeNEU(char const* filename, GMSH<DIM> const& msh) {
   fprintf(file, "     NUMNP     NELEM     NGRPS    NBSETS     NDFCD     NDFVL\n");
   fprintf(file, " %9d %9d %9d %9d %9d %9d\n", msh.numVertices, msh.numElements, msh.materialGroups.size(), msh.boundaryConditions.size(), DIM, DIM);
   fprintf(file, "ENDOFSECTION\n");
-  
+
   // Vertices
   fprintf(file, "   NODAL COORDINATES 2.0.0\n");
   for (unsigned vertex = 0; vertex < msh.numVertices; ++vertex) {
@@ -77,7 +78,7 @@ void writeNEU(char const* filename, GMSH<DIM> const& msh) {
     fprintf(file, "\n");
   }
   fprintf(file, "ENDOFSECTION\n");
-  
+
   // Elements
   fprintf(file, "      ELEMENTS/CELLS 2.0.0\n");
   for (unsigned element = 0; element < msh.numElements; ++element) {
@@ -88,7 +89,7 @@ void writeNEU(char const* filename, GMSH<DIM> const& msh) {
     fprintf(file, "\n");
   }
   fprintf(file, "ENDOFSECTION\n");
-  
+
   // Material groups
   for (auto group = msh.materialGroups.cbegin(); group != msh.materialGroups.cend(); ++group) {
     fprintf(file, "       ELEMENT GROUP 2.0.0\n");
@@ -104,7 +105,7 @@ void writeNEU(char const* filename, GMSH<DIM> const& msh) {
     fprintf(file, "\n");
     fprintf(file, "ENDOFSECTION\n");
   }
-  
+
   // Boundary conditions
   for (auto boundaryCondition = msh.boundaryConditions.cbegin(); boundaryCondition != msh.boundaryConditions.cend(); ++boundaryCondition) {
     fprintf(file, "       BOUNDARY CONDITIONS 2.0.0\n");
@@ -115,7 +116,7 @@ void writeNEU(char const* filename, GMSH<DIM> const& msh) {
     }
     fprintf(file, "ENDOFSECTION\n");
   }
-  
+
   fclose(file);
 }
 

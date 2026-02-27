@@ -1,7 +1,19 @@
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "Unit.h"
 
+#include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <iomanip>
 #include <ios>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -18,13 +30,43 @@ const std::vector<std::string> NegativePrefixes = {
 namespace seissol {
 SIUnit::SIUnit(const std::string& unit, bool binary) : unit(unit), binary(binary) {}
 
+std::string formatInteger(uint64_t value) {
+  std::stringstream out;
+
+  std::array<uint64_t, 8> parts{};
+
+  for (std::size_t i = 0; i < parts.size(); ++i) {
+    parts[i] = value % 1000;
+    value /= 1000;
+  }
+
+  out << std::setfill('0');
+  out << std::right;
+
+  bool started = false;
+  for (std::int32_t i = parts.size() - 1; i >= 0; --i) {
+    if (started) {
+      out << "'" << std::setw(3) << parts[i];
+    } else if (parts[i] > 0) {
+      started = true;
+      out << parts[i];
+    }
+  }
+
+  if (!started) {
+    out << "0";
+  }
+
+  return out.str();
+}
+
 std::string SIUnit::formatTime(double value, bool exact, int digits) const {
   const double byDay = std::floor(value / (60 * 60 * 24));
   const double hours = value - byDay * (60 * 60 * 24);
   const double byHour = std::floor(hours / (60 * 60));
   const double minutes = hours - byHour * (60 * 60);
   const double byMinute = std::floor(minutes / 60);
-  const double seconds = minutes - byMinute * (60);
+  const double seconds = minutes - byMinute * 60;
 
   std::ostringstream stream;
   stream.precision(0);
@@ -52,14 +94,14 @@ std::string SIUnit::formatTime(double value, bool exact, int digits) const {
     if (done) {
       stream << " ";
     }
-    stream << formatPrefix(seconds, digits);
-    done = true;
+    stream << formatPrefix(seconds, {}, digits);
   }
   return stream.str();
 }
 
-std::string SIUnit::formatPrefix(double value, int digits) const {
+std::string SIUnit::formatPrefix(double value, std::optional<double> error, int digits) const {
   double mantissa = std::abs(value);
+  double errorOrZero = error.value_or(0);
   int position = 0;
   const double skip = binary ? 1024 : 1000;
   const double sign = value < 0 ? -1 : 1;
@@ -68,11 +110,13 @@ std::string SIUnit::formatPrefix(double value, int digits) const {
   if (mantissa != 0) {
     while (mantissa < 1 && position > -100) {
       mantissa *= skip;
+      errorOrZero *= skip;
       --position;
     }
   }
   while (mantissa >= skip && position < 100) {
     mantissa /= skip;
+    errorOrZero /= skip;
     ++position;
   }
 
@@ -80,7 +124,7 @@ std::string SIUnit::formatPrefix(double value, int digits) const {
       (!binary && position > static_cast<int>(PositivePrefixes.size())) ||
       -position > static_cast<int>(NegativePrefixes.size())) {
     // out of range, default to scientific notation
-    return formatScientific(value, digits);
+    return formatScientific(value, error, digits);
   } else {
     const std::string prefix = [&]() {
       if (position < 0) {
@@ -99,16 +143,30 @@ std::string SIUnit::formatPrefix(double value, int digits) const {
     std::ostringstream stream;
     stream.precision(digits);
     stream << std::fixed;
-    stream << sign * mantissa << " " << prefix << unit;
+    if (error.has_value()) {
+      stream << "(";
+    }
+    stream << sign * mantissa;
+    if (error.has_value()) {
+      stream << " ± " << errorOrZero << ")";
+    }
+    stream << " " << prefix << unit;
     return stream.str();
   }
 }
 
-std::string SIUnit::formatScientific(double value, int digits) {
+std::string SIUnit::formatScientific(double value, std::optional<double> error, int digits) const {
   std::ostringstream stream;
   stream.precision(digits);
   stream << std::scientific;
+  if (error.has_value()) {
+    stream << "(";
+  }
   stream << value;
+  if (error.has_value()) {
+    stream << " ± " << error.value() << ")";
+  }
+  stream << " " << unit;
   return stream.str();
 }
 

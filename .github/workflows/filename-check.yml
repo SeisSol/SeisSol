@@ -1,6 +1,9 @@
 # SPDX-FileCopyrightText: 2024 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 name: filename-check
 on:
@@ -11,7 +14,7 @@ jobs:
     name: filename-check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: apt-get
         run: |
@@ -21,4 +24,4 @@ jobs:
       - name: run-filename-checker
         run: |
           set -euo pipefail
-          python .ci/filename.py src
+          python .ci/filename.py src app

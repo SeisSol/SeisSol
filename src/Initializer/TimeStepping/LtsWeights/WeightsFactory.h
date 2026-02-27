@@ -1,12 +1,19 @@
-#ifndef SEISSOL_LTSWEIGHTSFACTORY_H
-#define SEISSOL_LTSWEIGHTSFACTORY_H
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_WEIGHTSFACTORY_H_
+#define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_WEIGHTSFACTORY_H_
+
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "WeightsModels.h"
 
 #include <memory>
 #include <sstream>
 #include <stdexcept>
-
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "WeightsModels.h"
 
 namespace seissol::initializer::time_stepping {
 
@@ -45,4 +52,4 @@ inline std::unique_ptr<LtsWeights> getLtsWeightsImplementation(parameters::LtsWe
 
 } // namespace seissol::initializer::time_stepping
 
-#endif // SEISSOL_LTSWEIGHTSFACTORY_H
+#endif // SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_WEIGHTSFACTORY_H_

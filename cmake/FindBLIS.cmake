@@ -1,15 +1,22 @@
+# SPDX-FileCopyrightText: 2020 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #  BLIS - BLAS-like Library Instantiation Software Framework
 #  source code: https://github.com/flame/blis
 #
 #  NOTE: it is not an official cmake search file
 #  author: Ravil Dorozhinskii
-#  email: ravil.dorozhinskii@tum.de 
+#  email: ravil.dorozhinskii@tum.de
 #
 #  BLIS_FOUND        - system has Blis
 #  BLIS_INCLUDE_DIRS - include directories for BLIS
 #  BLIS_LIBRARIES    - libraries for BLIS
 #
-#  Additional env. variables that may be used by this module. 
+#  Additional env. variables that may be used by this module.
 #  They can change the default behaviour and
 #  could to be set before calling find_package:
 #
@@ -32,7 +39,7 @@ find_library(BLIS_LIBRARIES
 )
 
 if (BLIS_INCLUDE_DIRS AND BLIS_LIBRARIES)
-  
+
   set(CMAKE_REQUIRED_INCLUDES ${BLIS_INCLUDE_DIRS})
   set(CMAKE_REQUIRED_LIBRARIES ${BLIS_LIBRARIES})
   set(CMAKE_REQUIRED_LINK_OPTIONS "-fopenmp")
@@ -57,9 +64,9 @@ if (BLIS_INCLUDE_DIRS AND BLIS_LIBRARIES)
 	  double beta = 1.0;
 
     bli_dgemm(BLIS_NO_TRANSPOSE, BLIS_NO_TRANSPOSE,
-	            m, n, k, 
-              &alpha, a, rsa, csa, 
-              b, rsb, csb, 
+	            m, n, k,
+              &alpha, a, rsa, csa,
+              b, rsb, csb,
               &beta, c, rsc, csc);
   return 0;
   }
@@ -68,6 +75,6 @@ endif()
 
 
 find_package_handle_standard_args(BLIS
-  BLIS_INCLUDE_DIRS 
+  BLIS_INCLUDE_DIRS
   BLIS_LIBRARIES
   BLIS_TEST_RUNS)

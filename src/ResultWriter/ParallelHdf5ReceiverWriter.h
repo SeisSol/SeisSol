@@ -1,18 +1,19 @@
 #pragma once
 
+#include <Eigen/Dense>
 #include <hdf5.h>
 #include <mpi.h>
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <Eigen/Dense>
 
 class ParallelHdf5ReceiverWriter {
   public:
   ParallelHdf5ReceiverWriter(MPI_Comm comm,
                              const std::string& filename,
                              hsize_t totalReceivers,
-                             hsize_t numVariables);
+                             hsize_t numVariables,
+                             hsize_t totalTimeSteps);
 
   void writeChunk(hsize_t timeOffset,
                   hsize_t receiverOffset,
@@ -22,7 +23,7 @@ class ParallelHdf5ReceiverWriter {
 
   void writePointIds(hsize_t receiverOffset,
                      hsize_t localReceiverCount,
-                     const std::vector<unsigned long long>& pointIds);
+                     const std::vector<hsize_t>& pointIds);
 
   void writeCoordinates(std::vector<Eigen::Vector3d> points);
 
@@ -40,8 +41,7 @@ class ParallelHdf5ReceiverWriter {
 
   hsize_t dims_[RANK];
 
-      void
-      checkStatus(herr_t status, const std::string& msg) const {
+  void checkStatus(herr_t status, const std::string& msg) const {
     if (status < 0) {
       throw std::runtime_error("HDF5 error in: " + msg);
     }
