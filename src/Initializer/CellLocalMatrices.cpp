@@ -280,22 +280,13 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           const auto wavespeedNeighbor = material[cell].neighbor[side]->getMaxWaveSpeed();
           const auto wavespeed = std::max(wavespeedLocal, wavespeedNeighbor);
 
-          real centralFluxData[tensor::QgodLocal::size()]{};
-          real rusanovPlusData[tensor::QcorrLocal::size()]{};
-          real rusanovMinusData[tensor::QcorrNeighbor::size()]{};
-          auto centralFluxView = init::QgodLocal::view::create(centralFluxData);
-          auto rusanovPlusView = init::QcorrLocal::view::create(rusanovPlusData);
-          auto rusanovMinusView = init::QcorrNeighbor::view::create(rusanovMinusData);
-          for (size_t i = 0; i < std::min(tensor::QgodLocal::Shape[0], tensor::QgodLocal::Shape[1]);
-               i++) {
-            centralFluxView(i, i) = 0.5;
-            rusanovPlusView(i, i) = wavespeed * 0.5;
-            rusanovMinusView(i, i) = -wavespeed * 0.5;
-          }
-
           // check if we're on a face that has an adjacent cell with DR face
           const auto fluxDefault =
               isSpecialBC(side) ? modelParameters.fluxNearFault : modelParameters.flux;
+          const auto rDefault =
+              isSpecialBC(side) ? modelParameters.fluxNearFaultRPart : modelParameters.fluxRPart;
+          const auto cDefault =
+              isSpecialBC(side) ? modelParameters.fluxNearFaultGPart : modelParameters.fluxGPart;
 
           // exclude boundary conditions
           static const std::vector<FaceType> GodunovBoundaryConditions = {
@@ -315,19 +306,63 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
           const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
 
+          const auto rusanovScale = [&]() {
+            if (flux == parameters::NumericalFlux::Rusanov) {
+              return 1.0;
+            }
+            if (flux == parameters::NumericalFlux::Godunov) {
+              return 0.0;
+            }
+            if (flux == parameters::NumericalFlux::Centered) {
+              return 0.0;
+            }
+            return rDefault;
+          }();
+
+          const auto godunovScale = [&]() {
+            if (flux == parameters::NumericalFlux::Rusanov) {
+              return 0.0;
+            }
+            if (flux == parameters::NumericalFlux::Godunov) {
+              return 1.0;
+            }
+            if (flux == parameters::NumericalFlux::Centered) {
+              return 0.0;
+            }
+            return cDefault;
+          }();
+
+          real centralFluxData[tensor::QgodLocal::size()]{};
+          real rusanovPlusData[tensor::QcorrLocal::size()]{};
+          real rusanovMinusData[tensor::QcorrNeighbor::size()]{};
+          auto centralFluxView = init::QgodLocal::view::create(centralFluxData);
+          auto rusanovPlusView = init::QcorrLocal::view::create(rusanovPlusData);
+          auto rusanovMinusView = init::QcorrNeighbor::view::create(rusanovMinusData);
+          auto godunovPlusView = init::QgodLocal::view::create(qGodLocalData);
+          auto godunovMinusView = init::QgodLocal::view::create(qGodNeighborData);
+          for (size_t i = 0; i < std::min(tensor::QgodLocal::Shape[0], tensor::QgodLocal::Shape[1]);
+               i++) {
+            centralFluxView(i, i) = 0.5;
+            rusanovPlusView(i, i) = wavespeed * 0.5 * rusanovScale;
+            rusanovMinusView(i, i) = -wavespeed * 0.5 * rusanovScale;
+          }
+          for (size_t i = 0; i < tensor::QgodLocal::Shape[0]; ++i) {
+            for (size_t j = 0; j < tensor::QgodLocal::Shape[1]; ++j) {
+              godunovPlusView(i, j) =
+                  centralFluxView(i, j) * (1 - godunovScale) + godunovPlusView(i, j) * godunovScale;
+              godunovMinusView(i, j) = centralFluxView(i, j) * (1 - godunovScale) +
+                                       godunovMinusView(i, j) * godunovScale;
+            }
+          }
+
           kernel::computeFluxSolverLocal localKrnl;
           localKrnl.fluxScale = fluxScale;
           localKrnl.AplusT = localIntegration[cell].nApNm1[side];
           if (cellInformation[cell].faceTypes[side] == FaceType::DynamicRupture) {
             localKrnl.fluxScale = 0;
           }
-          if (flux == parameters::NumericalFlux::Rusanov) {
-            localKrnl.QgodLocal = centralFluxData;
-            localKrnl.QcorrLocal = rusanovPlusData;
-          } else {
-            localKrnl.QgodLocal = qGodLocalData;
-            localKrnl.QcorrLocal = rusanovPlusNull;
-          }
+          localKrnl.QgodLocal = qGodLocalData;
+          localKrnl.QcorrLocal = rusanovPlusData;
           localKrnl.T = matTData;
           localKrnl.Tinv = matTinvData;
           localKrnl.star(0) = matATtildeData;
@@ -336,13 +371,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           kernel::computeFluxSolverNeighbor neighKrnl;
           neighKrnl.fluxScale = fluxScale;
           neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
-          if (flux == parameters::NumericalFlux::Rusanov) {
-            neighKrnl.QgodNeighbor = centralFluxData;
-            neighKrnl.QcorrNeighbor = rusanovMinusData;
-          } else {
-            neighKrnl.QgodNeighbor = qGodNeighborData;
-            neighKrnl.QcorrNeighbor = rusanovMinusNull;
-          }
+          neighKrnl.QgodNeighbor = qGodNeighborData;
+          neighKrnl.QcorrNeighbor = rusanovMinusData;
           neighKrnl.T = matTData;
           neighKrnl.Tinv = matTinvData;
           neighKrnl.star(0) = matATtildeData;
