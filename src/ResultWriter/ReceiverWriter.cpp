@@ -196,8 +196,6 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                 MPI_SUM,
                 seissol::Mpi::mpi.comm());
 
-  logInfo(rank) << "Total number of receivers: " << m_totalReceivers;
-
   // We also need the offset in the "receivers" dimension for this rank
   MPI_Scan(&localCountH,
            &m_localReceiverOffset,
@@ -224,9 +222,6 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
     // Gather the global maximum ncols
     unsigned globalNcols = 0;
     MPI_Allreduce(&localNcols, &globalNcols, 1, MPI_UNSIGNED, MPI_MAX, seissol::Mpi::mpi.comm());
-
-    // Now use globalNcols
-    logInfo(rank) << "Global number of columns: " << globalNcols;
 
     // Create the HDF5 writer
     // Compute total number of time steps from simulation end time and sampling interval
