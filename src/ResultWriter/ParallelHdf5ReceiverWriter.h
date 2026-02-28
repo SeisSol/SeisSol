@@ -1,4 +1,11 @@
-#pragma once
+// SPDX-FileCopyrightText: 2026 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#ifndef SEISSOL_SRC_RESULTWRITER_PARALLELHDF5RECEIVERWRITER_H_
+#define SEISSOL_SRC_RESULTWRITER_PARALLELHDF5RECEIVERWRITER_H_
 
 #include <Eigen/Dense>
 #include <hdf5.h>
@@ -47,3 +54,4 @@ class ParallelHdf5ReceiverWriter {
     }
   }
 };
+#endif // SEISSOL_SRC_RESULTWRITER_PARALLELHDF5RECEIVERWRITER_H_
