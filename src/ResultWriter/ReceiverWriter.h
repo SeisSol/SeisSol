@@ -15,6 +15,7 @@
 #include "Memory/Tree/Backmap.h"
 #include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
+#include "ParallelHdf5ReceiverWriter.h"
 
 #include <Eigen/Dense>
 #include <hdf5.h>

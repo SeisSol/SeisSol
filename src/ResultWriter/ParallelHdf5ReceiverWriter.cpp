@@ -25,8 +25,8 @@ ParallelHdf5ReceiverWriter::ParallelHdf5ReceiverWriter(MPI_Comm comm,
   H5Pclose(plistId);
 
   // Create dataspace for ReceiverData
-  std::array<hsize_t, Rank> datasetDims = {totalTimeSteps, totalReceivers, numVariables};
-  filespaceId_ = H5Screate_simple(Rank, datasetDims.data(), nullptr);
+  std::array<hsize_t, RANK> datasetDims = {totalTimeSteps, totalReceivers, numVariables};
+  filespaceId_ = H5Screate_simple(RANK, datasetDims.data(), nullptr);
 
   // Create dataset "ReceiverData"
   dsetId_ = H5Dcreate(fileId_,
@@ -63,8 +63,8 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
   checkStatus(filespaceId, "H5Dget_space in writeChunk");
 
   // Define the hyperslab in the file where we'll write
-  std::array<hsize_t, Rank> start = {timeOffset, receiverOffset, 0};
-  std::array<hsize_t, Rank> count = {timeCount, localReceiverCount, dims_[2]};
+  std::array<hsize_t, RANK> start = {timeOffset, receiverOffset, 0};
+  std::array<hsize_t, RANK> count = {timeCount, localReceiverCount, dims_[2]};
 
   logDebug() << "writeChunk: hyperslab start=(" << start[0] << ", " << start[1] << ", " << start[2]
              << ") count=(" << count[0] << ", " << count[1] << ", " << count[2] << ")";
@@ -74,7 +74,7 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
   checkStatus(status, "H5Sselect_hyperslab in writeChunk");
 
   // Create a matching memory dataspace for our data
-  hid_t memspaceId = H5Screate_simple(Rank, count.data(), nullptr);
+  hid_t memspaceId = H5Screate_simple(RANK, count.data(), nullptr);
   checkStatus(memspaceId, "H5Screate_simple in writeChunk");
 
   // Perform the collective write
