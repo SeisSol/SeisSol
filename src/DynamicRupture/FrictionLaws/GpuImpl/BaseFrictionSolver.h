@@ -70,7 +70,10 @@ SEISSOL_DEVICE inline bool deviceWarpAll(FrictionLawContext& ctx, bool value) {
 }
 #elif defined(__HIP__)
 SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& ctx) { __syncthreads(); }
-SEISSOL_DEVICE inline void deviceWarpBarrier(FrictionLawContext& ctx) { __syncwarp(); }
+SEISSOL_DEVICE inline void deviceWarpBarrier(FrictionLawContext& ctx) {
+  // __syncwarp has no effect on current AMD GPUs (early 2026)
+  // (nor does the HIP in our current CI support it)
+}
 SEISSOL_DEVICE inline bool deviceWarpAll(FrictionLawContext& ctx, bool value) {
   return __all(static_cast<int>(value)) != 0;
 }
