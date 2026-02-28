@@ -64,14 +64,32 @@ struct FrictionLawContext {
 
 #ifdef __CUDACC__
 SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& ctx) { __syncthreads(); }
+SEISSOL_DEVICE inline void deviceWarpBarrier(FrictionLawContext& ctx) { __syncwarp(); }
+SEISSOL_DEVICE inline bool deviceWarpAll(FrictionLawContext& ctx, bool value) {
+  return __all_sync(warpSize, static_cast<int>(value)) != 0;
+}
 #elif defined(__HIP__)
 SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& ctx) { __syncthreads(); }
+SEISSOL_DEVICE inline void deviceWarpBarrier(FrictionLawContext& ctx) { __syncwarp(); }
+SEISSOL_DEVICE inline bool deviceWarpAll(FrictionLawContext& ctx, bool value) {
+  return __all(static_cast<int>(value)) != 0;
+}
 #elif defined(SEISSOL_KERNELS_SYCL)
 inline void deviceBarrier(FrictionLawContext& ctx) {
   reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->barrier(sycl::access::fence_space::local_space);
 }
+inline void deviceWarpBarrier(FrictionLawContext& ctx) {
+  auto subgroup = reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->get_sub_group();
+  sycl::group_barrier(subgroup);
+}
+inline bool deviceWarpAll(FrictionLawContext& ctx, bool value) {
+  auto subgroup = reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->get_sub_group();
+  return sycl::all_of_group(subgroup, value);
+}
 #else
-inline void deviceBarrier(FrictionLawContext& ctx) {}
+inline void deviceBarrier(FrictionLawContext& /*ctx*/) {}
+inline void deviceWarpBarrier(FrictionLawContext& /*ctx*/) {}
+inline bool deviceWarpAll(FrictionLawContext& /*ctx*/, bool /*value*/) { return true; }
 #endif
 
 template <typename Derived>

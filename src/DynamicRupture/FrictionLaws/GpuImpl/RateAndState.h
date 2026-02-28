@@ -111,6 +111,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     rs::Settings settings{};
 
+    bool hasConvergedOuter = false;
+    bool hasConvergedInner = true;
+
     for (uint32_t j = 0; j < settings.numberStateVariableUpdates; j++) {
 
       const auto dt{ctx.args->deltaT[timeIndex]};
@@ -126,7 +129,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
       auto& exportMu = devMu[ctx.ltsFace][ctx.pointIndex];
 
-      real slipRateTest{};
+      real slipRateTest{0};
       const bool hasConvergedLocal =
           RateAndStateBase::invertSlipRateIterative(ctx,
                                                     slipRateTest,
@@ -137,11 +140,21 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                     localImpAndEta.invEtaS,
                                                     exportMu,
                                                     settings);
-      deviceBarrier(ctx);
 
-      devLocalSlipRate = 0.5 * (localSlipRateMagnitude + std::fabs(slipRateTest));
-      ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = std::fabs(slipRateTest);
+      hasConvergedInner &= hasConvergedLocal;
+
+      devLocalSlipRate = 0.5 * (localSlipRateMagnitude + slipRateTest);
+      ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = slipRateTest;
+
+      hasConvergedOuter = (localSlipRateMagnitude - slipRateTest) < settings.stateTolerance;
+
+      // exit early and prevent thread/load data divergence
+      if (deviceWarpAll(ctx, hasConvergedOuter)) {
+        break;
+      }
+      deviceWarpBarrier(ctx);
     }
+    deviceBarrier(ctx);
   }
 
   SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext& ctx, uint32_t timeIndex) {

@@ -159,6 +159,17 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       uint32_t timeIndex,
       std::size_t ltsFace) {
     std::array<real, misc::NumPaddedPoints> testSlipRate{0};
+
+    // use:
+    // - (inner loop) Newton-Raphson to find the fixed point slip rate with a _fixed_ state and
+    // stress
+    // - (outer loop) bisection method to find the fixed point slip rate with varying state and
+    // stress; using the previous Newton-Raphson step (why not combine? Mainly because: thermal
+    // pressurization might happen which could be a bit expensive to differentiate (though it's
+    // doable; just only take all code paths that have tauV in them). Maybe the state can be
+    // combined in; however that might need some more nonlinear function evaluations per step, and
+    // thus could be slower)
+
     for (uint32_t j = 0; j < settings.numberStateVariableUpdates; j++) {
 #pragma omp simd
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
@@ -180,17 +191,25 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       hasConverged = this->invertSlipRateIterative(
           ltsFace, localStateVariable, normalStress, absoluteShearStress, testSlipRate);
 
-#pragma omp simd
+      bool done = true;
+#pragma omp simd reduction(min : done)
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         // update local slip rate, now using V=(Vnew+Vold)/2
         // For the next SV update, use the mean slip rate between the initial guess and the one
         // found (Kaneko 2008, step 6)
-        localSlipRate[pointIndex] = 0.5 * (this->slipRateMagnitude[ltsFace][pointIndex] +
-                                           std::fabs(testSlipRate[pointIndex]));
+        localSlipRate[pointIndex] =
+            0.5 * (this->slipRateMagnitude[ltsFace][pointIndex] + testSlipRate[pointIndex]);
+
+        done = std::abs(testSlipRate[pointIndex] - this->slipRateMagnitude[ltsFace][pointIndex]) <
+               settings.stateTolerance;
 
         // solve again for Vnew
-        this->slipRateMagnitude[ltsFace][pointIndex] = std::fabs(testSlipRate[pointIndex]);
+        this->slipRateMagnitude[ltsFace][pointIndex] = testSlipRate[pointIndex];
       } // End of pointIndex-loop
+
+      if (done) {
+        break;
+      }
     }
   }
 
