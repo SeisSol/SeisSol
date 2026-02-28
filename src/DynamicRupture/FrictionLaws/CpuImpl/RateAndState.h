@@ -10,6 +10,7 @@
 
 #include "BaseFrictionLaw.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 
 namespace seissol::dr::friction_law::cpu {
 /**
@@ -95,6 +96,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     f0 = layerData.var<LTSRateAndState::RsF0>();
     muW = layerData.var<LTSRateAndState::RsMuW>();
     b = layerData.var<LTSRateAndState::RsB>();
+    convergenceInner = layerData.var<LTSRateAndState::ConvergenceInner>();
+    convergenceOuter = layerData.var<LTSRateAndState::ConvergenceOuter>();
     stateVariable = layerData.var<LTSRateAndState::StateVariable>();
     static_cast<Derived*>(this)->copyStorageToLocal(layerData);
     tpMethod.copyStorageToLocal(layerData);
@@ -210,6 +213,14 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       if (done) {
         break;
       }
+    }
+
+    // update (outer) (non-)convergence
+#pragma omp simd
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      convergenceOuter[ltsFace][pointIndex] &=
+          std::abs(testSlipRate[pointIndex] - this->slipRateMagnitude[ltsFace][pointIndex]) <
+          settings.stateTolerance;
     }
   }
 
@@ -358,6 +369,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         slipRateTest[pointIndex] = std::max(rs::almostZero(), slipRateTest[pointIndex] - tmp3);
       }
     }
+
+    // update (non-)convergence
+#pragma omp simd
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      convergenceInner[ltsFace][pointIndex] &= std::fabs(g[pointIndex]) < settings.newtonTolerance;
+    }
     return false;
   }
 
@@ -386,6 +403,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   real (*__restrict f0)[misc::NumPaddedPoints]{};
   real (*__restrict muW)[misc::NumPaddedPoints]{};
   real (*__restrict b)[misc::NumPaddedPoints]{};
+
+  bool (*__restrict convergenceInner)[misc::NumPaddedPoints]{};
+  bool (*__restrict convergenceOuter)[misc::NumPaddedPoints]{};
 
   TPMethod tpMethod;
   rs::Settings settings{};

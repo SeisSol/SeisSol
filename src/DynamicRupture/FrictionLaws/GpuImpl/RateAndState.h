@@ -41,6 +41,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     data->muW =
         layerData.var<LTSRateAndState::RsMuW>(seissol::initializer::AllocationPlace::Device);
     data->b = layerData.var<LTSRateAndState::RsB>(seissol::initializer::AllocationPlace::Device);
+    data->convergenceInner = layerData.var<LTSRateAndState::ConvergenceInner>();
+    data->convergenceOuter = layerData.var<LTSRateAndState::ConvergenceOuter>();
     Derived::copySpecificStorageDataToLocal(data, layerData);
     TPMethod::copyStorageToLocal(data, layerData);
   }
@@ -155,6 +157,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       deviceWarpBarrier(ctx);
     }
     deviceBarrier(ctx);
+    ctx.data->convergenceOuter[ctx.ltsFace][ctx.pointIndex] = hasConvergedOuter;
+    ctx.data->convergenceInner[ctx.ltsFace][ctx.pointIndex] = hasConvergedInner;
   }
 
   SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext& ctx, uint32_t timeIndex) {
