@@ -94,8 +94,8 @@ class SpaceTimePredictorTestFixture {
     model::getTransposedSourceCoefficientTensor(material, et);
 
     // prepare Zinv
-    auto zinv = init::Zinv::view<0>::create(zMatrix[0]);
-    model::calcZinv(zinv, et, 0, Dt);
+    auto zinv0 = init::Zinv::view<0>::create(zMatrix[0]);
+    model::calcZinv(zinv0, et, 0, Dt);
     auto zinv1 = init::Zinv::view<1>::create(zMatrix[1]);
     model::calcZinv(zinv1, et, 1, Dt);
     auto zinv2 = init::Zinv::view<2>::create(zMatrix[2]);
@@ -123,24 +123,11 @@ class SpaceTimePredictorTestFixture {
   }
 
   void prepareKernel(seissol::kernel::spaceTimePredictor& krnlPrototype) {
-    for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
-      if (n > 0) {
-        for (int d = 0; d < 3; ++d) {
-          krnlPrototype.kDivMTSub(d, n) =
-              seissol::init::kDivMTSub::Values[seissol::tensor::kDivMTSub::index(d, n)];
-        }
-      }
-      krnlPrototype.selectModes(n) =
-          seissol::init::selectModes::Values[seissol::tensor::selectModes::index(n)];
-    }
-    for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
-      krnlPrototype.selectQuantity(k) =
-          seissol::init::selectQuantity::Values[seissol::tensor::selectQuantity::index(k)];
-      krnlPrototype.selectQuantityG(k) =
-          init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
-    }
     krnlPrototype.timeInt = seissol::init::timeInt::Values;
     krnlPrototype.wHat = seissol::init::wHat::Values;
+    for (size_t i = 0; i < 3; i++) {
+      krnlPrototype.kDivMT(i) = seissol::init::kDivMT::Values[seissol::init::kDivMT::index(i)];
+    }
   }
 
   void prepareLHS(seissol::kernel::stpTestLhs& krnlPrototype) {
@@ -174,8 +161,6 @@ class SpaceTimePredictorTestFixture {
 
   void solveWithKernel(real stp[], const real* qData) {
     real timeIntegrated[seissol::tensor::I::size()];
-    alignas(PagesizeStack) real stpRhs[seissol::tensor::spaceTimePredictorRhs::size()];
-    std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
 
     seissol::kernel::spaceTimePredictor krnl;
     prepareKernel(krnl);
@@ -183,10 +168,13 @@ class SpaceTimePredictorTestFixture {
     real aValues[seissol::tensor::star::size(0)] = {0};
     real bValues[seissol::tensor::star::size(0)] = {0};
     real cValues[seissol::tensor::star::size(0)] = {0};
+
+    // IMPORTANT: we need to take -Dt instead of Dt here, since kDivMT isn't negated
+    // (that's normally taken care of in the GlobalData structs in the main exe)
     for (size_t i = 0; i < seissol::tensor::star::size(0); i++) {
-      aValues[i] = starMatrices0[i] * Dt;
-      bValues[i] = starMatrices1[i] * Dt;
-      cValues[i] = starMatrices2[i] * Dt;
+      aValues[i] = starMatrices0[i] * -Dt;
+      bValues[i] = starMatrices1[i] * -Dt;
+      cValues[i] = starMatrices2[i] * -Dt;
     }
 
     krnl.star(0) = aValues;
@@ -206,7 +194,6 @@ class SpaceTimePredictorTestFixture {
     krnl.I = timeIntegrated;
     krnl.timestep = Dt;
     krnl.spaceTimePredictor = stp;
-    krnl.spaceTimePredictorRhs = stpRhs;
     krnl.execute();
   }
 
