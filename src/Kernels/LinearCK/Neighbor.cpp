@@ -51,6 +51,14 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 
 #ifdef USE_PREMULTIPLY_FLUX
   deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
+  for (int i = 0; i < 48; ++i) {
+    deviceNfKrnlLargePrototype.gpu_neighboringFlux_kernel[i].minusFluxMatrices =
+        global.onDevice->minusFluxMatrices;
+  }
+  for (int i = 0; i < 16; ++i) {
+    deviceNfKrnlLargePrototype.gpu_nodalFlux_kernel[i].V3mTo2nTWDivM =
+        global.onDevice->nodalFluxMatrices;
+  }
 #else
   deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
   deviceNfKrnlPrototype.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
@@ -111,7 +119,58 @@ void Neighbor::computeBatchedNeighborsIntegral(
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
-  kernel::gpu_neighboringFlux neighFluxKrnl = deviceNfKrnlPrototype;
+
+  auto neighKrnl = deviceNfKrnlLargePrototype;
+  for (std::size_t faceRelation = 0; faceRelation < *FaceRelations::Count; ++faceRelation) {
+    const auto face = faceRelation / 12;
+    ConditionalKey key(*KernelNames::NeighborFlux,
+                       (FaceKinds::Regular || FaceKinds::Periodic),
+                       face,
+                       faceRelation);
+
+    if (table.find(key) != table.end()) {
+      auto& entry = table[key];
+
+      neighKrnl.gpu_neighboringFlux_kernel[faceRelation].numElements =
+          (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+      neighKrnl.gpu_neighboringFlux_kernel[faceRelation].Q =
+          (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+      neighKrnl.gpu_neighboringFlux_kernel[faceRelation].I =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+      neighKrnl.gpu_neighboringFlux_kernel[faceRelation].AminusT = const_cast<const real**>(
+          entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+      neighKrnl.gpu_neighboringFlux_kernel[faceRelation].extraOffset_AminusT =
+          SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
+    } else {
+      neighKrnl.gpu_neighboringFlux_kernel[faceRelation].numElements = 0;
+    }
+  }
+  for (std::size_t faceRelation = 0; faceRelation < *DrFaceRelations::Count; ++faceRelation) {
+    const auto face = faceRelation % 4;
+    ConditionalKey key(*KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);
+
+    // the chain kernels currently just enumerate the kernels in their order of appearance
+    const auto position = face * 4 + faceRelation / 4;
+
+    if (table.find(key) != table.end()) {
+      auto& entry = table[key];
+
+      neighKrnl.gpu_nodalFlux_kernel[position].numElements =
+          (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+      neighKrnl.gpu_nodalFlux_kernel[position].fluxSolver =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+      neighKrnl.gpu_nodalFlux_kernel[position].QInterpolated =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
+      neighKrnl.gpu_nodalFlux_kernel[position].Q =
+          (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    } else {
+      neighKrnl.gpu_nodalFlux_kernel[position].numElements = 0;
+    }
+  }
+  neighKrnl.streamPtr = runtime.stream();
+  neighKrnl.execute();
+
+  /*kernel::gpu_neighboringFlux neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
@@ -178,7 +237,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
             }
           }
         });
-  }
+  }*/
 #else
   logError() << "No GPU implementation provided";
 #endif
