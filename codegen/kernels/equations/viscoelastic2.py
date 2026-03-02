@@ -257,7 +257,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
                 self.Qane["kpm"]
                 <= self.Qane["kpm"]
                 + self.w["m"]
-                * self.Qext["kq"].subslice(
+                * self.Qext["kp"].subslice(
                     "p",
                     self.numberOfQuantities(),
                     self.numberOfExtendedQuantities(),
@@ -265,7 +265,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
                 + self.Iane["kpl"] * self.W["lm"],
                 self.Q["kp"]
                 <= self.Q["kp"]
-                + self.Qext["kq"].subslice("p", 0, self.numberOfQuantities())
+                + self.Qext["kp"].subslice("p", 0, self.numberOfQuantities())
                 + self.Iane["kqm"] * self.E["qmp"],
             ]
             generator.add(
