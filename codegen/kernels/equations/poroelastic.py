@@ -234,7 +234,7 @@ class PoroelasticADERDG(LinearADERDG):
                             * spaceTimePredictor["lqt"].subslice("l", *modeRange(n))
                             * star(d)
                         )
-                kernels.append(spaceTimePredictorRhs["kpt"] <= derivativeSum)
+                    kernels.append(spaceTimePredictorRhs["kpt"] <= derivativeSum)
             kernels.append(
                 self.I["kp"]
                 <= timestep * spaceTimePredictor["kpt"] * self.db.timeInt["t"]
