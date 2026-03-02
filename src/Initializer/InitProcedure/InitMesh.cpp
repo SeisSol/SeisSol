@@ -87,22 +87,26 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   logInfo() << "Check the mesh for geometric errors.";
   meshReader.verifyMeshOrientation();
 
-  double maxPointValue[3]{-INFINITY, -INFINITY, -INFINITY};
-  double minPointValue[3]{INFINITY, INFINITY, INFINITY};
+  std::array<double, 3> maxPointValue{-INFINITY, -INFINITY, -INFINITY};
+  std::array<double, 3> minPointValue{INFINITY, INFINITY, INFINITY};
 
   const auto vertexCount = meshReader.getVertices().size();
 
-#pragma omp parallel for reduction(min : minPointValue[ : 3]) reduction(max : maxPointValue[ : 3])
+  auto* maxPointValuePtr = maxPointValue.data();
+  auto* minPointValuePtr = minPointValue.data();
+
+#pragma omp parallel for reduction(min : minPointValuePtr[ : 3])                                   \
+    reduction(max : maxPointValuePtr[ : 3])
   for (std::size_t i = 0; i < vertexCount; ++i) {
     const auto& vertex = meshReader.getVertices()[i];
     for (int j = 0; j < 3; ++j) {
-      maxPointValue[j] = std::max(maxPointValue[j], vertex.coords[j]);
-      minPointValue[j] = std::min(minPointValue[j], vertex.coords[j]);
+      maxPointValuePtr[j] = std::max(maxPointValuePtr[j], vertex.coords[j]);
+      minPointValuePtr[j] = std::min(minPointValuePtr[j], vertex.coords[j]);
     }
   }
 
-  MPI_Allreduce(MPI_IN_PLACE, maxPointValue, 3, MPI_DOUBLE, MPI_MAX, seissol::Mpi::mpi.comm());
-  MPI_Allreduce(MPI_IN_PLACE, minPointValue, 3, MPI_DOUBLE, MPI_MIN, seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.allreduceContainer(maxPointValue, MPI_MAX, seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.allreduceContainer(minPointValue, MPI_MIN, seissol::Mpi::mpi.comm());
 
   logInfo() << "Smallest bounding box around the mesh: <" << minPointValue[0] << minPointValue[1]
             << minPointValue[2] << "> to <" << maxPointValue[0] << maxPointValue[1]

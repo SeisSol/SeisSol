@@ -572,23 +572,11 @@ void EnergyOutput::computeEnergies() {
 }
 
 void EnergyOutput::reduceEnergies() {
-  const auto& comm = Mpi::mpi.comm();
-  MPI_Allreduce(MPI_IN_PLACE,
-                energiesStorage.energies.data(),
-                static_cast<int>(energiesStorage.energies.size()),
-                MPI_DOUBLE,
-                MPI_SUM,
-                comm);
+  Mpi::mpi.allreduceContainer(energiesStorage.energies, MPI_SUM);
 }
 
 void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
-  const auto& comm = Mpi::mpi.comm();
-  MPI_Allreduce(MPI_IN_PLACE,
-                minTimeSinceSlipRateBelowThreshold.data(),
-                static_cast<int>(minTimeSinceSlipRateBelowThreshold.size()),
-                Mpi::castToMpiType<double>(),
-                MPI_MIN,
-                comm);
+  Mpi::mpi.allreduceContainer(minTimeSinceSlipRateBelowThreshold, MPI_MIN);
 }
 
 void EnergyOutput::printEnergies() {

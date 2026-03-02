@@ -19,6 +19,9 @@
 #include <numeric>
 #include <optional>
 #include <string>
+#include <type_traits>
+#include <typeindex>
+#include <unordered_map>
 #include <utils/logger.h>
 
 namespace seissol {
@@ -75,10 +78,22 @@ class Mpi : public MpiBasic {
       return MPI_UNSIGNED_LONG_LONG;
     } else if constexpr (std::is_same_v<T, long long>) {
       return MPI_LONG_LONG;
+    } else if constexpr (std::is_same_v<T, short>) {
+      return MPI_SHORT;
     } else if constexpr (std::is_same_v<T, char>) {
       return MPI_CHAR;
     } else if constexpr (std::is_same_v<T, bool>) {
       return MPI_C_BOOL;
+    } else if constexpr (std::is_same_v<T, std::pair<float, int>>) {
+      return MPI_FLOAT_INT;
+    } else if constexpr (std::is_same_v<T, std::pair<long, int>>) {
+      return MPI_LONG_INT;
+    } else if constexpr (std::is_same_v<T, std::pair<double, int>>) {
+      return MPI_DOUBLE_INT;
+    } else if constexpr (std::is_same_v<T, std::pair<short, int>>) {
+      return MPI_SHORT_INT;
+    } else if constexpr (std::is_same_v<T, std::pair<int, int>>) {
+      return MPI_2INT;
     } else {
       static_assert(sizeof(T) == 0, "Unimplemented MPI type.");
       // return something to make NVHPC happy
@@ -95,6 +110,18 @@ class Mpi : public MpiBasic {
     default:
       return MPI_BYTE;
     }
+  }
+
+  template <typename T>
+  MPI_Datatype getMpiType(bool commit = true) {
+    const auto typeIndex = std::type_index(typeid(T));
+    const auto cacheFind = cachedTypes.find(typeIndex);
+    if (cacheFind != cachedTypes.end()) {
+      return cacheFind->second;
+    }
+
+    // TODO
+    return castToMpiType<T>();
   }
 
   /**
@@ -223,6 +250,49 @@ class Mpi : public MpiBasic {
     MPI_Bcast(const_cast<InternalType*>(container.data()), size, mpiType, root, comm.value());
   }
 
+  template <typename T>
+  T allreduce(const T& value, MPI_Op op, std::optional<MPI_Comm> comm = {}) const {
+    if (not comm.has_value()) {
+      comm = std::optional<MPI_Comm>(m_comm);
+    }
+
+    T result{};
+    const auto mpiType = castToMpiType<T>();
+    MPI_Allreduce(&value, &result, 1, mpiType, op, comm.value());
+    return result;
+  }
+
+  template <typename ContainerType>
+  void allreduceContainer(ContainerType& container,
+                          MPI_Op op,
+                          std::optional<MPI_Comm> comm = {}) const {
+    using InternalType = typename ContainerType::value_type;
+    if (not comm.has_value()) {
+      comm = std::optional<MPI_Comm>(m_comm);
+    }
+    const auto size = static_cast<unsigned>(container.size());
+    const auto mpiType = castToMpiType<InternalType>();
+    MPI_Allreduce(
+        MPI_IN_PLACE, const_cast<InternalType*>(container.data()), size, mpiType, op, comm.value());
+  }
+
+  template <typename T>
+  T scan(const T& value, MPI_Op op, bool inclusive, std::optional<MPI_Comm> comm = {}) const {
+    if (not comm.has_value()) {
+      comm = std::optional<MPI_Comm>(m_comm);
+    }
+
+    T result{};
+    auto mpiType = castToMpiType<T>();
+    if (inclusive) {
+      MPI_Scan(&value, &result, 1, mpiType, op, comm.value());
+    } else {
+      MPI_Exscan(&value, &result, 1, mpiType, op, comm.value());
+    }
+
+    return result;
+  }
+
   /**
    * @return The main communicator for the application
    */
@@ -245,7 +315,12 @@ class Mpi : public MpiBasic {
   /**
    * Finalize MPI
    */
-  static void finalize() { MPI_Finalize(); }
+  void finalize() {
+    for (auto& [_, type] : cachedTypes) {
+      MPI_Type_free(&type);
+    }
+    MPI_Finalize();
+  }
 
   void setDataTransferModeFromEnv();
 
@@ -262,6 +337,7 @@ class Mpi : public MpiBasic {
   DataTransferMode preferredDataTransferMode{DataTransferMode::Direct};
   std::vector<std::string> hostNames;
   std::vector<std::string> pcis;
+  std::unordered_map<std::type_index, MPI_Datatype> cachedTypes;
 };
 
 } // namespace seissol

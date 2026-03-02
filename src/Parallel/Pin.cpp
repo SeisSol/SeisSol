@@ -339,12 +339,7 @@ CpuMask Pinning::getNodeMask() {
     workerMaskArray[cpu] = CPU_ISSET(cpu, &workerMask);
   }
 
-  MPI_Allreduce(MPI_IN_PLACE,
-                workerMaskArray.data(),
-                workerMaskArray.size(),
-                MPI_CHAR,
-                MPI_BOR,
-                Mpi::mpi.sharedMemComm());
+  Mpi::mpi.allreduceContainer(workerMaskArray, MPI_BOR);
 
   cpu_set_t nodeMask;
   CPU_ZERO(&nodeMask);
