@@ -18,6 +18,7 @@
 #include "Memory/Tree/Colormap.h"
 #include "Monitoring/Unit.h"
 
+#include <cstddef>
 #include <type_traits>
 #include <utility>
 #include <utils/logger.h>
@@ -118,7 +119,7 @@ class Storage {
               if constexpr (!std::is_same_v<void, SelfT>) {
                 return alignof(SelfT);
               }
-              return static_cast<std::size_t>(sizeof(void*));
+              return alignof(std::max_align_t);
             },
             identifier.config);
       };
