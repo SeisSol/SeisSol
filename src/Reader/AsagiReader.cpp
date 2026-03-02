@@ -115,7 +115,8 @@ namespace seissol::asagi {
 }
 
 NumaCacheMode AsagiReader::getNumaMode() {
-  const std::string numaModeName = AsagiModule::getInstance().getEnv().get("ASAGI_NUMA_MODE", "ON");
+  const std::string numaModeName =
+      AsagiModule::getInstance().getEnv().get("ASAGI_NUMA_MODE", "OFF");
 
   if (numaModeName == "ON") {
     return NumaCacheMode::On;
