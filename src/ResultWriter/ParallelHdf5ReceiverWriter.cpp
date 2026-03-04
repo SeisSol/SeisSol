@@ -22,6 +22,8 @@ hid_t _ehh(hid_t data, const char* file, int line) {
 }
 } // namespace
 
+namespace seissol::writer {
+
 ParallelHdf5ReceiverWriter::ParallelHdf5ReceiverWriter(MPI_Comm comm,
                                                        const std::string& filename,
                                                        hsize_t totalReceivers,
@@ -173,3 +175,5 @@ ParallelHdf5ReceiverWriter::~ParallelHdf5ReceiverWriter() {
   H5Sclose(pointIdSpaceId_); // Close the point ID dataspace
   H5Fclose(fileId_);         // Finally, close the file
 }
+
+} // namespace seissol::writer

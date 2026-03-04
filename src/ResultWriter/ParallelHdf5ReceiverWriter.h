@@ -16,6 +16,8 @@
 #include <string>
 #include <vector>
 
+namespace seissol::writer {
+
 class ParallelHdf5ReceiverWriter {
   public:
   ParallelHdf5ReceiverWriter(MPI_Comm comm,
@@ -51,4 +53,7 @@ class ParallelHdf5ReceiverWriter {
 
   std::array<hsize_t, Rank> dims_;
 };
+
+} // namespace seissol::writer
+
 #endif // SEISSOL_SRC_RESULTWRITER_PARALLELHDF5RECEIVERWRITER_H_
