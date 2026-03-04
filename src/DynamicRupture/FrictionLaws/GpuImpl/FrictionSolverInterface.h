@@ -51,22 +51,24 @@ struct FrictionLawData {
   const real (*__restrict qInterpolatedMinus)[misc::TimeSteps][tensor::QInterpolated::size()]{};
 
   // LSW
-  const real (*__restrict dC)[misc::NumPaddedPoints];
-  const real (*__restrict muS)[misc::NumPaddedPoints];
-  const real (*__restrict muD)[misc::NumPaddedPoints];
-  const real (*__restrict forcedRuptureTime)[misc::NumPaddedPoints];
-  real (*__restrict regularizedStrength)[misc::NumPaddedPoints];
+  const real (*__restrict dC)[misc::NumPaddedPoints]{};
+  const real (*__restrict muS)[misc::NumPaddedPoints]{};
+  const real (*__restrict muD)[misc::NumPaddedPoints]{};
+  const real (*__restrict forcedRuptureTime)[misc::NumPaddedPoints]{};
+  real (*__restrict regularizedStrength)[misc::NumPaddedPoints]{};
 
   // R+S
-  const real (*__restrict a)[misc::NumPaddedPoints];
-  const real (*__restrict sl0)[misc::NumPaddedPoints];
-  real (*__restrict stateVariable)[misc::NumPaddedPoints];
-  const real (*__restrict f0)[misc::NumPaddedPoints];
-  const real (*__restrict muW)[misc::NumPaddedPoints];
-  const real (*__restrict b)[misc::NumPaddedPoints];
+  const real (*__restrict a)[misc::NumPaddedPoints]{};
+  const real (*__restrict sl0)[misc::NumPaddedPoints]{};
+  real (*__restrict stateVariable)[misc::NumPaddedPoints]{};
+  const real (*__restrict f0)[misc::NumPaddedPoints]{};
+  const real (*__restrict muW)[misc::NumPaddedPoints]{};
+  const real (*__restrict b)[misc::NumPaddedPoints]{};
+  bool (*__restrict convergenceInner)[misc::NumPaddedPoints]{};
+  bool (*__restrict convergenceOuter)[misc::NumPaddedPoints]{};
 
   // R+S FVW
-  const real (*__restrict srW)[misc::NumPaddedPoints];
+  const real (*__restrict srW)[misc::NumPaddedPoints]{};
 
   // TP
   real (*__restrict temperature)[misc::NumPaddedPoints]{};
@@ -77,14 +79,14 @@ struct FrictionLawData {
   const real (*__restrict hydraulicDiffusivity)[misc::NumPaddedPoints]{};
 
   // ISR
-  const real (*__restrict imposedSlipDirection1)[misc::NumPaddedPoints];
-  const real (*__restrict imposedSlipDirection2)[misc::NumPaddedPoints];
+  const real (*__restrict imposedSlipDirection1)[misc::NumPaddedPoints]{};
+  const real (*__restrict imposedSlipDirection2)[misc::NumPaddedPoints]{};
 
   // ISR/STF
-  const real (*__restrict onsetTime)[misc::NumPaddedPoints];
-  const real (*__restrict tauS)[misc::NumPaddedPoints];
-  const real (*__restrict tauR)[misc::NumPaddedPoints];
-  const real (*__restrict riseTime)[misc::NumPaddedPoints];
+  const real (*__restrict onsetTime)[misc::NumPaddedPoints]{};
+  const real (*__restrict tauS)[misc::NumPaddedPoints]{};
+  const real (*__restrict tauR)[misc::NumPaddedPoints]{};
+  const real (*__restrict riseTime)[misc::NumPaddedPoints]{};
 };
 
 class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver {

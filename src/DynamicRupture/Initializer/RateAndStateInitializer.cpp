@@ -50,6 +50,9 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
     auto* rsMuW = layer.var<LTSRateAndState::RsMuW>();
     auto* rsB = layer.var<LTSRateAndState::RsB>();
 
+    auto* convergenceInner = layer.var<LTSRateAndState::ConvergenceInner>();
+    auto* convergenceOuter = layer.var<LTSRateAndState::ConvergenceOuter>();
+
     auto* initialStressInFaultCS = layer.var<LTSRateAndState::InitialStressInFaultCS>();
 
     const real initialSlipRate =
@@ -61,6 +64,9 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
         dynStressTimePending[ltsFace][pointIndex] = true;
         slipRate1[ltsFace][pointIndex] = drParameters->rsInitialSlipRate1;
         slipRate2[ltsFace][pointIndex] = drParameters->rsInitialSlipRate2;
+
+        convergenceInner[ltsFace][pointIndex] = true;
+        convergenceOuter[ltsFace][pointIndex] = true;
 
         if (rsF0Param) {
           rsF0[ltsFace][pointIndex] = drParameters->rsF0;

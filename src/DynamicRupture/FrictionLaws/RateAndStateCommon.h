@@ -38,8 +38,9 @@ struct Settings {
    */
 
   const uint32_t maxNumberSlipRateUpdates{60};
-  const uint32_t numberStateVariableUpdates{2};
+  const uint32_t numberStateVariableUpdates{10};
   const double newtonTolerance{1e-8};
+  const double stateTolerance{1e-8};
 };
 
 /**
