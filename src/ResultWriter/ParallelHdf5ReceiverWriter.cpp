@@ -10,6 +10,18 @@
 #include <array>
 #include <utils/logger.h>
 
+namespace {
+#define _eh(x) _ehh((x), __FILE__, __LINE__)
+
+hid_t _ehh(hid_t data, const char* file, int line) {
+  if (data < 0) {
+    H5Eprint(H5Eget_current_stack(), stdout);
+    throw std::runtime_error("HDF5 error at " + std::string(file) + ":" + std::to_string(line));
+  }
+  return data;
+}
+} // namespace
+
 ParallelHdf5ReceiverWriter::ParallelHdf5ReceiverWriter(MPI_Comm comm,
                                                        const std::string& filename,
                                                        hsize_t totalReceivers,
@@ -17,36 +29,35 @@ ParallelHdf5ReceiverWriter::ParallelHdf5ReceiverWriter(MPI_Comm comm,
                                                        hsize_t totalTimeSteps)
     : comm_(comm), dims_{totalTimeSteps, totalReceivers, numVariables} {
   // Create property list for parallel I/O
-  hid_t plistId = H5Pcreate(H5P_FILE_ACCESS);
-  H5Pset_fapl_mpio(plistId, comm_, MPI_INFO_NULL);
+  hid_t plistId = _eh(H5Pcreate(H5P_FILE_ACCESS));
+  _eh(H5Pset_fapl_mpio(plistId, comm_, MPI_INFO_NULL));
 
   // Create file
-  fileId_ = H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, plistId);
-  H5Pclose(plistId);
+  fileId_ = _eh(H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, plistId));
+  _eh(H5Pclose(plistId));
 
   // Create dataspace for ReceiverData
-  std::array<hsize_t, RANK> datasetDims = {totalTimeSteps, totalReceivers, numVariables};
-  filespaceId_ = H5Screate_simple(RANK, datasetDims.data(), nullptr);
+  std::array<hsize_t, Rank> datasetDims = {totalTimeSteps, totalReceivers, numVariables};
+  filespaceId_ = _eh(H5Screate_simple(Rank, datasetDims.data(), nullptr));
 
   // Create dataset "ReceiverData"
-  dsetId_ = H5Dcreate(fileId_,
-                      "ReceiverData",
-                      H5T_NATIVE_DOUBLE,
-                      filespaceId_,
-                      H5P_DEFAULT,
-                      H5P_DEFAULT,
-                      H5P_DEFAULT);
+  dsetId_ = _eh(H5Dcreate(fileId_,
+                          "ReceiverData",
+                          H5T_NATIVE_DOUBLE,
+                          filespaceId_,
+                          H5P_DEFAULT,
+                          H5P_DEFAULT,
+                          H5P_DEFAULT));
 
   // Create dataspace for pointIds
-  std::array<hsize_t, 1> pointIdDims = {totalReceivers};
-  pointIdSpaceId_ = H5Screate_simple(1, pointIdDims.data(), nullptr);
-  pointIdDsetId_ = H5Dcreate(fileId_,
-                             "PointIds",
-                             H5T_NATIVE_ULLONG,
-                             pointIdSpaceId_,
-                             H5P_DEFAULT,
-                             H5P_DEFAULT,
-                             H5P_DEFAULT);
+  pointIdSpaceId_ = _eh(H5Screate_simple(1, &totalReceivers, nullptr));
+  pointIdDsetId_ = _eh(H5Dcreate(fileId_,
+                                 "PointIds",
+                                 H5T_NATIVE_UINT64,
+                                 pointIdSpaceId_,
+                                 H5P_DEFAULT,
+                                 H5P_DEFAULT,
+                                 H5P_DEFAULT));
 }
 
 void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
@@ -59,79 +70,68 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
              << " dataSize=" << data.size();
 
   // Get the filespace directly
-  hid_t filespaceId = H5Dget_space(dsetId_);
-  checkStatus(filespaceId, "H5Dget_space in writeChunk");
+  hid_t filespaceId = _eh(H5Dget_space(dsetId_));
 
   // Define the hyperslab in the file where we'll write
-  std::array<hsize_t, RANK> start = {timeOffset, receiverOffset, 0};
-  std::array<hsize_t, RANK> count = {timeCount, localReceiverCount, dims_[2]};
+  std::array<hsize_t, Rank> start = {timeOffset, receiverOffset, 0};
+  std::array<hsize_t, Rank> count = {timeCount, localReceiverCount, dims_[2]};
 
   logDebug() << "writeChunk: hyperslab start=(" << start[0] << ", " << start[1] << ", " << start[2]
              << ") count=(" << count[0] << ", " << count[1] << ", " << count[2] << ")";
 
-  herr_t status = H5Sselect_hyperslab(
-      filespaceId, H5S_SELECT_SET, start.data(), nullptr, count.data(), nullptr);
-  checkStatus(status, "H5Sselect_hyperslab in writeChunk");
+  _eh(H5Sselect_hyperslab(
+      filespaceId, H5S_SELECT_SET, start.data(), nullptr, count.data(), nullptr));
 
   // Create a matching memory dataspace for our data
-  hid_t memspaceId = H5Screate_simple(RANK, count.data(), nullptr);
-  checkStatus(memspaceId, "H5Screate_simple in writeChunk");
+  hid_t memspaceId = _eh(H5Screate_simple(Rank, count.data(), nullptr));
 
   // Perform the collective write
-  hid_t xferPlist = H5Pcreate(H5P_DATASET_XFER);
-  checkStatus(xferPlist, "H5Pcreate(H5P_DATASET_XFER) in writeChunk");
+  hid_t xferPlist = _eh(H5Pcreate(H5P_DATASET_XFER));
 
-  status = H5Pset_dxpl_mpio(xferPlist, H5FD_MPIO_COLLECTIVE);
-  checkStatus(status, "H5Pset_dxpl_mpio in writeChunk");
+  _eh(H5Pset_dxpl_mpio(xferPlist, H5FD_MPIO_COLLECTIVE));
 
-  status = H5Dwrite(dsetId_, H5T_NATIVE_DOUBLE, memspaceId, filespaceId, xferPlist, data.data());
-  checkStatus(status, "H5Dwrite in writeChunk");
-
-  // Flush to ensure data is fully written
-  status = H5Fflush(fileId_, H5F_SCOPE_GLOBAL);
-  checkStatus(status, "H5Fflush in writeChunk");
+  _eh(H5Dwrite(dsetId_, H5T_NATIVE_DOUBLE, memspaceId, filespaceId, xferPlist, data.data()));
 
   // Cleanup
-  H5Pclose(xferPlist);
-  H5Sclose(memspaceId);
-  H5Sclose(filespaceId);
+  _eh(H5Pclose(xferPlist));
+  _eh(H5Sclose(memspaceId));
+  _eh(H5Sclose(filespaceId));
 }
 
 void ParallelHdf5ReceiverWriter::writePointIds(hsize_t receiverOffset,
                                                hsize_t localReceiverCount,
-                                               const std::vector<hsize_t>& pointIds) {
+                                               const std::vector<std::uint64_t>& pointIds) {
   logDebug() << "writePointIds: localReceiverCount=" << localReceiverCount
              << " pointIds.size()=" << pointIds.size();
 
   if (pointIds.size() != localReceiverCount) {
     throw std::runtime_error("writePointIds() size mismatch!");
   }
+  if (receiverOffset + localReceiverCount > dims_[1]) {
+    throw std::runtime_error(
+        "writePointIds(): receiver range exceeds allocated HDF5 dataset extent");
+  }
 
   // Define the hyperslab
   std::array<hsize_t, 1> start = {receiverOffset};
   std::array<hsize_t, 1> count = {localReceiverCount};
 
-  H5Sselect_hyperslab(
-      pointIdSpaceId_, H5S_SELECT_SET, start.data(), nullptr, count.data(), nullptr);
+  _eh(H5Sselect_hyperslab(
+      pointIdSpaceId_, H5S_SELECT_SET, start.data(), nullptr, count.data(), nullptr));
 
   // Create memory dataspace
-  hid_t memspaceId = H5Screate_simple(1, count.data(), nullptr);
+  hid_t memspaceId = _eh(H5Screate_simple(1, count.data(), nullptr));
 
   // Collective write for pointIds
-  hid_t xferPlist = H5Pcreate(H5P_DATASET_XFER);
-  H5Pset_dxpl_mpio(xferPlist, H5FD_MPIO_COLLECTIVE);
+  hid_t xferPlist = _eh(H5Pcreate(H5P_DATASET_XFER));
+  _eh(H5Pset_dxpl_mpio(xferPlist, H5FD_MPIO_COLLECTIVE));
 
-  herr_t status = H5Dwrite(
-      pointIdDsetId_, H5T_NATIVE_ULLONG, memspaceId, pointIdSpaceId_, xferPlist, pointIds.data());
-  checkStatus(status, "H5Dwrite in writePointIds");
-
-  // Flush
-  status = H5Fflush(fileId_, H5F_SCOPE_GLOBAL);
-  checkStatus(status, "H5Fflush in writePointIds");
+  _eh(H5Dwrite(
+      pointIdDsetId_, H5T_NATIVE_UINT64, memspaceId, pointIdSpaceId_, xferPlist, pointIds.data()));
 
   // Cleanup
-  H5Pclose(xferPlist);
-  H5Sclose(memspaceId);
+  _eh(H5Pclose(xferPlist));
+  _eh(H5Sclose(memspaceId));
 }
 
 void ParallelHdf5ReceiverWriter::writeCoordinates(std::vector<Eigen::Vector3d> points) {
@@ -145,26 +145,26 @@ void ParallelHdf5ReceiverWriter::writeCoordinates(std::vector<Eigen::Vector3d> p
 
   // Create a 2D dataspace: (nPoints x 3)
   std::array<hsize_t, 2> dims = {static_cast<hsize_t>(points.size()), 3};
-  hid_t dataspaceId = H5Screate_simple(2, dims.data(), nullptr);
+  hid_t dataspaceId = _eh(H5Screate_simple(2, dims.data(), nullptr));
 
   // Create the dataset
-  hid_t datasetId = H5Dcreate(fileId_,
-                              "Coordinates",
-                              H5T_NATIVE_DOUBLE,
-                              dataspaceId,
-                              H5P_DEFAULT,
-                              H5P_DEFAULT,
-                              H5P_DEFAULT);
+  hid_t datasetId = _eh(H5Dcreate(fileId_,
+                                  "Coordinates",
+                                  H5T_NATIVE_DOUBLE,
+                                  dataspaceId,
+                                  H5P_DEFAULT,
+                                  H5P_DEFAULT,
+                                  H5P_DEFAULT));
 
   // Write the entire coords array in one shot
-  herr_t status =
-      H5Dwrite(datasetId, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, coords.data());
-  checkStatus(status, "H5Dwrite in writeCoordinates");
+  _eh(H5Dwrite(datasetId, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, coords.data()));
 
   // Close HDF5 handles
-  H5Dclose(datasetId);
-  H5Sclose(dataspaceId);
+  _eh(H5Dclose(datasetId));
+  _eh(H5Sclose(dataspaceId));
 }
+
+void ParallelHdf5ReceiverWriter::flush() { _eh(H5Fflush(fileId_, H5F_SCOPE_GLOBAL)); }
 
 ParallelHdf5ReceiverWriter::~ParallelHdf5ReceiverWriter() {
   H5Dclose(dsetId_);         // Close the main dataset

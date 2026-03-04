@@ -8,6 +8,8 @@
 #define SEISSOL_SRC_RESULTWRITER_PARALLELHDF5RECEIVERWRITER_H_
 
 #include <Eigen/Dense>
+#include <array>
+#include <cstdint>
 #include <hdf5.h>
 #include <mpi.h>
 #include <stdexcept>
@@ -30,14 +32,15 @@ class ParallelHdf5ReceiverWriter {
 
   void writePointIds(hsize_t receiverOffset,
                      hsize_t localReceiverCount,
-                     const std::vector<hsize_t>& pointIds);
+                     const std::vector<std::uint64_t>& pointIds);
 
   void writeCoordinates(std::vector<Eigen::Vector3d> points);
+  void flush();
 
   ~ParallelHdf5ReceiverWriter();
 
   private:
-  static constexpr int RANK = 3;
+  static constexpr int Rank = 3;
 
   MPI_Comm comm_;
   hid_t fileId_;
@@ -46,12 +49,6 @@ class ParallelHdf5ReceiverWriter {
   hid_t pointIdSpaceId_;
   hid_t pointIdDsetId_;
 
-  hsize_t dims_[RANK];
-
-  void checkStatus(herr_t status, const std::string& msg) const {
-    if (status < 0) {
-      throw std::runtime_error("HDF5 error in: " + msg);
-    }
-  }
+  std::array<hsize_t, Rank> dims_;
 };
 #endif // SEISSOL_SRC_RESULTWRITER_PARALLELHDF5RECEIVERWRITER_H_
