@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_MEMORY_DESCRIPTOR_BOUNDARY_H_
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_BOUNDARY_H_
 
+#include "Alignment.h"
 #include "IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
@@ -40,7 +41,7 @@ struct Boundary {
 
   static void addTo(Storage& storage) {
     const auto mask = initializer::LayerMask(Ghost);
-    storage.add<FaceInformation>(mask, 1, allocationModeBoundary());
+    storage.add<FaceInformation>(mask, Alignment, allocationModeBoundary());
   }
 };
 

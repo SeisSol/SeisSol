@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_
 
+#include "Alignment.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/tensor.h"
 #include "IO/Instance/Checkpoint/CheckpointManager.h"
@@ -219,25 +220,26 @@ struct LTS {
     }
 
     storage.add<Buffers>(
-        LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+        LayerMask(), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
     storage.add<Derivatives>(
-        LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+        LayerMask(), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
     storage.add<CellInformation>(
-        LayerMask(), 1, allocationModeWP(AllocationPreset::Constant), true);
-    storage.add<SecondaryInformation>(LayerMask(), 1, AllocationMode::HostOnly, true);
+        LayerMask(), Alignment, allocationModeWP(AllocationPreset::Constant), true);
+    storage.add<SecondaryInformation>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
     storage.add<FaceNeighbors>(
-        LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
     storage.add<LocalIntegration>(
-        LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::ConstantShared), true);
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<NeighboringIntegration>(
-        LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::ConstantShared), true);
-    storage.add<MaterialData>(LayerMask(), 1, AllocationMode::HostOnly, true);
-    storage.add<Material>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
+    storage.add<MaterialData>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
+    storage.add<Material>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<Plasticity>(
-        plasticityMask, 1, allocationModeWP(AllocationPreset::Plasticity), true);
-    storage.add<DRMapping>(LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
+        plasticityMask, Alignment, allocationModeWP(AllocationPreset::Plasticity), true);
+    storage.add<DRMapping>(
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::Constant), true);
     storage.add<BoundaryMapping>(
-        LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::Constant), true);
     storage.add<PStrain>(
         plasticityMask, PagesizeHeap, allocationModeWP(AllocationPreset::PlasticityData));
     storage.add<FaceDisplacements>(LayerMask(Ghost), PagesizeHeap, AllocationMode::HostOnly, true);
@@ -247,34 +249,35 @@ struct LTS {
     storage.add<BuffersDerivatives>(
         LayerMask(), PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
 
-    storage.add<BuffersDevice>(LayerMask(), 1, AllocationMode::HostOnly, true);
-    storage.add<DerivativesDevice>(LayerMask(), 1, AllocationMode::HostOnly, true);
-    storage.add<FaceDisplacementsDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    storage.add<FaceNeighborsDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    storage.add<DRMappingDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    storage.add<BoundaryMappingDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    storage.add<BuffersDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
+    storage.add<DerivativesDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
+    storage.add<FaceDisplacementsDevice>(
+        LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+    storage.add<FaceNeighborsDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+    storage.add<DRMappingDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+    storage.add<BoundaryMappingDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
 
     if constexpr (isDeviceOn()) {
       const auto mode = AllocationMode::DeviceOnly;
 
-      storage.add<DerivativesExtScratch>(LayerMask(), 1, mode);
-      storage.add<DerivativesAneScratch>(LayerMask(), 1, mode);
-      storage.add<IDofsAneScratch>(LayerMask(), 1, mode);
-      storage.add<DofsExtScratch>(LayerMask(), 1, mode);
-      storage.add<IntegratedDofsScratch>(LayerMask(), 1, mode);
-      storage.add<DerivativesScratch>(LayerMask(), 1, mode);
-      storage.add<NodalAvgDisplacements>(LayerMask(), 1, mode);
-      storage.add<AnalyticScratch>(LayerMask(), 1, AllocationMode::HostDevicePinned);
+      storage.add<DerivativesExtScratch>(LayerMask(), Alignment, mode);
+      storage.add<DerivativesAneScratch>(LayerMask(), Alignment, mode);
+      storage.add<IDofsAneScratch>(LayerMask(), Alignment, mode);
+      storage.add<DofsExtScratch>(LayerMask(), Alignment, mode);
+      storage.add<IntegratedDofsScratch>(LayerMask(), Alignment, mode);
+      storage.add<DerivativesScratch>(LayerMask(), Alignment, mode);
+      storage.add<NodalAvgDisplacements>(LayerMask(), Alignment, mode);
+      storage.add<AnalyticScratch>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
 
-      storage.add<FlagScratch>(LayerMask(), 1, mode);
-      storage.add<QStressNodalScratch>(LayerMask(), 1, mode);
+      storage.add<FlagScratch>(LayerMask(), Alignment, mode);
+      storage.add<QStressNodalScratch>(LayerMask(), Alignment, mode);
 
-      storage.add<RotateDisplacementToFaceNormalScratch>(LayerMask(), 1, mode);
-      storage.add<RotateDisplacementToGlobalScratch>(LayerMask(), 1, mode);
-      storage.add<RotatedFaceDisplacementScratch>(LayerMask(), 1, mode);
-      storage.add<DofsFaceNodalScratch>(LayerMask(), 1, mode);
-      storage.add<PrevCoefficientsScratch>(LayerMask(), 1, mode);
-      storage.add<DofsFaceBoundaryNodalScratch>(LayerMask(), 1, mode);
+      storage.add<RotateDisplacementToFaceNormalScratch>(LayerMask(), Alignment, mode);
+      storage.add<RotateDisplacementToGlobalScratch>(LayerMask(), Alignment, mode);
+      storage.add<RotatedFaceDisplacementScratch>(LayerMask(), Alignment, mode);
+      storage.add<DofsFaceNodalScratch>(LayerMask(), Alignment, mode);
+      storage.add<PrevCoefficientsScratch>(LayerMask(), Alignment, mode);
+      storage.add<DofsFaceBoundaryNodalScratch>(LayerMask(), Alignment, mode);
     }
   }
 
