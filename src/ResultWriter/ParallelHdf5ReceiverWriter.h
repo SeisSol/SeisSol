@@ -23,12 +23,11 @@ class ParallelHdf5ReceiverWriter {
   ParallelHdf5ReceiverWriter(MPI_Comm comm,
                              const std::string& filename,
                              hsize_t totalReceivers,
-                             hsize_t numVariables,
-                             hsize_t totalTimeSteps);
+                             hsize_t numVariables);
 
   void writeChunk(hsize_t timeOffset,
-                  hsize_t receiverOffset,
                   hsize_t timeCount,
+                  hsize_t receiverOffset,
                   hsize_t localReceiverCount,
                   const std::vector<double>& data);
 
@@ -36,7 +35,7 @@ class ParallelHdf5ReceiverWriter {
                      hsize_t localReceiverCount,
                      const std::vector<std::uint64_t>& pointIds);
 
-  void writeCoordinates(std::vector<Eigen::Vector3d> points);
+  void writeCoordinates(const std::vector<Eigen::Vector3d>& points);
   void flush();
 
   ~ParallelHdf5ReceiverWriter();

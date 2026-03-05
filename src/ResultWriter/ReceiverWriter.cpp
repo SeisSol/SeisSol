@@ -234,17 +234,11 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                   MPI_MAX,
                   seissol::Mpi::mpi.comm());
 
-    // Create the HDF5 writer
-    // Compute total number of time steps from simulation end time and sampling interval
-    std::size_t totalTimeSteps =
-        static_cast<std::size_t>(std::ceil(m_endTime / m_samplingInterval));
-
     m_hdf5Writer =
         std::make_unique<ParallelHdf5ReceiverWriter>(seissol::Mpi::mpi.comm(),
                                                      hdf5FileName(m_fileNamePrefix),
                                                      static_cast<hsize_t>(m_totalReceivers),
-                                                     static_cast<hsize_t>(globalNcols),
-                                                     static_cast<hsize_t>(totalTimeSteps));
+                                                     static_cast<hsize_t>(globalNcols));
   }
 
   m_hdf5Writer->writeCoordinates(points);
