@@ -7,6 +7,8 @@
 
 #include "ParallelHdf5ReceiverWriter.h"
 
+#include "Parallel/MPI.h"
+
 #include <array>
 #include <utils/logger.h>
 
@@ -83,12 +85,13 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
   // Find the maximum time extent needed across all MPI ranks
   hsize_t localMaxTime = timeOffset + timeCount;
   hsize_t globalMaxTime = 0;
-  MPI_Allreduce(&localMaxTime, &globalMaxTime, 1, seissol::Mpi::castToMpiType<hsize_t>(), MPI_MAX, comm_);
+  MPI_Allreduce(
+      &localMaxTime, &globalMaxTime, 1, seissol::Mpi::castToMpiType<hsize_t>(), MPI_MAX, comm_);
 
   // Get the filespace directly
   hid_t filespaceId = _eh(H5Dget_space(dsetId_));
 
-  // Extend the dataset collectively if necessary. 
+  // Extend the dataset collectively if necessary.
   // All ranks must do this simultaneously with the same global dimensions.
   if (globalMaxTime > dims_[0]) {
     dims_[0] = globalMaxTime;
