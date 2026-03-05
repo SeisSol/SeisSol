@@ -75,11 +75,12 @@ ParallelHdf5ReceiverWriter::ParallelHdf5ReceiverWriter(MPI_Comm comm,
 
 void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
                                             hsize_t timeCount,
-                                            hsize_t receiverOffset,
-                                            hsize_t localReceiverCount,
+                                            const std::vector<std::uint64_t>& pointIds,
                                             const std::vector<double>& data) {
+  hsize_t localReceiverCount = pointIds.size();
+
   logDebug() << "writeChunk: timeOffset=" << timeOffset << " timeCount=" << timeCount
-             << " receiverOffset=" << receiverOffset << " localReceiverCount=" << localReceiverCount
+             << " localReceiverCount=" << localReceiverCount
              << " dataSize=" << data.size();
 
   // Find the maximum time extent needed across all MPI ranks
@@ -120,26 +121,25 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
     return;
   }
 
-  if (receiverOffset + localReceiverCount > dims_[1]) {
-    throw std::runtime_error("writeChunk(): receiver range exceeds allocated HDF5 dataset extent");
+  // Define the hyperslabs in the file where we'll write scattered across receivers
+  _eh(H5Sselect_none(filespaceId));
+  for (size_t r = 0; r < localReceiverCount; ++r) {
+    if (pointIds[r] >= dims_[1]) {
+      throw std::runtime_error("writeChunk(): receiver range exceeds allocated HDF5 dataset extent");
+    }
+    std::array<hsize_t, Rank> start = {timeOffset, static_cast<hsize_t>(pointIds[r]), 0};
+    std::array<hsize_t, Rank> count = {timeCount, 1, dims_[2]};
+    _eh(H5Sselect_hyperslab(filespaceId, H5S_SELECT_OR, start.data(), nullptr, count.data(), nullptr));
   }
 
-  // Define the hyperslab in the file where we'll write
-  std::array<hsize_t, Rank> start = {timeOffset, receiverOffset, 0};
-  std::array<hsize_t, Rank> count = {timeCount, localReceiverCount, dims_[2]};
-
-  logDebug() << "writeChunk: hyperslab start=(" << start[0] << ", " << start[1] << ", " << start[2]
-             << ") count=(" << count[0] << ", " << count[1] << ", " << count[2] << ")";
-
-  _eh(H5Sselect_hyperslab(
-      filespaceId, H5S_SELECT_SET, start.data(), nullptr, count.data(), nullptr));
-
   // Create a matching memory dataspace for our data
-  hid_t memspaceId = _eh(H5Screate_simple(Rank, count.data(), nullptr));
+  // Even though it's a contiguous block of memory, mapping blocks will follow monotonically
+  // increasing constraints since pointIds is sorted.
+  std::array<hsize_t, Rank> memCount = {timeCount, localReceiverCount, dims_[2]};
+  hid_t memspaceId = _eh(H5Screate_simple(Rank, memCount.data(), nullptr));
 
   // Perform the collective write
   hid_t xferPlist = _eh(H5Pcreate(H5P_DATASET_XFER));
-
   _eh(H5Pset_dxpl_mpio(xferPlist, H5FD_MPIO_COLLECTIVE));
 
   _eh(H5Dwrite(dsetId_, H5T_NATIVE_DOUBLE, memspaceId, filespaceId, xferPlist, data.data()));
@@ -150,19 +150,10 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
   _eh(H5Sclose(filespaceId));
 }
 
-void ParallelHdf5ReceiverWriter::writePointIds(hsize_t receiverOffset,
-                                               hsize_t localReceiverCount,
-                                               const std::vector<std::uint64_t>& pointIds) {
+void ParallelHdf5ReceiverWriter::writePointIds(const std::vector<std::uint64_t>& pointIds) {
+  hsize_t localReceiverCount = pointIds.size();
   logDebug() << "writePointIds: localReceiverCount=" << localReceiverCount
              << " pointIds.size()=" << pointIds.size();
-
-  if (pointIds.size() != localReceiverCount) {
-    throw std::runtime_error("writePointIds() size mismatch!");
-  }
-  if (receiverOffset + localReceiverCount > dims_[1]) {
-    throw std::runtime_error(
-        "writePointIds(): receiver range exceeds allocated HDF5 dataset extent");
-  }
 
   if (localReceiverCount == 0) {
     _eh(H5Sselect_none(pointIdSpaceId_));
@@ -184,15 +175,21 @@ void ParallelHdf5ReceiverWriter::writePointIds(hsize_t receiverOffset,
     return;
   }
 
-  // Define the hyperslab
-  std::array<hsize_t, 1> start = {receiverOffset};
-  std::array<hsize_t, 1> count = {localReceiverCount};
-
-  _eh(H5Sselect_hyperslab(
-      pointIdSpaceId_, H5S_SELECT_SET, start.data(), nullptr, count.data(), nullptr));
+  // Define the scattered hyperslabs for pointIds
+  _eh(H5Sselect_none(pointIdSpaceId_));
+  for (size_t r = 0; r < localReceiverCount; ++r) {
+    if (pointIds[r] >= dims_[1]) {
+      throw std::runtime_error("writePointIds(): receiver range exceeds allocated HDF5 dataset extent");
+    }
+    std::array<hsize_t, 1> start = {static_cast<hsize_t>(pointIds[r])};
+    std::array<hsize_t, 1> count = {1};
+    _eh(H5Sselect_hyperslab(
+        pointIdSpaceId_, H5S_SELECT_OR, start.data(), nullptr, count.data(), nullptr));
+  }
 
   // Create memory dataspace
-  hid_t memspaceId = _eh(H5Screate_simple(1, count.data(), nullptr));
+  std::array<hsize_t, 1> memCount = {localReceiverCount};
+  hid_t memspaceId = _eh(H5Screate_simple(1, memCount.data(), nullptr));
 
   // Collective write for pointIds
   hid_t xferPlist = _eh(H5Pcreate(H5P_DATASET_XFER));

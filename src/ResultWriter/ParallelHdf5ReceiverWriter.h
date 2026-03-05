@@ -27,13 +27,10 @@ class ParallelHdf5ReceiverWriter {
 
   void writeChunk(hsize_t timeOffset,
                   hsize_t timeCount,
-                  hsize_t receiverOffset,
-                  hsize_t localReceiverCount,
+                  const std::vector<std::uint64_t>& pointIds,
                   const std::vector<double>& data);
 
-  void writePointIds(hsize_t receiverOffset,
-                     hsize_t localReceiverCount,
-                     const std::vector<std::uint64_t>& pointIds);
+  void writePointIds(const std::vector<std::uint64_t>& pointIds);
 
   void writeCoordinates(const std::vector<Eigen::Vector3d>& points);
   void flush();

@@ -260,9 +260,7 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
   }
 
   bool noData = (localReceiverCount == 0 || totalNewSamples == 0);
-  auto actualOffset = noData ? 0 : m_localReceiverOffset;
   auto actualTimeCount = noData ? 0 : totalNewSamples;
-  auto actualRecCount = noData ? 0 : localReceiverCount;
 
   struct LocalReceiverData {
     kernels::Receiver* rcv;
@@ -271,14 +269,24 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
   std::vector<LocalReceiverData> localReceivers;
   localReceivers.reserve(localReceiverCount);
 
-  std::vector<std::uint64_t> pointIds;
-  pointIds.reserve(localReceiverCount);
-
   for (auto& cluster : m_receiverClusters) {
     for (auto& receiver : *cluster) {
       localReceivers.push_back({&receiver, cluster.get()});
-      pointIds.push_back(static_cast<std::uint64_t>(receiver.pointId));
     }
+  }
+
+  // Sort local receivers by pointId to ensure perfectly monotonic increasing HDF5 spatial coordinates.
+  // This guarantees memory traversals map natively to HDF5 coordinate layouts (lexicographical point order).
+  std::sort(localReceivers.begin(),
+            localReceivers.end(),
+            [](const LocalReceiverData& a, const LocalReceiverData& b) {
+              return a.rcv->pointId < b.rcv->pointId;
+            });
+
+  std::vector<std::uint64_t> pointIds;
+  pointIds.reserve(localReceiverCount);
+  for (const auto& lr : localReceivers) {
+    pointIds.push_back(static_cast<std::uint64_t>(lr.rcv->pointId));
   }
 
   unsigned ncols = localReceivers.empty() ? 0 : localReceivers[0].clus->ncols();
@@ -299,16 +307,14 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
   }
 
   std::vector<double> emptyBuffer;
+  std::vector<std::uint64_t> emptyPointIds;
+
   m_hdf5Writer->writeChunk(static_cast<hsize_t>(m_nextTimeOffset),
                            static_cast<hsize_t>(actualTimeCount),
-                           static_cast<hsize_t>(actualOffset),
-                           static_cast<hsize_t>(actualRecCount),
+                           noData ? emptyPointIds : pointIds,
                            noData ? emptyBuffer : hdf5Data);
 
-  std::vector<std::uint64_t> emptyPointIds;
-  m_hdf5Writer->writePointIds(static_cast<hsize_t>(actualOffset),
-                              static_cast<hsize_t>(actualRecCount),
-                              noData ? emptyPointIds : pointIds);
+  m_hdf5Writer->writePointIds(noData ? emptyPointIds : pointIds);
   m_hdf5Writer->flush();
 
   m_nextTimeOffset += totalNewSamples;
