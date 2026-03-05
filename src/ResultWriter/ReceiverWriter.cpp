@@ -314,7 +314,6 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
                            noData ? emptyPointIds : pointIds,
                            noData ? emptyBuffer : hdf5Data);
 
-  m_hdf5Writer->writePointIds(noData ? emptyPointIds : pointIds);
   m_hdf5Writer->flush();
 
   m_nextTimeOffset += totalNewSamples;

@@ -30,8 +30,6 @@ class ParallelHdf5ReceiverWriter {
                   const std::vector<std::uint64_t>& pointIds,
                   const std::vector<double>& data);
 
-  void writePointIds(const std::vector<std::uint64_t>& pointIds);
-
   void writeCoordinates(const std::vector<Eigen::Vector3d>& points);
   void flush();
 
@@ -44,8 +42,6 @@ class ParallelHdf5ReceiverWriter {
   hid_t fileId_;
   hid_t dsetId_;
   hid_t filespaceId_;
-  hid_t pointIdSpaceId_;
-  hid_t pointIdDsetId_;
 
   std::array<hsize_t, Rank> dims_;
 };
