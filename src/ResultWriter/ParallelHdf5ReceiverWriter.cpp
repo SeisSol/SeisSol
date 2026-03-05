@@ -80,22 +80,27 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
              << " receiverOffset=" << receiverOffset << " localReceiverCount=" << localReceiverCount
              << " dataSize=" << data.size();
 
+  // Find the maximum time extent needed across all MPI ranks
+  hsize_t localMaxTime = timeOffset + timeCount;
+  hsize_t globalMaxTime = 0;
+  MPI_Allreduce(&localMaxTime, &globalMaxTime, 1, seissol::Mpi::castToMpiType<hsize_t>(), MPI_MAX, comm_);
+
   // Get the filespace directly
   hid_t filespaceId = _eh(H5Dget_space(dsetId_));
+
+  // Extend the dataset collectively if necessary. 
+  // All ranks must do this simultaneously with the same global dimensions.
+  if (globalMaxTime > dims_[0]) {
+    dims_[0] = globalMaxTime;
+    _eh(H5Dset_extent(dsetId_, dims_.data()));
+    // Refresh the filespaceId since the extent just changed
+    _eh(H5Sclose(filespaceId));
+    filespaceId = _eh(H5Dget_space(dsetId_));
+  }
 
   // Handle case where this rank has no data to write or there's no data to be written.
   // With collective MPI I/O, all ranks must participate in the call regardless.
   if (timeCount == 0 || localReceiverCount == 0) {
-    // Before selecting none, we must still respect the extendible dimension resizing
-    // so all ranks see the same global dataset dimensions.
-    if (timeOffset + timeCount > dims_[0]) {
-      dims_[0] = timeOffset + timeCount;
-      _eh(H5Dset_extent(dsetId_, dims_.data()));
-      // Refresh the filespaceId since the extent changed
-      _eh(H5Sclose(filespaceId));
-      filespaceId = _eh(H5Dget_space(dsetId_));
-    }
-
     _eh(H5Sselect_none(filespaceId));
 
     // Create an empty memory dataspace
@@ -103,27 +108,15 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
 
     hid_t xferPlist = _eh(H5Pcreate(H5P_DATASET_XFER));
     _eh(H5Pset_dxpl_mpio(xferPlist, H5FD_MPIO_COLLECTIVE));
-    // Extend the dataset if necessary
-    if (timeOffset + timeCount > dims_[0]) {
-      dims_[0] = timeOffset + timeCount;
-      _eh(H5Dset_extent(dsetId_, dims_.data()));
 
-      // Refresh the filespaceId since the extent just changed
-      _eh(H5Sclose(filespaceId));
-      filespaceId = _eh(H5Dget_space(dsetId_));
-    }
+    _eh(H5Dwrite(dsetId_, H5T_NATIVE_DOUBLE, memspaceId, filespaceId, xferPlist, data.data()));
+
     _eh(H5Pclose(xferPlist));
     _eh(H5Sclose(memspaceId));
     _eh(H5Sclose(filespaceId));
     return;
   }
 
-  if (timeOffset + timeCount > dims_[0]) {
-    throw std::runtime_error(
-        "writeChunk(): time range exceeds allocated HDF5 dataset extent (timeOffset=" +
-        std::to_string(timeOffset) + " timeCount=" + std::to_string(timeCount) +
-        " allocated=" + std::to_string(dims_[0]) + ")");
-  }
   if (receiverOffset + localReceiverCount > dims_[1]) {
     throw std::runtime_error("writeChunk(): receiver range exceeds allocated HDF5 dataset extent");
   }
