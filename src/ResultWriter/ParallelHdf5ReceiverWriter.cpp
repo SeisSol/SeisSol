@@ -158,7 +158,8 @@ void ParallelHdf5ReceiverWriter::writeVariableNames(const std::vector<std::strin
   // Combine names into a single comma-separated string
   std::string combinedExt;
   for (size_t i = 0; i < names.size(); ++i) {
-    if (i > 0) combinedExt += ",";
+    if (i > 0)
+      combinedExt += ",";
     combinedExt += names[i];
   }
 
@@ -170,12 +171,12 @@ void ParallelHdf5ReceiverWriter::writeVariableNames(const std::vector<std::strin
   hid_t space = _eh(H5Screate(H5S_SCALAR));
 
   // Write attribute only from rank 0 to avoid simultaneous conflicting writes,
-  // or write collectively. HDF5 metadata operations generally need to be collective or 
+  // or write collectively. HDF5 metadata operations generally need to be collective or
   // safely handled. Since `fileId_` is opened with MPI-IO, H5Acreate must be called collectively.
   hid_t attr = _eh(H5Acreate(dsetId_, "VariableNames", atype, space, H5P_DEFAULT, H5P_DEFAULT));
-  
+
   _eh(H5Awrite(attr, atype, combinedExt.c_str()));
-  
+
   _eh(H5Aclose(attr));
   _eh(H5Sclose(space));
   _eh(H5Tclose(atype));

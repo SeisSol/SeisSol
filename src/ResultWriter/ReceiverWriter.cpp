@@ -295,10 +295,11 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
         auto derivedNames = derived->quantities();
         baseNames.insert(baseNames.end(), derivedNames.begin(), derivedNames.end());
       }
-      
+
       std::vector<std::string> fullNames;
       fullNames.push_back("Time");
-      for (unsigned sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd; ++sim) {
+      for (unsigned sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd;
+           ++sim) {
         for (const auto& name : baseNames) {
           if constexpr (seissol::multisim::MultisimEnabled) {
             fullNames.push_back(name + std::to_string(sim));
