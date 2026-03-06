@@ -329,7 +329,7 @@ jobs:
             volume: true
             surface: false
             order: 6
-          - name: tpvahsp
+          - name: ahsp
             equation: anisotropic
             multisim: 1
             energies: false
@@ -365,7 +365,7 @@ jobs:
             volume: true
             surface: true
             order: 6
-          - name: tpvloh1-fused
+          - name: loh1-fused
             equation: elastic
             multisim: 32
             energies: true
