@@ -179,7 +179,7 @@ Add the following section to your parameter file:
 Pitfalls
 ^^^^^^^^^
 
-Multi point-sources representation generate spurious waves at frequencies close to Vr/h with Vr the rutpure speed and h the spatial sampling of the Kinematic model.
+Multi point-source representations generate spurious waves at frequencies close to Vr/h with Vr the rutpure speed and h the spatial sampling of the kinematic model.
 Also, the source time function are discretized by linear interpolation, and should be adequately sampled in time to avoid sharp kinks in the source time function, which can be the source of high frequency generation.
 Therefore, the kinematic model may need to be upsampled in space and/or in time, for example using this script:
 https://github.com/SeisSol/SeisSol/blob/master/preprocessing/science/kinematic_models/refine_srf.py
