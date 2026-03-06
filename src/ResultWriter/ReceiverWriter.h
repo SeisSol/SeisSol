@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_RESULTWRITER_RECEIVERWRITER_H_
 
 #include "Geometry/MeshReader.h"
+#include "Initializer/Parameters/OutputParameters.h"
 #include "Kernels/Receiver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
@@ -26,9 +27,6 @@ namespace seissol {
 struct LocalIntegrationData;
 struct GlobalData;
 class SeisSol;
-namespace initializer::parameters {
-struct ReceiverOutputParameters;
-} // namespace initializer::parameters
 } // namespace seissol
 
 namespace seissol::writer {
@@ -85,8 +83,12 @@ class ReceiverWriter : public seissol::Module {
 
   private:
   static std::string hdf5FileName(const std::string& prefix);
+  [[nodiscard]] std::string fileName(unsigned pointId) const;
+  void writeHeader(unsigned pointId, const Eigen::Vector3d& point);
 
   // -- Members --
+  seissol::initializer::parameters::ReceiverOutputFormat m_format{
+      seissol::initializer::parameters::ReceiverOutputFormat::Hdf5};
   std::string m_receiverFileName;
   std::string m_fileNamePrefix;
   double m_samplingInterval{0.0};

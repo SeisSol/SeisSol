@@ -144,6 +144,14 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
   auto enabled = reader->readWithDefault("receiveroutput", true);
   warnIntervalAndDisable(enabled, interval, "receiveroutput", "receiveroutputinterval");
 
+  const auto format = reader->readWithDefaultStringEnum<ReceiverOutputFormat>(
+      "receiverformat",
+      "hdf5",
+      {
+          {"ascii", ReceiverOutputFormat::Ascii},
+          {"hdf5", ReceiverOutputFormat::Hdf5},
+      });
+
   const auto computeRotation = reader->readWithDefault("receivercomputerotation", false);
   const auto computeStrain = reader->readWithDefault("receivercomputestrain", false);
   const auto samplingInterval = reader->readWithDefault("pickdt", 0.005);
@@ -159,6 +167,7 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
 
   // note: we'll need to supply a filename, even if we don't use the receivers
   return ReceiverOutputParameters{enabled,
+                                  format,
                                   computeRotation,
                                   computeStrain,
                                   interval,

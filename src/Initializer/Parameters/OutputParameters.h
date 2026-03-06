@@ -66,8 +66,11 @@ struct PickpointParameters {
   bool collectiveio{false};
 };
 
+enum class ReceiverOutputFormat { Ascii, Hdf5 };
+
 struct ReceiverOutputParameters {
   bool enabled{false};
+  ReceiverOutputFormat format{ReceiverOutputFormat::Hdf5};
   bool computeRotation{false};
   bool computeStrain{false};
   double writeInterval{VeryLongTime};

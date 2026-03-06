@@ -90,6 +90,51 @@ std::string ReceiverWriter::hdf5FileName(const std::string& prefix) {
   return prefix + "_receivers.h5";
 }
 
+std::string ReceiverWriter::fileName(unsigned pointId) const {
+  std::stringstream fns;
+  fns << std::setfill('0') << m_fileNamePrefix << "-receiver-" << std::setw(5) << (pointId + 1);
+  fns << ".dat";
+  return fns.str();
+}
+
+void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point) {
+  auto name = fileName(pointId);
+
+  std::vector<std::string> names(seissol::model::MaterialT::Quantities.begin(),
+                                 seissol::model::MaterialT::Quantities.end());
+  for (const auto& derived : derivedQuantities) {
+    auto derivedNames = derived->quantities();
+    names.insert(names.end(), derivedNames.begin(), derivedNames.end());
+  }
+
+  /// \todo Find a nicer solution that is not so hard-coded.
+  struct stat fileStat{};
+  // Write header if file does not exist
+  if (stat(name.c_str(), &fileStat) != 0) {
+    std::ofstream file;
+    file.open(name);
+    file << "TITLE = \"Temporal Signal for receiver number " << std::setfill('0') << std::setw(5)
+         << (pointId + 1) << "\"" << std::endl;
+    file << "VARIABLES = \"Time\"";
+
+    for (unsigned sim = seissol::multisim::MultisimStart; sim < multisim::MultisimEnd; ++sim) {
+      for (const auto& name : names) {
+        if constexpr (seissol::multisim::MultisimEnabled) {
+          file << ",\"" << name << sim << "\"";
+        } else {
+          file << ",\"" << name << "\"";
+        }
+      }
+    }
+    file << std::endl;
+    for (int d = 0; d < 3; ++d) {
+      file << "# x" << (d + 1) << "       " << std::scientific << std::setprecision(12) << point[d]
+           << std::endl;
+    }
+    file.close();
+  }
+}
+
 void ReceiverWriter::init(
     const std::string& fileNamePrefix,
     double endTime,
@@ -98,6 +143,7 @@ void ReceiverWriter::init(
   m_receiverFileName = parameters.fileName;
   m_samplingInterval = parameters.samplingInterval;
   m_endTime = endTime;
+  m_format = parameters.format;
 
   if (parameters.computeRotation) {
     derivedQuantities.push_back(std::make_shared<kernels::ReceiverRotation>());
@@ -183,70 +229,105 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                                                        seissolInstance));
       }
 
-      // For ASCII, we used to call writeHeader(point, points[point]) here,
-      // but not needed for HDF5 (unless you want coordinate attributes).
+      if (m_format == seissol::initializer::parameters::ReceiverOutputFormat::Ascii) {
+        writeHeader(point, points[point]);
+      }
       localReceiverCount++;
 
       m_receiverClusters[id]->addReceiver(meshId, point, points[point], mesh, backmap);
     }
   }
 
-  // -------------------------------------------------------
-  // Now, sum up total # of receivers across ranks
-  hsize_t localCountH = static_cast<hsize_t>(localReceiverCount);
-  hsize_t totalReceiversH = 0;
-  MPI_Allreduce(&localCountH,
-                &totalReceiversH,
-                1,
-                seissol::Mpi::castToMpiType<hsize_t>(),
-                MPI_SUM,
-                seissol::Mpi::mpi.comm());
-  m_totalReceivers = static_cast<std::size_t>(totalReceiversH);
+  if (m_format == seissol::initializer::parameters::ReceiverOutputFormat::Hdf5) {
+    // -------------------------------------------------------
+    // Now, sum up total # of receivers across ranks
+    hsize_t localCountH = static_cast<hsize_t>(localReceiverCount);
+    hsize_t totalReceiversH = 0;
+    MPI_Allreduce(&localCountH,
+                  &totalReceiversH,
+                  1,
+                  seissol::Mpi::castToMpiType<hsize_t>(),
+                  MPI_SUM,
+                  seissol::Mpi::mpi.comm());
+    m_totalReceivers = static_cast<std::size_t>(totalReceiversH);
 
-  // We also need the offset in the "receivers" dimension for this rank
-  hsize_t localReceiverOffsetH = 0;
-  MPI_Exscan(&localCountH,
-             &localReceiverOffsetH,
-             1,
-             seissol::Mpi::castToMpiType<hsize_t>(),
-             MPI_SUM,
-             seissol::Mpi::mpi.comm());
-  if (seissol::Mpi::mpi.rank() == 0) {
-    localReceiverOffsetH = 0;
-  }
-  m_localReceiverOffset = static_cast<std::size_t>(localReceiverOffsetH);
+    // We also need the offset in the "receivers" dimension for this rank
+    hsize_t localReceiverOffsetH = 0;
+    MPI_Exscan(&localCountH,
+               &localReceiverOffsetH,
+               1,
+               seissol::Mpi::castToMpiType<hsize_t>(),
+               MPI_SUM,
+               seissol::Mpi::mpi.comm());
+    if (seissol::Mpi::mpi.rank() == 0) {
+      localReceiverOffsetH = 0;
+    }
+    m_localReceiverOffset = static_cast<std::size_t>(localReceiverOffsetH);
 
-  // We can now open the single HDF5 file if not done yet:
-  if (m_hdf5Writer == nullptr) {
+    // We can now open the single HDF5 file if not done yet:
+    if (m_hdf5Writer == nullptr) {
 
-    // Find the local maximum ncols
-    std::size_t localNcols = 0;
-    for (const auto& cluster : m_receiverClusters) {
-      localNcols = std::max(localNcols, static_cast<std::size_t>(cluster->ncols()));
+      // Find the local maximum ncols
+      std::size_t localNcols = 0;
+      for (const auto& cluster : m_receiverClusters) {
+        localNcols = std::max(localNcols, static_cast<std::size_t>(cluster->ncols()));
+      }
+
+      // Gather the global maximum ncols
+      std::size_t globalNcols = 0;
+      MPI_Allreduce(&localNcols,
+                    &globalNcols,
+                    1,
+                    seissol::Mpi::castToMpiType<std::size_t>(),
+                    MPI_MAX,
+                    seissol::Mpi::mpi.comm());
+
+      m_hdf5Writer =
+          std::make_unique<ParallelHdf5ReceiverWriter>(seissol::Mpi::mpi.comm(),
+                                                       hdf5FileName(m_fileNamePrefix),
+                                                       static_cast<hsize_t>(m_totalReceivers),
+                                                       static_cast<hsize_t>(globalNcols));
     }
 
-    // Gather the global maximum ncols
-    std::size_t globalNcols = 0;
-    MPI_Allreduce(&localNcols,
-                  &globalNcols,
-                  1,
-                  seissol::Mpi::castToMpiType<std::size_t>(),
-                  MPI_MAX,
-                  seissol::Mpi::mpi.comm());
-
-    m_hdf5Writer =
-        std::make_unique<ParallelHdf5ReceiverWriter>(seissol::Mpi::mpi.comm(),
-                                                     hdf5FileName(m_fileNamePrefix),
-                                                     static_cast<hsize_t>(m_totalReceivers),
-                                                     static_cast<hsize_t>(globalNcols));
+    m_hdf5Writer->writeCoordinates(points);
   }
-
-  m_hdf5Writer->writeCoordinates(points);
 }
 
 // --------------------------------------------------------------------------
 
 void ReceiverWriter::syncPoint(double /*currentTime*/) {
+
+  if (m_format == seissol::initializer::parameters::ReceiverOutputFormat::Ascii) {
+    if (m_receiverClusters.empty()) {
+      return;
+    }
+
+    m_stopwatch.start();
+
+    for (auto& cluster : m_receiverClusters) {
+      auto ncols = cluster->ncols();
+      for (auto& receiver : *cluster) {
+        assert(receiver.output.size() % ncols == 0);
+        const size_t nSamples = receiver.output.size() / ncols;
+
+        std::ofstream file;
+        file.open(fileName(receiver.pointId), std::ios::app);
+        file << std::scientific << std::setprecision(15);
+        for (size_t i = 0; i < nSamples; ++i) {
+          for (size_t q = 0; q < ncols; ++q) {
+            file << "  " << receiver.output[q + i * ncols];
+          }
+          file << std::endl;
+        }
+        file.close();
+        receiver.output.clear();
+      }
+    }
+
+    auto time = m_stopwatch.stop();
+    logInfo() << "Wrote receivers in" << time << "seconds.";
+    return;
+  }
 
   size_t totalNewSamples = 0;
   size_t localReceiverCount = 0;
@@ -275,8 +356,6 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
     }
   }
 
-  // Sort local receivers by pointId to ensure perfectly monotonic increasing HDF5 spatial coordinates.
-  // This guarantees memory traversals map natively to HDF5 coordinate layouts (lexicographical point order).
   std::sort(localReceivers.begin(),
             localReceivers.end(),
             [](const LocalReceiverData& a, const LocalReceiverData& b) {
