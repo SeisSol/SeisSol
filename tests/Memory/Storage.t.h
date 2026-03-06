@@ -31,13 +31,16 @@ TEST_CASE("Storage") {
       initializer::EnumLayer(std::vector<std::size_t>{1, 2, 3}),
       initializer::TraitLayer(std::vector<initializer::ConfigVariant>{Config()}));
 
-  storage.add<TestDescriptor::Var1>(Ghost, 1, initializer::AllocationMode::HostOnly);
-  storage.add<TestDescriptor::Var2>(Copy, 4, initializer::AllocationMode::HostOnly);
-  storage.add<TestDescriptor::Var3>(Interior, 8, initializer::AllocationMode::HostOnly);
+  constexpr auto Alignment1 = sizeof(void*);
+  constexpr auto Alignment2 = sizeof(void*) * 4;
+
+  storage.add<TestDescriptor::Var1>(Ghost, Alignment1, initializer::AllocationMode::HostOnly);
+  storage.add<TestDescriptor::Var2>(Copy, Alignment2, initializer::AllocationMode::HostOnly);
+  storage.add<TestDescriptor::Var3>(Interior, Alignment2, initializer::AllocationMode::HostOnly);
   storage.add<TestDescriptor::Bucket>(
-      initializer::LayerMask(), 1, initializer::AllocationMode::HostOnly);
+      initializer::LayerMask(), Alignment1, initializer::AllocationMode::HostOnly);
   storage.add<TestDescriptor::Scratchpad>(
-      initializer::LayerMask(), 1, initializer::AllocationMode::HostOnly);
+      initializer::LayerMask(), Alignment1, initializer::AllocationMode::HostOnly);
 
   storage.setLayerCount(colorMap);
 

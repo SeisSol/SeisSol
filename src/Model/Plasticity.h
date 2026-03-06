@@ -26,9 +26,9 @@ struct PlasticityData {
   static constexpr auto PointCount = tensor::vNodes::Shape[0];
 
   // initial loading (stress tensor)
-  real initialLoading[tensor::initialLoading::size()]{};
-  real cohesionTimesCosAngularFriction[tensor::meanStress::size()]{};
-  real sinAngularFriction[tensor::meanStress::size()]{};
+  alignas(Alignment) real initialLoading[tensor::initialLoading::size()]{};
+  alignas(Alignment) real cohesionTimesCosAngularFriction[tensor::meanStress::size()]{};
+  alignas(Alignment) real sinAngularFriction[tensor::meanStress::size()]{};
 
   // depends only on the material (i.e. only relevant for #1297 or multi-fused-material)
   real mufactor{};

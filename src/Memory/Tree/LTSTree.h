@@ -18,6 +18,7 @@
 #include "Memory/Tree/Colormap.h"
 #include "Monitoring/Unit.h"
 
+#include <cstddef>
 #include <type_traits>
 #include <utility>
 #include <utils/logger.h>
@@ -111,12 +112,24 @@ class Storage {
             },
             identifier.config);
       };
+      m.alignmentLayer = [](const LayerIdentifier& identifier) {
+        return std::visit(
+            [&](auto type) {
+              using SelfT = typename TraitT::template VariantType<decltype(type)>;
+              if constexpr (!std::is_same_v<void, SelfT>) {
+                return alignof(SelfT);
+              }
+              return alignof(std::max_align_t);
+            },
+            identifier.config);
+      };
     } else {
       using SelfT = typename TraitT::Type;
       m.bytes = sizeof(SelfT) * count;
       m.bytesLayer = [count](const LayerIdentifier& /*identifier*/) {
         return sizeof(SelfT) * count;
       };
+      m.alignmentLayer = [](const LayerIdentifier& /*identifier*/) { return alignof(SelfT); };
     }
 
     const auto bytesLayer = m.bytesLayer;
