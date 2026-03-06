@@ -46,10 +46,20 @@ ParallelHdf5ReceiverWriter::ParallelHdf5ReceiverWriter(MPI_Comm comm,
 
   // Create dataset creation property list and set chunking
   hid_t dcplId = _eh(H5Pcreate(H5P_DATASET_CREATE));
-  // Chunk over chunk-sized time steps, but span all receivers and variables
-  // (adjust chunk sizing according to typical sync frequency and memory limits, using 100
-  // arbitrarily here)
-  std::array<hsize_t, Rank> chunkDims = {100, totalReceivers, numVariables};
+
+  // Target a ~1 MB chunk size
+  constexpr size_t targetChunkBytes = 1048576; // 1 MB
+
+  // How many bytes does a single receiver take at one time step?
+  size_t bytesPerReceiverPoint = numVariables * sizeof(double);
+
+  // Calculate how many receivers fit into our 1 MB budget
+  hsize_t chunkReceivers = std::max<hsize_t>(1, targetChunkBytes / bytesPerReceiverPoint);
+
+  // Cap it at totalReceivers
+  chunkReceivers = std::min<hsize_t>(chunkReceivers, totalReceivers);
+
+  std::array<hsize_t, Rank> chunkDims = {1, chunkReceivers, numVariables};
   _eh(H5Pset_chunk(dcplId, Rank, chunkDims.data()));
 
   // Set default fill value to 0 for unlimited expansion
@@ -70,8 +80,7 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
   hsize_t localReceiverCount = pointIds.size();
 
   logDebug() << "writeChunk: timeOffset=" << timeOffset << " timeCount=" << timeCount
-             << " localReceiverCount=" << localReceiverCount
-             << " dataSize=" << data.size();
+             << " localReceiverCount=" << localReceiverCount << " dataSize=" << data.size();
 
   // Find the maximum time extent needed across all MPI ranks
   hsize_t localMaxTime = timeOffset + timeCount;
@@ -115,11 +124,13 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
   _eh(H5Sselect_none(filespaceId));
   for (size_t r = 0; r < localReceiverCount; ++r) {
     if (pointIds[r] >= dims_[1]) {
-      throw std::runtime_error("writeChunk(): receiver range exceeds allocated HDF5 dataset extent");
+      throw std::runtime_error(
+          "writeChunk(): receiver range exceeds allocated HDF5 dataset extent");
     }
     std::array<hsize_t, Rank> start = {timeOffset, static_cast<hsize_t>(pointIds[r]), 0};
     std::array<hsize_t, Rank> count = {timeCount, 1, dims_[2]};
-    _eh(H5Sselect_hyperslab(filespaceId, H5S_SELECT_OR, start.data(), nullptr, count.data(), nullptr));
+    _eh(H5Sselect_hyperslab(
+        filespaceId, H5S_SELECT_OR, start.data(), nullptr, count.data(), nullptr));
   }
 
   // Create a matching memory dataspace for our data
@@ -187,9 +198,9 @@ void ParallelHdf5ReceiverWriter::writeCoordinates(const std::vector<Eigen::Vecto
 void ParallelHdf5ReceiverWriter::flush() { _eh(H5Fflush(fileId_, H5F_SCOPE_GLOBAL)); }
 
 ParallelHdf5ReceiverWriter::~ParallelHdf5ReceiverWriter() {
-  H5Dclose(dsetId_);         // Close the main dataset
-  H5Sclose(filespaceId_);    // Close the main dataspace
-  H5Fclose(fileId_);         // Finally, close the file
+  H5Dclose(dsetId_);      // Close the main dataset
+  H5Sclose(filespaceId_); // Close the main dataspace
+  H5Fclose(fileId_);      // Finally, close the file
 }
 
 } // namespace seissol::writer
