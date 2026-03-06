@@ -127,6 +127,9 @@ def main():
 
     cost_estimators = BoundingBoxCostEstimator
     custom_routine_generators = {}
+
+    isOldGpuInterface = True
+
     if "gpu" in targets:
         device_codegen = re.split(r"[,;]", cmdLineArgs.device_codegen.replace(" ", ""))
 
@@ -142,11 +145,15 @@ def main():
                 raise ModuleNotFoundError(
                     "Could not find chainforge. You can install it from github.com/seissol/chainforge ."
                 )
+
         if "tensorforge" in device_codegen:
             import tensorforge
 
+            isOldGpuInterface = False
+
             if tensorforge.use_fusedgemm_cost():
                 cost_estimators = FusedGemmsBoundingBoxCostEstimator
+
             custom_routine_generators["gpu"] = tensorforge.get_routine_generator(yateto)
 
     subfolders = []
@@ -227,6 +234,7 @@ def main():
                 cmdLineArgs.matricesDir,
                 cmdLineArgs.drQuadRule,
                 targets,
+                isOldGpuInterface,
             )
         )
 

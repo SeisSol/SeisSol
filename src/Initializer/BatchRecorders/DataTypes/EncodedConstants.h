@@ -97,9 +97,8 @@ enum struct KernelNames : size_t {
   NeighborFlux = 1 << 3,
   FaceDisplacements = 1 << 4,
   Plasticity = 1 << 5,
-  DrTime = 1 << 6,
-  DrSpaceMap = 1 << 7,
-  BoundaryConditions = 1 << 8,
+  DrSpaceMap = 1 << 6,
+  BoundaryConditions = 1 << 7,
   Count = 9,
   Any = encodeAny(Count)
 };
