@@ -31,6 +31,7 @@ class ParallelHdf5ReceiverWriter {
                   const std::vector<double>& data);
 
   void writeCoordinates(const std::vector<Eigen::Vector3d>& points);
+  void writeVariableNames(const std::vector<std::string>& names);
   void flush();
 
   ~ParallelHdf5ReceiverWriter();

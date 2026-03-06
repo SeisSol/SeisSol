@@ -151,6 +151,36 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
   _eh(H5Sclose(filespaceId));
 }
 
+void ParallelHdf5ReceiverWriter::writeVariableNames(const std::vector<std::string>& names) {
+  int rank;
+  MPI_Comm_rank(comm_, &rank);
+
+  // Combine names into a single comma-separated string
+  std::string combinedExt;
+  for (size_t i = 0; i < names.size(); ++i) {
+    if (i > 0) combinedExt += ",";
+    combinedExt += names[i];
+  }
+
+  // Use a string datatype for the attribute
+  hid_t atype = _eh(H5Tcopy(H5T_C_S1));
+  _eh(H5Tset_size(atype, combinedExt.size() + 1));
+  _eh(H5Tset_strpad(atype, H5T_STR_NULLTERM));
+
+  hid_t space = _eh(H5Screate(H5S_SCALAR));
+
+  // Write attribute only from rank 0 to avoid simultaneous conflicting writes,
+  // or write collectively. HDF5 metadata operations generally need to be collective or 
+  // safely handled. Since `fileId_` is opened with MPI-IO, H5Acreate must be called collectively.
+  hid_t attr = _eh(H5Acreate(dsetId_, "VariableNames", atype, space, H5P_DEFAULT, H5P_DEFAULT));
+  
+  _eh(H5Awrite(attr, atype, combinedExt.c_str()));
+  
+  _eh(H5Aclose(attr));
+  _eh(H5Sclose(space));
+  _eh(H5Tclose(atype));
+}
+
 void ParallelHdf5ReceiverWriter::writeCoordinates(const std::vector<Eigen::Vector3d>& points) {
   int rank;
   MPI_Comm_rank(comm_, &rank);

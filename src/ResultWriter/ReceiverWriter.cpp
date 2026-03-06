@@ -287,6 +287,27 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                                                        hdf5FileName(m_fileNamePrefix),
                                                        static_cast<hsize_t>(m_totalReceivers),
                                                        static_cast<hsize_t>(globalNcols));
+
+      // Construct variable names and write to HDF5 attribute
+      std::vector<std::string> baseNames(seissol::model::MaterialT::Quantities.begin(),
+                                         seissol::model::MaterialT::Quantities.end());
+      for (const auto& derived : derivedQuantities) {
+        auto derivedNames = derived->quantities();
+        baseNames.insert(baseNames.end(), derivedNames.begin(), derivedNames.end());
+      }
+      
+      std::vector<std::string> fullNames;
+      fullNames.push_back("Time");
+      for (unsigned sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd; ++sim) {
+        for (const auto& name : baseNames) {
+          if constexpr (seissol::multisim::MultisimEnabled) {
+            fullNames.push_back(name + std::to_string(sim));
+          } else {
+            fullNames.push_back(name);
+          }
+        }
+      }
+      m_hdf5Writer->writeVariableNames(fullNames);
     }
 
     m_hdf5Writer->writeCoordinates(points);
