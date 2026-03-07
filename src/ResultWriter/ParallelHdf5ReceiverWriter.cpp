@@ -178,6 +178,18 @@ void ParallelHdf5ReceiverWriter::writeVariableNames(const std::vector<std::strin
   _eh(H5Awrite(attr, atype, combinedExt.c_str()));
 
   _eh(H5Aclose(attr));
+
+  // Add DimNames indicating standard shape dimensions: (time_steps, receiver_points, variables)
+  std::string dimNames = "time_steps,receiver_points,variables";
+  hid_t dimAtype = _eh(H5Tcopy(H5T_C_S1));
+  _eh(H5Tset_size(dimAtype, dimNames.size() + 1));
+  _eh(H5Tset_strpad(dimAtype, H5T_STR_NULLTERM));
+
+  hid_t dimAttr = _eh(H5Acreate(dsetId_, "DimNames", dimAtype, space, H5P_DEFAULT, H5P_DEFAULT));
+  _eh(H5Awrite(dimAttr, dimAtype, dimNames.c_str()));
+  _eh(H5Aclose(dimAttr));
+  _eh(H5Tclose(dimAtype));
+
   _eh(H5Sclose(space));
   _eh(H5Tclose(atype));
 }
