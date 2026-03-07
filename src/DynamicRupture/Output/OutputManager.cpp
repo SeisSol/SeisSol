@@ -225,7 +225,7 @@ void OutputManager::initElementwiseOutput() {
                                        static_cast<unsigned int>(3 * receiverPoints.size()),
                                        &intMask[0],
                                        const_cast<const real**>(dataPointers.data()),
-                                       seissolParameters.output.prefix.data(),
+                                       seissolInstance.outputPrefix().data(),
                                        printTime,
                                        backendType,
                                        backupTimeStamp);
@@ -317,7 +317,7 @@ void OutputManager::initPickpointOutput() {
       // aggregate all receivers per rank
 
       files.resize(1);
-      auto fileName = buildIndexedMPIFileName(seissolParameters.output.prefix, -1, "faultreceiver");
+      auto fileName = buildIndexedMPIFileName(seissolInstance.outputPrefix(), -1, "faultreceiver");
       fileName += ".dat";
       std::vector<std::size_t> receivers(outputData->receiverPoints.size());
       std::iota(receivers.begin(), receivers.end(), 0);
@@ -334,7 +334,7 @@ void OutputManager::initPickpointOutput() {
       std::size_t counter = 0;
       for (const auto& [index, receivers] : globalIndexMap) {
         auto fileName =
-            buildIndexedMPIFileName(seissolParameters.output.prefix, index + 1, "faultreceiver");
+            buildIndexedMPIFileName(seissolInstance.outputPrefix(), index + 1, "faultreceiver");
         seissol::generateBackupFileIfNecessary(fileName, "dat", {backupTimeStamp});
         fileName += ".dat";
 

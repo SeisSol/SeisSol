@@ -129,7 +129,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
                 << " min =" << summary.min << " median =" << summary.median
                 << " max =" << summary.max;
 
-      writer::MiniSeisSolWriter writer(seissolParams.output.prefix.c_str());
+      writer::MiniSeisSolWriter writer(seissolInstance.outputPrefix().c_str());
       writer.write(elapsedTime, nodeWeight);
     } else {
       logInfo() << "Skipping mini SeisSol (SeisSol is used with a single rank only).";

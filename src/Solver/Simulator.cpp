@@ -146,7 +146,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   const auto& outputParams = seissolInstance.getSeisSolParameters().output;
 
   const bool isLoopStatisticsNetcdfOutputOn = outputParams.loopStatisticsNetcdfOutput;
-  const auto& outputPrefix = outputParams.prefix;
+  const auto& outputPrefix = seissolInstance.outputPrefix();
   seissolInstance.timeManager().printComputationTime(outputPrefix, isLoopStatisticsNetcdfOutputOn);
 
   seissolInstance.analysisWriter().printAnalysis(currentTime);
