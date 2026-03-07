@@ -18,13 +18,15 @@
 #include "Memory/Tree/Backmap.h"
 #include "Modules/Modules.h"
 #include "Parallel/MPI.h"
+#include "ParallelHdf5ReceiverWriter.h"
 #include "Solver/MultipleSimulations.h"
 
-#include <Eigen/Core>
 #include <algorithm>
 #include <cassert>
 #include <cctype>
+#include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <fstream>
 #include <iomanip>
 #include <ios>
@@ -43,11 +45,16 @@
 
 namespace seissol::writer {
 
-Eigen::Vector3d parseReceiverLine(const std::string& line) {
+ReceiverWriter::ReceiverWriter(seissol::SeisSol& seissolInstance)
+    : seissolInstance(seissolInstance) {}
+
+ReceiverWriter::~ReceiverWriter() = default;
+
+static Eigen::Vector3d parseReceiverLine(const std::string& line) {
   const std::regex rgx("\\s+");
   std::sregex_token_iterator iter(line.begin(), line.end(), rgx, -1);
   const std::sregex_token_iterator end;
-  Eigen::Vector3d coordinates;
+  Eigen::Vector3d coordinates{};
   unsigned numberOfCoordinates = 0;
   for (; iter != end; ++iter, ++numberOfCoordinates) {
     if (numberOfCoordinates >= coordinates.size()) {
@@ -61,8 +68,8 @@ Eigen::Vector3d parseReceiverLine(const std::string& line) {
   return coordinates;
 }
 
-std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileName) {
-  std::vector<Eigen::Vector3d> points;
+static std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileName) {
+  std::vector<Eigen::Vector3d> points{};
 
   std::ifstream file{receiverFileName};
   std::string line{};
@@ -75,6 +82,12 @@ std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileNa
     }
   }
   return points;
+}
+
+// --------------------------------------------------------------------------
+// Helper function for HDF5 output file name
+std::string ReceiverWriter::hdf5FileName(const std::string& prefix) {
+  return prefix + "_receivers.h5";
 }
 
 std::string ReceiverWriter::fileName(unsigned pointId) const {
@@ -122,36 +135,6 @@ void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point)
   }
 }
 
-void ReceiverWriter::syncPoint(double /*currentTime*/) {
-  if (m_receiverClusters.empty()) {
-    return;
-  }
-
-  m_stopwatch.start();
-
-  for (auto& cluster : m_receiverClusters) {
-    auto ncols = cluster->ncols();
-    for (auto& receiver : *cluster) {
-      assert(receiver.output.size() % ncols == 0);
-      const size_t nSamples = receiver.output.size() / ncols;
-
-      std::ofstream file;
-      file.open(fileName(receiver.pointId), std::ios::app);
-      file << std::scientific << std::setprecision(15);
-      for (size_t i = 0; i < nSamples; ++i) {
-        for (size_t q = 0; q < ncols; ++q) {
-          file << "  " << receiver.output[q + i * ncols];
-        }
-        file << std::endl;
-      }
-      file.close();
-      receiver.output.clear();
-    }
-  }
-
-  auto time = m_stopwatch.stop();
-  logInfo() << "Wrote receivers in" << time << "seconds.";
-}
 void ReceiverWriter::init(
     const std::string& fileNamePrefix,
     double endTime,
@@ -159,6 +142,8 @@ void ReceiverWriter::init(
   m_fileNamePrefix = fileNamePrefix;
   m_receiverFileName = parameters.fileName;
   m_samplingInterval = parameters.samplingInterval;
+  m_endTime = endTime;
+  m_format = parameters.format;
 
   if (parameters.computeRotation) {
     derivedQuantities.push_back(std::make_shared<kernels::ReceiverRotation>());
@@ -197,10 +182,13 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   logInfo() << "Finding meshIds for receivers...";
   initializer::findMeshIds(
       points.data(), mesh, numberOfPoints, contained.data(), meshIds.data(), 1e-3);
-  std::vector<short> globalContained(contained.begin(), contained.end());
 
   logInfo() << "Cleaning possible double occurring receivers for multi-rank setups...";
   initializer::cleanDoubles(contained.data(), numberOfPoints);
+
+  // Then reduce to see which points exist globally
+  std::vector<short> globalContained(contained.begin(), contained.end());
+
   MPI_Allreduce(MPI_IN_PLACE,
                 globalContained.data(),
                 globalContained.size(),
@@ -222,6 +210,9 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
 
   logInfo() << "Mapping receivers to LTS cells...";
   m_receiverClusters.clear();
+
+  size_t localReceiverCount = 0;
+
   for (std::size_t point = 0; point < numberOfPoints; ++point) {
     if (contained[point] == 1) {
       const std::size_t meshId = meshIds[point];
@@ -238,24 +229,213 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                                                        seissolInstance));
       }
 
-      writeHeader(point, points[point]);
+      if (m_format == seissol::initializer::parameters::ReceiverOutputFormat::Ascii) {
+        writeHeader(point, points[point]);
+      }
+      localReceiverCount++;
+
       m_receiverClusters[id]->addReceiver(meshId, point, points[point], mesh, backmap);
     }
   }
+
+  if (m_format == seissol::initializer::parameters::ReceiverOutputFormat::Hdf5) {
+    // -------------------------------------------------------
+    // Now, sum up total # of receivers across ranks
+    hsize_t localCountH = static_cast<hsize_t>(localReceiverCount);
+    hsize_t totalReceiversH = 0;
+    MPI_Allreduce(&localCountH,
+                  &totalReceiversH,
+                  1,
+                  seissol::Mpi::castToMpiType<hsize_t>(),
+                  MPI_SUM,
+                  seissol::Mpi::mpi.comm());
+    m_totalReceivers = static_cast<std::size_t>(totalReceiversH);
+
+    // We also need the offset in the "receivers" dimension for this rank
+    hsize_t localReceiverOffsetH = 0;
+    MPI_Exscan(&localCountH,
+               &localReceiverOffsetH,
+               1,
+               seissol::Mpi::castToMpiType<hsize_t>(),
+               MPI_SUM,
+               seissol::Mpi::mpi.comm());
+    if (seissol::Mpi::mpi.rank() == 0) {
+      localReceiverOffsetH = 0;
+    }
+    m_localReceiverOffset = static_cast<std::size_t>(localReceiverOffsetH);
+
+    // We can now open the single HDF5 file if not done yet:
+    if (m_hdf5Writer == nullptr) {
+
+      // Find the local maximum ncols
+      std::size_t localNcols = 0;
+      for (const auto& cluster : m_receiverClusters) {
+        localNcols = std::max(localNcols, static_cast<std::size_t>(cluster->ncols()));
+      }
+
+      // Gather the global maximum ncols
+      std::size_t globalNcols = 0;
+      MPI_Allreduce(&localNcols,
+                    &globalNcols,
+                    1,
+                    seissol::Mpi::castToMpiType<std::size_t>(),
+                    MPI_MAX,
+                    seissol::Mpi::mpi.comm());
+
+      m_hdf5Writer =
+          std::make_unique<ParallelHdf5ReceiverWriter>(seissol::Mpi::mpi.comm(),
+                                                       hdf5FileName(m_fileNamePrefix),
+                                                       static_cast<hsize_t>(m_totalReceivers),
+                                                       static_cast<hsize_t>(globalNcols));
+
+      // Construct variable names and write to HDF5 attribute
+      std::vector<std::string> baseNames(seissol::model::MaterialT::Quantities.begin(),
+                                         seissol::model::MaterialT::Quantities.end());
+      for (const auto& derived : derivedQuantities) {
+        auto derivedNames = derived->quantities();
+        baseNames.insert(baseNames.end(), derivedNames.begin(), derivedNames.end());
+      }
+
+      std::vector<std::string> fullNames;
+      fullNames.push_back("Time");
+      for (unsigned sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd;
+           ++sim) {
+        for (const auto& name : baseNames) {
+          if constexpr (seissol::multisim::MultisimEnabled) {
+            fullNames.push_back(name + std::to_string(sim));
+          } else {
+            fullNames.push_back(name);
+          }
+        }
+      }
+      m_hdf5Writer->writeVariableNames(fullNames);
+    }
+
+    m_hdf5Writer->writeCoordinates(points);
+  }
 }
 
-void ReceiverWriter::simulationStart(std::optional<double> /*checkpointTime*/) {
+// --------------------------------------------------------------------------
+
+void ReceiverWriter::syncPoint(double /*currentTime*/) {
+
+  if (m_format == seissol::initializer::parameters::ReceiverOutputFormat::Ascii) {
+    if (m_receiverClusters.empty()) {
+      return;
+    }
+
+    m_stopwatch.start();
+
+    for (auto& cluster : m_receiverClusters) {
+      auto ncols = cluster->ncols();
+      for (auto& receiver : *cluster) {
+        assert(receiver.output.size() % ncols == 0);
+        const size_t nSamples = receiver.output.size() / ncols;
+
+        std::ofstream file;
+        file.open(fileName(receiver.pointId), std::ios::app);
+        file << std::scientific << std::setprecision(15);
+        for (size_t i = 0; i < nSamples; ++i) {
+          for (size_t q = 0; q < ncols; ++q) {
+            file << "  " << receiver.output[q + i * ncols];
+          }
+          file << std::endl;
+        }
+        file.close();
+        receiver.output.clear();
+      }
+    }
+
+    auto time = m_stopwatch.stop();
+    logInfo() << "Wrote receivers in" << time << "seconds.";
+    return;
+  }
+
+  size_t totalNewSamples = 0;
+  size_t localReceiverCount = 0;
+
+  for (const auto& cluster : m_receiverClusters) {
+    for (const auto& receiver : *cluster) {
+      size_t thisReceiverSamples = receiver.output.size() / cluster->ncols();
+      totalNewSamples = std::max(totalNewSamples, thisReceiverSamples);
+      localReceiverCount++;
+    }
+  }
+
+  bool noData = (localReceiverCount == 0 || totalNewSamples == 0);
+  auto actualTimeCount = noData ? 0 : totalNewSamples;
+
+  struct LocalReceiverData {
+    kernels::Receiver* rcv;
+    kernels::ReceiverCluster* clus;
+  };
+  std::vector<LocalReceiverData> localReceivers;
+  localReceivers.reserve(localReceiverCount);
+
+  for (auto& cluster : m_receiverClusters) {
+    for (auto& receiver : *cluster) {
+      localReceivers.push_back({&receiver, cluster.get()});
+    }
+  }
+
+  std::sort(localReceivers.begin(),
+            localReceivers.end(),
+            [](const LocalReceiverData& a, const LocalReceiverData& b) {
+              return a.rcv->pointId < b.rcv->pointId;
+            });
+
+  std::vector<std::uint64_t> pointIds;
+  pointIds.reserve(localReceiverCount);
+  for (const auto& lr : localReceivers) {
+    pointIds.push_back(static_cast<std::uint64_t>(lr.rcv->pointId));
+  }
+
+  unsigned ncols = localReceivers.empty() ? 0 : localReceivers[0].clus->ncols();
+  std::vector<double> hdf5Data(totalNewSamples * localReceiverCount * ncols);
+
+  for (size_t lr = 0; lr < localReceivers.size(); ++lr) {
+    auto& rec = *localReceivers[lr].rcv;
+    const size_t nSamples = rec.output.size() / ncols;
+
+    for (size_t t = 0; t < nSamples; ++t) {
+      for (size_t v = 0; v < ncols; ++v) {
+        double value = rec.output[t * ncols + v];
+        size_t idx = t * (localReceiverCount * ncols) + lr * ncols + v;
+        hdf5Data[idx] = value;
+      }
+    }
+    rec.output.clear();
+  }
+
+  std::vector<double> emptyBuffer;
+  std::vector<std::uint64_t> emptyPointIds;
+
+  m_hdf5Writer->writeChunk(static_cast<hsize_t>(m_nextTimeOffset),
+                           static_cast<hsize_t>(actualTimeCount),
+                           noData ? emptyPointIds : pointIds,
+                           noData ? emptyBuffer : hdf5Data);
+
+  m_hdf5Writer->flush();
+
+  m_nextTimeOffset += totalNewSamples;
+}
+
+// --------------------------------------------------------------------------
+void ReceiverWriter::simulationStart(std::optional<double> checkpointTime) {
   for (auto& cluster : m_receiverClusters) {
     cluster->allocateData();
   }
 }
 
+// --------------------------------------------------------------------------
 void ReceiverWriter::shutdown() {
   for (auto& cluster : m_receiverClusters) {
     cluster->freeData();
   }
+  m_hdf5Writer.reset();
 }
 
+// --------------------------------------------------------------------------
 kernels::ReceiverCluster* ReceiverWriter::receiverCluster(std::size_t id) {
   if (id < m_receiverClusters.size()) {
     return m_receiverClusters[id].get();

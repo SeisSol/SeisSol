@@ -119,6 +119,7 @@ ResultWriter/FreeSurfaceWriterExecutor.cpp
 ResultWriter/MiniSeisSolWriter.cpp
 ResultWriter/PostProcessor.cpp
 ResultWriter/ReceiverWriter.cpp
+ResultWriter/ParallelHdf5ReceiverWriter.cpp
 ResultWriter/ThreadsPinningWriter.cpp
 ResultWriter/WaveFieldWriter.cpp
 ResultWriter/FaultWriter.cpp
