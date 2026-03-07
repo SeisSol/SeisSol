@@ -151,8 +151,9 @@ OutputRegionBounds = -20e3 20e3 -10e3 10e3 -20e3 0e3 !(optional) array that desc
 
 wavefieldvtkorder = -1 ! positive values enable the VTKHDF high-order output for the wavefield
 
-! off-fault ascii receivers
-ReceiverOutput = 1                   ! Enable/disable off-fault ascii receiver output
+! off-fault receivers
+ReceiverOutput = 1                   ! Enable/disable off-fault receiver output
+ReceiverFormat = 'hdf5'              ! Format of receiver output: 'hdf5' (default) or 'ascii'
 RFileName = 'tpv33_receivers.dat'    ! Record Points in extra file
 pickdt = 0.005                       ! Pickpoint Sampling
 ! (Optional) Synchronization point for receivers.
