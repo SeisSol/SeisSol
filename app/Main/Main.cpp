@@ -139,7 +139,7 @@ int main(int argc, char* argv[]) {
       [[fallthrough]];
     }
     case utils::Args::Error: {
-      seissol::Mpi::finalize();
+      seissol::Mpi::mpi.finalize();
       return 1;
     }
     case utils::Args::Success: {

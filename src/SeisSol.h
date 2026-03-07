@@ -160,12 +160,16 @@ class SeisSol {
   /**
    * Delete the mesh reader to free memory resources.
    *
-   * Should be called after initialization
+   * Should be called after the simulation ended
    */
   void freeMeshReader() {
     delete m_meshReader;
     m_meshReader = nullptr;
   }
+
+  void setOutputPrefix(const std::string& outputPrefix) { outputPrefix_ = outputPrefix; }
+
+  const std::string& outputPrefix() const { return outputPrefix_; }
 
   /**
    * Get the mesh reader
@@ -291,6 +295,8 @@ class SeisSol {
   utils::Env m_env;
 
   double timestepScale{1.0};
+
+  std::string outputPrefix_;
 
   public:
   SeisSol(const initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)

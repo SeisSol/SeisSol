@@ -63,11 +63,11 @@ double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
                                      double wiggleFactor,
                                      double minimalTimestep,
                                      MPI_Comm comm) {
-  double cost =
+  const auto costLocal =
       computeLocalCostOfClustering(clusterIds, cellCosts, rate, wiggleFactor, minimalTimestep);
-  MPI_Allreduce(MPI_IN_PLACE, &cost, 1, MPI_DOUBLE, MPI_SUM, comm);
+  const auto costGlobal = Mpi::mpi.allreduce(costLocal, MPI_SUM, comm);
 
-  return cost;
+  return costGlobal;
 }
 
 std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int maxClusterId) {
@@ -88,7 +88,7 @@ int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
                                       double wiggleFactor,
                                       double minimalTimestep) {
   int maxClusterId = *std::max_element(clusterIds.begin(), clusterIds.end());
-  MPI_Allreduce(MPI_IN_PLACE, &maxClusterId, 1, MPI_INT, MPI_MAX, Mpi::mpi.comm());
+  maxClusterId = Mpi::mpi.allreduce(maxClusterId, MPI_MAX);
 
   // Iteratively merge clusters until we found the first number of clusters that has a cost that is
   // too high
@@ -268,7 +268,7 @@ LtsWeights::ComputeWiggleFactorResult
 
     m_clusterIds = enforceMaxClusterId(m_clusterIds, maxClusterIdToEnforce);
     auto maxClusterId = *std::max_element(m_clusterIds.begin(), m_clusterIds.end());
-    MPI_Allreduce(MPI_IN_PLACE, &maxClusterId, 1, MPI_INT, MPI_MAX, Mpi::mpi.comm());
+    maxClusterId = Mpi::mpi.allreduce(maxClusterId, MPI_MAX);
 
     m_ncon = evaluateNumberOfConstraints();
 
@@ -435,7 +435,7 @@ int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWig
     }
     const auto& ltsParameters = seissolInstance.getSeisSolParameters().timeStepping.lts;
     if (ltsParameters.getWiggleFactorEnforceMaximumDifference()) {
-      MPI_Allreduce(MPI_IN_PLACE, &cellchanges, 1, MPI_INT, MPI_SUM, seissol::Mpi::mpi.comm());
+      cellchanges = Mpi::mpi.allreduce(cellchanges, MPI_SUM);
       if (cellchanges > 0) {
         numberOfReductions = enforceMaximumDifference();
       }
@@ -489,12 +489,7 @@ int LtsWeights::enforceMaximumDifference() {
   do {
     int localNumberOfReductions = enforceMaximumDifferenceLocal();
 
-    MPI_Allreduce(&localNumberOfReductions,
-                  &globalNumberOfReductions,
-                  1,
-                  MPI_INT,
-                  MPI_SUM,
-                  seissol::Mpi::mpi.comm());
+    globalNumberOfReductions = Mpi::mpi.allreduce(localNumberOfReductions, MPI_SUM);
     totalNumberOfReductions += globalNumberOfReductions;
   } while (globalNumberOfReductions > 0);
   return totalNumberOfReductions;

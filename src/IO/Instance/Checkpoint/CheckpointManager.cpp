@@ -40,13 +40,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
     for (const auto& [_, ckpTree] : dataRegistry) {
       const std::size_t cells = ckpTree.cells;
       assert(cells == ckpTree.ids.size());
-      std::size_t totalCells = 0;
-      MPI_Allreduce(&cells,
-                    &totalCells,
-                    1,
-                    datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
-                    MPI_SUM,
-                    Mpi::mpi.comm());
+
       writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
           writer::instructions::Hdf5Location(filename, {"checkpoint", ckpTree.name}),
           "__ids",

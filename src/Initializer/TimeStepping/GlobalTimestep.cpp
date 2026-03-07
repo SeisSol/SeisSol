@@ -81,18 +81,9 @@ GlobalTimestep
   double localMinTimestep = *minmaxCellPosition.first;
   double localMaxTimestep = *minmaxCellPosition.second;
 
-  MPI_Allreduce(&localMinTimestep,
-                &timestep.globalMinTimeStep,
-                1,
-                MPI_DOUBLE,
-                MPI_MIN,
-                seissol::Mpi::mpi.comm());
-  MPI_Allreduce(&localMaxTimestep,
-                &timestep.globalMaxTimeStep,
-                1,
-                MPI_DOUBLE,
-                MPI_MAX,
-                seissol::Mpi::mpi.comm());
+  timestep.globalMinTimeStep = seissol::Mpi::mpi.allreduce(localMinTimestep, MPI_MIN);
+  timestep.globalMaxTimeStep = seissol::Mpi::mpi.allreduce(localMaxTimestep, MPI_MAX);
+
   return timestep;
 }
 } // namespace seissol::initializer

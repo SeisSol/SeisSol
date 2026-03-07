@@ -137,7 +137,11 @@ LtsAutoMergeCostBaseline = 'bestWiggleFactor' ! Baseline used for auto merging c
 /
 
 &Output
-OutputFile = '../output_tpv33/tpv33'
+OutputFile = '../output_tpv33/tpv33' ! deprecated. Equals the path "outdir/outname" .
+outdir = '../output_tpv33' ! the output directory
+outname = 'tpv33' ! the output file prefix (within the output directory)
+outsimdir = 0 ! flag to whether to create a new directory within `outdir` per simulation
+
 WavefieldOutput = 1                  ! disable/enable wavefield output (right now, format=6 needs to be set as well)
 Format = 6                           ! Format (10= no output, 6=hdf5 output)
 !             |stress     |vel

@@ -32,8 +32,7 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
     std::size_t cellCount = mesh.getElements().size();
     const auto summary = statistics::parallelSummary(cellCount);
 
-    MPI_Allreduce(
-        MPI_IN_PLACE, &cellCount, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, Mpi::mpi.comm());
+    cellCount = seissol::Mpi::mpi.allreduce(cellCount, MPI_SUM);
 
     logInfo() << "Cell count:" << formatInteger(cellCount).c_str() << "(per rank:" << summary.mean
               << "±" << summary.std << "; range: [" << summary.min << ";" << summary.max << "])";
@@ -45,9 +44,10 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
     maxLtsId = std::max(maxLtsId, static_cast<std::uint64_t>(element.clusterId));
     minimumTimestep = std::min(minimumTimestep, element.timestep);
   }
-  MPI_Allreduce(
-      MPI_IN_PLACE, &maxLtsId, 1, Mpi::castToMpiType<std::uint64_t>(), MPI_MAX, Mpi::mpi.comm());
-  MPI_Allreduce(MPI_IN_PLACE, &minimumTimestep, 1, MPI_DOUBLE, MPI_MIN, Mpi::mpi.comm());
+
+  maxLtsId = seissol::Mpi::mpi.allreduce(maxLtsId, MPI_MAX);
+  minimumTimestep = seissol::Mpi::mpi.allreduce(minimumTimestep, MPI_MIN);
+
   if (wiggle == 1) {
     if (infoprint) {
       logInfo() << "Minimum timestep:" << seissol::UnitTime.formatPrefix(minimumTimestep).c_str();
@@ -87,22 +87,13 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
       timefactorELTS += elts;
       timefactorCLTS += clts;
     }
-    MPI_Allreduce(MPI_IN_PLACE,
-                  clusters.data(),
-                  clusters.size(),
-                  Mpi::castToMpiType<std::uint64_t>(),
-                  MPI_SUM,
-                  Mpi::mpi.comm());
-    MPI_Allreduce(MPI_IN_PLACE,
-                  clustersDR.data(),
-                  clustersDR.size(),
-                  Mpi::castToMpiType<std::uint64_t>(),
-                  MPI_SUM,
-                  Mpi::mpi.comm());
+
+    seissol::Mpi::mpi.allreduceContainer(clusters, MPI_SUM);
+    seissol::Mpi::mpi.allreduceContainer(clustersDR, MPI_SUM);
+
     std::array<double, 3> timefactors{
         timefactorGTS, timefactorELTS.result(), timefactorCLTS.result()};
-    MPI_Allreduce(
-        MPI_IN_PLACE, timefactors.data(), timefactors.size(), MPI_DOUBLE, MPI_SUM, Mpi::mpi.comm());
+    seissol::Mpi::mpi.allreduceContainer(timefactors, MPI_SUM);
 
     const auto eltsSpeedup = timefactors[1] / timefactors[0];
     const auto cltsSpeedup = timefactors[2] / timefactors[0];
