@@ -25,22 +25,4 @@ auto directoryExists(const seissol::filesystem::directory_entry& entry) -> bool 
   return entry.exists();
 }
 #endif // EXPERIMENTAL_FS
-
-void generateBackupFileIfNecessary(const std::string& fileName,
-                                   const std::string& fileExtension,
-                                   const std::optional<std::string>& timeStamp) {
-  std::stringstream fullName;
-  fullName << fileName << '.' << fileExtension;
-  const auto path = seissol::filesystem::path(fullName.str());
-  const auto entry = seissol::filesystem::directory_entry(path);
-
-  if (seissol::directoryExists(entry)) {
-    const auto actualTimeStamp = timeStamp.value_or(
-        []() { return utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr)); }());
-    std::stringstream backupFileName;
-    backupFileName << fileName << ".bak_" << actualTimeStamp << '.' << fileExtension;
-    const auto copyPath = seissol::filesystem::path(backupFileName.str());
-    seissol::filesystem::rename(path, copyPath);
-  }
-}
 } // namespace seissol

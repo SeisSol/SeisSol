@@ -28,6 +28,7 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
+#include "Parallel/ParallelFS.h"
 #include "Parallel/Runtime/Stream.h"
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"

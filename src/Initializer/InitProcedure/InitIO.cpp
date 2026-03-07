@@ -24,7 +24,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
 #include "Numerical/Transformation.h"
-#include "Parallel/MPI.h"
+#include "Parallel/ParallelFS.h"
 #include "SeisSol.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/MultipleSimulations.h"
@@ -527,19 +527,17 @@ void setIntegralMask(seissol::SeisSol& seissolInstance) {
 } // namespace
 
 void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstance) {
-  const auto rank = Mpi::mpi.rank();
   logInfo() << "Begin init output.";
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   const filesystem::path outputPath(seissolParams.output.prefix);
   const auto outputDir = filesystem::directory_entry(outputPath.parent_path());
-  if (!filesystem::exists(outputDir)) {
+
+  if (!entryExistsGlobally(outputDir)) {
     logWarning() << "Output directory does not exist yet. We therefore create it now.";
-    if (rank == 0) {
-      filesystem::create_directory(outputDir);
-    }
+
+    createDirectoryGlobally(outputDir);
   }
-  seissol::Mpi::barrier(Mpi::mpi.comm());
 
   enableWaveFieldOutput(seissolInstance);
   setIntegralMask(seissolInstance);
