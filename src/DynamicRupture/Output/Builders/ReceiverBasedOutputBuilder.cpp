@@ -68,7 +68,7 @@ void ReceiverBasedOutputBuilder::setVariableList(const std::vector<std::size_t>&
 }
 
 void ReceiverBasedOutputBuilder::setFaceToLtsMap(
-    std::vector<::seissol::initializer::StoragePosition>* faceToLtsMap) {
+    ::seissol::initializer::StorageBackmap<1>* faceToLtsMap) {
   this->faceToLtsMap = faceToLtsMap;
 }
 
@@ -107,9 +107,10 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   constexpr size_t NumVertices{4};
   for (const auto& point : outputData->receiverPoints) {
     if (point.isInside) {
-      if (faceIndices.find(faceToLtsMap->at(point.faultFaceIndex).global) == faceIndices.end()) {
+      if (faceIndices.find(faceToLtsMap->get(point.faultFaceIndex, point.copy).global) ==
+          faceIndices.end()) {
         const auto faceIndex = faceIndices.size();
-        faceIndices[faceToLtsMap->at(point.faultFaceIndex).global] = faceIndex;
+        faceIndices[faceToLtsMap->get(point.faultFaceIndex, point.copy).global] = faceIndex;
       }
 
       ++foundPoints;
@@ -171,7 +172,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   std::vector<real*> indexPtrs(outputData->cellCount);
 
   for (const auto& [index, arrayIndex] : elementIndices) {
-    const auto position = wpBackmap->get(index);
+    const auto position = wpBackmap->get(index, 0); // TODO
     indexPtrs[arrayIndex] = wpStorage->lookup<LTS::DerivativesDevice>(position);
     assert(indexPtrs[arrayIndex] != nullptr);
   }
@@ -179,7 +180,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
     const auto neighbor = ghost.data;
     const auto arrayIndex = ghost.index + elementIndices.size();
 
-    const auto position = wpBackmap->get(neighbor.first);
+    const auto position = wpBackmap->get(neighbor.first, 0); // TODO
     indexPtrs[arrayIndex] = wpStorage->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second];
     assert(indexPtrs[arrayIndex] != nullptr);
   }
@@ -216,7 +217,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       const auto elementIndex = faultInfo[point.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
       outputData->deviceIndices[pointCounter] =
-          faceIndices.at(faceToLtsMap->at(point.faultFaceIndex).global);
+          faceIndices.at(faceToLtsMap->get(point.faultFaceIndex, point.copy).global);
 
       outputData->deviceDataPlus[pointCounter] = elementIndices.at(elementIndex);
 

@@ -140,7 +140,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       const auto& element = meshElements[i];
       ltsClusteringData[element.localId] = element.clusterId;
       ltsIdData[element.localId] = element.globalId;
-      meshToLts[i] = backmap.get(i).global;
+      meshToLts[i] = backmap.get(i, 0).global; // only output sim 0 here for now
       assert(ltsStorage.var<LTS::SecondaryInformation>()[meshToLts[i]].meshId == i);
     }
 
@@ -286,7 +286,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               namewrap(seissol::model::MaterialT::Quantities[quantity], sim),
               {},
               [=, &ltsStorage, &backmap](real* target, std::size_t index) {
-                const auto position = backmap.get(cellIndices[index]);
+                const auto position = backmap.get(cellIndices[index], sim);
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj{};
@@ -309,7 +309,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 namewrap(seissol::model::PlasticityData::Quantities[quantity], sim),
                 {},
                 [=, &ltsStorage, &backmap](real* target, std::size_t index) {
-                  const auto position = backmap.get(cellIndices[index]);
+                  const auto position = backmap.get(cellIndices[index], sim);
                   const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(position);
                   const auto* pointsSingleQuantity =
                       dofsAllQuantities + QDofPointsPadded * quantity;
@@ -416,7 +416,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](real* target, std::size_t index) {
               auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
               auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
-              const auto position = backmap.get(meshId);
+              const auto position = backmap.get(meshId, sim);
               const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
               const auto* dofsSingleQuantity =
                   dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
@@ -443,7 +443,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](real* target, std::size_t index) {
               auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
               auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
-              const auto position = backmap.get(meshId);
+              const auto position = backmap.get(meshId, sim);
               const auto* faceDisplacements = ltsStorage.lookup<LTS::FaceDisplacements>(position);
               const auto* faceDisplacementVariable =
                   faceDisplacements[side] + FaceDisplacementPadded * quantity;

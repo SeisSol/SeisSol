@@ -470,27 +470,24 @@ void OutputManager::init() {
 
 void OutputManager::initFaceToLtsMap() {
   if (drStorage != nullptr) {
-    ::seissol::initializer::StorageBackmap<1> backmap;
-    backmap.setSize(meshReader->getFault().size());
+    const auto copyCount = wpBackmap->copyCount();
+    globalFaceToLtsMap.setSize(meshReader->getFault().size(), copyCount);
 
     faceToLtsMap.resize(meshReader->getFault().size());
-    globalFaceToLtsMap.resize(faceToLtsMap.size());
 
     const auto* globalFaceInformation = drStorage->var<DynamicRupture::FaceInformation>();
     for (auto& layer : drStorage->leaves()) {
       const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
       for (size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
         faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&layer, ltsFace);
-        backmap.addElement(layer.id(),
-                           globalFaceInformation,
-                           faceInformation,
-                           faceInformation[ltsFace].meshFace,
-                           ltsFace);
-      }
-    }
 
-    for (size_t i = 0; i < meshReader->getFault().size(); ++i) {
-      globalFaceToLtsMap[i] = backmap.get(i);
+        globalFaceToLtsMap.addElement(layer.id(),
+                                      globalFaceInformation,
+                                      faceInformation,
+                                      faceInformation[ltsFace].meshFace,
+                                      faceInformation[ltsFace].copy,
+                                      ltsFace);
+      }
     }
   }
   impl->setFaceToLtsMap(&faceToLtsMap);

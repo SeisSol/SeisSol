@@ -49,8 +49,8 @@ void ReceiverOutput::setLtsData(LTS::Storage& userWpStorage,
   drStorage = &userDrStorage;
 }
 
-void ReceiverOutput::getDofs(const real*(&derivatives), std::size_t meshId) {
-  const auto position = wpBackmap->get(meshId);
+void ReceiverOutput::getDofs(const real*(&derivatives), std::size_t meshId, std::size_t copy) {
+  const auto position = wpBackmap->get(meshId, copy);
   auto& layer = wpStorage->layer(position.color);
   // get DOFs from 0th derivatives
   assert(layer.var<LTS::CellInformation>()[position.cell].ltsSetup.hasDerivatives());
@@ -60,8 +60,9 @@ void ReceiverOutput::getDofs(const real*(&derivatives), std::size_t meshId) {
 
 void ReceiverOutput::getNeighborDofs(const real*(&derivatives),
                                      std::size_t meshId,
+                                     std::size_t copy,
                                      std::size_t side) {
-  const auto position = wpBackmap->get(meshId);
+  const auto position = wpBackmap->get(meshId, copy);
   auto& layer = wpStorage->layer(position.color);
 
   derivatives = layer.var<LTS::FaceNeighbors>()[position.cell][side];
@@ -157,11 +158,12 @@ void ReceiverOutput::calcFaultOutput(
         stePlus = outputData->deviceDataCollector->get(outputData->deviceDataPlus[i]);
         steMinus = outputData->deviceDataCollector->get(outputData->deviceDataMinus[i]);
       } else {
-        getDofs(stePlus, faultInfo.element);
+        getDofs(stePlus, faultInfo.element, outputData->receiverPoints[i].copy);
         if (faultInfo.neighborElement >= 0) {
-          getDofs(steMinus, faultInfo.neighborElement);
+          getDofs(steMinus, faultInfo.neighborElement, outputData->receiverPoints[i].copy);
         } else {
-          getNeighborDofs(steMinus, faultInfo.element, faultInfo.side);
+          getNeighborDofs(
+              steMinus, faultInfo.element, outputData->receiverPoints[i].copy, faultInfo.side);
         }
       }
 

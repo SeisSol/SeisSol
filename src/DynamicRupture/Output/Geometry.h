@@ -103,6 +103,7 @@ struct ReceiverPoint {
   int faultTag{-1};
   int simIndex{0}; // Simulation index for multisim
   int gpIndex{-1}; // Index of the nearest gaussian point considering fused simulations
+  std::size_t copy{0};
 
   // Internal points are required because computed gradients
   // are inaccurate near triangle edges,

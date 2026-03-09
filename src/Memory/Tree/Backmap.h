@@ -65,22 +65,25 @@ class StorageBackmap {
 
   std::vector<CellStoragePosition> data;
 
+  std::size_t copyCount_{1};
+
   public:
   explicit StorageBackmap(std::size_t size) : data(size) {}
 
   StorageBackmap() = default;
 
-  [[nodiscard]] StoragePosition get(std::size_t id) const {
-    const auto position = getDup(id, 0);
+  [[nodiscard]] StoragePosition get(std::size_t id, std::size_t copy) const {
+    const auto position = getDup(id, copy, 0);
     assert(position.has_value());
     return position.value();
   }
 
-  [[nodiscard]] std::optional<StoragePosition> getDup(std::size_t id, std::size_t duplicate) const {
+  [[nodiscard]] std::optional<StoragePosition>
+      getDup(std::size_t id, std::size_t copy, std::size_t duplicate) const {
     if (duplicate >= MaxDuplicates) {
       return {};
     } else {
-      const auto position = data[id][duplicate];
+      const auto position = data[id * copyCount_ + copy][duplicate];
       if (position == StoragePosition::NullPosition) {
         return {};
       } else {
@@ -89,13 +92,19 @@ class StorageBackmap {
     }
   }
 
-  void setSize(std::size_t size) { data.resize(size); }
+  void setSize(std::size_t size, std::size_t copy) {
+    data.resize(size * copy);
+    copyCount_ = copy;
+  }
+
+  [[nodiscard]] std::size_t copyCount() const { return copyCount_; }
 
   template <typename TRef>
   std::size_t addElement(std::size_t color,
                          const TRef* zeroPosition,
                          const TRef* layerData,
                          std::size_t cell,
+                         std::size_t copy,
                          std::size_t index) {
     const auto layerPosition = (reinterpret_cast<std::intptr_t>(layerData) -
                                 reinterpret_cast<std::intptr_t>(zeroPosition)) /
@@ -103,14 +112,18 @@ class StorageBackmap {
     const auto position = layerPosition + index;
     const auto storagePosition = StoragePosition{color, index, position};
 
-    if (cell >= data.size()) {
-      logError() << "Tried to add cell" << cell << "to a backmap of size" << data.size()
-                 << ". Out of capacity.";
+    if (cell * copyCount_ >= data.size()) {
+      logError() << "Tried to add cell" << cell << "to a backmap of size"
+                 << data.size() / copyCount_ << ". Out of capacity.";
+    }
+
+    if (copyCount_ <= copy) {
+      logError() << "Exceeded copy count." << copy << "against" << copyCount_;
     }
 
     for (std::size_t j = 0; j < MaxDuplicates; ++j) {
-      if (data[cell][j] == StoragePosition::NullPosition) {
-        data[cell][j] = storagePosition;
+      if (data[cell * copyCount_ + copy][j] == StoragePosition::NullPosition) {
+        data[cell * copyCount_ + copy][j] = storagePosition;
         return j;
       }
     }

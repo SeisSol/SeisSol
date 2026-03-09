@@ -70,7 +70,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
   std::vector<std::unique_ptr<physics::InitialField>> initConditions;
   std::string initialConditionDescription;
 
-  const auto pos = memoryManager.getBackmap().get(0);
+  const auto pos = memoryManager.getBackmap().get(0, 0);
 
   if (initConditionParams.type ==
       seissol::initializer::parameters::InitializationType::Planarwave) {

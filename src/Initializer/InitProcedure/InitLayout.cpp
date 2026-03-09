@@ -139,7 +139,15 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   logInfo() << "Creating mesh layout...";
 
+  const std::size_t copyCount = 8;
+
   const auto meshLayout = internal::layoutCells(colors, colorsGhost, colorMap, meshReader);
+  auto meshLayoutCopy = meshLayout;
+  for (auto& cluster : meshLayoutCopy) {
+    for (auto& region : cluster.regions) {
+      region.count *= copyCount;
+    }
+  }
 
   auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
   auto& backmap = seissolInstance.getMemoryManager().getBackmap();
@@ -149,15 +157,16 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   ltsStorage.setLayerCount(colorMap);
   ltsStorage.fixate();
   for (auto& layer : ltsStorage.leaves()) {
-    layer.setNumberOfCells(meshLayout[layer.id()].cellMap.size());
+    layer.setNumberOfCells(meshLayout[layer.id()].cellMap.size() * copyCount);
   }
   ltsStorage.allocateVariables();
   ltsStorage.touchVariables();
-  backmap.setSize(meshReader.getElements().size());
+  backmap.setSize(meshReader.getElements().size(), copyCount);
 
   StorageBackmap<Cell::NumFaces> backmapGhost;
-  backmapGhost.setSize(ghostSize);
-  std::vector<std::unordered_map<std::size_t, StoragePosition>> backmapGhostMap(ghostSize);
+  backmapGhost.setSize(ghostSize, copyCount);
+  std::vector<std::vector<std::unordered_map<std::size_t, StoragePosition>>> backmapGhostMap(
+      copyCount, std::vector<std::unordered_map<std::size_t, StoragePosition>>(ghostSize));
 
   logInfo() << "Setting up cell storage...";
   // just need pick a test variable that is available everywhere
@@ -168,20 +177,21 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     auto regionIt = layout.regions.begin();
     std::size_t regionOffset = 0;
 
-    const auto addToBackmapCopyInterior = [&](auto cell, auto index) {
-      return backmap.addElement(layer.id(), zero, zeroLayer, cell, index);
+    const auto addToBackmapCopyInterior = [&](auto cell, auto index, auto copy) {
+      return backmap.addElement(layer.id(), zero, zeroLayer, cell, copy, index);
     };
-    const auto addToBackmapGhost = [&](auto cell, auto index) {
+    const auto addToBackmapGhost = [&](auto cell, auto index, auto copy) {
       assert(regionIt != layout.regions.end());
-      const auto dup = backmapGhost.addElement(layer.id(), zero, zeroLayer, cell, index);
-      backmapGhostMap.at(cell)[regionIt->remoteId] = backmapGhost.getDup(cell, dup).value();
+      const auto dup = backmapGhost.addElement(layer.id(), zero, zeroLayer, cell, copy, index);
+      backmapGhostMap.at(copy).at(cell)[regionIt->remoteId] =
+          backmapGhost.getDup(cell, copy, dup).value();
       return dup;
     };
-    const auto& addToBackmap = [&](auto cell, auto index) {
+    const auto& addToBackmap = [&](auto cell, auto index, auto copy) {
       if (layer.getIdentifier().halo == HaloType::Ghost) {
-        return addToBackmapGhost(cell, index);
+        return addToBackmapGhost(cell, index, copy);
       } else {
-        return addToBackmapCopyInterior(cell, index);
+        return addToBackmapCopyInterior(cell, index, copy);
       }
     };
 
@@ -191,18 +201,23 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
         ++regionIt;
       }
 
-      const auto dup = addToBackmap(cell, i);
+      for (std::size_t copy = 0; copy < copyCount; ++copy) {
+        const auto idx = i * copyCount + copy;
 
-      zeroLayer[i].meshId = cell;
-      zeroLayer[i].configId = layer.getIdentifier().config.index();
-      zeroLayer[i].clusterId = layer.getIdentifier().lts;
-      zeroLayer[i].duplicate = dup;
-      zeroLayer[i].halo = layer.getIdentifier().halo;
-      zeroLayer[i].rank = -1;
-      zeroLayer[i].color = layer.id();
-      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        zeroLayer[i].neighborRanks[face] = -1;
-        zeroLayer[i].faceNeighbors[face] = StoragePosition::NullPosition;
+        const auto dup = addToBackmap(cell, idx, copy);
+
+        zeroLayer[idx].meshId = cell;
+        zeroLayer[idx].copyId = copy;
+        zeroLayer[idx].configId = layer.getIdentifier().config.index();
+        zeroLayer[idx].clusterId = layer.getIdentifier().lts;
+        zeroLayer[idx].duplicate = dup;
+        zeroLayer[idx].halo = layer.getIdentifier().halo;
+        zeroLayer[idx].rank = -1;
+        zeroLayer[idx].color = layer.id();
+        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+          zeroLayer[idx].neighborRanks[face] = -1;
+          zeroLayer[idx].faceNeighbors[face] = StoragePosition::NullPosition;
+        }
       }
     }
   }
@@ -217,10 +232,12 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
         layer.getIdentifier().halo == HaloType::Copy) {
 
 #pragma omp parallel for schedule(static)
-      for (std::size_t i = 0; i < cells.size(); ++i) {
-        const auto cell = cells[i];
+      for (std::size_t i = 0; i < layer.size(); ++i) {
+        const auto cell = cells[i / copyCount];
         const auto index = i;
         const auto& element = meshReader.getElements()[cell];
+
+        const auto copy = secondaryCellInformation[i].copyId;
 
         secondaryCellInformation[index].rank = rank;
         secondaryCellInformation[index].globalId = element.globalId;
@@ -241,10 +258,10 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
                 const auto mpiIndex = element.mpiIndices[face];
                 const auto linear = meshReader.toLinearGhostlayer().at({rank, mpiIndex});
                 // ghost layer
-                return backmapGhostMap.at(linear).at(layer.id());
+                return backmapGhostMap.at(copy).at(linear).at(layer.id());
               } else {
                 // copy/interior layer
-                return backmap.get(element.neighbors[face]);
+                return backmap.get(element.neighbors[face], copy);
               }
             }();
 
@@ -260,16 +277,18 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     } else if (layer.getIdentifier().halo == HaloType::Ghost) {
 
 #pragma omp parallel for schedule(static)
-      for (std::size_t i = 0; i < cells.size(); ++i) {
-        const auto cell = cells[i];
+      for (std::size_t i = 0; i < layer.size(); ++i) {
+        const auto cell = cells[i / copyCount];
 
         const auto& linear = meshReader.linearGhostlayer()[cell];
         secondaryCellInformation[i].rank = linear.rank;
 
+        const auto copy = secondaryCellInformation[i].copyId;
+
         for (const auto& index : linear.inRankIndices) {
           const auto& boundaryElement =
               meshReader.getMPINeighbors().at(linear.rank).elements[index];
-          const auto neighbor = backmap.get(boundaryElement.localElement);
+          const auto neighbor = backmap.get(boundaryElement.localElement, copy);
           const auto& elementNeighbor = meshReader.getElements()[boundaryElement.localElement];
 
           secondaryCellInformation[i].globalId =
@@ -293,11 +312,11 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   }
 
   logInfo() << "Verify the halo setup...";
-  verifyHaloSetup(ltsStorage, meshLayout);
+  verifyHaloSetup(ltsStorage, meshLayoutCopy);
 
   // pass 3: LTS setup
   logInfo() << "Setting up LTS configuration...";
-  internal::deriveLtsSetups(meshLayout, ltsStorage);
+  internal::deriveLtsSetups(meshLayoutCopy, ltsStorage);
 
   if (seissolParams.model.plasticity) {
     // remove disabled plasticity groups from the list
@@ -331,22 +350,25 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   drStorage.fixate();
 
   for (auto& layer : drStorage.leaves()) {
-    layer.setNumberOfCells(drLayout[layer.id()].size());
+    layer.setNumberOfCells(drLayout[layer.id()].size() * copyCount);
   }
 
   drStorage.allocateVariables();
   drStorage.touchVariables();
 
   auto& drBackmap = seissolInstance.getMemoryManager().getDRBackmap();
-  drBackmap.setSize(meshReader.getFault().size());
+  drBackmap.setSize(meshReader.getFault().size(), copyCount);
 
   const auto* zeroDR = drStorage.var<DynamicRupture::FaceInformation>();
   for (auto& layer : drStorage.leaves()) {
     auto* zeroDRLayer = layer.var<DynamicRupture::FaceInformation>();
     assert(layer.getIdentifier().halo != HaloType::Ghost || layer.size() == 0);
-    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      zeroDRLayer[cell].meshFace = drLayout[layer.id()][cell];
-      drBackmap.addElement(layer.id(), zeroDR, zeroDRLayer, drLayout[layer.id()][cell], cell);
+    for (std::size_t i = 0; i < layer.size(); ++i) {
+      const auto cell = i / copyCount;
+      const auto copy = i % copyCount;
+      zeroDRLayer[i].meshFace = drLayout[layer.id()][cell];
+      zeroDRLayer[i].copy = copy;
+      drBackmap.addElement(layer.id(), zeroDR, zeroDRLayer, drLayout[layer.id()][cell], copy, i);
     }
   }
 
@@ -354,7 +376,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   // pass 4: correct LTS setup, again. Do bucket setup, determine communication datastructures
   logInfo() << "Setting up data exchange and face displacements (buckets)...";
-  const auto haloCommunication = internal::bucketsAndCommunication(ltsStorage, meshLayout);
+  const auto haloCommunication = internal::bucketsAndCommunication(ltsStorage, meshLayoutCopy);
 
   logInfo() << "Setting up kernel clusters...";
   seissolInstance.timeManager().addClusters(clusterLayout,
@@ -362,7 +384,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
                                             seissolInstance.getMemoryManager(),
                                             seissolParams.model.plasticity);
 
-  seissolInstance.dofSync().setup(meshLayout, &ltsStorage);
+  seissolInstance.dofSync().setup(meshLayoutCopy, &ltsStorage);
 }
 
 } // namespace

@@ -274,7 +274,7 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
     }
 
     for (std::size_t dup = 0; dup < LTS::Backmap::MaxDuplicates; ++dup) {
-      const auto position = backmap.getDup(meshId, dup);
+      const auto position = backmap.getDup(meshId, 0, dup);
       if (position.has_value()) {
         clusterMapping.cellToSources[mapping].dofs =
             ltsStorage.lookup<LTS::Dofs>(position.value(), place);
@@ -299,7 +299,7 @@ auto mapPointSourcesToClusters(const std::size_t* meshIds,
 
   for (std::size_t source = 0; source < numberOfSources; ++source) {
     const auto meshId = meshIds[source];
-    const auto position = backmap.get(meshId);
+    const auto position = backmap.get(meshId, 0);
     const auto id = position.color;
     clusterToPointSources[id].push_back(source);
     clusterToMeshIds[id].push_back(meshId);
@@ -315,7 +315,7 @@ auto mapPointSourcesToClusters(const std::size_t* meshIds,
       const auto meshId = *it;
 
       for (std::size_t dup = 0; dup < LTS::Backmap::MaxDuplicates; ++dup) {
-        const auto position = backmap.getDup(meshId, dup);
+        const auto position = backmap.getDup(meshId, 0, dup);
         if (position.has_value()) {
           ++numberOfMappings;
         }
@@ -481,7 +481,8 @@ auto loadSourceFile(const char* fileName,
                                    meshIds[sourceIndex],
                                    mesh);
 
-      const auto position = backmap.get(meshIds[sourceIndex]);
+      const auto copyCount = backmap.copyCount();
+      const auto position = backmap.get(meshIds[sourceIndex], fileIndex % copyCount);
       const auto& material = *ltsStorage.lookup<LTS::Material>(position).local;
       file.transform(sources, sourceIndex, clusterSource, material);
     }

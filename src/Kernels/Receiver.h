@@ -86,8 +86,8 @@ class ReceiverCluster {
                   const std::vector<std::shared_ptr<DerivedReceiverQuantity>>& derivedQuantities,
                   seissol::SeisSol& seissolInstance);
 
-  void addReceiver(unsigned meshId,
-                   unsigned pointId,
+  void addReceiver(std::size_t meshId,
+                   std::size_t pointId,
                    const Eigen::Vector3d& point,
                    const seissol::geometry::MeshReader& mesh,
                    const LTS::Backmap& backmap);

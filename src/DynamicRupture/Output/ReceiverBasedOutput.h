@@ -113,8 +113,11 @@ class ReceiverOutput {
     }
   }
 
-  void getDofs(const real*(&derivatives), std::size_t meshId);
-  void getNeighborDofs(const real*(&derivatives), std::size_t meshId, std::size_t side);
+  void getDofs(const real*(&derivatives), std::size_t meshId, std::size_t copy);
+  void getNeighborDofs(const real*(&derivatives),
+                       std::size_t meshId,
+                       std::size_t copy,
+                       std::size_t side);
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
   virtual real computeFluidPressure(LocalInfo& /*local*/) { return 0.0; }
