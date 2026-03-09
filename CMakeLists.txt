@@ -5,7 +5,7 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.24)
 
 # use <PackageName>_ROOT variables
 if(POLICY CMP0074)
@@ -47,6 +47,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Cray|CrayClang")
   message(WARNING "The communication thread is not supported for the Cray compiler. Make sure to set `SEISSOL_COMMTHREAD=0` when running SeisSol in multi-node setups.")
 endif()
 
+include(FetchContent)
+
 # find Python early
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
@@ -67,6 +69,33 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 #       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, VECTORSIZE ARCH_STRING, WITH_GPU, DEVICE_VENDOR
 #
 include(cmake/process_users_input.cmake)
+
+if (TRUE)
+  if (ASAGI)
+    set(ASAGI_FOUND TRUE)
+    FetchContent_Declare(
+      ASAGI
+      GIT_REPOSITORY https://github.com/TUM-I5/ASAGI
+      PATCH_COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/asagi.patch
+      UPDATE_DISCONNECTED 1
+      OVERRIDE_FIND_PACKAGE
+    )
+
+    find_package(ASAGI REQUIRED)
+    add_library(asagi::asagi ALIAS asagi-static)
+  endif()
+
+  set(LUA ON)
+
+  FetchContent_Declare(
+    easi
+    GIT_REPOSITORY https://github.com/SeisSol/easi
+    OVERRIDE_FIND_PACKAGE
+  )
+
+  find_package(easi REQUIRED)
+  add_library(easi::easi ALIAS easi)
+endif()
 
 if (TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
   message(STATUS "Enable coverage computation.")

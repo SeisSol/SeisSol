@@ -1,0 +1,51 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index dc936df..b0bd8af 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -35,10 +35,12 @@ if( NOT CMAKE_BUILD_TYPE )
+ 		"Choose the type of build, options are: Debug Release" FORCE )
+ endif( NOT CMAKE_BUILD_TYPE )
+
++set(ASAGI_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
++
+ ##### Macros #####
+ # Add sources in subdirectories
+ macro( add_sources )
+-    file( RELATIVE_PATH _relPath "${CMAKE_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}" )
++	file( RELATIVE_PATH _relPath "${ASAGI_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}" )
+     foreach( _src ${ARGN} )
+         if( _relPath )
+             list( APPEND SRCS "${_relPath}/${_src}" )
+@@ -78,7 +80,7 @@ set( mainSources
+ # Additional cmake modules
+ set( CMAKE_MODULE_PATH
+ 	${CMAKE_MODULE_PATH}
+-	${CMAKE_SOURCE_DIR}/CMake/Modules/ )
++	${CMAKE_CURRENT_SOURCE_DIR}/CMake/Modules/ )
+
+ # Configure debugger
+ set_property(DIRECTORY PROPERTY COMPILE_DEFINITIONS "DEBUG_PREFIX=\"${CMAKE_PROJECT_NAME} %a %b %d %X\"")
+@@ -162,13 +164,13 @@ include_directories( SYSTEM ${NetCDF_INCLUDE_DIRS} )
+ set( asagiLibs ${NetCDF_LIBRARY} )
+
+ # Add library include files for all exectuables
+-include_directories( ${CMAKE_SOURCE_DIR}/include )
++include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/include )
+
+ # For sub directories
+-include_directories( ${CMAKE_SOURCE_DIR} )
++include_directories( ${CMAKE_CURRENT_SOURCE_DIR} )
+
+ # Utils
+-include_directories( ${CMAKE_SOURCE_DIR}/submodules )
++include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/submodules )
+
+ # Add sources in subdirectories
+ add_subdirectory( allocator )
