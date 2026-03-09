@@ -212,6 +212,7 @@ struct Scratchpad : public ScratchpadDescriptor {
 
 using FilterFunction = std::function<bool(const LayerIdentifier&)>;
 using SizeFunction = std::function<std::size_t(const LayerIdentifier&)>;
+using AlignmentFunction = std::function<std::size_t(const LayerIdentifier&)>;
 
 struct MemoryInfo {
   size_t index{};
@@ -228,6 +229,7 @@ struct MemoryInfo {
 
   SizeFunction bytesLayer;
   FilterFunction filterLayer;
+  AlignmentFunction alignmentLayer;
 };
 
 template <HaloType... FilteredTypes>
@@ -561,6 +563,13 @@ private:
       if (memoryInfo_[i].initialized) {
         memoryInfo_[i].filtered = info[i].filterLayer(identifier_);
         memoryInfo_[i].bytes = info[i].bytesLayer(identifier_);
+
+        // alignment sanity check
+        const auto neededAlignment = memoryInfo_[i].alignmentLayer(identifier_);
+        if (neededAlignment > memoryInfo_[i].alignment) {
+          logError() << "Alignment mismatch:" << memoryInfo_[i].alignment << "given; needed"
+                     << neededAlignment;
+        }
       }
     }
     this->varmap_ = varmap;
