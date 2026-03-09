@@ -139,7 +139,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   logInfo() << "Creating mesh layout...";
 
-  const std::size_t copyCount = 8;
+  const std::size_t copyCount = seissolParams.timeStepping.copyCount;
 
   const auto meshLayout = internal::layoutCells(colors, colorsGhost, colorMap, meshReader);
   auto meshLayoutCopy = meshLayout;

@@ -77,6 +77,7 @@ struct TimeSteppingParameters {
   double maxTimestepWidth{};
   double endTime{};
   LtsParameters lts;
+  std::size_t copyCount{};
 
   TimeSteppingParameters() = default;
 
@@ -84,7 +85,8 @@ struct TimeSteppingParameters {
                          double cfl,
                          double maxTimestepWidth,
                          double endTime,
-                         LtsParameters lts);
+                         LtsParameters lts,
+                         std::size_t copyCount);
 };
 
 LtsParameters readLtsParameters(ParameterReader* baseReader);
