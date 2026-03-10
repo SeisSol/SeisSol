@@ -191,6 +191,8 @@ if __name__ == "__main__":
     parser.add_argument("output", type=str)
     parser.add_argument("output_ref", type=str)
     parser.add_argument("--epsilon", type=float, default=0.01)
+
+    # effectless by now
     parser.add_argument(
         "--mode",
         type=str,
@@ -199,6 +201,7 @@ if __name__ == "__main__":
         choices=["rs", "lsw", "tp"],
         help=argparse.SUPPRESS,
     )
+
     parser.add_argument("--prefix", type=str, default="tpv", required=False)
     args = parser.parse_args()
 
