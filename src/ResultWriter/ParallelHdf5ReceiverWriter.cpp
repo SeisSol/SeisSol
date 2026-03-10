@@ -22,6 +22,46 @@ hid_t _ehh(hid_t data, const char* file, int line) {
   }
   return data;
 }
+
+void writeStringAttribute(hid_t locationId, const std::string& name, const std::string& value) {
+  hid_t atype = _eh(H5Tcopy(H5T_C_S1));
+  _eh(H5Tset_size(atype, std::max(value.length(), static_cast<size_t>(1))));
+  _eh(H5Tset_strpad(atype, H5T_STR_NULLTERM));
+  hid_t space = _eh(H5Screate(H5S_SCALAR));
+  hid_t attr = _eh(H5Acreate(locationId, name.c_str(), atype, space, H5P_DEFAULT, H5P_DEFAULT));
+  _eh(H5Awrite(attr, atype, value.c_str()));
+  _eh(H5Aclose(attr));
+  _eh(H5Sclose(space));
+  _eh(H5Tclose(atype));
+}
+
+void writeStringArrayAttribute(hid_t locationId,
+                               const std::string& name,
+                               const std::vector<std::string>& values) {
+  size_t maxLen = 0;
+  for (const auto& v : values) {
+    maxLen = std::max(maxLen, v.length());
+  }
+  maxLen = std::max(maxLen, static_cast<size_t>(1));
+
+  hid_t atype = _eh(H5Tcopy(H5T_C_S1));
+  _eh(H5Tset_size(atype, maxLen));
+  _eh(H5Tset_strpad(atype, H5T_STR_NULLPAD));
+
+  hsize_t dims = values.size();
+  hid_t space = _eh(H5Screate_simple(1, &dims, nullptr));
+  hid_t attr = _eh(H5Acreate(locationId, name.c_str(), atype, space, H5P_DEFAULT, H5P_DEFAULT));
+
+  std::vector<char> buffer(values.size() * maxLen, '\0');
+  for (size_t i = 0; i < values.size(); ++i) {
+    std::copy(values[i].begin(), values[i].end(), buffer.begin() + i * maxLen);
+  }
+
+  _eh(H5Awrite(attr, atype, buffer.data()));
+  _eh(H5Aclose(attr));
+  _eh(H5Sclose(space));
+  _eh(H5Tclose(atype));
+}
 } // namespace
 
 namespace seissol::writer {
@@ -71,6 +111,11 @@ ParallelHdf5ReceiverWriter::ParallelHdf5ReceiverWriter(MPI_Comm comm,
       fileId_, "ReceiverData", H5T_NATIVE_DOUBLE, filespaceId_, H5P_DEFAULT, dcplId, H5P_DEFAULT));
 
   _eh(H5Pclose(dcplId));
+
+  writeStringAttribute(dsetId_, "CLASS", "ARRAY");
+  writeStringAttribute(dsetId_, "VERSION", "2.4");
+  writeStringAttribute(dsetId_, "TITLE", "ReceiverData");
+  writeStringAttribute(dsetId_, "FLAVOR", "numpy");
 }
 
 void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
@@ -116,82 +161,44 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
 
     _eh(H5Pclose(xferPlist));
     _eh(H5Sclose(memspaceId));
-    _eh(H5Sclose(filespaceId));
-    return;
-  }
-
-  // Define the hyperslabs in the file where we'll write scattered across receivers
-  _eh(H5Sselect_none(filespaceId));
-  for (size_t r = 0; r < localReceiverCount; ++r) {
-    if (pointIds[r] >= dims_[1]) {
-      throw std::runtime_error(
-          "writeChunk(): receiver range exceeds allocated HDF5 dataset extent");
+  } else {
+    // Define the hyperslabs in the file where we'll write scattered across receivers
+    _eh(H5Sselect_none(filespaceId));
+    for (size_t r = 0; r < localReceiverCount; ++r) {
+      if (pointIds[r] >= dims_[1]) {
+        throw std::runtime_error(
+            "writeChunk(): receiver range exceeds allocated HDF5 dataset extent");
+      }
+      std::array<hsize_t, Rank> start = {timeOffset, static_cast<hsize_t>(pointIds[r]), 0};
+      std::array<hsize_t, Rank> count = {timeCount, 1, dims_[2]};
+      _eh(H5Sselect_hyperslab(
+          filespaceId, H5S_SELECT_OR, start.data(), nullptr, count.data(), nullptr));
     }
-    std::array<hsize_t, Rank> start = {timeOffset, static_cast<hsize_t>(pointIds[r]), 0};
-    std::array<hsize_t, Rank> count = {timeCount, 1, dims_[2]};
-    _eh(H5Sselect_hyperslab(
-        filespaceId, H5S_SELECT_OR, start.data(), nullptr, count.data(), nullptr));
+
+    // Create a matching memory dataspace for our data
+    // Even though it's a contiguous block of memory, mapping blocks will follow monotonically
+    // increasing constraints since pointIds is sorted.
+    std::array<hsize_t, Rank> memCount = {timeCount, localReceiverCount, dims_[2]};
+    hid_t memspaceId = _eh(H5Screate_simple(Rank, memCount.data(), nullptr));
+
+    // Perform the collective write
+    hid_t xferPlist = _eh(H5Pcreate(H5P_DATASET_XFER));
+    _eh(H5Pset_dxpl_mpio(xferPlist, H5FD_MPIO_COLLECTIVE));
+
+    _eh(H5Dwrite(dsetId_, H5T_NATIVE_DOUBLE, memspaceId, filespaceId, xferPlist, data.data()));
+
+    // Cleanup
+    _eh(H5Pclose(xferPlist));
+    _eh(H5Sclose(memspaceId));
   }
 
-  // Create a matching memory dataspace for our data
-  // Even though it's a contiguous block of memory, mapping blocks will follow monotonically
-  // increasing constraints since pointIds is sorted.
-  std::array<hsize_t, Rank> memCount = {timeCount, localReceiverCount, dims_[2]};
-  hid_t memspaceId = _eh(H5Screate_simple(Rank, memCount.data(), nullptr));
-
-  // Perform the collective write
-  hid_t xferPlist = _eh(H5Pcreate(H5P_DATASET_XFER));
-  _eh(H5Pset_dxpl_mpio(xferPlist, H5FD_MPIO_COLLECTIVE));
-
-  _eh(H5Dwrite(dsetId_, H5T_NATIVE_DOUBLE, memspaceId, filespaceId, xferPlist, data.data()));
-
-  // Cleanup
-  _eh(H5Pclose(xferPlist));
-  _eh(H5Sclose(memspaceId));
+  // Cleanup for both branches
   _eh(H5Sclose(filespaceId));
 }
 
 void ParallelHdf5ReceiverWriter::writeVariableNames(const std::vector<std::string>& names) {
-  int rank;
-  MPI_Comm_rank(comm_, &rank);
-
-  // Combine names into a single comma-separated string
-  std::string combinedExt;
-  for (size_t i = 0; i < names.size(); ++i) {
-    if (i > 0)
-      combinedExt += ",";
-    combinedExt += names[i];
-  }
-
-  // Use a string datatype for the attribute
-  hid_t atype = _eh(H5Tcopy(H5T_C_S1));
-  _eh(H5Tset_size(atype, combinedExt.size() + 1));
-  _eh(H5Tset_strpad(atype, H5T_STR_NULLTERM));
-
-  hid_t space = _eh(H5Screate(H5S_SCALAR));
-
-  // Write attribute only from rank 0 to avoid simultaneous conflicting writes,
-  // or write collectively. HDF5 metadata operations generally need to be collective or
-  // safely handled. Since `fileId_` is opened with MPI-IO, H5Acreate must be called collectively.
-  hid_t attr = _eh(H5Acreate(dsetId_, "VariableNames", atype, space, H5P_DEFAULT, H5P_DEFAULT));
-
-  _eh(H5Awrite(attr, atype, combinedExt.c_str()));
-
-  _eh(H5Aclose(attr));
-
-  // Add DimNames indicating standard shape dimensions: (time_steps, receiver_points, variables)
-  std::string dimNames = "time_steps,receiver_points,variables";
-  hid_t dimAtype = _eh(H5Tcopy(H5T_C_S1));
-  _eh(H5Tset_size(dimAtype, dimNames.size() + 1));
-  _eh(H5Tset_strpad(dimAtype, H5T_STR_NULLTERM));
-
-  hid_t dimAttr = _eh(H5Acreate(dsetId_, "DimNames", dimAtype, space, H5P_DEFAULT, H5P_DEFAULT));
-  _eh(H5Awrite(dimAttr, dimAtype, dimNames.c_str()));
-  _eh(H5Aclose(dimAttr));
-  _eh(H5Tclose(dimAtype));
-
-  _eh(H5Sclose(space));
-  _eh(H5Tclose(atype));
+  writeStringArrayAttribute(dsetId_, "VariableNames", names);
+  writeStringArrayAttribute(dsetId_, "DimNames", {"time_steps", "receiver_points", "variables"});
 }
 
 void ParallelHdf5ReceiverWriter::writeCoordinates(const std::vector<Eigen::Vector3d>& points) {
@@ -218,6 +225,11 @@ void ParallelHdf5ReceiverWriter::writeCoordinates(const std::vector<Eigen::Vecto
                                   H5P_DEFAULT,
                                   H5P_DEFAULT,
                                   H5P_DEFAULT));
+
+  writeStringAttribute(datasetId, "CLASS", "ARRAY");
+  writeStringAttribute(datasetId, "VERSION", "2.4");
+  writeStringAttribute(datasetId, "TITLE", "");
+  writeStringAttribute(datasetId, "FLAVOR", "numpy");
 
   hid_t xferPlist = _eh(H5Pcreate(H5P_DATASET_XFER));
   _eh(H5Pset_dxpl_mpio(xferPlist, H5FD_MPIO_COLLECTIVE));

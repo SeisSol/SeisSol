@@ -97,8 +97,9 @@ std::string ReceiverWriter::fileName(unsigned pointId) const {
   return fns.str();
 }
 
-void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point) {
-  auto name = fileName(pointId);
+std::vector<std::string> ReceiverWriter::variableNames() const {
+  std::vector<std::string> fullNames;
+  fullNames.push_back("Time");
 
   std::vector<std::string> names(seissol::model::MaterialT::Quantities.begin(),
                                  seissol::model::MaterialT::Quantities.end());
@@ -106,6 +107,22 @@ void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point)
     auto derivedNames = derived->quantities();
     names.insert(names.end(), derivedNames.begin(), derivedNames.end());
   }
+
+  for (unsigned sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd;
+       ++sim) {
+    for (const auto& name : names) {
+      if constexpr (seissol::multisim::MultisimEnabled) {
+        fullNames.push_back(name + std::to_string(sim));
+      } else {
+        fullNames.push_back(name);
+      }
+    }
+  }
+  return fullNames;
+}
+
+void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point) {
+  auto name = fileName(pointId);
 
   /// \todo Find a nicer solution that is not so hard-coded.
   struct stat fileStat{};
@@ -115,16 +132,13 @@ void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point)
     file.open(name);
     file << "TITLE = \"Temporal Signal for receiver number " << std::setfill('0') << std::setw(5)
          << (pointId + 1) << "\"" << std::endl;
-    file << "VARIABLES = \"Time\"";
+    file << "VARIABLES = ";
 
-    for (unsigned sim = seissol::multisim::MultisimStart; sim < multisim::MultisimEnd; ++sim) {
-      for (const auto& name : names) {
-        if constexpr (seissol::multisim::MultisimEnabled) {
-          file << ",\"" << name << sim << "\"";
-        } else {
-          file << ",\"" << name << "\"";
-        }
-      }
+    auto names = variableNames();
+    for (size_t i = 0; i < names.size(); ++i) {
+      if (i > 0)
+        file << ",";
+      file << "\"" << names[i] << "\"";
     }
     file << std::endl;
     for (int d = 0; d < 3; ++d) {
@@ -288,27 +302,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                                                        static_cast<hsize_t>(m_totalReceivers),
                                                        static_cast<hsize_t>(globalNcols));
 
-      // Construct variable names and write to HDF5 attribute
-      std::vector<std::string> baseNames(seissol::model::MaterialT::Quantities.begin(),
-                                         seissol::model::MaterialT::Quantities.end());
-      for (const auto& derived : derivedQuantities) {
-        auto derivedNames = derived->quantities();
-        baseNames.insert(baseNames.end(), derivedNames.begin(), derivedNames.end());
-      }
-
-      std::vector<std::string> fullNames;
-      fullNames.push_back("Time");
-      for (unsigned sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd;
-           ++sim) {
-        for (const auto& name : baseNames) {
-          if constexpr (seissol::multisim::MultisimEnabled) {
-            fullNames.push_back(name + std::to_string(sim));
-          } else {
-            fullNames.push_back(name);
-          }
-        }
-      }
-      m_hdf5Writer->writeVariableNames(fullNames);
+      m_hdf5Writer->writeVariableNames(variableNames());
     }
 
     m_hdf5Writer->writeCoordinates(points);
