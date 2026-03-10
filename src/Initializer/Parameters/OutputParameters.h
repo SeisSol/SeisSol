@@ -59,7 +59,7 @@ struct FreeSurfaceOutputParameters {
 
 struct PickpointParameters {
   int printTimeInterval{1};
-  int maxPickStore{50};
+  double writeInterval{VeryLongTime};
   std::array<bool, 12> outputMask{true, true, true};
   std::optional<std::string> pickpointFileName;
   bool aggregate{false};
@@ -70,7 +70,7 @@ struct ReceiverOutputParameters {
   bool enabled{false};
   bool computeRotation{false};
   bool computeStrain{false};
-  double interval{0};
+  double writeInterval{VeryLongTime};
   double samplingInterval{0};
   std::string fileName;
   bool collectiveio{false};
