@@ -375,7 +375,8 @@ if __name__ == "__main__":
 
     # effectless by now
     parser.add_argument(
-        "--mode", type=str, default="rs", required=False, choices=["rs", "lsw", "tp"]
+        "--mode", type=str, default="rs", required=False, choices=["rs", "lsw", "tp"],
+        help=argparse.SUPPRESS
     )
 
     parser.add_argument("--prefix", type=str, default="tpv", required=False)
