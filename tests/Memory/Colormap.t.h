@@ -11,7 +11,7 @@ namespace seissol::unit_test {
 
 using namespace seissol;
 
-TEST_CASE("Colormap") {
+TEST_CASE("Colormap" * doctest::test_suite("memory")) {
   const initializer::LTSColorMap colorMap(
       initializer::EnumLayer(
           std::vector<HaloType>{HaloType::Interior, HaloType::Copy, HaloType::Ghost}),

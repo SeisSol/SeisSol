@@ -14,7 +14,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE_TEMPLATE("Monomial Basis", RealT, float, double) {
+TEST_CASE_TEMPLATE("Monomial Basis" * doctest::test_suite("numerical"), RealT, float, double) {
   // needed due to absolute error
   constexpr double Delta = 10 * std::numeric_limits<double>::epsilon();
 
@@ -42,7 +42,7 @@ TEST_CASE_TEMPLATE("Monomial Basis", RealT, float, double) {
   }
 }
 
-TEST_CASE_TEMPLATE("Legendre Basis", RealT, float, double) {
+TEST_CASE_TEMPLATE("Legendre Basis" * doctest::test_suite("numerical"), RealT, float, double) {
   // needed due to absolute error
   constexpr double Delta = 10 * std::numeric_limits<RealT>::epsilon();
   constexpr double Epsilon = 1000 * std::numeric_limits<RealT>::epsilon();

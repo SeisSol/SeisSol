@@ -12,7 +12,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Test tetrahedron global to reference") {
+TEST_CASE("Test tetrahedron global to reference" * doctest::test_suite("numerical")) {
   // We do all tests in double precision
   constexpr real Epsilon = 10 * std::numeric_limits<double>::epsilon();
 

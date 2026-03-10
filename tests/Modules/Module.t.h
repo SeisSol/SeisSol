@@ -72,7 +72,7 @@ class TestModule : public seissol::Module {
   }
 };
 
-TEST_CASE("Module runthrough") {
+TEST_CASE("Module runthrough" * doctest::test_suite("modules")) {
   TestModule mod1(true, 2);
   TestModule mod2(false, 3);
 

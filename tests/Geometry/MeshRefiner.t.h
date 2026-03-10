@@ -30,7 +30,7 @@ inline void assertCell(const unsigned int* a, const Eigen::Vector4i& b) {
   }
 }
 
-TEST_CASE("Mesh refiner") {
+TEST_CASE("Mesh refiner" * doctest::test_suite("geometry")) {
   constexpr double Epsilon = std::numeric_limits<double>::epsilon();
 
   // NOLINTNEXTLINE (-cert-dcl59-cpp)

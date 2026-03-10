@@ -14,7 +14,8 @@
 
 namespace seissol::unit_test {
 TEST_CASE("Attenuation" *
-          doctest::skip(!std::is_same_v<model::MaterialT, model::ViscoElasticMaterial>)) {
+          doctest::skip(!std::is_same_v<model::MaterialT, model::ViscoElasticMaterial>) *
+          doctest::test_suite("model")) {
   seissol::model::ViscoElasticMaterial vm;
 
   // The test data used here was picked from one cell in a coarse discretization of the Northridge

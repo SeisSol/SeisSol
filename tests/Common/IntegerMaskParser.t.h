@@ -11,7 +11,7 @@ namespace seissol::unit_test {
 
 using namespace seissol;
 
-TEST_CASE("Integer Mask Parser") {
+TEST_CASE("Integer Mask Parser" * doctest::test_suite("common")) {
   SUBCASE("Parse a list of integers") {
     auto parsedResult = IntegerMaskParser::parse("10,20,30");
     REQUIRE(parsedResult.has_value());

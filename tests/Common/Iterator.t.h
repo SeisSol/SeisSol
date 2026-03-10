@@ -11,7 +11,7 @@ namespace seissol::unit_test {
 
 using namespace seissol;
 
-TEST_CASE("Pre-C++20/23 Iterators") {
+TEST_CASE("Pre-C++20/23 Iterators" * doctest::test_suite("common")) {
   std::vector<int32_t> v1{2, 4, 6, 8, 10};
   std::vector<float> v2{.3, .6, .9, .12, .15};
 

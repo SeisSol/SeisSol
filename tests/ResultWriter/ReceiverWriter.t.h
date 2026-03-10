@@ -12,7 +12,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Parses line correctly") {
+TEST_CASE("Parses line correctly" * doctest::test_suite("resultwriter")) {
   const auto lines = std::vector<std::string>{
       "1\t0.1  10",
       "10\t2\t0.2",
@@ -28,16 +28,18 @@ TEST_CASE("Parses line correctly") {
   }
 }
 
-TEST_CASE("Throws expected exceptions for incorrect number of columns") {
+TEST_CASE("Throws expected exceptions for incorrect number of columns" *
+          doctest::test_suite("resultwriter")) {
   CHECK_THROWS_AS(seissol::writer::parseReceiverLine("0.0 0.1"), std::runtime_error);
   CHECK_THROWS_AS(seissol::writer::parseReceiverLine("0.0 0.1 0.2 0.3"), std::runtime_error);
 }
 
-TEST_CASE("Throws expected exceptions for conversion errors") {
+TEST_CASE("Throws expected exceptions for conversion errors" *
+          doctest::test_suite("resultwriter")) {
   CHECK_THROWS_AS(seissol::writer::parseReceiverLine("0.1 center 0.3"), std::invalid_argument);
 }
 
-TEST_CASE("Parses receiver file correctly") {
+TEST_CASE("Parses receiver file correctly" * doctest::test_suite("resultwriter")) {
   const auto receiverFileName = tpath("Testing/receiver_correct.dat");
   const auto points = seissol::writer::parseReceiverFile(receiverFileName);
 

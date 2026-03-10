@@ -21,7 +21,7 @@ struct TestDescriptor {
   struct Scratchpad : public initializer::Scratchpad<float> {};
 };
 
-TEST_CASE("Storage") {
+TEST_CASE("Storage" * doctest::test_suite("memory")) {
   initializer::Storage<initializer::GenericVarmap> storage;
 
   // NOTE: the LTSColorMap is hard-coded to the storage right now.

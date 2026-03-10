@@ -18,7 +18,7 @@ namespace seissol::unit_test {
 using namespace seissol;
 using namespace seissol::dr;
 
-TEST_CASE("Friction Solver Common") {
+TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
   FaultStresses<Executor::Host> faultStresses{};
   TractionResults<Executor::Host> tractionResults{};
   ImpedancesAndEta impAndEta;

@@ -27,7 +27,7 @@ inline void assertTriangle(seissol::refinement::Triangle& a,
   }
 }
 
-TEST_CASE("Triangle Refiner") {
+TEST_CASE("Triangle Refiner" * doctest::test_suite("geometry")) {
   constexpr double Epsilon = std::numeric_limits<double>::epsilon();
   seissol::refinement::TriangleRefiner tr;
 

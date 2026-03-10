@@ -13,7 +13,7 @@
 #include "TestHelper.h"
 
 namespace seissol::unit_test {
-TEST_CASE("Sampled Basis Functions") {
+TEST_CASE("Sampled Basis Functions" * doctest::test_suite("numerical")) {
   constexpr double Epsilon = 10 * std::numeric_limits<real>::epsilon();
   std::vector<real> precomputedValues = {1.0,
                                          0.19999999999999998,
@@ -79,7 +79,7 @@ TEST_CASE("Sampled Basis Functions") {
   }
 }
 
-TEST_CASE("Sampled Derivatives Functions") {
+TEST_CASE("Sampled Derivatives Functions" * doctest::test_suite("numerical")) {
   constexpr double Epsilon = 100 * std::numeric_limits<real>::epsilon();
 
   std::array<std::vector<real>, 3> precomputedValues = {{{0.0,

@@ -12,7 +12,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Test ODE Solver") {
+TEST_CASE("Test ODE Solver" * doctest::test_suite("numerical")) {
   constexpr real Eps = Config::Precision == RealType::F32 ? 10e-4 : 10e-11;
   SUBCASE("Test simple integration") {
     constexpr auto SizeSolution = 5;

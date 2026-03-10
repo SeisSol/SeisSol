@@ -32,7 +32,7 @@ class MockReader2 : public seissol::geometry::MeshReader {
   }
 };
 
-TEST_CASE("MeshReader") {
+TEST_CASE("MeshReader" * doctest::test_suite("geometry")) {
   SUBCASE("No DR") {
     MockReader2 rdr(3);
 

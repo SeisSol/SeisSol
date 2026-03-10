@@ -9,7 +9,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Online Mask Parsing") {
+TEST_CASE("Online Mask Parsing" * doctest::test_suite("parallel")) {
   using namespace seissol::parallel;
   SUBCASE("Single") {
     const std::string mask = "1";

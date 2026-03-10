@@ -14,7 +14,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Transform moment tensor") {
+TEST_CASE("Transform moment tensor" * doctest::test_suite("sourceterm")) {
   constexpr double Epsilon = 100 * std::numeric_limits<real>::epsilon();
 
   // strike = dip = rake = pi / 3

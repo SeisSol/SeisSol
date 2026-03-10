@@ -39,7 +39,7 @@ inline void test_nan(init::QgodLocal::view::type& qgodNeighbor) {
   }
 }
 
-TEST_CASE("Godunov state is correct") {
+TEST_CASE("Godunov state is correct" * doctest::test_suite("model")) {
   constexpr real Epsilon = 1e2 * std::numeric_limits<real>::epsilon();
 
   real localData[tensor::QgodLocal::size()];

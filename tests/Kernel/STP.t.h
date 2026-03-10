@@ -237,7 +237,8 @@ class SpaceTimePredictorTestFixture {
   SpaceTimePredictorTestFixture() { prepareModel(); };
 };
 
-TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture, "Solve Space Time Predictor") {
+TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture,
+                  "Solve Space Time Predictor" * doctest::test_suite("kernel")) {
   alignas(PagesizeStack) real stp[seissol::tensor::spaceTimePredictor::size()];
   alignas(PagesizeStack) real rhs[seissol::tensor::testLhs::size()];
   alignas(PagesizeStack) real lhs[seissol::tensor::testRhs::size()];

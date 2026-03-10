@@ -22,7 +22,7 @@ namespace seissol::unit_test {
 using namespace seissol;
 using namespace seissol::dr;
 
-TEST_CASE("DR Geometry") {
+TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
   constexpr static int X{0};
   constexpr static int Y{1};
   constexpr static int Z{2};

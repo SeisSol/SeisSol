@@ -11,7 +11,7 @@ namespace seissol::unit_test {
 
 using namespace seissol;
 
-TEST_CASE("Backmap") {
+TEST_CASE("Backmap" * doctest::test_suite("memory")) {
   constexpr std::size_t DupCount = 4;
 
   std::vector<std::size_t> dataToMesh{0, 1, 2, 3, 4, 3, 6, 4, 9, 8, 6, 2, 3, 5, 0, 2};

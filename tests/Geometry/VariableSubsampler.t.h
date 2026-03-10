@@ -23,7 +23,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Variable Subsampler") {
+TEST_CASE("Variable Subsampler" * doctest::test_suite("geometry")) {
   constexpr double Epsilon = std::numeric_limits<real>::epsilon() * 1e1;
 
   // NOLINTNEXTLINE (-cert-dcl59-cpp)

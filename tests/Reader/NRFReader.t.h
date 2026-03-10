@@ -13,7 +13,7 @@
 #include <cstdlib>
 
 namespace seissol::unit_test {
-TEST_CASE("NRF Reader") {
+TEST_CASE("NRF Reader" * doctest::test_suite("reader")) {
   seissol::sourceterm::NRF nrf;
   seissol::sourceterm::readNRF(tpath("Testing/source_loh.nrf").c_str(), nrf);
 

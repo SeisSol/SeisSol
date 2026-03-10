@@ -11,7 +11,7 @@
 #include <cstdlib>
 
 namespace seissol::unit_test {
-TEST_CASE("FSRM Reader 1") {
+TEST_CASE("FSRM Reader 1" * doctest::test_suite("reader")) {
   seissol::sourceterm::FSRMSource fsrm;
   fsrm.read(tpath("Testing/fsrm_source1.dat"));
 
@@ -53,7 +53,7 @@ TEST_CASE("FSRM Reader 1") {
   // (we won't check the individual samples here)
 }
 
-TEST_CASE("FSRM Reader 2") {
+TEST_CASE("FSRM Reader 2" * doctest::test_suite("reader")) {
   seissol::sourceterm::FSRMSource fsrm;
   fsrm.read(tpath("Testing/fsrm_source2.dat"));
 
@@ -124,7 +124,7 @@ TEST_CASE("FSRM Reader 2") {
   REQUIRE(fsrm.timeHistories[2].size() == fsrm.numberOfSamples);
 }
 
-TEST_CASE("FSRM Reader File Not Found") {
+TEST_CASE("FSRM Reader File Not Found" * doctest::test_suite("reader")) {
   seissol::sourceterm::FSRMSource fsrm;
   REQUIRE_THROWS(fsrm.read(tpath("Testing/unknown-file.dat")));
 }

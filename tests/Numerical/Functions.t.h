@@ -14,7 +14,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Test Jacobi polynomials") {
+TEST_CASE("Test Jacobi polynomials" * doctest::test_suite("numerical")) {
   constexpr double Epsilon = 10 * std::numeric_limits<double>::epsilon();
   // Compare to Maple reference solution
   REQUIRE(seissol::functions::JacobiP(0, 1, 0, 0.5) == AbsApprox(1.0).epsilon(Epsilon));
@@ -41,7 +41,7 @@ TEST_CASE("Test Jacobi polynomials") {
           AbsApprox(462.0000000000000).epsilon(Epsilon));
 }
 
-TEST_CASE("Test first derivative of Jacobi polynomials") {
+TEST_CASE("Test first derivative of Jacobi polynomials" * doctest::test_suite("numerical")) {
   constexpr double Epsilon = 100 * std::numeric_limits<real>::epsilon();
   // Compare to Maple reference solution
   REQUIRE(seissol::functions::JacobiPDerivative(0, 1, 0, 0.5) == AbsApprox(0.0).epsilon(Epsilon));
@@ -67,7 +67,7 @@ TEST_CASE("Test first derivative of Jacobi polynomials") {
           AbsApprox(-15.37232812500000).epsilon(Epsilon));
 }
 
-TEST_CASE("Test Dubiner polynomials") {
+TEST_CASE("Test Dubiner polynomials" * doctest::test_suite("numerical")) {
   constexpr double Epsilon = 10 * std::numeric_limits<double>::epsilon();
   const std::vector<std::array<double, 7>> tests = {
       {0, 0, 0, 0.25, 0.25, 0.25, 1},
@@ -138,7 +138,7 @@ TEST_CASE("Test Dubiner polynomials") {
   }
 }
 
-TEST_CASE("Legendre Polynomials") {
+TEST_CASE("Legendre Polynomials" * doctest::test_suite("numerical")) {
   constexpr double Epsilon = 10 * std::numeric_limits<double>::epsilon();
   constexpr double EpsilonRelaxed = 1e8 * std::numeric_limits<double>::epsilon();
 

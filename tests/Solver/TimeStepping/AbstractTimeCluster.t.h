@@ -31,7 +31,7 @@ class MockTimeCluster : public time_stepping::AbstractTimeCluster {
   MAKE_MOCK1(printTimeoutMessage, void(std::chrono::seconds), override);
 };
 
-TEST_CASE("TimeCluster") {
+TEST_CASE("TimeCluster" * doctest::test_suite("solver")) {
   auto cluster = MockTimeCluster(1.0, 1);
   cluster.setSyncTime(10);
   cluster.reset();
@@ -56,7 +56,7 @@ TEST_CASE("TimeCluster") {
   }
 }
 
-TEST_CASE("GTS Timesteping works") {
+TEST_CASE("GTS Timesteping works" * doctest::test_suite("solver")) {
   const double dt = 1.0;
   const auto numberOfIterations = 10;
   const double endTime = dt * numberOfIterations;
@@ -123,7 +123,7 @@ TEST_CASE("GTS Timesteping works") {
   }
 }
 
-TEST_CASE("LTS Timesteping works") {
+TEST_CASE("LTS Timesteping works" * doctest::test_suite("solver")) {
   const double dt = 1.0;
   const auto numberOfIterations = 2;
   const double endTime = dt * numberOfIterations;

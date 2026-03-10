@@ -15,7 +15,7 @@
 #include <vector>
 
 namespace seissol::unit_test {
-TEST_CASE("computeSampleTimeIntegral") {
+TEST_CASE("computeSampleTimeIntegral" * doctest::test_suite("kernel")) {
   constexpr double Pi = 3.14159265358979323846264338327950;
 
   std::size_t sampleSize = 1000;

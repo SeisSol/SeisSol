@@ -70,7 +70,10 @@ inline T regularizedYoffe(T time, T tauS, T tauR) {
   }
 }
 
-TEST_CASE_TEMPLATE("Regularized Yoffe Function", RealT, float, double) {
+TEST_CASE_TEMPLATE("Regularized Yoffe Function" * doctest::test_suite("numerical"),
+                   RealT,
+                   float,
+                   double) {
   constexpr RealT Dt = 0.01;
   // rather coarse epsilon, since the quadrature to compute the reference is also rather coarse
   constexpr RealT Epsilon = 1e-2;
