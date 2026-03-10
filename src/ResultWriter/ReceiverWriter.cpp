@@ -87,7 +87,7 @@ static std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receive
 // --------------------------------------------------------------------------
 // Helper function for HDF5 output file name
 std::string ReceiverWriter::hdf5FileName(const std::string& prefix) {
-  return prefix + "_receivers.h5";
+  return prefix + "-receivers.h5";
 }
 
 std::string ReceiverWriter::fileName(unsigned pointId) const {
