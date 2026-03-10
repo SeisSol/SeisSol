@@ -11,11 +11,9 @@ import argparse
 import glob
 import re
 import sys
-from argparse import Namespace
 
 import numpy as np
 import pandas as pd
-from numpy.typing import NDArray
 
 if hasattr(np, "trapezoid"):
     trapz_func = np.trapezoid
@@ -64,7 +62,7 @@ def normalize_variable_names(variables: list[str]) -> list[str]:
 
 def read_receiver(filename: str) -> pd.DataFrame:
     """
-    Read the receiver using the receiver filename and return a panda datatable
+    Read the receiver using the receiver filename and return a pandas DataFrame
     """
     with open(filename) as receiver_file:
         # We expect the header to look like the following:
@@ -111,22 +109,22 @@ def compare_receiver_columns(
             continue
         if col not in sim_receiver.columns:
             print(f"Warning: column '{col}' missing in simulated output for {label}")
+            errors[col] = float("inf")
             continue
         ref_col = ref_receiver[col].values
-        diff_col = np.abs(sim_receiver[col].values - ref_col)
-        ref_norm = trapz_func(np.abs(ref_col), x=time)
-        diff_norm = trapz_func(diff_col, x=time)
+        diff_col = sim_receiver[col].values - ref_col
+        ref_norm = np.sqrt(trapz_func(ref_col**2, x=time))
+        diff_norm = np.sqrt(trapz_func(diff_col**2, x=time))
         errors[col] = float(diff_norm / ref_norm) if ref_norm > 1e-10 else float(diff_norm)
     return errors
 
 
-def receiver_diff(args: Namespace, i: int, is_fault: bool = False) -> dict[str, float]:
+def receiver_diff(args: argparse.Namespace, index: int, file_type: str = "receiver") -> dict[str, float]:
     """
     Checks if the receivers have same time axis, and returns the relative L2 errors
     """
-    file_type = "faultreceiver" if is_fault else "receiver"
-    sim_files = glob.glob(f"{args.output}/{args.prefix}-{file_type}-{i:05d}*.dat")
-    ref_files = glob.glob(f"{args.output_ref}/{args.prefix}-{file_type}-{i:05d}*.dat")
+    sim_files = glob.glob(f"{args.output}/{args.prefix}-{file_type}-{index:05d}*.dat")
+    ref_files = glob.glob(f"{args.output_ref}/{args.prefix}-{file_type}-{index:05d}*.dat")
 
     # allow copy layer receivers
     assert len(sim_files) >= 1
@@ -135,33 +133,33 @@ def receiver_diff(args: Namespace, i: int, is_fault: bool = False) -> dict[str, 
     sim_receiver = read_receiver(sim_files[0])
     ref_receiver = read_receiver(ref_files[0])
 
-    if is_fault:
-        sim_receiver.reset_index(drop=True, inplace=True)
-        ref_receiver.reset_index(drop=True, inplace=True)
+    # Fault receivers may have the t=0 row dropped; reset to ensure a clean 0-based
+    # integer index before comparing. Non-fault receivers are never row-dropped so
+    # their index is already clean.
+    sim_receiver.reset_index(drop=True, inplace=True)
+    ref_receiver.reset_index(drop=True, inplace=True)
 
-    assert (
-        np.max(np.abs(sim_receiver["Time"].values - ref_receiver["Time"].values)) < 1e-6
-    ), f"Record time mismatch at {file_type} {i}"
+    max_time_diff = np.max(np.abs(sim_receiver["Time"].values - ref_receiver["Time"].values))
+    assert max_time_diff < 1e-6, (
+        f"Record time mismatch at {file_type} {index}: max |Δt| = {max_time_diff:.3e}"
+    )
 
-    return compare_receiver_columns(sim_receiver, ref_receiver, f"{file_type}-{i:05d}")
+    return compare_receiver_columns(sim_receiver, ref_receiver, f"{file_type}-{index:05d}")
 
 
-def find_all_receivers(directory: str, prefix: str, faultreceiver: bool = False) -> NDArray[np.int_]:
+def find_all_receivers(directory: str, prefix: str, file_type: str = "receiver") -> np.typing.NDArray[np.int_]:
     """
     Returns list of receivers in the directory with a particular prefix
     """
-    if faultreceiver:
-        file_candidates = glob.glob(f"{directory}/{prefix}-faultreceiver-*.dat")
-    else:
-        file_candidates = glob.glob(f"{directory}/{prefix}-receiver-*.dat")
+    file_candidates = glob.glob(f"{directory}/{prefix}-{file_type}-*.dat")
 
     extract_id = re.compile(r".+/\w+-\w+-(\d+)(?:-\d+)?\.dat$")
-    receiver_id = []  # using only receiver_id as receiver_ids is already used in main function
+    receiver_ids = []
     for fn in file_candidates:
         extract_id_result = extract_id.search(fn)
         if extract_id_result:
-            receiver_id.append(int(extract_id_result.group(1)))
-    return np.array(sorted(list(set(receiver_id))))
+            receiver_ids.append(int(extract_id_result.group(1)))
+    return np.array(sorted(list(set(receiver_ids))))
 
 
 def report_errors(label: str, all_errors: dict[int, dict[str, float]], epsilon: float) -> bool:
@@ -202,40 +200,18 @@ if __name__ == "__main__":
         help=argparse.SUPPRESS,
     )
     parser.add_argument("--prefix", type=str, default="tpv", required=False)
-    parser.add_argument(
-        "--compare_fault_receivers", type=bool, default=True, required=False
-    )
     args = parser.parse_args()
 
-    if args.mode is not None:
-        print(
-            "Warning: --mode is deprecated and has no effect. "
-            "All columns present in the reference files are compared automatically."
+    any_failure = False
+    for file_type in ("receiver", "faultreceiver"):
+        label = f"{file_type}s"
+        sim_ids = find_all_receivers(args.output, args.prefix, file_type)
+        ref_ids = find_all_receivers(args.output_ref, args.prefix, file_type)
+        ids = np.intersect1d(sim_ids, ref_ids)
+        assert len(ids) == len(ref_ids), (
+            f"some {label} IDs are missing: {ids} vs {ref_ids}"
         )
-
-    if args.compare_fault_receivers:
-        sim_faultreceiver_ids = find_all_receivers(args.output, args.prefix, True)
-        ref_faultreceiver_ids = find_all_receivers(args.output_ref, args.prefix, True)
-        faultreceiver_ids = np.intersect1d(sim_faultreceiver_ids, ref_faultreceiver_ids)
-        assert len(faultreceiver_ids) == len(
-            ref_faultreceiver_ids
-        ), f"some on-fault receiver IDs are missing: {faultreceiver_ids} vs {ref_faultreceiver_ids}"
-    else:
-        ref_faultreceiver_ids = []
-
-    sim_receiver_ids = find_all_receivers(args.output, args.prefix, False)
-    ref_receiver_ids = find_all_receivers(args.output_ref, args.prefix, False)
-    receiver_ids = np.intersect1d(sim_receiver_ids, ref_receiver_ids)
-    assert len(receiver_ids) == len(
-        ref_receiver_ids
-    ), f"some off-fault receiver IDs are missing: {receiver_ids} vs {ref_receiver_ids}"
-
-    receiver_errors = {i: receiver_diff(args, i, is_fault=False) for i in ref_receiver_ids}
-    faultreceiver_errors = {
-        i: receiver_diff(args, i, is_fault=True) for i in ref_faultreceiver_ids
-    }
-
-    any_failure = report_errors("receivers", receiver_errors, args.epsilon)
-    any_failure |= report_errors("faultreceivers", faultreceiver_errors, args.epsilon)
+        errors = {index: receiver_diff(args, index, file_type=file_type) for index in ref_ids}
+        any_failure |= report_errors(label, errors, args.epsilon)
 
     sys.exit(1 if any_failure else 0)
