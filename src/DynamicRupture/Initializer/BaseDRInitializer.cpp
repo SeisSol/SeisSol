@@ -23,6 +23,7 @@
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Dense>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

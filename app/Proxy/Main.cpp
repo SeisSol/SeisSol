@@ -13,6 +13,8 @@
 #include "Proxy/Runner.h"
 #include "Proxy/Tools.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
