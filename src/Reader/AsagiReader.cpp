@@ -85,7 +85,10 @@ namespace seissol::asagi {
 
   // Set additional parameters
   const std::string blockSize = env.get("ASAGI_BLOCK_SIZE", "64");
-  for (unsigned dim = 0; dim < grid->getDimensions(); ++dim) {
+
+  // just set it for a really large number of dimensions for now (we only know the exact count
+  // (usually 3) after opening the file)
+  for (std::size_t dim = 0; dim < 256; ++dim) {
     grid->setParam(("BLOCK_SIZE_" + std::to_string(dim)).c_str(), blockSize.c_str());
   }
 
