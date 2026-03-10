@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_MEMORY_DESCRIPTOR_SURFACE_H_
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_SURFACE_H_
 
+#include "Alignment.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/Boundary.h"
 #include "Memory/Tree/LTSTree.h"
@@ -37,11 +38,11 @@ struct SurfaceLTS {
 
   static void addTo(Storage& storage) {
     const seissol::initializer::LayerMask ghostMask(Ghost);
-    storage.add<Dofs>(ghostMask, 1, initializer::AllocationMode::HostOnly);
-    storage.add<Side>(ghostMask, 1, initializer::AllocationMode::HostOnly);
-    storage.add<MeshId>(ghostMask, 1, initializer::AllocationMode::HostOnly);
-    storage.add<BoundaryMapping>(ghostMask, 1, initializer::AllocationMode::HostOnly);
-    storage.add<LocationFlag>(ghostMask, 1, initializer::AllocationMode::HostOnly);
+    storage.add<Dofs>(ghostMask, Alignment, initializer::AllocationMode::HostOnly);
+    storage.add<Side>(ghostMask, Alignment, initializer::AllocationMode::HostOnly);
+    storage.add<MeshId>(ghostMask, Alignment, initializer::AllocationMode::HostOnly);
+    storage.add<BoundaryMapping>(ghostMask, Alignment, initializer::AllocationMode::HostOnly);
+    storage.add<LocationFlag>(ghostMask, Alignment, initializer::AllocationMode::HostOnly);
 
     storage.add<DisplacementDofs>(ghostMask, PagesizeHeap, allocationModeBoundary());
   }
