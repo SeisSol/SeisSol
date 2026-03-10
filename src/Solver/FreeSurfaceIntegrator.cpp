@@ -111,16 +111,12 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
   for (auto [layer, surfaceLayer] :
        seissol::common::zip(ltsStorage.leaves(ghostMask), surfaceStorage->leaves(ghostMask))) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
-    real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
     real*(*faceDisplacements)[4] = layer.var<LTS::FaceDisplacements>();
     real*(*faceDisplacementsDevice)[4] = layer.var<LTS::FaceDisplacementsDevice>();
-    real** surfaceDofs = surfaceLayer.var<SurfaceLTS::Dofs>();
     auto* displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>();
     auto* displacementDofsDevice =
         surfaceLayer.var<SurfaceLTS::DisplacementDofs>(initializer::AllocationPlace::Device);
     auto* cellMaterialData = layer.var<LTS::Material>();
-    auto* surfaceBoundaryMapping = surfaceLayer.var<SurfaceLTS::BoundaryMapping>();
-    auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     auto* locationFlagLayer = surfaceLayer.var<SurfaceLTS::LocationFlag>();
 
@@ -131,15 +127,12 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (initializer::requiresDisplacement(
                 cellInformation[cell], cellMaterialData[cell], face)) {
-          surfaceDofs[surfaceCell] = dofs[cell];
-
           // NOTE: assign LTS::Storage data here
           faceDisplacements[cell][face] = displacementDofs[surfaceCell];
           faceDisplacementsDevice[cell][face] = displacementDofsDevice[surfaceCell];
 
           side[surfaceCell] = face;
           meshId[surfaceCell] = secondaryInformation[cell].meshId;
-          surfaceBoundaryMapping[surfaceCell] = &boundaryMapping[cell][face];
           locationFlagLayer[surfaceCell] = static_cast<std::uint8_t>(
               getLocationFlag(cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
 
