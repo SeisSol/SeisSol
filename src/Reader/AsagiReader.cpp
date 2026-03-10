@@ -85,9 +85,9 @@ namespace seissol::asagi {
 
   // Set additional parameters
   const std::string blockSize = env.get("ASAGI_BLOCK_SIZE", "64");
-  grid->setParam("BLOCK_SIZE_0", blockSize.c_str());
-  grid->setParam("BLOCK_SIZE_1", blockSize.c_str());
-  grid->setParam("BLOCK_SIZE_2", blockSize.c_str());
+  for (unsigned dim = 0; dim < grid->getDimensions(); ++dim) {
+    grid->setParam(("BLOCK_SIZE_" + std::to_string(dim)).c_str(), blockSize.c_str());
+  }
 
   const std::string cacheSize = env.get("ASAGI_CACHE_SIZE", "128");
   grid->setParam("CACHE_SIZE", cacheSize.c_str());
@@ -115,7 +115,8 @@ namespace seissol::asagi {
 }
 
 NumaCacheMode AsagiReader::getNumaMode() {
-  const std::string numaModeName = AsagiModule::getInstance().getEnv().get("ASAGI_NUMA_MODE", "ON");
+  const std::string numaModeName =
+      AsagiModule::getInstance().getEnv().get("ASAGI_NUMA_MODE", "OFF");
 
   if (numaModeName == "ON") {
     return NumaCacheMode::On;
