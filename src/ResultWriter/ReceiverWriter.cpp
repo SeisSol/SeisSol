@@ -229,7 +229,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                                                        seissolInstance));
       }
 
-      if (m_format == seissol::initializer::parameters::ReceiverOutputFormat::Ascii) {
+      if (m_format == seissol::initializer::parameters::ReceiverOutputFormat::Csv) {
         writeHeader(point, points[point]);
       }
       localReceiverCount++;
@@ -319,7 +319,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
 
 void ReceiverWriter::syncPoint(double /*currentTime*/) {
 
-  if (m_format == seissol::initializer::parameters::ReceiverOutputFormat::Ascii) {
+  if (m_format == seissol::initializer::parameters::ReceiverOutputFormat::Csv) {
     if (m_receiverClusters.empty()) {
       return;
     }

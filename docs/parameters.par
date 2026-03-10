@@ -153,7 +153,7 @@ wavefieldvtkorder = -1 ! positive values enable the VTKHDF high-order output for
 
 ! off-fault receivers
 ReceiverOutput = 1                   ! Enable/disable off-fault receiver output
-ReceiverFormat = 'hdf5'              ! Format of receiver output: 'hdf5' (default) or 'ascii'
+ReceiverFormat = 'csv'               ! Format of receiver output: 'csv' (default) or 'hdf5'
 RFileName = 'tpv33_receivers.dat'    ! Record Points in extra file
 pickdt = 0.005                       ! Pickpoint Sampling
 ! (Optional) Synchronization point for receivers.

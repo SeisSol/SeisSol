@@ -20,14 +20,14 @@ commented example:
 .. code-block:: Fortran
 
   &Output
-  receiverFormat = 'hdf5' ! Can be 'hdf5' or 'ascii'
+  receiverFormat = 'csv' ! Can be 'hdf5' or 'csv'
   pickdt = 0.01 ! Pickpoint Sampling
   pickDtType = 1 ! Pickpoint Type
   RFileName = 'receivers.dat' ! Record Points in extra file
   /
 
-If `receiverFormat = 'ascii'`, each receiver trace is written to a separate `.dat` file. If `receiverFormat = 'hdf5'` (the default),
-all receiver traces are combined into a single HDF5 output file (`_receivers.h5`). The HDF5 file includes attributes
+If `receiverFormat = 'csv'` (the default), each receiver trace is written to a separate `.dat` file. If `receiverFormat = 'hdf5'`,
+all receiver traces are combined into a single HDF5 output file (`-receivers.h5`). The HDF5 file includes attributes
 (`DimNames` and `VariableNames`) that define the array dimensions (Time, Receivers, Variables) and output quantities.
 
 If pickDtType = 2, the output is generated every N time steps, where N is

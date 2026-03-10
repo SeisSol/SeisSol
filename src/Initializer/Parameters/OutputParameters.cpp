@@ -146,9 +146,9 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
 
   const auto format = reader->readWithDefaultStringEnum<ReceiverOutputFormat>(
       "receiverformat",
-      "hdf5",
+      "csv",
       {
-          {"ascii", ReceiverOutputFormat::Ascii},
+          {"csv", ReceiverOutputFormat::Csv},
           {"hdf5", ReceiverOutputFormat::Hdf5},
       });
 
