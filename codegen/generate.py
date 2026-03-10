@@ -296,7 +296,7 @@ def main():
 
         generator.generate(
             outputDir=outputDir,
-            namespace="seissol_general",
+            namespace="seissol::general",
             gemm_cfg=gemmTools,
             cost_estimator=cost_estimators,
             include_tensors=kernels.general.includeMatrices(cmdLineArgs.matricesDir),

@@ -52,7 +52,7 @@ AnisotropicMaterial::~AnisotropicMaterial() = default;
 
 void AnisotropicMaterial::getFullStiffnessTensor(std::array<double, 81>& fullTensor) const {
   auto stiffnessTensorView =
-      seissol_general::init::stiffnessTensor::view::create(fullTensor.data());
+      seissol::general::init::stiffnessTensor::view::create(fullTensor.data());
   stiffnessTensorView.setZero();
   stiffnessTensorView(0, 0, 0, 0) = c11;
   stiffnessTensorView(0, 0, 0, 1) = c16;
@@ -143,8 +143,8 @@ double AnisotropicMaterial::getMaxWaveSpeed() const {
   // An analytic solution for the maximal wave speed is hard to obtain.
   // Instead of solving an optimization problem we sample the velocitiy for
   // different directions and take the maximum.
-  auto samplingDirections = seissol_general::init::samplingDirections::view::create(
-      const_cast<double*>(seissol_general::init::samplingDirections::Values));
+  auto samplingDirections = seissol::general::init::samplingDirections::view::create(
+      const_cast<double*>(seissol::general::init::samplingDirections::Values));
 
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 3, 3>> saes;
 
@@ -152,7 +152,7 @@ double AnisotropicMaterial::getMaxWaveSpeed() const {
 
   std::array<double, 81> fullTensor{};
   getFullStiffnessTensor(fullTensor);
-  seissol_general::kernel::computeChristoffel computeChristoffel;
+  seissol::general::kernel::computeChristoffel computeChristoffel;
   computeChristoffel.stiffnessTensor = fullTensor.data();
 
   for (unsigned j = 0; j < 200; ++j) {
