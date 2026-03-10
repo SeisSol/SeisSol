@@ -62,7 +62,7 @@ static constexpr double TpMaxWaveNumber = 10.0;
 /**
  * Number of gauss points on an element surface.
  */
-static constexpr unsigned int NumBoundaryGaussPoints =
+static constexpr size_t NumBoundaryGaussPoints =
     init::QInterpolated::Shape[multisim::BasisFunctionDimension];
 
 template <std::size_t I, typename F, typename TupleT>
