@@ -237,11 +237,11 @@ class NoSpecialization {
     deviceBarrier(ctx);
 
     const auto simPointIndex = ctx.pointIndex / multisim::NumSimulations;
-    const auto simId = ctx.pointIndex % multisim::NumSimulations;
 
     real result{0.0};
-    for (size_t i{0}; i < Dim1; ++i) {
+    for (uint32_t i = 0; i < Dim1; ++i) {
       if constexpr (multisim::MultisimEnabled) {
+        const auto simId = ctx.pointIndex % multisim::NumSimulations;
         result += ctx.args->resampleMatrix[simPointIndex * Dim1 + i] *
                   ctx.sharedMemory[i * multisim::NumSimulations + simId];
       } else {
