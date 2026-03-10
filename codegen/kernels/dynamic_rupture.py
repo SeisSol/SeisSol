@@ -304,3 +304,13 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
     generator.add("computeImposedStateP", computeImposedStateP)
 
     return {db.resample, db.quadpoints, db.quadweights}
+
+
+def addKernelsGeneral(generator):
+    stressRotationMatrix = Tensor("stressRotationMatrix", (6, 6))
+    initialStress = Tensor("initialStress", (6,))
+    rotatedStress = Tensor("rotatedStress", (6,))
+    rotationKernel = (
+        rotatedStress["i"] <= stressRotationMatrix["ij"] * initialStress["j"]
+    )
+    generator.add("rotateStress", rotationKernel)
