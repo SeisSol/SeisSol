@@ -139,6 +139,8 @@ void ReceiverOutput::calcFaultOutput(
     local.waveSpeedsPlus = &((local.layer->var<DynamicRupture::WaveSpeedsPlus>())[local.ltsId]);
     local.waveSpeedsMinus = &((local.layer->var<DynamicRupture::WaveSpeedsMinus>())[local.ltsId]);
 
+    this->handleNonConvergence(local);
+
     const auto& faultInfo = faultInfos[faceIndex];
 
     if (outputType == initializer::parameters::OutputType::Elementwise) {

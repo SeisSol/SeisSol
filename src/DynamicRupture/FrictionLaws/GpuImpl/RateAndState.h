@@ -157,8 +157,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       }
     }
     deviceBarrier(ctx);
-    ctx.data->convergenceOuter[ctx.ltsFace][ctx.pointIndex] = hasConvergedOuter;
-    ctx.data->convergenceInner[ctx.ltsFace][ctx.pointIndex] = hasConvergedInner;
+    ctx.data->convergenceOuter[ctx.ltsFace][ctx.pointIndex] &= hasConvergedOuter;
+    ctx.data->convergenceInner[ctx.ltsFace][ctx.pointIndex] &= hasConvergedInner;
   }
 
   SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext& ctx, uint32_t timeIndex) {

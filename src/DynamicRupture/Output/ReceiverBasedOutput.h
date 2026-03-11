@@ -134,7 +134,8 @@ class ReceiverOutput {
                                size_t outputSpecifics,
                                size_t receiverIdx) {}
   virtual void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
-                                          const std::array<real, 6>& rotatedStress) {};
+                                          const std::array<real, 6>& rotatedStress) {}
+  virtual void handleNonConvergence(LocalInfo& local) {}
 };
 } // namespace seissol::dr::output
 
