@@ -87,8 +87,8 @@ def read_receiver(filename: str) -> pd.DataFrame:
         # (before they were writing at Time=dt)
         # We then skip the first timestep written if Time = 0
         t0 = float(lines[first_row].split()[0])
-        isFaultReceiver = "faultreceiver" in filename
-        if t0 == 0 and isFaultReceiver:
+        is_fault_receiver = "faultreceiver" in filename
+        if t0 == 0 and is_fault_receiver:
             first_row += 1
     receiver = pd.read_csv(filename, header=None, skiprows=first_row, sep=r"\s+")
     receiver.columns = normalize_variable_names(variables)
@@ -191,21 +191,10 @@ if __name__ == "__main__":
     parser.add_argument("output", type=str)
     parser.add_argument("output_ref", type=str)
     parser.add_argument("--epsilon", type=float, default=0.01)
-
-    # effectless by now
-    parser.add_argument(
-        "--mode",
-        type=str,
-        default=None,
-        required=False,
-        choices=["rs", "lsw", "tp"],
-        help=argparse.SUPPRESS,
-    )
-
     parser.add_argument("--prefix", type=str, default="tpv", required=False)
     args = parser.parse_args()
 
-    any_failure = False
+    ANY_FAILURE = False
     for file_type in ("receiver", "faultreceiver"):
         label = f"{file_type}s"
         sim_ids = find_all_receivers(args.output, args.prefix, file_type)
@@ -215,6 +204,6 @@ if __name__ == "__main__":
             f"some {label} IDs are missing: {ids} vs {ref_ids}"
         )
         errors = {index: receiver_diff(args, index, file_type=file_type) for index in ref_ids}
-        any_failure |= report_errors(label, errors, args.epsilon)
+        ANY_FAILURE |= report_errors(label, errors, args.epsilon)
 
-    sys.exit(1 if any_failure else 0)
+    sys.exit(1 if ANY_FAILURE else 0)
