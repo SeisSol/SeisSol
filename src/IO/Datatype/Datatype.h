@@ -34,7 +34,7 @@ class Datatype : public std::enable_shared_from_this<Datatype> {
   virtual YAML::Node serialize() const = 0;
   virtual Array unwrap(std::size_t maxDimensions);
   virtual std::string toStringRaw(const void* data) const = 0;
-  virtual std::optional<std::vector<char>> fromStringRaw(const std::string& str) const = 0;
+  virtual std::optional<std::vector<uint8_t>> fromStringRaw(const std::string& str) const = 0;
 
   template <typename T>
   std::string toString(const T& data) const {
@@ -65,7 +65,7 @@ class OpaqueDatatype : public Datatype {
   YAML::Node serialize() const override;
 
   std::string toStringRaw(const void* data) const override;
-  std::optional<std::vector<char>> fromStringRaw(const std::string& str) const override;
+  std::optional<std::vector<uint8_t>> fromStringRaw(const std::string& str) const override;
 
   private:
   std::size_t sizeP;
@@ -82,7 +82,7 @@ class StringDatatype : public Datatype {
   YAML::Node serialize() const override;
 
   std::string toStringRaw(const void* data) const override;
-  std::optional<std::vector<char>> fromStringRaw(const std::string& str) const override;
+  std::optional<std::vector<uint8_t>> fromStringRaw(const std::string& str) const override;
 
   private:
   std::size_t sizeP;
@@ -95,7 +95,7 @@ class F32Datatype : public Datatype {
   YAML::Node serialize() const override;
 
   std::string toStringRaw(const void* data) const override;
-  std::optional<std::vector<char>> fromStringRaw(const std::string& str) const override;
+  std::optional<std::vector<uint8_t>> fromStringRaw(const std::string& str) const override;
 };
 
 class F64Datatype : public Datatype {
@@ -105,7 +105,7 @@ class F64Datatype : public Datatype {
   YAML::Node serialize() const override;
 
   std::string toStringRaw(const void* data) const override;
-  std::optional<std::vector<char>> fromStringRaw(const std::string& str) const override;
+  std::optional<std::vector<uint8_t>> fromStringRaw(const std::string& str) const override;
 };
 
 class F80Datatype : public Datatype {
@@ -115,7 +115,7 @@ class F80Datatype : public Datatype {
   YAML::Node serialize() const override;
 
   std::string toStringRaw(const void* data) const override;
-  std::optional<std::vector<char>> fromStringRaw(const std::string& str) const override;
+  std::optional<std::vector<uint8_t>> fromStringRaw(const std::string& str) const override;
 };
 
 class IntegerDatatype : public Datatype {
@@ -131,7 +131,7 @@ class IntegerDatatype : public Datatype {
   YAML::Node serialize() const override;
 
   std::string toStringRaw(const void* data) const override;
-  std::optional<std::vector<char>> fromStringRaw(const std::string& str) const override;
+  std::optional<std::vector<uint8_t>> fromStringRaw(const std::string& str) const override;
 
   private:
   std::size_t sizeP;
@@ -155,7 +155,7 @@ class ArrayDatatype : public Datatype {
   YAML::Node serialize() const override;
 
   std::string toStringRaw(const void* data) const override;
-  std::optional<std::vector<char>> fromStringRaw(const std::string& str) const override;
+  std::optional<std::vector<uint8_t>> fromStringRaw(const std::string& str) const override;
 
   private:
   std::shared_ptr<Datatype> baseP;
@@ -183,7 +183,7 @@ class StructDatatype : public Datatype {
   YAML::Node serialize() const override;
 
   std::string toStringRaw(const void* data) const override;
-  std::optional<std::vector<char>> fromStringRaw(const std::string& str) const override;
+  std::optional<std::vector<uint8_t>> fromStringRaw(const std::string& str) const override;
 
   private:
   static std::size_t minSize(const std::vector<MemberInfo>& members);
