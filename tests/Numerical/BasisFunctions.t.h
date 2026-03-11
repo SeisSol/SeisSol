@@ -74,10 +74,10 @@ TEST_CASE_TEMPLATE("Sampled Basis Functions", RealT, float, double) {
 
   for (std::size_t order = 1; order <= 6; ++order) {
     basisFunction::SampledBasisFunctions<RealT> sampledBasisFunctions(order, 0.3, 0.3, 0.3);
-    const auto funs = sampledBasisFunctions.getSize();
+    const auto funs = sampledBasisFunctions.size();
     REQUIRE(funs <= precomputedValues.size());
     for (size_t i = 0; i < funs; ++i) {
-      REQUIRE(sampledBasisFunctions.data.at(i) ==
+      REQUIRE(sampledBasisFunctions.data().at(i) ==
               AbsApprox(precomputedValues.at(i)).epsilon(Epsilon));
     }
   }
@@ -258,9 +258,9 @@ TEST_CASE_TEMPLATE("Sampled Derivatives Functions", RealT, float, double) {
   for (std::size_t order = 1; order <= 6; ++order) {
     basisFunction::SampledBasisFunctionDerivatives<RealT> sampledBasisFunctionDerivatives(
         order, 0.3, 0.3, 0.3);
-    const auto funs = sampledBasisFunctionDerivatives.getSize() / 3;
+    const auto funs = sampledBasisFunctionDerivatives.size() / 3;
     auto dataView = [&](auto i, auto dir) {
-      return sampledBasisFunctionDerivatives.data[i + funs * dir];
+      return sampledBasisFunctionDerivatives.data()[i + funs * dir];
     };
     REQUIRE(funs <= precomputedValues[0].size());
     for (size_t i = 0; i < funs; ++i) {

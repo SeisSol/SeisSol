@@ -107,12 +107,14 @@ class FastVelocityWeakeningLaw
     const auto simPointIndex = ctx.pointIndex / multisim::NumSimulations;
 
     real resampledDeltaStateVar{0.0};
-    for (uint32_t i = 0; i < Dim1; ++i) {
-      if constexpr (multisim::MultisimEnabled) {
-        const auto simId = ctx.pointIndex % multisim::NumSimulations;
+    if constexpr (multisim::MultisimEnabled) {
+      const auto simId = ctx.pointIndex % multisim::NumSimulations;
+      for (uint32_t i = 0; i < Dim1; ++i) {
         resampledDeltaStateVar += ctx.args->resampleMatrix[simPointIndex * Dim1 + i] *
                                   ctx.sharedMemory[i * multisim::NumSimulations + simId];
-      } else {
+      }
+    } else {
+      for (uint32_t i = 0; i < Dim1; ++i) {
         resampledDeltaStateVar +=
             ctx.args->resampleMatrix[simPointIndex + i * Dim0] * ctx.sharedMemory[i];
       }
