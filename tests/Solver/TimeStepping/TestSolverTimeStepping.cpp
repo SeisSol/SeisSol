@@ -9,3 +9,4 @@
 #include <doctest/trompeloeil.hpp>
 
 #include "AbstractTimeCluster.t.h"
+#include "ActorState.t.h"
