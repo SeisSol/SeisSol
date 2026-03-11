@@ -151,10 +151,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       hasConvergedOuter = (localSlipRateMagnitude - slipRateTest) < settings.stateTolerance;
 
       // exit early and prevent thread/load data divergence
+      deviceWarpBarrier(ctx);
       if (deviceWarpAll(ctx, hasConvergedOuter)) {
         break;
       }
-      deviceWarpBarrier(ctx);
     }
     deviceBarrier(ctx);
     ctx.data->convergenceOuter[ctx.ltsFace][ctx.pointIndex] = hasConvergedOuter;
