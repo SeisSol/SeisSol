@@ -5,21 +5,9 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-set(seissol_test_sources
-        Model/TestModel.cpp
-        Initializer/TestInitializer.cpp
-        Numerical/TestNumerical.cpp
-        Geometry/TestGeometry.cpp
-        Kernel/TestKernel.cpp
-        Memory/TestMemory.cpp
-        SourceTerm/TestSourceTerm.cpp
-        Parallel/TestParallel.cpp
-        ResultWriter/TestResultWriter.cpp
-        Solver/TimeStepping/TestSolverTimeStepping.cpp
-        DynamicRupture/TestDynamicRupture.cpp
-        Common/TestCommon.cpp
-        Modules/TestModule.cpp
-)
+# ---------------------------------------------------------------------------
+# Test data files
+# ---------------------------------------------------------------------------
 
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/TimeStepping/mesh.h5
@@ -36,7 +24,6 @@ configure_file(
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/receiver_correct.dat
     COPYONLY
 )
-
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/Reader/fsrm_source1.dat
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/fsrm_source1.dat
@@ -54,11 +41,78 @@ if (NETCDF)
         ${CMAKE_CURRENT_BINARY_DIR}/Testing/source_loh.nrf
         COPYONLY
     )
-    set(seissol_test_sources ${seissol_test_sources} ${CMAKE_CURRENT_SOURCE_DIR}/Reader/ReaderTest.cpp)
 endif()
 
 configure_file("Setup.h.in"
                "${CMAKE_CURRENT_BINARY_DIR}/Setup.h")
+
+# ---------------------------------------------------------------------------
+# Shared test infrastructure (INTERFACE – headers only, no object code)
+# ---------------------------------------------------------------------------
+
+add_library(seissol-test-base INTERFACE)
+target_link_libraries(seissol-test-base INTERFACE seissol-lib seissol-external)
+target_include_directories(seissol-test-base INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+separate_arguments(TESTING_COMMAND_LIST NATIVE_COMMAND ${TESTING_COMMAND})
+
+# ---------------------------------------------------------------------------
+# Macro: create a per-module test executable
+# ---------------------------------------------------------------------------
+# Usage:   seissol_add_test_module(numerical  Numerical/TestNumerical.cpp)
+#
+# Creates target  seissol-test-<name>  that is independently buildable,
+# runnable, and discoverable by ctest.
+# ---------------------------------------------------------------------------
+
+macro(seissol_add_test_module _name)
+    set(_target "seissol-test-${_name}")
+    add_executable(${_target} ${ARGN} TestMain.cpp)
+    target_link_libraries(${_target} PRIVATE seissol-test-base)
+    target_compile_definitions(${_target} PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
+    set_property(TARGET ${_target} PROPERTY CROSSCOMPILING_EMULATOR ${TESTING_COMMAND_LIST})
+    if (NOT TESTING_BUILD_ONLY)
+        doctest_discover_tests(${_target})
+    endif()
+endmacro()
+
+# ---------------------------------------------------------------------------
+# Per-module test targets
+# ---------------------------------------------------------------------------
+
+seissol_add_test_module(common          Common/TestCommon.cpp)
+seissol_add_test_module(dynamicrupture  DynamicRupture/TestDynamicRupture.cpp)
+seissol_add_test_module(geometry        Geometry/TestGeometry.cpp)
+seissol_add_test_module(initializer     Initializer/TestInitializer.cpp)
+seissol_add_test_module(io              IO/TestIO.cpp)
+seissol_add_test_module(kernel          Kernel/TestKernel.cpp)
+seissol_add_test_module(memory          Memory/TestMemory.cpp)
+seissol_add_test_module(model           Model/TestModel.cpp)
+seissol_add_test_module(modules         Modules/TestModule.cpp)
+seissol_add_test_module(monitoring      Monitoring/TestMonitoring.cpp)
+seissol_add_test_module(numerical       Numerical/TestNumerical.cpp)
+seissol_add_test_module(parallel        Parallel/TestParallel.cpp)
+seissol_add_test_module(resultwriter    ResultWriter/TestResultWriter.cpp)
+seissol_add_test_module(solver          Solver/TimeStepping/TestSolverTimeStepping.cpp)
+seissol_add_test_module(sourceterm      SourceTerm/TestSourceTerm.cpp)
+
+if (NETCDF)
+    seissol_add_test_module(reader      Reader/ReaderTest.cpp)
+endif()
+
+# ---------------------------------------------------------------------------
+# Monolithic binary  (almost obsolete; keep for yateto tests for now)
+# ---------------------------------------------------------------------------
+# Kept so that the Yateto tests continue to work.
+# Once those are also added to the CI, this
+# section can be removed.
+# ---------------------------------------------------------------------------
+
+set(seissol_test_sources
+)
 
 add_executable(seissol-serial-test
         ${seissol_test_sources}
@@ -87,7 +141,6 @@ if (TESTING_GENERATED)
     endif()
 endif()
 
-separate_arguments(TESTING_COMMAND_LIST NATIVE_COMMAND ${TESTING_COMMAND})
 set_property(TARGET seissol-serial-test PROPERTY CROSSCOMPILING_EMULATOR ${TESTING_COMMAND_LIST})
 if (NOT TESTING_BUILD_ONLY)
     doctest_discover_tests(seissol-serial-test)

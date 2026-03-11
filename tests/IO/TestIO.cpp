@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 SeisSol Group
+// SPDX-FileCopyrightText: 2026 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -7,7 +7,5 @@
 
 #include <doctest.h>
 
-#include "FrictionLaws/FrictionSolverCommon.t.h"
-#include "Misc.t.h"
-#include "Output/Geometry.t.h"
-#include "Output/Variables.t.h"
+#include "Datatype/Datatype.t.h"
+#include "Datatype/Inference.t.h"
