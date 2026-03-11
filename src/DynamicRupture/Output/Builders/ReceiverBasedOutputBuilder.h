@@ -40,7 +40,7 @@ class ReceiverBasedOutputBuilder {
   protected:
   virtual void initTimeCaching() = 0;
 
-  void initBasisFunctions();
+  void initBasisFunctions(bool elementwise);
   void initFaultDirections();
   void initRotationMatrices();
   void initOutputVariables(std::array<bool, std::tuple_size_v<DrVarsT>>& outputMask);

@@ -49,7 +49,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       initFaultDirections();
       initOutputVariables(pickpointParams.outputMask);
       initRotationMatrices();
-      initBasisFunctions();
+      initBasisFunctions(false);
       initJacobian2dMatrices();
       outputData->isActive = true;
     }
