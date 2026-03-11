@@ -73,7 +73,7 @@ TEST_CASE_TEMPLATE("Sampled Basis Functions", RealT, float, double) {
                                           -0.44044};
 
   for (std::size_t order = 1; order <= 6; ++order) {
-    basisFunction::SampledBasisFunctions<RealT> sampledBasisFunctions(order, 0.3, 0.3, 0.3);
+    const basisFunction::SampledBasisFunctions<RealT> sampledBasisFunctions(order, 0.3, 0.3, 0.3);
     const auto funs = sampledBasisFunctions.size();
     REQUIRE(funs <= precomputedValues.size());
     for (size_t i = 0; i < funs; ++i) {

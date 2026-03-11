@@ -8,12 +8,13 @@
 
 #include "Transformation.h"
 
+#include "Common/Constants.h"
 #include "Geometry/MeshDefinition.h"
-#include "Kernels/Precision.h"
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <cassert>
+#include <cstdint>
 #include <utils/logger.h>
 #include <yateto.h>
 
