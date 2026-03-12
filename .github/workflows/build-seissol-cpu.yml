@@ -278,7 +278,7 @@ jobs:
             fault: true
             volume: true
             surface: false
-          - name: tpvahsp
+          - name: ahsp
             equation: anisotropic
             multisim: 1
             energies: false
@@ -310,7 +310,7 @@ jobs:
             fault: true
             volume: true
             surface: true
-          - name: tpvloh1-fused
+          - name: loh1-fused
             equation: elastic
             multisim: 8
             energies: true
@@ -471,16 +471,8 @@ jobs:
         run: |
           EPSILON=0.05
 
-          if [ ${{matrix.case.name}} = tpv5 ] || [ ${{matrix.case.name}} = tpv5-nuc ] || [ ${{matrix.case.name}} = tpv6 ] || [ ${{matrix.case.name}} = tpv16 ]; then
-            MODE=lsw;
-          elif [ ${{matrix.case.name}} = tpv105 ]; then
-            MODE=tp;
-          else
-            MODE=rs;
-          fi;
-
           cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-receivers.py ./output ./precomputed/${{matrix.precision}} --epsilon ${EPSILON} --mode $MODE
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-receivers.py ./output ./precomputed/${{matrix.precision}} --epsilon ${EPSILON}
       - name: check-energy
         if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.energies }}
         run: |
