@@ -238,16 +238,15 @@ class NoSpecialization {
 
     const auto simPointIndex = ctx.pointIndex / multisim::NumSimulations;
     const auto simId = ctx.pointIndex % multisim::NumSimulations;
+    constexpr uint32_t SimPointStride = multisim::MultisimEnabled ? Dim1 : 1U;
+    constexpr uint32_t DataPointStride = multisim::MultisimEnabled ? 1U : Dim0;
 
     real result{0.0};
-    for (size_t i{0}; i < Dim1; ++i) {
-      if constexpr (multisim::MultisimEnabled) {
-        result += ctx.args->resampleMatrix[simPointIndex * Dim1 + i] *
-                  ctx.sharedMemory[i * multisim::NumSimulations + simId];
-      } else {
-        result += ctx.args->resampleMatrix[simPointIndex + i * Dim0] * ctx.sharedMemory[i];
-      }
+    for (uint32_t i = 0; i < Dim1; ++i) {
+      result += ctx.args->resampleMatrix[simPointIndex * SimPointStride + i * DataPointStride] *
+                ctx.sharedMemory[i * multisim::NumSimulations + simId];
     }
+
     return result;
   };
 
