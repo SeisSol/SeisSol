@@ -105,19 +105,15 @@ class FastVelocityWeakeningLaw
     deviceBarrier(ctx);
 
     const auto simPointIndex = ctx.pointIndex / multisim::NumSimulations;
+    const auto simId = ctx.pointIndex % multisim::NumSimulations;
+    constexpr uint32_t SimPointStride = multisim::MultisimEnabled ? Dim1 : 1U;
+    constexpr uint32_t DataPointStride = multisim::MultisimEnabled ? 1U : Dim0;
 
     real resampledDeltaStateVar{0.0};
-    if constexpr (multisim::MultisimEnabled) {
-      const auto simId = ctx.pointIndex % multisim::NumSimulations;
-      for (uint32_t i = 0; i < Dim1; ++i) {
-        resampledDeltaStateVar += ctx.args->resampleMatrix[simPointIndex * Dim1 + i] *
-                                  ctx.sharedMemory[i * multisim::NumSimulations + simId];
-      }
-    } else {
-      for (uint32_t i = 0; i < Dim1; ++i) {
-        resampledDeltaStateVar +=
-            ctx.args->resampleMatrix[simPointIndex + i * Dim0] * ctx.sharedMemory[i];
-      }
+    for (uint32_t i = 0; i < Dim1; ++i) {
+      resampledDeltaStateVar +=
+          ctx.args->resampleMatrix[simPointIndex * SimPointStride + i * DataPointStride] *
+          ctx.sharedMemory[i * multisim::NumSimulations + simId];
     }
 
     ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] =

@@ -172,7 +172,7 @@ class SampledBasisFunctions {
  * @param T denotes the type to calculate internally.
  */
 template <class T>
-struct SampledBasisFunctionDerivatives {
+class SampledBasisFunctionDerivatives {
   private:
   static_assert(std::is_arithmetic_v<T>, "Type T for SampledBasisFunctions must be arithmetic.");
 
@@ -284,7 +284,7 @@ class TimeBasisFunctionGenerator {
 };
 
 template <class T>
-struct SampledTimeBasisFunctions {
+class SampledTimeBasisFunctions {
   private:
   static_assert(std::is_arithmetic_v<T>,
                 "Type T for SampledTimeBasisFunctions must be arithmetic.");
