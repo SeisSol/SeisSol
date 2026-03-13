@@ -8,5 +8,7 @@
 #include <doctest.h>
 
 #include "FlopCounter.t.h"
+#include "LoopStatistics.t.h"
+#include "Statistics.t.h"
 #include "Stopwatch.t.h"
 #include "Unit.t.h"
