@@ -7,5 +7,10 @@
 
 #include <doctest.h>
 
+#include "Csv.t.h"
 #include "Datatype/Datatype.t.h"
+#include "Datatype/HDF5Type.t.h"
 #include "Datatype/Inference.t.h"
+#include "Datatype/MPIType.t.h"
+#include "Hdf5Roundtrip.t.h"
+#include "Pvd.t.h"
