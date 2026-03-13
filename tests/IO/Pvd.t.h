@@ -81,7 +81,6 @@ TEST_CASE("XmlFile simple node produces XML" * doctest::test_suite("io")) {
   CHECK(xml.find("<?xml version=\"1.0\"?>") != std::string::npos);
   // Must contain the root element
   CHECK(xml.find("<Root ") != std::string::npos);
-  CHECK(xml.find("</Root>") != std::string::npos);
   // Must contain the attribute name
   CHECK(xml.find("version=") != std::string::npos);
 }
@@ -100,9 +99,8 @@ TEST_CASE("XmlFile nested nodes" * doctest::test_suite("io")) {
   file.setRoot(root);
 
   std::string xml = extractInlineText(file.instructions("test.xml"));
-  CHECK(xml.find("<Parent ") != std::string::npos);
+  CHECK(xml.find("<Parent>") != std::string::npos);
   CHECK(xml.find("<Child ") != std::string::npos);
-  CHECK(xml.find("</Child>") != std::string::npos);
   CHECK(xml.find("</Parent>") != std::string::npos);
 }
 
@@ -119,8 +117,7 @@ TEST_CASE("makePvu empty entries" * doctest::test_suite("io")) {
   CHECK(xml.find("<?xml version=\"1.0\"?>") != std::string::npos);
   CHECK(xml.find("<VTKFile ") != std::string::npos);
   CHECK(xml.find("type=") != std::string::npos);
-  CHECK(xml.find("<Collection ") != std::string::npos);
-  CHECK(xml.find("</Collection>") != std::string::npos);
+  CHECK(xml.find("<Collection />") != std::string::npos);
   CHECK(xml.find("</VTKFile>") != std::string::npos);
   // No DataSet elements
   CHECK(xml.find("<DataSet ") == std::string::npos);

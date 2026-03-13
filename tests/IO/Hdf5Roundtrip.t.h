@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Common/Filesystem.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Reader/File/Hdf5Reader.h"
 #include "Parallel/MPI.h"
@@ -28,7 +29,8 @@ struct TempHdf5File {
     // Create a unique temp file name per rank
     int rank = 0;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    path = "/tmp/seissol_test_hdf5_r" + std::to_string(rank) + ".h5";
+    const auto dir = filesystem::temp_directory_path();
+    path = dir / "seissol-test-hdf5.h5";
   }
   ~TempHdf5File() { std::remove(path.c_str()); }
 };
