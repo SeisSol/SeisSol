@@ -12,6 +12,7 @@
 #include "PointMapper.h"
 
 #include "Common/Constants.h"
+#include "Common/Literals.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
@@ -19,6 +20,7 @@
 
 #include <Eigen/Core>
 #include <array>
+#include <cstdint>
 #include <cstring>
 #include <mpi.h>
 #include <utils/logger.h>
@@ -106,7 +108,7 @@ void cleanDoubles(int16_t* contained, std::size_t numPoints) {
 
   std::size_t cleaned = 0;
   for (std::size_t point = 0; point < numPoints; ++point) {
-    if (contained[point] == 1) {
+    if (contained[point] == 1_i16) {
       for (int rank = 0; rank < myrank; ++rank) {
         if (globalContained[rank * numPoints + point] == 1) {
           contained[point] = 0;

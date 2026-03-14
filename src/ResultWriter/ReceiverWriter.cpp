@@ -224,7 +224,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   logInfo() << "Mapping receivers to LTS cells...";
   m_receiverClusters.clear();
   for (std::size_t point = 0; point < numberOfPoints; ++point) {
-    if (contained[point] == 1) {
+    if (contained[point]) {
       const std::size_t meshId = meshIds[point];
       const auto id = backmap.get(meshId).color;
 

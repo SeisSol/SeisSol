@@ -283,15 +283,16 @@ TEST_CASE("DR Geometry") {
     e2.vertices[3] = 5;
     elements.push_back(e2);
 
-    initializer::findUniqueMeshIds(points, vertices, elements, numPoints, contained, meshId);
+    const auto contained =
+        initializer::findUniqueMeshIds(points, vertices, elements, numPoints, meshId);
 
-    REQUIRE(contained[0] == 1);
-    REQUIRE(contained[1] == 0);
-    REQUIRE(contained[2] == 1);
+    CHECK(contained[0]);
+    CHECK_FALSE(contained[1]);
+    CHECK(contained[2]);
 
-    REQUIRE(meshId[0] == 0);
-    REQUIRE(meshId[1] == std::numeric_limits<std::size_t>::max());
-    REQUIRE(meshId[2] == 1);
+    CHECK(meshId[0] == 0);
+    CHECK(meshId[1] == std::numeric_limits<std::size_t>::max());
+    CHECK(meshId[2] == 1);
   }
 }
 } // namespace seissol::unit_test

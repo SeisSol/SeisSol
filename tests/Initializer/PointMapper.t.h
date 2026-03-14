@@ -36,10 +36,12 @@ TEST_CASE("Point mapper") {
   std::array<std::size_t, 3> meshId{std::numeric_limits<std::size_t>::max(),
                                     std::numeric_limits<std::size_t>::max(),
                                     std::numeric_limits<std::size_t>::max()};
-  seissol::initializer::findUniqueMeshIds(
-      points.data(), mockReader, 3, contained.data(), meshId.data());
+  const auto containedResult =
+      seissol::initializer::findUniqueMeshIds(points.data(), mockReader, 3, meshId.data());
 
-  std::array<short, 3> expectedContained = {0, 1, 1};
+  std::copy(containedResult.begin(), containedResult.end(), contained.begin());
+
+  std::array<bool, 3> expectedContained = {0, 1, 1};
   std::array<std::size_t, 3> expectedMeshId = {std::numeric_limits<std::size_t>::max(), 0, 0};
 
   REQUIRE(contained == expectedContained);
