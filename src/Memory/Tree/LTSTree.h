@@ -11,6 +11,7 @@
 
 #include "Backmap.h"
 #include "Common/Iterator.h"
+#include "Common/Literals.h"
 #include "Config.h"
 #include "Layer.h"
 #include "Memory/MemoryAllocator.h"
@@ -108,7 +109,7 @@ class Storage {
               if constexpr (!std::is_same_v<void, SelfT>) {
                 return sizeof(SelfT) * count;
               }
-              return static_cast<std::size_t>(0);
+              return 0_UZ;
             },
             identifier.config);
       };
