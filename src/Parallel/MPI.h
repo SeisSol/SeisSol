@@ -77,6 +77,8 @@ class Mpi : public MpiBasic {
       return MPI_LONG_LONG;
     } else if constexpr (std::is_same_v<T, char>) {
       return MPI_CHAR;
+    } else if constexpr (std::is_same_v<T, short>) {
+      return MPI_SHORT;
     } else if constexpr (std::is_same_v<T, bool>) {
       return MPI_C_BOOL;
     } else {

@@ -26,25 +26,17 @@
 
 namespace seissol::initializer {
 
-void findMeshIds(const Eigen::Vector3d* points,
-                 const seissol::geometry::MeshReader& mesh,
-                 std::size_t numPoints,
-                 short* contained,
-                 std::size_t* meshIds,
-                 double tolerance) {
-  findMeshIds(
-      points, mesh.getVertices(), mesh.getElements(), numPoints, contained, meshIds, tolerance);
-}
+namespace {
 
 void findMeshIds(const Eigen::Vector3d* points,
                  const std::vector<Vertex>& vertices,
                  const std::vector<Element>& elements,
                  std::size_t numPoints,
-                 short* contained,
+                 int16_t* contained,
                  std::size_t* meshIds,
                  double tolerance) {
 
-  memset(contained, 0, numPoints * sizeof(short));
+  memset(contained, 0, numPoints * sizeof(int16_t));
 
   auto points1 = std::vector<std::array<double, Cell::Dim + 1>>(numPoints);
   for (std::size_t point = 0; point < numPoints; ++point) {
@@ -54,7 +46,6 @@ void findMeshIds(const Eigen::Vector3d* points,
     points1[point][Cell::Dim] = 1.0;
   }
 
-/// @TODO Could use the code generator for the following
 #pragma omp parallel for schedule(static)
   for (std::size_t elem = 0; elem < elements.size(); ++elem) {
     auto planeEquations = std::array<std::array<double, Cell::Dim + 1>, Cell::Dim + 1>();
@@ -88,11 +79,7 @@ void findMeshIds(const Eigen::Vector3d* points,
           /* It might actually happen that a point is found in two tetrahedrons
            * if it lies on the boundary. In this case we arbitrarily assign
            * it to the one with the higher meshId.
-           * @todo Check if this is a problem with the numerical scheme. */
-          /*if (contained[point] != 0) {
-             logError() << "point with id " << point << " was already found in a different
-          element!";
-          }*/
+           */
           const auto localId = static_cast<std::size_t>(elements[elem].localId);
           if ((contained[point] == 0) || (meshIds[point] > localId)) {
             contained[point] = 1;
@@ -104,17 +91,17 @@ void findMeshIds(const Eigen::Vector3d* points,
   }
 }
 
-void cleanDoubles(short* contained, std::size_t numPoints) {
+void cleanDoubles(int16_t* contained, std::size_t numPoints) {
   const auto myrank = seissol::Mpi::mpi.rank();
   const auto size = seissol::Mpi::mpi.size();
 
-  auto globalContained = std::vector<short>(size * numPoints);
+  auto globalContained = std::vector<int16_t>(size * numPoints);
   MPI_Allgather(contained,
                 numPoints,
-                MPI_SHORT,
+                Mpi::castToMpiType<int16_t>(),
                 globalContained.data(),
                 numPoints,
-                MPI_SHORT,
+                Mpi::castToMpiType<int16_t>(),
                 seissol::Mpi::mpi.comm());
 
   std::size_t cleaned = 0;
@@ -133,6 +120,28 @@ void cleanDoubles(short* contained, std::size_t numPoints) {
   if (cleaned > 0) {
     logInfo() << "Cleaned " << cleaned << " double occurring points on rank " << myrank << ".";
   }
+}
+} // namespace
+
+std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
+                                    const seissol::geometry::MeshReader& mesh,
+                                    std::size_t numPoints,
+                                    std::size_t* meshIds,
+                                    double tolerance) {
+  std::vector<int16_t> contained(numPoints);
+  findMeshIds(points,
+              mesh.getVertices(),
+              mesh.getElements(),
+              numPoints,
+              contained.data(),
+              meshIds,
+              tolerance);
+  cleanDoubles(contained.data(), numPoints);
+  std::vector<bool> output(numPoints);
+  for (std::size_t i = 0; i < numPoints; ++i) {
+    output[i] = contained[i] != 0;
+  }
+  return output;
 }
 
 } // namespace seissol::initializer
