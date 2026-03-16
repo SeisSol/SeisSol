@@ -267,8 +267,8 @@ easi::Query FaultBarycenterGenerator::generate() const {
 
     double barycenter[3] = {0.0, 0.0, 0.0};
     MeshTools::center(elements[element], side, vertices, barycenter);
-    for (unsigned n = 0; n < m_numberOfPoints; ++n, ++q) {
-      for (unsigned dim = 0; dim < Cell::Dim; ++dim) {
+    for (std::size_t n = 0; n < m_numberOfPoints; ++n, ++q) {
+      for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
         query.x(q, dim) = barycenter[dim];
       }
       query.group(q) = elements[element].faultTags[side];
@@ -285,10 +285,10 @@ easi::Query FaultGPGenerator::generate() const {
   constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim;
   const auto pointsView = init::quadpoints::view::create(init::quadpoints::Values);
   easi::Query query(NumPoints * m_faceIDs.size(), Cell::Dim);
-  unsigned q = 0;
+  std::size_t q = 0;
   // loop over all fault elements which are managed by this generator
   // note: we have one generator per LTS layer
-  for (const unsigned faultId : m_faceIDs) {
+  for (const auto& faultId : m_faceIDs) {
     const Fault& f = fault.at(faultId);
     int element = 0;
     int side = 0;
@@ -304,7 +304,7 @@ easi::Query FaultGPGenerator::generate() const {
     }
 
     auto coords = cellToVertex.elementCoordinates(element);
-    for (unsigned n = 0; n < NumPoints; ++n, ++q) {
+    for (std::size_t n = 0; n < NumPoints; ++n, ++q) {
       double xiEtaZeta[3];
       double localPoints[2] = {seissol::multisim::multisimTranspose(pointsView, n, 0),
                                seissol::multisim::multisimTranspose(pointsView, n, 1)};
@@ -317,7 +317,7 @@ easi::Query FaultGPGenerator::generate() const {
       seissol::transformations::chiTau2XiEtaZeta(side, localPoints, xiEtaZeta, sideOrientation);
       Eigen::Vector3d xyz = seissol::transformations::tetrahedronReferenceToGlobal(
           coords[0], coords[1], coords[2], coords[3], xiEtaZeta);
-      for (unsigned dim = 0; dim < 3; ++dim) {
+      for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
         query.x(q, dim) = xyz(dim);
       }
       query.group(q) = elements[element].faultTags[side];
