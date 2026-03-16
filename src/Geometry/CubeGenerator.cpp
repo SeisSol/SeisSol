@@ -92,7 +92,7 @@ namespace seissol::geometry {
 CubeGenerator::CubeGenerator(
     const std::string& meshFile,
     const seissol::initializer::parameters::CubeGeneratorParameters& cubeParams)
-    : nProcs_(seissol::Mpi::mpi.size()) {
+    : rank_(seissol::Mpi::mpi.rank()), nProcs_(seissol::Mpi::mpi.size()) {
   // get cubeGenerator parameters
   const std::size_t cubeMinX = cubeParams.cubeMinX;
   const std::size_t cubeMaxX = cubeParams.cubeMaxX;

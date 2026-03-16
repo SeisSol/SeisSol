@@ -25,24 +25,24 @@ namespace seissol::refinement {
 template <class T>
 class VariableSubsampler {
   private:
-  std::vector<basisFunction::SampledBasisFunctions<T>> BasisFunctions_;
+  std::vector<basisFunction::SampledBasisFunctions<T>> basisFunctions_;
 
   /** The original number of cells (without refinement) */
-  unsigned int mNumCells_;
+  unsigned int numCells_;
 
-  std::size_t kSubCellsPerCell_;
-  std::size_t kNumVariables_;
-  std::size_t kNumAlignedDOF_;
+  std::size_t subCellsPerCell_;
+  std::size_t numVariables_;
+  std::size_t numAlignedDOF_;
 
   bool nodal_{false};
 
   std::size_t
       getInVarOffset(std::size_t cell, std::size_t variable, const unsigned int* cellMap) const {
-    return (cellMap[cell] * kNumVariables_ + variable) * kNumAlignedDOF_;
+    return (cellMap[cell] * numVariables_ + variable) * numAlignedDOF_;
   }
 
   [[nodiscard]] std::size_t getOutVarOffset(std::size_t cell, std::size_t subcell) const {
-    return kSubCellsPerCell_ * cell + subcell;
+    return subCellsPerCell_ * cell + subcell;
   }
 
   public:
@@ -66,18 +66,18 @@ VariableSubsampler<T>::VariableSubsampler(std::size_t numCells,
                                           std::size_t numVariables,
                                           std::size_t numAlignedDOF,
                                           bool nodal)
-    : mNumCells_(numCells), kSubCellsPerCell_(tetRefiner.getDivisionCount()),
-      kNumVariables_(numVariables), kNumAlignedDOF_(numAlignedDOF), nodal_(nodal) {
+    : numCells_(numCells), subCellsPerCell_(tetRefiner.getDivisionCount()),
+      numVariables_(numVariables), numAlignedDOF_(numAlignedDOF), nodal_(nodal) {
   // Generate cell centerpoints in the reference or unit tetrahedron.
-  auto* subCells = new Tetrahedron<T>[kSubCellsPerCell_];
+  auto* subCells = new Tetrahedron<T>[subCellsPerCell_];
   auto* additionalVertices = new Eigen::Matrix<T, 3, 1>[tetRefiner.additionalVerticesPerCell()];
 
   tetRefiner.refine(Tetrahedron<T>::unitTetrahedron(), 0, subCells, additionalVertices);
 
   // Generate sampled basicfunctions
-  for (unsigned int i = 0; i < kSubCellsPerCell_; i++) {
+  for (unsigned int i = 0; i < subCellsPerCell_; i++) {
     const Eigen::Matrix<T, 3, 1> pnt = subCells[i].center();
-    BasisFunctions_.push_back(
+    basisFunctions_.push_back(
         basisFunction::SampledBasisFunctions<T>(order, pnt(0), pnt(1), pnt(2)));
   }
 
@@ -96,8 +96,8 @@ void VariableSubsampler<T>::get(const real* inData,
 
 #pragma omp parallel for schedule(static)
   // Iterate over original Cells
-  for (unsigned int c = 0; c < mNumCells_; ++c) {
-    for (unsigned int sc = 0; sc < kSubCellsPerCell_; ++sc) {
+  for (unsigned int c = 0; c < numCells_; ++c) {
+    for (unsigned int sc = 0; sc < subCellsPerCell_; ++sc) {
       const real* __restrict inCellData = &inData[getInVarOffset(c, variable, cellMap)];
       alignas(Alignment) real modalBuffer[tensor::modalVar::Size]{};
       if (nodal_) {
@@ -109,7 +109,7 @@ void VariableSubsampler<T>::get(const real* inData,
 
         inCellData = modalBuffer;
       }
-      outData[getOutVarOffset(c, sc)] = BasisFunctions_[sc].evalWithCoeffs(inCellData);
+      outData[getOutVarOffset(c, sc)] = basisFunctions_[sc].evalWithCoeffs(inCellData);
     }
   }
 }

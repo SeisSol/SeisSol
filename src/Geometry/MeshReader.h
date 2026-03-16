@@ -49,8 +49,6 @@ struct LinearGhostCell {
 
 class MeshReader {
   protected:
-  int rank_{0};
-
   std::vector<Element> elements_;
 
   std::vector<Vertex> vertices_;

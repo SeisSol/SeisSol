@@ -30,7 +30,7 @@
 
 namespace seissol::geometry {
 
-MeshReader::MeshReader() : rank_(seissol::Mpi::mpi.rank()) {}
+MeshReader::MeshReader() = default;
 
 MeshReader::~MeshReader() = default;
 
@@ -113,7 +113,7 @@ void MeshReader::extractFaultInformation(
 
       // DR boundary
 
-      if (i.neighborRanks[j] == rank_) {
+      if (i.neighborRanks[j] == seissol::Mpi::mpi.rank()) {
         // Completely local DR boundary
 
         if (i.neighbors[j] < i.localId) {
@@ -244,7 +244,7 @@ void MeshReader::extractFaultInformation(
   // Sort fault neighbor lists and update MPI fault indices
   for (auto& i : mpiFaultNeighbors_) {
 
-    if (i.first > rank_) {
+    if (i.first > seissol::Mpi::mpi.rank()) {
       std::sort(i.second.begin(),
                 i.second.end(),
                 [](const MPINeighborElement& elem1, const MPINeighborElement& elem2) {
