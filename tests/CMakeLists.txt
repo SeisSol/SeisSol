@@ -140,7 +140,7 @@ seissol_add_test_module(monitoring      Monitoring/TestMonitoring.cpp)
 seissol_add_test_module(numerical       Numerical/TestNumerical.cpp)
 seissol_add_test_module(parallel        Parallel/TestParallel.cpp)
 seissol_add_test_module(resultwriter    ResultWriter/TestResultWriter.cpp)
-seissol_add_test_module(solver          Solver/TimeStepping/TestSolverTimeStepping.cpp)
+seissol_add_test_module(solver          Solver/TestSolver.cpp)
 seissol_add_test_module(sourceterm      SourceTerm/TestSourceTerm.cpp)
 
 if (NETCDF)

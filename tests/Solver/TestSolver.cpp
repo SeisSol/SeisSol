@@ -8,5 +8,6 @@
 #include <doctest.h>
 #include <doctest/trompeloeil.hpp>
 
-#include "AbstractTimeCluster.t.h"
-#include "ActorState.t.h"
+#include "Estimator.t.h"
+#include "TimeStepping/AbstractTimeCluster.t.h"
+#include "TimeStepping/ActorState.t.h"

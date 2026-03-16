@@ -41,6 +41,8 @@ TEST_CASE("DR Misc power" * doctest::test_suite("dynamicrupture")) {
 
   SUBCASE("power<5>") { CHECK(power<5>(2.0) == doctest::Approx(32.0)); }
 
+  SUBCASE("power<8>") { CHECK(power<8>(2.0) == doctest::Approx(256.0)); }
+
   SUBCASE("power with float type") { CHECK(power<3>(2.0f) == doctest::Approx(8.0f)); }
 }
 
