@@ -44,7 +44,7 @@ class Datatype : public std::enable_shared_from_this<Datatype> {
   std::optional<T> fromString(const std::string& str) const {
     const auto result = fromStringRaw(str);
     if (result.has_value()) {
-      const char* dataRaw = result.value().data();
+      const auto* dataRaw = result.value().data();
       const T* data = reinterpret_cast<const T*>(dataRaw);
       return std::make_optional<T>(*data);
     } else {
