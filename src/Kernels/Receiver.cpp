@@ -160,9 +160,9 @@ double ReceiverCluster::calcReceivers(double time,
           init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
 
       auto& receiver = receivers_[i];
-      krnl.basisFunctionsAtPoint = receiver.basisFunctions.data.data();
+      krnl.basisFunctionsAtPoint = receiver.basisFunctions.data().data();
       derivativeKrnl.basisFunctionDerivativesAtPoint =
-          receiver.basisFunctionDerivatives.data.data();
+          receiver.basisFunctionDerivatives.data().data();
 
       // Copy DOFs from device to host.
       auto tmpReceiverData{receiver.dataHost};

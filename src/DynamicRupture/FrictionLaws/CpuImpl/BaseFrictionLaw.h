@@ -101,7 +101,7 @@ class BaseFrictionLaw : public FrictionSolver {
         for (std::size_t timeIndex = 0; timeIndex < misc::TimeSteps; timeIndex++) {
           startTime = updateTime;
           updateTime += this->deltaT_[timeIndex];
-          for (unsigned i = 0; i < this->drParameters_->nucleationCount; ++i) {
+          for (uint32_t i = 0; i < this->drParameters_->nucleationCount; ++i) {
             common::adjustInitialStress(
                 initialStressInFaultCS_[ltsFace],
                 nucleationStressInFaultCS_[ltsFace * this->drParameters_->nucleationCount + i],

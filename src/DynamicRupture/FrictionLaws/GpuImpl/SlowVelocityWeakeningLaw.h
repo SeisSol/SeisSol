@@ -73,8 +73,6 @@ class SlowVelocityWeakeningLaw
   SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {
     ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] = ctx.stateVariableBuffer;
   }
-
-  SEISSOL_DEVICE static void executeIfNotConverged() {}
 };
 } // namespace seissol::dr::friction_law::gpu
 

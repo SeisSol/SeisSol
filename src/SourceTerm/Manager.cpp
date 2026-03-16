@@ -94,7 +94,7 @@ void computeMInvJInvPhisAtSources(
   const double jInv = 1.0 / (6.0 * volume);
 
   kernel::computeMInvJInvPhisAtSources krnl;
-  krnl.basisFunctionsAtPoint = basisFunctionsAtPoint.data.data();
+  krnl.basisFunctionsAtPoint = basisFunctionsAtPoint.data().data();
   krnl.M3inv = init::M3inv::Values;
   krnl.mInvJInvPhisAtSources = mInvJInvPhisAtSources.data();
   krnl.JInv = jInv;
@@ -128,12 +128,12 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
 
   std::array<double, 81> stiffnessTensor{};
   switch (material->getMaterialType()) {
-  case seissol::model::MaterialType::Anisotropic:
-    [[fallthrough]];
   case seissol::model::MaterialType::Acoustic:
-    logError() << "NRF sources are only compatible with isotropic (visco)elastic and "
+    logError() << "NRF sources are only compatible with isotropic (visco)elastic, anisotropic, and "
                   "poroelastic materials.";
     break;
+  case seissol::model::MaterialType::Anisotropic:
+    [[fallthrough]];
   case seissol::model::MaterialType::Poroelastic:
     if (subfault.mu != 0) {
       logError() << "There are specific fault parameters for the fault. This is only compatible "

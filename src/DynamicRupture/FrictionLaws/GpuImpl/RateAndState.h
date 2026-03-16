@@ -50,7 +50,6 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     Derived::calcInitialVariables(ctx, timeIndex);
 
     updateStateVariableIterative(ctx, timeIndex);
-    Derived::executeIfNotConverged();
 
     TPMethod::calcFluidPressure(ctx, timeIndex, true);
     updateNormalStress(ctx, timeIndex);
@@ -257,7 +256,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     return false;
   }
 
-  SEISSOL_DEVICE static void updateNormalStress(FrictionLawContext& ctx, size_t timeIndex) {
+  SEISSOL_DEVICE static void updateNormalStress(FrictionLawContext& ctx, uint32_t timeIndex) {
     ctx.initialVariables.normalStress =
         std::min(static_cast<real>(0.0),
                  ctx.faultStresses.normalStress[timeIndex] +

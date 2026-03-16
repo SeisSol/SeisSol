@@ -112,25 +112,26 @@ class PlasticityPointGenerator : public QueryGenerator {
 
 class FaultBarycenterGenerator : public QueryGenerator {
   public:
-  FaultBarycenterGenerator(const seissol::geometry::MeshReader& meshReader, unsigned numberOfPoints)
+  FaultBarycenterGenerator(const seissol::geometry::MeshReader& meshReader,
+                           std::size_t numberOfPoints)
       : meshReader_(meshReader), numberOfPoints_(numberOfPoints) {}
   [[nodiscard]] easi::Query generate() const override;
 
   private:
   const seissol::geometry::MeshReader& meshReader_;
-  unsigned numberOfPoints_;
+  std::size_t numberOfPoints_;
 };
 
 class FaultGPGenerator : public QueryGenerator {
   public:
   FaultGPGenerator(const seissol::geometry::MeshReader& meshReader,
-                   const std::vector<unsigned>& faceIDs)
+                   const std::vector<std::size_t>& faceIDs)
       : meshReader_(meshReader), faceIDs_(faceIDs) {}
   [[nodiscard]] easi::Query generate() const override;
 
   private:
   const seissol::geometry::MeshReader& meshReader_;
-  const std::vector<unsigned>& faceIDs_;
+  const std::vector<std::size_t>& faceIDs_;
 };
 
 class ParameterDB {
