@@ -86,7 +86,7 @@ TEST_CASE_TEMPLATE("Regularized Yoffe Function" * doctest::test_suite("numerical
         const auto stfEvaluated =
             seissol::regularizedYoffe::regularizedYoffe<RealT>(i * Dt, tauS, tauR);
         const auto referenceEvaluated = regularizedYoffe<RealT>(i * Dt, tauS, tauR);
-        REQUIRE(stfEvaluated == AbsApprox(referenceEvaluated).epsilon(Epsilon));
+        CHECK(stfEvaluated == AbsApprox(referenceEvaluated).epsilon(Epsilon));
       }
     }
   }

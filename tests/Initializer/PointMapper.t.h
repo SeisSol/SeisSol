@@ -41,8 +41,8 @@ TEST_CASE("Point mapper" * doctest::test_suite("initializer")) {
   std::array<short, 3> expectedContained = {0, 1, 1};
   std::array<std::size_t, 3> expectedMeshId = {std::numeric_limits<std::size_t>::max(), 0, 0};
 
-  REQUIRE(contained == expectedContained);
-  REQUIRE(meshId == expectedMeshId);
+  CHECK(contained == expectedContained);
+  CHECK(meshId == expectedMeshId);
 }
 
 } // namespace seissol::unit_test

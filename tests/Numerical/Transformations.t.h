@@ -29,9 +29,9 @@ TEST_CASE("Test tetrahedron global to reference" * doctest::test_suite("numerica
 
   const auto res = seissol::transformations::tetrahedronGlobalToReference(
       vertices[0].data(), vertices[1].data(), vertices[2].data(), vertices[3].data(), center);
-  REQUIRE(res(0) == AbsApprox(0.25).epsilon(Epsilon));
-  REQUIRE(res(1) == AbsApprox(0.25).epsilon(Epsilon));
-  REQUIRE(res(2) == AbsApprox(0.25).epsilon(Epsilon));
+  CHECK(res(0) == AbsApprox(0.25).epsilon(Epsilon));
+  CHECK(res(1) == AbsApprox(0.25).epsilon(Epsilon));
+  CHECK(res(2) == AbsApprox(0.25).epsilon(Epsilon));
 }
 
 } // namespace seissol::unit_test

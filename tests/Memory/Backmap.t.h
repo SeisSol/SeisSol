@@ -47,14 +47,14 @@ TEST_CASE("Backmap" * doctest::test_suite("memory")) {
       const auto pos = backmap.getDup(i, j);
       if (j < compare[i].size()) {
         REQUIRE(pos.has_value());
-        REQUIRE(pos.value() == compare[i][j]);
+        CHECK(pos.value() == compare[i][j]);
       } else {
         REQUIRE(!pos.has_value());
       }
     }
 
     if (!compare[i].empty()) {
-      REQUIRE(backmap.get(i) == compare[i][0]);
+      CHECK(backmap.get(i) == compare[i][0]);
     }
   }
 }

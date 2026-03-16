@@ -49,9 +49,9 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
 
       projectPointToFace(testPoint, face, normalDirection);
 
-      REQUIRE(testPoint[X] == AbsApprox(targetPoint[X]).epsilon(Epsilon));
-      REQUIRE(testPoint[Y] == AbsApprox(targetPoint[Y]).epsilon(Epsilon));
-      REQUIRE(testPoint[Z] == AbsApprox(targetPoint[Z]).epsilon(Epsilon));
+      CHECK(testPoint[X] == AbsApprox(targetPoint[X]).epsilon(Epsilon));
+      CHECK(testPoint[Y] == AbsApprox(targetPoint[Y]).epsilon(Epsilon));
+      CHECK(testPoint[Z] == AbsApprox(targetPoint[Z]).epsilon(Epsilon));
     }
     {
       ExtVrtxCoords testPoint{1.0, 1.0, 1.0};
@@ -59,9 +59,9 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
 
       projectPointToFace(testPoint, face, normalDirection);
 
-      REQUIRE(testPoint[X] == AbsApprox(targetPoint[X]).epsilon(Epsilon));
-      REQUIRE(testPoint[Y] == AbsApprox(targetPoint[Y]).epsilon(Epsilon));
-      REQUIRE(testPoint[Z] == AbsApprox(targetPoint[Z]).epsilon(Epsilon));
+      CHECK(testPoint[X] == AbsApprox(targetPoint[X]).epsilon(Epsilon));
+      CHECK(testPoint[Y] == AbsApprox(targetPoint[Y]).epsilon(Epsilon));
+      CHECK(testPoint[Z] == AbsApprox(targetPoint[Z]).epsilon(Epsilon));
     }
   }
 
@@ -72,8 +72,8 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
     auto [testPointId, testDistance] = getNearestFacePoint(targetPoint, facePoints, 4);
 
     constexpr double Epsilon = 1e-6;
-    REQUIRE(testPointId == 2);
-    REQUIRE(testDistance == AbsApprox(std::sqrt(2 * 0.75 * 0.75)).epsilon(Epsilon));
+    CHECK(testPointId == 2);
+    CHECK(testDistance == AbsApprox(std::sqrt(2 * 0.75 * 0.75)).epsilon(Epsilon));
   }
 
   SUBCASE("MiddlePoint") {
@@ -83,9 +83,9 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
     auto testMiddle = getMidPoint(point1, point2);
 
     constexpr double Epsilon = 1e-6;
-    REQUIRE(testMiddle[0] == AbsApprox(-1.0).epsilon(Epsilon));
-    REQUIRE(testMiddle[1] == AbsApprox(0.0).epsilon(Epsilon));
-    REQUIRE(testMiddle[2] == AbsApprox(1.0).epsilon(Epsilon));
+    CHECK(testMiddle[0] == AbsApprox(-1.0).epsilon(Epsilon));
+    CHECK(testMiddle[1] == AbsApprox(0.0).epsilon(Epsilon));
+    CHECK(testMiddle[2] == AbsApprox(1.0).epsilon(Epsilon));
   }
 
   SUBCASE("MidTrianglePoint") {
@@ -97,9 +97,9 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
     auto testMiddle = getMidPointTriangle(triangle);
 
     constexpr double Epsilon = 1e-6;
-    REQUIRE(testMiddle[X] == AbsApprox(1.0).epsilon(Epsilon));
-    REQUIRE(testMiddle[Y] == AbsApprox(1 / 3.0).epsilon(Epsilon));
-    REQUIRE(testMiddle[Z] == AbsApprox(1.0).epsilon(Epsilon));
+    CHECK(testMiddle[X] == AbsApprox(1.0).epsilon(Epsilon));
+    CHECK(testMiddle[Y] == AbsApprox(1 / 3.0).epsilon(Epsilon));
+    CHECK(testMiddle[Z] == AbsApprox(1.0).epsilon(Epsilon));
   }
 
   SUBCASE("TriangleQuadraturePoints") {
@@ -147,8 +147,8 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
 
     constexpr double Epsilon = 1e-6;
     for (unsigned i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
-      REQUIRE(testTrianglePoints[i][0] == AbsApprox(chiFortran[i]).epsilon(Epsilon));
-      REQUIRE(testTrianglePoints[i][1] == AbsApprox(tauFortran[i]).epsilon(Epsilon));
+      CHECK(testTrianglePoints[i][0] == AbsApprox(chiFortran[i]).epsilon(Epsilon));
+      CHECK(testTrianglePoints[i][1] == AbsApprox(tauFortran[i]).epsilon(Epsilon));
     }
   }
 
@@ -165,12 +165,12 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
 
     constexpr double Epsilon = 1e-6;
     for (unsigned i = 0; i < 3; ++i) {
-      REQUIRE(testStrike[i] == AbsApprox(resultStrike(i)).epsilon(Epsilon));
+      CHECK(testStrike[i] == AbsApprox(resultStrike(i)).epsilon(Epsilon));
     }
     // compute expected Dip results
     Eigen::Vector3d resultDip = normal.cross(resultStrike);
     for (unsigned i = 0; i < 3; ++i) {
-      REQUIRE(testDip[i] == AbsApprox(resultDip(i)).epsilon(Epsilon));
+      CHECK(testDip[i] == AbsApprox(resultDip(i)).epsilon(Epsilon));
     }
   }
 
@@ -181,30 +181,30 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
       const unsigned face = 0;
       VrtxCoords xiEtaZeta{0.25, 0.1, 0.0};
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
-      REQUIRE(testChiTau[0] == AbsApprox(0.1).epsilon(Epsilon));
-      REQUIRE(testChiTau[1] == AbsApprox(0.25).epsilon(Epsilon));
+      CHECK(testChiTau[0] == AbsApprox(0.1).epsilon(Epsilon));
+      CHECK(testChiTau[1] == AbsApprox(0.25).epsilon(Epsilon));
     }
     {
       const unsigned face = 1;
       VrtxCoords xiEtaZeta{0.1, 0.0, 0.25};
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
-      REQUIRE(testChiTau[0] == AbsApprox(0.1).epsilon(Epsilon));
-      REQUIRE(testChiTau[1] == AbsApprox(0.25).epsilon(Epsilon));
+      CHECK(testChiTau[0] == AbsApprox(0.1).epsilon(Epsilon));
+      CHECK(testChiTau[1] == AbsApprox(0.25).epsilon(Epsilon));
     }
     {
       const unsigned face = 2;
       VrtxCoords xiEtaZeta{0.0, 0.1, 0.25};
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
-      REQUIRE(testChiTau[0] == AbsApprox(0.25).epsilon(Epsilon));
-      REQUIRE(testChiTau[1] == AbsApprox(0.1).epsilon(Epsilon));
+      CHECK(testChiTau[0] == AbsApprox(0.25).epsilon(Epsilon));
+      CHECK(testChiTau[1] == AbsApprox(0.1).epsilon(Epsilon));
     }
     {
       const unsigned face = 3;
       VrtxCoords xiEtaZeta{
           1 / 3.0, 1 / 3.0, 1 / 3.0}; // center of the 4th face (triangle in 3D space)
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
-      REQUIRE(testChiTau[0] == AbsApprox(1 / 3.0).epsilon(Epsilon));
-      REQUIRE(testChiTau[1] == AbsApprox(1 / 3.0).epsilon(Epsilon));
+      CHECK(testChiTau[0] == AbsApprox(1 / 3.0).epsilon(Epsilon));
+      CHECK(testChiTau[1] == AbsApprox(1 / 3.0).epsilon(Epsilon));
     }
     {
       const unsigned face = 3;
@@ -215,8 +215,8 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
       projectPointToFace(xiEtaZeta, fourthFace, normalDirection);
 
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta.coords, testChiTau);
-      REQUIRE(testChiTau[0] == AbsApprox(xiEtaZeta[Eta]).epsilon(Epsilon));
-      REQUIRE(testChiTau[1] == AbsApprox(xiEtaZeta[Zeta]).epsilon(Epsilon));
+      CHECK(testChiTau[0] == AbsApprox(xiEtaZeta[Eta]).epsilon(Epsilon));
+      CHECK(testChiTau[1] == AbsApprox(xiEtaZeta[Zeta]).epsilon(Epsilon));
     }
   }
 
@@ -244,8 +244,7 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
 
     constexpr double Epsilon = 1e-6;
     for (unsigned i = 0; i < basisFunctions.plusSide.size(); ++i) {
-      REQUIRE(basisFunctions.plusSide[i] ==
-              AbsApprox(basisFunctions.minusSide[i]).epsilon(Epsilon));
+      CHECK(basisFunctions.plusSide[i] == AbsApprox(basisFunctions.minusSide[i]).epsilon(Epsilon));
     }
   }
 
@@ -285,13 +284,13 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
 
     initializer::findMeshIds(points, vertices, elements, numPoints, contained, meshId);
 
-    REQUIRE(contained[0] == 1);
-    REQUIRE(contained[1] == 0);
-    REQUIRE(contained[2] == 1);
+    CHECK(contained[0] == 1);
+    CHECK(contained[1] == 0);
+    CHECK(contained[2] == 1);
 
-    REQUIRE(meshId[0] == 0);
-    REQUIRE(meshId[1] == std::numeric_limits<std::size_t>::max());
-    REQUIRE(meshId[2] == 1);
+    CHECK(meshId[0] == 0);
+    CHECK(meshId[1] == std::numeric_limits<std::size_t>::max());
+    CHECK(meshId[2] == 1);
   }
 }
 } // namespace seissol::unit_test

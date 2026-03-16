@@ -272,7 +272,7 @@ TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture,
     }
   }
 
-  REQUIRE(diffNorm / refNorm < Epsilon);
+  CHECK(diffNorm / refNorm < Epsilon);
 }
 
 } // namespace seissol::unit_test
