@@ -161,8 +161,9 @@ class ParameterReader {
     }
   }
 
-  YAML::Node
-      node_; // apparently the YAML nodes use a reference semantic. Hence, we do it like this.
+  // note that yaml-cpp uses shared pointers for the YAML::Node internally. Hence, keep it by-value
+  // here (and not as a reference).
+  YAML::Node node_;
   std::string rootPath_;
   bool empty_;
   std::unordered_set<std::string> visited_;

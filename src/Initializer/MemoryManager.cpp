@@ -343,9 +343,9 @@ void MemoryManager::initializeFrictionLaw() {
   const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance_);
   auto product = factory->produce();
   dynRup_ = std::move(product.storage);
-  DRInitializer_ = std::move(product.initializer);
-  FrictionLaw_ = std::move(product.frictionLaw);
-  FrictionLawDevice_ = std::move(product.frictionLawDevice);
+  drInitializer_ = std::move(product.initializer);
+  frictionLaw_ = std::move(product.frictionLaw);
+  frictionLawDevice_ = std::move(product.frictionLawDevice);
   faultOutputManager_ = std::move(product.output);
 }
 
@@ -364,7 +364,7 @@ void MemoryManager::initFrictionData() {
   const auto& params = seissolInstance_.getSeisSolParameters().drParameters;
   if (params.isDynamicRuptureEnabled) {
 
-    DRInitializer_->initializeFault(drStorage_);
+    drInitializer_->initializeFault(drStorage_);
   }
 }
 

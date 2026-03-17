@@ -174,7 +174,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     alignas(Alignment) real resampledSlipRate[misc::NumPaddedPoints]{};
     specialization_.resampleSlipRate(resampledSlipRate, this->slipRateMagnitude_[ltsFace]);
 
-    real time = this->mFullUpdateTime_;
+    real time = this->fullUpdateTime_;
     for (uint32_t i = 0; i <= timeIndex; ++i) {
       time += this->deltaT_[i];
     }

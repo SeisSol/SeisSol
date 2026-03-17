@@ -101,22 +101,22 @@ void MeshReader::disableDR() {
  */
 void MeshReader::extractFaultInformation(
     const VrtxCoords& refPoint, seissol::initializer::parameters::RefPointMethod refPointMethod) {
-  for (auto& i : elements_) {
+  for (auto& cell : elements_) {
 
     for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
       // Set default mpi fault indices
-      i.mpiFaultIndices[j] = -1;
+      cell.mpiFaultIndices[j] = -1;
 
-      if (i.boundaries[j] != 3) {
+      if (cell.boundaries[j] != 3) {
         continue;
       }
 
       // DR boundary
 
-      if (i.neighborRanks[j] == seissol::Mpi::mpi.rank()) {
+      if (cell.neighborRanks[j] == seissol::Mpi::mpi.rank()) {
         // Completely local DR boundary
 
-        if (i.neighbors[j] < i.localId) {
+        if (cell.neighbors[j] < cell.localId) {
           // This was already handled by the other side
           continue;
         }
@@ -126,32 +126,23 @@ void MeshReader::extractFaultInformation(
         // FIXME we use the MPI number here for the neighbor element id
         // It is not very nice but should generate the correct ordering.
         const MPINeighborElement neighbor = {
-            i.localId, static_cast<SideId>(j), i.mpiIndices[j], i.neighborSides[j]};
-        mpiFaultNeighbors_[i.neighborRanks[j]].push_back(neighbor);
+            cell.localId, static_cast<SideId>(j), cell.mpiIndices[j], cell.neighborSides[j]};
+        mpiFaultNeighbors_[cell.neighborRanks[j]].push_back(neighbor);
       }
 
       Fault f{};
 
       // Detect +/- side
-      // Computes the distance between the bary center of the tetrahedron and the face
-      // Does not work for all meshes
-      //                VrtxCoords elementCenter;
-      //                VrtxCoords faceCenter;
-      //                MeshTools::center(*i, vertices_, elementCenter);
-      //                MeshTools::center(*i, j, vertices_, faceCenter);
-      //
-      //                bool isPlus = (MeshTools::distance(elementCenter, center)
-      //                        < MeshTools::distance(faceCenter, center));
 
       // Compute normal of the DR face
       // Boundary side vector pointing in chi- and tau-direction
       VrtxCoords chiVec;
       VrtxCoords tauVec;
-      MeshTools::sub(vertices_[i.vertices[MeshTools::FACE2NODES[j][1]]].coords,
-                     vertices_[i.vertices[MeshTools::FACE2NODES[j][0]]].coords,
+      MeshTools::sub(vertices_[cell.vertices[MeshTools::FACE2NODES[j][1]]].coords,
+                     vertices_[cell.vertices[MeshTools::FACE2NODES[j][0]]].coords,
                      chiVec);
-      MeshTools::sub(vertices_[i.vertices[MeshTools::FACE2NODES[j][2]]].coords,
-                     vertices_[i.vertices[MeshTools::FACE2NODES[j][0]]].coords,
+      MeshTools::sub(vertices_[cell.vertices[MeshTools::FACE2NODES[j][2]]].coords,
+                     vertices_[cell.vertices[MeshTools::FACE2NODES[j][0]]].coords,
                      tauVec);
       MeshTools::cross(chiVec, tauVec, f.normal);
 
@@ -161,9 +152,9 @@ void MeshReader::extractFaultInformation(
       // Check whether the tetrahedron and the reference point are on the same side of the face
       VrtxCoords tmp1;
       VrtxCoords tmp2;
-      MeshTools::sub(refPoint, vertices_[i.vertices[MeshTools::FACE2NODES[j][0]]].coords, tmp1);
-      MeshTools::sub(vertices_[i.vertices[MeshTools::FACE2MISSINGNODE[j]]].coords,
-                     vertices_[i.vertices[MeshTools::FACE2NODES[j][0]]].coords,
+      MeshTools::sub(refPoint, vertices_[cell.vertices[MeshTools::FACE2NODES[j][0]]].coords, tmp1);
+      MeshTools::sub(vertices_[cell.vertices[MeshTools::FACE2MISSINGNODE[j]]].coords,
+                     vertices_[cell.vertices[MeshTools::FACE2NODES[j][0]]].coords,
                      tmp2);
       bool isPlus = false;
       if (refPointMethod == seissol::initializer::parameters::RefPointMethod::Point) {
@@ -175,25 +166,25 @@ void MeshReader::extractFaultInformation(
       if (!isPlus) {
         // In case of a minus side, compute chi using node 0 and 1 from the plus side
         MeshTools::sub(
-            vertices_
-                [i.vertices[MeshTools::FACE2NODES[j][MeshTools::NEIGHBORFACENODE2LOCAL
-                                                         [(3 + 1 - i.sideOrientations[j]) % 3]]]]
-                    .coords,
-            vertices_
-                [i.vertices[MeshTools::FACE2NODES[j][MeshTools::NEIGHBORFACENODE2LOCAL
-                                                         [(3 + 0 - i.sideOrientations[j]) % 3]]]]
-                    .coords,
+            vertices_[cell.vertices
+                          [MeshTools::FACE2NODES[j][MeshTools::NEIGHBORFACENODE2LOCAL
+                                                        [(3 + 1 - cell.sideOrientations[j]) % 3]]]]
+                .coords,
+            vertices_[cell.vertices
+                          [MeshTools::FACE2NODES[j][MeshTools::NEIGHBORFACENODE2LOCAL
+                                                        [(3 + 0 - cell.sideOrientations[j]) % 3]]]]
+                .coords,
             chiVec);
 
         MeshTools::sub(
-            vertices_
-                [i.vertices[MeshTools::FACE2NODES[j][MeshTools::NEIGHBORFACENODE2LOCAL
-                                                         [(3 + 2 - i.sideOrientations[j]) % 3]]]]
-                    .coords,
-            vertices_
-                [i.vertices[MeshTools::FACE2NODES[j][MeshTools::NEIGHBORFACENODE2LOCAL
-                                                         [(3 + 0 - i.sideOrientations[j]) % 3]]]]
-                    .coords,
+            vertices_[cell.vertices
+                          [MeshTools::FACE2NODES[j][MeshTools::NEIGHBORFACENODE2LOCAL
+                                                        [(3 + 2 - cell.sideOrientations[j]) % 3]]]]
+                .coords,
+            vertices_[cell.vertices
+                          [MeshTools::FACE2NODES[j][MeshTools::NEIGHBORFACENODE2LOCAL
+                                                        [(3 + 0 - cell.sideOrientations[j]) % 3]]]]
+                .coords,
             tauVec);
 
         MeshTools::cross(chiVec, tauVec, f.normal);
@@ -205,31 +196,31 @@ void MeshReader::extractFaultInformation(
       // Compute second vector in the plane, orthogonal to the normal and tangent 1 vectors
       MeshTools::cross(f.normal, f.tangent1, f.tangent2);
 
-      auto remoteNeighbor = i.neighbors[j] == static_cast<int>(elements_.size());
+      auto remoteNeighbor = cell.neighbors[j] == static_cast<int>(elements_.size());
 
       // Index of the element on the other side
-      const int neighborIndex = remoteNeighbor ? -1 : i.neighbors[j];
+      const int neighborIndex = remoteNeighbor ? -1 : cell.neighbors[j];
 
       const GlobalElemId neighborGlobalId =
-          remoteNeighbor ? ghostlayerMetadata_[i.neighborRanks[j]][i.mpiIndices[j]].globalId
-                         : elements_[i.neighbors[j]].globalId;
+          remoteNeighbor ? ghostlayerMetadata_[cell.neighborRanks[j]][cell.mpiIndices[j]].globalId
+                         : elements_[cell.neighbors[j]].globalId;
 
       if (isPlus) {
-        f.globalId = i.globalId;
-        f.element = i.localId;
+        f.globalId = cell.globalId;
+        f.element = cell.localId;
         f.side = j;
         f.neighborGlobalId = neighborGlobalId;
         f.neighborElement = neighborIndex;
-        f.neighborSide = i.neighborSides[j];
-        f.tag = i.faultTags[j];
+        f.neighborSide = cell.neighborSides[j];
+        f.tag = cell.faultTags[j];
       } else {
         f.globalId = neighborGlobalId;
         f.element = neighborIndex;
-        f.side = i.neighborSides[j];
-        f.neighborGlobalId = i.globalId;
-        f.neighborElement = i.localId;
+        f.side = cell.neighborSides[j];
+        f.neighborGlobalId = cell.globalId;
+        f.neighborElement = cell.localId;
         f.neighborSide = j;
-        f.tag = i.faultTags[j];
+        f.tag = cell.faultTags[j];
       }
 
       fault_.push_back(f);
@@ -242,19 +233,19 @@ void MeshReader::extractFaultInformation(
   }
 
   // Sort fault neighbor lists and update MPI fault indices
-  for (auto& i : mpiFaultNeighbors_) {
+  for (auto& neighbor : mpiFaultNeighbors_) {
 
-    if (i.first > seissol::Mpi::mpi.rank()) {
-      std::sort(i.second.begin(),
-                i.second.end(),
+    if (neighbor.first > seissol::Mpi::mpi.rank()) {
+      std::sort(neighbor.second.begin(),
+                neighbor.second.end(),
                 [](const MPINeighborElement& elem1, const MPINeighborElement& elem2) {
                   return (elem1.localElement < elem2.localElement) ||
                          (elem1.localElement == elem2.localElement &&
                           elem1.localSide < elem2.localSide);
                 });
     } else {
-      std::sort(i.second.begin(),
-                i.second.end(),
+      std::sort(neighbor.second.begin(),
+                neighbor.second.end(),
                 [](const MPINeighborElement& elem1, const MPINeighborElement& elem2) {
                   return (elem1.neighborElement < elem2.neighborElement) ||
                          (elem1.neighborElement == elem2.neighborElement &&
@@ -263,8 +254,8 @@ void MeshReader::extractFaultInformation(
     }
 
     // Set the MPI fault number of all elements
-    for (std::size_t j = 0; j < i.second.size(); ++j) {
-      elements_[i.second[j].localElement].mpiFaultIndices[i.second[j].localSide] = j;
+    for (std::size_t j = 0; j < neighbor.second.size(); ++j) {
+      elements_[neighbor.second[j].localElement].mpiFaultIndices[neighbor.second[j].localSide] = j;
     }
   }
 }

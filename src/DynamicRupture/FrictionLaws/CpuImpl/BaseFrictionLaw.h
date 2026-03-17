@@ -58,7 +58,7 @@ class BaseFrictionLaw : public FrictionSolver {
 
       SCOREP_USER_REGION_DEFINE(myRegionHandle)
       std::copy_n(frictionTime.deltaT.begin(), frictionTime.deltaT.size(), this->deltaT_);
-      this->mFullUpdateTime_ = fullUpdateTime;
+      this->fullUpdateTime_ = fullUpdateTime;
 
       // loop over all dynamic rupture faces, in this LTS layer
 #pragma omp parallel for schedule(static)
@@ -68,7 +68,7 @@ class BaseFrictionLaw : public FrictionSolver {
             myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
         LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
         const auto etaPDamp =
-            drParameters_->etaDampEnd > this->mFullUpdateTime_ ? drParameters_->etaDamp : 1.0;
+            drParameters_->etaDampEnd > this->fullUpdateTime_ ? drParameters_->etaDamp : 1.0;
         common::precomputeStressFromQInterpolated(faultStresses,
                                                   impAndEta_[ltsFace],
                                                   impedanceMatrices_[ltsFace],
@@ -97,7 +97,7 @@ class BaseFrictionLaw : public FrictionSolver {
 
         // loop over sub time steps (i.e. quadrature points in time
         real startTime = 0;
-        real updateTime = this->mFullUpdateTime_;
+        real updateTime = this->fullUpdateTime_;
         for (std::size_t timeIndex = 0; timeIndex < misc::TimeSteps; timeIndex++) {
           startTime = updateTime;
           updateTime += this->deltaT_[timeIndex];

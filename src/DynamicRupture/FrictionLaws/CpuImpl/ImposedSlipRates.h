@@ -32,7 +32,7 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
                              std::size_t ltsFace,
                              uint32_t timeIndex) {
     const real timeIncrement = this->deltaT_[timeIndex];
-    real currentTime = this->mFullUpdateTime_;
+    real currentTime = this->fullUpdateTime_;
     for (uint32_t i = 0; i <= timeIndex; i++) {
       currentTime += this->deltaT_[i];
     }

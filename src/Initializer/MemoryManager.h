@@ -64,9 +64,9 @@ class MemoryManager {
 
   DynamicRupture::Storage drStorage_;
   std::unique_ptr<DynamicRupture> dynRup_ = nullptr;
-  std::unique_ptr<dr::initializer::BaseDRInitializer> DRInitializer_ = nullptr;
-  std::unique_ptr<dr::friction_law::FrictionSolver> FrictionLaw_ = nullptr;
-  std::unique_ptr<dr::friction_law::FrictionSolver> FrictionLawDevice_ = nullptr;
+  std::unique_ptr<dr::initializer::BaseDRInitializer> drInitializer_ = nullptr;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionLaw_ = nullptr;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionLawDevice_ = nullptr;
   std::unique_ptr<dr::output::OutputManager> faultOutputManager_ = nullptr;
 
   Boundary::Storage boundaryTree_;
@@ -148,8 +148,8 @@ class MemoryManager {
 
   EasiBoundary* getEasiBoundaryReader() { return &easiBoundary_; }
 
-  dr::friction_law::FrictionSolver* getFrictionLaw() { return FrictionLaw_.get(); }
-  dr::friction_law::FrictionSolver* getFrictionLawDevice() { return FrictionLawDevice_.get(); }
+  dr::friction_law::FrictionSolver* getFrictionLaw() { return frictionLaw_.get(); }
+  dr::friction_law::FrictionSolver* getFrictionLawDevice() { return frictionLawDevice_.get(); }
   seissol::dr::output::OutputManager* getFaultOutputManager() { return faultOutputManager_.get(); }
 
   void recordExecutionPaths(bool usePlasticity);

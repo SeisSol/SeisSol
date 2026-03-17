@@ -65,13 +65,13 @@ struct FrictionLawContext {
 #ifdef __CUDACC__
 SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& /*ctx*/) { __syncthreads(); }
 #elif defined(__HIP__)
-SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& ctx) { __syncthreads(); }
+SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& /*ctx*/) { __syncthreads(); }
 #elif defined(SEISSOL_KERNELS_SYCL)
 inline void deviceBarrier(FrictionLawContext& ctx) {
   reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->barrier(sycl::access::fence_space::local_space);
 }
 #else
-inline void deviceBarrier(FrictionLawContext& ctx) {}
+inline void deviceBarrier(FrictionLawContext& /*ctx*/) {}
 #endif
 
 template <typename Derived>
