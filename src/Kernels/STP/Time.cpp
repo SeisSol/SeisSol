@@ -224,10 +224,7 @@ void Spacetime::computeBatchedAder(
             layerZinvData + yateto::computeFamilySize<tensor::Zinv>() * i);
         const auto& localIntegration = layerLocalIntegration[i];
 
-        // currently, we need to cast away the `const` here (due to Yateto not having a const view
-        // yet)
-        auto sourceMatrix =
-            init::ET::view::create(const_cast<real*>(localIntegration.specific.sourceMatrix));
+        const auto sourceMatrix = init::ET::view::create(localIntegration.specific.sourceMatrix);
         model::zInvInitializerForLoop<0,
                                       seissol::model::MaterialT::NumQuantities,
                                       decltype(sourceMatrix)>(
