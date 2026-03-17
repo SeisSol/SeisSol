@@ -19,9 +19,9 @@ and material properties for setting up simulations.
 Writing easi models
 -------------------
 
-easi is written as YAML files with its custom blocks.
-For example, a simple model with constant material parameters is
-described in the following way:
+easi models are written as YAML files with custom tags.
+For example, a simple model with constant material parameters can be
+described as follows:
 
 .. code-block:: YAML
 
