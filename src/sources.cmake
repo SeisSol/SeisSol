@@ -48,6 +48,8 @@ Solver/TimeStepping/TimeManager.cpp
 
 Solver/TimeStepping/ShmemCluster.cpp
 Solver/TimeStepping/CCLNeighborCluster.cpp
+ResultWriter/DofSync.cpp
+ResultWriter/PickpointWriter.cpp
 
 Kernels/DynamicRupture.cpp
 Kernels/Plasticity.cpp

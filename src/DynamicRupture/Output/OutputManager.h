@@ -41,7 +41,13 @@ class OutputManager {
 
   void init();
   void initFaceToLtsMap();
-  void writePickpointOutput(double time, double dt, parallel::runtime::StreamRuntime& runtime);
+  void writePickpointOutput(double time, double dt);
+  void writePickpointOutput(std::size_t layerId,
+                            double time,
+                            double dt,
+                            double meshDt,
+                            double meshInDt,
+                            parallel::runtime::StreamRuntime& runtime);
   void flushPickpointDataToFile();
   void updateElementwiseOutput();
 
@@ -57,7 +63,7 @@ class OutputManager {
   std::unique_ptr<PickPointBuilder> ppOutputBuilder{nullptr};
 
   std::shared_ptr<ReceiverOutputData> ewOutputData{nullptr};
-  std::shared_ptr<ReceiverOutputData> ppOutputData{nullptr};
+  std::unordered_map<std::size_t, std::shared_ptr<ReceiverOutputData>> ppOutputData;
 
   struct PickpointFile {
     std::string fileName;
@@ -66,14 +72,14 @@ class OutputManager {
     std::vector<std::size_t> indices;
   };
 
-  std::vector<PickpointFile> ppFiles;
+  std::unordered_map<std::size_t, std::vector<PickpointFile>> ppFiles;
 
   LTS::Storage* wpStorage{nullptr};
   LTS::Backmap* wpBackmap{nullptr};
   DynamicRupture::Storage* drStorage{nullptr};
 
   FaceToLtsMapType faceToLtsMap;
-  std::vector<std::size_t> globalFaceToLtsMap;
+  std::vector<::seissol::initializer::StoragePosition> globalFaceToLtsMap;
   seissol::geometry::MeshReader* meshReader{nullptr};
 
   size_t iterationStep{0};

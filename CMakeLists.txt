@@ -262,6 +262,10 @@ if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
   target_compile_definitions(seissol-common-properties INTERFACE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
 endif()
 
+if (DEVICE_COMBINE_LOCAL_FLUX)
+  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_DEVICE_COMBINE_LOCAL_FLUX)
+endif()
+
 if (ADDRESS_SANITIZER_DEBUG)
   target_link_libraries(seissol-common-properties INTERFACE debug
           -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address -static-libasan
