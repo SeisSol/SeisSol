@@ -25,25 +25,25 @@
 namespace seissol::dr::misc {
 // TODO: this can be moved to yateto headers
 template <typename Tensor, int Dim>
-constexpr size_t dimSize() noexcept {
+constexpr uint32_t dimSize() noexcept {
   return Tensor::Stop[Dim] - Tensor::Start[Dim];
 }
 
 template <typename Tensor>
-constexpr size_t leadDim() noexcept {
+constexpr uint32_t leadDim() noexcept {
   return dimSize<Tensor, 0>();
 }
 
 /**
  * Number of gauss points padded to match the vector register length.
  */
-static constexpr inline size_t NumPaddedPoints =
+static constexpr inline uint32_t NumPaddedPoints =
     multisim::MultisimEnabled
         ? dimSize<init::QInterpolated, 0>() * dimSize<init::QInterpolated, 1>()
         : leadDim<init::QInterpolated>();
-static constexpr inline size_t NumPaddedPointsSingleSim =
+static constexpr inline uint32_t NumPaddedPointsSingleSim =
     dimSize<init::QInterpolated, multisim::BasisFunctionDimension>();
-static constexpr inline size_t NumQuantities =
+static constexpr inline uint32_t NumQuantities =
     misc::dimSize<init::QInterpolated, multisim::BasisFunctionDimension + 1>();
 
 /*
@@ -55,14 +55,14 @@ static constexpr inline uint32_t TimeSteps = ConvergenceOrder;
 /**
  * Constants for Thermal Pressurization
  */
-static constexpr size_t NumTpGridPoints = 60;
+static constexpr uint32_t NumTpGridPoints = 60;
 static constexpr double TpLogDz = 0.3;
 static constexpr double TpMaxWaveNumber = 10.0;
 
 /**
  * Number of gauss points on an element surface.
  */
-static constexpr unsigned int NumBoundaryGaussPoints =
+static constexpr uint32_t NumBoundaryGaussPoints =
     init::QInterpolated::Shape[multisim::BasisFunctionDimension];
 
 template <std::size_t I, typename F, typename TupleT>

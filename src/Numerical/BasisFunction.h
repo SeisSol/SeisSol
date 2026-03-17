@@ -11,7 +11,6 @@
 
 #include "Common/Constants.h"
 #include "Functions.h"
-#include "GeneratedCode/init.h"
 #include "Transformation.h"
 
 #include <cmath>
@@ -38,7 +37,7 @@ class BasisFunctionGenerator {
    * Source : https://github.com/pjabardo/Jacobi.jl/blob/master/src/jac_poly.jl
    * @param x Sampling point
    */
-  static T sampleJacobiPolynomial(T x, unsigned int n, unsigned int a, unsigned int b) {
+  static T sampleJacobiPolynomial(T x, std::uint32_t n, std::uint32_t a, std::uint32_t b) {
     return seissol::functions::JacobiP(n, a, b, x);
   }
 
@@ -62,7 +61,7 @@ class BasisFunctionGenerator {
    * @param j Polynomial index information
    * @param k Polynomial index information
    */
-  T operator()(unsigned int i, unsigned int j, unsigned int k) const {
+  T operator()(std::uint32_t i, std::uint32_t j, std::uint32_t k) const {
     return static_cast<T>(functions::TetraDubinerP({i, j, k}, {xi_, eta_, zeta_}));
   }
 };
@@ -94,7 +93,7 @@ class BasisFunctionDerivativeGenerator {
    * @param j Polynomial index information
    * @param k Polynomial index information
    */
-  std::array<T, 3> operator()(unsigned int i, unsigned int j, unsigned int k) const {
+  std::array<T, 3> operator()(std::uint32_t i, std::uint32_t j, std::uint32_t k) const {
     std::array<double, 3> gradEvaluated =
         functions::gradTetraDubinerP({i, j, k}, {xi_, eta_, zeta_});
     return {static_cast<T>(gradEvaluated[0]),
@@ -103,7 +102,7 @@ class BasisFunctionDerivativeGenerator {
   }
 };
 
-inline unsigned int basisFunctionsForOrder(unsigned int order) {
+inline std::uint32_t basisFunctionsForOrder(std::uint32_t order) {
   return (order * (order + 1) * (order + 2)) / 6;
 }
 
@@ -113,12 +112,13 @@ inline unsigned int basisFunctionsForOrder(unsigned int order) {
  */
 template <class T>
 class SampledBasisFunctions {
+  private:
   static_assert(std::is_arithmetic_v<T>, "Type T for SampledBasisFunctions must be arithmetic.");
 
-  public:
   /** The basis function samples */
-  std::vector<T> m_data{};
+  std::vector<T> data_;
 
+  public:
   SampledBasisFunctions() = default;
   /**
    * Constructor to generate the sampled basis functions of given order
@@ -129,15 +129,15 @@ class SampledBasisFunctions {
    * @param zeta The zeta coordinate in the reference tetrahedron.
    * @param xi The xi coordinate in the reference tetrahedron.
    */
-  SampledBasisFunctions(unsigned int order, T xi, T eta, T zeta)
-      : m_data(basisFunctionsForOrder(order)) {
+  SampledBasisFunctions(std::uint32_t order, T xi, T eta, T zeta)
+      : data_(basisFunctionsForOrder(order)) {
     const BasisFunctionGenerator<T> gen(xi, eta, zeta);
 
-    unsigned int i = 0;
-    for (unsigned int ord = 0; ord < order; ord++) {
-      for (unsigned int k = 0; k <= ord; k++) {
-        for (unsigned int j = 0; j <= ord - k; j++) {
-          m_data[i++] = gen(ord - j - k, j, k);
+    std::uint32_t i = 0;
+    for (std::uint32_t ord = 0; ord < order; ord++) {
+      for (std::uint32_t k = 0; k <= ord; k++) {
+        for (std::uint32_t j = 0; j <= ord - k; j++) {
+          data_[i++] = gen(ord - j - k, j, k);
         }
       }
     }
@@ -151,13 +151,18 @@ class SampledBasisFunctions {
    */
   template <class ConstIterator>
   T evalWithCoeffs(ConstIterator coeffIter) const {
-    return std::inner_product(m_data.begin(), m_data.end(), coeffIter, static_cast<T>(0));
+    return std::inner_product(data_.begin(), data_.end(), coeffIter, static_cast<T>(0));
   }
 
   /**
    * Returns the amount of Basis functions this class represents.
    */
-  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] auto size() const { return data_.size(); }
+
+  /**
+   * Returns the basis function vector directly.
+   */
+  [[nodiscard]] const std::vector<T>& data() const { return data_; }
 };
 
 //------------------------------------------------------------------------------
@@ -168,15 +173,16 @@ class SampledBasisFunctions {
  */
 template <class T>
 class SampledBasisFunctionDerivatives {
+  private:
   static_assert(std::is_arithmetic_v<T>, "Type T for SampledBasisFunctions must be arithmetic.");
 
-  public:
   /**
    * The basis function derivative samples w.r.t. the three spatial dimension
    * Use DenseTensorView to access data
    */
-  std::vector<T> m_data{};
+  std::vector<T> data_;
 
+  public:
   SampledBasisFunctionDerivatives() = default;
   /**
    * Constructor to generate the sampled basis functions of given order
@@ -187,18 +193,18 @@ class SampledBasisFunctionDerivatives {
    * @param zeta The zeta coordinate in the reference tetrahedron.
    * @param xi The xi coordinate in the reference tetrahedron.
    */
-  SampledBasisFunctionDerivatives(unsigned int order, T xi, T eta, T zeta)
-      : m_data(3 * basisFunctionsForOrder(order)) {
+  SampledBasisFunctionDerivatives(std::uint32_t order, T xi, T eta, T zeta)
+      : data_(3 * basisFunctionsForOrder(order)) {
     const BasisFunctionDerivativeGenerator<T> gen(xi, eta, zeta);
-    auto dataView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
+    const auto funs = basisFunctionsForOrder(order);
 
-    unsigned int i = 0;
-    for (unsigned int ord = 0; ord < order; ord++) {
-      for (unsigned int k = 0; k <= ord; k++) {
-        for (unsigned int j = 0; j <= ord - k; j++) {
+    std::uint32_t i = 0;
+    for (std::uint32_t ord = 0; ord < order; ord++) {
+      for (std::uint32_t k = 0; k <= ord; k++) {
+        for (std::uint32_t j = 0; j <= ord - k; j++) {
           const auto derivatives = gen(ord - j - k, j, k);
-          for (unsigned int direction = 0; direction < 3; direction++) {
-            dataView(i, direction) = derivatives[direction];
+          for (std::uint32_t direction = 0; direction < 3; direction++) {
+            data_[i + funs * direction] = derivatives[direction];
           }
           i++;
         }
@@ -207,7 +213,7 @@ class SampledBasisFunctionDerivatives {
   }
 
   /**
-   * After a call to the constructor m_data contains the sampled derivatives
+   * After a call to the constructor data contains the sampled derivatives
    * w.r.t. xi, eta, zeta on the reference triangle. Use this function to
    * transform the derivatives to derivatives w.r.t. to x, y, z in a physical
    * tetrahedron.
@@ -215,32 +221,34 @@ class SampledBasisFunctionDerivatives {
    * physical tetrahedron.
    */
   void transformToGlobalCoordinates(const double* coords[Cell::NumVertices]) {
-    double xCoords[Cell::NumVertices];
-    double yCoords[Cell::NumVertices];
-    double zCoords[Cell::NumVertices];
+    std::array<double, Cell::NumVertices> xCoords{};
+    std::array<double, Cell::NumVertices> yCoords{};
+    std::array<double, Cell::NumVertices> zCoords{};
     for (size_t i = 0; i < Cell::NumVertices; ++i) {
       xCoords[i] = coords[i][0];
       yCoords[i] = coords[i][1];
       zCoords[i] = coords[i][2];
     }
 
-    double gradXi[3];
-    double gradEta[3];
-    double gradZeta[3];
+    std::array<double, 3> gradXi{};
+    std::array<double, 3> gradEta{};
+    std::array<double, 3> gradZeta{};
 
-    seissol::transformations::tetrahedronGlobalToReferenceJacobian(
-        xCoords, yCoords, zCoords, gradXi, gradEta, gradZeta);
-    std::vector<T> oldData = m_data;
+    seissol::transformations::tetrahedronGlobalToReferenceJacobian(xCoords.data(),
+                                                                   yCoords.data(),
+                                                                   zCoords.data(),
+                                                                   gradXi.data(),
+                                                                   gradEta.data(),
+                                                                   gradZeta.data());
+    std::vector<T> oldData = data_;
+    const auto funs = data_.size() / 3;
 
-    const auto oldView = init::basisFunctionDerivativesAtPoint::view::create(oldData.data());
-    auto newView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
-    for (size_t i = 0; i < init::basisFunctionDerivativesAtPoint::Shape[0]; ++i) {
-      for (size_t direction = 0; direction < init::basisFunctionDerivativesAtPoint::Shape[1];
-           ++direction) {
+    for (size_t i = 0; i < funs; ++i) {
+      for (size_t direction = 0; direction < 3; ++direction) {
         // dpsi / di = dphi / dxi * dxi / di + dphi / deta * deta / di + dphi / dzeta * dzeta / di
-        newView(i, direction) = oldView(i, 0) * gradXi[direction] +
-                                oldView(i, 1) * gradEta[direction] +
-                                oldView(i, 2) * gradZeta[direction];
+        data_[i + funs * direction] = oldData[i + 0 * funs] * gradXi[direction] +
+                                      oldData[i + 1 * funs] * gradEta[direction] +
+                                      oldData[i + 2 * funs] * gradZeta[direction];
       }
     }
   }
@@ -248,7 +256,14 @@ class SampledBasisFunctionDerivatives {
   /**
    * Returns the amount of Basis functions this class represents.
    */
-  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] auto size() const { return data_.size(); }
+
+  /**
+   * Returns the basis function vectors directly.
+   * The layout is: [valuesDX..., valuesDY..., valuesDZ...]; i.e. all values for one derivative
+   * direction before another starts.
+   */
+  [[nodiscard]] const std::vector<T>& data() const { return data_; }
 };
 
 //==============================================================================
@@ -258,56 +273,59 @@ class TimeBasisFunctionGenerator {
   private:
   T tau_;
 
-  static T sampleJacobiPolynomial(T x, unsigned int n) {
+  static T sampleJacobiPolynomial(T x, std::uint32_t n) {
     return seissol::functions::JacobiP(n, 0, 0, x);
   }
 
   public:
   explicit TimeBasisFunctionGenerator(T tau) : tau_(tau) {}
 
-  T operator()(unsigned int i) const { return functions::DubinerP<1>({i}, {tau_}); }
+  T operator()(std::uint32_t i) const { return functions::DubinerP<1>({i}, {tau_}); }
 };
 
 template <class T>
 class SampledTimeBasisFunctions {
+  private:
   static_assert(std::is_arithmetic_v<T>,
                 "Type T for SampledTimeBasisFunctions must be arithmetic.");
 
-  public:
-  std::vector<T> m_data;
+  std::vector<T> data_;
 
-  SampledTimeBasisFunctions(unsigned int order, T tau) : m_data(order) {
+  public:
+  SampledTimeBasisFunctions(std::uint32_t order, T tau) : data_(order) {
     TimeBasisFunctionGenerator<T> gen(tau);
 
-    for (unsigned int ord = 0; ord < order; ord++) {
-      m_data[ord] = gen(ord);
+    for (std::uint32_t ord = 0; ord < order; ord++) {
+      data_[ord] = gen(ord);
     }
   }
 
   template <class ConstIterator>
   T evalWithCoeffs(ConstIterator coeffIter) const {
-    return std::inner_product(m_data.begin(), m_data.end(), coeffIter, static_cast<T>(0));
+    return std::inner_product(data_.begin(), data_.end(), coeffIter, static_cast<T>(0));
   }
 
-  [[nodiscard]] unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] auto size() const { return data_.size(); }
+
+  [[nodiscard]] const std::vector<T>& data() const { return data_; }
 };
 
 namespace tri_dubiner {
-inline void evaluatePolynomials(double* phis, double xi, double eta, int numPoly) {
+inline void evaluatePolynomials(double* phis, double xi, double eta, std::int32_t numPoly) {
   assert(numPoly > 0);
-  unsigned idx = 0;
-  for (unsigned int d = 0; d <= static_cast<unsigned>(numPoly); ++d) {
-    for (unsigned int j = 0; j <= d; ++j) {
+  std::uint32_t idx = 0;
+  for (std::uint32_t d = 0; d <= static_cast<std::uint32_t>(numPoly); ++d) {
+    for (std::uint32_t j = 0; j <= d; ++j) {
       phis[idx++] = seissol::functions::TriDubinerP({d - j, j}, {xi, eta});
     }
   }
 }
 
-inline void evaluateGradPolynomials(double* phis, double xi, double eta, int numPoly) {
+inline void evaluateGradPolynomials(double* phis, double xi, double eta, std::int32_t numPoly) {
   assert(numPoly > 0);
-  unsigned idx = 0;
-  for (unsigned int d = 0; d <= static_cast<unsigned>(numPoly); ++d) {
-    for (unsigned int j = 0; j <= d; ++j) {
+  std::uint32_t idx = 0;
+  for (std::uint32_t d = 0; d <= static_cast<std::uint32_t>(numPoly); ++d) {
+    for (std::uint32_t j = 0; j <= d; ++j) {
       const auto grad = seissol::functions::gradTriDubinerP({d - j, j}, {xi, eta});
       for (const auto& g : grad) {
         phis[idx++] = g;
