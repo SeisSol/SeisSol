@@ -260,8 +260,10 @@ class WaveFieldWriterExecutor {
     m_lowWaveFieldWriter = nullptr;
   }
 
-  static constexpr unsigned int NumPlasticityVariables = 7;
-  static constexpr unsigned int NumIntegratedVariables = 9;
+  static constexpr unsigned int NumPlasticityVariables =
+      seissol::model::PlasticityData::Quantities.size();
+  static constexpr unsigned int NumIntegratedVariables =
+      seissol::model::MaterialT::Quantities.size();
   static constexpr unsigned int NumLowvariables = NumIntegratedVariables;
 };
 

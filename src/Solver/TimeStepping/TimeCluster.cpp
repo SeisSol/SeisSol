@@ -61,7 +61,7 @@ namespace seissol::time_stepping {
 TimeCluster::TimeCluster(unsigned int clusterId,
                          unsigned int globalClusterId,
                          unsigned int profilingId,
-                         bool usePlasticity,
+                         const SimulationSettings& settings,
                          HaloType layerType,
                          double maxTimeStepSize,
                          long timeStepRate,
@@ -80,7 +80,7 @@ TimeCluster::TimeCluster(unsigned int clusterId,
     : AbstractTimeCluster(
           maxTimeStepSize, timeStepRate, seissolInstance.executionPlace(clusterData->size())),
       // cluster ids
-      usePlasticity(usePlasticity), seissolInstance(seissolInstance), streamRuntime(4),
+      settings(settings), seissolInstance(seissolInstance), streamRuntime(4),
       globalDataOnHost(globalData.onHost), globalDataOnDevice(globalData.onDevice),
       clusterData(clusterData),
       // global data
@@ -413,6 +413,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
     if (!resetMyBuffers && buffersProvided) {
       assert(buffers[cell] != nullptr);
 
+#pragma omp simd
       for (std::size_t dof = 0; dof < tensor::I::size(); ++dof) {
         buffers[cell][dof] += integrationBuffer[dof];
       }
@@ -515,10 +516,18 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
 }
 
 void TimeCluster::computeNeighboringIntegration(double subTimeStart) {
-  if (usePlasticity) {
-    computeNeighboringIntegrationImplementation<true>(subTimeStart);
+  if (settings.integrate) {
+    if (settings.plasticity) {
+      computeNeighboringIntegrationImplementation<true, false>(subTimeStart);
+    } else {
+      computeNeighboringIntegrationImplementation<false, false>(subTimeStart);
+    }
   } else {
-    computeNeighboringIntegrationImplementation<false>(subTimeStart);
+    if (settings.plasticity) {
+      computeNeighboringIntegrationImplementation<true, true>(subTimeStart);
+    } else {
+      computeNeighboringIntegrationImplementation<false, true>(subTimeStart);
+    }
   }
 }
 
@@ -550,7 +559,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
         neighborKernel.computeBatchedNeighborsIntegral(table, streamRuntime);
       });
 
-  if (usePlasticity) {
+  if (settings.plasticity) {
     auto plasticityGraphKey = initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);
     auto* plasticity =
         clusterData->var<LTS::Plasticity>(seissol::initializer::AllocationPlace::Device);
@@ -574,6 +583,15 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
         numPlasticCells * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
     seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
         numPlasticCells * accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
+  }
+
+  if (settings.integrate) {
+    device.algorithms.accumulateBatchedData(
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
+        (entry.get(inner_keys::Wp::Id::Integrals))->getDeviceDataPtr(),
+        tensor::Q::Size,
+        (entry.get(inner_keys::Wp::Id::Dofs))->getSize(),
+        streamRuntime.stream());
   }
 
   device.api->popLastProfilingMark();
@@ -886,7 +904,7 @@ void TimeCluster::finalize() {
   logDebug() << "#(time steps):" << numberOfTimeSteps;
 }
 
-template <bool UsePlasticity>
+template <bool UsePlasticity, bool IntegrateOutput>
 void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStart) {
   const auto clusterSize = clusterData->size();
   if (clusterSize == 0) {
@@ -984,10 +1002,16 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
                                                             pstrain[cell]);
       }
     }
-#ifdef INTEGRATE_QUANTITIES
-    seissolInstance.postProcessor().integrateQuantities(
-        m_timeStepWidth, *clusterData, cell, dofs[cell]);
-#endif // INTEGRATE_QUANTITIES
+    if constexpr (IntegrateOutput) {
+      auto* __restrict integral = data.get<LTS::Integrals>();
+      const auto* __restrict dofs = data.get<LTS::Dofs>();
+
+// only first-order time integration for the output here
+#pragma omp simd
+      for (std::size_t dof = 0; dof < tensor::Q::size(); ++dof) {
+        integral[dof] += timestep * dofs[dof];
+      }
+    }
   }
 
   if constexpr (UsePlasticity) {

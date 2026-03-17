@@ -23,6 +23,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
+#include "Solver/Settings.h"
 
 #include <array>
 #include <cassert>
@@ -144,7 +145,6 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
   auto& backmap = seissolInstance.getMemoryManager().getBackmap();
   LTS::addTo(ltsStorage, seissolInstance.getSeisSolParameters().model.plasticity);
-  seissolInstance.postProcessor().allocateMemory(ltsStorage);
   ltsStorage.setName("cluster");
   ltsStorage.setLayerCount(colorMap);
   ltsStorage.fixate();
@@ -356,11 +356,15 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   logInfo() << "Setting up data exchange and face displacements (buckets)...";
   const auto haloCommunication = internal::bucketsAndCommunication(ltsStorage, meshLayout);
 
+  const auto needsIntegration =
+      std::any_of(seissolParams.output.waveFieldParameters.integrationMask.begin(),
+                  seissolParams.output.waveFieldParameters.integrationMask.end(),
+                  [](const auto& value) { return value; });
+  const auto settings = SimulationSettings(seissolParams.model.plasticity, needsIntegration);
+
   logInfo() << "Setting up kernel clusters...";
-  seissolInstance.timeManager().addClusters(clusterLayout,
-                                            haloCommunication,
-                                            seissolInstance.getMemoryManager(),
-                                            seissolParams.model.plasticity);
+  seissolInstance.timeManager().addClusters(
+      clusterLayout, haloCommunication, seissolInstance.getMemoryManager(), settings);
 
   seissolInstance.dofSync().setup(meshLayout, &ltsStorage);
 }

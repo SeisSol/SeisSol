@@ -167,7 +167,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         ltsIdData,
         reinterpret_cast<const real*>(ltsStorage.var<LTS::Dofs>()),
         reinterpret_cast<const real*>(ltsStorage.var<LTS::PStrain>()),
-        seissolInstance.postProcessor().getIntegrals(ltsStorage),
+        reinterpret_cast<const real*>(ltsStorage.var<LTS::Integrals>()),
         meshToLts.data(),
         seissolParams.output.waveFieldParameters,
         seissolParams.output.xdmfWriterBackend,
@@ -518,12 +518,6 @@ void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
   }
 }
 
-void setIntegralMask(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  seissolInstance.postProcessor().setIntegrationMask(
-      seissolParams.output.waveFieldParameters.integrationMask);
-}
-
 } // namespace
 
 void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstance) {
@@ -542,7 +536,6 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
   seissol::Mpi::barrier(Mpi::mpi.comm());
 
   enableWaveFieldOutput(seissolInstance);
-  setIntegralMask(seissolInstance);
   enableFreeSurfaceOutput(seissolInstance);
   initFaultOutputManager(seissolInstance);
   setupCheckpointing(seissolInstance);

@@ -117,7 +117,6 @@ ResultWriter/EnergyOutput.cpp
 ResultWriter/FreeSurfaceWriter.cpp
 ResultWriter/FreeSurfaceWriterExecutor.cpp
 ResultWriter/MiniSeisSolWriter.cpp
-ResultWriter/PostProcessor.cpp
 ResultWriter/ReceiverWriter.cpp
 ResultWriter/ThreadsPinningWriter.cpp
 ResultWriter/WaveFieldWriter.cpp

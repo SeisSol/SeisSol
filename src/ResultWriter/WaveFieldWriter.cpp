@@ -328,9 +328,11 @@ void seissol::writer::WaveFieldWriter::init(
   m_numCells = meshRefiner->getNumCells();
   // Set up for low order output flags
   m_lowOutputFlags = new bool[WaveFieldWriterExecutor::NumLowvariables];
-  m_numIntegratedVariables = seissolInstance.postProcessor().getNumberOfVariables();
+  m_numIntegratedVariables = m_numVariables;
 
-  seissolInstance.postProcessor().getIntegrationMask(&m_lowOutputFlags[0]);
+  const auto& imask =
+      seissolInstance.getSeisSolParameters().output.waveFieldParameters.integrationMask;
+  std::copy(imask.begin(), imask.end(), &m_lowOutputFlags[0]);
   param.bufferIds[LowOutputFlags] = addSyncBuffer(
       m_lowOutputFlags, WaveFieldWriterExecutor::NumLowvariables * sizeof(bool), true);
   //

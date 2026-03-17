@@ -80,7 +80,7 @@ class TimeManager {
   void addClusters(const initializer::ClusterLayout& clusterLayout,
                    const solver::HaloCommunication& haloStructure,
                    initializer::MemoryManager& memoryManager,
-                   bool usePlasticity);
+                   const SimulationSettings& settings);
 
   void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
   seissol::dr::output::OutputManager* getFaultOutputManager();

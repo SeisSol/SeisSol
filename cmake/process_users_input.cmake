@@ -28,7 +28,6 @@ option(ASAGI "Use asagi for material input" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
 option(LIKWID "Link with the likwid marker interface for proxy" OFF)
 
-option(INTEGRATE_QUANTITIES "Compute cell-averaged integrated velocity and stress components (currently breaks compilation)" OFF)
 option(ADDRESS_SANITIZER_DEBUG "Use address sanitzer in debug mode" OFF)
 
 option(TESTING "Compile unit tests and collect them for execution" OFF)
