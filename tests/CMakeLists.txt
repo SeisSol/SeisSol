@@ -129,6 +129,7 @@ endfunction()
 
 seissol_add_test_module(common          Common/TestCommon.cpp)
 seissol_add_test_module(dynamicrupture  DynamicRupture/TestDynamicRupture.cpp)
+seissol_add_test_module(equations       Equations/TestEquations.cpp)
 seissol_add_test_module(geometry        Geometry/TestGeometry.cpp)
 seissol_add_test_module(initializer     Initializer/TestInitializer.cpp)
 seissol_add_test_module(io              IO/TestIO.cpp)
