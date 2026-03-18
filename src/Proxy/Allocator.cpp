@@ -25,6 +25,7 @@
 #include "Memory/Tree/Colormap.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/OpenMP.h"
+#include "Solver/Settings.h"
 
 #include <cstddef>
 #include <random>
@@ -166,7 +167,8 @@ void ProxyData::initDataStructures(bool enableDR) {
       initializer::TraitLayer<initializer::ConfigVariant>({initializer::ConfigVariant(Config())}));
 
   // init RNG
-  LTS::addTo(ltsStorage, false); // proxy does not use plasticity
+  const auto nullSettings = SimulationSettings(false, false);
+  LTS::addTo(ltsStorage, nullSettings);
   ltsStorage.setLayerCount(map);
   ltsStorage.fixate();
 

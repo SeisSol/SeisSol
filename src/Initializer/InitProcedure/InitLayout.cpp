@@ -138,13 +138,19 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     colorsGhost[i] = colorMap.color(halo, element.clusterId, Config());
   }
 
+  const auto needsIntegration =
+      std::any_of(seissolParams.output.waveFieldParameters.integrationMask.begin(),
+                  seissolParams.output.waveFieldParameters.integrationMask.end(),
+                  [](const auto& value) { return value; });
+  const auto settings = SimulationSettings(seissolParams.model.plasticity, needsIntegration);
+
   logInfo() << "Creating mesh layout...";
 
   const auto meshLayout = internal::layoutCells(colors, colorsGhost, colorMap, meshReader);
 
   auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
   auto& backmap = seissolInstance.getMemoryManager().getBackmap();
-  LTS::addTo(ltsStorage, seissolInstance.getSeisSolParameters().model.plasticity);
+  LTS::addTo(ltsStorage, settings);
   ltsStorage.setName("cluster");
   ltsStorage.setLayerCount(colorMap);
   ltsStorage.fixate();
@@ -355,12 +361,6 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   // pass 4: correct LTS setup, again. Do bucket setup, determine communication datastructures
   logInfo() << "Setting up data exchange and face displacements (buckets)...";
   const auto haloCommunication = internal::bucketsAndCommunication(ltsStorage, meshLayout);
-
-  const auto needsIntegration =
-      std::any_of(seissolParams.output.waveFieldParameters.integrationMask.begin(),
-                  seissolParams.output.waveFieldParameters.integrationMask.end(),
-                  [](const auto& value) { return value; });
-  const auto settings = SimulationSettings(seissolParams.model.plasticity, needsIntegration);
 
   logInfo() << "Setting up kernel clusters...";
   seissolInstance.timeManager().addClusters(
