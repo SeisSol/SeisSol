@@ -586,12 +586,16 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
   }
 
   if (settings.integrate) {
-    device.algorithms.accumulateBatchedData(
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
-        (entry.get(inner_keys::Wp::Id::Integrals))->getDeviceDataPtr(),
-        tensor::Q::Size,
-        (entry.get(inner_keys::Wp::Id::Dofs))->getSize(),
-        streamRuntime.stream());
+    ConditionalKey key = ConditionalKey(*KernelNames::Time);
+    if (table.find(key) != table.end()) {
+      auto entry = table.at(key);
+      device.algorithms.accumulateBatchedData(
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
+          (entry.get(inner_keys::Wp::Id::Integrals))->getDeviceDataPtr(),
+          tensor::Q::Size,
+          (entry.get(inner_keys::Wp::Id::Dofs))->getSize(),
+          streamRuntime.stream());
+    }
   }
 
   device.api->popLastProfilingMark();

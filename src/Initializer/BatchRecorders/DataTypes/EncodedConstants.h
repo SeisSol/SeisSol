@@ -54,6 +54,7 @@ struct Wp {
     DofsFaceNodal,
     PrevCoefficients,
     DofsFaceBoundaryNodal,
+    Integrals,
     Count
   };
 };
