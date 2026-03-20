@@ -27,101 +27,31 @@ As device backend, we use HIP.
 Installing Modules (without Spack)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Here, we go for a build using amdclang and AdaptiveCpp. We begin by setting up an environment. Firstly, choose a folder you want to install SeisSol to and navigate to it.
-Run ``pwd`` and copy the path there. Run the following script there.
+Here, we go for a build using amdclang and AdaptiveCpp. We begin by setting up an environment.
+First, we create our installation root.
+Please execute the code below (updating project name and user name).
+We recommend using `/scratch` as the `/project` directory is typically limited in size and file count, and because the `/scratch` (to our experience) is never cleaned.
 
 .. code-block:: bash
 
-    export SEISSOL_BASE=$(pwd)
+    # Define your base directory
+    export SEISSOL_BASE=/scratch/<your_project>/<your_name>/seissol_base
     export SEISSOL_PREFIX=$SEISSOL_BASE/local
-    export CMAKE_PREFIX_PATH=$SEISSOL_PREFIX:$CMAKE_PREFIX_PATH
-    export PKG_CONFIG_PATH=$SEISSOL_BASE:$PKG_CONFIG_PATH
-    mkdir -p $SEISSOL_PREFIX
 
-Next, we load the necessary modules for our SeisSol build.
-We set the compilers to the cray compiler wrappers (which in our case use ``amdclang`` internally).
-
-.. code-block:: bash
-
-    module load LUMI partition/G
-    module load rocm
-    module load cpeAMD
-
-    module load Eigen
-    module load cray-hdf5-parallel
-    module load cray-netcdf-hdf5parallel
-    module load cray-python
-
-    export CC=cc
-    export CXX=CC
-    export FC=ftn
-
-
-All things put together, your `~/.bashrc` file should look like:
-
-.. code-block:: bash
-
-    module load LUMI partition/G
-    module load rocm
-    module load cpeAMD
-
-    module load Eigen
-    module load cray-hdf5-parallel
-    module load cray-netcdf-hdf5parallel
-    module load cray-python
-
-    export PKG_CONFIG_PATH=$SEISSOL_BASE:$PKG_CONFIG_PATH
-
-    export SEISSOL_BASE=/scratch/project_465002391/<your_name>/seissol_base
-    export SEISSOL_PREFIX=$SEISSOL_BASE/local
-    export CMAKE_PREFIX_PATH=$SEISSOL_PREFIX:$CMAKE_PREFIX_PATH
-    source $SEISSOL_PREFIX/bin/activate
-    export CC=cc
-    export CXX=CC
-    export FC=ftn
-
-
-Note that we install on `/scratch` as the `/project` directory is typically limited in size and number of files, and because the `/scratch` (to our experience) is never cleaned.
-Next, we also start up our Python installation. The virtual environment sets additional paths for e.g. executables to our prefix directory automatically.
-
-.. code-block:: bash
-
+    # Create directories
+    mkdir -p $SEISSOL_PREFIX/lib/pkgconfig
+    # Create python environment
     python -m venv $SEISSOL_PREFIX
-    source $SEISSOL_PREFIX/bin/activate
-    pip install setuptools
-    pip install numpy
-    pip install ninja
-    pip install pybind11
-    pip install git+https://github.com/SeisSol/PSpaMM.git
-    pip install git+https://github.com/SeisSol/gemmforge.git
-    pip install git+https://github.com/SeisSol/chainforge.git
 
-We also require a small hotfix for pkg-config, as required by easi (and subsequently also SeisSol) right now. It is needed to work correctly with the Cray environment (only the folders hdf5-parallel and netcdf-hdf5parallel are included by default; but these do not contain the non-parallel pkgconfigs).
-The Cray packages provide only parallel pkg-config files (e.g. hdf5_parallel.pc), which list dependencies such as mpich and netcdf. These dependency names are standard upstream pkg-config names, but Cray’s MPI and NetCDF packages do not ship matching .pc files (mpich.pc and netcdf.pc).
-Therefore, we add small wrapper pkg-config files (mpich.pc and netcdf.pc) that point to the Cray MPI and NetCDF installations. This allows pkg-config (and thus CMake) to resolve all dependencies correctly.
-Please execute the following code within `$SEISSOL_BASE`:
+
+To allow CMake to find Cray-specific NetCDF and MPI dependencies, we create a wrapper file, netcdf.pc within our local prefix. Note that we now place it in $SEISSOL_PREFIX/lib/pkgconfig.
+This hotfix is required, because the Cray packages provide only parallel pkg-config files (e.g. hdf5_parallel.pc), which list dependencies such as netcdf.
+These dependency names are standard upstream pkg-config names, but Cray’s NetCDF packages do not ship matching .pc files (netcdf.pc).
+Please execute the following code:
 
 .. code-block:: bash
 
-    cat > mpich.pc <<'EOF'
-    prefix=/opt/cray/pe/mpich/8.1.32
-    exec_prefix=\${prefix}
-    libdir=\${prefix}/lib
-    includedir=\${prefix}/include
-
-    Name: mpich
-    Description: Cray MPI wrapper
-    Version: 8.1.32
-
-    Cflags: -I\${includedir}
-    Libs: -L\${libdir} -lmpich
-    EOF
-
-and
-
-.. code-block:: bash
-
-    cat > netcdf.pc <<'EOF'
+    cat > $SEISSOL_PREFIX/lib/pkgconfig/netcdf.pc <<'EOF'
     prefix=/opt/cray/pe/netcdf-hdf5parallel/4.9.0.17/amd/6.0
     exec_prefix=\${prefix}
     libdir=\${prefix}/lib
@@ -137,6 +67,52 @@ and
     EOF
 
 
+Next, we  update `~/.bashrc`, to automatically load the necessary modules for our SeisSol build, and set up installation paths.
+We set the compilers to the cray compiler wrappers (which in our case use ``amdclang`` internally).
+Add to your `~/.bashrc` file (again update project name and user name):
+
+.. code-block:: bash
+
+    module load LUMI partition/G
+    module load rocm
+    module load cpeAMD
+    module load Eigen
+    module load cray-hdf5-parallel
+    module load cray-netcdf-hdf5parallel
+    module load cray-python
+
+    export SEISSOL_BASE=/scratch/<your_project>/<your_name>/seissol_base
+    export SEISSOL_PREFIX=$SEISSOL_BASE/local
+
+    export CMAKE_PREFIX_PATH=$SEISSOL_PREFIX:$CMAKE_PREFIX_PATH
+    export PKG_CONFIG_PATH=$SEISSOL_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH
+
+    if [ -f "$SEISSOL_PREFIX/bin/activate" ]; then
+        source $SEISSOL_PREFIX/bin/activate
+    fi
+
+    export CC=cc
+    export CXX=CC
+    export FC=ftn
+
+Don't forget to source the  `~/.bashrc` after these changes:
+
+.. code-block:: bash
+
+    source ~/.bashrc
+
+Next, we also start up our Python installation. The virtual environment sets additional paths for e.g. executables to our prefix directory automatically.
+
+.. code-block:: bash
+
+    pip install setuptools
+    pip install numpy
+    pip install ninja
+    pip install pybind11
+    pip install git+https://github.com/SeisSol/PSpaMM.git
+    pip install git+https://github.com/SeisSol/gemmforge.git
+    pip install git+https://github.com/SeisSol/chainforge.git
+    pip install git+https://github.com/SeisSol/TensorForge.git
 
 Then, we can start installing the modules.
 The required packages can be installed as described in the dependency installing guide itself.
@@ -271,4 +247,5 @@ The pinning on the LUMI nodes needs some special attention, since 8 out of the 6
     export DEVICE_STACK_MEM_SIZE=4
     export SEISSOL_FREE_CPUS_MASK="52-54,60-62,20-22,28-30,4-6,12-14,36-38,44-46"
 
-    srun --cpu-bind=mask_cpu:${CPU_BIND} seissol-launch SeisSol_Release_sgfx90a_hip_6_elastic parameters.par
+    # see https://github.com/SeisSol/SeisSol/issues/1458 for why the --unbuffered
+    srun --unbuffered --cpu-bind=mask_cpu:${CPU_BIND} seissol-launch SeisSol_Release_sgfx90a_hip_6_elastic parameters.par
