@@ -258,7 +258,6 @@ if (WITH_GPU)
           Initializer/BatchRecorders/NeighIntegrationRecorder.cpp
           Initializer/BatchRecorders/PlasticityRecorder.cpp
           Initializer/BatchRecorders/DynamicRuptureRecorder.cpp
-          Parallel/AcceleratorDevice.cpp
           DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.cpp
           Kernels/PointSourceClusterOnDevice.cpp)
 

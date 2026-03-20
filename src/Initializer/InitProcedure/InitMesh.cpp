@@ -105,8 +105,8 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
     }
   }
 
-  seissol::Mpi::mpi.allreduceContainer(maxPointValue, MPI_MAX, seissol::Mpi::mpi.comm());
-  seissol::Mpi::mpi.allreduceContainer(minPointValue, MPI_MIN, seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.allreduceContainer(maxPointValue, MPI_MAX);
+  seissol::Mpi::mpi.allreduceContainer(minPointValue, MPI_MIN);
 
   logInfo() << "Smallest bounding box around the mesh: <" << minPointValue[0] << minPointValue[1]
             << minPointValue[2] << "> to <" << maxPointValue[0] << maxPointValue[1]

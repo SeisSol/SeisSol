@@ -18,8 +18,6 @@
 #include <utils/stringutils.h>
 
 #ifdef ACL_DEVICE
-#include "Parallel/AcceleratorDevice.h"
-
 #include <Device/device.h>
 #endif
 
@@ -45,7 +43,7 @@ void seissol::Mpi::init(int& argc, char**& argv) {
   // Test this after setComm() to get the correct rank_
   if (provided < required) {
     logError() << utils::nospace << "Provided MPI thread support (" << provided
-               << ") is smaller than required thread support (" << required << ").";
+               << ") is less than required thread support (" << required << ").";
   }
 }
 
@@ -62,20 +60,19 @@ void seissol::Mpi::setComm(MPI_Comm comm) {
 
 void seissol::Mpi::bindAcceleratorDevice() {
 #ifdef ACL_DEVICE
-  auto& instance = seissol::AcceleratorDevice::getInstance();
-  instance.bindAcceleratorDevice(0);
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  device.api->setDevice(0);
 #endif
 }
 
 void seissol::Mpi::printAcceleratorDeviceInfo() {
 #ifdef ACL_DEVICE
-  auto& instance = seissol::AcceleratorDevice::getInstance();
-  instance.printInfo();
-
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   const auto pci = device.api->getPciAddress(0);
   const auto pcisNode = collectContainer(pci, sharedMemComm_);
   pcis = collectContainer(pci);
+  logInfo() << "Device API:" << device.api->getApiName();
+  logInfo() << "Device name (rank=0):" << device.api->getDeviceName(0);
   logInfo() << "Device PCI address (rank=0): " << pci;
   logInfo() << "Device PCI addresses (node of rank=0):" << pcisNode;
 #endif
