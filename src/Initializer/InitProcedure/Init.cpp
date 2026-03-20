@@ -108,7 +108,7 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
 
   // just put a barrier here to make sure everyone is synched
   logInfo() << "Finishing initialization...";
-  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.barrier();
 
   seissol::Stopwatch watch;
   logInfo() << "Starting simulation.";
@@ -119,7 +119,7 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
 
   // make sure everyone is really done
   logInfo() << "Simulation done.";
-  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.barrier();
 
   closeSeisSol(seissolInstance);
 }

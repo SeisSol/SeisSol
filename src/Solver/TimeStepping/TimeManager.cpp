@@ -284,7 +284,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 
   communicationManager->reset(synchronizationTime);
 
-  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.barrier();
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
