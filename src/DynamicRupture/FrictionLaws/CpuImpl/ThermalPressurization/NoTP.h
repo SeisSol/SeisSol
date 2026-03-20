@@ -25,7 +25,7 @@ class NoTP {
                          bool saveTmpInTP,
                          std::size_t ltsFace) {}
 
-  [[nodiscard]] static real getFluidPressure(unsigned /*unused*/, unsigned /*unused*/) {
+  [[nodiscard]] static real getFluidPressure(std::size_t /*unused*/, std::uint32_t /*unused*/) {
     return 0;
   };
 };

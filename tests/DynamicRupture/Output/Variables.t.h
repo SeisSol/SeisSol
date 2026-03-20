@@ -78,9 +78,6 @@ TEST_CASE("DR Variables") {
       }
     };
     misc::forEach(drVars, initVariables);
-
-    auto deallocateVariables = [](auto& var, int) { var.releaseData(); };
-    misc::forEach(drVars, deallocateVariables);
   }
 }
 } // namespace seissol::unit_test

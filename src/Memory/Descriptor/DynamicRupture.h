@@ -44,6 +44,8 @@ struct DynamicRupture {
       : nucleationCount(parameters->nucleationCount) {}
 
   virtual ~DynamicRupture() = default;
+  struct TimeDofsPlus : public initializer::Variable<real*> {};
+  struct TimeDofsMinus : public initializer::Variable<real*> {};
   struct TimeDerivativePlus : public initializer::Variable<real*> {};
   struct TimeDerivativeMinus : public initializer::Variable<real*> {};
   struct TimeDerivativePlusDevice : public initializer::Variable<real*> {};
@@ -106,6 +108,8 @@ struct DynamicRupture {
   virtual void addTo(Storage& storage) {
     using namespace seissol::initializer;
     const auto mask = LayerMask(Ghost);
+    storage.add<TimeDofsPlus>(mask, Alignment, AllocationMode::HostOnly, true);
+    storage.add<TimeDofsMinus>(mask, Alignment, AllocationMode::HostOnly, true);
     storage.add<TimeDerivativePlus>(mask, Alignment, AllocationMode::HostOnly, true);
     storage.add<TimeDerivativeMinus>(mask, Alignment, AllocationMode::HostOnly, true);
     storage.add<TimeDerivativePlusDevice>(mask, Alignment, AllocationMode::HostOnly, true);

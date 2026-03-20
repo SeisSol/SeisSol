@@ -110,6 +110,8 @@ class DirichletBoundary {
         dataTable[key].get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
     nodalLfKrnl.extraOffset_AminusT =
         SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, faceIdx);
+    SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData, nAmNm1);
+
     nodalLfKrnl.linearAllocator.initialize(auxTmpMem.get());
     nodalLfKrnl.streamPtr = deviceStream;
     nodalLfKrnl.execute(faceIdx);
