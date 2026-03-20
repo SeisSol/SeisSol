@@ -24,6 +24,18 @@
 #include <unordered_map>
 #include <utils/logger.h>
 
+#ifdef MPI_VERSION
+#if MPI_VERSION >= 4
+#define SEISSOL_MPI_LARGEINT
+#endif
+#endif
+
+#ifdef SEISSOL_MPI_LARGEINT
+#define SEISSOL_MPI_C(fun) fun##_c
+#else
+#define SEISSOL_MPI_C(fun) fun
+#endif
+
 namespace seissol {
 
 /**
@@ -34,6 +46,12 @@ namespace seissol {
 class Mpi : public MpiBasic {
   public:
   ~Mpi() override = default;
+
+#ifdef SEISSOL_MPI_LARGEINT
+  using Count = MPI_Count;
+#else
+  using Count = int;
+#endif
 
   /**
    * @brief Inits Device(s).
@@ -82,6 +100,10 @@ class Mpi : public MpiBasic {
       return MPI_SHORT;
     } else if constexpr (std::is_same_v<T, char>) {
       return MPI_CHAR;
+    } else if constexpr (std::is_same_v<T, unsigned short>) {
+      return MPI_UNSIGNED_SHORT;
+    } else if constexpr (std::is_same_v<T, unsigned char>) {
+      return MPI_UNSIGNED_CHAR;
     } else if constexpr (std::is_same_v<T, bool>) {
       return MPI_C_BOOL;
     } else if constexpr (std::is_same_v<T, std::pair<float, int>>) {
