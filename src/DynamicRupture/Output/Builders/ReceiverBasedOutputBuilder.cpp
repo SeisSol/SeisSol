@@ -16,16 +16,21 @@
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
+#include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
+#include "Parallel/DataCollector.h"
+#include "Parallel/Helper.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>
@@ -34,21 +39,12 @@
 #include <cassert>
 #include <cstddef>
 #include <functional>
+#include <memory>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 #include <yateto.h>
-
-#ifdef ACL_DEVICE
-#include "GeneratedCode/tensor.h"
-#include "Kernels/Solver.h"
-#include "Memory/Tree/Layer.h"
-#include "Parallel/DataCollector.h"
-#include "Parallel/Helper.h"
-
-#include <memory>
-#endif
 
 namespace seissol::dr::output {
 void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshReader* reader) {
