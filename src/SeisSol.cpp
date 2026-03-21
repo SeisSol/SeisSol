@@ -35,8 +35,6 @@ bool SeisSol::init() {
   logInfo() << "Node-wide (shared memory) MPI with #ranks/node:"
             << seissol::Mpi::mpi.sharedMemMpiSize();
   seissol::Mpi::mpi.printAcceleratorDeviceInfo();
-  // TODO (Ravil, David): switch to reading MPI options from the parameter-file.
-  seissol::Mpi::mpi.setDataTransferModeFromEnv();
 
   printPersistentMpiInfo(m_env);
 #ifdef ACL_DEVICE

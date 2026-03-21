@@ -78,34 +78,4 @@ void seissol::Mpi::printAcceleratorDeviceInfo() {
 #endif
 }
 
-void seissol::Mpi::setDataTransferModeFromEnv() {
-  const auto envVariable =
-      utils::Env("SEISSOL_").getOptional<std::string>("PREFERRED_MPI_DATA_TRANSFER_MODE");
-  if (envVariable.has_value()) {
-    std::string option{envVariable.value()};
-    std::transform(option.begin(), option.end(), option.begin(), [](unsigned char c) {
-      return std::tolower(c);
-    });
-
-    if (option == "direct") {
-      preferredDataTransferMode = DataTransferMode::Direct;
-    } else if (option == "host") {
-      preferredDataTransferMode = DataTransferMode::CopyInCopyOutHost;
-    } else {
-      logWarning() << "Ignoring `SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`."
-                   << "Expected values: direct, host.";
-      option = "direct";
-    }
-#ifndef ACL_DEVICE
-    if (preferredDataTransferMode != DataTransferMode::Direct) {
-      logWarning() << "The CPU version of SeisSol supports"
-                   << "only the `direct` MPI transfer mode.";
-      option = "direct";
-      preferredDataTransferMode = DataTransferMode::Direct;
-    }
-#endif
-    logInfo() << "Selected" << option << "MPI data transfer mode as the preferred one";
-  }
-}
-
 seissol::Mpi seissol::Mpi::mpi;

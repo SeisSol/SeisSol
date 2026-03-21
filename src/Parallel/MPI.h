@@ -391,11 +391,6 @@ class Mpi {
     MPI_Finalize();
   }
 
-  void setDataTransferModeFromEnv();
-
-  enum class DataTransferMode { Direct, CopyInCopyOutHost };
-  DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode; }
-
   /** The only instance of the class */
   static Mpi mpi;
 
@@ -403,7 +398,6 @@ class Mpi {
   MPI_Comm comm_{MPI_COMM_NULL};
   MPI_Comm sharedMemComm_{};
   Mpi() = default;
-  DataTransferMode preferredDataTransferMode{DataTransferMode::Direct};
   std::vector<std::string> hostNames;
   std::vector<std::string> pcis;
   std::unordered_map<std::type_index, MPI_Datatype> cachedTypes;

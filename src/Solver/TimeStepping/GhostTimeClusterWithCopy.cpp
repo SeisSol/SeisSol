@@ -9,12 +9,13 @@
 
 #include "Solver/TimeStepping/GhostTimeClusterWithCopy.h"
 
+#include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 
 #include <Device/device.h>
 
 namespace seissol::time_stepping {
-template <Mpi::DataTransferMode CommType>
+template <DataTransferMode CommType>
 GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(
     double maxTimeStepSize,
     int timeStepRate,
@@ -38,7 +39,7 @@ GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(
     prefetchCopyRegionsStreams[region] = device.api->createStream();
     const size_t copyRegionSize = this->meshStructure.copy[region].size *
                                   sizeOfRealType(this->meshStructure.copy[region].datatype);
-    if constexpr (CommType == Mpi::DataTransferMode::CopyInCopyOutHost) {
+    if constexpr (CommType == DataTransferMode::CopyInCopyOutHost) {
       duplicatedCopyRegions[region] = device.api->allocPinnedMem(copyRegionSize);
     }
 
@@ -57,7 +58,7 @@ GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(
     receiveRegionsStates[region] = ReceiveState::RequiresMpiTesting;
     const size_t ghostRegionSize = this->meshStructure.ghost[region].size *
                                    sizeOfRealType(this->meshStructure.ghost[region].datatype);
-    if constexpr (CommType == Mpi::DataTransferMode::CopyInCopyOutHost) {
+    if constexpr (CommType == DataTransferMode::CopyInCopyOutHost) {
       duplicatedGhostRegions[region] = device.api->allocPinnedMem(ghostRegionSize);
     }
 
@@ -73,23 +74,23 @@ GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(
   }
 }
 
-template <Mpi::DataTransferMode CommType>
+template <DataTransferMode CommType>
 GhostTimeClusterWithCopy<CommType>::~GhostTimeClusterWithCopy() {
   for (size_t region = 0; region < this->meshStructure.copy.size(); ++region) {
     device.api->destroyGenericStream(prefetchCopyRegionsStreams[region]);
-    if constexpr (CommType == Mpi::DataTransferMode::CopyInCopyOutHost) {
+    if constexpr (CommType == DataTransferMode::CopyInCopyOutHost) {
       device.api->freePinnedMem(duplicatedCopyRegions[region]);
     }
   }
   for (size_t region = 0; region < this->meshStructure.ghost.size(); ++region) {
     device.api->destroyGenericStream(prefetchGhostRegionsStreams[region]);
-    if constexpr (CommType == Mpi::DataTransferMode::CopyInCopyOutHost) {
+    if constexpr (CommType == DataTransferMode::CopyInCopyOutHost) {
       device.api->freePinnedMem(duplicatedGhostRegions[region]);
     }
   }
 }
 
-template <Mpi::DataTransferMode CommType>
+template <DataTransferMode CommType>
 void GhostTimeClusterWithCopy<CommType>::finalize() {
   if (persistent) {
     for (size_t region = 0; region < sendRequests.size(); ++region) {
@@ -101,7 +102,7 @@ void GhostTimeClusterWithCopy<CommType>::finalize() {
   }
 }
 
-template <Mpi::DataTransferMode CommType>
+template <DataTransferMode CommType>
 void GhostTimeClusterWithCopy<CommType>::sendCopyLayer() {
   SCOREP_USER_REGION("sendCopyLayer", SCOREP_USER_REGION_TYPE_FUNCTION)
   assert(ct.correctionTime > lastSendTime);
@@ -133,7 +134,7 @@ void GhostTimeClusterWithCopy<CommType>::sendCopyLayer() {
   }
 }
 
-template <Mpi::DataTransferMode CommType>
+template <DataTransferMode CommType>
 void GhostTimeClusterWithCopy<CommType>::receiveGhostLayer() {
   SCOREP_USER_REGION("receiveGhostLayer", SCOREP_USER_REGION_TYPE_FUNCTION)
   assert(ct.predictionTime >= lastSendTime);
@@ -155,7 +156,7 @@ void GhostTimeClusterWithCopy<CommType>::receiveGhostLayer() {
   }
 }
 
-template <Mpi::DataTransferMode CommType>
+template <DataTransferMode CommType>
 bool GhostTimeClusterWithCopy<CommType>::testReceiveQueue() {
   for (auto region = receiveQueue.begin(); region != receiveQueue.end();) {
     const auto state = receiveRegionsStates[*region];
@@ -190,20 +191,20 @@ bool GhostTimeClusterWithCopy<CommType>::testReceiveQueue() {
   return receiveQueue.empty();
 }
 
-template <Mpi::DataTransferMode CommType>
+template <DataTransferMode CommType>
 bool GhostTimeClusterWithCopy<CommType>::testForGhostLayerReceives() {
   SCOREP_USER_REGION("testForGhostLayerReceives", SCOREP_USER_REGION_TYPE_FUNCTION)
   return testReceiveQueue();
 }
 
-template <Mpi::DataTransferMode CommType>
+template <DataTransferMode CommType>
 std::list<int> GhostTimeClusterWithCopy<CommType>::prefetchCopyLayer() {
   std::list<int> prefetchedRegions{};
   for (std::size_t region = 0; region < prefetchCopyRegionsStreams.size(); ++region) {
     auto* stream = prefetchCopyRegionsStreams[region];
     const auto messageSize = this->meshStructure.copy[region].size;
 
-    if constexpr (CommType == Mpi::DataTransferMode::CopyInCopyOutHost) {
+    if constexpr (CommType == DataTransferMode::CopyInCopyOutHost) {
       device.api->copyFromAsync(duplicatedCopyRegions[region],
                                 this->meshStructure.copy[region].data,
                                 messageSize *
@@ -215,11 +216,11 @@ std::list<int> GhostTimeClusterWithCopy<CommType>::prefetchCopyLayer() {
   return prefetchedRegions;
 }
 
-template <Mpi::DataTransferMode CommType>
+template <DataTransferMode CommType>
 void GhostTimeClusterWithCopy<CommType>::prefetchGhostRegion(std::size_t region) {
   auto* stream = prefetchGhostRegionsStreams[region];
   const auto messageSize = this->meshStructure.ghost[region].size;
-  if constexpr (CommType == Mpi::DataTransferMode::CopyInCopyOutHost) {
+  if constexpr (CommType == DataTransferMode::CopyInCopyOutHost) {
     device.api->copyToAsync(this->meshStructure.ghost[region].data,
                             duplicatedGhostRegions[region],
                             messageSize *
@@ -228,6 +229,6 @@ void GhostTimeClusterWithCopy<CommType>::prefetchGhostRegion(std::size_t region)
   }
 }
 
-template class GhostTimeClusterWithCopy<Mpi::DataTransferMode::CopyInCopyOutHost>;
+template class GhostTimeClusterWithCopy<DataTransferMode::CopyInCopyOutHost>;
 } // namespace seissol::time_stepping
 #endif // ACL_DEVICE

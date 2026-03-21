@@ -184,7 +184,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   }
 
   // Create ghost time clusters for MPI
-  const auto preferredDataTransferMode = Mpi::mpi.getPreferredDataTransferMode();
+  const auto preferredDataTransferMode = getDataTransferMode(seissolInstance.env());
   const auto persistent = usePersistentMpi(seissolInstance.env());
   for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost | Interior)) {
 
