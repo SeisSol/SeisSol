@@ -444,7 +444,7 @@ endif()
 # C++ compiler settings
 # TODO: mostly remove or make optional? (except the EIGEN_DONT_VECTORIZE for NVHPC below)
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  target_compile_options(seissol-common-properties INTERFACE $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-pedantic -Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
+  target_compile_options(seissol-common-properties INTERFACE $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-pedantic -Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas -Wno-maybe-uninitialized>)
 
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
@@ -474,6 +474,10 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
       # 2. EIGEN_DONT_VECTORIZE=1 ; Eigen3 3.4 does not have support for NVHPC vectorization
       target_compile_definitions(seissol-common-properties INTERFACE EIGEN_DONT_VECTORIZE=0)
     endif()
+endif()
+
+if (WERROR)
+  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-Werror>)
 endif()
 
 find_package(FILESYSTEM REQUIRED)

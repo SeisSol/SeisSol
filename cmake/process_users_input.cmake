@@ -106,6 +106,8 @@ option(BUILD_DOCS "Build the SeisSol Documentation" OFF)
 
 option(BUILD_DOXYGEN "Build the SeisSol Doxygen docs" OFF)
 
+option(WERROR "Build with -Werror" OFF)
+
 # FIXME: currently unused
 #set(LOG_LEVEL "warning" CACHE STRING "Log level for the code")
 #set(LOG_LEVEL_OPTIONS "debug" "info" "warning" "error")
