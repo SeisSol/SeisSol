@@ -253,7 +253,6 @@ TEST_CASE("DR Geometry") {
 
     Eigen::Vector3d points[3] = {{0.25, 0.25, 0.25}, {0.5, 0.5, 0.5}, {0.75, 0.75, 0.1}};
     const unsigned numPoints = 3;
-    short contained[3] = {0, 0, 0};
     std::size_t meshId[3] = {std::numeric_limits<std::size_t>::max(),
                              std::numeric_limits<std::size_t>::max(),
                              std::numeric_limits<std::size_t>::max()};
@@ -283,8 +282,9 @@ TEST_CASE("DR Geometry") {
     e2.vertices[3] = 5;
     elements.push_back(e2);
 
-    const auto contained =
-        initializer::findUniqueMeshIds(points, vertices, elements, numPoints, meshId);
+    MockReader mesh(vertices, elements);
+
+    const auto contained = initializer::findUniqueMeshIds(points, mesh, numPoints, meshId);
 
     CHECK(contained[0]);
     CHECK_FALSE(contained[1]);
