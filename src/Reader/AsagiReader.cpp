@@ -13,6 +13,7 @@
 #include "Reader/AsagiModule.h"
 
 #include <asagi.h>
+#include <cstddef>
 #include <mpi.h>
 #include <string>
 #include <utils/env.h>

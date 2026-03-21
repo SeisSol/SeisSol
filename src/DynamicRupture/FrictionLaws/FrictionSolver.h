@@ -69,7 +69,7 @@ class FrictionSolver {
    */
   real deltaT[misc::TimeSteps] = {};
 
-  FrictionLawParameters drParameters{};
+  FrictionLawParameters drParameters;
   ImpedancesAndEta* __restrict impAndEta{};
   ImpedanceMatrices* __restrict impedanceMatrices{};
   real mFullUpdateTime{};

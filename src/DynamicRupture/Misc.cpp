@@ -10,6 +10,7 @@
 #include "Geometry/MeshDefinition.h"
 #include "Initializer/Parameters/DRParameters.h"
 
+#include <algorithm>
 #include <cmath>
 #include <string>
 #include <utils/logger.h>
@@ -74,35 +75,27 @@ std::string frictionLawName(seissol::dr::misc::FrictionLawType type) {
 
 namespace seissol::dr {
 FrictionLawParameters::FrictionLawParameters(
-    const seissol::initializer::parameters::DRParameters& parameters) {
-  this->healingThreshold = parameters.healingThreshold;
-  this->tpProxyExponent = parameters.tpProxyExponent;
-  this->rsF0 = parameters.rsF0;
-  this->rsB = parameters.rsB;
-  this->rsSr0 = parameters.rsSr0;
-  this->rsInitialSlipRate1 = parameters.rsInitialSlipRate1;
-  this->rsInitialSlipRate2 = parameters.rsInitialSlipRate2;
-  this->muW = parameters.muW;
-  this->thermalDiffusivity = parameters.thermalDiffusivity;
-  this->heatCapacity = parameters.heatCapacity;
-  this->undrainedTPResponse = parameters.undrainedTPResponse;
-  this->initialTemperature = parameters.initialTemperature;
-  this->initialPressure = parameters.initialPressure;
-  this->vStar = parameters.vStar;
-  this->prakashLength = parameters.prakashLength;
-  this->terminatorSlipRateThreshold = parameters.terminatorSlipRateThreshold;
-  this->etaDamp = parameters.etaDamp;
-  this->etaDampEnd = parameters.etaDampEnd;
+    const seissol::initializer::parameters::DRParameters& parameters)
+    : healingThreshold(parameters.healingThreshold),
+      energiesFromAcrossFaultVelocities(parameters.energiesFromAcrossFaultVelocities),
+      etaDamp(parameters.etaDamp), etaDampEnd(parameters.etaDampEnd),
+      heatCapacity(parameters.heatCapacity), initialPressure(parameters.initialPressure),
+      initialTemperature(parameters.initialTemperature),
+      isCheckAbortCriteraEnabled(parameters.isCheckAbortCriteraEnabled),
+      isFrictionEnergyRequired(parameters.isFrictionEnergyRequired), muW(parameters.muW),
+      nucleationCount(parameters.nucleationCount), prakashLength(parameters.prakashLength),
+      rsB(parameters.rsB), rsF0(parameters.rsF0), rsInitialSlipRate1(parameters.rsInitialSlipRate1),
+      rsInitialSlipRate2(parameters.rsInitialSlipRate2),
+      rsMaxNumberSlipRateUpdates(parameters.rsMaxNumberSlipRateUpdates),
+      rsNewtonTolerance(parameters.rsNewtonTolerance),
+      rsNumberStateVariableUpdates(parameters.rsNumberStateVariableUpdates),
+      rsSr0(parameters.rsSr0), rsStateTolerance(parameters.rsStateTolerance),
+      terminatorSlipRateThreshold(parameters.terminatorSlipRateThreshold),
+      thermalDiffusivity(parameters.thermalDiffusivity),
+      tpProxyExponent(parameters.tpProxyExponent),
+      undrainedTPResponse(parameters.undrainedTPResponse), vStar(parameters.vStar) {
+
   std::copy(parameters.t0.begin(), parameters.t0.end(), this->t0.begin());
   std::copy(parameters.s0.begin(), parameters.s0.end(), this->s0.begin());
-  this->nucleationCount = parameters.nucleationCount;
-  this->rsMaxNumberSlipRateUpdates = parameters.rsMaxNumberSlipRateUpdates;
-  this->rsNumberStateVariableUpdates = parameters.rsNumberStateVariableUpdates;
-  this->rsNewtonTolerance = parameters.rsNewtonTolerance;
-  this->rsStateTolerance = parameters.rsStateTolerance;
-
-  this->isFrictionEnergyRequired = parameters.isFrictionEnergyRequired;
-  this->isCheckAbortCriteraEnabled = parameters.isCheckAbortCriteraEnabled;
-  this->energiesFromAcrossFaultVelocities = parameters.energiesFromAcrossFaultVelocities;
 }
 } // namespace seissol::dr

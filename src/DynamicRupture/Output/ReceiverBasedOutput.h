@@ -103,7 +103,8 @@ class ReceiverOutput {
     onfault receiver output on GPUs)
    */
   template <typename StorageT>
-  const std::remove_extent_t<typename StorageT::Type>* getCellData(const LocalInfo& local) const {
+  [[nodiscard]] const std::remove_extent_t<typename StorageT::Type>*
+      getCellData(const LocalInfo& local) const {
     const auto devVar = local.state->deviceVariables.find(drStorage->info<StorageT>().index);
     if (devVar != local.state->deviceVariables.end()) {
       return reinterpret_cast<const std::remove_extent_t<typename StorageT::Type>*>(

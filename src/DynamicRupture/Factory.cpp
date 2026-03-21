@@ -7,6 +7,7 @@
 
 #include "Factory.h"
 
+#include "DynamicRupture/Misc.h"
 #include "FrictionLaws/FrictionLaws.h"
 #include "Initializer/Initializers.h"
 #include "Initializer/Parameters/DRParameters.h"

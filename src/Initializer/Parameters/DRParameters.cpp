@@ -7,8 +7,8 @@
 
 #include "DRParameters.h"
 
+#include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/ParameterReader.h"
-#include "Kernels/Precision.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>

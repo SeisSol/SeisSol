@@ -202,8 +202,8 @@ enum QuantityIndices : uint32_t {
 // NOLINTEND ()
 
 namespace seissol::initializer::parameters {
-class DRParameters;
-}
+struct DRParameters;
+} // namespace seissol::initializer::parameters
 
 namespace seissol::dr {
 // compile-time parameter; rather arbitrary (and just large enough for most cases). It's there to
@@ -247,7 +247,7 @@ struct FrictionLawParameters {
   bool energiesFromAcrossFaultVelocities{false};
 
   FrictionLawParameters() = default;
-  FrictionLawParameters(const seissol::initializer::parameters::DRParameters& parameters);
+  explicit FrictionLawParameters(const seissol::initializer::parameters::DRParameters& parameters);
 };
 } // namespace seissol::dr
 
