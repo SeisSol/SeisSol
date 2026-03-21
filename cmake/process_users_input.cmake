@@ -171,21 +171,43 @@ if (HOST_ARCH STREQUAL "auto")
 endif()
 
 if (DEVICE_ARCH STREQUAL "auto")
-    message(STATUS "Determining device arch supported on the current system")
+    if (DEVICE_BACKEND STREQUAL "none")
 
-    # generic is the default
-    set(_DEVICE_ARCH "generic")
+        # make sure to disable here
+        set(DEVICE_ARCH "none" CACHE STRING "" FORCE)
 
-    if (DEVICE_BACKEND STREQUAL "cuda")
-        determine_nvidia_arch(_DEVICE_ARCH)
-    elseif (DEVICE_BACKEND STREQUAL "hip")
-        determine_amd_arch(_DEVICE_ARCH)
-    elseif (DEVICE_BACKEND STREQUAL "oneapi")
-        determine_oneapi_arch(_DEVICE_ARCH)
+    else()
+
+        message(STATUS "Determining device arch supported on the current system")
+
+        # generic is the default
+        set(_DEVICE_ARCH "generic")
+
+        if (DEVICE_BACKEND STREQUAL "cuda")
+            determine_nvidia_arch(_DEVICE_ARCH)
+        elseif (DEVICE_BACKEND STREQUAL "hip")
+            determine_amd_arch(_DEVICE_ARCH)
+        elseif (DEVICE_BACKEND STREQUAL "oneapi")
+            determine_oneapi_arch(_DEVICE_ARCH)
+        endif()
+
+        set(DEVICE_ARCH "${_DEVICE_ARCH}" CACHE STRING "" FORCE)
+        message(STATUS "Fixed the device arch to ${DEVICE_ARCH}")
+
     endif()
+endif()
 
-    set(DEVICE_ARCH "${_DEVICE_ARCH}" CACHE STRING "" FORCE)
-    message(STATUS "Fixed the device arch to ${DEVICE_ARCH}")
+if (DEVICE_ARCH STREQUAL "generic")
+    if (DEVICE_BACKEND STREQUAL "cuda")
+        # set to minimum SM capability still supported
+        set(DEVICE_ARCH "sm_75" CACHE STRING "" FORCE)
+    elseif (DEVICE_BACKEND STREQUAL "acpp")
+        # passthrough
+    elseif (DEVICE_BACKEND STREQUAL "none")
+        # passthrough
+    else()
+        message(FATAL_ERROR "DEVICE_ARCH generic is not supported for DEVICE_BACKEND ${DEVICE_BACKEND}")
+    endif()
 endif()
 
 # deduce GEMM_TOOLS_LIST based on the host arch
