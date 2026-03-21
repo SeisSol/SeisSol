@@ -22,6 +22,7 @@
 #include "ResultWriter/ClusteringWriter.h"
 #include "ResultWriter/ReceiverWriter.h"
 #include "SeisSol.h"
+#include "Solver/Settings.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 #include "Solver/TimeStepping/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/ActorState.h"

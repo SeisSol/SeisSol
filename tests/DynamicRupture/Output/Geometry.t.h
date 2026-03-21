@@ -282,7 +282,7 @@ TEST_CASE("DR Geometry") {
     e2.vertices[3] = 5;
     elements.push_back(e2);
 
-    MockReader mesh(vertices, elements);
+    const MockReader mesh(vertices, elements);
 
     const auto contained = initializer::findUniqueMeshIds(points, mesh, numPoints, meshId);
 

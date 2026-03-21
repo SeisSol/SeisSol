@@ -43,6 +43,7 @@
 #include "Numerical/Quadrature.h"
 #include "Parallel/OpenMP.h"
 #include "SeisSol.h"
+#include "Solver/Settings.h"
 #include "Solver/TimeStepping/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/ActorState.h"
 

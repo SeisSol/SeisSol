@@ -8,7 +8,9 @@
 
 #include "WaveFieldWriter.h"
 
+#include "Common/Constants.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/Refinement/MeshRefiner.h"

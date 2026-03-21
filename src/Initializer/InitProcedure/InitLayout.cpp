@@ -25,6 +25,7 @@
 #include "SeisSol.h"
 #include "Solver/Settings.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
