@@ -46,7 +46,7 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
   real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
   real** buffers = layer.var<LTS::Buffers>();
   real** derivatives = layer.var<LTS::Derivatives>();
-  real*(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
+  auto* faceNeighbors = layer.var<LTS::FaceNeighbors>();
   auto* localIntegration = layer.var<LTS::LocalIntegration>();
   auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
   auto* cellInformation = layer.var<LTS::CellInformation>();
@@ -56,7 +56,7 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
 
   real** buffersDevice = layer.var<LTS::BuffersDevice>();
   real** derivativesDevice = layer.var<LTS::DerivativesDevice>();
-  real*(*faceNeighborsDevice)[4] = layer.var<LTS::FaceNeighborsDevice>();
+  auto* faceNeighborsDevice = layer.var<LTS::FaceNeighborsDevice>();
   real* bucketDevice =
       static_cast<real*>(layer.var<LTS::BuffersDerivatives>(initializer::AllocationPlace::Device));
 
@@ -226,7 +226,7 @@ void ProxyData::initDataStructures(bool enableDR) {
 
   if (enableDR) {
     // From lts storage
-    CellDRMapping(*drMapping)[4] =
+    auto* drMapping =
         isDeviceOn() ? ltsStorage.var<LTS::DRMappingDevice>() : ltsStorage.var<LTS::DRMapping>();
 
     constexpr initializer::AllocationPlace Place =

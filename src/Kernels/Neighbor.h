@@ -22,10 +22,11 @@ class NeighborKernel : public Kernel {
   public:
   ~NeighborKernel() override = default;
 
-  virtual void computeNeighborsIntegral(LTS::Ref& data,
-                                        const CellDRMapping (&cellDrMapping)[4],
-                                        real* timeIntegrated[4],
-                                        real* faceNeighborsPrefetch[4]) = 0;
+  virtual void
+      computeNeighborsIntegral(LTS::Ref& data,
+                               const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping,
+                               const std::array<real*, Cell::NumFaces>& timeIntegrated,
+                               const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) = 0;
 
   virtual void
       computeBatchedNeighborsIntegral(recording::ConditionalPointersToRealsTable& table,
@@ -34,7 +35,7 @@ class NeighborKernel : public Kernel {
   virtual void flopsNeighborsIntegral(
       const std::array<FaceType, Cell::NumFaces>& faceTypes,
       const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-      const CellDRMapping (&cellDrMapping)[4],
+      const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping,
       std::uint64_t& nonZeroFlops,
       std::uint64_t& hardwareFlops,
       std::uint64_t& drNonZeroFlops,

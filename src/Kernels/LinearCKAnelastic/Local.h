@@ -26,7 +26,7 @@ class Local : public LocalKernel {
                        LTS::Ref& data,
                        LocalTmp& tmp,
                        const CellMaterialData* materialData,
-                       const CellBoundaryMapping (*cellBoundaryMapping)[4],
+                       const std::array<CellBoundaryMapping, Cell::NumFaces>& cellBoundaryMapping,
                        double time,
                        double timeStepWidth) override;
 

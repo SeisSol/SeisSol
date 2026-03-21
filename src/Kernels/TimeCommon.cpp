@@ -42,9 +42,9 @@ void TimeCommon::computeIntegrals(Time& time,
                                   const std::array<FaceType, Cell::NumFaces>& faceTypes,
                                   const real* timeCoeffs,
                                   const real* subtimeCoeffs,
-                                  real* const timeDofs[4],
-                                  real integrationBuffer[4][tensor::I::size()],
-                                  real* timeIntegrated[4]) {
+                                  const std::array<real*, Cell::NumFaces>& timeDofs,
+                                  const std::array<real*, Cell::NumFaces>& integrationBuffer,
+                                  std::array<real*, Cell::NumFaces>& timeIntegrated) {
   // call the more general assembly
   /*
    * assert valid input.

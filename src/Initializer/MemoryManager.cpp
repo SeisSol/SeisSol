@@ -143,9 +143,9 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
 
   for (auto& layer : ltsStorage.leaves(Ghost)) {
 
-    CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
+    const auto* cellInformation = layer.var<LTS::CellInformation>();
     std::unordered_set<real*> registry{};
-    real*(*faceNeighbors)[Cell::NumFaces] = layer.var<LTS::FaceNeighborsDevice>();
+    auto* faceNeighbors = layer.var<LTS::FaceNeighborsDevice>();
 
     std::size_t derivativesCounter{0};
     std::size_t integratedDofsCounter{0};

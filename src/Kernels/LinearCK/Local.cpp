@@ -113,14 +113,15 @@ struct ApplyAnalyticalSolution {
 
 } // namespace
 
-void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                            LTS::Ref& data,
-                            LocalTmp& tmp,
-                            // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
-                            const CellMaterialData* materialData,
-                            const CellBoundaryMapping (*cellBoundaryMapping)[4],
-                            double time,
-                            double timeStepWidth) {
+void Local::computeIntegral(
+    real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+    LTS::Ref& data,
+    LocalTmp& tmp,
+    // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
+    const CellMaterialData* materialData,
+    const std::array<CellBoundaryMapping, Cell::NumFaces>& cellBoundaryMapping,
+    double time,
+    double timeStepWidth) {
   assert(reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
 
@@ -189,7 +190,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
 
       dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
                                  face,
-                                 (*cellBoundaryMapping)[face],
+                                 cellBoundaryMapping[face],
                                  m_projectRotatedKrnlPrototype,
                                  applyFreeSurfaceBc,
                                  dofsFaceBoundaryNodal);
@@ -199,8 +200,8 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
     }
     case FaceType::Dirichlet: {
       assert(cellBoundaryMapping != nullptr);
-      auto* easiBoundaryMap = (*cellBoundaryMapping)[face].easiBoundaryMap;
-      auto* easiBoundaryConstant = (*cellBoundaryMapping)[face].easiBoundaryConstant;
+      auto* easiBoundaryMap = cellBoundaryMapping[face].easiBoundaryMap;
+      auto* easiBoundaryConstant = cellBoundaryMapping[face].easiBoundaryConstant;
       assert(easiBoundaryConstant != nullptr);
       assert(easiBoundaryMap != nullptr);
       auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
@@ -216,7 +217,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       // Compute boundary in [n, t_1, t_2] basis
       dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
                                  face,
-                                 (*cellBoundaryMapping)[face],
+                                 cellBoundaryMapping[face],
                                  m_projectRotatedKrnlPrototype,
                                  applyEasiBoundary,
                                  dofsFaceBoundaryNodal);
@@ -235,7 +236,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
 
       dirichletBoundary.evaluateTimeDependent(timeIntegratedDegreesOfFreedom,
                                               face,
-                                              (*cellBoundaryMapping)[face],
+                                              cellBoundaryMapping[face],
                                               m_projectKrnlPrototype,
                                               applyAnalyticalSolution,
                                               dofsFaceBoundaryNodal,

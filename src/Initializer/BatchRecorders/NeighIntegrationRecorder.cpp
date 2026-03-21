@@ -36,7 +36,7 @@ void NeighIntegrationRecorder::record(LTS::Layer& layer) {
 }
 
 void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
-  real*(*faceNeighborsDevice)[4] = currentLayer->var<LTS::FaceNeighborsDevice>();
+  auto* faceNeighborsDevice = currentLayer->var<LTS::FaceNeighborsDevice>();
   real* integratedDofsScratch =
       static_cast<real*>(currentLayer->var<LTS::IntegratedDofsScratch>(AllocationPlace::Device));
 
@@ -107,7 +107,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
 }
 
 void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
-  real*(*faceNeighborsDevice)[4] = currentLayer->var<LTS::FaceNeighborsDevice>();
+  auto* faceNeighborsDevice = currentLayer->var<LTS::FaceNeighborsDevice>();
 
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicDofs {};
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicIDofs {};
@@ -120,7 +120,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularDofsExt {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofsExt {};
 
-  CellDRMapping(*drMappingDevice)[4] = currentLayer->var<LTS::DRMappingDevice>();
+  const auto* drMappingDevice = currentLayer->var<LTS::DRMappingDevice>();
 
 #ifdef USE_VISCOELASTIC2
   auto* dofsExt = currentLayer->var<LTS::DofsExtScratch>(AllocationPlace::Device);

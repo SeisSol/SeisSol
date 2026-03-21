@@ -64,14 +64,15 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                            LTS::Ref& data,
-                            LocalTmp& tmp,
-                            // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
-                            const CellMaterialData* materialData,
-                            const CellBoundaryMapping (*cellBoundaryMapping)[4],
-                            double time,
-                            double timeStepWidth) {
+void Local::computeIntegral(
+    real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+    LTS::Ref& data,
+    LocalTmp& tmp,
+    // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
+    const CellMaterialData* materialData,
+    const std::array<CellBoundaryMapping, Cell::NumFaces>& cellBoundaryMapping,
+    double time,
+    double timeStepWidth) {
   // assert alignments
 #ifndef NDEBUG
   assert((reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom)) % Alignment == 0);
