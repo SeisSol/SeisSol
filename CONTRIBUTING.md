@@ -32,8 +32,9 @@ When filing a bug report, please include:
 
 - **SeisSol version** (release tag or commit hash — check the first lines
   of SeisSol's output)
-- **Build configuration** (compiler, CMake flags such as `ORDER`,
-  `EQUATIONS`, `PRECISION`, `DEVICE_BACKEND`, `HOST_ARCH`)
+- **Build configuration** (compiler, the `CMakeCache.txt` file or
+  CMake flags such as `ORDER`, `EQUATIONS`, `PRECISION`,
+  `DEVICE_BACKEND`, `HOST_ARCH`)
 - **System environment** (OS, HPC cluster name, loaded modules, MPI
   implementation)
 - **Steps to reproduce** the issue (parameter file, mesh, easi
@@ -80,10 +81,10 @@ Feature requests are welcome. Please open an issue and describe:
 
 3. **Set up your development environment.** Follow the
    [Installing Dependencies](https://seissol.readthedocs.io/en/latest/build-dependencies.html)
-   guide. Make sure you can build and run the test suite before making
-   changes.
+   guide, then build SeisSol locally. Make sure you can build
+   and run the test suite before making changes.
 
-4. **Install pre-commit hooks** (recommended):
+4. **Install pre-commit hooks**:
 
    ```bash
    pip install pre-commit
@@ -91,7 +92,7 @@ Feature requests are welcome. Please open an issue and describe:
    ```
 
    This ensures formatting and linting checks run automatically before
-   each commit.
+   each commit. (note: pre-commit might also be available by your package manager)
 
 Now you are ready to join the development.
 
@@ -121,7 +122,7 @@ git checkout -b feature/my-new-feature
 
 # Make your changes, then build and test
 mkdir -p build && cd build
-cmake -DORDER=4 -DEQUATIONS=elastic -DTESTING=ON ..
+cmake -DTESTING=ON ..
 make -j $(nproc)
 ctest --output-on-failure
 ```
@@ -130,27 +131,27 @@ ctest --output-on-failure
 
 #### C++
 
-SeisSol uses `clang-format` to enforce a consistent code style. The
-configuration is in [`.clang-format`](.clang-format) at the repository
+SeisSol uses `clang-format` and `clang-tidy`
+to enforce a consistent code style.
+
+The configuration files are in [`.clang-format`](.clang-format)
+and [`.clang-tidy`](.clang-tidy) at the repository
 root.
 
-- **Format your code** before committing:
+- **Format your code** before committing: this is done via the pre-commit hooks.
+  If you need to format the code manually, run
 
   ```bash
   clang-format -i src/path/to/your/file.cpp
   ```
 
-  Or, if you installed pre-commit hooks, formatting is applied
-  automatically.
+- Follow the existing patterns in the codebase and use the `seissol::`
+  namespace hierarchy.
 
-- Follow the existing patterns in the codebase: use the `seissol::`
-  namespace hierarchy, prefer `enum class` over plain enums, and use
-  `std::` types from the C++ standard library.
-
-- **Static analysis**: We use `clang-tidy` (configured in
-  [`.clang-tidy`](.clang-tidy)) to catch common issues. Running it
-  locally before submitting is encouraged. To enable it,
-  add `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` to CMake.
+- **Static analysis**: Running `clang-tidy`
+  locally before submitting is encouraged, as the CI requires it to
+  pass before we can merge your code.
+  To enable it, add `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` to CMake.
   Then run (in the main folder):
 
   ```bash
@@ -159,12 +160,17 @@ root.
 
 #### Python
 
-Python code (code generation scripts, pre/postprocessing) follows PEP 8,
+Python code (code generation scripts) follows PEP 8,
 enforced by `flake8` (configured in [`.flake8`](.flake8)).
+Furthermore, we employ formatting via `black` and `isort`,
+and security checks via `bandit`.
 
-```bash
-flake8 codegen/
-```
+All of these tools are run automatically via pre-commit,
+and the CI expects them to pass as well.
+
+The scripts in pre/postprocessing can be treated more leniently
+(no formatting strictily enforced); but they should ideally
+also adhere to these tools.
 
 ### Commit Messages
 
@@ -199,12 +205,17 @@ Fixes #875
 feat: add no-fault friction law for GPU backend
 
 Implements the no-fault friction law on the device side, enabling
-free-surface simulations on GPUs without falling back to the host.
+testing simulations on GPUs without falling back to the host.
 ```
 
-Keep individual commits focused on a single logical change. It is fine to
-have multiple commits in a pull request, but please avoid mixing unrelated
+Keep individual commits focused on a single logical change.
+It is fine to have multiple commits in a pull request, but please avoid mixing unrelated
 changes (e.g., a bug fix and a formatting change) in the same commit.
+But if a sequence of commits concerns the same code change
+(i.e. no other commits in between), try combining them
+to avoid "inflating" the commit history.
+Avoid dedicated formatting commits, unless you port code to a new formatting style.
+Extra clang-tidy commits are deemed ok, as it takes longer to apply.
 
 ### Pull Request Process
 
@@ -216,11 +227,12 @@ changes (e.g., a bug fix and a formatting change) in the same commit.
    - References to related issues (e.g., "Closes #1234")
    - Any notable design decisions or trade-offs
    - Instructions for testing, if the change is non-trivial
+   - AI tools used to create the changes
 
 3. **CI checks** will run automatically. Please ensure:
    - The build succeeds on all CI configurations
    - All existing tests pass
-   - Code formatting checks pass (pre-commit, clang-format, clang-tidy, flake8)
+   - Code formatting checks pass (pre-commit (including clang-format, flake8), clang-tidy)
 
 4. **Code review**: At least one maintainer will review your PR. Be
    prepared for feedback — we aim to be constructive and collaborative.
@@ -264,7 +276,10 @@ ctest --output-on-failure
 - If your change fixes a bug, please (if feasible) add a regression test that would
   have caught the issue.
 - For changes that affect generated kernels, remember to compare with `-DTESTING_GENERATED=ON`
-  in your CMake configuration.
+  in your CMake configuration as a "sanity" check.
+  If the generated tests (named "yateto") fail,
+  there might be an internal problem in the code
+  generation that will need to be treated.
 
 #### Validation
 
@@ -290,7 +305,7 @@ generation:
 
 SeisSol's documentation lives at
 [seissol.readthedocs.io](https://seissol.readthedocs.io) and is built
-from reStructuredText files in the `docs/` directory.
+from Sphinx/reStructuredText files in the `docs/` directory.
 
 If your contribution adds new functionality, a new build parameter, or
 changes existing behavior, please update the documentation accordingly.

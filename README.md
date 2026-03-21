@@ -35,6 +35,8 @@ method combined with ADER time discretization.
 - Python ≥ 3.9 with numpy and setuptools
 - MPI (standard ≥ 2.2), HDF5 (parallel), Eigen ≥ 3.4,
 and [easi](https://github.com/SeisSol/easi) ≥ 1.5
+- (recommended) ParMETIS or another supported graph partitioning library
+- (recommended) LIBXSMM, PSpaMM, (for GPUs) TensorForge
 
 For a complete list of dependencies and installation
 methods (including Spack), see the
@@ -54,14 +56,15 @@ cmake -DORDER=4 -DEQUATIONS=elastic -DPRECISION=double ..
 make -j $(nproc)
 ```
 
-For GPU builds, add the device backend and architecture flags:
+For GPU builds, add the device backend and
+architecture flags (here CUDA, Hopper GPU):
 
 ```bash
 cmake -DORDER=4 -DPRECISION=single \
       -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 ..
 ```
 
-See the [Build Documentation](https://seissol.readthedocs.io/en/latest/build-seissol.html)
+See the [Build Documentation](https://seissol.readthedocs.io/en/latest/build-overview.html)
 for detailed instructions and the
 [Build Parameters Reference](https://seissol.readthedocs.io/en/latest/build-parameters.html)
 for all available configuration options.
