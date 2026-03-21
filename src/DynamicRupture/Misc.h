@@ -238,6 +238,10 @@ struct FrictionLawParameters {
   std::array<real, MaxNucleations> t0{};
   std::array<real, MaxNucleations> s0{};
   std::uint32_t nucleationCount{0};
+  std::uint32_t rsMaxNumberSlipRateUpdates{60};
+  std::uint32_t rsNumberStateVariableUpdates{10};
+  real rsNewtonTolerance{1e-8};
+  real rsStateTolerance{1e-8};
   bool isFrictionEnergyRequired{false};
   bool isCheckAbortCriteraEnabled{false};
   bool energiesFromAcrossFaultVelocities{false};

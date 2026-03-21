@@ -29,20 +29,6 @@ constexpr real almostZero() {
   }
 }
 
-struct Settings {
-  /**
-   * Parameters of the optimisation loops
-   * absolute tolerance on the function to be optimized
-   * This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be
-   * the most adapted Number of iteration in the loops
-   */
-
-  const uint32_t maxNumberSlipRateUpdates{60};
-  const uint32_t numberStateVariableUpdates{10};
-  const double newtonTolerance{1e-8};
-  const double stateTolerance{1e-8};
-};
-
 /**
   Computes asinh(x * exp(c)). Reason is: exp(c) can grow really large (too large for float);
   but actually asinh(exp(c)) \approx c for large c.

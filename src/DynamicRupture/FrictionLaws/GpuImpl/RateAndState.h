@@ -110,12 +110,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto& devAbsoluteShearStress{ctx.initialVariables.absoluteShearTraction};
     auto* devMu{ctx.data->mu};
 
-    rs::Settings settings{};
-
     bool hasConvergedOuter = false;
     bool hasConvergedInner = true;
 
-    for (uint32_t j = 0; j < settings.numberStateVariableUpdates; j++) {
+    for (uint32_t j = 0; j < ctx.data->drParameters.rsNumberStateVariableUpdates; j++) {
 
       const auto dt{ctx.args->deltaT[timeIndex]};
       Derived::updateStateVariable(ctx, dt);
@@ -139,15 +137,15 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                     absoluteShearStress,
                                                     localSlipRateMagnitude,
                                                     localImpAndEta.invEtaS,
-                                                    exportMu,
-                                                    settings);
+                                                    exportMu);
 
       hasConvergedInner &= hasConvergedLocal;
 
       devLocalSlipRate = 0.5 * (localSlipRateMagnitude + slipRateTest);
       ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = slipRateTest;
 
-      hasConvergedOuter = (localSlipRateMagnitude - slipRateTest) < settings.stateTolerance;
+      hasConvergedOuter =
+          (localSlipRateMagnitude - slipRateTest) < ctx.data->drParameters.rsStateTolerance;
 
       // exit early and prevent thread/load data divergence
       deviceWarpBarrier(ctx);
@@ -238,8 +236,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                      real absoluteShearStress,
                                                      real slipRateMagnitude,
                                                      real invEtaS,
-                                                     real& exportMu,
-                                                     rs::Settings solverSettings) {
+                                                     real& exportMu) {
 
     // Note that we need double precision here, since single precision led to NaNs.
     real muF{0.0};
@@ -250,12 +247,12 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     auto details = Derived::getMuDetails(ctx, localStateVariable);
 
-    for (uint32_t i = 0; i < solverSettings.maxNumberSlipRateUpdates; i++) {
+    for (uint32_t i = 0; i < ctx.data->drParameters.rsMaxNumberSlipRateUpdates; i++) {
       muF = Derived::updateMu(ctx, slipRateTest, details);
 
       g = -invEtaS * (std::fabs(normalStress) * muF - absoluteShearStress) - slipRateTest;
 
-      const bool converged = std::fabs(g) < solverSettings.newtonTolerance;
+      const bool converged = std::fabs(g) < ctx.data->drParameters.rsNewtonTolerance;
 
       if (converged) {
         // we've reached the fixed point

@@ -173,7 +173,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     // combined in; however that might need some more nonlinear function evaluations per step, and
     // thus could be slower)
 
-    for (uint32_t j = 0; j < settings.numberStateVariableUpdates; j++) {
+    for (uint32_t j = 0; j < this->drParameters.rsNumberStateVariableUpdates; j++) {
 #pragma omp simd
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         // fault strength using friction coefficient and fluid pressure from previous
@@ -204,7 +204,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
             0.5 * (this->slipRateMagnitude[ltsFace][pointIndex] + testSlipRate[pointIndex]);
 
         done = std::abs(testSlipRate[pointIndex] - this->slipRateMagnitude[ltsFace][pointIndex]) <
-               settings.stateTolerance;
+               this->drParameters.rsStateTolerance;
 
         // solve again for Vnew
         this->slipRateMagnitude[ltsFace][pointIndex] = testSlipRate[pointIndex];
@@ -220,7 +220,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       convergenceOuter[ltsFace][pointIndex] &=
           std::abs(testSlipRate[pointIndex] - this->slipRateMagnitude[ltsFace][pointIndex]) <
-          settings.stateTolerance;
+          this->drParameters.rsStateTolerance;
     }
   }
 
@@ -332,7 +332,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       slipRateTest[pointIndex] = this->slipRateMagnitude[ltsFace][pointIndex];
     }
 
-    for (uint32_t i = 0; i < settings.maxNumberSlipRateUpdates; i++) {
+    for (uint32_t i = 0; i < this->drParameters.rsMaxNumberSlipRateUpdates; i++) {
 #pragma omp simd
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         // calculate friction coefficient and objective function
@@ -346,7 +346,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
       // max element of g must be smaller than newtonTolerance
       const bool hasConverged = std::all_of(std::begin(g), std::end(g), [&](auto val) {
-        return std::fabs(val) < settings.newtonTolerance;
+        return std::fabs(val) < this->drParameters.rsNewtonTolerance;
       });
       if (hasConverged) {
 #pragma omp simd
@@ -373,7 +373,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     // update (non-)convergence
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-      convergenceInner[ltsFace][pointIndex] &= std::fabs(g[pointIndex]) < settings.newtonTolerance;
+      convergenceInner[ltsFace][pointIndex] &=
+          std::fabs(g[pointIndex]) < this->drParameters.rsNewtonTolerance;
     }
     return false;
   }
@@ -408,7 +409,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   bool (*__restrict convergenceOuter)[misc::NumPaddedPoints]{};
 
   TPMethod tpMethod;
-  rs::Settings settings{};
 };
 
 } // namespace seissol::dr::friction_law::cpu

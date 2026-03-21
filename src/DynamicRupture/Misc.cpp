@@ -96,6 +96,10 @@ FrictionLawParameters::FrictionLawParameters(
   this->t0 = parameters.t0;
   this->s0 = parameters.s0;
   this->nucleationCount = parameters.nucleationCount;
+  this->rsMaxNumberSlipRateUpdates = parameters.rsMaxNumberSlipRateUpdates;
+  this->rsNumberStateVariableUpdates = parameters.rsNumberStateVariableUpdates;
+  this->rsNewtonTolerance = parameters.rsNewtonTolerance;
+  this->rsStateTolerance = parameters.rsStateTolerance;
 
   this->isFrictionEnergyRequired = parameters.isFrictionEnergyRequired;
   this->isCheckAbortCriteraEnabled = parameters.isCheckAbortCriteraEnabled;

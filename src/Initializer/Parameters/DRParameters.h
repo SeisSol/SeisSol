@@ -67,6 +67,10 @@ struct DRParameters {
   double etaDamp{1.0};
   double etaDampEnd{std::numeric_limits<double>::infinity()};
   std::uint32_t nucleationCount{0};
+  std::uint32_t rsMaxNumberSlipRateUpdates{60};
+  std::uint32_t rsNumberStateVariableUpdates{10};
+  double rsNewtonTolerance{1e-8};
+  double rsStateTolerance{1e-8};
 };
 
 DRParameters readDRParameters(ParameterReader* baseReader);
