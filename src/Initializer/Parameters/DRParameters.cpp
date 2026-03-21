@@ -183,10 +183,11 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                               .value_or(reader->read<double>("etastop").value_or(
                                   std::numeric_limits<double>::infinity()));
 
-  const auto rsMaxNumberSlipRateUpdates = reader->readWithDefault("rsmaxsliprateupdates", 60);
-  const auto rsNumberStateVariableUpdates = reader->readWithDefault("rsstateupdates", 10);
-  const auto rsNewtonTolerance = reader->readWithDefault("rsnewtontolerance", 1e-8);
-  const auto rsStateTolerance = reader->readWithDefault("rsstatetolerance", 1e-8);
+  const auto rsMaxNumberSlipRateUpdates =
+      reader->readWithDefault<uint32_t>("rsmaxsliprateupdates", 60);
+  const auto rsNumberStateVariableUpdates = reader->readWithDefault<uint32_t>("rsstateupdates", 10);
+  const auto rsNewtonTolerance = reader->readWithDefault<double>("rsnewtontolerance", 1e-8);
+  const auto rsStateTolerance = reader->readWithDefault<double>("rsstatetolerance", 1e-8);
 
   reader->warnDeprecated({"rf_output_on", "backgroundtype"});
 

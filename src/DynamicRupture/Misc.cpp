@@ -93,8 +93,8 @@ FrictionLawParameters::FrictionLawParameters(
   this->terminatorSlipRateThreshold = parameters.terminatorSlipRateThreshold;
   this->etaDamp = parameters.etaDamp;
   this->etaDampEnd = parameters.etaDampEnd;
-  this->t0 = parameters.t0;
-  this->s0 = parameters.s0;
+  std::copy(parameters.t0.begin(), parameters.t0.end(), this->t0.begin());
+  std::copy(parameters.s0.begin(), parameters.s0.end(), this->s0.begin());
   this->nucleationCount = parameters.nucleationCount;
   this->rsMaxNumberSlipRateUpdates = parameters.rsMaxNumberSlipRateUpdates;
   this->rsNumberStateVariableUpdates = parameters.rsNumberStateVariableUpdates;
