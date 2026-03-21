@@ -518,15 +518,15 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
 void TimeCluster::computeNeighboringIntegration(double subTimeStart) {
   if (settings.integrate) {
     if (settings.plasticity) {
-      computeNeighboringIntegrationImplementation<true, false>(subTimeStart);
-    } else {
-      computeNeighboringIntegrationImplementation<false, false>(subTimeStart);
-    }
-  } else {
-    if (settings.plasticity) {
       computeNeighboringIntegrationImplementation<true, true>(subTimeStart);
     } else {
       computeNeighboringIntegrationImplementation<false, true>(subTimeStart);
+    }
+  } else {
+    if (settings.plasticity) {
+      computeNeighboringIntegrationImplementation<true, false>(subTimeStart);
+    } else {
+      computeNeighboringIntegrationImplementation<false, false>(subTimeStart);
     }
   }
 }
