@@ -9,8 +9,15 @@
 #include "Common/Filesystem.h"
 #include "Parallel/MPI.h"
 
+#include <cstddef>
+#include <ctime>
+#include <mpi.h>
+#include <optional>
+#include <sstream>
+#include <string>
 #include <thread>
 #include <utils/logger.h>
+#include <utils/timeutils.h>
 
 namespace seissol {
 

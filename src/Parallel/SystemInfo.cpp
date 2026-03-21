@@ -9,6 +9,9 @@
 #include "Parallel/MPI.h"
 
 #include <string>
+#include <unistd.h>
+#include <utils/logger.h>
+#include <utils/stringutils.h>
 #include <vector>
 
 #ifdef ACL_DEVICE

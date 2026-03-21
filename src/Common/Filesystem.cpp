@@ -7,12 +7,6 @@
 
 #include "Filesystem.h"
 
-#include <ctime>
-#include <optional>
-#include <sstream>
-#include <string>
-#include <utils/timeutils.h>
-
 namespace seissol {
 #ifdef EXPERIMENTAL_FS
 auto directoryExists(const seissol::filesystem::directory_entry& entry) -> bool {

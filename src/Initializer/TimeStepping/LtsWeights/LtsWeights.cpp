@@ -487,7 +487,7 @@ int LtsWeights::enforceMaximumDifference() {
   int totalNumberOfReductions = 0;
   int globalNumberOfReductions = 0;
   do {
-    int localNumberOfReductions = enforceMaximumDifferenceLocal();
+    const int localNumberOfReductions = enforceMaximumDifferenceLocal();
 
     globalNumberOfReductions = Mpi::mpi.allreduce(localNumberOfReductions, MPI_SUM);
     totalNumberOfReductions += globalNumberOfReductions;

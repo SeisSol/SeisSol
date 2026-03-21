@@ -27,9 +27,9 @@ class SystemInfo {
   /**
    * @return hostnames for all ranks in the communicator of the application
    */
-  const auto& getHostNames() const { return hostNames; }
+  [[nodiscard]] const auto& getHostNames() const { return hostNames; }
 
-  const auto& getPCIAddresses() const { return pcis; }
+  [[nodiscard]] const auto& getPCIAddresses() const { return pcis; }
 
   private:
   void loadHostInfo();

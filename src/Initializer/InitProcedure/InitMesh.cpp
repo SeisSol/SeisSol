@@ -17,6 +17,7 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <math.h>

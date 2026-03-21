@@ -78,8 +78,8 @@ GlobalTimestep
   const auto minmaxCellPosition =
       std::minmax_element(timestep.cellTimeStepWidths.begin(), timestep.cellTimeStepWidths.end());
 
-  double localMinTimestep = *minmaxCellPosition.first;
-  double localMaxTimestep = *minmaxCellPosition.second;
+  const double localMinTimestep = *minmaxCellPosition.first;
+  const double localMaxTimestep = *minmaxCellPosition.second;
 
   timestep.globalMinTimeStep = seissol::Mpi::mpi.allreduce(localMinTimestep, MPI_MIN);
   timestep.globalMaxTimeStep = seissol::Mpi::mpi.allreduce(localMaxTimestep, MPI_MAX);

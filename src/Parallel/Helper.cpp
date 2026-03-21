@@ -6,8 +6,11 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Helper.h"
 
+#include "Common/Marker.h"
 #include "Parallel/MPI.h"
 
+#include <algorithm>
+#include <cctype>
 #include <utils/env.h>
 #include <utils/logger.h>
 

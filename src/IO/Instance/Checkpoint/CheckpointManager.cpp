@@ -24,7 +24,6 @@
 #include <functional>
 #include <map>
 #include <memory>
-#include <mpi.h>
 #include <string>
 #include <utils/logger.h>
 #include <vector>

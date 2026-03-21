@@ -24,7 +24,6 @@
 #include <PUML/PartitionGraph.h>
 #include <PUML/PartitionTarget.h>
 #include <PUML/Topology.h>
-#include <PUML/TypeInference.h>
 #include <PUML/Upward.h>
 #include <algorithm>
 #include <array>

@@ -34,8 +34,10 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <ctime>
 #include <string>
 #include <utils/logger.h>
+#include <utils/timeutils.h>
 #include <vector>
 
 namespace {
