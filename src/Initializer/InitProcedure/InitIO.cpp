@@ -118,15 +118,6 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   auto* globalData = memoryManager.getGlobalData().onHost;
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
 
-  constexpr auto NumQuantities =
-      tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
-
-  // ill-defined for multisim; but irrelevant for it
-  constexpr auto NumAlignedBasisFunctions = tensor::Q::size() / NumQuantities;
-  // TODO(David): handle attenuation properly here. We'll probably not want it to be contained in
-  // numberOfQuantities. But the compile-time parameter
-  // seissol::model::MaterialT::NumQuantities contains it nonetheless.
-
   if (seissolParams.output.waveFieldParameters.enabled &&
       seissolParams.output.waveFieldParameters.vtkorder < 0) {
     // record the clustering info i.e., distribution of elements within an LTS storage
@@ -159,9 +150,6 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
     // Initialize wave field output
     seissolInstance.waveFieldWriter().init(
-        NumQuantities,
-        ConvergenceOrder,
-        NumAlignedBasisFunctions,
         seissolInstance.meshReader(),
         ltsClusteringData,
         ltsIdData,
@@ -288,6 +276,25 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               [=, &ltsStorage, &backmap](real* target, std::size_t index) {
                 const auto position = backmap.get(cellIndices[index]);
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
+                const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
+                kernel::projectBasisToVtkVolume vtkproj{};
+                memory::AlignedArray<real, multisim::NumSimulations> simselect{};
+                simselect[sim] = 1;
+                vtkproj.simselect = simselect.data();
+                vtkproj.qb = dofsSingleQuantity;
+                vtkproj.xv(order) = target;
+                vtkproj.collvv(ConvergenceOrder, order) =
+                    init::collvv::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
+                vtkproj.execute(order);
+              });
+        }
+        if (seissolParams.output.waveFieldParameters.integrationMask[quantity]) {
+          writer.addPointData<real>(
+              namewrap("int-" + seissol::model::MaterialT::Quantities[quantity], sim),
+              {},
+              [=, &ltsStorage, &backmap](real* target, std::size_t index) {
+                const auto position = backmap.get(cellIndices[index]);
+                const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Integrals>(position);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj{};
                 memory::AlignedArray<real, multisim::NumSimulations> simselect{};
