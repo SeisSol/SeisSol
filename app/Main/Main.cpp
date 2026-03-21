@@ -12,6 +12,7 @@
 #include "Modules/Modules.h"
 #include "Monitoring/Instrumentation.h"
 #include "Parallel/MPI.h"
+#include "Parallel/SystemInfo.h"
 #include "SeisSol.h"
 
 #include <ctime>
@@ -60,8 +61,22 @@ std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
 int main(int argc, char* argv[]) {
   try {
 #ifdef ACL_DEVICE
-    seissol::Mpi::mpi.bindAcceleratorDevice();
     device::DeviceInstance& device = device::DeviceInstance::getInstance();
+    /**
+     * @brief Inits Device(s).
+     *
+     * Some MPI implementations create a so-called context between GPUs and OS Processes inside of
+     * MPI_Init(...). It results in allocating some memory buffers in memory attached to the nearest
+     * NUMA domain of a core where a process is running. In case of somebody wants to bind a
+     * processes in a different way, e.g. move a process closer to a GPU, it must be done before
+     * calling MPI_Init(...) using env. variables or hwloc library.
+     *
+     * Currently, the function does a simple binding, i.e. it binds to the first visible device.
+     * The user is responsible for the correct binding on a multi-gpu setup.
+     * One can use a wrapper script and manipulate with CUDA_VISIBLE_DEVICES/HIP_VISIBLE_DEVICES and
+     * OMPI_COMM_WORLD_LOCAL_RANK env. variables
+     * */
+    device.api->setDevice(0);
     device.api->initialize();
 #endif // ACL_DEVICE
 
@@ -115,6 +130,9 @@ int main(int argc, char* argv[]) {
     logInfo() << "Compiled with DEVICE_ARCH =" << BuildInfo::SeisSolDeviceArch.c_str();
 #endif
 
+    SystemInfo systemInfo;
+    systemInfo.init();
+
     if (env.get<bool>("FLOATING_POINT_EXCEPTION", false)) {
       // Check if on a GNU system (Linux) or other platform
 #if defined(__GNUC__) || defined(__linux__)
@@ -165,7 +183,7 @@ int main(int argc, char* argv[]) {
 
     {
       // Initialize SeisSol
-      seissol::SeisSol seissolInstance(parameters, env);
+      seissol::SeisSol seissolInstance(parameters, env, systemInfo);
 
       if (args.isSet("checkpoint")) {
         const auto* checkpointFile = args.getArgument<const char*>("checkpoint");

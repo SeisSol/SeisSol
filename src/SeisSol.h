@@ -15,6 +15,7 @@
 #include "Initializer/Typedefs.h"
 #include "Monitoring/FlopCounter.h"
 #include "Parallel/Pin.h"
+#include "Parallel/SystemInfo.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/AsyncIO.h"
@@ -212,6 +213,8 @@ class SeisSol {
 
   utils::Env& env() { return m_env; }
 
+  const SystemInfo& systemInfo() { return systemInfo_; }
+
   private:
   // Note: This HAS to be the first member so that it is initialized before all others!
   // Otherwise it will NOT work.
@@ -298,13 +301,17 @@ class SeisSol {
 
   std::string outputPrefix_;
 
+  SystemInfo systemInfo_;
+
   public:
-  SeisSol(const initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)
+  SeisSol(const initializer::parameters::SeisSolParameters& parameters,
+          const utils::Env& env,
+          const SystemInfo& systemInfo)
       : outputManager(*this), m_seissolParameters(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
         m_freeSurfaceWriter(*this), m_analysisWriter(*this), m_waveFieldWriter(*this),
         m_faultWriter(*this), m_receiverWriter(*this), m_energyOutput(*this),
-        timeMirrorManagers(*this, *this), m_env(env) {}
+        timeMirrorManagers(*this, *this), m_env(env), systemInfo_(systemInfo) {}
 
   SeisSol(const SeisSol&) = delete;
   SeisSol(SeisSol&&) = delete;

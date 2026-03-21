@@ -8,6 +8,8 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_MINISEISSOLWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_MINISEISSOLWRITER_H_
 
+#include "Parallel/SystemInfo.h"
+
 #include <string>
 #include <vector>
 
@@ -15,7 +17,7 @@ namespace seissol::writer {
 class MiniSeisSolWriter {
   public:
   explicit MiniSeisSolWriter(const char* outputDirectory) : outputDirectory(outputDirectory) {}
-  void write(double elapsedTime, double weight);
+  void write(double elapsedTime, double weight, const SystemInfo& systemInfo);
 
   private:
   std::string outputDirectory;

@@ -38,9 +38,10 @@
 namespace seissol {
 
 /**
- * MPI handling.
+ * Wraps an MPI communicator. (and currently still a node-local communicator)
+ * Provides convenience methods for communication and MPI type inference.
  *
- * Make sure only one instance of this class exists!
+ * Currently still mostly used as a singleton; TODO: change that.
  */
 class Mpi {
   private:
@@ -86,24 +87,6 @@ class Mpi {
 #else
   using Count = int;
 #endif
-
-  /**
-   * @brief Inits Device(s).
-   *
-   * Some MPI implementations create a so-called context between GPUs and OS Processes inside of
-   * MPI_Init(...). It results in allocating some memory buffers in memory attached to the nearest
-   * NUMA domain of a core where a process is running. In case of somebody wants to bind a processes
-   * in a different way, e.g. move a process closer to a GPU, it must be done before calling
-   * MPI_Init(...) using env. variables or hwloc library.
-   *
-   * Currently, the function does a simple binding, i.e. it binds to the first visible device.
-   * The user is responsible for the correct binding on a multi-gpu setup.
-   * One can use a wrapper script and manipulate with CUDA_VISIBLE_DEVICES/HIP_VISIBLE_DEVICES and
-   * OMPI_COMM_WORLD_LOCAL_RANK env. variables
-   * */
-  void bindAcceleratorDevice();
-
-  void printAcceleratorDeviceInfo();
 
   /**
    * Initialize MPI
@@ -367,13 +350,6 @@ class Mpi {
    */
   [[nodiscard]] MPI_Comm sharedMemComm() const { return sharedMemComm_; }
 
-  /**
-   * @return hostnames for all ranks in the communicator of the application
-   */
-  const auto& getHostNames() { return hostNames; }
-
-  const auto& getPCIAddresses() { return pcis; }
-
   void barrier(std::optional<MPI_Comm> comm = {}) {
     if (!comm.has_value()) {
       comm = std::optional<MPI_Comm>(comm_);
@@ -398,8 +374,6 @@ class Mpi {
   MPI_Comm comm_{MPI_COMM_NULL};
   MPI_Comm sharedMemComm_{};
   Mpi() = default;
-  std::vector<std::string> hostNames;
-  std::vector<std::string> pcis;
   std::unordered_map<std::type_index, MPI_Datatype> cachedTypes;
 };
 

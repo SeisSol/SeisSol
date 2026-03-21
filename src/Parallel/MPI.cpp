@@ -31,15 +31,6 @@ void seissol::Mpi::init(int& argc, char**& argv) {
 
   setComm(MPI_COMM_WORLD);
 
-  std::string hostName(256, ' ');
-  if (gethostname(hostName.data(), 256) != 0) {
-    hostName = "unknown-host";
-  } else {
-    utils::StringUtils::rtrim(hostName);
-    hostName.pop_back();
-  }
-  hostNames = collectContainer(hostName);
-
   // Test this after setComm() to get the correct rank_
   if (provided < required) {
     logError() << utils::nospace << "Provided MPI thread support (" << provided
@@ -56,26 +47,6 @@ void seissol::Mpi::setComm(MPI_Comm comm) {
   MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &sharedMemComm_);
   MPI_Comm_rank(sharedMemComm_, &sharedMemMpiRank_);
   MPI_Comm_size(sharedMemComm_, &sharedMemMpiSize_);
-}
-
-void seissol::Mpi::bindAcceleratorDevice() {
-#ifdef ACL_DEVICE
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  device.api->setDevice(0);
-#endif
-}
-
-void seissol::Mpi::printAcceleratorDeviceInfo() {
-#ifdef ACL_DEVICE
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  const auto pci = device.api->getPciAddress(0);
-  const auto pcisNode = collectContainer(pci, sharedMemComm_);
-  pcis = collectContainer(pci);
-  logInfo() << "Device API:" << device.api->getApiName();
-  logInfo() << "Device name (rank=0):" << device.api->getDeviceName(0);
-  logInfo() << "Device PCI address (rank=0): " << pci;
-  logInfo() << "Device PCI addresses (node of rank=0):" << pcisNode;
-#endif
 }
 
 seissol::Mpi seissol::Mpi::mpi;

@@ -86,7 +86,8 @@ void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
   reportDeviceMemoryStatus();
 
   writer::ThreadsPinningWriter pinningWriter(seissolInstance.outputPrefix());
-  pinningWriter.write(seissolInstance.getPinning(), seissolInstance.env());
+  pinningWriter.write(
+      seissolInstance.getPinning(), seissolInstance.env(), seissolInstance.systemInfo());
 }
 
 void closeSeisSol(seissol::SeisSol& seissolInstance) {

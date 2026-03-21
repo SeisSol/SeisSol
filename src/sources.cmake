@@ -178,6 +178,7 @@ Geometry/CubeGenerator.cpp
 
 Parallel/ParallelFS.cpp
 Parallel/Helper.cpp
+Parallel/SystemInfo.cpp
 )
 
 if (HDF5 AND MPI)

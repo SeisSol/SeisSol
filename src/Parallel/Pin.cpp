@@ -114,9 +114,9 @@ Pinning::Pinning() {
   computeOnlineCpuMask();
 }
 
-void Pinning::checkEnvVariables() {
+void Pinning::checkEnvVariables(utils::Env& env) {
 #ifndef __APPLE__
-  const auto envVariable = utils::Env("SEISSOL_").getOptional<std::string>("FREE_CPUS_MASK");
+  const auto envVariable = env.getOptional<std::string>("FREE_CPUS_MASK");
   if (envVariable.has_value()) {
     auto parsedResult = seissol::IntegerMaskParser::parse(envVariable.value());
     if (parsedResult) {
