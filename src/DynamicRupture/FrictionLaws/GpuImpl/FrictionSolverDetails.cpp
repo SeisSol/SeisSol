@@ -19,8 +19,7 @@
 #include <cstddef>
 
 namespace seissol::dr::friction_law::gpu {
-FrictionSolverDetails::FrictionSolverDetails(
-    seissol::initializer::parameters::DRParameters* drParameters)
+FrictionSolverDetails::FrictionSolverDetails(const FrictionLawParameters& drParameters)
     : FrictionSolverInterface(drParameters) {}
 
 FrictionSolverDetails::~FrictionSolverDetails() = default;

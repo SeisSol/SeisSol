@@ -98,7 +98,7 @@ inline bool deviceWarpAll(FrictionLawContext& /*ctx*/, bool /*value*/) { return 
 template <typename Derived>
 class BaseFrictionSolver : public FrictionSolverDetails {
   public:
-  explicit BaseFrictionSolver(seissol::initializer::parameters::DRParameters* drParameters)
+  explicit BaseFrictionSolver(const FrictionLawParameters& drParameters)
       : FrictionSolverDetails(drParameters) {}
   ~BaseFrictionSolver() override = default;
 

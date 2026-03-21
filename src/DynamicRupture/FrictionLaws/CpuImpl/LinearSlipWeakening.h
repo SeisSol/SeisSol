@@ -21,7 +21,7 @@ namespace seissol::dr::friction_law::cpu {
 template <class SpecializationT>
 class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>> {
   public:
-  explicit LinearSlipWeakeningLaw(seissol::initializer::parameters::DRParameters* drParameters)
+  explicit LinearSlipWeakeningLaw(const FrictionLawParameters& drParameters)
       : BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization(drParameters) {}
 
@@ -120,8 +120,8 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
           muS[ltsFace][pointIndex] -
           (muS[ltsFace][pointIndex] - muD[ltsFace][pointIndex]) * stateVariable[pointIndex];
       // instantaneous healing
-      if ((this->peakSlipRate[ltsFace][pointIndex] > this->drParameters->healingThreshold) &&
-          (this->slipRateMagnitude[ltsFace][pointIndex] < this->drParameters->healingThreshold)) {
+      if ((this->peakSlipRate[ltsFace][pointIndex] > this->drParameters.healingThreshold) &&
+          (this->slipRateMagnitude[ltsFace][pointIndex] < this->drParameters.healingThreshold)) {
         this->mu[ltsFace][pointIndex] = muS[ltsFace][pointIndex];
         stateVariable[pointIndex] = 0.0;
       }
@@ -195,13 +195,13 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
       // Forced rupture time
       real f2 = 0.0;
-      if (this->drParameters->t0[0] == 0) {
+      if (this->drParameters.t0[0] == 0) {
         // avoid branching
         // if time > forcedRuptureTime, then f2 = 1.0, else f2 = 0.0
         f2 = 1.0 * static_cast<double>(time >= this->forcedRuptureTime[ltsFace][pointIndex]);
       } else {
         f2 = std::clamp((time - this->forcedRuptureTime[ltsFace][pointIndex]) /
-                            this->drParameters->t0[0],
+                            this->drParameters.t0[0],
                         static_cast<real>(0.0),
                         static_cast<real>(1.0));
       }
@@ -220,7 +220,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
 class NoSpecialization {
   public:
-  explicit NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
+  explicit NoSpecialization(const FrictionLawParameters& parameters) {};
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {};
   /**
@@ -254,8 +254,7 @@ class NoSpecialization {
  */
 class BiMaterialFault {
   public:
-  explicit BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters)
-      : drParameters(parameters) {};
+  explicit BiMaterialFault(const FrictionLawParameters& parameters) : drParameters(&parameters) {};
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
   /**
@@ -295,7 +294,7 @@ class BiMaterialFault {
   }
 
   protected:
-  seissol::initializer::parameters::DRParameters* drParameters;
+  const FrictionLawParameters* drParameters;
   real (*__restrict regularizedStrength)[misc::NumPaddedPoints]{};
 };
 
@@ -304,8 +303,7 @@ class BiMaterialFault {
  */
 class TPApprox {
   public:
-  explicit TPApprox(seissol::initializer::parameters::DRParameters* parameters)
-      : drParameters(parameters) {};
+  explicit TPApprox(const FrictionLawParameters& parameters) : drParameters(&parameters) {};
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
   /**
@@ -335,7 +333,7 @@ class TPApprox {
   };
 
   protected:
-  seissol::initializer::parameters::DRParameters* drParameters;
+  const FrictionLawParameters* drParameters;
 };
 
 } // namespace seissol::dr::friction_law::cpu

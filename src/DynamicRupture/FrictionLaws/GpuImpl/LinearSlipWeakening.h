@@ -21,7 +21,7 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Derived>
 class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBase<Derived>> {
   public:
-  explicit LinearSlipWeakeningBase(seissol::initializer::parameters::DRParameters* drParameters)
+  explicit LinearSlipWeakeningBase(const FrictionLawParameters& drParameters)
       : BaseFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters) {};
 
   std::unique_ptr<FrictionSolver> clone() override {
@@ -130,7 +130,7 @@ template <class SpecializationT>
 class LinearSlipWeakeningLaw
     : public LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>> {
   public:
-  explicit LinearSlipWeakeningLaw(seissol::initializer::parameters::DRParameters* drParameters)
+  explicit LinearSlipWeakeningLaw(const FrictionLawParameters& drParameters)
       : LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization(drParameters) {};
 
@@ -218,7 +218,7 @@ class LinearSlipWeakeningLaw
 
 class NoSpecialization {
   public:
-  explicit NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
+  explicit NoSpecialization(const FrictionLawParameters& parameters) {};
 
   static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
 
@@ -269,7 +269,7 @@ class NoSpecialization {
 
 class BiMaterialFault {
   public:
-  explicit BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters) {};
+  explicit BiMaterialFault(const FrictionLawParameters& parameters) {};
 
   static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
     data->regularizedStrength =
@@ -311,7 +311,7 @@ class BiMaterialFault {
 
 class TPApprox {
   public:
-  explicit TPApprox(seissol::initializer::parameters::DRParameters* parameters) {};
+  explicit TPApprox(const FrictionLawParameters& parameters) {};
 
   static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
 

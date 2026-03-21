@@ -40,29 +40,29 @@ void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, Vrtx
   dip[2] *= dipInvLength;
 }
 
-std::string frictionLawName(seissol::initializer::parameters::FrictionLawType type) {
+std::string frictionLawName(seissol::dr::misc::FrictionLawType type) {
   switch (type) {
-  case seissol::initializer::parameters::FrictionLawType::NoFault:
+  case seissol::dr::misc::FrictionLawType::NoFault:
     return "nofault";
-  case seissol::initializer::parameters::FrictionLawType::ImposedSlipRatesYoffe:
+  case seissol::dr::misc::FrictionLawType::ImposedSlipRatesYoffe:
     return "imposed-yoffe";
-  case seissol::initializer::parameters::FrictionLawType::ImposedSlipRatesGaussian:
+  case seissol::dr::misc::FrictionLawType::ImposedSlipRatesGaussian:
     return "imposed-gaussian";
-  case seissol::initializer::parameters::FrictionLawType::ImposedSlipRatesDelta:
+  case seissol::dr::misc::FrictionLawType::ImposedSlipRatesDelta:
     return "imposed-delta";
-  case seissol::initializer::parameters::FrictionLawType::LinearSlipWeakening:
+  case seissol::dr::misc::FrictionLawType::LinearSlipWeakening:
     return "lsw-base";
-  case seissol::initializer::parameters::FrictionLawType::LinearSlipWeakeningBimaterial:
+  case seissol::dr::misc::FrictionLawType::LinearSlipWeakeningBimaterial:
     return "lsw-bimaterial";
-  case seissol::initializer::parameters::FrictionLawType::LinearSlipWeakeningTPApprox:
+  case seissol::dr::misc::FrictionLawType::LinearSlipWeakeningTPApprox:
     return "lsw-tpapprox";
-  case seissol::initializer::parameters::FrictionLawType::RateAndStateAgingLaw:
+  case seissol::dr::misc::FrictionLawType::RateAndStateAgingLaw:
     return "rs-slow-aging";
-  case seissol::initializer::parameters::FrictionLawType::RateAndStateSlipLaw:
+  case seissol::dr::misc::FrictionLawType::RateAndStateSlipLaw:
     return "rs-slow-slip";
-  case seissol::initializer::parameters::FrictionLawType::RateAndStateSevereVelocityWeakening:
+  case seissol::dr::misc::FrictionLawType::RateAndStateSevereVelocityWeakening:
     return "rs-severe";
-  case seissol::initializer::parameters::FrictionLawType::RateAndStateFastVelocityWeakening:
+  case seissol::dr::misc::FrictionLawType::RateAndStateFastVelocityWeakening:
     return "rs-fast";
   default:
     logError() << "unknown friction law";
@@ -71,3 +71,34 @@ std::string frictionLawName(seissol::initializer::parameters::FrictionLawType ty
 }
 
 } // namespace seissol::dr::misc
+
+namespace seissol::dr {
+FrictionLawParameters::FrictionLawParameters(
+    const seissol::initializer::parameters::DRParameters& parameters) {
+  this->healingThreshold = parameters.healingThreshold;
+  this->tpProxyExponent = parameters.tpProxyExponent;
+  this->rsF0 = parameters.rsF0;
+  this->rsB = parameters.rsB;
+  this->rsSr0 = parameters.rsSr0;
+  this->rsInitialSlipRate1 = parameters.rsInitialSlipRate1;
+  this->rsInitialSlipRate2 = parameters.rsInitialSlipRate2;
+  this->muW = parameters.muW;
+  this->thermalDiffusivity = parameters.thermalDiffusivity;
+  this->heatCapacity = parameters.heatCapacity;
+  this->undrainedTPResponse = parameters.undrainedTPResponse;
+  this->initialTemperature = parameters.initialTemperature;
+  this->initialPressure = parameters.initialPressure;
+  this->vStar = parameters.vStar;
+  this->prakashLength = parameters.prakashLength;
+  this->terminatorSlipRateThreshold = parameters.terminatorSlipRateThreshold;
+  this->etaDamp = parameters.etaDamp;
+  this->etaDampEnd = parameters.etaDampEnd;
+  this->t0 = parameters.t0;
+  this->s0 = parameters.s0;
+  this->nucleationCount = parameters.nucleationCount;
+
+  this->isFrictionEnergyRequired = parameters.isFrictionEnergyRequired;
+  this->isCheckAbortCriteraEnabled = parameters.isCheckAbortCriteraEnabled;
+  this->energiesFromAcrossFaultVelocities = parameters.energiesFromAcrossFaultVelocities;
+}
+} // namespace seissol::dr

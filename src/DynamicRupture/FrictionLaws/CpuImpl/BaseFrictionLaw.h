@@ -29,7 +29,7 @@ class BaseFrictionLaw : public FrictionSolver {
   size_t currLayerSize{};
 
   public:
-  explicit BaseFrictionLaw(seissol::initializer::parameters::DRParameters* drParameters)
+  explicit BaseFrictionLaw(const FrictionLawParameters& drParameters)
       : FrictionSolver(drParameters) {}
 
   std::unique_ptr<FrictionSolver> clone() override {
@@ -68,7 +68,7 @@ class BaseFrictionLaw : public FrictionSolver {
             myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
         LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
         const auto etaPDamp =
-            drParameters->etaDampEnd > this->mFullUpdateTime ? drParameters->etaDamp : 1.0;
+            drParameters.etaDampEnd > this->mFullUpdateTime ? drParameters.etaDamp : 1.0;
         common::precomputeStressFromQInterpolated(faultStresses,
                                                   impAndEta[ltsFace],
                                                   impedanceMatrices[ltsFace],
@@ -101,15 +101,15 @@ class BaseFrictionLaw : public FrictionSolver {
         for (std::size_t timeIndex = 0; timeIndex < misc::TimeSteps; timeIndex++) {
           startTime = updateTime;
           updateTime += this->deltaT[timeIndex];
-          for (uint32_t i = 0; i < this->drParameters->nucleationCount; ++i) {
+          for (uint32_t i = 0; i < this->drParameters.nucleationCount; ++i) {
             common::adjustInitialStress(
                 initialStressInFaultCS[ltsFace],
-                nucleationStressInFaultCS[ltsFace * this->drParameters->nucleationCount + i],
+                nucleationStressInFaultCS[ltsFace * this->drParameters.nucleationCount + i],
                 initialPressure[ltsFace],
-                nucleationPressure[ltsFace * this->drParameters->nucleationCount + i],
+                nucleationPressure[ltsFace * this->drParameters.nucleationCount + i],
                 updateTime,
-                this->drParameters->t0[i],
-                this->drParameters->s0[i],
+                this->drParameters.t0[i],
+                this->drParameters.s0[i],
                 this->deltaT[timeIndex]);
           }
 
@@ -130,14 +130,14 @@ class BaseFrictionLaw : public FrictionSolver {
 
           common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
 
-          if (this->drParameters->isFrictionEnergyRequired &&
-              this->drParameters->isCheckAbortCriteraEnabled) {
+          if (this->drParameters.isFrictionEnergyRequired &&
+              this->drParameters.isCheckAbortCriteraEnabled) {
             common::updateTimeSinceSlipRateBelowThreshold(
                 slipRateMagnitude[ltsFace],
                 ruptureTimePending[ltsFace],
                 energyData[ltsFace],
                 this->deltaT[timeIndex],
-                this->drParameters->terminatorSlipRateThreshold);
+                this->drParameters.terminatorSlipRateThreshold);
           }
         }
         LIKWID_MARKER_STOP("computeDynamicRuptureUpdateFrictionAndSlip");
@@ -167,7 +167,7 @@ class BaseFrictionLaw : public FrictionSolver {
         LIKWID_MARKER_STOP("computeDynamicRupturePostcomputeImposedState");
         SCOREP_USER_REGION_END(myRegionHandle)
 
-        if (this->drParameters->isFrictionEnergyRequired) {
+        if (this->drParameters.isFrictionEnergyRequired) {
           common::computeFrictionEnergy(energyData[ltsFace],
                                         qInterpolatedPlus[ltsFace],
                                         qInterpolatedMinus[ltsFace],
@@ -176,7 +176,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                         spaceWeights,
                                         godunovData[ltsFace],
                                         slipRateMagnitude[ltsFace],
-                                        this->drParameters->energiesFromAcrossFaultVelocities);
+                                        this->drParameters.energiesFromAcrossFaultVelocities);
         }
       }
     } else {

@@ -21,7 +21,7 @@ namespace seissol::dr::friction_law::gpu {
 template <class Derived, class TPMethod>
 class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>> {
   public:
-  explicit RateAndStateBase(seissol::initializer::parameters::DRParameters* drParameters)
+  explicit RateAndStateBase(const FrictionLawParameters& drParameters)
       : BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>>::BaseFrictionSolver(drParameters) {}
 
   std::unique_ptr<FrictionSolver> clone() override {

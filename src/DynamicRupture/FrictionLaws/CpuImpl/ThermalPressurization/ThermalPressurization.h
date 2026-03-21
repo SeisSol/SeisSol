@@ -46,8 +46,8 @@ namespace seissol::dr::friction_law::cpu {
  */
 class ThermalPressurization {
   public:
-  explicit ThermalPressurization(seissol::initializer::parameters::DRParameters* drParameters)
-      : drParameters(drParameters) {};
+  explicit ThermalPressurization(const FrictionLawParameters& drParameters)
+      : drParameters(&drParameters) {}
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
@@ -79,7 +79,7 @@ class ThermalPressurization {
   real (*__restrict hydraulicDiffusivity)[misc::NumPaddedPoints]{};
 
   private:
-  seissol::initializer::parameters::DRParameters* drParameters;
+  const FrictionLawParameters* drParameters;
 };
 } // namespace seissol::dr::friction_law::cpu
 

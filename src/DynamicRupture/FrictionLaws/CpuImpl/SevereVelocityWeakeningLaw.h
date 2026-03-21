@@ -32,9 +32,9 @@ class SevereVelocityWeakeningLaw
                              double localSlipRate) {
     const real localSl0 = this->sl0[faceIndex][pointIndex];
 
-    const real steadyStateStateVariable = localSlipRate * localSl0 / this->drParameters->rsSr0;
+    const real steadyStateStateVariable = localSlipRate * localSl0 / this->drParameters.rsSr0;
 
-    const double preexp1 = -this->drParameters->rsSr0 * (timeIncrement / localSl0);
+    const double preexp1 = -this->drParameters.rsSr0 * (timeIncrement / localSl0);
     const double exp1v = std::exp(preexp1);
     const double exp1m = -std::expm1(preexp1);
     const double localStateVariable = steadyStateStateVariable * exp1m + exp1v * stateVarReference;
@@ -69,7 +69,7 @@ class SevereVelocityWeakeningLaw
   real updateMu(std::uint32_t pointIndex, real localSlipRateMagnitude, const MuDetails& details) {
     return details.f0[pointIndex] +
            details.a[pointIndex] * localSlipRateMagnitude /
-               (localSlipRateMagnitude + this->drParameters->rsSr0) -
+               (localSlipRateMagnitude + this->drParameters.rsSr0) -
            details.c[pointIndex];
   }
 
@@ -78,8 +78,8 @@ class SevereVelocityWeakeningLaw
                           real localSlipRateMagnitude,
                           const MuDetails& details) {
     // note that: d/dx (x/(x+c)) = ((x+c)-x)/(x+c)**2 = c/(x+c)**2
-    const real divisor = (localSlipRateMagnitude + this->drParameters->rsSr0);
-    return details.a[pointIndex] * this->drParameters->rsSr0 / (divisor * divisor);
+    const real divisor = (localSlipRateMagnitude + this->drParameters.rsSr0);
+    return details.a[pointIndex] * this->drParameters.rsSr0 / (divisor * divisor);
   }
 
   /**
