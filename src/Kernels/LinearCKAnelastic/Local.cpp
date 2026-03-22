@@ -73,9 +73,6 @@ void Local::computeIntegral(
   assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
 #endif
 
-  const auto& materialData = data.get<LTS::Material>();
-  const auto& cellBoundaryMapping = data.get<LTS::BoundaryMapping>();
-
   alignas(Alignment) real Qext[tensor::Qext::size()];
 
   kernel::volumeExt volKrnl = m_volumeKernelPrototype;
@@ -157,8 +154,6 @@ void Local::computeBatchedIntegral(
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype;
-  kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype;
-  kernel::gpu_local localKrnl = deviceLocalKernelPrototype;
 
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];
@@ -217,6 +212,9 @@ void Local::computeBatchedIntegral(
 
 // deprecated code; kept for comparison reasons
 #ifndef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
+  kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype;
+  kernel::gpu_local localKrnl = deviceLocalKernelPrototype;
+
   // Local Flux Integral
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);

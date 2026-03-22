@@ -30,6 +30,7 @@
 #include "Parallel/OpenMP.h"
 #include "Parallel/Runtime/Stream.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -172,7 +173,7 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
 
-      std::array<real*, Cell::NumFaces> integrationBuffers;
+      std::array<real*, Cell::NumFaces> integrationBuffers{};
       for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
         integrationBuffers[i] =
             &data.globalDataOnHost.integrationBufferLTS[(OpenMP::threadId() * Cell::NumFaces + i) *

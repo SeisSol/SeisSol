@@ -109,7 +109,7 @@ void Neighbor::computeNeighborsIntegral(
 
         nfKrnl.I = timeIntegrated[face];
         nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
-        nfKrnl._prefetch.I = faceNeighbors_prefetch[face];
+        nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
         nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][1],
                        data.get<LTS::CellInformation>().faceRelations[face][0],
                        face);
@@ -121,7 +121,7 @@ void Neighbor::computeNeighborsIntegral(
       drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
       drKrnl.QInterpolated = cellDrMapping[face].godunov;
       drKrnl.Qext = Qext;
-      drKrnl._prefetch.I = faceNeighbors_prefetch[face];
+      drKrnl._prefetch.I = faceNeighborsPrefetch[face];
       drKrnl.execute(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
     }
   }

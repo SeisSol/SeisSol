@@ -47,6 +47,7 @@
 #include "Solver/TimeStepping/ActorState.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <chrono>
 #include <cstddef>
@@ -929,7 +930,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   for (std::size_t cell = 0; cell < clusterSize; cell++) {
     auto data = clusterData->cellRef(cell);
 
-    std::array<real*, Cell::NumFaces> integrationBuffers;
+    std::array<real*, Cell::NumFaces> integrationBuffers{};
     for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
       integrationBuffers[i] =
           &globalDataOnHost->integrationBufferLTS[(OpenMP::threadId() * Cell::NumFaces + i) *
