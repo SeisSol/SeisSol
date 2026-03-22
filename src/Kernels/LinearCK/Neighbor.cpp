@@ -62,10 +62,10 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 
 void Neighbor::computeNeighborsIntegral(
     LTS::Ref& data,
-    const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping,
     const std::array<real*, Cell::NumFaces>& timeIntegrated,
     const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) {
   assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
+  const auto& cellDrMapping = data.get<LTS::DRMapping>();
 
   for (std::size_t face = 0; face < Cell::NumFaces; face++) {
     switch (data.get<LTS::CellInformation>().faceTypes[face]) {

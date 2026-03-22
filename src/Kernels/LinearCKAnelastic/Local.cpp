@@ -65,7 +65,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 }
 
 void Local::computeIntegral(
-    real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+    real timeIntegratedDoFs[tensor::I::size()],
     LTS::Ref& data,
     LocalTmp& tmp,
     // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
@@ -75,24 +75,27 @@ void Local::computeIntegral(
     double timeStepWidth) {
   // assert alignments
 #ifndef NDEBUG
-  assert((reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom)) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeIntegratedDoFs)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(tmp.timeIntegratedAne)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
 #endif
+
+  const auto& materialData = data.get<LTS::Material>();
+  const auto& cellBoundaryMapping = data.get<LTS::BoundaryMapping>();
 
   alignas(Alignment) real Qext[tensor::Qext::size()];
 
   kernel::volumeExt volKrnl = m_volumeKernelPrototype;
   volKrnl.Qext = Qext;
-  volKrnl.I = timeIntegratedDegreesOfFreedom;
+  volKrnl.I = timeIntegratedDoFs;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
 
   kernel::localFluxExt lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Qext = Qext;
-  lfKrnl.I = timeIntegratedDegreesOfFreedom;
-  lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
+  lfKrnl.I = timeIntegratedDoFs;
+  lfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
   lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
 
   volKrnl.execute();

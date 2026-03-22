@@ -38,9 +38,7 @@ class TimeKernel : public Kernel {
     @param timeDerivatives A pointer to the input space-time data.
     @param timeEvaluated A pointer to the returned time-evaluated data.
   */
-  virtual void evaluate(const real* coeffs,
-                        const real* timeDerivatives,
-                        real timeEvaluated[tensor::I::size()]) = 0;
+  virtual void evaluate(const real* coeffs, const real* timeDerivatives, real* timeEvaluated) = 0;
 
   /**
     @brief Evaluates a given space-time representation in time.

@@ -73,7 +73,6 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 
 void Neighbor::computeNeighborsIntegral(
     LTS::Ref& data,
-    const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping,
     const std::array<real*, Cell::NumFaces>& timeIntegrated,
     const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) {
 #ifndef NDEBUG
@@ -86,6 +85,8 @@ void Neighbor::computeNeighborsIntegral(
     }
   }
 #endif
+
+  const auto& cellDrMapping = data.get<LTS::DRMapping>();
 
   // alignment of the degrees of freedom
   assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);

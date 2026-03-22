@@ -33,11 +33,9 @@ namespace seissol::kernels::solver::linearck {
 class Local : public LocalKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
-  void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+  void computeIntegral(real* timeIntegratedDoFs,
                        LTS::Ref& data,
                        LocalTmp& tmp,
-                       const CellMaterialData* materialData,
-                       const std::array<CellBoundaryMapping, Cell::NumFaces>& cellBoundaryMapping,
                        double time,
                        double timeStepWidth) override;
 

@@ -36,14 +36,11 @@ class LocalKernel : public Kernel {
     return condition.get();
   }
 
-  virtual void
-      computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                      LTS::Ref& data,
-                      LocalTmp& tmp,
-                      const CellMaterialData* materialData,
-                      const std::array<CellBoundaryMapping, Cell::NumFaces>& cellBoundaryMapping,
-                      double time,
-                      double timeStepWidth) = 0;
+  virtual void computeIntegral(real* timeIntegratedDoFs,
+                               LTS::Ref& data,
+                               LocalTmp& tmp,
+                               double time,
+                               double timeStepWidth) = 0;
 
   virtual void computeBatchedIntegral(recording::ConditionalPointersToRealsTable& dataTable,
                                       recording::ConditionalMaterialTable& materialTable,

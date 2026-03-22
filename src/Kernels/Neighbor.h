@@ -24,7 +24,6 @@ class NeighborKernel : public Kernel {
 
   virtual void
       computeNeighborsIntegral(LTS::Ref& data,
-                               const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping,
                                const std::array<real*, Cell::NumFaces>& timeIntegrated,
                                const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) = 0;
 

@@ -94,7 +94,7 @@ void ProxyKernelHostLocalWOAder::run(ProxyData& data,
 #pragma omp for schedule(static)
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
-      data.localKernel.computeIntegral(buffers[cell], local, tmp, {}, {}, 0, 0);
+      data.localKernel.computeIntegral(buffers[cell], local, tmp, 0, 0);
     }
     LIKWID_MARKER_STOP("localwoader");
   }
@@ -142,7 +142,7 @@ void ProxyKernelHostLocal::run(ProxyData& data,
       auto local = layer.cellRef(cell);
       data.spacetimeKernel.computeAder(
           integrationCoeffs.data(), Timestep, local, tmp, buffers[cell], derivatives[cell]);
-      data.localKernel.computeIntegral(buffers[cell], local, tmp, {}, {}, 0, 0);
+      data.localKernel.computeIntegral(buffers[cell], local, tmp, 0, 0);
     }
     LIKWID_MARKER_STOP("local");
   }
@@ -208,8 +208,7 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
         faceNeighborsPrefetch[3] = faceNeighbors[cell][3];
       }
 
-      data.neighborKernel.computeNeighborsIntegral(
-          local, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
+      data.neighborKernel.computeNeighborsIntegral(local, timeIntegrated, faceNeighborsPrefetch);
     }
 
     LIKWID_MARKER_STOP("neighboring");

@@ -346,7 +346,6 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
 
   real* const* buffers = clusterData->var<LTS::Buffers>();
   real* const* derivatives = clusterData->var<LTS::Derivatives>();
-  const CellMaterialData* materialData = clusterData->var<LTS::Material>();
 
   kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
@@ -382,15 +381,8 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
     spacetimeKernel.computeAder(
         integrationCoeffs.data(), timeStepWidth, data, tmp, bufferPointer, derivatives[cell], true);
 
-    // Compute local integrals (including some boundary conditions)
-    const auto* boundaryMapping = clusterData->var<LTS::BoundaryMapping>();
-    localKernel.computeIntegral(bufferPointer,
-                                data,
-                                tmp,
-                                &materialData[cell],
-                                boundaryMapping[cell],
-                                ct.correctionTime,
-                                timeStepWidth);
+    // Compute local integrals (including local boundary conditions)
+    localKernel.computeIntegral(bufferPointer, data, tmp, ct.correctionTime, timeStepWidth);
 
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       auto& curFaceDisplacements = data.get<LTS::FaceDisplacements>()[face];
@@ -896,9 +888,9 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
 
   loopStatistics->begin(regionComputeNeighboringIntegration);
 
-  auto* faceNeighbors = clusterData->var<LTS::FaceNeighbors>();
-  auto* drMapping = clusterData->var<LTS::DRMapping>();
-  auto* cellInformation = clusterData->var<LTS::CellInformation>();
+  const auto* faceNeighbors = clusterData->var<LTS::FaceNeighbors>();
+  const auto* drMapping = clusterData->var<LTS::DRMapping>();
+  const auto* cellInformation = clusterData->var<LTS::CellInformation>();
   auto* plasticity = clusterData->var<LTS::Plasticity>();
   auto* pstrain = clusterData->var<LTS::PStrain>();
 
@@ -973,8 +965,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
       faceNeighborsPrefetch[3] = faceNeighbors[cell][3];
     }
 
-    neighborKernel.computeNeighborsIntegral(
-        data, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
+    neighborKernel.computeNeighborsIntegral(data, timeIntegrated, faceNeighborsPrefetch);
 
     if constexpr (UsePlasticity) {
       if (data.get<LTS::CellInformation>().plasticityEnabled) {

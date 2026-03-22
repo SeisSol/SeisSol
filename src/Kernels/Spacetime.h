@@ -43,7 +43,7 @@ class SpacetimeKernel : public Kernel {
                            double timeStepWidth,
                            LTS::Ref& data,
                            LocalTmp& tmp,
-                           real timeIntegrated[tensor::I::size()],
+                           real* timeIntegrated,
                            real* timeDerivativesOrSTP = nullptr,
                            bool updateDisplacement = false) = 0;
 
