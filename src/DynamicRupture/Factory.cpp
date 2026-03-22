@@ -37,8 +37,8 @@ class NoFaultFactory : public AbstractFactory {
     return {std::make_unique<seissol::DynamicRupture>(drParameters.get()),
             std::make_unique<seissol::dr::initializer::NoFaultInitializer>(drParameters,
                                                                            seissolInstance),
-            std::make_unique<friction_law_cpu::NoFault>(*drParameters),
-            std::make_unique<friction_law_gpu::NoFault>(*drParameters),
+            std::make_unique<friction_law_cpu::NoFault>(FrictionLawParameters(*drParameters)),
+            std::make_unique<friction_law_gpu::NoFault>(FrictionLawParameters(*drParameters)),
             std::make_unique<seissol::dr::output::OutputManager>(
                 std::make_unique<seissol::dr::output::NoFault>(), seissolInstance)};
   }
@@ -53,10 +53,10 @@ class LinearSlipWeakeningFactory : public AbstractFactory {
                 drParameters, seissolInstance),
             std::make_unique<
                 friction_law_cpu::LinearSlipWeakeningLaw<friction_law_cpu::NoSpecialization>>(
-                *drParameters),
+                FrictionLawParameters(*drParameters)),
             std::make_unique<
                 friction_law_gpu::LinearSlipWeakeningLaw<friction_law_gpu::NoSpecialization>>(
-                *drParameters),
+                FrictionLawParameters(*drParameters)),
             std::make_unique<seissol::dr::output::OutputManager>(
                 std::make_unique<seissol::dr::output::LinearSlipWeakening>(), seissolInstance)};
   }
@@ -72,9 +72,9 @@ class RateAndStateAgingFactory : public AbstractFactory {
           std::make_unique<seissol::dr::initializer::RateAndStateThermalPressurizationInitializer>(
               drParameters, seissolInstance),
           std::make_unique<friction_law_cpu::AgingLaw<friction_law_cpu::ThermalPressurization>>(
-              *drParameters),
+              FrictionLawParameters(*drParameters)),
           std::make_unique<friction_law_gpu::AgingLaw<friction_law_gpu::ThermalPressurization>>(
-              *drParameters),
+              FrictionLawParameters(*drParameters)),
           std::make_unique<seissol::dr::output::OutputManager>(
               std::make_unique<seissol::dr::output::RateAndStateThermalPressurization>(),
               seissolInstance)};
@@ -82,8 +82,10 @@ class RateAndStateAgingFactory : public AbstractFactory {
       return {std::make_unique<seissol::LTSRateAndState>(drParameters.get()),
               std::make_unique<seissol::dr::initializer::RateAndStateInitializer>(drParameters,
                                                                                   seissolInstance),
-              std::make_unique<friction_law_cpu::AgingLaw<friction_law_cpu::NoTP>>(*drParameters),
-              std::make_unique<friction_law_gpu::AgingLaw<friction_law_gpu::NoTP>>(*drParameters),
+              std::make_unique<friction_law_cpu::AgingLaw<friction_law_cpu::NoTP>>(
+                  FrictionLawParameters(*drParameters)),
+              std::make_unique<friction_law_gpu::AgingLaw<friction_law_gpu::NoTP>>(
+                  FrictionLawParameters(*drParameters)),
               std::make_unique<seissol::dr::output::OutputManager>(
                   std::make_unique<seissol::dr::output::RateAndState>(), seissolInstance)};
     }
@@ -100,9 +102,9 @@ class RateAndStateSlipFactory : public AbstractFactory {
           std::make_unique<seissol::dr::initializer::RateAndStateThermalPressurizationInitializer>(
               drParameters, seissolInstance),
           std::make_unique<friction_law_cpu::SlipLaw<friction_law_cpu::ThermalPressurization>>(
-              *drParameters),
+              FrictionLawParameters(*drParameters)),
           std::make_unique<friction_law_gpu::SlipLaw<friction_law_gpu::ThermalPressurization>>(
-              *drParameters),
+              FrictionLawParameters(*drParameters)),
           std::make_unique<seissol::dr::output::OutputManager>(
               std::make_unique<seissol::dr::output::RateAndStateThermalPressurization>(),
               seissolInstance)};
@@ -110,8 +112,10 @@ class RateAndStateSlipFactory : public AbstractFactory {
       return {std::make_unique<seissol::LTSRateAndState>(drParameters.get()),
               std::make_unique<seissol::dr::initializer::RateAndStateInitializer>(drParameters,
                                                                                   seissolInstance),
-              std::make_unique<friction_law_cpu::SlipLaw<friction_law_cpu::NoTP>>(*drParameters),
-              std::make_unique<friction_law_gpu::SlipLaw<friction_law_gpu::NoTP>>(*drParameters),
+              std::make_unique<friction_law_cpu::SlipLaw<friction_law_cpu::NoTP>>(
+                  FrictionLawParameters(*drParameters)),
+              std::make_unique<friction_law_gpu::SlipLaw<friction_law_gpu::NoTP>>(
+                  FrictionLawParameters(*drParameters)),
               std::make_unique<seissol::dr::output::OutputManager>(
                   std::make_unique<seissol::dr::output::RateAndState>(), seissolInstance)};
     }
@@ -130,8 +134,8 @@ class LinearSlipWeakeningBimaterialFactory : public AbstractFactory {
     return {std::make_unique<seissol::LTSLinearSlipWeakeningBimaterial>(drParameters.get()),
             std::make_unique<seissol::dr::initializer::LinearSlipWeakeningBimaterialInitializer>(
                 drParameters, seissolInstance),
-            std::make_unique<FrictionLawType>(*drParameters),
-            std::make_unique<FrictionLawTypeGpu>(*drParameters),
+            std::make_unique<FrictionLawType>(FrictionLawParameters(*drParameters)),
+            std::make_unique<FrictionLawTypeGpu>(FrictionLawParameters(*drParameters)),
             std::make_unique<seissol::dr::output::OutputManager>(
                 std::make_unique<seissol::dr::output::LinearSlipWeakeningBimaterial>(),
                 seissolInstance)};
@@ -150,8 +154,8 @@ class LinearSlipWeakeningTPApproxFactory : public AbstractFactory {
     return {std::make_unique<seissol::LTSLinearSlipWeakening>(drParameters.get()),
             std::make_unique<seissol::dr::initializer::LinearSlipWeakeningInitializer>(
                 drParameters, seissolInstance),
-            std::make_unique<FrictionLawType>(*drParameters),
-            std::make_unique<FrictionLawTypeGpu>(*drParameters),
+            std::make_unique<FrictionLawType>(FrictionLawParameters(*drParameters)),
+            std::make_unique<FrictionLawTypeGpu>(FrictionLawParameters(*drParameters)),
             std::make_unique<seissol::dr::output::OutputManager>(
                 std::make_unique<seissol::dr::output::LinearSlipWeakening>(), seissolInstance)};
   }
@@ -165,9 +169,9 @@ class ImposedSlipRatesYoffeFactory : public AbstractFactory {
             std::make_unique<seissol::dr::initializer::ImposedSlipRatesYoffeInitializer>(
                 drParameters, seissolInstance),
             std::make_unique<friction_law_cpu::ImposedSlipRates<friction_law_cpu::YoffeSTF>>(
-                *drParameters),
+                FrictionLawParameters(*drParameters)),
             std::make_unique<friction_law_gpu::ImposedSlipRates<friction_law_gpu::YoffeSTF>>(
-                *drParameters),
+                FrictionLawParameters(*drParameters)),
             std::make_unique<seissol::dr::output::OutputManager>(
                 std::make_unique<seissol::dr::output::ImposedSlipRates>(), seissolInstance)};
   }
@@ -181,9 +185,9 @@ class ImposedSlipRatesGaussianFactory : public AbstractFactory {
             std::make_unique<seissol::dr::initializer::ImposedSlipRatesGaussianInitializer>(
                 drParameters, seissolInstance),
             std::make_unique<friction_law_cpu::ImposedSlipRates<friction_law_cpu::GaussianSTF>>(
-                *drParameters),
+                FrictionLawParameters(*drParameters)),
             std::make_unique<friction_law_gpu::ImposedSlipRates<friction_law_gpu::GaussianSTF>>(
-                *drParameters),
+                FrictionLawParameters(*drParameters)),
             std::make_unique<seissol::dr::output::OutputManager>(
                 std::make_unique<seissol::dr::output::ImposedSlipRates>(), seissolInstance)};
   }
@@ -197,9 +201,9 @@ class ImposedSlipRatesDeltaFactory : public AbstractFactory {
             std::make_unique<seissol::dr::initializer::ImposedSlipRatesDeltaInitializer>(
                 drParameters, seissolInstance),
             std::make_unique<friction_law_cpu::ImposedSlipRates<friction_law_cpu::DeltaSTF>>(
-                *drParameters),
+                FrictionLawParameters(*drParameters)),
             std::make_unique<friction_law_gpu::ImposedSlipRates<friction_law_gpu::DeltaSTF>>(
-                *drParameters),
+                FrictionLawParameters(*drParameters)),
             std::make_unique<seissol::dr::output::OutputManager>(
                 std::make_unique<seissol::dr::output::ImposedSlipRates>(), seissolInstance)};
   }
@@ -218,10 +222,10 @@ class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
               drParameters, seissolInstance),
           std::make_unique<
               friction_law_cpu::FastVelocityWeakeningLaw<friction_law_cpu::ThermalPressurization>>(
-              *drParameters),
+              FrictionLawParameters(*drParameters)),
           std::make_unique<
               friction_law_gpu::FastVelocityWeakeningLaw<friction_law_gpu::ThermalPressurization>>(
-              *drParameters),
+              FrictionLawParameters(*drParameters)),
           std::make_unique<seissol::dr::output::OutputManager>(
               std::make_unique<seissol::dr::output::RateAndStateThermalPressurization>(),
               seissolInstance)};
@@ -230,9 +234,9 @@ class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
               std::make_unique<seissol::dr::initializer::RateAndStateFastVelocityInitializer>(
                   drParameters, seissolInstance),
               std::make_unique<friction_law_cpu::FastVelocityWeakeningLaw<friction_law_cpu::NoTP>>(
-                  *drParameters),
+                  FrictionLawParameters(*drParameters)),
               std::make_unique<friction_law_gpu::FastVelocityWeakeningLaw<friction_law_gpu::NoTP>>(
-                  *drParameters),
+                  FrictionLawParameters(*drParameters)),
               std::make_unique<seissol::dr::output::OutputManager>(
                   std::make_unique<seissol::dr::output::RateAndState>(), seissolInstance)};
     }
@@ -249,9 +253,9 @@ class RateAndStateSevereVelocityWeakeningFactory : public AbstractFactory {
           std::make_unique<seissol::dr::initializer::RateAndStateThermalPressurizationInitializer>(
               drParameters, seissolInstance),
           std::make_unique<friction_law_cpu::SevereVelocityWeakeningLaw<
-              friction_law_cpu::ThermalPressurization>>(*drParameters),
+              friction_law_cpu::ThermalPressurization>>(FrictionLawParameters(*drParameters)),
           std::make_unique<friction_law_gpu::SevereVelocityWeakeningLaw<
-              friction_law_gpu::ThermalPressurization>>(*drParameters),
+              friction_law_gpu::ThermalPressurization>>(FrictionLawParameters(*drParameters)),
           std::make_unique<seissol::dr::output::OutputManager>(
               std::make_unique<seissol::dr::output::RateAndStateThermalPressurization>(),
               seissolInstance)};
@@ -261,9 +265,9 @@ class RateAndStateSevereVelocityWeakeningFactory : public AbstractFactory {
           std::make_unique<seissol::dr::initializer::RateAndStateInitializer>(drParameters,
                                                                               seissolInstance),
           std::make_unique<friction_law_cpu::SevereVelocityWeakeningLaw<friction_law_cpu::NoTP>>(
-              *drParameters),
+              FrictionLawParameters(*drParameters)),
           std::make_unique<friction_law_gpu::SevereVelocityWeakeningLaw<friction_law_gpu::NoTP>>(
-              *drParameters),
+              FrictionLawParameters(*drParameters)),
           std::make_unique<seissol::dr::output::OutputManager>(
               std::make_unique<seissol::dr::output::RateAndState>(), seissolInstance)};
     }
