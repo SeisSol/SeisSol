@@ -88,7 +88,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
           ltsBuffers.push_back(buffers[cell]);
 
           idofsAddressRegistry[cell] = nextIdofPtr;
-          integratedDofsAddressCounter += tensor::I::size();
+          integratedDofsAddressCounter += kernels::Solver::BuffersSize;
         } else {
           // gts buffers have to be always overridden
           idofsPtrs.push_back(buffers[cell]);
@@ -97,7 +97,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       } else {
         idofsPtrs.push_back(nextIdofPtr);
         idofsAddressRegistry[cell] = nextIdofPtr;
-        integratedDofsAddressCounter += tensor::I::size();
+        integratedDofsAddressCounter += kernels::Solver::BuffersSize;
       }
 
       // stars

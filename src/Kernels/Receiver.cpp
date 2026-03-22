@@ -141,10 +141,10 @@ double ReceiverCluster::calcReceivers(double time,
     const std::size_t recvCount = m_receivers.size();
     const auto receiverHandler = [this, timeBasis, timeStepWidth, time, expansionPoint, executor](
                                      std::size_t i) {
-      alignas(Alignment) real timeEvaluated[tensor::Q::size()];
-      alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
-      alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
-      alignas(PagesizeStack) real timeDerivatives[Solver::DerivativesSize];
+      alignas(Alignment) real timeEvaluated[tensor::Q::size()]{};
+      alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()]{};
+      alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()]{};
+      alignas(PagesizeStack) real timeDerivatives[Solver::DerivativesSize]{};
 
       kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 

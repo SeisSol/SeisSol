@@ -16,6 +16,7 @@
 #include "Initializer/TimeStepping/Halo.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
@@ -141,8 +142,8 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   const auto datatype = Config::Precision;
   const auto typeSize = sizeOfRealType(datatype);
 
-  const auto bufferSize = typeSize * tensor::I::size();
-  const auto derivativeSize = typeSize * yateto::computeFamilySize<tensor::dQ>();
+  const auto bufferSize = typeSize * kernels::Solver::BuffersSize;
+  const auto derivativeSize = typeSize * kernels::Solver::DerivativesSize;
 
   const auto allocate = [&](std::size_t index, bool useDerivatives) {
     if (useDerivatives) {
@@ -233,8 +234,8 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
 
   auto* buffersDerivativesDevice = layer.var<LTS::BuffersDerivatives>(AllocationPlace::Device);
 
-  const auto bufferSize = tensor::I::size();
-  const auto derivativeSize = yateto::computeFamilySize<tensor::dQ>();
+  const auto bufferSize = kernels::Solver::BuffersSize;
+  const auto derivativeSize = kernels::Solver::DerivativesSize;
 
 #pragma omp parallel for schedule(static)
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {

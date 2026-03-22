@@ -15,6 +15,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
 #include "Memory/MemoryAllocator.h"
 #include "Parallel/OpenMP.h"
 
@@ -48,7 +49,7 @@ void OnHost::initSpecificGlobalData(GlobalData& globalData,
                                     seissol::memory::Memkind memkind) {
   // thread-local LTS integration buffers
   const auto numThreads = OpenMP::threadCount();
-  const auto allocSize = 4 * static_cast<std::size_t>(tensor::I::size());
+  const auto allocSize = Cell::NumFaces * kernels::Solver::BuffersSize;
   auto* integrationBufferLTS = reinterpret_cast<real*>(
       allocator.allocateMemory(numThreads * allocSize * sizeof(real), alignment, memkind));
 

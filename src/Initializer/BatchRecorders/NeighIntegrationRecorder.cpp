@@ -12,6 +12,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Recorders.h"
@@ -80,7 +81,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
                   ltsIDofsPtrs.push_back(nextTempIDofsPtr);
                   ltsDerivativesPtrs.push_back(neighborBuffer);
                 }
-                integratedDofsAddressCounter += tensor::I::size();
+                integratedDofsAddressCounter += kernels::Solver::BuffersSize;
               } else {
                 idofsAddressRegistry[neighborBuffer] = neighborBuffer;
               }

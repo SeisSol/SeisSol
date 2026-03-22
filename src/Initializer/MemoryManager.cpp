@@ -214,8 +214,8 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
     // FSG also counts as Dirichlet
     const auto dirichletCount = std::max(dirichletCountPre, freeSurfaceCount);
 
-    layer.setEntrySize<LTS::IntegratedDofsScratch>(integratedDofsCounter * tensor::I::size() *
-                                                   sizeof(real));
+    layer.setEntrySize<LTS::IntegratedDofsScratch>(integratedDofsCounter *
+                                                   kernels::Solver::BuffersSize * sizeof(real));
     layer.setEntrySize<LTS::DerivativesScratch>(derivativesCounter * totalDerivativesSize *
                                                 sizeof(real));
     layer.setEntrySize<LTS::NodalAvgDisplacements>(nodalDisplacementsCounter *

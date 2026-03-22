@@ -339,7 +339,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   loopStatistics->begin(regionComputeLocalIntegration);
 
   // local integration buffer
-  alignas(Alignment) real integrationBuffer[tensor::I::size()];
+  alignas(Alignment) real integrationBuffer[kernels::Solver::BuffersSize]{};
 
   // pointer for the call of the ADER-function
   real* bufferPointer = nullptr;
@@ -405,7 +405,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
     if (!resetMyBuffers && buffersProvided) {
       assert(buffers[cell] != nullptr);
 
-      for (std::size_t dof = 0; dof < tensor::I::size(); ++dof) {
+      for (std::size_t dof = 0; dof < kernels::Solver::BuffersSize; ++dof) {
         buffers[cell][dof] += integrationBuffer[dof];
       }
     }
@@ -933,7 +933,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
     for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
       integrationBuffers[i] =
           &globalDataOnHost->integrationBufferLTS[(OpenMP::threadId() * Cell::NumFaces + i) *
-                                                  static_cast<size_t>(tensor::I::size())];
+                                                  kernels::Solver::BuffersSize];
     }
 
     seissol::kernels::TimeCommon::computeIntegrals(timeKernel,
