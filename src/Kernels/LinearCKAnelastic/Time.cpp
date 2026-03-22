@@ -63,7 +63,7 @@ void Spacetime::computeAder(const real* coeffs,
   assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeDerivativesOrSTP)) % Alignment == 0 ||
-         timeDerivativesOrSTP == NULL);
+         timeDerivativesOrSTP == nullptr);
 
   /*
    * compute ADER scheme.

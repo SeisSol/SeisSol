@@ -140,7 +140,7 @@ void Spacetime::computeAder(const real* coeffs,
   assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0 ||
-         timeDerivatives == NULL);
+         timeDerivatives == nullptr);
 
   alignas(Alignment) real temporaryBuffer[tensor::spaceTimePredictor::size()];
   real* stpBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
