@@ -65,14 +65,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 }
 
 void Local::computeIntegral(
-    real timeIntegratedDoFs[tensor::I::size()],
-    LTS::Ref& data,
-    LocalTmp& tmp,
-    // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
-    const CellMaterialData* materialData,
-    const std::array<CellBoundaryMapping, Cell::NumFaces>& cellBoundaryMapping,
-    double time,
-    double timeStepWidth) {
+    real* timeIntegratedDoFs, LTS::Ref& data, LocalTmp& tmp, double time, double timeStepWidth) {
   // assert alignments
 #ifndef NDEBUG
   assert((reinterpret_cast<uintptr_t>(timeIntegratedDoFs)) % Alignment == 0);

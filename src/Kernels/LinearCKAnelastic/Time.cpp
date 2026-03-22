@@ -54,16 +54,16 @@ void Spacetime::computeAder(const real* coeffs,
                             double timeStepWidth,
                             LTS::Ref& data,
                             LocalTmp& tmp,
-                            real timeIntegrated[tensor::I::size()],
-                            real* timeDerivatives,
+                            real* timeIntegrated,
+                            real* timeDerivativesOrSTP,
                             bool updateDisplacement) {
   /*
    * assert alignments.
    */
   assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0 ||
-         timeDerivatives == NULL);
+  assert((reinterpret_cast<uintptr_t>(timeDerivativesOrSTP)) % Alignment == 0 ||
+         timeDerivativesOrSTP == NULL);
 
   /*
    * compute ADER scheme.
@@ -77,9 +77,9 @@ void Spacetime::computeAder(const real* coeffs,
   kernel::derivative krnl = m_krnlPrototype;
 
   krnl.dQ(0) = const_cast<real*>(data.get<LTS::Dofs>());
-  if (timeDerivatives != nullptr) {
-    streamstore(tensor::dQ::size(0), data.get<LTS::Dofs>(), timeDerivatives);
-    real* derOut = timeDerivatives;
+  if (timeDerivativesOrSTP != nullptr) {
+    streamstore(tensor::dQ::size(0), data.get<LTS::Dofs>(), timeDerivativesOrSTP);
+    real* derOut = timeDerivativesOrSTP;
     for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derOut += tensor::dQ::size(i - 1);
       krnl.dQ(i) = derOut;
@@ -138,19 +138,19 @@ std::uint64_t Spacetime::bytesAder() {
 }
 
 void Time::evaluate(const real* coeffs,
-                    const real* timeDerivatives,
+                    const real* timeDerivativesOrSTP,
                     real timeEvaluated[tensor::Q::size()]) {
   /*
    * assert alignments.
    */
-  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeDerivativesOrSTP)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Alignment == 0);
 
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
 
   kernel::derivativeTaylorExpansionEla krnl;
   krnl.I = timeEvaluated;
-  const real* der = timeDerivatives;
+  const real* der = timeDerivativesOrSTP;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQ(i) = der;
     der += tensor::dQ::size(i);
@@ -166,12 +166,12 @@ void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlo
 }
 
 void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
-                           SEISSOL_GPU_PARAM const real** timeDerivatives,
+                           SEISSOL_GPU_PARAM const real** timeDerivativesOrSTP,
                            SEISSOL_GPU_PARAM real** timeIntegratedDofs,
                            SEISSOL_GPU_PARAM std::size_t numElements,
                            SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
-  assert(timeDerivatives != nullptr);
+  assert(timeDerivativesOrSTP != nullptr);
   assert(timeIntegratedDofs != nullptr);
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
   static_assert(kernel::gpu_derivativeTaylorExpansionEla::TmpMaxMemRequiredInBytes == 0);
@@ -181,7 +181,7 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
   krnl.I = timeIntegratedDofs;
   std::size_t derivativeOffset = 0;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    krnl.dQ(i) = const_cast<const real**>(timeDerivatives);
+    krnl.dQ(i) = const_cast<const real**>(timeDerivativesOrSTP);
     krnl.extraOffset_dQ(i) = derivativeOffset;
     derivativeOffset += tensor::dQ::size(i);
     krnl.power(i) = coeffs[i];
