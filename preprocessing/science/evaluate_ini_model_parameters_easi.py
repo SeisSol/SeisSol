@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import warnings
 
 import easi
 import numpy as np
@@ -49,9 +50,13 @@ class SeissolxdmfExtended(seissolxdmf.seissolxdmf):
     def ReadFaultTagOrRegion(self):
         """Read fault-tag or region array, optionally subdivided multiple levels."""
         var_name = "group" if self.is_volume else "fault-tag"
-
-        # Read original tags as a 1D integer array
-        original_tags = self.Read1dData(var_name, self.nElements, isInt=True)
+        available = self.ReadAvailableDataFields()
+        if var_name in available:
+            # Read original tags as a 1D integer array
+            original_tags = self.Read1dData(var_name, self.nElements, isInt=True)
+        else:
+            warnings.warn(f"{var_name} not in available data fields, using {var_name}=0")
+            original_tags = np.zeros((self.connect.shape[0],))
 
         # If subdividing, repeat tags according to total number of children
         if self.subdivide_level > 0:
