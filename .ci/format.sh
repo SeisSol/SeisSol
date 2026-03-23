@@ -34,9 +34,9 @@ format() {
     fi
 
     local formatter_version=$(${formatter} --version)
-    if [ "${formatter_version}" != "clang-format version 21.1.0" ]; then
-        echo "Your clang-format tool in \"${formatter}\" does not have the correct version (should be 21.1.0). Given: ${formatter_version}"
-        echo "Hint: you may install the required clang-format via pip, by typing: pip3 install clang-format==21.1.0"
+    if [ "${formatter_version}" != "clang-format version 22.1.0" ]; then
+        echo "Your clang-format tool in \"${formatter}\" does not have the correct version (should be 22.1.0). Given: ${formatter_version}"
+        echo "Hint: you may install the required clang-format via pip, by typing: pip3 install clang-format==22.1.0"
         exit 176
     fi
 
