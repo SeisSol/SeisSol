@@ -23,6 +23,7 @@ class DynamicRupture : public Kernel {
   kernels::Time m_timeKernel;
 #ifdef ACL_DEVICE
   dynamicRupture::kernel::gpu_evaluateAndRotateQAtInterpolationPoints m_gpuKrnlPrototype;
+  dynamicRupture::kernel::gpu_projectToDR m_gpuCombinedKrnlPrototype;
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 

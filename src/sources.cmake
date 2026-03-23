@@ -46,6 +46,9 @@ Solver/TimeStepping/GhostTimeClusterWithCopy.cpp
 Solver/TimeStepping/TimeCluster.cpp
 Solver/TimeStepping/TimeManager.cpp
 
+ResultWriter/DofSync.cpp
+ResultWriter/PickpointWriter.cpp
+
 Kernels/DynamicRupture.cpp
 Kernels/Plasticity.cpp
 Kernels/TimeCommon.cpp

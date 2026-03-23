@@ -19,6 +19,7 @@
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
@@ -48,23 +49,23 @@ void ReceiverOutput::setLtsData(LTS::Storage& userWpStorage,
   drStorage = &userDrStorage;
 }
 
-void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
+void ReceiverOutput::getDofs(const real*(&derivatives), std::size_t meshId) {
   const auto position = wpBackmap->get(meshId);
   auto& layer = wpStorage->layer(position.color);
   // get DOFs from 0th derivatives
   assert(layer.var<LTS::CellInformation>()[position.cell].ltsSetup.hasDerivatives());
 
-  real* derivatives = layer.var<LTS::Derivatives>()[position.cell];
-  std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+  derivatives = layer.var<LTS::Derivatives>()[position.cell];
 }
 
-void ReceiverOutput::getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side) {
+void ReceiverOutput::getNeighborDofs(const real*(&derivatives),
+                                     std::size_t meshId,
+                                     std::size_t side) {
   const auto position = wpBackmap->get(meshId);
   auto& layer = wpStorage->layer(position.color);
-  auto* derivatives = layer.var<LTS::FaceNeighbors>()[position.cell][side];
-  assert(derivatives != nullptr);
 
-  std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+  derivatives = layer.var<LTS::FaceNeighbors>()[position.cell][side];
+  assert(derivatives != nullptr);
 }
 
 void ReceiverOutput::calcFaultOutput(
@@ -72,12 +73,20 @@ void ReceiverOutput::calcFaultOutput(
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     const std::shared_ptr<ReceiverOutputData>& outputData,
     parallel::runtime::StreamRuntime& runtime,
-    double time) {
+    double time,
+    double dt,
+    double indt) {
 
   const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
                            ? outputData->currentCacheLevel
                            : 0;
   const auto& faultInfos = meshReader->getFault();
+
+  const auto timeCoeffs = kernels::timeBasis().point(indt, dt);
+  auto integrateCoeffs = kernels::timeBasis().integrate(0, indt, dt);
+  for (auto& coeff : integrateCoeffs) {
+    coeff = -coeff;
+  }
 
   auto& callRuntime =
       outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
@@ -96,7 +105,14 @@ void ReceiverOutput::calcFaultOutput(
   }
 
   const auto points = outputData->receiverPoints.size();
-  const auto handler = [this, outputData, &faultInfos, slipRateOutputType, level](std::size_t i) {
+  const auto handler = [this,
+                        outputData,
+                        &faultInfos,
+                        outputType,
+                        slipRateOutputType,
+                        level,
+                        timeCoeffs,
+                        integrateCoeffs](std::size_t i) {
     // TODO: query the dofs, only once per simulation; once per face
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
     alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
@@ -125,21 +141,32 @@ void ReceiverOutput::calcFaultOutput(
 
     const auto& faultInfo = faultInfos[faceIndex];
 
-    if constexpr (isDeviceOn()) {
-      const real* dofsPlusData =
-          outputData->deviceDataCollector->get(outputData->deviceDataPlus[i]);
-      const real* dofsMinusData =
-          outputData->deviceDataCollector->get(outputData->deviceDataMinus[i]);
-
-      std::memcpy(dofsPlus, dofsPlusData, sizeof(dofsPlus));
-      std::memcpy(dofsMinus, dofsMinusData, sizeof(dofsMinus));
+    if (outputType == initializer::parameters::OutputType::Elementwise) {
+      std::memcpy(dofsPlus,
+                  local.layer->var<DynamicRupture::TimeDofsPlus>()[local.ltsId],
+                  sizeof(dofsPlus));
+      std::memcpy(dofsMinus,
+                  local.layer->var<DynamicRupture::TimeDofsMinus>()[local.ltsId],
+                  sizeof(dofsMinus));
     } else {
-      getDofs(dofsPlus, faultInfo.element);
-      if (faultInfo.neighborElement >= 0) {
-        getDofs(dofsMinus, faultInfo.neighborElement);
+      // only interpolate for the on-fault receivers
+      const real* stePlus = nullptr;
+      const real* steMinus = nullptr;
+
+      if constexpr (isDeviceOn()) {
+        stePlus = outputData->deviceDataCollector->get(outputData->deviceDataPlus[i]);
+        steMinus = outputData->deviceDataCollector->get(outputData->deviceDataMinus[i]);
       } else {
-        getNeighborDofs(dofsMinus, faultInfo.element, faultInfo.side);
+        getDofs(stePlus, faultInfo.element);
+        if (faultInfo.neighborElement >= 0) {
+          getDofs(steMinus, faultInfo.neighborElement);
+        } else {
+          getNeighborDofs(steMinus, faultInfo.element, faultInfo.side);
+        }
       }
+
+      timeKernel.evaluate(timeCoeffs.data(), stePlus, dofsPlus);
+      timeKernel.evaluate(timeCoeffs.data(), steMinus, dofsMinus);
     }
 
     const auto* initStresses = getCellData<DynamicRupture::InitialStressInFaultCS>(local);
@@ -454,9 +481,8 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
     std::array<double, static_cast<std::size_t>(2 * NumDegFr2d)> phiAtPoint{};
     phiAtPoint.fill(0.0);
 
-    auto chiTau2dPoints =
-        init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
-    auto weights = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
+    const auto chiTau2dPoints = init::quadpoints::view::create(init::quadpoints::Values);
+    const auto weights = init::quadweights::view::create(init::quadweights::Values);
 
     const auto* rt = getCellData<DynamicRupture::RuptureTime>(local);
     for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints; ++jBndGP) {
@@ -470,8 +496,7 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
             seissol::multisim::multisimWrap(weights, 0, jBndGP) * rt[jBndGP] * phiAtPoint[d];
       }
     }
-    auto m2inv =
-        seissol::init::M2inv::view::create(const_cast<real*>(seissol::init::M2inv::Values));
+    const auto m2inv = seissol::init::M2inv::view::create(seissol::init::M2inv::Values);
     for (size_t d = 0; d < NumDegFr2d; ++d) {
       projectedRT[d] *= m2inv(d, d);
     }

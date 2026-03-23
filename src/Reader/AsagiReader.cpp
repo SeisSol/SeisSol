@@ -40,7 +40,7 @@ namespace seissol::asagi {
   if (AsagiModule::mpiMode() != AsagiMPIMode::Off) {
     // USE_MPI kept on purpose
 #ifdef USE_MPI
-    ::asagi::Grid::Error const err = grid->setComm(comm);
+    const ::asagi::Grid::Error err = grid->setComm(comm);
     if (err != ::asagi::Grid::SUCCESS) {
       logError() << "Could not set ASAGI communicator:" << err;
     }
@@ -85,9 +85,12 @@ namespace seissol::asagi {
 
   // Set additional parameters
   const std::string blockSize = env.get("ASAGI_BLOCK_SIZE", "64");
-  grid->setParam("BLOCK_SIZE_0", blockSize.c_str());
-  grid->setParam("BLOCK_SIZE_1", blockSize.c_str());
-  grid->setParam("BLOCK_SIZE_2", blockSize.c_str());
+
+  // just set it for a really large number of dimensions for now (we only know the exact count
+  // (usually 3) after opening the file)
+  for (std::size_t dim = 0; dim < 256; ++dim) {
+    grid->setParam(("BLOCK_SIZE_" + std::to_string(dim)).c_str(), blockSize.c_str());
+  }
 
   const std::string cacheSize = env.get("ASAGI_CACHE_SIZE", "128");
   grid->setParam("CACHE_SIZE", cacheSize.c_str());
@@ -115,7 +118,8 @@ namespace seissol::asagi {
 }
 
 NumaCacheMode AsagiReader::getNumaMode() {
-  const std::string numaModeName = AsagiModule::getInstance().getEnv().get("ASAGI_NUMA_MODE", "ON");
+  const std::string numaModeName =
+      AsagiModule::getInstance().getEnv().get("ASAGI_NUMA_MODE", "OFF");
 
   if (numaModeName == "ON") {
     return NumaCacheMode::On;
