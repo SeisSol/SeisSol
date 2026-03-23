@@ -45,7 +45,10 @@ class SeissolxdmfExtended(seissolxdmf.seissolxdmf):
             # Update geometry and connectivity
             self.xyz = mesh.points
             n = vertices_per_cell + 1
-            self.connect = mesh.faces.reshape(-1, n)[:, 1:n].astype(np.int64)
+            if self.is_volume:
+                self.connect = mesh.cells.reshape(-1, n)[:, 1:n].astype(np.int64)
+            else:
+                self.connect = mesh.faces.reshape(-1, n)[:, 1:n].astype(np.int64)
 
     def ReadFaultTagOrRegion(self):
         """Read fault-tag or region array, optionally subdivided multiple levels."""
@@ -55,7 +58,9 @@ class SeissolxdmfExtended(seissolxdmf.seissolxdmf):
             # Read original tags as a 1D integer array
             original_tags = self.Read1dData(var_name, self.nElements, isInt=True)
         else:
-            warnings.warn(f"{var_name} not in available data fields, using {var_name}=0")
+            warnings.warn(
+                f"{var_name} not in available data fields, using {var_name}=0"
+            )
             original_tags = np.zeros((self.connect.shape[0],))
 
         # If subdividing, repeat tags according to total number of children
@@ -138,7 +143,11 @@ if __name__ == "__main__":
         "--subdivide_level",
         default=0,
         type=int,
-        help="subdivide mesh before evaluating",
+        help=(
+            "subdivides mesh before evaluating. subdivide_level = 1 subdivides each tetrahedron"
+            "into twelve tetrahedrons (volume), or each triangle into 4 triangles (surfaces)"
+            "subdivide_level > 1 subdivides recursively."
+        ),
     )
 
     parser.add_argument(
