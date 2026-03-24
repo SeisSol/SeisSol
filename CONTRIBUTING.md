@@ -129,14 +129,27 @@ ctest --output-on-failure
 
 ### Code Style
 
+SeisSol consists of the C++ core code (in `src/` and `app/`),
+as well as Python code (in `codegen/`) for compile-time
+code generation.
+
 #### C++
 
-SeisSol uses `clang-format` and `clang-tidy`
+SeisSol follows C++17, with the following extensions:
+
+- `__restrict` keyword (for better control over array accesses)
+
+C++17 is also used for all CUDA/HIP/SYCL code.
+
+We use `clang-format` and `clang-tidy`
 to enforce a consistent code style.
 
-The configuration files are in [`.clang-format`](.clang-format)
+The configuration files (including rule exceptions)
+are in [`.clang-format`](.clang-format)
 and [`.clang-tidy`](.clang-tidy) at the repository
 root.
+
+When submitting code, follow
 
 - **Format your code** before committing: this is done via the pre-commit hooks.
   If you need to format the code manually, run
@@ -147,6 +160,8 @@ root.
 
 - Follow the existing patterns in the codebase and use the `seissol::`
   namespace hierarchy.
+
+- **Prefer modern C++ code**; that is C++17 in our case.
 
 - **Static analysis**: Running `clang-tidy`
   locally before submitting is encouraged, as the CI requires it to
@@ -161,7 +176,8 @@ root.
 #### Python
 
 Python code (code generation scripts) follows PEP 8,
-enforced by `flake8` (configured in [`.flake8`](.flake8)).
+enforced by `flake8` (configured in [`.flake8`](.flake8),
+which also contains a list of currently-excepted rules).
 Furthermore, we employ formatting via `black` and `isort`,
 and security checks via `bandit`.
 
