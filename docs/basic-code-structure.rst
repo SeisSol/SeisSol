@@ -86,16 +86,6 @@ doxygen       Doxygen configuration.
 figures       Figures and graphics used in the documentation and the readme.
 ============= =============
 
-preprocessing/
---------------
-
-============= =============
-Folder        Description
-============= =============
-meshing       Cube generator; gmsh converter; various scripts.
-science       ASAGI converter; standard rupture format converter; various scripts.
-============= =============
-
 postprocessing/
 ---------------
 

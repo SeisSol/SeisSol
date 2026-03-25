@@ -57,13 +57,13 @@ repos:
     rev: 25.1.0
     hooks:
     -   id: black
-        files: ^(?!preprocessing|postprocessing)
+        files: ^(?!postprocessing)
         name: '[PYTHON] black'
 -   repo: https://github.com/pycqa/isort
     rev: 6.0.1
     hooks:
     -   id: isort
-        files: ^(?!preprocessing|postprocessing)
+        files: ^(?!postprocessing)
         args: ["--profile", "black"]
         name: '[PYTHON] isort'
 -   repo: https://github.com/pycqa/bandit
@@ -76,7 +76,7 @@ repos:
     rev: '7.3.0'
     hooks:
     -   id: flake8
-        files: ^(?!preprocessing|postprocessing)
+        files: ^(?!postprocessing)
         name: '[PYTHON] Flake8'
 
 -   repo: https://github.com/sphinx-contrib/sphinx-lint
