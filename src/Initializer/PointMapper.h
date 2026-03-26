@@ -16,7 +16,7 @@
 namespace seissol::initializer {
 /** Finds the tetrahedrons that contain the points.
  *  In "contained" we save if the point source is contained in the mesh.
- *  We use short here as bool. For MPI use cleanDoubles afterwards.
+ *  We use short here as bool.
  */
 void findMeshIds(const Eigen::Vector3d* points,
                  const seissol::geometry::MeshReader& mesh,
@@ -32,8 +32,6 @@ void findMeshIds(const Eigen::Vector3d* points,
                  short* contained,
                  std::size_t* meshIds,
                  double tolerance = 0);
-
-void cleanDoubles(short* contained, std::size_t numPoints);
 
 } // namespace seissol::initializer
 

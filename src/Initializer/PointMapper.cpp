@@ -124,8 +124,4 @@ void findMeshIds(const Eigen::Vector3d* points,
   }
 }
 
-void cleanDoubles(short* contained, std::size_t numPoints) {
-  // does nothing
-}
-
 } // namespace seissol::initializer
