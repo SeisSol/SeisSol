@@ -54,7 +54,11 @@ void findMeshIds(const Eigen::Vector3d* points,
     points1[point][Cell::Dim] = 1.0;
   }
 
-/// @TODO Could use the code generator for the following
+  const auto rank = seissol::Mpi::mpi.rank();
+
+  std::vector<std::pair<double, int>> score(
+      numPoints, std::pair<double, int>(std::numeric_limits<double>::infinity(), rank));
+
 #pragma omp parallel for schedule(static)
   for (std::size_t elem = 0; elem < elements.size(); ++elem) {
     auto planeEquations = std::array<std::array<double, Cell::Dim + 1>, Cell::Dim + 1>();
@@ -70,69 +74,58 @@ void findMeshIds(const Eigen::Vector3d* points,
       planeEquations[Cell::Dim][face] = -MeshTools::dot(n, p);
     }
     for (std::size_t point = 0; point < numPoints; ++point) {
-      // NOLINTNEXTLINE
-      int notInside = 0;
+      // we look for the face for which we lie the most outside the cell
+      // the larger a the resultFace value, the less we lie inside the cell
+      // (threshold being 0; up to numerical inaccuracies; hence the tolerance value)
 
-#pragma omp simd reduction(+ : notInside)
+      // NOLINTNEXTLINE
+      double maxValue = -std::numeric_limits<double>::infinity();
+
+#pragma omp simd reduction(max : maxValue)
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         double resultFace = 0;
         for (std::size_t dim = 0; dim < Cell::Dim + 1; ++dim) {
           resultFace += planeEquations[dim][face] * points1[point][dim];
         }
-        notInside += (resultFace > tolerance) ? 1 : 0;
+        maxValue = std::max(maxValue, resultFace);
       }
-      if (notInside == 0) {
+
+      if (maxValue <= tolerance) {
+        // meaning: we're below tolerance to consider the cell
 
 #pragma omp critical
         {
-          /* It might actually happen that a point is found in two tetrahedrons
-           * if it lies on the boundary. In this case we arbitrarily assign
-           * it to the one with the higher meshId.
-           * @todo Check if this is a problem with the numerical scheme. */
-          /*if (contained[point] != 0) {
-             logError() << "point with id " << point << " was already found in a different
-          element!";
-          }*/
+          // minimize the maxValue
           const auto localId = static_cast<std::size_t>(elements[elem].localId);
-          if ((contained[point] == 0) || (meshIds[point] > localId)) {
-            contained[point] = 1;
+          if (score[point].first > maxValue) {
+            score[point] = std::pair<double, int>{maxValue, rank};
             meshIds[point] = localId;
           }
+
+          // and of course, we've found the point locally
+          contained[point] = 1;
         }
       }
     }
+  }
+
+  // now reduce over all ranks for the best fit (not only duplicate ranks)
+
+  MPI_Allreduce(MPI_IN_PLACE,
+                score.data(),
+                score.size(),
+                MPI_DOUBLE_INT,
+                MPI_MINLOC,
+                seissol::Mpi::mpi.comm());
+
+  for (std::size_t i = 0; i < numPoints; ++i) {
+    contained[i] =
+        score[i].second == rank && score[i].first < std::numeric_limits<double>::infinity() ? 1 : 0;
   }
 }
 
 void cleanDoubles(short* contained, std::size_t numPoints) {
-  const auto myrank = seissol::Mpi::mpi.rank();
-  const auto size = seissol::Mpi::mpi.size();
-
-  auto globalContained = std::vector<short>(size * numPoints);
-  MPI_Allgather(contained,
-                numPoints,
-                MPI_SHORT,
-                globalContained.data(),
-                numPoints,
-                MPI_SHORT,
-                seissol::Mpi::mpi.comm());
-
-  std::size_t cleaned = 0;
-  for (std::size_t point = 0; point < numPoints; ++point) {
-    if (contained[point] == 1) {
-      for (int rank = 0; rank < myrank; ++rank) {
-        if (globalContained[rank * numPoints + point] == 1) {
-          contained[point] = 0;
-          ++cleaned;
-          break;
-        }
-      }
-    }
-  }
-
-  if (cleaned > 0) {
-    logInfo() << "Cleaned " << cleaned << " double occurring points on rank " << myrank << ".";
-  }
+  // does nothing
 }
 
 } // namespace seissol::initializer
