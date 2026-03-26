@@ -18,10 +18,12 @@
 #include "Parallel/MPI.h"
 
 #include <Eigen/Core>
+#include <algorithm>
 #include <array>
 #include <cstring>
+#include <limits>
 #include <mpi.h>
-#include <utils/logger.h>
+#include <utility>
 #include <vector>
 
 namespace seissol::initializer {
@@ -74,15 +76,22 @@ void findMeshIds(const Eigen::Vector3d* points,
       planeEquations[Cell::Dim][face] = -MeshTools::dot(n, p);
     }
     for (std::size_t point = 0; point < numPoints; ++point) {
-      // we look for the face for which we lie the most outside the cell
-      // the larger a the resultFace value, the less we lie inside the cell
-      // (threshold being 0; up to numerical inaccuracies; hence the tolerance value)
+      // geometric Interpretation (up to numerical errors, hence tolerance parameter):
+      // resultFace < 0: The point is inside the face (half-space).
+      // resultFace = 0: The point is exactly on the face.
+      // resultFace > 0: The point is outside the face.
+
+      // we look for the face, where resultFace is the largest; i.e. the face that will the best
+      // "invalidate" our membership in the cell. We also use that value as a tie breaker
+      // if we find a point to be in multiple cells due to the tolerance parameter or numerical
+      // inaccuracies.
 
       // NOLINTNEXTLINE
       double maxValue = -std::numeric_limits<double>::infinity();
 
 #pragma omp simd reduction(max : maxValue)
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+
         double resultFace = 0;
         for (std::size_t dim = 0; dim < Cell::Dim + 1; ++dim) {
           resultFace += planeEquations[dim][face] * points1[point][dim];
