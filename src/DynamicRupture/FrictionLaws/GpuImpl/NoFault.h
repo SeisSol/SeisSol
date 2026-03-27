@@ -21,7 +21,8 @@ class NoFault : public BaseFrictionSolver<NoFault> {
   static void copySpecificStorageDataToLocal(FrictionLawData* data,
                                              DynamicRupture::Layer& layerData) {}
 
-  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, uint32_t timeIndex) {
+  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& __restrict ctx,
+                                                   uint32_t timeIndex) {
     // calculate traction
     ctx.tractionResults.traction1[timeIndex] = ctx.faultStresses.traction1[timeIndex];
     ctx.tractionResults.traction2[timeIndex] = ctx.faultStresses.traction2[timeIndex];
@@ -33,10 +34,11 @@ class NoFault : public BaseFrictionSolver<NoFault> {
    * output time when shear stress is equal to the dynamic stress after rupture arrived
    * currently only for linear slip weakening
    */
-  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& ctx, real time) {}
+  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& __restrict ctx,
+                                                     real time) {}
 
-  SEISSOL_DEVICE static void preHook(FrictionLawContext& ctx) {}
-  SEISSOL_DEVICE static void postHook(FrictionLawContext& ctx) {}
+  SEISSOL_DEVICE static void preHook(FrictionLawContext& __restrict ctx) {}
+  SEISSOL_DEVICE static void postHook(FrictionLawContext& __restrict ctx) {}
 
   protected:
 };

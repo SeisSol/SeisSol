@@ -63,15 +63,19 @@ struct FrictionLawContext {
 };
 
 #ifdef __CUDACC__
-SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& /*ctx*/) { __syncthreads(); }
+SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& __restrict /*ctx*/) {
+  __syncthreads();
+}
 #elif defined(__HIP__)
-SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& /*ctx*/) { __syncthreads(); }
+SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& __restrict /*ctx*/) {
+  __syncthreads();
+}
 #elif defined(SEISSOL_KERNELS_SYCL)
-inline void deviceBarrier(FrictionLawContext& ctx) {
+inline void deviceBarrier(FrictionLawContext& __restrict ctx) {
   reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->barrier(sycl::access::fence_space::local_space);
 }
 #else
-inline void deviceBarrier(FrictionLawContext& /*ctx*/) {}
+inline void deviceBarrier(FrictionLawContext& __restrict /*ctx*/) {}
 #endif
 
 template <typename Derived>
@@ -85,7 +89,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
   }
 
-  SEISSOL_DEVICE static void evaluatePoint(FrictionLawContext& ctx) {
+  SEISSOL_DEVICE static void evaluatePoint(FrictionLawContext& __restrict ctx) {
     if constexpr (model::MaterialT::SupportsDR) {
       constexpr common::RangeType GpuRangeType{common::RangeType::GPU};
 
