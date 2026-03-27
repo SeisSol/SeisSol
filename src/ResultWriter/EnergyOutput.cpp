@@ -483,7 +483,7 @@ void EnergyOutput::computeVolumeEnergies() {
           }
         }
 
-        const auto* boundaryMappings = boundaryMappingData[cell];
+        const auto& boundaryMappings = boundaryMappingData[cell];
         // Compute gravitational energy
         for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           if (cellInformation.faceTypes[face] != FaceType::FreeSurfaceGravity) {

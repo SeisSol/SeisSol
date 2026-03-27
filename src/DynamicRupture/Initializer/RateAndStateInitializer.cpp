@@ -28,9 +28,13 @@ namespace seissol::dr::initializer {
 void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
   BaseDRInitializer::initializeFault(drStorage);
 
-  const auto rsF0Param = !faultProvides("rs_f0");
-  const auto rsMuWParam = !faultProvides("rs_muw");
-  const auto rsBParam = !faultProvides("rs_b");
+  const auto rsF0ParamName = faultNameAlternatives({"rs_f0", "RS_f0"});
+  const auto rsMuWParamName = faultNameAlternatives({"rs_muw", "RS_muw"});
+  const auto rsBParamName = faultNameAlternatives({"rs_b", "RS_b"});
+
+  const auto rsF0Param = !faultProvides(rsF0ParamName);
+  const auto rsMuWParam = !faultProvides(rsMuWParamName);
+  const auto rsBParam = !faultProvides(rsBParamName);
 
   logInfo() << "RS parameter source (1 == from parameter file, 0 == from easi file): f0"
             << rsF0Param << "- muW" << rsMuWParam << "- b" << rsBParam;

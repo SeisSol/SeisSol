@@ -29,7 +29,7 @@ class Spacetime : public SpacetimeKernel {
                    double timeStepWidth,
                    LTS::Ref& data,
                    LocalTmp& tmp,
-                   real timeIntegrated[tensor::I::size()],
+                   real* timeIntegrated,
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
   void computeBatchedAder(const real* coeffs,
@@ -45,10 +45,7 @@ class Spacetime : public SpacetimeKernel {
   std::uint64_t bytesAder() override;
 
   private:
-  void executeSTP(double timeStepWidth,
-                  LTS::Ref& data,
-                  real timeIntegrated[tensor::I::size()],
-                  real* stp);
+  void executeSTP(double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp);
 
   kernel::spaceTimePredictor krnlPrototype_;
 
@@ -60,9 +57,7 @@ class Spacetime : public SpacetimeKernel {
 class Time : public TimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
-  void evaluate(const real* coeffs,
-                const real* timeDerivatives,
-                real timeEvaluated[tensor::I::size()]) override;
+  void evaluate(const real* coeffs, const real* timeDerivatives, real* timeEvaluated) override;
   void evaluateBatched(const real* coeffs,
                        const real** timeDerivatives,
                        real** timeIntegratedDofs,

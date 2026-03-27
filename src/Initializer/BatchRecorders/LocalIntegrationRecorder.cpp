@@ -89,7 +89,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
           ltsBuffers.push_back(buffers[cell]);
 
           idofsAddressRegistry_[cell] = nextIdofPtr;
-          integratedDofsAddressCounter_ += tensor::I::size();
+          integratedDofsAddressCounter_ += kernels::Solver::BuffersSize;
         } else {
           // gts buffers have to be always overridden
           idofsPtrs.push_back(buffers[cell]);
@@ -98,7 +98,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       } else {
         idofsPtrs.push_back(nextIdofPtr);
         idofsAddressRegistry_[cell] = nextIdofPtr;
-        integratedDofsAddressCounter_ += tensor::I::size();
+        integratedDofsAddressCounter_ += kernels::Solver::BuffersSize;
       }
 
       // stars
@@ -207,9 +207,9 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
 }
 
 void LocalIntegrationRecorder::recordDisplacements() {
-  real*(*faceDisplacements)[4] = currentLayer_->var<LTS::FaceDisplacementsDevice>();
-  std::array<std::vector<real*>, 4> iVelocitiesPtrs{{}};
-  std::array<std::vector<real*>, 4> displacementsPtrs{};
+  auto* faceDisplacements = currentLayer_->var<LTS::FaceDisplacementsDevice>();
+  std::array<std::vector<real*>, Cell::NumFaces> iVelocitiesPtrs{{}};
+  std::array<std::vector<real*>, Cell::NumFaces> displacementsPtrs{};
 
   const auto size = currentLayer_->size();
   for (std::size_t cell = 0; cell < size; ++cell) {
@@ -263,29 +263,29 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
       currentLayer_->var<LTS::DofsFaceBoundaryNodalScratch>(AllocationPlace::Device));
 
   if (size > 0) {
-    std::array<std::vector<unsigned>, 4> cellIndices{};
-    std::array<std::vector<real*>, 4> nodalAvgDisplacementsPtrs{};
-    std::array<std::vector<real*>, 4> displacementsPtrs{};
+    std::array<std::vector<unsigned>, Cell::NumFaces> cellIndices{};
+    std::array<std::vector<real*>, Cell::NumFaces> nodalAvgDisplacementsPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> displacementsPtrs{};
 
-    std::array<std::vector<real*>, 4> derivatives{};
-    std::array<std::vector<real*>, 4> dofsPtrs{};
-    std::array<std::vector<real*>, 4> idofsPtrs{};
-    std::array<std::vector<real*>, 4> neighPtrs{};
-    std::array<std::vector<real*>, 4> t{};
-    std::array<std::vector<real*>, 4> tInv{};
+    std::array<std::vector<real*>, Cell::NumFaces> derivatives{};
+    std::array<std::vector<real*>, Cell::NumFaces> dofsPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> idofsPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> neighPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> t{};
+    std::array<std::vector<real*>, Cell::NumFaces> tInv{};
 
-    std::array<std::vector<inner_keys::Material::DataType>, 4> rhos;
-    std::array<std::vector<inner_keys::Material::DataType>, 4> lambdas;
+    std::array<std::vector<inner_keys::Material::DataType>, Cell::NumFaces> rhos;
+    std::array<std::vector<inner_keys::Material::DataType>, Cell::NumFaces> lambdas;
 
-    std::array<std::vector<real*>, 4> rotateDisplacementToFaceNormalPtrs{};
-    std::array<std::vector<real*>, 4> rotateDisplacementToGlobalPtrs{};
-    std::array<std::vector<real*>, 4> rotatedFaceDisplacementPtrs{};
-    std::array<std::vector<real*>, 4> dofsFaceNodalPtrs{};
-    std::array<std::vector<real*>, 4> prevCoefficientsPtrs{};
-    std::array<std::vector<double>, 4> invImpedances{};
-    std::array<std::vector<real*>, 4> dofsFaceBoundaryNodalPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> rotateDisplacementToFaceNormalPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> rotateDisplacementToGlobalPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> rotatedFaceDisplacementPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> dofsFaceNodalPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> prevCoefficientsPtrs{};
+    std::array<std::vector<double>, Cell::NumFaces> invImpedances{};
+    std::array<std::vector<real*>, Cell::NumFaces> dofsFaceBoundaryNodalPtrs{};
 
-    std::array<std::size_t, 4> counter{};
+    std::array<std::size_t, Cell::NumFaces> counter{};
 
     size_t nodalAvgDisplacementsCounter{0};
 
@@ -379,17 +379,17 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 void LocalIntegrationRecorder::recordDirichletBc() {
   const auto size = currentLayer_->size();
   if (size > 0) {
-    std::array<std::vector<real*>, 4> dofsPtrs{};
-    std::array<std::vector<real*>, 4> idofsPtrs{};
-    std::array<std::vector<real*>, 4> tInv{};
-    std::array<std::vector<real*>, 4> neighPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> dofsPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> idofsPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> tInv{};
+    std::array<std::vector<real*>, Cell::NumFaces> neighPtrs{};
 
-    std::array<std::vector<real*>, 4> easiBoundaryMapPtrs{};
-    std::array<std::vector<real*>, 4> easiBoundaryConstantPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> easiBoundaryMapPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> easiBoundaryConstantPtrs{};
 
-    std::array<std::vector<real*>, 4> dofsFaceBoundaryNodalPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> dofsFaceBoundaryNodalPtrs{};
 
-    std::array<std::size_t, 4> counter{};
+    std::array<std::size_t, Cell::NumFaces> counter{};
 
     real* dofsFaceBoundaryNodalScratch = static_cast<real*>(
         currentLayer_->var<LTS::DofsFaceBoundaryNodalScratch>(AllocationPlace::Device));
@@ -444,10 +444,10 @@ void LocalIntegrationRecorder::recordDirichletBc() {
 void LocalIntegrationRecorder::recordAnalyticalBc(LTS::Layer& layer) {
   const auto size = currentLayer_->size();
   if (size > 0) {
-    std::array<std::vector<real*>, 4> dofsPtrs{};
-    std::array<std::vector<real*>, 4> neighPtrs{};
-    std::array<std::vector<unsigned>, 4> cellIndices{};
-    std::array<std::vector<real*>, 4> analytical{};
+    std::array<std::vector<real*>, Cell::NumFaces> dofsPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> neighPtrs{};
+    std::array<std::vector<unsigned>, Cell::NumFaces> cellIndices{};
+    std::array<std::vector<real*>, Cell::NumFaces> analytical{};
 
     real* analyticScratch =
         reinterpret_cast<real*>(layer.var<LTS::AnalyticScratch>(AllocationPlace::Device));

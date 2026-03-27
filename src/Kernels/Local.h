@@ -36,11 +36,27 @@ class LocalKernel : public Kernel {
     return condition.get();
   }
 
-  virtual void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+  /**
+   * @brief Compute the volume integral over the ADER space-time evolution, as well as local
+   * boundary conditions as fluxes.
+   *
+   * This step equals the first part of the ADER-DG "corrector"; that is, we compute the local
+   * space-time volume integral, and add the flux contributions that depend on the local element.
+   * Also, we compute some boundary conditions that can be computed by only using the local cell
+   * data. The dynamic rupture faces are usually ignored in this step.
+   *
+   * @param timeIntegratedDoFs The time integral over the space-time predictor, as computed by the
+   * SpacetimeKernel or the TimeKernel.
+   * @param data Cell data reference object (contains references to all stored data arrays for that
+   * cell)
+   * @param tmp Cell-local temporary data from the SpacetimeKernel
+   * @param time The current time in the simulation (needed e.g. for time dependent boundary
+   * conditions)
+   * @param timeStepWidth The current time step width
+   */
+  virtual void computeIntegral(real* timeIntegratedDoFs,
                                LTS::Ref& data,
                                LocalTmp& tmp,
-                               const CellMaterialData* materialData,
-                               const CellBoundaryMapping (*cellBoundaryMapping)[4],
                                double time,
                                double timeStepWidth) = 0;
 

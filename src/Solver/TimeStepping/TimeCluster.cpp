@@ -47,6 +47,7 @@
 #include "Solver/TimeStepping/ActorState.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <chrono>
 #include <cstddef>
@@ -348,14 +349,13 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   loopStatistics_->begin(regionComputeLocalIntegration_);
 
   // local integration buffer
-  alignas(Alignment) real integrationBuffer[tensor::I::size()];
+  alignas(Alignment) real integrationBuffer[kernels::Solver::BuffersSize]{};
 
   // pointer for the call of the ADER-function
   real* bufferPointer = nullptr;
 
   real* const* buffers = clusterData_->var<LTS::Buffers>();
   real* const* derivatives = clusterData_->var<LTS::Derivatives>();
-  const CellMaterialData* materialData = clusterData_->var<LTS::Material>();
 
   kernels::LocalTmp tmp(seissolInstance_.getGravitationSetup().acceleration);
 
@@ -391,15 +391,8 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
     spacetimeKernel_.computeAder(
         integrationCoeffs.data(), timeStepWidth, data, tmp, bufferPointer, derivatives[cell], true);
 
-    // Compute local integrals (including some boundary conditions)
-    const CellBoundaryMapping(*boundaryMapping)[4] = clusterData_->var<LTS::BoundaryMapping>();
-    localKernel_.computeIntegral(bufferPointer,
-                                 data,
-                                 tmp,
-                                 &materialData[cell],
-                                 &boundaryMapping[cell],
-                                 ct_.correctionTime,
-                                 timeStepWidth);
+    // Compute local integrals (including local boundary conditions)
+    localKernel_.computeIntegral(bufferPointer, data, tmp, ct_.correctionTime, timeStepWidth);
 
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       auto& curFaceDisplacements = data.get<LTS::FaceDisplacements>()[face];
@@ -422,7 +415,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
     if (!resetMyBuffers && buffersProvided) {
       assert(buffers[cell] != nullptr);
 
-      for (std::size_t dof = 0; dof < tensor::I::size(); ++dof) {
+      for (std::size_t dof = 0; dof < kernels::Solver::BuffersSize; ++dof) {
         buffers[cell][dof] += integrationBuffer[dof];
       }
     }
@@ -913,17 +906,17 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
 
   loopStatistics_->begin(regionComputeNeighboringIntegration_);
 
-  auto* faceNeighbors = clusterData_->var<LTS::FaceNeighbors>();
-  auto* drMapping = clusterData_->var<LTS::DRMapping>();
-  auto* cellInformation = clusterData_->var<LTS::CellInformation>();
+  const auto* faceNeighbors = clusterData_->var<LTS::FaceNeighbors>();
+  const auto* drMapping = clusterData_->var<LTS::DRMapping>();
+  const auto* cellInformation = clusterData_->var<LTS::CellInformation>();
   auto* plasticity = clusterData_->var<LTS::Plasticity>();
   auto* pstrain = clusterData_->var<LTS::PStrain>();
 
   // NOLINTNEXTLINE
   std::size_t numberOfTetsWithPlasticYielding = 0;
 
-  real* timeIntegrated[4];
-  real* faceNeighborsPrefetch[4];
+  std::array<real*, Cell::NumFaces> timeIntegrated{};
+  std::array<real*, Cell::NumFaces> faceNeighborsPrefetch{};
 
   const auto tV = seissolInstance_.getSeisSolParameters().model.tv;
 
@@ -954,17 +947,21 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   for (std::size_t cell = 0; cell < clusterSize; cell++) {
     auto data = clusterData_->cellRef(cell);
 
-    seissol::kernels::TimeCommon::computeIntegrals(
-        timeKernel_,
-        data.get<LTS::CellInformation>().ltsSetup,
-        data.get<LTS::CellInformation>().faceTypes,
-        timeCoeffs.data(),
-        subtimeCoeffs.data(),
-        faceNeighbors[cell],
-        *reinterpret_cast<real(*)[4][tensor::I::size()]>(
-            &(globalDataOnHost_->integrationBufferLTS[OpenMP::threadId() * 4 *
-                                                      static_cast<size_t>(tensor::I::size())])),
-        timeIntegrated);
+    std::array<real*, Cell::NumFaces> integrationBuffers{};
+    for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
+      integrationBuffers[i] =
+          &globalDataOnHost_->integrationBufferLTS[(OpenMP::threadId() * Cell::NumFaces + i) *
+                                                   kernels::Solver::BuffersSize];
+    }
+
+    seissol::kernels::TimeCommon::computeIntegrals(timeKernel_,
+                                                   data.get<LTS::CellInformation>().ltsSetup,
+                                                   data.get<LTS::CellInformation>().faceTypes,
+                                                   timeCoeffs.data(),
+                                                   subtimeCoeffs.data(),
+                                                   faceNeighbors[cell],
+                                                   integrationBuffers,
+                                                   timeIntegrated);
 
     faceNeighborsPrefetch[0] = (cellInformation[cell].faceTypes[1] != FaceType::DynamicRupture)
                                    ? faceNeighbors[cell][1]
@@ -986,8 +983,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
       faceNeighborsPrefetch[3] = faceNeighbors[cell][3];
     }
 
-    neighborKernel_.computeNeighborsIntegral(
-        data, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
+    neighborKernel_.computeNeighborsIntegral(data, timeIntegrated, faceNeighborsPrefetch);
 
     if constexpr (UsePlasticity) {
       if (data.get<LTS::CellInformation>().plasticityEnabled) {

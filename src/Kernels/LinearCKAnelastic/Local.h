@@ -22,11 +22,9 @@ class Local : public LocalKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
 
-  void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+  void computeIntegral(real* timeIntegratedDoFs,
                        LTS::Ref& data,
                        LocalTmp& tmp,
-                       const CellMaterialData* materialData,
-                       const CellBoundaryMapping (*cellBoundaryMapping)[4],
                        double time,
                        double timeStepWidth) override;
 

@@ -12,6 +12,7 @@
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Recorders.h"
@@ -37,7 +38,7 @@ void NeighIntegrationRecorder::record(LTS::Layer& layer) {
 }
 
 void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
-  real*(*faceNeighborsDevice)[4] = currentLayer_->var<LTS::FaceNeighborsDevice>();
+  auto* faceNeighborsDevice = currentLayer_->var<LTS::FaceNeighborsDevice>();
   real* integratedDofsScratch =
       static_cast<real*>(currentLayer_->var<LTS::IntegratedDofsScratch>(AllocationPlace::Device));
 
@@ -81,7 +82,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
                   ltsIDofsPtrs.push_back(nextTempIDofsPtr);
                   ltsDerivativesPtrs.push_back(neighborBuffer);
                 }
-                integratedDofsAddressCounter_ += tensor::I::size();
+                integratedDofsAddressCounter_ += kernels::Solver::BuffersSize;
               } else {
                 idofsAddressRegistry_[neighborBuffer] = neighborBuffer;
               }
@@ -108,7 +109,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
 }
 
 void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
-  real*(*faceNeighborsDevice)[4] = currentLayer_->var<LTS::FaceNeighborsDevice>();
+  auto* faceNeighborsDevice = currentLayer_->var<LTS::FaceNeighborsDevice>();
 
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicDofs {};
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicIDofs {};
@@ -121,7 +122,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularDofsExt {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofsExt {};
 
-  CellDRMapping(*drMappingDevice)[4] = currentLayer_->var<LTS::DRMappingDevice>();
+  const auto* drMappingDevice = currentLayer_->var<LTS::DRMappingDevice>();
 
 #ifdef USE_VISCOELASTIC2
   auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
