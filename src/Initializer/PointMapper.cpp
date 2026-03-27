@@ -12,7 +12,6 @@
 #include "PointMapper.h"
 
 #include "Common/Constants.h"
-#include "Common/Literals.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
@@ -21,7 +20,6 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <array>
-#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <mpi.h>
@@ -30,17 +28,14 @@
 
 namespace seissol::initializer {
 
-namespace {
+std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
+                                    const seissol::geometry::MeshReader& mesh,
+                                    std::size_t numPoints,
+                                    std::size_t* meshIds,
+                                    double tolerance) {
 
-void findMeshIds(const Eigen::Vector3d* points,
-                 const std::vector<Vertex>& vertices,
-                 const std::vector<Element>& elements,
-                 std::size_t numPoints,
-                 int16_t* contained,
-                 std::size_t* meshIds,
-                 double tolerance) {
-
-  memset(contained, 0, numPoints * sizeof(int16_t));
+  const auto& vertices = mesh.getVertices();
+  const auto& elements = mesh.getElements();
 
   auto points1 = std::vector<std::array<double, Cell::Dim + 1>>(numPoints);
   for (std::size_t point = 0; point < numPoints; ++point) {
@@ -104,9 +99,6 @@ void findMeshIds(const Eigen::Vector3d* points,
             score[point] = std::pair<double, int>{maxValue, rank};
             meshIds[point] = localId;
           }
-
-          // and of course, we've found the point locally
-          contained[point] = 1;
         }
       }
     }
@@ -121,31 +113,12 @@ void findMeshIds(const Eigen::Vector3d* points,
                 MPI_MINLOC,
                 seissol::Mpi::mpi.comm());
 
+  std::vector<bool> contained(numPoints);
   for (std::size_t i = 0; i < numPoints; ++i) {
     contained[i] =
-        score[i].second == rank && score[i].first < std::numeric_limits<double>::infinity() ? 1 : 0;
+        score[i].second == rank && score[i].first < std::numeric_limits<double>::infinity();
   }
-}
-} // namespace
-
-std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
-                                    const seissol::geometry::MeshReader& mesh,
-                                    std::size_t numPoints,
-                                    std::size_t* meshIds,
-                                    double tolerance) {
-  std::vector<int16_t> contained(numPoints);
-  findMeshIds(points,
-              mesh.getVertices(),
-              mesh.getElements(),
-              numPoints,
-              contained.data(),
-              meshIds,
-              tolerance);
-  std::vector<bool> output(numPoints);
-  for (std::size_t i = 0; i < numPoints; ++i) {
-    output[i] = contained[i] != 0;
-  }
-  return output;
+  return contained;
 }
 
 } // namespace seissol::initializer
