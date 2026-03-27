@@ -5,6 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: John Rekoske
 
 #include "ReceiverWriter.h"
 

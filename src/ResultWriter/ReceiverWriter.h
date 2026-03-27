@@ -5,6 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: John Rekoske
 
 #ifndef SEISSOL_SRC_RESULTWRITER_RECEIVERWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_RECEIVERWRITER_H_

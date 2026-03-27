@@ -4,6 +4,7 @@
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: John Rekoske
 #ifndef SEISSOL_SRC_RESULTWRITER_PARALLELHDF5RECEIVERWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_PARALLELHDF5RECEIVERWRITER_H_
 
