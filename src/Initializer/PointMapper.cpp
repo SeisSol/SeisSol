@@ -22,7 +22,6 @@
 #include <array>
 #include <cstring>
 #include <limits>
-#include <mpi.h>
 #include <utility>
 #include <vector>
 
@@ -120,12 +119,7 @@ void findMeshIds(const Eigen::Vector3d* points,
 
   // now reduce over all ranks for the best fit (not only duplicate ranks)
 
-  MPI_Allreduce(MPI_IN_PLACE,
-                score.data(),
-                score.size(),
-                MPI_DOUBLE_INT,
-                MPI_MINLOC,
-                seissol::Mpi::mpi.comm());
+  Mpi::mpi.allreduceContainer(score, MPI_MINLOC);
 
   for (std::size_t i = 0; i < numPoints; ++i) {
     contained[i] =
