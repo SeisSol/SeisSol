@@ -89,32 +89,32 @@ class ReceiverWriter : public seissol::Module {
   void writeHeader(unsigned pointId, const Eigen::Vector3d& point);
 
   // -- Members --
-  seissol::initializer::parameters::ReceiverOutputFormat m_format{
+  seissol::initializer::parameters::ReceiverOutputFormat format_{
       seissol::initializer::parameters::ReceiverOutputFormat::Hdf5};
-  std::string m_receiverFileName;
-  std::string m_fileNamePrefix;
-  double m_samplingInterval{0.0};
-  double m_endTime{0.0};
+  std::string receiverFileName_;
+  std::string fileNamePrefix_;
+  double samplingInterval_{0.0};
+  double endTime_{0.0};
 
   /// Additional derived quantities (e.g., rotation, strain)
   std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity>> derivedQuantities;
 
-  std::vector<std::shared_ptr<kernels::ReceiverCluster>> m_receiverClusters;
+  std::vector<std::shared_ptr<kernels::ReceiverCluster>> receiverClusters_;
 
   /// Parallel HDF5 writer for receiver data
-  std::unique_ptr<ParallelHdf5ReceiverWriter> m_hdf5Writer;
+  std::unique_ptr<ParallelHdf5ReceiverWriter> hdf5Writer_;
 
   /// Current time offset for HDF5 writes
-  std::size_t m_nextTimeOffset{0};
+  std::size_t nextTimeOffset_{0};
 
   /// Total number of receivers across all ranks
-  std::size_t m_totalReceivers{0};
+  std::size_t totalReceivers_{0};
 
   /// This rank's offset in the receiver dimension
-  std::size_t m_localReceiverOffset{0};
+  std::size_t localReceiverOffset_{0};
 
   /// Stopwatch for timing receiver I/O only
-  Stopwatch m_stopwatch;
+  Stopwatch stopwatch_;
 };
 
 } // namespace seissol::writer
