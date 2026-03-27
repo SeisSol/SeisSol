@@ -10,7 +10,6 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
-#include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"

@@ -43,8 +43,9 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
       currentLayer_->var<DynamicRupture::GodunovData>(AllocationPlace::Device);
   const DRFaceInformation* faceInfo = currentLayer_->var<DynamicRupture::FaceInformation>();
 
-  real** timeDerivativePlus = currentLayer_->var<DynamicRupture::TimeDerivativePlusDevice>();
-  real** timeDerivativeMinus = currentLayer_->var<DynamicRupture::TimeDerivativeMinusDevice>();
+  real* const* timeDerivativePlus = currentLayer_->var<DynamicRupture::TimeDerivativePlusDevice>();
+  real* const* timeDerivativeMinus =
+      currentLayer_->var<DynamicRupture::TimeDerivativeMinusDevice>();
 
   const auto size = currentLayer_->size();
   if (size > 0) {
