@@ -18,7 +18,7 @@ namespace {
 hid_t _ehh(hid_t data, const char* file, int line) {
   if (data < 0) {
     H5Eprint(H5Eget_current_stack(), stdout);
-    throw std::runtime_error("HDF5 error at " + std::string(file) + ":" + std::to_string(line));
+    logError() << utils::nospace << "HDF5 error at " << file << ":" << line;
   }
   return data;
 }
@@ -166,8 +166,8 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
     _eh(H5Sselect_none(filespaceId));
     for (size_t r = 0; r < localReceiverCount; ++r) {
       if (pointIds[r] >= dims_[1]) {
-        throw std::runtime_error(
-            "writeChunk(): receiver range exceeds allocated HDF5 dataset extent");
+        logError() << "writeChunk(): receiver range exceeds allocated HDF5 dataset extent."
+                   << " pointId=" << pointIds[r] << " receiverExtent=" << dims_[1];
       }
       std::array<hsize_t, Rank> start = {timeOffset, static_cast<hsize_t>(pointIds[r]), 0};
       std::array<hsize_t, Rank> count = {timeCount, 1, dims_[2]};
