@@ -19,11 +19,13 @@
 #include "Parallel/MPI.h"
 
 #include <Eigen/Core>
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <mpi.h>
-#include <utils/logger.h>
+#include <utility>
 #include <vector>
 
 namespace seissol::initializer {
@@ -48,6 +50,11 @@ void findMeshIds(const Eigen::Vector3d* points,
     points1[point][Cell::Dim] = 1.0;
   }
 
+  const auto rank = seissol::Mpi::mpi.rank();
+
+  std::vector<std::pair<double, int>> score(
+      numPoints, std::pair<double, int>(std::numeric_limits<double>::infinity(), rank));
+
 #pragma omp parallel for schedule(static)
   for (std::size_t elem = 0; elem < elements.size(); ++elem) {
     auto planeEquations = std::array<std::array<double, Cell::Dim + 1>, Cell::Dim + 1>();
@@ -63,64 +70,60 @@ void findMeshIds(const Eigen::Vector3d* points,
       planeEquations[Cell::Dim][face] = -MeshTools::dot(n, p);
     }
     for (std::size_t point = 0; point < numPoints; ++point) {
-      // NOLINTNEXTLINE
-      int notInside = 0;
+      // geometric Interpretation (up to numerical errors, hence tolerance parameter):
+      // resultFace < 0: The point is inside the face (half-space).
+      // resultFace = 0: The point is exactly on the face.
+      // resultFace > 0: The point is outside the face.
 
-#pragma omp simd reduction(+ : notInside)
+      // we look for the face, where resultFace is the largest; i.e. the face that will the best
+      // "invalidate" our membership in the cell. We also use that value as a tie breaker
+      // if we find a point to be in multiple cells due to the tolerance parameter or numerical
+      // inaccuracies.
+
+      // NOLINTNEXTLINE
+      double maxValue = -std::numeric_limits<double>::infinity();
+
+#pragma omp simd reduction(max : maxValue)
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+
         double resultFace = 0;
         for (std::size_t dim = 0; dim < Cell::Dim + 1; ++dim) {
           resultFace += planeEquations[dim][face] * points1[point][dim];
         }
-        notInside += (resultFace > tolerance) ? 1 : 0;
+        maxValue = std::max(maxValue, resultFace);
       }
-      if (notInside == 0) {
+
+      if (maxValue <= tolerance) {
+        // meaning: we're below tolerance to consider the cell
 
 #pragma omp critical
         {
-          /* It might actually happen that a point is found in two tetrahedrons
-           * if it lies on the boundary. In this case we arbitrarily assign
-           * it to the one with the higher meshId.
-           */
+          // minimize the maxValue
           const auto localId = static_cast<std::size_t>(elements[elem].localId);
-          if ((contained[point] == 0) || (meshIds[point] > localId)) {
-            contained[point] = 1;
+          if (score[point].first > maxValue) {
+            score[point] = std::pair<double, int>{maxValue, rank};
             meshIds[point] = localId;
           }
+
+          // and of course, we've found the point locally
+          contained[point] = 1;
         }
       }
     }
   }
-}
 
-void cleanDoubles(int16_t* contained, std::size_t numPoints) {
-  const auto myrank = seissol::Mpi::mpi.rank();
-  const auto size = seissol::Mpi::mpi.size();
+  // now reduce over all ranks for the best fit (not only duplicate ranks)
 
-  auto globalContained = std::vector<int16_t>(size * numPoints);
-  MPI_Allgather(contained,
-                numPoints,
-                Mpi::castToMpiType<int16_t>(),
-                globalContained.data(),
-                numPoints,
-                Mpi::castToMpiType<int16_t>(),
+  MPI_Allreduce(MPI_IN_PLACE,
+                score.data(),
+                score.size(),
+                MPI_DOUBLE_INT,
+                MPI_MINLOC,
                 seissol::Mpi::mpi.comm());
 
-  std::size_t cleaned = 0;
-  for (std::size_t point = 0; point < numPoints; ++point) {
-    if (contained[point] == 1_i16) {
-      for (int rank = 0; rank < myrank; ++rank) {
-        if (globalContained[rank * numPoints + point] == 1) {
-          contained[point] = 0;
-          ++cleaned;
-          break;
-        }
-      }
-    }
-  }
-
-  if (cleaned > 0) {
-    logInfo() << "Cleaned " << cleaned << " double occurring points on rank " << myrank << ".";
+  for (std::size_t i = 0; i < numPoints; ++i) {
+    contained[i] =
+        score[i].second == rank && score[i].first < std::numeric_limits<double>::infinity() ? 1 : 0;
   }
 }
 } // namespace
@@ -138,7 +141,6 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
               contained.data(),
               meshIds,
               tolerance);
-  cleanDoubles(contained.data(), numPoints);
   std::vector<bool> output(numPoints);
   for (std::size_t i = 0; i < numPoints; ++i) {
     output[i] = contained[i] != 0;

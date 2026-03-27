@@ -15,8 +15,11 @@
 
 namespace seissol::initializer {
 /** Finds the tetrahedrons that contain the points.
+ *  In "contained" we save if the point source is contained in the mesh.
  *  Returns a vector if the point source is contained in the mesh.
- *  Automatically cleans up doubly-found cells via MPI.
+ *  The tolerance parameter exists to mitigate numerical errors. Making it too large should have no
+ * effect on finding the right cell; but might let points outside the mesh as a whole be found to be
+ * inside. However, having it too small could make some points not being assigned to cells properly.
  */
 std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
                                     const seissol::geometry::MeshReader& mesh,
