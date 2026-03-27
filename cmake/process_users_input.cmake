@@ -100,7 +100,7 @@ option(NUMA_AWARE_PINNING "Use libnuma to pin threads to correct NUMA nodes" ON)
 
 option(SHARED "Build SeisSol as shared library" OFF)
 
-option(DEVICE_SHARED "Build the device kernel libraries as shared libraries" OFF)
+option(DEVICE_SHARED "Build the device kernel libraries as shared libraries" ON)
 
 option(PROXY_PYBINDING "Enable pybind11 for proxy (everything will be compiled with -fPIC)" OFF)
 
