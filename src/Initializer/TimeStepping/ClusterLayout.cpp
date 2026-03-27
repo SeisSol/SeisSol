@@ -81,11 +81,11 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
         }
       }
 
-      const auto elts = element.timestep * wiggle;
+      const auto elts = element.timestep;
       const auto clts = layout.timestepRate(static_cast<std::size_t>(element.clusterId));
 
-      timefactorELTS += elts;
-      timefactorCLTS += clts;
+      timefactorELTS += elts * wiggle;
+      timefactorCLTS += clts * wiggle;
     }
 
     seissol::Mpi::mpi.allreduceContainer(clusters, MPI_SUM);
