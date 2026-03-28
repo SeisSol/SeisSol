@@ -8,8 +8,8 @@
 
 .. _Checkpointing:
 
-Checkpointing (Beta)
-====================
+Checkpointing
+=============
 
 The checkpointing mechanism enables the storage and restart of a simulation to a file. There are (at least) two reasons on why that can be useful:
 
@@ -62,5 +62,6 @@ For the friction laws, the following is the case:
 
 Note however, that the following restrictions apply.
 
-* the order of the new simulation needs to be identical (this may be subject to change)
+* the convergence order of the new simulation needs to be identical (this may be subject to change)
+* the number of simulations needs to match between runs
 * the array padding needs to match. (i.e. the checkpoints are architecture-dependent; transfer from CPU to GPU is not supported in general)
