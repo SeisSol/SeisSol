@@ -295,13 +295,16 @@ def main():
 
         subfolders += ["general"]
 
-        # for now, enforce Eigen as a code generator here...
-        # ...until we have a shared subroutine cache
         generator = Generator(arch)
+
         kernels.general.addStiffnessTensor(generator)
+        kernels.dynamic_rupture.addKernelsGeneral(
+            NamespacedGenerator(generator, namespace="dynamicRupture")
+        )
+
         generator.generate(
             outputDir=outputDir,
-            namespace="seissol_general",
+            namespace="seissol::general",
             gemm_cfg=gemmTools,
             cost_estimator=cost_estimators,
             include_tensors=kernels.general.includeMatrices(cmdLineArgs.matricesDir),

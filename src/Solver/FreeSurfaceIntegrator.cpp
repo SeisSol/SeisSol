@@ -111,8 +111,8 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
   for (auto [layer, surfaceLayer] :
        seissol::common::zip(ltsStorage.leaves(ghostMask), surfaceStorage->leaves(ghostMask))) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
-    real*(*faceDisplacements)[4] = layer.var<LTS::FaceDisplacements>();
-    real*(*faceDisplacementsDevice)[4] = layer.var<LTS::FaceDisplacementsDevice>();
+    auto* faceDisplacements = layer.var<LTS::FaceDisplacements>();
+    auto* faceDisplacementsDevice = layer.var<LTS::FaceDisplacementsDevice>();
     auto* displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>();
     auto* displacementDofsDevice =
         surfaceLayer.var<SurfaceLTS::DisplacementDofs>(initializer::AllocationPlace::Device);

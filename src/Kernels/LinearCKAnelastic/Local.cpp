@@ -64,17 +64,11 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                            LTS::Ref& data,
-                            LocalTmp& tmp,
-                            // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
-                            const CellMaterialData* materialData,
-                            const CellBoundaryMapping (*cellBoundaryMapping)[4],
-                            double time,
-                            double timeStepWidth) {
+void Local::computeIntegral(
+    real* timeIntegratedDoFs, LTS::Ref& data, LocalTmp& tmp, double time, double timeStepWidth) {
   // assert alignments
 #ifndef NDEBUG
-  assert((reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom)) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeIntegratedDoFs)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(tmp.timeIntegratedAne)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
 #endif
@@ -83,15 +77,15 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
 
   kernel::volumeExt volKrnl = m_volumeKernelPrototype;
   volKrnl.Qext = Qext;
-  volKrnl.I = timeIntegratedDegreesOfFreedom;
+  volKrnl.I = timeIntegratedDoFs;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
 
   kernel::localFluxExt lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Qext = Qext;
-  lfKrnl.I = timeIntegratedDegreesOfFreedom;
-  lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
+  lfKrnl.I = timeIntegratedDoFs;
+  lfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
   lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
 
   volKrnl.execute();
@@ -160,8 +154,6 @@ void Local::computeBatchedIntegral(
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype;
-  kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype;
-  kernel::gpu_local localKrnl = deviceLocalKernelPrototype;
 
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];
@@ -220,6 +212,9 @@ void Local::computeBatchedIntegral(
 
 // deprecated code; kept for comparison reasons
 #ifndef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
+  kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype;
+  kernel::gpu_local localKrnl = deviceLocalKernelPrototype;
+
   // Local Flux Integral
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
