@@ -21,6 +21,7 @@
 #include <Eigen/Dense>
 #include <cstddef>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -32,6 +33,9 @@ class SeisSol;
 
 namespace seissol::writer {
 class ParallelHdf5ReceiverWriter;
+
+Eigen::Vector3d parseReceiverLine(const std::string& line);
+std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileName);
 
 /**
  * \brief Writes out receiver data in a single parallel HDF5 file.

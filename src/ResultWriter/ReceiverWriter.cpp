@@ -51,8 +51,6 @@ ReceiverWriter::ReceiverWriter(seissol::SeisSol& seissolInstance)
 
 ReceiverWriter::~ReceiverWriter() = default;
 
-namespace {
-
 Eigen::Vector3d parseReceiverLine(const std::string& line) {
   const std::regex rgx("\\s+");
   std::sregex_token_iterator iter(line.begin(), line.end(), rgx, -1);
@@ -86,8 +84,6 @@ std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileNa
   }
   return points;
 }
-
-} // namespace
 
 // --------------------------------------------------------------------------
 // Helper function for HDF5 output file name
