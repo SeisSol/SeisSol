@@ -113,20 +113,17 @@ struct ApplyAnalyticalSolution {
 
 } // namespace
 
-void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                            LTS::Ref& data,
-                            LocalTmp& tmp,
-                            // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
-                            const CellMaterialData* materialData,
-                            const CellBoundaryMapping (*cellBoundaryMapping)[4],
-                            double time,
-                            double timeStepWidth) {
-  assert(reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom) % Alignment == 0);
+void Local::computeIntegral(
+    real* timeIntegratedDoFs, LTS::Ref& data, LocalTmp& tmp, double time, double timeStepWidth) {
+  assert(reinterpret_cast<uintptr_t>(timeIntegratedDoFs) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
+
+  const auto& materialData = data.get<LTS::Material>();
+  const auto& cellBoundaryMapping = data.get<LTS::BoundaryMapping>();
 
   kernel::volume volKrnl = m_volumeKernelPrototype;
   volKrnl.Q = data.get<LTS::Dofs>();
-  volKrnl.I = timeIntegratedDegreesOfFreedom;
+  volKrnl.I = timeIntegratedDoFs;
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
@@ -136,8 +133,8 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
 
   kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Q = data.get<LTS::Dofs>();
-  lfKrnl.I = timeIntegratedDegreesOfFreedom;
-  lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
+  lfKrnl.I = timeIntegratedDoFs;
+  lfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
   lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
 
   volKrnl.execute();
@@ -153,15 +150,13 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
     auto nodalLfKrnl = m_nodalLfKrnlPrototype;
     nodalLfKrnl.Q = data.get<LTS::Dofs>();
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
-    nodalLfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
+    nodalLfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
     nodalLfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
     nodalLfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
 
     // Include some boundary conditions here.
     switch (data.get<LTS::CellInformation>().faceTypes[face]) {
     case FaceType::FreeSurfaceGravity: {
-      assert(cellBoundaryMapping != nullptr);
-      assert(materialData != nullptr);
       auto* displ = tmp.nodalAvgDisplacements[face].data();
       auto displacement = init::averageNormalDisplacement::view::create(displ);
       // lambdas can't catch gravitationalAcceleration directly, so have to make a copy here.
@@ -176,7 +171,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
               for (unsigned int i = 0;
                    i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
                    ++i) {
-                const double rho = materialData->local->getDensity();
+                const double rho = materialData.local->getDensity();
                 assert(localG > 0);
                 const double pressureAtBnd = -1 * rho * localG * slicedDisplacement(i);
 
@@ -187,9 +182,9 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
             }
           };
 
-      dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
+      dirichletBoundary.evaluate(timeIntegratedDoFs,
                                  face,
-                                 (*cellBoundaryMapping)[face],
+                                 cellBoundaryMapping[face],
                                  m_projectRotatedKrnlPrototype,
                                  applyFreeSurfaceBc,
                                  dofsFaceBoundaryNodal);
@@ -198,9 +193,8 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       break;
     }
     case FaceType::Dirichlet: {
-      assert(cellBoundaryMapping != nullptr);
-      auto* easiBoundaryMap = (*cellBoundaryMapping)[face].easiBoundaryMap;
-      auto* easiBoundaryConstant = (*cellBoundaryMapping)[face].easiBoundaryConstant;
+      auto* easiBoundaryMap = cellBoundaryMapping[face].easiBoundaryMap;
+      auto* easiBoundaryConstant = cellBoundaryMapping[face].easiBoundaryConstant;
       assert(easiBoundaryConstant != nullptr);
       assert(easiBoundaryMap != nullptr);
       auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
@@ -214,9 +208,9 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       };
 
       // Compute boundary in [n, t_1, t_2] basis
-      dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
+      dirichletBoundary.evaluate(timeIntegratedDoFs,
                                  face,
-                                 (*cellBoundaryMapping)[face],
+                                 cellBoundaryMapping[face],
                                  m_projectRotatedKrnlPrototype,
                                  applyEasiBoundary,
                                  dofsFaceBoundaryNodal);
@@ -229,13 +223,12 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       break;
     }
     case FaceType::Analytical: {
-      assert(cellBoundaryMapping != nullptr);
       assert(initConds != nullptr);
       const auto applyAnalyticalSolution = ApplyAnalyticalSolution(initConds, data);
 
-      dirichletBoundary.evaluateTimeDependent(timeIntegratedDegreesOfFreedom,
+      dirichletBoundary.evaluateTimeDependent(timeIntegratedDoFs,
                                               face,
-                                              (*cellBoundaryMapping)[face],
+                                              cellBoundaryMapping[face],
                                               m_projectKrnlPrototype,
                                               applyAnalyticalSolution,
                                               dofsFaceBoundaryNodal,

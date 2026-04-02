@@ -201,11 +201,6 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   logInfo() << "Finding meshIds for receivers...";
   initializer::findMeshIds(
       points.data(), mesh, numberOfPoints, contained.data(), meshIds.data(), 1e-3);
-
-  logInfo() << "Cleaning possible double occurring receivers for multi-rank setups...";
-  initializer::cleanDoubles(contained.data(), numberOfPoints);
-
-  // Then reduce to see which points exist globally
   std::vector<short> globalContained(contained.begin(), contained.end());
 
   MPI_Allreduce(MPI_IN_PLACE,

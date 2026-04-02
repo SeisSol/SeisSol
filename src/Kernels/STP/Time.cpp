@@ -71,10 +71,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Spacetime::executeSTP(double timeStepWidth,
-                           LTS::Ref& data,
-                           real timeIntegrated[tensor::I::size()],
-                           real* stp)
+void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp)
 
 {
   alignas(PagesizeStack) real stpRhs[tensor::spaceTimePredictorRhs::size()];
@@ -134,7 +131,7 @@ void Spacetime::computeAder(const real* coeffs,
                             double timeStepWidth,
                             LTS::Ref& data,
                             LocalTmp& tmp,
-                            real timeIntegrated[tensor::I::size()],
+                            real* timeIntegrated,
                             real* timeDerivatives,
                             bool updateDisplacement) {
   /*
@@ -143,7 +140,7 @@ void Spacetime::computeAder(const real* coeffs,
   assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0 ||
-         timeDerivatives == NULL);
+         timeDerivatives == nullptr);
 
   alignas(Alignment) real temporaryBuffer[tensor::spaceTimePredictor::size()];
   real* stpBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
@@ -253,9 +250,7 @@ void Spacetime::computeBatchedAder(
 #endif
 }
 
-void Time::evaluate(const real* coeffs,
-                    const real* timeDerivatives,
-                    real timeEvaluated[tensor::I::size()]) {
+void Time::evaluate(const real* coeffs, const real* timeDerivatives, real* timeEvaluated) {
   kernel::evaluateDOFSAtTimeSTP krnl;
   krnl.spaceTimePredictor = timeDerivatives;
   krnl.QAtTimeSTP = timeEvaluated;
