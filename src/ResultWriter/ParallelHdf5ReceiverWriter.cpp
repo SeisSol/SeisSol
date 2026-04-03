@@ -10,8 +10,14 @@
 
 #include "Parallel/MPI.h"
 
+#include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <mpi.h>
+#include <string>
 #include <utils/logger.h>
+#include <vector>
 
 namespace {
 #define _eh(x) _ehh((x), __FILE__, __LINE__)
@@ -25,11 +31,12 @@ hid_t _ehh(hid_t data, const char* file, int line) {
 }
 
 void writeStringAttribute(hid_t locationId, const std::string& name, const std::string& value) {
-  hid_t atype = _eh(H5Tcopy(H5T_C_S1));
+  const hid_t atype = _eh(H5Tcopy(H5T_C_S1));
   _eh(H5Tset_size(atype, std::max(value.length(), static_cast<size_t>(1))));
   _eh(H5Tset_strpad(atype, H5T_STR_NULLTERM));
-  hid_t space = _eh(H5Screate(H5S_SCALAR));
-  hid_t attr = _eh(H5Acreate(locationId, name.c_str(), atype, space, H5P_DEFAULT, H5P_DEFAULT));
+  const hid_t space = _eh(H5Screate(H5S_SCALAR));
+  const hid_t attr =
+      _eh(H5Acreate(locationId, name.c_str(), atype, space, H5P_DEFAULT, H5P_DEFAULT));
   _eh(H5Awrite(attr, atype, value.c_str()));
   _eh(H5Aclose(attr));
   _eh(H5Sclose(space));
@@ -45,13 +52,14 @@ void writeStringArrayAttribute(hid_t locationId,
   }
   maxLen = std::max(maxLen, static_cast<size_t>(1));
 
-  hid_t atype = _eh(H5Tcopy(H5T_C_S1));
+  const hid_t atype = _eh(H5Tcopy(H5T_C_S1));
   _eh(H5Tset_size(atype, maxLen));
   _eh(H5Tset_strpad(atype, H5T_STR_NULLPAD));
 
-  hsize_t dims = values.size();
-  hid_t space = _eh(H5Screate_simple(1, &dims, nullptr));
-  hid_t attr = _eh(H5Acreate(locationId, name.c_str(), atype, space, H5P_DEFAULT, H5P_DEFAULT));
+  const hsize_t dims = values.size();
+  const hid_t space = _eh(H5Screate_simple(1, &dims, nullptr));
+  const hid_t attr =
+      _eh(H5Acreate(locationId, name.c_str(), atype, space, H5P_DEFAULT, H5P_DEFAULT));
 
   std::vector<char> buffer(values.size() * maxLen, '\0');
   for (size_t i = 0; i < values.size(); ++i) {
@@ -73,7 +81,7 @@ ParallelHdf5ReceiverWriter::ParallelHdf5ReceiverWriter(MPI_Comm comm,
                                                        hsize_t numVariables)
     : comm_(comm), dims_{0, totalReceivers, numVariables} {
   // Create property list for parallel I/O
-  hid_t plistId = _eh(H5Pcreate(H5P_FILE_ACCESS));
+  const hid_t plistId = _eh(H5Pcreate(H5P_FILE_ACCESS));
   _eh(H5Pset_fapl_mpio(plistId, comm_, MPI_INFO_NULL));
 
   // Create file
@@ -86,16 +94,16 @@ ParallelHdf5ReceiverWriter::ParallelHdf5ReceiverWriter(MPI_Comm comm,
   filespaceId_ = _eh(H5Screate_simple(Rank, datasetDims.data(), maxDims.data()));
 
   // Create dataset creation property list and set chunking
-  hid_t dcplId = _eh(H5Pcreate(H5P_DATASET_CREATE));
+  const hid_t dcplId = _eh(H5Pcreate(H5P_DATASET_CREATE));
 
   // Target a ~1 MB chunk size
-  constexpr size_t targetChunkBytes = 1048576; // 1 MB
+  constexpr size_t TargetChunkBytes = 1048576; // 1 MB
 
   // How many bytes does a single receiver take at one time step?
-  size_t bytesPerReceiverPoint = numVariables * sizeof(double);
+  const size_t bytesPerReceiverPoint = numVariables * sizeof(double);
 
   // Calculate how many receivers fit into our 1 MB budget
-  hsize_t chunkReceivers = std::max<hsize_t>(1, targetChunkBytes / bytesPerReceiverPoint);
+  hsize_t chunkReceivers = std::max<hsize_t>(1, TargetChunkBytes / bytesPerReceiverPoint);
 
   // Cap it at totalReceivers
   chunkReceivers = std::min<hsize_t>(chunkReceivers, totalReceivers);
@@ -123,7 +131,7 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
                                             hsize_t timeCount,
                                             const std::vector<std::uint64_t>& pointIds,
                                             const std::vector<double>& data) {
-  hsize_t localReceiverCount = pointIds.size();
+  const hsize_t localReceiverCount = pointIds.size();
 
   logDebug() << "writeChunk: timeOffset=" << timeOffset << " timeCount=" << timeCount
              << " localReceiverCount=" << localReceiverCount << " dataSize=" << data.size();
@@ -153,9 +161,9 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
     _eh(H5Sselect_none(filespaceId));
 
     // Create an empty memory dataspace
-    hid_t memspaceId = _eh(H5Screate(H5S_NULL));
+    const hid_t memspaceId = _eh(H5Screate(H5S_NULL));
 
-    hid_t xferPlist = _eh(H5Pcreate(H5P_DATASET_XFER));
+    const hid_t xferPlist = _eh(H5Pcreate(H5P_DATASET_XFER));
     _eh(H5Pset_dxpl_mpio(xferPlist, H5FD_MPIO_COLLECTIVE));
 
     _eh(H5Dwrite(dsetId_, H5T_NATIVE_DOUBLE, memspaceId, filespaceId, xferPlist, data.data()));
@@ -180,10 +188,10 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
     // Even though it's a contiguous block of memory, mapping blocks will follow monotonically
     // increasing constraints since pointIds is sorted.
     std::array<hsize_t, Rank> memCount = {timeCount, localReceiverCount, dims_[2]};
-    hid_t memspaceId = _eh(H5Screate_simple(Rank, memCount.data(), nullptr));
+    const hid_t memspaceId = _eh(H5Screate_simple(Rank, memCount.data(), nullptr));
 
     // Perform the collective write
-    hid_t xferPlist = _eh(H5Pcreate(H5P_DATASET_XFER));
+    const hid_t xferPlist = _eh(H5Pcreate(H5P_DATASET_XFER));
     _eh(H5Pset_dxpl_mpio(xferPlist, H5FD_MPIO_COLLECTIVE));
 
     _eh(H5Dwrite(dsetId_, H5T_NATIVE_DOUBLE, memspaceId, filespaceId, xferPlist, data.data()));
@@ -197,13 +205,13 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
   _eh(H5Sclose(filespaceId));
 }
 
-void ParallelHdf5ReceiverWriter::writeVariableNames(const std::vector<std::string>& names) {
+void ParallelHdf5ReceiverWriter::writeVariableNames(const std::vector<std::string>& names) const {
   writeStringArrayAttribute(dsetId_, "VariableNames", names);
   writeStringArrayAttribute(dsetId_, "DimNames", {"time_steps", "receiver_points", "variables"});
 }
 
 void ParallelHdf5ReceiverWriter::writeCoordinates(const std::vector<Eigen::Vector3d>& points) {
-  int rank;
+  int rank = 0;
   MPI_Comm_rank(comm_, &rank);
 
   // Convert Eigen vectors into a contiguous buffer of doubles
@@ -216,23 +224,23 @@ void ParallelHdf5ReceiverWriter::writeCoordinates(const std::vector<Eigen::Vecto
 
   // Create a 2D dataspace: (nPoints x 3)
   std::array<hsize_t, 2> dims = {static_cast<hsize_t>(points.size()), 3};
-  hid_t dataspaceId = _eh(H5Screate_simple(2, dims.data(), nullptr));
+  const hid_t dataspaceId = _eh(H5Screate_simple(2, dims.data(), nullptr));
 
   // Create the dataset
-  hid_t datasetId = _eh(H5Dcreate(fileId_,
-                                  "Coordinates",
-                                  H5T_NATIVE_DOUBLE,
-                                  dataspaceId,
-                                  H5P_DEFAULT,
-                                  H5P_DEFAULT,
-                                  H5P_DEFAULT));
+  const hid_t datasetId = _eh(H5Dcreate(fileId_,
+                                        "Coordinates",
+                                        H5T_NATIVE_DOUBLE,
+                                        dataspaceId,
+                                        H5P_DEFAULT,
+                                        H5P_DEFAULT,
+                                        H5P_DEFAULT));
 
   writeStringAttribute(datasetId, "CLASS", "ARRAY");
   writeStringAttribute(datasetId, "VERSION", "2.4");
   writeStringAttribute(datasetId, "TITLE", "");
   writeStringAttribute(datasetId, "FLAVOR", "numpy");
 
-  hid_t xferPlist = _eh(H5Pcreate(H5P_DATASET_XFER));
+  const hid_t xferPlist = _eh(H5Pcreate(H5P_DATASET_XFER));
   _eh(H5Pset_dxpl_mpio(xferPlist, H5FD_MPIO_COLLECTIVE));
 
   // Only rank 0 actually writes the data, everyone else writes nothing.
@@ -240,7 +248,7 @@ void ParallelHdf5ReceiverWriter::writeCoordinates(const std::vector<Eigen::Vecto
     _eh(H5Dwrite(datasetId, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, xferPlist, coords.data()));
   } else {
     _eh(H5Sselect_none(dataspaceId));
-    hid_t memspaceId = _eh(H5Screate(H5S_NULL));
+    const hid_t memspaceId = _eh(H5Screate(H5S_NULL));
     _eh(H5Dwrite(datasetId, H5T_NATIVE_DOUBLE, memspaceId, dataspaceId, xferPlist, nullptr));
     _eh(H5Sclose(memspaceId));
   }
@@ -251,7 +259,7 @@ void ParallelHdf5ReceiverWriter::writeCoordinates(const std::vector<Eigen::Vecto
   _eh(H5Sclose(dataspaceId));
 }
 
-void ParallelHdf5ReceiverWriter::flush() { _eh(H5Fflush(fileId_, H5F_SCOPE_GLOBAL)); }
+void ParallelHdf5ReceiverWriter::flush() const { _eh(H5Fflush(fileId_, H5F_SCOPE_GLOBAL)); }
 
 ParallelHdf5ReceiverWriter::~ParallelHdf5ReceiverWriter() {
   H5Dclose(dsetId_);      // Close the main dataset

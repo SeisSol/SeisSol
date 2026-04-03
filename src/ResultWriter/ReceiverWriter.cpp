@@ -100,7 +100,7 @@ std::string ReceiverWriter::fileName(unsigned pointId) const {
 
 std::vector<std::string> ReceiverWriter::variableNames() const {
   std::vector<std::string> fullNames;
-  fullNames.push_back("Time");
+  fullNames.emplace_back("Time");
 
   std::vector<std::string> names(seissol::model::MaterialT::Quantities.begin(),
                                  seissol::model::MaterialT::Quantities.end());
@@ -137,8 +137,9 @@ void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point)
 
     auto names = variableNames();
     for (size_t i = 0; i < names.size(); ++i) {
-      if (i > 0)
+      if (i > 0) {
         file << ",";
+      }
       file << "\"" << names[i] << "\"";
     }
     file << std::endl;
@@ -250,7 +251,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   if (format_ == seissol::initializer::parameters::ReceiverOutputFormat::Hdf5) {
     // -------------------------------------------------------
     // Now, sum up total # of receivers across ranks
-    hsize_t localCountH = static_cast<hsize_t>(localReceiverCount);
+    auto localCountH = static_cast<hsize_t>(localReceiverCount);
     hsize_t totalReceiversH = 0;
     MPI_Allreduce(&localCountH,
                   &totalReceiversH,
@@ -345,13 +346,13 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
 
   for (const auto& cluster : receiverClusters_) {
     for (const auto& receiver : *cluster) {
-      size_t thisReceiverSamples = receiver.output.size() / cluster->ncols();
+      const size_t thisReceiverSamples = receiver.output.size() / cluster->ncols();
       totalNewSamples = std::max(totalNewSamples, thisReceiverSamples);
       localReceiverCount++;
     }
   }
 
-  bool noData = (localReceiverCount == 0 || totalNewSamples == 0);
+  const bool noData = (localReceiverCount == 0 || totalNewSamples == 0);
   auto actualTimeCount = noData ? 0 : totalNewSamples;
 
   struct LocalReceiverData {
@@ -379,7 +380,7 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
     pointIds.push_back(static_cast<std::uint64_t>(lr.rcv->pointId));
   }
 
-  unsigned ncols = localReceivers.empty() ? 0 : localReceivers[0].clus->ncols();
+  const unsigned ncols = localReceivers.empty() ? 0 : localReceivers[0].clus->ncols();
   std::vector<double> hdf5Data(totalNewSamples * localReceiverCount * ncols);
 
   for (size_t lr = 0; lr < localReceivers.size(); ++lr) {
@@ -388,16 +389,16 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
 
     for (size_t t = 0; t < nSamples; ++t) {
       for (size_t v = 0; v < ncols; ++v) {
-        double value = rec.output[t * ncols + v];
-        size_t idx = t * (localReceiverCount * ncols) + lr * ncols + v;
+        const double value = rec.output[t * ncols + v];
+        const size_t idx = t * (localReceiverCount * ncols) + lr * ncols + v;
         hdf5Data[idx] = value;
       }
     }
     rec.output.clear();
   }
 
-  std::vector<double> emptyBuffer;
-  std::vector<std::uint64_t> emptyPointIds;
+  const std::vector<double> emptyBuffer;
+  const std::vector<std::uint64_t> emptyPointIds;
 
   hdf5Writer_->writeChunk(static_cast<hsize_t>(nextTimeOffset_),
                           static_cast<hsize_t>(actualTimeCount),
@@ -410,7 +411,7 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
 }
 
 // --------------------------------------------------------------------------
-void ReceiverWriter::simulationStart(std::optional<double> checkpointTime) {
+void ReceiverWriter::simulationStart(std::optional<double> /*checkpointTime*/) {
   for (auto& cluster : receiverClusters_) {
     cluster->allocateData();
   }

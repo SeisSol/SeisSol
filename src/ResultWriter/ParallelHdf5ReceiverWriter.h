@@ -26,14 +26,19 @@ class ParallelHdf5ReceiverWriter {
                              hsize_t totalReceivers,
                              hsize_t numVariables);
 
+  ParallelHdf5ReceiverWriter(const ParallelHdf5ReceiverWriter&) = delete;
+  ParallelHdf5ReceiverWriter& operator=(const ParallelHdf5ReceiverWriter&) = delete;
+  ParallelHdf5ReceiverWriter(ParallelHdf5ReceiverWriter&&) = delete;
+  ParallelHdf5ReceiverWriter& operator=(ParallelHdf5ReceiverWriter&&) = delete;
+
   void writeChunk(hsize_t timeOffset,
                   hsize_t timeCount,
                   const std::vector<std::uint64_t>& pointIds,
                   const std::vector<double>& data);
 
   void writeCoordinates(const std::vector<Eigen::Vector3d>& points);
-  void writeVariableNames(const std::vector<std::string>& names);
-  void flush();
+  void writeVariableNames(const std::vector<std::string>& names) const;
+  void flush() const;
 
   ~ParallelHdf5ReceiverWriter();
 
