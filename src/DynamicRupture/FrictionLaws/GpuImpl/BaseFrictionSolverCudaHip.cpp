@@ -43,9 +43,17 @@ constexpr std::size_t BlockTargetsize = 256;
 constexpr std::size_t PaddedMultiple =
     safeblockMultiple(seissol::dr::misc::NumPaddedPoints, BlockTargetsize);
 
+// __grid_constant__ needs sm_70 or higher
+#if defined(__CUDACC__) && defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#define SEISSOL_GRID_CONSTANT __grid_constant__
+#else
+#define SEISSOL_GRID_CONSTANT
+#endif
+
 template <typename T>
 __launch_bounds__(PaddedMultiple* seissol::dr::misc::NumPaddedPoints) __global__
-    void flkernelwrapper(std::size_t elements, FrictionLawArgs args) {
+    void flkernelwrapper(const std::size_t elements,
+                         const SEISSOL_GRID_CONSTANT FrictionLawArgs args) {
   FrictionLawContext ctx{};
 
   ctx.data = args.data;
