@@ -66,7 +66,7 @@ __launch_bounds__(PaddedMultiple* seissol::dr::misc::NumPaddedPoints) __global__
 
 template <typename T>
 void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
-                                           real fullUpdateTime,
+                                           double fullUpdateTime,
                                            const double* timeWeights,
                                            const FrictionTime& frictionTime) {
 #ifdef __CUDACC__

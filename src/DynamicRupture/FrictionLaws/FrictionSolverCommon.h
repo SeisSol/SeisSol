@@ -296,7 +296,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     real imposedStateMinus[tensor::QInterpolated::size()],
     const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()],
-    const double timeWeights[misc::TimeSteps],
+    const real timeWeights[misc::TimeSteps],
     uint32_t startIndex = 0) {
 
 #ifndef USE_POROELASTIC
@@ -327,7 +327,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
   real localImposedStateP[dr::misc::NumQuantities][NumPointsRange::Size]{};
 
   for (uint32_t o = 0; o < misc::TimeSteps; ++o) {
-    const auto weight = static_cast<real>(timeWeights[o]);
+    const auto weight = timeWeights[o];
 
 #ifndef ACL_DEVICE
 #pragma omp simd
@@ -398,7 +398,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
   krnlP.theta = thetaBuffer;
 
   for (uint32_t o = 0; o < misc::TimeSteps; ++o) {
-    auto weight = timeWeights[o];
+    const auto weight = timeWeights[o];
     // copy values to yateto dataformat
     for (uint32_t i = 0; i < misc::NumPaddedPoints; ++i) {
       thetaView(i, 0) = faultStresses.normalStress[o][i];
@@ -565,7 +565,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()],
     const ImpedancesAndEta& impAndEta,
-    const double timeWeights[misc::TimeSteps],
+    const real timeWeights[misc::TimeSteps],
     const real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints],
     const DRGodunovData& godunovData,
     const real slipRateMagnitude[misc::NumPaddedPoints],
@@ -575,7 +575,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   auto* slip = reinterpret_cast<real(*)[misc::NumPaddedPoints]>(energyData.slip);
   auto* accumulatedSlip = energyData.accumulatedSlip;
   auto* frictionalEnergy = energyData.frictionalEnergy;
-  const double doubledSurfaceArea = godunovData.doubledSurfaceArea;
+  const real doubledSurfaceAreaN = -static_cast<real>(godunovData.doubledSurfaceArea);
 
   using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
   const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
@@ -601,7 +601,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
 
   using namespace dr::misc::quantity_indices;
   for (size_t o = 0; o < misc::TimeSteps; ++o) {
-    const auto timeWeight = static_cast<real>(timeWeights[o]);
+    const auto timeWeight = timeWeights[o];
 
 #ifndef ACL_DEVICE
 #pragma omp simd
@@ -637,7 +637,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
       const real interpolatedTraction13 = bPlus * qIMinus[o][T2][i] + bMinus * qIPlus[o][T2][i];
 
       const auto spaceWeight = spaceWeights[i / multisim::NumSimulations];
-      const auto weight = -1.0 * timeWeight * spaceWeight * doubledSurfaceArea;
+      const auto weight = timeWeight * spaceWeight * doubledSurfaceAreaN;
       localFrictionalEnergy[index] += weight * (interpolatedTraction12 * interpolatedSlipRate2 +
                                                 interpolatedTraction13 * interpolatedSlipRate3);
     }

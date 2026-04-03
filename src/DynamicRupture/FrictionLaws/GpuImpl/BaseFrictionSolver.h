@@ -41,9 +41,9 @@ struct FrictionLawArgs {
   const real* __restrict tpGridPoints{nullptr};
   const real* __restrict heatSource{nullptr};
 
-  real fullUpdateTime{};
-  double timeWeights[misc::TimeSteps]{};
+  real timeWeights[misc::TimeSteps]{};
   real deltaT[misc::TimeSteps]{};
+  real fullUpdateTime{};
 };
 
 struct FrictionLawContext {
@@ -200,11 +200,11 @@ class BaseFrictionSolver : public FrictionSolverDetails {
   }
 
   void evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
-                      real fullUpdateTime,
+                      double fullUpdateTime,
                       const double* timeWeights,
                       const FrictionTime& frictionTime);
 
-  void evaluate(real fullUpdateTime,
+  void evaluate(double fullUpdateTime,
                 const FrictionTime& frictionTime,
                 const double* timeWeights,
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
