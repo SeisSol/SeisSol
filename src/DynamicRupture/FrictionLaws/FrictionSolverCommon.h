@@ -28,12 +28,12 @@
  */
 namespace seissol::dr::friction_law::common {
 
-template <size_t StartT, size_t EndT, size_t StepT>
+template <uint32_t StartT, uint32_t EndT, uint32_t StepT>
 struct ForLoopRange {
-  static constexpr size_t Start{StartT};
-  static constexpr size_t End{EndT};
-  static constexpr size_t Step{StepT};
-  static constexpr size_t Size{EndT - StartT};
+  static constexpr uint32_t Start{StartT};
+  static constexpr uint32_t End{EndT};
+  static constexpr uint32_t Step{StepT};
+  static constexpr uint32_t Size{EndT - StartT};
 };
 
 enum class RangeType { CPU, GPU };
@@ -299,14 +299,6 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     const double timeWeights[misc::TimeSteps],
     uint32_t startIndex = 0) {
 
-  // set imposed state to zero
-  using QInterpolatedRange = typename QInterpolated<Type>::Range;
-  for (auto index = QInterpolatedRange::Start; index < QInterpolatedRange::End;
-       index += QInterpolatedRange::Step) {
-    auto i{startIndex + index};
-    imposedStatePlus[i] = static_cast<real>(0.0);
-    imposedStateMinus[i] = static_cast<real>(0.0);
-  }
 #ifndef USE_POROELASTIC
   const auto invZs = impAndEta.invZs;
   const auto invZp = impAndEta.invZp;
@@ -329,18 +321,10 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
 #endif
 
   using NumPointsRange = typename NumPoints<Type>::Range;
-  real cachedImposedStateM[dr::misc::NumQuantities][NumPointsRange::Size];
-  real cachedImposedStateP[dr::misc::NumQuantities][NumPointsRange::Size];
 
-  for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
-       index += NumPointsRange::Step) {
-    auto i{startIndex + index};
-#pragma unroll
-    for (unsigned q = 0; q < dr::misc::NumQuantities; ++q) {
-      cachedImposedStateM[q][index] = imposedStateM[q][i];
-      cachedImposedStateP[q][index] = imposedStateP[q][i];
-    }
-  }
+  // zero initialize
+  real localImposedStateM[dr::misc::NumQuantities][NumPointsRange::Size]{};
+  real localImposedStateP[dr::misc::NumQuantities][NumPointsRange::Size]{};
 
   for (uint32_t o = 0; o < misc::TimeSteps; ++o) {
     const auto weight = static_cast<real>(timeWeights[o]);
@@ -359,24 +343,24 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
       const auto traction2 =
           VariableIndexing<RangeExecutor<Type>::Exec>::index(tractionResults.traction2, o, i);
 
-      cachedImposedStateM[N][index] += weight * normalStress;
-      cachedImposedStateM[T1][index] += weight * traction1;
-      cachedImposedStateM[T2][index] += weight * traction2;
-      cachedImposedStateM[U][index] +=
+      localImposedStateM[N][index] += weight * normalStress;
+      localImposedStateM[T1][index] += weight * traction1;
+      localImposedStateM[T2][index] += weight * traction2;
+      localImposedStateM[U][index] +=
           weight * (qIMinus[o][U][i] - invZpNeig * (normalStress - qIMinus[o][N][i]));
-      cachedImposedStateM[V][index] +=
+      localImposedStateM[V][index] +=
           weight * (qIMinus[o][V][i] - invZsNeig * (traction1 - qIMinus[o][T1][i]));
-      cachedImposedStateM[W][index] +=
+      localImposedStateM[W][index] +=
           weight * (qIMinus[o][W][i] - invZsNeig * (traction2 - qIMinus[o][T2][i]));
 
-      cachedImposedStateP[N][index] += weight * normalStress;
-      cachedImposedStateP[T1][index] += weight * traction1;
-      cachedImposedStateP[T2][index] += weight * traction2;
-      cachedImposedStateP[U][index] +=
+      localImposedStateP[N][index] += weight * normalStress;
+      localImposedStateP[T1][index] += weight * traction1;
+      localImposedStateP[T2][index] += weight * traction2;
+      localImposedStateP[U][index] +=
           weight * (qIPlus[o][U][i] + invZp * (normalStress - qIPlus[o][N][i]));
-      cachedImposedStateP[V][index] +=
+      localImposedStateP[V][index] +=
           weight * (qIPlus[o][V][i] + invZs * (traction1 - qIPlus[o][T1][i]));
-      cachedImposedStateP[W][index] +=
+      localImposedStateP[W][index] +=
           weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
     }
   }
@@ -385,9 +369,9 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
        index += NumPointsRange::Step) {
     auto i{startIndex + index};
 #pragma unroll
-    for (unsigned q = 0; q < dr::misc::NumQuantities; ++q) {
-      imposedStateM[q][i] = cachedImposedStateM[q][index];
-      imposedStateP[q][i] = cachedImposedStateP[q][index];
+    for (std::uint32_t q = 0; q < dr::misc::NumQuantities; ++q) {
+      imposedStateM[q][i] = localImposedStateM[q][index];
+      imposedStateP[q][i] = localImposedStateP[q][index];
     }
   }
 #else
@@ -601,17 +585,17 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   const auto bMinus = impAndEta.etaS * impAndEta.invZsNeig;
 
   using Range = typename NumPoints<Type>::Range;
-  real cachedAccumulatedSlip[Range::Size];
-  real cachedFrictionalEnergy[Range::Size];
-  real cachedSlip[3][Range::Size];
+  real localAccumulatedSlip[Range::Size]{};
+  real localFrictionalEnergy[Range::Size]{};
+  real localSlipRate[3][Range::Size]{};
 
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
     auto i{startIndex + index};
-    cachedAccumulatedSlip[index] = accumulatedSlip[i];
-    cachedFrictionalEnergy[index] = frictionalEnergy[i];
+    localAccumulatedSlip[index] = accumulatedSlip[i];
+    localFrictionalEnergy[index] = frictionalEnergy[i];
 #pragma unroll
-    for (unsigned d = 0; d < 3; ++d) {
-      cachedSlip[d][index] = slip[d][i];
+    for (uint32_t d = 0; d < 3; ++d) {
+      localSlipRate[d][index] = slip[d][i];
     }
   }
 
@@ -634,7 +618,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
         const real interpolatedSlipRateMagnitude =
             misc::magnitude(interpolatedSlipRate1, interpolatedSlipRate2, interpolatedSlipRate3);
 
-        cachedAccumulatedSlip[index] += timeWeight * interpolatedSlipRateMagnitude;
+        localAccumulatedSlip[index] += timeWeight * interpolatedSlipRateMagnitude;
       } else {
         // we use slipRateMagnitude (computed from slipRate1 and slipRate2 in the friction law)
         // instead of computing the slip rate magnitude from the differences in velocities
@@ -642,30 +626,30 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
         // based on (slipRateMagnitudei) is typically non zero at the end of the earthquake
         // (probably because it incorporates the velocity discontinuities inherent of DG methods,
         // including the contributions of fault normal velocity discontinuity)
-        cachedAccumulatedSlip[index] += timeWeight * slipRateMagnitude[i];
+        localAccumulatedSlip[index] += timeWeight * slipRateMagnitude[i];
       }
 
-      cachedSlip[0][index] += timeWeight * interpolatedSlipRate1;
-      cachedSlip[1][index] += timeWeight * interpolatedSlipRate2;
-      cachedSlip[2][index] += timeWeight * interpolatedSlipRate3;
+      localSlipRate[0][index] += timeWeight * interpolatedSlipRate1;
+      localSlipRate[1][index] += timeWeight * interpolatedSlipRate2;
+      localSlipRate[2][index] += timeWeight * interpolatedSlipRate3;
 
       const real interpolatedTraction12 = bPlus * qIMinus[o][T1][i] + bMinus * qIPlus[o][T1][i];
       const real interpolatedTraction13 = bPlus * qIMinus[o][T2][i] + bMinus * qIPlus[o][T2][i];
 
       const auto spaceWeight = spaceWeights[i / multisim::NumSimulations];
       const auto weight = -1.0 * timeWeight * spaceWeight * doubledSurfaceArea;
-      cachedFrictionalEnergy[index] += weight * (interpolatedTraction12 * interpolatedSlipRate2 +
-                                                 interpolatedTraction13 * interpolatedSlipRate3);
+      localFrictionalEnergy[index] += weight * (interpolatedTraction12 * interpolatedSlipRate2 +
+                                                interpolatedTraction13 * interpolatedSlipRate3);
     }
   }
 
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
     auto i{startIndex + index};
-    accumulatedSlip[i] = cachedAccumulatedSlip[index];
-    frictionalEnergy[i] = cachedFrictionalEnergy[index];
+    accumulatedSlip[i] = localAccumulatedSlip[index];
+    frictionalEnergy[i] = localFrictionalEnergy[index];
 #pragma unroll
-    for (unsigned d = 0; d < 3; ++d) {
-      slip[d][i] = cachedSlip[d][index];
+    for (uint32_t d = 0; d < 3; ++d) {
+      slip[d][i] = localSlipRate[d][index];
     }
   }
 }
