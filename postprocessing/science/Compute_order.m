@@ -1,27 +1,28 @@
 %%
 % @file
 % This file is part of SeisSol.
+% SPDX-License-Identifier: BSD-3-Clause
 %
 % @author Martin Kaeser (martin.kaeser AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/kaeser)
 %
 % @section LICENSE
 % Copyright (c) 2008, SeisSol Group
 % All rights reserved.
-% 
+%
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
-% 
+%
 % 1. Redistributions of source code must retain the above copyright notice,
 %    this list of conditions and the following disclaimer.
-% 
+%
 % 2. Redistributions in binary form must reproduce the above copyright notice,
 %    this list of conditions and the following disclaimer in the documentation
 %    and/or other materials provided with the distribution.
-% 
+%
 % 3. Neither the name of the copyright holder nor the names of its
 %    contributors may be used to endorse or promote products derived from this
 %    software without specific prior written permission.
-% 
+%
 % THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 % AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 % IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -53,7 +54,7 @@ clear, close all;
 % L_1
 % L_2
 % L_infty
-%These three error norms are repeated n times for n Variables 
+%These three error norms are repeated n times for n Variables
 % (e.g. n=5 for 2D elastic or n=9 for 3D elastic)
 
 load mesh04o3.dat
@@ -75,7 +76,7 @@ error = [mesh04o3,...
          mesh28o3,...
          mesh32o3];
 
-%Mesh spacing 
+%Mesh spacing
 % (a) can be read from the output of the code, e.g.
 h2 = [0.37267799, ...
       0.24845199, ...
@@ -85,8 +86,8 @@ h2 = [0.37267799, ...
       9.31694991e-2, ...
       8.281733e-2];
 
-% (a) can be defined analytically for regular meshes, e.g. 
-h = 2./[4 8 12 16 20 24 28 32]; 
+% (a) can be defined analytically for regular meshes, e.g.
+h = 2./[4 8 12 16 20 24 28 32];
 h = ones(15,1)*h;
 
 %computation of the order
@@ -99,6 +100,3 @@ disp(' '),disp('   The errors are:')
 disp(error)
 disp(' '),disp('   The orders are:')
 disp(order)
-
-
-

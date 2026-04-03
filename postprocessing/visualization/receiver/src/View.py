@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 ##
 # @file
 # This file is part of SeisSol.
@@ -8,21 +9,21 @@
 # @section LICENSE
 # Copyright (c) 2015-2016, SeisSol Group
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice,
 #    this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice,
 #    this list of conditions and the following disclaimer in the documentation
 #    and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its
 #    contributors may be used to endorse or promote products derived from this
 #    software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -62,32 +63,32 @@ class View(QWidget):
 
   def __init__(self, parent = None):
     super(View, self).__init__(parent)
-    
+
     self.__watchdog = Watchdog.Watchdog()
     self.__watchdog.fileChanged.connect(self.refreshAll)
 
     self.figure = plt.figure()
     self.canvas = FigureCanvas(self.figure)
-    self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)    
+    self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
     toolbar = NavigationToolbar(self.canvas, self)
-    
+
     self.navigationLayout = QHBoxLayout()
-    
+
     layout = QHBoxLayout(self)
     self.navigations = []
     self.addNavigation(True)
-    
-    self.filters = [ Filters.Lowpass(), Filters.Deconvolve(), Filters.Rotate(), Filters.Pick() ]
-    filterLayout = QVBoxLayout()    
+
+    self.filters = [ Filters.Lowpass(), Filters.Deconvolve(), Filters.Rotate(), Filters.Pick(), Filters.MultipleSimulations()]
+    filterLayout = QVBoxLayout()
     for f in self.filters:
       filterLayout.addWidget(f)
       f.filterChanged.connect(self.plot)
     filterLayout.addStretch()
-    
+
     addIcon = QIcon.fromTheme('list-add')
     addNaviButton = QPushButton(addIcon, 'Add navigation', self)
     addNaviButton.clicked.connect(self.addNavigation)
-    
+
     self.maxFreq = QDoubleSpinBox(self)
     self.maxFreq.setValue(10.0)
     self.maxFreq.setVisible(False)
@@ -102,23 +103,23 @@ class View(QWidget):
     self.diff.clicked.connect(self.plot)
     self.diff.clicked.connect(self.spectrum.setHidden)
     self.spectrum.toggled.connect(self.diff.setHidden)
-    
+
     autoRefresh = QPushButton(QIcon.fromTheme('view-refresh'), 'Auto', self)
     autoRefresh.setCheckable(True)
     autoRefresh.clicked.connect(self.__watchdog.toggle)
-    
+
     saveAll = QPushButton(QIcon.fromTheme('document-save'), '', self)
     saveAll.clicked.connect(self.savePlots)
 
-    self.normalize = QPushButton('Normalize', self) 
+    self.normalize = QPushButton('Normalize', self)
     self.normalize.setCheckable(True)
     self.normalize.clicked.connect(self.plot)
 
-    self.differentiate = QPushButton('Differentiate', self) 
+    self.differentiate = QPushButton('Differentiate', self)
     self.differentiate.setCheckable(True)
     self.differentiate.clicked.connect(self.plot)
 
-    self.integrate = QPushButton('Integrate', self) 
+    self.integrate = QPushButton('Integrate', self)
     self.integrate.setCheckable(True)
     self.integrate.clicked.connect(self.plot)
 
@@ -139,7 +140,7 @@ class View(QWidget):
     layout.addLayout(self.navigationLayout)
     layout.addLayout(plotLayout)
     layout.addLayout(filterLayout)
-    
+
   def addNavigation(self, noclose = False):
     navigation = Navigation.Navigation(noclose)
     navigation.activeItemChanged.connect(self.plot)
@@ -152,13 +153,13 @@ class View(QWidget):
   def navigationFolderChanged(self, oldFolder, newFolder):
     self.__watchdog.removeFolder(oldFolder)
     self.__watchdog.addFolder(newFolder)
-    
+
   def closeNavigation(self, widget):
     self.navigations.remove(widget)
     self.navigationLayout.removeWidget(widget)
     widget.deleteLater()
     self.plot()
-    
+
   def refreshAll(self):
     for navigation in self.navigations:
         navigation.refreshFolder()
@@ -236,7 +237,7 @@ class View(QWidget):
             ref_interp = scipy.interpolate.interp1d(wf_ref.time, wf_ref.waveforms[name])
             wf_union = wf_interp(time_union)
             ref_union = ref_interp(time_union)
-            diff = numpy.sqrt(scipy.integrate.trapz((wf_union - ref_union)**2, x=time_union))
+            diff = numpy.sqrt(scipy.integrate.trapezoid((wf_union - ref_union)**2, x=time_union))
             p.text(0.05, 1-0.1*nWf, f"L2 diff={diff:.2e}", transform = p.transAxes)
 
       self.figure.tight_layout()
@@ -245,7 +246,7 @@ class View(QWidget):
       if subplots[ names[i] ]:
         subplots[ names[i] ].legend(prop={'size':8}, frameon=False)
     self.canvas.draw()
-  
+
   def savePlots(self):
     filetypes = self.canvas.get_supported_filetypes_grouped()
     defaultFiletype = self.canvas.get_default_filetype()
@@ -259,7 +260,7 @@ class View(QWidget):
     fileName, filtr = QFileDialog.getSaveFileName(self, 'Choose a save location.', '', ';;'.join(filters), selectedFilter)
     fileName = os.path.splitext(str(fileName))[0]
     extension = re.search(r'\*(\.[a-zA-Z]+)', str(filtr)).group(1)
-    
+
     maxRow = min([nav.numberOfRows() for nav in self.navigations])
     for row in range(maxRow):
       for nav in self.navigations:

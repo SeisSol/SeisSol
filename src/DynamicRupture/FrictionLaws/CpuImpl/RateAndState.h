@@ -1,12 +1,12 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATE_H_
-#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATE_H_
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_RATEANDSTATE_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_RATEANDSTATE_H_
 
 #include "BaseFrictionLaw.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
@@ -23,12 +23,16 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       : BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw(drParameters),
         tpMethod(TPMethod(drParameters)) {}
 
+  std::unique_ptr<FrictionSolver> clone() override {
+    return std::make_unique<Derived>(*static_cast<Derived*>(this));
+  }
+
   void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
                              TractionResults<Executor::Host>& tractionResults,
                              std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
-                             std::array<real, misc::NumPaddedPoints>& strengthBuffer,
-                             unsigned ltsFace,
-                             unsigned timeIndex) {
+                             std::array<real, misc::NumPaddedPoints>& /*strengthBuffer*/,
+                             std::size_t ltsFace,
+                             uint32_t timeIndex) {
     bool hasConverged = false;
 
     // compute initial slip rate and reference values
@@ -58,7 +62,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     }
     // compute final thermal pressure and normalStress
     tpMethod.calcFluidPressure(
-        normalStress, this->mu, localSlipRate, this->deltaT[timeIndex], true, timeIndex, ltsFace);
+        normalStress, this->mu, localSlipRate, this->deltaT[timeIndex], true, ltsFace);
     updateNormalStress(normalStress, faultStresses, timeIndex, ltsFace);
     // compute final slip rates and traction from average of the iterative solution and initial
     // guess
@@ -73,27 +77,27 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                   ltsFace);
   }
 
-  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {
+  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
 // copy state variable from last time step
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       stateVariableBuffer[pointIndex] = this->stateVariable[ltsFace][pointIndex];
     }
   }
 
-  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {
+  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
     static_cast<Derived*>(this)->resampleStateVar(stateVariableBuffer, ltsFace);
   }
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
-                          real fullUpdateTime) {
-    const auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState*>(dynRup);
-    a = layerData.var(concreteLts->rsA);
-    sl0 = layerData.var(concreteLts->rsSl0);
-    stateVariable = layerData.var(concreteLts->stateVariable);
-    static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-    tpMethod.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {
+    a = layerData.var<LTSRateAndState::RsA>();
+    sl0 = layerData.var<LTSRateAndState::RsSl0>();
+    f0 = layerData.var<LTSRateAndState::RsF0>();
+    muW = layerData.var<LTSRateAndState::RsMuW>();
+    b = layerData.var<LTSRateAndState::RsB>();
+    stateVariable = layerData.var<LTSRateAndState::StateVariable>();
+    static_cast<Derived*>(this)->copyStorageToLocal(layerData);
+    tpMethod.copyStorageToLocal(layerData);
   }
 
   /**
@@ -113,8 +117,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   InitialVariables
       calcInitialVariables(const FaultStresses<Executor::Host>& faultStresses,
                            const std::array<real, misc::NumPaddedPoints>& localStateVariable,
-                           unsigned int timeIndex,
-                           unsigned int ltsFace) {
+                           uint32_t timeIndex,
+                           std::size_t ltsFace) {
     // Careful, the state variable must always be corrected using stateVarZero and not
     // localStateVariable!
     std::array<real, misc::NumPaddedPoints> stateVarReference{};
@@ -126,11 +130,11 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
     updateNormalStress(normalStress, faultStresses, timeIndex, ltsFace);
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
-      const real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
+      const real totalTraction1 = this->initialStressInFaultCS[ltsFace][3][pointIndex] +
                                   faultStresses.traction1[timeIndex][pointIndex];
-      const real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
+      const real totalTraction2 = this->initialStressInFaultCS[ltsFace][5][pointIndex] +
                                   faultStresses.traction2[timeIndex][pointIndex];
       absoluteTraction[pointIndex] = misc::magnitude(totalTraction1, totalTraction2);
 
@@ -152,12 +156,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       std::array<real, misc::NumPaddedPoints>& normalStress,
       const std::array<real, misc::NumPaddedPoints>& absoluteShearStress,
       const FaultStresses<Executor::Host>& faultStresses,
-      unsigned int timeIndex,
-      unsigned int ltsFace) {
+      uint32_t timeIndex,
+      std::size_t ltsFace) {
     std::array<real, misc::NumPaddedPoints> testSlipRate{0};
-    for (unsigned j = 0; j < settings.numberStateVariableUpdates; j++) {
+    for (uint32_t j = 0; j < settings.numberStateVariableUpdates; j++) {
 #pragma omp simd
-      for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         // fault strength using friction coefficient and fluid pressure from previous
         // timestep/iteration update state variable using sliprate from the previous time step
         localStateVariable[pointIndex] =
@@ -167,13 +171,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                                              this->deltaT[timeIndex],
                                                              localSlipRate[pointIndex]);
       }
-      this->tpMethod.calcFluidPressure(normalStress,
-                                       this->mu,
-                                       localSlipRate,
-                                       this->deltaT[timeIndex],
-                                       false,
-                                       timeIndex,
-                                       ltsFace);
+      tpMethod.calcFluidPressure(
+          normalStress, this->mu, localSlipRate, this->deltaT[timeIndex], false, ltsFace);
 
       updateNormalStress(normalStress, faultStresses, timeIndex, ltsFace);
 
@@ -182,7 +181,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
           ltsFace, localStateVariable, normalStress, absoluteShearStress, testSlipRate);
 
 #pragma omp simd
-      for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         // update local slip rate, now using V=(Vnew+Vold)/2
         // For the next SV update, use the mean slip rate between the initial guess and the one
         // found (Kaneko 2008, step 6)
@@ -191,13 +190,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
         // solve again for Vnew
         this->slipRateMagnitude[ltsFace][pointIndex] = std::fabs(testSlipRate[pointIndex]);
-
-        // update friction coefficient based on new state variable and slip rate
-        this->mu[ltsFace][pointIndex] =
-            static_cast<Derived*>(this)->updateMu(ltsFace,
-                                                  pointIndex,
-                                                  this->slipRateMagnitude[ltsFace][pointIndex],
-                                                  localStateVariable[pointIndex]);
       } // End of pointIndex-loop
     }
   }
@@ -206,13 +198,14 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                const std::array<real, misc::NumPaddedPoints>& localSlipRate,
                                std::array<real, misc::NumPaddedPoints>& localStateVariable,
                                const std::array<real, misc::NumPaddedPoints>& normalStress,
-                               const std::array<real, misc::NumPaddedPoints>& absoluteTraction,
+                               const std::array<real, misc::NumPaddedPoints>& /*absoluteTraction*/,
                                const FaultStresses<Executor::Host>& faultStresses,
                                TractionResults<Executor::Host>& tractionResults,
-                               unsigned int timeIndex,
-                               unsigned int ltsFace) {
+                               uint32_t timeIndex,
+                               std::size_t ltsFace) {
+    const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // SV from mean slip rate in tmp
       localStateVariable[pointIndex] =
           static_cast<Derived*>(this)->updateStateVariable(pointIndex,
@@ -222,16 +215,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                                            localSlipRate[pointIndex]);
 
       // update LocMu for next strength determination, only needed for last update
-      this->mu[ltsFace][pointIndex] =
-          static_cast<Derived*>(this)->updateMu(ltsFace,
-                                                pointIndex,
-                                                this->slipRateMagnitude[ltsFace][pointIndex],
-                                                localStateVariable[pointIndex]);
+      this->mu[ltsFace][pointIndex] = static_cast<Derived*>(this)->updateMu(
+          pointIndex, this->slipRateMagnitude[ltsFace][pointIndex], details);
       const real strength = -this->mu[ltsFace][pointIndex] * normalStress[pointIndex];
       // calculate absolute value of stress in Y and Z direction
-      const real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
+      const real totalTraction1 = this->initialStressInFaultCS[ltsFace][3][pointIndex] +
                                   faultStresses.traction1[timeIndex][pointIndex];
-      const real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
+      const real totalTraction2 = this->initialStressInFaultCS[ltsFace][5][pointIndex] +
                                   faultStresses.traction2[timeIndex][pointIndex];
 
       const auto divisor =
@@ -265,18 +255,18 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     }
   }
 
-  void saveDynamicStressOutput(unsigned int face) {
+  void saveDynamicStressOutput(std::size_t faceIndex, real time) {
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
 
-      if (this->ruptureTime[face][pointIndex] > 0.0 &&
-          this->ruptureTime[face][pointIndex] <= this->mFullUpdateTime &&
-          this->dynStressTimePending[face][pointIndex] &&
-          this->mu[face][pointIndex] <=
-              (this->drParameters->muW +
-               0.05 * (this->drParameters->rsF0 - this->drParameters->muW))) {
-        this->dynStressTime[face][pointIndex] = this->mFullUpdateTime;
-        this->dynStressTimePending[face][pointIndex] = false;
+      if (this->ruptureTime[faceIndex][pointIndex] > 0.0 &&
+          this->ruptureTime[faceIndex][pointIndex] <= time &&
+          this->dynStressTimePending[faceIndex][pointIndex] &&
+          this->mu[faceIndex][pointIndex] <=
+              (this->muW[faceIndex][pointIndex] +
+               0.05 * (this->f0[faceIndex][pointIndex] - this->muW[faceIndex][pointIndex]))) {
+        this->dynStressTime[faceIndex][pointIndex] = time;
+        this->dynStressTimePending[faceIndex][pointIndex] = false;
       }
     }
   }
@@ -287,36 +277,37 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    * \f[g := \frac{1}{\eta_s} \cdot (\sigma_n \cdot \mu - \Theta) - \hat{s} = 0.\f] c.f. Carsten
    * Uphoff's dissertation eq. (4.57). Find root of \f$g\f$ with \f$g^\prime = \partial g / \partial
    * \hat{s}\f$: \f$\hat{s}_{i+1} = \hat{s}_i - ( g_i / g^\prime_i )\f$
-   * @param ltsFace index of the face for which we invert the sliprate
+   * @param ltsFace index of the faceIndex for which we invert the sliprate
    * @param localStateVariable \f$\psi\f$, needed to compute \f$\mu = f(\hat{s}, \psi)\f$
    * @param normalStress \f$\sigma_n\f$
    * @param absoluteShearStress \f$\Theta\f$
    * @param slipRateTest \f$\hat{s}\f$
    */
-  bool invertSlipRateIterative(unsigned int ltsFace,
+  bool invertSlipRateIterative(std::size_t ltsFace,
                                const std::array<real, misc::NumPaddedPoints>& localStateVariable,
                                const std::array<real, misc::NumPaddedPoints>& normalStress,
                                const std::array<real, misc::NumPaddedPoints>& absoluteShearStress,
                                std::array<real, misc::NumPaddedPoints>& slipRateTest) {
-    // Note that we need double precision here, since single precision led to NaNs.
-    double muF[misc::NumPaddedPoints];
-    double dMuF[misc::NumPaddedPoints];
-    double g[misc::NumPaddedPoints];
-    double dG[misc::NumPaddedPoints];
 
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    real muF[misc::NumPaddedPoints]{};
+    real dMuF[misc::NumPaddedPoints]{};
+    real g[misc::NumPaddedPoints]{};
+    real dG[misc::NumPaddedPoints]{};
+
+    const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+
+#pragma omp simd
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // first guess = sliprate value of the previous step
       slipRateTest[pointIndex] = this->slipRateMagnitude[ltsFace][pointIndex];
     }
 
-    for (unsigned i = 0; i < settings.maxNumberSlipRateUpdates; i++) {
+    for (uint32_t i = 0; i < settings.maxNumberSlipRateUpdates; i++) {
 #pragma omp simd
-      for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         // calculate friction coefficient and objective function
-        muF[pointIndex] = static_cast<Derived*>(this)->updateMu(
-            ltsFace, pointIndex, slipRateTest[pointIndex], localStateVariable[pointIndex]);
-        dMuF[pointIndex] = static_cast<Derived*>(this)->updateMuDerivative(
-            ltsFace, pointIndex, slipRateTest[pointIndex], localStateVariable[pointIndex]);
+        muF[pointIndex] =
+            static_cast<Derived*>(this)->updateMu(pointIndex, slipRateTest[pointIndex], details);
         g[pointIndex] = -this->impAndEta[ltsFace].invEtaS *
                             (std::fabs(normalStress[pointIndex]) * muF[pointIndex] -
                              absoluteShearStress[pointIndex]) -
@@ -328,10 +319,16 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         return std::fabs(val) < settings.newtonTolerance;
       });
       if (hasConverged) {
+#pragma omp simd
+        for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+          this->mu[ltsFace][pointIndex] = muF[pointIndex];
+        }
         return hasConverged;
       }
 #pragma omp simd
-      for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+        dMuF[pointIndex] = static_cast<Derived*>(this)->updateMuDerivative(
+            pointIndex, slipRateTest[pointIndex], details);
 
         // derivative of g
         dG[pointIndex] = -this->impAndEta[ltsFace].invEtaS *
@@ -351,10 +348,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                           size_t ltsFace) {
     // Todo(SW): consider poroelastic materials together with thermal pressurisation
 #pragma omp simd
-    for (size_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       normalStress[pointIndex] = std::min(static_cast<real>(0.0),
                                           faultStresses.normalStress[timeIndex][pointIndex] +
-                                              this->initialStressInFaultCS[ltsFace][pointIndex][0] +
+                                              this->initialStressInFaultCS[ltsFace][0][pointIndex] +
                                               faultStresses.fluidPressure[timeIndex][pointIndex] +
                                               this->initialPressure[ltsFace][pointIndex] -
                                               tpMethod.getFluidPressure(ltsFace, pointIndex));
@@ -363,9 +360,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
   protected:
   // Attributes
-  real (*a)[misc::NumPaddedPoints]{};
-  real (*sl0)[misc::NumPaddedPoints]{};
-  real (*stateVariable)[misc::NumPaddedPoints]{};
+  real (*__restrict a)[misc::NumPaddedPoints]{};
+  real (*__restrict sl0)[misc::NumPaddedPoints]{};
+  real (*__restrict stateVariable)[misc::NumPaddedPoints]{};
+
+  real (*__restrict f0)[misc::NumPaddedPoints]{};
+  real (*__restrict muW)[misc::NumPaddedPoints]{};
+  real (*__restrict b)[misc::NumPaddedPoints]{};
 
   TPMethod tpMethod;
   rs::Settings settings{};
@@ -373,4 +374,4 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
 } // namespace seissol::dr::friction_law::cpu
 
-#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATE_H_
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_RATEANDSTATE_H_

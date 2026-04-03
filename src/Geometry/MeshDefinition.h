@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -8,6 +8,8 @@
 
 #ifndef SEISSOL_SRC_GEOMETRY_MESHDEFINITION_H_
 #define SEISSOL_SRC_GEOMETRY_MESHDEFINITION_H_
+
+#include "Common/Constants.h"
 
 #include <cstddef>
 #include <vector>
@@ -19,18 +21,18 @@ using LocalElemId = int;   // TODO(David): size_t, maybe, once the Netcdf Reader
 using LocalVertexId = int; // TODO(David): size_t, maybe, once the Netcdf Reader is gone
 using SideId = int;        // TODO(David): int8_t , once the Netcdf Reader is gone
 
-using ElemVertices = LocalVertexId[4];
-using ElemNeighbors = LocalElemId[4];
-using ElemNeighborSides = SideId[4];
-using ElemSideOrientations = int[4];
-using ElemBoundaries = int[4];
-using ElemNeighborRanks = int[4]; // type prescribed by MPI
+using ElemVertices = LocalVertexId[Cell::NumVertices];
+using ElemNeighbors = LocalElemId[Cell::NumFaces];
+using ElemNeighborSides = SideId[Cell::NumFaces];
+using ElemSideOrientations = int[Cell::NumFaces];
+using ElemBoundaries = int[Cell::NumFaces];
+using ElemNeighborRanks = int[Cell::NumFaces]; // type prescribed by MPI
 /** The index of this element (side) in the communication array */
-using ElemMPIIndices = int[4];
+using ElemMPIIndices = int[Cell::NumFaces];
 using ElemGroup = int;
-using ElemFaultTags = int[4];
+using ElemFaultTags = int[Cell::NumFaces];
 
-using VrtxCoords = double[3];
+using VrtxCoords = double[Cell::Dim];
 
 struct Element {
   GlobalElemId globalId;
@@ -47,6 +49,8 @@ struct Element {
   /** Material of the element */
   ElemGroup group;
   ElemFaultTags faultTags; // member of struct Element
+  int clusterId;
+  double timestep;
 };
 
 struct Vertex {
@@ -60,7 +64,7 @@ struct MPINeighborElement {
   LocalElemId localElement;
   /** Side of the local element */
   SideId localSide;
-  /** Global number neighbor element */
+  /** Global number neighbor element (for now: MPI index) */
   LocalElemId neighborElement;
   /** Side of the neighbor element */
   SideId neighborSide;

@@ -2,25 +2,26 @@ function signal2 = decon_con(wavelet1,signal1,wavelet2,dt,cf_left,cf_right)
 %%
 % @file
 % This file is part of SeisSol.
+% SPDX-License-Identifier: BSD-3-Clause
 %
 % @section LICENSE
 % Copyright (c) SeisSol Group
 % All rights reserved.
-% 
+%
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
-% 
+%
 % 1. Redistributions of source code must retain the above copyright notice,
 %    this list of conditions and the following disclaimer.
-% 
+%
 % 2. Redistributions in binary form must reproduce the above copyright notice,
 %    this list of conditions and the following disclaimer in the documentation
 %    and/or other materials provided with the distribution.
-% 
+%
 % 3. Neither the name of the copyright holder nor the names of its
 %    contributors may be used to endorse or promote products derived from this
 %    software without specific prior written permission.
-% 
+%
 % THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 % AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 % IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -34,7 +35,7 @@ function signal2 = decon_con(wavelet1,signal1,wavelet2,dt,cf_left,cf_right)
 % POSSIBILITY OF SUCH DAMAGE.
 %
 % @section DESCRIPTION
-% DECON_CON 
+% DECON_CON
 % function signal2 = decon_con(wavelet1,signal1,wavelet2,dt,cf_left,cf_right)
 % Computes time signal2 (with input avelet2) out of signal1 (with input wavelet1)
 % The arguments wavelet1, wavelet2 and signal1 have to be column vectors with sampling rate dt.
@@ -49,14 +50,14 @@ F1=fft(wavelet1);
 F2=fft(signal1);
 G1=fft(wavelet2);
 
-% Deconvolution 
-amg=F2./F1; 
+% Deconvolution
+amg=F2./F1;
 
-% Convolution 
+% Convolution
 G2= G1.*amg;
 signal_length = length(G2);
 
-% check for odd number of samples and make it even 
+% check for odd number of samples and make it even
 % by skipping the last sample
 if(mod(signal_length,2)==1)
     signal_length = signal_length-1;
@@ -72,7 +73,7 @@ filter_func = 0.5*( 1 + cos(pi*(freq-cf_left)/(cf_right-cf_left)) );
 filter_func(freq<cf_left)  = 1;
 filter_func(freq>cf_right) = 0;
 
-% multiply spectrum G2 with filter function 
+% multiply spectrum G2 with filter function
 G2 = G2.*filter_func;
 
 % make filtered signal symmetric

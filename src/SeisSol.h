@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2014-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2014 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,30 +9,32 @@
 #ifndef SEISSOL_SRC_SEISSOL_H_
 #define SEISSOL_SRC_SEISSOL_H_
 
-#include <Common/Executor.h>
-#include <IO/Manager.h>
-#include <memory>
-#include <string>
-
-#include "utils/logger.h"
-
+#include "Common/Executor.h"
+#include "IO/Manager.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/TimeStepping/LtsLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Monitoring/FlopCounter.h"
 #include "Parallel/Pin.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/AsyncIO.h"
+#include "ResultWriter/DofSync.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "ResultWriter/FaultWriter.h"
 #include "ResultWriter/FreeSurfaceWriter.h"
+#include "ResultWriter/PickpointWriter.h"
 #include "ResultWriter/PostProcessor.h"
 #include "ResultWriter/WaveFieldWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/Simulator.h"
-#include "Solver/time_stepping/TimeManager.h"
+#include "Solver/TimeStepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
+
+#include <memory>
+#include <optional>
+#include <string>
+#include <utils/env.h>
+#include <utils/logger.h>
 
 namespace seissol {
 
@@ -55,7 +57,7 @@ class SeisSol {
   /**
    * Initialize C++ part of the program
    */
-  bool init(int argc, char* argv[]);
+  bool init();
 
   /**
    * Finalize SeisSol
@@ -64,11 +66,20 @@ class SeisSol {
 
   void loadCheckpoint(const std::string& file);
 
-  Executor executionPlace(std::size_t clusterSize);
+  Executor executionPlace(std::size_t clusterSize) {
+    constexpr auto DefaultDevice = isDeviceOn() ? Executor::Device : Executor::Host;
+    if (executionPlaceCutoff.has_value()) {
+      if (executionPlaceCutoff.value() <= clusterSize) {
+        return DefaultDevice;
+      } else {
+        return Executor::Host;
+      }
+    } else {
+      return DefaultDevice;
+    }
+  }
 
   void setExecutionPlaceCutoff(std::size_t size);
-
-  initializer::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
 
   initializer::MemoryManager& getMemoryManager() { return *m_memoryManager; }
 
@@ -104,6 +115,16 @@ class SeisSol {
    * Get the receiver writer module
    */
   writer::ReceiverWriter& receiverWriter() { return m_receiverWriter; }
+
+  /**
+   * Get the receiver writer module
+   */
+  writer::PickpointWriter& pickpointWriter() { return pickpointWriter_; }
+
+  /**
+   * Get the receiver writer module
+   */
+  writer::DofSync& dofSync() { return dofSync_; }
 
   /**
    * Get the energy writer module
@@ -156,12 +177,12 @@ class SeisSol {
    */
   seissol::geometry::MeshReader& meshReader() { return *m_meshReader; }
 
-  seissol::initializer::parameters::SeisSolParameters& getSeisSolParameters() {
+  const seissol::initializer::parameters::SeisSolParameters& getSeisSolParameters() const {
     return m_seissolParameters;
   }
 
   /**
-   * Deletes memoryManager. MemoryManager desctructor will destroy LTS Tree and
+   * Deletes memoryManager. MemoryManager desctructor will destroy all storage structures and
    * memoryAllocator i.e., the main components of SeisSol. Therefore, call this function
    * at the very end of a program execution
    */
@@ -174,12 +195,18 @@ class SeisSol {
    * */
   void setBackupTimeStamp(const std::string& stamp);
 
+  void setTimestepScale(double scale) { timestepScale = scale; }
+
+  double getTimestepScale() const { return timestepScale; }
+
   /*
    * returns the backup time stamp
    * */
   const std::string& getBackupTimeStamp() { return m_backupTimeStamp; }
 
   seissol::io::OutputManager& getOutputManager() { return outputManager; }
+
+  utils::Env& env() { return m_env; }
 
   private:
   // Note: This HAS to be the first member so that it is initialized before all others!
@@ -193,7 +220,7 @@ class SeisSol {
   seissol::io::OutputManager outputManager;
 
   //! Collection of Parameters
-  seissol::initializer::parameters::SeisSolParameters& m_seissolParameters;
+  const seissol::initializer::parameters::SeisSolParameters& m_seissolParameters;
 
   //! Gravitation setup for tsunami boundary condition
   GravitationSetup gravitationSetup;
@@ -203,9 +230,6 @@ class SeisSol {
 
   //! Mesh Reader
   seissol::geometry::MeshReader* m_meshReader{nullptr};
-
-  //! Lts Layout
-  initializer::time_stepping::LtsLayout m_ltsLayout;
 
   //! Memory Manager
   std::unique_ptr<initializer::MemoryManager> m_memoryManager{nullptr};
@@ -237,8 +261,14 @@ class SeisSol {
   //! Fault output module
   writer::FaultWriter m_faultWriter;
 
-  //! Receiver writer module
+  //! Receiver (off-fault) writer module
   writer::ReceiverWriter m_receiverWriter;
+
+  //! Receiver (on-fault) writer module
+  writer::PickpointWriter pickpointWriter_;
+
+  //! Dof sync (for output) module
+  writer::DofSync dofSync_;
 
   //! Energy writer module
   writer::EnergyOutput m_energyOutput;
@@ -258,13 +288,17 @@ class SeisSol {
 
   std::optional<std::size_t> executionPlaceCutoff;
 
+  utils::Env m_env;
+
+  double timestepScale{1.0};
+
   public:
-  SeisSol(initializer::parameters::SeisSolParameters& parameters)
-      : outputManager(*this), m_seissolParameters(parameters), m_ltsLayout(parameters),
+  SeisSol(const initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)
+      : outputManager(*this), m_seissolParameters(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
         m_freeSurfaceWriter(*this), m_analysisWriter(*this), m_waveFieldWriter(*this),
         m_faultWriter(*this), m_receiverWriter(*this), m_energyOutput(*this),
-        timeMirrorManagers(*this, *this) {}
+        timeMirrorManagers(*this, *this), m_env(env) {}
 
   SeisSol(const SeisSol&) = delete;
   SeisSol(SeisSol&&) = delete;

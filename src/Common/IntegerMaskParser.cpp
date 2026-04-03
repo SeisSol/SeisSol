@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Common/IntegerMaskParser.h"
+
 #include <cstddef>
 #include <optional>
 #include <regex>
@@ -18,7 +19,7 @@ auto IntegerMaskParser::parse(const std::string& maskInput)
     -> std::optional<IntegerMaskParser::MaskType> {
   MaskType resultMask{};
 
-  const auto regex = std::regex("^(\\d+|\\d+-\\d+|\\{(\\d+,?)+\\})(,|$)");
+  const auto regex = std::regex(R"(^(\d+|\d+-\d+|\{(\d+,?)+\})(,|$))");
   std::smatch match;
 
   std::string mask = maskInput;
@@ -89,4 +90,3 @@ auto IntegerMaskParser::parseIntList(const std::string& str)
   return result;
 }
 } // namespace seissol
-

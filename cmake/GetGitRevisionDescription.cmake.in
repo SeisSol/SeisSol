@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2023 SeisSol Group
 #
 # SPDX-License-Identifier: BSL-1.0
 # SPDX-LicenseComments: Full text under /LICENSES/

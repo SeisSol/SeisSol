@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2021 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -8,61 +8,76 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_
 
+#include "Common/Constants.h"
+#include "Common/Marker.h"
+#include "GeneratedCode/init.h"
 #include "Geometry/MeshDefinition.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
+#include "Solver/MultipleSimulations.h"
 
-#include "generated_code/init.h"
-#include <Initializer/Parameters/DRParameters.h>
 #include <cmath>
+#include <cstdint>
 #include <string>
 #include <tuple>
 #include <type_traits>
 
-#include "Common/Marker.h"
-
 namespace seissol::dr::misc {
 // TODO: this can be moved to yateto headers
 template <typename Tensor, int Dim>
-constexpr size_t dimSize() noexcept {
+constexpr uint32_t dimSize() noexcept {
   return Tensor::Stop[Dim] - Tensor::Start[Dim];
 }
 
 template <typename Tensor>
-constexpr size_t leadDim() noexcept {
+constexpr uint32_t leadDim() noexcept {
   return dimSize<Tensor, 0>();
 }
 
 /**
  * Number of gauss points padded to match the vector register length.
  */
-static constexpr inline size_t NumPaddedPoints = leadDim<init::QInterpolated>();
-static constexpr inline size_t NumQuantities = misc::dimSize<init::QInterpolated, 1>();
+static constexpr inline uint32_t NumPaddedPoints =
+    multisim::MultisimEnabled
+        ? dimSize<init::QInterpolated, 0>() * dimSize<init::QInterpolated, 1>()
+        : leadDim<init::QInterpolated>();
+static constexpr inline uint32_t NumPaddedPointsSingleSim =
+    dimSize<init::QInterpolated, multisim::BasisFunctionDimension>();
+static constexpr inline uint32_t NumQuantities =
+    misc::dimSize<init::QInterpolated, multisim::BasisFunctionDimension + 1>();
+
+/*
+ * Time integration point count
+ */
+
+static constexpr inline uint32_t TimeSteps = ConvergenceOrder;
 
 /**
  * Constants for Thermal Pressurization
  */
-static constexpr size_t NumTpGridPoints = 60;
+static constexpr uint32_t NumTpGridPoints = 60;
 static constexpr double TpLogDz = 0.3;
 static constexpr double TpMaxWaveNumber = 10.0;
 
 /**
  * Number of gauss points on an element surface.
  */
-static constexpr unsigned int NumBoundaryGaussPoints = init::QInterpolated::Shape[0];
+static constexpr uint32_t NumBoundaryGaussPoints =
+    init::QInterpolated::Shape[multisim::BasisFunctionDimension];
 
-template <class TupleT, class F, std::size_t... I>
-constexpr F forEachImpl(TupleT&& tuple, F&& functor, std::index_sequence<I...> /*unused*/) {
-  return (void)std::initializer_list<int>{
-             (std::forward<F>(functor)(std::get<I>(std::forward<TupleT>(tuple)), I), 0)...},
-         functor;
+template <std::size_t I, typename F, typename TupleT>
+constexpr F forEachElement(F&& functor, TupleT&& tuple) {
+  // TODO: maybe forward here somehow?
+  functor(std::get<I>(tuple), I);
+  if constexpr (I + 1 < std::tuple_size_v<std::remove_reference_t<TupleT>>) {
+    return forEachElement<I + 1>(std::forward<F>(functor), std::forward<TupleT>(tuple));
+  }
+  return std::forward<F>(functor);
 }
 
 template <typename TupleT, typename F>
 constexpr F forEach(TupleT&& tuple, F&& functor) {
-  return forEachImpl(
-      std::forward<TupleT>(tuple),
-      std::forward<F>(functor),
-      std::make_index_sequence<std::tuple_size<std::remove_reference_t<TupleT>>::value>{});
+  return forEachElement<0>(std::forward<F>(functor), std::forward<TupleT>(tuple));
 }
 /**
  * Compute base^exp
@@ -103,7 +118,11 @@ SEISSOL_HOSTDEVICE inline T square(T t1, Tn... tn) {
 #pragma omp declare simd
 template <typename T, typename... Tn>
 SEISSOL_HOSTDEVICE inline T magnitude(T t1, Tn... tn) {
-  return std::sqrt(square(t1) + square(tn...));
+  static_assert((std::is_same_v<T, Tn> && ...), "All types need to be equal.");
+  if constexpr (sizeof...(Tn) == 1) {
+    return std::hypot(t1, tn...);
+  }
+  return std::sqrt(square(t1, tn...));
 }
 
 #pragma omp declare simd
@@ -127,6 +146,8 @@ void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, Vrtx
 
 std::string frictionLawName(seissol::initializer::parameters::FrictionLawType type);
 
+// NOLINTBEGIN (-cppcoreguidelines-use-enum-class)
+
 namespace quantity_indices {
 /**
  * Defines the indices under which one can find a specific quantity.
@@ -140,7 +161,7 @@ namespace quantity_indices {
  * real normalStress = quantities[N];
  * ```
  * */
-enum QuantityIndices : size_t {
+enum QuantityIndices : uint32_t {
   U = 6,
   V = 7,
   W = 8,
@@ -156,5 +177,7 @@ enum QuantityIndices : size_t {
 };
 } // namespace quantity_indices
 } // namespace seissol::dr::misc
+
+// NOLINTEND ()
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_

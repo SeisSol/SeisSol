@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,11 +9,10 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_ASYNCCELLIDS_H_
 #define SEISSOL_SRC_RESULTWRITER_ASYNCCELLIDS_H_
 
-#ifdef USE_MPI
-#include <mpi.h>
-#endif // USE_MPI
-
 #include "SeisSol.h"
+
+#include <cstddef>
+#include <mpi.h>
 
 namespace seissol {
 
@@ -25,7 +24,7 @@ namespace seissol {
  *
  * @tparam CellVertices Number of vertices per cell
  */
-template <int CellVertices>
+template <std::size_t CellVertices>
 class AsyncCellIDs {
   private:
   /** Null, if MPI is not enabled */
@@ -34,11 +33,10 @@ class AsyncCellIDs {
   const unsigned int* constCells;
 
   public:
-  AsyncCellIDs(unsigned int nCells,
+  AsyncCellIDs(std::size_t nCells,
                unsigned int nVertices,
                const unsigned int* cells,
                seissol::SeisSol& seissolInstance) {
-#ifdef USE_MPI
     // Add the offset to the cells
     MPI_Comm groupComm = seissolInstance.asyncIO().groupComm();
     unsigned int offset = nVertices;
@@ -47,13 +45,10 @@ class AsyncCellIDs {
 
     // Add the offset to all cells
     localCells.resize(nCells * CellVertices);
-    for (unsigned int i = 0; i < nCells * CellVertices; i++) {
+    for (std::size_t i = 0; i < nCells * CellVertices; i++) {
       localCells[i] = cells[i] + offset;
     }
     constCells = localCells.data();
-#else  // USE_MPI
-    constCells = cells;
-#endif // USE_MPI
   }
 
   [[nodiscard]] const unsigned int* cells() const { return constCells; }

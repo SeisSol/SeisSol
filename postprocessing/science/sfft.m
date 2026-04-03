@@ -1,28 +1,29 @@
-function [am,f,ph] = sfft(y,dt,whole) 
+function [am,f,ph] = sfft(y,dt,whole)
 %%
 % @file
 % This file is part of SeisSol.
+% SPDX-License-Identifier: BSD-3-Clause
 %
 % @author Martin Mai (Martin.Mai AT kaust.edu.sa, http://www.kaust.edu.sa/faculty/mai.html)
 %
 % @section LICENSE
 % Copyright (c) 1998, SeisSol Group
 % All rights reserved.
-% 
+%
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
-% 
+%
 % 1. Redistributions of source code must retain the above copyright notice,
 %    this list of conditions and the following disclaimer.
-% 
+%
 % 2. Redistributions in binary form must reproduce the above copyright notice,
 %    this list of conditions and the following disclaimer in the documentation
 %    and/or other materials provided with the distribution.
-% 
+%
 % 3. Neither the name of the copyright holder nor the names of its
 %    contributors may be used to endorse or promote products derived from this
 %    software without specific prior written permission.
-% 
+%
 % THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 % AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 % IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -36,9 +37,9 @@ function [am,f,ph] = sfft(y,dt,whole)
 % POSSIBILITY OF SUCH DAMAGE.
 %
 % @section DESCRIPTION
-%  function [am,f,ph] = sfft(y,dt,whole) 
+%  function [am,f,ph] = sfft(y,dt,whole)
 %  calculates the Fourier Transform of a signal
-% 	
+%
 %  Input: y  - signal; can be array of many signals of equal
 %	       length and sampling, arranged in columns
 %	  dt - sampling interval or time axis
@@ -49,7 +50,7 @@ function [am,f,ph] = sfft(y,dt,whole)
 %	   ph - phase spectrum
 
 if nargin == 1; dt = 0.01; whole = 'n';
-elseif nargin == 2; whole = 'n'; 
+elseif nargin == 2; whole = 'n';
 end;
 
 m = size(y,1);
@@ -64,11 +65,11 @@ if length(dt) > 1
    dt = dt(2)-dt(1);		% assuming dt is regular spaced t-axis
 end
 
-W = 1/dt;			% sampling freq in Hz 
+W = 1/dt;			% sampling freq in Hz
 f = (W/m)*linspace(-m/2,m/2,m)';% frequency axis
 
 
-%%% calculate absolute FFT, scaled by sampling interval 
+%%% calculate absolute FFT, scaled by sampling interval
 %%% and shifted symmetrically
 
 FT = (fft(y))*dt;

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -14,7 +14,7 @@
 namespace seissol::writer {
 class MiniSeisSolWriter {
   public:
-  MiniSeisSolWriter(const char* outputDirectory) : outputDirectory(outputDirectory) {}
+  explicit MiniSeisSolWriter(const char* outputDirectory) : outputDirectory(outputDirectory) {}
   void write(double elapsedTime, double weight);
 
   private:

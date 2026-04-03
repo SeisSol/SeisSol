@@ -14,8 +14,9 @@ namespace seissol::regularizedYoffe {
 /**
  * Implementation of the regularized Yoffe function defined in Appendix of Tinti et al. (2005)
  */
-SEISSOL_HOSTDEVICE inline real regularizedYoffe(real time, real tauS, real tauR) {
-  real k = 2.0 / (M_PI * tauR * tauS * tauS);
+template <typename T>
+SEISSOL_HOSTDEVICE inline T regularizedYoffe(T time, T tauS, T tauR) {
+  const T k = 2.0 / (M_PI * tauR * tauS * tauS);
   // c1 to c6 are analytical functions used for building the regularized Yoffe function
   const auto c1 = [&]() {
     return (0.5 * time + 0.25 * tauR) * std::sqrt(time * (tauR - time)) +

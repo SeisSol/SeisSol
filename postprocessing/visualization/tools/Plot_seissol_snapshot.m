@@ -1,27 +1,28 @@
 %%
 % @file
 % This file is part of SeisSol.
+% SPDX-License-Identifier: BSD-3-Clause
 %
 % @author Martin Kaeser (martin.kaeser AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/kaeser)
 %
 % @section LICENSE
 % Copyright (c) 2008, SeisSol Group
 % All rights reserved.
-% 
+%
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
-% 
+%
 % 1. Redistributions of source code must retain the above copyright notice,
 %    this list of conditions and the following disclaimer.
-% 
+%
 % 2. Redistributions in binary form must reproduce the above copyright notice,
 %    this list of conditions and the following disclaimer in the documentation
 %    and/or other materials provided with the distribution.
-% 
+%
 % 3. Neither the name of the copyright holder nor the names of its
 %    contributors may be used to endorse or promote products derived from this
 %    software without specific prior written permission.
-% 
+%
 % THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 % AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 % IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -57,7 +58,7 @@ disp(' ')
 disp(' '),  disp('     Creating seismogram-processor relation ...' )
 
 for i=1:nsd
-    
+
     %define character string of input files
     if(i<=10)
         in_file = [filename,'.000',num2str(i-1),'.tri.dat'];
@@ -78,15 +79,15 @@ for i=1:nsd
         X       = data(:,1:2); data(:,1:2) = [];
         %extrace connectivity matrix
         con_mat = fscanf(fid,'%g',[3,nE]);  con_mat = con_mat';
-        %visualize results 
+        %visualize results
         trisurf(con_mat,X(:,1),X(:,2),data(:,var)); hold on;
-       
-        disp(sprintf('     Visualizing subdomain %d',i));    
+
+        disp(sprintf('     Visualizing subdomain %d',i));
 
     fclose(fid);
 
     xlabel('x [m]'), ylabel('y [m]'), zlabel(['Variable ',num2str(var)]); view(0,90)
-  
+
 end
-   
+
 disp(sprintf('    \n Finished! \n'));

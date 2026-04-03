@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 // SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -8,11 +8,13 @@
 
 #include "Runner.h"
 
-#include "Kernel.h"
+#include "GeneratedCode/kernel.h"
 #include "KernelDevice.h"
 #include "KernelHost.h"
-#include <Kernels/Common.h>
-#include <Parallel/Runtime/Stream.h>
+#include "Kernels/Common.h"
+#include "Parallel/Runtime/Stream.h"
+#include "Proxy/Kernel.h"
+
 #include <cstddef>
 #include <iostream>
 #include <memory>
@@ -30,14 +32,17 @@
 #endif
 
 #include "Monitoring/FlopCounter.h"
+
 #include <cassert>
 
 // seissol_kernel includes
 #include "Allocator.h"
 #include "Tools.h"
 
+namespace seissol::proxy {
+
 namespace {
-using namespace seissol::proxy;
+
 void testKernel(std::shared_ptr<ProxyData>& data,
                 std::shared_ptr<parallel::runtime::StreamRuntime>& runtime,
                 std::shared_ptr<ProxyKernel>& kernel,
@@ -48,8 +53,6 @@ void testKernel(std::shared_ptr<ProxyData>& data,
 }
 
 } // namespace
-
-namespace seissol::proxy {
 
 auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   auto kernel = [&]() {
@@ -78,8 +81,8 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
     std::cerr << "...done" << std::endl;
   }
 
-  struct timeval startTime;
-  struct timeval endTime;
+  struct timeval startTime{};
+  struct timeval endTime{};
 #ifdef __USE_RDTSC
   size_t cyclesStart, cyclesEnd;
 #endif
@@ -91,7 +94,7 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
 
   runtime->wait();
 
-  const seissol::monitoring::FlopCounter flopCounter;
+  const seissol::monitoring::FlopCounter flopCounter{};
 
   gettimeofday(&startTime, nullptr);
 #ifdef __USE_RDTSC
@@ -109,7 +112,7 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   total = sec(startTime, endTime);
 #ifdef __USE_RDTSC
   std::cout << "Cycles via __rdtsc()" << std::endl;
-  totalCycles = (double)(cyclesEnd - cyclesStart);
+  totalCycles = static_cast<double>(cyclesEnd - cyclesStart);
 #else
   totalCycles = derive_cycles_from_time(total);
 #endif

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,21 +9,24 @@
 #ifdef USE_ASAGI
 
 #include "AsagiModule.h"
-#include "Parallel/Helper.h"
-#include "utils/env.h"
-#include <Modules/Modules.h>
-#include <Parallel/MPI.h>
-#include <asagi.h>
-#include <string>
-#include <utils/logger.h>
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif // _OPENMP
+#include "Modules/Modules.h"
+#include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
+#include "Parallel/OpenMP.h"
+#include "Parallel/Pin.h"
+
+#include <asagi.h>
+#include <memory>
+#include <sched.h>
+#include <string>
+#include <utils/env.h>
+#include <utils/logger.h>
 
 namespace seissol::asagi {
 
-AsagiModule::AsagiModule() : m_mpiMode(getMPIMode()), m_totalThreads(getTotalThreads()) {
+AsagiModule::AsagiModule(utils::Env& env)
+    : m_env(env), m_mpiMode(getMPIMode(env)), m_totalThreads(getTotalThreads(env)) {
   // Register for the pre MPI hook
   Modules::registerHook(*this, ModuleHook::PreMPI);
 
@@ -38,9 +41,10 @@ AsagiModule::AsagiModule() : m_mpiMode(getMPIMode()), m_totalThreads(getTotalThr
   }
 }
 
-AsagiMPIMode AsagiModule::getMPIMode() {
+AsagiMPIMode AsagiModule::getMPIMode(utils::Env& env) {
+  // USE_MPI kept on purpose
 #ifdef USE_MPI
-  const std::string mpiModeName = utils::Env::get(EnvMpiMode, "WINDOWS");
+  const std::string mpiModeName = env.get(EnvMpiMode, "OFF");
   if (mpiModeName == "WINDOWS") {
     return AsagiMPIMode::Windows;
   }
@@ -57,24 +61,22 @@ AsagiMPIMode AsagiModule::getMPIMode() {
 #endif // USE_MPI
 }
 
-int AsagiModule::getTotalThreads() {
-  int totalThreads = 1;
-
-#ifdef _OPENMP
-  totalThreads = omp_get_max_threads();
-  if (seissol::useCommThread(seissol::MPI::mpi)) {
+int AsagiModule::getTotalThreads(utils::Env& env) {
+  int totalThreads = OpenMP::threadCount();
+  if (seissol::useCommThread(seissol::Mpi::mpi, env)) {
     totalThreads++;
   }
-#endif // _OPENMP
 
   return totalThreads;
 }
+
+utils::Env& AsagiModule::getEnv() { return m_env; }
 
 void AsagiModule::preMPI() {
   // Communication threads required
   if (m_mpiMode == AsagiMPIMode::CommThread) {
     // Comm threads has to be started before model initialization
-    Modules::registerHook(*this, ModuleHook::PreModel, ModulePriority::Highest);
+    Modules::registerHook(*this, ModuleHook::PreMesh, ModulePriority::Highest);
     // Comm threads has to be stoped after model initialization
     Modules::registerHook(*this, ModuleHook::PostModel, ModulePriority::Lowest);
   }
@@ -82,7 +84,7 @@ void AsagiModule::preMPI() {
 
 void AsagiModule::postMPIInit() {
   if (m_mpiMode == AsagiMPIMode::Unknown) {
-    const std::string mpiModeName = utils::Env::get(EnvMpiMode, "");
+    const std::string mpiModeName = m_env.get(EnvMpiMode, "");
     logError() << "Unknown ASAGI MPI mode:" << mpiModeName;
   } else {
     logWarning() << "Running with only one OMP thread."
@@ -90,28 +92,39 @@ void AsagiModule::postMPIInit() {
   }
 }
 
-void AsagiModule::preModel() {
-#ifdef USE_MPI
-  // TODO check if ASAGI is required for model setup
-  ::asagi::Grid::startCommThread();
-#endif // USE_MPI
+void AsagiModule::preMesh() {
+  if (m_mpiMode == AsagiMPIMode::CommThread) {
+    int cpu = -1;
+#ifndef __APPLE__
+    const auto cpuSet = pinning->getFreeCPUsMask().set;
+    for (int i = 0; i < CPU_COUNT(&cpuSet); ++i) {
+      if (CPU_ISSET(i, &cpuSet)) {
+        cpu = i;
+        break;
+      }
+    }
+#endif
+    ::asagi::Grid::startCommThread(cpu);
+  }
 }
 
 void AsagiModule::postModel() {
-#ifdef USE_MPI
-  // TODO check if ASAGI is required for model setup
-  ::asagi::Grid::stopCommThread();
-#endif // USE_MPI
+  if (m_mpiMode == AsagiMPIMode::CommThread) {
+    ::asagi::Grid::stopCommThread();
+  }
 }
 
-AsagiModule& AsagiModule::getInstance() {
-  static AsagiModule instance;
-  return instance;
+void AsagiModule::initInstance(utils::Env& env) {
+  AsagiModule::instance = std::make_shared<AsagiModule>(env);
 }
+
+AsagiModule& AsagiModule::getInstance() { return *AsagiModule::instance; }
 
 AsagiMPIMode AsagiModule::mpiMode() { return getInstance().m_mpiMode; }
 
 int AsagiModule::totalThreads() { return getInstance().m_totalThreads; }
+
+std::shared_ptr<AsagiModule> AsagiModule::instance{nullptr};
 
 } // namespace seissol::asagi
 

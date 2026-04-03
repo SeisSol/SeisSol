@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2020 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
 # SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -13,7 +13,7 @@
 #
 #  NOTE: it is not an official cmake search file
 #  authors: Carsten Uphoff, Ravil Dorozhinskii
-#  email: uphoff@in.tum.de, ravil.dorozhinskii@tum.de 
+#  email: uphoff@in.tum.de, ravil.dorozhinskii@tum.de
 #
 
 

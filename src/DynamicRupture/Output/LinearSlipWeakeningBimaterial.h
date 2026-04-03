@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2021 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,20 +9,22 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_LINEARSLIPWEAKENINGBIMATERIAL_H_
 
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 
 namespace seissol::dr::output {
 class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
+  protected:
   real computeLocalStrength(LocalInfo& local) override {
-    using DrLtsDescrType = seissol::initializer::LTSLinearSlipWeakeningBimaterial;
     const auto* const regularizedStrengths =
-        getCellData(local, static_cast<DrLtsDescrType*>(drDescr)->regularizedStrength);
-    return regularizedStrengths[local.nearestGpIndex];
+        getCellData<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(local);
+    return regularizedStrengths[local.gpIndex];
   }
 
-  std::vector<std::size_t> getOutputVariables() const override {
-    using DrLtsDescrType = seissol::initializer::LTSLinearSlipWeakeningBimaterial;
+  public:
+  [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
     auto baseVector = LinearSlipWeakening::getOutputVariables();
-    baseVector.push_back(static_cast<DrLtsDescrType*>(drDescr)->regularizedStrength.index);
+    baseVector.push_back(
+        drStorage->info<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>().index);
     return baseVector;
   }
 };

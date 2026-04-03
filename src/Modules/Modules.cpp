@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -6,15 +6,17 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
+#include "Modules.h"
+
 #include "Modules/Module.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <limits>
+#include <optional>
 #include <utility>
 #include <utils/logger.h>
-
-#include "Modules.h"
 
 namespace seissol {
 
@@ -77,12 +79,12 @@ double Modules::_callSyncHook(double currentTime, double timeTolerance, bool for
   return nextSyncTime;
 }
 
-void Modules::_setSimulationStartTime(double time) {
+void Modules::_callSimulationStartHook(std::optional<double> checkpointTime) {
   assert(static_cast<int>(nextHook) <= static_cast<int>(ModuleHook::SynchronizationPoint));
 
-  // Set the simulation time in all modules that are called at synchronization points
-  for (auto& [_, module] : hooks[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
-    module->setSimulationStartTime(time);
+  for (auto& [_, module] : hooks[static_cast<size_t>(ModuleHook::SimulationStart)]) {
+    module->simulationStart(checkpointTime);
+    module->setSimulationStartTime(checkpointTime.value_or(0));
   }
 }
 
@@ -99,7 +101,9 @@ double Modules::callSyncHook(double currentTime, double timeTolerance, bool forc
   return instance()._callSyncHook(currentTime, timeTolerance, forceSyncPoint);
 }
 
-void Modules::setSimulationStartTime(double time) { instance()._setSimulationStartTime(time); }
+void Modules::callSimulationStartHook(std::optional<double> checkpointTime) {
+  instance()._callSimulationStartHook(checkpointTime);
+}
 
 // Create all template instances for call
 #define MODULES_CALL_INSTANCE(enum, func)                                                          \
@@ -116,7 +120,6 @@ MODULES_CALL_INSTANCE(ModuleHook::PreLtsInit, preLtsInit)
 MODULES_CALL_INSTANCE(ModuleHook::PostLtsInit, postLtsInit)
 MODULES_CALL_INSTANCE(ModuleHook::PreModel, preModel)
 MODULES_CALL_INSTANCE(ModuleHook::PostModel, postModel)
-MODULES_CALL_INSTANCE(ModuleHook::SimulationStart, simulationStart)
 MODULES_CALL_INSTANCE(ModuleHook::SimulationEnd, simulationEnd)
 MODULES_CALL_INSTANCE(ModuleHook::Shutdown, shutdown)
 

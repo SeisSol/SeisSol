@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2016-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2016 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -12,8 +12,9 @@
 #define SEISSOL_SRC_MONITORING_STOPWATCH_H_
 
 #include "Parallel/MPI.h"
-#include "utils/logger.h"
+
 #include <time.h>
+#include <utils/logger.h>
 
 namespace seissol {
 
@@ -84,9 +85,9 @@ class Stopwatch {
   /**
    * Collective operation, printing avg, min and max time
    */
-  void printTime(const char* text, MPI_Comm comm = MPI_COMM_NULL) const;
+  void printTime(const std::string& text) const;
 
-  static void print(const char* text, double time, MPI_Comm comm = MPI_COMM_NULL);
+  static void print(const std::string& text, double time);
 };
 
 } // namespace seissol

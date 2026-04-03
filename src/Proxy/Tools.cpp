@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 // SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -7,9 +7,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Tools.h"
-#include <ctime>
 
-auto derive_cycles_from_time(double time) -> double {
+auto derive_cycles_from_time(double /*time*/) -> double {
   // first try to read proxy env variable with freq
   /*char* p_freq;
   double d_freq;
@@ -49,7 +48,7 @@ void print_hostname() {
 }
 
 auto sec(struct timeval start, struct timeval end) -> double {
-  return ((double)(((end.tv_sec * 1000000 + end.tv_usec) -
-                    (start.tv_sec * 1000000 + start.tv_usec)))) /
+  return (static_cast<double>(
+             ((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec)))) /
          1.0e6;
 }

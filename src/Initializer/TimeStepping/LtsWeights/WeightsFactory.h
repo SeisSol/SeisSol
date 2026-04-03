@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2021 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -8,12 +8,12 @@
 #ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_WEIGHTSFACTORY_H_
 #define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_WEIGHTSFACTORY_H_
 
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "WeightsModels.h"
+
 #include <memory>
 #include <sstream>
 #include <stdexcept>
-
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "WeightsModels.h"
 
 namespace seissol::initializer::time_stepping {
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2017 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_MONITORING_LOOPSTATISTICS_H_
 
 #include "Parallel/MPI.h"
+
 #include <algorithm>
 #include <cassert>
 #include <fstream>

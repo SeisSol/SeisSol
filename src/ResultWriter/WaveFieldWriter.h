@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,25 +9,23 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITER_H_
 
-#include "Parallel/MPI.h"
-#include "Parallel/Pin.h"
-
-#include <algorithm>
-#include <array>
-#include <cassert>
-#include <memory>
-#include <string>
-#include <unordered_set>
-#include <vector>
-
-#include "utils/logger.h"
-
-#include "async/Module.h"
-
 #include "Geometry/Refinement/VariableSubSampler.h"
 #include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
+#include "Parallel/MPI.h"
+#include "Parallel/Pin.h"
 #include "WaveFieldWriterExecutor.h"
+
+#include <algorithm>
+#include <array>
+#include <async/Module.h>
+#include <cassert>
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <unordered_set>
+#include <utils/logger.h>
+#include <vector>
 
 // for OutputBounds
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -109,7 +107,7 @@ class WaveFieldWriter
            vertexCoords[2] <= boxBounds[5] && vertexCoords[2] >= boxBounds[4];
   }
 
-  refinement::TetrahedronRefiner<double>* createRefiner(int refinement);
+  const refinement::TetrahedronRefiner<double>* createRefiner(int refinement);
 
   const unsigned* adjustOffsets(refinement::MeshRefiner<double>* meshRefiner);
   std::vector<unsigned int>
@@ -117,8 +115,15 @@ class WaveFieldWriter
                                     const std::vector<unsigned>& ltsClusteringData,
                                     std::map<int, int>& newToOldCellMap) const;
 
+  /**
+   * Called by ASYNC on all ranks
+   */
+  void setUp() override;
+
+  void tearDown() override { m_executor.finalize(); }
+
   public:
-  WaveFieldWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
+  explicit WaveFieldWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
   /**
    * Activate the wave field output
@@ -135,11 +140,6 @@ class WaveFieldWriter
    */
   void setFilename(const char* outputPrefix) { m_outputPrefix = outputPrefix; }
 
-  /**
-   * Called by ASYNC on all ranks
-   */
-  void setUp() override;
-
   void setWaveFieldInterval(double interval) { setSyncInterval(interval); }
 
   /**
@@ -153,10 +153,11 @@ class WaveFieldWriter
             int numAlignedDOF,
             const seissol::geometry::MeshReader& meshReader,
             const std::vector<unsigned>& ltsClusteringData,
+            const std::vector<unsigned>& ltsIdData,
             const real* dofs,
             const real* pstrain,
             const real* integrals,
-            const unsigned int* map,
+            const std::size_t* map,
             const seissol::initializer::parameters::WaveFieldOutputParameters& parameters,
             xdmfwriter::BackendType backend,
             const std::string& backupTimeStamp);
@@ -189,12 +190,10 @@ class WaveFieldWriter
     m_lowOutputFlags = nullptr;
   }
 
-  void tearDown() override { m_executor.finalize(); }
-
   //
   // Hooks
   //
-  void simulationStart() override;
+  void simulationStart(std::optional<double> checkpointTime) override;
 
   void syncPoint(double currentTime) override;
 };

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -8,7 +8,8 @@
 #include "Misc.h"
 
 #include "Geometry/MeshDefinition.h"
-#include <Initializer/Parameters/DRParameters.h>
+#include "Initializer/Parameters/DRParameters.h"
+
 #include <cmath>
 #include <string>
 #include <utils/logger.h>

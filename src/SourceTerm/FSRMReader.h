@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,31 +9,31 @@
 #ifndef SEISSOL_SRC_SOURCETERM_FSRMREADER_H_
 #define SEISSOL_SRC_SOURCETERM_FSRMREADER_H_
 
+#include "Kernels/Precision.h"
+
 #include <Eigen/Dense>
 #include <cstddef>
 #include <string>
 #include <vector>
 
-#include "Kernels/Precision.h"
-
 namespace seissol::sourceterm {
 
 // TODO: when refactoring, replace raw array types
 struct FSRMSource {
-  real momentTensor[3][3]{};
-  real solidVelocityComponent[3]{};
-  real pressureComponent{};
-  real fluidVelocityComponent[3]{};
+  double momentTensor[3][3]{};
+  double solidVelocityComponent[3]{};
+  double pressureComponent{};
+  double fluidVelocityComponent[3]{};
   size_t numberOfSources{};
   std::vector<Eigen::Vector3d> centers;
-  std::vector<real> strikes;
-  std::vector<real> dips;
-  std::vector<real> rakes;
-  std::vector<real> onsets;
-  std::vector<real> areas;
-  real timestep{};
+  std::vector<double> strikes;
+  std::vector<double> dips;
+  std::vector<double> rakes;
+  std::vector<double> onsets;
+  std::vector<double> areas;
+  double timestep{};
   size_t numberOfSamples{};
-  std::vector<std::vector<real>> timeHistories;
+  std::vector<std::vector<double>> timeHistories;
 
   void read(const std::string& filename);
 };

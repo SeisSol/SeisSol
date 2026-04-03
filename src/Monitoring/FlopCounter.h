@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -38,7 +38,8 @@ struct FlopCounter {
 
   private:
   std::ofstream out;
-  long long previousTotalFlops = 0;
+  long long previousTotalHWFlops = 0;
+  long long previousTotalNZFlops = 0;
   double previousWallTime = 0;
   // global variables for summing-up SeisSol internal counters
   long long nonZeroFlopsLocal = 0;

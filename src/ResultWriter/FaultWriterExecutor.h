@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,41 +9,44 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_FAULTWRITEREXECUTOR_H_
 #define SEISSOL_SRC_RESULTWRITER_FAULTWRITEREXECUTOR_H_
 
-#ifdef USE_MPI
-#include <mpi.h>
-#endif // USE_MPI
-
 #include "Kernels/Precision.h"
 #include "Monitoring/Stopwatch.h"
-#include "async/ExecInfo.h"
 #include "xdmfwriter/XdmfWriter.h"
+
+#include <async/ExecInfo.h>
+#include <mpi.h>
 
 namespace seissol::writer {
 
 struct FaultInitParam {
   static const unsigned int OutputMaskSize = 20;
 
-  bool outputMask[OutputMaskSize];
-  int timestep;
-  xdmfwriter::BackendType backend;
+  bool outputMask[OutputMaskSize]{};
+  int timestep{};
+  xdmfwriter::BackendType backend{};
   std::string backupTimeStamp;
 };
 
 struct FaultParam {
-  double time;
+  double time{};
 };
 
 class FaultWriterExecutor {
   public:
-  enum BufferIds { OutputPrefix = 0, Cells = 1, Vertices = 2, FaultTags = 3, Variables0 = 4 };
+  enum BufferIds {
+    OutputPrefix = 0,
+    Cells = 1,
+    Vertices = 2,
+    FaultTags = 3,
+    GlobalIds = 4,
+    Variables0 = 5
+  };
 
   private:
   xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>* m_xdmfWriter{nullptr};
 
-#ifdef USE_MPI
   /** The MPI communicator for the writer */
   MPI_Comm m_comm;
-#endif // USE_MPI
 
   /** The number of variables that should be written */
   unsigned int m_numVariables{0};
@@ -51,15 +54,13 @@ class FaultWriterExecutor {
   /** Backend stopwatch */
   Stopwatch m_stopwatch;
 
+  bool m_enabled{false};
+
   public:
   FaultWriterExecutor()
-      :
-#ifdef USE_MPI
-        m_comm(MPI_COMM_NULL)
-#endif // USE_MPI
+      : m_comm(MPI_COMM_NULL)
 
-  {
-  }
+  {}
 
   /**
    * Initialize the XDMF writer
@@ -85,25 +86,19 @@ class FaultWriterExecutor {
   }
 
   void setFaultTagsData(const unsigned int* faultTags) {
-    m_xdmfWriter->writeExtraIntCellData(faultTags);
+    m_xdmfWriter->writeExtraIntCellData(0, faultTags);
   }
 
   void finalize() {
-    if (m_xdmfWriter != nullptr) {
-      m_stopwatch.printTime("Time fault writer backend:"
-#ifdef USE_MPI
-                            ,
-                            m_comm
-#endif // USE_MPI
-      );
+    if (m_enabled) {
+      // note: also includes some ranks which do nothing at all
+      m_stopwatch.printTime("Time fault writer backend:");
     }
 
-#ifdef USE_MPI
     if (m_comm != MPI_COMM_NULL) {
       MPI_Comm_free(&m_comm);
       m_comm = MPI_COMM_NULL;
     }
-#endif // USE_MPI
 
     delete m_xdmfWriter;
     m_xdmfWriter = nullptr;

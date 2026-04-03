@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2021 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -11,6 +11,7 @@
 #include "DataTypes.h"
 #include "FaultRefiner/FaultRefiners.h"
 #include "Initializer/InputAux.h"
+
 #include <utils/logger.h>
 #include <yaml-cpp/yaml.h>
 

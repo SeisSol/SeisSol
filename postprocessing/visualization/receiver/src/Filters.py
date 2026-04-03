@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 ##
 # @file
 # This file is part of SeisSol.
@@ -7,21 +8,21 @@
 # @section LICENSE
 # Copyright (c) 2016, SeisSol Group
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice,
 #    this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice,
 #    this list of conditions and the following disclaimer in the documentation
 #    and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its
 #    contributors may be used to endorse or promote products derived from this
 #    software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -49,12 +50,12 @@ class Filter(QGroupBox):
 
   def __init__(self, title, parent = None):
     super(Filter, self).__init__(title, parent)
-    
+
     self.setCheckable(True)
     self.setChecked(False)
-    
+
     self.toggled.connect(self.filterChanged)
-    
+
   @abc.abstractmethod
   def apply(self, wf):
     """ Filter waveforms. """
@@ -77,18 +78,36 @@ class Lowpass(Filter):
     filterLayout = QFormLayout(self)
     filterLayout.addRow(lowpassOrderLabel, self.lowpassOrder)
     filterLayout.addRow(cutoffLabel, self.cutoff)
-    
+
   def apply(self, wf):
     Fs = 1.0 / (wf.time[1] - wf.time[0])
     cutoff = min(0.5 * Fs, max(1. / Fs, self.cutoff.value()))
     b, a = scipy.signal.butter(self.lowpassOrder.value(), cutoff, 'low', fs=Fs)
     for name in wf.waveforms.keys():
       wf.waveforms[name] = scipy.signal.filtfilt(b, a, wf.waveforms[name])
-      
+
+class MultipleSimulations(Filter):
+  def __init__(self, parent = None):
+    super(MultipleSimulations, self).__init__('Multiple Simulations', parent)
+
+    simulationIndexLabel = QLabel('Simulation Index', self)
+    self.simulationIndex = QSpinBox(self)
+    self.simulationIndex.setValue(0)
+    self.simulationIndex.valueChanged.connect(self.filterChanged)
+
+    filterLayout = QFormLayout(self)
+    filterLayout.addRow(simulationIndexLabel, self.simulationIndex)
+
+  def apply(self, wf):
+    simulationIndex = str(self.simulationIndex.value())
+
+    testSimulationIndex = lambda s: s.endswith(simulationIndex)
+    wf.norm = {k:v for k,v in wf.norm.items() if testSimulationIndex(k)}
+    wf.waveforms = {k:v for k,v in wf.waveforms.items() if testSimulationIndex(k)}
 class Deconvolve(Filter):
   def __init__(self, parent = None):
     super(Deconvolve, self).__init__('Deconvolve', parent)
-    
+
     inLabel = QLabel('Input', self)
     inFun = QLabel('t/T^2 * exp(-t/T)', self)
     TLabel = QLabel('T', self)
@@ -104,13 +123,13 @@ class Deconvolve(Filter):
     self.sigma.setValue(0.05)
     self.sigma.setMaximum(float('inf'))
     self.sigma.valueChanged.connect(self.filterChanged)
-    
+
     filterLayout = QFormLayout(self)
     filterLayout.addRow(inLabel, inFun)
     filterLayout.addRow(TLabel, self.T)
     filterLayout.addRow(outLabel, outFun)
     filterLayout.addRow(sigmaLabel, self.sigma)
-    
+
   def deconv(self, waveform, dt):
     y = numpy.zeros(waveform.size)
     T = self.T.value()
@@ -128,8 +147,8 @@ class Deconvolve(Filter):
       y[j] = numpy.sum(dt * numpy.multiply(waveform[i], f))
 
     return y
-      
-  
+
+
   def apply(self, wf):
     dt = wf.time[1] - wf.time[0]
     keys = [f'v{i+1}' for i in range(3)]
@@ -140,13 +159,13 @@ class Deconvolve(Filter):
 class Rotate(Filter):
   def __init__(self, parent = None):
     super(Rotate, self).__init__('Rotate', parent)
-    
+
     coordsysLabel = QLabel('Coordinates', self)
     self.coordsys = QComboBox(self)
     self.coordsys.addItem('ned')
     self.coordsys.addItem('seu')
     self.coordsys.currentIndexChanged.connect(self.filterChanged)
-        
+
     epicenterXLabel = QLabel('Epicenter X', self)
     self.epicenterX = QDoubleSpinBox(self)
     self.epicenterX.setValue(0.0)
@@ -157,26 +176,26 @@ class Rotate(Filter):
     self.epicenterY.setValue(0.0)
     self.epicenterY.setMaximum(float('inf'))
     self.epicenterY.valueChanged.connect(self.filterChanged)
-    
+
     filterLayout = QFormLayout(self)
     filterLayout.addRow(coordsysLabel, self.coordsys)
     filterLayout.addRow(epicenterXLabel, self.epicenterX)
     filterLayout.addRow(epicenterYLabel, self.epicenterY)
-    
+
   def apply(self, wf):
     if 'v1' in wf.waveforms and 'v2' in wf.waveforms and 'v3' in wf.waveforms:
       epicenter = numpy.array([self.epicenterX.value(), self.epicenterY.value(), 0.0])
       radial = wf.coordinates - epicenter
       phi = math.acos(radial[0] / numpy.linalg.norm(radial))
-      
+
       u = wf.waveforms.pop('v1')
       v = wf.waveforms.pop('v2')
       w = wf.waveforms.pop('v3')
-      
+
       if self.coordsys.currentText() == 'seu':
         u = -u
         w = -w
-      
+
       wf.waveforms['radial'] = math.cos(phi) * u + math.sin(phi) * v
       wf.waveforms['transverse'] = -math.sin(phi) * u + math.cos(phi) * v
       wf.waveforms['vertical'] = w

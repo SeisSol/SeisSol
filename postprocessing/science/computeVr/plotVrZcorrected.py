@@ -7,7 +7,7 @@ import scipy.ndimage as ndimage
 
 #Compute a rupture Velocity map from the contatenated RF file
 #the fault has to be parametrizable in function of x and z
-#in fact t and y are mapped in function of the structured grid xi, zi 
+#in fact t and y are mapped in function of the structured grid xi, zi
 #in order to apply the gradient function of numpy
 
 
@@ -46,7 +46,7 @@ Xi = np.arange(min(x), max(x), dx)
 Zi = np.arange(min(z), max(z), dz)
 xi, zi = np.meshgrid(Xi, Zi)
 
-# Interpolate using delaunay triangularization 
+# Interpolate using delaunay triangularization
 ti = griddata((x,z), t, (xi, zi), method=GDmethod, fill_value = 1e20)
 yi = griddata((x,z), y, (xi, zi), method=GDmethod, fill_value = 0.)
 
@@ -144,4 +144,3 @@ if plotHist:
 	plt.legend()
 	plt.title("Vr=f(x)")
 	plt.show()
-

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,23 +9,20 @@
 #ifndef SEISSOL_SRC_INITIALIZER_INITIALFIELDPROJECTION_H_
 #define SEISSOL_SRC_INITIALIZER_INITIALFIELDPROJECTION_H_
 
+#include "Geometry/MeshReader.h"
+#include "Initializer/MemoryManager.h"
+#include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Physics/InitialField.h"
+
 #include <memory>
 #include <vector>
-
-#include "Geometry/MeshReader.h"
-#include "Initializer/LTS.h"
-#include "Initializer/MemoryManager.h"
-#include "Initializer/Tree/Lut.h"
-#include "Initializer/Typedefs.h"
-#include "Physics/InitialField.h"
 
 namespace seissol::initializer {
 void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField>>& iniFields,
                          const GlobalData& globalData,
                          const seissol::geometry::MeshReader& meshReader,
-                         seissol::initializer::MemoryManager& memoryManager,
-                         LTS const& lts,
-                         const Lut& ltsLut);
+                         LTS::Storage& storage);
 
 std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
                                       double time,
@@ -35,9 +32,7 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
 void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              const GlobalData& globalData,
                              const seissol::geometry::MeshReader& meshReader,
-                             seissol::initializer::MemoryManager& memoryManager,
-                             LTS const& lts,
-                             const Lut& ltsLut,
+                             LTS::Storage& storage,
                              bool needsTime);
 } // namespace seissol::initializer
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2021 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -21,15 +21,13 @@ class RateAndState : public ReceiverOutput {
   }
 
   real computeStateVariable(LocalInfo& local) override {
-    const auto* descr = reinterpret_cast<seissol::initializer::LTSRateAndState*>(drDescr);
-    assert((descr != nullptr) && "dr descr. must be a subtype of LTS_RateAndState");
-    return getCellData(local, descr->stateVariable)[local.nearestGpIndex];
+    return getCellData<LTSRateAndState::StateVariable>(local)[local.gpIndex];
   }
 
-  std::vector<std::size_t> getOutputVariables() const override {
+  public:
+  [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
     auto baseVector = ReceiverOutput::getOutputVariables();
-    baseVector.push_back(
-        static_cast<seissol::initializer::LTSRateAndState*>(drDescr)->stateVariable.index);
+    baseVector.push_back(drStorage->info<LTSRateAndState::StateVariable>().index);
     return baseVector;
   }
 };

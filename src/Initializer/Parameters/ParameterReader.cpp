@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -6,13 +6,14 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "ParameterReader.h"
+
+#include "Common/Filesystem.h"
+
 #include <memory>
 #include <optional>
 #include <string>
 #include <utils/logger.h>
 #include <vector>
-
-#include "Common/Filesystem.h"
 
 namespace seissol::initializer::parameters {
 

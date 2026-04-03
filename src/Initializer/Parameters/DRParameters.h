@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -8,14 +8,18 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
 
-#include <string>
-
-#include <Eigen/Dense>
-
 #include "Kernels/Precision.h"
 #include "ParameterReader.h"
+#include "Solver/MultipleSimulations.h"
+
+#include <Eigen/Dense>
+#include <cstdint>
+#include <numeric>
+#include <string>
 
 namespace seissol::initializer::parameters {
+
+constexpr std::size_t MaxNucleactions = 16;
 
 /**
  * Stores the different types of friction laws
@@ -62,7 +66,8 @@ struct DRParameters {
   SlipRateOutputType slipRateOutputType{1};
   FrictionLawType frictionLawType{0};
   real healingThreshold{-1.0};
-  real t0{0.0};
+  std::array<real, MaxNucleactions> t0{};
+  std::array<real, MaxNucleactions> s0{};
   real tpProxyExponent{0.0};
   real rsF0{0.0};
   real rsB{0.0};
@@ -78,9 +83,12 @@ struct DRParameters {
   real vStar{0.0}; // Prakash-Clifton regularization parameter
   real prakashLength{0.0};
   std::string faultFileName;
+  std::array<std::optional<std::string>, seissol::multisim::NumSimulations> faultFileNames;
   Eigen::Vector3d referencePoint;
   real terminatorSlipRateThreshold{0.0};
-  double etaHack{1.0};
+  double etaDamp{1.0};
+  double etaDampEnd{std::numeric_limits<double>::infinity()};
+  std::uint32_t nucleationCount{0};
 };
 
 DRParameters readDRParameters(ParameterReader* baseReader);

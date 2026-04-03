@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2017 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -11,27 +11,20 @@
 #define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_LTSWEIGHTS_H_
 
 #include "Geometry/PUMLReader.h"
+#include "Initializer/TimeStepping/GlobalTimestep.h"
+
 #include <limits>
 #include <map>
 #include <optional>
 #include <string>
 #include <vector>
 
-#include "Initializer/TimeStepping/GlobalTimestep.h"
-
-#ifndef PUML_PUML_H
-namespace PUML {
-class TETPUML;
-}
-#endif // PUML_PUML_H
-
 namespace seissol {
 class SeisSol;
 namespace initializer::time_stepping {
 struct LtsWeightsConfig {
   seissol::initializer::parameters::BoundaryFormat boundaryFormat;
-  std::string velocityModel;
-  unsigned rate{};
+  std::vector<uint64_t> rate;
   int vertexWeightElement{};
   int vertexWeightDynamicRupture{};
   int vertexWeightFreeSurfaceWithGravity{};
@@ -39,13 +32,13 @@ struct LtsWeightsConfig {
 
 double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
                                     const std::vector<int>& cellCosts,
-                                    unsigned int rate,
+                                    const std::vector<uint64_t>& rate,
                                     double wiggleFactor,
                                     double minimalTimestep);
 
 double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
                                      const std::vector<int>& cellCosts,
-                                     unsigned int rate,
+                                     const std::vector<uint64_t>& rate,
                                      double wiggleFactor,
                                      double minimalTimestep,
                                      MPI_Comm comm);
@@ -54,21 +47,27 @@ std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int max
 
 int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
                                       const std::vector<int>& cellCosts,
-                                      unsigned int rate,
+                                      const std::vector<uint64_t>& rate,
                                       double maximalAdmissibleCost,
                                       double wiggleFactor,
                                       double minimalTimestep);
+
+std::uint64_t ratepow(const std::vector<std::uint64_t>& rate, std::uint64_t a, std::uint64_t b);
 
 class LtsWeights {
   public:
   LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance);
 
   virtual ~LtsWeights() = default;
-  void computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep);
+  void computeWeights(const seissol::geometry::PumlMesh& meshTopology,
+                      const seissol::geometry::PumlMesh& meshGeometry);
 
   [[nodiscard]] const int* vertexWeights() const;
   [[nodiscard]] const double* imbalances() const;
+  [[nodiscard]] const std::vector<int>& clusterIds() const;
+  [[nodiscard]] const std::vector<double>& timesteps() const;
   [[nodiscard]] int nWeightsPerVertex() const;
+  [[nodiscard]] double getWiggleFactor() const;
 
   private:
   seissol::SeisSol& seissolInstance;
@@ -76,11 +75,11 @@ class LtsWeights {
   protected:
   seissol::initializer::GlobalTimestep m_details;
 
-  seissol::initializer::GlobalTimestep collectGlobalTimeStepDetails(double maximumAllowedTimeStep);
-  void computeMaxTimesteps(const std::vector<double>& pWaveVel,
-                           std::vector<double>& timeSteps,
-                           double maximumAllowedTimeStep);
-  int getCluster(double timestep, double globalMinTimestep, double wiggleFactor, unsigned rate);
+  seissol::initializer::GlobalTimestep collectGlobalTimeStepDetails();
+  std::uint64_t getCluster(double timestep,
+                           double globalMinTimestep,
+                           double wiggleFactor,
+                           const std::vector<uint64_t>& rate);
   FaceType getBoundaryCondition(const void* boundaryCond, size_t cell, unsigned face);
   std::vector<int> computeClusterIds(double curWiggleFactor);
   // returns number of reductions for maximum difference
@@ -89,14 +88,11 @@ class LtsWeights {
   int enforceMaximumDifferenceLocal(int maxDifference = 1);
   std::vector<int> computeCostsPerTimestep();
 
-  static int ipow(int x, int y);
-
   virtual void setVertexWeights() = 0;
   virtual void setAllowedImbalances() = 0;
   virtual int evaluateNumberOfConstraints() = 0;
 
-  std::string m_velocityModel;
-  unsigned m_rate{};
+  std::vector<uint64_t> m_rate;
   std::vector<int> m_vertexWeights;
   std::vector<double> m_imbalances;
   std::vector<int> m_cellCosts;
@@ -104,7 +100,8 @@ class LtsWeights {
   int m_vertexWeightDynamicRupture{};
   int m_vertexWeightFreeSurfaceWithGravity{};
   int m_ncon{std::numeric_limits<int>::infinity()};
-  const PUML::TETPUML* m_mesh{nullptr};
+  const geometry::PumlMesh* m_meshTopology{nullptr};
+  const geometry::PumlMesh* m_meshGeometry{nullptr};
   std::vector<int> m_clusterIds;
   double wiggleFactor = 1.0;
   std::map<double, decltype(m_clusterIds), std::greater<>>
@@ -118,10 +115,11 @@ class LtsWeights {
   ComputeWiggleFactorResult computeBestWiggleFactor(std::optional<double> baselineCost,
                                                     bool isAutoMergeUsed);
   void prepareDifferenceEnforcement();
-#ifdef USE_MPI
-  std::vector<std::pair<int, std::vector<int>>> rankToSharedFaces;
-  std::unordered_map<int, int> localFaceIdToLocalCellId;
-#endif // USE_MPI
+
+  std::vector<std::pair<int, std::vector<std::size_t>>> rankToSharedFaces;
+  std::unordered_map<std::size_t, std::size_t> localFaceIdToLocalCellId;
+  std::unordered_map<std::size_t, std::pair<std::size_t, std::size_t>> sharedFaceToExchangeId;
+  std::vector<std::size_t> boundaryCells;
 };
 } // namespace initializer::time_stepping
 } // namespace seissol

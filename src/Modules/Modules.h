@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2016-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2016 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -11,10 +11,11 @@
 
 #include "Module.h"
 
-#include "utils/logger.h"
 #include <array>
 #include <limits>
 #include <map>
+#include <optional>
+#include <utils/logger.h>
 
 namespace seissol {
 
@@ -40,6 +41,7 @@ enum class ModulePriority : int {
  * @warning The order of the hooks has to be the same they are called in SeisSol.
  */
 enum class ModuleHook : int {
+  NullHook = -1,
   PreMPI = 0,
   PostMPIInit = 1,
   PreMesh = 2,
@@ -90,7 +92,7 @@ class Modules {
    */
   template <ModuleHook Hook>
   void _callHook() {
-    for (auto& [_, module] : hooks[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
+    for (auto& [_, module] : hooks[static_cast<size_t>(Hook)]) {
       call<Hook>(module);
     }
 
@@ -105,7 +107,7 @@ class Modules {
    * This is required to handle synchronization points correctly when the simulation starts
    * from a checkpoint.
    */
-  void _setSimulationStartTime(double time);
+  void _callSimulationStartHook(std::optional<double> checkpointTime);
 
   template <ModuleHook Hook>
   static void call(Module* module);
@@ -142,8 +144,13 @@ class Modules {
   /**
    * Set the simulation start time
    */
-  static void setSimulationStartTime(double time);
+  static void callSimulationStartHook(std::optional<double> checkpointTime);
 };
+
+template <>
+inline void seissol::Modules::_callHook<ModuleHook::SimulationStart>() {
+  logError() << "Simulation start hooks have to be called with \"callSimulationStartHook\"";
+}
 
 template <>
 inline void seissol::Modules::_callHook<ModuleHook::SynchronizationPoint>() {

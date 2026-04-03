@@ -1,13 +1,14 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SEVEREVELOCITYWEAKENINGLAW_H_
-#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SEVEREVELOCITYWEAKENINGLAW_H_
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SEVEREVELOCITYWEAKENINGLAW_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SEVEREVELOCITYWEAKENINGLAW_H_
 
+#include "DynamicRupture/Misc.h"
 #include "RateAndState.h"
 
 namespace seissol::dr::friction_law::cpu {
@@ -20,68 +21,65 @@ class SevereVelocityWeakeningLaw
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
-                          real fullUpdateTime) {}
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
 
 // Note that we need double precision here, since single precision led to NaNs.
 #pragma omp declare simd
-  double updateStateVariable(int pointIndex,
-                             unsigned int face,
+  double updateStateVariable(std::uint32_t pointIndex,
+                             std::size_t faceIndex,
                              double stateVarReference,
                              double timeIncrement,
                              double localSlipRate) {
-    const double localSl0 = this->sl0[face][pointIndex];
+    const real localSl0 = this->sl0[faceIndex][pointIndex];
 
-    const double steadyStateStateVariable = localSlipRate * localSl0 / this->drParameters->rsSr0;
+    const real steadyStateStateVariable = localSlipRate * localSl0 / this->drParameters->rsSr0;
 
     const double preexp1 = -this->drParameters->rsSr0 * (timeIncrement / localSl0);
-    const double exp1 = std::exp(preexp1);
+    const double exp1v = std::exp(preexp1);
     const double exp1m = -std::expm1(preexp1);
-    const double localStateVariable = steadyStateStateVariable * exp1m + exp1 * stateVarReference;
+    const double localStateVariable = steadyStateStateVariable * exp1m + exp1v * stateVarReference;
 
     return localStateVariable;
   }
 
-/**
- * Computes the friction coefficient from the state variable and slip rate
- * \f[\mu = a \cdot \sinh^{-1} \left( \frac{V}{2V_0} \cdot \exp \left(\frac{f_0 + b \log(V_0\Psi
- * / L)}{a} \right)\right).\f]
- * Note that we need double precision here, since single precision led to NaNs.
- * @param localSlipRateMagnitude \f$ V \f$
- * @param localStateVariable \f$ \Psi \f$
- * @return \f$ \mu \f$
- */
-#pragma omp declare simd
-  double updateMu(unsigned int ltsFace,
-                  unsigned int pointIndex,
-                  double localSlipRateMagnitude,
-                  double localStateVariable) {
-    const double localA = this->a[ltsFace][pointIndex];
-    const double localSl0 = this->sl0[ltsFace][pointIndex];
-    const double c = this->drParameters->rsB * localStateVariable / (localStateVariable + localSl0);
-    return this->drParameters->rsF0 +
-           localA * localSlipRateMagnitude / (localSlipRateMagnitude + this->drParameters->rsSr0) -
-           c;
+  struct MuDetails {
+    std::array<real, misc::NumPaddedPoints> a{};
+    std::array<real, misc::NumPaddedPoints> c{};
+    std::array<real, misc::NumPaddedPoints> f0{};
+  };
+
+  MuDetails getMuDetails(std::size_t ltsFace,
+                         const std::array<real, misc::NumPaddedPoints>& localStateVariable) {
+    MuDetails details{};
+#pragma omp simd
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+      const real localA = this->a[ltsFace][pointIndex];
+      const real localSl0 = this->sl0[ltsFace][pointIndex];
+      const real c = this->b[ltsFace][pointIndex] * localStateVariable[pointIndex] /
+                     (localStateVariable[pointIndex] + localSl0);
+
+      details.a[pointIndex] = localA;
+      details.c[pointIndex] = c;
+      details.f0[pointIndex] = this->f0[ltsFace][pointIndex];
+    }
+    return details;
   }
 
-/**
- * Computes the derivative of the friction coefficient with respect to the slip rate.
- * \f[\frac{\partial}{\partial V}\mu = \frac{aC}{\sqrt{(VC)^2 +1}} \text{ with } C =
- * \frac{1}{2V_0} \cdot \exp \left(\frac{f_0 + b \log(V_0\Psi / L)}{a} \right). \f]
- * Note that we need double precision here, since single precision led to NaNs.
- * @param localSlipRateMagnitude \f$ V \f$
- * @param localStateVariable \f$ \Psi \f$
- * @return \f$ \mu \f$
- */
 #pragma omp declare simd
-  double updateMuDerivative(unsigned int ltsFace,
-                            unsigned int pointIndex,
-                            double localSlipRateMagnitude,
-                            double localStateVariable) {
-    const double localA = this->a[ltsFace][pointIndex];
-    const double divisor = (localSlipRateMagnitude + this->drParameters->rsSr0);
-    return localA * this->drParameters->rsSr0 / (divisor * divisor);
+  real updateMu(std::uint32_t pointIndex, real localSlipRateMagnitude, const MuDetails& details) {
+    return details.f0[pointIndex] +
+           details.a[pointIndex] * localSlipRateMagnitude /
+               (localSlipRateMagnitude + this->drParameters->rsSr0) -
+           details.c[pointIndex];
+  }
+
+#pragma omp declare simd
+  real updateMuDerivative(std::uint32_t pointIndex,
+                          real localSlipRateMagnitude,
+                          const MuDetails& details) {
+    // note that: d/dx (x/(x+c)) = ((x+c)-x)/(x+c)**2 = c/(x+c)**2
+    const real divisor = (localSlipRateMagnitude + this->drParameters->rsSr0);
+    return details.a[pointIndex] * this->drParameters->rsSr0 / (divisor * divisor);
   }
 
   /**
@@ -89,16 +87,16 @@ class SevereVelocityWeakeningLaw
    * member variable.
    */
   void resampleStateVar(const std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
-                        unsigned int ltsFace) const {
+                        std::size_t ltsFace) const {
 #pragma omp simd
-    for (size_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       this->stateVariable[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
     }
   }
 
   void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
-                             unsigned ltsFace) {}
+                             std::size_t ltsFace) {}
 };
 } // namespace seissol::dr::friction_law::cpu
 
-#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SEVEREVELOCITYWEAKENINGLAW_H_
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SEVEREVELOCITYWEAKENINGLAW_H_

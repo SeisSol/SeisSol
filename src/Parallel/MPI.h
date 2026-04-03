@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,35 +9,28 @@
 #ifndef SEISSOL_SRC_PARALLEL_MPI_H_
 #define SEISSOL_SRC_PARALLEL_MPI_H_
 
-#include <functional>
-#ifndef USE_MPI
-#include "MPIDummy.h"
-#else // USE_MPI
-
+#include "Common/Real.h"
+#include "Kernels/Precision.h"
 #include "MPIBasic.h"
-#include "utils/logger.h"
+
 #include <algorithm>
+#include <functional>
 #include <mpi.h>
 #include <numeric>
 #include <optional>
 #include <string>
-
-#endif // USE_MPI
+#include <utils/logger.h>
 
 namespace seissol {
-
-#ifndef USE_MPI
-typedef MPIDummy MPI;
-#else // USE_MPI
 
 /**
  * MPI handling.
  *
  * Make sure only one instance of this class exists!
  */
-class MPI : public MPIBasic {
+class Mpi : public MpiBasic {
   public:
-  ~MPI() override = default;
+  ~Mpi() override = default;
 
   /**
    * @brief Inits Device(s).
@@ -65,7 +58,7 @@ class MPI : public MPIBasic {
   void setComm(MPI_Comm comm);
 
   template <typename T>
-  [[nodiscard]] MPI_Datatype castToMpiType() const {
+  [[nodiscard]] static MPI_Datatype castToMpiType() {
     if constexpr (std::is_same_v<T, double>) {
       return MPI_DOUBLE;
     } else if constexpr (std::is_same_v<T, float>) {
@@ -74,10 +67,33 @@ class MPI : public MPIBasic {
       return MPI_UNSIGNED;
     } else if constexpr (std::is_same_v<T, int>) {
       return MPI_INT;
+    } else if constexpr (std::is_same_v<T, unsigned long>) {
+      return MPI_UNSIGNED_LONG;
+    } else if constexpr (std::is_same_v<T, long>) {
+      return MPI_LONG;
+    } else if constexpr (std::is_same_v<T, unsigned long long>) {
+      return MPI_UNSIGNED_LONG_LONG;
+    } else if constexpr (std::is_same_v<T, long long>) {
+      return MPI_LONG_LONG;
     } else if constexpr (std::is_same_v<T, char>) {
       return MPI_CHAR;
     } else if constexpr (std::is_same_v<T, bool>) {
       return MPI_C_BOOL;
+    } else {
+      static_assert(sizeof(T) == 0, "Unimplemented MPI type.");
+      // return something to make NVHPC happy
+      return MPI_BYTE;
+    }
+  }
+
+  [[nodiscard]] static MPI_Datatype precisionToMpiType(RealType type) {
+    switch (type) {
+    case seissol::RealType::F32:
+      return MPI_FLOAT;
+    case seissol::RealType::F64:
+      return MPI_DOUBLE;
+    default:
+      return MPI_BYTE;
     }
   }
 
@@ -116,9 +132,10 @@ class MPI : public MPIBasic {
     MPI_Comm_size(comm.value(), &commSize);
 
     auto length = static_cast<int>(container.size());
-    auto lengths = collect(length);
+    auto lengths = collect(length, comm);
 
-    std::vector<int> displacements(commSize);
+    // including the total length
+    std::vector<int> displacements(commSize + 1);
     displacements[0] = 0;
     for (std::size_t i = 1; i < displacements.size(); ++i) {
       displacements[i] = displacements[i - 1] + lengths[i - 1];
@@ -138,12 +155,11 @@ class MPI : public MPIBasic {
                 0,
                 comm.value());
 
-    displacements.push_back(recvBufferSize);
     std::vector<ContainerType> collected(commSize);
     for (int rank = 0; rank < commSize; ++rank) {
       const auto begin = displacements[rank];
       const auto end = displacements[rank + 1];
-      collected[rank] = ContainerType(&recvBuffer[begin], &recvBuffer[end]);
+      collected[rank] = ContainerType(recvBuffer.begin() + begin, recvBuffer.begin() + end);
     }
     return collected;
   }
@@ -222,6 +238,8 @@ class MPI : public MPIBasic {
    */
   const auto& getHostNames() { return hostNames; }
 
+  const auto& getPCIAddresses() { return pcis; }
+
   static void barrier(MPI_Comm comm) { MPI_Barrier(comm); }
 
   /**
@@ -235,17 +253,16 @@ class MPI : public MPIBasic {
   DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode; }
 
   /** The only instance of the class */
-  static MPI mpi;
+  static Mpi mpi;
 
   private:
-  MPI_Comm m_comm;
+  MPI_Comm m_comm{MPI_COMM_NULL};
   MPI_Comm m_sharedMemComm{};
-  MPI() : m_comm(MPI_COMM_NULL) {}
+  Mpi() = default;
   DataTransferMode preferredDataTransferMode{DataTransferMode::Direct};
   std::vector<std::string> hostNames;
+  std::vector<std::string> pcis;
 };
-
-#endif // USE_MPI
 
 } // namespace seissol
 

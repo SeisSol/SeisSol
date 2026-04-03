@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2019 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -13,14 +13,15 @@
 
 namespace seissol::statistics {
 struct Summary {
-  Summary(double value = 0.0);
-  Summary(const std::vector<double>& values);
+  explicit Summary(double value = 0.0);
+  explicit Summary(const std::vector<double>& values);
 
-  double mean;
-  double std;
-  double min;
-  double median;
-  double max;
+  double mean{};
+  double std{};
+  double min{};
+  double median{};
+  double max{};
+  double sum{};
 };
 
 auto parallelSummary(double value) -> Summary;

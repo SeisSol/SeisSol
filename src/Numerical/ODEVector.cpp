@@ -1,11 +1,14 @@
-// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2021 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <Kernels/Precision.h>
+#include "ODEVector.h"
+
+#include "Kernels/Precision.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -14,8 +17,6 @@
 #include <iostream>
 #include <utility>
 #include <vector>
-
-#include "ODEVector.h"
 
 namespace seissol::ode {
 std::pair<std::size_t, std::size_t> ODEVector::index(std::size_t idx) const {

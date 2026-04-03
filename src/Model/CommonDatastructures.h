@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -10,7 +10,10 @@
 #ifndef SEISSOL_SRC_MODEL_COMMONDATASTRUCTURES_H_
 #define SEISSOL_SRC_MODEL_COMMONDATASTRUCTURES_H_
 
+#include "Initializer/Parameters/ModelParameters.h"
+
 #include <array>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -32,24 +35,36 @@ enum class LocalSolver {
 struct Material {
   static constexpr std::size_t NumQuantities = 0;             // ?
   static constexpr std::size_t NumberPerMechanism = 0;        // ?
+  static constexpr std::size_t TractionQuantities = 0;        // ?
   static constexpr std::size_t Mechanisms = 0;                // ?
   static constexpr MaterialType Type = MaterialType::Solid;   // ?
   static constexpr LocalSolver Solver = LocalSolver::Unknown; // ?
   static inline const std::string Text = "material";
   static inline const std::array<std::string, NumQuantities> Quantities = {};
+  static constexpr std::size_t Parameters = 1; // rho
 
   virtual ~Material() = default;
 
-  double rho;
+  double rho{};
   Material() = default;
-  Material(const std::vector<double>& data) : rho(data.at(0)) {}
+  explicit Material(const std::vector<double>& data) : rho(data.at(0)) {}
+
+  virtual void initialize(const initializer::parameters::ModelParameters& parameters) {}
+
   [[nodiscard]] virtual double getMaxWaveSpeed() const = 0;
   [[nodiscard]] virtual double getPWaveSpeed() const = 0;
   [[nodiscard]] virtual double getSWaveSpeed() const = 0;
   [[nodiscard]] virtual double getMuBar() const = 0;
   [[nodiscard]] virtual double getLambdaBar() const = 0;
+  [[nodiscard]] virtual double getDensity() const { return rho; }
+  [[nodiscard]] virtual double maximumTimestep() const {
+    return std::numeric_limits<double>::infinity();
+  }
   virtual void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const = 0;
   [[nodiscard]] virtual MaterialType getMaterialType() const = 0;
+
+  virtual void setLameParameters(double mu, double lambda) {}
+  virtual void setDensity(double rho) { this->rho = rho; }
 };
 
 struct Plasticity {

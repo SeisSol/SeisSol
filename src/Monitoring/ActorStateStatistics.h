@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2021 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,7 +9,8 @@
 #define SEISSOL_SRC_MONITORING_ACTORSTATESTATISTICS_H_
 
 #include "LoopStatistics.h"
-#include "Solver/time_stepping/ActorState.h"
+#include "Solver/TimeStepping/ActorState.h"
+
 #include <list>
 #include <optional>
 #include <unordered_map>
@@ -41,7 +42,7 @@ class ActorStateStatistics {
 
 class ActorStateStatisticsManager {
   public:
-  ActorStateStatisticsManager(LoopStatistics& loopStatistics);
+  explicit ActorStateStatisticsManager(LoopStatistics& loopStatistics);
   ActorStateStatistics& addCluster(unsigned globalClusterId);
 
   void finish();

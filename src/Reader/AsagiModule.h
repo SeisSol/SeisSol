@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2016-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2016 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -11,11 +11,12 @@
 
 #ifdef USE_ASAGI
 
-#include <string>
-
-#include <asagi.h>
-
 #include "Modules/Module.h"
+#include "Parallel/Pin.h"
+
+#include <memory>
+#include <string>
+#include <utils/env.h>
 
 namespace seissol::asagi {
 
@@ -23,6 +24,8 @@ enum class AsagiMPIMode { Off, Windows, CommThread, Unknown };
 
 class AsagiModule : public Module {
   private:
+  utils::Env m_env;
+
   /** The MPI mode used for ASAGI communication */
   AsagiMPIMode m_mpiMode;
 
@@ -31,14 +34,20 @@ class AsagiModule : public Module {
 
   /** The total number of threads (including the communication thread */
   int m_totalThreads;
-  AsagiModule();
+
+  parallel::Pinning* pinning{};
+
+  static std::shared_ptr<AsagiModule> instance;
 
   public:
+  explicit AsagiModule(utils::Env& env);
   ~AsagiModule() override = default;
   AsagiModule(const AsagiModule&) = delete;
   void operator=(const AsagiModule&) = delete;
   AsagiModule(AsagiModule&&) = delete;
   void operator=(AsagiModule&&) = delete;
+
+  utils::Env& getEnv();
 
   void preMPI() override;
 
@@ -51,12 +60,14 @@ class AsagiModule : public Module {
   /**
    * This hook is only registered if the comm thread is required
    */
-  void preModel() override;
+  void preMesh() override;
 
   /**
    * This hook is only registered if the comm thread is required
    */
   void postModel() override;
+
+  static void initInstance(utils::Env& env);
 
   static AsagiModule& getInstance();
 
@@ -68,12 +79,12 @@ class AsagiModule : public Module {
    *
    * @warning This function is called before MPI initialization
    */
-  static AsagiMPIMode getMPIMode();
+  static AsagiMPIMode getMPIMode(utils::Env& env);
 
   /**
    * @warning This function is called before MPI initialization
    */
-  static int getTotalThreads();
+  static int getTotalThreads(utils::Env& env);
 
   public:
   /**
@@ -87,7 +98,7 @@ class AsagiModule : public Module {
   static int totalThreads();
 
   private:
-  static inline const std::string EnvMpiMode = "SEISSOL_ASAGI_MPI_MODE";
+  static inline const std::string EnvMpiMode = "ASAGI_MPI_MODE";
 };
 
 } // namespace seissol::asagi

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2022 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
 # SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -61,5 +61,3 @@ if (LIBXSMM_FOUND AND NOT TARGET LIBXSMM::LIBXSMM)
             INTERFACE_LINK_LIBRARIES "${LIBXSMM_LIBRARIES}"
             INTERFACE_INCLUDE_DIRECTORIES "${LIBXSMM_INCLUDE_DIRS}")
 endif()
-
-

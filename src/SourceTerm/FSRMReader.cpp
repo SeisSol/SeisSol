@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -6,14 +6,13 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "FSRMReader.h"
-#include <Kernels/Precision.h>
-#include <cstddef>
-#include <utils/logger.h>
 
 #include <cassert>
+#include <cstddef>
 #include <fstream>
 #include <stdexcept>
 #include <string>
+#include <utils/logger.h>
 
 // this code replicates the behavior of the corresponding FORTRAN code for legacy reasons. In
 // particular, this reader is not programmed to be very fail-safe...
@@ -24,7 +23,7 @@ template <size_t N>
 void readArrayOrZero(std::ifstream& filestream,
                      std::string& header,
                      const std::string& keyword,
-                     real* data) {
+                     double* data) {
   if (header.find(keyword) != std::string::npos) {
     for (size_t i = 0; i < N; ++i) {
       filestream >> data[i];

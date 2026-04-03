@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -7,11 +7,11 @@
 
 #include "Filesystem.h"
 
-#include "utils/timeutils.h"
 #include <ctime>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <utils/timeutils.h>
 
 namespace seissol {
 #ifdef EXPERIMENTAL_FS
@@ -35,10 +35,10 @@ void generateBackupFileIfNecessary(const std::string& fileName,
   const auto entry = seissol::filesystem::directory_entry(path);
 
   if (seissol::directoryExists(entry)) {
-    const auto actualTimeStap = timeStamp.value_or(
+    const auto actualTimeStamp = timeStamp.value_or(
         []() { return utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr)); }());
     std::stringstream backupFileName;
-    backupFileName << fileName << ".bak_" << timeStamp.value() << '.' << fileExtension;
+    backupFileName << fileName << ".bak_" << actualTimeStamp << '.' << fileExtension;
     const auto copyPath = seissol::filesystem::path(backupFileName.str());
     seissol::filesystem::rename(path, copyPath);
   }

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 ##
 # @file
 # This file is part of SeisSol.
@@ -7,21 +8,21 @@
 # @section LICENSE
 # Copyright (c) 2015, SeisSol Group
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice,
 #    this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice,
 #    this list of conditions and the following disclaimer in the documentation
 #    and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its
 #    contributors may be used to endorse or promote products derived from this
 #    software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -43,41 +44,54 @@ import re
 def read(fileName):
   data = []
   coordinates = [float('nan')] * 3
-  coordComment = re.compile('#\s*x(\d)\s+([0-9\.eE\+\-]+)')
-  variables = ''
-  p_0 = 0.
-  t_s = 0.
-  t_d = 0.
-  f = open(fileName)
-  for row in f:
-    row = row.strip()
-    if not row[0].isalpha() and not row[0] == '#':
-      values = row.split()
-      data.append([float(numeric_string) for numeric_string in values])
-    elif row[0] == '#':
-      match = coordComment.match(row)
-      if match:
-        coordinates[int(match.group(1))-1] = float(match.group(2))
-      elif row[2:5] == 'P_0':
-        p_0 = float(row[5:])
-      elif row[2:5] == 'T_s':
-        t_s = float(row[5:])
-      elif row[2:5] == 'T_d':
-        t_d = float(row[5:])
-    elif row.startswith('VARIABLES'):
-      row = row.split('=')
-      variables = row[1].replace('"', '').split(',')
-      variables = [v.strip() for v in variables]
-  f.close()
-  if len(data) == 0:
+  coordComment = re.compile(r'#\s*x(\d)\s+([0-9\.eE\+\-]+)')
+  offsetPattern = re.compile(r'#\s*(P_0|T_s|T_d)(\d+)\s+([0-9\.eE\+\-]+)')
+
+  offsets = {}  # e.g., {('P_0', 0): value, ('T_s', 1): value, ...}
+  variables = []
+
+  with open(fileName) as f:
+    for row in f:
+      row = row.strip()
+      if not row:
+        continue
+      if row[0] in '-+0123456789.':
+        values = row.split()
+        data.append([float(x) for x in values])
+      elif row.startswith('#'):
+        match_coord = coordComment.match(row)
+        if match_coord:
+          coordinates[int(match_coord.group(1))-1] = float(match_coord.group(2))
+        else:
+          match_offset = offsetPattern.match(row)
+          if match_offset:
+            key = match_offset.group(1)
+            idx = int(match_offset.group(2))
+            val = float(match_offset.group(3))
+            offsets[(key, idx)] = val
+      elif row.startswith('VARIABLES'):
+        var_line = row.split('=')[1]
+        variables = [v.strip().strip('"') for v in var_line.split(',')]
+
+  if not data:
     return None
-  if 'P_n' in variables:
-    indexP_n = variables.index('P_n')
-    data = [d[0:indexP_n] + [d[indexP_n] + p_0] + d[indexP_n+1:] for d in data]
-  if 'T_s' in variables:
-    indexT_s = variables.index('T_s')
-    data = [d[0:indexT_s] + [d[indexT_s] + t_s] + d[indexT_s+1:] for d in data]
-  if 'T_d' in variables:
-    indexT_d = variables.index('T_d')
-    data = [d[0:indexT_d] + [d[indexT_d] + t_d] + d[indexT_d+1:] for d in data]
+
+  n_cols = len(data[0])
+  # Fallback: if variable list not matching, auto-generate unnamed
+  if len(variables) < n_cols:
+    variables += [f"unnamed_{i}" for i in range(len(variables), n_cols)]
+  elif len(variables) > n_cols:
+    variables = variables[:n_cols]
+
+  # Apply offsets based on variable suffix
+  for i, var in enumerate(variables):
+    for key in ['P_0', 'T_s', 'T_d']:
+      if var.startswith(key):
+        suffix = var[len(key):]
+        if suffix.isdigit():
+          sim_idx = int(suffix)
+          if (key, sim_idx) in offsets:
+            for row in data:
+              row[i] += offsets[(key, sim_idx)]
+
   return Waveform.Waveform(variables, data, coordinates)

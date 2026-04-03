@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-3-Clause
 /**
  * @file
  * This file is part of SeisSol.
@@ -7,17 +8,17 @@
  * @section LICENSE
  * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -43,7 +44,7 @@
 
 
 void writeSlip(std::vector<SRFPointSource> const& sources, std::ofstream& xdmfFile)
-{  
+{
   xdmfFile << "      <Attribute Name=\"Slip path length (m)\" Center=\"Node\">" << std::endl
            << "        <DataItem Dimensions=\"" << sources.size() << "\" DataType=\"Float\" Precision=\"8\" Format=\"XML\">" << std::endl;
   for (std::vector<SRFPointSource>::const_iterator source = sources.begin(); source != sources.end(); ++source) {
@@ -68,10 +69,10 @@ void writeSlip(std::vector<SRFPointSource> const& sources, std::ofstream& xdmfFi
 }
 
 void writeXMF(char const* filename, std::vector<SRFPointSource> const& sources, Map const& map)
-{  
+{
   std::ofstream xdmfFile;
   xdmfFile.open(filename);
-  
+
   xdmfFile << "<?xml version=\"1.0\" ?>" << std::endl
            << "<!DOCTYPE Xdmf SYSTEM \"Xdmf.dtd\" []>" << std::endl
            << "<Xdmf>" << std::endl
@@ -103,6 +104,6 @@ void writeXMF(char const* filename, std::vector<SRFPointSource> const& sources, 
   xdmfFile << "    </Grid>" << std::endl
            << "  </Domain>" << std::endl
            << "</Xdmf>" << std::endl;
-           
+
   xdmfFile.close();
 }

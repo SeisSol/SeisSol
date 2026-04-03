@@ -5,18 +5,19 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNEL_H_
-#define SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNEL_H_
+#ifndef SEISSOL_SRC_PROXY_KERNEL_H_
+#define SEISSOL_SRC_PROXY_KERNEL_H_
 
 #include "Allocator.h"
-#include <Parallel/Runtime/Stream.h>
+#include "Parallel/Runtime/Stream.h"
+
 #include <type_traits>
 namespace seissol::proxy {
 
 struct PerformanceEstimate {
-  std::size_t hardwareFlop{0};
-  std::size_t nonzeroFlop{0};
-  std::size_t bytes{0};
+  std::uint64_t hardwareFlop{0};
+  std::uint64_t nonzeroFlop{0};
+  std::uint64_t bytes{0};
 
   auto operator+(const PerformanceEstimate& other) const -> PerformanceEstimate;
 };
@@ -48,7 +49,7 @@ class CompoundKernel : public ProxyKernel {
 
 class ChainKernel : public ProxyKernel {
   public:
-  ChainKernel(const std::vector<std::shared_ptr<ProxyKernel>>& kernels);
+  explicit ChainKernel(const std::vector<std::shared_ptr<ProxyKernel>>& kernels);
 
   void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const override;
 
@@ -62,4 +63,4 @@ class ChainKernel : public ProxyKernel {
 
 } // namespace seissol::proxy
 
-#endif // SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNEL_H_
+#endif // SEISSOL_SRC_PROXY_KERNEL_H_

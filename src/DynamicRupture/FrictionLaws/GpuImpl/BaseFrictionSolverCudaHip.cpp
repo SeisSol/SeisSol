@@ -5,9 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "BaseFrictionSolver.h"
-
 #include "AgingLaw.h"
+#include "BaseFrictionSolver.h"
+#include "Common/Constants.h"
+#include "DynamicRupture/Misc.h"
 #include "FastVelocityWeakeningLaw.h"
 #include "FrictionSolverInterface.h"
 #include "ImposedSlipRates.h"
@@ -25,8 +26,9 @@
 #include "hip/hip_runtime.h"
 #endif
 
+namespace seissol::dr::friction_law::gpu {
+
 namespace {
-using namespace seissol::dr::friction_law::gpu;
 
 constexpr std::size_t safeblockMultiple(std::size_t block, std::size_t maxmult) {
   const auto unsafe = (maxmult + block - 1) / block;
@@ -43,33 +45,18 @@ constexpr std::size_t PaddedMultiple =
 
 template <typename T>
 __launch_bounds__(PaddedMultiple* seissol::dr::misc::NumPaddedPoints) __global__
-    void flkernelwrapper(int elements,
-                         FrictionLawData* data,
-                         double* timeWeights,
-                         real* spaceWeights,
-                         real* resampleMatrix,
-                         real fullUpdateTime,
-                         real* TpInverseFourierCoefficients,
-                         real* TpGridPoints,
-                         real* HeatSource) {
+    void flkernelwrapper(std::size_t elements, FrictionLawArgs args) {
   FrictionLawContext ctx{};
 
-  ctx.data = data;
-  ctx.devTimeWeights = timeWeights;
-  ctx.devSpaceWeights = spaceWeights;
-  ctx.resampleMatrix = resampleMatrix;
-  ctx.fullUpdateTime = fullUpdateTime;
-
-  ctx.TpInverseFourierCoefficients = TpInverseFourierCoefficients;
-  ctx.TpGridPoints = TpGridPoints;
-  ctx.HeatSource = HeatSource;
+  ctx.data = args.data;
+  ctx.args = &args;
 
   __shared__ real shm[PaddedMultiple * seissol::dr::misc::NumPaddedPoints];
-  ctx.sharedMemory = &shm[threadIdx.y * seissol::dr::misc::NumPaddedPoints];
+  ctx.sharedMemory = &shm[threadIdx.z * seissol::dr::misc::NumPaddedPoints];
   // ctx.item = nullptr;
 
-  ctx.ltsFace = blockIdx.x * blockDim.y + threadIdx.y;
-  ctx.pointIndex = threadIdx.x;
+  ctx.ltsFace = blockIdx.x * PaddedMultiple + threadIdx.z;
+  ctx.pointIndex = threadIdx.x + threadIdx.y * multisim::NumSimulations;
 
   if (ctx.ltsFace < elements) {
     seissol::dr::friction_law::gpu::BaseFrictionSolver<T>::evaluatePoint(ctx);
@@ -77,11 +64,11 @@ __launch_bounds__(PaddedMultiple* seissol::dr::misc::NumPaddedPoints) __global__
 }
 } // namespace
 
-namespace seissol::dr::friction_law::gpu {
-
 template <typename T>
 void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
-                                           real fullUpdateTime) {
+                                           real fullUpdateTime,
+                                           const double* timeWeights,
+                                           const FrictionTime& frictionTime) {
 #ifdef __CUDACC__
   using StreamT = cudaStream_t;
 #endif
@@ -89,17 +76,21 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   using StreamT = hipStream_t;
 #endif
   auto stream = reinterpret_cast<StreamT>(runtime.stream());
-  dim3 block(misc::NumPaddedPoints, PaddedMultiple);
+  dim3 block(multisim::NumSimulations, misc::NumPaddedPointsSingleSim, PaddedMultiple);
   dim3 grid((this->currLayerSize + PaddedMultiple - 1) / PaddedMultiple);
-  flkernelwrapper<T><<<grid, block, 0, stream>>>(this->currLayerSize,
-                                                 data,
-                                                 devTimeWeights,
-                                                 devSpaceWeights,
-                                                 resampleMatrix,
-                                                 fullUpdateTime,
-                                                 devTpInverseFourierCoefficients,
-                                                 devTpGridPoints,
-                                                 devHeatSource);
+
+  FrictionLawArgs args{};
+  args.data = data;
+  args.spaceWeights = devSpaceWeights;
+  args.resampleMatrix = resampleMatrix;
+  args.tpInverseFourierCoefficients = devTpInverseFourierCoefficients;
+  args.tpGridPoints = devTpGridPoints;
+  args.heatSource = devHeatSource;
+  std::copy_n(timeWeights, misc::TimeSteps, args.timeWeights);
+  std::copy_n(frictionTime.deltaT.data(), misc::TimeSteps, args.deltaT);
+  args.fullUpdateTime = fullUpdateTime;
+
+  flkernelwrapper<T><<<grid, block, 0, stream>>>(this->currLayerSize, args);
 }
 
 template class BaseFrictionSolver<NoFault>;

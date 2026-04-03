@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -7,25 +7,29 @@
 
 #include "Init.h"
 
-#include <Initializer/Tree/Layer.h>
-#include <Monitoring/Stopwatch.h>
-#include <utils/logger.h>
-
 #include "InitIO.h"
 #include "InitMesh.h"
 #include "InitModel.h"
 #include "InitSideConditions.h"
+#include "Initializer/InitProcedure/InitLayout.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Memory/Tree/Layer.h"
+#include "Monitoring/Stopwatch.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "SeisSol.h"
 
+#include <utils/logger.h>
+
 #ifdef ACL_DEVICE
 #include "Monitoring/Unit.h"
 #include "Numerical/Statistics.h"
+
 #include <ostream>
 #include <sstream>
 #endif
+
+namespace seissol::initializer::initprocedure {
 
 namespace {
 
@@ -64,6 +68,7 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
 
   // initialization procedure
   seissol::initializer::initprocedure::initMesh(seissolInstance);
+  seissol::initializer::initprocedure::initLayout(seissolInstance);
   seissol::initializer::initprocedure::initModel(seissolInstance);
   seissol::initializer::initprocedure::initSideConditions(seissolInstance);
   seissol::initializer::initprocedure::initIO(seissolInstance);
@@ -82,7 +87,7 @@ void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   writer::ThreadsPinningWriter pinningWriter(seissolParams.output.prefix);
-  pinningWriter.write(seissolInstance.getPinning());
+  pinningWriter.write(seissolInstance.getPinning(), seissolInstance.env());
 }
 
 void closeSeisSol(seissol::SeisSol& seissolInstance) {
@@ -98,13 +103,13 @@ void closeSeisSol(seissol::SeisSol& seissolInstance) {
 
 } // namespace
 
-void seissol::initializer::initprocedure::seissolMain(seissol::SeisSol& seissolInstance) {
+void seissolMain(seissol::SeisSol& seissolInstance) {
   initSeisSol(seissolInstance);
   reportHardwareRelatedStatus(seissolInstance);
 
   // just put a barrier here to make sure everyone is synched
   logInfo() << "Finishing initialization...";
-  seissol::MPI::barrier(seissol::MPI::mpi.comm());
+  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
 
   seissol::Stopwatch watch;
   logInfo() << "Starting simulation.";
@@ -115,7 +120,9 @@ void seissol::initializer::initprocedure::seissolMain(seissol::SeisSol& seissolI
 
   // make sure everyone is really done
   logInfo() << "Simulation done.";
-  seissol::MPI::barrier(seissol::MPI::mpi.comm());
+  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
 
   closeSeisSol(seissolInstance);
 }
+
+} // namespace seissol::initializer::initprocedure

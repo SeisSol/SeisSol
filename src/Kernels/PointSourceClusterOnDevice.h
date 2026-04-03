@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 // SPDX-FileCopyrightText: 2023 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -22,7 +22,7 @@ class PointSourceClusterOnDevice : public PointSourceCluster {
   void addTimeIntegratedPointSources(double from,
                                      double to,
                                      seissol::parallel::runtime::StreamRuntime& runtime) override;
-  unsigned size() const override;
+  [[nodiscard]] std::size_t size() const override;
 
   private:
   std::shared_ptr<sourceterm::ClusterMapping> clusterMapping_;

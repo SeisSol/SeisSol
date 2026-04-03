@@ -1,12 +1,12 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SLIPLAW_H_
-#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SLIPLAW_H_
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SLIPLAW_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SLIPLAW_H_
 
 #include "SlowVelocityWeakeningLaw.h"
 
@@ -15,7 +15,7 @@ template <typename TPMethod>
 class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
   public:
   using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
-  using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::copyLtsTreeToLocal;
+  using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::copyStorageToLocal;
 
 /**
  * Integrates the state variable ODE in time
@@ -31,17 +31,17 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
  * @return \f$ \Psi(t) \f$
  */
 #pragma omp declare simd
-  double updateStateVariable(int pointIndex,
-                             unsigned int face,
+  double updateStateVariable(std::uint32_t pointIndex,
+                             std::size_t faceIndex,
                              double stateVarReference,
                              double timeIncrement,
                              double localSlipRate) {
-    const double localSl0 = this->sl0[face][pointIndex];
-    const double exp1 = std::exp(-localSlipRate * (timeIncrement / localSl0));
-    return localSl0 / localSlipRate * std::pow(localSlipRate * stateVarReference / localSl0, exp1);
+    const double localSl0 = this->sl0[faceIndex][pointIndex];
+    const double exp1v = std::exp(-localSlipRate * (timeIncrement / localSl0));
+    return localSl0 / localSlipRate * std::pow(localSlipRate * stateVarReference / localSl0, exp1v);
   }
 };
 
 } // namespace seissol::dr::friction_law::cpu
 
-#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SLIPLAW_H_
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SLIPLAW_H_

@@ -9,7 +9,9 @@
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_DATASTRUCTURES_H_
 
 #include "Equations/elastic/Model/Datastructures.h"
+#include "Kernels/STP/Solver.h"
 #include "Model/CommonDatastructures.h"
+
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -17,15 +19,16 @@
 #include <vector>
 
 namespace seissol::model {
-class PoroelasticLocalData;
-class PoroelasticNeighborData;
+struct PoroelasticLocalData;
+struct PoroelasticNeighborData;
 
 struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t NumQuantities = 13;
+  static constexpr std::size_t NumElasticQuantities = 13;
   static constexpr std::size_t NumberPerMechanism = 0;
+  static constexpr std::size_t TractionQuantities = 6;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Poroelastic;
-  static constexpr LocalSolver Solver = LocalSolver::SpaceTimePredictorPoroelastic;
   static inline const std::string Text = "poroelastic";
   static inline const std::array<std::string, NumQuantities> Quantities{"s_xx",
                                                                         "s_yy",
@@ -40,21 +43,26 @@ struct PoroElasticMaterial : public ElasticMaterial {
                                                                         "v1_f",
                                                                         "v2_f",
                                                                         "v3_f"};
+  static constexpr std::size_t Parameters = ElasticMaterial::Parameters + 7;
+
+  static constexpr bool SupportsDR = true;
+  static constexpr bool SupportsLTS = true;
 
   using LocalSpecificData = PoroelasticLocalData;
   using NeighborSpecificData = PoroelasticNeighborData;
+  using Solver = kernels::solver::stp::Solver;
 
-  double bulkSolid;
-  double porosity;
-  double permeability;
-  double tortuosity;
-  double bulkFluid;
-  double rhoFluid;
-  double viscosity;
+  double bulkSolid{};
+  double porosity{};
+  double permeability{};
+  double tortuosity{};
+  double bulkFluid{};
+  double rhoFluid{};
+  double viscosity{};
 
   PoroElasticMaterial() = default;
 
-  PoroElasticMaterial(const std::vector<double>& materialValues)
+  explicit PoroElasticMaterial(const std::vector<double>& materialValues)
       : bulkSolid(materialValues.at(0)), porosity(materialValues.at(4)),
         permeability(materialValues.at(5)), tortuosity(materialValues.at(6)),
         bulkFluid(materialValues.at(7)), rhoFluid(materialValues.at(8)),

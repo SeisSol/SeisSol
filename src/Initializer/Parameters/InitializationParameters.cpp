@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -6,9 +6,12 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "InitializationParameters.h"
-#include <Equations/Datastructures.h>
-#include <Initializer/InputAux.h>
-#include <Initializer/Parameters/ParameterReader.h>
+
+#include "Equations/Datastructures.h"
+#include "Initializer/InputAux.h"
+#include "Initializer/Parameters/ParameterReader.h"
+
+#include <Eigen/Core>
 #include <cstddef>
 #include <limits>
 
@@ -57,7 +60,9 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
   const auto filename = reader->readPath("filename").value_or("");
   const auto hasTime = reader->read<bool>("hastime").value_or(true);
 
+  const auto avoidIC = reader->read<bool>("avoidic").value_or(false);
+
   return InitializationParameters{
-      type, origin, kVec, ampField, magnitude, width, k, filename, hasTime};
+      type, origin, kVec, ampField, magnitude, width, k, filename, hasTime, avoidIC};
 }
 } // namespace seissol::initializer::parameters

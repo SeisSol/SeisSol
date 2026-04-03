@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2023 SeisSol Group
 #
 # SPDX-License-Identifier: BSL-1.0
 # SPDX-LicenseComments: Full text under /LICENSES/
@@ -167,7 +167,7 @@ function(get_git_commit_info _varHash _varTimestamp)
 		out
 		ERROR_QUIET
 		OUTPUT_STRIP_TRAILING_WHITESPACE)
-	
+
 	if(NOT res EQUAL 0)
 		set(outHash "${out}-${res}-NOTFOUND")
 		set(outTimestamp "${out}-${res}-NOTFOUND")

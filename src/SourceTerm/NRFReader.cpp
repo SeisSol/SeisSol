@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -7,14 +7,15 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "NRFReader.h"
-#include <SourceTerm/NRF.h>
+
+#include "SourceTerm/NRF.h"
+
+#include <Eigen/Core>
+#include <cassert>
 #include <cstddef>
+#include <netcdf.h>
 #include <ostream>
 #include <utils/logger.h>
-
-#include <netcdf.h>
-
-#include <cassert>
 
 namespace {
 

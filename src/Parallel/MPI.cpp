@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -7,20 +7,23 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "MPI.h"
-#include "utils/stringutils.h"
+
 #include <algorithm>
 #include <cctype>
-#include <cstdlib>
 #include <mpi.h>
 #include <string>
 #include <unistd.h>
+#include <utils/env.h>
 #include <utils/logger.h>
+#include <utils/stringutils.h>
 
 #ifdef ACL_DEVICE
 #include "Parallel/AcceleratorDevice.h"
+
+#include <Device/device.h>
 #endif
 
-void seissol::MPI::init(int& argc, char**& argv) {
+void seissol::Mpi::init(int& argc, char**& argv) {
   // Note: Strictly speaking, we only require MPI_THREAD_MULTIPLE if using
   // a communication thread and/or async I/O.
   // The safer (and more sane) option is to enable it by default.
@@ -31,7 +34,7 @@ void seissol::MPI::init(int& argc, char**& argv) {
   setComm(MPI_COMM_WORLD);
 
   std::string hostName(256, ' ');
-  if (gethostname(const_cast<char*>(hostName.c_str()), 256) != 0) {
+  if (gethostname(hostName.data(), 256) != 0) {
     hostName = "unknown-host";
   } else {
     utils::StringUtils::rtrim(hostName);
@@ -46,7 +49,7 @@ void seissol::MPI::init(int& argc, char**& argv) {
   }
 }
 
-void seissol::MPI::setComm(MPI_Comm comm) {
+void seissol::Mpi::setComm(MPI_Comm comm) {
   m_comm = comm;
 
   MPI_Comm_rank(comm, &m_rank);
@@ -57,25 +60,32 @@ void seissol::MPI::setComm(MPI_Comm comm) {
   MPI_Comm_size(m_sharedMemComm, &m_sharedMemMpiSize);
 }
 
-void seissol::MPI::bindAcceleratorDevice() {
+void seissol::Mpi::bindAcceleratorDevice() {
 #ifdef ACL_DEVICE
   auto& instance = seissol::AcceleratorDevice::getInstance();
   instance.bindAcceleratorDevice(0);
 #endif
 }
 
-void seissol::MPI::printAcceleratorDeviceInfo() {
+void seissol::Mpi::printAcceleratorDeviceInfo() {
 #ifdef ACL_DEVICE
   auto& instance = seissol::AcceleratorDevice::getInstance();
   instance.printInfo();
+
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  const auto pci = device.api->getPciAddress(0);
+  const auto pcisNode = collectContainer(pci, m_sharedMemComm);
+  pcis = collectContainer(pci);
+  logInfo() << "Device PCI address (rank=0): " << pci;
+  logInfo() << "Device PCI addresses (node of rank=0):" << pcisNode;
 #endif
 }
 
-void seissol::MPI::setDataTransferModeFromEnv() {
-  // TODO (Ravil, David): switch to reading this option from the parameter-file.
-  // Waiting for David to finish his `no-fortran` PR
-  if (const char* envVariable = std::getenv("SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE")) {
-    std::string option{envVariable};
+void seissol::Mpi::setDataTransferModeFromEnv() {
+  const auto envVariable =
+      utils::Env("SEISSOL_").getOptional<std::string>("PREFERRED_MPI_DATA_TRANSFER_MODE");
+  if (envVariable.has_value()) {
+    std::string option{envVariable.value()};
     std::transform(option.begin(), option.end(), option.begin(), [](unsigned char c) {
       return std::tolower(c);
     });
@@ -101,4 +111,4 @@ void seissol::MPI::setDataTransferModeFromEnv() {
   }
 }
 
-seissol::MPI seissol::MPI::mpi;
+seissol::Mpi seissol::Mpi::mpi;

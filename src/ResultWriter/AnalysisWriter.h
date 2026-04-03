@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2019 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -8,19 +8,17 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_ANALYSISWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_ANALYSISWRITER_H_
 
-#include <array>
-#include <cmath>
-#include <fstream>
-#include <iostream>
-
-#include "Initializer/Tree/Lut.h"
+#include "Geometry/MeshReader.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
 #include "Physics/InitialField.h"
 
-#include "Geometry/MeshReader.h"
+#include <array>
+#include <cmath>
+#include <fstream>
+#include <iostream>
 
 namespace seissol {
 class SeisSol;
@@ -29,7 +27,7 @@ class SeisSol;
 namespace seissol::writer {
 class CsvAnalysisWriter {
   public:
-  CsvAnalysisWriter(std::string fileName);
+  explicit CsvAnalysisWriter(std::string fileName);
 
   void writeHeader();
 
@@ -66,7 +64,7 @@ class AnalysisWriter {
   std::string fileName;
 
   public:
-  AnalysisWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
+  explicit AnalysisWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
   void init(const seissol::geometry::MeshReader* meshReader, std::string_view fileNamePrefix) {
     isEnabled = true;

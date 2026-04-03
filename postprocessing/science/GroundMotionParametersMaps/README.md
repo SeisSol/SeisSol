@@ -1,10 +1,11 @@
-  
-# Description
+# Ground Motion Parameters Maps
+
+## Description
 
 This folder contains scripts to compute Ground motions parameters
 (e.g. PGA, PGV, PGD, SA(T)) from a SeisSol surface output file.
 
-# Prerequisites
+## Prerequisites
 
 The main script (ComputeGroundMotionParametersFromSurfaceOutput_Hybrid.py)
 requires gmpe-smtk. The latest gmpe-smtk depends on openquake, but some older
@@ -12,7 +13,7 @@ versions do not require this dependency. Therefore, one can choose to either
 install the deprecated gmpe-smtk without openquake, or the latest gmpe-smtk with
 openquake.
 
-## Installing a deprecated gmpe-smtk
+### Installing a deprecated gmpe-smtk
 
 In this case, no installation is needed, the repository only needs to be cloned:
 
@@ -27,7 +28,7 @@ export PYTHONPATH=$PYTHONPATH:'$(pwd)
 
 ```
 
-## Installing the latest gmpe-smtk and openquake
+### Installing the latest gmpe-smtk and openquake
 
 Here is a proposed workflow for installing openquake:
 
@@ -56,7 +57,7 @@ oq run oq-engine/demos/hazard/AreaSourceClassicalPSHA/job.ini
 Then the latest gmpe-smtk can be cloned and added to the pythonpath as previously
 described.
 
-## Installing other python modules
+### Installing other python modules
 
 Simply use:
 
@@ -66,7 +67,7 @@ pip install -r requirements.txt
 
 If not root, use ``--user``.
 
-# Running the script
+## Running the script
 
 All the available option for running the script can be displayed using:
 

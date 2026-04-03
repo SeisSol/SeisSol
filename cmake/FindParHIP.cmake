@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2023-2025 SeisSol Group
+# SPDX-FileCopyrightText: 2023 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
 

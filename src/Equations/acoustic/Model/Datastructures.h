@@ -11,9 +11,11 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_DATASTRUCTURES_H_
 #define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_DATASTRUCTURES_H_
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "Kernels/LinearCK/Solver.h"
 #include "Model/CommonDatastructures.h"
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
+
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -21,40 +23,48 @@
 #include <vector>
 
 namespace seissol::model {
-class AcousticLocalData;
-class AcousticNeighborData;
+struct AcousticLocalData;
+struct AcousticNeighborData;
 
 struct AcousticMaterial : public Material {
   static constexpr std::size_t NumQuantities = 4;
+  static constexpr std::size_t NumElasticQuantities = 4;
   static constexpr std::size_t NumberPerMechanism = 0;
+  static constexpr std::size_t TractionQuantities = 1;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Acoustic;
-  static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
   static inline const std::string Text = "acoustic";
   // The stress-velocity formulation of the elastic model is reused.
   // By definition, the normal stress and pressure are negatives of each other.
   static inline const std::array<std::string, NumQuantities> Quantities = {"-p", "v1", "v2", "v3"};
+  static constexpr std::size_t Parameters = 1 + Material::Parameters;
+
+  static constexpr bool SupportsDR = false;
+  static constexpr bool SupportsLTS = true;
 
   using LocalSpecificData = AcousticLocalData;
   using NeighborSpecificData = AcousticNeighborData;
+  using Solver = kernels::solver::linearck::Solver;
 
-  double lambda;
+  double lambda{};
 
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
   [[nodiscard]] double getMuBar() const override { return 0.0; }
 
   AcousticMaterial() = default;
-  AcousticMaterial(const std::vector<double>& materialValues)
+  explicit AcousticMaterial(const std::vector<double>& materialValues)
       : Material(materialValues), lambda(materialValues.at(1)) {}
 
   ~AcousticMaterial() override = default;
 
-  // The stiffness tensor of the elastic model is reused.
   void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const override {
+    // We reuse the stiffness tensor of the elastic model.
+    // This function is used only for NRF sources for isotropic materials.
+    // It is not used for acoustic materials as they do not support NRF sources.
 
     auto stiffnessTensorView =
-        seissol_general::init::stiffnessTensor::view::create(fullTensor.data());
+        seissol::general::init::stiffnessTensor::view::create(fullTensor.data());
     stiffnessTensorView.setZero();
     stiffnessTensorView(0, 0, 0, 0) = lambda;
     stiffnessTensorView(0, 0, 1, 1) = lambda;
@@ -74,6 +84,8 @@ struct AcousticMaterial : public Material {
   [[nodiscard]] double getSWaveSpeed() const override { return 0.0; }
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
+
+  void setLameParameters(double /*mu*/, double lambda) override { this->lambda = lambda; }
 };
 } // namespace seissol::model
 

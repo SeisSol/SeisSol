@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -6,10 +6,19 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "DRParameters.h"
-#include <Initializer/Parameters/ParameterReader.h>
-#include <Kernels/Precision.h>
+
+#include "Initializer/Parameters/ParameterReader.h"
+#include "Kernels/Precision.h"
+#include "Solver/MultipleSimulations.h"
+
+#include <Eigen/Core>
+#include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
+#include <optional>
+#include <string>
 #include <utils/logger.h>
 
 namespace seissol::initializer::parameters {
@@ -67,7 +76,19 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto isThermalPressureOn = reader->readWithDefault("thermalpress", false);
   const auto healingThreshold =
       static_cast<real>(reader->readWithDefault("lsw_healingthreshold", -1.0));
-  const auto t0 = static_cast<real>(reader->readWithDefault("t_0", 0.0));
+  const auto nucleationCount = reader->readWithDefault("nucleationcount", 1U);
+  if (nucleationCount > MaxNucleactions) {
+    logError() << "You requested more nucleations than supported by this build of SeisSol. Either "
+                  "adjust that yourself, or complain to the developers. :)";
+  }
+  std::array<real, MaxNucleactions> t0{};
+  std::array<real, MaxNucleactions> s0{};
+  for (std::uint32_t i = 0; i < nucleationCount; ++i) {
+    const std::string t0name = i == 0 ? "t_0" : ("t" + std::to_string(i + 1) + "_0");
+    t0[i] = static_cast<real>(reader->readWithDefault(t0name, 0.0));
+    const std::string s0name = i == 0 ? "s_0" : ("s" + std::to_string(i + 1) + "_0");
+    s0[i] = static_cast<real>(reader->readWithDefault(s0name, 0.0));
+  }
   const auto tpProxyExponent =
       static_cast<real>(reader->readWithDefault("tpproxyexponent", 1. / 3.));
 
@@ -104,6 +125,27 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
 
   const auto faultFileName = reader->readPath("modelfilename");
 
+  std::array<std::optional<std::string>, seissol::multisim::NumSimulations> faultFileNames;
+
+  bool isDynamicRuptureEnabled = false;
+
+  if (!faultFileName.value_or("").empty()) {
+    faultFileNames[0] = faultFileName.value();
+    isDynamicRuptureEnabled = true;
+  }
+
+  for (std::size_t i = 0; i < faultFileNames.size(); ++i) {
+    const auto fieldname = "modelfilename" + std::to_string(i);
+    if (reader->hasField(fieldname)) {
+      faultFileNames[i] = reader->readPath(fieldname);
+      isDynamicRuptureEnabled = true;
+    }
+  }
+
+  // allow switching off the DR like that (but take `enabled=1` as default for compatibility)
+  const auto explicitEnabled = reader->read<bool>("enabled");
+  isDynamicRuptureEnabled &= explicitEnabled.value_or(true);
+
   auto* outputReader = baseReader->readSubNode("output");
   const bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);
   const bool energiesFromAcrossFaultVelocities =
@@ -116,24 +158,26 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
       "terminatormaxtimepostrupture", std::numeric_limits<double>::infinity());
   const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
 
-  // if there is no fileName given for the fault, assume that we do not use dynamic rupture
-  const bool isDynamicRuptureEnabled = !faultFileName.value_or("").empty();
-
-  const double etaHack = [&]() {
-    const auto hackRead1 = reader->read<double>("etahack");
-    if (hackRead1.has_value()) {
-      return hackRead1.value();
+  const double etaDamp = [&]() {
+    const auto dampRead1 = reader->read<double>("etadamp");
+    if (dampRead1.has_value()) {
+      return dampRead1.value();
     } else {
-      const auto hackRead2 = outputReader->read<double>("etahack");
-      if (hackRead2.has_value()) {
+      const auto dampRead2 = reader->read<double>("etahack");
+      const auto dampRead3 = outputReader->read<double>("etahack");
+      if (dampRead2.has_value() || dampRead3.has_value()) {
         logWarning()
-            << "Reading the etahack parameter from the output section is deprecated and may be "
+            << "The name \"etahack\" is deprecated and may be "
                "removed in a future version of SeisSol. Put the parameter into the dynamicrupture "
-               "section instead.";
+               "section instead and name it \"etadamp\" instead.";
       }
-      return hackRead2.value_or(1.0);
+      return dampRead2.value_or(dampRead3.value_or(1.0));
     }
   }();
+
+  const auto etaDampEnd = reader->read<double>("etadampend")
+                              .value_or(reader->read<double>("etastop").value_or(
+                                  std::numeric_limits<double>::infinity()));
 
   reader->warnDeprecated({"rf_output_on", "backgroundtype"});
 
@@ -148,6 +192,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       frictionLawType,
                       healingThreshold,
                       t0,
+                      s0,
                       tpProxyExponent,
                       rsF0,
                       rsB,
@@ -163,8 +208,11 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       vStar,
                       prakashLength,
                       faultFileName.value_or(""),
+                      faultFileNames,
                       referencePoint,
                       terminatorSlipRateThreshold,
-                      etaHack};
+                      etaDamp,
+                      etaDampEnd,
+                      nucleationCount};
 }
 } // namespace seissol::initializer::parameters

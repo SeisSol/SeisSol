@@ -1,19 +1,19 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
-#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
-
-#include <array>
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 
 #include "DynamicRupture/Misc.h"
-#include "Initializer/DynamicRupture.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+
+#include <array>
 
 namespace seissol::dr::friction_law::cpu {
 
@@ -52,49 +52,35 @@ class ThermalPressurization {
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup,
-                          real fullUpdateTime);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData);
 
   /**
    * Compute thermal pressure according to Noda&Lapusta (2010) at all Gauss Points within one face
-   * bool saveTmpInTP is used to save final values for Theta and Sigma in the LTS tree
+   * bool saveTmpInTP is used to save final values for Theta and Sigma in the storage
+   * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
    */
   void calcFluidPressure(const std::array<real, misc::NumPaddedPoints>& normalStress,
                          const real (*mu)[misc::NumPaddedPoints],
                          const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
                          real deltaT,
                          bool saveTPinLTS,
-                         unsigned int timeIndex,
-                         unsigned int ltsFace);
+                         std::size_t ltsFace);
 
-  [[nodiscard]] real getFluidPressure(unsigned int ltsFace, unsigned int pointIndex) const {
+  [[nodiscard]] real getFluidPressure(std::size_t ltsFace, std::uint32_t pointIndex) const {
     return pressure[ltsFace][pointIndex];
   }
 
   protected:
-  real (*temperature)[misc::NumPaddedPoints]{};
-  real (*pressure)[misc::NumPaddedPoints]{};
-  real (*theta)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
-  real (*sigma)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
-  real (*thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
-  real (*sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
-  real (*halfWidthShearZone)[misc::NumPaddedPoints]{};
-  real (*hydraulicDiffusivity)[misc::NumPaddedPoints]{};
-  real (*faultStrength)[misc::NumPaddedPoints]{};
+  real (*__restrict temperature)[misc::NumPaddedPoints]{};
+  real (*__restrict pressure)[misc::NumPaddedPoints]{};
+  real (*__restrict theta)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
+  real (*__restrict sigma)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
+  real (*__restrict halfWidthShearZone)[misc::NumPaddedPoints]{};
+  real (*__restrict hydraulicDiffusivity)[misc::NumPaddedPoints]{};
 
   private:
   seissol::initializer::parameters::DRParameters* drParameters;
-
-  /**
-   * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
-   */
-  void updateTemperatureAndPressure(real slipRateMagnitude,
-                                    real deltaT,
-                                    unsigned int pointIndex,
-                                    unsigned int timeIndex,
-                                    unsigned int ltsFace);
 };
 } // namespace seissol::dr::friction_law::cpu
 
-#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_

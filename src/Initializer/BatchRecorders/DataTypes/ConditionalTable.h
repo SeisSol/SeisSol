@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2020 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -13,7 +13,7 @@
 #include "EncodedConstants.h"
 #include "Table.h"
 
-namespace seissol::initializer::recording {
+namespace seissol::recording {
 using ConditionalPointersToRealsTable =
     std::unordered_map<ConditionalKey, PointersToRealsTable, ConditionalHash<ConditionalKey>>;
 
@@ -25,6 +25,6 @@ using ConditionalMaterialTable =
 
 using ConditionalIndicesTable =
     std::unordered_map<ConditionalKey, IndicesTable, ConditionalHash<ConditionalKey>>;
-} // namespace seissol::initializer::recording
+} // namespace seissol::recording
 
 #endif // SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_CONDITIONALTABLE_H_

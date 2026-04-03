@@ -1,16 +1,16 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_LINEARSLIPWEAKENING_H_
-#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_LINEARSLIPWEAKENING_H_
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_LINEARSLIPWEAKENING_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_LINEARSLIPWEAKENING_H_
 
 #include "BaseFrictionLaw.h"
 
-#include "utils/logger.h"
+#include <utils/logger.h>
 
 namespace seissol::dr::friction_law::cpu {
 
@@ -29,8 +29,8 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                              TractionResults<Executor::Host>& tractionResults,
                              std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                              std::array<real, misc::NumPaddedPoints>& strengthBuffer,
-                             unsigned int ltsFace,
-                             unsigned int timeIndex) {
+                             std::size_t ltsFace,
+                             uint32_t timeIndex) {
     // computes fault strength, which is the critical value whether active slip exists.
     this->calcStrengthHook(faultStresses, strengthBuffer, timeIndex, ltsFace);
 
@@ -46,17 +46,13 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     this->frictionFunctionHook(stateVariableBuffer, ltsFace);
   }
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
-                          real fullUpdateTime) {
-    const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening*>(dynRup);
-    this->dC = layerData.var(concreteLts->dC);
-    this->muS = layerData.var(concreteLts->muS);
-    this->muD = layerData.var(concreteLts->muD);
-    this->cohesion = layerData.var(concreteLts->cohesion);
-    this->forcedRuptureTime = layerData.var(concreteLts->forcedRuptureTime);
-    specialization.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {
+    this->dC = layerData.var<LTSLinearSlipWeakening::DC>();
+    this->muS = layerData.var<LTSLinearSlipWeakening::MuS>();
+    this->muD = layerData.var<LTSLinearSlipWeakening::MuD>();
+    this->cohesion = layerData.var<LTSLinearSlipWeakening::Cohesion>();
+    this->forcedRuptureTime = layerData.var<LTSLinearSlipWeakening::ForcedRuptureTime>();
+    specialization.copyStorageToLocal(layerData);
   }
 
   /**
@@ -66,14 +62,14 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   void calcSlipRateAndTraction(const FaultStresses<Executor::Host>& faultStresses,
                                TractionResults<Executor::Host>& tractionResults,
                                std::array<real, misc::NumPaddedPoints>& strength,
-                               unsigned int timeIndex,
-                               unsigned int ltsFace) {
+                               uint32_t timeIndex,
+                               std::size_t ltsFace) {
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
-      const real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
+      const real totalTraction1 = this->initialStressInFaultCS[ltsFace][3][pointIndex] +
                                   faultStresses.traction1[timeIndex][pointIndex];
-      const real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
+      const real totalTraction2 = this->initialStressInFaultCS[ltsFace][5][pointIndex] +
                                   faultStresses.traction2[timeIndex][pointIndex];
       const real absoluteTraction = misc::magnitude(totalTraction1, totalTraction2);
 
@@ -107,19 +103,19 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     }
   }
 
-  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, unsigned int ltsFace) {
+  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
   };
-  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
-                unsigned int ltsFace) {};
+  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
+  };
 
   /**
    * evaluate friction law: updated mu -> friction law
    * for example see Carsten Uphoff's thesis: Eq. 2.45
    */
   void frictionFunctionHook(std::array<real, misc::NumPaddedPoints>& stateVariable,
-                            unsigned int ltsFace) {
+                            std::size_t ltsFace) {
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       this->mu[ltsFace][pointIndex] =
           muS[ltsFace][pointIndex] -
           (muS[ltsFace][pointIndex] - muD[ltsFace][pointIndex]) * stateVariable[pointIndex];
@@ -135,13 +131,13 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   /**
    * output time when shear stress is equal to the dynamic stress after rupture arrived
    */
-  void saveDynamicStressOutput(unsigned int ltsFace) {
+  void saveDynamicStressOutput(std::size_t ltsFace, real time) {
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       if (this->dynStressTimePending[ltsFace][pointIndex] &&
           std::fabs(this->accumulatedSlipMagnitude[ltsFace][pointIndex]) >=
               dC[ltsFace][pointIndex]) {
-        this->dynStressTime[ltsFace][pointIndex] = this->mFullUpdateTime;
+        this->dynStressTime[ltsFace][pointIndex] = time;
         this->dynStressTimePending[ltsFace][pointIndex] = false;
       }
     }
@@ -149,12 +145,12 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
   void calcStrengthHook(const FaultStresses<Executor::Host>& faultStresses,
                         std::array<real, misc::NumPaddedPoints>& strength,
-                        unsigned int timeIndex,
-                        unsigned int ltsFace) {
+                        uint32_t timeIndex,
+                        std::size_t ltsFace) {
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate fault strength (Uphoff eq 2.44) with addition cohesion term
-      const real totalNormalStress = this->initialStressInFaultCS[ltsFace][pointIndex][0] +
+      const real totalNormalStress = this->initialStressInFaultCS[ltsFace][0][pointIndex] +
                                      faultStresses.normalStress[timeIndex][pointIndex] +
                                      this->initialPressure[ltsFace][pointIndex] +
                                      faultStresses.fluidPressure[timeIndex][pointIndex];
@@ -173,14 +169,17 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   }
 
   void calcStateVariableHook(std::array<real, misc::NumPaddedPoints>& stateVariable,
-                             unsigned int timeIndex,
-                             unsigned int ltsFace) {
+                             uint32_t timeIndex,
+                             std::size_t ltsFace) {
     alignas(Alignment) real resampledSlipRate[misc::NumPaddedPoints]{};
     specialization.resampleSlipRate(resampledSlipRate, this->slipRateMagnitude[ltsFace]);
 
-    const real time = this->mFullUpdateTime + this->deltaT[timeIndex];
+    real time = this->mFullUpdateTime;
+    for (uint32_t i = 0; i <= timeIndex; ++i) {
+      time += this->deltaT[i];
+    }
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // integrate slip rate to get slip = state variable
 
       const auto update = resampledSlipRate[pointIndex] * this->deltaT[timeIndex];
@@ -196,13 +195,13 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
       // Forced rupture time
       real f2 = 0.0;
-      if (this->drParameters->t0 == 0) {
+      if (this->drParameters->t0[0] == 0) {
         // avoid branching
         // if time > forcedRuptureTime, then f2 = 1.0, else f2 = 0.0
         f2 = 1.0 * static_cast<double>(time >= this->forcedRuptureTime[ltsFace][pointIndex]);
       } else {
         f2 = std::clamp((time - this->forcedRuptureTime[ltsFace][pointIndex]) /
-                            this->drParameters->t0,
+                            this->drParameters->t0[0],
                         static_cast<real>(0.0),
                         static_cast<real>(1.0));
       }
@@ -211,11 +210,11 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   }
 
   protected:
-  real (*dC)[misc::NumPaddedPoints]{};
-  real (*muS)[misc::NumPaddedPoints]{};
-  real (*muD)[misc::NumPaddedPoints]{};
-  real (*cohesion)[misc::NumPaddedPoints]{};
-  real (*forcedRuptureTime)[misc::NumPaddedPoints]{};
+  real (*__restrict dC)[misc::NumPaddedPoints]{};
+  real (*__restrict muS)[misc::NumPaddedPoints]{};
+  real (*__restrict muD)[misc::NumPaddedPoints]{};
+  real (*__restrict cohesion)[misc::NumPaddedPoints]{};
+  real (*__restrict forcedRuptureTime)[misc::NumPaddedPoints]{};
   SpecializationT specialization;
 };
 
@@ -223,9 +222,7 @@ class NoSpecialization {
   public:
   explicit NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
-                          real fullUpdateTime) {};
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {};
   /**
    * Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as
    * the degrees of freedom resampleMatrix first projects LocSR on the two-dimensional basis on
@@ -237,17 +234,17 @@ class NoSpecialization {
 #pragma omp declare simd
   static real stateVariableHook(real localAccumulatedSlip,
                                 real localDc,
-                                unsigned int ltsFace,
-                                unsigned int pointIndex) {
+                                std::size_t /*ltsFace*/,
+                                std::uint32_t /*pointIndex*/) {
     return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   }
 
 #pragma omp declare simd
   static real strengthHook(real strength,
-                           real localSlipRate,
-                           real deltaT,
-                           unsigned int ltsFace,
-                           unsigned int pointIndex) {
+                           real /*localSlipRate*/,
+                           real /*deltaT*/,
+                           std::size_t /*ltsFace*/,
+                           std::uint32_t /*pointIndex*/) {
     return strength;
   };
 };
@@ -260,9 +257,7 @@ class BiMaterialFault {
   explicit BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters)
       : drParameters(parameters) {};
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup,
-                          real fullUpdateTime);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData);
   /**
    * Resampling of the sliprate introduces artificial oscillations into the solution, if we use it
    * together with Prakash-Clifton regularization, so for the BiMaterialFault specialization, we
@@ -276,21 +271,32 @@ class BiMaterialFault {
 #pragma omp declare simd
   static real stateVariableHook(real localAccumulatedSlip,
                                 real localDc,
-                                unsigned int ltsFace,
-                                unsigned int pointIndex) {
+                                std::size_t /*ltsFace*/,
+                                std::uint32_t /*pointIndex*/) {
     return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   }
 
 #pragma omp declare simd
-  real strengthHook(real strength,
+  real strengthHook(real faultStrength,
                     real localSlipRate,
                     real deltaT,
-                    unsigned int ltsFace,
-                    unsigned int pointIndex);
+                    std::size_t ltsFace,
+                    std::uint32_t pointIndex) {
+    // modify strength according to Prakash-Clifton
+    // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
+    const auto expval = -(std::max(static_cast<real>(0.0), localSlipRate) + drParameters->vStar) *
+                        deltaT / drParameters->prakashLength;
+    const real expterm = std::exp(expval);
+    const real exp1mterm = -std::expm1(expval);
+    const real newStrength =
+        regularizedStrength[ltsFace][pointIndex] * expterm + faultStrength * exp1mterm;
+    regularizedStrength[ltsFace][pointIndex] = newStrength;
+    return newStrength;
+  }
 
   protected:
   seissol::initializer::parameters::DRParameters* drParameters;
-  real (*regularizedStrength)[misc::NumPaddedPoints]{};
+  real (*__restrict regularizedStrength)[misc::NumPaddedPoints]{};
 };
 
 /**
@@ -301,9 +307,7 @@ class TPApprox {
   explicit TPApprox(seissol::initializer::parameters::DRParameters* parameters)
       : drParameters(parameters) {};
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
-                          real fullUpdateTime) {}
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
   /**
    * Use a simple copy for now, maybe use proper resampling later
    */
@@ -315,15 +319,18 @@ class TPApprox {
 #pragma omp declare simd
   real stateVariableHook(real localAccumulatedSlip,
                          real localDc,
-                         unsigned int ltsFace,
-                         unsigned int pointIndex);
+                         std::size_t /*ltsFace*/,
+                         std::uint32_t /*pointIndex*/) {
+    const real factor = (1.0 + std::fabs(localAccumulatedSlip) / localDc);
+    return 1.0 - std::pow(factor, -drParameters->tpProxyExponent);
+  }
 
 #pragma omp declare simd
   static real strengthHook(real strength,
-                           real localSlipRate,
-                           real deltaT,
-                           unsigned int ltsFace,
-                           unsigned int pointIndex) {
+                           real /*localSlipRate*/,
+                           real /*deltaT*/,
+                           std::size_t /*ltsFace*/,
+                           std::uint32_t /*pointIndex*/) {
     return strength;
   };
 
@@ -333,4 +340,4 @@ class TPApprox {
 
 } // namespace seissol::dr::friction_law::cpu
 
-#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_LINEARSLIPWEAKENING_H_
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_LINEARSLIPWEAKENING_H_

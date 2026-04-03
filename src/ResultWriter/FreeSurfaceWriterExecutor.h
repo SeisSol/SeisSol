@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,21 +9,21 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_FREESURFACEWRITEREXECUTOR_H_
 #define SEISSOL_SRC_RESULTWRITER_FREESURFACEWRITEREXECUTOR_H_
 
-#include "async/ExecInfo.h"
+#include "Kernels/Precision.h"
+#include "Monitoring/Stopwatch.h"
 #include "xdmfwriter/XdmfWriter.h"
 
-#include "Monitoring/Stopwatch.h"
-#include <Kernels/Precision.h>
+#include <async/ExecInfo.h>
 
 namespace seissol::writer {
 struct FreeSurfaceInitParam {
-  int timestep;
-  xdmfwriter::BackendType backend;
+  int timestep{};
+  xdmfwriter::BackendType backend{};
   std::string backupTimeStamp;
 };
 
 struct FreeSurfaceParam {
-  double time;
+  double time{};
 };
 
 class FreeSurfaceWriterExecutor {
@@ -33,20 +33,21 @@ class FreeSurfaceWriterExecutor {
     Cells = 1,
     Vertices = 2,
     LocationFlags = 3,
-    Variables0 = 4,
+    GlobalIds = 4,
+    Variables0 = 5,
   };
 
   private:
-#ifdef USE_MPI
   /** The MPI communicator for the writer */
   MPI_Comm m_comm{MPI_COMM_NULL};
-#endif // USE_MPI
 
   xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>* m_xdmfWriter{nullptr};
   unsigned m_numVariables{0};
 
   /** Backend stopwatch */
   Stopwatch m_stopwatch;
+
+  bool m_enabled{false};
 
   public:
   FreeSurfaceWriterExecutor() = default;
@@ -75,25 +76,19 @@ class FreeSurfaceWriterExecutor {
   }
 
   void setLocationFlagData(const unsigned int* locationFlags) {
-    m_xdmfWriter->writeExtraIntCellData(locationFlags);
+    m_xdmfWriter->writeExtraIntCellData(0, locationFlags);
   }
 
   void finalize() {
-    if (m_xdmfWriter != nullptr) {
-      m_stopwatch.printTime("Time free surface writer backend:"
-#ifdef USE_MPI
-                            ,
-                            m_comm
-#endif // USE_MPI
-      );
+    if (m_enabled) {
+      // note: also includes some ranks which do nothing at all
+      m_stopwatch.printTime("Time free surface writer backend:");
     }
 
-#ifdef USE_MPI
     if (m_comm != MPI_COMM_NULL) {
       MPI_Comm_free(&m_comm);
       m_comm = MPI_COMM_NULL;
     }
-#endif // USE_MPI
 
     delete m_xdmfWriter;
     m_xdmfWriter = nullptr;
