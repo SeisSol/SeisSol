@@ -14,7 +14,9 @@
 
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <mpi.h>
+#include <string>
 
 namespace seissol::time_stepping {
 void DirectGhostTimeCluster::sendCopyLayer() {

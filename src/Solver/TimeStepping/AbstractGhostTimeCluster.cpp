@@ -15,11 +15,11 @@
 #include "Solver/TimeStepping/HaloCommunication.h"
 
 #include <cassert>
-#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <list>
 #include <mpi.h>
 #include <string>
-#include <utils/logger.h>
 
 namespace seissol::time_stepping {
 bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests, std::list<std::size_t>& regions) {

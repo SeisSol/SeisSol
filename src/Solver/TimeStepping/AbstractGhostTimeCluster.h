@@ -48,7 +48,7 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
   void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
   void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
 
-  [[nodiscard]] virtual bool timeoutFail() const override;
+  [[nodiscard]] bool timeoutFail() const override;
 
   public:
   AbstractGhostTimeCluster(double maxTimeStepSize,

@@ -37,6 +37,7 @@
 #include <limits>
 #include <memory>
 #include <mpi.h>
+#include <string>
 #include <utility>
 #include <vector>
 
