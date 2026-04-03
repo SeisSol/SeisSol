@@ -65,15 +65,19 @@ bool DirectGhostTimeCluster::testForGhostLayerReceives() {
 
 DirectGhostTimeCluster::DirectGhostTimeCluster(
     double maxTimeStepSize,
-    int timeStepRate,
-    int globalTimeClusterId,
-    int otherGlobalTimeClusterId,
+    std::uint64_t timeStepRate,
+    std::size_t globalTimeClusterId,
+    std::size_t otherGlobalTimeClusterId,
+    const std::string& displayName,
+    const std::string& otherDisplayName,
     const seissol::solver::HaloCommunication& meshStructure,
     bool persistent)
     : AbstractGhostTimeCluster(maxTimeStepSize,
                                timeStepRate,
                                globalTimeClusterId,
                                otherGlobalTimeClusterId,
+                               displayName,
+                               otherDisplayName,
                                meshStructure),
       persistent(persistent) {
   if (persistent) {

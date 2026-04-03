@@ -220,7 +220,6 @@ class TimeCluster : public AbstractTimeCluster {
   DynamicRuptureScheduler* dynamicRuptureScheduler;
 
   protected:
-  void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
   void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
   void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
   void start() override {}

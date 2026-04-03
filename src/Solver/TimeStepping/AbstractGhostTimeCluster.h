@@ -24,15 +24,18 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
   solver::RemoteClusterPair meshStructure;
   std::vector<MPI_Request> sendRequests;
   std::vector<MPI_Request> recvRequests;
-  std::list<unsigned int> sendQueue;
-  std::list<unsigned int> receiveQueue;
+  std::list<std::size_t> sendQueue;
+  std::list<std::size_t> receiveQueue;
+
+  std::string displayName_;
+  std::string otherDisplayName_;
 
   double lastSendTime = -1.0;
 
   virtual void sendCopyLayer() = 0;
   virtual void receiveGhostLayer() = 0;
 
-  bool testQueue(MPI_Request* requests, std::list<unsigned int>& regions);
+  bool testQueue(MPI_Request* requests, std::list<std::size_t>& regions);
   bool testForCopyLayerSends();
   virtual bool testForGhostLayerReceives() = 0;
 
@@ -44,13 +47,16 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
   bool maySync() override;
   void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
   void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
-  void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
+
+  [[nodiscard]] virtual bool timeoutFail() const override;
 
   public:
   AbstractGhostTimeCluster(double maxTimeStepSize,
-                           int timeStepRate,
-                           int globalTimeClusterId,
-                           int otherGlobalTimeClusterId,
+                           std::uint64_t timeStepRate,
+                           std::size_t globalTimeClusterId,
+                           std::size_t otherGlobalTimeClusterId,
+                           const std::string& displayName,
+                           const std::string& otherDisplayName,
                            const seissol::solver::HaloCommunication& meshStructure);
 
   void reset() override;
