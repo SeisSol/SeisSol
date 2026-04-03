@@ -587,7 +587,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   using Range = typename NumPoints<Type>::Range;
   real localAccumulatedSlip[Range::Size]{};
   real localFrictionalEnergy[Range::Size]{};
-  real localSlipRate[3][Range::Size]{};
+  real localSlip[3][Range::Size]{};
 
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
     auto i{startIndex + index};
@@ -595,7 +595,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     localFrictionalEnergy[index] = frictionalEnergy[i];
 #pragma unroll
     for (uint32_t d = 0; d < 3; ++d) {
-      localSlipRate[d][index] = slip[d][i];
+      localSlip[d][index] = slip[d][i];
     }
   }
 
@@ -629,9 +629,9 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
         localAccumulatedSlip[index] += timeWeight * slipRateMagnitude[i];
       }
 
-      localSlipRate[0][index] += timeWeight * interpolatedSlipRate1;
-      localSlipRate[1][index] += timeWeight * interpolatedSlipRate2;
-      localSlipRate[2][index] += timeWeight * interpolatedSlipRate3;
+      localSlip[0][index] += timeWeight * interpolatedSlipRate1;
+      localSlip[1][index] += timeWeight * interpolatedSlipRate2;
+      localSlip[2][index] += timeWeight * interpolatedSlipRate3;
 
       const real interpolatedTraction12 = bPlus * qIMinus[o][T1][i] + bMinus * qIPlus[o][T1][i];
       const real interpolatedTraction13 = bPlus * qIMinus[o][T2][i] + bMinus * qIPlus[o][T2][i];
@@ -649,7 +649,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     frictionalEnergy[i] = localFrictionalEnergy[index];
 #pragma unroll
     for (uint32_t d = 0; d < 3; ++d) {
-      slip[d][i] = localSlipRate[d][index];
+      slip[d][i] = localSlip[d][index];
     }
   }
 }
