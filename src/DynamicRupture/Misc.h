@@ -81,18 +81,22 @@ constexpr F forEach(TupleT&& tuple, F&& functor) {
 }
 /**
  * Compute base^exp
- * Note: precision has to be double, otherwise we would loose too much precision.
  * @param base
  * @return
  */
 #pragma omp declare simd
 template <size_t Exp, typename T>
 SEISSOL_HOSTDEVICE inline auto power(T base) -> T {
-  T result = static_cast<T>(1.0);
-  for (size_t i = 0; i < Exp; ++i) {
-    result *= base;
+  if constexpr (Exp == 1) {
+    return base;
   }
-  return result;
+  const auto r2 = power<Exp / 2>(base);
+  const auto r1 = r2 * r2;
+  if constexpr (Exp % 2 == 1) {
+    return r1 * base;
+  } else {
+    return r1;
+  }
 }
 
 #pragma omp declare simd

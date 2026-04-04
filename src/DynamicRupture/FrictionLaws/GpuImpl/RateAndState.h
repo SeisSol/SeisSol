@@ -123,9 +123,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       const auto localSlipRateMagnitude = ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
       const auto& localImpAndEta = ctx.data->impAndEta[ctx.ltsFace];
 
-      auto& exportMu = devMu[ctx.ltsFace][ctx.pointIndex];
-
       real slipRateTest{};
+      real exportMu{};
       const bool hasConvergedLocal =
           RateAndStateBase::invertSlipRateIterative(ctx,
                                                     slipRateTest,
@@ -137,6 +136,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                     exportMu,
                                                     settings);
       deviceBarrier(ctx);
+      devMu[ctx.ltsFace][ctx.pointIndex] = exportMu;
 
       devLocalSlipRate = 0.5 * (localSlipRateMagnitude + std::fabs(slipRateTest));
       ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = std::fabs(slipRateTest);
@@ -206,9 +206,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto rsF0{ctx.data->f0[ctx.ltsFace][ctx.pointIndex]};
 
     const auto localRuptureTime = ctx.data->ruptureTime[ctx.ltsFace][ctx.pointIndex];
-    if (localRuptureTime > 0.0 && localRuptureTime <= time &&
+    if (localRuptureTime > static_cast<real>(0.0) && localRuptureTime <= time &&
         ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
-        ctx.data->mu[ctx.ltsFace][ctx.pointIndex] <= (muW + 0.05 * (rsF0 - muW))) {
+        ctx.data->mu[ctx.ltsFace][ctx.pointIndex] <=
+            (muW + static_cast<real>(0.05) * (rsF0 - muW))) {
       ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = time;
       ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
     }
@@ -250,7 +251,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       }
 
       dMuF = Derived::updateMuDerivative(ctx, slipRateTest, details);
-      dG = -invEtaS * (std::fabs(normalStress) * dMuF) - 1.0;
+      dG = -invEtaS * (std::fabs(normalStress) * dMuF) - static_cast<real>(1.0);
       slipRateTest = std::max(friction_law::rs::almostZero(), slipRateTest - (g / dG));
     }
     return false;

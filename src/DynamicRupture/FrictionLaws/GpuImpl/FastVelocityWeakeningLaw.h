@@ -49,7 +49,8 @@ class FastVelocityWeakeningLaw
 
     const real steadyStateFrictionCoefficient =
         localMuW + (lowVelocityFriction - localMuW) /
-                       std::pow(1.0 + std::pow(localSlipRate / localSrW, 8), 1.0 / 8.0);
+                       std::pow(static_cast<real>(1.0) + misc::power<8>(localSlipRate / localSrW),
+                                static_cast<real>(1.0 / 8.0));
 
     const real steadyStateStateVariable =
         localA * rs::logsinh(ctx.data->drParameters.rsSr0 / localSlipRate * 2,
