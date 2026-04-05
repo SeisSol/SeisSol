@@ -138,7 +138,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       deviceBarrier(ctx);
       devMu[ctx.ltsFace][ctx.pointIndex] = exportMu;
 
-      devLocalSlipRate = 0.5 * (localSlipRateMagnitude + std::fabs(slipRateTest));
+      devLocalSlipRate =
+          static_cast<real>(0.5) * (localSlipRateMagnitude + std::fabs(slipRateTest));
       ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = std::fabs(slipRateTest);
     }
   }

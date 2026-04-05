@@ -185,8 +185,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         // update local slip rate, now using V=(Vnew+Vold)/2
         // For the next SV update, use the mean slip rate between the initial guess and the one
         // found (Kaneko 2008, step 6)
-        localSlipRate[pointIndex] = 0.5 * (this->slipRateMagnitude[ltsFace][pointIndex] +
-                                           std::fabs(testSlipRate[pointIndex]));
+        localSlipRate[pointIndex] =
+            static_cast<real>(0.5) *
+            (this->slipRateMagnitude[ltsFace][pointIndex] + std::fabs(testSlipRate[pointIndex]));
 
         // solve again for Vnew
         this->slipRateMagnitude[ltsFace][pointIndex] = std::fabs(testSlipRate[pointIndex]);
@@ -259,12 +260,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
 
-      if (this->ruptureTime[faceIndex][pointIndex] > 0.0 &&
+      if (this->ruptureTime[faceIndex][pointIndex] > static_cast<real>(0.0) &&
           this->ruptureTime[faceIndex][pointIndex] <= time &&
           this->dynStressTimePending[faceIndex][pointIndex] &&
           this->mu[faceIndex][pointIndex] <=
               (this->muW[faceIndex][pointIndex] +
-               0.05 * (this->f0[faceIndex][pointIndex] - this->muW[faceIndex][pointIndex]))) {
+               static_cast<real>(0.05) *
+                   (this->f0[faceIndex][pointIndex] - this->muW[faceIndex][pointIndex]))) {
         this->dynStressTime[faceIndex][pointIndex] = time;
         this->dynStressTimePending[faceIndex][pointIndex] = false;
       }
@@ -333,7 +335,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         // derivative of g
         dG[pointIndex] = -this->impAndEta[ltsFace].invEtaS *
                              (std::fabs(normalStress[pointIndex]) * dMuF[pointIndex]) -
-                         1.0;
+                         static_cast<real>(1.0);
         // newton update
         const real tmp3 = g[pointIndex] / dG[pointIndex];
         slipRateTest[pointIndex] = std::max(rs::almostZero(), slipRateTest[pointIndex] - tmp3);

@@ -59,7 +59,8 @@ class FastVelocityWeakeningLaw
                                        log(localSlipRate / this->drParameters->rsSr0)));
     const real steadyStateFrictionCoefficient =
         localMuW + (lowVelocityFriction - localMuW) /
-                       std::pow(1.0 + misc::power<8, double>(localSlipRate / localSrW), 1.0 / 8.0);
+                       std::pow(static_cast<real>(1.0) + misc::power<8>(localSlipRate / localSrW),
+                                static_cast<real>(1.0 / 8.0));
     // TODO: check again, if double precision is necessary here (earlier, there were cancellation
     // issues)
     const real steadyStateStateVariable =
@@ -92,7 +93,7 @@ class FastVelocityWeakeningLaw
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       const real localA = this->a[ltsFace][pointIndex];
 
-      const real cLin = 0.5 / this->drParameters->rsSr0;
+      const real cLin = static_cast<real>(0.5) / this->drParameters->rsSr0;
       const real cExpLog = localStateVariable[pointIndex] / localA;
       const real cExp = rs::computeCExp(cExpLog);
       const real acLin = localA * cLin;

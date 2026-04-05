@@ -325,8 +325,8 @@ class TPApprox {
                                                real localAccumulatedSlip,
                                                real localDc,
                                                real tpProxyExponent) {
-    const real factor = (1.0 + std::fabs(localAccumulatedSlip) / localDc);
-    return 1.0 - std::pow(factor, -tpProxyExponent);
+    const real factor = (static_cast<real>(1.0) + std::fabs(localAccumulatedSlip) / localDc);
+    return static_cast<real>(1.0) - std::pow(factor, -tpProxyExponent);
   };
 
   SEISSOL_DEVICE static real strengthHook(FrictionLawContext& /*ctx*/,

@@ -58,7 +58,7 @@ class SlowVelocityWeakeningLaw
       const real localF0 = this->f0[ltsFace][pointIndex];
       const real localB = this->b[ltsFace][pointIndex];
 
-      const real cLin = 0.5 / this->drParameters->rsSr0;
+      const real cLin = static_cast<real>(0.5) / this->drParameters->rsSr0;
       const real cExpLog = (localF0 + localB * log1) / localA;
       const real cExp = rs::computeCExp(cExpLog);
       const real acLin = localA * cLin;

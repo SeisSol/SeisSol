@@ -75,7 +75,7 @@ class FastVelocityWeakeningLaw
 
   SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& ctx, double localStateVariable) {
     const real localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
-    const real cLin = 0.5 / ctx.data->drParameters.rsSr0;
+    const real cLin = static_cast<real>(0.5) / ctx.data->drParameters.rsSr0;
     const real cExpLog = localStateVariable / localA;
     const real cExp = rs::computeCExp(cExpLog);
     const real acLin = localA * cLin;
