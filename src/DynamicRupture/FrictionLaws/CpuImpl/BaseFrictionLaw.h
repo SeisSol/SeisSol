@@ -46,7 +46,7 @@ class BaseFrictionLaw : public FrictionSolver {
   /**
    * evaluates the current friction model
    */
-  void evaluate(real fullUpdateTime,
+  void evaluate(double fullUpdateTime,
                 const FrictionTime& frictionTime,
                 const double* timeWeights,
                 seissol::parallel::runtime::StreamRuntime& /*runtime*/) override {
@@ -59,6 +59,8 @@ class BaseFrictionLaw : public FrictionSolver {
       SCOREP_USER_REGION_DEFINE(myRegionHandle)
       std::copy_n(frictionTime.deltaT.begin(), frictionTime.deltaT.size(), this->deltaT_);
       this->fullUpdateTime_ = fullUpdateTime;
+      std::array<real, misc::TimeSteps> localTimeWeights{};
+      std::copy_n(timeWeights, localTimeWeights.size(), localTimeWeights.begin());
 
       // loop over all dynamic rupture faces, in this LTS layer
 #pragma omp parallel for schedule(static)
@@ -163,7 +165,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                                      imposedStateMinus_[ltsFace],
                                                      qInterpolatedPlus_[ltsFace],
                                                      qInterpolatedMinus_[ltsFace],
-                                                     timeWeights);
+                                                     localTimeWeights.data());
         LIKWID_MARKER_STOP("computeDynamicRupturePostcomputeImposedState");
         SCOREP_USER_REGION_END(myRegionHandle)
 
@@ -172,7 +174,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                         qInterpolatedPlus_[ltsFace],
                                         qInterpolatedMinus_[ltsFace],
                                         impAndEta_[ltsFace],
-                                        timeWeights,
+                                        localTimeWeights.data(),
                                         spaceWeights_,
                                         godunovData_[ltsFace],
                                         slipRateMagnitude_[ltsFace],

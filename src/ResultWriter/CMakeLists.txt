@@ -16,6 +16,7 @@ add_library(seissol-resultwriter OBJECT
     FreeSurfaceWriter.cpp
     FreeSurfaceWriterExecutor.cpp
     MiniSeisSolWriter.cpp
+    ParallelHdf5ReceiverWriter.cpp
     PickpointWriter.cpp
     PostProcessor.cpp
     ReceiverWriter.cpp
