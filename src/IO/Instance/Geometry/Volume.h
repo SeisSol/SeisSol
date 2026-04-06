@@ -73,7 +73,7 @@ class VolumeWriter : public GeometryWriter {
       for (const auto& point : tetrahedron) {
         const auto data = basisFunction::SampledBasisFunctions<real>(
                               ConvergenceOrder, point[0], point[1], point[2])
-                              .m_data;
+                              .data();
         std::copy(data.begin(), data.end(), coll.begin() + idx);
         idx += data.size();
       }

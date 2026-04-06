@@ -226,7 +226,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       for (const auto& point : tetrahedron) {
         const auto data = basisFunction::SampledBasisFunctions<real>(
                               ConvergenceOrder, point[0], point[1], point[2])
-                              .m_data;
+                              .data();
         std::copy(data.begin(), data.end(), coll.begin() + idx);
         idx += data.size();
       }
@@ -249,7 +249,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       for (const auto& point : tetrahedron) {
         const auto data = basisFunction::SampledBasisFunctionDerivatives<real>(
                               ConvergenceOrder, point[0], point[1], point[2])
-                              .m_data;
+                              .data();
         std::copy(data.begin(), data.end(), coll1.begin() + idx);
         std::copy(data.begin(), data.end(), coll2.begin() + idx);
         std::copy(data.begin(), data.end(), coll3.begin() + idx);
@@ -448,7 +448,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           seissol::transformations::chiTau2XiEtaZeta(f, point.data(), xez);
           const auto data =
               basisFunction::SampledBasisFunctions<real>(ConvergenceOrder, xez[0], xez[1], xez[2])
-                  .m_data;
+                  .data();
           std::copy(data.begin(), data.end(), coll.begin() + idx);
           idx += data.size();
         }

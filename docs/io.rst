@@ -15,7 +15,7 @@ disrupt the computation.
 In particular, the IO system covers:
 
 * high-order 3D and 2D output (wavefield, surface, elementwise fault)
-* zero-th order IO for 3D and 2D output (via the XdmfWriter module)
+* zero-th order IO for 3D and 2D output
 * checkpointing of arbitrary friction laws and equations
 
 Not directly handled by it are:
