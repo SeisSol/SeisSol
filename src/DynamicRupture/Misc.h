@@ -79,13 +79,14 @@ template <typename TupleT, typename F>
 constexpr F forEach(TupleT&& tuple, F&& functor) {
   return forEachElement<0>(std::forward<F>(functor), std::forward<TupleT>(tuple));
 }
+
 /**
  * Compute base^exp
  * @param base
  * @return
  */
 #pragma omp declare simd
-template <size_t Exp, typename T>
+template <int32_t Exp, typename T>
 SEISSOL_HOSTDEVICE constexpr auto power(T base) -> T {
   if constexpr (Exp == 0) {
     return 1;
@@ -93,13 +94,35 @@ SEISSOL_HOSTDEVICE constexpr auto power(T base) -> T {
   if constexpr (Exp == 1) {
     return base;
   }
-  const auto r2 = power<Exp / 2>(base);
-  const auto r1 = r2 * r2;
-  if constexpr (Exp % 2 == 1) {
-    return r1 * base;
-  } else {
-    return r1;
+  if constexpr (Exp == 2) {
+    return base * base;
   }
+
+  constexpr std::int32_t ILogExp = [&]() constexpr {
+    auto val = Exp;
+    for (std::int32_t i = 0; i < 64; ++i) {
+      val /= 2;
+      if (val == 0) {
+        // (Exp == 0 is handled above)
+        return i;
+      }
+    }
+    return 64;
+  }();
+
+  T res = base;
+
+#ifdef ACL_DEVICE
+#pragma unroll
+#endif
+  for (std::int32_t i = ILogExp - 1; i >= 0; --i) {
+    res *= res;
+    if ((Exp & (1 << i)) != 0) {
+      res *= base;
+    }
+  }
+
+  return res;
 }
 
 #pragma omp declare simd
