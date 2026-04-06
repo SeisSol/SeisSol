@@ -47,7 +47,7 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
     // NOLINTNEXTLINE
     sycl::local_accessor<real> sharedMemory(misc::NumPaddedPoints, cgh);
 
-    cgh.parallel_for(rng, [=, args](sycl::nd_item<1> item) {
+    cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
       FrictionLawContext ctx{};
       ctx.sharedMemory = &sharedMemory[0];
       ctx.item = reinterpret_cast<void*>(&item);
