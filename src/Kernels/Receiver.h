@@ -33,13 +33,13 @@ class SeisSol;
 
 namespace kernels {
 struct Receiver {
-  Receiver(unsigned pointId,
+  Receiver(std::size_t pointId,
            Eigen::Vector3d position,
            const double* elementCoords[4],
            LTS::Ref dataHost,
            LTS::Ref dataDevice,
            size_t reserved);
-  unsigned pointId;
+  std::size_t pointId;
   Eigen::Vector3d position;
   basisFunction::SampledBasisFunctions<real> basisFunctions;
   basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
@@ -80,14 +80,14 @@ class ReceiverCluster {
   explicit ReceiverCluster(seissol::SeisSol& seissolInstance);
 
   ReceiverCluster(const CompoundGlobalData& global,
-                  const std::vector<unsigned>& quantities,
+                  const std::vector<std::size_t>& quantities,
                   double samplingInterval,
                   double syncPointInterval,
                   const std::vector<std::shared_ptr<DerivedReceiverQuantity>>& derivedQuantities,
                   seissol::SeisSol& seissolInstance);
 
-  void addReceiver(unsigned meshId,
-                   unsigned pointId,
+  void addReceiver(std::size_t meshId,
+                   std::size_t pointId,
                    const Eigen::Vector3d& point,
                    const seissol::geometry::MeshReader& mesh,
                    const LTS::Backmap& backmap);
@@ -115,7 +115,7 @@ class ReceiverCluster {
   std::vector<Receiver> receivers_;
   seissol::kernels::Spacetime spacetimeKernel_;
   seissol::kernels::Time timeKernel_;
-  std::vector<unsigned> quantities_;
+  std::vector<std::size_t> quantities_;
   std::uint64_t nonZeroFlops_{};
   std::uint64_t hardwareFlops_{};
   double samplingInterval_;

@@ -25,7 +25,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cctype>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
@@ -56,7 +55,7 @@ Eigen::Vector3d parseReceiverLine(const std::string& line) {
   std::sregex_token_iterator iter(line.begin(), line.end(), rgx, -1);
   const std::sregex_token_iterator end;
   Eigen::Vector3d coordinates{};
-  unsigned numberOfCoordinates = 0;
+  std::uint32_t numberOfCoordinates = 0;
   for (; iter != end; ++iter, ++numberOfCoordinates) {
     if (numberOfCoordinates >= coordinates.size()) {
       throw std::runtime_error("Too many coordinates in line " + line + ".");
@@ -91,7 +90,7 @@ std::string ReceiverWriter::hdf5FileName(const std::string& prefix) {
   return prefix + "-receivers.h5";
 }
 
-std::string ReceiverWriter::fileName(unsigned pointId) const {
+std::string ReceiverWriter::fileName(std::size_t pointId) const {
   std::stringstream fns;
   fns << std::setfill('0') << fileNamePrefix_ << "-receiver-" << std::setw(5) << (pointId + 1);
   fns << ".dat";
@@ -109,8 +108,7 @@ std::vector<std::string> ReceiverWriter::variableNames() const {
     names.insert(names.end(), derivedNames.begin(), derivedNames.end());
   }
 
-  for (unsigned sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd;
-       ++sim) {
+  for (auto sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd; ++sim) {
     for (const auto& name : names) {
       if constexpr (seissol::multisim::MultisimEnabled) {
         fullNames.push_back(name + std::to_string(sim));
@@ -122,7 +120,7 @@ std::vector<std::string> ReceiverWriter::variableNames() const {
   return fullNames;
 }
 
-void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point) {
+void ReceiverWriter::writeHeader(std::size_t pointId, const Eigen::Vector3d& point) {
   auto name = fileName(pointId);
 
   /// \todo Find a nicer solution that is not so hard-coded.
@@ -187,12 +185,12 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
     logInfo() << "No record points read.";
   }
 
-  const unsigned numberOfPoints = points.size();
+  const auto numberOfPoints = points.size();
   std::vector<short> contained(numberOfPoints);
   std::vector<std::size_t> meshIds(numberOfPoints);
 
   // We want to plot all quantities except for the memory variables
-  std::vector<unsigned> quantities(seissol::model::MaterialT::Quantities.size());
+  std::vector<std::size_t> quantities(seissol::model::MaterialT::Quantities.size());
   std::iota(quantities.begin(), quantities.end(), 0);
 
   logInfo() << "Finding meshIds for receivers...";
@@ -381,7 +379,7 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
     pointIds.push_back(static_cast<std::uint64_t>(lr.rcv->pointId));
   }
 
-  const unsigned ncols = localReceivers.empty() ? 0 : localReceivers[0].clus->ncols();
+  const auto ncols = localReceivers.empty() ? 0 : localReceivers[0].clus->ncols();
   std::vector<double> hdf5Data(totalNewSamples * localReceiverCount * ncols);
 
   for (size_t lr = 0; lr < localReceivers.size(); ++lr) {

@@ -43,7 +43,7 @@
 
 namespace seissol::kernels {
 
-Receiver::Receiver(unsigned pointId,
+Receiver::Receiver(std::size_t pointId,
                    Eigen::Vector3d position,
                    const double* elementCoords[4],
                    LTS::Ref dataHost,
@@ -66,7 +66,7 @@ ReceiverCluster::ReceiverCluster(seissol::SeisSol& seissolInstance)
 
 ReceiverCluster::ReceiverCluster(
     const CompoundGlobalData& global,
-    const std::vector<unsigned>& quantities,
+    const std::vector<std::size_t>& quantities,
     double samplingInterval,
     double syncPointInterval,
     const std::vector<std::shared_ptr<DerivedReceiverQuantity>>& derivedQuantities,
@@ -79,8 +79,8 @@ ReceiverCluster::ReceiverCluster(
   spacetimeKernel_.flopsAder(nonZeroFlops_, hardwareFlops_);
 }
 
-void ReceiverCluster::addReceiver(unsigned meshId,
-                                  unsigned pointId,
+void ReceiverCluster::addReceiver(std::size_t meshId,
+                                  std::size_t pointId,
                                   const Eigen::Vector3d& point,
                                   const seissol::geometry::MeshReader& mesh,
                                   const LTS::Backmap& backmap) {
@@ -195,7 +195,7 @@ double ReceiverCluster::calcReceivers(double time,
 
         // note: necessary receiver space is reserved in advance
         receiver.output.push_back(receiverTime);
-        for (unsigned sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd;
+        for (auto sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd;
              ++sim) {
           for (auto quantity : quantities_) {
             if (!std::isfinite(seissol::multisim::multisimWrap(qAtPoint, sim, quantity))) {

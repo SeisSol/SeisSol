@@ -88,9 +88,9 @@ class ReceiverWriter : public seissol::Module {
 
   private:
   static std::string hdf5FileName(const std::string& prefix);
-  [[nodiscard]] std::string fileName(unsigned pointId) const;
+  [[nodiscard]] std::string fileName(std::size_t pointId) const;
   [[nodiscard]] std::vector<std::string> variableNames() const;
-  void writeHeader(unsigned pointId, const Eigen::Vector3d& point);
+  void writeHeader(std::size_t pointId, const Eigen::Vector3d& point);
 
   // -- Members --
   seissol::initializer::parameters::ReceiverOutputFormat format_{

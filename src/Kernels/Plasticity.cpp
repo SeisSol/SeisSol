@@ -117,7 +117,7 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
                               meanStress[ip] * plasticityData->sinAngularFriction[ip]);
   }
 
-  int adjust = 0;
+  int32_t adjust = 0;
 
 #pragma omp simd reduction(max : adjust)
   for (std::size_t ip = 0; ip < tensor::yieldFactor::size(); ++ip) {
