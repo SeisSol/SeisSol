@@ -45,7 +45,10 @@ class AbstractTimeCluster {
   virtual bool processMessages();
   virtual void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) = 0;
   virtual void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) = 0;
-  virtual void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) = 0;
+
+  [[nodiscard]] virtual bool timeoutFail() const;
+
+  virtual void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate);
 
   bool hasDifferentExecutorNeighbor();
 

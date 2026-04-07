@@ -15,14 +15,14 @@
 #include "Solver/TimeStepping/HaloCommunication.h"
 
 #include <cassert>
-#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <list>
 #include <mpi.h>
 #include <string>
-#include <utils/logger.h>
 
 namespace seissol::time_stepping {
-bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests, std::list<unsigned int>& regions) {
+bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests, std::list<std::size_t>& regions) {
   for (auto region = regions.begin(); region != regions.end();) {
     MPI_Request* request = &requests[*region];
     int testSuccess = 0;
@@ -100,17 +100,19 @@ void AbstractGhostTimeCluster::handleAdvancedCorrectionTimeMessage(
 
 AbstractGhostTimeCluster::AbstractGhostTimeCluster(
     double maxTimeStepSize,
-    int timeStepRate,
-    int globalTimeClusterId,
-    int otherGlobalTimeClusterId,
+    std::uint64_t timeStepRate,
+    std::size_t globalTimeClusterId,
+    std::size_t otherGlobalTimeClusterId,
+    const std::string& displayName,
+    const std::string& otherDisplayName,
     const seissol::solver::HaloCommunication& meshStructure)
     : AbstractTimeCluster(
           maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
       globalClusterId(globalTimeClusterId), otherGlobalClusterId(otherGlobalTimeClusterId),
       meshStructure(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId)),
       sendRequests(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).copy.size()),
-      recvRequests(
-          meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).ghost.size()) {}
+      recvRequests(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).ghost.size()),
+      displayName_(displayName), otherDisplayName_(otherDisplayName) {}
 
 void AbstractGhostTimeCluster::reset() {
   AbstractTimeCluster::reset();
@@ -118,26 +120,10 @@ void AbstractGhostTimeCluster::reset() {
   lastSendTime = -1;
 }
 
-void AbstractGhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
-  logError() << "Ghost: No update since " << timeSinceLastUpdate.count()
-             << "[s] for global cluster " << globalClusterId << " with other cluster id "
-             << otherGlobalClusterId << " at state " << actorStateToString(state)
-             << " mayPredict = " << mayPredict()
-             << " mayPredict (steps) = " << AbstractTimeCluster::mayPredict()
-             << " mayCorrect = " << mayCorrect()
-             << " mayCorrect (steps) = " << AbstractTimeCluster::mayCorrect()
-             << " maySync = " << maySync();
-  for (auto& neighbor : neighbors) {
-    logError() << "Neighbor with rate = " << neighbor.ct.timeStepRate
-               << "PredTime = " << neighbor.ct.predictionTime
-               << "CorrTime = " << neighbor.ct.correctionTime
-               << "predictionsSinceSync = " << neighbor.ct.predictionsSinceLastSync
-               << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
-  }
+std::string AbstractGhostTimeCluster::description() const {
+  return "comm-" + displayName_ + "-" + otherDisplayName_;
 }
 
-std::string AbstractGhostTimeCluster::description() const {
-  return "comm-" + std::to_string(globalClusterId) + "-" + std::to_string(otherGlobalClusterId);
-}
+bool AbstractGhostTimeCluster::timeoutFail() const { return true; }
 
 } // namespace seissol::time_stepping
