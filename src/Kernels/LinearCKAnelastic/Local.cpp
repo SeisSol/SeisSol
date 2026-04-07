@@ -10,6 +10,7 @@
 #include "Local.h"
 
 #include "Common/Marker.h"
+#include "Kernels/Common.h"
 
 #include <cassert>
 #include <cstring>
@@ -49,26 +50,25 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
 #ifdef USE_PREMULTIPLY_FLUX
   deviceLocalFluxKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
+  deviceFluxLocalAllKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
 #else
   deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
   deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+  deviceFluxLocalAllKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
+  deviceFluxLocalAllKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
 #endif
   deviceLocalKernelPrototype.selectEla = global.onDevice->selectEla;
   deviceLocalKernelPrototype.selectAne = global.onDevice->selectAne;
+  deviceFluxLocalAllKernelPrototype.selectEla = global.onDevice->selectEla;
+  deviceFluxLocalAllKernelPrototype.selectAne = global.onDevice->selectAne;
 #endif
 }
 
-void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                            LTS::Ref& data,
-                            LocalTmp& tmp,
-                            // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
-                            const CellMaterialData* materialData,
-                            const CellBoundaryMapping (*cellBoundaryMapping)[4],
-                            double time,
-                            double timeStepWidth) {
+void Local::computeIntegral(
+    real* timeIntegratedDoFs, LTS::Ref& data, LocalTmp& tmp, double time, double timeStepWidth) {
   // assert alignments
 #ifndef NDEBUG
-  assert((reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom)) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeIntegratedDoFs)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(tmp.timeIntegratedAne)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
 #endif
@@ -77,15 +77,15 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
 
   kernel::volumeExt volKrnl = m_volumeKernelPrototype;
   volKrnl.Qext = Qext;
-  volKrnl.I = timeIntegratedDegreesOfFreedom;
+  volKrnl.I = timeIntegratedDoFs;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
 
   kernel::localFluxExt lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Qext = Qext;
-  lfKrnl.I = timeIntegratedDegreesOfFreedom;
-  lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
+  lfKrnl.I = timeIntegratedDoFs;
+  lfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
   lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
 
   volKrnl.execute();
@@ -117,7 +117,7 @@ void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
   hardwareFlops = seissol::kernel::volumeExt::HardwareFlops;
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    if (faceTypes[face] != FaceType::DynamicRupture) {
+    if (faceTypes[face] != FaceType::DynamicRupture || isDeviceOn()) {
       nonZeroFlops += seissol::kernel::localFluxExt::nonZeroFlops(face);
       hardwareFlops += seissol::kernel::localFluxExt::hardwareFlops(face);
     }
@@ -154,8 +154,6 @@ void Local::computeBatchedIntegral(
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype;
-  kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype;
-  kernel::gpu_local localKrnl = deviceLocalKernelPrototype;
 
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];
@@ -166,6 +164,7 @@ void Local::computeBatchedIntegral(
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
     volKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
 
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
       volKrnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
@@ -173,7 +172,48 @@ void Local::computeBatchedIntegral(
     }
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
+
+#ifdef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
+    auto krnl = deviceFluxLocalAllKernelPrototype;
+
+    krnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
+    krnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    krnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+    krnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+    krnl.Iane =
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
+    krnl.W = const_cast<const real**>(
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+    krnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData, specific.W);
+    krnl.w = const_cast<const real**>(
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+    krnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+    krnl.E = const_cast<const real**>(
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+    krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
+    krnl.streamPtr = runtime.stream();
+
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.W);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.E);
+
+    krnl.I = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, nApNm1);
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      krnl.AplusTAll(face) = const_cast<const real**>(
+          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+      krnl.extraOffset_AplusTAll(face) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
+    }
+
+    krnl.execute();
+#endif
   }
+
+// deprecated code; kept for comparison reasons
+#ifndef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
+  kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype;
+  kernel::gpu_local localKrnl = deviceLocalKernelPrototype;
 
   // Local Flux Integral
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
@@ -187,6 +227,8 @@ void Local::computeBatchedIntegral(
           const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
       localFluxKrnl.AplusT = const_cast<const real**>(
           entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+
+      SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, nApNm1);
       localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
       localFluxKrnl.streamPtr = runtime.stream();
       localFluxKrnl.execute(face);
@@ -214,8 +256,15 @@ void Local::computeBatchedIntegral(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     localKrnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
     localKrnl.streamPtr = runtime.stream();
+
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.W);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.E);
+
     localKrnl.execute();
   }
+#endif
+
 #else
   logError() << "No GPU implementation provided";
 #endif

@@ -86,6 +86,16 @@ void MeshReader::scaleMesh(const Eigen::Matrix3d& scalingMatrix) {
   }
 }
 
+void MeshReader::disableDR() {
+  for (auto& elem : m_elements) {
+    for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
+      if (elem.boundaries[j] == 3) {
+        elem.boundaries[j] = 0;
+      }
+    }
+  }
+}
+
 /**
  * Reconstruct the fault information from the boundary conditions
  */
@@ -385,9 +395,8 @@ void MeshReader::verifyMeshOrientation() {
   // for now, only check the tetrahedron orientation here
 
   bool correct = true;
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t i = 0; i < m_elements.size(); ++i) {
     const auto& element = m_elements[i];
 

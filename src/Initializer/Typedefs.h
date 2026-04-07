@@ -11,6 +11,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
 #define SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
 
+#include "Alignment.h"
 #include "BasicTypedefs.h"
 #include "CellLocalInformation.h"
 #include "DynamicRupture/Misc.h"
@@ -139,11 +140,11 @@ struct GlobalData {
    **/
 
 #if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
-  seissol::tensor::plusFluxMatrices::Container<real const*> plusFluxMatrices;
+  seissol::tensor::plusFluxMatrices::Container<const real*> plusFluxMatrices;
   seissol::tensor::minusFluxMatrices::Container<const real*> minusFluxMatrices;
 #endif // ACL_DEVICE
 
-  seissol::tensor::V3mTo2n::Container<real const*> faceToNodalMatrices;
+  seissol::tensor::V3mTo2n::Container<const real*> faceToNodalMatrices;
 
   //! Modal basis to quadrature points
   real* evalAtQPMatrix{nullptr};
@@ -154,10 +155,6 @@ struct GlobalData {
   //! Switch to nodal for plasticity
   real* vandermondeMatrix{nullptr};
   real* vandermondeMatrixInverse{nullptr};
-
-  // A vector of ones. Note: It is only relevant for GPU computing.
-  // It allows us to allocate this vector only once in the GPU memory
-  real* replicateStresses{nullptr};
 
   real* selectAne{nullptr};
   real* selectEla{nullptr};
@@ -184,7 +181,7 @@ struct CompoundGlobalData {
 };
 
 // data for the cell local integration
-struct LocalIntegrationData {
+struct alignas(Alignment) LocalIntegrationData {
   // star matrices
   real starMatrices[3][seissol::tensor::star::size(0)];
 
@@ -196,7 +193,7 @@ struct LocalIntegrationData {
 };
 
 // data for the neighboring boundary integration
-struct NeighboringIntegrationData {
+struct alignas(Alignment) NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
   real nAmNm1[4][seissol::tensor::AminusT::size()];
 

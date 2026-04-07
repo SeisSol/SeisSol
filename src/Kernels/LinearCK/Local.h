@@ -33,11 +33,9 @@ namespace seissol::kernels::solver::linearck {
 class Local : public LocalKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
-  void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+  void computeIntegral(real* timeIntegratedDoFs,
                        LTS::Ref& data,
                        LocalTmp& tmp,
-                       const CellMaterialData* materialData,
-                       const CellBoundaryMapping (*cellBoundaryMapping)[4],
                        double time,
                        double timeStepWidth) override;
 
@@ -73,6 +71,7 @@ class Local : public LocalKernel {
 #ifdef ACL_DEVICE
   kernel::gpu_volume deviceVolumeKernelPrototype;
   kernel::gpu_localFlux deviceLocalFluxKernelPrototype;
+  kernel::gpu_localFluxAll deviceLocalFluxAllKernelPrototype;
   kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype;
   kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype;
   device::DeviceInstance& device = device::DeviceInstance::getInstance();

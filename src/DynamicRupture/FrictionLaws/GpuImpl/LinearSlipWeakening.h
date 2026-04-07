@@ -238,16 +238,15 @@ class NoSpecialization {
 
     const auto simPointIndex = ctx.pointIndex / multisim::NumSimulations;
     const auto simId = ctx.pointIndex % multisim::NumSimulations;
+    constexpr uint32_t SimPointStride = multisim::MultisimEnabled ? Dim1 : 1U;
+    constexpr uint32_t DataPointStride = multisim::MultisimEnabled ? 1U : Dim0;
 
     real result{0.0};
-    for (size_t i{0}; i < Dim1; ++i) {
-      if constexpr (multisim::MultisimEnabled) {
-        result += ctx.args->resampleMatrix[simPointIndex * Dim1 + i] *
-                  ctx.sharedMemory[i * multisim::NumSimulations + simId];
-      } else {
-        result += ctx.args->resampleMatrix[simPointIndex + i * Dim0] * ctx.sharedMemory[i];
-      }
+    for (uint32_t i = 0; i < Dim1; ++i) {
+      result += ctx.args->resampleMatrix[simPointIndex * SimPointStride + i * DataPointStride] *
+                ctx.sharedMemory[i * multisim::NumSimulations + simId];
     }
+
     return result;
   };
 
@@ -297,11 +296,13 @@ class BiMaterialFault {
                                           real deltaT,
                                           real vStar,
                                           real prakashLength) {
-    const real expterm = std::exp(-(std::max(static_cast<real>(0.0), localSlipRate) + vStar) *
-                                  deltaT / prakashLength);
+    const auto expval =
+        -(std::max(static_cast<real>(0.0), localSlipRate) + vStar) * deltaT / prakashLength;
+    const real expterm = std::exp(expval);
+    const real exp1mterm = -std::expm1(expval);
 
     const real newStrength = ctx.data->regularizedStrength[ctx.ltsFace][ctx.pointIndex] * expterm +
-                             faultStrength * (1.0 - expterm);
+                             faultStrength * exp1mterm;
 
     ctx.data->regularizedStrength[ctx.ltsFace][ctx.pointIndex] = newStrength;
     return newStrength;

@@ -46,6 +46,9 @@ Solver/TimeStepping/GhostTimeClusterWithCopy.cpp
 Solver/TimeStepping/TimeCluster.cpp
 Solver/TimeStepping/TimeManager.cpp
 
+ResultWriter/DofSync.cpp
+ResultWriter/PickpointWriter.cpp
+
 Kernels/DynamicRupture.cpp
 Kernels/Plasticity.cpp
 Kernels/TimeCommon.cpp
@@ -116,6 +119,7 @@ ResultWriter/FreeSurfaceWriterExecutor.cpp
 ResultWriter/MiniSeisSolWriter.cpp
 ResultWriter/PostProcessor.cpp
 ResultWriter/ReceiverWriter.cpp
+ResultWriter/ParallelHdf5ReceiverWriter.cpp
 ResultWriter/ThreadsPinningWriter.cpp
 ResultWriter/WaveFieldWriter.cpp
 ResultWriter/FaultWriter.cpp

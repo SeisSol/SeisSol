@@ -24,7 +24,7 @@ Each node consists of:
 
 Due to the 8 GCDs, we will launch SeisSol with 8 processes per node. The architecture settings we will need for SeisSol are
 ``milan`` for the CPU architecture (optimizing for Zen 3), and ``gfx90a`` for the GPU architecture (targeting the MI250X).
-As device backend, we use HIP, and for the SYCL implementation, we use AdaptiveCpp.
+As device backend, we use HIP.
 
 Installing Modules (without Spack)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -178,7 +178,7 @@ For libxsmm (note that we need 1.17 sharp; the latest main will not work as inte
 
 .. code-block:: bash
 
-    git clone --branch 1.17 --depth 1 https://github.com/hfp/libxsmm
+    git clone --branch 1.17 --depth 1 https://github.com/libxsmm/libxsmm
     cd libxsmm
     make generator
     cp bin/libxsmm_gemm_generator $SEISSOL_PREFIX/bin

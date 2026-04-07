@@ -16,6 +16,7 @@
 #include "Initializer/TimeStepping/Halo.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
@@ -38,12 +39,12 @@ class BucketManager {
   std::size_t dataSize{0};
 
   public:
-  real* markAllocate(std::size_t size, bool align = true) {
-    if (align) {
-      // round up by Alignment
-      this->dataSize = ((this->dataSize + Alignment - 1) / Alignment) * Alignment;
-    }
+  void align() {
+    // round up by Alignment
+    this->dataSize = ((this->dataSize + Alignment - 1) / Alignment) * Alignment;
+  }
 
+  real* markAllocate(std::size_t size) {
     const uintptr_t offset = this->dataSize;
     this->dataSize += size;
 
@@ -141,8 +142,8 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   const auto datatype = Config::Precision;
   const auto typeSize = sizeOfRealType(datatype);
 
-  const auto bufferSize = typeSize * tensor::I::size();
-  const auto derivativeSize = typeSize * yateto::computeFamilySize<tensor::dQ>();
+  const auto bufferSize = typeSize * kernels::Solver::BuffersSize;
+  const auto derivativeSize = typeSize * kernels::Solver::DerivativesSize;
 
   const auto allocate = [&](std::size_t index, bool useDerivatives) {
     if (useDerivatives) {
@@ -195,9 +196,11 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
       allocationPass(counter, region, false, false);
 
       // transfer allocation
+      manager.align();
       auto startPosition = manager.position();
       allocationPass(counter, region, true, false);
       allocationPass(counter, region, true, true);
+      manager.align();
       auto endPosition = manager.position();
       auto size = endPosition - startPosition;
       assert(size % typeSize == 0);
@@ -231,12 +234,10 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
 
   auto* buffersDerivativesDevice = layer.var<LTS::BuffersDerivatives>(AllocationPlace::Device);
 
-  const auto bufferSize = tensor::I::size();
-  const auto derivativeSize = yateto::computeFamilySize<tensor::dQ>();
+  const auto bufferSize = kernels::Solver::BuffersSize;
+  const auto derivativeSize = kernels::Solver::DerivativesSize;
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     initBucketItem(buffers[cell], buffersDerivatives, bufferSize, true);
     initBucketItem(derivatives[cell], buffersDerivatives, derivativeSize, true);
@@ -276,9 +277,7 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
   auto* faceNeighbors = layer.var<LTS::FaceNeighbors>();
   auto* faceNeighborsDevice = layer.var<LTS::FaceNeighborsDevice>();
 
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       const auto& faceNeighbor = secondaryCellInformation[cell].faceNeighbors[face];

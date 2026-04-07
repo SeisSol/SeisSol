@@ -33,10 +33,7 @@ FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<dou
   // add the segment [lastPoint, timestep] to the last point
   deltaT.back() += timePoints[0];
 
-  // use that time points are symmetric to compute dt
-  const auto sumDt = timePoints.back() + timePoints[0];
-
-  return {sumDt, deltaT};
+  return {deltaT};
 }
 
 void FrictionSolver::copyStorageToLocal(DynamicRupture::Layer& layerData) {

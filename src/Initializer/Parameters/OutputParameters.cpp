@@ -119,7 +119,8 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("pickpoint");
 
   const auto printTimeInterval = reader->readWithDefault("printtimeinterval", 1);
-  const auto maxPickStore = reader->readWithDefault("maxpickstore", 50);
+
+  const auto interval = reader->readWithDefault("outputinterval", VeryLongTime);
 
   const auto outputMaskString =
       reader->readWithDefault<std::string>("outputmask", "1 1 1 1 1 1 0 0 0 0 0 0");
@@ -130,10 +131,10 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
   const auto aggregate = reader->readWithDefault("aggregateperrank", false);
 
-  reader->warnDeprecated({"noutpoints"});
+  reader->warnDeprecated({"noutpoints", "maxpickstore"});
 
   return PickpointParameters{
-      printTimeInterval, maxPickStore, outputMask, pickpointFileName, aggregate, collectiveio};
+      printTimeInterval, interval, outputMask, pickpointFileName, aggregate, collectiveio};
 }
 
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
@@ -142,6 +143,14 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
   const auto interval = reader->readWithDefault("receiveroutputinterval", VeryLongTime);
   auto enabled = reader->readWithDefault("receiveroutput", true);
   warnIntervalAndDisable(enabled, interval, "receiveroutput", "receiveroutputinterval");
+
+  const auto format = reader->readWithDefaultStringEnum<ReceiverOutputFormat>(
+      "receiverformat",
+      "csv",
+      {
+          {"csv", ReceiverOutputFormat::Csv},
+          {"hdf5", ReceiverOutputFormat::Hdf5},
+      });
 
   const auto computeRotation = reader->readWithDefault("receivercomputerotation", false);
   const auto computeStrain = reader->readWithDefault("receivercomputestrain", false);
@@ -158,6 +167,7 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
 
   // note: we'll need to supply a filename, even if we don't use the receivers
   return ReceiverOutputParameters{enabled,
+                                  format,
                                   computeRotation,
                                   computeStrain,
                                   interval,

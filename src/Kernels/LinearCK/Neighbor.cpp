@@ -60,11 +60,12 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
-                                        const CellDRMapping (&cellDrMapping)[4],
-                                        real* timeIntegrated[4],
-                                        real* faceNeighborsPrefetch[4]) {
+void Neighbor::computeNeighborsIntegral(
+    LTS::Ref& data,
+    const std::array<real*, Cell::NumFaces>& timeIntegrated,
+    const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) {
   assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
+  const auto& cellDrMapping = data.get<LTS::DRMapping>();
 
   for (std::size_t face = 0; face < Cell::NumFaces; face++) {
     switch (data.get<LTS::CellInformation>().faceTypes[face]) {
@@ -137,6 +138,8 @@ void Neighbor::computeBatchedNeighborsIntegral(
                   (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
               neighFluxKrnl.AminusT = const_cast<const real**>(
                   entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+
+              SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData, nAmNm1);
               neighFluxKrnl.extraOffset_AminusT =
                   SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
 
@@ -185,7 +188,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
 void Neighbor::flopsNeighborsIntegral(
     const std::array<FaceType, Cell::NumFaces>& faceTypes,
     const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-    const CellDRMapping (&cellDrMapping)[4],
+    const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping,
     std::uint64_t& nonZeroFlops,
     std::uint64_t& hardwareFlops,
     std::uint64_t& drNonZeroFlops,

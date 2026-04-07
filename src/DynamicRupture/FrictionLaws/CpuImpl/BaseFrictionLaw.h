@@ -46,7 +46,7 @@ class BaseFrictionLaw : public FrictionSolver {
   /**
    * evaluates the current friction model
    */
-  void evaluate(real fullUpdateTime,
+  void evaluate(double fullUpdateTime,
                 const FrictionTime& frictionTime,
                 const double* timeWeights,
                 seissol::parallel::runtime::StreamRuntime& /*runtime*/) override {
@@ -58,13 +58,12 @@ class BaseFrictionLaw : public FrictionSolver {
 
       SCOREP_USER_REGION_DEFINE(myRegionHandle)
       std::copy_n(frictionTime.deltaT.begin(), frictionTime.deltaT.size(), this->deltaT);
-      this->sumDt = frictionTime.sumDt;
       this->mFullUpdateTime = fullUpdateTime;
+      std::array<real, misc::TimeSteps> localTimeWeights{};
+      std::copy_n(timeWeights, localTimeWeights.size(), localTimeWeights.begin());
 
       // loop over all dynamic rupture faces, in this LTS layer
-#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
-#endif
       for (std::size_t ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
         alignas(Alignment) FaultStresses<Executor::Host> faultStresses{};
         SCOREP_USER_REGION_BEGIN(
@@ -104,7 +103,7 @@ class BaseFrictionLaw : public FrictionSolver {
         for (std::size_t timeIndex = 0; timeIndex < misc::TimeSteps; timeIndex++) {
           startTime = updateTime;
           updateTime += this->deltaT[timeIndex];
-          for (unsigned i = 0; i < this->drParameters->nucleationCount; ++i) {
+          for (uint32_t i = 0; i < this->drParameters->nucleationCount; ++i) {
             common::adjustInitialStress(
                 initialStressInFaultCS[ltsFace],
                 nucleationStressInFaultCS[ltsFace * this->drParameters->nucleationCount + i],
@@ -166,7 +165,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                                      imposedStateMinus[ltsFace],
                                                      qInterpolatedPlus[ltsFace],
                                                      qInterpolatedMinus[ltsFace],
-                                                     timeWeights);
+                                                     localTimeWeights.data());
         LIKWID_MARKER_STOP("computeDynamicRupturePostcomputeImposedState");
         SCOREP_USER_REGION_END(myRegionHandle)
 
@@ -175,7 +174,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                         qInterpolatedPlus[ltsFace],
                                         qInterpolatedMinus[ltsFace],
                                         impAndEta[ltsFace],
-                                        timeWeights,
+                                        localTimeWeights.data(),
                                         spaceWeights,
                                         godunovData[ltsFace],
                                         slipRateMagnitude[ltsFace],

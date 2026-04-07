@@ -117,6 +117,11 @@ class MeshReader {
   void exchangeGhostlayerMetadata();
 
   /**
+   * Disable the DR by converting all DR faces (BC = 3) to regular faces (BC = 0).
+   */
+  void disableDR();
+
+  /**
     Create a linearized ghost layer view.
     Currently, the ghost layer arrays copy each cell per rank-boundary face.
     Meaning that a cell may appear multiple times remotely.

@@ -41,8 +41,8 @@ class ADERDGBase(ABC):
         )
         clonesQP = {"v": ["evalAtQP"], "vInv": ["projectQP"]}
         self.db.update(
-            parseXMLMatrixFile(
-                "{}/plasticity_ip_matrices_{}.xml".format(matricesDir, order),
+            parseJSONMatrixFile(
+                f"{matricesDir}/plasticity-ip-matrices-{order}.json",
                 clonesQP,
                 transpose=self.transpose,
                 alignStride=self.alignStride,
@@ -66,6 +66,10 @@ class ADERDGBase(ABC):
 
         Aplusminus_spp = self.flux_solver_spp()
         self.AplusT = Tensor("AplusT", Aplusminus_spp.shape, spp=Aplusminus_spp)
+        self.AplusTAll = [
+            Tensor(f"AplusTAll({i})", Aplusminus_spp.shape, spp=Aplusminus_spp)
+            for i in range(4)
+        ]
         self.AminusT = Tensor("AminusT", Aplusminus_spp.shape, spp=Aplusminus_spp)
         trans_spp = self.transformation_spp()
         self.T = Tensor("T", trans_spp.shape, spp=trans_spp)
@@ -406,6 +410,19 @@ class LinearADERDG(ADERDGBase):
                 target="gpu",
             )
 
+            localFluxAll = self.Q["kp"] <= sum(
+                [
+                    plusFluxMatrixAccessor(i) * self.I["lq"] * self.AplusTAll[i]["qp"]
+                    for i in range(4)
+                ],
+                start=self.Q["kp"],
+            )
+            generator.add(
+                "gpu_localFluxAll",
+                localFluxAll,
+                target="gpu",
+            )
+
     def addNeighbor(self, generator, targets):
         neighborFlux = (
             lambda h, j, i: self.Q["kp"]
@@ -473,11 +490,17 @@ class LinearADERDG(ADERDGBase):
                 alignStride=True,
             )
             power = powers[0]
-            derivatives = [dQ0]
+
+            dQ0True = self.Q if target == "gpu" else dQ0
+
+            derivatives = [dQ0True]
 
             # for now, interleave Taylor expansion and derivative computation
-            derivativeExpr = [self.I["kp"] <= power * dQ0["kp"]]
+            derivativeExpr = [self.I["kp"] <= power * dQ0True["kp"]]
             derivativeTaylorExpansion = power * dQ0["kp"]
+
+            if target == "gpu":
+                derivativeExpr += [dQ0["kp"] <= self.Q["kp"]]
 
             self.dQs = [dQ0]
 

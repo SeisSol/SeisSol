@@ -16,6 +16,9 @@ Currently, SeisSol needs information about the host architecture on which the co
 Besides setting the necessary compiler tuning variables (usually corresponding to ``-march=TARGET_ARCH -mtune=TARGET_ARCH``),
 it also sets the code generators.
 
+We recommend either using a ``HOST_ARCH`` that conforms to your target architecture (e.g. if you use a Zen 3 CPU, choose ``HOST_ARCH=milan``),
+or to set the ``-march``, ``-mtune``, and ``-mcpu`` settings manually and use a dummy arch (e.g. ``avx2-256`` or ``avx512-512``).
+
 CPU architectures
 ~~~~~~~~~~~~~~~~~
 
@@ -50,37 +53,37 @@ CPU architectures
      - Older Intel CPU clusters, clusters with AMD CPUs (up to 2023)
    * - ``skx``
      - Intel Skylake-X (including Skylake-SP)
-     - Generates AVX-512{F,CD,BW,DQ,VL} instructions. (NOTE: Skylake desktop processors are NOT included here, unless they contain an "X" in their name, such as e.g. i9 7800X)
+     - Generates AVX-512{F,CD,BW,DQ,VL} instructions and optimizes for the Skylake X architecture. (NOTE: Skylake desktop processors are NOT included here, unless they contain an "X" in their name, such as e.g. i9 7800X)
      - Intel Xeon v4 and onward (i.e. including the "metal"-branded Xeons), some Intel Core i9 models (check the Intel database), AMD Zen 4
-     - Most CPU clusters, e.g. SuperMUC NG (Phase 1), Frontera
+     - Most CPU clusters, e.g. SuperMUC-NG (Phase 1), Frontera
    * - ``knc``
      - Intel Knight's Corner (Xeon Phi coprocessor)
      - Generates Knight's Corner-specific instructions.
      - Intel Xeon Phi coprocessor
-     - (not known anymore)
+     - (none known anymore)
    * - ``knl``
      - Intel Knight's Landing (Xeon Phi, optionally as coprocessor)
      - Generates AVX-512{F,CD,PF,ER} instructions.
-     - Intel Xeon Phi coprocessor, as well as
-     - LRZ CoolMUC 3
+     - Intel Xeon Phi coprocessor and processor
+     - (none known anymore)
    * - ``naples``
      - AMD Zen 1
-     - Generates AVX2 instructions. For the libxsmm kernel generator, it is deemed equivalent to ``hsw``.
+     - Generates AVX2 instructions optimized for Zen 1. For the kernel generators, it is deemed equivalent to ``hsw``.
      - Ryzen 1xxx series
      -
    * - ``rome``
      - AMD Zen 2
-     - Generates AVX2 instructions. For the libxsmm kernel generator, it is deemed equivalent to ``hsw``.
+     - Generates AVX2 instructions optimized for Zen 2. For the kernel generators, it is deemed equivalent to ``hsw``.
      - Ryzen 3??? series, 7?2?, 8?2? series
      - LUMI (CPU partition)
    * - ``milan``
      - AMD Zen 3
-     - Generates AVX2 instructions. For the libxsmm kernel generator, it is deemed equivalent to ``hsw``.
+     - Generates AVX2 instructions optimized for Zen 3. For the kernel generators, it is deemed equivalent to ``hsw``.
      - Ryzen 5??? series, 7?3?, 8?3? series
      - LUMI (GPU partition), Frontier (GPU partition)
    * - ``bergamo``
      - AMD Zen 4
-     - Generates AVX512 instructions. For the libxsmm kernel generator, it is deemed equivalent to ``skx``.
+     - Generates AVX512 instructions optimized for Zen 4. For the kernel generators, it is deemed equivalent to ``skx``.
      - Ryzen 7?4? series, MI300A
      -
    * - ``power9``
@@ -153,6 +156,41 @@ CPU architectures
      -
      -
      -
+   * - ``avx2-128``
+     - Dummy target for AVX2 with 128 bits length
+     -
+     -
+     -
+   * - ``avx2-256``
+     - Dummy target for AVX2 with 256 bits length
+     -
+     -
+     -
+   * - ``avx10-128``
+     - Dummy target for AVX512/AVX10.1 with 128 bits length
+     -
+     -
+     -
+   * - ``avx10-256``
+     - Dummy target for AVX512/AVX10.1 with 256 bits length
+     -
+     -
+     -
+   * - ``avx10-512``
+     - Dummy target for AVX512/AVX10.1 with 512 bits length
+     -
+     -
+     -
+   * - ``lsx``
+     - Dummy target for LoongArch LSX with 128 bits length
+     -
+     -
+     -
+   * - ``lasx``
+     - Dummy target for LoongArch LASX with 256 bits length
+     -
+     -
+     -
    * - ``apple-m1``
      - Apple M1 CPU
      -
@@ -173,6 +211,13 @@ CPU architectures
      -
      -
      -
+
+Note that any architecture besides x86-64, ARM/AARCH64, and PowerPC 9
+is to be considered "experimental", as we have had no real hardware to test them on.
+We merely provide forwards from the code generators for those other architectures.
+
+Older x86_64 feature levels and architectures (``wsm``, ``snb``, ``knc``, ``knl``)
+should still be functional, but usually rather untested.
 
 GPU architectures
 ~~~~~~~~~~~~~~~~~
@@ -260,8 +305,8 @@ The following architectures are supported:
      - split [#xnack1]_
    * - ``gfx906``
      - ``hip``
-     - AMD GCN 5 (Vega)
-     - AMD Instinct MI50, Radeon VII
+     - AMD GCN 5 (Vega), 7 nm
+     - AMD Instinct MI50, Radeon (Pro) VII
      - split [#xnack1]_
    * - ``gfx908``
      - ``hip``
@@ -271,13 +316,18 @@ The following architectures are supported:
    * - ``gfx90a``
      - ``hip``
      - AMD CDNA 2
-     - AMD Instinct MI210, MI250X
+     - AMD Instinct MI210, MI250, MI250X
      - split [#xnack1]_
    * - ``gfx942``
      - ``hip``
      - AMD CDNA 3
      - AMD Instinct MI300A, MI300X
      - split [#xnack1]_; unified on MI300A
+   * - ``gfx950``
+     - ``hip``
+     - AMD CDNA 4
+     - AMD Instinct MI350X, MI355X
+     - split [#xnack1]_
    * - ``gfx1010``
      - ``hip``
      - AMD RDNA 1
@@ -293,6 +343,11 @@ The following architectures are supported:
      - AMD RDNA 3
      - AMD Radeon 7000 series
      - split [#xnack2]_
+   * - ``gfx1200``
+     - ``hip``
+     - AMD RDNA 4
+     - AMD Radeon 9000 series
+     - split [#xnack2]_
    * - ``12_60_7`` (``pvc``)
      - ``oneapi``
      - Intel Ponte Vecchio
@@ -305,11 +360,11 @@ Sources:
 * https://llvm.org/docs/AMDGPUUsage.html
 * https://intel.github.io/llvm-docs/UsersManual.html
 
-About AMD GPUs: for unified memory to perform well, you will need to set ``HSA_XNACK=1``.
+About AMD GPUs: for unified buffers to perform well, you will need to set ``HSA_XNACK=1``.
 
 For unsupported AMD GPU architectures (e.g. ``gfx90c``), you can proceed as follows:
 
-* compile for a compatible GPU architecture. In the case of ``gfx90c``, your best choice is ``gfx900`` (or ``gfx906``).
+* compile for a compatible GPU architecture. In the case of ``gfx90c``, your best choice is ``gfx900``.
 * run SeisSol with specifying the environment variable ``HSA_OVERRIDE_GFX_VERSION`` in accordance to the architecture you compiled against in the previous step. That is, you need to convert ``gfxAABC`` to a version of the form ``AA.B.C``. E.g., if you compiled for ``gfx906``, you will need to set ``HSA_OVERRIDE_GFX_VERSION=9.0.6``. Letters become numbers, akin to the hexadecimal notation, i.e. ``gfx90a`` becomes 9.0.10.
 
 .. [#xnack1] For managed memory support to perform well, you will need to set ``HSA_XNACK=1`` as environment variable.

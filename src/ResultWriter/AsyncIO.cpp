@@ -14,7 +14,7 @@
 
 namespace seissol::io {
 
-bool AsyncIO::init() {
+bool AsyncIO::initDispatcher() {
   async::Dispatcher::init();
 
   seissol::Mpi::mpi.setComm(commWorld());
@@ -22,7 +22,7 @@ bool AsyncIO::init() {
   return dispatch();
 }
 
-void AsyncIO::finalize() {
+void AsyncIO::finalizeDispatcher() {
   // Call parent class
   async::Dispatcher::finalize();
 

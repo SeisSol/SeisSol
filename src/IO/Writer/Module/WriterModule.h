@@ -36,13 +36,14 @@ class WriterModule : public seissol::Module, private AsyncWriterModule {
                const parallel::Pinning& pinning,
                SeisSol& seissolInstance);
   void startup();
-  void setUp() override;
   void simulationStart(std::optional<double> checkpointTime) override;
   void syncPoint(double time) override;
   void simulationEnd() override;
   void shutdown() override;
 
   private:
+  void setUp() override;
+
   int rank;
   std::string prefix;
   unsigned planId{std::numeric_limits<unsigned>::max()};

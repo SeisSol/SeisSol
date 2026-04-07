@@ -12,10 +12,11 @@ SCEC TPV29
 ==========
 
 TPV 29 contains a vertical, right-lateral fault with **rough fault
-interface** (Figure [fig:tpv29]). The fault surface has 3D stochastic
+interface** (:numref:`figtpv29`). The fault surface has 3D stochastic
 geometrical roughness (blue and red colors). In TPV 29, the surrounding
 rocks respond elastically.
 
+.. _figtpv29:
 .. figure:: figures/tpv29.png
    :alt: Diagram of TPV 29.
    :width: 9.00000cm
@@ -45,9 +46,10 @@ the model.
 Using `generate_mytopo_tpv29.py <https://github.com/SeisSol/Examples/blob/master/tpv29/generate_mytopo_tpv29.py>`__ to create the topography data.
 
 
-2.Make a model with plane fault as Figure [fig:tpv29geo]. The Gmsh
+2.Make a model with plane fault as :numref:`figtpv29geo`. The Gmsh
 tpv29.geo file can be found at https://github.com/SeisSol/Examples/blob/master/tpv29/tpv29.geo.
 
+.. _figtpv29geo:
 .. figure:: figures/tpv29geo.png
    :alt: Diagram showing the geometry of TPV 29.
    :width: 11.00000cm
@@ -97,52 +99,58 @@ Material parameters
 ~~~~~~~~~~~~~~~~~~~
 
 In TPV29, the entire model volume is a linear elastic material, with the
-following parameters listed in Table [table:tpv29material].
+following parameters listed in :numref:`tabletpv29material`.
 
-+--------------------+--------------------------+-------------+--------------------+
-| Parameter          | Description              | Value       | Unit               |
-+====================+==========================+=============+====================+
-| :math:`\rho`       | density                  | 2670        | :math:`kg/m^{3}`   |
-+--------------------+--------------------------+-------------+--------------------+
-| :math:`\lambda`    | Lame’s first parameter   | 3.2044e10   | Pa                 |
-+--------------------+--------------------------+-------------+--------------------+
-| :math:`\mu`        | shear module             | 3.2038e10   | Pa                 |
-+--------------------+--------------------------+-------------+--------------------+
-| :math:`h_{edge}`   | element edge length      | 200         | m                  |
-+--------------------+--------------------------+-------------+--------------------+
-| :math:`V_p`        | P wave velocity          | 6000        | m/s                |
-+--------------------+--------------------------+-------------+--------------------+
-| :math:`V_s`        | S wave velocity          | 3464        | m/s                |
-+--------------------+--------------------------+-------------+--------------------+
+.. _tabletpv29material:
+.. table::
+   Material parameters for TPV29.
 
-[table:tpv29material]
+   +--------------------+--------------------------+-------------+--------------------+
+   | Parameter          | Description              | Value       | Unit               |
+   +====================+==========================+=============+====================+
+   | :math:`\rho`       | density                  | 2670        | :math:`kg/m^{3}`   |
+   +--------------------+--------------------------+-------------+--------------------+
+   | :math:`\lambda`    | Lame’s first parameter   | 3.2044e10   | Pa                 |
+   +--------------------+--------------------------+-------------+--------------------+
+   | :math:`\mu`        | shear module             | 3.2038e10   | Pa                 |
+   +--------------------+--------------------------+-------------+--------------------+
+   | :math:`h_{edge}`   | element edge length      | 200         | m                  |
+   +--------------------+--------------------------+-------------+--------------------+
+   | :math:`V_p`        | P wave velocity          | 6000        | m/s                |
+   +--------------------+--------------------------+-------------+--------------------+
+   | :math:`V_s`        | S wave velocity          | 3464        | m/s                |
+   +--------------------+--------------------------+-------------+--------------------+
 
 Initial stress
 ~~~~~~~~~~~~~~
 
-The initial stress are listed in Table [table:tpv29fault].
+The initial stress are listed in :numref:`tabletpv29fault`.
 
-+---------------+-------------------------------------+---------------------------------------------------+--------+
-| Parameter     | Description                         | Value                                             | Unit   |
-+===============+=====================================+===================================================+========+
-| mu\_s         | static friction coefficient         | 0.12                                              |        |
-+---------------+-------------------------------------+---------------------------------------------------+--------+
-| mu\_d         | dynamic friction coefficient        | 0.18                                              |        |
-+---------------+-------------------------------------+---------------------------------------------------+--------+
-| d\_c          | critical distance                   | 0.30                                              | m      |
-+---------------+-------------------------------------+---------------------------------------------------+--------+
-| s\_zz         | :math:`\sigma_{zz}`                 | -2670\*9.8\*depth                                 | Pa     |
-+---------------+-------------------------------------+---------------------------------------------------+--------+
-| Pf            | fluid pressure                      | 1000\*9.8\*depth                                  | Pa     |
-+---------------+-------------------------------------+---------------------------------------------------+--------+
-| s\_xz,s\_yz   | :math:`\sigma_{xz},  \sigma_{yz}`   | 0                                                 | Pa     |
-+---------------+-------------------------------------+---------------------------------------------------+--------+
-| s\_yy         |                                     | :math:`\Omega * b33*(\sigma_{zz} + P_f) - P_f`    | Pa     |
-+---------------+-------------------------------------+---------------------------------------------------+--------+
-| s\_xx         |                                     | :math:`\Omega * b11*(\sigma_{zz} + P_f) - P_f`    | Pa     |
-+---------------+-------------------------------------+---------------------------------------------------+--------+
-| s\_xy         |                                     | :math:`\Omega * b13*(\sigma_{zz} + P_f)`          | Pa     |
-+---------------+-------------------------------------+---------------------------------------------------+--------+
+.. _tabletpv29fault:
+.. table::
+   Fault parameters for TPV29.
+
+   +---------------+-------------------------------------+---------------------------------------------------+--------+
+   | Parameter     | Description                         | Value                                             | Unit   |
+   +===============+=====================================+===================================================+========+
+   | mu\_s         | static friction coefficient         | 0.12                                              |        |
+   +---------------+-------------------------------------+---------------------------------------------------+--------+
+   | mu\_d         | dynamic friction coefficient        | 0.18                                              |        |
+   +---------------+-------------------------------------+---------------------------------------------------+--------+
+   | d\_c          | critical distance                   | 0.30                                              | m      |
+   +---------------+-------------------------------------+---------------------------------------------------+--------+
+   | s\_zz         | :math:`\sigma_{zz}`                 | -2670\*9.8\*depth                                 | Pa     |
+   +---------------+-------------------------------------+---------------------------------------------------+--------+
+   | Pf            | fluid pressure                      | 1000\*9.8\*depth                                  | Pa     |
+   +---------------+-------------------------------------+---------------------------------------------------+--------+
+   | s\_xz,s\_yz   | :math:`\sigma_{xz},  \sigma_{yz}`   | 0                                                 | Pa     |
+   +---------------+-------------------------------------+---------------------------------------------------+--------+
+   | s\_yy         |                                     | :math:`\Omega * b33*(\sigma_{zz} + P_f) - P_f`    | Pa     |
+   +---------------+-------------------------------------+---------------------------------------------------+--------+
+   | s\_xx         |                                     | :math:`\Omega * b11*(\sigma_{zz} + P_f) - P_f`    | Pa     |
+   +---------------+-------------------------------------+---------------------------------------------------+--------+
+   | s\_xy         |                                     | :math:`\Omega * b13*(\sigma_{zz} + P_f)`          | Pa     |
+   +---------------+-------------------------------------+---------------------------------------------------+--------+
 
 Table: Table of initial stress in TPV 29. :math:`b11, b33,b13` are
 1.025837, 0.974162, −0.158649, respectively.
@@ -196,22 +204,23 @@ The cohesion zone is defined as :
    \end{array}
    \right.
 
-The friction parameters on the fault are listed in Table
-[table:tpv29fric].
+The friction parameters on the fault are listed in :numref:`tabletpv29fric`.
 
-+-------------+--------------------------------+---------+--------+
-| Parameter   | Description                    | Value   | Unit   |
-+=============+================================+=========+========+
-| mu\_s       | static friction coefficient    | 0.12    |        |
-+-------------+--------------------------------+---------+--------+
-| mu\_d       | dynamic friction coefficient   | 0.18    |        |
-+-------------+--------------------------------+---------+--------+
-| d\_c        | critical distance              | 0.30    | m      |
-+-------------+--------------------------------+---------+--------+
-| t\_0        | forced rupture delay time      | 0.5     | s      |
-+-------------+--------------------------------+---------+--------+
+.. _tabletpv29fric:
+.. table::
+   Table of friction parameters in TPV 29.
 
-Table: Table of friction parameters in TPV 29.
+   +-------------+--------------------------------+---------+--------+
+   | Parameter   | Description                    | Value   | Unit   |
+   +=============+================================+=========+========+
+   | mu\_s       | static friction coefficient    | 0.12    |        |
+   +-------------+--------------------------------+---------+--------+
+   | mu\_d       | dynamic friction coefficient   | 0.18    |        |
+   +-------------+--------------------------------+---------+--------+
+   | d\_c        | critical distance              | 0.30    | m      |
+   +-------------+--------------------------------+---------+--------+
+   | t\_0        | forced rupture delay time      | 0.5     | s      |
+   +-------------+--------------------------------+---------+--------+
 
 Results
 ~~~~~~~
@@ -219,7 +228,7 @@ Results
 The earthquake rupture is artificially nucleated in a circular zone on
 the fault surface.
 
-.. figure:: figures/tpv29_srs.png
+.. figure:: figures/tpv29-srs.png
    :alt: Snapshot of slip rate along the strike
    :width: 11.00000cm
    :align: center

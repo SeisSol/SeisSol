@@ -93,10 +93,13 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                 MPI_MIN,
                 Mpi::mpi.comm());
 
+  const auto drOutputTimestep = drClusterOutput == std::numeric_limits<std::size_t>::max()
+                                    ? std::numeric_limits<double>::infinity()
+                                    : clusterLayout.timestepRate(drClusterOutput);
+
   for (std::size_t clusterId = 0; clusterId < drCellsPerCluster.size(); ++clusterId) {
-    const bool isFirstDynamicRuptureCluster = drClusterOutput == clusterId;
-    dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(
-        drCellsPerCluster[clusterId], isFirstDynamicRuptureCluster));
+    dynamicRuptureSchedulers.emplace_back(
+        std::make_unique<DynamicRuptureScheduler>(drCellsPerCluster[clusterId], drOutputTimestep));
   }
 
   std::vector<AbstractTimeCluster*> cellClusterBackmap(
@@ -207,8 +210,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
         auto ghostCluster = GhostTimeClusterFactory::get(otherTimeStepSize,
                                                          otherTimeStepRate,
-                                                         layer.id(),
-                                                         i,
+                                                         layer.getIdentifier().lts,
+                                                         other.lts,
                                                          haloStructure,
                                                          preferredDataTransferMode,
                                                          persistent);

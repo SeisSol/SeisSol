@@ -8,6 +8,7 @@
 
 #include "GlobalData.h"
 
+#include "Common/Constants.h"
 #include "Common/Marker.h"
 #include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
@@ -15,6 +16,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
 #include "Memory/MemoryAllocator.h"
 #include "Parallel/OpenMP.h"
 
@@ -31,6 +33,9 @@ MemoryProperties OnHost::getProperties() {
 
 void OnHost::negateStiffnessMatrix(GlobalData& globalData) {
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
+    // TODO: move this initialization somewhere else, e.g. into the matrix files
+
+    // NOLINTNEXTLINE (cppcoreguidelines-pro-type-const-cast)
     real* matrix = const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness));
     for (unsigned i = 0; i < init::kDivMT::size(transposedStiffness); ++i) {
       matrix[i] *= -1.0;
@@ -45,14 +50,13 @@ void OnHost::initSpecificGlobalData(GlobalData& globalData,
                                     seissol::memory::Memkind memkind) {
   // thread-local LTS integration buffers
   const auto numThreads = OpenMP::threadCount();
-  const auto allocSize = 4 * static_cast<std::size_t>(tensor::I::size());
+  const auto allocSize = Cell::NumFaces * kernels::Solver::BuffersSize;
   auto* integrationBufferLTS = reinterpret_cast<real*>(
       allocator.allocateMemory(numThreads * allocSize * sizeof(real), alignment, memkind));
 
-// initialize w.r.t. NUMA
-#ifdef _OPENMP
+  // initialize w.r.t. NUMA
+
 #pragma omp parallel
-#endif
   {
     const auto threadOffset = OpenMP::threadId() * allocSize;
     for (std::size_t dof = 0; dof < allocSize; ++dof) {
@@ -80,6 +84,7 @@ void OnDevice::negateStiffnessMatrix(GlobalData& globalData) {
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
     const real scaleFactor = -1.0;
     device.algorithms.scaleArray(
+        // NOLINTNEXTLINE (cppcoreguidelines-pro-type-const-cast)
         const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness)),
         scaleFactor,
         init::kDivMT::size(transposedStiffness),
@@ -87,21 +92,11 @@ void OnDevice::negateStiffnessMatrix(GlobalData& globalData) {
   }
 #endif // ACL_DEVICE
 }
-void OnDevice::initSpecificGlobalData(SEISSOL_GPU_PARAM GlobalData& globalData,
-                                      SEISSOL_GPU_PARAM memory::ManagedAllocator& allocator,
-                                      SEISSOL_GPU_PARAM CopyManagerT& copyManager,
-                                      SEISSOL_GPU_PARAM size_t alignment,
-                                      SEISSOL_GPU_PARAM seissol::memory::Memkind memkind) {
-#ifdef ACL_DEVICE
-  const size_t size = yateto::alignedUpper(tensor::replicateInitialLoadingM::size(),
-                                           yateto::alignedReals<real>(alignment));
-  real* plasticityStressReplication =
-      static_cast<real*>(allocator.allocateMemory(size * sizeof(real), alignment, memkind));
-
-  copyManager.template copyTensorToMemAndSetPtr<init::replicateInitialLoadingM>(
-      plasticityStressReplication, globalData.replicateStresses, alignment);
-#endif // ACL_DEVICE
-}
+void OnDevice::initSpecificGlobalData(GlobalData& /*globalData*/,
+                                      memory::ManagedAllocator& /*allocator*/,
+                                      CopyManagerT& /*copyManager*/,
+                                      size_t /*alignment*/,
+                                      seissol::memory::Memkind /*memkind*/) {}
 
 real* OnDevice::DeviceCopyPolicy::copy(SEISSOL_GPU_PARAM const real* first,
                                        SEISSOL_GPU_PARAM const real* last,

@@ -71,10 +71,10 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
-                                        const CellDRMapping (&cellDrMapping)[4],
-                                        real* timeIntegrated[4],
-                                        real* faceNeighbors_prefetch[4]) {
+void Neighbor::computeNeighborsIntegral(
+    LTS::Ref& data,
+    const std::array<real*, Cell::NumFaces>& timeIntegrated,
+    const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) {
 #ifndef NDEBUG
   for (std::size_t neighbor = 0; neighbor < Cell::NumFaces; ++neighbor) {
     // alignment of the time integrated dofs
@@ -85,6 +85,8 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
     }
   }
 #endif
+
+  const auto& cellDrMapping = data.get<LTS::DRMapping>();
 
   // alignment of the degrees of freedom
   assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
@@ -107,7 +109,7 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
 
         nfKrnl.I = timeIntegrated[face];
         nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
-        nfKrnl._prefetch.I = faceNeighbors_prefetch[face];
+        nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
         nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][1],
                        data.get<LTS::CellInformation>().faceRelations[face][0],
                        face);
@@ -119,7 +121,7 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
       drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
       drKrnl.QInterpolated = cellDrMapping[face].godunov;
       drKrnl.Qext = Qext;
-      drKrnl._prefetch.I = faceNeighbors_prefetch[face];
+      drKrnl._prefetch.I = faceNeighborsPrefetch[face];
       drKrnl.execute(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
     }
   }
@@ -136,7 +138,7 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
 void Neighbor::flopsNeighborsIntegral(
     const std::array<FaceType, Cell::NumFaces>& faceTypes,
     const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-    const CellDRMapping (&cellDrMapping)[4],
+    const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping,
     std::uint64_t& nonZeroFlops,
     std::uint64_t& hardwareFlops,
     std::uint64_t& drNonZeroFlops,
@@ -231,6 +233,8 @@ void Neighbor::computeBatchedNeighborsIntegral(
                   (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
               neighFluxKrnl.AminusT = const_cast<const real**>(
                   entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+
+              SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData, nAmNm1);
               neighFluxKrnl.extraOffset_AminusT =
                   SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
 
@@ -275,6 +279,8 @@ void Neighbor::computeBatchedNeighborsIntegral(
     nKrnl.w = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     nKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
 
     nKrnl.streamPtr = runtime.stream();
 

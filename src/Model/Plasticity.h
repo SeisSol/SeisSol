@@ -8,6 +8,9 @@
 #ifndef SEISSOL_SRC_MODEL_PLASTICITY_H_
 #define SEISSOL_SRC_MODEL_PLASTICITY_H_
 
+#include "Alignment.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 #include "Model/CommonDatastructures.h"
 #include "Solver/MultipleSimulations.h"
@@ -17,40 +20,55 @@
 #include <string>
 
 namespace seissol::model {
-// plasticity information per cell. In case of multiple simulations, it contains data of all
-// simulations
 
+// plasticity information per cell
 struct PlasticityData {
-  // initial loading (stress tensor)
-  real initialLoading[6 * seissol::multisim::NumSimulations]{};
-  real cohesionTimesCosAngularFriction[seissol::multisim::NumSimulations]{};
-  real sinAngularFriction[seissol::multisim::NumSimulations]{};
+  static constexpr auto PointCount = tensor::vNodes::Shape[0];
 
-  // Only dependent on mu which is to be constant for all simulations
+  // initial loading (stress tensor)
+  alignas(Alignment) real initialLoading[tensor::initialLoading::size()]{};
+  alignas(Alignment) real cohesionTimesCosAngularFriction[tensor::meanStress::size()]{};
+  alignas(Alignment) real sinAngularFriction[tensor::meanStress::size()]{};
+
+  // depends only on the material (i.e. only relevant for #1297 or multi-fused-material)
   real mufactor{};
 
-  PlasticityData(const std::array<Plasticity, seissol::multisim::NumSimulations>& plasticity,
-                 const Material* material) {
-    for (std::size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
-      // interleave these so that the kernel does not need any modifications
-      initialLoading[static_cast<std::size_t>(0 * seissol::multisim::NumSimulations) + i] =
-          plasticity[i].sXX;
-      initialLoading[static_cast<std::size_t>(1 * seissol::multisim::NumSimulations) + i] =
-          plasticity[i].sYY;
-      initialLoading[static_cast<std::size_t>(2 * seissol::multisim::NumSimulations) + i] =
-          plasticity[i].sZZ;
-      initialLoading[static_cast<std::size_t>(3 * seissol::multisim::NumSimulations) + i] =
-          plasticity[i].sXY;
-      initialLoading[static_cast<std::size_t>(4 * seissol::multisim::NumSimulations) + i] =
-          plasticity[i].sYZ;
-      initialLoading[static_cast<std::size_t>(5 * seissol::multisim::NumSimulations) + i] =
-          plasticity[i].sXZ;
+  PlasticityData(const std::array<const Plasticity*, seissol::multisim::NumSimulations>& plasticity,
+                 const Material* material,
+                 bool pointwise) {
+    auto initialLoadingV = init::initialLoading::view::create(initialLoading);
+    initialLoadingV.setZero();
 
-      const double angularFriction = std::atan(plasticity[i].bulkFriction);
+    auto cohesionTimesCosAngularFrictionV =
+        init::meanStress::view::create(cohesionTimesCosAngularFriction);
+    cohesionTimesCosAngularFrictionV.setZero();
 
-      cohesionTimesCosAngularFriction[i] = plasticity[i].plastCo * std::cos(angularFriction);
-      sinAngularFriction[i] = std::sin(angularFriction);
+    auto sinAngularFrictionV = init::meanStress::view::create(sinAngularFriction);
+    sinAngularFrictionV.setZero();
+
+    for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
+      auto initialLoadingVS = multisim::simtensor(initialLoadingV, s);
+      auto cohesionTimesCosAngularFrictionVS =
+          multisim::simtensor(cohesionTimesCosAngularFrictionV, s);
+      auto sinAngularFrictionVS = multisim::simtensor(sinAngularFrictionV, s);
+
+      for (std::size_t i = 0; i < PointCount; ++i) {
+        const auto ii = pointwise ? i : 0;
+        initialLoadingVS(i, 0) = plasticity[s][ii].sXX;
+        initialLoadingVS(i, 1) = plasticity[s][ii].sYY;
+        initialLoadingVS(i, 2) = plasticity[s][ii].sZZ;
+        initialLoadingVS(i, 3) = plasticity[s][ii].sXY;
+        initialLoadingVS(i, 4) = plasticity[s][ii].sYZ;
+        initialLoadingVS(i, 5) = plasticity[s][ii].sXZ;
+
+        const double angularFriction = std::atan(plasticity[s][ii].bulkFriction);
+
+        cohesionTimesCosAngularFrictionVS(i) =
+            plasticity[s][ii].plastCo * std::cos(angularFriction);
+        sinAngularFrictionVS(i) = std::sin(angularFriction);
+      }
     }
+
     const auto mubar = material->getMuBar();
     mufactor = 1.0 / (2.0 * mubar);
   }

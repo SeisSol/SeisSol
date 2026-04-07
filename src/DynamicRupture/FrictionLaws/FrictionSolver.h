@@ -35,14 +35,13 @@ class FrictionSolver {
   virtual ~FrictionSolver() = default;
 
   struct FrictionTime {
-    double sumDt;
     std::vector<double> deltaT;
   };
 
   virtual void setupLayer(DynamicRupture::Layer& layerData,
                           seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  virtual void evaluate(real fullUpdateTime,
+  virtual void evaluate(double fullUpdateTime,
                         const FrictionTime& frictionTime,
                         const double* timeWeights,
                         seissol::parallel::runtime::StreamRuntime& runtime) = 0;
@@ -70,7 +69,6 @@ class FrictionSolver {
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf.
    */
   real deltaT[misc::TimeSteps] = {};
-  real sumDt{};
 
   seissol::initializer::parameters::DRParameters* __restrict drParameters;
   ImpedancesAndEta* __restrict impAndEta{};

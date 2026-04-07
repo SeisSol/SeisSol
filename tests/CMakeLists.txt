@@ -18,6 +18,7 @@ set(seissol_test_sources
         Solver/TimeStepping/TestSolverTimeStepping.cpp
         DynamicRupture/TestDynamicRupture.cpp
         Common/TestCommon.cpp
+        Modules/TestModule.cpp
 )
 
 configure_file(
