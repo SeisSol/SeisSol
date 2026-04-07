@@ -49,7 +49,6 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -837,24 +836,6 @@ void TimeCluster::reset() {
   neighborTimestep = timeStepSize();
   for (auto& neighbor : neighbors) {
     neighborTimestep = std::max(neighbor.ct.getTimeStepSize(), neighborTimestep);
-  }
-}
-
-void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
-  logWarning(true) << "No update since " << timeSinceLastUpdate.count() << "[s] for global cluster "
-                   << globalClusterId << " with local cluster id " << clusterId << " at state "
-                   << actorStateToString(state) << " predTime = " << ct.predictionTime
-                   << " predictionsSinceSync = " << ct.predictionsSinceLastSync
-                   << " corrTime = " << ct.correctionTime
-                   << " correctionsSinceSync = " << ct.stepsSinceLastSync
-                   << " stepsTillSync = " << ct.stepsUntilSync << " mayPredict = " << mayPredict()
-                   << " mayCorrect = " << mayCorrect() << " maySync = " << maySync();
-  for (auto& neighbor : neighbors) {
-    logWarning(true) << "Neighbor with rate = " << neighbor.ct.timeStepRate
-                     << "PredTime = " << neighbor.ct.predictionTime
-                     << "CorrTime = " << neighbor.ct.correctionTime
-                     << "predictionsSinceSync = " << neighbor.ct.predictionsSinceLastSync
-                     << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
   }
 }
 
