@@ -272,4 +272,26 @@ bool AbstractTimeCluster::hasDifferentExecutorNeighbor() {
 
 void AbstractTimeCluster::finishPhase() {}
 
+void AbstractTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
+  logWarning(true) << "No update since " << timeSinceLastUpdate.count() << "[s] for cluster "
+                   << description() << " at state " << actorStateToString(state)
+                   << " mayPredict = " << mayPredict()
+                   << " mayPredict (steps) = " << AbstractTimeCluster::mayPredict()
+                   << " mayCorrect = " << mayCorrect()
+                   << " mayCorrect (steps) = " << AbstractTimeCluster::mayCorrect()
+                   << " maySync = " << maySync();
+  for (auto& neighbor : neighbors) {
+    logWarning(true) << "Neighbor with rate = " << neighbor.ct.timeStepRate
+                     << "PredTime = " << neighbor.ct.predictionTime
+                     << "CorrTime = " << neighbor.ct.correctionTime
+                     << "predictionsSinceSync = " << neighbor.ct.predictionsSinceLastSync
+                     << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
+  }
+  if (timeoutFail()) {
+    logError() << "Cluster" << description() << "timed out. Aborting simulation.";
+  }
+}
+
+bool AbstractTimeCluster::timeoutFail() const { return false; }
+
 } // namespace seissol::time_stepping
