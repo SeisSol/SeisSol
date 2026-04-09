@@ -117,6 +117,7 @@ ResultWriter/EnergyOutput.cpp
 ResultWriter/MiniSeisSolWriter.cpp
 ResultWriter/PostProcessor.cpp
 ResultWriter/ReceiverWriter.cpp
+ResultWriter/ParallelHdf5ReceiverWriter.cpp
 ResultWriter/ThreadsPinningWriter.cpp
 
 DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp
