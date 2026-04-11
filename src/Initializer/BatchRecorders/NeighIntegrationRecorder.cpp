@@ -134,9 +134,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
 
     for (std::size_t face = 0; face < Cell::NumFaces; face++) {
       switch (dataHost.get<LTS::CellInformation>().faceTypes[face]) {
-      case FaceType::Regular:
-        [[fallthrough]];
-      case FaceType::Periodic: {
+      case FaceType::Regular: {
         // compute face type relation
 
         real* neighborBufferPtr = faceNeighborsDevice[cell][face];
@@ -203,10 +201,8 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
     // regular and periodic
     for (size_t faceRelation = 0; faceRelation < (*FaceRelations::Count); ++faceRelation) {
       if (!regularPeriodicDofs[face][faceRelation].empty()) {
-        const ConditionalKey key(*KernelNames::NeighborFlux,
-                                 (FaceKinds::Regular || FaceKinds::Periodic),
-                                 face,
-                                 faceRelation);
+        const ConditionalKey key(
+            *KernelNames::NeighborFlux, FaceKinds::Regular, face, faceRelation);
         checkKey(key);
 
         (*currentTable)[key].set(inner_keys::Wp::Id::Idofs,

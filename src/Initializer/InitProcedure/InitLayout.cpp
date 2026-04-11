@@ -227,7 +227,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
         secondaryCellInformation[index].group = element.group;
         for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           secondaryCellInformation[index].neighborRanks[face] = element.neighborRanks[face];
-          cellInformation[index].faceTypes[face] = static_cast<FaceType>(element.boundaries[face]);
+          cellInformation[index].faceTypes[face] = element.boundaries[face];
           cellInformation[index].faceRelations[face][0] = element.neighborSides[face];
           cellInformation[index].faceRelations[face][1] = element.sideOrientations[face];
 
@@ -283,7 +283,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           secondaryCellInformation[i].neighborRanks[face] = rank;
           cellInformation[i].neighborConfigIds[face] = neighbor.color;
           cellInformation[i].faceTypes[face] =
-              static_cast<FaceType>(elementNeighbor.boundaries[boundaryElement.localSide]);
+              elementNeighbor.boundaries[boundaryElement.localSide];
           cellInformation[i].faceRelations[face][0] = boundaryElement.localSide;
           cellInformation[i].faceRelations[face][1] =
               elementNeighbor.sideOrientations[boundaryElement.localSide];

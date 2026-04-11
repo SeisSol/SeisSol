@@ -76,7 +76,7 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
     for (const auto& element : mesh.getElements()) {
       ++clusters[static_cast<std::size_t>(element.clusterId)];
       for (int i = 0; i < 4; ++i) {
-        if (element.boundaries[i] == 3) {
+        if (element.boundaries[i] == FaceType::DynamicRupture) {
           ++clustersDR[static_cast<std::size_t>(element.clusterId)];
         }
       }

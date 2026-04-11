@@ -89,8 +89,8 @@ void MeshReader::scaleMesh(const Eigen::Matrix3d& scalingMatrix) {
 void MeshReader::disableDR() {
   for (auto& elem : m_elements) {
     for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
-      if (elem.boundaries[j] == 3) {
-        elem.boundaries[j] = 0;
+      if (elem.boundaries[j] == FaceType::DynamicRupture) {
+        elem.boundaries[j] = FaceType::Regular;
       }
     }
   }
@@ -107,7 +107,7 @@ void MeshReader::extractFaultInformation(
       // Set default mpi fault indices
       i.mpiFaultIndices[j] = -1;
 
-      if (i.boundaries[j] != 3) {
+      if (i.boundaries[j] != FaceType::DynamicRupture) {
         continue;
       }
 

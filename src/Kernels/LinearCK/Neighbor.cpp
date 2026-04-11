@@ -69,9 +69,7 @@ void Neighbor::computeNeighborsIntegral(
 
   for (std::size_t face = 0; face < Cell::NumFaces; face++) {
     switch (data.get<LTS::CellInformation>().faceTypes[face]) {
-    case FaceType::Regular:
-      // Fallthrough intended
-    case FaceType::Periodic: {
+    case FaceType::Regular: {
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
       assert(reinterpret_cast<uintptr_t>(timeIntegrated[face]) % Alignment == 0);
@@ -122,10 +120,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
             // regular and periodic
             unsigned faceRelation = i;
 
-            ConditionalKey key(*KernelNames::NeighborFlux,
-                               (FaceKinds::Regular || FaceKinds::Periodic),
-                               face,
-                               faceRelation);
+            ConditionalKey key(*KernelNames::NeighborFlux, FaceKinds::Regular, face, faceRelation);
 
             if (table.find(key) != table.end()) {
               auto& entry = table[key];
@@ -203,8 +198,6 @@ void Neighbor::flopsNeighborsIntegral(
     // compute the neighboring elements flux matrix id.
     switch (faceTypes[face]) {
     case FaceType::Regular:
-      // Fallthrough intended
-    case FaceType::Periodic:
       // regular neighbor
       assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] < 3);
       nonZeroFlops += kernel::neighboringFlux::nonZeroFlops(

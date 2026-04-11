@@ -24,10 +24,10 @@ namespace seissol::geometry {
 constexpr PUML::TopoType PumlTopology = PUML::TETRAHEDRON;
 using PumlMesh = PUML::PUML<PumlTopology>;
 
-inline int decodeBoundary(const void* data,
-                          size_t cell,
-                          int face,
-                          seissol::initializer::parameters::BoundaryFormat format) {
+inline uint32_t decodeBoundary(const void* data,
+                               size_t cell,
+                               uint8_t face,
+                               seissol::initializer::parameters::BoundaryFormat format) {
   if (format == seissol::initializer::parameters::BoundaryFormat::I32) {
     const auto* dataCasted = reinterpret_cast<const uint32_t*>(data);
     return (dataCasted[cell] >> (8 * face)) & 0xff;
@@ -35,12 +35,38 @@ inline int decodeBoundary(const void* data,
     const auto* dataCasted = reinterpret_cast<const uint64_t*>(data);
     return (dataCasted[cell] >> (16 * face)) & 0xffff;
   } else if (format == seissol::initializer::parameters::BoundaryFormat::I32x4) {
-    const int* dataCasted = reinterpret_cast<const int*>(data);
+    const auto* dataCasted = reinterpret_cast<const int*>(data);
     return dataCasted[cell * Cell::NumFaces + face];
   } else {
-    logError() << "Unknown boundary format:" << static_cast<int>(format);
+    logError() << "Unknown boundary format:" << static_cast<uint32_t>(format);
     return 0;
   }
+}
+
+inline std::optional<FaceType> boundaryTagToFaceType(uint32_t tag) {
+  if (tag == 0 || tag == 6) {
+    return FaceType::Regular;
+  }
+  if (tag == 1) {
+    return FaceType::FreeSurface;
+  }
+  if (tag == 2) {
+    return FaceType::FreeSurfaceGravity;
+  }
+  if (tag == 3 || tag > 64) {
+    return FaceType::DynamicRupture;
+  }
+  if (tag == 4) {
+    return FaceType::Dirichlet;
+  }
+  if (tag == 5) {
+    return FaceType::Outflow;
+  }
+  if (tag == 7) {
+    return FaceType::Analytical;
+  }
+
+  return {};
 }
 
 class PUMLReader : public seissol::geometry::MeshReader {
