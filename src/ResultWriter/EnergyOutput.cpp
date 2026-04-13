@@ -524,14 +524,18 @@ void EnergyOutput::computeVolumeEnergies() {
               init::rotatedFaceDisplacementAtQuadratureNodes::view::create(displQuadData.data());
           auto rotatedFaceDisplacement = multisim::simtensor(rotatedFaceDisplacementFused, sim);
 
-          for (std::size_t i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
+          double cellGravitationalEnergy = 0;
+
+#pragma omp simd reduction(+ : cellGravitationalEnergy)
+          for (std::size_t i = 0; i < NumQuadraturePointsTri; ++i) {
             // See for example (Saito, Tsunami generation and propagation, 2019) section 3.2.3 for
             // derivation.
             const auto displ = rotatedFaceDisplacement(i, 0);
-            const auto curEnergy = 0.5 * rho * g * displ * displ;
-            const auto curWeight = 2.0 * surface * quadratureWeightsTri[i];
-            totalGravitationalEnergyLocal += curWeight * curEnergy;
+            const auto curEnergyNoConst = displ * displ;           // * 0.5 * rho * g
+            const auto curWeightNoConst = quadratureWeightsTri[i]; // * 2.0 * surface
+            cellGravitationalEnergy += curWeightNoConst * curEnergyNoConst;
           }
+          totalGravitationalEnergyLocal += rho * g * surface * cellGravitationalEnergy;
         }
 
         if (isPlasticityEnabled) {
@@ -552,6 +556,8 @@ void EnergyOutput::computeVolumeEnergies() {
           krnl.execute();
 
           double pMoment = 0;
+
+#pragma omp simd reduction(+ : pMoment)
           for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
             pMoment += quadratureWeightsTet[qp] * qEtaQuad[qp];
           }
