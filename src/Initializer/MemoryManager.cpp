@@ -172,8 +172,7 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
 
           // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
           if (neighborBuffer != nullptr) {
-            if (cellInformation[cell].faceTypes[face] != FaceType::Outflow &&
-                cellInformation[cell].faceTypes[face] != FaceType::DynamicRupture) {
+            if (cellInformation[cell].faceTypes[face] == FaceType::Regular) {
 
               const bool isNeighbProvidesDerivatives =
                   cellInformation[cell].ltsSetup.neighborHasDerivatives(face);

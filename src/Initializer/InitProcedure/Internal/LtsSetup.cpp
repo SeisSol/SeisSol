@@ -102,10 +102,13 @@ LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
 
   // iterate over the faces
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    if (ownPrimary.faceTypes[face] == FaceType::Outflow) {
+
+    const auto bcType = getBCType(ownPrimary.faceTypes[face]);
+
+    if (bcType == BCType::ExternalNone) {
       // continue for outflow boundary conditions
       continue;
-    } else if (isExternalBoundaryFaceType(ownPrimary.faceTypes[face])) {
+    } else if (bcType == BCType::ExternalFake) {
       // fake neighbors are GTS
       ltsSetup.setNeighborGTSRelation(face, true);
     } else if (ownPrimary.faceTypes[face] == FaceType::DynamicRupture) {

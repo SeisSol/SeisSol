@@ -59,8 +59,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
 
           // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
           if (neighborBuffer != nullptr) {
-            if (dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::Outflow &&
-                dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
+            if (dataHost.get<LTS::CellInformation>().faceTypes[face] == FaceType::Regular) {
 
               const bool isNeighbProvidesDerivatives =
                   dataHost.get<LTS::CellInformation>().ltsSetup.neighborHasDerivatives(face);
@@ -160,9 +159,6 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         }
         break;
       }
-      case FaceType::FreeSurface: {
-        break;
-      }
       case FaceType::DynamicRupture: {
         const auto faceRelation =
             drMappingDevice[cell][face].side + 4 * drMappingDevice[cell][face].faceRelation;
@@ -177,6 +173,8 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
 #endif
         break;
       }
+      case FaceType::FreeSurface:
+        [[fallthrough]];
       case FaceType::Outflow:
         [[fallthrough]];
       case FaceType::Analytical:
@@ -185,8 +183,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         [[fallthrough]];
       case FaceType::Dirichlet: {
         // Do not need to compute anything in the neighboring macro-kernel
-        // for outflow, analytical, freeSurfaceGravity and dirichlet
-        // boundary conditions
+        // for most boundary conditions
         break;
       }
       default: {
