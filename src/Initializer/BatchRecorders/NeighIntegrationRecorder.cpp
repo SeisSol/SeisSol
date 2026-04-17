@@ -202,7 +202,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
     for (size_t faceRelation = 0; faceRelation < (*FaceRelations::Count); ++faceRelation) {
       if (!regularPeriodicDofs[face][faceRelation].empty()) {
         const ConditionalKey key(
-            *KernelNames::NeighborFlux, FaceKinds::Regular, face, faceRelation);
+            *KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
         checkKey(key);
 
         (*currentTable)[key].set(inner_keys::Wp::Id::Idofs,
