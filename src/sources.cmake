@@ -176,6 +176,8 @@ Reader/AsagiModule.cpp
 Reader/AsagiReader.cpp
 
 Geometry/CubeGenerator.cpp
+
+Initializer/FaceMap.cpp
 )
 
 if (HDF5 AND MPI)

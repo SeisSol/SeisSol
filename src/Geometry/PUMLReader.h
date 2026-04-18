@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_GEOMETRY_PUMLREADER_H_
 #define SEISSOL_SRC_GEOMETRY_PUMLREADER_H_
 
+#include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "MeshReader.h"
 #include "Parallel/MPI.h"
@@ -43,36 +44,11 @@ inline uint32_t decodeBoundary(const void* data,
   }
 }
 
-inline std::optional<FaceType> boundaryTagToFaceType(uint32_t tag) {
-  if (tag == 0 || tag == 6) {
-    return FaceType::Regular;
-  }
-  if (tag == 1) {
-    return FaceType::FreeSurface;
-  }
-  if (tag == 2) {
-    return FaceType::FreeSurfaceGravity;
-  }
-  if (tag == 3 || tag > 64) {
-    return FaceType::DynamicRupture;
-  }
-  if (tag == 4) {
-    return FaceType::Dirichlet;
-  }
-  if (tag == 5) {
-    return FaceType::Outflow;
-  }
-  if (tag == 7) {
-    return FaceType::Analytical;
-  }
-
-  return {};
-}
-
 class PUMLReader : public seissol::geometry::MeshReader {
   public:
   PUMLReader(const std::string& meshFile,
              const std::string& partitioningLib,
+             const seissol::FaceMap& faceMap,
              seissol::initializer::parameters::BoundaryFormat boundaryFormat =
                  seissol::initializer::parameters::BoundaryFormat::I32,
              seissol::initializer::parameters::TopologyFormat topologyFormat =
@@ -110,6 +86,7 @@ class PUMLReader : public seissol::geometry::MeshReader {
    */
   void getMesh(const PumlMesh& meshTopology,
                const PumlMesh& meshGeometry,
+               const FaceMap& faceMap,
                seissol::initializer::parameters::BoundaryFormat boundaryFormat);
 
   void

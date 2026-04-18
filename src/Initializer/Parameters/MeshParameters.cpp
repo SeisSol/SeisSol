@@ -58,6 +58,8 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
 
   const bool showEdgeCutStatistics = reader->readWithDefault("showedgecutstatistics", false);
 
+  const auto faceMap = reader->readPath("facemapfile");
+
   reader->warnDeprecated({"periodic", "periodic_direction"});
 
   return MeshParameters{showEdgeCutStatistics,
@@ -66,6 +68,7 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
                         meshFormat,
                         meshFileName,
                         partitioningLib,
+                        faceMap,
                         displacement,
                         scaling};
 }
