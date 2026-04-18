@@ -58,7 +58,8 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
 
   const bool showEdgeCutStatistics = reader->readWithDefault("showedgecutstatistics", false);
 
-  const auto faceMap = reader->readPath("facemapfile");
+  const auto faceMapPre = reader->readPath("facemapfile");
+  const auto faceMap = faceMapPre == "" ? std::optional<std::string>{} : faceMapPre;
 
   reader->warnDeprecated({"periodic", "periodic_direction"});
 
