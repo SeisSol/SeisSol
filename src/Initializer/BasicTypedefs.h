@@ -50,10 +50,10 @@ enum class BCType {
   // an internal face, with a neighbor
   Internal,
 
-  // a boundary face with a fake neighbor
+  // a boundary face with a fake neighbor (it needs the Neighbor kernel)
   ExternalFake,
 
-  // a boundary face without a fake neighbor
+  // a boundary face without a fake neighbor (can handle everything in the Local kernel)
   ExternalNone,
 
   // unhandled face type
@@ -67,12 +67,12 @@ constexpr BCType getBCType(FaceType faceType) {
     return BCType::Internal;
   }
   if (faceType == FaceType::FreeSurface || faceType == FaceType::FreeSurfaceGravity ||
-      faceType == FaceType::Dirichlet || faceType == FaceType::Analytical) {
-    return BCType::ExternalFake;
-  }
-  if (faceType == FaceType::Outflow) {
+      faceType == FaceType::Dirichlet || faceType == FaceType::Analytical ||
+      faceType == FaceType::Outflow) {
     return BCType::ExternalNone;
   }
+
+  // currently, there is no ExternalFake BC
 
   // should never happen, unless you forgot to implement something
   return BCType::Unknown;
@@ -82,12 +82,6 @@ constexpr BCType getBCType(FaceType faceType) {
 // That includes all interior and dynamic rupture faces, but also periodic faces.
 constexpr bool isInternalFaceType(FaceType faceType) {
   return getBCType(faceType) == BCType::Internal;
-}
-
-// Checks if a face type is an external boundary face (i.e. there is only one cell adjacent to it).
-// (note that Outflow is purposefully excluded here)
-constexpr bool isExternalBoundaryFaceType(FaceType faceType) {
-  return getBCType(faceType) == BCType::ExternalFake;
 }
 
 enum class ComputeGraphType {
