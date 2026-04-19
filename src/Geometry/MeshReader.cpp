@@ -9,6 +9,7 @@
 
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"

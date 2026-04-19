@@ -12,6 +12,7 @@
 #include "Common/Iterator.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"

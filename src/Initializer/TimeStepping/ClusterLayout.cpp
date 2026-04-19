@@ -7,6 +7,7 @@
 #include "Initializer/TimeStepping/ClusterLayout.h"
 
 #include "Geometry/MeshReader.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Monitoring/Unit.h"
 #include "Numerical/StableSum.h"
 #include "Numerical/Statistics.h"

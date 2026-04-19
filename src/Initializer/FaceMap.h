@@ -12,13 +12,13 @@
 
 namespace YAML {
 class Node;
-}
+} // namespace YAML
 
 namespace seissol {
 
 using FaceMap = SegmentMap<uint32_t, FaceType>;
 
-FaceMap parseFaceMap(YAML::Node node);
+FaceMap parseFaceMap(const YAML::Node& node);
 FaceMap defaultFaceMap();
 
 } // namespace seissol

@@ -118,7 +118,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
         (*FaceRelations::Count) + (*DrFaceRelations::Count), [&](void* stream, size_t i) {
           if (i < (*FaceRelations::Count)) {
             // regular and periodic
-            unsigned faceRelation = i;
+            const auto faceRelation = i;
 
             ConditionalKey key(*KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
 
@@ -147,7 +147,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
               device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
             }
           } else {
-            unsigned faceRelation = i - (*FaceRelations::Count);
+            const auto faceRelation = i - (*FaceRelations::Count);
 
             ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);

@@ -168,7 +168,7 @@ void Local::computeIntegral(
               auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
               auto slicedDisplacement = multisim::simtensor(displacement, s);
 
-              for (unsigned int i = 0;
+              for (std::size_t i = 0;
                    i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
                    ++i) {
                 const double rho = materialData.local->getDensity();

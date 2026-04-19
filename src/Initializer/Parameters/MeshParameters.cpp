@@ -11,6 +11,7 @@
 #include "Initializer/Parameters/ParameterReader.h"
 
 #include <Eigen/Core>
+#include <optional>
 
 namespace seissol::initializer::parameters {
 

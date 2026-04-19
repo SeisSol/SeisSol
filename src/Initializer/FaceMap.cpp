@@ -8,16 +8,20 @@
 
 #include "Initializer/BasicTypedefs.h"
 
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <unordered_map>
 #include <utils/logger.h>
 #include <utils/stringutils.h>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol {
 
-FaceMap parseFaceMap(YAML::Node node) {
+FaceMap parseFaceMap(const YAML::Node& node) {
   FaceMap map;
 
-  const static std::unordered_map<std::string, FaceType> stringToNameMap = {
+  const static std::unordered_map<std::string, FaceType> StringToNameMap = {
       {"regular", FaceType::Regular},
       {"freeSurface", FaceType::FreeSurface},
       {"freeSurfaceGravity", FaceType::FreeSurfaceGravity},
@@ -29,8 +33,8 @@ FaceMap parseFaceMap(YAML::Node node) {
 
   for (const auto& entry : node) {
     const auto stringType = entry.first.as<std::string>();
-    const auto typeFind = stringToNameMap.find(stringType);
-    if (typeFind == stringToNameMap.end()) {
+    const auto typeFind = StringToNameMap.find(stringType);
+    if (typeFind == StringToNameMap.end()) {
       logError() << "";
     }
     const auto type = typeFind->second;

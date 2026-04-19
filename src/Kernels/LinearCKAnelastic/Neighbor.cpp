@@ -39,12 +39,12 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
            0);
   }
 
-  for (int h = 0; h < 3; ++h) {
+  for (std::size_t h = 0; h < Cell::Dim; ++h) {
     assert((reinterpret_cast<uintptr_t>(global.onHost->neighborFluxMatrices(h))) % Alignment == 0);
   }
 
   for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
-    for (int h = 0; h < 3; ++h) {
+    for (std::size_t h = 0; h < Cell::Dim; ++h) {
       assert((reinterpret_cast<uintptr_t>(global.onHost->nodalFluxMatrices(i, h))) % Alignment ==
              0);
     }
@@ -201,7 +201,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
           // regular and periodic
           if (i < (*FaceRelations::Count)) {
             // regular and periodic
-            unsigned faceRelation = i;
+            const auto faceRelation = i;
 
             ConditionalKey key(*KernelNames::NeighborFlux, FaceKinds::Regular, face, faceRelation);
 
@@ -226,7 +226,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
             }
           } else {
             // Dynamic Rupture
-            unsigned faceRelation = i - (*FaceRelations::Count);
+            const auto faceRelation = i - (*FaceRelations::Count);
 
             ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);
