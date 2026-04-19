@@ -9,3 +9,4 @@
 
 #include "IntegerMaskParser.t.h"
 #include "Iterator.t.h"
+#include "SegmentMap.t.h"
