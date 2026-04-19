@@ -26,7 +26,7 @@ using namespace seissol::io::datatype;
 // ---------------------------------------------------------------------------
 
 TEST_CASE("F32Datatype" * doctest::test_suite("io")) {
-  F32Datatype dt;
+  const F32Datatype dt;
 
   SUBCASE("Size") { CHECK(dt.size() == 4); }
 
@@ -36,7 +36,7 @@ TEST_CASE("F32Datatype" * doctest::test_suite("io")) {
   }
 
   SUBCASE("toString roundtrip") {
-    float val = 3.14f;
+    float val = 3.14F;
     const auto str = dt.toStringRaw(&val);
     CHECK(!str.empty());
 
@@ -51,7 +51,7 @@ TEST_CASE("F32Datatype" * doctest::test_suite("io")) {
 }
 
 TEST_CASE("F64Datatype" * doctest::test_suite("io")) {
-  F64Datatype dt;
+  const F64Datatype dt;
 
   SUBCASE("Size") { CHECK(dt.size() == 8); }
 
@@ -73,7 +73,7 @@ TEST_CASE("F64Datatype" * doctest::test_suite("io")) {
 }
 
 TEST_CASE("F80Datatype" * doctest::test_suite("io")) {
-  F80Datatype dt;
+  const F80Datatype dt;
 
   SUBCASE("Size") { CHECK(dt.size() == 10); }
 
@@ -90,31 +90,31 @@ TEST_CASE("F80Datatype" * doctest::test_suite("io")) {
 TEST_CASE("IntegerDatatype" * doctest::test_suite("io")) {
 
   SUBCASE("Signed 4 byte") {
-    IntegerDatatype dt(4, true);
+    const IntegerDatatype dt(4, true);
     CHECK(dt.size() == 4);
     CHECK(dt.sign() == true);
   }
 
   SUBCASE("Unsigned 8 byte") {
-    IntegerDatatype dt(8, false);
+    const IntegerDatatype dt(8, false);
     CHECK(dt.size() == 8);
     CHECK(dt.sign() == false);
   }
 
   SUBCASE("Serialization roundtrip") {
-    IntegerDatatype dt(4, true);
+    const IntegerDatatype dt(4, true);
     const auto node = dt.serialize();
     CHECK(node["type"].as<std::string>() == "int");
     CHECK(node["size"].as<std::size_t>() == 4);
     CHECK(node["sign"].as<bool>() == true);
 
-    IntegerDatatype dt2(node);
+    const IntegerDatatype dt2(node);
     CHECK(dt2.size() == 4);
     CHECK(dt2.sign() == true);
   }
 
   SUBCASE("toString roundtrip") {
-    IntegerDatatype dt(sizeof(long long), true);
+    const IntegerDatatype dt(sizeof(long long), true);
     long long val = 42;
     const auto str = dt.toStringRaw(&val);
     CHECK(str == "42");
@@ -133,7 +133,7 @@ TEST_CASE("IntegerDatatype" * doctest::test_suite("io")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("StringDatatype" * doctest::test_suite("io")) {
-  StringDatatype dt(5);
+  const StringDatatype dt(5);
 
   SUBCASE("Size") { CHECK(dt.size() == 5); }
 
@@ -163,22 +163,22 @@ TEST_CASE("StringDatatype" * doctest::test_suite("io")) {
 TEST_CASE("OpaqueDatatype" * doctest::test_suite("io")) {
 
   SUBCASE("Size") {
-    OpaqueDatatype dt(16);
+    const OpaqueDatatype dt(16);
     CHECK(dt.size() == 16);
   }
 
   SUBCASE("Serialization roundtrip") {
-    OpaqueDatatype dt(7);
+    const OpaqueDatatype dt(7);
     const auto node = dt.serialize();
     CHECK(node["type"].as<std::string>() == "opaque");
     CHECK(node["size"].as<std::size_t>() == 7);
 
-    OpaqueDatatype dt2(node);
+    const OpaqueDatatype dt2(node);
     CHECK(dt2.size() == 7);
   }
 
   SUBCASE("Base64 roundtrip 3 bytes") {
-    OpaqueDatatype dt(3);
+    const OpaqueDatatype dt(3);
     const uint8_t data[] = {1, 2, 3};
     const auto encoded = dt.toStringRaw(data);
     CHECK(!encoded.empty());
@@ -192,7 +192,7 @@ TEST_CASE("OpaqueDatatype" * doctest::test_suite("io")) {
   }
 
   SUBCASE("Base64 roundtrip 6 bytes — no padding") {
-    OpaqueDatatype dt(6);
+    const OpaqueDatatype dt(6);
     const uint8_t data[] = {0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff};
     const auto encoded = dt.toStringRaw(data);
     const auto decoded = dt.fromStringRaw(encoded);
@@ -210,7 +210,7 @@ TEST_CASE("OpaqueDatatype" * doctest::test_suite("io")) {
 
 TEST_CASE("ArrayDatatype" * doctest::test_suite("io")) {
   auto base = std::make_shared<F64Datatype>();
-  ArrayDatatype dt(base, {3, 4});
+  const ArrayDatatype dt(base, {3, 4});
 
   SUBCASE("Size") {
     // 8 bytes * 3 * 4 = 96
@@ -231,7 +231,7 @@ TEST_CASE("ArrayDatatype" * doctest::test_suite("io")) {
     CHECK(node["type"].as<std::string>() == "array");
     CHECK(node["shape"].as<std::vector<std::size_t>>() == std::vector<std::size_t>{3, 4});
 
-    ArrayDatatype dt2(node);
+    const ArrayDatatype dt2(node);
     CHECK(dt2.size() == 96);
     CHECK(dt2.dimensions() == std::vector<std::size_t>{3, 4});
   }
@@ -245,24 +245,24 @@ TEST_CASE("StructDatatype" * doctest::test_suite("io")) {
   auto intType = std::make_shared<IntegerDatatype>(4, true);
   auto floatType = std::make_shared<F32Datatype>();
 
-  std::vector<StructDatatype::MemberInfo> members = {
+  const std::vector<StructDatatype::MemberInfo> members = {
       {"x", 0, intType},
       {"y", 4, floatType},
   };
 
   SUBCASE("Auto-computed minSize") {
-    StructDatatype dt(members);
+    const StructDatatype dt(members);
     // minSize = max(0+4, 4+4) = 8
     CHECK(dt.size() == 8);
   }
 
   SUBCASE("Explicit size >= minSize") {
-    StructDatatype dt(members, 16);
+    const StructDatatype dt(members, 16);
     CHECK(dt.size() == 16);
   }
 
   SUBCASE("Members accessor") {
-    StructDatatype dt(members);
+    const StructDatatype dt(members);
     const auto& m = dt.members();
     REQUIRE(m.size() == 2);
     CHECK(m[0].name == "x");
@@ -272,12 +272,12 @@ TEST_CASE("StructDatatype" * doctest::test_suite("io")) {
   }
 
   SUBCASE("Serialization roundtrip") {
-    StructDatatype dt(members, 12);
+    const StructDatatype dt(members, 12);
     const auto node = dt.serialize();
     CHECK(node["type"].as<std::string>() == "struct");
     CHECK(node["size"].as<std::size_t>() == 12);
 
-    StructDatatype dt2(node);
+    const StructDatatype dt2(node);
     CHECK(dt2.size() == 12);
     CHECK(dt2.members().size() == 2);
     CHECK(dt2.members()[0].name == "x");

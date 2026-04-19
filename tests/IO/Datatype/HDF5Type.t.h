@@ -19,14 +19,14 @@ using namespace seissol::io::datatype;
 
 TEST_CASE("convertToHdf5 F32" * doctest::test_suite("io")) {
   auto dt = std::make_shared<F32Datatype>();
-  hid_t h5t = convertToHdf5(dt);
+  const hid_t h5t = convertToHdf5(dt);
   CHECK(H5Tget_class(h5t) == H5T_FLOAT);
   CHECK(H5Tget_size(h5t) == 4);
 }
 
 TEST_CASE("convertToHdf5 F64" * doctest::test_suite("io")) {
   auto dt = std::make_shared<F64Datatype>();
-  hid_t h5t = convertToHdf5(dt);
+  const hid_t h5t = convertToHdf5(dt);
   CHECK(H5Tget_class(h5t) == H5T_FLOAT);
   CHECK(H5Tget_size(h5t) == 8);
 }
@@ -34,7 +34,7 @@ TEST_CASE("convertToHdf5 F64" * doctest::test_suite("io")) {
 TEST_CASE("convertToHdf5 Integer" * doctest::test_suite("io")) {
   SUBCASE("int32 signed") {
     auto dt = std::make_shared<IntegerDatatype>(4, true);
-    hid_t h5t = convertToHdf5(dt);
+    const hid_t h5t = convertToHdf5(dt);
     CHECK(H5Tget_class(h5t) == H5T_INTEGER);
     CHECK(H5Tget_size(h5t) == 4);
     CHECK(H5Tget_sign(h5t) == H5T_SGN_2);
@@ -42,7 +42,7 @@ TEST_CASE("convertToHdf5 Integer" * doctest::test_suite("io")) {
 
   SUBCASE("uint32 unsigned") {
     auto dt = std::make_shared<IntegerDatatype>(4, false);
-    hid_t h5t = convertToHdf5(dt);
+    const hid_t h5t = convertToHdf5(dt);
     CHECK(H5Tget_class(h5t) == H5T_INTEGER);
     CHECK(H5Tget_size(h5t) == 4);
     CHECK(H5Tget_sign(h5t) == H5T_SGN_NONE);
@@ -50,14 +50,14 @@ TEST_CASE("convertToHdf5 Integer" * doctest::test_suite("io")) {
 
   SUBCASE("int8 signed") {
     auto dt = std::make_shared<IntegerDatatype>(1, true);
-    hid_t h5t = convertToHdf5(dt);
+    const hid_t h5t = convertToHdf5(dt);
     CHECK(H5Tget_class(h5t) == H5T_INTEGER);
     CHECK(H5Tget_size(h5t) == 1);
   }
 
   SUBCASE("int64 unsigned") {
     auto dt = std::make_shared<IntegerDatatype>(8, false);
-    hid_t h5t = convertToHdf5(dt);
+    const hid_t h5t = convertToHdf5(dt);
     CHECK(H5Tget_class(h5t) == H5T_INTEGER);
     CHECK(H5Tget_size(h5t) == 8);
     CHECK(H5Tget_sign(h5t) == H5T_SGN_NONE);
@@ -67,7 +67,7 @@ TEST_CASE("convertToHdf5 Integer" * doctest::test_suite("io")) {
 TEST_CASE("convertToHdf5 ArrayDatatype" * doctest::test_suite("io")) {
   auto base = std::make_shared<F64Datatype>();
   auto dt = std::make_shared<ArrayDatatype>(base, std::vector<std::size_t>{3, 5});
-  hid_t h5t = convertToHdf5(dt);
+  const hid_t h5t = convertToHdf5(dt);
   CHECK(H5Tget_class(h5t) == H5T_ARRAY);
   CHECK(H5Tget_size(h5t) == 3 * 5 * 8);
   int ndims = H5Tget_array_ndims(h5t);
@@ -82,12 +82,12 @@ TEST_CASE("convertToHdf5 ArrayDatatype" * doctest::test_suite("io")) {
 TEST_CASE("convertToHdf5 StructDatatype" * doctest::test_suite("io")) {
   auto f64 = std::make_shared<F64Datatype>();
   auto f32 = std::make_shared<F32Datatype>();
-  std::vector<StructDatatype::MemberInfo> members = {
+  const std::vector<StructDatatype::MemberInfo> members = {
       {"x", 0, f64},
       {"y", 8, f32},
   };
   auto dt = std::make_shared<StructDatatype>(members, 16);
-  hid_t h5t = convertToHdf5(dt);
+  const hid_t h5t = convertToHdf5(dt);
   CHECK(H5Tget_class(h5t) == H5T_COMPOUND);
   CHECK(H5Tget_nmembers(h5t) == 2);
   CHECK(H5Tget_size(h5t) == 16);
@@ -110,7 +110,7 @@ TEST_CASE("convertToHdf5 StructDatatype" * doctest::test_suite("io")) {
 
 TEST_CASE("convertToHdf5 OpaqueDatatype" * doctest::test_suite("io")) {
   auto dt = std::make_shared<OpaqueDatatype>(42);
-  hid_t h5t = convertToHdf5(dt);
+  const hid_t h5t = convertToHdf5(dt);
   CHECK(H5Tget_class(h5t) == H5T_OPAQUE);
   CHECK(H5Tget_size(h5t) == 42);
   H5Tclose(h5t);
@@ -118,7 +118,7 @@ TEST_CASE("convertToHdf5 OpaqueDatatype" * doctest::test_suite("io")) {
 
 TEST_CASE("convertToHdf5 StringDatatype" * doctest::test_suite("io")) {
   auto dt = std::make_shared<StringDatatype>(64);
-  hid_t h5t = convertToHdf5(dt);
+  const hid_t h5t = convertToHdf5(dt);
   CHECK(H5Tget_class(h5t) == H5T_STRING);
   CHECK(H5Tget_size(h5t) == 64);
   H5Tclose(h5t);

@@ -23,7 +23,7 @@ TEST_CASE("AcousticMaterial default construction" * doctest::test_suite("equatio
 }
 
 TEST_CASE("AcousticMaterial vector construction" * doctest::test_suite("equations")) {
-  std::vector<double> vals = {1000.0, 2.25e9};
+  const std::vector<double> vals = {1000.0, 2.25e9};
   AcousticMaterial m(vals);
   CHECK(m.rho == doctest::Approx(1000.0));
   CHECK(m.lambda == doctest::Approx(2.25e9));
@@ -37,7 +37,7 @@ TEST_CASE("AcousticMaterial static properties" * doctest::test_suite("equations"
 }
 
 TEST_CASE("AcousticMaterial wave speeds" * doctest::test_suite("equations")) {
-  std::vector<double> vals = {1000.0, 2.25e9};
+  const std::vector<double> vals = {1000.0, 2.25e9};
   AcousticMaterial m(vals);
 
   SUBCASE("P-wave = sqrt(lambda/rho) = 1500") {

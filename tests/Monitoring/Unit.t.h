@@ -94,8 +94,8 @@ TEST_CASE("SIUnit formatPrefix decimal" * doctest::test_suite("monitoring")) {
 
   SUBCASE("With error bar") {
     const auto result = unit.formatPrefix(1500.0, 100.0);
-    CHECK(result.find("(") != std::string::npos);
-    CHECK(result.find(")") != std::string::npos);
+    CHECK(result.find('(') != std::string::npos);
+    CHECK(result.find(')') != std::string::npos);
   }
 }
 
@@ -184,8 +184,8 @@ TEST_CASE("SIUnit formatScientific" * doctest::test_suite("monitoring")) {
 
   SUBCASE("With error") {
     const auto result = unit.formatScientific(1.5e10, 0.1e10);
-    CHECK(result.find("(") != std::string::npos);
-    CHECK(result.find(")") != std::string::npos);
+    CHECK(result.find('(') != std::string::npos);
+    CHECK(result.find(')') != std::string::npos);
   }
 
   SUBCASE("Negative") {

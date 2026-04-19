@@ -19,14 +19,14 @@ using namespace seissol::io::instance::point;
 using namespace seissol::io::datatype;
 
 TEST_CASE("Csv quote simple string" * doctest::test_suite("io")) {
-  Csv csv;
+  const Csv csv;
   CHECK(csv.quote("hello") == "\"hello\"");
   CHECK(csv.quote("") == "\"\"");
   CHECK(csv.quote("abc") == "\"abc\"");
 }
 
 TEST_CASE("Csv quote escapes internal quotes" * doctest::test_suite("io")) {
-  Csv csv;
+  const Csv csv;
   std::ostringstream stream;
   csv.quote(stream, "say \"hi\"");
   // Internal quotes should be doubled: say ""hi""
@@ -34,7 +34,7 @@ TEST_CASE("Csv quote escapes internal quotes" * doctest::test_suite("io")) {
 }
 
 TEST_CASE("Csv quote no special chars" * doctest::test_suite("io")) {
-  Csv csv;
+  const Csv csv;
   std::ostringstream stream;
   csv.quote(stream, "plain");
   CHECK(stream.str() == "\"plain\"");
@@ -67,18 +67,18 @@ TEST_CASE("Csv rows with data" * doctest::test_suite("io")) {
   csv.addQuantity(TableQuantity{"step", i32});
 
   // Add a row: time=1.5, step=10
-  double t1 = 1.5;
-  long long s1 = 10;
+  const double t1 = 1.5;
+  const long long s1 = 10;
   csv.addCell(t1);
   csv.addCell(s1);
 
   // Add another row: time=2.5, step=20
-  double t2 = 2.5;
-  long long s2 = 20;
+  const double t2 = 2.5;
+  const long long s2 = 20;
   csv.addCell(t2);
   csv.addCell(s2);
 
-  std::string result = csv.rows();
+  const std::string result = csv.rows();
 
   // Each row should have two quoted values separated by ;
   // Values are produced by toStringRaw, so for double it's %.16g style
@@ -89,7 +89,7 @@ TEST_CASE("Csv rows with data" * doctest::test_suite("io")) {
 
   // Two rows = two newlines
   std::size_t newlines = 0;
-  for (char c : result) {
+  for (const char c : result) {
     if (c == '\n') {
       ++newlines;
     }
@@ -111,7 +111,7 @@ TEST_CASE("Csv resetStorage clears data" * doctest::test_suite("io")) {
   auto f64 = std::make_shared<F64Datatype>();
   csv.addQuantity(TableQuantity{"x", f64});
 
-  double val = 42.0;
+  const double val = 42.0;
   csv.addCell(val);
   CHECK_FALSE(csv.rows().empty());
 

@@ -59,7 +59,7 @@ TEST_CASE("Spacetime bytesAder" * doctest::test_suite("kernel")) {
 TEST_CASE("Local flopsIntegral all Regular faces" * doctest::test_suite("kernel")) {
   kernels::Local local;
 
-  std::array<FaceType, Cell::NumFaces> faceTypes;
+  std::array<FaceType, Cell::NumFaces> faceTypes{};
   faceTypes.fill(FaceType::Regular);
 
   std::uint64_t nonZeroFlops = 0;
@@ -78,7 +78,7 @@ TEST_CASE("Local flopsIntegral with DynamicRupture faces" * doctest::test_suite(
   kernels::Local local;
 
   // All faces are DR → local flux is skipped for each (on CPU)
-  std::array<FaceType, Cell::NumFaces> faceTypesDR;
+  std::array<FaceType, Cell::NumFaces> faceTypesDR{};
   faceTypesDR.fill(FaceType::DynamicRupture);
 
   std::uint64_t nzDR = 0;
@@ -86,7 +86,7 @@ TEST_CASE("Local flopsIntegral with DynamicRupture faces" * doctest::test_suite(
   local.flopsIntegral(faceTypesDR, nzDR, hwDR);
 
   // All regular faces
-  std::array<FaceType, Cell::NumFaces> faceTypesReg;
+  std::array<FaceType, Cell::NumFaces> faceTypesReg{};
   faceTypesReg.fill(FaceType::Regular);
 
   std::uint64_t nzReg = 0;
@@ -108,7 +108,7 @@ TEST_CASE("Local flopsIntegral with DynamicRupture faces" * doctest::test_suite(
 TEST_CASE("Local flopsIntegral mixed faces" * doctest::test_suite("kernel")) {
   kernels::Local local;
 
-  std::array<FaceType, Cell::NumFaces> faceTypes = {
+  const std::array<FaceType, Cell::NumFaces> faceTypes = {
       FaceType::Regular,
       FaceType::FreeSurface,
       FaceType::Outflow,
@@ -138,7 +138,7 @@ TEST_CASE("Local bytesIntegral" * doctest::test_suite("kernel")) {
 TEST_CASE("Neighbor flopsNeighborsIntegral all Regular" * doctest::test_suite("kernel")) {
   kernels::Neighbor neighbor;
 
-  std::array<FaceType, Cell::NumFaces> faceTypes;
+  std::array<FaceType, Cell::NumFaces> faceTypes{};
   faceTypes.fill(FaceType::Regular);
 
   std::array<std::array<uint8_t, 2>, Cell::NumFaces> neighboringIndices{};
@@ -146,7 +146,7 @@ TEST_CASE("Neighbor flopsNeighborsIntegral all Regular" * doctest::test_suite("k
     neighboringIndices[f] = {0, 0};
   }
 
-  CellDRMapping drMapping[4]{};
+  const CellDRMapping drMapping[4]{};
 
   std::uint64_t nz = 0;
   std::uint64_t hw = 0;
@@ -170,11 +170,11 @@ TEST_CASE("Neighbor flopsNeighborsIntegral all Regular" * doctest::test_suite("k
 TEST_CASE("Neighbor flopsNeighborsIntegral with DR faces" * doctest::test_suite("kernel")) {
   kernels::Neighbor neighbor;
 
-  std::array<FaceType, Cell::NumFaces> faceTypes;
+  std::array<FaceType, Cell::NumFaces> faceTypes{};
   faceTypes.fill(FaceType::DynamicRupture);
 
-  std::array<std::array<uint8_t, 2>, Cell::NumFaces> neighboringIndices{};
-  CellDRMapping drMapping[4]{};
+  const std::array<std::array<uint8_t, 2>, Cell::NumFaces> neighboringIndices{};
+  const CellDRMapping drMapping[4]{};
 
   std::uint64_t nz = 0;
   std::uint64_t hw = 0;
@@ -214,15 +214,15 @@ TEST_CASE("Kernel flop ordering: Ader < Local < Neighbor" * doctest::test_suite(
   spacetime.flopsAder(aderNz, aderHw);
 
   kernels::Local local;
-  std::array<FaceType, Cell::NumFaces> faceTypes;
+  std::array<FaceType, Cell::NumFaces> faceTypes{};
   faceTypes.fill(FaceType::Regular);
   std::uint64_t localNz = 0;
   std::uint64_t localHw = 0;
   local.flopsIntegral(faceTypes, localNz, localHw);
 
   kernels::Neighbor neighbor;
-  std::array<std::array<uint8_t, 2>, Cell::NumFaces> neighboringIndices{};
-  CellDRMapping drMapping[4]{};
+  const std::array<std::array<uint8_t, 2>, Cell::NumFaces> neighboringIndices{};
+  const CellDRMapping drMapping[4]{};
   std::uint64_t neighborNz = 0;
   std::uint64_t neighborHw = 0;
   std::uint64_t drNz = 0;

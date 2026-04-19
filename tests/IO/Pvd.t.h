@@ -26,7 +26,7 @@ static std::string
   std::string result;
   for (const auto& instr : instrs) {
     auto* bw = dynamic_cast<instructions::BinaryWrite*>(instr.get());
-    if (bw && bw->dataSource) {
+    if ((bw != nullptr) && bw->dataSource) {
       const auto* ptr = reinterpret_cast<const char*>(bw->dataSource->getLocalPointer());
       const auto size = bw->dataSource->getLocalSize();
       if (ptr != nullptr && size > 0) {
@@ -76,7 +76,7 @@ TEST_CASE("XmlFile simple node produces XML" * doctest::test_suite("io")) {
   // Should produce at least one instruction
   CHECK_FALSE(instrs.empty());
 
-  std::string xml = extractInlineText(instrs);
+  const std::string xml = extractInlineText(instrs);
   // Must contain the XML header
   CHECK(xml.find("<?xml version=\"1.0\"?>") != std::string::npos);
   // Must contain the root element
@@ -98,7 +98,7 @@ TEST_CASE("XmlFile nested nodes" * doctest::test_suite("io")) {
   XmlFile file;
   file.setRoot(root);
 
-  std::string xml = extractInlineText(file.instructions("test.xml"));
+  const std::string xml = extractInlineText(file.instructions("test.xml"));
   CHECK(xml.find("<Parent>") != std::string::npos);
   CHECK(xml.find("<Child ") != std::string::npos);
   CHECK(xml.find("</Parent>") != std::string::npos);
@@ -113,7 +113,7 @@ TEST_CASE("makePvu empty entries" * doctest::test_suite("io")) {
   auto instrs = file.instructions("test.pvd");
   CHECK_FALSE(instrs.empty());
 
-  std::string xml = extractInlineText(instrs);
+  const std::string xml = extractInlineText(instrs);
   CHECK(xml.find("<?xml version=\"1.0\"?>") != std::string::npos);
   CHECK(xml.find("<VTKFile ") != std::string::npos);
   CHECK(xml.find("type=") != std::string::npos);
@@ -124,14 +124,14 @@ TEST_CASE("makePvu empty entries" * doctest::test_suite("io")) {
 }
 
 TEST_CASE("makePvu with entries" * doctest::test_suite("io")) {
-  std::vector<PvuEntry> entries = {
+  const std::vector<PvuEntry> entries = {
       {"output-0001.vtu", 0.0},
       {"output-0002.vtu", 0.5},
       {"output-0003.vtu", 1.0},
   };
   auto file = makePvu(entries);
   auto instrs = file.instructions("test.pvd");
-  std::string xml = extractInlineText(instrs);
+  const std::string xml = extractInlineText(instrs);
 
   CHECK(xml.find("<VTKFile ") != std::string::npos);
   CHECK(xml.find("<Collection>") != std::string::npos);
@@ -154,7 +154,7 @@ TEST_CASE("makePvu with entries" * doctest::test_suite("io")) {
 TEST_CASE("makePvu single entry" * doctest::test_suite("io")) {
   auto file = makePvu({{"step.vtu", 42.0}});
   auto instrs = file.instructions("out.pvd");
-  std::string xml = extractInlineText(instrs);
+  const std::string xml = extractInlineText(instrs);
 
   CHECK(xml.find("<VTKFile ") != std::string::npos);
   CHECK(xml.find("<Collection>") != std::string::npos);
@@ -167,7 +167,7 @@ TEST_CASE("makePvu single entry" * doctest::test_suite("io")) {
   // All instructions reference the same file
   for (const auto& instr : instrs) {
     auto* bw = dynamic_cast<instructions::BinaryWrite*>(instr.get());
-    if (bw) {
+    if (bw != nullptr) {
       CHECK(bw->filename == "out.pvd");
     }
   }

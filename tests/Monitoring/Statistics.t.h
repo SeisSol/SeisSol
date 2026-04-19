@@ -33,7 +33,7 @@ TEST_CASE("Summary from scalar" * doctest::test_suite("monitoring")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("Summary from vector" * doctest::test_suite("monitoring")) {
-  std::vector<double> values = {1.0, 2.0, 3.0, 4.0, 5.0};
+  const std::vector<double> values = {1.0, 2.0, 3.0, 4.0, 5.0};
   Summary s(values);
 
   CHECK(s.min == doctest::Approx(1.0));
@@ -53,7 +53,7 @@ TEST_CASE("Summary from vector" * doctest::test_suite("monitoring")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("Summary even count median" * doctest::test_suite("monitoring")) {
-  std::vector<double> values = {10.0, 20.0, 30.0, 40.0};
+  const std::vector<double> values = {10.0, 20.0, 30.0, 40.0};
   Summary s(values);
 
   CHECK(s.median == doctest::Approx(25.0)); // (20+30)/2
@@ -68,7 +68,7 @@ TEST_CASE("Summary even count median" * doctest::test_suite("monitoring")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("Summary all identical" * doctest::test_suite("monitoring")) {
-  std::vector<double> values = {7.0, 7.0, 7.0};
+  const std::vector<double> values = {7.0, 7.0, 7.0};
   Summary s(values);
 
   CHECK(s.min == doctest::Approx(7.0));
@@ -84,7 +84,7 @@ TEST_CASE("Summary all identical" * doctest::test_suite("monitoring")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("Summary two elements" * doctest::test_suite("monitoring")) {
-  std::vector<double> values = {3.0, 7.0};
+  const std::vector<double> values = {3.0, 7.0};
   Summary s(values);
 
   CHECK(s.min == doctest::Approx(3.0));
@@ -101,7 +101,7 @@ TEST_CASE("Summary two elements" * doctest::test_suite("monitoring")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("Summary handles unsorted input" * doctest::test_suite("monitoring")) {
-  std::vector<double> values = {5.0, 1.0, 3.0, 4.0, 2.0};
+  const std::vector<double> values = {5.0, 1.0, 3.0, 4.0, 2.0};
   Summary s(values);
 
   CHECK(s.min == doctest::Approx(1.0));
@@ -114,7 +114,7 @@ TEST_CASE("Summary handles unsorted input" * doctest::test_suite("monitoring")) 
 // ---------------------------------------------------------------------------
 
 TEST_CASE("Summary single element vector" * doctest::test_suite("monitoring")) {
-  std::vector<double> values = {99.0};
+  const std::vector<double> values = {99.0};
   Summary s(values);
 
   CHECK(s.min == doctest::Approx(99.0));

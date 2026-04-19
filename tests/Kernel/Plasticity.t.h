@@ -28,15 +28,15 @@ TEST_CASE("Plasticity computeRelaxTime" * doctest::test_suite("kernel")) {
 
   SUBCASE("tV > 0 → exponential decay factor") {
     // computeRelaxTime(tV, dt) = -expm1(-dt/tV) = 1 - exp(-dt/tV)
-    double tV = 0.1;
-    double dt = 0.05;
-    double expected = 1.0 - std::exp(-dt / tV);
+    const double tV = 0.1;
+    const double dt = 0.05;
+    const double expected = 1.0 - std::exp(-dt / tV);
     CHECK(Plasticity::computeRelaxTime(tV, dt) == doctest::Approx(expected));
   }
 
   SUBCASE("Small dt/tV ratio (nearly no relaxation)") {
-    double tV = 100.0;
-    double dt = 0.001;
+    const double tV = 100.0;
+    const double dt = 0.001;
     double result = Plasticity::computeRelaxTime(tV, dt);
     // For small dt/tV: result ≈ dt/tV
     CHECK(result == doctest::Approx(dt / tV).epsilon(1e-4));
@@ -45,23 +45,23 @@ TEST_CASE("Plasticity computeRelaxTime" * doctest::test_suite("kernel")) {
   }
 
   SUBCASE("Large dt/tV ratio (full relaxation)") {
-    double tV = 0.001;
-    double dt = 10.0;
+    const double tV = 0.001;
+    const double dt = 10.0;
     double result = Plasticity::computeRelaxTime(tV, dt);
     // For large dt/tV: result ≈ 1
     CHECK(result == doctest::Approx(1.0).epsilon(1e-6));
   }
 
   SUBCASE("dt = tV → known value") {
-    double tV = 1.0;
-    double dt = 1.0;
+    const double tV = 1.0;
+    const double dt = 1.0;
     // 1 - exp(-1) ≈ 0.6321
     CHECK(Plasticity::computeRelaxTime(tV, dt) == doctest::Approx(1.0 - std::exp(-1.0)));
   }
 
   SUBCASE("Result is always in (0, 1] for tV > 0") {
-    for (double tV : {0.01, 0.1, 1.0, 10.0, 100.0}) {
-      for (double dt : {0.001, 0.01, 0.1, 1.0, 10.0}) {
+    for (const double tV : {0.01, 0.1, 1.0, 10.0, 100.0}) {
+      for (const double dt : {0.001, 0.01, 0.1, 1.0, 10.0}) {
         double result = Plasticity::computeRelaxTime(tV, dt);
         CHECK(result > 0.0);
         CHECK(result <= 1.0);
@@ -70,9 +70,9 @@ TEST_CASE("Plasticity computeRelaxTime" * doctest::test_suite("kernel")) {
   }
 
   SUBCASE("Monotone in dt for fixed tV") {
-    double tV = 1.0;
+    const double tV = 1.0;
     double prev = 0.0;
-    for (double dt : {0.01, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0}) {
+    for (const double dt : {0.01, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0}) {
       double result = Plasticity::computeRelaxTime(tV, dt);
       CHECK(result > prev);
       prev = result;

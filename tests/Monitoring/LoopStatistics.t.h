@@ -54,16 +54,16 @@ TEST_CASE("LoopStatistics addSample accumulates" * doctest::test_suite("monitori
   seissol::LoopStatistics ls;
   ls.addRegion("work");
 
-  unsigned region = ls.getRegion("work");
+  const unsigned region = ls.getRegion("work");
 
   // Add a sample: 100 iterations, 1 second duration
-  timespec t0 = makeTime(10, 0);
-  timespec t1 = makeTime(11, 0);
+  const timespec t0 = makeTime(10, 0);
+  const timespec t1 = makeTime(11, 0);
   ls.addSample(region, 100, 0, t0, t1);
 
   // Add another sample: 200 iterations, 0.5 seconds
-  timespec t2 = makeTime(20, 0);
-  timespec t3 = makeTime(20, 500000000);
+  const timespec t2 = makeTime(20, 0);
+  const timespec t3 = makeTime(20, 500000000);
   ls.addSample(region, 200, 0, t2, t3);
 
   // We can't directly inspect the private StatisticVariables,
@@ -80,11 +80,11 @@ TEST_CASE("LoopStatistics addSample zero iterations" * doctest::test_suite("moni
   seissol::LoopStatistics ls;
   ls.addRegion("idle");
 
-  unsigned region = ls.getRegion("idle");
+  const unsigned region = ls.getRegion("idle");
 
   // Zero iterations → should be ignored in statistics (no crash)
-  timespec t0 = makeTime(0, 0);
-  timespec t1 = makeTime(1, 0);
+  const timespec t0 = makeTime(0, 0);
+  const timespec t1 = makeTime(1, 0);
   ls.addSample(region, 0, 0, t0, t1);
 
   CHECK(true);
@@ -97,10 +97,10 @@ TEST_CASE("LoopStatistics addSample zero iterations" * doctest::test_suite("moni
 TEST_CASE("LoopStatistics sample storage" * doctest::test_suite("monitoring")) {
   seissol::LoopStatistics ls;
   ls.addRegion("work");
-  unsigned region = ls.getRegion("work");
+  const unsigned region = ls.getRegion("work");
 
-  timespec t0 = makeTime(0, 0);
-  timespec t1 = makeTime(1, 0);
+  const timespec t0 = makeTime(0, 0);
+  const timespec t1 = makeTime(1, 0);
 
   SUBCASE("Samples not stored by default") {
     // Default: outputSamples = false
@@ -125,7 +125,7 @@ TEST_CASE("LoopStatistics sample storage" * doctest::test_suite("monitoring")) {
 TEST_CASE("LoopStatistics begin/end cycle" * doctest::test_suite("monitoring")) {
   seissol::LoopStatistics ls;
   ls.addRegion("kernel");
-  unsigned region = ls.getRegion("kernel");
+  const unsigned region = ls.getRegion("kernel");
 
   // begin() records the start time, end() records end time and adds a sample
   ls.begin(region);
@@ -148,10 +148,10 @@ TEST_CASE("LoopStatistics reset" * doctest::test_suite("monitoring")) {
   seissol::LoopStatistics ls;
   ls.enableSampleOutput(true);
   ls.addRegion("work");
-  unsigned region = ls.getRegion("work");
+  const unsigned region = ls.getRegion("work");
 
-  timespec t0 = makeTime(0, 0);
-  timespec t1 = makeTime(1, 0);
+  const timespec t0 = makeTime(0, 0);
+  const timespec t1 = makeTime(1, 0);
   ls.addSample(region, 100, 0, t0, t1);
 
   ls.reset();
@@ -180,8 +180,8 @@ TEST_CASE("LoopStatistics multiple regions and subRegions" * doctest::test_suite
   CHECK(neighbor != dr);
   CHECK(local != dr);
 
-  timespec t0 = makeTime(0, 0);
-  timespec t1 = makeTime(0, 100000000); // 0.1s
+  const timespec t0 = makeTime(0, 0);
+  const timespec t1 = makeTime(0, 100000000); // 0.1s
 
   // Add samples to different regions with different subRegions (cluster ids)
   ls.addSample(local, 1000, 0, t0, t1);

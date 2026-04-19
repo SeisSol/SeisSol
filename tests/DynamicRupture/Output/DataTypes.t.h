@@ -22,11 +22,11 @@ using namespace seissol::dr::output;
 // ---------------------------------------------------------------------------
 
 TEST_CASE("VarT dim" * doctest::test_suite("dynamicrupture")) {
-  Var1D v1;
+  const Var1D v1;
   CHECK(v1.dim() == 1);
-  Var2D v2;
+  const Var2D v2;
   CHECK(v2.dim() == 2);
-  Var3D v3;
+  const Var3D v3;
   CHECK(v3.dim() == 3);
 }
 

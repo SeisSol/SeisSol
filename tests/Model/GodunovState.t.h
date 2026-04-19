@@ -31,9 +31,9 @@ void test_matrix(init::QgodLocal::view::type& qgodLocal, const T& solution, doub
   CHECK(std::abs(frobDiffSquared) < epsilon * frobASquared * epsilon * frobASquared);
 }
 
-void test_consistency(init::QgodLocal::view::type& qgodLocal,
-                      init::QgodLocal::view::type& qgodNeighbor,
-                      double epsilon) {
+inline void test_consistency(init::QgodLocal::view::type& qgodLocal,
+                             init::QgodLocal::view::type& qgodNeighbor,
+                             double epsilon) {
   // compute the Frobenius norms squared: ||QgodLocal - solution||^2 and ||solution||^2
   double diffSquared = 0.0;
   double frobASquared = 0.0;

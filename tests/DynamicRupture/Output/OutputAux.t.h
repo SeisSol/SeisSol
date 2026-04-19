@@ -178,9 +178,10 @@ TEST_CASE("getElementVertexId ranges" * doctest::test_suite("dynamicrupture")) {
       used[vid] = true;
     }
     int count = 0;
-    for (bool u : used) {
-      if (u)
+    for (const bool u : used) {
+      if (u) {
         ++count;
+      }
     }
     CHECK(count == 3);
   }
@@ -188,7 +189,7 @@ TEST_CASE("getElementVertexId ranges" * doctest::test_suite("dynamicrupture")) {
 
 TEST_CASE("convertMaskFromBoolToInt" * doctest::test_suite("dynamicrupture")) {
   SUBCASE("Mixed") {
-    std::array<bool, 5> mask = {true, false, true, true, false};
+    const std::array<bool, 5> mask = {true, false, true, true, false};
     auto intMask = convertMaskFromBoolToInt<5>(mask);
     CHECK(intMask[0] == 1);
     CHECK(intMask[1] == 0);
@@ -197,16 +198,18 @@ TEST_CASE("convertMaskFromBoolToInt" * doctest::test_suite("dynamicrupture")) {
     CHECK(intMask[4] == 0);
   }
   SUBCASE("All true") {
-    std::array<bool, 3> mask = {true, true, true};
+    const std::array<bool, 3> mask = {true, true, true};
     auto intMask = convertMaskFromBoolToInt<3>(mask);
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 3; ++i) {
       CHECK(intMask[i] == 1);
+    }
   }
   SUBCASE("All false") {
-    std::array<bool, 3> mask = {false, false, false};
+    const std::array<bool, 3> mask = {false, false, false};
     auto intMask = convertMaskFromBoolToInt<3>(mask);
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 3; ++i) {
       CHECK(intMask[i] == 0);
+    }
   }
 }
 

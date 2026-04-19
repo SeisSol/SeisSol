@@ -25,7 +25,7 @@ TEST_CASE("parallelSummary with distinct rank values" * doctest::test_suite("mpi
   const int size = mpi.size();
 
   // Each rank contributes its rank index as a double
-  double value = static_cast<double>(rank);
+  const auto value = static_cast<double>(rank);
   auto summary = seissol::statistics::parallelSummary(value);
 
   if (rank == 0) {
@@ -33,11 +33,11 @@ TEST_CASE("parallelSummary with distinct rank values" * doctest::test_suite("mpi
     CHECK(summary.max == doctest::Approx(size - 1));
 
     // mean = (0 + 1 + ... + (size-1)) / size = (size-1)/2
-    double expectedMean = (size - 1) / 2.0;
+    const double expectedMean = (size - 1) / 2.0;
     CHECK(summary.mean == doctest::Approx(expectedMean));
 
     // sum = 0 + 1 + ... + (size-1) = size*(size-1)/2
-    double expectedSum = size * (size - 1) / 2.0;
+    const double expectedSum = size * (size - 1) / 2.0;
     CHECK(summary.sum == doctest::Approx(expectedSum));
 
     // median for size ranks: depends on parity
@@ -46,7 +46,7 @@ TEST_CASE("parallelSummary with distinct rank values" * doctest::test_suite("mpi
       CHECK(summary.median == doctest::Approx((size - 1) / 2.0));
     } else {
       // Even: average of two middle values
-      double mid = (size / 2 - 1 + size / 2) / 2.0;
+      const double mid = (size / 2.0 - 1 + size / 2.0) / 2.0;
       CHECK(summary.median == doctest::Approx(mid));
     }
   }
@@ -83,7 +83,7 @@ TEST_CASE("parallelSummary binary values" * doctest::test_suite("mpi")) {
   const int size = mpi.size();
 
   // Even ranks send 0.0, odd ranks send 100.0
-  double value = (rank % 2 == 0) ? 0.0 : 100.0;
+  const double value = (rank % 2 == 0) ? 0.0 : 100.0;
   auto summary = seissol::statistics::parallelSummary(value);
 
   if (rank == 0) {

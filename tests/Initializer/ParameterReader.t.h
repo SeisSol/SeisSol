@@ -58,7 +58,7 @@ TEST_CASE("sanitize" * doctest::test_suite("initializer")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("ParameterReader read<T>" * doctest::test_suite("initializer")) {
-  YAML::Node node = YAML::Load(R"(
+  const YAML::Node node = YAML::Load(R"(
     intfield: 42
     doublefield: 3.14
     strfield: hello
@@ -108,7 +108,7 @@ TEST_CASE("ParameterReader read<T>" * doctest::test_suite("initializer")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("ParameterReader readWithDefault" * doctest::test_suite("initializer")) {
-  YAML::Node node = YAML::Load("present: 99");
+  const YAML::Node node = YAML::Load("present: 99");
   ParameterReader reader(node, "", false);
 
   SUBCASE("Returns value when present") { CHECK(reader.readWithDefault("present", 0) == 99); }
@@ -130,21 +130,21 @@ TEST_CASE("ParameterReader readWithDefaultStringEnum" * doctest::test_suite("ini
       {"red", Color::Red}, {"green", Color::Green}, {"blue", Color::Blue}};
 
   SUBCASE("Reads present value") {
-    YAML::Node node = YAML::Load("color: Green");
+    const YAML::Node node = YAML::Load("color: Green");
     ParameterReader reader(node, "", false);
     auto result = reader.readWithDefaultStringEnum("color", "red", colorMap);
     CHECK(result == Color::Green);
   }
 
   SUBCASE("Uses default when missing") {
-    YAML::Node node = YAML::Load("other: 1");
+    const YAML::Node node = YAML::Load("other: 1");
     ParameterReader reader(node, "", false);
     auto result = reader.readWithDefaultStringEnum("color", "blue", colorMap);
     CHECK(result == Color::Blue);
   }
 
   SUBCASE("Case-insensitive via sanitize") {
-    YAML::Node node = YAML::Load("color: RED");
+    const YAML::Node node = YAML::Load("color: RED");
     ParameterReader reader(node, "", false);
     auto result = reader.readWithDefaultStringEnum("color", "blue", colorMap);
     CHECK(result == Color::Red);
@@ -156,7 +156,7 @@ TEST_CASE("ParameterReader readWithDefaultStringEnum" * doctest::test_suite("ini
 // ---------------------------------------------------------------------------
 
 TEST_CASE("ParameterReader empty mode" * doctest::test_suite("initializer")) {
-  YAML::Node node = YAML::Load("field: 42");
+  const YAML::Node node = YAML::Load("field: 42");
   ParameterReader reader(node, "", true); // empty=true → hasField always false
 
   SUBCASE("Read returns empty even if data exists in node") {
@@ -174,7 +174,7 @@ TEST_CASE("ParameterReader empty mode" * doctest::test_suite("initializer")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("ParameterReader readSubNode" * doctest::test_suite("initializer")) {
-  YAML::Node node = YAML::Load(R"(
+  const YAML::Node node = YAML::Load(R"(
     equations:
       materialfilename: rock.yaml
       plasticity: 0
@@ -209,7 +209,7 @@ TEST_CASE("ParameterReader readSubNode" * doctest::test_suite("initializer")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("ParameterReader hasField" * doctest::test_suite("initializer")) {
-  YAML::Node node = YAML::Load("alpha: 1\nbeta: 2");
+  const YAML::Node node = YAML::Load("alpha: 1\nbeta: 2");
   ParameterReader reader(node, "", false);
 
   CHECK(reader.hasField("alpha"));

@@ -32,7 +32,9 @@ TEST_CASE("AnisotropicMaterial static properties" * doctest::test_suite("equatio
 }
 
 TEST_CASE("AnisotropicMaterial from ElasticMaterial" * doctest::test_suite("equations")) {
-  double rho = 2700.0, mu = 3.24e10, lambda = 3.24e10;
+  const double rho = 2700.0;
+  const double mu = 3.24e10;
+  const double lambda = 3.24e10;
   ElasticMaterial em({rho, mu, lambda});
   AnisotropicMaterial am(em);
 
@@ -67,7 +69,9 @@ TEST_CASE("AnisotropicMaterial from ElasticMaterial" * doctest::test_suite("equa
 
 TEST_CASE("AnisotropicMaterial averaged properties match elastic" *
           doctest::test_suite("equations")) {
-  double rho = 2700.0, mu = 3.24e10, lambda = 3.24e10;
+  const double rho = 2700.0;
+  const double mu = 3.24e10;
+  const double lambda = 3.24e10;
   ElasticMaterial em({rho, mu, lambda});
   AnisotropicMaterial am(em);
 

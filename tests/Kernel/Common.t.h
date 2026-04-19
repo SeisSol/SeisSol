@@ -45,7 +45,7 @@ TEST_CASE("getNumberOfAlignedReals" * doctest::test_suite("kernel")) {
   SUBCASE("Already aligned") {
     // If numberOfReals * sizeof(real) is already a multiple of alignment,
     // no padding needed.
-    unsigned alignment = sizeof(real);
+    const unsigned alignment = sizeof(real);
     unsigned n = 10;
     CHECK(getNumberOfAlignedReals(n, alignment) == n);
   }

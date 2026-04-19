@@ -89,7 +89,7 @@ TEST_CASE("convertToMPI ArrayDatatype" * doctest::test_suite("io")) {
 TEST_CASE("convertToMPI StructDatatype" * doctest::test_suite("io")) {
   auto f64 = std::make_shared<F64Datatype>();
   auto i32 = std::make_shared<IntegerDatatype>(4, true);
-  std::vector<StructDatatype::MemberInfo> members = {
+  const std::vector<StructDatatype::MemberInfo> members = {
       {"a", 0, f64},
       {"b", 8, i32},
   };

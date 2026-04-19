@@ -70,7 +70,7 @@ TEST_CASE("SlipRateOutputType enum values" * doctest::test_suite("initializer"))
 // ---------------------------------------------------------------------------
 
 TEST_CASE("readDRParameters defaults" * doctest::test_suite("initializer")) {
-  YAML::Node node = YAML::Load(R"(
+  const YAML::Node node = YAML::Load(R"(
     dynamicrupture: {}
   )");
   ParameterReader reader(node, "", false);
@@ -93,7 +93,7 @@ TEST_CASE("readDRParameters defaults" * doctest::test_suite("initializer")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("readDRParameters with linear slip weakening" * doctest::test_suite("initializer")) {
-  YAML::Node node = YAML::Load(R"(
+  const YAML::Node node = YAML::Load(R"(
     dynamicrupture:
       fl: 16
       xref: 1.0
@@ -117,7 +117,7 @@ TEST_CASE("readDRParameters imposed slip rates forces output type" *
           doctest::test_suite("initializer")) {
   // ImposedSlipRatesYoffe = 33; default slipRateOutputType = TractionsAndFailure(1)
   // The code should auto-correct this to VelocityDifference(0)
-  YAML::Node node = YAML::Load(R"(
+  const YAML::Node node = YAML::Load(R"(
     dynamicrupture:
       fl: 33
   )");
@@ -129,7 +129,7 @@ TEST_CASE("readDRParameters imposed slip rates forces output type" *
 }
 
 TEST_CASE("readDRParameters Gaussian imposed also corrects" * doctest::test_suite("initializer")) {
-  YAML::Node node = YAML::Load(R"(
+  const YAML::Node node = YAML::Load(R"(
     dynamicrupture:
       fl: 34
   )");
@@ -145,7 +145,7 @@ TEST_CASE("readDRParameters Gaussian imposed also corrects" * doctest::test_suit
 // ---------------------------------------------------------------------------
 
 TEST_CASE("readDRParameters rate and state" * doctest::test_suite("initializer")) {
-  YAML::Node node = YAML::Load(R"(
+  const YAML::Node node = YAML::Load(R"(
     dynamicrupture:
       fl: 3
       rs_f0: 0.6

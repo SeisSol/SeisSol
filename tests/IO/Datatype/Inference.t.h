@@ -92,14 +92,14 @@ TEST_CASE("inferDatatype C-arrays" * doctest::test_suite("io")) {
 
   SUBCASE("double[3][4] -> ArrayDatatype multidimensional") {
     auto dt = inferDatatype<double[3][4]>();
-    CHECK(dt->size() == 3 * 4 * sizeof(double));
+    CHECK(dt->size() == static_cast<std::size_t>(3 * 4 * sizeof(double)));
     const auto node = dt->serialize();
     CHECK(node["shape"].as<std::vector<std::size_t>>() == std::vector<std::size_t>{3, 4});
   }
 
   SUBCASE("int[2][3][4] -> ArrayDatatype 3D") {
     auto dt = inferDatatype<int[2][3][4]>();
-    CHECK(dt->size() == 2 * 3 * 4 * sizeof(int));
+    CHECK(dt->size() == static_cast<std::size_t>(2 * 3 * 4 * sizeof(int)));
     const auto node = dt->serialize();
     CHECK(node["shape"].as<std::vector<std::size_t>>() == std::vector<std::size_t>{2, 3, 4});
   }

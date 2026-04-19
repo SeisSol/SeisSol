@@ -25,7 +25,7 @@ TEST_CASE("ElasticMaterial default construction" * doctest::test_suite("equation
 }
 
 TEST_CASE("ElasticMaterial vector construction" * doctest::test_suite("equations")) {
-  std::vector<double> vals = {2700.0, 3.24e10, 3.24e10};
+  const std::vector<double> vals = {2700.0, 3.24e10, 3.24e10};
   ElasticMaterial m(vals);
   CHECK(m.rho == doctest::Approx(2700.0));
   CHECK(m.mu == doctest::Approx(3.24e10));
@@ -42,7 +42,7 @@ TEST_CASE("ElasticMaterial static properties" * doctest::test_suite("equations")
 }
 
 TEST_CASE("ElasticMaterial wave speeds" * doctest::test_suite("equations")) {
-  std::vector<double> vals = {2700.0, 3.24e10, 3.24e10};
+  const std::vector<double> vals = {2700.0, 3.24e10, 3.24e10};
   ElasticMaterial m(vals);
   double vp = m.getPWaveSpeed();
   double vs = m.getSWaveSpeed();
@@ -65,7 +65,7 @@ TEST_CASE("ElasticMaterial getMaterialType" * doctest::test_suite("equations")) 
 }
 
 TEST_CASE("ElasticMaterial getLambdaBar getMuBar" * doctest::test_suite("equations")) {
-  std::vector<double> vals = {2000.0, 1e10, 2e10};
+  const std::vector<double> vals = {2000.0, 1e10, 2e10};
   ElasticMaterial m(vals);
   CHECK(m.getLambdaBar() == doctest::Approx(2e10));
   CHECK(m.getMuBar() == doctest::Approx(1e10));
@@ -81,8 +81,9 @@ TEST_CASE("ElasticMaterial setLameParameters" * doctest::test_suite("equations")
 }
 
 TEST_CASE("ElasticMaterial stiffness tensor" * doctest::test_suite("equations")) {
-  double lambda = 3.0e10, mu = 2.0e10;
-  std::vector<double> vals = {2700.0, mu, lambda};
+  const double lambda = 3.0e10;
+  const double mu = 2.0e10;
+  const std::vector<double> vals = {2700.0, mu, lambda};
   ElasticMaterial m(vals);
   std::array<double, 81> tensor{};
   m.getFullStiffnessTensor(tensor);

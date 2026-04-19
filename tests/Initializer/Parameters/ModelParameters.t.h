@@ -31,7 +31,7 @@ TEST_CASE("fluxToString" * doctest::test_suite("initializer")) {
 
 TEST_CASE("readITMParameters defaults" * doctest::test_suite("initializer")) {
   // Provide an empty equations section → all defaults should apply
-  YAML::Node node = YAML::Load(R"(
+  const YAML::Node node = YAML::Load(R"(
     equations: {}
   )");
   ParameterReader reader(node, "", false);
@@ -45,7 +45,7 @@ TEST_CASE("readITMParameters defaults" * doctest::test_suite("initializer")) {
 }
 
 TEST_CASE("readITMParameters custom values" * doctest::test_suite("initializer")) {
-  YAML::Node node = YAML::Load(R"(
+  const YAML::Node node = YAML::Load(R"(
     equations:
       itmenable: 0
       itmstartingtime: 2.5
@@ -72,7 +72,7 @@ TEST_CASE("readITMParameters custom values" * doctest::test_suite("initializer")
 TEST_CASE("readModelParameters parses YAML" * doctest::test_suite("initializer")) {
   // Provide a minimal-but-complete equations section.
   // materialfilename is required, so it must be present.
-  YAML::Node node = YAML::Load(R"(
+  const YAML::Node node = YAML::Load(R"(
     equations:
       materialfilename: material.yaml
       plasticity: 1
@@ -98,7 +98,7 @@ TEST_CASE("readModelParameters parses YAML" * doctest::test_suite("initializer")
 }
 
 TEST_CASE("readModelParameters defaults" * doctest::test_suite("initializer")) {
-  YAML::Node node = YAML::Load(R"(
+  const YAML::Node node = YAML::Load(R"(
     equations:
       materialfilename: mat.yaml
   )");

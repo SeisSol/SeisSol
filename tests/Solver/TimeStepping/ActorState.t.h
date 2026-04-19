@@ -202,18 +202,18 @@ TEST_CASE("NeighborCluster construction" * doctest::test_suite("solver")) {
 
 TEST_CASE("DynamicRuptureScheduler" * doctest::test_suite("solver")) {
   SUBCASE("Has DR faces") {
-    DynamicRuptureScheduler sched(100, 0.01);
+    const DynamicRuptureScheduler sched(100, 0.01);
     CHECK(sched.hasDynamicRuptureFaces());
     CHECK(sched.getOutputTimestep() == doctest::Approx(0.01));
   }
 
   SUBCASE("No DR faces") {
-    DynamicRuptureScheduler sched(0, 0.0);
+    const DynamicRuptureScheduler sched(0, 0.0);
     CHECK_FALSE(sched.hasDynamicRuptureFaces());
   }
 
   SUBCASE("mayComputeInterior starts at -1") {
-    DynamicRuptureScheduler sched(10, 0.01);
+    const DynamicRuptureScheduler sched(10, 0.01);
     // lastCorrectionStepsInterior is initialized to -1
     CHECK(sched.mayComputeInterior(0));
     CHECK(sched.mayComputeInterior(1));

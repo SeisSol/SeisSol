@@ -25,7 +25,7 @@ TEST_CASE("MPI collect double" * doctest::test_suite("mpi")) {
   const int size = mpi.size();
 
   // Each rank sends its rank as a double
-  double value = static_cast<double>(rank) * 10.0;
+  const double value = static_cast<double>(rank) * 10.0;
   auto gathered = mpi.collect(value);
 
   if (rank == 0) {
@@ -41,7 +41,7 @@ TEST_CASE("MPI collect int" * doctest::test_suite("mpi")) {
   const int rank = mpi.rank();
   const int size = mpi.size();
 
-  int value = rank + 100;
+  const int value = rank + 100;
   auto gathered = mpi.collect(value);
 
   if (rank == 0) {
@@ -62,7 +62,7 @@ TEST_CASE("MPI collectContainer same size" * doctest::test_suite("mpi")) {
   const int size = mpi.size();
 
   // Each rank sends a vector of 3 doubles: [rank, rank+1, rank+2]
-  std::vector<double> local = {rank * 1.0, rank + 1.0, rank + 2.0};
+  const std::vector<double> local = {rank * 1.0, rank + 1.0, rank + 2.0};
   auto collected = mpi.collectContainer(local);
 
   if (rank == 0) {
