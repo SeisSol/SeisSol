@@ -41,12 +41,23 @@ FaceMap parseFaceMap(const YAML::Node& node) {
 
     const auto processEntry = [&](const auto& listEntry) {
       auto strParts = utils::StringUtils::split(listEntry, ',');
+      if (utils::StringUtils::endsWith(listEntry, ",")) {
+        // FIXME: the StringUtils::split does not consider TRAILING '-'s in this case.
+        strParts.emplace_back();
+      }
+
       for (auto& part : strParts) {
         std::optional<uint32_t> lower;
         std::optional<uint32_t> upper;
 
         utils::StringUtils::trim(part);
         auto subParts = utils::StringUtils::split(part, '-');
+
+        if (utils::StringUtils::endsWith(part, "-")) {
+          // FIXME: the StringUtils::split does not consider TRAILING '-'s in this case.
+          subParts.emplace_back();
+        }
+
         for (auto& subPart : subParts) {
           utils::StringUtils::trim(subPart);
         }
@@ -54,18 +65,18 @@ FaceMap parseFaceMap(const YAML::Node& node) {
           lower = std::stoi(subParts[0]);
           upper = lower;
         } else if (subParts.size() == 2) {
-          if (subParts[0].empty()) {
+          if (subParts[0] == "") {
             lower = {};
           } else {
             lower = std::stoi(subParts[0]);
           }
-          if (subParts[1].empty()) {
+          if (subParts[1] == "") {
             upper = {};
           } else {
-            upper = std::stoi(subParts[0]);
+            upper = std::stoi(subParts[1]);
           }
         } else {
-          logError() << "Parsing error.";
+          logError() << "Parsing error while parsing face map. At:" << part << "i.e." << subParts;
         }
 
         map.addRange(lower, upper, type);
