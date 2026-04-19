@@ -203,7 +203,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
             // regular and periodic
             const auto faceRelation = i;
 
-            ConditionalKey key(*KernelNames::NeighborFlux, FaceKinds::Regular, face, faceRelation);
+            ConditionalKey key(*KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
 
             if (table.find(key) != table.end()) {
               auto& entry = table[key];
