@@ -115,7 +115,7 @@ The following convention for defining a face ID is used:
 
 You may supply a separate face type configuration as a YAML file. The file consists of a sole YAML dictionary
 with the tags ``regular``, ``freeSurface``, ``freeSurfaceGravity``, ``dynamicRupture``, ``dirichlet``,
-``outflow``, or ``analytic``.
+``outflow``, or ``analytical``.
 
 Each entry has a list with the boundary condition IDs / face tags that are associated to it.
 You may also add a range of the format e.g. ``10-23`` or ``10-`` if you want all larger tags
@@ -139,7 +139,7 @@ As an example, the following would replicate the default SeisSol behavior.
       - 4
    outflow:
       - 5
-   analytic:
+   analytical:
       - 7
 
 Topological Connectivity (e.g. for periodic or stitched domains)

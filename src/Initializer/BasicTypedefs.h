@@ -13,33 +13,36 @@ namespace seissol {
 
 enum class HaloType { Ghost, Copy, Interior };
 
-// face types
-// Note: When introducting new types also change
-// int seissol::initializer::time_stepping::LtsWeights::getBoundaryCondition
-// and PUMLReader. Otherwise it might become a DR face...
+/*
+  Face types that a tetrahedron face may assume.
+
+  Note: When introducting new types also change
+  the defaultFaceMap() (FaceMap.cpp), the docs,
+  and the methods below. Otherwise, it'll probably cause bugs and errors.
+*/
 enum class FaceType : uint8_t {
-  // regular: inside the computational domain
+  // regular: inside the computational domain (interior face, linear)
   Regular = 0,
 
-  // free surface boundary
+  // free surface boundary (boundary, linear)
   FreeSurface = 1,
 
-  // free surface boundary with gravity
+  // free surface boundary with gravity (boundary, nonlinear)
   FreeSurfaceGravity = 2,
 
-  // dynamic rupture boundary
+  // dynamic rupture boundary (interior face, nonlinear)
   DynamicRupture = 3,
 
-  // Dirichlet boundary
+  // Dirichlet boundary (boundary, nonlinear)
   Dirichlet = 4,
 
-  // absorbing/outflow boundary
+  // absorbing/outflow boundary (boundary, linear)
   Outflow = 5,
 
   // periodic boundary (obsolete; now equivalent to Regular)
   // Periodic = 6,
 
-  // analytical boundary (from initial cond.)
+  // analytical boundary, taken from the initial conditions (boundary, nonlinear)
   Analytical = 7
 };
 

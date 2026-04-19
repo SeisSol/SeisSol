@@ -28,7 +28,7 @@ FaceMap parseFaceMap(const YAML::Node& node) {
       {"dynamicRupture", FaceType::DynamicRupture},
       {"dirichlet", FaceType::Dirichlet},
       {"outflow", FaceType::Outflow},
-      {"analytic", FaceType::Analytical},
+      {"analytical", FaceType::Analytical},
   };
 
   for (const auto& entry : node) {

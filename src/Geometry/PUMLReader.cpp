@@ -79,7 +79,7 @@ inline std::string bcToString(uint32_t id, const FaceMap& faceMap) {
   } else if (type == FaceType::Outflow) {
     return std::string("outflow");
   } else if (type == FaceType::Analytical) {
-    return std::string("analytic");
+    return std::string("analytical");
   } else if (type == FaceType::DynamicRupture) {
     std::stringstream s;
     s << "dynamic rupture (face tag " << id << ")";
