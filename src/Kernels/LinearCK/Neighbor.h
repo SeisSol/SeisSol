@@ -53,6 +53,7 @@ class Neighbor : public NeighborKernel {
 
 #ifdef ACL_DEVICE
   kernel::gpu_neighboringFlux deviceNfKrnlPrototype;
+  kernel::gpu_neighboringFluxAll deviceNfKrnlLargePrototype;
   dynamicRupture::kernel::gpu_nodalFlux deviceDrKrnlPrototype;
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
