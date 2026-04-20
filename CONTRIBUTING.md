@@ -9,220 +9,342 @@
 
 # Contributing to SeisSol
 
-Firstly, thank you so much for taking the time to contribute!
+Thank you for your interest in contributing to SeisSol! Whether you are
+fixing a bug, adding a feature, or improving documentation — your help is
+appreciated.
 
-The following is a set of guidelines for contributing to SeisSol. We sincerely
-ask you to read and follow our [**Code of Conduct**](CODE_OF_CONDUCT.md).
+This guide explains how to contribute effectively and what to expect during
+the review process.
 
-## Contributing as a User
+Note that we follow a [Code of Conduct](CODE_OF_CONDUCT.md).
+Please be respectful and constructive in all interactions.
 
-We highly appreciate feedback from our users.
+## Table of Contents
 
-### Reporting issues
+- [Reporting Bugs](#reporting-bugs)
+- [Suggesting Features](#suggesting-features)
+- [Contributing to the Code](#contributing-to-the-code)
+- [Getting Help](#getting-help)
 
-Sending us a detailed report when encountering a problem is a great way to
-contribute to SeisSol. You are highly encouraged to include as much information
-as possible. That will give us a higher chance
-to reproduce the problem or maybe enable us to directly track it down.
+## Reporting Bugs
 
-To raise a new issue, visit [the SeisSol Issue page](https://github.com/SeisSol/SeisSol/issues),
-and click on "New issue" there. Next, select either the "Bug report" or "Feature
-request" template and click on the corresponding "Get started" button.
-You will be given a template to fill in.
-Don't forget to give your issue a descriptive title.
-Once you are done, click on "Submit new issue".
+When filing a bug report, please include:
 
-## Contributing as a Developer
+- **SeisSol version** (release tag or commit hash — check the first lines
+  of SeisSol's output)
+- **Build configuration** (compiler, the `CMakeCache.txt` file or
+  CMake flags such as `ORDER`, `EQUATIONS`, `PRECISION`,
+  `DEVICE_BACKEND`, `HOST_ARCH`)
+- **System environment** (OS, HPC cluster name, loaded modules, MPI
+  implementation)
+- **Steps to reproduce** the issue (parameter file, mesh, easi
+  configuration — or a minimal example)
+- **Observed vs. expected behavior**
+- **Console output or log excerpts** showing errors or warnings
 
-### Workflow
+If you suspect a numerical issue, please mention whether the problem
+occurs in single precision, double precision, or both.
 
-To be able to contribute, you will need to open a Pull Request to the
-SeisSol Github repository.
+## Suggesting Features
 
-### Step 1
+Feature requests are welcome. Please open an issue and describe:
 
-To do so, you will require a local fork of the project in your Github profile.
-That can be done by venturing to the
-[SeisSol GitHub page](https://github.com/SeisSol/SeisSol)
-and pressing the “fork” button there.
+- The **motivation** or use case behind the feature
+- A **proposed solution** (if you have one in mind)
+- Any **alternatives** you have considered
+- Whether you would be willing to implement it yourself
 
-For SeisSol-internal developers, you may as well upload a branch to the main
-SeisSol repository—that will also automatically enable the tests.
-In that case, skip this step.
+## Contributing to the Code
 
-### Step 2
+### Getting Started
 
-Clone the forked SeisSol project from GitHub to your PC or laptop via
+1. **Discuss first.** Before starting significant work, open an
+   [issue](https://github.com/SeisSol/SeisSol/issues) or start a
+   [discussion](https://github.com/SeisSol/SeisSol/discussions) to
+   describe your planned change. This helps us coordinate and avoids
+   duplicate effort.
+
+2. **Fork and clone** the repository (**highly important: also include the submodules**):
+
+   ```bash
+   git clone --recursive https://github.com/<your-username>/SeisSol.git
+   cd SeisSol
+   ```
+
+   Or if you have already cloned it, **synchronize**:
+
+   ```bash
+   git checkout master
+   git pull upstream master
+   git submodule update --recursive --init
+   ```
+
+3. **Set up your development environment.** Follow the
+   [Installing Dependencies](https://seissol.readthedocs.io/en/latest/build-dependencies.html)
+   guide, then build SeisSol locally. Make sure you can build
+   and run the test suite before making changes.
+
+4. **Install pre-commit hooks**:
+
+   ```bash
+   pip install pre-commit
+   pre-commit install
+   ```
+
+   This ensures formatting and linting checks run automatically before
+   each commit. (note: pre-commit might also be available by your package manager)
+
+Now you are ready to join the development.
+
+### Branching Strategy
+
+SeisSol uses a **trunk-based development** model:
+
+- **`master`** is the main development branch. It may be unstable between
+  releases.
+- **Release tags** (`v1.3.2`, `v1.3.1`, etc.) mark stable versions.
+  Bugfix releases are tagged directly from `master` or from short-lived
+  release branches when necessary.
+- **Feature branches** are created from `master` and merged back via pull
+  requests. Name your branch descriptively:
+  - `fix/receiver-output-length` for bug fixes
+  - `feature/poroelastic-dr` for new features
+  - `docs/update-supermuc-guide` for documentation changes
+  - `refactor/io-module` for refactoring work
+
+### Working on Your Change
 
 ```bash
-git clone --recurse-submodules https://github.com/<your github account>/SeisSol.git
-```
-
-(**important:** do not forget the `--recurse-submodules` as the submodules
-contain important files for the project. If you did not use it while cloning,
-you can do so afterwards by running `get submodule update --init --recursive`)
-
-Next, open the new project directory:
-
-```bash
-cd SeisSol
-```
-
-At this point, your local copy of the SeisSol project has a single reference to
-a remote repository i.e., the one that you've just forked in the previous step.
-That can be verified by checking
-
-```bash
-$ git remote -v
-origin https://github.com/<your_github_account>/SeisSol.git (fetch)
-origin https://github.com/<your_github_account>/SeisSol.git (push)
-```
-
-You need to set up a reference to the original remote SeisSol repository
-(referred to as `upstream` here) to be able to grab new changes from the
-SeisSol master branch. It will allow you to synchronize your contribution with us.
-
-```bash
-$ git remote add upstream https://github.com/SeisSol/SeisSol.git
-$ git remote -v
-origin https://github.com/<your_github_account>/SeisSol.git (fetch)
-origin https://github.com/<your_github_account>/SeisSol.git (push)
-upstream https://github.com/SeisSol/SeisSol.git (fetch)
-upstream https://github.com/SeisSol/SeisSol.git (push)
-```
-
-For SeisSol-internal developers, you may run (`upstream` and `origin` then conflate)
-
-```bash
-git clone --recurse-submodules https://github.com/SeisSol/SeisSol.git
-```
-
-### Step 3
-
-We highly recommend cloning the latest master branch of the SeisSol project,
-creating a new branch out of it with a descriptive name and adding your
-contribution to SeisSol there.
-
-```bash
+# Create a feature branch from an up-to-date master
 git checkout master
-git pull upstream master
-git submodule update --recursive --init
-git checkout -b <descriptive_branch_name>
+git pull --recurse-submodules
+git checkout -b feature/my-new-feature
+
+# Make your changes, then build and test
+mkdir -p build && cd build
+cmake -DTESTING=ON ..
+make -j $(nproc)
+ctest --output-on-failure
 ```
 
-We also recommend following the following format for your branch names i.e.,
-`<prefix>/<short_name>` where `<prefix>` can be `feature`, `bugfix`, `extension`,
-etc.
+### Code Style
 
-### Step 4
+SeisSol consists of the C++ core code (in `src/` and `app/`),
+as well as Python code (in `codegen/`) for compile-time
+code generation.
 
-Once you are done (and happy) with your changes, the next step is to turn them
-into one or more commit. Note that most source files of SeisSol
-adhere to formatting and code standards.
+#### C++
 
-That is, we run a check for `clang-tidy`. To set it up, go to your build
-folder (in our case here, it's called `build` inside your cloned repository),
-and run.
+SeisSol follows C++17, with the following extensions:
+
+- `__restrict` keyword (for better control over array accesses)
+
+C++17 is also used for all CUDA/HIP/SYCL code.
+
+We use `clang-format` and `clang-tidy`
+to enforce a consistent code style.
+
+The configuration files (including rule exceptions)
+are in [`.clang-format`](.clang-format)
+and [`.clang-tidy`](.clang-tidy) at the repository
+root.
+
+When submitting code, follow
+
+- **Format your code** before committing: this is done via the pre-commit hooks.
+  If you need to format the code manually, run
+
+  ```bash
+  clang-format -i src/path/to/your/file.cpp
+  ```
+
+- Follow the existing patterns in the codebase and use the `seissol::`
+  namespace hierarchy.
+
+- **Prefer modern C++ code**; that is C++17 in our case.
+
+- **Static analysis**: Running `clang-tidy`
+  locally before submitting is encouraged, as the CI requires it to
+  pass before we can merge your code.
+  To enable it, add `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` to CMake.
+  Then run (in the main folder):
+
+  ```bash
+  .ci/tidy.sh ./ build/ -fix
+  ```
+
+#### Python
+
+Python code (code generation scripts) follows PEP 8,
+enforced by `flake8` (configured in [`.flake8`](.flake8),
+which also contains a list of currently-excepted rules).
+Furthermore, we employ formatting via `black` and `isort`,
+and security checks via `bandit`.
+
+All of these tools are run automatically via pre-commit,
+and the CI expects them to pass as well.
+
+The scripts in pre/postprocessing can be treated more leniently
+(no formatting strictily enforced); but they should ideally
+also adhere to these tools.
+
+### Commit Messages
+
+We encourage clear, descriptive commit messages. While we do not strictly
+enforce Conventional Commits (nor, admittedly, strictly follow them ourselves),
+we recommend the following pattern:
 
 ```bash
-cd build
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON .
+<type>: <short summary in imperative mood>
+
+<optional body explaining the motivation and context>
+
+<optional footer with references to issues, e.g. "Fixes #1234">
 ```
 
-Then, you can run (in the main folder)
+Common types: `fix`, `feat`, `docs`, `refactor`, `test`, `perf`, `ci`,
+`build`.
+
+Examples:
 
 ```bash
-.ci/tidy.sh ./ build/ -fix
+fix: correct receiver output length for long simulations
+
+The output buffer was allocated based on the number of time steps
+rather than the number of output samples, causing truncation for
+simulations with adaptive time stepping.
+
+Fixes #875
 ```
-
-In the background, `clang-tidy` is called; the process may take some time.
-
-Additionally, we run some clean-code checks for C++,
-but also e.g. our Python files. A convenient way to apply them
-is via **pre-commit**. That is, you can just run
 
 ```bash
-pip install pre-commit
-pre-commit install
+feat: add no-fault friction law for GPU backend
+
+Implements the no-fault friction law on the device side, enabling
+testing simulations on GPUs without falling back to the host.
 ```
 
-Then, `pre-commit` will be run before each commit and applies
-some linters and formatters that we use in SeisSol.
+Keep individual commits focused on a single logical change.
+It is fine to have multiple commits in a pull request, but please avoid mixing unrelated
+changes (e.g., a bug fix and a formatting change) in the same commit.
+But if a sequence of commits concerns the same code change
+(i.e. no other commits in between), try combining them
+to avoid "inflating" the commit history.
+Avoid dedicated formatting commits, unless you port code to a new formatting style.
+Extra clang-tidy commits are deemed ok, as it takes longer to apply.
 
-Finally, once the pre-commit hook is set up and
-`clang-tidy` works, you can create your commit:
+### Pull Request Process
+
+1. **Push your branch** to your fork and open a pull request against
+   `SeisSol/SeisSol:master`.
+
+2. **Fill in the PR description** with:
+   - A summary of what the PR does and why
+   - References to related issues (e.g., "Closes #1234")
+   - Any notable design decisions or trade-offs
+   - Instructions for testing, if the change is non-trivial
+   - AI tools used to create the changes
+
+3. **CI checks** will run automatically. Please ensure:
+   - The build succeeds on all CI configurations
+   - All existing tests pass
+   - Code formatting checks pass (pre-commit (including clang-format, flake8), clang-tidy)
+
+4. **Code review**: At least one maintainer will review your PR. Be
+   prepared for feedback — we aim to be constructive and collaborative.
+   Reviewers may request changes, ask questions, or suggest alternatives.
+
+5. **Address feedback** by pushing additional commits to your branch.
+   Avoid force-pushing during review, as it makes it harder to track
+   changes.
+
+6. **Merge**: Once approved, a maintainer will merge your PR. We
+   typically use merge commits to preserve the branch history.
+
+### What We Look For in Reviews
+
+- Correctness (does the code do what it claims?)
+- Test coverage for new functionality or bug fixes (as far as reasonable)
+- Consistency with the existing architecture and code style
+- Documentation updates where applicable
+- No unnecessary changes to unrelated files
+
+### Testing
+
+#### Running Tests
+
+SeisSol uses CTest for its test suite.
+To enable and run tests on an existing CMake installation:
 
 ```bash
-git add <files_to_be_part_of_the_commit>
-git commit --message <descriptive_message_of_this_particular_commit>
+cmake .. -DTESTING=ON
+make -j $(nproc)
+ctest --output-on-failure
 ```
 
-Once you have your commits ready, you can push your changes to your remote repository
+#### Writing Tests
+
+- **Unit tests** for new functionality should be
+  placed in the same test subfolder as
+  the module they test (e.g., under
+  `tests/DynamicRupture/` for `src/DynamicRupture/`).
+- Test file names should follow the pattern `Test<ModuleName>.cpp` and `Test<TestSuite>.t.h`.
+- If your change fixes a bug, please (if feasible) add a regression test that would
+  have caught the issue.
+- For changes that affect generated kernels, remember to compare with `-DTESTING_GENERATED=ON`
+  in your CMake configuration as a "sanity" check.
+  If the generated tests (named "yateto") fail,
+  there might be an internal problem in the code
+  generation that will need to be treated.
+
+#### Validation
+
+For more comprehensive **end-to-end** validation, the
+[Precomputed SeisSol](https://github.com/SeisSol/precomputed-seissol) repository
+contains reference setups. If your change affects simulation results,
+please verify against relevant benchmarks.
+
+### Code Generation
+
+SeisSol generates optimized matrix kernels at build time using Python
+scripts in the `codegen/` directory. If your changes affect the code
+generation:
+
+- The generator scripts are invoked by CMake via a custom target
+  (`seissol-codegen`). You can re-run the generation step by rebuilding
+  this target. In some cases, it is necessary to clean your build directory first.
+- Make sure to test with multiple equation types and polynomial orders
+  if your change touches the generator.
+- Python code generation scripts should also pass `flake8` linting.
+
+### Documentation
+
+SeisSol's documentation lives at
+[seissol.readthedocs.io](https://seissol.readthedocs.io) and is built
+from Sphinx/reStructuredText files in the `docs/` directory.
+
+If your contribution adds new functionality, a new build parameter, or
+changes existing behavior, please update the documentation accordingly.
+In particular, if you add a new parameter, add it to `docs/parameters.par` .
+You can build the docs locally with:
 
 ```bash
-git push origin <descriptive_branch_name>
+cd docs
+pip install -r requirements.txt
+make html
+# Open _build/html/index.html in your browser
 ```
 
-Now it is time to make a pull request (PR). Open the following web-page
+## Getting Help
 
-```bash
-https://github.com/<your_github_account>/SeisSol/tree/<descriptive_branch_name>
-```
+If you have questions about contributing or need guidance on where to
+start:
 
-and click on "Compare & pull request". Write a descriptive title and a body of
-your PR, and click on "Create pull request".
+- Browse the [Discussions](https://github.com/SeisSol/SeisSol/discussions)
+  forum
+- Look for issues labeled `good first issue` for beginner-friendly tasks
+- Reach out to the maintainers by commenting on an issue
 
-You can create a "Draft pull request" If your contribution is not ready yet, but
-you still want to show it to SeisSol maintainers. In this case, click on a green
-downward arrow next to "Create pull request", select "Create draft pull request"
-and proceed.
+---
 
-#### Step 4 (Alternative)
-
-You can also run most of the linters manually via the following few lines:
-
-```bash
-.ci/format.sh $(which clang-format) .
-python .ci/filename.py --fix src app
-python .ci/header.py --fix src app
-black codegen/kernels/**/*.py
-isort --profile black codegen/kernels
-markdownlint-cli2 **/*.md # ignore submodules errors here
-sphinx-lint **/*.rst
-```
-
-`clang-format` itself is available via e.g. `pip`; similarly for `black` and `isort`,
-as well as `sphinx-lint`. The `markdownlint-cli2` can be downloaded from `npm`.
-
-### Step 5
-
-Once you submit your PR, the SeisSol maintainers will review it. After they are
-finished, they may have some comments and/or change requests to your code.
-Therefore, please check back on your PR from time to time to keep up with the conversation.
-
-We also have a CI enabled for all branches in the SeisSol repository. If you
-submit a contribution from outside, a maintainer will probably clone your branch
-into the SeisSol repository to let the tests run.
-
-In particular, the following status checks are mandatory right now:
-
-* There is no merge conflict with the SeisSol `master` branch
-* All required CI tests pass. That includes:
-  * `clang-format` has been applied
-  * `clang-tidy` has been applied
-  * All other linters pass
-  * All equation systems compile in Debug and Release mode, and the respective
-    unit tests pass
-
-There is currently no enforced check for the end-to-end CPU and GPU tests;
-however, the SeisSol maintainers may still want them to be respected by your changes.
-
-### Step 6
-
-The SeisSol maintainers approve your PR and add it to the merge queue.
-The mandatory status checks (as mentioned in step 5) will need to pass here.
-
-### Step 7
-
-Congratulations, your PR is merged! The whole SeisSol community highly
-appreciates your contribution.
+Thank you for helping to improve SeisSol!

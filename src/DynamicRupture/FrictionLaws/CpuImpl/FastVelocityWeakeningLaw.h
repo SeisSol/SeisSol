@@ -143,8 +143,8 @@ class FastVelocityWeakeningLaw
    */
   void resampleStateVar(const std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                         std::size_t ltsFace) const {
-    std::array<real, misc::NumPaddedPoints> deltaStateVar = {0};
-    std::array<real, misc::NumPaddedPoints> resampledDeltaStateVar = {0};
+    alignas(Alignment) std::array<real, misc::NumPaddedPoints> deltaStateVar = {0};
+    alignas(Alignment) std::array<real, misc::NumPaddedPoints> resampledDeltaStateVar = {0};
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       deltaStateVar[pointIndex] =

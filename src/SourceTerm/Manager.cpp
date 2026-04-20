@@ -404,9 +404,6 @@ auto loadSourceFile(const char* fileName,
 
   initializer::findMeshIds(points.data(), mesh, points.size(), contained.data(), meshIds.data());
 
-  logInfo() << "Cleaning possible double occurring point sources in multi-rank setups...";
-  initializer::cleanDoubles(contained.data(), points.size());
-
   auto originalIndex = std::vector<std::size_t>(points.size());
   std::size_t numSources = 0;
   for (std::size_t source = 0; source < points.size(); ++source) {

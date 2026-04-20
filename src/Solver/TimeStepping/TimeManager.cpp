@@ -37,6 +37,7 @@
 #include <limits>
 #include <memory>
 #include <mpi.h>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -197,6 +198,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
   for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost | Interior)) {
 
+    const auto displayName = "copy-" + std::to_string(layer.getIdentifier().lts);
+
     for (const auto [i, halo] : common::enumerate(haloStructure.at(layer.id()))) {
 
       const bool hasNeighborRegions = !halo.copy.empty() || !halo.ghost.empty();
@@ -212,10 +215,14 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
         const auto otherTimeStepSize = clusterLayout.timestepRate(other.lts);
         const auto otherTimeStepRate = clusterLayout.clusterRate(other.lts);
 
+        const auto otherDisplayName = "ghost-" + std::to_string(other.lts);
+
         auto ghostCluster = GhostTimeClusterFactory::get(otherTimeStepSize,
                                                          otherTimeStepRate,
-                                                         layer.getIdentifier().lts,
-                                                         other.lts,
+                                                         layer.id(),
+                                                         i,
+                                                         displayName,
+                                                         otherDisplayName,
                                                          haloStructure,
                                                          preferredDataTransferMode,
                                                          comms,

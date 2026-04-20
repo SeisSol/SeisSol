@@ -19,9 +19,11 @@ template <Mpi::DataTransferMode CommType>
 class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
   public:
   GhostTimeClusterWithCopy(double maxTimeStepSize,
-                           int timeStepRate,
-                           int globalTimeClusterId,
-                           int otherGlobalTimeClusterId,
+                           std::uint64_t timeStepRate,
+                           std::size_t globalTimeClusterId,
+                           std::size_t otherGlobalTimeClusterId,
+                           const std::string& displayName,
+                           const std::string& otherDisplayName,
                            const seissol::solver::HaloCommunication& meshStructure,
                            bool persistent);
   ~GhostTimeClusterWithCopy() override;
@@ -39,7 +41,7 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
 
   void finalize() override;
 
-  std::list<int> prefetchCopyLayer();
+  std::list<std::size_t> prefetchCopyLayer();
   void prefetchGhostRegion(std::size_t region);
 
   private:
