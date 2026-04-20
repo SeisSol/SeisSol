@@ -22,46 +22,46 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   public:
   ~ElementWiseBuilder() override = default;
   void setParams(const seissol::initializer::parameters::ElementwiseFaultParameters& params) {
-    elementwiseParams = params;
+    elementwiseParams_ = params;
   }
   void build(std::shared_ptr<ReceiverOutputData> elementwiseOutputData) {
-    outputData = std::move(elementwiseOutputData);
+    outputData_ = std::move(elementwiseOutputData);
     initReceiverLocations();
-    assignNearestGaussianPoints(outputData->receiverPoints);
+    assignNearestGaussianPoints(outputData_->receiverPoints);
     assignNearestInternalGaussianPoints();
     assignFusedIndices();
     assignFaultTags();
     initTimeCaching();
-    initOutputVariables(elementwiseParams.outputMask);
+    initOutputVariables(elementwiseParams_.outputMask);
     initFaultDirections();
     initRotationMatrices();
     initBasisFunctions();
     initJacobian2dMatrices();
-    outputData->isActive = true;
+    outputData_->isActive = true;
   }
 
   protected:
   void initTimeCaching() override {
-    outputData->maxCacheLevel = ElementWiseBuilder::MaxAllowedCacheLevel;
-    outputData->currentCacheLevel = 0;
+    outputData_->maxCacheLevel = ElementWiseBuilder::MaxAllowedCacheLevel;
+    outputData_->currentCacheLevel = 0;
   }
 
   void initReceiverLocations() {
-    auto faultRefiner = refiner::get(elementwiseParams.refinementStrategy);
+    auto faultRefiner = refiner::get(elementwiseParams_.refinementStrategy);
 
     const auto numSubTriangles = faultRefiner->getNumSubTriangles();
-    const auto order = static_cast<std::uint32_t>(std::max(elementwiseParams.vtkorder, 0));
+    const auto order = static_cast<std::uint32_t>(std::max(elementwiseParams_.vtkorder, 0));
 
-    const auto numFaultElements = meshReader->getFault().size();
+    const auto numFaultElements = meshReader_->getFault().size();
 
     logInfo() << "Initializing Fault output."
               << "Number of sub-triangles:" << numSubTriangles << "Output order:" << order
               << "Simulation count:" << multisim::NumSimulations;
 
     // get arrays of elements and vertices from the meshReader
-    const auto& faultInfo = meshReader->getFault();
-    const auto& elementsInfo = meshReader->getElements();
-    const auto& verticesInfo = meshReader->getVertices();
+    const auto& faultInfo = meshReader_->getFault();
+    const auto& elementsInfo = meshReader_->getElements();
+    const auto& verticesInfo = meshReader_->getVertices();
 
     // iterate through each fault side
     for (size_t faceIdx = 0; faceIdx < numFaultElements; ++faceIdx) {
@@ -86,7 +86,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         // init global coordinates of the fault face
         const ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
 
-        faultRefiner->refineAndAccumulate({elementwiseParams.refinement,
+        faultRefiner->refineAndAccumulate({elementwiseParams_.refinement,
                                            static_cast<int>(faceIdx),
                                            faceSideIdx,
                                            elementIdx,
@@ -98,14 +98,14 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
     }
 
     // retrieve all receivers from a fault face refiner
-    outputData->receiverPoints = faultRefiner->moveAllReceiverPoints();
+    outputData_->receiverPoints = faultRefiner->moveAllReceiverPoints();
     faultRefiner.reset(nullptr);
   }
 
   inline const static size_t MaxAllowedCacheLevel = 1;
 
   private:
-  seissol::initializer::parameters::ElementwiseFaultParameters elementwiseParams;
+  seissol::initializer::parameters::ElementwiseFaultParameters elementwiseParams_;
 };
 } // namespace seissol::dr::output
 

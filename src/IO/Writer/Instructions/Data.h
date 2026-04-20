@@ -42,8 +42,8 @@ class DataSource {
   static std::unique_ptr<DataSource> deserialize(YAML::Node node);
 
   protected:
-  std::shared_ptr<seissol::io::datatype::Datatype> datatypeP;
-  std::vector<std::size_t> shapeP;
+  std::shared_ptr<seissol::io::datatype::Datatype> datatypeP_;
+  std::vector<std::size_t> shapeP_;
 };
 
 class WriteInline : public DataSource {
@@ -91,7 +91,7 @@ class WriteInline : public DataSource {
   }
 
   private:
-  std::vector<unsigned char> data;
+  std::vector<unsigned char> data_;
 };
 
 class WriteBufferRemote : public DataSource {
@@ -112,7 +112,7 @@ class WriteBufferRemote : public DataSource {
   [[nodiscard]] size_t getLocalSize() const override;
 
   private:
-  int id;
+  int id_;
 };
 
 class WriteBuffer : public DataSource {
@@ -145,9 +145,9 @@ class WriteBuffer : public DataSource {
   }
 
   private:
-  const void* data;
-  size_t size;
-  int id{-1};
+  const void* data_;
+  size_t size_;
+  int id_{-1};
 };
 
 class AdhocBuffer : public DataSource {
@@ -160,7 +160,7 @@ class AdhocBuffer : public DataSource {
 
   YAML::Node serialize() override {
     YAML::Node node;
-    node["id"] = id;
+    node["id"] = id_;
     node["datatype"] = datatype()->serialize();
     node["type"] = "buffer";
     node["shape"] = shape();
@@ -176,12 +176,12 @@ class AdhocBuffer : public DataSource {
     return getTargetSize() / datatype()->size();
   }
 
-  void assignId(int givenId) override { id = givenId; }
+  void assignId(int givenId) override { id_ = givenId; }
 
   bool distributed() override { return true; }
 
   private:
-  int id{-1};
+  int id_{-1};
 };
 
 class GeneratedBuffer : public AdhocBuffer {
@@ -191,19 +191,19 @@ class GeneratedBuffer : public AdhocBuffer {
                   std::function<void(void*)> generator,
                   std::shared_ptr<datatype::Datatype> datatype,
                   const std::vector<std::size_t>& shape)
-      : AdhocBuffer(std::move(datatype), shape), generator(std::move(generator)),
-        sourceCount(sourceCount), targetStride(targetCount) {
+      : AdhocBuffer(std::move(datatype), shape), generator_(std::move(generator)),
+        sourceCount_(sourceCount), targetStride_(targetCount) {
 
     for (auto dim : shape) {
-      targetStride *= dim;
+      targetStride_ *= dim;
     }
   }
 
   [[nodiscard]] std::size_t getTargetSize() const override {
-    return targetStride * datatype()->size() * sourceCount;
+    return targetStride_ * datatype()->size() * sourceCount_;
   }
 
-  void setData(void* targetPtr) override { std::invoke(generator, targetPtr); }
+  void setData(void* targetPtr) override { std::invoke(generator_, targetPtr); }
 
   template <typename T, typename F>
   static std::shared_ptr<GeneratedBuffer> createElementwise(
@@ -232,9 +232,9 @@ class GeneratedBuffer : public AdhocBuffer {
   }
 
   private:
-  std::function<void(void*)> generator;
-  std::size_t sourceCount;
-  std::size_t targetStride;
+  std::function<void(void*)> generator_;
+  std::size_t sourceCount_;
+  std::size_t targetStride_;
 };
 
 } // namespace seissol::io::writer

@@ -45,12 +45,12 @@ class XdmfWriter {
   template <typename F>
   void addPointProjector(F&& projector) {
     const auto data =
-        writer::GeneratedBuffer::createElementwise<double>(localElementCount,
-                                                           pointsPerElement,
+        writer::GeneratedBuffer::createElementwise<double>(localElementCount_,
+                                                           pointsPerElement_,
                                                            std::vector<std::size_t>{3},
                                                            std::forward<F>(projector));
 
-    addData("XYZ", "Geometry", true, localPointCount, data);
+    addData("XYZ", "Geometry", true, localPointCount_, data);
   }
 
   template <typename T, typename F>
@@ -59,8 +59,8 @@ class XdmfWriter {
                     bool isConst,
                     F&& pointMapper) {
     const auto data = writer::GeneratedBuffer::createElementwise<T>(
-        localElementCount, pointsPerElement, dimensions, std::forward<F>(pointMapper));
-    addData(name, "AttributeNode", isConst, localPointCount, data);
+        localElementCount_, pointsPerElement_, dimensions, std::forward<F>(pointMapper));
+    addData(name, "AttributeNode", isConst, localPointCount_, data);
   }
 
   template <typename T, typename F>
@@ -69,8 +69,8 @@ class XdmfWriter {
                    bool isConst,
                    F&& cellMapper) {
     const auto data = writer::GeneratedBuffer::createElementwise<T>(
-        localElementCount, 1, dimensions, std::forward<F>(cellMapper));
-    addData(name, "AttributeCell", isConst, localElementCount, data);
+        localElementCount_, 1, dimensions, std::forward<F>(cellMapper));
+    addData(name, "AttributeCell", isConst, localElementCount_, data);
   }
 
   void addHook(const std::function<void(std::size_t, double)>& hook);
@@ -78,21 +78,21 @@ class XdmfWriter {
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter();
 
   private:
-  std::string name;
-  std::string type;
-  bool binary{false};
-  int32_t compress{0};
-  std::size_t localElementCount;
-  std::size_t globalElementCount;
-  std::size_t elementOffset{0};
-  std::size_t localPointCount;
-  std::size_t globalPointCount;
-  std::size_t pointOffset;
-  std::size_t pointsPerElement;
-  std::size_t datasetCount{0};
-  std::vector<std::function<void(std::size_t, double)>> hooks;
-  std::vector<std::function<WriteResult(const std::string&, std::size_t)>> instructionsConst;
-  std::vector<std::function<WriteResult(const std::string&, std::size_t)>> instructions;
+  std::string name_;
+  std::string type_;
+  bool binary_{false};
+  int32_t compress_{0};
+  std::size_t localElementCount_;
+  std::size_t globalElementCount_;
+  std::size_t elementOffset_{0};
+  std::size_t localPointCount_;
+  std::size_t globalPointCount_;
+  std::size_t pointOffset_;
+  std::size_t pointsPerElement_;
+  std::size_t datasetCount_{0};
+  std::vector<std::function<void(std::size_t, double)>> hooks_;
+  std::vector<std::function<WriteResult(const std::string&, std::size_t)>> instructionsConst_;
+  std::vector<std::function<WriteResult(const std::string&, std::size_t)>> instructions_;
 };
 
 } // namespace seissol::io::instance::mesh

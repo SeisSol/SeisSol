@@ -65,19 +65,19 @@ class GeometryWriter {
                  Shape shape,
                  const WriterConfig& config,
                  std::size_t subdivide = 1)
-      : config(config), subdivide(subdivide),
-        underlying(getUnderlyingWriter(name, subdivide * localElementCount, shape, config)) {}
+      : config_(config), subdivide_(subdivide),
+        underlying_(getUnderlyingWriter(name, subdivide * localElementCount, shape, config)) {}
 
   template <typename F>
   void addPointProjector(F projector) {
-    const auto subdivide = this->subdivide;
+    const auto subdivide = this->subdivide_;
     std::visit(
         [&](auto& writer) {
           writer.addPointProjector([projector, subdivide](auto* data, std::size_t index) {
             std::invoke(projector, data, index / subdivide, index % subdivide);
           });
         },
-        underlying);
+        underlying_);
   }
 
   template <typename T, typename F>
@@ -86,8 +86,8 @@ class GeometryWriter {
                          bool isConst,
                          F writerFunction) {
 
-    const auto subdivide = this->subdivide;
-    if (config.order == 0) {
+    const auto subdivide = this->subdivide_;
+    if (config_.order == 0) {
       // cell output
       std::visit(
           [&](auto& writer) {
@@ -99,7 +99,7 @@ class GeometryWriter {
                   std::invoke(writerFunction, data, index / subdivide, index % subdivide);
                 });
           },
-          underlying);
+          underlying_);
     } else {
       // point output
       std::visit(
@@ -112,7 +112,7 @@ class GeometryWriter {
                   std::invoke(writerFunction, data, index / subdivide, index % subdivide);
                 });
           },
-          underlying);
+          underlying_);
     }
   }
 
@@ -122,7 +122,7 @@ class GeometryWriter {
                    bool isConst,
                    F writerFunction) {
 
-    const auto subdivide = this->subdivide;
+    const auto subdivide = this->subdivide_;
     std::visit(
         [&](auto& writer) {
           writer.template addCellData<T>(
@@ -133,21 +133,21 @@ class GeometryWriter {
                 std::invoke(writerFunction, data, index / subdivide, index % subdivide);
               });
         },
-        underlying);
+        underlying_);
   }
 
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter() {
-    return std::visit([&](auto& writer) { return writer.makeWriter(); }, underlying);
+    return std::visit([&](auto& writer) { return writer.makeWriter(); }, underlying_);
   }
 
   void addHook(const std::function<void(std::size_t, double)>& hook) {
-    std::visit([&](auto& writer) { return writer.addHook(hook); }, underlying);
+    std::visit([&](auto& writer) { return writer.addHook(hook); }, underlying_);
   }
 
   protected:
-  WriterConfig config;
-  std::size_t subdivide;
-  std::variant<mesh::VtkHdfWriter, mesh::XdmfWriter> underlying;
+  WriterConfig config_;
+  std::size_t subdivide_;
+  std::variant<mesh::VtkHdfWriter, mesh::XdmfWriter> underlying_;
 };
 
 } // namespace seissol::io::instance::geometry

@@ -16,7 +16,6 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Descriptor/Surface.h"
 #include "Memory/Tree/Layer.h"
@@ -40,7 +39,7 @@ void FreeSurfaceIntegrator::initialize(unsigned /*maxRefinementDepth*/,
                                        SurfaceLTS::Storage& surfaceStorage) {
   this->surfaceStorage = &surfaceStorage;
 
-  m_enabled = true;
+  enabled_ = true;
 
   logInfo() << "Initializing free surface integrator.";
   initializeSurfaceStorage(ltsStorage);

@@ -31,7 +31,7 @@ class FreeSurfaceIntegrator {
     FreeSurfaceWithGravity = 3
   };
 
-  bool m_enabled{false};
+  bool enabled_{false};
 
   void initializeSurfaceStorage(LTS::Storage& ltsStorage);
 
@@ -59,7 +59,7 @@ class FreeSurfaceIntegrator {
 
   void calculateOutput() const;
 
-  [[nodiscard]] bool enabled() const { return m_enabled; }
+  [[nodiscard]] bool enabled() const { return enabled_; }
 };
 
 } // namespace seissol::solver

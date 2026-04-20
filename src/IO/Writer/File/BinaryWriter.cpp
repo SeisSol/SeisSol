@@ -20,47 +20,48 @@
 
 namespace seissol::io::writer::file {
 
-BinaryFile::BinaryFile(MPI_Comm comm) : comm(comm) {}
+BinaryFile::BinaryFile(MPI_Comm comm) : comm_(comm) {}
 void BinaryFile::openFile(const std::string& name, bool append) {
   const auto mode = append ? MPI_MODE_APPEND : 0;
-  MPI_File_open(comm, name.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY | mode, MPI_INFO_NULL, &file);
+  MPI_File_open(
+      comm_, name.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY | mode, MPI_INFO_NULL, &file_);
 }
 void BinaryFile::writeGlobal(const void* data, std::size_t size) {
   int rank = 0;
-  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_rank(comm_, &rank);
   if (rank == 0) {
-    MPI_File_write(file, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
+    MPI_File_write(file_, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
   }
-  MPI_Barrier(comm);
+  MPI_Barrier(comm_);
 }
 void BinaryFile::writeDistributed(const void* data, std::size_t size) {
   // TODO: handle size > usable
   MPI_Offset filesize = 0;
-  MPI_File_get_size(file, &filesize);
+  MPI_File_get_size(file_, &filesize);
   std::size_t offset = 0;
   std::size_t total = 0;
-  MPI_Exscan(&size, &offset, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, comm);
-  MPI_Allreduce(&size, &total, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, comm);
+  MPI_Exscan(&size, &offset, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, comm_);
+  MPI_Allreduce(&size, &total, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, comm_);
   offset += filesize;
 
-  MPI_File_write_at_all(file, offset, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
-  MPI_File_seek(file, 0, MPI_SEEK_END);
+  MPI_File_write_at_all(file_, offset, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
+  MPI_File_seek(file_, 0, MPI_SEEK_END);
 }
 void BinaryFile::align(std::size_t alignment) {
   MPI_Offset position = 0;
-  MPI_File_get_position(file, &position);
+  MPI_File_get_position(file_, &position);
 
   const auto alignedPosition = ((position + alignment - 1) / alignment) * alignment;
-  MPI_File_seek(file, alignedPosition, MPI_SEEK_SET);
+  MPI_File_seek(file_, alignedPosition, MPI_SEEK_SET);
 }
-void BinaryFile::closeFile() { MPI_File_close(&file); }
+void BinaryFile::closeFile() { MPI_File_close(&file_); }
 
-BinaryWriter::BinaryWriter(MPI_Comm comm) : comm(comm) {}
+BinaryWriter::BinaryWriter(MPI_Comm comm) : comm_(comm) {}
 
 void BinaryWriter::write(const async::ExecInfo& info, const instructions::BinaryWrite& write) {
-  if (openFiles.find(write.filename) == openFiles.end()) {
-    openFiles[write.filename] = std::make_unique<BinaryFile>(BinaryFile(comm));
-    openFiles[write.filename]->openFile(write.filename, write.append);
+  if (openFiles_.find(write.filename) == openFiles_.end()) {
+    openFiles_[write.filename] = std::make_unique<BinaryFile>(BinaryFile(comm_));
+    openFiles_[write.filename]->openFile(write.filename, write.append);
   }
 
   const void* dataPointer = write.dataSource->getPointer(info);
@@ -69,18 +70,18 @@ void BinaryWriter::write(const async::ExecInfo& info, const instructions::Binary
   const auto dataSize = write.dataSource->count(info) * write.dataSource->datatype()->size();
 
   if (write.alignment > 0) {
-    openFiles[write.filename]->align(write.alignment);
+    openFiles_[write.filename]->align(write.alignment);
   }
 
   if (write.dataSource->distributed()) {
-    openFiles[write.filename]->writeDistributed(dataPointer, dataSize);
+    openFiles_[write.filename]->writeDistributed(dataPointer, dataSize);
   } else {
-    openFiles[write.filename]->writeGlobal(dataPointer, dataSize);
+    openFiles_[write.filename]->writeGlobal(dataPointer, dataSize);
   }
 }
 
 void BinaryWriter::finalize() {
-  for (auto& [_, file] : openFiles) {
+  for (auto& [_, file] : openFiles_) {
     file->closeFile();
   }
 }

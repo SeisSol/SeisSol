@@ -320,12 +320,10 @@ void readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters
   // unpack seissolParams
   const auto cubeParameters = seissolParams.cubeGenerator;
 
-  const auto commRank = seissol::Mpi::mpi.rank();
-  const auto commSize = seissol::Mpi::mpi.size();
   const std::string realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
 
   seissolInstance.setMeshReader(
-      new seissol::geometry::CubeGenerator(commRank, commSize, realMeshFileName, cubeParameters));
+      new seissol::geometry::CubeGenerator(realMeshFileName, cubeParameters));
 }
 
 } // namespace

@@ -40,8 +40,8 @@ class VtkHdfWriter {
   template <typename F>
   void addPointProjector(F&& projector) {
     const auto data =
-        writer::GeneratedBuffer::createElementwise<double>(localElementCount,
-                                                           pointsPerElement,
+        writer::GeneratedBuffer::createElementwise<double>(localElementCount_,
+                                                           pointsPerElement_,
                                                            std::vector<std::size_t>{3},
                                                            std::forward<F>(projector));
 
@@ -54,10 +54,10 @@ class VtkHdfWriter {
                     bool isConst,
                     F&& pointMapper) {
     const auto data = writer::GeneratedBuffer::createElementwise<T>(
-        localElementCount, pointsPerElement, dimensions, std::forward<F>(pointMapper));
+        localElementCount_, pointsPerElement_, dimensions, std::forward<F>(pointMapper));
     addData(name, PointDataName, isConst, data);
-    if (temporal) {
-      const auto offset = isConst ? 0 : globalPointCount;
+    if (temporal_) {
+      const auto offset = isConst ? 0 : globalPointCount_;
       addData(name,
               PointDataName + "Offsets",
               isConst,
@@ -71,10 +71,10 @@ class VtkHdfWriter {
                    bool isConst,
                    F&& cellMapper) {
     const auto data = writer::GeneratedBuffer::createElementwise<T>(
-        localElementCount, 1, dimensions, std::forward<F>(cellMapper));
+        localElementCount_, 1, dimensions, std::forward<F>(cellMapper));
     addData(name, CellDataName, isConst, data);
-    if (temporal) {
-      const auto offset = isConst ? 0 : globalElementCount;
+    if (temporal_) {
+      const auto offset = isConst ? 0 : globalElementCount_;
       addData(name,
               CellDataName + "Offsets",
               false,
@@ -89,7 +89,7 @@ class VtkHdfWriter {
                     const std::vector<T>& data) {
     const auto datasource = writer::WriteInline::createArray(dimensions, data);
     addData(name, FieldDataName, isConst, datasource);
-    if (temporal) {
+    if (temporal_) {
       // TODO:
       const auto offset = isConst ? 0UL : 1UL;
       addData(name,
@@ -104,29 +104,29 @@ class VtkHdfWriter {
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter();
 
   private:
-  std::string name;
-  std::size_t localElementCount;
-  std::size_t globalElementCount;
-  std::size_t elementOffset{0};
-  std::size_t localPointCount;
-  std::size_t globalPointCount;
-  std::size_t pointOffset;
-  std::size_t pointsPerElement;
-  std::vector<std::function<void(std::size_t, double)>> hooks;
+  std::string name_;
+  std::size_t localElementCount_;
+  std::size_t globalElementCount_;
+  std::size_t elementOffset_{0};
+  std::size_t localPointCount_;
+  std::size_t globalPointCount_;
+  std::size_t pointOffset_;
+  std::size_t pointsPerElement_;
+  std::vector<std::function<void(std::size_t, double)>> hooks_;
   std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
       const std::string&, double)>>
-      instructionsConst;
+      instructionsConst_;
   std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
       const std::string&, const std::string&)>>
-      instructionsConstLink;
+      instructionsConstLink_;
   std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
       const std::string&, double)>>
-      instructions;
-  std::size_t type;
-  std::size_t targetDegree;
-  bool constFile{false};
-  bool temporal{false};
-  int32_t compress{0};
+      instructions_;
+  std::size_t type_;
+  std::size_t targetDegree_;
+  bool constFile_{false};
+  bool temporal_{false};
+  int32_t compress_{0};
   const static inline std::string GroupName = "VTKHDF";
   const static inline std::string FieldDataName = "FieldData";
   const static inline std::string CellDataName = "CellData";

@@ -19,18 +19,18 @@
 namespace seissol::time_stepping {
 class AbstractGhostTimeCluster : public AbstractTimeCluster {
   protected:
-  std::size_t globalClusterId;
-  std::size_t otherGlobalClusterId;
-  solver::RemoteClusterPair meshStructure;
-  std::vector<MPI_Request> sendRequests;
-  std::vector<MPI_Request> recvRequests;
-  std::list<std::size_t> sendQueue;
-  std::list<std::size_t> receiveQueue;
+  std::size_t globalClusterId_;
+  std::size_t otherGlobalClusterId_;
+  solver::RemoteClusterPair meshStructure_;
+  std::vector<MPI_Request> sendRequests_;
+  std::vector<MPI_Request> recvRequests_;
+  std::list<std::size_t> sendQueue_;
+  std::list<std::size_t> receiveQueue_;
 
   std::string displayName_;
   std::string otherDisplayName_;
 
-  double lastSendTime = -1.0;
+  double lastSendTime_ = -1.0;
 
   virtual void sendCopyLayer() = 0;
   virtual void receiveGhostLayer() = 0;

@@ -206,35 +206,36 @@ XdmfWriter::XdmfWriter(const std::string& name,
                        std::size_t targetDegree,
                        bool binary,
                        int32_t compress)
-    : name(name), type(geometry::xdmfType(shape, targetDegree)), binary(binary), compress(compress),
-      localElementCount(localElementCount), globalElementCount(localElementCount),
-      pointsPerElement(
+    : name_(name), type_(geometry::xdmfType(shape, targetDegree)), binary_(binary),
+      compress_(compress), localElementCount_(localElementCount),
+      globalElementCount_(localElementCount),
+      pointsPerElement_(
           geometry::numPoints(std::max(targetDegree, static_cast<std::size_t>(1)), shape)) {
   MPI_Exscan(&localElementCount,
-             &elementOffset,
+             &elementOffset_,
              1,
              datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
              MPI_SUM,
              seissol::Mpi::mpi.comm());
   MPI_Allreduce(&localElementCount,
-                &globalElementCount,
+                &globalElementCount_,
                 1,
                 datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
                 MPI_SUM,
                 seissol::Mpi::mpi.comm());
-  pointOffset = elementOffset * pointsPerElement;
-  localPointCount = localElementCount * pointsPerElement;
-  globalPointCount = globalElementCount * pointsPerElement;
+  pointOffset_ = elementOffset_ * pointsPerElement_;
+  localPointCount_ = localElementCount * pointsPerElement_;
+  globalPointCount_ = globalElementCount_ * pointsPerElement_;
 
-  const auto selfPointOffset = pointOffset;
-  const auto selfPointsPerElement = pointsPerElement;
+  const auto selfPointOffset = pointOffset_;
+  const auto selfPointsPerElement = pointsPerElement_;
 
-  addData(type,
+  addData(type_,
           "Topology",
           true,
           localElementCount,
           writer::GeneratedBuffer::createElementwise<int64_t>(
-              localElementCount, 1, {pointsPerElement}, [=](int64_t* target, std::size_t index) {
+              localElementCount, 1, {pointsPerElement_}, [=](int64_t* target, std::size_t index) {
                 for (std::size_t i = 0; i < selfPointsPerElement; ++i) {
                   target[i] = selfPointsPerElement * index + i + selfPointOffset;
                 }
@@ -246,13 +247,13 @@ void XdmfWriter::addData(const std::string& name,
                          bool isConst,
                          std::size_t localCount,
                          const std::shared_ptr<writer::DataSource>& data) {
-  auto& instrarray = isConst ? instructionsConst : instructions;
+  auto& instrarray = isConst ? instructionsConst_ : instructions_;
 
-  const auto datasetId = datasetCount;
-  ++datasetCount;
+  const auto datasetId = datasetCount_;
+  ++datasetCount_;
 
-  const auto binary{this->binary};
-  const auto compress{this->compress};
+  const auto binary{this->binary_};
+  const auto compress{this->compress_};
 
   std::size_t globalCount = localCount;
 
@@ -318,35 +319,35 @@ void XdmfWriter::addData(const std::string& name,
 }
 
 void XdmfWriter::addHook(const std::function<void(std::size_t, double)>& hook) {
-  hooks.push_back(hook);
+  hooks_.push_back(hook);
 }
 
 std::function<writer::Writer(const std::string&, std::size_t, double)> XdmfWriter::makeWriter() {
-  logInfo() << "Adding Xdmf writer" << name;
+  logInfo() << "Adding Xdmf writer" << name_;
   const auto self = *this;
   return [self, meta = XdmfMeta()](const std::string& prefix,
                                    std::size_t counter,
                                    double time) mutable -> writer::Writer {
-    for (const auto& hook : self.hooks) {
+    for (const auto& hook : self.hooks_) {
       hook(counter, time);
     }
 
     auto writer = writer::Writer();
 
-    const auto filenameMeta = prefix + "-" + self.name + ".xdmf";
-    const auto foldernameData = prefix + "-" + self.name + "-data";
+    const auto filenameMeta = prefix + "-" + self.name_ + ".xdmf";
+    const auto foldernameData = prefix + "-" + self.name_ + "-data";
 
     auto grid = XdmfGrid{};
     grid.name = "step-" + std::to_string(counter);
     grid.time = time;
     if (counter == 0) {
-      for (const auto& instruction : self.instructionsConst) {
+      for (const auto& instruction : self.instructionsConst_) {
         const auto invoked = instruction(foldernameData, counter);
         writer.addInstruction(invoked.instruction);
         meta.entriesConst.emplace_back(invoked);
       }
     }
-    for (const auto& instruction : self.instructions) {
+    for (const auto& instruction : self.instructions_) {
       const auto invoked = instruction(foldernameData, counter);
       writer.addInstruction(invoked.instruction);
       grid.datasets.emplace_back(invoked);
