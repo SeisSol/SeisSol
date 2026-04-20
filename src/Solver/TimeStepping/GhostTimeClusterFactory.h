@@ -21,9 +21,11 @@ struct GhostTimeClusterFactory {
   public:
   static std::unique_ptr<AbstractGhostTimeCluster>
       get(double maxTimeStepSize,
-          int timeStepRate,
-          int globalTimeClusterId,
-          int otherGlobalTimeClusterId,
+          std::uint64_t timeStepRate,
+          std::size_t globalTimeClusterId,
+          std::size_t otherGlobalTimeClusterId,
+          const std::string& displayName,
+          const std::string& otherDisplayName,
           const solver::HaloCommunication& meshStructure,
           Mpi::DataTransferMode mode,
           bool persistent) {
@@ -35,6 +37,8 @@ struct GhostTimeClusterFactory {
                                              timeStepRate,
                                              globalTimeClusterId,
                                              otherGlobalTimeClusterId,
+                                             displayName,
+                                             otherDisplayName,
                                              meshStructure,
                                              persistent);
     }
@@ -44,6 +48,8 @@ struct GhostTimeClusterFactory {
                                                       timeStepRate,
                                                       globalTimeClusterId,
                                                       otherGlobalTimeClusterId,
+                                                      displayName,
+                                                      otherDisplayName,
                                                       meshStructure,
                                                       persistent);
     }
