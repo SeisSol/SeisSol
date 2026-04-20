@@ -33,7 +33,7 @@ namespace seissol::io::instance::checkpoint {
 
 std::function<writer::Writer(const std::string&, std::size_t, double)>
     CheckpointManager::makeWriter() {
-  auto dataRegistry = this->dataRegistry;
+  auto dataRegistry = this->dataRegistry_;
   return [=](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
     writer::Writer writer;
     const auto filename = prefix + std::string("-checkpoint-") + std::to_string(counter) + ".h5";
@@ -107,7 +107,7 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   if (convergenceOrderRead != ConvergenceOrder) {
     logError() << "Convergence order does not match. Read:" << convergenceOrderRead;
   }
-  for (auto& [_, ckpTree] : dataRegistry) {
+  for (auto& [_, ckpTree] : dataRegistry_) {
     reader.openGroup(ckpTree.name);
     auto distributor = reader::Distributor(seissol::Mpi::mpi.comm());
 

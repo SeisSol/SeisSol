@@ -40,6 +40,8 @@
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
 
 GENERATE_HAS_MEMBER(ET)
@@ -47,14 +49,14 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 
 namespace seissol::kernels::solver::linearck {
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
-  m_krnlPrototype.kDivMT = global.onHost->stiffnessMatricesTransposed;
-  projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onHost->v3mTo2nFace;
+  krnlPrototype_.kDivMT = global.onHost->stiffnessMatricesTransposed;
+  projectDerivativeToNodalBoundaryRotated_.V3mTo2nFace = global.onHost->v3mTo2nFace;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
 
-  deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
-  deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onDevice->v3mTo2nFace;
+  deviceKrnlPrototype_.kDivMT = global.onDevice->stiffnessMatricesTransposed;
+  deviceDerivativeToNodalBoundaryRotated_.V3mTo2nFace = global.onDevice->v3mTo2nFace;
 #endif
 }
 
@@ -83,7 +85,7 @@ void Spacetime::computeAder(const real* coeffs,
   alignas(PagesizeStack) real temporaryBuffer[Solver::DerivativesSize];
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
-  kernel::derivative krnl = m_krnlPrototype;
+  kernel::derivative krnl = krnlPrototype_;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
@@ -121,7 +123,7 @@ void Spacetime::computeAder(const real* coeffs,
       if (data.get<LTS::FaceDisplacements>()[face] != nullptr &&
           data.get<LTS::CellInformation>().faceTypes[face] == FaceType::FreeSurfaceGravity) {
         bc.evaluate(face,
-                    projectDerivativeToNodalBoundaryRotated,
+                    projectDerivativeToNodalBoundaryRotated_,
                     data.get<LTS::BoundaryMapping>()[face],
                     data.get<LTS::FaceDisplacements>()[face],
                     tmp.nodalAvgDisplacements[face].data(),
@@ -145,9 +147,9 @@ void Spacetime::computeBatchedAder(
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
-  kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype;
+  kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype_;
 
-  ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
+  const ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
     auto& entry = dataTable[timeVolumeKernelKey];
 
@@ -186,12 +188,12 @@ void Spacetime::computeBatchedAder(
     auto& bc = tmp.gravitationalFreeSurfaceBc;
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       bc.evaluateOnDevice(face,
-                          deviceDerivativeToNodalBoundaryRotated,
+                          deviceDerivativeToNodalBoundaryRotated_,
                           *this,
                           dataTable,
                           materialTable,
                           timeStepWidth,
-                          device,
+                          device_,
                           runtime);
     }
   }
@@ -257,7 +259,7 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
   krnl.numElements = numElements;
   krnl.I = timeIntegratedDofs;
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    krnl.dQ(i) = const_cast<const real**>(timeDerivatives);
+    krnl.dQ(i) = timeDerivatives;
     krnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
     krnl.power(i) = coeffs[i];
   }

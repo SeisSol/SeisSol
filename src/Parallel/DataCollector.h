@@ -38,29 +38,29 @@ class DataCollectorUntyped {
   void scatterFromHost(void* stream);
 
   void* get(size_t index) {
-    if (hostAccessible) {
-      return indexDataHost[index];
+    if (hostAccessible_) {
+      return indexDataHost_[index];
     } else {
-      return reinterpret_cast<void*>(reinterpret_cast<uint8_t*>(copiedData) + index * elemSize);
+      return reinterpret_cast<void*>(reinterpret_cast<uint8_t*>(copiedData_) + index * elemSize_);
     }
   }
 
   [[nodiscard]] const void* get(size_t index) const {
-    if (hostAccessible) {
-      return indexDataHost[index];
+    if (hostAccessible_) {
+      return indexDataHost_[index];
     } else {
-      return reinterpret_cast<void*>(reinterpret_cast<uint8_t*>(copiedData) + index * elemSize);
+      return reinterpret_cast<void*>(reinterpret_cast<uint8_t*>(copiedData_) + index * elemSize_);
     }
   }
 
   private:
-  bool hostAccessible;
-  void** indexDataDevice;
-  std::vector<void*> indexDataHost;
-  size_t indexCount;
-  size_t elemSize;
-  void* copiedData;
-  void* copiedDataDevice;
+  bool hostAccessible_;
+  void** indexDataDevice_;
+  std::vector<void*> indexDataHost_;
+  size_t indexCount_;
+  size_t elemSize_;
+  void* copiedData_;
+  void* copiedDataDevice_;
 };
 
 // wrapper class; typed version
