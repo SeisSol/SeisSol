@@ -33,10 +33,10 @@ inline double seconds(long long time) { return 1.0e-9 * time; }
  */
 class Stopwatch {
   private:
-  struct timespec startTime{};
+  struct timespec startTime_{};
 
   /** Time already spent */
-  long long time{0};
+  long long time_{0};
 
   public:
   /**
