@@ -56,9 +56,6 @@ src/version.h
 # Build
 build*/
 docs/_build/*
-preprocessing/meshing/cube_c/build
-preprocessing/science/asagiconv/build
-postprocessing/validation/XDMFCubeCheck/build
 
 # Python
 *.py[cod]

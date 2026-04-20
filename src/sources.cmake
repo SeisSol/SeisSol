@@ -174,8 +174,6 @@ Solver/FreeSurfaceIntegrator.cpp
 
 Reader/AsagiModule.cpp
 Reader/AsagiReader.cpp
-
-Geometry/CubeGenerator.cpp
 )
 
 if (HDF5 AND MPI)
