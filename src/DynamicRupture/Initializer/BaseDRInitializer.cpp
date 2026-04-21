@@ -374,6 +374,7 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
     BaseDRInitializer::stressIdentifiers(int readNucleation) {
   std::vector<std::string> tractionNames;
   std::vector<std::string> cartesianNames;
+  std::vector<std::string> commonNames;
 
   const std::string index = readNucleation > 1 ? std::to_string(readNucleation) : "";
 
@@ -399,11 +400,9 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
   }
   if (model::MaterialT::Type == model::MaterialType::Poroelastic) {
     if (readNucleation > 0) {
-      tractionNames.emplace_back(insertIndex("nuc", "p"));
-      cartesianNames.emplace_back(insertIndex("nuc", "p"));
+      commonNames.emplace_back(insertIndex("nuc", "p"));
     } else {
-      tractionNames.emplace_back("p");
-      cartesianNames.emplace_back("p");
+      commonNames.emplace_back("p");
     }
   }
 
@@ -420,6 +419,15 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
     const auto b = faultProvides(name);
     allCartesianParametersSupplied &= b;
     anyCartesianParametersSupplied |= b;
+  }
+  for (const auto& name : commonNames) {
+    const auto b = faultProvides(name);
+    allCartesianParametersSupplied &= b;
+    allTractionParametersSupplied &= b;
+
+    // only insert common names after we checked their existence
+    cartesianNames.push_back(name);
+    tractionNames.push_back(name);
   }
 
   if (allCartesianParametersSupplied && !anyTractionParametersSupplied) {
