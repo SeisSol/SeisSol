@@ -93,6 +93,15 @@ if (NOT TESTING_BUILD_ONLY)
     doctest_discover_tests(seissol-serial-test)
 endif()
 
+add_test(
+    NAME "Codegen: memory layout fallback"
+    COMMAND ${CMAKE_COMMAND}
+        -DPython3_EXECUTABLE=${Python3_EXECUTABLE}
+        -DSEISSOL_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -DSEISSOL_BINARY_DIR=${PROJECT_BINARY_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/Codegen/TestMemoryLayoutFallback.cmake
+)
+
 # Avoid duplicate definition of FLOP counters
 target_compile_definitions(seissol-serial-test PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
 
