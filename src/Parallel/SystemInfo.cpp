@@ -48,7 +48,7 @@ void SystemInfo::loadGPUInfo() {
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   const auto pci = device.api->getPciAddress(0);
   const auto pcisNode = Mpi::mpi.collectContainer(pci, Mpi::mpi.sharedMemComm());
-  pcis = Mpi::mpi.collectContainer(pci);
+  pcis_ = Mpi::mpi.collectContainer(pci);
 
   logInfo() << "Device API:" << device.api->getApiName();
   logInfo() << "Device name (rank=0):" << device.api->getDeviceName(0);
