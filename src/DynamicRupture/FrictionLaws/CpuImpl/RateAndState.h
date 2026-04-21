@@ -203,7 +203,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                TractionResults<Executor::Host>& tractionResults,
                                uint32_t timeIndex,
                                std::size_t ltsFace) {
-    const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // SV from mean slip rate in tmp
@@ -213,7 +213,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                                            stateVarReference[pointIndex],
                                                            this->deltaT_[timeIndex],
                                                            localSlipRate[pointIndex]);
+    }
 
+    const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+
+#pragma omp simd
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // update LocMu for next strength determination, only needed for last update
       this->mu_[ltsFace][pointIndex] = static_cast<Derived*>(this)->updateMu(
           pointIndex, this->slipRateMagnitude_[ltsFace][pointIndex], details);
