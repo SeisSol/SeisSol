@@ -27,17 +27,17 @@ class SystemInfo {
   /**
    * @return hostnames for all ranks in the communicator of the application
    */
-  [[nodiscard]] const auto& getHostNames() const { return hostNames; }
+  [[nodiscard]] const auto& getHostNames() const { return hostNames_; }
 
-  [[nodiscard]] const auto& getPCIAddresses() const { return pcis; }
+  [[nodiscard]] const auto& getPCIAddresses() const { return pcis_; }
 
   private:
   void loadHostInfo();
   void loadCPUInfo();
   void loadGPUInfo();
 
-  std::vector<std::string> hostNames;
-  std::vector<std::string> pcis;
+  std::vector<std::string> hostNames_;
+  std::vector<std::string> pcis_;
 };
 
 } // namespace seissol

@@ -22,6 +22,7 @@
 #include <array>
 #include <cstring>
 #include <limits>
+#include <mpi.h>
 #include <utility>
 #include <vector>
 

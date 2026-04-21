@@ -21,14 +21,14 @@ namespace seissol::writer {
 
 class PostProcessor {
   private:
-  bool m_integrationMask[9]{};
-  int m_numberOfVariables{0};
-  std::vector<int> m_integerMap;
+  bool integrationMask_[9]{};
+  int numberOfVariables_{0};
+  std::vector<int> integerMap_;
 
   public:
-  PostProcessor() : m_integerMap(0L) {
+  PostProcessor() : integerMap_(0L) {
     for (size_t i = 0; i < 9; i++) {
-      m_integrationMask[i] = false;
+      integrationMask_[i] = false;
     }
   }
   virtual ~PostProcessor() = default;

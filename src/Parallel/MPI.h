@@ -154,7 +154,7 @@ class Mpi {
   template <typename T>
   void registerMpiType(MPI_Datatype type, bool commit = false) {
     const auto typeIndex = std::type_index(typeid(T));
-    cachedTypes[typeIndex] = type;
+    cachedTypes_[typeIndex] = type;
     if (commit) {
       MPI_Type_commit(&type);
     }
@@ -163,8 +163,8 @@ class Mpi {
   template <typename T>
   MPI_Datatype getMpiType() {
     const auto typeIndex = std::type_index(typeid(T));
-    const auto cacheFind = cachedTypes.find(typeIndex);
-    if (cacheFind != cachedTypes.end()) {
+    const auto cacheFind = cachedTypes_.find(typeIndex);
+    if (cacheFind != cachedTypes_.end()) {
       return cacheFind->second;
     }
     logError() << "Requested type not (dynamically) registered.";
@@ -361,7 +361,7 @@ class Mpi {
    * Finalize MPI
    */
   void finalize() {
-    for (auto& [_, type] : cachedTypes) {
+    for (auto& [_, type] : cachedTypes_) {
       MPI_Type_free(&type);
     }
     MPI_Finalize();
@@ -374,7 +374,7 @@ class Mpi {
   MPI_Comm comm_{MPI_COMM_NULL};
   MPI_Comm sharedMemComm_{};
   Mpi() = default;
-  std::unordered_map<std::type_index, MPI_Datatype> cachedTypes;
+  std::unordered_map<std::type_index, MPI_Datatype> cachedTypes_;
 };
 
 } // namespace seissol

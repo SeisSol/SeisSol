@@ -34,9 +34,9 @@ void SystemInfo::loadHostInfo() {
     utils::StringUtils::rtrim(hostName);
     hostName.pop_back();
   }
-  hostNames = Mpi::mpi.collectContainer(hostName);
+  hostNames_ = Mpi::mpi.collectContainer(hostName);
 
-  logInfo() << "Running on (rank=0):" << hostNames.front();
+  logInfo() << "Running on (rank=0):" << hostNames_.front();
 }
 
 void SystemInfo::loadCPUInfo() {

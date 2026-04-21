@@ -37,13 +37,13 @@ struct DynamicRuptureTuple {
 
 class AbstractFactory {
   protected:
-  std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters;
-  seissol::SeisSol& seissolInstance;
+  std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters_;
+  seissol::SeisSol& seissolInstance_;
 
   public:
   AbstractFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters,
                   seissol::SeisSol& seissolInstance)
-      : drParameters(std::move(drParameters)), seissolInstance(seissolInstance) {};
+      : drParameters_(std::move(drParameters)), seissolInstance_(seissolInstance) {};
   virtual ~AbstractFactory() = default;
   virtual DynamicRuptureTuple produce() = 0;
 };
