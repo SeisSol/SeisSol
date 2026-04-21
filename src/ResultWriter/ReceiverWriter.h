@@ -42,7 +42,7 @@ std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileNa
  */
 class ReceiverWriter : public seissol::Module {
   private:
-  seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance_;
 
   public:
   explicit ReceiverWriter(seissol::SeisSol& seissolInstance);
@@ -88,9 +88,9 @@ class ReceiverWriter : public seissol::Module {
 
   private:
   static std::string hdf5FileName(const std::string& prefix);
-  [[nodiscard]] std::string fileName(unsigned pointId) const;
+  [[nodiscard]] std::string fileName(std::size_t pointId) const;
   [[nodiscard]] std::vector<std::string> variableNames() const;
-  void writeHeader(unsigned pointId, const Eigen::Vector3d& point);
+  void writeHeader(std::size_t pointId, const Eigen::Vector3d& point);
 
   // -- Members --
   seissol::initializer::parameters::ReceiverOutputFormat format_{
@@ -101,7 +101,7 @@ class ReceiverWriter : public seissol::Module {
   double endTime_{0.0};
 
   /// Additional derived quantities (e.g., rotation, strain)
-  std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity>> derivedQuantities;
+  std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity>> derivedQuantities_;
 
   std::vector<std::shared_ptr<kernels::ReceiverCluster>> receiverClusters_;
 

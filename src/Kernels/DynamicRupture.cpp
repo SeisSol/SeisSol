@@ -42,14 +42,14 @@ GENERATE_HAS_MEMBER(I)
 namespace seissol::kernels {
 
 void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
-  m_krnlPrototype.V3mTo2n = global.onHost->faceToNodalMatrices;
+  krnlPrototype_.V3mTo2n = global.onHost->faceToNodalMatrices;
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
-  m_gpuKrnlPrototype.V3mTo2n = global.onDevice->faceToNodalMatrices;
-  m_gpuCombinedKrnlPrototype.V3mTo2n = global.onDevice->faceToNodalMatrices;
+  gpuKrnlPrototype_.V3mTo2n = global.onDevice->faceToNodalMatrices;
+  gpuCombinedKrnlPrototype_.V3mTo2n = global.onDevice->faceToNodalMatrices;
 #endif
 
-  m_timeKernel.setGlobalData(global);
+  timeKernel_.setGlobalData(global);
 }
 
 void DynamicRupture::spaceTimeInterpolation(
@@ -77,11 +77,11 @@ void DynamicRupture::spaceTimeInterpolation(
   alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()];
   alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
 
-  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
+  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = krnlPrototype_;
   for (std::size_t timeInterval = 0; timeInterval < dr::misc::TimeSteps; ++timeInterval) {
-    m_timeKernel.evaluate(
+    timeKernel_.evaluate(
         &coeffs[timeInterval * ConvergenceOrder], timeDerivativePlus, degreesOfFreedomPlus);
-    m_timeKernel.evaluate(
+    timeKernel_.evaluate(
         &coeffs[timeInterval * ConvergenceOrder], timeDerivativeMinus, degreesOfFreedomMinus);
 
     const real* plusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps)
@@ -123,9 +123,9 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
       auto& entry = table[minusSideKey];
       const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getSize();
 
-      auto krnl = m_gpuCombinedKrnlPrototype;
+      auto krnl = gpuCombinedKrnlPrototype_;
       real* tmpMem = reinterpret_cast<real*>(
-          device.api->allocMemAsync(krnl.TmpMaxMemRequiredInBytes * numElements, stream));
+          device_.api->allocMemAsync(krnl.TmpMaxMemRequiredInBytes * numElements, stream));
       krnl.linearAllocator.initialize(tmpMem);
       krnl.streamPtr = stream;
       krnl.numElements = numElements;
@@ -157,7 +157,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
           const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
       krnl.execute(side, faceRelation);
 
-      device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
+      device_.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
     }
   });
 #else
@@ -168,7 +168,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 void DynamicRupture::flopsGodunovState(const DRFaceInformation& faceInfo,
                                        std::uint64_t& nonZeroFlops,
                                        std::uint64_t& hardwareFlops) {
-  m_timeKernel.flopsEvaluate(nonZeroFlops, hardwareFlops);
+  timeKernel_.flopsEvaluate(nonZeroFlops, hardwareFlops);
 
   // 2x evaluateTaylorExpansion
   nonZeroFlops *= 2;

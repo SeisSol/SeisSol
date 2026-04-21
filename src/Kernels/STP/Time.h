@@ -47,12 +47,10 @@ class Spacetime : public SpacetimeKernel {
   private:
   void executeSTP(double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp);
 
-  kernel::spaceTimePredictor m_krnlPrototype;
-  kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
+  kernel::spaceTimePredictor krnlPrototype_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_spaceTimePredictor deviceKrnlPrototype;
-  kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
+  kernel::gpu_spaceTimePredictor deviceKrnlPrototype_;
 #endif
 };
 
