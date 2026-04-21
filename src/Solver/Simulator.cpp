@@ -102,10 +102,14 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
     // update the DOFs
     logInfo() << "Start simulation epoch. (from" << currentTime_ << "s to" << upcomingTime << "s)";
+
     computeStopwatch.start();
     seissolInstance.timeManager().advanceInTime(upcomingTime);
     computeStopwatch.pause();
-    logInfo() << "End simulation epoch. (at" << upcomingTime << "s)";
+
+    const auto percentageDone = upcomingTime / finalTime_ * 100;
+    logInfo() << "End simulation epoch. (at" << upcomingTime << "s; total" << percentageDone
+              << "% done)";
 
     ioStopwatch.start();
 
