@@ -599,17 +599,17 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
     ConditionalKey key = ConditionalKey(*KernelNames::Time);
     if (table.find(key) != table.end()) {
       auto entry = table.at(key);
-      device.algorithms.accumulateBatchedData(
+      device_.algorithms.accumulateBatchedData(
           const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
           (entry.get(inner_keys::Wp::Id::Integrals))->getDeviceDataPtr(),
           tensor::Q::Size,
           (entry.get(inner_keys::Wp::Id::Dofs))->getSize(),
-          streamRuntime.stream());
+          streamRuntime_.stream());
     }
   }
 
-  device.api->popLastProfilingMark();
-  loopStatistics_->end(regionComputeNeighboringIntegration, clusterData->size(), profilingId);
+  device_.api->popLastProfilingMark();
+  loopStatistics_->end(regionComputeNeighboringIntegration_, clusterData_->size(), profilingId_);
 #else
   logError() << "The GPU kernels are disabled in this version of SeisSol.";
 #endif // ACL_DEVICE
