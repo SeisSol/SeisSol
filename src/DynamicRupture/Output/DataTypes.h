@@ -33,7 +33,6 @@ struct VarT {
 
   real* operator[](std::size_t dim) {
     assert(dim < Dim && "access is out of the Dim. bounds");
-    assert(!data[dim].empty() && "data has not been initialized yet");
     return data[dim].data();
   }
 
@@ -52,7 +51,6 @@ struct VarT {
 
   const real* operator[](std::size_t dim) const {
     assert(dim < Dim && "access is out of the Dim. bounds");
-    assert(!data[dim].empty() && "data has not been initialized yet");
     return data[dim].data();
   }
 

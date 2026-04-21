@@ -21,42 +21,44 @@ namespace seissol::parallel {
 DataCollectorUntyped::DataCollectorUntyped(const std::vector<void*>& indexDataHost,
                                            size_t elemSize,
                                            bool hostAccessible)
-    : hostAccessible(hostAccessible), indexDataHost(indexDataHost),
-      indexCount(indexDataHost.size()), elemSize(elemSize) {
+    : hostAccessible_(hostAccessible), indexDataHost_(indexDataHost),
+      indexCount_(indexDataHost.size()), elemSize_(elemSize) {
   // in case we want to use this class in a host-only scenario
   if constexpr (!isDeviceOn()) {
-    this->hostAccessible = true;
+    this->hostAccessible_ = true;
   }
-  if (!this->hostAccessible && indexCount > 0) {
-    indexDataDevice = memory::allocTyped<void*>(indexCount, 1, memory::Memkind::DeviceGlobalMemory);
-    copiedData = memory::allocate(elemSize * indexCount, 1, memory::Memkind::PinnedMemory);
+  if (!this->hostAccessible_ && indexCount_ > 0) {
+    indexDataDevice_ =
+        memory::allocTyped<void*>(indexCount_, 1, memory::Memkind::DeviceGlobalMemory);
+    copiedData_ = memory::allocate(elemSize * indexCount_, 1, memory::Memkind::PinnedMemory);
 
-    copiedDataDevice = memory::hostToDevicePointerTyped(copiedData, memory::Memkind::PinnedMemory);
-    memory::memcopyTyped(indexDataDevice,
+    copiedDataDevice_ =
+        memory::hostToDevicePointerTyped(copiedData_, memory::Memkind::PinnedMemory);
+    memory::memcopyTyped(indexDataDevice_,
                          indexDataHost.data(),
-                         indexCount,
+                         indexCount_,
                          memory::Memkind::DeviceGlobalMemory,
                          memory::Memkind::Standard);
   }
 }
 
 DataCollectorUntyped::~DataCollectorUntyped() {
-  if (!hostAccessible && indexCount > 0) {
-    memory::free(static_cast<void*>(indexDataDevice), memory::Memkind::DeviceGlobalMemory);
-    memory::free(copiedData, memory::Memkind::PinnedMemory);
+  if (!hostAccessible_ && indexCount_ > 0) {
+    memory::free(static_cast<void*>(indexDataDevice_), memory::Memkind::DeviceGlobalMemory);
+    memory::free(copiedData_, memory::Memkind::PinnedMemory);
   }
 }
 
 // NOLINTNEXTLINE (silence errors due to ifdef ACL_DEVICE)
 void DataCollectorUntyped::gatherToHost(void* stream) {
-  if (!hostAccessible && indexCount > 0) {
+  if (!hostAccessible_ && indexCount_ > 0) {
 #ifdef ACL_DEVICE
     device::DeviceInstance::getInstance().algorithms.copyScatterToUniformI(
-        const_cast<const void**>(indexDataDevice),
-        copiedDataDevice,
-        elemSize,
-        elemSize,
-        indexCount,
+        const_cast<const void**>(indexDataDevice_),
+        copiedDataDevice_,
+        elemSize_,
+        elemSize_,
+        indexCount_,
         stream);
 #endif
   }
@@ -64,14 +66,14 @@ void DataCollectorUntyped::gatherToHost(void* stream) {
 
 // NOLINTNEXTLINE (silence errors due to ifdef ACL_DEVICE)
 void DataCollectorUntyped::scatterFromHost(void* stream) {
-  if (!hostAccessible && indexCount > 0) {
+  if (!hostAccessible_ && indexCount_ > 0) {
 #ifdef ACL_DEVICE
     device::DeviceInstance::getInstance().algorithms.copyUniformToScatterI(
-        const_cast<const void*>(copiedDataDevice),
-        indexDataDevice,
-        elemSize,
-        elemSize,
-        indexCount,
+        const_cast<const void*>(copiedDataDevice_),
+        indexDataDevice_,
+        elemSize_,
+        elemSize_,
+        indexCount_,
         stream);
 #endif
   }

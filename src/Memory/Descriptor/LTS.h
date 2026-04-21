@@ -23,10 +23,6 @@
 #include "Parallel/Helper.h"
 #include "Solver/Settings.h"
 
-#ifdef ACL_DEVICE
-#include "Parallel/Helper.h"
-#endif
-
 namespace seissol::tensor {
 struct Qane;
 } // namespace seissol::tensor

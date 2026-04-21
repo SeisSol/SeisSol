@@ -70,10 +70,10 @@ class LtsWeights {
   [[nodiscard]] double getWiggleFactor() const;
 
   private:
-  seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance_;
 
   protected:
-  seissol::initializer::GlobalTimestep m_details;
+  seissol::initializer::GlobalTimestep details_;
 
   seissol::initializer::GlobalTimestep collectGlobalTimeStepDetails();
   std::uint64_t getCluster(double timestep,
@@ -92,21 +92,21 @@ class LtsWeights {
   virtual void setAllowedImbalances() = 0;
   virtual int evaluateNumberOfConstraints() = 0;
 
-  std::vector<uint64_t> m_rate;
-  std::vector<int> m_vertexWeights;
-  std::vector<double> m_imbalances;
-  std::vector<int> m_cellCosts;
-  int m_vertexWeightElement{};
-  int m_vertexWeightDynamicRupture{};
-  int m_vertexWeightFreeSurfaceWithGravity{};
-  int m_ncon{std::numeric_limits<int>::infinity()};
-  const geometry::PumlMesh* m_meshTopology{nullptr};
-  const geometry::PumlMesh* m_meshGeometry{nullptr};
-  std::vector<int> m_clusterIds;
-  double wiggleFactor = 1.0;
-  std::map<double, decltype(m_clusterIds), std::greater<>>
-      clusteringCache; // Maps wiggle factor to clustering
-  seissol::initializer::parameters::BoundaryFormat boundaryFormat;
+  std::vector<uint64_t> rate_;
+  std::vector<int> vertexWeights_;
+  std::vector<double> imbalances_;
+  std::vector<int> cellCosts_;
+  int vertexWeightElement_{};
+  int vertexWeightDynamicRupture_{};
+  int vertexWeightFreeSurfaceWithGravity_{};
+  int ncon_{std::numeric_limits<int>::infinity()};
+  const geometry::PumlMesh* meshTopology_{nullptr};
+  const geometry::PumlMesh* meshGeometry_{nullptr};
+  std::vector<int> clusterIds_;
+  double wiggleFactor_ = 1.0;
+  std::map<double, decltype(clusterIds_), std::greater<>>
+      clusteringCache_; // Maps wiggle factor to clustering
+  seissol::initializer::parameters::BoundaryFormat boundaryFormat_;
   struct ComputeWiggleFactorResult {
     int maxClusterId;
     double wiggleFactor;
@@ -116,10 +116,10 @@ class LtsWeights {
                                                     bool isAutoMergeUsed);
   void prepareDifferenceEnforcement();
 
-  std::vector<std::pair<int, std::vector<std::size_t>>> rankToSharedFaces;
-  std::unordered_map<std::size_t, std::size_t> localFaceIdToLocalCellId;
-  std::unordered_map<std::size_t, std::pair<std::size_t, std::size_t>> sharedFaceToExchangeId;
-  std::vector<std::size_t> boundaryCells;
+  std::vector<std::pair<int, std::vector<std::size_t>>> rankToSharedFaces_;
+  std::unordered_map<std::size_t, std::size_t> localFaceIdToLocalCellId_;
+  std::unordered_map<std::size_t, std::pair<std::size_t, std::size_t>> sharedFaceToExchangeId_;
+  std::vector<std::size_t> boundaryCells_;
 };
 } // namespace initializer::time_stepping
 } // namespace seissol

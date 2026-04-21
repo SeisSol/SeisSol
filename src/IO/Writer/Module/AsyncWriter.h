@@ -37,10 +37,10 @@ class AsyncWriter {
 
   private:
   static constexpr int PlanId = 0;
-  bool printPlan{false};
-  seissol::io::writer::Writer writer;
-  std::optional<seissol::io::writer::WriteInstance> instance;
-  MPI_Comm comm{MPI_COMM_WORLD};
+  bool printPlan_{false};
+  seissol::io::writer::Writer writer_;
+  std::optional<seissol::io::writer::WriteInstance> instance_;
+  MPI_Comm comm_{MPI_COMM_WORLD};
 
   static std::mutex globalLock;
 };

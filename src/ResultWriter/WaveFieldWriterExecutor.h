@@ -51,25 +51,25 @@ struct WaveFieldParam {
 class WaveFieldWriterExecutor {
   private:
   /** The XMDF Writer used for the wave field */
-  xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>* m_waveFieldWriter{nullptr};
+  xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>* waveFieldWriter_{nullptr};
 
   /** Buffer id for the first variable for high and low order output */
-  unsigned int m_variableBufferIds[1]{};
+  unsigned int variableBufferIds_[1]{};
 
   /** The total number of (high order) variables */
-  unsigned int m_numVariables{0};
+  unsigned int numVariables_{0};
 
   /** Flag indicated which variables should be written */
-  const bool* m_outputFlags{nullptr};
+  const bool* outputFlags_{nullptr};
 
   /** The MPI communicator for the XDMF writer */
-  MPI_Comm m_comm{MPI_COMM_NULL};
+  MPI_Comm comm_{MPI_COMM_NULL};
 
   /** Stopwatch for the wave field backend */
-  Stopwatch m_stopwatch;
+  Stopwatch stopwatch_;
 
-  std::shared_ptr<std::vector<std::string>> varNames;
-  std::shared_ptr<std::vector<std::string>> varNamesLowRes;
+  std::shared_ptr<std::vector<std::string>> varNames_;
+  std::shared_ptr<std::vector<std::string>> varNamesLowRes_;
 
   public:
   WaveFieldWriterExecutor() = default;
@@ -78,7 +78,7 @@ class WaveFieldWriterExecutor {
    * Initialize the XDMF writers
    */
   void execInit(const async::ExecInfo& info, const WaveFieldInitParam& param) {
-    if (m_waveFieldWriter != nullptr) {
+    if (waveFieldWriter_ != nullptr) {
       logError() << "Wave field writer already initialized";
     }
 
@@ -91,52 +91,52 @@ class WaveFieldWriterExecutor {
     //
     // I/O
     //
-    m_numVariables = info.bufferSize(param.bufferIds[OutputFlags]) / sizeof(bool);
-    m_outputFlags = static_cast<const bool*>(info.buffer(param.bufferIds[OutputFlags]));
+    numVariables_ = info.bufferSize(param.bufferIds[OutputFlags]) / sizeof(bool);
+    outputFlags_ = static_cast<const bool*>(info.buffer(param.bufferIds[OutputFlags]));
 
-    varNames = std::make_shared<std::vector<std::string>>();
+    varNames_ = std::make_shared<std::vector<std::string>>();
     for (const auto& quantity : seissol::model::MaterialT::Quantities) {
-      varNames->emplace_back(quantity);
+      varNames_->emplace_back(quantity);
     }
     for (const auto& quantity : seissol::model::PlasticityData::Quantities) {
-      varNames->emplace_back(quantity);
+      varNames_->emplace_back(quantity);
     }
     for (const auto& quantity : seissol::model::MaterialT::Quantities) {
-      varNames->emplace_back("int-" + quantity);
+      varNames_->emplace_back("int-" + quantity);
     }
 
     std::vector<const char*> variables;
-    for (unsigned int i = 0; i < m_numVariables; i++) {
-      if (m_outputFlags[i]) {
+    for (unsigned int i = 0; i < numVariables_; i++) {
+      if (outputFlags_[i]) {
         assert(i < seissol::model::MaterialT::Quantities.size() * 2 +
                        seissol::model::PlasticityData::Quantities.size());
-        variables.push_back(varNames->at(i).c_str());
+        variables.push_back(varNames_->at(i).c_str());
       }
     }
 
     // Split the communicator into two - those containing vertices and those
     //  not containing any vertices.
     const int commColour = (info.bufferSize(param.bufferIds[Cells]) == 0) ? 0 : 1;
-    MPI_Comm_split(seissol::Mpi::mpi.comm(), commColour, rank, &m_comm);
+    MPI_Comm_split(seissol::Mpi::mpi.comm(), commColour, rank, &comm_);
     // Start the if statement
     if (info.bufferSize(param.bufferIds[Cells]) != 0) {
       // Get the new rank
-      MPI_Comm_rank(m_comm, &rank);
+      MPI_Comm_rank(comm_, &rank);
 
       // Initialize the I/O handler and write the mesh
-      m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>(
+      waveFieldWriter_ = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>(
           type, outputPrefix, param.timestep);
 
-      m_waveFieldWriter->setComm(m_comm);
-      m_waveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
+      waveFieldWriter_->setComm(comm_);
+      waveFieldWriter_->setBackupTimeStamp(param.backupTimeStamp);
       const std::string extraIntVarName = "clustering";
       const auto vertexFilter = utils::Env("").get<bool>("SEISSOL_VERTEXFILTER", true);
-      m_waveFieldWriter->init(variables,
-                              std::vector<const char*>(),
-                              {extraIntVarName, "global-id"},
-                              vertexFilter,
-                              true);
-      m_waveFieldWriter->setMesh(
+      waveFieldWriter_->init(variables,
+                             std::vector<const char*>(),
+                             {extraIntVarName, "global-id"},
+                             vertexFilter,
+                             true);
+      waveFieldWriter_->setMesh(
           info.bufferSize(param.bufferIds[Cells]) / (4 * sizeof(unsigned int)),
           static_cast<const unsigned int*>(info.buffer(param.bufferIds[Cells])),
           info.bufferSize(param.bufferIds[Vertices]) / (3 * sizeof(double)),
@@ -145,11 +145,11 @@ class WaveFieldWriterExecutor {
 
       setClusteringData(static_cast<const unsigned int*>(info.buffer(param.bufferIds[Clustering])));
 
-      m_waveFieldWriter->writeExtraIntCellData(
+      waveFieldWriter_->writeExtraIntCellData(
           1, static_cast<const unsigned int*>(info.buffer(param.bufferIds[GlobalIds])));
 
       // Save ids for the variables
-      m_variableBufferIds[0] = param.bufferIds[Variables0];
+      variableBufferIds_[0] = param.bufferIds[Variables0];
 
       logInfo() << "Initializing XDMF wave field output. Done.";
     }
@@ -157,45 +157,45 @@ class WaveFieldWriterExecutor {
   }
 
   void setClusteringData(const unsigned* clustering) {
-    m_waveFieldWriter->writeExtraIntCellData(0, clustering);
+    waveFieldWriter_->writeExtraIntCellData(0, clustering);
   }
 
   void exec(const async::ExecInfo& info, const WaveFieldParam& param) {
-    // Execute this function only if m_waveFieldWriter is initialized
-    if (m_waveFieldWriter != nullptr) {
-      m_stopwatch.start();
+    // Execute this function only if waveFieldWriter_ is initialized
+    if (waveFieldWriter_ != nullptr) {
+      stopwatch_.start();
 
       // High order output
-      m_waveFieldWriter->addTimeStep(param.time);
+      waveFieldWriter_->addTimeStep(param.time);
 
       unsigned int nextId = 0;
-      for (unsigned int i = 0; i < m_numVariables; i++) {
-        if (m_outputFlags[i]) {
-          m_waveFieldWriter->writeCellData(
-              nextId, static_cast<const real*>(info.buffer(m_variableBufferIds[0] + nextId)));
+      for (unsigned int i = 0; i < numVariables_; i++) {
+        if (outputFlags_[i]) {
+          waveFieldWriter_->writeCellData(
+              nextId, static_cast<const real*>(info.buffer(variableBufferIds_[0] + nextId)));
 
           nextId++;
         }
       }
 
-      m_waveFieldWriter->flush();
+      waveFieldWriter_->flush();
 
-      m_stopwatch.pause();
+      stopwatch_.pause();
     }
   }
 
   void finalize() {
-    if (m_waveFieldWriter != nullptr) {
-      m_stopwatch.printTime("Time wave field writer backend:");
+    if (waveFieldWriter_ != nullptr) {
+      stopwatch_.printTime("Time wave field writer backend:");
     }
 
-    if (m_comm != MPI_COMM_NULL) {
-      MPI_Comm_free(&m_comm);
-      m_comm = MPI_COMM_NULL;
+    if (comm_ != MPI_COMM_NULL) {
+      MPI_Comm_free(&comm_);
+      comm_ = MPI_COMM_NULL;
     }
 
-    delete m_waveFieldWriter;
-    m_waveFieldWriter = nullptr;
+    delete waveFieldWriter_;
+    waveFieldWriter_ = nullptr;
   }
 
   static constexpr unsigned int NumPlasticityVariables =

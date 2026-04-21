@@ -33,7 +33,7 @@ class LtsSetup {
 
   LtsSetup() = default;
 
-  explicit LtsSetup(BitmapType data) : data(data) {}
+  explicit LtsSetup(BitmapType data) : data_(data) {}
 
   constexpr auto setNeighborHasDerivatives(std::uint32_t face, bool derivatives) -> LtsSetup& {
     assert(face < Cell::NumFaces);
@@ -68,22 +68,22 @@ class LtsSetup {
   [[nodiscard]] constexpr auto accumulateBuffers() const -> bool { return test(IndexCache); }
 
   [[nodiscard]] constexpr auto test(std::uint32_t index) const -> bool {
-    return (data & (1 << index)) != 0;
+    return (data_ & (1 << index)) != 0;
   }
 
   constexpr auto set(std::uint32_t index, bool value) -> LtsSetup& {
     if (value) {
-      data |= 1 << index;
+      data_ |= 1 << index;
     } else {
-      data &= ~(1 << index);
+      data_ &= ~(1 << index);
     }
     return *this;
   }
 
-  [[nodiscard]] constexpr auto unwrap() const -> BitmapType { return data; }
+  [[nodiscard]] constexpr auto unwrap() const -> BitmapType { return data_; }
 
   private:
-  BitmapType data{0};
+  BitmapType data_{0};
 };
 
 } // namespace seissol
