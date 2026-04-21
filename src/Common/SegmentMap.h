@@ -30,8 +30,8 @@ template <typename KeyT, typename ValueT>
 class SegmentMap {
   public:
   SegmentMap() {
-    ranges[std::numeric_limits<KeyT>::min()] = {};
-    ranges[std::numeric_limits<KeyT>::max()] = {};
+    ranges_[std::numeric_limits<KeyT>::min()] = {};
+    ranges_[std::numeric_limits<KeyT>::max()] = {};
   }
 
   /**
@@ -47,7 +47,7 @@ class SegmentMap {
 
     // check if we're empty first (i.e. look for a lower bound; then increment once; we should be
     // outside the interval again)
-    const auto lb = ranges.lower_bound(trueEnd);
+    const auto lb = ranges_.lower_bound(trueEnd);
     const auto pb = std::prev(lb);
 
     if ((lb->first == trueEnd && lb->second.has_value()) || pb->first > trueStart ||
@@ -59,16 +59,16 @@ class SegmentMap {
     // insert the ranges and sentinel ranges. Also take care of any overflows/underflows that could
     // occur. (in case we would not have a sentinel range)
 
-    ranges[trueEnd] = type;
+    ranges_[trueEnd] = type;
     if (trueEnd < std::numeric_limits<KeyT>::max()) {
       const auto pos = trueEnd + 1;
-      ranges.try_emplace(pos);
+      ranges_.try_emplace(pos);
     }
 
-    ranges[trueStart] = type;
+    ranges_[trueStart] = type;
     if (trueStart > std::numeric_limits<KeyT>::min()) {
       const auto pos = trueStart - 1;
-      ranges.try_emplace(pos);
+      ranges_.try_emplace(pos);
     }
   }
 
@@ -82,11 +82,11 @@ class SegmentMap {
    */
   [[nodiscard]] std::optional<ValueT> at(KeyT index) const {
     // (ab)use a std::map as a sort of segment tree; to support ranges
-    const auto exact = ranges.find(index);
-    const auto upper = ranges.upper_bound(index);
-    const auto lower = ranges.lower_bound(index);
+    const auto exact = ranges_.find(index);
+    const auto upper = ranges_.upper_bound(index);
+    const auto lower = ranges_.lower_bound(index);
 
-    if (exact != ranges.end()) {
+    if (exact != ranges_.end()) {
       return exact->second;
     } else if (upper->second == lower->second) {
       return lower->second;
@@ -98,7 +98,7 @@ class SegmentMap {
   }
 
   private:
-  std::map<KeyT, std::optional<ValueT>> ranges;
+  std::map<KeyT, std::optional<ValueT>> ranges_;
 };
 
 } // namespace seissol

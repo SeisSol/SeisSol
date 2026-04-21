@@ -41,27 +41,27 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   }
 #endif
 
-  m_volumeKernelPrototype.kDivM = global.onHost->stiffnessMatrices;
-  m_localFluxKernelPrototype.rDivM = global.onHost->changeOfBasisMatrices;
-  m_localFluxKernelPrototype.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
-  m_localKernelPrototype.selectEla = init::selectEla::Values;
-  m_localKernelPrototype.selectAne = init::selectAne::Values;
+  volumeKernelPrototype_.kDivM = global.onHost->stiffnessMatrices;
+  localFluxKernelPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
+  localFluxKernelPrototype_.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
+  localKernelPrototype_.selectEla = init::selectEla::Values;
+  localKernelPrototype_.selectAne = init::selectAne::Values;
 
 #ifdef ACL_DEVICE
-  deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
+  deviceVolumeKernelPrototype_.kDivM = global.onDevice->stiffnessMatrices;
 #ifdef USE_PREMULTIPLY_FLUX
-  deviceLocalFluxKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
-  deviceFluxLocalAllKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
+  deviceLocalFluxKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
+  deviceFluxLocalAllKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
 #else
-  deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
-  deviceFluxLocalAllKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceFluxLocalAllKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+  deviceLocalFluxKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
+  deviceLocalFluxKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+  deviceFluxLocalAllKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
+  deviceFluxLocalAllKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
 #endif
-  deviceLocalKernelPrototype.selectEla = global.onDevice->selectEla;
-  deviceLocalKernelPrototype.selectAne = global.onDevice->selectAne;
-  deviceFluxLocalAllKernelPrototype.selectEla = global.onDevice->selectEla;
-  deviceFluxLocalAllKernelPrototype.selectAne = global.onDevice->selectAne;
+  deviceLocalKernelPrototype_.selectEla = global.onDevice->selectEla;
+  deviceLocalKernelPrototype_.selectAne = global.onDevice->selectAne;
+  deviceFluxLocalAllKernelPrototype_.selectEla = global.onDevice->selectEla;
+  deviceFluxLocalAllKernelPrototype_.selectAne = global.onDevice->selectAne;
 #endif
 }
 
@@ -76,14 +76,14 @@ void Local::computeIntegral(
 
   alignas(Alignment) real Qext[tensor::Qext::size()];
 
-  kernel::volumeExt volKrnl = m_volumeKernelPrototype;
+  kernel::volumeExt volKrnl = volumeKernelPrototype_;
   volKrnl.Qext = Qext;
   volKrnl.I = timeIntegratedDoFs;
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
 
-  kernel::localFluxExt lfKrnl = m_localFluxKernelPrototype;
+  kernel::localFluxExt lfKrnl = localFluxKernelPrototype_;
   lfKrnl.Qext = Qext;
   lfKrnl.I = timeIntegratedDoFs;
   lfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
@@ -99,7 +99,7 @@ void Local::computeIntegral(
     }
   }
 
-  kernel::local lKrnl = m_localKernelPrototype;
+  kernel::local lKrnl = localKernelPrototype_;
   lKrnl.E = data.get<LTS::LocalIntegration>().specific.E;
   lKrnl.Iane = tmp.timeIntegratedAne;
   lKrnl.Q = data.get<LTS::Dofs>();
@@ -154,7 +154,7 @@ void Local::computeBatchedIntegral(
   using namespace seissol::recording;
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
-  kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype;
+  kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype_;
 
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];
@@ -175,7 +175,7 @@ void Local::computeBatchedIntegral(
     volKrnl.execute();
 
 #ifdef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
-    auto krnl = deviceFluxLocalAllKernelPrototype;
+    auto krnl = deviceFluxLocalAllKernelPrototype_;
 
     krnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
     krnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
@@ -213,8 +213,8 @@ void Local::computeBatchedIntegral(
 
 // deprecated code; kept for comparison reasons
 #ifndef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
-  kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype;
-  kernel::gpu_local localKrnl = deviceLocalKernelPrototype;
+  kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype_;
+  kernel::gpu_local localKrnl = deviceLocalKernelPrototype_;
 
   // Local Flux Integral
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {

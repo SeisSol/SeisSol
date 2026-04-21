@@ -41,18 +41,18 @@ struct ODESolverConfig {
 
 class RungeKuttaODESolver {
   private:
-  ODESolverConfig config;
-  int numberOfStages{};
+  ODESolverConfig config_;
+  int numberOfStages_{};
 
   // Coefficients
-  std::vector<double> a;
-  std::vector<double> b;
-  std::vector<double> c;
+  std::vector<double> a_;
+  std::vector<double> b_;
+  std::vector<double> c_;
 
   // Temporary storage
-  std::vector<ODEVector> stages;
-  std::vector<std::vector<real>> storages;
-  ODEVector buffer;
+  std::vector<ODEVector> stages_;
+  std::vector<std::vector<real>> storages_;
+  ODEVector buffer_;
 
   public:
   RungeKuttaODESolver(const std::vector<std::size_t>& storageSizes, ODESolverConfig config);
@@ -72,27 +72,27 @@ class RungeKuttaODESolver {
   void solve(Func f, ODEVector& curValue, TimeSpan timeSpan) {
     assert(timeSpan.begin <= timeSpan.end);
     double curTime = timeSpan.begin;
-    const double dt = config.initialDt;
+    const double dt = config_.initialDt;
     while (curTime < timeSpan.end) {
       const double adjustedDt = std::min(dt, timeSpan.end - curTime);
 
-      for (auto i = 0U; i < stages.size(); ++i) {
-        buffer.copyFrom(curValue);
+      for (auto i = 0U; i < stages_.size(); ++i) {
+        buffer_.copyFrom(curValue);
         // j < i due to explict RK scheme
         for (auto j = 0U; j < i; ++j) {
-          if (a[i * numberOfStages + j] != 0.0) {
-            const auto curWeight = a[i * numberOfStages + j] * adjustedDt;
-            buffer.weightedAddInplace(curWeight, stages[j]);
+          if (a_[i * numberOfStages_ + j] != 0.0) {
+            const auto curWeight = a_[i * numberOfStages_ + j] * adjustedDt;
+            buffer_.weightedAddInplace(curWeight, stages_[j]);
           }
         }
 
-        const double tEval = curTime + c[i] * adjustedDt;
-        f(stages[i], buffer, tEval);
+        const double tEval = curTime + c_[i] * adjustedDt;
+        f(stages_[i], buffer_, tEval);
       }
 
-      for (auto i = 0; i < numberOfStages; ++i) {
-        const auto curWeight = b[i] * adjustedDt;
-        curValue.weightedAddInplace(curWeight, stages[i]);
+      for (auto i = 0; i < numberOfStages_; ++i) {
+        const auto curWeight = b_[i] * adjustedDt;
+        curValue.weightedAddInplace(curWeight, stages_[i]);
       }
       curTime += adjustedDt;
     }

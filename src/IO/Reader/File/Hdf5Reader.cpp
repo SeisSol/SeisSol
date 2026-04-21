@@ -37,18 +37,18 @@ hid_t _ehh(hid_t data, const char* file, int line) {
 
 namespace seissol::io::reader::file {
 
-Hdf5Reader::Hdf5Reader(MPI_Comm comm) : comm(comm) {}
+Hdf5Reader::Hdf5Reader(MPI_Comm comm) : comm_(comm) {}
 void Hdf5Reader::checkExistence(const std::string& name, const std::string& type) {
-  if (handles.empty()) {
+  if (handles_.empty()) {
     // we're opening a file, i.e. we'd need to check for the existence here
   } else if (type == "attribute") {
     // TODO: change type to enum
-    if (_eh(H5Aexists(handles.top(), name.c_str())) == 0) {
+    if (_eh(H5Aexists(handles_.top(), name.c_str())) == 0) {
       logError() << "The " << type.c_str() << name << "does not exist in the given Hdf5 file.";
     }
   } else {
     // groups + datasets
-    if (_eh(H5Lexists(handles.top(), name.c_str(), H5P_DEFAULT)) == 0) {
+    if (_eh(H5Lexists(handles_.top(), name.c_str(), H5P_DEFAULT)) == 0) {
       logError() << "The " << type.c_str() << name << "does not exist in the given Hdf5 file.";
     }
   }
@@ -62,20 +62,20 @@ void Hdf5Reader::openFile(const std::string& name) {
 #else
   _eh(H5Pset_libver_bounds(h5falist, H5F_LIBVER_LATEST, H5F_LIBVER_LATEST));
 #endif
-  _eh(H5Pset_fapl_mpio(h5falist, comm, MPI_INFO_NULL));
+  _eh(H5Pset_fapl_mpio(h5falist, comm_, MPI_INFO_NULL));
   const hid_t file = _eh(H5Fopen(name.c_str(), H5F_ACC_RDONLY, h5falist));
   _eh(H5Pclose(h5falist));
 
-  handles.push(file);
+  handles_.push(file);
 }
 void Hdf5Reader::openGroup(const std::string& name) {
   checkExistence(name, "group");
-  const hid_t handle = _eh(H5Gopen(handles.top(), name.c_str(), H5P_DEFAULT));
-  handles.push(handle);
+  const hid_t handle = _eh(H5Gopen(handles_.top(), name.c_str(), H5P_DEFAULT));
+  handles_.push(handle);
 }
 std::size_t Hdf5Reader::attributeCount(const std::string& name) {
   checkExistence(name, "attribute");
-  const hid_t attr = _eh(H5Aopen(handles.top(), name.c_str(), H5P_DEFAULT));
+  const hid_t attr = _eh(H5Aopen(handles_.top(), name.c_str(), H5P_DEFAULT));
   const hid_t attrspace = _eh(H5Aget_space(attr));
   const hid_t rank = _eh(H5Sget_simple_extent_ndims(attrspace));
   std::vector<hsize_t> dims(rank);
@@ -88,13 +88,13 @@ void Hdf5Reader::readAttributeRaw(void* data,
                                   const std::string& name,
                                   const std::shared_ptr<datatype::Datatype>& type) {
   checkExistence(name, "attribute");
-  const hid_t attr = _eh(H5Aopen(handles.top(), name.c_str(), H5P_DEFAULT));
+  const hid_t attr = _eh(H5Aopen(handles_.top(), name.c_str(), H5P_DEFAULT));
   _eh(H5Aread(attr, datatype::convertToHdf5(type), data));
   _eh(H5Aclose(attr));
 }
 std::size_t Hdf5Reader::dataCount(const std::string& name) {
   checkExistence(name, "dataset");
-  const hid_t dataset = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
+  const hid_t dataset = _eh(H5Dopen(handles_.top(), name.c_str(), H5P_DEFAULT));
   const hid_t dataspace = _eh(H5Dget_space(dataset));
   const hid_t rank = _eh(H5Sget_simple_extent_ndims(dataspace));
   std::vector<hsize_t> dims(rank);
@@ -104,8 +104,8 @@ std::size_t Hdf5Reader::dataCount(const std::string& name) {
 
   int mpirank = 0;
   int mpisize = 0;
-  MPI_Comm_size(comm, &mpisize);
-  MPI_Comm_rank(comm, &mpirank);
+  MPI_Comm_size(comm_, &mpisize);
+  MPI_Comm_rank(comm_, &mpirank);
 
   return dims[0] / mpisize + ((dims[0] % mpisize) > static_cast<std::size_t>(mpirank) ? 1 : 0);
 }
@@ -118,7 +118,7 @@ void Hdf5Reader::readDataRaw(void* data,
   _eh(h5alist);
   _eh(H5Pset_dxpl_mpio(h5alist, H5FD_MPIO_COLLECTIVE));
 
-  const hid_t dataset = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
+  const hid_t dataset = _eh(H5Dopen(handles_.top(), name.c_str(), H5P_DEFAULT));
   const hid_t dataspace = _eh(H5Dget_space(dataset));
 
   const hid_t datatype = datatype::convertToHdf5(targetType);
@@ -142,13 +142,13 @@ void Hdf5Reader::readDataRaw(void* data,
                 1,
                 datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
                 MPI_MAX,
-                comm);
+                comm_);
   MPI_Exscan(&count,
              &start,
              1,
              datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
              MPI_SUM,
-             comm);
+             comm_);
 
   std::vector<hsize_t> nullstart(rank);
   std::vector<hsize_t> readcount(rank);
@@ -189,11 +189,11 @@ void Hdf5Reader::readDataRaw(void* data,
   _eh(H5Dclose(dataset));
 }
 void Hdf5Reader::closeGroup() {
-  _eh(H5Gclose(handles.top()));
-  handles.pop();
+  _eh(H5Gclose(handles_.top()));
+  handles_.pop();
 }
 void Hdf5Reader::closeFile() {
-  _eh(H5Fclose(handles.top()));
-  handles.pop();
+  _eh(H5Fclose(handles_.top()));
+  handles_.pop();
 }
 } // namespace seissol::io::reader::file

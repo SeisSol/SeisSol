@@ -25,6 +25,7 @@
 #include "Monitoring/Unit.h"
 #include "Numerical/Statistics.h"
 
+#include <Device/device.h>
 #include <ostream>
 #include <sstream>
 #endif
