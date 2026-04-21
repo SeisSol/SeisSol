@@ -50,7 +50,8 @@ class FastVelocityWeakeningLaw
 
     const real steadyStateFrictionCoefficient =
         localMuW + (lowVelocityFriction - localMuW) /
-                       std::pow(1.0 + std::pow(localSlipRate / localSrW, 8), 1.0 / 8.0);
+                       std::pow(static_cast<real>(1.0) + misc::power<8>(localSlipRate / localSrW),
+                                static_cast<real>(1.0 / 8.0));
 
     const real steadyStateStateVariable =
         localA * rs::logsinh(ctx.data->drParameters.rsSr0 / localSlipRate * 2,
@@ -76,7 +77,7 @@ class FastVelocityWeakeningLaw
   SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& __restrict ctx,
                                                double localStateVariable) {
     const real localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
-    const real cLin = 0.5 / ctx.data->drParameters.rsSr0;
+    const real cLin = static_cast<real>(0.5) / ctx.data->drParameters.rsSr0;
     const real cExpLog = localStateVariable / localA;
     const real cExp = rs::computeCExp(cExpLog);
     const real acLin = localA * cLin;
