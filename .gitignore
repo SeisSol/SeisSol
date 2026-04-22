@@ -77,3 +77,5 @@ docs/doxygen/latex
 
 # clang-tidy
 .cache/
+
+__pycache__/
