@@ -38,7 +38,7 @@ class FrictionSolver {
   virtual void setupLayer(DynamicRupture::Layer& layerData,
                           seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  virtual void evaluate(real fullUpdateTime,
+  virtual void evaluate(double fullUpdateTime,
                         const FrictionTime& frictionTime,
                         const double* timeWeights,
                         seissol::parallel::runtime::StreamRuntime& runtime) = 0;
