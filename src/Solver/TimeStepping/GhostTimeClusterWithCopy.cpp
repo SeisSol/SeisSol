@@ -17,15 +17,19 @@ namespace seissol::time_stepping {
 template <Mpi::DataTransferMode CommType>
 GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(
     double maxTimeStepSize,
-    int timeStepRate,
-    int globalTimeClusterId,
-    int otherGlobalTimeClusterId,
+    std::uint64_t timeStepRate,
+    std::size_t globalTimeClusterId,
+    std::size_t otherGlobalTimeClusterId,
+    const std::string& displayName,
+    const std::string& otherDisplayName,
     const seissol::solver::HaloCommunication& meshStructure,
     bool persistent)
     : AbstractGhostTimeCluster(maxTimeStepSize,
                                timeStepRate,
                                globalTimeClusterId,
                                otherGlobalTimeClusterId,
+                               displayName,
+                               otherDisplayName,
                                meshStructure),
       persistent(persistent) {
   prefetchCopyRegionsStreams.resize(this->meshStructure.copy.size());
@@ -197,8 +201,8 @@ bool GhostTimeClusterWithCopy<CommType>::testForGhostLayerReceives() {
 }
 
 template <Mpi::DataTransferMode CommType>
-std::list<int> GhostTimeClusterWithCopy<CommType>::prefetchCopyLayer() {
-  std::list<int> prefetchedRegions{};
+std::list<std::size_t> GhostTimeClusterWithCopy<CommType>::prefetchCopyLayer() {
+  std::list<std::size_t> prefetchedRegions{};
   for (std::size_t region = 0; region < prefetchCopyRegionsStreams.size(); ++region) {
     auto* stream = prefetchCopyRegionsStreams[region];
     const auto messageSize = this->meshStructure.copy[region].size;
