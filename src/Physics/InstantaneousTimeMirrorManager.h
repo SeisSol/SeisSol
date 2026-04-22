@@ -18,6 +18,8 @@
 #include "Solver/TimeStepping/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/TimeCluster.h"
 
+#include <vector>
+
 namespace seissol {
 class SeisSol;
 namespace ITM {
@@ -27,7 +29,6 @@ class InstantaneousTimeMirrorManager : public Module {
   seissol::SeisSol& seissolInstance_;
   bool isEnabled_{false};
   double velocityScalingFactor_{1.0};
-  double timeStepScalingFactor_{1.0};
   double triggerTime_{};
 
   seissol::geometry::MeshReader* meshReader_{nullptr};
@@ -36,7 +37,7 @@ class InstantaneousTimeMirrorManager : public Module {
 
   std::vector<seissol::time_stepping::AbstractTimeCluster*> clusters_;
 
-  public:
+public:
   explicit InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
       : seissolInstance_(seissolInstance) {};
 
@@ -45,16 +46,21 @@ class InstantaneousTimeMirrorManager : public Module {
       double triggerTime,
       seissol::geometry::MeshReader* meshReader,
       LTS::Storage& ltsStorage,
-      const initializer::ClusterLayout* clusterLayout); // An empty timestepping is added. Need to
-                                                        // discuss what exactly is to be sent here
+      const initializer::ClusterLayout* clusterLayout);
 
   void setClusterVector(const std::vector<seissol::time_stepping::AbstractTimeCluster*>& clusters);
 
   void syncPoint(double currentTime) override;
 
-  private:
+private:
   void updateVelocities();
   void updateTimeSteps();
+
+  template <typename MaterialType>
+  void updateVelocitiesForMaterialType();
+
+  template <typename MaterialType>
+  void updateTimeStepsForMaterialType();
 };
 
 void initializeTimeMirrorManagers(
@@ -65,8 +71,7 @@ void initializeTimeMirrorManagers(
     InstantaneousTimeMirrorManager& increaseManager,
     InstantaneousTimeMirrorManager& decreaseManager,
     seissol::SeisSol& seissolInstance,
-    const initializer::ClusterLayout* clusterLayout); // An empty timestepping is added. Need to
-                                                      // discuss what exactly is to be sent here
+    const initializer::ClusterLayout* clusterLayout);
 } // namespace ITM
 } // namespace seissol
 
