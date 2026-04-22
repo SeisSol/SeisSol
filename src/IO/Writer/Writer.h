@@ -34,8 +34,8 @@ class WriteInstance {
   void close();
 
   private:
-  file::Hdf5Writer hdf5;
-  file::BinaryWriter binary;
+  file::Hdf5Writer hdf5_;
+  file::BinaryWriter binary_;
 };
 
 class Writer {
@@ -56,7 +56,7 @@ class Writer {
       getInstructions() const;
 
   private:
-  std::vector<std::shared_ptr<instructions::WriteInstruction>> instructions;
+  std::vector<std::shared_ptr<instructions::WriteInstruction>> instructions_;
 };
 
 struct ScheduledWriter {

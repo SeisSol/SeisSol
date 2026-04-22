@@ -7,15 +7,6 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-# use <PackageName>_ROOT variables
-if(POLICY CMP0074)
-  cmake_policy(SET CMP0074 NEW)
-endif()
-# honor CMAKE_REQUIRED_LIBRARIES in the include file check macros
-if(POLICY CMP0075)
-  cmake_policy(SET CMP0075 NEW)
-endif()
-
 project(SeisSol LANGUAGES C CXX)
 
 # TODO: Move one dir up.
@@ -244,7 +235,7 @@ if ("ptscotch" IN_LIST GRAPH_PARTITIONING_LIBS)
   target_compile_definitions(seissol-common-properties INTERFACE USE_PTSCOTCH)
 endif()
 if (NOT GRAPH_PARTITIONING_LIBS)
-  message(WARNING "Compiling without graph partitioning library; expect poor performance in multi-rank runs.")
+  message(WARNING "Compiling without graph partitioning library. It is highly recommended to use a graph partitioning library in multi-rank settings (e.g. on a cluster); otherwise the performance will be much worse than it could be.")
 endif()
 
 if (MEMKIND)
@@ -422,8 +413,14 @@ if (WITH_GPU)
   # set SeisSol GPU definitions
   target_compile_definitions(seissol-common-properties INTERFACE ACL_DEVICE)
 
+  set(DEVICE_SUBMODULES "${CMAKE_CURRENT_SOURCE_DIR}/submodules")
+
   # add device submodule
   add_subdirectory(submodules/Device)
+
+  # for now, always enforce PIC here
+  target_compile_options(device PRIVATE -fPIC)
+
   target_link_libraries(seissol-common-properties INTERFACE device)
 
   # add SeisSol GPU part

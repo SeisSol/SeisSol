@@ -58,7 +58,7 @@ class ChainKernel : public ProxyKernel {
   [[nodiscard]] auto needsDR() const -> bool override;
 
   private:
-  std::vector<std::shared_ptr<ProxyKernel>> kernels;
+  std::vector<std::shared_ptr<ProxyKernel>> kernels_;
 };
 
 } // namespace seissol::proxy
