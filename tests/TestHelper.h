@@ -123,7 +123,7 @@ inline std::string tpath(const std::string& subpath) {
 
 } // namespace seissol::unit_test
 
-// we add a printer for a vector; as the stdlib doesn't provide one as of C++17
+// we add a printer for a vector; as the stdlib doesn't provide one as of C++20
 
 // NOLINTBEGIN (cert-dcl58-cpp)
 
