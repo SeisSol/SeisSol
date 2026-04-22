@@ -6,12 +6,6 @@
 
 This script gates energy-conservation and seismic-moment regression
 checks in the E2E CI. Handles two distinct CSV schemas (pre/post PR #773).
-
-NOTE on findings:
-  Writing these tests surfaced two latent bugs in the script — see the
-  documented-bug tests at the bottom of this file. Both are harmless when
-  the script runs as __main__ on a well-formed CSV, but break the instant
-  anyone calls the functions programmatically (as a library, or for reuse).
 """
 
 import importlib.util
@@ -235,27 +229,7 @@ class TestPerformCheck:
         assert "Relative difference" in out
 
 
-# =============================================================================
-# Documented bugs — tests that PROVE the bugs exist
-# These should pass on SeisSol master today. Fixing the bugs flips their
-# assertions, which will alert whoever fixes them via test failure.
-# =============================================================================
-
-
-class TestDocumentedBugs:
-
-    def test_bug1_perform_check_needs_np_imported_at_module_level(self, monkeypatch):
-        """BUG: perform_check uses np.any but numpy is only imported inside
-        the `if __name__ == "__main__"` block. Calling the function from a
-        library context raises NameError.
-
-        Fix: move `import numpy as np` to the top of the file.
-        """
-        # Undo the autouse fixture's injection just for this test
-        monkeypatch.delattr(ce, "np", raising=False)
-        df = pd.DataFrame({"elastic_energy": [1.0, 1.0, 1.0]})
-        with pytest.raises(NameError, match="'np' is not defined"):
-            ce.perform_check(df, df, epsilon=0.01)
+class TestDocumentedFormerBugs:
 
     def test_bug2_get_number_of_fused_sims_fails_on_mixed_columns(self):
         """BUG: The old fused CSV format had columns like
@@ -278,9 +252,5 @@ class TestDocumentedBugs:
             }
         )
         result = ce.get_number_of_fused_sims(old_fused_format)
-        # Current (buggy) behavior: returns -1
-        # After the fix: should return 2
-        assert result == -1, (
-            "If this assertion now fails with result=2, Bug #2 has been fixed. "
-            "Change this test to `assert result == 2`."
-        )
+
+        assert result == 2
