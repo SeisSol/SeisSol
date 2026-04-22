@@ -87,7 +87,7 @@ FrictionLawParameters::FrictionLawParameters(
       rsB(parameters.rsB), rsF0(parameters.rsF0), rsInitialSlipRate1(parameters.rsInitialSlipRate1),
       rsInitialSlipRate2(parameters.rsInitialSlipRate2),
       rsMaxNumberSlipRateUpdates(parameters.rsMaxNumberSlipRateUpdates),
-      rsNewtonTolerance(parameters.rsNewtonTolerance),
+      rsSlipRateTolerance(parameters.rsSlipRateTolerance),
       rsNumberStateVariableUpdates(parameters.rsNumberStateVariableUpdates),
       rsSr0(parameters.rsSr0), rsStateTolerance(parameters.rsStateTolerance),
       terminatorSlipRateThreshold(parameters.terminatorSlipRateThreshold),

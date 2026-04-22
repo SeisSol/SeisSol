@@ -252,7 +252,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
       g = -invEtaS * (std::fabs(normalStress) * muF - absoluteShearStress) - slipRateTest;
 
-      const bool converged = std::fabs(g) < ctx.data->drParameters.rsNewtonTolerance;
+      const bool converged = std::fabs(g) < ctx.data->drParameters.rsSlipRateTolerance;
 
       if (converged) {
         // we've reached the fixed point

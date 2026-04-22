@@ -186,7 +186,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto rsMaxNumberSlipRateUpdates =
       reader->readWithDefault<uint32_t>("rsmaxsliprateupdates", 60);
   const auto rsNumberStateVariableUpdates = reader->readWithDefault<uint32_t>("rsstateupdates", 10);
-  const auto rsNewtonTolerance = reader->readWithDefault<double>("rsnewtontolerance", 1e-8);
+  const auto rsSlipRateTolerance = reader->readWithDefault<double>("rsslipratetolerance", 1e-8);
   const auto rsStateTolerance = reader->readWithDefault<double>("rsstatetolerance", 1e-8);
 
   reader->warnDeprecated({"rf_output_on", "backgroundtype"});
@@ -226,7 +226,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       nucleationCount,
                       rsMaxNumberSlipRateUpdates,
                       rsNumberStateVariableUpdates,
-                      rsNewtonTolerance,
+                      rsSlipRateTolerance,
                       rsStateTolerance};
 }
 } // namespace seissol::initializer::parameters

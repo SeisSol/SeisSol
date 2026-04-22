@@ -82,7 +82,7 @@ TpProxyExponent = 0.3333333333333333 ! exponent alpha in the TP proxy slip weake
 
 rsmaxsliprateupdates = 60 ! maximum amount of Newton-Raphson steps for finding the slip-rate fixed-point (RSF only)
 rsstateupdates = 10 ! maximum amount of (outer) iterations the slip-rate and state fixed-point (RSF only). Each iteration includes a Newton-Raphson search for the slip rate.
-rsnewtontolerance = 1e-8 ! tolerance for the slip rate Newton-Raphson step.
+rsslipratetolerance = 1e-8 ! tolerance for the slip rate Newton-Raphson step.
 rsstatetolerance = 1e-8 ! tolerance for the state in the outer iterations
 /
 

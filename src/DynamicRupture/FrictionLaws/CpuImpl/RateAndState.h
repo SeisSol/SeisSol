@@ -166,7 +166,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     // use:
     // - (inner loop) Newton-Raphson to find the fixed point slip rate with a _fixed_ state and
     // stress
-    // - (outer loop) bisection method to find the fixed point slip rate with varying state and
+    // - (outer loop) fixed-point iteration to find the fixed point slip rate with varying state and
     // stress; using the previous Newton-Raphson step (why not combine? Mainly because: thermal
     // pressurization might happen which could be a bit expensive to differentiate (though it's
     // doable; just only take all code paths that have tauV in them). Maybe the state can be
@@ -346,7 +346,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
       // max element of g must be smaller than newtonTolerance
       const bool hasConverged = std::all_of(std::begin(g), std::end(g), [&](auto val) {
-        return std::fabs(val) < this->drParameters.rsNewtonTolerance;
+        return std::fabs(val) < this->drParameters.rsSlipRateTolerance;
       });
       if (hasConverged) {
 #pragma omp simd
@@ -374,7 +374,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       convergenceInner[ltsFace][pointIndex] &=
-          std::fabs(g[pointIndex]) < this->drParameters.rsNewtonTolerance;
+          std::fabs(g[pointIndex]) < this->drParameters.rsSlipRateTolerance;
     }
     return false;
   }
