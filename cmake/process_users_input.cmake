@@ -37,6 +37,11 @@ option(COVERAGE "Generate targed for code coverage using lcob" OFF)
 set(TESTING_COMMAND "" CACHE STRING "Prefix to the test binary, so that CMake can list the tests")
 option(TESTING_BUILD_ONLY "Only compile the unit tests, but do not collect them (only in effect if TESTING=ON)" OFF)
 
+# Optional Python codegen tests. Default-ON when C++ TESTING is on.
+# Devs without pytest installed get a graceful skip message at
+# configure time, not a hard error.
+option(TESTING_PYTHON "Also run the Python codegen tests via ctest" ${TESTING})
+
 #Seissol specific
 set(ORDER 6 CACHE STRING "Convergence order")  # must be INT type, by cmake-3.16 accepts only STRING
 set(ORDER_OPTIONS 2 3 4 5 6 7 8)

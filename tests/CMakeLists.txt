@@ -105,3 +105,7 @@ if(NOT CMAKE_PROPERTY_LIST)
     string(REGEX REPLACE "\n" ";" CMAKE_PROPERTY_LIST "${CMAKE_PROPERTY_LIST}")
     list(REMOVE_DUPLICATES CMAKE_PROPERTY_LIST)
 endif()
+
+if (TESTING_PYTHON)
+    add_subdirectory(python/codegen)
+endif()
