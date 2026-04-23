@@ -53,7 +53,6 @@ import numpy as np
 import argparse
 from multiprocessing import Pool,cpu_count,Manager
 import time
-import lxml.etree as ET
 import seissolxdmf
 import seissolxdmfwriter as sxw
 from scipy import signal
@@ -281,7 +280,7 @@ if args.CAV:
     dataName.append('CAV')
 
 for per in periods:
-   dataName.append('SA%06.3fs' %per)
+   dataName.append('SA%06.5fs' %per)
 
 mypath, fn = os.path.split(args.filename)
 prefix = fn.split('-')[-2] if not isVolumeData else fn.split('.')[-2]
