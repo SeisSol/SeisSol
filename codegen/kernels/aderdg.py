@@ -332,6 +332,18 @@ class LinearADERDG(ADERDGBase):
             dofsQP["kp"] <= self.db.evalAtQP[self.t("kl")] * self.Q["lp"],
         )
 
+        massLPR = Tensor(
+            "massLPR", (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
+        )
+        generator.add("massLP", massLPR["IJ"] <= self.db.M3["Ij"] * self.Q["jJ"])
+
+        massSPR = Tensor(
+            "massSPR", (self.numberOfQuantities(), self.numberOfQuantities())
+        )
+        generator.add(
+            "massSP", massSPR["IJ"] <= self.db.M3["ij"] * self.Q["iI"] * self.Q["jJ"]
+        )
+
     def addLocal(self, generator, targets):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)

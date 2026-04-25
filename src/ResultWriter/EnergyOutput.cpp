@@ -412,73 +412,85 @@ void EnergyOutput::computeVolumeEnergies() {
         // Needed to weight the integral.
         const auto jacobiDet = 6 * volume;
 
-        alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
-        auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
+        alignas(Alignment) real linData[tensor::massLPR::size()];
+        auto lin = init::massLPR::view::create(linData);
         // Evaluate numerical solution at quad. nodes
-        kernel::evalAtQP krnl;
-        krnl.evalAtQP = global->evalAtQPMatrix;
-        krnl.dofsQP = numericalSolutionData;
+        kernel::massLP krnl;
+        krnl.M3 = init::M3::Values;
+        krnl.massLPR = linData;
         krnl.Q = dofsData[cell];
         krnl.execute();
 
-        auto numSub = multisim::simtensor(numericalSolution, sim);
+        alignas(Alignment) real quadData[tensor::massSPR::size()];
+        auto quad = init::massSPR::view::create(quadData);
+        // Evaluate numerical solution at quad. nodes
+        kernel::massSP krnl2;
+        krnl2.M3 = init::M3::Values;
+        krnl2.massSPR = quadData;
+        krnl2.Q = dofsData[cell];
+        krnl2.execute();
+
+        auto linSub = multisim::simtensor(lin, sim);
+        auto quadSub = multisim::simtensor(quad, sim);
 
         constexpr auto UIdx = model::MaterialT::TractionQuantities;
+        const auto rho = material.getDensity();
 
-        for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
-          const auto curWeight = jacobiDet * quadratureWeightsTet[qp];
-          const auto rho = material.getDensity();
+        const auto u = linSub(0, UIdx + 0);
+        const auto v = linSub(0, UIdx + 1);
+        const auto w = linSub(0, UIdx + 2);
+        const auto uu = quadSub(UIdx + 0, UIdx + 0);
+        const auto vv = quadSub(UIdx + 1, UIdx + 1);
+        const auto ww = quadSub(UIdx + 2, UIdx + 2);
+        const double curKineticEnergy = 0.5 * rho * (uu + vv + ww);
+        const double curMomentumX = rho * u;
+        const double curMomentumY = rho * v;
+        const double curMomentumZ = rho * w;
 
-          const auto u = numSub(qp, UIdx + 0);
-          const auto v = numSub(qp, UIdx + 1);
-          const auto w = numSub(qp, UIdx + 2);
-          const double curKineticEnergy = 0.5 * rho * (u * u + v * v + w * w);
-          const double curMomentumX = rho * u;
-          const double curMomentumY = rho * v;
-          const double curMomentumZ = rho * w;
+        if (std::abs(material.getMuBar()) < 10e-14) {
+          // Acoustic
+          constexpr std::size_t PIdx = 0;
+          const auto k = material.getLambdaBar();
+          const auto pp = quadSub(PIdx, PIdx);
+          const double curAcousticEnergy = pp / (2 * k);
 
-          if (std::abs(material.getMuBar()) < 10e-14) {
-            // Acoustic
-            constexpr std::size_t PIdx = 0;
-            const auto k = material.getLambdaBar();
-            const auto p = numSub(qp, PIdx);
-            const double curAcousticEnergy = (p * p) / (2 * k);
-            totalAcousticEnergyLocal += curWeight * curAcousticEnergy;
-            totalAcousticKineticEnergyLocal += curWeight * curKineticEnergy;
-          } else {
-            // Elastic
-            totalElasticKineticEnergyLocal += curWeight * curKineticEnergy;
-            auto getStressIndex = [](int i, int j) {
-              const static auto Lookup =
-                  std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
-              return Lookup[i][j];
-            };
-            totalMomentumXLocal += curWeight * curMomentumX;
-            totalMomentumYLocal += curWeight * curMomentumY;
-            totalMomentumZLocal += curWeight * curMomentumZ;
+          totalAcousticEnergyLocal += jacobiDet * curAcousticEnergy;
+          totalAcousticKineticEnergyLocal += jacobiDet * curKineticEnergy;
+        } else {
+          // Elastic
+          auto getStressIndex = [](int i, int j) {
+            const static auto Lookup =
+                std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
+            return Lookup[i][j];
+          };
+          totalMomentumXLocal += jacobiDet * curMomentumX;
+          totalMomentumYLocal += jacobiDet * curMomentumY;
+          totalMomentumZLocal += jacobiDet * curMomentumZ;
 
-            auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
+          auto getStressPair = [&](int i1, int j1, int i2, int j2) {
+            return quadSub(getStressIndex(i1, j1), getStressIndex(i2, j2));
+          };
 
-            const auto lambda = material.getLambdaBar();
-            const auto mu = material.getMuBar();
-            const auto sumUniaxialStresses = getStress(0, 0) + getStress(1, 1) + getStress(2, 2);
-            auto computeStrain = [&](int i, int j) {
-              double strain = 0.0;
-              const auto factor = -lambda / (2.0 * mu * (3.0 * lambda + 2.0 * mu));
-              if (i == j) {
-                strain += factor * sumUniaxialStresses;
-              }
-              strain += 1.0 / (2.0 * mu) * getStress(i, j);
-              return strain;
-            };
-            double curElasticEnergy = 0.0;
-            for (int i = 0; i < 3; ++i) {
-              for (int j = 0; j < 3; ++j) {
-                curElasticEnergy += getStress(i, j) * computeStrain(i, j);
-              }
+          const auto lambda = material.getLambdaBar();
+          const auto mu = material.getMuBar();
+          const auto factor = -lambda / (2.0 * mu * (3.0 * lambda + 2.0 * mu));
+          auto computeStressStrain = [&](int i, int j) {
+            double stressstrain = 0.0;
+            if (i == j) {
+              stressstrain += factor * (getStressPair(i, j, 0, 0) + getStressPair(i, j, 1, 1) +
+                                        getStressPair(i, j, 2, 2));
             }
-            totalElasticEnergyLocal += curWeight * 0.5 * curElasticEnergy;
+            stressstrain += 1.0 / (2.0 * mu) * getStressPair(i, j, i, j);
+            return stressstrain;
+          };
+          double curElasticEnergy = 0.0;
+          for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+              curElasticEnergy += computeStressStrain(i, j);
+            }
           }
+          totalElasticEnergyLocal += jacobiDet * 0.5 * curElasticEnergy;
+          totalElasticKineticEnergyLocal += jacobiDet * curKineticEnergy;
         }
 
         const auto& boundaryMappings = boundaryMappingData[cell];
