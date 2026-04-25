@@ -55,6 +55,10 @@ class ADERDGBase(ABC):
             parseJSONMatrixFile("{}/mass_{}.json".format(matricesDir, order))
         )
 
+        # mass matrices are diagonal; treat them as sparse for now
+        self.db.M2.setMemoryLayout(CSCMemoryLayout)
+        self.db.M3.setMemoryLayout(CSCMemoryLayout)
+
         qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
         self.Q = OptionalDimTensor(
             "Q", "s", multipleSimulations, 0, qShape, alignStride=True
