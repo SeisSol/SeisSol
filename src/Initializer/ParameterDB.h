@@ -142,14 +142,6 @@ class ParameterDB {
   static easi::Component* loadModel(const std::string& fileName);
 };
 
-template <typename T>
-struct MaterialAverager {
-  static constexpr bool Implemented = false;
-  static T computeAveragedMaterial(std::size_t elementIdx,
-                                   const std::vector<double>& quadratureWeights,
-                                   const std::vector<T>& materialsFromQuery) {}
-};
-
 template <class T>
 class MaterialParameterDB : public ParameterDB {
   public:

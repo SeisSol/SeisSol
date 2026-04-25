@@ -43,7 +43,6 @@
 #include <exception>
 #include <iterator>
 #include <memory>
-#include <numeric>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -65,9 +64,9 @@
 
 using namespace seissol::model;
 
-namespace {
+namespace seissol::initializer {
 
-using namespace seissol::initializer;
+namespace {
 
 template <typename SurrogateMaterialT>
 bool canEvaluateFor(const std::set<std::string>& parameters) {
@@ -102,11 +101,6 @@ bool surrogateEvaluate(const std::string& fileName,
     return false;
   }
 }
-} // namespace
-
-namespace seissol::initializer {
-
-namespace {
 
 void easiEvalSafe(easi::Component* model,
                   easi::Query& query,
@@ -396,6 +390,126 @@ easi::Query FaultGPGenerator::generate() const {
   return query;
 }
 
+namespace {
+
+template <typename T>
+struct MaterialAverager {
+  [[maybe_unused]] static constexpr bool Implemented = false;
+  static T computeAveragedMaterial(std::size_t /*elementIdx*/,
+                                   const std::vector<double>& /*quadratureWeights*/,
+                                   const std::vector<T>& materialsFromQuery) {
+    return materialsFromQuery[0];
+  }
+};
+
+// Computes the averaged material, assuming that materialsFromQuery, stores
+// NUM_QUADPOINTS material samples per mesh element.
+// We assume that materialsFromQuery[i * NUM_QUADPOINTS, ..., (i+1)*NUM_QUADPOINTS-1]
+// stores samples from element i.
+
+// TODO: extract acoustic average class
+
+template <>
+struct MaterialAverager<ElasticMaterial> {
+  [[maybe_unused]] static constexpr bool Implemented = true;
+  static ElasticMaterial
+      computeAveragedMaterial(std::size_t elementIdx,
+                              const std::vector<double>& quadratureWeights,
+                              const std::vector<ElasticMaterial>& materialsFromQuery) {
+    double muMeanInv = 0.0;
+    double rhoMean = 0.0;
+    // Average of v / E with v: Poisson's ratio, E: Young's modulus
+    double vERatioMean = 0.0;
+
+    // Acoustic material has zero mu. This is a special case because the harmonic mean of a set
+    // of numbers that includes zero is defined as zero.
+    // Hence: If part of the element is acoustic, the entire element is considered to be acoustic!
+    bool isAcoustic = false;
+
+    // Average of the bulk modulus, used for acoustic material
+    double kMeanInv = 0.0;
+
+    for (unsigned quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
+      // Divide by volume of reference tetrahedron (1/6)
+      const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
+      const unsigned globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
+      const auto& elementMaterial = materialsFromQuery[globalPointIdx];
+      isAcoustic |= elementMaterial.mu == 0.0;
+      if (!isAcoustic) {
+        muMeanInv += 1.0 / elementMaterial.mu * quadWeight;
+      }
+      rhoMean += elementMaterial.rho * quadWeight;
+      vERatioMean +=
+          elementMaterial.lambda /
+          (2.0 * elementMaterial.mu * (3.0 * elementMaterial.lambda + 2.0 * elementMaterial.mu)) *
+          quadWeight;
+      kMeanInv += 1.0 / (elementMaterial.lambda + (2.0 / 3.0) * elementMaterial.mu) * quadWeight;
+    }
+
+    ElasticMaterial result{};
+    result.rho = rhoMean;
+
+    // Harmonic average is used for mu/K, so take the reciprocal
+    if (isAcoustic) {
+      result.lambda = 1.0 / kMeanInv;
+      result.mu = 0.0;
+    } else {
+      const auto muMean = 1.0 / muMeanInv;
+      // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
+      result.lambda =
+          (4.0 * std::pow(muMean, 2) * vERatioMean) / (1.0 - 6.0 * muMean * vERatioMean);
+      result.mu = muMean;
+    }
+
+    return result;
+  }
+};
+
+template <>
+struct MaterialAverager<ViscoElasticMaterial> {
+  [[maybe_unused]] static constexpr bool Implemented = true;
+  static ViscoElasticMaterial
+      computeAveragedMaterial(std::size_t elementIdx,
+                              const std::vector<double>& quadratureWeights,
+                              const std::vector<ViscoElasticMaterial>& materialsFromQuery) {
+    double muMeanInv = 0.0;
+    double rhoMean = 0.0;
+    double vERatioMean = 0.0;
+    double qpMean = 0.0;
+    double qsMean = 0.0;
+
+    for (unsigned quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
+      const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
+      const unsigned globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
+      const auto& elementMaterial = materialsFromQuery[globalPointIdx];
+      muMeanInv += 1.0 / elementMaterial.mu * quadWeight;
+      rhoMean += elementMaterial.rho * quadWeight;
+      vERatioMean +=
+          elementMaterial.lambda /
+          (2.0 * elementMaterial.mu * (3.0 * elementMaterial.lambda + 2.0 * elementMaterial.mu)) *
+          quadWeight;
+      qpMean += elementMaterial.qp * quadWeight;
+      qsMean += elementMaterial.qs * quadWeight;
+    }
+
+    // Harmonic average is used for mu, so take the reciprocal
+    const double muMean = 1.0 / muMeanInv;
+    // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
+    const double lambdaMean =
+        (4.0 * std::pow(muMean, 2) * vERatioMean) / (1.0 - 6.0 * muMean * vERatioMean);
+
+    ViscoElasticMaterial result{};
+    result.rho = rhoMean;
+    result.mu = muMean;
+    result.lambda = lambdaMean;
+    result.qp = qpMean;
+    result.qs = qsMean;
+
+    return result;
+  }
+};
+} // namespace
+
 template <class T>
 void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
                                            const QueryGenerator& queryGen) {
@@ -459,113 +573,6 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
   }
   delete model;
 }
-
-// Computes the averaged material, assuming that materialsFromQuery, stores
-// NUM_QUADPOINTS material samples per mesh element.
-// We assume that materialsFromQuery[i * NUM_QUADPOINTS, ..., (i+1)*NUM_QUADPOINTS-1]
-// stores samples from element i.
-
-// TODO: extract acoustic average class
-
-template <>
-struct MaterialAverager<ElasticMaterial> {
-  static constexpr bool Implemented = true;
-  static ElasticMaterial
-      computeAveragedMaterial(std::size_t elementIdx,
-                              const std::vector<double>& quadratureWeights,
-                              const std::vector<ElasticMaterial>& materialsFromQuery) {
-    double muMeanInv = 0.0;
-    double rhoMean = 0.0;
-    // Average of v / E with v: Poisson's ratio, E: Young's modulus
-    double vERatioMean = 0.0;
-
-    // Acoustic material has zero mu. This is a special case because the harmonic mean of a set
-    // of numbers that includes zero is defined as zero.
-    // Hence: If part of the element is acoustic, the entire element is considered to be acoustic!
-    bool isAcoustic = false;
-
-    // Average of the bulk modulus, used for acoustic material
-    double kMeanInv = 0.0;
-
-    for (unsigned quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
-      // Divide by volume of reference tetrahedron (1/6)
-      const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
-      const unsigned globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
-      const auto& elementMaterial = materialsFromQuery[globalPointIdx];
-      isAcoustic |= elementMaterial.mu == 0.0;
-      if (!isAcoustic) {
-        muMeanInv += 1.0 / elementMaterial.mu * quadWeight;
-      }
-      rhoMean += elementMaterial.rho * quadWeight;
-      vERatioMean +=
-          elementMaterial.lambda /
-          (2.0 * elementMaterial.mu * (3.0 * elementMaterial.lambda + 2.0 * elementMaterial.mu)) *
-          quadWeight;
-      kMeanInv += 1.0 / (elementMaterial.lambda + (2.0 / 3.0) * elementMaterial.mu) * quadWeight;
-    }
-
-    ElasticMaterial result{};
-    result.rho = rhoMean;
-
-    // Harmonic average is used for mu/K, so take the reciprocal
-    if (isAcoustic) {
-      result.lambda = 1.0 / kMeanInv;
-      result.mu = 0.0;
-    } else {
-      const auto muMean = 1.0 / muMeanInv;
-      // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
-      result.lambda =
-          (4.0 * std::pow(muMean, 2) * vERatioMean) / (1.0 - 6.0 * muMean * vERatioMean);
-      result.mu = muMean;
-    }
-
-    return result;
-  }
-};
-
-template <>
-struct MaterialAverager<ViscoElasticMaterial> {
-  static constexpr bool Implemented = true;
-  static ViscoElasticMaterial
-      computeAveragedMaterial(std::size_t elementIdx,
-                              const std::vector<double>& quadratureWeights,
-                              const std::vector<ViscoElasticMaterial>& materialsFromQuery) {
-    double muMeanInv = 0.0;
-    double rhoMean = 0.0;
-    double vERatioMean = 0.0;
-    double qpMean = 0.0;
-    double qsMean = 0.0;
-
-    for (unsigned quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
-      const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
-      const unsigned globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
-      const auto& elementMaterial = materialsFromQuery[globalPointIdx];
-      muMeanInv += 1.0 / elementMaterial.mu * quadWeight;
-      rhoMean += elementMaterial.rho * quadWeight;
-      vERatioMean +=
-          elementMaterial.lambda /
-          (2.0 * elementMaterial.mu * (3.0 * elementMaterial.lambda + 2.0 * elementMaterial.mu)) *
-          quadWeight;
-      qpMean += elementMaterial.qp * quadWeight;
-      qsMean += elementMaterial.qs * quadWeight;
-    }
-
-    // Harmonic average is used for mu, so take the reciprocal
-    const double muMean = 1.0 / muMeanInv;
-    // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
-    const double lambdaMean =
-        (4.0 * std::pow(muMean, 2) * vERatioMean) / (1.0 - 6.0 * muMean * vERatioMean);
-
-    ViscoElasticMaterial result{};
-    result.rho = rhoMean;
-    result.mu = muMean;
-    result.lambda = lambdaMean;
-    result.qp = qpMean;
-    result.qs = qsMean;
-
-    return result;
-  }
-};
 
 void FaultParameterDB::evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) {
   // NOLINTNEXTLINE(misc-const-correctness)
