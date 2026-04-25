@@ -39,7 +39,7 @@ TEST_CASE("Variable Subsampler") {
 
     const seissol::refinement::DivideTetrahedronBy4<double> refineBy4;
     const seissol::refinement::VariableSubsampler<double> subsampler(
-        1, refineBy4, ConvergenceOrder, Quantities, AlignedQuantities);
+        1, refineBy4, ConvergenceOrder, Quantities, AlignedQuantities, false);
 
     std::array<real, Quantities * SubTriangles> expectedDOFs{};
 

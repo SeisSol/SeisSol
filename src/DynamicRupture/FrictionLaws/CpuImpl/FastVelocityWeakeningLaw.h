@@ -25,7 +25,7 @@ class FastVelocityWeakeningLaw
    * Copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {
-    this->srW = layerData.var<LTSRateAndStateFastVelocityWeakening::RsSrW>();
+    this->srW_ = layerData.var<LTSRateAndStateFastVelocityWeakening::RsSrW>();
   }
 
 /**
@@ -46,22 +46,25 @@ class FastVelocityWeakeningLaw
                                          real stateVarReference,
                                          real timeIncrement,
                                          real localSlipRate) const {
-    const double localMuW = this->muW[faceIndex][pointIndex];
-    const double localSrW = this->srW[faceIndex][pointIndex];
-    const real localA = this->a[faceIndex][pointIndex];
-    const double localSl0 = this->sl0[faceIndex][pointIndex];
+    const double localMuW = this->muW_[faceIndex][pointIndex];
+    const double localSrW = this->srW_[faceIndex][pointIndex];
+    const real localA = this->a_[faceIndex][pointIndex];
+    const double localSl0 = this->sl0_[faceIndex][pointIndex];
 
     // low-velocity steady state friction coefficient
     const real lowVelocityFriction =
-        this->f0[faceIndex][pointIndex] -
-        (this->b[faceIndex][pointIndex] - localA) * log(localSlipRate / this->drParameters->rsSr0);
+        std::max(static_cast<real>(0),
+                 static_cast<real>(this->f0_[faceIndex][pointIndex] -
+                                   (this->b_[faceIndex][pointIndex] - localA) *
+                                       log(localSlipRate / this->drParameters_->rsSr0)));
     const real steadyStateFrictionCoefficient =
         localMuW + (lowVelocityFriction - localMuW) /
-                       std::pow(1.0 + misc::power<8, double>(localSlipRate / localSrW), 1.0 / 8.0);
+                       std::pow(static_cast<real>(1.0) + misc::power<8>(localSlipRate / localSrW),
+                                static_cast<real>(1.0 / 8.0));
     // TODO: check again, if double precision is necessary here (earlier, there were cancellation
     // issues)
     const real steadyStateStateVariable =
-        localA * rs::logsinh(this->drParameters->rsSr0 / localSlipRate * 2,
+        localA * rs::logsinh(this->drParameters_->rsSr0 / localSlipRate * 2,
                              steadyStateFrictionCoefficient / localA);
 
     // exact integration of dSV/dt DGL, assuming constant V over integration step
@@ -88,9 +91,9 @@ class FastVelocityWeakeningLaw
     MuDetails details{};
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-      const real localA = this->a[ltsFace][pointIndex];
+      const real localA = this->a_[ltsFace][pointIndex];
 
-      const real cLin = 0.5 / this->drParameters->rsSr0;
+      const real cLin = static_cast<real>(0.5) / this->drParameters_->rsSr0;
       const real cExpLog = localStateVariable[pointIndex] / localA;
       const real cExp = rs::computeCExp(cExpLog);
       const real acLin = localA * cLin;
@@ -141,12 +144,12 @@ class FastVelocityWeakeningLaw
    */
   void resampleStateVar(const std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                         std::size_t ltsFace) const {
-    std::array<real, misc::NumPaddedPoints> deltaStateVar = {0};
-    std::array<real, misc::NumPaddedPoints> resampledDeltaStateVar = {0};
+    alignas(Alignment) std::array<real, misc::NumPaddedPoints> deltaStateVar = {0};
+    alignas(Alignment) std::array<real, misc::NumPaddedPoints> resampledDeltaStateVar = {0};
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       deltaStateVar[pointIndex] =
-          stateVariableBuffer[pointIndex] - this->stateVariable[ltsFace][pointIndex];
+          stateVariableBuffer[pointIndex] - this->stateVariable_[ltsFace][pointIndex];
     }
     dynamicRupture::kernel::resampleParameter resampleKrnl;
     resampleKrnl.resample = init::resample::Values;
@@ -156,21 +159,21 @@ class FastVelocityWeakeningLaw
 
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-      this->stateVariable[ltsFace][pointIndex] =
-          this->stateVariable[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex];
+      this->stateVariable_[ltsFace][pointIndex] =
+          this->stateVariable_[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex];
     }
   }
 
   void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
                              std::size_t ltsFace) const {
-    [[maybe_unused]] const real tmp = 0.5 / this->drParameters->rsSr0 *
-                                      std::exp(localStateVariable[0] / this->a[ltsFace][0]) *
-                                      this->slipRateMagnitude[ltsFace][0];
+    [[maybe_unused]] const real tmp = 0.5 / this->drParameters_->rsSr0 *
+                                      std::exp(localStateVariable[0] / this->a_[ltsFace][0]) *
+                                      this->slipRateMagnitude_[ltsFace][0];
     assert(!std::isnan(tmp) && "nonConvergence RS Newton");
   }
 
   protected:
-  real (*__restrict srW)[misc::NumPaddedPoints];
+  real (*__restrict srW_)[misc::NumPaddedPoints];
 };
 } // namespace seissol::dr::friction_law::cpu
 

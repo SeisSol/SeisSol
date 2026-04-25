@@ -50,31 +50,31 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
     }
   }
 #endif
-  m_nfKrnlPrototype.rDivM = global.onHost->changeOfBasisMatrices;
-  m_nfKrnlPrototype.rT = global.onHost->neighborChangeOfBasisMatricesTransposed;
-  m_nfKrnlPrototype.fP = global.onHost->neighborFluxMatrices;
-  m_drKrnlPrototype.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
-  m_nKrnlPrototype.selectEla = init::selectEla::Values;
-  m_nKrnlPrototype.selectAne = init::selectAne::Values;
+  nfKrnlPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
+  nfKrnlPrototype_.rT = global.onHost->neighborChangeOfBasisMatricesTransposed;
+  nfKrnlPrototype_.fP = global.onHost->neighborFluxMatrices;
+  drKrnlPrototype_.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
+  nKrnlPrototype_.selectEla = init::selectEla::Values;
+  nKrnlPrototype_.selectAne = init::selectAne::Values;
 
 #ifdef ACL_DEVICE
 #ifdef USE_PREMULTIPLY_FLUX
-  deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
+  deviceNfKrnlPrototype_.minusFluxMatrices = global.onDevice->minusFluxMatrices;
 #else
-  deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceNfKrnlPrototype.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
-  deviceNfKrnlPrototype.fP = global.onDevice->neighborFluxMatrices;
+  deviceNfKrnlPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
+  deviceNfKrnlPrototype_.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
+  deviceNfKrnlPrototype_.fP = global.onDevice->neighborFluxMatrices;
 #endif
-  deviceDrKrnlPrototype.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
-  deviceNKrnlPrototype.selectEla = global.onDevice->selectEla;
-  deviceNKrnlPrototype.selectAne = global.onDevice->selectAne;
+  deviceDrKrnlPrototype_.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
+  deviceNKrnlPrototype_.selectEla = global.onDevice->selectEla;
+  deviceNKrnlPrototype_.selectAne = global.onDevice->selectAne;
 #endif
 }
 
-void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
-                                        const CellDRMapping (&cellDrMapping)[4],
-                                        real* timeIntegrated[4],
-                                        real* faceNeighbors_prefetch[4]) {
+void Neighbor::computeNeighborsIntegral(
+    LTS::Ref& data,
+    const std::array<real*, Cell::NumFaces>& timeIntegrated,
+    const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) {
 #ifndef NDEBUG
   for (std::size_t neighbor = 0; neighbor < Cell::NumFaces; ++neighbor) {
     // alignment of the time integrated dofs
@@ -86,12 +86,14 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
   }
 #endif
 
+  const auto& cellDrMapping = data.get<LTS::DRMapping>();
+
   // alignment of the degrees of freedom
   assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
 
   alignas(PagesizeStack) real Qext[tensor::Qext::size()] = {};
 
-  kernel::neighborFluxExt nfKrnl = m_nfKrnlPrototype;
+  kernel::neighborFluxExt nfKrnl = nfKrnlPrototype_;
   nfKrnl.Qext = Qext;
 
   // iterate over faces
@@ -107,7 +109,7 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
 
         nfKrnl.I = timeIntegrated[face];
         nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
-        nfKrnl._prefetch.I = faceNeighbors_prefetch[face];
+        nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
         nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][1],
                        data.get<LTS::CellInformation>().faceRelations[face][0],
                        face);
@@ -115,16 +117,16 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
     } else if (data.get<LTS::CellInformation>().faceTypes[face] == FaceType::DynamicRupture) {
       assert((reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov)) % Alignment == 0);
 
-      dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
+      dynamicRupture::kernel::nodalFlux drKrnl = drKrnlPrototype_;
       drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
       drKrnl.QInterpolated = cellDrMapping[face].godunov;
       drKrnl.Qext = Qext;
-      drKrnl._prefetch.I = faceNeighbors_prefetch[face];
+      drKrnl._prefetch.I = faceNeighborsPrefetch[face];
       drKrnl.execute(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
     }
   }
 
-  kernel::neighbor nKrnl = m_nKrnlPrototype;
+  kernel::neighbor nKrnl = nKrnlPrototype_;
   nKrnl.Qext = Qext;
   nKrnl.Q = data.get<LTS::Dofs>();
   nKrnl.Qane = data.get<LTS::DofsAne>();
@@ -136,7 +138,7 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
 void Neighbor::flopsNeighborsIntegral(
     const std::array<FaceType, Cell::NumFaces>& faceTypes,
     const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-    const CellDRMapping (&cellDrMapping)[4],
+    const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping,
     std::uint64_t& nonZeroFlops,
     std::uint64_t& hardwareFlops,
     std::uint64_t& drNonZeroFlops,
@@ -192,8 +194,8 @@ void Neighbor::computeBatchedNeighborsIntegral(
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;
-  kernel::gpu_neighborFluxExt neighFluxKrnl = deviceNfKrnlPrototype;
-  dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
+  kernel::gpu_neighborFluxExt neighFluxKrnl = deviceNfKrnlPrototype_;
+  dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype_;
 
   {
     ConditionalKey key(KernelNames::Time || KernelNames::Volume);
@@ -231,6 +233,8 @@ void Neighbor::computeBatchedNeighborsIntegral(
                   (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
               neighFluxKrnl.AminusT = const_cast<const real**>(
                   entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+
+              SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData, nAmNm1);
               neighFluxKrnl.extraOffset_AminusT =
                   SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
 
@@ -266,7 +270,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   if (table.find(key) != table.end()) {
     auto& entry = table[key];
-    kernel::gpu_neighbor nKrnl = deviceNKrnlPrototype;
+    kernel::gpu_neighbor nKrnl = deviceNKrnlPrototype_;
     nKrnl.numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
     nKrnl.Qext =
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
@@ -275,6 +279,8 @@ void Neighbor::computeBatchedNeighborsIntegral(
     nKrnl.w = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     nKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
 
     nKrnl.streamPtr = runtime.stream();
 

@@ -19,8 +19,9 @@ TPV104 has a planar rectangular vertical strike-slip fault with the main
 rupture region of velocity-weakening friction, a zone on the fault
 surface with transitional friction surrounds the main fault rupture
 region, and the outer regions on the fault surface have
-velocity-strengthening friction (Figure [fig:tpv104]).
+velocity-strengthening friction (:numref:`tpv104i`).
 
+.. _tpv104i:
 .. figure:: figures/tpv104.png
    :alt: Diagram of TPV104.
    :width: 9.00000cm
@@ -47,7 +48,8 @@ TPV104 uses rate-state friction where shear stress follows:
 .. math::
 
    \begin{aligned}
-      \tau = f(V,\psi) \sigma\end{aligned}
+      \tau = f(V,\psi) \cdot \sigma
+   \end{aligned}
 
 The friction coefficient is a function of slip rate :math:`V` and state
 :math:`\psi`:
@@ -55,42 +57,48 @@ The friction coefficient is a function of slip rate :math:`V` and state
 .. math::
 
    \begin{aligned}
-       f(V,\psi) = a *  arcsinh [\frac{V}{2V_0} \exp(\frac{\psi}{a})]\end{aligned}
+       f(V,\psi) = a \cdot \text{arsinh} \left[\frac{V}{2V_0} \exp(\frac{\psi}{a})\right]
+   \end{aligned}
 
 The state variable evolves according to the equation:
 
 .. math::
 
    \begin{aligned}
-   \frac{d \psi}{dt} = - \frac{V}{L}[\psi - \psi_{ss}(V)]\end{aligned}
+   \frac{d \psi}{dt} = - \frac{V}{L}\left[\psi - \psi_{ss}(V)\right]
+   \end{aligned}
 
- and
+and
 
 .. math::
 
    \begin{aligned}
-      \psi_{ss}(V) = a \ln [\frac{2V_0}{V} \sinh (\frac{f_{ss}(V)}{a})]\end{aligned}
+      \psi_{ss}(V) = a \ln \left[\frac{2V_0}{V} \sinh \left(\frac{f_{ss}(V)}{a}\right)\right]
+      \end{aligned}
 
 :math:`f_{ss}(V)` is the stead state friction coefficient that depends
 on :math:`V` and the friction parameters
-:math:`f_0, V_0, a, b, f_w and V_w`.
+:math:`f_0, V_0, a, b, f_w`, and :math:`V_w`.
 
 .. math::
 
    \begin{aligned}
-   f_{ss}(V) = f_w + \frac{f_{LV}(V) - f_w}{[1+(V/V_w)^8]^{1/8}}\end{aligned}
+   f_{ss}(V) = f_w + \frac{f_{LV}(V) - f_w}{[1+(V/V_w)^8]^{1/8}}
+   \end{aligned}
 
 with a low-velocity steady state friction coefficient:
 
 .. math::
 
    \begin{aligned}
-   f_{LV}(V) = f_0 + (b-a) * \ln (V/V_0)\end{aligned}
+   f_{LV}(V) = f_0 + (b-a) * \ln (V/V_0)
+   \end{aligned}
 
 In SeisSol input file, Rate-state friction law can be used by choosing
 *FL=103* in *parameter.par*. The friction parameters of
-RS-SL-SRW are shown in Table [table:tpv104rsl].
+RS-SL-SRW are shown in Table :numref:`tpv104rsl`.
 
+.. _tpv104rsl:
 .. figure:: figures/table104.png
    :alt: table 104
    :width: 12.0cm
@@ -125,17 +133,19 @@ velocity-strengthening region, where it smoothly and spontaneously
 arrests. Nucleation is done by imposing additional shear stress in a
 circular patch surrounding the hypocenter.
 
-Figure [fig:tpv104sr] shows the slip rate on the fault along the downdip
-direction at T=5s.
+Figures :numref:`srs2s` and :numref:`srs5s` show the slip rate on the fault along the downdip
+direction at $T=2s$ and $T=5s$, respectively.
 
-.. figure:: figures/SRs_2s.png
+.. _srs2s:
+.. figure:: figures/srs-2s.png
    :alt: Diagram shows the tetrahedral meshing of TPV104
    :width: 12.00000cm
    :align: center
 
    Slip rate along-strike on the fault at 2 s of TPV104.
 
-.. figure:: figures/SRs_5s.png
+.. _srs5s:
+.. figure:: figures/srs-5s.png
    :alt: Diagram shows the tetrahedral meshing of TPV104
    :width: 12.00000cm
    :align: center

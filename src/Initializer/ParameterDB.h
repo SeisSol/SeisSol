@@ -19,6 +19,7 @@
 #include "easi/Query.h"
 #include "easi/ResultAdapter.h"
 
+#include <cstddef>
 #include <memory>
 #include <set>
 #include <string>
@@ -64,24 +65,24 @@ struct CellToVertexArray {
 };
 
 easi::Component* loadEasiModel(const std::string& fileName);
-std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
-                                                      bool useCellHomogenizedMaterial,
+std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMaterial,
                                                       const CellToVertexArray& cellToVertex);
 
 class QueryGenerator {
   public:
   virtual ~QueryGenerator() = default;
   [[nodiscard]] virtual easi::Query generate() const = 0;
+  [[nodiscard]] virtual std::size_t outputPerCell() const { return 1; }
 };
 
 class ElementBarycenterGenerator : public QueryGenerator {
   public:
   explicit ElementBarycenterGenerator(const CellToVertexArray& cellToVertex)
-      : m_cellToVertex(cellToVertex) {}
+      : cellToVertex_(cellToVertex) {}
   [[nodiscard]] easi::Query generate() const override;
 
   private:
-  CellToVertexArray m_cellToVertex;
+  CellToVertexArray cellToVertex_;
 };
 
 class ElementAverageGenerator : public QueryGenerator {
@@ -89,36 +90,49 @@ class ElementAverageGenerator : public QueryGenerator {
   explicit ElementAverageGenerator(const CellToVertexArray& cellToVertex);
   [[nodiscard]] easi::Query generate() const override;
   [[nodiscard]] const std::array<double, NumQuadpoints>& getQuadratureWeights() const {
-    return m_quadratureWeights;
+    return quadratureWeights_;
   };
 
   private:
-  CellToVertexArray m_cellToVertex;
-  std::array<double, NumQuadpoints> m_quadratureWeights{};
-  std::array<std::array<double, 3>, NumQuadpoints> m_quadraturePoints{};
+  CellToVertexArray cellToVertex_;
+  std::array<double, NumQuadpoints> quadratureWeights_{};
+  std::array<std::array<double, 3>, NumQuadpoints> quadraturePoints_{};
+};
+
+class PlasticityPointGenerator : public QueryGenerator {
+  public:
+  explicit PlasticityPointGenerator(const CellToVertexArray& cellToVertex, bool pointwise = true)
+      : cellToVertex_(cellToVertex), pointwise_(pointwise) {}
+  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] std::size_t outputPerCell() const override;
+
+  private:
+  CellToVertexArray cellToVertex_;
+  bool pointwise_{true};
 };
 
 class FaultBarycenterGenerator : public QueryGenerator {
   public:
-  FaultBarycenterGenerator(const seissol::geometry::MeshReader& meshReader, unsigned numberOfPoints)
-      : m_meshReader(meshReader), m_numberOfPoints(numberOfPoints) {}
+  FaultBarycenterGenerator(const seissol::geometry::MeshReader& meshReader,
+                           std::size_t numberOfPoints)
+      : meshReader_(meshReader), numberOfPoints_(numberOfPoints) {}
   [[nodiscard]] easi::Query generate() const override;
 
   private:
-  const seissol::geometry::MeshReader& m_meshReader;
-  unsigned m_numberOfPoints;
+  const seissol::geometry::MeshReader& meshReader_;
+  std::size_t numberOfPoints_;
 };
 
 class FaultGPGenerator : public QueryGenerator {
   public:
   FaultGPGenerator(const seissol::geometry::MeshReader& meshReader,
-                   const std::vector<unsigned>& faceIDs)
-      : m_meshReader(meshReader), m_faceIDs(faceIDs) {}
+                   const std::vector<std::size_t>& faceIDs)
+      : meshReader_(meshReader), faceIDs_(faceIDs) {}
   [[nodiscard]] easi::Query generate() const override;
 
   private:
-  const seissol::geometry::MeshReader& m_meshReader;
-  const std::vector<unsigned>& m_faceIDs;
+  const seissol::geometry::MeshReader& meshReader_;
+  const std::vector<std::size_t>& faceIDs_;
 };
 
 class ParameterDB {
@@ -137,35 +151,35 @@ struct MaterialAverager {
 };
 
 template <class T>
-class MaterialParameterDB : ParameterDB {
+class MaterialParameterDB : public ParameterDB {
   public:
   void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
-  void setMaterialVector(std::vector<T>* materials) { m_materials = materials; }
+  void setMaterialVector(std::vector<T>* materials) { materials_ = materials; }
 
   private:
-  std::vector<T>* m_materials{};
+  std::vector<T>* materials_{};
 };
 
-class FaultParameterDB : ParameterDB {
+class FaultParameterDB : public ParameterDB {
   public:
-  explicit FaultParameterDB(std::size_t simulation) : simid(simulation) {}
+  explicit FaultParameterDB(std::size_t simulation) : simid_(simulation) {}
   ~FaultParameterDB() override = default;
   void addParameter(const std::string& parameter, real* memory, unsigned stride = 1) {
-    m_parameters[parameter] = std::make_pair(memory, stride);
+    parameters_[parameter] = std::make_pair(memory, stride);
   }
   void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
   static std::set<std::string> faultProvides(const std::string& fileName);
 
   private:
-  std::size_t simid;
-  std::unordered_map<std::string, std::pair<real*, unsigned>> m_parameters;
+  std::size_t simid_;
+  std::unordered_map<std::string, std::pair<real*, unsigned>> parameters_;
 };
 
 class EasiBoundary {
   public:
   explicit EasiBoundary(const std::string& fileName);
 
-  EasiBoundary() : model(nullptr) {};
+  EasiBoundary() : model_(nullptr) {};
   EasiBoundary(const EasiBoundary&) = delete;
   EasiBoundary& operator=(const EasiBoundary&) = delete;
   EasiBoundary(EasiBoundary&& other) noexcept;
@@ -176,7 +190,7 @@ class EasiBoundary {
   void query(const real* nodes, real* mapTermsData, real* constantTermsData) const;
 
   private:
-  easi::Component* model;
+  easi::Component* model_;
 };
 
 } // namespace seissol::initializer

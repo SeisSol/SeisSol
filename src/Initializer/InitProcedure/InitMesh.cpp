@@ -91,9 +91,8 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   double minPointValue[3]{INFINITY, INFINITY, INFINITY};
 
   const auto vertexCount = meshReader.getVertices().size();
-#ifdef _OPENMP
+
 #pragma omp parallel for reduction(min : minPointValue[ : 3]) reduction(max : maxPointValue[ : 3])
-#endif
   for (std::size_t i = 0; i < vertexCount; ++i) {
     const auto& vertex = meshReader.getVertices()[i];
     for (int j = 0; j < 3; ++j) {
@@ -320,12 +319,10 @@ void readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters
   // unpack seissolParams
   const auto cubeParameters = seissolParams.cubeGenerator;
 
-  const auto commRank = seissol::Mpi::mpi.rank();
-  const auto commSize = seissol::Mpi::mpi.size();
   const std::string realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
 
   seissolInstance.setMeshReader(
-      new seissol::geometry::CubeGenerator(commRank, commSize, realMeshFileName, cubeParameters));
+      new seissol::geometry::CubeGenerator(realMeshFileName, cubeParameters));
 }
 
 } // namespace

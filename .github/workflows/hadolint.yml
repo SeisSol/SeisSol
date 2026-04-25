@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     container: ghcr.io/hadolint/hadolint:latest-alpine
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       # hadolint also shows warnings+infos if not failing on errors
       - name: run-hadolint

@@ -7,7 +7,7 @@
 
 #  libxsmm - Library targeting Intel Architecture for specialized
 #  dense and sparse matrix operations, and deep learning primitives
-#  source code: https://github.com/hfp/libxsmm
+#  source code: https://github.com/libxsmm/libxsmm
 #
 #  NOTE: it is not an official cmake search file
 #  author: Ravil Dorozhinskii

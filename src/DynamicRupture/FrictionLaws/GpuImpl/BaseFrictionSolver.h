@@ -41,10 +41,9 @@ struct FrictionLawArgs {
   const real* __restrict tpGridPoints{nullptr};
   const real* __restrict heatSource{nullptr};
 
-  real fullUpdateTime{};
-  double timeWeights[misc::TimeSteps]{};
+  real timeWeights[misc::TimeSteps]{};
   real deltaT[misc::TimeSteps]{};
-  real sumDt{};
+  real fullUpdateTime{};
 };
 
 struct FrictionLawContext {
@@ -64,15 +63,19 @@ struct FrictionLawContext {
 };
 
 #ifdef __CUDACC__
-SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& ctx) { __syncthreads(); }
+SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& __restrict /*ctx*/) {
+  __syncthreads();
+}
 #elif defined(__HIP__)
-SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& ctx) { __syncthreads(); }
+SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& __restrict /*ctx*/) {
+  __syncthreads();
+}
 #elif defined(SEISSOL_KERNELS_SYCL)
-inline void deviceBarrier(FrictionLawContext& ctx) {
+inline void deviceBarrier(FrictionLawContext& __restrict ctx) {
   reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->barrier(sycl::access::fence_space::local_space);
 }
 #else
-inline void deviceBarrier(FrictionLawContext& ctx) {}
+inline void deviceBarrier(FrictionLawContext& __restrict /*ctx*/) {}
 #endif
 
 template <typename Derived>
@@ -86,13 +89,13 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
   }
 
-  SEISSOL_DEVICE static void evaluatePoint(FrictionLawContext& ctx) {
+  SEISSOL_DEVICE static void evaluatePoint(FrictionLawContext& __restrict ctx) {
     if constexpr (model::MaterialT::SupportsDR) {
       constexpr common::RangeType GpuRangeType{common::RangeType::GPU};
 
       const auto etaPDamp = ctx.data->drParameters.etaDampEnd > ctx.args->fullUpdateTime
                                 ? ctx.data->drParameters.etaDamp
-                                : 1.0;
+                                : static_cast<real>(1.0);
       common::precomputeStressFromQInterpolated<GpuRangeType>(
           ctx.faultStresses,
           ctx.data->impAndEta[ctx.ltsFace],
@@ -192,24 +195,24 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
   void setupLayer(DynamicRupture::Layer& layerData,
                   seissol::parallel::runtime::StreamRuntime& runtime) override {
-    this->currLayerSize = layerData.size();
-    FrictionSolverInterface::copyStorageToLocal(&dataHost, layerData);
-    Derived::copySpecificStorageDataToLocal(&dataHost, layerData);
-    dataHost.drParameters = *this->drParameters;
+    this->currLayerSize_ = layerData.size();
+    FrictionSolverInterface::copyStorageToLocal(&dataHost_, layerData);
+    Derived::copySpecificStorageDataToLocal(&dataHost_, layerData);
+    dataHost_.drParameters = *this->drParameters_;
     device::DeviceInstance::getInstance().api->copyToAsync(
-        data, &dataHost, sizeof(FrictionLawData), runtime.stream());
+        data_, &dataHost_, sizeof(FrictionLawData), runtime.stream());
   }
 
   void evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
-                      real fullUpdateTime,
+                      double fullUpdateTime,
                       const double* timeWeights,
                       const FrictionTime& frictionTime);
 
-  void evaluate(real fullUpdateTime,
+  void evaluate(double fullUpdateTime,
                 const FrictionTime& frictionTime,
                 const double* timeWeights,
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
-    if (this->currLayerSize == 0) {
+    if (this->currLayerSize_ == 0) {
       return;
     }
 

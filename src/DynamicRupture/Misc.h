@@ -25,25 +25,25 @@
 namespace seissol::dr::misc {
 // TODO: this can be moved to yateto headers
 template <typename Tensor, int Dim>
-constexpr size_t dimSize() noexcept {
+constexpr uint32_t dimSize() noexcept {
   return Tensor::Stop[Dim] - Tensor::Start[Dim];
 }
 
 template <typename Tensor>
-constexpr size_t leadDim() noexcept {
+constexpr uint32_t leadDim() noexcept {
   return dimSize<Tensor, 0>();
 }
 
 /**
  * Number of gauss points padded to match the vector register length.
  */
-static constexpr inline size_t NumPaddedPoints =
+static constexpr inline uint32_t NumPaddedPoints =
     multisim::MultisimEnabled
         ? dimSize<init::QInterpolated, 0>() * dimSize<init::QInterpolated, 1>()
         : leadDim<init::QInterpolated>();
-static constexpr inline size_t NumPaddedPointsSingleSim =
+static constexpr inline uint32_t NumPaddedPointsSingleSim =
     dimSize<init::QInterpolated, multisim::BasisFunctionDimension>();
-static constexpr inline size_t NumQuantities =
+static constexpr inline uint32_t NumQuantities =
     misc::dimSize<init::QInterpolated, multisim::BasisFunctionDimension + 1>();
 
 /*
@@ -55,14 +55,14 @@ static constexpr inline uint32_t TimeSteps = ConvergenceOrder;
 /**
  * Constants for Thermal Pressurization
  */
-static constexpr size_t NumTpGridPoints = 60;
+static constexpr uint32_t NumTpGridPoints = 60;
 static constexpr double TpLogDz = 0.3;
 static constexpr double TpMaxWaveNumber = 10.0;
 
 /**
  * Number of gauss points on an element surface.
  */
-static constexpr unsigned int NumBoundaryGaussPoints =
+static constexpr uint32_t NumBoundaryGaussPoints =
     init::QInterpolated::Shape[multisim::BasisFunctionDimension];
 
 template <std::size_t I, typename F, typename TupleT>
@@ -79,25 +79,55 @@ template <typename TupleT, typename F>
 constexpr F forEach(TupleT&& tuple, F&& functor) {
   return forEachElement<0>(std::forward<F>(functor), std::forward<TupleT>(tuple));
 }
+
 /**
  * Compute base^exp
- * Note: precision has to be double, otherwise we would loose too much precision.
  * @param base
  * @return
  */
 #pragma omp declare simd
-template <size_t Exp, typename T>
-SEISSOL_HOSTDEVICE inline auto power(T base) -> T {
-  T result = static_cast<T>(1.0);
-  for (size_t i = 0; i < Exp; ++i) {
-    result *= base;
+template <int32_t Exp, typename T>
+SEISSOL_HOSTDEVICE constexpr auto power(T base) -> T {
+  if constexpr (Exp == 0) {
+    return 1;
   }
-  return result;
+  if constexpr (Exp == 1) {
+    return base;
+  }
+  if constexpr (Exp == 2) {
+    return base * base;
+  }
+
+  constexpr std::int32_t ILogExp = [&]() constexpr {
+    auto val = Exp;
+    for (std::int32_t i = 0; i < 64; ++i) {
+      val /= 2;
+      if (val == 0) {
+        // (Exp == 0 is handled above)
+        return i;
+      }
+    }
+    return 64;
+  }();
+
+  T res = base;
+
+#ifdef ACL_DEVICE
+#pragma unroll
+#endif
+  for (std::int32_t i = ILogExp - 1; i >= 0; --i) {
+    res *= res;
+    if ((Exp & (1 << i)) != 0) {
+      res *= base;
+    }
+  }
+
+  return res;
 }
 
 #pragma omp declare simd
 template <typename T>
-SEISSOL_HOSTDEVICE inline std::enable_if_t<std::is_floating_point_v<T>, T> square(T t) {
+SEISSOL_HOSTDEVICE constexpr T square(T t) {
   return t * t;
 }
 
@@ -107,7 +137,7 @@ SEISSOL_HOSTDEVICE inline std::enable_if_t<std::is_floating_point_v<T>, T> squar
  */
 #pragma omp declare simd
 template <typename T, typename... Tn>
-SEISSOL_HOSTDEVICE inline T square(T t1, Tn... tn) {
+SEISSOL_HOSTDEVICE constexpr T square(T t1, Tn... tn) {
   return square(t1) + square(tn...);
 }
 
@@ -117,7 +147,7 @@ SEISSOL_HOSTDEVICE inline T square(T t1, Tn... tn) {
  */
 #pragma omp declare simd
 template <typename T, typename... Tn>
-SEISSOL_HOSTDEVICE inline T magnitude(T t1, Tn... tn) {
+SEISSOL_HOSTDEVICE constexpr T magnitude(T t1, Tn... tn) {
   static_assert((std::is_same_v<T, Tn> && ...), "All types need to be equal.");
   if constexpr (sizeof...(Tn) == 1) {
     return std::hypot(t1, tn...);
@@ -127,7 +157,7 @@ SEISSOL_HOSTDEVICE inline T magnitude(T t1, Tn... tn) {
 
 #pragma omp declare simd
 template <typename T>
-SEISSOL_HOSTDEVICE inline T clamp(T value, T minval, T maxval) {
+SEISSOL_HOSTDEVICE constexpr T clamp(T value, T minval, T maxval) {
 #ifdef __HIP__
   return std::max(minval, std::min(maxval, value));
 #else

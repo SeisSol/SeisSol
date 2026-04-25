@@ -7,15 +7,6 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-# use <PackageName>_ROOT variables
-if(POLICY CMP0074)
-  cmake_policy(SET CMP0074 NEW)
-endif()
-# honor CMAKE_REQUIRED_LIBRARIES in the include file check macros
-if(POLICY CMP0075)
-  cmake_policy(SET CMP0075 NEW)
-endif()
-
 project(SeisSol LANGUAGES C CXX)
 
 # TODO: Move one dir up.
@@ -216,8 +207,10 @@ if (HDF5)
     target_link_libraries(seissol-common-properties INTERFACE ${HDF5_C_LIBRARIES})
   endif()
   target_compile_definitions(seissol-common-properties INTERFACE USE_HDF)
-  if (NOT HDF5_IS_PARALLEL)
-    message(WARNING "The found parallel Hdf5 installation is not parallel. Compile errors will occur.")
+
+  # HDF5_PROVIDES_PARALLEL needed for Hdf5 2.0 upwards (cf. https://www.hdfgroup.org/2025/11/10/release-of-hdf5-2-0-0-newsletter-207/ )
+  if (NOT (HDF5_IS_PARALLEL OR HDF5_ENABLE_PARALLEL OR HDF5_PROVIDES_PARALLEL))
+    message(WARNING "The found parallel Hdf5 installation is not parallel (i.e. MPI-ready). Compile errors will occur.")
   endif()
 endif()
 
@@ -242,7 +235,7 @@ if ("ptscotch" IN_LIST GRAPH_PARTITIONING_LIBS)
   target_compile_definitions(seissol-common-properties INTERFACE USE_PTSCOTCH)
 endif()
 if (NOT GRAPH_PARTITIONING_LIBS)
-  message(WARNING "Compiling without graph partitioning library; expect poor performance in multi-rank runs.")
+  message(WARNING "Compiling without graph partitioning library. It is highly recommended to use a graph partitioning library in multi-rank settings (e.g. on a cluster); otherwise the performance will be much worse than it could be.")
 endif()
 
 if (MEMKIND)
@@ -258,6 +251,10 @@ endif()
 
 if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
   target_compile_definitions(seissol-common-properties INTERFACE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+endif()
+
+if (DEVICE_COMBINE_LOCAL_FLUX)
+  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_DEVICE_COMBINE_LOCAL_FLUX)
 endif()
 
 if (ADDRESS_SANITIZER_DEBUG)
@@ -416,8 +413,14 @@ if (WITH_GPU)
   # set SeisSol GPU definitions
   target_compile_definitions(seissol-common-properties INTERFACE ACL_DEVICE)
 
+  set(DEVICE_SUBMODULES "${CMAKE_CURRENT_SOURCE_DIR}/submodules")
+
   # add device submodule
   add_subdirectory(submodules/Device)
+
+  # for now, always enforce PIC here
+  target_compile_options(device PRIVATE -fPIC)
+
   target_link_libraries(seissol-common-properties INTERFACE device)
 
   # add SeisSol GPU part
@@ -438,7 +441,7 @@ endif()
 # C++ compiler settings
 # TODO: mostly remove or make optional? (except the EIGEN_DONT_VECTORIZE for NVHPC below)
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  target_compile_options(seissol-common-properties INTERFACE $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-pedantic -Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
+  target_compile_options(seissol-common-properties INTERFACE $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-pedantic -Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas -Wno-maybe-uninitialized>)
 
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
@@ -492,29 +495,35 @@ if (TESTING)
   include(cmake/doctest.cmake)
 
   add_subdirectory(tests)
-
-  # Coverage
-  if(COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
-    setup_target_for_coverage_lcov(
-            NAME seissol-coverage
-            EXECUTABLE seissol-serial-test
-            EXCLUDE "/usr/*"
-                    "submodules/*"
-                    "tests/*"
-                    "external/*"
-                    "*/codegen/GeneratedCode/*"
-                    "/opt/*"
-            LCOV_ARGS --ignore-errors inconsistent
-                      --ignore-errors unused
-                      --ignore-errors mismatch
-    )
-  endif()
 endif()
 
 add_subdirectory(app)
 
+# Coverage (should run last; after all folders have been added)
+if(TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
+  setup_target_for_coverage_lcov(
+          NAME seissol-coverage
+          EXECUTABLE ctest -j
+          EXCLUDE "/usr/*"
+                  "submodules/*"
+                  "tests/*"
+                  "external/*"
+                  "*/codegen/GeneratedCode/*"
+                  "/opt/*"
+          LCOV_ARGS --ignore-errors inconsistent
+                    --ignore-errors unused
+                    --ignore-errors mismatch
+  )
+endif()
+
 if (WITH_GPU)
   string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
+
+  if ("${BACKEND_UPPER_CASE}" STREQUAL "HIP")
+    # ROCR needed for proper chiplet selection in TPX/CPX mode
+    set(BACKEND_UPPER_CASE "ROCR")
+  endif()
+
   set(RUN_GPU_TIME_SELECTOR "${BACKEND_UPPER_CASE}_VISIBLE_DEVICES")
   configure_file(${PROJECT_SOURCE_DIR}/cmake/gpu-launch-template.in
                  ${PROJECT_BINARY_DIR}/seissol-launch

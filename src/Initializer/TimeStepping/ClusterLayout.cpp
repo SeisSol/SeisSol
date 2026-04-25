@@ -9,6 +9,7 @@
 #include "Geometry/MeshReader.h"
 #include "Monitoring/Unit.h"
 #include "Numerical/StableSum.h"
+#include "Numerical/Statistics.h"
 #include "Parallel/MPI.h"
 
 #include <algorithm>
@@ -26,6 +27,18 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
                                       const geometry::MeshReader& mesh,
                                       double wiggle,
                                       bool infoprint) {
+
+  if (infoprint) {
+    std::size_t cellCount = mesh.getElements().size();
+    const auto summary = statistics::parallelSummary(cellCount);
+
+    MPI_Allreduce(
+        MPI_IN_PLACE, &cellCount, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, Mpi::mpi.comm());
+
+    logInfo() << "Cell count:" << formatInteger(cellCount).c_str() << "(per rank:" << summary.mean
+              << "±" << summary.std << "; range: [" << summary.min << ";" << summary.max << "])";
+  }
+
   std::uint64_t maxLtsId = 0;
   double minimumTimestep = std::numeric_limits<double>::max();
   for (const auto& element : mesh.getElements()) {
@@ -68,11 +81,11 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
         }
       }
 
-      const auto elts = element.timestep * wiggle;
+      const auto elts = element.timestep;
       const auto clts = layout.timestepRate(static_cast<std::size_t>(element.clusterId));
 
-      timefactorELTS += elts;
-      timefactorCLTS += clts;
+      timefactorELTS += elts * wiggle;
+      timefactorCLTS += clts * wiggle;
     }
     MPI_Allreduce(MPI_IN_PLACE,
                   clusters.data(),
@@ -96,7 +109,7 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
     logInfo() << "Theoretical speedup to GTS:" << eltsSpeedup << "elementwise LTS;" << cltsSpeedup
               << "clustered LTS (current setup)";
 
-    logInfo() << "Cluster histogram (cell, DR):";
+    logInfo() << "Cluster histogram (cells, DR faces):";
     for (std::size_t i = 0; i <= maxLtsId; ++i) {
       // NOTE: we count the DR faces twice; hence divide by 2 here
       // (also we now ignore copy-layer DR faces in the histogram unlike @:1.3.2; see the actual

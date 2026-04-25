@@ -56,7 +56,7 @@ GlobalTimestep
   using Material = seissol::model::MaterialT;
 
   const auto queryGen = seissol::initializer::getBestQueryGenerator(
-      seissolParams.model.plasticity, seissolParams.model.useCellHomogenizedMaterial, cellToVertex);
+      seissolParams.model.useCellHomogenizedMaterial, cellToVertex);
   std::vector<Material> materials(cellToVertex.size);
   seissol::initializer::MaterialParameterDB<Material> parameterDB;
   parameterDB.setMaterialVector(&materials);

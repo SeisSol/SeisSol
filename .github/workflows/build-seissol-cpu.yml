@@ -10,7 +10,7 @@ on:
   - push
 
 env:
-  precomputed-hash: 4cc0993d4ba3b8f0aabc84af78e405af9d98f902
+  precomputed-hash: 0f623b3e263726bc547997ca29790936396847df
 
 jobs:
   seissol-build-test:
@@ -70,7 +70,7 @@ jobs:
     steps:
       - id: checkout
         name: checkout-seissol
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -154,20 +154,6 @@ jobs:
 
           echo "Success!"
 
-      - name: run-proxy
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: |
-          cd build
-
-          ./proxyseissol-cpu-* 100 1 ader
-          ./proxyseissol-cpu-* 100 1 localwoader
-          ./proxyseissol-cpu-* 100 1 local
-          ./proxyseissol-cpu-* 100 1 neigh
-          ./proxyseissol-cpu-* 100 1 all
-          ./proxyseissol-cpu-* 100 1 neigh_dr
-          ./proxyseissol-cpu-* 100 1 godunov_dr
-          ./proxyseissol-cpu-* 100 1 all_dr
-
       - name: upload-seissol
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
@@ -186,7 +172,7 @@ jobs:
       EXENAME: |
         ${{
           format('cpu-{0}-p{2}-{1}{3}',
-            matrix.case.equation,
+            matrix.case.dispequation || matrix.case.equation,
             matrix.precision == 'single' && 'f32' || 'f64',
             matrix.order,
             matrix.case.multisim != 1 && format('-s{0}', matrix.case.multisim) || ''
@@ -213,7 +199,8 @@ jobs:
             volume: true
             surface: false
           - name: tpv5-visco
-            equation: viscoelastic-3
+            equation: viscoelastic2
+            dispequation: viscoelastic-3
             multisim: 1
             energies: true
             receivers: true
@@ -292,7 +279,7 @@ jobs:
             fault: true
             volume: true
             surface: false
-          - name: tpvahsp
+          - name: ahsp
             equation: anisotropic
             multisim: 1
             energies: false
@@ -324,7 +311,7 @@ jobs:
             fault: true
             volume: true
             surface: true
-          - name: tpvloh1-fused
+          - name: loh1-fused
             equation: elastic
             multisim: 8
             energies: true
@@ -355,6 +342,14 @@ jobs:
             receivers: true
             fault: false
             volume: true
+            surface: false
+          - name: acoustic
+            equation: acoustic
+            multisim: 1
+            energies: false
+            receivers: true
+            fault: false
+            volume: false
             surface: false
         precision:
           - single
@@ -410,7 +405,7 @@ jobs:
 
       - id: get-precomputed-solutions
         name: get-precomputed-solutions
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: seissol/precomputed-seissol
           ref: ${{env.precomputed-hash}}
@@ -444,7 +439,7 @@ jobs:
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: scripts
 
@@ -477,16 +472,8 @@ jobs:
         run: |
           EPSILON=0.05
 
-          if [ ${{matrix.case.name}} = tpv5 ] || [ ${{matrix.case.name}} = tpv5-nuc ] || [ ${{matrix.case.name}} = tpv6 ] || [ ${{matrix.case.name}} = tpv16 ]; then
-            MODE=lsw;
-          elif [ ${{matrix.case.name}} = tpv105 ]; then
-            MODE=tp;
-          else
-            MODE=rs;
-          fi;
-
           cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-receivers.py ./output ./precomputed/${{matrix.precision}} --epsilon ${EPSILON} --mode $MODE
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-receivers.py ./output ./precomputed/${{matrix.precision}} --epsilon ${EPSILON}
       - name: check-energy
         if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.energies }}
         run: |

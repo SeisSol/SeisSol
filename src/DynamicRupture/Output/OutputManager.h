@@ -37,27 +37,33 @@ class OutputManager {
   void setLtsData(LTS::Storage& userWpStorage,
                   LTS::Backmap& userWpBackmap,
                   DynamicRupture::Storage& userDrStorage);
-  void setBackupTimeStamp(const std::string& stamp) { this->backupTimeStamp = stamp; }
+  void setBackupTimeStamp(const std::string& stamp) { this->backupTimeStamp_ = stamp; }
 
   void init();
   void initFaceToLtsMap();
-  void writePickpointOutput(double time, double dt, parallel::runtime::StreamRuntime& runtime);
+  void writePickpointOutput(double time, double dt);
+  void writePickpointOutput(std::size_t layerId,
+                            double time,
+                            double dt,
+                            double meshDt,
+                            double meshInDt,
+                            parallel::runtime::StreamRuntime& runtime);
   void flushPickpointDataToFile();
   void updateElementwiseOutput();
 
   private:
-  seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance_;
 
   protected:
   bool isAtPickpoint(double time, double dt);
   void initElementwiseOutput();
   void initPickpointOutput();
 
-  std::unique_ptr<ElementWiseBuilder> ewOutputBuilder{nullptr};
-  std::unique_ptr<PickPointBuilder> ppOutputBuilder{nullptr};
+  std::unique_ptr<ElementWiseBuilder> ewOutputBuilder_{nullptr};
+  std::unique_ptr<PickPointBuilder> ppOutputBuilder_{nullptr};
 
-  std::shared_ptr<ReceiverOutputData> ewOutputData{nullptr};
-  std::shared_ptr<ReceiverOutputData> ppOutputData{nullptr};
+  std::shared_ptr<ReceiverOutputData> ewOutputData_{nullptr};
+  std::unordered_map<std::size_t, std::shared_ptr<ReceiverOutputData>> ppOutputData_;
 
   struct PickpointFile {
     std::string fileName;
@@ -66,23 +72,23 @@ class OutputManager {
     std::vector<std::size_t> indices;
   };
 
-  std::vector<PickpointFile> ppFiles;
+  std::unordered_map<std::size_t, std::vector<PickpointFile>> ppFiles_;
 
-  LTS::Storage* wpStorage{nullptr};
-  LTS::Backmap* wpBackmap{nullptr};
-  DynamicRupture::Storage* drStorage{nullptr};
+  LTS::Storage* wpStorage_{nullptr};
+  LTS::Backmap* wpBackmap_{nullptr};
+  DynamicRupture::Storage* drStorage_{nullptr};
 
-  FaceToLtsMapType faceToLtsMap;
-  std::vector<std::size_t> globalFaceToLtsMap;
-  seissol::geometry::MeshReader* meshReader{nullptr};
+  FaceToLtsMapType faceToLtsMap_;
+  std::vector<::seissol::initializer::StoragePosition> globalFaceToLtsMap_;
+  seissol::geometry::MeshReader* meshReader_{nullptr};
 
-  size_t iterationStep{0};
+  size_t iterationStep_{0};
   static constexpr double TimeMargin{1.005};
-  std::string backupTimeStamp;
+  std::string backupTimeStamp_;
 
-  std::unique_ptr<ReceiverOutput> impl{nullptr};
+  std::unique_ptr<ReceiverOutput> impl_{nullptr};
 
-  parallel::runtime::StreamRuntime runtime;
+  parallel::runtime::StreamRuntime runtime_;
 };
 } // namespace dr::output
 } // namespace seissol

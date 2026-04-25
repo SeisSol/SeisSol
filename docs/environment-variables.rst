@@ -37,6 +37,11 @@ Thus, we use persistent MPI communication which may reduce communication latency
 
 To disable persistent communication, set ``SEISSOL_MPI_PERSISTENT=0``. Then, SeisSol will use ``MPI_Isend`` and ``MPI_Irecv`` instead. To explicitly enable the persistent communication, set ``SEISSOL_MPI_PERSISTENT=1``. Right now, it is enabled by default.
 
+GPU-Specific Environment Variables
+----------------------------------
+
+GPU-specific environment variables are listed on its :ref:`own page <gpu-env>`.
+
 Output
 ------
 

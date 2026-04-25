@@ -10,7 +10,7 @@ from yateto import Tensor, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 
 
-def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
+def addKernels(generator, aderdg, PlasticityMethod, matricesDir, targets=["cpu"]):
     for target in targets:
         name_prefix = generate_kernel_name_prefix(targets)
 
@@ -18,6 +18,12 @@ def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
         alignStride = lambda name: True
         vtko = parseJSONMatrixFile(
             f"{matricesDir}/vtko{aderdg.order}.json", alignStride=alignStride
+        )
+
+        plasticityDB = parseJSONMatrixFile(
+            f"{matricesDir}/plasticity-{PlasticityMethod}-matrices-{aderdg.order}.json",
+            clones=dict(),
+            alignStride=aderdg.alignStride,
         )
 
         simcount = aderdg.multipleSimulations
@@ -29,6 +35,7 @@ def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
         rangeLimit = maxOrder + 1
 
         qb = Tensor("qb", (simcount, aderdg.numberOf3DBasisFunctions()))
+        qn = Tensor("qn", (simcount, plasticityDB.v.shape()[0]))
         pb = Tensor("pb", (simcount, aderdg.numberOf2DBasisFunctions()))
         pn = Tensor("pn", (simcount, aderdg.numberOf2DBasisFunctions()))
         xv = [
@@ -48,6 +55,16 @@ def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
             <= vtko.byName(f"collvv({aderdg.order},{i})")["pb"]
             * simselect["s"]
             * qb["sb"],
+            target=target,
+        )
+        generator.addFamily(
+            f"{name_prefix}projectNodalToVtkVolume",
+            simpleParameterSpace(rangeLimit),
+            lambda i: xv[i]["p"]
+            <= vtko.byName(f"collvv({aderdg.order},{i})")["pb"]
+            * simselect["s"]
+            * plasticityDB.vInv["bm"]
+            * qn["sm"],
             target=target,
         )
         generator.addFamily(

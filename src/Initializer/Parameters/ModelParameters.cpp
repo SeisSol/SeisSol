@@ -69,6 +69,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
 
   const bool plasticity = reader->readWithDefault("plasticity", false);
 
+  const bool plasticityPointwise = reader->readWithDefault("plasticitypointwise", true);
+
   const auto plasticityDisabledGroupsRaw =
       reader->readWithDefault<std::string>("plasticitydisabledgroups", "");
   std::unordered_set<int> plasticityDisabledGroups;
@@ -118,6 +120,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
 
   return ModelParameters{hasBoundaryFile,
                          plasticity,
+                         plasticityPointwise,
                          plasticityDisabledGroups,
                          useCellHomogenizedMaterial,
                          freqCentral,

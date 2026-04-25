@@ -7,7 +7,7 @@
   SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 Scaling
-=======
+========
 
 When working with SI units in earthquake scenarios numbers might get very large.
 Rescaling the equations might be advantageous, e.g. when working with single precision arithmetic.

@@ -286,20 +286,40 @@ class Viscoelastic2ADERDG(ADERDGBase):
                 target=target,
             )
 
+            local_ops = [
+                self.Qane["kpm"]
+                <= self.Qane["kpm"]
+                + self.w["m"] * self.Qext["kq"] * self.selectAne["qp"]
+                + self.Iane["kpl"] * self.W["lm"],
+                self.Q["kp"]
+                <= self.Q["kp"]
+                + self.Qext["kq"] * self.selectEla["qp"]
+                + self.Iane["kqm"] * self.E["qmp"],
+            ]
             generator.add(
                 f"{name_prefix}local",
-                [
-                    self.Qane["kpm"]
-                    <= self.Qane["kpm"]
-                    + self.w["m"] * self.Qext["kq"] * self.selectAne["qp"]
-                    + self.Iane["kpl"] * self.W["lm"],
-                    self.Q["kp"]
-                    <= self.Q["kp"]
-                    + self.Qext["kq"] * self.selectEla["qp"]
-                    + self.Iane["kqm"] * self.E["qmp"],
-                ],
+                local_ops,
                 target=target,
             )
+
+            if target == "gpu":
+                flux_ops = [
+                    self.Qext["kp"]
+                    <= sum(
+                        [
+                            plusFluxMatrixAccessor(i)
+                            * self.I["lq"]
+                            * self.AplusTAll[i]["qp"]
+                            for i in range(4)
+                        ],
+                        start=self.Qext["kp"],
+                    )
+                ]
+                generator.add(
+                    f"{name_prefix}fluxLocalAll",
+                    flux_ops + local_ops,
+                    target=target,
+                )
 
     def addNeighbor(self, generator, targets):
         for target in targets:
@@ -417,10 +437,21 @@ class Viscoelastic2ADERDG(ADERDGBase):
             # which are smaller than the whole tensor families
             # (even indices share the same buffer,
             # and odd indices share the same buffer)
-            derivativeExpr = [
-                self.I["kp"] <= powers[0] * dQ[0]["kp"],
+
+            if target == "gpu":
+                derivativeExpr = [
+                    dQ[0]["kp"] <= self.Q["kp"],
+                    self.I["kp"] <= powers[0] * self.Q["kp"],  # == dQ[0]
+                ]
+            else:
+                derivativeExpr = [
+                    self.I["kp"] <= powers[0] * dQ[0]["kp"],
+                ]
+
+            derivativeExpr += [
                 self.Iane["kpm"] <= powers[0] * dQane[0]["kpm"],
             ]
+
             for d in range(1, self.order):
                 derivativeExpr += [
                     dQext[d]["kp"] <= derivative(d),

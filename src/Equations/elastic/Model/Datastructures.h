@@ -67,7 +67,7 @@ struct ElasticMaterial : Material {
   void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const override {
 
     auto stiffnessTensorView =
-        seissol_general::init::stiffnessTensor::view::create(fullTensor.data());
+        seissol::general::init::stiffnessTensor::view::create(fullTensor.data());
     stiffnessTensorView.setZero();
     stiffnessTensorView(0, 0, 0, 0) = lambda + 2 * mu;
     stiffnessTensorView(0, 0, 1, 1) = lambda;

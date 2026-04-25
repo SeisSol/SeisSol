@@ -10,7 +10,7 @@
 
 
 Shaheen
-=======
+========
 
 
 Add these lines to ``~/.bashrc``:

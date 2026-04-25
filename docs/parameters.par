@@ -93,9 +93,10 @@ vtkorder = -1 ! positive values enable the high-order VTKHDF format for the elem
 
 ! parameterize ascii fault file outputs
 &Pickpoint
-printtimeinterval = 1       ! Index of printed info at timesteps
+printtimeinterval = 1       ! Timestep output frequency. Each ((timestep % printtimeinterval) == 0) is outputted.
 OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1  ! turn on and off fault outputs
 PPFileName = 'tpv33_faultreceivers.dat'
+outputinterval = 1.0 ! Write-out interval for the on-fault receivers.
 /
 
 &SourceType
@@ -150,8 +151,9 @@ OutputRegionBounds = -20e3 20e3 -10e3 10e3 -20e3 0e3 !(optional) array that desc
 
 wavefieldvtkorder = -1 ! positive values enable the VTKHDF high-order output for the wavefield
 
-! off-fault ascii receivers
-ReceiverOutput = 1                   ! Enable/disable off-fault ascii receiver output
+! off-fault receivers
+ReceiverOutput = 1                   ! Enable/disable off-fault receiver output
+ReceiverFormat = 'csv'               ! Format of receiver output: 'csv' (default) or 'hdf5'
 RFileName = 'tpv33_receivers.dat'    ! Record Points in extra file
 pickdt = 0.005                       ! Pickpoint Sampling
 ! (Optional) Synchronization point for receivers.

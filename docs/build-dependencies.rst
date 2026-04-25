@@ -20,14 +20,14 @@ For compiling SeisSol, you will need the following dependencies during build:
   - Clang (tested: 18, 19)
   - NVHPC (tested: 24.09; currently still slow!)
   - Cray CE (however: no commthread support; needs ``SEISSOL_COMMTHREAD=0``)
-  - ICC 2021.9 (except v1.3.0)
+  - ICC 2021.9 (except v1.3.0; v1.3.1 will work again)
 - CMake (>= 3.20)
 - Python (>= 3.9)
 
   - numpy (>= 1.12.0)
   - setuptools (>= 0.61.0)
 
-(the CI currently verifies the build against Gcc 13.2, Clang 19, ICX 2024.2, and NVHPC 24.09)
+(the CI currently verifies the build against GCC 13.2, Clang 19, ICX 2024.2, and NVHPC 24.09)
 
 Additionally, you need the following libraries:
 
@@ -83,7 +83,7 @@ For example, do ``mkdir ~/seissol; cd seissol``.
 
 In _all_ cases before building something manually,
 make sure to check the installed module files. That is, type ``module avail`` and look for the software you want to use.
-Type ``module load NAME`` to load the respective software (with ``NAME`` being the name of the software, including the text after the slash, e.g. ``module load cmake/3.20.0``).
+Type ``module load NAME`` to load the respective software (with ``NAME`` being the name of the software, including the text after the slash, e.g. ``module load cmake/4.2.0``).
 
 However, in some cases, the modules may be incomplete. Check that especially when using NVHPC, or the components for building AdaptiveCpp (LLVM, Boost).
 
@@ -128,13 +128,14 @@ We assume that you have a compiler already installed. The same goes for a suitab
 You will also need CMake in version 3.20.0 or above. Most likely, you system will already have a
 version of CMake installed; however, you may have to load a module to get a new enough version.
 
-If you do not have CMake in a new enough version available, you may also install it manually as follows.
+If you do not have CMake in a new enough version available, you may also install it manually into your folder as follows.
+(NOTE: you will need to adjust the ``x86_64`` on ARM machines; as e.g. using NVIDIA Grace or Vera)
 
 .. code-block:: bash
 
-  (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.20.0/cmake-3.20.0-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.20.0-linux-x86_64" "${SEISSOL_PREFIX}/bin/cmake")
+  (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v4.2.0/cmake-4.2.0-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-4.2.0-linux-x86_64/*" "${SEISSOL_PREFIX}")
 
-Note that this extracts CMake to the directory ``${SEISSOL_PREFIX}/bin/cmake``, if you wish you can adjust that path. Note that you may now also use ``ccmake`` to get a terminal UI for configuring the following libraries.
+Note that you may now also use ``ccmake`` to get a terminal UI for configuring the following libraries.
 
 Required libraries
 ~~~~~~~~~~~~~~~~~~
@@ -190,22 +191,27 @@ You can find the installation instructions for it `under this link <https://easy
 
 And with that, we're good to go!
 
+... or rather, we would be for just installing it. But to make SeisSol fast, we will need some additional software packages.
+
 Code generators for CPUs (optional, recommended)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We support the following CPU code generators:
+We suggest installing both LIBXSMM and PSpaMM for CPU code generation (or, as an alternative, only PSpaMM).
+Both of the two code generators are used for different matrix multiplications; LIBXSMM by default for dense-dense matrix multiplications,
+and PSpaMM for dense-sparse and sparse-dense matrix multiplications; which are used for most operations in SeisSol.
+Without PSpaMM installed, those operations are converted to dense-dense matrix multiplications for LIBXSMM or Eigen instead.
 
-- libxsmm (``libxsmm\_gemm\_generator``) will give reasonable performance on most ``x86`` machines. Its JIT variant also supports ARM CPUs.
-- PSpaMM (``pspamm-generator``): can handle some special cases faster; recommended mostly on AVX512-capable machines in conjunction with LIBXSMM. Otherwise slightly slower than LIBXSMM.
-- Eigen: should work on all available architectures, but slower. Recommended, if you have trouble with the afore-mentioned code generators.
+In more detail, SeisSol supports the following CPU matrix code generators and libraries:
 
-Note that using Eigen does not result in any additional dependencies, since it is needed in SeisSol anyways.
+- libxsmm (``libxsmm\_gemm\_generator``) will give reasonable performance on most ``x86`` machines. Its JIT variant also supports ARM and RISC-V CPUs.
 
-These GEMM generators are used to create optimized code for small matrix-matrix multiplications; as such their requirements differ from the usually-used BLAS libraries.
+- PSpaMM (``pspamm-generator``): is the default for handling sparse matrix multiplications; and the LIBXSMM generator can come over as a bit dated in that area. It usually compares well against LIBXSMM; but is a tiny bit slower than it for dense-dense matrix multiplications.
 
-For GPU code generators, we currently only support gemmforge and chainforge, and the latter (chainforge) is recommended.
+- Eigen: should work on all available architectures, but slower. Recommended, if you have trouble with the afore-mentioned code generators. Note that using Eigen does not result in any additional dependencies, since it is needed in SeisSol anyways.
 
-Installing Libxsmm (CPU)
+- BLAS libraries (e.g. OpenBLAS, BLIS): while they work for our case, BLAS libraries are usually rather ill-suited for the small matrix multiplications. We recommend using either LIBXSMM and/or PSpaMM instead.
+
+Installing LIBXSMM (CPU)
 """"""""""""""""""""""""
 
 .. code-block:: bash
@@ -216,7 +222,7 @@ Installing Libxsmm (CPU)
    cp bin/libxsmm_gemm_generator $SEISSOL_PREFIX/bin/
    cd ..
 
-Note that you need to use version 1.17; newer versions will not work with SeisSol.
+Note that we recommend to use version 1.17; newer versions might not work with SeisSol.
 
 .. _installing_pspamm:
 
@@ -227,9 +233,10 @@ PSpaMM is a Python package, meaning that you can directly install it via pip:
 
 .. code-block:: bash
 
-   pip3 install --user git+https://github.com/SeisSol/PSpaMM.git
+   pip3 install git+https://github.com/SeisSol/PSpaMM.git
 
-Usually PSpaMM is fast, but a bit slower than LIBXSMM. However, in some cases, it supersedes it.
+Usually PSpaMM is fast, but a bit slower than LIBXSMM for dense-dense matrix multiplications.
+However, when using sparsity (which SeisSol uses in many places), PSpaMM is usually faster.
 
 Mesh partitioning library (optional, recommended)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -238,7 +245,9 @@ For a good load balance on large clusters, SeisSol utilizes a mesh partitioning 
 Currently, the software supports the following libraries:
 
 -  ParMETIS (compile with ``IDXTYPEWIDTH=64``)
+
 -  SCOTCH
+
 -  ParHIP
 
 The partitioning of SeisSol meshes with ParMETIS was tested in large simulations and is
@@ -302,7 +311,35 @@ Furthermore, you will need to compile easi with ASAGI support, by setting ``ASAG
 Additional requirements for GPUs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For GPUs, we need some more packages.
+For GPUs, we need to install a GPU code generator, of which there is the choice of three:
+
+- TensorForge (recommended for NVIDIA and AMD GPUs)
+
+- Tiny Tensor Compiler (recommended for Intel GPUs)
+
+- GemmForge, ChainForge (legacy)
+
+Once you have at least one of these code generators installed and ready,
+you are set for compiling SeisSol with GPUs.
+
+Installing TensorForge
+""""""""""""""""""""""
+
+A new code generator is TensorForge which works on NVIDIA, AMD, and Intel GPUs.
+
+You may install it as a Python package; by running
+
+.. code-block:: bash
+
+   pip3 install git+https://github.com/SeisSol/TensorForge.git
+
+Installing Tiny Tensor Compiler
+"""""""""""""""""""""""""""""""
+
+A code generator for Intel GPUs (as e.g. used in SuperMUC-NG Phase 2).
+Written by Intel, it is the recommended code generator for them.
+
+To install it, follow the `instructions in its documentation <https://intel.github.io/tiny-tensor-compiler/manual/build.html>`_.
 
 Installing GemmForge, ChainForge
 """"""""""""""""""""""""""""""""
@@ -314,21 +351,19 @@ Conveniently, they come as Python packages and can be installed with the followi
 
 .. code-block:: bash
 
-   pip3 install --user git+https://github.com/SeisSol/gemmforge.git
-   pip3 install --user git+https://github.com/SeisSol/chainforge.git
+   pip3 install git+https://github.com/SeisSol/gemmforge.git
+   pip3 install git+https://github.com/SeisSol/chainforge.git
 
 Note that ChainForge is optional, but highly recommended for AMD and NVIDIA GPUs.
 However, it does currently not support code generation to SYCL.
 
-Once you have GemmForge/ChainForge ready, you are set for compiling SeisSol with GPUs.
+Installing SYCL (optional for AMD and NVIDIA GPUs)
+""""""""""""""""""""""""""""""""""""""""""""""""""
 
-Installing SYCL (for GPUs; optional for AMD and NVIDIA GPUs)
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+SYCL is currently necessary for non-NVIDIA and non-AMD GPUs; but already included into your oneAPI (ICX/ICPX) installation
+when compiling for Intel GPUs.
 
-See section :ref:`Installing SYCL <installing_SYCL>`.
-
-SYCL is necessary for non-NVIDIA and non-AMD GPUs.
-But you may (optionally) also compile SeisSol to use SYCL for NVIDIA or AMD GPUs.
+You can also use AdaptiveCpp as SYCL distribution instead for all architectures; replacing CUDA, HIP, or the oneAPI SYCL distribution.
 
 Compiling SeisSol
 -----------------

@@ -75,10 +75,10 @@ enum class ModuleHook : int {
 class Modules {
   private:
   std::array<std::multimap<ModulePriority, Module*>, static_cast<size_t>(ModuleHook::MaxHooks)>
-      hooks;
+      hooks_;
 
   /** The hook that should be called next */
-  ModuleHook nextHook{ModuleHook::FirstHook};
+  ModuleHook nextHook_{ModuleHook::FirstHook};
 
   Modules();
 
@@ -92,16 +92,14 @@ class Modules {
    */
   template <ModuleHook Hook>
   void _callHook() {
-    for (auto& [_, module] : hooks[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
+    for (auto& [_, module] : hooks_[static_cast<size_t>(Hook)]) {
       call<Hook>(module);
     }
 
-    nextHook = static_cast<ModuleHook>(static_cast<int>(Hook) + 1);
+    nextHook_ = static_cast<ModuleHook>(static_cast<int>(Hook) + 1);
   }
 
   double _callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint);
-
-  void _callSimulationStartHook(std::optional<double> checkpointTime);
 
   /**
    * Set the simulation start time.
@@ -109,7 +107,7 @@ class Modules {
    * This is required to handle synchronization points correctly when the simulation starts
    * from a checkpoint.
    */
-  void _setSimulationStartTime(double time);
+  void _callSimulationStartHook(std::optional<double> checkpointTime);
 
   template <ModuleHook Hook>
   static void call(Module* module);
@@ -143,12 +141,10 @@ class Modules {
    */
   static double callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint = false);
 
-  static void callSimulationStartHook(std::optional<double> checkpointTime);
-
   /**
    * Set the simulation start time
    */
-  static void setSimulationStartTime(double time);
+  static void callSimulationStartHook(std::optional<double> checkpointTime);
 };
 
 template <>

@@ -25,22 +25,24 @@ namespace seissol::refinement {
 template <class T>
 class VariableSubsampler {
   private:
-  std::vector<basisFunction::SampledBasisFunctions<T>> m_BasisFunctions;
+  std::vector<basisFunction::SampledBasisFunctions<T>> basisFunctions_;
 
   /** The original number of cells (without refinement) */
-  unsigned int mNumCells;
+  unsigned int numCells_;
 
-  std::size_t kSubCellsPerCell;
-  std::size_t kNumVariables;
-  std::size_t kNumAlignedDOF;
+  std::size_t subCellsPerCell_;
+  std::size_t numVariables_;
+  std::size_t numAlignedDOF_;
+
+  bool nodal_{false};
 
   std::size_t
       getInVarOffset(std::size_t cell, std::size_t variable, const unsigned int* cellMap) const {
-    return (cellMap[cell] * kNumVariables + variable) * kNumAlignedDOF;
+    return (cellMap[cell] * numVariables_ + variable) * numAlignedDOF_;
   }
 
   [[nodiscard]] std::size_t getOutVarOffset(std::size_t cell, std::size_t subcell) const {
-    return kSubCellsPerCell * cell + subcell;
+    return subCellsPerCell_ * cell + subcell;
   }
 
   public:
@@ -48,7 +50,8 @@ class VariableSubsampler {
                      const TetrahedronRefiner<T>& tetRefiner,
                      unsigned int order,
                      std::size_t numVariables,
-                     std::size_t numAlignedDOF);
+                     std::size_t numAlignedDOF,
+                     bool nodal);
 
   // NOLINTNEXTLINE
   void get(const real* inData, const unsigned int* cellMap, int variable, real* outData) const;
@@ -61,19 +64,20 @@ VariableSubsampler<T>::VariableSubsampler(std::size_t numCells,
                                           const TetrahedronRefiner<T>& tetRefiner,
                                           unsigned int order,
                                           std::size_t numVariables,
-                                          std::size_t numAlignedDOF)
-    : mNumCells(numCells), kSubCellsPerCell(tetRefiner.getDivisionCount()),
-      kNumVariables(numVariables), kNumAlignedDOF(numAlignedDOF) {
+                                          std::size_t numAlignedDOF,
+                                          bool nodal)
+    : numCells_(numCells), subCellsPerCell_(tetRefiner.getDivisionCount()),
+      numVariables_(numVariables), numAlignedDOF_(numAlignedDOF), nodal_(nodal) {
   // Generate cell centerpoints in the reference or unit tetrahedron.
-  auto* subCells = new Tetrahedron<T>[kSubCellsPerCell];
+  auto* subCells = new Tetrahedron<T>[subCellsPerCell_];
   auto* additionalVertices = new Eigen::Matrix<T, 3, 1>[tetRefiner.additionalVerticesPerCell()];
 
   tetRefiner.refine(Tetrahedron<T>::unitTetrahedron(), 0, subCells, additionalVertices);
 
   // Generate sampled basicfunctions
-  for (unsigned int i = 0; i < kSubCellsPerCell; i++) {
+  for (unsigned int i = 0; i < subCellsPerCell_; i++) {
     const Eigen::Matrix<T, 3, 1> pnt = subCells[i].center();
-    m_BasisFunctions.push_back(
+    basisFunctions_.push_back(
         basisFunction::SampledBasisFunctions<T>(order, pnt(0), pnt(1), pnt(2)));
   }
 
@@ -89,14 +93,23 @@ void VariableSubsampler<T>::get(const real* inData,
                                 int variable,
                                 // NOLINTNEXTLINE
                                 real* outData) const {
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
   // Iterate over original Cells
-  for (unsigned int c = 0; c < mNumCells; ++c) {
-    for (unsigned int sc = 0; sc < kSubCellsPerCell; ++sc) {
-      outData[getOutVarOffset(c, sc)] =
-          m_BasisFunctions[sc].evalWithCoeffs(&inData[getInVarOffset(c, variable, cellMap)]);
+  for (unsigned int c = 0; c < numCells_; ++c) {
+    for (unsigned int sc = 0; sc < subCellsPerCell_; ++sc) {
+      const real* __restrict inCellData = &inData[getInVarOffset(c, variable, cellMap)];
+      alignas(Alignment) real modalBuffer[tensor::modalVar::Size]{};
+      if (nodal_) {
+        kernel::plOutput krnl{};
+        krnl.nodalVar = inCellData;
+        krnl.modalVar = modalBuffer;
+        krnl.vInv = init::vInv::Values;
+        krnl.execute();
+
+        inCellData = modalBuffer;
+      }
+      outData[getOutVarOffset(c, sc)] = basisFunctions_[sc].evalWithCoeffs(inCellData);
     }
   }
 }

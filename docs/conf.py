@@ -27,7 +27,7 @@
 # -- Project information -----------------------------------------------------
 
 project = "SeisSol"
-copyright = "2012-2025 SeisSol Group"
+copyright = "2012-2026 SeisSol Group"
 author = "SeisSol Group"
 
 # The short X.Y version
@@ -76,13 +76,14 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
 
+numfig = True
 
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme"
+html_theme = "sphinx_book_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -104,6 +105,8 @@ html_static_path = ["_static"]
 # 'searchbox.html']``.
 #
 # html_sidebars = {}
+
+html_logo = "figures/logo-sans-darkred-border.svg"
 
 
 # -- Options for HTMLHelp output ---------------------------------------------
@@ -137,7 +140,7 @@ latex_documents = [
         master_doc,
         "SeisSol.tex",
         "SeisSol Documentation",
-        "The SeisSol Group",
+        "SeisSol Group",
         "manual",
     ),
 ]

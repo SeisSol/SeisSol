@@ -85,6 +85,8 @@ void* allocate(size_t size, size_t alignment, Memkind memkind) {
   } else if (memkind == Memkind::PinnedMemory) {
 #ifdef ACL_DEVICE
     ptrBuffer = device::DeviceInstance::getInstance().api->allocPinnedMem(size);
+  } else if (memkind == Memkind::DeviceGlobalCompressed) {
+    ptrBuffer = device::DeviceInstance::getInstance().api->allocGlobMem(size, true);
 #endif
   } else {
     logError() << "unknown memkind type used ("
@@ -127,6 +129,8 @@ void free(void* pointer, Memkind memkind) {
   } else if (memkind == Memkind::PinnedMemory) {
 #ifdef ACL_DEVICE
     device::DeviceInstance::getInstance().api->freePinnedMem(pointer);
+  } else if (memkind == Memkind::DeviceGlobalCompressed) {
+    device::DeviceInstance::getInstance().api->freeGlobMem(pointer);
 #endif
   } else {
     logError() << "unknown memkind type used ("
@@ -158,7 +162,7 @@ void memcopy(void* dst, const void* src, std::size_t size, Memkind dstMemkind, M
 void memzero(void* dst, std::size_t size, enum Memkind memkind) {
   if (memkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
-    auto defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
+    auto* defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
     device::DeviceInstance::getInstance().algorithms.fillArray(
         reinterpret_cast<char*>(dst), static_cast<char>(0), size, defaultStream);
     device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
@@ -193,18 +197,18 @@ void printMemoryAlignment(const std::vector<std::vector<unsigned long long>>& me
 }
 
 ManagedAllocator::~ManagedAllocator() {
-  for (const auto& [memkind, pointer] : dataMemoryAddresses) {
+  for (const auto& [memkind, pointer] : dataMemoryAddresses_) {
     free(pointer, memkind);
   }
 
   // reset memory vectors
-  dataMemoryAddresses.clear();
+  dataMemoryAddresses_.clear();
 }
 
 void* ManagedAllocator::allocateMemory(size_t size, size_t alignment, enum Memkind memkind) {
   // NOLINTNEXTLINE(misc-const-correctness)
   void* const ptrBuffer = allocate(size, alignment, memkind);
-  dataMemoryAddresses.emplace_back(memkind, ptrBuffer);
+  dataMemoryAddresses_.emplace_back(memkind, ptrBuffer);
   return ptrBuffer;
 }
 

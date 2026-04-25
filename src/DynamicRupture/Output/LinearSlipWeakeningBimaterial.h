@@ -13,16 +13,18 @@
 
 namespace seissol::dr::output {
 class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
+  protected:
   real computeLocalStrength(LocalInfo& local) override {
     const auto* const regularizedStrengths =
         getCellData<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(local);
     return regularizedStrengths[local.gpIndex];
   }
 
+  public:
   [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
     auto baseVector = LinearSlipWeakening::getOutputVariables();
     baseVector.push_back(
-        drStorage->info<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>().index);
+        drStorage_->info<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>().index);
     return baseVector;
   }
 };
