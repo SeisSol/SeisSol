@@ -77,9 +77,6 @@ struct PoroElasticMaterial : public ElasticMaterial {
   }
   ~PoroElasticMaterial() override = default;
 
-  explicit PoroElasticMaterial(const ElasticMaterial& elastic) : ElasticMaterial(elastic) {}
-  explicit PoroElasticMaterial(const AcousticMaterial& acoustic) : ElasticMaterial(acoustic) {}
-
   void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const override {
     const std::vector<double> elasticMaterialVals{this->rho, this->mu, this->lambda};
     const ElasticMaterial em(elasticMaterialVals);
