@@ -149,7 +149,7 @@ CellToVertexArray CellToVertexArray::fromPUML(const seissol::geometry::PumlMesh&
       elements.size(),
       [&](size_t cell) {
         std::array<Eigen::Vector3d, 4> x;
-        unsigned vertLids[Cell::NumVertices];
+        unsigned vertLids[Cell::NumVertices]{};
         PUML::Downward::vertices(mesh, elements[cell], vertLids);
         for (std::size_t vtx = 0; vtx < Cell::NumVertices; ++vtx) {
           for (std::size_t d = 0; d < Cell::Dim; ++d) {
@@ -317,7 +317,7 @@ easi::Query FaultBarycenterGenerator::generate() const {
   const std::vector<Vertex>& vertices = meshReader_.getVertices();
 
   easi::Query query(numberOfPoints_ * fault.size(), Cell::Dim);
-  unsigned q = 0;
+  std::size_t q = 0;
   for (const Fault& f : fault) {
     int element = 0;
     int side = 0;
@@ -407,7 +407,39 @@ struct MaterialAverager {
 // We assume that materialsFromQuery[i * NUM_QUADPOINTS, ..., (i+1)*NUM_QUADPOINTS-1]
 // stores samples from element i.
 
-// TODO: extract acoustic average class
+template <>
+struct MaterialAverager<AcousticMaterial> {
+  [[maybe_unused]] static constexpr bool Implemented = true;
+  static AcousticMaterial
+      computeAveragedMaterial(std::size_t elementIdx,
+                              const std::vector<double>& quadratureWeights,
+                              const std::vector<AcousticMaterial>& materialsFromQuery) {
+
+    // (code originally extracted from the ElasticMaterial specialization below)
+
+    double rhoMean = 0.0;
+
+    // Average of the bulk modulus, used for acoustic material
+    double kMeanInv = 0.0;
+
+    for (std::size_t quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
+      // Divide by volume of reference tetrahedron (1/6)
+      const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
+      const std::size_t globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
+      const auto& elementMaterial = materialsFromQuery[globalPointIdx];
+      rhoMean += elementMaterial.rho * quadWeight;
+      kMeanInv += 1.0 / elementMaterial.lambda * quadWeight;
+    }
+
+    AcousticMaterial result{};
+    result.rho = rhoMean;
+
+    // Harmonic average is used for mu/K, so take the reciprocal
+    result.lambda = 1.0 / kMeanInv;
+
+    return result;
+  }
+};
 
 template <>
 struct MaterialAverager<ElasticMaterial> {
@@ -429,10 +461,10 @@ struct MaterialAverager<ElasticMaterial> {
     // Average of the bulk modulus, used for acoustic material
     double kMeanInv = 0.0;
 
-    for (unsigned quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
+    for (std::size_t quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
       // Divide by volume of reference tetrahedron (1/6)
       const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
-      const unsigned globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
+      const std::size_t globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
       const auto& elementMaterial = materialsFromQuery[globalPointIdx];
       isAcoustic |= elementMaterial.mu == 0.0;
       if (!isAcoustic) {
@@ -465,22 +497,22 @@ struct MaterialAverager<ElasticMaterial> {
   }
 };
 
-template <>
-struct MaterialAverager<ViscoElasticMaterial> {
+template <std::size_t Mechanisms>
+struct MaterialAverager<ViscoElasticMaterialParametrized<Mechanisms>> {
   [[maybe_unused]] static constexpr bool Implemented = true;
-  static ViscoElasticMaterial
-      computeAveragedMaterial(std::size_t elementIdx,
-                              const std::vector<double>& quadratureWeights,
-                              const std::vector<ViscoElasticMaterial>& materialsFromQuery) {
+  static ViscoElasticMaterialParametrized<Mechanisms> computeAveragedMaterial(
+      std::size_t elementIdx,
+      const std::vector<double>& quadratureWeights,
+      const std::vector<ViscoElasticMaterialParametrized<Mechanisms>>& materialsFromQuery) {
     double muMeanInv = 0.0;
     double rhoMean = 0.0;
     double vERatioMean = 0.0;
     double qpMean = 0.0;
     double qsMean = 0.0;
 
-    for (unsigned quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
+    for (std::size_t quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
       const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
-      const unsigned globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
+      const std::size_t globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
       const auto& elementMaterial = materialsFromQuery[globalPointIdx];
       muMeanInv += 1.0 / elementMaterial.mu * quadWeight;
       rhoMean += elementMaterial.rho * quadWeight;
@@ -498,7 +530,7 @@ struct MaterialAverager<ViscoElasticMaterial> {
     const double lambdaMean =
         (4.0 * std::pow(muMean, 2) * vERatioMean) / (1.0 - 6.0 * muMean * vERatioMean);
 
-    ViscoElasticMaterial result{};
+    ViscoElasticMaterialParametrized<Mechanisms> result{};
     result.rho = rhoMean;
     result.mu = muMean;
     result.lambda = lambdaMean;
@@ -626,7 +658,7 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
   constexpr auto NumNodes = tensor::INodal::Shape[0];
   auto query = easi::Query{NumNodes, 3};
   size_t offset{0};
-  for (unsigned i = 0; i < NumNodes; ++i) {
+  for (std::size_t i = 0; i < NumNodes; ++i) {
     query.x(i, 0) = nodes[offset++];
     query.x(i, 1) = nodes[offset++];
     query.x(i, 2) = nodes[offset++];
