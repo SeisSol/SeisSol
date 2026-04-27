@@ -7,6 +7,7 @@
 
 set(seissol_test_sources
         Model/TestModel.cpp
+        Physics/InstantaneousTimeMirror.cpp
         Initializer/TestInitializer.cpp
         Numerical/TestNumerical.cpp
         Geometry/TestGeometry.cpp

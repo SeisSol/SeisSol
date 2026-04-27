@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_PHYSICS_INSTANTANEOUSTIMEMIRRORMANAGER_H_
 
 #include "Geometry/MeshReader.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
@@ -24,6 +25,13 @@ namespace seissol {
 class SeisSol;
 namespace ITM {
 
+bool isAnisotropicReflectionTypeSupported(
+    seissol::initializer::parameters::ReflectionType reflectionType);
+double getSwaveScaledLambda(double lambda, double mu, double velocityScalingFactor);
+double
+    getElasticTimeStepScalingFactor(seissol::initializer::parameters::ReflectionType reflectionType,
+                                    double velocityScalingFactor);
+
 class InstantaneousTimeMirrorManager : public Module {
 
   seissol::SeisSol& seissolInstance_;
@@ -37,22 +45,21 @@ class InstantaneousTimeMirrorManager : public Module {
 
   std::vector<seissol::time_stepping::AbstractTimeCluster*> clusters_;
 
-public:
+  public:
   explicit InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
       : seissolInstance_(seissolInstance) {};
 
-  void init(
-      double velocityScalingFactor,
-      double triggerTime,
-      seissol::geometry::MeshReader* meshReader,
-      LTS::Storage& ltsStorage,
-      const initializer::ClusterLayout* clusterLayout);
+  void init(double velocityScalingFactor,
+            double triggerTime,
+            seissol::geometry::MeshReader* meshReader,
+            LTS::Storage& ltsStorage,
+            const initializer::ClusterLayout* clusterLayout);
 
   void setClusterVector(const std::vector<seissol::time_stepping::AbstractTimeCluster*>& clusters);
 
   void syncPoint(double currentTime) override;
 
-private:
+  private:
   void updateVelocities();
   void updateTimeSteps();
 
@@ -63,15 +70,14 @@ private:
   void updateTimeStepsForMaterialType();
 };
 
-void initializeTimeMirrorManagers(
-    double scalingFactor,
-    double triggerTime,
-    seissol::geometry::MeshReader* meshReader,
-    LTS::Storage& ltsStorage,
-    InstantaneousTimeMirrorManager& increaseManager,
-    InstantaneousTimeMirrorManager& decreaseManager,
-    seissol::SeisSol& seissolInstance,
-    const initializer::ClusterLayout* clusterLayout);
+void initializeTimeMirrorManagers(double scalingFactor,
+                                  double triggerTime,
+                                  seissol::geometry::MeshReader* meshReader,
+                                  LTS::Storage& ltsStorage,
+                                  InstantaneousTimeMirrorManager& increaseManager,
+                                  InstantaneousTimeMirrorManager& decreaseManager,
+                                  seissol::SeisSol& seissolInstance,
+                                  const initializer::ClusterLayout* clusterLayout);
 } // namespace ITM
 } // namespace seissol
 

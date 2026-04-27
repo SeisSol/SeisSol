@@ -25,6 +25,28 @@
 
 namespace seissol::ITM {
 
+bool isAnisotropicReflectionTypeSupported(
+    seissol::initializer::parameters::ReflectionType reflectionType) {
+  return reflectionType == seissol::initializer::parameters::ReflectionType::BothWaves;
+}
+
+double getSwaveScaledLambda(double lambda, double mu, double velocityScalingFactor) {
+  return (lambda + 2.0 * mu) / velocityScalingFactor - 2.0 * velocityScalingFactor * mu;
+}
+
+double
+    getElasticTimeStepScalingFactor(seissol::initializer::parameters::ReflectionType reflectionType,
+                                    double velocityScalingFactor) {
+  if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWaves ||
+      reflectionType == seissol::initializer::parameters::ReflectionType::Pwave) {
+    return 1.0 / velocityScalingFactor;
+  }
+  if (reflectionType == seissol::initializer::parameters::ReflectionType::Swave) {
+    return velocityScalingFactor;
+  }
+  return 1.0;
+}
+
 void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           double triggerTime,
                                           seissol::geometry::MeshReader* meshReader,
@@ -95,8 +117,7 @@ void InstantaneousTimeMirrorManager::updateVelocitiesForMaterialType<
     } else if (reflectionType == seissol::initializer::parameters::ReflectionType::Pwave) {
       material.setLameParameters(mu, lambda * velocityScalingFactor_ * velocityScalingFactor_);
     } else if (reflectionType == seissol::initializer::parameters::ReflectionType::Swave) {
-      const auto newLambda =
-          (lambda + 2.0 * mu) / velocityScalingFactor_ - 2.0 * velocityScalingFactor_ * mu;
+      const auto newLambda = getSwaveScaledLambda(lambda, mu, velocityScalingFactor_);
       if (newLambda < 0.0) {
         logError()
             << "New lambda is negative. This is not allowed. Please adjust your scaling factor.";
@@ -109,11 +130,10 @@ void InstantaneousTimeMirrorManager::updateVelocitiesForMaterialType<
   };
 
   for (auto& layer : ltsStorage_->leaves(Ghost)) {
-    auto* materialData = layer.var<LTS::MaterialData>();
 
 #pragma omp parallel for schedule(static)
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      auto& material = materialData[cell];
+      auto& material = layer.cellRef(cell).get<LTS::MaterialData>();
       updateMaterial(material);
     }
   }
@@ -123,16 +143,20 @@ template <>
 void InstantaneousTimeMirrorManager::updateVelocitiesForMaterialType<
     seissol::model::AnisotropicMaterial>() {
   auto itmParameters = seissolInstance_.getSeisSolParameters().model.itmParameters;
+  const auto reflectionType = itmParameters.itmReflectionType;
+
+  if (!isAnisotropicReflectionTypeSupported(reflectionType)) {
+    logError() << "Anisotropic materials cannot have Pwave, Swave, and BothWavesVelocity.";
+  }
 
   for (auto& layer : ltsStorage_->leaves(Ghost)) {
-    auto* materialData = layer.var<LTS::MaterialData>();
 
 // for anisotropic materials, you could scale down density
-// or scale up all the direction dependent coefficients.
+// or scale up all the direction-dependent coefficients.
 // we scale density for code simplicity
 #pragma omp parallel for schedule(static)
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      auto& material = materialData[cell];
+      auto& material = layer.cellRef(cell).get<LTS::MaterialData>();
       material.setDensity(material.getDensity() /
                           (velocityScalingFactor_ * velocityScalingFactor_));
     }
@@ -149,27 +173,14 @@ void InstantaneousTimeMirrorManager::updateTimeStepsForMaterialType<
     seissol::model::ElasticMaterial>() {
   auto itmParameters = seissolInstance_.getSeisSolParameters().model.itmParameters;
   auto reflectionType = itmParameters.itmReflectionType;
-
-  if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWaves ||
-      reflectionType == seissol::initializer::parameters::ReflectionType::Pwave) {
+  const auto timeStepScaling =
+      getElasticTimeStepScalingFactor(reflectionType, velocityScalingFactor_);
+  if (timeStepScaling != 1.0) {
     for (auto& cluster : clusters_) {
-      cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor_);
+      cluster->setClusterTimes(cluster->getClusterTimes() * timeStepScaling);
       auto* neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
-        neighborCluster.ct.setTimeStepSize(neighborCluster.ct.getTimeStepSize() /
-                                           velocityScalingFactor_);
-      }
-    }
-  }
-
-  if (reflectionType == seissol::initializer::parameters::ReflectionType::Swave) {
-
-    for (auto& cluster : clusters_) {
-      cluster->setClusterTimes(cluster->getClusterTimes() * velocityScalingFactor_);
-      auto* neighborClusters = cluster->getNeighborClusters();
-      for (auto& neighborCluster : *neighborClusters) {
-        neighborCluster.ct.setTimeStepSize(neighborCluster.ct.getTimeStepSize() *
-                                           velocityScalingFactor_);
+        neighborCluster.ct.setTimeStepSize(neighborCluster.ct.getTimeStepSize() * timeStepScaling);
       }
     }
   }
@@ -178,6 +189,12 @@ void InstantaneousTimeMirrorManager::updateTimeStepsForMaterialType<
 template <>
 void InstantaneousTimeMirrorManager::updateTimeStepsForMaterialType<
     seissol::model::AnisotropicMaterial>() {
+  auto itmParameters = seissolInstance_.getSeisSolParameters().model.itmParameters;
+  const auto reflectionType = itmParameters.itmReflectionType;
+
+  if (!isAnisotropicReflectionTypeSupported(reflectionType)) {
+    logError() << "Anisotropic materials cannot have Pwave, Swave, and BothWavesVelocity.";
+  }
 
   for (auto& cluster : clusters_) {
     cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor_);
