@@ -102,10 +102,14 @@ LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
 
   // iterate over the faces
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    if (ownPrimary.faceTypes[face] == FaceType::Outflow) {
-      // continue for outflow boundary conditions
+
+    const auto bcType = getBCType(ownPrimary.faceTypes[face]);
+
+    if (bcType == BCType::ExternalNone) {
+      // continue for external boundary conditions without Neighbor kernel usage
       continue;
-    } else if (isExternalBoundaryFaceType(ownPrimary.faceTypes[face])) {
+    } else if (bcType == BCType::ExternalFake) {
+      // needs the Neighbor kernel for whatever reason; add the cell itself as a fake neighbor
       // fake neighbors are GTS
       ltsSetup.setNeighborGTSRelation(face, true);
     } else if (ownPrimary.faceTypes[face] == FaceType::DynamicRupture) {
@@ -158,16 +162,15 @@ LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
   }
 
   /*
-   * Normalize for special case "free surface/dirichlet on derivatives":
+   * Normalize for special case ExternalFake boundary types:
    *   If a cell provides either buffers in a LTS fashion or derivatives only,
    *   the neighboring contribution of the boundary intergral is required to work on the cells
-   * derivatives. Free surface/dirichlet boundary conditions work on the cells DOFs in the
-   * neighboring contribution: Enable cell local derivatives in this case and mark that the "fake
-   * neighbor" provides derivatives.
+   * derivatives. It's mostly non-relevant by now (all these operations can be done in the local
+   * kernel); but maybe it'll be required again at some point.
    */
   for (std::size_t face = 0; face < Cell::NumFaces; face++) {
     // check for special case free-surface/dirichlet requirements
-    const bool isSpecialCase = isExternalBoundaryFaceType(ownPrimary.faceTypes[face]);
+    const bool isSpecialCase = getBCType(ownPrimary.faceTypes[face]) == BCType::ExternalFake;
 
     // need special case face and either LTS buffers, or no buffers at all
     if (isSpecialCase && (ltsSetup.accumulateBuffers() || !ltsSetup.hasBuffers())) {
