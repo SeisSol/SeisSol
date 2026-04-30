@@ -82,9 +82,17 @@ double Modules::_callSyncHook(double currentTime, double timeTolerance, bool for
 void Modules::_callSimulationStartHook(std::optional<double> checkpointTime) {
   assert(static_cast<int>(nextHook_) <= static_cast<int>(ModuleHook::SynchronizationPoint));
 
+  const auto startTime = checkpointTime.value_or(0);
+
   for (auto& [_, module] : hooks_[static_cast<size_t>(ModuleHook::SimulationStart)]) {
     module->simulationStart(checkpointTime);
-    module->setSimulationStartTime(checkpointTime.value_or(0));
+    module->setSimulationStartTime(startTime);
+  }
+
+  // Modules that register only for synchronization points still need a valid
+  // initial sync schedule (e.g., ITM managers).
+  for (auto& [_, module] : hooks_[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
+    module->setSimulationStartTime(startTime);
   }
 }
 
