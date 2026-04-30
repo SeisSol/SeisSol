@@ -464,39 +464,33 @@ void EnergyOutput::computeVolumeEnergies() {
             }
           }
 
-          alignas(Alignment)
-              std::array<real, tensor::rotatedFaceDisplacementAtQuadratureNodes::Size>
-                  displQuadData{};
           const auto* curFaceDisplacementsData = faceDisplacements[face];
-          seissol::kernel::rotateFaceDisplacementsAndEvaluateAtQuadratureNodes evalKrnl;
-          evalKrnl.rotatedFaceDisplacement = curFaceDisplacementsData;
-          evalKrnl.V2nTo2JacobiQuad = init::V2nTo2JacobiQuad::Values;
-          evalKrnl.rotatedFaceDisplacementAtQuadratureNodes = displQuadData.data();
-          evalKrnl.displacementRotationMatrix = rotateDisplacementToFaceNormalData;
-          evalKrnl.execute();
 
-          // Perform quadrature
+          // See for example (Saito, Tsunami generation and propagation, 2019) section 3.2.3 for
+          // derivation.
+
+          alignas(Alignment) std::array<real, tensor::quadFaceDisplacements::Size>
+              quadFaceDisplacements{};
+          {
+            seissol::kernel::quadFaceDisplacementsCompute evalKrnl;
+            evalKrnl.rotatedFaceDisplacement = curFaceDisplacementsData;
+            evalKrnl.M2 = init::M2::Values;
+            evalKrnl.MV2nTo2m = nodal::init::MV2nTo2m::Values;
+            evalKrnl.quadFaceDisplacements = quadFaceDisplacements.data();
+            evalKrnl.displacementRotationMatrix = rotateDisplacementToFaceNormalData;
+            evalKrnl.execute();
+          }
+
+          const auto quadFaceDisplacementsViewFused =
+              init::quadFaceDisplacements::view::create(quadFaceDisplacements.data());
+          const auto quadFaceDisplacementsView =
+              multisim::simtensor(quadFaceDisplacementsViewFused, sim);
+
           const auto surface = MeshTools::surface(elements[elementId], face, vertices);
           const auto rho = material.getDensity();
 
-          static_assert(NumQuadraturePointsTri == init::rotatedFaceDisplacementAtQuadratureNodes::
-                                                      Shape[multisim::BasisFunctionDimension]);
-          auto rotatedFaceDisplacementFused =
-              init::rotatedFaceDisplacementAtQuadratureNodes::view::create(displQuadData.data());
-          auto rotatedFaceDisplacement = multisim::simtensor(rotatedFaceDisplacementFused, sim);
-
-          double cellGravitationalEnergy = 0;
-
-#pragma omp simd reduction(+ : cellGravitationalEnergy)
-          for (std::size_t i = 0; i < NumQuadraturePointsTri; ++i) {
-            // See for example (Saito, Tsunami generation and propagation, 2019) section 3.2.3 for
-            // derivation.
-            const auto displ = rotatedFaceDisplacement(i, 0);
-            const auto curEnergyNoConst = displ * displ;           // * 0.5 * rho * g
-            const auto curWeightNoConst = quadratureWeightsTri[i]; // * 2.0 * surface
-            cellGravitationalEnergy += curWeightNoConst * curEnergyNoConst;
-          }
-          totalGravitationalEnergyLocal += rho * g * surface * cellGravitationalEnergy;
+          // contains an elided 0.5 * 2.0 (1/2 due to energy; 2 due to surface)
+          totalGravitationalEnergyLocal += rho * g * surface * quadFaceDisplacementsView(0);
         }
 
         if (isPlasticityEnabled_) {

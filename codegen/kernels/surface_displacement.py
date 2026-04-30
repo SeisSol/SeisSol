@@ -134,6 +134,24 @@ def addKernels(generator, aderdg, include_tensors, targets):
         * displacementRotationMatrix["np"],
     )
 
+    quadFaceDisplacements = OptionalDimTensor(
+        "quadFaceDisplacements",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (3,),
+    )
+    generator.add(
+        "quadFaceDisplacementsCompute",
+        quadFaceDisplacements["n"]
+        <= aderdg.db.M2["ij"]
+        * aderdg.db.MV2nTo2m["iI"]
+        * aderdg.db.MV2nTo2m["jJ"]
+        * rotatedFaceDisplacement["Ip"]
+        * rotatedFaceDisplacement["Jp"]
+        * displacementRotationMatrix["np"],
+    )
+
     if "gpu" in targets:
         name_prefix = generate_kernel_name_prefix(target="gpu")
 
