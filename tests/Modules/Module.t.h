@@ -72,9 +72,24 @@ class TestModule : public seissol::Module {
   }
 };
 
+class SyncOnlyModule : public seissol::Module {
+public:
+  ModuleHook state{ModuleHook::NullHook};
+  double time{0};
+  explicit SyncOnlyModule(double interval) {
+    setSyncInterval(interval);
+    seissol::Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
+  }
+  void syncPoint(double time) override {
+    state = ModuleHook::SynchronizationPoint;
+    this->time = time;
+  }
+};
+
 TEST_CASE("Module runthrough") {
   TestModule mod1(true, 2);
   TestModule mod2(false, 3);
+  SyncOnlyModule syncOnly(1000);
 
   Modules::callHook<ModuleHook::PreMPI>();
   REQUIRE(mod1.state == ModuleHook::PreMPI);
@@ -113,10 +128,19 @@ TEST_CASE("Module runthrough") {
   Modules::callSimulationStartHook(startTime);
   REQUIRE(mod1.state == ModuleHook::SimulationStart);
   REQUIRE(mod2.state == ModuleHook::SimulationStart);
+  REQUIRE(syncOnly.state == ModuleHook::NullHook);
 
   // exact comparison is ok here
   REQUIRE(mod1.time == startTime);
   REQUIRE(mod2.time == startTime);
+  REQUIRE(syncOnly.time == 0);
+
+  // Regression check: modules that register only for synchronization points
+  // must still receive their initial schedule via setSimulationStartTime().
+  // Without that, nextSyncPoint_ would remain at 0 and could cause a 0s->0s step.
+  REQUIRE(syncOnly.potentialSyncPoint(startTime, 1e-14, false) == AbsApprox(1000));
+  REQUIRE(syncOnly.state == ModuleHook::NullHook);
+  REQUIRE(syncOnly.time == 0);
 
   std::vector<int32_t> expectedTimes{2, 3, 4, 6, 8, 9, 10, 12, 14, 15};
 
@@ -126,6 +150,8 @@ TEST_CASE("Module runthrough") {
 
   // first check; noone will be called
   time = Modules::callSyncHook(time, 1e-14, false);
+  REQUIRE(syncOnly.state == ModuleHook::NullHook);
+  REQUIRE(syncOnly.time == 0);
 
   for (std::size_t i = 0; i < expectedTimes.size(); ++i) {
     REQUIRE(time == AbsApprox(expectedTimes[i]));
@@ -150,6 +176,9 @@ TEST_CASE("Module runthrough") {
     if (mod2Time > startTime) {
       REQUIRE(mod2.state == ModuleHook::SynchronizationPoint);
     }
+
+    REQUIRE(syncOnly.state == ModuleHook::NullHook);
+    REQUIRE(syncOnly.time == 0);
   }
 
   Modules::callHook<ModuleHook::SimulationEnd>();
