@@ -86,10 +86,9 @@ void Modules::_callSimulationStartHook(std::optional<double> checkpointTime) {
 
   for (auto& [_, module] : hooks_[static_cast<size_t>(ModuleHook::SimulationStart)]) {
     module->simulationStart(checkpointTime);
-    module->setSimulationStartTime(startTime);
   }
 
-  // Modules that register only for synchronization points still need a valid
+  // Modules that register only for synchronization points need a valid
   // initial sync schedule (e.g., ITM managers).
   for (auto& [_, module] : hooks_[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
     module->setSimulationStartTime(startTime);
