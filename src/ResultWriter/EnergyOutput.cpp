@@ -11,6 +11,7 @@
 #include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
+#include "Equations/Energy.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -63,11 +64,6 @@ GENERATE_HAS_MEMBER(evalAtQP)
 namespace seissol::writer {
 
 namespace {
-
-constexpr bool VolumeEnergyApproximation =
-    model::MaterialT::Type != model::MaterialType::Elastic &&
-    model::MaterialT::Type != model::MaterialType::Viscoelastic &&
-    model::MaterialT::Type != model::MaterialType::Acoustic;
 
 std::array<real, multisim::NumSimulations>
     computeStaticWork(const real* degreesOfFreedomPlus,
@@ -176,11 +172,6 @@ void EnergyOutput::init(
   }
   const auto rank = Mpi::mpi.rank();
   logInfo() << "Initializing energy output.";
-
-  if constexpr (VolumeEnergyApproximation) {
-    logWarning() << "The volume energies printed for the given equation system"
-                 << model::MaterialT::Text << "are, by now, only an isotropic approximation.";
-  }
 
   energyOutputInterval = parameters.interval;
   isFileOutputEnabled = rank == 0;
@@ -344,23 +335,29 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
 void EnergyOutput::computeVolumeEnergies() {
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
-    // TODO: Abstract energy calculations and implement is for anisotropic and poroelastic materials
-    [[maybe_unused]] auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy(sim);
-    [[maybe_unused]] auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy(sim);
-    [[maybe_unused]] auto& totalAcousticKineticEnergyLocal =
-        energiesStorage.acousticKineticEnergy(sim);
-    [[maybe_unused]] auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy(sim);
-    [[maybe_unused]] auto& totalElasticKineticEnergyLocal =
-        energiesStorage.elasticKineticEnergy(sim);
-    [[maybe_unused]] auto& totalPlasticMoment = energiesStorage.plasticMoment(sim);
-    [[maybe_unused]] auto& totalMomentumXLocal = energiesStorage.totalMomentumX(sim);
-    [[maybe_unused]] auto& totalMomentumYLocal = energiesStorage.totalMomentumY(sim);
-    [[maybe_unused]] auto& totalMomentumZLocal = energiesStorage.totalMomentumZ(sim);
+    auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy(sim);
+    auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy(sim);
+    auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy(sim);
+    auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy(sim);
+    auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy(sim);
+    auto& totalPlasticMoment = energiesStorage.plasticMoment(sim);
+    auto& totalMomentumXLocal = energiesStorage.totalMomentumX(sim);
+    auto& totalMomentumYLocal = energiesStorage.totalMomentumY(sim);
+    auto& totalMomentumZLocal = energiesStorage.totalMomentumZ(sim);
+
+    const std::unordered_map<std::string, double&> energyRefMap{
+        {"acoustic-energy", totalAcousticEnergyLocal},
+        {"acoustic-kinetic-energy", totalAcousticKineticEnergyLocal},
+        {"elastic-energy", totalElasticEnergyLocal},
+        {"elastic-kinetic-energy", totalElasticKineticEnergyLocal},
+        {"momentum-x", totalMomentumXLocal},
+        {"momentum-y", totalMomentumYLocal},
+        {"momentum-z", totalMomentumZLocal}};
 
     const std::vector<Element>& elements = meshReader->getElements();
     const std::vector<Vertex>& vertices = meshReader->getVertices();
 
-    [[maybe_unused]] const auto g = seissolInstance.getGravitationSetup().acceleration;
+    const auto g = seissolInstance.getGravitationSetup().acceleration;
 
     constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
     constexpr auto NumQuadraturePointsTet = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
@@ -382,20 +379,18 @@ void EnergyOutput::computeVolumeEnergies() {
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       const auto* cellInformationData = layer.var<LTS::CellInformation>();
       const auto* faceDisplacementsData = layer.var<LTS::FaceDisplacements>();
-      const auto* materialData = layer.var<LTS::Material>();
+      const auto* materialData = layer.var<LTS::MaterialData>();
       const auto* boundaryMappingData = layer.var<LTS::BoundaryMapping>();
       const auto* pstrainData = layer.var<LTS::PStrain>();
       const auto* dofsData = layer.var<LTS::Dofs>();
+      const auto* energyData = layer.var<LTS::EnergyData>();
+
+      constexpr auto EnergyCount = model::EnergyCompute<model::MaterialT>::EnergyCount;
+      double energyValues[EnergyCount]{};
+
 #if !NVHPC_AVOID_OMP
-#pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal,             \
-                                                        totalAcousticEnergyLocal,                  \
-                                                        totalAcousticKineticEnergyLocal,           \
-                                                        totalElasticEnergyLocal,                   \
-                                                        totalElasticKineticEnergyLocal,            \
-                                                        totalMomentumXLocal,                       \
-                                                        totalMomentumYLocal,                       \
-                                                        totalMomentumZLocal,                       \
-                                                        totalPlasticMoment)                        \
+#pragma omp parallel for schedule(static)                                                          \
+    reduction(+ : totalGravitationalEnergyLocal, energyValues[ : EnergyCount], totalPlasticMoment) \
     shared(elements, vertices, global)
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
@@ -405,7 +400,9 @@ void EnergyOutput::computeVolumeEnergies() {
         }
         const auto elementId = secondaryInformation[cell].meshId;
         const double volume = MeshTools::volume(elements[elementId], vertices);
-        const auto& material = *materialData[cell].local;
+
+        // NOLINTNEXTLINE
+        const auto& material = materialData[cell];
         const auto& cellInformation = cellInformationData[cell];
         const auto& faceDisplacements = faceDisplacementsData[cell];
 
@@ -433,65 +430,16 @@ void EnergyOutput::computeVolumeEnergies() {
         auto linSub = multisim::simtensor(lin, sim);
         auto quadSub = multisim::simtensor(quad, sim);
 
-        constexpr auto UIdx = model::MaterialT::TractionQuantities;
-        const auto rho = material.getDensity();
+        // assume _constant_ material over a cell (will need adjustments for e.g. #1297)
 
-        const auto u = linSub(0, UIdx + 0);
-        const auto v = linSub(0, UIdx + 1);
-        const auto w = linSub(0, UIdx + 2);
-        const auto uu = quadSub(UIdx + 0, UIdx + 0);
-        const auto vv = quadSub(UIdx + 1, UIdx + 1);
-        const auto ww = quadSub(UIdx + 2, UIdx + 2);
-        const double curKineticEnergy = 0.5 * rho * (uu + vv + ww);
-        const double curMomentumX = rho * u;
-        const double curMomentumY = rho * v;
-        const double curMomentumZ = rho * w;
+        const auto localValues = model::EnergyCompute<model::MaterialT>::computeEnergies(
+            material, energyData[cell], linSub, quadSub);
 
-        if (std::abs(material.getMuBar()) < 10e-14) {
-          // Acoustic
-          constexpr std::size_t PIdx = 0;
-          const auto k = material.getLambdaBar();
-          const auto pp = quadSub(PIdx, PIdx);
-          const double curAcousticEnergy = pp / (2 * k);
-
-          totalAcousticEnergyLocal += jacobiDet * curAcousticEnergy;
-          totalAcousticKineticEnergyLocal += jacobiDet * curKineticEnergy;
-        } else {
-          // Elastic
-          auto getStressIndex = [](int i, int j) {
-            const static auto Lookup =
-                std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
-            return Lookup[i][j];
-          };
-          totalMomentumXLocal += jacobiDet * curMomentumX;
-          totalMomentumYLocal += jacobiDet * curMomentumY;
-          totalMomentumZLocal += jacobiDet * curMomentumZ;
-
-          auto getStressPair = [&](int i1, int j1, int i2, int j2) {
-            return quadSub(getStressIndex(i1, j1), getStressIndex(i2, j2));
-          };
-
-          const auto lambda = material.getLambdaBar();
-          const auto mu = material.getMuBar();
-          const auto factor = -lambda / (2.0 * mu * (3.0 * lambda + 2.0 * mu));
-          auto computeStressStrain = [&](int i, int j) {
-            double stressstrain = 0.0;
-            if (i == j) {
-              stressstrain += factor * (getStressPair(i, j, 0, 0) + getStressPair(i, j, 1, 1) +
-                                        getStressPair(i, j, 2, 2));
-            }
-            stressstrain += 1.0 / (2.0 * mu) * getStressPair(i, j, i, j);
-            return stressstrain;
-          };
-          double curElasticEnergy = 0.0;
-          for (int i = 0; i < 3; ++i) {
-            for (int j = 0; j < 3; ++j) {
-              curElasticEnergy += computeStressStrain(i, j);
-            }
-          }
-          totalElasticEnergyLocal += jacobiDet * 0.5 * curElasticEnergy;
-          totalElasticKineticEnergyLocal += jacobiDet * curKineticEnergy;
+        for (std::size_t i = 0; i < localValues.size(); ++i) {
+          energyValues[i] += jacobiDet * localValues[i];
         }
+
+        constexpr auto UIdx = model::MaterialT::TractionQuantities;
 
         const auto& boundaryMappings = boundaryMappingData[cell];
         // Compute gravitational energy
@@ -577,6 +525,10 @@ void EnergyOutput::computeVolumeEnergies() {
           totalPlasticMoment += mu * jacobiDet * pMoment;
         }
       }
+
+      for (std::size_t i = 0; i < model::EnergyCompute<model::MaterialT>::EnergyCount; ++i) {
+        energyRefMap.at(model::EnergyCompute<model::MaterialT>::Energies[i]) += energyValues[i];
+      }
     }
   }
 }
@@ -617,7 +569,6 @@ void EnergyOutput::printEnergies() {
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
     const std::string fusedPrefix =
         multisim::MultisimEnabled ? "[" + std::to_string(sim) + "]" : "";
-    const std::string approxPrefix = VolumeEnergyApproximation ? "[approximated]" : "";
     const auto totalAcousticEnergy =
         energiesStorage.acousticKineticEnergy(sim) + energiesStorage.acousticEnergy(sim);
     const auto totalElasticEnergy =
@@ -644,19 +595,19 @@ void EnergyOutput::printEnergies() {
     if (shouldComputeVolumeEnergies()) {
       if (shouldPrint(totalElasticEnergy)) {
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                  << approxPrefix.c_str() << "Elastic energy (total, % kinematic, % potential): "
+                  << "Elastic energy (total, % kinematic, % potential): "
                   << UnitEnergy.formatScientific(totalElasticEnergy, {}, outputPrecision).c_str()
                   << "," << ratioElasticKinematic << "% ," << ratioElasticPotential << "%";
       }
       if (shouldPrint(totalAcousticEnergy)) {
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                  << approxPrefix.c_str() << "Acoustic energy (total, % kinematic, % potential): "
+                  << "Acoustic energy (total, % kinematic, % potential): "
                   << UnitEnergy.formatScientific(totalAcousticEnergy, {}, outputPrecision).c_str()
                   << "," << ratioAcousticKinematic << "% ," << ratioAcousticPotential << "%";
       }
       if (shouldPrint(energiesStorage.gravitationalEnergy(sim))) {
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                  << approxPrefix.c_str() << "Gravitational energy:"
+                  << "Gravitational energy:"
                   << UnitEnergy
                          .formatScientific(
                              energiesStorage.gravitationalEnergy(sim), {}, outputPrecision)
@@ -664,7 +615,6 @@ void EnergyOutput::printEnergies() {
       }
       if (shouldPrint(energiesStorage.plasticMoment(sim))) {
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                  << approxPrefix.c_str()
                   << "Plastic moment (value, equivalent Mw, % total moment):"
                   << UnitMoment
                          .formatScientific(energiesStorage.plasticMoment(sim), {}, outputPrecision)

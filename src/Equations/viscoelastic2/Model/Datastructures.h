@@ -61,11 +61,14 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
 
   static constexpr bool SupportsDR = true;
   static constexpr bool SupportsLTS = true;
+  static constexpr bool SupportsEnergy = true;
 
   using LocalSpecificData = ViscoElasticLocalData;
   using NeighborSpecificData = ViscoElasticNeighborData;
 
   using Solver = ViscoSolver<Config::ViscoMode>::Type;
+
+  using EnergyData = std::monostate;
 
   //! Relaxation frequencies
   double omega[zeroLengthArrayHandler(Mechanisms)]{};
