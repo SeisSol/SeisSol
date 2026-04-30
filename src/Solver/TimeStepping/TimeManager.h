@@ -35,28 +35,28 @@ class AbstractCommunicationManager;
  **/
 class TimeManager {
   private:
-  seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance_;
 
   //! time stepping
-  std::optional<initializer::ClusterLayout> clusterLayout;
+  std::optional<initializer::ClusterLayout> clusterLayout_;
 
   //! all local (copy & interior) LTS clusters, which are under control of this time manager
-  std::vector<std::unique_ptr<TimeCluster>> clusters;
-  std::vector<TimeCluster*> highPrioClusters;
-  std::vector<TimeCluster*> lowPrioClusters;
+  std::vector<std::unique_ptr<TimeCluster>> clusters_;
+  std::vector<TimeCluster*> highPrioClusters_;
+  std::vector<TimeCluster*> lowPrioClusters_;
 
   //! one dynamic rupture scheduler per pair of interior/copy cluster
-  std::vector<std::unique_ptr<DynamicRuptureScheduler>> dynamicRuptureSchedulers;
+  std::vector<std::unique_ptr<DynamicRuptureScheduler>> dynamicRuptureSchedulers_;
 
   //! all MPI (ghost) LTS clusters, which are under control of this time manager
-  std::unique_ptr<AbstractCommunicationManager> communicationManager;
+  std::unique_ptr<AbstractCommunicationManager> communicationManager_;
 
   //! Stopwatch
-  LoopStatistics loopStatistics;
-  ActorStateStatisticsManager actorStateStatisticsManager;
+  LoopStatistics loopStatistics_;
+  ActorStateStatisticsManager actorStateStatisticsManager_;
 
   //! dynamic rupture output
-  dr::output::OutputManager* faultOutputManager{};
+  dr::output::OutputManager* faultOutputManager_{};
 
   public:
   /**
@@ -122,7 +122,7 @@ class TimeManager {
 
   void synchronizeTo(seissol::initializer::AllocationPlace place);
 
-  const initializer::ClusterLayout& getClusterLayout() { return clusterLayout.value(); }
+  const initializer::ClusterLayout& getClusterLayout() { return clusterLayout_.value(); }
 };
 
 } // namespace seissol::time_stepping

@@ -21,19 +21,19 @@
 #include <vector>
 namespace seissol::writer {
 
-ClusteringWriter::ClusteringWriter(const std::string& outputPrefix) : outputPrefix(outputPrefix) {}
+ClusteringWriter::ClusteringWriter(const std::string& outputPrefix) : outputPrefix_(outputPrefix) {}
 
 void ClusteringWriter::addCluster(unsigned profilingId,
                                   unsigned localClusterId,
                                   HaloType layerType,
                                   std::size_t size,
                                   std::size_t dynRupSize) {
-  clusteringInformation.profilingIds.push_back(profilingId);
-  clusteringInformation.localClusterIds.push_back(localClusterId);
-  clusteringInformation.layerTypes.push_back(
+  clusteringInformation_.profilingIds.push_back(profilingId);
+  clusteringInformation_.localClusterIds.push_back(localClusterId);
+  clusteringInformation_.layerTypes.push_back(
       static_cast<std::underlying_type_t<HaloType>>(layerType));
-  clusteringInformation.sizes.push_back(size);
-  clusteringInformation.dynamicRuptureSizes.push_back(dynRupSize);
+  clusteringInformation_.sizes.push_back(size);
+  clusteringInformation_.dynamicRuptureSizes.push_back(dynRupSize);
 }
 
 void ClusteringWriter::write() const {
@@ -41,40 +41,40 @@ void ClusteringWriter::write() const {
   const auto& mpi = Mpi::mpi;
 
   const auto localRanks = mpi.collect(mpi.sharedMemMpiRank());
-  const auto profilingIds = mpi.collectContainer(clusteringInformation.profilingIds);
-  const auto localClusterIds = mpi.collectContainer(clusteringInformation.localClusterIds);
-  const auto layerTypes = mpi.collectContainer(clusteringInformation.layerTypes);
-  const auto sizes = mpi.collectContainer(clusteringInformation.sizes);
-  const auto dynamicRuptureSizes = mpi.collectContainer(clusteringInformation.dynamicRuptureSizes);
+  const auto profilingIds = mpi.collectContainer(clusteringInformation_.profilingIds);
+  const auto localClusterIds = mpi.collectContainer(clusteringInformation_.localClusterIds);
+  const auto layerTypes = mpi.collectContainer(clusteringInformation_.layerTypes);
+  const auto sizes = mpi.collectContainer(clusteringInformation_.sizes);
+  const auto dynamicRuptureSizes = mpi.collectContainer(clusteringInformation_.dynamicRuptureSizes);
 
   if (mpi.rank() == 0) {
     logInfo() << "Cluster statistics:";
-    for (std::size_t i = 0; i < clusteringInformation.profilingIds.size(); ++i) {
+    for (std::size_t i = 0; i < clusteringInformation_.profilingIds.size(); ++i) {
       std::vector<double> sizestat(mpi.size());
       for (std::size_t j = 0; j < sizestat.size(); ++j) {
         sizestat[j] = sizes[j][i];
       }
       const auto sizeSummary = statistics::Summary(sizestat);
-      const auto layerType = static_cast<HaloType>(clusteringInformation.layerTypes[i]);
+      const auto layerType = static_cast<HaloType>(clusteringInformation_.layerTypes[i]);
       const std::string layerTypeStr = layerType == HaloType::Interior ? "interior" : "copy";
       logInfo() << "cell" << layerTypeStr.c_str() << localClusterIds[0][i] << ":" << sizeSummary.sum
                 << "(per rank:" << sizeSummary.mean << "±" << sizeSummary.std << "; range: ["
                 << sizeSummary.min << ";" << sizeSummary.max << "])";
     }
-    for (std::size_t i = 0; i < clusteringInformation.profilingIds.size(); ++i) {
+    for (std::size_t i = 0; i < clusteringInformation_.profilingIds.size(); ++i) {
       std::vector<double> sizestat(mpi.size());
       for (std::size_t j = 0; j < sizestat.size(); ++j) {
         sizestat[j] = dynamicRuptureSizes[j][i];
       }
       const auto sizeSummary = statistics::Summary(sizestat);
-      const auto layerType = static_cast<HaloType>(clusteringInformation.layerTypes[i]);
+      const auto layerType = static_cast<HaloType>(clusteringInformation_.layerTypes[i]);
       const std::string layerTypeStr = layerType == HaloType::Interior ? "interior" : "copy";
       logInfo() << "DR" << layerTypeStr.c_str() << localClusterIds[0][i] << ":" << sizeSummary.sum
                 << "(per rank:" << sizeSummary.mean << "±" << sizeSummary.std << "; range: ["
                 << sizeSummary.min << ";" << sizeSummary.max << "])";
     }
 
-    auto filepath = path(outputPrefix);
+    auto filepath = path(outputPrefix_);
     filepath += path("-clustering.csv");
 
     auto fileStream = std::ofstream(filepath, std::ios::out);

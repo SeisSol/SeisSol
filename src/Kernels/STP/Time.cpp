@@ -14,6 +14,7 @@
 
 #include <Eigen/Dense>
 #include <cassert>
+#include <cstddef>
 #include <cstring>
 #include <stdint.h>
 #include <yateto.h>
@@ -34,40 +35,40 @@ namespace seissol::kernels::solver::stp {
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
     if (n > 0) {
-      for (int d = 0; d < 3; ++d) {
-        m_krnlPrototype.kDivMTSub(d, n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
+      for (std::size_t d = 0; d < Cell::Dim; ++d) {
+        krnlPrototype_.kDivMTSub(d, n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
       }
     }
-    m_krnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
+    krnlPrototype_.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
   }
   for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
-    m_krnlPrototype.selectQuantity(k) =
+    krnlPrototype_.selectQuantity(k) =
         init::selectQuantity::Values[tensor::selectQuantity::index(k)];
-    m_krnlPrototype.selectQuantityG(k) =
+    krnlPrototype_.selectQuantityG(k) =
         init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
   }
-  m_krnlPrototype.timeInt = init::timeInt::Values;
-  m_krnlPrototype.wHat = init::wHat::Values;
+  krnlPrototype_.timeInt = init::timeInt::Values;
+  krnlPrototype_.wHat = init::wHat::Values;
 
 #ifdef ACL_DEVICE
   // TODO: adjust pointers
   for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
     if (n > 0) {
-      for (int d = 0; d < 3; ++d) {
-        deviceKrnlPrototype.kDivMTSub(d, n) =
+      for (std::size_t d = 0; d < Cell::Dim; ++d) {
+        deviceKrnlPrototype_.kDivMTSub(d, n) =
             init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
       }
     }
-    deviceKrnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
+    deviceKrnlPrototype_.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
   }
   for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
-    deviceKrnlPrototype.selectQuantity(k) =
+    deviceKrnlPrototype_.selectQuantity(k) =
         init::selectQuantity::Values[tensor::selectQuantity::index(k)];
-    deviceKrnlPrototype.selectQuantityG(k) =
+    deviceKrnlPrototype_.selectQuantityG(k) =
         init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
   }
-  deviceKrnlPrototype.timeInt = init::timeInt::Values;
-  deviceKrnlPrototype.wHat = init::wHat::Values;
+  deviceKrnlPrototype_.timeInt = init::timeInt::Values;
+  deviceKrnlPrototype_.wHat = init::wHat::Values;
 #endif
 }
 
@@ -78,7 +79,7 @@ void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeInteg
   assert((reinterpret_cast<uintptr_t>(stp)) % Alignment == 0);
   std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
   std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
-  kernel::spaceTimePredictor krnl = m_krnlPrototype;
+  kernel::spaceTimePredictor krnl = krnlPrototype_;
 
   // libxsmm can not generate GEMMs with alpha!=1. As a workaround we multiply the
   // star matrices with dt before we execute the kernel.
@@ -186,7 +187,7 @@ void Spacetime::computeBatchedAder(
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;
-  kernel::gpu_spaceTimePredictor krnl = deviceKrnlPrototype;
+  kernel::gpu_spaceTimePredictor krnl = deviceKrnlPrototype_;
 
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
@@ -203,7 +204,7 @@ void Spacetime::computeBatchedAder(
     krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Stp))->getDeviceDataPtr();
     krnl.spaceTimePredictorRhs = (entry.get(inner_keys::Wp::Id::StpRhs))->getDeviceDataPtr();
 
-    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
       krnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
       krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
