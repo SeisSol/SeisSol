@@ -73,7 +73,7 @@ class TestModule : public seissol::Module {
 };
 
 class SyncOnlyModule : public seissol::Module {
-public:
+  public:
   ModuleHook state{ModuleHook::NullHook};
   double time{0};
   explicit SyncOnlyModule(double interval) {
