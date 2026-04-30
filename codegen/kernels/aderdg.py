@@ -336,13 +336,22 @@ class LinearADERDG(ADERDGBase):
             dofsQP["kp"] <= self.db.evalAtQP[self.t("kl")] * self.Q["lp"],
         )
 
-        massLPR = Tensor(
-            "massLPR", (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
+        massLPR = OptionalDimTensor(
+            "massLPR",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (self.numberOf3DBasisFunctions(), self.numberOfQuantities()),
+            alignStride=True,
         )
         generator.add("massLP", massLPR["IJ"] <= self.db.M3["Ij"] * self.Q["jJ"])
 
-        massSPR = Tensor(
-            "massSPR", (self.numberOfQuantities(), self.numberOfQuantities())
+        massSPR = OptionalDimTensor(
+            "massSPR",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (self.numberOfQuantities(), self.numberOfQuantities()),
         )
         generator.add(
             "massSP", massSPR["IJ"] <= self.db.M3["ij"] * self.Q["iI"] * self.Q["jJ"]
