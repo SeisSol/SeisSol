@@ -193,37 +193,9 @@ def main():
             }
             mem_layout = kernels.memlayout.guessMemoryLayout(env)
         else:
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            subfolder = "gpu" if "gpu" in targets else "cpu"
-            config_dir = os.path.join(script_dir, "config", subfolder)
-
-            if os.path.isabs(cmdLineArgs.memLayout):
-                if os.path.isfile(cmdLineArgs.memLayout):
-                    mem_layout = cmdLineArgs.memLayout
-                else:
-                    # CMake FILEPATH cache values can become absolute paths in the build tree.
-                    # Recover by using the basename in the active target config folder.
-                    mem_layout = os.path.join(
-                        config_dir, os.path.basename(cmdLineArgs.memLayout)
-                    )
-            elif os.path.isfile(cmdLineArgs.memLayout):
-                mem_layout = cmdLineArgs.memLayout
-            else:
-                mem_layout = os.path.join(config_dir, cmdLineArgs.memLayout)
-
-            if not os.path.isfile(mem_layout):
-                raise FileNotFoundError(
-                    f"Could not find memory layout '{cmdLineArgs.memLayout}' for target "
-                    f"'{subfolder}'. Tried '{mem_layout}'."
-                )
-
-            if mem_layout.startswith(config_dir + os.sep):
-                print(
-                    "Using the pre-defined memory layout config file "
-                    f"{os.path.basename(mem_layout)} ({subfolder})"
-                )
-            else:
-                print(f"Using the memory layout config file {mem_layout}")
+            mem_layout = kernels.memlayout.resolveMemoryLayout(
+                cmdLineArgs.memLayout, targets
+            )
 
         cmdArgsDict = vars(cmdLineArgs)
         cmdArgsDict["memLayout"] = mem_layout

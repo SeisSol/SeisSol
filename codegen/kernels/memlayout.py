@@ -116,3 +116,37 @@ def guessMemoryLayout(env):
         bestFit = "dense.xml"
     print("Using memory layout {}".format(bestFit))
     return os.path.join(path, bestFit)
+
+
+def resolveMemoryLayout(memLayout, targets):
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    subfolder = "gpu" if "gpu" in targets else "cpu"
+    config_dir = os.path.join(script_dir, "..", "config", subfolder)
+
+    if os.path.isabs(memLayout):
+        if os.path.isfile(memLayout):
+            resolved_mem_layout = memLayout
+        else:
+            # CMake FILEPATH cache values can become absolute paths in the build tree.
+            # Recover by using the basename in the active target config folder.
+            resolved_mem_layout = os.path.join(config_dir, os.path.basename(memLayout))
+    elif os.path.isfile(memLayout):
+        resolved_mem_layout = memLayout
+    else:
+        resolved_mem_layout = os.path.join(config_dir, memLayout)
+
+    if not os.path.isfile(resolved_mem_layout):
+        raise FileNotFoundError(
+            f"Could not find memory layout '{memLayout}' for target "
+            f"'{subfolder}'. Tried '{resolved_mem_layout}'."
+        )
+
+    if resolved_mem_layout.startswith(config_dir + os.sep):
+        print(
+            "Using the pre-defined memory layout config file "
+            f"{os.path.basename(resolved_mem_layout)} ({subfolder})"
+        )
+    else:
+        print(f"Using the memory layout config file {resolved_mem_layout}")
+
+    return resolved_mem_layout
