@@ -11,6 +11,7 @@
 #include "Common/Real.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
+#include "Equations/Energy.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalMatrices.h"
 #include "Initializer/MemoryManager.h"
@@ -159,6 +160,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
       auto* materialArray = layer.var<LTS::Material>();
       auto* plasticityArray =
           seissolParams.model.plasticity ? layer.var<LTS::Plasticity>() : nullptr;
+      auto* energyDataArray = layer.var<LTS::EnergyData>();
 
 #pragma omp parallel for schedule(static)
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
@@ -174,6 +176,8 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         auto& materialData = materialDataArray[cell];
         initAssign(materialData, localMaterial);
         material.local = &materialData;
+
+        energyDataArray[cell] = model::EnergyCompute<MaterialT>::initEnergyData(materialData);
 
         for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
           if (isInternalFaceType(localCellInformation.faceTypes[side])) {

@@ -20,6 +20,7 @@
 #include <cmath>
 #include <cstddef>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace seissol::model {
@@ -41,10 +42,13 @@ struct AcousticMaterial : public Material {
 
   static constexpr bool SupportsDR = false;
   static constexpr bool SupportsLTS = true;
+  static constexpr bool SupportsEnergy = true;
 
   using LocalSpecificData = AcousticLocalData;
   using NeighborSpecificData = AcousticNeighborData;
   using Solver = kernels::solver::linearck::Solver;
+
+  using EnergyData = std::monostate;
 
   double lambda{};
 

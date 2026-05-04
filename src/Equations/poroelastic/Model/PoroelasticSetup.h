@@ -10,6 +10,7 @@
 
 #include "Equations/elastic/Model/ElasticSetup.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
+#include "Equations/poroelastic/Model/Helper.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
@@ -22,93 +23,8 @@
 
 namespace seissol::model {
 
-template <typename Tview>
-static void calcZinv(yateto::DenseTensorView<2, real, unsigned>& Zinv,
-                     Tview& sourceMatrix,
-                     size_t quantity,
-                     real timeStepWidth) {
-  using Matrix = Eigen::Matrix<real, ConvergenceOrder, ConvergenceOrder>;
-  using Vector = Eigen::Matrix<real, ConvergenceOrder, 1>;
-
-  Matrix Z(init::Z::Values);
-  // sourceMatrix[i,i] = 0 for i < 10
-  // This is specific to poroelasticity, so change this for another equation
-  // We need this check, because otherwise the lookup sourceMatrix(quantity, quantity) fails
-  if (quantity >= 10) {
-    Z -= timeStepWidth * sourceMatrix(quantity, quantity) * Matrix::Identity();
-  }
-
-  auto solver = Z.colPivHouseholderQr();
-  for (std::size_t col = 0; col < ConvergenceOrder; col++) {
-    Vector rhs = Vector::Zero();
-    rhs(col) = 1.0;
-    auto ZinvCol = solver.solve(rhs);
-    for (std::size_t row = 0; row < ConvergenceOrder; row++) {
-      // save as transposed
-      Zinv(col, row) = ZinvCol(row);
-    }
-  }
-}
-
-// constexpr for loop since we need to instatiate the view templates
-template <size_t iStart, size_t iEnd, typename Tview>
-struct zInvInitializerForLoop {
-  zInvInitializerForLoop(
-      real ZinvData[PoroElasticMaterial::NumQuantities][ConvergenceOrder * ConvergenceOrder],
-      Tview& sourceMatrix,
-      real timeStepWidth) {
-    auto Zinv = init::Zinv::view<iStart>::create(ZinvData[iStart]);
-    calcZinv(Zinv, sourceMatrix, iStart, timeStepWidth);
-    if constexpr (iStart < iEnd - 1) {
-      zInvInitializerForLoop<iStart + 1, iEnd, Tview>(ZinvData, sourceMatrix, timeStepWidth);
-    }
-  };
-};
-
 template <>
 struct MaterialSetup<PoroElasticMaterial> {
-  struct AdditionalPoroelasticParameters {
-    Eigen::Matrix<double, 6, 1> alpha;
-    double KBar;
-    double M;
-    double m;
-    Eigen::Matrix<double, 6, 6> cBar;
-    double rhoBar;
-    double rho1;
-    double rho2;
-    double beta1;
-    double beta2;
-  };
-
-  static AdditionalPoroelasticParameters
-      getAdditionalParameters(const PoroElasticMaterial& material) {
-    Eigen::Matrix<double, 6, 1> alpha;
-    alpha << 1 - (3 * material.lambda + 2 * material.mu) / (3 * material.bulkSolid),
-        1 - (3 * material.lambda + 2 * material.mu) / (3 * material.bulkSolid),
-        1 - (3 * material.lambda + 2 * material.mu) / (3 * material.bulkSolid), -0.0, -0.0, -0.0;
-
-    Eigen::Matrix<double, 6, 6> c;
-    c << material.lambda + 2 * material.mu, material.lambda, material.lambda, 0, 0, 0,
-        material.lambda, material.lambda + 2 * material.mu, material.lambda, 0, 0, 0,
-        material.lambda, material.lambda, material.lambda + 2 * material.mu, 0, 0, 0, 0, 0, 0,
-        material.mu, 0, 0, 0, 0, 0, 0, material.mu, 0, 0, 0, 0, 0, 0, material.mu;
-
-    double KBar = material.lambda + 2 * material.mu / 3;
-    double M = material.bulkSolid / (1 - material.porosity - KBar / material.bulkSolid +
-                                     material.porosity * material.bulkSolid / material.bulkFluid);
-    double m = material.rhoFluid * material.tortuosity / material.porosity;
-
-    Eigen::Matrix<double, 6, 6> cBar = c + M * alpha * alpha.transpose();
-
-    double rhoBar = (1 - material.porosity) * material.rho + material.porosity * material.rhoFluid;
-    double rho1 = rhoBar - material.rhoFluid * material.rhoFluid / m;
-    double rho2 = material.rhoFluid - m * rhoBar / material.rhoFluid;
-    double beta1 = material.rhoFluid / m;
-    double beta2 = rhoBar / material.rhoFluid;
-
-    return {alpha, KBar, M, m, cBar, rhoBar, rho1, rho2, beta1, beta2};
-  }
-
   template <typename T>
   static void setToZero(T& AT) {
     AT.setZero();
@@ -341,7 +257,7 @@ struct MaterialSetup<PoroElasticMaterial> {
     sourceMatrix.setZero();
     getTransposedSourceCoefficientTensor(material, sourceMatrix);
 
-    zInvInitializerForLoop<0, PoroElasticMaterial::NumQuantities, decltype(sourceMatrix)>(
+    ZInvInitializer<0, PoroElasticMaterial::NumQuantities, decltype(sourceMatrix)>(
         localData->Zinv, sourceMatrix, timeStepWidth);
     std::fill(localData->G, localData->G + PoroElasticMaterial::NumQuantities, 0.0);
     localData->G[10] = sourceMatrix(10, 6);

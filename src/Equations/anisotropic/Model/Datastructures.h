@@ -23,6 +23,7 @@
 namespace seissol::model {
 struct AnisotropicLocalData;
 struct AnisotropicNeighborData;
+struct AnisotropicEnergyData;
 
 struct AnisotropicMaterial : public Material {
   static constexpr std::size_t NumQuantities = 9;
@@ -38,10 +39,13 @@ struct AnisotropicMaterial : public Material {
 
   static constexpr bool SupportsDR = false;
   static constexpr bool SupportsLTS = true;
+  static constexpr bool SupportsEnergy = true;
 
   using LocalSpecificData = AnisotropicLocalData;
   using NeighborSpecificData = AnisotropicNeighborData;
   using Solver = kernels::solver::linearck::Solver;
+
+  using EnergyData = AnisotropicEnergyData;
 
   double c11{};
   double c12{};

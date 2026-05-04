@@ -55,6 +55,10 @@ class ADERDGBase(ABC):
             parseJSONMatrixFile("{}/mass_{}.json".format(matricesDir, order))
         )
 
+        # mass matrices are diagonal; treat them as sparse for now
+        self.db.M2.setMemoryLayout(CSCMemoryLayout)
+        self.db.M3.setMemoryLayout(CSCMemoryLayout)
+
         qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
         self.Q = OptionalDimTensor(
             "Q", "s", multipleSimulations, 0, qShape, alignStride=True
@@ -330,6 +334,27 @@ class LinearADERDG(ADERDGBase):
         generator.add(
             "evalAtQP",
             dofsQP["kp"] <= self.db.evalAtQP[self.t("kl")] * self.Q["lp"],
+        )
+
+        massLPR = OptionalDimTensor(
+            "massLPR",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (self.numberOf3DBasisFunctions(), self.numberOfQuantities()),
+            alignStride=True,
+        )
+        generator.add("massLP", massLPR["IJ"] <= self.db.M3["Ij"] * self.Q["jJ"])
+
+        massSPR = OptionalDimTensor(
+            "massSPR",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (self.numberOfQuantities(), self.numberOfQuantities()),
+        )
+        generator.add(
+            "massSP", massSPR["IJ"] <= self.db.M3["ij"] * self.Q["iI"] * self.Q["jJ"]
         )
 
     def addLocal(self, generator, targets):
