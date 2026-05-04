@@ -7,6 +7,7 @@
 
 #include "InitIO.h"
 
+#include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Filesystem.h"
 #include "Equations/Datastructures.h"
@@ -282,6 +283,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       for (std::size_t quantity = 0; quantity < seissol::model::MaterialT::Quantities.size();
            ++quantity) {
         if (seissolParams.output.waveFieldParameters.outputMask[quantity]) {
+          constexpr std::size_t MaxVtk3dPoints = tensor::vtk3d::Shape
+              [(sizeof(tensor::vtk3d::Shape) / sizeof(tensor::vtk3d::Shape[0])) - 1][1];
           writer.addPointData<real>(
               namewrap(seissol::model::MaterialT::Quantities[quantity], sim),
               {},
@@ -291,13 +294,15 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj{};
                 memory::AlignedArray<real, multisim::NumSimulations> simselect{};
+                alignas(Alignment) std::array<real, MaxVtk3dPoints> alignedTarget{};
                 simselect[sim] = 1;
                 vtkproj.simselect = simselect.data();
                 vtkproj.qb = dofsSingleQuantity;
-                vtkproj.xv(order) = target;
+                vtkproj.xv(order) = alignedTarget.data();
                 vtkproj.collvv(ConvergenceOrder, order) =
                     init::collvv::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
                 vtkproj.execute(order);
+                std::copy_n(alignedTarget.data(), tensor::vtk3d::Shape[order][1], target);
               });
         }
       }
@@ -305,6 +310,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         for (std::size_t quantity = 0; quantity < seissol::model::PlasticityData::Quantities.size();
              ++quantity) {
           if (seissolParams.output.waveFieldParameters.plasticityMask[quantity]) {
+            constexpr std::size_t MaxVtk3dPoints = tensor::vtk3d::Shape
+                [(sizeof(tensor::vtk3d::Shape) / sizeof(tensor::vtk3d::Shape[0])) - 1][1];
             writer.addPointData<real>(
                 namewrap(seissol::model::PlasticityData::Quantities[quantity], sim),
                 {},
@@ -315,14 +322,16 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                       dofsAllQuantities + QDofPointsPadded * quantity;
                   kernel::projectNodalToVtkVolume vtkproj{};
                   memory::AlignedArray<real, multisim::NumSimulations> simselect{};
+                  alignas(Alignment) std::array<real, MaxVtk3dPoints> alignedTarget{};
                   simselect[sim] = 1;
                   vtkproj.simselect = simselect.data();
                   vtkproj.qn = pointsSingleQuantity;
                   vtkproj.vInv = init::vInv::Values;
-                  vtkproj.xv(order) = target;
+                  vtkproj.xv(order) = alignedTarget.data();
                   vtkproj.collvv(ConvergenceOrder, order) =
                       init::collvv::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
                   vtkproj.execute(order);
+                  std::copy_n(alignedTarget.data(), tensor::vtk3d::Shape[order][1], target);
                 });
           }
         }
@@ -410,6 +419,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       for (std::size_t quantity = 0;
            quantity < seissol::solver::FreeSurfaceIntegrator::NumComponents;
            ++quantity) {
+        constexpr std::size_t MaxVtk2dPoints =
+            tensor::vtk2d::Shape[(sizeof(tensor::vtk2d::Shape) / sizeof(tensor::vtk2d::Shape[0])) -
+                                 1][1];
         writer.addPointData<real>(
             namewrap(quantityLabels[quantity], sim),
             {},
@@ -422,19 +434,24 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                   dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
               kernel::projectBasisToVtkFaceFromVolume vtkproj{};
               memory::AlignedArray<real, multisim::NumSimulations> simselect{};
+              alignas(Alignment) std::array<real, MaxVtk2dPoints> alignedTarget{};
               simselect[sim] = 1;
               vtkproj.simselect = simselect.data();
               vtkproj.qb = dofsSingleQuantity;
-              vtkproj.xf(order) = target;
+              vtkproj.xf(order) = alignedTarget.data();
               vtkproj.collvf(ConvergenceOrder, order, side) =
                   init::collvf::Values[ConvergenceOrder +
                                        (ConvergenceOrder + 1) * (order + 9 * side)];
               vtkproj.execute(order, side);
+              std::copy_n(alignedTarget.data(), tensor::vtk2d::Shape[order][1], target);
             });
       }
       for (std::size_t quantity = 0;
            quantity < seissol::solver::FreeSurfaceIntegrator::NumComponents;
            ++quantity) {
+        constexpr std::size_t MaxVtk2dPoints =
+            tensor::vtk2d::Shape[(sizeof(tensor::vtk2d::Shape) / sizeof(tensor::vtk2d::Shape[0])) -
+                                 1][1];
         writer.addPointData<real>(
             namewrap(
                 quantityLabels[quantity + seissol::solver::FreeSurfaceIntegrator::NumComponents],
@@ -449,14 +466,16 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                   faceDisplacements[side] + FaceDisplacementPadded * quantity;
               kernel::projectNodalToVtkFace vtkproj{};
               memory::AlignedArray<real, multisim::NumSimulations> simselect{};
+              alignas(Alignment) std::array<real, MaxVtk2dPoints> alignedTarget{};
               simselect[sim] = 1;
               vtkproj.simselect = simselect.data();
               vtkproj.pn = faceDisplacementVariable;
               vtkproj.MV2nTo2m = nodal::init::MV2nTo2m::Values;
-              vtkproj.xf(order) = target;
+              vtkproj.xf(order) = alignedTarget.data();
               vtkproj.collff(ConvergenceOrder, order) =
                   init::collff::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
               vtkproj.execute(order);
+              std::copy_n(alignedTarget.data(), tensor::vtk2d::Shape[order][1], target);
             });
       }
     }

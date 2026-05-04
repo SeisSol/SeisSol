@@ -60,7 +60,14 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
   initializer::initializeCellLocalMatrices(
       *meshReader_, *ltsStorage_, *clusterLayout_, seissolInstance_.getSeisSolParameters().model);
   // An empty timestepping is added. Need to discuss what exactly is to be sent here
-
+#ifdef ACL_DEVICE
+  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+  ltsStorage_->varSynchronizeTo<LTS::LocalIntegration>(
+      seissol::initializer::AllocationPlace::Device, stream);
+  ltsStorage_->varSynchronizeTo<LTS::NeighboringIntegration>(
+      seissol::initializer::AllocationPlace::Device, stream);
+  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+#endif
   logInfo() << "Updating TimeSteps by a factor of " << 1 / velocityScalingFactor_;
   updateTimeSteps();
 
@@ -89,13 +96,15 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
     } else if (reflectionType == seissol::initializer::parameters::ReflectionType::Swave) {
       // Refocusing only S-waves
 
-      // (preserved comment from before the refactor)
-      // lambda = -2.0 * velocityScalingFactor * mu + (lambda + 2.0 * mu) / velocityScalingFactor;
-      // mu *= velocityScalingFactor;
-      // rho *= velocityScalingFactor;
+      const auto newLambda =
+          -2.0 * velocityScalingFactor_ * mu + (lambda + 2.0 * mu) / velocityScalingFactor_;
 
-      const auto newLambda = lambda + 2.0 * mu * (1 - velocityScalingFactor_);
-      material.setDensity(rho * lambda / newLambda);
+      if (newLambda < 0.0) {
+        logError()
+            << "New lambda is negative. This is not allowed. Please adjust your scaling factor.";
+      }
+
+      material.setDensity(rho * velocityScalingFactor_);
       material.setLameParameters(velocityScalingFactor_ * mu, newLambda);
     } else {
       logError() << "Unknown reflection type; material cannot be updated.";
@@ -139,13 +148,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
   if (reflectionType ==
       seissol::initializer::parameters::ReflectionType::Swave) { // refocusing only S-waves
 
-    if (abs(timeStepScalingFactor_ - 1.0) < 1e-6) {
-      timeStepScalingFactor_ = 0.5;
-    }
-
-    if (abs(timeStepScalingFactor_ - 0.5) < 1e-6) {
-      timeStepScalingFactor_ = 2.0;
-    }
+    timeStepScalingFactor_ = velocityScalingFactor_;
 
     for (auto& cluster : clusters_) {
       cluster->setClusterTimes(cluster->getClusterTimes() * timeStepScalingFactor_);
