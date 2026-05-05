@@ -44,6 +44,8 @@ class MixedResultsAdapter : public easi::ResultAdapter {
            const easi::Slice<double>& value) override {
     const auto& entryIdx = indices_.at(parameter);
     const auto& entry = entries_[entryIdx];
+
+#pragma omp parallel for schedule(static)
     for (std::size_t i = 0; i < value.size(); ++i) {
       entry.setter(base_ + index(i), &value(i));
     }
