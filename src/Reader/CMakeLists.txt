@@ -8,6 +8,9 @@
 add_library(seissol-reader OBJECT
     Datafield/AsagiModule.cpp
     Datafield/AsagiReader.cpp
+
+    Scripting/EasiReader.cpp
+    Scripting/ReaderBuilder.cpp
 )
 
 target_link_libraries(seissol-reader PUBLIC seissol-common-properties)
