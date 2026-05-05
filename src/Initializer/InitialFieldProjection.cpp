@@ -25,37 +25,17 @@
 #include "Numerical/Transformation.h"
 #include "ParameterDB.h"
 #include "Physics/InitialField.h"
+#include "Reader/Scripting/DataTable.h"
+#include "Reader/Scripting/ReaderBuilder.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <array>
 #include <cstddef>
-#include <easi/Query.h>
-#include <easi/ResultAdapter.h>
-#include <easi/YAMLParser.h>
 #include <exception>
 #include <memory>
 #include <string>
 #include <utils/logger.h>
 #include <vector>
-
-#ifdef USE_ASAGI
-#include "Reader/Datafield/AsagiReader.h"
-
-#include <easi/util/AsagiReader.h>
-#endif
-
-// time-dependent conditions require easi version 1.5.0 or higher
-#ifdef EASI_VERSION_MAJOR
-#if EASI_VERSION_MINOR >= 5 || EASI_VERSION_MAJOR > 1
-#define SUPPORTS_EASI_TIME
-#endif
-#endif
-
-#ifdef SUPPORTS_EASI_TIME
-#include <set>
-#else
-#include <utils/logger.h>
-#endif
 
 GENERATE_HAS_MEMBER(selectAneFull)
 GENERATE_HAS_MEMBER(selectElaFull)
@@ -66,52 +46,6 @@ namespace seissol::init {
 struct selectAneFull;
 struct selectElaFull;
 } // namespace seissol::init
-
-#ifndef USE_ASAGI
-namespace easi {
-class AsagiReader {};
-} // namespace easi
-#endif
-
-namespace {
-struct EasiLoader {
-  bool hasTime;
-  std::vector<std::unique_ptr<easi::Component>> components;
-  std::unique_ptr<easi::AsagiReader> asagiReader;
-  std::unique_ptr<easi::YAMLParser> parser;
-  EasiLoader(bool hasTime, const std::vector<std::string>& files) : hasTime(hasTime) {
-#ifdef USE_ASAGI
-    asagiReader = std::make_unique<seissol::asagi::AsagiReader>();
-#else
-    asagiReader.reset();
-#endif
-
-    // NOTE: easi currently sorts the dimension names lexicographically (due to using std::set)
-    // hence: if we have time as a dimension, it will come first
-#ifdef SUPPORTS_EASI_TIME
-    const auto dimensionNames =
-        hasTime ? std::set<std::string>{"t", "x", "y", "z"} : std::set<std::string>{"x", "y", "z"};
-    parser = std::make_unique<easi::YAMLParser>(dimensionNames, asagiReader.get());
-#else
-    // ignore time
-    if (hasTime) {
-      logError() << "easi is too old for time-dependent initial conditions. You need at least "
-                    "version 1.5.0.";
-    }
-    parser = std::make_unique<easi::YAMLParser>(3, asagiReader.get(), 'x');
-#endif
-    components.resize(files.size());
-    for (std::size_t i = 0; i < files.size(); ++i) {
-      try {
-        components[i] = std::unique_ptr<easi::Component>(parser->parse(files.at(i)));
-      } catch (const std::exception& error) {
-        logError() << "Error while parsing easi file" << files.at(i) << ":"
-                   << std::string(error.what());
-      }
-    }
-  }
-};
-} // namespace
 
 namespace seissol::initializer {
 
@@ -196,59 +130,55 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  const int dimensions = needsTime ? (Cell::Dim + 1) : Cell::Dim;
-  const int spaceStart = needsTime ? 1 : 0;
-  easi::Query query(elements.size() * NumQuadPoints, dimensions);
+  std::vector<std::array<double, Cell::Dim>> points(elements.size() * NumQuadPoints);
 
-  {
-    double quadraturePoints[NumQuadPoints][Cell::Dim];
-    double quadratureWeights[NumQuadPoints];
-    seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
+  const auto inVars = needsTime ? std::vector<std::string>{"t", "x", "y", "z"}
+                                : std::vector<std::string>{"x", "y", "z"};
+
+  double quadraturePoints[NumQuadPoints][Cell::Dim];
+  double quadratureWeights[NumQuadPoints];
+  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
 
 #pragma omp parallel for schedule(static)
-    for (std::size_t elem = 0; elem < elements.size(); ++elem) {
-      const double* elementCoords[Cell::NumVertices];
-      for (size_t v = 0; v < Cell::NumVertices; ++v) {
-        elementCoords[v] = vertices[elements[elem].vertices[v]].coords;
-      }
-      for (size_t i = 0; i < NumQuadPoints; ++i) {
-        std::array<double, Cell::Dim> transformed{};
-        seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
-                                                               elementCoords[1],
-                                                               elementCoords[2],
-                                                               elementCoords[3],
-                                                               quadraturePoints[i],
-                                                               transformed.data());
-        for (std::size_t d = 0; d < Cell::Dim; ++d) {
-          query.x(elem * NumQuadPoints + i, spaceStart + d) = transformed[d];
-        }
-        if (needsTime) {
-          query.x(elem * NumQuadPoints + i, 0) = time;
-        }
-        query.group(elem * NumQuadPoints + i) = elements[elem].group;
-      }
+  for (std::size_t elem = 0; elem < elements.size(); ++elem) {
+    const double* elementCoords[Cell::NumVertices];
+    for (size_t v = 0; v < Cell::NumVertices; ++v) {
+      elementCoords[v] = vertices[elements[elem].vertices[v]].coords;
+    }
+    for (size_t i = 0; i < NumQuadPoints; ++i) {
+      const auto idx = elem * NumQuadPoints + i;
+
+      seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
+                                                             elementCoords[1],
+                                                             elementCoords[2],
+                                                             elementCoords[3],
+                                                             quadraturePoints[i],
+                                                             points[idx].data());
     }
   }
 
   std::vector<double> data(NumQuadPoints * iniFields.size() * model::MaterialT::Quantities.size() *
                            elements.size());
   const auto dataPointStride = iniFields.size() * model::MaterialT::Quantities.size();
-  {
-    auto models = EasiLoader(needsTime, iniFields);
-    for (std::size_t i = 0; i < iniFields.size(); ++i) {
-      auto adapter = easi::ArraysAdapter();
-      for (std::size_t j = 0; j < model::MaterialT::Quantities.size(); ++j) {
-        const auto& quantity = model::MaterialT::Quantities.at(j);
-        const std::size_t bindOffset = i + j * iniFields.size();
-        adapter.addBindingPoint(quantity, data.data() + bindOffset, dataPointStride);
-      }
-      try {
-        models.components.at(i)->evaluate(query, adapter);
-      } catch (const std::exception& error) {
-        logError() << "Error while applying easi file" << iniFields.at(i) << ":"
-                   << std::string(error.what());
-      }
+
+  for (std::size_t i = 0; i < iniFields.size(); ++i) {
+    reader::scripting::DataTable table(elements.size() * NumQuadPoints);
+    table.bindComputed("__group", [&](std::size_t index) -> std::int32_t {
+      return elements[index / NumQuadPoints].group;
+    });
+    table.bindComputed("t", [&](std::size_t) -> double { return time; });
+    table.bindComputed("x", [&](std::size_t index) -> double { return points[index][0]; });
+    table.bindComputed("y", [&](std::size_t index) -> double { return points[index][1]; });
+    table.bindComputed("z", [&](std::size_t index) -> double { return points[index][2]; });
+    for (std::size_t j = 0; j < model::MaterialT::Quantities.size(); ++j) {
+      const auto& quantity = model::MaterialT::Quantities.at(j);
+      const std::size_t bindOffset = i + j * iniFields.size();
+      table.bindView(
+          quantity, reader::scripting::Direction::Out, data.data(), dataPointStride, bindOffset);
     }
+
+    const auto reader = reader::scripting::buildReader(iniFields[0], inVars);
+    reader->call(table);
   }
 
   return data;
