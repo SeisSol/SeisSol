@@ -58,7 +58,7 @@
 #endif
 
 #ifdef USE_ASAGI
-#include "Reader/AsagiReader.h"
+#include "Reader/Datafield/AsagiReader.h"
 #endif
 
 using namespace seissol::model;

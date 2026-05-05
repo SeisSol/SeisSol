@@ -10,7 +10,7 @@
 #include "AsagiReader.h"
 
 #include "Monitoring/Instrumentation.h"
-#include "Reader/AsagiModule.h"
+#include "Reader/Datafield/AsagiModule.h"
 
 #include <asagi.h>
 #include <cstddef>

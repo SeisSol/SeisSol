@@ -6,8 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef SEISSOL_SRC_READER_ASAGIREADER_H_
-#define SEISSOL_SRC_READER_ASAGIREADER_H_
+#ifndef SEISSOL_SRC_READER_DATAFIELD_ASAGIREADER_H_
+#define SEISSOL_SRC_READER_DATAFIELD_ASAGIREADER_H_
 
 #ifdef USE_ASAGI
 
@@ -43,4 +43,4 @@ class AsagiReader : public easi::AsagiReader {
 
 #endif
 
-#endif // SEISSOL_SRC_READER_ASAGIREADER_H_
+#endif // SEISSOL_SRC_READER_DATAFIELD_ASAGIREADER_H_
