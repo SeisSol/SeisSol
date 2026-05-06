@@ -95,7 +95,6 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
         faceNeighbors[cell][f] = buffers[cell];
         faceNeighborsDevice[cell][f] = buffersDevice[cell];
         break;
-      case FaceType::Periodic:
       case FaceType::Regular:
         faceNeighbors[cell][f] = buffers[secondaryInformation[cell].faceNeighbors[f].cell];
         faceNeighborsDevice[cell][f] =

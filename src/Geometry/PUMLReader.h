@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_GEOMETRY_PUMLREADER_H_
 #define SEISSOL_SRC_GEOMETRY_PUMLREADER_H_
 
+#include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "MeshReader.h"
 #include "Parallel/MPI.h"
@@ -24,10 +25,10 @@ namespace seissol::geometry {
 constexpr PUML::TopoType PumlTopology = PUML::TETRAHEDRON;
 using PumlMesh = PUML::PUML<PumlTopology>;
 
-inline int decodeBoundary(const void* data,
-                          size_t cell,
-                          int face,
-                          seissol::initializer::parameters::BoundaryFormat format) {
+inline uint32_t decodeBoundary(const void* data,
+                               size_t cell,
+                               uint8_t face,
+                               seissol::initializer::parameters::BoundaryFormat format) {
   if (format == seissol::initializer::parameters::BoundaryFormat::I32) {
     const auto* dataCasted = reinterpret_cast<const uint32_t*>(data);
     return (dataCasted[cell] >> (8 * face)) & 0xff;
@@ -35,10 +36,10 @@ inline int decodeBoundary(const void* data,
     const auto* dataCasted = reinterpret_cast<const uint64_t*>(data);
     return (dataCasted[cell] >> (16 * face)) & 0xffff;
   } else if (format == seissol::initializer::parameters::BoundaryFormat::I32x4) {
-    const int* dataCasted = reinterpret_cast<const int*>(data);
+    const auto* dataCasted = reinterpret_cast<const int*>(data);
     return dataCasted[cell * Cell::NumFaces + face];
   } else {
-    logError() << "Unknown boundary format:" << static_cast<int>(format);
+    logError() << "Unknown boundary format:" << static_cast<uint32_t>(format);
     return 0;
   }
 }
@@ -47,6 +48,7 @@ class PUMLReader : public seissol::geometry::MeshReader {
   public:
   PUMLReader(const std::string& meshFile,
              const std::string& partitioningLib,
+             const seissol::FaceMap& faceMap,
              seissol::initializer::parameters::BoundaryFormat boundaryFormat =
                  seissol::initializer::parameters::BoundaryFormat::I32,
              seissol::initializer::parameters::TopologyFormat topologyFormat =
@@ -84,6 +86,7 @@ class PUMLReader : public seissol::geometry::MeshReader {
    */
   void getMesh(const PumlMesh& meshTopology,
                const PumlMesh& meshGeometry,
+               const FaceMap& faceMap,
                seissol::initializer::parameters::BoundaryFormat boundaryFormat);
 
   void

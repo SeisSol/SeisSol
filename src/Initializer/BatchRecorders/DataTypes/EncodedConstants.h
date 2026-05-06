@@ -122,8 +122,7 @@ enum struct FaceKinds : size_t {
   FreeSurface = 1 << 1,
   Outflow = 1 << 2,
   DynamicRupture = 1 << 3,
-  Periodic = 1 << 4,
-  Count = 5,
+  Count = 4,
   None = encodeAny(Count)
 };
 

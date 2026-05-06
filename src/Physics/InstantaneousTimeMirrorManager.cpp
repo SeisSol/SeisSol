@@ -83,7 +83,14 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
   initializer::initializeCellLocalMatrices(
       *meshReader_, *ltsStorage_, *clusterLayout_, seissolInstance_.getSeisSolParameters().model);
   // An empty timestepping is added. Need to discuss what exactly is to be sent here
-
+#ifdef ACL_DEVICE
+  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+  ltsStorage_->varSynchronizeTo<LTS::LocalIntegration>(
+      seissol::initializer::AllocationPlace::Device, stream);
+  ltsStorage_->varSynchronizeTo<LTS::NeighboringIntegration>(
+      seissol::initializer::AllocationPlace::Device, stream);
+  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+#endif
   logInfo() << "Updating TimeSteps by a factor of " << 1 / velocityScalingFactor_;
   updateTimeSteps();
 
