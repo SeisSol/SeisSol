@@ -119,15 +119,6 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   auto* globalData = memoryManager.getGlobalData().onHost;
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
 
-  constexpr auto NumQuantities =
-      tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
-
-  // ill-defined for multisim; but irrelevant for it
-  constexpr auto NumAlignedBasisFunctions = tensor::Q::size() / NumQuantities;
-  // TODO(David): handle attenuation properly here. We'll probably not want it to be contained in
-  // numberOfQuantities. But the compile-time parameter
-  // seissol::model::MaterialT::NumQuantities contains it nonetheless.
-
   if (seissolParams.output.waveFieldParameters.enabled &&
       seissolParams.output.waveFieldParameters.vtkorder < 0) {
     // record the clustering info i.e., distribution of elements within an LTS storage
@@ -160,15 +151,12 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
     // Initialize wave field output
     seissolInstance.waveFieldWriter().init(
-        NumQuantities,
-        ConvergenceOrder,
-        NumAlignedBasisFunctions,
         seissolInstance.meshReader(),
         ltsClusteringData,
         ltsIdData,
         reinterpret_cast<const real*>(ltsStorage.var<LTS::Dofs>()),
         reinterpret_cast<const real*>(ltsStorage.var<LTS::PStrain>()),
-        seissolInstance.postProcessor().getIntegrals(ltsStorage),
+        reinterpret_cast<const real*>(ltsStorage.var<LTS::Integrals>()),
         meshToLts.data(),
         seissolParams.output.waveFieldParameters,
         seissolParams.output.xdmfWriterBackend,
@@ -303,6 +291,25 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                     init::collvv::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
                 vtkproj.execute(order);
                 std::copy_n(alignedTarget.data(), tensor::vtk3d::Shape[order][1], target);
+              });
+        }
+        if (seissolParams.output.waveFieldParameters.integrationMask[quantity]) {
+          writer.addPointData<real>(
+              namewrap("int-" + seissol::model::MaterialT::Quantities[quantity], sim),
+              {},
+              [=, &ltsStorage, &backmap](real* target, std::size_t index) {
+                const auto position = backmap.get(cellIndices[index]);
+                const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Integrals>(position);
+                const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
+                kernel::projectBasisToVtkVolume vtkproj{};
+                memory::AlignedArray<real, multisim::NumSimulations> simselect{};
+                simselect[sim] = 1;
+                vtkproj.simselect = simselect.data();
+                vtkproj.qb = dofsSingleQuantity;
+                vtkproj.xv(order) = target;
+                vtkproj.collvv(ConvergenceOrder, order) =
+                    init::collvv::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
+                vtkproj.execute(order);
               });
         }
       }
@@ -537,12 +544,6 @@ void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
   }
 }
 
-void setIntegralMask(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  seissolInstance.postProcessor().setIntegrationMask(
-      seissolParams.output.waveFieldParameters.integrationMask);
-}
-
 } // namespace
 
 void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstance) {
@@ -561,7 +562,6 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
   seissol::Mpi::barrier(Mpi::mpi.comm());
 
   enableWaveFieldOutput(seissolInstance);
-  setIntegralMask(seissolInstance);
   enableFreeSurfaceOutput(seissolInstance);
   initFaultOutputManager(seissolInstance);
   setupCheckpointing(seissolInstance);

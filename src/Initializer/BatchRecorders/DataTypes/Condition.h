@@ -30,7 +30,7 @@ class Condition {
   Condition() = delete;
 
   explicit Condition(T initialEncoding)
-      : highBitsMask_(~((~static_cast<size_t>(0)) << static_cast<size_t>(T::Count))),
+      : highBitsMask_(~((~0_UZ) << static_cast<size_t>(T::Count))),
         encoding_(static_cast<size_t>(initialEncoding)) {}
 
   Condition& operator!() {
