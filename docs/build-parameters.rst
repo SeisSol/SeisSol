@@ -77,7 +77,10 @@ CPU-specific parameters
 - ``HOST_ARCH``: the parameter to tune the architecture for. See build-archs for an overview. Applies both compiler options and GEMM generation. If you get an illegal instruction error, check this variable first. Since there are many options, we have an own page for them. In short, use ``hsw`` when using a Linux/Windows PC or an older Mac. Use ``apple-m1`` or ``apple-m2`` on the latest Mac computers.
 - ``MEMKIND``: enables HBM support.
 - ``NUMA_AWARE_PINNING``: pin the free CPUs (those used for the communication and IO threads) according to the given NUMA domains.
-- ``MEMORY_LAYOUT``: the sparsity patterns to apply. If not given, it will be chosen by the CPU architecture.
+- ``MEMORY_LAYOUT``: the sparsity patterns to apply. If set to ``auto``, code generation chooses
+  a layout from the target-specific config folder (``codegen/config/cpu`` or
+  ``codegen/config/gpu``). Passing a filename such as ``dense.xml`` or ``ms32.xml`` resolves it
+  from that same target-specific folder automatically.
 - ``GEMM_TOOLS_LIST``: the list for CPU GEMM generators that are used. Note that SeisSol benefits from code generation specifically for small matrices. Currently supports combinations of the following:
 
     * ``auto``: automatically selects the installed and usable GEMM generators out of ``LIBXSMM_JIT``, ``LIBXSMM`` and ``PSpaMM`` (in this order).
