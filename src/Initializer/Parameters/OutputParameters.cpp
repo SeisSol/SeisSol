@@ -282,7 +282,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
     outputName = outputNameR.value();
   } else {
     const auto prefix = reader->readOrFail<std::string>(
-        "outputfile", "Output directory, output name, nor output file prefix not defined.");
+        "outputfile", "Neighbor output directory, output name, nor output file prefix defined.");
     const auto prefixPath = filesystem::path(prefix);
     outputDir = prefixPath.parent_path();
     outputName = prefixPath.filename();

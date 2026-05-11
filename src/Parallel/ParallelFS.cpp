@@ -28,6 +28,8 @@ bool entryExistsGlobally(const filesystem::directory_entry& entry) {
 }
 
 void waitExistence(const filesystem::path& path) {
+  Mpi::mpi.barrier();
+
   std::size_t counter = 0;
   auto entry = filesystem::directory_entry(path);
   while (!entryExistsGlobally(entry)) {
@@ -35,7 +37,7 @@ void waitExistence(const filesystem::path& path) {
     std::this_thread::sleep_for(10ms);
     entry.refresh();
     ++counter;
-    if (counter % 10 == 0) {
+    if (counter % 100 == 0) {
       logInfo() << "Still waiting for" << path << "to become globally visible.";
     }
   }
@@ -75,8 +77,7 @@ void generateBackupFileIfNecessary(const std::string& fileName,
     std::stringstream backupFileName;
     backupFileName << fileName << ".bak_" << actualTimeStamp << '.' << fileExtension;
     const auto copyPath = seissol::filesystem::path(backupFileName.str());
-    moveEntryGlobally(seissol::filesystem::directory_entry(path),
-                      seissol::filesystem::directory_entry(copyPath));
+    moveEntryGlobally(path, copyPath);
   }
 }
 

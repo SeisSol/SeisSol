@@ -213,7 +213,7 @@ class SeisSol {
 
   utils::Env& env() { return env_; }
 
-  const SystemInfo& systemInfo() { return systemInfo_; }
+  const SystemInfo& systemInfo() const { return systemInfo_; }
 
   private:
   // Note: This HAS to be the first member so that it is initialized before all others!

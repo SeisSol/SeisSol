@@ -22,7 +22,7 @@ namespace seissol {
 
 void SystemInfo::init() {
   loadHostInfo();
-  loadCPUInfo();
+  // no dedicated CPU info printing yet (only GPU)
   loadGPUInfo();
 }
 
@@ -37,10 +37,6 @@ void SystemInfo::loadHostInfo() {
   hostNames_ = Mpi::mpi.collectContainer(hostName);
 
   logInfo() << "Running on (rank=0):" << hostNames_.front();
-}
-
-void SystemInfo::loadCPUInfo() {
-  // do nothing. Yet.
 }
 
 void SystemInfo::loadGPUInfo() {

@@ -29,11 +29,14 @@ class SystemInfo {
    */
   [[nodiscard]] const auto& getHostNames() const { return hostNames_; }
 
+  /// return the PCIe addresses as used over the whole application
   [[nodiscard]] const auto& getPCIAddresses() const { return pcis_; }
 
   private:
+  /// print the host name
   void loadHostInfo();
-  void loadCPUInfo();
+
+  /// print info in the GPUs in use (if any) and how they are connected to the node
   void loadGPUInfo();
 
   std::vector<std::string> hostNames_;
