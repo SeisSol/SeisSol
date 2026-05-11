@@ -6,8 +6,6 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#ifdef USE_ASAGI
-
 #include "AsagiModule.h"
 
 #include "Modules/Modules.h"
@@ -104,14 +102,18 @@ void AsagiModule::preMesh() {
       }
     }
 #endif
+#ifdef USE_ASAGI
     ::asagi::Grid::startCommThread(cpu);
+#endif
   }
 }
 
 void AsagiModule::postModel() {
+#ifdef USE_ASAGI
   if (mpiMode_ == AsagiMPIMode::CommThread) {
     ::asagi::Grid::stopCommThread();
   }
+#endif
 }
 
 void AsagiModule::initInstance(utils::Env& env) {
@@ -127,5 +129,3 @@ int AsagiModule::totalThreads() { return getInstance().totalThreads_; }
 std::shared_ptr<AsagiModule> AsagiModule::instance{nullptr};
 
 } // namespace seissol::asagi
-
-#endif

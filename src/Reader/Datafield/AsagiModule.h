@@ -9,8 +9,6 @@
 #ifndef SEISSOL_SRC_READER_DATAFIELD_ASAGIMODULE_H_
 #define SEISSOL_SRC_READER_DATAFIELD_ASAGIMODULE_H_
 
-#ifdef USE_ASAGI
-
 #include "Modules/Module.h"
 #include "Parallel/Pin.h"
 
@@ -102,7 +100,5 @@ class AsagiModule : public Module {
 };
 
 } // namespace seissol::asagi
-
-#endif // USE_ASAGI
 
 #endif // SEISSOL_SRC_READER_DATAFIELD_ASAGIMODULE_H_

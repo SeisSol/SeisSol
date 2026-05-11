@@ -151,6 +151,7 @@ include(ExternalProject)
 if (EASI)
   find_package(easi 1.5.0 REQUIRED)
   target_link_libraries(seissol-common-properties INTERFACE easi::easi)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_EASI)
 endif()
 
 if (LUA)
@@ -168,6 +169,7 @@ if (LUA)
   endif()
 
   target_link_libraries(seissol-common-properties INTERFACE Lua::Lua)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_LUA)
 endif()
 
 if (OPENMP)
