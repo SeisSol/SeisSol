@@ -186,7 +186,6 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   }
 
   const auto numberOfPoints = points.size();
-  std::vector<short> contained(numberOfPoints);
   std::vector<std::size_t> meshIds(numberOfPoints);
 
   // We want to plot all quantities except for the memory variables
@@ -194,9 +193,13 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   std::iota(quantities.begin(), quantities.end(), 0);
 
   logInfo() << "Finding meshIds for receivers...";
-  initializer::findMeshIds(
-      points.data(), mesh, numberOfPoints, contained.data(), meshIds.data(), 1e-3);
-  std::vector<short> globalContained(contained.begin(), contained.end());
+  const auto contained =
+      initializer::findUniqueMeshIds(points.data(), mesh, numberOfPoints, meshIds.data(), 1e-3);
+
+  std::vector<short> globalContained(contained.size());
+  for (std::size_t i = 0; i < contained.size(); ++i) {
+    globalContained[i] = contained[i] ? 1 : 0;
+  }
 
   Mpi::mpi.allreduceContainer(globalContained, MPI_MAX);
 
@@ -218,7 +221,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   size_t localReceiverCount = 0;
 
   for (std::size_t point = 0; point < numberOfPoints; ++point) {
-    if (contained[point] == 1) {
+    if (contained[point]) {
       const std::size_t meshId = meshIds[point];
       const auto id = backmap.get(meshId).color;
 

@@ -185,8 +185,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         // update local slip rate, now using V=(Vnew+Vold)/2
         // For the next SV update, use the mean slip rate between the initial guess and the one
         // found (Kaneko 2008, step 6)
-        localSlipRate[pointIndex] = 0.5 * (this->slipRateMagnitude_[ltsFace][pointIndex] +
-                                           std::fabs(testSlipRate[pointIndex]));
+        localSlipRate[pointIndex] =
+            static_cast<real>(0.5) *
+            (this->slipRateMagnitude_[ltsFace][pointIndex] + std::fabs(testSlipRate[pointIndex]));
 
         // solve again for Vnew
         this->slipRateMagnitude_[ltsFace][pointIndex] = std::fabs(testSlipRate[pointIndex]);
@@ -203,7 +204,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                TractionResults<Executor::Host>& tractionResults,
                                uint32_t timeIndex,
                                std::size_t ltsFace) {
-    const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // SV from mean slip rate in tmp
@@ -213,7 +214,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                                            stateVarReference[pointIndex],
                                                            this->deltaT_[timeIndex],
                                                            localSlipRate[pointIndex]);
+    }
 
+    const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+
+#pragma omp simd
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // update LocMu for next strength determination, only needed for last update
       this->mu_[ltsFace][pointIndex] = static_cast<Derived*>(this)->updateMu(
           pointIndex, this->slipRateMagnitude_[ltsFace][pointIndex], details);
@@ -259,12 +265,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
 
-      if (this->ruptureTime_[faceIndex][pointIndex] > 0.0 &&
+      if (this->ruptureTime_[faceIndex][pointIndex] > static_cast<real>(0.0) &&
           this->ruptureTime_[faceIndex][pointIndex] <= time &&
           this->dynStressTimePending_[faceIndex][pointIndex] &&
           this->mu_[faceIndex][pointIndex] <=
               (this->muW_[faceIndex][pointIndex] +
-               0.05 * (this->f0_[faceIndex][pointIndex] - this->muW_[faceIndex][pointIndex]))) {
+               static_cast<real>(0.05) *
+                   (this->f0_[faceIndex][pointIndex] - this->muW_[faceIndex][pointIndex]))) {
         this->dynStressTime_[faceIndex][pointIndex] = time;
         this->dynStressTimePending_[faceIndex][pointIndex] = false;
       }
@@ -333,7 +340,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         // derivative of g
         dG[pointIndex] = -this->impAndEta_[ltsFace].invEtaS *
                              (std::fabs(normalStress[pointIndex]) * dMuF[pointIndex]) -
-                         1.0;
+                         static_cast<real>(1.0);
         // newton update
         const real tmp3 = g[pointIndex] / dG[pointIndex];
         slipRateTest[pointIndex] = std::max(rs::almostZero(), slipRateTest[pointIndex] - tmp3);

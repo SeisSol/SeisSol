@@ -111,6 +111,7 @@ pumlboundaryformat = 'auto'      ! the boundary data type for PUML files ('auto'
 pumltopologyformat = 'auto'      ! the topology type for PUML files ('auto', 'geometric', 'identify-face', 'identify-vertex')
 meshgenerator = 'PUML'          ! Name of meshgenerator (Netcdf or PUML)
 PartitioningLib = 'Default' ! name of the partitioning library (see src/Geometry/PartitioningLib.cpp for a list of possible options, you may need to enable additional libraries during the build process)
+facemapfile = '' ! filename name of the face tag file
 /
 
 &Discretization

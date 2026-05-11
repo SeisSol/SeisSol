@@ -53,8 +53,8 @@ class WaveFieldWriter
   /** The asynchronous executor */
   WaveFieldWriterExecutor executor_;
 
-  /** Variable buffer ids (high and low order variables) */
-  int variableBufferIds_[2]{};
+  /** Variable buffer ids (high order variables) */
+  int variableBufferIds_[1]{};
 
   /** The output prefix for the filename */
   std::string outputPrefix_;
@@ -69,20 +69,11 @@ class WaveFieldWriter
 
   unsigned int numVariables_{0};
 
-  /** Number of integrated variables */
-  unsigned int numIntegratedVariables_{};
-
   /** Flag indicated which variables should be written */
   bool* outputFlags_{nullptr};
 
-  /** Flag indicated which low variables should be written */
-  bool* lowOutputFlags_{nullptr};
-
   /** Refined number of cells */
   unsigned int numCells_{0};
-
-  /** Unrefined (low order) number of cells */
-  unsigned int numLowCells_{0};
 
   /** Pointer to the degrees of freedom */
   const real* dofs_{nullptr};
@@ -148,10 +139,7 @@ class WaveFieldWriter
    * @param map The mapping from the cell order to dofs order
    * @param timeTolerance The tolerance in the time for ignoring duplicate time steps
    */
-  void init(unsigned int numVars,
-            int order,
-            int numAlignedDOF,
-            const seissol::geometry::MeshReader& meshReader,
+  void init(const seissol::geometry::MeshReader& meshReader,
             const std::vector<unsigned>& ltsClusteringData,
             const std::vector<unsigned>& ltsIdData,
             const real* dofs,
@@ -186,8 +174,6 @@ class WaveFieldWriter
 
     delete[] outputFlags_;
     outputFlags_ = nullptr;
-    delete[] lowOutputFlags_;
-    lowOutputFlags_ = nullptr;
   }
 
   //

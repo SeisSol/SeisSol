@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Geometry/PUMLReader.h"
+#include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/LtsParameters.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -48,9 +49,11 @@ TEST_CASE("LTS Weights") {
   seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
   auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
+  const auto faceMap = defaultFaceMap();
   const auto pumlReader =
       seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
                                     "Default",
+                                    faceMap,
                                     seissol::initializer::parameters::BoundaryFormat::I32,
                                     seissol::initializer::parameters::TopologyFormat::Geometric,
                                     ltsWeights.get());

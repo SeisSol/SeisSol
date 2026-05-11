@@ -11,6 +11,8 @@
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
 #include "Geometry/MeshDefinition.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
 #include "Monitoring/Instrumentation.h"
@@ -41,6 +43,8 @@
 #include <utils/logger.h>
 #include <vector>
 
+namespace seissol::geometry {
+
 namespace {
 
 // PUML sanity checks
@@ -57,47 +61,26 @@ void logassertI(bool condition, const std::string& file, int line) {
 
 #define logassert(x) logassertI(x, __FILE__, __LINE__)
 
-/*
- * Possible types of boundary conditions for SeisSol.
- */
-enum class BCType { Internal, External, Unknown };
-
-/**
- * Decodes the boundary condition tag into a BCType.
- */
-constexpr BCType bcToType(int id) {
-  if (id == 0 || id == 3 || id == 6 || id > 64) {
-    return BCType::Internal;
-  } else if (id == 1 || id == 2 || id == 4 || id == 5 || id == 7) {
-    return BCType::External;
-  } else {
-    return BCType::Unknown;
-  }
-}
-
 /**
  * Decodes the boundary condition tag into a string representation.
  */
-inline std::string bcToString(int id) {
-  if (id == 0) {
+inline std::string bcToString(uint32_t id, const FaceMap& faceMap) {
+  const auto type = faceMap.at(id);
+  if (type == FaceType::Regular) {
     return std::string("regular");
-  } else if (id == 1) {
+  } else if (type == FaceType::FreeSurface) {
     return std::string("free surface");
-  } else if (id == 2) {
+  } else if (type == FaceType::FreeSurfaceGravity) {
     return std::string("free surface with gravity");
-  } else if (id == 3) {
-    return std::string("dynamic rupture");
-  } else if (id == 4) {
+  } else if (type == FaceType::Dirichlet) {
     return std::string("dirichlet");
-  } else if (id == 5) {
-    return std::string("absorbing");
-  } else if (id == 6) {
-    return std::string("periodic");
-  } else if (id == 7) {
-    return std::string("analytic");
-  } else if (id > 64) {
+  } else if (type == FaceType::Outflow) {
+    return std::string("outflow");
+  } else if (type == FaceType::Analytical) {
+    return std::string("analytical");
+  } else if (type == FaceType::DynamicRupture) {
     std::stringstream s;
-    s << "fault-tagging (" << id << ")";
+    s << "dynamic rupture (face tag " << id << ")";
     return s.str();
   } else {
     std::stringstream s;
@@ -120,34 +103,41 @@ template <PUML::TopoType Topo>
 inline bool
     checkMeshCorrectnessLocally(const typename PUML::PUML<Topo>::face_t& face,
                                 const std::array<int, seissol::Cell::NumFaces>& cellNeighbors,
-                                int side,
-                                int sideBC,
-                                uint64_t cellIdAsInFile) {
+                                uint8_t side,
+                                uint32_t sideBC,
+                                uint64_t cellIdAsInFile,
+                                const FaceMap& faceMap) {
   // all of these will only issue warnings here -- the "logError()" is supposed to come later, after
   // all warning have been logged
 
-  // if a face is an internal face, it has to have a neighbor on either this rank or somewhere else:
-  if (bcToType(sideBC) == BCType::Internal) {
-    if (cellNeighbors[side] < 0 && !face.isShared()) {
-      logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a"
-                   << bcToString(sideBC)
-                   << "boundary condition, but the neighboring element doesn't exist";
-      return false;
+  const auto faceType = faceMap.at(sideBC);
+
+  if (faceType.has_value()) {
+
+    // if a face is an internal face, it has to have a neighbor on either this rank or somewhere
+    // else:
+    if (getBCType(faceType.value()) == BCType::Internal) {
+      if (cellNeighbors[side] < 0 && !face.isShared()) {
+        logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a"
+                     << bcToString(sideBC, faceMap)
+                     << "boundary condition, but the neighboring element doesn't exist";
+        return false;
+      }
     }
-  }
-  // external boundaries must not have neighboring elements:
-  else if (bcToType(sideBC) == BCType::External) {
-    if (cellNeighbors[side] >= 0 || face.isShared()) {
-      logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a"
-                   << bcToString(sideBC) << "boundary condition, but a neighboring element exists";
-      return false;
+    // external boundaries must not have neighboring elements:
+    else {
+      if (cellNeighbors[side] >= 0 || face.isShared()) {
+        logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a"
+                     << bcToString(sideBC, faceMap)
+                     << "boundary condition, but a neighboring element exists";
+        return false;
+      }
     }
-  }
-  // ignore unknown boundary conditions and warn
-  else {
+  } else {
+    // ignore unknown boundary conditions and warn
     logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a boundary condition ("
                  << sideBC << ") which is not understood by this version of SeisSol";
-    return true;
+    return false;
   }
   return true;
 }
@@ -170,10 +160,9 @@ const std::array<std::array<std::int32_t, 4>, 4> FaceVertexToOrientation = {
 const std::array<std::int32_t, 4> FirstFaceVertex = {0, 0, 0, 1};
 } // namespace
 
-namespace seissol::geometry {
-
 PUMLReader::PUMLReader(const std::string& meshFile,
                        const std::string& partitioningLib,
+                       const seissol::FaceMap& faceMap,
                        seissol::initializer::parameters::BoundaryFormat boundaryFormat,
                        seissol::initializer::parameters::TopologyFormat topologyFormat,
                        initializer::time_stepping::LtsWeights* ltsWeights,
@@ -229,7 +218,7 @@ PUMLReader::PUMLReader(const std::string& meshFile,
 
   generatePUML(meshTopology, meshGeometry);
 
-  getMesh(meshTopology, meshGeometry, boundaryFormat);
+  getMesh(meshTopology, meshGeometry, faceMap, boundaryFormat);
 }
 
 void PUMLReader::read(PumlMesh& meshTopology,
@@ -318,6 +307,7 @@ void PUMLReader::generatePUML(PumlMesh& meshTopology, PumlMesh& meshGeometry) {
 
 void PUMLReader::getMesh(const PumlMesh& meshTopology,
                          const PumlMesh& meshGeometry,
+                         const FaceMap& faceMap,
                          seissol::initializer::parameters::BoundaryFormat boundaryFormat) {
   SCOREP_USER_REGION("PUMLReader_getmesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
@@ -362,9 +352,9 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
     PUML::Neighbor::face(meshTopology, i, neighbors.data());
 
     for (std::size_t j = 0; j < Cell::NumFaces; j++) {
-      int bcCurrentFace = decodeBoundary(boundaryCond, i, j, boundaryFormat);
+      const auto faceTag = decodeBoundary(boundaryCond, i, j, boundaryFormat);
       const bool isLocallyCorrect = checkMeshCorrectnessLocally<PumlTopology>(
-          faces[faceids[j]], neighbors, j, bcCurrentFace, cellIdsAsInFile[i]);
+          faces[faceids[j]], neighbors, j, faceTag, cellIdsAsInFile[i], faceMap);
       isMeshCorrect &= isLocallyCorrect;
       if (neighbors[j] < 0) {
         elements_[i].neighbors[PumlFaceToSeisSol[j]] = cellsGeometry.size();
@@ -406,12 +396,10 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
         elements_[i].neighborRanks[PumlFaceToSeisSol[j]] = rank;
       }
 
-      const int faultTag = bcCurrentFace;
-      if (bcCurrentFace > 64) {
-        bcCurrentFace = 3;
-      }
-      elements_[i].boundaries[PumlFaceToSeisSol[j]] = bcCurrentFace;
-      elements_[i].faultTags[PumlFaceToSeisSol[j]] = faultTag;
+      const auto bcCurrentFace = faceMap.at(faceTag);
+
+      elements_[i].boundaries[PumlFaceToSeisSol[j]] = bcCurrentFace.value_or(FaceType::Regular);
+      elements_[i].faultTags[PumlFaceToSeisSol[j]] = faceTag;
       elements_[i].mpiIndices[PumlFaceToSeisSol[j]] = 0;
     }
 

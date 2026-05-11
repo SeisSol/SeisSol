@@ -11,6 +11,7 @@
 #include "Equations/Datastructures.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/Parameters/ParameterReader.h"
+#include "Model/Plasticity.h"
 
 #include <algorithm>
 #include <array>
@@ -226,13 +227,15 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
 
   const auto plasticityMaskString =
       reader->readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));
-  const std::array<bool, 7> plasticityMask =
-      convertStringToArray<bool, 7>(plasticityMaskString, false);
+  const std::array<bool, seissol::model::PlasticityData::Quantities.size()> plasticityMask =
+      convertStringToArray<bool, seissol::model::PlasticityData::Quantities.size()>(
+          plasticityMaskString, false);
 
   const auto integrationMaskString =
       reader->readWithDefault("integrationmask", std::string("0 0 0 0 0 0 0 0 0"));
-  const std::array<bool, 9> integrationMask =
-      convertStringToArray<bool, 9>(integrationMaskString, false);
+  const std::array<bool, seissol::model::MaterialT::NumQuantities> integrationMask =
+      convertStringToArray<bool, seissol::model::MaterialT::NumQuantities>(integrationMaskString,
+                                                                           false);
 
   const auto groupsRaw = reader->readWithDefault("outputgroups", std::vector<int>());
   const auto groups = std::unordered_set<int>(groupsRaw.begin(), groupsRaw.end());

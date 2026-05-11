@@ -95,7 +95,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
       const auto etaPDamp = ctx.data->drParameters.etaDampEnd > ctx.args->fullUpdateTime
                                 ? ctx.data->drParameters.etaDamp
-                                : 1.0;
+                                : static_cast<real>(1.0);
       common::precomputeStressFromQInterpolated<GpuRangeType>(
           ctx.faultStresses,
           ctx.data->impAndEta[ctx.ltsFace],

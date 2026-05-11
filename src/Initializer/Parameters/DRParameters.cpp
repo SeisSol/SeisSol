@@ -179,7 +179,12 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                               .value_or(reader->read<double>("etastop").value_or(
                                   std::numeric_limits<double>::infinity()));
 
-  reader->warnDeprecated({"rf_output_on", "backgroundtype"});
+  reader->warnDeprecated({"rf_output_on",
+                          "backgroundtype",
+                          "gpwise",
+                          "magnitude_output_on",
+                          "energy_rate_output_on",
+                          "energy_rate_printtimeinterval"});
 
   return DRParameters{isDynamicRuptureEnabled,
                       isThermalPressureOn,

@@ -7,6 +7,7 @@
 
 #include "Hdf5Reader.h"
 
+#include "Common/Literals.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/HDF5Type.h"
 #include "IO/Datatype/Inference.h"
@@ -132,9 +133,7 @@ void Hdf5Reader::readDataRaw(void* data,
     dimprod *= dims[i];
   }
 
-  const std::size_t chunksize =
-      std::max(static_cast<std::size_t>(1),
-               static_cast<std::size_t>(2'000'000'000) / (targetType->size() * dimprod));
+  const std::size_t chunksize = std::max(1_UZ, 2'000'000'000_UZ / (targetType->size() * dimprod));
   std::size_t rounds = (count + chunksize - 1) / chunksize;
   std::size_t start = 0;
 

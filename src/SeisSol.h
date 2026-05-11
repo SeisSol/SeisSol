@@ -24,7 +24,6 @@
 #include "ResultWriter/FaultWriter.h"
 #include "ResultWriter/FreeSurfaceWriter.h"
 #include "ResultWriter/PickpointWriter.h"
-#include "ResultWriter/PostProcessor.h"
 #include "ResultWriter/WaveFieldWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/Simulator.h"
@@ -95,10 +94,6 @@ class SeisSol {
   writer::FreeSurfaceWriter& freeSurfaceWriter() { return freeSurfaceWriter_; }
 
   writer::AnalysisWriter& analysisWriter() { return analysisWriter_; }
-
-  /** Get the post processor module
-   */
-  writer::PostProcessor& postProcessor() { return postProcessor_; }
 
   io::AsyncIO& asyncIO() { return asyncIO_; }
 
@@ -249,9 +244,6 @@ class SeisSol {
 
   //! Source term module
   sourceterm::Manager sourceTermManager_;
-
-  //! PostProcessor module
-  writer::PostProcessor postProcessor_;
 
   //! Free surface integrator module
   solver::FreeSurfaceIntegrator freeSurfaceIntegrator_;

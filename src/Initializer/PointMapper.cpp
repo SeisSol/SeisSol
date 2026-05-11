@@ -28,25 +28,14 @@
 
 namespace seissol::initializer {
 
-void findMeshIds(const Eigen::Vector3d* points,
-                 const seissol::geometry::MeshReader& mesh,
-                 std::size_t numPoints,
-                 short* contained,
-                 std::size_t* meshIds,
-                 double tolerance) {
-  findMeshIds(
-      points, mesh.getVertices(), mesh.getElements(), numPoints, contained, meshIds, tolerance);
-}
+std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
+                                    const seissol::geometry::MeshReader& mesh,
+                                    std::size_t numPoints,
+                                    std::size_t* meshIds,
+                                    double tolerance) {
 
-void findMeshIds(const Eigen::Vector3d* points,
-                 const std::vector<Vertex>& vertices,
-                 const std::vector<Element>& elements,
-                 std::size_t numPoints,
-                 short* contained,
-                 std::size_t* meshIds,
-                 double tolerance) {
-
-  memset(contained, 0, numPoints * sizeof(short));
+  const auto& vertices = mesh.getVertices();
+  const auto& elements = mesh.getElements();
 
   auto points1 = std::vector<std::array<double, Cell::Dim + 1>>(numPoints);
   for (std::size_t point = 0; point < numPoints; ++point) {
@@ -110,9 +99,6 @@ void findMeshIds(const Eigen::Vector3d* points,
             score[point] = std::pair<double, int>{maxValue, rank};
             meshIds[point] = localId;
           }
-
-          // and of course, we've found the point locally
-          contained[point] = 1;
         }
       }
     }
@@ -122,10 +108,12 @@ void findMeshIds(const Eigen::Vector3d* points,
 
   Mpi::mpi.allreduceContainer(score, MPI_MINLOC);
 
+  std::vector<bool> contained(numPoints);
   for (std::size_t i = 0; i < numPoints; ++i) {
     contained[i] =
-        score[i].second == rank && score[i].first < std::numeric_limits<double>::infinity() ? 1 : 0;
+        score[i].second == rank && score[i].first < std::numeric_limits<double>::infinity();
   }
+  return contained;
 }
 
 } // namespace seissol::initializer

@@ -52,6 +52,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
   const auto size = currentLayer_->size();
   if (size > 0) {
     std::vector<real*> dofsPtrs(size, nullptr);
+    std::vector<real*> integralsPtrs(size, nullptr);
     std::vector<real*> dofsAnePtrs(size, nullptr);
     std::vector<real*> dofsExtPtrs(size, nullptr);
     std::vector<real*> localPtrs(size, nullptr);
@@ -74,6 +75,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
       // dofs
       dofsPtrs[cell] = static_cast<real*>(data.get<LTS::Dofs>());
+      integralsPtrs[cell] = static_cast<real*>(data.get<LTS::Integrals>());
 
       // idofs
       real* nextIdofPtr = &integratedDofsScratch[integratedDofsAddressCounter_];
@@ -142,6 +144,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     checkKey(key);
 
     (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs);
+    (*currentTable_)[key].set(inner_keys::Wp::Id::Integrals, integralsPtrs);
     (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs);
     (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs);
     (*currentTable_)[key].set(inner_keys::Wp::Id::Derivatives, dQPtrs_);
