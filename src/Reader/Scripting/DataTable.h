@@ -58,10 +58,10 @@ struct DataEntry {
   }
 
   template <typename T>
-  void getValueRange(T* storage, std::size_t start, std::size_t size) const {
-    for (std::size_t i = 0; i < size; ++i) {
-      storage[i] = getValue<T>(start + i);
-    }
+  void setValue(std::size_t index, T value) const {
+    assert(DataTypeTraits<T>::Type == datatype);
+
+    setter(index, &value);
   }
 };
 

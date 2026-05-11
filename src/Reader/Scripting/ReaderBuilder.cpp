@@ -9,7 +9,9 @@
 #include "Reader/Scripting/EasiReader.h"
 #include "Reader/Scripting/LuaReader.h"
 
+#include <fstream>
 #include <memory>
+#include <sstream>
 #include <utils/logger.h>
 #include <utils/stringutils.h>
 
@@ -24,7 +26,10 @@ std::unique_ptr<DataReader> buildReader(const std::string& path,
     if (parts[0] == "easi") {
       return std::make_unique<EasiReader>(path, defaultInArgs);
     } else if (parts[0] == "lua") {
-      // return std::make_unique<LuaReader>(path);
+      std::ifstream file(path);
+      std::stringstream code;
+      code << file.rdbuf();
+      return std::make_unique<LuaReader>(code.str());
     } else {
       logError() << "";
     }

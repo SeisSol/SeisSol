@@ -10,6 +10,7 @@ add_library(seissol-reader OBJECT
     Datafield/AsagiReader.cpp
 
     Scripting/EasiReader.cpp
+    Scripting/LuaReader.cpp
     Scripting/ReaderBuilder.cpp
 )
 
