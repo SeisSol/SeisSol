@@ -399,17 +399,17 @@ auto loadSourceFile(const char* fileName,
 
   const auto points = file.points();
 
-  auto contained = std::vector<short>(points.size());
   auto meshIds = std::vector<std::size_t>(points.size());
 
-  initializer::findMeshIds(points.data(), mesh, points.size(), contained.data(), meshIds.data());
+  const auto contained =
+      initializer::findUniqueMeshIds(points.data(), mesh, points.size(), meshIds.data());
 
   auto originalIndex = std::vector<std::size_t>(points.size());
   std::size_t numSources = 0;
   for (std::size_t source = 0; source < points.size(); ++source) {
     originalIndex[numSources] = source;
     meshIds[numSources] = meshIds[source];
-    numSources += contained[source] != 0 ? 1 : 0;
+    numSources += contained[source] ? 1 : 0;
   }
 
   file.originalIndex = originalIndex;
