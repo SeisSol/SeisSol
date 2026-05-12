@@ -31,3 +31,4 @@ add_library(seissol-io STATIC
 )
 
 target_link_libraries(seissol-io PUBLIC seissol-common-properties)
+target_link_libraries(seissol-lib PUBLIC seissol-io)

@@ -16,14 +16,6 @@
 #include <utils/logger.h>
 
 namespace seissol::dr::misc {
-template <>
-double power<8>(double base) {
-  const double baseSquared = base * base;
-  const double baseToTheFour = baseSquared * baseSquared;
-  const double baseToTheEight = baseToTheFour * baseToTheFour;
-  return baseToTheEight;
-}
-
 void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip) {
   // compute normalized strike vector
   const auto strikeInvLength = 1.0 / std::sqrt(normal[0] * normal[0] + normal[1] * normal[1]);

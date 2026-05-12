@@ -179,36 +179,36 @@ class DivideTetrahedronBy8 : public TetrahedronRefiner<T> {
 template <class T>
 class DivideTetrahedronBy32 : public TetrahedronRefiner<T> {
   private:
-  DivideTetrahedronBy4<T> div4;
-  DivideTetrahedronBy8<T> div8;
+  DivideTetrahedronBy4<T> div4_;
+  DivideTetrahedronBy8<T> div8_;
 
   public:
   void refine(const Tetrahedron<T>& in,
               unsigned int addVertexStart,
               Tetrahedron<T>* out,
               Eigen::Matrix<T, 3, 1>* addVertices) const override {
-    auto tmp = std::vector<Tetrahedron<T>>(div8.getDivisionCount());
+    auto tmp = std::vector<Tetrahedron<T>>(div8_.getDivisionCount());
 
-    div8.refine(in, addVertexStart, tmp.data(), addVertices);
+    div8_.refine(in, addVertexStart, tmp.data(), addVertices);
 
-    addVertexStart += div8.additionalVerticesPerCell();
-    addVertices += div8.additionalVerticesPerCell();
+    addVertexStart += div8_.additionalVerticesPerCell();
+    addVertices += div8_.additionalVerticesPerCell();
 
-    for (unsigned int i = 0; i < div8.getDivisionCount(); i++) {
-      div4.refine(tmp[i],
-                  addVertexStart + i * div4.additionalVerticesPerCell(),
-                  out + (i * div4.getDivisionCount()),
-                  addVertices + (i * div4.additionalVerticesPerCell()));
+    for (unsigned int i = 0; i < div8_.getDivisionCount(); i++) {
+      div4_.refine(tmp[i],
+                   addVertexStart + i * div4_.additionalVerticesPerCell(),
+                   out + (i * div4_.getDivisionCount()),
+                   addVertices + (i * div4_.additionalVerticesPerCell()));
     }
   }
 
   [[nodiscard]] unsigned int additionalVerticesPerCell() const override {
-    return div8.additionalVerticesPerCell() +
-           div8.getDivisionCount() * div4.additionalVerticesPerCell();
+    return div8_.additionalVerticesPerCell() +
+           div8_.getDivisionCount() * div4_.additionalVerticesPerCell();
   }
 
   [[nodiscard]] unsigned int getDivisionCount() const override {
-    return div4.getDivisionCount() * div8.getDivisionCount();
+    return div4_.getDivisionCount() * div8_.getDivisionCount();
   }
 };
 

@@ -52,9 +52,9 @@ class RateAndState : public ReceiverOutput {
   public:
   [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
     auto baseVector = ReceiverOutput::getOutputVariables();
-    baseVector.push_back(drStorage->info<LTSRateAndState::StateVariable>().index);
-    baseVector.push_back(drStorage->info<LTSRateAndState::ConvergenceInner>().index);
-    baseVector.push_back(drStorage->info<LTSRateAndState::ConvergenceOuter>().index);
+    baseVector.push_back(drStorage_->info<LTSRateAndState::StateVariable>().index);
+    baseVector.push_back(drStorage_->info<LTSRateAndState::ConvergenceInner>().index);
+    baseVector.push_back(drStorage_->info<LTSRateAndState::ConvergenceOuter>().index);
     return baseVector;
   }
 };

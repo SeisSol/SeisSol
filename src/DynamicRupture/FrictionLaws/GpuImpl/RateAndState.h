@@ -28,7 +28,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
   }
 
-  ~RateAndStateBase() = default;
+  ~RateAndStateBase() override = default;
 
   static void copySpecificStorageDataToLocal(FrictionLawData* data,
                                              DynamicRupture::Layer& layerData) {
@@ -47,7 +47,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     TPMethod::copyStorageToLocal(data, layerData);
   }
 
-  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, uint32_t timeIndex) {
+  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& __restrict ctx,
+                                                   uint32_t timeIndex) {
     // compute initial slip rate and reference values
     Derived::calcInitialVariables(ctx, timeIndex);
 
@@ -58,18 +59,21 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     calcSlipRateAndTraction(ctx, timeIndex);
   }
 
-  SEISSOL_DEVICE static void preHook(FrictionLawContext& ctx) {
+  SEISSOL_DEVICE static void preHook(FrictionLawContext& __restrict ctx) {
     // copy state variable from last time step
     ctx.stateVariableBuffer = ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex];
   }
 
-  SEISSOL_DEVICE static void postHook(FrictionLawContext& ctx) { Derived::resampleStateVar(ctx); }
+  SEISSOL_DEVICE static void postHook(FrictionLawContext& __restrict ctx) {
+    Derived::resampleStateVar(ctx);
+  }
 
   /*
    * Compute shear stress magnitude, localSlipRate, effective normal stress, reference state
    * variable. Also sets slipRateMagnitude member to reference value.
    */
-  SEISSOL_DEVICE static void calcInitialVariables(FrictionLawContext& ctx, uint32_t timeIndex) {
+  SEISSOL_DEVICE static void calcInitialVariables(FrictionLawContext& __restrict ctx,
+                                                  uint32_t timeIndex) {
     auto& devStateVariableBuffer{ctx.stateVariableBuffer};
     auto& devFaultStresses{ctx.faultStresses};
     auto* devSlipRateMagnitude{ctx.data->slipRateMagnitude};
@@ -102,7 +106,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     devLocalSlipRate = localSlipRateMagnitude;
   }
 
-  SEISSOL_DEVICE static void updateStateVariableIterative(FrictionLawContext& ctx,
+  SEISSOL_DEVICE static void updateStateVariableIterative(FrictionLawContext& __restrict ctx,
                                                           uint32_t timeIndex) {
     auto& devLocalSlipRate{ctx.initialVariables.localSlipRate};
     auto& devStateVariableBuffer{ctx.stateVariableBuffer};
@@ -126,9 +130,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       const auto localSlipRateMagnitude = ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
       const auto& localImpAndEta = ctx.data->impAndEta[ctx.ltsFace];
 
-      auto& exportMu = devMu[ctx.ltsFace][ctx.pointIndex];
-
       real slipRateTest{0};
+      real exportMu{};
       const bool hasConvergedLocal =
           RateAndStateBase::invertSlipRateIterative(ctx,
                                                     slipRateTest,
@@ -143,6 +146,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
       devLocalSlipRate = 0.5 * (localSlipRateMagnitude + slipRateTest);
       ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = slipRateTest;
+      devMu[ctx.ltsFace][ctx.pointIndex] = exportMu;
 
       hasConvergedOuter =
           (localSlipRateMagnitude - slipRateTest) < ctx.data->drParameters.rsStateTolerance;
@@ -158,7 +162,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.data->convergenceInner[ctx.ltsFace][ctx.pointIndex] &= hasConvergedInner;
   }
 
-  SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext& ctx, uint32_t timeIndex) {
+  SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext& __restrict ctx,
+                                                     uint32_t timeIndex) {
     auto& devStateVariableBuffer{ctx.stateVariableBuffer}; // == localStateVariable
     auto& devNormalStress{ctx.initialVariables.normalStress};
     auto& devFaultStresses{ctx.faultStresses};
@@ -216,20 +221,22 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] = slipRate2;
   }
 
-  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& ctx, real time) {
+  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& __restrict ctx,
+                                                     real time) {
     auto muW{ctx.data->muW[ctx.ltsFace][ctx.pointIndex]};
     auto rsF0{ctx.data->f0[ctx.ltsFace][ctx.pointIndex]};
 
     const auto localRuptureTime = ctx.data->ruptureTime[ctx.ltsFace][ctx.pointIndex];
-    if (localRuptureTime > 0.0 && localRuptureTime <= time &&
+    if (localRuptureTime > static_cast<real>(0.0) && localRuptureTime <= time &&
         ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
-        ctx.data->mu[ctx.ltsFace][ctx.pointIndex] <= (muW + 0.05 * (rsF0 - muW))) {
+        ctx.data->mu[ctx.ltsFace][ctx.pointIndex] <=
+            (muW + static_cast<real>(0.05) * (rsF0 - muW))) {
       ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = time;
       ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
     }
   }
 
-  SEISSOL_DEVICE static bool invertSlipRateIterative(FrictionLawContext& ctx,
+  SEISSOL_DEVICE static bool invertSlipRateIterative(FrictionLawContext& __restrict ctx,
                                                      real& slipRateTest,
                                                      real localStateVariable,
                                                      real normalStress,
@@ -264,13 +271,14 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       }
 
       dMuF = Derived::updateMuDerivative(ctx, slipRateTest, details);
-      dG = -invEtaS * (std::fabs(normalStress) * dMuF) - 1.0;
+      dG = -invEtaS * (std::fabs(normalStress) * dMuF) - static_cast<real>(1.0);
       slipRateTest = std::max(friction_law::rs::almostZero(), slipRateTest - (g / dG));
     }
     return false;
   }
 
-  SEISSOL_DEVICE static void updateNormalStress(FrictionLawContext& ctx, uint32_t timeIndex) {
+  SEISSOL_DEVICE static void updateNormalStress(FrictionLawContext& __restrict ctx,
+                                                uint32_t timeIndex) {
     ctx.initialVariables.normalStress =
         std::min(static_cast<real>(0.0),
                  ctx.faultStresses.normalStress[timeIndex] +

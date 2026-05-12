@@ -20,7 +20,6 @@
 #include <vector>
 #include <yateto.h>
 
-using namespace device;
 using namespace seissol::initializer;
 using namespace seissol::recording;
 
@@ -31,23 +30,24 @@ void DynamicRuptureRecorder::record(DynamicRupture::Layer& layer) {
 
 void DynamicRuptureRecorder::recordSpaceInterpolation() {
   auto* qInterpolatedPlus =
-      currentLayer->var<DynamicRupture::QInterpolatedPlus>(AllocationPlace::Device);
+      currentLayer_->var<DynamicRupture::QInterpolatedPlus>(AllocationPlace::Device);
   auto* qInterpolatedMinus =
-      currentLayer->var<DynamicRupture::QInterpolatedMinus>(AllocationPlace::Device);
+      currentLayer_->var<DynamicRupture::QInterpolatedMinus>(AllocationPlace::Device);
 
   real* idofsPlus = static_cast<real*>(
-      currentLayer->var<DynamicRupture::IdofsPlusOnDevice>(AllocationPlace::Device));
+      currentLayer_->var<DynamicRupture::IdofsPlusOnDevice>(AllocationPlace::Device));
   real* idofsMinus = static_cast<real*>(
-      currentLayer->var<DynamicRupture::IdofsMinusOnDevice>(AllocationPlace::Device));
+      currentLayer_->var<DynamicRupture::IdofsMinusOnDevice>(AllocationPlace::Device));
 
   DRGodunovData* godunovData =
-      currentLayer->var<DynamicRupture::GodunovData>(AllocationPlace::Device);
-  DRFaceInformation* faceInfo = currentLayer->var<DynamicRupture::FaceInformation>();
+      currentLayer_->var<DynamicRupture::GodunovData>(AllocationPlace::Device);
+  const DRFaceInformation* faceInfo = currentLayer_->var<DynamicRupture::FaceInformation>();
 
-  real** timeDerivativePlus = currentLayer->var<DynamicRupture::TimeDerivativePlusDevice>();
-  real** timeDerivativeMinus = currentLayer->var<DynamicRupture::TimeDerivativeMinusDevice>();
+  real* const* timeDerivativePlus = currentLayer_->var<DynamicRupture::TimeDerivativePlusDevice>();
+  real* const* timeDerivativeMinus =
+      currentLayer_->var<DynamicRupture::TimeDerivativeMinusDevice>();
 
-  const auto size = currentLayer->size();
+  const auto size = currentLayer_->size();
   if (size > 0) {
     std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> qInterpolatedMinusPtr {};
     std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> idofsMinusPtr {};
@@ -74,13 +74,13 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
       for (std::size_t faceRelation = 0; faceRelation < Cell::NumFaces; ++faceRelation) {
         if (!qInterpolatedMinusPtr[side][faceRelation].empty()) {
           const ConditionalKey key(*KernelNames::DrSpaceMap, side, faceRelation);
-          (*currentDrTable)[key].set(inner_keys::Dr::Id::QInterpolatedMinus,
-                                     qInterpolatedMinusPtr[side][faceRelation]);
-          (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsMinus,
-                                     idofsMinusPtr[side][faceRelation]);
-          (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, tInvTMinusPtr[side][faceRelation]);
-          (*currentDrTable)[key].set(inner_keys::Dr::Id::DerivativesMinus,
-                                     timeDerivativeMinusPtrs[side][faceRelation]);
+          (*currentDrTable_)[key].set(inner_keys::Dr::Id::QInterpolatedMinus,
+                                      qInterpolatedMinusPtr[side][faceRelation]);
+          (*currentDrTable_)[key].set(inner_keys::Dr::Id::IdofsMinus,
+                                      idofsMinusPtr[side][faceRelation]);
+          (*currentDrTable_)[key].set(inner_keys::Dr::Id::TinvT, tInvTMinusPtr[side][faceRelation]);
+          (*currentDrTable_)[key].set(inner_keys::Dr::Id::DerivativesMinus,
+                                      timeDerivativeMinusPtrs[side][faceRelation]);
         }
       }
     }

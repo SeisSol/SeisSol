@@ -100,25 +100,55 @@ template <typename TupleT, typename F>
 constexpr F forEach(TupleT&& tuple, F&& functor) {
   return forEachElement<0>(std::forward<F>(functor), std::forward<TupleT>(tuple));
 }
+
 /**
  * Compute base^exp
- * Note: precision has to be double, otherwise we would loose too much precision.
  * @param base
  * @return
  */
 #pragma omp declare simd
-template <size_t Exp, typename T>
-SEISSOL_HOSTDEVICE inline auto power(T base) -> T {
-  T result = static_cast<T>(1.0);
-  for (size_t i = 0; i < Exp; ++i) {
-    result *= base;
+template <int32_t Exp, typename T>
+SEISSOL_HOSTDEVICE constexpr auto power(T base) -> T {
+  if constexpr (Exp == 0) {
+    return 1;
   }
-  return result;
+  if constexpr (Exp == 1) {
+    return base;
+  }
+  if constexpr (Exp == 2) {
+    return base * base;
+  }
+
+  constexpr std::int32_t ILogExp = [&]() constexpr {
+    auto val = Exp;
+    for (std::int32_t i = 0; i < 64; ++i) {
+      val /= 2;
+      if (val == 0) {
+        // (Exp == 0 is handled above)
+        return i;
+      }
+    }
+    return 64;
+  }();
+
+  T res = base;
+
+#ifdef ACL_DEVICE
+#pragma unroll
+#endif
+  for (std::int32_t i = ILogExp - 1; i >= 0; --i) {
+    res *= res;
+    if ((Exp & (1 << i)) != 0) {
+      res *= base;
+    }
+  }
+
+  return res;
 }
 
 #pragma omp declare simd
 template <typename T>
-SEISSOL_HOSTDEVICE inline std::enable_if_t<std::is_floating_point_v<T>, T> square(T t) {
+SEISSOL_HOSTDEVICE constexpr T square(T t) {
   return t * t;
 }
 
@@ -128,7 +158,7 @@ SEISSOL_HOSTDEVICE inline std::enable_if_t<std::is_floating_point_v<T>, T> squar
  */
 #pragma omp declare simd
 template <typename T, typename... Tn>
-SEISSOL_HOSTDEVICE inline T square(T t1, Tn... tn) {
+SEISSOL_HOSTDEVICE constexpr T square(T t1, Tn... tn) {
   return square(t1) + square(tn...);
 }
 
@@ -138,7 +168,7 @@ SEISSOL_HOSTDEVICE inline T square(T t1, Tn... tn) {
  */
 #pragma omp declare simd
 template <typename T, typename... Tn>
-SEISSOL_HOSTDEVICE inline T magnitude(T t1, Tn... tn) {
+SEISSOL_HOSTDEVICE constexpr T magnitude(T t1, Tn... tn) {
   static_assert((std::is_same_v<T, Tn> && ...), "All types need to be equal.");
   if constexpr (sizeof...(Tn) == 1) {
     return std::hypot(t1, tn...);
@@ -148,7 +178,7 @@ SEISSOL_HOSTDEVICE inline T magnitude(T t1, Tn... tn) {
 
 #pragma omp declare simd
 template <typename T>
-SEISSOL_HOSTDEVICE inline T clamp(T value, T minval, T maxval) {
+SEISSOL_HOSTDEVICE constexpr T clamp(T value, T minval, T maxval) {
 #ifdef __HIP__
   return std::max(minval, std::min(maxval, value));
 #else

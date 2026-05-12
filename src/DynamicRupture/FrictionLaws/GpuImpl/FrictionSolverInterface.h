@@ -132,7 +132,7 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
   }
 
   protected:
-  FrictionLawData dataHost;
+  FrictionLawData dataHost_;
 };
 } // namespace seissol::dr::friction_law::gpu
 

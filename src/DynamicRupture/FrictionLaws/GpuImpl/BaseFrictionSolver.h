@@ -63,36 +63,36 @@ struct FrictionLawContext {
 };
 
 #ifdef __CUDACC__
-SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& ctx) { __syncthreads(); }
-SEISSOL_DEVICE inline void deviceWarpBarrier(FrictionLawContext& ctx) { __syncwarp(); }
-SEISSOL_DEVICE inline bool deviceWarpAll(FrictionLawContext& ctx, bool value) {
+SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& __restrict ctx) { __syncthreads(); }
+SEISSOL_DEVICE inline void deviceWarpBarrier(FrictionLawContext& __restrict ctx) { __syncwarp(); }
+SEISSOL_DEVICE inline bool deviceWarpAll(FrictionLawContext& __restrict ctx, bool value) {
   return __all_sync(warpSize, static_cast<int>(value)) != 0;
 }
 #elif defined(__HIP__)
-SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& ctx) { __syncthreads(); }
-SEISSOL_DEVICE inline void deviceWarpBarrier(FrictionLawContext& ctx) {
+SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& __restrict ctx) { __syncthreads(); }
+SEISSOL_DEVICE inline void deviceWarpBarrier(FrictionLawContext& __restrict ctx) {
   // __syncwarp has no effect on current AMD GPUs (early 2026)
   // (nor does the HIP in our current CI support it)
 }
-SEISSOL_DEVICE inline bool deviceWarpAll(FrictionLawContext& ctx, bool value) {
+SEISSOL_DEVICE inline bool deviceWarpAll(FrictionLawContext& __restrict ctx, bool value) {
   return __all(static_cast<int>(value)) != 0;
 }
 #elif defined(SEISSOL_KERNELS_SYCL)
-inline void deviceBarrier(FrictionLawContext& ctx) {
+inline void deviceBarrier(FrictionLawContext& __restrict ctx) {
   reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->barrier(sycl::access::fence_space::local_space);
 }
-inline void deviceWarpBarrier(FrictionLawContext& ctx) {
+inline void deviceWarpBarrier(FrictionLawContext& __restrict ctx) {
   auto subgroup = reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->get_sub_group();
   sycl::group_barrier(subgroup);
 }
-inline bool deviceWarpAll(FrictionLawContext& ctx, bool value) {
+inline bool deviceWarpAll(FrictionLawContext& __restrict ctx, bool value) {
   auto subgroup = reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->get_sub_group();
   return sycl::all_of_group(subgroup, value);
 }
 #else
-inline void deviceBarrier(FrictionLawContext& /*ctx*/) {}
-inline void deviceWarpBarrier(FrictionLawContext& /*ctx*/) {}
-inline bool deviceWarpAll(FrictionLawContext& /*ctx*/, bool /*value*/) { return true; }
+inline void deviceBarrier(FrictionLawContext& __restrict /*ctx*/) {}
+inline void deviceWarpBarrier(FrictionLawContext& __restrict /*ctx*/) {}
+inline bool deviceWarpAll(FrictionLawContext& __restrict /*ctx*/, bool /*value*/) { return true; }
 #endif
 
 template <typename Derived>
@@ -106,13 +106,13 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
   }
 
-  SEISSOL_DEVICE static void evaluatePoint(FrictionLawContext& ctx) {
+  SEISSOL_DEVICE static void evaluatePoint(FrictionLawContext& __restrict ctx) {
     if constexpr (model::MaterialT::SupportsDR) {
       constexpr common::RangeType GpuRangeType{common::RangeType::GPU};
 
       const auto etaPDamp = ctx.data->drParameters.etaDampEnd > ctx.args->fullUpdateTime
                                 ? ctx.data->drParameters.etaDamp
-                                : 1.0;
+                                : static_cast<real>(1.0);
       common::precomputeStressFromQInterpolated<GpuRangeType>(
           ctx.faultStresses,
           ctx.data->impAndEta[ctx.ltsFace],
@@ -212,12 +212,12 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
   void setupLayer(DynamicRupture::Layer& layerData,
                   seissol::parallel::runtime::StreamRuntime& runtime) override {
-    this->currLayerSize = layerData.size();
-    FrictionSolverInterface::copyStorageToLocal(&dataHost, layerData);
-    Derived::copySpecificStorageDataToLocal(&dataHost, layerData);
-    dataHost.drParameters = this->drParameters;
+    this->currLayerSize_ = layerData.size();
+    FrictionSolverInterface::copyStorageToLocal(&dataHost_, layerData);
+    Derived::copySpecificStorageDataToLocal(&dataHost_, layerData);
+    dataHost_.drParameters = this->drParameters_;
     device::DeviceInstance::getInstance().api->copyToAsync(
-        data, &dataHost, sizeof(FrictionLawData), runtime.stream());
+        data_, &dataHost_, sizeof(FrictionLawData), runtime.stream());
   }
 
   void evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
@@ -229,7 +229,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                 const FrictionTime& frictionTime,
                 const double* timeWeights,
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
-    if (this->currLayerSize == 0) {
+    if (this->currLayerSize_ == 0) {
       return;
     }
 
