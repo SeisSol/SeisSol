@@ -189,7 +189,12 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto rsSlipRateTolerance = reader->readWithDefault<double>("rsslipratetolerance", 1e-8);
   const auto rsStateTolerance = reader->readWithDefault<double>("rsstatetolerance", 1e-8);
 
-  reader->warnDeprecated({"rf_output_on", "backgroundtype"});
+  reader->warnDeprecated({"rf_output_on",
+                          "backgroundtype",
+                          "gpwise",
+                          "magnitude_output_on",
+                          "energy_rate_output_on",
+                          "energy_rate_printtimeinterval"});
 
   return DRParameters{isDynamicRuptureEnabled,
                       isThermalPressureOn,
