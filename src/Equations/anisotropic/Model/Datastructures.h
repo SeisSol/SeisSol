@@ -74,7 +74,6 @@ struct AnisotropicMaterial : public Material {
   AnisotropicMaterial();
 
   explicit AnisotropicMaterial(const ElasticMaterial& m);
-  explicit AnisotropicMaterial(const AcousticMaterial& m);
 
   explicit AnisotropicMaterial(const std::vector<double>& materialValues);
 

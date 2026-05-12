@@ -395,10 +395,11 @@ namespace {
 template <typename T>
 struct MaterialAverager {
   [[maybe_unused]] static constexpr bool Implemented = false;
-  static T computeAveragedMaterial(std::size_t /*elementIdx*/,
-                                   const std::vector<double>& /*quadratureWeights*/,
+  static T computeAveragedMaterial(std::size_t elementIdx,
+                                   const std::vector<double>& quadratureWeights,
                                    const std::vector<T>& materialsFromQuery) {
-    return materialsFromQuery[0];
+    const auto numQuadPoints = quadratureWeights.size();
+    return materialsFromQuery[elementIdx * numQuadPoints];
   }
 };
 
@@ -563,8 +564,13 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
     for (const auto& [name, pointer] : T::ParameterMap) {
       adapter.addBindingPoint(name, pointer);
     }
+
+    // allocate points if not done
+    if (materials_->size() < numPoints) {
+      materials_->resize(numPoints);
+    }
+
     easiEvalSafe(model, query, adapter, "volume material:" + T::Text);
-    model->evaluate(query, adapter);
 
     return materialsFromQuery;
   };
