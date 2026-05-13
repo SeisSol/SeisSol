@@ -112,7 +112,8 @@ void ReceiverOutput::calcFaultOutput(
                         slipRateOutputType,
                         level,
                         timeCoeffs,
-                        integrateCoeffs](std::size_t i) {
+                        integrateCoeffs,
+                        time](std::size_t i) {
     // TODO: query the dofs, only once per simulation; once per face
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
     alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
@@ -130,6 +131,9 @@ void ReceiverOutput::calcFaultOutput(
     local.index = i;
     local.fusedIndex = outputData->receiverPoints[i].simIndex;
     local.state = outputData.get();
+
+    local.time = time;
+    local.printWarning = &this->printRSFWarning_;
 
     local.nearestGpIndex = outputData->receiverPoints[i].nearestGpIndex;
     local.gpIndex = outputData->receiverPoints[i].gpIndex;

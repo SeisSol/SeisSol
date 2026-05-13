@@ -43,9 +43,15 @@ class RateAndState : public ReceiverOutput {
     if (!(failuresInner.empty() && failuresOuter.empty())) {
       const auto* pointData = local.state->receiverPoints[local.index].global.coords;
       const std::array<double, 3> point{pointData[0], pointData[1], pointData[2]};
-      logError() << "A rate and state cell failed to converge; at the cell around" << point
-                 << ". PointIDs of failure (inner, outer loop failures):" << failuresInner
-                 << failuresOuter;
+      auto& printWarning = *local.printWarning;
+      if (!printWarning) {
+        logWarning(true)
+            << "A rate and state cell failed to converge at the given settings; at the cell around"
+            << point << "at simulation time" << local.time
+            << "s. PointIDs of failure (inner, outer loop failures):" << failuresInner
+            << failuresOuter;
+        printWarning = true;
+      }
     }
   }
 

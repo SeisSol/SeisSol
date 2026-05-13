@@ -53,6 +53,8 @@ class ReceiverOutput {
 
   kernels::Time timeKernel_;
 
+  bool printRSFWarning_{false};
+
   struct LocalInfo {
     DynamicRupture::Layer* layer{};
     size_t ltsId{};
@@ -60,6 +62,9 @@ class ReceiverOutput {
     int nearestInternalGpIndex{};
     int gpIndex{};
     int internalGpIndexFused{};
+
+    double time{};
+    bool* printWarning{nullptr};
 
     std::size_t index{};
     std::size_t fusedIndex{};

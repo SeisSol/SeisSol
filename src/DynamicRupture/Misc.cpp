@@ -68,24 +68,25 @@ std::string frictionLawName(seissol::dr::misc::FrictionLawType type) {
 namespace seissol::dr {
 FrictionLawParameters::FrictionLawParameters(
     const seissol::initializer::parameters::DRParameters& parameters)
-    : healingThreshold(parameters.healingThreshold),
-      energiesFromAcrossFaultVelocities(parameters.energiesFromAcrossFaultVelocities),
-      etaDamp(parameters.etaDamp), etaDampEnd(parameters.etaDampEnd),
-      heatCapacity(parameters.heatCapacity), initialPressure(parameters.initialPressure),
+    : healingThreshold(parameters.healingThreshold), tpProxyExponent(parameters.tpProxyExponent),
+      rsF0(parameters.rsF0), rsB(parameters.rsB), rsSr0(parameters.rsSr0),
+      rsInitialSlipRate1(parameters.rsInitialSlipRate1),
+      rsInitialSlipRate2(parameters.rsInitialSlipRate2), muW(parameters.muW),
+      thermalDiffusivity(parameters.thermalDiffusivity), heatCapacity(parameters.heatCapacity),
+      undrainedTPResponse(parameters.undrainedTPResponse),
       initialTemperature(parameters.initialTemperature),
-      isCheckAbortCriteraEnabled(parameters.isCheckAbortCriteraEnabled),
-      isFrictionEnergyRequired(parameters.isFrictionEnergyRequired), muW(parameters.muW),
-      nucleationCount(parameters.nucleationCount), prakashLength(parameters.prakashLength),
-      rsB(parameters.rsB), rsF0(parameters.rsF0), rsInitialSlipRate1(parameters.rsInitialSlipRate1),
-      rsInitialSlipRate2(parameters.rsInitialSlipRate2),
-      rsMaxNumberSlipRateUpdates(parameters.rsMaxNumberSlipRateUpdates),
-      rsSlipRateTolerance(parameters.rsSlipRateTolerance),
-      rsNumberStateVariableUpdates(parameters.rsNumberStateVariableUpdates),
-      rsSr0(parameters.rsSr0), rsStateTolerance(parameters.rsStateTolerance),
+      initialPressure(parameters.initialPressure), vStar(parameters.vStar),
+      prakashLength(parameters.prakashLength),
       terminatorSlipRateThreshold(parameters.terminatorSlipRateThreshold),
-      thermalDiffusivity(parameters.thermalDiffusivity),
-      tpProxyExponent(parameters.tpProxyExponent),
-      undrainedTPResponse(parameters.undrainedTPResponse), vStar(parameters.vStar) {
+      etaDamp(parameters.etaDamp), etaDampEnd(parameters.etaDampEnd),
+      nucleationCount(parameters.nucleationCount),
+      rsMaxNumberSlipRateUpdates(parameters.rsMaxNumberSlipRateUpdates),
+      rsNumberStateVariableUpdates(parameters.rsNumberStateVariableUpdates),
+      rsSlipRateTolerance(parameters.rsSlipRateTolerance),
+      rsStateTolerance(parameters.rsStateTolerance),
+      isFrictionEnergyRequired(parameters.isFrictionEnergyRequired),
+      isCheckAbortCriteraEnabled(parameters.isCheckAbortCriteraEnabled),
+      energiesFromAcrossFaultVelocities(parameters.energiesFromAcrossFaultVelocities) {
 
   std::copy(parameters.t0.begin(), parameters.t0.end(), this->t0.begin());
   std::copy(parameters.s0.begin(), parameters.s0.end(), this->s0.begin());
