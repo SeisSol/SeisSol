@@ -66,7 +66,7 @@ struct FrictionLawContext {
 SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& __restrict ctx) { __syncthreads(); }
 SEISSOL_DEVICE inline void deviceWarpBarrier(FrictionLawContext& __restrict ctx) { __syncwarp(); }
 SEISSOL_DEVICE inline bool deviceWarpAll(FrictionLawContext& __restrict ctx, bool value) {
-  return __all_sync(warpSize, static_cast<int>(value)) != 0;
+  return __all_sync(0xffffffffU, static_cast<int>(value)) != 0;
 }
 #elif defined(__HIP__)
 SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& __restrict ctx) { __syncthreads(); }

@@ -164,14 +164,6 @@ class FastVelocityWeakeningLaw
     }
   }
 
-  void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
-                             std::size_t ltsFace) const {
-    [[maybe_unused]] const real tmp = 0.5 / this->drParameters_.rsSr0 *
-                                      std::exp(localStateVariable[0] / this->a_[ltsFace][0]) *
-                                      this->slipRateMagnitude_[ltsFace][0];
-    assert(!std::isnan(tmp) && "nonConvergence RS Newton");
-  }
-
   protected:
   real (*__restrict srW_)[misc::NumPaddedPoints];
 };

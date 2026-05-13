@@ -15,8 +15,10 @@
 #include "Kernels/Precision.h"
 #include "Solver/MultipleSimulations.h"
 
+#include <array>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <tuple>
 #include <type_traits>

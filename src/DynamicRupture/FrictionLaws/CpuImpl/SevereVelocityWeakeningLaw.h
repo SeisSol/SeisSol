@@ -93,9 +93,6 @@ class SevereVelocityWeakeningLaw
       this->stateVariable_[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
     }
   }
-
-  void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
-                             std::size_t ltsFace) {}
 };
 } // namespace seissol::dr::friction_law::cpu
 

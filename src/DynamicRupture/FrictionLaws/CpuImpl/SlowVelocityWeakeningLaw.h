@@ -117,18 +117,6 @@ class SlowVelocityWeakeningLaw
       this->stateVariable_[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
     }
   }
-
-  void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
-                             std::size_t ltsFace) {
-    [[maybe_unused]] const real tmp =
-        0.5 / this->drParameters_.rsSr0 *
-        std::exp(
-            (this->drParameters_.rsF0 +
-             this->drParameters_.rsB * std::log(this->drParameters_.rsSr0 * localStateVariable[0] /
-                                                this->drParameters_.rsSr0)) /
-            this->a_[ltsFace][0]);
-    assert(!std::isnan(tmp) && "nonConvergence RS Newton");
-  }
 };
 } // namespace seissol::dr::friction_law::cpu
 
