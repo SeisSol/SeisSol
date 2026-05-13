@@ -8,8 +8,8 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
+#include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
-#include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/MemoryAllocator.h"
 
