@@ -9,14 +9,14 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FRICTIONSOLVERINTERFACE_H_
 
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
-#include "Initializer/Parameters/DRParameters.h"
+#include "DynamicRupture/Typedefs.h"
 #include "Memory/Tree/Layer.h"
 
 // A sycl-independent interface is required for interacting with the wp solver
 // which, in its turn, is not supposed to know anything about SYCL
 namespace seissol::dr::friction_law::gpu {
 struct FrictionLawData {
-  seissol::initializer::parameters::DRParameters drParameters;
+  FrictionLawParameters drParameters;
 
   const ImpedancesAndEta* __restrict impAndEta{};
   const ImpedanceMatrices* __restrict impedanceMatrices{};
@@ -64,6 +64,8 @@ struct FrictionLawData {
   const real (*__restrict f0)[misc::NumPaddedPoints]{};
   const real (*__restrict muW)[misc::NumPaddedPoints]{};
   const real (*__restrict b)[misc::NumPaddedPoints]{};
+  bool (*__restrict convergenceInner)[misc::NumPaddedPoints]{};
+  bool (*__restrict convergenceOuter)[misc::NumPaddedPoints]{};
 
   // R+S FVW
   const real (*__restrict srW)[misc::NumPaddedPoints]{};
@@ -89,7 +91,7 @@ struct FrictionLawData {
 
 class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver {
   public:
-  explicit FrictionSolverInterface(seissol::initializer::parameters::DRParameters* drParameters)
+  explicit FrictionSolverInterface(const FrictionLawParameters& drParameters)
       : seissol::dr::friction_law::FrictionSolver(drParameters) {}
   ~FrictionSolverInterface() override = default;
 

@@ -127,14 +127,18 @@ TimeCluster::TimeCluster(unsigned int clusterId,
   dynamicRuptureKernel_.setGlobalData(globalData);
 
   frictionSolver_->allocateAuxiliaryMemory(globalDataOnHost_);
-  frictionSolverDevice_->allocateAuxiliaryMemory(globalDataOnDevice_);
   frictionSolverCopy_->allocateAuxiliaryMemory(globalDataOnHost_);
-  frictionSolverCopyDevice_->allocateAuxiliaryMemory(globalDataOnDevice_);
+  if constexpr (seissol::isDeviceOn()) {
+    frictionSolverDevice_->allocateAuxiliaryMemory(globalDataOnDevice_);
+    frictionSolverCopyDevice_->allocateAuxiliaryMemory(globalDataOnDevice_);
+  }
 
   frictionSolver_->setupLayer(*dynRupInteriorData, streamRuntime_);
-  frictionSolverDevice_->setupLayer(*dynRupInteriorData, streamRuntime_);
   frictionSolverCopy_->setupLayer(*dynRupCopyData, streamRuntime_);
-  frictionSolverCopyDevice_->setupLayer(*dynRupCopyData, streamRuntime_);
+  if constexpr (seissol::isDeviceOn()) {
+    frictionSolverDevice_->setupLayer(*dynRupInteriorData, streamRuntime_);
+    frictionSolverCopyDevice_->setupLayer(*dynRupCopyData, streamRuntime_);
+  }
   streamRuntime_.wait();
 
   computeFlops();
