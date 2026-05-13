@@ -17,7 +17,6 @@
 #include "Modules/Modules.h"
 #include "SeisSol.h"
 
-#include <cmath>
 #include <cstddef>
 #include <utils/logger.h>
 #include <vector>

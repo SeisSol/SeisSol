@@ -8,7 +8,6 @@
 
 #include "Datastructures.h"
 
-#include "Equations/acoustic/Model/Datastructures.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
