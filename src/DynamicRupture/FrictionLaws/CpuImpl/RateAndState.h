@@ -197,9 +197,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
           ltsFace, localStateVariable, normalStress, absoluteShearStress, testSlipRate);
 
       // int for ICX not to fail
-      int32_t done = 1;
+      int32_t converged = 1;
 
-#pragma omp simd reduction(min : done)
+#pragma omp simd reduction(min : converged)
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         // update local slip rate, now using V=(Vnew+Vold)/2
         // For the next SV update, use the mean slip rate between the initial guess and the one
@@ -208,19 +208,19 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
             static_cast<real>(0.5) *
             (this->slipRateMagnitude_[ltsFace][pointIndex] + testSlipRate[pointIndex]);
 
-        const auto pointDone =
+        const auto pointConverged =
             std::abs(testSlipRate[pointIndex] - this->slipRateMagnitude_[ltsFace][pointIndex]) <
             this->drParameters_.rsStateTolerance;
 
-        done = std::min(pointDone ? 1 : 0, done);
+        converged = std::min(pointConverged ? 1 : 0, converged);
 
-        convergenceOuterPre[pointIndex] = pointDone;
+        convergenceOuterPre[pointIndex] = pointConverged;
 
         // solve again for Vnew
         this->slipRateMagnitude_[ltsFace][pointIndex] = testSlipRate[pointIndex];
       } // End of pointIndex-loop
 
-      if (done != 0) {
+      if (converged != 0) {
         break;
       }
     }
