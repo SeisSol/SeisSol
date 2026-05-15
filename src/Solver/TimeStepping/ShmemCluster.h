@@ -26,14 +26,14 @@ class ShmemCluster : public AbstractTimeCluster {
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
   private:
-  std::size_t globalClusterId;
-  std::size_t otherGlobalClusterId;
+  std::size_t globalClusterId_;
+  std::size_t otherGlobalClusterId_;
 
-  solver::RemoteClusterPair meshStructure;
-  std::shared_ptr<parallel::runtime::StreamRuntime> stream;
+  solver::RemoteClusterPair meshStructure_;
+  std::shared_ptr<parallel::runtime::StreamRuntime> stream_;
 
-  std::vector<void*> remotePointers;
-  memory::MemkindArray<uint64_t> signal;
+  std::vector<void*> remotePointers_;
+  memory::MemkindArray<uint64_t> signal_;
 
 #ifdef ACL_DEVICE
   device::DeviceGraphHandle handle;

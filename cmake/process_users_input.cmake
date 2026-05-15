@@ -28,7 +28,6 @@ option(ASAGI "Use asagi for material input" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
 option(LIKWID "Link with the likwid marker interface for proxy" OFF)
 
-option(INTEGRATE_QUANTITIES "Compute cell-averaged integrated velocity and stress components (currently breaks compilation)" OFF)
 option(ADDRESS_SANITIZER_DEBUG "Use address sanitzer in debug mode" OFF)
 
 option(TESTING "Compile unit tests and collect them for execution" OFF)
@@ -99,6 +98,8 @@ set(MEMORY_LAYOUT "auto" CACHE FILEPATH "A file with a specific memory layout or
 option(NUMA_AWARE_PINNING "Use libnuma to pin threads to correct NUMA nodes" ON)
 
 option(SHARED "Build SeisSol as shared library" OFF)
+
+option(DEVICE_SHARED "Build the device kernel libraries as shared libraries" ON)
 
 option(PROXY_PYBINDING "Enable pybind11 for proxy (everything will be compiled with -fPIC)" OFF)
 
@@ -469,4 +470,13 @@ if (PROXY_PYBINDING)
     # Note: ENABLE_PIC_COMPILATION can be used to signal other sub-modules
     # generate position independent code
     set(ENABLE_PIC_COMPILATION ON)
+endif()
+
+if (DEVICE_SHARED)
+    set(DEVICE_STATIC OFF)
+    set(DEVICE_LIBTYPE SHARED)
+else()
+    # we need to set DEVICE_STATIC extra due to the Device submodule
+    set(DEVICE_STATIC ON)
+    set(DEVICE_LIBTYPE STATIC)
 endif()

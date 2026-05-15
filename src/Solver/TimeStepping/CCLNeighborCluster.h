@@ -26,13 +26,13 @@ class CCLNeighborCluster : public AbstractTimeCluster {
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
   private:
-  std::shared_ptr<parallel::runtime::StreamRuntime> stream;
-  std::vector<solver::RemoteCluster> remote;
-  std::vector<bool> isSend;
-  std::vector<void*> memoryHandles;
-  void* commSend;
-  void* commRecv;
-  void* event{nullptr};
+  std::shared_ptr<parallel::runtime::StreamRuntime> stream_;
+  std::vector<solver::RemoteCluster> remote_;
+  std::vector<bool> isSend_;
+  std::vector<void*> memoryHandles_;
+  void* commSend_{};
+  void* commRecv_{};
+  void* event_{nullptr};
 
 #ifdef ACL_DEVICE
   device::DeviceGraphHandle handle1;
@@ -42,8 +42,8 @@ class CCLNeighborCluster : public AbstractTimeCluster {
 
   void launch(bool send, bool recv);
 
-  std::size_t globalClusterId;
-  std::size_t otherGlobalClusterId;
+  std::size_t globalClusterId_{};
+  std::size_t otherGlobalClusterId_{};
 
   public:
   CCLNeighborCluster(double maxTimeStepSize,

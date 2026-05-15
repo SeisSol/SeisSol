@@ -36,26 +36,26 @@ namespace {
 
 class BucketManager {
   private:
-  std::size_t dataSize{0};
+  std::size_t dataSize_{0};
 
   public:
   void align() {
     // round up by Alignment
-    this->dataSize = ((this->dataSize + Alignment - 1) / Alignment) * Alignment;
+    this->dataSize_ = ((this->dataSize_ + Alignment - 1) / Alignment) * Alignment;
   }
 
   real* markAllocate(std::size_t size) {
-    const uintptr_t offset = this->dataSize;
-    this->dataSize += size;
+    const uintptr_t offset = this->dataSize_;
+    this->dataSize_ += size;
 
     // the following "hack" was copied from the MemoryManager. Add +1 to pointers to differentiate
     // from nullptr NOLINTNEXTLINE
     return reinterpret_cast<real*>(offset + 1);
   }
 
-  [[nodiscard]] std::size_t position() const { return dataSize; }
+  [[nodiscard]] std::size_t position() const { return dataSize_; }
 
-  [[nodiscard]] std::size_t size() const { return dataSize; }
+  [[nodiscard]] std::size_t size() const { return dataSize_; }
 };
 
 template <typename T>
@@ -291,7 +291,7 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       const auto& faceNeighbor = secondaryCellInformation[cell].faceNeighbors[face];
-      if (cellInformation[cell].faceTypes[face] != FaceType::Outflow) {
+      if (getBCType(cellInformation[cell].faceTypes[face]) != BCType::ExternalNone) {
         if (faceNeighbor == StoragePosition::NullPosition) {
           if (cellInformation[cell].ltsSetup.neighborHasDerivatives(face)) {
             faceNeighbors[cell][face] = layer.var<LTS::Derivatives>()[cell];

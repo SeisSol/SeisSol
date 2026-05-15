@@ -116,18 +116,18 @@ void CCLNeighborCluster::launch(bool send, bool recv) {
     }
     throw;
   }();
-  stream->runGraphGeneric(handle, [&](parallel::runtime::StreamRuntime& runtime) {
+  stream_->runGraphGeneric(handle, [&](parallel::runtime::StreamRuntime& runtime) {
 #ifdef USE_CCL
     CCL(GroupStart)();
-    for (std::size_t i = 0; i < remote.size(); ++i) {
-      const auto& cluster = remote[i];
-      if (isSend[i]) {
+    for (std::size_t i = 0; i < remote_.size(); ++i) {
+      const auto& cluster = remote_[i];
+      if (isSend_[i]) {
         if (send) {
           CCL(Send)(cluster.data,
                     cluster.size,
                     cclDatatype(cluster.datatype),
                     cluster.rank,
-                    static_cast<CCL(Comm_t)>(commSend),
+                    static_cast<CCL(Comm_t)>(commSend_),
                     static_cast<StreamT>(runtime.stream()));
         }
       } else {
@@ -136,7 +136,7 @@ void CCLNeighborCluster::launch(bool send, bool recv) {
                     cluster.size,
                     cclDatatype(cluster.datatype),
                     cluster.rank,
-                    static_cast<CCL(Comm_t)>(commRecv),
+                    static_cast<CCL(Comm_t)>(commRecv_),
                     static_cast<StreamT>(runtime.stream()));
         }
       }
@@ -150,7 +150,7 @@ void CCLNeighborCluster::launch(bool send, bool recv) {
 bool CCLNeighborCluster::mayCorrect() {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  return (event == nullptr || device.api->isEventCompleted(event)) &&
+  return (event_ == nullptr || device.api->isEventCompleted(event_)) &&
          AbstractTimeCluster::mayCorrect();
 #endif
   return AbstractTimeCluster::mayCorrect();
@@ -158,15 +158,15 @@ bool CCLNeighborCluster::mayCorrect() {
 
 void CCLNeighborCluster::handleAdvancedPredictionTimeMessage(
     const NeighborCluster& neighborCluster) {
-  if (remote.size() > 0) {
-    if (globalClusterId == otherGlobalClusterId) {
+  if (remote_.size() > 0) {
+    if (globalClusterId_ == otherGlobalClusterId_) {
       launch(true, true);
-      event = stream->eventRecord();
+      event_ = stream_->eventRecord();
     } else {
       launch(true, false);
-      if (globalClusterId > otherGlobalClusterId) {
+      if (globalClusterId_ > otherGlobalClusterId_) {
         launch(false, true);
-        event = stream->eventRecord();
+        event_ = stream_->eventRecord();
       }
     }
   }
@@ -175,17 +175,17 @@ void CCLNeighborCluster::handleAdvancedPredictionTimeMessage(
 void CCLNeighborCluster::handleAdvancedCorrectionTimeMessage(
     const NeighborCluster& neighborCluster) {
 
-  auto upcomingCorrectionSteps = ct.stepsSinceLastSync;
-  if (state == ActorState::Predicted) {
-    upcomingCorrectionSteps = ct.nextCorrectionSteps();
+  auto upcomingCorrectionSteps = ct_.stepsSinceLastSync;
+  if (state_ == ActorState::Predicted) {
+    upcomingCorrectionSteps = ct_.nextCorrectionSteps();
   }
 
-  const bool ignoreMessage = upcomingCorrectionSteps >= ct.stepsUntilSync;
+  const bool ignoreMessage = upcomingCorrectionSteps >= ct_.stepsUntilSync;
 
   // If we are already at a sync point, we must not post an additional receive, as otherwise start()
   // posts an additional request. This is also true for the last sync point (i.e. end of
   // simulation), as in this case we do not want to have any hanging request.
-  if (!ignoreMessage && remote.size() > 0 && globalClusterId < otherGlobalClusterId) {
+  if (!ignoreMessage && remote_.size() > 0 && globalClusterId_ < otherGlobalClusterId_) {
     launch(false, true);
   }
 }
@@ -195,8 +195,8 @@ void CCLNeighborCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastU
 }
 
 void CCLNeighborCluster::start() {
-  if (remote.size() > 0) {
-    if (globalClusterId < otherGlobalClusterId) {
+  if (remote_.size() > 0) {
+    if (globalClusterId_ < otherGlobalClusterId_) {
       launch(false, true);
     }
   }
@@ -213,9 +213,9 @@ CCLNeighborCluster::CCLNeighborCluster(double maxTimeStepSize,
                                        const std::vector<void*>& comms)
     : AbstractTimeCluster(
           maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
-      commSend(comms[globalTimeClusterId * meshStructure.size() + otherGlobalTimeClusterId]),
-      commRecv(comms[otherGlobalTimeClusterId * meshStructure.size() + globalTimeClusterId]),
-      globalClusterId(globalTimeClusterId), otherGlobalClusterId(otherGlobalTimeClusterId) {
+      commSend_(comms[globalTimeClusterId * meshStructure.size() + otherGlobalTimeClusterId]),
+      commRecv_(comms[otherGlobalTimeClusterId * meshStructure.size() + globalTimeClusterId]),
+      globalClusterId_(globalTimeClusterId), otherGlobalClusterId_(otherGlobalTimeClusterId) {
 
   // project onto symmetric layout
 
@@ -224,14 +224,14 @@ CCLNeighborCluster::CCLNeighborCluster(double maxTimeStepSize,
   if (!rt) {
     rt = std::make_shared<parallel::runtime::StreamRuntime>(0);
   }
-  stream = rt;
+  stream_ = rt;
 
   const auto& local = meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId);
 
-  remote.resize(local.copy.size() + local.ghost.size());
-  isSend.resize(remote.size());
+  remote_.resize(local.copy.size() + local.ghost.size());
+  isSend_.resize(remote_.size());
 
-  std::vector<std::pair<solver::RemoteCluster, bool>> temp(remote.size());
+  std::vector<std::pair<solver::RemoteCluster, bool>> temp(remote_.size());
   for (std::size_t i = 0; i < local.copy.size(); ++i) {
     temp[i].first = local.copy[i];
     temp[i].second = true;
@@ -260,32 +260,37 @@ CCLNeighborCluster::CCLNeighborCluster(double maxTimeStepSize,
   });
 
   for (std::size_t i = 0; i < temp.size(); ++i) {
-    remote[i] = temp[i].first;
-    isSend[i] = temp[i].second;
+    remote_[i] = temp[i].first;
+    isSend_[i] = temp[i].second;
   }
 
 #ifdef USE_CCL_REGISTER
-  for (const auto& cluster : remote) {
+  memoryHandles_.resize(remote_.size());
+  for (std::size_t i = 0; i < remote_.size(); ++i) {
     void* handle = nullptr;
+    const auto& cluster = remote_[i];
+    void* comm = isSend_[i] ? commSend_ : commRecv_;
     CCL(CommRegister)(reinterpret_cast<CCL(Comm_t)>(comm),
                       cluster.data,
                       cluster.size * sizeOfRealType(cluster.datatype),
                       &handle);
-    memoryHandles.push_back(handle);
+    memoryHandles_[i] = handle;
   }
 #endif
 }
 
 CCLNeighborCluster::~CCLNeighborCluster() {
 #ifdef USE_CCL_REGISTER
-  for (void* handle : memoryHandles) {
+  for (std::size_t i = 0; i < remote_.size(); ++i) {
+    void* handle = memoryHandles_[i];
+    void* comm = isSend_[i] ? commSend_ : commRecv_;
     CCL(CommDeregister)(reinterpret_cast<CCL(Comm_t)>(comm), &handle);
   }
 #endif
 }
 
 std::string CCLNeighborCluster::description() const {
-  return "comm-" + std::to_string(globalClusterId) + "-" + std::to_string(otherGlobalClusterId);
+  return "comm-" + std::to_string(globalClusterId_) + "-" + std::to_string(otherGlobalClusterId_);
 }
 
 } // namespace seissol::time_stepping

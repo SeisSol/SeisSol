@@ -37,16 +37,16 @@ struct GhostTimeClusterFactory {
     return {};
   }
 
-  static std::unique_ptr<AbstractGhostTimeCluster>
-      get(double maxTimeStepSize,
-          std::uint64_t timeStepRate,
-          std::size_t globalTimeClusterId,
-          std::size_t otherGlobalTimeClusterId,
-          const std::string& displayName,
-          const std::string& otherDisplayName,
-          const solver::HaloCommunication& meshStructure,
-          Mpi::DataTransferMode mode,
-          bool persistent) {
+  static std::unique_ptr<AbstractTimeCluster> get(double maxTimeStepSize,
+                                                  std::uint64_t timeStepRate,
+                                                  std::size_t globalTimeClusterId,
+                                                  std::size_t otherGlobalTimeClusterId,
+                                                  const std::string& displayName,
+                                                  const std::string& otherDisplayName,
+                                                  const solver::HaloCommunication& meshStructure,
+                                                  Mpi::DataTransferMode mode,
+                                                  [[maybe_unused]] const std::vector<void*>& comms,
+                                                  bool persistent) {
     switch (mode) {
 #ifdef ACL_DEVICE
     case Mpi::DataTransferMode::CopyInCopyOutHost: {

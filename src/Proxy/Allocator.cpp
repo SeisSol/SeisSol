@@ -25,13 +25,17 @@
 #include "Memory/Tree/Colormap.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/OpenMP.h"
+#include "Solver/Settings.h"
 
 #include <cstddef>
 #include <random>
 #include <stdlib.h>
 
 #ifdef ACL_DEVICE
+#include "Initializer/BatchRecorders/Recorders.h"
 #include "Initializer/MemoryManager.h"
+
+#include <Device/device.h>
 #endif
 
 #ifdef USE_POROELASTIC
@@ -92,7 +96,6 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
         faceNeighbors[cell][f] = buffers[cell];
         faceNeighborsDevice[cell][f] = buffersDevice[cell];
         break;
-      case FaceType::Periodic:
       case FaceType::Regular:
         faceNeighbors[cell][f] = buffers[secondaryInformation[cell].faceNeighbors[f].cell];
         faceNeighborsDevice[cell][f] =
@@ -166,7 +169,8 @@ void ProxyData::initDataStructures(bool enableDR) {
       initializer::TraitLayer<initializer::ConfigVariant>({initializer::ConfigVariant(Config())}));
 
   // init RNG
-  LTS::addTo(ltsStorage, false); // proxy does not use plasticity
+  const auto nullSettings = SimulationSettings(false, false);
+  LTS::addTo(ltsStorage, nullSettings);
   ltsStorage.setLayerCount(map);
   ltsStorage.fixate();
 

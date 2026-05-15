@@ -122,22 +122,22 @@ void synchronize(void* stream) {}
 namespace seissol::time_stepping {
 
 void ShmemCluster::launchSend() {
-  for (std::size_t i = 0; i < meshStructure.copy.size(); ++i) {
-    const auto& remote = meshStructure.copy[i];
-    putOnStream(remotePointers[i],
+  for (std::size_t i = 0; i < meshStructure_.copy.size(); ++i) {
+    const auto& remote = meshStructure_.copy[i];
+    putOnStream(remotePointers_[i],
                 remote.data,
                 remote.size,
                 remote.rank,
                 remote.datatype,
-                signal.data(),
-                stream->stream());
+                signal_.data(),
+                stream_->stream());
   }
 }
 
 bool ShmemCluster::mayCorrect() {
-  synchronize(stream->stream());
-  stream->wait();
-  return AbstractTimeCluster::mayCorrect() && signal[0] == meshStructure.ghost.size();
+  synchronize(stream_->stream());
+  stream_->wait();
+  return AbstractTimeCluster::mayCorrect() && signal_[0] == meshStructure_.ghost.size();
 }
 
 void ShmemCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) {
@@ -150,10 +150,10 @@ void ShmemCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate)
   logError() << "Shmem timeout. More info TBD.";
 }
 
-void ShmemCluster::start() { signal[0] = 0; }
+void ShmemCluster::start() { signal_[0] = 0; }
 
 void ShmemCluster::predict() {}
-void ShmemCluster::correct() { signal[0] = 0; }
+void ShmemCluster::correct() { signal_[0] = 0; }
 
 ShmemCluster::ShmemCluster(double maxTimeStepSize,
                            int timeStepRate,
@@ -163,13 +163,13 @@ ShmemCluster::ShmemCluster(double maxTimeStepSize,
                            bool /*persistent*/)
     : AbstractTimeCluster(
           maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
-      globalClusterId(globalTimeClusterId), otherGlobalClusterId(otherGlobalTimeClusterId),
-      meshStructure(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId)),
-      signal(1, memory::Memkind::Shmem) {
+      globalClusterId_(globalTimeClusterId), otherGlobalClusterId_(otherGlobalTimeClusterId),
+      meshStructure_(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId)),
+      signal_(1, memory::Memkind::Shmem) {
 
   const auto& local = meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId);
 
-  remotePointers.resize(local.ghost.size());
+  remotePointers_.resize(local.ghost.size());
   std::vector<MPI_Request> requests;
   requests.reserve(local.ghost.size() + local.copy.size());
 
@@ -188,7 +188,7 @@ ShmemCluster::ShmemCluster(double maxTimeStepSize,
 
   for (std::size_t i = 0; i < local.ghost.size(); ++i) {
     const auto& cluster = local.ghost[i];
-    MPI_Irecv(static_cast<void*>(&remotePointers[i]),
+    MPI_Irecv(static_cast<void*>(&remotePointers_[i]),
               1,
               Mpi::castToMpiType<std::uintptr_t>(),
               cluster.rank,
@@ -199,13 +199,13 @@ ShmemCluster::ShmemCluster(double maxTimeStepSize,
 
   MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
 
-  signal[0] = 0;
+  signal_[0] = 0;
 }
 
 ShmemCluster::~ShmemCluster() = default;
 
 std::string ShmemCluster::description() const {
-  return "comm-" + std::to_string(globalClusterId) + "-" + std::to_string(otherGlobalClusterId);
+  return "comm-" + std::to_string(globalClusterId_) + "-" + std::to_string(otherGlobalClusterId_);
 }
 
 } // namespace seissol::time_stepping

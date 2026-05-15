@@ -34,10 +34,10 @@ class ActorStateStatistics {
     Sample() = delete;
   };
 
-  Sample currentSample;
+  Sample currentSample_;
 
-  unsigned globalClusterId;
-  LoopStatistics& loopStatistics;
+  unsigned globalClusterId_;
+  LoopStatistics& loopStatistics_;
 };
 
 class ActorStateStatisticsManager {
@@ -49,8 +49,8 @@ class ActorStateStatisticsManager {
 
   private:
   // for now, use an std::list, as this is merely a storage for all ActorStateStatistics objects
-  std::list<ActorStateStatistics> stateStatistics;
-  LoopStatistics& loopStatistics;
+  std::list<ActorStateStatistics> stateStatistics_;
+  LoopStatistics& loopStatistics_;
 };
 } // namespace seissol
 
