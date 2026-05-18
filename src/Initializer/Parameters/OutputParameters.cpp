@@ -241,6 +241,9 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
 
   const auto vtkorder = reader->readWithDefault("wavefieldvtkorder", -1);
 
+  const auto computeRotation = reader->readWithDefault("wavefieldcomputerotation", false);
+  const auto computeStrain = reader->readWithDefault("wavefieldcomputestrain", false);
+
   if (enabledPre.has_value()) {
     reader->warnDeprecated({"format"});
   }
@@ -253,7 +256,9 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
                                    outputMask,
                                    plasticityMask,
                                    integrationMask,
-                                   groups};
+                                   groups,
+                                   computeRotation,
+                                   computeStrain};
 }
 
 OutputParameters readOutputParameters(ParameterReader* baseReader) {

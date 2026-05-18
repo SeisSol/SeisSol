@@ -42,6 +42,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <tuple>
 #include <utils/logger.h>
 #include <vector>
 
@@ -319,8 +320,64 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                             [1];
 
     for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+      const auto projectVolume =
+          [=](real* target, const real* dofsSingleQuantity, const real* collvv) {
+            kernel::projectBasisToVtkVolume vtkproj{};
+            memory::AlignedArray<real, multisim::NumSimulations> simselect{};
+            alignas(Alignment) std::array<real, MaxVtk3dPoints> alignedTarget{};
+            simselect[sim] = 1;
+            vtkproj.simselect = simselect.data();
+            vtkproj.qb = dofsSingleQuantity;
+            vtkproj.xv(order) = alignedTarget.data();
+            vtkproj.collvv(ConvergenceOrder, order) = collvv;
+            vtkproj.execute(order);
+            std::copy_n(alignedTarget.data(), tensor::vtk3d::Shape[order][1], target);
+          };
+
+      const auto projectVolumeDeriv = [=](real* target,
+                                          const real* dofsSingleQuantity,
+                                          std::size_t dir,
+                                          std::size_t index,
+                                          std::size_t subcell) {
+        std::array<real, MaxVtk3dPoints> dataX{};
+        std::array<real, MaxVtk3dPoints> dataY{};
+        std::array<real, MaxVtk3dPoints> dataZ{};
+
+        projectVolume(dataX.data(), dofsSingleQuantity, projD1[subcell].data());
+        projectVolume(dataY.data(), dofsSingleQuantity, projD2[subcell].data());
+        projectVolume(dataZ.data(), dofsSingleQuantity, projD3[subcell].data());
+
+        const auto& element = meshReader.getElements()[cellIndices[index]];
+        const auto& vertexArray = meshReader.getVertices();
+
+        std::array<double, Cell::NumVertices> coordsX{};
+        std::array<double, Cell::NumVertices> coordsY{};
+        std::array<double, Cell::NumVertices> coordsZ{};
+        std::array<double, Cell::Dim> gradXi{};
+        std::array<double, Cell::Dim> gradEta{};
+        std::array<double, Cell::Dim> gradZeta{};
+
+        for (std::size_t i = 0; i < Cell::NumVertices; ++i) {
+          coordsX[i] = vertexArray[element.vertices[i]].coords[0];
+          coordsY[i] = vertexArray[element.vertices[i]].coords[1];
+          coordsZ[i] = vertexArray[element.vertices[i]].coords[2];
+        }
+
+        seissol::transformations::tetrahedronGlobalToReferenceJacobian(coordsX.data(),
+                                                                       coordsY.data(),
+                                                                       coordsZ.data(),
+                                                                       gradXi.data(),
+                                                                       gradEta.data(),
+                                                                       gradZeta.data());
+
+        for (std::size_t i = 0; i < tensor::vtk3d::Shape[order][1]; ++i) {
+          target[i] = dataX[i] * gradXi[dir] + dataY[i] * gradEta[dir] + dataZ[i] * gradZeta[dir];
+        }
+      };
+
       for (std::size_t quantity = 0; quantity < seissol::model::MaterialT::Quantities.size();
            ++quantity) {
+
         if (seissolParams.output.waveFieldParameters.outputMask[quantity]) {
           writer.addGeometryOutput<real>(
               namewrap(seissol::model::MaterialT::Quantities[quantity], sim),
@@ -330,18 +387,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 const auto position = backmap.get(cellIndices[index]);
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
-                kernel::projectBasisToVtkVolume vtkproj{};
-                memory::AlignedArray<real, multisim::NumSimulations> simselect{};
-                alignas(Alignment) std::array<real, MaxVtk3dPoints> alignedTarget{};
-                simselect[sim] = 1;
-                vtkproj.simselect = simselect.data();
-                vtkproj.qb = dofsSingleQuantity;
-                vtkproj.xv(order) = alignedTarget.data();
-                vtkproj.collvv(ConvergenceOrder, order) = proj[subcell].data();
-                vtkproj.execute(order);
-                std::copy_n(alignedTarget.data(), tensor::vtk3d::Shape[order][1], target);
+                projectVolume(target, dofsSingleQuantity, proj[subcell].data());
               });
         }
+
         if (seissolParams.output.waveFieldParameters.integrationMask[quantity]) {
           writer.addGeometryOutput<real>(
               namewrap("int-" + seissol::model::MaterialT::Quantities[quantity], sim),
@@ -351,19 +400,90 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 const auto position = backmap.get(cellIndices[index]);
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Integrals>(position);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
-                kernel::projectBasisToVtkVolume vtkproj{};
-                memory::AlignedArray<real, multisim::NumSimulations> simselect{};
-                alignas(Alignment) std::array<real, MaxVtk3dPoints> alignedTarget{};
-                simselect[sim] = 1;
-                vtkproj.simselect = simselect.data();
-                vtkproj.qb = dofsSingleQuantity;
-                vtkproj.xv(order) = alignedTarget.data();
-                vtkproj.collvv(ConvergenceOrder, order) = proj[subcell].data();
-                vtkproj.execute(order);
-                std::copy_n(alignedTarget.data(), tensor::vtk3d::Shape[order][1], target);
+                projectVolume(target, dofsSingleQuantity, proj[subcell].data());
               });
         }
       }
+
+      using Idx = std::tuple<std::string, std::size_t, std::size_t>;
+
+      if (seissolParams.output.waveFieldParameters.computeStrain) {
+        for (const auto& idxp : {Idx{"xx", 0, 0},
+                                 Idx{"yy", 1, 1},
+                                 Idx{"zz", 2, 2},
+                                 Idx{"xy", 0, 1},
+                                 Idx{"yz", 1, 2},
+                                 Idx{"xz", 0, 2}}) {
+          const auto& name = std::get<0>(idxp);
+
+          // need non-reference capture (due to lambda usage)
+          const auto idx1 = std::get<1>(idxp);
+          const auto idx2 = std::get<2>(idxp);
+
+          // compute (d_i1 v_i2 + d_i2 v_i1) / 2
+
+          writer.addGeometryOutput<real>(
+              namewrap("eps" + name, sim),
+              {},
+              false,
+              [=, &ltsStorage, &backmap](real* target, std::size_t index, std::size_t subcell) {
+                const auto position = backmap.get(cellIndices[index]);
+                const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Integrals>(position);
+                const auto* dofsSingleQuantity1 =
+                    dofsAllQuantities +
+                    QDofSizePadded * (idx1 + model::MaterialT::TractionQuantities);
+                projectVolumeDeriv(target, dofsSingleQuantity1, idx2, index, subcell);
+
+                if (idx1 != idx2) {
+                  const auto* dofsSingleQuantity2 =
+                      dofsAllQuantities +
+                      QDofSizePadded * (idx2 + model::MaterialT::TractionQuantities);
+                  std::array<real, MaxVtk3dPoints> itarget{};
+                  projectVolumeDeriv(itarget.data(), dofsSingleQuantity2, idx1, index, subcell);
+
+                  for (std::size_t i = 0; i < tensor::vtk3d::Shape[order][1]; ++i) {
+                    target[i] = (target[i] + itarget[i]) / 2;
+                  }
+                }
+              });
+        }
+      }
+
+      if (seissolParams.output.waveFieldParameters.computeRotation) {
+        for (const auto& idxp : {Idx{"1", 2, 1}, Idx{"2", 0, 2}, Idx{"3", 1, 0}}) {
+          const auto& name = std::get<0>(idxp);
+
+          // need non-reference capture (due to lambda usage)
+          const auto idx1 = std::get<1>(idxp);
+          const auto idx2 = std::get<2>(idxp);
+
+          // compute d_i2 v_i1 - d_i1 v_i2
+
+          writer.addGeometryOutput<real>(
+              namewrap("rot" + name, sim),
+              {},
+              false,
+              [=, &ltsStorage, &backmap](real* target, std::size_t index, std::size_t subcell) {
+                const auto position = backmap.get(cellIndices[index]);
+                const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Integrals>(position);
+                const auto* dofsSingleQuantity1 =
+                    dofsAllQuantities +
+                    QDofSizePadded * (idx1 + model::MaterialT::TractionQuantities);
+                projectVolumeDeriv(target, dofsSingleQuantity1, idx2, index, subcell);
+
+                const auto* dofsSingleQuantity2 =
+                    dofsAllQuantities +
+                    QDofSizePadded * (idx2 + model::MaterialT::TractionQuantities);
+                std::array<real, MaxVtk3dPoints> itarget{};
+                projectVolumeDeriv(itarget.data(), dofsSingleQuantity2, idx1, index, subcell);
+
+                for (std::size_t i = 0; i < tensor::vtk3d::Shape[order][1]; ++i) {
+                  target[i] -= itarget[i];
+                }
+              });
+        }
+      }
+
       if (seissolParams.model.plasticity) {
         for (std::size_t quantity = 0; quantity < seissol::model::PlasticityData::Quantities.size();
              ++quantity) {
@@ -523,8 +643,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           target[0] = meshReader.getElements()[meshId].globalId * 4 + side;
         });
 
-    std::vector<std::string> quantityLabelsVelocities = {"v1", "v2", "v3"};
-    std::vector<std::string> quantityLabelsDisplacement = {"u1", "u2", "u3"};
+    const std::vector<std::string> quantityLabelsVelocities = {"v1", "v2", "v3"};
+    const std::vector<std::string> quantityLabelsDisplacement = {"u1", "u2", "u3"};
+
     for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
       for (std::size_t quantity = 0; quantity < quantityLabelsVelocities.size(); ++quantity) {
         constexpr std::size_t MaxVtk2dPoints =

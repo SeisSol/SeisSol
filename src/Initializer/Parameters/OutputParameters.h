@@ -118,6 +118,8 @@ struct WaveFieldOutputParameters {
   std::array<bool, seissol::model::PlasticityData::Quantities.size()> plasticityMask{};
   std::array<bool, seissol::model::MaterialT::NumQuantities> integrationMask{};
   std::unordered_set<int> groups;
+  bool computeRotation{false};
+  bool computeStrain{false};
 };
 
 struct OutputParameters {
