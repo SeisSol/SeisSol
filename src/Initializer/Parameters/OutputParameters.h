@@ -10,6 +10,7 @@
 
 #include "Equations/Datastructures.h"
 #include "Initializer/InputAux.h"
+#include "Model/Plasticity.h"
 #include "ParameterReader.h"
 
 #include <list>
@@ -114,8 +115,8 @@ struct WaveFieldOutputParameters {
   VolumeRefinement refinement{VolumeRefinement::NoRefine};
   OutputBounds bounds;
   std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask{};
-  std::array<bool, 7> plasticityMask{};
-  std::array<bool, 9> integrationMask{};
+  std::array<bool, seissol::model::PlasticityData::Quantities.size()> plasticityMask{};
+  std::array<bool, seissol::model::MaterialT::NumQuantities> integrationMask{};
   std::unordered_set<int> groups;
 };
 

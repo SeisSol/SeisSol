@@ -9,6 +9,7 @@
 
 #include "Common/Constants.h"
 #include "Geometry/MeshDefinition.h"
+#include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/CubeGeneratorParameters.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
@@ -454,13 +455,14 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
     }
   }
 
-  int* elemBoundaries = new int[numElemPerPart[3] * 4];
+  std::vector<FaceType> elemBoundaries(numElemPerPart[3] * 4);
+
+  const auto faceMap = defaultFaceMap();
 
   // Calculate elemBoundaries
   for (std::size_t z = 0; z < numPartitions[2]; z++) {
     for (std::size_t y = 0; y < numPartitions[1]; y++) {
       const std::size_t x = rank_;
-      memset(elemBoundaries, 0, sizeof(int) * numElemPerPart[3] * 4);
 
       if (x == 0) { // first partition in x dimension
 
@@ -470,14 +472,15 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
             const int odd = (zz + yy) % 2;
             if (odd != 0) {
               elemBoundaries[static_cast<size_t>((zz * numCubesPerPart[1] + yy) *
-                                                 numCubesPerPart[0] * 20)] = boundaryMinx;
+                                                 numCubesPerPart[0] * 20)] =
+                  faceMap.at(boundaryMinx).value();
               elemBoundaries[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] =
-                  boundaryMinx;
+                  faceMap.at(boundaryMinx).value();
             } else {
               elemBoundaries[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 2] =
-                  boundaryMinx;
+                  faceMap.at(boundaryMinx).value();
               elemBoundaries[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 12] =
-                  boundaryMinx;
+                  faceMap.at(boundaryMinx).value();
             }
           }
         }
@@ -492,20 +495,20 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
               elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
                               numCubesPerPart[0] - 1) *
                                  20 +
-                             7] = boundaryMaxx;
+                             7] = faceMap.at(boundaryMaxx).value();
               elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
                               numCubesPerPart[0] - 1) *
                                  20 +
-                             12] = boundaryMaxx;
+                             12] = faceMap.at(boundaryMaxx).value();
             } else {
               elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
                               numCubesPerPart[0] - 1) *
                                  20 +
-                             6] = boundaryMaxx;
+                             6] = faceMap.at(boundaryMaxx).value();
               elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
                               numCubesPerPart[0] - 1) *
                                  20 +
-                             9] = boundaryMaxx;
+                             9] = faceMap.at(boundaryMaxx).value();
             }
           }
         }
@@ -518,14 +521,14 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
             const int odd = (zz + xx) % 2;
             if (odd != 0) {
               elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 6] =
-                  boundaryMiny;
+                  faceMap.at(boundaryMiny).value();
               elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 9] =
-                  boundaryMiny;
+                  faceMap.at(boundaryMiny).value();
             } else {
               elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 1] =
-                  boundaryMiny;
+                  faceMap.at(boundaryMiny).value();
               elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 10] =
-                  boundaryMiny;
+                  faceMap.at(boundaryMiny).value();
             }
           }
         }
@@ -540,20 +543,20 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
               elemBoundaries
                   [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
                        20 +
-                   3] = boundaryMaxy;
+                   3] = faceMap.at(boundaryMaxy).value();
               elemBoundaries
                   [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
                        20 +
-                   14] = boundaryMaxy;
+                   14] = faceMap.at(boundaryMaxy).value();
             } else {
               elemBoundaries
                   [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
                        20 +
-                   7] = boundaryMaxy;
+                   7] = faceMap.at(boundaryMaxy).value();
               elemBoundaries
                   [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
                        20 +
-                   13] = boundaryMaxy;
+                   13] = faceMap.at(boundaryMaxy).value();
             }
           }
         }
@@ -566,12 +569,15 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
           for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (yy + xx) % 2;
             if (odd != 0) {
-              elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 1] = boundaryMinz;
-              elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 5] = boundaryMinz;
+              elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 1] =
+                  faceMap.at(boundaryMinz).value();
+              elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 5] =
+                  faceMap.at(boundaryMinz).value();
             } else {
               elemBoundaries[static_cast<size_t>((yy * numCubesPerPart[0] + xx) * 20)] =
-                  boundaryMinz;
-              elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 5] = boundaryMinz;
+                  faceMap.at(boundaryMinz).value();
+              elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 5] =
+                  faceMap.at(boundaryMinz).value();
             }
           }
         }
@@ -588,20 +594,20 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
             elemBoundaries
                 [(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
                      20 +
-                 11] = boundaryMaxz;
+                 11] = faceMap.at(boundaryMaxz).value();
             elemBoundaries
                 [(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
                      20 +
-                 15] = boundaryMaxz;
+                 15] = faceMap.at(boundaryMaxz).value();
             //                                                                    } else {
             //                                                                            elemBoundaries[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
             //                                                                            * 20 + 11]
             //                                                                            =
-            //                                                                            boundaryMaxz;
+            //                                                                            faceMap.at(boundaryMaxz).value();
             //                                                                            elemBoundaries[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
             //                                                                            * 20 + 15]
             //                                                                            =
-            //                                                                            boundaryMaxz;
+            //                                                                            faceMap.at(boundaryMaxz).value();
             //                                                                    }
           }
         }
@@ -1409,7 +1415,6 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   delete[] elemNeighborsCast;
   delete[] elemNeighborSides;
   delete[] elemSideOrientations;
-  delete[] elemBoundaries;
   delete[] elemNeighborRanks;
   delete[] elemMPIIndices;
   delete[] elemGroup;

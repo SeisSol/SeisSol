@@ -103,10 +103,15 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
     // update the DOFs
     logInfo() << "Start simulation epoch. (from" << currentTime_ << "s to" << upcomingTime << "s)";
+
     computeStopwatch.start();
     seissolInstance.timeManager().advanceInTime(upcomingTime);
     computeStopwatch.pause();
-    logInfo() << "End simulation epoch. (at" << upcomingTime << "s)";
+
+    const auto rateDone = upcomingTime / finalTime_;
+    const auto percentageDone = rateDone * 100;
+    logInfo() << "End simulation epoch. (at" << upcomingTime << "s; total" << percentageDone
+              << "% done)";
 
     ioStopwatch.start();
 
@@ -125,8 +130,12 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     Stopwatch::print("Time spent this epoch (total):", currentSplit - lastSplit);
     Stopwatch::print("Time spent this epoch (compute):", computeStopwatch.split());
     Stopwatch::print("Time spent this epoch (blocking IO):", ioStopwatch.split());
+
     seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
     lastSplit = currentSplit;
+
+    Stopwatch::print("Total time spent:", currentSplit);
+    Stopwatch::print("Expected time until finish:", currentSplit / rateDone * (1.0 - rateDone));
 
     // use an empty log message as visual separator
     logInfo() << "";

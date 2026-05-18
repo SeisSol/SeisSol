@@ -21,7 +21,6 @@
 #include "ResultWriter/DofSync.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "ResultWriter/PickpointWriter.h"
-#include "ResultWriter/PostProcessor.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/Simulator.h"
 #include "Solver/TimeStepping/TimeManager.h"
@@ -89,10 +88,6 @@ class SeisSol {
   solver::FreeSurfaceIntegrator& freeSurfaceIntegrator() { return freeSurfaceIntegrator_; }
 
   writer::AnalysisWriter& analysisWriter() { return analysisWriter_; }
-
-  /** Get the post processor module
-   */
-  writer::PostProcessor& postProcessor() { return postProcessor_; }
 
   io::AsyncIO& asyncIO() { return asyncIO_; }
 
@@ -227,9 +222,6 @@ class SeisSol {
 
   //! Source term module
   sourceterm::Manager sourceTermManager_;
-
-  //! PostProcessor module
-  writer::PostProcessor postProcessor_;
 
   //! Free surface integrator module
   solver::FreeSurfaceIntegrator freeSurfaceIntegrator_;

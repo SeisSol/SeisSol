@@ -8,6 +8,7 @@
 #include "Hdf5Writer.h"
 
 #include "Common/Filesystem.h"
+#include "Common/Literals.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/HDF5Type.h"
 #include "IO/Datatype/Inference.h"
@@ -133,8 +134,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   const auto& dimensions = source->shape();
   // TODO: adjust chunksize according to dimensions and datatype size
   const std::size_t chunksize =
-      std::max(static_cast<std::size_t>(1),
-               static_cast<std::size_t>(2'000'000'000) / (source->datatype()->size() * dimprod));
+      std::max(1_UZ, 2'000'000'000_UZ / (source->datatype()->size() * dimprod));
 
   std::size_t allcount = count;
   std::size_t offset = 0;

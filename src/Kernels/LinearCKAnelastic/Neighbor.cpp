@@ -39,12 +39,12 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
            0);
   }
 
-  for (int h = 0; h < 3; ++h) {
+  for (std::size_t h = 0; h < Cell::Dim; ++h) {
     assert((reinterpret_cast<uintptr_t>(global.onHost->neighborFluxMatrices(h))) % Alignment == 0);
   }
 
   for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
-    for (int h = 0; h < 3; ++h) {
+    for (std::size_t h = 0; h < Cell::Dim; ++h) {
       assert((reinterpret_cast<uintptr_t>(global.onHost->nodalFluxMatrices(i, h))) % Alignment ==
              0);
     }
@@ -77,10 +77,8 @@ void Neighbor::computeNeighborsIntegral(
     const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) {
 #ifndef NDEBUG
   for (std::size_t neighbor = 0; neighbor < Cell::NumFaces; ++neighbor) {
-    // alignment of the time integrated dofs
-    if (data.get<LTS::CellInformation>().faceTypes[neighbor] != FaceType::Outflow &&
-        data.get<LTS::CellInformation>().faceTypes[neighbor] !=
-            FaceType::DynamicRupture) { // no alignment for outflow and DR boundaries required
+    // alignment of the time integrated dofs (only for linear interior)
+    if (data.get<LTS::CellInformation>().faceTypes[neighbor] == FaceType::Regular) {
       assert((reinterpret_cast<uintptr_t>(timeIntegrated[neighbor])) % Alignment == 0);
     }
   }
@@ -98,22 +96,17 @@ void Neighbor::computeNeighborsIntegral(
 
   // iterate over faces
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    // no neighboring cell contribution in the case of absorbing and dynamic rupture boundary
-    // conditions
-    if (data.get<LTS::CellInformation>().faceTypes[face] != FaceType::Outflow &&
-        data.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
-      // compute the neighboring elements flux matrix id.
-      if (data.get<LTS::CellInformation>().faceTypes[face] != FaceType::FreeSurface) {
-        assert(data.get<LTS::CellInformation>().faceRelations[face][0] < Cell::NumFaces &&
-               data.get<LTS::CellInformation>().faceRelations[face][1] < 3);
+    // neighboring cell contribution only for interior faces
+    if (data.get<LTS::CellInformation>().faceTypes[face] == FaceType::Regular) {
+      assert(data.get<LTS::CellInformation>().faceRelations[face][0] < Cell::NumFaces &&
+             data.get<LTS::CellInformation>().faceRelations[face][1] < 3);
 
-        nfKrnl.I = timeIntegrated[face];
-        nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
-        nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
-        nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][1],
-                       data.get<LTS::CellInformation>().faceRelations[face][0],
-                       face);
-      }
+      nfKrnl.I = timeIntegrated[face];
+      nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
+      nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
+      nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][1],
+                     data.get<LTS::CellInformation>().faceRelations[face][0],
+                     face);
     } else if (data.get<LTS::CellInformation>().faceTypes[face] == FaceType::DynamicRupture) {
       assert((reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov)) % Alignment == 0);
 
@@ -150,21 +143,14 @@ void Neighbor::flopsNeighborsIntegral(
   drHardwareFlops = 0;
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    // no neighboring cell contribution in the case of absorbing and dynamic rupture boundary
-    // conditions
-    if (faceTypes[face] != FaceType::Outflow && faceTypes[face] != FaceType::DynamicRupture) {
-      // compute the neighboring elements flux matrix id.
-      if (faceTypes[face] != FaceType::FreeSurface) {
-        assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] < 3);
+    // neighboring cell contribution only for interior faces
+    if (faceTypes[face] == FaceType::Regular) {
+      assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] < 3);
 
-        nonZeroFlops += seissol::kernel::neighborFluxExt::nonZeroFlops(
-            neighboringIndices[face][1], neighboringIndices[face][0], face);
-        hardwareFlops += seissol::kernel::neighborFluxExt::hardwareFlops(
-            neighboringIndices[face][1], neighboringIndices[face][0], face);
-      } else { // fall back to local matrices in case of free surface boundary conditions
-        nonZeroFlops += seissol::kernel::localFluxExt::nonZeroFlops(face);
-        hardwareFlops += seissol::kernel::localFluxExt::hardwareFlops(face);
-      }
+      nonZeroFlops += seissol::kernel::neighborFluxExt::nonZeroFlops(
+          neighboringIndices[face][1], neighboringIndices[face][0], face);
+      hardwareFlops += seissol::kernel::neighborFluxExt::hardwareFlops(
+          neighboringIndices[face][1], neighboringIndices[face][0], face);
     } else if (faceTypes[face] == FaceType::DynamicRupture) {
       drNonZeroFlops += dynamicRupture::kernel::nodalFlux::nonZeroFlops(
           cellDrMapping[face].side, cellDrMapping[face].faceRelation);
@@ -215,12 +201,9 @@ void Neighbor::computeBatchedNeighborsIntegral(
           // regular and periodic
           if (i < (*FaceRelations::Count)) {
             // regular and periodic
-            unsigned faceRelation = i;
+            const auto faceRelation = i;
 
-            ConditionalKey key(*KernelNames::NeighborFlux,
-                               (FaceKinds::Regular || FaceKinds::Periodic),
-                               face,
-                               faceRelation);
+            ConditionalKey key(*KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
 
             if (table.find(key) != table.end()) {
               auto& entry = table[key];
@@ -243,7 +226,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
             }
           } else {
             // Dynamic Rupture
-            unsigned faceRelation = i - (*FaceRelations::Count);
+            const auto faceRelation = i - (*FaceRelations::Count);
 
             ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);

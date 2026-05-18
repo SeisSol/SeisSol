@@ -31,6 +31,7 @@
 
 #include <hdf5.h>
 #endif // defined(USE_HDF)
+#include "Initializer/FaceMap.h"
 #include "Initializer/TimeStepping/LtsWeights/WeightsFactory.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Stopwatch.h"
@@ -277,6 +278,16 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   seissol::Stopwatch watch;
   watch.start();
 
+  const auto faceMap = [&]() {
+    const auto faceMapFile = seissolParams.mesh.faceMapFile;
+    if (faceMapFile.has_value()) {
+      const auto yamlNode = YAML::Load(faceMapFile.value());
+      return parseFaceMap(yamlNode);
+    } else {
+      return defaultFaceMap();
+    }
+  }();
+
   using namespace seissol::initializer::time_stepping;
   const LtsWeightsConfig config{
       boundaryFormat,
@@ -289,6 +300,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       seissolParams.timeStepping.lts.getLtsWeightsType(), config, seissolInstance);
   auto* meshReader = new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName,
                                                        seissolParams.mesh.partitioningLib,
+                                                       faceMap,
                                                        boundaryFormat,
                                                        topologyFormat,
                                                        ltsWeights.get(),

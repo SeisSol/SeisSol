@@ -11,6 +11,7 @@
 #include "Initializer/Parameters/ParameterReader.h"
 
 #include <Eigen/Core>
+#include <optional>
 
 namespace seissol::initializer::parameters {
 
@@ -58,6 +59,9 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
 
   const bool showEdgeCutStatistics = reader->readWithDefault("showedgecutstatistics", false);
 
+  const auto faceMapPre = reader->readPath("facemapfile");
+  const auto faceMap = faceMapPre == "" ? std::optional<std::string>{} : faceMapPre;
+
   reader->warnDeprecated({"periodic", "periodic_direction"});
 
   return MeshParameters{showEdgeCutStatistics,
@@ -66,6 +70,7 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
                         meshFormat,
                         meshFileName,
                         partitioningLib,
+                        faceMap,
                         displacement,
                         scaling};
 }

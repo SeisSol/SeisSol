@@ -10,6 +10,7 @@
 
 #include "BaseFrictionLaw.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 
 namespace seissol::dr::friction_law::cpu {
 /**
@@ -19,7 +20,7 @@ namespace seissol::dr::friction_law::cpu {
 template <class Derived, class TPMethod>
 class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>> {
   public:
-  explicit RateAndStateBase(seissol::initializer::parameters::DRParameters* drParameters)
+  explicit RateAndStateBase(const FrictionLawParameters& drParameters)
       : BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw(drParameters),
         tpMethod_(TPMethod(drParameters)) {}
 
@@ -56,10 +57,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                        timeIndex,
                                        ltsFace);
 
-    // check for convergence
-    if (!hasConverged) {
-      static_cast<Derived*>(this)->executeIfNotConverged(stateVariableBuffer, ltsFace);
-    }
     // compute final thermal pressure and normalStress
     tpMethod_.calcFluidPressure(
         normalStress, this->mu_, localSlipRate, this->deltaT_[timeIndex], true, ltsFace);
@@ -95,6 +92,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     f0_ = layerData.var<LTSRateAndState::RsF0>();
     muW_ = layerData.var<LTSRateAndState::RsMuW>();
     b_ = layerData.var<LTSRateAndState::RsB>();
+    convergenceInner_ = layerData.var<LTSRateAndState::ConvergenceInner>();
+    convergenceOuter_ = layerData.var<LTSRateAndState::ConvergenceOuter>();
     stateVariable_ = layerData.var<LTSRateAndState::StateVariable>();
     static_cast<Derived*>(this)->copyStorageToLocal(layerData);
     tpMethod_.copyStorageToLocal(layerData);
@@ -158,8 +157,25 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       const FaultStresses<Executor::Host>& faultStresses,
       uint32_t timeIndex,
       std::size_t ltsFace) {
-    std::array<real, misc::NumPaddedPoints> testSlipRate{0};
-    for (uint32_t j = 0; j < settings_.numberStateVariableUpdates; j++) {
+    std::array<real, misc::NumPaddedPoints> testSlipRate{};
+    std::array<bool, misc::NumPaddedPoints> convergenceOuterPre{};
+
+    // use:
+    // - (inner loop) Newton-Raphson to find the fixed point slip rate with a _fixed_ state and
+    // stress
+    // - (outer loop) fixed-point iteration to find the fixed point slip rate with varying state and
+    // stress; using the previous Newton-Raphson step (why not combine? Mainly because: thermal
+    // pressurization might happen which could be a bit expensive to differentiate (though it's
+    // doable; just only take all code paths that have tauV in them). Maybe the state can be
+    // combined in; however that might need some more nonlinear function evaluations per step, and
+    // thus could be slower). The fixed-point iteration is "regularized" by averging it with the
+    // previous estimate. I.e. we compute x_(n+1) = (x_n + f(x_n)) / 2. Any fixed point we find is a
+    // fixed point of f.
+
+    // procedure source: Kaneko 2008; doi:10.1029/2007JB005154 . Section 2.3. But extended for a
+    // virtually unlimited number of outer fixed point iterations.
+
+    for (uint32_t j = 0; j < this->drParameters_.rsNumberStateVariableUpdates; j++) {
 #pragma omp simd
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         // fault strength using friction coefficient and fluid pressure from previous
@@ -180,17 +196,39 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       hasConverged = this->invertSlipRateIterative(
           ltsFace, localStateVariable, normalStress, absoluteShearStress, testSlipRate);
 
-#pragma omp simd
+      // int for ICX not to fail
+      int32_t converged = 1;
+
+#pragma omp simd reduction(min : converged)
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         // update local slip rate, now using V=(Vnew+Vold)/2
         // For the next SV update, use the mean slip rate between the initial guess and the one
         // found (Kaneko 2008, step 6)
-        localSlipRate[pointIndex] = 0.5 * (this->slipRateMagnitude_[ltsFace][pointIndex] +
-                                           std::fabs(testSlipRate[pointIndex]));
+        localSlipRate[pointIndex] =
+            static_cast<real>(0.5) *
+            (this->slipRateMagnitude_[ltsFace][pointIndex] + testSlipRate[pointIndex]);
+
+        const auto pointConverged =
+            std::abs(testSlipRate[pointIndex] - this->slipRateMagnitude_[ltsFace][pointIndex]) <
+            this->drParameters_.rsStateTolerance;
+
+        converged = std::min(pointConverged ? 1 : 0, converged);
+
+        convergenceOuterPre[pointIndex] = pointConverged;
 
         // solve again for Vnew
-        this->slipRateMagnitude_[ltsFace][pointIndex] = std::fabs(testSlipRate[pointIndex]);
+        this->slipRateMagnitude_[ltsFace][pointIndex] = testSlipRate[pointIndex];
       } // End of pointIndex-loop
+
+      if (converged != 0) {
+        break;
+      }
+    }
+
+    // update (outer) (non-)convergence
+#pragma omp simd
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      convergenceOuter_[ltsFace][pointIndex] &= convergenceOuterPre[pointIndex];
     }
   }
 
@@ -203,7 +241,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                TractionResults<Executor::Host>& tractionResults,
                                uint32_t timeIndex,
                                std::size_t ltsFace) {
-    const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // SV from mean slip rate in tmp
@@ -213,7 +251,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                                            stateVarReference[pointIndex],
                                                            this->deltaT_[timeIndex],
                                                            localSlipRate[pointIndex]);
+    }
 
+    const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+
+#pragma omp simd
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // update LocMu for next strength determination, only needed for last update
       this->mu_[ltsFace][pointIndex] = static_cast<Derived*>(this)->updateMu(
           pointIndex, this->slipRateMagnitude_[ltsFace][pointIndex], details);
@@ -259,12 +302,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
 
-      if (this->ruptureTime_[faceIndex][pointIndex] > 0.0 &&
+      if (this->ruptureTime_[faceIndex][pointIndex] > static_cast<real>(0.0) &&
           this->ruptureTime_[faceIndex][pointIndex] <= time &&
           this->dynStressTimePending_[faceIndex][pointIndex] &&
           this->mu_[faceIndex][pointIndex] <=
               (this->muW_[faceIndex][pointIndex] +
-               0.05 * (this->f0_[faceIndex][pointIndex] - this->muW_[faceIndex][pointIndex]))) {
+               static_cast<real>(0.05) *
+                   (this->f0_[faceIndex][pointIndex] - this->muW_[faceIndex][pointIndex]))) {
         this->dynStressTime_[faceIndex][pointIndex] = time;
         this->dynStressTimePending_[faceIndex][pointIndex] = false;
       }
@@ -302,21 +346,21 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       slipRateTest[pointIndex] = this->slipRateMagnitude_[ltsFace][pointIndex];
     }
 
-    for (uint32_t i = 0; i < settings_.maxNumberSlipRateUpdates; i++) {
+    for (uint32_t i = 0; i < this->drParameters_.rsMaxNumberSlipRateUpdates; i++) {
 #pragma omp simd
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         // calculate friction coefficient and objective function
         muF[pointIndex] =
             static_cast<Derived*>(this)->updateMu(pointIndex, slipRateTest[pointIndex], details);
         g[pointIndex] = -this->impAndEta_[ltsFace].invEtaS *
-                            (std::fabs(normalStress[pointIndex]) * muF[pointIndex] -
+                            (std::abs(normalStress[pointIndex]) * muF[pointIndex] -
                              absoluteShearStress[pointIndex]) -
                         slipRateTest[pointIndex];
       }
 
       // max element of g must be smaller than newtonTolerance
       const bool hasConverged = std::all_of(std::begin(g), std::end(g), [&](auto val) {
-        return std::fabs(val) < settings_.newtonTolerance;
+        return std::abs(val) < this->drParameters_.rsSlipRateTolerance;
       });
       if (hasConverged) {
 #pragma omp simd
@@ -332,12 +376,19 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
         // derivative of g
         dG[pointIndex] = -this->impAndEta_[ltsFace].invEtaS *
-                             (std::fabs(normalStress[pointIndex]) * dMuF[pointIndex]) -
-                         1.0;
+                             (std::abs(normalStress[pointIndex]) * dMuF[pointIndex]) -
+                         static_cast<real>(1.0);
         // newton update
         const real tmp3 = g[pointIndex] / dG[pointIndex];
         slipRateTest[pointIndex] = std::max(rs::almostZero(), slipRateTest[pointIndex] - tmp3);
       }
+    }
+
+    // update (non-)convergence
+#pragma omp simd
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      convergenceInner_[ltsFace][pointIndex] &=
+          std::abs(g[pointIndex]) < this->drParameters_.rsSlipRateTolerance;
     }
     return false;
   }
@@ -369,8 +420,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   real (*__restrict muW_)[misc::NumPaddedPoints]{};
   real (*__restrict b_)[misc::NumPaddedPoints]{};
 
+  bool (*__restrict convergenceInner_)[misc::NumPaddedPoints]{};
+  bool (*__restrict convergenceOuter_)[misc::NumPaddedPoints]{};
+
   TPMethod tpMethod_;
-  rs::Settings settings_{};
 };
 
 } // namespace seissol::dr::friction_law::cpu

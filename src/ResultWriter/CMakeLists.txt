@@ -14,7 +14,6 @@ add_library(seissol-resultwriter OBJECT
     MiniSeisSolWriter.cpp
     ParallelHdf5ReceiverWriter.cpp
     PickpointWriter.cpp
-    PostProcessor.cpp
     ReceiverWriter.cpp
     ThreadsPinningWriter.cpp
 )

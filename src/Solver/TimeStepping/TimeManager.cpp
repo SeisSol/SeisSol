@@ -23,6 +23,7 @@
 #include "ResultWriter/ClusteringWriter.h"
 #include "ResultWriter/ReceiverWriter.h"
 #include "SeisSol.h"
+#include "Solver/Settings.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 #include "Solver/TimeStepping/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/ActorState.h"
@@ -65,7 +66,7 @@ TimeManager::~TimeManager() = default;
 void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                               const solver::HaloCommunication& haloStructure,
                               initializer::MemoryManager& memoryManager,
-                              bool usePlasticity) {
+                              const SimulationSettings& settings) {
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
   std::vector<std::unique_ptr<AbstractGhostTimeCluster>> ghostClusters;
 
@@ -140,7 +141,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
         std::make_unique<TimeCluster>(clusterId,
                                       clusterId,
                                       profilingId,
-                                      usePlasticity,
+                                      settings,
                                       layer.getIdentifier().halo,
                                       timeStepSize,
                                       timeStepRate,
