@@ -60,6 +60,7 @@ class InstantaneousTimeMirrorManager : public Module {
   void syncPoint(double currentTime) override;
 
   private:
+  void scaleClusterTimes(double scalingFactor);
   void updateVelocities();
   void updateTimeSteps();
 
