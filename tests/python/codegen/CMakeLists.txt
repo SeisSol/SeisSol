@@ -13,26 +13,27 @@
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
-# Probe whether pytest and hypothesis are importable. If not, skip the
+# Probe whether needed packages are importable. If not, skip the
 # Python test integration with an informative message — don't hard-fail,
 # so a minimal C++-only build stays usable.
 execute_process(
     COMMAND ${Python3_EXECUTABLE} -c
-        "import pytest, hypothesis"
+        "import pytest, hypothesis, numpy, pandas, lxml"
     RESULT_VARIABLE _pytest_probe
     OUTPUT_QUIET ERROR_QUIET
 )
 
 if (NOT _pytest_probe EQUAL 0)
     message(STATUS
-        "Python test dependencies (pytest, hypothesis) not found; "
+        "Python test dependencies (pytest, hypothesis, numpy, pandas, lxml) not found; "
         "skipping Python codegen tests. Install them with "
-        "'pip install pytest hypothesis' to enable.")
+        "'pip install pytest hypothesis numpy pandas lxml' to enable.")
     return()
 endif()
 
 # The codegen tests import from codegen/ and its submodules/yateto
-# submodule. conftest.py adds the right paths to sys.path based on
+# submodule via the local symlink.
+# conftest.py adds the right paths to sys.path based on
 # REPO_ROOT = parents[3] (tests/python/codegen/conftest.py -> repo root).
 # That works when the test files live in-tree at tests/python/codegen/;
 # no extra environment setup needed.
@@ -64,16 +65,16 @@ foreach(_test_file IN LISTS _pytest_codegen_files)
         # is the slowest by ~30s; the rest are sub-second.
         TIMEOUT 300
     )
-endforeach()
 
-# The generate_goldenfile test shells out to generate.py, which imports
-# yateto. If the build environment doesn't have yateto installed as a
-# package, point PYTHONPATH at the in-tree submodule so the subprocess
-# can find it — identical to the mechanism CMake itself uses to call
-# generate.py at build time.
-set_tests_properties(pytest-codegen-test_generate_goldenfile PROPERTIES
-    ENVIRONMENT "PYTHONPATH=${CMAKE_SOURCE_DIR}/submodules/yateto"
-)
-set_tests_properties(pytest-codegen-test_integration PROPERTIES
-    ENVIRONMENT "PYTHONPATH=${CMAKE_SOURCE_DIR}/submodules/yateto"
-)
+    # (the following is currently not needed; but kept for completeness)
+
+    # The generate_goldenfile test shells out to generate.py, which imports
+    # yateto. If the build environment doesn't have yateto installed as a
+    # package, point PYTHONPATH at the in-tree submodule so the subprocess
+    # can find it — identical to the mechanism CMake itself uses to call
+    # generate.py at build time.
+
+    # set_tests_properties(pytest-codegen-${_test_name} PROPERTIES
+    #    ENVIRONMENT "PYTHONPATH=${CMAKE_SOURCE_DIR}/submodules/yateto"
+    # )
+endforeach()

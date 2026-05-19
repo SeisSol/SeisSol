@@ -215,57 +215,6 @@ class TestCrossEquationDoFConsistency:
 
 
 # =============================================================================
-# Documented bug in vtkproject.py
-# =============================================================================
-
-
-class TestVtkProjectKnownBug:
-    """
-    BUG: codegen/kernels/vtkproject.py line 15 (as of master @ 2026-04-21):
-
-        def addKernels(generator, aderdg, PlasticityMethod, matricesDir,
-                       targets=["cpu"]):
-            for target in targets:
-                name_prefix = generate_kernel_name_prefix(targets)
-                                                          ^^^^^^^
-                # ↑ passes the LIST of targets, not the loop variable
-
-    `generate_kernel_name_prefix` does `return f"{target}_" if target == "gpu"
-    else ""`.  Comparing a list to the string "gpu" is always False, so the
-    prefix is always empty — meaning VTK kernels inside this function never
-    receive the `gpu_` prefix on GPU builds. Kernels of the same name exist
-    for both CPU and GPU; without the prefix, the GPU variants likely collide
-    or get mis-dispatched.
-
-    Fix: replace `generate_kernel_name_prefix(targets)` with
-    `generate_kernel_name_prefix(target)` (singular).
-
-    These tests DOCUMENT the bug and will fail when fixed — which is the
-    signal to flip them to their positive form.
-    """
-
-    def test_prefix_bug_on_gpu_target(self):
-        from kernels.common import generate_kernel_name_prefix
-
-        # Reproduce the buggy call (passing the list)
-        targets = ["gpu"]
-        actual_prefix = generate_kernel_name_prefix(targets)
-        # Current (buggy) behavior: returns ''
-        assert actual_prefix == "", (
-            "If this assertion now fails with 'gpu_', the bug is fixed. "
-            "Change this test to `assert actual_prefix == 'gpu_'` and invert "
-            "the corresponding test below."
-        )
-
-    def test_prefix_correct_when_passed_string(self):
-        """What the CORRECT call site should do."""
-        from kernels.common import generate_kernel_name_prefix
-
-        assert generate_kernel_name_prefix("gpu") == "gpu_"
-        assert generate_kernel_name_prefix("cpu") == ""
-
-
-# =============================================================================
 # generate_kernel_name_prefix invariants
 # =============================================================================
 

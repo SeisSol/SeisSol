@@ -229,6 +229,25 @@ class TestAcousticSmoke:
 
 
 # =============================================================================
+# Poroelastic smoke — catches equation-specific regressions
+# =============================================================================
+
+
+class TestPoroelasticSmoke:
+    """Poroelastic has more quantities (13 vs 9) — a separate pass verifies
+    no equation-specific path is ELBOW-DEPENDENT on numberOfQuantities=13."""
+
+    def test_acoustic_generates(self, tmp_path):
+        result = _invoke_generate(tmp_path, equation="poroelastic", order=3)
+        assert result.returncode == 0, (
+            f"generate.py poroelastic failed:\n"
+            f"stdout:\n{result.stdout[-1000:]}\n"
+            f"stderr:\n{result.stderr[-1000:]}"
+        )
+        assert (tmp_path / "equation-poroelastic-3-double").is_dir()
+
+
+# =============================================================================
 # Single precision — catches f32-specific alignment regressions
 # =============================================================================
 

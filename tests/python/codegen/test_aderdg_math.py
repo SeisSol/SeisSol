@@ -51,6 +51,8 @@ class TestBasisFunctionCounts:
     """2D/3D basis function counts and 3D quadrature point counts follow
     closed-form formulas. These are called everywhere the codegen allocates
     tensors, so off-by-one here means wrong memory allocation everywhere.
+
+    In these tests, `order` means the convergence order in all cases.
     """
 
     @pytest.fixture
@@ -190,7 +192,7 @@ class TestElasticDofIndices:
 
 
 class TestAcousticDofIndices:
-    """AcousticADERDG: 4 quantities = 1 pressure + 3 velocities.
+    """AcousticADERDG: 4 quantities = 1 (negative) pressure + 3 velocities.
     - Pressure (= single traction component) at index 0
     - Velocities at 1, 2, 3
     """

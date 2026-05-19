@@ -33,10 +33,10 @@ def pivot_if_necessary(df):
 def get_number_of_fused_sims(df):
     try:
         if "simulation_index" not in df.columns:
-            # for historic reasons we want < 0 to return for non-fused; thus start with -1 here
+            # for historic reasons we want a negative number (e.g. -1) to be returned for non-fused; thus start with -1 here
             max_index = -2
             for c in df.columns:
-                idxres = re.match(r'.*(\d+)+$', c)
+                idxres = re.match(r'.*(\d+)$', c)
                 if idxres:
                     current_index = int(idxres.group(1))
                     max_index = current_index if current_index > max_index else max_index

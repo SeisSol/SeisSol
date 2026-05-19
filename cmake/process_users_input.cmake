@@ -31,7 +31,7 @@ option(LIKWID "Link with the likwid marker interface for proxy" OFF)
 option(INTEGRATE_QUANTITIES "Compute cell-averaged integrated velocity and stress components (currently breaks compilation)" OFF)
 option(ADDRESS_SANITIZER_DEBUG "Use address sanitzer in debug mode" OFF)
 
-# General switch for unit testing. By default enables the C++ unit tests.
+# General switch for unit testing. By default, it enables the C++ unit tests.
 option(TESTING "Compile unit tests and collect them for execution" OFF)
 
 # Kernel tests. Might take a long time to compile on GPU systems;
