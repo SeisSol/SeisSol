@@ -47,8 +47,8 @@ void ThermalPressurization::calcFluidPressure(
     const real faultStrength = -mu[ltsFace][pointIndex] * normalStress[pointIndex];
     const real tauV = faultStrength * slipRateMagnitude[pointIndex];
     const real lambdaPrime =
-        drParameters_->undrainedTPResponse * drParameters_->thermalDiffusivity /
-        (hydraulicDiffusivity_[ltsFace][pointIndex] - drParameters_->thermalDiffusivity);
+        drParameters_.undrainedTPResponse * drParameters_.thermalDiffusivity /
+        (hydraulicDiffusivity_[ltsFace][pointIndex] - drParameters_.thermalDiffusivity);
 
     for (uint32_t tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
          ++tpGridPointIndex) {
@@ -58,7 +58,7 @@ void ThermalPressurization::calcFluidPressure(
           misc::power<2>(TpGridPoints[tpGridPointIndex] / halfWidthShearZone_[ltsFace][pointIndex]);
 
       // This is exp(-A dt) in Noda & Lapusta (2010) equation (10)
-      const real thetaTpGrid = drParameters_->thermalDiffusivity * squaredNormalizedTpGrid;
+      const real thetaTpGrid = drParameters_.thermalDiffusivity * squaredNormalizedTpGrid;
       const real sigmaTpGrid = hydraulicDiffusivity_[ltsFace][pointIndex] * squaredNormalizedTpGrid;
       const real preExpTheta = -thetaTpGrid * deltaT;
       const real preExpSigma = -sigmaTpGrid * deltaT;
@@ -76,9 +76,9 @@ void ThermalPressurization::calcFluidPressure(
       // This is B/A * (1 - exp(-A dt)) in Noda & Lapusta (2010) equation (10)
       // heatSource stores \exp(-\hat{l}^2 / 2) / \sqrt{2 \pi}
       const real omega = tauV * HeatSource[tpGridPointIndex];
-      const real thetaGeneration = omega / (drParameters_->heatCapacity * thetaTpGrid) * exp1mTheta;
-      const real sigmaGeneration = omega * (drParameters_->undrainedTPResponse + lambdaPrime) /
-                                   (drParameters_->heatCapacity * sigmaTpGrid) * exp1mSigma;
+      const real thetaGeneration = omega / (drParameters_.heatCapacity * thetaTpGrid) * exp1mTheta;
+      const real sigmaGeneration = omega * (drParameters_.undrainedTPResponse + lambdaPrime) /
+                                   (drParameters_.heatCapacity * sigmaTpGrid) * exp1mSigma;
 
       // Sum both contributions up
       const auto thetaNew = thetaDiffusion + thetaGeneration;
@@ -100,8 +100,8 @@ void ThermalPressurization::calcFluidPressure(
     pressureUpdate -= lambdaPrime * temperatureUpdate;
 
     // Temperature and pore pressure change at single GP on the fault + initial values
-    temperature_[ltsFace][pointIndex] = temperatureUpdate + drParameters_->initialTemperature;
-    pressure_[ltsFace][pointIndex] = -pressureUpdate + drParameters_->initialPressure;
+    temperature_[ltsFace][pointIndex] = temperatureUpdate + drParameters_.initialTemperature;
+    pressure_[ltsFace][pointIndex] = -pressureUpdate + drParameters_.initialPressure;
   }
 }
 

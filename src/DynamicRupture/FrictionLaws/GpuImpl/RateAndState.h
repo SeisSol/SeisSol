@@ -21,7 +21,7 @@ namespace seissol::dr::friction_law::gpu {
 template <class Derived, class TPMethod>
 class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>> {
   public:
-  explicit RateAndStateBase(seissol::initializer::parameters::DRParameters* drParameters)
+  explicit RateAndStateBase(const FrictionLawParameters& drParameters)
       : BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>>::BaseFrictionSolver(drParameters) {}
 
   std::unique_ptr<FrictionSolver> clone() override {
@@ -41,6 +41,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     data->muW =
         layerData.var<LTSRateAndState::RsMuW>(seissol::initializer::AllocationPlace::Device);
     data->b = layerData.var<LTSRateAndState::RsB>(seissol::initializer::AllocationPlace::Device);
+    data->convergenceInner = layerData.var<LTSRateAndState::ConvergenceInner>();
+    data->convergenceOuter = layerData.var<LTSRateAndState::ConvergenceOuter>();
     Derived::copySpecificStorageDataToLocal(data, layerData);
     TPMethod::copyStorageToLocal(data, layerData);
   }
@@ -112,9 +114,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto& devAbsoluteShearStress{ctx.initialVariables.absoluteShearTraction};
     auto* devMu{ctx.data->mu};
 
-    const rs::Settings settings{};
+    bool hasConvergedOuter = false;
+    bool hasConvergedInner = true;
 
-    for (uint32_t j = 0; j < settings.numberStateVariableUpdates; j++) {
+    for (uint32_t j = 0; j < ctx.data->drParameters.rsNumberStateVariableUpdates; j++) {
 
       const auto dt{ctx.args->deltaT[timeIndex]};
       Derived::updateStateVariable(ctx, dt);
@@ -127,7 +130,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       const auto localSlipRateMagnitude = ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
       const auto& localImpAndEta = ctx.data->impAndEta[ctx.ltsFace];
 
-      real slipRateTest{};
+      real slipRateTest{0};
       real exportMu{};
       const bool hasConvergedLocal =
           RateAndStateBase::invertSlipRateIterative(ctx,
@@ -137,15 +140,26 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                     absoluteShearStress,
                                                     localSlipRateMagnitude,
                                                     localImpAndEta.invEtaS,
-                                                    exportMu,
-                                                    settings);
-      deviceBarrier(ctx);
+                                                    exportMu);
+
+      hasConvergedInner &= hasConvergedLocal;
+
+      devLocalSlipRate = 0.5 * (localSlipRateMagnitude + slipRateTest);
+      ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = slipRateTest;
       devMu[ctx.ltsFace][ctx.pointIndex] = exportMu;
 
-      devLocalSlipRate =
-          static_cast<real>(0.5) * (localSlipRateMagnitude + std::fabs(slipRateTest));
-      ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = std::fabs(slipRateTest);
+      hasConvergedOuter =
+          std::abs(localSlipRateMagnitude - slipRateTest) < ctx.data->drParameters.rsStateTolerance;
+
+      // exit early and prevent thread/load data divergence
+      deviceWarpBarrier(ctx);
+      if (deviceWarpAll(ctx, hasConvergedOuter)) {
+        break;
+      }
     }
+    deviceBarrier(ctx);
+    ctx.data->convergenceOuter[ctx.ltsFace][ctx.pointIndex] &= hasConvergedOuter;
+    ctx.data->convergenceInner[ctx.ltsFace][ctx.pointIndex] &= hasConvergedInner;
   }
 
   SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext& __restrict ctx,
@@ -229,8 +243,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                      real absoluteShearStress,
                                                      real slipRateMagnitude,
                                                      real invEtaS,
-                                                     real& exportMu,
-                                                     rs::Settings solverSettings) {
+                                                     real& exportMu) {
 
     // Note that we need double precision here, since single precision led to NaNs.
     real muF{0.0};
@@ -241,24 +254,24 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     auto details = Derived::getMuDetails(ctx, localStateVariable);
 
-    for (uint32_t i = 0; i < solverSettings.maxNumberSlipRateUpdates; i++) {
+    for (uint32_t i = 0; i < ctx.data->drParameters.rsMaxNumberSlipRateUpdates; i++) {
       muF = Derived::updateMu(ctx, slipRateTest, details);
 
-      g = -invEtaS * (std::fabs(normalStress) * muF - absoluteShearStress) - slipRateTest;
+      g = -invEtaS * (std::abs(normalStress) * muF - absoluteShearStress) - slipRateTest;
 
-      const bool converged = std::fabs(g) < solverSettings.newtonTolerance;
+      const bool converged = std::abs(g) < ctx.data->drParameters.rsSlipRateTolerance;
 
       if (converged) {
         // we've reached the fixed point
         // NOTE: in doubt, a fixed-point mu can be recovered from slipRateTest at this point.
-        // just invert -invEtaS * (std::fabs(normalStress) * muF - absoluteShearStress) ==
+        // just invert -invEtaS * (std::abs(normalStress) * muF - absoluteShearStress) ==
         // slipRateTest for muF in that case.
         exportMu = muF;
         return true;
       }
 
       dMuF = Derived::updateMuDerivative(ctx, slipRateTest, details);
-      dG = -invEtaS * (std::fabs(normalStress) * dMuF) - static_cast<real>(1.0);
+      dG = -invEtaS * (std::abs(normalStress) * dMuF) - static_cast<real>(1.0);
       slipRateTest = std::max(friction_law::rs::almostZero(), slipRateTest - (g / dG));
     }
     return false;
