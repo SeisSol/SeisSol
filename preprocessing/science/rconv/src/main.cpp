@@ -48,7 +48,7 @@
 
 int main(int argc, char** argv)
 {
-  utils::Args args;
+  utils::Args args("Convert SRF files to NRF/XDMF formats");
   args.addOption("input", 'i', "Input file (.srf)");
 	args.addOption("mcs", 'm', "Proj.4 string that describes the mesh coordinate system (e.g. \"+proj=utm +zone=10 +datum=WGS84 +units=m +no_defs\").", utils::Args::Required, false);
   args.addOption("output", 'o', "Output file (.nrf)", utils::Args::Required, false);
