@@ -13,6 +13,73 @@ env:
   precomputed-hash: 0f623b3e263726bc547997ca29790936396847df
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Derive the per-case test matrix from precomputed-seissol/cases.json so the
+  # only place we list cases is cases.json itself. Emits one matrix entry per
+  # (case-name, precision) pair, carrying along the fields needed to download
+  # the matching build artifact.
+  # ---------------------------------------------------------------------------
+  compute-cases:
+    name: compute-cases
+    runs-on: ubuntu-24.04
+    outputs:
+      cases: ${{ steps.gen.outputs.cases }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: seissol/precomputed-seissol
+          ref: ${{ env.precomputed-hash }}
+          path: precomputed
+
+      - id: gen
+        shell: python
+        run: |
+          import json, os, re
+
+          # Parses display-config strings as used in cases.json, e.g.:
+          #   "elastic-p6-f64"          -> {equation: elastic, prec: 64, multisim: 1}
+          #   "viscoelastic-3-p6-f64"   -> {equation: viscoelastic2, mech: 3, prec: 64, multisim: 1}
+          #   "elastic-p6-f64-s8"       -> {equation: elastic, prec: 64, multisim: 8}
+          CONFIG_RE = re.compile(
+              r"^(?P<eq>acoustic|elastic|anisotropic|poroelastic|viscoelastic)"
+              r"(?:-(?P<mech>\d+))?"
+              r"-p(?P<order>\d+)"
+              r"-f(?P<prec>32|64)"
+              r"(?:-s(?P<multisim>\d+))?$"
+          )
+
+          # Display name -> CMake EQUATIONS value (matches build matrix below).
+          EQ_TO_CMAKE = {
+              "acoustic": "acoustic",
+              "elastic": "elastic",
+              "anisotropic": "anisotropic",
+              "poroelastic": "poroelastic",
+              "viscoelastic": "viscoelastic2",
+          }
+
+          cases = json.load(open("precomputed/cases.json"))
+          entries = []
+          for key, entry in cases.items():
+              name, precision = key.split("/", 1)
+              m = CONFIG_RE.match(entry["config"])
+              if not m:
+                  raise ValueError(f"Cannot parse config string: {entry['config']!r}")
+              entries.append({
+                  "name": name,
+                  "precision": precision,
+                  "equation": EQ_TO_CMAKE[m["eq"]],
+                  "multisim": int(m["multisim"]) if m["multisim"] else 1,
+              })
+
+          entries.sort(key=lambda x: (x["name"], x["precision"]))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"cases={json.dumps({'include': entries})}\n")
+          print(f"emitted {len(entries)} case entries")
+
+  # ---------------------------------------------------------------------------
+  # Build SeisSol once per (equation, precision, fused, compiler) tuple.
+  # Unchanged compared to the previous workflow.
+  # ---------------------------------------------------------------------------
   seissol-build-test:
     name: seissol-build-test
     runs-on: ubuntu-24.04
@@ -161,199 +228,23 @@ jobs:
           name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.equation.type}}-${{matrix.equation.multisim}}-${{matrix.setup.cc}}
           path: /opt/seissol
 
+  # ---------------------------------------------------------------------------
+  # Per (case, precision) × (compiler) × (parallel mode): run SeisSol and
+  # verify against the precomputed reference. All five compare-* dispatches
+  # plus the run itself live inside verify.py now; tpv-data.json controls
+  # which categories actually fire per case.
+  # ---------------------------------------------------------------------------
   seissol-run-test:
     name: seissol-run-test
     runs-on: ubuntu-24.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
-    needs: [seissol-build-test]
+    needs: [compute-cases, seissol-build-test]
     if: ${{ github.repository == 'SeisSol/SeisSol' && github.ref_name == 'master' }}
-    env:
-      EXENAME: |
-        ${{
-          format('cpu-{0}-p{2}-{1}{3}',
-            matrix.case.dispequation || matrix.case.equation,
-            matrix.precision == 'single' && 'f32' || 'f64',
-            matrix.order,
-            matrix.case.multisim != 1 && format('-s{0}', matrix.case.multisim) || ''
-          )
-        }}
     strategy:
       fail-fast: false
       matrix:
-        case:
-          - name: tpv5
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv5-nuc
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv5-visco
-            equation: viscoelastic2
-            dispequation: viscoelastic-3
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv5-poro
-            equation: poroelastic
-            multisim: 1
-            energies: false # incomplete, hence disabled
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv6
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv13
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv16
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          #- name: tpv33
-          #  equation: elastic
-          #  multisim: 1
-          #  energies: true
-          #  receivers: true
-          #  fault: true
-          #  volume: false
-          #  surface: false
-          - name: tpv101
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv101-slip
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv104
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv105
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: ahsp
-            equation: anisotropic
-            multisim: 1
-            energies: false
-            receivers: true
-            fault: false
-            volume: true
-            surface: false
-          - name: tpvgaussian
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpvyoffe
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: ttpv1
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: true
-          - name: loh1-fused
-            equation: elastic
-            multisim: 8
-            energies: true
-            receivers: true
-            fault: false # NYI
-            volume: false
-            surface: false
-          - name: tpv13-fused
-            equation: elastic
-            multisim: 8
-            energies: true
-            receivers: true
-            fault: false # incomplete, hence disabled
-            volume: false
-            surface: false
-          - name: tpv13-fused-plasticity
-            equation: elastic
-            multisim: 8
-            energies: true
-            receivers: true
-            fault: false # incomplete, hence disabled
-            volume: false
-            surface: false
-          - name: loh1-ic
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: false
-            volume: true
-            surface: false
-          - name: acoustic
-            equation: acoustic
-            multisim: 1
-            energies: false
-            receivers: true
-            fault: false
-            volume: false
-            surface: false
-        precision:
-          - single
-          - double
+        case: ${{ fromJSON(needs.compute-cases.outputs.cases) }}
         order:
           - 6
         arch:
@@ -396,89 +287,68 @@ jobs:
       - name: install-packages
         run: |
           # circumvent problems with the Intel image still using Ubuntu 22.04
-
           if [ "${{ matrix.setup.pythonbreak }}" = true ]; then
             pip3 install --break-system-packages numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
           else
             pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
           fi
 
-      - id: get-precomputed-solutions
-        name: get-precomputed-solutions
+      - name: get-precomputed-solutions
         uses: actions/checkout@v6
         with:
           repository: seissol/precomputed-seissol
-          ref: ${{env.precomputed-hash}}
+          ref: ${{ env.precomputed-hash }}
           path: precomputed
+
       - name: get-seissol
         uses: actions/download-artifact@v5
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.case.equation}}-${{matrix.case.multisim}}-${{matrix.setup.cc}}
+          name: seissol-${{ matrix.build_type }}-${{ matrix.case.precision }}-${{ matrix.arch }}-${{ matrix.order }}-${{ matrix.case.equation }}-${{ matrix.case.multisim }}-${{ matrix.setup.cc }}
           path: install
-      - name: run-seissol
-        id: run
-        run: |
-          if [ ${{matrix.setup.mpi}} = openmpi ]; then
-            MPI_OPTIONS="--oversubscribe --allow-run-as-root -bind-to none";
-          elif [ ${{matrix.setup.mpi}} = intel ]; then
-            MPI_OPTIONS="";
-          fi;
 
-          export PATH=$(pwd)/install/bin:$PATH
-          export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:$LD_LIBRARY_PATH
-
-          chmod +x $(pwd)/install/bin/*
-
-          export OMP_NUM_THREADS=${{matrix.parallel.threads}}
-          export SEISSOL_COMMTHREAD=${{matrix.parallel.commthread}}
-          export SEISSOL_MINI_NUM_ELEMENTS=100
-
-          cd precomputed/${{matrix.case.name}}
-
-          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-${EXENAME}
-
-      # TODO: make this checkout obsolete
+      # The compare-*.py / verify.py scripts live in this very repo. The
+      # workflow itself doesn't auto-checkout, so we do it explicitly here.
       - name: get-verification-scripts
         uses: actions/checkout@v6
         with:
           path: scripts
 
-      - name: check-fault
-        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.fault }}
+      - name: verify
+        id: verify
         run: |
-          FAULT_FILE=tpv-fault.xdmf
-          EPSILON=0.05
+          if [ ${{ matrix.setup.mpi }} = openmpi ]; then
+            MPI_OPTIONS="--oversubscribe --allow-run-as-root -bind-to none"
+          elif [ ${{ matrix.setup.mpi }} = intel ]; then
+            MPI_OPTIONS=""
+          fi
 
-          cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${FAULT_FILE} ./precomputed/${{matrix.precision}}/${FAULT_FILE} --epsilon ${EPSILON}
-      - name: check-volume
-        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.volume }}
-        run: |
-          VOLUME_FILE=tpv.xdmf
-          EPSILON=0.05
+          export PATH=$(pwd)/install/bin:$PATH
+          export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:${LD_LIBRARY_PATH:-}
+          chmod +x $(pwd)/install/bin/*
 
-          cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${VOLUME_FILE} ./precomputed/${{matrix.precision}}/${VOLUME_FILE} --epsilon ${EPSILON}
-      - name: check-surface
-        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.surface }}
-        run: |
-          SURFACE_FILE=tpv-surface.xdmf
-          EPSILON=0.05
+          export OMP_NUM_THREADS=${{ matrix.parallel.threads }}
+          export SEISSOL_COMMTHREAD=${{ matrix.parallel.commthread }}
+          export SEISSOL_MINI_NUM_ELEMENTS=100
 
-          cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${SURFACE_FILE} ./precomputed/${{matrix.precision}}/${SURFACE_FILE} --epsilon ${EPSILON}
-      - name: check-receivers
-        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.receivers }}
-        run: |
-          EPSILON=0.05
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/verify.py \
+            --precomputed-dir precomputed \
+            --binary-dir install \
+            --variant cpu \
+            --case ${{ matrix.case.name }}/${{ matrix.case.precision }} \
+            --mpi-cmd mpirun \
+            --mpi-args "${MPI_OPTIONS}" \
+            --ranks ${{ matrix.parallel.ranks }} \
+            --threads ${{ matrix.parallel.threads }} \
+            --color always \
+            --report report.txt
 
-          cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-receivers.py ./output ./precomputed/${{matrix.precision}} --epsilon ${EPSILON}
-      - name: check-energy
-        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.energies }}
-        run: |
-          ENERGY_FILE=tpv-energy.csv
-          EPSILON=0.05
-
-          cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-energies.py ./output/${ENERGY_FILE} ./precomputed/${{matrix.precision}}/${ENERGY_FILE} --epsilon ${EPSILON}
+      - name: upload-report
+        if: ${{ !cancelled() && steps.verify.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-${{ matrix.case.name }}-${{ matrix.case.precision }}-${{ matrix.setup.cc }}-r${{ matrix.parallel.ranks }}t${{ matrix.parallel.threads }}
+          path: |
+            report.txt
+            precomputed/${{ matrix.case.name }}/output/
+          if-no-files-found: ignore
+          retention-days: 14
