@@ -13,7 +13,9 @@
 #include <algorithm>
 #include <cstddef>
 #include <fstream>
+#include <iomanip>
 #include <ios>
+#include <limits>
 #include <vector>
 
 void seissol::writer::MiniSeisSolWriter::write(double elapsedTime, double weight) {
@@ -37,6 +39,7 @@ void seissol::writer::MiniSeisSolWriter::write(double elapsedTime, double weight
 
     std::fstream fileStream(path, std::ios::out);
     fileStream << "hostname,rank,localRank,elapsedTime,weight\n";
+    fileStream << std::fixed << std::setprecision(std::numeric_limits<double>::max_digits10);
 
     const auto& hostNames = seissol::Mpi::mpi.getHostNames();
     for (auto rank : ranks) {

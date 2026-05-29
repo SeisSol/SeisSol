@@ -5,8 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "ResultWriter/ReceiverWriter.h"
+#include "SeisSol.h"
 #include "TestHelper.h"
+#include "utils/env.h"
 
 #include <string>
 
@@ -46,6 +49,35 @@ TEST_CASE("Parses receiver file correctly") {
   REQUIRE(points.size() == expectedPoints.size());
   for (auto i = 0U; i < points.size(); ++i) {
     REQUIRE(points[i] == expectedPoints[i]);
+  }
+}
+
+TEST_CASE("Receiver sync interval respects start time") {
+  seissol::initializer::parameters::SeisSolParameters seissolParameters{};
+  const utils::Env env("SEISSOL_");
+  seissol::SeisSol seissolInstance(seissolParameters, env);
+
+  seissol::initializer::parameters::ReceiverOutputParameters receiverParameters{};
+  receiverParameters.enabled = true;
+  receiverParameters.format = seissol::initializer::parameters::ReceiverOutputFormat::Csv;
+  receiverParameters.writeInterval = 100.0;
+  receiverParameters.samplingInterval = 1.0;
+  receiverParameters.fileName = "";
+
+  SUBCASE("Fresh run uses full end time") {
+    seissol::writer::ReceiverWriter receiverWriter(seissolInstance);
+    receiverWriter.init("output/test", 50.0, 0.0, receiverParameters);
+    receiverWriter.setSimulationStartTime(0.0);
+    const double nextSync = receiverWriter.potentialSyncPoint(0.0, 0.0, false);
+    CHECK(nextSync == doctest::Approx(50.0));
+  }
+
+  SUBCASE("Checkpoint run uses remaining time") {
+    seissol::writer::ReceiverWriter receiverWriter(seissolInstance);
+    receiverWriter.init("output/test", 50.0, 10.0, receiverParameters);
+    receiverWriter.setSimulationStartTime(10.0);
+    const double nextSync = receiverWriter.potentialSyncPoint(10.0, 0.0, false);
+    CHECK(nextSync == doctest::Approx(40.0));
   }
 }
 } // namespace seissol::unit_test

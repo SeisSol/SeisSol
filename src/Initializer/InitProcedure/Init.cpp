@@ -115,7 +115,9 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
   seissol::Stopwatch watch;
   logInfo() << "Starting simulation.";
   watch.start();
+
   seissolInstance.simulator().simulate(seissolInstance);
+  
   watch.pause();
   watch.printTime("Time spent in simulation:");
 

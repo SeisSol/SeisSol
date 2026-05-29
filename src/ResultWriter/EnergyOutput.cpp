@@ -249,8 +249,7 @@ void EnergyOutput::syncPoint(double time) {
 void EnergyOutput::simulationStart(std::optional<double> checkpointTime) {
   if (isFileOutputEnabled_) {
     out_.open(outputFileName_);
-    out_ << std::scientific;
-    out_ << std::setprecision(std::numeric_limits<double>::max_digits10);
+    out_ << std::fixed << std::setprecision(std::numeric_limits<double>::max_digits10);
     writeHeader();
   }
   syncPoint(checkpointTime.value_or(0));

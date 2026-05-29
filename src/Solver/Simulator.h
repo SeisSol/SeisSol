@@ -63,6 +63,11 @@ class Simulator {
   void setCurrentTime(double currentTime);
 
   /**
+   * Gets the current time of the simulation (0 for fresh runs).
+   */
+  [[nodiscard]] double getCurrentTime() const { return currentTime_; }
+
+  /**
    * update abort_ to abort the main loop of the simulation (see terminator)
    */
   void abort();

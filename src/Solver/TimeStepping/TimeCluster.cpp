@@ -756,6 +756,7 @@ void TimeCluster::predict() {
 }
 
 void TimeCluster::handleDynamicRupture(DynamicRupture::Layer& layerData) {
+
   if (layerData.size() == 0) {
     return;
   }
@@ -791,6 +792,7 @@ void TimeCluster::handleDynamicRupture(DynamicRupture::Layer& layerData) {
     layerData.varSynchronizeTo<DynamicRupture::ImposedStateMinus>(other, streamRuntime_.stream());
     layerData.varSynchronizeTo<DynamicRupture::ImposedStatePlus>(other, streamRuntime_.stream());
   }
+  
 }
 
 void TimeCluster::correct() {
@@ -824,7 +826,9 @@ void TimeCluster::correct() {
   // Note, if this is a copy layer actor, we need the FL_Copy and the FL_Int.
   // Otherwise, this is an interior layer actor, and we need only the FL_Int.
   // We need to avoid computing it twice.
+
   if (dynamicRuptureScheduler_->mayComputeInterior(ct_.stepsSinceStart)) {
+
     handleDynamicRupture(*dynRupInteriorData_);
 
     seissolInstance_.flopCounter().incrementNonZeroFlopsDynamicRupture(
@@ -868,6 +872,8 @@ void TimeCluster::correct() {
         logInfo() << "Max cluster / LTS cycle updates since sync: " << nextCorrectionSteps
                   << " at time " << ct_.nextCorrectionTime(syncTime_);
       });
+      // std::cout << "Max cluster / LTS cycle updates since sync: " << nextCorrectionSteps
+      //             << " at time " << ct_.nextCorrectionTime(syncTime_);
     }
   }
 

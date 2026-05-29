@@ -41,6 +41,7 @@
 #include <fstream>
 #include <iomanip>
 #include <ios>
+#include <limits>
 #include <memory>
 #include <numeric>
 #include <ostream>
@@ -71,7 +72,7 @@ auto makeFormatted(T value) {
 template <typename T, typename U = NativeFormat>
 std::ostream& operator<<(std::ostream& stream, FormattedBuildinType<T, U> obj) {
   if constexpr (std::is_floating_point_v<T>) {
-    stream << std::setprecision(16) << std::scientific << obj.value;
+    stream << std::fixed << std::setprecision(std::numeric_limits<T>::max_digits10) << obj.value;
   } else if constexpr (std::is_integral_v<T> && std::is_same_v<U, WideFormat>) {
     stream << std::setw(5) << std::setfill('0') << obj.value;
   } else {

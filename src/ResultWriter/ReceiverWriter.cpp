@@ -30,6 +30,7 @@
 #include <fstream>
 #include <iomanip>
 #include <ios>
+#include <limits>
 #include <memory>
 #include <mpi.h>
 #include <numeric>
@@ -141,9 +142,9 @@ void ReceiverWriter::writeHeader(std::size_t pointId, const Eigen::Vector3d& poi
       file << "\"" << names[i] << "\"";
     }
     file << std::endl;
+    file << std::fixed << std::setprecision(std::numeric_limits<double>::max_digits10);
     for (int d = 0; d < 3; ++d) {
-      file << "# x" << (d + 1) << "       " << std::scientific << std::setprecision(12) << point[d]
-           << std::endl;
+      file << "# x" << (d + 1) << "       " << point[d] << std::endl;
     }
     file.close();
   }
@@ -152,6 +153,7 @@ void ReceiverWriter::writeHeader(std::size_t pointId, const Eigen::Vector3d& poi
 void ReceiverWriter::init(
     const std::string& fileNamePrefix,
     double endTime,
+    double startTime,
     const seissol::initializer::parameters::ReceiverOutputParameters& parameters) {
   fileNamePrefix_ = fileNamePrefix;
   receiverFileName_ = parameters.fileName;
@@ -166,7 +168,8 @@ void ReceiverWriter::init(
     derivedQuantities_.push_back(std::make_shared<kernels::ReceiverStrain>());
   }
 
-  setSyncInterval(std::min(endTime, parameters.writeInterval));
+  const double remainingTime = std::max(0.0, endTime - startTime);
+  setSyncInterval(std::min(remainingTime, parameters.writeInterval));
   Modules::registerHook(*this, ModuleHook::SimulationStart);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
   Modules::registerHook(*this, ModuleHook::Shutdown);
@@ -326,7 +329,7 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
 
         std::ofstream file;
         file.open(fileName(receiver.pointId), std::ios::app);
-        file << std::scientific << std::setprecision(15);
+        file << std::fixed << std::setprecision(std::numeric_limits<double>::max_digits10);
         for (size_t i = 0; i < nSamples; ++i) {
           for (size_t q = 0; q < ncols; ++q) {
             file << "  " << receiver.output[q + i * ncols];
@@ -413,7 +416,7 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
 }
 
 // --------------------------------------------------------------------------
-void ReceiverWriter::simulationStart(std::optional<double> /*checkpointTime*/) {
+void ReceiverWriter::simulationStart(std::optional<double> checkpointTime) {
   for (auto& cluster : receiverClusters_) {
     cluster->allocateData();
   }

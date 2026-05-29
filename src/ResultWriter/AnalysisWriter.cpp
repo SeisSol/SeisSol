@@ -35,6 +35,8 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <iomanip>
+#include <limits>
 #include <mpi.h>
 #include <string>
 #include <string_view>
@@ -63,6 +65,7 @@ void CsvAnalysisWriter::addObservation(std::string_view variable,
 void CsvAnalysisWriter::enable() {
   isEnabled_ = true;
   out_.open(fileName_);
+  out_ << std::fixed << std::setprecision(std::numeric_limits<real>::max_digits10);
 }
 
 CsvAnalysisWriter::~CsvAnalysisWriter() {

@@ -52,12 +52,14 @@ class ReceiverWriter : public seissol::Module {
    * \brief Initializes receiver output state and registers hooks required for recording.
    *
    * @param fileNamePrefix Prefix for the output file name including the folder it's stored in.
-   * @param endTime        Final simulation time (used to estimate max # of steps).
-   * @param parameters     Receiver output parameters (e.g., sampling interval).
-   */
+  * @param endTime        Final simulation time.
+  * @param startTime      Simulation start time (0 for fresh runs, checkpoint time for restarts).
+  * @param parameters     Receiver output parameters (e.g., sampling interval).
+  */
   void init(const std::string& fileNamePrefix,
-            double endTime,
-            const seissol::initializer::parameters::ReceiverOutputParameters& parameters);
+           double endTime,
+           double startTime,
+           const seissol::initializer::parameters::ReceiverOutputParameters& parameters);
 
   /**
    * \brief Registers receivers by reading their positions and mapping them to
