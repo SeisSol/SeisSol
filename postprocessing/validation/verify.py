@@ -329,7 +329,8 @@ def compare_mesh(case: CaseSpec, suffix: str, category: str, epsilon: float) -> 
 def compare_receivers(case: CaseSpec, epsilon: float) -> CompareResult:
     rc = _call_compare(
         COMPARE_RECEIVERS,
-        [str(case.workdir), str(case.precomputed_dir), "--epsilon", str(epsilon)],
+        [str(case.workdir), str(case.precomputed_dir),
+         "--prefix", OUTPUT_PREFIX, "--epsilon", str(epsilon)],
         cwd=case.case_dir,
     )
     return CompareResult("receiver", rc == 0, epsilon)
