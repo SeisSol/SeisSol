@@ -1,0 +1,114 @@
+# SPDX-FileCopyrightText: 2025 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+---
+
+name: 'seissol-test'
+description: 'Run End-to-End Test Scenario with SeisSol'
+inputs:
+  case:
+    description: 'Test case to run'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: read-test
+      shell: bash
+      run: |
+        SEISSOL_EXE=$(jq -rc '."${{inputs.case}}".config' precomputed/cases.json)
+        PARAMETER_FILE=$(jq -rc '."${{inputs.case}}".parameters' precomputed/cases.json)
+        REFERENCE_DIR=$(jq -rc '."${{inputs.case}}".output' precomputed/cases.json)
+
+        REFERENCE_FILE="precomputed/${REFERENCE_DIR}-data.json"
+
+        {
+          echo 'COMPARE_FILE<<EOF'
+          cat $REFERENCE_FILE
+          echo EOF
+        } >> "$GITHUB_ENV"
+
+        echo "REFERENCE_DIR=precomputed/$REFERENCE_DIR" >> "$GITHUB_ENV"
+        echo "SEISSOL_EXE=$SEISSOL_EXE" >> "$GITHUB_ENV"
+        echo "PARAMETER_FILE=precomputed/$PARAMETER_FILE" >> "$GITHUB_ENV"
+
+    - id: runtest
+      name: run-test
+      shell: bash
+      run: |
+        if ${{env.ompi}}; then
+          MPI_OPTIONS="--oversubscribe --allow-run-as-root -bind-to none";
+        else
+          MPI_OPTIONS="";
+        fi
+
+        export PATH=$(pwd)/install/bin:$PATH
+        export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:$LD_LIBRARY_PATH
+
+        chmod +x $(pwd)/install/bin/*
+
+        export OMP_NUM_THREADS=${{env.rankthreads}}
+        export SEISSOL_COMMTHREAD=0
+        export SEISSOL_MINISEISSOL=OFF
+
+        mpirun ${MPI_OPTIONS} -np ${{env.commsize}} seissol-${{env.device}}-${{env.SEISSOL_EXE}} ${{env.PARAMETER_FILE}}
+
+    - name: compare-volume
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && fromJSON(env.COMPARE_FILE).volume.enabled == true }}
+      shell: bash
+      run: |
+        EPSILON=${{ fromJSON(env.COMPARE_FILE).volume.epsilon || 0.05 }}
+        SCRIPTS=$GITHUB_WORKSPACE/postprocessing/validation
+
+        python3 $SCRIPTS/compare-mesh.py ./output/tpv.xdmf ${{env.REFERENCE_DIR}}.xdmf --epsilon ${EPSILON}
+
+    - name: compare-fault
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && fromJSON(env.COMPARE_FILE).fault.enabled == true }}
+      shell: bash
+      run: |
+        EPSILON=${{ fromJSON(env.COMPARE_FILE).fault.epsilon || 0.05 }}
+        SCRIPTS=$GITHUB_WORKSPACE/postprocessing/validation
+
+        python3 $SCRIPTS/compare-mesh.py ./output/tpv-fault.xdmf ${{env.REFERENCE_DIR}}-fault.xdmf --epsilon ${EPSILON}
+
+    - name: compare-surface
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && fromJSON(env.COMPARE_FILE).surface.enabled == true }}
+      shell: bash
+      run: |
+        EPSILON=${{ fromJSON(env.COMPARE_FILE).surface.epsilon || 0.05 }}
+        SCRIPTS=$GITHUB_WORKSPACE/postprocessing/validation
+
+        python3 $SCRIPTS/compare-mesh.py ./output/tpv-surface.xdmf ${{env.REFERENCE_DIR}}-surface.xdmf --epsilon ${EPSILON}
+
+    - name: compare-energy
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && fromJSON(env.COMPARE_FILE).energy.enabled == true }}
+      shell: bash
+      run: |
+        EPSILON=${{ fromJSON(env.COMPARE_FILE).energy.epsilon || 0.05 }}
+        SCRIPTS=$GITHUB_WORKSPACE/postprocessing/validation
+
+        python3 $SCRIPTS/compare-energies.py ./output/tpv-energy.csv ${{env.REFERENCE_DIR}}-energy.csv --epsilon ${EPSILON}
+
+    - name: compare-receiver
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && fromJSON(env.COMPARE_FILE).receiver.enabled == true }}
+      shell: bash
+      run: |
+        EPSILON=${{ fromJSON(env.COMPARE_FILE).receiver.epsilon || 0.05 }}
+        MODE=${{ fromJSON(env.COMPARE_FILE).receiver.mode || 'lsw' }}
+        SCRIPTS=$GITHUB_WORKSPACE/postprocessing/validation
+
+        DIRFULL=${{env.REFERENCE_DIR}}
+
+        DIRPREFIX=${DIRFULL##*/}
+        DIRPATH=${DIRFULL%/*}
+
+        python3 $SCRIPTS/compare-receivers.py ./output ${DIRPATH} --prefix ${DIRPREFIX} --epsilon ${EPSILON} --mode ${MODE}
+
+    - name: cleanup
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' }}
+      shell: bash
+      run: |
+        rm -rf ./output

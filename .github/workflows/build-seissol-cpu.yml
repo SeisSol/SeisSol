@@ -81,59 +81,47 @@ jobs:
   # Unchanged compared to the previous workflow.
   # ---------------------------------------------------------------------------
   seissol-build-test:
-    name: seissol-build-test
+    name: seissol-build-test<${{matrix.setup.name}}, ${{matrix.arch}}, ${{matrix.build_type}}>
     runs-on: ubuntu-24.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
-        order:
-          - 6
         arch:
           - hsw
         build_type:
           - Release
           #- Debug
-        equation:
-          - type: acoustic
-            multisim: 1
-            mechanisms: 0
-          - type: elastic
-            multisim: 1
-            mechanisms: 0
-          - type: poroelastic
-            multisim: 1
-            mechanisms: 0
-          - type: viscoelastic2
-            multisim: 1
-            mechanisms: 3
-          - type: anisotropic
-            multisim: 1
-            mechanisms: 0
-          - type: elastic
-            multisim: 8
-            mechanisms: 0
-        precision:
-          - single
-          - double
         setup:
           - cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
             container: seissol/gha-cpu:davschneller-gpu-image
+            name: gcc-13
           - cc: clang-19
             cxx: clang++-19
             fc: gfortran-13 # TODO?
             container: seissol/gha-cpu:davschneller-gpu-image
+            name: clang-19
           - cc: icx
             cxx: icpx
             fc: ifx
             container: seissol/gha-gpu-intel:davschneller-gpu-image
+            name: icx-2024
           #- cc: nvc
           #  cxx: nvc++
           #  fc: nvfortran
           #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+    env:
+      cc: ${{matrix.setup.cc}}
+      cxx: ${{matrix.setup.cxx}}
+      fc: ${{matrix.setup.fc}}
+      hostarch: ${{matrix.arch}}
+      buildtype: ${{matrix.build_type}}
+      tests: ON
+      devicearch: none
+      devicebackend: none
     steps:
       - id: checkout
         name: checkout-seissol
@@ -141,91 +129,131 @@ jobs:
         with:
           submodules: recursive
 
-      - id: build
-        name: build-seissol
-        run: |
-          mkdir build && cd build
+      - uses: ./.github/actions/seissol-build
+        name: elastic-d-p6
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        with:
+          cfg-order: 6
+          cfg-equation: elastic
+          cfg-mechanisms: 0
+          cfg-precision: double
+          cfg-simulations: 1
 
-          # TODO: change to `-Wall -Werror` at some point
-          EXTRA_FLAGS="-Wall"
+      - uses: ./.github/actions/seissol-build
+        name: viscoelastic-3-d-p6
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        with:
+          cfg-order: 6
+          cfg-equation: viscoelastic2
+          cfg-mechanisms: 3
+          cfg-precision: double
+          cfg-simulations: 1
 
-          export CFLAGS="${EXTRA_FLAGS} ${CFLAGS}"
-          export CXXFLAGS="${EXTRA_FLAGS} ${CXXFLAGS}"
-          export FFLAGS="${EXTRA_FLAGS} ${FFLAGS}"
+      - uses: ./.github/actions/seissol-build
+        name: poroelastic-d-p6
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        with:
+          cfg-order: 6
+          cfg-equation: poroelastic
+          cfg-mechanisms: 0
+          cfg-precision: double
+          cfg-simulations: 1
 
-          export CC=${{matrix.setup.cc}}
-          export CXX=${{matrix.setup.cxx}}
-          export FC=${{matrix.setup.fc}}
+      - uses: ./.github/actions/seissol-build
+        name: anisotropic-d-p6
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        with:
+          cfg-order: 6
+          cfg-equation: anisotropic
+          cfg-mechanisms: 0
+          cfg-precision: double
+          cfg-simulations: 1
 
-          mkdir -p /opt/seissol
+      - uses: ./.github/actions/seissol-build
+        name: acoustic-d-p6
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        with:
+          cfg-order: 6
+          cfg-equation: acoustic
+          cfg-mechanisms: 0
+          cfg-precision: double
+          cfg-simulations: 1
 
-          if [ ${{matrix.setup.cc}} = nvc ]; then
-            TESTING_COMMAND="mpirun -np 1 --oversubscribe --allow-run-as-root";
+      - uses: ./.github/actions/seissol-build
+        name: elastic-d-p6-f8
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        with:
+          cfg-order: 6
+          cfg-equation: elastic
+          cfg-mechanisms: 0
+          cfg-precision: double
+          cfg-simulations: 8
 
-            # there's still a bug with how NVHPC compiles the kernels; thus disable them for now
-            TESTING_GENERATED_ENABLE=OFF;
-          else
-            TESTING_COMMAND="";
-            TESTING_GENERATED_ENABLE=ON;
-          fi;
+      - uses: ./.github/actions/seissol-build
+        name: elastic-s-p6
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        with:
+          cfg-order: 6
+          cfg-equation: elastic
+          cfg-mechanisms: 0
+          cfg-precision: single
+          cfg-simulations: 1
 
-          cmake .. \
-            -GNinja \
-            -DNEW_BINARY_NAMING=ON \
-            -DTESTING_COMMAND="${TESTING_COMMAND}" \
-            -DCMAKE_INSTALL_PREFIX=/opt/seissol \
-            -DTESTING=ON \
-            -DTESTING_GENERATED=${TESTING_GENERATED_ENABLE} \
-            -DASAGI=ON \
-            -DHOST_ARCH=${{matrix.arch}} \
-            -DORDER=${{matrix.order}} \
-            -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
-            -DEQUATIONS=${{matrix.equation.type}} \
-            -DPRECISION=${{matrix.precision}} \
-            -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} \
-            -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }}
+      - uses: ./.github/actions/seissol-build
+        name: viscoelastic-3-s-p6
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        with:
+          cfg-order: 6
+          cfg-equation: viscoelastic2
+          cfg-mechanisms: 3
+          cfg-precision: single
+          cfg-simulations: 1
 
-          ninja install
+      - uses: ./.github/actions/seissol-build
+        name: poroelastic-s-p6
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        with:
+          cfg-order: 6
+          cfg-equation: poroelastic
+          cfg-mechanisms: 0
+          cfg-precision: single
+          cfg-simulations: 1
 
-      - name: test-seissol
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: |
-          cd build
-          ctest -j --rerun-failed --output-on-failure
+      - uses: ./.github/actions/seissol-build
+        name: anisotropic-s-p6
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        with:
+          cfg-order: 6
+          cfg-equation: anisotropic
+          cfg-mechanisms: 0
+          cfg-precision: single
+          cfg-simulations: 1
 
-      - name: run-seissol-no-input
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: |
-          if [ ${{matrix.setup.cc}} = nvc ]; then
-            TESTING_COMMAND="mpirun -np 1 --oversubscribe --allow-run-as-root";
-          else
-            TESTING_COMMAND="";
-          fi
+      - uses: ./.github/actions/seissol-build
+        name: acoustic-s-p6
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        with:
+          cfg-order: 6
+          cfg-equation: acoustic
+          cfg-mechanisms: 0
+          cfg-precision: single
+          cfg-simulations: 1
 
-          cd build
-          set +e
-          ${TESTING_COMMAND} ./seissol-cpu-*
-          RETVAL_EXE=$?
-          ./proxyseissol-cpu-*
-          RETVAL_PROXY=$?
-          set -e
-
-          if [ $RETVAL_EXE -ne 133 ]; then
-            echo "Unexpected exit code for SeisSol: ${RETVAL_EXE}"
-            exit 1
-          fi
-          if [ $RETVAL_PROXY -ne 255 ]; then
-            echo "Unexpected exit code for the SeisSol Proxy: ${RETVAL_PROXY}"
-            exit 1
-          fi
-
-          echo "Success!"
+      - uses: ./.github/actions/seissol-build
+        name: elastic-s-p6-f8
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        with:
+          cfg-order: 6
+          cfg-equation: elastic
+          cfg-mechanisms: 0
+          cfg-precision: single
+          cfg-simulations: 8
 
       - name: upload-seissol
         uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.equation.type}}-${{matrix.equation.multisim}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.arch}}-${{matrix.setup.name}}
           path: /opt/seissol
 
   # ---------------------------------------------------------------------------
@@ -257,25 +285,28 @@ jobs:
             fc: gfortran-13
             container: seissol/gha-cpu:davschneller-gpu-image
             pythonbreak: true
-            mpi: openmpi
+            ompi: true
+            name: gcc-13
           - cc: clang-19
             cxx: clang++-19
             fc: gfortran-13 # TODO?
             container: seissol/gha-cpu:davschneller-gpu-image
             pythonbreak: true
-            mpi: openmpi
+            ompi: true
+            name: clang-19
           - cc: icx
             cxx: icpx
             fc: ifx
             container: seissol/gha-gpu-intel:davschneller-gpu-image
             pythonbreak: false
-            mpi: intel
+            ompi: false
+            name: icx-2024
           #- cc: nvc
           #  cxx: nvc++
           #  fc: nvfortran
           #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
           #  pythonbreak: true
-          #  mpi: openmpi
+          #  ompi: true
         parallel:
           - ranks: 1
             threads: 4
@@ -283,14 +314,19 @@ jobs:
           - ranks: 4
             threads: 1
             commthread: false
+    env:
+      commsize: ${{matrix.parallel.ranks}}
+      rankthreads: ${{matrix.parallel.threads}}
+      ompi: ${{matrix.setup.ompi}}
+      device: 'cpu'
     steps:
       - name: install-packages
         run: |
           # circumvent problems with the Intel image still using Ubuntu 22.04
           if [ "${{ matrix.setup.pythonbreak }}" = true ]; then
-            pip3 install --break-system-packages numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
+            pip3 install --break-system-packages numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas jq
           else
-            pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
+            pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas jq
           fi
 
       - name: get-precomputed-solutions
@@ -310,8 +346,13 @@ jobs:
       # workflow itself doesn't auto-checkout, so we do it explicitly here.
       - name: get-verification-scripts
         uses: actions/checkout@v6
+
+      - name: get-seissol
+        id: get-seissol
+        uses: actions/download-artifact@v5
         with:
-          path: scripts
+          name: seissol-${{matrix.build_type}}-${{matrix.arch}}-${{matrix.setup.name}}
+          path: install
 
       - name: verify
         id: verify
