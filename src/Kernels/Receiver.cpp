@@ -174,7 +174,10 @@ double ReceiverCluster::calcReceivers(double time,
       }
 
       const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
+      const auto evalCoeffs =
+          timeBasis.point(0, timeStepWidth); // evaluate at the BASE time right now
       spacetimeKernel_.computeAder(integrationCoeffs.data(),
+                                   evalCoeffs.data(),
                                    timeStepWidth,
                                    tmpReceiverData,
                                    tmp,
