@@ -101,19 +101,25 @@ struct MaterialSetup<AcousticMaterial> {
     } else {
       // Godunov flux: select outgoing characteristics (positive eigenvalue)
       Matrix44 chi = Matrix44::Zero();
-      chi(0, 0) = 1.0; // Select column 0 (outgoing wave)
+      Matrix44 chiI = Matrix44::Zero();
 
-      const auto godunov = ((matR * chi) * matR.inverse()).eval();
+      // Select column 0 (outgoing wave)
+      chi(0, 0) = 1.0;
+      for (std::size_t i = 1; i < 4; ++i) {
+        chiI(i, i) = 1.0;
+      }
+
+      auto matRT = matR.transpose();
+      auto matRlu = matRT.lu();
+      const auto godunov = matRlu.solve(chi * matRT).eval();
+      const auto godunovI = matRlu.solve(chiI * matRT).eval();
 
       // Godunov matrices: qGodLocal = I - godunov^T, qGodNeighbor = godunov^T
       for (unsigned i = 0; i < godunov.cols(); ++i) {
         for (unsigned j = 0; j < godunov.rows(); ++j) {
-          qGodLocal(i, j) = -godunov(j, i);
-          qGodNeighbor(i, j) = godunov(j, i);
+          qGodLocal(i, j) = godunovI(i, j);
+          qGodNeighbor(i, j) = godunov(i, j);
         }
-      }
-      for (unsigned idx = 0; idx < 4; ++idx) {
-        qGodLocal(idx, idx) += 1.0;
       }
     }
   }
