@@ -17,31 +17,31 @@
 namespace seissol::unit_test {
 class MockReader2 : public seissol::geometry::MeshReader {
   public:
-  explicit MockReader2(int boundaryType) : seissol::geometry::MeshReader(0) {
-    m_vertices.resize(4);
+  explicit MockReader2(FaceType boundaryType) {
+    vertices_.resize(4);
 
-    m_elements.resize(1);
-    m_elements.at(0).vertices[0] = 0;
-    m_elements.at(0).vertices[1] = 1;
-    m_elements.at(0).vertices[2] = 2;
-    m_elements.at(0).vertices[3] = 3;
-    m_elements.at(0).boundaries[0] = boundaryType;
-    m_elements.at(0).boundaries[1] = boundaryType;
-    m_elements.at(0).boundaries[2] = boundaryType;
-    m_elements.at(0).boundaries[3] = boundaryType;
+    elements_.resize(1);
+    elements_.at(0).vertices[0] = 0;
+    elements_.at(0).vertices[1] = 1;
+    elements_.at(0).vertices[2] = 2;
+    elements_.at(0).vertices[3] = 3;
+    elements_.at(0).boundaries[0] = boundaryType;
+    elements_.at(0).boundaries[1] = boundaryType;
+    elements_.at(0).boundaries[2] = boundaryType;
+    elements_.at(0).boundaries[3] = boundaryType;
   }
 };
 
 TEST_CASE("MeshReader" * doctest::test_suite("geometry")) {
   SUBCASE("No DR") {
-    MockReader2 rdr(3);
+    MockReader2 rdr(FaceType::DynamicRupture);
 
     rdr.disableDR();
 
-    REQUIRE(rdr.getElements()[0].boundaries[0] == 0);
-    REQUIRE(rdr.getElements()[0].boundaries[1] == 0);
-    REQUIRE(rdr.getElements()[0].boundaries[2] == 0);
-    REQUIRE(rdr.getElements()[0].boundaries[3] == 0);
+    REQUIRE(rdr.getElements()[0].boundaries[0] == FaceType::Regular);
+    REQUIRE(rdr.getElements()[0].boundaries[1] == FaceType::Regular);
+    REQUIRE(rdr.getElements()[0].boundaries[2] == FaceType::Regular);
+    REQUIRE(rdr.getElements()[0].boundaries[3] == FaceType::Regular);
   }
 }
 

@@ -238,10 +238,10 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
     StressTensor initialStress(layer.size());
     const bool initialStressParameterizedByTraction = addStressesToStorageMap(initialStress, 0);
 
-    std::vector<bool> nucleationStressParameterizedByTraction(drParameters->nucleationCount);
+    std::vector<bool> nucleationStressParameterizedByTraction(drParameters_->nucleationCount);
     std::vector<StressTensor> nucleationStresses;
-    nucleationStresses.reserve(drParameters->nucleationCount);
-    for (std::uint32_t i = 0; i < drParameters->nucleationCount; ++i) {
+    nucleationStresses.reserve(drParameters_->nucleationCount);
+    for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
       nucleationStresses.emplace_back(layer.size());
       nucleationStressParameterizedByTraction[i] =
           addStressesToStorageMap(nucleationStresses[i], i + 1);
@@ -262,33 +262,34 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
 
     // rotate initial stress to fault coordinate system
     if (initialStressParameterizedByTraction) {
-      rotateTractionToCartesianStress(layer, initialStress, seissolInstance.meshReader());
+      rotateTractionToCartesianStress(layer, initialStress, seissolInstance_.meshReader());
     }
 
     auto* initialStressInFaultCS = layer.var<DynamicRupture::InitialStressInFaultCS>();
     rotateStressToFaultCS(
-        layer, initialStressInFaultCS, 0, 1, initialStress, seissolInstance.meshReader());
+        layer, initialStressInFaultCS, 0, 1, initialStress, seissolInstance_.meshReader());
     // rotate nucleation stress to fault coordinate system
-    for (std::uint32_t i = 0; i < drParameters->nucleationCount; ++i) {
+    for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
       if (nucleationStressParameterizedByTraction[i]) {
-        rotateTractionToCartesianStress(layer, nucleationStresses[i], seissolInstance.meshReader());
+        rotateTractionToCartesianStress(
+            layer, nucleationStresses[i], seissolInstance_.meshReader());
       }
       auto* nucleationStressInFaultCS = layer.var<DynamicRupture::NucleationStressInFaultCS>();
       rotateStressToFaultCS(layer,
                             nucleationStressInFaultCS,
                             i,
-                            drParameters->nucleationCount,
+                            drParameters_->nucleationCount,
                             nucleationStresses[i],
-                            seissolInstance.meshReader());
+                            seissolInstance_.meshReader());
     }
 
     auto* initialPressure = layer.var<DynamicRupture::InitialPressure>();
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         initialPressure[ltsFace][pointIndex] = initialStress.p[ltsFace][pointIndex];
-        for (std::uint32_t i = 0; i < drParameters->nucleationCount; ++i) {
+        for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
           auto* nucleationPressure = layer.var<DynamicRupture::NucleationPressure>();
-          nucleationPressure[ltsFace * drParameters->nucleationCount + i][pointIndex] =
+          nucleationPressure[ltsFace * drParameters_->nucleationCount + i][pointIndex] =
               nucleationStresses[i].p[ltsFace][pointIndex];
         }
       }
@@ -313,12 +314,12 @@ void BaseDRInitializer::queryModel(seissol::initializer::FaultParameterDB& fault
                                    const std::vector<std::size_t>& faceIDs,
                                    std::size_t simid) {
   // create a query and evaluate the model
-  if (!drParameters->faultFileNames[simid].has_value()) {
+  if (!drParameters_->faultFileNames[simid].has_value()) {
     simid = 0;
   }
   {
-    const seissol::initializer::FaultGPGenerator queryGen(seissolInstance.meshReader(), faceIDs);
-    faultParameterDB.evaluateModel(drParameters->faultFileNames[simid].value(), queryGen);
+    const seissol::initializer::FaultGPGenerator queryGen(seissolInstance_.meshReader(), faceIDs);
+    faultParameterDB.evaluateModel(drParameters_->faultFileNames[simid].value(), queryGen);
   }
 }
 
@@ -366,13 +367,14 @@ void BaseDRInitializer::initializeOtherVariables(DynamicRupture::Layer& layer) {
 
 bool BaseDRInitializer::faultProvides(const std::string& parameter) {
   // TODO: Use C++20 contains
-  return faultParameterNames.count(parameter) > 0;
+  return faultParameterNames_.count(parameter) > 0;
 }
 
 std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
     BaseDRInitializer::stressIdentifiers(int readNucleation) {
   std::vector<std::string> tractionNames;
   std::vector<std::string> cartesianNames;
+  std::vector<std::string> commonNames;
 
   const std::string index = readNucleation > 1 ? std::to_string(readNucleation) : "";
 
@@ -398,11 +400,9 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
   }
   if (model::MaterialT::Type == model::MaterialType::Poroelastic) {
     if (readNucleation > 0) {
-      tractionNames.emplace_back(insertIndex("nuc", "p"));
-      cartesianNames.emplace_back(insertIndex("nuc", "p"));
+      commonNames.emplace_back(insertIndex("nuc", "p"));
     } else {
-      tractionNames.emplace_back("p");
-      cartesianNames.emplace_back("p");
+      commonNames.emplace_back("p");
     }
   }
 
@@ -419,6 +419,15 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
     const auto b = faultProvides(name);
     allCartesianParametersSupplied &= b;
     anyCartesianParametersSupplied |= b;
+  }
+  for (const auto& name : commonNames) {
+    const auto b = faultProvides(name);
+    allCartesianParametersSupplied &= b;
+    allTractionParametersSupplied &= b;
+
+    // only insert common names after we checked their existence
+    cartesianNames.push_back(name);
+    tractionNames.push_back(name);
   }
 
   if (allCartesianParametersSupplied && !anyTractionParametersSupplied) {

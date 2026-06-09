@@ -60,7 +60,8 @@ Generic parameters
     * ``ib``: interpolating basis
 - ``PROXY_PYBINDING``: compile Python bindings for the SeisSol proxy
 - ``TESTING``: compile unit tests for SeisSol
-- ``TESTING_GENERATED``: compile unit tests
+- ``TESTING_GENERATED``: compile unit tests for code-generated kernels. Useful for either developing a code generator, or when figuring out why a simulation runs into Inf/NaN or invalid results.
+- ``TESTING_PYTHON``: run additional code generator Python unit tests (those can also be run separately using ``pytest`` directly)
 - ``LTO``: enable link-time optimization
 - ``GRAPH_PARTITIONING_LIBS``: compile for the given graph partitioning libraries. Allowed options are:
 
@@ -77,7 +78,10 @@ CPU-specific parameters
 - ``HOST_ARCH``: the parameter to tune the architecture for. See build-archs for an overview. Applies both compiler options and GEMM generation. If you get an illegal instruction error, check this variable first. Since there are many options, we have an own page for them. In short, use ``hsw`` when using a Linux/Windows PC or an older Mac. Use ``apple-m1`` or ``apple-m2`` on the latest Mac computers.
 - ``MEMKIND``: enables HBM support.
 - ``NUMA_AWARE_PINNING``: pin the free CPUs (those used for the communication and IO threads) according to the given NUMA domains.
-- ``MEMORY_LAYOUT``: the sparsity patterns to apply. If not given, it will be chosen by the CPU architecture.
+- ``MEMORY_LAYOUT``: the sparsity patterns to apply. If set to ``auto``, code generation chooses
+  a layout from the target-specific config folder (``codegen/config/cpu`` or
+  ``codegen/config/gpu``). Passing a filename such as ``dense.xml`` or ``ms32.xml`` resolves it
+  from that same target-specific folder automatically.
 - ``GEMM_TOOLS_LIST``: the list for CPU GEMM generators that are used. Note that SeisSol benefits from code generation specifically for small matrices. Currently supports combinations of the following:
 
     * ``auto``: automatically selects the installed and usable GEMM generators out of ``LIBXSMM_JIT``, ``LIBXSMM`` and ``PSpaMM`` (in this order).
@@ -109,10 +113,3 @@ GPU-specific parameters
 - ``USE_GRAPH_CAPTURING``: if a compute graph feature is available, then use it. This is currently the case for CUDA (since 11.0), HIP (requires ROCm 6.1 or higher), or oneAPI.
 - ``ENABLE_PROFILING_MARKERS``: Currently available for CUDA and HIP
 - ``DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS``: enable some faster, handwritten accumulation kernels (default for NVIDIA and AMD)
-
-Options currently known to be broken
-------------------------------------
-
-The following options are available, but need to be left in the state that they are in. Not doing so will most likely break the build process or the software.
-
-- ``INTEGRATE_QUANTITIES``: assumed to be always disabled. Currently broken; it will probably be replaced in some version soon—when we refactor the IO component of SeisSol.

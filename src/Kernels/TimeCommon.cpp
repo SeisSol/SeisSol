@@ -42,9 +42,9 @@ void TimeCommon::computeIntegrals(Time& time,
                                   const std::array<FaceType, Cell::NumFaces>& faceTypes,
                                   const real* timeCoeffs,
                                   const real* subtimeCoeffs,
-                                  real* const timeDofs[4],
-                                  real integrationBuffer[4][tensor::I::size()],
-                                  real* timeIntegrated[4]) {
+                                  const std::array<real*, Cell::NumFaces>& timeDofs,
+                                  const std::array<real*, Cell::NumFaces>& integrationBuffer,
+                                  std::array<real*, Cell::NumFaces>& timeIntegrated) {
   // call the more general assembly
   /*
    * assert valid input.
@@ -63,8 +63,7 @@ void TimeCommon::computeIntegrals(Time& time,
    */
   for (std::size_t dofneighbor = 0; dofneighbor < Cell::NumFaces; ++dofneighbor) {
     // collect information only in the case that neighboring element contributions are required
-    if (faceTypes[dofneighbor] != FaceType::Outflow &&
-        faceTypes[dofneighbor] != FaceType::DynamicRupture) {
+    if (faceTypes[dofneighbor] == FaceType::Regular) {
       // check if the time integration is already done (-> copy pointer)
       if (!ltsSetup.neighborHasDerivatives(dofneighbor)) {
         timeIntegrated[dofneighbor] = timeDofs[dofneighbor];

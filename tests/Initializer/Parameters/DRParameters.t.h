@@ -15,6 +15,7 @@
 
 namespace seissol::unit_test {
 using namespace seissol::initializer::parameters;
+using namespace seissol::dr::misc;
 
 // ---------------------------------------------------------------------------
 // FrictionLawType: all enum values have unique integer representations

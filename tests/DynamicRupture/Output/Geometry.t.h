@@ -252,7 +252,6 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
 
     Eigen::Vector3d points[3] = {{0.25, 0.25, 0.25}, {0.5, 0.5, 0.5}, {0.75, 0.75, 0.1}};
     const unsigned numPoints = 3;
-    short contained[3] = {0, 0, 0};
     std::size_t meshId[3] = {std::numeric_limits<std::size_t>::max(),
                              std::numeric_limits<std::size_t>::max(),
                              std::numeric_limits<std::size_t>::max()};
@@ -282,11 +281,13 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
     e2.vertices[3] = 5;
     elements.push_back(e2);
 
-    initializer::findMeshIds(points, vertices, elements, numPoints, contained, meshId);
+    const MockReader mesh(vertices, elements);
 
-    CHECK(contained[0] == 1);
-    CHECK(contained[1] == 0);
-    CHECK(contained[2] == 1);
+    const auto contained = initializer::findUniqueMeshIds(points, mesh, numPoints, meshId);
+
+    CHECK(contained[0]);
+    CHECK_FALSE(contained[1]);
+    CHECK(contained[2]);
 
     CHECK(meshId[0] == 0);
     CHECK(meshId[1] == std::numeric_limits<std::size_t>::max());

@@ -171,7 +171,7 @@ jobs:
       EXENAME: |
         ${{
           format('cpu-{0}-p{2}-{1}{3}',
-            matrix.case.equation,
+            matrix.case.dispequation || matrix.case.equation,
             matrix.precision == 'single' && 'f32' || 'f64',
             matrix.order,
             matrix.case.multisim != 1 && format('-s{0}', matrix.case.multisim) || ''
@@ -198,7 +198,8 @@ jobs:
             volume: true
             surface: false
           - name: tpv5-visco
-            equation: viscoelastic-3
+            equation: viscoelastic2
+            dispequation: viscoelastic-3
             multisim: 1
             energies: true
             receivers: true

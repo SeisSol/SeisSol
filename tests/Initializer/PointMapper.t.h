@@ -32,13 +32,13 @@ TEST_CASE("Point mapper" * doctest::test_suite("initializer")) {
       Eigen::Vector3d(rngdist(rnggen), rngdist(rnggen), rngdist(rnggen)),
       Eigen::Vector3d(rngdist(rnggen), rngdist(rnggen), rngdist(rnggen)),
       0.25 * (vertices[0] + vertices[1] + vertices[2] + vertices[3])};
-  std::array<short, 3> contained{0, 0, 0};
   std::array<std::size_t, 3> meshId{std::numeric_limits<std::size_t>::max(),
                                     std::numeric_limits<std::size_t>::max(),
                                     std::numeric_limits<std::size_t>::max()};
-  seissol::initializer::findMeshIds(points.data(), mockReader, 3, contained.data(), meshId.data());
+  const auto contained =
+      seissol::initializer::findUniqueMeshIds(points.data(), mockReader, 3, meshId.data());
 
-  std::array<short, 3> expectedContained = {0, 1, 1};
+  std::vector<bool> expectedContained{false, true, true};
   std::array<std::size_t, 3> expectedMeshId = {std::numeric_limits<std::size_t>::max(), 0, 0};
 
   CHECK(contained == expectedContained);

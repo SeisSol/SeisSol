@@ -112,7 +112,6 @@ TEST_CASE("Local flopsIntegral mixed faces" * doctest::test_suite("kernel")) {
       FaceType::Regular,
       FaceType::FreeSurface,
       FaceType::Outflow,
-      FaceType::Periodic,
   };
 
   std::uint64_t nonZeroFlops = 0;
@@ -146,7 +145,7 @@ TEST_CASE("Neighbor flopsNeighborsIntegral all Regular" * doctest::test_suite("k
     neighboringIndices[f] = {0, 0};
   }
 
-  const CellDRMapping drMapping[4]{};
+  const std::array<CellDRMapping, Cell::NumFaces> drMapping{};
 
   std::uint64_t nz = 0;
   std::uint64_t hw = 0;
@@ -174,7 +173,7 @@ TEST_CASE("Neighbor flopsNeighborsIntegral with DR faces" * doctest::test_suite(
   faceTypes.fill(FaceType::DynamicRupture);
 
   const std::array<std::array<uint8_t, 2>, Cell::NumFaces> neighboringIndices{};
-  const CellDRMapping drMapping[4]{};
+  const std::array<CellDRMapping, Cell::NumFaces> drMapping{};
 
   std::uint64_t nz = 0;
   std::uint64_t hw = 0;
@@ -222,7 +221,7 @@ TEST_CASE("Kernel flop ordering: Ader < Local < Neighbor" * doctest::test_suite(
 
   kernels::Neighbor neighbor;
   const std::array<std::array<uint8_t, 2>, Cell::NumFaces> neighboringIndices{};
-  const CellDRMapping drMapping[4]{};
+  const std::array<CellDRMapping, Cell::NumFaces> drMapping{};
   std::uint64_t neighborNz = 0;
   std::uint64_t neighborHw = 0;
   std::uint64_t drNz = 0;
