@@ -62,6 +62,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     std::vector<real*> derivativesExtPtrs(size, nullptr);
     std::vector<real*> ltsBuffers;
     std::vector<real*> idofsForLtsBuffers;
+    std::vector<real*> zinvExtraPtrs(size, nullptr);
 
     idofsPtrs.reserve(size);
     dQPtrs_.resize(size);
@@ -125,6 +126,10 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
       dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + tensor::Qext::size() * cell;
 #endif
+#ifdef USE_POROELASTIC
+      auto* zinvExtraPtr = currentLayer_->var<LTS::ZinvExtra>(AllocationPlace::Device);
+      zinvExtraPtrs[cell] = zinvExtraPtr + yateto::computeFamilySize<tensor::Zinv>() * cell;
+#endif
 
       // derivatives
       const bool isDerivativesProvided =
@@ -162,6 +167,9 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     (*currentTable_)[key].set(inner_keys::Wp::Id::IdofsAne, idofsAnePtrs);
     (*currentTable_)[key].set(inner_keys::Wp::Id::DerivativesAne, derivativesAnePtrs);
     (*currentTable_)[key].set(inner_keys::Wp::Id::DerivativesExt, derivativesExtPtrs);
+#endif
+#ifdef USE_POROELASTIC
+    (*currentTable_)[key].set(inner_keys::Wp::Id::ZinvExtra, zinvExtraPtrs);
 #endif
   }
 }
