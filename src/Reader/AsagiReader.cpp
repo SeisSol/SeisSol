@@ -5,10 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <cstddef>
 #ifdef USE_ASAGI
 
 #include "AsagiReader.h"
+
 #include "Monitoring/Instrumentation.h"
 #include "Reader/AsagiModule.h"
 

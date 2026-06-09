@@ -13,8 +13,10 @@
 
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <hdf5.h>
 #include <mpi.h>
+#include <stdlib.h>
 #include <string>
 #include <vector>
 
@@ -23,11 +25,18 @@ using namespace seissol::io;
 
 // Helper RAII for temp HDF5 files
 struct TempHdf5File {
+  static inline char tpl[] = "/tmp/seissoltestXXXXXX";
   std::string path;
-  TempHdf5File() : path(std::tmpnam(nullptr)) {
+  std::string dir;
+  TempHdf5File() : dir(mkdtemp(tpl)) {
     // Create a unique temp file name per rank
+    path = std::filesystem::path(dir) / "testfile.h5";
   }
-  ~TempHdf5File() { std::remove(path.c_str()); }
+  ~TempHdf5File() { (void)std::remove(path.c_str()); }
+  auto operator=(const TempHdf5File&) = delete;
+  auto operator=(TempHdf5File&&) = delete;
+  TempHdf5File(const TempHdf5File&) = delete;
+  TempHdf5File(TempHdf5File&&) = delete;
 };
 
 // Helper: create a parallel HDF5 file with given MPI communicator
