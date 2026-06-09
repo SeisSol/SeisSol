@@ -22,10 +22,6 @@
 #include "Model/Plasticity.h"
 #include "Parallel/Helper.h"
 
-#ifdef ACL_DEVICE
-#include "Parallel/Helper.h"
-#endif
-
 namespace seissol::tensor {
 struct Qane;
 } // namespace seissol::tensor
@@ -107,26 +103,29 @@ struct LTS {
   struct Derivatives : public initializer::Variable<real*> {};
   struct CellInformation : public initializer::Variable<CellLocalInformation> {};
   struct SecondaryInformation : public initializer::Variable<SecondaryCellLocalInformation> {};
-  struct FaceNeighbors : public initializer::Variable<real* [Cell::NumFaces]> {};
+  struct FaceNeighbors : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
   struct LocalIntegration : public initializer::Variable<LocalIntegrationData> {};
   struct NeighboringIntegration : public initializer::Variable<NeighboringIntegrationData> {};
   struct MaterialData : public initializer::Variable<model::MaterialT> {};
   struct Material : public initializer::Variable<CellMaterialData> {};
   struct Plasticity : public initializer::Variable<seissol::model::PlasticityData> {};
-  struct DRMapping : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
-  struct BoundaryMapping : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {};
+  struct DRMapping : public initializer::Variable<std::array<CellDRMapping, Cell::NumFaces>> {};
+  struct BoundaryMapping
+      : public initializer::Variable<std::array<CellBoundaryMapping, Cell::NumFaces>> {};
   struct PStrain : public initializer::Variable<
                        real[tensor::QStressNodal::size() + tensor::QEtaNodal::size()]> {};
-  struct FaceDisplacements : public initializer::Variable<real* [Cell::NumFaces]> {};
+  struct FaceDisplacements : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
   struct BuffersDerivatives : public initializer::Bucket<real> {};
 
   struct BuffersDevice : public initializer::Variable<real*> {};
   struct DerivativesDevice : public initializer::Variable<real*> {};
-  struct FaceNeighborsDevice : public initializer::Variable<real* [Cell::NumFaces]> {};
-  struct FaceDisplacementsDevice : public initializer::Variable<real* [Cell::NumFaces]> {};
-  struct DRMappingDevice : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
-  struct BoundaryMappingDevice : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {
+  struct FaceNeighborsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
+  struct FaceDisplacementsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {
   };
+  struct DRMappingDevice : public initializer::Variable<std::array<CellDRMapping, Cell::NumFaces>> {
+  };
+  struct BoundaryMappingDevice
+      : public initializer::Variable<std::array<CellBoundaryMapping, Cell::NumFaces>> {};
 
   struct IntegratedDofsScratch : public initializer::Scratchpad<real> {};
   struct DerivativesScratch : public initializer::Scratchpad<real> {};

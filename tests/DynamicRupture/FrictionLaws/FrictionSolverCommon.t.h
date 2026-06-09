@@ -26,7 +26,7 @@ TEST_CASE("Friction Solver Common") {
   alignas(Alignment) real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()] = {{}};
   alignas(Alignment) real imposedStatePlus[tensor::QInterpolated::size()] = {};
   alignas(Alignment) real imposedStateMinus[tensor::QInterpolated::size()] = {};
-  double timeWeights[misc::TimeSteps];
+  real timeWeights[misc::TimeSteps]{};
   std::iota(std::begin(timeWeights), std::end(timeWeights), 1);
   constexpr real Epsilon = 1e6 * std::numeric_limits<real>::epsilon();
 

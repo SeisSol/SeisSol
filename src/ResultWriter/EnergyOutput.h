@@ -71,7 +71,7 @@ class EnergyOutput : public Module {
 
   void simulationStart(std::optional<double> checkpointTime) override;
 
-  explicit EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
+  explicit EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance_(seissolInstance) {}
 
   ~EnergyOutput() override;
 
@@ -100,36 +100,34 @@ class EnergyOutput : public Module {
 
   void writeEnergies(double time);
 
-  seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance_;
 
   bool shouldComputeVolumeEnergies() const;
 
-  bool isEnabled = false;
-  bool isTerminalOutputEnabled = false;
-  bool isFileOutputEnabled = false;
-  bool isPlasticityEnabled = false;
-  bool isCheckAbortCriteraSlipRateEnabled = false;
-  bool isCheckAbortCriteraMomentRateEnabled = false;
-  int computeVolumeEnergiesEveryOutput = 1;
-  int outputId = 0;
+  bool isEnabled_ = false;
+  bool isTerminalOutputEnabled_ = false;
+  bool isFileOutputEnabled_ = false;
+  bool isPlasticityEnabled_ = false;
+  bool isCheckAbortCriteraSlipRateEnabled_ = false;
+  bool isCheckAbortCriteraMomentRateEnabled_ = false;
+  int computeVolumeEnergiesEveryOutput_ = 1;
+  int outputId_ = 0;
 
-  std::string outputFileName;
-  std::ofstream out;
+  std::string outputFileName_;
+  std::ofstream out_;
 
-  const GlobalData* global = nullptr;
-  const DynamicRupture::Storage* drStorage = nullptr;
-  const seissol::geometry::MeshReader* meshReader = nullptr;
-  const LTS::Storage* ltsStorage = nullptr;
+  const GlobalData* global_ = nullptr;
+  const DynamicRupture::Storage* drStorage_ = nullptr;
+  const seissol::geometry::MeshReader* meshReader_ = nullptr;
+  const LTS::Storage* ltsStorage_ = nullptr;
 
-  parallel::runtime::StreamRuntime stream;
-
-  EnergiesStorage energiesStorage{};
-  std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold{};
-  std::array<double, multisim::NumSimulations> minTimeSinceMomentRateBelowThreshold{};
-  double terminatorMaxTimePostRupture{};
-  double energyOutputInterval{};
-  double terminatorMomentRateThreshold{};
-  std::array<double, multisim::NumSimulations> seismicMomentPrevious{};
+  EnergiesStorage energiesStorage_{};
+  std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold_{};
+  std::array<double, multisim::NumSimulations> minTimeSinceMomentRateBelowThreshold_{};
+  double terminatorMaxTimePostRupture_{};
+  double energyOutputInterval_{};
+  double terminatorMomentRateThreshold_{};
+  std::array<double, multisim::NumSimulations> seismicMomentPrevious_{};
 };
 
 } // namespace writer

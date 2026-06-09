@@ -16,6 +16,7 @@
 #include "Initializer/TimeStepping/Halo.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
@@ -35,26 +36,26 @@ namespace {
 
 class BucketManager {
   private:
-  std::size_t dataSize{0};
+  std::size_t dataSize_{0};
 
   public:
   void align() {
     // round up by Alignment
-    this->dataSize = ((this->dataSize + Alignment - 1) / Alignment) * Alignment;
+    this->dataSize_ = ((this->dataSize_ + Alignment - 1) / Alignment) * Alignment;
   }
 
   real* markAllocate(std::size_t size) {
-    const uintptr_t offset = this->dataSize;
-    this->dataSize += size;
+    const uintptr_t offset = this->dataSize_;
+    this->dataSize_ += size;
 
     // the following "hack" was copied from the MemoryManager. Add +1 to pointers to differentiate
     // from nullptr NOLINTNEXTLINE
     return reinterpret_cast<real*>(offset + 1);
   }
 
-  [[nodiscard]] std::size_t position() const { return dataSize; }
+  [[nodiscard]] std::size_t position() const { return dataSize_; }
 
-  [[nodiscard]] std::size_t size() const { return dataSize; }
+  [[nodiscard]] std::size_t size() const { return dataSize_; }
 };
 
 template <typename T>
@@ -141,8 +142,8 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   const auto datatype = Config::Precision;
   const auto typeSize = sizeOfRealType(datatype);
 
-  const auto bufferSize = typeSize * tensor::I::size();
-  const auto derivativeSize = typeSize * yateto::computeFamilySize<tensor::dQ>();
+  const auto bufferSize = typeSize * kernels::Solver::BuffersSize;
+  const auto derivativeSize = typeSize * kernels::Solver::DerivativesSize;
 
   const auto allocate = [&](std::size_t index, bool useDerivatives) {
     if (useDerivatives) {
@@ -233,8 +234,8 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
 
   auto* buffersDerivativesDevice = layer.var<LTS::BuffersDerivatives>(AllocationPlace::Device);
 
-  const auto bufferSize = tensor::I::size();
-  const auto derivativeSize = yateto::computeFamilySize<tensor::dQ>();
+  const auto bufferSize = kernels::Solver::BuffersSize;
+  const auto derivativeSize = kernels::Solver::DerivativesSize;
 
 #pragma omp parallel for schedule(static)
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {

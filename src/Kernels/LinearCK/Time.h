@@ -34,7 +34,7 @@ class Spacetime : public SpacetimeKernel {
                    double timeStepWidth,
                    LTS::Ref& data,
                    LocalTmp& tmp,
-                   real timeIntegrated[tensor::I::size()],
+                   real* timeIntegrated,
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
   void computeBatchedAder(const real* coeffs,
@@ -51,13 +51,13 @@ class Spacetime : public SpacetimeKernel {
   std::uint64_t bytesAder() override;
 
   protected:
-  kernel::derivative m_krnlPrototype;
-  kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
+  kernel::derivative krnlPrototype_;
+  kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_derivative deviceKrnlPrototype;
-  kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  kernel::gpu_derivative deviceKrnlPrototype_;
+  kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated_;
+  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 #endif
 };
 

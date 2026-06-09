@@ -126,7 +126,6 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   attenuation
   physical-models
   scaling
-  basic-code-structure
   known-issues
   breaking-changes-backward-compatibility
 
@@ -159,3 +158,9 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   pointsource
   kinematic
   copyrights
+
+.. toctree::
+  :maxdepth: 2
+  :caption: Developer Guide
+
+  basic-code-structure
