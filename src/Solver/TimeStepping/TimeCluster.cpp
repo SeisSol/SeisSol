@@ -64,6 +64,8 @@
 #include <Device/AbstractAPI.h>
 #endif
 
+#include <dlb_talp.h>
+
 namespace seissol::time_stepping {
 
 TimeCluster::TimeCluster(unsigned int clusterId,
@@ -756,9 +758,14 @@ void TimeCluster::predict() {
 }
 
 void TimeCluster::handleDynamicRupture(DynamicRupture::Layer& layerData) {
+
   if (layerData.size() == 0) {
     return;
   }
+
+  dlb_monitor_t* compute_region = DLB_MonitoringRegionRegister("DynamicRuptureKernel");
+ 
+  DLB_MonitoringRegionStart(compute_region); 
 
   if (executor_ == Executor::Device) {
     computeDynamicRuptureDevice(layerData);
@@ -791,6 +798,8 @@ void TimeCluster::handleDynamicRupture(DynamicRupture::Layer& layerData) {
     layerData.varSynchronizeTo<DynamicRupture::ImposedStateMinus>(other, streamRuntime_.stream());
     layerData.varSynchronizeTo<DynamicRupture::ImposedStatePlus>(other, streamRuntime_.stream());
   }
+
+  DLB_MonitoringRegionStop(compute_region);
 }
 
 void TimeCluster::correct() {

@@ -30,6 +30,8 @@
 #include <sstream>
 #endif
 
+#include <dlb_talp.h>
+
 namespace seissol::initializer::initprocedure {
 
 namespace {
@@ -115,7 +117,12 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
   seissol::Stopwatch watch;
   logInfo() << "Starting simulation.";
   watch.start();
+  dlb_monitor_t* compute_region = DLB_MonitoringRegionRegister("Compute Loop");
+  
+  DLB_MonitoringRegionStart(compute_region);
   seissolInstance.simulator().simulate(seissolInstance);
+  DLB_MonitoringRegionStop(compute_region);
+
   watch.pause();
   watch.printTime("Time spent in simulation:");
 
