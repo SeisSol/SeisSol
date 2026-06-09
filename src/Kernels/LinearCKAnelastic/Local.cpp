@@ -13,6 +13,7 @@
 #include "Kernels/Common.h"
 
 #include <cassert>
+#include <cstddef>
 #include <cstring>
 #include <stdint.h>
 #include <yateto.h>
@@ -72,7 +73,7 @@ void Local::computeIntegral(
   kernel::volumeExt volKrnl = volumeKernelPrototype_;
   volKrnl.Qext = Qext;
   volKrnl.I = timeIntegratedDoFs;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
 

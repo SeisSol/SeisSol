@@ -14,6 +14,7 @@
 
 #include <Eigen/Dense>
 #include <cassert>
+#include <cstddef>
 #include <cstring>
 #include <stdint.h>
 #include <yateto.h>

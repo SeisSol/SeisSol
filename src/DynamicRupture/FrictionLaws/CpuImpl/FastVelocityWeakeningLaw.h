@@ -56,14 +56,15 @@ class FastVelocityWeakeningLaw
         std::max(static_cast<real>(0),
                  static_cast<real>(this->f0_[faceIndex][pointIndex] -
                                    (this->b_[faceIndex][pointIndex] - localA) *
-                                       log(localSlipRate / this->drParameters_->rsSr0)));
+                                       log(localSlipRate / this->drParameters_.rsSr0)));
     const real steadyStateFrictionCoefficient =
         localMuW + (lowVelocityFriction - localMuW) /
-                       std::pow(1.0 + misc::power<8, double>(localSlipRate / localSrW), 1.0 / 8.0);
+                       std::pow(static_cast<real>(1.0) + misc::power<8>(localSlipRate / localSrW),
+                                static_cast<real>(1.0 / 8.0));
     // TODO: check again, if double precision is necessary here (earlier, there were cancellation
     // issues)
     const real steadyStateStateVariable =
-        localA * rs::logsinh(this->drParameters_->rsSr0 / localSlipRate * 2,
+        localA * rs::logsinh(this->drParameters_.rsSr0 / localSlipRate * 2,
                              steadyStateFrictionCoefficient / localA);
 
     // exact integration of dSV/dt DGL, assuming constant V over integration step
@@ -92,7 +93,7 @@ class FastVelocityWeakeningLaw
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       const real localA = this->a_[ltsFace][pointIndex];
 
-      const real cLin = 0.5 / this->drParameters_->rsSr0;
+      const real cLin = static_cast<real>(0.5) / this->drParameters_.rsSr0;
       const real cExpLog = localStateVariable[pointIndex] / localA;
       const real cExp = rs::computeCExp(cExpLog);
       const real acLin = localA * cLin;
@@ -161,14 +162,6 @@ class FastVelocityWeakeningLaw
       this->stateVariable_[ltsFace][pointIndex] =
           this->stateVariable_[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex];
     }
-  }
-
-  void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
-                             std::size_t ltsFace) const {
-    [[maybe_unused]] const real tmp = 0.5 / this->drParameters_->rsSr0 *
-                                      std::exp(localStateVariable[0] / this->a_[ltsFace][0]) *
-                                      this->slipRateMagnitude_[ltsFace][0];
-    assert(!std::isnan(tmp) && "nonConvergence RS Newton");
   }
 
   protected:

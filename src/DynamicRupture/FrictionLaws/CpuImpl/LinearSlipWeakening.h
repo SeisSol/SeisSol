@@ -21,7 +21,7 @@ namespace seissol::dr::friction_law::cpu {
 template <class SpecializationT>
 class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>> {
   public:
-  explicit LinearSlipWeakeningLaw(seissol::initializer::parameters::DRParameters* drParameters)
+  explicit LinearSlipWeakeningLaw(const FrictionLawParameters& drParameters)
       : BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization_(drParameters) {}
 
@@ -120,8 +120,8 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
           muS_[ltsFace][pointIndex] -
           (muS_[ltsFace][pointIndex] - muD_[ltsFace][pointIndex]) * stateVariable[pointIndex];
       // instantaneous healing
-      if ((this->peakSlipRate_[ltsFace][pointIndex] > this->drParameters_->healingThreshold) &&
-          (this->slipRateMagnitude_[ltsFace][pointIndex] < this->drParameters_->healingThreshold)) {
+      if ((this->peakSlipRate_[ltsFace][pointIndex] > this->drParameters_.healingThreshold) &&
+          (this->slipRateMagnitude_[ltsFace][pointIndex] < this->drParameters_.healingThreshold)) {
         this->mu_[ltsFace][pointIndex] = muS_[ltsFace][pointIndex];
         stateVariable[pointIndex] = 0.0;
       }
@@ -195,13 +195,13 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
       // Forced rupture time
       real f2 = 0.0;
-      if (this->drParameters_->t0[0] == 0) {
+      if (this->drParameters_.t0[0] == 0) {
         // avoid branching
         // if time > forcedRuptureTime, then f2 = 1.0, else f2 = 0.0
-        f2 = 1.0 * static_cast<double>(time >= this->forcedRuptureTime_[ltsFace][pointIndex]);
+        f2 = static_cast<real>(time >= this->forcedRuptureTime_[ltsFace][pointIndex]);
       } else {
         f2 = std::clamp((time - this->forcedRuptureTime_[ltsFace][pointIndex]) /
-                            this->drParameters_->t0[0],
+                            this->drParameters_.t0[0],
                         static_cast<real>(0.0),
                         static_cast<real>(1.0));
       }
@@ -220,7 +220,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
 class NoSpecialization {
   public:
-  explicit NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
+  explicit NoSpecialization(const FrictionLawParameters& parameters) {};
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {};
   /**
@@ -254,8 +254,7 @@ class NoSpecialization {
  */
 class BiMaterialFault {
   public:
-  explicit BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters)
-      : drParameters_(parameters) {};
+  explicit BiMaterialFault(const FrictionLawParameters& parameters) : drParameters_(&parameters) {};
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
   /**
@@ -296,7 +295,7 @@ class BiMaterialFault {
   }
 
   protected:
-  seissol::initializer::parameters::DRParameters* drParameters_;
+  const FrictionLawParameters* drParameters_;
   real (*__restrict regularizedStrength_)[misc::NumPaddedPoints]{};
 };
 
@@ -305,8 +304,7 @@ class BiMaterialFault {
  */
 class TPApprox {
   public:
-  explicit TPApprox(seissol::initializer::parameters::DRParameters* parameters)
-      : drParameters_(parameters) {};
+  explicit TPApprox(const FrictionLawParameters& parameters) : drParameters_(&parameters) {};
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
   /**
@@ -322,8 +320,8 @@ class TPApprox {
                          real localDc,
                          std::size_t /*ltsFace*/,
                          std::uint32_t /*pointIndex*/) {
-    const real factor = (1.0 + std::fabs(localAccumulatedSlip) / localDc);
-    return 1.0 - std::pow(factor, -this->drParameters_->tpProxyExponent);
+    const real factor = (static_cast<real>(1.0) + std::fabs(localAccumulatedSlip) / localDc);
+    return static_cast<real>(1.0) - std::pow(factor, -this->drParameters_->tpProxyExponent);
   }
 
 #pragma omp declare simd
@@ -336,7 +334,7 @@ class TPApprox {
   };
 
   protected:
-  seissol::initializer::parameters::DRParameters* drParameters_;
+  const FrictionLawParameters* drParameters_;
 };
 
 } // namespace seissol::dr::friction_law::cpu

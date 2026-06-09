@@ -21,6 +21,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
 #include "Parallel/Helper.h"
+#include "Solver/Settings.h"
 
 namespace seissol::tensor {
 struct Qane;
@@ -148,7 +149,7 @@ struct LTS {
 
   struct ZinvExtra : public initializer::Scratchpad<real> {};
 
-  struct Integrals : public initializer::Variable<real> {};
+  struct Integrals : public initializer::Variable<real[tensor::Q::size()]> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
                                                         DofsHalo,
@@ -198,13 +199,19 @@ struct LTS {
   using Ref = initializer::Layer<LTSVarmap>::CellRef;
   using Backmap = initializer::StorageBackmap<Cell::NumFaces>;
 
-  static void addTo(Storage& storage, bool usePlasticity) {
+  static void addTo(Storage& storage, const SimulationSettings& settings) {
     using namespace initializer;
     LayerMask plasticityMask;
-    if (usePlasticity) {
+    if (settings.plasticity) {
       plasticityMask = LayerMask(Ghost);
     } else {
       plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
+    }
+    LayerMask integralMask;
+    if (settings.integrate) {
+      integralMask = LayerMask(Ghost);
+    } else {
+      integralMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
     }
 
     storage.add<Dofs>(LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
@@ -258,6 +265,8 @@ struct LTS {
     storage.add<FaceNeighborsDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<DRMappingDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<BoundaryMappingDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+
+    storage.add<Integrals>(integralMask, Alignment, allocationModeWP(AllocationPreset::Dofs));
 
     if constexpr (isDeviceOn()) {
       const auto mode = AllocationMode::DeviceOnly;
