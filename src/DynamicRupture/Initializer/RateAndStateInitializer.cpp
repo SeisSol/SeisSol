@@ -32,10 +32,12 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
   const auto rsF0ParamName = faultNameAlternatives({"rs_f0", "RS_f0"});
   const auto rsMuWParamName = faultNameAlternatives({"rs_muw", "RS_muw"});
   const auto rsBParamName = faultNameAlternatives({"rs_b", "RS_b"});
+  const auto stateVariableName = faultNameAlternatives({"state_variable", "rs_state"});
 
   const auto rsF0Param = !faultProvides(rsF0ParamName);
   const auto rsMuWParam = !faultProvides(rsMuWParamName);
   const auto rsBParam = !faultProvides(rsBParamName);
+  const auto stateVariableParam = faultProvides(stateVariableName);
 
   logInfo() << "RS parameter source (1 == from parameter file, 0 == from easi file): f0"
             << rsF0Param << "- muW" << rsMuWParam << "- b" << rsBParam;
@@ -83,19 +85,29 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
           rsB[ltsFace][pointIndex] = drParameters_->rsB;
         }
 
-        // compute initial friction and state
-        const auto stateAndFriction =
-            computeInitialStateAndFriction(initialStressInFaultCS[ltsFace][XY][pointIndex],
-                                           initialStressInFaultCS[ltsFace][XZ][pointIndex],
-                                           initialStressInFaultCS[ltsFace][XX][pointIndex],
-                                           rsA[ltsFace][pointIndex],
-                                           rsB[ltsFace][pointIndex],
-                                           rsSl0[ltsFace][pointIndex],
-                                           drParameters_->rsSr0,
-                                           rsF0[ltsFace][pointIndex],
-                                           initialSlipRate);
-        stateVariable[ltsFace][pointIndex] = stateAndFriction.stateVariable;
-        mu[ltsFace][pointIndex] = stateAndFriction.frictionCoefficient;
+        if (stateVariableParam) {
+          mu[ltsFace][pointIndex] = computeFrictionFromState(stateVariable[ltsFace][pointIndex],
+                                                             rsA[ltsFace][pointIndex],
+                                                             rsB[ltsFace][pointIndex],
+                                                             rsSl0[ltsFace][pointIndex],
+                                                             drParameters_->rsSr0,
+                                                             rsF0[ltsFace][pointIndex],
+                                                             initialSlipRate);
+        } else {
+          // compute initial friction and state
+          const auto stateAndFriction =
+              computeInitialStateAndFriction(initialStressInFaultCS[ltsFace][XY][pointIndex],
+                                             initialStressInFaultCS[ltsFace][XZ][pointIndex],
+                                             initialStressInFaultCS[ltsFace][XX][pointIndex],
+                                             rsA[ltsFace][pointIndex],
+                                             rsB[ltsFace][pointIndex],
+                                             rsSl0[ltsFace][pointIndex],
+                                             drParameters_->rsSr0,
+                                             rsF0[ltsFace][pointIndex],
+                                             initialSlipRate);
+          stateVariable[ltsFace][pointIndex] = stateAndFriction.stateVariable;
+          mu[ltsFace][pointIndex] = stateAndFriction.frictionCoefficient;
+        }
       }
     }
   }
@@ -123,12 +135,22 @@ RateAndStateInitializer::StateAndFriction
         << "Found a negative state variable while initializing the fault. Are you sure your "
            "setup is correct?";
   }
-  const double explog = (rsF0 + rsB * std::log(rsSr0 * result.stateVariable / rsSl0)) / rsA;
+  result.frictionCoefficient =
+      computeFrictionFromState(result.stateVariable, rsA, rsB, rsSl0, rsSr0, rsF0, initialSlipRate);
+  return result;
+}
+
+double RateAndStateInitializer::computeFrictionFromState(double stateVariable,
+                                                         double rsA,
+                                                         double rsB,
+                                                         double rsSl0,
+                                                         double rsSr0,
+                                                         double rsF0,
+                                                         double initialSlipRate) {
+  const double explog = (rsF0 + rsB * std::log(rsSr0 * stateVariable / rsSl0)) / rsA;
   const double expval = seissol::dr::friction_law::rs::computeCExp(explog);
   const double linval = initialSlipRate * 0.5 / rsSr0;
-  result.frictionCoefficient =
-      rsA * seissol::dr::friction_law::rs::arsinhexp(linval, expval, explog);
-  return result;
+  return rsA * seissol::dr::friction_law::rs::arsinhexp(linval, expval, explog);
 }
 
 void RateAndStateInitializer::addAdditionalParameters(
@@ -149,6 +171,9 @@ void RateAndStateInitializer::addAdditionalParameters(
   insertIfPresent("rs_f0", layer.var<LTSRateAndState::RsF0>());
   insertIfPresent("rs_muw", layer.var<LTSRateAndState::RsMuW>());
   insertIfPresent("rs_b", layer.var<LTSRateAndState::RsB>());
+
+  const auto stateVariableName = faultNameAlternatives({"state_variable", "rs_state"});
+  insertIfPresent(stateVariableName, layer.var<LTSRateAndState::StateVariable>());
 }
 
 RateAndStateInitializer::StateAndFriction
@@ -171,12 +196,22 @@ RateAndStateInitializer::StateAndFriction
         << "Found a negative state variable while initializing the fault. Are you sure your "
            "setup is correct?";
   }
-  const double explog = result.stateVariable / rsA;
+  result.frictionCoefficient =
+      computeFrictionFromState(result.stateVariable, rsA, 0.0, 0.0, rsSr0, 0.0, initialSlipRate);
+  return result;
+}
+
+double RateAndStateFastVelocityInitializer::computeFrictionFromState(double stateVariable,
+                                                                     double rsA,
+                                                                     double /*rsB*/,
+                                                                     double /*rsSl0*/,
+                                                                     double rsSr0,
+                                                                     double /*rsF0*/,
+                                                                     double initialSlipRate) {
+  const double explog = stateVariable / rsA;
   const double expval = seissol::dr::friction_law::rs::computeCExp(explog);
   const double linval = initialSlipRate * 0.5 / rsSr0;
-  result.frictionCoefficient =
-      rsA * seissol::dr::friction_law::rs::arsinhexp(linval, expval, explog);
-  return result;
+  return rsA * seissol::dr::friction_law::rs::arsinhexp(linval, expval, explog);
 }
 
 void RateAndStateFastVelocityInitializer::addAdditionalParameters(

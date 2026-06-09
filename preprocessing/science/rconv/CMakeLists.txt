@@ -63,3 +63,5 @@ target_link_libraries(SeisSol-rconv PUBLIC ${HDF5_C_HL_LIBRARIES} ${HDF5_C_LIBRA
 set_target_properties(SeisSol-rconv PROPERTIES OUTPUT_NAME "rconv")
 
 install(TARGETS SeisSol-rconv RUNTIME DESTINATION bin)
+find_package(HDF5 REQUIRED COMPONENTS C HL)
+target_link_libraries(SeisSol-rconv PUBLIC ${HDF5_C_HL_LIBRARIES} ${HDF5_C_LIBRARIES})

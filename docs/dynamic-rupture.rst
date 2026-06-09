@@ -269,6 +269,8 @@ Friction parameters:
 +------------------+----------------------------------------+-------------------------------+
 | :math:`f_0(x)`   | reference friction coefficient         | :code:`rs_f0`                 |
 +------------------+----------------------------------------+-------------------------------+
+| :math:`\psi(x)`  | initial state variable                 | :code:`state_variable`        |
++------------------+----------------------------------------+-------------------------------+
 | :math:`V_{ini1}` | initial along-strike slip velocity     | :code:`rs_inisliprate1`       |
 +------------------+----------------------------------------+-------------------------------+
 | :math:`V_{ini2}` | initial along-dip slip veloctiy        | :code:`rs_inisliprate2`       |
@@ -277,6 +279,7 @@ Friction parameters:
 Here, :math:`b(x)` and :math:`f_0(x)` can either be varied or given in the parameter file as constants.
 Once they are given in the fault yaml file, they are assumed to be varied and their parameter file values are ignored.
 For the parameter file and the fault yaml file, the names are the same.
+The initial state variable :math:`\psi(x)` can optionally be provided via the fault yaml file using the name :code:`state_variable` (or the alternative :code:`rs_state`). If provided, SeisSol will use it to compute the initial friction coefficient and will not compute it from the initial stress.
 
 .. math::
   \begin{aligned}

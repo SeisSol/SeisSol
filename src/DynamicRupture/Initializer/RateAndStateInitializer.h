@@ -64,6 +64,14 @@ class RateAndStateInitializer : public BaseDRInitializer {
                                                           double rsSr0,
                                                           double rsF0,
                                                           double initialSlipRate);
+
+  virtual double computeFrictionFromState(double stateVariable,
+                                          double rsA,
+                                          double rsB,
+                                          double rsSl0,
+                                          double rsSr0,
+                                          double rsF0,
+                                          double initialSlipRate);
 };
 
 /**
@@ -106,6 +114,14 @@ class RateAndStateFastVelocityInitializer : public RateAndStateInitializer {
                                                   double rsSr0,
                                                   double rsF0,
                                                   double initialSlipRate) override;
+
+  double computeFrictionFromState(double stateVariable,
+                                  double rsA,
+                                  double rsB,
+                                  double rsSl0,
+                                  double rsSr0,
+                                  double rsF0,
+                                  double initialSlipRate) override;
 };
 
 /**
