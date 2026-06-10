@@ -11,16 +11,11 @@ add_library(seissol-resultwriter OBJECT
     ClusteringWriter.cpp
     DofSync.cpp
     EnergyOutput.cpp
-    FaultWriter.cpp
-    FaultWriterExecutor.cpp
-    FreeSurfaceWriter.cpp
-    FreeSurfaceWriterExecutor.cpp
     MiniSeisSolWriter.cpp
     ParallelHdf5ReceiverWriter.cpp
     PickpointWriter.cpp
     ReceiverWriter.cpp
     ThreadsPinningWriter.cpp
-    WaveFieldWriter.cpp
 )
 
 target_link_libraries(seissol-resultwriter PUBLIC seissol-common-properties)
