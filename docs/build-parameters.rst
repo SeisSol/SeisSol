@@ -60,7 +60,8 @@ Generic parameters
     * ``ib``: interpolating basis
 - ``PROXY_PYBINDING``: compile Python bindings for the SeisSol proxy
 - ``TESTING``: compile unit tests for SeisSol
-- ``TESTING_GENERATED``: compile unit tests
+- ``TESTING_GENERATED``: compile unit tests for code-generated kernels. Useful for either developing a code generator, or when figuring out why a simulation runs into Inf/NaN or invalid results.
+- ``TESTING_PYTHON``: run additional code generator Python unit tests (those can also be run separately using ``pytest`` directly)
 - ``LTO``: enable link-time optimization
 - ``GRAPH_PARTITIONING_LIBS``: compile for the given graph partitioning libraries. Allowed options are:
 
