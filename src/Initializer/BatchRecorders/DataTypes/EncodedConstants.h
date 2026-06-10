@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_ENCODEDCONSTANTS_H_
 #define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_ENCODEDCONSTANTS_H_
 
+#include "Common/Literals.h"
 #include "Kernels/Precision.h"
 
 #include <cstdlib>
@@ -49,6 +50,7 @@ struct Wp {
     DerivativesExt,
     Analytical,
     QEtaNodal,
+    Integrals,
     Count
   };
 };
@@ -83,7 +85,7 @@ struct Indices {
 } // namespace seissol::recording::inner_keys
 
 namespace seissol::recording {
-constexpr size_t AllBits = ~static_cast<size_t>(0);
+constexpr size_t AllBits = ~0_UZ;
 constexpr size_t encodeAny(unsigned count) { return ~(AllBits << count); }
 
 enum struct KernelNames : size_t {
@@ -93,9 +95,8 @@ enum struct KernelNames : size_t {
   NeighborFlux = 1 << 3,
   FaceDisplacements = 1 << 4,
   Plasticity = 1 << 5,
-  DrTime = 1 << 6,
-  DrSpaceMap = 1 << 7,
-  BoundaryConditions = 1 << 8,
+  DrSpaceMap = 1 << 6,
+  BoundaryConditions = 1 << 7,
   Count = 9,
   Any = encodeAny(Count)
 };
@@ -119,8 +120,7 @@ enum struct FaceKinds : size_t {
   FreeSurface = 1 << 1,
   Outflow = 1 << 2,
   DynamicRupture = 1 << 3,
-  Periodic = 1 << 4,
-  Count = 5,
+  Count = 4,
   None = encodeAny(Count)
 };
 

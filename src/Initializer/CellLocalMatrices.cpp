@@ -211,6 +211,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 0, matAT);
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 1, matBT);
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 2, matCT);
+
         setStarMatrix(
             matATData, matBTData, matCTData, gradXi, localIntegration[cell].starMatrices[0]);
         setStarMatrix(
@@ -231,6 +232,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           MeshTools::normalize(tangent1, tangent1);
           MeshTools::normalize(tangent2, tangent2);
 
+          // Defines a rotation matrix for computing material properties in face-local coordinates
+          // for anisotropy. It has no effect for isotropic materials.
           std::array<double, 36> nLocalData{};
           seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
           seissol::model::getTransposedGodunovState(
@@ -245,7 +248,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
               0,
               matATtilde);
 
-          // Calculate transposed T instead
+          // Calculate transposed T and Tinv instead
           seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, matT, matTinv);
 
           // Scale with |S_side|/|J| and multiply with -1 as the flux matrices
@@ -315,6 +318,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           kernel::computeFluxSolverLocal localKrnl;
           localKrnl.fluxScale = fluxScale;
           localKrnl.AplusT = localIntegration[cell].nApNm1[side];
+          if (cellInformation[cell].faceTypes[side] == FaceType::DynamicRupture) {
+            localKrnl.fluxScale = 0;
+          }
           if (flux == parameters::NumericalFlux::Rusanov) {
             localKrnl.QgodLocal = centralFluxData;
             localKrnl.QcorrLocal = rusanovPlusData;
@@ -456,6 +462,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
   const auto& elements = meshReader.getElements();
 
   for (auto& layer : drStorage.leaves(Ghost)) {
+    auto* timeDofsPlus = layer.var<DynamicRupture::TimeDofsPlus>();
+    auto* timeDofsMinus = layer.var<DynamicRupture::TimeDofsMinus>();
     auto* timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();
     auto* timeDerivativeMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
     auto* timeDerivativePlusDevice = layer.var<DynamicRupture::TimeDerivativePlusDevice>();
@@ -511,10 +519,22 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         derivativesMeshId = fault[meshFace].neighborElement;
         derivativesSide = faceInformation[ltsFace].minusSide;
       }
+      real* timeDofs1 = nullptr;
+      real* timeDofs2 = nullptr;
       real* timeDerivative1 = nullptr;
       real* timeDerivative2 = nullptr;
       real* timeDerivative1Device = nullptr;
       real* timeDerivative2Device = nullptr;
+
+      const auto getDofs = [&](const auto& position) -> real* {
+        const auto halo = ltsStorage.getColorMap().argument(position.color).halo;
+        if (halo == HaloType::Ghost) {
+          return ltsStorage.lookup<LTS::DofsHalo>(position);
+        } else {
+          return ltsStorage.lookup<LTS::Dofs>(position);
+        }
+      };
+
       for (std::size_t duplicate = 0; duplicate < LTS::Backmap::MaxDuplicates; ++duplicate) {
         const auto positionOpt = backmap.getDup(derivativesMeshId, duplicate);
         if (positionOpt.has_value()) {
@@ -523,12 +543,18 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           if (timeDerivative1 == nullptr && cellInformation.ltsSetup.hasDerivatives()) {
             timeDerivative1 = ltsStorage.lookup<LTS::Derivatives>(position);
             timeDerivative1Device = ltsStorage.lookup<LTS::DerivativesDevice>(position);
+
+            timeDofs1 = getDofs(position);
           }
           if (timeDerivative2 == nullptr &&
               cellInformation.ltsSetup.neighborHasDerivatives(derivativesSide)) {
             timeDerivative2 = ltsStorage.lookup<LTS::FaceNeighbors>(position)[derivativesSide];
             timeDerivative2Device =
                 ltsStorage.lookup<LTS::FaceNeighborsDevice>(position)[derivativesSide];
+
+            const auto& secondaryInformation =
+                ltsStorage.lookup<LTS::SecondaryInformation>(position);
+            timeDofs2 = getDofs(secondaryInformation.faceNeighbors[derivativesSide]);
           }
         }
       }
@@ -536,11 +562,15 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       assert(timeDerivative1 != nullptr && timeDerivative2 != nullptr);
 
       if (fault[meshFace].element >= 0) {
+        timeDofsPlus[ltsFace] = timeDofs1;
+        timeDofsMinus[ltsFace] = timeDofs2;
         timeDerivativePlus[ltsFace] = timeDerivative1;
         timeDerivativeMinus[ltsFace] = timeDerivative2;
         timeDerivativePlusDevice[ltsFace] = timeDerivative1Device;
         timeDerivativeMinusDevice[ltsFace] = timeDerivative2Device;
       } else {
+        timeDofsPlus[ltsFace] = timeDofs2;
+        timeDofsMinus[ltsFace] = timeDofs1;
         timeDerivativePlus[ltsFace] = timeDerivative2;
         timeDerivativeMinus[ltsFace] = timeDerivative1;
         timeDerivativePlusDevice[ltsFace] = timeDerivative2Device;

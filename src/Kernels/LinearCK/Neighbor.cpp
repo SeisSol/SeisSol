@@ -27,12 +27,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <stdint.h>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
-
-#include <utils/logger.h>
 
 #ifndef NDEBUG
 #include "Alignment.h"
@@ -41,42 +42,41 @@
 namespace seissol::kernels::solver::linearck {
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 
-  m_nfKrnlPrototype.rDivM = global.onHost->changeOfBasisMatrices;
-  m_nfKrnlPrototype.rT = global.onHost->neighborChangeOfBasisMatricesTransposed;
-  m_nfKrnlPrototype.fP = global.onHost->neighborFluxMatrices;
-  m_drKrnlPrototype.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
+  nfKrnlPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
+  nfKrnlPrototype_.rT = global.onHost->neighborChangeOfBasisMatricesTransposed;
+  nfKrnlPrototype_.fP = global.onHost->neighborFluxMatrices;
+  drKrnlPrototype_.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
 
 #ifdef USE_PREMULTIPLY_FLUX
-  deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
+  deviceNfKrnlPrototype_.minusFluxMatrices = global.onDevice->minusFluxMatrices;
 #else
-  deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceNfKrnlPrototype.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
-  deviceNfKrnlPrototype.fP = global.onDevice->neighborFluxMatrices;
+  deviceNfKrnlPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
+  deviceNfKrnlPrototype_.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
+  deviceNfKrnlPrototype_.fP = global.onDevice->neighborFluxMatrices;
 #endif
-  deviceDrKrnlPrototype.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
+  deviceDrKrnlPrototype_.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
 #endif
 }
 
-void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
-                                        const CellDRMapping (&cellDrMapping)[4],
-                                        real* timeIntegrated[4],
-                                        real* faceNeighborsPrefetch[4]) {
+void Neighbor::computeNeighborsIntegral(
+    LTS::Ref& data,
+    const std::array<real*, Cell::NumFaces>& timeIntegrated,
+    const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) {
   assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
+  const auto& cellDrMapping = data.get<LTS::DRMapping>();
 
   for (std::size_t face = 0; face < Cell::NumFaces; face++) {
     switch (data.get<LTS::CellInformation>().faceTypes[face]) {
-    case FaceType::Regular:
-      // Fallthrough intended
-    case FaceType::Periodic: {
+    case FaceType::Regular: {
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
       assert(reinterpret_cast<uintptr_t>(timeIntegrated[face]) % Alignment == 0);
       assert(data.get<LTS::CellInformation>().faceRelations[face][0] < Cell::NumFaces &&
              data.get<LTS::CellInformation>().faceRelations[face][1] < 3);
-      kernel::neighboringFlux nfKrnl = m_nfKrnlPrototype;
+      kernel::neighboringFlux nfKrnl = nfKrnlPrototype_;
       nfKrnl.Q = data.get<LTS::Dofs>();
       nfKrnl.I = timeIntegrated[face];
       nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
@@ -90,7 +90,7 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
       // No neighboring cell contribution, interior bc.
       assert(reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov) % Alignment == 0);
 
-      dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
+      dynamicRupture::kernel::nodalFlux drKrnl = drKrnlPrototype_;
       drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
       drKrnl.QInterpolated = cellDrMapping[face].godunov;
       drKrnl.Q = data.get<LTS::Dofs>();
@@ -111,20 +111,18 @@ void Neighbor::computeBatchedNeighborsIntegral(
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
-  kernel::gpu_neighboringFlux neighFluxKrnl = deviceNfKrnlPrototype;
-  dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
+  kernel::gpu_neighboringFlux neighFluxKrnl = deviceNfKrnlPrototype_;
+  dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype_;
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     runtime.envMany(
         (*FaceRelations::Count) + (*DrFaceRelations::Count), [&](void* stream, size_t i) {
           if (i < (*FaceRelations::Count)) {
             // regular and periodic
-            unsigned faceRelation = i;
+            const auto faceRelation = i;
 
-            ConditionalKey key(*KernelNames::NeighborFlux,
-                               (FaceKinds::Regular || FaceKinds::Periodic),
-                               face,
-                               faceRelation);
+            const ConditionalKey key(
+                *KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
 
             if (table.find(key) != table.end()) {
               auto& entry = table[key];
@@ -137,21 +135,24 @@ void Neighbor::computeBatchedNeighborsIntegral(
                   (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
               neighFluxKrnl.AminusT = const_cast<const real**>(
                   entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+
+              SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData, nAmNm1);
               neighFluxKrnl.extraOffset_AminusT =
                   SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
 
-              real* tmpMem = reinterpret_cast<real*>(device.api->allocMemAsync(
-                  neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements, stream));
+              real* tmpMem = reinterpret_cast<real*>(device_.api->allocMemAsync(
+                  seissol::kernel::gpu_neighboringFlux::TmpMaxMemRequiredInBytes * numElements,
+                  stream));
               neighFluxKrnl.linearAllocator.initialize(tmpMem);
 
               neighFluxKrnl.streamPtr = stream;
-              (neighFluxKrnl.*neighFluxKrnl.ExecutePtrs[faceRelation])();
-              device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
+              (neighFluxKrnl.*seissol::kernel::gpu_neighboringFlux::ExecutePtrs[faceRelation])();
+              device_.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
             }
           } else {
-            unsigned faceRelation = i - (*FaceRelations::Count);
+            const auto faceRelation = i - (*FaceRelations::Count);
 
-            ConditionalKey key(
+            const ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);
 
             if (table.find(key) != table.end()) {
@@ -166,13 +167,15 @@ void Neighbor::computeBatchedNeighborsIntegral(
                   (entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
               drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
 
-              real* tmpMem = reinterpret_cast<real*>(
-                  device.api->allocMemAsync(drKrnl.TmpMaxMemRequiredInBytes * numElements, stream));
+              real* tmpMem = reinterpret_cast<real*>(device_.api->allocMemAsync(
+                  seissol::dynamicRupture::kernel::gpu_nodalFlux::TmpMaxMemRequiredInBytes *
+                      numElements,
+                  stream));
               drKrnl.linearAllocator.initialize(tmpMem);
 
               drKrnl.streamPtr = stream;
-              (drKrnl.*drKrnl.ExecutePtrs[faceRelation])();
-              device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
+              (drKrnl.*seissol::dynamicRupture::kernel::gpu_nodalFlux::ExecutePtrs[faceRelation])();
+              device_.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
             }
           }
         });
@@ -185,7 +188,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
 void Neighbor::flopsNeighborsIntegral(
     const std::array<FaceType, Cell::NumFaces>& faceTypes,
     const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-    const CellDRMapping (&cellDrMapping)[4],
+    const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping,
     std::uint64_t& nonZeroFlops,
     std::uint64_t& hardwareFlops,
     std::uint64_t& drNonZeroFlops,
@@ -200,8 +203,6 @@ void Neighbor::flopsNeighborsIntegral(
     // compute the neighboring elements flux matrix id.
     switch (faceTypes[face]) {
     case FaceType::Regular:
-      // Fallthrough intended
-    case FaceType::Periodic:
       // regular neighbor
       assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] < 3);
       nonZeroFlops += kernel::neighboringFlux::nonZeroFlops(

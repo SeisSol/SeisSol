@@ -14,6 +14,7 @@
 
 #include <Eigen/Dense>
 #include <cassert>
+#include <cstddef>
 #include <cstring>
 #include <stdint.h>
 #include <yateto.h>
@@ -32,28 +33,25 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::stp {
 
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
-  m_krnlPrototype.kDivMT = global.onHost->stiffnessMatricesTransposed;
-  m_krnlPrototype.timeInt = init::timeInt::Values;
-  m_krnlPrototype.wHat = init::wHat::Values;
+  krnlPrototype_.kDivMT = global.onHost->stiffnessMatricesTransposed;
+  krnlPrototype_.timeInt = init::timeInt::Values;
+  krnlPrototype_.wHat = init::wHat::Values;
 
 #ifdef ACL_DEVICE
-  deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
-  deviceKrnlPrototype.timeInt = init::timeInt::Values;
-  deviceKrnlPrototype.wHat = init::wHat::Values;
+  deviceKrnlPrototype_.kDivMT = global.onDevice->stiffnessMatricesTransposed;
+  deviceKrnlPrototype_.timeInt = init::timeInt::Values;
+  deviceKrnlPrototype_.wHat = init::wHat::Values;
 #endif
 }
 
-void Spacetime::executeSTP(double timeStepWidth,
-                           LTS::Ref& data,
-                           real timeIntegrated[tensor::I::size()],
-                           real* stp)
+void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp)
 
 {
   // alignas(PagesizeStack) real stpRhs[tensor::spaceTimePredictorRhs::size()];
   assert((reinterpret_cast<uintptr_t>(stp)) % Alignment == 0);
   // std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
   std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
-  kernel::spaceTimePredictor krnl = m_krnlPrototype;
+  kernel::spaceTimePredictor krnl = krnlPrototype_;
 
   // libxsmm can not generate GEMMs with alpha!=1. As a workaround we multiply the
   // star matrices with dt before we execute the kernel.
@@ -113,7 +111,7 @@ void Spacetime::computeAder(const real* coeffs,
                             double timeStepWidth,
                             LTS::Ref& data,
                             LocalTmp& tmp,
-                            real timeIntegrated[tensor::I::size()],
+                            real* timeIntegrated,
                             real* timeDerivatives,
                             bool updateDisplacement) {
   /*
@@ -122,7 +120,7 @@ void Spacetime::computeAder(const real* coeffs,
   assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0 ||
-         timeDerivatives == NULL);
+         timeDerivatives == nullptr);
 
   alignas(Alignment) real temporaryBuffer[tensor::spaceTimePredictor::size()];
   real* stpBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
@@ -170,7 +168,7 @@ void Spacetime::computeBatchedAder(
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;
-  kernel::gpu_spaceTimePredictor krnl = deviceKrnlPrototype;
+  kernel::gpu_spaceTimePredictor krnl = deviceKrnlPrototype_;
 
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
@@ -247,9 +245,7 @@ void Spacetime::computeBatchedAder(
 #endif
 }
 
-void Time::evaluate(const real* coeffs,
-                    const real* timeDerivatives,
-                    real timeEvaluated[tensor::I::size()]) {
+void Time::evaluate(const real* coeffs, const real* timeDerivatives, real* timeEvaluated) {
   kernel::evaluateDOFSAtTimeSTP krnl;
   krnl.spaceTimePredictor = timeDerivatives;
   krnl.QAtTimeSTP = timeEvaluated;

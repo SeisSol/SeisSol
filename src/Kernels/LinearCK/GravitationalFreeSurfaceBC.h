@@ -32,11 +32,11 @@ namespace seissol {
 
 class GravitationalFreeSurfaceBc {
   private:
-  double gravitationalAcceleration;
+  double gravitationalAcceleration_;
 
   public:
   explicit GravitationalFreeSurfaceBc(double gravitationalAcceleration)
-      : gravitationalAcceleration(gravitationalAcceleration) {};
+      : gravitationalAcceleration_(gravitationalAcceleration) {};
 
   static std::pair<std::uint64_t, std::uint64_t> getFlopsDisplacementFace(unsigned face);
 
@@ -91,7 +91,7 @@ class GravitationalFreeSurfaceBc {
       }
 
       const double rho = materialData.local->getDensity();
-      const double g = gravitationalAcceleration; // [m/s^2]
+      const double g = gravitationalAcceleration_; // [m/s^2]
       const double z = std::sqrt(materialData.local->getLambdaBar() * rho);
       const real invImp = 1 / z;
       const real rhoG = rho * g;
@@ -115,7 +115,7 @@ class GravitationalFreeSurfaceBc {
 
     using namespace seissol::recording;
     auto* deviceStream = runtime.stream();
-    ConditionalKey key(
+    const ConditionalKey key(
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, faceIdx);
     if (dataTable.find(key) != dataTable.end()) {
       const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getSize()};

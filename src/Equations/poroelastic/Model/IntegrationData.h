@@ -22,7 +22,7 @@ struct PoroelasticLocalData {
 
   // preferrably double; will be compared closely against the "default" timestep width almost all
   // the time
-  double typicalTimeStepWidth;
+  double typicalTimeStepWidth{};
 };
 struct PoroelasticNeighborData {};
 

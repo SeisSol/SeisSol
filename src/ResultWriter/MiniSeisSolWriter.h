@@ -14,11 +14,11 @@
 namespace seissol::writer {
 class MiniSeisSolWriter {
   public:
-  explicit MiniSeisSolWriter(const char* outputDirectory) : outputDirectory(outputDirectory) {}
+  explicit MiniSeisSolWriter(const char* outputDirectory) : outputDirectory_(outputDirectory) {}
   void write(double elapsedTime, double weight);
 
   private:
-  std::string outputDirectory;
+  std::string outputDirectory_;
 };
 } // namespace seissol::writer
 

@@ -40,6 +40,8 @@
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
 
 GENERATE_HAS_MEMBER(ET)
@@ -48,14 +50,14 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 
 namespace seissol::kernels::solver::linearck {
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
-  m_krnlPrototype.kDivMT = global.onHost->stiffnessMatricesTransposed;
-  fsgKernelPrototype.V3mTo2nFace = global.onHost->v3mTo2nFace;
+  krnlPrototype_.kDivMT = global.onHost->stiffnessMatricesTransposed;
+  fsgKernelPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
 
-  deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
-  deviceFsgKernelPrototype.V3mTo2nFace = global.onDevice->v3mTo2nFace;
+  deviceKrnlPrototype_.kDivMT = global.onDevice->stiffnessMatricesTransposed;
+  deviceFsgKernelPrototype_.V3mTo2nFace = global.onDevice->v3mTo2nFace;
 #endif
 }
 
@@ -63,7 +65,7 @@ void Spacetime::computeAder(const real* coeffs,
                             double timeStepWidth,
                             LTS::Ref& data,
                             LocalTmp& tmp,
-                            real timeIntegrated[tensor::I::size()],
+                            real* timeIntegrated,
                             real* timeDerivatives,
                             bool updateDisplacement) {
 
@@ -84,8 +86,8 @@ void Spacetime::computeAder(const real* coeffs,
   alignas(PagesizeStack) real temporaryBuffer[Solver::DerivativesSize];
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
-  kernel::derivative krnl = m_krnlPrototype;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+  kernel::derivative krnl = krnlPrototype_;
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
 
@@ -93,7 +95,7 @@ void Spacetime::computeAder(const real* coeffs,
   set_ET(krnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
 
   krnl.dQ(0) = const_cast<real*>(data.get<LTS::Dofs>());
-  for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+  for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ>(1, i);
   }
 
@@ -122,7 +124,7 @@ void Spacetime::computeAder(const real* coeffs,
       if (data.get<LTS::FaceDisplacements>()[face] != nullptr &&
           data.get<LTS::CellInformation>().faceTypes[face] == FaceType::FreeSurfaceGravity) {
         bc.evaluate(face,
-                    fsgKernelPrototype,
+                    fsgKernelPrototype_,
                     data.get<LTS::BoundaryMapping>()[face],
                     data.get<LTS::FaceDisplacements>()[face],
                     tmp.nodalAvgDisplacements[face].data(),
@@ -146,9 +148,9 @@ void Spacetime::computeBatchedAder(
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
-  kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype;
+  kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype_;
 
-  ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
+  const ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
     auto& entry = dataTable[timeVolumeKernelKey];
 
@@ -159,7 +161,8 @@ void Spacetime::computeBatchedAder(
     const auto** localIntegrationPtrs = const_cast<const real**>(
         (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
 
-    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
+    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
       derivativesKrnl.star(i) = localIntegrationPtrs;
       derivativesKrnl.extraOffset_star(i) =
           SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
@@ -172,18 +175,13 @@ void Spacetime::computeBatchedAder(
     set_ET(derivativesKrnl, localIntegrationPtrs);
     set_extraOffset_ET(derivativesKrnl, sourceMatrixOffset / sizeof(real));
 
-    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derivativesKrnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
       derivativesKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
     }
 
-    // stream dofs to the zero derivative
-    device.algorithms.streamBatchedData(
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
-        (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
-        tensor::Q::Size,
-        derivativesKrnl.numElements,
-        runtime.stream());
+    derivativesKrnl.Q =
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
 
     const auto maxTmpMem = yateto::getMaxTmpMemRequired(derivativesKrnl);
     auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * numElements) / sizeof(real));
@@ -199,8 +197,13 @@ void Spacetime::computeBatchedAder(
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      bc.evaluateOnDevice(
-          face, deviceFsgKernelPrototype, dataTable, materialTable, timeStepWidth, device, runtime);
+      bc.evaluateOnDevice(face,
+                          deviceFsgKernelPrototype_,
+                          dataTable,
+                          materialTable,
+                          timeStepWidth,
+                          device_,
+                          runtime);
     }
   }
 #else
@@ -239,7 +242,7 @@ void Time::evaluate(const real* coeffs,
 
   kernel::derivativeTaylorExpansion krnl;
   krnl.I = timeEvaluated;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
     krnl.power(i) = coeffs[i];
   }
@@ -265,7 +268,7 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
   krnl.numElements = numElements;
   krnl.I = timeIntegratedDofs;
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    krnl.dQ(i) = const_cast<const real**>(timeDerivatives);
+    krnl.dQ(i) = timeDerivatives;
     krnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
     krnl.power(i) = coeffs[i];
   }
