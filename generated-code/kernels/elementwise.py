@@ -21,6 +21,9 @@ def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
         ew_extraweight_M = Tensor(
             f"ew_extraweight_M", elemwise.ew_quad_weights_v.shape()
         )
+        ew_extraweight_fM = Tensor(
+            f"ew_extraweight_fM", (*elemwise.ew_quad_weights_f.shape(), 4)
+        )
         ew_extraweight_k = Tensor(
             f"ew_extraweight_k", (*elemwise.ew_quad_weights_v.shape(), 3, 3)
         )
@@ -31,6 +34,10 @@ def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
         ew_M = Tensor(
             f"ew_M",
             (aderdg.numberOf3DBasisFunctions(), aderdg.numberOf3DBasisFunctions()),
+        )
+        ew_fM = Tensor(
+            f"ew_fM",
+            (aderdg.numberOf2DBasisFunctions(), aderdg.numberOf2DBasisFunctions(), 4),
         )
         ew_k = Tensor(
             f"ew_k",
@@ -53,6 +60,11 @@ def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
                 * elemwise.ew_collocate_f_vv["wj"]
                 * ew_extraweight_M["w"]
                 * elemwise.ew_quad_weights_v["w"],
+                ew_fM["ijf"]
+                <= elemwise.ew_collocate_f_ff["wi"]
+                * elemwise.ew_collocate_f_ff["wj"]
+                * ew_extraweight_fM["wf"]
+                * elemwise.ew_quad_weights_f["w"],
                 ew_k["ijd"]
                 <= elemwise.ew_collocate_df_vv["wie"]
                 * elemwise.ew_collocate_f_vv["wj"]

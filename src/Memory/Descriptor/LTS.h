@@ -114,6 +114,8 @@ struct LTS {
   Variable<NZArray<real, kernels::size<tensor::globalMkDivMT>()>> globalMkDivMT;
   Variable<NZArray<real, kernels::size<tensor::globalMkDivM>()>> globalMkDivM;
   Variable<NZArray<real, kernels::size<tensor::globalMrDivM>()>> globalMrDivM;
+  Variable<NZArray<real, kernels::size<tensor::globalMrT>()>> globalMrT;
+  Variable<NZArray<real, kernels::size<tensor::globalMfMrT>()>> globalMfMrT;
   Variable<NZArray<real, kernels::size<tensor::globalMproject2nFaceTo3m>()>>
       globalMproject2nFaceTo3m;
 
@@ -201,6 +203,16 @@ struct LTS {
                 allocationModeWP(AllocationPreset::ConstantShared),
                 true);
     tree.addVar(globalMrDivM,
+                elementwiseMask,
+                PagesizeHeap,
+                allocationModeWP(AllocationPreset::ConstantShared),
+                true);
+    tree.addVar(globalMfMrT,
+                elementwiseMask,
+                PagesizeHeap,
+                allocationModeWP(AllocationPreset::ConstantShared),
+                true);
+    tree.addVar(globalMrT,
                 elementwiseMask,
                 PagesizeHeap,
                 allocationModeWP(AllocationPreset::ConstantShared),

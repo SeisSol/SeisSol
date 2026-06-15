@@ -54,6 +54,8 @@ GENERATE_HAS_MEMBER(kDivM)
 GENERATE_HAS_MEMBER(globalMkDivM)
 GENERATE_HAS_MEMBER(rDivM)
 GENERATE_HAS_MEMBER(globalMrDivM)
+GENERATE_HAS_MEMBER(fMrT)
+GENERATE_HAS_MEMBER(globalMfMrT)
 GENERATE_HAS_MEMBER(project2nFaceTo3m)
 GENERATE_HAS_MEMBER(globalMproject2nFaceTo3m)
 
@@ -62,7 +64,7 @@ namespace seissol::kernels::solver::linearck {
 void Local::setGlobalData(const CompoundGlobalData& global) {
   set_kDivM(m_volumeKernelPrototype, global.onHost->stiffnessMatrices);
   set_rDivM(m_localFluxKernelPrototype, global.onHost->changeOfBasisMatrices);
-  m_localFluxKernelPrototype.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
+  set_fMrT(m_localFluxKernelPrototype, global.onHost->localChangeOfBasisMatricesTransposed);
 
   set_project2nFaceTo3m(m_nodalLfKrnlPrototype, global.onHost->project2nFaceTo3m);
 
@@ -146,6 +148,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
   lfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
   if constexpr (Config::GlobalElementwise) {
     setupContainer<tensor::globalMrDivM>(get_ref_globalMrDivM(lfKrnl), data.globalMrDivM());
+    setupContainer<tensor::globalMfMrT>(get_ref_globalMfMrT(lfKrnl), data.globalMfMrT());
   }
 
   volKrnl.execute();

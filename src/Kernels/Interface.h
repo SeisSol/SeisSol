@@ -41,14 +41,16 @@ LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData,
                                     material,
                                     globalMkDivMT,
                                     globalMkDivM,
-                                    globalMrDivM)
+                                    globalMrDivM,
+                                globalMfMrT)
 LTSTREE_GENERATE_INTERFACE_GETTERED(NeighborData,
                                     initializer::LTS,
                                     cellInformation,
                                     neighboringIntegration,
                                     dofs,
                                     dofsAne,
-                                    globalMrDivM)
+                                    globalMrDivM,
+                                globalMrT)
 #else
 LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData,
                                     initializer::LTS,

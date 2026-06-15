@@ -382,6 +382,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           pointers.kDivMT = layer.var(lts->globalMkDivMT)[cell];
           pointers.kDivM = layer.var(lts->globalMkDivM)[cell];
           pointers.rDivM = layer.var(lts->globalMrDivM)[cell];
+          pointers.rT = layer.var(lts->globalMrT)[cell];
+          pointers.fMrT = layer.var(lts->globalMfMrT)[cell];
 
           pointers.sampleBasis(AffineTransform(x, y, z));
           pointers.bootstrapMatrices();

@@ -17,14 +17,22 @@ struct GlobalMatrixPointers {
     real* kDivMT;
     real* kDivM;
     real* rDivM;
+    real* fMrT;
+    real* rT;
+    real* fP;
 
     real ew_extraweight_M[seissol::init::ew_extraweight_M::Size];
+    real ew_extraweight_fM[seissol::init::ew_extraweight_fM::Size];
     real ew_extraweight_k[seissol::init::ew_extraweight_k::Size];
     real ew_extraweight_r[seissol::init::ew_extraweight_r::Size];
+
+    double volscale{1};
+    double facescale[4]{};
 
     template<typename TransformT>
     void sampleBasis(const TransformT& transform) {
         auto matM = seissol::init::ew_extraweight_M::view::create(ew_extraweight_M);
+        auto matfM = seissol::init::ew_extraweight_fM::view::create(ew_extraweight_fM);
         auto matk = seissol::init::ew_extraweight_k::view::create(ew_extraweight_k);
         auto matr = seissol::init::ew_extraweight_r::view::create(ew_extraweight_r);
         auto volumePoints = seissol::init::ew_quad_nodes_vv::view::create(const_cast<real*>(seissol::init::ew_quad_nodes_vv::Values));
@@ -54,6 +62,7 @@ struct GlobalMatrixPointers {
 
         // rescale the weights, for numerical reasons (it'll cancel out later again)
         const double scale = 1000 / volsum;
+        volscale = scale;
         for (int i = 0; i < seissol::init::ew_quad_nodes_vv::Shape[0]; ++i) {
             matM(i) *= scale;
             for (int j = 0; j < 3; ++j) {
@@ -64,12 +73,26 @@ struct GlobalMatrixPointers {
         }
 
         // handle the faces
+        std::array<double, 4> fvolsum{};
         auto facePoints = seissol::init::ew_quad_nodes_ff::view::create(const_cast<real*>(seissol::init::ew_quad_nodes_ff::Values));
         for (int f = 0; f < 4; ++f) {
             for (int i = 0; i < seissol::init::ew_quad_nodes_ff::Shape[0]; ++i) {
                 Eigen::Vector2d point(facePoints(i, 0), facePoints(i, 1));
                 Eigen::Vector3d dface = transform.faceDirection(f, point);
-                matr(i, f) = dface.norm() * scale;
+                const auto fnorm = dface.norm();
+                matr(i, f) = fnorm * scale;
+                matfM(i, f) = fnorm;
+                fvolsum[f] += fnorm;
+            }
+        }
+
+        // rescale the face weights, for numerical reasons (it'll cancel out later again as well)
+        for (int f = 0; f < 4; ++f) {
+            const double fscale = 1000 / fvolsum[f];
+            facescale[f] = fscale;
+            for (int i = 0; i < seissol::init::ew_quad_nodes_ff::Shape[0]; ++i) {
+                matfM(i, f) *= fscale;
+                matr(i, f) *= fscale;
             }
         }
     }

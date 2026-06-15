@@ -29,6 +29,8 @@
 
 GENERATE_HAS_MEMBER(rDivM)
 GENERATE_HAS_MEMBER(globalMrDivM)
+GENERATE_HAS_MEMBER(rT)
+GENERATE_HAS_MEMBER(globalMrT)
 
 #ifndef NDEBUG
 #include "Alignment.h"
@@ -38,7 +40,7 @@ namespace seissol::kernels::solver::linearck {
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 
   set_rDivM(m_nfKrnlPrototype, global.onHost->changeOfBasisMatrices);
-  m_nfKrnlPrototype.rT = global.onHost->neighborChangeOfBasisMatricesTransposed;
+  set_rT(m_nfKrnlPrototype, global.onHost->neighborChangeOfBasisMatricesTransposed);
   m_nfKrnlPrototype.fP = global.onHost->neighborFluxMatrices;
   m_drKrnlPrototype.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
 
@@ -77,6 +79,7 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       kernel::neighboringFlux nfKrnl = m_nfKrnlPrototype;
       if constexpr (Config::GlobalElementwise) {
         setupContainer<tensor::globalMrDivM>(get_ref_globalMrDivM(nfKrnl), data.globalMrDivM());
+        setupContainer<tensor::globalMrT>(get_ref_globalMrT(nfKrnl), data.globalMrT());
       }
       nfKrnl.Q = data.dofs();
       nfKrnl.I = timeIntegrated[face];

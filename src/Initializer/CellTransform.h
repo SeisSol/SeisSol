@@ -58,13 +58,13 @@ public:
 
     static Eigen::Vector3d baseFaceDirection(int face) {
         if (face == 0) {
-            return Eigen::Vector3d(1, 0, 0);
+            return Eigen::Vector3d(0, 0, -1);
         }
         else if (face == 1) {
-            return Eigen::Vector3d(0, 1, 0);
+            return Eigen::Vector3d(0, -1, 0);
         }
         else if (face == 2) {
-            return Eigen::Vector3d(0, 0, 1);
+            return Eigen::Vector3d(-1, 0, 0);
         }
         else if (face == 3) {
             return Eigen::Vector3d(1 / std::sqrt(3), 1 / std::sqrt(3), 1 / std::sqrt(3));

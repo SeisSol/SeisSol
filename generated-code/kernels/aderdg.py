@@ -351,6 +351,7 @@ class LinearADERDG(ADERDGBase):
         kDivM = self.make_global(self.db.kDivM)
         project2nFaceTo3m = self.make_global(self.db.project2nFaceTo3m)
         rDivM = self.make_global(self.db.rDivM)
+        fMrT = self.make_global(self.db.fMrT)
 
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
@@ -384,7 +385,7 @@ class LinearADERDG(ADERDGBase):
             lambda i: self.Q["kp"]
             <= self.Q["kp"]
             + rDivM[i][self.t("km")]
-            * self.db.fMrT[i][self.t("ml")]
+            * fMrT[i][self.t("ml")]
             * self.I["lq"]
             * self.AplusT["qp"]
         )
@@ -427,13 +428,14 @@ class LinearADERDG(ADERDGBase):
 
     def addNeighbor(self, generator, targets):
         rDivM = self.make_global(self.db.rDivM)
+        rT = self.make_global(self.db.rT)
 
         neighborFlux = (
             lambda h, j, i: self.Q["kp"]
             <= self.Q["kp"]
             + rDivM[i][self.t("km")]
             * self.db.fP[h][self.t("mn")]
-            * self.db.rT[j][self.t("nl")]
+            * rT[j][self.t("nl")]
             * self.I["lq"]
             * self.AminusT["qp"]
         )
