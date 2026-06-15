@@ -317,8 +317,6 @@ void initModel(seissol::SeisSol& seissolInstance) {
   logInfo() << "Model info:";
   logInfo() << "Material:" << MaterialT::Text.c_str();
   logInfo() << "Order:" << ConvergenceOrder;
-  logInfo() << "Precision:" << (sizeof(real) == 4 ? "single (f32)" : "double (f64)");
-  logInfo() << "Number of simultaneous simulations:" << Config::NumSimulations;
   logInfo() << "Elementwise matrices:" << (Config::GlobalElementwise ? "on" : "off");
   logInfo() << "Precision:"
             << (Config::Precision == RealType::F32 ? "single (f32)" : "double (f64)");
