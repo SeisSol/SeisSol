@@ -8,65 +8,72 @@
 
 #include "SeisSol.h"
 
-#include <Common/Executor.h>
-#include <Kernels/Common.h>
+#include "Modules/Modules.h"
+#include "Monitoring/Unit.h"
+#include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
+#include "Parallel/OpenMP.h"
+#include "Parallel/Pin.h"
+
 #include <cstddef>
 #include <memory>
 #include <optional>
 #include <sys/resource.h>
 #include <utils/logger.h>
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif // _OPENMP
-
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "Modules/Modules.h"
-#include "Monitoring/Unit.h"
-#include "Parallel/Helper.h"
-#include "Parallel/MPI.h"
-#include "Parallel/Pin.h"
-
 namespace seissol {
 
-bool SeisSol::init(int argc, char* argv[]) {
-  const auto rank = seissol::MPI::mpi.rank();
+bool SeisSol::init() {
+  const auto rank = seissol::Mpi::mpi.rank();
 
   if (rank == 0) {
-    const auto& hostNames = seissol::MPI::mpi.getHostNames();
+    const auto& hostNames = seissol::Mpi::mpi.getHostNames();
     logInfo() << "Running on (rank=0):" << hostNames.front();
   }
 
-  logInfo() << "Using MPI with #ranks:" << seissol::MPI::mpi.size();
+  logInfo() << "Using MPI with #ranks:" << seissol::Mpi::mpi.size();
   logInfo() << "Node-wide (shared memory) MPI with #ranks/node:"
-            << seissol::MPI::mpi.sharedMemMpiSize();
-  seissol::MPI::mpi.printAcceleratorDeviceInfo();
+            << seissol::Mpi::mpi.sharedMemMpiSize();
+  seissol::Mpi::mpi.printAcceleratorDeviceInfo();
   // TODO (Ravil, David): switch to reading MPI options from the parameter-file.
-  seissol::MPI::mpi.setDataTransferModeFromEnv();
+  seissol::Mpi::mpi.setDataTransferModeFromEnv();
 
-  printPersistentMpiInfo(m_env);
+  printPersistentMpiInfo(env_);
 #ifdef ACL_DEVICE
-  printUSMInfo(m_env);
-  printMPIUSMInfo(m_env);
+  printUSMInfo(env_);
+  printMPIUSMInfo(env_);
 #endif
-#ifdef _OPENMP
-  pinning.checkEnvVariables();
-  logInfo() << "Using OMP with #threads/rank:" << omp_get_max_threads();
+  pinning_.checkEnvVariables();
+  if (OpenMP::enabled()) {
+    logInfo() << "Using OpenMP with #threads/rank:" << seissol::OpenMP::threadCount();
+  } else {
+    logInfo() << "OpenMP disabled. Using only a single thread.";
+  }
   if (!parallel::Pinning::areAllCpusOnline()) {
     logInfo() << "Some CPUs are offline. Only online CPUs are considered.";
     logInfo() << "Online Mask            (this node)   :"
-              << parallel::Pinning::maskToString(pinning.getOnlineMask());
+              << parallel::Pinning::maskToString(pinning_.getOnlineMask()) << "("
+              << parallel::Pinning::maskToStringShort(pinning_.getOnlineMask()).c_str() << ")";
   }
   logInfo() << "OpenMP worker affinity (this process):"
-            << parallel::Pinning::maskToString(seissol::parallel::Pinning::getWorkerUnionMask());
-  logInfo() << "OpenMP worker affinity (this node)   :"
-            << parallel::Pinning::maskToString(seissol::parallel::Pinning::getNodeMask());
+            << parallel::Pinning::maskToString(seissol::parallel::Pinning::getWorkerUnionMask())
+            << "("
+            << parallel::Pinning::maskToStringShort(
+                   seissol::parallel::Pinning::getWorkerUnionMask())
+                   .c_str()
+            << ")";
+  logInfo()
+      << "OpenMP worker affinity (this node)   :"
+      << parallel::Pinning::maskToString(seissol::parallel::Pinning::getNodeMask()) << "("
+      << parallel::Pinning::maskToStringShort(seissol::parallel::Pinning::getNodeMask()).c_str()
+      << ")";
 
-  seissol::printCommThreadInfo(seissol::MPI::mpi, m_env);
-  if (seissol::useCommThread(seissol::MPI::mpi, m_env)) {
-    auto freeCpus = pinning.getFreeCPUsMask();
+  seissol::printCommThreadInfo(seissol::Mpi::mpi, env_);
+  if (seissol::useCommThread(seissol::Mpi::mpi, env_)) {
+    auto freeCpus = pinning_.getFreeCPUsMask();
     logInfo() << "Communication thread affinity        :"
-              << parallel::Pinning::maskToString(freeCpus);
+              << parallel::Pinning::maskToString(freeCpus) << "("
+              << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError()
           << "There are no free CPUs left. Make sure to leave one for the communication thread. If "
@@ -74,7 +81,6 @@ bool SeisSol::init(int argc, char* argv[]) {
              "then try running with the environment variable \"SEISSOL_COMMTHREAD=0\". ";
     }
   }
-#endif // _OPENMP
 
   // Check if the ulimit for the stacksize is reasonable.
   // A low limit can lead to segmentation faults.
@@ -107,53 +113,37 @@ bool SeisSol::init(int argc, char* argv[]) {
   seissol::Modules::callHook<ModuleHook::PostMPIInit>();
 
   // Initialize the ASYNC I/O library
-  if (!m_asyncIO.init()) {
+  if (!asyncIO_.initDispatcher()) {
     return false;
   }
 
-  m_memoryManager->initialize();
-
-  m_memoryManager->setInputParams(
-      std::make_shared<seissol::initializer::parameters::SeisSolParameters>(m_seissolParameters));
+  memoryManager_->initialize();
 
   return true;
 }
 
 void SeisSol::finalize() {
   // Cleanup ASYNC I/O library
-  m_asyncIO.finalize();
+  asyncIO_.finalizeDispatcher();
 
   Modules::callHook<ModuleHook::Shutdown>();
 
-  m_timeManager.freeDynamicResources();
+  timeManager_.freeDynamicResources();
 
-  seissol::MPI::finalize();
+  seissol::Mpi::finalize();
 
   logInfo() << "SeisSol done. Goodbye.";
 }
 
 void SeisSol::setBackupTimeStamp(const std::string& stamp) {
-  m_backupTimeStamp = stamp;
-  seissol::MPI::mpi.broadcastContainer(m_backupTimeStamp, 0);
+  backupTimeStamp_ = stamp;
+  seissol::Mpi::mpi.broadcastContainer(backupTimeStamp_, 0);
 }
 
 void SeisSol::loadCheckpoint(const std::string& file) {
-  checkpointLoadFile = std::make_optional<std::string>(file);
+  checkpointLoadFile_ = std::make_optional<std::string>(file);
 }
 
-Executor SeisSol::executionPlace(std::size_t clusterSize) {
-  constexpr auto DefaultDevice = isDeviceOn() ? Executor::Device : Executor::Host;
-  if (executionPlaceCutoff.has_value()) {
-    if (executionPlaceCutoff.value() <= clusterSize) {
-      return DefaultDevice;
-    } else {
-      return Executor::Host;
-    }
-  } else {
-    return DefaultDevice;
-  }
-}
-
-void SeisSol::setExecutionPlaceCutoff(std::size_t size) { executionPlaceCutoff = size; }
+void SeisSol::setExecutionPlaceCutoff(std::size_t size) { executionPlaceCutoff_ = size; }
 
 } // namespace seissol

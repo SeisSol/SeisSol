@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_MONITORING_LOOPSTATISTICS_H_
 
 #include "Parallel/MPI.h"
+
 #include <algorithm>
 #include <cassert>
 #include <fstream>
@@ -67,8 +68,8 @@ class LoopStatistics {
     Region(const std::string& name, bool includeInSummary);
   };
 
-  std::vector<Region> regions;
-  bool outputSamples = false;
+  std::vector<Region> regions_;
+  bool outputSamples_ = false;
 };
 } // namespace seissol
 

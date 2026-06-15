@@ -8,21 +8,21 @@
 % @section LICENSE
 % Copyright (c) SeisSol 2007, Group
 % All rights reserved.
-% 
+%
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
-% 
+%
 % 1. Redistributions of source code must retain the above copyright notice,
 %    this list of conditions and the following disclaimer.
-% 
+%
 % 2. Redistributions in binary form must reproduce the above copyright notice,
 %    this list of conditions and the following disclaimer in the documentation
 %    and/or other materials provided with the distribution.
-% 
+%
 % 3. Neither the name of the copyright holder nor the names of its
 %    contributors may be used to endorse or promote products derived from this
 %    software without specific prior written permission.
-% 
+%
 % THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 % AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 % IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -108,29 +108,29 @@ disp(' ')
 maxtot=0;
 sgntmp=1;
 txtadd=' ';
-for i=1:filecount    
+for i=1:filecount
     fid = fopen(char(FileList(i)),'r');
-    
+
     for k=1:6
         tmp=fgets(fid);
     end
 
     % Reading file header
     tmp=fgets(fid);time=str2num(tmp(1:22));it=str2num(tmp(23:end));
-    tmp=fgets(fid);tmp=fgets(fid);npoints=str2num(tmp);    
-    tmp=fgets(fid);tmp=fgets(fid);order=str2num(tmp(1:22));npoints=str2num(tmp(23:end));    
+    tmp=fgets(fid);tmp=fgets(fid);npoints=str2num(tmp);
+    tmp=fgets(fid);tmp=fgets(fid);order=str2num(tmp(1:22));npoints=str2num(tmp(23:end));
     tmp=fgets(fid);
 
     S=fscanf(fid,'%f');
-    
+
     for j=1:length(S)/2
         X(j) = S(2*j-1);
         SR(j)= S(2*j);
     end
-    
+
     fclose('all');
 
-    if(time>0)    
+    if(time>0)
         maxtmp=max(abs(SR));
         if(max(SR)>=-min(SR))
             sgntmp=1;
@@ -144,19 +144,19 @@ for i=1:filecount
             txtadd='  sign of slip rate changed!';
         end
     end
-    disp(['Plotting file ',char(FileList(i)),'...',txtadd])        
+    disp(['Plotting file ',char(FileList(i)),'...',txtadd])
     subplot(211)
     plot(X,SR*sgntmp,'LineWidth',2),title(['Time=',num2str(time),' sec'],'FontSize',12),ylabel('Slip Rate (m/s)','FontSize',12)
-    set(gca,'FontSize',12)        
-    if(time>0)            
+    set(gca,'FontSize',12)
+    if(time>0)
         ylim([-1.2*maxtot 1.2*maxtot]);
     end
- 
+
     subplot(212)
     plot(X,SR*sgntmp,'LineWidth',2),xlabel('Infault position (m)','FontSize',12),ylabel('Slip Rate (m/s)','FontSize',12)
-    set(gca,'FontSize',12)     
+    set(gca,'FontSize',12)
     print -depsc SlipRate
-        
+
     pause;
 
 end

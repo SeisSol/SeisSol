@@ -9,10 +9,11 @@
 #define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_CONDITION_H_
 
 #include "EncodedConstants.h"
+
 #include <assert.h>
 #include <type_traits>
 
-namespace seissol::initializer::recording {
+namespace seissol::recording {
 template <typename T>
 constexpr bool isEncodedConstant() {
   return std::is_same_v<FaceKinds, T> || std::is_same_v<KernelNames, T> ||
@@ -23,38 +24,34 @@ constexpr bool isEncodedConstant() {
          std::is_same_v<inner_keys::Material::Id, T>;
 }
 
-template <class T, typename std::enable_if<isEncodedConstant<T>()>::type>
+template <class T, std::enable_if_t<isEncodedConstant<T>()>>
 class Condition {
   public:
   Condition() = delete;
 
-  Condition(T initialEncoding) : encoding(static_cast<size_t>(initialEncoding)) {
-    highBitsMask = ~((~size_t(0)) << static_cast<size_t>(T::Count));
-  }
+  explicit Condition(T initialEncoding)
+      : highBitsMask_(~((~0_UZ) << static_cast<size_t>(T::Count))),
+        encoding_(static_cast<size_t>(initialEncoding)) {}
 
   Condition& operator!() {
-    encoding = highBitsMask & (~encoding);
+    encoding_ = highBitsMask_ & (~encoding_);
     return *this;
   }
 
   Condition& operator||(const Condition& other) {
-    encoding = encoding | other.encoding;
+    encoding_ = encoding_ | other.encoding_;
     return *this;
   }
 
   Condition& negate() { return !(*this); }
 
-  size_t getEncoding() { return encoding; }
+  size_t getEncoding() { return encoding_; }
 
   private:
-  size_t highBitsMask;
-  size_t encoding;
-  size_t count;
+  size_t highBitsMask_;
+  size_t encoding_;
 };
-} // namespace seissol::initializer::recording
-
-using namespace seissol::initializer::recording;
-using namespace seissol;
+} // namespace seissol::recording
 
 /** Implements "OR" operation.
  *
@@ -65,8 +62,8 @@ using namespace seissol;
  * Refer to Condition Class if you need much more sophisticated behaviour
  */
 template <typename T>
-typename std::enable_if<isEncodedConstant<T>(), size_t>::type operator||(const T& lhs,
-                                                                         const T& rhs) {
+std::enable_if_t<seissol::recording::isEncodedConstant<T>(), size_t> operator||(const T& lhs,
+                                                                                const T& rhs) {
   return (static_cast<size_t>(lhs) | static_cast<size_t>(rhs));
 }
 
@@ -76,7 +73,7 @@ typename std::enable_if<isEncodedConstant<T>(), size_t>::type operator||(const T
  * Refer to Condition Class if you need much more sophisticated behaviour
  */
 template <typename T>
-constexpr typename std::enable_if<isEncodedConstant<T>(), size_t>::type
+constexpr std::enable_if_t<seissol::recording::isEncodedConstant<T>(), size_t>
     operator*(const T& condition) {
   return static_cast<size_t>(condition);
 }
@@ -87,8 +84,8 @@ constexpr typename std::enable_if<isEncodedConstant<T>(), size_t>::type
  * Refer to Condition Class if you need much more sophisticated behaviour
  */
 template <typename T>
-typename std::enable_if<isEncodedConstant<T>(), size_t>::type operator!(const T& condition) {
-  size_t highBitsMask = ~((~size_t(0)) << static_cast<size_t>(T::Count));
+std::enable_if_t<seissol::recording::isEncodedConstant<T>(), size_t> operator!(const T& condition) {
+  const size_t highBitsMask = ~((~static_cast<size_t>(0)) << static_cast<size_t>(T::Count));
   return highBitsMask & (~static_cast<size_t>(condition));
 }
 

@@ -9,26 +9,25 @@
 
 #include "Parallel/MPI.h"
 
+#include <async/Dispatcher.h>
 #include <mpi.h>
-
-#include "async/Dispatcher.h"
 
 namespace seissol::io {
 
-bool AsyncIO::init() {
+bool AsyncIO::initDispatcher() {
   async::Dispatcher::init();
 
-  seissol::MPI::mpi.setComm(commWorld());
+  seissol::Mpi::mpi.setComm(commWorld());
 
   return dispatch();
 }
 
-void AsyncIO::finalize() {
+void AsyncIO::finalizeDispatcher() {
   // Call parent class
   async::Dispatcher::finalize();
 
   // Reset the MPI communicator
-  seissol::MPI::mpi.setComm(MPI_COMM_WORLD);
+  seissol::Mpi::mpi.setComm(MPI_COMM_WORLD);
 }
 
 } // namespace seissol::io

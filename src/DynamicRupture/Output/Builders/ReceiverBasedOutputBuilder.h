@@ -16,51 +16,47 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Lut.h"
+#include "Memory/Tree/Backmap.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
+
+#include <memory>
 #include <vector>
 
 namespace seissol::dr::output {
 class ReceiverBasedOutputBuilder {
   public:
   virtual ~ReceiverBasedOutputBuilder() = default;
-  virtual void build(std::shared_ptr<ReceiverOutputData> outputData) = 0;
 
   void setMeshReader(const seissol::geometry::MeshReader* reader);
-  void setLtsData(seissol::initializer::LTSTree* userWpTree,
-                  seissol::initializer::LTS* userWpDescr,
-                  seissol::initializer::Lut* userWpLut,
-                  seissol::initializer::LTSTree* userDrTree,
-                  seissol::initializer::DynamicRupture* userDrDescr);
+  void setLtsData(LTS::Storage& userWpStorage,
+                  LTS::Backmap& userWpBackmap,
+                  DynamicRupture::Storage& userDrStorage);
 
   void setVariableList(const std::vector<std::size_t>& variables);
-  void setFaceToLtsMap(std::vector<std::size_t>* faceToLtsMap);
+  void setFaceToLtsMap(std::vector<::seissol::initializer::StoragePosition>* faceToLtsMap);
 
   protected:
   virtual void initTimeCaching() = 0;
 
-  void initBasisFunctions();
+  void initBasisFunctions(bool elementwise);
   void initFaultDirections();
   void initRotationMatrices();
-  void initOutputVariables(std::array<bool, std::tuple_size<DrVarsT>::value>& outputMask);
+  void initOutputVariables(std::array<bool, std::tuple_size_v<DrVarsT>>& outputMask);
   void initJacobian2dMatrices();
   void assignNearestInternalGaussianPoints();
   void assignFaultTags();
+  void assignFusedIndices();
 
-  protected:
-  const seissol::geometry::MeshReader* meshReader{};
-  seissol::initializer::LTSTree* wpTree;
-  seissol::initializer::LTS* wpDescr;
-  seissol::initializer::Lut* wpLut;
-  seissol::initializer::LTSTree* drTree;
-  seissol::initializer::DynamicRupture* drDescr;
-  std::shared_ptr<ReceiverOutputData> outputData;
-  std::vector<std::size_t> variables;
-  std::vector<std::size_t>* faceToLtsMap{nullptr};
-  int localRank{-1};
+  const seissol::geometry::MeshReader* meshReader_{nullptr};
+  LTS::Storage* wpStorage_{nullptr};
+  LTS::Backmap* wpBackmap_{nullptr};
+  DynamicRupture::Storage* drStorage_{nullptr};
+  std::shared_ptr<ReceiverOutputData> outputData_;
+  std::vector<std::size_t> variables_;
+  std::vector<::seissol::initializer::StoragePosition>* faceToLtsMap_{nullptr};
+  int localRank_{-1};
 };
 } // namespace seissol::dr::output
 

@@ -9,38 +9,38 @@
 
 #include "LtsWeights.h"
 
+#include "Common/Constants.h"
+#include "Equations/Datastructures.h"
+#include "GeneratedCode/init.h"
 #include "Geometry/PUMLReader.h"
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/ParameterDB.h>
-#include <Initializer/Parameters/LtsParameters.h>
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/ParameterDB.h"
+#include "Initializer/Parameters/LtsParameters.h"
+#include "Initializer/TimeStepping/GlobalTimestep.h"
+#include "Parallel/MPI.h"
+#include "SeisSol.h"
+
+#include <PUML/Downward.h>
+#include <PUML/Upward.h>
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <map>
+#include <mpi.h>
 #include <optional>
 #include <unordered_map>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
 
-#include <mpi.h>
-
-#include "PUML/Downward.h"
-#include "PUML/PUML.h"
-#include "PUML/Upward.h"
-
-#include "Initializer/TimeStepping/GlobalTimestep.h"
-#include "Parallel/MPI.h"
-#include "SeisSol.h"
-#include "generated_code/init.h"
-
 namespace seissol::initializer::time_stepping {
 
 double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
                                     const std::vector<int>& cellCosts,
-                                    unsigned int rate,
+                                    const std::vector<uint64_t>& rate,
                                     double wiggleFactor,
                                     double minimalTimestep) {
   assert(clusterIds.size() == cellCosts.size());
@@ -49,8 +49,8 @@ double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
   for (auto i = 0U; i < clusterIds.size(); ++i) {
     const auto cluster = clusterIds[i];
     const auto cellCost = cellCosts[i];
-    const double updateFactor = 1.0 / (std::pow(rate, cluster));
-    cost += updateFactor * cellCost;
+    const auto invUpdateFactor = ratepow(rate, 0, cluster);
+    cost += cellCost / static_cast<double>(invUpdateFactor);
   }
 
   const auto minDtWithWiggle = minimalTimestep * wiggleFactor;
@@ -59,7 +59,7 @@ double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
 
 double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
                                      const std::vector<int>& cellCosts,
-                                     unsigned int rate,
+                                     const std::vector<uint64_t>& rate,
                                      double wiggleFactor,
                                      double minimalTimestep,
                                      MPI_Comm comm) {
@@ -83,54 +83,68 @@ std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int max
 // Merges clusters such that new cost is max oldCost * allowedPerformanceLossRatio
 int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
                                       const std::vector<int>& cellCosts,
-                                      unsigned int rate,
+                                      const std::vector<uint64_t>& rate,
                                       double maximalAdmissibleCost,
                                       double wiggleFactor,
                                       double minimalTimestep) {
   int maxClusterId = *std::max_element(clusterIds.begin(), clusterIds.end());
-  MPI_Allreduce(MPI_IN_PLACE, &maxClusterId, 1, MPI_INT, MPI_MAX, MPI::mpi.comm());
-
-  // We only have one cluster for rate = 1 and thus cannot merge.
-  if (rate == 1) {
-    return maxClusterId;
-  }
+  MPI_Allreduce(MPI_IN_PLACE, &maxClusterId, 1, MPI_INT, MPI_MAX, Mpi::mpi.comm());
 
   // Iteratively merge clusters until we found the first number of clusters that has a cost that is
   // too high
   for (auto curMaxClusterId = maxClusterId; curMaxClusterId >= 0; --curMaxClusterId) {
     const auto newClustering = enforceMaxClusterId(clusterIds, curMaxClusterId);
     const double cost = computeGlobalCostOfClustering(
-        newClustering, cellCosts, rate, wiggleFactor, minimalTimestep, MPI::mpi.comm());
+        newClustering, cellCosts, rate, wiggleFactor, minimalTimestep, Mpi::mpi.comm());
     if (cost > maximalAdmissibleCost) {
       // This is the first number of clusters that resulted in an inadmissible cost
       // Hence, it was admissible in the previous iteration
-      return curMaxClusterId + 1;
+      return std::min(maxClusterId, curMaxClusterId + 1);
     }
   }
   return 0;
 }
 
 LtsWeights::LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance)
-    : seissolInstance(seissolInstance), m_rate(config.rate),
-      m_vertexWeightElement(config.vertexWeightElement),
-      m_vertexWeightDynamicRupture(config.vertexWeightDynamicRupture),
-      m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity),
-      boundaryFormat(config.boundaryFormat) {}
+    : seissolInstance_(seissolInstance), rate_(config.rate),
+      vertexWeightElement_(config.vertexWeightElement),
+      vertexWeightDynamicRupture_(config.vertexWeightDynamicRupture),
+      vertexWeightFreeSurfaceWithGravity_(config.vertexWeightFreeSurfaceWithGravity),
+      boundaryFormat_(config.boundaryFormat) {}
 
-void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
+void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
+                                const seissol::geometry::PumlMesh& meshGeometry) {
+  bool continueComputation = true;
+  if (!model::MaterialT::SupportsLTS) {
+    logInfo() << "The material" << model::MaterialT::Text
+              << "does not support LTS. Switching to GTS.";
+    continueComputation = false;
+  }
+  if (rate_.empty() || (rate_.size() == 1 && rate_[0] == 1)) {
+    logInfo() << "GTS has been selected.";
+    continueComputation = false;
+  }
+
   logInfo() << "Computing LTS weights.";
 
   // Note: Return value optimization is guaranteed while returning temp. objects in C++17
-  m_mesh = &mesh;
-  m_details = collectGlobalTimeStepDetails();
-  m_cellCosts = computeCostsPerTimestep();
+  meshTopology_ = &meshTopology;
+  meshGeometry_ = &meshGeometry;
+  details_ = collectGlobalTimeStepDetails();
+  cellCosts_ = computeCostsPerTimestep();
 
-  auto& ltsParameters = seissolInstance.getSeisSolParameters().timeStepping.lts;
+  const auto& ltsParameters = seissolInstance_.getSeisSolParameters().timeStepping.lts;
   auto maxClusterIdToEnforce = ltsParameters.getMaxNumberOfClusters() - 1;
+
+  if (!continueComputation) {
+    // enforce GTS
+    maxClusterIdToEnforce = 0;
+  }
 
   prepareDifferenceEnforcement();
 
-  if (ltsParameters.isWiggleFactorUsed() || ltsParameters.isAutoMergeUsed()) {
+  if ((ltsParameters.isWiggleFactorUsed() || ltsParameters.isAutoMergeUsed()) &&
+      continueComputation) {
     auto autoMergeBaseline = ltsParameters.getAutoMergeCostBaseline();
     if (!(ltsParameters.isWiggleFactorUsed() && ltsParameters.isAutoMergeUsed())) {
       // Cost models only change things if both wiggle factor and auto merge are on.
@@ -156,41 +170,39 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
       wiggleFactorResult = computeBestWiggleFactor(std::nullopt, ltsParameters.isAutoMergeUsed());
     }
 
-    wiggleFactor = wiggleFactorResult.wiggleFactor;
+    wiggleFactor_ = wiggleFactorResult.wiggleFactor;
     if (ltsParameters.isAutoMergeUsed()) {
       maxClusterIdToEnforce = std::min(maxClusterIdToEnforce, wiggleFactorResult.maxClusterId);
     }
   } else {
-    wiggleFactor = 1.0;
+    wiggleFactor_ = 1.0;
   }
-  ltsParameters.setWiggleFactor(wiggleFactor);
 
-  m_ncon = evaluateNumberOfConstraints();
-  auto finalNumberOfReductions = computeClusterIdsAndEnforceMaximumDifferenceCached(wiggleFactor);
+  ncon_ = evaluateNumberOfConstraints();
+  auto finalNumberOfReductions = computeClusterIdsAndEnforceMaximumDifferenceCached(wiggleFactor_);
 
   if (!ltsParameters.getWiggleFactorEnforceMaximumDifference()) {
     finalNumberOfReductions += enforceMaximumDifference();
   }
 
   logInfo() << "Limiting number of clusters to" << maxClusterIdToEnforce + 1;
-  m_clusterIds = enforceMaxClusterId(m_clusterIds, maxClusterIdToEnforce);
+  clusterIds_ = enforceMaxClusterId(clusterIds_, maxClusterIdToEnforce);
 
-  int maxNumberOfClusters = *std::max_element(m_clusterIds.begin(), m_clusterIds.end()) + 1;
-  MPI_Allreduce(MPI_IN_PLACE, &maxNumberOfClusters, 1, MPI_INT, MPI_MAX, MPI::mpi.comm());
-  ltsParameters.setMaxNumberOfClusters(maxNumberOfClusters);
-
-  if (!m_vertexWeights.empty()) {
-    m_vertexWeights.clear();
+  if (!vertexWeights_.empty()) {
+    vertexWeights_.clear();
   }
-  m_vertexWeights.resize(m_clusterIds.size() * m_ncon);
+  vertexWeights_.resize(clusterIds_.size() * ncon_);
 
   // calling virtual functions
   setVertexWeights();
   setAllowedImbalances();
 
   logInfo() << "Computing LTS weights. Done. " << utils::nospace << '(' << finalNumberOfReductions
-            << " reductions.)";
+            << " reductions)";
 }
+
+double LtsWeights::getWiggleFactor() const { return wiggleFactor_; }
+
 LtsWeights::ComputeWiggleFactorResult
     LtsWeights::computeBestWiggleFactor(std::optional<double> baselineCost, bool isAutoMergeUsed) {
 
@@ -198,7 +210,7 @@ LtsWeights::ComputeWiggleFactorResult
   auto mapMaxClusterIdToLowestCost = std::map<int, double>{};
   auto maxMapClusterIdToBestWiggleFactor = std::map<int, double>{};
 
-  const auto& ltsParameters = seissolInstance.getSeisSolParameters().timeStepping.lts;
+  const auto& ltsParameters = seissolInstance_.getSeisSolParameters().timeStepping.lts;
   const double minWiggleFactor = ltsParameters.getWiggleFactorMinimum();
   const double maxWiggleFactor = 1.0;
 
@@ -218,12 +230,12 @@ LtsWeights::ComputeWiggleFactorResult
     // Compute baselineCost cost before wiggle factor and merging of clusters
     totalWiggleFactorReductions +=
         computeClusterIdsAndEnforceMaximumDifferenceCached(maxWiggleFactor);
-    baselineCost = computeGlobalCostOfClustering(m_clusterIds,
-                                                 m_cellCosts,
-                                                 m_rate,
+    baselineCost = computeGlobalCostOfClustering(clusterIds_,
+                                                 cellCosts_,
+                                                 rate_,
                                                  maxWiggleFactor,
-                                                 m_details.globalMinTimeStep,
-                                                 MPI::mpi.comm());
+                                                 details_.globalMinTimeStep,
+                                                 Mpi::mpi.comm());
     logInfo() << "Baseline cost, without wiggle factor and cluster merging is" << *baselineCost;
   }
   assert(baselineCost);
@@ -245,28 +257,28 @@ LtsWeights::ComputeWiggleFactorResult
     auto maxClusterIdToEnforce = ltsParameters.getMaxNumberOfClusters() - 1;
     if (isAutoMergeUsed) {
       const auto maxClusterIdAfterMerging =
-          computeMaxClusterIdAfterAutoMerge(m_clusterIds,
-                                            m_cellCosts,
-                                            m_rate,
+          computeMaxClusterIdAfterAutoMerge(clusterIds_,
+                                            cellCosts_,
+                                            rate_,
                                             maxAdmissibleCost,
                                             curWiggleFactor,
-                                            m_details.globalMinTimeStep);
+                                            details_.globalMinTimeStep);
       maxClusterIdToEnforce = std::min(maxClusterIdAfterMerging, maxClusterIdToEnforce);
     }
 
-    m_clusterIds = enforceMaxClusterId(m_clusterIds, maxClusterIdToEnforce);
-    auto maxClusterId = *std::max_element(m_clusterIds.begin(), m_clusterIds.end());
-    MPI_Allreduce(MPI_IN_PLACE, &maxClusterId, 1, MPI_INT, MPI_MAX, MPI::mpi.comm());
+    clusterIds_ = enforceMaxClusterId(clusterIds_, maxClusterIdToEnforce);
+    auto maxClusterId = *std::max_element(clusterIds_.begin(), clusterIds_.end());
+    MPI_Allreduce(MPI_IN_PLACE, &maxClusterId, 1, MPI_INT, MPI_MAX, Mpi::mpi.comm());
 
-    m_ncon = evaluateNumberOfConstraints();
+    ncon_ = evaluateNumberOfConstraints();
 
     // Compute cost
-    const double cost = computeGlobalCostOfClustering(m_clusterIds,
-                                                      m_cellCosts,
-                                                      m_rate,
+    const double cost = computeGlobalCostOfClustering(clusterIds_,
+                                                      cellCosts_,
+                                                      rate_,
                                                       curWiggleFactor,
-                                                      m_details.globalMinTimeStep,
-                                                      MPI::mpi.comm());
+                                                      details_.globalMinTimeStep,
+                                                      Mpi::mpi.comm());
 
     if (auto it = mapMaxClusterIdToLowestCost.find(maxClusterId);
         it == mapMaxClusterIdToLowestCost.end() || cost <= it->second) {
@@ -328,76 +340,75 @@ LtsWeights::ComputeWiggleFactorResult
 }
 
 const int* LtsWeights::vertexWeights() const {
-  assert(!m_vertexWeights.empty() && "vertex weights are not initialized");
-  return m_vertexWeights.data();
+  assert(!vertexWeights_.empty() && "vertex weights are not initialized");
+  return vertexWeights_.data();
 }
 
 const double* LtsWeights::imbalances() const {
-  assert(!m_imbalances.empty() && "weight imbalances are not initialized");
-  return m_imbalances.data();
+  assert(!imbalances_.empty() && "weight imbalances are not initialized");
+  return imbalances_.data();
 }
 
-const std::vector<int>& LtsWeights::clusterIds() const { return m_clusterIds; }
+const std::vector<int>& LtsWeights::clusterIds() const { return clusterIds_; }
 
-const std::vector<double>& LtsWeights::timesteps() const { return m_details.cellTimeStepWidths; }
+const std::vector<double>& LtsWeights::timesteps() const { return details_.cellTimeStepWidths; }
 
 int LtsWeights::nWeightsPerVertex() const {
-  assert(m_ncon != std::numeric_limits<int>::infinity() &&
+  assert(ncon_ != std::numeric_limits<int>::infinity() &&
          "num. constrains has not been initialized yet");
-  return m_ncon;
+  return ncon_;
 }
 
-int LtsWeights::getCluster(double timestep,
-                           double globalMinTimestep,
-                           double ltsWiggleFactor,
-                           unsigned rate) {
-  if (rate == 1) {
+std::uint64_t LtsWeights::getCluster(double timestep,
+                                     double globalMinTimestep,
+                                     double ltsWiggleFactor,
+                                     const std::vector<uint64_t>& rate) {
+  if (rate.empty()) {
     return 0;
   }
 
-  double upper = ltsWiggleFactor * rate * globalMinTimestep;
+  double upper = ltsWiggleFactor * rate[0] * globalMinTimestep;
 
-  int cluster = 0;
+  std::uint64_t cluster = 0;
   while (upper <= timestep) {
-    upper *= rate;
+    const auto currentRate = rate.size() > (cluster + 1) ? rate[cluster + 1] : rate.back();
+    if (currentRate == 1) {
+      break;
+    }
+    upper *= currentRate;
     ++cluster;
   }
   return cluster;
 }
 
 FaceType LtsWeights::getBoundaryCondition(const void* boundaryCond, size_t cell, unsigned face) {
-  int bcCurrentFace = seissol::geometry::decodeBoundary(boundaryCond, cell, face, boundaryFormat);
+  int bcCurrentFace = seissol::geometry::decodeBoundary(boundaryCond, cell, face, boundaryFormat_);
   if (bcCurrentFace > 64) {
     bcCurrentFace = 3;
   }
   return static_cast<FaceType>(bcCurrentFace);
 }
 
-int LtsWeights::ipow(int x, int y) {
-  assert(y >= 0);
-
-  if (y == 0) {
-    return 1;
+std::uint64_t ratepow(const std::vector<std::uint64_t>& rate, std::uint64_t a, std::uint64_t b) {
+  std::uint64_t factor = 1;
+  for (std::uint64_t i = a; i < b; ++i) {
+    factor *= i < rate.size() ? rate[i] : rate.back();
   }
-  int result = x;
-  while (--y != 0) {
-    result *= x;
-  }
-  return result;
+  return factor;
 }
 
 seissol::initializer::GlobalTimestep LtsWeights::collectGlobalTimeStepDetails() {
   return seissol::initializer::computeTimesteps(
-      seissol::initializer::CellToVertexArray::fromPUML(*m_mesh),
-      seissolInstance.getSeisSolParameters());
+      seissol::initializer::CellToVertexArray::fromPUML(*meshGeometry_),
+      seissolInstance_.getSeisSolParameters());
 }
 
 int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWiggleFactor) {
   int numberOfReductions = 0;
-  auto lb = clusteringCache.lower_bound(curWiggleFactor);
+  auto lb = clusteringCache_.lower_bound(curWiggleFactor);
 
-  if (lb != clusteringCache.end() && !(clusteringCache.key_comp()(curWiggleFactor, lb->first))) {
-    m_clusterIds = lb->second;
+  if (lb != clusteringCache_.end() && !(clusteringCache_.key_comp()(curWiggleFactor, lb->first))) {
+    clusterIds_ = lb->second;
   } else {
     // re-use best computed maxdiff enforcement available
     // reason that works: cf. Lukas' proof for cluster merging not violating maximum difference
@@ -407,69 +418,67 @@ int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWig
     // lower to higher will save a lot of reductions
 
     int cellchanges = 0;
-    if (lb != clusteringCache.end()) {
+    if (lb != clusteringCache_.end()) {
       // use the cache
       const auto newClusterIds = computeClusterIds(curWiggleFactor);
-#ifdef _OPENMP
+
 #pragma omp parallel for reduction(+ : cellchanges)
-#endif
-      for (unsigned cell = 0; cell < m_mesh->cells().size(); ++cell) {
+      for (std::size_t cell = 0; cell < meshTopology_->cells().size(); ++cell) {
         if (lb->second[cell] > newClusterIds[cell]) {
           ++cellchanges;
         }
-        m_clusterIds[cell] = std::min(lb->second[cell], newClusterIds[cell]);
+        clusterIds_[cell] = std::min(lb->second[cell], newClusterIds[cell]);
       }
     } else {
-      m_clusterIds = computeClusterIds(curWiggleFactor);
-      cellchanges = m_mesh->cells().size();
+      clusterIds_ = computeClusterIds(curWiggleFactor);
+      cellchanges = meshTopology_->cells().size();
     }
-    const auto& ltsParameters = seissolInstance.getSeisSolParameters().timeStepping.lts;
+    const auto& ltsParameters = seissolInstance_.getSeisSolParameters().timeStepping.lts;
     if (ltsParameters.getWiggleFactorEnforceMaximumDifference()) {
-      MPI_Allreduce(MPI_IN_PLACE, &cellchanges, 1, MPI_INT, MPI_SUM, seissol::MPI::mpi.comm());
+      MPI_Allreduce(MPI_IN_PLACE, &cellchanges, 1, MPI_INT, MPI_SUM, seissol::Mpi::mpi.comm());
       if (cellchanges > 0) {
         numberOfReductions = enforceMaximumDifference();
       }
     }
-    clusteringCache[curWiggleFactor] = m_clusterIds;
+    clusteringCache_[curWiggleFactor] = clusterIds_;
   }
 
   return numberOfReductions;
 }
 
 std::vector<int> LtsWeights::computeClusterIds(double curWiggleFactor) {
-  const auto& cells = m_mesh->cells();
+  const auto& cells = meshTopology_->cells();
   std::vector<int> clusterIds(cells.size(), 0);
-#ifdef _OPENMP
+
 #pragma omp parallel for
-#endif
-  for (unsigned cell = 0; cell < cells.size(); ++cell) {
+  for (std::size_t cell = 0; cell < cells.size(); ++cell) {
     clusterIds[cell] = getCluster(
-        m_details.cellTimeStepWidths[cell], m_details.globalMinTimeStep, curWiggleFactor, m_rate);
+        details_.cellTimeStepWidths[cell], details_.globalMinTimeStep, curWiggleFactor, rate_);
   }
   return clusterIds;
 }
 
 std::vector<int> LtsWeights::computeCostsPerTimestep() {
-  const auto& cells = m_mesh->cells();
+  const auto& cells = meshTopology_->cells();
 
   std::vector<int> cellCosts(cells.size());
-  const void* boundaryCond = m_mesh->cellData(1);
-  for (unsigned cell = 0; cell < cells.size(); ++cell) {
+  const void* boundaryCond = meshTopology_->cellData(1);
+  for (std::size_t cell = 0; cell < cells.size(); ++cell) {
     int dynamicRupture = 0;
     int freeSurfaceWithGravity = 0;
 
-    unsigned int faceids[4];
-    PUML::Downward::faces(*m_mesh, cells[cell], faceids);
+    unsigned int faceids[Cell::NumFaces];
+    PUML::Downward::faces(*meshTopology_, cells[cell], faceids);
 
-    for (unsigned face = 0; face < 4; ++face) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       const auto faceType = getBoundaryCondition(boundaryCond, cell, face);
       dynamicRupture += (faceType == FaceType::DynamicRupture) ? 1 : 0;
       freeSurfaceWithGravity += (faceType == FaceType::FreeSurfaceGravity) ? 1 : 0;
     }
 
-    const int costDynamicRupture = m_vertexWeightDynamicRupture * dynamicRupture;
-    const int costDisplacement = m_vertexWeightFreeSurfaceWithGravity * freeSurfaceWithGravity;
-    cellCosts[cell] = m_vertexWeightElement + costDynamicRupture + costDisplacement;
+    const int costDynamicRupture = vertexWeightDynamicRupture_ * dynamicRupture;
+    const int costDisplacement = vertexWeightFreeSurfaceWithGravity_ * freeSurfaceWithGravity;
+    cellCosts[cell] = vertexWeightElement_ + costDynamicRupture + costDisplacement;
   }
   return cellCosts;
 }
@@ -485,23 +494,23 @@ int LtsWeights::enforceMaximumDifference() {
                   1,
                   MPI_INT,
                   MPI_SUM,
-                  seissol::MPI::mpi.comm());
+                  seissol::Mpi::mpi.comm());
     totalNumberOfReductions += globalNumberOfReductions;
   } while (globalNumberOfReductions > 0);
   return totalNumberOfReductions;
 }
 
 void LtsWeights::prepareDifferenceEnforcement() {
-  const auto& cells = m_mesh->cells();
-  const auto& faces = m_mesh->faces();
-  const void* boundaryCond = m_mesh->cellData(1);
+  const auto& cells = meshTopology_->cells();
+  const auto& faces = meshTopology_->faces();
+  const void* boundaryCond = meshTopology_->cellData(1);
 
   std::unordered_map<int, std::vector<std::size_t>> rankToSharedFacesPre;
-  for (unsigned cell = 0; cell < cells.size(); ++cell) {
-    unsigned int faceids[4]{};
+  for (std::size_t cell = 0; cell < cells.size(); ++cell) {
+    unsigned int faceids[Cell::NumFaces]{};
     bool atBoundary = false;
-    PUML::Downward::faces(*m_mesh, cells[cell], faceids);
-    for (unsigned f = 0; f < 4; ++f) {
+    PUML::Downward::faces(*meshTopology_, cells[cell], faceids);
+    for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
       // Continue for regular, dynamic rupture, and periodic boundary cells
       if (isInternalFaceType(boundary)) {
@@ -509,13 +518,13 @@ void LtsWeights::prepareDifferenceEnforcement() {
         const auto& face = faces.at(faceids[f]);
         if (face.isShared()) {
           rankToSharedFacesPre[face.shared()[0]].push_back(faceids[f]);
-          localFaceIdToLocalCellId[faceids[f]] = cell;
+          localFaceIdToLocalCellId_[faceids[f]] = cell;
           atBoundary = true;
         }
       }
     }
     if (atBoundary) {
-      boundaryCells.emplace_back(cell);
+      boundaryCells_.emplace_back(cell);
     }
   }
 
@@ -525,13 +534,13 @@ void LtsWeights::prepareDifferenceEnforcement() {
               [&](unsigned int a, unsigned int b) { return faces[a].gid() < faces[b].gid(); });
   }
 
-  rankToSharedFaces =
-      decltype(rankToSharedFaces)(rankToSharedFacesPre.begin(), rankToSharedFacesPre.end());
+  rankToSharedFaces_ =
+      decltype(rankToSharedFaces_)(rankToSharedFacesPre.begin(), rankToSharedFacesPre.end());
 
-  for (std::size_t ex = 0; ex < rankToSharedFaces.size(); ++ex) {
-    const auto& exchange = rankToSharedFaces[ex];
+  for (std::size_t ex = 0; ex < rankToSharedFaces_.size(); ++ex) {
+    const auto& exchange = rankToSharedFaces_[ex];
     for (std::size_t i = 0; i < exchange.second.size(); ++i) {
-      sharedFaceToExchangeId[exchange.second[i]] = {ex, i};
+      sharedFaceToExchangeId_[exchange.second[i]] = {ex, i};
     }
   }
 }
@@ -539,19 +548,17 @@ void LtsWeights::prepareDifferenceEnforcement() {
 int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
   int numberOfReductions = 0;
 
-  const auto& cells = m_mesh->cells();
-  const auto& faces = m_mesh->faces();
-  const void* boundaryCond = m_mesh->cellData(1);
+  const auto& cells = meshTopology_->cells();
+  const auto& faces = meshTopology_->faces();
+  const void* boundaryCond = meshTopology_->cellData(1);
 
-#ifdef _OPENMP
 #pragma omp parallel for reduction(+ : numberOfReductions)
-#endif
-  for (unsigned cell = 0; cell < cells.size(); ++cell) {
-    int timeCluster = m_clusterIds[cell];
+  for (std::size_t cell = 0; cell < cells.size(); ++cell) {
+    int timeCluster = clusterIds_[cell];
 
-    unsigned int faceids[4]{};
-    PUML::Downward::faces(*m_mesh, cells[cell], faceids);
-    for (unsigned f = 0; f < 4; ++f) {
+    unsigned int faceids[Cell::NumFaces]{};
+    PUML::Downward::faces(*meshTopology_, cells[cell], faceids);
+    for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       int difference = maxDifference;
       const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
       // Continue for regular, dynamic rupture, and periodic boundary cells
@@ -560,10 +567,10 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
         const auto& face = faces.at(faceids[f]);
         if (!face.isShared()) {
           int cellIds[2];
-          PUML::Upward::cells(*m_mesh, face, cellIds);
+          PUML::Upward::cells(*meshTopology_, face, cellIds);
 
           const int neighborCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
-          const int otherTimeCluster = m_clusterIds[neighborCell];
+          const int otherTimeCluster = clusterIds_[neighborCell];
 
           if (boundary == FaceType::DynamicRupture) {
             difference = 0;
@@ -576,51 +583,49 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
         }
       }
     }
-    m_clusterIds[cell] = timeCluster;
+    clusterIds_[cell] = timeCluster;
   }
 
-  const auto numExchanges = rankToSharedFaces.size();
+  const auto numExchanges = rankToSharedFaces_.size();
   std::vector<MPI_Request> requests(2 * numExchanges);
   std::vector<std::vector<int>> ghost(numExchanges);
   std::vector<std::vector<int>> copy(numExchanges);
 
   for (std::size_t ex = 0; ex < numExchanges; ++ex) {
-    const auto& exchange = rankToSharedFaces[ex];
+    const auto& exchange = rankToSharedFaces_[ex];
     const auto exchangeSize = exchange.second.size();
     ghost[ex].resize(exchangeSize);
     copy[ex].resize(exchangeSize);
 
     for (std::size_t n = 0; n < exchangeSize; ++n) {
-      copy[ex][n] = m_clusterIds[localFaceIdToLocalCellId[exchange.second[n]]];
+      copy[ex][n] = clusterIds_[localFaceIdToLocalCellId_[exchange.second[n]]];
     }
     MPI_Isend(copy[ex].data(),
               exchangeSize,
               MPI_INT,
               exchange.first,
               0,
-              seissol::MPI::mpi.comm(),
+              seissol::Mpi::mpi.comm(),
               &requests[ex]);
     MPI_Irecv(ghost[ex].data(),
               exchangeSize,
               MPI_INT,
               exchange.first,
               0,
-              seissol::MPI::mpi.comm(),
+              seissol::Mpi::mpi.comm(),
               &requests[numExchanges + ex]);
   }
 
   MPI_Waitall(2 * numExchanges, requests.data(), MPI_STATUSES_IGNORE);
 
-#ifdef _OPENMP
 #pragma omp parallel for reduction(+ : numberOfReductions)
-#endif
-  for (unsigned bcell = 0; bcell < boundaryCells.size(); ++bcell) {
-    const auto cell = boundaryCells[bcell];
-    int& timeCluster = m_clusterIds[cell];
+  for (std::size_t bcell = 0; bcell < boundaryCells_.size(); ++bcell) {
+    const auto cell = boundaryCells_[bcell];
+    int& timeCluster = clusterIds_[cell];
 
-    unsigned int faceids[4]{};
-    PUML::Downward::faces(*m_mesh, cells[cell], faceids);
-    for (unsigned f = 0; f < 4; ++f) {
+    unsigned int faceids[Cell::NumFaces]{};
+    PUML::Downward::faces(*meshTopology_, cells[cell], faceids);
+    for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       int difference = maxDifference;
       const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
       // Continue for regular, dynamic rupture, and periodic boundary cells
@@ -628,7 +633,7 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
         // We treat MPI neighbors later
         const auto& face = faces.at(faceids[f]);
         if (face.isShared()) {
-          const auto pos = sharedFaceToExchangeId.at(faceids[f]);
+          const auto pos = sharedFaceToExchangeId_.at(faceids[f]);
           const int otherTimeCluster = ghost[pos.first][pos.second];
 
           if (boundary == FaceType::DynamicRupture) {

@@ -7,55 +7,79 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Wolf
 
-#include <Common/Constants.h>
-#include <Equations/Datastructures.h>
-#include <Equations/acoustic/Model/Datastructures.h>
-#include <Equations/anisotropic/Model/Datastructures.h>
-#include <Equations/elastic/Model/Datastructures.h>
-#include <Equations/poroelastic/Model/Datastructures.h>
-#include <Equations/viscoelastic2/Model/Datastructures.h>
-#include <Geometry/MeshDefinition.h>
-#include <Geometry/MeshTools.h>
-#include <Kernels/Precision.h>
-#include <Model/CommonDatastructures.h>
-#include <Model/Datastructures.h>
-#include <Solver/MultipleSimulations.h>
-#include <array>
-#include <cassert>
-#include <cstddef>
-#include <easi/Query.h>
-#include <init.h>
-#include <iterator>
-#include <memory>
-#include <set>
-#include <tensor.h>
-#include <utility>
-#include <vector>
-#ifdef USE_HDF
-// PUML.h needs to be included before Downward.h
-
-#include "PUML/PUML.h"
-
-#include "PUML/Downward.h"
-
-#include "generated_code/kernel.h"
-#endif
 #include "ParameterDB.h"
-#include <algorithm>
-#include <cmath>
 
+#include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
+#include "Equations/Datastructures.h"
+#include "Equations/acoustic/Model/Datastructures.h"
+#include "Equations/anisotropic/Model/Datastructures.h"
+#include "Equations/elastic/Model/Datastructures.h"
+#include "Equations/poroelastic/Model/Datastructures.h"
+#include "Equations/viscoelastic2/Model/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshTools.h"
+#include "Geometry/PUMLReader.h"
+#include "Kernels/Precision.h"
+#include "Model/CommonDatastructures.h"
+#include "Model/Plasticity.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
 #include "easi/ResultAdapter.h"
 #include "easi/YAMLParser.h"
+
+#include <Eigen/Core>
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cmath>
+#include <cstddef>
+#include <easi/Component.h>
+#include <easi/Query.h>
+#include <exception>
+#include <iterator>
+#include <memory>
+#include <set>
+#include <string>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
+
+#ifdef USE_HDF
+// PUML.h needs to be included before Downward.h
+
+#include "GeneratedCode/kernel.h"
+
+#include <PUML/Downward.h>
+#endif
+
 #ifdef USE_ASAGI
 #include "Reader/AsagiReader.h"
 #endif
-#include "utils/logger.h"
+
+using namespace seissol::model;
 
 namespace seissol::initializer {
+
+namespace {
+
+void easiEvalSafe(easi::Component* model,
+                  easi::Query& query,
+                  easi::ResultAdapter& adapter,
+                  const std::string& hint) {
+  try {
+    model->evaluate(query, adapter);
+  } catch (const std::exception& error) {
+    logError() << "Error while evaluating an easi model for" << hint.c_str() << ":"
+               << std::string(error.what());
+  }
+}
+
+} // namespace
 
 CellToVertexArray::CellToVertexArray(size_t size,
                                      const CellToVertexFunction& elementCoordinates,
@@ -71,7 +95,7 @@ CellToVertexArray
       elements.size(),
       [&](size_t index) {
         std::array<Eigen::Vector3d, 4> verts;
-        for (size_t i = 0; i < 4; ++i) {
+        for (size_t i = 0; i < Cell::NumVertices; ++i) {
           auto vindex = elements[index].vertices[i];
           const auto& vertex = vertices[vindex];
           verts[i] << vertex.coords[0], vertex.coords[1], vertex.coords[2];
@@ -82,7 +106,7 @@ CellToVertexArray
 }
 
 #ifdef USE_HDF
-CellToVertexArray CellToVertexArray::fromPUML(const PUML::TETPUML& mesh) {
+CellToVertexArray CellToVertexArray::fromPUML(const seissol::geometry::PumlMesh& mesh) {
   const int* groups = reinterpret_cast<const int*>(mesh.cellData(0));
   const auto& elements = mesh.cells();
   const auto& vertices = mesh.vertices();
@@ -90,10 +114,10 @@ CellToVertexArray CellToVertexArray::fromPUML(const PUML::TETPUML& mesh) {
       elements.size(),
       [&](size_t cell) {
         std::array<Eigen::Vector3d, 4> x;
-        unsigned vertLids[4];
+        unsigned vertLids[Cell::NumVertices];
         PUML::Downward::vertices(mesh, elements[cell], vertLids);
-        for (unsigned vtx = 0; vtx < 4; ++vtx) {
-          for (unsigned d = 0; d < 3; ++d) {
+        for (std::size_t vtx = 0; vtx < Cell::NumVertices; ++vtx) {
+          for (std::size_t d = 0; d < Cell::Dim; ++d) {
             x[vtx](d) = vertices[vertLids[vtx]].coordinate()[d];
           }
         }
@@ -104,15 +128,15 @@ CellToVertexArray CellToVertexArray::fromPUML(const PUML::TETPUML& mesh) {
 #endif
 
 CellToVertexArray CellToVertexArray::fromVectors(
-    const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
+    const std::vector<std::array<std::array<double, Cell::Dim>, Cell::NumVertices>>& vertices,
     const std::vector<int>& groups) {
   assert(vertices.size() == groups.size());
 
   return CellToVertexArray(
       vertices.size(),
       [&](size_t idx) {
-        std::array<Eigen::Vector3d, 4> verts;
-        for (size_t i = 0; i < 4; ++i) {
+        std::array<Eigen::Vector3d, Cell::NumVertices> verts;
+        for (size_t i = 0; i < Cell::NumVertices; ++i) {
           verts[i] << vertices[idx][i][0], vertices[idx][i][1], vertices[idx][i][2];
         }
         return verts;
@@ -121,50 +145,102 @@ CellToVertexArray CellToVertexArray::fromVectors(
 }
 
 easi::Query ElementBarycenterGenerator::generate() const {
-  easi::Query query(m_cellToVertex.size, 3);
+  easi::Query query(cellToVertex_.size, Cell::Dim);
 
 #pragma omp parallel for schedule(static)
-  for (unsigned elem = 0; elem < m_cellToVertex.size; ++elem) {
-    auto vertices = m_cellToVertex.elementCoordinates(elem);
+  for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
+    auto vertices = cellToVertex_.elementCoordinates(elem);
     Eigen::Vector3d barycenter = (vertices[0] + vertices[1] + vertices[2] + vertices[3]) * 0.25;
     query.x(elem, 0) = barycenter(0);
     query.x(elem, 1) = barycenter(1);
     query.x(elem, 2) = barycenter(2);
-    query.group(elem) = m_cellToVertex.elementGroups(elem);
+    query.group(elem) = cellToVertex_.elementGroups(elem);
   }
   return query;
 }
 
 ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellToVertex)
-    : m_cellToVertex(cellToVertex) {
+    : cellToVertex_(cellToVertex) {
   double quadraturePoints[NumQuadpoints][3];
   double quadratureWeights[NumQuadpoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, ConvergenceOrder);
 
   std::copy(
-      std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(m_quadratureWeights));
+      std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(quadratureWeights_));
   for (std::size_t i = 0; i < NumQuadpoints; ++i) {
     std::copy(std::begin(quadraturePoints[i]),
               std::end(quadraturePoints[i]),
-              std::begin(m_quadraturePoints[i]));
+              std::begin(quadraturePoints_[i]));
   }
 }
 
 easi::Query ElementAverageGenerator::generate() const {
   // Generate query using quadrature points for each element
-  easi::Query query(m_cellToVertex.size * NumQuadpoints, 3);
+  easi::Query query(cellToVertex_.size * NumQuadpoints, 3);
 
 // Transform quadrature points to global coordinates for all elements
 #pragma omp parallel for schedule(static) collapse(2)
-  for (unsigned elem = 0; elem < m_cellToVertex.size; ++elem) {
-    for (unsigned i = 0; i < NumQuadpoints; ++i) {
-      auto vertices = m_cellToVertex.elementCoordinates(elem);
-      Eigen::Vector3d transformed = seissol::transformations::tetrahedronReferenceToGlobal(
-          vertices[0], vertices[1], vertices[2], vertices[3], m_quadraturePoints[i].data());
-      query.x(elem * NumQuadpoints + i, 0) = transformed(0);
-      query.x(elem * NumQuadpoints + i, 1) = transformed(1);
-      query.x(elem * NumQuadpoints + i, 2) = transformed(2);
-      query.group(elem * NumQuadpoints + i) = m_cellToVertex.elementGroups(elem);
+  for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
+    for (std::size_t i = 0; i < NumQuadpoints; ++i) {
+      const auto vertices = cellToVertex_.elementCoordinates(elem);
+
+      const Eigen::Vector3d transformed = seissol::transformations::tetrahedronReferenceToGlobal(
+          vertices[0], vertices[1], vertices[2], vertices[3], quadraturePoints_[i].data());
+
+      for (std::size_t j = 0; j < Cell::Dim; ++j) {
+        query.x(elem * NumQuadpoints + i, j) = transformed(j);
+      }
+
+      query.group(elem * NumQuadpoints + i) = cellToVertex_.elementGroups(elem);
+    }
+  }
+
+  return query;
+}
+
+std::size_t PlasticityPointGenerator::outputPerCell() const {
+  constexpr auto PlasticityPoints = model::PlasticityData::PointCount;
+  return pointwise_ ? PlasticityPoints : 1;
+}
+
+easi::Query PlasticityPointGenerator::generate() const {
+
+  const auto pointsPerCell = outputPerCell();
+
+  // Generate query using quadrature points for each element
+  easi::Query query(cellToVertex_.size * pointsPerCell, Cell::Dim);
+
+  const auto nodes = init::vNodes::view::create(init::vNodes::Values);
+
+// Transform quadrature points to global coordinates for all elements
+#pragma omp parallel for schedule(static)
+  for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
+
+    const auto vertices = cellToVertex_.elementCoordinates(elem);
+
+    for (std::size_t i = 0; i < pointsPerCell; ++i) {
+
+      std::array<double, Cell::Dim> point{};
+
+      if (pointwise_) {
+        for (std::size_t j = 0; j < Cell::Dim; ++j) {
+          if (nodes.isInRange(i, j)) {
+            point[j] = nodes(i, j);
+          }
+        }
+      } else {
+        point = {1 / 4., 1 / 4., 1 / 4.};
+      }
+
+      const auto pointIdx = elem * pointsPerCell + i;
+
+      const Eigen::Vector3d transformed = seissol::transformations::tetrahedronReferenceToGlobal(
+          vertices[0], vertices[1], vertices[2], vertices[3], point.data());
+
+      for (std::size_t j = 0; j < Cell::Dim; ++j) {
+        query.x(pointIdx, j) = transformed(j);
+      }
+      query.group(pointIdx) = cellToVertex_.elementGroups(elem);
     }
   }
 
@@ -172,11 +248,11 @@ easi::Query ElementAverageGenerator::generate() const {
 }
 
 easi::Query FaultBarycenterGenerator::generate() const {
-  const std::vector<Fault>& fault = m_meshReader.getFault();
-  const std::vector<Element>& elements = m_meshReader.getElements();
-  const std::vector<Vertex>& vertices = m_meshReader.getVertices();
+  const std::vector<Fault>& fault = meshReader_.getFault();
+  const std::vector<Element>& elements = meshReader_.getElements();
+  const std::vector<Vertex>& vertices = meshReader_.getVertices();
 
-  easi::Query query(m_numberOfPoints * fault.size(), 3);
+  easi::Query query(numberOfPoints_ * fault.size(), Cell::Dim);
   unsigned q = 0;
   for (const Fault& f : fault) {
     int element = 0;
@@ -191,8 +267,8 @@ easi::Query FaultBarycenterGenerator::generate() const {
 
     double barycenter[3] = {0.0, 0.0, 0.0};
     MeshTools::center(elements[element], side, vertices, barycenter);
-    for (unsigned n = 0; n < m_numberOfPoints; ++n, ++q) {
-      for (unsigned dim = 0; dim < 3; ++dim) {
+    for (std::size_t n = 0; n < numberOfPoints_; ++n, ++q) {
+      for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
         query.x(q, dim) = barycenter[dim];
       }
       query.group(q) = elements[element].faultTags[side];
@@ -202,17 +278,17 @@ easi::Query FaultBarycenterGenerator::generate() const {
 }
 
 easi::Query FaultGPGenerator::generate() const {
-  const std::vector<Fault>& fault = m_meshReader.getFault();
-  const std::vector<Element>& elements = m_meshReader.getElements();
-  auto cellToVertex = CellToVertexArray::fromMeshReader(m_meshReader);
+  const std::vector<Fault>& fault = meshReader_.getFault();
+  const std::vector<Element>& elements = meshReader_.getElements();
+  auto cellToVertex = CellToVertexArray::fromMeshReader(meshReader_);
 
   constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim;
-  auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
-  easi::Query query(NumPoints * m_faceIDs.size(), 3);
-  unsigned q = 0;
+  const auto pointsView = init::quadpoints::view::create(init::quadpoints::Values);
+  easi::Query query(NumPoints * faceIDs_.size(), Cell::Dim);
+  std::size_t q = 0;
   // loop over all fault elements which are managed by this generator
   // note: we have one generator per LTS layer
-  for (const unsigned faultId : m_faceIDs) {
+  for (const auto& faultId : faceIDs_) {
     const Fault& f = fault.at(faultId);
     int element = 0;
     int side = 0;
@@ -228,9 +304,10 @@ easi::Query FaultGPGenerator::generate() const {
     }
 
     auto coords = cellToVertex.elementCoordinates(element);
-    for (unsigned n = 0; n < NumPoints; ++n, ++q) {
+    for (std::size_t n = 0; n < NumPoints; ++n, ++q) {
       double xiEtaZeta[3];
-      double localPoints[2] = {pointsView(n, 0), pointsView(n, 1)};
+      double localPoints[2] = {seissol::multisim::multisimTranspose(pointsView, n, 0),
+                               seissol::multisim::multisimTranspose(pointsView, n, 1)};
       // padded points are in the middle of the tetrahedron
       if (n >= dr::misc::NumBoundaryGaussPoints) {
         localPoints[0] = 1.0 / 3.0;
@@ -240,7 +317,7 @@ easi::Query FaultGPGenerator::generate() const {
       seissol::transformations::chiTau2XiEtaZeta(side, localPoints, xiEtaZeta, sideOrientation);
       Eigen::Vector3d xyz = seissol::transformations::tetrahedronReferenceToGlobal(
           coords[0], coords[1], coords[2], coords[3], xiEtaZeta);
-      for (unsigned dim = 0; dim < 3; ++dim) {
+      for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
         query.x(q, dim) = xyz(dim);
       }
       query.group(q) = elements[element].faultTags[side];
@@ -248,8 +325,6 @@ easi::Query FaultGPGenerator::generate() const {
   }
   return query;
 }
-
-using namespace seissol::model;
 
 template <>
 void MaterialParameterDB<ElasticMaterial>::addBindingPoints(
@@ -272,8 +347,8 @@ void MaterialParameterDB<ViscoElasticMaterial>::addBindingPoints(
   adapter.addBindingPoint("rho", &ViscoElasticMaterial::rho);
   adapter.addBindingPoint("mu", &ViscoElasticMaterial::mu);
   adapter.addBindingPoint("lambda", &ViscoElasticMaterial::lambda);
-  adapter.addBindingPoint("Qp", &ViscoElasticMaterial::Qp);
-  adapter.addBindingPoint("Qs", &ViscoElasticMaterial::Qs);
+  adapter.addBindingPoint("Qp", &ViscoElasticMaterial::qp);
+  adapter.addBindingPoint("Qs", &ViscoElasticMaterial::qs);
 }
 
 template <>
@@ -334,14 +409,20 @@ void MaterialParameterDB<AnisotropicMaterial>::addBindingPoints(
 template <class T>
 void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
                                            const QueryGenerator& queryGen) {
-  easi::Component* model = loadEasiModel(fileName);
+  // NOLINTNEXTLINE(misc-const-correctness)
+  easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
-  const unsigned numPoints = query.numPoints();
+  const auto numPoints = query.numPoints();
 
   std::vector<T> materialsFromQuery(numPoints);
   easi::ArrayOfStructsAdapter<T> adapter(materialsFromQuery.data());
   MaterialParameterDB<T>().addBindingPoints(adapter);
-  model->evaluate(query, adapter);
+
+  easiEvalSafe(model, query, adapter, "volume material");
+
+  if (materials_->size() < numPoints) {
+    materials_->resize(numPoints);
+  }
 
   // Only use homogenization when ElementAverageGenerator has been supplied
   if (const auto* gen = dynamic_cast<const ElementAverageGenerator*>(&queryGen)) {
@@ -352,13 +433,13 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
 // particular material
 #pragma omp parallel for
     for (unsigned elementIdx = 0; elementIdx < numElems; ++elementIdx) {
-      m_materials->at(elementIdx) =
+      materials_->at(elementIdx) =
           this->computeAveragedMaterial(elementIdx, quadratureWeights, materialsFromQuery);
     }
   } else {
     // Usual behavior without homogenization
     for (unsigned i = 0; i < numPoints; ++i) {
-      m_materials->at(i) = T(materialsFromQuery[i]);
+      materials_->at(i) = T(materialsFromQuery[i]);
     }
   }
   delete model;
@@ -374,7 +455,7 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
 template <class T>
 T MaterialParameterDB<T>::computeAveragedMaterial(
     unsigned elementIdx,
-    const std::array<double, NumQuadpoints>& quadratureWeights,
+    const std::array<double, NumQuadpoints>& /*quadratureWeights*/,
     const std::vector<T>& materialsFromQuery) {
   logWarning() << "You want me to compute an average material for a generic type. In general, this "
                   "function should never be called, but always a proper specialization!";
@@ -455,8 +536,8 @@ ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedM
         elementMaterial.lambda /
         (2.0 * elementMaterial.mu * (3.0 * elementMaterial.lambda + 2.0 * elementMaterial.mu)) *
         quadWeight;
-    qpMean += elementMaterial.Qp * quadWeight;
-    qsMean += elementMaterial.Qs * quadWeight;
+    qpMean += elementMaterial.qp * quadWeight;
+    qsMean += elementMaterial.qs * quadWeight;
   }
 
   // Harmonic average is used for mu, so take the reciprocal
@@ -469,8 +550,8 @@ ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedM
   result.rho = rhoMean;
   result.mu = muMean;
   result.lambda = lambdaMean;
-  result.Qp = qpMean;
-  result.Qs = qsMean;
+  result.qp = qpMean;
+  result.qs = qsMean;
 
   return result;
 }
@@ -478,11 +559,16 @@ ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedM
 template <>
 void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& fileName,
                                                              const QueryGenerator& queryGen) {
-  easi::Component* model = loadEasiModel(fileName);
+  // NOLINTNEXTLINE(misc-const-correctness)
+  easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
   auto suppliedParameters = model->suppliedParameters();
   // TODO(Sebastian): inhomogeneous materials, where in some parts only mu and lambda are given
   //                  and in other parts the full elastic tensor is given
+  const auto numPoints = query.numPoints();
+  if (materials_->size() < numPoints) {
+    materials_->resize(numPoints);
+  }
 
   // if we look for an anisotropic material and only mu and lambda are supplied,
   // assume isotropic behavior and calculate the parameters accordingly
@@ -491,30 +577,31 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
     std::vector<ElasticMaterial> elasticMaterials(query.numPoints());
     easi::ArrayOfStructsAdapter<ElasticMaterial> adapter(elasticMaterials.data());
     MaterialParameterDB<ElasticMaterial>().addBindingPoints(adapter);
-    const unsigned numPoints = query.numPoints();
-    model->evaluate(query, adapter);
+    easiEvalSafe(model, query, adapter, "volume material (anisotropic -> elastic)");
 
     for (unsigned i = 0; i < numPoints; i++) {
-      m_materials->at(i) = AnisotropicMaterial(elasticMaterials[i]);
+      materials_->at(i) = AnisotropicMaterial(elasticMaterials[i]);
     }
   } else {
-    easi::ArrayOfStructsAdapter<AnisotropicMaterial> arrayOfStructsAdapter(m_materials->data());
+    easi::ArrayOfStructsAdapter<AnisotropicMaterial> arrayOfStructsAdapter(materials_->data());
     addBindingPoints(arrayOfStructsAdapter);
-    model->evaluate(query, arrayOfStructsAdapter);
+    easiEvalSafe(model, query, arrayOfStructsAdapter, "volume material (anisotropic)");
   }
   delete model;
 }
 
 void FaultParameterDB::evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) {
-  easi::Component* model = loadEasiModel(fileName);
+  // NOLINTNEXTLINE(misc-const-correctness)
+  easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
 
   easi::ArraysAdapter<real> adapter;
-  for (auto& kv : m_parameters) {
+  for (auto& kv : parameters_) {
     adapter.addBindingPoint(
-        kv.first, kv.second.first + simid, kv.second.second * multisim::NumSimulations);
+        kv.first, kv.second.first + simid_, kv.second.second * multisim::NumSimulations);
   }
-  model->evaluate(query, adapter);
+
+  easiEvalSafe(model, query, adapter, "fault material");
 
   delete model;
 }
@@ -523,25 +610,27 @@ std::set<std::string> FaultParameterDB::faultProvides(const std::string& fileNam
   if (fileName.empty()) {
     return {};
   }
-  easi::Component* model = loadEasiModel(fileName);
+
+  // NOLINTNEXTLINE(misc-const-correctness)
+  easi::Component* const model = loadEasiModel(fileName);
   std::set<std::string> supplied = model->suppliedParameters();
   delete model;
   return supplied;
 }
 
-EasiBoundary::EasiBoundary(const std::string& fileName) : model(loadEasiModel(fileName)) {}
+EasiBoundary::EasiBoundary(const std::string& fileName) : model_(loadEasiModel(fileName)) {}
 
-EasiBoundary::EasiBoundary(EasiBoundary&& other) noexcept : model(other.model) {}
+EasiBoundary::EasiBoundary(EasiBoundary&& other) noexcept : model_(other.model_) {}
 
 EasiBoundary& EasiBoundary::operator=(EasiBoundary&& other) noexcept {
-  std::swap(model, other.model);
+  std::swap(model_, other.model_);
   return *this;
 }
 
-EasiBoundary::~EasiBoundary() { delete model; }
+EasiBoundary::~EasiBoundary() { delete model_; }
 
 void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTermsData) const {
-  if (model == nullptr) {
+  if (model_ == nullptr) {
     logError() << "Model for easi-provided boundary is not initialized.";
   }
   if (tensor::INodal::Shape[1] != 9) {
@@ -559,7 +648,7 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
     query.x(i, 2) = nodes[offset++];
     query.group(i) = 1;
   }
-  const auto& supplied = model->suppliedParameters();
+  const auto& supplied = model_->suppliedParameters();
 
   // Shear stresses are irrelevant for riemann problem
   // Hence they have dummy names and won't be used for this bc.
@@ -572,7 +661,7 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
   // Note that easi only supports
 
   // Constant terms stores all terms of the vector b
-  auto constantTerms = init::easiBoundaryConstant::view::create((constantTermsData));
+  auto constantTerms = init::easiBoundaryConstant::view::create(constantTermsData);
 
   // Map terms stores all terms of the linear map A
   auto mapTerms = init::easiBoundaryMap::view::create(mapTermsData);
@@ -612,7 +701,7 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
       ++offset;
     }
   }
-  model->evaluate(query, adapter);
+  easiEvalSafe(model_, query, adapter, "Dirichlet BC data");
 }
 
 easi::Component* loadEasiModel(const std::string& fileName) {
@@ -622,11 +711,16 @@ easi::Component* loadEasiModel(const std::string& fileName) {
 #else
   easi::YAMLParser parser(3);
 #endif
-  return parser.parse(fileName);
+  try {
+    return parser.parse(fileName);
+  } catch (const std::exception& error) {
+    logError() << "Error while parsing easi file" << fileName << ":" << std::string(error.what());
+    // silence no-return warnings
+    return nullptr;
+  }
 }
 
-std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
-                                                      bool useCellHomogenizedMaterial,
+std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMaterial,
                                                       const CellToVertexArray& cellToVertex) {
   std::shared_ptr<QueryGenerator> queryGen;
   if (!useCellHomogenizedMaterial) {
@@ -636,11 +730,6 @@ std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
       logWarning() << "Material Averaging is not implemented for " << MaterialT::Text
                    << " materials. Falling back to "
                       "material properties sampled from the element barycenters instead.";
-      queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
-    } else if (plasticity) {
-      logWarning()
-          << "Material Averaging is not implemented for plastic materials. Falling back to "
-             "material properties sampled from the element barycenters instead.";
       queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
     } else {
       queryGen = std::make_shared<ElementAverageGenerator>(cellToVertex);

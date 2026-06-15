@@ -8,66 +8,66 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Rettenberger
 
+#include "FlopCounter.h"
+
+#include "Numerical/Statistics.h"
+#include "Parallel/MPI.h"
 #include "Unit.h"
+
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <fstream>
 #include <mpi.h>
 #include <ostream>
 #include <string>
-
-#include "Numerical/Statistics.h"
+#include <utils/logger.h>
 
 // NOLINTNEXTLINE
 long long libxsmm_num_total_flops = 0;
 // NOLINTNEXTLINE
 long long pspamm_num_total_flops = 0;
 
-#include "Parallel/MPI.h"
-
-#include "FlopCounter.h"
-
-#include <utils/logger.h>
-
 namespace seissol::monitoring {
 
 void FlopCounter::init(const std::string& outputFileNamePrefix) {
   const std::string outputFileName = outputFileNamePrefix + "-flops.csv";
-  const int rank = seissol::MPI::mpi.rank();
-  const auto worldSize = static_cast<size_t>(seissol::MPI::mpi.size());
+  const int rank = seissol::Mpi::mpi.rank();
+  const auto worldSize = static_cast<size_t>(seissol::Mpi::mpi.size());
   if (rank == 0) {
-    out.open(outputFileName);
-    out << "time,";
+    out_.open(outputFileName);
+    out_ << "time,";
     const auto datasetHeaders = [&](const std::string& suffix) {
       for (size_t i = 0; i < worldSize; ++i) {
-        out << "rank_" << i << "_" << suffix << ",";
+        out_ << "rank_" << i << "_" << suffix << ",";
       }
     };
     datasetHeaders("hw_accumulated");
     datasetHeaders("hw_epoch");
     datasetHeaders("nz_accumulated");
     datasetHeaders("nz_epoch");
-    out << std::endl;
+    out_ << std::endl;
   }
 }
 
 void FlopCounter::printPerformanceUpdate(double wallTime) {
-  const int rank = seissol::MPI::mpi.rank();
-  const auto worldSize = static_cast<size_t>(seissol::MPI::mpi.size());
+  const int rank = seissol::Mpi::mpi.rank();
+  const auto worldSize = static_cast<size_t>(seissol::Mpi::mpi.size());
 
-  const long long newTotalHWFlops = hardwareFlopsLocal + hardwareFlopsNeighbor +
-                                    hardwareFlopsOther + hardwareFlopsDynamicRupture +
-                                    hardwareFlopsPlasticity;
-  const long long diffHWFlops = newTotalHWFlops - previousTotalHWFlops;
-  previousTotalHWFlops = newTotalHWFlops;
+  const long long newTotalHWFlops = hardwareFlopsLocal_ + hardwareFlopsNeighbor_ +
+                                    hardwareFlopsOther_ + hardwareFlopsDynamicRupture_ +
+                                    hardwareFlopsPlasticity_;
+  const long long diffHWFlops = newTotalHWFlops - previousTotalHWFlops_;
+  previousTotalHWFlops_ = newTotalHWFlops;
 
-  const long long newTotalNZFlops = nonZeroFlopsLocal + nonZeroFlopsNeighbor + nonZeroFlopsOther +
-                                    nonZeroFlopsDynamicRupture + nonZeroFlopsPlasticity;
-  const long long diffNZFlops = newTotalNZFlops - previousTotalNZFlops;
-  previousTotalNZFlops = newTotalNZFlops;
+  const long long newTotalNZFlops = nonZeroFlopsLocal_ + nonZeroFlopsNeighbor_ +
+                                    nonZeroFlopsOther_ + nonZeroFlopsDynamicRupture_ +
+                                    nonZeroFlopsPlasticity_;
+  const long long diffNZFlops = newTotalNZFlops - previousTotalNZFlops_;
+  previousTotalNZFlops_ = newTotalNZFlops;
 
-  const double diffTime = wallTime - previousWallTime;
-  previousWallTime = wallTime;
+  const double diffTime = wallTime - previousWallTime_;
+  previousWallTime_ = wallTime;
 
   const double accumulatedHWGflopsPerSecond = newTotalHWFlops * 1.e-9 / wallTime;
   const double accumulatedNZGflopsPerSecond = newTotalNZFlops * 1.e-9 / wallTime;
@@ -75,11 +75,11 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
   const double previousNZGflopsPerSecond = diffNZFlops * 1.e-9 / diffTime;
 
   if (rank == 0) {
-    out << wallTime << ",";
+    out_ << wallTime << ",";
   }
 
   const auto handleFlopsDataset = [&](auto local, const std::string& message) {
-    const auto localOnRanks = seissol::MPI::mpi.collect(local);
+    const auto localOnRanks = seissol::Mpi::mpi.collect(local);
     const auto localSummary = seissol::statistics::Summary(localOnRanks);
 
     if (rank == 0) {
@@ -90,7 +90,7 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
           << UnitFlopPerS.formatPrefix(localSummary.mean * 1e9, localSummary.std * 1e9).c_str()
           << ")";
       for (size_t i = 0; i < worldSize; i++) {
-        out << localOnRanks[i] << ",";
+        out_ << localOnRanks[i] << ",";
       }
     }
   };
@@ -101,7 +101,7 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
   handleFlopsDataset(accumulatedNZGflopsPerSecond, "NZ-FLOP/s since start:");
   handleFlopsDataset(previousNZGflopsPerSecond, "NZ-FLOP/s last epoch: ");
 
-  out << std::endl;
+  out_ << std::endl;
 }
 
 /**
@@ -120,28 +120,28 @@ void FlopCounter::printPerformanceSummary(double wallTime) const {
     NumCounters
   };
 
-  double flops[NumCounters];
+  std::array<double, NumCounters> flops{};
 
   flops[Libxsmm] = libxsmm_num_total_flops;
   flops[Pspamm] = pspamm_num_total_flops;
-  flops[WPNonZeroFlops] = nonZeroFlopsLocal + nonZeroFlopsNeighbor + nonZeroFlopsOther;
-  flops[WPHardwareFlops] = hardwareFlopsLocal + hardwareFlopsNeighbor + hardwareFlopsOther;
-  flops[DRNonZeroFlops] = nonZeroFlopsDynamicRupture;
-  flops[DRHardwareFlops] = hardwareFlopsDynamicRupture;
-  flops[PLNonZeroFlops] = nonZeroFlopsPlasticity;
-  flops[PLHardwareFlops] = hardwareFlopsPlasticity;
+  flops[WPNonZeroFlops] = nonZeroFlopsLocal_ + nonZeroFlopsNeighbor_ + nonZeroFlopsOther_;
+  flops[WPHardwareFlops] = hardwareFlopsLocal_ + hardwareFlopsNeighbor_ + hardwareFlopsOther_;
+  flops[DRNonZeroFlops] = nonZeroFlopsDynamicRupture_;
+  flops[DRHardwareFlops] = hardwareFlopsDynamicRupture_;
+  flops[PLNonZeroFlops] = nonZeroFlopsPlasticity_;
+  flops[PLHardwareFlops] = hardwareFlopsPlasticity_;
 
-  double totalFlops[NumCounters];
-  MPI_Reduce(&flops, &totalFlops, NumCounters, MPI_DOUBLE, MPI_SUM, 0, seissol::MPI::mpi.comm());
+  MPI_Allreduce(
+      MPI_IN_PLACE, flops.data(), flops.size(), MPI_DOUBLE, MPI_SUM, seissol::Mpi::mpi.comm());
 
 #ifndef NDEBUG
-  logInfo() << "Total    libxsmm HW-FLOP: " << UnitFlop.formatPrefix(totalFlops[Libxsmm]).c_str();
-  logInfo() << "Total     pspamm HW-FLOP: " << UnitFlop.formatPrefix(totalFlops[Pspamm]).c_str();
+  logInfo() << "Total    libxsmm HW-FLOP: " << UnitFlop.formatPrefix(flops[Libxsmm]).c_str();
+  logInfo() << "Total     pspamm HW-FLOP: " << UnitFlop.formatPrefix(flops[Pspamm]).c_str();
 #endif
   const auto totalHardwareFlops =
-      totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] + totalFlops[PLHardwareFlops];
+      flops[WPHardwareFlops] + flops[DRHardwareFlops] + flops[PLHardwareFlops];
   const auto totalNonZeroFlops =
-      totalFlops[WPNonZeroFlops] + totalFlops[DRNonZeroFlops] + totalFlops[PLNonZeroFlops];
+      flops[WPNonZeroFlops] + flops[DRNonZeroFlops] + flops[PLNonZeroFlops];
 
   const auto percentageUsefulFlops = totalNonZeroFlops / totalHardwareFlops * 100;
 
@@ -150,67 +150,61 @@ void FlopCounter::printPerformanceSummary(double wallTime) const {
   logInfo() << "NZ part of HW-FLOP:" << percentageUsefulFlops << "%";
   logInfo() << "Total calculated HW-FLOP/s: "
             << UnitFlopPerS
-                   .formatPrefix((totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] +
-                                  totalFlops[PLHardwareFlops]) /
-                                 wallTime)
+                   .formatPrefix(
+                       (flops[WPHardwareFlops] + flops[DRHardwareFlops] + flops[PLHardwareFlops]) /
+                       wallTime)
                    .c_str();
   logInfo() << "Total calculated NZ-FLOP/s: "
             << UnitFlopPerS
-                   .formatPrefix((totalFlops[WPNonZeroFlops] + totalFlops[DRNonZeroFlops] +
-                                  totalFlops[PLNonZeroFlops]) /
-                                 wallTime)
+                   .formatPrefix(
+                       (flops[WPNonZeroFlops] + flops[DRNonZeroFlops] + flops[PLNonZeroFlops]) /
+                       wallTime)
                    .c_str();
-  logInfo() << "WP calculated HW-FLOP: "
-            << UnitFlop.formatPrefix(totalFlops[WPHardwareFlops]).c_str();
-  logInfo() << "WP calculated NZ-FLOP: "
-            << UnitFlop.formatPrefix(totalFlops[WPNonZeroFlops]).c_str();
-  logInfo() << "DR calculated HW-FLOP: "
-            << UnitFlop.formatPrefix(totalFlops[DRHardwareFlops]).c_str();
-  logInfo() << "DR calculated NZ-FLOP: "
-            << UnitFlop.formatPrefix(totalFlops[DRNonZeroFlops]).c_str();
-  logInfo() << "PL calculated HW-FLOP: "
-            << UnitFlop.formatPrefix(totalFlops[PLHardwareFlops]).c_str();
-  logInfo() << "PL calculated NZ-FLOP: "
-            << UnitFlop.formatPrefix(totalFlops[PLNonZeroFlops]).c_str();
+  logInfo() << "WP calculated HW-FLOP: " << UnitFlop.formatPrefix(flops[WPHardwareFlops]).c_str();
+  logInfo() << "WP calculated NZ-FLOP: " << UnitFlop.formatPrefix(flops[WPNonZeroFlops]).c_str();
+  logInfo() << "DR calculated HW-FLOP: " << UnitFlop.formatPrefix(flops[DRHardwareFlops]).c_str();
+  logInfo() << "DR calculated NZ-FLOP: " << UnitFlop.formatPrefix(flops[DRNonZeroFlops]).c_str();
+  logInfo() << "PL calculated HW-FLOP: " << UnitFlop.formatPrefix(flops[PLHardwareFlops]).c_str();
+  logInfo() << "PL calculated NZ-FLOP: " << UnitFlop.formatPrefix(flops[PLNonZeroFlops]).c_str();
 }
 void FlopCounter::incrementNonZeroFlopsLocal(long long update) {
   assert(update >= 0);
-  nonZeroFlopsLocal += update;
+  nonZeroFlopsLocal_ += update;
 }
 void FlopCounter::incrementHardwareFlopsLocal(long long update) {
   assert(update >= 0);
-  hardwareFlopsLocal += update;
+  hardwareFlopsLocal_ += update;
 }
 void FlopCounter::incrementNonZeroFlopsNeighbor(long long update) {
   assert(update >= 0);
-  nonZeroFlopsNeighbor += update;
+  nonZeroFlopsNeighbor_ += update;
 }
 void FlopCounter::incrementHardwareFlopsNeighbor(long long update) {
   assert(update >= 0);
-  hardwareFlopsNeighbor += update;
+  hardwareFlopsNeighbor_ += update;
 }
 void FlopCounter::incrementNonZeroFlopsOther(long long update) {
   assert(update >= 0);
-  nonZeroFlopsOther += update;
+  nonZeroFlopsOther_ += update;
 }
 void FlopCounter::incrementHardwareFlopsOther(long long update) {
   assert(update >= 0);
-  hardwareFlopsOther += update;
+  hardwareFlopsOther_ += update;
 }
 void FlopCounter::incrementNonZeroFlopsDynamicRupture(long long update) {
   assert(update >= 0);
-  nonZeroFlopsDynamicRupture += update;
+  nonZeroFlopsDynamicRupture_ += update;
 }
 void FlopCounter::incrementHardwareFlopsDynamicRupture(long long update) {
   assert(update >= 0);
-  hardwareFlopsDynamicRupture += update;
+  hardwareFlopsDynamicRupture_ += update;
 }
 void FlopCounter::incrementNonZeroFlopsPlasticity(long long update) {
   assert(update >= 0);
-  nonZeroFlopsPlasticity += update;
+  nonZeroFlopsPlasticity_ += update;
 }
 void FlopCounter::incrementHardwareFlopsPlasticity(long long update) {
   assert(update >= 0);
-  hardwareFlopsPlasticity += update;
+  hardwareFlopsPlasticity_ += update;
 }
 } // namespace seissol::monitoring

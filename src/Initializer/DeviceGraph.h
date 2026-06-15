@@ -8,17 +8,16 @@
 #ifndef SEISSOL_SRC_INITIALIZER_DEVICEGRAPH_H_
 #define SEISSOL_SRC_INITIALIZER_DEVICEGRAPH_H_
 
-#ifdef ACL_DEVICE
-
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+
 #include <cstddef>
 
 namespace seissol::initializer {
 struct GraphKey {
-  GraphKey(ComputeGraphType userGraphType,
-           double userTimeWidth = 0.0,
-           bool withDisplacements = false)
+  explicit GraphKey(ComputeGraphType userGraphType,
+                    double userTimeWidth = 0.0,
+                    bool withDisplacements = false)
       : graphType(userGraphType), timeWidth(userTimeWidth), withDisplacements(withDisplacements) {}
 
   bool operator==(const GraphKey& other) const {
@@ -40,7 +39,5 @@ struct GraphKeyHash {
   }
 };
 } // namespace seissol::initializer
-
-#endif // ACL_DEVICE
 
 #endif // SEISSOL_SRC_INITIALIZER_DEVICEGRAPH_H_

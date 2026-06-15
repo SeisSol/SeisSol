@@ -6,7 +6,10 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "ODEInt.h"
-#include <Kernels/Precision.h>
+
+#include "Kernels/Precision.h"
+
+#include <Eigen/Core>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -15,8 +18,10 @@
 
 namespace seissol::ode {
 
+namespace {
+
 int getNumberOfStages(RungeKuttaVariant variant) {
-  std::unordered_map<RungeKuttaVariant, int> variantToNumberOfStages = {
+  static std::unordered_map<RungeKuttaVariant, int> variantToNumberOfStages = {
       {RungeKuttaVariant::RK4, 4},
       {RungeKuttaVariant::RK4Ralston, 4},
       {RungeKuttaVariant::RK438, 4},
@@ -240,30 +245,58 @@ void initializeRungeKuttaScheme(RungeKuttaVariant variant,
   }
 }
 
+} // namespace
+
 RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storageSizes,
                                          ODESolverConfig config)
-    : config(config) {
-  initializeRungeKuttaScheme(config.solver, numberOfStages, a, b, c);
-  // Initialize storages for stages
-  stages.reserve(numberOfStages);
-  storages.reserve((numberOfStages + 1) * storageSizes.size()); // +1 due to buffer
-  auto curStoragePtrs = std::vector<real*>(storageSizes.size());
-  for (auto i = 0; i < numberOfStages; ++i) {
-    curStoragePtrs.clear();
-    for (const unsigned long storageSize : storageSizes) {
-      curStoragePtrs.push_back(storages.emplace_back(storageSize).data());
+    : config_(config) {
+
+  // NOTE: we initialize in Eigen, but copy to std vectors afterwards.
+  // Because e.g. NVHPC seemed to have a big problem with this case somehow after some refactor.
+  // And, to be honest, I (David) am not yet sure why.
+
+  {
+    Eigen::MatrixXd an;
+    Eigen::VectorXd bn;
+    Eigen::VectorXd cn;
+
+    initializeRungeKuttaScheme(config.solver, numberOfStages_, an, bn, cn);
+
+    a_.resize(static_cast<long>(numberOfStages_) * numberOfStages_);
+    b_.resize(numberOfStages_);
+    c_.resize(numberOfStages_);
+
+    for (int i = 0; i < numberOfStages_; ++i) {
+      for (int j = 0; j < numberOfStages_; ++j) {
+        a_[i * numberOfStages_ + j] = an(i, j);
+      }
+      b_[i] = bn[i];
+      c_[i] = cn[i];
     }
-    stages.emplace_back(curStoragePtrs, storageSizes);
+  }
+
+  const auto allocateStorage = [&]() {
+    auto curStoragePtrs = std::vector<real*>();
+    curStoragePtrs.reserve(storageSizes.size());
+    for (const auto storageSize : storageSizes) {
+      curStoragePtrs.push_back(storages_.emplace_back(storageSize).data());
+    }
+    return curStoragePtrs;
+  };
+
+  // TODO: maybe combine everything in a single buffer sometime?
+
+  // Initialize storages for stages
+  stages_.reserve(numberOfStages_);
+  storages_.reserve((numberOfStages_ + 1) * storageSizes.size()); // +1 due to buffer
+  for (int i = 0; i < numberOfStages_; ++i) {
+    stages_.emplace_back(allocateStorage(), storageSizes);
   }
 
   // Initialize buffer
-  curStoragePtrs.clear();
-  for (const unsigned long storageSize : storageSizes) {
-    curStoragePtrs.push_back(storages.emplace_back(storageSize).data());
-  }
-  buffer.updateStoragesAndSizes(curStoragePtrs, storageSizes);
+  buffer_.updateStoragesAndSizes(allocateStorage(), storageSizes);
 }
 
-void RungeKuttaODESolver::setConfig(ODESolverConfig newConfig) { config = newConfig; }
+void RungeKuttaODESolver::setConfig(ODESolverConfig newConfig) { config_ = newConfig; }
 
 } // namespace seissol::ode

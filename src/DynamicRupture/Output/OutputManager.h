@@ -10,8 +10,12 @@
 
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.h"
 #include "DynamicRupture/Output/Builders/PickPointBuilder.h"
+#include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Memory/Tree/Backmap.h"
+#include "Parallel/Runtime/Stream.h"
+
 #include <memory>
 
 namespace seissol {
@@ -22,51 +26,69 @@ namespace dr::output {
 class OutputManager {
   public:
   ~OutputManager();
+  auto operator=(const OutputManager&) = delete;
+  auto operator=(OutputManager&&) = delete;
+  OutputManager(const OutputManager&) = delete;
+  OutputManager(OutputManager&&) = delete;
+
   OutputManager() = delete;
   OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl, seissol::SeisSol& seissolInstance);
   void setInputParam(seissol::geometry::MeshReader& userMesher);
-  void setLtsData(seissol::initializer::LTSTree* userWpTree,
-                  seissol::initializer::LTS* userWpDescr,
-                  seissol::initializer::Lut* userWpLut,
-                  seissol::initializer::LTSTree* userDrTree,
-                  seissol::initializer::DynamicRupture* userDrDescr);
-  void setBackupTimeStamp(const std::string& stamp) { this->backupTimeStamp = stamp; }
+  void setLtsData(LTS::Storage& userWpStorage,
+                  LTS::Backmap& userWpBackmap,
+                  DynamicRupture::Storage& userDrStorage);
+  void setBackupTimeStamp(const std::string& stamp) { this->backupTimeStamp_ = stamp; }
 
   void init();
   void initFaceToLtsMap();
   void writePickpointOutput(double time, double dt);
+  void writePickpointOutput(std::size_t layerId,
+                            double time,
+                            double dt,
+                            double meshDt,
+                            double meshInDt,
+                            parallel::runtime::StreamRuntime& runtime);
   void flushPickpointDataToFile();
   void updateElementwiseOutput();
 
   private:
-  seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance_;
 
   protected:
   bool isAtPickpoint(double time, double dt);
   void initElementwiseOutput();
   void initPickpointOutput();
 
-  std::unique_ptr<ElementWiseBuilder> ewOutputBuilder{nullptr};
-  std::unique_ptr<PickPointBuilder> ppOutputBuilder{nullptr};
+  std::unique_ptr<ElementWiseBuilder> ewOutputBuilder_{nullptr};
+  std::unique_ptr<PickPointBuilder> ppOutputBuilder_{nullptr};
 
-  std::shared_ptr<ReceiverOutputData> ewOutputData{nullptr};
-  std::shared_ptr<ReceiverOutputData> ppOutputData{nullptr};
+  std::shared_ptr<ReceiverOutputData> ewOutputData_{nullptr};
+  std::unordered_map<std::size_t, std::shared_ptr<ReceiverOutputData>> ppOutputData_;
 
-  seissol::initializer::LTS* wpDescr{nullptr};
-  seissol::initializer::LTSTree* wpTree{nullptr};
-  seissol::initializer::Lut* wpLut{nullptr};
-  seissol::initializer::LTSTree* drTree{nullptr};
-  seissol::initializer::DynamicRupture* drDescr{nullptr};
+  struct PickpointFile {
+    std::string fileName;
 
-  FaceToLtsMapType faceToLtsMap{};
-  std::vector<std::size_t> globalFaceToLtsMap;
-  seissol::geometry::MeshReader* meshReader{nullptr};
+    // all receivers to be printed into this file
+    std::vector<std::size_t> indices;
+  };
 
-  size_t iterationStep{0};
-  static constexpr double timeMargin{1.005};
-  std::string backupTimeStamp{};
+  std::unordered_map<std::size_t, std::vector<PickpointFile>> ppFiles_;
 
-  std::unique_ptr<ReceiverOutput> impl{nullptr};
+  LTS::Storage* wpStorage_{nullptr};
+  LTS::Backmap* wpBackmap_{nullptr};
+  DynamicRupture::Storage* drStorage_{nullptr};
+
+  FaceToLtsMapType faceToLtsMap_;
+  std::vector<::seissol::initializer::StoragePosition> globalFaceToLtsMap_;
+  seissol::geometry::MeshReader* meshReader_{nullptr};
+
+  size_t iterationStep_{0};
+  static constexpr double TimeMargin{1.005};
+  std::string backupTimeStamp_;
+
+  std::unique_ptr<ReceiverOutput> impl_{nullptr};
+
+  parallel::runtime::StreamRuntime runtime_;
 };
 } // namespace dr::output
 } // namespace seissol

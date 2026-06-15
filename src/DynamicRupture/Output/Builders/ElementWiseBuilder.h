@@ -11,53 +11,54 @@
 #include "DynamicRupture/Output/FaultRefiner/FaultRefiners.h"
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
+#include "GeneratedCode/init.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Numerical/Transformation.h"
 #include "ReceiverBasedOutputBuilder.h"
-#include <init.h>
 
 namespace seissol::dr::output {
 class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   public:
   ~ElementWiseBuilder() override = default;
   void setParams(const seissol::initializer::parameters::ElementwiseFaultParameters& params) {
-    elementwiseParams = params;
+    elementwiseParams_ = params;
   }
-  void build(std::shared_ptr<ReceiverOutputData> elementwiseOutputData) override {
-    outputData = elementwiseOutputData;
+  void build(std::shared_ptr<ReceiverOutputData> elementwiseOutputData) {
+    outputData_ = std::move(elementwiseOutputData);
     initReceiverLocations();
-    assignNearestGaussianPoints(outputData->receiverPoints);
+    assignNearestGaussianPoints(outputData_->receiverPoints);
     assignNearestInternalGaussianPoints();
+    assignFusedIndices();
     assignFaultTags();
     initTimeCaching();
-    initOutputVariables(elementwiseParams.outputMask);
+    initOutputVariables(elementwiseParams_.outputMask);
     initFaultDirections();
     initRotationMatrices();
-    initBasisFunctions();
+    initBasisFunctions(true);
     initJacobian2dMatrices();
-    outputData->isActive = true;
+    outputData_->isActive = true;
   }
 
   protected:
   void initTimeCaching() override {
-    outputData->maxCacheLevel = ElementWiseBuilder::MaxAllowedCacheLevel;
-    outputData->currentCacheLevel = 0;
+    outputData_->maxCacheLevel = ElementWiseBuilder::MaxAllowedCacheLevel;
+    outputData_->currentCacheLevel = 0;
   }
 
   void initReceiverLocations() {
-    if (elementwiseParams.vtkorder < 0) {
-      auto faultRefiner = refiner::get(elementwiseParams.refinementStrategy);
+    if (elementwiseParams_.vtkorder < 0) {
+      auto faultRefiner = refiner::get(elementwiseParams_.refinementStrategy);
 
-      const auto numFaultElements = meshReader->getFault().size();
+      const auto numFaultElements = meshReader_->getFault().size();
       const auto numSubTriangles = faultRefiner->getNumSubTriangles();
 
       logInfo() << "Initializing Fault output."
                 << "Number of sub-triangles:" << numSubTriangles;
 
       // get arrays of elements and vertices from the meshReader
-      const auto& faultInfo = meshReader->getFault();
-      const auto& elementsInfo = meshReader->getElements();
-      const auto& verticesInfo = meshReader->getVertices();
+      const auto& faultInfo = meshReader_->getFault();
+      const auto& elementsInfo = meshReader_->getElements();
+      const auto& verticesInfo = meshReader_->getVertices();
 
       // iterate through each fault side
       for (size_t faceIdx = 0; faceIdx < numFaultElements; ++faceIdx) {
@@ -80,29 +81,32 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
           const auto faceSideIdx = fault.side;
 
           // init reference coordinates of the fault face
-          ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);
+          const ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);
 
           // init global coordinates of the fault face
-          ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
+          const ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
 
-          faultRefiner->refineAndAccumulate(
-              {elementwiseParams.refinement, static_cast<int>(faceIdx), faceSideIdx, elementIdx},
-              std::make_pair(globalFace, referenceTriangle));
+          faultRefiner->refineAndAccumulate({elementwiseParams_.refinement,
+                                             static_cast<int>(faceIdx),
+                                             faceSideIdx,
+                                             elementIdx,
+                                             element.globalId},
+                                            std::make_pair(globalFace, referenceTriangle));
         }
       }
 
       // retrieve all receivers from a fault face refiner
-      outputData->receiverPoints = faultRefiner->moveAllReceiverPoints();
+      outputData_->receiverPoints = faultRefiner->moveAllReceiverPoints();
       faultRefiner.reset(nullptr);
     } else {
-      const auto order = elementwiseParams.vtkorder;
+      const auto order = elementwiseParams_.vtkorder;
 
-      const auto numFaultElements = meshReader->getFault().size();
+      const auto numFaultElements = meshReader_->getFault().size();
 
       // get arrays of elements and vertices from the meshReader
-      const auto& faultInfo = meshReader->getFault();
-      const auto& elementsInfo = meshReader->getElements();
-      const auto& verticesInfo = meshReader->getVertices();
+      const auto& faultInfo = meshReader_->getFault();
+      const auto& elementsInfo = meshReader_->getElements();
+      const auto& verticesInfo = meshReader_->getVertices();
 
       std::size_t faceCount = 0;
       for (size_t faceIdx = 0; faceIdx < numFaultElements; ++faceIdx) {
@@ -116,7 +120,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         }
       }
 
-      outputData->receiverPoints.resize(faceCount * seissol::init::vtk2d::Shape[order][1]);
+      outputData_->receiverPoints.resize(faceCount * seissol::init::vtk2d::Shape[order][1]);
       std::size_t faceOffset = 0;
 
       // iterate through each fault side
@@ -139,16 +143,13 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
 
           const auto faceSideIdx = fault.side;
 
-          // init reference coordinates of the fault face
-          ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);
-
           // init global coordinates of the fault face
-          ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
+          const ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
 
           for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
             auto& receiverPoint =
-                outputData->receiverPoints[faceOffset * seissol::init::vtk2d::Shape[order][1] + i];
-            real nullpoint[2] = {0, 0};
+                outputData_->receiverPoints[faceOffset * seissol::init::vtk2d::Shape[order][1] + i];
+            const real nullpoint[2] = {0, 0};
             const real* prepoint =
                 i > 0 ? (seissol::init::vtk2d::Values[order] + (i - 1) * 2) : nullpoint;
             double point[2] = {prepoint[0], prepoint[1]};
@@ -164,6 +165,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
             receiverPoint.faultFaceIndex = faceIdx;
             receiverPoint.localFaceSideId = faceSideIdx;
             receiverPoint.elementIndex = element.localId;
+            receiverPoint.elementGlobalIndex = element.globalId;
             receiverPoint.globalReceiverIndex =
                 faceOffset * seissol::init::vtk2d::Shape[order][1] + i;
             receiverPoint.faultTag = fault.tag;
@@ -178,7 +180,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   inline const static size_t MaxAllowedCacheLevel = 1;
 
   private:
-  seissol::initializer::parameters::ElementwiseFaultParameters elementwiseParams;
+  seissol::initializer::parameters::ElementwiseFaultParameters elementwiseParams_;
 };
 } // namespace seissol::dr::output
 

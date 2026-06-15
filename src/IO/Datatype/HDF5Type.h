@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_IO_DATATYPE_HDF5TYPE_H_
 
 #include "Datatype.h"
+
 #include <hdf5.h>
 #include <memory>
 

@@ -8,13 +8,13 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_POINT_TABLEWRITER_H_
 #define SEISSOL_SRC_IO_INSTANCE_POINT_TABLEWRITER_H_
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Writer/Writer.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Writer/Writer.h"
+
 #include <functional>
 #include <memory>
 #include <string>
-
-#include "utils/logger.h"
+#include <utils/logger.h>
 
 namespace seissol::io::instance::point {
 
@@ -44,11 +44,11 @@ class TableWriter {
   virtual std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter() = 0;
 
   protected:
-  std::string name;
-  std::vector<TableQuantity> quantities;
-  std::vector<char> rowstorage;
-  std::size_t rowCount{0};
-  std::size_t inrowPos{0};
+  std::string name_;
+  std::vector<TableQuantity> quantities_;
+  std::vector<char> rowstorage_;
+  std::size_t rowCount_{0};
+  std::size_t inrowPos_{0};
 };
 
 } // namespace seissol::io::instance::point

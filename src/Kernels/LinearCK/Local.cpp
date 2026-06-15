@@ -7,44 +7,44 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "Kernels/LinearCK/LocalBase.h"
+#include "Kernels/LinearCK/Local.h"
 
-#include <Alignment.h>
-#include <Common/Constants.h>
-#include <DataTypes/ConditionalTable.h>
-#include <Initializer/BasicTypedefs.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Interface.h>
-#include <Kernels/Precision.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
-#include <Parallel/Runtime/Stream.h>
-#include <Physics/InitialField.h>
-#include <Solver/MultipleSimulations.h>
-#include <cstddef>
-#include <generated_code/init.h>
-#include <generated_code/kernel.h>
-#include <tensor.h>
-#include <vector>
-#include <yateto.h>
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Common/Marker.h"
+#include "Config.h"
+#include "DirichletBoundary.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Kernels/Interface.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
+#include "Parallel/Runtime/Stream.h"
+#include "Physics/InitialField.h"
+#include "Solver/MultipleSimulations.h"
 
 #include <array>
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <memory>
 #include <stdint.h>
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
-#include "DirichletBoundary.h"
-#pragma GCC diagnostic pop
-
-#include "Kernels/Common.h"
-
-#include "utils/logger.h"
-
-#include "Config.h"
+#include <utils/logger.h>
+#include <vector>
+#include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Kernels/LinearCK/DeviceAux/KernelsAux.h"
 #endif
 
 GENERATE_HAS_MEMBER(ET)
@@ -62,121 +62,130 @@ GENERATE_HAS_MEMBER(globalMproject2nFaceTo3m)
 namespace seissol::kernels::solver::linearck {
 
 void Local::setGlobalData(const CompoundGlobalData& global) {
-  set_kDivM(m_volumeKernelPrototype, global.onHost->stiffnessMatrices);
-  set_rDivM(m_localFluxKernelPrototype, global.onHost->changeOfBasisMatrices);
-  set_fMrT(m_localFluxKernelPrototype, global.onHost->localChangeOfBasisMatricesTransposed);
+  set_kDivM(volumeKernelPrototype_, global.onHost->stiffnessMatrices);
+  set_rDivM(localFluxKernelPrototype_, global.onHost->changeOfBasisMatrices);
+  set_fMrT(localFluxKernelPrototype_, global.onHost->localChangeOfBasisMatricesTransposed);
 
-  set_project2nFaceTo3m(m_nodalLfKrnlPrototype, global.onHost->project2nFaceTo3m);
+  set_project2nFaceTo3m(nodalLfKrnlPrototype_, global.onHost->project2nFaceTo3m);
 
-  m_projectKrnlPrototype.V3mTo2nFace = global.onHost->V3mTo2nFace;
-  m_projectRotatedKrnlPrototype.V3mTo2nFace = global.onHost->V3mTo2nFace;
+  projectKrnlPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
+  projectRotatedKrnlPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
-  const auto deviceAlignment = device.api->getGlobMemAlignment();
 
-  set_kDivM(deviceVolumeKernelPrototype, global.onDevice->stiffnessMatrices);
+  set_kDivM(deviceVolumeKernelPrototype_, global.onDevice->stiffnessMatrices);
 #ifdef USE_PREMULTIPLY_FLUX
-  deviceLocalFluxKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
+  deviceLocalFluxKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
+  deviceLocalFluxAllKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
 #else
-  set_rDivM(deviceLocalFluxKernelPrototype, global.onDevice->changeOfBasisMatrices);
-  deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+  set_rDivM(deviceLocalFluxKernelPrototype_, global.onDevice->changeOfBasisMatrices);
+  deviceLocalFluxKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+  set_rDivM(deviceLocalFluxAllKernelPrototype_, global.onDevice->changeOfBasisMatrices);
+  deviceLocalFluxAllKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
 #endif
-  set_project2nFaceTo3m(deviceNodalLfKrnlPrototype, global.onDevice->project2nFaceTo3m);
-  deviceProjectRotatedKrnlPrototype.V3mTo2nFace = global.onDevice->V3mTo2nFace;
+  set_project2nFaceTo3m(deviceNodalLfKrnlPrototype_, global.onDevice->project2nFaceTo3m);
+  deviceProjectRotatedKrnlPrototype_.V3mTo2nFace = global.onDevice->v3mTo2nFace;
 #endif
 }
 
-template <typename LocalDataType>
+namespace {
+
 struct ApplyAnalyticalSolution {
-  ApplyAnalyticalSolution(seissol::physics::InitialField* initCondition, LocalDataType& data)
-      : initCondition(initCondition), localData(data) {}
+  ApplyAnalyticalSolution(const std::vector<std::unique_ptr<physics::InitialField>>* initConditions,
+                          LTS::Ref& data)
+      : initConditions_(initConditions), localData_(data) {}
 
-  void operator()(const real* nodes, double time, seissol::init::INodal::view::type& boundaryDofs) {
+  void operator()(const real* nodes,
+                  double time,
+                  seissol::init::INodal::view::type& boundaryDofs) const {
+    assert(initConditions_ != nullptr);
 
-    auto nodesVec = std::vector<std::array<double, 3>>{};
-    int offset = 0;
+    constexpr auto NodeCount = seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension];
+    alignas(Alignment) std::array<double, 3> nodesVec[NodeCount];
+
+#pragma omp simd
+    for (std::size_t i = 0; i < NodeCount; ++i) {
+      nodesVec[i][0] = nodes[i * 3 + 0];
+      nodesVec[i][1] = nodes[i * 3 + 1];
+      nodesVec[i][2] = nodes[i * 3 + 2];
+    }
+
+    // NOTE: not yet tested for multisim setups
+    // (only implemented to get the build to work)
+
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
       auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
-
-      for (unsigned int i = 0; i < seissol::tensor::INodal::Shape[0]; ++i) {
-        auto curNode = std::array<double, 3>{};
-        curNode[0] = nodes[offset++];
-        curNode[1] = nodes[offset++];
-        curNode[2] = nodes[offset++];
-        nodesVec.push_back(curNode);
-      }
-
-      assert(initCondition != nullptr);
-      initCondition->evaluate(time, nodesVec, localData.material(), slicedBoundaryDofs);
+      initConditions_->at(s % initConditions_->size())
+          ->evaluate(
+              time, nodesVec, NodeCount, localData_.get<LTS::Material>(), slicedBoundaryDofs);
     }
   }
 
   private:
-  seissol::physics::InitialField* initCondition{};
-  LocalDataType& localData;
+  const std::vector<std::unique_ptr<physics::InitialField>>* initConditions_;
+  LTS::Ref& localData_;
 };
 
-void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                            LocalData& data,
-                            LocalTmp& tmp,
-                            // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
-                            const CellMaterialData* materialData,
-                            const CellBoundaryMapping (*cellBoundaryMapping)[4],
-                            double time,
-                            double timeStepWidth) {
-  assert(reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
+} // namespace
 
-  kernel::volume volKrnl = m_volumeKernelPrototype;
-  volKrnl.Q = data.dofs();
-  volKrnl.I = timeIntegratedDegreesOfFreedom;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    volKrnl.star(i) = data.localIntegration().starMatrices[i];
+void Local::computeIntegral(
+    real* timeIntegratedDoFs, LTS::Ref& data, LocalTmp& tmp, double time, double timeStepWidth) {
+  assert(reinterpret_cast<uintptr_t>(timeIntegratedDoFs) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
+
+  const auto& materialData = data.get<LTS::Material>();
+  const auto& cellBoundaryMapping = data.get<LTS::BoundaryMapping>();
+
+  kernel::volume volKrnl = volumeKernelPrototype_;
+  volKrnl.Q = data.get<LTS::Dofs>();
+  volKrnl.I = timeIntegratedDoFs;
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
   if constexpr (Config::GlobalElementwise) {
-    setupContainer<tensor::globalMkDivM>(get_ref_globalMkDivM(volKrnl), data.globalMkDivM());
+    setupContainer<tensor::globalMkDivM>(get_ref_globalMkDivM(volKrnl),
+                                         data.get<LTS::GlobalMkDivM>());
   }
 
   // Optional source term
-  set_ET(volKrnl, get_ptr_sourceMatrix(data.localIntegration().specific));
+  set_ET(volKrnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
 
-  kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
-  lfKrnl.Q = data.dofs();
-  lfKrnl.I = timeIntegratedDegreesOfFreedom;
-  lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
-  lfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
+  kernel::localFlux lfKrnl = localFluxKernelPrototype_;
+  lfKrnl.Q = data.get<LTS::Dofs>();
+  lfKrnl.I = timeIntegratedDoFs;
+  lfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
+  lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
   if constexpr (Config::GlobalElementwise) {
-    setupContainer<tensor::globalMrDivM>(get_ref_globalMrDivM(lfKrnl), data.globalMrDivM());
-    setupContainer<tensor::globalMfMrT>(get_ref_globalMfMrT(lfKrnl), data.globalMfMrT());
+    setupContainer<tensor::globalMrDivM>(get_ref_globalMrDivM(lfKrnl),
+                                         data.get<LTS::GlobalMrDivM>());
+    setupContainer<tensor::globalMfMrT>(get_ref_globalMfMrT(lfKrnl), data.get<LTS::GlobalMfMrT>());
   }
 
   volKrnl.execute();
 
-  for (int face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if (data.cellInformation().faceTypes[face] != FaceType::DynamicRupture) {
-      lfKrnl.AplusT = data.localIntegration().nApNm1[face];
+    if (data.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
+      lfKrnl.AplusT = data.get<LTS::LocalIntegration>().nApNm1[face];
       lfKrnl.execute(face);
     }
 
     alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
-    auto nodalLfKrnl = m_nodalLfKrnlPrototype;
-    nodalLfKrnl.Q = data.dofs();
+    auto nodalLfKrnl = nodalLfKrnlPrototype_;
+    nodalLfKrnl.Q = data.get<LTS::Dofs>();
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
-    nodalLfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
-    nodalLfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
-    nodalLfKrnl.AminusT = data.neighboringIntegration().nAmNm1[face];
+    nodalLfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
+    nodalLfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
+    nodalLfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
 
     // Include some boundary conditions here.
-    switch (data.cellInformation().faceTypes[face]) {
+    switch (data.get<LTS::CellInformation>().faceTypes[face]) {
     case FaceType::FreeSurfaceGravity: {
-      assert(cellBoundaryMapping != nullptr);
-      assert(materialData != nullptr);
       auto* displ = tmp.nodalAvgDisplacements[face].data();
       auto displacement = init::averageNormalDisplacement::view::create(displ);
       // lambdas can't catch gravitationalAcceleration directly, so have to make a copy here.
-      const auto localG = gravitationalAcceleration;
+      const auto localG = gravitationalAcceleration_;
       auto applyFreeSurfaceBc =
           [&displacement, &materialData, &localG](const real*, // nodes are unused
                                                   init::INodal::view::type& boundaryDofs) {
@@ -184,10 +193,10 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
               auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
               auto slicedDisplacement = multisim::simtensor(displacement, s);
 
-              for (unsigned int i = 0;
+              for (std::size_t i = 0;
                    i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
                    ++i) {
-                const double rho = materialData->local.rho;
+                const double rho = materialData.local->getDensity();
                 assert(localG > 0);
                 const double pressureAtBnd = -1 * rho * localG * slicedDisplacement(i);
 
@@ -198,24 +207,23 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
             }
           };
 
-      dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
-                                 face,
-                                 (*cellBoundaryMapping)[face],
-                                 m_projectRotatedKrnlPrototype,
-                                 applyFreeSurfaceBc,
-                                 dofsFaceBoundaryNodal);
+      dirichletBoundary_.evaluate(timeIntegratedDoFs,
+                                  face,
+                                  cellBoundaryMapping[face],
+                                  projectRotatedKrnlPrototype_,
+                                  applyFreeSurfaceBc,
+                                  dofsFaceBoundaryNodal);
 
       nodalLfKrnl.execute(face);
       break;
     }
     case FaceType::Dirichlet: {
-      assert(cellBoundaryMapping != nullptr);
-      auto* easiBoundaryMap = (*cellBoundaryMapping)[face].easiBoundaryMap;
-      auto* easiBoundaryConstant = (*cellBoundaryMapping)[face].easiBoundaryConstant;
+      auto* easiBoundaryMap = cellBoundaryMapping[face].easiBoundaryMap;
+      auto* easiBoundaryConstant = cellBoundaryMapping[face].easiBoundaryConstant;
       assert(easiBoundaryConstant != nullptr);
       assert(easiBoundaryMap != nullptr);
       auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
-                                   const real* nodes, init::INodal::view::type& boundaryDofs) {
+                                   const real* /*nodes*/, init::INodal::view::type& boundaryDofs) {
         seissol::kernel::createEasiBoundaryGhostCells easiBoundaryKernel;
         easiBoundaryKernel.easiBoundaryMap = easiBoundaryMap;
         easiBoundaryKernel.easiBoundaryConstant = easiBoundaryConstant;
@@ -225,12 +233,12 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       };
 
       // Compute boundary in [n, t_1, t_2] basis
-      dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
-                                 face,
-                                 (*cellBoundaryMapping)[face],
-                                 m_projectRotatedKrnlPrototype,
-                                 applyEasiBoundary,
-                                 dofsFaceBoundaryNodal);
+      dirichletBoundary_.evaluate(timeIntegratedDoFs,
+                                  face,
+                                  cellBoundaryMapping[face],
+                                  projectRotatedKrnlPrototype_,
+                                  applyEasiBoundary,
+                                  dofsFaceBoundaryNodal);
 
       // We do not need to rotate the boundary data back to the [x,y,z] basis
       // as we set the Tinv matrix to the identity matrix in the flux solver
@@ -240,19 +248,17 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       break;
     }
     case FaceType::Analytical: {
-      assert(cellBoundaryMapping != nullptr);
-      assert(initConds != nullptr);
-      assert(initConds->size() == 1);
-      ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data);
+      assert(initConds_ != nullptr);
+      const auto applyAnalyticalSolution = ApplyAnalyticalSolution(initConds_, data);
 
-      dirichletBoundary.evaluateTimeDependent(timeIntegratedDegreesOfFreedom,
-                                              face,
-                                              (*cellBoundaryMapping)[face],
-                                              m_projectKrnlPrototype,
-                                              applyAnalyticalSolution,
-                                              dofsFaceBoundaryNodal,
-                                              time,
-                                              timeStepWidth);
+      dirichletBoundary_.evaluateTimeDependent(timeIntegratedDoFs,
+                                               face,
+                                               cellBoundaryMapping[face],
+                                               projectKrnlPrototype_,
+                                               applyAnalyticalSolution,
+                                               dofsFaceBoundaryNodal,
+                                               time,
+                                               timeStepWidth);
       nodalLfKrnl.execute(face);
       break;
     }
@@ -263,18 +269,19 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
   }
 }
 
-void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
-                                   ConditionalMaterialTable& materialTable,
-                                   ConditionalIndicesTable& indicesTable,
-                                   kernels::LocalData::Loader& loader,
-                                   LocalTmp& tmp,
-                                   double timeStepWidth,
-                                   seissol::parallel::runtime::StreamRuntime& runtime) {
+void Local::computeBatchedIntegral(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
+    SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& /*indicesTable*/,
+    SEISSOL_GPU_PARAM double /*timeStepWidth*/,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+
+  using namespace seissol::recording;
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
-  kernel::gpu_volume volKrnl = deviceVolumeKernelPrototype;
-  kernel::gpu_localFlux localFluxKrnl = deviceLocalFluxKernelPrototype;
+  kernel::gpu_volume volKrnl = deviceVolumeKernelPrototype_;
+  kernel::gpu_localFlux localFluxKrnl = deviceLocalFluxKernelPrototype_;
 
   const auto maxTmpMem = yateto::getMaxTmpMemRequired(volKrnl, localFluxKrnl);
 
@@ -292,6 +299,7 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
     volKrnl.I =
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
       volKrnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
@@ -300,12 +308,33 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
     volKrnl.linearAllocator.initialize(tmpMem.get());
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
+
+#ifdef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
+    kernel::gpu_localFluxAll localFluxKrnl = deviceLocalFluxAllKernelPrototype_;
+    localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
+    localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    localFluxKrnl.I =
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, nApNm1);
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      localFluxKrnl.AplusTAll(face) = const_cast<const real**>(
+          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+      localFluxKrnl.extraOffset_AplusTAll(face) =
+          SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
+    }
+    localFluxKrnl.linearAllocator.initialize(tmpMem.get());
+    localFluxKrnl.streamPtr = runtime.stream();
+    localFluxKrnl.execute();
+#endif
   }
 
   // Local Flux Integral
-  for (unsigned face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
 
+// deprecated code; kept for comparison reasons
+#ifndef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
     if (dataTable.find(key) != dataTable.end()) {
       auto& entry = dataTable[key];
       localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
@@ -314,52 +343,55 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
           const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
       localFluxKrnl.AplusT = const_cast<const real**>(
           entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+
+      SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, nApNm1);
       localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
       localFluxKrnl.linearAllocator.initialize(tmpMem.get());
       localFluxKrnl.streamPtr = runtime.stream();
       localFluxKrnl.execute(face);
     }
+#endif
 
     ConditionalKey fsgKey(
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, face);
     if (dataTable.find(fsgKey) != dataTable.end()) {
-      auto nodalAvgDisplacements =
+      auto* nodalAvgDisplacements =
           dataTable[fsgKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
-      auto rhos = materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
+      auto* rhos = materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
       local_flux::aux::FreeSurfaceGravity freeSurfaceGravityBc;
-      freeSurfaceGravityBc.g = gravitationalAcceleration;
+      freeSurfaceGravityBc.g = gravitationalAcceleration_;
       freeSurfaceGravityBc.rhos = rhos;
       freeSurfaceGravityBc.displacementDataPtrs = nodalAvgDisplacements;
-      dirichletBoundary.evaluateOnDevice(face,
-                                         fsgKey,
-                                         deviceProjectRotatedKrnlPrototype,
-                                         deviceNodalLfKrnlPrototype,
-                                         freeSurfaceGravityBc,
-                                         dataTable,
-                                         device,
-                                         runtime);
+      dirichletBoundary_.evaluateOnDevice(face,
+                                          fsgKey,
+                                          deviceProjectRotatedKrnlPrototype_,
+                                          deviceNodalLfKrnlPrototype_,
+                                          freeSurfaceGravityBc,
+                                          dataTable,
+                                          device_,
+                                          runtime);
     }
 
     ConditionalKey dirichletKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Dirichlet, face);
     if (dataTable.find(dirichletKey) != dataTable.end()) {
-      auto easiBoundaryMapPtrs =
+      auto* easiBoundaryMapPtrs =
           dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryMap)->getDeviceDataPtr();
-      auto easiBoundaryConstantPtrs =
+      auto* easiBoundaryConstantPtrs =
           dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryConstant)->getDeviceDataPtr();
 
       local_flux::aux::EasiBoundary easiBoundaryBc;
       easiBoundaryBc.easiBoundaryMapPtrs = easiBoundaryMapPtrs;
       easiBoundaryBc.easiBoundaryConstantPtrs = easiBoundaryConstantPtrs;
 
-      dirichletBoundary.evaluateOnDevice(face,
-                                         dirichletKey,
-                                         deviceProjectRotatedKrnlPrototype,
-                                         deviceNodalLfKrnlPrototype,
-                                         easiBoundaryBc,
-                                         dataTable,
-                                         device,
-                                         runtime);
+      dirichletBoundary_.evaluateOnDevice(face,
+                                          dirichletKey,
+                                          deviceProjectRotatedKrnlPrototype_,
+                                          deviceNodalLfKrnlPrototype_,
+                                          easiBoundaryBc,
+                                          dataTable,
+                                          device_,
+                                          runtime);
     }
   }
 #else
@@ -367,49 +399,51 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
 #endif
 }
 
-void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
-                                           ConditionalIndicesTable& indicesTable,
-                                           kernels::LocalData::Loader& loader,
-                                           seissol::initializer::Layer& layer,
-                                           seissol::initializer::LTS& lts,
-                                           double time,
-                                           double timeStepWidth,
-                                           seissol::parallel::runtime::StreamRuntime& runtime) {
+void Local::evaluateBatchedTimeDependentBc(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
+    SEISSOL_GPU_PARAM LTS::Layer& layer,
+    SEISSOL_GPU_PARAM double time,
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 
 #ifdef ACL_DEVICE
-  for (unsigned face = 0; face < 4; ++face) {
-    ConditionalKey analyticalKey(
+  using namespace seissol::recording;
+
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    const ConditionalKey analyticalKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
     if (indicesTable.find(analyticalKey) != indicesTable.end()) {
       const auto& cellIds =
           indicesTable[analyticalKey].get(inner_keys::Indices::Id::Cells)->getHostData();
       const size_t numElements = cellIds.size();
-      auto* analytical = reinterpret_cast<real(*)[tensor::INodal::size()]>(
-          layer.getScratchpadMemory(lts.analyticScratch));
+      auto* analytical =
+          reinterpret_cast<real(*)[tensor::INodal::size()]>(layer.var<LTS::AnalyticScratch>());
 
-      runtime.enqueueOmpFor(numElements, [=, &cellIds](std::size_t index) {
-        auto cellId = cellIds.at(index);
-        auto data = loader.entry(cellId);
+      runtime.enqueueLoop(
+          numElements,
+          [this, face, time, timeStepWidth, analytical, &cellIds, &layer](std::size_t index) {
+            auto cellId = cellIds.at(index);
+            auto data = layer.cellRef(cellId);
 
-        alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+            alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
 
-        assert(initConds != nullptr);
-        assert(initConds->size() == 1);
-        ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data);
+            assert(initConds != nullptr);
+            const ApplyAnalyticalSolution applyAnalyticalSolution(initConds_, data);
 
-        dirichletBoundary.evaluateTimeDependent(nullptr,
-                                                face,
-                                                data.boundaryMapping()[face],
-                                                m_projectKrnlPrototype,
-                                                applyAnalyticalSolution,
-                                                dofsFaceBoundaryNodal,
-                                                time,
-                                                timeStepWidth);
+            dirichletBoundary_.evaluateTimeDependent(nullptr,
+                                                     face,
+                                                     data.get<LTS::BoundaryMapping>()[face],
+                                                     projectKrnlPrototype_,
+                                                     applyAnalyticalSolution,
+                                                     dofsFaceBoundaryNodal,
+                                                     time,
+                                                     timeStepWidth);
 
-        std::memcpy(analytical[index], dofsFaceBoundaryNodal, sizeof(dofsFaceBoundaryNodal));
-      });
+            std::memcpy(analytical[index], dofsFaceBoundaryNodal, sizeof(dofsFaceBoundaryNodal));
+          });
 
-      auto nodalLfKrnl = deviceNodalLfKrnlPrototype;
+      auto nodalLfKrnl = deviceNodalLfKrnlPrototype_;
       nodalLfKrnl.INodal = const_cast<const real**>(
           dataTable[analyticalKey].get(inner_keys::Wp::Id::Analytical)->getDeviceDataPtr());
       nodalLfKrnl.AminusT =
@@ -430,16 +464,17 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
 #endif // ACL_DEVICE
 }
 
-void Local::flopsIntegral(const FaceType faceTypes[4],
-                          unsigned int& nonZeroFlops,
-                          unsigned int& hardwareFlops) {
+void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
+                          std::uint64_t& nonZeroFlops,
+                          std::uint64_t& hardwareFlops) {
   nonZeroFlops = seissol::kernel::volume::NonZeroFlops;
   hardwareFlops = seissol::kernel::volume::HardwareFlops;
 
-  for (unsigned int face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // Local flux is executed for all faces that are not dynamic rupture.
     // For those cells, the flux is taken into account during the neighbor kernel.
-    if (faceTypes[face] != FaceType::DynamicRupture) {
+    // Or we're on the GPU where we run the kernel anyways.
+    if (faceTypes[face] != FaceType::DynamicRupture || isDeviceOn()) {
       nonZeroFlops += seissol::kernel::localFlux::nonZeroFlops(face);
       hardwareFlops += seissol::kernel::localFlux::hardwareFlops(face);
     }
@@ -473,13 +508,13 @@ void Local::flopsIntegral(const FaceType faceTypes[4],
   }
 }
 
-unsigned Local::bytesIntegral() {
-  unsigned reals = 0;
+std::uint64_t Local::bytesIntegral() {
+  std::uint64_t reals = 0;
 
   // star matrices load
   reals += yateto::computeFamilySize<tensor::star>();
   // flux solvers
-  reals += 4 * tensor::AplusT::size();
+  reals += static_cast<std::uint64_t>(4 * tensor::AplusT::size());
 
   // DOFs write
   reals += tensor::Q::size();

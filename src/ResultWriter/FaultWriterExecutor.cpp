@@ -6,36 +6,37 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
+#include "FaultWriterExecutor.h"
+
+#include "Kernels/Precision.h"
 #include "Parallel/MPI.h"
 
-#include <Kernels/Precision.h>
 #include <async/ExecInfo.h>
 #include <mpi.h>
 #include <string>
 #include <utils/env.h>
+#include <utils/logger.h>
 #include <vector>
-
-#include "utils/logger.h"
-
-#include "FaultWriterExecutor.h"
 
 /**
  * Initialize the XDMF writers
  */
 void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo& info,
                                                     const seissol::writer::FaultInitParam& param) {
-  if (m_xdmfWriter != nullptr) {
+  if (xdmfWriter_ != nullptr) {
     logError() << "Wave field writer already initialized";
   }
 
   const unsigned int nCells = info.bufferSize(Cells) / (3 * sizeof(int));
   const unsigned int nVertices = info.bufferSize(Vertices) / (3 * sizeof(double));
 
-  MPI_Comm_split(seissol::MPI::mpi.comm(), (nCells > 0 ? 0 : MPI_UNDEFINED), 0, &m_comm);
+  MPI_Comm_split(seissol::Mpi::mpi.comm(), (nCells > 0 ? 0 : MPI_UNDEFINED), 0, &comm_);
+
+  enabled_ = true;
 
   if (nCells > 0) {
     int rank = 0;
-    MPI_Comm_rank(m_comm, &rank);
+    MPI_Comm_rank(comm_, &rank);
 
     std::string outputName(static_cast<const char*>(info.buffer(OutputPrefix)));
     outputName += "-fault";
@@ -46,22 +47,24 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo& info,
         variables.push_back(Labels[i]);
       }
     }
-    m_numVariables = variables.size();
+    numVariables_ = variables.size();
 
     // TODO get the timestep from the checkpoint
-    m_xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>(
+    xdmfWriter_ = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>(
         param.backend, outputName.c_str(), param.timestep);
 
-    m_xdmfWriter->setComm(m_comm);
-    m_xdmfWriter->setBackupTimeStamp(param.backupTimeStamp);
+    xdmfWriter_->setComm(comm_);
+    xdmfWriter_->setBackupTimeStamp(param.backupTimeStamp);
     const auto vertexFilter = utils::Env("").get<bool>("SEISSOL_VERTEXFILTER", true);
-    m_xdmfWriter->init(variables, std::vector<const char*>(), "fault-tag", vertexFilter, true);
-    m_xdmfWriter->setMesh(nCells,
-                          static_cast<const unsigned int*>(info.buffer(Cells)),
-                          nVertices,
-                          static_cast<const double*>(info.buffer(Vertices)),
-                          param.timestep != 0);
+    xdmfWriter_->init(
+        variables, std::vector<const char*>(), {"fault-tag", "global-id"}, vertexFilter, true);
+    xdmfWriter_->setMesh(nCells,
+                         static_cast<const unsigned int*>(info.buffer(Cells)),
+                         nVertices,
+                         static_cast<const double*>(info.buffer(Vertices)),
+                         param.timestep != 0);
     setFaultTagsData(static_cast<const unsigned int*>(info.buffer(FaultTags)));
+    xdmfWriter_->writeExtraIntCellData(1, static_cast<const unsigned int*>(info.buffer(GlobalIds)));
 
     logInfo() << "Initializing XDMF fault output. Done.";
   }

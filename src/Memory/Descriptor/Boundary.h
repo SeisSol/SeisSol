@@ -8,31 +8,43 @@
 #ifndef SEISSOL_SRC_MEMORY_DESCRIPTOR_BOUNDARY_H_
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_BOUNDARY_H_
 
+#include "Alignment.h"
 #include "IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Helper.h"
 
-namespace seissol::initializer {
+namespace seissol {
 
 inline auto allocationModeBoundary() {
-#ifndef ACL_DEVICE
-  return AllocationMode::HostOnly;
-#else
-  return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
-#endif
+  using namespace initializer;
+  if constexpr (!isDeviceOn()) {
+    return AllocationMode::HostOnly;
+  } else {
+    const auto modeMaybeCompress = useDeviceL2Compress() ? AllocationMode::HostDeviceCompress
+                                                         : AllocationMode::HostDeviceSplit;
+    return useUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompress;
+  }
 }
 
 struct Boundary {
-  Variable<BoundaryFaceInformation> faceInformation;
+  struct FaceInformation : public initializer::Variable<BoundaryFaceInformation> {};
 
-  void addTo(LTSTree& tree) {
-    LayerMask mask = LayerMask(Ghost);
-    tree.addVar(faceInformation, mask, 1, allocationModeBoundary());
+  struct BoundaryVarmap : public initializer::SpecificVarmap<FaceInformation> {};
+
+  using Storage = initializer::Storage<BoundaryVarmap>;
+  using Layer = initializer::Layer<BoundaryVarmap>;
+  using Ref = initializer::Layer<BoundaryVarmap>::CellRef;
+  using Backmap = initializer::StorageBackmap<1>;
+
+  static void addTo(Storage& storage) {
+    const auto mask = initializer::LayerMask(Ghost);
+    storage.add<FaceInformation>(mask, Alignment, allocationModeBoundary());
   }
 };
 
-} // namespace seissol::initializer
+} // namespace seissol
 
 #endif // SEISSOL_SRC_MEMORY_DESCRIPTOR_BOUNDARY_H_

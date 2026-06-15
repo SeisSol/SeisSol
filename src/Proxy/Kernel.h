@@ -9,14 +9,15 @@
 #define SEISSOL_SRC_PROXY_KERNEL_H_
 
 #include "Allocator.h"
-#include <Parallel/Runtime/Stream.h>
+#include "Parallel/Runtime/Stream.h"
+
 #include <type_traits>
 namespace seissol::proxy {
 
 struct PerformanceEstimate {
-  std::size_t hardwareFlop{0};
-  std::size_t nonzeroFlop{0};
-  std::size_t bytes{0};
+  std::uint64_t hardwareFlop{0};
+  std::uint64_t nonzeroFlop{0};
+  std::uint64_t bytes{0};
 
   auto operator+(const PerformanceEstimate& other) const -> PerformanceEstimate;
 };
@@ -57,7 +58,7 @@ class ChainKernel : public ProxyKernel {
   [[nodiscard]] auto needsDR() const -> bool override;
 
   private:
-  std::vector<std::shared_ptr<ProxyKernel>> kernels;
+  std::vector<std::shared_ptr<ProxyKernel>> kernels_;
 };
 
 } // namespace seissol::proxy

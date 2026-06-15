@@ -7,8 +7,9 @@
 
 #ifndef SEISSOL_SRC_IO_WRITER_FILE_BINARYWRITER_H_
 #define SEISSOL_SRC_IO_WRITER_FILE_BINARYWRITER_H_
-#include <IO/Writer/Instructions/Binary.h>
-#include <IO/Writer/Instructions/Data.h>
+#include "IO/Writer/Instructions/Binary.h"
+#include "IO/Writer/Instructions/Data.h"
+
 #include <hdf5.h>
 #include <memory>
 #include <mpi.h>
@@ -28,8 +29,8 @@ class BinaryFile {
   void closeFile();
 
   private:
-  MPI_Comm comm{MPI_COMM_NULL};
-  MPI_File file{MPI_FILE_NULL};
+  MPI_Comm comm_{MPI_COMM_NULL};
+  MPI_File file_{MPI_FILE_NULL};
 };
 
 class BinaryWriter {
@@ -41,8 +42,8 @@ class BinaryWriter {
   void finalize();
 
   private:
-  std::unordered_map<std::string, std::unique_ptr<BinaryFile>> openFiles;
-  MPI_Comm comm{MPI_COMM_NULL};
+  std::unordered_map<std::string, std::unique_ptr<BinaryFile>> openFiles_;
+  MPI_Comm comm_{MPI_COMM_NULL};
 };
 } // namespace seissol::io::writer::file
 

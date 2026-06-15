@@ -10,16 +10,19 @@
 
 #include "Common/Constants.h"
 #include "Datastructures.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
-#include "generated_code/tensor.h"
 
 namespace seissol::model {
 
 struct PoroelasticLocalData {
-  real sourceMatrix[seissol::tensor::ET::size()];
-  real G[PoroElasticMaterial::NumQuantities];
-  real typicalTimeStepWidth;
-  real Zinv[PoroElasticMaterial::NumQuantities][ConvergenceOrder * ConvergenceOrder];
+  real sourceMatrix[seissol::tensor::ET::size()]{};
+  real G[PoroElasticMaterial::NumQuantities]{};
+  real Zinv[PoroElasticMaterial::NumQuantities][ConvergenceOrder * ConvergenceOrder]{};
+
+  // preferrably double; will be compared closely against the "default" timestep width almost all
+  // the time
+  double typicalTimeStepWidth{};
 };
 struct PoroelasticNeighborData {};
 

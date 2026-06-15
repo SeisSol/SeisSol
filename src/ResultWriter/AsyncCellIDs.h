@@ -9,9 +9,10 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_ASYNCCELLIDS_H_
 #define SEISSOL_SRC_RESULTWRITER_ASYNCCELLIDS_H_
 
-#include <mpi.h>
-
 #include "SeisSol.h"
+
+#include <cstddef>
+#include <mpi.h>
 
 namespace seissol {
 
@@ -23,16 +24,16 @@ namespace seissol {
  *
  * @tparam CellVertices Number of vertices per cell
  */
-template <int CellVertices>
+template <std::size_t CellVertices>
 class AsyncCellIDs {
   private:
   /** Null, if MPI is not enabled */
-  std::vector<unsigned> localCells;
+  std::vector<unsigned> localCells_;
 
-  const unsigned int* constCells;
+  const unsigned int* constCells_;
 
   public:
-  AsyncCellIDs(unsigned int nCells,
+  AsyncCellIDs(std::size_t nCells,
                unsigned int nVertices,
                const unsigned int* cells,
                seissol::SeisSol& seissolInstance) {
@@ -43,14 +44,14 @@ class AsyncCellIDs {
     offset -= nVertices;
 
     // Add the offset to all cells
-    localCells.resize(nCells * CellVertices);
-    for (unsigned int i = 0; i < nCells * CellVertices; i++) {
-      localCells[i] = cells[i] + offset;
+    localCells_.resize(nCells * CellVertices);
+    for (std::size_t i = 0; i < nCells * CellVertices; i++) {
+      localCells_[i] = cells[i] + offset;
     }
-    constCells = localCells.data();
+    constCells_ = localCells_.data();
   }
 
-  [[nodiscard]] const unsigned int* cells() const { return constCells; }
+  [[nodiscard]] const unsigned int* cells() const { return constCells_; }
 };
 
 } // namespace seissol

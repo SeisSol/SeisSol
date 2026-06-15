@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Common/IntegerMaskParser.h"
+
 #include <cstddef>
 #include <optional>
 #include <regex>

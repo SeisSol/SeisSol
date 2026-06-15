@@ -8,8 +8,9 @@
 #ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_H_
 #define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_H_
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/Inference.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
+
 #include <cstring>
 #include <functional>
 #include <memory>
@@ -41,8 +42,8 @@ class DataSource {
   static std::unique_ptr<DataSource> deserialize(YAML::Node node);
 
   protected:
-  std::shared_ptr<seissol::io::datatype::Datatype> datatypeP;
-  std::vector<std::size_t> shapeP;
+  std::shared_ptr<seissol::io::datatype::Datatype> datatypeP_;
+  std::vector<std::size_t> shapeP_;
 };
 
 class WriteInline : public DataSource {
@@ -70,7 +71,7 @@ class WriteInline : public DataSource {
   template <typename T>
   static std::shared_ptr<DataSource>
       create(const T& data,
-             std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
+             const std::shared_ptr<datatype::Datatype>& datatype = datatype::inferDatatype<T>()) {
     return std::make_shared<WriteInline>(&data, sizeof(T), datatype, std::vector<std::size_t>());
   }
 
@@ -83,15 +84,15 @@ class WriteInline : public DataSource {
   }
 
   template <typename T>
-  static std::shared_ptr<DataSource>
-      createArray(const std::vector<std::size_t>& shape,
-                  const std::vector<T>& data,
-                  std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
+  static std::shared_ptr<DataSource> createArray(
+      const std::vector<std::size_t>& shape,
+      const std::vector<T>& data,
+      const std::shared_ptr<datatype::Datatype>& datatype = datatype::inferDatatype<T>()) {
     return std::make_shared<WriteInline>(data.data(), sizeof(T) * data.size(), datatype, shape);
   }
 
   private:
-  std::vector<unsigned char> data;
+  std::vector<unsigned char> data_;
 };
 
 class WriteBufferRemote : public DataSource {
@@ -112,7 +113,7 @@ class WriteBufferRemote : public DataSource {
   [[nodiscard]] size_t getLocalSize() const override;
 
   private:
-  int id;
+  int id_;
 };
 
 class WriteBuffer : public DataSource {
@@ -140,14 +141,14 @@ class WriteBuffer : public DataSource {
       create(const T* data,
              size_t count,
              const std::vector<std::size_t>& shape = {},
-             std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
+             const std::shared_ptr<datatype::Datatype>& datatype = datatype::inferDatatype<T>()) {
     return std::make_shared<WriteBuffer>(data, count, datatype, shape);
   }
 
   private:
-  const void* data;
-  size_t size;
-  int id{-1};
+  const void* data_;
+  size_t size_;
+  int id_{-1};
 };
 
 class AdhocBuffer : public DataSource {
@@ -160,28 +161,28 @@ class AdhocBuffer : public DataSource {
 
   YAML::Node serialize() override {
     YAML::Node node;
-    node["id"] = id;
+    node["id"] = id_;
     node["datatype"] = datatype()->serialize();
     node["type"] = "buffer";
     node["shape"] = shape();
     return node;
   }
 
-  const void* getPointer(const async::ExecInfo& info) override { return nullptr; }
+  const void* getPointer(const async::ExecInfo& /*info*/) override { return nullptr; }
 
   [[nodiscard]] const void* getLocalPointer() const override { return nullptr; }
   [[nodiscard]] size_t getLocalSize() const override { return getTargetSize(); }
 
-  std::size_t count(const async::ExecInfo& info) override {
+  std::size_t count(const async::ExecInfo& /*info*/) override {
     return getTargetSize() / datatype()->size();
   }
 
-  void assignId(int givenId) override { id = givenId; }
+  void assignId(int givenId) override { id_ = givenId; }
 
   bool distributed() override { return true; }
 
   private:
-  int id;
+  int id_{-1};
 };
 
 class GeneratedBuffer : public AdhocBuffer {
@@ -191,27 +192,27 @@ class GeneratedBuffer : public AdhocBuffer {
                   std::function<void(void*)> generator,
                   std::shared_ptr<datatype::Datatype> datatype,
                   const std::vector<std::size_t>& shape)
-      : generator(std::move(generator)), sourceCount(sourceCount), targetCount(targetCount),
-        targetStride(targetCount), AdhocBuffer(std::move(datatype), shape) {
+      : AdhocBuffer(std::move(datatype), shape), generator_(std::move(generator)),
+        sourceCount_(sourceCount), targetStride_(targetCount) {
 
     for (auto dim : shape) {
-      targetStride *= dim;
+      targetStride_ *= dim;
     }
   }
 
   [[nodiscard]] std::size_t getTargetSize() const override {
-    return targetStride * datatype()->size() * sourceCount;
+    return targetStride_ * datatype()->size() * sourceCount_;
   }
 
-  void setData(void* targetPtr) override { std::invoke(generator, targetPtr); }
+  void setData(void* targetPtr) override { std::invoke(generator_, targetPtr); }
 
   template <typename T, typename F>
   static std::shared_ptr<GeneratedBuffer> createElementwise(
       std::size_t sourceCount,
       std::size_t targetCount,
       const std::vector<std::size_t>& shape,
-      F handler,
-      std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
+      const F& handler,
+      const std::shared_ptr<datatype::Datatype>& datatype = datatype::inferDatatype<T>()) {
     std::size_t localTargetStride = targetCount;
     for (auto dim : shape) {
       localTargetStride *= dim;
@@ -221,9 +222,8 @@ class GeneratedBuffer : public AdhocBuffer {
         targetCount,
         [=](void* targetPtr) {
           T* target = reinterpret_cast<T*>(targetPtr);
-#ifdef _OPENMP
+
 #pragma omp parallel for schedule(static)
-#endif
           for (std::size_t i = 0; i < sourceCount; ++i) {
             std::invoke(handler, &target[i * localTargetStride], i);
           }
@@ -233,10 +233,9 @@ class GeneratedBuffer : public AdhocBuffer {
   }
 
   private:
-  std::function<void(void*)> generator;
-  std::size_t sourceCount;
-  std::size_t targetCount;
-  std::size_t targetStride;
+  std::function<void(void*)> generator_;
+  std::size_t sourceCount_;
+  std::size_t targetStride_;
 };
 
 } // namespace seissol::io::writer

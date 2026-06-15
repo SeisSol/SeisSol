@@ -9,252 +9,339 @@
 #ifndef SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_
 
+#include "Alignment.h"
+#include "Equations/Datastructures.h"
+#include "GeneratedCode/tensor.h"
 #include "IO/Instance/Checkpoint/CheckpointManager.h"
+#include "Initializer/CellLocalInformation.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
+#include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
-#include "generated_code/tensor.h"
-#include <Initializer/CellLocalInformation.h>
-
-#include "Config.h"
-
-#ifdef ACL_DEVICE
 #include "Parallel/Helper.h"
-#endif
+#include "Solver/Settings.h"
 
 namespace seissol::tensor {
-class Qane;
-class globalMkDivMT;
-class globalMkDivM;
-class globalMrDivM;
-class globalMproject2nFaceTo3m;
+struct Qane;
+struct globalMkDivMT;
+struct globalMkDivM;
+struct globalMrDivM;
+struct globalMproject2nFaceTo3m;
 } // namespace seissol::tensor
 
-namespace seissol::initializer {
-
-enum class AllocationPreset {
-  Global,
-  Timedofs,
-  Constant,
-  Dofs,
-  TimedofsConstant,
-  ConstantShared,
-  Timebucket,
-  Plasticity,
-  PlasticityData
-};
-
-inline auto allocationModeWP(AllocationPreset preset,
-                             int convergenceOrder = seissol::ConvergenceOrder) {
-#ifndef ACL_DEVICE
-  switch (preset) {
-  case seissol::initializer::AllocationPreset::Global:
-    [[fallthrough]];
-  case seissol::initializer::AllocationPreset::TimedofsConstant:
-    return AllocationMode::HostOnlyHBM;
-  case seissol::initializer::AllocationPreset::Plasticity:
-    return AllocationMode::HostOnly;
-  case seissol::initializer::AllocationPreset::PlasticityData:
-    return AllocationMode::HostOnly;
-  case seissol::initializer::AllocationPreset::Timebucket:
-    [[fallthrough]];
-  case seissol::initializer::AllocationPreset::Timedofs:
-    return (convergenceOrder <= 7 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
-  case seissol::initializer::AllocationPreset::Constant:
-    [[fallthrough]];
-  case seissol::initializer::AllocationPreset::ConstantShared:
-    return (convergenceOrder <= 4 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
-  case seissol::initializer::AllocationPreset::Dofs:
-    return (convergenceOrder <= 3 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
-  default:
-    return AllocationMode::HostOnly;
-  }
-#else
-  switch (preset) {
-  case seissol::initializer::AllocationPreset::Global:
-    [[fallthrough]];
-  case seissol::initializer::AllocationPreset::Constant:
-    [[fallthrough]];
-  case seissol::initializer::AllocationPreset::TimedofsConstant:
-    return AllocationMode::HostOnly;
-  case seissol::initializer::AllocationPreset::Dofs:
-    [[fallthrough]];
-  case seissol::initializer::AllocationPreset::PlasticityData:
-    return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplitPinned;
-  case seissol::initializer::AllocationPreset::Timebucket:
-    return useMPIUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
-  default:
-    return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
-  }
-#endif
-}
+namespace seissol {
 
 struct LTS {
-  Variable<real[tensor::Q::size()]> dofs;
-  // size is zero if Qane is not defined
-  Variable<NZArray<real, kernels::size<tensor::Qane>()>> dofsAne;
-  Variable<real*> buffers;
-  Variable<real*> derivatives;
-  Variable<CellLocalInformation> cellInformation;
-  Variable<SecondaryCellLocalInformation> secondaryInformation;
-  Variable<real* [4]> faceNeighbors;
-  Variable<LocalIntegrationData> localIntegration;
-  Variable<NeighboringIntegrationData> neighboringIntegration;
-  Variable<CellMaterialData> material;
-  Variable<seissol::model::PlasticityData> plasticity;
-  Variable<CellDRMapping[4]> drMapping;
-  Variable<CellBoundaryMapping[4]> boundaryMapping;
-  Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> pstrain;
-  Variable<real* [4]> faceDisplacements;
-  Bucket buffersDerivatives;
-  Bucket faceDisplacementsBuffer;
+  enum class AllocationPreset {
+    Global,
+    Timedofs,
+    Constant,
+    Dofs,
+    TimedofsConstant,
+    ConstantShared,
+    Timebucket,
+    Plasticity,
+    PlasticityData
+  };
 
-  Variable<NZArray<real, kernels::size<tensor::globalMkDivMT>()>> globalMkDivMT;
-  Variable<NZArray<real, kernels::size<tensor::globalMkDivM>()>> globalMkDivM;
-  Variable<NZArray<real, kernels::size<tensor::globalMrDivM>()>> globalMrDivM;
-  Variable<NZArray<real, kernels::size<tensor::globalMrT>()>> globalMrT;
-  Variable<NZArray<real, kernels::size<tensor::globalMfMrT>()>> globalMfMrT;
-  Variable<NZArray<real, kernels::size<tensor::globalMproject2nFaceTo3m>()>>
-      globalMproject2nFaceTo3m;
-
-  Variable<real*> buffersDevice;
-  Variable<real*> derivativesDevice;
-  Variable<real* [4]> faceDisplacementsDevice;
-  Variable<real* [4]> faceNeighborsDevice;
-  Variable<CellDRMapping[4]> drMappingDevice;
-  Variable<CellBoundaryMapping[4]> boundaryMappingDevice;
-
-#ifdef ACL_DEVICE
-  ScratchpadMemory integratedDofsScratch;
-  ScratchpadMemory derivativesScratch;
-  ScratchpadMemory nodalAvgDisplacements;
-  ScratchpadMemory analyticScratch;
-  ScratchpadMemory derivativesExtScratch;
-  ScratchpadMemory derivativesAneScratch;
-  ScratchpadMemory idofsAneScratch;
-  ScratchpadMemory dofsExtScratch;
-#endif
-
-  /// \todo Memkind
-  void addTo(LTSTree& tree, bool usePlasticity) {
-    const LayerMask allMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
-    const LayerMask plasticityMask = usePlasticity ? LayerMask(Ghost) : allMask;
-
-    tree.addVar(dofs, LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
-    if (kernels::size<tensor::Qane>() > 0) {
-      tree.addVar(
-          dofsAne, LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
+  static auto allocationModeWP(AllocationPreset preset,
+                               int convergenceOrder = seissol::ConvergenceOrder) {
+    using namespace seissol::initializer;
+    if constexpr (!isDeviceOn()) {
+      switch (preset) {
+      case AllocationPreset::Global:
+        [[fallthrough]];
+      case AllocationPreset::TimedofsConstant:
+        return AllocationMode::HostOnlyHBM;
+      case AllocationPreset::Plasticity:
+        return AllocationMode::HostOnly;
+      case AllocationPreset::PlasticityData:
+        return AllocationMode::HostOnly;
+      case AllocationPreset::Timebucket:
+        [[fallthrough]];
+      case AllocationPreset::Timedofs:
+        return (convergenceOrder <= 7 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+      case AllocationPreset::Constant:
+        [[fallthrough]];
+      case AllocationPreset::ConstantShared:
+        return (convergenceOrder <= 4 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+      case AllocationPreset::Dofs:
+        return (convergenceOrder <= 3 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+      default:
+        return AllocationMode::HostOnly;
+      }
     } else {
-      tree.addVar(dofsAne,
-                  LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior),
-                  PagesizeHeap,
-                  allocationModeWP(AllocationPreset::Dofs));
+      const auto modeMaybeCompress = useDeviceL2Compress() ? AllocationMode::HostDeviceCompress
+                                                           : AllocationMode::HostDeviceSplit;
+      const auto modeMaybeCompressPinned = useDeviceL2Compress()
+                                               ? AllocationMode::HostDeviceCompressPinned
+                                               : AllocationMode::HostDeviceSplitPinned;
+
+      switch (preset) {
+      case AllocationPreset::Global:
+        [[fallthrough]];
+      case AllocationPreset::Constant:
+        [[fallthrough]];
+      case AllocationPreset::TimedofsConstant:
+        return AllocationMode::HostOnly;
+      case AllocationPreset::Dofs:
+        [[fallthrough]];
+      case AllocationPreset::PlasticityData:
+        return useUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompressPinned;
+      case AllocationPreset::Timebucket:
+        return useMPIUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompress;
+      default:
+        return useUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompress;
+      }
     }
-    tree.addVar(
-        buffers, LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
-    tree.addVar(
-        derivatives, LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
-    tree.addVar(
-        cellInformation, LayerMask(), 1, allocationModeWP(AllocationPreset::Constant), true);
-    tree.addVar(secondaryInformation, LayerMask(), 1, AllocationMode::HostOnly, true);
-    tree.addVar(faceNeighbors,
-                LayerMask(Ghost),
-                1,
-                allocationModeWP(AllocationPreset::TimedofsConstant),
-                true);
-    tree.addVar(localIntegration,
-                LayerMask(Ghost),
-                1,
-                allocationModeWP(AllocationPreset::ConstantShared),
-                true);
-    tree.addVar(neighboringIntegration,
-                LayerMask(Ghost),
-                1,
-                allocationModeWP(AllocationPreset::ConstantShared),
-                true);
-    tree.addVar(material, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    tree.addVar(
-        plasticity, plasticityMask, 1, allocationModeWP(AllocationPreset::Plasticity), true);
-    tree.addVar(drMapping, LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
-    tree.addVar(
-        boundaryMapping, LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
-    tree.addVar(
-        pstrain, plasticityMask, PagesizeHeap, allocationModeWP(AllocationPreset::PlasticityData));
-    tree.addVar(faceDisplacements, LayerMask(Ghost), PagesizeHeap, AllocationMode::HostOnly, true);
+  }
+
+  struct Dofs : public initializer::Variable<real[tensor::Q::size()]> {};
+  struct DofsHalo : public initializer::Variable<real[tensor::Q::size()]> {};
+  // size is zero if Qane is not defined
+  struct DofsAne
+      : public initializer::Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> {
+  };
+  struct Buffers : public initializer::Variable<real*> {};
+  struct Derivatives : public initializer::Variable<real*> {};
+  struct CellInformation : public initializer::Variable<CellLocalInformation> {};
+  struct SecondaryInformation : public initializer::Variable<SecondaryCellLocalInformation> {};
+  struct FaceNeighbors : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
+  struct LocalIntegration : public initializer::Variable<LocalIntegrationData> {};
+  struct NeighboringIntegration : public initializer::Variable<NeighboringIntegrationData> {};
+  struct MaterialData : public initializer::Variable<model::MaterialT> {};
+  struct Material : public initializer::Variable<CellMaterialData> {};
+  struct Plasticity : public initializer::Variable<seissol::model::PlasticityData> {};
+  struct DRMapping : public initializer::Variable<std::array<CellDRMapping, Cell::NumFaces>> {};
+  struct BoundaryMapping
+      : public initializer::Variable<std::array<CellBoundaryMapping, Cell::NumFaces>> {};
+  struct PStrain : public initializer::Variable<
+                       real[tensor::QStressNodal::size() + tensor::QEtaNodal::size()]> {};
+  struct FaceDisplacements : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
+  struct BuffersDerivatives : public initializer::Bucket<real> {};
+
+  struct BuffersDevice : public initializer::Variable<real*> {};
+  struct DerivativesDevice : public initializer::Variable<real*> {};
+  struct FaceNeighborsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
+  struct FaceDisplacementsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {
+  };
+  struct DRMappingDevice : public initializer::Variable<std::array<CellDRMapping, Cell::NumFaces>> {
+  };
+  struct BoundaryMappingDevice
+      : public initializer::Variable<std::array<CellBoundaryMapping, Cell::NumFaces>> {};
+
+  struct IntegratedDofsScratch : public initializer::Scratchpad<real> {};
+  struct DerivativesScratch : public initializer::Scratchpad<real> {};
+  struct NodalAvgDisplacements : public initializer::Scratchpad<real> {};
+  struct AnalyticScratch : public initializer::Scratchpad<real> {};
+  struct DerivativesExtScratch : public initializer::Scratchpad<real> {};
+  struct DerivativesAneScratch : public initializer::Scratchpad<real> {};
+  struct IDofsAneScratch : public initializer::Scratchpad<real> {};
+  struct DofsExtScratch : public initializer::Scratchpad<real> {};
+
+  struct FlagScratch : public initializer::Scratchpad<unsigned> {};
+  struct QStressNodalScratch : public initializer::Scratchpad<real> {};
+
+  struct RotateDisplacementToFaceNormalScratch : public initializer::Scratchpad<real> {};
+  struct RotateDisplacementToGlobalScratch : public initializer::Scratchpad<real> {};
+  struct RotatedFaceDisplacementScratch : public initializer::Scratchpad<real> {};
+  struct DofsFaceNodalScratch : public initializer::Scratchpad<real> {};
+  struct PrevCoefficientsScratch : public initializer::Scratchpad<real> {};
+  struct DofsFaceBoundaryNodalScratch : public initializer::Scratchpad<real> {};
+
+  struct Integrals : public initializer::Variable<real[tensor::Q::size()]> {};
+
+  struct GlobalMkDivMT
+      : public initializer::Variable<NZArray<real, kernels::size<tensor::globalMkDivMT>()>> {};
+  struct GlobalMkDivM
+      : public initializer::Variable<NZArray<real, kernels::size<tensor::globalMkDivM>()>> {};
+  struct GlobalMrDivM
+      : public initializer::Variable<NZArray<real, kernels::size<tensor::globalMrDivM>()>> {};
+  struct GlobalMrT
+      : public initializer::Variable<NZArray<real, kernels::size<tensor::globalMrT>()>> {};
+  struct GlobalMfMrT
+      : public initializer::Variable<NZArray<real, kernels::size<tensor::globalMfMrT>()>> {};
+  struct GlobalMproject2nFaceTo3m
+      : public initializer::Variable<
+            NZArray<real, kernels::size<tensor::globalMproject2nFaceTo3m>()>> {};
+
+  struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
+                                                        DofsHalo,
+                                                        DofsAne,
+                                                        Buffers,
+                                                        Derivatives,
+                                                        CellInformation,
+                                                        SecondaryInformation,
+                                                        FaceNeighbors,
+                                                        LocalIntegration,
+                                                        NeighboringIntegration,
+                                                        Material,
+                                                        MaterialData,
+                                                        Plasticity,
+                                                        DRMapping,
+                                                        BoundaryMapping,
+                                                        PStrain,
+                                                        FaceDisplacements,
+                                                        BuffersDerivatives,
+                                                        BuffersDevice,
+                                                        DerivativesDevice,
+                                                        FaceNeighborsDevice,
+                                                        FaceDisplacementsDevice,
+                                                        DRMappingDevice,
+                                                        BoundaryMappingDevice,
+                                                        IntegratedDofsScratch,
+                                                        DerivativesScratch,
+                                                        NodalAvgDisplacements,
+                                                        AnalyticScratch,
+                                                        DerivativesExtScratch,
+                                                        DerivativesAneScratch,
+                                                        IDofsAneScratch,
+                                                        DofsExtScratch,
+                                                        FlagScratch,
+                                                        QStressNodalScratch,
+                                                        RotateDisplacementToFaceNormalScratch,
+                                                        RotateDisplacementToGlobalScratch,
+                                                        RotatedFaceDisplacementScratch,
+                                                        DofsFaceNodalScratch,
+                                                        PrevCoefficientsScratch,
+                                                        DofsFaceBoundaryNodalScratch,
+                                                        Integrals,
+                                                        GlobalMrDivM,
+                                                        GlobalMkDivMT,
+                                                        GlobalMkDivM,
+                                                        GlobalMfMrT,
+                                                        GlobalMrT,
+                                                        GlobalMproject2nFaceTo3m> {};
+
+  using Storage = initializer::Storage<LTSVarmap>;
+  using Layer = initializer::Layer<LTSVarmap>;
+  using Ref = initializer::Layer<LTSVarmap>::CellRef;
+  using Backmap = initializer::StorageBackmap<Cell::NumFaces>;
+
+  static void addTo(Storage& storage, const SimulationSettings& settings) {
+    using namespace initializer;
+    LayerMask plasticityMask;
+    if (settings.plasticity) {
+      plasticityMask = LayerMask(Ghost);
+    } else {
+      plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
+    }
+    LayerMask integralMask;
+    if (settings.integrate) {
+      integralMask = LayerMask(Ghost);
+    } else {
+      integralMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
+    }
+
+    storage.add<Dofs>(LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
+    storage.add<DofsHalo>(LayerMask(Copy) | LayerMask(Interior),
+                          PagesizeHeap,
+                          allocationModeWP(AllocationPreset::Dofs));
+
+    if (kernels::size<tensor::Qane>() > 0) {
+      storage.add<DofsAne>(
+          LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
+    } else {
+      storage.add<DofsAne>(LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior),
+                           PagesizeHeap,
+                           allocationModeWP(AllocationPreset::Dofs));
+    }
+
+    storage.add<Buffers>(
+        LayerMask(), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+    storage.add<Derivatives>(
+        LayerMask(), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+    storage.add<CellInformation>(
+        LayerMask(), Alignment, allocationModeWP(AllocationPreset::Constant), true);
+    storage.add<SecondaryInformation>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
+    storage.add<FaceNeighbors>(
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+    storage.add<LocalIntegration>(
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
+    storage.add<NeighboringIntegration>(
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
+    storage.add<MaterialData>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
+    storage.add<Material>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+    storage.add<Plasticity>(
+        plasticityMask, Alignment, allocationModeWP(AllocationPreset::Plasticity), true);
+    storage.add<DRMapping>(
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::Constant), true);
+    storage.add<BoundaryMapping>(
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::Constant), true);
+    storage.add<PStrain>(
+        plasticityMask, PagesizeHeap, allocationModeWP(AllocationPreset::PlasticityData));
+    storage.add<FaceDisplacements>(LayerMask(Ghost), PagesizeHeap, AllocationMode::HostOnly, true);
 
     // TODO(David): remove/rename "constant" flag (the data is temporary; and copying it for IO is
     // handled differently)
-    tree.addBucket(
-        buffersDerivatives, PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
-    tree.addBucket(
-        faceDisplacementsBuffer, PagesizeHeap, allocationModeWP(AllocationPreset::Timedofs));
+    storage.add<BuffersDerivatives>(
+        LayerMask(), PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
 
-    const LayerMask elementwiseMask = Config::GlobalElementwise ? LayerMask(Ghost) : allMask;
-    tree.addVar(globalMkDivMT,
-                elementwiseMask,
-                PagesizeHeap,
-                allocationModeWP(AllocationPreset::ConstantShared),
-                true);
-    tree.addVar(globalMkDivM,
-                elementwiseMask,
-                PagesizeHeap,
-                allocationModeWP(AllocationPreset::ConstantShared),
-                true);
-    tree.addVar(globalMrDivM,
-                elementwiseMask,
-                PagesizeHeap,
-                allocationModeWP(AllocationPreset::ConstantShared),
-                true);
-    tree.addVar(globalMfMrT,
-                elementwiseMask,
-                PagesizeHeap,
-                allocationModeWP(AllocationPreset::ConstantShared),
-                true);
-    tree.addVar(globalMrT,
-                elementwiseMask,
-                PagesizeHeap,
-                allocationModeWP(AllocationPreset::ConstantShared),
-                true);
-    tree.addVar(globalMproject2nFaceTo3m,
-                elementwiseMask,
-                PagesizeHeap,
-                allocationModeWP(AllocationPreset::ConstantShared),
-                true);
+    const LayerMask elementwiseMask =
+        Config::GlobalElementwise ? LayerMask(Ghost)
+                                  : LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
+    storage.add<GlobalMkDivMT>(
+        elementwiseMask, PagesizeHeap, allocationModeWP(AllocationPreset::ConstantShared), true);
+    storage.add<GlobalMkDivM>(
+        elementwiseMask, PagesizeHeap, allocationModeWP(AllocationPreset::ConstantShared), true);
+    storage.add<GlobalMrDivM>(
+        elementwiseMask, PagesizeHeap, allocationModeWP(AllocationPreset::ConstantShared), true);
+    storage.add<GlobalMrT>(
+        elementwiseMask, PagesizeHeap, allocationModeWP(AllocationPreset::ConstantShared), true);
+    storage.add<GlobalMfMrT>(
+        elementwiseMask, PagesizeHeap, allocationModeWP(AllocationPreset::ConstantShared), true);
+    storage.add<GlobalMproject2nFaceTo3m>(
+        elementwiseMask, PagesizeHeap, allocationModeWP(AllocationPreset::ConstantShared), true);
 
-    tree.addVar(buffersDevice, LayerMask(), 1, AllocationMode::HostOnly, true);
-    tree.addVar(derivativesDevice, LayerMask(), 1, AllocationMode::HostOnly, true);
-    tree.addVar(faceDisplacementsDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    tree.addVar(faceNeighborsDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    tree.addVar(drMappingDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    tree.addVar(boundaryMappingDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    storage.add<BuffersDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
+    storage.add<DerivativesDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
+    storage.add<FaceDisplacementsDevice>(
+        LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+    storage.add<FaceNeighborsDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+    storage.add<DRMappingDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+    storage.add<BoundaryMappingDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
 
-#ifdef ACL_DEVICE
-    tree.addScratchpadMemory(derivativesExtScratch, 1, AllocationMode::DeviceOnly);
-    tree.addScratchpadMemory(derivativesAneScratch, 1, AllocationMode::DeviceOnly);
-    tree.addScratchpadMemory(idofsAneScratch, 1, AllocationMode::DeviceOnly);
-    tree.addScratchpadMemory(dofsExtScratch, 1, AllocationMode::DeviceOnly);
-    tree.addScratchpadMemory(integratedDofsScratch, 1, AllocationMode::HostDeviceSplit);
-    tree.addScratchpadMemory(derivativesScratch, 1, AllocationMode::DeviceOnly);
-    tree.addScratchpadMemory(nodalAvgDisplacements, 1, AllocationMode::DeviceOnly);
-    tree.addScratchpadMemory(analyticScratch, 1, AllocationMode::HostDevicePinned);
-#endif
+    storage.add<Integrals>(integralMask, Alignment, allocationModeWP(AllocationPreset::Dofs));
+
+    if constexpr (isDeviceOn()) {
+      const auto mode = AllocationMode::DeviceOnly;
+
+      storage.add<DerivativesExtScratch>(LayerMask(), Alignment, mode);
+      storage.add<DerivativesAneScratch>(LayerMask(), Alignment, mode);
+      storage.add<IDofsAneScratch>(LayerMask(), Alignment, mode);
+      storage.add<DofsExtScratch>(LayerMask(), Alignment, mode);
+      storage.add<IntegratedDofsScratch>(LayerMask(), Alignment, mode);
+      storage.add<DerivativesScratch>(LayerMask(), Alignment, mode);
+      storage.add<NodalAvgDisplacements>(LayerMask(), Alignment, mode);
+      storage.add<AnalyticScratch>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
+
+      storage.add<FlagScratch>(LayerMask(), Alignment, mode);
+      storage.add<QStressNodalScratch>(LayerMask(), Alignment, mode);
+
+      storage.add<RotateDisplacementToFaceNormalScratch>(LayerMask(), Alignment, mode);
+      storage.add<RotateDisplacementToGlobalScratch>(LayerMask(), Alignment, mode);
+      storage.add<RotatedFaceDisplacementScratch>(LayerMask(), Alignment, mode);
+      storage.add<DofsFaceNodalScratch>(LayerMask(), Alignment, mode);
+      storage.add<PrevCoefficientsScratch>(LayerMask(), Alignment, mode);
+      storage.add<DofsFaceBoundaryNodalScratch>(LayerMask(), Alignment, mode);
+    }
   }
 
-  void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   LTSTree* tree) const {
-    manager.registerData("dofs", tree, dofs);
+  static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
+                                          Storage& storage) {
+    manager.registerData<Dofs>("dofs", storage);
     if constexpr (kernels::size<tensor::Qane>() > 0) {
-      manager.registerData("dofsAne", tree, dofsAne);
+      manager.registerData<DofsAne>("dofsAne", storage);
     }
     // check plasticity usage over the layer mask (for now)
-    if (plasticity.mask == LayerMask(Ghost)) {
-      manager.registerData("pstrain", tree, pstrain);
+    if (storage.info<Plasticity>().mask == initializer::LayerMask(Ghost)) {
+      manager.registerData<Plasticity>("pstrain", storage);
     }
   }
 };
 
-} // namespace seissol::initializer
+} // namespace seissol
 
 #endif // SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_

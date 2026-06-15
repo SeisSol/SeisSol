@@ -9,12 +9,16 @@
 #define SEISSOL_SRC_MONITORING_UNIT_H_
 
 #include <cmath>
+#include <cstdint>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
 
 namespace seissol {
+
+std::string formatInteger(uint64_t value);
+
 struct SIUnit {
   public:
   SIUnit(const std::string& unit, bool binary);
@@ -28,13 +32,16 @@ struct SIUnit {
       formatScientific(double value, std::optional<double> error = {}, int digits = 4) const;
 
   private:
-  std::string unit;
-  bool binary;
+  std::string unit_;
+  bool binary_;
 };
 
 const inline SIUnit UnitTime = SIUnit("s", false);
 const inline SIUnit UnitFlop = SIUnit("FLOP", false);
 const inline SIUnit UnitFlopPerS = SIUnit("FLOP/s", false);
+const inline SIUnit UnitEnergy = SIUnit("J", false);
+const inline SIUnit UnitMoment = SIUnit("Nm", false);
+const inline SIUnit UnitMomentum = SIUnit("Ns", false);
 const inline SIUnit UnitByte = SIUnit("B", true);
 } // namespace seissol
 

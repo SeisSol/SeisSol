@@ -8,24 +8,29 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_MESHPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_MESHPARAMETERS_H_
 
-#include <Eigen/Dense>
-#include <string>
-
 #include "Initializer/InputAux.h"
 #include "ParameterReader.h"
 
+#include <Eigen/Dense>
+#include <optional>
+#include <string>
+
 namespace seissol::initializer::parameters {
 
-enum class MeshFormat : int { Netcdf, PUML, CubeGenerator };
+enum class MeshFormat : int { PUML, CubeGenerator };
 
 enum class BoundaryFormat : int { Auto, I32, I64, I32x4 };
 
+enum class TopologyFormat : int { Auto, Geometric, IdentifyFace, IdentifyVertex };
+
 struct MeshParameters {
-  bool showEdgeCutStatistics;
-  BoundaryFormat pumlBoundaryFormat;
-  MeshFormat meshFormat;
+  bool showEdgeCutStatistics{false};
+  BoundaryFormat pumlBoundaryFormat{BoundaryFormat::Auto};
+  TopologyFormat pumlTopologyFormat{TopologyFormat::Auto};
+  MeshFormat meshFormat{MeshFormat::PUML};
   std::string meshFileName;
   std::string partitioningLib;
+  std::optional<std::string> faceMapFile;
   Eigen::Vector3d displacement;
   Eigen::Matrix3d scaling;
 };

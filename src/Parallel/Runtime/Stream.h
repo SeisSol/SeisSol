@@ -8,21 +8,63 @@
 #ifndef SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_
 #define SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_
 
-#include <Memory/Tree/Layer.h>
+#include "Memory/Tree/Layer.h"
+
 #include <functional>
-#include <omp.h>
 #include <utility>
 
 #ifdef ACL_DEVICE
-#include "device.h"
+#include <Device/device.h>
 #endif
 
 namespace seissol::parallel::runtime {
 
-enum class Runtime { Native, Sycl, OpenMP };
-
 template <typename T>
 class StreamMemoryHandle;
+
+class ManagedStream {
+  public:
+  ManagedStream();
+
+  ManagedStream(const ManagedStream&) = delete;
+  auto operator=(const ManagedStream&) = delete;
+
+  ManagedStream(ManagedStream&& old) noexcept : streamPtr_(old.streamPtr_) {}
+
+  auto operator=(ManagedStream&& old) noexcept -> ManagedStream& {
+    this->streamPtr_ = old.streamPtr_;
+    return *this;
+  }
+
+  [[nodiscard]] void* get() const { return streamPtr_; }
+
+  ~ManagedStream();
+
+  private:
+  void* streamPtr_{nullptr};
+};
+
+class ManagedEvent {
+  public:
+  ManagedEvent();
+
+  ManagedEvent(const ManagedEvent&) = delete;
+  auto operator=(const ManagedEvent&) = delete;
+
+  ManagedEvent(ManagedEvent&& old) noexcept : eventPtr_(old.eventPtr_) {}
+
+  auto operator=(ManagedEvent&& old) noexcept -> ManagedEvent& {
+    this->eventPtr_ = old.eventPtr_;
+    return *this;
+  }
+
+  [[nodiscard]] void* get() const { return eventPtr_; }
+
+  ~ManagedEvent();
+
+  private:
+  void* eventPtr_{nullptr};
+};
 
 class StreamRuntime {
 #ifdef ACL_DEVICE
@@ -30,57 +72,52 @@ class StreamRuntime {
   static device::DeviceInstance& device() { return device::DeviceInstance::getInstance(); }
 
   public:
-  static constexpr size_t RingbufferSize = 4;
   static constexpr size_t EventPoolSize = 100;
 
-  StreamRuntime() : disposed(false) {
-    streamPtr = device().api->createStream();
-    ringbufferPtr.resize(RingbufferSize);
-    events.resize(EventPoolSize);
-    for (size_t i = 0; i < RingbufferSize; ++i) {
-      ringbufferPtr[i] = device().api->createStream();
-    }
-    for (size_t i = 0; i < events.size(); ++i) {
-      events[i] = device().api->createEvent();
-    }
+  StreamRuntime() : StreamRuntime(0) {}
 
-    allStreams.resize(RingbufferSize + 1);
-    allStreams[0] = streamPtr;
-    for (size_t i = 0; i < RingbufferSize; ++i) {
-      allStreams[i + 1] = ringbufferPtr[i];
+  explicit StreamRuntime(size_t ringbufferSize)
+      : ringbufferSize_(ringbufferSize), disposed_(false) {
+    streamPtr_.emplace();
+    ringbufferPtr_.resize(ringbufferSize);
+    events_.resize(EventPoolSize);
+
+    allStreams_.resize(ringbufferSize + 1);
+    allStreams_[0] = streamPtr_->get();
+    for (size_t i = 0; i < ringbufferSize; ++i) {
+      allStreams_[i + 1] = ringbufferPtr_[i].get();
     }
   }
 
   void dispose() {
-    if (!disposed) {
-      device().api->destroyGenericStream(streamPtr);
-      for (size_t i = 0; i < RingbufferSize; ++i) {
-        device().api->destroyGenericStream(ringbufferPtr[i]);
-      }
-      for (size_t i = 0; i < events.size(); ++i) {
-        device().api->destroyEvent(events[i]);
-      }
-      disposed = true;
+    if (!disposed_) {
+      streamPtr_.reset();
+      ringbufferPtr_.clear();
+      events_.clear();
+      disposed_ = true;
     }
   }
 
   ~StreamRuntime() { dispose(); }
 
-  StreamRuntime(const StreamRuntime&) = delete;
-  StreamRuntime operator=(const StreamRuntime&) = delete;
-
   template <typename F>
   void env(F&& handler) {
-    std::invoke(std::forward<F>(handler), streamPtr);
+    std::invoke(std::forward<F>(handler), streamPtr_->get());
   }
 
   template <typename F>
   void enqueueHost(F&& handler) {
-    device().api->streamHostFunction(streamPtr, std::forward<F>(handler));
+    if (Backend != DeviceBackend::Hip) {
+      device().api->streamHostFunction(streamPtr_->get(), std::forward<F>(handler));
+    } else {
+      // if the stream host function call isn't implemented or slow, we'll need to synchronize
+      wait();
+      std::invoke(handler);
+    }
   }
 
   template <typename F>
-  void enqueueOmpFor(std::size_t elemCount, F&& handler) {
+  void enqueueLoop(std::size_t elemCount, F&& handler) {
     enqueueHost([=]() {
 #pragma omp parallel for schedule(static)
       for (std::size_t i = 0; i < elemCount; ++i) {
@@ -90,42 +127,42 @@ class StreamRuntime {
   }
 
   void* nextEvent() {
-    const auto pos = eventpos;
-    eventpos = (eventpos + 1) % events.size();
-    return events[pos];
+    const auto pos = this->eventpos_;
+    this->eventpos_ = (this->eventpos_ + 1) % this->events_.size();
+    return this->events_[pos].get();
   }
 
   template <typename F>
   void envMany(size_t count, F&& handler) {
-    if constexpr (Backend != DeviceBackend::Hip) {
+    if (Backend != DeviceBackend::Hip && ringbufferSize_ > 0) {
       void* forkEvent = nextEvent();
-      device().api->recordEventOnStream(forkEvent, streamPtr);
-      for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
-        device().api->syncStreamWithEvent(ringbufferPtr[i], forkEvent);
+      device().api->recordEventOnStream(forkEvent, streamPtr_->get());
+      for (size_t i = 0; i < std::min(count, ringbufferPtr_.size()); ++i) {
+        device().api->syncStreamWithEvent(ringbufferPtr_[i].get(), forkEvent);
       }
       for (size_t i = 0; i < count; ++i) {
-        std::invoke(handler, ringbufferPtr[i % ringbufferPtr.size()], i);
+        std::invoke(handler, ringbufferPtr_[i % ringbufferPtr_.size()].get(), i);
       }
-      for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
+      for (size_t i = 0; i < std::min(count, ringbufferPtr_.size()); ++i) {
         void* joinEvent = nextEvent();
-        device().api->recordEventOnStream(joinEvent, ringbufferPtr[i]);
-        device().api->syncStreamWithEvent(streamPtr, joinEvent);
+        device().api->recordEventOnStream(joinEvent, ringbufferPtr_[i].get());
+        device().api->syncStreamWithEvent(streamPtr_->get(), joinEvent);
       }
     } else {
       for (size_t i = 0; i < count; ++i) {
-        std::invoke(handler, streamPtr, i);
+        std::invoke(handler, streamPtr_->get(), i);
       }
     }
   }
 
-  void wait() { device().api->syncStreamWithHost(streamPtr); }
+  void wait() { device().api->syncStreamWithHost(streamPtr_->get()); }
 
-  void* stream() { return streamPtr; }
+  void* stream() { return streamPtr_->get(); }
 
   template <typename F>
   void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle, F&& handler) {
     if (!computeGraphHandle.isInitialized()) {
-      computeGraphHandle = device().api->streamBeginCapture(allStreams);
+      computeGraphHandle = device().api->streamBeginCapture(allStreams_);
 
       std::invoke(std::forward<F>(handler), *this);
 
@@ -133,17 +170,17 @@ class StreamRuntime {
     }
 
     if (computeGraphHandle.isInitialized()) {
-      device().api->launchGraph(computeGraphHandle, streamPtr);
+      device().api->launchGraph(computeGraphHandle, streamPtr_->get());
     }
   }
 
-  template <typename F>
+  template <typename VarmapT, typename F>
   void runGraph(seissol::initializer::GraphKey computeGraphKey,
-                seissol::initializer::Layer& layer,
+                initializer::Layer<VarmapT>& layer,
                 F&& handler) {
     auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
 
-    bool needsUpdate = !computeGraphHandle.isInitialized();
+    const bool needsUpdate = !computeGraphHandle.isInitialized();
 
     runGraphGeneric(computeGraphHandle, std::forward<F>(handler));
 
@@ -154,12 +191,12 @@ class StreamRuntime {
 
   template <typename T>
   T* allocMemory(std::size_t count) {
-    return reinterpret_cast<T*>(device().api->allocMemAsync(count * sizeof(T), streamPtr));
+    return reinterpret_cast<T*>(device().api->allocMemAsync(count * sizeof(T), streamPtr_->get()));
   }
 
   template <typename T>
   void freeMemory(T* ptr) {
-    device().api->freeMemAsync(reinterpret_cast<T*>(ptr), streamPtr);
+    device().api->freeMemAsync(ptr, streamPtr_->get());
   }
 
   template <typename T>
@@ -167,15 +204,46 @@ class StreamRuntime {
     return StreamMemoryHandle<T>(count, *this);
   }
 
+  void eventSync(void* event) { device().api->syncStreamWithEvent(streamPtr_->get(), event); }
+
+  void* eventRecord() {
+    void* event = nextEvent();
+    device().api->recordEventOnStream(event, streamPtr_->get());
+    return event;
+  }
+
   private:
-  bool disposed;
-  void* streamPtr;
-  std::vector<void*> ringbufferPtr;
-  std::vector<void*> allStreams;
-  std::vector<void*> events;
-  std::size_t eventpos{0};
+  std::size_t ringbufferSize_{0};
+  bool disposed_;
+  std::optional<ManagedStream> streamPtr_;
+  std::vector<ManagedStream> ringbufferPtr_;
+  std::vector<void*> allStreams_;
+  std::vector<ManagedEvent> events_;
+  std::size_t eventpos_{0};
 #else
   public:
+  StreamRuntime() : StreamRuntime(0) {}
+
+  explicit StreamRuntime(std::size_t ringbufferSize) {}
+
+  template <typename F>
+  void enqueueLoop(std::size_t elemCount, const F& handler) {
+#pragma omp parallel for schedule(static)
+    for (std::size_t i = 0; i < elemCount; ++i) {
+      std::invoke(handler, i);
+    }
+  }
+
+  template <typename F>
+  void enqueueHost(F&& handler) {
+    std::invoke(std::forward<F>(handler));
+  }
+
+  void* stream() {
+    // dummy
+    return nullptr;
+  }
+
   template <typename T>
   T* allocMemory(std::size_t count) {
     return new T[count];
@@ -184,8 +252,16 @@ class StreamRuntime {
   void freeMemory(T* ptr) {
     delete[] ptr;
   }
+  template <typename T>
+  StreamMemoryHandle<T> memoryHandle(std::size_t count) {
+    return StreamMemoryHandle<T>(count, *this);
+  }
+
   void wait() {}
   void dispose() {}
+
+  void eventSync(void* event) {}
+  void* eventRecord() { return nullptr; }
 #endif
 };
 
@@ -193,7 +269,7 @@ template <typename T>
 class StreamMemoryHandle {
   public:
   StreamMemoryHandle(std::size_t count, StreamRuntime& runtime)
-      : data(runtime.allocMemory<T>(count)), runtime(runtime) {}
+      : data_(runtime.allocMemory<T>(count)), runtime_(runtime) {}
 
   StreamMemoryHandle(const StreamMemoryHandle&) = delete;
   auto operator=(const StreamMemoryHandle& stream) = delete;
@@ -201,15 +277,15 @@ class StreamMemoryHandle {
   StreamMemoryHandle(StreamMemoryHandle&&) = default;
   auto operator=(StreamMemoryHandle&& stream) -> StreamMemoryHandle& = default;
 
-  T* get() { return data; }
+  T* get() { return data_; }
 
-  const T* get() const { return data; }
+  [[nodiscard]] const T* get() const { return data_; }
 
-  ~StreamMemoryHandle() { runtime.freeMemory(data); }
+  ~StreamMemoryHandle() { runtime_.freeMemory(data_); }
 
   private:
-  T* data;
-  StreamRuntime& runtime;
+  T* data_;
+  StreamRuntime& runtime_;
 };
 
 } // namespace seissol::parallel::runtime

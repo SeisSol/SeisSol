@@ -8,17 +8,12 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_DEVICEAUX_KERNELSAUX_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_DEVICEAUX_KERNELSAUX_H_
 
+#include "GeneratedCode/init.h"
 #include "Kernels/Precision.h"
-#include "generated_code/init.h"
 
 namespace seissol::kernels::time::aux {
-void taylorSum(bool integral,
-               std::size_t count,
-               real** target,
-               const real** source,
-               real start,
-               real end,
-               void* stream);
+void taylorSum(
+    std::size_t count, real** target, const real** source, const real* coeffs, void* stream);
 } // namespace seissol::kernels::time::aux
 
 namespace seissol::kernels::local_flux::aux::details {
@@ -46,10 +41,10 @@ struct DirichletBoundaryAux {
 
 struct FreeSurfaceGravity : public DirichletBoundaryAux<FreeSurfaceGravity> {
   real** displacementDataPtrs{};
-  double* rhos;
+  double* rhos{nullptr};
   double g{};
 
-  void dispatch(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) {
+  void dispatch(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) const {
 
     assert(displacementDataPtrs != nullptr);
     assert(rhos != nullptr);
@@ -62,7 +57,7 @@ struct EasiBoundary : public DirichletBoundaryAux<EasiBoundary> {
   real** easiBoundaryMapPtrs{};
   real** easiBoundaryConstantPtrs{};
 
-  void dispatch(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) {
+  void dispatch(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) const {
 
     assert(easiBoundaryMapPtrs != nullptr);
     assert(easiBoundaryConstantPtrs != nullptr);
@@ -79,8 +74,8 @@ struct EasiBoundary : public DirichletBoundaryAux<EasiBoundary> {
 namespace seissol::kernels::time::aux {
 void extractRotationMatrices(real** displacementToFaceNormalPtrs,
                              real** displacementToGlobalDataPtrs,
-                             real** TPtrs,
-                             real** TinvPtrs,
+                             real** tPtrs,
+                             real** tinvPtrs,
                              size_t numElements,
                              void* deviceStream);
 

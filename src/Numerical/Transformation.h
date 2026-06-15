@@ -11,6 +11,7 @@
 
 #include "Geometry/MeshDefinition.h"
 #include "Initializer/Typedefs.h"
+
 #include <Eigen/Dense>
 #include <yateto.h>
 
@@ -57,12 +58,13 @@ void tetrahedronGlobalToReferenceJacobian(const double iX[4],
 /**
  * Inverse of Tensor1RotationMatrix().
  **/
+template <typename RealT>
 void inverseTensor1RotationMatrix(const VrtxCoords iNormal,
                                   const VrtxCoords iTangent1,
                                   const VrtxCoords iTangent2,
-                                  yateto::DenseTensorView<2, real, unsigned>& oTinv,
-                                  unsigned row = 0,
-                                  unsigned col = 0);
+                                  yateto::DenseTensorView<2, RealT, unsigned>& oTinv,
+                                  std::uint32_t row = 0,
+                                  std::uint32_t col = 0);
 
 /**
  * Returns a column-major matrix that rotates a first-order tensor
@@ -70,70 +72,24 @@ void inverseTensor1RotationMatrix(const VrtxCoords iNormal,
  * and tangents.
  * u' = T*u
  **/
+template <typename RealT>
 void tensor1RotationMatrix(const VrtxCoords iNormal,
                            const VrtxCoords iTangent1,
                            const VrtxCoords iTangent2,
-                           yateto::DenseTensorView<2, real, unsigned>& oT,
-                           unsigned row = 0,
-                           unsigned col = 0);
+                           yateto::DenseTensorView<2, RealT, unsigned>& oT,
+                           std::uint32_t row = 0,
+                           std::uint32_t col = 0);
 
 /**
  * Inverse of SymmetricTensor2RotationMatrix().
  **/
-template <typename Tmatrix>
+template <typename RealT>
 void inverseSymmetricTensor2RotationMatrix(const VrtxCoords iNormal,
                                            const VrtxCoords iTangent1,
                                            const VrtxCoords iTangent2,
-                                           Tmatrix& oTinv,
-                                           unsigned row = 0,
-                                           unsigned col = 0) {
-  const auto nx = iNormal[0];
-  const auto ny = iNormal[1];
-  const auto nz = iNormal[2];
-  const auto sx = iTangent1[0];
-  const auto sy = iTangent1[1];
-  const auto sz = iTangent1[2];
-  const auto tx = iTangent2[0];
-  const auto ty = iTangent2[1];
-  const auto tz = iTangent2[2];
-
-  oTinv(row + 0, col + 0) = nx * nx;
-  oTinv(row + 1, col + 0) = sx * sx;
-  oTinv(row + 2, col + 0) = tx * tx;
-  oTinv(row + 3, col + 0) = nx * sx;
-  oTinv(row + 4, col + 0) = sx * tx;
-  oTinv(row + 5, col + 0) = nx * tx;
-  oTinv(row + 0, col + 1) = ny * ny;
-  oTinv(row + 1, col + 1) = sy * sy;
-  oTinv(row + 2, col + 1) = ty * ty;
-  oTinv(row + 3, col + 1) = ny * sy;
-  oTinv(row + 4, col + 1) = sy * ty;
-  oTinv(row + 5, col + 1) = ny * ty;
-  oTinv(row + 0, col + 2) = nz * nz;
-  oTinv(row + 1, col + 2) = sz * sz;
-  oTinv(row + 2, col + 2) = tz * tz;
-  oTinv(row + 3, col + 2) = nz * sz;
-  oTinv(row + 4, col + 2) = sz * tz;
-  oTinv(row + 5, col + 2) = nz * tz;
-  oTinv(row + 0, col + 3) = 2.0 * ny * nx;
-  oTinv(row + 1, col + 3) = 2.0 * sy * sx;
-  oTinv(row + 2, col + 3) = 2.0 * ty * tx;
-  oTinv(row + 3, col + 3) = ny * sx + nx * sy;
-  oTinv(row + 4, col + 3) = sy * tx + sx * ty;
-  oTinv(row + 5, col + 3) = ny * tx + nx * ty;
-  oTinv(row + 0, col + 4) = 2.0 * nz * ny;
-  oTinv(row + 1, col + 4) = 2.0 * sz * sy;
-  oTinv(row + 2, col + 4) = 2.0 * tz * ty;
-  oTinv(row + 3, col + 4) = nz * sy + ny * sz;
-  oTinv(row + 4, col + 4) = sz * ty + sy * tz;
-  oTinv(row + 5, col + 4) = nz * ty + ny * tz;
-  oTinv(row + 0, col + 5) = 2.0 * nz * nx;
-  oTinv(row + 1, col + 5) = 2.0 * sz * sx;
-  oTinv(row + 2, col + 5) = 2.0 * tz * tx;
-  oTinv(row + 3, col + 5) = nz * sx + nx * sz;
-  oTinv(row + 4, col + 5) = sz * tx + sx * tz;
-  oTinv(row + 5, col + 5) = nz * tx + nx * tz;
-}
+                                           yateto::DenseTensorView<2, RealT, unsigned>& oTinv,
+                                           std::uint32_t row = 0,
+                                           std::uint32_t col = 0);
 
 /**
  * Returns a column-major matrix that rotates a symmetric second-order
@@ -141,18 +97,19 @@ void inverseSymmetricTensor2RotationMatrix(const VrtxCoords iNormal,
  * into a new coordinate system aligned with normal and tangents.
  * u' = T*u
  **/
+template <typename RealT>
 void symmetricTensor2RotationMatrix(const VrtxCoords iNormal,
                                     const VrtxCoords iTangent1,
                                     const VrtxCoords iTangent2,
-                                    yateto::DenseTensorView<2, real, unsigned>& oTinv,
-                                    unsigned row = 0,
-                                    unsigned col = 0);
+                                    yateto::DenseTensorView<2, RealT, unsigned>& oTinv,
+                                    std::uint32_t row = 0,
+                                    std::uint32_t col = 0);
 
-void chiTau2XiEtaZeta(unsigned face,
+void chiTau2XiEtaZeta(std::uint32_t face,
                       const double chiTau[2],
                       double xiEtaZeta[3],
-                      int sideOrientation = -1);
-void XiEtaZeta2chiTau(unsigned face, const double xiEtaZeta[3], double chiTau[2]);
+                      std::int32_t sideOrientation = -1);
+void XiEtaZeta2chiTau(std::uint32_t face, const double xiEtaZeta[3], double chiTau[2]);
 } // namespace seissol::transformations
 
 #endif // SEISSOL_SRC_NUMERICAL_TRANSFORMATION_H_

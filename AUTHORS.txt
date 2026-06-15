@@ -52,7 +52,7 @@ The SeisSol group appreciates the work of the developers of Hydsol, the early ro
 
 SeisSol webpage: https://seissol.org/
 
-TUM: 
+TUM:
 Technical University of Munich
 TUM School of Computation, Information and Technology
 Chair of Scientific Computing
@@ -71,7 +71,7 @@ Germany
 http://www.geophysik.uni-muenchen.de
 
 UniTN:
-Dipartimento di Ingegneria Civile Ambientale e Meccanica 
+Dipartimento di Ingegneria Civile Ambientale e Meccanica
 University of Trento
 Via Mesiano, 77
 38123 Trento
@@ -105,4 +105,3 @@ IBM T.J. Watson Research
 Cambridge, MA, 02142
 USA
 http://www.research.ibm.com/
-

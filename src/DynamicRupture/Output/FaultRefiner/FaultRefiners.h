@@ -10,6 +10,7 @@
 
 #include "DynamicRupture/Output/DataTypes.h"
 #include "Initializer/Parameters/OutputParameters.h"
+
 #include <memory>
 #include <tuple>
 
@@ -21,6 +22,7 @@ class FaultRefiner {
     int faultFaceIndex{};
     int localFaceSideId{};
     int elementId{-1};
+    std::size_t globalId{};
   };
   using PointsPair = std::pair<ExtVrtxCoords, ExtVrtxCoords>;
   using TrianglePair = std::pair<ExtTriangle, ExtTriangle>;
@@ -29,10 +31,10 @@ class FaultRefiner {
   virtual void refineAndAccumulate(Data data, TrianglePair face) = 0;
   virtual ~FaultRefiner() = default;
 
-  ReceiverPoints&& moveAllReceiverPoints() { return std::move(points); }
+  ReceiverPoints&& moveAllReceiverPoints() { return std::move(points_); }
 
   protected:
-  ReceiverPoints points;
+  ReceiverPoints points_;
 
   static constexpr size_t Global = 0;
   static constexpr size_t Reference = 1;

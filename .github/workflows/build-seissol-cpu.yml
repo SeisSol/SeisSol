@@ -10,7 +10,7 @@ on:
   - push
 
 env:
-  precomputed-hash: 0fe0a82d19d2452c213789a51bc1d65edcf3c1ee
+  precomputed-hash: 0f623b3e263726bc547997ca29790936396847df
 
 jobs:
   seissol-build-test:
@@ -18,18 +18,6 @@ jobs:
     runs-on: ubuntu-24.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
-    env:
-      EXENAME: |
-        ${{
-          format('{0}_{1}{2}_{3}_{4}{5}',
-            matrix.build_type,
-            matrix.precision == 'single' && 's' || 'd',
-            matrix.arch,
-            matrix.order,
-            matrix.equation.type,
-            matrix.equation.multisim != 1 && format('_f{0}', matrix.equation.multisim) || ''
-          )
-        }}
     strategy:
       fail-fast: false
       matrix:
@@ -75,14 +63,14 @@ jobs:
             cxx: icpx
             fc: ifx
             container: seissol/gha-gpu-intel:davschneller-gpu-image
-          - cc: nvc
-            cxx: nvc++
-            fc: nvfortran
-            container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+          #- cc: nvc
+          #  cxx: nvc++
+          #  fc: nvfortran
+          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
     steps:
       - id: checkout
         name: checkout-seissol
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -106,11 +94,30 @@ jobs:
 
           if [ ${{matrix.setup.cc}} = nvc ]; then
             TESTING_COMMAND="mpirun -np 1 --oversubscribe --allow-run-as-root";
+
+            # there's still a bug with how NVHPC compiles the kernels; thus disable them for now
+            TESTING_GENERATED_ENABLE=OFF;
           else
             TESTING_COMMAND="";
+            TESTING_GENERATED_ENABLE=ON;
           fi;
 
-          cmake .. -GNinja -DTESTING_COMMAND="${TESTING_COMMAND}" -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DASAGI=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }}
+          cmake .. \
+            -GNinja \
+            -DNEW_BINARY_NAMING=ON \
+            -DTESTING_COMMAND="${TESTING_COMMAND}" \
+            -DCMAKE_INSTALL_PREFIX=/opt/seissol \
+            -DTESTING=ON \
+            -DTESTING_GENERATED=${TESTING_GENERATED_ENABLE} \
+            -DASAGI=ON \
+            -DHOST_ARCH=${{matrix.arch}} \
+            -DORDER=${{matrix.order}} \
+            -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
+            -DEQUATIONS=${{matrix.equation.type}} \
+            -DPRECISION=${{matrix.precision}} \
+            -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} \
+            -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }}
+
           ninja install
 
       - name: test-seissol
@@ -118,7 +125,7 @@ jobs:
         run: |
           cd build
           ctest -j --rerun-failed --output-on-failure
-      
+
       - name: run-seissol-no-input
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
@@ -130,9 +137,9 @@ jobs:
 
           cd build
           set +e
-          ${TESTING_COMMAND} ./SeisSol_${EXENAME}
+          ${TESTING_COMMAND} ./seissol-cpu-*
           RETVAL_EXE=$?
-          ./SeisSol_proxy_${EXENAME}
+          ./proxyseissol-cpu-*
           RETVAL_PROXY=$?
           set -e
 
@@ -147,20 +154,6 @@ jobs:
 
           echo "Success!"
 
-      - name: run-proxy
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: |
-          cd build
-
-          ./SeisSol_proxy_${EXENAME} 100 1 ader
-          ./SeisSol_proxy_${EXENAME} 100 1 localwoader
-          ./SeisSol_proxy_${EXENAME} 100 1 local
-          ./SeisSol_proxy_${EXENAME} 100 1 neigh
-          ./SeisSol_proxy_${EXENAME} 100 1 all
-          ./SeisSol_proxy_${EXENAME} 100 1 neigh_dr
-          ./SeisSol_proxy_${EXENAME} 100 1 godunov_dr
-          ./SeisSol_proxy_${EXENAME} 100 1 all_dr
- 
       - name: upload-seissol
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
@@ -178,13 +171,11 @@ jobs:
     env:
       EXENAME: |
         ${{
-          format('{0}_{1}{2}_{3}_{4}{5}',
-            matrix.build_type,
-            matrix.precision == 'single' && 's' || 'd',
-            matrix.arch,
+          format('cpu-{0}-p{2}-{1}{3}',
+            matrix.case.dispequation || matrix.case.equation,
+            matrix.precision == 'single' && 'f32' || 'f64',
             matrix.order,
-            matrix.case.equation,
-            matrix.case.multisim != 1 && format('_f{0}', matrix.case.multisim) || ''
+            matrix.case.multisim != 1 && format('-s{0}', matrix.case.multisim) || ''
           )
         }}
     strategy:
@@ -197,96 +188,169 @@ jobs:
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv5-nuc
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv5-visco
             equation: viscoelastic2
+            dispequation: viscoelastic-3
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv5-poro
             equation: poroelastic
             multisim: 1
             energies: false # incomplete, hence disabled
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv6
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv13
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv16
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           #- name: tpv33
           #  equation: elastic
           #  multisim: 1
           #  energies: true
           #  receivers: true
           #  fault: true
+          #  volume: false
+          #  surface: false
           - name: tpv101
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv101-slip
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv104
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv105
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
-          - name: tpvahsp
+            volume: true
+            surface: false
+          - name: ahsp
             equation: anisotropic
             multisim: 1
             energies: false
             receivers: true
             fault: false
+            volume: true
+            surface: false
           - name: tpvgaussian
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpvyoffe
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
-          - name: tpvloh1-fused
+            volume: true
+            surface: false
+          - name: ttpv1
+            equation: elastic
+            multisim: 1
+            energies: true
+            receivers: true
+            fault: true
+            volume: true
+            surface: true
+          - name: loh1-fused
             equation: elastic
             multisim: 8
             energies: true
             receivers: true
             fault: false # NYI
+            volume: false
+            surface: false
+          - name: tpv13-fused
+            equation: elastic
+            multisim: 8
+            energies: true
+            receivers: true
+            fault: false # incomplete, hence disabled
+            volume: false
+            surface: false
+          - name: tpv13-fused-plasticity
+            equation: elastic
+            multisim: 8
+            energies: true
+            receivers: true
+            fault: false # incomplete, hence disabled
+            volume: false
+            surface: false
+          - name: loh1-ic
+            equation: elastic
+            multisim: 1
+            energies: true
+            receivers: true
+            fault: false
+            volume: true
+            surface: false
+          - name: acoustic
+            equation: acoustic
+            multisim: 1
+            energies: false
+            receivers: true
+            fault: false
+            volume: false
+            surface: false
         precision:
           - single
           - double
@@ -315,12 +379,12 @@ jobs:
             container: seissol/gha-gpu-intel:davschneller-gpu-image
             pythonbreak: false
             mpi: intel
-          - cc: nvc
-            cxx: nvc++
-            fc: nvfortran
-            container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
-            pythonbreak: true
-            mpi: openmpi
+          #- cc: nvc
+          #  cxx: nvc++
+          #  fc: nvfortran
+          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+          #  pythonbreak: true
+          #  mpi: openmpi
         parallel:
           - ranks: 1
             threads: 4
@@ -338,16 +402,16 @@ jobs:
           else
             pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
           fi
-      
+
       - id: get-precomputed-solutions
         name: get-precomputed-solutions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: seissol/precomputed-seissol
           ref: ${{env.precomputed-hash}}
           path: precomputed
       - name: get-seissol
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.case.equation}}-${{matrix.case.multisim}}-${{matrix.setup.cc}}
           path: install
@@ -364,45 +428,52 @@ jobs:
           export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:$LD_LIBRARY_PATH
 
           chmod +x $(pwd)/install/bin/*
-          
+
           export OMP_NUM_THREADS=${{matrix.parallel.threads}}
           export SEISSOL_COMMTHREAD=${{matrix.parallel.commthread}}
           export SEISSOL_MINI_NUM_ELEMENTS=100
 
           cd precomputed/${{matrix.case.name}}
-          
-          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} SeisSol_${EXENAME}
+
+          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-${EXENAME}
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: scripts
-      
-      # for now, compare faults only on single-rank setups
+
       - name: check-fault
-        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.fault && matrix.parallel.ranks == 1 }}
+        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.fault }}
         run: |
           FAULT_FILE=tpv-fault.xdmf
           EPSILON=0.05
 
           cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-faults.py ./output/${FAULT_FILE} ./precomputed/${{matrix.precision}}/${FAULT_FILE} --epsilon ${EPSILON}
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${FAULT_FILE} ./precomputed/${{matrix.precision}}/${FAULT_FILE} --epsilon ${EPSILON}
+      - name: check-volume
+        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.volume }}
+        run: |
+          VOLUME_FILE=tpv.xdmf
+          EPSILON=0.05
+
+          cd precomputed/${{matrix.case.name}}
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${VOLUME_FILE} ./precomputed/${{matrix.precision}}/${VOLUME_FILE} --epsilon ${EPSILON}
+      - name: check-surface
+        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.surface }}
+        run: |
+          SURFACE_FILE=tpv-surface.xdmf
+          EPSILON=0.05
+
+          cd precomputed/${{matrix.case.name}}
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${SURFACE_FILE} ./precomputed/${{matrix.precision}}/${SURFACE_FILE} --epsilon ${EPSILON}
       - name: check-receivers
         if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.receivers }}
         run: |
           EPSILON=0.05
 
-          if [ ${{matrix.case.name}} = tpv5 ] || [ ${{matrix.case.name}} = tpv5-nuc ] || [ ${{matrix.case.name}} = tpv6 ] || [ ${{matrix.case.name}} = tpv16 ]; then
-            MODE=lsw;
-          elif [ ${{matrix.case.name}} = tpv105 ]; then
-            MODE=tp;
-          else
-            MODE=rs;
-          fi;
-
           cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-receivers.py ./output ./precomputed/${{matrix.precision}} --epsilon ${EPSILON} --mode $MODE
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-receivers.py ./output ./precomputed/${{matrix.precision}} --epsilon ${EPSILON}
       - name: check-energy
         if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.energies }}
         run: |

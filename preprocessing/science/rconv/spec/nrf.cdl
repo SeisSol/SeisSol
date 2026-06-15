@@ -32,7 +32,7 @@ dimensions:
   direction = 3 ;
   sample1 = UNLIMITED ;
   sample2 = UNLIMITED ;
-  sample3 = UNLIMITED ;  
+  sample3 = UNLIMITED ;
 
 variables:
   Vector3 centres(source) ;
@@ -51,5 +51,4 @@ variables:
   double sliprates3(sample3) ;
     sliprates3:units = "m/s" ;
     sliprates3:_DeflateLevel = 1 ;
-} 
-
+}

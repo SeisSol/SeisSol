@@ -8,40 +8,41 @@
 #include "Hdf5.h"
 
 #include "Data.h"
-#include <IO/Datatype/Datatype.h>
+#include "IO/Datatype/Datatype.h"
+
 #include <cassert>
 #include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
+#include <utils/stringutils.h>
 #include <vector>
 #include <yaml-cpp/yaml.h>
-
-#include "utils/stringutils.h"
 
 namespace seissol::io::writer::instructions {
 Hdf5Location::Hdf5Location(const std::string& longstring) {
   auto parts = utils::StringUtils::split(longstring, ':');
   assert(parts.size() == 2);
-  fileP = parts[0];
+  fileP_ = parts[0];
   auto groupParts = utils::StringUtils::split(parts[1], '/');
-  groupsP = groupParts;
+  groupsP_ = groupParts;
 }
 
 Hdf5Location::Hdf5Location(const std::string& file,
                            const std::vector<std::string>& groups,
                            const std::optional<std::string>& dataset)
-    : fileP(file), groupsP(groups), datasetP(dataset) {}
+    : fileP_(file), groupsP_(groups), datasetP_(dataset) {}
 
 Hdf5Location::Hdf5Location(YAML::Node node)
-    : fileP(node["file"].as<std::string>()), groupsP(node["group"].as<std::vector<std::string>>()),
-      datasetP(node["dataset"] ? node["dataset"].as<std::string>() : std::optional<std::string>()) {
-}
+    : fileP_(node["file"].as<std::string>()),
+      groupsP_(node["group"].as<std::vector<std::string>>()),
+      datasetP_(node["dataset"] ? node["dataset"].as<std::string>()
+                                : std::optional<std::string>()) {}
 
-std::string Hdf5Location::file() const { return fileP; }
-std::vector<std::string> Hdf5Location::groups() const { return groupsP; }
-std::optional<std::string> Hdf5Location::dataset() const { return datasetP; }
+std::string Hdf5Location::file() const { return fileP_; }
+std::vector<std::string> Hdf5Location::groups() const { return groupsP_; }
+std::optional<std::string> Hdf5Location::dataset() const { return datasetP_; }
 
 std::optional<Hdf5Location> Hdf5Location::commonLocation(const Hdf5Location& other) const {
   if (other.file() == file()) {
@@ -61,10 +62,10 @@ std::optional<Hdf5Location> Hdf5Location::commonLocation(const Hdf5Location& oth
 
 YAML::Node Hdf5Location::serialize() {
   YAML::Node node;
-  node["file"] = fileP;
-  node["group"] = groupsP;
-  if (datasetP.has_value()) {
-    node["dataset"] = datasetP.value();
+  node["file"] = fileP_;
+  node["group"] = groupsP_;
+  if (datasetP_.has_value()) {
+    node["dataset"] = datasetP_.value();
   }
   return node;
 }
@@ -85,9 +86,8 @@ Hdf5AttributeWrite::Hdf5AttributeWrite(const Hdf5Location& location,
     : location(location), name(name), dataSource(std::move(dataSource)) {}
 
 Hdf5AttributeWrite::Hdf5AttributeWrite(YAML::Node node)
-    : name(node["name"].as<std::string>()),
-      dataSource(writer::DataSource::deserialize(node["source"])),
-      location(Hdf5Location(node["location"])) {}
+    : location(Hdf5Location(node["location"])), name(node["name"].as<std::string>()),
+      dataSource(writer::DataSource::deserialize(node["source"])) {}
 
 std::vector<std::shared_ptr<DataSource>> Hdf5AttributeWrite::dataSources() { return {dataSource}; }
 
@@ -112,9 +112,9 @@ YAML::Node Hdf5DataWrite::serialize() {
 }
 
 Hdf5DataWrite::Hdf5DataWrite(YAML::Node node)
-    : name(node["name"].as<std::string>()),
+    : location(Hdf5Location(node["location"])), name(node["name"].as<std::string>()),
       dataSource(writer::DataSource::deserialize(node["source"])),
-      location(Hdf5Location(node["location"])),
+
       targetType(datatype::Datatype::deserialize(node["targetType"])),
       compress(node["compress"].as<int>()) {}
 

@@ -8,18 +8,18 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_H_
 #define SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_H_
 
-#include "utils/logger.h"
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/Inference.h>
-#include <IO/Datatype/MPIType.h>
-#include <IO/Instance/SeisSolMemoryHelper.h>
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Instructions/Hdf5.h>
-#include <IO/Writer/Instructions/Instruction.h>
-#include <IO/Writer/Writer.h>
-#include <Initializer/MemoryManager.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
+#include "IO/Datatype/MPIType.h"
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Hdf5.h"
+#include "IO/Writer/Instructions/Instruction.h"
+#include "IO/Writer/Writer.h"
+#include "Initializer/MemoryManager.h"
+
 #include <functional>
 #include <memory>
+#include <utils/logger.h>
 
 namespace seissol::io::instance::mesh {
 class VtkHdfWriter {
@@ -30,11 +30,11 @@ class VtkHdfWriter {
                std::size_t targetDegree);
 
   template <typename F>
-  void addPointProjector(F projector) {
-    auto selfLocalElementCount = localElementCount;
-    auto selfPointsPerElement = pointsPerElement;
+  void addPointProjector(const F& projector) {
+    auto selfLocalElementCount = localElementCount_;
+    auto selfPointsPerElement = pointsPerElement_;
 
-    instructionsConst.emplace_back([=](const std::string& filename, double time) {
+    instructionsConst_.emplace_back([=](const std::string& filename, double /*time*/) {
       return std::make_shared<writer::instructions::Hdf5DataWrite>(
           writer::instructions::Hdf5Location(filename, {GroupName}),
           "Points",
@@ -48,10 +48,10 @@ class VtkHdfWriter {
   void addPointData(const std::string& name,
                     const std::vector<std::size_t>& dimensions,
                     F pointMapper) {
-    auto selfLocalElementCount = localElementCount;
-    auto selfPointsPerElement = pointsPerElement;
+    auto selfLocalElementCount = localElementCount_;
+    auto selfPointsPerElement = pointsPerElement_;
 
-    instructions.emplace_back([=](const std::string& filename, double time) {
+    instructions_.emplace_back([=](const std::string& filename, double /*time*/) {
       return std::make_shared<writer::instructions::Hdf5DataWrite>(
           writer::instructions::Hdf5Location(filename, {GroupName, PointDataName}),
           name,
@@ -64,10 +64,10 @@ class VtkHdfWriter {
   template <typename T, typename F>
   void addCellData(const std::string& name,
                    const std::vector<std::size_t>& dimensions,
-                   F cellMapper) {
-    auto selfLocalElementCount = localElementCount;
+                   const F& cellMapper) {
+    auto selfLocalElementCount = localElementCount_;
 
-    instructions.emplace_back([=](const std::string& filename, double time) {
+    instructions_.emplace_back([=](const std::string& filename, double /*time*/) {
       return std::make_shared<writer::instructions::Hdf5DataWrite>(
           writer::instructions::Hdf5Location(filename, {GroupName, CellDataName}),
           name,
@@ -81,7 +81,7 @@ class VtkHdfWriter {
   void addFieldData(const std::string& name,
                     const std::vector<std::size_t>& dimensions,
                     const std::vector<T>& data) {
-    instructions.emplace_back([=](const std::string& filename, double time) {
+    instructions_.emplace_back([=](const std::string& filename, double /*time*/) {
       return std::make_shared<writer::instructions::Hdf5DataWrite>(
           writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
           name,
@@ -95,23 +95,23 @@ class VtkHdfWriter {
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter();
 
   private:
-  std::string name;
-  std::size_t localElementCount;
-  std::size_t globalElementCount;
-  std::size_t elementOffset{0};
-  std::size_t localPointCount;
-  std::size_t globalPointCount;
-  std::size_t pointOffset;
-  std::size_t pointsPerElement;
-  std::vector<std::function<void(std::size_t, double)>> hooks;
+  std::string name_;
+  std::size_t localElementCount_;
+  std::size_t globalElementCount_;
+  std::size_t elementOffset_{0};
+  std::size_t localPointCount_;
+  std::size_t globalPointCount_;
+  std::size_t pointOffset_;
+  std::size_t pointsPerElement_;
+  std::vector<std::function<void(std::size_t, double)>> hooks_;
   std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
       const std::string&, double)>>
-      instructionsConst;
+      instructionsConst_;
   std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
       const std::string&, double)>>
-      instructions;
-  std::size_t type;
-  std::size_t targetDegree;
+      instructions_;
+  std::size_t type_;
+  std::size_t targetDegree_;
   const static inline std::string GroupName = "VTKHDF";
   const static inline std::string FieldDataName = "FieldData";
   const static inline std::string CellDataName = "CellData";

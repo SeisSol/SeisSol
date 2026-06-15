@@ -8,68 +8,40 @@
 #ifndef SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_TABLE_H_
 #define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_TABLE_H_
 
-#ifdef ACL_DEVICE
-
 #include "Condition.h"
 #include "EncodedConstants.h"
+#include "Memory/MemoryAllocator.h"
+
 #include <array>
-#include <device.h>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-namespace seissol::initializer::recording {
+namespace seissol::recording {
 
 template <typename Type>
 class GenericTableEntry {
   using PointerType = Type*;
 
   public:
-  explicit GenericTableEntry(std::vector<Type> userVector)
-      : hostVector(std::move(userVector)), deviceDataPtr(nullptr) {
-    if (!hostVector.empty()) {
-      deviceDataPtr =
-          static_cast<PointerType>(device.api->allocGlobMem(hostVector.size() * sizeof(Type)));
-      device.api->copyTo(deviceDataPtr, hostVector.data(), hostVector.size() * sizeof(Type));
-    }
-  }
-
-  GenericTableEntry(const GenericTableEntry& other)
-      : hostVector(other.hostVector), deviceDataPtr(nullptr) {
-    if (!hostVector.empty()) {
-      if (other.deviceDataPtr != nullptr) {
-        deviceDataPtr = static_cast<PointerType>(
-            device.api->allocGlobMem(other.hostVector.size() * sizeof(Type)));
-        device.api->copyBetween(
-            deviceDataPtr, other.deviceDataPtr, other.hostVector.size() * sizeof(Type));
-      }
-    }
-  }
-
-  GenericTableEntry& operator=(const GenericTableEntry& other) = delete;
-
-  virtual ~GenericTableEntry() {
-    if (deviceDataPtr != nullptr) {
-      device.api->freeGlobMem(deviceDataPtr);
-      deviceDataPtr = nullptr;
-    }
-  }
+  explicit GenericTableEntry(const std::vector<Type>& userVector)
+      : hostVector_(userVector), deviceArray_(userVector, memory::Memkind::DeviceGlobalMemory) {}
 
   PointerType getDeviceDataPtr() {
-    assert(deviceDataPtr != nullptr && "requested batch has not been recorded");
-    return deviceDataPtr;
+    assert(deviceArray_.data() != nullptr && "requested batch has not been recorded");
+    return deviceArray_.data();
   }
 
-  std::vector<Type> getHostData() { return hostVector; }
-  const std::vector<Type>& getHostData() const { return hostVector; }
+  std::vector<Type> getHostData() { return hostVector_; }
+  [[nodiscard]] const std::vector<Type>& getHostData() const { return hostVector_; }
 
-  size_t getSize() { return hostVector.size(); }
+  size_t getSize() { return hostVector_.size(); }
 
   private:
-  std::vector<Type> hostVector{};
-  PointerType deviceDataPtr{nullptr};
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  std::vector<Type> hostVector_;
+  memory::MemkindArray<Type> deviceArray_;
 };
 
 template <typename KeyType>
@@ -78,25 +50,18 @@ struct GenericTable {
   using DataType = typename KeyType::DataType;
 
   public:
-  GenericTable() {
-    for (auto& entry : content) {
-      entry = nullptr;
-    }
-  }
-  ~GenericTable() {
-    for (auto& entry : content) {
-      delete entry;
-    }
-  }
+  GenericTable() = default;
 
   void set(VariableIdType id, std::vector<DataType>& data) {
-    content[*id] = new GenericTableEntry<DataType>(data);
+    content_[*id] = std::make_shared<GenericTableEntry<DataType>>(data);
   }
 
-  auto get(VariableIdType id) { return content[*id]; }
+  auto get(VariableIdType id) { return content_.at(*id).get(); }
+
+  [[nodiscard]] auto get(VariableIdType id) const { return content_.at(*id).get(); }
 
   private:
-  std::array<GenericTableEntry<DataType>*, *VariableIdType::Count> content{};
+  std::array<std::shared_ptr<GenericTableEntry<DataType>>, *VariableIdType::Count> content_{};
 };
 
 using PointersToRealsTable = GenericTable<inner_keys::Wp>;
@@ -104,16 +69,6 @@ using DrPointersToRealsTable = GenericTable<inner_keys::Dr>;
 using MaterialTable = GenericTable<inner_keys::Material>;
 using IndicesTable = GenericTable<inner_keys::Indices>;
 
-} // namespace seissol::initializer::recording
-
-#else  // ACL_DEVICE
-namespace seissol::initializer::recording {
-// Provide a dummy implementations for a pure CPU execution
-struct PointersToRealsTable {};
-struct DrPointersToRealsTable {};
-struct MaterialTable {};
-struct IndicesTable {};
-} // namespace seissol::initializer::recording
-#endif // ACL_DEVICE
+} // namespace seissol::recording
 
 #endif // SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_TABLE_H_

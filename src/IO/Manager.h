@@ -8,11 +8,12 @@
 #ifndef SEISSOL_SRC_IO_MANAGER_H_
 #define SEISSOL_SRC_IO_MANAGER_H_
 
+#include "IO/Instance/Checkpoint/CheckpointManager.h"
+#include "IO/Writer/Writer.h"
+#include "Modules/Module.h"
+#include "Modules/Modules.h"
 #include "Writer/Module/WriterModule.h"
-#include <IO/Instance/Checkpoint/CheckpointManager.h>
-#include <IO/Writer/Writer.h>
-#include <Modules/Module.h>
-#include <Modules/Modules.h>
+
 #include <memory>
 #include <vector>
 
@@ -37,9 +38,9 @@ class OutputManager : public seissol::Module {
   instance::checkpoint::CheckpointManager& getCheckpointManager();
 
   private:
-  instance::checkpoint::CheckpointManager checkpointManager;
-  std::vector<std::unique_ptr<seissol::io::writer::module::WriterModule>> modules;
-  SeisSol& seissolInstance;
+  instance::checkpoint::CheckpointManager checkpointManager_;
+  std::vector<std::unique_ptr<seissol::io::writer::module::WriterModule>> modules_;
+  SeisSol& seissolInstance_;
 };
 
 } // namespace seissol::io

@@ -9,21 +9,21 @@
 # @section LICENSE
 # Copyright (c) SeisSol Group
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice,
 #    this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice,
 #    this list of conditions and the following disclaimer in the documentation
 #    and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its
 #    contributors may be used to endorse or promote products derived from this
 #    software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -37,7 +37,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 # @section DESCRIPTION
-# usage: 
+# usage:
 # python tecp2vtk_merge [-b] <tecpfile-rootname>
 # i.e. python tecp2vtk_merge.py data-000000126
 #
@@ -48,7 +48,7 @@
 import sys
 import numpy as np
 import glob
-    
+
 
 fo = open(sys.argv[1] + '.vtu', 'w')
 
@@ -67,7 +67,7 @@ ntpts = 0
 
 for file in glob.iglob(files + '*.tet.dat'):
     print 'reading ' + file
-    fi = open(file, 'r')  
+    fi = open(file, 'r')
 
     title = fi.readline().split('"')[1].strip()
 
@@ -80,7 +80,7 @@ for file in glob.iglob(files + '*.tet.dat'):
     s = fi.readline().split()
     npts = int(s[2])
     nelem = int(s[4])
-    
+
     for i in range(npts):
         datal.append(fi.readline().split())
 
@@ -135,12 +135,12 @@ fo.write('<PointData Scalars=\'scalars\'>\n')
 
 
 for j, var in enumerate(vars[3:]):
-  
-    fo.write('<DataArray type=\'Float64\' Name=\'' + var + '\' Format=\'ascii\'>\n') 	
+
+    fo.write('<DataArray type=\'Float64\' Name=\'' + var + '\' Format=\'ascii\'>\n')
 
     for i in range(npts):
         fo.write('   ' + str('{: .16E}'.format(data[j+3,i])) + '\n')
-    
+
     fo.write('</DataArray>\n')
 
 

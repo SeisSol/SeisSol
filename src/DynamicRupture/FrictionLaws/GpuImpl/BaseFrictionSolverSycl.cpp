@@ -5,9 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "BaseFrictionSolver.h"
-
 #include "AgingLaw.h"
+#include "BaseFrictionSolver.h"
 #include "FastVelocityWeakeningLaw.h"
 #include "FrictionSolverInterface.h"
 #include "ImposedSlipRates.h"
@@ -27,20 +26,23 @@ namespace seissol::dr::friction_law::gpu {
 
 template <typename T>
 void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
-                                           real fullUpdateTime) {
-  auto* data{this->data};
-  auto* devTimeWeights{this->devTimeWeights};
-  auto* devSpaceWeights{this->devSpaceWeights};
-  auto* resampleMatrix{this->resampleMatrix};
-  auto devFullUpdateTime{fullUpdateTime};
-
-  auto* TpInverseFourierCoefficients{this->devTpInverseFourierCoefficients};
-  auto* TpGridPoints{this->devTpGridPoints};
-  auto* HeatSource{this->devHeatSource};
-
+                                           double fullUpdateTime,
+                                           const double* timeWeights,
+                                           const FrictionTime& frictionTime) {
   auto* queue = reinterpret_cast<sycl::queue*>(runtime.stream());
 
-  sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
+  FrictionLawArgs args{};
+  args.data = this->data_;
+  args.spaceWeights = this->devSpaceWeights_;
+  args.resampleMatrix = this->resampleMatrix_;
+  args.tpInverseFourierCoefficients = this->devTpInverseFourierCoefficients_;
+  args.tpGridPoints = this->devTpGridPoints_;
+  args.heatSource = this->devHeatSource_;
+  std::copy_n(timeWeights, misc::TimeSteps, args.timeWeights);
+  std::copy_n(frictionTime.deltaT.data(), misc::TimeSteps, args.deltaT);
+  args.fullUpdateTime = fullUpdateTime;
+
+  sycl::nd_range rng{{this->currLayerSize_ * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
   queue->submit([&](sycl::handler& cgh) {
     // NOLINTNEXTLINE
     sycl::local_accessor<real> sharedMemory(misc::NumPaddedPoints, cgh);
@@ -49,14 +51,8 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
       FrictionLawContext ctx{};
       ctx.sharedMemory = &sharedMemory[0];
       ctx.item = reinterpret_cast<void*>(&item);
-      ctx.data = data;
-      ctx.devTimeWeights = devTimeWeights;
-      ctx.devSpaceWeights = devSpaceWeights;
-      ctx.resampleMatrix = resampleMatrix;
-      ctx.fullUpdateTime = devFullUpdateTime;
-      ctx.TpInverseFourierCoefficients = TpInverseFourierCoefficients;
-      ctx.TpGridPoints = TpGridPoints;
-      ctx.HeatSource = HeatSource;
+      ctx.data = args.data;
+      ctx.args = &args;
 
       const auto ltsFace = item.get_group().get_group_id(0);
       const auto pointIndex = item.get_local_id(0);

@@ -7,59 +7,59 @@
 
 #include "VtkHdf.h"
 
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/Inference.h>
-#include <IO/Datatype/MPIType.h>
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Instructions/Hdf5.h>
-#include <IO/Writer/Writer.h>
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
+#include "IO/Datatype/MPIType.h"
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Hdf5.h"
+#include "IO/Writer/Writer.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <mpi.h>
 #include <string>
+#include <utils/logger.h>
 #include <vector>
-
-#include "utils/logger.h"
 
 namespace seissol::io::instance::mesh {
 VtkHdfWriter::VtkHdfWriter(const std::string& name,
                            std::size_t localElementCount,
                            std::size_t dimension,
                            std::size_t targetDegree)
-    : localElementCount(localElementCount), globalElementCount(localElementCount), name(name),
-      pointsPerElement(dimension == 2
-                           ? ((targetDegree + 1) * (targetDegree + 2)) / 2
-                           : ((targetDegree + 1) * (targetDegree + 2) * (targetDegree + 3)) / 6),
-      type(dimension == 2 ? 69 : 71), targetDegree(targetDegree) {
+    : name_(name), localElementCount_(localElementCount), globalElementCount_(localElementCount),
+      pointsPerElement_(dimension == 2
+                            ? ((targetDegree + 1) * (targetDegree + 2)) / 2
+                            : ((targetDegree + 1) * (targetDegree + 2) * (targetDegree + 3)) / 6),
+      type_(dimension == 2 ? 69 : 71), targetDegree_(targetDegree) {
   // 69: Lagrange triangle
   // 71: Lagrange tetrahedron
 
   MPI_Exscan(&localElementCount,
-             &elementOffset,
+             &elementOffset_,
              1,
              datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
              MPI_SUM,
-             seissol::MPI::mpi.comm());
+             seissol::Mpi::mpi.comm());
   MPI_Allreduce(&localElementCount,
-                &globalElementCount,
+                &globalElementCount_,
                 1,
                 datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
                 MPI_SUM,
-                seissol::MPI::mpi.comm());
-  pointOffset = elementOffset * pointsPerElement;
-  localPointCount = localElementCount * pointsPerElement;
-  globalPointCount = globalElementCount * pointsPerElement;
+                seissol::Mpi::mpi.comm());
+  pointOffset_ = elementOffset_ * pointsPerElement_;
+  localPointCount_ = localElementCount * pointsPerElement_;
+  globalPointCount_ = globalElementCount_ * pointsPerElement_;
 
-  instructions.emplace_back([=](const std::string& filename, double time) {
+  instructions_.emplace_back([=](const std::string& filename, double /*time*/) {
     return std::make_shared<writer::instructions::Hdf5AttributeWrite>(
         writer::instructions::Hdf5Location(filename, {GroupName}),
         "Type",
         writer::WriteInline::create("UnstructuredGrid",
                                     std::make_shared<datatype::StringDatatype>(16)));
   });
-  instructions.emplace_back([=](const std::string& filename, double time) {
+  instructions_.emplace_back([=](const std::string& filename, double /*time*/) {
     return std::make_shared<writer::instructions::Hdf5AttributeWrite>(
         writer::instructions::Hdf5Location(filename, {GroupName}),
         "Version",
@@ -67,17 +67,17 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
   });
 
   // to capture by value
-  auto selfGlobalElementCount = globalElementCount;
+  auto selfGlobalElementCount = globalElementCount_;
   auto selfLocalElementCount = localElementCount;
-  auto selfGlobalPointCount = globalPointCount;
-  auto selfLocalPointCount = localPointCount;
-  auto selfPointOffset = pointOffset;
-  auto selfPointsPerElement = pointsPerElement;
-  auto selfType = type;
+  auto selfGlobalPointCount = globalPointCount_;
+  auto selfLocalPointCount = localPointCount_;
+  auto selfPointOffset = pointOffset_;
+  auto selfPointsPerElement = pointsPerElement_;
+  auto selfType = type_;
 
   // TODO: move the following arrays into a "common" HDF5 file
   // also, auto-generate them using a managed buffer
-  instructionsConst.emplace_back([=](const std::string& filename, double time) {
+  instructionsConst_.emplace_back([=](const std::string& filename, double /*time*/) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
         writer::instructions::Hdf5Location(filename, {GroupName}),
         "NumberOfCells",
@@ -85,7 +85,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
                                                   {static_cast<int64_t>(selfGlobalElementCount)}),
         datatype::inferDatatype<int64_t>());
   });
-  instructionsConst.emplace_back([=](const std::string& filename, double time) {
+  instructionsConst_.emplace_back([=](const std::string& filename, double /*time*/) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
         writer::instructions::Hdf5Location(filename, {GroupName}),
         "NumberOfConnectivityIds",
@@ -93,7 +93,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
                                                   {static_cast<int64_t>(selfGlobalPointCount)}),
         datatype::inferDatatype<int64_t>());
   });
-  instructionsConst.emplace_back([=](const std::string& filename, double time) {
+  instructionsConst_.emplace_back([=](const std::string& filename, double /*time*/) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
         writer::instructions::Hdf5Location(filename, {GroupName}),
         "NumberOfPoints",
@@ -102,8 +102,8 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
         datatype::inferDatatype<int64_t>());
   });
 
-  const bool isLastRank = MPI::mpi.size() == MPI::mpi.rank() + 1;
-  instructionsConst.emplace_back([=](const std::string& filename, double time) {
+  const bool isLastRank = Mpi::mpi.size() == Mpi::mpi.rank() + 1;
+  instructionsConst_.emplace_back([=](const std::string& filename, double /*time*/) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
         writer::instructions::Hdf5Location(filename, {GroupName}),
         "Offsets",
@@ -116,7 +116,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
             }),
         datatype::inferDatatype<int64_t>());
   });
-  instructionsConst.emplace_back([=](const std::string& filename, double time) {
+  instructionsConst_.emplace_back([=](const std::string& filename, double /*time*/) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
         writer::instructions::Hdf5Location(filename, {GroupName}),
         "Types",
@@ -124,10 +124,10 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
             selfLocalElementCount,
             1,
             std::vector<std::size_t>(),
-            [=](uint8_t* target, std::size_t index) { target[0] = selfType; }),
+            [=](uint8_t* target, std::size_t /*index*/) { target[0] = selfType; }),
         datatype::inferDatatype<uint8_t>());
   });
-  instructionsConst.emplace_back([=](const std::string& filename, double time) {
+  instructionsConst_.emplace_back([=](const std::string& filename, double /*time*/) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
         writer::instructions::Hdf5Location(filename, {GroupName}),
         "Connectivity",
@@ -141,22 +141,22 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
 }
 
 void VtkHdfWriter::addHook(const std::function<void(std::size_t, double)>& hook) {
-  hooks.push_back(hook);
+  hooks_.push_back(hook);
 }
 
 std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWriter::makeWriter() {
-  logInfo() << "Adding VTK writer" << name << "of order" << targetDegree;
+  logInfo() << "Adding VTK writer" << name_ << "of order" << targetDegree_;
   auto self = *this;
   return [self](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
-    for (const auto& hook : self.hooks) {
+    for (const auto& hook : self.hooks_) {
       hook(counter, time);
     }
-    const auto filename = prefix + "-" + self.name + "-" + std::to_string(counter) + ".vtkhdf";
+    const auto filename = prefix + "-" + self.name_ + "-" + std::to_string(counter) + ".vtkhdf";
     auto writer = writer::Writer();
-    for (const auto& instruction : self.instructionsConst) {
+    for (const auto& instruction : self.instructionsConst_) {
       writer.addInstruction(instruction(filename, time));
     }
-    for (const auto& instruction : self.instructions) {
+    for (const auto& instruction : self.instructions_) {
       writer.addInstruction(instruction(filename, time));
     }
     writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(

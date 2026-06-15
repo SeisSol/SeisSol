@@ -9,20 +9,26 @@
 #ifndef SEISSOL_SRC_GEOMETRY_PUMLREADER_H_
 #define SEISSOL_SRC_GEOMETRY_PUMLREADER_H_
 
+#include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "MeshReader.h"
-#include "PUML/PUML.h"
 #include "Parallel/MPI.h"
+
+#include <PUML/PUML.h>
+#include <PUML/Topology.h>
 
 namespace seissol::initializer::time_stepping {
 class LtsWeights;
 } // namespace seissol::initializer::time_stepping
 
 namespace seissol::geometry {
-inline int decodeBoundary(const void* data,
-                          size_t cell,
-                          int face,
-                          seissol::initializer::parameters::BoundaryFormat format) {
+constexpr PUML::TopoType PumlTopology = PUML::TETRAHEDRON;
+using PumlMesh = PUML::PUML<PumlTopology>;
+
+inline uint32_t decodeBoundary(const void* data,
+                               size_t cell,
+                               uint8_t face,
+                               seissol::initializer::parameters::BoundaryFormat format) {
   if (format == seissol::initializer::parameters::BoundaryFormat::I32) {
     const auto* dataCasted = reinterpret_cast<const uint32_t*>(data);
     return (dataCasted[cell] >> (8 * face)) & 0xff;
@@ -30,20 +36,23 @@ inline int decodeBoundary(const void* data,
     const auto* dataCasted = reinterpret_cast<const uint64_t*>(data);
     return (dataCasted[cell] >> (16 * face)) & 0xffff;
   } else if (format == seissol::initializer::parameters::BoundaryFormat::I32x4) {
-    const int* dataCasted = reinterpret_cast<const int*>(data);
-    return dataCasted[cell * 4 + face];
+    const auto* dataCasted = reinterpret_cast<const int*>(data);
+    return dataCasted[cell * Cell::NumFaces + face];
   } else {
-    logError() << "Unknown boundary format:" << static_cast<int>(format);
+    logError() << "Unknown boundary format:" << static_cast<uint32_t>(format);
     return 0;
   }
 }
 
 class PUMLReader : public seissol::geometry::MeshReader {
   public:
-  PUMLReader(const char* meshFile,
-             const char* partitioningLib,
+  PUMLReader(const std::string& meshFile,
+             const std::string& partitioningLib,
+             const seissol::FaceMap& faceMap,
              seissol::initializer::parameters::BoundaryFormat boundaryFormat =
                  seissol::initializer::parameters::BoundaryFormat::I32,
+             seissol::initializer::parameters::TopologyFormat topologyFormat =
+                 seissol::initializer::parameters::TopologyFormat::Geometric,
              initializer::time_stepping::LtsWeights* ltsWeights = nullptr,
              double tpwgt = 1.0);
 
@@ -51,32 +60,37 @@ class PUMLReader : public seissol::geometry::MeshReader {
   bool inlineClusterCompute() const override;
 
   private:
-  seissol::initializer::parameters::BoundaryFormat boundaryFormat;
-
   /**
    * Read the mesh
    */
-  void read(PUML::TETPUML& puml, const char* meshFile);
+  static void read(PumlMesh& meshTopology,
+                   const std::string& file,
+                   bool topology,
+                   seissol::initializer::parameters::BoundaryFormat boundaryFormat);
 
   /**
    * Create the partitioning
    */
-  static void partition(PUML::TETPUML& puml,
+  static void partition(PumlMesh& meshTopology,
+                        PumlMesh& meshGeometry,
                         initializer::time_stepping::LtsWeights* ltsWeights,
                         double tpwgt,
-                        const char* meshFile,
-                        const char* partitioningLib);
+                        const std::string& partitioningLib);
   /**
    * Generate the PUML data structure
    */
-  static void generatePUML(PUML::TETPUML& puml);
+  static void generatePUML(PumlMesh& meshTopology, PumlMesh& meshGeometry);
 
   /**
    * Get the mesh
    */
-  void getMesh(const PUML::TETPUML& puml);
+  void getMesh(const PumlMesh& meshTopology,
+               const PumlMesh& meshGeometry,
+               const FaceMap& faceMap,
+               seissol::initializer::parameters::BoundaryFormat boundaryFormat);
 
-  void addMPINeighor(const PUML::TETPUML& puml, int rank, const std::vector<unsigned int>& faces);
+  void
+      addMPINeighor(const PumlMesh& meshTopology, int rank, const std::vector<unsigned int>& faces);
 };
 
 } // namespace seissol::geometry

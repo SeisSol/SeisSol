@@ -8,15 +8,14 @@
 #include "FaultRefiners.h"
 
 #include "DynamicRupture/Output/Geometry.h"
+#include "DynamicRupture/Output/OutputAux.h"
+#include "Initializer/Parameters/OutputParameters.h"
+
 #include <array>
 #include <cstddef>
 #include <memory>
 #include <utility>
-
-#include "utils/logger.h"
-
-#include "DynamicRupture/Output/OutputAux.h"
-#include "Initializer/Parameters/OutputParameters.h"
+#include <utils/logger.h>
 
 namespace seissol::dr::output::refiner {
 std::unique_ptr<FaultRefiner> get(seissol::initializer::parameters::FaultRefinement strategy) {
@@ -54,12 +53,13 @@ void FaultRefiner::addReceiver(Data data, TrianglePair& face) {
   receiver.faultFaceIndex = data.faultFaceIndex;
   receiver.localFaceSideId = data.localFaceSideId;
   receiver.elementIndex = data.elementId;
-  receiver.globalReceiverIndex = points.size();
+  receiver.elementGlobalIndex = data.globalId;
+  receiver.globalReceiverIndex = points_.size();
   receiver.global = getMidPointTriangle(std::get<Global>(face));
   receiver.reference = getMidPointTriangle(std::get<Reference>(face));
   receiver.globalTriangle = std::get<Global>(face);
 
-  points.push_back(receiver);
+  points_.push_back(receiver);
 }
 
 void NoRefiner::refineAndAccumulate(Data data, TrianglePair face) { addReceiver(data, face); }

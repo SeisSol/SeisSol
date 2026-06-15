@@ -7,7 +7,7 @@
 
 name: codehub-hlrs-sync
 
-on: 
+on:
   push:
     branches:
       - 'master'
@@ -20,7 +20,7 @@ jobs:
     name: Git Repo Sync
     if: ${{ github.repository == 'SeisSol/SeisSol' }} # disable on forks
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0
     - uses: cniethammer/git-repo-sync@cb1067d118c0c209bcded585b5c78e581bb0dfec
@@ -28,4 +28,3 @@ jobs:
         target-url: 'https://codehub.hlrs.de/coes/cheese-2p/SeisSol/SeisSol.git'
         target-username: ${{ secrets.ACCESS_TOKEN_NAME }}
         target-token: ${{ secrets.ACCESS_TOKEN }}
-

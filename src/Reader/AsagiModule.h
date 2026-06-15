@@ -9,16 +9,14 @@
 #ifndef SEISSOL_SRC_READER_ASAGIMODULE_H_
 #define SEISSOL_SRC_READER_ASAGIMODULE_H_
 
-#include <memory>
 #ifdef USE_ASAGI
 
-#include <string>
-
-#include <asagi.h>
-
-#include <utils/env.h>
-
 #include "Modules/Module.h"
+#include "Parallel/Pin.h"
+
+#include <memory>
+#include <string>
+#include <utils/env.h>
 
 namespace seissol::asagi {
 
@@ -26,21 +24,23 @@ enum class AsagiMPIMode { Off, Windows, CommThread, Unknown };
 
 class AsagiModule : public Module {
   private:
-  utils::Env m_env;
+  utils::Env env_;
 
   /** The MPI mode used for ASAGI communication */
-  AsagiMPIMode m_mpiMode;
+  AsagiMPIMode mpiMode_;
 
   /** The real name set via the environment variable */
-  std::string m_mpiModeName;
+  std::string mpiModeName_;
 
   /** The total number of threads (including the communication thread */
-  int m_totalThreads;
+  int totalThreads_;
+
+  parallel::Pinning* pinning_{};
 
   static std::shared_ptr<AsagiModule> instance;
 
   public:
-  AsagiModule(utils::Env& env);
+  explicit AsagiModule(utils::Env& env);
   ~AsagiModule() override = default;
   AsagiModule(const AsagiModule&) = delete;
   void operator=(const AsagiModule&) = delete;
@@ -60,7 +60,7 @@ class AsagiModule : public Module {
   /**
    * This hook is only registered if the comm thread is required
    */
-  void preModel() override;
+  void preMesh() override;
 
   /**
    * This hook is only registered if the comm thread is required

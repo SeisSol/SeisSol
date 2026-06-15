@@ -6,21 +6,25 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "OutputAux.h"
+
 #include "Common/Constants.h"
+#include "Common/Iterator.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
+#include "GeneratedCode/init.h"
 #include "Geometry.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Precision.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
-#include <Common/Iterator.h>
+#include "Solver/MultipleSimulations.h"
+
+#include <Eigen/Core>
 #include <Eigen/Dense>
-#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cstddef>
-#include <init.h>
+#include <cstdint>
 #include <limits>
 #include <tuple>
 #include <utility>
@@ -104,12 +108,12 @@ ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2) {
   return midPoint;
 }
 
-TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
+TriangleQuadratureData generateTriangleQuadrature() {
   TriangleQuadratureData data{};
 
   // Generate triangle quadrature points and weights (Factory Method)
-  auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
-  auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
+  const auto pointsView = init::quadpoints::view::create(init::quadpoints::Values);
+  const auto weightsView = init::quadweights::view::create(init::quadweights::Values);
 
   auto* reshapedPoints = unsafe_reshape<2>((data.points).data());
   for (size_t i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
@@ -123,12 +127,12 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
 
 std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
                                            const double (*facePoints)[2],
-                                           const unsigned numFacePoints) {
+                                           std::size_t numFacePoints) {
 
   int nearestPoint{-1};
   double shortestDistance = std::numeric_limits<double>::max();
 
-  for (unsigned index = 0; index < numFacePoints; ++index) {
+  for (std::size_t index = 0; index < numFacePoints; ++index) {
     const double nextPoint[2] = {facePoints[index][0], facePoints[index][1]};
 
     const auto currentDistance = distance(targetPoint, nextPoint);
@@ -141,8 +145,8 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
 }
 
 void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
-  auto quadratureData = generateTriangleQuadrature(ConvergenceOrder + 1);
-  double (*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
+  auto quadratureData = generateTriangleQuadrature();
+  const double (*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
 
   for (auto& geoPoint : geoPoints) {
 
@@ -233,7 +237,7 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
         *elementCoords[0], *elementCoords[1], *elementCoords[2], *elementCoords[3], point);
     const basisFunction::SampledBasisFunctions<real> sampler(
         ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
-    return sampler.m_data;
+    return sampler.data();
   };
 
   PlusMinusBasisFunctions basisFunctions{};
@@ -246,13 +250,13 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
 std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints) {
   std::vector<double> vertices(3 * (3 * receiverPoints.size()), 0.0);
 
-  for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
-    for (int vertexIndex{0}; vertexIndex < ExtTriangle::size(); ++vertexIndex) {
+  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
+    for (std::uint32_t vertexIndex{0}; vertexIndex < ExtTriangle::size(); ++vertexIndex) {
       const auto& triangle = receiverPoints[pointIndex].globalTriangle;
       const auto& point = triangle.point(vertexIndex);
 
       const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
-      for (int coordIndex{0}; coordIndex < ExtVrtxCoords::size(); ++coordIndex) {
+      for (std::uint32_t coordIndex{0}; coordIndex < ExtVrtxCoords::size(); ++coordIndex) {
         vertices[3 * globalVertexIndex + coordIndex] = point[coordIndex];
       }
     }
@@ -263,7 +267,7 @@ std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPo
 std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints& receiverPoints) {
   std::vector<unsigned int> cells(3 * receiverPoints.size());
 
-  for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
+  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
     for (int vertexIndex{0}; vertexIndex < 3; ++vertexIndex) {
       const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
       cells[globalVertexIndex] = globalVertexIndex;
@@ -274,7 +278,7 @@ std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints&
 std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiverPoints) {
   std::vector<unsigned int> faultTags(receiverPoints.size());
 
-  for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
+  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
     faultTags[pointIndex] = receiverPoints[pointIndex].faultTag;
   }
   return faultTags;

@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
 
+# SPDX-FileCopyrightText: 2022 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+import argparse
+import sys
+import re
+
+import numpy as np
+import pandas as pd
 
 def pivot_if_necessary(df):
     if "variable" in df:
@@ -20,10 +33,13 @@ def pivot_if_necessary(df):
 def get_number_of_fused_sims(df):
     try:
         if "simulation_index" not in df.columns:
-            max_index = 0
+            # for historic reasons we want a negative number (e.g. -1) to be returned for non-fused; thus start with -1 here
+            max_index = -2
             for c in df.columns:
-                current_index = int(c[-1])
-                max_index = current_index if current_index > max_index else max_index
+                idxres = re.match(r'.*(\d+)$', c)
+                if idxres:
+                    current_index = int(idxres.group(1))
+                    max_index = current_index if current_index > max_index else max_index
         else:
             max_index = df["simulation_index"].max()
         return max_index + 1
@@ -53,11 +69,7 @@ def perform_check(energy, energy_ref, epsilon):
     return np.any(relative_difference_larger_eps)
 
 
-if __name__ == "__main__":
-    import argparse
-    import numpy as np
-    import sys
-    import pandas as pd
+def main():
 
     parser = argparse.ArgumentParser(description="Compare energy output csv files.")
     parser.add_argument("energy", type=str)
@@ -104,3 +116,6 @@ if __name__ == "__main__":
             result = perform_check(energy_f, energy_ref_f, args.epsilon)
             if result:
                 sys.exit(1)
+
+if __name__ == "__main__":
+    main()

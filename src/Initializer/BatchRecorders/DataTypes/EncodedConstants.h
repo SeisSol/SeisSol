@@ -8,10 +8,12 @@
 #ifndef SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_ENCODEDCONSTANTS_H_
 #define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_ENCODEDCONSTANTS_H_
 
+#include "Common/Literals.h"
 #include "Kernels/Precision.h"
+
 #include <cstdlib>
 
-namespace seissol::initializer::recording::inner_keys {
+namespace seissol::recording::inner_keys {
 
 /**
  * The structure contains encoded variables names
@@ -46,6 +48,13 @@ struct Wp {
     DerivativesAne,
     DerivativesExt,
     Analytical,
+    RotateDisplacementToFaceNormal,
+    RotateDisplacementToGlobal,
+    RotatedFaceDisplacement,
+    DofsFaceNodal,
+    PrevCoefficients,
+    DofsFaceBoundaryNodal,
+    Integrals,
     Count
   };
 };
@@ -70,18 +79,18 @@ struct Dr {
 
 struct Material {
   using DataType = double;
-  enum struct Id : size_t { Rho = 0, Lambda, Count };
+  enum struct Id : size_t { Rho = 0, Lambda, InvImpedances, Count };
 };
 
 struct Indices {
   using DataType = unsigned;
   enum struct Id : size_t { Cells = 0, Count };
 };
-} // namespace seissol::initializer::recording::inner_keys
+} // namespace seissol::recording::inner_keys
 
-namespace seissol::initializer::recording {
-constexpr size_t ALL_BITS = ~static_cast<size_t>(0);
-constexpr size_t encodeAny(unsigned count) { return ~(ALL_BITS << count); }
+namespace seissol::recording {
+constexpr size_t AllBits = ~0_UZ;
+constexpr size_t encodeAny(unsigned count) { return ~(AllBits << count); }
 
 enum struct KernelNames : size_t {
   Time = 1 << 0,
@@ -90,9 +99,8 @@ enum struct KernelNames : size_t {
   NeighborFlux = 1 << 3,
   FaceDisplacements = 1 << 4,
   Plasticity = 1 << 5,
-  DrTime = 1 << 6,
-  DrSpaceMap = 1 << 7,
-  BoundaryConditions = 1 << 8,
+  DrSpaceMap = 1 << 6,
+  BoundaryConditions = 1 << 7,
   Count = 9,
   Any = encodeAny(Count)
 };
@@ -116,14 +124,13 @@ enum struct FaceKinds : size_t {
   FreeSurface = 1 << 1,
   Outflow = 1 << 2,
   DynamicRupture = 1 << 3,
-  Periodic = 1 << 4,
-  Count = 5,
+  Count = 4,
   None = encodeAny(Count)
 };
 
-enum struct FaceId : size_t { Count = 4, Any = ALL_BITS };
-enum struct FaceRelations : size_t { Count = 48, Any = ALL_BITS };
-enum struct DrFaceRelations : size_t { Count = 16, Any = ALL_BITS };
+enum struct FaceId : size_t { Count = 4, Any = AllBits };
+enum struct FaceRelations : size_t { Count = 48, Any = AllBits };
+enum struct DrFaceRelations : size_t { Count = 16, Any = AllBits };
 
 enum struct ExchangeInfo : size_t {
   Buffers = 1 << 0,
@@ -132,6 +139,6 @@ enum struct ExchangeInfo : size_t {
   Any = encodeAny(Count)
 };
 
-} // namespace seissol::initializer::recording
+} // namespace seissol::recording
 
 #endif // SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_ENCODEDCONSTANTS_H_

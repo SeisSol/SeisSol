@@ -9,17 +9,15 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_FAULTWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_FAULTWRITER_H_
 
-#include "Parallel/MPI.h"
-#include "Parallel/Pin.h"
-
-#include "utils/logger.h"
-
-#include "async/Module.h"
-
 #include "FaultWriterExecutor.h"
 #include "Modules/Module.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
+#include "Parallel/MPI.h"
+#include "Parallel/Pin.h"
+
+#include <async/Module.h>
+#include <utils/logger.h>
 
 namespace seissol {
 class SeisSol;
@@ -33,41 +31,44 @@ namespace seissol::writer {
 class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, FaultParam>,
                     public seissol::Module {
   private:
-  seissol::SeisSol& seissolInstance;
+  seissol::SeisSol& seissolInstance_;
 
   /** Is enabled? */
-  bool m_enabled{false};
+  bool enabled_{false};
 
   /** The asynchronous executor */
-  FaultWriterExecutor m_executor;
+  FaultWriterExecutor executor_;
 
   /** Total number of variables */
-  unsigned int m_numVariables{0};
+  unsigned int numVariables_{0};
 
   /** The current output time step */
-  unsigned int m_timestep{0};
+  unsigned int timestep_{0};
 
   /** Frontend stopwatch */
-  Stopwatch m_stopwatch;
+  Stopwatch stopwatch_;
 
-  dr::output::OutputManager* callbackObject{nullptr};
-
-  public:
-  explicit FaultWriter(seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance)
-
-  {}
+  dr::output::OutputManager* callbackObject_{nullptr};
 
   /**
    * Called by ASYNC on all ranks
    */
   void setUp() override;
 
-  void setTimestep(unsigned int timestep) { m_timestep = timestep; }
+  void tearDown() override { executor_.finalize(); }
+
+  public:
+  explicit FaultWriter(seissol::SeisSol& seissolInstance)
+      : seissolInstance_(seissolInstance)
+
+  {}
+
+  void setTimestep(unsigned int timestep) { timestep_ = timestep; }
 
   void init(const unsigned int* cells,
             const double* vertices,
             const unsigned int* faultTags,
+            const unsigned int* ids,
             unsigned int nCells,
             unsigned int nVertices,
             const int* outputMask,
@@ -80,16 +81,16 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
   /**
    * @return The current time step of the fault output
    */
-  [[nodiscard]] unsigned int timestep() const { return m_timestep; }
+  [[nodiscard]] unsigned int timestep() const { return timestep_; }
 
   void write(double time) {
     SCOREP_USER_REGION("FaultWriter_write", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-    if (!m_enabled) {
+    if (!enabled_) {
       logError() << "Trying to write fault output, but fault output is not enabled";
     }
 
-    m_stopwatch.start();
+    stopwatch_.start();
 
     wait();
 
@@ -98,38 +99,36 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
     FaultParam param;
     param.time = time;
 
-    for (unsigned int i = 0; i < m_numVariables; i++) {
+    for (unsigned int i = 0; i < numVariables_; i++) {
       sendBuffer(FaultWriterExecutor::Variables0 + i);
     }
 
     call(param);
 
     // Update the timestep count
-    m_timestep++;
+    timestep_++;
 
-    m_stopwatch.pause();
+    stopwatch_.pause();
 
     logInfo() << "Writing faultoutput at time" << utils::nospace << time << ". Done.";
   }
 
   void close() {
-    if (m_enabled) {
+    if (enabled_) {
       wait();
     }
 
     finalize();
 
-    if (!m_enabled) {
+    if (!enabled_) {
       return;
     }
 
-    m_stopwatch.printTime("Time fault writer frontend:");
+    stopwatch_.printTime("Time fault writer frontend:");
   }
 
-  void tearDown() override { m_executor.finalize(); }
-
   void setupCallbackObject(dr::output::OutputManager* faultOutputManager) {
-    callbackObject = faultOutputManager;
+    callbackObject_ = faultOutputManager;
   }
 
   //

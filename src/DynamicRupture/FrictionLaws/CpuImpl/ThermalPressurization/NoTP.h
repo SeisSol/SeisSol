@@ -8,24 +8,24 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_NOTP_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_NOTP_H_
 
+#include "DynamicRupture/Misc.h"
+#include "Initializer/Parameters/DRParameters.h"
+
 namespace seissol::dr::friction_law::cpu {
 class NoTP {
   public:
-  explicit NoTP(seissol::initializer::parameters::DRParameters* drParameters) {};
+  explicit NoTP(const FrictionLawParameters& drParameters) {};
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
-                          real fullUpdateTime) {}
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
 
   void calcFluidPressure(std::array<real, misc::NumPaddedPoints>& normalStress,
                          real (*mu)[misc::NumPaddedPoints],
                          std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
                          real deltaT,
                          bool saveTmpInTP,
-                         unsigned int timeIndex,
-                         unsigned int ltsFace) {}
+                         std::size_t ltsFace) {}
 
-  [[nodiscard]] static real getFluidPressure(unsigned /*unused*/, unsigned /*unused*/) {
+  [[nodiscard]] static real getFluidPressure(std::size_t /*unused*/, std::uint32_t /*unused*/) {
     return 0;
   };
 };
