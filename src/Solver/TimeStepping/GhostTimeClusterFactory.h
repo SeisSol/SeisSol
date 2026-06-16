@@ -12,6 +12,12 @@
 #include "Solver/TimeStepping/HaloCommunication.h"
 #ifdef ACL_DEVICE
 #include "Solver/TimeStepping/GhostTimeClusterWithCopy.h"
+#ifdef USE_CCL
+#include "Solver/TimeStepping/CCLNeighborCluster.h"
+#endif
+#ifdef USE_SHMEM
+#include "Solver/TimeStepping/ShmemCluster.h"
+#endif
 #endif // ACL_DEVICE
 #include "Parallel/MPI.h"
 #include "memory"
@@ -19,16 +25,28 @@
 namespace seissol::time_stepping {
 struct GhostTimeClusterFactory {
   public:
-  static std::unique_ptr<AbstractGhostTimeCluster>
-      get(double maxTimeStepSize,
-          std::uint64_t timeStepRate,
-          std::size_t globalTimeClusterId,
-          std::size_t otherGlobalTimeClusterId,
-          const std::string& displayName,
-          const std::string& otherDisplayName,
-          const solver::HaloCommunication& meshStructure,
-          Mpi::DataTransferMode mode,
-          bool persistent) {
+  static std::vector<void*> setup(Mpi::DataTransferMode mode, std::size_t clusters) {
+    if (mode == Mpi::DataTransferMode::DirectCcl) {
+#if defined(ACL_DEVICE) && defined(USE_CCL)
+      const auto commCount = clusters * clusters;
+
+      return createComms(commCount);
+#endif
+    }
+
+    return {};
+  }
+
+  static std::unique_ptr<AbstractTimeCluster> get(double maxTimeStepSize,
+                                                  std::uint64_t timeStepRate,
+                                                  std::size_t globalTimeClusterId,
+                                                  std::size_t otherGlobalTimeClusterId,
+                                                  const std::string& displayName,
+                                                  const std::string& otherDisplayName,
+                                                  const solver::HaloCommunication& meshStructure,
+                                                  Mpi::DataTransferMode mode,
+                                                  [[maybe_unused]] const std::vector<void*>& comms,
+                                                  bool persistent) {
     switch (mode) {
 #ifdef ACL_DEVICE
     case Mpi::DataTransferMode::CopyInCopyOutHost: {
@@ -43,6 +61,27 @@ struct GhostTimeClusterFactory {
                                              persistent);
     }
 #endif // ACL_DEVICE
+#if defined(ACL_DEVICE) && defined(USE_CCL)
+    case Mpi::DataTransferMode::DirectCcl: {
+      return std::make_unique<CCLNeighborCluster>(maxTimeStepSize,
+                                                  timeStepRate,
+                                                  globalTimeClusterId,
+                                                  otherGlobalTimeClusterId,
+                                                  meshStructure,
+                                                  persistent,
+                                                  comms);
+    }
+#endif // defined(ACL_DEVICE) && defined(USE_CCL)
+#if defined(ACL_DEVICE) && defined(USE_SHMEM)
+    case Mpi::DataTransferMode::DirectShmem: {
+      return std::make_unique<ShmemCluster>(maxTimeStepSize,
+                                            timeStepRate,
+                                            globalTimeClusterId,
+                                            otherGlobalTimeClusterId,
+                                            meshStructure,
+                                            persistent);
+    }
+#endif // defined(ACL_DEVICE) && defined(USE_SHMEM)
     case Mpi::DataTransferMode::Direct: {
       return std::make_unique<DirectGhostTimeCluster>(maxTimeStepSize,
                                                       timeStepRate,
