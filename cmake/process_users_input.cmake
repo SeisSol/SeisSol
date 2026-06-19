@@ -139,6 +139,8 @@ set_property(CACHE DEVICE_CODEGEN PROPERTY STRINGS ${DEVICE_CODEGEN_OPTIONS})
 
 option(NEW_BINARY_NAMING "Use the updated binary naming scheme" ON)
 
+set(CUSTOM_BINARY_SUFFIX "" CACHE STRING "Specifies an optional extra suffix for binary files and libraries")
+
 #-------------------------------------------------------------------------------
 # ------------------------------- ERROR CHECKING -------------------------------
 #-------------------------------------------------------------------------------
