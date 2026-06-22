@@ -6,6 +6,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Common/ConfigHelper.h"
 #include "Common/Executor.h"
 #include "Kernels/Common.h"
 #include "Proxy/Common.h"
@@ -47,7 +48,9 @@ int main(int argc, char* argv[]) {
   const std::vector<std::string> formatValues = {"plain", "json"};
 
   utils::Args args("The SeisSol proxy is used to benchmark the kernels used in the SeisSol "
-                   "earthquake simulation software.");
+                   "earthquake simulation software. This version of SeisSol (" +
+                   seissol::ConfigString + ") was built with the following properties:\n" +
+                   seissol::ConfigDescriptor);
   args.addAdditionalOption("cells", "Number of cells");
   args.addAdditionalOption("timesteps", "Number of timesteps");
   args.addAdditionalOption("kernel", kernelHelp.str());
