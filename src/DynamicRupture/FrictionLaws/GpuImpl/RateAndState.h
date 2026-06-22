@@ -112,9 +112,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       const auto localSlipRateMagnitude = ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
       const auto& localImpAndEta = ctx.data->impAndEta[ctx.ltsFace];
 
-      auto& exportMu = ctx.data->mu[ctx.ltsFace][ctx.pointIndex];
-
       real slipRateTest{0};
+      real exportMu{0};
+
       const bool hasConvergedLocal =
           RateAndStateBase::invertSlipRateIterative(ctx,
                                                     slipRateTest,
@@ -129,6 +129,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
       ctx.initialVariables.localSlipRate = (localSlipRateMagnitude + slipRateTest) / 2;
       ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = slipRateTest;
+      ctx.data->mu[ctx.ltsFace][ctx.pointIndex] = exportMu;
 
       hasConvergedOuter =
           std::abs(localSlipRateMagnitude - slipRateTest) < ctx.data->drParameters.rsStateTolerance;
