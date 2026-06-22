@@ -436,14 +436,15 @@ class LinearADERDG(ADERDGBase):
         rDivM = self.make_global(self.db.rDivM)
         rT = self.make_global(self.db.rT)
 
+        if self.globals:
+            fPrT = lambda h, j: self.db.fP[h][self.t("mn")] * rT[j][self.t("nl")]
+        else:
+            fPrT = lambda h, j: rT[j][self.t("ml")]
+
         neighborFlux = (
             lambda h, j, i: self.Q["kp"]
             <= self.Q["kp"]
-            + rDivM[i][self.t("km")]
-            * self.db.fP[h][self.t("mn")]
-            * rT[j][self.t("nl")]
-            * self.I["lq"]
-            * self.AminusT["qp"]
+            + rDivM[i][self.t("km")] * fPrT(h, j) * self.I["lq"] * self.AminusT["qp"]
         )
         neighborFluxPrefetch = lambda h, j, i: self.I
         generator.addFamily(
@@ -455,11 +456,9 @@ class LinearADERDG(ADERDGBase):
         )
 
         if "gpu" in targets:
-            minusFluxMatrixAccessor = (
-                lambda h, j, i: self.db.rDivM[i][self.t("km")]
-                * self.db.fP[h][self.t("mn")]
-                * self.db.rT[j][self.t("nl")]
-            )
+            minusFluxMatrixAccessor = lambda h, j, i: self.db.rDivM[i][
+                self.t("km")
+            ] * fPrT(h, j)
             if self.kwargs["enable_premultiply_flux"]:
                 contractionResult = tensor_collection_from_constant_expression(
                     "minusFluxMatrices",

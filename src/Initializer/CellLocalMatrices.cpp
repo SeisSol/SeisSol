@@ -327,9 +327,6 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
           kernel::computeFluxSolverLocal localKrnl;
           localKrnl.AplusT = localIntegration[cell].nApNm1[side];
-          if (cellInformation[cell].faceTypes[side] == FaceType::DynamicRupture) {
-            localKrnl.fluxScale = 0;
-          }
           if (flux == parameters::NumericalFlux::Rusanov) {
             localKrnl.QgodLocal = centralFluxData;
             localKrnl.QcorrLocal = rusanovPlusData;
@@ -345,6 +342,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             localKrnl.T = matTData;
             localKrnl.Tinv = matTinvData;
             localKrnl.fluxScale = fluxScale;
+          }
+          if (cellInformation[cell].faceTypes[side] == FaceType::DynamicRupture) {
+            localKrnl.fluxScale = 0;
           }
           localKrnl.star(0) = matATtildeData;
           localKrnl.execute();

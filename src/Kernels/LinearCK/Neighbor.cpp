@@ -38,6 +38,7 @@
 GENERATE_HAS_MEMBER(rDivM)
 GENERATE_HAS_MEMBER(globalMrDivM)
 GENERATE_HAS_MEMBER(rT)
+GENERATE_HAS_MEMBER(fP)
 GENERATE_HAS_MEMBER(globalMrT)
 
 #ifndef NDEBUG
@@ -49,7 +50,7 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 
   set_rDivM(nfKrnlPrototype_, global.onHost->changeOfBasisMatrices);
   set_rT(nfKrnlPrototype_, global.onHost->neighborChangeOfBasisMatricesTransposed);
-  nfKrnlPrototype_.fP = global.onHost->neighborFluxMatrices;
+  set_fP(nfKrnlPrototype_, global.onHost->neighborFluxMatrices);
   drKrnlPrototype_.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
 
 #ifdef ACL_DEVICE
@@ -59,8 +60,8 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   deviceNfKrnlPrototype_.minusFluxMatrices = global.onDevice->minusFluxMatrices;
 #else
   set_rDivM(deviceNfKrnlPrototype_, global.onDevice->changeOfBasisMatrices);
-  deviceNfKrnlPrototype_.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
-  deviceNfKrnlPrototype_.fP = global.onDevice->neighborFluxMatrices;
+  set_rT(deviceNfKrnlPrototype_, global.onDevice->neighborChangeOfBasisMatricesTransposed);
+  set_fP(deviceNfKrnlPrototype_, global.onDevice->neighborFluxMatrices);
 #endif
   deviceDrKrnlPrototype_.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
 #endif
@@ -87,13 +88,19 @@ void Neighbor::computeNeighborsIntegral(
                                              data.get<LTS::GlobalMrDivM>());
         setupContainer<tensor::globalMrT>(get_ref_globalMrT(nfKrnl), data.get<LTS::GlobalMrT>());
       }
+
+      const auto faceOrientation = Config::GlobalElementwise
+                                       ? 0_UZ
+                                       : data.get<LTS::CellInformation>().faceRelations[face][1];
+      const auto neighborFace = Config::GlobalElementwise
+                                    ? face
+                                    : data.get<LTS::CellInformation>().faceRelations[face][0];
+
       nfKrnl.Q = data.get<LTS::Dofs>();
       nfKrnl.I = timeIntegrated[face];
       nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
       nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
-      nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][1],
-                     data.get<LTS::CellInformation>().faceRelations[face][0],
-                     face);
+      nfKrnl.execute(faceOrientation, neighborFace, face);
       break;
     }
     case FaceType::DynamicRupture: {
