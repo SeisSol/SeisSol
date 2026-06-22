@@ -6,21 +6,23 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "MatrixBootstrap.h"
 
+#include "Common/Constants.h"
+
 #include <Eigen/Dense>
 #include <GeneratedCode/kernel.h>
 #include <yateto/TensorView.h>
 
-namespace {
+namespace seissol::initializer {
 
-using namespace seissol;
+namespace {
 
 template <typename RealT>
 Eigen::Matrix<RealT, Eigen::Dynamic, Eigen::Dynamic>
     toEigen(const yateto::DenseTensorView<2, RealT>& tensorView) {
   Eigen::Matrix<RealT, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;
   eigenMatrix.resize(tensorView.shape(0), tensorView.shape(1));
-  for (int i = 0; i < tensorView.shape(0); ++i) {
-    for (int j = 0; j < tensorView.shape(1); ++j) {
+  for (std::size_t i = 0; i < tensorView.shape(0); ++i) {
+    for (std::size_t j = 0; j < tensorView.shape(1); ++j) {
       eigenMatrix(i, j) = tensorView(i, j);
     }
   }
@@ -41,25 +43,25 @@ void invertAgainst(real* matC,
                    bool transpose,
                    bool antitranspose = false) {
   if constexpr (N == 3) {
-    for (int i = 0; i < matB.shape(2); ++i) {
+    for (std::size_t i = 0; i < matB.shape(2); ++i) {
       auto matBView = matB.subtensor(yateto::slice<>(), yateto::slice<>(), i);
       invertAgainst<ResT>(matC, matA, matBView, transpose);
       matC += ResT::size(i);
     }
   } else {
     auto resview = ResT::template view<0>::create(matC);
-    auto eigenB = toEigen(matB);
-    auto solveB = transpose ? eigenB.transpose() : eigenB;
-    Eigen::Matrix<RealT, Eigen::Dynamic, Eigen::Dynamic> result = matA.solve(solveB);
+    const auto eigenB = toEigen(matB);
+    const auto solveB = transpose ? eigenB.transpose() : eigenB;
+    const Eigen::Matrix<RealT, Eigen::Dynamic, Eigen::Dynamic> result = matA.solve(solveB);
     if (transpose && !antitranspose) {
-      for (int i = 0; i < resview.shape(0); ++i) {
-        for (int j = 0; j < resview.shape(1); ++j) {
+      for (std::size_t i = 0; i < resview.shape(0); ++i) {
+        for (std::size_t j = 0; j < resview.shape(1); ++j) {
           resview(i, j) = result(j, i);
         }
       }
     } else {
-      for (int i = 0; i < resview.shape(0); ++i) {
-        for (int j = 0; j < resview.shape(1); ++j) {
+      for (std::size_t i = 0; i < resview.shape(0); ++i) {
+        for (std::size_t j = 0; j < resview.shape(1); ++j) {
           resview(i, j) = result(i, j);
         }
       }
@@ -69,15 +71,13 @@ void invertAgainst(real* matC,
 
 } // namespace
 
-namespace seissol::initializer {
-
 void GlobalMatrixPointers::bootstrapMatrices() {
-  real dataM[seissol::init::ew_M::Size];
-  real datafM[seissol::init::ew_fM::Size];
-  real datak[seissol::init::ew_k::Size];
-  real datakT[seissol::init::ew_kT::Size];
-  real datar[seissol::init::ew_r::Size];
-  real datar2[seissol::init::ew_r::Size];
+  real dataM[seissol::init::ew_M::Size]{};
+  real datafM[seissol::init::ew_fM::Size]{};
+  real datak[seissol::init::ew_k::Size]{};
+  real datakT[seissol::init::ew_kT::Size]{};
+  real datar[seissol::init::ew_r::Size]{};
+  real datar2[seissol::init::ew_r::Size]{};
   auto matM = seissol::init::ew_M::view::create(dataM);
   auto matfM = seissol::init::ew_fM::view::create(datafM);
   auto matk = seissol::init::ew_k::view::create(datak);
@@ -112,21 +112,29 @@ void GlobalMatrixPointers::bootstrapMatrices() {
   invertAgainst<seissol::init::globalMrDivM>(datar2, divM, matr, false);
   real* rDivMPtr = rDivM;
   real* rTPtr = rT;
-  for (int f = 0; f < 4; ++f) {
+  for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
     auto divfM = invert(toEigen(matfM.subtensor(yateto::slice<>(), yateto::slice<>(), f)));
     auto subRDiv = matr2.subtensor(yateto::slice<>(), yateto::slice<>(), f);
     invertAgainst<seissol::init::globalMrDivM>(rDivMPtr, divfM, subRDiv, true);
     rDivMPtr += seissol::init::globalMrDivM::size(f);
 
-    auto subRT = matr.subtensor(yateto::slice<>(), yateto::slice<>(), f);
-    invertAgainst<seissol::init::globalMrT>(rTPtr, divfM, subRT, true, true);
+    auto subR = matr.subtensor(yateto::slice<>(), yateto::slice<>(), f);
+    invertAgainst<seissol::init::globalMrT>(rTPtr, divfM, subR, true, true);
     rTPtr += seissol::init::globalMrT::size(f);
   }
 
-  for (int i = 0; i < seissol::init::ew_fM::size(); ++i) {
-    fMrT[i] = datafM[i] / volscale;
+  // rT is reverse
+  // fMrT is averse
+
+  const auto nextfM = seissol::init::ew_fM::size() / seissol::init::ew_fM::Shape[2];
+  for (std::size_t i = 0; i < seissol::init::ew_fM::size(); ++i) {
+    const auto fscale = facescale[i / nextfM];
+    fMrT[i] = datafM[i] / fscale;
   }
-  for (int i = 0; i < seissol::init::ew_r::size(); ++i) {
+
+  // const auto nextR = seissol::init::ew_r::size() / seissol::init::ew_r::Shape[2];
+  for (std::size_t i = 0; i < seissol::init::ew_r::size(); ++i) {
+    // const auto fscale = facescale[i / nextR];
     rT[i] /= volscale;
   }
 }
