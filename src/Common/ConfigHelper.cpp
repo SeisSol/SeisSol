@@ -12,6 +12,9 @@
 #include "Config.h"
 #include "Equations/Datastructures.h"
 
+#include <sstream>
+#include <string>
+
 namespace seissol {
 
 namespace {
