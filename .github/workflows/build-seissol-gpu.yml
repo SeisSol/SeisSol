@@ -158,7 +158,6 @@ jobs:
 
           cmake .. \
             -GNinja \
-            -DNEW_BINARY_NAMING=ON \
             -DTESTING_COMMAND="${TESTING_COMMAND}" \
             -DCMAKE_INSTALL_PREFIX=/opt/seissol \
             -DTESTING=ON \

@@ -104,7 +104,6 @@ jobs:
 
           cmake .. \
             -GNinja \
-            -DNEW_BINARY_NAMING=ON \
             -DTESTING_COMMAND="${TESTING_COMMAND}" \
             -DCMAKE_INSTALL_PREFIX=/opt/seissol \
             -DTESTING=ON \
@@ -137,9 +136,9 @@ jobs:
 
           cd build
           set +e
-          ${TESTING_COMMAND} ./seissol-cpu-*
+          ${TESTING_COMMAND} ./seissol-*
           RETVAL_EXE=$?
-          ./proxyseissol-cpu-*
+          ./proxyseissol-*
           RETVAL_PROXY=$?
           set -e
 
