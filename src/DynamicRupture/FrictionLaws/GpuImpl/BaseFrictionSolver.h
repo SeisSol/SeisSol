@@ -95,6 +95,30 @@ inline void deviceWarpBarrier(FrictionLawContext& __restrict /*ctx*/) {}
 inline bool deviceWarpAll(FrictionLawContext& __restrict /*ctx*/, bool /*value*/) { return true; }
 #endif
 
+SEISSOL_DEVICE inline real resampleVariable(FrictionLawContext& __restrict ctx, real toResample) {
+  constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
+  constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
+  static_assert(Dim0 == misc::NumPaddedPointsSingleSim);
+  static_assert(Dim0 >= Dim1);
+
+  ctx.sharedMemory[ctx.pointIndex] = toResample;
+  deviceBarrier(ctx);
+
+  const auto simPointIndex = ctx.pointIndex / multisim::NumSimulations;
+  const auto simId = ctx.pointIndex % multisim::NumSimulations;
+  constexpr uint32_t SimPointStride = multisim::MultisimEnabled ? Dim1 : 1U;
+  constexpr uint32_t DataPointStride = multisim::MultisimEnabled ? 1U : Dim0;
+
+  real result{0};
+  for (uint32_t i = 0; i < Dim1; ++i) {
+    result += ctx.args->resampleMatrix[simPointIndex * SimPointStride + i * DataPointStride] *
+              ctx.sharedMemory[i * multisim::NumSimulations + simId];
+  }
+  deviceBarrier(ctx);
+
+  return result;
+}
+
 template <typename Derived>
 class BaseFrictionSolver : public FrictionSolverDetails {
   public:
@@ -130,6 +154,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
       real startTime = 0;
       real updateTime = ctx.args->fullUpdateTime;
+
       for (uint32_t timeIndex = 0; timeIndex < misc::TimeSteps; ++timeIndex) {
         const real dt = ctx.args->deltaT[timeIndex];
 

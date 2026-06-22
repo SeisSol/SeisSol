@@ -229,29 +229,7 @@ class NoSpecialization {
   SEISSOL_DEVICE static real
       resampleSlipRate(FrictionLawContext& __restrict ctx,
                        const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) {
-
-    // perform matrix vector multiplication
-
-    constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
-    constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
-    static_assert(Dim0 == misc::NumPaddedPointsSingleSim);
-    static_assert(Dim0 >= Dim1);
-
-    ctx.sharedMemory[ctx.pointIndex] = slipRateMagnitude[ctx.pointIndex];
-    deviceBarrier(ctx);
-
-    const auto simPointIndex = ctx.pointIndex / multisim::NumSimulations;
-    const auto simId = ctx.pointIndex % multisim::NumSimulations;
-    constexpr uint32_t SimPointStride = multisim::MultisimEnabled ? Dim1 : 1U;
-    constexpr uint32_t DataPointStride = multisim::MultisimEnabled ? 1U : Dim0;
-
-    real result{0.0};
-    for (uint32_t i = 0; i < Dim1; ++i) {
-      result += ctx.args->resampleMatrix[simPointIndex * SimPointStride + i * DataPointStride] *
-                ctx.sharedMemory[i * multisim::NumSimulations + simId];
-    }
-
-    return result;
+    return resampleVariable(ctx, slipRateMagnitude[ctx.pointIndex]);
   };
 
   SEISSOL_DEVICE static real stateVariableHook(FrictionLawContext& /*ctx*/,
