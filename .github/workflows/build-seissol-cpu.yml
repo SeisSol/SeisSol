@@ -15,7 +15,7 @@ env:
 jobs:
   seissol-build-test:
     name: seissol-build-test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     strategy:
@@ -163,7 +163,7 @@ jobs:
 
   seissol-run-test:
     name: seissol-run-test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     needs: [seissol-build-test]
