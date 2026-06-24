@@ -42,10 +42,17 @@ void ProxyKernelDeviceAder::run(ProxyData& data,
   auto computeGraphKey = initializer::GraphKey(graphType, Timestep, false);
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
+  const auto evalCoeffs = data.timeBasis.point(Timestep, Timestep);
 
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
-    data.spacetimeKernel.computeBatchedAder(
-        integrationCoeffs.data(), Timestep, tmp, dataTable, materialTable, false, runtime);
+    data.spacetimeKernel.computeBatchedAder(integrationCoeffs.data(),
+                                            evalCoeffs.data(),
+                                            Timestep,
+                                            tmp,
+                                            dataTable,
+                                            materialTable,
+                                            false,
+                                            runtime);
   });
 }
 
@@ -77,12 +84,19 @@ void ProxyKernelDeviceLocal::run(ProxyData& data,
   auto& indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
+  const auto evalCoeffs = data.timeBasis.point(Timestep, Timestep);
 
   const ComputeGraphType graphType{ComputeGraphType::AccumulatedVelocities};
   auto computeGraphKey = initializer::GraphKey(graphType, Timestep, false);
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
-    data.spacetimeKernel.computeBatchedAder(
-        integrationCoeffs.data(), Timestep, tmp, dataTable, materialTable, false, runtime);
+    data.spacetimeKernel.computeBatchedAder(integrationCoeffs.data(),
+                                            evalCoeffs.data(),
+                                            Timestep,
+                                            tmp,
+                                            dataTable,
+                                            materialTable,
+                                            false,
+                                            runtime);
     data.localKernel.computeBatchedIntegral(dataTable, materialTable, indicesTable, 0.0, runtime);
   });
 }

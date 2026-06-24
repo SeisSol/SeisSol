@@ -291,6 +291,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             centralFluxView(i, i) = 0.5;
             rusanovPlusView(i, i) = wavespeed * 0.5;
             rusanovMinusView(i, i) = -wavespeed * 0.5;
+
+            qGodLocal(i, i) -= 1.0;
+            centralFluxView(i, i) -= 1.0;
           }
 
           // check if we're on a face that has an adjacent cell with DR face
@@ -315,6 +318,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
           const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
 
+          // effectively now equal to the neighbor flux solver matrices. Except for free surface.
           kernel::computeFluxSolverLocal localKrnl;
           localKrnl.fluxScale = fluxScale;
           localKrnl.AplusT = localIntegration[cell].nApNm1[side];

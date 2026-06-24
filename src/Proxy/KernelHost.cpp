@@ -44,6 +44,7 @@ void ProxyKernelHostAder::run(ProxyData& data,
   real* const* derivatives = layer.var<LTS::Derivatives>();
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
+  const auto evalCoeffs = data.timeBasis.point(Timestep, Timestep);
 
 #pragma omp parallel
   {
@@ -53,8 +54,13 @@ void ProxyKernelHostAder::run(ProxyData& data,
 #pragma omp for schedule(static)
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
-      data.spacetimeKernel.computeAder(
-          integrationCoeffs.data(), Timestep, local, tmp, buffers[cell], derivatives[cell]);
+      data.spacetimeKernel.computeAder(integrationCoeffs.data(),
+                                       evalCoeffs.data(),
+                                       Timestep,
+                                       local,
+                                       tmp,
+                                       buffers[cell],
+                                       derivatives[cell]);
     }
     LIKWID_MARKER_STOP("ader");
   }
@@ -132,6 +138,7 @@ void ProxyKernelHostLocal::run(ProxyData& data,
   real* const* derivatives = layer.var<LTS::Derivatives>();
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
+  const auto evalCoeffs = data.timeBasis.point(Timestep, Timestep);
 
 #pragma omp parallel
   {
@@ -141,8 +148,13 @@ void ProxyKernelHostLocal::run(ProxyData& data,
 #pragma omp for schedule(static)
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
-      data.spacetimeKernel.computeAder(
-          integrationCoeffs.data(), Timestep, local, tmp, buffers[cell], derivatives[cell]);
+      data.spacetimeKernel.computeAder(integrationCoeffs.data(),
+                                       evalCoeffs.data(),
+                                       Timestep,
+                                       local,
+                                       tmp,
+                                       buffers[cell],
+                                       derivatives[cell]);
       data.localKernel.computeIntegral(buffers[cell], local, tmp, 0, 0);
     }
     LIKWID_MARKER_STOP("local");

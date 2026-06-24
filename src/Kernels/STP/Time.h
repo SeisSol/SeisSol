@@ -26,6 +26,7 @@ class Spacetime : public SpacetimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
   void computeAder(const real* coeffs,
+                   const real* coeffsEval,
                    double timeStepWidth,
                    LTS::Ref& data,
                    LocalTmp& tmp,
@@ -33,6 +34,7 @@ class Spacetime : public SpacetimeKernel {
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
   void computeBatchedAder(const real* coeffs,
+                          const real* coeffsEval,
                           double timeStepWidth,
                           LocalTmp& tmp,
                           recording::ConditionalPointersToRealsTable& dataTable,
