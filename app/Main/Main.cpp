@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
+#include "Common/ConfigHelper.h"
 #include "Initializer/InitProcedure/Init.h"
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -126,12 +127,11 @@ int main(int argc, char* argv[]) {
 #endif
     }
 
-    // TODO Read parameters here
-    // Parse command line arguments
     utils::Args args(
         "SeisSol is a scientific software for the numerical simulation of seismic wave "
-        "phenomena and earthquake dynamics.");
-    args.addAdditionalOption("file", "The parameter file", false);
+        "phenomena and earthquake dynamics. This version of SeisSol (" +
+        ConfigString + ") was built with the following properties:\n" + ConfigDescriptor);
+    args.addAdditionalOption("parameterfile", "The parameter file", false);
     args.addOption(
         "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Optional, false);
     switch (args.parse(argc, argv)) {
@@ -146,7 +146,7 @@ int main(int argc, char* argv[]) {
       break;
     }
     }
-    const auto* parameterFile = args.getAdditionalArgument("file", "parameters.par");
+    const auto* parameterFile = args.getAdditionalArgument("parameterfile", "parameters.par");
     logInfo() << "Using the parameter file" << parameterFile;
     // read parameter file input
     const auto yamlParams = readYamlParams(parameterFile);
