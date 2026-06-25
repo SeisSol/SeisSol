@@ -60,8 +60,6 @@ target_include_directories(seissol-test-base INTERFACE ${CMAKE_CURRENT_SOURCE_DI
 target_include_directories(seissol-test-base INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 target_compile_definitions(seissol-test-base INTERFACE YATETO_TESTING_NO_FLOP_COUNTER)
 
-separate_arguments(TESTING_COMMAND_LIST NATIVE_COMMAND ${TESTING_COMMAND})
-
 # =============================================================================
 # Helper function: add a per-module test executable
 # =============================================================================
@@ -110,10 +108,11 @@ function(seissol_add_mpi_test_module NAME RANKS)
     add_executable(${TARGET_NAME} ${ARGN} TestMain.cpp)
     target_link_libraries(${TARGET_NAME} PRIVATE seissol-test-base)
 
-    set_property(TARGET ${TARGET_NAME}
-        PROPERTY CROSSCOMPILING_EMULATOR
-        mpirun -n ${RANKS} --oversubscribe --allow-run-as-root
-    )
+    # use the MPI command; append the rank count
+    separate_arguments(_CMD_LIST NATIVE_COMMAND ${TESTING_COMMAND_MPI})
+    list(APPEND _CMD_LIST "-n")
+    list(APPEND _CMD_LIST "${RANKS}")
+    set_property(TARGET ${TARGET_NAME} PROPERTY CROSSCOMPILING_EMULATOR ${_CMD_LIST})
 
     if (NOT TESTING_BUILD_ONLY)
         doctest_discover_tests(${TARGET_NAME}
