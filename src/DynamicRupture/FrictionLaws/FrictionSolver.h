@@ -58,7 +58,9 @@ class FrictionSolver {
     spaceWeights_ = globalData->spaceWeights;
   }
 
-  virtual seissol::initializer::AllocationPlace allocationPlace();
+  virtual seissol::initializer::AllocationPlace allocationPlace() {
+    return seissol::initializer::AllocationPlace::Host;
+  }
 
   virtual std::unique_ptr<FrictionSolver> clone() = 0;
 
