@@ -39,8 +39,8 @@ struct Material {
   static constexpr std::size_t Mechanisms = 0;                // ?
   static constexpr MaterialType Type = MaterialType::Solid;   // ?
   static constexpr LocalSolver Solver = LocalSolver::Unknown; // ?
-  static inline const std::string Text = "material";
-  static inline const std::array<std::string, NumQuantities> Quantities = {};
+  static const inline std::string Text = "material";
+  static const inline std::array<std::string, NumQuantities> Quantities = {};
   static constexpr std::size_t Parameters = 1; // rho
 
   virtual ~Material() = default;

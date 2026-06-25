@@ -15,15 +15,15 @@ function(make_device_lib NAME FILES)
     set_source_files_properties(${FILES} PROPERTIES LANGUAGE CUDA)
 
     target_include_directories(${NAME} PUBLIC ${SEISSOL_DEVICE_INCLUDE})
-    target_compile_features(${NAME} PRIVATE cxx_std_17)
-    target_compile_features(${NAME} PRIVATE cuda_std_17)
+    target_compile_features(${NAME} PRIVATE cxx_std_20)
+    target_compile_features(${NAME} PRIVATE cuda_std_20)
     target_compile_options(${NAME} PRIVATE ${EXTRA_CXX_FLAGS})
 
     string(REPLACE "sm_" "" CUDA_DEVICE_ARCH "${DEVICE_ARCH}")
     set_target_properties(${NAME} PROPERTIES CUDA_ARCHITECTURES "${CUDA_DEVICE_ARCH}")
 
     target_compile_options(${NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
-            -std=c++17;
+            -std=c++20;
             --expt-relaxed-constexpr;
             >)
 

@@ -177,7 +177,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
     }
   }
 
-  inline const static size_t MaxAllowedCacheLevel = 1;
+  constexpr static size_t MaxAllowedCacheLevel = 1;
 
   private:
   seissol::initializer::parameters::ElementwiseFaultParameters elementwiseParams_;
