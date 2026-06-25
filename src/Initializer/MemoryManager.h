@@ -159,15 +159,6 @@ class MemoryManager {
   void initFrictionData();
   void synchronizeTo(seissol::initializer::AllocationPlace place);
 };
-
-bool isAcousticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face);
-bool isElasticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face);
-bool isAtElasticAcousticInterface(CellMaterialData& material, std::size_t face);
-
-bool requiresDisplacement(CellLocalInformation cellLocalInformation,
-                          CellMaterialData& material,
-                          std::size_t face);
-bool requiresNodalFlux(FaceType f);
 } // namespace initializer
 } // namespace seissol
 

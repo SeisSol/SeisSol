@@ -17,15 +17,14 @@
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
-#include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/Recorders.h"
+#include "Initializer/BoundaryHelper.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/InitProcedure/Internal/Scratchpads.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/Boundary.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
@@ -37,7 +36,6 @@
 
 #include <array>
 #include <cstddef>
-#include <limits>
 #include <memory>
 #include <utility>
 #include <utils/logger.h>
@@ -169,36 +167,6 @@ void MemoryManager::recordExecutionPaths(bool usePlasticity) {
   for (auto& layer : drStorage_.leaves(Ghost)) {
     drRecorder.record(layer);
   }
-}
-
-bool isAcousticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
-  constexpr auto Eps = std::numeric_limits<real>::epsilon();
-  return material.neighbor[face]->getMuBar() > Eps && material.local->getMuBar() < Eps;
-}
-bool isElasticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
-  constexpr auto Eps = std::numeric_limits<real>::epsilon();
-  return material.local->getMuBar() > Eps && material.neighbor[face]->getMuBar() < Eps;
-}
-
-bool isAtElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
-  // We define the interface cells as all cells that are in the elastic domain but have a
-  // neighbor with acoustic material.
-  return material.local != nullptr && material.neighbor[face] != nullptr &&
-         (isAcousticSideOfElasticAcousticInterface(material, face) ||
-          isElasticSideOfElasticAcousticInterface(material, face));
-}
-
-bool requiresDisplacement(CellLocalInformation cellLocalInformation,
-                          CellMaterialData& material,
-                          std::size_t face) {
-  const auto faceType = cellLocalInformation.faceTypes[face];
-  return faceType == FaceType::FreeSurface || faceType == FaceType::FreeSurfaceGravity ||
-         isAtElasticAcousticInterface(material, face);
-}
-
-bool requiresNodalFlux(FaceType f) {
-  return (f == FaceType::FreeSurfaceGravity || f == FaceType::Dirichlet ||
-          f == FaceType::Analytical);
 }
 
 void MemoryManager::initializeFrictionLaw() {

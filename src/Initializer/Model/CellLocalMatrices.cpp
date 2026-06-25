@@ -19,7 +19,7 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/BasicTypedefs.h"
-#include "Initializer/MemoryManager.h"
+#include "Initializer/BoundaryHelper.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
