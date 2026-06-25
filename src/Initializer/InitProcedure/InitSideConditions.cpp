@@ -196,7 +196,7 @@ void initBoundary(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   if (seissolParams.model.hasBoundaryFile) {
     seissolInstance.getMemoryManager().initializeEasiBoundaryReader(
-        seissolParams.model.boundaryFileName.c_str());
+        seissolParams.model.boundaryFileName);
   }
 }
 

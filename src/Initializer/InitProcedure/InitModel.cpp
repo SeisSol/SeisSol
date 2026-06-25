@@ -12,6 +12,7 @@
 #include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/InitProcedure/Internal/Scratchpads.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/Model/BoundaryMappings.h"
 #include "Initializer/Model/CellLocalMatrices.h"
@@ -297,7 +298,18 @@ void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
 }
 
 void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
-  seissolInstance.getMemoryManager().initializeMemoryLayout();
+
+  // set up scratchpads for WP (i.e. mostly for boundary conditions).
+  // has to happen after the buckets/buffers are initialized.
+
+  if constexpr (isDeviceOn()) {
+
+    auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
+
+    seissol::initializer::internal::deriveRequiredScratchpadMemoryForWp(
+        seissolInstance.getSeisSolParameters().model.plasticity, ltsStorage);
+    ltsStorage.allocateScratchPads();
+  }
 
   seissolInstance.getMemoryManager().fixateBoundaryStorage();
 }

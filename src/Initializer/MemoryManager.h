@@ -93,19 +93,7 @@ class MemoryManager {
    **/
   void initialize();
 
-  /**
-   * Sets the number of cells in each leaf of the lts storage, fixates the variables, and allocates
-   *memory. Afterwards the storage cannot be changed anymore.
-   *
-   * @param i_meshStructrue mesh structure.
-   **/
-  void fixateLtsStorage();
-
   void fixateBoundaryStorage();
-  /**
-   * Set up the internal structure.
-   **/
-  void initializeMemoryLayout();
 
   /**
    * Gets the global data on both host and device.
@@ -144,7 +132,7 @@ class MemoryManager {
     return iniConds_;
   }
 
-  void initializeEasiBoundaryReader(const char* fileName);
+  void initializeEasiBoundaryReader(const std::string& fileName);
 
   EasiBoundary* getEasiBoundaryReader() { return &easiBoundary_; }
 

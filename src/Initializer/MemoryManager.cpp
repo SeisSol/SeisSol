@@ -56,13 +56,6 @@ void MemoryManager::initialize() {
   }
 }
 
-void MemoryManager::fixateLtsStorage() {
-  if constexpr (isDeviceOn()) {
-    seissol::initializer::internal::deriveRequiredScratchpadMemoryForDr(drStorage_);
-    drStorage_.allocateScratchPads();
-  }
-}
-
 void MemoryManager::fixateBoundaryStorage() {
   const LayerMask ghostMask(Ghost);
 
@@ -134,18 +127,9 @@ void MemoryManager::fixateBoundaryStorage() {
   seissolInstance_.freeSurfaceIntegrator().initialize(refinement, ltsStorage_, surfaceStorage_);
 }
 
-void MemoryManager::initializeMemoryLayout() {
-  if constexpr (isDeviceOn()) {
-    seissol::initializer::internal::deriveRequiredScratchpadMemoryForWp(
-        seissolInstance_.getSeisSolParameters().model.plasticity, ltsStorage_);
-    ltsStorage_.allocateScratchPads();
-  }
-}
-
-void MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
-  const auto fileNameStr = std::string{fileName};
-  if (!fileNameStr.empty()) {
-    easiBoundary_ = EasiBoundary(fileNameStr);
+void MemoryManager::initializeEasiBoundaryReader(const std::string& fileName) {
+  if (!fileName.empty()) {
+    easiBoundary_ = EasiBoundary(fileName);
   }
 }
 
