@@ -11,6 +11,7 @@
 #include "Monitoring/Stopwatch.h"
 
 #include <string>
+#include <thread>
 #include <time.h>
 
 namespace seissol::unit_test {
@@ -129,11 +130,11 @@ TEST_CASE("LoopStatistics begin/end cycle" * doctest::test_suite("monitoring")) 
 
   // begin() records the start time, end() records end time and adds a sample
   ls.begin(region);
-  // Do a tiny bit of work to ensure nonzero time
-  volatile int x = 0;
-  for (int i = 0; i < 100; ++i) {
-    x += i;
-  }
+
+  // Sleep a tiny bit to ensure nonzero time
+  using namespace std::chrono_literals;
+  std::this_thread::sleep_for(50ms);
+
   ls.end(region, 50, 0);
 
   // No crash = pass
