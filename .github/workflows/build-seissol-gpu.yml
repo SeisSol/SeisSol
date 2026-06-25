@@ -17,7 +17,6 @@ jobs:
     name: seissol-build-test
     runs-on: ${{ matrix.setup.runner }}
     container: ${{ matrix.setup.container }}
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -185,35 +184,11 @@ jobs:
           name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.equation.order}}-${{matrix.equation.type}}-${{matrix.setup.cc}}
           path: /opt/seissol
 
-  seissol-cache-precomputed:
-    name: seissol-cache-precomputed
-    runs-on: sccs-ci-nv-sm60
-    container: seissol/gha-cpu:davschneller-gpu-image
-    if: ${{ github.repository == 'SeisSol/SeisSol' && false }}
-    steps:
-      - id: cache-precomputed-solutions
-        name: cache-precomputed-solutions
-        uses: corca-ai/local-cache@v3
-        with:
-          key: ${{env.precomputed-hash}}
-          path: precomputed
-          base: /home/runner/_cache
-          clean-key: true
-      - id: get-precomputed-solutions
-        name: get-precomputed-solutions
-        uses: actions/checkout@v6
-        if: steps.cache-precomputed-solutions.outputs.cache-hit != 'true'
-        with:
-          repository: seissol/precomputed-seissol
-          ref: ${{env.precomputed-hash}}
-          path: precomputed
-
   seissol-run-test:
     name: seissol-run-test
     runs-on: sccs-ci-nv-sm60
     container: ${{ matrix.setup.container }}
-    continue-on-error: true
-    needs: [seissol-build-test, seissol-cache-precomputed]
+    needs: [seissol-build-test]
     if: ${{ github.repository == 'SeisSol/SeisSol' && false }}
     env:
       EXENAME: |

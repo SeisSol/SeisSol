@@ -12,7 +12,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Test tetrahedron global to reference") {
+TEST_CASE("Test tetrahedron global to reference" * doctest::test_suite("numerical")) {
   // We do all tests in double precision
   constexpr real Epsilon = 10 * std::numeric_limits<double>::epsilon();
 
@@ -29,9 +29,9 @@ TEST_CASE("Test tetrahedron global to reference") {
 
   const auto res = seissol::transformations::tetrahedronGlobalToReference(
       vertices[0].data(), vertices[1].data(), vertices[2].data(), vertices[3].data(), center);
-  REQUIRE(res(0) == AbsApprox(0.25).epsilon(Epsilon));
-  REQUIRE(res(1) == AbsApprox(0.25).epsilon(Epsilon));
-  REQUIRE(res(2) == AbsApprox(0.25).epsilon(Epsilon));
+  CHECK(res(0) == AbsApprox(0.25).epsilon(Epsilon));
+  CHECK(res(1) == AbsApprox(0.25).epsilon(Epsilon));
+  CHECK(res(2) == AbsApprox(0.25).epsilon(Epsilon));
 }
 
 } // namespace seissol::unit_test

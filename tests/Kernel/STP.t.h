@@ -237,7 +237,8 @@ class SpaceTimePredictorTestFixture {
   SpaceTimePredictorTestFixture() { prepareModel(); };
 };
 
-TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture, "Solve Space Time Predictor") {
+TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture,
+                  "Solve Space Time Predictor" * doctest::test_suite("kernel")) {
   alignas(PagesizeStack) real stp[seissol::tensor::spaceTimePredictor::size()];
   alignas(PagesizeStack) real rhs[seissol::tensor::testLhs::size()];
   alignas(PagesizeStack) real lhs[seissol::tensor::testRhs::size()];
@@ -271,7 +272,7 @@ TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture, "Solve Space Time Predictor") {
     }
   }
 
-  REQUIRE(diffNorm / refNorm < Epsilon);
+  CHECK(diffNorm / refNorm < Epsilon);
 }
 
 } // namespace seissol::unit_test

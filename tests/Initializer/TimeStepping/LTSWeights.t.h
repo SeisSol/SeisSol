@@ -20,7 +20,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("LTS Weights") {
+TEST_CASE("LTS Weights" * doctest::test_suite("initializer")) {
   std::cout.setstate(std::ios_base::failbit);
   using namespace seissol::initializer::time_stepping;
   const LtsWeightsConfig config{
@@ -63,10 +63,10 @@ TEST_CASE("LTS Weights") {
   const auto expectedWeights =
       std::vector<unsigned>{2, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 1, 1, 2, 1};
 
-  REQUIRE(givenWeights == expectedWeights);
+  CHECK(givenWeights == expectedWeights);
 }
 
-TEST_CASE("Cost function for LTS") {
+TEST_CASE("Cost function for LTS" * doctest::test_suite("initializer")) {
   const auto eps = 10e-12;
   using namespace initializer::time_stepping;
 
@@ -75,7 +75,7 @@ TEST_CASE("Cost function for LTS") {
     const std::vector<int> cellCosts = {};
     const auto is = computeLocalCostOfClustering(clusterIds, cellCosts, {2}, 1.0, 1.0);
     const auto should = 0.0;
-    REQUIRE(AbsApprox(is).epsilon(eps) == should);
+    CHECK(AbsApprox(is).epsilon(eps) == should);
   }
 
   SUBCASE("One cluster") {
@@ -92,7 +92,7 @@ TEST_CASE("Cost function for LTS") {
         const auto effectiveDt = dt * wiggleFactor;
 
         const auto should = totalCost * (1.0 / effectiveDt);
-        REQUIRE(AbsApprox(is).epsilon(eps) == should);
+        CHECK(AbsApprox(is).epsilon(eps) == should);
       }
     }
   }
@@ -117,7 +117,7 @@ TEST_CASE("Cost function for LTS") {
           const auto costCluster0 = cellCostsCluster0 * (1.0 / effectiveDtCluster0);
           const auto costCluster1 = cellCostsCluster1 * (1.0 / effectiveDtCluster1);
           const auto should = costCluster0 + costCluster1;
-          REQUIRE(AbsApprox(is).epsilon(eps) == should);
+          CHECK(AbsApprox(is).epsilon(eps) == should);
         }
       }
     }
@@ -146,34 +146,34 @@ TEST_CASE("Cost function for LTS") {
           const auto costCluster1 = cellCostsCluster1 * (1.0 / effectiveDtCluster1);
           const auto costCluster2 = cellCostsCluster2 * (1.0 / effectiveDtCluster2);
           const auto should = costCluster0 + costCluster1 + costCluster2;
-          REQUIRE(AbsApprox(is).epsilon(eps) == should);
+          CHECK(AbsApprox(is).epsilon(eps) == should);
         }
       }
     }
   }
 }
 
-TEST_CASE("Enforce max cluster id") {
+TEST_CASE("Enforce max cluster id" * doctest::test_suite("initializer")) {
   using namespace seissol::initializer::time_stepping;
   const auto clusterIds = std::vector<int>{0, 1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1, 0};
   SUBCASE("No change") {
     const auto& should = clusterIds;
     const auto is = enforceMaxClusterId(clusterIds, 6);
-    REQUIRE(is == should);
+    CHECK(is == should);
   }
   SUBCASE("Only one cluster") {
     const auto should = std::vector<int>{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     const auto is = enforceMaxClusterId(clusterIds, 0);
-    REQUIRE(is == should);
+    CHECK(is == should);
   }
   SUBCASE("Three clusters") {
     const auto should = std::vector<int>{0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0};
     const auto is = enforceMaxClusterId(clusterIds, 2);
-    REQUIRE(is == should);
+    CHECK(is == should);
   }
 }
 
-TEST_CASE("Auto merging of clusters") {
+TEST_CASE("Auto merging of clusters" * doctest::test_suite("initializer")) {
   using namespace seissol::initializer::time_stepping;
   const auto clusterIds = std::vector<int>{0, 0, 0, 0, 1, 1, 2};
   const auto cellCosts = std::vector<int>{1, 1, 1, 1, 3, 3, 9};
@@ -185,7 +185,7 @@ TEST_CASE("Auto merging of clusters") {
     const auto should = 0;
     const auto is = computeMaxClusterIdAfterAutoMerge(
         clusterIds, cellCosts, {2}, std::numeric_limits<double>::max(), 1.0, minDt);
-    REQUIRE(is == should);
+    CHECK(is == should);
   }
 
   SUBCASE("Does nothing for GTS") {
@@ -193,7 +193,7 @@ TEST_CASE("Auto merging of clusters") {
     for (int i = 1; i <= 5; ++i) {
       const auto is = computeMaxClusterIdAfterAutoMerge(
           enforceMaxClusterId(clusterIds, 0), cellCosts, {1}, i, 0, 0);
-      REQUIRE(is == should);
+      CHECK(is == should);
     }
   }
 
@@ -202,12 +202,12 @@ TEST_CASE("Auto merging of clusters") {
     SUBCASE("Rate 2") {
       const auto is =
           computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, {2}, costBeforeRate2, 1, minDt);
-      REQUIRE(is == should);
+      CHECK(is == should);
     }
     SUBCASE("Rate 3") {
       const auto is =
           computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, {3}, costBeforeRate3, 1, minDt);
-      REQUIRE(is == should);
+      CHECK(is == should);
     }
   }
 
@@ -216,13 +216,13 @@ TEST_CASE("Auto merging of clusters") {
       const auto should = 1;
       const auto is = computeMaxClusterIdAfterAutoMerge(
           clusterIds, cellCosts, {2}, 1.25 * costBeforeRate2, 1, minDt);
-      REQUIRE(is == should);
+      CHECK(is == should);
     }
     SUBCASE("Merge two clusters") {
       const auto should = 0;
       const auto is = computeMaxClusterIdAfterAutoMerge(
           clusterIds, cellCosts, {2}, 2.06 * costBeforeRate2, 1, minDt);
-      REQUIRE(is == should);
+      CHECK(is == should);
     }
   }
 }

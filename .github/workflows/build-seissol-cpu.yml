@@ -17,7 +17,6 @@ jobs:
     name: seissol-build-test
     runs-on: ubuntu-26.04
     container: ${{ matrix.setup.container }}
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -102,6 +101,11 @@ jobs:
             TESTING_GENERATED_ENABLE=ON;
           fi;
 
+          # allow oversubscribe and run as root for OpenMPI
+          export OMPI_MCA_rmaps_base_oversubscribe=true
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
           cmake .. \
             -GNinja \
             -DNEW_BINARY_NAMING=ON \
@@ -124,6 +128,12 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           cd build
+
+          # allow oversubscribe and run as root for OpenMPI
+          export OMPI_MCA_rmaps_base_oversubscribe=true
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
           ctest -j --rerun-failed --output-on-failure
 
       - name: run-seissol-no-input
@@ -165,7 +175,7 @@ jobs:
     name: seissol-run-test
     runs-on: ubuntu-26.04
     container: ${{ matrix.setup.container }}
-    continue-on-error: true
+    continue-on-error: true # TODO: remove once passing
     needs: [seissol-build-test]
     if: ${{ github.repository == 'SeisSol/SeisSol' && github.ref_name == 'master' }}
     env:
@@ -432,6 +442,11 @@ jobs:
           export OMP_NUM_THREADS=${{matrix.parallel.threads}}
           export SEISSOL_COMMTHREAD=${{matrix.parallel.commthread}}
           export SEISSOL_MINI_NUM_ELEMENTS=100
+
+          # allow oversubscribe and run as root for OpenMPI
+          export OMPI_MCA_rmaps_base_oversubscribe=true
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
           cd precomputed/${{matrix.case.name}}
 

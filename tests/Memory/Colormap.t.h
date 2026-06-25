@@ -11,7 +11,7 @@ namespace seissol::unit_test {
 
 using namespace seissol;
 
-TEST_CASE("Colormap") {
+TEST_CASE("Colormap" * doctest::test_suite("memory")) {
   const initializer::LTSColorMap colorMap(
       initializer::EnumLayer(
           std::vector<HaloType>{HaloType::Interior, HaloType::Copy, HaloType::Ghost}),
@@ -19,12 +19,12 @@ TEST_CASE("Colormap") {
       initializer::TraitLayer(std::vector<initializer::ConfigVariant>{Config()}));
 
   REQUIRE(colorMap.size() == 9);
-  REQUIRE(colorMap.argument(0).lts == 1);
-  REQUIRE(colorMap.argument(0).halo == HaloType::Interior);
-  REQUIRE(colorMap.argument(0).config.index() == 0);
-  REQUIRE(colorMap.argument(1).lts == 1);
-  REQUIRE(colorMap.argument(1).halo == HaloType::Copy);
-  REQUIRE(colorMap.argument(1).config.index() == 0);
+  CHECK(colorMap.argument(0).lts == 1);
+  CHECK(colorMap.argument(0).halo == HaloType::Interior);
+  CHECK(colorMap.argument(0).config.index() == 0);
+  CHECK(colorMap.argument(1).lts == 1);
+  CHECK(colorMap.argument(1).halo == HaloType::Copy);
+  CHECK(colorMap.argument(1).config.index() == 0);
 }
 
 } // namespace seissol::unit_test

@@ -11,7 +11,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("DR Variables") {
+TEST_CASE("DR Variables" * doctest::test_suite("dynamicrupture")) {
   SUBCASE("GeneralVariablesCount") {
     output::DrVarsT drVars;
 

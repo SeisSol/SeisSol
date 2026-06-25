@@ -70,13 +70,13 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> Csv::make
 
     if (counter == 0) {
       writer.addInstruction(std::make_shared<writer::instructions::BinaryWrite>(
-          filename, writer::WriteInline::createString(header())));
+          filename, writer::WriteInline::createString(header()), 0, true));
     }
     this->rowcache_ = rows();
     this->resetStorage();
 
     writer.addInstruction(std::make_shared<writer::instructions::BinaryWrite>(
-        filename, writer::WriteBuffer::create(rowcache_.c_str(), rowcache_.size())));
+        filename, writer::WriteBuffer::create(rowcache_.c_str(), rowcache_.size()), 0, true));
     return writer;
   };
 }
