@@ -50,6 +50,11 @@ jobs:
 
           mkdir -p /opt/seissol
 
+          # allow oversubscribe and run as root for OpenMPI
+          export OMPI_MCA_rmaps_base_oversubscribe=true
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
           # run w/o netcdf for consistency with the clang-tidy check
           export CMAKE_PREFIX_PATH=/opt/dependencies
           cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/seissol -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DCOVERAGE=ON -DTESTING=ON -DTESTING_GENERATED=ON -DHOST_ARCH=hsw -DORDER=6 -DCMAKE_BUILD_TYPE=Debug -DEQUATIONS=elastic -DPRECISION=double
@@ -58,6 +63,11 @@ jobs:
       - name: seissol-coverage
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
+          # allow oversubscribe and run as root for OpenMPI
+          export OMPI_MCA_rmaps_base_oversubscribe=true
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
           cd build
           ninja seissol-coverage
 
