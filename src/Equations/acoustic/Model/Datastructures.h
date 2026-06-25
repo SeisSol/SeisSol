@@ -33,10 +33,10 @@ struct AcousticMaterial : public Material {
   static constexpr std::size_t TractionQuantities = 1;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Acoustic;
-  static constexpr std::string Text = "acoustic";
+  static const inline std::string Text = "acoustic";
   // The stress-velocity formulation of the elastic model is reused.
   // By definition, the normal stress and pressure are negatives of each other.
-  static constexpr std::array<std::string, NumQuantities> Quantities = {"-p", "v1", "v2", "v3"};
+  static const inline std::array<std::string, NumQuantities> Quantities = {"-p", "v1", "v2", "v3"};
   static constexpr std::size_t Parameters = 1 + Material::Parameters;
 
   static constexpr bool SupportsDR = false;

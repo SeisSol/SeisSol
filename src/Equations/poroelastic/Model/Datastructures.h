@@ -29,20 +29,20 @@ struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t TractionQuantities = 6;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Poroelastic;
-  static constexpr std::string Text = "poroelastic";
-  static constexpr std::array<std::string, NumQuantities> Quantities{"s_xx",
-                                                                     "s_yy",
-                                                                     "s_zz",
-                                                                     "s_xy",
-                                                                     "s_yz",
-                                                                     "s_xz",
-                                                                     "v1",
-                                                                     "v2",
-                                                                     "v3",
-                                                                     "p",
-                                                                     "v1_f",
-                                                                     "v2_f",
-                                                                     "v3_f"};
+  static const inline std::string Text = "poroelastic";
+  static const inline std::array<std::string, NumQuantities> Quantities{"s_xx",
+                                                                        "s_yy",
+                                                                        "s_zz",
+                                                                        "s_xy",
+                                                                        "s_yz",
+                                                                        "s_xz",
+                                                                        "v1",
+                                                                        "v2",
+                                                                        "v3",
+                                                                        "p",
+                                                                        "v1_f",
+                                                                        "v2_f",
+                                                                        "v3_f"};
   static constexpr std::size_t Parameters = ElasticMaterial::Parameters + 7;
 
   static constexpr bool SupportsDR = true;

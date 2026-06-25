@@ -54,8 +54,8 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   static constexpr std::size_t TractionQuantities = 6;
   static constexpr std::size_t Mechanisms = MechanismsP;
   static constexpr MaterialType Type = MaterialType::Viscoelastic;
-  static constexpr std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
-  static constexpr std::array<std::string, NumElasticQuantities> Quantities{
+  static const inline std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
+  static const inline std::array<std::string, NumElasticQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
   static constexpr std::size_t Parameters = ElasticMaterial::Parameters + 4 * Mechanisms;
 
