@@ -8,7 +8,7 @@
 #include "InstantaneousTimeMirrorManager.h"
 
 #include "Equations/Datastructures.h"
-#include "Initializer/CellLocalMatrices.h"
+#include "Initializer/Model/CellLocalMatrices.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Memory/Descriptor/LTS.h"
