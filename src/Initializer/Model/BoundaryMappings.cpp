@@ -39,7 +39,7 @@
 namespace seissol::initializer {
 
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
-                                const EasiBoundary* easiBoundary,
+                                const std::optional<EasiBoundary>& easiBoundary,
                                 LTS::Storage& ltsStorage) {
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
@@ -108,7 +108,11 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         assert(easiBoundaryMap != nullptr);
         assert(easiBoundaryConstant != nullptr);
         if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet) {
-          easiBoundary->query(nodes, easiBoundaryMap, easiBoundaryConstant);
+          if (easiBoundary.has_value()) {
+            easiBoundary->query(nodes, easiBoundaryMap, easiBoundaryConstant);
+          } else {
+            logError() << "Dirichlet face found, but no boundary condition definition given.";
+          }
         } else {
           // Boundary should not be evaluated
           std::fill_n(easiBoundaryMap,

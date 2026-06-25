@@ -69,11 +69,9 @@ class MemoryManager {
   std::unique_ptr<dr::friction_law::FrictionSolver> frictionLawDevice_ = nullptr;
   std::unique_ptr<dr::output::OutputManager> faultOutputManager_ = nullptr;
 
-  Boundary::Storage boundaryTree_;
+  Boundary::Storage boundaryStorage_;
 
   SurfaceLTS::Storage surfaceStorage_;
-
-  EasiBoundary easiBoundary_;
 
   std::optional<ClusterLayout> layout_;
 
@@ -131,10 +129,6 @@ class MemoryManager {
   const std::vector<std::unique_ptr<physics::InitialField>>& getInitialConditions() {
     return iniConds_;
   }
-
-  void initializeEasiBoundaryReader(const std::string& fileName);
-
-  EasiBoundary* getEasiBoundaryReader() { return &easiBoundary_; }
 
   dr::friction_law::FrictionSolver* getFrictionLaw() { return frictionLaw_.get(); }
   dr::friction_law::FrictionSolver* getFrictionLawDevice() { return frictionLawDevice_.get(); }

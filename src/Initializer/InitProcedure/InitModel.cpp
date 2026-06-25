@@ -239,8 +239,13 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
 
   memoryManager.initFrictionData();
 
+  std::optional<EasiBoundary> boundaryScript;
+  if (seissolParams.model.hasBoundaryFile) {
+    boundaryScript = EasiBoundary(seissolParams.model.boundaryFileName);
+  }
+
   seissol::initializer::initializeBoundaryMappings(
-      meshReader, memoryManager.getEasiBoundaryReader(), memoryManager.getLtsStorage());
+      meshReader, boundaryScript, memoryManager.getLtsStorage());
 
 #ifdef ACL_DEVICE
   memoryManager.recordExecutionPaths(seissolParams.model.plasticity);

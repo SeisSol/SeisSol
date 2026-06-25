@@ -59,16 +59,16 @@ void MemoryManager::initialize() {
 void MemoryManager::fixateBoundaryStorage() {
   const LayerMask ghostMask(Ghost);
 
-  boundaryTree_.setName("boundary");
+  boundaryStorage_.setName("boundary");
 
   // Boundary face storage
-  Boundary::addTo(boundaryTree_);
-  boundaryTree_.setLayerCount(ltsStorage_.getColorMap());
-  boundaryTree_.fixate();
+  Boundary::addTo(boundaryStorage_);
+  boundaryStorage_.setLayerCount(ltsStorage_.getColorMap());
+  boundaryStorage_.fixate();
 
   // Iterate over layers of standard lts storage and face lts storage together.
   for (auto [layer, boundaryLayer] :
-       seissol::common::zip(ltsStorage_.leaves(ghostMask), boundaryTree_.leaves(ghostMask))) {
+       seissol::common::zip(ltsStorage_.leaves(ghostMask), boundaryStorage_.leaves(ghostMask))) {
     CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
 
     std::size_t numberOfBoundaryFaces = 0;
@@ -84,14 +84,14 @@ void MemoryManager::fixateBoundaryStorage() {
     }
     boundaryLayer.setNumberOfCells(numberOfBoundaryFaces);
   }
-  boundaryTree_.allocateVariables();
-  boundaryTree_.touchVariables();
+  boundaryStorage_.allocateVariables();
+  boundaryStorage_.touchVariables();
 
   // The boundary storage is now allocated, now we only need to map from cell lts
   // to face lts.
   // We do this by, once again, iterating over both storages at the same time.
   for (auto [layer, boundaryLayer] :
-       seissol::common::zip(ltsStorage_.leaves(ghostMask), boundaryTree_.leaves(ghostMask))) {
+       seissol::common::zip(ltsStorage_.leaves(ghostMask), boundaryStorage_.leaves(ghostMask))) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
     auto* boundaryMappingDevice = layer.var<LTS::BoundaryMappingDevice>();
@@ -125,12 +125,6 @@ void MemoryManager::fixateBoundaryStorage() {
     refinement = outputParams.freeSurfaceParameters.refinement;
   }
   seissolInstance_.freeSurfaceIntegrator().initialize(refinement, ltsStorage_, surfaceStorage_);
-}
-
-void MemoryManager::initializeEasiBoundaryReader(const std::string& fileName) {
-  if (!fileName.empty()) {
-    easiBoundary_ = EasiBoundary(fileName);
-  }
 }
 
 void MemoryManager::recordExecutionPaths(bool usePlasticity) {
@@ -204,7 +198,7 @@ void MemoryManager::synchronizeTo(AllocationPlace place) {
 #endif
   ltsStorage_.synchronizeTo(place, defaultStream);
   drStorage_.synchronizeTo(place, defaultStream);
-  boundaryTree_.synchronizeTo(place, defaultStream);
+  boundaryStorage_.synchronizeTo(place, defaultStream);
   surfaceStorage_.synchronizeTo(place, defaultStream);
 
 #ifdef ACL_DEVICE
