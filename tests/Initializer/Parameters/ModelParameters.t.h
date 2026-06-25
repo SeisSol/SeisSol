@@ -82,6 +82,8 @@ TEST_CASE("readModelParameters parses YAML" * doctest::test_suite("initializer")
       tv: 0.2
       numflux: Rusanov
       numfluxnearfault: Godunov
+      qp: 1
+      qs: 1
   )");
   ParameterReader reader(node, "", false);
   auto params = readModelParameters(&reader);
@@ -98,9 +100,13 @@ TEST_CASE("readModelParameters parses YAML" * doctest::test_suite("initializer")
 }
 
 TEST_CASE("readModelParameters defaults" * doctest::test_suite("initializer")) {
+  // (qp and qs are necessary for visco to not fail)
+
   const YAML::Node node = YAML::Load(R"(
     equations:
       materialfilename: mat.yaml
+      qp: 1
+      qs: 1
   )");
   ParameterReader reader(node, "", false);
   auto params = readModelParameters(&reader);
