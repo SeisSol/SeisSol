@@ -77,14 +77,9 @@ class MemoryManager {
 
   public:
   /**
-   * Constructor
+   * Default constructor
    **/
-  explicit MemoryManager(seissol::SeisSol& instance) : seissolInstance_(instance) {}
-
-  /**
-   * Destructor, memory is freed by managed allocator
-   **/
-  ~MemoryManager() = default;
+  explicit MemoryManager(seissol::SeisSol& instance);
 
   /**
    * Initialization function, which allocates memory for the global matrices and initializes them.
@@ -137,7 +132,6 @@ class MemoryManager {
   void recordExecutionPaths(bool usePlasticity);
 
   void initializeFrictionLaw();
-  void initFaultOutputManager(const std::string& backupTimeStamp);
   void initFrictionData();
   void synchronizeTo(seissol::initializer::AllocationPlace place);
 };

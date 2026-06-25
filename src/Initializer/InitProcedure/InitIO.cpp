@@ -518,9 +518,23 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 }
 
 void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
+  const auto& seissolParams = seissolInstance.getSeisSolParameters();
+
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
-  seissolInstance.getMemoryManager().initFaultOutputManager(backupTimeStamp);
+
   auto* faultOutputManager = seissolInstance.getMemoryManager().getFaultOutputManager();
+
+  if (seissolParams.drParameters.isDynamicRuptureEnabled) {
+    auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
+    auto& backmap = seissolInstance.getMemoryManager().getBackmap();
+    auto& drStorage = seissolInstance.getMemoryManager().getDRStorage();
+
+    faultOutputManager->setInputParam(seissolInstance.meshReader());
+    faultOutputManager->setLtsData(ltsStorage, backmap, drStorage);
+    faultOutputManager->setBackupTimeStamp(backupTimeStamp);
+    faultOutputManager->init();
+  }
+
   seissolInstance.timeManager().setFaultOutputManager(faultOutputManager);
 }
 

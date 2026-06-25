@@ -86,8 +86,6 @@ class SeisSol {
 
   Simulator& simulator() { return simulator_; }
 
-  sourceterm::Manager& sourceTermManager() { return sourceTermManager_; }
-
   solver::FreeSurfaceIntegrator& freeSurfaceIntegrator() { return freeSurfaceIntegrator_; }
 
   writer::FreeSurfaceWriter& freeSurfaceWriter() { return freeSurfaceWriter_; }
@@ -150,16 +148,6 @@ class SeisSol {
     }
 
     meshReader_ = meshReader;
-  }
-
-  /**
-   * Delete the mesh reader to free memory resources.
-   *
-   * Should be called after initialization
-   */
-  void freeMeshReader() {
-    delete meshReader_;
-    meshReader_ = nullptr;
   }
 
   /**
@@ -234,9 +222,6 @@ class SeisSol {
 
   //! Simulator
   Simulator simulator_;
-
-  //! Source term module
-  sourceterm::Manager sourceTermManager_;
 
   //! Free surface integrator module
   solver::FreeSurfaceIntegrator freeSurfaceIntegrator_;

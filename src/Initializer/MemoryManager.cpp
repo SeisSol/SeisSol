@@ -47,6 +47,8 @@
 
 namespace seissol::initializer {
 
+MemoryManager::MemoryManager(seissol::SeisSol& instance) : seissolInstance_(instance) {}
+
 void MemoryManager::initialize() {
   // initialize global matrices
   GlobalDataInitializerOnHost::init(globalDataOnHost_, memoryAllocator_, memory::Memkind::Standard);
@@ -163,17 +165,6 @@ void MemoryManager::initializeFrictionLaw() {
   frictionLaw_ = std::move(product.frictionLaw);
   frictionLawDevice_ = std::move(product.frictionLawDevice);
   faultOutputManager_ = std::move(product.output);
-}
-
-void MemoryManager::initFaultOutputManager(const std::string& backupTimeStamp) {
-  const auto& params = seissolInstance_.getSeisSolParameters().drParameters;
-  // TODO: switch dynRup_ to shared or weak pointer
-  if (params.isDynamicRuptureEnabled) {
-    faultOutputManager_->setInputParam(seissolInstance_.meshReader());
-    faultOutputManager_->setLtsData(ltsStorage_, backmap_, drStorage_);
-    faultOutputManager_->setBackupTimeStamp(backupTimeStamp);
-    faultOutputManager_->init();
-  }
 }
 
 void MemoryManager::initFrictionData() {
