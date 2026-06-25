@@ -36,6 +36,7 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace seissol::initializer {
@@ -88,23 +89,23 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
 #pragma omp parallel
     {
-      real matATData[tensor::star::size(0)];
-      real matATtildeData[tensor::star::size(0)];
-      real matBTData[tensor::star::size(1)];
-      real matCTData[tensor::star::size(2)];
+      real matATData[tensor::star::size(0)]{};
+      real matATtildeData[tensor::star::size(0)]{};
+      real matBTData[tensor::star::size(1)]{};
+      real matCTData[tensor::star::size(2)]{};
       auto matAT = init::star::view<0>::create(matATData);
       // matAT with elastic parameters in local coordinate system, used for flux kernel
       auto matATtilde = init::star::view<0>::create(matATtildeData);
       auto matBT = init::star::view<0>::create(matBTData);
       auto matCT = init::star::view<0>::create(matCTData);
 
-      real matTData[seissol::tensor::T::size()];
-      real matTinvData[seissol::tensor::Tinv::size()];
+      real matTData[seissol::tensor::T::size()]{};
+      real matTinvData[seissol::tensor::Tinv::size()]{};
       auto matT = init::T::view::create(matTData);
       auto matTinv = init::Tinv::view::create(matTinvData);
 
-      real qGodLocalData[tensor::QgodLocal::size()];
-      real qGodNeighborData[tensor::QgodNeighbor::size()];
+      real qGodLocalData[tensor::QgodLocal::size()]{};
+      real qGodNeighborData[tensor::QgodNeighbor::size()]{};
       auto qGodLocal = init::QgodLocal::view::create(qGodLocalData);
       auto qGodNeighbor = init::QgodNeighbor::view::create(qGodNeighborData);
 
@@ -185,7 +186,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           // must be subtracted.
           const double fluxScale = -2.0 * surface / (6.0 * volume);
 
-          const auto isSpecialBC = [&](int side) {
+          const auto isSpecialBC = [&](std::int8_t side) {
             const auto hasDRFace = [](const CellLocalInformation& ci) {
               bool hasAtLeastOneDRFace = false;
               for (size_t i = 0; i < Cell::NumFaces; ++i) {

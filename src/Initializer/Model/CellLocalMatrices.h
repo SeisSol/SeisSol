@@ -12,10 +12,7 @@
 #include "Geometry/MeshReader.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
-#include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Backmap.h"
 
 namespace seissol::initializer {
 

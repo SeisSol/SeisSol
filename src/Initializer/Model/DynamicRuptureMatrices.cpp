@@ -35,6 +35,7 @@
 #include <cassert>
 #include <complex>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <utils/logger.h>
 #include <vector>
@@ -45,7 +46,7 @@ namespace {
 
 void surfaceAreaAndVolume(const seissol::geometry::MeshReader& meshReader,
                           std::size_t meshId,
-                          int side,
+                          std::int8_t side,
                           double* surfaceArea,
                           double* volume) {
   const std::vector<Vertex>& vertices = meshReader.getVertices();
@@ -68,6 +69,7 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
                        yateto::DenseTensorView<2, S>& tensorView) {
   assert(tensorView.shape(0) == Dim1);
   assert(tensorView.shape(1) == Dim2);
+  // (the dim praameters need to be int due to Eigen)
 
   tensorView.setZero();
   for (size_t row = 0; row < Dim1; ++row) {
@@ -77,14 +79,14 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
   }
 }
 
-constexpr int N = tensor::Zminus::Shape[0];
+constexpr size_t N = tensor::Zminus::Shape[0];
 template <typename T>
 Eigen::Matrix<T, N, N>
     extractMatrix(eigenvalues::Eigenpair<std::complex<double>,
                                          seissol::model::MaterialT::NumQuantities> eigenpair) {
-  std::vector<int> tractionIndices;
-  std::vector<int> velocityIndices;
-  std::vector<int> columnIndices;
+  std::vector<size_t> tractionIndices;
+  std::vector<size_t> velocityIndices;
+  std::vector<size_t> columnIndices;
 
   if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
     tractionIndices = {0, 3, 5, 9};
@@ -110,10 +112,10 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       LTS::Storage& ltsStorage,
                                       const LTS::Backmap& backmap,
                                       DynamicRupture::Storage& drStorage) {
-  real matTData[tensor::T::size()];
-  real matTinvData[tensor::Tinv::size()];
-  real matAPlusData[tensor::star::size(0)];
-  real matAMinusData[tensor::star::size(0)];
+  real matTData[tensor::T::size()]{};
+  real matTinvData[tensor::Tinv::size()]{};
+  real matAPlusData[tensor::star::size(0)]{};
+  real matAMinusData[tensor::star::size(0)]{};
 
   const auto& fault = meshReader.getFault();
   const auto& elements = meshReader.getElements();
@@ -167,8 +169,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
 
       /// Look for time derivative mapping in all duplicates
+      // TODO: change datatype after #1420
       int derivativesMeshId = 0;
-      unsigned derivativesSide = 0;
+      std::uint8_t derivativesSide = 0;
       if (fault[meshFace].element >= 0) {
         derivativesMeshId = fault[meshFace].element;
         derivativesSide = faceInformation[ltsFace].plusSide;
@@ -458,17 +461,12 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       dynamicRupture::kernel::rotateFluxMatrix krnl;
       krnl.T = matTData;
 
-      real(*fluxSolverPlusHost)[tensor::fluxSolver::size()] =
-          layer.var<DynamicRupture::FluxSolverPlus>();
-      real(*fluxSolverMinusHost)[tensor::fluxSolver::size()] =
-          layer.var<DynamicRupture::FluxSolverMinus>();
-
-      krnl.fluxSolver = fluxSolverPlusHost[ltsFace];
+      krnl.fluxSolver = fluxSolverPlus[ltsFace];
       krnl.fluxScaleDR = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
       krnl.star(0) = matAPlusData;
       krnl.execute();
 
-      krnl.fluxSolver = fluxSolverMinusHost[ltsFace];
+      krnl.fluxSolver = fluxSolverMinus[ltsFace];
       krnl.fluxScaleDR = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
       krnl.star(0) = matAMinusData;
       krnl.execute();
