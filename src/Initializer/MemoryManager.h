@@ -154,16 +154,6 @@ class MemoryManager {
 
   void recordExecutionPaths(bool usePlasticity);
 
-  /**
-   * Derives sizes of scratch memory required during computations of Wave Propagation solver
-   **/
-  static void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStorage);
-
-  /**
-   * Derives sizes of scratch memory required during computations of Dynamic Rupture solver
-   **/
-  static void deriveRequiredScratchpadMemoryForDr(DynamicRupture::Storage& drStorage);
-
   void initializeFrictionLaw();
   void initFaultOutputManager(const std::string& backupTimeStamp);
   void initFrictionData();

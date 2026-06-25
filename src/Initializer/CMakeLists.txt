@@ -27,6 +27,7 @@ add_library(seissol-initializer OBJECT
     InitProcedure/Internal/Buckets.cpp
     InitProcedure/Internal/LtsSetup.cpp
     InitProcedure/Internal/MeshLayout.cpp
+    InitProcedure/Internal/Scratchpads.cpp
 
     Parameters/CubeGeneratorParameters.cpp
     Parameters/DRParameters.cpp
