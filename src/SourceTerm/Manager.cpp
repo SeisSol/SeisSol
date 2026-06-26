@@ -94,7 +94,7 @@ void computeMInvJInvPhisAtSources(
   const double jInv = 1.0 / (6.0 * volume);
 
   kernel::computeMInvJInvPhisAtSources krnl;
-  krnl.basisFunctionsAtPoint = basisFunctionsAtPoint.m_data.data();
+  krnl.basisFunctionsAtPoint = basisFunctionsAtPoint.data().data();
   krnl.M3inv = init::M3inv::Values;
   krnl.mInvJInvPhisAtSources = mInvJInvPhisAtSources.data();
   krnl.JInv = jInv;
@@ -128,12 +128,12 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
 
   std::array<double, 81> stiffnessTensor{};
   switch (material->getMaterialType()) {
-  case seissol::model::MaterialType::Anisotropic:
-    [[fallthrough]];
   case seissol::model::MaterialType::Acoustic:
-    logError() << "NRF sources are only compatible with isotropic (visco)elastic and "
+    logError() << "NRF sources are only compatible with isotropic (visco)elastic, anisotropic, and "
                   "poroelastic materials.";
     break;
+  case seissol::model::MaterialType::Anisotropic:
+    [[fallthrough]];
   case seissol::model::MaterialType::Poroelastic:
     if (subfault.mu != 0) {
       logError() << "There are specific fault parameters for the fault. This is only compatible "
@@ -399,20 +399,17 @@ auto loadSourceFile(const char* fileName,
 
   const auto points = file.points();
 
-  auto contained = std::vector<short>(points.size());
   auto meshIds = std::vector<std::size_t>(points.size());
 
-  initializer::findMeshIds(points.data(), mesh, points.size(), contained.data(), meshIds.data());
-
-  logInfo() << "Cleaning possible double occurring point sources in multi-rank setups...";
-  initializer::cleanDoubles(contained.data(), points.size());
+  const auto contained =
+      initializer::findUniqueMeshIds(points.data(), mesh, points.size(), meshIds.data());
 
   auto originalIndex = std::vector<std::size_t>(points.size());
   std::size_t numSources = 0;
   for (std::size_t source = 0; source < points.size(); ++source) {
     originalIndex[numSources] = source;
     meshIds[numSources] = meshIds[source];
-    numSources += contained[source] != 0 ? 1 : 0;
+    numSources += contained[source] ? 1 : 0;
   }
 
   file.originalIndex = originalIndex;

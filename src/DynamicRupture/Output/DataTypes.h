@@ -33,7 +33,6 @@ struct VarT {
 
   real* operator[](std::size_t dim) {
     assert(dim < Dim && "access is out of the Dim. bounds");
-    assert(!data[dim].empty() && "data has not been initialized yet");
     return data[dim].data();
   }
 
@@ -52,7 +51,6 @@ struct VarT {
 
   const real* operator[](std::size_t dim) const {
     assert(dim < Dim && "access is out of the Dim. bounds");
-    assert(!data[dim].empty() && "data has not been initialized yet");
     return data[dim].data();
   }
 
@@ -176,7 +174,7 @@ struct ReceiverOutputData {
   std::vector<std::size_t> deviceDataMinus;
   std::size_t cellCount{0};
 
-  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector<real>>> deviceVariables;
+  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollectorUntyped>> deviceVariables;
   std::vector<std::size_t> deviceIndices;
   std::optional<parallel::runtime::StreamRuntime> extraRuntime;
 };

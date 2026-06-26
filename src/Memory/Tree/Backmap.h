@@ -63,12 +63,12 @@ class StorageBackmap {
   private:
   using CellStoragePosition = std::array<StoragePosition, MaxDuplicates>;
 
-  std::vector<CellStoragePosition> data;
+  std::vector<CellStoragePosition> data_;
 
   std::size_t copyCount_{1};
 
   public:
-  explicit StorageBackmap(std::size_t size) : data(size) {}
+  explicit StorageBackmap(std::size_t size) : data_(size) {}
 
   StorageBackmap() = default;
 
@@ -83,7 +83,7 @@ class StorageBackmap {
     if (duplicate >= MaxDuplicates) {
       return {};
     } else {
-      const auto position = data[id * copyCount_ + copy][duplicate];
+      const auto position = data_[id * copyCount_ + copy][duplicate];
       if (position == StoragePosition::NullPosition) {
         return {};
       } else {
@@ -93,7 +93,7 @@ class StorageBackmap {
   }
 
   void setSize(std::size_t size, std::size_t copy) {
-    data.resize(size * copy);
+    data_.resize(size * copy);
     copyCount_ = copy;
   }
 
@@ -112,9 +112,9 @@ class StorageBackmap {
     const auto position = layerPosition + index;
     const auto storagePosition = StoragePosition{color, index, position};
 
-    if (cell * copyCount_ >= data.size()) {
+    if (cell * copyCount_ >= data_.size()) {
       logError() << "Tried to add cell" << cell << "to a backmap of size"
-                 << data.size() / copyCount_ << ". Out of capacity.";
+                 << data_.size() / copyCount_ << ". Out of capacity.";
     }
 
     if (copyCount_ <= copy) {
@@ -122,8 +122,8 @@ class StorageBackmap {
     }
 
     for (std::size_t j = 0; j < MaxDuplicates; ++j) {
-      if (data[cell * copyCount_ + copy][j] == StoragePosition::NullPosition) {
-        data[cell * copyCount_ + copy][j] = storagePosition;
+      if (data_[cell * copyCount_ + copy][j] == StoragePosition::NullPosition) {
+        data_[cell * copyCount_ + copy][j] = storagePosition;
         return j;
       }
     }

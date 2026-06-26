@@ -23,7 +23,9 @@
 #include "Memory/Tree/Layer.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
+#include "Solver/Settings.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -137,6 +139,12 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     colorsGhost[i] = colorMap.color(halo, element.clusterId, Config());
   }
 
+  const auto needsIntegration =
+      std::any_of(seissolParams.output.waveFieldParameters.integrationMask.begin(),
+                  seissolParams.output.waveFieldParameters.integrationMask.end(),
+                  [](const auto& value) { return value; });
+  const auto settings = SimulationSettings(seissolParams.model.plasticity, needsIntegration);
+
   logInfo() << "Creating mesh layout...";
 
   const std::size_t copyCount = seissolParams.timeStepping.copyCount;
@@ -151,8 +159,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
   auto& backmap = seissolInstance.getMemoryManager().getBackmap();
-  LTS::addTo(ltsStorage, seissolInstance.getSeisSolParameters().model.plasticity);
-  seissolInstance.postProcessor().allocateMemory(ltsStorage);
+  LTS::addTo(ltsStorage, settings);
   ltsStorage.setName("cluster");
   ltsStorage.setLayerCount(colorMap);
   ltsStorage.fixate();
@@ -244,7 +251,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
         secondaryCellInformation[index].group = element.group;
         for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           secondaryCellInformation[index].neighborRanks[face] = element.neighborRanks[face];
-          cellInformation[index].faceTypes[face] = static_cast<FaceType>(element.boundaries[face]);
+          cellInformation[index].faceTypes[face] = element.boundaries[face];
           cellInformation[index].faceRelations[face][0] = element.neighborSides[face];
           cellInformation[index].faceRelations[face][1] = element.sideOrientations[face];
 
@@ -302,7 +309,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           secondaryCellInformation[i].neighborRanks[face] = rank;
           cellInformation[i].neighborConfigIds[face] = neighbor.color;
           cellInformation[i].faceTypes[face] =
-              static_cast<FaceType>(elementNeighbor.boundaries[boundaryElement.localSide]);
+              elementNeighbor.boundaries[boundaryElement.localSide];
           cellInformation[i].faceRelations[face][0] = boundaryElement.localSide;
           cellInformation[i].faceRelations[face][1] =
               elementNeighbor.sideOrientations[boundaryElement.localSide];
@@ -379,10 +386,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto haloCommunication = internal::bucketsAndCommunication(ltsStorage, meshLayoutCopy);
 
   logInfo() << "Setting up kernel clusters...";
-  seissolInstance.timeManager().addClusters(clusterLayout,
-                                            haloCommunication,
-                                            seissolInstance.getMemoryManager(),
-                                            seissolParams.model.plasticity);
+  seissolInstance.timeManager().addClusters(
+      clusterLayout, haloCommunication, seissolInstance.getMemoryManager(), settings);
 
   seissolInstance.dofSync().setup(meshLayoutCopy, &ltsStorage);
 }

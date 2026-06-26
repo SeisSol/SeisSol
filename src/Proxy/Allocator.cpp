@@ -25,13 +25,17 @@
 #include "Memory/Tree/Colormap.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/OpenMP.h"
+#include "Solver/Settings.h"
 
 #include <cstddef>
 #include <random>
 #include <stdlib.h>
 
 #ifdef ACL_DEVICE
+#include "Initializer/BatchRecorders/Recorders.h"
 #include "Initializer/MemoryManager.h"
+
+#include <Device/device.h>
 #endif
 
 #ifdef USE_POROELASTIC
@@ -46,7 +50,7 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
   real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
   real** buffers = layer.var<LTS::Buffers>();
   real** derivatives = layer.var<LTS::Derivatives>();
-  real*(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
+  auto* faceNeighbors = layer.var<LTS::FaceNeighbors>();
   auto* localIntegration = layer.var<LTS::LocalIntegration>();
   auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
   auto* cellInformation = layer.var<LTS::CellInformation>();
@@ -56,7 +60,7 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
 
   real** buffersDevice = layer.var<LTS::BuffersDevice>();
   real** derivativesDevice = layer.var<LTS::DerivativesDevice>();
-  real*(*faceNeighborsDevice)[4] = layer.var<LTS::FaceNeighborsDevice>();
+  auto* faceNeighborsDevice = layer.var<LTS::FaceNeighborsDevice>();
   real* bucketDevice =
       static_cast<real*>(layer.var<LTS::BuffersDerivatives>(initializer::AllocationPlace::Device));
 
@@ -66,9 +70,9 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
   std::uniform_int_distribution<std::size_t> cellDist(0, layer.size() - 1);
 
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-    buffers[cell] = bucket + cell * tensor::I::size();
+    buffers[cell] = bucket + cell * kernels::Solver::BuffersSize;
     derivatives[cell] = nullptr;
-    buffersDevice[cell] = bucketDevice + cell * tensor::I::size();
+    buffersDevice[cell] = bucketDevice + cell * kernels::Solver::BuffersSize;
     derivativesDevice[cell] = nullptr;
 
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
@@ -92,7 +96,6 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
         faceNeighbors[cell][f] = buffers[cell];
         faceNeighborsDevice[cell][f] = buffersDevice[cell];
         break;
-      case FaceType::Periodic:
       case FaceType::Regular:
         faceNeighbors[cell][f] = buffers[secondaryInformation[cell].faceNeighbors[f].cell];
         faceNeighborsDevice[cell][f] =
@@ -106,7 +109,7 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
   }
 
   kernels::fillWithStuff(reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.size(), false);
-  kernels::fillWithStuff(bucket, tensor::I::size() * layer.size(), false);
+  kernels::fillWithStuff(bucket, kernels::Solver::BuffersSize * layer.size(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
                          sizeof(LocalIntegrationData) / sizeof(real) * layer.size(),
                          false);
@@ -166,14 +169,16 @@ void ProxyData::initDataStructures(bool enableDR) {
       initializer::TraitLayer<initializer::ConfigVariant>({initializer::ConfigVariant(Config())}));
 
   // init RNG
-  LTS::addTo(ltsStorage, false); // proxy does not use plasticity
+  const auto nullSettings = SimulationSettings(false, false);
+  LTS::addTo(ltsStorage, nullSettings);
   ltsStorage.setLayerCount(map);
   ltsStorage.fixate();
 
   ltsStorage.layer(layerId).setNumberOfCells(cellCount);
 
   LTS::Layer& layer = ltsStorage.layer(layerId);
-  layer.setEntrySize<LTS::BuffersDerivatives>(sizeof(real) * tensor::I::size() * layer.size());
+  layer.setEntrySize<LTS::BuffersDerivatives>(sizeof(real) * kernels::Solver::BuffersSize *
+                                              layer.size());
 
   ltsStorage.allocateVariables();
   ltsStorage.touchVariables();
@@ -226,7 +231,7 @@ void ProxyData::initDataStructures(bool enableDR) {
 
   if (enableDR) {
     // From lts storage
-    CellDRMapping(*drMapping)[4] =
+    auto* drMapping =
         isDeviceOn() ? ltsStorage.var<LTS::DRMappingDevice>() : ltsStorage.var<LTS::DRMapping>();
 
     constexpr initializer::AllocationPlace Place =

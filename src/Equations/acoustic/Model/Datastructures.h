@@ -64,7 +64,7 @@ struct AcousticMaterial : public Material {
     // It is not used for acoustic materials as they do not support NRF sources.
 
     auto stiffnessTensorView =
-        seissol_general::init::stiffnessTensor::view::create(fullTensor.data());
+        seissol::general::init::stiffnessTensor::view::create(fullTensor.data());
     stiffnessTensorView.setZero();
     stiffnessTensorView(0, 0, 0, 0) = lambda;
     stiffnessTensorView(0, 0, 1, 1) = lambda;

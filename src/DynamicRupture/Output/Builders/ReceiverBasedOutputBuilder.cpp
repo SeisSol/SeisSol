@@ -16,15 +16,21 @@
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
+#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
+#include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
+#include "Parallel/DataCollector.h"
+#include "Parallel/Helper.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>
@@ -32,44 +38,36 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
+#include <memory>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 #include <yateto.h>
 
-#ifdef ACL_DEVICE
-#include "GeneratedCode/tensor.h"
-#include "Kernels/Solver.h"
-#include "Memory/Tree/Layer.h"
-#include "Parallel/DataCollector.h"
-#include "Parallel/Helper.h"
-
-#include <memory>
-#endif
-
 namespace seissol::dr::output {
 void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshReader* reader) {
-  meshReader = reader;
-  localRank = Mpi::mpi.rank();
+  meshReader_ = reader;
+  localRank_ = Mpi::mpi.rank();
 }
 
 void ReceiverBasedOutputBuilder::setLtsData(LTS::Storage& userWpStorage,
                                             LTS::Backmap& userWpBackmap,
                                             DynamicRupture::Storage& userDrStorage) {
-  wpStorage = &userWpStorage;
-  wpBackmap = &userWpBackmap;
-  drStorage = &userDrStorage;
+  wpStorage_ = &userWpStorage;
+  wpBackmap_ = &userWpBackmap;
+  drStorage_ = &userDrStorage;
 }
 
 void ReceiverBasedOutputBuilder::setVariableList(const std::vector<std::size_t>& variables) {
-  this->variables = variables;
+  this->variables_ = variables;
 }
 
 void ReceiverBasedOutputBuilder::setFaceToLtsMap(
     ::seissol::initializer::StorageBackmap<1>* faceToLtsMap) {
-  this->faceToLtsMap = faceToLtsMap;
+  this->faceToLtsMap_ = faceToLtsMap;
 }
 
 namespace {
@@ -92,11 +90,11 @@ struct HashPair {
 };
 } // namespace
 
-void ReceiverBasedOutputBuilder::initBasisFunctions() {
-  const auto& faultInfo = meshReader->getFault();
-  const auto& elementsInfo = meshReader->getElements();
-  const auto& verticesInfo = meshReader->getVertices();
-  const auto& mpiGhostMetadata = meshReader->getGhostlayerMetadata();
+void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
+  const auto& faultInfo = meshReader_->getFault();
+  const auto& elementsInfo = meshReader_->getElements();
+  const auto& verticesInfo = meshReader_->getVertices();
+  const auto& mpiGhostMetadata = meshReader_->getGhostlayerMetadata();
 
   std::unordered_map<std::size_t, std::size_t> faceIndices;
   std::unordered_map<std::size_t, std::size_t> elementIndices;
@@ -105,12 +103,12 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   std::size_t foundPoints = 0;
 
   constexpr size_t NumVertices{4};
-  for (const auto& point : outputData->receiverPoints) {
+  for (const auto& point : outputData_->receiverPoints) {
     if (point.isInside) {
-      if (faceIndices.find(faceToLtsMap->get(point.faultFaceIndex, point.copy).global) ==
+      if (faceIndices.find(faceToLtsMap_->get(point.faultFaceIndex, point.copy).global) ==
           faceIndices.end()) {
         const auto faceIndex = faceIndices.size();
-        faceIndices[faceToLtsMap->get(point.faultFaceIndex, point.copy).global] = faceIndex;
+        faceIndices[faceToLtsMap_->get(point.faultFaceIndex, point.copy).global] = faceIndex;
       }
 
       ++foundPoints;
@@ -161,74 +159,81 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
         }
       }
 
-      outputData->basisFunctions.emplace_back(
+      outputData_->basisFunctions.emplace_back(
           getPlusMinusBasisFunctions(point.global.coords, elemCoords, neighborElemCoords));
     }
   }
 
-  outputData->cellCount = elementIndices.size() + elementIndicesGhost.size();
+  outputData_->cellCount = elementIndices.size() + elementIndicesGhost.size();
 
-#ifdef ACL_DEVICE
-  std::vector<real*> indexPtrs(outputData->cellCount);
+  if constexpr (isDeviceOn()) {
+    if (elementwise) {
+      // rely on the data that is copied anyways
+      // (deviceDataCollector needs to be set to avoid a nullptr call)
+      outputData_->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
+          std::vector<real*>{}, seissol::kernels::Solver::DerivativesSize, true);
+    } else {
+      // setup (sparse) index arrays (for receivers)
 
-  for (const auto& [index, arrayIndex] : elementIndices) {
-    const auto position = wpBackmap->get(index, 0); // TODO
-    indexPtrs[arrayIndex] = wpStorage->lookup<LTS::DerivativesDevice>(position);
-    assert(indexPtrs[arrayIndex] != nullptr);
-  }
-  for (const auto& [_, ghost] : elementIndicesGhost) {
-    const auto neighbor = ghost.data;
-    const auto arrayIndex = ghost.index + elementIndices.size();
+      std::vector<real*> indexPtrs(outputData_->cellCount);
 
-    const auto position = wpBackmap->get(neighbor.first, 0); // TODO
-    indexPtrs[arrayIndex] = wpStorage->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second];
-    assert(indexPtrs[arrayIndex] != nullptr);
-  }
+      for (const auto& [index, arrayIndex] : elementIndices) {
+        const auto position = wpBackmap_->get(index, 0); // TODO
+        indexPtrs[arrayIndex] = wpStorage_->lookup<LTS::DerivativesDevice>(position);
+        assert(indexPtrs[arrayIndex] != nullptr);
+      }
+      for (const auto& [_, ghost] : elementIndicesGhost) {
+        const auto neighbor = ghost.data;
+        const auto arrayIndex = ghost.index + elementIndices.size();
 
-  outputData->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
-      indexPtrs, seissol::kernels::Solver::DerivativesSize, useMPIUSM());
+        const auto position = wpBackmap_->get(neighbor.first, 0); // TODO
+        indexPtrs[arrayIndex] =
+            wpStorage_->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second];
+        assert(indexPtrs[arrayIndex] != nullptr);
+      }
 
-  for (const auto& variable : variables) {
-    auto* var = drStorage->varUntyped(variable, initializer::AllocationPlace::Device);
-    const std::size_t elementSize = drStorage->info(variable).bytes;
+      outputData_->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
+          indexPtrs, seissol::kernels::Solver::DerivativesSize, useMPIUSM());
 
-    assert(elementSize % sizeof(real) == 0);
+      for (const auto& variable : variables_) {
+        auto* var = drStorage_->varUntyped(variable, initializer::AllocationPlace::Device);
+        const std::size_t elementSize = drStorage_->info(variable).bytes;
 
-    const std::size_t elementCount = elementSize / sizeof(real);
-    std::vector<real*> dataPointers(faceIndices.size());
-    for (const auto& [index, arrayIndex] : faceIndices) {
-      dataPointers[arrayIndex] = reinterpret_cast<real*>(var) + elementCount * index;
+        std::vector<void*> dataPointers(faceIndices.size());
+        for (const auto& [index, arrayIndex] : faceIndices) {
+          dataPointers[arrayIndex] = reinterpret_cast<uint8_t*>(var) + elementSize * index;
+        }
+
+        const bool hostAccessible = useUSM() && !outputData_->extraRuntime.has_value();
+        outputData_->deviceVariables[variable] =
+            std::make_unique<seissol::parallel::DataCollectorUntyped>(
+                dataPointers, elementSize, hostAccessible);
+      }
     }
-
-    const bool hostAccessible = useUSM() && !outputData->extraRuntime.has_value();
-    outputData->deviceVariables[variable] =
-        std::make_unique<seissol::parallel::DataCollector<real>>(
-            dataPointers, elementCount, hostAccessible);
   }
-#endif
 
-  outputData->deviceDataPlus.resize(foundPoints);
-  outputData->deviceDataMinus.resize(foundPoints);
-  outputData->deviceIndices.resize(foundPoints);
+  outputData_->deviceDataPlus.resize(foundPoints);
+  outputData_->deviceDataMinus.resize(foundPoints);
+  outputData_->deviceIndices.resize(foundPoints);
   std::size_t pointCounter = 0;
-  for (std::size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
-    const auto& point = outputData->receiverPoints[i];
+  for (std::size_t i = 0; i < outputData_->receiverPoints.size(); ++i) {
+    const auto& point = outputData_->receiverPoints[i];
     if (point.isInside) {
       const auto elementIndex = faultInfo[point.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
-      outputData->deviceIndices[pointCounter] =
-          faceIndices.at(faceToLtsMap->get(point.faultFaceIndex, point.copy).global);
+      outputData_->deviceIndices[pointCounter] =
+          faceIndices.at(faceToLtsMap_->get(point.faultFaceIndex, point.copy).global);
 
-      outputData->deviceDataPlus[pointCounter] = elementIndices.at(elementIndex);
+      outputData_->deviceDataPlus[pointCounter] = elementIndices.at(elementIndex);
 
       const auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
       if (neighborElementIndex >= 0) {
-        outputData->deviceDataMinus[pointCounter] = elementIndices.at(neighborElementIndex);
+        outputData_->deviceDataMinus[pointCounter] = elementIndices.at(neighborElementIndex);
       } else {
         const auto faultSide = faultInfo[point.faultFaceIndex].side;
         const auto neighborRank = element.neighborRanks[faultSide];
         const auto neighborIndex = element.mpiIndices[faultSide];
-        outputData->deviceDataMinus[pointCounter] =
+        outputData_->deviceDataMinus[pointCounter] =
             elementIndices.size() +
             elementIndicesGhost.at(std::pair<int, std::size_t>(neighborRank, neighborIndex)).index;
       }
@@ -239,23 +244,23 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 }
 
 void ReceiverBasedOutputBuilder::initFaultDirections() {
-  const size_t nReceiverPoints = outputData->receiverPoints.size();
-  outputData->faultDirections.resize(nReceiverPoints);
-  const auto& faultInfo = meshReader->getFault();
+  const size_t nReceiverPoints = outputData_->receiverPoints.size();
+  outputData_->faultDirections.resize(nReceiverPoints);
+  const auto& faultInfo = meshReader_->getFault();
 
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-    const size_t globalIndex = outputData->receiverPoints[receiverId].faultFaceIndex;
+    const size_t globalIndex = outputData_->receiverPoints[receiverId].faultFaceIndex;
 
-    auto& faceNormal = outputData->faultDirections[receiverId].faceNormal;
-    auto& tangent1 = outputData->faultDirections[receiverId].tangent1;
-    auto& tangent2 = outputData->faultDirections[receiverId].tangent2;
+    auto& faceNormal = outputData_->faultDirections[receiverId].faceNormal;
+    auto& tangent1 = outputData_->faultDirections[receiverId].tangent1;
+    auto& tangent2 = outputData_->faultDirections[receiverId].tangent2;
 
     std::copy_n(&faultInfo[globalIndex].normal[0], 3, faceNormal.begin());
     std::copy_n(&faultInfo[globalIndex].tangent1[0], 3, tangent1.begin());
     std::copy_n(&faultInfo[globalIndex].tangent2[0], 3, tangent2.begin());
 
-    auto& strike = outputData->faultDirections[receiverId].strike;
-    auto& dip = outputData->faultDirections[receiverId].dip;
+    auto& strike = outputData_->faultDirections[receiverId].strike;
+    auto& dip = outputData_->faultDirections[receiverId].dip;
     misc::computeStrikeAndDipVectors(faceNormal.data(), strike.data(), dip.data());
   }
 }
@@ -266,37 +271,37 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
 
   // allocate Rotation Matrices
   // Note: several receiver can share the same rotation matrix
-  const size_t nReceiverPoints = outputData->receiverPoints.size();
-  outputData->stressGlbToDipStrikeAligned.resize(nReceiverPoints);
-  outputData->stressFaceAlignedToGlb.resize(nReceiverPoints);
-  outputData->faceAlignedToGlbData.resize(nReceiverPoints);
-  outputData->glbToFaceAlignedData.resize(nReceiverPoints);
+  const size_t nReceiverPoints = outputData_->receiverPoints.size();
+  outputData_->stressGlbToDipStrikeAligned.resize(nReceiverPoints);
+  outputData_->stressFaceAlignedToGlb.resize(nReceiverPoints);
+  outputData_->faceAlignedToGlbData.resize(nReceiverPoints);
+  outputData_->glbToFaceAlignedData.resize(nReceiverPoints);
 
   // init Rotation Matrices
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-    const auto& faceNormal = outputData->faultDirections[receiverId].faceNormal;
-    const auto& strike = outputData->faultDirections[receiverId].strike;
-    const auto& dip = outputData->faultDirections[receiverId].dip;
-    const auto& tangent1 = outputData->faultDirections[receiverId].tangent1;
-    const auto& tangent2 = outputData->faultDirections[receiverId].tangent2;
+    const auto& faceNormal = outputData_->faultDirections[receiverId].faceNormal;
+    const auto& strike = outputData_->faultDirections[receiverId].strike;
+    const auto& dip = outputData_->faultDirections[receiverId].dip;
+    const auto& tangent1 = outputData_->faultDirections[receiverId].tangent1;
+    const auto& tangent2 = outputData_->faultDirections[receiverId].tangent2;
 
     {
-      auto* memorySpace = outputData->stressGlbToDipStrikeAligned[receiverId].data();
+      auto* memorySpace = outputData_->stressGlbToDipStrikeAligned[receiverId].data();
       RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
       inverseSymmetricTensor2RotationMatrix(
           faceNormal.data(), strike.data(), dip.data(), rotationMatrixView, 0, 0);
     }
     {
-      auto* memorySpace = outputData->stressFaceAlignedToGlb[receiverId].data();
+      auto* memorySpace = outputData_->stressFaceAlignedToGlb[receiverId].data();
       RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
       symmetricTensor2RotationMatrix(
           faceNormal.data(), tangent1.data(), tangent2.data(), rotationMatrixView, 0, 0);
     }
     {
       auto faceAlignedToGlb =
-          init::T::view::create(outputData->faceAlignedToGlbData[receiverId].data());
+          init::T::view::create(outputData_->faceAlignedToGlbData[receiverId].data());
       auto glbToFaceAligned =
-          init::Tinv::view::create(outputData->glbToFaceAlignedData[receiverId].data());
+          init::Tinv::view::create(outputData_->glbToFaceAlignedData[receiverId].data());
 
       seissol::model::getFaceRotationMatrix(
           faceNormal.data(), tangent1.data(), tangent2.data(), faceAlignedToGlb, glbToFaceAligned);
@@ -309,26 +314,26 @@ void ReceiverBasedOutputBuilder::initOutputVariables(
   auto assignMask = [&outputMask](auto& var, int receiverId) {
     var.isActive = outputMask[receiverId];
   };
-  misc::forEach(outputData->vars, assignMask);
+  misc::forEach(outputData_->vars, assignMask);
 
   auto allocateVariables = [this](auto& var, int) {
-    var.maxCacheLevel = outputData->maxCacheLevel;
-    var.allocateData(this->outputData->receiverPoints.size());
+    var.maxCacheLevel = outputData_->maxCacheLevel;
+    var.allocateData(this->outputData_->receiverPoints.size());
   };
-  misc::forEach(outputData->vars, allocateVariables);
+  misc::forEach(outputData_->vars, allocateVariables);
 }
 
 void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
-  const auto& faultInfo = meshReader->getFault();
-  const auto& verticesInfo = meshReader->getVertices();
-  const auto& elementsInfo = meshReader->getElements();
+  const auto& faultInfo = meshReader_->getFault();
+  const auto& verticesInfo = meshReader_->getVertices();
+  const auto& elementsInfo = meshReader_->getElements();
 
-  const size_t nReceiverPoints = outputData->receiverPoints.size();
-  outputData->jacobianT2d.resize(nReceiverPoints);
+  const size_t nReceiverPoints = outputData_->receiverPoints.size();
+  outputData_->jacobianT2d.resize(nReceiverPoints);
 
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-    const auto side = outputData->receiverPoints[receiverId].localFaceSideId;
-    const auto elementIndex = outputData->receiverPoints[receiverId].elementIndex;
+    const auto side = outputData_->receiverPoints[receiverId].localFaceSideId;
+    const auto elementIndex = outputData_->receiverPoints[receiverId].elementIndex;
 
     assert(elementIndex >= 0);
 
@@ -350,7 +355,7 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
       xac[Z] = face.point(2)[Z] - face.point(0)[Z];
     }
 
-    const auto faultIndex = outputData->receiverPoints[receiverId].faultFaceIndex;
+    const auto faultIndex = outputData_->receiverPoints[receiverId].faultFaceIndex;
     const auto* tangent1 = faultInfo[faultIndex].tangent1;
     const auto* tangent2 = faultInfo[faultIndex].tangent2;
 
@@ -359,12 +364,12 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
     matrix(0, 1) = MeshTools::dot(tangent2, xab);
     matrix(1, 0) = MeshTools::dot(tangent1, xac);
     matrix(1, 1) = MeshTools::dot(tangent2, xac);
-    outputData->jacobianT2d[receiverId] = matrix.inverse();
+    outputData_->jacobianT2d[receiverId] = matrix.inverse();
   }
 }
 
 void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
-  auto& geoPoints = outputData->receiverPoints;
+  auto& geoPoints = outputData_->receiverPoints;
   constexpr int NumPoly = ConvergenceOrder - 1;
 
   for (auto& geoPoint : geoPoints) {
@@ -379,15 +384,15 @@ void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
 }
 
 void ReceiverBasedOutputBuilder::assignFaultTags() {
-  auto& geoPoints = outputData->receiverPoints;
-  const auto& faultInfo = meshReader->getFault();
+  auto& geoPoints = outputData_->receiverPoints;
+  const auto& faultInfo = meshReader_->getFault();
   for (auto& geoPoint : geoPoints) {
     geoPoint.faultTag = faultInfo[geoPoint.faultFaceIndex].tag;
   }
 }
 
 void ReceiverBasedOutputBuilder::assignFusedIndices() {
-  auto& geoPoints = outputData->receiverPoints;
+  auto& geoPoints = outputData_->receiverPoints;
   for (auto& geoPoint : geoPoints) {
     geoPoint.gpIndex = multisim::NumSimulations * geoPoint.nearestGpIndex + geoPoint.simIndex;
     geoPoint.internalGpIndexFused =

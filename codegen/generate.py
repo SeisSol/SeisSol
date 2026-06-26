@@ -192,15 +192,10 @@ def main():
                 "gemmgen": gemm_tool_list,
             }
             mem_layout = kernels.memlayout.guessMemoryLayout(env)
-        elif not os.path.isabs(cmdLineArgs.memLayout):
-            print(
-                f"Using the pre-defined memory layout config file {cmdLineArgs.memLayout}"
-            )
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            mem_layout = os.path.join(script_dir, "config", cmdLineArgs.memLayout)
         else:
-            print(f"Using the memory layout config file {cmdLineArgs.memLayout}")
-            mem_layout = cmdLineArgs.memLayout
+            mem_layout = kernels.memlayout.resolveMemoryLayout(
+                cmdLineArgs.memLayout, targets
+            )
 
         cmdArgsDict = vars(cmdLineArgs)
         cmdArgsDict["memLayout"] = mem_layout
@@ -295,13 +290,16 @@ def main():
 
         subfolders += ["general"]
 
-        # for now, enforce Eigen as a code generator here...
-        # ...until we have a shared subroutine cache
         generator = Generator(arch)
+
         kernels.general.addStiffnessTensor(generator)
+        kernels.dynamic_rupture.addKernelsGeneral(
+            NamespacedGenerator(generator, namespace="dynamicRupture")
+        )
+
         generator.generate(
             outputDir=outputDir,
-            namespace="seissol_general",
+            namespace="seissol::general",
             gemm_cfg=gemmTools,
             cost_estimator=cost_estimators,
             include_tensors=kernels.general.includeMatrices(cmdLineArgs.matricesDir),

@@ -21,10 +21,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
 #include "Parallel/Helper.h"
-
-#ifdef ACL_DEVICE
-#include "Parallel/Helper.h"
-#endif
+#include "Solver/Settings.h"
 
 namespace seissol::tensor {
 struct Qane;
@@ -107,26 +104,29 @@ struct LTS {
   struct Derivatives : public initializer::Variable<real*> {};
   struct CellInformation : public initializer::Variable<CellLocalInformation> {};
   struct SecondaryInformation : public initializer::Variable<SecondaryCellLocalInformation> {};
-  struct FaceNeighbors : public initializer::Variable<real* [Cell::NumFaces]> {};
+  struct FaceNeighbors : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
   struct LocalIntegration : public initializer::Variable<LocalIntegrationData> {};
   struct NeighboringIntegration : public initializer::Variable<NeighboringIntegrationData> {};
   struct MaterialData : public initializer::Variable<model::MaterialT> {};
   struct Material : public initializer::Variable<CellMaterialData> {};
   struct Plasticity : public initializer::Variable<seissol::model::PlasticityData> {};
-  struct DRMapping : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
-  struct BoundaryMapping : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {};
+  struct DRMapping : public initializer::Variable<std::array<CellDRMapping, Cell::NumFaces>> {};
+  struct BoundaryMapping
+      : public initializer::Variable<std::array<CellBoundaryMapping, Cell::NumFaces>> {};
   struct PStrain : public initializer::Variable<
                        real[tensor::QStressNodal::size() + tensor::QEtaNodal::size()]> {};
-  struct FaceDisplacements : public initializer::Variable<real* [Cell::NumFaces]> {};
+  struct FaceDisplacements : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
   struct BuffersDerivatives : public initializer::Bucket<real> {};
 
   struct BuffersDevice : public initializer::Variable<real*> {};
   struct DerivativesDevice : public initializer::Variable<real*> {};
-  struct FaceNeighborsDevice : public initializer::Variable<real* [Cell::NumFaces]> {};
-  struct FaceDisplacementsDevice : public initializer::Variable<real* [Cell::NumFaces]> {};
-  struct DRMappingDevice : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
-  struct BoundaryMappingDevice : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {
+  struct FaceNeighborsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
+  struct FaceDisplacementsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {
   };
+  struct DRMappingDevice : public initializer::Variable<std::array<CellDRMapping, Cell::NumFaces>> {
+  };
+  struct BoundaryMappingDevice
+      : public initializer::Variable<std::array<CellBoundaryMapping, Cell::NumFaces>> {};
 
   struct IntegratedDofsScratch : public initializer::Scratchpad<real> {};
   struct DerivativesScratch : public initializer::Scratchpad<real> {};
@@ -147,7 +147,7 @@ struct LTS {
   struct PrevCoefficientsScratch : public initializer::Scratchpad<real> {};
   struct DofsFaceBoundaryNodalScratch : public initializer::Scratchpad<real> {};
 
-  struct Integrals : public initializer::Variable<real> {};
+  struct Integrals : public initializer::Variable<real[tensor::Q::size()]> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
                                                         DofsHalo,
@@ -196,13 +196,19 @@ struct LTS {
   using Ref = initializer::Layer<LTSVarmap>::CellRef;
   using Backmap = initializer::StorageBackmap<Cell::NumFaces>;
 
-  static void addTo(Storage& storage, bool usePlasticity) {
+  static void addTo(Storage& storage, const SimulationSettings& settings) {
     using namespace initializer;
     LayerMask plasticityMask;
-    if (usePlasticity) {
+    if (settings.plasticity) {
       plasticityMask = LayerMask(Ghost);
     } else {
       plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
+    }
+    LayerMask integralMask;
+    if (settings.integrate) {
+      integralMask = LayerMask(Ghost);
+    } else {
+      integralMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
     }
 
     storage.add<Dofs>(LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
@@ -256,6 +262,8 @@ struct LTS {
     storage.add<FaceNeighborsDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<DRMappingDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<BoundaryMappingDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+
+    storage.add<Integrals>(integralMask, Alignment, allocationModeWP(AllocationPreset::Dofs));
 
     if constexpr (isDeviceOn()) {
       const auto mode = AllocationMode::DeviceOnly;

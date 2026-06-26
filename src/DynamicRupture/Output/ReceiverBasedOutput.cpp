@@ -44,14 +44,14 @@ namespace seissol::dr::output {
 void ReceiverOutput::setLtsData(LTS::Storage& userWpStorage,
                                 LTS::Backmap& userWpBackmap,
                                 DynamicRupture::Storage& userDrStorage) {
-  wpStorage = &userWpStorage;
-  wpBackmap = &userWpBackmap;
-  drStorage = &userDrStorage;
+  wpStorage_ = &userWpStorage;
+  wpBackmap_ = &userWpBackmap;
+  drStorage_ = &userDrStorage;
 }
 
 void ReceiverOutput::getDofs(const real*(&derivatives), std::size_t meshId, std::size_t copy) {
-  const auto position = wpBackmap->get(meshId, copy);
-  auto& layer = wpStorage->layer(position.color);
+  const auto position = wpBackmap_->get(meshId, copy);
+  auto& layer = wpStorage_->layer(position.color);
   // get DOFs from 0th derivatives
   assert(layer.var<LTS::CellInformation>()[position.cell].ltsSetup.hasDerivatives());
 
@@ -62,8 +62,8 @@ void ReceiverOutput::getNeighborDofs(const real*(&derivatives),
                                      std::size_t meshId,
                                      std::size_t copy,
                                      std::size_t side) {
-  const auto position = wpBackmap->get(meshId, copy);
-  auto& layer = wpStorage->layer(position.color);
+  const auto position = wpBackmap_->get(meshId, copy);
+  auto& layer = wpStorage_->layer(position.color);
 
   derivatives = layer.var<LTS::FaceNeighbors>()[position.cell][side];
   assert(derivatives != nullptr);
@@ -81,7 +81,7 @@ void ReceiverOutput::calcFaultOutput(
   const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
                            ? outputData->currentCacheLevel
                            : 0;
-  const auto& faultInfos = meshReader->getFault();
+  const auto& faultInfos = meshReader_->getFault();
 
   const auto timeCoeffs = kernels::timeBasis().point(indt, dt);
   auto integrateCoeffs = kernels::timeBasis().integrate(0, indt, dt);
@@ -113,7 +113,8 @@ void ReceiverOutput::calcFaultOutput(
                         slipRateOutputType,
                         level,
                         timeCoeffs,
-                        integrateCoeffs](std::size_t i) {
+                        integrateCoeffs,
+                        time](std::size_t i) {
     // TODO: query the dofs, only once per simulation; once per face
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
     alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
@@ -125,12 +126,15 @@ void ReceiverOutput::calcFaultOutput(
     assert(faceIndex != -1 && "receiver is not initialized");
     LocalInfo local{};
 
-    auto [layer, ltsId] = (*faceToLtsMap)[faceIndex];
+    auto [layer, ltsId] = (*faceToLtsMap_)[faceIndex];
     local.layer = layer;
     local.ltsId = ltsId;
     local.index = i;
     local.fusedIndex = outputData->receiverPoints[i].simIndex;
     local.state = outputData.get();
+
+    local.time = time;
+    local.printWarning = &this->printRSFWarning_;
 
     local.nearestGpIndex = outputData->receiverPoints[i].nearestGpIndex;
     local.gpIndex = outputData->receiverPoints[i].gpIndex;
@@ -139,6 +143,8 @@ void ReceiverOutput::calcFaultOutput(
 
     local.waveSpeedsPlus = &((local.layer->var<DynamicRupture::WaveSpeedsPlus>())[local.ltsId]);
     local.waveSpeedsMinus = &((local.layer->var<DynamicRupture::WaveSpeedsMinus>())[local.ltsId]);
+
+    this->handleNonConvergence(local);
 
     const auto& faultInfo = faultInfos[faceIndex];
 
@@ -167,8 +173,8 @@ void ReceiverOutput::calcFaultOutput(
         }
       }
 
-      timeKernel.evaluate(timeCoeffs.data(), stePlus, dofsPlus);
-      timeKernel.evaluate(timeCoeffs.data(), steMinus, dofsMinus);
+      timeKernel_.evaluate(timeCoeffs.data(), stePlus, dofsPlus);
+      timeKernel_.evaluate(timeCoeffs.data(), steMinus, dofsMinus);
     }
 
     const auto* initStresses = getCellData<DynamicRupture::InitialStressInFaultCS>(local);
@@ -526,14 +532,14 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
 }
 
 std::vector<std::size_t> ReceiverOutput::getOutputVariables() const {
-  return {drStorage->info<DynamicRupture::InitialStressInFaultCS>().index,
-          drStorage->info<DynamicRupture::Mu>().index,
-          drStorage->info<DynamicRupture::RuptureTime>().index,
-          drStorage->info<DynamicRupture::AccumulatedSlipMagnitude>().index,
-          drStorage->info<DynamicRupture::PeakSlipRate>().index,
-          drStorage->info<DynamicRupture::DynStressTime>().index,
-          drStorage->info<DynamicRupture::Slip1>().index,
-          drStorage->info<DynamicRupture::Slip2>().index};
+  return {drStorage_->info<DynamicRupture::InitialStressInFaultCS>().index,
+          drStorage_->info<DynamicRupture::Mu>().index,
+          drStorage_->info<DynamicRupture::RuptureTime>().index,
+          drStorage_->info<DynamicRupture::AccumulatedSlipMagnitude>().index,
+          drStorage_->info<DynamicRupture::PeakSlipRate>().index,
+          drStorage_->info<DynamicRupture::DynStressTime>().index,
+          drStorage_->info<DynamicRupture::Slip1>().index,
+          drStorage_->info<DynamicRupture::Slip2>().index};
 }
 
 } // namespace seissol::dr::output
