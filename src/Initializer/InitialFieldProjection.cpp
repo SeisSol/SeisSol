@@ -23,7 +23,6 @@
 #include "Memory/Tree/Layer.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
-#include "ParameterDB.h"
 #include "Physics/InitialField.h"
 #include "Reader/Scripting/DataTable.h"
 #include "Reader/Scripting/ReaderBuilder.h"
@@ -31,10 +30,9 @@
 
 #include <array>
 #include <cstddef>
-#include <exception>
+#include <cstdint>
 #include <memory>
 #include <string>
-#include <utils/logger.h>
 #include <vector>
 
 GENERATE_HAS_MEMBER(selectAneFull)

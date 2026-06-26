@@ -8,12 +8,17 @@
 #include "Reader/Scripting/LuaReader.h"
 
 #include "Parallel/OpenMP.h"
+#include "Reader/Scripting/DataTable.h"
 
 #include <cassert>
-#include <iostream>
-#include <ostream>
-#include <stdexcept>
+#include <cstddef>
+#include <cstdint>
+#include <exception>
+#include <memory>
+#include <string>
+#include <utility>
 #include <utils/logger.h>
+#include <vector>
 
 extern "C" {
 #include <lauxlib.h>
@@ -160,7 +165,7 @@ std::vector<FieldSpec> readFieldSpecs(lua_State* luaState) {
     lua_pop(luaState, 1);
     return out;
   }
-  lua_Integer n = luaL_len(luaState, -1);
+  const lua_Integer n = luaL_len(luaState, -1);
   out.reserve(static_cast<std::size_t>(n));
   for (lua_Integer i = 1; i <= n; ++i) {
     lua_geti(luaState, -1, i); // field_specs[i]

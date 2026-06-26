@@ -49,7 +49,7 @@ struct DataEntry {
   std::function<void(std::size_t, const void*)> setter;
 
   template <typename T>
-  T getValue(std::size_t index) const {
+  [[nodiscard]] T getValue(std::size_t index) const {
     assert(DataTypeTraits<T>::Type == datatype);
 
     T out{};

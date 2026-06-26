@@ -76,9 +76,9 @@ class LuaReader : public DataReader {
   /// Internal field closure, public so the extern "C" Lua trampoline can
   /// see the type. Not part of the user-facing API.
   struct FieldClosure {
-    LuaReader* owner; // back-pointer for context (currently unused)
+    LuaReader* owner{}; // back-pointer for context (currently unused)
     FieldSampler sampler;
-    std::size_t nOutputs;
+    std::size_t nOutputs{};
   };
 
   private:

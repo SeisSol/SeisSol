@@ -10,9 +10,21 @@
 #include "Reader/Datafield/AsagiReader.h"
 #include "Reader/Scripting/DataTable.h"
 
+#include <algorithm>
+#include <cstddef>
+#include <easi/Query.h>
 #include <easi/ResultAdapter.h>
 #include <easi/YAMLParser.h>
+#include <easi/util/Slice.h>
+#include <easi/util/Vector.h>
+#include <exception>
+#include <memory>
 #include <optional>
+#include <set>
+#include <string>
+#include <unordered_map>
+#include <utils/logger.h>
+#include <vector>
 
 namespace seissol::reader::scripting {
 
