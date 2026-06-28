@@ -330,8 +330,8 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
                                                     counter[face] * tensor::INodal::size());
           dofsFaceNodalPtrs[face].push_back(dofsFaceNodalScratch +
                                             counter[face] * tensor::INodal::size());
-          prevCoefficientsPtrs[face].push_back(
-              prevCoefficientsScratch + counter[face] * multisim::leadDim<nodal::init::nodes2D>());
+          prevCoefficientsPtrs[face].push_back(prevCoefficientsScratch +
+                                               counter[face] * NodalAvgDisplacementsSize);
           invImpedances[face].push_back(0);
 
           ++counter[face];
