@@ -12,12 +12,12 @@ on:
 jobs:
   coverage:
     name: coverage
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: apt-get
         run: |
           sudo apt-get update
-          sudo apt-get install lcov ninja-build hdf5-tools libeigen3-dev libhdf5-openmpi-dev libmetis-dev libomp-dev libopenmpi-dev libparmetis-dev libyaml-cpp-dev openmpi-bin openmpi-common python3.10 python3-pip
+          sudo apt-get install lcov ninja-build hdf5-tools libeigen3-dev libhdf5-openmpi-dev libomp-dev libopenmpi-dev libptscotch-dev libyaml-cpp-dev openmpi-bin openmpi-common python3 python3-pip
 
           sudo pip3 install setuptools numpy --break-system-packages
           sudo mkdir -p /opt/dependencies
@@ -44,15 +44,15 @@ jobs:
         run: |
           mkdir build && cd build
 
-          export CC=gcc-13
-          export CXX=g++-13
-          export FC=gfortran-13
+          export CC=gcc-15
+          export CXX=g++-15
+          export FC=gfortran-15
 
           mkdir -p /opt/seissol
 
           # run w/o netcdf for consistency with the clang-tidy check
           export CMAKE_PREFIX_PATH=/opt/dependencies
-          cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/seissol -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DCOVERAGE=ON -DTESTING=ON -DTESTING_GENERATED=ON -DHOST_ARCH=hsw -DORDER=6 -DCMAKE_BUILD_TYPE=Debug -DEQUATIONS=elastic -DPRECISION=double
+          cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/seissol -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DCOVERAGE=ON -DTESTING=ON -DTESTING_GENERATED=ON -DHOST_ARCH=hsw -DORDER=6 -DCMAKE_BUILD_TYPE=Debug -DEQUATIONS=elastic -DPRECISION=double -DGRAPH_PARTITIONING_LIBS=ptscotch
           ninja
 
       - name: seissol-coverage

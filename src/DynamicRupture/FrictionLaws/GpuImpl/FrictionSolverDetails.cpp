@@ -8,14 +8,13 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
+#include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
-#include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/MemoryAllocator.h"
 
 namespace seissol::dr::friction_law::gpu {
-FrictionSolverDetails::FrictionSolverDetails(
-    seissol::initializer::parameters::DRParameters* drParameters)
+FrictionSolverDetails::FrictionSolverDetails(const FrictionLawParameters& drParameters)
     : FrictionSolverInterface(drParameters) {}
 
 FrictionSolverDetails::~FrictionSolverDetails() = default;
