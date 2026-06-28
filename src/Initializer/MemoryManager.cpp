@@ -250,9 +250,8 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
                                                             init::rotatedFaceDisplacement::Size);
     layer.setEntrySize<LTS::DofsFaceNodalScratch>(sizeof(real) * freeSurfaceCount *
                                                   tensor::INodal::size());
-    layer.setEntrySize<LTS::PrevCoefficientsScratch>(
-        sizeof(real) * freeSurfaceCount *
-        nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
+    layer.setEntrySize<LTS::PrevCoefficientsScratch>(sizeof(real) * freeSurfaceCount *
+                                                     multisim::leadDim<nodal::init::nodes2D>());
   }
 }
 

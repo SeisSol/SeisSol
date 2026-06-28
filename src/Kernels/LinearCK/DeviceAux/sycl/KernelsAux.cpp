@@ -174,24 +174,6 @@ void taylorSum(
 namespace {
 using namespace seissol::multisim;
 
-template <typename Tensor>
-constexpr size_t leadDim() {
-  if constexpr (MultisimEnabled) {
-    return Tensor::Stop[1] - Tensor::Start[1];
-  } else {
-    return Tensor::Stop[0] - Tensor::Start[0];
-  }
-}
-
-template <typename Tensor>
-constexpr size_t linearDim() {
-  if constexpr (MultisimEnabled) {
-    return (Tensor::Stop[1] - Tensor::Start[1]) * (Tensor::Stop[0] - Tensor::Start[0]);
-  } else {
-    return Tensor::Stop[0] - Tensor::Start[0];
-  }
-}
-
 auto getrange(std::size_t size, std::size_t numElements) {
   if constexpr (MultisimEnabled) {
     return sycl::nd_range<1>({numElements * NumSimulations * size}, {NumSimulations * size});
