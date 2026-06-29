@@ -82,11 +82,14 @@ struct GlobalMatrixPointers {
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       for (std::size_t i = 0; i < seissol::init::ew_quad_nodes_ff::Shape[0]; ++i) {
         Eigen::Vector2d point(facePoints(i, 0), facePoints(i, 1));
-        Eigen::Vector3d dface = transform.faceDirection(f, point);
-        const auto fnorm = dface.norm();
-        matr(i, f) = fnorm * scale;
-        matfM(i, f) = fnorm;
-        fvolsum[f] += fnorm;
+
+        const auto dface = transform.faceDirection(f, point);
+
+        // gram determinant
+        const auto gdet = std::sqrt((dface.transpose() * dface).determinant());
+        matr(i, f) = gdet * scale;
+        matfM(i, f) = gdet;
+        fvolsum[f] += gdet;
       }
     }
 

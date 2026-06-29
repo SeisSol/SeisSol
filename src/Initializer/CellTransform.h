@@ -50,11 +50,47 @@ class AffineTransform {
     return transform * point + offset;
   }
 
-  [[nodiscard]] Eigen::Vector3d faceDirection(int face, const Eigen::Vector2d& point) const {
-    return transform * baseFaceDirection(face);
+  [[nodiscard]] Eigen::Matrix<double, 3, 2> faceDirection(int face,
+                                                          const Eigen::Vector2d& point) const {
+    return transform * baseFaceBasis(face);
   }
 
-  static Eigen::Vector3d baseFaceDirection(int face) {
+  static Eigen::Matrix<double, 3, 2> baseFaceBasis(int face) {
+    Eigen::Matrix<double, 3, 2> mat{};
+    if (face == 0) {
+      mat(0, 0) = 0;
+      mat(1, 0) = 1;
+      mat(2, 0) = 0;
+      mat(0, 1) = 1;
+      mat(1, 1) = 0;
+      mat(2, 1) = 0;
+    } else if (face == 1) {
+      mat(0, 0) = 1;
+      mat(1, 0) = 0;
+      mat(2, 0) = 0;
+      mat(0, 1) = 0;
+      mat(1, 1) = 0;
+      mat(2, 1) = 1;
+    } else if (face == 2) {
+      mat(0, 0) = 0;
+      mat(1, 0) = 0;
+      mat(2, 0) = 1;
+      mat(0, 1) = 0;
+      mat(1, 1) = 1;
+      mat(2, 1) = 0;
+    } else if (face == 3) {
+      // the sqrt(2) norm of the vectors is intended
+      mat(0, 0) = -1;
+      mat(1, 0) = 1;
+      mat(2, 0) = 0;
+      mat(0, 1) = -1;
+      mat(1, 1) = 0;
+      mat(2, 1) = 1;
+    }
+    return mat;
+  }
+
+  static Eigen::Vector3d baseFaceNormal(int face) {
     if (face == 0) {
       return Eigen::Vector3d(0, 0, -1);
     } else if (face == 1) {
