@@ -34,9 +34,8 @@ else()
   set(OVERRIDE_VECTORSIZE_PARAM "")
 endif()
 
-add_custom_command(
-  COMMAND
-  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.py"
+# common arguments between configure and build
+set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.py"
      "--equations" ${EQUATIONS}
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/matrices
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode
@@ -56,7 +55,50 @@ add_custom_command(
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
      "--executable_pspamm=${PSpaMM_PROGRAM}"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
-     ${OVERRIDE_VECTORSIZE_PARAM}
+     ${OVERRIDE_VECTORSIZE_PARAM})
+
+# find out which files will be generated
+execute_process(COMMAND ${GENERATE_ARGS} "--mode" "collect"
+     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+file(READ "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/targets.json" SEISSOL_CODEGEN_TARGETS)
+
+string(JSON TARGETCOUNT LENGTH ${SEISSOL_CODEGEN_TARGETS})
+math(EXPR TARGETCOUNT "${TARGETCOUNT} - 1")
+
+set(SEISSOL_CODEGEN_KERNELS)
+set(SEISSOL_CODEGEN_TESTS)
+
+foreach(IDX RANGE ${TARGETCOUNT})
+  string(JSON TARGETNAME MEMBER ${SEISSOL_CODEGEN_TARGETS} ${IDX})
+
+  string(JSON TARGET_COUNT LENGTH ${SEISSOL_CODEGEN_TARGETS} "${TARGETNAME}" "kernels")
+  math(EXPR TARGET_COUNT "${TARGET_COUNT} - 1")
+  foreach (IDX2 RANGE ${TARGET_COUNT})
+    string(JSON TARGET_FILE GET ${SEISSOL_CODEGEN_TARGETS} "${TARGETNAME}" "kernels" ${IDX2})
+    list(APPEND SEISSOL_CODEGEN_KERNELS "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/${TARGET_FILE}")
+  endforeach()
+
+  string(JSON TARGET_COUNT LENGTH ${SEISSOL_CODEGEN_TARGETS} "${TARGETNAME}" "tests")
+  math(EXPR TARGET_COUNT "${TARGET_COUNT} - 1")
+  foreach (IDX2 RANGE ${TARGET_COUNT})
+    string(JSON TARGET_FILE GET ${SEISSOL_CODEGEN_TARGETS} "${TARGETNAME}" "tests" ${IDX2})
+    list(APPEND SEISSOL_CODEGEN_TESTS "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/${TARGET_FILE}")
+  endforeach()
+
+endforeach()
+
+# TODO: fix PARENT_SCOPE usage
+set(SEISSOL_CODEGEN_TESTS ${SEISSOL_CODEGEN_TESTS} PARENT_SCOPE)
+
+set(GENERATED_FILES_FOR_SEISSOL
+      ${GENERATED_FILES_FOR_SEISSOL}
+      ${SEISSOL_CODEGEN_KERNELS}
+      ${SEISSOL_CODEGEN_TESTS})
+
+add_custom_command(
+  COMMAND
+     ${GENERATE_ARGS} "--mode" "codegen"
      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
      DEPENDS
         build-time-make-directory
@@ -70,3 +112,8 @@ add_custom_command(
        )
 
 add_custom_target(seissol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
+
+add_library(seissol-kernel-lib
+  ${SEISSOL_CODEGEN_KERNELS}
+  ${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/subroutine.cpp
+)
