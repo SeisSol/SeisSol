@@ -12,8 +12,11 @@
 #include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Initializer/BasicTypedefs.h"
-#include "Initializer/CellLocalMatrices.h"
+#include "Initializer/InitProcedure/Internal/Scratchpads.h"
 #include "Initializer/MemoryManager.h"
+#include "Initializer/Model/BoundaryMappings.h"
+#include "Initializer/Model/CellLocalMatrices.h"
+#include "Initializer/Model/DynamicRuptureMatrices.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -236,8 +239,13 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
 
   memoryManager.initFrictionData();
 
+  std::optional<EasiBoundary> boundaryScript;
+  if (seissolParams.model.hasBoundaryFile) {
+    boundaryScript = EasiBoundary(seissolParams.model.boundaryFileName);
+  }
+
   seissol::initializer::initializeBoundaryMappings(
-      meshReader, memoryManager.getEasiBoundaryReader(), memoryManager.getLtsStorage());
+      meshReader, boundaryScript, memoryManager.getLtsStorage());
 
 #ifdef ACL_DEVICE
   memoryManager.recordExecutionPaths(seissolParams.model.plasticity);
@@ -295,7 +303,18 @@ void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
 }
 
 void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
-  seissolInstance.getMemoryManager().initializeMemoryLayout();
+
+  // set up scratchpads for WP (i.e. mostly for boundary conditions).
+  // has to happen after the buckets/buffers are initialized.
+
+  if constexpr (isDeviceOn()) {
+
+    auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
+
+    seissol::initializer::internal::deriveRequiredScratchpadMemoryForWp(
+        seissolInstance.getSeisSolParameters().model.plasticity, ltsStorage);
+    ltsStorage.allocateScratchPads();
+  }
 
   seissolInstance.getMemoryManager().fixateBoundaryStorage();
 }

@@ -33,7 +33,7 @@
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/Recorders.h"
-#include "Initializer/MemoryManager.h"
+#include "Initializer/InitProcedure/Internal/Scratchpads.h"
 
 #include <Device/device.h>
 #endif
@@ -302,7 +302,7 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
 
   auto& layer = ltsStorage.layer(layerId);
 
-  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(false, ltsStorage);
+  seissol::initializer::internal::deriveRequiredScratchpadMemoryForWp(false, ltsStorage);
   ltsStorage.allocateScratchPads();
 
   seissol::recording::CompositeRecorder<LTS::LTSVarmap> recorder;
@@ -315,7 +315,7 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
     drStorage.synchronizeTo(seissol::initializer::AllocationPlace::Device,
                             device.api->getDefaultStream());
     device.api->syncDefaultStreamWithHost();
-    seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(drStorage);
+    seissol::initializer::internal::deriveRequiredScratchpadMemoryForDr(drStorage);
     drStorage.allocateScratchPads();
 
     seissol::recording::CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;

@@ -192,14 +192,6 @@ void initSource(seissol::SeisSol& seissolInstance) {
                                             seissolInstance.timeManager());
 }
 
-void initBoundary(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  if (seissolParams.model.hasBoundaryFile) {
-    seissolInstance.getMemoryManager().initializeEasiBoundaryReader(
-        seissolParams.model.boundaryFileName.c_str());
-  }
-}
-
 } // namespace
 
 void initSideConditions(seissol::SeisSol& seissolInstance) {
@@ -207,8 +199,6 @@ void initSideConditions(seissol::SeisSol& seissolInstance) {
   initInitialCondition(seissolInstance);
   logInfo() << "Reading source.";
   initSource(seissolInstance);
-  logInfo() << "Setting up boundary conditions.";
-  initBoundary(seissolInstance);
 }
 
 } // namespace seissol::initializer::initprocedure

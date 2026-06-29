@@ -6,7 +6,6 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-initializer OBJECT
-    CellLocalMatrices.cpp
     FaceMap.cpp
     InitialFieldProjection.cpp
     MemoryManager.cpp
@@ -27,6 +26,12 @@ add_library(seissol-initializer OBJECT
     InitProcedure/Internal/Buckets.cpp
     InitProcedure/Internal/LtsSetup.cpp
     InitProcedure/Internal/MeshLayout.cpp
+    InitProcedure/Internal/Scratchpads.cpp
+
+
+    Model/BoundaryMappings.cpp
+    Model/CellLocalMatrices.cpp
+    Model/DynamicRuptureMatrices.cpp
 
     Parameters/CubeGeneratorParameters.cpp
     Parameters/DRParameters.cpp

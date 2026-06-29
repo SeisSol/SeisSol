@@ -12,6 +12,7 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/Internal/Buckets.h"
 #include "Initializer/InitProcedure/Internal/LtsSetup.h"
+#include "Initializer/InitProcedure/Internal/Scratchpads.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/TimeStepping/Halo.h"
 #include "Internal/MeshLayout.h"
@@ -357,7 +358,10 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     }
   }
 
-  seissolInstance.getMemoryManager().fixateLtsStorage();
+  if constexpr (isDeviceOn()) {
+    seissol::initializer::internal::deriveRequiredScratchpadMemoryForDr(drStorage);
+    drStorage.allocateScratchPads();
+  }
 
   // pass 4: correct LTS setup, again. Do bucket setup, determine communication datastructures
   logInfo() << "Setting up data exchange and face displacements (buckets)...";

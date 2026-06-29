@@ -69,43 +69,24 @@ class MemoryManager {
   std::unique_ptr<dr::friction_law::FrictionSolver> frictionLawDevice_ = nullptr;
   std::unique_ptr<dr::output::OutputManager> faultOutputManager_ = nullptr;
 
-  Boundary::Storage boundaryTree_;
+  Boundary::Storage boundaryStorage_;
 
   SurfaceLTS::Storage surfaceStorage_;
-
-  EasiBoundary easiBoundary_;
 
   std::optional<ClusterLayout> layout_;
 
   public:
   /**
-   * Constructor
+   * Default constructor
    **/
-  explicit MemoryManager(seissol::SeisSol& instance) : seissolInstance_(instance) {}
-
-  /**
-   * Destructor, memory is freed by managed allocator
-   **/
-  ~MemoryManager() = default;
+  explicit MemoryManager(seissol::SeisSol& instance);
 
   /**
    * Initialization function, which allocates memory for the global matrices and initializes them.
    **/
   void initialize();
 
-  /**
-   * Sets the number of cells in each leaf of the lts storage, fixates the variables, and allocates
-   *memory. Afterwards the storage cannot be changed anymore.
-   *
-   * @param i_meshStructrue mesh structure.
-   **/
-  void fixateLtsStorage();
-
   void fixateBoundaryStorage();
-  /**
-   * Set up the internal structure.
-   **/
-  void initializeMemoryLayout();
 
   /**
    * Gets the global data on both host and device.
@@ -144,40 +125,16 @@ class MemoryManager {
     return iniConds_;
   }
 
-  void initializeEasiBoundaryReader(const char* fileName);
-
-  EasiBoundary* getEasiBoundaryReader() { return &easiBoundary_; }
-
   dr::friction_law::FrictionSolver* getFrictionLaw() { return frictionLaw_.get(); }
   dr::friction_law::FrictionSolver* getFrictionLawDevice() { return frictionLawDevice_.get(); }
   seissol::dr::output::OutputManager* getFaultOutputManager() { return faultOutputManager_.get(); }
 
   void recordExecutionPaths(bool usePlasticity);
 
-  /**
-   * Derives sizes of scratch memory required during computations of Wave Propagation solver
-   **/
-  static void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStorage);
-
-  /**
-   * Derives sizes of scratch memory required during computations of Dynamic Rupture solver
-   **/
-  static void deriveRequiredScratchpadMemoryForDr(DynamicRupture::Storage& drStorage);
-
   void initializeFrictionLaw();
-  void initFaultOutputManager(const std::string& backupTimeStamp);
   void initFrictionData();
   void synchronizeTo(seissol::initializer::AllocationPlace place);
 };
-
-bool isAcousticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face);
-bool isElasticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face);
-bool isAtElasticAcousticInterface(CellMaterialData& material, std::size_t face);
-
-bool requiresDisplacement(CellLocalInformation cellLocalInformation,
-                          CellMaterialData& material,
-                          std::size_t face);
-bool requiresNodalFlux(FaceType f);
 } // namespace initializer
 } // namespace seissol
 
