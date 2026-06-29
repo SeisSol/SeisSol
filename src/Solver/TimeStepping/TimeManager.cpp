@@ -72,8 +72,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // store the time stepping
   this->clusterLayout_ = clusterLayout;
 
-  auto clusteringWriter =
-      writer::ClusteringWriter(seissolInstance_.getSeisSolParameters().output.prefix);
+  auto clusteringWriter = writer::ClusteringWriter(seissolInstance_.outputPrefix());
 
   std::vector<std::size_t> drCellsPerCluster(clusterLayout.globalClusterCount);
 
@@ -89,12 +88,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       break;
     }
   }
-  MPI_Allreduce(MPI_IN_PLACE,
-                &drClusterOutput,
-                1,
-                Mpi::castToMpiType<std::size_t>(),
-                MPI_MIN,
-                Mpi::mpi.comm());
+
+  drClusterOutput = Mpi::mpi.allreduce(drClusterOutput, MPI_MIN);
 
   const auto drOutputTimestep = drClusterOutput == std::numeric_limits<std::size_t>::max()
                                     ? std::numeric_limits<double>::infinity()
@@ -192,7 +187,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   }
 
   // Create ghost time clusters for MPI
-  const auto preferredDataTransferMode = Mpi::mpi.getPreferredDataTransferMode();
+  const auto preferredDataTransferMode = getDataTransferMode(seissolInstance_.env());
   const auto persistent = usePersistentMpi(seissolInstance_.env());
   for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost | Interior)) {
 
@@ -298,7 +293,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 
   communicationManager_->reset(synchronizationTime);
 
-  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.barrier();
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);

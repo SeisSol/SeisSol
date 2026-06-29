@@ -86,9 +86,9 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
 void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
   reportDeviceMemoryStatus();
 
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  writer::ThreadsPinningWriter pinningWriter(seissolParams.output.prefix);
-  pinningWriter.write(seissolInstance.getPinning(), seissolInstance.env());
+  writer::ThreadsPinningWriter pinningWriter(seissolInstance.outputPrefix());
+  pinningWriter.write(
+      seissolInstance.getPinning(), seissolInstance.env(), seissolInstance.systemInfo());
 }
 
 void closeSeisSol(seissol::SeisSol& seissolInstance) {
@@ -110,7 +110,7 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
 
   // just put a barrier here to make sure everyone is synched
   logInfo() << "Finishing initialization...";
-  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.barrier();
 
   seissol::Stopwatch watch;
   logInfo() << "Starting simulation.";
@@ -121,7 +121,7 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
 
   // make sure everyone is really done
   logInfo() << "Simulation done.";
-  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.barrier();
 
   closeSeisSol(seissolInstance);
 }

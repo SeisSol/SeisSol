@@ -11,6 +11,7 @@
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
+#include "Parallel/SystemInfo.h"
 
 #include <fstream>
 #include <ios>
@@ -73,7 +74,8 @@ PinningInfo getPinningInfo(const cpu_set_t& set) {
 #endif // __APPLE__
 
 void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning,
-                                                  utils::Env& env) {
+                                                  utils::Env& env,
+                                                  const SystemInfo& systemInfo) {
 #ifndef __APPLE__
   auto workerInfo = getPinningInfo(seissol::parallel::Pinning::getWorkerUnionMask().set);
 
@@ -104,8 +106,8 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
     fileStream << "hostname,device,rank,localRank,workermask,workernuma,commthread_mask,commthread_"
                   "numa,nproc\n";
 
-    const auto& hostNames = seissol::Mpi::mpi.getHostNames();
-    const auto& pcis = seissol::Mpi::mpi.getPCIAddresses();
+    const auto& hostNames = systemInfo.getHostNames();
+    const auto& pcis = systemInfo.getPCIAddresses();
     const std::string nullstring;
     for (int rank = 0; rank < seissol::Mpi::mpi.size(); ++rank) {
       const auto& pci = pcis.empty() ? nullstring : pcis[rank];

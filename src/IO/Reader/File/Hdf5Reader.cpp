@@ -136,6 +136,7 @@ void Hdf5Reader::readDataRaw(void* data,
   const std::size_t chunksize = std::max(1_UZ, 2'000'000'000_UZ / (targetType->size() * dimprod));
   std::size_t rounds = (count + chunksize - 1) / chunksize;
   std::size_t start = 0;
+
   MPI_Allreduce(MPI_IN_PLACE,
                 &rounds,
                 1,

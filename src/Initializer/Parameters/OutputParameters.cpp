@@ -7,6 +7,7 @@
 
 #include "OutputParameters.h"
 
+#include "Common/Filesystem.h"
 #include "Equations/Datastructures.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/Parameters/ParameterReader.h"
@@ -272,8 +273,25 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
           {"hdf5", xdmfwriter::BackendType::H5},
 #endif
       });
-  const auto prefix =
-      reader->readOrFail<std::string>("outputfile", "Output file prefix not defined.");
+
+  const auto outputDirR = reader->read<std::string>("outdir");
+  const auto outputNameR = reader->read<std::string>("outname");
+
+  std::string outputDir;
+  std::string outputName;
+
+  if (outputDirR.has_value() && outputNameR.has_value()) {
+    outputDir = outputDirR.value();
+    outputName = outputNameR.value();
+  } else {
+    const auto prefix = reader->readOrFail<std::string>(
+        "outputfile", "Neighbor output directory, output name, nor output file prefix defined.");
+    const auto prefixPath = filesystem::path(prefix);
+    outputDir = prefixPath.parent_path();
+    outputName = prefixPath.filename();
+  }
+
+  const auto dirPerSim = reader->readWithDefault("outsimdir", false);
 
   const auto checkpointParameters = readCheckpointParameters(baseReader);
   const auto elementwiseParameters = readElementwiseParameters(baseReader);
@@ -294,7 +312,9 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
   return OutputParameters(loopStatisticsNetcdfOutput,
                           format,
                           xdmfWriterBackend,
-                          prefix,
+                          outputDir,
+                          outputName,
+                          dirPerSim,
                           checkpointParameters,
                           elementwiseParameters,
                           energyParameters,
