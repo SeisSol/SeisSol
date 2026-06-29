@@ -334,9 +334,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                std::array<real, misc::NumPaddedPoints>& slipRateTest) {
 
     real muF[misc::NumPaddedPoints]{};
-    real dMuF[misc::NumPaddedPoints]{};
     real g[misc::NumPaddedPoints]{};
-    real dG[misc::NumPaddedPoints]{};
 
     const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
 
@@ -371,16 +369,19 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       }
 #pragma omp simd
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-        dMuF[pointIndex] = static_cast<Derived*>(this)->updateMuDerivative(
-            pointIndex, slipRateTest[pointIndex], details);
+        const auto localSlipRateTest = slipRateTest[pointIndex];
+
+        const auto dMuF =
+            static_cast<Derived*>(this)->updateMuDerivative(pointIndex, localSlipRateTest, details);
 
         // derivative of g
-        dG[pointIndex] = -this->impAndEta_[ltsFace].invEtaS *
-                             (std::abs(normalStress[pointIndex]) * dMuF[pointIndex]) -
-                         static_cast<real>(1.0);
+        const auto dG =
+            -this->impAndEta_[ltsFace].invEtaS * (std::abs(normalStress[pointIndex]) * dMuF) -
+            static_cast<real>(1.0);
+
         // newton update
-        const real tmp3 = g[pointIndex] / dG[pointIndex];
-        slipRateTest[pointIndex] = std::max(rs::almostZero(), slipRateTest[pointIndex] - tmp3);
+        const real tmp3 = g[pointIndex] / dG;
+        slipRateTest[pointIndex] = std::max(rs::almostZero(), localSlipRateTest - tmp3);
       }
     }
 
