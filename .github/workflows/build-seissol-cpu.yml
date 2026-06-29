@@ -73,7 +73,7 @@ jobs:
 
           entries.sort(key=lambda x: (x["name"], x["precision"]))
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"cases={json.dumps({'include': entries})}\n")
+              f.write(f"cases={json.dumps(entries)}\n")
           print(f"emitted {len(entries)} case entries")
 
   # ---------------------------------------------------------------------------
@@ -268,7 +268,7 @@ jobs:
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     needs: [compute-cases, seissol-build-test]
-    if: ${{ github.repository == 'SeisSol/SeisSol' && github.ref_name == 'master' }}
+    if: ${{ github.repository == 'SeisSol/SeisSol' }} #  && github.ref_name == 'master'
     strategy:
       fail-fast: false
       matrix:
@@ -336,16 +336,12 @@ jobs:
           ref: ${{ env.precomputed-hash }}
           path: precomputed
 
-      - name: get-seissol
-        uses: actions/download-artifact@v5
-        with:
-          name: seissol-${{ matrix.build_type }}-${{ matrix.case.precision }}-${{ matrix.arch }}-${{ matrix.order }}-${{ matrix.case.equation }}-${{ matrix.case.multisim }}-${{ matrix.setup.cc }}
-          path: install
-
       # The compare-*.py / verify.py scripts live in this very repo. The
       # workflow itself doesn't auto-checkout, so we do it explicitly here.
       - name: get-verification-scripts
         uses: actions/checkout@v6
+        with:
+          path: scripts
 
       - name: get-seissol
         id: get-seissol
@@ -371,9 +367,13 @@ jobs:
           export SEISSOL_COMMTHREAD=${{ matrix.parallel.commthread }}
           export SEISSOL_MINI_NUM_ELEMENTS=100
 
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+          export OMPI_MCA_rmaps_base_oversubscribe=true
+
           python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/verify.py \
             --precomputed-dir precomputed \
-            --binary-dir install \
+            --binary-dir $GITHUB_WORKSPACE/install \
             --variant cpu \
             --case ${{ matrix.case.name }}/${{ matrix.case.precision }} \
             --mpi-cmd mpirun \
