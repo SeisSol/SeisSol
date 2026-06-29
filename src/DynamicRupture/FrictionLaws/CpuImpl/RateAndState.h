@@ -12,6 +12,12 @@
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
+#ifdef __INTEL_LLVM_COMPILER
+#if __INTEL_LLVM_COMPILER >= 20250000
+#define SEISSOL_INTEL_SIMD_EXCEPTION
+#endif
+#endif // __INTEL_LLVM_COMPILER
+
 namespace seissol::dr::friction_law::cpu {
 /**
  * General implementation of a rate and state solver
@@ -334,9 +340,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                std::array<real, misc::NumPaddedPoints>& slipRateTest) {
 
     real muF[misc::NumPaddedPoints]{};
-    real dMuF[misc::NumPaddedPoints]{};
     real g[misc::NumPaddedPoints]{};
-    real dG[misc::NumPaddedPoints]{};
 
     const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
 
@@ -369,18 +373,24 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         }
         return hasConverged;
       }
+
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION
 #pragma omp simd
+#endif
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-        dMuF[pointIndex] = static_cast<Derived*>(this)->updateMuDerivative(
-            pointIndex, slipRateTest[pointIndex], details);
+        const auto localSlipRateTest = slipRateTest[pointIndex];
+
+        const auto dMuF =
+            static_cast<Derived*>(this)->updateMuDerivative(pointIndex, localSlipRateTest, details);
 
         // derivative of g
-        dG[pointIndex] = -this->impAndEta_[ltsFace].invEtaS *
-                             (std::abs(normalStress[pointIndex]) * dMuF[pointIndex]) -
-                         static_cast<real>(1.0);
+        const auto dG =
+            -this->impAndEta_[ltsFace].invEtaS * (std::abs(normalStress[pointIndex]) * dMuF) -
+            static_cast<real>(1.0);
+
         // newton update
-        const real tmp3 = g[pointIndex] / dG[pointIndex];
-        slipRateTest[pointIndex] = std::max(rs::almostZero(), slipRateTest[pointIndex] - tmp3);
+        const real tmp3 = g[pointIndex] / dG;
+        slipRateTest[pointIndex] = std::max(rs::almostZero(), localSlipRateTest - tmp3);
       }
     }
 
