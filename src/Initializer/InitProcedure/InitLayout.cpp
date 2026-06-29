@@ -23,6 +23,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
 #include "Solver/Settings.h"
 
 #include <algorithm>
@@ -147,7 +148,10 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   logInfo() << "Creating mesh layout...";
 
-  const std::size_t copyCount = seissolParams.timeStepping.copyCount;
+  // if we need more simulations than the fused version can hold, use cell copies instead.
+  const std::size_t copyCount =
+      (seissolParams.timeStepping.simCount + multisim::NumSimulations - 1) /
+      multisim::NumSimulations;
 
   const auto meshLayout = internal::layoutCells(colors, colorsGhost, colorMap, meshReader);
   auto meshLayoutCopy = meshLayout;

@@ -277,13 +277,14 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               namewrap(seissol::model::MaterialT::Quantities[quantity], sim),
               {},
               [=, &ltsStorage, &backmap](real* target, std::size_t index) {
-                const auto position = backmap.get(cellIndices[index], sim);
+                const auto position =
+                    backmap.get(cellIndices[index], sim / multisim::NumSimulations);
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj{};
                 memory::AlignedArray<real, multisim::NumSimulations> simselect{};
                 alignas(Alignment) std::array<real, MaxVtk3dPoints> alignedTarget{};
-                simselect[sim] = 1;
+                simselect[sim % multisim::NumSimulations] = 1;
                 vtkproj.simselect = simselect.data();
                 vtkproj.qb = dofsSingleQuantity;
                 vtkproj.xv(order) = alignedTarget.data();
@@ -298,12 +299,13 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               namewrap("int-" + seissol::model::MaterialT::Quantities[quantity], sim),
               {},
               [=, &ltsStorage, &backmap](real* target, std::size_t index) {
-                const auto position = backmap.get(cellIndices[index], sim);
+                const auto position =
+                    backmap.get(cellIndices[index], sim / multisim::NumSimulations);
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Integrals>(position);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj{};
                 memory::AlignedArray<real, multisim::NumSimulations> simselect{};
-                simselect[sim] = 1;
+                simselect[sim % multisim::NumSimulations] = 1;
                 vtkproj.simselect = simselect.data();
                 vtkproj.qb = dofsSingleQuantity;
                 vtkproj.xv(order) = target;
@@ -323,14 +325,15 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 namewrap(seissol::model::PlasticityData::Quantities[quantity], sim),
                 {},
                 [=, &ltsStorage, &backmap](real* target, std::size_t index) {
-                  const auto position = backmap.get(cellIndices[index], sim);
+                  const auto position =
+                      backmap.get(cellIndices[index], sim / multisim::NumSimulations);
                   const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(position);
                   const auto* pointsSingleQuantity =
                       dofsAllQuantities + QDofPointsPadded * quantity;
                   kernel::projectNodalToVtkVolume vtkproj{};
                   memory::AlignedArray<real, multisim::NumSimulations> simselect{};
                   alignas(Alignment) std::array<real, MaxVtk3dPoints> alignedTarget{};
-                  simselect[sim] = 1;
+                  simselect[sim % multisim::NumSimulations] = 1;
                   vtkproj.simselect = simselect.data();
                   vtkproj.qn = pointsSingleQuantity;
                   vtkproj.vInv = init::vInv::Values;
@@ -435,14 +438,14 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](real* target, std::size_t index) {
               auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
               auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
-              const auto position = backmap.get(meshId, sim);
+              const auto position = backmap.get(meshId, sim / multisim::NumSimulations);
               const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
               const auto* dofsSingleQuantity =
                   dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
               kernel::projectBasisToVtkFaceFromVolume vtkproj{};
               memory::AlignedArray<real, multisim::NumSimulations> simselect{};
               alignas(Alignment) std::array<real, MaxVtk2dPoints> alignedTarget{};
-              simselect[sim] = 1;
+              simselect[sim % multisim::NumSimulations] = 1;
               vtkproj.simselect = simselect.data();
               vtkproj.qb = dofsSingleQuantity;
               vtkproj.xf(order) = alignedTarget.data();
@@ -467,14 +470,14 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](real* target, std::size_t index) {
               auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
               auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
-              const auto position = backmap.get(meshId, sim);
+              const auto position = backmap.get(meshId, sim / multisim::NumSimulations);
               const auto& faceDisplacements = ltsStorage.lookup<LTS::FaceDisplacements>(position);
               const auto* faceDisplacementVariable =
                   faceDisplacements[side] + FaceDisplacementPadded * quantity;
               kernel::projectNodalToVtkFace vtkproj{};
               memory::AlignedArray<real, multisim::NumSimulations> simselect{};
               alignas(Alignment) std::array<real, MaxVtk2dPoints> alignedTarget{};
-              simselect[sim] = 1;
+              simselect[sim % multisim::NumSimulations] = 1;
               vtkproj.simselect = simselect.data();
               vtkproj.pn = faceDisplacementVariable;
               vtkproj.MV2nTo2m = nodal::init::MV2nTo2m::Values;
