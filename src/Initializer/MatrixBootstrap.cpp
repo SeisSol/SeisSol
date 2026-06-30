@@ -136,6 +136,8 @@ void GlobalMatrixPointers::bootstrapMatrices() {
   for (std::size_t i = 0; i < seissol::init::ew_r::size(); ++i) {
     // const auto fscale = facescale[i / nextR];
     rT[i] /= volscale;
+
+    rT[i] = fMrT[i]; // TODO: wrong. We need rotation.
   }
 }
 
