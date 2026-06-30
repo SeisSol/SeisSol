@@ -14,69 +14,6 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Derive the per-case test matrix from precomputed-seissol/cases.json so the
-  # only place we list cases is cases.json itself. Emits one matrix entry per
-  # (case-name, precision) pair, carrying along the fields needed to download
-  # the matching build artifact.
-  # ---------------------------------------------------------------------------
-  compute-cases:
-    name: compute-cases
-    runs-on: ubuntu-24.04
-    outputs:
-      cases: ${{ steps.gen.outputs.cases }}
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          repository: seissol/precomputed-seissol
-          ref: ${{ env.precomputed-hash }}
-          path: precomputed
-
-      - id: gen
-        shell: python
-        run: |
-          import json, os, re
-
-          # Parses display-config strings as used in cases.json, e.g.:
-          #   "elastic-p6-f64"          -> {equation: elastic, prec: 64, multisim: 1}
-          #   "viscoelastic-3-p6-f64"   -> {equation: viscoelastic2, mech: 3, prec: 64, multisim: 1}
-          #   "elastic-p6-f64-s8"       -> {equation: elastic, prec: 64, multisim: 8}
-          CONFIG_RE = re.compile(
-              r"^(?P<eq>acoustic|elastic|anisotropic|poroelastic|viscoelastic)"
-              r"(?:-(?P<mech>\d+))?"
-              r"-p(?P<order>\d+)"
-              r"-f(?P<prec>32|64)"
-              r"(?:-s(?P<multisim>\d+))?$"
-          )
-
-          # Display name -> CMake EQUATIONS value (matches build matrix below).
-          EQ_TO_CMAKE = {
-              "acoustic": "acoustic",
-              "elastic": "elastic",
-              "anisotropic": "anisotropic",
-              "poroelastic": "poroelastic",
-              "viscoelastic": "viscoelastic2",
-          }
-
-          cases = json.load(open("precomputed/cases.json"))
-          entries = []
-          for key, entry in cases.items():
-              name, precision = key.split("/", 1)
-              m = CONFIG_RE.match(entry["config"])
-              if not m:
-                  raise ValueError(f"Cannot parse config string: {entry['config']!r}")
-              entries.append({
-                  "name": name,
-                  "precision": precision,
-                  "equation": EQ_TO_CMAKE[m["eq"]],
-                  "multisim": int(m["multisim"]) if m["multisim"] else 1,
-              })
-
-          entries.sort(key=lambda x: (x["name"], x["precision"]))
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"cases={json.dumps(entries)}\n")
-          print(f"emitted {len(entries)} case entries")
-
-  # ---------------------------------------------------------------------------
   # Build SeisSol once per (equation, precision, fused, compiler) tuple.
   # Unchanged compared to the previous workflow.
   # ---------------------------------------------------------------------------
@@ -250,20 +187,20 @@ jobs:
           cfg-simulations: 8
 
       - name: upload-seissol
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         with:
           name: seissol-${{matrix.build_type}}-${{matrix.arch}}-${{matrix.setup.name}}
           path: /opt/seissol
 
   # ---------------------------------------------------------------------------
-  # Per (case, precision) × (compiler) × (parallel mode): run SeisSol and
+  # Per (compiler) × (parallel mode): run SeisSol and
   # verify against the precomputed reference. All five compare-* dispatches
-  # plus the run itself live inside verify.py now; tpv-data.json controls
+  # plus the run itself live inside verify.py; tpv-data.json controls
   # which categories actually fire per case.
   # ---------------------------------------------------------------------------
   seissol-run-test:
-    name: seissol-run-test
+    name: seissol-run-test<${{matrix.setup.name}}, ${{matrix.arch}}, ${{matrix.build_type}}><r${{matrix.parallel.ranks}}×t${{matrix.parallel.threads}}>
     runs-on: ubuntu-24.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
@@ -272,7 +209,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        case: ${{ fromJSON(needs.compute-cases.outputs.cases) }}
         order:
           - 6
         arch:
@@ -375,7 +311,7 @@ jobs:
             --precomputed-dir precomputed \
             --binary-dir $GITHUB_WORKSPACE/install \
             --variant cpu \
-            --case ${{ matrix.case.name }}/${{ matrix.case.precision }} \
+            --all \
             --mpi-cmd mpirun \
             --mpi-args "${MPI_OPTIONS}" \
             --ranks ${{ matrix.parallel.ranks }} \
@@ -384,12 +320,9 @@ jobs:
             --report report.txt
 
       - name: upload-report
-        if: ${{ !cancelled() && steps.verify.outcome == 'failure' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
         with:
-          name: report-${{ matrix.case.name }}-${{ matrix.case.precision }}-${{ matrix.setup.cc }}-r${{ matrix.parallel.ranks }}t${{ matrix.parallel.threads }}
-          path: |
-            report.txt
-            precomputed/${{ matrix.case.name }}/output/
+          name: report-${{ matrix.setup.cc }}-r${{ matrix.parallel.ranks }}t${{ matrix.parallel.threads }}
+          path: report.txt
           if-no-files-found: ignore
-          retention-days: 14
