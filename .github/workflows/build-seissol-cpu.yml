@@ -15,7 +15,6 @@ env:
 jobs:
   # ---------------------------------------------------------------------------
   # Build SeisSol once per (equation, precision, fused, compiler) tuple.
-  # Unchanged compared to the previous workflow.
   # ---------------------------------------------------------------------------
   seissol-build-test:
     name: seissol-build-test<${{matrix.setup.name}}, ${{matrix.arch}}, ${{matrix.build_type}}>
@@ -204,7 +203,7 @@ jobs:
     runs-on: ubuntu-26.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
-    needs: [compute-cases, seissol-build-test]
+    needs: seissol-build-test
     if: ${{ github.repository == 'SeisSol/SeisSol' }} #  && github.ref_name == 'master'
     strategy:
       fail-fast: false
