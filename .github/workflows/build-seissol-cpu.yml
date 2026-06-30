@@ -19,7 +19,7 @@ jobs:
   # ---------------------------------------------------------------------------
   seissol-build-test:
     name: seissol-build-test<${{matrix.setup.name}}, ${{matrix.arch}}, ${{matrix.build_type}}>
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     strategy:
@@ -201,7 +201,7 @@ jobs:
   # ---------------------------------------------------------------------------
   seissol-run-test:
     name: seissol-run-test<${{matrix.setup.name}}, ${{matrix.arch}}, ${{matrix.build_type}}><r${{matrix.parallel.ranks}}×t${{matrix.parallel.threads}}>
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     needs: [compute-cases, seissol-build-test]

@@ -38,7 +38,7 @@ jobs:
             cxx: g++-13
             fc: gfortran-13
             container: seissol/gha-gpu-nv:davschneller-gpu-image
-            runner: ubuntu-24.04
+            runner: ubuntu-26.04
             pythonbreak: true
           - arch: sm_60
             backend: cuda
@@ -46,7 +46,7 @@ jobs:
             cxx: clang++-18
             fc: gfortran-13 # TODO?
             container: seissol/gha-gpu-nv:davschneller-gpu-image
-            runner: ubuntu-24.04
+            runner: ubuntu-26.04
             pythonbreak: true
           - arch: gfx906
             backend: hip
@@ -54,7 +54,7 @@ jobs:
             cxx: g++-13
             fc: gfortran-13
             container: seissol/gha-gpu-amd:davschneller-gpu-image
-            runner: ubuntu-24.04
+            runner: ubuntu-26.04
             pythonbreak: true
           - arch: gfx906
             backend: hip
@@ -62,7 +62,7 @@ jobs:
             cxx: clang++-18
             fc: gfortran-13 # TODO?
             container: seissol/gha-gpu-amd:davschneller-gpu-image
-            runner: ubuntu-24.04
+            runner: ubuntu-26.04
             pythonbreak: true
           - arch: skl
             backend: oneapi
@@ -70,7 +70,7 @@ jobs:
             cxx: icpx
             fc: ifx
             container: seissol/gha-gpu-intel:davschneller-gpu-image
-            runner: ubuntu-24.04
+            runner: ubuntu-26.04
             pythonbreak: false
     env:
       cc: ${{matrix.setup.cc}}
