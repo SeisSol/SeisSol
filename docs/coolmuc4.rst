@@ -96,7 +96,7 @@ Once all dependencies are installed, you can compile SeisSol with the following 
     cmake .. -DHOST_ARCH=skx -DCMAKE_BUILD_TYPE=Release -DORDER=4 -DEQUATIONS=elastic
     make -j
 
-This will create the SeisSol executable according to CMake flag ``NEW_BINARY_NAMING`` you chose in the build directory. The default ``OFF`` option will create the executable with the name ``SeisSol_Release_skx_4_elastic``. If you choose ``ON``, the executable will have the name ``seissol-cpu-elastic-p4-f64``.
+The executable will have the name ``seissol-elastic-o4-f64``.
 
 Running SeisSol
 ---------------
