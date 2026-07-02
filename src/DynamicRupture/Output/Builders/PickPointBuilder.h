@@ -10,6 +10,7 @@
 
 #include "Common/Iterator.h"
 #include "Geometry/CellTransform.h"
+#include "Geometry/MeshDefinition.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PointMapper.h"
@@ -67,8 +68,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       convertStringToMask(line, coords);
 
       ReceiverPoint point{};
-      for (int i = 0; i < 3; ++i) {
-        point.global.coords[i] = coords[i];
+      for (std::size_t i = 0; i < coords.size(); ++i) {
+        point.global[i] = coords[i];
       }
 
       potentialReceivers.push_back(point);
@@ -111,7 +112,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
           const auto transform = seissol::geometry::AffineTransform::fromMeshCell(
               faultItem.element.value(), *meshReader);
 
-          receiver.reference = transform.spaceToRef(receiver.global.getAsEigen3LibVector());
+          const auto point = transform.spaceToRef(Eigen::Vector3d(receiver.global.data()));
+          std::copy(point.begin(), point.end(), receiver.reference.begin());
         }
       } catch (const std::exception& error) {
         logError() << "An error occurred while trying to find an on-fault receiver point:"
@@ -131,7 +133,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     }
   }
 
-  std::optional<size_t> findClosestFaultIndex(const ExtVrtxCoords& point) {
+  std::optional<size_t> findClosestFaultIndex(const CoordinateT& point) {
     const auto& meshElements = meshReader->getElements();
     const auto& meshVertices = meshReader->getVertices();
     const auto& fault = meshReader->getFault();

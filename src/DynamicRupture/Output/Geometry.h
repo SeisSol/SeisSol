@@ -17,80 +17,35 @@
 #include <limits>
 
 namespace seissol::dr {
-struct ExtVrtxCoords {
-  ExtVrtxCoords() = default;
-  ~ExtVrtxCoords() = default;
-
-  template <typename T>
-  explicit ExtVrtxCoords(const T& other) {
-    for (std::size_t i = 0; i < Cell::Dim; ++i) {
-      coords[i] = other[i];
-    }
-  }
-
-  template <typename T>
-  ExtVrtxCoords& operator=(const T& other) {
-    for (std::size_t i = 0; i < Cell::Dim; ++i) {
-      coords[i] = other[i];
-    }
-    return *this;
-  }
-
-  ExtVrtxCoords(std::initializer_list<double> inputCoords) {
-    assert(inputCoords.size() == 3 && "ExtVrtxCoords must get initialized with 3 values");
-    const auto* begin = inputCoords.begin();
-    for (std::size_t i = 0; i < Cell::Dim; ++i, ++begin) {
-      coords[i] = *begin;
-    }
-  }
-
-  double& operator[](size_t index) {
-    assert((index < Cell::Dim) && "ExtVrtxCoords index must be less than 3");
-    return coords[index];
-  }
-
-  double operator[](size_t index) const {
-    assert((index < Cell::Dim) && "ExtVrtxCoords index must be less than 3");
-    return coords[index];
-  }
-
-  [[nodiscard]] Eigen::Vector3d getAsEigen3LibVector() const {
-    return Eigen::Vector3d(coords[0], coords[1], coords[2]);
-  }
-
-  constexpr static std::size_t size() { return Cell::Dim; }
-
-  CoordinateT coords = {0.0, 0.0, 0.0};
-};
-
 struct ExtTriangle {
   ExtTriangle() = default;
 
-  explicit ExtTriangle(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2, const ExtVrtxCoords& p3) {
+  explicit ExtTriangle(const CoordinateT& p1, const CoordinateT& p2, const CoordinateT& p3) {
     points[0] = p1;
     points[1] = p2;
     points[2] = p3;
   }
 
-  ExtVrtxCoords& point(size_t index) {
-    assert((index < 3) && "ExtTriangle index must be less than 3");
+  CoordinateT& point(size_t index) {
+    assert((index < points.size()) && "ExtTriangle index must be less than 3");
     return points[index];
   }
 
-  [[nodiscard]] ExtVrtxCoords point(size_t index) const {
-    assert((index < 3) && "ExtTriangle index must be less than 3");
+  [[nodiscard]] const CoordinateT& point(size_t index) const {
+    assert((index < points.size()) && "ExtTriangle index must be less than 3");
     return points[index];
   }
 
-  static std::size_t size() { return 3; }
+  static constexpr std::size_t size() { return Size; }
 
   private:
-  std::array<ExtVrtxCoords, 3> points{};
+  static constexpr std::size_t Size = 3;
+  std::array<CoordinateT, Size> points{};
 };
 
 struct ReceiverPoint {
-  ExtVrtxCoords global;       // physical coords of a receiver
-  ExtVrtxCoords reference;    // reference coords of a receiver
+  CoordinateT global{};       // physical coords of a receiver
+  CoordinateT reference{};    // reference coords of a receiver
   ExtTriangle globalTriangle; // a surrounding triangle of a receiver
   size_t faultFaceIndex{
       std::numeric_limits<std::size_t>::max()}; // Face Fault index which the receiver belongs to

@@ -247,7 +247,7 @@ void OutputManager::initElementwiseOutput() {
       for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
         for (int j = 0; j < 3; ++j) {
           target[i * 3 + j] =
-              receiverPoints[seissol::init::vtk2d::Shape[order][1] * index + i].global.coords[j];
+              receiverPoints[seissol::init::vtk2d::Shape[order][1] * index + i].global[j];
         }
       }
     });
@@ -399,7 +399,7 @@ void OutputManager::initPickpointOutput() {
           const auto& receiver = outputData->receiverPoints[gIdx];
           const size_t globalIndex = receiver.globalReceiverIndex + 1;
           const size_t simIndex = receiver.simIndex;
-          const auto& point = const_cast<ExtVrtxCoords&>(receiver.global);
+          const auto& point = receiver.global;
 
           // output coordinates
           if (simIndex == 0) {

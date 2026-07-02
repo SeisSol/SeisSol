@@ -159,7 +159,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       const auto neighTransform = geometry::AffineTransform(neighborElemCoords);
 
       outputData->basisFunctions.emplace_back(
-          getPlusMinusBasisFunctions(point.global.coords, elemTransform, neighTransform));
+          getPlusMinusBasisFunctions(point.global, elemTransform, neighTransform));
     }
   }
 

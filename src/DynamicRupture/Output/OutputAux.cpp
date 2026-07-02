@@ -91,21 +91,21 @@ ExtTriangle getGlobalTriangle(int localSideId,
   return triangle;
 }
 
-ExtVrtxCoords getMidPointTriangle(const ExtTriangle& triangle) {
-  ExtVrtxCoords avgPoint{};
+CoordinateT getMidPointTriangle(const ExtTriangle& triangle) {
+  CoordinateT avgPoint{};
   const auto p0 = triangle.point(0);
   const auto p1 = triangle.point(1);
   const auto p2 = triangle.point(2);
   for (int axis = 0; axis < 3; ++axis) {
-    avgPoint.coords[axis] = (p0.coords[axis] + p1.coords[axis] + p2.coords[axis]) / 3.0;
+    avgPoint[axis] = (p0[axis] + p1[axis] + p2[axis]) / 3.0;
   }
   return avgPoint;
 }
 
-ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2) {
-  ExtVrtxCoords midPoint{};
+CoordinateT getMidPoint(const CoordinateT& p1, const CoordinateT& p2) {
+  CoordinateT midPoint{};
   for (int axis = 0; axis < 3; ++axis) {
-    midPoint.coords[axis] = 0.5 * (p1.coords[axis] + p2.coords[axis]);
+    midPoint[axis] = 0.5 * (p1[axis] + p2[axis]);
   }
   return midPoint;
 }
@@ -153,8 +153,7 @@ void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
   for (auto& geoPoint : geoPoints) {
 
     std::array<double, 2> targetPoint2D{};
-    transformations::XiEtaZeta2chiTau(
-        geoPoint.localFaceSideId, geoPoint.reference.coords, targetPoint2D);
+    transformations::XiEtaZeta2chiTau(geoPoint.localFaceSideId, geoPoint.reference, targetPoint2D);
 
     int nearestPoint{-1};
     double shortestDistance = std::numeric_limits<double>::max();
@@ -181,7 +180,7 @@ int getClosestInternalStroudGp(int nearestGpIndex, int nPoly) {
   return (i1 - 1) * (nPoly + 2) + j1;
 }
 
-void projectPointToFace(ExtVrtxCoords& point,
+void projectPointToFace(CoordinateT& point,
                         const ExtTriangle& face,
                         const CoordinateT& faceNormal) {
   const auto distance = getDistanceFromPointToFace(point, face, faceNormal);
@@ -189,16 +188,16 @@ void projectPointToFace(ExtVrtxCoords& point,
   const auto adjustedDistance = distance / faceNormalLength;
 
   for (int i = 0; i < 3; ++i) {
-    point.coords[i] += adjustedDistance * faceNormal[i];
+    point[i] += adjustedDistance * faceNormal[i];
   }
 }
 
-double getDistanceFromPointToFace(const ExtVrtxCoords& point,
+double getDistanceFromPointToFace(const CoordinateT& point,
                                   const ExtTriangle& face,
                                   const CoordinateT& faceNormal) {
 
   CoordinateT diff{0.0, 0.0, 0.0};
-  MeshTools::sub(face.point(0).coords, point.coords, diff);
+  MeshTools::sub(face.point(0), point, diff);
 
   // Note: faceNormal may not be precisely a unit vector
   const double faceNormalLength = MeshTools::norm(faceNormal);
@@ -207,22 +206,21 @@ double getDistanceFromPointToFace(const ExtVrtxCoords& point,
 
 // (NOTE: only the sign really has a meaning; except maybe for some small tolerance)
 // (reason: lack of normalization, probably)
-double isInsideFace(const ExtVrtxCoords& point,
-                    const ExtTriangle& face,
-                    const CoordinateT& faceNormal) {
+double
+    isInsideFace(const CoordinateT& point, const ExtTriangle& face, const CoordinateT& faceNormal) {
 
   // view the triangle as an intersection of hyperplanes
 
   double sidemin = std::numeric_limits<double>::max();
   for (auto [i1, i2] : seissol::common::zip(std::vector{0, 1, 2}, std::vector{1, 2, 0})) {
-    const auto& p1 = face.point(i1).coords;
-    const auto& p2 = face.point(i2).coords;
+    const auto& p1 = face.point(i1);
+    const auto& p2 = face.point(i2);
     CoordinateT sidevec{0.0, 0.0, 0.0};
     CoordinateT hypersupport{0.0, 0.0, 0.0};
     MeshTools::sub(p2, p1, sidevec);
     MeshTools::cross(faceNormal, sidevec, hypersupport);
     const auto sidevalue = MeshTools::dot(hypersupport, p1);
-    const auto pointvalue = MeshTools::dot(hypersupport, point.coords);
+    const auto pointvalue = MeshTools::dot(hypersupport, point);
     const auto containvalue = pointvalue - sidevalue;
     sidemin = std::min(sidemin, containvalue);
   }
@@ -258,7 +256,7 @@ std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPo
       const auto& point = triangle.point(vertexIndex);
 
       const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
-      for (std::uint32_t coordIndex{0}; coordIndex < ExtVrtxCoords::size(); ++coordIndex) {
+      for (std::uint32_t coordIndex{0}; coordIndex < point.size(); ++coordIndex) {
         vertices[3 * globalVertexIndex + coordIndex] = point[coordIndex];
       }
     }
@@ -287,9 +285,9 @@ std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiv
 }
 
 real computeTriangleArea(ExtTriangle& triangle) {
-  const auto p0 = triangle.point(0).getAsEigen3LibVector();
-  const auto p1 = triangle.point(1).getAsEigen3LibVector();
-  const auto p2 = triangle.point(2).getAsEigen3LibVector();
+  const auto p0 = Eigen::Vector3d(triangle.point(0).data());
+  const auto p1 = Eigen::Vector3d(triangle.point(1).data());
+  const auto p2 = Eigen::Vector3d(triangle.point(2).data());
 
   const auto vector1 = p1 - p0;
   const auto vector2 = p2 - p0;

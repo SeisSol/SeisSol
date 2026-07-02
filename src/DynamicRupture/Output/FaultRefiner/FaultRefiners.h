@@ -25,7 +25,7 @@ class FaultRefiner {
     std::size_t elementId{std::numeric_limits<std::size_t>::max()};
     std::size_t globalId{};
   };
-  using PointsPair = std::pair<ExtVrtxCoords, ExtVrtxCoords>;
+  using PointsPair = std::pair<CoordinateT, CoordinateT>;
   using TrianglePair = std::pair<ExtTriangle, ExtTriangle>;
 
   [[nodiscard]] virtual int getNumSubTriangles() const = 0;

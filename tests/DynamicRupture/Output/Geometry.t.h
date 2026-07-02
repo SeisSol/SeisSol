@@ -37,15 +37,15 @@ TEST_CASE("DR Geometry") {
     // Given a reference triangle in the first octant
     // TargetPoint - intersection of a line (which starts from the origin and goes along [1,1,1]
     // vector) and the inclined face (4th face)
-    ExtVrtxCoords targetPoint{1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0};
+    CoordinateT targetPoint{1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0};
 
     // 4th face
     const ExtTriangle face(
-        ExtVrtxCoords{1.0, 0.0, 0.0}, ExtVrtxCoords{0.0, 1.0, 0.0}, ExtVrtxCoords{0.0, 0.0, 1.0});
+        CoordinateT{1.0, 0.0, 0.0}, CoordinateT{0.0, 1.0, 0.0}, CoordinateT{0.0, 0.0, 1.0});
 
     constexpr double Epsilon = 1e-6;
     {
-      ExtVrtxCoords testPoint{0.0, 0.0, 0.0};
+      CoordinateT testPoint{0.0, 0.0, 0.0};
       const CoordinateT normalDirection{1.0, 1.0, 1.0};
 
       projectPointToFace(testPoint, face, normalDirection);
@@ -55,7 +55,7 @@ TEST_CASE("DR Geometry") {
       REQUIRE(testPoint[Z] == AbsApprox(targetPoint[Z]).epsilon(Epsilon));
     }
     {
-      ExtVrtxCoords testPoint{1.0, 1.0, 1.0};
+      CoordinateT testPoint{1.0, 1.0, 1.0};
       const CoordinateT normalDirection{-1.0, -1.0, -1.0};
 
       projectPointToFace(testPoint, face, normalDirection);
@@ -78,8 +78,8 @@ TEST_CASE("DR Geometry") {
   }
 
   SUBCASE("MiddlePoint") {
-    const ExtVrtxCoords point1{1.0, 2.0, 3.0};
-    const ExtVrtxCoords point2{-3.0, -2.0, -1.0};
+    const CoordinateT point1{1.0, 2.0, 3.0};
+    const CoordinateT point2{-3.0, -2.0, -1.0};
 
     auto testMiddle = getMidPoint(point1, point2);
 
@@ -90,9 +90,9 @@ TEST_CASE("DR Geometry") {
   }
 
   SUBCASE("MidTrianglePoint") {
-    const ExtVrtxCoords point1{0.5, 0.0, 2.0};
-    const ExtVrtxCoords point2{-0.5, 0.0, 3.0};
-    const ExtVrtxCoords point3{3.0, 1.0, -2.0};
+    const CoordinateT point1{0.5, 0.0, 2.0};
+    const CoordinateT point2{-0.5, 0.0, 3.0};
+    const CoordinateT point3{3.0, 1.0, -2.0};
     const ExtTriangle triangle(point1, point2, point3);
 
     auto testMiddle = getMidPointTriangle(triangle);
@@ -209,13 +209,13 @@ TEST_CASE("DR Geometry") {
     }
     {
       const unsigned face = 3;
-      ExtVrtxCoords xiEtaZeta{0.0, -0.15, 0.15};
+      CoordinateT xiEtaZeta{0.0, -0.15, 0.15};
       const ExtTriangle fourthFace(
-          ExtVrtxCoords{1.0, 0.0, 0.0}, ExtVrtxCoords{0.0, 1.0, 0.0}, ExtVrtxCoords{0.0, 0.0, 1.0});
+          CoordinateT{1.0, 0.0, 0.0}, CoordinateT{0.0, 1.0, 0.0}, CoordinateT{0.0, 0.0, 1.0});
       const CoordinateT normalDirection{1.0, 1.0, 1.0};
       projectPointToFace(xiEtaZeta, fourthFace, normalDirection);
 
-      transformations::XiEtaZeta2chiTau(face, xiEtaZeta.coords, testChiTau);
+      transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
       REQUIRE(testChiTau[0] == AbsApprox(xiEtaZeta[Eta]).epsilon(Epsilon));
       REQUIRE(testChiTau[1] == AbsApprox(xiEtaZeta[Zeta]).epsilon(Epsilon));
     }

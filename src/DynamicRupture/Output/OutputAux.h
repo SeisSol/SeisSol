@@ -31,9 +31,9 @@ ExtTriangle getGlobalTriangle(int localSideId,
                               const Element& element,
                               const std::vector<Vertex>& verticesInfo);
 
-ExtVrtxCoords getMidPointTriangle(const ExtTriangle& triangle);
+CoordinateT getMidPointTriangle(const ExtTriangle& triangle);
 
-ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2);
+CoordinateT getMidPoint(const CoordinateT& p1, const CoordinateT& p2);
 
 struct TriangleQuadratureData {
   static constexpr size_t Size{
@@ -52,15 +52,12 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
                                            const double (*facePoints)[2],
                                            unsigned numFacePoints);
 
-double isInsideFace(const ExtVrtxCoords& point,
-                    const ExtTriangle& face,
-                    const CoordinateT& faceNormal);
+double
+    isInsideFace(const CoordinateT& point, const ExtTriangle& face, const CoordinateT& faceNormal);
 
-void projectPointToFace(ExtVrtxCoords& point,
-                        const ExtTriangle& face,
-                        const CoordinateT& faceNormal);
+void projectPointToFace(CoordinateT& point, const ExtTriangle& face, const CoordinateT& faceNormal);
 
-double getDistanceFromPointToFace(const ExtVrtxCoords& point,
+double getDistanceFromPointToFace(const CoordinateT& point,
                                   const ExtTriangle& face,
                                   const CoordinateT& faceNormal);
 
