@@ -50,7 +50,7 @@ int getClosestInternalStroudGp(int nearestGpIndex, int nPoly);
 
 std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
                                            const double (*facePoints)[2],
-                                           unsigned numFacePoints);
+                                           std::size_t numFacePoints);
 
 double
     isInsideFace(const CoordinateT& point, const ExtTriangle& face, const CoordinateT& faceNormal);

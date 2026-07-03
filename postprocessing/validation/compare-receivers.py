@@ -9,7 +9,6 @@
 
 import argparse
 import glob
-import os
 import re
 import sys
 
@@ -22,155 +21,51 @@ else:
     trapz_func = np.trapz
 
 
-def velocity_norm(receiver, fused_index=""):
-    names = [f"v1{fused_index}", f"v2{fused_index}", f"v3{fused_index}"]
-
-    assert (
-        names[0] in receiver.columns
-        and names[1] in receiver.columns
-        and names[2] in receiver.columns
-    )
-
-    return np.sqrt(
-        receiver[names[0]] ** 2 + receiver[names[1]] ** 2 + receiver[names[2]] ** 2
-    )
+# Maps legacy variable names (written by older SeisSol versions) to current names.
+_LEGACY_NAMES = {
+    "xx": "s_xx", "yy": "s_yy", "zz": "s_zz",
+    "xy": "s_xy", "xz": "s_xz", "yz": "s_yz",
+    "u": "v1", "v": "v2", "w": "v3",
+}
 
 
-def stress_norm(receiver, fused_index=""):
-    names = [
-        f"s_xx{fused_index}",
-        f"s_yy{fused_index}",
-        f"s_zz{fused_index}",
-        f"s_xy{fused_index}",
-        f"s_yz{fused_index}",
-        f"s_xz{fused_index}",
-    ]
-    return np.sqrt(
-        receiver[names[0]] ** 2
-        + receiver[names[1]] ** 2
-        + receiver[names[2]] ** 2
-        + receiver[names[3]] ** 2
-        + receiver[names[4]] ** 2
-        + receiver[names[5]] ** 2
-    )
+def normalize_variable_names(variables: list[str]) -> list[str]:
+    """Rename legacy column names to current ones, for both fused and non-fused files.
 
-
-def absolute_slip_norm(receiver, fused_suffix=""):
-    return np.sqrt(receiver["ASl" + fused_suffix] ** 2)
-
-
-def dynstress_norm(receiver, fused_suffix=""):
-    return np.sqrt(receiver["DS" + fused_suffix] ** 2)
-
-
-def friction_coefficient_norm(receiver, fused_suffix=""):
-    return np.sqrt(receiver["Mud" + fused_suffix] ** 2)
-
-
-def peak_sliprate_norm(receiver, fused_suffix=""):
-    return np.sqrt(receiver["PSR" + fused_suffix] ** 2)
-
-
-def pressure_norm(receiver, fused_suffix=""):
-    return np.sqrt(receiver["P_f" + fused_suffix] ** 2)
-
-
-def traction_norm(receiver, fused_suffix=""):
-    return np.sqrt(
-        receiver["Td0" + fused_suffix] ** 2
-        + receiver["Ts0" + fused_suffix] ** 2
-        + receiver["Pn0" + fused_suffix] ** 2
-    )
-
-
-def rupture_time_norm(receiver, fused_suffix=""):
-    return np.sqrt(receiver["RT" + fused_suffix] ** 2)
-
-
-def sliprate_norm(receiver, fused_suffix=""):
-    return np.sqrt(
-        receiver["SRs" + fused_suffix] ** 2 + receiver["SRd" + fused_suffix] ** 2
-    )
-
-
-def slip_norm(receiver, fused_suffix=""):
-    return np.sqrt(
-        receiver["Sls" + fused_suffix] ** 2 + receiver["Sld" + fused_suffix] ** 2
-    )
-
-
-def statevariable_norm(receiver, fused_suffix=""):
-    return np.sqrt(receiver["StV" + fused_suffix] ** 2)
-
-
-def temperature_norm(receiver, fused_suffix=""):
-    return np.sqrt(receiver["Tmp" + fused_suffix] ** 2)
-
-
-def rupture_velocity_norm(receiver, fused_suffix=""):
-    return np.sqrt(receiver["Vr" + fused_suffix] ** 2)
-
-
-def normal_velocity_norm(receiver, fused_suffix=""):
-    return np.sqrt(receiver["u_n" + fused_suffix] ** 2)
-
-
-def integrate_in_time(time, samples):
-    return trapz_func(samples, x=time)
-
-
-def integrate_quantity_in_time(
-    receiver, quantity, fused_index=0, number_of_fused_sims=1
-):
-    quantity_to_norm = {
-        "absolute slip": absolute_slip_norm,
-        "friction coefficient": friction_coefficient_norm,
-        "peak sliprate": peak_sliprate_norm,
-        "traction": traction_norm,
-        "rupture time": rupture_time_norm,
-        "sliprate": sliprate_norm,
-        "slip": slip_norm,
-        "rupture velocity": rupture_velocity_norm,
-        "normal velocity": normal_velocity_norm,
-        "dynstress time": dynstress_norm,
-        "state variable": statevariable_norm,
-        "pressure": pressure_norm,
-        "temperature": temperature_norm,
-    }
-    fused_suffix = ""
-    if number_of_fused_sims > 1:
-        fused_suffix += "-" + str(
-            fused_index + 1
-        )  # +1 because we want to use the fused index as per fault receiver numbering
-    return integrate_in_time(
-        receiver["Time"], quantity_to_norm[quantity](receiver, fused_suffix)
-    )
-
-
-def get_number_of_fused_sims(columns):
-    # a _very_ hacky way to ignore the velocities here
-    # (which are by now: v1,v2,v3 without fusing)
-    # (with fusing: v1N, v2N, v3N. E.g. v14, v24, v34 for simulation 4)
+    Fused receiver files append a numeric simulation index to each column (e.g. "xx0",
+    "u1"). Non-fused files use bare names (e.g. "xx", "u") or already-current names
+    (e.g. "s_xx", "v1"). Velocity columns are excluded from fused-index detection to
+    avoid ambiguity with the already-current names v1, v2, v3.
+    """
+    # Detect fused files via digit suffixes on non-velocity columns.
     extract_fused = re.compile(r"^[^v].*?(\d+)$")
-    # omit time
-    relevant_columns = columns[1:]
-    try:
-        max_index = -2
-        for c in relevant_columns:
-            fused = extract_fused.search(c)
-            if fused:
-                current_index = int(fused.group(1))
-                max_index = current_index if current_index > max_index else max_index
-        return max_index + 1
-    except Exception as e:
-        print(e)
-        return -1
+    max_index = max(
+        (int(m.group(1)) for col in variables[1:] if (m := extract_fused.search(col))),
+        default=-2,
+    )
+    n_fused = max_index + 1  # negative means non-fused
+
+    result = list(variables)
+    for old, new in _LEGACY_NAMES.items():
+        if n_fused < 1:
+            # Non-fused: rename bare legacy names only (exact match).
+            if old in result:
+                result[result.index(old)] = new
+        else:
+            # Fused: rename "old{i}" -> "new{i}" for each simulation index.
+            for i in range(n_fused):
+                old_i, new_i = f"{old}{i}", f"{new}{i}"
+                if old_i in result:
+                    result[result.index(old_i)] = new_i
+    return result
 
 
-def read_receiver(filename):
+def read_receiver(filename: str) -> pd.DataFrame:
+    """
+    Read the receiver using the receiver filename and return a pandas DataFrame
+    """
     with open(filename) as receiver_file:
-        # find variable names
-        # We expect the header to look like the following
+        # We expect the header to look like the following:
         # TITLE = "title"
         # VARIABLES = "variable 1", "variable 2", ..., "variable n"
         # # x1	x coordinate of receiver
@@ -192,169 +87,71 @@ def read_receiver(filename):
         # (before they were writing at Time=dt)
         # We then skip the first timestep written if Time = 0
         t0 = float(lines[first_row].split()[0])
-        isFaultReceiver = "faultreceiver" in filename
-        if t0 == 0 and isFaultReceiver:
+        is_fault_receiver = "faultreceiver" in filename
+        if t0 == 0 and is_fault_receiver:
             first_row += 1
     receiver = pd.read_csv(filename, header=None, skiprows=first_row, sep=r"\s+")
-
-    def replace(x, y, l, max_fused=-1):
-        if max_fused < 0:
-            if x in l:
-                x_index = l.index(x)
-                l[x_index] = y
-        else:
-            for fused_index in range(max_fused):
-                x_ = f"{x}{fused_index}"
-                y_ = f"{y}{fused_index}"
-                if x_ in l:
-                    x_index = l.index(x_)
-                    l[x_index] = y_
-        return l
-
-    # Accomodate variable name changes
-    number_of_fused_sims = get_number_of_fused_sims(variables)
-    variables = replace("xx", "s_xx", variables, number_of_fused_sims)
-    variables = replace("yy", "s_yy", variables, number_of_fused_sims)
-    variables = replace("zz", "s_zz", variables, number_of_fused_sims)
-    variables = replace("xy", "s_xy", variables, number_of_fused_sims)
-    variables = replace("xz", "s_xz", variables, number_of_fused_sims)
-    variables = replace("yz", "s_yz", variables, number_of_fused_sims)
-    variables = replace("u", "v1", variables, number_of_fused_sims)
-    variables = replace("v", "v2", variables, number_of_fused_sims)
-    variables = replace("w", "v3", variables, number_of_fused_sims)
-
-    receiver.columns = variables
+    receiver.columns = normalize_variable_names(variables)
     return receiver
 
 
-def receiver_diff(args, i):
-    sim_files = glob.glob(f"{args.output}/{args.prefix}-receiver-{i:05d}*.dat")
-    ref_files = glob.glob(f"{args.output_ref}/{args.prefix}-receiver-{i:05d}*.dat")
+def compare_receiver_columns(
+    sim_receiver: pd.DataFrame, ref_receiver: pd.DataFrame, label: str
+) -> dict[str, float]:
+    """Compare all columns present in the reference receiver against the simulated one.
 
-    # allow copy layer receivers
-    assert len(sim_files) >= 1
-    assert len(ref_files) == 1
-
-    sim_receiver = read_receiver(sim_files[0])
-    ref_receiver = read_receiver(ref_files[0])
-    # both receivers must have the same time axis
-    assert (
-        np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-6
-    ), f'Record time mismatch: {sim_receiver["Time"]} vs. {ref_receiver["Time"]}'
-    time = sim_receiver["Time"]
-    difference = sim_receiver - ref_receiver
-
-    number_of_fused_sims = get_number_of_fused_sims(sim_receiver.columns)
-    if number_of_fused_sims < 1:
-        print(
-            "Setting the number of fused simulations to 1, because the receiver file does not contain any fused simulations."
-        )
-        number_of_fused_sims = 1
-
-    max_velocity = 0
-    max_stress = 0
-
-    for fused_index in range(number_of_fused_sims):
-        fused_suffix = f"{fused_index}" if number_of_fused_sims > 1 else ""
-        ref_velocity_norm = integrate_in_time(
-            time, velocity_norm(ref_receiver, fused_suffix)
-        )
-        diff_velocity_norm = integrate_in_time(
-            time, velocity_norm(difference, fused_suffix)
-        )
-        rel_velocity_diff = diff_velocity_norm / ref_velocity_norm
-        max_velocity = (
-            rel_velocity_diff if rel_velocity_diff > max_velocity else max_velocity
-        )
-
-        ref_stress_norm = integrate_in_time(
-            time, stress_norm(ref_receiver, fused_suffix)
-        )
-        diff_stress_norm = integrate_in_time(
-            time, stress_norm(difference, fused_suffix)
-        )
-        rel_stress_diff = diff_stress_norm / ref_stress_norm
-        max_stress = rel_stress_diff if rel_stress_diff > max_stress else max_stress
-
-    return (
-        max_velocity,
-        max_stress,
-    )
-
-
-def faultreceiver_diff(args, i, quantities):
-    sim_files = glob.glob(f"{args.output}/{args.prefix}-faultreceiver-{i:05d}*.dat")
-    ref_files = glob.glob(f"{args.output_ref}/{args.prefix}-faultreceiver-{i:05d}*.dat")
-    # allow copy layer receivers
-    assert len(sim_files) >= 1
-    assert len(ref_files) == 1
-    sim_receiver = read_receiver(sim_files[0])
-    ref_receiver = read_receiver(ref_files[0])
-
-    sim_receiver.reset_index(drop=True, inplace=True)
-    # both receivers must have the same time axis
-    assert (
-        np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-6
-    ), f'Record time mismatch: {sim_receiver["Time"]} vs. {ref_receiver["Time"]}'
-    time = sim_receiver["Time"]
-    difference = sim_receiver - ref_receiver
-    number_of_fused_sims = (
-        get_number_of_fused_sims(sim_receiver.columns) - 1
-    )  # -1 because the numbering of fault receivers is different for fused when compared to off-fault receivers
-    if number_of_fused_sims < 1:
-        print(
-            "Setting the number of fused simulations to 1, because the receiver file does not contain any fused simulations."
-        )
-        number_of_fused_sims = 1
-    # We still want to use the same time and not the difference in time steps.
-    difference["Time"] = ref_receiver["Time"]
-
-    errors = pd.DataFrame(0.0, index=[i], columns=quantities)
-
-    possible_quantity_names = [
-        "absolute slip",
-        "friction coefficient",
-        "peak sliprate",
-        "traction",
-        "rupture time",
-        "sliprate",
-        "slip",
-        "rupture velocity",
-        "normal velocity",
-        "dynstress time",
-        "state variable",
-        "pressure",
-        "temperature",
-    ]
-
-    for fused_index in range(number_of_fused_sims):
-        for quantity_name in possible_quantity_names:
-            if quantity_name in quantities:
-                ref_norm = integrate_quantity_in_time(
-                    ref_receiver,
-                    quantity_name,
-                    fused_index=fused_index,
-                    number_of_fused_sims=number_of_fused_sims,
-                )
-                diff_norm = integrate_quantity_in_time(
-                    difference,
-                    quantity_name,
-                    fused_index=fused_index,
-                    number_of_fused_sims=number_of_fused_sims,
-                )
-                errors.loc[i, quantity_name] = (
-                    diff_norm / ref_norm
-                    if diff_norm / ref_norm > errors.loc[i, quantity_name]
-                    else errors.loc[i, quantity_name]
-                )
+    Returns a dict mapping column name -> relative L2 error (or absolute if ref is ~zero).
+    """
+    time = ref_receiver["Time"].values
+    errors = {}
+    for col in ref_receiver.columns:
+        if col == "Time":
+            continue
+        if col not in sim_receiver.columns:
+            print(f"Warning: column '{col}' missing in simulated output for {label}")
+            errors[col] = float("inf")
+            continue
+        ref_col = ref_receiver[col].values
+        diff_col = sim_receiver[col].values - ref_col
+        ref_norm = np.sqrt(trapz_func(ref_col**2, x=time))
+        diff_norm = np.sqrt(trapz_func(diff_col**2, x=time))
+        errors[col] = float(diff_norm / ref_norm) if ref_norm > 1e-10 else float(diff_norm)
     return errors
 
 
-def find_all_receivers(directory, prefix, faultreceiver=False):
-    if faultreceiver:
-        file_candidates = glob.glob(f"{directory}/{prefix}-faultreceiver-*.dat")
-    else:
-        file_candidates = glob.glob(f"{directory}/{prefix}-receiver-*.dat")
+def receiver_diff(args: argparse.Namespace, index: int, file_type: str = "receiver") -> dict[str, float]:
+    """
+    Checks if the receivers have same time axis, and returns the relative L2 errors
+    """
+    sim_files = glob.glob(f"{args.output}/{args.prefix}-{file_type}-{index:05d}*.dat")
+    ref_files = glob.glob(f"{args.output_ref}/{args.prefix}-{file_type}-{index:05d}*.dat")
+
+    # allow copy layer receivers
+    assert len(sim_files) >= 1
+    assert len(ref_files) == 1
+
+    sim_receiver = read_receiver(sim_files[0])
+    ref_receiver = read_receiver(ref_files[0])
+
+    # Fault receivers may have the t=0 row dropped; reset to ensure a clean 0-based
+    # integer index before comparing. Non-fault receivers are never row-dropped so
+    # their index is already clean.
+    sim_receiver.reset_index(drop=True, inplace=True)
+    ref_receiver.reset_index(drop=True, inplace=True)
+
+    max_time_diff = np.max(np.abs(sim_receiver["Time"].values - ref_receiver["Time"].values))
+    assert max_time_diff < 1e-6, (
+        f"Record time mismatch at {file_type} {index}: max |Δt| = {max_time_diff:.3e}"
+    )
+
+    return compare_receiver_columns(sim_receiver, ref_receiver, f"{file_type}-{index:05d}")
+
+
+def find_all_receivers(directory: str, prefix: str, file_type: str = "receiver") -> np.typing.NDArray[np.int_]:
+    """
+    Returns list of receivers in the directory with a particular prefix
+    """
+    file_candidates = glob.glob(f"{directory}/{prefix}-{file_type}-*.dat")
 
     extract_id = re.compile(r".+/\w+-\w+-(\d+)(?:-\d+)?\.dat$")
     receiver_ids = []
@@ -365,97 +162,50 @@ def find_all_receivers(directory, prefix, faultreceiver=False):
     return np.array(sorted(list(set(receiver_ids))))
 
 
-if __name__ == "__main__":
+def report_errors(label: str, all_errors: dict[int, dict[str, float]], epsilon: float) -> bool:
+    """Print a per-receiver × per-column error table and return True if any exceed epsilon."""
+    if not all_errors:
+        return False
+
+    # Build a DataFrame: rows = receiver IDs, columns = all unique column names seen
+    all_cols = sorted({col for errs in all_errors.values() for col in errs})
+    df = pd.DataFrame(index=sorted(all_errors.keys()), columns=all_cols, dtype=float)
+    for rec_id, errs in all_errors.items():
+        for col, val in errs.items():
+            df.loc[rec_id, col] = val
+
+    print(f"\nRelative L2 error of quantities at {label}:")
+    print(df.to_string())
+
+    exceeded = False
+    for col in df.columns:
+        broken = df.index[df[col] > epsilon].tolist()
+        if broken:
+            print(f"  '{col}' exceeds relative error of {epsilon} at {label} {broken}")
+            exceeded = True
+    return exceeded
+
+def main():
     parser = argparse.ArgumentParser(description="Compare two sets of receivers.")
     parser.add_argument("output", type=str)
     parser.add_argument("output_ref", type=str)
     parser.add_argument("--epsilon", type=float, default=0.01)
-    parser.add_argument(
-        "--mode", type=str, default="rs", required=False, choices=["rs", "lsw", "tp"]
-    )
     parser.add_argument("--prefix", type=str, default="tpv", required=False)
-    parser.add_argument(
-        "--compare_fault_receivers", type=bool, default=True, required=False
-    )
     args = parser.parse_args()
 
-    if args.compare_fault_receivers:
-        sim_faultreceiver_ids = find_all_receivers(args.output, args.prefix, True)
-        ref_faultreceiver_ids = find_all_receivers(args.output_ref, args.prefix, True)
-        faultreceiver_ids = np.intersect1d(sim_faultreceiver_ids, ref_faultreceiver_ids)
-        # Make sure, we actually compare some faultreceivers
-        assert len(faultreceiver_ids) == len(
-            ref_faultreceiver_ids
-        ), f"some on-fault receiver IDs are missing: {faultreceiver_ids} vs {ref_faultreceiver_ids}"
-    else:
-        sim_faultreceiver_ids = []
-        ref_faultreceiver_ids = []
-        faultreceiver_ids = []
-
-    sim_receiver_ids = find_all_receivers(args.output, args.prefix, False)
-    ref_receiver_ids = find_all_receivers(args.output_ref, args.prefix, False)
-    receiver_ids = np.intersect1d(sim_receiver_ids, ref_receiver_ids)
-    # Make sure, we actually compare some receivers
-    assert len(receiver_ids) == len(
-        ref_receiver_ids
-    ), f"some off-fault receiver IDs are missing: {receiver_ids} vs {ref_receiver_ids}"
-
-    receiver_errors = pd.DataFrame(index=receiver_ids, columns=["velocity", "stress"])
-    for i in ref_receiver_ids:
-        receiver_errors.loc[i, :] = receiver_diff(args, i)
-    print("Relative L2 error of the different quantities at the different receivers")
-    print(receiver_errors.to_string())
-
-    for q in receiver_errors.columns:
-        broken_receivers = receiver_errors.index[
-            receiver_errors[q] > args.epsilon
-        ].tolist()
-        print(
-            f"{q} exceeds relative error of {args.epsilon} at receivers {broken_receivers}"
+    ANY_FAILURE = False
+    for file_type in ("receiver", "faultreceiver"):
+        label = f"{file_type}s"
+        sim_ids = find_all_receivers(args.output, args.prefix, file_type)
+        ref_ids = find_all_receivers(args.output_ref, args.prefix, file_type)
+        ids = np.intersect1d(sim_ids, ref_ids)
+        assert len(ids) == len(ref_ids), (
+            f"some {label} IDs are missing: {ids} vs {ref_ids}"
         )
-        if len(broken_receivers) > 0:
-            sys.exit(1)
+        errors = {index: receiver_diff(args, index, file_type=file_type) for index in ref_ids}
+        ANY_FAILURE |= report_errors(label, errors, args.epsilon)
 
-    quantities = [
-        "absolute slip",
-        "friction coefficient",
-        "peak sliprate",
-        "traction",
-        "rupture time",
-        "sliprate",
-        "slip",
-        "normal velocity",
-    ]
-    if args.mode == "lsw":
-        quantities.append("dynstress time")
-    if args.mode == "rs":
-        quantities.append("state variable")
-    if args.mode == "tp":
-        quantities.append("pressure")
-        quantities.append("temperature")
+    sys.exit(1 if ANY_FAILURE else 0)
 
-    faultreceiver_errors = pd.DataFrame(index=faultreceiver_ids, columns=quantities)
-    for i in ref_faultreceiver_ids:
-        local_errors = faultreceiver_diff(args, i, quantities)
-        faultreceiver_errors.loc[i, :] = local_errors.loc[i, :]
-
-    print("")
-    print(
-        "Relative L2 error of the different quantities at the different faultreceivers"
-    )
-    print(faultreceiver_errors.to_string())
-
-    for q in faultreceiver_errors.columns:
-        broken_faultreceivers = faultreceiver_errors.index[
-            faultreceiver_errors[q] > args.epsilon
-        ].tolist()
-        print(
-            f"{q} exceeds relative error of {args.epsilon} at faultreceivers {broken_faultreceivers}"
-        )
-
-    if (receiver_errors > args.epsilon).any().any() or (
-        faultreceiver_errors > args.epsilon
-    ).any().any():
-        sys.exit(1)
-
-    sys.exit(0)
+if __name__ == "__main__":
+    main()

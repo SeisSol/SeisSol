@@ -49,20 +49,20 @@ std::string actorStateToString(ActorState state) {
 }
 
 void MessageQueue::push(const Message& message) {
-  const std::scoped_lock lock{mutex};
-  queue.push(message);
+  const std::scoped_lock lock{mutex_};
+  queue_.push(message);
 }
 
 Message MessageQueue::pop() {
-  const std::scoped_lock lock{mutex};
-  const Message message = queue.front();
-  queue.pop();
+  const std::scoped_lock lock{mutex_};
+  const Message message = queue_.front();
+  queue_.pop();
   return message;
 }
 
-bool MessageQueue::hasMessages() const { return !queue.empty(); }
+bool MessageQueue::hasMessages() const { return !queue_.empty(); }
 
-size_t MessageQueue::size() const { return queue.size(); }
+size_t MessageQueue::size() const { return queue_.size(); }
 
 double ClusterTimes::nextCorrectionTime(double syncTime) const {
   return std::min(syncTime, correctionTime + maxTimeStepSize);
@@ -90,34 +90,24 @@ NeighborCluster::NeighborCluster(double maxTimeStepSize,
 }
 
 DynamicRuptureScheduler::DynamicRuptureScheduler(long numberOfDynamicRuptureFaces,
-                                                 bool isFirstDynamicRuptureCluster)
-    : numberOfDynamicRuptureFaces(numberOfDynamicRuptureFaces),
-      firstClusterWithDynamicRuptureFaces(isFirstDynamicRuptureCluster) {}
+                                                 double outputTimestep)
+    : numberOfDynamicRuptureFaces_(numberOfDynamicRuptureFaces), outputTimestep_(outputTimestep) {}
 
 bool DynamicRuptureScheduler::mayComputeInterior(long curCorrectionSteps) const {
-  return curCorrectionSteps > lastCorrectionStepsInterior;
-}
-
-bool DynamicRuptureScheduler::mayComputeFaultOutput(long curCorrectionSteps) const {
-  return curCorrectionSteps == lastCorrectionStepsInterior &&
-         curCorrectionSteps == lastCorrectionStepsCopy && curCorrectionSteps > lastFaultOutput;
+  return curCorrectionSteps > lastCorrectionStepsInterior_;
 }
 
 void DynamicRuptureScheduler::setLastCorrectionStepsInterior(long steps) {
-  lastCorrectionStepsInterior = steps;
+  lastCorrectionStepsInterior_ = steps;
 }
 
 void DynamicRuptureScheduler::setLastCorrectionStepsCopy(long steps) {
-  lastCorrectionStepsCopy = steps;
+  lastCorrectionStepsCopy_ = steps;
 }
-
-void DynamicRuptureScheduler::setLastFaultOutput(long steps) { lastFaultOutput = steps; }
 
 bool DynamicRuptureScheduler::hasDynamicRuptureFaces() const {
-  return numberOfDynamicRuptureFaces > 0;
+  return numberOfDynamicRuptureFaces_ > 0;
 }
 
-bool DynamicRuptureScheduler::isFirstClusterWithDynamicRuptureFaces() const {
-  return firstClusterWithDynamicRuptureFaces;
-}
+double DynamicRuptureScheduler::getOutputTimestep() const { return outputTimestep_; }
 } // namespace seissol::time_stepping

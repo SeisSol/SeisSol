@@ -9,8 +9,8 @@
 
 #include "Common/Constants.h"
 #include "Geometry/MeshDefinition.h"
+#include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/CubeGeneratorParameters.h"
-#include "MeshReader.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
 
@@ -91,12 +91,9 @@ namespace seissol::geometry {
 // NOLINTBEGIN (-google-readability-function-size)
 
 CubeGenerator::CubeGenerator(
-    int rank,
-    int nProcs,
     const std::string& meshFile,
     const seissol::initializer::parameters::CubeGeneratorParameters& cubeParams)
-    : MeshReader(rank), // init base class
-      rank(rank), nProcs(nProcs) {
+    : rank_(seissol::Mpi::mpi.rank()), nProcs_(seissol::Mpi::mpi.size()) {
   // get cubeGenerator parameters
   const std::size_t cubeMinX = cubeParams.cubeMinX;
   const std::size_t cubeMaxX = cubeParams.cubeMaxX;
@@ -231,7 +228,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   // Setup MPI Communicator
   MPI_Comm commMaster = MPI_COMM_NULL;
-  MPI_Comm_split(seissol::Mpi::mpi.comm(), rank % 1 == 0 ? 1 : MPI_UNDEFINED, rank, &commMaster);
+  MPI_Comm_split(seissol::Mpi::mpi.comm(), rank_ % 1 == 0 ? 1 : MPI_UNDEFINED, rank_, &commMaster);
 
   size_t bndSize = -1;
   size_t bndElemSize = -1;
@@ -241,7 +238,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   // Get important dimensions
   const size_t partitions = numPartitions[3];
 
-  if (partitions != static_cast<std::size_t>(nProcs)) {
+  if (partitions != static_cast<std::size_t>(nProcs_)) {
     logError() << "Number of partitions does not match number of MPI ranks.";
   }
 
@@ -252,7 +249,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   sizes = new int[1];
   const int size = numElemPerPart[3];
   sizes[0] = size;
-  m_elements.resize(sizes[0]);
+  elements_.resize(sizes[0]);
 
   std::vector<CubeVertex> vertices;
   vertices.resize(numElemPerPart[3] * 4);
@@ -460,13 +457,14 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
     }
   }
 
-  int* elemBoundaries = new int[numElemPerPart[3] * 4];
+  std::vector<FaceType> elemBoundaries(numElemPerPart[3] * 4);
+
+  const auto faceMap = defaultFaceMap();
 
   // Calculate elemBoundaries
   for (std::size_t z = 0; z < numPartitions[2]; z++) {
     for (std::size_t y = 0; y < numPartitions[1]; y++) {
-      const std::size_t x = rank;
-      memset(elemBoundaries, 0, sizeof(int) * numElemPerPart[3] * 4);
+      const std::size_t x = rank_;
 
       if (x == 0) { // first partition in x dimension
 
@@ -476,14 +474,15 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
             const int odd = (zz + yy) % 2;
             if (odd != 0) {
               elemBoundaries[static_cast<size_t>((zz * numCubesPerPart[1] + yy) *
-                                                 numCubesPerPart[0] * 20)] = boundaryMinx;
+                                                 numCubesPerPart[0] * 20)] =
+                  faceMap.at(boundaryMinx).value();
               elemBoundaries[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] =
-                  boundaryMinx;
+                  faceMap.at(boundaryMinx).value();
             } else {
               elemBoundaries[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 2] =
-                  boundaryMinx;
+                  faceMap.at(boundaryMinx).value();
               elemBoundaries[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 12] =
-                  boundaryMinx;
+                  faceMap.at(boundaryMinx).value();
             }
           }
         }
@@ -498,20 +497,20 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
               elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
                               numCubesPerPart[0] - 1) *
                                  20 +
-                             7] = boundaryMaxx;
+                             7] = faceMap.at(boundaryMaxx).value();
               elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
                               numCubesPerPart[0] - 1) *
                                  20 +
-                             12] = boundaryMaxx;
+                             12] = faceMap.at(boundaryMaxx).value();
             } else {
               elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
                               numCubesPerPart[0] - 1) *
                                  20 +
-                             6] = boundaryMaxx;
+                             6] = faceMap.at(boundaryMaxx).value();
               elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
                               numCubesPerPart[0] - 1) *
                                  20 +
-                             9] = boundaryMaxx;
+                             9] = faceMap.at(boundaryMaxx).value();
             }
           }
         }
@@ -524,14 +523,14 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
             const int odd = (zz + xx) % 2;
             if (odd != 0) {
               elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 6] =
-                  boundaryMiny;
+                  faceMap.at(boundaryMiny).value();
               elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 9] =
-                  boundaryMiny;
+                  faceMap.at(boundaryMiny).value();
             } else {
               elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 1] =
-                  boundaryMiny;
+                  faceMap.at(boundaryMiny).value();
               elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 10] =
-                  boundaryMiny;
+                  faceMap.at(boundaryMiny).value();
             }
           }
         }
@@ -546,20 +545,20 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
               elemBoundaries
                   [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
                        20 +
-                   3] = boundaryMaxy;
+                   3] = faceMap.at(boundaryMaxy).value();
               elemBoundaries
                   [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
                        20 +
-                   14] = boundaryMaxy;
+                   14] = faceMap.at(boundaryMaxy).value();
             } else {
               elemBoundaries
                   [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
                        20 +
-                   7] = boundaryMaxy;
+                   7] = faceMap.at(boundaryMaxy).value();
               elemBoundaries
                   [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
                        20 +
-                   13] = boundaryMaxy;
+                   13] = faceMap.at(boundaryMaxy).value();
             }
           }
         }
@@ -572,12 +571,15 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
           for (std::size_t xx = 0; xx < numCubesPerPart[0]; xx++) {
             const int odd = (yy + xx) % 2;
             if (odd != 0) {
-              elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 1] = boundaryMinz;
-              elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 5] = boundaryMinz;
+              elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 1] =
+                  faceMap.at(boundaryMinz).value();
+              elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 5] =
+                  faceMap.at(boundaryMinz).value();
             } else {
               elemBoundaries[static_cast<size_t>((yy * numCubesPerPart[0] + xx) * 20)] =
-                  boundaryMinz;
-              elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 5] = boundaryMinz;
+                  faceMap.at(boundaryMinz).value();
+              elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 5] =
+                  faceMap.at(boundaryMinz).value();
             }
           }
         }
@@ -594,20 +596,20 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
             elemBoundaries
                 [(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
                      20 +
-                 11] = boundaryMaxz;
+                 11] = faceMap.at(boundaryMaxz).value();
             elemBoundaries
                 [(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
                      20 +
-                 15] = boundaryMaxz;
+                 15] = faceMap.at(boundaryMaxz).value();
             //                                                                    } else {
             //                                                                            elemBoundaries[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
             //                                                                            * 20 + 11]
             //                                                                            =
-            //                                                                            boundaryMaxz;
+            //                                                                            faceMap.at(boundaryMaxz).value();
             //                                                                            elemBoundaries[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
             //                                                                            * 20 + 15]
             //                                                                            =
-            //                                                                            boundaryMaxz;
+            //                                                                            faceMap.at(boundaryMaxz).value();
             //                                                                    }
           }
         }
@@ -616,7 +618,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
       for (int i = 0; i < sizes[0]; i++) {
         // ElemBoundaries is an int array of size 4
         std::copy_n(
-            &elemBoundaries[static_cast<ptrdiff_t>(i * 4)], 4, m_elements[i].boundaries.data());
+            &elemBoundaries[static_cast<ptrdiff_t>(i * 4)], 4, elements_[i].boundaries.data());
       }
     }
   }
@@ -639,7 +641,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   // Calculate elemNeighborSides
   for (std::size_t z = 0; z < numPartitions[2]; z++) {
     for (std::size_t y = 0; y < numPartitions[1]; y++) {
-      const std::size_t x = rank;
+      const std::size_t x = rank_;
       std::copy_n(elemNeighborSidesDef, numElemPerPart[3] * 4, elemNeighborSides);
 
       if (boundaryMinx != 6 && x == 0) { // first partition in x dimension
@@ -785,7 +787,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         // ElemNeighborSides is an int array of size 4
         std::copy_n(&elemNeighborSides[static_cast<ptrdiff_t>(i * 4)],
                     4,
-                    m_elements[i].neighborSides.data());
+                    elements_[i].neighborSides.data());
       }
     }
   }
@@ -810,7 +812,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   // Calculate elemSideOrientations
   for (std::size_t z = 0; z < numPartitions[2]; z++) {
     for (std::size_t y = 0; y < numPartitions[1]; y++) {
-      const std::size_t x = rank;
+      const std::size_t x = rank_;
 
       std::copy_n(elemSideOrientationsDef, numElemPerPart[3] * 4, elemSideOrientations);
 
@@ -916,7 +918,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         // ElemSideOrientations is an int array of size 4
         std::copy_n(&elemSideOrientations[static_cast<ptrdiff_t>(i * 4)],
                     4,
-                    m_elements[i].sideOrientations.data());
+                    elements_[i].sideOrientations.data());
       }
     }
   }
@@ -927,7 +929,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   for (std::size_t z = 0; z < numPartitions[2]; z++) {
     for (std::size_t y = 0; y < numPartitions[1]; y++) {
-      const std::size_t x = rank;
+      const std::size_t x = rank_;
       const int myrank = (z * numPartitions[1] + y) * numPartitions[0] + x;
 
       std::fill(elemNeighborRanks, elemNeighborRanks + numElemPerPart[3] * 4, myrank);
@@ -1097,7 +1099,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
         // ElemNeighborRanks is an int array of size 4
         std::copy_n(&elemNeighborRanks[static_cast<ptrdiff_t>(i * 4)],
                     4,
-                    m_elements[i].neighborRanks.data());
+                    elements_[i].neighborRanks.data());
       }
     }
   }
@@ -1115,7 +1117,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   // calculate bndElem variables, bndLocalIds and elemMPIIndices
   for (std::size_t z = 0; z < numPartitions[2]; z++) {
     for (std::size_t y = 0; y < numPartitions[1]; y++) {
-      const std::size_t x = rank;
+      const std::size_t x = rank_;
       memset(elemMPIIndices, 0, sizeof(int) * numElemPerPart[3] * 4);
 
       std::size_t bndSize = 0;
@@ -1392,7 +1394,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
       for (int i = 0; i < sizes[0]; i++) {
         // ElemMPIIndices is an int array of size 4
         std::copy_n(
-            &elemMPIIndices[static_cast<ptrdiff_t>(i * 4)], 4, m_elements[i].mpiIndices.data());
+            &elemMPIIndices[static_cast<ptrdiff_t>(i * 4)], 4, elements_[i].mpiIndices.data());
       }
 
       bndSizePtr[(z * numPartitions[1] + y) * numPartitions[0] + x] = bndSize;
@@ -1403,23 +1405,22 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   int* elemGroup = new int[numElemPerPart[3]];
   std::fill(elemGroup, elemGroup + numElemPerPart[3], 1);
 
-  // copy the remaining Elem variables to m_elements
+  // copy the remaining Elem variables to elements_
   auto* elemVerticesCast = reinterpret_cast<int (*)[Cell::NumVertices]>(elemVertices);
   auto* elemNeighborsCast = reinterpret_cast<int (*)[Cell::NumFaces]>(elemNeighbors);
 
   for (int i = 0; i < sizes[0]; i++) {
-    m_elements[i].localId = i;
+    elements_[i].localId = i;
 
-    std::copy_n(elemVerticesCast[i], Cell::NumVertices, m_elements[i].vertices.data());
-    std::copy_n(elemNeighborsCast[i], Cell::NumFaces, m_elements[i].neighbors.data());
-    m_elements[i].group = elemGroup[i];
+    std::copy_n(elemVerticesCast[i], Cell::NumVertices, elements_[i].vertices.data());
+    std::copy_n(elemNeighborsCast[i], Cell::NumFaces, elements_[i].neighbors.data());
+    elements_[i].group = elemGroup[i];
   }
 
   delete[] elemVerticesCast;
   delete[] elemNeighborsCast;
   delete[] elemNeighborSides;
   delete[] elemSideOrientations;
-  delete[] elemBoundaries;
   delete[] elemNeighborRanks;
   delete[] elemMPIIndices;
   delete[] elemGroup;
@@ -1431,7 +1432,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
             inserter(uniqueVertices, uniqueVertices.begin()),
             flip_pair<CubeVertex, int>);
 
-  m_vertices.resize(uniqueVertices.size());
+  vertices_.resize(uniqueVertices.size());
 
   const double halfWidthX = scaleX / 2.0;
   const double halfWidthY = scaleY / 2.0;
@@ -1442,7 +1443,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   for (std::size_t z = 0; z < numPartitions[2]; z++) {
     for (std::size_t y = 0; y < numPartitions[1]; y++) {
-      const std::size_t x = rank;
+      const std::size_t x = rank_;
 
 #pragma omp parallel for schedule(static)
       for (std::size_t i = 0; i < uniqueVertices.size(); i++) {
@@ -1465,13 +1466,13 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
   // Copy buffers to vertices
   for (std::size_t i = 0; i < uniqueVertices.size(); i++) {
     // VrtxCoord is defined as an int array of size 3
-    std::copy_n(&vrtxCoords[i * 3], Cell::Dim, m_vertices[i].coords.data());
+    std::copy_n(&vrtxCoords[i * 3], Cell::Dim, vertices_[i].coords.data());
   }
 
   delete[] vrtxCoords;
 
   // Adjust sizes for the upcoming determination of neighbors
-  sizes[0] = bndSizePtr[static_cast<size_t>(rank)];
+  sizes[0] = bndSizePtr[static_cast<size_t>(rank_)];
 
   // Get maximum number of neighbors (required to get collective MPI-IO right)
   const int maxNeighbors = bndSize;
@@ -1479,7 +1480,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   size_t bndStart[3] = {0, 0, 0};
   for (int i = 0; i < maxNeighbors; i++) {
-    bndStart[0] = static_cast<size_t>(rank);
+    bndStart[0] = static_cast<size_t>(rank_);
     bndStart[1] = static_cast<size_t>(i);
 
     // Get neighbor rank
@@ -1520,11 +1521,11 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 // NOLINTEND
 
 void CubeGenerator::findElementsPerVertex() {
-  for (auto& element : m_elements) {
+  for (auto& element : elements_) {
     for (std::size_t j = 0; j < Cell::NumVertices; j++) {
-      assert(element.vertices[j] < m_vertices.size());
+      assert(element.vertices[j] < vertices_.size());
       // push back the localIds for each element of a vertex
-      m_vertices[element.vertices[j]].elements.push_back(element.localId);
+      vertices_[element.vertices[j]].elements.push_back(element.localId);
     }
   }
 }
@@ -1543,7 +1544,7 @@ void CubeGenerator::addMPINeighbor(int localID,
     neighbor.elements[i].localElement = bndElemLocalIds[i];
   }
 
-  m_MPINeighbors[bndRank] = neighbor;
+  mpiNeighbors_[bndRank] = neighbor;
 }
 
 bool CubeGenerator::inlineTimestepCompute() const { return false; }

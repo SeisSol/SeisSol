@@ -147,49 +147,49 @@ CellToVertexArray CellToVertexArray::fromVectors(
 }
 
 easi::Query ElementBarycenterGenerator::generate() const {
-  easi::Query query(m_cellToVertex.size, Cell::Dim);
+  easi::Query query(cellToVertex_.size, Cell::Dim);
 
 #pragma omp parallel for schedule(static)
-  for (std::size_t elem = 0; elem < m_cellToVertex.size; ++elem) {
-    auto vertices = m_cellToVertex.elementCoordinates(elem);
+  for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
+    auto vertices = cellToVertex_.elementCoordinates(elem);
     Eigen::Vector3d barycenter = (vertices[0] + vertices[1] + vertices[2] + vertices[3]) * 0.25;
     query.x(elem, 0) = barycenter(0);
     query.x(elem, 1) = barycenter(1);
     query.x(elem, 2) = barycenter(2);
-    query.group(elem) = m_cellToVertex.elementGroups(elem);
+    query.group(elem) = cellToVertex_.elementGroups(elem);
   }
   return query;
 }
 
 ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellToVertex)
-    : m_cellToVertex(cellToVertex) {
+    : cellToVertex_(cellToVertex) {
   const auto [quadraturePoints, quadratureWeights] =
       seissol::quadrature::quadrature<3>(ConvergenceOrder);
 
   std::copy(
-      std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(m_quadratureWeights));
+      std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(quadratureWeights_));
   for (std::size_t i = 0; i < NumQuadpoints; ++i) {
     std::copy(std::begin(quadraturePoints[i]),
               std::end(quadraturePoints[i]),
-              std::begin(m_quadraturePoints[i]));
+              std::begin(quadraturePoints_[i]));
   }
 }
 
 easi::Query ElementAverageGenerator::generate() const {
   // Generate query using quadrature points for each element
-  easi::Query query(m_cellToVertex.size * NumQuadpoints, Cell::Dim);
+  easi::Query query(cellToVertex_.size * NumQuadpoints, Cell::Dim);
 
 // Transform quadrature points to global coordinates for all elements
 #pragma omp parallel for schedule(static)
-  for (std::size_t elem = 0; elem < m_cellToVertex.size; ++elem) {
-    auto vertices = m_cellToVertex.elementCoordinates(elem);
+  for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
+    auto vertices = cellToVertex_.elementCoordinates(elem);
     const auto transform = seissol::geometry::AffineTransform(vertices);
     for (std::size_t i = 0; i < NumQuadpoints; ++i) {
-      const auto transformed = transform.refToSpace(m_quadraturePoints[i]);
+      const auto transformed = transform.refToSpace(quadraturePoints_[i]);
       for (std::size_t d = 0; d < Cell::Dim; ++d) {
         query.x(elem * NumQuadpoints + i, d) = transformed[d];
       }
-      query.group(elem * NumQuadpoints + i) = m_cellToVertex.elementGroups(elem);
+      query.group(elem * NumQuadpoints + i) = cellToVertex_.elementGroups(elem);
     }
   }
 
@@ -198,7 +198,7 @@ easi::Query ElementAverageGenerator::generate() const {
 
 std::size_t PlasticityPointGenerator::outputPerCell() const {
   constexpr auto PlasticityPoints = model::PlasticityData::PointCount;
-  return pointwise ? PlasticityPoints : 1;
+  return pointwise_ ? PlasticityPoints : 1;
 }
 
 easi::Query PlasticityPointGenerator::generate() const {
@@ -206,22 +206,22 @@ easi::Query PlasticityPointGenerator::generate() const {
   const auto pointsPerCell = outputPerCell();
 
   // Generate query using quadrature points for each element
-  easi::Query query(m_cellToVertex.size * pointsPerCell, Cell::Dim);
+  easi::Query query(cellToVertex_.size * pointsPerCell, Cell::Dim);
 
-  auto nodes = init::vNodes::view::create(const_cast<real*>(init::vNodes::Values));
+  const auto nodes = init::vNodes::view::create(init::vNodes::Values);
 
 // Transform quadrature points to global coordinates for all elements
 #pragma omp parallel for schedule(static)
-  for (std::size_t elem = 0; elem < m_cellToVertex.size; ++elem) {
+  for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
 
-    const auto vertices = m_cellToVertex.elementCoordinates(elem);
+    const auto vertices = cellToVertex_.elementCoordinates(elem);
     const auto transform = seissol::geometry::AffineTransform(vertices);
 
     for (std::size_t i = 0; i < pointsPerCell; ++i) {
 
       std::array<double, Cell::Dim> point{};
 
-      if (pointwise) {
+      if (pointwise_) {
         for (std::size_t j = 0; j < Cell::Dim; ++j) {
           if (nodes.isInRange(i, j)) {
             point[j] = nodes(i, j);
@@ -238,7 +238,7 @@ easi::Query PlasticityPointGenerator::generate() const {
       for (std::size_t d = 0; d < Cell::Dim; ++d) {
         query.x(pointIdx, d) = transformed[d];
       }
-      query.group(pointIdx) = m_cellToVertex.elementGroups(elem);
+      query.group(pointIdx) = cellToVertex_.elementGroups(elem);
     }
   }
 
@@ -246,11 +246,11 @@ easi::Query PlasticityPointGenerator::generate() const {
 }
 
 easi::Query FaultBarycenterGenerator::generate() const {
-  const std::vector<Fault>& fault = m_meshReader.getFault();
-  const std::vector<Element>& elements = m_meshReader.getElements();
-  const std::vector<Vertex>& vertices = m_meshReader.getVertices();
+  const std::vector<Fault>& fault = meshReader_.getFault();
+  const std::vector<Element>& elements = meshReader_.getElements();
+  const std::vector<Vertex>& vertices = meshReader_.getVertices();
 
-  easi::Query query(m_numberOfPoints * fault.size(), Cell::Dim);
+  easi::Query query(numberOfPoints_ * fault.size(), Cell::Dim);
   unsigned q = 0;
   for (const Fault& f : fault) {
     std::size_t element = 0;
@@ -269,8 +269,8 @@ easi::Query FaultBarycenterGenerator::generate() const {
 
     CoordinateT barycenter = {0.0, 0.0, 0.0};
     MeshTools::center(elements[element], side, vertices, barycenter);
-    for (unsigned n = 0; n < m_numberOfPoints; ++n, ++q) {
-      for (unsigned dim = 0; dim < Cell::Dim; ++dim) {
+    for (std::size_t n = 0; n < numberOfPoints_; ++n, ++q) {
+      for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
         query.x(q, dim) = barycenter[dim];
       }
       query.group(q) = elements[element].faultTags[side];
@@ -280,17 +280,17 @@ easi::Query FaultBarycenterGenerator::generate() const {
 }
 
 easi::Query FaultGPGenerator::generate() const {
-  const std::vector<Fault>& fault = m_meshReader.getFault();
-  const std::vector<Element>& elements = m_meshReader.getElements();
-  auto cellToVertex = CellToVertexArray::fromMeshReader(m_meshReader);
+  const std::vector<Fault>& fault = meshReader_.getFault();
+  const std::vector<Element>& elements = meshReader_.getElements();
+  auto cellToVertex = CellToVertexArray::fromMeshReader(meshReader_);
 
   constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim;
-  auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
-  easi::Query query(NumPoints * m_faceIDs.size(), Cell::Dim);
-  unsigned q = 0;
+  const auto pointsView = init::quadpoints::view::create(init::quadpoints::Values);
+  easi::Query query(NumPoints * faceIDs_.size(), Cell::Dim);
+  std::size_t q = 0;
   // loop over all fault elements which are managed by this generator
   // note: we have one generator per LTS layer
-  for (const unsigned faultId : m_faceIDs) {
+  for (const auto& faultId : faceIDs_) {
     const Fault& f = fault.at(faultId);
     std::size_t element = 0;
     std::int8_t side = 0;
@@ -311,7 +311,7 @@ easi::Query FaultGPGenerator::generate() const {
 
     auto coords = cellToVertex.elementCoordinates(element);
     const auto transform = seissol::geometry::AffineTransform(coords);
-    for (unsigned n = 0; n < NumPoints; ++n, ++q) {
+    for (std::size_t n = 0; n < NumPoints; ++n, ++q) {
       std::array<double, Cell::Dim> xiEtaZeta{};
       auto localPoints =
           std::array<double, 2>{seissol::multisim::multisimTranspose(pointsView, n, 0),
@@ -324,7 +324,7 @@ easi::Query FaultGPGenerator::generate() const {
 
       seissol::transformations::chiTau2XiEtaZeta(side, localPoints, xiEtaZeta, sideOrientation);
       const auto xyz = transform.refToSpace(xiEtaZeta);
-      for (unsigned dim = 0; dim < Cell::Dim; ++dim) {
+      for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
         query.x(q, dim) = xyz[dim];
       }
       query.group(q) = elements[element].faultTags[side];
@@ -427,8 +427,8 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
 
   easiEvalSafe(model, query, adapter, "volume material");
 
-  if (m_materials->size() < numPoints) {
-    m_materials->resize(numPoints);
+  if (materials_->size() < numPoints) {
+    materials_->resize(numPoints);
   }
 
   // Only use homogenization when ElementAverageGenerator has been supplied
@@ -440,13 +440,13 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
 // particular material
 #pragma omp parallel for
     for (unsigned elementIdx = 0; elementIdx < numElems; ++elementIdx) {
-      m_materials->at(elementIdx) =
+      materials_->at(elementIdx) =
           this->computeAveragedMaterial(elementIdx, quadratureWeights, materialsFromQuery);
     }
   } else {
     // Usual behavior without homogenization
     for (unsigned i = 0; i < numPoints; ++i) {
-      m_materials->at(i) = T(materialsFromQuery[i]);
+      materials_->at(i) = T(materialsFromQuery[i]);
     }
   }
   delete model;
@@ -573,8 +573,8 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
   // TODO(Sebastian): inhomogeneous materials, where in some parts only mu and lambda are given
   //                  and in other parts the full elastic tensor is given
   const auto numPoints = query.numPoints();
-  if (m_materials->size() < numPoints) {
-    m_materials->resize(numPoints);
+  if (materials_->size() < numPoints) {
+    materials_->resize(numPoints);
   }
 
   // if we look for an anisotropic material and only mu and lambda are supplied,
@@ -587,10 +587,10 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
     easiEvalSafe(model, query, adapter, "volume material (anisotropic -> elastic)");
 
     for (unsigned i = 0; i < numPoints; i++) {
-      m_materials->at(i) = AnisotropicMaterial(elasticMaterials[i]);
+      materials_->at(i) = AnisotropicMaterial(elasticMaterials[i]);
     }
   } else {
-    easi::ArrayOfStructsAdapter<AnisotropicMaterial> arrayOfStructsAdapter(m_materials->data());
+    easi::ArrayOfStructsAdapter<AnisotropicMaterial> arrayOfStructsAdapter(materials_->data());
     addBindingPoints(arrayOfStructsAdapter);
     easiEvalSafe(model, query, arrayOfStructsAdapter, "volume material (anisotropic)");
   }
@@ -603,9 +603,9 @@ void FaultParameterDB::evaluateModel(const std::string& fileName, const QueryGen
   easi::Query query = queryGen.generate();
 
   easi::ArraysAdapter<real> adapter;
-  for (auto& kv : m_parameters) {
+  for (auto& kv : parameters_) {
     adapter.addBindingPoint(
-        kv.first, kv.second.first + simid, kv.second.second * multisim::NumSimulations);
+        kv.first, kv.second.first + simid_, kv.second.second * multisim::NumSimulations);
   }
 
   easiEvalSafe(model, query, adapter, "fault material");
@@ -625,19 +625,19 @@ std::set<std::string> FaultParameterDB::faultProvides(const std::string& fileNam
   return supplied;
 }
 
-EasiBoundary::EasiBoundary(const std::string& fileName) : model(loadEasiModel(fileName)) {}
+EasiBoundary::EasiBoundary(const std::string& fileName) : model_(loadEasiModel(fileName)) {}
 
-EasiBoundary::EasiBoundary(EasiBoundary&& other) noexcept : model(other.model) {}
+EasiBoundary::EasiBoundary(EasiBoundary&& other) noexcept : model_(other.model_) {}
 
 EasiBoundary& EasiBoundary::operator=(EasiBoundary&& other) noexcept {
-  std::swap(model, other.model);
+  std::swap(model_, other.model_);
   return *this;
 }
 
-EasiBoundary::~EasiBoundary() { delete model; }
+EasiBoundary::~EasiBoundary() { delete model_; }
 
 void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTermsData) const {
-  if (model == nullptr) {
+  if (model_ == nullptr) {
     logError() << "Model for easi-provided boundary is not initialized.";
   }
   if (tensor::INodal::Shape[1] != 9) {
@@ -655,7 +655,7 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
     query.x(i, 2) = nodes[offset++];
     query.group(i) = 1;
   }
-  const auto& supplied = model->suppliedParameters();
+  const auto& supplied = model_->suppliedParameters();
 
   // Shear stresses are irrelevant for riemann problem
   // Hence they have dummy names and won't be used for this bc.
@@ -708,7 +708,7 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
       ++offset;
     }
   }
-  easiEvalSafe(model, query, adapter, "Dirichlet BC data");
+  easiEvalSafe(model_, query, adapter, "Dirichlet BC data");
 }
 
 easi::Component* loadEasiModel(const std::string& fileName) {

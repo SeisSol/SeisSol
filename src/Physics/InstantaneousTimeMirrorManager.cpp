@@ -7,36 +7,74 @@
 
 #include "InstantaneousTimeMirrorManager.h"
 
+#include "Equations/Datastructures.h"
 #include "Initializer/CellLocalMatrices.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
-#include "Model/CommonDatastructures.h"
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
 #include "SeisSol.h"
 
-#include <cmath>
 #include <cstddef>
+#include <type_traits>
 #include <utils/logger.h>
 #include <vector>
 
 namespace seissol::ITM {
+
+bool isAnisotropicReflectionTypeSupported(
+    seissol::initializer::parameters::ReflectionType reflectionType) {
+  return reflectionType == seissol::initializer::parameters::ReflectionType::BothWaves;
+}
+
+double getSwaveScaledLambda(double lambda, double mu, double velocityScalingFactor) {
+  return (lambda + 2.0 * mu) / velocityScalingFactor - 2.0 * velocityScalingFactor * mu;
+}
+
+double
+    getElasticTimeStepScalingFactor(seissol::initializer::parameters::ReflectionType reflectionType,
+                                    double velocityScalingFactor) {
+  if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWaves ||
+      reflectionType == seissol::initializer::parameters::ReflectionType::Pwave) {
+    return 1.0 / velocityScalingFactor;
+  }
+  if (reflectionType == seissol::initializer::parameters::ReflectionType::Swave) {
+    return velocityScalingFactor;
+  }
+  return 1.0;
+}
 
 void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           double triggerTime,
                                           seissol::geometry::MeshReader* meshReader,
                                           LTS::Storage& ltsStorage,
                                           const initializer::ClusterLayout* clusterLayout) {
-  isEnabled = true; // This is to sync just before and after the ITM. This does not toggle the ITM.
-                    // Need this by default as true for it to work.
-  this->velocityScalingFactor = velocityScalingFactor;
-  this->triggerTime = triggerTime;
-  this->meshReader = meshReader;
-  this->ltsStorage = &ltsStorage;
-  this->clusterLayout = clusterLayout; // An empty timestepping is added. Need to discuss what
-                                       // exactly is to be sent here
+  constexpr bool IsElastic =
+      std::is_same_v<seissol::model::MaterialT, seissol::model::ElasticMaterial>;
+  constexpr bool IsAnisotropic =
+      std::is_same_v<seissol::model::MaterialT, seissol::model::AnisotropicMaterial>;
+  if constexpr (!IsElastic && !IsAnisotropic) {
+    logError() << "ITM material update is not implemented for this material type.";
+  }
+
+  if constexpr (IsAnisotropic) {
+    const auto reflectionType =
+        seissolInstance_.getSeisSolParameters().model.itmParameters.itmReflectionType;
+    if (!isAnisotropicReflectionTypeSupported(reflectionType)) {
+      logError() << "Anisotropic materials cannot have Pwave, Swave, and BothWavesVelocity.";
+    }
+  }
+
+  isEnabled_ = true; // This is to sync just before and after the ITM. This does not toggle the ITM.
+                     // Need this by default as true for it to work.
+  this->velocityScalingFactor_ = velocityScalingFactor;
+  this->triggerTime_ = triggerTime;
+  this->meshReader_ = meshReader;
+  this->ltsStorage_ = &ltsStorage;
+  this->clusterLayout_ = clusterLayout; // An empty timestepping is added. Need to discuss what
+                                        // exactly is to be sent here
   setSyncInterval(triggerTime);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 }
@@ -44,8 +82,8 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
 void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
   Module::syncPoint(currentTime);
 
-  logInfo() << "InstantaneousTimeMirrorManager: Factor " << velocityScalingFactor;
-  if (!isEnabled) {
+  logInfo() << "InstantaneousTimeMirrorManager: Factor " << velocityScalingFactor_;
+  if (!isEnabled_) {
     logInfo() << "InstantaneousTimeMirrorManager: Skipping syncing at " << currentTime
               << "as it is disabled";
     return;
@@ -53,114 +91,127 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
 
   logInfo() << "InstantaneousTimeMirrorManager Syncing at " << currentTime;
 
-  logInfo() << "Scaling velocitites by factor of " << velocityScalingFactor;
+  logInfo() << "Scaling velocitites by factor of " << velocityScalingFactor_;
   updateVelocities();
 
   logInfo() << "Updating CellLocalMatrices";
   initializer::initializeCellLocalMatrices(
-      *meshReader, *ltsStorage, *clusterLayout, seissolInstance.getSeisSolParameters().model);
+      *meshReader_, *ltsStorage_, *clusterLayout_, seissolInstance_.getSeisSolParameters().model);
   // An empty timestepping is added. Need to discuss what exactly is to be sent here
-
-  logInfo() << "Updating TimeSteps by a factor of " << 1 / velocityScalingFactor;
+#ifdef ACL_DEVICE
+  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+  ltsStorage_->varSynchronizeTo<LTS::LocalIntegration>(
+      seissol::initializer::AllocationPlace::Device, stream);
+  ltsStorage_->varSynchronizeTo<LTS::NeighboringIntegration>(
+      seissol::initializer::AllocationPlace::Device, stream);
+  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+#endif
+  logInfo() << "Updating TimeSteps by a factor of " << 1 / velocityScalingFactor_;
   updateTimeSteps();
 
   logInfo() << "Finished flipping.";
-  isEnabled = false;
+  isEnabled_ = false;
 }
 
-void InstantaneousTimeMirrorManager::updateVelocities() {
-  auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
-  auto reflectionType = itmParameters.itmReflectionType;
+template <typename MaterialType>
+void InstantaneousTimeMirrorManager::updateVelocitiesForMaterialType() {
+  constexpr bool IsElastic = std::is_same_v<MaterialType, seissol::model::ElasticMaterial>;
+  constexpr bool IsAnisotropic = std::is_same_v<MaterialType, seissol::model::AnisotropicMaterial>;
 
-  const auto updateMaterial = [&](model::Material& material) {
-    const auto rho = material.getDensity();
-    const auto lambda = material.getLambdaBar();
-    const auto mu = material.getMuBar();
+  const auto itmParameters = seissolInstance_.getSeisSolParameters().model.itmParameters;
+  const auto reflectionType = itmParameters.itmReflectionType;
 
-    if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWaves) {
-      material.setLameParameters(mu * velocityScalingFactor * velocityScalingFactor,
-                                 lambda * velocityScalingFactor * velocityScalingFactor);
-    } else if (reflectionType ==
-               seissol::initializer::parameters::ReflectionType::BothWavesVelocity) {
-      material.setDensity(rho * velocityScalingFactor);
-      material.setLameParameters(mu * velocityScalingFactor, lambda * velocityScalingFactor);
-    } else if (reflectionType == seissol::initializer::parameters::ReflectionType::Pwave) {
-      material.setLameParameters(mu, lambda * velocityScalingFactor * velocityScalingFactor);
-    } else if (reflectionType == seissol::initializer::parameters::ReflectionType::Swave) {
-      // Refocusing only S-waves
+  const auto updateMaterial = [&](MaterialType& material) {
+    if constexpr (IsElastic) {
+      const auto rho = material.getDensity();
+      const auto lambda = material.getLambdaBar();
+      const auto mu = material.getMuBar();
 
-      // (preserved comment from before the refactor)
-      // lambda = -2.0 * velocityScalingFactor * mu + (lambda + 2.0 * mu) / velocityScalingFactor;
-      // mu *= velocityScalingFactor;
-      // rho *= velocityScalingFactor;
+      if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWaves) {
+        material.setLameParameters(mu * velocityScalingFactor_ * velocityScalingFactor_,
+                                   lambda * velocityScalingFactor_ * velocityScalingFactor_);
+      } else if (reflectionType ==
+                 seissol::initializer::parameters::ReflectionType::BothWavesVelocity) {
+        material.setDensity(rho * velocityScalingFactor_);
+        material.setLameParameters(mu * velocityScalingFactor_, lambda * velocityScalingFactor_);
+      } else if (reflectionType == seissol::initializer::parameters::ReflectionType::Pwave) {
+        material.setLameParameters(mu, lambda * velocityScalingFactor_ * velocityScalingFactor_);
+      } else if (reflectionType == seissol::initializer::parameters::ReflectionType::Swave) {
+        const auto newLambda = getSwaveScaledLambda(lambda, mu, velocityScalingFactor_);
+        if (newLambda < 0.0) {
+          logError() << "New lambda is negative. This is not allowed. Please adjust your scaling "
+                        "factor.";
+        }
+        material.setDensity(velocityScalingFactor_ * rho);
+        material.setLameParameters(velocityScalingFactor_ * mu, newLambda);
+      } else {
+        logError() << "Unknown reflection type; material cannot be updated.";
+      }
+    }
 
-      const auto newLambda = lambda + 2.0 * mu * (1 - velocityScalingFactor);
-      material.setDensity(rho * lambda / newLambda);
-      material.setLameParameters(velocityScalingFactor * mu, newLambda);
-    } else {
-      logError() << "Unknown reflection type; material cannot be updated.";
+    if constexpr (IsAnisotropic) {
+      // for anisotropic materials, you could scale down density
+      // or scale up all the direction-dependent coefficients.
+      // we scale density for code simplicity
+      material.setDensity(material.getDensity() /
+                          (velocityScalingFactor_ * velocityScalingFactor_));
     }
   };
 
-  for (auto& layer : ltsStorage->leaves(Ghost)) {
-    auto* materialData = layer.var<LTS::MaterialData>();
+  for (auto& layer : ltsStorage_->leaves(Ghost)) {
 
 #pragma omp parallel for schedule(static)
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      // for now, keep the NOLINTNEXTLINE here (due to polymorphic access)
-      // NOLINTNEXTLINE
-      auto& material = materialData[cell];
-
+      auto& material = layer.cellRef(cell).get<LTS::MaterialData>();
       updateMaterial(material);
     }
   }
 }
 
-void InstantaneousTimeMirrorManager::updateTimeSteps() {
-
-  auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
-  auto reflectionType = itmParameters.itmReflectionType;
-
-  if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWaves ||
-      reflectionType == seissol::initializer::parameters::ReflectionType::Pwave)
-  // refocusing both the waves. Default scenario. Works for both waves, only P-wave and constant
-  // impedance case
-  {
-    for (auto& cluster : clusters) {
-      cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
-      auto* neighborClusters = cluster->getNeighborClusters();
-      for (auto& neighborCluster : *neighborClusters) {
-        neighborCluster.ct.setTimeStepSize(neighborCluster.ct.getTimeStepSize() /
-                                           velocityScalingFactor);
-      }
-    }
+template <typename MaterialType>
+void InstantaneousTimeMirrorManager::updateTimeStepsForMaterialType() {
+  constexpr bool IsElastic = std::is_same_v<MaterialType, seissol::model::ElasticMaterial>;
+  constexpr bool IsAnisotropic = std::is_same_v<MaterialType, seissol::model::AnisotropicMaterial>;
+  if constexpr (!IsElastic && !IsAnisotropic) {
+    return;
   }
 
-  if (reflectionType ==
-      seissol::initializer::parameters::ReflectionType::Swave) { // refocusing only S-waves
+  const auto itmParameters = seissolInstance_.getSeisSolParameters().model.itmParameters;
+  const auto reflectionType = itmParameters.itmReflectionType;
 
-    if (abs(timeStepScalingFactor - 1.0) < 1e-6) {
-      timeStepScalingFactor = 0.5;
-    }
+  double timeStepScaling = 1.0;
+  if constexpr (IsElastic) {
+    timeStepScaling = getElasticTimeStepScalingFactor(reflectionType, velocityScalingFactor_);
+  } else {
+    timeStepScaling = 1.0 / velocityScalingFactor_;
+  }
 
-    if (abs(timeStepScalingFactor - 0.5) < 1e-6) {
-      timeStepScalingFactor = 2.0;
-    }
+  if (timeStepScaling != 1.0) {
+    scaleClusterTimes(timeStepScaling);
+  }
+}
 
-    for (auto& cluster : clusters) {
-      cluster->setClusterTimes(cluster->getClusterTimes() * timeStepScalingFactor);
-      auto* neighborClusters = cluster->getNeighborClusters();
-      for (auto& neighborCluster : *neighborClusters) {
-        neighborCluster.ct.setTimeStepSize(neighborCluster.ct.getTimeStepSize() *
-                                           timeStepScalingFactor);
-      }
+void InstantaneousTimeMirrorManager::scaleClusterTimes(double scalingFactor) {
+  for (auto& cluster : clusters_) {
+    cluster->setClusterTimes(cluster->getClusterTimes() * scalingFactor);
+    auto* neighborClusters = cluster->getNeighborClusters();
+    for (auto& neighborCluster : *neighborClusters) {
+      neighborCluster.ct.setTimeStepSize(neighborCluster.ct.getTimeStepSize() * scalingFactor);
     }
   }
 }
 
+void InstantaneousTimeMirrorManager::updateVelocities() {
+  updateVelocitiesForMaterialType<seissol::model::MaterialT>();
+}
+
+void InstantaneousTimeMirrorManager::updateTimeSteps() {
+  updateTimeStepsForMaterialType<seissol::model::MaterialT>();
+}
+
 void InstantaneousTimeMirrorManager::setClusterVector(
     const std::vector<seissol::time_stepping::AbstractTimeCluster*>& clusters) {
-  this->clusters = clusters;
+  this->clusters_ = clusters;
 }
 
 void initializeTimeMirrorManagers(double scalingFactor,
@@ -180,7 +231,6 @@ void initializeTimeMirrorManagers(double scalingFactor,
   auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
   const double eps = itmParameters.itmDuration;
 
-  // const double eps = 1.0;
   decreaseManager.init(1 / scalingFactor,
                        triggerTime + eps,
                        meshReader,

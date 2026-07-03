@@ -44,8 +44,8 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
     unsigned& nCells,
     unsigned& nVertices) {
   // TODO: Vertices could be pre-filtered
-  nCells = m_freeSurfaceIntegrator->totalNumberOfTriangles;
-  nVertices = 3 * m_freeSurfaceIntegrator->totalNumberOfTriangles;
+  nCells = freeSurfaceIntegrator_->totalNumberOfTriangles;
+  nVertices = 3 * freeSurfaceIntegrator_->totalNumberOfTriangles;
   if (nCells == 0 || nVertices == 0) {
     cells = nullptr;
     vertices = nullptr;
@@ -58,12 +58,12 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
   const std::vector<Element>& meshElements = meshReader.getElements();
   const std::vector<Vertex>& meshVertices = meshReader.getVertices();
 
-  const std::size_t numberOfSubTriangles = m_freeSurfaceIntegrator->triRefiner.subTris.size();
+  const std::size_t numberOfSubTriangles = freeSurfaceIntegrator_->triRefiner.subTris.size();
 
-  auto* meshIds = m_freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::MeshId>();
-  auto* sides = m_freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::Side>();
-  auto* outputPosition = m_freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::OutputPosition>();
-  for (std::size_t fs = 0; fs < m_freeSurfaceIntegrator->surfaceStorage->size(Ghost); ++fs) {
+  auto* meshIds = freeSurfaceIntegrator_->surfaceStorage->var<SurfaceLTS::MeshId>();
+  auto* sides = freeSurfaceIntegrator_->surfaceStorage->var<SurfaceLTS::Side>();
+  auto* outputPosition = freeSurfaceIntegrator_->surfaceStorage->var<SurfaceLTS::OutputPosition>();
+  for (std::size_t fs = 0; fs < freeSurfaceIntegrator_->surfaceStorage->size(Ghost); ++fs) {
     if (outputPosition[fs] != std::numeric_limits<std::size_t>::max()) {
       const auto meshId = meshIds[fs];
       const auto side = sides[fs];
@@ -83,7 +83,7 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
 
       for (std::size_t tri = 0; tri < numberOfSubTriangles; ++tri) {
         const seissol::refinement::Triangle& subTri =
-            m_freeSurfaceIntegrator->triRefiner.subTris[tri];
+            freeSurfaceIntegrator_->triRefiner.subTris[tri];
         for (std::size_t vertex = 0; vertex < Cell::Dim; ++vertex) {
           const auto vertexPosition =
               3 * (outputPosition[fs] * numberOfSubTriangles + tri) + vertex;
@@ -100,21 +100,20 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
 }
 
 void seissol::writer::FreeSurfaceWriter::setUp() {
-  setExecutor(m_executor);
+  setExecutor(executor_);
 
   utils::Env env("SEISSOL_");
   if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, env)) {
-    const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
+    const auto freeCpus = seissolInstance_.getPinning().getFreeCPUsMask();
     logInfo() << "Free surface writer thread affinity:" << parallel::Pinning::maskToString(freeCpus)
               << "(" << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
-    ;
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
   }
 }
 
-void seissol::writer::FreeSurfaceWriter::enable() { m_enabled = true; }
+void seissol::writer::FreeSurfaceWriter::enable() { enabled_ = true; }
 
 void seissol::writer::FreeSurfaceWriter::init(
     const seissol::geometry::MeshReader& meshReader,
@@ -123,11 +122,11 @@ void seissol::writer::FreeSurfaceWriter::init(
     double interval,
     xdmfwriter::BackendType backend,
     const std::string& backupTimeStamp) {
-  if (!m_enabled) {
+  if (!enabled_) {
     return;
   }
 
-  m_freeSurfaceIntegrator = freeSurfaceIntegrator;
+  freeSurfaceIntegrator_ = freeSurfaceIntegrator;
 
   logInfo() << "Initializing free surface output.";
 
@@ -143,7 +142,7 @@ void seissol::writer::FreeSurfaceWriter::init(
   unsigned nVertices = 0;
   constructSurfaceMesh(meshReader, cells, vertices, nCells, nVertices);
 
-  const AsyncCellIDs<3> cellIds(nCells, nVertices, cells, seissolInstance);
+  const AsyncCellIDs<3> cellIds(nCells, nVertices, cells, seissolInstance_);
 
   // Create buffer for output prefix
   unsigned int bufferId = addSyncBuffer(outputPrefix, strlen(outputPrefix) + 1, true);
@@ -158,19 +157,18 @@ void seissol::writer::FreeSurfaceWriter::init(
   bufferId = addSyncBuffer(vertices, static_cast<unsigned long>(nVertices * 3) * sizeof(double));
   assert(bufferId == FreeSurfaceWriterExecutor::Vertices);
   NDBG_UNUSED(bufferId);
-  bufferId =
-      addSyncBuffer(m_freeSurfaceIntegrator->locationFlags.data(), nCells * sizeof(unsigned));
+  bufferId = addSyncBuffer(freeSurfaceIntegrator_->locationFlags.data(), nCells * sizeof(unsigned));
   assert(bufferId == FreeSurfaceWriterExecutor::LocationFlags);
   NDBG_UNUSED(bufferId);
 
-  bufferId = addSyncBuffer(m_freeSurfaceIntegrator->globalIds.data(), nCells * sizeof(unsigned));
+  bufferId = addSyncBuffer(freeSurfaceIntegrator_->globalIds.data(), nCells * sizeof(unsigned));
   assert(bufferId == FreeSurfaceWriterExecutor::GlobalIds);
   NDBG_UNUSED(bufferId);
 
-  for (auto& velocity : m_freeSurfaceIntegrator->velocities) {
+  for (auto& velocity : freeSurfaceIntegrator_->velocities) {
     addBuffer(velocity, nCells * sizeof(real));
   }
-  for (auto& displacement : m_freeSurfaceIntegrator->displacements) {
+  for (auto& displacement : freeSurfaceIntegrator_->displacements) {
     addBuffer(displacement, nCells * sizeof(real));
   }
 
@@ -210,11 +208,11 @@ void seissol::writer::FreeSurfaceWriter::init(
 void seissol::writer::FreeSurfaceWriter::write(double time) {
   SCOREP_USER_REGION("FreeSurfaceWriter_write", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-  if (!m_enabled) {
+  if (!enabled_) {
     logError() << "Trying to write free surface output, but it is disabled.";
   }
 
-  m_stopwatch.start();
+  stopwatch_.start();
 
   wait();
 
@@ -229,7 +227,7 @@ void seissol::writer::FreeSurfaceWriter::write(double time) {
 
   call(param);
 
-  m_stopwatch.pause();
+  stopwatch_.pause();
 
   logInfo() << "Writing free surface at time" << utils::nospace << time << ". Done.";
 }
@@ -243,6 +241,6 @@ void seissol::writer::FreeSurfaceWriter::simulationStart(std::optional<double> c
 void seissol::writer::FreeSurfaceWriter::syncPoint(double currentTime) {
   SCOREP_USER_REGION("freesurfaceoutput", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-  m_freeSurfaceIntegrator->calculateOutput();
+  freeSurfaceIntegrator_->calculateOutput();
   write(currentTime);
 }

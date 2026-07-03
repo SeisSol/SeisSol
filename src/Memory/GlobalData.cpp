@@ -8,6 +8,7 @@
 
 #include "GlobalData.h"
 
+#include "Common/Constants.h"
 #include "Common/Marker.h"
 #include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
@@ -15,12 +16,17 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
 #include "Memory/MemoryAllocator.h"
 #include "Parallel/OpenMP.h"
 
 #include <cassert>
 #include <cstddef>
 #include <yateto.h>
+
+#ifdef ACL_DEVICE
+#include <Device/device.h>
+#endif
 
 namespace seissol::initializer {
 namespace matrixmanip {
@@ -31,6 +37,9 @@ MemoryProperties OnHost::getProperties() {
 
 void OnHost::negateStiffnessMatrix(GlobalData& globalData) {
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
+    // TODO: move this initialization somewhere else, e.g. into the matrix files
+
+    // NOLINTNEXTLINE (cppcoreguidelines-pro-type-const-cast)
     real* matrix = const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness));
     for (unsigned i = 0; i < init::kDivMT::size(transposedStiffness); ++i) {
       matrix[i] *= -1.0;
@@ -45,7 +54,7 @@ void OnHost::initSpecificGlobalData(GlobalData& globalData,
                                     seissol::memory::Memkind memkind) {
   // thread-local LTS integration buffers
   const auto numThreads = OpenMP::threadCount();
-  const auto allocSize = 4 * static_cast<std::size_t>(tensor::I::size());
+  const auto allocSize = Cell::NumFaces * kernels::Solver::BuffersSize;
   auto* integrationBufferLTS = reinterpret_cast<real*>(
       allocator.allocateMemory(numThreads * allocSize * sizeof(real), alignment, memkind));
 
@@ -79,6 +88,7 @@ void OnDevice::negateStiffnessMatrix(GlobalData& globalData) {
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
     const real scaleFactor = -1.0;
     device.algorithms.scaleArray(
+        // NOLINTNEXTLINE (cppcoreguidelines-pro-type-const-cast)
         const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness)),
         scaleFactor,
         init::kDivMT::size(transposedStiffness),

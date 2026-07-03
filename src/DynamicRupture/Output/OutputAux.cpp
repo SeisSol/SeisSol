@@ -114,8 +114,8 @@ TriangleQuadratureData generateTriangleQuadrature() {
   TriangleQuadratureData data{};
 
   // Generate triangle quadrature points and weights (Factory Method)
-  auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
-  auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
+  const auto pointsView = init::quadpoints::view::create(init::quadpoints::Values);
+  const auto weightsView = init::quadweights::view::create(init::quadweights::Values);
 
   auto* reshapedPoints = unsafe_reshape<2>((data.points).data());
   for (size_t i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
@@ -129,12 +129,12 @@ TriangleQuadratureData generateTriangleQuadrature() {
 
 std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
                                            const double (*facePoints)[2],
-                                           const unsigned numFacePoints) {
+                                           std::size_t numFacePoints) {
 
   int nearestPoint{-1};
   double shortestDistance = std::numeric_limits<double>::max();
 
-  for (unsigned index = 0; index < numFacePoints; ++index) {
+  for (std::size_t index = 0; index < numFacePoints; ++index) {
     const double nextPoint[2] = {facePoints[index][0], facePoints[index][1]};
 
     const auto currentDistance = distance(targetPoint, nextPoint);
@@ -237,7 +237,7 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const CoordinateT& pointCoord
     const auto referenceCoords = transform.spaceToRef(point);
     const basisFunction::SampledBasisFunctions<real> sampler(
         ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
-    return sampler.m_data;
+    return sampler.data();
   };
 
   PlusMinusBasisFunctions basisFunctions{};

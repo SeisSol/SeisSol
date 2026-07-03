@@ -36,7 +36,8 @@ class SevereVelocityWeakeningLaw
                                              DynamicRupture::Layer& layerData) {}
 
   // Note that we need double precision here, since single precision led to NaNs.
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
+                                                 double timeIncrement) {
     const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const real localSlipRate = ctx.initialVariables.localSlipRate;
 
@@ -71,7 +72,8 @@ class SevereVelocityWeakeningLaw
     real c{};
   };
 
-  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& ctx, real localStateVariable) {
+  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& __restrict ctx,
+                                               real localStateVariable) {
     const real localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const real c = ctx.data->b[ctx.ltsFace][ctx.pointIndex] * localStateVariable /
@@ -79,15 +81,16 @@ class SevereVelocityWeakeningLaw
     return MuDetails{localA, c};
   }
 
-  SEISSOL_DEVICE static real
-      updateMu(FrictionLawContext& ctx, real localSlipRateMagnitude, const MuDetails& details) {
+  SEISSOL_DEVICE static real updateMu(FrictionLawContext& __restrict ctx,
+                                      real localSlipRateMagnitude,
+                                      const MuDetails& details) {
     return ctx.data->f0[ctx.ltsFace][ctx.pointIndex] +
            details.a * localSlipRateMagnitude /
                (localSlipRateMagnitude + ctx.data->drParameters.rsSr0) -
            details.c;
   }
 
-  SEISSOL_DEVICE static real updateMuDerivative(FrictionLawContext& ctx,
+  SEISSOL_DEVICE static real updateMuDerivative(FrictionLawContext& __restrict ctx,
                                                 real localSlipRateMagnitude,
                                                 const MuDetails& details) {
     // note that: d/dx (x/(x+c)) = ((x+c)-x)/(x+c)**2 = c/(x+c)**2
@@ -96,11 +99,9 @@ class SevereVelocityWeakeningLaw
   }
 
   // no resampling
-  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {
+  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& __restrict ctx) {
     ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] = ctx.stateVariableBuffer;
   }
-
-  SEISSOL_DEVICE static void executeIfNotConverged() {}
 };
 } // namespace seissol::dr::friction_law::gpu
 

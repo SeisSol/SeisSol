@@ -11,6 +11,7 @@
 
 #include "Common/CompactOptional.h"
 #include "Common/Constants.h"
+#include "Initializer/BasicTypedefs.h"
 
 #include <cstddef>
 #include <vector>
@@ -28,7 +29,7 @@ struct Element {
   std::array<int8_t, Cell::NumFaces> neighborSides{};
   std::array<int8_t, Cell::NumFaces> sideOrientations{};
   /** Domain boundary condition, or 0 for inner elements and MPI boundaries */
-  std::array<int, Cell::NumFaces> boundaries{};
+  std::array<FaceType, Cell::NumFaces> boundaries{};
   std::array<int, Cell::NumFaces> neighborRanks{};
   std::array<size_t, Cell::NumFaces> mpiIndices{};
   /** Material of the element */

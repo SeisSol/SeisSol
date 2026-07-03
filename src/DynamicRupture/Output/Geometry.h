@@ -21,26 +21,26 @@ struct ExtTriangle {
   ExtTriangle() = default;
 
   explicit ExtTriangle(const CoordinateT& p1, const CoordinateT& p2, const CoordinateT& p3) {
-    points[0] = p1;
-    points[1] = p2;
-    points[2] = p3;
+    points_[0] = p1;
+    points_[1] = p2;
+    points_[2] = p3;
   }
 
   CoordinateT& point(size_t index) {
-    assert((index < points.size()) && "ExtTriangle index must be less than 3");
-    return points[index];
+    assert((index < points_.size()) && "ExtTriangle index must be less than 3");
+    return points_[index];
   }
 
   [[nodiscard]] const CoordinateT& point(size_t index) const {
-    assert((index < points.size()) && "ExtTriangle index must be less than 3");
-    return points[index];
+    assert((index < points_.size()) && "ExtTriangle index must be less than 3");
+    return points_[index];
   }
 
   static constexpr std::size_t size() { return Size; }
 
   private:
   static constexpr std::size_t Size = 3;
-  std::array<CoordinateT, Size> points{};
+  std::array<CoordinateT, Size> points_{};
 };
 
 struct ReceiverPoint {

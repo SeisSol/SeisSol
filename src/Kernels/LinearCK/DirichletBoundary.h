@@ -39,7 +39,7 @@ class DirichletBoundary {
 
   public:
   DirichletBoundary() {
-    quadrature::GaussLegendre(quadPoints.data(), quadWeights.data(), ConvergenceOrder);
+    quadrature::GaussLegendre(quadPoints_.data(), quadWeights_.data(), ConvergenceOrder);
   }
 
   template <typename Func, typename MappingKrnl>
@@ -75,7 +75,7 @@ class DirichletBoundary {
                         InverseMappingKrnl& nodalLfKrnlPrototype,
                         local_flux::aux::DirichletBoundaryAux<Func>& boundaryCondition,
                         recording::ConditionalPointersToRealsTable& dataTable,
-                        device::DeviceInstance& device,
+                        device::DeviceInstance& /*device*/,
                         seissol::parallel::runtime::StreamRuntime& runtime) const {
     using namespace seissol::recording;
     const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize()};
@@ -113,6 +113,8 @@ class DirichletBoundary {
         dataTable[key].get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
     nodalLfKrnl.extraOffset_AminusT =
         SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, faceIdx);
+    SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData, nAmNm1);
+
     nodalLfKrnl.linearAllocator.initialize(auxTmpMem.get());
     nodalLfKrnl.streamPtr = deviceStream;
     nodalLfKrnl.execute(faceIdx);
@@ -141,8 +143,8 @@ class DirichletBoundary {
     double timePoints[ConvergenceOrder];
     double timeWeights[ConvergenceOrder];
     for (unsigned point = 0; point < ConvergenceOrder; ++point) {
-      timePoints[point] = (timeStepWidth * quadPoints[point] + 2 * startTime + timeStepWidth) / 2;
-      timeWeights[point] = 0.5 * timeStepWidth * quadWeights[point];
+      timePoints[point] = (timeStepWidth * quadPoints_[point] + 2 * startTime + timeStepWidth) / 2;
+      timeWeights[point] = 0.5 * timeStepWidth * quadWeights_[point];
     }
 
     alignas(Alignment) real dofsFaceBoundaryNodalTmp[tensor::INodal::size()];
@@ -166,8 +168,8 @@ class DirichletBoundary {
   }
 
   private:
-  std::array<double, ConvergenceOrder> quadPoints{};
-  std::array<double, ConvergenceOrder> quadWeights{};
+  std::array<double, ConvergenceOrder> quadPoints_{};
+  std::array<double, ConvergenceOrder> quadWeights_{};
 };
 
 //
