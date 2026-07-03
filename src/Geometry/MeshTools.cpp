@@ -11,6 +11,7 @@
 #include "Common/Constants.h"
 #include "Geometry/MeshDefinition.h"
 
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -18,11 +19,14 @@
 
 namespace seissol {
 
-const int MeshTools::FACE2NODES[4][3] = {{0, 2, 1}, {0, 1, 3}, {0, 3, 2}, {1, 2, 3}};
-const int MeshTools::FACE2MISSINGNODE[4] = {3, 2, 1, 0};
-const int MeshTools::NEIGHBORFACENODE2LOCAL[3] = {0, 2, 1};
+const std::array<std::array<int, 3>, 4> MeshTools::FACE2NODES = {std::array<int, 3>{0, 2, 1},
+                                                                 std::array<int, 3>{0, 1, 3},
+                                                                 std::array<int, 3>{0, 3, 2},
+                                                                 std::array<int, 3>{1, 2, 3}};
+const std::array<int, 4> MeshTools::FACE2MISSINGNODE = {3, 2, 1, 0};
+const std::array<int, 3> MeshTools::NEIGHBORFACENODE2LOCAL = {0, 2, 1};
 
-void MeshTools::center(const Element& e, const std::vector<Vertex>& vertices, VrtxCoords center) {
+void MeshTools::center(const Element& e, const std::vector<Vertex>& vertices, CoordinateT& center) {
   for (std::size_t i = 0; i < Cell::Dim; i++) {
     center[i] = .25 * (vertices[e.vertices[0]].coords[i] + vertices[e.vertices[1]].coords[i] +
                        vertices[e.vertices[2]].coords[i] + vertices[e.vertices[3]].coords[i]);
@@ -32,7 +36,7 @@ void MeshTools::center(const Element& e, const std::vector<Vertex>& vertices, Vr
 void MeshTools::center(const Element& e,
                        int face,
                        const std::vector<Vertex>& vertices,
-                       VrtxCoords center) {
+                       CoordinateT& center) {
   for (std::size_t i = 0; i < Cell::Dim; i++) {
     center[i] = (1.0 / 3.0) * (vertices[e.vertices[FACE2NODES[face][0]]].coords[i] +
                                vertices[e.vertices[FACE2NODES[face][1]]].coords[i] +
@@ -43,9 +47,9 @@ void MeshTools::center(const Element& e,
 void MeshTools::normal(const Element& e,
                        int face,
                        const std::vector<Vertex>& vertices,
-                       VrtxCoords normal) {
-  VrtxCoords ab;
-  VrtxCoords ac;
+                       CoordinateT& normal) {
+  CoordinateT ab;
+  CoordinateT ac;
   sub(vertices[e.vertices[FACE2NODES[face][1]]].coords,
       vertices[e.vertices[FACE2NODES[face][0]]].coords,
       ab);
@@ -58,9 +62,9 @@ void MeshTools::normal(const Element& e,
 void MeshTools::normalAndTangents(const Element& e,
                                   int face,
                                   const std::vector<Vertex>& vertices,
-                                  VrtxCoords nrmal,
-                                  VrtxCoords tangent1,
-                                  VrtxCoords tangent2) {
+                                  CoordinateT& nrmal,
+                                  CoordinateT& tangent1,
+                                  CoordinateT& tangent2) {
   normal(e, face, vertices, nrmal);
   sub(vertices[e.vertices[FACE2NODES[face][1]]].coords,
       vertices[e.vertices[FACE2NODES[face][0]]].coords,
@@ -68,25 +72,25 @@ void MeshTools::normalAndTangents(const Element& e,
   cross(nrmal, tangent1, tangent2);
 }
 
-void MeshTools::sub(const VrtxCoords v1, const VrtxCoords v2, VrtxCoords diff) {
+void MeshTools::sub(const CoordinateT& v1, const CoordinateT& v2, CoordinateT& diff) {
   for (std::size_t i = 0; i < Cell::Dim; i++) {
     diff[i] = v1[i] - v2[i];
   }
 }
 
-void MeshTools::mul(const VrtxCoords v, double s, VrtxCoords prod) {
+void MeshTools::mul(const CoordinateT& v, double s, CoordinateT& prod) {
   for (std::size_t i = 0; i < Cell::Dim; i++) {
     prod[i] = v[i] * s;
   }
 }
 
-void MeshTools::cross(const VrtxCoords v1, const VrtxCoords v2, VrtxCoords cross) {
+void MeshTools::cross(const CoordinateT& v1, const CoordinateT& v2, CoordinateT& cross) {
   cross[0] = v1[1] * v2[2] - v1[2] * v2[1];
   cross[1] = v1[2] * v2[0] - v1[0] * v2[2];
   cross[2] = v1[0] * v2[1] - v1[1] * v2[0];
 }
 
-double MeshTools::dot(const VrtxCoords v1, const VrtxCoords v2) {
+double MeshTools::dot(const CoordinateT& v1, const CoordinateT& v2) {
   double result = 0;
   for (int i = 0; i < 3; i++) {
     result += v1[i] * v2[i];
@@ -95,50 +99,50 @@ double MeshTools::dot(const VrtxCoords v1, const VrtxCoords v2) {
   return result;
 }
 
-double MeshTools::norm(const VrtxCoords v) { return sqrt(norm2(v)); }
+double MeshTools::norm(const CoordinateT& v) { return sqrt(norm2(v)); }
 
 /**
  * Computes the square of the Euclidean norm
  */
-double MeshTools::norm2(const VrtxCoords v) { return square(v[0]) + square(v[1]) + square(v[2]); }
+double MeshTools::norm2(const CoordinateT& v) { return square(v[0]) + square(v[1]) + square(v[2]); }
 
-double MeshTools::distance(const VrtxCoords v1, const VrtxCoords v2) {
-  VrtxCoords diff;
+double MeshTools::distance(const CoordinateT& v1, const CoordinateT& v2) {
+  CoordinateT diff;
   sub(v1, v2, diff);
   return norm(diff);
 }
 
-double MeshTools::surface(VrtxCoords faceNormal) {
+double MeshTools::surface(CoordinateT& faceNormal) {
   // Area of a triangle spanned by a and b = 0.5 * ||a x b||.
   return 0.5 * norm(faceNormal);
 }
 
 double MeshTools::surface(const Element& e, int face, const std::vector<Vertex>& vertices) {
-  VrtxCoords n;
+  CoordinateT n;
   normal(e, face, vertices, n);
   return surface(n);
 }
 
 double MeshTools::volume(const Element& e, const std::vector<Vertex>& vertices) {
-  VrtxCoords ab;
-  VrtxCoords ac;
-  VrtxCoords ad;
+  CoordinateT ab;
+  CoordinateT ac;
+  CoordinateT ad;
   sub(vertices[e.vertices[1]].coords, vertices[e.vertices[0]].coords, ab);
   sub(vertices[e.vertices[2]].coords, vertices[e.vertices[0]].coords, ac);
   sub(vertices[e.vertices[3]].coords, vertices[e.vertices[0]].coords, ad);
-  VrtxCoords area;
+  CoordinateT area;
   cross(ab, ac, area);
   return fabs(dot(ad, area)) / 6.0;
 }
 
-void MeshTools::normalize(const VrtxCoords v, VrtxCoords vnormalized) {
+void MeshTools::normalize(const CoordinateT& v, CoordinateT& vnormalized) {
   mul(v, 1.0 / norm(v), vnormalized);
 }
 
 void MeshTools::pointOnPlane(const Element& e,
                              int face,
                              const std::vector<Vertex>& vertices,
-                             VrtxCoords result) {
+                             CoordinateT& result) {
   const size_t index = e.vertices[FACE2NODES[face][0]];
   assert(index < vertices.size());
   for (std::size_t i = 0; i < Cell::Dim; i++) {
@@ -146,15 +150,17 @@ void MeshTools::pointOnPlane(const Element& e,
   }
 }
 
-bool MeshTools::inside(const Element& e, const std::vector<Vertex>& vertices, const VrtxCoords p) {
-  VrtxCoords nrm;
+bool MeshTools::inside(const Element& e,
+                       const std::vector<Vertex>& vertices,
+                       const CoordinateT& p) {
+  CoordinateT nrm;
   /* Our tetrahedron has 4 faces with the normals pointing outward.
    * The point is inside the tetrahedron if it lies on the backside
    * of each of the 4 planes defined by the normal vectors (and a point
    * on the plane). */
   static_assert(Cell::NumFaces == 4, "Non-tetrahedral meshes are not supported here yet.");
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    VrtxCoords pp;
+    CoordinateT pp;
     sub(p, vertices[e.vertices[FACE2NODES[face][0]]].coords, pp);
     normal(e, face, vertices, nrm);
     if (dot(nrm, pp) > 0.0) {

@@ -13,6 +13,7 @@
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
+#include <array>
 #include <cassert>
 #include <cstdint>
 #include <utils/logger.h>
@@ -24,12 +25,12 @@
 
 namespace seissol::transformations {
 
-void tetrahedronReferenceToGlobal(const double v0[3],
-                                  const double v1[3],
-                                  const double v2[3],
-                                  const double v3[3],
-                                  const double xiEtaZeta[3],
-                                  double xyz[3]) {
+void tetrahedronReferenceToGlobal(const CoordinateT& v0,
+                                  const CoordinateT& v1,
+                                  const CoordinateT& v2,
+                                  const CoordinateT& v3,
+                                  const CoordinateT& xiEtaZeta,
+                                  CoordinateT& xyz) {
   for (std::uint32_t i = 0; i < Cell::Dim; ++i) {
     xyz[i] = v0[i] + (v1[i] - v0[i]) * xiEtaZeta[0] + (v2[i] - v0[i]) * xiEtaZeta[1] +
              (v3[i] - v0[i]) * xiEtaZeta[2];
@@ -40,14 +41,14 @@ Eigen::Vector3d tetrahedronReferenceToGlobal(const Eigen::Vector3d& v0,
                                              const Eigen::Vector3d& v1,
                                              const Eigen::Vector3d& v2,
                                              const Eigen::Vector3d& v3,
-                                             const double xiEtaZeta[3]) {
+                                             const CoordinateT& xiEtaZeta) {
   return v0 + (v1 - v0) * xiEtaZeta[0] + (v2 - v0) * xiEtaZeta[1] + (v3 - v0) * xiEtaZeta[2];
 }
 
-Eigen::Vector3d tetrahedronGlobalToReference(const double v0[3],
-                                             const double v1[3],
-                                             const double v2[3],
-                                             const double v3[3],
+Eigen::Vector3d tetrahedronGlobalToReference(const CoordinateT& v0,
+                                             const CoordinateT& v1,
+                                             const CoordinateT& v2,
+                                             const CoordinateT& v3,
                                              const Eigen::Vector3d& xyz) {
   // Forward transformation
   Eigen::Matrix4d a;
@@ -63,12 +64,12 @@ Eigen::Vector3d tetrahedronGlobalToReference(const double v0[3],
   return xiEtaZeta;
 }
 
-void tetrahedronGlobalToReferenceJacobian(const double iX[4],
-                                          const double iY[4],
-                                          const double iZ[4],
-                                          double oGradXi[3],
-                                          double oGradEta[3],
-                                          double oGradZeta[3]) {
+void tetrahedronGlobalToReferenceJacobian(const std::array<double, 4>& iX,
+                                          const std::array<double, 4>& iY,
+                                          const std::array<double, 4>& iZ,
+                                          CoordinateT& oGradXi,
+                                          CoordinateT& oGradEta,
+                                          CoordinateT& oGradZeta) {
   const double determinant =
       iX[0] * (iY[1] * (iZ[3] - iZ[2]) + iY[2] * (iZ[1] - iZ[3]) + iY[3] * (iZ[2] - iZ[1])) +
       iX[1] * (iY[0] * (iZ[2] - iZ[3]) + iY[2] * (iZ[3] - iZ[0]) + iY[3] * (iZ[0] - iZ[2])) +
@@ -102,9 +103,9 @@ void tetrahedronGlobalToReferenceJacobian(const double iX[4],
 }
 
 template <typename RealT>
-void inverseTensor1RotationMatrix(const VrtxCoords iNormal,
-                                  const VrtxCoords iTangent1,
-                                  const VrtxCoords iTangent2,
+void inverseTensor1RotationMatrix(const CoordinateT& iNormal,
+                                  const CoordinateT& iTangent1,
+                                  const CoordinateT& iTangent2,
                                   yateto::DenseTensorView<2, RealT, unsigned>& oTinv,
                                   std::uint32_t row,
                                   std::uint32_t col) {
@@ -115,24 +116,24 @@ void inverseTensor1RotationMatrix(const VrtxCoords iNormal,
   }
 }
 
-template void inverseTensor1RotationMatrix(const VrtxCoords iNormal,
-                                           const VrtxCoords iTangent1,
-                                           const VrtxCoords iTangent2,
+template void inverseTensor1RotationMatrix(const CoordinateT& iNormal,
+                                           const CoordinateT& iTangent1,
+                                           const CoordinateT& iTangent2,
                                            yateto::DenseTensorView<2, float, unsigned>& oTinv,
                                            std::uint32_t row,
                                            std::uint32_t col);
 
-template void inverseTensor1RotationMatrix(const VrtxCoords iNormal,
-                                           const VrtxCoords iTangent1,
-                                           const VrtxCoords iTangent2,
+template void inverseTensor1RotationMatrix(const CoordinateT& iNormal,
+                                           const CoordinateT& iTangent1,
+                                           const CoordinateT& iTangent2,
                                            yateto::DenseTensorView<2, double, unsigned>& oTinv,
                                            std::uint32_t row,
                                            std::uint32_t col);
 
 template <typename RealT>
-void tensor1RotationMatrix(const VrtxCoords iNormal,
-                           const VrtxCoords iTangent1,
-                           const VrtxCoords iTangent2,
+void tensor1RotationMatrix(const CoordinateT& iNormal,
+                           const CoordinateT& iTangent1,
+                           const CoordinateT& iTangent2,
                            yateto::DenseTensorView<2, RealT, unsigned>& oT,
                            std::uint32_t row,
                            std::uint32_t col) {
@@ -143,24 +144,24 @@ void tensor1RotationMatrix(const VrtxCoords iNormal,
   }
 }
 
-template void tensor1RotationMatrix(const VrtxCoords iNormal,
-                                    const VrtxCoords iTangent1,
-                                    const VrtxCoords iTangent2,
+template void tensor1RotationMatrix(const CoordinateT& iNormal,
+                                    const CoordinateT& iTangent1,
+                                    const CoordinateT& iTangent2,
                                     yateto::DenseTensorView<2, float, unsigned>& oT,
                                     std::uint32_t row,
                                     std::uint32_t col);
 
-template void tensor1RotationMatrix(const VrtxCoords iNormal,
-                                    const VrtxCoords iTangent1,
-                                    const VrtxCoords iTangent2,
+template void tensor1RotationMatrix(const CoordinateT& iNormal,
+                                    const CoordinateT& iTangent1,
+                                    const CoordinateT& iTangent2,
                                     yateto::DenseTensorView<2, double, unsigned>& oT,
                                     std::uint32_t row,
                                     std::uint32_t col);
 
 template <typename RealT>
-void symmetricTensor2RotationMatrix(const VrtxCoords iNormal,
-                                    const VrtxCoords iTangent1,
-                                    const VrtxCoords iTangent2,
+void symmetricTensor2RotationMatrix(const CoordinateT& iNormal,
+                                    const CoordinateT& iTangent1,
+                                    const CoordinateT& iTangent2,
                                     yateto::DenseTensorView<2, RealT, unsigned>& oT,
                                     std::uint32_t row,
                                     std::uint32_t col) {
@@ -212,24 +213,24 @@ void symmetricTensor2RotationMatrix(const VrtxCoords iNormal,
   oT(row + 5, col + 5) = nz * tx + nx * tz;
 }
 
-template void symmetricTensor2RotationMatrix(const VrtxCoords iNormal,
-                                             const VrtxCoords iTangent1,
-                                             const VrtxCoords iTangent2,
+template void symmetricTensor2RotationMatrix(const CoordinateT& iNormal,
+                                             const CoordinateT& iTangent1,
+                                             const CoordinateT& iTangent2,
                                              yateto::DenseTensorView<2, float, unsigned>& oT,
                                              std::uint32_t row,
                                              std::uint32_t col);
 
-template void symmetricTensor2RotationMatrix(const VrtxCoords iNormal,
-                                             const VrtxCoords iTangent1,
-                                             const VrtxCoords iTangent2,
+template void symmetricTensor2RotationMatrix(const CoordinateT& iNormal,
+                                             const CoordinateT& iTangent1,
+                                             const CoordinateT& iTangent2,
                                              yateto::DenseTensorView<2, double, unsigned>& oT,
                                              std::uint32_t row,
                                              std::uint32_t col);
 
 template <typename RealT>
-void inverseSymmetricTensor2RotationMatrix(const VrtxCoords iNormal,
-                                           const VrtxCoords iTangent1,
-                                           const VrtxCoords iTangent2,
+void inverseSymmetricTensor2RotationMatrix(const CoordinateT& iNormal,
+                                           const CoordinateT& iTangent1,
+                                           const CoordinateT& iTangent2,
                                            yateto::DenseTensorView<2, RealT, unsigned>& oTinv,
                                            std::uint32_t row,
                                            std::uint32_t col) {
@@ -282,24 +283,24 @@ void inverseSymmetricTensor2RotationMatrix(const VrtxCoords iNormal,
 }
 
 template void
-    inverseSymmetricTensor2RotationMatrix(const VrtxCoords iNormal,
-                                          const VrtxCoords iTangent1,
-                                          const VrtxCoords iTangent2,
+    inverseSymmetricTensor2RotationMatrix(const CoordinateT& iNormal,
+                                          const CoordinateT& iTangent1,
+                                          const CoordinateT& iTangent2,
                                           yateto::DenseTensorView<2, float, unsigned>& oTinv,
                                           std::uint32_t row,
                                           std::uint32_t col);
 
 template void
-    inverseSymmetricTensor2RotationMatrix(const VrtxCoords iNormal,
-                                          const VrtxCoords iTangent1,
-                                          const VrtxCoords iTangent2,
+    inverseSymmetricTensor2RotationMatrix(const CoordinateT& iNormal,
+                                          const CoordinateT& iTangent1,
+                                          const CoordinateT& iTangent2,
                                           yateto::DenseTensorView<2, double, unsigned>& oTinv,
                                           std::uint32_t row,
                                           std::uint32_t col);
 
 void chiTau2XiEtaZeta(std::uint32_t face,
-                      const double chiTau[2],
-                      double xiEtaZeta[3],
+                      const std::array<double, 2>& chiTau,
+                      std::array<double, 3>& xiEtaZeta,
                       std::int32_t sideOrientation) {
   double chiTauTilde[2];
 
@@ -348,7 +349,9 @@ void chiTau2XiEtaZeta(std::uint32_t face,
   }
 }
 
-void XiEtaZeta2chiTau(std::uint32_t face, const double xiEtaZeta[3], double chiTau[2]) {
+void XiEtaZeta2chiTau(std::uint32_t face,
+                      const std::array<double, 3>& xiEtaZeta,
+                      std::array<double, 2>& chiTau) {
   [[maybe_unused]] constexpr double Eps = 1e-6;
 
   switch (face) {

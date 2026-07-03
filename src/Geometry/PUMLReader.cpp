@@ -8,6 +8,7 @@
 
 #include "PUMLReader.h"
 
+#include "Common/CompactOptional.h"
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
 #include "Geometry/MeshDefinition.h"
@@ -348,8 +349,9 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
     elements_[i].timestep = timestep[i];
 
     // Vertices
-    PUML::Downward::vertices(
-        meshGeometry, cellsGeometry[i], reinterpret_cast<unsigned int*>(elements_[i].vertices));
+    std::array<unsigned int, Cell::NumVertices> verticesRaw{};
+    PUML::Downward::vertices(meshGeometry, cellsGeometry[i], verticesRaw.data());
+    std::copy(verticesRaw.begin(), verticesRaw.end(), elements_[i].vertices.begin());
 
     std::array<unsigned int, Cell::NumVertices> topoVertices{};
     PUML::Downward::vertices(meshTopology, cells[i], topoVertices.data());
@@ -366,7 +368,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
           faces[faceids[j]], neighbors, j, faceTag, cellIdsAsInFile[i], faceMap);
       isMeshCorrect &= isLocallyCorrect;
       if (neighbors[j] < 0) {
-        elements_[i].neighbors[PumlFaceToSeisSol[j]] = cellsGeometry.size();
+        elements_[i].neighbors[PumlFaceToSeisSol[j]] = OptionalSize();
 
         if (!faces[faceids[j]].isShared()) {
           // Boundary sides
@@ -531,9 +533,13 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
   // Set vertices
   vertices_.resize(verticesGeometry.size());
   for (std::size_t i = 0; i < verticesGeometry.size(); i++) {
-    memcpy(vertices_[i].coords, verticesGeometry[i].coordinate(), Cell::Dim * sizeof(double));
+    std::copy_n(
+        verticesGeometry[i].coordinate(), vertices_[i].coords.size(), vertices_[i].coords.begin());
 
-    PUML::Upward::cells(meshGeometry, verticesGeometry[i], vertices_[i].elements);
+    std::vector<int> preElements;
+    PUML::Upward::cells(meshGeometry, verticesGeometry[i], preElements);
+    vertices_[i].elements.resize(preElements.size());
+    std::copy(preElements.begin(), preElements.end(), vertices_[i].elements.begin());
   }
 
   // the neighborSide needs to be _inferred_ here.

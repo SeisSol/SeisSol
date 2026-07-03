@@ -11,8 +11,12 @@
 
 #include "Common/Constants.h"
 #include "Functions.h"
+#include "GeneratedCode/init.h"
+#include "Geometry/CellTransform.h"
+#include "Geometry/MeshDefinition.h"
 #include "Transformation.h"
 
+#include <Eigen/Dense>
 #include <cmath>
 #include <numeric>
 #include <type_traits>
@@ -220,35 +224,21 @@ class SampledBasisFunctionDerivatives {
    * @param coords coords[i] contains the 3 coordinates of the ith vertex of the
    * physical tetrahedron.
    */
-  void transformToGlobalCoordinates(const double* coords[Cell::NumVertices]) {
-    std::array<double, Cell::NumVertices> xCoords{};
-    std::array<double, Cell::NumVertices> yCoords{};
-    std::array<double, Cell::NumVertices> zCoords{};
-    for (size_t i = 0; i < Cell::NumVertices; ++i) {
-      xCoords[i] = coords[i][0];
-      yCoords[i] = coords[i][1];
-      zCoords[i] = coords[i][2];
-    }
-
-    std::array<double, 3> gradXi{};
-    std::array<double, 3> gradEta{};
-    std::array<double, 3> gradZeta{};
-
-    seissol::transformations::tetrahedronGlobalToReferenceJacobian(xCoords.data(),
-                                                                   yCoords.data(),
-                                                                   zCoords.data(),
-                                                                   gradXi.data(),
-                                                                   gradEta.data(),
-                                                                   gradZeta.data());
+  void transformToGlobalCoordinates(const seissol::geometry::CellTransform& transform,
+                                    T xi,
+                                    T eta,
+                                    T zeta) {
+    const Eigen::Vector3d vec(xi, eta, zeta);
+    const Eigen::Matrix3d grad = transform.spaceToRefJacobian(vec);
     std::vector<T> oldData = data_;
     const auto funs = data_.size() / 3;
 
     for (size_t i = 0; i < funs; ++i) {
       for (size_t direction = 0; direction < 3; ++direction) {
         // dpsi / di = dphi / dxi * dxi / di + dphi / deta * deta / di + dphi / dzeta * dzeta / di
-        data_[i + funs * direction] = oldData[i + 0 * funs] * gradXi[direction] +
-                                      oldData[i + 1 * funs] * gradEta[direction] +
-                                      oldData[i + 2 * funs] * gradZeta[direction];
+        data_[i + funs * direction] = oldData[i + 0 * funs] * grad(0, direction) +
+                                      oldData[i + 1 * funs] * grad(1, direction) +
+                                      oldData[i + 2 * funs] * grad(2, direction);
       }
     }
   }

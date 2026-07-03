@@ -18,6 +18,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/Parameters/SourceParameters.h"
@@ -32,7 +33,6 @@
 #include "Model/CommonDatastructures.h"
 #include "Model/Datastructures.h" // IWYU pragma: keep
 #include "Numerical/BasisFunction.h"
-#include "Numerical/Transformation.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "PointSource.h"
@@ -73,7 +73,7 @@ namespace {
  * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
  */
 void computeMInvJInvPhisAtSources(
-    const Eigen::Vector3d& centre,
+    const Eigen::Vector3d& center,
     seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>&
         mInvJInvPhisAtSources,
     std::size_t meshId,
@@ -81,12 +81,8 @@ void computeMInvJInvPhisAtSources(
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
-  const double* coords[Cell::NumVertices];
-  for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
-    coords[v] = vertices[elements[meshId].vertices[v]].coords;
-  }
-  const auto xiEtaZeta = transformations::tetrahedronGlobalToReference(
-      coords[0], coords[1], coords[2], coords[3], centre);
+  const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, mesh);
+  const auto xiEtaZeta = transform.spaceToRef(center);
   const auto basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
       ConvergenceOrder, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
 

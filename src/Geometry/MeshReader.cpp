@@ -21,7 +21,9 @@
 #include <Eigen/Core>
 #include <PUML/TypeInference.h>
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <map>
 #include <mpi.h>
 #include <unordered_map>
@@ -101,13 +103,10 @@ void MeshReader::disableDR() {
  * Reconstruct the fault information from the boundary conditions
  */
 void MeshReader::extractFaultInformation(
-    const VrtxCoords& refPoint, seissol::initializer::parameters::RefPointMethod refPointMethod) {
+    const CoordinateT& refPoint, seissol::initializer::parameters::RefPointMethod refPointMethod) {
   for (auto& cell : elements_) {
 
     for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
-      // Set default mpi fault indices
-      cell.mpiFaultIndices[j] = -1;
-
       if (cell.boundaries[j] != FaceType::DynamicRupture) {
         continue;
       }
@@ -117,7 +116,9 @@ void MeshReader::extractFaultInformation(
       if (cell.neighborRanks[j] == seissol::Mpi::mpi.rank()) {
         // Completely local DR boundary
 
-        if (cell.neighbors[j] < cell.localId) {
+        assert(cell.neighbors[j].hasValue());
+
+        if (cell.neighbors[j].value() < cell.localId) {
           // This was already handled by the other side
           continue;
         }
@@ -126,8 +127,8 @@ void MeshReader::extractFaultInformation(
 
         // FIXME we use the MPI number here for the neighbor element id
         // It is not very nice but should generate the correct ordering.
-        const MPINeighborElement neighbor = {
-            cell.localId, static_cast<SideId>(j), cell.mpiIndices[j], cell.neighborSides[j]};
+        const auto neighbor = MPINeighborElement{
+            cell.localId, cell.mpiIndices[j], static_cast<int8_t>(j), cell.neighborSides[j]};
         mpiFaultNeighbors_[cell.neighborRanks[j]].push_back(neighbor);
       }
 
@@ -137,8 +138,8 @@ void MeshReader::extractFaultInformation(
 
       // Compute normal of the DR face
       // Boundary side vector pointing in chi- and tau-direction
-      VrtxCoords chiVec;
-      VrtxCoords tauVec;
+      CoordinateT chiVec{};
+      CoordinateT tauVec{};
       MeshTools::sub(vertices_[cell.vertices[MeshTools::FACE2NODES[j][1]]].coords,
                      vertices_[cell.vertices[MeshTools::FACE2NODES[j][0]]].coords,
                      chiVec);
@@ -151,8 +152,8 @@ void MeshReader::extractFaultInformation(
       MeshTools::mul(f.normal, 1.0 / MeshTools::norm(f.normal), f.normal);
 
       // Check whether the tetrahedron and the reference point are on the same side of the face
-      VrtxCoords tmp1;
-      VrtxCoords tmp2;
+      CoordinateT tmp1{};
+      CoordinateT tmp2{};
       MeshTools::sub(refPoint, vertices_[cell.vertices[MeshTools::FACE2NODES[j][0]]].coords, tmp1);
       MeshTools::sub(vertices_[cell.vertices[MeshTools::FACE2MISSINGNODE[j]]].coords,
                      vertices_[cell.vertices[MeshTools::FACE2NODES[j][0]]].coords,
@@ -197,14 +198,14 @@ void MeshReader::extractFaultInformation(
       // Compute second vector in the plane, orthogonal to the normal and tangent 1 vectors
       MeshTools::cross(f.normal, f.tangent1, f.tangent2);
 
-      auto remoteNeighbor = cell.neighbors[j] == static_cast<int>(elements_.size());
+      const auto remoteNeighbor = !cell.neighbors[j].hasValue();
 
       // Index of the element on the other side
-      const int neighborIndex = remoteNeighbor ? -1 : cell.neighbors[j];
+      const auto neighborIndex = cell.neighbors[j];
 
-      const GlobalElemId neighborGlobalId =
+      const auto neighborGlobalId =
           remoteNeighbor ? ghostlayerMetadata_[cell.neighborRanks[j]][cell.mpiIndices[j]].globalId
-                         : elements_[cell.neighbors[j]].globalId;
+                         : elements_[cell.neighbors[j].value()].globalId;
 
       if (isPlus) {
         f.globalId = cell.globalId;
@@ -227,7 +228,7 @@ void MeshReader::extractFaultInformation(
       fault_.push_back(f);
 
       // Check if we have a plus fault side
-      if (isPlus || neighborIndex >= 0) {
+      if (isPlus || neighborIndex.hasValue()) {
         hasPlusFault_ = true;
       }
     }
@@ -252,11 +253,6 @@ void MeshReader::extractFaultInformation(
                          (elem1.neighborElement == elem2.neighborElement &&
                           elem1.neighborSide < elem2.neighborSide);
                 });
-    }
-
-    // Set the MPI fault number of all elements
-    for (std::size_t j = 0; j < neighbor.second.size(); ++j) {
-      elements_[neighbor.second[j].localElement].mpiFaultIndices[neighbor.second[j].localSide] = j;
     }
   }
 }
@@ -286,8 +282,8 @@ void MeshReader::exchangeGhostlayerMetadata() {
                                                    offsetof(GhostElementMetadata, timestep)};
   const std::vector<MPI_Datatype> datatypeDatatype{MPI_DOUBLE,
                                                    MPI_INT,
-                                                   PUML::MPITypeInfer<LocalElemId>::type(),
-                                                   PUML::MPITypeInfer<GlobalElemId>::type(),
+                                                   PUML::MPITypeInfer<size_t>::type(),
+                                                   PUML::MPITypeInfer<size_t>::type(),
                                                    MPI_INT,
                                                    MPI_DOUBLE};
 
