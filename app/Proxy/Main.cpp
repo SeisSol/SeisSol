@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
   const std::vector<std::string> formatValues = {"plain", "json"};
 
   utils::Args args("The SeisSol proxy is used to benchmark the kernels used in the SeisSol "
-                   "earthquake simulation software. This version of SeisSol (" +
+                   "earthquake simulation software. This version of SeisSol proxy (" +
                    seissol::ConfigString + ") was built with the following properties:\n" +
                    seissol::ConfigDescriptor);
   args.addAdditionalOption("cells", "Number of cells");
