@@ -27,29 +27,28 @@ struct StoragePosition {
   std::size_t cell{std::numeric_limits<std::size_t>::max()};
   std::size_t global{std::numeric_limits<std::size_t>::max()};
 
-  bool operator==(const StoragePosition& other) const {
+  constexpr bool operator==(const StoragePosition& other) const {
     return color == other.color && cell == other.cell;
   }
 
-  bool operator!=(const StoragePosition& other) const { return !(*this == other); }
+  constexpr bool operator!=(const StoragePosition& other) const { return !(*this == other); }
 
-  const static StoragePosition NullPosition;
+  constexpr StoragePosition() = default;
 
-  StoragePosition() = default;
-
-  StoragePosition(std::size_t color, std::size_t cell, std::size_t global)
+  explicit constexpr StoragePosition(std::size_t color, std::size_t cell, std::size_t global)
       : color(color), cell(cell), global(global) {}
+
+  /**
+    A undefined storage position; e.g. for use when there is no cell present but a position needs to
+    be stored. Will most likely cause a segfault when used; prefer using optionals to
+    StoragePositions instead where possible.
+  */
+  static const StoragePosition NullPosition;
 };
 
-/**
-  A undefined storage position; e.g. for use when there is no cell present but a position needs to
-  be stored. Will most likely cause a segfault when used; prefer using optionals to StoragePositions
-  instead where possible.
- */
-const inline StoragePosition StoragePosition::NullPosition =
-    StoragePosition{std::numeric_limits<std::size_t>::max(),
-                    std::numeric_limits<std::size_t>::max(),
-                    std::numeric_limits<std::size_t>::max()};
+// cf. e.g. https://github.com/llvm/llvm-project/issues/182031#issuecomment-3921681926 or
+// https://eel.is/c++draft/support#cmp.strongord-1
+inline constexpr StoragePosition StoragePosition::NullPosition{};
 
 /**
   A map from e.g. cell ID to position in a layered Storage structure. May contain MaxDuplicatesP

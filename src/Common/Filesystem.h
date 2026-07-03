@@ -8,29 +8,12 @@
 #ifndef SEISSOL_SRC_COMMON_FILESYSTEM_H_
 #define SEISSOL_SRC_COMMON_FILESYSTEM_H_
 
+#include <filesystem>
 #include <optional>
 #include <string>
 
-#ifdef EXPERIMENTAL_FS
-#include <experimental/filesystem> // IWYU pragma: export
-#include <sys/stat.h>
-#include <sys/types.h>
-
 namespace seissol {
-namespace filesystem = std::experimental::filesystem;
-} // namespace seissol
-
-#else
-
-#include <filesystem> // IWYU pragma: export
-namespace seissol {
-namespace filesystem = std::filesystem;
-} // namespace seissol
-
-#endif // EXPERIMENTAL_FS
-
-namespace seissol {
-auto directoryExists(const seissol::filesystem::directory_entry& entry) -> bool;
+auto directoryExists(const std::filesystem::directory_entry& entry) -> bool;
 
 void generateBackupFileIfNecessary(const std::string& fileName,
                                    const std::string& fileExtension,

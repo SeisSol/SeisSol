@@ -98,7 +98,7 @@ class AsagiModule : public Module {
   static int totalThreads();
 
   private:
-  static inline const std::string EnvMpiMode = "ASAGI_MPI_MODE";
+  static const inline std::string EnvMpiMode = "ASAGI_MPI_MODE";
 };
 
 } // namespace seissol::asagi

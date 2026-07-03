@@ -13,7 +13,7 @@ Installing dependencies
 
 For compiling SeisSol, you will need the following dependencies during build:
 
-- A C++17-capable compiler. The following work:
+- A C++20-capable compiler. The following work:
 
   - GCC (>= 9.0; tested: 13.2)
   - ICX (tested: 2024.2)

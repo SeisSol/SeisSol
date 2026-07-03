@@ -32,8 +32,8 @@ struct ElasticMaterial : Material {
   static constexpr std::size_t TractionQuantities = 6;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Elastic;
-  static inline const std::string Text = "elastic";
-  static inline const std::array<std::string, NumQuantities> Quantities{
+  static const inline std::string Text = "elastic";
+  static const inline std::array<std::string, NumQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
   static constexpr std::size_t Parameters = 2 + Material::Parameters;
 

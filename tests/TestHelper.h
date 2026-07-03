@@ -116,14 +116,14 @@ inline doctest::String toString(const AbsApprox& in) {
 // test file path derelativizer.
 // Used to handle different execution directories for the tests
 inline std::string tpath(const std::string& subpath) {
-  const auto base = seissol::filesystem::path(TestSetup::Path);
-  const auto addend = seissol::filesystem::path(subpath);
+  const auto base = std::filesystem::path(TestSetup::Path);
+  const auto addend = std::filesystem::path(subpath);
   return std::string(base / addend);
 }
 
 } // namespace seissol::unit_test
 
-// we add a printer for a vector; as the stdlib doesn't provide one as of C++17
+// we add a printer for a vector; as the stdlib doesn't provide one as of C++20
 
 // NOLINTBEGIN (cert-dcl58-cpp)
 

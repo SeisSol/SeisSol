@@ -29,8 +29,8 @@ struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t TractionQuantities = 6;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Poroelastic;
-  static inline const std::string Text = "poroelastic";
-  static inline const std::array<std::string, NumQuantities> Quantities{"s_xx",
+  static const inline std::string Text = "poroelastic";
+  static const inline std::array<std::string, NumQuantities> Quantities{"s_xx",
                                                                         "s_yy",
                                                                         "s_zz",
                                                                         "s_xy",
