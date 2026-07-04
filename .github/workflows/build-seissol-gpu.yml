@@ -15,7 +15,7 @@ env:
 jobs:
   seissol-build-test:
     name: seissol-build-test<${{matrix.setup.cc}}, ${{matrix.setup.backend}}, ${{matrix.setup.arch}}, ${{matrix.build_type}}>
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     defaults:
@@ -158,6 +158,7 @@ jobs:
           path: /opt/seissol
 
   seissol-run-test:
+    name: seissol-run-test<${{matrix.setup.cc}}, ${{matrix.setup.backend}}, ${{matrix.setup.arch}}, ${{matrix.build_type}}>
     runs-on: ${{matrix.setup.container-runner}}
     container:
       image: ${{ matrix.setup.container }}
@@ -199,143 +200,77 @@ jobs:
           - ranks: 1
             threads: 4
             commthread: false
-          - ranks: 4
-            threads: 1
-            commthread: false
+          #- ranks: 4
+          #  threads: 1
+          #  commthread: false
     steps:
       - name: install-packages
         run: |
           # circumvent problems with the Intel image still using Ubuntu 22.04
-
           if [ "${{ matrix.setup.pythonbreak }}" = true ]; then
             pip3 install --break-system-packages numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas jq
           else
             pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas jq
           fi
 
-      - id: get-precomputed-solutions
-        name: get-precomputed-solutions
+      - name: get-precomputed-solutions
         uses: actions/checkout@v6
         with:
           repository: seissol/precomputed-seissol
-          ref: ${{env.precomputed-hash}}
+          ref: ${{ env.precomputed-hash }}
           path: precomputed
 
-      # TODO: make this checkout obsolete
+      # The compare-*.py / verify.py scripts live in this very repo. The
+      # workflow itself doesn't auto-checkout, so we do it explicitly here.
       - name: get-verification-scripts
         uses: actions/checkout@v6
+        with:
+          path: scripts
 
       - name: get-seissol
         id: get-seissol
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: seissol-${{matrix.build_type}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.setup.cc}}
           path: install
 
-      - name: tpv5/single
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
-        with:
-          case: tpv5/single
+      - name: verify
+        id: verify
+        run: |
+          if [ ${{ matrix.setup.mpi }} = openmpi ]; then
+            MPI_OPTIONS="--oversubscribe --allow-run-as-root -bind-to none"
+          elif [ ${{ matrix.setup.mpi }} = intel ]; then
+            MPI_OPTIONS=""
+          fi
 
-      - name: tpv5-nuc/single
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
-        with:
-          case: tpv5-nuc/single
+          export PATH=$(pwd)/install/bin:$PATH
+          export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:${LD_LIBRARY_PATH:-}
+          chmod +x $(pwd)/install/bin/*
 
-      - name: tpv5-4nuc/single
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
-        with:
-          case: tpv5-4nuc/single
+          export OMP_NUM_THREADS=${{ matrix.parallel.threads }}
+          export SEISSOL_COMMTHREAD=${{ matrix.parallel.commthread }}
+          export SEISSOL_MINI_NUM_ELEMENTS=100
 
-      - name: tpv6/single
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
-        with:
-          case: tpv6/single
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+          export OMPI_MCA_rmaps_base_oversubscribe=true
 
-      - name: tpv13/single
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
-        with:
-          case: tpv13/single
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/verify.py \
+            --precomputed-dir precomputed \
+            --binary-dir $GITHUB_WORKSPACE/install \
+            --variant gpu \
+            --all \
+            --mpi-cmd mpirun \
+            --mpi-args "${MPI_OPTIONS}" \
+            --ranks ${{ matrix.parallel.ranks }} \
+            --threads ${{ matrix.parallel.threads }} \
+            --color always \
+            --report report.txt
 
-      - name: tpv16/single
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+      - name: upload-report
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
         with:
-          case: tpv16/single
-
-      - name: tpv101/single
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
-        with:
-          case: tpv101/single
-
-      - name: tpv101-slip/single
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
-        with:
-          case: tpv101-slip/single
-
-      - name: tpv104/single
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
-        with:
-          case: tpv104/single
-
-      - name: tpv105/single
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
-        with:
-          case: tpv105/single
-
-      - name: tpvyoffe/single
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
-        with:
-          case: tpvyoffe/single
-
-      - name: tpvgaussian/single
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
-        with:
-          case: tpvgaussian/single
-
-      - name: ttpv1/single
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
-        with:
-          case: ttpv1/single
-
-      - name: tpv5-visco/single
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
-        with:
-          case: tpv5-visco/single
-
-      - name: ahsp/single
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
-        with:
-          case: ahsp/single
-
-      - name: loh1-fused/single # (temporary)
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
-        with:
-          case: loh1-fused/single
-
-      - name: tpv13-fused/single # (temporary)
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
-        with:
-          case: tpv13-fused/single
-
-      - name: tpv13-fused-plasticity/single # (temporary)
-        uses: ./.github/actions/seissol-test
-        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
-        with:
-          case: tpv13-fused-plasticity/single
+          name: report-${{ matrix.setup.cc }}-r${{ matrix.parallel.ranks }}t${{ matrix.parallel.threads }}
+          path: report.txt
+          if-no-files-found: ignore

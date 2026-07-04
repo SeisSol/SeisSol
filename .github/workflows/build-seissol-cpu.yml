@@ -280,7 +280,7 @@ jobs:
 
       - name: get-seissol
         id: get-seissol
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: seissol-${{matrix.build_type}}-${{matrix.arch}}-${{matrix.setup.name}}
           path: install
