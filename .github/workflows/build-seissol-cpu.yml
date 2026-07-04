@@ -10,7 +10,7 @@ on:
   - push
 
 env:
-  precomputed-hash: 0f623b3e263726bc547997ca29790936396847df
+  precomputed-hash: a8a82bc23a921d22c257eab6f70a17e1e0f49b60
 
 jobs:
   # ---------------------------------------------------------------------------
