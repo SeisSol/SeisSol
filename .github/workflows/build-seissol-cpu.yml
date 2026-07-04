@@ -309,7 +309,6 @@ jobs:
           python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/verify.py \
             --precomputed-dir precomputed \
             --binary-dir $GITHUB_WORKSPACE/install \
-            --variant cpu \
             --all \
             --mpi-cmd mpirun \
             --mpi-args "${MPI_OPTIONS}" \

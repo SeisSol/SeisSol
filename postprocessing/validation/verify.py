@@ -9,8 +9,8 @@ dispatches the appropriate SeisSol binary from --binary-dir per case, then calls
 the existing ``compare-{mesh,receivers,energies}.py`` scripts next to this file.
 
 Binary naming (pre-PR #1421): one binary per (equation, precision, fused-count)
-combination, named ``seissol-cpu-<config>`` where ``<config>`` is read directly
-from cases.json (e.g. ``elastic-p6-f64``, ``viscoelastic-3-p6-f64-s8``). Once
+combination, named ``seissol-<config>`` where ``<config>`` is read directly
+from cases.json (e.g. ``elastic-o6-f64``, ``viscoelastic-3-o6-f64-s8``). Once
 PR #1421 lands, all configs collapse to a single ``seissol`` binary; this script
 falls back to that name automatically.
 
@@ -122,7 +122,7 @@ class CaseSpec:
 
     name: str          # e.g. "tpv5"
     precision: str     # "double" or "single"
-    config: str        # e.g. "elastic-p6-f64-s8"
+    config: str        # e.g. "elastic-o6-f64-s8"
     params_path: Path  # absolute path to parameters.par
     case_dir: Path     # parent of parameters.par
     output_prefix: str # value of the ``output`` field, kept for diagnostics
@@ -219,41 +219,27 @@ def _epsilon(tpv_data: dict, category: str, override: Optional[float]) -> float:
 # ---------------------------------------------------------------------------
 
 
-VARIANT_ORDER = {
-    "auto": ("cpu", "gpu"),
-    "cpu": ("cpu",),
-    "gpu": ("gpu",),
-}
+def resolve_binary(binary_dir: Path, config: str) -> Path:
+    """Locate a SeisSol executable for the given config. Returns the absolute
+    path to it.
 
-
-def resolve_binary(binary_dir: Path, config: str, variant: str = "auto") -> Path:
-    """Locate a SeisSol executable for the given config.
-
-    Pre-PR #1421 layout: ``binary_dir/seissol-{cpu,gpu}-<config>``. Which prefix
-    is preferred depends on ``variant``:
-
-    * ``auto`` (default): try ``cpu`` first, then ``gpu``. Predictable on a
-      mixed install; pass ``--variant gpu`` explicitly when CPU binaries also
-      happen to be present on a GPU host.
-    * ``cpu`` / ``gpu``: only that prefix is searched.
+    Pre-PR #1421 layout: ``binary_dir/seissol-<config>``.
 
     Post-PR #1421 layout: a single ``binary_dir/seissol`` (the config string
     becomes informational); this is tried last as a fallback for any variant.
     Each prefix is searched in both ``binary_dir`` and ``binary_dir/bin``.
     """
-    prefixes = VARIANT_ORDER[variant]
     candidates: list[Path] = []
-    for pfx in prefixes:
-        candidates.append(binary_dir / f"seissol-{pfx}-{config}")
-        candidates.append(binary_dir / "bin" / f"seissol-{pfx}-{config}")
+    candidates.append(binary_dir / f"seissol-{config}")
+    candidates.append(binary_dir / "bin" / f"seissol-{config}")
     candidates.append(binary_dir / "seissol")
     candidates.append(binary_dir / "bin" / "seissol")
 
     for cand in candidates:
         if cand.is_file() and os.access(cand, os.X_OK):
-            return cand
+            return cand.absolute()
     raise FileNotFoundError(
-        f"No SeisSol binary found for config '{config}' (variant={variant}). "
+        f"No SeisSol binary found for config '{config}'. "
         f"Tried:\n  " + "\n  ".join(str(c) for c in candidates)
     )
 
@@ -425,7 +411,7 @@ def update_references_json(
           "tpv5": {
             "commit": "<sha>",
             "date":   "2026-05-21",
-            "configs": ["elastic-p6-f32", "elastic-p6-f64"],
+            "configs": ["elastic-o6-f32", "elastic-o6-f64"],
             "note":   "..."
           },
           ...
@@ -567,10 +553,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--precomputed-dir", type=Path, default=Path.cwd(),
                    help="precomputed-seissol checkout (default: cwd).")
     p.add_argument("--binary-dir", type=Path, required=True,
-                   help="Directory holding seissol-{cpu,gpu}-<config> binaries.")
-    p.add_argument("--variant", choices=("auto", "cpu", "gpu"), default="auto",
-                   help="Binary variant to prefer: 'auto' tries cpu then gpu, "
-                        "'cpu'/'gpu' restrict to that prefix. (default: auto)")
+                   help="Directory holding seissol-<config> binaries.")
     sel = p.add_argument_group("Case selection")
     sel.add_argument("--case", action="append", default=[],
                      help="Case to run: 'tpv5' for both precisions, "
@@ -638,7 +621,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(f"\n{c('=== ' + case.key + '  config=' + case.config + ' ===', _Ansi.CYAN, _Ansi.BOLD)}")
 
         try:
-            binary = resolve_binary(args.binary_dir, case.config, args.variant)
+            binary = resolve_binary(args.binary_dir, case.config)
         except FileNotFoundError as e:
             print(f"{_warn('[skip]')} {case.key}: {e}", file=sys.stderr)
             results.append(CaseResult(case, False, -1, 0.0, []))
