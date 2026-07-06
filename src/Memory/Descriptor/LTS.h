@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_
 
+#include "Alignment.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/tensor.h"
 #include "IO/Instance/Checkpoint/CheckpointManager.h"
@@ -20,10 +21,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
 #include "Parallel/Helper.h"
-
-#ifdef ACL_DEVICE
-#include "Parallel/Helper.h"
-#endif
+#include "Solver/Settings.h"
 
 namespace seissol::tensor {
 struct Qane;
@@ -106,26 +104,29 @@ struct LTS {
   struct Derivatives : public initializer::Variable<real*> {};
   struct CellInformation : public initializer::Variable<CellLocalInformation> {};
   struct SecondaryInformation : public initializer::Variable<SecondaryCellLocalInformation> {};
-  struct FaceNeighbors : public initializer::Variable<real* [Cell::NumFaces]> {};
+  struct FaceNeighbors : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
   struct LocalIntegration : public initializer::Variable<LocalIntegrationData> {};
   struct NeighboringIntegration : public initializer::Variable<NeighboringIntegrationData> {};
   struct MaterialData : public initializer::Variable<model::MaterialT> {};
   struct Material : public initializer::Variable<CellMaterialData> {};
   struct Plasticity : public initializer::Variable<seissol::model::PlasticityData> {};
-  struct DRMapping : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
-  struct BoundaryMapping : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {};
+  struct DRMapping : public initializer::Variable<std::array<CellDRMapping, Cell::NumFaces>> {};
+  struct BoundaryMapping
+      : public initializer::Variable<std::array<CellBoundaryMapping, Cell::NumFaces>> {};
   struct PStrain : public initializer::Variable<
                        real[tensor::QStressNodal::size() + tensor::QEtaNodal::size()]> {};
-  struct FaceDisplacements : public initializer::Variable<real* [Cell::NumFaces]> {};
+  struct FaceDisplacements : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
   struct BuffersDerivatives : public initializer::Bucket<real> {};
 
   struct BuffersDevice : public initializer::Variable<real*> {};
   struct DerivativesDevice : public initializer::Variable<real*> {};
-  struct FaceNeighborsDevice : public initializer::Variable<real* [Cell::NumFaces]> {};
-  struct FaceDisplacementsDevice : public initializer::Variable<real* [Cell::NumFaces]> {};
-  struct DRMappingDevice : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
-  struct BoundaryMappingDevice : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {
+  struct FaceNeighborsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
+  struct FaceDisplacementsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {
   };
+  struct DRMappingDevice : public initializer::Variable<std::array<CellDRMapping, Cell::NumFaces>> {
+  };
+  struct BoundaryMappingDevice
+      : public initializer::Variable<std::array<CellBoundaryMapping, Cell::NumFaces>> {};
 
   struct IntegratedDofsScratch : public initializer::Scratchpad<real> {};
   struct DerivativesScratch : public initializer::Scratchpad<real> {};
@@ -146,7 +147,7 @@ struct LTS {
   struct PrevCoefficientsScratch : public initializer::Scratchpad<real> {};
   struct DofsFaceBoundaryNodalScratch : public initializer::Scratchpad<real> {};
 
-  struct Integrals : public initializer::Variable<real> {};
+  struct Integrals : public initializer::Variable<real[tensor::Q::size()]> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
                                                         DofsHalo,
@@ -195,13 +196,19 @@ struct LTS {
   using Ref = initializer::Layer<LTSVarmap>::CellRef;
   using Backmap = initializer::StorageBackmap<Cell::NumFaces>;
 
-  static void addTo(Storage& storage, bool usePlasticity) {
+  static void addTo(Storage& storage, const SimulationSettings& settings) {
     using namespace initializer;
     LayerMask plasticityMask;
-    if (usePlasticity) {
+    if (settings.plasticity) {
       plasticityMask = LayerMask(Ghost);
     } else {
       plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
+    }
+    LayerMask integralMask;
+    if (settings.integrate) {
+      integralMask = LayerMask(Ghost);
+    } else {
+      integralMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
     }
 
     storage.add<Dofs>(LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
@@ -219,25 +226,26 @@ struct LTS {
     }
 
     storage.add<Buffers>(
-        LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+        LayerMask(), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
     storage.add<Derivatives>(
-        LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+        LayerMask(), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
     storage.add<CellInformation>(
-        LayerMask(), 1, allocationModeWP(AllocationPreset::Constant), true);
-    storage.add<SecondaryInformation>(LayerMask(), 1, AllocationMode::HostOnly, true);
+        LayerMask(), Alignment, allocationModeWP(AllocationPreset::Constant), true);
+    storage.add<SecondaryInformation>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
     storage.add<FaceNeighbors>(
-        LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
     storage.add<LocalIntegration>(
-        LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::ConstantShared), true);
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<NeighboringIntegration>(
-        LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::ConstantShared), true);
-    storage.add<MaterialData>(LayerMask(), 1, AllocationMode::HostOnly, true);
-    storage.add<Material>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
+    storage.add<MaterialData>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
+    storage.add<Material>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<Plasticity>(
-        plasticityMask, 1, allocationModeWP(AllocationPreset::Plasticity), true);
-    storage.add<DRMapping>(LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
+        plasticityMask, Alignment, allocationModeWP(AllocationPreset::Plasticity), true);
+    storage.add<DRMapping>(
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::Constant), true);
     storage.add<BoundaryMapping>(
-        LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::Constant), true);
     storage.add<PStrain>(
         plasticityMask, PagesizeHeap, allocationModeWP(AllocationPreset::PlasticityData));
     storage.add<FaceDisplacements>(LayerMask(Ghost), PagesizeHeap, AllocationMode::HostOnly, true);
@@ -247,34 +255,37 @@ struct LTS {
     storage.add<BuffersDerivatives>(
         LayerMask(), PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
 
-    storage.add<BuffersDevice>(LayerMask(), 1, AllocationMode::HostOnly, true);
-    storage.add<DerivativesDevice>(LayerMask(), 1, AllocationMode::HostOnly, true);
-    storage.add<FaceDisplacementsDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    storage.add<FaceNeighborsDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    storage.add<DRMappingDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    storage.add<BoundaryMappingDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    storage.add<BuffersDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
+    storage.add<DerivativesDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
+    storage.add<FaceDisplacementsDevice>(
+        LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+    storage.add<FaceNeighborsDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+    storage.add<DRMappingDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+    storage.add<BoundaryMappingDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+
+    storage.add<Integrals>(integralMask, Alignment, allocationModeWP(AllocationPreset::Dofs));
 
     if constexpr (isDeviceOn()) {
       const auto mode = AllocationMode::DeviceOnly;
 
-      storage.add<DerivativesExtScratch>(LayerMask(), 1, mode);
-      storage.add<DerivativesAneScratch>(LayerMask(), 1, mode);
-      storage.add<IDofsAneScratch>(LayerMask(), 1, mode);
-      storage.add<DofsExtScratch>(LayerMask(), 1, mode);
-      storage.add<IntegratedDofsScratch>(LayerMask(), 1, mode);
-      storage.add<DerivativesScratch>(LayerMask(), 1, mode);
-      storage.add<NodalAvgDisplacements>(LayerMask(), 1, mode);
-      storage.add<AnalyticScratch>(LayerMask(), 1, AllocationMode::HostDevicePinned);
+      storage.add<DerivativesExtScratch>(LayerMask(), Alignment, mode);
+      storage.add<DerivativesAneScratch>(LayerMask(), Alignment, mode);
+      storage.add<IDofsAneScratch>(LayerMask(), Alignment, mode);
+      storage.add<DofsExtScratch>(LayerMask(), Alignment, mode);
+      storage.add<IntegratedDofsScratch>(LayerMask(), Alignment, mode);
+      storage.add<DerivativesScratch>(LayerMask(), Alignment, mode);
+      storage.add<NodalAvgDisplacements>(LayerMask(), Alignment, mode);
+      storage.add<AnalyticScratch>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
 
-      storage.add<FlagScratch>(LayerMask(), 1, mode);
-      storage.add<QStressNodalScratch>(LayerMask(), 1, mode);
+      storage.add<FlagScratch>(LayerMask(), Alignment, mode);
+      storage.add<QStressNodalScratch>(LayerMask(), Alignment, mode);
 
-      storage.add<RotateDisplacementToFaceNormalScratch>(LayerMask(), 1, mode);
-      storage.add<RotateDisplacementToGlobalScratch>(LayerMask(), 1, mode);
-      storage.add<RotatedFaceDisplacementScratch>(LayerMask(), 1, mode);
-      storage.add<DofsFaceNodalScratch>(LayerMask(), 1, mode);
-      storage.add<PrevCoefficientsScratch>(LayerMask(), 1, mode);
-      storage.add<DofsFaceBoundaryNodalScratch>(LayerMask(), 1, mode);
+      storage.add<RotateDisplacementToFaceNormalScratch>(LayerMask(), Alignment, mode);
+      storage.add<RotateDisplacementToGlobalScratch>(LayerMask(), Alignment, mode);
+      storage.add<RotatedFaceDisplacementScratch>(LayerMask(), Alignment, mode);
+      storage.add<DofsFaceNodalScratch>(LayerMask(), Alignment, mode);
+      storage.add<PrevCoefficientsScratch>(LayerMask(), Alignment, mode);
+      storage.add<DofsFaceBoundaryNodalScratch>(LayerMask(), Alignment, mode);
     }
   }
 

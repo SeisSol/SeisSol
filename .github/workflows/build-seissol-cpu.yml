@@ -15,7 +15,7 @@ env:
 jobs:
   seissol-build-test:
     name: seissol-build-test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     strategy:
@@ -104,7 +104,6 @@ jobs:
 
           cmake .. \
             -GNinja \
-            -DNEW_BINARY_NAMING=ON \
             -DTESTING_COMMAND="${TESTING_COMMAND}" \
             -DCMAKE_INSTALL_PREFIX=/opt/seissol \
             -DTESTING=ON \
@@ -137,9 +136,9 @@ jobs:
 
           cd build
           set +e
-          ${TESTING_COMMAND} ./seissol-cpu-*
+          ${TESTING_COMMAND} ./seissol-*
           RETVAL_EXE=$?
-          ./proxyseissol-cpu-*
+          ./proxyseissol-*
           RETVAL_PROXY=$?
           set -e
 
@@ -163,7 +162,7 @@ jobs:
 
   seissol-run-test:
     name: seissol-run-test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     needs: [seissol-build-test]
@@ -171,8 +170,8 @@ jobs:
     env:
       EXENAME: |
         ${{
-          format('cpu-{0}-p{2}-{1}{3}',
-            matrix.case.equation,
+          format('{0}-o{2}-{1}{3}',
+            matrix.case.dispequation || matrix.case.equation,
             matrix.precision == 'single' && 'f32' || 'f64',
             matrix.order,
             matrix.case.multisim != 1 && format('-s{0}', matrix.case.multisim) || ''
@@ -199,7 +198,8 @@ jobs:
             volume: true
             surface: false
           - name: tpv5-visco
-            equation: viscoelastic-3
+            equation: viscoelastic2
+            dispequation: viscoelastic-3
             multisim: 1
             energies: true
             receivers: true
@@ -278,7 +278,7 @@ jobs:
             fault: true
             volume: true
             surface: false
-          - name: tpvahsp
+          - name: ahsp
             equation: anisotropic
             multisim: 1
             energies: false
@@ -310,7 +310,7 @@ jobs:
             fault: true
             volume: true
             surface: true
-          - name: tpvloh1-fused
+          - name: loh1-fused
             equation: elastic
             multisim: 8
             energies: true
@@ -471,16 +471,8 @@ jobs:
         run: |
           EPSILON=0.05
 
-          if [ ${{matrix.case.name}} = tpv5 ] || [ ${{matrix.case.name}} = tpv5-nuc ] || [ ${{matrix.case.name}} = tpv6 ] || [ ${{matrix.case.name}} = tpv16 ]; then
-            MODE=lsw;
-          elif [ ${{matrix.case.name}} = tpv105 ]; then
-            MODE=tp;
-          else
-            MODE=rs;
-          fi;
-
           cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-receivers.py ./output ./precomputed/${{matrix.precision}} --epsilon ${EPSILON} --mode $MODE
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-receivers.py ./output ./precomputed/${{matrix.precision}} --epsilon ${EPSILON}
       - name: check-energy
         if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.energies }}
         run: |

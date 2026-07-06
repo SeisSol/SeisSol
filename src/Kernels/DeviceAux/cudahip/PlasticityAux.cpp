@@ -9,13 +9,11 @@
 
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
-#include "Kernels/Precision.h"
 #include "Model/Plasticity.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <cmath>
 #include <cstddef>
-#include <type_traits>
 
 #ifdef __HIP__
 #include "hip/hip_runtime.h"
@@ -25,12 +23,7 @@ using StreamT = hipStream_t;
 using StreamT = cudaStream_t;
 #endif
 
-// NOTE: using c++14 because of cuda@10
-namespace seissol {
-namespace kernels {
-namespace device {
-namespace aux {
-namespace plasticity {
+namespace seissol::kernels::device::aux::plasticity {
 
 template <typename Tensor>
 __forceinline__ __device__ __host__ constexpr size_t leadDim() {
@@ -41,7 +34,7 @@ __forceinline__ __device__ __host__ constexpr size_t leadDim() {
   }
 }
 
-constexpr auto getblock(int size) {
+static constexpr auto getblock(int size) {
   if constexpr (multisim::MultisimEnabled) {
     return dim3(multisim::NumSimulations, size);
   } else {
@@ -84,7 +77,7 @@ __global__ void
   }
 
   // 1. Compute the mean stress for each node
-  const real meanStress = (localStresses[0] + localStresses[1] + localStresses[2]) / 3.0f;
+  const real meanStress = (localStresses[0] + localStresses[1] + localStresses[2]) / 3.0F;
 
 // 2. Compute deviatoric stress tensor
 #pragma unroll
@@ -181,8 +174,4 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
                                                          timeStepWidth);
 }
 
-} // namespace plasticity
-} // namespace aux
-} // namespace device
-} // namespace kernels
-} // namespace seissol
+} // namespace seissol::kernels::device::aux::plasticity

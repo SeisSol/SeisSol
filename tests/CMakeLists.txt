@@ -7,6 +7,7 @@
 
 set(seissol_test_sources
         Model/TestModel.cpp
+        Physics/InstantaneousTimeMirror.cpp
         Initializer/TestInitializer.cpp
         Numerical/TestNumerical.cpp
         Geometry/TestGeometry.cpp
@@ -68,6 +69,12 @@ target_link_libraries(seissol-serial-test PUBLIC seissol-external)
 target_include_directories(seissol-serial-test PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(seissol-serial-test PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
+if (NOT NEW_BINARY_NAMING)
+    set_target_properties(seissol-serial-test PROPERTIES OUTPUT_NAME "SeisSol_test_${EXE_NAME_PREFIX}")
+else()
+    set_target_properties(seissol-serial-test PROPERTIES OUTPUT_NAME "testseissol-${NAME_SUFFIX}")
+endif()
+
 if (TESTING_GENERATED)
     if (WITH_GPU)
 
@@ -79,6 +86,12 @@ if (TESTING_GENERATED)
         target_include_directories(seissol-serial-test-device PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
         target_link_libraries(seissol-serial-test PRIVATE seissol-serial-test-device)
         target_compile_definitions(seissol-serial-test-device PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
+
+        if (NOT NEW_BINARY_NAMING)
+            set_target_properties(seissol-serial-test-device PROPERTIES OUTPUT_NAME "SeisSol_testdevice_${EXE_NAME_PREFIX}")
+        else()
+            set_target_properties(seissol-serial-test-device PROPERTIES OUTPUT_NAME "testdeviceseissol-${NAME_SUFFIX}")
+        endif()
 
     else()
 
@@ -104,4 +117,8 @@ if(NOT CMAKE_PROPERTY_LIST)
     string(REGEX REPLACE ";" "\\\\;" CMAKE_PROPERTY_LIST "${CMAKE_PROPERTY_LIST}")
     string(REGEX REPLACE "\n" ";" CMAKE_PROPERTY_LIST "${CMAKE_PROPERTY_LIST}")
     list(REMOVE_DUPLICATES CMAKE_PROPERTY_LIST)
+endif()
+
+if (TESTING_PYTHON)
+    add_subdirectory(python/codegen)
 endif()

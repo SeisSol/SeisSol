@@ -27,7 +27,8 @@ class SlowVelocityWeakeningLaw
   }
 
   // Note that we need double precision here, since single precision led to NaNs.
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
+                                                 double timeIncrement) {
     Derived::updateStateVariable(ctx, timeIncrement);
   }
 
@@ -39,14 +40,15 @@ class SlowVelocityWeakeningLaw
     real acLin{};
   };
 
-  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& ctx, real localStateVariable) {
+  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& __restrict ctx,
+                                               real localStateVariable) {
     const real localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const real log1 = std::log(ctx.data->drParameters.rsSr0 * localStateVariable / localSl0);
     const real localF0 = ctx.data->f0[ctx.ltsFace][ctx.pointIndex];
     const real localB = ctx.data->b[ctx.ltsFace][ctx.pointIndex];
 
-    const real cLin = 0.5 / ctx.data->drParameters.rsSr0;
+    const real cLin = static_cast<real>(0.5) / ctx.data->drParameters.rsSr0;
     const real cExpLog = (localF0 + localB * log1) / localA;
     const real cExp = rs::computeCExp(cExpLog);
     const real acLin = localA * cLin;
@@ -54,12 +56,12 @@ class SlowVelocityWeakeningLaw
   }
 
   SEISSOL_DEVICE static real
-      updateMu(FrictionLawContext& ctx, real localSlipRateMagnitude, const MuDetails& details) {
+      updateMu(FrictionLawContext& /*ctx*/, real localSlipRateMagnitude, const MuDetails& details) {
     const real lx = details.cLin * localSlipRateMagnitude;
     return details.a * rs::arsinhexp(lx, details.cExpLog, details.cExp);
   }
 
-  SEISSOL_DEVICE static real updateMuDerivative(FrictionLawContext& ctx,
+  SEISSOL_DEVICE static real updateMuDerivative(FrictionLawContext& /*ctx*/,
                                                 real localSlipRateMagnitude,
                                                 const MuDetails& details) {
     const real lx = details.cLin * localSlipRateMagnitude;
@@ -70,11 +72,9 @@ class SlowVelocityWeakeningLaw
    * Resample the state variable. For Slow Velocity Weakening Laws,
    * we just copy the buffer into the member variable.
    */
-  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {
+  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& __restrict ctx) {
     ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] = ctx.stateVariableBuffer;
   }
-
-  SEISSOL_DEVICE static void executeIfNotConverged() {}
 };
 } // namespace seissol::dr::friction_law::gpu
 

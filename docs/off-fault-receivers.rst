@@ -14,16 +14,21 @@ Off fault receivers
 Introduction
 ------------
 
-Ascii receivers are enabled using the namelist output. Here is a
+Receivers can be configured using the namelist output. Here is a
 commented example:
 
 .. code-block:: Fortran
 
   &Output
+  receiverFormat = 'csv' ! Can be 'hdf5' or 'csv'
   pickdt = 0.01 ! Pickpoint Sampling
   pickDtType = 1 ! Pickpoint Type
   RFileName = 'receivers.dat' ! Record Points in extra file
   /
+
+If `receiverFormat = 'csv'` (the default), each receiver trace is written to a separate `.dat` file. If `receiverFormat = 'hdf5'`,
+all receiver traces are combined into a single HDF5 output file (`-receivers.h5`). The HDF5 file includes attributes
+(`DimNames` and `VariableNames`) that define the array dimensions (Time, Receivers, Variables) and output quantities.
 
 If pickDtType = 2, the output is generated every N time steps, where N is
 set by pickdt. If pickDtType = 1, output is generated every pickdt
@@ -51,9 +56,9 @@ Rotational Output
 You can additionally choose to write the rotation of the velocity field by setting :code:`ReceiverComputeRotation=1` in the parameter file.
 The rotation of the vector field is defined as :math:`\text{rot} v = \begin{pmatrix} \partial_2 v_3 - \partial_3 v_2 \\ \partial_3 v_1 - \partial_1 v_3 \\ \partial_1 v_2 - \partial_2 v_1 \\ \end{pmatrix}`.
 
-Strain Output
--------------
-Furthermore, you can also output the strain by setting :code:`ReceiverComputeStrain=1`.
+Strain Rate Output
+------------------
+Furthermore, you can also output the strain rate by setting :code:`ReceiverComputeStrainRate=1`.
 
 Placing free-surface receivers
 ------------------------------

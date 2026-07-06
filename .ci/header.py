@@ -311,7 +311,8 @@ def main():
     found = False
 
     for path in args.path:
-        for root, dirs, files in pathlib.Path(path).walk(top_down=False):
+        for root, dirs, files in os.walk(path, topdown=False):
+            root = pathlib.Path(root)
             for prefile in files:
                 file = root / prefile
                 if (

@@ -14,7 +14,7 @@
 namespace seissol::dr::friction_law::cpu {
 class NoTP {
   public:
-  explicit NoTP(seissol::initializer::parameters::DRParameters* drParameters) {};
+  explicit NoTP(const FrictionLawParameters& drParameters) {};
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
 
@@ -25,7 +25,7 @@ class NoTP {
                          bool saveTmpInTP,
                          std::size_t ltsFace) {}
 
-  [[nodiscard]] static real getFluidPressure(unsigned /*unused*/, unsigned /*unused*/) {
+  [[nodiscard]] static real getFluidPressure(std::size_t /*unused*/, std::uint32_t /*unused*/) {
     return 0;
   };
 };
