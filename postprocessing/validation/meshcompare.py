@@ -11,8 +11,10 @@ import sys
 import numpy as np
 import seissolxdmf as sx
 
+from validation_report import write_report_json
 
-def compare(file, file_ref, epsilon):
+
+def compare(file, file_ref, epsilon, report_json=None, category="mesh", geom_epsilon=1e-10):
     mesh = sx.seissolxdmf(file)
     mesh_ref = sx.seissolxdmf(file_ref)
 
@@ -33,7 +35,7 @@ def compare(file, file_ref, epsilon):
         preIds_ref = mesh_ref.Read1dData("global-id", mesh_ref.nElements, isInt=True)
         ids_ref = np.argsort(preIds_ref)
 
-        global_id_correct = np.all(np.abs(geom[connect[ids]] - geom_ref[connect_ref[ids_ref]]) < 1e-10)
+        global_id_correct = np.all(np.abs(geom[connect[ids]] - geom_ref[connect_ref[ids_ref]]) < geom_epsilon)
         matching = global_id_correct
         print(f'Global IDs present; conformant: {global_id_correct}')
 
@@ -65,7 +67,7 @@ def compare(file, file_ref, epsilon):
     connect_ref = connect_ref[ids_ref]
 
     # assert both simulations were run on the same mesh
-    assert np.all(np.abs(geom[connect] - geom_ref[connect_ref]) < 1e-10)
+    assert np.all(np.abs(geom[connect] - geom_ref[connect_ref]) < geom_epsilon)
 
     def compute_integral(geom, connect, q):
         cells = geom[connect, :]
@@ -153,6 +155,10 @@ def compare(file, file_ref, epsilon):
         print(f"Relative/absolute error {epsilon} exceeded for quantities")
         print([quantity_names[i] for i in np.where(errors > epsilon)[0]])
         failure = True
+
+    if report_json is not None:
+        quantities = {q: float(errors[i]) for i, q in enumerate(quantity_names)}
+        write_report_json(report_json, category, epsilon, not failure, quantities)
 
     if failure:
         sys.exit(1)
