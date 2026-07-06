@@ -351,7 +351,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     }
 
     for (uint32_t i = 0; i < this->drParameters_.rsMaxNumberSlipRateUpdates; i++) {
+
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION
 #pragma omp simd
+#endif
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         // calculate friction coefficient and objective function
         muF[pointIndex] =
