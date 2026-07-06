@@ -644,7 +644,76 @@ def select_cases(
     return selected
 
 
-def write_report(results: list[CaseResult], report_path: Optional[Path]) -> None:
+def load_failed_keys(path: Path) -> list[str]:
+    """Case keys that did not pass in a previous ``--report-json`` file."""
+    data = json.loads(path.read_text())
+    return [c["case"] for c in data.get("cases", []) if not c.get("passed", True)]
+
+
+def list_cases(selected: list[CaseSpec], epsilon_override: Optional[float]) -> None:
+    """Dry-run: show each selected case's reference and per-category epsilons."""
+    for case in selected:
+        tag = "   (derived, records nothing)" if case.is_derived else ""
+        print(f"{c(case.key, _Ansi.BOLD)}   config={case.config}   "
+              f"ref={case.reference}{tag}")
+        tpv = load_tpv_data(case)
+        enabled = [cat for cat in _CANONICAL_CATEGORIES if _enabled(tpv, cat)]
+        if not enabled:
+            print(f"    {_dim('(no categories enabled / no tpv-data.json)')}")
+            continue
+        for cat in enabled:
+            eps = _epsilon(tpv, cat, epsilon_override, case.precision)
+            qmap = tpv.get(cat, {}).get("quantities", {})
+            extra = f"   (+{len(qmap)} per-quantity)" if qmap else ""
+            print(f"    {cat:<9} \u03b5={eps:g}{extra}")
+
+
+def _state_of(r: "CaseResult") -> str:
+    """One-word status for a case: PASS / FAIL / SKIP / REC / RC=<n>."""
+    if r.skipped:
+        return "SKIP"
+    if r.recorded:
+        return "REC"
+    if r.ran and r.run_returncode != 0:
+        return f"RC={r.run_returncode}"
+    ok = sum(cr.passed for cr in r.compares)
+    return "PASS" if r.compares and ok == len(r.compares) else "FAIL"
+
+
+_CANONICAL_CATEGORIES = ["volume", "fault", "surface", "energy", "receiver"]
+
+
+def _category_columns(results: list["CaseResult"]) -> list[str]:
+    """Category columns present across the run, canonical order first."""
+    present = {cr.category for r in results for cr in r.compares}
+    return ([c for c in _CANONICAL_CATEGORIES if c in present]
+            + sorted(present - set(_CANONICAL_CATEGORIES)))
+
+
+def _offenders(cr: "CompareResult") -> list[tuple[str, float, float]]:
+    """Failing (quantity, achieved, threshold), worst first.
+
+    Uses the per-quantity verdict when present; otherwise derives the offenders
+    from the achieved map against the category epsilon, so a category-level
+    failure lists the same way. Empty if there is no summary (hard failure).
+    """
+    if cr.failures:
+        lst = list(cr.failures)
+    elif cr.quantities:
+        lst = [(q, e, cr.epsilon) for q, e in cr.quantities.items()
+               if not (e <= cr.epsilon)]
+    else:
+        return []
+
+    def sev(t: tuple[str, float, float]) -> float:
+        _, a, thr = t
+        return math.inf if (not math.isfinite(a) or thr <= 0) else a / thr
+
+    return sorted(lst, key=sev, reverse=True)
+
+
+def write_report(results: list[CaseResult], report_path: Optional[Path],
+                 near_miss: float = 0.5) -> None:
     """Render the run report.
 
     Two parts: a per-category grid (one row per case, one column per enabled
@@ -654,16 +723,13 @@ def write_report(results: list[CaseResult], report_path: Optional[Path]) -> None
     *its own* epsilon. The grid carries the full at-a-glance picture; the block
     is the readable "what actually broke" view.
     """
-    CANON = ["volume", "fault", "surface", "energy", "receiver"]
     MAX_QTY_ROWS = 6  # per category in the failure block, before "(+N more)"
 
-    present = {cr.category for r in results for cr in r.compares}
-    cols = [c_ for c_ in CANON if c_ in present]
-    cols += sorted(present - set(CANON))
+    cols = _category_columns(results)
 
     key_w = max([len("case")] + [len(r.case.key) for r in results])
     CASE_W = min(max(key_w, 12), 44)
-    STATE_W, COL_W = 6, 10
+    STATE_W, TIME_W, COL_W = 6, 8, 10
 
     def num(x: Optional[float], prec: int) -> str:
         if x is None:
@@ -674,37 +740,8 @@ def write_report(results: list[CaseResult], report_path: Optional[Path]) -> None
             return "nan"
         return f"{x:.{prec}e}"
 
-    def state_of(r: CaseResult) -> str:
-        if r.skipped:
-            return "SKIP"
-        if r.recorded:
-            return "REC"
-        if r.ran and r.run_returncode != 0:
-            return f"RC={r.run_returncode}"
-        ok = sum(cr.passed for cr in r.compares)
-        return "PASS" if r.compares and ok == len(r.compares) else "FAIL"
-
-    def offenders(cr: CompareResult) -> list[tuple[str, float, float]]:
-        """Failing (quantity, achieved, threshold), worst first.
-
-        Uses the per-quantity verdict when present; otherwise derives the
-        offenders from the achieved map against the category epsilon, so a
-        category-level failure lists the same way. Empty if there is no summary
-        (hard failure) -- the caller falls back to the compare's detail string.
-        """
-        if cr.failures:
-            lst = list(cr.failures)
-        elif cr.quantities:
-            lst = [(q, e, cr.epsilon) for q, e in cr.quantities.items()
-                   if not (e <= cr.epsilon)]
-        else:
-            return []
-
-        def sev(t: tuple[str, float, float]) -> float:
-            _, a, thr = t
-            return math.inf if (not math.isfinite(a) or thr <= 0) else a / thr
-
-        return sorted(lst, key=sev, reverse=True)
+    state_of = _state_of        # module-level; shared with the JSON report
+    offenders = _offenders      # module-level; shared with the Markdown summary
 
     # Pre-compute the failure block rows (color-independent) so widths line up
     # globally across every failing case.
@@ -751,6 +788,20 @@ def write_report(results: list[CaseResult], report_path: Optional[Path]) -> None
         bold_ = (lambda s: c(s, _Ansi.BOLD)) if colorize else (lambda s: s)
         mag_ = (lambda s: c(s, _Ansi.MAGENTA, _Ansi.BOLD)) if colorize else (lambda s: s)
 
+        warn_ = (lambda s: _warn(s)) if colorize else (lambda s: s)
+
+        def cell_render(cr: CompareResult) -> str:
+            # Near-miss: passing, but the achieved max sits in [near_miss·ε, ε).
+            ratio = 0.0
+            if cr.achieved is not None and math.isfinite(cr.achieved) and cr.epsilon > 0:
+                ratio = cr.achieved / cr.epsilon
+            near = cr.passed and near_miss > 0 and near_miss <= ratio < 1.0
+            mark = "✗" if not cr.passed else ("~" if near else " ")
+            cell = f"{num(cr.achieved, 1):>{COL_W - 1}}{mark}"
+            if not cr.passed:
+                return bad_(cell)
+            return warn_(cell) if near else ok_(cell)
+
         def state_cell(st: str) -> str:
             pad = f"{st:<{STATE_W}}"
             if st == "PASS":
@@ -763,13 +814,18 @@ def write_report(results: list[CaseResult], report_path: Optional[Path]) -> None
                 return dim_(pad)
             return pad
 
-        head = f"{'case':<{CASE_W}} {'state':<{STATE_W}}" + "".join(
-            f"{cat:>{COL_W}}" for cat in cols)
+        def time_cell(r: CaseResult) -> str:
+            # No run happened for skipped entries, so time carries no meaning.
+            text = "—" if r.skipped else f"{r.duration_s:.1f}s"
+            return dim_(f"{text:>{TIME_W}}")
+
+        head = (f"{'case':<{CASE_W}} {'state':<{STATE_W}} {'time':>{TIME_W}}"
+                + "".join(f"{cat:>{COL_W}}" for cat in cols))
         lines = [bold_(head), "─" * len(head)]
 
         for r in results:
             st = state_of(r)
-            row = f"{r.case.key:<{CASE_W}} {state_cell(st)}"
+            row = f"{r.case.key:<{CASE_W}} {state_cell(st)} {time_cell(r)}"
             if not r.compares:
                 note = r.note or ("recorded" if r.recorded else "")
                 lines.append(row + ("  " + dim_(note) if note else ""))
@@ -780,16 +836,19 @@ def write_report(results: list[CaseResult], report_path: Optional[Path]) -> None
                 if cr is None:
                     row += dim_(f"{'—':>{COL_W}}")
                     continue
-                mark = " " if cr.passed else "✗"
-                cell = f"{num(cr.achieved, 1):>{COL_W - 1}}{mark}"
-                row += ok_(cell) if cr.passed else bad_(cell)
+                row += cell_render(cr)
             lines.append(row.rstrip())
 
         lines.append("─" * len(head))
-        summary = (f"{buckets['PASS']} passed · {buckets['FAIL']} failed "
-                   f"· {buckets['SKIP']} skipped")
+        evaluated = buckets["PASS"] + buckets["FAIL"]
+        total_time = sum(r.duration_s for r in results)
+        parts = [f"{buckets['PASS']}/{evaluated} passed"] if evaluated else ["no tests run"]
+        if buckets["SKIP"]:
+            parts.append(f"{buckets['SKIP']} skipped")
         if buckets["REC"]:
-            summary += f" · {buckets['REC']} recorded"
+            parts.append(f"{buckets['REC']} recorded")
+        parts.append(f"{total_time:.1f}s")
+        summary = " · ".join(parts)
         lines.append(ok_(summary) if buckets["FAIL"] == 0 else bad_(summary))
 
         if fail_blocks:
@@ -814,6 +873,193 @@ def write_report(results: list[CaseResult], report_path: Optional[Path]) -> None
     if report_path:
         report_path.write_text(render(colorize=False) + "\n")
 
+
+def _json_num(x: Optional[float]):
+    """JSON-safe number: pass ints/floats through, encode inf/nan as strings."""
+    if x is None:
+        return None
+    x = float(x)
+    if math.isinf(x):
+        return "inf" if x > 0 else "-inf"
+    if math.isnan(x):
+        return "nan"
+    return x
+
+
+def build_run_report(results: list[CaseResult]) -> dict:
+    """Assemble the whole run as a JSON-serialisable dict (schema 1).
+
+    Carries, per case: identity (name/precision/reference/config), state, wall
+    time, and every comparison's category threshold, achieved max error, the
+    full per-quantity achieved map, and any per-quantity threshold violations.
+    inf/nan are encoded as the strings "inf"/"-inf"/"nan" so the file stays valid
+    JSON (mirrors the compare-*.py report format).
+    """
+    buckets = {"PASS": 0, "FAIL": 0, "SKIP": 0, "REC": 0}
+    for r in results:
+        st = _state_of(r)
+        buckets["FAIL" if st.startswith("RC=") else st] += 1
+
+    cases = []
+    for r in results:
+        comparisons = [
+            {
+                "category": cr.category,
+                "passed": cr.passed,
+                "epsilon": cr.epsilon,
+                "achieved": _json_num(cr.achieved),
+                "quantities": {k: _json_num(v) for k, v in cr.quantities.items()},
+                "failures": [
+                    {"quantity": q, "achieved": _json_num(a), "threshold": _json_num(t)}
+                    for (q, a, t) in cr.failures
+                ],
+            }
+            for cr in r.compares
+        ]
+        cases.append({
+            "case": r.case.key,
+            "name": r.case.name,
+            "precision": r.case.precision,
+            "reference": r.case.reference,
+            "config": r.case.config,
+            "state": _state_of(r),
+            "passed": r.passed,
+            "ran": r.ran,
+            "returncode": r.run_returncode,
+            "time_s": round(r.duration_s, 3),
+            "note": r.note,
+            "comparisons": comparisons,
+        })
+
+    return {
+        "schema": 1,
+        "generated": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "summary": {
+            "passed": buckets["PASS"],
+            "failed": buckets["FAIL"],
+            "skipped": buckets["SKIP"],
+            "recorded": buckets["REC"],
+            "evaluated": buckets["PASS"] + buckets["FAIL"],
+            "total_time_s": round(sum(r.duration_s for r in results), 3),
+        },
+        "cases": cases,
+    }
+
+
+def write_run_report_json(results: list[CaseResult], path: Path) -> None:
+    path.write_text(json.dumps(build_run_report(results), indent=2) + "\n")
+
+
+def render_markdown(results: list[CaseResult], near_miss: float = 0.5) -> str:
+    """GitHub-flavored Markdown version of the report (grid + failures)."""
+    cols = _category_columns(results)
+    buckets = {"PASS": 0, "FAIL": 0, "SKIP": 0, "REC": 0}
+    for r in results:
+        st = _state_of(r)
+        buckets["FAIL" if st.startswith("RC=") else st] += 1
+    evaluated = buckets["PASS"] + buckets["FAIL"]
+    total_time = sum(r.duration_s for r in results)
+
+    def mdnum(x: Optional[float]) -> str:
+        if x is None:
+            return "—"
+        if math.isinf(x):
+            return "inf"
+        if math.isnan(x):
+            return "nan"
+        return f"{x:.2e}"
+
+    emoji = {"PASS": "✅", "FAIL": "❌", "SKIP": "⏭️", "REC": "💾"}
+
+    parts = [f"{buckets['PASS']}/{evaluated} passed"] if evaluated else ["no tests run"]
+    if buckets["SKIP"]:
+        parts.append(f"{buckets['SKIP']} skipped")
+    if buckets["REC"]:
+        parts.append(f"{buckets['REC']} recorded")
+    parts.append(f"{total_time:.1f}s")
+    out = [f"## SeisSol verification — {' · '.join(parts)}", ""]
+
+    header = "| case | state | time | " + " | ".join(cols) + " |"
+    out.append(header)
+    out.append("|" + "---|" * (3 + len(cols)))
+    for r in results:
+        st = _state_of(r)
+        em = emoji.get("FAIL" if st.startswith("RC=") else st, "")
+        state_txt = f"{em} {st}"
+        tcell = "—" if r.skipped else f"{r.duration_s:.1f}s"
+        if not r.compares:
+            note = r.note or ("recorded" if r.recorded else "")
+            if note:
+                state_txt += f" — {note}"
+            out.append(f"| {r.case.key} | {state_txt} | {tcell} | "
+                       + " | ".join("" for _ in cols) + " |")
+            continue
+        cmap = {cr.category: cr for cr in r.compares}
+        cells = []
+        for cat in cols:
+            cr = cmap.get(cat)
+            if cr is None:
+                cells.append("—")
+                continue
+            val = mdnum(cr.achieved)
+            ratio = (cr.achieved / cr.epsilon
+                     if cr.achieved is not None and math.isfinite(cr.achieved)
+                     and cr.epsilon > 0 else 0.0)
+            if not cr.passed:
+                cells.append(f"**{val}**")          # failure
+            elif near_miss > 0 and near_miss <= ratio < 1.0:
+                cells.append(f"_{val}_")             # near-miss
+            else:
+                cells.append(val)
+        out.append(f"| {r.case.key} | {state_txt} | {tcell} | " + " | ".join(cells) + " |")
+
+    fails = [r for r in results if not r.passed and not r.skipped]
+    if fails:
+        out += ["", "<details><summary>Failures</summary>", ""]
+        for r in fails:
+            out.append(f"**{r.case.key}**")
+            if r.ran and r.run_returncode != 0:
+                out.append(f"- run exited with code {r.run_returncode}")
+                out.append("")
+                continue
+            cmap = {cr.category: cr for cr in r.compares}
+            for cat in _category_columns([r]):
+                cr = cmap.get(cat)
+                if cr is None or cr.passed:
+                    continue
+                offs = _offenders(cr)
+                if offs:
+                    for q, a, thr in offs:
+                        out.append(f"- `{cat}` — `{q}` {mdnum(a)} > {mdnum(thr)}")
+                else:
+                    out.append(f"- `{cat}` — {cr.detail or 'failed'}")
+            out.append("")
+        out.append("</details>")
+
+    return "\n".join(out) + "\n"
+
+
+def write_step_summary(results: list[CaseResult], mode: str,
+                       near_miss: float = 0.5) -> None:
+    """Append the Markdown report to ``$GITHUB_STEP_SUMMARY`` when appropriate.
+
+    mode ``auto`` writes only inside GitHub Actions (the env var is set),
+    ``always`` writes whenever the env var is set (and warns if it is not),
+    ``never`` disables it. The target path is whatever ``GITHUB_STEP_SUMMARY``
+    points at, so it can be redirected for local testing.
+    """
+    if mode == "never":
+        return
+    target = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not target:
+        if mode == "always":
+            print(f"{_warn('[warn]')} --step-summary=always but "
+                  f"GITHUB_STEP_SUMMARY is not set; skipping", file=sys.stderr)
+        return
+    with open(target, "a") as fh:  # GitHub step summaries are append-only
+        fh.write(render_markdown(results, near_miss))
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -827,14 +1073,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--precomputed-dir", type=Path, default=Path.cwd(),
                    help="precomputed-seissol checkout (default: cwd).")
-    p.add_argument("--binary-dir", type=Path, required=True,
-                   help="Directory holding seissol-<config> binaries.")
+    p.add_argument("--binary-dir", type=Path, default=None,
+                   help="Directory holding seissol-<config> binaries "
+                        "(not required with --list).")
     sel = p.add_argument_group("Case selection")
     sel.add_argument("--case", action="append", default=[],
                      help="Case to run: 'tpv5' for both precisions, "
                           "'tpv5/double' for one. Repeatable.")
     sel.add_argument("--all", action="store_true",
                      help="Run every entry in cases.json.")
+    sel.add_argument("--rerun-failed", type=Path, default=None, metavar="REPORT_JSON",
+                     help="Re-run only the cases that failed in a previous "
+                          "--report-json file (overrides --case/--all).")
+    sel.add_argument("--list", action="store_true",
+                     help="List the selected cases with their resolved reference "
+                          "and per-category epsilons, then exit without running.")
 
     run = p.add_argument_group("Run options")
     run.add_argument("--mpi-cmd", default="mpirun",
@@ -864,8 +1117,21 @@ def build_parser() -> argparse.ArgumentParser:
     out = p.add_argument_group("Output")
     out.add_argument("--report", type=Path, default=None,
                      help="Also write a plain-text summary report to this file.")
+    out.add_argument("--report-json", type=Path, default=None,
+                     help="Also write the full run report as JSON to this file "
+                          "(per-case state, time, achieved epsilon per category "
+                          "and per quantity, and per-quantity failures).")
     out.add_argument("--color", choices=("auto", "never", "always"), default="auto",
                      help="Colorize stdout. 'auto' = TTY+!NO_COLOR. (default: auto)")
+    out.add_argument("--step-summary", choices=("auto", "always", "never"),
+                     default="auto",
+                     help="Append a Markdown report to $GITHUB_STEP_SUMMARY. "
+                          "'auto' = only when that variable is set (i.e. in "
+                          "GitHub Actions). (default: auto)")
+    out.add_argument("--near-miss", type=float, default=0.5, metavar="FRAC",
+                     help="Highlight passing categories whose achieved error is "
+                          "at least FRAC of their epsilon (0 disables). "
+                          "(default: 0.5)")
     out.add_argument("--fail-fast", action="store_true",
                      help="Abort after the first failing case.")
     return p
@@ -875,8 +1141,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     setup_color(args.color)
 
-    if not args.case and not args.all:
-        print("error: pass --case ... or --all", file=sys.stderr)
+    if not (args.case or args.all or args.rerun_failed):
+        print("error: pass --case ..., --all, or --rerun-failed", file=sys.stderr)
         return 2
     if args.record and args.no_run:
         print("error: --record requires a fresh run; remove --no-run", file=sys.stderr)
@@ -884,9 +1150,31 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     precomputed_dir = args.precomputed_dir.resolve()
     cases = load_cases(precomputed_dir)
-    selected = select_cases(cases, args.case, args.all)
+
+    if args.rerun_failed:
+        keys = load_failed_keys(args.rerun_failed)
+        selected = []
+        for k in keys:
+            if k in cases:
+                selected.append(cases[k])
+            else:
+                print(f"{_warn('[warn]')} {k}: in report but not in cases.json; "
+                      f"skipping", file=sys.stderr)
+        if not selected:
+            print("No failed cases to re-run.", file=sys.stderr)
+            return 0
+    else:
+        selected = select_cases(cases, args.case, args.all)
     if not selected:
         print("No cases selected.", file=sys.stderr)
+        return 2
+
+    if args.list:
+        list_cases(selected, args.epsilon)
+        return 0
+
+    if args.binary_dir is None:
+        print("error: --binary-dir is required (except with --list)", file=sys.stderr)
         return 2
 
     mpi_cmd = [args.mpi_cmd, *shlex.split(args.mpi_args)]
@@ -953,7 +1241,10 @@ def main(argv: Optional[list[str]] = None) -> int:
         if not cr.passed and args.fail_fast:
             break
 
-    write_report(results, args.report)
+    write_report(results, args.report, near_miss=args.near_miss)
+    if args.report_json:
+        write_run_report_json(results, args.report_json)
+    write_step_summary(results, args.step_summary, near_miss=args.near_miss)
     return 0 if all(r.passed for r in results) else 1
 
 
