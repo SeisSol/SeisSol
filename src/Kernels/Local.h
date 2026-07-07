@@ -23,16 +23,16 @@ namespace seissol::kernels {
 
 class LocalKernel : public Kernel {
   protected:
-  double gravitationalAcceleration{9.81};
-  const std::vector<std::unique_ptr<physics::InitialField>>* initConds{nullptr};
+  double gravitationalAcceleration_{9.81};
+  const std::vector<std::unique_ptr<physics::InitialField>>* initConds_{nullptr};
 
   public:
   ~LocalKernel() override = default;
-  void setGravitationalAcceleration(double g) { gravitationalAcceleration = g; }
-  void setInitConds(decltype(initConds) initConds) { this->initConds = initConds; }
+  void setGravitationalAcceleration(double g) { gravitationalAcceleration_ = g; }
+  void setInitConds(decltype(initConds_) initConds) { this->initConds_ = initConds; }
 
   physics::InitialField* getInitCond(size_t index) {
-    const auto& condition = this->initConds->at(index);
+    const auto& condition = this->initConds_->at(index);
     return condition.get();
   }
 

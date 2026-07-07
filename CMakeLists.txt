@@ -7,15 +7,6 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-# use <PackageName>_ROOT variables
-if(POLICY CMP0074)
-  cmake_policy(SET CMP0074 NEW)
-endif()
-# honor CMAKE_REQUIRED_LIBRARIES in the include file check macros
-if(POLICY CMP0075)
-  cmake_policy(SET CMP0075 NEW)
-endif()
-
 project(SeisSol LANGUAGES C CXX)
 
 # TODO: Move one dir up.
@@ -64,7 +55,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
 #                     DR_QUAD_RULE
-#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, VECTORSIZE ARCH_STRING, WITH_GPU, DEVICE_VENDOR
+#       derived input: ALIGNMENT, VECTORSIZE, WITH_GPU, DEVICE_VENDOR
 #
 include(cmake/process_users_input.cmake)
 
@@ -244,7 +235,7 @@ if ("ptscotch" IN_LIST GRAPH_PARTITIONING_LIBS)
   target_compile_definitions(seissol-common-properties INTERFACE USE_PTSCOTCH)
 endif()
 if (NOT GRAPH_PARTITIONING_LIBS)
-  message(WARNING "Compiling without graph partitioning library; expect poor performance in multi-rank runs.")
+  message(WARNING "Compiling without graph partitioning library. It is highly recommended to use a graph partitioning library in multi-rank settings (e.g. on a cluster); otherwise the performance will be much worse than it could be.")
 endif()
 
 if (MEMKIND)
@@ -252,10 +243,6 @@ if (MEMKIND)
   target_include_directories(seissol-common-properties INTERFACE ${MEMKIND_INCLUDE_DIR})
   target_link_libraries(seissol-common-properties INTERFACE ${MEMKIND_LIBRARIES})
   target_compile_definitions(seissol-common-properties INTERFACE USE_MEMKIND)
-endif()
-
-if (INTEGRATE_QUANTITIES)
-  target_compile_definitions(seissol-common-properties INTERFACE INTEGRATE_QUANTITIES)
 endif()
 
 if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
@@ -374,21 +361,20 @@ if (NOT NEW_BINARY_NAMING)
   if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
     set(EXE_NAME_PREFIX "${EXE_NAME_PREFIX}_f${NUMBER_OF_FUSED_SIMULATIONS}")
   endif()
-else()
-  if (WITH_GPU)
-    set(NAME_SUFFIX "gpu")
-  else()
-    set(NAME_SUFFIX "cpu")
+  if(NOT ${CUSTOM_BINARY_SUFFIX} STREQUAL "")
+    set(EXE_NAME_PREFIX "${EXE_NAME_PREFIX}_${CUSTOM_BINARY_SUFFIX}")
   endif()
+else()
+  set(NAME_SUFFIX "")
   if (EQUATIONS STREQUAL "viscoelastic2")
-    set(NAME_SUFFIX "${NAME_SUFFIX}-viscoelastic")
+    set(NAME_SUFFIX "viscoelastic")
   else()
-    set(NAME_SUFFIX "${NAME_SUFFIX}-${EQUATIONS}")
+    set(NAME_SUFFIX "${EQUATIONS}")
   endif()
   if (NUMBER_OF_MECHANISMS GREATER 0)
     set(NAME_SUFFIX "${NAME_SUFFIX}-${NUMBER_OF_MECHANISMS}")
   endif()
-  set(NAME_SUFFIX "${NAME_SUFFIX}-p${ORDER}")
+  set(NAME_SUFFIX "${NAME_SUFFIX}-o${ORDER}")
   if (PRECISION STREQUAL "single")
     set(NAME_SUFFIX "${NAME_SUFFIX}-f32")
   else()
@@ -396,6 +382,9 @@ else()
   endif()
   if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
     set(NAME_SUFFIX "${NAME_SUFFIX}-s${NUMBER_OF_FUSED_SIMULATIONS}")
+  endif()
+  if(NOT ${CUSTOM_BINARY_SUFFIX} STREQUAL "")
+    set(NAME_SUFFIX "${NAME_SUFFIX}-${CUSTOM_BINARY_SUFFIX}")
   endif()
 endif()
 
@@ -422,8 +411,14 @@ if (WITH_GPU)
   # set SeisSol GPU definitions
   target_compile_definitions(seissol-common-properties INTERFACE ACL_DEVICE)
 
+  set(DEVICE_SUBMODULES "${CMAKE_CURRENT_SOURCE_DIR}/submodules")
+
   # add device submodule
   add_subdirectory(submodules/Device)
+
+  # for now, always enforce PIC here
+  target_compile_options(device PRIVATE -fPIC)
+
   target_link_libraries(seissol-common-properties INTERFACE device)
 
   # add SeisSol GPU part

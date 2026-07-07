@@ -29,8 +29,10 @@ class ReceiverOutput {
                   LTS::Backmap& userWpBackmap,
                   DynamicRupture::Storage& userDrStorage);
 
-  void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
-  void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
+  void setMeshReader(seissol::geometry::MeshReader* userMeshReader) {
+    meshReader_ = userMeshReader;
+  }
+  void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap_ = map; }
   void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                        const std::shared_ptr<ReceiverOutputData>& outputData,
@@ -42,14 +44,16 @@ class ReceiverOutput {
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
 
   protected:
-  LTS::Storage* wpStorage{nullptr};
-  LTS::Backmap* wpBackmap{nullptr};
-  DynamicRupture::Storage* drStorage{nullptr};
-  seissol::geometry::MeshReader* meshReader{nullptr};
-  FaceToLtsMapType* faceToLtsMap{nullptr};
-  real* deviceCopyMemory{nullptr};
+  LTS::Storage* wpStorage_{nullptr};
+  LTS::Backmap* wpBackmap_{nullptr};
+  DynamicRupture::Storage* drStorage_{nullptr};
+  seissol::geometry::MeshReader* meshReader_{nullptr};
+  FaceToLtsMapType* faceToLtsMap_{nullptr};
+  real* deviceCopyMemory_{nullptr};
 
-  kernels::Time timeKernel;
+  kernels::Time timeKernel_;
+
+  bool printRSFWarning_{false};
 
   struct LocalInfo {
     DynamicRupture::Layer* layer{};
@@ -58,6 +62,9 @@ class ReceiverOutput {
     int nearestInternalGpIndex{};
     int gpIndex{};
     int internalGpIndexFused{};
+
+    double time{};
+    bool* printWarning{nullptr};
 
     std::size_t index{};
     std::size_t fusedIndex{};
@@ -103,10 +110,11 @@ class ReceiverOutput {
     onfault receiver output on GPUs)
    */
   template <typename StorageT>
-  std::remove_extent_t<typename StorageT::Type>* getCellData(const LocalInfo& local) {
-    auto devVar = local.state->deviceVariables.find(drStorage->info<StorageT>().index);
+  [[nodiscard]] const std::remove_extent_t<typename StorageT::Type>*
+      getCellData(const LocalInfo& local) const {
+    const auto devVar = local.state->deviceVariables.find(drStorage_->info<StorageT>().index);
     if (devVar != local.state->deviceVariables.end()) {
-      return reinterpret_cast<std::remove_extent_t<typename StorageT::Type>*>(
+      return reinterpret_cast<const std::remove_extent_t<typename StorageT::Type>*>(
           devVar->second->get(local.state->deviceIndices[local.index]));
     } else {
       return local.layer->var<StorageT>()[local.ltsId];
@@ -134,7 +142,8 @@ class ReceiverOutput {
                                size_t outputSpecifics,
                                size_t receiverIdx) {}
   virtual void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
-                                          const std::array<real, 6>& rotatedStress) {};
+                                          const std::array<real, 6>& rotatedStress) {}
+  virtual void handleNonConvergence(LocalInfo& local) {}
 };
 } // namespace seissol::dr::output
 

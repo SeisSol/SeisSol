@@ -40,7 +40,7 @@ class ReceiverBasedOutputBuilder {
   protected:
   virtual void initTimeCaching() = 0;
 
-  void initBasisFunctions();
+  void initBasisFunctions(bool elementwise);
   void initFaultDirections();
   void initRotationMatrices();
   void initOutputVariables(std::array<bool, std::tuple_size_v<DrVarsT>>& outputMask);
@@ -49,14 +49,14 @@ class ReceiverBasedOutputBuilder {
   void assignFaultTags();
   void assignFusedIndices();
 
-  const seissol::geometry::MeshReader* meshReader{nullptr};
-  LTS::Storage* wpStorage{nullptr};
-  LTS::Backmap* wpBackmap{nullptr};
-  DynamicRupture::Storage* drStorage{nullptr};
-  std::shared_ptr<ReceiverOutputData> outputData;
-  std::vector<std::size_t> variables;
-  std::vector<::seissol::initializer::StoragePosition>* faceToLtsMap{nullptr};
-  int localRank{-1};
+  const seissol::geometry::MeshReader* meshReader_{nullptr};
+  LTS::Storage* wpStorage_{nullptr};
+  LTS::Backmap* wpBackmap_{nullptr};
+  DynamicRupture::Storage* drStorage_{nullptr};
+  std::shared_ptr<ReceiverOutputData> outputData_;
+  std::vector<std::size_t> variables_;
+  std::vector<::seissol::initializer::StoragePosition>* faceToLtsMap_{nullptr};
+  int localRank_{-1};
 };
 } // namespace seissol::dr::output
 

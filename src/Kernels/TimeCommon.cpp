@@ -63,8 +63,7 @@ void TimeCommon::computeIntegrals(Time& time,
    */
   for (std::size_t dofneighbor = 0; dofneighbor < Cell::NumFaces; ++dofneighbor) {
     // collect information only in the case that neighboring element contributions are required
-    if (faceTypes[dofneighbor] != FaceType::Outflow &&
-        faceTypes[dofneighbor] != FaceType::DynamicRupture) {
+    if (faceTypes[dofneighbor] == FaceType::Regular) {
       // check if the time integration is already done (-> copy pointer)
       if (!ltsSetup.neighborHasDerivatives(dofneighbor)) {
         timeIntegrated[dofneighbor] = timeDofs[dofneighbor];
