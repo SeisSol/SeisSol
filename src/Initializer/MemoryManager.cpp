@@ -10,20 +10,12 @@
 
 #include "MemoryManager.h"
 
-#include "BatchRecorders/Recorders.h"
-#include "Common/Constants.h"
-#include "Common/Iterator.h"
 #include "DynamicRupture/Factory.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
-#include "Initializer/BatchRecorders/Recorders.h"
-#include "Initializer/BoundaryHelper.h"
-#include "Initializer/CellLocalInformation.h"
-#include "Initializer/InitProcedure/Internal/Scratchpads.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Memory/Descriptor/Boundary.h"
 #include "Memory/Descriptor/DynamicRupture.h"
@@ -34,8 +26,6 @@
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
 
-#include <array>
-#include <cstddef>
 #include <memory>
 #include <utility>
 #include <utils/logger.h>
@@ -55,97 +45,6 @@ void MemoryManager::initialize() {
   if constexpr (seissol::isDeviceOn()) {
     GlobalDataInitializerOnDevice::init(
         globalDataOnDevice_, memoryAllocator_, memory::Memkind::DeviceGlobalMemory);
-  }
-}
-
-void MemoryManager::fixateBoundaryStorage() {
-  const LayerMask ghostMask(Ghost);
-
-  boundaryStorage_.setName("boundary");
-
-  // Boundary face storage
-  Boundary::addTo(boundaryStorage_);
-  boundaryStorage_.setLayerCount(ltsStorage_.getColorMap());
-  boundaryStorage_.fixate();
-
-  // Iterate over layers of standard lts storage and face lts storage together.
-  for (auto [layer, boundaryLayer] :
-       seissol::common::zip(ltsStorage_.leaves(ghostMask), boundaryStorage_.leaves(ghostMask))) {
-    CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
-
-    std::size_t numberOfBoundaryFaces = 0;
-    const auto layerSize = layer.size();
-
-#pragma omp parallel for schedule(static) reduction(+ : numberOfBoundaryFaces)
-    for (std::size_t cell = 0; cell < layerSize; ++cell) {
-      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
-          ++numberOfBoundaryFaces;
-        }
-      }
-    }
-    boundaryLayer.setNumberOfCells(numberOfBoundaryFaces);
-  }
-  boundaryStorage_.allocateVariables();
-  boundaryStorage_.touchVariables();
-
-  // The boundary storage is now allocated, now we only need to map from cell lts
-  // to face lts.
-  // We do this by, once again, iterating over both storages at the same time.
-  for (auto [layer, boundaryLayer] :
-       seissol::common::zip(ltsStorage_.leaves(ghostMask), boundaryStorage_.leaves(ghostMask))) {
-    auto* cellInformation = layer.var<LTS::CellInformation>();
-    auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
-    auto* boundaryMappingDevice = layer.var<LTS::BoundaryMappingDevice>();
-    auto* faceInformation = boundaryLayer.var<Boundary::FaceInformation>(AllocationPlace::Host);
-    auto* faceInformationDevice =
-        boundaryLayer.var<Boundary::FaceInformation>(AllocationPlace::Device);
-
-    std::size_t boundaryFace = 0;
-    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
-          boundaryMapping[cell][face] = CellBoundaryMapping(faceInformation[boundaryFace]);
-          boundaryMappingDevice[cell][face] =
-              CellBoundaryMapping(faceInformationDevice[boundaryFace]);
-          ++boundaryFace;
-        } else {
-          boundaryMapping[cell][face] = CellBoundaryMapping();
-          boundaryMappingDevice[cell][face] = CellBoundaryMapping();
-        }
-      }
-    }
-  }
-
-  surfaceStorage_.setName("surface");
-  SurfaceLTS::addTo(surfaceStorage_);
-
-  int refinement = 0;
-  const auto& outputParams = seissolInstance_.getSeisSolParameters().output;
-  if (outputParams.freeSurfaceParameters.enabled &&
-      outputParams.freeSurfaceParameters.vtkorder < 0) {
-    refinement = outputParams.freeSurfaceParameters.refinement;
-  }
-  seissolInstance_.freeSurfaceIntegrator().initialize(refinement, ltsStorage_, surfaceStorage_);
-}
-
-void MemoryManager::recordExecutionPaths(bool usePlasticity) {
-  recording::CompositeRecorder<LTS::LTSVarmap> recorder;
-  recorder.addRecorder(new recording::LocalIntegrationRecorder);
-  recorder.addRecorder(new recording::NeighIntegrationRecorder);
-
-  if (usePlasticity) {
-    recorder.addRecorder(new recording::PlasticityRecorder);
-  }
-
-  for (auto& layer : ltsStorage_.leaves(Ghost)) {
-    recorder.record(layer);
-  }
-
-  recording::CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
-  drRecorder.addRecorder(new recording::DynamicRuptureRecorder);
-  for (auto& layer : drStorage_.leaves(Ghost)) {
-    drRecorder.record(layer);
   }
 }
 

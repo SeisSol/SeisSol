@@ -34,6 +34,8 @@
 #include <cassert>
 #include <cstddef>
 #include <limits>
+#include <optional>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::initializer {

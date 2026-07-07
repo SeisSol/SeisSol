@@ -86,8 +86,6 @@ class MemoryManager {
    **/
   void initialize();
 
-  void fixateBoundaryStorage();
-
   /**
    * Gets the global data on both host and device.
    **/
@@ -117,6 +115,8 @@ class MemoryManager {
 
   SurfaceLTS::Storage& getSurfaceStorage() { return surfaceStorage_; }
 
+  Boundary::Storage& boundaryStorage() { return boundaryStorage_; }
+
   void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
     iniConds_ = std::move(iniConds);
   }
@@ -128,8 +128,6 @@ class MemoryManager {
   dr::friction_law::FrictionSolver* getFrictionLaw() { return frictionLaw_.get(); }
   dr::friction_law::FrictionSolver* getFrictionLawDevice() { return frictionLawDevice_.get(); }
   seissol::dr::output::OutputManager* getFaultOutputManager() { return faultOutputManager_.get(); }
-
-  void recordExecutionPaths(bool usePlasticity);
 
   void initializeFrictionLaw();
   void initFrictionData();

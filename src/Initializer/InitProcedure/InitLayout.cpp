@@ -16,6 +16,7 @@
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/TimeStepping/Halo.h"
 #include "Internal/MeshLayout.h"
+#include "Kernels/Common.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"

@@ -12,6 +12,8 @@
 #include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/InitProcedure/Internal/Boundary.h"
+#include "Initializer/InitProcedure/Internal/Recording.h"
 #include "Initializer/InitProcedure/Internal/Scratchpads.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/Model/BoundaryMappings.h"
@@ -40,6 +42,7 @@
 #include <cassert>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utils/env.h>
@@ -247,9 +250,8 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   seissol::initializer::initializeBoundaryMappings(
       meshReader, boundaryScript, memoryManager.getLtsStorage());
 
-#ifdef ACL_DEVICE
-  memoryManager.recordExecutionPaths(seissolParams.model.plasticity);
-#endif
+  internal::setupRecorders(
+      memoryManager.getLtsStorage(), memoryManager.getDRStorage(), seissolParams.model.plasticity);
 
   auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
 
@@ -316,7 +318,20 @@ void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
     ltsStorage.allocateScratchPads();
   }
 
-  seissolInstance.getMemoryManager().fixateBoundaryStorage();
+  auto& mm = seissolInstance.getMemoryManager();
+
+  int refinement = 0;
+  const auto& outputParams = seissolInstance.getSeisSolParameters().output;
+  if (outputParams.freeSurfaceParameters.enabled &&
+      outputParams.freeSurfaceParameters.vtkorder < 0) {
+    refinement = outputParams.freeSurfaceParameters.refinement;
+  }
+
+  internal::initBoundaryStorage(mm.boundaryStorage(), mm.getLtsStorage());
+  internal::initSurfaceStorage(mm.getSurfaceStorage(),
+                               mm.getLtsStorage(),
+                               seissolInstance.freeSurfaceIntegrator(),
+                               refinement);
 }
 
 } // namespace

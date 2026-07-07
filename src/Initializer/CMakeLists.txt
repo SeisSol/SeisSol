@@ -23,9 +23,11 @@ add_library(seissol-initializer OBJECT
     InitProcedure/InitMesh.cpp
     InitProcedure/InitModel.cpp
     InitProcedure/InitSideConditions.cpp
+    InitProcedure/Internal/Boundary.cpp
     InitProcedure/Internal/Buckets.cpp
     InitProcedure/Internal/LtsSetup.cpp
     InitProcedure/Internal/MeshLayout.cpp
+    InitProcedure/Internal/Recording.cpp
     InitProcedure/Internal/Scratchpads.cpp
 
 
