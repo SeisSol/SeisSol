@@ -180,6 +180,24 @@ constexpr size_t MultisimStart = MultisimHelper::MultisimStart;
 constexpr size_t MultisimEnd = MultisimHelper::MultisimEnd;
 constexpr bool MultisimEnabled = MultisimHelper::MultisimEnabled;
 
+template <typename Tensor>
+constexpr size_t leadDim() {
+  if constexpr (MultisimEnabled) {
+    return Tensor::Stop[1] - Tensor::Start[1];
+  } else {
+    return Tensor::Stop[0] - Tensor::Start[0];
+  }
+}
+
+template <typename Tensor>
+constexpr size_t linearDim() {
+  if constexpr (MultisimEnabled) {
+    return (Tensor::Stop[1] - Tensor::Start[1]) * (Tensor::Stop[0] - Tensor::Start[0]);
+  } else {
+    return Tensor::Stop[0] - Tensor::Start[0];
+  }
+}
+
 } // namespace seissol::multisim
 
 #endif // SEISSOL_SRC_SOLVER_MULTIPLESIMULATIONS_H_
