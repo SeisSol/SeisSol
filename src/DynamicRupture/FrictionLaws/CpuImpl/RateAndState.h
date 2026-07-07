@@ -352,7 +352,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
     for (uint32_t i = 0; i < this->drParameters_.rsMaxNumberSlipRateUpdates; i++) {
 
-#ifndef SEISSOL_INTEL_SIMD_EXCEPTION
+#ifdef SEISSOL_INTEL_SIMD_EXCEPTION
+#pragma clang loop vectorize(enable)
+#else
 #pragma omp simd
 #endif
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
@@ -377,7 +379,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         return hasConverged;
       }
 
-#ifndef SEISSOL_INTEL_SIMD_EXCEPTION
+#ifdef SEISSOL_INTEL_SIMD_EXCEPTION
+#pragma clang loop vectorize(enable)
+#else
 #pragma omp simd
 #endif
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
