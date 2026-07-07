@@ -178,9 +178,6 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
       auto qGodLocal = init::QgodLocal::view::create(qGodLocalData);
       auto qGodNeighbor = init::QgodNeighbor::view::create(qGodNeighborData);
 
-      real rusanovPlusNull[tensor::QcorrLocal::size()]{};
-      real rusanovMinusNull[tensor::QcorrNeighbor::size()]{};
-
 #pragma omp for schedule(static)
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto clusterId = secondaryInformation[cell].clusterId;
