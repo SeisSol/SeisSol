@@ -73,7 +73,7 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
 
   meshReader.linearizeGhostlayer();
 
-  const auto& drParameters = seissolInstance.getSeisSolParameters().drParameters;
+  const auto& drParameters = seissolInstance.parameters().drParameters;
   const VrtxCoords center{drParameters.referencePoint[0],
                           drParameters.referencePoint[1],
                           drParameters.referencePoint[2]};
@@ -342,7 +342,7 @@ void readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters
 void initMesh(seissol::SeisSol& seissolInstance) {
   SCOREP_USER_REGION("init_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
+  const auto& seissolParams = seissolInstance.parameters();
   const auto commSize = seissol::Mpi::mpi.size();
 
   logInfo() << "Begin init mesh.";

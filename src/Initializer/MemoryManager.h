@@ -89,7 +89,7 @@ class MemoryManager {
   /**
    * Gets the global data on both host and device.
    **/
-  CompoundGlobalData getGlobalData() {
+  CompoundGlobalData globalData() {
     CompoundGlobalData global{};
     global.onHost = &globalDataOnHost_;
     global.onDevice = nullptr;
@@ -103,17 +103,17 @@ class MemoryManager {
 
   ClusterLayout& clusterLayout() { return layout_.value(); }
 
-  LTS::Storage& getLtsStorage() { return ltsStorage_; }
+  LTS::Storage& ltsStorage() { return ltsStorage_; }
 
-  LTS::Backmap& getBackmap() { return backmap_; }
+  LTS::Backmap& backmap() { return backmap_; }
 
-  DynamicRupture::Storage& getDRStorage() { return drStorage_; }
+  DynamicRupture::Storage& drStorage() { return drStorage_; }
 
-  DynamicRupture::Backmap& getDRBackmap() { return drBackmap_; }
+  DynamicRupture::Backmap& drBackmap() { return drBackmap_; }
 
-  DynamicRupture& getDynamicRupture() { return *dynRup_; }
+  DynamicRupture& drDescriptor() { return *dynRup_; }
 
-  SurfaceLTS::Storage& getSurfaceStorage() { return surfaceStorage_; }
+  SurfaceLTS::Storage& surfaceStorage() { return surfaceStorage_; }
 
   Boundary::Storage& boundaryStorage() { return boundaryStorage_; }
 
@@ -121,13 +121,13 @@ class MemoryManager {
     iniConds_ = std::move(iniConds);
   }
 
-  const std::vector<std::unique_ptr<physics::InitialField>>& getInitialConditions() {
+  const std::vector<std::unique_ptr<physics::InitialField>>& initialConditions() {
     return iniConds_;
   }
 
-  dr::friction_law::FrictionSolver* getFrictionLaw() { return frictionLaw_.get(); }
-  dr::friction_law::FrictionSolver* getFrictionLawDevice() { return frictionLawDevice_.get(); }
-  seissol::dr::output::OutputManager* getFaultOutputManager() { return faultOutputManager_.get(); }
+  dr::friction_law::FrictionSolver* frictionLaw() { return frictionLaw_.get(); }
+  dr::friction_law::FrictionSolver* frictionLawDevice() { return frictionLawDevice_.get(); }
+  seissol::dr::output::OutputManager* faultOutputManager() { return faultOutputManager_.get(); }
 
   void initializeFrictionLaw();
   void initFrictionData();

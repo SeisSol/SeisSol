@@ -101,7 +101,7 @@ void ReceiverCluster::addReceiver(std::size_t meshId,
   const size_t reserved = ncols() * (syncPointInterval_ / samplingInterval_ + 1);
 
   const auto position = backmap.get(meshId);
-  auto& ltsStorage = seissolInstance_.getMemoryManager().getLtsStorage();
+  auto& ltsStorage = seissolInstance_.memoryManager().ltsStorage();
   receivers_.emplace_back(pointId,
                           point,
                           coords,
@@ -146,7 +146,7 @@ double ReceiverCluster::calcReceivers(double time,
       alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()]{};
       alignas(PagesizeStack) real timeDerivatives[Solver::DerivativesSize]{};
 
-      kernels::LocalTmp tmp(seissolInstance_.getGravitationSetup().acceleration);
+      kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
 
       kernel::evaluateDOFSAtPoint krnl;
       krnl.QAtPoint = timeEvaluatedAtPoint;

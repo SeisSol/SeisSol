@@ -49,7 +49,7 @@ void MemoryManager::initialize() {
 }
 
 void MemoryManager::initializeFrictionLaw() {
-  const auto& params = seissolInstance_.getSeisSolParameters().drParameters;
+  const auto& params = seissolInstance_.parameters().drParameters;
   const auto drParameters = std::make_shared<parameters::DRParameters>(params);
   logInfo() << "Initialize Friction Model";
 
@@ -67,7 +67,7 @@ void MemoryManager::initializeFrictionLaw() {
 }
 
 void MemoryManager::initFrictionData() {
-  const auto& params = seissolInstance_.getSeisSolParameters().drParameters;
+  const auto& params = seissolInstance_.parameters().drParameters;
   if (params.isDynamicRuptureEnabled) {
 
     drInitializer_->initializeFault(drStorage_);

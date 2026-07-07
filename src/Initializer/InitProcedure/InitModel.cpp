@@ -68,9 +68,9 @@ std::vector<T> queryDB(const std::shared_ptr<seissol::initializer::QueryGenerato
 }
 
 void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
+  const auto& seissolParams = seissolInstance.parameters();
   const auto& meshReader = seissolInstance.meshReader();
-  initializer::MemoryManager& memoryManager = seissolInstance.getMemoryManager();
+  initializer::MemoryManager& memoryManager = seissolInstance.memoryManager();
 
   // unpack ghost layer (merely a re-ordering operation, since the CellToVertexArray right now
   // requires an vector there)
@@ -138,7 +138,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 
   logDebug() << "Setting cell materials in the storage (for interior and copy layers).";
 
-  for (auto& layer : memoryManager.getLtsStorage().leaves()) {
+  for (auto& layer : memoryManager.ltsStorage().leaves()) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     auto* materialDataArray = layer.var<LTS::MaterialData>();
@@ -187,7 +187,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
             const auto& globalNeighborIndex = localSecondaryInformation.faceNeighbors[side];
 
             auto* materialNeighbor =
-                &memoryManager.getLtsStorage().lookup<LTS::MaterialData>(globalNeighborIndex);
+                &memoryManager.ltsStorage().lookup<LTS::MaterialData>(globalNeighborIndex);
             material.neighbor[side] = materialNeighbor;
           } else {
             // otherwise, use the material from the own cell
@@ -215,16 +215,14 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 }
 
 void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
+  const auto& seissolParams = seissolInstance.parameters();
 
   // \todo Move this to some common initialization place
   auto& meshReader = seissolInstance.meshReader();
-  auto& memoryManager = seissolInstance.getMemoryManager();
+  auto& memoryManager = seissolInstance.memoryManager();
 
-  seissol::initializer::initializeCellLocalMatrices(meshReader,
-                                                    memoryManager.getLtsStorage(),
-                                                    memoryManager.clusterLayout(),
-                                                    seissolParams.model);
+  seissol::initializer::initializeCellLocalMatrices(
+      meshReader, memoryManager.ltsStorage(), memoryManager.clusterLayout(), seissolParams.model);
 
   if (seissolParams.drParameters.etaDamp != 1.0) {
     logWarning() << "The \"eta damp\" (=" << seissolParams.drParameters.etaDamp
@@ -235,10 +233,8 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
                     "are (mostly) computed with \"eta damp\" = 1).";
   }
 
-  seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
-                                                         memoryManager.getLtsStorage(),
-                                                         memoryManager.getBackmap(),
-                                                         memoryManager.getDRStorage());
+  seissol::initializer::initializeDynamicRuptureMatrices(
+      meshReader, memoryManager.ltsStorage(), memoryManager.backmap(), memoryManager.drStorage());
 
   memoryManager.initFrictionData();
 
@@ -248,19 +244,19 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   }
 
   seissol::initializer::initializeBoundaryMappings(
-      meshReader, boundaryScript, memoryManager.getLtsStorage());
+      meshReader, boundaryScript, memoryManager.ltsStorage());
 
   internal::setupRecorders(
-      memoryManager.getLtsStorage(), memoryManager.getDRStorage(), seissolParams.model.plasticity);
+      memoryManager.ltsStorage(), memoryManager.drStorage(), seissolParams.model.plasticity);
 
-  auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
+  auto itmParameters = seissolInstance.parameters().model.itmParameters;
 
   if (itmParameters.itmEnabled) {
     auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();
     const double scalingFactor = itmParameters.itmVelocityScalingFactor;
     const double startingTime = itmParameters.itmStartingTime;
 
-    auto& ltsStorage = memoryManager.getLtsStorage();
+    auto& ltsStorage = memoryManager.ltsStorage();
     const auto* timeStepping = &seissolInstance.timeManager().getClusterLayout();
 
     initializeTimeMirrorManagers(scalingFactor,
@@ -311,27 +307,25 @@ void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
 
   if constexpr (isDeviceOn()) {
 
-    auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
+    auto& ltsStorage = seissolInstance.memoryManager().ltsStorage();
 
     seissol::initializer::internal::deriveRequiredScratchpadMemoryForWp(
-        seissolInstance.getSeisSolParameters().model.plasticity, ltsStorage);
+        seissolInstance.parameters().model.plasticity, ltsStorage);
     ltsStorage.allocateScratchPads();
   }
 
-  auto& mm = seissolInstance.getMemoryManager();
+  auto& mm = seissolInstance.memoryManager();
 
   int refinement = 0;
-  const auto& outputParams = seissolInstance.getSeisSolParameters().output;
+  const auto& outputParams = seissolInstance.parameters().output;
   if (outputParams.freeSurfaceParameters.enabled &&
       outputParams.freeSurfaceParameters.vtkorder < 0) {
     refinement = outputParams.freeSurfaceParameters.refinement;
   }
 
-  internal::initBoundaryStorage(mm.boundaryStorage(), mm.getLtsStorage());
-  internal::initSurfaceStorage(mm.getSurfaceStorage(),
-                               mm.getLtsStorage(),
-                               seissolInstance.freeSurfaceIntegrator(),
-                               refinement);
+  internal::initBoundaryStorage(mm.boundaryStorage(), mm.ltsStorage());
+  internal::initSurfaceStorage(
+      mm.surfaceStorage(), mm.ltsStorage(), seissolInstance.freeSurfaceIntegrator(), refinement);
 }
 
 } // namespace
@@ -354,13 +348,10 @@ void initModel(seissol::SeisSol& seissolInstance) {
   logInfo() << "Precision:"
             << (Config::Precision == RealType::F32 ? "single (f32)" : "double (f64)");
   logInfo() << "Number of simulations: " << Config::NumSimulations;
-  logInfo() << "Plasticity:"
-            << (seissolInstance.getSeisSolParameters().model.plasticity ? "on" : "off");
-  logInfo() << "Flux:"
-            << parameters::fluxToString(seissolInstance.getSeisSolParameters().model.flux).c_str();
+  logInfo() << "Plasticity:" << (seissolInstance.parameters().model.plasticity ? "on" : "off");
+  logInfo() << "Flux:" << parameters::fluxToString(seissolInstance.parameters().model.flux).c_str();
   logInfo() << "Flux near fault:"
-            << parameters::fluxToString(seissolInstance.getSeisSolParameters().model.fluxNearFault)
-                   .c_str();
+            << parameters::fluxToString(seissolInstance.parameters().model.fluxNearFault).c_str();
 
   // init cell materials (needs LTS, to place the material in; this part was translated from
   // FORTRAN)
