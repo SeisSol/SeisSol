@@ -15,6 +15,9 @@
 #ifdef __INTEL_LLVM_COMPILER
 #if __INTEL_LLVM_COMPILER >= 20250000
 #define SEISSOL_INTEL_SIMD_EXCEPTION
+#if __INTEL_LLVM_COMPILER < 20260000
+#define SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
+#endif
 #endif
 #endif // __INTEL_LLVM_COMPILER
 
@@ -344,7 +347,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
     const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
 
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
+#endif
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // first guess = sliprate value of the previous step
       slipRateTest[pointIndex] = this->slipRateMagnitude_[ltsFace][pointIndex];
@@ -352,7 +357,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
     for (uint32_t i = 0; i < this->drParameters_.rsMaxNumberSlipRateUpdates; i++) {
 
-#ifndef SEISSOL_INTEL_SIMD_EXCEPTION
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
 #endif
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
@@ -370,7 +375,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         return std::abs(val) < this->drParameters_.rsSlipRateTolerance;
       });
       if (hasConverged) {
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
+#endif
         for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
           this->mu_[ltsFace][pointIndex] = muF[pointIndex];
         }
@@ -398,7 +405,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     }
 
     // update (non-)convergence
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
+#endif
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       convergenceInner_[ltsFace][pointIndex] &=
           std::abs(g[pointIndex]) < this->drParameters_.rsSlipRateTolerance;
