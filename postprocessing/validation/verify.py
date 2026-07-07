@@ -713,7 +713,8 @@ def _offenders(cr: "CompareResult") -> list[tuple[str, float, float]]:
 
 
 def write_report(results: list[CaseResult], report_path: Optional[Path],
-                 near_miss: float = 0.5) -> None:
+                 near_miss: float = 0.5, drift: Optional[list[tuple]] = None,
+                 drift_factor: float = 2.0) -> None:
     """Render the run report.
 
     Two parts: a per-category grid (one row per case, one column per enabled
@@ -775,6 +776,12 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
     qty_w = max([0] + [len(q) for _, q, _, _ in all_rows])
     num_w = max([0] + [len(num(v, 2)) for _, _, a, thr in all_rows
                        for v in (a, thr) if v is not None])
+
+    drift = drift or []
+    d_cat_w = max([0] + [len(cat) for _, cat, _, _, _, _ in drift])
+    d_qty_w = max([0] + [len(q) for _, _, q, _, _, _ in drift])
+    d_num_w = max([0] + [len(num(v, 2)) for _, _, _, b, cu, _ in drift
+                         for v in (b, cu)])
 
     buckets = {"PASS": 0, "FAIL": 0, "SKIP": 0, "REC": 0}
     for r in results:
@@ -867,6 +874,20 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
                                 f"{bad_(f'{num(a, 2):>{num_w}}')}  >  "
                                 f"{dim_(f'{num(thr, 2):>{num_w}}')}")
                         lines.append(line)
+
+        if drift:
+            lines.append("")
+            lines.append(bold_(f"Drift vs baseline (\u2265{drift_factor:g}\u00d7):"))
+            last_ck = None
+            for ck, cat, q, base, cur, ratio in drift:
+                if ck != last_ck:
+                    lines.append(f"  {ck}")
+                    last_ck = ck
+                rs = "\u221e" if not math.isfinite(ratio) else f"{ratio:.1f}\u00d7"
+                lines.append(
+                    f"    {cat:<{d_cat_w}}  {q:<{d_qty_w}}  "
+                    f"{dim_(f'{num(base, 2):>{d_num_w}}')} \u2192 "
+                    f"{warn_(f'{num(cur, 2):>{d_num_w}}')}  ({rs})")
         return "\n".join(lines)
 
     print("\n" + render(colorize=True))
@@ -886,7 +907,8 @@ def _json_num(x: Optional[float]):
     return x
 
 
-def build_run_report(results: list[CaseResult]) -> dict:
+def build_run_report(results: list[CaseResult],
+                     drift: Optional[list[tuple]] = None) -> dict:
     """Assemble the whole run as a JSON-serialisable dict (schema 1).
 
     Carries, per case: identity (name/precision/reference/config), state, wall
@@ -943,14 +965,22 @@ def build_run_report(results: list[CaseResult]) -> dict:
             "total_time_s": round(sum(r.duration_s for r in results), 3),
         },
         "cases": cases,
+        "drift": [
+            {"case": ck, "category": cat, "quantity": q,
+             "baseline": _json_num(base), "current": _json_num(cur),
+             "ratio": _json_num(ratio)}
+            for (ck, cat, q, base, cur, ratio) in (drift or [])
+        ],
     }
 
 
-def write_run_report_json(results: list[CaseResult], path: Path) -> None:
-    path.write_text(json.dumps(build_run_report(results), indent=2) + "\n")
+def write_run_report_json(results: list[CaseResult], path: Path,
+                          drift: Optional[list[tuple]] = None) -> None:
+    path.write_text(json.dumps(build_run_report(results, drift), indent=2) + "\n")
 
 
-def render_markdown(results: list[CaseResult], near_miss: float = 0.5) -> str:
+def render_markdown(results: list[CaseResult], near_miss: float = 0.5,
+                    drift: Optional[list[tuple]] = None) -> str:
     """GitHub-flavored Markdown version of the report (grid + failures)."""
     cols = _category_columns(results)
     buckets = {"PASS": 0, "FAIL": 0, "SKIP": 0, "REC": 0}
@@ -1036,11 +1066,24 @@ def render_markdown(results: list[CaseResult], near_miss: float = 0.5) -> str:
             out.append("")
         out.append("</details>")
 
+    if drift:
+        out += ["", "<details><summary>Drift vs baseline</summary>", ""]
+        last = None
+        for ck, cat, q, base, cur, ratio in drift:
+            if ck != last:
+                out.append(f"**{ck}**")
+                last = ck
+            rs = "∞" if not math.isfinite(ratio) else f"{ratio:.1f}×"
+            out.append(f"- `{cat}` — `{q}` {mdnum(base)} → {mdnum(cur)} ({rs})")
+        out.append("")
+        out.append("</details>")
+
     return "\n".join(out) + "\n"
 
 
 def write_step_summary(results: list[CaseResult], mode: str,
-                       near_miss: float = 0.5) -> None:
+                       near_miss: float = 0.5,
+                       drift: Optional[list[tuple]] = None) -> None:
     """Append the Markdown report to ``$GITHUB_STEP_SUMMARY`` when appropriate.
 
     mode ``auto`` writes only inside GitHub Actions (the env var is set),
@@ -1057,7 +1100,85 @@ def write_step_summary(results: list[CaseResult], mode: str,
                   f"GITHUB_STEP_SUMMARY is not set; skipping", file=sys.stderr)
         return
     with open(target, "a") as fh:  # GitHub step summaries are append-only
-        fh.write(render_markdown(results, near_miss))
+        fh.write(render_markdown(results, near_miss, drift))
+
+
+# --- drift detection --------------------------------------------------
+
+DRIFT_FLOOR = 1e-9  # ignore drift in the numerical noise floor
+
+
+def _decode_num(x):
+    """Decode a JSON number that may be an "inf"/"-inf"/"nan" sentinel string."""
+    if isinstance(x, str):
+        return {"inf": math.inf, "-inf": -math.inf, "nan": math.nan}.get(x, math.nan)
+    return x
+
+
+def load_baseline_achieved(path: Path) -> dict:
+    """Map (case, category, quantity) -> achieved error from a prior report JSON."""
+    data = json.loads(path.read_text())
+    out: dict = {}
+    for case in data.get("cases", []):
+        ck = case.get("case", "")
+        for cmp_ in case.get("comparisons", []):
+            cat = cmp_.get("category", "")
+            for q, v in cmp_.get("quantities", {}).items():
+                out[(ck, cat, q)] = _decode_num(v)
+    return out
+
+
+def compute_drift(results: list[CaseResult], baseline: dict,
+                  factor: float) -> list[tuple]:
+    """Find (case, category, quantity) whose achieved error grew >= factor.
+
+    Returns ``(case, category, quantity, baseline, current, ratio)`` worst first.
+    Only meaningful, above-floor values count; a baseline of ~0 (perfect match)
+    is skipped since any ratio there is meaningless.
+    """
+    rows = []
+    for r in results:
+        for cr in r.compares:
+            for q, cur in cr.quantities.items():
+                base = baseline.get((r.case.key, cr.category, q))
+                if base is None or not math.isfinite(base) or base <= DRIFT_FLOOR:
+                    continue
+                if math.isfinite(cur) and cur < DRIFT_FLOOR:
+                    continue
+                ratio = math.inf if not math.isfinite(cur) else cur / base
+                if ratio >= factor:
+                    rows.append((r.case.key, cr.category, q, base, cur, ratio))
+    rows.sort(key=lambda t: t[5], reverse=True)
+    return rows
+
+
+# --- epsilon suggestion (#4) -----------------------------------------------
+
+def _ceil_1sig(x: float) -> float:
+    """Round x UP to one significant figure (clean, never below the input)."""
+    if not math.isfinite(x) or x <= 0:
+        return x
+    step = 10.0 ** math.floor(math.log10(x))
+    return math.ceil(x / step) * step
+
+
+def suggest_epsilons(results: list[CaseResult], factor: float) -> dict:
+    """Per case, suggest a category epsilon = ceil_1sig(max achieved * factor).
+
+    Uses only comparisons that produced a summary; categories whose achieved
+    error is non-finite are skipped (they can't seed a threshold). Returns
+    ``{case_key: {category: epsilon}}`` ready to drop into tpv-data.json.
+    """
+    out: dict = {}
+    for r in results:
+        cats: dict = {}
+        for cr in r.compares:
+            if not cr.has_summary or cr.achieved is None or not math.isfinite(cr.achieved):
+                continue
+            cats[cr.category] = _ceil_1sig(cr.achieved * factor)
+        if cats:
+            out[r.case.key] = cats
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -1134,6 +1255,23 @@ def build_parser() -> argparse.ArgumentParser:
                           "(default: 0.5)")
     out.add_argument("--fail-fast", action="store_true",
                      help="Abort after the first failing case.")
+
+    ana = p.add_argument_group("Analysis (post-run)")
+    ana.add_argument("--drift-baseline", type=Path, default=None, metavar="REPORT_JSON",
+                     help="Compare achieved errors against a previous "
+                          "--report-json and warn about per-quantity regressions "
+                          "(even when still passing).")
+    ana.add_argument("--drift-factor", type=float, default=2.0, metavar="X",
+                     help="Flag a quantity when its achieved error grew by at "
+                          "least this factor vs the baseline. (default: 2.0)")
+    ana.add_argument("--suggest-epsilons", action="store_true",
+                     help="After the run, print suggested per-category epsilons "
+                          "(max achieved * factor, rounded up) as a tpv-data.json "
+                          "fragment.")
+    ana.add_argument("--suggest-factor", type=float, default=3.0, metavar="X",
+                     help="Safety factor for --suggest-epsilons. (default: 3.0)")
+    ana.add_argument("--suggest-out", type=Path, default=None, metavar="PATH",
+                     help="Write the epsilon suggestions here instead of stdout.")
     return p
 
 
@@ -1241,10 +1379,36 @@ def main(argv: Optional[list[str]] = None) -> int:
         if not cr.passed and args.fail_fast:
             break
 
-    write_report(results, args.report, near_miss=args.near_miss)
+    drift_rows: list[tuple] = []
+    if args.drift_baseline:
+        baseline = load_baseline_achieved(args.drift_baseline)
+        drift_rows = compute_drift(results, baseline, args.drift_factor)
+        if drift_rows:
+            print(f"{_warn('[drift]')} {len(drift_rows)} quantity(ies) grew "
+                  f"\u2265{args.drift_factor:g}\u00d7 vs baseline "
+                  f"(see the Drift section)", file=sys.stderr)
+
+    write_report(results, args.report, near_miss=args.near_miss,
+                 drift=drift_rows, drift_factor=args.drift_factor)
     if args.report_json:
-        write_run_report_json(results, args.report_json)
-    write_step_summary(results, args.step_summary, near_miss=args.near_miss)
+        write_run_report_json(results, args.report_json, drift=drift_rows)
+    write_step_summary(results, args.step_summary, near_miss=args.near_miss,
+                       drift=drift_rows)
+
+    if args.suggest_epsilons:
+        suggestions = suggest_epsilons(results, args.suggest_factor)
+        text = json.dumps(suggestions, indent=2) + "\n"
+        if any(not r.passed for r in results):
+            print(f"{_warn('[warn]')} suggesting epsilons from a run with "
+                  f"failures; review before use", file=sys.stderr)
+        if args.suggest_out:
+            args.suggest_out.write_text(text)
+            print(f"Wrote epsilon suggestions to {args.suggest_out}")
+        else:
+            print(f"\nSuggested epsilons (max achieved \u00d7 "
+                  f"{args.suggest_factor:g}, rounded up):")
+            print(text)
+
     return 0 if all(r.passed for r in results) else 1
 
 
