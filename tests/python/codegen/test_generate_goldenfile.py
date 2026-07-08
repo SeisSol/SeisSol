@@ -260,14 +260,6 @@ class TestSinglePrecisionSmoke:
         # Subfolder name uses "single" not "s"
         assert (tmp_path / "equation-elastic-3-single").is_dir()
 
-    @pytest.mark.xfail(
-        reason="BUG: generate.py's argparse declares --precision choices "
-        "['s','d','f32','f64'] but yateto Architecture rejects "
-        "'f32'/'f64' with 'Unknown precision type F32'. "
-        "Either normalize f32->s and f64->d before passing to "
-        "yateto, or narrow the choices list to ['s','d'].",
-        strict=True,
-    )
     def test_subfolder_name_for_f32(self, tmp_path):
         """generate.py maps --precision=f32 to subfolder suffix 'single'."""
         result = _invoke_generate(
