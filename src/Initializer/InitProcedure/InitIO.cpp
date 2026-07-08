@@ -331,7 +331,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             vtkproj.xv(order) = alignedTarget.data();
             vtkproj.collvv(ConvergenceOrder, order) = collvv;
             vtkproj.execute(order);
-            std::copy_n(alignedTarget.data(), tensor::vtk3d::Shape[order][1], target);
+            std::copy_n(alignedTarget.data(), dataBase.size(), target);
           };
 
       const auto projectVolumeDeriv = [=](real* target,
@@ -370,7 +370,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                                                                        gradEta.data(),
                                                                        gradZeta.data());
 
-        for (std::size_t i = 0; i < tensor::vtk3d::Shape[order][1]; ++i) {
+        for (std::size_t i = 0; i < dataBase.size(); ++i) {
           target[i] = dataX[i] * gradXi[dir] + dataY[i] * gradEta[dir] + dataZ[i] * gradZeta[dir];
         }
       };
@@ -441,7 +441,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                   std::array<real, MaxVtk3dPoints> itarget{};
                   projectVolumeDeriv(itarget.data(), dofsSingleQuantity2, idx1, index, subcell);
 
-                  for (std::size_t i = 0; i < tensor::vtk3d::Shape[order][1]; ++i) {
+                  for (std::size_t i = 0; i < dataBase.size(); ++i) {
                     target[i] = (target[i] + itarget[i]) / 2;
                   }
                 }
@@ -465,7 +465,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               false,
               [=, &ltsStorage, &backmap](real* target, std::size_t index, std::size_t subcell) {
                 const auto position = backmap.get(cellIndices[index]);
-                const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Integrals>(position);
+                const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
                 const auto* dofsSingleQuantity1 =
                     dofsAllQuantities +
                     QDofSizePadded * (idx1 + model::MaterialT::TractionQuantities);
@@ -509,7 +509,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                   vtkproj.xv(order) = alignedTarget.data();
                   vtkproj.collvv(ConvergenceOrder, order) = proj[subcell].data();
                   vtkproj.execute(order);
-                  std::copy_n(alignedTarget.data(), tensor::vtk3d::Shape[order][1], target);
+                  std::copy_n(alignedTarget.data(), dataBase.size(), target);
                 });
           }
         }
@@ -675,7 +675,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               vtkproj.xf(order) = alignedTarget.data();
               vtkproj.collvf(ConvergenceOrder, order, side) = proj[side][subcell].data();
               vtkproj.execute(order, side);
-              std::copy_n(alignedTarget.data(), tensor::vtk2d::Shape[order][1], target);
+              std::copy_n(alignedTarget.data(), dataBase.size(), target);
             });
       }
       for (std::size_t quantity = 0; quantity < quantityLabelsDisplacement.size(); ++quantity) {
@@ -704,7 +704,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               vtkproj.xf(order) = alignedTarget.data();
               vtkproj.collff(ConvergenceOrder, order) = projf[subcell].data();
               vtkproj.execute(order);
-              std::copy_n(alignedTarget.data(), tensor::vtk2d::Shape[order][1], target);
+              std::copy_n(alignedTarget.data(), dataBase.size(), target);
             });
       }
     }
