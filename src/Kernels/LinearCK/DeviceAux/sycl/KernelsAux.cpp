@@ -174,24 +174,6 @@ void taylorSum(
 namespace {
 using namespace seissol::multisim;
 
-template <typename Tensor>
-constexpr size_t leadDim() {
-  if constexpr (MultisimEnabled) {
-    return Tensor::Stop[1] - Tensor::Start[1];
-  } else {
-    return Tensor::Stop[0] - Tensor::Start[0];
-  }
-}
-
-template <typename Tensor>
-constexpr size_t linearDim() {
-  if constexpr (MultisimEnabled) {
-    return (Tensor::Stop[1] - Tensor::Start[1]) * (Tensor::Stop[0] - Tensor::Start[0]);
-  } else {
-    return Tensor::Stop[0] - Tensor::Start[0];
-  }
-}
-
 auto getrange(std::size_t size, std::size_t numElements) {
   if constexpr (MultisimEnabled) {
     return sycl::nd_range<1>({numElements * NumSimulations * size}, {NumSimulations * size});
@@ -211,7 +193,7 @@ void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
                               void* deviceStream) {
 
   auto queue = reinterpret_cast<sycl::queue*>(deviceStream);
-  const size_t workGroupSize = leadDim<seissol::nodal::init::nodes2D>();
+  const size_t workGroupSize = leadDim<seissol::init::averageNormalDisplacement>();
   auto rng = getrange(workGroupSize, numElements);
 
   queue->parallel_for(rng, [=](sycl::nd_item<1> item) {
@@ -222,7 +204,7 @@ void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
       real* elementBoundaryDofs = dofsFaceBoundaryNodalPtrs[elementId];
       real* elementDisplacement = displacementDataPtrs[elementId];
 
-      constexpr auto numNodes = linearDim<seissol::nodal::init::nodes2D>();
+      constexpr auto numNodes = linearDim<seissol::init::averageNormalDisplacement>();
       if (tid < numNodes) {
         constexpr auto ldINodal = linearDim<seissol::init::INodal>();
 
@@ -370,7 +352,7 @@ void initializeTaylorSeriesForGravitationalBoundary(real** prevCoefficientsPtrs,
                                                     void* deviceStream) {
 
   auto queue = reinterpret_cast<sycl::queue*>(deviceStream);
-  const size_t workGroupSize = leadDim<seissol::nodal::init::nodes2D>();
+  const size_t workGroupSize = leadDim<seissol::init::averageNormalDisplacement>();
   auto rng = getrange(workGroupSize, numElements);
 
   queue->parallel_for(rng, [=](sycl::nd_item<1> item) {
@@ -380,11 +362,11 @@ void initializeTaylorSeriesForGravitationalBoundary(real** prevCoefficientsPtrs,
       auto* integratedDisplacementNodal = integratedDisplacementNodalPtrs[elementId];
       const auto* rotatedFaceDisplacement = rotatedFaceDisplacementPtrs[elementId];
 
-      assert(linearDim<seissol::nodal::init::nodes2D>() <=
+      assert(linearDim<seissol::init::averageNormalDisplacement>() <=
              linearDim<seissol::init::rotatedFaceDisplacement>());
 
       const int tid = item.get_local_id(0);
-      constexpr auto num2dNodes = linearDim<seissol::nodal::init::nodes2D>();
+      constexpr auto num2dNodes = linearDim<seissol::init::averageNormalDisplacement>();
       if (tid < num2dNodes) {
         prevCoefficients[tid] = rotatedFaceDisplacement[tid];
         integratedDisplacementNodal[tid] = deltaTInt * rotatedFaceDisplacement[tid];
@@ -419,7 +401,7 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
                                    void* deviceStream) {
 
   auto queue = reinterpret_cast<sycl::queue*>(deviceStream);
-  const size_t workGroupSize = leadDim<seissol::nodal::init::nodes2D>();
+  const size_t workGroupSize = leadDim<seissol::init::averageNormalDisplacement>();
   auto rng = getrange(workGroupSize, numElements);
 
   queue->parallel_for(rng, [=](sycl::nd_item<1> item) {
@@ -427,7 +409,7 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
     if (elementId < numElements) {
       constexpr int pIdx = 0;
       constexpr int uIdx = model::MaterialT::TractionQuantities;
-      constexpr auto num2dNodes = linearDim<seissol::nodal::init::nodes2D>();
+      constexpr auto num2dNodes = linearDim<seissol::init::averageNormalDisplacement>();
 
       const int tid = item.get_local_id(0);
       if (tid < num2dNodes) {
