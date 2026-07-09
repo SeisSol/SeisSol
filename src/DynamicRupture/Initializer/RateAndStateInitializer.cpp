@@ -127,7 +127,7 @@ RateAndStateInitializer::StateAndFriction
   const double expval = seissol::dr::friction_law::rs::computeCExp(explog);
   const double linval = initialSlipRate * 0.5 / rsSr0;
   result.frictionCoefficient =
-      rsA * seissol::dr::friction_law::rs::arsinhexp(linval, expval, explog);
+      rsA * seissol::dr::friction_law::rs::arsinhexp(linval, explog, expval);
   return result;
 }
 
@@ -175,7 +175,7 @@ RateAndStateInitializer::StateAndFriction
   const double expval = seissol::dr::friction_law::rs::computeCExp(explog);
   const double linval = initialSlipRate * 0.5 / rsSr0;
   result.frictionCoefficient =
-      rsA * seissol::dr::friction_law::rs::arsinhexp(linval, expval, explog);
+      rsA * seissol::dr::friction_law::rs::arsinhexp(linval, explog, expval);
   return result;
 }
 
