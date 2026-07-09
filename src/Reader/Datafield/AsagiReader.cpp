@@ -5,12 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifdef USE_ASAGI
-
 #include "AsagiReader.h"
 
 #include "Monitoring/Instrumentation.h"
-#include "Reader/AsagiModule.h"
+#include "Reader/Datafield/AsagiModule.h"
 
 #include <asagi.h>
 #include <cstddef>
@@ -26,7 +24,9 @@ namespace seissol::asagi {
  * @param varname The variable name in the netCDF file
  * @return ASAGI grid
  */
-::asagi::Grid* AsagiReader::open(const char* file, const char* varname) {
+::asagi::Grid* AsagiReader::open([[maybe_unused]] const char* file,
+                                 [[maybe_unused]] const char* varname) {
+#ifdef USE_ASAGI
   SCOREP_USER_REGION("AsagiReader_open", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   auto& env = AsagiModule::getInstance().getEnv();
@@ -116,6 +116,9 @@ namespace seissol::asagi {
   }
 
   return grid;
+#else
+  return nullptr;
+#endif
 }
 
 NumaCacheMode AsagiReader::getNumaMode() {
@@ -141,5 +144,3 @@ unsigned AsagiReader::numberOfThreads() const { return asagiThreads_; }
 AsagiReader::AsagiReader(MPI_Comm comm) : comm_(comm) {}
 
 } // namespace seissol::asagi
-
-#endif

@@ -27,7 +27,7 @@
 #include <yaml-cpp/yaml.h>
 
 #ifdef USE_ASAGI
-#include "Reader/AsagiModule.h"
+#include "Reader/Datafield/AsagiModule.h"
 #endif
 
 #ifdef ACL_DEVICE

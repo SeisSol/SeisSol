@@ -148,8 +148,29 @@ target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_L
 # Libs
 include(ExternalProject)
 
-find_package(easi 1.0.0 REQUIRED)
-target_link_libraries(seissol-common-properties INTERFACE easi::easi)
+if (EASI)
+  find_package(easi 1.5.0 REQUIRED)
+  target_link_libraries(seissol-common-properties INTERFACE easi::easi)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_EASI)
+endif()
+
+if (LUA)
+  find_package(Lua REQUIRED) # TODO: fix version?
+
+  # from https://cmake.org/cmake/help/latest/module/FindLua.html#examples
+  if(Lua_FOUND AND NOT TARGET Lua::Lua)
+    add_library(Lua::Lua INTERFACE IMPORTED)
+    set_target_properties(
+      Lua::Lua
+      PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${LUA_INCLUDE_DIR}"
+        INTERFACE_LINK_LIBRARIES "${LUA_LIBRARIES}"
+    )
+  endif()
+
+  target_link_libraries(seissol-common-properties INTERFACE Lua::Lua)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_LUA)
+endif()
 
 if (OPENMP)
   find_package(OpenMP REQUIRED)

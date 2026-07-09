@@ -6,10 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef SEISSOL_SRC_READER_ASAGIMODULE_H_
-#define SEISSOL_SRC_READER_ASAGIMODULE_H_
-
-#ifdef USE_ASAGI
+#ifndef SEISSOL_SRC_READER_DATAFIELD_ASAGIMODULE_H_
+#define SEISSOL_SRC_READER_DATAFIELD_ASAGIMODULE_H_
 
 #include "Modules/Module.h"
 #include "Parallel/Pin.h"
@@ -103,6 +101,4 @@ class AsagiModule : public Module {
 
 } // namespace seissol::asagi
 
-#endif // USE_ASAGI
-
-#endif // SEISSOL_SRC_READER_ASAGIMODULE_H_
+#endif // SEISSOL_SRC_READER_DATAFIELD_ASAGIMODULE_H_
