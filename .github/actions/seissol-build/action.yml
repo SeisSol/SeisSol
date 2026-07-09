@@ -7,29 +7,24 @@
 
 ---
 
-name: 'seissol-test'
+name: 'seissol-build'
 description: 'Build SeisSol and run Unit Tests'
 inputs:
   cfg-equation:
     description: 'Equation to build for'
     required: true
-    default: 'World'
   cfg-order:
     description: 'Order to build for'
     required: true
-    default: 'World'
   cfg-precision:
     description: 'Precision to build for'
     required: true
-    default: 'World'
   cfg-simulations:
     description: 'Simulation count to build for'
     required: true
-    default: 'World'
   cfg-mechanisms:
     description: 'Mechanisms to build for (ignored but for visco)'
     required: true
-    default: 'World'
 runs:
   using: "composite"
   steps:
