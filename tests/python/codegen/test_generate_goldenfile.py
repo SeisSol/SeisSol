@@ -109,10 +109,6 @@ class TestGeneratedFilesExist:
         "init.h",
         "kernel.h",
         "tensor.h",
-        "init.cpp",
-        "kernel.cpp",
-        "tensor.cpp",
-        "test-kernel.cpp",
     }
 
     def test_forward_files_produced(self, generated_elastic_o3):
@@ -188,8 +184,8 @@ class TestGeneratedContent:
         assert "equation-elastic-3-double/init.h" in content
         assert "general/init.h" in content
 
-    def test_kernel_h_declares_adergd_kernels(self, generated_elastic_o3):
-        """ADERDG pipeline kernels must appear in kernel.h. If generate.py
+    def test_kernel_h_declares_aderdg_kernels(self, generated_elastic_o3):
+        """ADER-DG pipeline kernels must appear in kernel.h. If generate.py
         or the kernel-name contract changes, the C++ side breaks."""
         outdir, _ = generated_elastic_o3
         content = (outdir / "equation-elastic-3-double" / "kernel.h").read_text()
@@ -203,10 +199,14 @@ class TestGeneratedContent:
     def test_test_kernel_cpp_not_empty(self, generated_elastic_o3):
         """test-kernel.cpp feeds the TESTING_GENERATED compile path."""
         outdir, _ = generated_elastic_o3
-        content = (outdir / "test-kernel.cpp").read_text()
+        content = (outdir / "equation-elastic-3-double" / "test-kernel.cpp").read_text()
         assert len(content.strip()) > 0
-        # Forward file aggregates per-equation test kernels
-        assert "test-kernel.cpp" in content
+        # A handful of canonical kernel names
+        for name in [
+            "computeFluxSolverLocal",
+            "computeFluxSolverNeighbor",
+        ]:
+            assert name in content, f"Expected kernel '{name}' in test-kernel.cpp"
 
 
 # =============================================================================

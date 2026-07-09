@@ -79,7 +79,7 @@ if (TESTING_GENERATED)
     if (WITH_GPU)
 
         # for the GPU, create an extra library with device linking flags etc.
-        make_device_lib(seissol-serial-test-device "${CMAKE_BINARY_DIR}/codegen/GeneratedCode/test-kernel.cpp")
+        make_device_lib(seissol-serial-test-device ${SEISSOL_CODEGEN_TESTS})
         target_link_libraries(seissol-serial-test-device PRIVATE seissol-kernel-lib)
         target_link_libraries(seissol-serial-test-device PRIVATE seissol-external)
         target_include_directories(seissol-serial-test-device PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -96,7 +96,7 @@ if (TESTING_GENERATED)
     else()
 
         # else (i.e. CPU only), just add it to the main test binary
-        target_sources(seissol-serial-test PRIVATE "${CMAKE_BINARY_DIR}/codegen/GeneratedCode/test-kernel.cpp")
+        target_sources(seissol-serial-test PRIVATE ${SEISSOL_CODEGEN_TESTS})
     endif()
 endif()
 
