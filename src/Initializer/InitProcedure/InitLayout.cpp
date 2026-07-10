@@ -142,7 +142,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto needsIntegration =
       std::any_of(seissolParams.output.waveFieldParameters.integrationMask.begin(),
                   seissolParams.output.waveFieldParameters.integrationMask.end(),
-                  [](const auto& value) { return value; });
+                  [](const auto& value) { return value; }) ||
+      seissolParams.output.waveFieldParameters.computeStrain;
   const auto settings = SimulationSettings(seissolParams.model.plasticity, needsIntegration);
 
   logInfo() << "Creating mesh layout...";

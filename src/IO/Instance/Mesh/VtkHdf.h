@@ -11,83 +11,92 @@
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
+#include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Hdf5.h"
 #include "IO/Writer/Instructions/Instruction.h"
 #include "IO/Writer/Writer.h"
 #include "Initializer/MemoryManager.h"
+#include "utils/logger.h"
 
 #include <functional>
 #include <memory>
-#include <utils/logger.h>
 
 namespace seissol::io::instance::mesh {
 class VtkHdfWriter {
   public:
   VtkHdfWriter(const std::string& name,
                std::size_t localElementCount,
-               std::size_t dimension,
-               std::size_t targetDegree);
+               geometry::Shape shape,
+               std::size_t targetDegree,
+               bool temporal,
+               std::int32_t compress);
+
+  void addData(const std::string& name,
+               const std::optional<std::string>& group,
+               bool isConst,
+               const std::shared_ptr<writer::DataSource>& data);
 
   template <typename F>
-  void addPointProjector(const F& projector) {
-    auto selfLocalElementCount = localElementCount_;
-    auto selfPointsPerElement = pointsPerElement_;
+  void addPointProjector(F&& projector) {
+    const auto data =
+        writer::GeneratedBuffer::createElementwise<double>(localElementCount_,
+                                                           pointsPerElement_,
+                                                           std::vector<std::size_t>{3},
+                                                           std::forward<F>(projector));
 
-    instructionsConst_.emplace_back([=](const std::string& filename, double /*time*/) {
-      return std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(filename, {GroupName}),
-          "Points",
-          writer::GeneratedBuffer::createElementwise<double>(
-              selfLocalElementCount, selfPointsPerElement, std::vector<std::size_t>{3}, projector),
-          datatype::inferDatatype<double>());
-    });
+    addData("Points", std::optional<std::string>(), true, data);
   }
 
   template <typename T, typename F>
   void addPointData(const std::string& name,
                     const std::vector<std::size_t>& dimensions,
-                    F pointMapper) {
-    auto selfLocalElementCount = localElementCount_;
-    auto selfPointsPerElement = pointsPerElement_;
-
-    instructions_.emplace_back([=](const std::string& filename, double /*time*/) {
-      return std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(filename, {GroupName, PointDataName}),
-          name,
-          writer::GeneratedBuffer::createElementwise<T>(
-              selfLocalElementCount, selfPointsPerElement, dimensions, pointMapper),
-          datatype::inferDatatype<T>());
-    });
+                    bool isConst,
+                    F&& pointMapper) {
+    const auto data = writer::GeneratedBuffer::createElementwise<T>(
+        localElementCount_, pointsPerElement_, dimensions, std::forward<F>(pointMapper));
+    addData(name, PointDataName, isConst, data);
+    if (temporal_) {
+      const auto offset = isConst ? 0 : globalPointCount_;
+      addData(name,
+              PointDataName + "Offsets",
+              isConst,
+              writer::WriteInline::createArray<uint64_t>({1}, {offset}));
+    }
   }
 
   template <typename T, typename F>
   void addCellData(const std::string& name,
                    const std::vector<std::size_t>& dimensions,
-                   const F& cellMapper) {
-    auto selfLocalElementCount = localElementCount_;
-
-    instructions_.emplace_back([=](const std::string& filename, double /*time*/) {
-      return std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(filename, {GroupName, CellDataName}),
-          name,
-          writer::GeneratedBuffer::createElementwise<T>(
-              selfLocalElementCount, 1, dimensions, cellMapper),
-          datatype::inferDatatype<T>());
-    });
+                   bool isConst,
+                   F&& cellMapper) {
+    const auto data = writer::GeneratedBuffer::createElementwise<T>(
+        localElementCount_, 1, dimensions, std::forward<F>(cellMapper));
+    addData(name, CellDataName, isConst, data);
+    if (temporal_) {
+      const auto offset = isConst ? 0 : globalElementCount_;
+      addData(name,
+              CellDataName + "Offsets",
+              false,
+              writer::WriteInline::createArray<uint64_t>({1}, {offset}));
+    }
   }
 
   template <typename T>
   void addFieldData(const std::string& name,
                     const std::vector<std::size_t>& dimensions,
+                    bool isConst,
                     const std::vector<T>& data) {
-    instructions_.emplace_back([=](const std::string& filename, double /*time*/) {
-      return std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
-          name,
-          writer::WriteInline::createArray(dimensions, data),
-          datatype::inferDatatype<T>());
-    });
+    const auto datasource = writer::WriteInline::createArray(dimensions, data);
+    addData(name, FieldDataName, isConst, datasource);
+    if (temporal_) {
+      // TODO:
+      const auto offset = isConst ? 0UL : 1UL;
+      addData(name,
+              FieldDataName + "Offsets",
+              false,
+              writer::WriteInline::createArray<uint64_t>({1}, {offset}));
+    }
   }
 
   void addHook(const std::function<void(std::size_t, double)>& hook);
@@ -108,10 +117,16 @@ class VtkHdfWriter {
       const std::string&, double)>>
       instructionsConst_;
   std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
+      const std::string&, const std::string&)>>
+      instructionsConstLink_;
+  std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
       const std::string&, double)>>
       instructions_;
   std::size_t type_;
   std::size_t targetDegree_;
+  bool constFile_{false};
+  bool temporal_{false};
+  int32_t compress_{0};
   const static inline std::string GroupName = "VTKHDF";
   const static inline std::string FieldDataName = "FieldData";
   const static inline std::string CellDataName = "CellData";

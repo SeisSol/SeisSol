@@ -157,6 +157,9 @@ OutputRegionBounds = -20e3 20e3 -10e3 10e3 -20e3 0e3 !(optional) array that desc
 
 wavefieldvtkorder = -1 ! positive values enable the VTKHDF high-order output for the wavefield
 
+wavefieldcomputerotation = 0 ! compute rotation for the volume output
+wavefieldcomputestrain = 0 ! compute strain for the volume output
+
 ! off-fault receivers
 ReceiverOutput = 1                   ! Enable/disable off-fault receiver output
 ReceiverFormat = 'csv'               ! Format of receiver output: 'csv' (default) or 'hdf5'

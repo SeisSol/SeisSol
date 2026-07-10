@@ -24,6 +24,9 @@ std::shared_ptr<WriteInstruction> WriteInstruction::deserialize(YAML::Node node)
     if (node["type"].as<std::string>() == "attribute") {
       return std::make_shared<Hdf5AttributeWrite>(node);
     }
+    if (node["type"].as<std::string>() == "link-external") {
+      return std::make_shared<Hdf5LinkExternalWrite>(node);
+    }
   }
   if (node["writer"].as<std::string>() == "binary") {
     return std::make_shared<BinaryWrite>(node);

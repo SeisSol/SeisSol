@@ -45,11 +45,10 @@ GPU-specific environment variables are listed on its :ref:`own page <gpu-env>`.
 Output
 ------
 
-The wave field and fault output use the
-`XdmfWriter <https://github.com/TUM-I5/XdmfWriter>`__. Tuning variables
-for the `XdmfWriter <https://github.com/TUM-I5/XdmfWriter>`__ are listed
-in the corresponding
-`wiki <https://github.com/TUM-I5/XdmfWriter/wiki>`__.
+Two environment variables exist (for historic reasons named ``XDMFWRITER``):
+
+* ``XDMFWRITER_ALIGNMENT``: alignment for the Xdmf Hdf5 backend
+* ``XDMFWRITER_BLOCK_SIZE``: block size for the output (both posix and Hdf5)
 
 .. _asynchronous-output:
 
