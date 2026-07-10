@@ -185,7 +185,7 @@ jobs:
             pythonbreak: true
             ompi: true
             container-options: --runtime=nvidia --gpus=all
-            container-runner: self-hosted
+            container-runner: gpu-nv
           - arch: sm_60
             backend: cuda
             cc: clang-18
@@ -195,7 +195,7 @@ jobs:
             pythonbreak: true
             ompi: true
             container-options: --runtime=nvidia --gpus=all
-            container-runner: self-hosted
+            container-runner: gpu-nv
         parallel:
           - ranks: 1
             threads: 4
