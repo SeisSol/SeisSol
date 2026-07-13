@@ -225,19 +225,15 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                      real invEtaS,
                                                      real& exportMu) {
 
-    // Note that we need double precision here, since single precision led to NaNs.
-    real muF{0.0};
-    real dMuF{0.0};
-    real g{0.0};
-    real dG{0.0};
     slipRateTest = slipRateMagnitude;
 
     const auto details = Derived::getMuDetails(ctx, localStateVariable);
 
     for (uint32_t i = 0; i < ctx.data->drParameters.rsMaxNumberSlipRateUpdates; i++) {
-      muF = Derived::updateMu(ctx, slipRateTest, details);
+      const real muF = Derived::updateMu(ctx, slipRateTest, details);
 
-      g = -invEtaS * (std::abs(normalStress) * muF - absoluteShearStress) - slipRateTest;
+      const real newSR = -invEtaS * (std::abs(normalStress) * muF - absoluteShearStress);
+      const real g = newSR - slipRateTest;
 
       const bool converged = std::abs(g) < ctx.data->drParameters.rsSlipRateTolerance;
 
@@ -250,8 +246,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
         return true;
       }
 
-      dMuF = Derived::updateMuDerivative(ctx, slipRateTest, details);
-      dG = -invEtaS * (std::abs(normalStress) * dMuF) - static_cast<real>(1.0);
+      const real dMuF = Derived::updateMuDerivative(ctx, slipRateTest, details);
+      const real dG = -invEtaS * (std::abs(normalStress) * dMuF) - static_cast<real>(1.0);
       slipRateTest = std::max(friction_law::rs::almostZero(), slipRateTest - (g / dG));
     }
     return false;
