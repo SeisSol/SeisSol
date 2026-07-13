@@ -67,7 +67,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                               initializer::MemoryManager& memoryManager,
                               const SimulationSettings& settings) {
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
-  std::vector<std::unique_ptr<AbstractGhostTimeCluster>> ghostClusters;
+  std::vector<std::unique_ptr<AbstractTimeCluster>> ghostClusters;
 
   // store the time stepping
   this->clusterLayout_ = clusterLayout;
@@ -194,6 +194,10 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // Create ghost time clusters for MPI
   const auto preferredDataTransferMode = Mpi::mpi.getPreferredDataTransferMode();
   const auto persistent = usePersistentMpi(seissolInstance_.env());
+
+  const auto comms =
+      GhostTimeClusterFactory::setup(preferredDataTransferMode, clusterLayout.globalClusterCount);
+
   for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost | Interior)) {
 
     const auto displayName = "copy-" + std::to_string(layer.getIdentifier().lts);
@@ -223,6 +227,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                                          otherDisplayName,
                                                          haloStructure,
                                                          preferredDataTransferMode,
+                                                         comms,
                                                          persistent);
         ghostClusters.push_back(std::move(ghostCluster));
 

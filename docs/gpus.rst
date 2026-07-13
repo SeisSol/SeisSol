@@ -101,7 +101,7 @@ The following device-specific environment variable is supported right now:
 
 - ``SEISSOL_L2_COMPRESS``
 
-- ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE``
+- ``SEISSOL_TRANSFER_MODE``
 
 ``SEISSOL_USM`` specifies if the data buffers are allocated using unified/managed (i.e. CPU-accessible) memory,
 or GPU memory. It is on by default on systems like the Grace Hopper Superchip or APUs like the MI300A,
@@ -116,7 +116,7 @@ Currently, that is only CUDA; we recommend to check the respective guides for av
 (generally, Hopper or newer should always support it; and Ampere slightly restricted).
 Disabled by default, and currently requires ``SEISSOL_USM=0`` and ``SEISSOL_USM_MPI=0``.
 
-``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`` specifies how to copy GPU buffers via MPI.
+``SEISSOL_TRANSFER_MODE`` specifies how to copy GPU buffers via MPI.
 The default value is ``direct`` which copies the data out of the GPU buffers directly.
 In contrast, the ``host`` value means that the data will be copied to/from the host memory
 before/after each send/receive operation.
@@ -128,3 +128,7 @@ As a (subpar) alternative, you can also try using ``SEISSOL_USM_MPI=1`` and ``di
    :alt: Data Flow Diagram
    :width: 10.0cm
    :align: center
+
+Alternative values for ``SEISSOL_TRANSFER_MODE`` are given by ``ccl`` and ``shmem``
+which use NCCL/RCCL/oneCCL and NVSHMEM/ROCSHMEM/ISHMEM, respectively.
+However, note that both of these are considered experimental.
