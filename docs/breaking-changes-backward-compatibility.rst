@@ -109,3 +109,12 @@ The adjustment was propagated to the GPU implementation after 1.3.0.
 The respective `commit <https://github.com/SeisSol/SeisSol/commit/73b284b7a8a2323170766f3ab594312a31f514c1>`_
 updated the CPU implementation; the GPU implementation was updated by
 `#1288 <https://github.com/SeisSol/SeisSol/pull/1288>`_.
+
+Name of the Strain Rate Output for Off-Fault Receivers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(since 1.2.0, `#1126 <https://github.com/SeisSol/SeisSol/pull/1126>`_, June 2024)
+
+The strain rate output was named just "strain" output for the off-fault receivers.
+The corresponding option was likewise called :code:`ReceiverComputeStrain`,
+not :code:`ReceiverComputeStrainRate`.

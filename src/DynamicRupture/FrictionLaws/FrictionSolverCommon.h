@@ -397,6 +397,15 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
   krnlM.theta = thetaBuffer;
   krnlP.theta = thetaBuffer;
 
+  // set imposed state to zero
+  using QInterpolatedRange = typename QInterpolated<Type>::Range;
+  for (auto index = QInterpolatedRange::Start; index < QInterpolatedRange::End;
+       index += QInterpolatedRange::Step) {
+    auto i{startIndex + index};
+    imposedStatePlus[i] = static_cast<real>(0.0);
+    imposedStateMinus[i] = static_cast<real>(0.0);
+  }
+
   for (uint32_t o = 0; o < misc::TimeSteps; ++o) {
     const auto weight = timeWeights[o];
     // copy values to yateto dataformat
