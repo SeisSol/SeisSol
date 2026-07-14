@@ -9,99 +9,44 @@
 #define SEISSOL_SRC_PARALLEL_HELPER_H_
 
 #include "Common/Marker.h"
+#include "Parallel/MPI.h"
 
 #include <utils/env.h>
 #include <utils/logger.h>
 
-#ifdef ACL_DEVICE
-#include <Device/device.h>
-#endif
-
 namespace seissol {
-template <typename T>
-void printCommThreadInfo(const T& mpiBasic, utils::Env& env) {
-  const bool useThread = env.get<bool>("COMMTHREAD", true);
-  if (mpiBasic.isSingleProcess()) {
-    logInfo() << "Using polling for advancing MPI communication, due to having only "
-                 "one MPI rank running.";
-  } else if (useThread) {
-    logInfo() << "Using a communication thread for advancing MPI communication.";
-  } else {
-    logInfo() << "Using polling for advancing MPI communication.";
-  }
-}
 
-template <typename T>
-bool useCommThread(const T& mpiBasic, utils::Env& env) {
-  const bool useThread = env.get<bool>("COMMTHREAD", true);
-  return useThread && !mpiBasic.isSingleProcess();
-}
+// TODO: refactor so that we always "carry" the env object; and not need to re-create it
 
-inline bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSISTENT", true); }
+void printCommThreadInfo(const Mpi& mpiBasic, utils::Env& env);
 
-inline void printPersistentMpiInfo(utils::Env& env) {
-  if (usePersistentMpi(env)) {
-    logInfo() << "Using persistent MPI routines.";
-  } else {
-    logInfo() << "Using asynchronous MPI routines.";
-  }
-}
+bool useCommThread(const Mpi& mpiBasic, utils::Env& env);
 
-inline bool useUSM(SEISSOL_GPU_PARAM utils::Env& env) {
-#ifdef ACL_DEVICE
-  return env.get<bool>("USM", device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
-#else
-  return true;
-#endif
-}
+bool usePersistentMpi(utils::Env& env);
 
-inline bool useUSM() {
-  utils::Env env("SEISSOL_");
-  return useUSM(env);
-}
+void printPersistentMpiInfo(utils::Env& env);
 
-inline void printUSMInfo(utils::Env& env) {
-  if (useUSM(env)) {
-    logInfo() << "Using unified buffers for CPU-GPU data.";
-  } else {
-    logInfo() << "Using separate buffers for CPU-GPU data.";
-  }
-}
+bool useUSM(SEISSOL_GPU_PARAM utils::Env& env);
 
-inline bool useMPIUSM(SEISSOL_GPU_PARAM utils::Env& env) {
-#ifdef ACL_DEVICE
-  return env.get<bool>("USM_MPI",
-                       device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
-#else
-  return true;
-#endif
-}
+bool useUSM();
 
-inline bool useMPIUSM() {
-  utils::Env env("SEISSOL_");
-  return useMPIUSM(env);
-}
+void printUSMInfo(utils::Env& env);
 
-inline void printMPIUSMInfo(utils::Env& env) {
-  if (useMPIUSM(env)) {
-    logInfo() << "Using unified buffers for CPU-GPU MPI data.";
-  } else {
-    logInfo() << "Using separate buffers for CPU-GPU MPI data.";
-  }
-}
+bool useMPIUSM(SEISSOL_GPU_PARAM utils::Env& env);
 
-inline bool useDeviceL2Compress(utils::Env& env) { return env.get<bool>("L2_COMPRESS", false); }
+bool useMPIUSM();
 
-inline bool useDeviceL2Compress() {
-  utils::Env env("SEISSOL_");
-  return useDeviceL2Compress(env);
-}
+void printMPIUSMInfo(utils::Env& env);
 
-inline void printDeviceL2Compress(utils::Env& env) {
-  if (useDeviceL2Compress(env)) {
-    logInfo() << "Using L2 compression (if available).";
-  }
-}
+bool useDeviceL2Compress(utils::Env& env);
+
+bool useDeviceL2Compress();
+
+void printDeviceL2Compress(utils::Env& env);
+
+enum class DataTransferMode { Direct, CopyInCopyOutHost };
+
+DataTransferMode getDataTransferMode(utils::Env& env);
 
 } // namespace seissol
 

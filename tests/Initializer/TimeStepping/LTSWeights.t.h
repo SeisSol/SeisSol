@@ -12,6 +12,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/TimeStepping/LtsWeights/WeightsModels.h"
 #include "Initializer/Typedefs.h"
+#include "Parallel/SystemInfo.h"
 #include "SeisSol.h"
 #include "TestHelper.h"
 
@@ -44,7 +45,8 @@ TEST_CASE("LTS Weights") {
   seissolParameters.model.useCellHomogenizedMaterial = false;
   seissolParameters.model.plasticity = false;
   const utils::Env env("SEISSOL_");
-  seissol::SeisSol seissolInstance(seissolParameters, env);
+  const SystemInfo systemInfo;
+  seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
   auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
   const auto faceMap = defaultFaceMap();

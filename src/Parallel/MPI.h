@@ -11,7 +11,6 @@
 
 #include "Common/Real.h"
 #include "Kernels/Precision.h"
-#include "MPIBasic.h"
 
 #include <algorithm>
 #include <functional>
@@ -19,36 +18,75 @@
 #include <numeric>
 #include <optional>
 #include <string>
+#include <type_traits>
+#include <typeindex>
+#include <unordered_map>
 #include <utils/logger.h>
+
+#ifdef MPI_VERSION
+#if MPI_VERSION >= 4
+#define SEISSOL_MPI_LARGEINT
+#endif
+#endif
+
+#ifdef SEISSOL_MPI_LARGEINT
+#define SEISSOL_MPI_C(fun) fun##_c
+#else
+#define SEISSOL_MPI_C(fun) fun
+#endif
 
 namespace seissol {
 
 /**
- * MPI handling.
+ * Wraps an MPI communicator. (and currently still a node-local communicator)
+ * Provides convenience methods for communication and MPI type inference.
  *
- * Make sure only one instance of this class exists!
+ * Currently still mostly used as a singleton; TODO: change that.
  */
-class Mpi : public MpiBasic {
+class Mpi {
+  private:
+  /** This rank */
+  int rank_{0};
+
+  /** Rank in the shared memory sub-communicator */
+  int sharedMemMpiRank_{0};
+
+  /** Number of processors */
+  int size_{1};
+
+  /** Number of ranks in the shared memory sub-communicator */
+  int sharedMemMpiSize_{1};
+
   public:
-  ~Mpi() override = default;
+  /**
+   * @return The rank of this process
+   */
+  [[nodiscard]] int rank() const { return rank_; }
 
   /**
-   * @brief Inits Device(s).
-   *
-   * Some MPI implementations create a so-called context between GPUs and OS Processes inside of
-   * MPI_Init(...). It results in allocating some memory buffers in memory attached to the nearest
-   * NUMA domain of a core where a process is running. In case of somebody wants to bind a processes
-   * in a different way, e.g. move a process closer to a GPU, it must be done before calling
-   * MPI_Init(...) using env. variables or hwloc library.
-   *
-   * Currently, the function does a simple binding, i.e. it binds to the first visible device.
-   * The user is responsible for the correct binding on a multi-gpu setup.
-   * One can use a wrapper script and manipulate with CUDA_VISIBLE_DEVICES/HIP_VISIBLE_DEVICES and
-   * OMPI_COMM_WORLD_LOCAL_RANK env. variables
-   * */
-  void bindAcceleratorDevice();
+   * @return The rank within the shared memory sub-communicator
+   */
+  [[nodiscard]] int sharedMemMpiRank() const { return sharedMemMpiRank_; }
 
-  void printAcceleratorDeviceInfo();
+  /**
+   * @return The total number of processes
+   */
+  [[nodiscard]] int size() const { return size_; }
+
+  /**
+   * @return The number of ranks within the shared memory sub-communicator
+   */
+  [[nodiscard]] int sharedMemMpiSize() const { return sharedMemMpiSize_; }
+
+  [[nodiscard]] bool isSingleProcess() const { return size() == 1; }
+
+  [[nodiscard]] bool isSingleNode() const { return size() == sharedMemMpiSize(); }
+
+#ifdef SEISSOL_MPI_LARGEINT
+  using Count = MPI_Count;
+#else
+  using Count = int;
+#endif
 
   /**
    * Initialize MPI
@@ -75,12 +113,26 @@ class Mpi : public MpiBasic {
       return MPI_UNSIGNED_LONG_LONG;
     } else if constexpr (std::is_same_v<T, long long>) {
       return MPI_LONG_LONG;
-    } else if constexpr (std::is_same_v<T, char>) {
-      return MPI_CHAR;
     } else if constexpr (std::is_same_v<T, short>) {
       return MPI_SHORT;
+    } else if constexpr (std::is_same_v<T, char>) {
+      return MPI_CHAR;
+    } else if constexpr (std::is_same_v<T, unsigned short>) {
+      return MPI_UNSIGNED_SHORT;
+    } else if constexpr (std::is_same_v<T, unsigned char>) {
+      return MPI_UNSIGNED_CHAR;
     } else if constexpr (std::is_same_v<T, bool>) {
       return MPI_C_BOOL;
+    } else if constexpr (std::is_same_v<T, std::pair<float, int>>) {
+      return MPI_FLOAT_INT;
+    } else if constexpr (std::is_same_v<T, std::pair<long, int>>) {
+      return MPI_LONG_INT;
+    } else if constexpr (std::is_same_v<T, std::pair<double, int>>) {
+      return MPI_DOUBLE_INT;
+    } else if constexpr (std::is_same_v<T, std::pair<short, int>>) {
+      return MPI_SHORT_INT;
+    } else if constexpr (std::is_same_v<T, std::pair<int, int>>) {
+      return MPI_2INT;
     } else {
       static_assert(sizeof(T) == 0, "Unimplemented MPI type.");
       // return something to make NVHPC happy
@@ -97,6 +149,26 @@ class Mpi : public MpiBasic {
     default:
       return MPI_BYTE;
     }
+  }
+
+  template <typename T>
+  void registerMpiType(MPI_Datatype type, bool commit = false) {
+    const auto typeIndex = std::type_index(typeid(T));
+    cachedTypes_[typeIndex] = type;
+    if (commit) {
+      MPI_Type_commit(&type);
+    }
+  }
+
+  template <typename T>
+  MPI_Datatype getMpiType() {
+    const auto typeIndex = std::type_index(typeid(T));
+    const auto cacheFind = cachedTypes_.find(typeIndex);
+    if (cacheFind != cachedTypes_.end()) {
+      return cacheFind->second;
+    }
+    logError() << "Requested type not (dynamically) registered.";
+    return MPI_BYTE;
   }
 
   /**
@@ -225,6 +297,49 @@ class Mpi : public MpiBasic {
     MPI_Bcast(const_cast<InternalType*>(container.data()), size, mpiType, root, comm.value());
   }
 
+  template <typename T>
+  T allreduce(const T& value, MPI_Op op, std::optional<MPI_Comm> comm = {}) const {
+    if (not comm.has_value()) {
+      comm = std::optional<MPI_Comm>(comm_);
+    }
+
+    T result{};
+    const auto mpiType = castToMpiType<T>();
+    MPI_Allreduce(&value, &result, 1, mpiType, op, comm.value());
+    return result;
+  }
+
+  template <typename ContainerType>
+  void allreduceContainer(ContainerType& container,
+                          MPI_Op op,
+                          std::optional<MPI_Comm> comm = {}) const {
+    using InternalType = typename ContainerType::value_type;
+    if (not comm.has_value()) {
+      comm = std::optional<MPI_Comm>(comm_);
+    }
+    const auto size = static_cast<unsigned>(container.size());
+    const auto mpiType = castToMpiType<InternalType>();
+    MPI_Allreduce(
+        MPI_IN_PLACE, const_cast<InternalType*>(container.data()), size, mpiType, op, comm.value());
+  }
+
+  template <typename T>
+  T scan(const T& value, MPI_Op op, bool inclusive, std::optional<MPI_Comm> comm = {}) const {
+    if (not comm.has_value()) {
+      comm = std::optional<MPI_Comm>(comm_);
+    }
+
+    T result{};
+    auto mpiType = castToMpiType<T>();
+    if (inclusive) {
+      MPI_Scan(&value, &result, 1, mpiType, op, comm.value());
+    } else {
+      MPI_Exscan(&value, &result, 1, mpiType, op, comm.value());
+    }
+
+    return result;
+  }
+
   /**
    * @return The main communicator for the application
    */
@@ -235,24 +350,22 @@ class Mpi : public MpiBasic {
    */
   [[nodiscard]] MPI_Comm sharedMemComm() const { return sharedMemComm_; }
 
-  /**
-   * @return hostnames for all ranks in the communicator of the application
-   */
-  const auto& getHostNames() { return hostNames_; }
-
-  const auto& getPCIAddresses() { return pcis_; }
-
-  static void barrier(MPI_Comm comm) { MPI_Barrier(comm); }
+  void barrier(std::optional<MPI_Comm> comm = {}) {
+    if (!comm.has_value()) {
+      comm = std::optional<MPI_Comm>(comm_);
+    }
+    MPI_Barrier(comm.value());
+  }
 
   /**
    * Finalize MPI
    */
-  static void finalize() { MPI_Finalize(); }
-
-  void setDataTransferModeFromEnv();
-
-  enum class DataTransferMode { Direct, CopyInCopyOutHost };
-  DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode_; }
+  void finalize() {
+    for (auto& [_, type] : cachedTypes_) {
+      MPI_Type_free(&type);
+    }
+    MPI_Finalize();
+  }
 
   /** The only instance of the class */
   static Mpi mpi;
@@ -261,9 +374,7 @@ class Mpi : public MpiBasic {
   MPI_Comm comm_{MPI_COMM_NULL};
   MPI_Comm sharedMemComm_{};
   Mpi() = default;
-  DataTransferMode preferredDataTransferMode_{DataTransferMode::Direct};
-  std::vector<std::string> hostNames_;
-  std::vector<std::string> pcis_;
+  std::unordered_map<std::type_index, MPI_Datatype> cachedTypes_;
 };
 
 } // namespace seissol

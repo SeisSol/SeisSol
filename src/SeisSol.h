@@ -15,6 +15,7 @@
 #include "Initializer/Typedefs.h"
 #include "Monitoring/FlopCounter.h"
 #include "Parallel/Pin.h"
+#include "Parallel/SystemInfo.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/AsyncIO.h"
@@ -155,12 +156,16 @@ class SeisSol {
   /**
    * Delete the mesh reader to free memory resources.
    *
-   * Should be called after initialization
+   * Should be called after the simulation ended
    */
   void freeMeshReader() {
     delete meshReader_;
     meshReader_ = nullptr;
   }
+
+  void setOutputPrefix(const std::string& outputPrefix) { outputPrefix_ = outputPrefix; }
+
+  const std::string& outputPrefix() const { return outputPrefix_; }
 
   /**
    * Get the mesh reader
@@ -202,6 +207,8 @@ class SeisSol {
   seissol::io::OutputManager& getOutputManager() { return outputManager_; }
 
   utils::Env& env() { return env_; }
+
+  const SystemInfo& systemInfo() const { return systemInfo_; }
 
   private:
   // Note: This HAS to be the first member so that it is initialized before all others!
@@ -284,13 +291,19 @@ class SeisSol {
 
   double timestepScale_{1.0};
 
+  std::string outputPrefix_;
+
+  SystemInfo systemInfo_;
+
   public:
-  SeisSol(const initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)
+  SeisSol(const initializer::parameters::SeisSolParameters& parameters,
+          const utils::Env& env,
+          const SystemInfo& systemInfo)
       : outputManager_(*this), seissolParameters_(parameters),
         memoryManager_(std::make_unique<initializer::MemoryManager>(*this)), timeManager_(*this),
         freeSurfaceWriter_(*this), analysisWriter_(*this), waveFieldWriter_(*this),
         faultWriter_(*this), receiverWriter_(*this), energyOutput_(*this),
-        timeMirrorManagers_(*this, *this), env_(env) {}
+        timeMirrorManagers_(*this, *this), env_(env), systemInfo_(systemInfo) {}
 
   SeisSol(const SeisSol&) = delete;
   SeisSol(SeisSol&&) = delete;

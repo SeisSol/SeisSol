@@ -123,7 +123,9 @@ struct OutputParameters {
   bool loopStatisticsNetcdfOutput{false};
   OutputFormat format{OutputFormat::None};
   xdmfwriter::BackendType xdmfWriterBackend{};
-  std::string prefix;
+  std::string outputPath;
+  std::string outputName;
+  bool outputDirPerSim{false};
   CheckpointParameters checkpointParameters;
   ElementwiseFaultParameters elementwiseParameters;
   EnergyOutputParameters energyParameters;
@@ -136,7 +138,9 @@ struct OutputParameters {
   OutputParameters(bool loopStatisticsNetcdfOutput,
                    OutputFormat format,
                    xdmfwriter::BackendType xdmfWriterBackend,
-                   const std::string& prefix,
+                   const std::string& outputPath,
+                   const std::string& outputName,
+                   bool outputDirPerSim,
                    const CheckpointParameters& checkpointParameters,
                    const ElementwiseFaultParameters& elementwiseParameters,
                    const EnergyOutputParameters& energyParameters,
@@ -145,11 +149,11 @@ struct OutputParameters {
                    const ReceiverOutputParameters& receiverParameters,
                    const WaveFieldOutputParameters& waveFieldParameters)
       : loopStatisticsNetcdfOutput(loopStatisticsNetcdfOutput), format(format),
-        xdmfWriterBackend(xdmfWriterBackend), prefix(prefix),
-        checkpointParameters(checkpointParameters), elementwiseParameters(elementwiseParameters),
-        energyParameters(energyParameters), freeSurfaceParameters(freeSurfaceParameters),
-        pickpointParameters(pickpointParameters), receiverParameters(receiverParameters),
-        waveFieldParameters(waveFieldParameters) {}
+        xdmfWriterBackend(xdmfWriterBackend), outputPath(outputPath), outputName(outputName),
+        outputDirPerSim(outputDirPerSim), checkpointParameters(checkpointParameters),
+        elementwiseParameters(elementwiseParameters), energyParameters(energyParameters),
+        freeSurfaceParameters(freeSurfaceParameters), pickpointParameters(pickpointParameters),
+        receiverParameters(receiverParameters), waveFieldParameters(waveFieldParameters) {}
 };
 
 void warnIntervalAndDisable(bool& enabled,
