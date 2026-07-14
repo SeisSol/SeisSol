@@ -35,7 +35,7 @@ EQUATION_MODULES = [
 
 class TestEquationModuleContract:
     """generate.py loads equation modules dynamically by name via:
-        equations = equationsSpec.loader.load_module()
+        equations = importlib.import_module()
         equation_class = equations.EQUATION_CLASS
     So every module in kernels/equations MUST export EQUATION_CLASS.
     This contract is only enforced at runtime — breaking it silently

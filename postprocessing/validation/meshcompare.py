@@ -118,7 +118,7 @@ def compare(file, file_ref, epsilon):
         if q in mesh_ref.ReadAvailableDataFields():
             q_ref = q
         else:
-            q_ref = {"v1": "u", "v2": "v", "v3": "w"}[q]
+            q_ref = {"v1": "u", "v2": "v", "v3": "w", "pprime": "-p"}[q]
         quantity_ref = mesh_ref.ReadData(q_ref, last_index - 1)
 
         # re-assign data
