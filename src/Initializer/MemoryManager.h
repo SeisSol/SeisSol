@@ -69,24 +69,17 @@ class MemoryManager {
   std::unique_ptr<dr::friction_law::FrictionSolver> frictionLawDevice_ = nullptr;
   std::unique_ptr<dr::output::OutputManager> faultOutputManager_ = nullptr;
 
-  Boundary::Storage boundaryTree_;
+  Boundary::Storage boundaryStorage_;
 
   SurfaceLTS::Storage surfaceStorage_;
-
-  EasiBoundary easiBoundary_;
 
   std::optional<ClusterLayout> layout_;
 
   public:
   /**
-   * Constructor
+   * Default constructor
    **/
-  explicit MemoryManager(seissol::SeisSol& instance) : seissolInstance_(instance) {}
-
-  /**
-   * Destructor, memory is freed by managed allocator
-   **/
-  ~MemoryManager() = default;
+  explicit MemoryManager(seissol::SeisSol& instance);
 
   /**
    * Initialization function, which allocates memory for the global matrices and initializes them.
@@ -94,23 +87,9 @@ class MemoryManager {
   void initialize();
 
   /**
-   * Sets the number of cells in each leaf of the lts storage, fixates the variables, and allocates
-   *memory. Afterwards the storage cannot be changed anymore.
-   *
-   * @param i_meshStructrue mesh structure.
-   **/
-  void fixateLtsStorage();
-
-  void fixateBoundaryStorage();
-  /**
-   * Set up the internal structure.
-   **/
-  void initializeMemoryLayout();
-
-  /**
    * Gets the global data on both host and device.
    **/
-  CompoundGlobalData getGlobalData() {
+  CompoundGlobalData globalData() {
     CompoundGlobalData global{};
     global.onHost = &globalDataOnHost_;
     global.onDevice = nullptr;
@@ -124,60 +103,36 @@ class MemoryManager {
 
   ClusterLayout& clusterLayout() { return layout_.value(); }
 
-  LTS::Storage& getLtsStorage() { return ltsStorage_; }
+  LTS::Storage& ltsStorage() { return ltsStorage_; }
 
-  LTS::Backmap& getBackmap() { return backmap_; }
+  LTS::Backmap& backmap() { return backmap_; }
 
-  DynamicRupture::Storage& getDRStorage() { return drStorage_; }
+  DynamicRupture::Storage& drStorage() { return drStorage_; }
 
-  DynamicRupture::Backmap& getDRBackmap() { return drBackmap_; }
+  DynamicRupture::Backmap& drBackmap() { return drBackmap_; }
 
-  DynamicRupture& getDynamicRupture() { return *dynRup_; }
+  DynamicRupture& drDescriptor() { return *dynRup_; }
 
-  SurfaceLTS::Storage& getSurfaceStorage() { return surfaceStorage_; }
+  SurfaceLTS::Storage& surfaceStorage() { return surfaceStorage_; }
+
+  Boundary::Storage& boundaryStorage() { return boundaryStorage_; }
 
   void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
     iniConds_ = std::move(iniConds);
   }
 
-  const std::vector<std::unique_ptr<physics::InitialField>>& getInitialConditions() {
+  const std::vector<std::unique_ptr<physics::InitialField>>& initialConditions() {
     return iniConds_;
   }
 
-  void initializeEasiBoundaryReader(const char* fileName);
-
-  EasiBoundary* getEasiBoundaryReader() { return &easiBoundary_; }
-
-  dr::friction_law::FrictionSolver* getFrictionLaw() { return frictionLaw_.get(); }
-  dr::friction_law::FrictionSolver* getFrictionLawDevice() { return frictionLawDevice_.get(); }
-  seissol::dr::output::OutputManager* getFaultOutputManager() { return faultOutputManager_.get(); }
-
-  void recordExecutionPaths(bool usePlasticity);
-
-  /**
-   * Derives sizes of scratch memory required during computations of Wave Propagation solver
-   **/
-  static void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStorage);
-
-  /**
-   * Derives sizes of scratch memory required during computations of Dynamic Rupture solver
-   **/
-  static void deriveRequiredScratchpadMemoryForDr(DynamicRupture::Storage& drStorage);
+  dr::friction_law::FrictionSolver* frictionLaw() { return frictionLaw_.get(); }
+  dr::friction_law::FrictionSolver* frictionLawDevice() { return frictionLawDevice_.get(); }
+  seissol::dr::output::OutputManager* faultOutputManager() { return faultOutputManager_.get(); }
 
   void initializeFrictionLaw();
-  void initFaultOutputManager(const std::string& backupTimeStamp);
   void initFrictionData();
   void synchronizeTo(seissol::initializer::AllocationPlace place);
 };
-
-bool isAcousticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face);
-bool isElasticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face);
-bool isAtElasticAcousticInterface(CellMaterialData& material, std::size_t face);
-
-bool requiresDisplacement(CellLocalInformation cellLocalInformation,
-                          CellMaterialData& material,
-                          std::size_t face);
-bool requiresNodalFlux(FaceType f);
 } // namespace initializer
 } // namespace seissol
 

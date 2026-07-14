@@ -8,7 +8,7 @@
 #include "InstantaneousTimeMirrorManager.h"
 
 #include "Equations/Datastructures.h"
-#include "Initializer/CellLocalMatrices.h"
+#include "Initializer/Model/CellLocalMatrices.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Memory/Descriptor/LTS.h"
@@ -60,8 +60,7 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
   }
 
   if constexpr (IsAnisotropic) {
-    const auto reflectionType =
-        seissolInstance_.getSeisSolParameters().model.itmParameters.itmReflectionType;
+    const auto reflectionType = seissolInstance_.parameters().model.itmParameters.itmReflectionType;
     if (!isAnisotropicReflectionTypeSupported(reflectionType)) {
       logError() << "Anisotropic materials cannot have Pwave, Swave, and BothWavesVelocity.";
     }
@@ -96,7 +95,7 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
 
   logInfo() << "Updating CellLocalMatrices";
   initializer::initializeCellLocalMatrices(
-      *meshReader_, *ltsStorage_, *clusterLayout_, seissolInstance_.getSeisSolParameters().model);
+      *meshReader_, *ltsStorage_, *clusterLayout_, seissolInstance_.parameters().model);
   // An empty timestepping is added. Need to discuss what exactly is to be sent here
 #ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
@@ -118,7 +117,7 @@ void InstantaneousTimeMirrorManager::updateVelocitiesForMaterialType() {
   constexpr bool IsElastic = std::is_same_v<MaterialType, seissol::model::ElasticMaterial>;
   constexpr bool IsAnisotropic = std::is_same_v<MaterialType, seissol::model::AnisotropicMaterial>;
 
-  const auto itmParameters = seissolInstance_.getSeisSolParameters().model.itmParameters;
+  const auto itmParameters = seissolInstance_.parameters().model.itmParameters;
   const auto reflectionType = itmParameters.itmReflectionType;
 
   const auto updateMaterial = [&](MaterialType& material) {
@@ -176,7 +175,7 @@ void InstantaneousTimeMirrorManager::updateTimeStepsForMaterialType() {
     return;
   }
 
-  const auto itmParameters = seissolInstance_.getSeisSolParameters().model.itmParameters;
+  const auto itmParameters = seissolInstance_.parameters().model.itmParameters;
   const auto reflectionType = itmParameters.itmReflectionType;
 
   double timeStepScaling = 1.0;
@@ -228,7 +227,7 @@ void initializeTimeMirrorManagers(double scalingFactor,
                        ltsStorage,
                        clusterLayout); // An empty timestepping is added. Need to discuss what
                                        // exactly is to be sent here
-  auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
+  auto itmParameters = seissolInstance.parameters().model.itmParameters;
   const double eps = itmParameters.itmDuration;
 
   decreaseManager.init(1 / scalingFactor,

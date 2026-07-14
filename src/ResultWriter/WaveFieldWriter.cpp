@@ -44,7 +44,7 @@ void seissol::writer::WaveFieldWriter::setUp() {
   setExecutor(executor_);
   utils::Env env("SEISSOL_");
   if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, env)) {
-    const auto freeCpus = seissolInstance_.getPinning().getFreeCPUsMask();
+    const auto freeCpus = seissolInstance_.pinning().getFreeCPUsMask();
     logInfo() << "Wave field writer thread affinity:" << parallel::Pinning::maskToString(freeCpus)
               << "(" << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
@@ -178,8 +178,7 @@ void seissol::writer::WaveFieldWriter::init(
         (pstrain != nullptr) && (parameters.plasticityMask[i]);
   }
 
-  const auto& imask =
-      seissolInstance_.getSeisSolParameters().output.waveFieldParameters.integrationMask;
+  const auto& imask = seissolInstance_.parameters().output.waveFieldParameters.integrationMask;
   for (size_t i = 0; i < WaveFieldWriterExecutor::NumVariables; i++) {
     outputFlags_[WaveFieldWriterExecutor::NumVariables +
                  WaveFieldWriterExecutor::NumPlasticityVariables + i] = imask[i];
