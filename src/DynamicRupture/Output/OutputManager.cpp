@@ -29,7 +29,6 @@
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Runtime/Stream.h"
-#include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -367,10 +366,10 @@ void OutputManager::initPickpointOutput() {
       for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
         size_t labelCounter = 0;
         auto collectVariableNames =
-            [&baseHeader, &labelCounter, &simIndex, &pointIndex, suffix](const auto& var, int) {
+            [&baseHeader, &labelCounter, &simIndex, &pointIndex, suffix](const auto& var, int i) {
               if (var.isActive) {
                 for (std::size_t dim = 0; dim < var.dim(); ++dim) {
-                  baseHeader << " ,\"" << writer::FaultWriterExecutor::getLabelName(labelCounter)
+                  baseHeader << " ,\"" << VariableLabels[i][dim]
                              << suffix(pointIndex + 1, simIndex + 1) << '\"';
                   ++labelCounter;
                 }
