@@ -14,6 +14,9 @@ import re
 import numpy as np
 import pandas as pd
 
+from validation_report import write_report_json
+
+
 def pivot_if_necessary(df):
     if "variable" in df:
         # the format of the energy output changed following PR #773 (02.2023), allowing
@@ -65,8 +68,30 @@ def perform_check(energy, energy_ref, epsilon):
     print("Relative difference")
     print(relative_difference.to_string())
 
-    relative_difference_larger_eps = (relative_difference.iloc[1:, :] > epsilon).values
-    return np.any(relative_difference_larger_eps)
+    # NOTE: ``relative_difference`` already drops the t=0 row (``.iloc[1:]`` above).
+    # It must NOT be sliced a second time here -- doing so silently excluded the
+    # first post-t0 timestep from the pass/fail decision.
+    relative_difference_larger_eps = (relative_difference > epsilon).values
+    exceeded = bool(np.any(relative_difference_larger_eps))
+    # Also hand back the raw matrix so the caller can build a machine-readable
+    # summary of the *achieved* errors (independent of pass/fail).
+    return exceeded, relative_difference
+
+
+def _numeric_column_maxima(rel_diff):
+    """Per-column max of |relative difference|, dropping non-numeric/index columns.
+
+    Returns a plain ``dict[str, float]``. NaNs (e.g. from 0/0) are ignored;
+    +inf (from x/0) is preserved so it still shows up as a violation.
+    """
+    maxima = {}
+    for col in rel_diff.columns:
+        series = pd.to_numeric(rel_diff[col], errors="coerce")
+        if series.notna().any():
+            maxima[str(col)] = float(np.nanmax(series.to_numpy()))
+    # 'time' compares to itself and is ~0; it carries no signal, drop it.
+    maxima.pop("time", None)
+    return maxima
 
 
 def main():
@@ -75,6 +100,14 @@ def main():
     parser.add_argument("energy", type=str)
     parser.add_argument("energy_ref", type=str)
     parser.add_argument("--epsilon", type=float, default=0.01)
+    parser.add_argument(
+        "--report-json",
+        type=str,
+        default=None,
+        help="Write a machine-readable summary of the achieved errors to this "
+        "path (always written, regardless of pass/fail). Does not affect the "
+        "exit code.",
+    )
 
     args = parser.parse_args()
 
@@ -101,11 +134,14 @@ def main():
     )
     relevant_quantities = list(sorted(relevant_quantities))
 
-    if number_of_fused_sims < 0:
-        result = perform_check(energy, energy_ref, args.epsilon)
-        if result:
-            sys.exit(1)
+    failed = False
+    quantities: dict[str, float] = {}  # column -> worst error seen across sub-sims
 
+    if number_of_fused_sims < 0:
+        exceeded, rel_diff = perform_check(energy, energy_ref, args.epsilon)
+        failed |= exceeded
+        for col, val in _numeric_column_maxima(rel_diff).items():
+            quantities[col] = max(quantities.get(col, 0.0), val)
     else:
         for fused_index in range(number_of_fused_sims):
             energy_f = get_sub_simulation(energy, fused_index)
@@ -113,9 +149,19 @@ def main():
 
             energy_ref_f = get_sub_simulation(energy_ref, fused_index)
             energy_ref_f = energy_ref_f[relevant_quantities]
-            result = perform_check(energy_f, energy_ref_f, args.epsilon)
-            if result:
-                sys.exit(1)
+            exceeded, rel_diff = perform_check(energy_f, energy_ref_f, args.epsilon)
+            failed |= exceeded
+            for col, val in _numeric_column_maxima(rel_diff).items():
+                key = f"{col}[{fused_index}]" if number_of_fused_sims > 1 else col
+                quantities[key] = max(quantities.get(key, 0.0), val)
+
+    if args.report_json is not None:
+        write_report_json(
+            args.report_json, "energy", args.epsilon, not failed, quantities
+        )
+
+    if failed:
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
