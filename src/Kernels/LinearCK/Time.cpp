@@ -61,6 +61,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 }
 
 void Spacetime::computeAder(const real* coeffs,
+                            const real* coeffsEval,
                             double timeStepWidth,
                             LTS::Ref& data,
                             LocalTmp& tmp,
@@ -103,6 +104,9 @@ void Spacetime::computeAder(const real* coeffs,
   for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
     krnl.power(der) = coeffs[der];
   }
+  for (std::size_t der = 1; der < ConvergenceOrder; ++der) {
+    krnl.coeff(der) = coeffsEval[der];
+  }
 
   if (updateDisplacement) {
     // First derivative if needed later in kernel
@@ -112,6 +116,8 @@ void Spacetime::computeAder(const real* coeffs,
     // Hence stream it out
     streamstore(tensor::dQ::size(0), data.get<LTS::Dofs>(), derivativesBuffer);
   }
+
+  krnl.Q = data.get<LTS::Dofs>();
 
   krnl.execute();
 
@@ -139,6 +145,7 @@ void Spacetime::computeAder(const real* coeffs,
 
 void Spacetime::computeBatchedAder(
     SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM const real* coeffsEval,
     SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM LocalTmp& tmp,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
@@ -170,14 +177,16 @@ void Spacetime::computeBatchedAder(
       derivativesKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
     }
 
-    derivativesKrnl.Q =
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
+    derivativesKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
 
     const auto maxTmpMem = yateto::getMaxTmpMemRequired(derivativesKrnl);
     auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * numElements) / sizeof(real));
 
     for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
       derivativesKrnl.power(der) = coeffs[der];
+    }
+    for (std::size_t der = 1; der < ConvergenceOrder; ++der) {
+      derivativesKrnl.coeff(der) = coeffsEval[der];
     }
     derivativesKrnl.linearAllocator.initialize(tmpMem.get());
     derivativesKrnl.streamPtr = runtime.stream();

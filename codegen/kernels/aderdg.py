@@ -460,6 +460,7 @@ class LinearADERDG(ADERDGBase):
 
     def addTime(self, generator, targets):
         powers = [Scalar(f"power({i})") for i in range(self.order)]
+        coeffs = [Scalar(f"coeff({i})") for i in range(self.order)]
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
 
@@ -492,6 +493,8 @@ class LinearADERDG(ADERDGBase):
 
             for i in range(1, self.order):
                 power = powers[i]
+                coeff = coeffs[i]
+
                 derivativeSum = Add()
                 if self.sourceMatrix():
                     derivativeSum += derivatives[-1]["kq"] * self.sourceMatrix()["qp"]
@@ -520,6 +523,7 @@ class LinearADERDG(ADERDGBase):
                 derivativeExpr += [
                     dQ["kp"] <= derivativeSum,
                     self.I["kp"] <= self.I["kp"] + power * dQ["kp"],
+                    self.Q["kp"] <= self.Q["kp"] + coeff * dQ["kp"],
                 ]
                 derivativeTaylorExpansion += power * dQ["kp"]
 
