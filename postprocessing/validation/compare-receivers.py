@@ -25,7 +25,7 @@ else:
 _LEGACY_NAMES = {
     "xx": "s_xx", "yy": "s_yy", "zz": "s_zz",
     "xy": "s_xy", "xz": "s_xz", "yz": "s_yz",
-    "u": "v1", "v": "v2", "w": "v3",
+    "u": "v1", "v": "v2", "w": "v3", "-p": "pprime",
 }
 
 
@@ -185,8 +185,7 @@ def report_errors(label: str, all_errors: dict[int, dict[str, float]], epsilon: 
             exceeded = True
     return exceeded
 
-
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="Compare two sets of receivers.")
     parser.add_argument("output", type=str)
     parser.add_argument("output_ref", type=str)
@@ -207,3 +206,6 @@ if __name__ == "__main__":
         ANY_FAILURE |= report_errors(label, errors, args.epsilon)
 
     sys.exit(1 if ANY_FAILURE else 0)
+
+if __name__ == "__main__":
+    main()

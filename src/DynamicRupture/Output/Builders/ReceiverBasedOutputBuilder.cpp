@@ -16,15 +16,21 @@
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
+#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
+#include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
+#include "Parallel/DataCollector.h"
+#include "Parallel/Helper.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>
@@ -32,22 +38,14 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
+#include <memory>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 #include <yateto.h>
-
-#ifdef ACL_DEVICE
-#include "GeneratedCode/tensor.h"
-#include "Kernels/Solver.h"
-#include "Memory/Tree/Layer.h"
-#include "Parallel/DataCollector.h"
-#include "Parallel/Helper.h"
-
-#include <memory>
-#endif
 
 namespace seissol::dr::output {
 void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshReader* reader) {
@@ -92,7 +90,7 @@ struct HashPair {
 };
 } // namespace
 
-void ReceiverBasedOutputBuilder::initBasisFunctions() {
+void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
   const auto& faultInfo = meshReader_->getFault();
   const auto& elementsInfo = meshReader_->getElements();
   const auto& verticesInfo = meshReader_->getVertices();
@@ -167,44 +165,51 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
   outputData_->cellCount = elementIndices.size() + elementIndicesGhost.size();
 
-#ifdef ACL_DEVICE
-  std::vector<real*> indexPtrs(outputData_->cellCount);
+  if constexpr (isDeviceOn()) {
+    if (elementwise) {
+      // rely on the data that is copied anyways
+      // (deviceDataCollector needs to be set to avoid a nullptr call)
+      outputData_->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
+          std::vector<real*>{}, seissol::kernels::Solver::DerivativesSize, true);
+    } else {
+      // setup (sparse) index arrays (for receivers)
 
-  for (const auto& [index, arrayIndex] : elementIndices) {
-    const auto position = wpBackmap_->get(index);
-    indexPtrs[arrayIndex] = wpStorage_->lookup<LTS::DerivativesDevice>(position);
-    assert(indexPtrs[arrayIndex] != nullptr);
-  }
-  for (const auto& [_, ghost] : elementIndicesGhost) {
-    const auto neighbor = ghost.data;
-    const auto arrayIndex = ghost.index + elementIndices.size();
+      std::vector<real*> indexPtrs(outputData_->cellCount);
 
-    const auto position = wpBackmap_->get(neighbor.first);
-    indexPtrs[arrayIndex] = wpStorage_->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second];
-    assert(indexPtrs[arrayIndex] != nullptr);
-  }
+      for (const auto& [index, arrayIndex] : elementIndices) {
+        const auto position = wpBackmap_->get(index);
+        indexPtrs[arrayIndex] = wpStorage_->lookup<LTS::DerivativesDevice>(position);
+        assert(indexPtrs[arrayIndex] != nullptr);
+      }
+      for (const auto& [_, ghost] : elementIndicesGhost) {
+        const auto neighbor = ghost.data;
+        const auto arrayIndex = ghost.index + elementIndices.size();
 
-  outputData_->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
-      indexPtrs, seissol::kernels::Solver::DerivativesSize, useMPIUSM());
+        const auto position = wpBackmap_->get(neighbor.first);
+        indexPtrs[arrayIndex] =
+            wpStorage_->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second];
+        assert(indexPtrs[arrayIndex] != nullptr);
+      }
 
-  for (const auto& variable : variables_) {
-    auto* var = drStorage_->varUntyped(variable, initializer::AllocationPlace::Device);
-    const std::size_t elementSize = drStorage_->info(variable).bytes;
+      outputData_->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
+          indexPtrs, seissol::kernels::Solver::DerivativesSize, useMPIUSM());
 
-    assert(elementSize % sizeof(real) == 0);
+      for (const auto& variable : variables_) {
+        auto* var = drStorage_->varUntyped(variable, initializer::AllocationPlace::Device);
+        const std::size_t elementSize = drStorage_->info(variable).bytes;
 
-    const std::size_t elementCount = elementSize / sizeof(real);
-    std::vector<real*> dataPointers(faceIndices.size());
-    for (const auto& [index, arrayIndex] : faceIndices) {
-      dataPointers[arrayIndex] = reinterpret_cast<real*>(var) + elementCount * index;
+        std::vector<void*> dataPointers(faceIndices.size());
+        for (const auto& [index, arrayIndex] : faceIndices) {
+          dataPointers[arrayIndex] = reinterpret_cast<uint8_t*>(var) + elementSize * index;
+        }
+
+        const bool hostAccessible = useUSM() && !outputData_->extraRuntime.has_value();
+        outputData_->deviceVariables[variable] =
+            std::make_unique<seissol::parallel::DataCollectorUntyped>(
+                dataPointers, elementSize, hostAccessible);
+      }
     }
-
-    const bool hostAccessible = useUSM() && !outputData_->extraRuntime.has_value();
-    outputData_->deviceVariables[variable] =
-        std::make_unique<seissol::parallel::DataCollector<real>>(
-            dataPointers, elementCount, hostAccessible);
   }
-#endif
 
   outputData_->deviceDataPlus.resize(foundPoints);
   outputData_->deviceDataMinus.resize(foundPoints);

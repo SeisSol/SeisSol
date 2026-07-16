@@ -154,7 +154,7 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
       });
 
   const auto computeRotation = reader->readWithDefault("receivercomputerotation", false);
-  const auto computeStrain = reader->readWithDefault("receivercomputestrain", false);
+  const auto computeStrain = reader->readWithDefault("ReceiverComputeStrainRate", false);
   const auto samplingInterval = reader->readWithDefault("pickdt", 0.005);
   const auto fileName = reader->readPath("rfilename");
 
@@ -188,7 +188,7 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
     const auto format = reader->readWithDefaultEnum<OutputFormat>(
         "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
 
-    // TODO: deprecate the "format" value for real
+    // TODO: deprecate the "format" value at some point (not yet though)
     logInfo()
         << "Disabling/enabling the wavefield output via the \"format\" option is deprecated "
            "and may be removed in a future version of SeisSol. Consider using the parameter "

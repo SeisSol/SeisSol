@@ -43,7 +43,7 @@ You may explicitly compile and install multiple of these configurations at the s
     * ``double``: use double precision. Recommended, if your simulation fails with Inf/NaN errors in single precision builds. See also https://github.com/SeisSol/SeisSol/issues/200 .
 
 - ``NUMBER_OF_FUSED_SIMULATIONS``: the number of simulations run simultaneously.
-- ``NEW_BINARY_NAMING``: use an updated binary naming scheme which uses lower-case letters and a shorter notation
+- ``NEW_BINARY_NAMING``: (default on) use an updated binary naming scheme which uses lower-case letters and a shorter notation
 
 Besides these, the host or, if enabled, the device architecture and backend are also encoded in the name of the executable.
 
@@ -60,7 +60,8 @@ Generic parameters
     * ``ib``: interpolating basis
 - ``PROXY_PYBINDING``: compile Python bindings for the SeisSol proxy
 - ``TESTING``: compile unit tests for SeisSol
-- ``TESTING_GENERATED``: compile unit tests
+- ``TESTING_GENERATED``: compile unit tests for code-generated kernels. Useful for either developing a code generator, or when figuring out why a simulation runs into Inf/NaN or invalid results.
+- ``TESTING_PYTHON``: run additional code generator Python unit tests (those can also be run separately using ``pytest`` directly)
 - ``LTO``: enable link-time optimization
 - ``GRAPH_PARTITIONING_LIBS``: compile for the given graph partitioning libraries. Allowed options are:
 

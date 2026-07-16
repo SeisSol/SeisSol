@@ -127,14 +127,18 @@ TimeCluster::TimeCluster(unsigned int clusterId,
   dynamicRuptureKernel_.setGlobalData(globalData);
 
   frictionSolver_->allocateAuxiliaryMemory(globalDataOnHost_);
-  frictionSolverDevice_->allocateAuxiliaryMemory(globalDataOnDevice_);
   frictionSolverCopy_->allocateAuxiliaryMemory(globalDataOnHost_);
-  frictionSolverCopyDevice_->allocateAuxiliaryMemory(globalDataOnDevice_);
+  if constexpr (seissol::isDeviceOn()) {
+    frictionSolverDevice_->allocateAuxiliaryMemory(globalDataOnDevice_);
+    frictionSolverCopyDevice_->allocateAuxiliaryMemory(globalDataOnDevice_);
+  }
 
   frictionSolver_->setupLayer(*dynRupInteriorData, streamRuntime_);
-  frictionSolverDevice_->setupLayer(*dynRupInteriorData, streamRuntime_);
   frictionSolverCopy_->setupLayer(*dynRupCopyData, streamRuntime_);
-  frictionSolverCopyDevice_->setupLayer(*dynRupCopyData, streamRuntime_);
+  if constexpr (seissol::isDeviceOn()) {
+    frictionSolverDevice_->setupLayer(*dynRupInteriorData, streamRuntime_);
+    frictionSolverCopyDevice_->setupLayer(*dynRupCopyData, streamRuntime_);
+  }
   streamRuntime_.wait();
 
   computeFlops();
@@ -785,7 +789,9 @@ void TimeCluster::handleDynamicRupture(DynamicRupture::Layer& layerData) {
     const auto trueDt = trueTime - oldTime;
     faultOutputManager_->writePickpointOutput(
         layerData.id(), trueTime, trueDt, meshDt, 0, streamRuntime_);
-  } while (time * (1 + 1e-8) < ct_.correctionTime + ct_.maxTimeStepSize);
+
+    // write until we've completed the current copy interval, or if we've hit a sync point
+  } while (time * (1 + 1e-8) < ct_.correctionTime + ct_.maxTimeStepSize && time < syncTime_);
 
   // TODO(David): restrict to copy/interior of same cluster type
   if (hasDifferentExecutorNeighbor()) {

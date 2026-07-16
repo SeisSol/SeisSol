@@ -59,7 +59,7 @@ endif()
 configure_file("Config.h.in"
                "${CMAKE_CURRENT_BINARY_DIR}/Config.h")
 
-# Generate version.h
+# Generate BuildInfo.cpp
 include(GetGitRevisionDescription)
 
 # get GIT info
@@ -74,7 +74,13 @@ endif()
 string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
 
 # write file and print info
-configure_file("Version.h.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/Version.h")
+configure_file("BuildInfo.cpp.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/BuildInfo.cpp")
 message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
 message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
+
+add_library(seissol-config OBJECT
+${CMAKE_CURRENT_BINARY_DIR}/BuildInfo.cpp
+)
+
+target_link_libraries(seissol-config PUBLIC seissol-common-properties)

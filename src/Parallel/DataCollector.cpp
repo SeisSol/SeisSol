@@ -44,7 +44,7 @@ DataCollectorUntyped::DataCollectorUntyped(const std::vector<void*>& indexDataHo
 
 DataCollectorUntyped::~DataCollectorUntyped() {
   if (!hostAccessible_ && indexCount_ > 0) {
-    memory::free(static_cast<void*>(indexDataDevice_), memory::Memkind::DeviceGlobalMemory);
+    memory::freeTyped(indexDataDevice_, memory::Memkind::DeviceGlobalMemory);
     memory::free(copiedData_, memory::Memkind::PinnedMemory);
   }
 }
