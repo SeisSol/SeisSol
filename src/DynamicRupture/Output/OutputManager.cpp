@@ -408,11 +408,11 @@ void OutputManager::initPickpointOutput() {
           for (const auto& gIdx : ppfile.indices) {
             const auto& receiver = outputData->receiverPoints[gIdx];
             const size_t globalIndex = receiver.globalReceiverIndex + 1;
-            const size_t simIndex = receiver.simIndex;
+            const size_t simIndex = receiver.simIndex + 1;
             const auto& point = receiver.global;
 
             // output coordinates
-            if (simIndex == 0) {
+            if (simIndex == 1) {
               file << "# Receiver number " << globalIndex << '\n';
               file << "# x1\t" << makeFormatted(point[0]) << '\n';
               file << "# x2\t" << makeFormatted(point[1]) << '\n';
@@ -443,15 +443,12 @@ void OutputManager::initPickpointOutput() {
               alignAlongDipAndStrikeKernel.execute();
             }
 
-            file << "# P_0" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[0])
-                 << '\n';
-            file << "# T_s" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[3])
-                 << '\n';
-            file << "# T_d" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[5])
-                 << '\n';
+            file << "# P_0" << simIndex << "\t" << makeFormatted(rotatedInitialStress[0]) << '\n';
+            file << "# T_s" << simIndex << "\t" << makeFormatted(rotatedInitialStress[3]) << '\n';
+            file << "# T_d" << simIndex << "\t" << makeFormatted(rotatedInitialStress[5]) << '\n';
           }
         } else {
-          logError() << "cannot open " << ppfile.fileName;
+          logError() << "Cannot open fault receiver file" << ppfile.fileName;
         }
         file.close();
       }
