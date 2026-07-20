@@ -58,8 +58,7 @@ COMPARE_RECEIVERS = SCRIPT_DIR / "compare-receivers.py"
 COMPARE_ENERGIES = SCRIPT_DIR / "compare-energies.py"
 
 DEFAULT_EPSILON = 0.05
-OUTPUT_PREFIX = "tpv"     # SeisSol output basename used across all cases
-OUTPUT_SUBDIR = "output"  # relative to the case directory
+OUTPUT_SUBDIR = "output"  # relative to the case directory (fresh run output)
 
 
 # ---------------------------------------------------------------------------
@@ -120,48 +119,36 @@ def _dim(s: str) -> str:   return c(s, _Ansi.DIM)
 
 @dataclasses.dataclass
 class CaseSpec:
-    """One ``(case, precision)`` entry from ``cases.json``."""
+    """One ``cases.json`` entry, keyed by an opaque ``key``.
 
-    name: str          # e.g. "tpv5"
-    precision: str     # own variant label / 2nd key component (conventionally a precision)
-    config: str        # e.g. "elastic-o6-f64-s8"
-    params_path: Path  # absolute path to parameters.par
-    case_dir: Path     # parent of parameters.par
-    output_prefix: str # value of the ``output`` field, kept for diagnostics
-    reference: str = ""  # label of the precomputed tree to compare against; empty => own
+    A case declares its own output via ``output`` (directory + prefix) and/or a
+    ``reference`` (another case's key) to compare against; at least one must be
+    present. With only ``output`` the case owns and self-checks its reference;
+    with only ``reference`` it borrows another case's output and inherits that
+    case's prefix; with both, it compares against ``reference`` but keeps its own
+    output directory. Fresh SeisSol output always goes to ``workdir``; the
+    ``output`` directory holds the committed reference (and is the record target).
+    """
 
-    def __post_init__(self) -> None:
-        # ``reference`` is an opaque label naming a sibling ``precomputed/<label>/``
-        # tree to compare against. It is NOT tied to precision: it can point at a
-        # different precision, a different order, or any other recorded variant.
-        # When it differs from this entry's own label, the entry is *derived*: it
-        # is run and compared against another variant's reference, and is skipped
-        # during ``--record`` (its reference is owned elsewhere).
-        if not self.reference:
-            self.reference = self.precision
-
-    @property
-    def key(self) -> str:
-        return f"{self.name}/{self.precision}"
+    key: str            # opaque identifier from cases.json (e.g. "tpv5/double")
+    config: str         # binary selector, e.g. "elastic-o6-f64"
+    params_path: Path   # absolute path to the parameter file
+    case_dir: Path      # parent of params_path (SeisSol run cwd)
+    prefix: str         # output file prefix, e.g. "tpv"
+    output_dir: Optional[Path] = None  # own committed output dir (record target)
+    reference: str = ""  # another case's key; "" => compare against own output
+    # Resolved compare target, filled in by load_cases (own output_dir, or the
+    # referenced case's output_dir):
+    reference_dir: Optional[Path] = None
 
     @property
     def is_derived(self) -> bool:
-        """True if this entry borrows another variant's reference tree."""
-        return self.reference != self.precision
-
-    @property
-    def precomputed_dir(self) -> Path:
-        """Reference tree to compare *against* (may belong to another variant)."""
-        return self.case_dir / "precomputed" / self.reference
-
-    @property
-    def own_precomputed_dir(self) -> Path:
-        """This entry's own reference tree -- the target when recording."""
-        return self.case_dir / "precomputed" / self.precision
+        """True when the compare target is another case's output."""
+        return bool(self.reference) and self.reference != self.key
 
     @property
     def workdir(self) -> Path:
-        """Where SeisSol writes its output."""
+        """Where SeisSol writes fresh output (the parameter-file-driven location)."""
         return self.case_dir / OUTPUT_SUBDIR
 
 
@@ -210,29 +197,66 @@ def load_cases(precomputed_dir: Path) -> dict[str, CaseSpec]:
     if not cases_file.is_file():
         raise FileNotFoundError(f"cases.json not found in {precomputed_dir}")
     raw = json.loads(cases_file.read_text())
+
     cases: dict[str, CaseSpec] = {}
     for key, entry in raw.items():
-        if "/" not in key:
+        if "output" not in entry and "reference" not in entry:
             raise ValueError(
-                f"Malformed key '{key}' in cases.json (expected 'name/precision')"
+                f"Case '{key}' has neither 'output' nor 'reference'; one is required"
             )
-        name, precision = key.split("/", 1)
         params_path = (precomputed_dir / entry["parameters"]).resolve()
+        prefix, output_dir = "", None
+        out = entry.get("output")
+        if isinstance(out, str):        # lenient: a bare string is the prefix
+            prefix = out
+        elif isinstance(out, dict):
+            prefix = out.get("prefix", "")
+            if out.get("directory"):
+                output_dir = (precomputed_dir / out["directory"]).resolve()
         cases[key] = CaseSpec(
-            name=name,
-            precision=precision,
+            key=key,
             config=entry["config"],
             params_path=params_path,
             case_dir=params_path.parent,
-            output_prefix=entry["output"],
+            prefix=prefix,
+            output_dir=output_dir,
             reference=entry.get("reference", ""),
         )
+
+    # Second pass: resolve each case's compare target and inherit the prefix from
+    # the referenced case when this case declared no output of its own.
+    for case in cases.values():
+        if case.reference:
+            if case.reference not in cases:
+                raise ValueError(
+                    f"Case '{case.key}' references unknown case '{case.reference}'"
+                )
+            ref = cases[case.reference]
+            if ref.output_dir is None:
+                raise ValueError(
+                    f"Case '{case.key}' references '{case.reference}', which has no "
+                    f"output directory to compare against"
+                )
+            case.reference_dir = ref.output_dir
+            if not case.prefix:
+                case.prefix = ref.prefix
+        else:
+            if case.output_dir is None:
+                raise ValueError(
+                    f"Case '{case.key}' has no 'reference' and no output directory"
+                )
+            case.reference_dir = case.output_dir
+        if not case.prefix:
+            raise ValueError(
+                f"Case '{case.key}': no output prefix (set output.prefix, or "
+                f"reference a case that has one)"
+            )
     return cases
 
 
 def load_tpv_data(case: CaseSpec) -> dict:
     """Per-case validation config; missing file => empty (all categories off)."""
-    f = case.precomputed_dir / "tpv-data.json"
+    f = case.reference_dir / f"{case.prefix}-data.json"
     if not f.is_file():
         return {}
     return json.loads(f.read_text())
@@ -465,8 +489,8 @@ def _expect(path: Path, what: str) -> Optional[str]:
 
 def compare_mesh(case: CaseSpec, suffix: str, category: str, epsilon: float) -> CompareResult:
     """Volume/fault/surface XDMF comparison via compare-mesh.py."""
-    out_xdmf = case.workdir / f"{OUTPUT_PREFIX}{suffix}.xdmf"
-    ref_xdmf = case.precomputed_dir / f"{OUTPUT_PREFIX}{suffix}.xdmf"
+    out_xdmf = case.workdir / f"{case.prefix}{suffix}.xdmf"
+    ref_xdmf = case.reference_dir / f"{case.prefix}{suffix}.xdmf"
     for path, what in [(out_xdmf, "output"), (ref_xdmf, "reference")]:
         msg = _expect(path, what)
         if msg:
@@ -483,16 +507,16 @@ def compare_mesh(case: CaseSpec, suffix: str, category: str, epsilon: float) -> 
 def compare_receivers(case: CaseSpec, epsilon: float) -> CompareResult:
     rc, summary = _run_compare(
         COMPARE_RECEIVERS,
-        [str(case.workdir), str(case.precomputed_dir),
-         "--prefix", OUTPUT_PREFIX, "--epsilon", str(epsilon)],
+        [str(case.workdir), str(case.reference_dir),
+         "--prefix", case.prefix, "--epsilon", str(epsilon)],
         cwd=case.case_dir,
     )
     return _apply_summary(CompareResult("receiver", rc == 0, epsilon), summary)
 
 
 def compare_energies(case: CaseSpec, epsilon: float) -> CompareResult:
-    out_csv = case.workdir / f"{OUTPUT_PREFIX}-energy.csv"
-    ref_csv = case.precomputed_dir / f"{OUTPUT_PREFIX}-energy.csv"
+    out_csv = case.workdir / f"{case.prefix}-energy.csv"
+    ref_csv = case.reference_dir / f"{case.prefix}-energy.csv"
     for path, what in [(out_csv, "output"), (ref_csv, "reference")]:
         msg = _expect(path, what)
         if msg:
@@ -510,7 +534,7 @@ def verify_case(
 ) -> list[CompareResult]:
     """Run all comparisons enabled in tpv-data.json for one case."""
     results: list[CompareResult] = []
-    v = case.precision
+    v = case.key
     if _enabled(tpv_data, "volume"):
         results.append(compare_mesh(case, "", "volume",
                                     _epsilon(tpv_data, "volume", epsilon_override, v)))
@@ -546,32 +570,34 @@ def verify_case(
 
 
 def record_case(case: CaseSpec) -> int:
-    """Overwrite this precision's own ``precomputed/<precision>/`` with fresh output.
+    """Overwrite this case's own ``output`` directory with the fresh output.
 
-    Only entries that own a reference are recorded; derived entries (whose
-    ``reference`` label points elsewhere) are skipped by the caller. Writing
-    always targets ``own_precomputed_dir`` -- never the borrowed reference tree.
+    Only cases that own an output directory are recorded; derived cases (which
+    compare against another case's output) are skipped by the caller. Writing
+    always targets the case's own ``output_dir`` -- never a borrowed reference.
 
-    The per-case ``tpv-data.json`` (sitting inside the precomputed dir) is
+    The per-case ``<prefix>-data.json`` (sitting in the output directory) is
     preserved; everything else matching the output prefix is replaced.
     """
+    if case.output_dir is None:
+        raise RuntimeError(f"Cannot record {case.key}: it declares no output directory")
     if not case.workdir.is_dir():
         raise RuntimeError(f"Cannot record: {case.workdir} does not exist")
-    target = case.own_precomputed_dir
+    target = case.output_dir
     target.mkdir(parents=True, exist_ok=True)
 
-    preserved = target / "tpv-data.json"
+    preserved = target / f"{case.prefix}-data.json"
     keep = preserved.read_bytes() if preserved.is_file() else None
 
     # Wipe and copy: deletes refs that no longer exist in the new output (e.g.
-    # if you renamed a receiver). The preserved tpv-data.json is restored after.
+    # if you renamed a receiver). The preserved <prefix>-data.json is restored after.
     for f in target.iterdir():
         if f.is_file():
             f.unlink()
 
     n = 0
     for src in case.workdir.iterdir():
-        if src.is_file() and src.name.startswith(OUTPUT_PREFIX):
+        if src.is_file() and src.name.startswith(case.prefix):
             shutil.copy2(src, target / src.name)
             n += 1
     if keep is not None:
@@ -603,9 +629,9 @@ def update_references_json(
     """
     f = precomputed_dir / "references.json"
     db = json.loads(f.read_text()) if f.is_file() else {}
-    existing = db.get(case.name, {})
+    existing = db.get(case.key, {})
     configs = sorted(set(existing.get("configs", []) + [case.config]))
-    db[case.name] = {
+    db[case.key] = {
         "commit": seissol_commit,
         "date": _dt.date.today().isoformat(),
         "configs": configs,
@@ -627,20 +653,16 @@ def select_cases(
     selected: list[CaseSpec] = []
     seen: set[str] = set()
     for r in requested:
-        if "/" in r:
-            if r not in cases:
-                raise KeyError(f"Unknown case key: {r}")
-            if r not in seen:
-                selected.append(cases[r])
-                seen.add(r)
-        else:
-            matched = [c for c in cases.values() if c.name == r]
-            if not matched:
-                raise KeyError(f"Unknown case name: {r}")
-            for c in matched:
-                if c.key not in seen:
-                    selected.append(c)
-                    seen.add(c.key)
+        # Match an exact key, or every key under the "<r>/" prefix (so "tpv5"
+        # selects "tpv5/double", "tpv5/single", ... without a formal name split).
+        matched = [c for c in cases.values()
+                   if c.key == r or c.key.startswith(r + "/")]
+        if not matched:
+            raise KeyError(f"No case matches '{r}'")
+        for c in matched:
+            if c.key not in seen:
+                selected.append(c)
+                seen.add(c.key)
     return selected
 
 
@@ -653,16 +675,16 @@ def load_failed_keys(path: Path) -> list[str]:
 def list_cases(selected: list[CaseSpec], epsilon_override: Optional[float]) -> None:
     """Dry-run: show each selected case's reference and per-category epsilons."""
     for case in selected:
-        tag = "   (derived, records nothing)" if case.is_derived else ""
+        tag = f"   (derived <- {case.reference})" if case.is_derived else ""
         print(f"{c(case.key, _Ansi.BOLD)}   config={case.config}   "
-              f"ref={case.reference}{tag}")
+              f"ref={case.reference or 'self'}{tag}")
         tpv = load_tpv_data(case)
         enabled = [cat for cat in _CANONICAL_CATEGORIES if _enabled(tpv, cat)]
         if not enabled:
             print(f"    {_dim('(no categories enabled / no tpv-data.json)')}")
             continue
         for cat in enabled:
-            eps = _epsilon(tpv, cat, epsilon_override, case.precision)
+            eps = _epsilon(tpv, cat, epsilon_override, case.key)
             qmap = tpv.get(cat, {}).get("quantities", {})
             extra = f"   (+{len(qmap)} per-quantity)" if qmap else ""
             print(f"    {cat:<9} \u03b5={eps:g}{extra}")
@@ -804,7 +826,12 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
                 ratio = cr.achieved / cr.epsilon
             near = cr.passed and near_miss > 0 and near_miss <= ratio < 1.0
             mark = "✗" if not cr.passed else ("~" if near else " ")
-            cell = f"{num(cr.achieved, 1):>{COL_W - 1}}{mark}"
+            # 'err' for a hard failure (no achieved value, e.g. missing file);
+            # the reason is spelled out in the Failures block below.
+            disp = "err" if cr.achieved is None else num(cr.achieved, 1)
+            # Number right-aligned to the column edge (like the header); the mark
+            # lives in its own trailing column so it never shifts the digits.
+            cell = f"{disp:>{COL_W}}{mark}"
             if not cr.passed:
                 return bad_(cell)
             return warn_(cell) if near else ok_(cell)
@@ -827,7 +854,7 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
             return dim_(f"{text:>{TIME_W}}")
 
         head = (f"{'case':<{CASE_W}} {'state':<{STATE_W}} {'time':>{TIME_W}}"
-                + "".join(f"{cat:>{COL_W}}" for cat in cols))
+                + "".join(f"{cat:>{COL_W}} " for cat in cols))
         lines = [bold_(head), "─" * len(head)]
 
         for r in results:
@@ -841,7 +868,7 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
             for cat in cols:
                 cr = cmap.get(cat)
                 if cr is None:
-                    row += dim_(f"{'—':>{COL_W}}")
+                    row += dim_(f"{'—':>{COL_W}} ")
                     continue
                 row += cell_render(cr)
             lines.append(row.rstrip())
@@ -911,11 +938,11 @@ def build_run_report(results: list[CaseResult],
                      drift: Optional[list[tuple]] = None) -> dict:
     """Assemble the whole run as a JSON-serialisable dict (schema 1).
 
-    Carries, per case: identity (name/precision/reference/config), state, wall
-    time, and every comparison's category threshold, achieved max error, the
-    full per-quantity achieved map, and any per-quantity threshold violations.
-    inf/nan are encoded as the strings "inf"/"-inf"/"nan" so the file stays valid
-    JSON (mirrors the compare-*.py report format).
+    Carries, per case: identity (case key, config, reference, prefix,
+    output_dir), state, wall time, and every comparison's category threshold,
+    achieved max error, the full per-quantity achieved map, and any per-quantity
+    threshold violations. inf/nan are encoded as the strings "inf"/"-inf"/"nan"
+    so the file stays valid JSON (mirrors the compare-*.py report format).
     """
     buckets = {"PASS": 0, "FAIL": 0, "SKIP": 0, "REC": 0}
     for r in results:
@@ -940,10 +967,10 @@ def build_run_report(results: list[CaseResult],
         ]
         cases.append({
             "case": r.case.key,
-            "name": r.case.name,
-            "precision": r.case.precision,
             "reference": r.case.reference,
             "config": r.case.config,
+            "prefix": r.case.prefix,
+            "output_dir": str(r.case.output_dir) if r.case.output_dir else None,
             "state": _state_of(r),
             "passed": r.passed,
             "ran": r.ran,
@@ -1031,7 +1058,7 @@ def render_markdown(results: list[CaseResult], near_miss: float = 0.5,
             if cr is None:
                 cells.append("—")
                 continue
-            val = mdnum(cr.achieved)
+            val = "err" if cr.achieved is None else mdnum(cr.achieved)
             ratio = (cr.achieved / cr.epsilon
                      if cr.achieved is not None and math.isfinite(cr.achieved)
                      and cr.epsilon > 0 else 0.0)
@@ -1199,8 +1226,9 @@ def build_parser() -> argparse.ArgumentParser:
                         "(not required with --list).")
     sel = p.add_argument_group("Case selection")
     sel.add_argument("--case", action="append", default=[],
-                     help="Case to run: 'tpv5' for both precisions, "
-                          "'tpv5/double' for one. Repeatable.")
+                     help="Case key to run: an exact key like 'tpv5/double', or "
+                          "a prefix like 'tpv5' to select every 'tpv5/...' key. "
+                          "Repeatable.")
     sel.add_argument("--all", action="store_true",
                      help="Run every entry in cases.json.")
     sel.add_argument("--rerun-failed", type=Path, default=None, metavar="REPORT_JSON",
