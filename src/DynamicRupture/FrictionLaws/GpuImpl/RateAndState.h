@@ -224,10 +224,93 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                      real slipRateMagnitude,
                                                      real invEtaS,
                                                      real& exportMu) {
+    // Solve  g(V) = -invEtaS * (|sigma_n| * mu(V) - tau) - V = 0   for V = slipRateTest.
+    // dG = -invEtaS*|sigma_n|*mu'(V) - 1 < -1 everywhere (mu' > 0), so g is strictly
+    // decreasing: unique root, closed-form bracket (no search, endpoints not evaluated):
+    //   g(0+)          = invEtaS * tau            > 0
+    //   g(tau*invEtaS) = -invEtaS*|sigma_n|*mu(.) < 0
+    // rtsafe: Newton while it stays in the bracket and outruns bisection, else bisect.
+    // Bracket width is non-increasing and halves on every fallback => termination is in
+    // V-space (|dV| < xacc), immune to the residual noise floor that makes a |g|-threshold
+    // circulate at low precision.
+
+    const auto details = Derived::getMuDetails(ctx, localStateVariable);
+    const real absN = std::abs(normalStress);
+    const real tau = absoluteShearStress;
+
+    real xLow = friction_law::rs::almostZero();
+    real xHigh = std::max(xLow, tau * invEtaS); // tau~0 => collapses to ~0, root ~0
+    real x = std::min(std::max(slipRateMagnitude, xLow), xHigh); // warm start, clamped
+    real dx = xHigh - xLow;                                      // becomes dxOld on first iteration
+
+    // rsSlipRateTolerance is dimensionally a slip rate => reuse directly as the V-space
+    // step tolerance. Reproduces the current convergence scale, but now terminating.
+    const real xacc = ctx.data->drParameters.rsSlipRateTolerance;
+
+    real muF{0};
+    bool converged = false;
+
+    for (uint32_t i = 0; i < ctx.data->drParameters.rsMaxNumberSlipRateUpdates; i++) {
+      const bool active = !converged;
+
+      // >>> precision knob: evaluate muF/g/dG in double (promote absN, tau, x) to drop the
+      //     noise floor AND make the sign below exact. Needs a double mu() evaluation.
+      muF = Derived::updateMu(ctx, x, details);
+      const real dMuF = Derived::updateMuDerivative(ctx, x, details);
+      const real g = -invEtaS * (absN * muF - tau) - x;
+      const real dG = -invEtaS * (absN * dMuF) - static_cast<real>(1);
+
+      // maintain the straddling bracket from sign(g) (g decreasing):
+      //   g > 0 => root at larger  V => raise lower bound
+      //   g < 0 => root at smaller V => lower upper bound
+      const bool gPos = g > static_cast<real>(0);
+      xLow = (active && gPos) ? x : xLow;
+      xHigh = (active && !gPos) ? x : xHigh;
+
+      const real dxOld = dx;
+      const real xNewton = x - g / dG;
+      const real xBisect = static_cast<real>(0.5) * (xLow + xHigh);
+
+      // bisect if Newton leaves the bracket or does not outrun bisection
+      const bool useBisect = (xNewton <= xLow) || (xNewton >= xHigh) ||
+                             (std::abs(static_cast<real>(2) * g) > std::abs(dxOld * dG));
+      const real xUpdated = useBisect ? xBisect : xNewton;
+      dx = xUpdated - x;
+
+      // V-space convergence + no-representable-change guard => cannot livelock
+      const bool nowConverged = (std::abs(dx) < xacc) || (xUpdated == x);
+
+      // advance active, not-yet-converged lanes; freeze at the converged point so that
+      // slipRateTest and exportMu are the mu-consistent pair at that point
+      x = (active && !nowConverged) ? xUpdated : x;
+      converged |= nowConverged;
+
+      deviceWarpBarrier(ctx);
+      if (deviceWarpAll(ctx, converged)) {
+        break;
+      }
+    }
+
+    slipRateTest = x;
+    exportMu = muF;
+    return converged;
+  }
+
+  SEISSOL_DEVICE static bool invertSlipRateIterativex(FrictionLawContext& __restrict ctx,
+                                                      real& slipRateTest,
+                                                      real localStateVariable,
+                                                      real normalStress,
+                                                      real absoluteShearStress,
+                                                      real slipRateMagnitude,
+                                                      real invEtaS,
+                                                      real& exportMu) {
 
     slipRateTest = slipRateMagnitude;
 
     const auto details = Derived::getMuDetails(ctx, localStateVariable);
+
+    real srmax = invEtaS * absoluteShearStress;
+    real srmin = friction_law::rs::almostZero();
 
     for (uint32_t i = 0; i < ctx.data->drParameters.rsMaxNumberSlipRateUpdates; i++) {
       const real muF = Derived::updateMu(ctx, slipRateTest, details);
@@ -235,7 +318,34 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       const real newSR = -invEtaS * (std::abs(normalStress) * muF - absoluteShearStress);
       const real g = newSR - slipRateTest;
 
-      const bool converged = std::abs(g) < ctx.data->drParameters.rsSlipRateTolerance;
+      if (g > 0) {
+        srmin = slipRateTest;
+      } else {
+        srmax = slipRateTest;
+      }
+
+      const real dMuF = Derived::updateMuDerivative(ctx, slipRateTest, details);
+      const real dG = -invEtaS * (std::abs(normalStress) * dMuF) - static_cast<real>(1.0);
+
+      const real newtonSR = std::max(friction_law::rs::almostZero(), slipRateTest - (g / dG));
+
+      const bool converged1 = std::abs(g / dG) < ctx.data->drParameters.rsSlipRateTolerance;
+
+      const real oldSR = slipRateTest;
+
+      if (newtonSR < srmin || newtonSR > srmax || std::abs(2 * g) > std::abs(slipRateTest * dG)) {
+        // use bisection if:
+        // * we leave the interval
+        // * we converge slower than bisection (i.e. we do not halve the interval)
+
+        slipRateTest = (srmax + srmin) / 2;
+      } else {
+        slipRateTest = newtonSR;
+      }
+
+      const auto converged =
+          converged1 || oldSR == slipRateTest; //|| std::abs(srmax - srmin) < 2 *
+                                               // ctx.data->drParameters.rsSlipRateTolerance;
 
       if (converged) {
         // we've reached the fixed point
@@ -246,9 +356,20 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
         return true;
       }
 
-      const real dMuF = Derived::updateMuDerivative(ctx, slipRateTest, details);
-      const real dG = -invEtaS * (std::abs(normalStress) * dMuF) - static_cast<real>(1.0);
-      slipRateTest = std::max(friction_law::rs::almostZero(), slipRateTest - (g / dG));
+      if (i + 1 == ctx.data->drParameters.rsMaxNumberSlipRateUpdates &&
+          std::abs(newSR - oldSR) > 1e-6) {
+        printf("%.15f %.15f %.15f %.15f %.15f %.15f %.15f %.15f %.15f %.15f\n",
+               muF,
+               g,
+               dMuF,
+               dG,
+               slipRateTest,
+               newSR,
+               oldSR,
+               srmin,
+               srmax,
+               std::abs(newSR - oldSR));
+      }
     }
     return false;
   }
