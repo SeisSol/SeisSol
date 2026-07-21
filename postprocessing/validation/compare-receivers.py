@@ -25,7 +25,7 @@ else:
 _LEGACY_NAMES = {
     "xx": "s_xx", "yy": "s_yy", "zz": "s_zz",
     "xy": "s_xy", "xz": "s_xz", "yz": "s_yz",
-    "u": "v1", "v": "v2", "w": "v3",
+    "u": "v1", "v": "v2", "w": "v3", "-p": "pprime",
 }
 
 

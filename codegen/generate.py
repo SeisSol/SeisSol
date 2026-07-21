@@ -11,6 +11,7 @@
 
 import argparse
 import importlib.util
+import json
 import os
 import re
 import sys
@@ -68,6 +69,13 @@ def main():
     )
     cmdLineParser.add_argument("--executable_libxsmm", default="")
     cmdLineParser.add_argument("--executable_pspamm", default="")
+
+    # "dry run" parameter for use directly in CMake (before building)
+    cmdLineParser.add_argument(
+        "--mode", type=str, choices=["collect", "codegen"], default="codegen"
+    )
+    cmdLineParser.add_argument("--codegen_target", type=str, default="__all__")
+
     cmdLineParser.set_defaults(enable_premultiply_flux=False)
     cmdLineArgs = cmdLineParser.parse_args()
 
@@ -139,7 +147,6 @@ def main():
         ]:
             chainforge_spec = importlib.util.find_spec("chainforge")
             if chainforge_spec is not None:
-                chainforge_spec.loader.load_module()
                 cost_estimators = FusedGemmsBoundingBoxCostEstimator
             else:
                 raise ModuleNotFoundError(
@@ -158,18 +165,26 @@ def main():
 
     subfolders = []
 
-    equationsSpec = importlib.util.find_spec(
-        f"kernels.equations.{cmdLineArgs.equations}"
-    )
+    equationsModuleName = f"kernels.equations.{cmdLineArgs.equations}"
+
+    equationsSpec = importlib.util.find_spec(equationsModuleName)
     if equationsSpec is None:
         raise RuntimeError("Could not find kernels for " + cmdLineArgs.equations)
-    equations = equationsSpec.loader.load_module()
+
+    # actually load the module
+    equations = importlib.import_module(equationsModuleName)
 
     equation_class = equations.EQUATION_CLASS
 
     routine_cache = GlobalRoutineCache()
 
     gemmTools = GeneratorCollection(gemm_generators)
+
+    def check_run_codegen(name):
+        return cmdLineArgs.mode == "codegen" and cmdLineArgs.codegen_target in (
+            "__all__",
+            name,
+        )
 
     def generate_equation(subfolders, equation, order):
         precision = "double" if cmdLineArgs.precision in ["d", "f64"] else "single"
@@ -264,16 +279,17 @@ def main():
 
         subfolders += [outputDirName]
 
-        # Generate code
-        generator.generate(
-            outputDir=trueOutputDir,
-            namespace="seissol",
-            gemm_cfg=gemmTools,
-            cost_estimator=cost_estimators,
-            include_tensors=include_tensors,
-            routine_exporters=custom_routine_generators,
-            routine_cache=routine_cache,
-        )
+        # Generate code (if we need to)
+        if check_run_codegen(outputDirName):
+            generator.generate(
+                outputDir=trueOutputDir,
+                namespace="seissol",
+                gemm_cfg=gemmTools,
+                cost_estimator=cost_estimators,
+                include_tensors=include_tensors,
+                routine_exporters=custom_routine_generators,
+                routine_cache=routine_cache,
+            )
 
     def generate_general(subfolders):
         # we use always use double here,
@@ -297,15 +313,18 @@ def main():
             NamespacedGenerator(generator, namespace="dynamicRupture")
         )
 
-        generator.generate(
-            outputDir=outputDir,
-            namespace="seissol::general",
-            gemm_cfg=gemmTools,
-            cost_estimator=cost_estimators,
-            include_tensors=kernels.general.includeMatrices(cmdLineArgs.matricesDir),
-            routine_exporters=custom_routine_generators,
-            routine_cache=routine_cache,
-        )
+        if check_run_codegen("general"):
+            generator.generate(
+                outputDir=outputDir,
+                namespace="seissol::general",
+                gemm_cfg=gemmTools,
+                cost_estimator=cost_estimators,
+                include_tensors=kernels.general.includeMatrices(
+                    cmdLineArgs.matricesDir
+                ),
+                routine_exporters=custom_routine_generators,
+                routine_cache=routine_cache,
+            )
 
     def forward_files(filename):
         with open(os.path.join(cmdLineArgs.outputDir, filename), "w") as file:
@@ -321,15 +340,34 @@ def main():
     generate_equation(subfolders, equation_class, cmdLineArgs.order)
     generate_general(subfolders)
 
-    routine_cache.generate(cmdLineArgs.outputDir, "seissol")
+    if cmdLineArgs.mode == "codegen":
+        routine_cache.generate(cmdLineArgs.outputDir, "seissol")
 
-    forward_files("init.h")
-    forward_files("kernel.h")
-    forward_files("tensor.h")
-    forward_files("init.cpp")
-    forward_files("kernel.cpp")
-    forward_files("tensor.cpp")
-    forward_files("test-kernel.cpp")
+        # for now
+        forward_files("init.h")
+        forward_files("kernel.h")
+        forward_files("tensor.h")
+
+    if cmdLineArgs.mode == "collect":
+        targets = {
+            folder: {
+                "kernels": [
+                    os.path.join(folder, "init.cpp"),
+                    os.path.join(folder, "kernel.cpp"),
+                    os.path.join(folder, "tensor.cpp"),
+                ],
+                "tests": [os.path.join(folder, "test-kernel.cpp")],
+                "headers": [
+                    os.path.join(folder, "init.h"),
+                    os.path.join(folder, "kernel.h"),
+                    os.path.join(folder, "tensor.h"),
+                ],
+            }
+            for folder in subfolders
+        }
+
+        with open(os.path.join(cmdLineArgs.outputDir, "targets.json"), "w") as file:
+            json.dump(targets, file)
 
 
 if __name__ == "__main__":

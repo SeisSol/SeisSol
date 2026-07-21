@@ -12,6 +12,15 @@
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
+#ifdef __INTEL_LLVM_COMPILER
+#if __INTEL_LLVM_COMPILER >= 20250000
+#define SEISSOL_INTEL_SIMD_EXCEPTION
+#if __INTEL_LLVM_COMPILER < 20260000
+#define SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
+#endif
+#endif
+#endif // __INTEL_LLVM_COMPILER
+
 namespace seissol::dr::friction_law::cpu {
 /**
  * General implementation of a rate and state solver
