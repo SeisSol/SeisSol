@@ -316,16 +316,17 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   }
 
   /**
-   * Solve for new slip rate (\f$\hat{s}\f$), applying the Newton-Raphson algorithm.
-   * \f$\hat{s}\f$ has to fulfill
-   * \f[g := \frac{1}{\eta_s} \cdot (\sigma_n \cdot \mu - \Theta) - \hat{s} = 0.\f] c.f. Carsten
-   * Uphoff's dissertation eq. (4.57). Find root of \f$g\f$ with \f$g^\prime = \partial g / \partial
-   * \hat{s}\f$: \f$\hat{s}_{i+1} = \hat{s}_i - ( g_i / g^\prime_i )\f$
-   * @param ltsFace index of the faceIndex for which we invert the sliprate
-   * @param localStateVariable \f$\psi\f$, needed to compute \f$\mu = f(\hat{s}, \psi)\f$
-   * @param normalStress \f$\sigma_n\f$
-   * @param absoluteShearStress \f$\Theta\f$
-   * @param slipRateTest \f$\hat{s}\f$
+   * Solve for new slip rate (\f$\hat{s}\f$) with a bracketed Newton (rtsafe). \f$\hat{s}\f$ solves
+   * \f[g := -\frac{1}{\eta_s}(|\sigma_n|\,\mu(\hat{s}) - \Theta) - \hat{s} = 0,\f]
+   * c.f. Carsten Uphoff's dissertation eq. (4.57). Since \f$\mu'>0\f$ we have
+   * \f$g' = -\tfrac{1}{\eta_s}|\sigma_n|\mu' - 1 < -1\f$ everywhere: g is strictly decreasing, the
+   * root is unique, and it is bracketed in closed form (endpoints are NOT evaluated):
+   *   g(0+)            = +invEtaS * Theta            > 0
+   *   g(Theta*invEtaS) = -invEtaS * |sigma_n| * mu   < 0.
+   * We take Newton while it stays in the bracket and outruns bisection, else bisect. The bracket
+   * width is non-increasing and halves on every fallback, so we terminate in SLIP-RATE space
+   * (|dV| < xacc) instead of on |g| -- immune to the cancellation noise floor ~eps*|sigma_n|*mu/eta
+   * that makes a |g|-threshold circulate at low precision.
    */
   bool invertSlipRateIterative(std::size_t ltsFace,
                                const std::array<real, misc::NumPaddedPoints>& localStateVariable,
@@ -334,63 +335,108 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                std::array<real, misc::NumPaddedPoints>& slipRateTest) {
 
     real muF[misc::NumPaddedPoints]{};
-    real dMuF[misc::NumPaddedPoints]{};
     real g[misc::NumPaddedPoints]{};
-    real dG[misc::NumPaddedPoints]{};
+    real xLow[misc::NumPaddedPoints]{};
+    real xHigh[misc::NumPaddedPoints]{};
+    real dxOld[misc::NumPaddedPoints]{};        // previous step, for the "outrun bisection" test
+    int32_t converged[misc::NumPaddedPoints]{}; // int not bool: keeps ICX SIMD happy (cf. below)
+
+    const real invEtaS = this->impAndEta_[ltsFace].invEtaS;
+    const real xacc = this->drParameters_.rsSlipRateTolerance; // dimensionally a slip rate: reuse
 
     const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
 
+    // closed-form bracket + warm start (clamped previous-step V); no endpoint evaluations
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
+#endif
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-      // first guess = sliprate value of the previous step
-      slipRateTest[pointIndex] = this->slipRateMagnitude_[ltsFace][pointIndex];
+      const real lo = rs::almostZero();
+      const real hi = std::max(lo, absoluteShearStress[pointIndex] * invEtaS);
+      xLow[pointIndex] = lo;
+      xHigh[pointIndex] = hi;
+      slipRateTest[pointIndex] =
+          std::min(std::max(this->slipRateMagnitude_[ltsFace][pointIndex], lo), hi);
+      dxOld[pointIndex] = hi - lo;
+      converged[pointIndex] = 0;
     }
 
+    bool allConverged = false;
     for (uint32_t i = 0; i < this->drParameters_.rsMaxNumberSlipRateUpdates; i++) {
+
+      // residual + bracket maintenance. Transcendental mu() eval stays vectorized and unmasked;
+      // converged lanes' brackets are simply never read again, so no mask is needed here.
+      // >>> precision knob: evaluate muF/g (and dG below) in double -- promote |sigma_n| and Theta
+      //     (lossless float->double) -- to drop the noise floor AND make the sign(g) test exact.
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
+#endif
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-        // calculate friction coefficient and objective function
-        muF[pointIndex] =
-            static_cast<Derived*>(this)->updateMu(pointIndex, slipRateTest[pointIndex], details);
-        g[pointIndex] = -this->impAndEta_[ltsFace].invEtaS *
-                            (std::abs(normalStress[pointIndex]) * muF[pointIndex] -
-                             absoluteShearStress[pointIndex]) -
-                        slipRateTest[pointIndex];
+        const real x = slipRateTest[pointIndex];
+        muF[pointIndex] = static_cast<Derived*>(this)->updateMu(pointIndex, x, details);
+        g[pointIndex] = -invEtaS * (std::abs(normalStress[pointIndex]) * muF[pointIndex] -
+                                    absoluteShearStress[pointIndex]) -
+                        x;
+        const bool gPos = g[pointIndex] > static_cast<real>(0); // g decreasing: g>0 => root above x
+        xLow[pointIndex] = gPos ? x : xLow[pointIndex];
+        xHigh[pointIndex] = gPos ? x : xHigh[pointIndex];
       }
 
-      // max element of g must be smaller than newtonTolerance
-      const bool hasConverged = std::all_of(std::begin(g), std::end(g), [&](auto val) {
-        return std::abs(val) < this->drParameters_.rsSlipRateTolerance;
-      });
-      if (hasConverged) {
+      // Newton-or-bisect select (contains the division: guarded by the *non-strict* ICX macro,
+      // exactly like the original update loop).
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION
 #pragma omp simd
-        for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-          this->mu_[ltsFace][pointIndex] = muF[pointIndex];
-        }
-        return hasConverged;
-      }
-#pragma omp simd
+#endif
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-        dMuF[pointIndex] = static_cast<Derived*>(this)->updateMuDerivative(
-            pointIndex, slipRateTest[pointIndex], details);
+        const real x = slipRateTest[pointIndex];
+        const real dMuF = static_cast<Derived*>(this)->updateMuDerivative(pointIndex, x, details);
+        const real dG =
+            -invEtaS * (std::abs(normalStress[pointIndex]) * dMuF) - static_cast<real>(1.0);
 
-        // derivative of g
-        dG[pointIndex] = -this->impAndEta_[ltsFace].invEtaS *
-                             (std::abs(normalStress[pointIndex]) * dMuF[pointIndex]) -
-                         static_cast<real>(1.0);
-        // newton update
-        const real tmp3 = g[pointIndex] / dG[pointIndex];
-        slipRateTest[pointIndex] = std::max(rs::almostZero(), slipRateTest[pointIndex] - tmp3);
+        const real xNewton = x - g[pointIndex] / dG;
+        const real xBisect = static_cast<real>(0.5) * (xLow[pointIndex] + xHigh[pointIndex]);
+        const bool useBisect =
+            (xNewton <= xLow[pointIndex]) || (xNewton >= xHigh[pointIndex]) ||
+            (std::abs(static_cast<real>(2.0) * g[pointIndex]) > std::abs(dxOld[pointIndex] * dG));
+        const real xUpdated = useBisect ? xBisect : xNewton;
+        const real step = xUpdated - x;
+
+        const bool laneConv = (std::abs(step) < xacc) || (xUpdated == x);
+        const int32_t nowConv = (converged[pointIndex] != 0 || laneConv) ? 1 : 0;
+        converged[pointIndex] = nowConv;
+
+        // freeze converged lanes at the accepted point (so muF stays the consistent pair);
+        // advance the rest
+        slipRateTest[pointIndex] = (nowConv != 0) ? x : xUpdated;
+        dxOld[pointIndex] = step;
+      }
+
+      allConverged =
+          std::all_of(std::begin(converged), std::end(converged), [](int32_t v) { return v != 0; });
+      if (allConverged) {
+        break;
       }
     }
 
-    // update (non-)convergence
+    if (allConverged) {
+      // publish the mu consistent with the accepted slip rate (mirrors the old early-return write)
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-      convergenceInner_[ltsFace][pointIndex] &=
-          std::abs(g[pointIndex]) < this->drParameters_.rsSlipRateTolerance;
+#endif
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+        this->mu_[ltsFace][pointIndex] = muF[pointIndex];
+      }
+    } else {
+      // non-convergence: leave mu_ untouched (as before) and flag the offending lanes -- but now
+      // keyed on the x-criterion, consistent with the termination test above
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
+#pragma omp simd
+#endif
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+        convergenceInner_[ltsFace][pointIndex] &= (converged[pointIndex] != 0);
+      }
     }
-    return false;
+    return allConverged;
   }
 
   void updateNormalStress(std::array<real, misc::NumPaddedPoints>& normalStress,
