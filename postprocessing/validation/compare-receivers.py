@@ -199,7 +199,13 @@ def report_errors(
 def main():
     parser = argparse.ArgumentParser(description="Compare two sets of receivers.")
     parser.add_argument("output", type=str)
-    parser.add_argument("output_ref", type=str)
+    parser.add_argument("output_ref", type=str, nargs="?", default=None)
+    parser.add_argument(
+        "--list-quantities",
+        action="store_true",
+        help="Print the output's quantity names as a JSON array and exit "
+        "(output_ref is not needed).",
+    )
     parser.add_argument("--epsilon", type=float, default=0.01)
     parser.add_argument("--prefix", type=str, default="tpv", required=False)
     parser.add_argument(
@@ -211,6 +217,29 @@ def main():
         "exit code.",
     )
     args = parser.parse_args()
+
+    if args.list_quantities:
+        # Structural: the report keys are f"{file_type}:{col}" for every column
+        # except Time (see compare_receiver_columns), read from one file per type.
+        import json
+        names = []
+        for file_type in ("receiver", "faultreceiver"):
+            ids = find_all_receivers(args.output, args.prefix, file_type)
+            if len(ids) == 0:
+                continue
+            files = glob.glob(
+                f"{args.output}/{args.prefix}-{file_type}-{ids[0]:05d}*.dat"
+            )
+            if not files:
+                continue
+            for col in read_receiver(files[0]).columns:
+                if col != "Time":
+                    names.append(f"{file_type}:{col}")
+        print(json.dumps(sorted(names)))
+        return
+
+    if args.output_ref is None:
+        parser.error("output_ref is required unless --list-quantities is given")
 
     ANY_FAILURE = False
     quantities: dict[str, float] = {}

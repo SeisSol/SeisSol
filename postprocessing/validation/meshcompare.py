@@ -13,6 +13,19 @@ import seissolxdmf as sx
 
 from validation_report import write_report_json
 
+# Fields that are mesh bookkeeping, not physical quantities to compare.
+_METAFIELDS = ["partition", "fault-tag", "global-id", "clustering", "locationFlag"]
+
+
+def list_quantities(file):
+    """Physical data-field names in a mesh output (bookkeeping fields removed).
+
+    Matches exactly the keys ``compare()`` reports, so a generated data file's
+    per-quantity entries line up with what a real comparison produces.
+    """
+    mesh = sx.seissolxdmf(file)
+    return [q for q in sorted(mesh.ReadAvailableDataFields()) if q not in _METAFIELDS]
+
 
 def compare(file, file_ref, epsilon, report_json=None, category="mesh", geom_epsilon=1e-10):
     mesh = sx.seissolxdmf(file)
@@ -100,16 +113,8 @@ def compare(file, file_ref, epsilon, report_json=None, category="mesh", geom_eps
     def l2_difference(q_0, q_1):
         return l2_norm(q_0 - q_1)
 
-    quantity_names = sorted(mesh.ReadAvailableDataFields())
-    for metafield in [
-        "partition",
-        "fault-tag",
-        "global-id",
-        "clustering",
-        "locationFlag",
-    ]:
-        if metafield in quantity_names:
-            quantity_names.remove(metafield)
+    quantity_names = [q for q in sorted(mesh.ReadAvailableDataFields())
+                      if q not in _METAFIELDS]
     errors = np.zeros((len(quantity_names)))
 
     last_index = mesh.ndt

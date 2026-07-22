@@ -59,6 +59,10 @@ COMPARE_ENERGIES = SCRIPT_DIR / "compare-energies.py"
 
 DEFAULT_EPSILON = 0.05
 OUTPUT_SUBDIR = "output"  # relative to the case directory (fresh run output)
+# Placeholder threshold written into an auto-generated <prefix>-data.json. A
+# recording has zero self-error, so a meaningful epsilon can't be derived here --
+# these defaults exist to be reviewed and tuned by hand (or via --suggest-epsilons).
+SKELETON_EPSILON = 0.01
 
 
 # ---------------------------------------------------------------------------
@@ -569,6 +573,75 @@ def verify_case(
 # ---------------------------------------------------------------------------
 
 
+def _list_quantities(script: Path, args: Sequence[str], cwd: Path) -> list[str]:
+    """Run a compare-*.py in ``--list-quantities`` mode; return its key list.
+
+    Returns ``[]`` on any error so a failed enumeration never breaks recording.
+    """
+    cmd = [sys.executable, str(script), *args, "--list-quantities"]
+    try:
+        proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            print(f"{_warn('[warn]')} {script.name} --list-quantities failed: "
+                  f"{proc.stderr.strip()}", file=sys.stderr)
+            return []
+        return list(json.loads(proc.stdout))
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"{_warn('[warn]')} could not list quantities via {script.name}: {e}",
+              file=sys.stderr)
+        return []
+
+
+def generate_data_skeleton(case: CaseSpec, target: Path) -> None:
+    """Write a starter ``<prefix>-data.json`` derived from the recorded output.
+
+    Enabled categories are detected from which output files are present; the
+    per-quantity names come from the compare scripts' ``--list-quantities`` mode
+    (so the keys match a real comparison exactly). Every threshold is the
+    placeholder ``SKELETON_EPSILON`` -- see that constant. Only called when no
+    data file already exists.
+    """
+    p = case.prefix
+    data: dict = {}
+
+    # Volume / fault / surface: one XDMF file each; quantities are its data fields.
+    for category, suffix in (("volume", ""), ("fault", "-fault"), ("surface", "-surface")):
+        xdmf = target / f"{p}{suffix}.xdmf"
+        if xdmf.is_file():
+            quants = _list_quantities(COMPARE_MESH, [str(xdmf)], cwd=case.case_dir)
+            data[category] = _skeleton_category(quants)
+
+    # Energy: a single CSV.
+    energy_csv = target / f"{p}-energy.csv"
+    if energy_csv.is_file():
+        quants = _list_quantities(COMPARE_ENERGIES, [str(energy_csv)], cwd=case.case_dir)
+        data["energy"] = _skeleton_category(quants)
+
+    # Receivers: any receiver or faultreceiver .dat files.
+    has_receivers = any(target.glob(f"{p}-receiver-*.dat")) or \
+        any(target.glob(f"{p}-faultreceiver-*.dat"))
+    if has_receivers:
+        quants = _list_quantities(
+            COMPARE_RECEIVERS, [str(target), "--prefix", p], cwd=case.case_dir)
+        data["receiver"] = _skeleton_category(quants)
+
+    out = target / f"{p}-data.json"
+    out.write_text(json.dumps(data, indent=2) + "\n")
+    cats = ", ".join(data) or "none"
+    print(f"{c('[record]', _Ansi.MAGENTA)} {case.key}: generated {out.name} "
+          f"(categories: {cats}; review the placeholder epsilons)")
+
+
+def _skeleton_category(quantities: list[str]) -> dict:
+    """A skeleton category block: enabled, a placeholder epsilon, and per-quantity
+    placeholders for every enumerated name (prune/tune as needed)."""
+    return {
+        "enabled": True,
+        "epsilon": SKELETON_EPSILON,
+        "quantities": {q: SKELETON_EPSILON for q in quantities},
+    }
+
+
 def record_case(case: CaseSpec) -> int:
     """Overwrite this case's own ``output`` directory with the fresh output.
 
@@ -600,10 +673,12 @@ def record_case(case: CaseSpec) -> int:
         if src.is_file() and src.name.startswith(case.prefix):
             shutil.copy2(src, target / src.name)
             n += 1
-    if keep is not None:
-        preserved.write_bytes(keep)
-
     print(f"{c('[record]', _Ansi.MAGENTA)} {case.key}: wrote {n} files to {target}")
+
+    if keep is not None:
+        preserved.write_bytes(keep)          # keep a hand-authored data file as-is
+    else:
+        generate_data_skeleton(case, target)  # none existed -> start one automatically
     return n
 
 

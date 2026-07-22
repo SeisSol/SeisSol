@@ -98,7 +98,13 @@ def main():
 
     parser = argparse.ArgumentParser(description="Compare energy output csv files.")
     parser.add_argument("energy", type=str)
-    parser.add_argument("energy_ref", type=str)
+    parser.add_argument("energy_ref", type=str, nargs="?", default=None)
+    parser.add_argument(
+        "--list-quantities",
+        action="store_true",
+        help="Print the output's quantity names as a JSON array and exit "
+        "(energy_ref is not needed).",
+    )
     parser.add_argument("--epsilon", type=float, default=0.01)
     parser.add_argument(
         "--report-json",
@@ -110,6 +116,18 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # In list mode we compare the output against itself, purely to reuse the
+    # exact key-generation path below (the errors come out zero and are ignored).
+    # The comparison is chatty, so its stdout is swallowed until the JSON is ready.
+    _real_stdout = sys.stdout
+    if args.list_quantities:
+        import io
+        if args.energy_ref is None:
+            args.energy_ref = args.energy
+        sys.stdout = io.StringIO()
+    if args.energy_ref is None:
+        parser.error("energy_ref is required unless --list-quantities is given")
 
     relevant_quantities = [
         "elastic_energy",
@@ -154,6 +172,12 @@ def main():
             for col, val in _numeric_column_maxima(rel_diff).items():
                 key = f"{col}[{fused_index}]" if number_of_fused_sims > 1 else col
                 quantities[key] = max(quantities.get(key, 0.0), val)
+
+    if args.list_quantities:
+        import json
+        sys.stdout = _real_stdout
+        print(json.dumps(sorted(quantities)))
+        return
 
     if args.report_json is not None:
         write_report_json(

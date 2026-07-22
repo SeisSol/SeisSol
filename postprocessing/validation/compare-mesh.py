@@ -8,6 +8,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 import argparse
+import json
 import sys
 
 import numpy as np
@@ -16,7 +17,13 @@ import seissolxdmf as sx
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compare two meshes.")
     parser.add_argument("mesh", type=str)
-    parser.add_argument("mesh_ref", type=str)
+    parser.add_argument("mesh_ref", type=str, nargs="?", default=None)
+    parser.add_argument(
+        "--list-quantities",
+        action="store_true",
+        help="Print the output's data-field names as a JSON array and exit "
+        "(mesh_ref is not needed).",
+    )
     parser.add_argument("--epsilon", type=float, default=0.01)
     parser.add_argument(
         "--category",
@@ -45,6 +52,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     import meshcompare
+
+    if args.list_quantities:
+        print(json.dumps(meshcompare.list_quantities(args.mesh)))
+        sys.exit(0)
+
+    if args.mesh_ref is None:
+        parser.error("mesh_ref is required unless --list-quantities is given")
 
     meshcompare.compare(
         args.mesh,
