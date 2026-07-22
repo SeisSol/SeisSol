@@ -44,6 +44,7 @@ import datetime as _dt
 import json
 import math
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -144,6 +145,11 @@ class CaseSpec:
     # Resolved compare target, filled in by load_cases (own output_dir, or the
     # referenced case's output_dir):
     reference_dir: Optional[Path] = None
+    # Case-level conditional rules (each: {"when": {...}, "reason": ...}); apply
+    # to the whole case / all its categories. Category-level rules live in the
+    # per-category <prefix>-data.json instead.
+    xfail: list = dataclasses.field(default_factory=list)
+    skip: list = dataclasses.field(default_factory=list)
 
     @property
     def is_derived(self) -> bool:
@@ -167,6 +173,26 @@ class CompareResult:
     has_summary: bool = False            # a report JSON was produced
     # per-quantity threshold violations: (quantity, achieved, threshold)
     failures: list[tuple[str, float, float]] = dataclasses.field(default_factory=list)
+    # conditional expected-failure state (see the xfail/skip machinery)
+    xfail_outcome: str = ""   # "" | "xfail" (failed as expected) | "xpass" (passed unexpectedly)
+    xfail_reason: str = ""
+    skipped: bool = False     # category-level conditional skip (not compared)
+    skip_reason: str = ""
+
+
+def _compare_is_failure(cr: "CompareResult", xfail_strict: bool) -> bool:
+    """Whether a comparison counts as a real failure for the run's verdict.
+
+    A conditionally-skipped category never fails; an expected failure (xfail)
+    never fails; an unexpected pass (xpass) fails only under ``--xfail-strict``.
+    """
+    if cr.skipped:
+        return False
+    if cr.xfail_outcome == "xfail":
+        return False
+    if cr.xfail_outcome == "xpass":
+        return xfail_strict
+    return not cr.passed
 
 
 @dataclasses.dataclass
@@ -177,8 +203,9 @@ class CaseResult:
     duration_s: float
     compares: list[CompareResult]
     recorded: bool = False
-    skipped: bool = False   # not evaluated (no binary / derived-precision record)
+    skipped: bool = False   # not evaluated (no binary / derived record / conditional skip)
     note: str = ""          # why it was skipped, shown in the report
+    xfail_strict: bool = False  # if set, an unexpected pass (xpass) fails the run
 
     @property
     def passed(self) -> bool:
@@ -188,7 +215,9 @@ class CaseResult:
             return False
         if self.recorded:
             return True
-        return bool(self.compares) and all(c.passed for c in self.compares)
+        if not self.compares:
+            return False
+        return not any(_compare_is_failure(c, self.xfail_strict) for c in self.compares)
 
 
 # ---------------------------------------------------------------------------
@@ -225,6 +254,8 @@ def load_cases(precomputed_dir: Path) -> dict[str, CaseSpec]:
             prefix=prefix,
             output_dir=output_dir,
             reference=entry.get("reference", ""),
+            xfail=entry.get("xfail", []),
+            skip=entry.get("skip", []),
         )
 
     # Second pass: resolve each case's compare target and inherit the prefix from
@@ -533,38 +564,89 @@ def compare_energies(case: CaseSpec, epsilon: float) -> CompareResult:
     return _apply_summary(CompareResult("energy", rc == 0, epsilon), summary)
 
 
+def _rule_matches(when: dict, labels: set, case_key: str, config: str) -> bool:
+    """A ``when`` spec matches when ALL of its keys match (AND within a rule).
+
+    Keys: ``label`` (string or list -> any listed label is active), ``case``
+    (exact key or a "key/" prefix), ``config`` (regex searched in the config).
+    An empty ``when`` matches unconditionally.
+    """
+    if "label" in when:
+        wanted = when["label"]
+        wanted = [wanted] if isinstance(wanted, str) else list(wanted)
+        if not (set(wanted) & labels):
+            return False
+    if "case" in when:
+        c = when["case"]
+        if not (case_key == c or case_key.startswith(c + "/")):
+            return False
+    if "config" in when:
+        if not re.search(str(when["config"]), config):
+            return False
+    return True
+
+
+def _first_matching_reason(rules, labels: set, case_key: str, config: str):
+    """Reason of the first rule whose ``when`` matches (OR across rules), else None."""
+    for rule in rules or []:
+        if _rule_matches(rule.get("when", {}), labels, case_key, config):
+            return rule.get("reason", "")
+    return None
+
+
+def _apply_xfail(cr: CompareResult, case: CaseSpec, tpv_data: dict,
+                 category: str, labels: set) -> None:
+    """Tag a comparison as xfail/xpass if a category- or case-level rule matches."""
+    rules = list(tpv_data.get(category, {}).get("xfail", [])) + list(case.xfail)
+    reason = _first_matching_reason(rules, labels, case.key, case.config)
+    if reason is not None:
+        cr.xfail_reason = reason
+        cr.xfail_outcome = "xfail" if not cr.passed else "xpass"
+
+
+def _category_skip_reason(case: CaseSpec, tpv_data: dict, category: str,
+                          labels: set):
+    """Reason if this category is conditionally skipped (category-level rules only)."""
+    return _first_matching_reason(
+        tpv_data.get(category, {}).get("skip", []), labels, case.key, case.config)
+
+
 def verify_case(
-    case: CaseSpec, tpv_data: dict, epsilon_override: Optional[float]
+    case: CaseSpec, tpv_data: dict, epsilon_override: Optional[float],
+    labels: Optional[set] = None,
 ) -> list[CompareResult]:
-    """Run all comparisons enabled in tpv-data.json for one case."""
+    """Run all comparisons enabled in <prefix>-data.json for one case.
+
+    Applies, per category: a conditional skip (rule match -> not compared),
+    per-quantity thresholds, and an xfail/xpass tag (rule match -> a failure is
+    expected). ``labels`` is the active environment label set (from ``--label``).
+    """
+    labels = labels or set()
     results: list[CompareResult] = []
     v = case.key
-    if _enabled(tpv_data, "volume"):
-        results.append(compare_mesh(case, "", "volume",
-                                    _epsilon(tpv_data, "volume", epsilon_override, v)))
-    if _enabled(tpv_data, "fault"):
-        results.append(compare_mesh(case, "-fault", "fault",
-                                    _epsilon(tpv_data, "fault", epsilon_override, v)))
-    if _enabled(tpv_data, "surface"):
-        results.append(compare_mesh(case, "-surface", "surface",
-                                    _epsilon(tpv_data, "surface", epsilon_override, v)))
-    if _enabled(tpv_data, "energy"):
-        results.append(compare_energies(case,
-                                        _epsilon(tpv_data, "energy", epsilon_override, v)))
-    if _enabled(tpv_data, "receiver"):
-        results.append(compare_receivers(
-            case, _epsilon(tpv_data, "receiver", epsilon_override, v),
-        ))
 
-    # Per-quantity thresholds (opt-in): when a category defines a "quantities"
-    # map and a report JSON was produced, verify.py -- not the compare script's
-    # exit code -- decides that category's verdict from the achieved per-quantity
-    # errors. With no "quantities" map this pass is skipped, so behaviour is
-    # unchanged. When the summary is missing (hard failure) the rc-based verdict
-    # stands.
-    for r in results:
-        if r.has_summary and _has_quantity_thresholds(tpv_data, r.category):
-            _evaluate_quantities(r, tpv_data, v, epsilon_override)
+    def run(category: str, compare_fn) -> None:
+        if not _enabled(tpv_data, category):
+            return
+        eps = _epsilon(tpv_data, category, epsilon_override, v)
+        skip_reason = _category_skip_reason(case, tpv_data, category, labels)
+        if skip_reason is not None:
+            cr = CompareResult(category, True, eps)
+            cr.skipped = True
+            cr.skip_reason = skip_reason
+            results.append(cr)
+            return
+        cr = compare_fn(eps)
+        if cr.has_summary and _has_quantity_thresholds(tpv_data, category):
+            _evaluate_quantities(cr, tpv_data, v, epsilon_override)
+        _apply_xfail(cr, case, tpv_data, category, labels)
+        results.append(cr)
+
+    run("volume", lambda e: compare_mesh(case, "", "volume", e))
+    run("fault", lambda e: compare_mesh(case, "-fault", "fault", e))
+    run("surface", lambda e: compare_mesh(case, "-surface", "surface", e))
+    run("energy", lambda e: compare_energies(case, e))
+    run("receiver", lambda e: compare_receivers(case, e))
     return results
 
 
@@ -668,7 +750,7 @@ def record_case(case: CaseSpec) -> int:
         if f.is_file():
             f.unlink()
         if f.is_dir():
-            f.rmdir()
+            shutil.rmtree(f)
 
     n = 0
     m = 0
@@ -780,8 +862,9 @@ def _state_of(r: "CaseResult") -> str:
         return "REC"
     if r.ran and r.run_returncode != 0:
         return f"RC={r.run_returncode}"
-    ok = sum(cr.passed for cr in r.compares)
-    return "PASS" if r.compares and ok == len(r.compares) else "FAIL"
+    if not r.compares:
+        return "FAIL"
+    return "FAIL" if any(_compare_is_failure(c, r.xfail_strict) for c in r.compares) else "PASS"
 
 
 _CANONICAL_CATEGORIES = ["volume", "fault", "surface", "energy", "receiver"]
@@ -863,8 +946,8 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
         rows: list[tuple[str, str, Optional[float], Optional[float]]] = []
         for cat in cols:
             cr = cmap.get(cat)
-            if cr is None or cr.passed:
-                continue
+            if cr is None or cr.passed or cr.skipped or cr.xfail_outcome == "xfail":
+                continue  # skipped/expected-failure categories aren't real failures
             offs = offenders(cr)
             if offs:
                 for q, a, thr in offs[:MAX_QTY_ROWS]:
@@ -892,6 +975,21 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
         st = state_of(r)
         buckets["FAIL" if st.startswith("RC=") else st] += 1
 
+    # Per-category conditional outcomes: xfail (expected fail), xpass (unexpected
+    # pass), skip (conditionally not compared) -- listed with their reasons.
+    xfail_rows: list[tuple[str, str, str, str]] = []  # (case, category, kind, reason)
+    for r in results:
+        for cr in r.compares:
+            if cr.skipped:
+                xfail_rows.append((r.case.key, cr.category, "skip", cr.skip_reason))
+            elif cr.xfail_outcome:
+                xfail_rows.append((r.case.key, cr.category, cr.xfail_outcome, cr.xfail_reason))
+    x_cat_w = max([0] + [len(cat) for _, cat, _, _ in xfail_rows])
+    x_kind_w = max([0] + [len(k) for _, _, k, _ in xfail_rows])
+    n_xfail = sum(1 for _, _, k, _ in xfail_rows if k == "xfail")
+    n_xpass = sum(1 for _, _, k, _ in xfail_rows if k == "xpass")
+    n_cskip = sum(1 for _, _, k, _ in xfail_rows if k == "skip")
+
     def render(colorize: bool) -> str:
         ok_ = (lambda s: _ok(s)) if colorize else (lambda s: s)
         bad_ = (lambda s: _bad(s)) if colorize else (lambda s: s)
@@ -902,17 +1000,25 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
         warn_ = (lambda s: _warn(s)) if colorize else (lambda s: s)
 
         def cell_render(cr: CompareResult) -> str:
+            if cr.skipped:
+                return dim_(f"{'skip':>{COL_W}} ")   # conditional category skip
             # Near-miss: passing, but the achieved max sits in [near_miss·ε, ε).
             ratio = 0.0
             if cr.achieved is not None and math.isfinite(cr.achieved) and cr.epsilon > 0:
                 ratio = cr.achieved / cr.epsilon
             near = cr.passed and near_miss > 0 and near_miss <= ratio < 1.0
-            mark = "✗" if not cr.passed else ("~" if near else " ")
             # 'err' for a hard failure (no achieved value, e.g. missing file);
             # the reason is spelled out in the Failures block below.
             disp = "err" if cr.achieved is None else num(cr.achieved, 1)
+            # Expected-failure states get their own low-key markers: 'x' for an
+            # xfail (dim), '!' for an unexpected pass (yellow, wants attention).
+            if cr.xfail_outcome == "xfail":
+                return dim_(f"{disp:>{COL_W}}x")
+            if cr.xfail_outcome == "xpass":
+                return warn_(f"{disp:>{COL_W}}!")
             # Number right-aligned to the column edge (like the header); the mark
             # lives in its own trailing column so it never shifts the digits.
+            mark = "✗" if not cr.passed else ("~" if near else " ")
             cell = f"{disp:>{COL_W}}{mark}"
             if not cr.passed:
                 return bad_(cell)
@@ -963,6 +1069,12 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
             parts.append(f"{buckets['SKIP']} skipped")
         if buckets["REC"]:
             parts.append(f"{buckets['REC']} recorded")
+        if n_xfail:
+            parts.append(f"{n_xfail} xfailed")
+        if n_xpass:
+            parts.append(f"{n_xpass} xpassed")
+        if n_cskip:
+            parts.append(f"{n_cskip} cat-skipped")
         parts.append(f"{total_time:.1f}s")
         summary = " · ".join(parts)
         lines.append(ok_(summary) if buckets["FAIL"] == 0 else bad_(summary))
@@ -984,9 +1096,20 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
                                 f"{dim_(f'{num(thr, 2):>{num_w}}')}")
                         lines.append(line)
 
-        if drift:
+        if xfail_rows:
             lines.append("")
-            lines.append(bold_(f"Drift vs baseline (\u2265{drift_factor:g}\u00d7):"))
+            lines.append(bold_("Expected failures / skips:"))
+            kind_color = {"xfail": dim_, "xpass": warn_, "skip": dim_}
+            last_ck = None
+            for ck, cat, kind, reason in xfail_rows:
+                if ck != last_ck:
+                    lines.append(f"  {ck}")
+                    last_ck = ck
+                paint = kind_color.get(kind, dim_)
+                lines.append(f"    {cat:<{x_cat_w}}  {paint(f'{kind:<{x_kind_w}}')}  "
+                             f"{dim_(reason)}")
+
+        if drift:
             last_ck = None
             for ck, cat, q, base, cur, ratio in drift:
                 if ck != last_ck:
@@ -1044,6 +1167,10 @@ def build_run_report(results: list[CaseResult],
                     {"quantity": q, "achieved": _json_num(a), "threshold": _json_num(t)}
                     for (q, a, t) in cr.failures
                 ],
+                "xfail": cr.xfail_outcome or None,
+                "xfail_reason": cr.xfail_reason or None,
+                "skipped": cr.skipped,
+                "skip_reason": cr.skip_reason or None,
             }
             for cr in r.compares
         ]
@@ -1115,6 +1242,15 @@ def render_markdown(results: list[CaseResult], near_miss: float = 0.5,
         parts.append(f"{buckets['SKIP']} skipped")
     if buckets["REC"]:
         parts.append(f"{buckets['REC']} recorded")
+    _nx = sum(1 for r in results for cr in r.compares if cr.xfail_outcome == "xfail")
+    _np = sum(1 for r in results for cr in r.compares if cr.xfail_outcome == "xpass")
+    _ns = sum(1 for r in results for cr in r.compares if cr.skipped)
+    if _nx:
+        parts.append(f"{_nx} xfailed")
+    if _np:
+        parts.append(f"{_np} xpassed")
+    if _ns:
+        parts.append(f"{_ns} cat-skipped")
     parts.append(f"{total_time:.1f}s")
     out = [f"## SeisSol verification — {' · '.join(parts)}", ""]
 
@@ -1140,12 +1276,19 @@ def render_markdown(results: list[CaseResult], near_miss: float = 0.5,
             if cr is None:
                 cells.append("—")
                 continue
+            if cr.skipped:
+                cells.append("skip")
+                continue
             val = "err" if cr.achieved is None else mdnum(cr.achieved)
             ratio = (cr.achieved / cr.epsilon
                      if cr.achieved is not None and math.isfinite(cr.achieved)
                      and cr.epsilon > 0 else 0.0)
-            if not cr.passed:
-                cells.append(f"**{val}**")          # failure
+            if cr.xfail_outcome == "xfail":
+                cells.append(f"~~{val}~~")           # expected failure
+            elif cr.xfail_outcome == "xpass":
+                cells.append(f"{val} ⚠️")            # unexpected pass
+            elif not cr.passed:
+                cells.append(f"**{val}**")           # failure
             elif near_miss > 0 and near_miss <= ratio < 1.0:
                 cells.append(f"_{val}_")             # near-miss
             else:
@@ -1164,7 +1307,7 @@ def render_markdown(results: list[CaseResult], near_miss: float = 0.5,
             cmap = {cr.category: cr for cr in r.compares}
             for cat in _category_columns([r]):
                 cr = cmap.get(cat)
-                if cr is None or cr.passed:
+                if cr is None or cr.passed or cr.skipped or cr.xfail_outcome == "xfail":
                     continue
                 offs = _offenders(cr)
                 if offs:
@@ -1173,6 +1316,22 @@ def render_markdown(results: list[CaseResult], near_miss: float = 0.5,
                 else:
                     out.append(f"- `{cat}` — {cr.detail or 'failed'}")
             out.append("")
+        out.append("</details>")
+
+    xfail_rows = [(r.case.key, cr.category,
+                   "skip" if cr.skipped else cr.xfail_outcome,
+                   cr.skip_reason if cr.skipped else cr.xfail_reason)
+                  for r in results for cr in r.compares
+                  if cr.skipped or cr.xfail_outcome]
+    if xfail_rows:
+        out += ["", "<details><summary>Expected failures / skips</summary>", ""]
+        last = None
+        for ck, cat, kind, reason in xfail_rows:
+            if ck != last:
+                out.append(f"**{ck}**")
+                last = ck
+            out.append(f"- `{cat}` — {kind}: {reason}")
+        out.append("")
         out.append("</details>")
 
     if drift:
@@ -1336,6 +1495,12 @@ def build_parser() -> argparse.ArgumentParser:
     cmp_ = p.add_argument_group("Verification options")
     cmp_.add_argument("--epsilon", type=float, default=None,
                       help="Override comparison epsilon for ALL categories.")
+    cmp_.add_argument("--label", action="append", default=[], metavar="NAME",
+                      help="Active environment label for xfail/skip rules (e.g. "
+                           "'gpu', 'cpu', 'cuda'). Repeatable.")
+    cmp_.add_argument("--xfail-strict", action="store_true",
+                      help="Treat an unexpected pass (xpass) as a failure "
+                           "(default: warn only).")
 
     rec = p.add_argument_group("Re-record options (--record)")
     rec.add_argument("--record", action="store_true",
@@ -1426,10 +1591,21 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 2
 
     mpi_cmd = [args.mpi_cmd, *shlex.split(args.mpi_args)]
+    labels = set(args.label)
     results: list[CaseResult] = []
 
     for case in selected:
         print(f"\n{c('=== ' + case.key + '  config=' + case.config + ' ===', _Ansi.CYAN, _Ansi.BOLD)}")
+
+        # Case-level conditional skip (cases.json "skip"): matches the active
+        # labels / this case's key / config -> not run, recorded, or verified.
+        skip_reason = _first_matching_reason(case.skip, labels, case.key, case.config)
+        if skip_reason is not None:
+            print(f"{_warn('[skip]')} {case.key}: {skip_reason}")
+            results.append(CaseResult(case, False, 0, 0.0, [], skipped=True,
+                                      note=f"skip: {skip_reason}",
+                                      xfail_strict=args.xfail_strict))
+            continue
 
         # A derived entry owns no reference, so there is nothing to record for
         # it: its reference belongs to another variant and is recorded under that
@@ -1483,8 +1659,9 @@ def main(argv: Optional[list[str]] = None) -> int:
             continue
 
         tpv_data = load_tpv_data(case)
-        compares = verify_case(case, tpv_data, args.epsilon)
-        cr = CaseResult(case, ran, rc, duration, compares)
+        compares = verify_case(case, tpv_data, args.epsilon, labels)
+        cr = CaseResult(case, ran, rc, duration, compares,
+                        xfail_strict=args.xfail_strict)
         results.append(cr)
         if not cr.passed and args.fail_fast:
             break
