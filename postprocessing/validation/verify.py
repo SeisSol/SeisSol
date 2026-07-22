@@ -667,13 +667,20 @@ def record_case(case: CaseSpec) -> int:
     for f in target.iterdir():
         if f.is_file():
             f.unlink()
+        if f.is_dir():
+            f.rmdir()
 
     n = 0
+    m = 0
     for src in case.workdir.iterdir():
-        if src.is_file() and src.name.startswith(case.prefix):
-            shutil.copy2(src, target / src.name)
-            n += 1
-    print(f"{c('[record]', _Ansi.MAGENTA)} {case.key}: wrote {n} files to {target}")
+        if src.name.startswith(case.prefix):
+            if src.is_file():
+                shutil.copy2(src, target / src.name)
+                n += 1
+            if src.is_dir():
+                shutil.copytree(src, target / src.name)
+                m += 1
+    print(f"{c('[record]', _Ansi.MAGENTA)} {case.key}: wrote {n} files and {m} directories to {target}")
 
     if keep is not None:
         preserved.write_bytes(keep)          # keep a hand-authored data file as-is
