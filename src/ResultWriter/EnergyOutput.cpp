@@ -187,7 +187,8 @@ void EnergyOutput::init(
   isTerminalOutputEnabled_ = parameters.terminalOutput && (rank == 0);
   terminatorMaxTimePostRupture_ = parameters.terminatorMaxTimePostRupture;
   terminatorMomentRateThreshold_ = parameters.terminatorMomentRateThreshold;
-  isCheckAbortCriteraSlipRateEnabled_ = std::isfinite(terminatorMaxTimePostRupture_);
+  isCheckAbortCriteraSlipRateEnabled_ =
+      (terminatorMaxTimePostRupture_ >= std::numeric_limits<double>::max());
   isCheckAbortCriteraMomentRateEnabled_ = (terminatorMomentRateThreshold_ > 0);
   computeVolumeEnergiesEveryOutput_ = parameters.computeVolumeEnergiesEveryOutput;
   outputFileName_ = outputFileNamePrefix + "-energy.csv";
@@ -264,7 +265,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     double& staticFrictionalWork = energiesStorage_.staticFrictionalWork(sim);
     double& seismicMoment = energiesStorage_.seismicMoment(sim);
     double& potency = energiesStorage_.potency(sim);
-    minTimeSinceSlipRateBelowThreshold_[sim] = std::numeric_limits<double>::infinity();
+    minTimeSinceSlipRateBelowThreshold_[sim] = std::numeric_limits<double>::max();
 
     for (const auto& layer : drStorage_->leaves()) {
 
