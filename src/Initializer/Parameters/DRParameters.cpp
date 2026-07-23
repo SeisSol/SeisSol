@@ -159,7 +159,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto terminatorSlipRateThreshold = static_cast<double>(abortCriteriaReader->readWithDefault(
       "terminatorslipratethreshold", std::numeric_limits<double>::max()));
   const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
-      "terminatormaxtimepostrupture", std::numeric_limits<double>::infinity());
+      "terminatormaxtimepostrupture", std::numeric_limits<double>::max());
   const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
 
   const double etaDamp = [&]() {

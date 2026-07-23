@@ -188,7 +188,7 @@ void EnergyOutput::init(
   terminatorMaxTimePostRupture_ = parameters.terminatorMaxTimePostRupture;
   terminatorMomentRateThreshold_ = parameters.terminatorMomentRateThreshold;
   isCheckAbortCriteraSlipRateEnabled_ =
-      (terminatorMaxTimePostRupture_ == std::numeric_limits<double>::max());
+      (terminatorMaxTimePostRupture_ >= std::numeric_limits<double>::max());
   isCheckAbortCriteraMomentRateEnabled_ = (terminatorMomentRateThreshold_ > 0);
   computeVolumeEnergiesEveryOutput_ = parameters.computeVolumeEnergiesEveryOutput;
   outputFileName_ = outputFileNamePrefix + "-energy.csv";
