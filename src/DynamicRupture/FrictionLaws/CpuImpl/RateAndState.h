@@ -410,7 +410,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         const real xUpdated = useBisect ? xBisect : xNewton;
         const real step = xUpdated - x;
 
-        const bool laneConv = (std::abs(step) < xacc) || (xUpdated == x);
+        const bool laneConv = (std::abs(step) < xacc * std::abs(x)) || (xUpdated == x);
         const int32_t nowConv = (converged[pointIndex] != 0 || laneConv) ? 1 : 0;
         converged[pointIndex] = nowConv;
 
@@ -427,24 +427,17 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       }
     }
 
-    if (allConverged) {
-      // publish the mu consistent with the accepted slip rate (mirrors the old early-return write)
+    // publish mu consistent with the accepted slip rate
+    // in case of non-convergence, flag the offending lanes -- but now
+    // keyed on the x-criterion, consistent with the termination test above
 #ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
 #endif
-      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-        this->mu_[ltsFace][pointIndex] = muF[pointIndex];
-      }
-    } else {
-      // non-convergence: leave mu_ untouched (as before) and flag the offending lanes -- but now
-      // keyed on the x-criterion, consistent with the termination test above
-#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
-#pragma omp simd
-#endif
-      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-        convergenceInner_[ltsFace][pointIndex] &= (converged[pointIndex] != 0);
-      }
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      this->mu_[ltsFace][pointIndex] = muF[pointIndex];
+      convergenceInner_[ltsFace][pointIndex] &= (converged[pointIndex] != 0);
     }
+
     return allConverged;
   }
 

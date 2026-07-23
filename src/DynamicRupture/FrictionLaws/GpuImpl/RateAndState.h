@@ -278,7 +278,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       dx = xUpdated - x;
 
       // V-space convergence + no-representable-change guard => cannot livelock
-      const bool nowConverged = (std::abs(dx) < xacc) || (xUpdated == x);
+      const bool nowConverged = (std::abs(dx) < xacc * std::abs(x)) || (xUpdated == x);
 
       // advance active, not-yet-converged lanes; freeze at the converged point so that
       // slipRateTest and exportMu are the mu-consistent pair at that point
