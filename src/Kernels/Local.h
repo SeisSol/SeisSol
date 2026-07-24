@@ -14,6 +14,7 @@
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Kernel.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Physics/InitialField.h"
 
@@ -74,11 +75,10 @@ class LocalKernel : public Kernel {
                                      double timeStepWidth,
                                      seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  virtual void flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                             std::uint64_t& nonZeroFlops,
-                             std::uint64_t& hardwareFlops) = 0;
+  [[nodiscard]] virtual PerformanceEstimate
+      metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const = 0;
 
-  virtual std::uint64_t bytesIntegral() = 0;
+  [[nodiscard]] virtual std::uint64_t bytesIntegral() const = 0;
 };
 
 } // namespace seissol::kernels

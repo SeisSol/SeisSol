@@ -24,6 +24,7 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Physics/InitialField.h"
 #include "Solver/MultipleSimulations.h"
@@ -444,19 +445,16 @@ void Local::evaluateBatchedTimeDependentBc(
 #endif // ACL_DEVICE
 }
 
-void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                          std::uint64_t& nonZeroFlops,
-                          std::uint64_t& hardwareFlops) {
-  nonZeroFlops = seissol::kernel::volume::NonZeroFlops;
-  hardwareFlops = seissol::kernel::volume::HardwareFlops;
+PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const {
+  PerformanceEstimate estimate;
+  estimate += PerformanceEstimate::fromYatetoKernel<seissol::kernel::volume>();
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // Local flux is executed for all faces that are not dynamic rupture.
     // For those cells, the flux is taken into account during the neighbor kernel.
     // Or we're on the GPU where we run the kernel anyways.
     if (faceTypes[face] != FaceType::DynamicRupture || isDeviceOn()) {
-      nonZeroFlops += seissol::kernel::localFlux::nonZeroFlops(face);
-      hardwareFlops += seissol::kernel::localFlux::hardwareFlops(face);
+      estimate += PerformanceEstimate::fromYatetoKernel<seissol::kernel::localFlux>(face);
     }
 
     // Take boundary condition flops into account.
@@ -465,30 +463,31 @@ void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
     // The (probably incorrect) assumption is that they are negligible.
     switch (faceTypes[face]) {
     case FaceType::FreeSurfaceGravity:
-      nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-                      seissol::kernel::projectToNodalBoundary::nonZeroFlops(face);
-      hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-                       seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
+      estimate += PerformanceEstimate::fromYatetoKernel<seissol::kernel::localFluxNodal>(face);
+      estimate +=
+          PerformanceEstimate::fromYatetoKernel<seissol::kernel::projectToNodalBoundaryRotated>(
+              face);
       break;
     case FaceType::Dirichlet:
-      nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-                      seissol::kernel::projectToNodalBoundaryRotated::nonZeroFlops(face);
-      hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-                       seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
+      estimate += PerformanceEstimate::fromYatetoKernel<seissol::kernel::localFluxNodal>(face);
+      estimate +=
+          PerformanceEstimate::fromYatetoKernel<seissol::kernel::projectToNodalBoundaryRotated>(
+              face);
       break;
     case FaceType::Analytical:
-      nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-                      ConvergenceOrder * seissol::kernel::updateINodal::NonZeroFlops;
-      hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-                       ConvergenceOrder * seissol::kernel::updateINodal::HardwareFlops;
+      estimate += PerformanceEstimate::fromYatetoKernel<seissol::kernel::localFluxNodal>(face);
+      estimate +=
+          PerformanceEstimate::fromYatetoKernel<seissol::kernel::updateINodal>() * ConvergenceOrder;
       break;
     default:
       break;
     }
   }
+
+  return estimate;
 }
 
-std::uint64_t Local::bytesIntegral() {
+std::uint64_t Local::bytesIntegral() const {
   std::uint64_t reals = 0;
 
   // star matrices load

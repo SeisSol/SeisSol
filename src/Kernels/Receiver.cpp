@@ -76,7 +76,8 @@ ReceiverCluster::ReceiverCluster(
       seissolInstance_(seissolInstance) {
   timeKernel_.setGlobalData(global);
   spacetimeKernel_.setGlobalData(global);
-  spacetimeKernel_.flopsAder(estimate_.nonzeroFlop, estimate_.hardwareFlop);
+
+  estimate_ = spacetimeKernel_.metrics();
 
   perfHandle_ = seissolInstance_.flopCounter().addMetric("receiver", "WP");
 }

@@ -11,6 +11,7 @@
 
 #include "Common/Marker.h"
 #include "Kernels/Common.h"
+#include "Monitoring/Metric.h"
 
 #include <cassert>
 #include <cstddef>
@@ -111,24 +112,21 @@ void Local::computeIntegral(
   lKrnl.execute();
 }
 
-void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                          std::uint64_t& nonZeroFlops,
-                          std::uint64_t& hardwareFlops) {
-  nonZeroFlops = seissol::kernel::volumeExt::NonZeroFlops;
-  hardwareFlops = seissol::kernel::volumeExt::HardwareFlops;
+PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const {
+  auto estimate = PerformanceEstimate::fromYatetoKernel<seissol::kernel::volumeExt>();
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     if (faceTypes[face] != FaceType::DynamicRupture || isDeviceOn()) {
-      nonZeroFlops += seissol::kernel::localFluxExt::nonZeroFlops(face);
-      hardwareFlops += seissol::kernel::localFluxExt::hardwareFlops(face);
+      estimate += PerformanceEstimate::fromYatetoKernel<seissol::kernel::localFluxExt>(face);
     }
   }
 
-  nonZeroFlops += seissol::kernel::local::NonZeroFlops;
-  hardwareFlops += seissol::kernel::local::HardwareFlops;
+  estimate += PerformanceEstimate::fromYatetoKernel<seissol::kernel::local>();
+
+  return estimate;
 }
 
-std::uint64_t Local::bytesIntegral() {
+std::uint64_t Local::bytesIntegral() const {
   std::uint64_t reals = 0;
 
   // star matrices load

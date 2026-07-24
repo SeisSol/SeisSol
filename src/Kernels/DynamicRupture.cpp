@@ -18,6 +18,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <cassert>
@@ -165,27 +166,22 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 #endif
 }
 
-void DynamicRupture::flopsGodunovState(const DRFaceInformation& faceInfo,
-                                       std::uint64_t& nonZeroFlops,
-                                       std::uint64_t& hardwareFlops) {
-  timeKernel_.flopsEvaluate(nonZeroFlops, hardwareFlops);
+PerformanceEstimate DynamicRupture::metrics(const DRFaceInformation& faceInfo) const {
+  auto estimate = timeKernel_.metrics();
 
   // 2x evaluateTaylorExpansion
-  nonZeroFlops *= 2;
-  hardwareFlops *= 2;
+  estimate *= 2;
 
-  nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(
-      faceInfo.plusSide, 0);
-  hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(
-      faceInfo.plusSide, 0);
+  estimate += PerformanceEstimate::fromYatetoKernel<
+      dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints>(faceInfo.plusSide, 0);
 
-  nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(
-      faceInfo.minusSide, faceInfo.faceRelation);
-  hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(
-      faceInfo.minusSide, faceInfo.faceRelation);
+  estimate += PerformanceEstimate::fromYatetoKernel<
+      dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints>(faceInfo.minusSide,
+                                                                       faceInfo.faceRelation);
 
-  nonZeroFlops *= dr::misc::TimeSteps;
-  hardwareFlops *= dr::misc::TimeSteps;
+  estimate *= dr::misc::TimeSteps;
+
+  return estimate;
 }
 
 } // namespace seissol::kernels

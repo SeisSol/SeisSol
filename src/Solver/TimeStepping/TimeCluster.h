@@ -192,16 +192,12 @@ class TimeCluster : public AbstractTimeCluster {
   template <bool UsePlasticity, bool IntegrateOutput>
   void computeNeighboringIntegrationImplementation(double subTimeStart);
 
-  void computeLocalIntegrationFlops(unsigned numberOfCells,
-                                    const CellLocalInformation* cellInformation,
-                                    std::uint64_t& nonZeroFlops,
-                                    std::uint64_t& hardwareFlops);
+  PerformanceEstimate computeLocalIntegrationFlops(std::size_t numberOfCells,
+                                                   const CellLocalInformation* cellInformation);
 
   void computeNeighborIntegrationFlops();
 
-  void computeDynamicRuptureFlops(DynamicRupture::Layer& layerData,
-                                  std::uint64_t& nonZeroFlops,
-                                  std::uint64_t& hardwareFlops);
+  PerformanceEstimate computeDynamicRuptureFlops(DynamicRupture::Layer& layerData);
 
   void computeFlops();
 

@@ -20,6 +20,7 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <array>
@@ -185,19 +186,13 @@ void Neighbor::computeBatchedNeighborsIntegral(
 #endif
 }
 
-void Neighbor::flopsNeighborsIntegral(
-    const std::array<FaceType, Cell::NumFaces>& faceTypes,
-    const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-    const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping,
-    std::uint64_t& nonZeroFlops,
-    std::uint64_t& hardwareFlops,
-    std::uint64_t& drNonZeroFlops,
-    std::uint64_t& drHardwareFlops) {
+std::pair<PerformanceEstimate, PerformanceEstimate>
+    Neighbor::metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes,
+                      const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
+                      const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping) const {
   // reset flops
-  nonZeroFlops = 0;
-  hardwareFlops = 0;
-  drNonZeroFlops = 0;
-  drHardwareFlops = 0;
+  PerformanceEstimate neigh;
+  PerformanceEstimate neighDR;
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // compute the neighboring elements flux matrix id.
@@ -205,15 +200,11 @@ void Neighbor::flopsNeighborsIntegral(
     case FaceType::Regular:
       // regular neighbor
       assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] < 3);
-      nonZeroFlops += kernel::neighboringFlux::nonZeroFlops(
-          neighboringIndices[face][1], neighboringIndices[face][0], face);
-      hardwareFlops += kernel::neighboringFlux::hardwareFlops(
+      neigh += PerformanceEstimate::fromYatetoKernel<kernel::neighboringFlux>(
           neighboringIndices[face][1], neighboringIndices[face][0], face);
       break;
     case FaceType::DynamicRupture:
-      drNonZeroFlops += dynamicRupture::kernel::nodalFlux::nonZeroFlops(
-          cellDrMapping[face].side, cellDrMapping[face].faceRelation);
-      drHardwareFlops += dynamicRupture::kernel::nodalFlux::hardwareFlops(
+      neighDR += PerformanceEstimate::fromYatetoKernel<dynamicRupture::kernel::nodalFlux>(
           cellDrMapping[face].side, cellDrMapping[face].faceRelation);
       break;
     default:
@@ -221,9 +212,11 @@ void Neighbor::flopsNeighborsIntegral(
       break;
     }
   }
+
+  return {neigh, neighDR};
 }
 
-std::uint64_t Neighbor::bytesNeighborsIntegral() {
+std::uint64_t Neighbor::bytesNeighborsIntegral() const {
   std::uint64_t reals = 0;
 
   // 4 * tElasticDOFS load, DOFs load, DOFs write

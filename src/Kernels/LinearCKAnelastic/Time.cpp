@@ -12,6 +12,7 @@
 #include "Common/Marker.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/MemoryOps.h"
+#include "Monitoring/Metric.h"
 
 #include <cassert>
 #include <cstddef>
@@ -118,12 +119,11 @@ void Spacetime::computeAder(const real* coeffs,
   // Compute integrated displacement over time step if needed.
 }
 
-void Spacetime::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
-  nonZeroFlops = kernel::derivative::NonZeroFlops;
-  hardwareFlops = kernel::derivative::HardwareFlops;
+PerformanceEstimate Spacetime::metrics() const {
+  return PerformanceEstimate::fromYatetoKernel<kernel::derivative>();
 }
 
-std::uint64_t Spacetime::bytesAder() {
+std::uint64_t Spacetime::bytesAder() const {
   std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
@@ -160,10 +160,8 @@ void Time::evaluate(const real* coeffs,
   krnl.execute();
 }
 
-void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
-  // interate over derivatives
-  nonZeroFlops = kernel::derivativeTaylorExpansionEla::NonZeroFlops;
-  hardwareFlops = kernel::derivativeTaylorExpansionEla::HardwareFlops;
+PerformanceEstimate Time::metrics() const {
+  return PerformanceEstimate::fromYatetoKernel<kernel::derivativeTaylorExpansionEla>();
 }
 
 void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,

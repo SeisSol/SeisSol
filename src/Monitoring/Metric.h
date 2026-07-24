@@ -23,9 +23,34 @@ struct PerformanceEstimate {
                                kernelBytes + other.kernelBytes};
   }
 
+  constexpr auto operator+=(const PerformanceEstimate& other) -> PerformanceEstimate& {
+    *this = *this + other;
+    return *this;
+  }
+
   constexpr auto operator*(std::size_t other) const -> PerformanceEstimate {
     return PerformanceEstimate{
         hardwareFlop * other, nonzeroFlop * other, bytes * other, kernelBytes * other};
+  }
+
+  constexpr auto operator*=(std::size_t other) -> PerformanceEstimate& {
+    *this = *this * other;
+    return *this;
+  }
+
+  template <typename T, typename... Args>
+  static PerformanceEstimate fromYatetoKernel(Args... kargs) {
+    if constexpr (sizeof...(Args) == 0) {
+      return PerformanceEstimate{
+          T::HardwareFlops, T::NonZeroFlops, 0, T::OutboundBytes + T::InboundBytes};
+    } else {
+      return PerformanceEstimate{
+          T::hardwareFlops(kargs...),
+          T::nonZeroFlops(kargs...),
+          0,
+          0 // TODO
+      };
+    }
   }
 };
 

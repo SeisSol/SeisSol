@@ -11,6 +11,7 @@
 #include "Equations/poroelastic/Model/PoroelasticSetup.h"
 #include "Kernels/Common.h"
 #include "Kernels/MemoryOps.h"
+#include "Monitoring/Metric.h"
 
 #include <Eigen/Dense>
 #include <cassert>
@@ -148,19 +149,16 @@ void Spacetime::computeAder(const real* coeffs,
   executeSTP(timeStepWidth, data, timeIntegrated, stpBuffer);
 }
 
-void Spacetime::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
-  // reset flops
-  nonZeroFlops = 0;
-  hardwareFlops = 0;
+PerformanceEstimate Spacetime::metrics() const {
+  auto estimate = PerformanceEstimate::fromYatetoKernel<kernel::spaceTimePredictor>();
 
-  nonZeroFlops = kernel::spaceTimePredictor::NonZeroFlops;
-  hardwareFlops = kernel::spaceTimePredictor::HardwareFlops;
-  // we multiply the star matrices with dt before we execute the kernel
-  nonZeroFlops += 3 * init::star::size(0);
-  hardwareFlops += 3 * init::star::size(0);
+  estimate.nonzeroFlop += 3 * init::star::size(0);
+  estimate.hardwareFlop += 3 * init::star::size(0);
+
+  return estimate;
 }
 
-std::uint64_t Spacetime::bytesAder() {
+std::uint64_t Spacetime::bytesAder() const {
   std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
@@ -267,9 +265,8 @@ void Time::evaluateBatched(const real* coeffs,
   logError() << "No GPU implementation provided";
 }
 
-void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
-  nonZeroFlops = kernel::evaluateDOFSAtTimeSTP::NonZeroFlops;
-  hardwareFlops = kernel::evaluateDOFSAtTimeSTP::HardwareFlops;
+PerformanceEstimate Time::metrics() const {
+  return PerformanceEstimate::fromYatetoKernel<kernel::evaluateDOFSAtTimeSTP>();
 }
 
 void Time::setGlobalData(const CompoundGlobalData& global) {}
