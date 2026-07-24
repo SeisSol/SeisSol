@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <list>
 #include <map>
 #include <memory>
 #include <mpi.h>
@@ -105,52 +106,68 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   reader.openGroup("checkpoint");
   const auto convergenceOrderRead = reader.readAttributeScalar<int>("__order");
   if (convergenceOrderRead != ConvergenceOrder) {
-    logError() << "Convergence order does not match. Read:" << convergenceOrderRead;
+    logWarning() << "Convergence order does not match. Read:" << convergenceOrderRead << "vs"
+                 << ConvergenceOrder << ". The read will most likely fail.";
   }
+
+  // the distributors should not be moved (for the closures in the DistributionInstance not to point
+  // to invalid memory).
+  std::list<reader::Distributor> distributors;
+  std::vector<reader::Distributor::DistributionInstance> distributions;
+
   for (auto& [_, ckpTree] : dataRegistry_) {
-    reader.openGroup(ckpTree.name);
-    auto distributor = reader::Distributor(seissol::Mpi::mpi.comm());
+    if (reader.hasEntry(ckpTree.name)) {
+      reader.openGroup(ckpTree.name);
 
-    logInfo() << "Reading group IDs for" << ckpTree.name;
-    auto groupIds = reader.readData<std::size_t>("__ids");
-    distributor.setup(groupIds, ckpTree.ids);
+      logInfo() << "Reading group IDs for" << ckpTree.name;
+      auto groupIds = reader.readData<std::size_t>("__ids");
+      auto& distributor = distributors.emplace_back(seissol::Mpi::mpi.comm());
+      distributor.setup(groupIds, ckpTree.ids);
 
-    std::vector<reader::Distributor::DistributionInstance> distributions;
-    distributions.reserve(ckpTree.variables.size());
-    for (auto& variable : ckpTree.variables) {
-      logInfo() << "Reading variable" << ckpTree.name << "/" << variable.name;
-      const std::size_t count = reader.dataCount(variable.name);
-      const std::size_t currsize = count * variable.datatype->size();
-      if (currsize > storesize) {
-        std::free(datastore);
-        datastore = std::malloc(currsize);
-        if (datastore == nullptr) {
-          logError() << "Realloc failed; maybe you are reading too much (checkpoint) data?";
+      for (auto& variable : ckpTree.variables) {
+        if (reader.hasEntry(variable.name)) {
+          logInfo() << "Reading variable" << ckpTree.name << "/" << variable.name;
+          const std::size_t count = reader.dataCount(variable.name);
+          const std::size_t currsize = count * variable.datatype->size();
+          if (currsize > storesize) {
+            std::free(datastore);
+            datastore = std::malloc(currsize);
+            if (datastore == nullptr) {
+              logError() << "Realloc failed; maybe you are reading too much (checkpoint) data?";
+            }
+            storesize = currsize;
+
+            // touch memory explicitly
+            std::memset(datastore, 0, storesize);
+          }
+          reader.readDataRaw(datastore, variable.name, count, variable.datatype);
+          const auto distribution =
+              distributor.distributeRaw(variable.data,
+                                        datastore,
+                                        datatype::convertToMPI(variable.datatype),
+                                        datatype::convertToMPI(variable.memoryDatatype),
+                                        variable.unpack);
+          distributions.push_back(distribution);
+        } else {
+          logWarning() << "The following variable was not found checkpoint file (instead, using "
+                          "default values):"
+                       << ckpTree.name << "/" << variable.name;
         }
-        storesize = currsize;
-
-        // touch memory explicitly
-        std::memset(datastore, 0, storesize);
       }
-      reader.readDataRaw(datastore, variable.name, count, variable.datatype);
-      const auto distribution =
-          distributor.distributeRaw(variable.data,
-                                    datastore,
-                                    datatype::convertToMPI(variable.datatype),
-                                    datatype::convertToMPI(variable.memoryDatatype),
-                                    variable.unpack);
-      distributions.push_back(distribution);
+      reader.closeGroup();
+    } else {
+      logWarning() << "The following data storage was not found in the checkpoint file:"
+                   << ckpTree.name;
     }
-    logInfo() << "Finishing data distribution for" << ckpTree.name;
-    for (auto& distribution : distributions) {
-      distribution.complete();
-    }
-
-    reader.closeGroup();
   }
   const auto time = reader.readAttributeScalar<double>("__time");
   reader.closeGroup();
   reader.closeFile();
+
+  logInfo() << "Finishing data distribution.";
+  for (auto& distribution : distributions) {
+    distribution.complete();
+  }
 
   logInfo() << "Checkpoint loading complete.";
 

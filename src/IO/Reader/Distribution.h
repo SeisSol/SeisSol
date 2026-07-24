@@ -32,6 +32,15 @@ private:
 
   explicit Distributor(MPI_Comm comm);
 
+  ~Distributor();
+
+  Distributor(const Distributor&);
+  auto operator=(const Distributor&) -> Distributor&;
+
+  // avoid moves (so that DistributionInstances always work)
+  Distributor(Distributor&&) = delete;
+  auto operator=(Distributor&&) = delete;
+
   void setup(const std::vector<std::size_t>& sourceIds, const std::vector<std::size_t>& targetIds);
 
   template <typename T>
