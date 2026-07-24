@@ -418,6 +418,8 @@ void OutputManager::initPickpointOutput() {
               file << "# x1\t" << makeFormatted(point[0]) << '\n';
               file << "# x2\t" << makeFormatted(point[1]) << '\n';
               file << "# x3\t" << makeFormatted(point[2]) << '\n';
+              file << "# face-global-id\t"
+                   << receiver.elementGlobalIndex * 4 + receiver.localFaceSideId << '\n';
             }
 
             // stress info
