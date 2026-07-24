@@ -620,8 +620,8 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
 }
 
 void TimeCluster::computeLocalIntegrationFlops() {
-  auto& flopsNonZero = accFlopsNonZero_[static_cast<int>(ComputePart::Local)];
-  auto& flopsHardware = accFlopsHardware_[static_cast<int>(ComputePart::Local)];
+  auto& flopsNonZero = estimate_[static_cast<int>(ComputePart::Local)].nonzeroFlop;
+  auto& flopsHardware = estimate_[static_cast<int>(ComputePart::Local)].hardwareFlop;
   flopsNonZero = 0;
   flopsHardware = 0;
 
@@ -649,10 +649,10 @@ void TimeCluster::computeLocalIntegrationFlops() {
 }
 
 void TimeCluster::computeNeighborIntegrationFlops() {
-  auto& flopsNonZero = accFlopsNonZero_[static_cast<int>(ComputePart::Neighbor)];
-  auto& flopsHardware = accFlopsHardware_[static_cast<int>(ComputePart::Neighbor)];
-  auto& drFlopsNonZero = accFlopsNonZero_[static_cast<int>(ComputePart::DRNeighbor)];
-  auto& drFlopsHardware = accFlopsHardware_[static_cast<int>(ComputePart::DRNeighbor)];
+  auto& flopsNonZero = estimate_[static_cast<int>(ComputePart::Neighbor)].nonzeroFlop;
+  auto& flopsHardware = estimate_[static_cast<int>(ComputePart::Neighbor)].hardwareFlop;
+  auto& drFlopsNonZero = estimate_[static_cast<int>(ComputePart::DRNeighbor)].nonzeroFlop;
+  auto& drFlopsHardware = estimate_[static_cast<int>(ComputePart::DRNeighbor)].hardwareFlop;
   flopsNonZero = 0;
   flopsHardware = 0;
   drFlopsNonZero = 0;
@@ -687,16 +687,17 @@ void TimeCluster::computeFlops() {
   computeNeighborIntegrationFlops();
   computeDynamicRuptureFlops(
       *dynRupInteriorData_,
-      accFlopsNonZero_[static_cast<int>(ComputePart::DRFrictionLawInterior)],
-      accFlopsHardware_[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
-  computeDynamicRuptureFlops(*dynRupCopyData_,
-                             accFlopsNonZero_[static_cast<int>(ComputePart::DRFrictionLawCopy)],
-                             accFlopsHardware_[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
+      estimate_[static_cast<int>(ComputePart::DRFrictionLawInterior)].nonzeroFlop,
+      estimate_[static_cast<int>(ComputePart::DRFrictionLawInterior)].hardwareFlop);
+  computeDynamicRuptureFlops(
+      *dynRupCopyData_,
+      estimate_[static_cast<int>(ComputePart::DRFrictionLawCopy)].nonzeroFlop,
+      estimate_[static_cast<int>(ComputePart::DRFrictionLawCopy)].hardwareFlop);
   seissol::kernels::Plasticity::flopsPlasticity(
-      accFlopsNonZero_[static_cast<int>(ComputePart::PlasticityCheck)],
-      accFlopsHardware_[static_cast<int>(ComputePart::PlasticityCheck)],
-      accFlopsNonZero_[static_cast<int>(ComputePart::PlasticityYield)],
-      accFlopsHardware_[static_cast<int>(ComputePart::PlasticityYield)]);
+      estimate_[static_cast<int>(ComputePart::PlasticityCheck)].nonzeroFlop,
+      estimate_[static_cast<int>(ComputePart::PlasticityCheck)].hardwareFlop,
+      estimate_[static_cast<int>(ComputePart::PlasticityYield)].nonzeroFlop,
+      estimate_[static_cast<int>(ComputePart::PlasticityYield)].hardwareFlop);
 }
 
 ActResult TimeCluster::act() {
@@ -742,9 +743,9 @@ void TimeCluster::predict() {
   computeSources();
 
   seissolInstance_.flopCounter().incrementNonZeroFlopsLocal(
-      accFlopsNonZero_[static_cast<int>(ComputePart::Local)]);
+      estimate_[static_cast<int>(ComputePart::Local)].nonzeroFlop);
   seissolInstance_.flopCounter().incrementHardwareFlopsLocal(
-      accFlopsHardware_[static_cast<int>(ComputePart::Local)]);
+      estimate_[static_cast<int>(ComputePart::Local)].hardwareFlop);
 
   if (hasDifferentExecutorNeighbor()) {
     auto other = executor_ == Executor::Device ? seissol::initializer::AllocationPlace::Host
@@ -830,9 +831,9 @@ void TimeCluster::correct() {
     handleDynamicRupture(*dynRupInteriorData_);
 
     seissolInstance_.flopCounter().incrementNonZeroFlopsDynamicRupture(
-        accFlopsNonZero_[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
+        estimate_[static_cast<int>(ComputePart::DRFrictionLawInterior)].nonzeroFlop);
     seissolInstance_.flopCounter().incrementHardwareFlopsDynamicRupture(
-        accFlopsHardware_[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
+        estimate_[static_cast<int>(ComputePart::DRFrictionLawInterior)].hardwareFlop);
 
     dynamicRuptureScheduler_->setLastCorrectionStepsInterior(ct_.stepsSinceStart);
   }
@@ -840,9 +841,9 @@ void TimeCluster::correct() {
     handleDynamicRupture(*dynRupCopyData_);
 
     seissolInstance_.flopCounter().incrementNonZeroFlopsDynamicRupture(
-        accFlopsNonZero_[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
+        estimate_[static_cast<int>(ComputePart::DRFrictionLawCopy)].nonzeroFlop);
     seissolInstance_.flopCounter().incrementHardwareFlopsDynamicRupture(
-        accFlopsHardware_[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
+        estimate_[static_cast<int>(ComputePart::DRFrictionLawCopy)].hardwareFlop);
 
     dynamicRuptureScheduler_->setLastCorrectionStepsCopy((ct_.stepsSinceStart));
   }
@@ -854,13 +855,13 @@ void TimeCluster::correct() {
   }
 
   seissolInstance_.flopCounter().incrementNonZeroFlopsNeighbor(
-      accFlopsNonZero_[static_cast<int>(ComputePart::Neighbor)]);
+      estimate_[static_cast<int>(ComputePart::Neighbor)].nonzeroFlop);
   seissolInstance_.flopCounter().incrementHardwareFlopsNeighbor(
-      accFlopsHardware_[static_cast<int>(ComputePart::Neighbor)]);
+      estimate_[static_cast<int>(ComputePart::Neighbor)].hardwareFlop);
   seissolInstance_.flopCounter().incrementNonZeroFlopsDynamicRupture(
-      accFlopsNonZero_[static_cast<int>(ComputePart::DRNeighbor)]);
+      estimate_[static_cast<int>(ComputePart::DRNeighbor)].nonzeroFlop);
   seissolInstance_.flopCounter().incrementHardwareFlopsDynamicRupture(
-      accFlopsHardware_[static_cast<int>(ComputePart::DRNeighbor)]);
+      estimate_[static_cast<int>(ComputePart::DRNeighbor)].hardwareFlop);
 
   if (printProgress_) {
 
@@ -1022,9 +1023,9 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   if constexpr (UsePlasticity) {
     conditionalCounterHost_[0] += numberOfTetsWithPlasticYielding;
     seissolInstance_.flopCounter().incrementNonZeroFlopsPlasticity(
-        numPlasticCells_ * accFlopsNonZero_[static_cast<int>(ComputePart::PlasticityCheck)]);
+        numPlasticCells_ * estimate_[static_cast<int>(ComputePart::PlasticityCheck)].nonzeroFlop);
     seissolInstance_.flopCounter().incrementHardwareFlopsPlasticity(
-        numPlasticCells_ * accFlopsHardware_[static_cast<int>(ComputePart::PlasticityCheck)]);
+        numPlasticCells_ * estimate_[static_cast<int>(ComputePart::PlasticityCheck)].hardwareFlop);
   }
 
   loopStatistics_->end(regionComputeNeighboringIntegration_, clusterSize, profilingId_);
@@ -1048,16 +1049,16 @@ void TimeCluster::synchronizeTo(seissol::initializer::AllocationPlace place, voi
 void TimeCluster::finishPhase() {
   const auto cells = conditionalCounterHost_[0];
   seissolInstance_.flopCounter().incrementNonZeroFlopsPlasticity(
-      cells * accFlopsNonZero_[static_cast<int>(ComputePart::PlasticityYield)]);
+      cells * estimate_[static_cast<int>(ComputePart::PlasticityYield)].nonzeroFlop);
   seissolInstance_.flopCounter().incrementHardwareFlopsPlasticity(
-      cells * accFlopsHardware_[static_cast<int>(ComputePart::PlasticityYield)]);
+      cells * estimate_[static_cast<int>(ComputePart::PlasticityYield)].hardwareFlop);
 
   conditionalCounterHost_.copyFrom(conditionalCounterDevice_);
   const auto cells2 = conditionalCounterHost_[0];
   seissolInstance_.flopCounter().incrementNonZeroFlopsPlasticity(
-      cells2 * accFlopsNonZero_[static_cast<int>(ComputePart::PlasticityYield)]);
+      cells2 * estimate_[static_cast<int>(ComputePart::PlasticityYield)].nonzeroFlop);
   seissolInstance_.flopCounter().incrementHardwareFlopsPlasticity(
-      cells2 * accFlopsHardware_[static_cast<int>(ComputePart::PlasticityYield)]);
+      cells2 * estimate_[static_cast<int>(ComputePart::PlasticityYield)].hardwareFlop);
 
   conditionalCounterHost_[0] = 0;
   conditionalCounterDevice_.copyFrom(conditionalCounterHost_);

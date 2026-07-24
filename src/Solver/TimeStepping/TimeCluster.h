@@ -25,6 +25,7 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Monitoring/ActorStateStatistics.h"
 #include "Monitoring/LoopStatistics.h"
+#include "Monitoring/Metric.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/Settings.h"
 #include "SourceTerm/Typedefs.h"
@@ -100,7 +101,7 @@ class TimeCluster : public AbstractTimeCluster {
 
   seissol::kernels::PointSourceClusterPair sourceCluster_;
 
-  enum class ComputePart : int {
+  enum class ComputePart : int32_t {
     Local = 0,
     Neighbor,
     DRNeighbor,
@@ -111,8 +112,7 @@ class TimeCluster : public AbstractTimeCluster {
     NumComputeParts
   };
 
-  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsNonZero_{};
-  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsHardware_{};
+  std::array<PerformanceEstimate, static_cast<int32_t>(ComputePart::NumComputeParts)> estimate_{};
 
   //! Stopwatch of TimeManager
   LoopStatistics* loopStatistics_;
