@@ -388,7 +388,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                         x;
         const bool gPos = g[pointIndex] > static_cast<real>(0); // g decreasing: g>0 => root above x
         xLow[pointIndex] = gPos ? x : xLow[pointIndex];
-        xHigh[pointIndex] = gPos ? x : xHigh[pointIndex];
+        xHigh[pointIndex] = !gPos ? x : xHigh[pointIndex];
       }
 
       // Newton-or-bisect select (contains the division: guarded by the *non-strict* ICX macro,
@@ -434,7 +434,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #pragma omp simd
 #endif
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-      this->mu_[ltsFace][pointIndex] = muF[pointIndex];
+      this->mu_[ltsFace][pointIndex] =
+          static_cast<Derived*>(this)->updateMu(pointIndex, slipRateTest[pointIndex], details);
       convergenceInner_[ltsFace][pointIndex] &= (converged[pointIndex] != 0);
     }
 

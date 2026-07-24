@@ -282,7 +282,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
       // advance active, not-yet-converged lanes; freeze at the converged point so that
       // slipRateTest and exportMu are the mu-consistent pair at that point
-      x = (active && !nowConverged) ? xUpdated : x;
+      x = active ? xUpdated : x;
       converged |= nowConverged;
 
       deviceWarpBarrier(ctx);
@@ -292,7 +292,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     }
 
     slipRateTest = x;
-    exportMu = muF;
+    exportMu = Derived::updateMu(ctx, x, details);
     return converged;
   }
 
