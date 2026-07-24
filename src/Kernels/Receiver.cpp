@@ -76,7 +76,9 @@ ReceiverCluster::ReceiverCluster(
       seissolInstance_(seissolInstance) {
   timeKernel_.setGlobalData(global);
   spacetimeKernel_.setGlobalData(global);
-  spacetimeKernel_.flopsAder(nonZeroFlops_, hardwareFlops_);
+  spacetimeKernel_.flopsAder(estimate_.nonzeroFlop, estimate_.hardwareFlop);
+
+  perfHandle_ = seissolInstance_.flopCounter().addMetric("receiver", "WP");
 }
 
 void ReceiverCluster::addReceiver(std::size_t meshId,
@@ -119,8 +121,10 @@ double ReceiverCluster::calcReceivers(double time,
                                       parallel::runtime::StreamRuntime& runtime) {
 
   double outReceiverTime = time;
+  std::size_t samplingSteps = 0;
   while (outReceiverTime < expansionPoint + timeStepWidth) {
     outReceiverTime += samplingInterval_;
+    ++samplingSteps;
   }
 
   if (executor == Executor::Device) {
@@ -181,9 +185,6 @@ double ReceiverCluster::calcReceivers(double time,
                                    timeEvaluated, // useless but the interface requires it
                                    timeDerivatives);
 
-      seissolInstance_.flopCounter().incrementNonZeroFlopsOther(nonZeroFlops_);
-      seissolInstance_.flopCounter().incrementHardwareFlopsOther(hardwareFlops_);
-
       double receiverTime = time;
       while (receiverTime < expansionPoint + timeStepWidth) {
         const auto coeffs = timeBasis.point(receiverTime - expansionPoint, timeStepWidth);
@@ -217,6 +218,9 @@ double ReceiverCluster::calcReceivers(double time,
 
     auto& callRuntime = extraRuntime_.has_value() ? extraRuntime_.value() : runtime;
     callRuntime.enqueueLoop(recvCount, receiverHandler);
+
+    seissolInstance_.flopCounter().incrementMetric(perfHandle_,
+                                                   estimate_ * recvCount * samplingSteps);
   }
   return outReceiverTime;
 }

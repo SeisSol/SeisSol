@@ -22,6 +22,11 @@ struct PerformanceEstimate {
                                bytes + other.bytes,
                                kernelBytes + other.kernelBytes};
   }
+
+  constexpr auto operator*(std::size_t other) const -> PerformanceEstimate {
+    return PerformanceEstimate{
+        hardwareFlop * other, nonzeroFlop * other, bytes * other, kernelBytes * other};
+  }
 };
 
 } // namespace seissol

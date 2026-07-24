@@ -101,7 +101,7 @@ class TimeCluster : public AbstractTimeCluster {
 
   seissol::kernels::PointSourceClusterPair sourceCluster_;
 
-  enum class ComputePart : int32_t {
+  enum class ComputePart : std::size_t {
     Local = 0,
     Neighbor,
     DRNeighbor,
@@ -112,7 +112,9 @@ class TimeCluster : public AbstractTimeCluster {
     NumComputeParts
   };
 
-  std::array<PerformanceEstimate, static_cast<int32_t>(ComputePart::NumComputeParts)> estimate_{};
+  std::array<PerformanceEstimate, static_cast<std::size_t>(ComputePart::NumComputeParts)>
+      estimate_{};
+  std::array<std::size_t, static_cast<std::size_t>(ComputePart::NumComputeParts)> perfHandle_{};
 
   //! Stopwatch of TimeManager
   LoopStatistics* loopStatistics_;
@@ -219,6 +221,8 @@ class TimeCluster : public AbstractTimeCluster {
   unsigned int profilingId_;
 
   DynamicRuptureScheduler* dynamicRuptureScheduler_;
+
+  void incrementPerformanceMetrics(ComputePart part);
 
   protected:
   void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;

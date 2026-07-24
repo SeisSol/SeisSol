@@ -10,6 +10,7 @@
 
 #include "FlopCounter.h"
 
+#include "Monitoring/Metric.h"
 #include "Numerical/Statistics.h"
 #include "Parallel/MPI.h"
 #include "Unit.h"
@@ -54,23 +55,21 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
   const int rank = seissol::Mpi::mpi.rank();
   const auto worldSize = static_cast<size_t>(seissol::Mpi::mpi.size());
 
-  const long long newTotalHWFlops = hardwareFlopsLocal_ + hardwareFlopsNeighbor_ +
-                                    hardwareFlopsOther_ + hardwareFlopsDynamicRupture_ +
-                                    hardwareFlopsPlasticity_;
-  const long long diffHWFlops = newTotalHWFlops - previousTotalHWFlops_;
-  previousTotalHWFlops_ = newTotalHWFlops;
+  auto estimate = PerformanceEstimate{};
+  for (const auto& metric : metrics_) {
+    estimate = estimate + metric.estimate;
+  }
 
-  const long long newTotalNZFlops = nonZeroFlopsLocal_ + nonZeroFlopsNeighbor_ +
-                                    nonZeroFlopsOther_ + nonZeroFlopsDynamicRupture_ +
-                                    nonZeroFlopsPlasticity_;
-  const long long diffNZFlops = newTotalNZFlops - previousTotalNZFlops_;
-  previousTotalNZFlops_ = newTotalNZFlops;
+  const auto diffHWFlops = estimate.hardwareFlop - previousEstimate_.hardwareFlop;
+  const auto diffNZFlops = estimate.nonzeroFlop - previousEstimate_.nonzeroFlop;
+
+  previousEstimate_ = estimate;
 
   const double diffTime = wallTime - previousWallTime_;
   previousWallTime_ = wallTime;
 
-  const double accumulatedHWGflopsPerSecond = newTotalHWFlops * 1.e-9 / wallTime;
-  const double accumulatedNZGflopsPerSecond = newTotalNZFlops * 1.e-9 / wallTime;
+  const double accumulatedHWGflopsPerSecond = estimate.hardwareFlop * 1.e-9 / wallTime;
+  const double accumulatedNZGflopsPerSecond = estimate.nonzeroFlop * 1.e-9 / wallTime;
   const double previousHWGflopsPerSecond = diffHWFlops * 1.e-9 / diffTime;
   const double previousNZGflopsPerSecond = diffNZFlops * 1.e-9 / diffTime;
 
@@ -108,40 +107,43 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
  * Prints the measured FLOP/s.
  */
 void FlopCounter::printPerformanceSummary(double wallTime) const {
-  enum Counter {
-    Libxsmm = 0,
-    Pspamm,
-    WPNonZeroFlops,
-    WPHardwareFlops,
-    DRNonZeroFlops,
-    DRHardwareFlops,
-    PLNonZeroFlops,
-    PLHardwareFlops,
-    NumCounters
-  };
+  // LIBXSMM + PSpaMM
+  constexpr std::size_t CodegenFlops = 2;
+  constexpr std::size_t BroadcastEntries = 2;
 
-  std::array<double, NumCounters> flops{};
+  std::vector<double> flops{};
 
-  flops[Libxsmm] = libxsmm_num_total_flops;
-  flops[Pspamm] = pspamm_num_total_flops;
-  flops[WPNonZeroFlops] = nonZeroFlopsLocal_ + nonZeroFlopsNeighbor_ + nonZeroFlopsOther_;
-  flops[WPHardwareFlops] = hardwareFlopsLocal_ + hardwareFlopsNeighbor_ + hardwareFlopsOther_;
-  flops[DRNonZeroFlops] = nonZeroFlopsDynamicRupture_;
-  flops[DRHardwareFlops] = hardwareFlopsDynamicRupture_;
-  flops[PLNonZeroFlops] = nonZeroFlopsPlasticity_;
-  flops[PLHardwareFlops] = hardwareFlopsPlasticity_;
+  flops.push_back(libxsmm_num_total_flops);
+  flops.push_back(pspamm_num_total_flops);
+
+  // total first; then by category
+  {
+    auto estimate = PerformanceEstimate{};
+    for (const auto& metric : metrics_) {
+      estimate = estimate + metric.estimate;
+    }
+    flops.push_back(estimate.nonzeroFlop);
+    flops.push_back(estimate.hardwareFlop);
+  }
+
+  for (const auto& [_, handles] : metricCategories_) {
+    auto estimate = PerformanceEstimate{};
+    for (const auto& handle : handles) {
+      estimate = estimate + metrics_[handle].estimate;
+    }
+    flops.push_back(estimate.nonzeroFlop);
+    flops.push_back(estimate.hardwareFlop);
+  }
 
   MPI_Allreduce(
       MPI_IN_PLACE, flops.data(), flops.size(), MPI_DOUBLE, MPI_SUM, seissol::Mpi::mpi.comm());
 
 #ifndef NDEBUG
-  logInfo() << "Total    libxsmm HW-FLOP: " << UnitFlop.formatPrefix(flops[Libxsmm]).c_str();
-  logInfo() << "Total     pspamm HW-FLOP: " << UnitFlop.formatPrefix(flops[Pspamm]).c_str();
+  logInfo() << "Total    libxsmm HW-FLOP: " << UnitFlop.formatPrefix(flops[0]).c_str();
+  logInfo() << "Total     pspamm HW-FLOP: " << UnitFlop.formatPrefix(flops[1]).c_str();
 #endif
-  const auto totalHardwareFlops =
-      flops[WPHardwareFlops] + flops[DRHardwareFlops] + flops[PLHardwareFlops];
-  const auto totalNonZeroFlops =
-      flops[WPNonZeroFlops] + flops[DRNonZeroFlops] + flops[PLNonZeroFlops];
+  const auto totalNonZeroFlops = flops[CodegenFlops + 0];
+  const auto totalHardwareFlops = flops[CodegenFlops + 1];
 
   const auto percentageUsefulFlops = totalNonZeroFlops / totalHardwareFlops * 100;
 
@@ -149,62 +151,34 @@ void FlopCounter::printPerformanceSummary(double wallTime) const {
   logInfo() << "Total calculated NZ-FLOP: " << UnitFlop.formatPrefix(totalNonZeroFlops).c_str();
   logInfo() << "NZ part of HW-FLOP:" << percentageUsefulFlops << "%";
   logInfo() << "Total calculated HW-FLOP/s: "
-            << UnitFlopPerS
-                   .formatPrefix(
-                       (flops[WPHardwareFlops] + flops[DRHardwareFlops] + flops[PLHardwareFlops]) /
-                       wallTime)
-                   .c_str();
+            << UnitFlopPerS.formatPrefix((totalHardwareFlops) / wallTime).c_str();
   logInfo() << "Total calculated NZ-FLOP/s: "
-            << UnitFlopPerS
-                   .formatPrefix(
-                       (flops[WPNonZeroFlops] + flops[DRNonZeroFlops] + flops[PLNonZeroFlops]) /
-                       wallTime)
-                   .c_str();
-  logInfo() << "WP calculated HW-FLOP: " << UnitFlop.formatPrefix(flops[WPHardwareFlops]).c_str();
-  logInfo() << "WP calculated NZ-FLOP: " << UnitFlop.formatPrefix(flops[WPNonZeroFlops]).c_str();
-  logInfo() << "DR calculated HW-FLOP: " << UnitFlop.formatPrefix(flops[DRHardwareFlops]).c_str();
-  logInfo() << "DR calculated NZ-FLOP: " << UnitFlop.formatPrefix(flops[DRNonZeroFlops]).c_str();
-  logInfo() << "PL calculated HW-FLOP: " << UnitFlop.formatPrefix(flops[PLHardwareFlops]).c_str();
-  logInfo() << "PL calculated NZ-FLOP: " << UnitFlop.formatPrefix(flops[PLNonZeroFlops]).c_str();
+            << UnitFlopPerS.formatPrefix((totalNonZeroFlops) / wallTime).c_str();
+
+  std::size_t i = 0;
+  for (const auto& [catname, _] : metricCategories_) {
+    logInfo()
+        << catname.c_str() << "calculated HW-FLOP: "
+        << UnitFlop.formatPrefix(flops[CodegenFlops + (i + 1) * BroadcastEntries + 1]).c_str();
+    logInfo()
+        << catname.c_str() << "calculated NZ-FLOP: "
+        << UnitFlop.formatPrefix(flops[CodegenFlops + (i + 1) * BroadcastEntries + 0]).c_str();
+    ++i;
+  }
 }
-void FlopCounter::incrementNonZeroFlopsLocal(long long update) {
-  assert(update >= 0);
-  nonZeroFlopsLocal_ += update;
+
+void FlopCounter::incrementMetric(std::size_t handle, const PerformanceEstimate& data) {
+  metrics_[handle].estimate = metrics_[handle].estimate + data;
 }
-void FlopCounter::incrementHardwareFlopsLocal(long long update) {
-  assert(update >= 0);
-  hardwareFlopsLocal_ += update;
+
+std::size_t FlopCounter::addMetric(const std::string& name, const std::string& category) {
+  const auto handle = metrics_.size();
+
+  metrics_.emplace_back(Metric{PerformanceEstimate{}, name, category});
+
+  metricCategories_[category].push_back(handle);
+
+  return handle;
 }
-void FlopCounter::incrementNonZeroFlopsNeighbor(long long update) {
-  assert(update >= 0);
-  nonZeroFlopsNeighbor_ += update;
-}
-void FlopCounter::incrementHardwareFlopsNeighbor(long long update) {
-  assert(update >= 0);
-  hardwareFlopsNeighbor_ += update;
-}
-void FlopCounter::incrementNonZeroFlopsOther(long long update) {
-  assert(update >= 0);
-  nonZeroFlopsOther_ += update;
-}
-void FlopCounter::incrementHardwareFlopsOther(long long update) {
-  assert(update >= 0);
-  hardwareFlopsOther_ += update;
-}
-void FlopCounter::incrementNonZeroFlopsDynamicRupture(long long update) {
-  assert(update >= 0);
-  nonZeroFlopsDynamicRupture_ += update;
-}
-void FlopCounter::incrementHardwareFlopsDynamicRupture(long long update) {
-  assert(update >= 0);
-  hardwareFlopsDynamicRupture_ += update;
-}
-void FlopCounter::incrementNonZeroFlopsPlasticity(long long update) {
-  assert(update >= 0);
-  nonZeroFlopsPlasticity_ += update;
-}
-void FlopCounter::incrementHardwareFlopsPlasticity(long long update) {
-  assert(update >= 0);
-  hardwareFlopsPlasticity_ += update;
-}
+
 } // namespace seissol::monitoring
