@@ -47,6 +47,8 @@ void FlopCounter::init(const std::string& outputFileNamePrefix) {
     datasetHeaders("hw_epoch");
     datasetHeaders("nz_accumulated");
     datasetHeaders("nz_epoch");
+    datasetHeaders("kb_accumulated");
+    datasetHeaders("kb_epoch");
     out_ << std::endl;
   }
 }
@@ -62,6 +64,7 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
 
   const auto diffHWFlops = estimate.hardwareFlop - previousEstimate_.hardwareFlop;
   const auto diffNZFlops = estimate.nonzeroFlop - previousEstimate_.nonzeroFlop;
+  const auto diffKB = estimate.kernelBytes - previousEstimate_.kernelBytes;
 
   previousEstimate_ = estimate;
 
@@ -70,24 +73,25 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
 
   const double accumulatedHWGflopsPerSecond = estimate.hardwareFlop * 1.e-9 / wallTime;
   const double accumulatedNZGflopsPerSecond = estimate.nonzeroFlop * 1.e-9 / wallTime;
+  const double accumulatedKBPerSecond = estimate.kernelBytes * 1.e-9 / wallTime;
   const double previousHWGflopsPerSecond = diffHWFlops * 1.e-9 / diffTime;
   const double previousNZGflopsPerSecond = diffNZFlops * 1.e-9 / diffTime;
+  const double previousKBPerSecond = diffKB * 1.e-9 / diffTime;
 
   if (rank == 0) {
     out_ << wallTime << ",";
   }
 
-  const auto handleFlopsDataset = [&](auto local, const std::string& message) {
+  const auto handleFlopsDataset = [&](auto local, const SIUnit& unit, const std::string& message) {
     const auto localOnRanks = seissol::Mpi::mpi.collect(local);
     const auto localSummary = seissol::statistics::Summary(localOnRanks);
 
     if (rank == 0) {
       // for now, we calculate everything in GFLOP/s, and switch back to FLOP/s for output only
-      logInfo()
-          << message.c_str() << UnitFlopPerS.formatPrefix(localSummary.sum * 1e9).c_str()
-          << "(per rank:"
-          << UnitFlopPerS.formatPrefix(localSummary.mean * 1e9, localSummary.std * 1e9).c_str()
-          << ")";
+      logInfo() << message.c_str() << unit.formatPrefix(localSummary.sum * 1e9).c_str()
+                << "(per rank:"
+                << unit.formatPrefix(localSummary.mean * 1e9, localSummary.std * 1e9).c_str()
+                << ")";
       for (size_t i = 0; i < worldSize; i++) {
         out_ << localOnRanks[i] << ",";
       }
@@ -95,10 +99,12 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
   };
 
   // make sure to keep it the same width. Otherwise, if may become confusing
-  handleFlopsDataset(accumulatedHWGflopsPerSecond, "HW-FLOP/s since start:");
-  handleFlopsDataset(previousHWGflopsPerSecond, "HW-FLOP/s last epoch: ");
-  handleFlopsDataset(accumulatedNZGflopsPerSecond, "NZ-FLOP/s since start:");
-  handleFlopsDataset(previousNZGflopsPerSecond, "NZ-FLOP/s last epoch: ");
+  handleFlopsDataset(accumulatedHWGflopsPerSecond, UnitFlopPerS, "HW-FLOP/s since start:");
+  handleFlopsDataset(previousHWGflopsPerSecond, UnitFlopPerS, "HW-FLOP/s last epoch: ");
+  handleFlopsDataset(accumulatedNZGflopsPerSecond, UnitFlopPerS, "NZ-FLOP/s since start:");
+  handleFlopsDataset(previousNZGflopsPerSecond, UnitFlopPerS, "NZ-FLOP/s last epoch: ");
+  handleFlopsDataset(accumulatedKBPerSecond, UnitBytePerS, "Kernel B/s since start:");
+  handleFlopsDataset(previousKBPerSecond, UnitBytePerS, "Kernel B/s last epoch: ");
 
   out_ << std::endl;
 }
@@ -109,7 +115,7 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
 void FlopCounter::printPerformanceSummary(double wallTime) const {
   // LIBXSMM + PSpaMM
   constexpr std::size_t CodegenFlops = 2;
-  constexpr std::size_t BroadcastEntries = 2;
+  constexpr std::size_t BroadcastEntries = 3;
 
   std::vector<double> flops{};
 
@@ -124,6 +130,7 @@ void FlopCounter::printPerformanceSummary(double wallTime) const {
     }
     flops.push_back(estimate.nonzeroFlop);
     flops.push_back(estimate.hardwareFlop);
+    flops.push_back(estimate.kernelBytes);
   }
 
   for (const auto& [_, handles] : metricCategories_) {
@@ -133,6 +140,7 @@ void FlopCounter::printPerformanceSummary(double wallTime) const {
     }
     flops.push_back(estimate.nonzeroFlop);
     flops.push_back(estimate.hardwareFlop);
+    flops.push_back(estimate.kernelBytes);
   }
 
   MPI_Allreduce(
@@ -144,16 +152,20 @@ void FlopCounter::printPerformanceSummary(double wallTime) const {
 #endif
   const auto totalNonZeroFlops = flops[CodegenFlops + 0];
   const auto totalHardwareFlops = flops[CodegenFlops + 1];
+  const auto totalKernelBytes = flops[CodegenFlops + 2];
 
   const auto percentageUsefulFlops = totalNonZeroFlops / totalHardwareFlops * 100;
 
   logInfo() << "Total calculated HW-FLOP: " << UnitFlop.formatPrefix(totalHardwareFlops).c_str();
   logInfo() << "Total calculated NZ-FLOP: " << UnitFlop.formatPrefix(totalNonZeroFlops).c_str();
+  logInfo() << "Total calculated Kernel B: " << UnitByte.formatPrefix(totalKernelBytes).c_str();
   logInfo() << "NZ part of HW-FLOP:" << percentageUsefulFlops << "%";
   logInfo() << "Total calculated HW-FLOP/s: "
             << UnitFlopPerS.formatPrefix((totalHardwareFlops) / wallTime).c_str();
   logInfo() << "Total calculated NZ-FLOP/s: "
             << UnitFlopPerS.formatPrefix((totalNonZeroFlops) / wallTime).c_str();
+  logInfo() << "Total calculated Kernel B/s: "
+            << UnitBytePerS.formatPrefix((totalKernelBytes) / wallTime).c_str();
 
   std::size_t i = 0;
   for (const auto& [catname, _] : metricCategories_) {
@@ -163,6 +175,9 @@ void FlopCounter::printPerformanceSummary(double wallTime) const {
     logInfo()
         << catname.c_str() << "calculated NZ-FLOP: "
         << UnitFlop.formatPrefix(flops[CodegenFlops + (i + 1) * BroadcastEntries + 0]).c_str();
+    logInfo()
+        << catname.c_str() << "calculated Kernel B: "
+        << UnitByte.formatPrefix(flops[CodegenFlops + (i + 1) * BroadcastEntries + 2]).c_str();
     ++i;
   }
 }
