@@ -26,6 +26,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <utility>
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE

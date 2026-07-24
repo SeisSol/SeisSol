@@ -26,13 +26,13 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/Instrumentation.h"
+#include "Monitoring/Metric.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/OpenMP.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
 #include <memory>
 
 namespace seissol::proxy {

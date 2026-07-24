@@ -16,7 +16,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <utility>
 
 namespace seissol {
 

@@ -52,7 +52,6 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
-#include <cstdint>
 #include <cstring>
 #include <utility>
 #include <utils/logger.h>

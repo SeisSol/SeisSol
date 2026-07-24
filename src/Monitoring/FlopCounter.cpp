@@ -23,6 +23,7 @@
 #include <ostream>
 #include <string>
 #include <utils/logger.h>
+#include <vector>
 
 // NOLINTNEXTLINE
 long long libxsmm_num_total_flops = 0;
@@ -161,11 +162,11 @@ void FlopCounter::printPerformanceSummary(double wallTime) const {
   logInfo() << "Total calculated Kernel B: " << UnitByte.formatPrefix(totalKernelBytes).c_str();
   logInfo() << "NZ part of HW-FLOP:" << percentageUsefulFlops << "%";
   logInfo() << "Total calculated HW-FLOP/s: "
-            << UnitFlopPerS.formatPrefix((totalHardwareFlops) / wallTime).c_str();
+            << UnitFlopPerS.formatPrefix(totalHardwareFlops / wallTime).c_str();
   logInfo() << "Total calculated NZ-FLOP/s: "
-            << UnitFlopPerS.formatPrefix((totalNonZeroFlops) / wallTime).c_str();
+            << UnitFlopPerS.formatPrefix(totalNonZeroFlops / wallTime).c_str();
   logInfo() << "Total calculated Kernel B/s: "
-            << UnitBytePerS.formatPrefix((totalKernelBytes) / wallTime).c_str();
+            << UnitBytePerS.formatPrefix(totalKernelBytes / wallTime).c_str();
 
   std::size_t i = 0;
   for (const auto& [catname, _] : metricCategories_) {

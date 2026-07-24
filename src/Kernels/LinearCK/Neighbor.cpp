@@ -28,6 +28,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <stdint.h>
+#include <utility>
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
