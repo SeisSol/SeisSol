@@ -163,7 +163,7 @@ TimeCluster::TimeCluster(unsigned int clusterId,
   perfHandle_[static_cast<std::size_t>(ComputePart::DRFrictionLawCopy)] =
       seissolInstance.flopCounter().addMetric("dr-frictionlaw-copy", "DR");
   perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityCheck)] =
-      seissolInstance.flopCounter().addMetric("plasticity-Check", "PL");
+      seissolInstance.flopCounter().addMetric("plasticity-check", "PL");
   perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityYield)] =
       seissolInstance.flopCounter().addMetric("plasticity-yield", "PL");
 
