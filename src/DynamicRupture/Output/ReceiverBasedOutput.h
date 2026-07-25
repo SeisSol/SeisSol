@@ -32,7 +32,7 @@ class ReceiverOutput {
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) {
     meshReader_ = userMeshReader;
   }
-  void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap_ = map; }
+  void setFaceToLtsMap(::seissol::initializer::StorageBackmap<1>* map) { faceToLtsMap_ = map; }
   void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                        const std::shared_ptr<ReceiverOutputData>& outputData,
@@ -48,7 +48,7 @@ class ReceiverOutput {
   LTS::Backmap* wpBackmap_{nullptr};
   DynamicRupture::Storage* drStorage_{nullptr};
   seissol::geometry::MeshReader* meshReader_{nullptr};
-  FaceToLtsMapType* faceToLtsMap_{nullptr};
+  ::seissol::initializer::StorageBackmap<1>* faceToLtsMap_{nullptr};
   real* deviceCopyMemory_{nullptr};
 
   kernels::Time timeKernel_;

@@ -173,11 +173,11 @@ void OutputManager::setLtsData(LTS::Storage& userWpStorage,
   if (pointEnabled) {
     ppOutputBuilder_->setLtsData(userWpStorage, userWpBackmap, userDrStorage);
     ppOutputBuilder_->setVariableList(impl_->getOutputVariables());
-    ppOutputBuilder_->setFaceToLtsMap(&globalFaceToLtsMap_);
+    ppOutputBuilder_->setFaceToLtsMap(&faceToLtsMap_);
   }
   if (elementwiseEnabled) {
     ewOutputBuilder_->setLtsData(userWpStorage, userWpBackmap, userDrStorage);
-    ewOutputBuilder_->setFaceToLtsMap(&globalFaceToLtsMap_);
+    ewOutputBuilder_->setFaceToLtsMap(&faceToLtsMap_);
   }
 }
 
@@ -422,10 +422,10 @@ void OutputManager::initPickpointOutput() {
             // stress info
             std::array<real, 6> rotatedInitialStress{};
             {
-              auto [layer, face] = faceToLtsMap_.at(receiver.faultFaceIndex);
+              const auto position = faceToLtsMap_.get(receiver.faultFaceIndex);
 
-              const auto* initialStressVar = layer->var<DynamicRupture::InitialStressInFaultCS>();
-              const auto* initialStress = initialStressVar[face];
+              const auto* initialStress =
+                  drStorage_->lookup<DynamicRupture::InitialStressInFaultCS>(position);
               std::array<real, 6> unrotatedInitialStress{};
               for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();
                    ++stressVar) {
@@ -473,21 +473,18 @@ void OutputManager::init() {
 
 void OutputManager::initFaceToLtsMap() {
   if (drStorage_ != nullptr) {
-    globalFaceToLtsMap_.setSize(meshReader_->getFault().size());
-
-    faceToLtsMap_.resize(meshReader_->getFault().size());
+    faceToLtsMap_.setSize(meshReader_->getFault().size());
 
     const auto* globalFaceInformation = drStorage_->var<DynamicRupture::FaceInformation>();
     for (auto& layer : drStorage_->leaves()) {
       const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
       for (size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-        faceToLtsMap_[faceInformation[ltsFace].meshFace] = std::make_pair(&layer, ltsFace);
 
-        globalFaceToLtsMap_.addElement(layer.id(),
-                                       globalFaceInformation,
-                                       faceInformation,
-                                       faceInformation[ltsFace].meshFace,
-                                       ltsFace);
+        faceToLtsMap_.addElement(layer.id(),
+                                 globalFaceInformation,
+                                 faceInformation,
+                                 faceInformation[ltsFace].meshFace,
+                                 ltsFace);
       }
     }
   }
