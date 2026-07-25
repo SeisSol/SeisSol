@@ -18,7 +18,6 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <algorithm>
 #include <array>
