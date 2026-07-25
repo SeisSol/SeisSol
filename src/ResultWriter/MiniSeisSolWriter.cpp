@@ -9,6 +9,7 @@
 
 #include "Common/Filesystem.h"
 #include "Parallel/MPI.h"
+#include "Parallel/SystemInfo.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -16,7 +17,9 @@
 #include <ios>
 #include <vector>
 
-void seissol::writer::MiniSeisSolWriter::write(double elapsedTime, double weight) {
+void seissol::writer::MiniSeisSolWriter::write(double elapsedTime,
+                                               double weight,
+                                               const SystemInfo& systemInfo) {
   auto elapsedTimeVector = seissol::Mpi::mpi.collect(elapsedTime);
   auto weightVector = seissol::Mpi::mpi.collect(weight);
 
@@ -38,7 +41,7 @@ void seissol::writer::MiniSeisSolWriter::write(double elapsedTime, double weight
     std::fstream fileStream(path, std::ios::out);
     fileStream << "hostname,rank,localRank,elapsedTime,weight\n";
 
-    const auto& hostNames = seissol::Mpi::mpi.getHostNames();
+    const auto& hostNames = systemInfo.getHostNames();
     for (auto rank : ranks) {
       fileStream << "\"" << hostNames[rank] << "\"," << rank << ',' << localRanks[rank] << ','
                  << elapsedTimeVector[rank] << ',' << weightVector[rank] << '\n';

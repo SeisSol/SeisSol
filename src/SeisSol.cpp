@@ -24,26 +24,16 @@
 namespace seissol {
 
 bool SeisSol::init() {
-  const auto rank = seissol::Mpi::mpi.rank();
-
-  if (rank == 0) {
-    const auto& hostNames = seissol::Mpi::mpi.getHostNames();
-    logInfo() << "Running on (rank=0):" << hostNames.front();
-  }
-
   logInfo() << "Using MPI with #ranks:" << seissol::Mpi::mpi.size();
   logInfo() << "Node-wide (shared memory) MPI with #ranks/node:"
             << seissol::Mpi::mpi.sharedMemMpiSize();
-  seissol::Mpi::mpi.printAcceleratorDeviceInfo();
-  // TODO (Ravil, David): switch to reading MPI options from the parameter-file.
-  seissol::Mpi::mpi.setDataTransferModeFromEnv();
 
   printPersistentMpiInfo(env_);
 #ifdef ACL_DEVICE
   printUSMInfo(env_);
   printMPIUSMInfo(env_);
 #endif
-  pinning_.checkEnvVariables();
+  pinning_.checkEnvVariables(env_);
   if (OpenMP::enabled()) {
     logInfo() << "Using OpenMP with #threads/rank:" << seissol::OpenMP::threadCount();
   } else {
@@ -130,7 +120,7 @@ void SeisSol::finalize() {
 
   timeManager_.freeDynamicResources();
 
-  seissol::Mpi::finalize();
+  seissol::Mpi::mpi.finalize();
 
   logInfo() << "SeisSol done. Goodbye.";
 }

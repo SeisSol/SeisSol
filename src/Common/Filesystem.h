@@ -31,10 +31,6 @@ namespace filesystem = std::filesystem;
 
 namespace seissol {
 auto directoryExists(const seissol::filesystem::directory_entry& entry) -> bool;
-
-void generateBackupFileIfNecessary(const std::string& fileName,
-                                   const std::string& fileExtension,
-                                   const std::optional<std::string>& timeStamp = {});
 } // namespace seissol
 
 #endif // SEISSOL_SRC_COMMON_FILESYSTEM_H_

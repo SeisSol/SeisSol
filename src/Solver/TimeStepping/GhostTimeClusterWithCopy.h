@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_GHOSTTIMECLUSTERWITHCOPY_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_GHOSTTIMECLUSTERWITHCOPY_H_
 
+#include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
@@ -15,7 +16,7 @@
 #include <Device/device.h>
 
 namespace seissol::time_stepping {
-template <Mpi::DataTransferMode CommType>
+template <DataTransferMode CommType>
 class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
   public:
   GhostTimeClusterWithCopy(double maxTimeStepSize,

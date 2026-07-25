@@ -172,7 +172,7 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
   const auto loadImbalance = 1.0 - summary.mean / summary.max;
   logInfo() << "Load imbalance:" << 100.0 * loadImbalance << "%";
 
-  MPI_Allreduce(MPI_IN_PLACE, sums.data(), sums.size(), MPI_DOUBLE, MPI_SUM, comm);
+  seissol::Mpi::mpi.allreduceContainer(sums, MPI_SUM, comm);
 
   auto regressionCoeffs = std::vector<double>(2 * nRegions);
   auto stderror = std::vector<double>(nRegions, 0.0);

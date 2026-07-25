@@ -15,6 +15,7 @@
 #include <deque>
 #include <sched.h>
 #include <string>
+#include <utils/env.h>
 
 namespace seissol::parallel {
 
@@ -38,7 +39,7 @@ class Pinning {
   static std::string maskToString(const async::as::CpuMask& mask);
   static std::string maskToStringShort(const async::as::CpuMask& mask);
   [[nodiscard]] static async::as::CpuMask getNodeMask();
-  void checkEnvVariables();
+  void checkEnvVariables(utils::Env& env);
 };
 
 } // namespace seissol::parallel

@@ -6,12 +6,14 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-parallel OBJECT
-    AcceleratorDevice.cpp
     DataCollector.cpp
+    Helper.cpp
     HelperThread.cpp
     MPI.cpp
     OpenMP.cpp
+    ParallelFS.cpp
     Pin.cpp
+    SystemInfo.cpp
 
     Runtime/Stream.cpp
 )

@@ -106,12 +106,7 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
 
   // now reduce over all ranks for the best fit (not only duplicate ranks)
 
-  MPI_Allreduce(MPI_IN_PLACE,
-                score.data(),
-                score.size(),
-                MPI_DOUBLE_INT,
-                MPI_MINLOC,
-                seissol::Mpi::mpi.comm());
+  Mpi::mpi.allreduceContainer(score, MPI_MINLOC);
 
   std::vector<bool> contained(numPoints);
   for (std::size_t i = 0; i < numPoints; ++i) {

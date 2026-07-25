@@ -25,7 +25,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
 #include "Numerical/Transformation.h"
-#include "Parallel/MPI.h"
+#include "Parallel/ParallelFS.h"
 #include "SeisSol.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/MultipleSimulations.h"
@@ -35,8 +35,10 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <ctime>
 #include <string>
 #include <utils/logger.h>
+#include <utils/timeutils.h>
 #include <vector>
 
 namespace {
@@ -353,7 +355,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     // Initialize free surface output
     seissolInstance.freeSurfaceWriter().init(seissolInstance.meshReader(),
                                              &seissolInstance.freeSurfaceIntegrator(),
-                                             seissolParams.output.prefix.c_str(),
+                                             seissolInstance.outputPrefix().c_str(),
                                              seissolParams.output.freeSurfaceParameters.interval,
                                              seissolParams.output.xdmfWriterBackend,
                                              backupTimeStamp);
@@ -493,7 +495,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   if (seissolParams.output.receiverParameters.enabled) {
     auto& receiverWriter = seissolInstance.receiverWriter();
     // Initialize receiver output
-    receiverWriter.init(seissolParams.output.prefix,
+    receiverWriter.init(seissolInstance.outputPrefix(),
                         seissolParams.timeStepping.endTime,
                         seissolParams.output.receiverParameters);
     receiverWriter.addPoints(seissolInstance.meshReader(), backmap, memoryManager.getGlobalData());
@@ -508,13 +510,14 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                       seissolInstance.meshReader(),
                       ltsStorage,
                       seissolParams.model.plasticity,
-                      seissolParams.output.prefix,
+                      seissolInstance.outputPrefix(),
                       seissolParams.output.energyParameters);
   }
 
-  seissolInstance.flopCounter().init(seissolParams.output.prefix);
+  seissolInstance.flopCounter().init(seissolInstance.outputPrefix());
 
-  seissolInstance.analysisWriter().init(&seissolInstance.meshReader(), seissolParams.output.prefix);
+  seissolInstance.analysisWriter().init(&seissolInstance.meshReader(),
+                                        seissolInstance.outputPrefix());
 }
 
 void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
@@ -529,7 +532,7 @@ void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   if (seissolParams.output.waveFieldParameters.enabled &&
       seissolParams.output.waveFieldParameters.vtkorder < 0) {
     seissolInstance.waveFieldWriter().enable();
-    seissolInstance.waveFieldWriter().setFilename(seissolParams.output.prefix.c_str());
+    seissolInstance.waveFieldWriter().setFilename(seissolInstance.outputPrefix().c_str());
     seissolInstance.waveFieldWriter().setWaveFieldInterval(
         seissolParams.output.waveFieldParameters.interval);
   }
@@ -547,19 +550,34 @@ void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
 } // namespace
 
 void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstance) {
-  const auto rank = Mpi::mpi.rank();
   logInfo() << "Begin init output.";
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  const filesystem::path outputPath(seissolParams.output.prefix);
-  const auto outputDir = filesystem::directory_entry(outputPath.parent_path());
-  if (!filesystem::exists(outputDir)) {
-    logWarning() << "Output directory does not exist yet. We therefore create it now.";
-    if (rank == 0) {
-      filesystem::create_directory(outputDir);
-    }
+  const auto outputDir = filesystem::directory_entry(seissolParams.output.outputPath);
+
+  filesystem::path prefix = seissolParams.output.outputPath;
+
+  if (!entryExistsGlobally(outputDir)) {
+    logInfo() << "Output directory does not exist yet. We therefore create it now.";
+
+    createDirectoryGlobally(seissolParams.output.outputPath);
   }
-  seissol::Mpi::barrier(Mpi::mpi.comm());
+
+  if (seissolParams.output.outputDirPerSim) {
+    const auto now = utils::TimeUtils::timeAsString("%Y-%m-%dT%H-%M-%S", time(nullptr));
+    const auto simName = seissolParams.output.outputName + "-" + now;
+    prefix /= simName;
+    createDirectoryGlobally(prefix);
+  }
+
+  logInfo() << "Output directory:" << prefix;
+
+  prefix /= seissolParams.output.outputName;
+
+  logInfo() << "Output file prefix:" << seissolParams.output.outputName;
+
+  // TODO: (after #1180) properly split prefix into dir and simulation name
+  seissolInstance.setOutputPrefix(prefix);
 
   enableWaveFieldOutput(seissolInstance);
   enableFreeSurfaceOutput(seissolInstance);

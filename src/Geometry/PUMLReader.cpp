@@ -25,7 +25,6 @@
 #include <PUML/PartitionGraph.h>
 #include <PUML/PartitionTarget.h>
 #include <PUML/Topology.h>
-#include <PUML/TypeInference.h>
 #include <PUML/Upward.h>
 #include <algorithm>
 #include <array>
@@ -245,14 +244,7 @@ void PUMLReader::read(PumlMesh& meshTopology,
   }
 
   const size_t localCells = meshTopology.numOriginalCells();
-  size_t localStart = 0;
-
-  MPI_Exscan(&localCells,
-             &localStart,
-             1,
-             PUML::MPITypeInfer<size_t>::type(),
-             MPI_SUM,
-             meshTopology.comm());
+  const size_t localStart = Mpi::mpi.scan(localCells, MPI_SUM, false, meshTopology.comm());
 
   std::vector<size_t> cellIdsAsInFile(localCells);
   std::iota(cellIdsAsInFile.begin(), cellIdsAsInFile.end(), localStart);
