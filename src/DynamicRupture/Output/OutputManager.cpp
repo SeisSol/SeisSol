@@ -443,9 +443,15 @@ void OutputManager::initPickpointOutput() {
               alignAlongDipAndStrikeKernel.execute();
             }
 
-            file << "# P_0" << simIndex << "\t" << makeFormatted(rotatedInitialStress[0]) << '\n';
-            file << "# T_s" << simIndex << "\t" << makeFormatted(rotatedInitialStress[3]) << '\n';
-            file << "# T_d" << simIndex << "\t" << makeFormatted(rotatedInitialStress[5]) << '\n';
+            {
+              using namespace misc::quantity_indices;
+              file << "# P_0" << simIndex << "\t" << makeFormatted(rotatedInitialStress[XX])
+                   << '\n';
+              file << "# T_s" << simIndex << "\t" << makeFormatted(rotatedInitialStress[XY])
+                   << '\n';
+              file << "# T_d" << simIndex << "\t" << makeFormatted(rotatedInitialStress[XZ])
+                   << '\n';
+            }
           }
         } else {
           logError() << "Cannot open fault receiver file" << ppfile.fileName;
@@ -467,27 +473,22 @@ void OutputManager::init() {
 
 void OutputManager::initFaceToLtsMap() {
   if (drStorage_ != nullptr) {
-    ::seissol::initializer::StorageBackmap<1> backmap;
-    backmap.setSize(meshReader_->getFault().size());
+    globalFaceToLtsMap_.setSize(meshReader_->getFault().size());
 
     faceToLtsMap_.resize(meshReader_->getFault().size());
-    globalFaceToLtsMap_.resize(faceToLtsMap_.size());
 
     const auto* globalFaceInformation = drStorage_->var<DynamicRupture::FaceInformation>();
     for (auto& layer : drStorage_->leaves()) {
       const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
       for (size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
         faceToLtsMap_[faceInformation[ltsFace].meshFace] = std::make_pair(&layer, ltsFace);
-        backmap.addElement(layer.id(),
-                           globalFaceInformation,
-                           faceInformation,
-                           faceInformation[ltsFace].meshFace,
-                           ltsFace);
-      }
-    }
 
-    for (size_t i = 0; i < meshReader_->getFault().size(); ++i) {
-      globalFaceToLtsMap_[i] = backmap.get(i);
+        globalFaceToLtsMap_.addElement(layer.id(),
+                                       globalFaceInformation,
+                                       faceInformation,
+                                       faceInformation[ltsFace].meshFace,
+                                       ltsFace);
+      }
     }
   }
   impl_->setFaceToLtsMap(&faceToLtsMap_);
