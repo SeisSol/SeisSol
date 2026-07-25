@@ -434,9 +434,9 @@ void OutputManager::initPickpointOutput() {
 
               seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
               alignAlongDipAndStrikeKernel.stressRotationMatrix =
-                  outputData->stressGlbToDipStrikeAligned[i].data();
+                  outputData->stressGlbToDipStrikeAligned[gIdx].data();
               alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
-                  outputData->stressFaceAlignedToGlb[i].data();
+                  outputData->stressFaceAlignedToGlb[gIdx].data();
 
               alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress.data();
               alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress.data();
