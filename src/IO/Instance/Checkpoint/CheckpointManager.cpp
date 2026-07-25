@@ -38,7 +38,12 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
   return [=](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
     writer::Writer writer;
     const auto filename = prefix + std::string("-checkpoint-") + std::to_string(counter) + ".h5";
+
     for (const auto& [_, ckpTree] : dataRegistry) {
+
+      const auto location =
+          writer::instructions::Hdf5Location(filename, {"checkpoint", ckpTree.name});
+
       const std::size_t cells = ckpTree.cells;
       assert(cells == ckpTree.ids.size());
       std::size_t totalCells = 0;
@@ -49,7 +54,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
                     MPI_SUM,
                     Mpi::mpi.comm());
       writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(filename, {"checkpoint", ckpTree.name}),
+          location,
           "__ids",
           writer::WriteBuffer::create(ckpTree.ids.data(), ckpTree.ids.size()),
           datatype::inferDatatype<std::size_t>()));
@@ -76,20 +81,28 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
               variable.data, cells, variable.datatype, std::vector<std::size_t>());
         }
         writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
-            writer::instructions::Hdf5Location(filename, {"checkpoint", ckpTree.name}),
-            variable.name,
-            dataSource,
-            variable.datatype));
+            location, variable.name, dataSource, variable.datatype));
       }
     }
+
+    writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+        writer::instructions::Hdf5Location(filename, {"checkpoint"}),
+        "__order",
+        writer::WriteInline::create(ConvergenceOrder)));
+
     writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
         writer::instructions::Hdf5Location(filename, {"checkpoint"}),
         "__time",
         writer::WriteInline::create(time)));
     writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
         writer::instructions::Hdf5Location(filename, {"checkpoint"}),
-        "__order",
-        writer::WriteInline::create(ConvergenceOrder)));
+        "__alignment",
+        writer::WriteInline::create(Alignment)));
+    writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+        writer::instructions::Hdf5Location(filename, {"checkpoint"}),
+        "__version",
+        writer::WriteInline::create(FormatVersion)));
+
     return writer;
   };
 }
@@ -104,10 +117,21 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   auto reader = reader::file::Hdf5Reader(seissol::Mpi::mpi.comm());
   reader.openFile(file);
   reader.openGroup("checkpoint");
-  const auto convergenceOrderRead = reader.readAttributeScalar<int>("__order");
+  const auto versionRead = reader.readAttributeScalar<std::size_t>("__version");
+  if (versionRead != FormatVersion) {
+    logWarning() << "The checkpoint format version does not match. Read:" << versionRead
+                 << "vs build:" << FormatVersion << ". The checkpoint read will most likely fail.";
+  }
+  const auto convergenceOrderRead = reader.readAttributeScalar<std::size_t>("__order");
   if (convergenceOrderRead != ConvergenceOrder) {
-    logWarning() << "Convergence order does not match. Read:" << convergenceOrderRead << "vs"
-                 << ConvergenceOrder << ". The read will most likely fail.";
+    logWarning() << "Convergence order does not match. Read:" << convergenceOrderRead
+                 << "vs build:" << ConvergenceOrder
+                 << ". The checkpoint read will most likely fail.";
+  }
+  const auto alignmentRead = reader.readAttributeScalar<std::size_t>("__alignment");
+  if (alignmentRead != Alignment) {
+    logWarning() << "Memory alignment and padding does not match. Read:" << alignmentRead
+                 << "vs build:" << Alignment << ". The checkpoint read will most likely fail.";
   }
 
   // the distributors should not be moved (for the closures in the DistributionInstance not to point

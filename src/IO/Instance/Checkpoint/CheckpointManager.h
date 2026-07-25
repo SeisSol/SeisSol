@@ -42,6 +42,8 @@ struct CheckpointTree {
 
 class CheckpointManager {
   public:
+  static constexpr std::size_t FormatVersion = 1;
+
   template <typename VarmapT>
   void registerTree(const std::string& name,
                     initializer::Storage<VarmapT>& storage,

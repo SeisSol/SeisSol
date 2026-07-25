@@ -79,8 +79,10 @@ General format outline:
 * the checkpoint is a Hdf5 file, stored in the ``checkpoint`` group.
 * the group contains two attributes:
 
+  * ``__version``, the version of the checkpoint format (currently fixed to 1)
   * ``__order``, which is the order that checkpoint was recorded in
   * ``__time``, denoting the simulation time that the checkpoint was recorded at
+  * ``__alignment``, denoting the simulation time that the checkpoint was recorded at
 
 * for each storage data structure within SeisSol, we have one subgroup. Each subgroup contains an ``__ids`` field which maps the data to the respective cell/face. It is computed as follows:
 
