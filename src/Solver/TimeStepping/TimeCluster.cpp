@@ -601,10 +601,9 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
                                   streamRuntime);
                             });
 
-    seissolInstance_.flopCounter().incrementNonZeroFlopsPlasticity(
-        numPlasticCells_ * accFlopsNonZero_[static_cast<int>(ComputePart::PlasticityCheck)]);
-    seissolInstance_.flopCounter().incrementHardwareFlopsPlasticity(
-        numPlasticCells_ * accFlopsHardware_[static_cast<int>(ComputePart::PlasticityCheck)]);
+    seissolInstance_.flopCounter().incrementMetric(
+        perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityCheck)],
+        estimate_[static_cast<std::size_t>(ComputePart::PlasticityCheck)] * numPlasticCells_);
   }
 
   if (settings_.integrate) {
