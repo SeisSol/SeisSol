@@ -59,7 +59,7 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       }
       offset += layer.size();
     }
-    checkpoint.registerTree("lts", storage, globalIds);
+    checkpoint.registerStorage("lts", storage, globalIds);
     LTS::registerCheckpointVariables(checkpoint, storage);
   }
 
@@ -78,7 +78,7 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       // theorem)
       faceIdentifiers[i] = fault.globalId * 4 + fault.side;
     }
-    checkpoint.registerTree("dynrup", storage, faceIdentifiers);
+    checkpoint.registerStorage("dynrup", storage, faceIdentifiers);
     dynrup.registerCheckpointVariables(checkpoint, storage);
   }
 
@@ -93,7 +93,7 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       // same as for DR
       faceIdentifiers[i] = meshIds[i] * 4 + static_cast<std::size_t>(sides[i]);
     }
-    checkpoint.registerTree("surface", storage, faceIdentifiers);
+    checkpoint.registerStorage("surface", storage, faceIdentifiers);
     SurfaceLTS::registerCheckpointVariables(checkpoint, storage);
   }
 

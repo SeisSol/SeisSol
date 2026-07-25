@@ -39,13 +39,13 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
     writer::Writer writer;
     const auto filename = prefix + std::string("-checkpoint-") + std::to_string(counter) + ".h5";
 
-    for (const auto& [_, ckpTree] : dataRegistry) {
+    for (const auto& [_, ckpStorage] : dataRegistry) {
 
       const auto location =
-          writer::instructions::Hdf5Location(filename, {"checkpoint", ckpTree.name});
+          writer::instructions::Hdf5Location(filename, {"checkpoint", ckpStorage.name});
 
-      const std::size_t cells = ckpTree.cells;
-      assert(cells == ckpTree.ids.size());
+      const std::size_t cells = ckpStorage.cells;
+      assert(cells == ckpStorage.ids.size());
       std::size_t totalCells = 0;
       MPI_Allreduce(&cells,
                     &totalCells,
@@ -56,23 +56,24 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
       writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
           location,
           "__ids",
-          writer::WriteBuffer::create(ckpTree.ids.data(), ckpTree.ids.size()),
+          writer::WriteBuffer::create(ckpStorage.ids.data(), ckpStorage.ids.size()),
           datatype::inferDatatype<std::size_t>()));
-      for (const auto& variable : ckpTree.variables) {
+      for (const auto& variable : ckpStorage.variables) {
         std::shared_ptr<writer::DataSource> dataSource;
         if (variable.pack.has_value()) {
           // data needs to be transformed, copy
           const auto elemSize = variable.memoryDatatype->size();
           const auto packFn = variable.pack.value();
-          dataSource = writer::GeneratedBuffer::createElementwise<char>(
+          dataSource = writer::GeneratedBuffer::createElementwise<std::byte>(
               elemSize,
               1,
               std::vector<std::size_t>(),
               [=](void* target, std::size_t index) {
-                std::invoke(packFn,
-                            target,
-                            reinterpret_cast<const void*>(
-                                reinterpret_cast<const char*>(variable.data) + index * elemSize));
+                std::invoke(
+                    packFn,
+                    target,
+                    reinterpret_cast<const void*>(
+                        reinterpret_cast<const std::byte*>(variable.data) + index * elemSize));
               },
               variable.datatype);
         } else {
@@ -139,18 +140,18 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   std::list<reader::Distributor> distributors;
   std::vector<reader::Distributor::DistributionInstance> distributions;
 
-  for (auto& [_, ckpTree] : dataRegistry_) {
-    if (reader.hasEntry(ckpTree.name)) {
-      reader.openGroup(ckpTree.name);
+  for (auto& [_, ckpStorage] : dataRegistry_) {
+    if (reader.hasEntry(ckpStorage.name)) {
+      reader.openGroup(ckpStorage.name);
 
-      logInfo() << "Reading group IDs for" << ckpTree.name;
+      logInfo() << "Reading group IDs for" << ckpStorage.name;
       auto groupIds = reader.readData<std::size_t>("__ids");
       auto& distributor = distributors.emplace_back(seissol::Mpi::mpi.comm());
-      distributor.setup(groupIds, ckpTree.ids);
+      distributor.setup(groupIds, ckpStorage.ids);
 
-      for (auto& variable : ckpTree.variables) {
+      for (auto& variable : ckpStorage.variables) {
         if (reader.hasEntry(variable.name)) {
-          logInfo() << "Reading variable" << ckpTree.name << "/" << variable.name;
+          logInfo() << "Reading variable" << ckpStorage.name << "/" << variable.name;
           const std::size_t count = reader.dataCount(variable.name);
           const std::size_t currsize = count * variable.datatype->size();
           if (currsize > storesize) {
@@ -175,13 +176,13 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
         } else {
           logWarning() << "The following variable was not found checkpoint file (instead, using "
                           "default values):"
-                       << ckpTree.name << "/" << variable.name;
+                       << ckpStorage.name << "/" << variable.name;
         }
       }
       reader.closeGroup();
     } else {
       logWarning() << "The following data storage was not found in the checkpoint file:"
-                   << ckpTree.name;
+                   << ckpStorage.name;
     }
   }
   const auto time = reader.readAttributeScalar<double>("__time");
