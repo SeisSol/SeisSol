@@ -89,27 +89,54 @@ struct ExtTriangle {
 };
 
 struct ReceiverPoint {
-  ExtVrtxCoords global;       // physical coords of a receiver
-  ExtVrtxCoords reference;    // reference coords of a receiver
-  ExtTriangle globalTriangle; // a surrounding triangle of a receiver
-  int faultFaceIndex{-1};     // Face Fault index which the receiver belongs to
-  int localFaceSideId{-1};    // Side ID of a reference element
-  int elementIndex{-1};       // Element which the receiver belongs to
-  std::size_t elementGlobalIndex{
-      std::numeric_limits<std::size_t>::max()}; // Element which the receiver belongs to
-  int globalReceiverIndex{-1};                  // receiver index of global list
-  bool isInside{false};                         // If a point is inside the mesh or not
+  // physical coords of a receiver
+  ExtVrtxCoords global;
+
+  // reference coords of a receiver
+  ExtVrtxCoords reference;
+
+  // a surrounding triangle of a receiver
+  ExtTriangle globalTriangle;
+
+  // Face Fault index which the receiver belongs to
+  int faultFaceIndex{-1};
+
+  // Side ID of a reference element
+  int localFaceSideId{-1};
+
+  // Rank-local element ID to which the receiver belongs
+  int elementIndex{-1};
+
+  // Global element ID to which the receiver belongs
+  std::size_t elementGlobalIndex{std::numeric_limits<std::size_t>::max()};
+
+  // receiver index of global list
+  int globalReceiverIndex{-1};
+
+  // If a point is inside the mesh or not
+  bool isInside{false};
+
   int nearestGpIndex{-1};
+
   int faultTag{-1};
-  int simIndex{0}; // Simulation index for multisim
-  int gpIndex{-1}; // Index of the nearest gaussian point considering fused simulations
+
+  // Simulation index for multisim
+  int simIndex{0};
+
+  // Index of the nearest quadrature point considering fused simulations
+  int gpIndex{-1};
 
   // Internal points are required because computed gradients
   // are inaccurate near triangle edges,
   // specifically for low-order elements
   int nearestInternalGpIndex{-1};
-  int internalGpIndexFused{
-      -1}; // Index of the nearest internal gaussian point considering fused simulations
+
+  // Index of the nearest internal quadrature point considering fused simulations
+  int internalGpIndexFused{-1};
+
+  [[nodiscard]] constexpr auto globalFaultFaceId() const {
+    return elementGlobalIndex * Cell::NumFaces + localFaceSideId;
+  }
 };
 using ReceiverPoints = std::vector<ReceiverPoint>;
 
