@@ -34,7 +34,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
     initOutputVariables(elementwiseParams_.outputMask);
     initFaultDirections();
     initRotationMatrices();
-    initBasisFunctions();
+    initBasisFunctions(true);
     initJacobian2dMatrices();
     outputData_->isActive = true;
   }

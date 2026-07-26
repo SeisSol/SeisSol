@@ -63,25 +63,66 @@ struct FrictionLawContext {
 };
 
 #ifdef __CUDACC__
-SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& __restrict /*ctx*/) {
-  __syncthreads();
+SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& __restrict ctx) { __syncthreads(); }
+SEISSOL_DEVICE inline void deviceWarpBarrier(FrictionLawContext& __restrict ctx) { __syncwarp(); }
+SEISSOL_DEVICE inline bool deviceWarpAll(FrictionLawContext& __restrict ctx, bool value) {
+  return __all_sync(0xffffffffU, static_cast<int>(value)) != 0;
 }
 #elif defined(__HIP__)
-SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& __restrict /*ctx*/) {
-  __syncthreads();
+SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& __restrict ctx) { __syncthreads(); }
+SEISSOL_DEVICE inline void deviceWarpBarrier(FrictionLawContext& __restrict ctx) {
+  // __syncwarp has no effect on current AMD GPUs (early 2026)
+  // (nor does the HIP in our current CI support it)
+}
+SEISSOL_DEVICE inline bool deviceWarpAll(FrictionLawContext& __restrict ctx, bool value) {
+  return __all(static_cast<int>(value)) != 0;
 }
 #elif defined(SEISSOL_KERNELS_SYCL)
 inline void deviceBarrier(FrictionLawContext& __restrict ctx) {
   reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->barrier(sycl::access::fence_space::local_space);
 }
+inline void deviceWarpBarrier(FrictionLawContext& __restrict ctx) {
+  auto subgroup = reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->get_sub_group();
+  sycl::group_barrier(subgroup);
+}
+inline bool deviceWarpAll(FrictionLawContext& __restrict ctx, bool value) {
+  auto subgroup = reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->get_sub_group();
+  return sycl::all_of_group(subgroup, value);
+}
 #else
 inline void deviceBarrier(FrictionLawContext& __restrict /*ctx*/) {}
+inline void deviceWarpBarrier(FrictionLawContext& __restrict /*ctx*/) {}
+inline bool deviceWarpAll(FrictionLawContext& __restrict /*ctx*/, bool /*value*/) { return true; }
 #endif
+
+SEISSOL_DEVICE inline real resampleVariable(FrictionLawContext& __restrict ctx, real toResample) {
+  constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
+  constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
+  static_assert(Dim0 == misc::NumPaddedPointsSingleSim);
+  static_assert(Dim0 >= Dim1);
+
+  ctx.sharedMemory[ctx.pointIndex] = toResample;
+  deviceBarrier(ctx);
+
+  const auto simPointIndex = ctx.pointIndex / multisim::NumSimulations;
+  const auto simId = ctx.pointIndex % multisim::NumSimulations;
+  constexpr uint32_t SimPointStride = multisim::MultisimEnabled ? Dim1 : 1U;
+  constexpr uint32_t DataPointStride = multisim::MultisimEnabled ? 1U : Dim0;
+
+  real result{0};
+  for (uint32_t i = 0; i < Dim1; ++i) {
+    result += ctx.args->resampleMatrix[simPointIndex * SimPointStride + i * DataPointStride] *
+              ctx.sharedMemory[i * multisim::NumSimulations + simId];
+  }
+  deviceBarrier(ctx);
+
+  return result;
+}
 
 template <typename Derived>
 class BaseFrictionSolver : public FrictionSolverDetails {
   public:
-  explicit BaseFrictionSolver(seissol::initializer::parameters::DRParameters* drParameters)
+  explicit BaseFrictionSolver(const FrictionLawParameters& drParameters)
       : FrictionSolverDetails(drParameters) {}
   ~BaseFrictionSolver() override = default;
 
@@ -113,6 +154,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
       real startTime = 0;
       real updateTime = ctx.args->fullUpdateTime;
+
       for (uint32_t timeIndex = 0; timeIndex < misc::TimeSteps; ++timeIndex) {
         const real dt = ctx.args->deltaT[timeIndex];
 
@@ -198,7 +240,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     this->currLayerSize_ = layerData.size();
     FrictionSolverInterface::copyStorageToLocal(&dataHost_, layerData);
     Derived::copySpecificStorageDataToLocal(&dataHost_, layerData);
-    dataHost_.drParameters = *this->drParameters_;
+    dataHost_.drParameters = this->drParameters_;
     device::DeviceInstance::getInstance().api->copyToAsync(
         data_, &dataHost_, sizeof(FrictionLawData), runtime.stream());
   }

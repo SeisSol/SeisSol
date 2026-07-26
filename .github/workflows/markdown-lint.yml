@@ -12,7 +12,7 @@ on:
 jobs:
   markdown-lint:
     name: markdown-lint
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
         name: checkout-seissol

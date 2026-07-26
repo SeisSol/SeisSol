@@ -7,6 +7,7 @@
 
 #include "RateAndStateInitializer.h"
 
+#include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
 #include "DynamicRupture/Initializer/BaseDRInitializer.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -54,9 +55,12 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
     auto* rsMuW = layer.var<LTSRateAndState::RsMuW>();
     auto* rsB = layer.var<LTSRateAndState::RsB>();
 
+    auto* convergenceInner = layer.var<LTSRateAndState::ConvergenceInner>();
+    auto* convergenceOuter = layer.var<LTSRateAndState::ConvergenceOuter>();
+
     auto* initialStressInFaultCS = layer.var<LTSRateAndState::InitialStressInFaultCS>();
 
-    const real initialSlipRate =
+    const auto initialSlipRate =
         misc::magnitude(drParameters_->rsInitialSlipRate1, drParameters_->rsInitialSlipRate2);
 
     using namespace dr::misc::quantity_indices;
@@ -65,6 +69,9 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
         dynStressTimePending[ltsFace][pointIndex] = true;
         slipRate1[ltsFace][pointIndex] = drParameters_->rsInitialSlipRate1;
         slipRate2[ltsFace][pointIndex] = drParameters_->rsInitialSlipRate2;
+
+        convergenceInner[ltsFace][pointIndex] = true;
+        convergenceOuter[ltsFace][pointIndex] = true;
 
         if (rsF0Param) {
           rsF0[ltsFace][pointIndex] = drParameters_->rsF0;
@@ -108,7 +115,7 @@ RateAndStateInitializer::StateAndFriction
   const double absoluteTraction = misc::magnitude(traction1, traction2);
   const double tmp = std::abs(absoluteTraction / (rsA * pressure));
   result.stateVariable = rsSl0 / rsSr0 *
-                         std::exp((rsA * std::log(std::exp(tmp) - std::exp(-tmp)) - rsF0 -
+                         std::exp((rsA * seissol::dr::friction_law::rs::logsinh(2.0, tmp) - rsF0 -
                                    rsA * std::log(initialSlipRate / rsSr0)) /
                                   rsB);
   if (result.stateVariable < 0) {
@@ -116,9 +123,11 @@ RateAndStateInitializer::StateAndFriction
         << "Found a negative state variable while initializing the fault. Are you sure your "
            "setup is correct?";
   }
-  const double tmp2 = initialSlipRate * 0.5 / rsSr0 *
-                      std::exp((rsF0 + rsB * std::log(rsSr0 * result.stateVariable / rsSl0)) / rsA);
-  result.frictionCoefficient = rsA * std::asinh(tmp2);
+  const double explog = (rsF0 + rsB * std::log(rsSr0 * result.stateVariable / rsSl0)) / rsA;
+  const double expval = seissol::dr::friction_law::rs::computeCExp(explog);
+  const double linval = initialSlipRate * 0.5 / rsSr0;
+  result.frictionCoefficient =
+      rsA * seissol::dr::friction_law::rs::arsinhexp(linval, explog, expval);
   return result;
 }
 
@@ -156,14 +165,17 @@ RateAndStateInitializer::StateAndFriction
   const double absoluteTraction = misc::magnitude(traction1, traction2);
   const double tmp = std::abs(absoluteTraction / (rsA * pressure));
   result.stateVariable =
-      rsA * std::log(2.0 * rsSr0 / initialSlipRate * (std::exp(tmp) - std::exp(-tmp)) / 2.0);
+      rsA * seissol::dr::friction_law::rs::logsinh(2.0 * rsSr0 / initialSlipRate, tmp);
   if (result.stateVariable < 0) {
     logWarning()
         << "Found a negative state variable while initializing the fault. Are you sure your "
            "setup is correct?";
   }
-  const double tmp2 = initialSlipRate * 0.5 / rsSr0 * std::exp(result.stateVariable / rsA);
-  result.frictionCoefficient = rsA * std::asinh(tmp2);
+  const double explog = result.stateVariable / rsA;
+  const double expval = seissol::dr::friction_law::rs::computeCExp(explog);
+  const double linval = initialSlipRate * 0.5 / rsSr0;
+  result.frictionCoefficient =
+      rsA * seissol::dr::friction_law::rs::arsinhexp(linval, explog, expval);
   return result;
 }
 

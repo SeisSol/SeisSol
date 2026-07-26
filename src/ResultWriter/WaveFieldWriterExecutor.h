@@ -34,11 +34,7 @@ enum BufferTags {
   Clustering = 4,
   GlobalIds = 5,
   Variables0 = 6,
-  LowCells = 7,
-  LowVertices = 8,
-  LowOutputFlags = 9,
-  LowVariables0 = 10,
-  BuffertagMax = LowVariables0
+  BuffertagMax = Variables0
 };
 
 struct WaveFieldInitParam {
@@ -57,20 +53,14 @@ class WaveFieldWriterExecutor {
   /** The XMDF Writer used for the wave field */
   xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>* waveFieldWriter_{nullptr};
 
-  /** The XDMF Writer for low order data */
-  xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>* lowWaveFieldWriter_{nullptr};
-
   /** Buffer id for the first variable for high and low order output */
-  unsigned int variableBufferIds_[2]{};
+  unsigned int variableBufferIds_[1]{};
 
   /** The total number of (high order) variables */
   unsigned int numVariables_{0};
 
   /** Flag indicated which variables should be written */
   const bool* outputFlags_{nullptr};
-
-  /** Flags indicating which low order variables should be written */
-  const bool* lowOutputFlags_{nullptr};
 
   /** The MPI communicator for the XDMF writer */
   MPI_Comm comm_{MPI_COMM_NULL};
@@ -99,26 +89,26 @@ class WaveFieldWriterExecutor {
     const char* outputPrefix = static_cast<const char*>(info.buffer(param.bufferIds[OutputPrefix]));
 
     //
-    // High order I/O
+    // I/O
     //
     numVariables_ = info.bufferSize(param.bufferIds[OutputFlags]) / sizeof(bool);
     outputFlags_ = static_cast<const bool*>(info.buffer(param.bufferIds[OutputFlags]));
 
     varNames_ = std::make_shared<std::vector<std::string>>();
-    varNamesLowRes_ = std::make_shared<std::vector<std::string>>();
     for (const auto& quantity : seissol::model::MaterialT::Quantities) {
       varNames_->emplace_back(quantity);
-      varNamesLowRes_->emplace_back("low_" + quantity);
     }
     for (const auto& quantity : seissol::model::PlasticityData::Quantities) {
       varNames_->emplace_back(quantity);
-      varNamesLowRes_->emplace_back("low_" + quantity);
+    }
+    for (const auto& quantity : seissol::model::MaterialT::Quantities) {
+      varNames_->emplace_back("int-" + quantity);
     }
 
     std::vector<const char*> variables;
     for (unsigned int i = 0; i < numVariables_; i++) {
       if (outputFlags_[i]) {
-        assert(i < seissol::model::MaterialT::Quantities.size() +
+        assert(i < seissol::model::MaterialT::Quantities.size() * 2 +
                        seissol::model::PlasticityData::Quantities.size());
         variables.push_back(varNames_->at(i).c_str());
       }
@@ -157,42 +147,9 @@ class WaveFieldWriterExecutor {
 
       waveFieldWriter_->writeExtraIntCellData(
           1, static_cast<const unsigned int*>(info.buffer(param.bufferIds[GlobalIds])));
-      logInfo() << "High order output initialized";
-
-      //
-      // Low order I/O
-      //
-      if (param.bufferIds[LowCells] >= 0) {
-        // Pstrain or Integrated quantities enabled
-        lowOutputFlags_ = static_cast<const bool*>(info.buffer(param.bufferIds[LowOutputFlags]));
-
-        std::vector<const char*> lowVariables;
-        for (size_t i = 0; i < NumLowvariables; i++) {
-          if (lowOutputFlags_[i]) {
-            lowVariables.push_back(varNamesLowRes_->at(i).c_str());
-          }
-        }
-
-        lowWaveFieldWriter_ = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>(
-            type, (std::string(outputPrefix) + "-low").c_str());
-
-        lowWaveFieldWriter_->setComm(comm_);
-        lowWaveFieldWriter_->setBackupTimeStamp(param.backupTimeStamp);
-
-        lowWaveFieldWriter_->init(lowVariables, std::vector<const char*>(), {}, vertexFilter);
-        lowWaveFieldWriter_->setMesh(
-            info.bufferSize(param.bufferIds[LowCells]) / (4 * sizeof(unsigned int)),
-            static_cast<const unsigned int*>(info.buffer(param.bufferIds[LowCells])),
-            info.bufferSize(param.bufferIds[LowVertices]) / (3 * sizeof(double)),
-            static_cast<const double*>(info.buffer(param.bufferIds[LowVertices])),
-            param.timestep != 0);
-
-        logInfo() << "Low order output initialized";
-      }
 
       // Save ids for the variables
       variableBufferIds_[0] = param.bufferIds[Variables0];
-      variableBufferIds_[1] = param.bufferIds[LowVariables0];
 
       logInfo() << "Initializing XDMF wave field output. Done.";
     }
@@ -223,23 +180,6 @@ class WaveFieldWriterExecutor {
 
       waveFieldWriter_->flush();
 
-      // Low order output
-      if (lowWaveFieldWriter_ != nullptr) {
-        lowWaveFieldWriter_->addTimeStep(param.time);
-
-        nextId = 0;
-        for (unsigned int i = 0; i < NumLowvariables; i++) {
-          if (lowOutputFlags_[i]) {
-            lowWaveFieldWriter_->writeCellData(
-                nextId, static_cast<const real*>(info.buffer(variableBufferIds_[1] + nextId)));
-
-            nextId++;
-          }
-        }
-
-        lowWaveFieldWriter_->flush();
-      }
-
       stopwatch_.pause();
     }
   }
@@ -256,13 +196,11 @@ class WaveFieldWriterExecutor {
 
     delete waveFieldWriter_;
     waveFieldWriter_ = nullptr;
-    delete lowWaveFieldWriter_;
-    lowWaveFieldWriter_ = nullptr;
   }
 
-  static constexpr unsigned int NumPlasticityVariables = 7;
-  static constexpr unsigned int NumIntegratedVariables = 9;
-  static constexpr unsigned int NumLowvariables = NumIntegratedVariables;
+  static constexpr unsigned int NumPlasticityVariables =
+      seissol::model::PlasticityData::Quantities.size();
+  static constexpr unsigned int NumVariables = seissol::model::MaterialT::Quantities.size();
 };
 
 } // namespace seissol::writer

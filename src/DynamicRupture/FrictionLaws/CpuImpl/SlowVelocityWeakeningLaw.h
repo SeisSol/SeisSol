@@ -54,11 +54,11 @@ class SlowVelocityWeakeningLaw
       const real localA = this->a_[ltsFace][pointIndex];
       const real localSl0 = this->sl0_[ltsFace][pointIndex];
       const real log1 =
-          std::log(this->drParameters_->rsSr0 * localStateVariable[pointIndex] / localSl0);
+          std::log(this->drParameters_.rsSr0 * localStateVariable[pointIndex] / localSl0);
       const real localF0 = this->f0_[ltsFace][pointIndex];
       const real localB = this->b_[ltsFace][pointIndex];
 
-      const real cLin = static_cast<real>(0.5) / this->drParameters_->rsSr0;
+      const real cLin = static_cast<real>(0.5) / this->drParameters_.rsSr0;
       const real cExpLog = (localF0 + localB * log1) / localA;
       const real cExp = rs::computeCExp(cExpLog);
       const real acLin = localA * cLin;
@@ -116,18 +116,6 @@ class SlowVelocityWeakeningLaw
     for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       this->stateVariable_[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
     }
-  }
-
-  void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
-                             std::size_t ltsFace) {
-    [[maybe_unused]] const real tmp =
-        0.5 / this->drParameters_->rsSr0 *
-        std::exp((this->drParameters_->rsF0 +
-                  this->drParameters_->rsB *
-                      std::log(this->drParameters_->rsSr0 * localStateVariable[0] /
-                               this->drParameters_->rsSr0)) /
-                 this->a_[ltsFace][0]);
-    assert(!std::isnan(tmp) && "nonConvergence RS Newton");
   }
 };
 } // namespace seissol::dr::friction_law::cpu

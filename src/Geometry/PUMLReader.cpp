@@ -119,25 +119,26 @@ inline bool
     // else:
     if (getBCType(faceType.value()) == BCType::Internal) {
       if (cellNeighbors[side] < 0 && !face.isShared()) {
-        logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a"
-                     << bcToString(sideBC, faceMap)
-                     << "boundary condition, but the neighboring element doesn't exist";
+        logWarning(true) << "Element" << cellIdAsInFile << ", side" << side << " has a"
+                         << bcToString(sideBC, faceMap)
+                         << "boundary condition, but the neighboring element doesn't exist";
         return false;
       }
     }
     // external boundaries must not have neighboring elements:
     else {
       if (cellNeighbors[side] >= 0 || face.isShared()) {
-        logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a"
-                     << bcToString(sideBC, faceMap)
-                     << "boundary condition, but a neighboring element exists";
+        logWarning(true) << "Element" << cellIdAsInFile << ", side" << side << " has a"
+                         << bcToString(sideBC, faceMap)
+                         << "boundary condition, but a neighboring element exists";
         return false;
       }
     }
   } else {
     // ignore unknown boundary conditions and warn
-    logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a boundary condition ("
-                 << sideBC << ") which is not understood by this version of SeisSol";
+    logWarning(true) << "Element" << cellIdAsInFile << ", side" << side
+                     << " has a boundary condition (" << sideBC
+                     << ") which is not understood by this version of SeisSol";
     return false;
   }
   return true;
