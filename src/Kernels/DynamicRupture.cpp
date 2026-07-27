@@ -26,6 +26,7 @@
 #include <stdint.h>
 #include <utils/logger.h>
 #include <yateto.h>
+#include <yateto/InitTools.h>
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
@@ -167,21 +168,34 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 }
 
 PerformanceEstimate DynamicRupture::metrics(const DRFaceInformation& faceInfo) const {
-  auto estimate = timeKernel_.metrics();
+  if (isDeviceOn()) {
+    return PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR>(faceInfo.plusSide,
+                                                                                0) +
+           PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR>(
+               faceInfo.minusSide, faceInfo.faceRelation);
+  } else {
+    auto estimate = timeKernel_.metrics();
 
-  // 2x evaluateTaylorExpansion
-  estimate *= 2;
+    // 2x evaluateTaylorExpansion
+    estimate *= 2;
 
-  estimate += PerformanceEstimate::fromKernel<
-      dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints>(faceInfo.plusSide, 0);
+    estimate += PerformanceEstimate::fromKernel<
+        dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints>(faceInfo.plusSide, 0);
 
-  estimate += PerformanceEstimate::fromKernel<
-      dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints>(faceInfo.minusSide,
-                                                                       faceInfo.faceRelation);
+    estimate += PerformanceEstimate::fromKernel<
+        dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints>(faceInfo.minusSide,
+                                                                         faceInfo.faceRelation);
 
-  estimate *= dr::misc::TimeSteps;
+    estimate *= dr::misc::TimeSteps;
 
-  return estimate;
+    // legacy CPU bandwidth estimate
+    estimate.bytes =
+        (tensor::TinvT::size() + tensor::QInterpolated::size() * 2 * dr::misc::TimeSteps +
+         yateto::computeFamilySize<tensor::dQ>() * 2) *
+        sizeof(real);
+
+    return estimate;
+  }
 }
 
 } // namespace seissol::kernels

@@ -449,11 +449,20 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
   PerformanceEstimate estimate;
   estimate += PerformanceEstimate::fromKernel<seissol::kernel::volume>();
 
+#if defined(ACL_DEVICE) && defined(SEISSOL_DEVICE_COMBINE_LOCAL_FLUX)
+  constexpr bool CombineLocalFlux = true;
+#else
+  constexpr bool CombineLocalFlux = false;
+#endif
+
+  if constexpr (CombineLocalFlux) {
+    estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxAll>();
+  }
+
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // Local flux is executed for all faces that are not dynamic rupture.
     // For those cells, the flux is taken into account during the neighbor kernel.
-    // Or we're on the GPU where we run the kernel anyways.
-    if (faceTypes[face] != FaceType::DynamicRupture || isDeviceOn()) {
+    if (faceTypes[face] != FaceType::DynamicRupture && !CombineLocalFlux) {
       estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFlux>(face);
     }
 

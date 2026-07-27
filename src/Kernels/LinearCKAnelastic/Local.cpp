@@ -115,8 +115,18 @@ void Local::computeIntegral(
 PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const {
   auto estimate = PerformanceEstimate::fromKernel<seissol::kernel::volumeExt>();
 
+#if defined(ACL_DEVICE) && defined(SEISSOL_DEVICE_COMBINE_LOCAL_FLUX)
+  constexpr bool CombineLocalFlux = true;
+#else
+  constexpr bool CombineLocalFlux = false;
+#endif
+
+  if constexpr (CombineLocalFlux) {
+    estimate += PerformanceEstimate::fromKernel<seissol::kernel::fluxLocalAll>();
+  }
+
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    if (faceTypes[face] != FaceType::DynamicRupture || isDeviceOn()) {
+    if (faceTypes[face] != FaceType::DynamicRupture || !CombineLocalFlux) {
       estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxExt>(face);
     }
   }
