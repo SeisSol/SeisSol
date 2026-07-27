@@ -172,10 +172,10 @@ PerformanceEstimate DynamicRupture::metrics(const DRFaceInformation& faceInfo) c
   // 2x evaluateTaylorExpansion
   estimate *= 2;
 
-  estimate += PerformanceEstimate::fromYatetoKernel<
+  estimate += PerformanceEstimate::fromKernel<
       dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints>(faceInfo.plusSide, 0);
 
-  estimate += PerformanceEstimate::fromYatetoKernel<
+  estimate += PerformanceEstimate::fromKernel<
       dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints>(faceInfo.minusSide,
                                                                        faceInfo.faceRelation);
 

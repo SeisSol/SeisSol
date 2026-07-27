@@ -37,17 +37,15 @@ PerformanceEstimate GravitationalFreeSurfaceBc::metrics(int8_t face, FaceType /*
                                        2;  // Updating integral of displacement
     constexpr auto FlopsUpdates = FlopsPerQuadpoint * NumberOfNodes;
 
-    estimate +=
-        PerformanceEstimate::fromYatetoKernel<kernel::projectDerivativeToNodalBoundaryRotated>(
-            order - 1, face);
+    estimate += PerformanceEstimate::fromKernel<kernel::projectDerivativeToNodalBoundaryRotated>(
+        order - 1, face);
 
     estimate.hardwareFlop += FlopsUpdates;
     estimate.nonzeroFlop += FlopsUpdates;
   }
 
   // Two rotations: One to face-aligned, one to global
-  estimate.hardwareFlop += 2 * kernel::rotateFaceDisplacement::HardwareFlops;
-  estimate.nonzeroFlop += 2 * kernel::rotateFaceDisplacement::NonZeroFlops;
+  estimate += PerformanceEstimate::fromKernel<kernel::rotateFaceDisplacement>() * 2;
 
   return estimate;
 }

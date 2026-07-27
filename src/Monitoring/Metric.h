@@ -39,18 +39,11 @@ struct PerformanceEstimate {
   }
 
   template <typename T, typename... Args>
-  static PerformanceEstimate fromYatetoKernel(Args... kargs) {
-    if constexpr (sizeof...(Args) == 0) {
-      return PerformanceEstimate{
-          T::HardwareFlops, T::NonZeroFlops, 0, T::OutboundBytes + T::InboundBytes};
-    } else {
-      return PerformanceEstimate{
-          T::hardwareFlops(kargs...),
-          T::nonZeroFlops(kargs...),
-          0,
-          0 // TODO
-      };
-    }
+  static auto fromKernel(Args... kargs) -> PerformanceEstimate {
+    return PerformanceEstimate{T::hardwareFlops(kargs...),
+                               T::nonZeroFlops(kargs...),
+                               0,
+                               T::outboundBytes(kargs...) + T::inboundBytes(kargs...)};
   }
 };
 

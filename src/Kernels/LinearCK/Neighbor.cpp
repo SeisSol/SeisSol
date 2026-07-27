@@ -201,11 +201,11 @@ std::pair<PerformanceEstimate, PerformanceEstimate>
     case FaceType::Regular:
       // regular neighbor
       assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] < 3);
-      neigh += PerformanceEstimate::fromYatetoKernel<kernel::neighboringFlux>(
+      neigh += PerformanceEstimate::fromKernel<kernel::neighboringFlux>(
           neighboringIndices[face][1], neighboringIndices[face][0], face);
       break;
     case FaceType::DynamicRupture:
-      neighDR += PerformanceEstimate::fromYatetoKernel<dynamicRupture::kernel::nodalFlux>(
+      neighDR += PerformanceEstimate::fromKernel<dynamicRupture::kernel::nodalFlux>(
           cellDrMapping[face].side, cellDrMapping[face].faceRelation);
       break;
     default:

@@ -142,15 +142,15 @@ std::pair<PerformanceEstimate, PerformanceEstimate>
     if (faceTypes[face] == FaceType::Regular) {
       assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] < 3);
 
-      regular += PerformanceEstimate::fromYatetoKernel<seissol::kernel::neighborFluxExt>(
+      regular += PerformanceEstimate::fromKernel<seissol::kernel::neighborFluxExt>(
           neighboringIndices[face][1], neighboringIndices[face][0], face);
     } else if (faceTypes[face] == FaceType::DynamicRupture) {
-      dr += PerformanceEstimate::fromYatetoKernel<dynamicRupture::kernel::nodalFlux>(
+      dr += PerformanceEstimate::fromKernel<dynamicRupture::kernel::nodalFlux>(
           cellDrMapping[face].side, cellDrMapping[face].faceRelation);
     }
   }
 
-  regular += PerformanceEstimate::fromYatetoKernel<kernel::neighbor>();
+  regular += PerformanceEstimate::fromKernel<kernel::neighbor>();
 
   return {regular, dr};
 }

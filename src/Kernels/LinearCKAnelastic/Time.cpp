@@ -120,7 +120,7 @@ void Spacetime::computeAder(const real* coeffs,
 }
 
 PerformanceEstimate Spacetime::metrics() const {
-  return PerformanceEstimate::fromYatetoKernel<kernel::derivative>();
+  return PerformanceEstimate::fromKernel<kernel::derivative>();
 }
 
 std::uint64_t Spacetime::bytesAder() const {
@@ -161,7 +161,7 @@ void Time::evaluate(const real* coeffs,
 }
 
 PerformanceEstimate Time::metrics() const {
-  return PerformanceEstimate::fromYatetoKernel<kernel::derivativeTaylorExpansionEla>();
+  return PerformanceEstimate::fromKernel<kernel::derivativeTaylorExpansionEla>();
 }
 
 void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,

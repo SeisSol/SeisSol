@@ -447,14 +447,14 @@ void Local::evaluateBatchedTimeDependentBc(
 
 PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const {
   PerformanceEstimate estimate;
-  estimate += PerformanceEstimate::fromYatetoKernel<seissol::kernel::volume>();
+  estimate += PerformanceEstimate::fromKernel<seissol::kernel::volume>();
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // Local flux is executed for all faces that are not dynamic rupture.
     // For those cells, the flux is taken into account during the neighbor kernel.
     // Or we're on the GPU where we run the kernel anyways.
     if (faceTypes[face] != FaceType::DynamicRupture || isDeviceOn()) {
-      estimate += PerformanceEstimate::fromYatetoKernel<seissol::kernel::localFlux>(face);
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFlux>(face);
     }
 
     // Take boundary condition flops into account.
@@ -463,21 +463,19 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
     // The (probably incorrect) assumption is that they are negligible.
     switch (faceTypes[face]) {
     case FaceType::FreeSurfaceGravity:
-      estimate += PerformanceEstimate::fromYatetoKernel<seissol::kernel::localFluxNodal>(face);
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal>(face);
       estimate +=
-          PerformanceEstimate::fromYatetoKernel<seissol::kernel::projectToNodalBoundaryRotated>(
-              face);
+          PerformanceEstimate::fromKernel<seissol::kernel::projectToNodalBoundaryRotated>(face);
       break;
     case FaceType::Dirichlet:
-      estimate += PerformanceEstimate::fromYatetoKernel<seissol::kernel::localFluxNodal>(face);
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal>(face);
       estimate +=
-          PerformanceEstimate::fromYatetoKernel<seissol::kernel::projectToNodalBoundaryRotated>(
-              face);
+          PerformanceEstimate::fromKernel<seissol::kernel::projectToNodalBoundaryRotated>(face);
       break;
     case FaceType::Analytical:
-      estimate += PerformanceEstimate::fromYatetoKernel<seissol::kernel::localFluxNodal>(face);
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal>(face);
       estimate +=
-          PerformanceEstimate::fromYatetoKernel<seissol::kernel::updateINodal>() * ConvergenceOrder;
+          PerformanceEstimate::fromKernel<seissol::kernel::updateINodal>() * ConvergenceOrder;
       break;
     default:
       break;

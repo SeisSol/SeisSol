@@ -298,16 +298,16 @@ std::pair<PerformanceEstimate, PerformanceEstimate> Plasticity::metrics() {
   PerformanceEstimate yield;
 
   // flops from checking, i.e. outside if (adjust) {}
-  check += PerformanceEstimate::fromYatetoKernel<kernel::plConvertToNodal>();
+  check += PerformanceEstimate::fromKernel<kernel::plConvertToNodal>();
 
   // compute mean stress
-  check += PerformanceEstimate::fromYatetoKernel<kernel::plComputeMean>();
+  check += PerformanceEstimate::fromKernel<kernel::plComputeMean>();
 
   // subtract mean stress
-  check += PerformanceEstimate::fromYatetoKernel<kernel::plSubtractMean>();
+  check += PerformanceEstimate::fromKernel<kernel::plSubtractMean>();
 
   // compute second invariant
-  check += PerformanceEstimate::fromYatetoKernel<kernel::plComputeSecondInvariant>();
+  check += PerformanceEstimate::fromKernel<kernel::plComputeSecondInvariant>();
 
   // compute taulim (1 add, 1 mul, max NOT counted)
   check.nonzeroFlop += static_cast<std::uint64_t>(2 * tensor::meanStress::size());
@@ -316,7 +316,7 @@ std::pair<PerformanceEstimate, PerformanceEstimate> Plasticity::metrics() {
   // check for yield (NOT counted, as it would require counting the number of yielding points)
 
   // flops from plastic yielding, i.e. inside if (adjust) {}
-  yield += PerformanceEstimate::fromYatetoKernel<kernel::plConvertToModal>();
+  yield += PerformanceEstimate::fromKernel<kernel::plConvertToModal>();
 
   // manually counted
   yield.nonzeroFlop += static_cast<std::uint64_t>(tensor::QStressNodal::size() * 6);

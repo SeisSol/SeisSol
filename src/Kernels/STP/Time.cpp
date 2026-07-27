@@ -150,7 +150,7 @@ void Spacetime::computeAder(const real* coeffs,
 }
 
 PerformanceEstimate Spacetime::metrics() const {
-  auto estimate = PerformanceEstimate::fromYatetoKernel<kernel::spaceTimePredictor>();
+  auto estimate = PerformanceEstimate::fromKernel<kernel::spaceTimePredictor>();
 
   estimate.nonzeroFlop += 3 * init::star::size(0);
   estimate.hardwareFlop += 3 * init::star::size(0);
@@ -266,7 +266,7 @@ void Time::evaluateBatched(const real* coeffs,
 }
 
 PerformanceEstimate Time::metrics() const {
-  return PerformanceEstimate::fromYatetoKernel<kernel::evaluateDOFSAtTimeSTP>();
+  return PerformanceEstimate::fromKernel<kernel::evaluateDOFSAtTimeSTP>();
 }
 
 void Time::setGlobalData(const CompoundGlobalData& global) {}

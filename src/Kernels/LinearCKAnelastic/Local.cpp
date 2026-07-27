@@ -113,15 +113,15 @@ void Local::computeIntegral(
 }
 
 PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const {
-  auto estimate = PerformanceEstimate::fromYatetoKernel<seissol::kernel::volumeExt>();
+  auto estimate = PerformanceEstimate::fromKernel<seissol::kernel::volumeExt>();
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     if (faceTypes[face] != FaceType::DynamicRupture || isDeviceOn()) {
-      estimate += PerformanceEstimate::fromYatetoKernel<seissol::kernel::localFluxExt>(face);
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxExt>(face);
     }
   }
 
-  estimate += PerformanceEstimate::fromYatetoKernel<seissol::kernel::local>();
+  estimate += PerformanceEstimate::fromKernel<seissol::kernel::local>();
 
   return estimate;
 }
