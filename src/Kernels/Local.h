@@ -77,8 +77,6 @@ class LocalKernel : public Kernel {
 
   [[nodiscard]] virtual PerformanceEstimate
       metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const = 0;
-
-  [[nodiscard]] virtual std::uint64_t bytesIntegral() const = 0;
 };
 
 } // namespace seissol::kernels

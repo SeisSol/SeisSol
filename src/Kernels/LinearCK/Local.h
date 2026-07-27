@@ -56,8 +56,6 @@ class Local : public LocalKernel {
   [[nodiscard]] PerformanceEstimate
       metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const override;
 
-  [[nodiscard]] std::uint64_t bytesIntegral() const override;
-
   protected:
   kernel::volume volumeKernelPrototype_;
   kernel::localFlux localFluxKernelPrototype_;

@@ -31,8 +31,6 @@ class Neighbor : public NeighborKernel {
               const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
               const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping) const override;
 
-  [[nodiscard]] std::uint64_t bytesNeighborsIntegral() const override;
-
   protected:
   kernel::neighborFluxExt nfKrnlPrototype_;
   kernel::neighbor nKrnlPrototype_;

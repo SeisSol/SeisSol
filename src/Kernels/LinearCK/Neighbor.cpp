@@ -214,10 +214,7 @@ std::pair<PerformanceEstimate, PerformanceEstimate>
     }
   }
 
-  return {neigh, neighDR};
-}
-
-std::uint64_t Neighbor::bytesNeighborsIntegral() const {
+  // legacy bandwidth estimate
   std::uint64_t reals = 0;
 
   // 4 * tElasticDOFS load, DOFs load, DOFs write
@@ -225,7 +222,9 @@ std::uint64_t Neighbor::bytesNeighborsIntegral() const {
   // flux solvers load
   reals += static_cast<std::uint64_t>(4 * tensor::AminusT::size());
 
-  return reals * sizeof(real);
+  neigh.bytes = reals * sizeof(real);
+
+  return {neigh, neighDR};
 }
 
 } // namespace seissol::kernels::solver::linearck

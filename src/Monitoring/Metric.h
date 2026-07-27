@@ -24,7 +24,8 @@ struct PerformanceEstimate {
   // legacy value; bytes transferred in/out by CPU kernels
   std::uint64_t bytes{0};
 
-  // non-const bytes transferred in/out by generated (Yateto) kernels
+  // non-const bytes transferred in/out by generated (Yateto) kernels. Currently mostly relevant for
+  // the GPU (due to kernel == loop correspondence).
   std::uint64_t kernelBytes{0};
 
   constexpr auto operator+(const PerformanceEstimate& other) const -> PerformanceEstimate {

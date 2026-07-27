@@ -120,10 +120,9 @@ void Spacetime::computeAder(const real* coeffs,
 }
 
 PerformanceEstimate Spacetime::metrics() const {
-  return PerformanceEstimate::fromKernel<kernel::derivative>();
-}
+  auto estimate = PerformanceEstimate::fromKernel<kernel::derivative>();
 
-std::uint64_t Spacetime::bytesAder() const {
+  // legacy bandwidth estimate
   std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
@@ -135,7 +134,9 @@ std::uint64_t Spacetime::bytesAder() const {
 
   /// \todo incorporate derivatives
 
-  return reals * sizeof(real);
+  estimate.bytes = reals * sizeof(real);
+
+  return estimate;
 }
 
 void Time::evaluate(const real* coeffs,

@@ -67,8 +67,6 @@ auto ProxyKernelHostAder::performanceEstimate(ProxyData& data) const -> Performa
     ret += data.spacetimeKernel.metrics();
   }
 
-  ret.bytes = static_cast<std::size_t>(data.spacetimeKernel.bytesAder() * nrOfCells);
-
   return ret;
 }
 auto ProxyKernelHostAder::needsDR() const -> bool { return false; }
@@ -102,10 +100,6 @@ auto ProxyKernelHostLocalWOAder::performanceEstimate(ProxyData& data) const -> P
   for (std::size_t cell = 0; cell < nrOfCells; ++cell) {
     ret += data.localKernel.metrics(cellInformation[cell].faceTypes);
   }
-
-  const auto bytes = data.localKernel.bytesIntegral();
-
-  ret.bytes = static_cast<std::size_t>(nrOfCells * bytes);
 
   return ret;
 }
@@ -215,8 +209,6 @@ auto ProxyKernelHostNeighbor::performanceEstimate(ProxyData& data) const -> Perf
         cellInformation[cell].faceTypes, cellInformation[cell].faceRelations, drMapping[cell]);
     ret += cellReg + cellDR;
   }
-
-  ret.bytes = static_cast<std::size_t>(data.neighborKernel.bytesNeighborsIntegral() * nrOfCells);
 
   return ret;
 }

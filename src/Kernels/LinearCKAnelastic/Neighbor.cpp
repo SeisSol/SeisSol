@@ -152,10 +152,7 @@ std::pair<PerformanceEstimate, PerformanceEstimate>
 
   regular += PerformanceEstimate::fromKernel<kernel::neighbor>();
 
-  return {regular, dr};
-}
-
-std::uint64_t Neighbor::bytesNeighborsIntegral() const {
+  // legacy bandwidth estimate
   std::uint64_t reals = 0;
 
   // 4 * tElasticDOFS load, DOFs load, DOFs write
@@ -163,7 +160,9 @@ std::uint64_t Neighbor::bytesNeighborsIntegral() const {
   // flux solvers load
   reals += 4 * tensor::AminusT::size() + tensor::w::size();
 
-  return reals * sizeof(real);
+  regular.bytes = reals * sizeof(real);
+
+  return {regular, dr};
 }
 
 void Neighbor::computeBatchedNeighborsIntegral(

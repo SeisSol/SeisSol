@@ -123,10 +123,7 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
 
   estimate += PerformanceEstimate::fromKernel<seissol::kernel::local>();
 
-  return estimate;
-}
-
-std::uint64_t Local::bytesIntegral() const {
+  // legacy bandwidth estimate
   std::uint64_t reals = 0;
 
   // star matrices load
@@ -138,7 +135,9 @@ std::uint64_t Local::bytesIntegral() const {
   // DOFs write
   reals += tensor::Q::size() + tensor::Qane::size();
 
-  return reals * sizeof(real);
+  estimate.bytes = reals * sizeof(real);
+
+  return estimate;
 }
 
 void Local::computeBatchedIntegral(

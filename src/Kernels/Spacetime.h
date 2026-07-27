@@ -66,8 +66,6 @@ class SpacetimeKernel : public Kernel {
                                   seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   [[nodiscard]] virtual PerformanceEstimate metrics() const = 0;
-
-  [[nodiscard]] virtual std::uint64_t bytesAder() const = 0;
 };
 
 } // namespace seissol::kernels

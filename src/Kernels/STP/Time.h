@@ -43,8 +43,6 @@ class Spacetime : public SpacetimeKernel {
 
   [[nodiscard]] PerformanceEstimate metrics() const override;
 
-  [[nodiscard]] std::uint64_t bytesAder() const override;
-
   private:
   void executeSTP(double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp);
 

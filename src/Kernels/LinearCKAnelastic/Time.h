@@ -35,8 +35,6 @@ class Spacetime : public SpacetimeKernel {
 
   [[nodiscard]] PerformanceEstimate metrics() const override;
 
-  [[nodiscard]] std::uint64_t bytesAder() const override;
-
   protected:
   kernel::derivative krnlPrototype_;
 

@@ -155,10 +155,7 @@ PerformanceEstimate Spacetime::metrics() const {
   estimate.nonzeroFlop += 3 * init::star::size(0);
   estimate.hardwareFlop += 3 * init::star::size(0);
 
-  return estimate;
-}
-
-std::uint64_t Spacetime::bytesAder() const {
+  // legacy bandwidth estimate
   std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
@@ -172,7 +169,9 @@ std::uint64_t Spacetime::bytesAder() const {
 
   /// \todo incorporate derivatives
 
-  return reals * sizeof(real);
+  estimate.bytes = reals * sizeof(real);
+
+  return estimate;
 }
 
 void Spacetime::computeBatchedAder(
