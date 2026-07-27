@@ -10,10 +10,21 @@
 #include <cstdint>
 namespace seissol {
 
+/**
+  Collects metrics for measuring performance of the simulation.
+  */
 struct PerformanceEstimate {
+  // flop count by instructions executed in hardware
   std::uint64_t hardwareFlop{0};
+
+  // (logical) flop count for fully sparse, unpadded operations (i.e. only the operations that we
+  // really "need")
   std::uint64_t nonzeroFlop{0};
+
+  // legacy value; bytes transferred in/out by CPU kernels
   std::uint64_t bytes{0};
+
+  // non-const bytes transferred in/out by generated (Yateto) kernels
   std::uint64_t kernelBytes{0};
 
   constexpr auto operator+(const PerformanceEstimate& other) const -> PerformanceEstimate {
