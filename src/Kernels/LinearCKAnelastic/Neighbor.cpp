@@ -152,7 +152,7 @@ std::pair<PerformanceEstimate, PerformanceEstimate>
 
   regular += PerformanceEstimate::fromKernel<kernel::neighbor>();
 
-  // legacy bandwidth estimate
+  // legacy memory estimate
   std::uint64_t reals = 0;
 
   // 4 * tElasticDOFS load, DOFs load, DOFs write

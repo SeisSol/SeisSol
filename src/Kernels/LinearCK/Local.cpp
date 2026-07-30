@@ -491,7 +491,7 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
     }
   }
 
-  // legacy bandwidth estimate
+  // legacy memory estimate
   std::uint64_t reals = 0;
 
   // star matrices load

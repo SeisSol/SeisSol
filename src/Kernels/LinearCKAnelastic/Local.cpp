@@ -133,7 +133,7 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
 
   estimate += PerformanceEstimate::fromKernel<seissol::kernel::local>();
 
-  // legacy bandwidth estimate
+  // legacy memory estimate
   std::uint64_t reals = 0;
 
   // star matrices load

@@ -206,7 +206,7 @@ void Spacetime::computeBatchedAder(
 PerformanceEstimate Spacetime::metrics() const {
   auto estimate = PerformanceEstimate::fromKernel<kernel::derivative>();
 
-  // legacy bandwidth estimate
+  // legacy memory estimate
   std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write

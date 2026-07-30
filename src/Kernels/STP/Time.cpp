@@ -155,7 +155,7 @@ PerformanceEstimate Spacetime::metrics() const {
   estimate.nonzeroFlop += 3 * init::star::size(0);
   estimate.hardwareFlop += 3 * init::star::size(0);
 
-  // legacy bandwidth estimate
+  // legacy memory estimate
   std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write

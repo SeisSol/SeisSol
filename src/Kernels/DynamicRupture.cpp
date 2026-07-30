@@ -188,7 +188,7 @@ PerformanceEstimate DynamicRupture::metrics(const DRFaceInformation& faceInfo) c
 
     estimate *= dr::misc::TimeSteps;
 
-    // legacy CPU bandwidth estimate
+    // legacy CPU memory estimate
     estimate.bytes =
         (tensor::TinvT::size() + tensor::QInterpolated::size() * 2 * dr::misc::TimeSteps +
          yateto::computeFamilySize<tensor::dQ>() * 2) *
