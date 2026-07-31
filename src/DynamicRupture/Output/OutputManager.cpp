@@ -419,6 +419,8 @@ void OutputManager::initPickpointOutput() {
               file << "# face-global-id\t" << receiver.globalFaultFaceId() << '\n';
               file << "# plus-cell-global-id\t" << receiver.elementGlobalIndex << '\n';
               file << "# plus-face-side\t" << receiver.localFaceSideId << '\n';
+              file << "# minus-cell-global-id\t" << receiver.elementNeighborGlobalIndex << '\n';
+              file << "# minus-face-side\t" << receiver.localNeighborFaceSideId << '\n';
             }
 
             // stress info

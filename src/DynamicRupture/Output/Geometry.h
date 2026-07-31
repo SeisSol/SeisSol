@@ -104,11 +104,17 @@ struct ReceiverPoint {
   // Side ID of a reference element
   int localFaceSideId{-1};
 
+  // Side ID (minus) of a reference element
+  int localNeighborFaceSideId{-1};
+
   // Rank-local element ID to which the receiver belongs
   int elementIndex{-1};
 
   // Global element ID to which the receiver belongs
   std::size_t elementGlobalIndex{std::numeric_limits<std::size_t>::max()};
+
+  // Global element ID (minus) to which the receiver belongs
+  std::size_t elementNeighborGlobalIndex{std::numeric_limits<std::size_t>::max()};
 
   // receiver index of global list
   int globalReceiverIndex{-1};

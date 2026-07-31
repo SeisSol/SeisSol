@@ -22,7 +22,7 @@ class FaultRefiner {
     int faultFaceIndex{};
     int localFaceSideId{};
     int elementId{-1};
-    std::size_t globalId{};
+    const Fault* fault{nullptr};
   };
   using PointsPair = std::pair<ExtVrtxCoords, ExtVrtxCoords>;
   using TrianglePair = std::pair<ExtTriangle, ExtTriangle>;
