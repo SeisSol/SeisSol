@@ -123,15 +123,15 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
 
   if constexpr (CombineLocalFlux) {
     estimate += PerformanceEstimate::fromKernel<seissol::kernel::fluxLocalAll>();
-  }
-
-  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    if (faceTypes[face] != FaceType::DynamicRupture || !CombineLocalFlux) {
-      estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxExt>(face);
+  } else {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      if (faceTypes[face] != FaceType::DynamicRupture) {
+        estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxExt>(face);
+      }
     }
-  }
 
-  estimate += PerformanceEstimate::fromKernel<seissol::kernel::local>();
+    estimate += PerformanceEstimate::fromKernel<seissol::kernel::local>();
+  }
 
   // legacy memory estimate
   std::uint64_t reals = 0;
