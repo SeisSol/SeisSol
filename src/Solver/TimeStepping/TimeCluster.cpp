@@ -452,18 +452,18 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
   const ComputeGraphType graphType =
       resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
   auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, true);
-  streamRuntime.runGraph(
+  streamRuntime_.runGraph(
       computeGraphKey,
       *clusterData_,
       [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
-        spacetimeKernel.computeBatchedAder(integrationCoeffs.data(),
-                                           timeStepWidth,
-                                           *clusterData_,
-                                           tmp,
-                                           dataTable,
-                                           materialTable,
-                                           true,
-                                           streamRuntime);
+        spacetimeKernel_.computeBatchedAder(integrationCoeffs.data(),
+                                            timeStepWidth,
+                                            *clusterData_,
+                                            tmp,
+                                            dataTable,
+                                            materialTable,
+                                            true,
+                                            streamRuntime);
 
         localKernel_.computeBatchedIntegral(
             dataTable, materialTable, indicesTable, timeStepWidth, streamRuntime);
