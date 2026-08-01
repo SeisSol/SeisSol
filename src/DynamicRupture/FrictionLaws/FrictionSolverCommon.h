@@ -333,6 +333,20 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     const real timeWeights[misc::TimeSteps],
     uint32_t startIndex = 0) {
 
+  using NumPointsRange = typename NumPoints<Type>::Range;
+
+  // zero initialize
+  real localImposedStateM[dr::misc::NumQuantities][NumPointsRange::Size]{};
+  real localImposedStateP[dr::misc::NumQuantities][NumPointsRange::Size]{};
+
+  using ImposedStateShapeT = real(*)[misc::NumPaddedPoints];
+  auto* imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
+  auto* imposedStateM = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
+
+  using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
+  const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
+  const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
+
   // set imposed state to zero
   if constexpr (model::MaterialT::Type != model::MaterialType::Poroelastic) {
     const auto invZs = impAndEta.invZs;
@@ -340,26 +354,12 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     const auto invZsNeig = impAndEta.invZsNeig;
     const auto invZpNeig = impAndEta.invZpNeig;
 
-    using ImposedStateShapeT = real(*)[misc::NumPaddedPoints];
-    auto* imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
-    auto* imposedStateM = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
-
-    using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
-    const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
-    const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
-
     using namespace dr::misc::quantity_indices;
 
 #ifndef ACL_DEVICE
     checkAlignmentPostCompute(
         qIPlus, qIMinus, imposedStateP, imposedStateM, faultStresses, tractionResults);
 #endif
-
-    using NumPointsRange = typename NumPoints<Type>::Range;
-
-    // zero initialize
-    real localImposedStateM[dr::misc::NumQuantities][NumPointsRange::Size]{};
-    real localImposedStateP[dr::misc::NumQuantities][NumPointsRange::Size]{};
 
     for (uint32_t o = 0; o < misc::TimeSteps; ++o) {
       const auto weight = timeWeights[o];
@@ -399,36 +399,17 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
             weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
       }
     }
-
-    for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
-         index += NumPointsRange::Step) {
-      auto i{startIndex + index};
-#pragma unroll
-      for (std::uint32_t q = 0; q < dr::misc::NumQuantities; ++q) {
-        imposedStateM[q][i] = localImposedStateM[q][index];
-        imposedStateP[q][i] = localImposedStateP[q][index];
-      }
-    }
   } else {
     // poroelastic kernel (for CPU+GPU)
     // TODO: generalize and unify with the above (probably using either templates or Yateto)
     // (the v1.1.0-1.3.1 Yateto+selector matrix based kernel was removed since GPU support was
     // missing)
 
-    using ImposedStateShapeT = real(*)[misc::NumPaddedPoints];
-    auto* imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
-    auto* imposedStateM = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
-
-    using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
-    const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
-    const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
-
     using namespace dr::misc::quantity_indices;
 
     for (std::uint32_t o = 0; o < misc::TimeSteps; ++o) {
       const auto weight = timeWeights[o];
 
-      using NumPointsRange = typename NumPoints<Type>::Range;
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
@@ -477,6 +458,16 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
         handleSide(imposedStateM, qIMinus, impedanceMatrices.impedanceNeig, -1);
         handleSide(imposedStateP, qIPlus, impedanceMatrices.impedance, 1);
       }
+    }
+  }
+
+  for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
+       index += NumPointsRange::Step) {
+    auto i{startIndex + index};
+#pragma unroll
+    for (std::uint32_t q = 0; q < dr::misc::NumQuantities; ++q) {
+      imposedStateM[q][i] = localImposedStateM[q][index];
+      imposedStateP[q][i] = localImposedStateP[q][index];
     }
   }
 }
