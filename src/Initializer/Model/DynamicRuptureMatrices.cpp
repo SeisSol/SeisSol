@@ -359,6 +359,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
       switch (plusMaterial->getMaterialType()) {
+      case seissol::model::MaterialType::Anisotropic:
+        [[fallthrough]];
       case seissol::model::MaterialType::Poroelastic: {
         auto plusEigenpair = seissol::model::getEigenDecomposition(*plusMaterial);
         auto minusEigenpair = seissol::model::getEigenDecomposition(*minusMaterial);
