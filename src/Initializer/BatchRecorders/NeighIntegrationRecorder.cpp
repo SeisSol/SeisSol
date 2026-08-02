@@ -160,7 +160,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         break;
       }
       case FaceType::DynamicRupture: {
-        const auto faceRelation =
+        const std::size_t faceRelation =
             drMappingDevice[cell][face].side + 4 * drMappingDevice[cell][face].faceRelation;
         assert((*DrFaceRelations::Count) > faceRelation &&
                "incorrect face relation count in dyn. rupture has been detected");

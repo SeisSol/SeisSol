@@ -7,8 +7,8 @@
 #ifndef SEISSOL_SRC_GEOMETRY_CELLTRANSFORM_H_
 #define SEISSOL_SRC_GEOMETRY_CELLTRANSFORM_H_
 
-#include <Geometry/MeshDefinition.h>
-#include <Geometry/MeshReader.h>
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshReader.h"
 namespace seissol::geometry {
 class CellTransform {
   public:
@@ -18,118 +18,43 @@ class CellTransform {
 
   using VectorT = std::array<double, Cell::Dim>;
 
-  virtual ~CellTransform() = default;
+  virtual ~CellTransform();
 
-  [[nodiscard]] virtual VectorEigenT refToSpaceImpl(const VectorEigenT& input) const = 0;
-  [[nodiscard]] virtual MatrixEigenT refToSpaceJacobianImpl(const VectorEigenT& input) const = 0;
+  [[nodiscard]] virtual auto refToSpaceImpl(const VectorEigenT& input) const -> VectorEigenT = 0;
+  [[nodiscard]] virtual auto refToSpaceJacobianImpl(const VectorEigenT& input) const
+      -> MatrixEigenT = 0;
 
-  [[nodiscard]] VectorEigenT refToSpace(const VectorEigenT& input) const {
-    return refToSpaceImpl(input);
-  }
-  [[nodiscard]] MatrixEigenT refToSpaceJacobian(const VectorEigenT& input) const {
-    return refToSpaceJacobianImpl(input);
-  }
+  [[nodiscard]] auto refToSpace(const VectorEigenT& input) const -> VectorEigenT;
+  [[nodiscard]] auto refToSpaceJacobian(const VectorEigenT& input) const -> MatrixEigenT;
 
-  [[nodiscard]] VectorT refToSpace(const VectorT& input) const {
-    const auto inputEigen = VectorEigenT(input.data());
-    const auto outputEigen = refToSpaceImpl(inputEigen);
-    VectorT output{};
-    for (std::size_t i = 0; i < Cell::Dim; ++i) {
-      output[i] = outputEigen(i);
-    }
-    return output;
-  }
+  [[nodiscard]] auto refToSpace(const VectorT& input) const -> VectorT;
 
-  [[nodiscard]] std::vector<VectorT> refToSpace(const std::vector<VectorT>& input) const {
-    std::vector<VectorT> output(input.size());
-    for (std::size_t i = 0; i < output.size(); ++i) {
-      output[i] = refToSpace(input[i]);
-    }
-    return output;
-  }
+  [[nodiscard]] auto refToSpace(const std::vector<VectorT>& input) const -> std::vector<VectorT>;
 
-  [[nodiscard]] MatrixEigenT spaceToRefJacobian(const VectorEigenT& input) const {
-    const auto refToSpaceJ = refToSpaceJacobian(spaceToRef(input));
-    return refToSpaceJ.inverse();
-  }
+  [[nodiscard]] auto spaceToRefJacobian(const VectorEigenT& input) const -> MatrixEigenT;
 
-  [[nodiscard]] virtual VectorEigenT spaceToRef(const VectorEigenT& input) const {
-    // in the general case... we need to invert a function. So... Newton.
-    // we want: f(y) = x; or: f(y) - x = 0
-
-    auto iterate = VectorEigenT();
-    constexpr double Eps = 1e-8;
-    constexpr std::size_t Tries = 100000;
-    for (std::size_t i = 0; i < Tries; ++i) {
-      const auto inputProbe = refToSpace(iterate);
-      if ((inputProbe - input).norm() < Eps) {
-        return iterate;
-      }
-      const auto inputProbeDerivative = refToSpaceJacobian(iterate);
-      iterate -= inputProbeDerivative.fullPivLu().solve(inputProbe);
-    }
-
-    logError() << "Root finding failed for" << input << "after" << Tries
-               << "iterations. Last iterate:" << iterate;
-    return iterate;
-  }
+  [[nodiscard]] virtual auto spaceToRef(const VectorEigenT& input) const -> VectorEigenT;
 };
 
 class AffineTransform : public CellTransform {
   public:
-  explicit AffineTransform(const std::array<CoordinateT, Cell::NumVertices>& vertices) {
-    offset = VectorEigenT(vertices[0].data());
+  explicit AffineTransform(const std::array<CoordinateT, Cell::NumVertices>& vertices);
 
-    for (std::size_t i = 0; i < Cell::Dim; ++i) {
-      const auto v = VectorEigenT(vertices[i + 1].data()) - offset;
-      for (std::size_t j = 0; j < Cell::Dim; ++j) {
-        transform(j, i) = v(j);
-      }
-    }
+  explicit AffineTransform(const std::array<VectorEigenT, Cell::NumVertices>& vertices);
 
-    itransform = transform.inverse();
-  }
+  [[nodiscard]] auto refToSpaceImpl(const VectorEigenT& input) const -> VectorEigenT override;
 
-  explicit AffineTransform(const std::array<VectorEigenT, Cell::NumVertices>& vertices) {
-    offset = VectorEigenT(vertices[0]);
+  [[nodiscard]] auto refToSpaceJacobianImpl(const VectorEigenT& /*input*/) const
+      -> MatrixEigenT override;
 
-    for (std::size_t i = 0; i < Cell::Dim; ++i) {
-      const auto v = VectorEigenT(vertices[i + 1]) - offset;
-      for (std::size_t j = 0; j < Cell::Dim; ++j) {
-        transform(j, i) = v(j);
-      }
-    }
+  static auto fromMeshCell(std::size_t id, const MeshReader& mesh) -> AffineTransform;
 
-    itransform = transform.inverse();
-  }
-
-  [[nodiscard]] VectorEigenT refToSpaceImpl(const VectorEigenT& input) const override {
-    return transform * input + offset;
-  }
-
-  [[nodiscard]] MatrixEigenT refToSpaceJacobianImpl(const VectorEigenT& /*input*/) const override {
-    // since we're linear—no dependency on the input vector here
-    return transform;
-  }
-
-  static AffineTransform fromMeshCell(std::size_t id, const MeshReader& mesh) {
-    const auto& vertexIndices = mesh.getElements()[id].vertices;
-    std::array<CoordinateT, Cell::NumVertices> vertices{};
-    for (std::size_t i = 0; i < vertexIndices.size(); ++i) {
-      vertices[i] = mesh.getVertices()[vertexIndices[i]].coords;
-    }
-    return AffineTransform(vertices);
-  }
-
-  [[nodiscard]] VectorEigenT spaceToRef(const VectorEigenT& input) const override {
-    // we can invert pretty straight-forwardly
-    return itransform * (input - offset);
-  }
+  [[nodiscard]] auto spaceToRef(const VectorEigenT& input) const -> VectorEigenT override;
 
   private:
-  MatrixEigenT transform;
-  MatrixEigenT itransform;
-  VectorEigenT offset;
+  MatrixEigenT transform_;
+  MatrixEigenT itransform_;
+  VectorEigenT offset_;
 };
 } // namespace seissol::geometry
 #endif // SEISSOL_SRC_GEOMETRY_CELLTRANSFORM_H_
