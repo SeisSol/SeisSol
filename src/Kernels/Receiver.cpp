@@ -100,16 +100,20 @@ void ReceiverCluster::addReceiver(std::size_t meshId,
   // (time + number of quantities) * number of samples until sync point
   const size_t reserved = ncols() * (syncPointInterval_ / samplingInterval_ + 1);
 
-  const auto position = backmap.get(meshId);
   auto& ltsStorage = seissolInstance_.getMemoryManager().getLtsStorage();
-  receivers_.emplace_back(pointId,
-                          point,
-                          coords,
-                          ltsStorage.lookupRef(position),
-                          ltsStorage.lookupRef(position,
-                                               isDeviceOn() ? initializer::AllocationPlace::Device
-                                                            : initializer::AllocationPlace::Host),
-                          reserved);
+
+  const auto copyCount = seissolInstance_.getMemoryManager().getBackmap().copyCount();
+  for (std::size_t copy = 0; copy < copyCount; ++copy) {
+    const auto position = backmap.get(meshId, copy);
+    receivers_.emplace_back(pointId * copyCount + copy,
+                            point,
+                            coords,
+                            ltsStorage.lookupRef(position),
+                            ltsStorage.lookupRef(position,
+                                                 isDeviceOn() ? initializer::AllocationPlace::Device
+                                                              : initializer::AllocationPlace::Host),
+                            reserved);
+  }
 }
 
 double ReceiverCluster::calcReceivers(double time,

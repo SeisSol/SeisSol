@@ -131,15 +131,18 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     reportFoundReceivers(contained);
     for (auto& receiver : potentialReceivers_) {
       if (receiver.isInside) {
-        for (std::size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
-          auto singleReceiver = receiver;
-          singleReceiver.simIndex = i;
+        for (std::size_t copy = 0; copy < faceToLtsMap_->copyCount(); ++copy) {
+          for (std::size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
+            auto singleReceiver = receiver;
+            singleReceiver.simIndex = i;
+            singleReceiver.copy = copy;
 
-          const auto layerId = faceToLtsMap_->at(receiver.faultFaceIndex).color;
-          if (outputDataPerCluster[layerId] == nullptr) {
-            outputDataPerCluster[layerId] = std::make_shared<ReceiverOutputData>();
+            const auto layerId = faceToLtsMap_->get(receiver.faultFaceIndex, copy).color;
+            if (outputDataPerCluster[layerId] == nullptr) {
+              outputDataPerCluster[layerId] = std::make_shared<ReceiverOutputData>();
+            }
+            outputDataPerCluster[layerId]->receiverPoints.push_back(singleReceiver);
           }
-          outputDataPerCluster[layerId]->receiverPoints.push_back(singleReceiver);
         }
       }
     }

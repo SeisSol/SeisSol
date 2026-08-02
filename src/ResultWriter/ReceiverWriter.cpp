@@ -228,7 +228,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   for (std::size_t point = 0; point < numberOfPoints; ++point) {
     if (contained[point]) {
       const std::size_t meshId = meshIds[point];
-      const auto id = backmap.get(meshId).color;
+      const auto id = backmap.get(meshId, 0).color; // 0 is enough; they all have the same color
 
       // Make sure that needed empty clusters are initialized.
       for (std::size_t c = receiverClusters_.size(); c <= id; ++c) {

@@ -66,7 +66,7 @@ void ReceiverBasedOutputBuilder::setVariableList(const std::vector<std::size_t>&
 }
 
 void ReceiverBasedOutputBuilder::setFaceToLtsMap(
-    std::vector<::seissol::initializer::StoragePosition>* faceToLtsMap) {
+    ::seissol::initializer::StorageBackmap<1>* faceToLtsMap) {
   this->faceToLtsMap_ = faceToLtsMap;
 }
 
@@ -105,9 +105,10 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
   constexpr size_t NumVertices{4};
   for (const auto& point : outputData_->receiverPoints) {
     if (point.isInside) {
-      if (faceIndices.find(faceToLtsMap_->at(point.faultFaceIndex).global) == faceIndices.end()) {
+      if (faceIndices.find(faceToLtsMap_->get(point.faultFaceIndex, point.copy).global) ==
+          faceIndices.end()) {
         const auto faceIndex = faceIndices.size();
-        faceIndices[faceToLtsMap_->at(point.faultFaceIndex).global] = faceIndex;
+        faceIndices[faceToLtsMap_->get(point.faultFaceIndex, point.copy).global] = faceIndex;
       }
 
       ++foundPoints;
@@ -177,7 +178,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
       std::vector<real*> indexPtrs(outputData_->cellCount);
 
       for (const auto& [index, arrayIndex] : elementIndices) {
-        const auto position = wpBackmap_->get(index);
+        const auto position = wpBackmap_->get(index, 0); // TODO
         indexPtrs[arrayIndex] = wpStorage_->lookup<LTS::DerivativesDevice>(position);
         assert(indexPtrs[arrayIndex] != nullptr);
       }
@@ -185,7 +186,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
         const auto neighbor = ghost.data;
         const auto arrayIndex = ghost.index + elementIndices.size();
 
-        const auto position = wpBackmap_->get(neighbor.first);
+        const auto position = wpBackmap_->get(neighbor.first, 0); // TODO
         indexPtrs[arrayIndex] =
             wpStorage_->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second];
         assert(indexPtrs[arrayIndex] != nullptr);
@@ -221,7 +222,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
       const auto elementIndex = faultInfo[point.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
       outputData_->deviceIndices[pointCounter] =
-          faceIndices.at(faceToLtsMap_->at(point.faultFaceIndex).global);
+          faceIndices.at(faceToLtsMap_->get(point.faultFaceIndex, point.copy).global);
 
       outputData_->deviceDataPlus[pointCounter] = elementIndices.at(elementIndex);
 

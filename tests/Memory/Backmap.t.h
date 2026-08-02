@@ -23,7 +23,7 @@ TEST_CASE("Backmap") {
 
   const std::size_t cellCount = 12;
 
-  backmap.setSize(cellCount);
+  backmap.setSize(cellCount, 1);
 
   // set up backmap and comparison
 
@@ -32,7 +32,7 @@ TEST_CASE("Backmap") {
   for (const auto [layerId, layerSize] : common::enumerate(layers)) {
     const auto* zeroLayer = dataToMesh.data() + global;
     for (std::size_t i = 0; i < layerSize; ++i) {
-      backmap.addElement(layerId, zero, zeroLayer, dataToMesh[global], i);
+      backmap.addElement(layerId, zero, zeroLayer, dataToMesh[global], 0, i);
 
       compare[dataToMesh[global]].emplace_back(layerId, i, global);
 
@@ -44,7 +44,7 @@ TEST_CASE("Backmap") {
 
   for (std::size_t i = 0; i < cellCount; ++i) {
     for (std::size_t j = 0; j < DupCount; ++j) {
-      const auto pos = backmap.getDup(i, j);
+      const auto pos = backmap.getDup(i, 0, j);
       if (j < compare[i].size()) {
         REQUIRE(pos.has_value());
         REQUIRE(pos.value() == compare[i][j]);
@@ -54,7 +54,7 @@ TEST_CASE("Backmap") {
     }
 
     if (!compare[i].empty()) {
-      REQUIRE(backmap.get(i) == compare[i][0]);
+      REQUIRE(backmap.get(i, 0) == compare[i][0]);
     }
   }
 }
