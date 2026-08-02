@@ -155,7 +155,8 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
                     tensor::resample::Shape[0],
                 "Different number of quadrature points?");
 
-  if constexpr (model::MaterialT::Type != model::MaterialType::Poroelastic) {
+  if constexpr (model::MaterialT::Type == model::MaterialType::Elastic ||
+                model::MaterialT::Type == model::MaterialType::Viscoelastic) {
     const auto etaP = impAndEta.etaP * etaPDamp;
     const auto etaS = impAndEta.etaS;
     const auto invZp = impAndEta.invZp;
@@ -215,34 +216,40 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
       for (auto index = Range::Start; index < Range::End; index += Range::Step) {
         auto i{startLoopIndex + index};
 
+        constexpr uint32_t Count =
+            model::MaterialT::Type == model::MaterialType::Poroelastic ? 4 : 3;
+
         // Compute Theta from eq (4.53) in Carsten's thesis
 
-        real velDiff[4]{};
+        real velDiff[Count]{};
         velDiff[0] = qIMinus[o][U][i] - qIPlus[o][U][i];
         velDiff[1] = qIMinus[o][V][i] - qIPlus[o][V][i];
         velDiff[2] = qIMinus[o][W][i] - qIPlus[o][W][i];
-        velDiff[3] = qIMinus[o][FU][i] - qIPlus[o][FU][i];
 
-        real strP[4]{};
-        real strM[4]{};
+        real strP[Count]{};
+        real strM[Count]{};
         const auto rowCompute = [&](auto linear, auto index) {
 #pragma unroll
-          for (std::uint32_t j = 0; j < 4; ++j) {
-            strP[j] += impedanceMatrices.impedance[linear * 4 + j] * qIPlus[o][index][i];
-            strM[j] += impedanceMatrices.impedanceNeig[linear * 4 + j] * qIMinus[o][index][i];
+          for (std::uint32_t j = 0; j < Count; ++j) {
+            strP[j] += impedanceMatrices.impedance[linear * Count + j] * qIPlus[o][index][i];
+            strM[j] += impedanceMatrices.impedanceNeig[linear * Count + j] * qIMinus[o][index][i];
           }
         };
         rowCompute(0, N);
         rowCompute(1, T1);
         rowCompute(2, T2);
-        rowCompute(3, FP);
 
-        real res[4]{};
+        if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+          velDiff[3] = qIMinus[o][FU][i] - qIPlus[o][FU][i];
+          rowCompute(3, FP);
+        }
+
+        real res[Count]{};
 #pragma unroll
-        for (std::uint32_t k = 0; k < 4; ++k) {
+        for (std::uint32_t k = 0; k < Count; ++k) {
 #pragma unroll
-          for (std::uint32_t j = 0; j < 4; ++j) {
-            res[j] += impedanceMatrices.eta[k * 4 + j] * (velDiff[k] + strP[k] + strM[k]);
+          for (std::uint32_t j = 0; j < Count; ++j) {
+            res[j] += impedanceMatrices.eta[k * Count + j] * (velDiff[k] + strP[k] + strM[k]);
           }
         }
 
@@ -250,8 +257,10 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
             res[0];
         VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.traction1, o, i) = res[1];
         VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.traction2, o, i) = res[2];
-        VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.fluidPressure, o, i) =
-            res[3];
+        if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+          VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.fluidPressure, o, i) =
+              res[3];
+        }
       }
     }
   }
@@ -348,7 +357,8 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
   const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
   // set imposed state to zero
-  if constexpr (model::MaterialT::Type != model::MaterialType::Poroelastic) {
+  if constexpr (model::MaterialT::Type == model::MaterialType::Elastic ||
+                model::MaterialT::Type == model::MaterialType::Viscoelastic) {
     const auto invZs = impAndEta.invZs;
     const auto invZp = impAndEta.invZp;
     const auto invZsNeig = impAndEta.invZsNeig;
@@ -427,18 +437,22 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
             VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.fluidPressure, o, i);
 
         const auto handleSide = [&](auto& imposedState, const auto& qI, const auto& mZ, real sign) {
-          constexpr std::uint32_t Count = 4;
+          constexpr std::uint32_t Count =
+              model::MaterialT::Type == model::MaterialType::Poroelastic ? 4 : 3;
 
           imposedState[N][i] += weight * normalStress;
           imposedState[T1][i] += weight * traction1;
           imposedState[T2][i] += weight * traction2;
-          imposedState[FP][i] += weight * fluidPressure;
 
           real diff[Count]{};
           diff[0] = (normalStress - qI[o][N][i]) * sign;
           diff[1] = (traction1 - qI[o][T1][i]) * sign;
           diff[2] = (traction2 - qI[o][T2][i]) * sign;
-          diff[3] = (fluidPressure - qI[o][FP][i]) * sign;
+
+          if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+            imposedState[FP][i] += weight * fluidPressure;
+            diff[3] = (fluidPressure - qI[o][FP][i]) * sign;
+          }
 
           const auto handleEntry = [&](auto linear, auto index) {
             real acc = 0;
@@ -452,7 +466,9 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
           handleEntry(0, U);
           handleEntry(1, V);
           handleEntry(2, W);
-          handleEntry(3, FU);
+          if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+            handleEntry(3, FU);
+          }
         };
 
         handleSide(imposedStateM, qIMinus, impedanceMatrices.impedanceNeig, -1);
