@@ -280,28 +280,34 @@ void EnergyOutput::simulationStart(std::optional<double> checkpointTime) {
 EnergyOutput::~EnergyOutput() = default;
 
 void EnergyOutput::computeDynamicRuptureEnergies() {
+  constexpr auto SimCount = multisim::NumSimulations;
+
+  double totalFrictionalWork[SimCount]{};
+  double staticFrictionalWork[SimCount]{};
+  double seismicMoment[SimCount]{};
+  double potency[SimCount]{};
+
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
-    double& totalFrictionalWork = energiesStorage_.energy(TotalFrictionalWork, sim);
-    double& staticFrictionalWork = energiesStorage_.energy(StaticFrictionalWork, sim);
-    double& seismicMoment = energiesStorage_.energy(SeismicMoment, sim);
-    double& potency = energiesStorage_.energy(Potency, sim);
     minTimeSinceSlipRateBelowThreshold_[sim] = std::numeric_limits<double>::max();
+  }
 
-    for (const auto& layer : drStorage_->leaves()) {
+  for (const auto& layer : drStorage_->leaves()) {
 
-      real* const* timeDofsPlus = layer.var<DynamicRupture::TimeDerivativePlus>();
-      real* const* timeDofsMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
+    real* const* timeDofsPlus = layer.var<DynamicRupture::TimeDerivativePlus>();
+    real* const* timeDofsMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
 
-      const auto* godunovData = layer.var<DynamicRupture::GodunovData>();
-      const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
-      const auto* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>();
-      const auto* waveSpeedsPlus = layer.var<DynamicRupture::WaveSpeedsPlus>();
-      const auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
-      const auto layerSize = layer.size();
+    const auto* godunovData = layer.var<DynamicRupture::GodunovData>();
+    const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
+    const auto* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>();
+    const auto* waveSpeedsPlus = layer.var<DynamicRupture::WaveSpeedsPlus>();
+    const auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
+    const auto layerSize = layer.size();
 
 #if !NVHPC_AVOID_OMP
-#pragma omp parallel for reduction(                                                                \
-        + : totalFrictionalWork, staticFrictionalWork, seismicMoment, potency) default(none)       \
+#pragma omp parallel for reduction(+ : totalFrictionalWork[ : SimCount],                           \
+                                       staticFrictionalWork[ : SimCount],                          \
+                                       seismicMoment[ : SimCount],                                 \
+                                       potency[ : SimCount]) default(none)                         \
     shared(layerSize,                                                                              \
                drEnergyOutput,                                                                     \
                faceInformation,                                                                    \
@@ -309,58 +315,77 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                timeDofsPlus,                                                                       \
                godunovData,                                                                        \
                waveSpeedsPlus,                                                                     \
-               waveSpeedsMinus,                                                                    \
-               sim)
+               waveSpeedsMinus)
 #endif
-      for (std::size_t i = 0; i < layerSize; ++i) {
-        if (faceInformation[i].plusSideOnThisRank) {
+    for (std::size_t i = 0; i < layerSize; ++i) {
+      if (faceInformation[i].plusSideOnThisRank) {
+        const auto staticFrictionalWorkIncrease = computeStaticWork(timeDofsPlus[i],
+                                                                    timeDofsMinus[i],
+                                                                    faceInformation[i],
+                                                                    godunovData[i],
+                                                                    drEnergyOutput[i].slip,
+                                                                    global_);
 
+        const double muPlus = waveSpeedsPlus[i].density * waveSpeedsPlus[i].sWaveVelocity *
+                              waveSpeedsPlus[i].sWaveVelocity;
+        const double muMinus = waveSpeedsMinus[i].density * waveSpeedsMinus[i].sWaveVelocity *
+                               waveSpeedsMinus[i].sWaveVelocity;
+        const double mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
+
+#pragma omp simd
+        for (size_t sim = 0; sim < SimCount; sim++) {
+          staticFrictionalWork[sim] += staticFrictionalWorkIncrease[sim];
           for (std::size_t j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
-            totalFrictionalWork +=
-                drEnergyOutput[i].frictionalEnergy[j * seissol::multisim::NumSimulations + sim];
+            totalFrictionalWork[sim] += drEnergyOutput[i].frictionalEnergy[j * SimCount + sim];
           }
-          staticFrictionalWork += computeStaticWork(timeDofsPlus[i],
-                                                    timeDofsMinus[i],
-                                                    faceInformation[i],
-                                                    godunovData[i],
-                                                    drEnergyOutput[i].slip,
-                                                    global_)[sim];
-
-          const double muPlus = waveSpeedsPlus[i].density * waveSpeedsPlus[i].sWaveVelocity *
-                                waveSpeedsPlus[i].sWaveVelocity;
-          const double muMinus = waveSpeedsMinus[i].density * waveSpeedsMinus[i].sWaveVelocity *
-                                 waveSpeedsMinus[i].sWaveVelocity;
-          const double mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
           double potencyIncrease = 0.0;
           for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
-            potencyIncrease +=
-                drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim];
+            potencyIncrease += drEnergyOutput[i].accumulatedSlip[k * SimCount + sim];
           }
           potencyIncrease *=
               0.5 * godunovData[i].doubledSurfaceArea / seissol::dr::misc::NumBoundaryGaussPoints;
-          potency += potencyIncrease;
-          seismicMoment += potencyIncrease * mu;
+          potency[sim] += potencyIncrease;
+          seismicMoment[sim] += potencyIncrease * mu;
         }
       }
-      double localMin = std::numeric_limits<double>::infinity();
+    }
+
+    double localMin[SimCount]{};
+    for (std::size_t sim = 0; sim < SimCount; ++sim) {
+      localMin[sim] = std::numeric_limits<double>::max();
+    }
+
 #if !NVHPC_AVOID_OMP
-#pragma omp parallel for reduction(min : localMin) default(none)                                   \
-    shared(layerSize, drEnergyOutput, faceInformation, sim)
+#pragma omp parallel for reduction(min : localMin[ : SimCount]) default(none)                      \
+    shared(layerSize, drEnergyOutput, faceInformation)
 #endif
-      for (std::size_t i = 0; i < layerSize; ++i) {
-        if (faceInformation[i].plusSideOnThisRank) {
+    for (std::size_t i = 0; i < layerSize; ++i) {
+      if (faceInformation[i].plusSideOnThisRank) {
+
+#pragma omp simd
+        for (size_t sim = 0; sim < SimCount; sim++) {
           for (std::size_t j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
-            localMin = std::min(
+            localMin[sim] = std::min(
                 static_cast<double>(
-                    drEnergyOutput[i].timeSinceSlipRateBelowThreshold
-                        [static_cast<size_t>(j * seissol::multisim::NumSimulations) + sim]),
-                localMin);
+                    drEnergyOutput[i]
+                        .timeSinceSlipRateBelowThreshold[static_cast<size_t>(j * SimCount) + sim]),
+                localMin[sim]);
           }
         }
       }
-      minTimeSinceSlipRateBelowThreshold_[sim] =
-          std::min(localMin, minTimeSinceSlipRateBelowThreshold_[sim]);
     }
+
+    for (std::size_t sim = 0; sim < SimCount; ++sim) {
+      minTimeSinceSlipRateBelowThreshold_[sim] =
+          std::min(localMin[sim], minTimeSinceSlipRateBelowThreshold_[sim]);
+    }
+  }
+
+  for (std::size_t sim = 0; sim < SimCount; ++sim) {
+    energiesStorage_.energy(TotalFrictionalWork, sim) += totalFrictionalWork[sim];
+    energiesStorage_.energy(StaticFrictionalWork, sim) += staticFrictionalWork[sim];
+    energiesStorage_.energy(SeismicMoment, sim) += seismicMoment[sim];
+    energiesStorage_.energy(Potency, sim) += potency[sim];
   }
 }
 
