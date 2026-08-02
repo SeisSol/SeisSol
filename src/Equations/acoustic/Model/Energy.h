@@ -17,8 +17,8 @@ template <>
 struct EnergyCompute<AcousticMaterial> {
   static constexpr std::size_t EnergyCount = 7;
   static inline const std::array<std::string, EnergyCount> Energies{
-      "acoustic-energy",
-      "acoustic-kinetic-energy",
+      "acoustic_energy",
+      "acoustic_kinetic_energy",
   };
 
   static AcousticMaterial::EnergyData initEnergyData(const AcousticMaterial& /*material*/) {
@@ -28,7 +28,7 @@ struct EnergyCompute<AcousticMaterial> {
   static std::array<double, EnergyCount>
       computeEnergies(const AcousticMaterial& material,
                       const AcousticMaterial::EnergyData& /*data*/,
-                      const init::massLPR::view::type& linSub,
+                      const init::massLPR::view::type& /*linSub*/,
                       const init::massSPR::view::type& quadSub) {
     std::array<double, EnergyCount> output{};
 

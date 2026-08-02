@@ -28,33 +28,30 @@ namespace seissol {
 class SeisSol;
 namespace writer {
 
-struct EnergiesStorage {
-  static constexpr size_t NumberOfEnergies = 13;
-  std::array<double, multisim::NumSimulations * NumberOfEnergies> energies{};
+class EnergiesStorage {
+  public:
+  void setSimcount(size_t count);
 
-  double& gravitationalEnergy(size_t sim);
+  size_t addEnergy(const std::string& name);
 
-  double& acousticEnergy(size_t sim);
+  double& energy(size_t handle, size_t sim);
 
-  double& acousticKineticEnergy(size_t sim);
+  [[nodiscard]] double energy(size_t handle, size_t sim) const;
 
-  double& elasticEnergy(size_t sim);
+  double& energy(const std::string& name, size_t sim);
 
-  double& elasticKineticEnergy(size_t sim);
+  [[nodiscard]] double energy(const std::string& name, size_t sim) const;
 
-  double& totalFrictionalWork(size_t sim);
+  [[nodiscard]] const std::map<std::string, size_t>& handles() const;
 
-  double& staticFrictionalWork(size_t sim);
+  std::vector<double>& values();
 
-  double& plasticMoment(size_t sim);
+  void reset();
 
-  double& seismicMoment(size_t sim);
-
-  double& potency(size_t sim);
-
-  double& totalMomentumX(size_t sim);
-  double& totalMomentumY(size_t sim);
-  double& totalMomentumZ(size_t sim);
+  private:
+  std::size_t simcount_{1};
+  std::vector<double> values_;
+  std::map<std::string, size_t> handles_;
 };
 
 class EnergyOutput : public Module {

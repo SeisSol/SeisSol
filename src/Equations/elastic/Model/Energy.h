@@ -17,13 +17,13 @@ template <>
 struct EnergyCompute<ElasticMaterial> {
   static constexpr std::size_t EnergyCount = 7;
   static inline const std::array<std::string, EnergyCount> Energies{
-      "momentum-x",
-      "momentum-y",
-      "momentum-z",
-      "acoustic-energy",
-      "elastic-energy",
-      "acoustic-kinetic-energy",
-      "elastic-kinetic-energy",
+      "momentumX",
+      "momentumY",
+      "momentumZ",
+      "acoustic_energy",
+      "elastic_energy",
+      "acoustic_kinetic_energy",
+      "elastic_kinetic_energy",
   };
 
   static ElasticMaterial::EnergyData initEnergyData(const ElasticMaterial& /*material*/) {

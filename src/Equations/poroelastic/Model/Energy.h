@@ -18,11 +18,11 @@ template <>
 struct EnergyCompute<PoroElasticMaterial> {
   static constexpr std::size_t EnergyCount = 5;
   static inline const std::array<std::string, EnergyCount> Energies{
-      "momentum-x",
-      "momentum-y",
-      "momentum-z",
-      "elastic-energy",
-      "elastic-kinetic-energy",
+      "momentumX",
+      "momentumY",
+      "momentumZ",
+      "elastic_energy",
+      "elastic_kinetic_energy",
   };
 
   static PoroElasticMaterial::EnergyData initEnergyData(const PoroElasticMaterial& /*material*/) {
