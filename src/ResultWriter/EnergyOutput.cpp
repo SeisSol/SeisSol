@@ -28,7 +28,6 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
-#include "Model/CommonDatastructures.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Unit.h"
 #include "Numerical/Quadrature.h"
@@ -46,10 +45,12 @@
 #include <iomanip>
 #include <ios>
 #include <limits>
+#include <map>
 #include <mpi.h>
 #include <optional>
 #include <ostream>
 #include <string>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -315,7 +316,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                timeDofsPlus,                                                                       \
                godunovData,                                                                        \
                waveSpeedsPlus,                                                                     \
-               waveSpeedsMinus)
+               waveSpeedsMinus,                                                                    \
+               SimCount)
 #endif
     for (std::size_t i = 0; i < layerSize; ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
@@ -357,7 +359,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
 #if !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(min : localMin[ : SimCount]) default(none)                      \
-    shared(layerSize, drEnergyOutput, faceInformation)
+    shared(layerSize, drEnergyOutput, faceInformation, SimCount)
 #endif
     for (std::size_t i = 0; i < layerSize; ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
