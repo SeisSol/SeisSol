@@ -79,6 +79,25 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
   }
 }
 
+/**
+ * Copies an eigen3 matrix to a 2D yateto tensor; sparsely.
+ */
+template <typename T, typename S, int Dim1, int Dim2, int Dim1t>
+void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
+                       yateto::DenseTensorView<2, S>& tensorView,
+                       const std::array<size_t, Dim1t>& rowIdx) {
+  assert(tensorView.shape(0) == Dim1t);
+  assert(tensorView.shape(1) == Dim2);
+  // (the dim praameters need to be int due to Eigen)
+
+  tensorView.setZero();
+  for (size_t row = 0; row < Dim1t; ++row) {
+    for (size_t col = 0; col < Dim2; ++col) {
+      tensorView(rowIdx[row], col) = static_cast<S>(matrix(row, col));
+    }
+  }
+}
+
 constexpr size_t N = tensor::Zminus::Shape[0];
 template <typename T>
 Eigen::Matrix<T, N, N>
@@ -104,7 +123,7 @@ Eigen::Matrix<T, N, N>
   const Eigen::Matrix<double, N, N> matRU = matrix(velocityIndices, columnIndices).real();
   const Eigen::Matrix<double, N, N> matM = matRU * matRTInv;
   return matM.cast<T>();
-};
+}
 
 } // namespace
 
@@ -362,6 +381,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       case seissol::model::MaterialType::Anisotropic:
         [[fallthrough]];
       case seissol::model::MaterialType::Poroelastic: {
+        // the "general" material case.
+
         auto plusEigenpair = seissol::model::getEigenDecomposition(*plusMaterial);
         auto minusEigenpair = seissol::model::getEigenDecomposition(*minusMaterial);
 
@@ -373,15 +394,23 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
             extractMatrix<double>(minusEigenpair);
         const Eigen::Matrix<double, N, N> etaMatrix =
             (impedanceMatrix + impedanceNeigMatrix).inverse();
+        const Eigen::Matrix<double, N, N> bMatrix = etaMatrix * impedanceMatrix.inverse();
+        const Eigen::Matrix<double, N, N> bNeigMatrix = etaMatrix * impedanceNeigMatrix.inverse();
 
         auto impedanceView = init::Zplus::view::create(impedanceMatrices[ltsFace].impedance);
         auto impedanceNeigView =
             init::Zminus::view::create(impedanceMatrices[ltsFace].impedanceNeig);
         auto etaView = init::eta::view::create(impedanceMatrices[ltsFace].eta);
+        auto tractionPlusMatrix =
+            init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
+        auto tractionMinusMatrix =
+            init::tractionMinusMatrix::view::create(godunovData[ltsFace].tractionMinusMatrix);
 
         copyEigenToYateto(impedanceMatrix, impedanceView);
         copyEigenToYateto(impedanceNeigMatrix, impedanceNeigView);
         copyEigenToYateto(etaMatrix, etaView);
+        copyEigenToYateto(bMatrix, tractionPlusMatrix, {0, 3, 5});
+        copyEigenToYateto(bNeigMatrix, tractionMinusMatrix, {0, 3, 5});
 
         break;
       }
@@ -395,33 +424,38 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                         "(built with:"
                      << model::MaterialT::Text << ")";
         }
+
+        // the "fast" case, for isotropic elastic/viscoelastic. Does not need the extra impedance
+        // matrices.
+
+        /// Traction matrices for "average" traction
+
+        seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);
+        seissol::model::getTransposedCoefficientMatrix(*minusMaterial, 0, matAMinus);
+
+        auto tractionPlusMatrix =
+            init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
+        auto tractionMinusMatrix =
+            init::tractionMinusMatrix::view::create(godunovData[ltsFace].tractionMinusMatrix);
+        const double cZpP = plusMaterial->getDensity() * waveSpeedsPlus[ltsFace].pWaveVelocity;
+        const double cZsP = plusMaterial->getDensity() * waveSpeedsPlus[ltsFace].sWaveVelocity;
+        const double cZpM = minusMaterial->getDensity() * waveSpeedsMinus[ltsFace].pWaveVelocity;
+        const double cZsM = minusMaterial->getDensity() * waveSpeedsMinus[ltsFace].sWaveVelocity;
+        const double etaP = cZpP * cZpM / (cZpP + cZpM);
+        const double etaS = cZsP * cZsM / (cZsP + cZsM);
+
+        tractionPlusMatrix.setZero();
+        tractionPlusMatrix(0, 0) = etaP / cZpP;
+        tractionPlusMatrix(3, 1) = etaS / cZsP;
+        tractionPlusMatrix(5, 2) = etaS / cZsP;
+
+        tractionMinusMatrix.setZero();
+        tractionMinusMatrix(0, 0) = etaP / cZpM;
+        tractionMinusMatrix(3, 1) = etaS / cZsM;
+        tractionMinusMatrix(5, 2) = etaS / cZsM;
         break;
       }
       }
-      seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);
-      seissol::model::getTransposedCoefficientMatrix(*minusMaterial, 0, matAMinus);
-
-      /// Traction matrices for "average" traction
-      auto tractionPlusMatrix =
-          init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
-      auto tractionMinusMatrix =
-          init::tractionMinusMatrix::view::create(godunovData[ltsFace].tractionMinusMatrix);
-      const double cZpP = plusMaterial->getDensity() * waveSpeedsPlus[ltsFace].pWaveVelocity;
-      const double cZsP = plusMaterial->getDensity() * waveSpeedsPlus[ltsFace].sWaveVelocity;
-      const double cZpM = minusMaterial->getDensity() * waveSpeedsMinus[ltsFace].pWaveVelocity;
-      const double cZsM = minusMaterial->getDensity() * waveSpeedsMinus[ltsFace].sWaveVelocity;
-      const double etaP = cZpP * cZpM / (cZpP + cZpM);
-      const double etaS = cZsP * cZsM / (cZsP + cZsM);
-
-      tractionPlusMatrix.setZero();
-      tractionPlusMatrix(0, 0) = etaP / cZpP;
-      tractionPlusMatrix(3, 1) = etaS / cZsP;
-      tractionPlusMatrix(5, 2) = etaS / cZsP;
-
-      tractionMinusMatrix.setZero();
-      tractionMinusMatrix(0, 0) = etaP / cZpM;
-      tractionMinusMatrix(3, 1) = etaS / cZsM;
-      tractionMinusMatrix(5, 2) = etaS / cZsM;
 
       /// Transpose matTinv
       dynamicRupture::kernel::transposeTinv ttKrnl;
