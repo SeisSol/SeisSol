@@ -7,7 +7,6 @@
 
 #include "InitMesh.h"
 
-#include "Geometry/CubeGenerator.h"
 #include "Geometry/MeshDefinition.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -326,15 +325,15 @@ size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
   return numEdges;
 }
 
-void readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
-                       seissol::SeisSol& seissolInstance) {
+void readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters& /*seissolParams*/,
+                       seissol::SeisSol& /*seissolInstance*/) {
   // unpack seissolParams
-  const auto cubeParameters = seissolParams.cubeGenerator;
+  // const auto cubeParameters = seissolParams.cubeGenerator;
 
-  const std::string realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
+  // seissolInstance.setMeshReader();
+  // TODO: re-code and re-enable
 
-  seissolInstance.setMeshReader(
-      new seissol::geometry::CubeGenerator(realMeshFileName, cubeParameters));
+  logError() << "The cube generator is (currently) not supported.";
 }
 
 } // namespace
