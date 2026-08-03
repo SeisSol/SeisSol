@@ -122,7 +122,6 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       const auto normalStress = ctx.initialVariables.normalStress;
       const auto absoluteShearStress = ctx.initialVariables.absoluteShearTraction;
       const auto localSlipRateMagnitude = ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
-      const auto& localImpAndEta = ctx.data->impAndEta[ctx.ltsFace];
 
       real slipRateTest{0};
       real exportMu{0};

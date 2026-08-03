@@ -663,20 +663,20 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   real bMinus22{};
 
   if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    constexpr auto Rows = 3;
+    bPlus11 = godunovData.tractionPlusMatrix[Rows * 1 + 1];
+    bPlus12 = godunovData.tractionPlusMatrix[Rows * 1 + 2];
+    bPlus21 = godunovData.tractionPlusMatrix[Rows * 2 + 1];
+    bPlus22 = godunovData.tractionPlusMatrix[Rows * 2 + 2];
+    bMinus11 = godunovData.tractionMinusMatrix[Rows * 1 + 1];
+    bMinus12 = godunovData.tractionMinusMatrix[Rows * 1 + 2];
+    bMinus21 = godunovData.tractionMinusMatrix[Rows * 2 + 1];
+    bMinus22 = godunovData.tractionMinusMatrix[Rows * 2 + 2];
+  } else {
     bPlus11 = impAndEta.etaS * impAndEta.invZs;
     bPlus22 = impAndEta.etaS * impAndEta.invZs;
     bMinus11 = impAndEta.etaS * impAndEta.invZsNeig;
     bMinus22 = impAndEta.etaS * impAndEta.invZsNeig;
-  } else {
-    constexpr auto Rows = 3;
-    bPlus11 = godunovData.tractionPlusMatrix[Rows * 1 + T1];
-    bPlus12 = godunovData.tractionPlusMatrix[Rows * 1 + T2];
-    bPlus21 = godunovData.tractionPlusMatrix[Rows * 2 + T1];
-    bPlus22 = godunovData.tractionPlusMatrix[Rows * 2 + T2];
-    bMinus11 = godunovData.tractionMinusMatrix[Rows * 1 + T1];
-    bMinus12 = godunovData.tractionMinusMatrix[Rows * 1 + T2];
-    bMinus21 = godunovData.tractionMinusMatrix[Rows * 2 + T1];
-    bMinus22 = godunovData.tractionMinusMatrix[Rows * 2 + T2];
   }
 
   using Range = typename NumPoints<Type>::Range;
@@ -774,10 +774,10 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
     const real n1 = (tmag > 0) ? (t1 / tmag) : static_cast<real>(1.0);
     const real n2 = (tmag > 0) ? (t2 / tmag) : static_cast<real>(0.0);
 
-    const real etaProj = impedanceMatrices.impedance[Count * 1 + 1] * n1 * n1 +
-                         impedanceMatrices.impedance[Count * 1 + 2] * n1 * n2 +
-                         impedanceMatrices.impedance[Count * 2 + 1] * n2 * n1 +
-                         impedanceMatrices.impedance[Count * 2 + 2] * n2 * n2;
+    const real etaProj = impedanceMatrices.eta[Count * 1 + 1] * n1 * n1 +
+                         impedanceMatrices.eta[Count * 1 + 2] * n1 * n2 +
+                         impedanceMatrices.eta[Count * 2 + 1] * n2 * n1 +
+                         impedanceMatrices.eta[Count * 2 + 2] * n2 * n2;
 
     return {etaProj, static_cast<real>(1.0) / etaProj};
   } else {
@@ -800,11 +800,11 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
     constexpr std::uint32_t Count =
         model::MaterialT::Type == model::MaterialType::Poroelastic ? 4 : 3;
 
-    const real w1 = impedanceMatrices.impedance[Count * 1 + 1] * v1 +
-                    impedanceMatrices.impedance[Count * 1 + 2] * v2;
+    const real w1 =
+        impedanceMatrices.eta[Count * 1 + 1] * v1 + impedanceMatrices.eta[Count * 1 + 2] * v2;
 
-    const real w2 = impedanceMatrices.impedance[Count * 2 + 1] * v1 +
-                    impedanceMatrices.impedance[Count * 2 + 2] * v2;
+    const real w2 =
+        impedanceMatrices.eta[Count * 2 + 1] * v1 + impedanceMatrices.eta[Count * 2 + 2] * v2;
 
     return {w1, w2};
   } else {

@@ -86,7 +86,7 @@ template <typename T, typename S, int Dim1, int Dim2, size_t Dim1t>
 void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
                        yateto::CSCMatrixView<S, unsigned>& tensorView,
                        const std::array<size_t, Dim1t>& rowIdx) {
-  assert(tensorView.shape(0) == Dim1t);
+  assert(tensorView.shape(0) == Dim1);
   assert(tensorView.shape(1) == Dim2);
   // (the dim praameters need to be int due to Eigen)
 
@@ -377,14 +377,25 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       impAndEta[ltsFace].etaS =
           1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
+      seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);
+      seissol::model::getTransposedCoefficientMatrix(*minusMaterial, 0, matAMinus);
+
       switch (plusMaterial->getMaterialType()) {
       case seissol::model::MaterialType::Anisotropic:
         [[fallthrough]];
       case seissol::model::MaterialType::Poroelastic: {
         // the "general" material case.
 
-        auto plusEigenpair = seissol::model::getEigenDecomposition(*plusMaterial);
-        auto minusEigenpair = seissol::model::getEigenDecomposition(*minusMaterial);
+        // the normal/tangent vectors are already normalized
+        std::array<double, 36> bond{};
+        seissol::model::getBondMatrix(
+            fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, bond);
+
+        const auto plusLocal = seissol::model::getRotatedMaterialCoefficients(bond, *plusMaterial);
+        const auto minusLocal =
+            seissol::model::getRotatedMaterialCoefficients(bond, *minusMaterial);
+        auto plusEigenpair = seissol::model::getEigenDecomposition(plusLocal);
+        auto minusEigenpair = seissol::model::getEigenDecomposition(minusLocal);
 
         // The impedance matrices are diagonal in the (visco)elastic case, so we only store
         // the values Zp, Zs. In the poroelastic case, the fluid pressure and normal component
@@ -394,8 +405,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
             extractMatrix<double>(minusEigenpair);
         const Eigen::Matrix<double, N, N> etaMatrix =
             (impedanceMatrix + impedanceNeigMatrix).inverse();
-        const Eigen::Matrix<double, N, N> bMatrix = etaMatrix * impedanceMatrix.inverse();
-        const Eigen::Matrix<double, N, N> bNeigMatrix = etaMatrix * impedanceNeigMatrix.inverse();
+        const Eigen::Matrix<double, N, N> bMatrix = (etaMatrix * impedanceMatrix).transpose();
+        const Eigen::Matrix<double, N, N> bNeigMatrix =
+            (etaMatrix * impedanceNeigMatrix).transpose();
 
         auto impedanceView = init::Zplus::view::create(impedanceMatrices[ltsFace].impedance);
         auto impedanceNeigView =
@@ -429,9 +441,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         // matrices.
 
         /// Traction matrices for "average" traction
-
-        seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);
-        seissol::model::getTransposedCoefficientMatrix(*minusMaterial, 0, matAMinus);
 
         auto tractionPlusMatrix =
             init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
