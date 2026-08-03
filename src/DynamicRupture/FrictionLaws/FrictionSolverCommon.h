@@ -651,8 +651,32 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
-  const auto bPlus = impAndEta.etaS * impAndEta.invZs;
-  const auto bMinus = impAndEta.etaS * impAndEta.invZsNeig;
+  using namespace dr::misc::quantity_indices;
+
+  real bPlus11{};
+  real bPlus12{};
+  real bPlus21{};
+  real bPlus22{};
+  real bMinus11{};
+  real bMinus12{};
+  real bMinus21{};
+  real bMinus22{};
+
+  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    bPlus11 = impAndEta.etaS * impAndEta.invZs;
+    bPlus22 = impAndEta.etaS * impAndEta.invZs;
+    bMinus11 = impAndEta.etaS * impAndEta.invZsNeig;
+    bMinus22 = impAndEta.etaS * impAndEta.invZsNeig;
+  } else {
+    bPlus11 = godunovData.tractionPlusMatrix[misc::NumQuantities * 1 + T1];
+    bPlus12 = godunovData.tractionPlusMatrix[misc::NumQuantities * 1 + T2];
+    bPlus21 = godunovData.tractionPlusMatrix[misc::NumQuantities * 2 + T1];
+    bPlus22 = godunovData.tractionPlusMatrix[misc::NumQuantities * 2 + T2];
+    bMinus11 = godunovData.tractionMinusMatrix[misc::NumQuantities * 1 + T1];
+    bMinus12 = godunovData.tractionMinusMatrix[misc::NumQuantities * 1 + T2];
+    bMinus21 = godunovData.tractionMinusMatrix[misc::NumQuantities * 2 + T1];
+    bMinus22 = godunovData.tractionMinusMatrix[misc::NumQuantities * 2 + T2];
+  }
 
   using Range = typename NumPoints<Type>::Range;
   real localAccumulatedSlip[Range::Size]{};
@@ -669,7 +693,6 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     }
   }
 
-  using namespace dr::misc::quantity_indices;
   for (size_t o = 0; o < misc::TimeSteps; ++o) {
     const auto timeWeight = timeWeights[o];
 
@@ -703,8 +726,15 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
       localSlip[1][index] += timeWeight * interpolatedSlipRate2;
       localSlip[2][index] += timeWeight * interpolatedSlipRate3;
 
-      const real interpolatedTraction12 = bPlus * qIMinus[o][T1][i] + bMinus * qIPlus[o][T1][i];
-      const real interpolatedTraction13 = bPlus * qIMinus[o][T2][i] + bMinus * qIPlus[o][T2][i];
+      const auto qIPlusT1 = qIPlus[o][T1][i];
+      const auto qIPlusT2 = qIPlus[o][T2][i];
+      const auto qIMinusT1 = qIMinus[o][T1][i];
+      const auto qIMinusT2 = qIMinus[o][T2][i];
+
+      const real interpolatedTraction12 =
+          bPlus11 * qIMinusT1 + bPlus12 * qIMinusT2 + bMinus11 * qIPlusT1 + bMinus12 * qIPlusT2;
+      const real interpolatedTraction13 =
+          bPlus21 * qIMinusT1 + bPlus22 * qIMinusT2 + bMinus21 * qIPlusT1 + bMinus22 * qIPlusT2;
 
       const auto spaceWeight = spaceWeights[i / multisim::NumSimulations];
       const auto weight = timeWeight * spaceWeight * doubledSurfaceAreaN;
