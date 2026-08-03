@@ -82,9 +82,9 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
 /**
  * Copies an eigen3 matrix to a 2D yateto tensor; sparsely.
  */
-template <typename T, typename S, int Dim1, int Dim2, int Dim1t>
+template <typename T, typename S, int Dim1, int Dim2, size_t Dim1t>
 void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
-                       yateto::DenseTensorView<2, S>& tensorView,
+                       yateto::CSCMatrixView<S, unsigned>& tensorView,
                        const std::array<size_t, Dim1t>& rowIdx) {
   assert(tensorView.shape(0) == Dim1t);
   assert(tensorView.shape(1) == Dim2);
@@ -409,8 +409,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         copyEigenToYateto(impedanceMatrix, impedanceView);
         copyEigenToYateto(impedanceNeigMatrix, impedanceNeigView);
         copyEigenToYateto(etaMatrix, etaView);
-        copyEigenToYateto(bMatrix, tractionPlusMatrix, {0, 3, 5});
-        copyEigenToYateto(bNeigMatrix, tractionMinusMatrix, {0, 3, 5});
+        copyEigenToYateto(bMatrix, tractionPlusMatrix, std::array<size_t, 3>{0, 3, 5});
+        copyEigenToYateto(bNeigMatrix, tractionMinusMatrix, std::array<size_t, 3>{0, 3, 5});
 
         break;
       }

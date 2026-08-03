@@ -668,14 +668,15 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     bMinus11 = impAndEta.etaS * impAndEta.invZsNeig;
     bMinus22 = impAndEta.etaS * impAndEta.invZsNeig;
   } else {
-    bPlus11 = godunovData.tractionPlusMatrix[misc::NumQuantities * 1 + T1];
-    bPlus12 = godunovData.tractionPlusMatrix[misc::NumQuantities * 1 + T2];
-    bPlus21 = godunovData.tractionPlusMatrix[misc::NumQuantities * 2 + T1];
-    bPlus22 = godunovData.tractionPlusMatrix[misc::NumQuantities * 2 + T2];
-    bMinus11 = godunovData.tractionMinusMatrix[misc::NumQuantities * 1 + T1];
-    bMinus12 = godunovData.tractionMinusMatrix[misc::NumQuantities * 1 + T2];
-    bMinus21 = godunovData.tractionMinusMatrix[misc::NumQuantities * 2 + T1];
-    bMinus22 = godunovData.tractionMinusMatrix[misc::NumQuantities * 2 + T2];
+    constexpr auto Rows = 3;
+    bPlus11 = godunovData.tractionPlusMatrix[Rows * 1 + T1];
+    bPlus12 = godunovData.tractionPlusMatrix[Rows * 1 + T2];
+    bPlus21 = godunovData.tractionPlusMatrix[Rows * 2 + T1];
+    bPlus22 = godunovData.tractionPlusMatrix[Rows * 2 + T2];
+    bMinus11 = godunovData.tractionMinusMatrix[Rows * 1 + T1];
+    bMinus12 = godunovData.tractionMinusMatrix[Rows * 1 + T2];
+    bMinus21 = godunovData.tractionMinusMatrix[Rows * 2 + T1];
+    bMinus22 = godunovData.tractionMinusMatrix[Rows * 2 + T2];
   }
 
   using Range = typename NumPoints<Type>::Range;
