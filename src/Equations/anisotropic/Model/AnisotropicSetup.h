@@ -256,7 +256,7 @@ struct MaterialSetup<AnisotropicMaterial> {
 
   static AnisotropicMaterial
       getRotatedMaterialCoefficients(const std::array<double, 36>& rotationParameters,
-                                     AnisotropicMaterial& material) {
+                                     const AnisotropicMaterial& material) {
     AnisotropicMaterial rotatedMaterial;
     rotatedMaterial.rho = material.rho;
     using Matrix66 = Eigen::Matrix<double, 6, 6>;

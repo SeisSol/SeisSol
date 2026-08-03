@@ -374,7 +374,7 @@ struct MaterialSetup<PoroElasticMaterial> {
 
   static PoroElasticMaterial
       getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
-                                     PoroElasticMaterial& material) {
+                                     const PoroElasticMaterial& material) {
     return material;
   }
 
