@@ -96,6 +96,18 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   SEISSOL_DEVICE static void updateStateVariableIterative(FrictionLawContext& __restrict ctx,
                                                           uint32_t timeIndex) {
 
+    const real totalTraction1 = ctx.data->initialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] +
+                                ctx.faultStresses.traction1[timeIndex];
+
+    const real totalTraction2 = ctx.data->initialStressInFaultCS[ctx.ltsFace][5][ctx.pointIndex] +
+                                ctx.faultStresses.traction2[timeIndex];
+
+    const auto [_, invEta] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
+                                                ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                totalTraction1,
+                                                totalTraction2,
+                                                ctx.initialVariables.absoluteShearTraction);
+
     bool hasConvergedOuter = false;
     bool hasConvergedInner = true;
 
@@ -122,7 +134,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                     normalStress,
                                                     absoluteShearStress,
                                                     localSlipRateMagnitude,
-                                                    localImpAndEta.invEtaS,
+                                                    invEta,
                                                     exportMu);
 
       hasConvergedInner &= hasConvergedLocal;
@@ -174,15 +186,25 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex] +=
         slipRateMagnitude * deltaTime;
 
+    const auto [etaS, _] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
+                                              ctx.data->impedanceMatrices[ctx.ltsFace],
+                                              totalTraction1,
+                                              totalTraction2,
+                                              ctx.initialVariables.absoluteShearTraction);
+
     // Update slip rate
-    const auto etaS = ctx.data->impAndEta[ctx.ltsFace].etaS;
     const auto divisor = strength + etaS * slipRateMagnitude;
     const auto slipRate1 = slipRateMagnitude * totalTraction1 / divisor;
     const auto slipRate2 = slipRateMagnitude * totalTraction2 / divisor;
 
+    const auto [tU1, tU2] = common::matmulEta(ctx.data->impAndEta[ctx.ltsFace],
+                                              ctx.data->impedanceMatrices[ctx.ltsFace],
+                                              slipRate1,
+                                              slipRate2);
+
     // calculate traction
-    const auto traction1 = savedTraction1 - etaS * slipRate1;
-    const auto traction2 = savedTraction2 - etaS * slipRate2;
+    const auto traction1 = savedTraction1 - tU1;
+    const auto traction2 = savedTraction2 - tU2;
 
     // Save traction for flux computation
     ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = traction1;

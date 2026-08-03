@@ -754,6 +754,63 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   }
 }
 
+/**
+  Anisotropy projection handling.
+  Has no effect for isotropy.
+
+  Returns {etaProj, invEtaProj}
+ */
+SEISSOL_HOSTDEVICE inline std::pair<real, real>
+    projectEta(const ImpedancesAndEta& impAndEta,
+               [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+               [[maybe_unused]] real t1,
+               [[maybe_unused]] real t2,
+               [[maybe_unused]] real tmag) {
+  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    constexpr std::uint32_t Count =
+        model::MaterialT::Type == model::MaterialType::Poroelastic ? 4 : 3;
+
+    const real n1 = (tmag > 0) ? (t1 / tmag) : static_cast<real>(1.0);
+    const real n2 = (tmag > 0) ? (t2 / tmag) : static_cast<real>(0.0);
+
+    const real etaProj = impedanceMatrices.impedance[Count * 1 + 1] * n1 * n1 +
+                         impedanceMatrices.impedance[Count * 1 + 2] * n1 * n2 +
+                         impedanceMatrices.impedance[Count * 2 + 1] * n2 * n1 +
+                         impedanceMatrices.impedance[Count * 2 + 2] * n2 * n2;
+
+    return {etaProj, static_cast<real>(1.0) / etaProj};
+  } else {
+    return {impAndEta.etaS, impAndEta.invEtaS};
+  }
+}
+
+/**
+  Anisotropy direction handling.
+  Has no effect for isotropy.
+
+  Returns a 2-element vector
+ */
+SEISSOL_HOSTDEVICE inline std::pair<real, real>
+    matmulEta(const ImpedancesAndEta& impAndEta,
+              [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+              real v1,
+              real v2) {
+  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    constexpr std::uint32_t Count =
+        model::MaterialT::Type == model::MaterialType::Poroelastic ? 4 : 3;
+
+    const real w1 = impedanceMatrices.impedance[Count * 1 + 1] * v1 +
+                    impedanceMatrices.impedance[Count * 1 + 2] * v2;
+
+    const real w2 = impedanceMatrices.impedance[Count * 2 + 1] * v1 +
+                    impedanceMatrices.impedance[Count * 2 + 2] * v2;
+
+    return {w1, w2};
+  } else {
+    return {impAndEta.etaS * v1, impAndEta.etaS * v2};
+  }
+}
+
 } // namespace seissol::dr::friction_law::common
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_

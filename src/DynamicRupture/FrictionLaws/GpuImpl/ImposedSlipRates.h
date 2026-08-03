@@ -37,14 +37,18 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
 
     const auto stfEvaluated = STF::evaluateSTF(ctx, currentTime, timeIncrement);
 
-    ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] =
-        ctx.faultStresses.traction1[timeIndex] -
-        ctx.data->impAndEta[ctx.ltsFace].etaS *
-            ctx.data->imposedSlipDirection1[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
-    ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] =
-        ctx.faultStresses.traction2[timeIndex] -
-        ctx.data->impAndEta[ctx.ltsFace].etaS *
-            ctx.data->imposedSlipDirection2[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
+    const auto evalCardinal1 =
+        ctx.data->imposedSlipDirection1[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
+    const auto evalCardinal2 =
+        ctx.data->imposedSlipDirection2[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
+
+    const auto [tU1, tU2] = common::matmulEta(ctx.data->impAndEta[ctx.ltsFace],
+                                              ctx.data->impedanceMatrices[ctx.ltsFace],
+                                              evalCardinal1,
+                                              evalCardinal2);
+
+    ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = ctx.faultStresses.traction1[timeIndex] - tU1;
+    ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = ctx.faultStresses.traction2[timeIndex] - tU2;
 
     ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] =
         ctx.data->imposedSlipDirection1[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;

@@ -73,25 +73,33 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                                   faultStresses.traction2[timeIndex][pointIndex];
       const real absoluteTraction = misc::magnitude(totalTraction1, totalTraction2);
 
+      const auto [eta, invEta] = common::projectEta(this->impAndEta_[ltsFace],
+                                                    this->impedanceMatrices_[ltsFace],
+                                                    totalTraction1,
+                                                    totalTraction2,
+                                                    absoluteTraction);
+
       // calculate slip rates
       this->slipRateMagnitude_[ltsFace][pointIndex] =
-          std::max(static_cast<real>(0.0),
-                   (absoluteTraction - strength[pointIndex]) * this->impAndEta_[ltsFace].invEtaS);
+          std::max(static_cast<real>(0.0), (absoluteTraction - strength[pointIndex]) * invEta);
 
-      const auto divisor = strength[pointIndex] + this->impAndEta_[ltsFace].etaS *
-                                                      this->slipRateMagnitude_[ltsFace][pointIndex];
+      const auto divisor =
+          strength[pointIndex] + eta * this->slipRateMagnitude_[ltsFace][pointIndex];
       this->slipRate1_[ltsFace][pointIndex] =
           this->slipRateMagnitude_[ltsFace][pointIndex] * totalTraction1 / divisor;
       this->slipRate2_[ltsFace][pointIndex] =
           this->slipRateMagnitude_[ltsFace][pointIndex] * totalTraction2 / divisor;
 
+      const auto [tU1, tU2] = common::matmulEta(this->impAndEta_[ltsFace],
+                                                this->impedanceMatrices_[ltsFace],
+                                                this->slipRate1_[ltsFace][pointIndex],
+                                                this->slipRate2_[ltsFace][pointIndex]);
+
       // calculate traction
       tractionResults.traction1[timeIndex][pointIndex] =
-          faultStresses.traction1[timeIndex][pointIndex] -
-          this->impAndEta_[ltsFace].etaS * this->slipRate1_[ltsFace][pointIndex];
+          faultStresses.traction1[timeIndex][pointIndex] - tU1;
       tractionResults.traction2[timeIndex][pointIndex] =
-          faultStresses.traction2[timeIndex][pointIndex] -
-          this->impAndEta_[ltsFace].etaS * this->slipRate2_[ltsFace][pointIndex];
+          faultStresses.traction2[timeIndex][pointIndex] - tU2;
       this->traction1_[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
       this->traction2_[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
 

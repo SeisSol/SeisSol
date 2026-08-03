@@ -63,22 +63,30 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     const real totalStress2 = ctx.data->initialStressInFaultCS[ctx.ltsFace][5][ctx.pointIndex] +
                               faultStresses.traction2[timeIndex];
     const real absoluteShearStress = misc::magnitude(totalStress1, totalStress2);
+
+    const auto [eta, invEta] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
+                                                  ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                  totalTraction1,
+                                                  totalTraction2,
+                                                  absoluteTraction);
+
     // calculate slip rates
     ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] =
-        std::max(static_cast<real>(0.0), (absoluteShearStress - strength) * devImpAndEta.invEtaS);
-    const auto divisor =
-        strength + devImpAndEta.etaS * ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
+        std::max(static_cast<real>(0.0), (absoluteShearStress - strength) * invEta);
+    const auto divisor = strength + eta * ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
     ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] =
         ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] * totalStress1 / divisor;
     ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] =
         ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] * totalStress2 / divisor;
+
+    const auto [tU1, tU2] = common::matmulEta(ctx.data->impAndEta[ctx.ltsFace],
+                                              ctx.data->impedanceMatrices[ctx.ltsFace],
+                                              ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
+                                              ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex]);
+
     // calculate traction
-    tractionResults.traction1[timeIndex] =
-        faultStresses.traction1[timeIndex] -
-        devImpAndEta.etaS * ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex];
-    tractionResults.traction2[timeIndex] =
-        faultStresses.traction2[timeIndex] -
-        devImpAndEta.etaS * ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex];
+    tractionResults.traction1[timeIndex] = faultStresses.traction1[timeIndex] - tU1;
+    tractionResults.traction2[timeIndex] = faultStresses.traction2[timeIndex] - tU2;
     ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = tractionResults.traction1[timeIndex];
     ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = tractionResults.traction2[timeIndex];
     // update directional slip

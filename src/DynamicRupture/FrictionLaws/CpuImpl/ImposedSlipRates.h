@@ -41,14 +41,16 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       const real stfEvaluated = stf_.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
 
-      this->traction1_[ltsFace][pointIndex] = faultStresses.traction1[timeIndex][pointIndex] -
-                                              this->impAndEta_[ltsFace].etaS *
-                                                  imposedSlipDirection1_[ltsFace][pointIndex] *
-                                                  stfEvaluated;
-      this->traction2_[ltsFace][pointIndex] = faultStresses.traction2[timeIndex][pointIndex] -
-                                              this->impAndEta_[ltsFace].etaS *
-                                                  imposedSlipDirection2_[ltsFace][pointIndex] *
-                                                  stfEvaluated;
+      const auto evalCardinal1 = imposedSlipDirection1_[ltsFace][pointIndex] * stfEvaluated;
+      const auto evalCardinal2 = imposedSlipDirection2_[ltsFace][pointIndex] * stfEvaluated;
+
+      const auto [tU1, tU2] = common::matmulEta(this->impAndEta_[ltsFace],
+                                                this->impedanceMatrices_[ltsFace],
+                                                evalCardinal1,
+                                                evalCardinal2);
+
+      this->traction1_[ltsFace][pointIndex] = faultStresses.traction1[timeIndex][pointIndex] - tU1;
+      this->traction2_[ltsFace][pointIndex] = faultStresses.traction2[timeIndex][pointIndex] - tU2;
 
       this->slipRate1_[ltsFace][pointIndex] =
           this->imposedSlipDirection1_[ltsFace][pointIndex] * stfEvaluated;
