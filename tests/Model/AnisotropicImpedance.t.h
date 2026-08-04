@@ -226,6 +226,93 @@ TEST_CASE("tractionPlusMatrix CSC layout matches the friction energy indexing" *
   }
 }
 
+// ---------------------------------------------------------------------------
+// 4. Reconstruction of the stress components outside the fault-normal Riemann problem, used by
+//    the fault receiver output. Checked against the direct plane-wave stress, and against the
+//    1 - 2 (cs/cp)^2 formula the output used before.
+// ---------------------------------------------------------------------------
+TEST_CASE("Anisotropic lateral stress reconstruction" * doctest::test_suite("dynamicrupture")) {
+  using seissol::initializer::model::impedance_detail::lateralStressMatrix;
+  constexpr double Epsilon = 1e-12;
+
+  // Voigt stiffness matrix of a material, for the direct check below
+  const auto voigt = [](const model::AnisotropicMaterial& m) {
+    Eigen::Matrix<double, 6, 6> c;
+    c << m.c11, m.c12, m.c13, m.c14, m.c15, m.c16, m.c12, m.c22, m.c23, m.c24, m.c25, m.c26, m.c13,
+        m.c23, m.c33, m.c34, m.c35, m.c36, m.c14, m.c24, m.c34, m.c44, m.c45, m.c46, m.c15, m.c25,
+        m.c35, m.c45, m.c55, m.c56, m.c16, m.c26, m.c36, m.c46, m.c56, m.c66;
+    return c;
+  };
+
+  SUBCASE("isotropic limit") {
+    const double rho = 2670.0;
+    const double mu = 3.203e10;
+    const double lambda = 3.204e10;
+    const auto frame = makeFaultFrame(Eigen::Vector3d(0.3, -0.5, 0.81));
+    const auto lateral =
+        lateralStressMatrix(rotateToFault(isotropicMaterial(rho, mu, lambda), frame));
+
+    const double cs = std::sqrt(mu / rho);
+    const double cp = std::sqrt((lambda + 2 * mu) / rho);
+    Eigen::Matrix3d reference = Eigen::Matrix3d::Zero();
+    reference(0, 0) = 1.0 - 2.0 * (cs * cs) / (cp * cp);
+    reference(1, 0) = reference(0, 0);
+
+    CHECK((lateral - reference).cwiseAbs().maxCoeff() < Epsilon);
+  }
+
+  SUBCASE("reproduces the plane wave stress of a tilted VTI") {
+    const auto frame = makeFaultFrame(Eigen::Vector3d::UnitZ());
+    const auto material = rotateToFault(tiltedVti(35.0), frame);
+    const auto lateral = lateralStressMatrix(material);
+    const auto stiffness = voigt(material);
+
+    // every polarisation of a wave travelling along the fault normal has only the strain rates
+    // (eps_1, eps_6, eps_5); its full stress must be recovered from its traction alone
+    Eigen::Matrix3d christoffel;
+    christoffel << material.c11, material.c16, material.c15, material.c16, material.c66,
+        material.c56, material.c15, material.c56, material.c55;
+    const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(christoffel);
+
+    for (int mode = 0; mode < 3; ++mode) {
+      const Eigen::Vector3d polarisation = solver.eigenvectors().col(mode);
+      Eigen::Matrix<double, 6, 1> strain = Eigen::Matrix<double, 6, 1>::Zero();
+      strain(0) = polarisation(0);
+      strain(5) = polarisation(1);
+      strain(4) = polarisation(2);
+      const Eigen::Matrix<double, 6, 1> stress = stiffness * strain;
+
+      const Eigen::Vector3d traction(stress(0), stress(5), stress(4));
+      const Eigen::Vector3d expected(stress(1), stress(2), stress(3));
+
+      CHECK((lateral * traction - expected).cwiseAbs().maxCoeff() <
+            Epsilon * expected.cwiseAbs().maxCoeff());
+    }
+
+    // the shear-to-lateral coupling is absent from the isotropic formula, and it is not small
+    CHECK(lateral.rightCols<2>().cwiseAbs().maxCoeff() > 0.05 * lateral.cwiseAbs().maxCoeff());
+  }
+
+  SUBCASE("closed form agrees with the eigendecomposition route") {
+    // The poroelastic case has no closed form and goes through
+    // admittanceFromEigendecomposition instead. Checking the two against each other here -- on a
+    // material where the eigensolver is well conditioned -- validates the row/column bookkeeping
+    // of that route, which is all poroelasticity relies on.
+    const auto frame = makeFaultFrame(Eigen::Vector3d(0.3, -0.5, 0.81));
+    const auto material = rotateToFault(tiltedVti(35.0), frame);
+
+    seissol::initializer::model::DrLateralMatrix fromEigen =
+        seissol::initializer::model::DrLateralMatrix::Zero();
+    seissol::initializer::model::impedance_detail::admittanceFromEigendecomposition(material,
+                                                                                    &fromEigen);
+    const auto fromClosedForm =
+        seissol::initializer::model::impedance_detail::lateralStressFromChristoffel(material);
+
+    CHECK((fromEigen - fromClosedForm).cwiseAbs().maxCoeff() <
+          1e-8 * fromClosedForm.cwiseAbs().maxCoeff());
+  }
+}
+
 } // namespace seissol::unit_test
 
 #endif // USE_ANISOTROPIC

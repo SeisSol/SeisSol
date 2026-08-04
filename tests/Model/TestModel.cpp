@@ -10,3 +10,4 @@
 #include "AnisotropicImpedance.t.h"
 #include "Attenuation.t.h"
 #include "GodunovState.t.h"
+#include "PoroelasticImpedance.t.h"

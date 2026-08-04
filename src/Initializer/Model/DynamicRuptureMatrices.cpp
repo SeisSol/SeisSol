@@ -412,6 +412,15 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         copyEigenToYateto(bMatrix, tractionPlusMatrix, std::array<size_t, 3>{0, 3, 5});
         copyEigenToYateto(bNeigMatrix, tractionMinusMatrix, std::array<size_t, 3>{0, 3, 5});
 
+        // reconstruction of the stress components outside of the Riemann problem; only needed by
+        // the fault receiver output, which evaluates them on the plus side
+        for (std::size_t col = 0; col < N; ++col) {
+          for (std::size_t row = 0; row < 3; ++row) {
+            impedanceMatrices[ltsFace].lateralStress[col * 3 + row] =
+                static_cast<real>(faultImpedance.lateralStressPlus(row, col));
+          }
+        }
+
         break;
       }
       default: {

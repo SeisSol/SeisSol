@@ -200,6 +200,12 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     // TODO: generalize and unify with the above (probably using either templates or Yateto)
     // (the v1.1.0-1.3.1 Yateto+selector matrix based kernel was removed since GPU support was
     // missing)
+    //
+    // etaPDamp scales the fault-normal response only. The elastic branch does that by damping
+    // etaP; here eta is not diagonal, but since res[0] = sum_k eta(0,k) * x_k, damping row 0 of
+    // eta and damping res[0] are the same thing -- so it is applied at the very end. The
+    // poroelastic fluid pressure res[3] is deliberately left undamped, matching the elastic
+    // behaviour of only touching the normal traction.
 
     using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
     const auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
@@ -254,7 +260,7 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
         }
 
         VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, o, i) =
-            res[0];
+            res[0] * etaPDamp;
         VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.traction1, o, i) = res[1];
         VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.traction2, o, i) = res[2];
         if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {

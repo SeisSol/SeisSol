@@ -42,6 +42,22 @@ struct ImpedanceMatrices {
   alignas(Alignment) real impedance[tensor::Zplus::size()] = {};
   alignas(Alignment) real impedanceNeig[tensor::Zminus::size()] = {};
   alignas(Alignment) real eta[tensor::eta::size()] = {};
+  /**
+   * Maps a fault-local traction difference to the difference of the stress components which do not
+   * take part in the fault-normal Riemann problem:
+   *
+   *   [d sigma_ss; d sigma_dd; d sigma_sd]
+   *       = lateralStress * [d sigma_nn; d sigma_ns; d sigma_nd]
+   *
+   * For anisotropy this is C[{ss,dd,sd},{nn,ns,nd}] * Gamma^-1 with the Christoffel matrix Gamma of
+   * the fault normal direction; for poroelasticity the traction carries a fourth component (the
+   * fluid pressure) and the matrix is 3 x 4. Dense and column major, lateralStress[col * 3 + row].
+   *
+   * Only needed by the fault receiver output, and only filled for the materials that need the
+   * matrix form -- for an isotropic elastic material the single relevant entry is
+   * lambda / (lambda + 2 mu) = 1 - 2 (cs/cp)^2, which the output computes from the wave speeds.
+   */
+  alignas(Alignment) real lateralStress[3 * tensor::Zminus::Shape[0]] = {};
 };
 
 template <Executor Executor>
