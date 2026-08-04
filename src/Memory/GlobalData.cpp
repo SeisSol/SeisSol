@@ -12,12 +12,14 @@
 #include "Common/Marker.h"
 #include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Memory/MemoryAllocator.h"
+#include "Model/CommonDatastructures.h"
 #include "Parallel/OpenMP.h"
 
 #include <cassert>
@@ -27,6 +29,16 @@
 #ifdef ACL_DEVICE
 #include <Device/device.h>
 #endif
+
+namespace seissol::init {
+class wHat;
+class timeInt;
+} // namespace seissol::init
+
+namespace seissol::tensor {
+class wHat;
+class timeInt;
+} // namespace seissol::tensor
 
 namespace seissol::initializer {
 namespace matrixmanip {
@@ -156,6 +168,13 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
       yateto::alignedReals<real>(prop.alignment));
 #endif // ACL_DEVICE
 
+  if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+    globalMatrixMemSize += yateto::alignedUpper(kernels::size<tensor::wHat>(),
+                                                yateto::alignedReals<real>(prop.alignment));
+    globalMatrixMemSize += yateto::alignedUpper(kernels::size<tensor::timeInt>(),
+                                                yateto::alignedReals<real>(prop.alignment));
+  }
+
   globalMatrixMemSize +=
       yateto::alignedUpper(tensor::resample::size(), yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize +=
@@ -200,6 +219,13 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   copyManager.template copyFamilyToMemAndSetPtr<init::minusFluxMatrices>(
       globalMatrixMemPtr, globalData.minusFluxMatrices, prop.alignment);
 #endif // ACL_DEVICE
+
+  if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+    copyManager.template copyTensorToMemAndSetPtr<init::wHat>(
+        globalMatrixMemPtr, globalData.stpZero, prop.alignment);
+    copyManager.template copyTensorToMemAndSetPtr<init::timeInt>(
+        globalMatrixMemPtr, globalData.stpInt, prop.alignment);
+  }
 
   copyManager.template copyTensorToMemAndSetPtr<init::resample>(
       globalMatrixMemPtr, globalData.resampleMatrix, prop.alignment);
