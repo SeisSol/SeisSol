@@ -16,6 +16,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Memory/MemoryAllocator.h"
