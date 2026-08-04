@@ -31,6 +31,7 @@ struct InitialVariables {
   real localSlipRate{};
   real normalStress{};
   real stateVarReference{};
+  real etaNormal{};
 };
 
 struct FrictionLawArgs {
@@ -145,6 +146,9 @@ class BaseFrictionSolver : public FrictionSolverDetails {
           ctx.data->qInterpolatedMinus[ctx.ltsFace],
           etaPDamp,
           ctx.pointIndex);
+
+      common::initializeTractionResults<GpuRangeType>(
+          ctx.faultStresses, ctx.tractionResults, ctx.pointIndex);
 
       const auto isFrictionEnergyRequired{ctx.data->drParameters.isFrictionEnergyRequired};
       const auto isCheckAbortCriteraEnabled{ctx.data->drParameters.isCheckAbortCriteraEnabled};

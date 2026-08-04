@@ -47,6 +47,13 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
                                               evalCardinal1,
                                               evalCardinal2);
 
+    // the prescribed slip rate also changes the fault-normal traction if the impedance couples the
+    // normal and the tangential directions (anisotropy); zero otherwise
+    const auto tUN = common::matmulEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
+                                             ctx.data->impedanceMatrices[ctx.ltsFace],
+                                             evalCardinal1,
+                                             evalCardinal2);
+
     ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = ctx.faultStresses.traction1[timeIndex] - tU1;
     ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = ctx.faultStresses.traction2[timeIndex] - tU2;
 
@@ -66,6 +73,7 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
     ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex] +=
         ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] * timeIncrement;
 
+    ctx.tractionResults.normalStress[timeIndex] = ctx.faultStresses.normalStress[timeIndex] - tUN;
     ctx.tractionResults.traction1[timeIndex] = ctx.data->traction1[ctx.ltsFace][ctx.pointIndex];
     ctx.tractionResults.traction2[timeIndex] = ctx.data->traction2[ctx.ltsFace][ctx.pointIndex];
   }

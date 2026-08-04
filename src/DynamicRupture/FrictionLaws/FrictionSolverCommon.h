@@ -267,6 +267,37 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 }
 
 /**
+ * Seeds the post-solve tractions with the trial ("stick") state.
+ *
+ * At the moment this only concerns the fault-normal stress: for every impedance that is block
+ * diagonal in the fault-normal direction versus the two tangential ones -- i.e. everything except
+ * anisotropy -- a frictional interface with no opening leaves the normal stress at its trial value,
+ * so the friction laws never touch it. Seeding it here keeps those friction laws free of
+ * boilerplate and makes postcomputeImposedStateFromNewStress read a single, well-defined source.
+ *
+ * @param[in] faultStresses trial stresses from precomputeStressFromQInterpolated
+ * @param[out] tractionResults
+ */
+template <RangeType Type = RangeType::CPU>
+SEISSOL_HOSTDEVICE inline void
+    initializeTractionResults(const FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
+                              TractionResults<RangeExecutor<Type>::Exec>& tractionResults,
+                              uint32_t startIndex = 0) {
+  using Range = typename NumPoints<Type>::Range;
+
+  for (uint32_t o = 0; o < misc::TimeSteps; ++o) {
+#ifndef ACL_DEVICE
+#pragma omp simd
+#endif
+    for (auto index = Range::Start; index < Range::End; index += Range::Step) {
+      const auto i{startIndex + index};
+      VariableIndexing<RangeExecutor<Type>::Exec>::index(tractionResults.normalStress, o, i) =
+          VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, o, i);
+    }
+  }
+}
+
+/**
  * Asserts whether all relevant arrays are properly aligned
  */
 inline void checkAlignmentPostCompute(
@@ -310,6 +341,7 @@ inline void checkAlignmentPostCompute(
     assert(reinterpret_cast<uintptr_t>(qIMinus[o][T2]) % Alignment == 0);
 
     assert(reinterpret_cast<uintptr_t>(faultStresses.normalStress[o]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(tractionResults.normalStress[o]) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(tractionResults.traction1[o]) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(tractionResults.traction2[o]) % Alignment == 0);
   }
@@ -382,7 +414,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
         auto i{startIndex + index};
 
         const auto normalStress =
-            VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, o, i);
+            VariableIndexing<RangeExecutor<Type>::Exec>::index(tractionResults.normalStress, o, i);
         const auto traction1 =
             VariableIndexing<RangeExecutor<Type>::Exec>::index(tractionResults.traction1, o, i);
         const auto traction2 =
@@ -428,7 +460,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
         auto i{startIndex + index};
 
         const auto normalStress =
-            VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, o, i);
+            VariableIndexing<RangeExecutor<Type>::Exec>::index(tractionResults.normalStress, o, i);
         const auto traction1 =
             VariableIndexing<RangeExecutor<Type>::Exec>::index(tractionResults.traction1, o, i);
         const auto traction2 =
@@ -786,6 +818,43 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
 }
 
 /**
+  Anisotropy normal/shear coupling handling.
+  Has no effect for isotropy.
+
+  Returns the coefficient
+
+    c = (eta * n)_n = eta_ns * n1 + eta_nd * n2
+
+  for the unit shear direction n = (t1, t2) / tmag. With it, the fault-normal stress after the
+  friction solve is
+
+    sigma(V) = sigma_stick - V * c,
+
+  i.e. shear slip changes the normal stress whenever eta is not block diagonal in the fault-normal
+  direction. c is identically zero for every isotropic material, so the whole correction disappears
+  there.
+ */
+SEISSOL_HOSTDEVICE inline real
+    projectEtaNormal([[maybe_unused]] const ImpedancesAndEta& impAndEta,
+                     [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+                     [[maybe_unused]] real t1,
+                     [[maybe_unused]] real t2,
+                     [[maybe_unused]] real tmag) {
+  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    // the anisotropic block is always 3x3 (no fluid pressure component)
+    constexpr std::uint32_t Count = 3;
+
+    const real n1 = (tmag > 0) ? (t1 / tmag) : static_cast<real>(1.0);
+    const real n2 = (tmag > 0) ? (t2 / tmag) : static_cast<real>(0.0);
+
+    // eta is a dense, column-major tensor: eta[col * Count + row]
+    return impedanceMatrices.eta[Count * 1 + 0] * n1 + impedanceMatrices.eta[Count * 2 + 0] * n2;
+  } else {
+    return static_cast<real>(0.0);
+  }
+}
+
+/**
   Anisotropy direction handling.
   Has no effect for isotropy.
 
@@ -809,6 +878,34 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
     return {w1, w2};
   } else {
     return {impAndEta.etaS * v1, impAndEta.etaS * v2};
+  }
+}
+
+/**
+  Anisotropy normal/shear coupling, for a known slip rate vector.
+  Has no effect for isotropy.
+
+  Returns the fault-normal component of eta * (0, v1, v2), i.e.
+
+    (eta * v)_n = eta_ns * v1 + eta_nd * v2,
+
+  so that the fault-normal traction after the solve is sigma = sigma_stick - (eta * v)_n. This is
+  the counterpart of projectEtaNormal for the case where the slip rate vector -- and not just its
+  direction -- is known.
+ */
+SEISSOL_HOSTDEVICE inline real
+    matmulEtaNormal([[maybe_unused]] const ImpedancesAndEta& impAndEta,
+                    [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+                    [[maybe_unused]] real v1,
+                    [[maybe_unused]] real v2) {
+  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    // the anisotropic block is always 3x3 (no fluid pressure component)
+    constexpr std::uint32_t Count = 3;
+
+    // eta is a dense, column-major tensor: eta[col * Count + row]
+    return impedanceMatrices.eta[Count * 1 + 0] * v1 + impedanceMatrices.eta[Count * 2 + 0] * v2;
+  } else {
+    return static_cast<real>(0.0);
   }
 }
 

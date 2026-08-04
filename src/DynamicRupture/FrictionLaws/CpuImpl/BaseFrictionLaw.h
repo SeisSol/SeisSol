@@ -97,6 +97,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                  SCOREP_USER_REGION_TYPE_COMMON)
         LIKWID_MARKER_START("computeDynamicRuptureUpdateFrictionAndSlip");
         TractionResults<Executor::Host> tractionResults = {};
+        common::initializeTractionResults(faultStresses, tractionResults);
 
         // loop over sub time steps (i.e. quadrature points in time
         real startTime = 0;

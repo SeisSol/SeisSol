@@ -95,7 +95,18 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                                                 this->slipRate1_[ltsFace][pointIndex],
                                                 this->slipRate2_[ltsFace][pointIndex]);
 
+      const auto tUN = common::matmulEtaNormal(this->impAndEta_[ltsFace],
+                                               this->impedanceMatrices_[ltsFace],
+                                               this->slipRate1_[ltsFace][pointIndex],
+                                               this->slipRate2_[ltsFace][pointIndex]);
+
       // calculate traction
+      // the normal stress written here is the *dynamic* normal traction, i.e. in the same space as
+      // faultStresses/qInterpolated -- unlike the effective normal stress used for the strength,
+      // it carries neither the initial stress nor the min(., 0) clamp. It uses the slip rate just
+      // solved for, so only the strength above is lagged, not the imposed state.
+      tractionResults.normalStress[timeIndex][pointIndex] =
+          faultStresses.normalStress[timeIndex][pointIndex] - tUN;
       tractionResults.traction1[timeIndex][pointIndex] =
           faultStresses.traction1[timeIndex][pointIndex] - tU1;
       tractionResults.traction2[timeIndex][pointIndex] =
@@ -157,11 +168,29 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                         std::size_t ltsFace) {
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      // anisotropic normal/shear coupling: shear slip changes the fault-normal traction by
+      // -V * etaNormal. The slip rate is the one of the previous time quadrature point, i.e. the
+      // coupling is lagged. Correcting the closed-form solve instead would require the exact slope
+      // d(strength)/d(sigma), which is only mu for the plain slip-weakening law -- the
+      // Prakash-Clifton regularisation of BiMaterialFault low-passes it. Doing it here keeps every
+      // specialization exact for a given slip rate. Zero for isotropy.
+      const real totalTraction1 = this->initialStressInFaultCS_[ltsFace][3][pointIndex] +
+                                  faultStresses.traction1[timeIndex][pointIndex];
+      const real totalTraction2 = this->initialStressInFaultCS_[ltsFace][5][pointIndex] +
+                                  faultStresses.traction2[timeIndex][pointIndex];
+      const auto etaNormal =
+          common::projectEtaNormal(this->impAndEta_[ltsFace],
+                                   this->impedanceMatrices_[ltsFace],
+                                   totalTraction1,
+                                   totalTraction2,
+                                   misc::magnitude(totalTraction1, totalTraction2));
+
       // calculate fault strength (Uphoff eq 2.44) with addition cohesion term
       const real totalNormalStress = this->initialStressInFaultCS_[ltsFace][0][pointIndex] +
                                      faultStresses.normalStress[timeIndex][pointIndex] +
                                      this->initialPressure_[ltsFace][pointIndex] +
-                                     faultStresses.fluidPressure[timeIndex][pointIndex];
+                                     faultStresses.fluidPressure[timeIndex][pointIndex] -
+                                     this->slipRateMagnitude_[ltsFace][pointIndex] * etaNormal;
 
       strength[pointIndex] =
           -cohesion_[ltsFace][pointIndex] -

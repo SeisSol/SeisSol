@@ -66,6 +66,9 @@ TEST_CASE("Friction Solver Common") {
   auto qM = [](size_t o, size_t q, size_t p) { return static_cast<real>(2 * (o + q + p)); };
   auto t1 = [](size_t o, size_t p) { return static_cast<real>(o + p); };
   auto t2 = [](size_t o, size_t p) { return static_cast<real>(2 * (o + p)); };
+  // deliberately different from faultStresses.normalStress, so that the postcompute test
+  // discriminates between the trial and the post-solve normal stress
+  auto tn = [](size_t o, size_t p) { return static_cast<real>(3 * (o + p) + 1); };
 
   for (size_t o = 0; o < misc::TimeSteps; o++) {
     for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
@@ -73,6 +76,7 @@ TEST_CASE("Friction Solver Common") {
         qIPlus[o][q][p] = qP(o, q, p);
         qIMinus[o][q][p] = qM(o, q, p);
       }
+      tractionResults.normalStress[o][p] = tn(o, p);
       tractionResults.traction1[o][p] = t1(o, p);
       tractionResults.traction2[o][p] = t2(o, p);
     }
@@ -112,6 +116,23 @@ TEST_CASE("Friction Solver Common") {
     }
   }
 
+  SUBCASE("Initialize Traction Results") {
+    friction_law::common::precomputeStressFromQInterpolated(
+        faultStresses, impAndEta, impMats, qInterpolatedPlus, qInterpolatedMinus, 1.0);
+    friction_law::common::initializeTractionResults(faultStresses, tractionResults);
+
+    for (size_t o = 0; o < misc::TimeSteps; o++) {
+      for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+        // the trial normal stress is seeded ...
+        REQUIRE(tractionResults.normalStress[o][p] ==
+                AbsApprox(faultStresses.normalStress[o][p]).epsilon(Epsilon));
+        // ... and nothing else is touched
+        REQUIRE(tractionResults.traction1[o][p] == AbsApprox(t1(o, p)).epsilon(Epsilon));
+        REQUIRE(tractionResults.traction2[o][p] == AbsApprox(t2(o, p)).epsilon(Epsilon));
+      }
+    }
+  }
+
   SUBCASE("Postcompute Imposed State") {
     friction_law::common::postcomputeImposedStateFromNewStress(faultStresses,
                                                                tractionResults,
@@ -132,23 +153,20 @@ TEST_CASE("Friction Solver Common") {
       real expectedV[2]{};
       real expectedW[2]{};
       for (size_t o = 0; o < misc::TimeSteps; o++) {
-        expectedNormalStress[0] += timeWeights[o] * faultStresses.normalStress[o][p];
+        expectedNormalStress[0] += timeWeights[o] * tn(o, p);
         expectedTraction1[0] += timeWeights[o] * t1(o, p);
         expectedTraction2[0] += timeWeights[o] * t2(o, p);
         expectedU[0] +=
-            timeWeights[o] *
-            (qM(o, 6, p) - impAndEta.invZpNeig * (faultStresses.normalStress[o][p] - qM(o, 0, p)));
+            timeWeights[o] * (qM(o, 6, p) - impAndEta.invZpNeig * (tn(o, p) - qM(o, 0, p)));
         expectedV[0] +=
             timeWeights[o] * (qM(o, 7, p) - impAndEta.invZsNeig * (t1(o, p) - qM(o, 3, p)));
         expectedW[0] +=
             timeWeights[o] * (qM(o, 8, p) - impAndEta.invZsNeig * (t2(o, p) - qM(o, 5, p)));
 
-        expectedNormalStress[1] += timeWeights[o] * faultStresses.normalStress[o][p];
+        expectedNormalStress[1] += timeWeights[o] * tn(o, p);
         expectedTraction1[1] += timeWeights[o] * t1(o, p);
         expectedTraction2[1] += timeWeights[o] * t2(o, p);
-        expectedU[1] +=
-            timeWeights[o] *
-            (qP(o, 6, p) + impAndEta.invZp * (faultStresses.normalStress[o][p] - qP(o, 0, p)));
+        expectedU[1] += timeWeights[o] * (qP(o, 6, p) + impAndEta.invZp * (tn(o, p) - qP(o, 0, p)));
         expectedV[1] += timeWeights[o] * (qP(o, 7, p) + impAndEta.invZs * (t1(o, p) - qP(o, 3, p)));
         expectedW[1] += timeWeights[o] * (qP(o, 8, p) + impAndEta.invZs * (t2(o, p) - qP(o, 5, p)));
       }

@@ -84,7 +84,15 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
                                               ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
                                               ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex]);
 
+    const auto tUN = common::matmulEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
+                                             ctx.data->impedanceMatrices[ctx.ltsFace],
+                                             ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
+                                             ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex]);
+
     // calculate traction
+    // the normal stress written here is the *dynamic* normal traction, using the slip rate just
+    // solved for -- only the strength above is lagged, not the imposed state
+    tractionResults.normalStress[timeIndex] = faultStresses.normalStress[timeIndex] - tUN;
     tractionResults.traction1[timeIndex] = faultStresses.traction1[timeIndex] - tU1;
     tractionResults.traction2[timeIndex] = faultStresses.traction2[timeIndex] - tU2;
     ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = tractionResults.traction1[timeIndex];
@@ -170,11 +178,28 @@ class LinearSlipWeakeningLaw
 
     auto& strength = ctx.strengthBuffer;
 
+    // anisotropic normal/shear coupling: shear slip changes the fault-normal traction by
+    // -V * etaNormal, with the slip rate of the previous time quadrature point (lagged). See the
+    // CPU implementation for why the correction sits here and not in the closed-form solve.
+    const real couplingTraction1 =
+        ctx.data->initialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] +
+        ctx.faultStresses.traction1[timeIndex];
+    const real couplingTraction2 =
+        ctx.data->initialStressInFaultCS[ctx.ltsFace][5][ctx.pointIndex] +
+        ctx.faultStresses.traction2[timeIndex];
+    const auto etaNormal =
+        common::projectEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
+                                 ctx.data->impedanceMatrices[ctx.ltsFace],
+                                 couplingTraction1,
+                                 couplingTraction2,
+                                 misc::magnitude(couplingTraction1, couplingTraction2));
+
     const real totalNormalStress =
         ctx.data->initialStressInFaultCS[ctx.ltsFace][0][ctx.pointIndex] +
         ctx.faultStresses.normalStress[timeIndex] +
         ctx.data->initialPressure[ctx.ltsFace][ctx.pointIndex] +
-        ctx.faultStresses.fluidPressure[timeIndex];
+        ctx.faultStresses.fluidPressure[timeIndex] -
+        ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] * etaNormal;
     strength = -ctx.data->cohesion[ctx.ltsFace][ctx.pointIndex] -
                ctx.data->mu[ctx.ltsFace][ctx.pointIndex] *
                    std::min(totalNormalStress, static_cast<real>(0.0));

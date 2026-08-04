@@ -65,10 +65,18 @@ struct FaultStresses<Executor::Host> {
 
 /**
  * Struct that contains all traction results
- * traction1, traction2 in the direction of the respective tangential vectors
+ * normalStress in direction of the face normal, traction1, traction2 in the direction of the
+ * respective tangential vectors.
+ *
+ * normalStress is the fault-normal traction *after* the friction solve. It differs from
+ * FaultStresses::normalStress only if the impedance couples the fault-normal and the tangential
+ * directions, which is the case for anisotropic materials. It is therefore seeded with the trial
+ * value by common::initializeTractionResults, and a friction law only has to overwrite it if it
+ * actually changes the normal stress.
  */
 template <>
 struct TractionResults<Executor::Host> {
+  alignas(Alignment) real normalStress[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
   alignas(Alignment) real traction1[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
   alignas(Alignment) real traction2[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
 };
@@ -88,10 +96,13 @@ struct FaultStresses<Executor::Device> {
 
 /**
  * Struct that contains all traction results
- * traction1, traction2 in the direction of the respective tangential vectors
+ * normalStress in direction of the face normal, traction1, traction2 in the direction of the
+ * respective tangential vectors. See TractionResults<Executor::Host> for the semantics of
+ * normalStress.
  */
 template <>
 struct TractionResults<Executor::Device> {
+  real normalStress[misc::TimeSteps] = {{}};
   real traction1[misc::TimeSteps] = {{}};
   real traction2[misc::TimeSteps] = {{}};
 };
