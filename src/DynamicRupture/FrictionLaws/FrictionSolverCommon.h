@@ -706,8 +706,12 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     bMinus22 = godunovData.tractionMinusMatrix[Rows * 2 + 2];
   } else {
     bPlus11 = impAndEta.etaS * impAndEta.invZs;
+    bPlus12 = 0;
+    bPlus21 = 0;
     bPlus22 = impAndEta.etaS * impAndEta.invZs;
     bMinus11 = impAndEta.etaS * impAndEta.invZsNeig;
+    bMinus12 = 0;
+    bMinus21 = 0;
     bMinus22 = impAndEta.etaS * impAndEta.invZsNeig;
   }
 

@@ -29,12 +29,10 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
-#include "Numerical/Eigenvalues.h"
 
 #include <Eigen/Core>
 #include <array>
 #include <cassert>
-#include <complex>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
