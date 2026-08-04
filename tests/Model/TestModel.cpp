@@ -7,5 +7,6 @@
 
 #include <doctest.h>
 
+#include "AnisotropicImpedance.t.h"
 #include "Attenuation.t.h"
 #include "GodunovState.t.h"

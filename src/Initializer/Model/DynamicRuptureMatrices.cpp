@@ -19,6 +19,7 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/Model/DynamicRuptureImpedance.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
@@ -86,7 +87,11 @@ template <typename T, typename S, int Dim1, int Dim2, size_t Dim1t>
 void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
                        yateto::CSCMatrixView<S, unsigned>& tensorView,
                        const std::array<size_t, Dim1t>& rowIdx) {
-  assert(tensorView.shape(0) == Dim1);
+  // NOTE: shape(0) is the number of *logical* rows of the sparse matrix
+  // (NumQuantities), not the number of stored ones. Only the row indices we
+  // actually write have to be in range.
+  assert(Dim1t == static_cast<size_t>(Dim1));
+  assert(rowIdx[Dim1t - 1] < tensorView.shape(0));
   assert(tensorView.shape(1) == Dim2);
   // (the dim praameters need to be int due to Eigen)
 
@@ -98,32 +103,7 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
   }
 }
 
-constexpr size_t N = tensor::Zminus::Shape[0];
-template <typename T>
-Eigen::Matrix<T, N, N>
-    extractMatrix(eigenvalues::Eigenpair<std::complex<double>,
-                                         seissol::model::MaterialT::NumQuantities> eigenpair) {
-  std::vector<size_t> tractionIndices;
-  std::vector<size_t> velocityIndices;
-  std::vector<size_t> columnIndices;
-
-  if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
-    tractionIndices = {0, 3, 5, 9};
-    velocityIndices = {6, 7, 8, 10};
-    columnIndices = {0, 1, 2, 3};
-  } else {
-    tractionIndices = {0, 3, 5};
-    velocityIndices = {6, 7, 8};
-    columnIndices = {0, 1, 2};
-  }
-
-  auto matrix = eigenpair.getVectorsAsMatrix();
-  const Eigen::Matrix<double, N, N> matRT = matrix(tractionIndices, columnIndices).real();
-  const Eigen::Matrix<double, N, N> matRTInv = matRT.inverse();
-  const Eigen::Matrix<double, N, N> matRU = matrix(velocityIndices, columnIndices).real();
-  const Eigen::Matrix<double, N, N> matM = matRU * matRTInv;
-  return matM.cast<T>();
-}
+constexpr size_t N = model::DrImpedanceDim;
 
 } // namespace
 
@@ -394,20 +374,30 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         const auto plusLocal = seissol::model::getRotatedMaterialCoefficients(bond, *plusMaterial);
         const auto minusLocal =
             seissol::model::getRotatedMaterialCoefficients(bond, *minusMaterial);
-        auto plusEigenpair = seissol::model::getEigenDecomposition(plusLocal);
-        auto minusEigenpair = seissol::model::getEigenDecomposition(minusLocal);
 
-        // The impedance matrices are diagonal in the (visco)elastic case, so we only store
-        // the values Zp, Zs. In the poroelastic case, the fluid pressure and normal component
-        // of the traction depend on each other, so we need a more complicated matrix structure.
-        const Eigen::Matrix<double, N, N> impedanceMatrix = extractMatrix<double>(plusEigenpair);
-        const Eigen::Matrix<double, N, N> impedanceNeigMatrix =
-            extractMatrix<double>(minusEigenpair);
-        const Eigen::Matrix<double, N, N> etaMatrix =
-            (impedanceMatrix + impedanceNeigMatrix).inverse();
-        const Eigen::Matrix<double, N, N> bMatrix = (etaMatrix * impedanceMatrix).transpose();
-        const Eigen::Matrix<double, N, N> bNeigMatrix =
-            (etaMatrix * impedanceNeigMatrix).transpose();
+        // Zplus/Zminus hold the *admittance* Y (traction -> velocity); eta is
+        // (Y+ + Y-)^-1. For anisotropic materials Y is obtained in closed form
+        // from the Christoffel matrix, which is exact also when qS1 and qS2 are
+        // degenerate; poroelastic still uses the general eigendecomposition.
+        const auto faultImpedance =
+            seissol::initializer::model::computeFaultImpedance(plusLocal, minusLocal);
+
+#ifndef NDEBUG
+        if (const auto violation = seissol::initializer::model::checkFaultImpedance(faultImpedance);
+            violation.has_value()) {
+          logError() << "Invalid dynamic rupture impedance at fault face" << meshFace << ":"
+                     << violation.value();
+        }
+#endif
+
+        const auto& impedanceMatrix = faultImpedance.admittancePlus;
+        const auto& impedanceNeigMatrix = faultImpedance.admittanceMinus;
+        const auto& etaMatrix = faultImpedance.eta;
+        // the kernel contracts Q["kq"] * tractionMatrix["qp"], i.e. it applies
+        // the transpose -- and b = eta * Y is not symmetric for a bimaterial
+        // anisotropic interface (a few percent for realistic contrasts).
+        const Eigen::Matrix<double, N, N> bMatrix = faultImpedance.bPlus.transpose();
+        const Eigen::Matrix<double, N, N> bNeigMatrix = faultImpedance.bMinus.transpose();
 
         auto impedanceView = init::Zplus::view::create(impedanceMatrices[ltsFace].impedance);
         auto impedanceNeigView =
@@ -431,10 +421,10 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         // NOTE: could be made `if constexpr`. However, that breaks ICC with a segfault.
         // So we don't do that, yet (until we drop ICC support at least).
 
-        if (!model::MaterialT::SupportsDR) {
+        if (!::seissol::model::MaterialT::SupportsDR) {
           logError() << "The Dynamic Rupture mechanism does not work with the given material yet. "
                         "(built with:"
-                     << model::MaterialT::Text << ")";
+                     << ::seissol::model::MaterialT::Text << ")";
         }
 
         // the "fast" case, for isotropic elastic/viscoelastic. Does not need the extra impedance
