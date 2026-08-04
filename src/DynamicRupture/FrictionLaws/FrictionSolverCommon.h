@@ -509,8 +509,8 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
           }
         };
 
-        handleSide(imposedStateM, qIMinus, impedanceMatrices.impedanceNeig, -1);
-        handleSide(imposedStateP, qIPlus, impedanceMatrices.impedance, 1);
+        handleSide(localImposedStateM, qIMinus, impedanceMatrices.impedanceNeig, -1);
+        handleSide(localImposedStateP, qIPlus, impedanceMatrices.impedance, 1);
       }
     }
   }
