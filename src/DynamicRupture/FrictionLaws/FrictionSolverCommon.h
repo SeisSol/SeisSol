@@ -228,11 +228,11 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 
         real strP[Count]{};
         real strM[Count]{};
-        const auto rowCompute = [&](auto linear, auto index) {
+        const auto rowCompute = [&](auto linear, auto qindex) {
 #pragma unroll
           for (std::uint32_t j = 0; j < Count; ++j) {
-            strP[j] += impedanceMatrices.impedance[linear * Count + j] * qIPlus[o][index][i];
-            strM[j] += impedanceMatrices.impedanceNeig[linear * Count + j] * qIMinus[o][index][i];
+            strP[j] += impedanceMatrices.impedance[linear * Count + j] * qIPlus[o][qindex][i];
+            strM[j] += impedanceMatrices.impedanceNeig[linear * Count + j] * qIMinus[o][qindex][i];
           }
         };
         rowCompute(0, N);
@@ -356,7 +356,6 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
   const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
-  // set imposed state to zero
   if constexpr (model::MaterialT::Type == model::MaterialType::Elastic ||
                 model::MaterialT::Type == model::MaterialType::Viscoelastic) {
     const auto invZs = impAndEta.invZs;
@@ -440,9 +439,9 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
           constexpr std::uint32_t Count =
               model::MaterialT::Type == model::MaterialType::Poroelastic ? 4 : 3;
 
-          imposedState[N][i] += weight * normalStress;
-          imposedState[T1][i] += weight * traction1;
-          imposedState[T2][i] += weight * traction2;
+          imposedState[N][index] += weight * normalStress;
+          imposedState[T1][index] += weight * traction1;
+          imposedState[T2][index] += weight * traction2;
 
           real diff[Count]{};
           diff[0] = (normalStress - qI[o][N][i]) * sign;
@@ -450,17 +449,17 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
           diff[2] = (traction2 - qI[o][T2][i]) * sign;
 
           if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
-            imposedState[FP][i] += weight * fluidPressure;
+            imposedState[FP][index] += weight * fluidPressure;
             diff[3] = (fluidPressure - qI[o][FP][i]) * sign;
           }
 
-          const auto handleEntry = [&](auto linear, auto index) {
+          const auto handleEntry = [&](auto linear, auto qindex) {
             real acc = 0;
 #pragma unroll
             for (std::uint32_t k = 0; k < Count; ++k) {
               acc += mZ[Count * k + linear] * diff[k];
             }
-            imposedState[index][i] += weight * (qI[o][index][i] + acc);
+            imposedState[qindex][index] += weight * (qI[o][qindex][i] + acc);
           };
 
           handleEntry(0, U);
