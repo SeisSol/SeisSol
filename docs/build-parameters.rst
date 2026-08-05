@@ -43,7 +43,7 @@ You may explicitly compile and install multiple of these configurations at the s
     * ``double``: use double precision. Recommended, if your simulation fails with Inf/NaN errors in single precision builds. See also https://github.com/SeisSol/SeisSol/issues/200 .
 
 - ``NUMBER_OF_FUSED_SIMULATIONS``: the number of simulations run simultaneously.
-- ``NEW_BINARY_NAMING``: use an updated binary naming scheme which uses lower-case letters and a shorter notation
+- ``NEW_BINARY_NAMING``: (default on) use an updated binary naming scheme which uses lower-case letters and a shorter notation
 
 Besides these, the host or, if enabled, the device architecture and backend are also encoded in the name of the executable.
 

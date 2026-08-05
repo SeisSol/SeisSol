@@ -407,12 +407,8 @@ class TestTensorNumpyRoundtrip:
         np.testing.assert_allclose(recovered, a)
 
     @pytest.mark.xfail(
-        reason="Upstream yateto bug: type.py:111 calls "
-        "`next(iter(spp.values()))` without default, raising "
-        "StopIteration on empty sparsity dicts (i.e. all-zero inputs). "
-        "SeisSol's numpy_to_tensor inherits this edge case. "
-        "Upstream fix: change to `next(iter(spp.values()), False)`.",
-        raises=StopIteration,
+        reason="Upstream yateto bug",
+        raises=IndexError,
         strict=True,
     )
     def test_roundtrip_all_zeros(self):

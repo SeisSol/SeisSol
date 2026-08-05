@@ -34,7 +34,6 @@
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <algorithm>
 #include <array>
