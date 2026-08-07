@@ -55,6 +55,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     updateStateVariableIterative(ctx, timeIndex);
 
     TPMethod::calcFluidPressure(ctx, timeIndex, true);
+    updateDirectionAndProjections(ctx, timeIndex);
     updateNormalStress(ctx, timeIndex);
     calcSlipRateAndTraction(ctx, timeIndex);
   }
@@ -91,6 +92,14 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                  totalTraction2,
                                  ctx.initialVariables.absoluteShearTraction);
 
+    // initial slip direction: the trial traction. For isotropy this stays exact.
+    const real invAbsolute =
+        (ctx.initialVariables.absoluteShearTraction > 0)
+            ? static_cast<real>(1.0) / ctx.initialVariables.absoluteShearTraction
+            : static_cast<real>(0.0);
+    ctx.initialVariables.slipDirection1 = totalTraction1 * invAbsolute;
+    ctx.initialVariables.slipDirection2 = totalTraction2 * invAbsolute;
+
     auto localSlipRateMagnitude = misc::magnitude(ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
                                                   ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex]);
 
@@ -102,21 +111,74 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     updateNormalStress(ctx, timeIndex);
   }
 
-  SEISSOL_DEVICE static void updateStateVariableIterative(FrictionLawContext& __restrict ctx,
-                                                          uint32_t timeIndex) {
-
+  /**
+   * Anisotropy: sweeps the slip direction, and with it every direction dependent projection of the
+   * impedance. A no-op for isotropy, where the slip is exactly parallel to the trial traction.
+   *
+   * The exact condition is tau0 = (S I + V eta_ss) n with |n| = 1, see common::updateSlipDirection.
+   * The strength belonging to the current slip rate is recovered as S = n^T tau0 - V * eta_proj,
+   * so no additional friction law evaluation is needed. Riding along with the existing outer
+   * fixed-point loop makes the sweep essentially free.
+   *
+   * @returns 1 / eta_proj for the (possibly updated) direction
+   */
+  SEISSOL_DEVICE static real updateDirectionAndProjections(FrictionLawContext& __restrict ctx,
+                                                           uint32_t timeIndex) {
     const real totalTraction1 = ctx.data->initialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] +
                                 ctx.faultStresses.traction1[timeIndex];
 
     const real totalTraction2 = ctx.data->initialStressInFaultCS[ctx.ltsFace][5][ctx.pointIndex] +
                                 ctx.faultStresses.traction2[timeIndex];
 
-    const auto [_, invEta] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
-                                                ctx.data->impedanceMatrices[ctx.ltsFace],
-                                                totalTraction1,
-                                                totalTraction2,
-                                                ctx.initialVariables.absoluteShearTraction);
+    if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+      const auto [etaProj, unusedInv] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
+                                                           ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                           ctx.initialVariables.slipDirection1,
+                                                           ctx.initialVariables.slipDirection2,
+                                                           static_cast<real>(1.0));
 
+      const real slipRate = ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
+      const real strength = ctx.initialVariables.absoluteShearTraction - slipRate * etaProj;
+
+      const auto [n1, n2] =
+          common::updateSlipDirection(ctx.data->impAndEta[ctx.ltsFace],
+                                      ctx.data->impedanceMatrices[ctx.ltsFace],
+                                      strength,
+                                      slipRate,
+                                      totalTraction1,
+                                      totalTraction2,
+                                      misc::magnitude(totalTraction1, totalTraction2));
+
+      ctx.initialVariables.slipDirection1 = n1;
+      ctx.initialVariables.slipDirection2 = n2;
+      ctx.initialVariables.absoluteShearTraction = n1 * totalTraction1 + n2 * totalTraction2;
+      ctx.initialVariables.etaNormal =
+          common::projectEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
+                                   ctx.data->impedanceMatrices[ctx.ltsFace],
+                                   n1,
+                                   n2,
+                                   static_cast<real>(1.0));
+
+      const auto [unusedNewEta, newInvEta] =
+          common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
+                             ctx.data->impedanceMatrices[ctx.ltsFace],
+                             n1,
+                             n2,
+                             static_cast<real>(1.0));
+      return newInvEta;
+    } else {
+      const auto [unusedEta, invEta] =
+          common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
+                             ctx.data->impedanceMatrices[ctx.ltsFace],
+                             totalTraction1,
+                             totalTraction2,
+                             ctx.initialVariables.absoluteShearTraction);
+      return invEta;
+    }
+  }
+
+  SEISSOL_DEVICE static void updateStateVariableIterative(FrictionLawContext& __restrict ctx,
+                                                          uint32_t timeIndex) {
     bool hasConvergedOuter = false;
     bool hasConvergedInner = true;
 
@@ -125,6 +187,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       const auto dt{ctx.args->deltaT[timeIndex]};
       Derived::updateStateVariable(ctx, dt);
       TPMethod::calcFluidPressure(ctx, timeIndex, false);
+      const real invEta = updateDirectionAndProjections(ctx, timeIndex);
       updateNormalStress(ctx, timeIndex);
 
       const auto localStateVariable = ctx.stateVariableBuffer;
@@ -182,28 +245,31 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     const real strength = -mu * ctx.initialVariables.normalStress;
 
-    const auto* initialStressInFaultCS = ctx.data->initialStressInFaultCS[ctx.ltsFace];
     const auto savedTraction1 = ctx.faultStresses.traction1[timeIndex];
     const auto savedTraction2 = ctx.faultStresses.traction2[timeIndex];
-
-    // calculate absolute value of stress in Y and Z direction
-    const real totalTraction1 = initialStressInFaultCS[3][ctx.pointIndex] + savedTraction1;
-    const real totalTraction2 = initialStressInFaultCS[5][ctx.pointIndex] + savedTraction2;
 
     // Compute slip
     ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex] +=
         slipRateMagnitude * deltaTime;
 
+    // the direction along which the slip rate is decomposed; scaled such that dividing by
+    // `divisor` yields the unit slip direction. For isotropy slipDirection is the normalised trial
+    // traction and absoluteShearTraction its magnitude, so this is the previous expression.
+    const real dirTraction1 =
+        ctx.initialVariables.slipDirection1 * ctx.initialVariables.absoluteShearTraction;
+    const real dirTraction2 =
+        ctx.initialVariables.slipDirection2 * ctx.initialVariables.absoluteShearTraction;
+
     const auto [etaS, _] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
                                               ctx.data->impedanceMatrices[ctx.ltsFace],
-                                              totalTraction1,
-                                              totalTraction2,
-                                              ctx.initialVariables.absoluteShearTraction);
+                                              ctx.initialVariables.slipDirection1,
+                                              ctx.initialVariables.slipDirection2,
+                                              static_cast<real>(1.0));
 
     // Update slip rate
     const auto divisor = strength + etaS * slipRateMagnitude;
-    const auto slipRate1 = slipRateMagnitude * totalTraction1 / divisor;
-    const auto slipRate2 = slipRateMagnitude * totalTraction2 / divisor;
+    const auto slipRate1 = slipRateMagnitude * dirTraction1 / divisor;
+    const auto slipRate2 = slipRateMagnitude * dirTraction2 / divisor;
 
     const auto [tU1, tU2] = common::matmulEta(ctx.data->impAndEta[ctx.ltsFace],
                                               ctx.data->impedanceMatrices[ctx.ltsFace],

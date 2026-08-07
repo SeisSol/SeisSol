@@ -918,6 +918,63 @@ SEISSOL_HOSTDEVICE inline real
   }
 }
 
+/**
+  Anisotropy: updates the slip direction.
+  Has no effect for isotropy.
+
+  With a non-isotropic shear impedance block, the slip rate and the trial traction are no longer
+  collinear. The exact condition is
+
+    tau0 = (S * I + V * eta_ss) n ,   |n| = 1
+
+  hence n = normalize((S * I + V * eta_ss)^-1 tau0). The 2x2 inverse is written out through the
+  adjugate; its determinant cancels when normalising, so it is never formed and there is no
+  singularity unless S and V both vanish. For eta_ss = eta * I this returns tau0 / |tau0| exactly,
+  i.e. the isotropic case is untouched.
+
+  Sweeping n -> V -> n twice reaches machine precision; a single sweep already brings the relative
+  error of |V| from ~1e-4 down to ~1e-8.
+
+  @param[in] strength the fault strength belonging to the current slip rate. Note that it can
+                      always be recovered as S = n^T tau0 - V * eta_proj, without evaluating the
+                      friction law again.
+  @param[in] slipRate the current slip rate magnitude V
+  @param[in] t1, t2, tmag the trial (stick) shear traction and its magnitude
+ */
+SEISSOL_HOSTDEVICE inline std::pair<real, real>
+    updateSlipDirection([[maybe_unused]] const ImpedancesAndEta& impAndEta,
+                        [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+                        [[maybe_unused]] real strength,
+                        [[maybe_unused]] real slipRate,
+                        real t1,
+                        real t2,
+                        real tmag) {
+  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    // the anisotropic block is always 3x3 (no fluid pressure component)
+    constexpr std::uint32_t Count = 3;
+
+    // the very same 2x2 block, in the same convention, that matmulEta and projectEta use
+    const real e11 = impedanceMatrices.eta[Count * 1 + 1];
+    const real e12 = impedanceMatrices.eta[Count * 1 + 2];
+    const real e21 = impedanceMatrices.eta[Count * 2 + 1];
+    const real e22 = impedanceMatrices.eta[Count * 2 + 2];
+
+    // adjugate of (S * I + V * eta_ss), applied to tau0
+    const real u1 = (strength + slipRate * e22) * t1 - slipRate * e12 * t2;
+    const real u2 = -slipRate * e21 * t1 + (strength + slipRate * e11) * t2;
+
+    const real umag = misc::magnitude(u1, u2);
+    if (umag > 0) {
+      const real inv = static_cast<real>(1.0) / umag;
+      return {u1 * inv, u2 * inv};
+    }
+  }
+
+  const real n1 = (tmag > 0) ? (t1 / tmag) : static_cast<real>(1.0);
+  const real n2 = (tmag > 0) ? (t2 / tmag) : static_cast<real>(0.0);
+  return {n1, n2};
+}
+
 } // namespace seissol::dr::friction_law::common
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_

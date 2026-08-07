@@ -48,12 +48,15 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     // compute initial slip rate and reference values
     auto initialVariables = static_cast<Derived*>(this)->calcInitialVariables(
         faultStresses, stateVariableBuffer, timeIndex, ltsFace);
-    const auto absoluteShearStress = std::move(initialVariables.absoluteShearTraction);
+    // these three are direction dependent and are swept along with the state variable below
+    auto absoluteShearStress = std::move(initialVariables.absoluteShearTraction);
+    auto etaInv = std::move(initialVariables.etaInv);
+    auto etaNormal = std::move(initialVariables.etaNormal);
+    auto slipDirection1 = std::move(initialVariables.slipDirection1);
+    auto slipDirection2 = std::move(initialVariables.slipDirection2);
     auto localSlipRate = std::move(initialVariables.localSlipRate);
     auto normalStress = std::move(initialVariables.normalStress);
     const auto stateVarReference = std::move(initialVariables.stateVarReference);
-    const auto etaInv = std::move(initialVariables.etaInv);
-    const auto etaNormal = std::move(initialVariables.etaNormal);
     // compute slip rates by solving non-linear system of equations
     this->updateStateVariableIterative(hasConverged,
                                        stateVarReference,
@@ -64,12 +67,22 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                        faultStresses,
                                        etaInv,
                                        etaNormal,
+                                       slipDirection1,
+                                       slipDirection2,
                                        timeIndex,
                                        ltsFace);
 
     // compute final thermal pressure and normalStress
     tpMethod_.calcFluidPressure(
         normalStress, this->mu_, localSlipRate, this->deltaT_[timeIndex], true, ltsFace);
+    updateDirectionAndProjections(slipDirection1,
+                                  slipDirection2,
+                                  absoluteShearStress,
+                                  etaInv,
+                                  etaNormal,
+                                  faultStresses,
+                                  timeIndex,
+                                  ltsFace);
     updateNormalStress(normalStress, faultStresses, etaNormal, timeIndex, ltsFace);
     // compute final slip rates and traction from average of the iterative solution and initial
     // guess
@@ -81,6 +94,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                   faultStresses,
                                   tractionResults,
                                   etaNormal,
+                                  slipDirection1,
+                                  slipDirection2,
                                   timeIndex,
                                   ltsFace);
   }
@@ -120,6 +135,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     std::array<real, misc::NumPaddedPoints> stateVarReference{0};
     std::array<real, misc::NumPaddedPoints> etaInv{0};
     std::array<real, misc::NumPaddedPoints> etaNormal{0};
+    std::array<real, misc::NumPaddedPoints> slipDirection1{0};
+    std::array<real, misc::NumPaddedPoints> slipDirection2{0};
   };
 
   /*
@@ -141,6 +158,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     std::array<real, misc::NumPaddedPoints> temporarySlipRate{};
     std::array<real, misc::NumPaddedPoints> etaInv{};
     std::array<real, misc::NumPaddedPoints> etaNormal{};
+    std::array<real, misc::NumPaddedPoints> slipDirection1{};
+    std::array<real, misc::NumPaddedPoints> slipDirection2{};
 
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
@@ -165,6 +184,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                                        totalTraction2,
                                                        absoluteTraction[pointIndex]);
 
+      // initial slip direction: the trial traction. For isotropy this stays exact.
+      const real invAbsolute = (absoluteTraction[pointIndex] > 0)
+                                   ? static_cast<real>(1.0) / absoluteTraction[pointIndex]
+                                   : static_cast<real>(0.0);
+      slipDirection1[pointIndex] = totalTraction1 * invAbsolute;
+      slipDirection2[pointIndex] = totalTraction2 * invAbsolute;
+
       // The following process is adapted from that described by Kaneko et al. (2008)
       this->slipRateMagnitude_[ltsFace][pointIndex] = misc::magnitude(
           this->slipRate1_[ltsFace][pointIndex], this->slipRate2_[ltsFace][pointIndex]);
@@ -176,22 +202,87 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     // after the loop: updateNormalStress reads slipRateMagnitude_, which is only set above
     updateNormalStress(normalStress, faultStresses, etaNormal, timeIndex, ltsFace);
 
-    return {
-        absoluteTraction, temporarySlipRate, normalStress, stateVarReference, etaInv, etaNormal};
+    return {absoluteTraction,
+            temporarySlipRate,
+            normalStress,
+            stateVarReference,
+            etaInv,
+            etaNormal,
+            slipDirection1,
+            slipDirection2};
   }
 
-  void updateStateVariableIterative(
-      bool& hasConverged,
-      const std::array<real, misc::NumPaddedPoints>& stateVarReference,
-      std::array<real, misc::NumPaddedPoints>& localSlipRate,
-      std::array<real, misc::NumPaddedPoints>& localStateVariable,
-      std::array<real, misc::NumPaddedPoints>& normalStress,
-      const std::array<real, misc::NumPaddedPoints>& absoluteShearStress,
-      const FaultStresses<Executor::Host>& faultStresses,
-      const std::array<real, misc::NumPaddedPoints>& etaInv,
-      const std::array<real, misc::NumPaddedPoints>& etaNormal,
-      uint32_t timeIndex,
-      std::size_t ltsFace) {
+  /**
+   * Anisotropy: sweeps the slip direction, and with it every direction dependent projection of the
+   * impedance. A no-op for isotropy, where the slip is exactly parallel to the trial traction.
+   *
+   * The exact condition is tau0 = (S I + V eta_ss) n with |n| = 1, see common::updateSlipDirection.
+   * The strength belonging to the current slip rate is recovered as S = n^T tau0 - V * eta_proj,
+   * so no additional friction law evaluation is needed here. Riding along with the existing outer
+   * fixed-point loop makes the sweep essentially free.
+   */
+  void updateDirectionAndProjections(
+      [[maybe_unused]] std::array<real, misc::NumPaddedPoints>& slipDirection1,
+      [[maybe_unused]] std::array<real, misc::NumPaddedPoints>& slipDirection2,
+      [[maybe_unused]] std::array<real, misc::NumPaddedPoints>& absoluteShearTraction,
+      [[maybe_unused]] std::array<real, misc::NumPaddedPoints>& etaInv,
+      [[maybe_unused]] std::array<real, misc::NumPaddedPoints>& etaNormal,
+      [[maybe_unused]] const FaultStresses<Executor::Host>& faultStresses,
+      [[maybe_unused]] uint32_t timeIndex,
+      [[maybe_unused]] std::size_t ltsFace) {
+    if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+#pragma omp simd
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+        const real totalTraction1 = this->initialStressInFaultCS_[ltsFace][3][pointIndex] +
+                                    faultStresses.traction1[timeIndex][pointIndex];
+        const real totalTraction2 = this->initialStressInFaultCS_[ltsFace][5][pointIndex] +
+                                    faultStresses.traction2[timeIndex][pointIndex];
+        const real trialMagnitude = misc::magnitude(totalTraction1, totalTraction2);
+        const real slipRate = this->slipRateMagnitude_[ltsFace][pointIndex];
+
+        const real strength = absoluteShearTraction[pointIndex] - slipRate / etaInv[pointIndex];
+
+        const auto [n1, n2] = common::updateSlipDirection(this->impAndEta_[ltsFace],
+                                                          this->impedanceMatrices_[ltsFace],
+                                                          strength,
+                                                          slipRate,
+                                                          totalTraction1,
+                                                          totalTraction2,
+                                                          trialMagnitude);
+        slipDirection1[pointIndex] = n1;
+        slipDirection2[pointIndex] = n2;
+
+        absoluteShearTraction[pointIndex] = n1 * totalTraction1 + n2 * totalTraction2;
+
+        const auto [etaProj, invEta] = common::projectEta(this->impAndEta_[ltsFace],
+                                                          this->impedanceMatrices_[ltsFace],
+                                                          n1,
+                                                          n2,
+                                                          static_cast<real>(1.0));
+        etaInv[pointIndex] = invEta;
+        etaNormal[pointIndex] = common::projectEtaNormal(this->impAndEta_[ltsFace],
+                                                         this->impedanceMatrices_[ltsFace],
+                                                         n1,
+                                                         n2,
+                                                         static_cast<real>(1.0));
+      }
+    }
+  }
+
+  void
+      updateStateVariableIterative(bool& hasConverged,
+                                   const std::array<real, misc::NumPaddedPoints>& stateVarReference,
+                                   std::array<real, misc::NumPaddedPoints>& localSlipRate,
+                                   std::array<real, misc::NumPaddedPoints>& localStateVariable,
+                                   std::array<real, misc::NumPaddedPoints>& normalStress,
+                                   std::array<real, misc::NumPaddedPoints>& absoluteShearStress,
+                                   const FaultStresses<Executor::Host>& faultStresses,
+                                   std::array<real, misc::NumPaddedPoints>& etaInv,
+                                   std::array<real, misc::NumPaddedPoints>& etaNormal,
+                                   std::array<real, misc::NumPaddedPoints>& slipDirection1,
+                                   std::array<real, misc::NumPaddedPoints>& slipDirection2,
+                                   uint32_t timeIndex,
+                                   std::size_t ltsFace) {
     std::array<real, misc::NumPaddedPoints> testSlipRate{};
     std::array<bool, misc::NumPaddedPoints> convergenceOuterPre{};
 
@@ -225,6 +316,14 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       tpMethod_.calcFluidPressure(
           normalStress, this->mu_, localSlipRate, this->deltaT_[timeIndex], false, ltsFace);
 
+      updateDirectionAndProjections(slipDirection1,
+                                    slipDirection2,
+                                    absoluteShearStress,
+                                    etaInv,
+                                    etaNormal,
+                                    faultStresses,
+                                    timeIndex,
+                                    ltsFace);
       updateNormalStress(normalStress, faultStresses, etaNormal, timeIndex, ltsFace);
 
       // solve for new slip rate
@@ -275,6 +374,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                const FaultStresses<Executor::Host>& faultStresses,
                                TractionResults<Executor::Host>& tractionResults,
                                const std::array<real, misc::NumPaddedPoints>& etaNormal,
+                               const std::array<real, misc::NumPaddedPoints>& slipDirection1,
+                               const std::array<real, misc::NumPaddedPoints>& slipDirection2,
                                uint32_t timeIndex,
                                std::size_t ltsFace) {
 
@@ -303,17 +404,23 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       const real totalTraction2 = this->initialStressInFaultCS_[ltsFace][5][pointIndex] +
                                   faultStresses.traction2[timeIndex][pointIndex];
 
+      // the direction along which the slip rate is decomposed; scaled such that dividing by
+      // `divisor` yields the unit slip direction. For isotropy slipDirection is the (normalised)
+      // trial traction and absoluteTraction is its magnitude, so this is the previous expression.
+      const real dirTraction1 = slipDirection1[pointIndex] * absoluteTraction[pointIndex];
+      const real dirTraction2 = slipDirection2[pointIndex] * absoluteTraction[pointIndex];
+
       const auto [eta, _] = common::projectEta(this->impAndEta_[ltsFace],
                                                this->impedanceMatrices_[ltsFace],
-                                               totalTraction1,
-                                               totalTraction2,
-                                               absoluteTraction[pointIndex]);
+                                               slipDirection1[pointIndex],
+                                               slipDirection2[pointIndex],
+                                               static_cast<real>(1.0));
 
       const auto divisor = strength + eta * this->slipRateMagnitude_[ltsFace][pointIndex];
       this->slipRate1_[ltsFace][pointIndex] =
-          this->slipRateMagnitude_[ltsFace][pointIndex] * totalTraction1 / divisor;
+          this->slipRateMagnitude_[ltsFace][pointIndex] * dirTraction1 / divisor;
       this->slipRate2_[ltsFace][pointIndex] =
-          this->slipRateMagnitude_[ltsFace][pointIndex] * totalTraction2 / divisor;
+          this->slipRateMagnitude_[ltsFace][pointIndex] * dirTraction2 / divisor;
 
       const auto [tU1, tU2] = common::matmulEta(this->impAndEta_[ltsFace],
                                                 this->impedanceMatrices_[ltsFace],
