@@ -698,15 +698,25 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   real bMinus12{};
   real bMinus21{};
   real bMinus22{};
+  // the fault-normal column: with an anisotropic impedance the normal traction contributes to the
+  // interpolated *shear* traction as well
+  real bPlus10{};
+  real bPlus20{};
+  real bMinus10{};
+  real bMinus20{};
 
   if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
     constexpr auto Rows = 3;
+    bPlus10 = godunovData.tractionPlusMatrix[Rows * 1 + 0];
     bPlus11 = godunovData.tractionPlusMatrix[Rows * 1 + 1];
     bPlus12 = godunovData.tractionPlusMatrix[Rows * 1 + 2];
+    bPlus20 = godunovData.tractionPlusMatrix[Rows * 2 + 0];
     bPlus21 = godunovData.tractionPlusMatrix[Rows * 2 + 1];
     bPlus22 = godunovData.tractionPlusMatrix[Rows * 2 + 2];
+    bMinus10 = godunovData.tractionMinusMatrix[Rows * 1 + 0];
     bMinus11 = godunovData.tractionMinusMatrix[Rows * 1 + 1];
     bMinus12 = godunovData.tractionMinusMatrix[Rows * 1 + 2];
+    bMinus20 = godunovData.tractionMinusMatrix[Rows * 2 + 0];
     bMinus21 = godunovData.tractionMinusMatrix[Rows * 2 + 1];
     bMinus22 = godunovData.tractionMinusMatrix[Rows * 2 + 2];
   } else {
@@ -768,15 +778,22 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
       localSlip[1][index] += timeWeight * interpolatedSlipRate2;
       localSlip[2][index] += timeWeight * interpolatedSlipRate3;
 
+      const auto qIPlusN = qIPlus[o][N][i];
       const auto qIPlusT1 = qIPlus[o][T1][i];
       const auto qIPlusT2 = qIPlus[o][T2][i];
+      const auto qIMinusN = qIMinus[o][N][i];
       const auto qIMinusT1 = qIMinus[o][T1][i];
       const auto qIMinusT2 = qIMinus[o][T2][i];
 
-      const real interpolatedTraction12 =
-          bPlus11 * qIMinusT1 + bPlus12 * qIMinusT2 + bMinus11 * qIPlusT1 + bMinus12 * qIPlusT2;
-      const real interpolatedTraction13 =
-          bPlus21 * qIMinusT1 + bPlus22 * qIMinusT2 + bMinus21 * qIPlusT1 + bMinus22 * qIPlusT2;
+      // tau* = b+ tau+ + b- tau-, i.e. b+ pairs with the *plus* side -- matching the
+      // computeTractionInterpolated kernel in EnergyOutput, which contracts tractionPlusMatrix
+      // with QInterpolatedPlus. Only relevant for a bimaterial interface, where b+ != b-.
+      const real interpolatedTraction12 = bPlus10 * qIPlusN + bPlus11 * qIPlusT1 +
+                                          bPlus12 * qIPlusT2 + bMinus10 * qIMinusN +
+                                          bMinus11 * qIMinusT1 + bMinus12 * qIMinusT2;
+      const real interpolatedTraction13 = bPlus20 * qIPlusN + bPlus21 * qIPlusT1 +
+                                          bPlus22 * qIPlusT2 + bMinus20 * qIMinusN +
+                                          bMinus21 * qIMinusT1 + bMinus22 * qIMinusT2;
 
       const auto spaceWeight = spaceWeights[i / multisim::NumSimulations];
       const auto weight = timeWeight * spaceWeight * doubledSurfaceAreaN;
