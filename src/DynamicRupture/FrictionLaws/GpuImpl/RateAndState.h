@@ -78,10 +78,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.initialVariables.stateVarReference = ctx.stateVariableBuffer;
 
     const real totalTraction1 = ctx.data->initialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] +
-                                ctx.faultStresses.traction1[timeIndex];
+                                ctx.faultStresses.traction1;
 
     const real totalTraction2 = ctx.data->initialStressInFaultCS[ctx.ltsFace][5][ctx.pointIndex] +
-                                ctx.faultStresses.traction2[timeIndex];
+                                ctx.faultStresses.traction2;
 
     ctx.initialVariables.absoluteShearTraction = misc::magnitude(totalTraction1, totalTraction2);
 
@@ -125,10 +125,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   SEISSOL_DEVICE static real updateDirectionAndProjections(FrictionLawContext& __restrict ctx,
                                                            uint32_t timeIndex) {
     const real totalTraction1 = ctx.data->initialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] +
-                                ctx.faultStresses.traction1[timeIndex];
+                                ctx.faultStresses.traction1;
 
     const real totalTraction2 = ctx.data->initialStressInFaultCS[ctx.ltsFace][5][ctx.pointIndex] +
-                                ctx.faultStresses.traction2[timeIndex];
+                                ctx.faultStresses.traction2;
 
     if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
       const auto [etaProj, unusedInv] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
@@ -245,8 +245,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     const real strength = -mu * ctx.initialVariables.normalStress;
 
-    const auto savedTraction1 = ctx.faultStresses.traction1[timeIndex];
-    const auto savedTraction2 = ctx.faultStresses.traction2[timeIndex];
+    const auto savedTraction1 = ctx.faultStresses.traction1;
+    const auto savedTraction2 = ctx.faultStresses.traction2;
 
     // Compute slip
     ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex] +=
@@ -293,11 +293,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     // space as faultStresses/qInterpolated -- not the effective normal stress used for the friction
     // strength above (which additionally carries the initial stress, the initial pressure, thermal
     // pressurization and the min(., 0) clamp).
-    ctx.tractionResults.normalStress[timeIndex] =
-        ctx.faultStresses.normalStress[timeIndex] -
-        slipRateMagnitude * ctx.initialVariables.etaNormal;
-    ctx.tractionResults.traction1[timeIndex] = traction1;
-    ctx.tractionResults.traction2[timeIndex] = traction2;
+    ctx.tractionResults.normalStress =
+        ctx.faultStresses.normalStress - slipRateMagnitude * ctx.initialVariables.etaNormal;
+    ctx.tractionResults.traction1 = traction1;
+    ctx.tractionResults.traction2 = traction2;
 
     // update slip rate
     ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] = slipRate1;
@@ -374,9 +373,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                 uint32_t timeIndex) {
     ctx.initialVariables.normalStress =
         std::min(static_cast<real>(0.0),
-                 ctx.faultStresses.normalStress[timeIndex] +
+                 ctx.faultStresses.normalStress +
                      ctx.data->initialStressInFaultCS[ctx.ltsFace][0][ctx.pointIndex] +
-                     ctx.faultStresses.fluidPressure[timeIndex] +
+                     ctx.faultStresses.fluidPressure +
                      ctx.data->initialPressure[ctx.ltsFace][ctx.pointIndex] -
                      TPMethod::getFluidPressure(ctx) -
                      ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] *

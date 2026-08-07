@@ -56,8 +56,11 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
                                                evalCardinal1,
                                                evalCardinal2);
 
-      this->traction1_[ltsFace][pointIndex] = faultStresses.traction1[timeIndex][pointIndex] - tU1;
-      this->traction2_[ltsFace][pointIndex] = faultStresses.traction2[timeIndex][pointIndex] - tU2;
+      const auto traction1 = faultStresses.traction1[pointIndex] - tU1;
+      const auto traction2 = faultStresses.traction2[pointIndex] - tU2;
+
+      this->traction1_[ltsFace][pointIndex] = traction1;
+      this->traction2_[ltsFace][pointIndex] = traction2;
 
       this->slipRate1_[ltsFace][pointIndex] =
           this->imposedSlipDirection1_[ltsFace][pointIndex] * stfEvaluated;
@@ -72,10 +75,9 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
       this->accumulatedSlipMagnitude_[ltsFace][pointIndex] +=
           this->slipRateMagnitude_[ltsFace][pointIndex] * timeIncrement;
 
-      tractionResults.normalStress[timeIndex][pointIndex] =
-          faultStresses.normalStress[timeIndex][pointIndex] - tUN;
-      tractionResults.traction1[timeIndex][pointIndex] = this->traction1_[ltsFace][pointIndex];
-      tractionResults.traction2[timeIndex][pointIndex] = this->traction2_[ltsFace][pointIndex];
+      tractionResults.normalStress[pointIndex] = faultStresses.normalStress[pointIndex] - tUN;
+      tractionResults.traction1[pointIndex] = traction1;
+      tractionResults.traction2[pointIndex] = traction2;
     }
   }
 

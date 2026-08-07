@@ -72,9 +72,9 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
       const real totalTraction1 = this->initialStressInFaultCS_[ltsFace][3][pointIndex] +
-                                  faultStresses.traction1[timeIndex][pointIndex];
+                                  faultStresses.traction1[pointIndex];
       const real totalTraction2 = this->initialStressInFaultCS_[ltsFace][5][pointIndex] +
-                                  faultStresses.traction2[timeIndex][pointIndex];
+                                  faultStresses.traction2[pointIndex];
       const real absoluteTraction = misc::magnitude(totalTraction1, totalTraction2);
 
       const auto [eta, invEta] = common::projectEta(this->impAndEta_[ltsFace],
@@ -177,14 +177,11 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       // the normal stress written here is the *dynamic* normal traction, i.e. in the same space as
       // faultStresses/qInterpolated -- unlike the effective normal stress used for the strength,
       // it carries neither the initial stress nor the min(., 0) clamp.
-      tractionResults.normalStress[timeIndex][pointIndex] =
-          faultStresses.normalStress[timeIndex][pointIndex] - tUN;
-      tractionResults.traction1[timeIndex][pointIndex] =
-          faultStresses.traction1[timeIndex][pointIndex] - tU1;
-      tractionResults.traction2[timeIndex][pointIndex] =
-          faultStresses.traction2[timeIndex][pointIndex] - tU2;
-      this->traction1_[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
-      this->traction2_[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
+      tractionResults.normalStress[pointIndex] = faultStresses.normalStress[pointIndex] - tUN;
+      tractionResults.traction1[pointIndex] = faultStresses.traction1[pointIndex] - tU1;
+      tractionResults.traction2[pointIndex] = faultStresses.traction2[pointIndex] - tU2;
+      this->traction1_[ltsFace][pointIndex] = tractionResults.traction1[pointIndex];
+      this->traction2_[ltsFace][pointIndex] = tractionResults.traction2[pointIndex];
 
       // update directional slip
       this->slip1_[ltsFace][pointIndex] +=
@@ -246,9 +243,9 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       // strength is affine in the normal stress, it is handled exactly through the divisor in
       // calcSlipRateAndTraction, using the slope filled in below.
       const real totalNormalStress = this->initialStressInFaultCS_[ltsFace][0][pointIndex] +
-                                     faultStresses.normalStress[timeIndex][pointIndex] +
+                                     faultStresses.normalStress[pointIndex] +
                                      this->initialPressure_[ltsFace][pointIndex] +
-                                     faultStresses.fluidPressure[timeIndex][pointIndex];
+                                     faultStresses.fluidPressure[pointIndex];
 
       strength[pointIndex] =
           -cohesion_[ltsFace][pointIndex] -

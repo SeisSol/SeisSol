@@ -165,9 +165,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
       const real totalTraction1 = this->initialStressInFaultCS_[ltsFace][3][pointIndex] +
-                                  faultStresses.traction1[timeIndex][pointIndex];
+                                  faultStresses.traction1[pointIndex];
       const real totalTraction2 = this->initialStressInFaultCS_[ltsFace][5][pointIndex] +
-                                  faultStresses.traction2[timeIndex][pointIndex];
+                                  faultStresses.traction2[pointIndex];
       absoluteTraction[pointIndex] = misc::magnitude(totalTraction1, totalTraction2);
 
       const auto [_, invEta] = common::projectEta(this->impAndEta_[ltsFace],
@@ -234,9 +234,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #pragma omp simd
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         const real totalTraction1 = this->initialStressInFaultCS_[ltsFace][3][pointIndex] +
-                                    faultStresses.traction1[timeIndex][pointIndex];
+                                    faultStresses.traction1[pointIndex];
         const real totalTraction2 = this->initialStressInFaultCS_[ltsFace][5][pointIndex] +
-                                    faultStresses.traction2[timeIndex][pointIndex];
+                                    faultStresses.traction2[pointIndex];
         const real trialMagnitude = misc::magnitude(totalTraction1, totalTraction2);
         const real slipRate = this->slipRateMagnitude_[ltsFace][pointIndex];
 
@@ -427,15 +427,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       // same space as faultStresses/qInterpolated -- not the effective normal stress used for the
       // friction strength above (which additionally carries the initial stress, the initial
       // pressure, thermal pressurization and the min(., 0) clamp).
-      tractionResults.normalStress[timeIndex][pointIndex] =
-          faultStresses.normalStress[timeIndex][pointIndex] -
+      tractionResults.normalStress[pointIndex] =
+          faultStresses.normalStress[pointIndex] -
           this->slipRateMagnitude_[ltsFace][pointIndex] * etaNormal[pointIndex];
-      tractionResults.traction1[timeIndex][pointIndex] =
-          faultStresses.traction1[timeIndex][pointIndex] - tU1;
-      tractionResults.traction2[timeIndex][pointIndex] =
-          faultStresses.traction2[timeIndex][pointIndex] - tU2;
-      this->traction1_[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
-      this->traction2_[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
+      tractionResults.traction1[pointIndex] = faultStresses.traction1[pointIndex] - tU1;
+      tractionResults.traction2[pointIndex] = faultStresses.traction2[pointIndex] - tU2;
+      this->traction1_[ltsFace][pointIndex] = tractionResults.traction1[pointIndex];
+      this->traction2_[ltsFace][pointIndex] = tractionResults.traction2[pointIndex];
 
       // Compute slip
       // ABS of locSlipRate removed as it would be the accumulated slip that is usually not needed
@@ -581,9 +579,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       normalStress[pointIndex] =
           std::min(static_cast<real>(0.0),
-                   faultStresses.normalStress[timeIndex][pointIndex] +
+                   faultStresses.normalStress[pointIndex] +
                        this->initialStressInFaultCS_[ltsFace][0][pointIndex] +
-                       faultStresses.fluidPressure[timeIndex][pointIndex] +
+                       faultStresses.fluidPressure[pointIndex] +
                        this->initialPressure_[ltsFace][pointIndex] -
                        tpMethod_.getFluidPressure(ltsFace, pointIndex) -
                        this->slipRateMagnitude_[ltsFace][pointIndex] * etaNormal[pointIndex]);
