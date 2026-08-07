@@ -35,6 +35,22 @@ using DrMatrix = Eigen::Matrix<double, DrImpedanceDim, DrImpedanceDim>;
 using DrLateralMatrix = Eigen::Matrix<double, 3, DrImpedanceDim>;
 
 /**
+ * Sign convention of the stored interface traction relative to the energy conjugate one.
+ *
+ * The energy conjugate partner of the normal filtration velocity is *minus* the pore pressure,
+ * while SeisSol carries +p as the fourth traction component. The stored admittance is therefore
+ * Y_stored = Y_physical * signatureMatrix(), and only Y_stored * signatureMatrix() is
+ * self-adjoint. For every other material this is the identity.
+ */
+inline DrMatrix signatureMatrix() {
+  DrMatrix signature = DrMatrix::Identity();
+  if constexpr (seissol::model::MaterialT::Type == seissol::model::MaterialType::Poroelastic) {
+    signature(DrImpedanceDim - 1, DrImpedanceDim - 1) = -1.0;
+  }
+  return signature;
+}
+
+/**
  * All impedance-derived quantities of a single fault face, in fault-local
  * coordinates (n, s, d [, fluid]).
  *
@@ -140,9 +156,79 @@ inline Eigen::Matrix3d admittanceFromChristoffel(const Eigen::Matrix3d& gamma, d
          solver.eigenvectors().transpose();
 }
 
+/// Closed form square root of a 2x2 matrix with positive eigenvalues (Cayley-Hamilton).
+inline Eigen::Matrix2d matrixSqrt2x2(const Eigen::Matrix2d& matrix) {
+  const double determinant = std::sqrt(matrix.determinant());
+  return (matrix + determinant * Eigen::Matrix2d::Identity()) /
+         std::sqrt(matrix.trace() + 2 * determinant);
+}
+
 /**
- * Y = R_u R_t^-1 from the eigendecomposition of the normal Jacobian, kept for poroelastic where no
- * closed form is available here.
+ * Generalized wave impedance of a poroelastic half space, in closed form.
+ *
+ * The interface variables are T = (sigma_nn, sigma_ns, sigma_nd, -p) against
+ * U = (v_n, v_s, v_d, q_n), and the Biot system is symmetric hyperbolic in them:
+ *
+ *   Mass * dU/dt = dT/dx ,   dT/dt = Gamma * dU/dx
+ *
+ * with a symmetric positive definite mass matrix and a symmetric Gamma. Both are read straight off
+ * MaterialSetup<PoroElasticMaterial>::getTransposedCoefficientMatrix(., 0, .); note that the
+ * static condensation of the two tangential filtration velocities (which carry no flux, hence zero
+ * wave speed) is already baked into rho1 = rhoBar - rhoFluid^2 / m.
+ *
+ * The impedance is then the matrix geometric mean, characterised by Z * Mass^-1 * Z = Gamma:
+ *
+ *   Z = Mass # Gamma = Mass^1/2 (Mass^-1/2 Gamma Mass^-1/2)^1/2 Mass^1/2
+ *
+ * which for Mass = rho * I collapses to the elastic (rho * Gamma)^1/2. Because SeisSol's
+ * poroelastic frame is isotropic, Mass and Gamma are block diagonal -- a 2x2 fast/slow P block on
+ * (v_n, q_n) plus two identical shear scalars -- so no eigensolver is needed at all.
+ *
+ * Wave speeds recovered from this: c_S = sqrt(mu / rho1), the two Biot P speeds from the 2x2 block.
+ */
+template <typename MaterialT>
+DrMatrix admittanceFromBiot(const MaterialT& materialLocal, DrLateralMatrix* lateralStress) {
+  static_assert(MaterialT::Type == seissol::model::MaterialType::Poroelastic);
+  const auto params =
+      seissol::model::MaterialSetup<MaterialT>::getAdditionalParameters(materialLocal);
+
+  // Gamma, rows/columns ordered as (n, s, d, fluid)
+  DrMatrix gamma;
+  gamma << params.cBar(0, 0), params.cBar(0, 5), params.cBar(0, 4), params.M * params.alpha(0),
+      params.cBar(5, 0), params.cBar(5, 5), params.cBar(5, 4), params.M * params.alpha(5),
+      params.cBar(4, 0), params.cBar(4, 5), params.cBar(4, 4), params.M * params.alpha(4),
+      params.M * params.alpha(0), params.M * params.alpha(5), params.M * params.alpha(4), params.M;
+
+  // fast/slow P block on (v_n, q_n); the shear rows decouple for an isotropic frame
+  Eigen::Matrix2d massP;
+  massP << params.rhoBar, materialLocal.rhoFluid, materialLocal.rhoFluid, params.m;
+  Eigen::Matrix2d gammaP;
+  gammaP << gamma(0, 0), gamma(0, 3), gamma(3, 0), gamma(3, 3);
+  const Eigen::Matrix2d impedanceP = massP * matrixSqrt2x2(massP.inverse() * gammaP);
+
+  DrMatrix impedance = DrMatrix::Zero();
+  impedance(0, 0) = impedanceP(0, 0);
+  impedance(0, 3) = impedanceP(0, 1);
+  impedance(3, 0) = impedanceP(1, 0);
+  impedance(3, 3) = impedanceP(1, 1);
+  impedance(1, 1) = std::sqrt(params.rho1 * gamma(1, 1));
+  impedance(2, 2) = std::sqrt(params.rho1 * gamma(2, 2));
+
+  if (lateralStress != nullptr) {
+    // same construction as lateralStressFromChristoffel, with the pore pressure as a fourth column
+    DrLateralMatrix rest;
+    rest << params.cBar(1, 0), params.cBar(1, 5), params.cBar(1, 4), params.M * params.alpha(1),
+        params.cBar(2, 0), params.cBar(2, 5), params.cBar(2, 4), params.M * params.alpha(2),
+        params.cBar(3, 0), params.cBar(3, 5), params.cBar(3, 4), params.M * params.alpha(3);
+    *lateralStress = rest * gamma.inverse() * signatureMatrix();
+  }
+
+  return impedance.inverse() * signatureMatrix();
+}
+
+/**
+ * Y = R_u R_t^-1 from the eigendecomposition of the normal Jacobian. Kept as a fallback for
+ * materials without a closed form.
  *
  * If `lateralStress` is given, the reconstruction R_l R_t^-1 of the remaining stress components is
  * extracted from the very same decomposition -- both express the state jump in the span of the
@@ -203,6 +289,8 @@ DrMatrix computeAdmittance(const MaterialT& materialLocal,
     }
     return impedance_detail::admittanceFromChristoffel(
         impedance_detail::christoffelMatrix(materialLocal), materialLocal.rho);
+  } else if constexpr (MaterialT::Type == seissol::model::MaterialType::Poroelastic) {
+    return impedance_detail::admittanceFromBiot(materialLocal, lateralStress);
   } else {
     return impedance_detail::admittanceFromEigendecomposition(materialLocal, lateralStress);
   }
@@ -234,23 +322,25 @@ FaultImpedance computeFaultImpedance(const MaterialT& plusLocal, const MaterialT
  * std::nullopt on success, otherwise a human readable description of the first
  * violation.
  *
- * `expectSelfAdjoint` should be false for poroelastic, where the 4x4 block is
- * not built from an energy-conjugate pair.
+ * Self-adjointness is checked against the signature matrix, so it also applies to poroelastic,
+ * where the stored fourth traction component is +p while its energy conjugate partner is -p.
  */
-inline std::optional<std::string>
-    checkFaultImpedance(const FaultImpedance& impedance,
-                        bool expectSelfAdjoint = seissol::model::MaterialT::Type !=
-                                                 seissol::model::MaterialType::Poroelastic,
-                        double tolerance = 1e-9) {
+inline std::optional<std::string> checkFaultImpedance(const FaultImpedance& impedance,
+                                                      bool expectSelfAdjoint = true,
+                                                      double tolerance = 1e-9) {
+  const DrMatrix signature = signatureMatrix();
+
   const auto relIdentityError = [](const DrMatrix& matrix) {
     return (matrix - DrMatrix::Identity()).cwiseAbs().maxCoeff();
   };
-  const auto relSymmetryError = [](const DrMatrix& matrix) {
-    const double scale = matrix.cwiseAbs().maxCoeff();
-    return (scale == 0.0) ? 0.0 : (matrix - matrix.transpose()).cwiseAbs().maxCoeff() / scale;
+  const auto relSymmetryError = [&signature](const DrMatrix& matrix) {
+    const DrMatrix adjusted = matrix * signature;
+    const double scale = adjusted.cwiseAbs().maxCoeff();
+    return (scale == 0.0) ? 0.0 : (adjusted - adjusted.transpose()).cwiseAbs().maxCoeff() / scale;
   };
-  const auto smallestEigenvalue = [](const DrMatrix& matrix) {
-    const DrMatrix symmetric = 0.5 * (matrix + matrix.transpose());
+  const auto smallestEigenvalue = [&signature](const DrMatrix& matrix) {
+    const DrMatrix adjusted = matrix * signature;
+    const DrMatrix symmetric = 0.5 * (adjusted + adjusted.transpose());
     const Eigen::SelfAdjointEigenSolver<DrMatrix> solver(symmetric, Eigen::EigenvaluesOnly);
     return solver.eigenvalues().minCoeff();
   };
@@ -283,7 +373,9 @@ inline std::optional<std::string>
                                            relSymmetryError(impedance.admittanceMinus),
                                            relSymmetryError(impedance.eta)});
     if (symmetryError > tolerance) {
-      message << "fault impedance is not self-adjoint, max relative error " << symmetryError;
+      message << "fault impedance is not self-adjoint (w.r.t. the signature matrix), max relative "
+                 "error "
+              << symmetryError;
       return message.str();
     }
     if (smallestEigenvalue(impedance.admittancePlus) <= 0.0 ||
