@@ -26,6 +26,7 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
 #include "Numerical/BasisFunction.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
