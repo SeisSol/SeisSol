@@ -67,21 +67,17 @@ class BaseFrictionLaw : public FrictionSolver {
       for (std::size_t ltsFace = 0; ltsFace < this->currLayerSize_; ++ltsFace) {
         alignas(Alignment) ImposedState<Executor::Host> imposedState{};
         alignas(Alignment) FaultStresses<Executor::Host> faultStresses{};
-        SCOREP_USER_REGION_BEGIN(
-            myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
-        LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
         const auto etaPDamp = drParameters_.etaDampEnd > this->fullUpdateTime_
                                   ? drParameters_.etaDamp
                                   : static_cast<real>(1.0);
-        LIKWID_MARKER_STOP("computeDynamicRupturePrecomputeStress");
         SCOREP_USER_REGION_END(myRegionHandle)
 
         SCOREP_USER_REGION_BEGIN(
             myRegionHandle, "computeDynamicRupturePreHook", SCOREP_USER_REGION_TYPE_COMMON)
         LIKWID_MARKER_START("computeDynamicRupturePreHook");
         // define some temporary variables
-        std::array<real, misc::NumPaddedPoints> stateVariableBuffer{0};
-        std::array<real, misc::NumPaddedPoints> strengthBuffer{0};
+        std::array<real, misc::NumPaddedPoints> stateVariableBuffer{};
+        std::array<real, misc::NumPaddedPoints> strengthBuffer{};
 
         static_cast<Derived*>(this)->preHook(stateVariableBuffer, ltsFace);
         LIKWID_MARKER_STOP("computeDynamicRupturePreHook");
@@ -91,7 +87,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                  "computeDynamicRuptureUpdateFrictionAndSlip",
                                  SCOREP_USER_REGION_TYPE_COMMON)
         LIKWID_MARKER_START("computeDynamicRuptureUpdateFrictionAndSlip");
-        TractionResults<Executor::Host> tractionResults = {};
+        TractionResults<Executor::Host> tractionResults{};
 
         // loop over sub time steps (i.e. quadrature points in time
         real startTime = 0;
@@ -170,13 +166,8 @@ class BaseFrictionLaw : public FrictionSolver {
         LIKWID_MARKER_STOP("computeDynamicRupturePostHook");
         SCOREP_USER_REGION_END(myRegionHandle)
 
-        SCOREP_USER_REGION_BEGIN(myRegionHandle,
-                                 "computeDynamicRupturePostcomputeImposedState",
-                                 SCOREP_USER_REGION_TYPE_COMMON)
-        LIKWID_MARKER_START("computeDynamicRupturePostcomputeImposedState");
         common::finalizeImposedState(
             imposedState, imposedStatePlus_[ltsFace], imposedStateMinus_[ltsFace]);
-        LIKWID_MARKER_STOP("computeDynamicRupturePostcomputeImposedState");
         SCOREP_USER_REGION_END(myRegionHandle)
 
         if (this->drParameters_.isFrictionEnergyRequired) {

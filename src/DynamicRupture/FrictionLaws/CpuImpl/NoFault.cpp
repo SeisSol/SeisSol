@@ -23,7 +23,7 @@ void NoFault::updateFrictionAndSlip(
     std::array<real, misc::NumPaddedPoints>& /*stateVariableBuffer*/,
     std::array<real, misc::NumPaddedPoints>& /*strengthBuffer*/,
     std::size_t /*ltsFace*/,
-    uint32_t timeIndex) {
+    uint32_t /*timeIndex*/) {
   for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
     tractionResults.traction1[pointIndex] = faultStresses.traction1[pointIndex];
     tractionResults.traction2[pointIndex] = faultStresses.traction2[pointIndex];

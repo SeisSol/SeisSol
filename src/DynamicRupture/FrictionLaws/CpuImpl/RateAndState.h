@@ -47,7 +47,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
     // compute initial slip rate and reference values
     auto initialVariables = static_cast<Derived*>(this)->calcInitialVariables(
-        faultStresses, stateVariableBuffer, timeIndex, ltsFace);
+        faultStresses, stateVariableBuffer, ltsFace);
     // these three are direction dependent and are swept along with the state variable below
     auto absoluteShearStress = std::move(initialVariables.absoluteShearTraction);
     auto etaInv = std::move(initialVariables.etaInv);
@@ -81,9 +81,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                   etaInv,
                                   etaNormal,
                                   faultStresses,
-                                  timeIndex,
                                   ltsFace);
-    updateNormalStress(normalStress, faultStresses, etaNormal, timeIndex, ltsFace);
+    updateNormalStress(normalStress, faultStresses, etaNormal, ltsFace);
     // compute final slip rates and traction from average of the iterative solution and initial
     // guess
     this->calcSlipRateAndTraction(stateVarReference,
@@ -146,7 +145,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   InitialVariables
       calcInitialVariables(const FaultStresses<Executor::Host>& faultStresses,
                            const std::array<real, misc::NumPaddedPoints>& localStateVariable,
-                           uint32_t timeIndex,
                            std::size_t ltsFace) {
     // Careful, the state variable must always be corrected using stateVarZero and not
     // localStateVariable!
@@ -200,7 +198,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     } // End of pointIndex-loop
 
     // after the loop: updateNormalStress reads slipRateMagnitude_, which is only set above
-    updateNormalStress(normalStress, faultStresses, etaNormal, timeIndex, ltsFace);
+    updateNormalStress(normalStress, faultStresses, etaNormal, ltsFace);
 
     return {absoluteTraction,
             temporarySlipRate,
@@ -228,7 +226,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       [[maybe_unused]] std::array<real, misc::NumPaddedPoints>& etaInv,
       [[maybe_unused]] std::array<real, misc::NumPaddedPoints>& etaNormal,
       [[maybe_unused]] const FaultStresses<Executor::Host>& faultStresses,
-      [[maybe_unused]] uint32_t timeIndex,
       [[maybe_unused]] std::size_t ltsFace) {
     if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
 #pragma omp simd
@@ -322,9 +319,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                     etaInv,
                                     etaNormal,
                                     faultStresses,
-                                    timeIndex,
                                     ltsFace);
-      updateNormalStress(normalStress, faultStresses, etaNormal, timeIndex, ltsFace);
+      updateNormalStress(normalStress, faultStresses, etaNormal, ltsFace);
 
       // solve for new slip rate
       hasConverged = this->invertSlipRateIterative(
@@ -572,7 +568,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   void updateNormalStress(std::array<real, misc::NumPaddedPoints>& normalStress,
                           const FaultStresses<Executor::Host>& faultStresses,
                           const std::array<real, misc::NumPaddedPoints>& etaNormal,
-                          size_t timeIndex,
                           size_t ltsFace) {
     // Todo(SW): consider poroelastic materials together with thermal pressurisation
 #pragma omp simd

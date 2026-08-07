@@ -50,13 +50,13 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& __restrict ctx,
                                                    uint32_t timeIndex) {
     // compute initial slip rate and reference values
-    Derived::calcInitialVariables(ctx, timeIndex);
+    Derived::calcInitialVariables(ctx);
 
     updateStateVariableIterative(ctx, timeIndex);
 
     TPMethod::calcFluidPressure(ctx, timeIndex, true);
-    updateDirectionAndProjections(ctx, timeIndex);
-    updateNormalStress(ctx, timeIndex);
+    updateDirectionAndProjections(ctx);
+    updateNormalStress(ctx);
     calcSlipRateAndTraction(ctx, timeIndex);
   }
 
@@ -73,8 +73,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
    * Compute shear stress magnitude, localSlipRate, effective normal stress, reference state
    * variable. Also sets slipRateMagnitude member to reference value.
    */
-  SEISSOL_DEVICE static void calcInitialVariables(FrictionLawContext& __restrict ctx,
-                                                  uint32_t timeIndex) {
+  SEISSOL_DEVICE static void calcInitialVariables(FrictionLawContext& __restrict ctx) {
     ctx.initialVariables.stateVarReference = ctx.stateVariableBuffer;
 
     const real totalTraction1 = ctx.data->initialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] +
@@ -108,7 +107,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.initialVariables.localSlipRate = localSlipRateMagnitude;
 
     // after the slip rate is set: updateNormalStress reads it (and etaNormal)
-    updateNormalStress(ctx, timeIndex);
+    updateNormalStress(ctx);
   }
 
   /**
@@ -122,8 +121,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
    *
    * @returns 1 / eta_proj for the (possibly updated) direction
    */
-  SEISSOL_DEVICE static real updateDirectionAndProjections(FrictionLawContext& __restrict ctx,
-                                                           uint32_t timeIndex) {
+  SEISSOL_DEVICE static real updateDirectionAndProjections(FrictionLawContext& __restrict ctx) {
     const real totalTraction1 = ctx.data->initialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] +
                                 ctx.faultStresses.traction1;
 
@@ -187,8 +185,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       const auto dt{ctx.args->deltaT[timeIndex]};
       Derived::updateStateVariable(ctx, dt);
       TPMethod::calcFluidPressure(ctx, timeIndex, false);
-      const real invEta = updateDirectionAndProjections(ctx, timeIndex);
-      updateNormalStress(ctx, timeIndex);
+      const real invEta = updateDirectionAndProjections(ctx);
+      updateNormalStress(ctx);
 
       const auto localStateVariable = ctx.stateVariableBuffer;
       const auto normalStress = ctx.initialVariables.normalStress;
@@ -369,8 +367,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
    * The slip rate is taken from the previous outer fixed-point iteration (or, on entry, from the
    * previous time step), so the Newton solver itself still sees a frozen sigma.
    */
-  SEISSOL_DEVICE static void updateNormalStress(FrictionLawContext& __restrict ctx,
-                                                uint32_t timeIndex) {
+  SEISSOL_DEVICE static void updateNormalStress(FrictionLawContext& __restrict ctx) {
     ctx.initialVariables.normalStress =
         std::min(static_cast<real>(0.0),
                  ctx.faultStresses.normalStress +

@@ -108,9 +108,9 @@ struct VariableIndexing<Executor::Device> {
  */
 template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
-    FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
-    const ImpedancesAndEta& impAndEta,
-    [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+    FaultStresses<RangeExecutor<Type>::Exec>& __restrict faultStresses,
+    const ImpedancesAndEta& __restrict impAndEta,
+    [[maybe_unused]] const ImpedanceMatrices& __restrict impedanceMatrices,
     const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()],
     real etaPDamp,
@@ -122,6 +122,10 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 
   const auto o = step;
 
+  using QInterpolatedShapeT = const real(*__restrict)[misc::NumQuantities][misc::NumPaddedPoints];
+  const auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
+  const auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
+
   if constexpr (model::MaterialT::Type == model::MaterialType::Elastic ||
                 model::MaterialT::Type == model::MaterialType::Viscoelastic) {
     const auto etaP = impAndEta.etaP * etaPDamp;
@@ -130,10 +134,6 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     const auto invZs = impAndEta.invZs;
     const auto invZpNeig = impAndEta.invZpNeig;
     const auto invZsNeig = impAndEta.invZsNeig;
-
-    using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
-    const auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
-    const auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
 
     using namespace dr::misc::quantity_indices;
 
@@ -167,10 +167,6 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     // eta and damping res[0] are the same thing -- so it is applied at the very end. The
     // poroelastic fluid pressure res[3] is deliberately left undamped, matching the elastic
     // behaviour of only touching the normal traction.
-
-    using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
-    const auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
-    const auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
 
     using namespace dr::misc::quantity_indices;
 
@@ -242,10 +238,10 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
  * @param[out] tractionResults
  */
 template <RangeType Type = RangeType::CPU>
-SEISSOL_HOSTDEVICE inline void
-    initializeTractionResults(const FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
-                              TractionResults<RangeExecutor<Type>::Exec>& tractionResults,
-                              uint32_t startIndex = 0) {
+SEISSOL_HOSTDEVICE inline void initializeTractionResults(
+    const FaultStresses<RangeExecutor<Type>::Exec>& __restrict faultStresses,
+    TractionResults<RangeExecutor<Type>::Exec>& __restrict tractionResults,
+    uint32_t startIndex = 0) {
   using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
@@ -262,6 +258,7 @@ SEISSOL_HOSTDEVICE inline void
  * Integrate over all Time points with the time weights and calculate the traction for each side
  * according to Carsten Uphoff Thesis: EQ.: 4.60
  *
+ * @param[inout] state
  * @param[in] faultStresses
  * @param[in] tractionResults
  * @param[in] impAndEta
@@ -269,17 +266,15 @@ SEISSOL_HOSTDEVICE inline void
  * @param[in] qInterpolatedPlus
  * @param[in] qInterpolatedMinus
  * @param[in] step
- * @param[in] timeWeights
- * @param[out] imposedStatePlus
- * @param[out] imposedStateMinus
+ * @param[in] weight
  */
 template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
-    ImposedState<RangeExecutor<Type>::Exec>& state,
-    const FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
-    const TractionResults<RangeExecutor<Type>::Exec>& tractionResults,
-    const ImpedancesAndEta& impAndEta,
-    [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+    ImposedState<RangeExecutor<Type>::Exec>& __restrict state,
+    [[maybe_unused]] const FaultStresses<RangeExecutor<Type>::Exec>& __restrict faultStresses,
+    const TractionResults<RangeExecutor<Type>::Exec>& __restrict tractionResults,
+    const ImpedancesAndEta& __restrict impAndEta,
+    [[maybe_unused]] const ImpedanceMatrices& __restrict impedanceMatrices,
     const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()],
     uint32_t step,
@@ -292,7 +287,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
 
   using Acc = VariableIndexing<RangeExecutor<Type>::Exec>;
 
-  using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
+  using QInterpolatedShapeT = const real(*__restrict)[misc::NumQuantities][misc::NumPaddedPoints];
   const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
@@ -316,24 +311,24 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
       const auto traction1 = Acc::index(tractionResults.traction1, i);
       const auto traction2 = Acc::index(tractionResults.traction2, i);
 
-      Acc::index(state.minus[N], index) += weight * normalStress;
-      Acc::index(state.minus[T1], index) += weight * traction1;
-      Acc::index(state.minus[T2], index) += weight * traction2;
-      Acc::index(state.minus[U], index) +=
+      Acc::index(state.minus[N], i) += weight * normalStress;
+      Acc::index(state.minus[T1], i) += weight * traction1;
+      Acc::index(state.minus[T2], i) += weight * traction2;
+      Acc::index(state.minus[U], i) +=
           weight * (qIMinus[o][U][i] - invZpNeig * (normalStress - qIMinus[o][N][i]));
-      Acc::index(state.minus[V], index) +=
+      Acc::index(state.minus[V], i) +=
           weight * (qIMinus[o][V][i] - invZsNeig * (traction1 - qIMinus[o][T1][i]));
-      Acc::index(state.minus[W], index) +=
+      Acc::index(state.minus[W], i) +=
           weight * (qIMinus[o][W][i] - invZsNeig * (traction2 - qIMinus[o][T2][i]));
 
-      Acc::index(state.plus[N], index) += weight * normalStress;
-      Acc::index(state.plus[T1], index) += weight * traction1;
-      Acc::index(state.plus[T2], index) += weight * traction2;
-      Acc::index(state.plus[U], index) +=
+      Acc::index(state.plus[N], i) += weight * normalStress;
+      Acc::index(state.plus[T1], i) += weight * traction1;
+      Acc::index(state.plus[T2], i) += weight * traction2;
+      Acc::index(state.plus[U], i) +=
           weight * (qIPlus[o][U][i] + invZp * (normalStress - qIPlus[o][N][i]));
-      Acc::index(state.plus[V], index) +=
+      Acc::index(state.plus[V], i) +=
           weight * (qIPlus[o][V][i] + invZs * (traction1 - qIPlus[o][T1][i]));
-      Acc::index(state.plus[W], index) +=
+      Acc::index(state.plus[W], i) +=
           weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
     }
   } else {
@@ -360,9 +355,9 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
         constexpr std::uint32_t Count =
             model::MaterialT::Type == model::MaterialType::Poroelastic ? 4 : 3;
 
-        Acc::index(imposedState[N], index) += weight * normalStress;
-        Acc::index(imposedState[T1], index) += weight * traction1;
-        Acc::index(imposedState[T2], index) += weight * traction2;
+        Acc::index(imposedState[N], i) += weight * normalStress;
+        Acc::index(imposedState[T1], i) += weight * traction1;
+        Acc::index(imposedState[T2], i) += weight * traction2;
 
         real diff[Count]{};
         diff[0] = (normalStress - qI[o][N][i]) * sign;
@@ -370,7 +365,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
         diff[2] = (traction2 - qI[o][T2][i]) * sign;
 
         if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
-          Acc::index(imposedState[FP], index) += weight * fluidPressure;
+          Acc::index(imposedState[FP], i) += weight * fluidPressure;
           diff[3] = (fluidPressure - qI[o][FP][i]) * sign;
         }
 
@@ -380,7 +375,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
           for (std::uint32_t k = 0; k < Count; ++k) {
             acc += mZ[Count * k + linear] * diff[k];
           }
-          Acc::index(imposedState[qindex], index) += weight * (qI[o][qindex][i] + acc);
+          Acc::index(imposedState[qindex], i) += weight * (qI[o][qindex][i] + acc);
         };
 
         handleEntry(0, U);
@@ -406,14 +401,14 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
  */
 template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void
-    finalizeImposedState(const ImposedState<RangeExecutor<Type>::Exec>& state,
+    finalizeImposedState(const ImposedState<RangeExecutor<Type>::Exec>& __restrict state,
                          real imposedStatePlus[tensor::QInterpolated::size()],
                          real imposedStateMinus[tensor::QInterpolated::size()],
                          uint32_t startIndex = 0) {
 
   using NumPointsRange = typename NumPoints<Type>::Range;
 
-  using ImposedStateShapeT = real(*)[misc::NumPaddedPoints];
+  using ImposedStateShapeT = real(*__restrict)[misc::NumPaddedPoints];
   auto* imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
   auto* imposedStateM = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
 
@@ -545,7 +540,7 @@ SEISSOL_HOSTDEVICE inline void
                                           const bool ruptureTimePending[misc::NumPaddedPoints],
                                           // See https://github.com/llvm/llvm-project/issues/60163
                                           // NOLINTNEXTLINE
-                                          DREnergyOutput& energyData,
+                                          DREnergyOutput& __restrict energyData,
                                           const real dt,
                                           const real slipRateThreshold,
                                           uint32_t startIndex = 0) {
@@ -571,13 +566,13 @@ SEISSOL_HOSTDEVICE inline void
 }
 template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
-    DREnergyOutput& energyData,
+    DREnergyOutput& __restrict energyData,
     const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()],
-    const ImpedancesAndEta& impAndEta,
+    const ImpedancesAndEta& __restrict impAndEta,
     const real timeWeights[misc::TimeSteps],
     const real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints],
-    const DRGodunovData& godunovData,
+    const DRGodunovData& __restrict godunovData,
     const real slipRateMagnitude[misc::NumPaddedPoints],
     const bool energiesFromAcrossFaultVelocities,
     size_t startIndex = 0) {

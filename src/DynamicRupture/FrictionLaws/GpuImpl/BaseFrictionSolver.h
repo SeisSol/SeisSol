@@ -148,7 +148,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       const auto isCheckAbortCriteraEnabled{ctx.data->drParameters.isCheckAbortCriteraEnabled};
       const auto devTerminatorSlipRateThreshold{ctx.data->drParameters.terminatorSlipRateThreshold};
 
-      ImposedState<Executor::Device> imposedState;
+      ImposedState<Executor::Device> imposedState{};
 
       Derived::preHook(ctx);
 

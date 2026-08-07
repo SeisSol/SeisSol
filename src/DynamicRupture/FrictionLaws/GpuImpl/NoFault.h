@@ -22,7 +22,7 @@ class NoFault : public BaseFrictionSolver<NoFault> {
                                              DynamicRupture::Layer& layerData) {}
 
   SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& __restrict ctx,
-                                                   uint32_t timeIndex) {
+                                                   uint32_t /*timeIndex*/) {
     // calculate traction
     ctx.tractionResults.traction1 = ctx.faultStresses.traction1;
     ctx.tractionResults.traction2 = ctx.faultStresses.traction2;
