@@ -123,8 +123,8 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
   const auto o = step;
 
   using QInterpolatedShapeT = const real(*__restrict)[misc::NumQuantities][misc::NumPaddedPoints];
-  const auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
-  const auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
+  const auto* __restrict qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
+  const auto* __restrict qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
 
   if constexpr (model::MaterialT::Type == model::MaterialType::Elastic ||
                 model::MaterialT::Type == model::MaterialType::Viscoelastic) {
@@ -288,8 +288,8 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
   using Acc = VariableIndexing<RangeExecutor<Type>::Exec>;
 
   using QInterpolatedShapeT = const real(*__restrict)[misc::NumQuantities][misc::NumPaddedPoints];
-  const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
-  const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
+  const auto* __restrict qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
+  const auto* __restrict qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
   if constexpr (model::MaterialT::Type == model::MaterialType::Elastic ||
                 model::MaterialT::Type == model::MaterialType::Viscoelastic) {
@@ -409,8 +409,8 @@ SEISSOL_HOSTDEVICE inline void
   using NumPointsRange = typename NumPoints<Type>::Range;
 
   using ImposedStateShapeT = real(*__restrict)[misc::NumPaddedPoints];
-  auto* imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
-  auto* imposedStateM = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
+  auto* __restrict imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
+  auto* __restrict imposedStateM = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
 
   for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
        index += NumPointsRange::Step) {
@@ -583,8 +583,8 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   const real doubledSurfaceAreaN = -static_cast<real>(godunovData.doubledSurfaceArea);
 
   using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
-  const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
-  const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
+  const auto* __restrict qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
+  const auto* __restrict qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
   using namespace dr::misc::quantity_indices;
 
