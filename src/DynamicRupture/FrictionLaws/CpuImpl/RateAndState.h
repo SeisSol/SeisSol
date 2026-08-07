@@ -398,15 +398,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       this->mu_[ltsFace][pointIndex] = static_cast<Derived*>(this)->updateMu(
           pointIndex, this->slipRateMagnitude_[ltsFace][pointIndex], details);
       const real strength = -this->mu_[ltsFace][pointIndex] * normalStress[pointIndex];
-      // calculate absolute value of stress in Y and Z direction
-      const real totalTraction1 = this->initialStressInFaultCS_[ltsFace][3][pointIndex] +
-                                  faultStresses.traction1[timeIndex][pointIndex];
-      const real totalTraction2 = this->initialStressInFaultCS_[ltsFace][5][pointIndex] +
-                                  faultStresses.traction2[timeIndex][pointIndex];
 
       // the direction along which the slip rate is decomposed; scaled such that dividing by
       // `divisor` yields the unit slip direction. For isotropy slipDirection is the (normalised)
-      // trial traction and absoluteTraction is its magnitude, so this is the previous expression.
+      // trial traction and absoluteTraction is its magnitude.
       const real dirTraction1 = slipDirection1[pointIndex] * absoluteTraction[pointIndex];
       const real dirTraction2 = slipDirection2[pointIndex] * absoluteTraction[pointIndex];
 
