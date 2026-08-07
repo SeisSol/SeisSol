@@ -232,7 +232,7 @@ TEST_CASE("tractionPlusMatrix CSC layout matches the friction energy indexing" *
 //    1 - 2 (cs/cp)^2 formula the output used before.
 // ---------------------------------------------------------------------------
 TEST_CASE("Anisotropic lateral stress reconstruction" * doctest::test_suite("dynamicrupture")) {
-  using seissol::initializer::model::impedance_detail::lateralStressMatrix;
+  using seissol::initializer::model::DrLateralMatrix;
   constexpr double Epsilon = 1e-12;
 
   // Voigt stiffness matrix of a material, for the direct check below
@@ -249,8 +249,7 @@ TEST_CASE("Anisotropic lateral stress reconstruction" * doctest::test_suite("dyn
     const double mu = 3.203e10;
     const double lambda = 3.204e10;
     const auto frame = makeFaultFrame(Eigen::Vector3d(0.3, -0.5, 0.81));
-    const auto lateral =
-        lateralStressMatrix(rotateToFault(isotropicMaterial(rho, mu, lambda), frame));
+    const auto lateral = DrLateralMatrix(rotateToFault(isotropicMaterial(rho, mu, lambda), frame));
 
     const double cs = std::sqrt(mu / rho);
     const double cp = std::sqrt((lambda + 2 * mu) / rho);
@@ -264,7 +263,7 @@ TEST_CASE("Anisotropic lateral stress reconstruction" * doctest::test_suite("dyn
   SUBCASE("reproduces the plane wave stress of a tilted VTI") {
     const auto frame = makeFaultFrame(Eigen::Vector3d::UnitZ());
     const auto material = rotateToFault(tiltedVti(35.0), frame);
-    const auto lateral = lateralStressMatrix(material);
+    const auto lateral = DrLateralMatrix(material);
     const auto stiffness = voigt(material);
 
     // every polarisation of a wave travelling along the fault normal has only the strain rates
