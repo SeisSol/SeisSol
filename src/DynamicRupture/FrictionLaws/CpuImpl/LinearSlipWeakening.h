@@ -148,6 +148,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
         dirTraction1 = n1 * projectedTraction;
         dirTraction2 = n2 * projectedTraction;
       } else {
+        dirTraction1 = totalTraction1;
+        dirTraction2 = totalTraction2;
+        etaEff = eta;
+
         slipRateMagnitude =
             std::max(static_cast<real>(0.0), (absoluteTraction - strength[pointIndex]) * invEta);
       }
