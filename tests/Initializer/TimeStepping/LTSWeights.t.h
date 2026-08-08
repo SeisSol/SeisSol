@@ -5,18 +5,25 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Common/Constants.h"
 #include "Geometry/PUMLReader.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/LtsParameters.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/TimeStepping/LtsWeights/WeightsModels.h"
 #include "Initializer/Typedefs.h"
+#include "Parallel/MPI.h"
 #include "SeisSol.h"
 #include "TestHelper.h"
 
+#include <algorithm>
+#include <cstdint>
+#include <limits>
 #include <memory>
 #include <numeric>
+#include <vector>
 
 namespace seissol::unit_test {
 
@@ -223,6 +230,105 @@ TEST_CASE("Auto merging of clusters") {
       const auto is = computeMaxClusterIdAfterAutoMerge(
           clusterIds, cellCosts, {2}, 2.06 * costBeforeRate2, 1, minDt);
       REQUIRE(is == should);
+    }
+  }
+}
+
+TEST_CASE("LTS clustering invariants on a mesh") {
+  // Value-free characterization of the end-to-end clustering: rather than pinning golden
+  // cluster ids (which would have to be regenerated for every mesh change), this asserts
+  // the two structural properties that the refactor must not break.
+  std::cout.setstate(std::ios_base::failbit);
+  using namespace seissol::initializer::time_stepping;
+
+  // a non-uniform ladder plus an active wiggle sweep -- neither is covered above
+  const auto rate = std::vector<std::uint64_t>{4, 2};
+  constexpr int MaxClusters = 100;
+
+  const LtsWeightsConfig config{
+      seissol::initializer::parameters::BoundaryFormat::I32, rate, 1, 1, 1};
+
+  const seissol::initializer::parameters::LtsParameters ltsParameters(
+      rate,
+      0.5,   // wiggle factor minimum: enables the sweep
+      0.01,  // wiggle factor stepsize
+      false, // do not enforce the maximum difference inside the sweep
+      MaxClusters,
+      false, // no auto merge
+      1.0,
+      seissol::initializer::parameters::AutoMergeCostBaseline::MaxWiggleFactor,
+      seissol::initializer::parameters::LtsWeightsTypes::ExponentialWeights);
+
+  seissol::initializer::parameters::SeisSolParameters seissolParameters{};
+  seissolParameters.timeStepping.lts = ltsParameters;
+  seissolParameters.timeStepping.cfl = 1;
+  seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
+  seissolParameters.model.materialFileName = tpath("Testing/material.yaml");
+  seissolParameters.model.useCellHomogenizedMaterial = false;
+  seissolParameters.model.plasticity = false;
+  const utils::Env env("SEISSOL_");
+  seissol::SeisSol seissolInstance(seissolParameters, env);
+
+  auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
+  const auto faceMap = defaultFaceMap();
+  const auto pumlReader =
+      seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
+                                    "Default",
+                                    faceMap,
+                                    seissol::initializer::parameters::BoundaryFormat::I32,
+                                    seissol::initializer::parameters::TopologyFormat::Geometric,
+                                    ltsWeights.get());
+  std::cout.clear();
+
+  const auto wiggle = ltsWeights->getWiggleFactor();
+  REQUIRE(wiggle > 0.0);
+  REQUIRE(wiggle <= 1.0);
+
+  const auto& elements = pumlReader.getElements();
+  REQUIRE(!elements.empty());
+
+  double globalMinTimestep = std::numeric_limits<double>::max();
+  for (const auto& element : elements) {
+    globalMinTimestep = std::min(globalMinTimestep, element.timestep);
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &globalMinTimestep, 1, MPI_DOUBLE, MPI_MIN, seissol::Mpi::mpi.comm());
+  REQUIRE(globalMinTimestep > 0.0);
+
+  // (1) enforceMaximumDifference() and enforceMaxClusterId() only ever move cells to a
+  //     finer cluster, so the plain binning is a pointwise upper bound on the result.
+  for (const auto& element : elements) {
+    CAPTURE(element.globalId);
+    const auto unsmoothed = getCluster(element.timestep, globalMinTimestep, wiggle, rate);
+    REQUIRE(element.clusterId >= 0);
+    REQUIRE(static_cast<std::uint64_t>(element.clusterId) <= unsmoothed);
+    REQUIRE(element.clusterId < MaxClusters);
+  }
+
+  // (2) the index-difference-of-one property. This is not a heuristic: the ghost cluster
+  //     construction asserts it at runtime, cf. the asserts in TimeManager::addClusters().
+  const auto rank = seissol::Mpi::mpi.rank();
+  for (const auto& element : elements) {
+    for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
+      const auto faceType = static_cast<FaceType>(element.boundaries[f]);
+      if (!isInternalFaceType(faceType)) {
+        continue;
+      }
+      if (element.neighborRanks[f] != rank) {
+        continue; // ghost neighbour, not resolvable from the local element list
+      }
+      const auto neighbor = static_cast<std::size_t>(element.neighbors[f]);
+      if (neighbor >= elements.size()) {
+        continue; // domain boundary sentinel
+      }
+      CAPTURE(element.globalId);
+      const auto difference = element.clusterId > elements[neighbor].clusterId
+                                  ? element.clusterId - elements[neighbor].clusterId
+                                  : elements[neighbor].clusterId - element.clusterId;
+      if (faceType == FaceType::DynamicRupture) {
+        REQUIRE(difference == 0);
+      } else {
+        REQUIRE(difference <= 1);
+      }
     }
   }
 }

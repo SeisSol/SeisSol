@@ -359,10 +359,10 @@ int LtsWeights::nWeightsPerVertex() const {
   return ncon_;
 }
 
-std::uint64_t LtsWeights::getCluster(double timestep,
-                                     double globalMinTimestep,
-                                     double ltsWiggleFactor,
-                                     const std::vector<uint64_t>& rate) {
+std::uint64_t getCluster(double timestep,
+                         double globalMinTimestep,
+                         double ltsWiggleFactor,
+                         const std::vector<std::uint64_t>& rate) {
   if (rate.empty()) {
     return 0;
   }

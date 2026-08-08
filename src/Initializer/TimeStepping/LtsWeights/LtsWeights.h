@@ -54,6 +54,16 @@ int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
 
 std::uint64_t ratepow(const std::vector<std::uint64_t>& rate, std::uint64_t a, std::uint64_t b);
 
+/// Bins a cell timestep into a cluster id of the ladder described by `rate`.
+///
+/// Cluster k covers `[ratepow(rate,0,k), ratepow(rate,0,k+1))` in units of
+/// `wiggleFactor * globalMinTimestep`; a ratio of 1 at index >= 1 terminates the ladder, and
+/// a rate vector shorter than the ladder is extended with its last entry.
+std::uint64_t getCluster(double timestep,
+                         double globalMinTimestep,
+                         double wiggleFactor,
+                         const std::vector<std::uint64_t>& rate);
+
 class LtsWeights {
   public:
   LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance);
@@ -76,10 +86,6 @@ class LtsWeights {
   seissol::initializer::GlobalTimestep details_;
 
   seissol::initializer::GlobalTimestep collectGlobalTimeStepDetails();
-  std::uint64_t getCluster(double timestep,
-                           double globalMinTimestep,
-                           double wiggleFactor,
-                           const std::vector<uint64_t>& rate);
   FaceType getBoundaryCondition(const void* boundaryCond, size_t cell, unsigned face);
   std::vector<int> computeClusterIds(double curWiggleFactor);
   // returns number of reductions for maximum difference
