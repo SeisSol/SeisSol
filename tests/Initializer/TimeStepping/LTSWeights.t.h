@@ -180,6 +180,35 @@ TEST_CASE("Enforce max cluster id") {
   }
 }
 
+TEST_CASE("Batched costs of capped clusterings") {
+  using namespace seissol::initializer::time_stepping;
+  const auto clusterIds = std::vector<int>{0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 4};
+  const auto cellCosts = std::vector<int>{7, 3, 5, 1, 3, 3, 9, 2, 4, 6, 8, 5};
+  const auto maxClusterId = 4;
+
+  // The batched form has to reproduce the one-cap-at-a-time form exactly, not just closely:
+  // the resulting costs are compared against an admissibility threshold, so a last-ulp
+  // difference could flip a merge decision.
+  for (const auto& rate :
+       std::vector<std::vector<std::uint64_t>>{{2}, {3}, {4, 2}, {3, 2, 5, 6, 1}}) {
+    CAPTURE(rate);
+    for (const double wiggle : {1.0, 0.87, 0.5}) {
+      CAPTURE(wiggle);
+      for (const double minimalTimestep : {1.0, 4.2e-4}) {
+        const auto batched = computeLocalCostsOfCappedClusterings(
+            clusterIds, cellCosts, rate, wiggle, minimalTimestep, maxClusterId);
+        REQUIRE(batched.size() == static_cast<std::size_t>(maxClusterId) + 1);
+        for (int cap = 0; cap <= maxClusterId; ++cap) {
+          CAPTURE(cap);
+          const auto expected = computeLocalCostOfClustering(
+              enforceMaxClusterId(clusterIds, cap), cellCosts, rate, wiggle, minimalTimestep);
+          REQUIRE(batched[cap] == expected);
+        }
+      }
+    }
+  }
+}
+
 TEST_CASE("Auto merging of clusters") {
   using namespace seissol::initializer::time_stepping;
   const auto clusterIds = std::vector<int>{0, 0, 0, 0, 1, 1, 2};

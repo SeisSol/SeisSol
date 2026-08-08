@@ -39,6 +39,7 @@ add_library(seissol-initializer OBJECT
     Parameters/SeisSolParameters.cpp
     Parameters/SourceParameters.cpp
 
+    TimeStepping/ClusterHistogram.cpp
     TimeStepping/ClusterLadder.cpp
     TimeStepping/ClusterLayout.cpp
     TimeStepping/GlobalTimestep.cpp

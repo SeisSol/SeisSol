@@ -71,6 +71,41 @@ double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
   return cost;
 }
 
+std::vector<double> computeLocalCostsOfCappedClusterings(const std::vector<int>& clusterIds,
+                                                         const std::vector<int>& cellCosts,
+                                                         const std::vector<uint64_t>& rate,
+                                                         double wiggleFactor,
+                                                         double minimalTimestep,
+                                                         int maxClusterId) {
+  assert(clusterIds.size() == cellCosts.size());
+  assert(maxClusterId >= 0);
+
+  const auto capCount = static_cast<std::size_t>(maxClusterId) + 1;
+
+  // ratepow() rather than ClusterLadder: this is also reachable with hand-made clusterings
+  // whose ids exceed what the rate vector could produce, which a ladder would reject.
+  std::vector<double> updateFactors(capCount);
+  for (std::size_t cluster = 0; cluster < capCount; ++cluster) {
+    updateFactors[cluster] = static_cast<double>(ratepow(rate, 0, cluster));
+  }
+
+  std::vector<double> costs(capCount, 0.0);
+  for (auto i = 0U; i < clusterIds.size(); ++i) {
+    const auto cellCost = cellCosts[i];
+    const auto cluster = clusterIds[i];
+    for (std::size_t cap = 0; cap < capCount; ++cap) {
+      const auto capped = std::min(static_cast<std::size_t>(cluster), cap);
+      costs[cap] += cellCost / updateFactors[capped];
+    }
+  }
+
+  const auto minDtWithWiggle = minimalTimestep * wiggleFactor;
+  for (auto& cost : costs) {
+    cost /= minDtWithWiggle;
+  }
+  return costs;
+}
+
 std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int maxClusterId) {
   auto newClusterIds = clusterIds;
   assert(maxClusterId >= 0);
@@ -88,16 +123,25 @@ int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
                                       double maximalAdmissibleCost,
                                       double wiggleFactor,
                                       double minimalTimestep) {
-  int maxClusterId = *std::max_element(clusterIds.begin(), clusterIds.end());
+  int maxClusterId =
+      clusterIds.empty() ? 0 : *std::max_element(clusterIds.begin(), clusterIds.end());
   MPI_Allreduce(MPI_IN_PLACE, &maxClusterId, 1, MPI_INT, MPI_MAX, Mpi::mpi.comm());
+
+  // All candidate costs in one pass, then one reduction -- previously this was a full
+  // clustering copy plus an Allreduce for every candidate.
+  auto costs = computeLocalCostsOfCappedClusterings(
+      clusterIds, cellCosts, rate, wiggleFactor, minimalTimestep, maxClusterId);
+  MPI_Allreduce(MPI_IN_PLACE,
+                costs.data(),
+                static_cast<int>(costs.size()),
+                MPI_DOUBLE,
+                MPI_SUM,
+                Mpi::mpi.comm());
 
   // Iteratively merge clusters until we found the first number of clusters that has a cost that is
   // too high
   for (auto curMaxClusterId = maxClusterId; curMaxClusterId >= 0; --curMaxClusterId) {
-    const auto newClustering = enforceMaxClusterId(clusterIds, curMaxClusterId);
-    const double cost = computeGlobalCostOfClustering(
-        newClustering, cellCosts, rate, wiggleFactor, minimalTimestep, Mpi::mpi.comm());
-    if (cost > maximalAdmissibleCost) {
+    if (costs[curMaxClusterId] > maximalAdmissibleCost) {
       // This is the first number of clusters that resulted in an inadmissible cost
       // Hence, it was admissible in the previous iteration
       return std::min(maxClusterId, curMaxClusterId + 1);

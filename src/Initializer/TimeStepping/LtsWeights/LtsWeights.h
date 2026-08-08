@@ -44,6 +44,19 @@ double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
                                      double minimalTimestep,
                                      MPI_Comm comm);
 
+/// Local cost of every clustering obtained by capping `clusterIds` at 0, 1, ... `maxClusterId`.
+///
+/// Entry `m` equals `computeLocalCostOfClustering(enforceMaxClusterId(clusterIds, m), ...)`,
+/// bit for bit: each entry accumulates over the cells in the same order. Computing them
+/// together replaces one full clustering copy and one reduction per candidate with a single
+/// pass and a single reduction.
+std::vector<double> computeLocalCostsOfCappedClusterings(const std::vector<int>& clusterIds,
+                                                         const std::vector<int>& cellCosts,
+                                                         const std::vector<uint64_t>& rate,
+                                                         double wiggleFactor,
+                                                         double minimalTimestep,
+                                                         int maxClusterId);
+
 std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int maxClusterId);
 
 int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
