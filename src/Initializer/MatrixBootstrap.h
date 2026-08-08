@@ -45,9 +45,11 @@ struct GlobalMatrixPointers {
     for (std::size_t i = 0; i < seissol::init::ew_quad_nodes_vv::Shape[0]; ++i) {
       Eigen::Vector3d point(volumePoints(i, 0), volumePoints(i, 1), volumePoints(i, 2));
       Eigen::Matrix3d dvol = transform.mapDVolume(point);
-      const auto dvoldet = 1 / dvol.determinant();
+      const auto dvoldet = dvol.determinant();
       volsum += dvoldet;
       matM(i) = dvoldet;
+
+      Eigen::Matrix3d divol = dvol.inverse();
 
       // reminder: inverse function derivative:
       // f^{-1}'(y) = 1 / (f'(f^{-1}(y)))
@@ -57,7 +59,7 @@ struct GlobalMatrixPointers {
       for (int j = 0; j < 3; ++j) {
         for (int k = 0; k < 3; ++k) {
           // TODO: check ordering (transpose?)
-          matk(i, j, k) = dvoldet * dvol(j, k);
+          matk(i, j, k) = dvoldet * divol(j, k);
         }
       }
     }
