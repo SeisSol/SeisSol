@@ -360,6 +360,7 @@ std::vector<double> evaluateSimplexBasis(const std::vector<std::array<double, Di
       for (std::size_t j = 1; j < Dim; ++j) {
         ++indices[j];
         if (indices[j] + sum < ord) {
+          sum += indices[j];
           break;
         } else {
           indices[j] = 0;

@@ -62,11 +62,13 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
           {},
           temporal,
           writer::WriteInline::create("UnstructuredGrid",
-                                      std::make_shared<datatype::StringDatatype>(16)));
+                                      std::make_shared<datatype::StringDatatype>(16)),
+          true);
   addData("Version",
           {},
           temporal,
-          writer::WriteInline::createArray<int64_t>({version.size()}, version));
+          writer::WriteInline::createArray<int64_t>({version.size()}, version),
+          true);
 
   // to capture by value
   const auto selfGlobalElementCount = globalElementCount_;
@@ -152,7 +154,8 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
 void VtkHdfWriter::addData(const std::string& name,
                            const std::optional<std::string>& group,
                            bool isConst,
-                           const std::shared_ptr<writer::DataSource>& data) {
+                           const std::shared_ptr<writer::DataSource>& data,
+                           bool attribute) {
   auto& instrarray = isConst && constFile_ ? instructionsConst_ : instructions_;
 
   std::vector<std::string> groups{GroupName};
@@ -164,24 +167,31 @@ void VtkHdfWriter::addData(const std::string& name,
 
   const auto compress = this->compress_;
 
-  instrarray.emplace_back([=](const std::string& filename, double /*time*/) {
-    return std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, groups),
-        name,
-        data,
-        data->datatype(),
-        append,
-        compress);
-  });
+  if (attribute) {
+    instrarray.emplace_back([=](const std::string& filename, double /*time*/) {
+      return std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+          writer::instructions::Hdf5Location(filename, groups), name, data);
+    });
+  } else {
+    instrarray.emplace_back([=](const std::string& filename, double /*time*/) {
+      return std::make_shared<writer::instructions::Hdf5DataWrite>(
+          writer::instructions::Hdf5Location(filename, groups),
+          name,
+          data,
+          data->datatype(),
+          append,
+          compress);
+    });
 
-  if (isConst && constFile_ && !temporal_) {
-    instructionsConstLink_.emplace_back(
-        [=](const std::string& filename, const std::string& filenameConst) {
-          return std::make_shared<writer::instructions::Hdf5LinkExternalWrite>(
-              writer::instructions::Hdf5Location(filename, groups),
-              name,
-              writer::instructions::Hdf5Location(filenameConst, groups, name));
-        });
+    if (isConst && constFile_ && !temporal_) {
+      instructionsConstLink_.emplace_back(
+          [=](const std::string& filename, const std::string& filenameConst) {
+            return std::make_shared<writer::instructions::Hdf5LinkExternalWrite>(
+                writer::instructions::Hdf5Location(filename, groups),
+                name,
+                writer::instructions::Hdf5Location(filenameConst, groups, name));
+          });
+    }
   }
 }
 
@@ -201,10 +211,12 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
 
     const auto lastPrefix = utils::StringUtils::split(prefix, '/');
     const auto filename = prefix + "-" + self.name_ + "-" + std::to_string(counter) + ".vtkhdf";
+    const auto filenameFile =
+        lastPrefix.back() + "-" + self.name_ + "-" + std::to_string(counter) + ".vtkhdf";
     const auto filenameConst = prefix + "-" + self.name_ + "-const.vtkhdf";
     const auto filenameConstFile = lastPrefix.back() + "-" + self.name_ + "-const.vtkhdf";
     const auto filenamePvu = prefix + "-" + self.name_ + ".pvd";
-    pvu.emplace_back(metadata::PvuEntry{filename, time});
+    pvu.emplace_back(metadata::PvuEntry{filenameFile, time});
     auto writer = writer::Writer();
 
     const auto fullWrite = counter == 0;

@@ -43,15 +43,15 @@ constexpr std::size_t numPoints(std::size_t order, Shape shape) {
 constexpr std::size_t vtkType(Shape shape) {
   switch (shape) {
   case Shape::Line:
-    return 1;
+    return 68;
   case Shape::Triangle:
     return 69;
   case Shape::Tetrahedron:
     return 71;
   case Shape::Quadrangle:
-    return 1;
+    return 70;
   case Shape::Hexahedron:
-    return 1;
+    return 72;
   }
   return 0;
 }

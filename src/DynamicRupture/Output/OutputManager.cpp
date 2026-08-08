@@ -243,7 +243,7 @@ void OutputManager::initElementwiseOutput() {
 
   writer.addCellData<int>(
       "fault-tag", {}, true, [=, &receiverPoints](int* target, std::size_t index, std::size_t) {
-        *target = receiverPoints[index * multisim::NumSimulations].faultTag;
+        *target = receiverPoints[index * dataCount * multisim::NumSimulations].faultTag;
       });
 
   writer.addCellData<std::size_t>(
@@ -251,8 +251,9 @@ void OutputManager::initElementwiseOutput() {
       {},
       true,
       [=, &receiverPoints](std::size_t* target, std::size_t index, std::size_t) {
-        *target = receiverPoints[index * multisim::NumSimulations].elementGlobalIndex * 4 +
-                  receiverPoints[index * multisim::NumSimulations].localFaceSideId;
+        *target =
+            receiverPoints[index * dataCount * multisim::NumSimulations].elementGlobalIndex * 4 +
+            receiverPoints[index * dataCount * multisim::NumSimulations].localFaceSideId;
       });
 
   misc::forEach(ewOutputData_->vars, [&](const auto& var, int i) {
@@ -282,7 +283,10 @@ void OutputManager::initElementwiseOutput() {
   });
 
   auto& self = *this;
-  writer.addHook([&](std::size_t, double) { self.updateElementwiseOutput(); });
+  writer.addHook([&](std::size_t, double time) {
+    self.seissolInstance_.dofSync().syncDofs(time);
+    self.updateElementwiseOutput();
+  });
 
   io::writer::ScheduledWriter schedWriter;
   schedWriter.interval = writeInterval;

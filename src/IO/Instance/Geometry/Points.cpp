@@ -60,7 +60,12 @@ std::vector<std::array<double, Dim * Count>>
     std::vector<std::array<double, Dim * Count>> product(subProduct.size() * points.size());
     for (std::size_t i = 0; i < points.size(); ++i) {
       for (std::size_t j = 0; j < subProduct.size(); ++j) {
-        for (std::size_t k = 0; k < Dim * (Count - 1); ++k) {
+        constexpr auto SubSize = Dim * (Count - 1);
+        for (std::size_t k = 0; k < SubSize; ++k) {
+          product[j + subProduct.size() * i][k] = subProduct[j][k];
+        }
+        for (std::size_t k = 0; k < Dim; ++k) {
+          product[j + subProduct.size() * i][k + SubSize] = points[i][k];
         }
       }
     }

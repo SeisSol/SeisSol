@@ -19,13 +19,13 @@ using T4 = std::vector<std::array<double, 3>>;
 using P2 = std::array<double, 2>;
 using P3 = std::array<double, 3>;
 
-const auto Va = P3{0, 0, 0};
-const auto Vb = P3{0, 0, 1};
-const auto Vc = P3{1, 0, 0};
-const auto Vd = P3{0, 1, 0};
+constexpr auto Va = P3{0, 0, 0};
+constexpr auto Vb = P3{0, 0, 1};
+constexpr auto Vc = P3{1, 0, 0};
+constexpr auto Vd = P3{0, 1, 0};
 
 template <std::size_t Dim, typename... Points>
-std::array<double, Dim> average(const Points&... points) {
+constexpr std::array<double, Dim> average(const Points&... points) {
   std::array<double, Dim> output{};
   for (std::size_t i = 0; i < Dim; ++i) {
     output[i] = (points[i] + ...) / static_cast<double>(sizeof...(Points));
@@ -33,14 +33,14 @@ std::array<double, Dim> average(const Points&... points) {
   return output;
 }
 
-const auto Vab = average<3>(Va, Vb);
-const auto Vac = average<3>(Va, Vc);
-const auto Vad = average<3>(Va, Vd);
-const auto Vbc = average<3>(Vb, Vc);
-const auto Vbd = average<3>(Vb, Vd);
-const auto Vcd = average<3>(Vc, Vd);
+constexpr auto Vab = average<3>(Va, Vb);
+constexpr auto Vac = average<3>(Va, Vc);
+constexpr auto Vad = average<3>(Va, Vd);
+constexpr auto Vbc = average<3>(Vb, Vc);
+constexpr auto Vbd = average<3>(Vb, Vd);
+constexpr auto Vcd = average<3>(Vc, Vd);
 
-const auto Vabcd = average<3>(Va, Vb, Vc, Vd);
+constexpr auto Vabcd = average<3>(Va, Vb, Vc, Vd);
 
 } // namespace
 

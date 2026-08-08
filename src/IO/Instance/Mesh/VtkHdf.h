@@ -35,7 +35,8 @@ class VtkHdfWriter {
   void addData(const std::string& name,
                const std::optional<std::string>& group,
                bool isConst,
-               const std::shared_ptr<writer::DataSource>& data);
+               const std::shared_ptr<writer::DataSource>& data,
+               bool attribute = false);
 
   template <typename F>
   void addPointProjector(F&& projector) {

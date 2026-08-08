@@ -230,7 +230,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                               ConvergenceOrder, point[0], point[1], point[2])
                               .data();
         std::copy(data.begin(), data.end(), coll.begin() + idx);
-        idx += data.size();
+        idx += ((data.size() + Alignment - 1) / Alignment) * Alignment;
       }
     }
 
@@ -252,9 +252,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         const auto data = basisFunction::SampledBasisFunctionDerivatives<real>(
                               ConvergenceOrder, point[0], point[1], point[2])
                               .data();
-        std::copy(data.begin(), data.end(), coll1.begin() + idx);
-        std::copy(data.begin(), data.end(), coll2.begin() + idx);
-        std::copy(data.begin(), data.end(), coll3.begin() + idx);
+        // std::copy(data.begin(), data.end(), coll1.begin() + idx);
+        // std::copy(data.begin(), data.end(), coll2.begin() + idx);
+        // std::copy(data.begin(), data.end(), coll3.begin() + idx);
         idx += data.size();
       }
     }
@@ -294,8 +294,6 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     });
 
-    const auto subcells = dataPoints.size();
-
     const auto rank = seissol::Mpi::mpi.rank();
     writer.addCellData<int>(
         "partition", {}, true, [=](int* target, std::size_t /*index*/, std::size_t /*subcell*/) {
@@ -304,7 +302,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
     writer.addCellData<uint64_t>(
         "clustering", {}, true, [=](uint64_t* target, std::size_t index, std::size_t /*subcell*/) {
-          target[0] = meshReader.getElements()[index / subcells].clusterId;
+          target[0] = meshReader.getElements()[index].clusterId;
         });
 
     writer.addCellData<std::size_t>(
@@ -312,7 +310,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         {},
         true,
         [=](std::size_t* target, std::size_t index, std::size_t /*subcell*/) {
-          target[0] = meshReader.getElements()[index / subcells].globalId;
+          target[0] = meshReader.getElements()[index].globalId;
         });
 
     constexpr std::size_t MaxVtk3dPoints =
