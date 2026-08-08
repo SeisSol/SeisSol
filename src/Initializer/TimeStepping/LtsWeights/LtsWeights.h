@@ -11,6 +11,7 @@
 #define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_LTSWEIGHTS_H_
 
 #include "Geometry/PUMLReader.h"
+#include "Initializer/TimeStepping/ClusterLadder.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 
 #include <limits>

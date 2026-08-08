@@ -16,6 +16,7 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/LtsParameters.h"
+#include "Initializer/TimeStepping/ClusterLadder.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
@@ -363,18 +364,23 @@ std::uint64_t getCluster(double timestep,
                          double globalMinTimestep,
                          double ltsWiggleFactor,
                          const std::vector<std::uint64_t>& rate) {
+  // Kept as a standalone loop rather than going through ClusterLadder: this is called for
+  // single ad-hoc queries where building a ladder would allocate. It shares the ladder's
+  // notion of where the rate vector terminates, and the unit tests pin the two together.
   if (rate.empty()) {
     return 0;
   }
+
+  const auto clusterLimit = ClusterLadder::intrinsicClusterCount(rate);
 
   double upper = ltsWiggleFactor * rate[0] * globalMinTimestep;
 
   std::uint64_t cluster = 0;
   while (upper <= timestep) {
-    const auto currentRate = rate.size() > (cluster + 1) ? rate[cluster + 1] : rate.back();
-    if (currentRate == 1) {
+    if (clusterLimit != ClusterLadder::Unbounded && cluster + 1 >= clusterLimit) {
       break;
     }
+    const auto currentRate = rate.size() > (cluster + 1) ? rate[cluster + 1] : rate.back();
     upper *= currentRate;
     ++cluster;
   }
@@ -450,10 +456,14 @@ std::vector<int> LtsWeights::computeClusterIds(double curWiggleFactor) {
   const auto& cells = meshTopology_->cells();
   std::vector<int> clusterIds(cells.size(), 0);
 
+  // Build the ladder once instead of walking the rate vector per cell. The boundaries are
+  // accumulated exactly as the legacy loop did, so the binning is unchanged.
+  const auto ladder = ClusterLadder::forBinning(
+      rate_, details_.globalMinTimeStep, curWiggleFactor, details_.globalMaxTimeStep);
+
 #pragma omp parallel for
   for (std::size_t cell = 0; cell < cells.size(); ++cell) {
-    clusterIds[cell] = getCluster(
-        details_.cellTimeStepWidths[cell], details_.globalMinTimeStep, curWiggleFactor, rate_);
+    clusterIds[cell] = static_cast<int>(ladder.clusterOf(details_.cellTimeStepWidths[cell]));
   }
   return clusterIds;
 }

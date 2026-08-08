@@ -13,6 +13,7 @@
 // where the current implementation is inconsistent, the inconsistency is pinned and
 // annotated rather than "fixed" here.
 
+#include "Initializer/TimeStepping/ClusterLadder.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
 #include "TestHelper.h"
@@ -240,22 +241,22 @@ TEST_CASE("LTS ladder: ratepow and ClusterLayout::clusterRate") {
     }
   }
 
-  SUBCASE("they disagree on the meaning of rate one") {
-    // KNOWN INCONSISTENCY, pinned deliberately.
-    // getCluster() reads a ratio of 1 as a terminator; ratepow() and clusterRate() read it
-    // as a literal factor. For {2, 2, 1} the ladder stops at cluster 1, yet clusterRate(3)
-    // happily reports 4 -- an update factor for a cluster that can never be populated.
-    // Harmless today because the cluster stays empty; the ClusterLadder consolidation has
-    // to settle on getCluster()'s reading, which means normalising the terminator away.
+  SUBCASE("the terminator is now honoured on both sides") {
+    // Resolved inconsistency. On master getCluster() read a ratio of 1 as a terminator
+    // while ratepow()/clusterRate() read it as a literal factor, so for {2, 2, 1} the
+    // ladder stopped at cluster 1 yet clusterRate(3) still reported 4 -- an update factor
+    // for a cluster that can never be populated. ClusterLadder settles on getCluster()'s
+    // reading: the ladder simply has no cluster 2 or 3 to ask about.
     const Rates rate{2, 2, 1};
     REQUIRE(clusterCountOf(rate) == 2);
+    REQUIRE(ClusterLadder::intrinsicClusterCount(rate) == 2);
 
-    const ClusterLayout layout(rate, 1.0, 4);
+    const ClusterLayout layout(rate, 1.0, 2);
+    REQUIRE(layout.globalClusterCount == 2);
+    REQUIRE(layout.rates == Rates{2}); // normalized: the trailing 1 is gone
     REQUIRE(layout.clusterRate(0) == 1);
     REQUIRE(layout.clusterRate(1) == 2);
-    REQUIRE(layout.clusterRate(2) == 4);
-    REQUIRE(layout.clusterRate(3) == 4); // literal factor 1, no termination
-    REQUIRE(cluster(1e6, rate) == 1);    // ... but nothing above cluster 1 is ever assigned
+    REQUIRE(cluster(1e6, rate) == 1);
   }
 
   SUBCASE("both extend a short rate vector with its last entry") {
@@ -267,6 +268,90 @@ TEST_CASE("LTS ladder: ratepow and ClusterLayout::clusterRate") {
     REQUIRE(ratepow(rate, 1, 4) == 2 * 2 * 2);
     REQUIRE(ratepow(rate, 2, 2) == 1);
   }
+}
+
+TEST_CASE("ClusterLadder: normalization") {
+  using seissol::initializer::ClusterLadder;
+
+  SUBCASE("intrinsic cluster count") {
+    REQUIRE(ClusterLadder::intrinsicClusterCount({}) == 1);
+    REQUIRE(ClusterLadder::intrinsicClusterCount({1}) == 1);
+    REQUIRE(ClusterLadder::intrinsicClusterCount({2, 1}) == 1);
+    REQUIRE(ClusterLadder::intrinsicClusterCount({2, 2, 1}) == 2);
+    REQUIRE(ClusterLadder::intrinsicClusterCount({3, 2, 5, 6, 1}) == 4);
+    REQUIRE(ClusterLadder::intrinsicClusterCount({2}) == ClusterLadder::Unbounded);
+    REQUIRE(ClusterLadder::intrinsicClusterCount({4, 2}) == ClusterLadder::Unbounded);
+    // a leading 1 is an ordinary factor, not a terminator
+    REQUIRE(ClusterLadder::intrinsicClusterCount({1, 2}) == ClusterLadder::Unbounded);
+  }
+
+  SUBCASE("short vectors are expanded with their last entry") {
+    REQUIRE(ClusterLadder::normalize({4, 2}, 5) == Rates{4, 2, 2, 2});
+    REQUIRE(ClusterLadder::normalize({2}, 4) == Rates{2, 2, 2});
+    REQUIRE(ClusterLadder::normalize({3, 2, 5, 6, 1}, 4) == Rates{3, 2, 5});
+    REQUIRE(ClusterLadder::normalize({2}, 1).empty());
+  }
+
+  SUBCASE("a leading one survives normalization and marks an empty base cluster") {
+    const auto ladder = ClusterLadder::forBinning({1, 2}, 1.0, 1.0, 100.0);
+    REQUIRE(ladder.hasEmptyBaseCluster());
+    REQUIRE(ladder.ratios()[0] == 1);
+    REQUIRE(ladder.timestep(0) == AbsApprox(ladder.timestep(1)));
+    // no cell can reach cluster 0, since every cell timestep is at least dt_min
+    REQUIRE(ladder.clusterOf(1.0) == 1);
+  }
+}
+
+TEST_CASE("ClusterLadder: agrees with the legacy free functions") {
+  using namespace seissol::initializer::time_stepping;
+  using seissol::initializer::ClusterLadder;
+
+  const std::vector<Rates> rateVectors{
+      {2}, {3}, {4, 2}, {2, 3}, {1, 2}, {2, 2, 1}, {3, 2, 5, 6, 1}, {2, 4, 8}};
+  constexpr double MaximumTimestep = 750.0;
+
+  for (const auto& rate : rateVectors) {
+    CAPTURE(rate);
+    for (const double wiggle : {1.0, 0.9, 0.51, 0.25}) {
+      CAPTURE(wiggle);
+      const auto ladder = ClusterLadder::forBinning(rate, 1.0, wiggle, MaximumTimestep);
+
+      // the ladder stops exactly where the largest cell timestep does
+      REQUIRE(ladder.clusterCount() == getCluster(MaximumTimestep, 1.0, wiggle, rate) + 1);
+
+      for (std::size_t k = 0; k < ladder.clusterCount(); ++k) {
+        REQUIRE(ladder.updateFactor(k) == ratepow(rate, 0, k));
+      }
+      // beyond index 0 the normalized ratios never contain a 1
+      for (std::size_t k = 1; k < ladder.ratios().size(); ++k) {
+        REQUIRE(ladder.ratios()[k] != 1);
+      }
+
+      for (int i = 1; i <= 3000; ++i) {
+        const double timestep = 0.25 * i;
+        CAPTURE(timestep);
+        REQUIRE(ladder.clusterOf(timestep) == getCluster(timestep, 1.0, wiggle, rate));
+      }
+    }
+  }
+}
+
+TEST_CASE("ClusterLadder: truncation") {
+  using seissol::initializer::ClusterLadder;
+  const auto ladder = ClusterLadder::forBinning({4, 2}, 1.0, 1.0, 1000.0);
+  REQUIRE(ladder.clusterCount() > 3);
+
+  const auto truncated = ladder.truncated(3);
+  REQUIRE(truncated.clusterCount() == 3);
+  REQUIRE(truncated.ratios() == Rates{4, 2});
+  for (std::size_t k = 0; k < 3; ++k) {
+    REQUIRE(truncated.updateFactor(k) == ladder.updateFactor(k));
+    REQUIRE(truncated.timestep(k) == AbsApprox(ladder.timestep(k)));
+  }
+  // everything above the new top cluster collapses into it
+  REQUIRE(truncated.clusterOf(1e6) == 2);
+  // truncating to at least the current size is a no-op
+  REQUIRE(ladder.truncated(ladder.clusterCount() + 5).clusterCount() == ladder.clusterCount());
 }
 
 } // namespace seissol::unit_test
