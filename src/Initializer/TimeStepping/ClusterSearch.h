@@ -40,6 +40,11 @@ struct SearchResult {
   double wiggleFactor{1.0};
   int maxClusterId{0};
   double cost{0.0};
+  /// The ladder the search settled on, in the user-facing (possibly abbreviated) form. A
+  /// search that only tunes the wiggle factor hands back what it was given; one that also
+  /// chooses the ladder hands back something else, and that is what has to reach
+  /// ClusterLayout.
+  std::vector<std::uint64_t> rates;
 };
 
 /// Realizes candidate clusterings and scores them.

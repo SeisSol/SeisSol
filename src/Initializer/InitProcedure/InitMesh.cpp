@@ -305,6 +305,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
                                                        nodeWeight);
   seissolInstance.setMeshReader(meshReader);
   seissolInstance.setTimestepScale(ltsWeights->getWiggleFactor());
+  seissolInstance.setEffectiveClusterRates(ltsWeights->effectiveRates());
 
   watch.pause();
   watch.printTime("PUML mesh read in:");

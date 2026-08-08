@@ -107,10 +107,14 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   logInfo() << "Determining cell colors...";
 
-  const auto clusterLayout = ClusterLayout::fromMesh(seissolParams.timeStepping.lts.getRate(),
-                                                     seissolInstance.meshReader(),
-                                                     seissolInstance.getTimestepScale(),
-                                                     true);
+  // Mesh readers that never construct LtsWeights (e.g. the cube generator) leave the channel
+  // unset; those produce a single cluster, so falling back to the parameter vector is safe.
+  const auto effectiveRates = seissolInstance.getEffectiveClusterRates().empty()
+                                  ? seissolParams.timeStepping.lts.getRate()
+                                  : seissolInstance.getEffectiveClusterRates();
+
+  const auto clusterLayout = ClusterLayout::fromMesh(
+      effectiveRates, seissolInstance.meshReader(), seissolInstance.getTimestepScale(), true);
 
   seissolInstance.getMemoryManager().setClusterLayout(clusterLayout);
 

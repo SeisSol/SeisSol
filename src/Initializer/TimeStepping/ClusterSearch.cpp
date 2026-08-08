@@ -266,7 +266,9 @@ SearchResult GridLadderSearch::sweep(ClusteringEvaluator& evaluator,
     logInfo() << "Note: Cost increased due to cluster merging!";
   }
 
-  return SearchResult{bestWiggleFactor, minAdmissibleMaxClusterId, bestCostEstimate};
+  // the grid sweep tunes the wiggle factor only; the ladder is whatever was configured
+  return SearchResult{
+      bestWiggleFactor, minAdmissibleMaxClusterId, bestCostEstimate, evaluator.rate()};
 }
 
 } // namespace seissol::initializer

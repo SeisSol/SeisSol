@@ -93,6 +93,10 @@ class LtsWeights {
   [[nodiscard]] const std::vector<double>& timesteps() const;
   [[nodiscard]] int nWeightsPerVertex() const;
   [[nodiscard]] double getWiggleFactor() const;
+  /// The ladder that was actually used, normalized to full length. Together with the wiggle
+  /// factor this is the complete clustering decision, and both have to be carried past the
+  /// mesh reader rather than re-derived from the parameter file.
+  [[nodiscard]] const std::vector<std::uint64_t>& effectiveRates() const;
 
   private:
   seissol::SeisSol& seissolInstance_;
@@ -109,6 +113,7 @@ class LtsWeights {
   virtual int evaluateNumberOfConstraints() = 0;
 
   std::vector<uint64_t> rate_;
+  std::vector<std::uint64_t> effectiveRates_;
   std::vector<int> vertexWeights_;
   std::vector<double> imbalances_;
   std::vector<int> cellCosts_;

@@ -12,6 +12,7 @@
 #include "Initializer/Parameters/LtsParameters.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/TimeStepping/ClusterLadder.h"
 #include "Initializer/TimeStepping/LtsWeights/WeightsModels.h"
 #include "Initializer/Typedefs.h"
 #include "Parallel/MPI.h"
@@ -331,6 +332,30 @@ TEST_CASE("LTS clustering invariants on a mesh") {
     REQUIRE(element.clusterId >= 0);
     REQUIRE(static_cast<std::uint64_t>(element.clusterId) <= unsmoothed);
     REQUIRE(element.clusterId < MaxClusters);
+  }
+
+  // (1b) the published ladder describes exactly the clustering that was produced
+  const auto& effectiveRates = ltsWeights->effectiveRates();
+  for (std::size_t k = 1; k < effectiveRates.size(); ++k) {
+    REQUIRE(effectiveRates[k] != 1);
+  }
+  {
+    double globalMaxTimestep = 0.0;
+    for (const auto& element : elements) {
+      globalMaxTimestep = std::max(globalMaxTimestep, element.timestep);
+    }
+    MPI_Allreduce(
+        MPI_IN_PLACE, &globalMaxTimestep, 1, MPI_DOUBLE, MPI_MAX, seissol::Mpi::mpi.comm());
+
+    const auto published = seissol::initializer::ClusterLadder::forBinning(
+        effectiveRates, globalMinTimestep, wiggle, globalMaxTimestep);
+    for (const auto& element : elements) {
+      CAPTURE(element.globalId);
+      REQUIRE(static_cast<std::size_t>(element.clusterId) <= effectiveRates.size());
+      // normalizing must not move a single cell
+      REQUIRE(published.clusterOf(element.timestep) ==
+              getCluster(element.timestep, globalMinTimestep, wiggle, rate));
+    }
   }
 
   // (2) the index-difference-of-one property. This is not a heuristic: the ghost cluster
