@@ -283,8 +283,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
       // advance active, not-yet-converged lanes; freeze at the converged point so that
       // slipRateTest and exportMu are the mu-consistent pair at that point
-      x = active ? xUpdated : x;
       converged |= nowConverged;
+      x = converged ? x : xUpdated;
 
       deviceWarpBarrier(ctx);
       if (deviceWarpAll(ctx, converged)) {
