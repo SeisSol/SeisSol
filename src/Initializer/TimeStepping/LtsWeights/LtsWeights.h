@@ -12,6 +12,7 @@
 
 #include "Geometry/PUMLReader.h"
 #include "Initializer/TimeStepping/ClusterLadder.h"
+#include "Initializer/TimeStepping/ClusterSmoother.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 
 #include <limits>
@@ -105,7 +106,6 @@ class LtsWeights {
   // returns number of reductions for maximum difference
   int computeClusterIdsAndEnforceMaximumDifferenceCached(double curWiggleFactor);
   int enforceMaximumDifference();
-  int enforceMaximumDifferenceLocal(int maxDifference = 1);
   std::vector<int> computeCostsPerTimestep();
 
   virtual void setVertexWeights() = 0;
@@ -134,12 +134,9 @@ class LtsWeights {
   };
   ComputeWiggleFactorResult computeBestWiggleFactor(std::optional<double> baselineCost,
                                                     bool isAutoMergeUsed);
-  void prepareDifferenceEnforcement();
 
-  std::vector<std::pair<int, std::vector<std::size_t>>> rankToSharedFaces_;
-  std::unordered_map<std::size_t, std::size_t> localFaceIdToLocalCellId_;
-  std::unordered_map<std::size_t, std::pair<std::size_t, std::size_t>> sharedFaceToExchangeId_;
-  std::vector<std::size_t> boundaryCells_;
+  std::optional<ClusterSmoother> smoother_;
+  SmoothingRule smoothingRule_{};
 };
 } // namespace initializer::time_stepping
 } // namespace seissol

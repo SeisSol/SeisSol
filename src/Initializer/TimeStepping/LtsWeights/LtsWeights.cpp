@@ -17,12 +17,12 @@
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/LtsParameters.h"
 #include "Initializer/TimeStepping/ClusterLadder.h"
+#include "Initializer/TimeStepping/ClusterSmoother.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 
 #include <PUML/Downward.h>
-#include <PUML/Upward.h>
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -32,7 +32,6 @@
 #include <map>
 #include <mpi.h>
 #include <optional>
-#include <unordered_map>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -186,7 +185,7 @@ void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
     maxClusterIdToEnforce = 0;
   }
 
-  prepareDifferenceEnforcement();
+  smoother_.emplace(*meshTopology_, boundaryFormat_);
 
   if ((ltsParameters.isWiggleFactorUsed() || ltsParameters.isAutoMergeUsed()) &&
       continueComputation) {
@@ -432,11 +431,7 @@ std::uint64_t getCluster(double timestep,
 }
 
 FaceType LtsWeights::getBoundaryCondition(const void* boundaryCond, size_t cell, unsigned face) {
-  int bcCurrentFace = seissol::geometry::decodeBoundary(boundaryCond, cell, face, boundaryFormat_);
-  if (bcCurrentFace > 64) {
-    bcCurrentFace = 3;
-  }
-  return static_cast<FaceType>(bcCurrentFace);
+  return decodeFaceType(boundaryCond, cell, face, boundaryFormat_);
 }
 
 std::uint64_t ratepow(const std::vector<std::uint64_t>& rate, std::uint64_t a, std::uint64_t b) {
@@ -538,171 +533,7 @@ std::vector<int> LtsWeights::computeCostsPerTimestep() {
 }
 
 int LtsWeights::enforceMaximumDifference() {
-  int totalNumberOfReductions = 0;
-  int globalNumberOfReductions = 0;
-  do {
-    int localNumberOfReductions = enforceMaximumDifferenceLocal();
-
-    MPI_Allreduce(&localNumberOfReductions,
-                  &globalNumberOfReductions,
-                  1,
-                  MPI_INT,
-                  MPI_SUM,
-                  seissol::Mpi::mpi.comm());
-    totalNumberOfReductions += globalNumberOfReductions;
-  } while (globalNumberOfReductions > 0);
-  return totalNumberOfReductions;
+  return smoother_.value().relax(clusterIds_, smoothingRule_, seissol::Mpi::mpi.comm());
 }
 
-void LtsWeights::prepareDifferenceEnforcement() {
-  const auto& cells = meshTopology_->cells();
-  const auto& faces = meshTopology_->faces();
-  const void* boundaryCond = meshTopology_->cellData(1);
-
-  std::unordered_map<int, std::vector<std::size_t>> rankToSharedFacesPre;
-  for (std::size_t cell = 0; cell < cells.size(); ++cell) {
-    unsigned int faceids[Cell::NumFaces]{};
-    bool atBoundary = false;
-    PUML::Downward::faces(*meshTopology_, cells[cell], faceids);
-    for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-      const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
-      // Continue for regular, dynamic rupture, and periodic boundary cells
-      if (isInternalFaceType(boundary)) {
-        // We treat MPI neighbors later
-        const auto& face = faces.at(faceids[f]);
-        if (face.isShared()) {
-          rankToSharedFacesPre[face.shared()[0]].push_back(faceids[f]);
-          localFaceIdToLocalCellId_[faceids[f]] = cell;
-          atBoundary = true;
-        }
-      }
-    }
-    if (atBoundary) {
-      boundaryCells_.emplace_back(cell);
-    }
-  }
-
-  for (auto& sharedFaces : rankToSharedFacesPre) {
-    std::sort(sharedFaces.second.begin(),
-              sharedFaces.second.end(),
-              [&](unsigned int a, unsigned int b) { return faces[a].gid() < faces[b].gid(); });
-  }
-
-  rankToSharedFaces_ =
-      decltype(rankToSharedFaces_)(rankToSharedFacesPre.begin(), rankToSharedFacesPre.end());
-
-  for (std::size_t ex = 0; ex < rankToSharedFaces_.size(); ++ex) {
-    const auto& exchange = rankToSharedFaces_[ex];
-    for (std::size_t i = 0; i < exchange.second.size(); ++i) {
-      sharedFaceToExchangeId_[exchange.second[i]] = {ex, i};
-    }
-  }
-}
-
-int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
-  int numberOfReductions = 0;
-
-  const auto& cells = meshTopology_->cells();
-  const auto& faces = meshTopology_->faces();
-  const void* boundaryCond = meshTopology_->cellData(1);
-
-#pragma omp parallel for reduction(+ : numberOfReductions)
-  for (std::size_t cell = 0; cell < cells.size(); ++cell) {
-    int timeCluster = clusterIds_[cell];
-
-    unsigned int faceids[Cell::NumFaces]{};
-    PUML::Downward::faces(*meshTopology_, cells[cell], faceids);
-    for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-      int difference = maxDifference;
-      const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
-      // Continue for regular, dynamic rupture, and periodic boundary cells
-      if (isInternalFaceType(boundary)) {
-        // We treat MPI neighbors later
-        const auto& face = faces.at(faceids[f]);
-        if (!face.isShared()) {
-          int cellIds[2];
-          PUML::Upward::cells(*meshTopology_, face, cellIds);
-
-          const int neighborCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
-          const int otherTimeCluster = clusterIds_[neighborCell];
-
-          if (boundary == FaceType::DynamicRupture) {
-            difference = 0;
-          }
-
-          if (timeCluster > otherTimeCluster + difference) {
-            timeCluster = otherTimeCluster + difference;
-            ++numberOfReductions;
-          }
-        }
-      }
-    }
-    clusterIds_[cell] = timeCluster;
-  }
-
-  const auto numExchanges = rankToSharedFaces_.size();
-  std::vector<MPI_Request> requests(2 * numExchanges);
-  std::vector<std::vector<int>> ghost(numExchanges);
-  std::vector<std::vector<int>> copy(numExchanges);
-
-  for (std::size_t ex = 0; ex < numExchanges; ++ex) {
-    const auto& exchange = rankToSharedFaces_[ex];
-    const auto exchangeSize = exchange.second.size();
-    ghost[ex].resize(exchangeSize);
-    copy[ex].resize(exchangeSize);
-
-    for (std::size_t n = 0; n < exchangeSize; ++n) {
-      copy[ex][n] = clusterIds_[localFaceIdToLocalCellId_[exchange.second[n]]];
-    }
-    MPI_Isend(copy[ex].data(),
-              exchangeSize,
-              MPI_INT,
-              exchange.first,
-              0,
-              seissol::Mpi::mpi.comm(),
-              &requests[ex]);
-    MPI_Irecv(ghost[ex].data(),
-              exchangeSize,
-              MPI_INT,
-              exchange.first,
-              0,
-              seissol::Mpi::mpi.comm(),
-              &requests[numExchanges + ex]);
-  }
-
-  MPI_Waitall(2 * numExchanges, requests.data(), MPI_STATUSES_IGNORE);
-
-#pragma omp parallel for reduction(+ : numberOfReductions)
-  for (std::size_t bcell = 0; bcell < boundaryCells_.size(); ++bcell) {
-    const auto cell = boundaryCells_[bcell];
-    int& timeCluster = clusterIds_[cell];
-
-    unsigned int faceids[Cell::NumFaces]{};
-    PUML::Downward::faces(*meshTopology_, cells[cell], faceids);
-    for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-      int difference = maxDifference;
-      const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
-      // Continue for regular, dynamic rupture, and periodic boundary cells
-      if (isInternalFaceType(boundary)) {
-        // We treat MPI neighbors later
-        const auto& face = faces.at(faceids[f]);
-        if (face.isShared()) {
-          const auto pos = sharedFaceToExchangeId_.at(faceids[f]);
-          const int otherTimeCluster = ghost[pos.first][pos.second];
-
-          if (boundary == FaceType::DynamicRupture) {
-            difference = 0;
-          }
-
-          if (timeCluster > otherTimeCluster + difference) {
-            timeCluster = otherTimeCluster + difference;
-            ++numberOfReductions;
-          }
-        }
-      }
-    }
-  }
-
-  return numberOfReductions;
-}
 } // namespace seissol::initializer::time_stepping
