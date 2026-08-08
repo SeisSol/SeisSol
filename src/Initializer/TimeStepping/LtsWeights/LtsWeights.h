@@ -12,11 +12,11 @@
 
 #include "Geometry/PUMLReader.h"
 #include "Initializer/TimeStepping/ClusterLadder.h"
+#include "Initializer/TimeStepping/ClusterSearch.h"
 #include "Initializer/TimeStepping/ClusterSmoother.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 
 #include <limits>
-#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -102,10 +102,6 @@ class LtsWeights {
 
   seissol::initializer::GlobalTimestep collectGlobalTimeStepDetails();
   FaceType getBoundaryCondition(const void* boundaryCond, size_t cell, unsigned face);
-  std::vector<int> computeClusterIds(double curWiggleFactor);
-  // returns number of reductions for maximum difference
-  int computeClusterIdsAndEnforceMaximumDifferenceCached(double curWiggleFactor);
-  int enforceMaximumDifference();
   std::vector<int> computeCostsPerTimestep();
 
   virtual void setVertexWeights() = 0;
@@ -124,19 +120,9 @@ class LtsWeights {
   const geometry::PumlMesh* meshGeometry_{nullptr};
   std::vector<int> clusterIds_;
   double wiggleFactor_ = 1.0;
-  std::map<double, decltype(clusterIds_), std::greater<>>
-      clusteringCache_; // Maps wiggle factor to clustering
   seissol::initializer::parameters::BoundaryFormat boundaryFormat_;
-  struct ComputeWiggleFactorResult {
-    int maxClusterId;
-    double wiggleFactor;
-    double cost;
-  };
-  ComputeWiggleFactorResult computeBestWiggleFactor(std::optional<double> baselineCost,
-                                                    bool isAutoMergeUsed);
 
-  std::optional<ClusterSmoother> smoother_;
-  SmoothingRule smoothingRule_{};
+  std::optional<ClusteringEvaluator> evaluator_;
 };
 } // namespace initializer::time_stepping
 } // namespace seissol

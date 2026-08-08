@@ -42,6 +42,7 @@ add_library(seissol-initializer OBJECT
     TimeStepping/ClusterHistogram.cpp
     TimeStepping/ClusterLadder.cpp
     TimeStepping/ClusterLayout.cpp
+    TimeStepping/ClusterSearch.cpp
     TimeStepping/ClusterSmoother.cpp
     TimeStepping/GlobalTimestep.cpp
     TimeStepping/Halo.cpp

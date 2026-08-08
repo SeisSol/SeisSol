@@ -17,6 +17,7 @@
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/LtsParameters.h"
 #include "Initializer/TimeStepping/ClusterLadder.h"
+#include "Initializer/TimeStepping/ClusterSearch.h"
 #include "Initializer/TimeStepping/ClusterSmoother.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "Parallel/MPI.h"
@@ -25,13 +26,10 @@
 #include <PUML/Downward.h>
 #include <algorithm>
 #include <cassert>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#include <map>
 #include <mpi.h>
-#include <optional>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -185,7 +183,14 @@ void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
     maxClusterIdToEnforce = 0;
   }
 
-  smoother_.emplace(*meshTopology_, boundaryFormat_);
+  evaluator_.emplace(*meshTopology_,
+                     boundaryFormat_,
+                     details_,
+                     cellCosts_,
+                     rate_,
+                     ltsParameters.getWiggleFactorEnforceMaximumDifference());
+
+  int finalNumberOfReductions = 0;
 
   if ((ltsParameters.isWiggleFactorUsed() || ltsParameters.isAutoMergeUsed()) &&
       continueComputation) {
@@ -196,38 +201,32 @@ void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
       autoMergeBaseline = seissol::initializer::parameters::AutoMergeCostBaseline::MaxWiggleFactor;
     }
 
-    ComputeWiggleFactorResult wiggleFactorResult{};
-    if (autoMergeBaseline ==
-        seissol::initializer::parameters::AutoMergeCostBaseline::BestWiggleFactor) {
-      // First compute wiggle factor without merging as baseline cost
-      logInfo() << "Using best wiggle factor as baseline cost for auto merging.";
-      logInfo() << "1. Compute best wiggle factor without merging clusters";
-      const auto wiggleFactorResultBaseline = computeBestWiggleFactor(std::nullopt, false);
-      // Compute wiggle factor a second time with merging and using the previous cost as baseline
-      logInfo() << "2. Compute best wiggle factor with merging clusters, using the previous cost "
-                   "estimate as baseline";
-      const auto baselineCost = wiggleFactorResultBaseline.cost;
-      wiggleFactorResult = computeBestWiggleFactor(baselineCost, ltsParameters.isAutoMergeUsed());
-    } else {
-      assert(autoMergeBaseline ==
-             seissol::initializer::parameters::AutoMergeCostBaseline::MaxWiggleFactor);
-      wiggleFactorResult = computeBestWiggleFactor(std::nullopt, ltsParameters.isAutoMergeUsed());
-    }
+    const SearchConstraints constraints{ltsParameters.getWiggleFactorMinimum(),
+                                        ltsParameters.getWiggleFactorStepsize(),
+                                        ltsParameters.getMaxNumberOfClusters() - 1,
+                                        ltsParameters.isAutoMergeUsed(),
+                                        ltsParameters.getAllowedPerformanceLossRatioAutoMerge(),
+                                        autoMergeBaseline};
 
-    wiggleFactor_ = wiggleFactorResult.wiggleFactor;
+    GridLadderSearch search;
+    const auto searchResult = search.run(evaluator_.value(), constraints);
+
+    wiggleFactor_ = searchResult.wiggleFactor;
     if (ltsParameters.isAutoMergeUsed()) {
-      maxClusterIdToEnforce = std::min(maxClusterIdToEnforce, wiggleFactorResult.maxClusterId);
+      maxClusterIdToEnforce = std::min(maxClusterIdToEnforce, searchResult.maxClusterId);
     }
   } else {
     wiggleFactor_ = 1.0;
   }
 
   ncon_ = evaluateNumberOfConstraints();
-  auto finalNumberOfReductions = computeClusterIdsAndEnforceMaximumDifferenceCached(wiggleFactor_);
+  finalNumberOfReductions += evaluator_.value().realize(wiggleFactor_);
 
   if (!ltsParameters.getWiggleFactorEnforceMaximumDifference()) {
-    finalNumberOfReductions += enforceMaximumDifference();
+    finalNumberOfReductions += evaluator_.value().smoothCurrent();
   }
+
+  clusterIds_ = evaluator_.value().clusterIds();
 
   logInfo() << "Limiting number of clusters to" << maxClusterIdToEnforce + 1;
   clusterIds_ = enforceMaxClusterId(clusterIds_, maxClusterIdToEnforce);
@@ -246,142 +245,6 @@ void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
 }
 
 double LtsWeights::getWiggleFactor() const { return wiggleFactor_; }
-
-LtsWeights::ComputeWiggleFactorResult
-    LtsWeights::computeBestWiggleFactor(std::optional<double> baselineCost, bool isAutoMergeUsed) {
-
-  // Maps that keep track of number of clusters vs cost
-  auto mapMaxClusterIdToLowestCost = std::map<int, double>{};
-  auto maxMapClusterIdToBestWiggleFactor = std::map<int, double>{};
-
-  const auto& ltsParameters = seissolInstance_.getSeisSolParameters().timeStepping.lts;
-  const double minWiggleFactor = ltsParameters.getWiggleFactorMinimum();
-  const double maxWiggleFactor = 1.0;
-
-  const double stepSizeWiggleFactor = ltsParameters.getWiggleFactorStepsize();
-  const int numberOfStepsWiggleFactor =
-      std::ceil((maxWiggleFactor - minWiggleFactor) / stepSizeWiggleFactor) + 1;
-
-  auto computeWiggleFactor = [minWiggleFactor, stepSizeWiggleFactor, maxWiggleFactor](auto ith) {
-    return std::min(minWiggleFactor + ith * stepSizeWiggleFactor, maxWiggleFactor);
-  };
-
-  auto totalWiggleFactorReductions = 0U;
-
-  if (baselineCost) {
-    logInfo() << "Baseline cost before cluster merging is" << *baselineCost;
-  } else {
-    // Compute baselineCost cost before wiggle factor and merging of clusters
-    totalWiggleFactorReductions +=
-        computeClusterIdsAndEnforceMaximumDifferenceCached(maxWiggleFactor);
-    baselineCost = computeGlobalCostOfClustering(clusterIds_,
-                                                 cellCosts_,
-                                                 rate_,
-                                                 maxWiggleFactor,
-                                                 details_.globalMinTimeStep,
-                                                 Mpi::mpi.comm());
-    logInfo() << "Baseline cost, without wiggle factor and cluster merging is" << *baselineCost;
-  }
-  assert(baselineCost);
-
-  const double maxAdmissibleCost =
-      ltsParameters.getAllowedPerformanceLossRatioAutoMerge() * *baselineCost;
-
-  if (isAutoMergeUsed) {
-    logInfo() << "Maximal admissible cost after cluster merging is" << maxAdmissibleCost;
-  }
-
-  for (int i = 0; i < numberOfStepsWiggleFactor; ++i) {
-    const double curWiggleFactor = computeWiggleFactor(i);
-    totalWiggleFactorReductions +=
-        computeClusterIdsAndEnforceMaximumDifferenceCached(curWiggleFactor);
-
-    // Note: Merging clusters does not invalidate invariance generated by enforceMaximumDifference()
-    // This can be shown by enumerating all possible cases
-    auto maxClusterIdToEnforce = ltsParameters.getMaxNumberOfClusters() - 1;
-    if (isAutoMergeUsed) {
-      const auto maxClusterIdAfterMerging =
-          computeMaxClusterIdAfterAutoMerge(clusterIds_,
-                                            cellCosts_,
-                                            rate_,
-                                            maxAdmissibleCost,
-                                            curWiggleFactor,
-                                            details_.globalMinTimeStep);
-      maxClusterIdToEnforce = std::min(maxClusterIdAfterMerging, maxClusterIdToEnforce);
-    }
-
-    clusterIds_ = enforceMaxClusterId(clusterIds_, maxClusterIdToEnforce);
-    auto maxClusterId = *std::max_element(clusterIds_.begin(), clusterIds_.end());
-    MPI_Allreduce(MPI_IN_PLACE, &maxClusterId, 1, MPI_INT, MPI_MAX, Mpi::mpi.comm());
-
-    ncon_ = evaluateNumberOfConstraints();
-
-    // Compute cost
-    const double cost = computeGlobalCostOfClustering(clusterIds_,
-                                                      cellCosts_,
-                                                      rate_,
-                                                      curWiggleFactor,
-                                                      details_.globalMinTimeStep,
-                                                      Mpi::mpi.comm());
-
-    if (auto it = mapMaxClusterIdToLowestCost.find(maxClusterId);
-        it == mapMaxClusterIdToLowestCost.end() || cost <= it->second) {
-      maxMapClusterIdToBestWiggleFactor[maxClusterId] = curWiggleFactor;
-      mapMaxClusterIdToLowestCost[maxClusterId] = cost;
-    }
-  }
-
-  // Find best wiggle factor after merging of clusters
-  // We compare against cost of baselineCost.
-  int minAdmissibleMaxClusterId = std::numeric_limits<int>::max();
-  if (isAutoMergeUsed) {
-    // When merging clusters, we want to find the minimum number of clusters with admissible
-    // performance.
-    bool foundAdmissibleMerge = false;
-    for (const auto& [noOfClusters, cost] : mapMaxClusterIdToLowestCost) {
-      if (cost <= maxAdmissibleCost) {
-        foundAdmissibleMerge = true;
-        minAdmissibleMaxClusterId = std::min(minAdmissibleMaxClusterId, noOfClusters);
-        logDebug() << "Admissible. cluster:" << noOfClusters << ",cost" << cost
-                   << "with wiggle factor" << maxMapClusterIdToBestWiggleFactor[noOfClusters];
-      } else {
-        logDebug() << "Not admissible. cluster:" << noOfClusters << ",cost" << cost
-                   << "with wiggle factor" << maxMapClusterIdToBestWiggleFactor[noOfClusters];
-      }
-    }
-    if (!foundAdmissibleMerge) {
-      logError() << "Found no admissible wiggle factor with cluster merge. Aborting.";
-    }
-  } else {
-    // Otherwise choose one with the smallest cost
-    minAdmissibleMaxClusterId =
-        std::min_element(mapMaxClusterIdToLowestCost.begin(),
-                         mapMaxClusterIdToLowestCost.end(),
-                         [](const auto& a, const auto& b) { return a.second < b.second; })
-            ->first;
-  }
-
-  logInfo() << "Enforcing maximum difference when finding best wiggle factor took"
-            << totalWiggleFactorReductions << "reductions.";
-
-  const auto bestWiggleFactor = maxMapClusterIdToBestWiggleFactor[minAdmissibleMaxClusterId];
-  const auto bestCostEstimate = mapMaxClusterIdToLowestCost[minAdmissibleMaxClusterId];
-  logInfo() << "The best wiggle factor is" << bestWiggleFactor << "with cost" << bestCostEstimate
-            << "and" << minAdmissibleMaxClusterId + 1 << "time clusters";
-
-  if (baselineCost > bestCostEstimate) {
-    logInfo() << "Cost decreased" << (*baselineCost - bestCostEstimate) / *baselineCost * 100
-              << "% with absolute cost decrease of" << *baselineCost - bestCostEstimate
-              << "compared to the baseline";
-  } else {
-    logInfo() << "Cost increased" << (bestCostEstimate - *baselineCost) / *baselineCost * 100
-              << "% with absolute cost increase of" << bestCostEstimate - *baselineCost
-              << "compared to the baseline";
-    logInfo() << "Note: Cost increased due to cluster merging!";
-  }
-
-  return ComputeWiggleFactorResult{minAdmissibleMaxClusterId, bestWiggleFactor, bestCostEstimate};
-}
 
 const int* LtsWeights::vertexWeights() const {
   assert(!vertexWeights_.empty() && "vertex weights are not initialized");
@@ -448,65 +311,6 @@ seissol::initializer::GlobalTimestep LtsWeights::collectGlobalTimeStepDetails() 
       seissolInstance_.getSeisSolParameters());
 }
 
-int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWiggleFactor) {
-  int numberOfReductions = 0;
-  auto lb = clusteringCache_.lower_bound(curWiggleFactor);
-
-  if (lb != clusteringCache_.end() && !(clusteringCache_.key_comp()(curWiggleFactor, lb->first))) {
-    clusterIds_ = lb->second;
-  } else {
-    // re-use best computed maxdiff enforcement available
-    // reason that works: cf. Lukas' proof for cluster merging not violating maximum difference
-    // we may generalize due to the fact that min(a, min(b,c)) = min(min(a,b), c) = min(min(a,c),
-    // b), essentially establishing a partial ordering of clusterings, where A >= B iff
-    // cluster(A[i]) >= cluster(B[i]) for all cells i. Thus: walking through the wiggle factors from
-    // lower to higher will save a lot of reductions
-
-    int cellchanges = 0;
-    if (lb != clusteringCache_.end()) {
-      // use the cache
-      const auto newClusterIds = computeClusterIds(curWiggleFactor);
-
-#pragma omp parallel for reduction(+ : cellchanges)
-      for (std::size_t cell = 0; cell < meshTopology_->cells().size(); ++cell) {
-        if (lb->second[cell] > newClusterIds[cell]) {
-          ++cellchanges;
-        }
-        clusterIds_[cell] = std::min(lb->second[cell], newClusterIds[cell]);
-      }
-    } else {
-      clusterIds_ = computeClusterIds(curWiggleFactor);
-      cellchanges = meshTopology_->cells().size();
-    }
-    const auto& ltsParameters = seissolInstance_.getSeisSolParameters().timeStepping.lts;
-    if (ltsParameters.getWiggleFactorEnforceMaximumDifference()) {
-      MPI_Allreduce(MPI_IN_PLACE, &cellchanges, 1, MPI_INT, MPI_SUM, seissol::Mpi::mpi.comm());
-      if (cellchanges > 0) {
-        numberOfReductions = enforceMaximumDifference();
-      }
-    }
-    clusteringCache_[curWiggleFactor] = clusterIds_;
-  }
-
-  return numberOfReductions;
-}
-
-std::vector<int> LtsWeights::computeClusterIds(double curWiggleFactor) {
-  const auto& cells = meshTopology_->cells();
-  std::vector<int> clusterIds(cells.size(), 0);
-
-  // Build the ladder once instead of walking the rate vector per cell. The boundaries are
-  // accumulated exactly as the legacy loop did, so the binning is unchanged.
-  const auto ladder = ClusterLadder::forBinning(
-      rate_, details_.globalMinTimeStep, curWiggleFactor, details_.globalMaxTimeStep);
-
-#pragma omp parallel for
-  for (std::size_t cell = 0; cell < cells.size(); ++cell) {
-    clusterIds[cell] = static_cast<int>(ladder.clusterOf(details_.cellTimeStepWidths[cell]));
-  }
-  return clusterIds;
-}
-
 std::vector<int> LtsWeights::computeCostsPerTimestep() {
   const auto& cells = meshTopology_->cells();
 
@@ -530,10 +334,6 @@ std::vector<int> LtsWeights::computeCostsPerTimestep() {
     cellCosts[cell] = vertexWeightElement_ + costDynamicRupture + costDisplacement;
   }
   return cellCosts;
-}
-
-int LtsWeights::enforceMaximumDifference() {
-  return smoother_.value().relax(clusterIds_, smoothingRule_, seissol::Mpi::mpi.comm());
 }
 
 } // namespace seissol::initializer::time_stepping
