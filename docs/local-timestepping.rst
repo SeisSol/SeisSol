@@ -85,26 +85,25 @@ A consequence worth knowing is that the entry just before the trailing 1 is neve
 :code:`ClusteredLTS = '3 2 5 6 1'` yields four clusters with ratios 3, 2 and 5 between them;
 the 6 would only have mattered for a fifth cluster, which the trailing 1 forbids.
 
-Maximum Difference Property
-----------------------------
+Cluster Smoothing (Maximum Difference Property)
+-----------------------------------------------
 
 SeisSol enforces some constraints on the clustering: neighboring elements are always either in the same cluster,
 or in clusters that are *adjacent in the ladder*, i.e. whose indices differ by at most one.
 Elements that are connected by a dynamic rupture face have to be in the same time-cluster.
-This is called the maximum difference property.
+This cluster smoothing is called the maximum difference property.
 
 Note that the bound is on the cluster index and not on the time step size.
 With uniform rate-2 LTS the two coincide, and neighbors differ by at most a factor of two.
 With varying rates (see `Varying-Rate Clustering`_) the admissible ratio between neighbors is
 whatever the local rate happens to be, so :code:`ClusteredLTS = '5 2'` allows a factor of five
 across the boundary between the first two clusters.
-The constraint is a hard requirement of the ghost cluster construction, not a heuristic:
+The constraint is a hard requirement of the cluster construction, not a heuristic:
 a cluster only ever exchanges data with its immediate neighbors in the ladder.
-
+(the internal reason being: we would need to store more memory buffers if otherwise)
 
 Wiggle factor (experimental)
 ----------------------------
-This feature is only supported for rate-2 LTS (:code:`ClusteredLTS = 2`) at the moment.
 The *LtsWiggleFactorMin* parameter sets the minimum allowed value for the wiggle factor :math:`0.5 < \lambda \leq 1`.
 This wiggle factor can be used to reduce the overall number of time-steps in some cases and hence reduce the cost of the simulation.
 Even though it seems counterproductive to reduce the global time step size, it can move the boundaries of the clusters such that
@@ -126,7 +125,7 @@ Typically this setting should be activated and only be deactivated when the init
 The wiggle factor was inspired by the implementation in (Breuer, Heinecke, 2022) [1]_
 
 Enforcing maximum number of clusters (experimental)
-----------------------------------------------------
+---------------------------------------------------
 You can set a maximum number of clusters by the parameter LtsMaxNumberOfClusters.
 This can lead to better performance in some cases, especially on GPUs.
 You can set a maximum number of clusters by setting :code:`LtsMaxNumberOfClusters=20`.
@@ -145,7 +144,7 @@ The default and recommended choice is :code:`LtsAutoMergeCostBaseline = 'bestWig
 .. _lts_lattice_search:
 
 Choosing the ladder automatically (experimental)
--------------------------------------------------
+------------------------------------------------
 
 Everything described so far takes the rate vector from :code:`ClusteredLTS` as given and only tunes
 the wiggle factor and the number of clusters.
@@ -169,7 +168,7 @@ merging from the top that is described in the sections above, and it reproduces 
 earlier SeisSol versions exactly.
 
 The cost model
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~
 
 Both searches minimize a cost per unit of simulated time.
 Writing :math:`W_k` for the summed vertex weight of cluster :math:`k` and :math:`n_k` for its update
@@ -206,7 +205,7 @@ meaningful default beyond zero.
     SeisSol prints a note to the log in that case.
 
 How the search works
-~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 The update factors of a ladder cannot be arbitrary: a cluster may only advance once all finer
 clusters have caught up, so :math:`n_0 = 1` must divide :math:`n_1`, which must divide
@@ -240,5 +239,8 @@ Interaction with the other settings
   does not run at all, for instance because the material does not support LTS.
 
 These features should be considered experimental at this point in time.
+
+References
+----------
 
 .. [1] Breuer, A., & Heinecke, A. (2022). Next-Generation Local Time Stepping for the ADER-DG Finite Element Method. In 2022 IEEE International Parallel and Distributed Processing Symposium (IPDPS) (pp. 402-413). IEEE.
