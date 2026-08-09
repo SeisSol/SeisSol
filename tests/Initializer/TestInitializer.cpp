@@ -12,3 +12,4 @@
 #include "TimeStepping/ClusterHistogram.t.h"
 #include "TimeStepping/ClusterLadder.t.h"
 #include "TimeStepping/LTSWeights.t.h"
+#include "TimeStepping/LadderOptimizer.t.h"

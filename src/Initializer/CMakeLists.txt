@@ -46,6 +46,8 @@ add_library(seissol-initializer OBJECT
     TimeStepping/ClusterSmoother.cpp
     TimeStepping/GlobalTimestep.cpp
     TimeStepping/Halo.cpp
+    TimeStepping/LadderOptimizer.cpp
+    TimeStepping/TimestepHistogram.cpp
     TimeStepping/LtsWeights/LtsWeights.cpp
     TimeStepping/LtsWeights/WeightsModels.cpp
 )
