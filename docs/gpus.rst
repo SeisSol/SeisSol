@@ -55,6 +55,19 @@ see the following list:
 - dynamic rupture (stable; except TP in beta)
 - off-fault plasticity (stable)
 
+Time clustering
+~~~~~~~~~~~~~~~
+
+Local time-stepping behaves differently on GPUs than on CPUs.
+A time cluster that carries little work does not become cheap in proportion, because a launch costs
+roughly the same regardless of how many elements it touches, and because a small cluster never
+saturates the device.
+The cost model that SeisSol uses to pick a clustering can be told about both effects through
+*LtsCostLaunch* and *LtsCostFill*; see :ref:`the section on choosing the ladder automatically
+<lts_lattice_search>`.
+Both default to zero, which reproduces the CPU-oriented update counting, so they have to be measured
+and set explicitly for the clustering to reflect GPU behavior.
+
 Compilation
 ~~~~~~~~~~~
 
