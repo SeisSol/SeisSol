@@ -12,6 +12,7 @@
 #include "Common/Constants.h"
 #include "Geometry/PUMLReader.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/Parameters/MeshParameters.h"
 #include "Parallel/MPI.h"
 
 #include <PUML/Downward.h>

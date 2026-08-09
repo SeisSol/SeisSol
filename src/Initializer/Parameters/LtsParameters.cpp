@@ -9,6 +9,7 @@
 
 #include "Equations/Datastructures.h"
 #include "Initializer/Parameters/ParameterReader.h"
+#include "Initializer/TimeStepping/ClusterCostModel.h"
 
 #include <algorithm>
 #include <cassert>

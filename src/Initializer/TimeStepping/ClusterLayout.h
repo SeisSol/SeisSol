@@ -22,7 +22,7 @@ namespace seissol::initializer {
 struct ClusterLayout {
   private:
   // declared first: `rates` is initialized from it
-  ClusterLadder ladder;
+  ClusterLadder ladder_;
 
   public:
   /// Normalized ratios, i.e. exactly `globalClusterCount - 1` entries with the rate
@@ -35,15 +35,15 @@ struct ClusterLayout {
   ClusterLayout(const std::vector<std::uint64_t>& rates,
                 double minimumTimestep,
                 std::size_t globalClusterCount)
-      : ladder(ClusterLadder::ofSize(rates, minimumTimestep, globalClusterCount)),
-        rates(ladder.ratios()), minimumTimestep(minimumTimestep),
+      : ladder_(ClusterLadder::ofSize(rates, minimumTimestep, globalClusterCount)),
+        rates(ladder_.ratios()), minimumTimestep(minimumTimestep),
         globalClusterCount(globalClusterCount) {}
 
-  [[nodiscard]] double timestepRate(std::size_t id) const { return ladder.timestep(id); }
+  [[nodiscard]] double timestepRate(std::size_t id) const { return ladder_.timestep(id); }
 
-  [[nodiscard]] std::uint64_t clusterRate(std::size_t id) const { return ladder.updateFactor(id); }
+  [[nodiscard]] std::uint64_t clusterRate(std::size_t id) const { return ladder_.updateFactor(id); }
 
-  [[nodiscard]] const ClusterLadder& clusterLadder() const { return ladder; }
+  [[nodiscard]] const ClusterLadder& clusterLadder() const { return ladder_; }
 
   static ClusterLayout fromMesh(const std::vector<std::uint64_t>& rates,
                                 const geometry::MeshReader& mesh,
