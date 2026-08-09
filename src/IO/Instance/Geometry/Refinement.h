@@ -8,7 +8,11 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_GEOMETRY_REFINEMENT_H_
 #define SEISSOL_SRC_IO_INSTANCE_GEOMETRY_REFINEMENT_H_
 
+#include "Numerical/Projection.h"
+
 #include <array>
+#include <cassert>
+#include <cstddef>
 #include <vector>
 
 namespace seissol::io::instance::geometry {
@@ -17,37 +21,47 @@ extern const std::vector<std::vector<std::array<double, 3>>> TetrahedronRefine4;
 extern const std::vector<std::vector<std::array<double, 3>>> TetrahedronRefine8;
 extern const std::vector<std::vector<std::array<double, 2>>> TriangleRefine4;
 
-// subdivides a tetrahedron by the
+//! @brief A single subcell, given as the affine map taking the reference simplex onto it.
+template <std::size_t Dim>
+using Subcell = numerical::AffineMap<Dim>;
+
+//! @brief The (trivial) subdivision consisting of the whole reference simplex.
+template <std::size_t Dim>
+std::vector<Subcell<Dim>> unrefined() {
+  return {Subcell<Dim>::identity()};
+}
+
+/**
+ * @brief Subdivides each subcell of @p input according to @p refine .
+ *
+ * The subcells of the result are the images of the @p refine simplices under the respective input
+ * map, i.e. the refinement is applied *inside* each existing subcell. The enumeration is
+ * input-major.
+ */
+template <std::size_t Dim>
+std::vector<Subcell<Dim>>
+    subdivideMaps(const std::vector<Subcell<Dim>>& input,
+                  const std::vector<std::vector<std::array<double, Dim>>>& refine) {
+  std::vector<Subcell<Dim>> output;
+  output.reserve(input.size() * refine.size());
+  for (const auto& map : input) {
+    for (const auto& simplex : refine) {
+      assert(simplex.size() == Dim + 1);
+      output.emplace_back(map.compose(Subcell<Dim>::fromVertices(simplex)));
+    }
+  }
+  return output;
+}
+
+//! @brief Evaluates @p points inside each subcell.
 template <std::size_t Dim>
 std::vector<std::vector<std::array<double, Dim>>>
-    applySubdivide(const std::vector<std::vector<std::array<double, Dim>>>& input,
-                   const std::vector<std::vector<std::array<double, Dim>>>& refine) {
+    applyMaps(const std::vector<Subcell<Dim>>& maps,
+              const std::vector<std::array<double, Dim>>& points) {
   std::vector<std::vector<std::array<double, Dim>>> output;
-  output.reserve(input.size() * refine.size());
-  for (const auto& tetrahedron : input) {
-    for (const auto& refTet : refine) {
-      assert(refTet.size() == Dim + 1);
-
-      std::vector<std::array<double, Dim>> points(tetrahedron.size());
-
-      std::array<double, Dim> offset = refTet[0];
-
-      std::array<std::array<double, Dim>, Dim> transform{};
-      for (std::size_t i = 0; i < Dim; ++i) {
-        for (std::size_t j = 0; j < Dim; ++j) {
-          transform[i][j] = refTet[i + 1][j] - offset[j];
-        }
-      }
-      for (std::size_t i = 0; i < tetrahedron.size(); ++i) {
-        points[i] = offset;
-        for (std::size_t j = 0; j < Dim; ++j) {
-          for (std::size_t k = 0; k < Dim; ++k) {
-            points[i][j] += tetrahedron[i][k] * transform[k][j];
-          }
-        }
-      }
-      output.emplace_back(std::move(points));
-    }
+  output.reserve(maps.size());
+  for (const auto& map : maps) {
+    output.emplace_back(map.apply(points));
   }
   return output;
 }

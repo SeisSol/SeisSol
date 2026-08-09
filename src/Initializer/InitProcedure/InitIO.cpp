@@ -28,7 +28,7 @@
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
-#include "Numerical/BasisFunction.h"
+#include "Numerical/Projection.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
@@ -41,6 +41,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <utils/logger.h>
@@ -49,6 +51,40 @@
 namespace {
 
 using namespace seissol;
+
+namespace projection = seissol::numerical::projection;
+
+// The projection matrices are generated for every convergence order up to the compiled one, so
+// that a per-cell order (cf. #1421) only requires selecting a different entry at run time.
+constexpr std::size_t MinProjectionOrder = 1;
+constexpr std::size_t MaxProjectionOrder = ConvergenceOrder;
+
+/**
+ * The padded leading dimension of a generated projection tensor, i.e. the stride between two
+ * consecutive basis functions. Yateto stores these matrices as [point][basisFunction] with an
+ * aligned stride on the point dimension; we read the padding back off the generated metadata
+ * instead of re-deriving it from the alignment.
+ */
+template <typename TensorT>
+std::size_t projectionStride(std::size_t degree) {
+  const auto index = TensorT::index(ConvergenceOrder, degree);
+  return TensorT::Size[index] / TensorT::Shape[index][1];
+}
+
+//! The affine embedding of the reference triangle into the given side of the reference tetrahedron.
+seissol::numerical::AffineMap<2, 3> faceEmbedding(std::size_t side) {
+  const std::array<std::array<double, 2>, 3> corners = {
+      std::array<double, 2>{0, 0}, std::array<double, 2>{1, 0}, std::array<double, 2>{0, 1}};
+  std::vector<std::array<double, 3>> vertices;
+  vertices.reserve(corners.size());
+  for (const auto& chiTau : corners) {
+    std::array<double, 3> xez{};
+    seissol::transformations::chiTau2XiEtaZeta(
+        static_cast<std::uint32_t>(side), chiTau.data(), xez.data());
+    vertices.push_back(xez);
+  }
+  return seissol::numerical::AffineMap<2, 3>::fromVertices(vertices);
+}
 
 void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   auto& checkpoint = seissolInstance.getOutputManager().getCheckpointManager();
@@ -189,74 +225,59 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     const auto trueBase = io::instance::geometry::pointsTetrahedron(trueOrder);
     const auto dataBase = io::instance::geometry::pointsTetrahedron(dataOrder);
 
-    auto truePoints = std::vector<std::vector<std::array<double, 3>>>{trueBase};
-    auto dataPoints = std::vector<std::vector<std::array<double, 3>>>{dataBase};
+    auto subcells = io::instance::geometry::unrefined<3>();
 
     if (seissolParams.output.waveFieldParameters.refinement ==
         seissol::initializer::parameters::VolumeRefinement::Refine4) {
-      truePoints = io::instance::geometry::applySubdivide(
-          truePoints, io::instance::geometry::TetrahedronRefine4);
-      dataPoints = io::instance::geometry::applySubdivide(
-          dataPoints, io::instance::geometry::TetrahedronRefine4);
+      subcells = io::instance::geometry::subdivideMaps(subcells,
+                                                       io::instance::geometry::TetrahedronRefine4);
     }
     if (seissolParams.output.waveFieldParameters.refinement ==
         seissol::initializer::parameters::VolumeRefinement::Refine8) {
-      truePoints = io::instance::geometry::applySubdivide(
-          truePoints, io::instance::geometry::TetrahedronRefine8);
-      dataPoints = io::instance::geometry::applySubdivide(
-          dataPoints, io::instance::geometry::TetrahedronRefine8);
+      subcells = io::instance::geometry::subdivideMaps(subcells,
+                                                       io::instance::geometry::TetrahedronRefine8);
     }
     if (seissolParams.output.waveFieldParameters.refinement ==
         seissol::initializer::parameters::VolumeRefinement::Refine32) {
-      truePoints = io::instance::geometry::applySubdivide(
-          truePoints, io::instance::geometry::TetrahedronRefine4);
-      dataPoints = io::instance::geometry::applySubdivide(
-          dataPoints, io::instance::geometry::TetrahedronRefine4);
-      truePoints = io::instance::geometry::applySubdivide(
-          truePoints, io::instance::geometry::TetrahedronRefine8);
-      dataPoints = io::instance::geometry::applySubdivide(
-          dataPoints, io::instance::geometry::TetrahedronRefine8);
+      subcells = io::instance::geometry::subdivideMaps(subcells,
+                                                       io::instance::geometry::TetrahedronRefine4);
+      subcells = io::instance::geometry::subdivideMaps(subcells,
+                                                       io::instance::geometry::TetrahedronRefine8);
     }
 
-    // TODO: exact size (for now, just silence the warning)
-    std::vector<
-        memory::AlignedArray<real, static_cast<std::size_t>(tensor::Q::Size) * tensor::Q::Size>>
-        proj;
-    for (const auto& tetrahedron : dataPoints) {
-      auto& coll = proj.emplace_back();
-      std::size_t idx = 0;
-      for (const auto& point : tetrahedron) {
-        const auto data = basisFunction::SampledBasisFunctions<real>(
-                              ConvergenceOrder, point[0], point[1], point[2])
-                              .data();
-        std::copy(data.begin(), data.end(), coll.begin() + idx);
-        idx += ((data.size() + Alignment - 1) / Alignment) * Alignment;
+    const auto truePoints = io::instance::geometry::applyMaps(subcells, trueBase);
+
+    const auto projectionTarget =
+        seissolParams.output.projection == seissol::initializer::parameters::ProjectionMethod::L2
+            ? projection::Target::Project
+            : projection::Target::Interpolate;
+
+    const auto makeVolumeTable = [&](projection::Source source,
+                                     std::optional<std::size_t> derivative) {
+      projection::Spec spec;
+      spec.source = source;
+      spec.target = projectionTarget;
+      spec.derivative = derivative;
+      const auto stride = source == projection::Source::Nodal
+                              ? projectionStride<tensor::collnv>(order)
+                              : projectionStride<tensor::collvv>(order);
+      return std::make_shared<projection::Table<3, 3>>(
+          subcells, dataBase, dataOrder, stride, spec, MinProjectionOrder, MaxProjectionOrder);
+    };
+
+    const auto proj = makeVolumeTable(projection::Source::Modal, {});
+
+    std::array<std::shared_ptr<projection::Table<3, 3>>, Cell::Dim> projD{};
+    if (seissolParams.output.waveFieldParameters.computeStrain ||
+        seissolParams.output.waveFieldParameters.computeRotation) {
+      for (std::size_t direction = 0; direction < Cell::Dim; ++direction) {
+        projD[direction] = makeVolumeTable(projection::Source::Modal, direction);
       }
     }
 
-    std::vector<
-        memory::AlignedArray<real, static_cast<std::size_t>(tensor::Q::Size) * tensor::Q::Size>>
-        projD1;
-    std::vector<
-        memory::AlignedArray<real, static_cast<std::size_t>(tensor::Q::Size) * tensor::Q::Size>>
-        projD2;
-    std::vector<
-        memory::AlignedArray<real, static_cast<std::size_t>(tensor::Q::Size) * tensor::Q::Size>>
-        projD3;
-    for (const auto& tetrahedron : dataPoints) {
-      auto& coll1 = projD1.emplace_back();
-      auto& coll2 = projD2.emplace_back();
-      auto& coll3 = projD3.emplace_back();
-      std::size_t idx = 0;
-      for (const auto& point : tetrahedron) {
-        const auto data = basisFunction::SampledBasisFunctionDerivatives<real>(
-                              ConvergenceOrder, point[0], point[1], point[2])
-                              .data();
-        // std::copy(data.begin(), data.end(), coll1.begin() + idx);
-        // std::copy(data.begin(), data.end(), coll2.begin() + idx);
-        // std::copy(data.begin(), data.end(), coll3.begin() + idx);
-        idx += data.size();
-      }
+    std::shared_ptr<projection::Table<3, 3>> projNodal;
+    if (seissolParams.model.plasticity) {
+      projNodal = makeVolumeTable(projection::Source::Nodal, {});
     }
 
     const auto config = io::instance::geometry::WriterConfig{
@@ -277,7 +298,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                                                          celllist.size(),
                                                          io::instance::geometry::Shape::Tetrahedron,
                                                          config,
-                                                         dataPoints.size());
+                                                         subcells.size());
 
     writer.addPointProjector([=](double* target, std::size_t index, std::size_t subcell) {
       const auto& element = meshReader.getElements()[cellIndices[index]];
@@ -341,9 +362,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         std::array<real, MaxVtk3dPoints> dataY{};
         std::array<real, MaxVtk3dPoints> dataZ{};
 
-        projectVolume(dataX.data(), dofsSingleQuantity, projD1[subcell].data());
-        projectVolume(dataY.data(), dofsSingleQuantity, projD2[subcell].data());
-        projectVolume(dataZ.data(), dofsSingleQuantity, projD3[subcell].data());
+        projectVolume(dataX.data(), dofsSingleQuantity, (*projD[0])(subcell, ConvergenceOrder));
+        projectVolume(dataY.data(), dofsSingleQuantity, (*projD[1])(subcell, ConvergenceOrder));
+        projectVolume(dataZ.data(), dofsSingleQuantity, (*projD[2])(subcell, ConvergenceOrder));
 
         const auto& element = meshReader.getElements()[cellIndices[index]];
         const auto& vertexArray = meshReader.getVertices();
@@ -385,7 +406,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 const auto position = backmap.get(cellIndices[index]);
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
-                projectVolume(target, dofsSingleQuantity, proj[subcell].data());
+                projectVolume(target, dofsSingleQuantity, (*proj)(subcell, ConvergenceOrder));
               });
         }
 
@@ -398,7 +419,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 const auto position = backmap.get(cellIndices[index]);
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Integrals>(position);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
-                projectVolume(target, dofsSingleQuantity, proj[subcell].data());
+                projectVolume(target, dofsSingleQuantity, (*proj)(subcell, ConvergenceOrder));
               });
         }
       }
@@ -503,9 +524,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                   simselect[sim] = 1;
                   vtkproj.simselect = simselect.data();
                   vtkproj.qn = pointsSingleQuantity;
-                  vtkproj.vInv = init::vInv::Values;
                   vtkproj.xv(order) = alignedTarget.data();
-                  vtkproj.collvv(ConvergenceOrder, order) = proj[subcell].data();
+                  vtkproj.collnv(ConvergenceOrder, order) = (*projNodal)(subcell, ConvergenceOrder);
                   vtkproj.execute(order);
                   std::copy_n(alignedTarget.data(), dataBase.size(), target);
                 });
@@ -536,15 +556,14 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     const auto trueBase = io::instance::geometry::pointsTriangle(trueOrder);
     const auto dataBase = io::instance::geometry::pointsTriangle(dataOrder);
 
-    auto truePoints = std::vector<std::vector<std::array<double, 2>>>{trueBase};
-    auto dataPoints = std::vector<std::vector<std::array<double, 2>>>{dataBase};
+    auto subcells = io::instance::geometry::unrefined<2>();
 
     for (std::size_t i = 0; i < seissolParams.output.freeSurfaceParameters.refinement; ++i) {
-      truePoints = io::instance::geometry::applySubdivide(truePoints,
-                                                          io::instance::geometry::TriangleRefine4);
-      dataPoints = io::instance::geometry::applySubdivide(dataPoints,
-                                                          io::instance::geometry::TriangleRefine4);
+      subcells =
+          io::instance::geometry::subdivideMaps(subcells, io::instance::geometry::TriangleRefine4);
     }
+
+    const auto truePoints = io::instance::geometry::applyMaps(subcells, trueBase);
 
     const auto config = io::instance::geometry::WriterConfig{
         order,
@@ -561,7 +580,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                                                          freeSurfaceIntegrator.backmap.size(),
                                                          io::instance::geometry::Shape::Triangle,
                                                          config,
-                                                         dataPoints.size());
+                                                         subcells.size());
 
     writer.addPointProjector(
         [=, &freeSurfaceIntegrator](double* target, std::size_t index, std::size_t subcell) {
@@ -583,37 +602,44 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           }
         });
 
-    // TODO: exact size (for now, just silence the warning)
-    std::array<std::vector<memory::AlignedArray<real,
-                                                static_cast<std::size_t>(tensor::Q::Size) *
-                                                    tensor::Q::Size>>,
-               Cell::NumFaces>
-        proj;
+    const auto projectionTarget =
+        seissolParams.output.projection == seissol::initializer::parameters::ProjectionMethod::L2
+            ? projection::Target::Project
+            : projection::Target::Interpolate;
+
+    // volume basis -> face points, one table per side of the reference tetrahedron
+    std::array<std::shared_ptr<projection::Table<2, 3>>, Cell::NumFaces> proj{};
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-      for (const auto& triangle : dataPoints) {
-        auto& coll = proj[f].emplace_back();
-        std::size_t idx = 0;
-        for (const auto& point : triangle) {
-          double xez[3]{};
-          seissol::transformations::chiTau2XiEtaZeta(f, point.data(), xez);
-          const auto data =
-              basisFunction::SampledBasisFunctions<real>(ConvergenceOrder, xez[0], xez[1], xez[2])
-                  .data();
-          std::copy(data.begin(), data.end(), coll.begin() + idx);
-          idx += data.size();
-        }
+      const auto embedding = faceEmbedding(f);
+      std::vector<seissol::numerical::AffineMap<2, 3>> embedded;
+      embedded.reserve(subcells.size());
+      for (const auto& subcell : subcells) {
+        embedded.emplace_back(embedding.compose(subcell));
       }
+
+      projection::Spec spec;
+      spec.target = projectionTarget;
+      proj[f] = std::make_shared<projection::Table<2, 3>>(embedded,
+                                                          dataBase,
+                                                          dataOrder,
+                                                          projectionStride<tensor::collvf>(order),
+                                                          spec,
+                                                          MinProjectionOrder,
+                                                          MaxProjectionOrder);
     }
 
-    std::vector<
-        memory::AlignedArray<real, static_cast<std::size_t>(tensor::Q::Size) * tensor::Q::Size>>
-        projf;
-    for (const auto& triangle : dataPoints) {
-      auto& coll = projf.emplace_back();
-      const auto values =
-          seissol::basisFunction::evaluateSimplexBasis<2>(triangle, ConvergenceOrder);
-      std::copy(values.begin(), values.end(), coll.begin());
-    }
+    // face nodes -> face points (the nodal-to-modal transform is folded in)
+    projection::Spec faceSpec;
+    faceSpec.source = projection::Source::Nodal;
+    faceSpec.target = projectionTarget;
+    const auto projf =
+        std::make_shared<projection::Table<2, 2>>(subcells,
+                                                  dataBase,
+                                                  dataOrder,
+                                                  projectionStride<tensor::collnf>(order),
+                                                  faceSpec,
+                                                  MinProjectionOrder,
+                                                  MaxProjectionOrder);
 
     const auto rank = seissol::Mpi::mpi.rank();
     writer.addCellData<int>(
@@ -671,8 +697,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               vtkproj.simselect = simselect.data();
               vtkproj.qb = dofsSingleQuantity;
               vtkproj.xf(order) = alignedTarget.data();
-              vtkproj.collvf(ConvergenceOrder, order, side) = proj[side][subcell].data();
-              vtkproj.execute(order, side);
+              vtkproj.collvf(ConvergenceOrder, order) = (*proj[side])(subcell, ConvergenceOrder);
+              vtkproj.execute(order);
               std::copy_n(alignedTarget.data(), dataBase.size(), target);
             });
       }
@@ -698,9 +724,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               simselect[sim] = 1;
               vtkproj.simselect = simselect.data();
               vtkproj.pn = faceDisplacementVariable;
-              vtkproj.MV2nTo2m = nodal::init::MV2nTo2m::Values;
               vtkproj.xf(order) = alignedTarget.data();
-              vtkproj.collff(ConvergenceOrder, order) = projf[subcell].data();
+              vtkproj.collnf(ConvergenceOrder, order) = (*projf)(subcell, ConvergenceOrder);
               vtkproj.execute(order);
               std::copy_n(alignedTarget.data(), dataBase.size(), target);
             });
