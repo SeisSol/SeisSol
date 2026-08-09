@@ -268,6 +268,7 @@ void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
 
   logInfo() << "Computing LTS weights. Done. " << utils::nospace << '(' << finalNumberOfReductions
             << " reductions)";
+  logInfo() << "Cluster rates:" << effectiveRates_;
 }
 
 double LtsWeights::getWiggleFactor() const { return wiggleFactor_; }
