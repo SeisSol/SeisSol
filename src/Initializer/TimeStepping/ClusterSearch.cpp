@@ -11,7 +11,9 @@
 
 #include "Initializer/TimeStepping/ClusterHistogram.h"
 #include "Initializer/TimeStepping/ClusterLadder.h"
+#include "Initializer/TimeStepping/LadderOptimizer.h"
 #include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
+#include "Initializer/TimeStepping/TimestepHistogram.h"
 #include "Parallel/MPI.h"
 
 #include <algorithm>
@@ -45,12 +47,13 @@ ClusteringEvaluator::ClusteringEvaluator(const geometry::PumlMesh& mesh,
       rate_(std::move(rate)), smoothDuringSearch_(smoothDuringSearch),
       cellCount_(mesh.cells().size()), clusterIds_(mesh.cells().size(), 0) {}
 
-std::vector<int> ClusteringEvaluator::binCells(double wiggleFactor) const {
+std::vector<int> ClusteringEvaluator::binCells(const std::vector<std::uint64_t>& rates,
+                                               double wiggleFactor) const {
   std::vector<int> clusterIds(cellCount_, 0);
 
   // Build the ladder once instead of walking the rate vector per cell.
   const auto ladder = ClusterLadder::forBinning(
-      rate_, timesteps_->globalMinTimeStep, wiggleFactor, timesteps_->globalMaxTimeStep);
+      rates, timesteps_->globalMinTimeStep, wiggleFactor, timesteps_->globalMaxTimeStep);
 
 #pragma omp parallel for
   for (std::size_t cell = 0; cell < cellCount_; ++cell) {
@@ -76,7 +79,7 @@ int ClusteringEvaluator::realize(double wiggleFactor) {
     int cellchanges = 0;
     if (lb != cache_.end()) {
       // use the cache
-      const auto newClusterIds = binCells(wiggleFactor);
+      const auto newClusterIds = binCells(rate_, wiggleFactor);
 
 #pragma omp parallel for reduction(+ : cellchanges)
       for (std::size_t cell = 0; cell < cellCount_; ++cell) {
@@ -86,7 +89,7 @@ int ClusteringEvaluator::realize(double wiggleFactor) {
         clusterIds_[cell] = std::min(lb->second[cell], newClusterIds[cell]);
       }
     } else {
-      clusterIds_ = binCells(wiggleFactor);
+      clusterIds_ = binCells(rate_, wiggleFactor);
       cellchanges = static_cast<int>(cellCount_);
     }
     if (smoothDuringSearch_) {
@@ -99,6 +102,14 @@ int ClusteringEvaluator::realize(double wiggleFactor) {
   }
 
   return numberOfReductions;
+}
+
+int ClusteringEvaluator::realize(const std::vector<std::uint64_t>& rates, double wiggleFactor) {
+  if (rates == rate_) {
+    return realize(wiggleFactor);
+  }
+  clusterIds_ = binCells(rates, wiggleFactor);
+  return smoothDuringSearch_ ? smoothCurrent() : 0;
 }
 
 int ClusteringEvaluator::smoothCurrent() {
@@ -119,6 +130,26 @@ double ClusteringEvaluator::globalCost(double wiggleFactor) const {
                                        wiggleFactor,
                                        timesteps_->globalMinTimeStep,
                                        Mpi::mpi.comm());
+}
+
+double ClusteringEvaluator::globalCost(const std::vector<std::uint64_t>& rates,
+                                       double wiggleFactor) const {
+  return computeGlobalCostOfClustering(clusterIds_,
+                                       *cellCosts_,
+                                       rates,
+                                       wiggleFactor,
+                                       timesteps_->globalMinTimeStep,
+                                       Mpi::mpi.comm());
+}
+
+TimestepHistogram ClusteringEvaluator::timestepHistogram(double wiggleFactor,
+                                                         std::size_t maxIndex) const {
+  auto histogram = TimestepHistogram::fromCells(timesteps_->cellTimeStepWidths,
+                                                *cellCosts_,
+                                                timesteps_->globalMinTimeStep * wiggleFactor,
+                                                maxIndex);
+  histogram.reduce(Mpi::mpi.comm());
+  return histogram;
 }
 
 ClusterHistogram ClusteringEvaluator::globalHistogram() const {
@@ -269,6 +300,88 @@ SearchResult GridLadderSearch::sweep(ClusteringEvaluator& evaluator,
   // the grid sweep tunes the wiggle factor only; the ladder is whatever was configured
   return SearchResult{
       bestWiggleFactor, minAdmissibleMaxClusterId, bestCostEstimate, evaluator.rate()};
+}
+
+namespace {
+
+/// Hard bound on the coarsest update factor the lattice search will consider.
+///
+/// The dynamic program allocates O(clusters * maxIndex) state, so a badly graded mesh with a
+/// huge timestep spread could otherwise ask for gigabytes. A cluster updating more than four
+/// orders of magnitude less often than the finest one is not a configuration anyone wants,
+/// so capping here loses nothing in practice -- cells above the cap are served by the top
+/// cluster either way.
+constexpr std::size_t MaxLatticeIndex = 16384;
+
+} // namespace
+
+SearchResult LatticeDpSearch::run(ClusteringEvaluator& evaluator,
+                                  const SearchConstraints& constraints) {
+  reductions_ = 0;
+
+  if (constraints.costModel.isUpdateCount()) {
+    logInfo() << "The lattice search is minimizing pure update count, which is always best "
+                 "served by the finest admissible ladder. Set LtsCostLaunch and/or LtsCostFill "
+                 "to make coarser ladders competitive.";
+  }
+
+  const double minimumTimestep = evaluator.timesteps().globalMinTimeStep;
+  const double maximumTimestep = evaluator.timesteps().globalMaxTimeStep;
+
+  const double minWiggleFactor = constraints.minWiggleFactor;
+  const double maxWiggleFactor = 1.0;
+  const double stepSizeWiggleFactor = constraints.wiggleFactorStepsize;
+  const int numberOfStepsWiggleFactor =
+      std::ceil((maxWiggleFactor - minWiggleFactor) / stepSizeWiggleFactor) + 1;
+
+  double bestPredictedCost = std::numeric_limits<double>::infinity();
+  double bestWiggleFactor = maxWiggleFactor;
+  std::vector<std::uint64_t> bestRatios;
+  bool cappedAnywhere = false;
+
+  for (int i = 0; i < numberOfStepsWiggleFactor; ++i) {
+    const double curWiggleFactor =
+        std::min(minWiggleFactor + i * stepSizeWiggleFactor, maxWiggleFactor);
+    const double baseTimestep = minimumTimestep * curWiggleFactor;
+
+    const auto reachable = static_cast<std::size_t>(maximumTimestep / baseTimestep);
+    const auto maxIndex = std::min(reachable, MaxLatticeIndex);
+    cappedAnywhere = cappedAnywhere || maxIndex < reachable;
+
+    const auto histogram = evaluator.timestepHistogram(curWiggleFactor, maxIndex);
+
+    const LadderConstraints ladderConstraints{
+        maxIndex, static_cast<std::size_t>(constraints.maxClusterId) + 1, constraints.maxRatio};
+    const auto candidate =
+        optimalLadder(histogram, constraints.costModel, baseTimestep, ladderConstraints);
+
+    if (candidate.cost < bestPredictedCost) {
+      bestPredictedCost = candidate.cost;
+      bestWiggleFactor = curWiggleFactor;
+      bestRatios = candidate.ratios;
+    }
+  }
+
+  if (cappedAnywhere) {
+    logWarning() << "The timestep spread of this mesh exceeds what the lattice search explores;"
+                 << "update factors above" << MaxLatticeIndex << "were not considered.";
+  }
+
+  // Only the winner is realized: this is the expensive part, since it runs the smoothing
+  // fixed point. The predicted cost ignores those demotions, so the two are logged side by
+  // side -- a large gap is the signal that a shortlist would be worth re-ranking.
+  reductions_ = evaluator.realize(bestRatios, bestWiggleFactor);
+  const auto maxClusterId = evaluator.globalMaxClusterId();
+  const auto realizedCost = evaluator.globalCost(bestRatios, bestWiggleFactor);
+
+  logInfo() << "The best wiggle factor is" << bestWiggleFactor << "with rates" << bestRatios
+            << "and" << maxClusterId + 1 << "time clusters";
+  logInfo() << "Predicted cost" << bestPredictedCost << ", cost after enforcing the maximum"
+            << "difference" << realizedCost;
+  logInfo() << "Enforcing maximum difference for the chosen ladder took" << reductions_
+            << "reductions.";
+
+  return SearchResult{bestWiggleFactor, maxClusterId, realizedCost, bestRatios};
 }
 
 } // namespace seissol::initializer

@@ -29,6 +29,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <mpi.h>
 #include <utility>
 #include <utils/logger.h>
@@ -193,7 +194,16 @@ void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
   int finalNumberOfReductions = 0;
   auto chosenRates = rate_;
 
-  if ((ltsParameters.isWiggleFactorUsed() || ltsParameters.isAutoMergeUsed()) &&
+  const auto usesLatticeSearch = ltsParameters.getClusteringSearch() ==
+                                 seissol::initializer::parameters::LtsClusteringSearch::Lattice;
+
+  if (usesLatticeSearch && ltsParameters.isAutoMergeUsed()) {
+    logWarning() << "The lattice clustering search chooses the number of clusters itself;"
+                 << "ltsAutoMergeClusters and its baseline setting have no effect.";
+  }
+
+  if ((ltsParameters.isWiggleFactorUsed() || ltsParameters.isAutoMergeUsed() ||
+       usesLatticeSearch) &&
       continueComputation) {
     auto autoMergeBaseline = ltsParameters.getAutoMergeCostBaseline();
     if (!(ltsParameters.isWiggleFactorUsed() && ltsParameters.isAutoMergeUsed())) {
@@ -207,10 +217,17 @@ void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
                                         ltsParameters.getMaxNumberOfClusters() - 1,
                                         ltsParameters.isAutoMergeUsed(),
                                         ltsParameters.getAllowedPerformanceLossRatioAutoMerge(),
-                                        autoMergeBaseline};
+                                        autoMergeBaseline,
+                                        ltsParameters.getClusterCostModel(),
+                                        ltsParameters.getMaxRate()};
 
-    GridLadderSearch search;
-    const auto searchResult = search.run(evaluator_.value(), constraints);
+    std::unique_ptr<LadderSearch> search;
+    if (usesLatticeSearch) {
+      search = std::make_unique<LatticeDpSearch>();
+    } else {
+      search = std::make_unique<GridLadderSearch>();
+    }
+    const auto searchResult = search->run(evaluator_.value(), constraints);
 
     wiggleFactor_ = searchResult.wiggleFactor;
     chosenRates = searchResult.rates;
@@ -229,7 +246,7 @@ void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
           .ratios();
 
   ncon_ = evaluateNumberOfConstraints();
-  finalNumberOfReductions += evaluator_.value().realize(wiggleFactor_);
+  finalNumberOfReductions += evaluator_.value().realize(chosenRates, wiggleFactor_);
 
   if (!ltsParameters.getWiggleFactorEnforceMaximumDifference()) {
     finalNumberOfReductions += evaluator_.value().smoothCurrent();

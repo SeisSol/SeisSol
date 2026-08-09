@@ -13,9 +13,11 @@
 #include "Geometry/PUMLReader.h"
 #include "Initializer/Parameters/LtsParameters.h"
 #include "Initializer/Parameters/MeshParameters.h"
+#include "Initializer/TimeStepping/ClusterCostModel.h"
 #include "Initializer/TimeStepping/ClusterHistogram.h"
 #include "Initializer/TimeStepping/ClusterSmoother.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
+#include "Initializer/TimeStepping/TimestepHistogram.h"
 
 #include <cstdint>
 #include <functional>
@@ -34,6 +36,10 @@ struct SearchConstraints {
   double allowedPerformanceLossRatio{1.0};
   parameters::AutoMergeCostBaseline autoMergeBaseline{
       parameters::AutoMergeCostBaseline::MaxWiggleFactor};
+  /// Only the lattice search reads these: the legacy search does not choose the ladder, so
+  /// it has no way to trade cluster count against fill.
+  ClusterCostModel costModel{};
+  std::uint64_t maxRatio{0};
 };
 
 struct SearchResult {
@@ -74,6 +80,11 @@ class ClusteringEvaluator {
   /// demotions performed, which is zero when the candidate was served from the cache.
   int realize(double wiggleFactor);
 
+  /// Same, for a ladder other than the configured one. Only the configured rate vector is
+  /// cached: the monotonicity argument behind the cache holds along the wiggle factor at a
+  /// fixed ladder, not across ladders.
+  int realize(const std::vector<std::uint64_t>& rates, double wiggleFactor);
+
   /// Smooths the current clustering without touching the cache.
   int smoothCurrent();
 
@@ -85,6 +96,14 @@ class ClusteringEvaluator {
 
   /// Exact per-cell cost of the current clustering, summed over all ranks.
   [[nodiscard]] double globalCost(double wiggleFactor) const;
+  [[nodiscard]] double globalCost(const std::vector<std::uint64_t>& rates,
+                                  double wiggleFactor) const;
+
+  /// Cell weight over `floor(cellTimestep / (wiggleFactor * minimumTimestep))`, reduced over
+  /// all ranks. One collective; afterwards any ladder on that base timestep can be scored
+  /// without touching the mesh again.
+  [[nodiscard]] TimestepHistogram timestepHistogram(double wiggleFactor,
+                                                    std::size_t maxIndex) const;
 
   /// Per-cluster weights of the current clustering, summed over all ranks. The substrate
   /// for cost models that do not want to walk the cells again.
@@ -95,7 +114,7 @@ class ClusteringEvaluator {
   [[nodiscard]] const std::vector<std::uint64_t>& rate() const { return rate_; }
 
   private:
-  std::vector<int> binCells(double wiggleFactor) const;
+  std::vector<int> binCells(const std::vector<std::uint64_t>& rates, double wiggleFactor) const;
 
   ClusterSmoother smoother_;
   SmoothingRule smoothingRule_{};
@@ -139,6 +158,26 @@ class GridLadderSearch : public LadderSearch {
                      std::optional<double> baselineCost,
                      bool autoMerge);
 
+  int reductions_{0};
+};
+
+/// Chooses the ladder as well as the wiggle factor.
+///
+/// For every wiggle factor on the same grid the legacy search uses, the cell timesteps are
+/// binned by update factor and the cheapest divisibility chain is found by dynamic
+/// programming. Candidate evaluation therefore costs one histogram reduction plus local
+/// work, instead of a smoothing fixed point per candidate; only the winner is realized.
+///
+/// With the default cost model this degenerates to "as many clusters as possible", because
+/// pure update counting never charges for a cluster. Setting a launch cost or a fill
+/// threshold is what makes coarser ladders competitive.
+class LatticeDpSearch : public LadderSearch {
+  public:
+  SearchResult run(ClusteringEvaluator& evaluator, const SearchConstraints& constraints) override;
+
+  [[nodiscard]] int reductions() const { return reductions_; }
+
+  private:
   int reductions_{0};
 };
 
