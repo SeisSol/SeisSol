@@ -278,6 +278,13 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
                                                          {"hdf5", XdmfBackend::Hdf5},
 #endif
                                                      });
+  const auto projection = reader->readWithDefaultStringEnum<ProjectionMethod>(
+      "projection",
+      "pointwise",
+      {
+          {"pointwise", ProjectionMethod::Pointwise},
+          {"l2", ProjectionMethod::L2},
+      });
   const auto prefix =
       reader->readOrFail<std::string>("outputfile", "Output file prefix not defined.");
 
@@ -300,6 +307,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
   return OutputParameters(loopStatisticsNetcdfOutput,
                           format,
                           xdmfWriterBackend,
+                          projection,
                           hdfcompress,
                           prefix,
                           checkpointParameters,
