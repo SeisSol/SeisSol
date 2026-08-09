@@ -30,6 +30,7 @@ struct LtsWeightsConfig {
   int vertexWeightElement{};
   int vertexWeightDynamicRupture{};
   int vertexWeightFreeSurfaceWithGravity{};
+  const FaceMap* faceMap;
 };
 
 double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
@@ -126,6 +127,7 @@ class LtsWeights {
   std::vector<int> clusterIds_;
   double wiggleFactor_ = 1.0;
   seissol::initializer::parameters::BoundaryFormat boundaryFormat_;
+  const FaceMap* faceMap_;
 
   std::optional<ClusteringEvaluator> evaluator_;
 };

@@ -31,8 +31,11 @@ namespace seissol::unit_test {
 TEST_CASE("LTS Weights") {
   std::cout.setstate(std::ios_base::failbit);
   using namespace seissol::initializer::time_stepping;
+
+  const auto faceMap = defaultFaceMap();
+
   const LtsWeightsConfig config{
-      seissol::initializer::parameters::BoundaryFormat::I32, {2}, 1, 1, 1};
+      seissol::initializer::parameters::BoundaryFormat::I32, {2}, 1, 1, 1, &faceMap};
 
   const seissol::initializer::parameters::LtsParameters ltsParameters(
       {2},
@@ -55,7 +58,6 @@ TEST_CASE("LTS Weights") {
   seissol::SeisSol seissolInstance(seissolParameters, env);
 
   auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
-  const auto faceMap = defaultFaceMap();
   const auto pumlReader =
       seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
                                     "Default",
@@ -275,8 +277,10 @@ TEST_CASE("LTS clustering invariants on a mesh") {
   const auto rate = std::vector<std::uint64_t>{4, 2};
   constexpr int MaxClusters = 100;
 
+  const auto faceMap = defaultFaceMap();
+
   const LtsWeightsConfig config{
-      seissol::initializer::parameters::BoundaryFormat::I32, rate, 1, 1, 1};
+      seissol::initializer::parameters::BoundaryFormat::I32, rate, 1, 1, 1, &faceMap};
 
   const seissol::initializer::parameters::LtsParameters ltsParameters(
       rate,
@@ -300,7 +304,6 @@ TEST_CASE("LTS clustering invariants on a mesh") {
   seissol::SeisSol seissolInstance(seissolParameters, env);
 
   auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
-  const auto faceMap = defaultFaceMap();
   const auto pumlReader =
       seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
                                     "Default",

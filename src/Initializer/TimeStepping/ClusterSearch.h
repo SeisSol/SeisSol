@@ -71,6 +71,7 @@ class ClusteringEvaluator {
   /// outlive the evaluator.
   ClusteringEvaluator(const geometry::PumlMesh& mesh,
                       parameters::BoundaryFormat boundaryFormat,
+                      const FaceMap& faceMap,
                       const GlobalTimestep& timesteps,
                       const std::vector<int>& cellCosts,
                       std::vector<std::uint64_t> rate,

@@ -292,7 +292,8 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       seissolParams.timeStepping.lts.getRate(),
       seissolParams.timeStepping.vertexWeight.weightElement,
       seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
-      seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity};
+      seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity,
+      &faceMap};
 
   auto ltsWeights = getLtsWeightsImplementation(
       seissolParams.timeStepping.lts.getLtsWeightsType(), config, seissolInstance);

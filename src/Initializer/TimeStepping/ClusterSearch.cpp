@@ -43,11 +43,12 @@ using time_stepping::enforceMaxClusterId;
 
 ClusteringEvaluator::ClusteringEvaluator(const geometry::PumlMesh& mesh,
                                          parameters::BoundaryFormat boundaryFormat,
+                                         const FaceMap& faceMap,
                                          const GlobalTimestep& timesteps,
                                          const std::vector<int>& cellCosts,
                                          std::vector<std::uint64_t> rate,
                                          bool smoothDuringSearch)
-    : smoother_(mesh, boundaryFormat), timesteps_(&timesteps), cellCosts_(&cellCosts),
+    : smoother_(mesh, boundaryFormat, faceMap), timesteps_(&timesteps), cellCosts_(&cellCosts),
       rate_(std::move(rate)), smoothDuringSearch_(smoothDuringSearch),
       cellCount_(mesh.cells().size()), clusterIds_(mesh.cells().size(), 0) {}
 

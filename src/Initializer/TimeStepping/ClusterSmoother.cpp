@@ -28,18 +28,21 @@ namespace seissol::initializer {
 
 FaceType decodeFaceType(const void* boundaryCond,
                         std::size_t cell,
-                        unsigned face,
-                        parameters::BoundaryFormat boundaryFormat) {
-  int bcCurrentFace = seissol::geometry::decodeBoundary(boundaryCond, cell, face, boundaryFormat);
-  if (bcCurrentFace > 64) {
-    bcCurrentFace = 3;
+                        std::uint8_t face,
+                        parameters::BoundaryFormat boundaryFormat,
+                        const FaceMap& faceMap) {
+  const auto tag = seissol::geometry::decodeBoundary(boundaryCond, cell, face, boundaryFormat);
+  const auto faceType = faceMap.at(tag);
+  if (!faceType.has_value()) {
+    logError() << "Read invalid face tag during cluster determining:" << tag;
   }
-  return static_cast<FaceType>(bcCurrentFace);
+  return faceType.value();
 }
 
 ClusterSmoother::ClusterSmoother(const geometry::PumlMesh& mesh,
-                                 parameters::BoundaryFormat boundaryFormat)
-    : mesh_(&mesh), boundaryFormat_(boundaryFormat) {
+                                 parameters::BoundaryFormat boundaryFormat,
+                                 const FaceMap& faceMap)
+    : mesh_(&mesh), boundaryFormat_(boundaryFormat), faceMap_(&faceMap) {
   const auto& cells = mesh_->cells();
   const auto& faces = mesh_->faces();
   const void* boundaryCond = mesh_->cellData(1);
@@ -50,7 +53,7 @@ ClusterSmoother::ClusterSmoother(const geometry::PumlMesh& mesh,
     bool atBoundary = false;
     PUML::Downward::faces(*mesh_, cells[cell], faceids);
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-      const auto boundary = decodeFaceType(boundaryCond, cell, f, boundaryFormat_);
+      const auto boundary = decodeFaceType(boundaryCond, cell, f, boundaryFormat_, *faceMap_);
       // Continue for regular, dynamic rupture, and periodic boundary cells
       if (isInternalFaceType(boundary)) {
         // We treat MPI neighbors later
@@ -109,7 +112,7 @@ int ClusterSmoother::relaxOnce(std::vector<int>& clusterIds, const SmoothingRule
     unsigned int faceids[Cell::NumFaces]{};
     PUML::Downward::faces(*mesh_, cells[cell], faceids);
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-      const auto boundary = decodeFaceType(boundaryCond, cell, f, boundaryFormat_);
+      const auto boundary = decodeFaceType(boundaryCond, cell, f, boundaryFormat_, *faceMap_);
       // Continue for regular, dynamic rupture, and periodic boundary cells
       if (isInternalFaceType(boundary)) {
         // We treat MPI neighbors later
@@ -168,7 +171,7 @@ int ClusterSmoother::relaxOnce(std::vector<int>& clusterIds, const SmoothingRule
     unsigned int faceids[Cell::NumFaces]{};
     PUML::Downward::faces(*mesh_, cells[cell], faceids);
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-      const auto boundary = decodeFaceType(boundaryCond, cell, f, boundaryFormat_);
+      const auto boundary = decodeFaceType(boundaryCond, cell, f, boundaryFormat_, *faceMap_);
       // Continue for regular, dynamic rupture, and periodic boundary cells
       if (isInternalFaceType(boundary)) {
         // We treat MPI neighbors later

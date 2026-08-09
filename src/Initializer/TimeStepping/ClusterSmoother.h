@@ -22,12 +22,12 @@
 
 namespace seissol::initializer {
 
-/// Decodes the boundary condition of a face into a FaceType, mapping anything beyond the
-/// tag range onto FaceType::Outflow, as the mesh readers do.
+/// Decodes the boundary condition of a face into a FaceType.
 FaceType decodeFaceType(const void* boundaryCond,
                         std::size_t cell,
-                        unsigned face,
-                        parameters::BoundaryFormat boundaryFormat);
+                        std::uint8_t face,
+                        parameters::BoundaryFormat boundaryFormat,
+                        const FaceMap& faceMap);
 
 /// Which cluster id differences are admissible across a face.
 ///
@@ -55,7 +55,9 @@ struct SmoothingRule {
 /// re-entered for every wiggle factor candidate.
 class ClusterSmoother {
   public:
-  ClusterSmoother(const geometry::PumlMesh& mesh, parameters::BoundaryFormat boundaryFormat);
+  ClusterSmoother(const geometry::PumlMesh& mesh,
+                  parameters::BoundaryFormat boundaryFormat,
+                  const FaceMap& faceMap);
 
   /// One local sweep plus one halo exchange. Returns the number of demotions on this rank.
   int relaxOnce(std::vector<int>& clusterIds, const SmoothingRule& rule);
@@ -72,6 +74,7 @@ class ClusterSmoother {
   private:
   const geometry::PumlMesh* mesh_{nullptr};
   parameters::BoundaryFormat boundaryFormat_;
+  const FaceMap* faceMap_;
 
   std::vector<std::pair<int, std::vector<std::size_t>>> rankToSharedFaces_;
   std::unordered_map<std::size_t, std::size_t> localFaceIdToLocalCellId_;
