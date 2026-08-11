@@ -88,7 +88,7 @@ class DataTable {
 
   // View-on-existing-struct
   template <typename S, typename T>
-  void bindMemberView(std::string name, Direction dir, S* base, typename S::T* member) {
+  void bindMemberView(std::string name, Direction dir, S* base, T S::* member) {
     const auto accessor = [=](std::size_t idx, void* out) {
       auto* outC = reinterpret_cast<T*>(out);
       *outC = base[idx].*member;
