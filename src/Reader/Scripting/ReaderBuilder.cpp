@@ -22,6 +22,9 @@ namespace seissol::reader::scripting {
 
 std::unique_ptr<DataReader> buildReader(const std::string& path,
                                         const std::vector<std::string>& defaultInArgs) {
+
+  logInfo() << "Reading script" << path << "with default args" << defaultInArgs;
+
   const auto parts = utils::StringUtils::split(path, ':');
   if (parts.size() == 1) {
     return std::make_unique<EasiReader>(path, defaultInArgs);
@@ -33,10 +36,10 @@ std::unique_ptr<DataReader> buildReader(const std::string& path,
       std::stringstream code;
       code << file.rdbuf();
       return std::make_unique<LuaReader>(code.str());
-    } else {
-      logError() << "";
     }
   }
+
+  logError() << "The script" << path << "does not have a built-in reader.";
 
   return nullptr;
 }
