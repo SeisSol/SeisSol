@@ -133,7 +133,7 @@ void EasiReader::call(const scripting::DataTable& table) {
 
   for (std::size_t i = 0; i < entries.size(); ++i) {
     const auto& entry = entries[i];
-    if (entry.name == "__group") {
+    if (entry.name == "group") {
       groupEntry = i;
     }
     if (inVarMap.find(entry.name) != inVarMap.end()) {

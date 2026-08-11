@@ -161,9 +161,10 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
 
   for (std::size_t i = 0; i < iniFields.size(); ++i) {
     reader::scripting::DataTable table(elements.size() * NumQuadPoints);
-    table.bindComputed("__group", [&](std::size_t index) -> std::int32_t {
+    table.bindComputed("group", [&](std::size_t index) -> std::int32_t {
       return elements[index / NumQuadPoints].group;
     });
+    table.bindComputed("sim", [&](std::size_t) -> std::int32_t { return i; });
     table.bindComputed("t", [&](std::size_t) -> double { return time; });
     table.bindComputed("x", [&](std::size_t index) -> double { return points[index][0]; });
     table.bindComputed("y", [&](std::size_t index) -> double { return points[index][1]; });
