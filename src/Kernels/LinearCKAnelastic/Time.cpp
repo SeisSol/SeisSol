@@ -14,6 +14,7 @@
 #include "Kernels/MemoryOps.h"
 
 #include <cassert>
+#include <cstddef>
 #include <cstring>
 #include <stdint.h>
 #include <yateto.h>
@@ -80,18 +81,18 @@ void Spacetime::computeAder(const real* coeffs,
   if (timeDerivativesOrSTP != nullptr) {
     streamstore(tensor::dQ::size(0), data.get<LTS::Dofs>(), timeDerivativesOrSTP);
     real* derOut = timeDerivativesOrSTP;
-    for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derOut += tensor::dQ::size(i - 1);
       krnl.dQ(i) = derOut;
     }
   } else {
-    for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       krnl.dQ(i) = temporaryBuffer[i % 2];
     }
   }
 
   krnl.dQane(0) = const_cast<real*>(data.get<LTS::DofsAne>());
-  for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+  for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQane(i) = temporaryBufferAne[i % 2];
     krnl.dQext(i) = temporaryBufferExt[i % 2];
   }
@@ -99,7 +100,7 @@ void Spacetime::computeAder(const real* coeffs,
   krnl.I = timeIntegrated;
   krnl.Iane = tmp.timeIntegratedAne;
 
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
   krnl.w = data.get<LTS::LocalIntegration>().specific.w;
@@ -151,7 +152,7 @@ void Time::evaluate(const real* coeffs,
   kernel::derivativeTaylorExpansionEla krnl;
   krnl.I = timeEvaluated;
   const real* der = timeDerivativesOrSTP;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQ(i) = der;
     der += tensor::dQ::size(i);
     krnl.power(i) = coeffs[i];
@@ -180,7 +181,7 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
   krnl.numElements = numElements;
   krnl.I = timeIntegratedDofs;
   std::size_t derivativeOffset = 0;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQ(i) = const_cast<const real**>(timeDerivativesOrSTP);
     krnl.extraOffset_dQ(i) = derivativeOffset;
     derivativeOffset += tensor::dQ::size(i);
@@ -218,10 +219,10 @@ void Spacetime::computeBatchedAder(
     krnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
     krnl.Iane = (entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr();
 
-    unsigned derivativesOffset = tensor::dQ::size(0);
+    std::size_t derivativesOffset = tensor::dQ::size(0);
     krnl.dQ(0) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
     krnl.dQane(0) = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
-    for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       krnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
       krnl.extraOffset_dQ(i) = derivativesOffset;
       krnl.dQane(i) = (entry.get(inner_keys::Wp::Id::DerivativesAne))->getDeviceDataPtr();
@@ -235,7 +236,7 @@ void Spacetime::computeBatchedAder(
     krnl.Q = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
 
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
-    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
       krnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
       krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);

@@ -86,7 +86,7 @@ void Spacetime::computeAder(const real* coeffs,
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
   kernel::derivative krnl = krnlPrototype_;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
 
@@ -94,7 +94,7 @@ void Spacetime::computeAder(const real* coeffs,
   set_ET(krnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
 
   krnl.dQ(0) = const_cast<real*>(data.get<LTS::Dofs>());
-  for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+  for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ>(1, i);
   }
 
@@ -158,14 +158,14 @@ void Spacetime::computeBatchedAder(
     derivativesKrnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
 
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
-    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
       derivativesKrnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
       derivativesKrnl.extraOffset_star(i) =
           SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
 
-    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derivativesKrnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
       derivativesKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
     }
@@ -233,7 +233,7 @@ void Time::evaluate(const real* coeffs,
 
   kernel::derivativeTaylorExpansion krnl;
   krnl.I = timeEvaluated;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
     krnl.power(i) = coeffs[i];
   }

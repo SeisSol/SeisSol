@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
 
-#include "Kernels/Precision.h"
+#include "DynamicRupture/Typedefs.h"
 #include "ParameterReader.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -18,28 +18,6 @@
 #include <string>
 
 namespace seissol::initializer::parameters {
-
-constexpr std::size_t MaxNucleactions = 16;
-
-/**
- * Stores the different types of friction laws
- * The values resemble the identifiers used in the old fortran implementation
- */
-enum class FrictionLawType : unsigned int {
-  NoFault = 0,
-  LinearSlipWeakeningLegacy = 2,
-  LinearSlipWeakening = 16,
-  LinearSlipWeakeningBimaterial = 6,
-  LinearSlipWeakeningTPApprox = 1058,
-  RateAndStateAgingLaw = 3,
-  RateAndStateSlipLaw = 4,
-  RateAndStateFastVelocityWeakening = 103,
-  ImposedSlipRatesYoffe = 33,
-  ImposedSlipRatesGaussian = 34,
-  ImposedSlipRatesDelta = 35,
-  RateAndStateSevereVelocityWeakening = 7,
-  RateAndStateAgingNucleation = 101,
-};
 
 enum class OutputType : int {
   None = 0,
@@ -64,31 +42,35 @@ struct DRParameters {
   OutputType outputPointType{3};
   RefPointMethod refPointMethod{0};
   SlipRateOutputType slipRateOutputType{1};
-  FrictionLawType frictionLawType{0};
-  real healingThreshold{-1.0};
-  std::array<real, MaxNucleactions> t0{};
-  std::array<real, MaxNucleactions> s0{};
-  real tpProxyExponent{0.0};
-  real rsF0{0.0};
-  real rsB{0.0};
-  real rsSr0{0.0};
-  real rsInitialSlipRate1{0.0};
-  real rsInitialSlipRate2{0.0};
-  real muW{0.0};
-  real thermalDiffusivity{0.0};
-  real heatCapacity{0.0};
-  real undrainedTPResponse{0.0};
-  real initialTemperature{0.0};
-  real initialPressure{0.0};
-  real vStar{0.0}; // Prakash-Clifton regularization parameter
-  real prakashLength{0.0};
+  seissol::dr::misc::FrictionLawType frictionLawType{0};
+  double healingThreshold{-1.0};
+  std::array<double, seissol::dr::MaxNucleations> t0{};
+  std::array<double, seissol::dr::MaxNucleations> s0{};
+  double tpProxyExponent{0.0};
+  double rsF0{0.0};
+  double rsB{0.0};
+  double rsSr0{0.0};
+  double rsInitialSlipRate1{0.0};
+  double rsInitialSlipRate2{0.0};
+  double muW{0.0};
+  double thermalDiffusivity{0.0};
+  double heatCapacity{0.0};
+  double undrainedTPResponse{0.0};
+  double initialTemperature{0.0};
+  double initialPressure{0.0};
+  double vStar{0.0}; // Prakash-Clifton regularization parameter
+  double prakashLength{0.0};
   std::string faultFileName;
   std::array<std::optional<std::string>, seissol::multisim::NumSimulations> faultFileNames;
   Eigen::Vector3d referencePoint;
-  real terminatorSlipRateThreshold{0.0};
+  double terminatorSlipRateThreshold{0.0};
   double etaDamp{1.0};
   double etaDampEnd{std::numeric_limits<double>::infinity()};
   std::uint32_t nucleationCount{0};
+  std::uint32_t rsMaxNumberSlipRateUpdates{60};
+  std::uint32_t rsNumberStateVariableUpdates{10};
+  double rsSlipRateTolerance{1e-8};
+  double rsStateTolerance{1e-8};
 };
 
 DRParameters readDRParameters(ParameterReader* baseReader);

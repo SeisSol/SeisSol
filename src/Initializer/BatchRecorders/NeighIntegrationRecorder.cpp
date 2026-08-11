@@ -59,8 +59,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
 
           // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
           if (neighborBuffer != nullptr) {
-            if (dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::Outflow &&
-                dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
+            if (dataHost.get<LTS::CellInformation>().faceTypes[face] == FaceType::Regular) {
 
               const bool isNeighbProvidesDerivatives =
                   dataHost.get<LTS::CellInformation>().ltsSetup.neighborHasDerivatives(face);
@@ -134,9 +133,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
 
     for (std::size_t face = 0; face < Cell::NumFaces; face++) {
       switch (dataHost.get<LTS::CellInformation>().faceTypes[face]) {
-      case FaceType::Regular:
-        [[fallthrough]];
-      case FaceType::Periodic: {
+      case FaceType::Regular: {
         // compute face type relation
 
         real* neighborBufferPtr = faceNeighborsDevice[cell][face];
@@ -162,9 +159,6 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         }
         break;
       }
-      case FaceType::FreeSurface: {
-        break;
-      }
       case FaceType::DynamicRupture: {
         const auto faceRelation =
             drMappingDevice[cell][face].side + 4 * drMappingDevice[cell][face].faceRelation;
@@ -179,6 +173,8 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
 #endif
         break;
       }
+      case FaceType::FreeSurface:
+        [[fallthrough]];
       case FaceType::Outflow:
         [[fallthrough]];
       case FaceType::Analytical:
@@ -187,8 +183,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         [[fallthrough]];
       case FaceType::Dirichlet: {
         // Do not need to compute anything in the neighboring macro-kernel
-        // for outflow, analytical, freeSurfaceGravity and dirichlet
-        // boundary conditions
+        // for most boundary conditions
         break;
       }
       default: {
@@ -203,10 +198,8 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
     // regular and periodic
     for (size_t faceRelation = 0; faceRelation < (*FaceRelations::Count); ++faceRelation) {
       if (!regularPeriodicDofs[face][faceRelation].empty()) {
-        const ConditionalKey key(*KernelNames::NeighborFlux,
-                                 (FaceKinds::Regular || FaceKinds::Periodic),
-                                 face,
-                                 faceRelation);
+        const ConditionalKey key(
+            *KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
         checkKey(key);
 
         (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs,

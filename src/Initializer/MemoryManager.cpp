@@ -34,7 +34,6 @@
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <algorithm>
 #include <array>
@@ -176,8 +175,7 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
 
           // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
           if (neighborBuffer != nullptr) {
-            if (cellInformation[cell].faceTypes[face] != FaceType::Outflow &&
-                cellInformation[cell].faceTypes[face] != FaceType::DynamicRupture) {
+            if (cellInformation[cell].faceTypes[face] == FaceType::Regular) {
 
               const bool isNeighbProvidesDerivatives =
                   cellInformation[cell].ltsSetup.neighborHasDerivatives(face);
@@ -251,9 +249,8 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
                                                             init::rotatedFaceDisplacement::Size);
     layer.setEntrySize<LTS::DofsFaceNodalScratch>(sizeof(real) * freeSurfaceCount *
                                                   tensor::INodal::size());
-    layer.setEntrySize<LTS::PrevCoefficientsScratch>(
-        sizeof(real) * freeSurfaceCount *
-        nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
+    layer.setEntrySize<LTS::PrevCoefficientsScratch>(sizeof(real) * freeSurfaceCount *
+                                                     NodalDisplacementsSize);
   }
 }
 

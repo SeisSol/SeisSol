@@ -84,6 +84,8 @@ LtsParameters readLtsParameters(ParameterReader* baseReader) {
                                       LtsWeightsTypes::ExponentialBalancedWeights,
                                       LtsWeightsTypes::EncodedBalancedWeights,
                                   });
+
+  reader->warnDeprecated({"dgmethod"});
   return {rates,
           wiggleFactorMinimum,
           wiggleFactorStepsize,

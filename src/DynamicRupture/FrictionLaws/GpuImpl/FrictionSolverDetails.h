@@ -17,7 +17,7 @@ namespace seissol::dr::friction_law::gpu {
 
 class FrictionSolverDetails : public FrictionSolverInterface {
   public:
-  explicit FrictionSolverDetails(seissol::initializer::parameters::DRParameters* drParameters);
+  explicit FrictionSolverDetails(const FrictionLawParameters& drParameters);
   ~FrictionSolverDetails() override;
 
   void allocateAuxiliaryMemory(GlobalData* globalData) override;

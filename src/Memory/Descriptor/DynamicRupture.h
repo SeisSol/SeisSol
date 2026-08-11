@@ -222,6 +222,8 @@ struct LTSRateAndState : public DynamicRupture {
   struct RsF0 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct RsMuW : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct RsB : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct ConvergenceInner : public initializer::Variable<bool[dr::misc::NumPaddedPoints]> {};
+  struct ConvergenceOuter : public initializer::Variable<bool[dr::misc::NumPaddedPoints]> {};
 
   explicit LTSRateAndState(const initializer::parameters::DRParameters* parameters)
       : DynamicRupture(parameters) {}
@@ -235,12 +237,16 @@ struct LTSRateAndState : public DynamicRupture {
     storage.add<RsF0>(mask, Alignment, allocationModeDR(), true);
     storage.add<RsMuW>(mask, Alignment, allocationModeDR(), true);
     storage.add<RsB>(mask, Alignment, allocationModeDR(), true);
+    storage.add<ConvergenceInner>(mask, Alignment, allocationModeDR());
+    storage.add<ConvergenceOuter>(mask, Alignment, allocationModeDR());
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
                                    Storage& storage) const override {
     DynamicRupture::registerCheckpointVariables(manager, storage);
     manager.registerData<StateVariable>("stateVariable", storage);
+    manager.registerData<ConvergenceInner>("convergenceInner", storage);
+    manager.registerData<ConvergenceOuter>("convergenceOuter", storage);
   }
 };
 

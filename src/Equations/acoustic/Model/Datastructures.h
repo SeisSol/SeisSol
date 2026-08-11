@@ -36,7 +36,8 @@ struct AcousticMaterial : public Material {
   static inline const std::string Text = "acoustic";
   // The stress-velocity formulation of the elastic model is reused.
   // By definition, the normal stress and pressure are negatives of each other.
-  static inline const std::array<std::string, NumQuantities> Quantities = {"-p", "v1", "v2", "v3"};
+  static inline const std::array<std::string, NumQuantities> Quantities = {
+      "pprime", "v1", "v2", "v3"};
   static constexpr std::size_t Parameters = 1 + Material::Parameters;
 
   static constexpr bool SupportsDR = false;
@@ -47,6 +48,8 @@ struct AcousticMaterial : public Material {
   using Solver = kernels::solver::linearck::Solver;
 
   double lambda{};
+
+  static const std::unordered_map<std::string, double AcousticMaterial::*> ParameterMap;
 
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
@@ -87,6 +90,13 @@ struct AcousticMaterial : public Material {
 
   void setLameParameters(double /*mu*/, double lambda) override { this->lambda = lambda; }
 };
+
+inline const std::unordered_map<std::string, double AcousticMaterial::*>
+    AcousticMaterial::ParameterMap{
+        {"rho", &AcousticMaterial::rho},
+        {"lambda", &AcousticMaterial::lambda},
+    };
+
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_DATASTRUCTURES_H_

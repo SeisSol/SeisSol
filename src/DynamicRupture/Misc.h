@@ -12,17 +12,40 @@
 #include "Common/Marker.h"
 #include "GeneratedCode/init.h"
 #include "Geometry/MeshDefinition.h"
-#include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
 #include "Solver/MultipleSimulations.h"
 
+#include <array>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <tuple>
 #include <type_traits>
 
 namespace seissol::dr::misc {
+
+/**
+ * Stores the different types of friction laws
+ * The values resemble the identifiers used in the old fortran implementation.
+ * And they are still used in the parameter file like that.
+ */
+enum class FrictionLawType : uint32_t {
+  NoFault = 0,
+  LinearSlipWeakeningLegacy = 2,
+  LinearSlipWeakening = 16,
+  LinearSlipWeakeningBimaterial = 6,
+  LinearSlipWeakeningTPApprox = 1058,
+  RateAndStateAgingLaw = 3,
+  RateAndStateSlipLaw = 4,
+  RateAndStateFastVelocityWeakening = 103,
+  ImposedSlipRatesYoffe = 33,
+  ImposedSlipRatesGaussian = 34,
+  ImposedSlipRatesDelta = 35,
+  RateAndStateSevereVelocityWeakening = 7,
+  RateAndStateAgingNucleation = 101,
+};
+
 // TODO: this can be moved to yateto headers
 template <typename Tensor, int Dim>
 constexpr uint32_t dimSize() noexcept {
@@ -174,7 +197,7 @@ SEISSOL_HOSTDEVICE constexpr T clamp(T value, T minval, T maxval) {
  */
 void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip);
 
-std::string frictionLawName(seissol::initializer::parameters::FrictionLawType type);
+std::string frictionLawName(seissol::dr::misc::FrictionLawType type);
 
 // NOLINTBEGIN (-cppcoreguidelines-use-enum-class)
 
@@ -209,5 +232,55 @@ enum QuantityIndices : uint32_t {
 } // namespace seissol::dr::misc
 
 // NOLINTEND ()
+
+namespace seissol::initializer::parameters {
+struct DRParameters;
+} // namespace seissol::initializer::parameters
+
+namespace seissol::dr {
+// compile-time parameter; rather arbitrary (and just large enough for most cases). It's there to
+// avoid us allocating dynamic arrays in the parameters.
+constexpr std::size_t MaxNucleations = 16;
+
+/**
+ * Friction law parameters, as used in the kernels.
+ * For separation of concerns (and using the `real` datatype), prefer this one
+ * to the one in the Initializer/Parameters.
+ */
+struct FrictionLawParameters {
+  real healingThreshold{-1.0};
+  real tpProxyExponent{0.0};
+  real rsF0{0.0};
+  real rsB{0.0};
+  real rsSr0{0.0};
+  real rsInitialSlipRate1{0.0};
+  real rsInitialSlipRate2{0.0};
+  real muW{0.0};
+  real thermalDiffusivity{0.0};
+  real heatCapacity{0.0};
+  real undrainedTPResponse{0.0};
+  real initialTemperature{0.0};
+  real initialPressure{0.0};
+  // Prakash-Clifton regularization parameter
+  real vStar{0.0};
+  real prakashLength{0.0};
+  real terminatorSlipRateThreshold{0.0};
+  real etaDamp{1.0};
+  real etaDampEnd{std::numeric_limits<real>::infinity()};
+  std::array<real, MaxNucleations> t0{};
+  std::array<real, MaxNucleations> s0{};
+  std::uint32_t nucleationCount{0};
+  std::uint32_t rsMaxNumberSlipRateUpdates{60};
+  std::uint32_t rsNumberStateVariableUpdates{10};
+  real rsSlipRateTolerance{1e-8};
+  real rsStateTolerance{1e-8};
+  bool isFrictionEnergyRequired{false};
+  bool isCheckAbortCriteraEnabled{false};
+  bool energiesFromAcrossFaultVelocities{false};
+
+  FrictionLawParameters() = default;
+  explicit FrictionLawParameters(const seissol::initializer::parameters::DRParameters& parameters);
+};
+} // namespace seissol::dr
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_

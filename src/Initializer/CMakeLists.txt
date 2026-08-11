@@ -7,6 +7,7 @@
 
 add_library(seissol-initializer OBJECT
     CellLocalMatrices.cpp
+    FaceMap.cpp
     InitialFieldProjection.cpp
     MemoryManager.cpp
     ParameterDB.cpp

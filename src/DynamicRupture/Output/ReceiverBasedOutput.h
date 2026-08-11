@@ -53,6 +53,8 @@ class ReceiverOutput {
 
   kernels::Time timeKernel_;
 
+  bool printRSFWarning_{false};
+
   struct LocalInfo {
     DynamicRupture::Layer* layer{};
     size_t ltsId{};
@@ -60,6 +62,9 @@ class ReceiverOutput {
     int nearestInternalGpIndex{};
     int gpIndex{};
     int internalGpIndexFused{};
+
+    double time{};
+    bool* printWarning{nullptr};
 
     std::size_t index{};
     std::size_t fusedIndex{};
@@ -105,10 +110,11 @@ class ReceiverOutput {
     onfault receiver output on GPUs)
    */
   template <typename StorageT>
-  std::remove_extent_t<typename StorageT::Type>* getCellData(const LocalInfo& local) {
-    auto devVar = local.state->deviceVariables.find(drStorage_->info<StorageT>().index);
+  [[nodiscard]] const std::remove_extent_t<typename StorageT::Type>*
+      getCellData(const LocalInfo& local) const {
+    const auto devVar = local.state->deviceVariables.find(drStorage_->info<StorageT>().index);
     if (devVar != local.state->deviceVariables.end()) {
-      return reinterpret_cast<std::remove_extent_t<typename StorageT::Type>*>(
+      return reinterpret_cast<const std::remove_extent_t<typename StorageT::Type>*>(
           devVar->second->get(local.state->deviceIndices[local.index]));
     } else {
       return local.layer->var<StorageT>()[local.ltsId];
@@ -136,7 +142,8 @@ class ReceiverOutput {
                                size_t outputSpecifics,
                                size_t receiverIdx) {}
   virtual void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
-                                          const std::array<real, 6>& rotatedStress) {};
+                                          const std::array<real, 6>& rotatedStress) {}
+  virtual void handleNonConvergence(LocalInfo& local) {}
 };
 } // namespace seissol::dr::output
 

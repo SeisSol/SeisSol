@@ -14,6 +14,7 @@
 
 #include <Eigen/Dense>
 #include <cassert>
+#include <cstddef>
 #include <cstring>
 #include <stdint.h>
 #include <yateto.h>
@@ -34,7 +35,7 @@ namespace seissol::kernels::solver::stp {
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
     if (n > 0) {
-      for (int d = 0; d < 3; ++d) {
+      for (std::size_t d = 0; d < Cell::Dim; ++d) {
         krnlPrototype_.kDivMTSub(d, n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
       }
     }
@@ -53,7 +54,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   // TODO: adjust pointers
   for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
     if (n > 0) {
-      for (int d = 0; d < 3; ++d) {
+      for (std::size_t d = 0; d < Cell::Dim; ++d) {
         deviceKrnlPrototype_.kDivMTSub(d, n) =
             init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
       }
@@ -204,7 +205,7 @@ void Spacetime::computeBatchedAder(
     krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Stp))->getDeviceDataPtr();
     krnl.spaceTimePredictorRhs = (entry.get(inner_keys::Wp::Id::StpRhs))->getDeviceDataPtr();
 
-    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
       krnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
       krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);

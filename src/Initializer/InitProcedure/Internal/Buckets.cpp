@@ -281,7 +281,7 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       const auto& faceNeighbor = secondaryCellInformation[cell].faceNeighbors[face];
-      if (cellInformation[cell].faceTypes[face] != FaceType::Outflow) {
+      if (getBCType(cellInformation[cell].faceTypes[face]) != BCType::ExternalNone) {
         if (faceNeighbor == StoragePosition::NullPosition) {
           if (cellInformation[cell].ltsSetup.neighborHasDerivatives(face)) {
             faceNeighbors[cell][face] = layer.var<LTS::Derivatives>()[cell];

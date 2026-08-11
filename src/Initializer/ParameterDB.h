@@ -61,6 +61,7 @@ struct CellToVertexArray {
   static CellToVertexArray
       fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
                   const std::vector<int>& groups);
+  static CellToVertexArray join(std::vector<CellToVertexArray> arrays);
 };
 
 easi::Component* loadEasiModel(const std::string& fileName);
@@ -144,12 +145,8 @@ class ParameterDB {
 template <class T>
 class MaterialParameterDB : public ParameterDB {
   public:
-  T computeAveragedMaterial(unsigned elementIdx,
-                            const std::array<double, NumQuadpoints>& quadratureWeights,
-                            const std::vector<T>& materialsFromQuery);
   void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
   void setMaterialVector(std::vector<T>* materials) { materials_ = materials; }
-  void addBindingPoints(easi::ArrayOfStructsAdapter<T>& adapter) {};
 
   private:
   std::vector<T>* materials_{};

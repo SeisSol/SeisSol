@@ -21,7 +21,7 @@ namespace seissol::dr::friction_law::cpu {
 template <class SpecializationT>
 class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>> {
   public:
-  explicit LinearSlipWeakeningLaw(seissol::initializer::parameters::DRParameters* drParameters)
+  explicit LinearSlipWeakeningLaw(const FrictionLawParameters& drParameters)
       : BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization_(drParameters) {}
 
@@ -120,8 +120,8 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
           muS_[ltsFace][pointIndex] -
           (muS_[ltsFace][pointIndex] - muD_[ltsFace][pointIndex]) * stateVariable[pointIndex];
       // instantaneous healing
-      if ((this->peakSlipRate_[ltsFace][pointIndex] > this->drParameters_->healingThreshold) &&
-          (this->slipRateMagnitude_[ltsFace][pointIndex] < this->drParameters_->healingThreshold)) {
+      if ((this->peakSlipRate_[ltsFace][pointIndex] > this->drParameters_.healingThreshold) &&
+          (this->slipRateMagnitude_[ltsFace][pointIndex] < this->drParameters_.healingThreshold)) {
         this->mu_[ltsFace][pointIndex] = muS_[ltsFace][pointIndex];
         stateVariable[pointIndex] = 0.0;
       }
@@ -195,13 +195,13 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
       // Forced rupture time
       real f2 = 0.0;
-      if (this->drParameters_->t0[0] == 0) {
+      if (this->drParameters_.t0[0] == 0) {
         // avoid branching
         // if time > forcedRuptureTime, then f2 = 1.0, else f2 = 0.0
         f2 = static_cast<real>(time >= this->forcedRuptureTime_[ltsFace][pointIndex]);
       } else {
         f2 = std::clamp((time - this->forcedRuptureTime_[ltsFace][pointIndex]) /
-                            this->drParameters_->t0[0],
+                            this->drParameters_.t0[0],
                         static_cast<real>(0.0),
                         static_cast<real>(1.0));
       }
@@ -220,7 +220,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
 class NoSpecialization {
   public:
-  explicit NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
+  explicit NoSpecialization(const FrictionLawParameters& parameters) {};
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {};
   /**
@@ -254,8 +254,8 @@ class NoSpecialization {
  */
 class BiMaterialFault {
   public:
-  explicit BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters)
-      : drParameters_(parameters) {};
+  explicit BiMaterialFault(const FrictionLawParameters& parameters)
+      : vStar_(parameters.vStar), prakashLength_(parameters.prakashLength) {};
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
   /**
@@ -284,9 +284,8 @@ class BiMaterialFault {
                     std::uint32_t pointIndex) {
     // modify strength according to Prakash-Clifton
     // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
-    const auto expval =
-        -(std::max(static_cast<real>(0.0), localSlipRate) + this->drParameters_->vStar) * deltaT /
-        this->drParameters_->prakashLength;
+    const auto expval = -(std::max(static_cast<real>(0.0), localSlipRate) + this->vStar_) * deltaT /
+                        this->prakashLength_;
     const real expterm = std::exp(expval);
     const real exp1mterm = -std::expm1(expval);
     const real newStrength =
@@ -296,7 +295,9 @@ class BiMaterialFault {
   }
 
   protected:
-  seissol::initializer::parameters::DRParameters* drParameters_;
+  real vStar_{};
+  real prakashLength_{};
+
   real (*__restrict regularizedStrength_)[misc::NumPaddedPoints]{};
 };
 
@@ -305,8 +306,8 @@ class BiMaterialFault {
  */
 class TPApprox {
   public:
-  explicit TPApprox(seissol::initializer::parameters::DRParameters* parameters)
-      : drParameters_(parameters) {};
+  explicit TPApprox(const FrictionLawParameters& parameters)
+      : tpProxyExponent_(parameters.tpProxyExponent) {};
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
   /**
@@ -318,12 +319,12 @@ class TPApprox {
   };
 
 #pragma omp declare simd
-  real stateVariableHook(real localAccumulatedSlip,
-                         real localDc,
-                         std::size_t /*ltsFace*/,
-                         std::uint32_t /*pointIndex*/) {
+  [[nodiscard]] real stateVariableHook(real localAccumulatedSlip,
+                                       real localDc,
+                                       std::size_t /*ltsFace*/,
+                                       std::uint32_t /*pointIndex*/) const {
     const real factor = (static_cast<real>(1.0) + std::fabs(localAccumulatedSlip) / localDc);
-    return static_cast<real>(1.0) - std::pow(factor, -this->drParameters_->tpProxyExponent);
+    return static_cast<real>(1.0) - std::pow(factor, -this->tpProxyExponent_);
   }
 
 #pragma omp declare simd
@@ -336,7 +337,7 @@ class TPApprox {
   };
 
   protected:
-  seissol::initializer::parameters::DRParameters* drParameters_;
+  real tpProxyExponent_{};
 };
 
 } // namespace seissol::dr::friction_law::cpu

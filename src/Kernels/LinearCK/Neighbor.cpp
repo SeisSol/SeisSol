@@ -70,9 +70,7 @@ void Neighbor::computeNeighborsIntegral(
 
   for (std::size_t face = 0; face < Cell::NumFaces; face++) {
     switch (data.get<LTS::CellInformation>().faceTypes[face]) {
-    case FaceType::Regular:
-      // Fallthrough intended
-    case FaceType::Periodic: {
+    case FaceType::Regular: {
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
       assert(reinterpret_cast<uintptr_t>(timeIntegrated[face]) % Alignment == 0);
@@ -121,12 +119,10 @@ void Neighbor::computeBatchedNeighborsIntegral(
         (*FaceRelations::Count) + (*DrFaceRelations::Count), [&](void* stream, size_t i) {
           if (i < (*FaceRelations::Count)) {
             // regular and periodic
-            const unsigned faceRelation = i;
+            const auto faceRelation = i;
 
-            const ConditionalKey key(*KernelNames::NeighborFlux,
-                                     (FaceKinds::Regular || FaceKinds::Periodic),
-                                     face,
-                                     faceRelation);
+            const ConditionalKey key(
+                *KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
 
             if (table.find(key) != table.end()) {
               auto& entry = table[key];
@@ -154,7 +150,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
               device_.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
             }
           } else {
-            const unsigned faceRelation = i - (*FaceRelations::Count);
+            const auto faceRelation = i - (*FaceRelations::Count);
 
             const ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);
@@ -207,8 +203,6 @@ void Neighbor::flopsNeighborsIntegral(
     // compute the neighboring elements flux matrix id.
     switch (faceTypes[face]) {
     case FaceType::Regular:
-      // Fallthrough intended
-    case FaceType::Periodic:
       // regular neighbor
       assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] < 3);
       nonZeroFlops += kernel::neighboringFlux::nonZeroFlops(

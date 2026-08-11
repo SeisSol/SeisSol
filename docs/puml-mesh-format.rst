@@ -101,7 +101,7 @@ SeisSol indexes the boundary conditions as follows:
 
 - 5: absorbing. Boundary condition; no neighbor.
 
-- 6: identified. Similar to a regular face (0) between two cells. Formerly known as "periodic".
+- 6: regular. Like face type 0, a regular face between two cells. Formerly known as "periodic" or "identified".
 
 - 7: analytical. Boundary condition given by
 
@@ -112,6 +112,35 @@ The following convention for defining a face ID is used:
 .. code-block:: python
 
    s_vert[0,:] = [0,2,1];   s_vert[1,:] = [0,1,3];    s_vert[2,:] = [1,2,3]; s_vert[3,:] = [0,3,2];
+
+You may supply a separate face type configuration as a YAML file. The file consists of a sole YAML dictionary
+with the tags ``regular``, ``freeSurface``, ``freeSurfaceGravity``, ``dynamicRupture``, ``dirichlet``,
+``outflow``, or ``analytical``.
+
+Each entry has a list with the boundary condition IDs / face tags that are associated to it.
+You may also add a range of the format e.g. ``10-23`` or ``10-`` if you want all larger tags
+to be matched to this boundary condition. Ranges are inclusive on both sides.
+
+As an example, the following would replicate the default SeisSol behavior.
+
+.. code-block:: yaml
+
+   regular:
+      - 0
+      - 6
+   freeSurface:
+      - 1
+   freeSurfaceGravity:
+      - 2
+   dynamicRupture:
+      - 3
+      - 65- # note the open range
+   dirichlet:
+      - 4
+   outflow:
+      - 5
+   analytical:
+      - 7
 
 Topological Connectivity (e.g. for periodic or stitched domains)
 ----------------------------------------------------------------

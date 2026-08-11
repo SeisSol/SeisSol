@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVER_H_
 
 #include "DynamicRupture/Misc.h"
+#include "DynamicRupture/Typedefs.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -20,18 +21,14 @@ namespace seissol::dr::friction_law {
  * Only needed to be able to store a shared_ptr<FrictionSolver> in MemoryManager and TimeCluster.
  * BaseFrictionLaw has a template argument for CRTP, hence, we can't store a pointer to any
  * BaseFrictionLaw.
+ *
+ * Note: this class, FrictionSolver, must be trivially copyable. It is (or was?) important for GPU
+ * offloading.
  */
 class FrictionSolver {
   public:
-  // Note: FrictionSolver must be trivially copyable. It is important for GPU offloading
-  explicit FrictionSolver(seissol::initializer::parameters::DRParameters* userDRParameters)
-      : drParameters_(userDRParameters) {
-    std::copy(&init::quadweights::Values
-                  [init::quadweights::Start[seissol::multisim::BasisFunctionDimension]],
-              &init::quadweights::Values
-                  [init::quadweights::Stop[seissol::multisim::BasisFunctionDimension]],
-              &spaceWeights_[0]);
-  }
+  explicit FrictionSolver(const FrictionLawParameters& userDRParameters)
+      : drParameters_(userDRParameters) {}
   virtual ~FrictionSolver() = default;
 
   struct FrictionTime {
@@ -57,7 +54,9 @@ class FrictionSolver {
    */
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
 
-  virtual void allocateAuxiliaryMemory(GlobalData* globalData) {}
+  virtual void allocateAuxiliaryMemory(GlobalData* globalData) {
+    spaceWeights_ = globalData->spaceWeights;
+  }
 
   virtual seissol::initializer::AllocationPlace allocationPlace();
 
@@ -70,7 +69,7 @@ class FrictionSolver {
    */
   real deltaT_[misc::TimeSteps] = {};
 
-  seissol::initializer::parameters::DRParameters* __restrict drParameters_;
+  FrictionLawParameters drParameters_;
   ImpedancesAndEta* __restrict impAndEta_{};
   ImpedanceMatrices* __restrict impedanceMatrices_{};
   real fullUpdateTime_{};
@@ -92,7 +91,7 @@ class FrictionSolver {
   real (*__restrict traction2_)[misc::NumPaddedPoints]{};
   real (*__restrict imposedStatePlus_)[tensor::QInterpolated::size()]{};
   real (*__restrict imposedStateMinus_)[tensor::QInterpolated::size()]{};
-  real spaceWeights_[misc::NumPaddedPoints]{};
+  real* __restrict spaceWeights_{};
   DREnergyOutput* __restrict energyData_{};
   DRGodunovData* __restrict godunovData_{};
   real (*__restrict initialPressure_)[misc::NumPaddedPoints]{};

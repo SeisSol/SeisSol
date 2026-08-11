@@ -26,6 +26,7 @@
 #include "Monitoring/ActorStateStatistics.h"
 #include "Monitoring/LoopStatistics.h"
 #include "Solver/FreeSurfaceIntegrator.h"
+#include "Solver/Settings.h"
 #include "SourceTerm/Typedefs.h"
 
 #include <list>
@@ -55,7 +56,7 @@ class TimeCluster : public AbstractTimeCluster {
   // timecluster.
   double neighborTimestep_{0};
 
-  bool usePlasticity_;
+  SimulationSettings settings_;
 
   seissol::SeisSol& seissolInstance_;
   /*
@@ -186,7 +187,7 @@ class TimeCluster : public AbstractTimeCluster {
 
   void computeLocalIntegrationFlops();
 
-  template <bool UsePlasticity>
+  template <bool UsePlasticity, bool IntegrateOutput>
   void computeNeighboringIntegrationImplementation(double subTimeStart);
 
   void computeLocalIntegrationFlops(unsigned numberOfCells,
@@ -234,12 +235,12 @@ class TimeCluster : public AbstractTimeCluster {
    *
    * @param clusterId id of this cluster with respect to the current rank.
    * @param globalClusterId global id of this cluster.
-   * @param usePlasticity true if using plasticity
+   * @param settings simulation settings
    **/
   TimeCluster(unsigned int clusterId,
               unsigned int globalClusterId,
               unsigned int profilingId,
-              bool usePlasticity,
+              const SimulationSettings& settings,
               HaloType layerType,
               double maxTimeStepSize,
               long timeStepRate,

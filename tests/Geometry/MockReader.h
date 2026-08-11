@@ -30,6 +30,11 @@ class MockReader : public seissol::geometry::MeshReader {
     elements_.at(0).vertices[2] = 2;
     elements_.at(0).vertices[3] = 3;
   }
+
+  explicit MockReader(const std::vector<Vertex>& vertices, const std::vector<Element>& elements) {
+    elements_ = elements;
+    vertices_ = vertices;
+  }
 };
 } // namespace seissol
 

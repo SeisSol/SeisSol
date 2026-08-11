@@ -9,6 +9,7 @@
 
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
@@ -89,8 +90,8 @@ void MeshReader::scaleMesh(const Eigen::Matrix3d& scalingMatrix) {
 void MeshReader::disableDR() {
   for (auto& elem : elements_) {
     for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
-      if (elem.boundaries[j] == 3) {
-        elem.boundaries[j] = 0;
+      if (elem.boundaries[j] == FaceType::DynamicRupture) {
+        elem.boundaries[j] = FaceType::Regular;
       }
     }
   }
@@ -107,7 +108,7 @@ void MeshReader::extractFaultInformation(
       // Set default mpi fault indices
       cell.mpiFaultIndices[j] = -1;
 
-      if (cell.boundaries[j] != 3) {
+      if (cell.boundaries[j] != FaceType::DynamicRupture) {
         continue;
       }
 
