@@ -7,7 +7,7 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Wolf
 
-#include "Initializer/TimeStepping/ClusterSmoother.h"
+#include "Initializer/Clustering/ClusterSmoother.h"
 
 #include "Common/Constants.h"
 #include "Geometry/PUMLReader.h"

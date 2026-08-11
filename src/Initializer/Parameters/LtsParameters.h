@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_LTSPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_LTSPARAMETERS_H_
 
-#include "Initializer/TimeStepping/ClusterCostModel.h"
+#include "Initializer/Clustering/ClusterCostModel.h"
 #include "ParameterReader.h"
 
 namespace seissol::initializer::parameters {

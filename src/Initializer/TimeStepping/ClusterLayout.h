@@ -7,7 +7,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_CLUSTERLAYOUT_H_
 #define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_CLUSTERLAYOUT_H_
 
-#include "Initializer/TimeStepping/ClusterLadder.h"
+#include "Initializer/Clustering/ClusterLadder.h"
 
 #include <cstddef>
 #include <cstdint>

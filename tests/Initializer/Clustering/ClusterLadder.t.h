@@ -13,9 +13,9 @@
 // where the current implementation is inconsistent, the inconsistency is pinned and
 // annotated rather than "fixed" here.
 
-#include "Initializer/TimeStepping/ClusterLadder.h"
+#include "Initializer/Clustering/ClusterLadder.h"
+#include "Initializer/Clustering/VertexWeights/LtsWeights.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
-#include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
 #include "TestHelper.h"
 
 #include <cmath>

@@ -8,9 +8,9 @@
 #include "InitMesh.h"
 
 #include "Geometry/MeshDefinition.h"
+#include "Initializer/Clustering/VertexWeights/LtsWeights.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
 #include "Solver/Estimator.h"
 
 #include <Eigen/Core>
@@ -29,8 +29,8 @@
 
 #include <hdf5.h>
 #endif // defined(USE_HDF)
+#include "Initializer/Clustering/VertexWeights/WeightsFactory.h"
 #include "Initializer/FaceMap.h"
-#include "Initializer/TimeStepping/LtsWeights/WeightsFactory.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Stopwatch.h"
 #include "Numerical/Statistics.h"

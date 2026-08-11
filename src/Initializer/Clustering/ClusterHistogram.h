@@ -5,10 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_CLUSTERHISTOGRAM_H_
-#define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_CLUSTERHISTOGRAM_H_
+#ifndef SEISSOL_SRC_INITIALIZER_CLUSTERING_CLUSTERHISTOGRAM_H_
+#define SEISSOL_SRC_INITIALIZER_CLUSTERING_CLUSTERHISTOGRAM_H_
 
-#include "Initializer/TimeStepping/ClusterLadder.h"
+#include "Initializer/Clustering/ClusterLadder.h"
 
 #include <cstddef>
 #include <limits>
@@ -63,4 +63,4 @@ class ClusterHistogram {
 
 } // namespace seissol::initializer
 
-#endif // SEISSOL_SRC_INITIALIZER_TIMESTEPPING_CLUSTERHISTOGRAM_H_
+#endif // SEISSOL_SRC_INITIALIZER_CLUSTERING_CLUSTERHISTOGRAM_H_

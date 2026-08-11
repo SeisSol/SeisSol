@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Initializer/TimeStepping/ClusterLadder.h"
+#include "Initializer/Clustering/ClusterLadder.h"
 
 #include <cassert>
 #include <cstddef>

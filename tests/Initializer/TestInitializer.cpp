@@ -7,9 +7,9 @@
 
 #include <doctest.h>
 
+#include "Clustering/ClusterHistogram.t.h"
+#include "Clustering/ClusterLadder.t.h"
+#include "Clustering/LTSWeights.t.h"
+#include "Clustering/LadderOptimizer.t.h"
 #include "FaceMap.t.h"
 #include "PointMapper.t.h"
-#include "TimeStepping/ClusterHistogram.t.h"
-#include "TimeStepping/ClusterLadder.t.h"
-#include "TimeStepping/LTSWeights.t.h"
-#include "TimeStepping/LadderOptimizer.t.h"

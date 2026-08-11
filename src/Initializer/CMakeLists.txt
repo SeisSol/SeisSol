@@ -39,17 +39,20 @@ add_library(seissol-initializer OBJECT
     Parameters/SeisSolParameters.cpp
     Parameters/SourceParameters.cpp
 
-    TimeStepping/ClusterHistogram.cpp
-    TimeStepping/ClusterLadder.cpp
+    Clustering/ClusterHistogram.cpp
+    Clustering/ClusterLadder.cpp
+    Clustering/ClusterSmoother.cpp
+    Clustering/ClusteringEvaluator.cpp
+    Clustering/GridLadderSearch.cpp
+    Clustering/LadderOptimizer.cpp
+    Clustering/LatticeDpSearch.cpp
+    Clustering/TimestepHistogram.cpp
+    Clustering/VertexWeights/LtsWeights.cpp
+    Clustering/VertexWeights/WeightsModels.cpp
+
     TimeStepping/ClusterLayout.cpp
-    TimeStepping/ClusterSearch.cpp
-    TimeStepping/ClusterSmoother.cpp
     TimeStepping/GlobalTimestep.cpp
     TimeStepping/Halo.cpp
-    TimeStepping/LadderOptimizer.cpp
-    TimeStepping/TimestepHistogram.cpp
-    TimeStepping/LtsWeights/LtsWeights.cpp
-    TimeStepping/LtsWeights/WeightsModels.cpp
 )
 
 target_link_libraries(seissol-initializer PUBLIC seissol-common-properties)

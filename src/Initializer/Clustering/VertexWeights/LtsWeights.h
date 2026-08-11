@@ -7,13 +7,14 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Wolf
 
-#ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_LTSWEIGHTS_H_
-#define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_LTSWEIGHTS_H_
+#ifndef SEISSOL_SRC_INITIALIZER_CLUSTERING_VERTEXWEIGHTS_LTSWEIGHTS_H_
+#define SEISSOL_SRC_INITIALIZER_CLUSTERING_VERTEXWEIGHTS_LTSWEIGHTS_H_
 
 #include "Geometry/PUMLReader.h"
-#include "Initializer/TimeStepping/ClusterLadder.h"
-#include "Initializer/TimeStepping/ClusterSearch.h"
-#include "Initializer/TimeStepping/ClusterSmoother.h"
+#include "Initializer/Clustering/ClusterLadder.h"
+#include "Initializer/Clustering/ClusterSmoother.h"
+#include "Initializer/Clustering/GridLadderSearch.h"
+#include "Initializer/Clustering/LatticeDpSearch.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 
 #include <limits>
@@ -134,4 +135,4 @@ class LtsWeights {
 } // namespace initializer::time_stepping
 } // namespace seissol
 
-#endif // SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_LTSWEIGHTS_H_
+#endif // SEISSOL_SRC_INITIALIZER_CLUSTERING_VERTEXWEIGHTS_LTSWEIGHTS_H_

@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Initializer/TimeStepping/TimestepHistogram.h"
+#include "Initializer/Clustering/TimestepHistogram.h"
 
 #include <algorithm>
 #include <cassert>

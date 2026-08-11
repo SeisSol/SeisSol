@@ -12,9 +12,9 @@
 #include "Common/Iterator.h"
 #include "Geometry/MeshDefinition.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/Clustering/VertexWeights/LtsWeights.h"
 #include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/MeshParameters.h"
-#include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
 #include "Monitoring/Instrumentation.h"
 #include "PartitioningLib.h"
 

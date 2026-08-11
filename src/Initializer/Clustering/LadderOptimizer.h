@@ -5,11 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LADDEROPTIMIZER_H_
-#define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LADDEROPTIMIZER_H_
+#ifndef SEISSOL_SRC_INITIALIZER_CLUSTERING_LADDEROPTIMIZER_H_
+#define SEISSOL_SRC_INITIALIZER_CLUSTERING_LADDEROPTIMIZER_H_
 
-#include "Initializer/TimeStepping/ClusterCostModel.h"
-#include "Initializer/TimeStepping/TimestepHistogram.h"
+#include "Initializer/Clustering/ClusterCostModel.h"
+#include "Initializer/Clustering/TimestepHistogram.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -60,4 +60,4 @@ double ladderCost(const TimestepHistogram& histogram,
 
 } // namespace seissol::initializer
 
-#endif // SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LADDEROPTIMIZER_H_
+#endif // SEISSOL_SRC_INITIALIZER_CLUSTERING_LADDEROPTIMIZER_H_
