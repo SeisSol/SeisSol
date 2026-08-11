@@ -112,6 +112,9 @@ EasiReader::EasiReader(const std::string& script, const std::vector<std::string>
   } catch (const std::exception& error) {
     logError() << "Error while parsing easi file" << script << ":" << std::string(error.what());
   }
+
+  const auto outVarsPre = components_->suppliedParameters();
+  outVars_ = std::vector<std::string>(outVarsPre.begin(), outVarsPre.end());
 }
 
 void EasiReader::call(const scripting::DataTable& table) {
