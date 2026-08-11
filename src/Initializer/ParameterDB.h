@@ -16,8 +16,8 @@
 #include "Geometry/PUMLReader.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
-#include "easi/Query.h"
-#include "easi/ResultAdapter.h"
+#include "Reader/Scripting/DataReader.h"
+#include "Reader/Scripting/DataTable.h"
 
 #include <cstddef>
 #include <memory>
@@ -30,10 +30,6 @@
 #endif
 
 #include <Eigen/Dense>
-
-namespace easi {
-class Component;
-} // namespace easi
 
 namespace seissol::initializer {
 constexpr auto NumQuadpoints = ConvergenceOrder * ConvergenceOrder * ConvergenceOrder;
@@ -64,14 +60,13 @@ struct CellToVertexArray {
   static CellToVertexArray join(std::vector<CellToVertexArray> arrays);
 };
 
-easi::Component* loadEasiModel(const std::string& fileName);
 std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMaterial,
                                                       const CellToVertexArray& cellToVertex);
 
 class QueryGenerator {
   public:
   virtual ~QueryGenerator() = default;
-  [[nodiscard]] virtual easi::Query generate() const = 0;
+  [[nodiscard]] virtual reader::scripting::DataTable generate() const = 0;
   [[nodiscard]] virtual std::size_t outputPerCell() const { return 1; }
 };
 
@@ -79,7 +74,7 @@ class ElementBarycenterGenerator : public QueryGenerator {
   public:
   explicit ElementBarycenterGenerator(const CellToVertexArray& cellToVertex)
       : cellToVertex_(cellToVertex) {}
-  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] reader::scripting::DataTable generate() const override;
 
   private:
   CellToVertexArray cellToVertex_;
@@ -88,7 +83,7 @@ class ElementBarycenterGenerator : public QueryGenerator {
 class ElementAverageGenerator : public QueryGenerator {
   public:
   explicit ElementAverageGenerator(const CellToVertexArray& cellToVertex);
-  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] reader::scripting::DataTable generate() const override;
   [[nodiscard]] const std::array<double, NumQuadpoints>& getQuadratureWeights() const {
     return quadratureWeights_;
   };
@@ -103,7 +98,7 @@ class PlasticityPointGenerator : public QueryGenerator {
   public:
   explicit PlasticityPointGenerator(const CellToVertexArray& cellToVertex, bool pointwise = true)
       : cellToVertex_(cellToVertex), pointwise_(pointwise) {}
-  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] reader::scripting::DataTable generate() const override;
   [[nodiscard]] std::size_t outputPerCell() const override;
 
   private:
@@ -116,7 +111,7 @@ class FaultBarycenterGenerator : public QueryGenerator {
   FaultBarycenterGenerator(const seissol::geometry::MeshReader& meshReader,
                            std::size_t numberOfPoints)
       : meshReader_(meshReader), numberOfPoints_(numberOfPoints) {}
-  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] reader::scripting::DataTable generate() const override;
 
   private:
   const seissol::geometry::MeshReader& meshReader_;
@@ -128,7 +123,7 @@ class FaultGPGenerator : public QueryGenerator {
   FaultGPGenerator(const seissol::geometry::MeshReader& meshReader,
                    const std::vector<std::size_t>& faceIDs)
       : meshReader_(meshReader), faceIDs_(faceIDs) {}
-  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] reader::scripting::DataTable generate() const override;
 
   private:
   const seissol::geometry::MeshReader& meshReader_;
@@ -139,7 +134,7 @@ class ParameterDB {
   public:
   virtual ~ParameterDB() = default;
   virtual void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) = 0;
-  static easi::Component* loadModel(const std::string& fileName);
+  static std::unique_ptr<reader::scripting::DataReader> loadModel(const std::string& fileName);
 };
 
 template <class T>
@@ -182,7 +177,7 @@ class EasiBoundary {
   void query(const real* nodes, real* mapTermsData, real* constantTermsData) const;
 
   private:
-  easi::Component* model_;
+  std::unique_ptr<reader::scripting::DataReader> model_;
 };
 
 } // namespace seissol::initializer
