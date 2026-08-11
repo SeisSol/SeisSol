@@ -59,6 +59,17 @@ class ClusterLadder {
                                   double wiggleFactor,
                                   double maximumTimestep);
 
+  /// Ladder from an already complete ratio list: no repetition of the last entry, no
+  /// terminator, no truncation. `ratios` *is* the ladder.
+  ///
+  /// This is the counterpart of `forBinning` for ladders that carry their own length, such as
+  /// the output of a search. Applying `forBinning` to such a list would extend it, and that
+  /// extension is not a no-op even when the list came from `forBinning` in the first place:
+  /// the repeated entry is the last ratio, not the one the original vector would have used at
+  /// that position.
+  static ClusterLadder
+      exact(const std::vector<std::uint64_t>& ratios, double minimumTimestep, double wiggleFactor);
+
   /// Ladder of a fixed size, for a base timestep that already includes the wiggle factor.
   /// `clusterOf()` on such a ladder is not bit-identical to the binning path (see above);
   /// it exists so that `ClusterLayout` can share the update-factor logic.

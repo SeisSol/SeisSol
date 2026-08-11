@@ -30,6 +30,7 @@
 #include <cstdint>
 #include <memory>
 #include <mpi.h>
+#include <optional>
 #include <utils/logger.h>
 #include <vector>
 
@@ -191,7 +192,7 @@ void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
                      ltsParameters.getWiggleFactorEnforceMaximumDifference());
 
   int finalNumberOfReductions = 0;
-  auto chosenRates = rate_;
+  std::optional<std::vector<std::uint64_t>> searchRatios;
 
   const auto usesLatticeSearch = ltsParameters.getClusteringSearch() ==
                                  seissol::initializer::parameters::LtsClusteringSearch::Lattice;
@@ -229,7 +230,7 @@ void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
     const auto searchResult = search->run(evaluator_.value(), constraints);
 
     wiggleFactor_ = searchResult.wiggleFactor;
-    chosenRates = searchResult.rates;
+    searchRatios = searchResult.ratios;
     if (ltsParameters.isAutoMergeUsed()) {
       maxClusterIdToEnforce = std::min(maxClusterIdToEnforce, searchResult.maxClusterId);
     }
@@ -239,13 +240,13 @@ void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
 
   // Normalize once, here: from this point on nothing may re-derive the ladder from the
   // parameter file, because the search is allowed to have changed it.
-  effectiveRates_ =
+  effectiveRates_ = searchRatios.value_or(
       ClusterLadder::forBinning(
-          chosenRates, details_.globalMinTimeStep, wiggleFactor_, details_.globalMaxTimeStep)
-          .ratios();
+          rate_, details_.globalMinTimeStep, wiggleFactor_, details_.globalMaxTimeStep)
+          .ratios());
 
   ncon_ = evaluateNumberOfConstraints();
-  finalNumberOfReductions += evaluator_.value().realize(chosenRates, wiggleFactor_);
+  finalNumberOfReductions += evaluator_.value().realize(effectiveRates_, wiggleFactor_);
 
   if (!ltsParameters.getWiggleFactorEnforceMaximumDifference()) {
     finalNumberOfReductions += evaluator_.value().smoothCurrent();

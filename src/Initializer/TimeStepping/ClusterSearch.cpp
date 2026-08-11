@@ -52,13 +52,19 @@ ClusteringEvaluator::ClusteringEvaluator(const geometry::PumlMesh& mesh,
       rate_(std::move(rate)), smoothDuringSearch_(smoothDuringSearch),
       cellCount_(mesh.cells().size()), clusterIds_(mesh.cells().size(), 0) {}
 
-std::vector<int> ClusteringEvaluator::binCells(const std::vector<std::uint64_t>& rates,
-                                               double wiggleFactor) const {
-  std::vector<int> clusterIds(cellCount_, 0);
+ClusterLadder ClusteringEvaluator::configuredLadder(double wiggleFactor) const {
+  // The only place that applies the abbreviated ClusteredLTS convention; everything past the
+  // search works on complete ladders.
+  return ClusterLadder::forBinning(
+      rate_, timesteps_->globalMinTimeStep, wiggleFactor, timesteps_->globalMaxTimeStep);
+}
 
-  // Build the ladder once instead of walking the rate vector per cell.
-  const auto ladder = ClusterLadder::forBinning(
-      rates, timesteps_->globalMinTimeStep, wiggleFactor, timesteps_->globalMaxTimeStep);
+std::vector<std::uint64_t> ClusteringEvaluator::configuredRatios(double wiggleFactor) const {
+  return configuredLadder(wiggleFactor).ratios();
+}
+
+std::vector<int> ClusteringEvaluator::binCells(const ClusterLadder& ladder) const {
+  std::vector<int> clusterIds(cellCount_, 0);
 
 #pragma omp parallel for
   for (std::size_t cell = 0; cell < cellCount_; ++cell) {
@@ -84,7 +90,7 @@ int ClusteringEvaluator::realize(double wiggleFactor) {
     int cellchanges = 0;
     if (lb != cache_.end()) {
       // use the cache
-      const auto newClusterIds = binCells(rate_, wiggleFactor);
+      const auto newClusterIds = binCells(configuredLadder(wiggleFactor));
 
 #pragma omp parallel for reduction(+ : cellchanges)
       for (std::size_t cell = 0; cell < cellCount_; ++cell) {
@@ -94,7 +100,7 @@ int ClusteringEvaluator::realize(double wiggleFactor) {
         clusterIds_[cell] = std::min(lb->second[cell], newClusterIds[cell]);
       }
     } else {
-      clusterIds_ = binCells(rate_, wiggleFactor);
+      clusterIds_ = binCells(configuredLadder(wiggleFactor));
       cellchanges = static_cast<int>(cellCount_);
     }
     if (smoothDuringSearch_) {
@@ -109,11 +115,11 @@ int ClusteringEvaluator::realize(double wiggleFactor) {
   return numberOfReductions;
 }
 
-int ClusteringEvaluator::realize(const std::vector<std::uint64_t>& rates, double wiggleFactor) {
-  if (rates == rate_) {
+int ClusteringEvaluator::realize(const std::vector<std::uint64_t>& ratios, double wiggleFactor) {
+  if (ratios == configuredRatios(wiggleFactor)) {
     return realize(wiggleFactor);
   }
-  clusterIds_ = binCells(rates, wiggleFactor);
+  clusterIds_ = binCells(ClusterLadder::exact(ratios, timesteps_->globalMinTimeStep, wiggleFactor));
   return smoothDuringSearch_ ? smoothCurrent() : 0;
 }
 
@@ -137,11 +143,11 @@ double ClusteringEvaluator::globalCost(double wiggleFactor) const {
                                        Mpi::mpi.comm());
 }
 
-double ClusteringEvaluator::globalCost(const std::vector<std::uint64_t>& rates,
+double ClusteringEvaluator::globalCost(const std::vector<std::uint64_t>& ratios,
                                        double wiggleFactor) const {
   return computeGlobalCostOfClustering(clusterIds_,
                                        *cellCosts_,
-                                       rates,
+                                       ratios,
                                        wiggleFactor,
                                        timesteps_->globalMinTimeStep,
                                        Mpi::mpi.comm());
@@ -302,9 +308,12 @@ SearchResult GridLadderSearch::sweep(ClusteringEvaluator& evaluator,
     logInfo() << "Note: Cost increased due to cluster merging!";
   }
 
-  // the grid sweep tunes the wiggle factor only; the ladder is whatever was configured
-  return SearchResult{
-      bestWiggleFactor, minAdmissibleMaxClusterId, bestCostEstimate, evaluator.rate()};
+  // The grid sweep tunes the wiggle factor only, so the ladder is the configured one -- but it
+  // is handed back expanded, because everything past the search expects a complete ladder.
+  return SearchResult{bestWiggleFactor,
+                      minAdmissibleMaxClusterId,
+                      bestCostEstimate,
+                      evaluator.configuredRatios(bestWiggleFactor)};
 }
 
 namespace {
@@ -365,9 +374,6 @@ SearchResult LatticeDpSearch::run(ClusteringEvaluator& evaluator,
       bestWiggleFactor = curWiggleFactor;
       bestRatios = candidate.ratios;
     }
-
-    // add a dummy cluster at the end, to prevent the repeating logic
-    bestRatios.push_back(maxIndex + 1);
   }
 
   if (cappedAnywhere) {

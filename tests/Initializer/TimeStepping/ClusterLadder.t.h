@@ -336,6 +336,59 @@ TEST_CASE("ClusterLadder: agrees with the legacy free functions") {
   }
 }
 
+TEST_CASE("ClusterLadder: complete ladders") {
+  using seissol::initializer::ClusterLadder;
+
+  SUBCASE("expanding a rate vector and rebuilding it moves no cell") {
+    const std::vector<Rates> rateVectors{
+        {2}, {3}, {4, 2}, {2, 3}, {2, 2, 7}, {2, 2, 1}, {3, 2, 5, 6, 1}, {2, 4, 8}};
+    for (const auto& rate : rateVectors) {
+      CAPTURE(rate);
+      for (const double wiggle : {1.0, 0.9, 0.51}) {
+        for (const double maximumTimestep : {5.0, 9.0, 40.0, 750.0}) {
+          const auto original = ClusterLadder::forBinning(rate, 1.0, wiggle, maximumTimestep);
+          const auto rebuilt = ClusterLadder::exact(original.ratios(), 1.0, wiggle);
+          REQUIRE(rebuilt.clusterCount() == original.clusterCount());
+          for (int i = 1; i <= 3000; ++i) {
+            const double timestep = 0.25 * i;
+            if (timestep > maximumTimestep) {
+              break;
+            }
+            REQUIRE(rebuilt.clusterOf(timestep) == original.clusterOf(timestep));
+          }
+        }
+      }
+    }
+  }
+
+  SUBCASE("forBinning is not idempotent, which is why exact exists") {
+    // KNOWN, and the reason a search result must never be run through forBinning again.
+    // {2, 2, 7} up to 9 yields three clusters with ratios {2, 2}; feeding those back in
+    // repeats the trailing 2 instead of the 7 that would have come next, and a fourth cluster
+    // appears at 8.
+    const Rates rate{2, 2, 7};
+    const auto original = ClusterLadder::forBinning(rate, 1.0, 1.0, 9.0);
+    REQUIRE(original.ratios() == Rates{2, 2});
+    REQUIRE(original.clusterCount() == 3);
+
+    const auto reapplied = ClusterLadder::forBinning(original.ratios(), 1.0, 1.0, 9.0);
+    REQUIRE(reapplied.clusterCount() == 4);
+    REQUIRE(reapplied.clusterOf(8.5) == 3);
+
+    const auto rebuilt = ClusterLadder::exact(original.ratios(), 1.0, 1.0);
+    REQUIRE(rebuilt.clusterCount() == 3);
+    REQUIRE(rebuilt.clusterOf(8.5) == 2);
+    REQUIRE(rebuilt.clusterOf(8.5) == original.clusterOf(8.5));
+  }
+
+  SUBCASE("an empty ladder is a single cluster") {
+    const auto ladder = ClusterLadder::exact({}, 1.0, 1.0);
+    REQUIRE(ladder.clusterCount() == 1);
+    REQUIRE(ladder.clusterOf(1e9) == 0);
+    REQUIRE(ladder.updateFactor(0) == 1);
+  }
+}
+
 TEST_CASE("ClusterLadder: truncation") {
   using seissol::initializer::ClusterLadder;
   const auto ladder = ClusterLadder::forBinning({4, 2}, 1.0, 1.0, 1000.0);

@@ -127,6 +127,23 @@ ClusterLadder ClusterLadder::forBinning(const std::vector<std::uint64_t>& rate,
                        minimumTimestep * wiggleFactor);
 }
 
+ClusterLadder ClusterLadder::exact(const std::vector<std::uint64_t>& ratios,
+                                   double minimumTimestep,
+                                   double wiggleFactor) {
+  std::vector<double> boundaries;
+  boundaries.reserve(ratios.size());
+  for (std::size_t k = 0; k < ratios.size(); ++k) {
+    // same association order as forBinning, so that a ladder rebuilt from its own ratios bins
+    // every cell exactly as the original did
+    boundaries.push_back(k == 0 ? firstBoundary(ratios[0], minimumTimestep, wiggleFactor)
+                                : advance(boundaries.back(), ratios[k]));
+  }
+
+  auto updateFactors = buildUpdateFactors(ratios);
+  return ClusterLadder(
+      ratios, std::move(boundaries), std::move(updateFactors), minimumTimestep * wiggleFactor);
+}
+
 ClusterLadder ClusterLadder::ofSize(const std::vector<std::uint64_t>& rate,
                                     double baseTimestep,
                                     std::size_t clusterCount) {

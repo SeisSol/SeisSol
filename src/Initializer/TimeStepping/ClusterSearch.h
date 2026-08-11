@@ -15,6 +15,7 @@
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/TimeStepping/ClusterCostModel.h"
 #include "Initializer/TimeStepping/ClusterHistogram.h"
+#include "Initializer/TimeStepping/ClusterLadder.h"
 #include "Initializer/TimeStepping/ClusterSmoother.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "Initializer/TimeStepping/TimestepHistogram.h"
@@ -46,11 +47,13 @@ struct SearchResult {
   double wiggleFactor{1.0};
   int maxClusterId{0};
   double cost{0.0};
-  /// The ladder the search settled on, in the user-facing (possibly abbreviated) form. A
-  /// search that only tunes the wiggle factor hands back what it was given; one that also
-  /// chooses the ladder hands back something else, and that is what has to reach
-  /// ClusterLayout.
-  std::vector<std::uint64_t> rates;
+  /// The ladder the search settled on, **complete**: one ratio per cluster boundary, with no
+  /// repetition of the last entry and no terminator.
+  ///
+  /// The abbreviated form that `ClusteredLTS` accepts exists only between the parameter file
+  /// and the search. Every search hands back a complete ladder, so that nothing downstream has
+  /// to guess which of the two conventions a vector follows.
+  std::vector<std::uint64_t> ratios;
 };
 
 /// Realizes candidate clusterings and scores them.
@@ -81,10 +84,15 @@ class ClusteringEvaluator {
   /// demotions performed, which is zero when the candidate was served from the cache.
   int realize(double wiggleFactor);
 
-  /// Same, for a ladder other than the configured one. Only the configured rate vector is
-  /// cached: the monotonicity argument behind the cache holds along the wiggle factor at a
-  /// fixed ladder, not across ladders.
-  int realize(const std::vector<std::uint64_t>& rates, double wiggleFactor);
+  /// Same, for an explicitly given *complete* ladder -- one ratio per cluster boundary, with
+  /// no repetition of the last entry. Falls back to the cached path when the ladder happens to
+  /// be the configured one; other ladders are realized from scratch, because the monotonicity
+  /// argument behind the cache holds along the wiggle factor at a fixed ladder, not across
+  /// ladders.
+  int realize(const std::vector<std::uint64_t>& ratios, double wiggleFactor);
+
+  /// The configured rate vector expanded to a complete ladder at `wiggleFactor`.
+  [[nodiscard]] std::vector<std::uint64_t> configuredRatios(double wiggleFactor) const;
 
   /// Smooths the current clustering without touching the cache.
   int smoothCurrent();
@@ -97,7 +105,7 @@ class ClusteringEvaluator {
 
   /// Exact per-cell cost of the current clustering, summed over all ranks.
   [[nodiscard]] double globalCost(double wiggleFactor) const;
-  [[nodiscard]] double globalCost(const std::vector<std::uint64_t>& rates,
+  [[nodiscard]] double globalCost(const std::vector<std::uint64_t>& ratios,
                                   double wiggleFactor) const;
 
   /// Cell weight over `floor(cellTimestep / (wiggleFactor * minimumTimestep))`, reduced over
@@ -115,7 +123,8 @@ class ClusteringEvaluator {
   [[nodiscard]] const std::vector<std::uint64_t>& rate() const { return rate_; }
 
   private:
-  std::vector<int> binCells(const std::vector<std::uint64_t>& rates, double wiggleFactor) const;
+  [[nodiscard]] ClusterLadder configuredLadder(double wiggleFactor) const;
+  std::vector<int> binCells(const ClusterLadder& ladder) const;
 
   ClusterSmoother smoother_;
   SmoothingRule smoothingRule_{};

@@ -343,19 +343,14 @@ TEST_CASE("LTS clustering invariants on a mesh") {
     REQUIRE(effectiveRates[k] != 1);
   }
   {
-    double globalMaxTimestep = 0.0;
-    for (const auto& element : elements) {
-      globalMaxTimestep = std::max(globalMaxTimestep, element.timestep);
-    }
-    MPI_Allreduce(
-        MPI_IN_PLACE, &globalMaxTimestep, 1, MPI_DOUBLE, MPI_MAX, seissol::Mpi::mpi.comm());
-
-    const auto published = seissol::initializer::ClusterLadder::forBinning(
-        effectiveRates, globalMinTimestep, wiggle, globalMaxTimestep);
+    // `exact`, not `forBinning`: the published vector is a complete ladder, and re-applying the
+    // abbreviated convention to it would append clusters that the clustering never had
+    const auto published =
+        seissol::initializer::ClusterLadder::exact(effectiveRates, globalMinTimestep, wiggle);
     for (const auto& element : elements) {
       CAPTURE(element.globalId);
       REQUIRE(static_cast<std::size_t>(element.clusterId) <= effectiveRates.size());
-      // normalizing must not move a single cell
+      // expanding must not move a single cell
       REQUIRE(published.clusterOf(element.timestep) ==
               getCluster(element.timestep, globalMinTimestep, wiggle, rate));
     }
