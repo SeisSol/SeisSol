@@ -365,6 +365,9 @@ SearchResult LatticeDpSearch::run(ClusteringEvaluator& evaluator,
       bestWiggleFactor = curWiggleFactor;
       bestRatios = candidate.ratios;
     }
+
+    // add a dummy cluster at the end, to prevent the repeating logic
+    bestRatios.push_back(maxIndex + 1);
   }
 
   if (cappedAnywhere) {
