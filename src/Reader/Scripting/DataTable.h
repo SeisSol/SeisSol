@@ -86,6 +86,22 @@ class DataTable {
         DataEntry{std::move(name), dir, DataTypeTraits<T>::Type, accessor, setter});
   }
 
+  // View-on-existing-storage
+  template <typename T>
+  void bindViewConst(std::string name,
+                     Direction dir,
+                     const T* base,
+                     std::size_t stride = 1,
+                     std::size_t offset = 0) {
+    const auto accessor = [=](std::size_t idx, void* out) {
+      auto* outC = reinterpret_cast<T*>(out);
+      *outC = base[idx * stride + offset];
+    };
+
+    dataEntries_.emplace_back(
+        DataEntry{std::move(name), dir, DataTypeTraits<T>::Type, accessor, nullptr});
+  }
+
   // View-on-existing-struct
   template <typename S, typename T>
   void bindMemberView(std::string name, Direction dir, S* base, T S::* member) {
@@ -100,6 +116,18 @@ class DataTable {
 
     dataEntries_.emplace_back(
         DataEntry{std::move(name), dir, DataTypeTraits<T>::Type, accessor, setter});
+  }
+
+  // View-on-existing-struct
+  template <typename S, typename T>
+  void bindMemberViewConst(std::string name, Direction dir, const S* base, T S::* member) {
+    const auto accessor = [=](std::size_t idx, void* out) {
+      auto* outC = reinterpret_cast<T*>(out);
+      *outC = base[idx].*member;
+    };
+
+    dataEntries_.emplace_back(
+        DataEntry{std::move(name), dir, DataTypeTraits<T>::Type, accessor, nullptr});
   }
 
   // Lazy/computed (only called when reading)
