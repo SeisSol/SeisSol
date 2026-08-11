@@ -4,8 +4,6 @@
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
-// SPDX-FileContributor: Carsten Uphoff
-// SPDX-FileContributor: Sebastian Wolf
 
 #include "Initializer/Clustering/ClusteringEvaluator.h"
 

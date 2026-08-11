@@ -85,6 +85,8 @@ A consequence worth knowing is that the entry just before the trailing 1 is neve
 :code:`ClusteredLTS = '3 2 5 6 1'` yields four clusters with ratios 3, 2 and 5 between them;
 the 6 would only have mattered for a fifth cluster, which the trailing 1 forbids.
 
+.. _maxdiff:
+
 Cluster Smoothing (Maximum Difference Property)
 -----------------------------------------------
 
@@ -117,7 +119,7 @@ SeisSol tries to find the optimal wiggle factor automatically by performing a gr
 
 The step size of the grid search is controlled by the parameter *LtsWiggleFactorStepsize*.
 The optimal wiggle factor is the one that minimizes the cost of updates per unit time.
-When the setting *LtsWiggleFactorEnforceMaximumDifference* is set to one, SeisSol enforces the `Maximum Difference Property`_.
+When the setting *LtsWiggleFactorEnforceMaximumDifference* is set to one, SeisSol enforces the `Maximum Difference Property <_maxdiff>`_.
 during the grid search. This leads to a better cost estimate, but computing this cost estimate can be costly for large scale simulations with many MPI ranks.
 Hence, this is a trade-off between the time required to initialize the simulation and the time required to perform the actual simulation.
 Typically this setting should be activated and only be deactivated when the initialization time becomes a bottleneck.
@@ -218,7 +220,7 @@ For every wiggle factor on the same grid the legacy search uses, SeisSol bins th
 sizes by :math:`\lfloor \Delta t_e / (\lambda (\Delta t)^\text{min}) \rfloor`, runs the dynamic
 program on that histogram and keeps the cheapest candidate.
 Only that one candidate is then realized and smoothed, so the expensive part of the search --
-enforcing the `Maximum Difference Property`_ -- runs once rather than once per candidate.
+enforcing the `Maximum Difference Property <_maxdiff>`_ -- runs once rather than once per candidate.
 Because the prediction ignores the demotions that smoothing causes, SeisSol logs the predicted and
 the realized cost side by side.
 
