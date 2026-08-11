@@ -8,50 +8,30 @@
 #ifndef SEISSOL_SRC_INITIALIZER_CLUSTERING_VERTEXWEIGHTS_WEIGHTSMODELS_H_
 #define SEISSOL_SRC_INITIALIZER_CLUSTERING_VERTEXWEIGHTS_WEIGHTSMODELS_H_
 
-#include "LtsWeights.h"
+#include "Initializer/Clustering/VertexWeights/VertexWeightModel.h"
 
-namespace seissol {
-class SeisSol;
+namespace seissol::initializer {
 
-namespace initializer::time_stepping {
-
-class ExponentialWeights : public LtsWeights {
-  public:
-  explicit ExponentialWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance)
-      : LtsWeights(config, seissolInstance) {}
-  ~ExponentialWeights() override = default;
-
+class ExponentialWeights : public VertexWeightModel {
   protected:
   int evaluateNumberOfConstraints() final { return 1; }
   void setVertexWeights() final;
   void setAllowedImbalances() final;
 };
 
-class ExponentialBalancedWeights : public LtsWeights {
-  public:
-  explicit ExponentialBalancedWeights(const LtsWeightsConfig& config,
-                                      seissol::SeisSol& seissolInstance)
-      : LtsWeights(config, seissolInstance) {}
-  ~ExponentialBalancedWeights() override = default;
-
+class ExponentialBalancedWeights : public VertexWeightModel {
   protected:
   int evaluateNumberOfConstraints() final { return 2; }
   void setVertexWeights() final;
   void setAllowedImbalances() final;
 };
 
-class EncodedBalancedWeights : public LtsWeights {
-  public:
-  explicit EncodedBalancedWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance)
-      : LtsWeights(config, seissolInstance) {}
-  ~EncodedBalancedWeights() override = default;
-
+class EncodedBalancedWeights : public VertexWeightModel {
   protected:
   int evaluateNumberOfConstraints() final;
   void setVertexWeights() final;
   void setAllowedImbalances() final;
 };
-} // namespace initializer::time_stepping
-} // namespace seissol
+} // namespace seissol::initializer
 
 #endif // SEISSOL_SRC_INITIALIZER_CLUSTERING_VERTEXWEIGHTS_WEIGHTSMODELS_H_

@@ -8,7 +8,7 @@
 #include "InitMesh.h"
 
 #include "Geometry/MeshDefinition.h"
-#include "Initializer/Clustering/VertexWeights/LtsWeights.h"
+#include "Initializer/Clustering/Clustering.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Solver/Estimator.h"
@@ -286,8 +286,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
     }
   }();
 
-  using namespace seissol::initializer::time_stepping;
-  const LtsWeightsConfig config{
+  const seissol::initializer::ClusteringConfig config{
       boundaryFormat,
       seissolParams.timeStepping.lts.getRate(),
       seissolParams.timeStepping.vertexWeight.weightElement,
@@ -295,18 +294,20 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity,
       &faceMap};
 
-  auto ltsWeights = getLtsWeightsImplementation(
-      seissolParams.timeStepping.lts.getLtsWeightsType(), config, seissolInstance);
+  seissol::initializer::Clustering clustering(config, seissolInstance);
+  auto weightModel = seissol::initializer::getVertexWeightModel(
+      seissolParams.timeStepping.lts.getLtsWeightsType());
   auto* meshReader = new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName,
                                                        seissolParams.mesh.partitioningLib,
                                                        faceMap,
                                                        boundaryFormat,
                                                        topologyFormat,
-                                                       ltsWeights.get(),
+                                                       &clustering,
+                                                       weightModel.get(),
                                                        nodeWeight);
   seissolInstance.setMeshReader(meshReader);
-  seissolInstance.setTimestepScale(ltsWeights->getWiggleFactor());
-  seissolInstance.setEffectiveClusterRates(ltsWeights->effectiveRates());
+  seissolInstance.setTimestepScale(clustering.result().wiggleFactor);
+  seissolInstance.setEffectiveClusterRates(clustering.result().ratios);
 
   watch.pause();
   watch.printTime("PUML mesh read in:");

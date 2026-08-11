@@ -8,21 +8,21 @@
 #include "WeightsModels.h"
 
 #include "GeneratedCode/init.h"
-#include "Initializer/Clustering/VertexWeights/LtsWeights.h"
+#include "Initializer/Clustering/ClusteringCost.h"
+#include "Initializer/Clustering/VertexWeights/VertexWeightModel.h"
 
 #include <cassert>
 #include <cstddef>
 
-namespace seissol::initializer::time_stepping {
+namespace seissol::initializer {
 
 void ExponentialWeights::setVertexWeights() {
   assert(ncon_ == 1 && "single constraint partitioning");
-  const int maxCluster =
-      getCluster(details_.globalMaxTimeStep, details_.globalMinTimeStep, wiggleFactor_, rate_);
+  const auto& clustering = this->clustering();
 
-  for (std::size_t cell = 0; cell < cellCosts_.size(); ++cell) {
-    const auto factor = ratepow(rate_, clusterIds_[cell], maxCluster);
-    vertexWeights_[ncon_ * cell] = factor * cellCosts_[cell];
+  for (std::size_t cell = 0; cell < clustering.cellCosts.size(); ++cell) {
+    const auto factor = ratepow(clustering.ratios, clustering.clusterIds[cell], maxCluster());
+    vertexWeights_[ncon_ * cell] = factor * clustering.cellCosts[cell];
   }
 }
 
@@ -36,12 +36,11 @@ void ExponentialWeights::setAllowedImbalances() {
 
 void ExponentialBalancedWeights::setVertexWeights() {
   assert(ncon_ == 2 && "binary constaints partitioning");
-  const int maxCluster =
-      getCluster(details_.globalMaxTimeStep, details_.globalMinTimeStep, wiggleFactor_, rate_);
+  const auto& clustering = this->clustering();
 
-  for (std::size_t cell = 0; cell < cellCosts_.size(); ++cell) {
-    const auto factor = ratepow(rate_, clusterIds_[cell], maxCluster);
-    vertexWeights_[ncon_ * cell] = factor * cellCosts_[cell];
+  for (std::size_t cell = 0; cell < clustering.cellCosts.size(); ++cell) {
+    const auto factor = ratepow(clustering.ratios, clustering.clusterIds[cell], maxCluster());
+    vertexWeights_[ncon_ * cell] = factor * clustering.cellCosts[cell];
 
     constexpr int MemoryWeight{1};
     vertexWeights_[ncon_ * cell + 1] = MemoryWeight;
@@ -60,17 +59,19 @@ void ExponentialBalancedWeights::setAllowedImbalances() {
 }
 
 int EncodedBalancedWeights::evaluateNumberOfConstraints() {
-  const int maxCluster =
-      getCluster(details_.globalMaxTimeStep, details_.globalMinTimeStep, wiggleFactor_, rate_);
-  return maxCluster + 1;
+  // One constraint per cluster of the ladder that was actually chosen. Deriving it from the
+  // configured rate vector, as this used to, is wrong as soon as a search picks a different
+  // ladder.
+  return static_cast<int>(clustering().clusterCount());
 }
 
 void EncodedBalancedWeights::setVertexWeights() {
-  for (std::size_t cell = 0; cell < cellCosts_.size(); ++cell) {
+  const auto& clustering = this->clustering();
+  for (std::size_t cell = 0; cell < clustering.cellCosts.size(); ++cell) {
     for (int i = 0; i < ncon_; ++i) {
       vertexWeights_[ncon_ * cell + i] = 0;
     }
-    vertexWeights_[ncon_ * cell + clusterIds_[cell]] = cellCosts_[cell];
+    vertexWeights_[ncon_ * cell + clustering.clusterIds[cell]] = clustering.cellCosts[cell];
   }
 }
 
@@ -82,4 +83,4 @@ void EncodedBalancedWeights::setAllowedImbalances() {
     imbalances_[i] = MediumLtsWeightImbalance;
   }
 }
-} // namespace seissol::initializer::time_stepping
+} // namespace seissol::initializer

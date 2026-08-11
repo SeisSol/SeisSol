@@ -7,9 +7,9 @@
 
 #include "Initializer/Clustering/GridLadderSearch.h"
 
+#include "Initializer/Clustering/ClusteringCost.h"
 #include "Initializer/Clustering/ClusteringEvaluator.h"
 #include "Initializer/Clustering/LadderSearch.h"
-#include "Initializer/Clustering/VertexWeights/LtsWeights.h"
 #include "Initializer/Parameters/LtsParameters.h"
 
 #include <algorithm>
@@ -20,11 +20,6 @@
 #include <optional>
 #include <utils/logger.h>
 #include <vector>
-
-namespace {
-using seissol::initializer::time_stepping::computeMaxClusterIdAfterAutoMerge;
-using seissol::initializer::time_stepping::enforceMaxClusterId;
-} // namespace
 
 namespace seissol::initializer {
 

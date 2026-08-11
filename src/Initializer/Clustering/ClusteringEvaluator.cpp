@@ -11,8 +11,8 @@
 #include "Initializer/Clustering/ClusterHistogram.h"
 #include "Initializer/Clustering/ClusterLadder.h"
 #include "Initializer/Clustering/ClusterSmoother.h"
+#include "Initializer/Clustering/ClusteringCost.h"
 #include "Initializer/Clustering/TimestepHistogram.h"
-#include "Initializer/Clustering/VertexWeights/LtsWeights.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "Parallel/MPI.h"
@@ -24,10 +24,6 @@
 #include <mpi.h>
 #include <utility>
 #include <vector>
-
-namespace {
-using seissol::initializer::time_stepping::computeGlobalCostOfClustering;
-} // namespace
 
 namespace seissol::initializer {
 

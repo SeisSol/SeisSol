@@ -7,7 +7,7 @@
 
 #include "Initializer/Clustering/ClusterHistogram.h"
 #include "Initializer/Clustering/ClusterLadder.h"
-#include "Initializer/Clustering/VertexWeights/LtsWeights.h"
+#include "Initializer/Clustering/ClusteringCost.h"
 #include "TestHelper.h"
 
 #include <cstdint>
@@ -45,7 +45,7 @@ TEST_CASE("ClusterHistogram: binning") {
 }
 
 TEST_CASE("ClusterHistogram: cost agrees with the per-cell cost") {
-  using namespace seissol::initializer::time_stepping;
+  using namespace seissol::initializer;
   using seissol::initializer::ClusterHistogram;
   using seissol::initializer::ClusterLadder;
 

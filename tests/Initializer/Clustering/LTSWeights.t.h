@@ -9,6 +9,9 @@
 #include "Geometry/PUMLReader.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Clustering/ClusterLadder.h"
+#include "Initializer/Clustering/Clustering.h"
+#include "Initializer/Clustering/ClusteringCost.h"
+#include "Initializer/Clustering/VertexWeights/WeightsFactory.h"
 #include "Initializer/Clustering/VertexWeights/WeightsModels.h"
 #include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/LtsParameters.h"
@@ -30,11 +33,11 @@ namespace seissol::unit_test {
 
 TEST_CASE("LTS Weights") {
   std::cout.setstate(std::ios_base::failbit);
-  using namespace seissol::initializer::time_stepping;
+  using namespace seissol::initializer;
 
   const auto faceMap = defaultFaceMap();
 
-  const LtsWeightsConfig config{
+  const ClusteringConfig config{
       seissol::initializer::parameters::BoundaryFormat::I32, {2}, 1, 1, 1, &faceMap};
 
   const seissol::initializer::parameters::LtsParameters ltsParameters(
@@ -57,18 +60,20 @@ TEST_CASE("LTS Weights") {
   const utils::Env env("SEISSOL_");
   seissol::SeisSol seissolInstance(seissolParameters, env);
 
-  auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
+  Clustering clustering(config, seissolInstance);
+  ExponentialWeights weightModel;
   const auto pumlReader =
       seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
                                     "Default",
                                     faceMap,
                                     seissol::initializer::parameters::BoundaryFormat::I32,
                                     seissol::initializer::parameters::TopologyFormat::Geometric,
-                                    ltsWeights.get());
+                                    &clustering,
+                                    &weightModel);
   std::cout.clear();
 
   const auto givenWeights =
-      std::vector<unsigned>(ltsWeights->vertexWeights(), ltsWeights->vertexWeights() + 24);
+      std::vector<unsigned>(weightModel.vertexWeights(), weightModel.vertexWeights() + 24);
 
   const auto expectedWeights =
       std::vector<unsigned>{2, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 1, 1, 2, 1};
@@ -78,7 +83,7 @@ TEST_CASE("LTS Weights") {
 
 TEST_CASE("Cost function for LTS") {
   const auto eps = 10e-12;
-  using namespace initializer::time_stepping;
+  using namespace seissol::initializer;
 
   SUBCASE("No clusters") {
     const std::vector<int> clusterIds = {};
@@ -164,7 +169,7 @@ TEST_CASE("Cost function for LTS") {
 }
 
 TEST_CASE("Enforce max cluster id") {
-  using namespace seissol::initializer::time_stepping;
+  using namespace seissol::initializer;
   const auto clusterIds = std::vector<int>{0, 1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1, 0};
   SUBCASE("No change") {
     const auto& should = clusterIds;
@@ -184,7 +189,7 @@ TEST_CASE("Enforce max cluster id") {
 }
 
 TEST_CASE("Batched costs of capped clusterings") {
-  using namespace seissol::initializer::time_stepping;
+  using namespace seissol::initializer;
   const auto clusterIds = std::vector<int>{0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 4};
   const auto cellCosts = std::vector<int>{7, 3, 5, 1, 3, 3, 9, 2, 4, 6, 8, 5};
   const auto maxClusterId = 4;
@@ -213,7 +218,7 @@ TEST_CASE("Batched costs of capped clusterings") {
 }
 
 TEST_CASE("Auto merging of clusters") {
-  using namespace seissol::initializer::time_stepping;
+  using namespace seissol::initializer;
   const auto clusterIds = std::vector<int>{0, 0, 0, 0, 1, 1, 2};
   const auto cellCosts = std::vector<int>{1, 1, 1, 1, 3, 3, 9};
   const auto minDt = 0.5;
@@ -271,7 +276,7 @@ TEST_CASE("LTS clustering invariants on a mesh") {
   // cluster ids (which would have to be regenerated for every mesh change), this asserts
   // the two structural properties that the refactor must not break.
   std::cout.setstate(std::ios_base::failbit);
-  using namespace seissol::initializer::time_stepping;
+  using namespace seissol::initializer;
 
   // a non-uniform ladder plus an active wiggle sweep -- neither is covered above
   const auto rate = std::vector<std::uint64_t>{4, 2};
@@ -279,7 +284,7 @@ TEST_CASE("LTS clustering invariants on a mesh") {
 
   const auto faceMap = defaultFaceMap();
 
-  const LtsWeightsConfig config{
+  const ClusteringConfig config{
       seissol::initializer::parameters::BoundaryFormat::I32, rate, 1, 1, 1, &faceMap};
 
   const seissol::initializer::parameters::LtsParameters ltsParameters(
@@ -303,17 +308,19 @@ TEST_CASE("LTS clustering invariants on a mesh") {
   const utils::Env env("SEISSOL_");
   seissol::SeisSol seissolInstance(seissolParameters, env);
 
-  auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
+  Clustering clustering(config, seissolInstance);
+  ExponentialWeights weightModel;
   const auto pumlReader =
       seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
                                     "Default",
                                     faceMap,
                                     seissol::initializer::parameters::BoundaryFormat::I32,
                                     seissol::initializer::parameters::TopologyFormat::Geometric,
-                                    ltsWeights.get());
+                                    &clustering,
+                                    &weightModel);
   std::cout.clear();
 
-  const auto wiggle = ltsWeights->getWiggleFactor();
+  const auto wiggle = clustering.result().wiggleFactor;
   REQUIRE(wiggle > 0.0);
   REQUIRE(wiggle <= 1.0);
 
@@ -338,7 +345,7 @@ TEST_CASE("LTS clustering invariants on a mesh") {
   }
 
   // (1b) the published ladder describes exactly the clustering that was produced
-  const auto& effectiveRates = ltsWeights->effectiveRates();
+  const auto& effectiveRates = clustering.result().ratios;
   for (std::size_t k = 1; k < effectiveRates.size(); ++k) {
     REQUIRE(effectiveRates[k] != 1);
   }

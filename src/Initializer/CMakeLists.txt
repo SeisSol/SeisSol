@@ -42,12 +42,14 @@ add_library(seissol-initializer OBJECT
     Clustering/ClusterHistogram.cpp
     Clustering/ClusterLadder.cpp
     Clustering/ClusterSmoother.cpp
+    Clustering/Clustering.cpp
+    Clustering/ClusteringCost.cpp
     Clustering/ClusteringEvaluator.cpp
     Clustering/GridLadderSearch.cpp
     Clustering/LadderOptimizer.cpp
     Clustering/LatticeDpSearch.cpp
     Clustering/TimestepHistogram.cpp
-    Clustering/VertexWeights/LtsWeights.cpp
+    Clustering/VertexWeights/VertexWeightModel.cpp
     Clustering/VertexWeights/WeightsModels.cpp
 
     TimeStepping/ClusterLayout.cpp

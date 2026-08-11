@@ -12,7 +12,8 @@
 #include "Common/Iterator.h"
 #include "Geometry/MeshDefinition.h"
 #include "Initializer/BasicTypedefs.h"
-#include "Initializer/Clustering/VertexWeights/LtsWeights.h"
+#include "Initializer/Clustering/Clustering.h"
+#include "Initializer/Clustering/VertexWeights/VertexWeightModel.h"
 #include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Monitoring/Instrumentation.h"
@@ -167,7 +168,8 @@ PUMLReader::PUMLReader(const std::string& meshFile,
                        const seissol::FaceMap& faceMap,
                        seissol::initializer::parameters::BoundaryFormat boundaryFormat,
                        seissol::initializer::parameters::TopologyFormat topologyFormat,
-                       initializer::time_stepping::LtsWeights* ltsWeights,
+                       initializer::Clustering* clustering,
+                       initializer::VertexWeightModel* weightModel,
                        double tpwgt) {
   // we need up to two meshes, potentially:
   // one mesh for the geometry
@@ -213,10 +215,14 @@ PUMLReader::PUMLReader(const std::string& meshFile,
                            ? meshGeometry
                            : meshTopologyExtra;
 
-  if (ltsWeights != nullptr) {
-    ltsWeights->computeWeights(meshTopology, meshGeometry);
+  // The clustering needs the meshes, which only exist here -- hence the orchestrator is passed
+  // in and run rather than its result.
+  const initializer::ClusteringResult* clusteringResult = nullptr;
+  if (clustering != nullptr) {
+    clusteringResult = &clustering->compute(meshTopology, meshGeometry);
   }
-  partition(meshTopology, meshGeometry, ltsWeights, tpwgt, partitioningLib);
+
+  partition(meshTopology, meshGeometry, clusteringResult, weightModel, tpwgt, partitioningLib);
 
   generatePUML(meshTopology, meshGeometry);
 
@@ -261,7 +267,8 @@ void PUMLReader::read(PumlMesh& meshTopology,
 
 void PUMLReader::partition(PumlMesh& meshTopology,
                            PumlMesh& meshGeometry,
-                           initializer::time_stepping::LtsWeights* ltsWeights,
+                           const initializer::ClusteringResult* clustering,
+                           initializer::VertexWeightModel* weightModel,
                            double tpwgt,
                            const std::string& partitioningLib) {
   SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
@@ -278,7 +285,8 @@ void PUMLReader::partition(PumlMesh& meshTopology,
     logError() << "Unrecognized partition library: " << partitioningLib;
   }
   auto graph = PUML::TETPartitionGraph(meshTopology);
-  graph.setVertexWeights(ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex());
+  weightModel->build(*clustering);
+  graph.setVertexWeights(weightModel->vertexWeights(), weightModel->nWeightsPerVertex());
 
   auto nodeWeights = std::vector<double>(Mpi::mpi.size());
   MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights.data(), 1, MPI_DOUBLE, seissol::Mpi::mpi.comm());
@@ -292,12 +300,12 @@ void PUMLReader::partition(PumlMesh& meshTopology,
 
   auto target = PUML::PartitionTarget{};
   target.setVertexWeights(nodeWeights);
-  target.setImbalance(ltsWeights->imbalances()[0] - 1.0);
+  target.setImbalance(weightModel->imbalances()[0] - 1.0);
 
   auto newPartition = partitioner->partition(graph, target);
 
-  meshGeometry.addDataArray(ltsWeights->clusterIds().data(), PUML::CELL, {});
-  meshGeometry.addDataArray(ltsWeights->timesteps().data(), PUML::CELL, {});
+  meshGeometry.addDataArray(clustering->clusterIds.data(), PUML::CELL, {});
+  meshGeometry.addDataArray(clustering->timesteps.cellTimeStepWidths.data(), PUML::CELL, {});
 
   meshGeometry.partition(newPartition.data());
   if (&meshTopology != &meshGeometry) {

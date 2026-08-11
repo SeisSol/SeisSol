@@ -14,7 +14,7 @@
 // annotated rather than "fixed" here.
 
 #include "Initializer/Clustering/ClusterLadder.h"
-#include "Initializer/Clustering/VertexWeights/LtsWeights.h"
+#include "Initializer/Clustering/ClusteringCost.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "TestHelper.h"
 
@@ -62,7 +62,7 @@ std::uint64_t referenceCluster(double timestep,
                                double globalMinTimestep,
                                double wiggleFactor,
                                const Rates& rate) {
-  using namespace seissol::initializer::time_stepping;
+  using namespace seissol::initializer;
   if (rate.empty()) {
     return 0;
   }
@@ -81,7 +81,7 @@ std::uint64_t referenceCluster(double timestep,
 }
 
 std::uint64_t cluster(double timestep, const Rates& rate, double wiggle = 1.0) {
-  using namespace seissol::initializer::time_stepping;
+  using namespace seissol::initializer;
   return getCluster(timestep, 1.0, wiggle, rate);
 }
 
@@ -227,7 +227,7 @@ TEST_CASE("LTS ladder: cluster id is monotone in the wiggle factor") {
 
 TEST_CASE("LTS ladder: ratepow and ClusterLayout::clusterRate") {
   using namespace seissol::initializer;
-  using namespace seissol::initializer::time_stepping;
+  using namespace seissol::initializer;
 
   SUBCASE("they agree wherever no rate equals one") {
     const std::vector<Rates> rateVectors{{2}, {3}, {4, 2}, {2, 3}, {2, 4, 8}};
@@ -303,7 +303,7 @@ TEST_CASE("ClusterLadder: normalization") {
 }
 
 TEST_CASE("ClusterLadder: agrees with the legacy free functions") {
-  using namespace seissol::initializer::time_stepping;
+  using namespace seissol::initializer;
   using seissol::initializer::ClusterLadder;
 
   const std::vector<Rates> rateVectors{
