@@ -60,10 +60,10 @@ class ClusterSmoother {
                   const FaceMap& faceMap);
 
   /// One local sweep plus one halo exchange. Returns the number of demotions on this rank.
-  int relaxOnce(std::vector<std::size_t>& clusterIds, const SmoothingRule& rule);
+  std::size_t relaxOnce(std::vector<std::size_t>& clusterIds, const SmoothingRule& rule);
 
   /// Iterates to the global fixed point. Returns the total number of demotions.
-  int relax(std::vector<std::size_t>& clusterIds, const SmoothingRule& rule, MPI_Comm comm);
+  std::size_t relax(std::vector<std::size_t>& clusterIds, const SmoothingRule& rule, MPI_Comm comm);
 
   /// Number of ranks this rank exchanges cluster ids with.
   [[nodiscard]] std::size_t exchangeCount() const { return rankToSharedFaces_.size(); }

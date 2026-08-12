@@ -38,20 +38,20 @@ class ClusteringEvaluator {
 
   /// Bins the cells for `wiggleFactor` and smooths the result. Returns the number of
   /// demotions performed, which is zero when the candidate was served from the cache.
-  int realize(double wiggleFactor);
+  std::size_t realize(double wiggleFactor);
 
   /// Same, for an explicitly given *complete* ladder -- one ratio per cluster boundary, with
   /// no repetition of the last entry. Falls back to the cached path when the ladder happens to
   /// be the configured one; other ladders are realized from scratch, because the monotonicity
   /// argument behind the cache holds along the wiggle factor at a fixed ladder, not across
   /// ladders.
-  int realize(const std::vector<std::uint64_t>& ratios, double wiggleFactor);
+  std::size_t realize(const std::vector<std::uint64_t>& ratios, double wiggleFactor);
 
   /// The configured rate vector expanded to a complete ladder at `wiggleFactor`.
   [[nodiscard]] std::vector<std::uint64_t> configuredRatios(double wiggleFactor) const;
 
   /// Smooths the current clustering without touching the cache.
-  int smoothCurrent();
+  std::size_t smoothCurrent();
 
   [[nodiscard]] const std::vector<std::size_t>& clusterIds() const { return clusterIds_; }
   std::vector<std::size_t>& mutableClusterIds() { return clusterIds_; }

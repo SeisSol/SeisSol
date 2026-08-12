@@ -39,6 +39,9 @@ FaceType decodeFaceType(const void* boundaryCond,
   return faceType.value();
 }
 
+// PUML's traversal API works in `unsigned int` face ids and `int` local cell ids, and MPI counts
+// are `int`. Those types appear verbatim wherever this file talks to either library; everything
+// in between uses `std::size_t`.
 ClusterSmoother::ClusterSmoother(const geometry::PumlMesh& mesh,
                                  parameters::BoundaryFormat boundaryFormat,
                                  const FaceMap& faceMap)
@@ -98,8 +101,9 @@ ClusterSmoother::ClusterSmoother(const geometry::PumlMesh& mesh,
   }
 }
 
-int ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds, const SmoothingRule& rule) {
-  int numberOfReductions = 0;
+std::size_t ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds,
+                                       const SmoothingRule& rule) {
+  std::size_t numberOfReductions = 0;
 
   const auto& cells = mesh_->cells();
   const auto& faces = mesh_->faces();
@@ -121,11 +125,13 @@ int ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds, const Smoot
           int cellIds[2];
           PUML::Upward::cells(*mesh_, face, cellIds);
 
+          // PUML hands back signed local ids; widening to the index type is explicit here
           const int neighborCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
-          const auto otherTimeCluster = clusterIds[neighborCell];
+          const auto otherTimeCluster = clusterIds[static_cast<std::size_t>(neighborCell)];
 
           // the rule yields a non-negative index difference, so the sum cannot wrap
-          const auto admissible = otherTimeCluster + rule.differenceFor(boundary);
+          const auto admissible =
+              otherTimeCluster + static_cast<std::size_t>(rule.differenceFor(boundary));
 
           if (timeCluster > admissible) {
             timeCluster = admissible;
@@ -181,7 +187,8 @@ int ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds, const Smoot
           const auto pos = sharedFaceToExchangeId_.at(faceids[f]);
           const auto otherTimeCluster = ghost_[pos.first][pos.second];
 
-          const auto admissible = otherTimeCluster + rule.differenceFor(boundary);
+          const auto admissible =
+              otherTimeCluster + static_cast<std::size_t>(rule.differenceFor(boundary));
 
           if (timeCluster > admissible) {
             timeCluster = admissible;
@@ -195,15 +202,20 @@ int ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds, const Smoot
   return numberOfReductions;
 }
 
-int ClusterSmoother::relax(std::vector<std::size_t>& clusterIds,
-                           const SmoothingRule& rule,
-                           MPI_Comm comm) {
-  int totalNumberOfReductions = 0;
-  int globalNumberOfReductions = 0;
+std::size_t ClusterSmoother::relax(std::vector<std::size_t>& clusterIds,
+                                   const SmoothingRule& rule,
+                                   MPI_Comm comm) {
+  std::size_t totalNumberOfReductions = 0;
+  std::size_t globalNumberOfReductions = 0;
   do {
-    int localNumberOfReductions = relaxOnce(clusterIds, rule);
+    std::size_t localNumberOfReductions = relaxOnce(clusterIds, rule);
 
-    MPI_Allreduce(&localNumberOfReductions, &globalNumberOfReductions, 1, MPI_INT, MPI_SUM, comm);
+    MPI_Allreduce(&localNumberOfReductions,
+                  &globalNumberOfReductions,
+                  1,
+                  Mpi::castToMpiType<std::size_t>(),
+                  MPI_SUM,
+                  comm);
     totalNumberOfReductions += globalNumberOfReductions;
   } while (globalNumberOfReductions > 0);
   return totalNumberOfReductions;

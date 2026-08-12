@@ -39,7 +39,7 @@ const double* VertexWeightModel::imbalances() const {
 
 int VertexWeightModel::nWeightsPerVertex() const {
   assert(ncon_ > 0 && "num. constraints has not been initialized yet");
-  return ncon_;
+  return static_cast<int>(ncon_);
 }
 
 } // namespace seissol::initializer

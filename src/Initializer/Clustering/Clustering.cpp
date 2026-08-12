@@ -79,7 +79,7 @@ const ClusteringResult& Clustering::compute(const seissol::geometry::PumlMesh& m
                                 rate_,
                                 ltsParameters.getWiggleFactorEnforceMaximumDifference());
 
-  int finalNumberOfReductions = 0;
+  std::size_t finalNumberOfReductions = 0;
   double wiggleFactor = 1.0;
   std::optional<std::vector<std::uint64_t>> searchRatios;
 

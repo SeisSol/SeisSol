@@ -59,8 +59,8 @@ std::vector<std::size_t> ClusteringEvaluator::binCells(const ClusterLadder& ladd
   return clusterIds;
 }
 
-int ClusteringEvaluator::realize(double wiggleFactor) {
-  int numberOfReductions = 0;
+std::size_t ClusteringEvaluator::realize(double wiggleFactor) {
+  std::size_t numberOfReductions = 0;
   auto lb = cache_.lower_bound(wiggleFactor);
 
   if (lb != cache_.end() && !(cache_.key_comp()(wiggleFactor, lb->first))) {
@@ -73,7 +73,7 @@ int ClusteringEvaluator::realize(double wiggleFactor) {
     // cluster(A[i]) >= cluster(B[i]) for all cells i. Thus: walking through the wiggle factors from
     // lower to higher will save a lot of reductions
 
-    int cellchanges = 0;
+    std::size_t cellchanges = 0;
     if (lb != cache_.end()) {
       // use the cache
       const auto newClusterIds = binCells(configuredLadder(wiggleFactor));
@@ -87,10 +87,15 @@ int ClusteringEvaluator::realize(double wiggleFactor) {
       }
     } else {
       clusterIds_ = binCells(configuredLadder(wiggleFactor));
-      cellchanges = static_cast<int>(cellCount_);
+      cellchanges = cellCount_;
     }
     if (smoothDuringSearch_) {
-      MPI_Allreduce(MPI_IN_PLACE, &cellchanges, 1, MPI_INT, MPI_SUM, seissol::Mpi::mpi.comm());
+      MPI_Allreduce(MPI_IN_PLACE,
+                    &cellchanges,
+                    1,
+                    Mpi::castToMpiType<std::size_t>(),
+                    MPI_SUM,
+                    seissol::Mpi::mpi.comm());
       if (cellchanges > 0) {
         numberOfReductions = smoothCurrent();
       }
@@ -101,7 +106,8 @@ int ClusteringEvaluator::realize(double wiggleFactor) {
   return numberOfReductions;
 }
 
-int ClusteringEvaluator::realize(const std::vector<std::uint64_t>& ratios, double wiggleFactor) {
+std::size_t ClusteringEvaluator::realize(const std::vector<std::uint64_t>& ratios,
+                                         double wiggleFactor) {
   if (ratios == configuredRatios(wiggleFactor)) {
     return realize(wiggleFactor);
   }
@@ -109,7 +115,7 @@ int ClusteringEvaluator::realize(const std::vector<std::uint64_t>& ratios, doubl
   return smoothDuringSearch_ ? smoothCurrent() : 0;
 }
 
-int ClusteringEvaluator::smoothCurrent() {
+std::size_t ClusteringEvaluator::smoothCurrent() {
   return smoother_.relax(clusterIds_, smoothingRule_, seissol::Mpi::mpi.comm());
 }
 

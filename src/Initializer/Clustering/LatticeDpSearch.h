@@ -27,10 +27,10 @@ class LatticeDpSearch : public LadderSearch {
   public:
   SearchResult run(ClusteringEvaluator& evaluator, const SearchConstraints& constraints) override;
 
-  [[nodiscard]] int reductions() const { return reductions_; }
+  [[nodiscard]] std::size_t reductions() const { return reductions_; }
 
   private:
-  int reductions_{0};
+  std::size_t reductions_{0};
 };
 
 } // namespace seissol::initializer

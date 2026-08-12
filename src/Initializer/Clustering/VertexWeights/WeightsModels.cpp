@@ -59,17 +59,17 @@ void ExponentialBalancedWeights::setAllowedImbalances() {
   imbalances_[1] = MediumLtsMemoryImbalance;
 }
 
-int EncodedBalancedWeights::evaluateNumberOfConstraints() {
+std::size_t EncodedBalancedWeights::evaluateNumberOfConstraints() {
   // One constraint per cluster of the ladder that was actually chosen. Deriving it from the
   // configured rate vector, as this used to, is wrong as soon as a search picks a different
   // ladder.
-  return static_cast<int>(clustering().clusterCount());
+  return clustering().clusterCount();
 }
 
 void EncodedBalancedWeights::setVertexWeights() {
   const auto& clustering = this->clustering();
   for (std::size_t cell = 0; cell < clustering.cellCosts.size(); ++cell) {
-    for (int i = 0; i < ncon_; ++i) {
+    for (std::size_t i = 0; i < ncon_; ++i) {
       vertexWeights_[ncon_ * cell + i] = 0;
     }
     vertexWeights_[ncon_ * cell + clustering.clusterIds[cell]] = clustering.cellCosts[cell];
@@ -80,7 +80,7 @@ void EncodedBalancedWeights::setAllowedImbalances() {
   imbalances_.resize(ncon_);
 
   constexpr double MediumLtsWeightImbalance{1.05};
-  for (int i = 0; i < ncon_; ++i) {
+  for (std::size_t i = 0; i < ncon_; ++i) {
     imbalances_[i] = MediumLtsWeightImbalance;
   }
 }

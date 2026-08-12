@@ -14,21 +14,21 @@ namespace seissol::initializer {
 
 class ExponentialWeights : public VertexWeightModel {
   protected:
-  int evaluateNumberOfConstraints() final { return 1; }
+  std::size_t evaluateNumberOfConstraints() final { return 1; }
   void setVertexWeights() final;
   void setAllowedImbalances() final;
 };
 
 class ExponentialBalancedWeights : public VertexWeightModel {
   protected:
-  int evaluateNumberOfConstraints() final { return 2; }
+  std::size_t evaluateNumberOfConstraints() final { return 2; }
   void setVertexWeights() final;
   void setAllowedImbalances() final;
 };
 
 class EncodedBalancedWeights : public VertexWeightModel {
   protected:
-  int evaluateNumberOfConstraints() final;
+  std::size_t evaluateNumberOfConstraints() final;
   void setVertexWeights() final;
   void setAllowedImbalances() final;
 };

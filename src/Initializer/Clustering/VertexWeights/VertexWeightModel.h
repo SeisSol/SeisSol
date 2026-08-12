@@ -38,10 +38,12 @@ class VertexWeightModel {
   /// 32-bit int for deep ladders; PUML widens whatever it is given to `unsigned long` anyway.
   [[nodiscard]] const std::uint64_t* vertexWeights() const;
   [[nodiscard]] const double* imbalances() const;
+  /// Kept signed because PUML's `setVertexWeights` takes an `int` count; everything on this
+  /// side of that call uses `ncon_`.
   [[nodiscard]] int nWeightsPerVertex() const;
 
   protected:
-  virtual int evaluateNumberOfConstraints() = 0;
+  virtual std::size_t evaluateNumberOfConstraints() = 0;
   virtual void setVertexWeights() = 0;
   virtual void setAllowedImbalances() = 0;
 
@@ -53,7 +55,7 @@ class VertexWeightModel {
   const ClusteringResult* clustering_{nullptr};
   std::vector<std::uint64_t> vertexWeights_;
   std::vector<double> imbalances_;
-  int ncon_{0};
+  std::size_t ncon_{0};
 };
 
 } // namespace seissol::initializer

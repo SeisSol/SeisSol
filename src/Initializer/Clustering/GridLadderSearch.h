@@ -22,7 +22,7 @@ class GridLadderSearch : public LadderSearch {
   SearchResult run(ClusteringEvaluator& evaluator, const SearchConstraints& constraints) override;
 
   /// Total number of demotions performed while searching, for reporting.
-  [[nodiscard]] int reductions() const { return reductions_; }
+  [[nodiscard]] std::size_t reductions() const { return reductions_; }
 
   private:
   SearchResult sweep(ClusteringEvaluator& evaluator,
@@ -30,7 +30,7 @@ class GridLadderSearch : public LadderSearch {
                      std::optional<double> baselineCost,
                      bool autoMerge);
 
-  int reductions_{0};
+  std::size_t reductions_{0};
 };
 
 } // namespace seissol::initializer

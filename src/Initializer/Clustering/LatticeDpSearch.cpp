@@ -51,17 +51,17 @@ SearchResult LatticeDpSearch::run(ClusteringEvaluator& evaluator,
   const double minWiggleFactor = constraints.minWiggleFactor;
   const double maxWiggleFactor = 1.0;
   const double stepSizeWiggleFactor = constraints.wiggleFactorStepsize;
-  const int numberOfStepsWiggleFactor =
-      std::ceil((maxWiggleFactor - minWiggleFactor) / stepSizeWiggleFactor) + 1;
+  const auto numberOfStepsWiggleFactor = static_cast<std::size_t>(
+      std::ceil((maxWiggleFactor - minWiggleFactor) / stepSizeWiggleFactor) + 1);
 
   double bestPredictedCost = std::numeric_limits<double>::infinity();
   double bestWiggleFactor = maxWiggleFactor;
   std::vector<std::uint64_t> bestRatios;
   bool cappedAnywhere = false;
 
-  for (int i = 0; i < numberOfStepsWiggleFactor; ++i) {
+  for (std::size_t i = 0; i < numberOfStepsWiggleFactor; ++i) {
     const double curWiggleFactor =
-        std::min(minWiggleFactor + i * stepSizeWiggleFactor, maxWiggleFactor);
+        std::min(minWiggleFactor + static_cast<double>(i) * stepSizeWiggleFactor, maxWiggleFactor);
     const double baseTimestep = minimumTimestep * curWiggleFactor;
 
     const auto reachable = static_cast<std::size_t>(maximumTimestep / baseTimestep);

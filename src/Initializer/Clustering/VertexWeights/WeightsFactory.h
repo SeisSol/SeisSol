@@ -17,6 +17,8 @@
 
 namespace seissol::initializer {
 
+/// Unused inside SeisSol; kept as the documented mapping from the integer form of the
+/// LtsWeightsTypes enum, which is why it stays signed.
 inline bool isLtsWeightsTypeAllowed(int id) {
   return ((id >= 0) && (id < static_cast<int>(parameters::LtsWeightsTypes::Count)));
 }

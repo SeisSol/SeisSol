@@ -54,14 +54,14 @@ SearchResult GridLadderSearch::sweep(ClusteringEvaluator& evaluator,
   const double maxWiggleFactor = 1.0;
 
   const double stepSizeWiggleFactor = constraints.wiggleFactorStepsize;
-  const int numberOfStepsWiggleFactor =
-      std::ceil((maxWiggleFactor - minWiggleFactor) / stepSizeWiggleFactor) + 1;
+  const auto numberOfStepsWiggleFactor = static_cast<std::size_t>(
+      std::ceil((maxWiggleFactor - minWiggleFactor) / stepSizeWiggleFactor) + 1);
 
   auto computeWiggleFactor = [minWiggleFactor, stepSizeWiggleFactor, maxWiggleFactor](auto ith) {
     return std::min(minWiggleFactor + ith * stepSizeWiggleFactor, maxWiggleFactor);
   };
 
-  auto totalWiggleFactorReductions = 0U;
+  std::size_t totalWiggleFactorReductions = 0;
 
   if (baselineCost) {
     logInfo() << "Baseline cost before cluster merging is" << *baselineCost;
@@ -79,7 +79,7 @@ SearchResult GridLadderSearch::sweep(ClusteringEvaluator& evaluator,
     logInfo() << "Maximal admissible cost after cluster merging is" << maxAdmissibleCost;
   }
 
-  for (int i = 0; i < numberOfStepsWiggleFactor; ++i) {
+  for (std::size_t i = 0; i < numberOfStepsWiggleFactor; ++i) {
     const double curWiggleFactor = computeWiggleFactor(i);
     totalWiggleFactorReductions += evaluator.realize(curWiggleFactor);
 
@@ -143,7 +143,7 @@ SearchResult GridLadderSearch::sweep(ClusteringEvaluator& evaluator,
 
   logInfo() << "Enforcing maximum difference when finding best wiggle factor took"
             << totalWiggleFactorReductions << "reductions.";
-  reductions_ += static_cast<int>(totalWiggleFactorReductions);
+  reductions_ += totalWiggleFactorReductions;
 
   const auto bestWiggleFactor = maxMapClusterIdToBestWiggleFactor[minAdmissibleMaxClusterId];
   const auto bestCostEstimate = mapMaxClusterIdToLowestCost[minAdmissibleMaxClusterId];
