@@ -139,6 +139,37 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
   return clusters;
 }
 
+void combineCopyInterior(std::vector<ClusterMap>& map,
+                         const LTSColorMap& colormap,
+                         std::size_t threshold) {
+  const auto colorAdjust = [&](std::size_t color, HaloType halo) {
+    auto id = colormap.argument(color);
+    id.halo = halo;
+    return colormap.colorId(id);
+  };
+
+  std::vector<ClusterMap> outmap;
+  outmap.reserve(map.size());
+  for (std::size_t i = 0; i < map.size(); ++i) {
+    if (colormap.argument(i).halo == HaloType::Copy) {
+      const auto copyLayer = i;
+      const auto interiorLayer = colorAdjust(i, HaloType::Interior);
+
+      const auto copySize = map[copyLayer].cellMap.size();
+      const auto interiorSize = map[interiorLayer].cellMap.size();
+
+      if (copySize + interiorSize < threshold) {
+        // adding cells to a cellMap only is fine; they won't appear in the send regions
+
+        map[copyLayer].cellMap.insert(map[interiorLayer].cellMap.begin(),
+                                      map[interiorLayer].cellMap.end(),
+                                      map[copyLayer].cellMap.end());
+        map[interiorLayer].cellMap.clear();
+      }
+    }
+  }
+}
+
 std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& color,
                                                const std::vector<std::size_t>& ghostColor,
                                                const LTSColorMap& colormap,

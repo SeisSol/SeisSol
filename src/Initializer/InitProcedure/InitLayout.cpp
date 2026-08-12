@@ -147,7 +147,11 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   logInfo() << "Creating mesh layout...";
 
-  const auto meshLayout = internal::layoutCells(colors, colorsGhost, colorMap, meshReader);
+  const auto meshLayout = [&]() {
+    auto meshLayoutPre = internal::layoutCells(colors, colorsGhost, colorMap, meshReader);
+    internal::combineCopyInterior(meshLayoutPre, colorMap, seissolParams.timeStepping.iccombine);
+    return meshLayoutPre;
+  }();
 
   auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
   auto& backmap = seissolInstance.getMemoryManager().getBackmap();
