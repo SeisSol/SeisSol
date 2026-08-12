@@ -35,10 +35,10 @@ FaceType decodeFaceType(const void* boundaryCond,
 /// cluster construction requires: TimeManager::addClusters() asserts that a cluster only
 /// ever exchanges with its immediate index neighbors, regardless of the rate vector.
 struct SmoothingRule {
-  int maxDifference{1};
-  int dynamicRuptureDifference{0};
+  std::size_t maxDifference{1};
+  std::size_t dynamicRuptureDifference{0};
 
-  [[nodiscard]] int differenceFor(FaceType faceType) const {
+  [[nodiscard]] std::size_t differenceFor(FaceType faceType) const {
     return faceType == FaceType::DynamicRupture ? dynamicRuptureDifference : maxDifference;
   }
 };

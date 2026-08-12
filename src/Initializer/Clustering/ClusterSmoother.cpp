@@ -125,8 +125,7 @@ int ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds, const Smoot
           const auto otherTimeCluster = clusterIds[neighborCell];
 
           // the rule yields a non-negative index difference, so the sum cannot wrap
-          const auto admissible =
-              otherTimeCluster + static_cast<std::size_t>(rule.differenceFor(boundary));
+          const auto admissible = otherTimeCluster + rule.differenceFor(boundary);
 
           if (timeCluster > admissible) {
             timeCluster = admissible;
@@ -182,8 +181,7 @@ int ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds, const Smoot
           const auto pos = sharedFaceToExchangeId_.at(faceids[f]);
           const auto otherTimeCluster = ghost_[pos.first][pos.second];
 
-          const auto admissible =
-              otherTimeCluster + static_cast<std::size_t>(rule.differenceFor(boundary));
+          const auto admissible = otherTimeCluster + rule.differenceFor(boundary);
 
           if (timeCluster > admissible) {
             timeCluster = admissible;
