@@ -23,7 +23,7 @@
 
 namespace seissol {
 class SeisSol;
-namespace ITM {
+namespace physics {
 
 bool isAnisotropicReflectionTypeSupported(
     seissol::initializer::parameters::ReflectionType reflectionType);
@@ -79,7 +79,7 @@ void initializeTimeMirrorManagers(double scalingFactor,
                                   InstantaneousTimeMirrorManager& decreaseManager,
                                   seissol::SeisSol& seissolInstance,
                                   const initializer::ClusterLayout* clusterLayout);
-} // namespace ITM
+} // namespace physics
 } // namespace seissol
 
 #endif // SEISSOL_SRC_PHYSICS_INSTANTANEOUSTIMEMIRRORMANAGER_H_

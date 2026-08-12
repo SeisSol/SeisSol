@@ -135,9 +135,7 @@ class SeisSol {
   /**
    * Reference for timeMirrorManagers to be accessed externally when required
    */
-  std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
-            seissol::ITM::InstantaneousTimeMirrorManager>&
-      getTimeMirrorManagers() {
+  std::vector<seissol::physics::InstantaneousTimeMirrorManager>& getTimeMirrorManagers() {
     return timeMirrorManagers_;
   }
 
@@ -269,9 +267,7 @@ class SeisSol {
   monitoring::FlopCounter flopCounter_;
 
   //! TimeMirror Managers
-  std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
-            seissol::ITM::InstantaneousTimeMirrorManager>
-      timeMirrorManagers_;
+  std::vector<seissol::physics::InstantaneousTimeMirrorManager> timeMirrorManagers_;
 
   //! time stamp which can be used for backuping files of previous runs
   std::string backupTimeStamp_;
@@ -289,8 +285,7 @@ class SeisSol {
       : outputManager_(*this), seissolParameters_(parameters),
         memoryManager_(std::make_unique<initializer::MemoryManager>(*this)), timeManager_(*this),
         freeSurfaceWriter_(*this), analysisWriter_(*this), waveFieldWriter_(*this),
-        faultWriter_(*this), receiverWriter_(*this), energyOutput_(*this),
-        timeMirrorManagers_(*this, *this), env_(env) {}
+        faultWriter_(*this), receiverWriter_(*this), energyOutput_(*this), env_(env) {}
 
   SeisSol(const SeisSol&) = delete;
   SeisSol(SeisSol&&) = delete;

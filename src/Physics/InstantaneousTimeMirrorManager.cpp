@@ -22,7 +22,7 @@
 #include <utils/logger.h>
 #include <vector>
 
-namespace seissol::ITM {
+namespace seissol::physics {
 
 bool isAnisotropicReflectionTypeSupported(
     seissol::initializer::parameters::ReflectionType reflectionType) {
@@ -73,8 +73,7 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
   this->triggerTime_ = triggerTime;
   this->meshReader_ = meshReader;
   this->ltsStorage_ = &ltsStorage;
-  this->clusterLayout_ = clusterLayout; // An empty timestepping is added. Need to discuss what
-                                        // exactly is to be sent here
+  this->clusterLayout_ = clusterLayout;
   setSyncInterval(triggerTime);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 }
@@ -97,7 +96,7 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
   logInfo() << "Updating CellLocalMatrices";
   initializer::initializeCellLocalMatrices(
       *meshReader_, *ltsStorage_, *clusterLayout_, seissolInstance_.getSeisSolParameters().model);
-  // An empty timestepping is added. Need to discuss what exactly is to be sent here
+
 #ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
   ltsStorage_->varSynchronizeTo<LTS::LocalIntegration>(
@@ -106,6 +105,7 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
       seissol::initializer::AllocationPlace::Device, stream);
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
+
   logInfo() << "Updating TimeSteps by a factor of " << 1 / velocityScalingFactor_;
   updateTimeSteps();
 
@@ -222,20 +222,10 @@ void initializeTimeMirrorManagers(double scalingFactor,
                                   InstantaneousTimeMirrorManager& decreaseManager,
                                   seissol::SeisSol& seissolInstance,
                                   const initializer::ClusterLayout* clusterLayout) {
-  increaseManager.init(scalingFactor,
-                       triggerTime,
-                       meshReader,
-                       ltsStorage,
-                       clusterLayout); // An empty timestepping is added. Need to discuss what
-                                       // exactly is to be sent here
+  increaseManager.init(scalingFactor, triggerTime, meshReader, ltsStorage, clusterLayout);
   auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
   const double eps = itmParameters.itmDuration;
 
-  decreaseManager.init(1 / scalingFactor,
-                       triggerTime + eps,
-                       meshReader,
-                       ltsStorage,
-                       clusterLayout); // An empty timestepping is added. Need to discuss what
-                                       // exactly is to be sent here
+  decreaseManager.init(1 / scalingFactor, triggerTime + eps, meshReader, ltsStorage, clusterLayout);
 };
-} // namespace seissol::ITM
+} // namespace seissol::physics
