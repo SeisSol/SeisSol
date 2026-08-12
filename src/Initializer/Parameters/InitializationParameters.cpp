@@ -34,7 +34,8 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
           {"ocean_1", InitializationType::Ocean1},
           {"ocean_2", InitializationType::Ocean2},
           {"pressureinjection", InitializationType::PressureInjection},
-          {"easi", InitializationType::Easi},
+          {"easi", InitializationType::Script},
+          {"script", InitializationType::Script},
       });
   const auto originString = reader->readWithDefault("origin", std::string("0.0 0.0 0.0"));
   const auto originRaw = seissol::initializer::convertStringToArray<double, 3>(originString);

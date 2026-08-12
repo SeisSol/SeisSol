@@ -161,23 +161,23 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
   auto& memoryManager = seissolInstance.getMemoryManager();
 
-  if (initConditionParams.type == seissol::initializer::parameters::InitializationType::Easi) {
-    logInfo() << "Loading the initial condition from the easi file" << initConditionParams.filename;
-    seissol::initializer::projectEasiInitialField({initConditionParams.filename},
-                                                  *memoryManager.getGlobalData().onHost,
-                                                  seissolInstance.meshReader(),
-                                                  memoryManager.getLtsStorage(),
-                                                  initConditionParams.hasTime);
-  } else {
-    auto initConditions = buildInitialConditionList(seissolInstance);
-    if (initConditionParams.type != seissol::initializer::parameters::InitializationType::Zero &&
-        !initConditionParams.avoidIC) {
+  if (initConditionParams.type != seissol::initializer::parameters::InitializationType::Zero &&
+      !initConditionParams.avoidIC) {
+    if (initConditionParams.type == seissol::initializer::parameters::InitializationType::Script) {
+      logInfo() << "Loading the initial condition from the script" << initConditionParams.filename;
+      seissol::initializer::projectEasiInitialField({initConditionParams.filename},
+                                                    *memoryManager.getGlobalData().onHost,
+                                                    seissolInstance.meshReader(),
+                                                    memoryManager.getLtsStorage(),
+                                                    initConditionParams.hasTime);
+    } else {
+      auto initConditions = buildInitialConditionList(seissolInstance);
       seissol::initializer::projectInitialField(initConditions,
                                                 *memoryManager.getGlobalData().onHost,
                                                 seissolInstance.meshReader(),
                                                 memoryManager.getLtsStorage());
+      memoryManager.setInitialConditions(std::move(initConditions));
     }
-    memoryManager.setInitialConditions(std::move(initConditions));
   }
 }
 
