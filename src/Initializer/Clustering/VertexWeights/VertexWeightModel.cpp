@@ -10,7 +10,6 @@
 #include "Initializer/Clustering/Clustering.h"
 
 #include <cassert>
-#include <cstddef>
 #include <cstdint>
 
 namespace seissol::initializer {

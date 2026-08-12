@@ -13,6 +13,7 @@
 #include "Initializer/Clustering/ClusterSmoother.h"
 #include "Initializer/Clustering/ClusteringCost.h"
 #include "Initializer/Clustering/TimestepHistogram.h"
+#include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "Parallel/MPI.h"

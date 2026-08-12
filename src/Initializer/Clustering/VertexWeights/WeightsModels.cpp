@@ -9,7 +9,6 @@
 
 #include "GeneratedCode/init.h"
 #include "Initializer/Clustering/ClusteringCost.h"
-#include "Initializer/Clustering/VertexWeights/VertexWeightModel.h"
 
 #include <cassert>
 #include <cstddef>

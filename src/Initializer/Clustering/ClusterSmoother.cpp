@@ -12,6 +12,7 @@
 #include "Common/Constants.h"
 #include "Geometry/PUMLReader.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Parallel/MPI.h"
 
@@ -19,9 +20,11 @@
 #include <PUML/Upward.h>
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <mpi.h>
 #include <unordered_map>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::initializer {
@@ -130,8 +133,7 @@ std::size_t ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds,
           const auto otherTimeCluster = clusterIds[static_cast<std::size_t>(neighborCell)];
 
           // the rule yields a non-negative index difference, so the sum cannot wrap
-          const auto admissible =
-              otherTimeCluster + static_cast<std::size_t>(rule.differenceFor(boundary));
+          const auto admissible = otherTimeCluster + rule.differenceFor(boundary);
 
           if (timeCluster > admissible) {
             timeCluster = admissible;
@@ -187,8 +189,7 @@ std::size_t ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds,
           const auto pos = sharedFaceToExchangeId_.at(faceids[f]);
           const auto otherTimeCluster = ghost_[pos.first][pos.second];
 
-          const auto admissible =
-              otherTimeCluster + static_cast<std::size_t>(rule.differenceFor(boundary));
+          const auto admissible = otherTimeCluster + rule.differenceFor(boundary);
 
           if (timeCluster > admissible) {
             timeCluster = admissible;

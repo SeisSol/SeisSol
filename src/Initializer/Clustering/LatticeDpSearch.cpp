@@ -10,7 +10,6 @@
 #include "Initializer/Clustering/ClusteringEvaluator.h"
 #include "Initializer/Clustering/LadderOptimizer.h"
 #include "Initializer/Clustering/LadderSearch.h"
-#include "Initializer/Clustering/TimestepHistogram.h"
 
 #include <algorithm>
 #include <cmath>

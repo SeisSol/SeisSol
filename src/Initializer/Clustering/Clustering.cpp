@@ -16,6 +16,7 @@
 #include "Initializer/Clustering/ClusteringCost.h"
 #include "Initializer/Clustering/ClusteringEvaluator.h"
 #include "Initializer/Clustering/GridLadderSearch.h"
+#include "Initializer/Clustering/LadderSearch.h"
 #include "Initializer/Clustering/LatticeDpSearch.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/LtsParameters.h"
