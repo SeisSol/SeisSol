@@ -288,7 +288,7 @@ void MeshReader::exchangeGhostlayerMetadata() {
                                                    MPI_INT,
                                                    PUML::MPITypeInfer<LocalElemId>::type(),
                                                    PUML::MPITypeInfer<GlobalElemId>::type(),
-                                                   MPI_INT,
+                                                   Mpi::castToMpiType<std::size_t>(),
                                                    MPI_DOUBLE};
 
   MPI_Type_create_struct(datatypeCount,

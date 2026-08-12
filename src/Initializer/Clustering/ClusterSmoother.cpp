@@ -98,7 +98,7 @@ ClusterSmoother::ClusterSmoother(const geometry::PumlMesh& mesh,
   }
 }
 
-int ClusterSmoother::relaxOnce(std::vector<int>& clusterIds, const SmoothingRule& rule) {
+int ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds, const SmoothingRule& rule) {
   int numberOfReductions = 0;
 
   const auto& cells = mesh_->cells();
@@ -107,7 +107,7 @@ int ClusterSmoother::relaxOnce(std::vector<int>& clusterIds, const SmoothingRule
 
 #pragma omp parallel for reduction(+ : numberOfReductions)
   for (std::size_t cell = 0; cell < cells.size(); ++cell) {
-    int timeCluster = clusterIds[cell];
+    std::size_t timeCluster = clusterIds[cell];
 
     unsigned int faceids[Cell::NumFaces]{};
     PUML::Downward::faces(*mesh_, cells[cell], faceids);
@@ -122,12 +122,14 @@ int ClusterSmoother::relaxOnce(std::vector<int>& clusterIds, const SmoothingRule
           PUML::Upward::cells(*mesh_, face, cellIds);
 
           const int neighborCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
-          const int otherTimeCluster = clusterIds[neighborCell];
+          const auto otherTimeCluster = clusterIds[neighborCell];
 
-          const int difference = rule.differenceFor(boundary);
+          // the rule yields a non-negative index difference, so the sum cannot wrap
+          const auto admissible =
+              otherTimeCluster + static_cast<std::size_t>(rule.differenceFor(boundary));
 
-          if (timeCluster > otherTimeCluster + difference) {
-            timeCluster = otherTimeCluster + difference;
+          if (timeCluster > admissible) {
+            timeCluster = admissible;
             ++numberOfReductions;
           }
         }
@@ -147,14 +149,14 @@ int ClusterSmoother::relaxOnce(std::vector<int>& clusterIds, const SmoothingRule
     }
     MPI_Isend(copy_[ex].data(),
               exchangeSize,
-              MPI_INT,
+              Mpi::castToMpiType<std::size_t>(),
               exchange.first,
               0,
               seissol::Mpi::mpi.comm(),
               &requests_[ex]);
     MPI_Irecv(ghost_[ex].data(),
               exchangeSize,
-              MPI_INT,
+              Mpi::castToMpiType<std::size_t>(),
               exchange.first,
               0,
               seissol::Mpi::mpi.comm(),
@@ -166,7 +168,7 @@ int ClusterSmoother::relaxOnce(std::vector<int>& clusterIds, const SmoothingRule
 #pragma omp parallel for reduction(+ : numberOfReductions)
   for (std::size_t bcell = 0; bcell < boundaryCells_.size(); ++bcell) {
     const auto cell = boundaryCells_[bcell];
-    int& timeCluster = clusterIds[cell];
+    std::size_t& timeCluster = clusterIds[cell];
 
     unsigned int faceids[Cell::NumFaces]{};
     PUML::Downward::faces(*mesh_, cells[cell], faceids);
@@ -178,12 +180,13 @@ int ClusterSmoother::relaxOnce(std::vector<int>& clusterIds, const SmoothingRule
         const auto& face = faces.at(faceids[f]);
         if (face.isShared()) {
           const auto pos = sharedFaceToExchangeId_.at(faceids[f]);
-          const int otherTimeCluster = ghost_[pos.first][pos.second];
+          const auto otherTimeCluster = ghost_[pos.first][pos.second];
 
-          const int difference = rule.differenceFor(boundary);
+          const auto admissible =
+              otherTimeCluster + static_cast<std::size_t>(rule.differenceFor(boundary));
 
-          if (timeCluster > otherTimeCluster + difference) {
-            timeCluster = otherTimeCluster + difference;
+          if (timeCluster > admissible) {
+            timeCluster = admissible;
             ++numberOfReductions;
           }
         }
@@ -194,7 +197,9 @@ int ClusterSmoother::relaxOnce(std::vector<int>& clusterIds, const SmoothingRule
   return numberOfReductions;
 }
 
-int ClusterSmoother::relax(std::vector<int>& clusterIds, const SmoothingRule& rule, MPI_Comm comm) {
+int ClusterSmoother::relax(std::vector<std::size_t>& clusterIds,
+                           const SmoothingRule& rule,
+                           MPI_Comm comm) {
   int totalNumberOfReductions = 0;
   int globalNumberOfReductions = 0;
   do {

@@ -12,6 +12,7 @@
 #include "Initializer/Clustering/ClusteringEvaluator.h"
 #include "Initializer/Parameters/LtsParameters.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -20,7 +21,7 @@ namespace seissol::initializer {
 struct SearchConstraints {
   double minWiggleFactor{1.0};
   double wiggleFactorStepsize{0.01};
-  int maxClusterId{0};
+  std::size_t maxClusterId{0};
   bool autoMerge{false};
   double allowedPerformanceLossRatio{1.0};
   parameters::AutoMergeCostBaseline autoMergeBaseline{
@@ -33,7 +34,7 @@ struct SearchConstraints {
 
 struct SearchResult {
   double wiggleFactor{1.0};
-  int maxClusterId{0};
+  std::size_t maxClusterId{0};
   double cost{0.0};
   /// The ladder the search settled on, **complete**: one ratio per cluster boundary, with no
   /// repetition of the last entry and no terminator.

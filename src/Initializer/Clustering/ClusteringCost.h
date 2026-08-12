@@ -8,19 +8,20 @@
 #ifndef SEISSOL_SRC_INITIALIZER_CLUSTERING_CLUSTERINGCOST_H_
 #define SEISSOL_SRC_INITIALIZER_CLUSTERING_CLUSTERINGCOST_H_
 
+#include <cstddef>
 #include <cstdint>
 #include <mpi.h>
 #include <vector>
 
 namespace seissol::initializer {
 
-double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
+double computeLocalCostOfClustering(const std::vector<std::size_t>& clusterIds,
                                     const std::vector<std::uint64_t>& cellCosts,
                                     const std::vector<uint64_t>& rate,
                                     double wiggleFactor,
                                     double minimalTimestep);
 
-double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
+double computeGlobalCostOfClustering(const std::vector<std::size_t>& clusterIds,
                                      const std::vector<std::uint64_t>& cellCosts,
                                      const std::vector<uint64_t>& rate,
                                      double wiggleFactor,
@@ -34,21 +35,22 @@ double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
 /// together replaces one full clustering copy and one reduction per candidate with a single
 /// pass and a single reduction.
 std::vector<double>
-    computeLocalCostsOfCappedClusterings(const std::vector<int>& clusterIds,
+    computeLocalCostsOfCappedClusterings(const std::vector<std::size_t>& clusterIds,
                                          const std::vector<std::uint64_t>& cellCosts,
                                          const std::vector<uint64_t>& rate,
                                          double wiggleFactor,
                                          double minimalTimestep,
-                                         int maxClusterId);
+                                         std::size_t maxClusterId);
 
-std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int maxClusterId);
+std::vector<std::size_t> enforceMaxClusterId(const std::vector<std::size_t>& clusterIds,
+                                             std::size_t maxClusterId);
 
-int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
-                                      const std::vector<std::uint64_t>& cellCosts,
-                                      const std::vector<uint64_t>& rate,
-                                      double maximalAdmissibleCost,
-                                      double wiggleFactor,
-                                      double minimalTimestep);
+std::size_t computeMaxClusterIdAfterAutoMerge(const std::vector<std::size_t>& clusterIds,
+                                              const std::vector<std::uint64_t>& cellCosts,
+                                              const std::vector<uint64_t>& rate,
+                                              double maximalAdmissibleCost,
+                                              double wiggleFactor,
+                                              double minimalTimestep);
 
 std::uint64_t ratepow(const std::vector<std::uint64_t>& rate, std::uint64_t a, std::uint64_t b);
 

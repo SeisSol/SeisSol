@@ -40,7 +40,7 @@ struct ClusteringConfig {
 /// the parameter file, because a search is allowed to have changed both.
 struct ClusteringResult {
   /// Cluster id per cell, in the order the mesh had before partitioning.
-  std::vector<int> clusterIds;
+  std::vector<std::size_t> clusterIds;
   /// The ladder, complete: one ratio per cluster boundary, never abbreviated.
   std::vector<std::uint64_t> ratios;
   double wiggleFactor{1.0};

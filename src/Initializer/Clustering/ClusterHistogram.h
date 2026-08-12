@@ -42,7 +42,7 @@ class ClusterHistogram {
   explicit ClusterHistogram(std::vector<double> weights);
 
   /// Accumulates `cellCosts` into `clusterCount` bins indexed by `clusterIds`.
-  static ClusterHistogram fromClustering(const std::vector<int>& clusterIds,
+  static ClusterHistogram fromClustering(const std::vector<std::size_t>& clusterIds,
                                          const std::vector<std::uint64_t>& cellCosts,
                                          std::size_t clusterCount);
 

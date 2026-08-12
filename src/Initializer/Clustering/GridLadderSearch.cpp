@@ -47,8 +47,8 @@ SearchResult GridLadderSearch::sweep(ClusteringEvaluator& evaluator,
                                      std::optional<double> baselineCost,
                                      bool autoMerge) {
   // Maps that keep track of number of clusters vs cost
-  auto mapMaxClusterIdToLowestCost = std::map<int, double>{};
-  auto maxMapClusterIdToBestWiggleFactor = std::map<int, double>{};
+  auto mapMaxClusterIdToLowestCost = std::map<std::size_t, double>{};
+  auto maxMapClusterIdToBestWiggleFactor = std::map<std::size_t, double>{};
 
   const double minWiggleFactor = constraints.minWiggleFactor;
   const double maxWiggleFactor = 1.0;
@@ -113,7 +113,7 @@ SearchResult GridLadderSearch::sweep(ClusteringEvaluator& evaluator,
 
   // Find best wiggle factor after merging of clusters
   // We compare against cost of baselineCost.
-  int minAdmissibleMaxClusterId = std::numeric_limits<int>::max();
+  auto minAdmissibleMaxClusterId = std::numeric_limits<std::size_t>::max();
   if (autoMerge) {
     // When merging clusters, we want to find the minimum number of clusters with admissible
     // performance.

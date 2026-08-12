@@ -71,7 +71,7 @@ SearchResult LatticeDpSearch::run(ClusteringEvaluator& evaluator,
     const auto histogram = evaluator.timestepHistogram(curWiggleFactor, maxIndex);
 
     const LadderConstraints ladderConstraints{
-        maxIndex, static_cast<std::size_t>(constraints.maxClusterId) + 1, constraints.maxRatio};
+        maxIndex, constraints.maxClusterId + 1, constraints.maxRatio};
     const auto candidate =
         optimalLadder(histogram, constraints.costModel, baseTimestep, ladderConstraints);
 

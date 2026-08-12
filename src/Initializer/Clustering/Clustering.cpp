@@ -61,7 +61,8 @@ const ClusteringResult& Clustering::compute(const seissol::geometry::PumlMesh& m
   auto cellCosts = computeCostsPerTimestep(meshTopology);
 
   const auto& ltsParameters = seissolInstance_.getSeisSolParameters().timeStepping.lts;
-  auto maxClusterIdToEnforce = ltsParameters.getMaxNumberOfClusters() - 1;
+  // getMaxNumberOfClusters() is validated to be positive, so the decrement cannot wrap
+  auto maxClusterIdToEnforce = static_cast<std::size_t>(ltsParameters.getMaxNumberOfClusters()) - 1;
 
   if (!continueComputation) {
     // enforce GTS
@@ -102,7 +103,7 @@ const ClusteringResult& Clustering::compute(const seissol::geometry::PumlMesh& m
 
     const SearchConstraints constraints{ltsParameters.getWiggleFactorMinimum(),
                                         ltsParameters.getWiggleFactorStepsize(),
-                                        ltsParameters.getMaxNumberOfClusters() - 1,
+                                        maxClusterIdToEnforce,
                                         ltsParameters.isAutoMergeUsed(),
                                         ltsParameters.getAllowedPerformanceLossRatioAutoMerge(),
                                         autoMergeBaseline,

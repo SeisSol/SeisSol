@@ -60,10 +60,10 @@ class ClusterSmoother {
                   const FaceMap& faceMap);
 
   /// One local sweep plus one halo exchange. Returns the number of demotions on this rank.
-  int relaxOnce(std::vector<int>& clusterIds, const SmoothingRule& rule);
+  int relaxOnce(std::vector<std::size_t>& clusterIds, const SmoothingRule& rule);
 
   /// Iterates to the global fixed point. Returns the total number of demotions.
-  int relax(std::vector<int>& clusterIds, const SmoothingRule& rule, MPI_Comm comm);
+  int relax(std::vector<std::size_t>& clusterIds, const SmoothingRule& rule, MPI_Comm comm);
 
   /// Number of ranks this rank exchanges cluster ids with.
   [[nodiscard]] std::size_t exchangeCount() const { return rankToSharedFaces_.size(); }
@@ -83,8 +83,8 @@ class ClusterSmoother {
 
   // reused across sweeps rather than reallocated on every fixed point iteration
   std::vector<MPI_Request> requests_;
-  std::vector<std::vector<int>> ghost_;
-  std::vector<std::vector<int>> copy_;
+  std::vector<std::vector<std::size_t>> ghost_;
+  std::vector<std::vector<std::size_t>> copy_;
 };
 
 } // namespace seissol::initializer

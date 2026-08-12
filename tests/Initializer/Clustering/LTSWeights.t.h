@@ -86,7 +86,7 @@ TEST_CASE("Cost function for LTS") {
   using namespace seissol::initializer;
 
   SUBCASE("No clusters") {
-    const std::vector<int> clusterIds = {};
+    const std::vector<std::size_t> clusterIds = {};
     const std::vector<std::uint64_t> cellCosts = {};
     const auto is = computeLocalCostOfClustering(clusterIds, cellCosts, {2}, 1.0, 1.0);
     const auto should = 0.0;
@@ -94,7 +94,7 @@ TEST_CASE("Cost function for LTS") {
   }
 
   SUBCASE("One cluster") {
-    const std::vector<int> clusterIds = {0, 0, 0, 0, 0};
+    const std::vector<std::size_t> clusterIds = {0, 0, 0, 0, 0};
     std::vector<std::uint64_t> cellCosts = {1, 2, 3, 4, 5};
     for (int i = 1; i <= 10; ++i) {
       const auto dt = 1.0 / i;
@@ -114,7 +114,7 @@ TEST_CASE("Cost function for LTS") {
   }
 
   SUBCASE("Two clusters") {
-    const std::vector<int> clusterIds = {1, 0, 1, 1};
+    const std::vector<std::size_t> clusterIds = {1, 0, 1, 1};
     const std::vector<std::uint64_t> cellCosts = {2, 1, 3, 1};
     const auto cellCostsCluster0 = 1;
     const auto cellCostsCluster1 = 2 + 3 + 1;
@@ -140,7 +140,7 @@ TEST_CASE("Cost function for LTS") {
   }
 
   SUBCASE("Three clusters") {
-    const std::vector<int> clusterIds = {2, 0, 1, 1, 1};
+    const std::vector<std::size_t> clusterIds = {2, 0, 1, 1, 1};
     const std::vector<std::uint64_t> cellCosts = {2, 1, 3, 1, 2};
     const auto cellCostsCluster0 = 1;
     const auto cellCostsCluster1 = 2 + 3 + 1;
@@ -171,19 +171,19 @@ TEST_CASE("Cost function for LTS") {
 
 TEST_CASE("Enforce max cluster id") {
   using namespace seissol::initializer;
-  const auto clusterIds = std::vector<int>{0, 1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1, 0};
+  const auto clusterIds = std::vector<std::size_t>{0, 1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1, 0};
   SUBCASE("No change") {
     const auto& should = clusterIds;
     const auto is = enforceMaxClusterId(clusterIds, 6);
     REQUIRE(is == should);
   }
   SUBCASE("Only one cluster") {
-    const auto should = std::vector<int>{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    const auto should = std::vector<std::size_t>{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     const auto is = enforceMaxClusterId(clusterIds, 0);
     REQUIRE(is == should);
   }
   SUBCASE("Three clusters") {
-    const auto should = std::vector<int>{0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0};
+    const auto should = std::vector<std::size_t>{0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0};
     const auto is = enforceMaxClusterId(clusterIds, 2);
     REQUIRE(is == should);
   }
@@ -191,7 +191,7 @@ TEST_CASE("Enforce max cluster id") {
 
 TEST_CASE("Batched costs of capped clusterings") {
   using namespace seissol::initializer;
-  const auto clusterIds = std::vector<int>{0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 4};
+  const auto clusterIds = std::vector<std::size_t>{0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 4};
   const auto cellCosts = std::vector<std::uint64_t>{7, 3, 5, 1, 3, 3, 9, 2, 4, 6, 8, 5};
   const auto maxClusterId = 4;
 
@@ -220,7 +220,7 @@ TEST_CASE("Batched costs of capped clusterings") {
 
 TEST_CASE("Auto merging of clusters") {
   using namespace seissol::initializer;
-  const auto clusterIds = std::vector<int>{0, 0, 0, 0, 1, 1, 2};
+  const auto clusterIds = std::vector<std::size_t>{0, 0, 0, 0, 1, 1, 2};
   const auto cellCosts = std::vector<std::uint64_t>{1, 1, 1, 1, 3, 3, 9};
   const auto minDt = 0.5;
   const auto costBeforeRate2 = computeLocalCostOfClustering(clusterIds, cellCosts, {2}, 1.0, minDt);

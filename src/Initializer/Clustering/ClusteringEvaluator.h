@@ -53,11 +53,11 @@ class ClusteringEvaluator {
   /// Smooths the current clustering without touching the cache.
   int smoothCurrent();
 
-  [[nodiscard]] const std::vector<int>& clusterIds() const { return clusterIds_; }
-  std::vector<int>& mutableClusterIds() { return clusterIds_; }
+  [[nodiscard]] const std::vector<std::size_t>& clusterIds() const { return clusterIds_; }
+  std::vector<std::size_t>& mutableClusterIds() { return clusterIds_; }
 
   /// Largest cluster id present on any rank.
-  [[nodiscard]] int globalMaxClusterId() const;
+  [[nodiscard]] std::size_t globalMaxClusterId() const;
 
   /// Exact per-cell cost of the current clustering, summed over all ranks.
   [[nodiscard]] double globalCost(double wiggleFactor) const;
@@ -80,7 +80,7 @@ class ClusteringEvaluator {
 
   private:
   [[nodiscard]] ClusterLadder configuredLadder(double wiggleFactor) const;
-  std::vector<int> binCells(const ClusterLadder& ladder) const;
+  std::vector<std::size_t> binCells(const ClusterLadder& ladder) const;
 
   ClusterSmoother smoother_;
   SmoothingRule smoothingRule_{};
@@ -90,9 +90,9 @@ class ClusteringEvaluator {
   bool smoothDuringSearch_;
 
   std::size_t cellCount_{0};
-  std::vector<int> clusterIds_;
+  std::vector<std::size_t> clusterIds_;
   // maps wiggle factor to the realized, uncapped clustering
-  std::map<double, std::vector<int>, std::greater<>> cache_;
+  std::map<double, std::vector<std::size_t>, std::greater<>> cache_;
 };
 
 } // namespace seissol::initializer

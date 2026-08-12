@@ -19,7 +19,7 @@
 
 namespace seissol::initializer {
 
-double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
+double computeLocalCostOfClustering(const std::vector<std::size_t>& clusterIds,
                                     const std::vector<std::uint64_t>& cellCosts,
                                     const std::vector<uint64_t>& rate,
                                     double wiggleFactor,
@@ -38,7 +38,7 @@ double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
   return cost / minDtWithWiggle;
 }
 
-double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
+double computeGlobalCostOfClustering(const std::vector<std::size_t>& clusterIds,
                                      const std::vector<std::uint64_t>& cellCosts,
                                      const std::vector<uint64_t>& rate,
                                      double wiggleFactor,
@@ -52,16 +52,15 @@ double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
 }
 
 std::vector<double>
-    computeLocalCostsOfCappedClusterings(const std::vector<int>& clusterIds,
+    computeLocalCostsOfCappedClusterings(const std::vector<std::size_t>& clusterIds,
                                          const std::vector<std::uint64_t>& cellCosts,
                                          const std::vector<uint64_t>& rate,
                                          double wiggleFactor,
                                          double minimalTimestep,
-                                         int maxClusterId) {
+                                         std::size_t maxClusterId) {
   assert(clusterIds.size() == cellCosts.size());
-  assert(maxClusterId >= 0);
 
-  const auto capCount = static_cast<std::size_t>(maxClusterId) + 1;
+  const auto capCount = maxClusterId + 1;
 
   // ratepow() rather than ClusterLadder: this is also reachable with hand-made clusterings
   // whose ids exceed what the rate vector could produce, which a ladder would reject.
@@ -75,7 +74,7 @@ std::vector<double>
     const auto cellCost = cellCosts[i];
     const auto cluster = clusterIds[i];
     for (std::size_t cap = 0; cap < capCount; ++cap) {
-      const auto capped = std::min(static_cast<std::size_t>(cluster), cap);
+      const auto capped = std::min(cluster, cap);
       costs[cap] += static_cast<double>(cellCost) / updateFactors[capped];
     }
   }
@@ -87,9 +86,10 @@ std::vector<double>
   return costs;
 }
 
-std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int maxClusterId) {
+std::vector<std::size_t> enforceMaxClusterId(const std::vector<std::size_t>& clusterIds,
+                                             std::size_t maxClusterId) {
   auto newClusterIds = clusterIds;
-  assert(maxClusterId >= 0);
+
   std::for_each(newClusterIds.begin(), newClusterIds.end(), [maxClusterId](auto& clusterId) {
     clusterId = std::min(clusterId, maxClusterId);
   });
@@ -98,15 +98,16 @@ std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int max
 }
 
 // Merges clusters such that new cost is max oldCost * allowedPerformanceLossRatio
-int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
-                                      const std::vector<std::uint64_t>& cellCosts,
-                                      const std::vector<uint64_t>& rate,
-                                      double maximalAdmissibleCost,
-                                      double wiggleFactor,
-                                      double minimalTimestep) {
-  int maxClusterId =
+std::size_t computeMaxClusterIdAfterAutoMerge(const std::vector<std::size_t>& clusterIds,
+                                              const std::vector<std::uint64_t>& cellCosts,
+                                              const std::vector<uint64_t>& rate,
+                                              double maximalAdmissibleCost,
+                                              double wiggleFactor,
+                                              double minimalTimestep) {
+  std::size_t maxClusterId =
       clusterIds.empty() ? 0 : *std::max_element(clusterIds.begin(), clusterIds.end());
-  MPI_Allreduce(MPI_IN_PLACE, &maxClusterId, 1, MPI_INT, MPI_MAX, Mpi::mpi.comm());
+  MPI_Allreduce(
+      MPI_IN_PLACE, &maxClusterId, 1, Mpi::castToMpiType<std::size_t>(), MPI_MAX, Mpi::mpi.comm());
 
   // All candidate costs in one pass, then one reduction -- previously this was a full
   // clustering copy plus an Allreduce for every candidate.
@@ -121,7 +122,10 @@ int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
 
   // Iteratively merge clusters until we found the first number of clusters that has a cost that is
   // too high
-  for (auto curMaxClusterId = maxClusterId; curMaxClusterId >= 0; --curMaxClusterId) {
+  // Counting down over an unsigned type: the loop variable is the candidate *count*, so that
+  // it can reach zero without wrapping.
+  for (auto candidateCount = maxClusterId + 1; candidateCount > 0; --candidateCount) {
+    const auto curMaxClusterId = candidateCount - 1;
     if (costs[curMaxClusterId] > maximalAdmissibleCost) {
       // This is the first number of clusters that resulted in an inadmissible cost
       // Hence, it was admissible in the previous iteration

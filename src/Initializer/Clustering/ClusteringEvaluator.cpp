@@ -49,12 +49,12 @@ std::vector<std::uint64_t> ClusteringEvaluator::configuredRatios(double wiggleFa
   return configuredLadder(wiggleFactor).ratios();
 }
 
-std::vector<int> ClusteringEvaluator::binCells(const ClusterLadder& ladder) const {
-  std::vector<int> clusterIds(cellCount_, 0);
+std::vector<std::size_t> ClusteringEvaluator::binCells(const ClusterLadder& ladder) const {
+  std::vector<std::size_t> clusterIds(cellCount_, 0);
 
 #pragma omp parallel for
   for (std::size_t cell = 0; cell < cellCount_; ++cell) {
-    clusterIds[cell] = static_cast<int>(ladder.clusterOf(timesteps_->cellTimeStepWidths[cell]));
+    clusterIds[cell] = ladder.clusterOf(timesteps_->cellTimeStepWidths[cell]);
   }
   return clusterIds;
 }
@@ -113,10 +113,11 @@ int ClusteringEvaluator::smoothCurrent() {
   return smoother_.relax(clusterIds_, smoothingRule_, seissol::Mpi::mpi.comm());
 }
 
-int ClusteringEvaluator::globalMaxClusterId() const {
-  int maxClusterId =
+std::size_t ClusteringEvaluator::globalMaxClusterId() const {
+  std::size_t maxClusterId =
       clusterIds_.empty() ? 0 : *std::max_element(clusterIds_.begin(), clusterIds_.end());
-  MPI_Allreduce(MPI_IN_PLACE, &maxClusterId, 1, MPI_INT, MPI_MAX, Mpi::mpi.comm());
+  MPI_Allreduce(
+      MPI_IN_PLACE, &maxClusterId, 1, Mpi::castToMpiType<std::size_t>(), MPI_MAX, Mpi::mpi.comm());
   return maxClusterId;
 }
 
@@ -150,8 +151,8 @@ TimestepHistogram ClusteringEvaluator::timestepHistogram(double wiggleFactor,
 }
 
 ClusterHistogram ClusteringEvaluator::globalHistogram() const {
-  auto histogram = ClusterHistogram::fromClustering(
-      clusterIds_, *cellCosts_, static_cast<std::size_t>(globalMaxClusterId()) + 1);
+  auto histogram =
+      ClusterHistogram::fromClustering(clusterIds_, *cellCosts_, globalMaxClusterId() + 1);
   histogram.reduce(Mpi::mpi.comm());
   return histogram;
 }

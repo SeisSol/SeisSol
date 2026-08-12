@@ -304,6 +304,8 @@ void PUMLReader::partition(PumlMesh& meshTopology,
 
   auto newPartition = partitioner->partition(graph, target);
 
+  // Written as std::size_t and read back as std::size_t below -- the two have to stay in step,
+  // since the read is a reinterpret_cast that would silently misparse a mismatched width.
   meshGeometry.addDataArray(clustering->clusterIds.data(), PUML::CELL, {});
   meshGeometry.addDataArray(clustering->timesteps.cellTimeStepWidths.data(), PUML::CELL, {});
 
@@ -340,7 +342,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
   const int* group = reinterpret_cast<const int*>(meshGeometry.cellData(0));
   const void* boundaryCond = meshGeometry.cellData(1);
   const auto* cellIdsAsInFile = reinterpret_cast<const size_t*>(meshGeometry.cellData(2));
-  const auto* clusterIds = reinterpret_cast<const int*>(meshGeometry.cellData(3));
+  const auto* clusterIds = reinterpret_cast<const std::size_t*>(meshGeometry.cellData(3));
   const auto* timestep = reinterpret_cast<const double*>(meshGeometry.cellData(4));
 
   std::unordered_map<int, std::vector<unsigned int>> neighborInfo; // List of shared local face ids

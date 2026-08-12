@@ -21,14 +21,13 @@ namespace seissol::initializer {
 
 ClusterHistogram::ClusterHistogram(std::vector<double> weights) : weights_(std::move(weights)) {}
 
-ClusterHistogram ClusterHistogram::fromClustering(const std::vector<int>& clusterIds,
+ClusterHistogram ClusterHistogram::fromClustering(const std::vector<std::size_t>& clusterIds,
                                                   const std::vector<std::uint64_t>& cellCosts,
                                                   std::size_t clusterCount) {
   assert(clusterIds.size() == cellCosts.size());
   std::vector<double> weights(clusterCount, 0.0);
   for (std::size_t cell = 0; cell < clusterIds.size(); ++cell) {
-    assert(clusterIds[cell] >= 0);
-    const auto cluster = static_cast<std::size_t>(clusterIds[cell]);
+    const auto cluster = clusterIds[cell];
     assert(cluster < clusterCount);
     weights[cluster] += static_cast<double>(cellCosts[cell]);
   }
