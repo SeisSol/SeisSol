@@ -52,6 +52,7 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
                                         const real** dataBuffer,
                                         const char* outputPrefix,
                                         double interval,
+                                        const std::vector<double>& extraTimes,
                                         xdmfwriter::BackendType backend,
                                         const std::string& backupTimeStamp) {
   logInfo() << "Initializing XDMF fault output.";
@@ -164,6 +165,7 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
   Modules::registerHook(*this, ModuleHook::SimulationStart);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
   setSyncInterval(interval);
+  addExtraSyncPoints(extraTimes);
 }
 
 void seissol::writer::FaultWriter::simulationStart(std::optional<double> checkpointTime) {

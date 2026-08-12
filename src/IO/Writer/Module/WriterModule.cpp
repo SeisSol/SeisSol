@@ -68,6 +68,7 @@ void WriterModule::startup() {
   Modules::registerHook(*this, ModuleHook::SimulationEnd);
   Modules::registerHook(*this, ModuleHook::Shutdown);
   setSyncInterval(settings_.interval);
+  addExtraSyncPoints(settings_.extraTimes);
 }
 
 void WriterModule::simulationStart(std::optional<double> checkpointTime) {

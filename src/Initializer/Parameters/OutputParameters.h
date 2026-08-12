@@ -39,6 +39,7 @@ struct ElementwiseFaultParameters {
   FaultRefinement refinementStrategy{FaultRefinement::Quad};
   int refinement{2};
   int vtkorder{-1};
+  std::vector<double> extraTimes;
 };
 
 struct EnergyOutputParameters {

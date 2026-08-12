@@ -63,6 +63,7 @@ struct ScheduledWriter {
   std::string name;
   double interval{};
   std::function<Writer(const std::string&, std::size_t, double)> planWrite;
+  std::vector<double> extraTimes;
 };
 
 } // namespace seissol::io::writer
