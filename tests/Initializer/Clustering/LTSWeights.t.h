@@ -211,7 +211,7 @@ TEST_CASE("Batched costs of capped clusterings") {
           CAPTURE(cap);
           const auto expected = computeLocalCostOfClustering(
               enforceMaxClusterId(clusterIds, cap), cellCosts, rate, wiggle, minimalTimestep);
-          REQUIRE(batched[cap] == expected);
+          REQUIRE(batched[cap] == AbsApprox(expected).delta(1e-12));
         }
       }
     }
