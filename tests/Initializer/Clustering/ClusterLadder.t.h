@@ -25,8 +25,6 @@
 
 namespace seissol::unit_test {
 
-namespace {
-
 using Rates = std::vector<std::uint64_t>;
 
 constexpr auto Unbounded = std::numeric_limits<std::size_t>::max();
@@ -38,7 +36,7 @@ constexpr auto Unbounded = std::numeric_limits<std::size_t>::max();
 /// ladder *without* emitting a further cluster. Note that rate[0] is never consulted as a
 /// terminator -- it is an ordinary factor -- so {1, 2} does not terminate, it merely
 /// leaves cluster 0 empty.
-std::size_t clusterCountOf(const Rates& rate) {
+inline std::size_t clusterCountOf(const Rates& rate) {
   if (rate.empty()) {
     return 1;
   }
@@ -58,10 +56,10 @@ std::size_t clusterCountOf(const Rates& rate) {
 /// and a linear scan instead of getCluster()'s floating-point accumulation. Cross-checking
 /// the two is the whole point: it ties the forward map (timestep -> cluster id) to the
 /// inverse map (cluster id -> update factor) that ratepow() provides.
-std::uint64_t referenceCluster(double timestep,
-                               double globalMinTimestep,
-                               double wiggleFactor,
-                               const Rates& rate) {
+inline std::uint64_t referenceCluster(double timestep,
+                                      double globalMinTimestep,
+                                      double wiggleFactor,
+                                      const Rates& rate) {
   using namespace seissol::initializer;
   if (rate.empty()) {
     return 0;
@@ -80,17 +78,15 @@ std::uint64_t referenceCluster(double timestep,
   return cluster;
 }
 
-std::uint64_t cluster(double timestep, const Rates& rate, double wiggle = 1.0) {
+inline std::uint64_t cluster(double timestep, const Rates& rate, double wiggle = 1.0) {
   using namespace seissol::initializer;
   return getCluster(timestep, 1.0, wiggle, rate);
 }
 
 /// Largest double strictly below x. Used to probe just inside a bin boundary.
-double justBelow(double value) {
+inline double justBelow(double value) {
   return std::nextafter(value, -std::numeric_limits<double>::max());
 }
-
-} // namespace
 
 TEST_CASE("LTS ladder: normalization table") {
   // dt_min = 1 and wiggle = 1 throughout, so every bin boundary is an exact integer in
