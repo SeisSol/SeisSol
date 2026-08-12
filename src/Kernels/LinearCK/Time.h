@@ -58,7 +58,7 @@ class Spacetime : public SpacetimeKernel {
 #ifdef ACL_DEVICE
   kernel::gpu_derivative deviceKrnlPrototype_;
   kernel::gpu_fsgKernel deviceFsgKernelPrototype_;
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 #endif
 };
 

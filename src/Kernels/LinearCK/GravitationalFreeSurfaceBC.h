@@ -119,7 +119,6 @@ class GravitationalFreeSurfaceBc {
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, faceIdx);
     if (dataTable.find(key) != dataTable.end()) {
       const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getSize()};
-      const double g = this->gravitationalAcceleration;
 
       auto** constantData = dataTable[key].get(inner_keys::Wp::Id::FSGData)->getDeviceDataPtr();
 

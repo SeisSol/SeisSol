@@ -338,7 +338,7 @@ void Local::computeBatchedIntegral(
       auto** idofsPtrs = dataTable[fsgKey].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
 
       auto bcKernel = deviceBCFreeSurfaceGravity_;
-      bcKernel.g2m = -2 * gravitationalAcceleration;
+      bcKernel.g2m = -2 * gravitationalAcceleration_;
       bcKernel.rho = const_cast<const real**>(rhos);
       bcKernel.extraOffset_rho = 2;
       bcKernel.averageNormalDisplacement = const_cast<const real**>(nodalAvgDisplacements);
