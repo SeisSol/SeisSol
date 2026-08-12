@@ -7,9 +7,11 @@
 
 #include "Module.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <set>
 #include <utils/logger.h>
 
 namespace seissol {
@@ -24,28 +26,32 @@ double Module::potentialSyncPoint(double currentTime, double timeTolerance, bool
   } else if (forceSyncPoint || std::abs(currentTime - nextSyncPoint_) < timeTolerance) {
     syncPoint(currentTime);
     lastSyncPoint_ = currentTime;
-    nextSyncPoint_ += isyncInterval_;
+    nextSyncPoint_ = nextCandidate(currentTime);
   }
 
   return nextSyncPoint_;
 }
 
+double Module::nextCandidate(double time) const {
+  double nextTime = time + syncInterval_;
+  if (syncInterval_ > 0) {
+    // adjust to a (strict) multiple of the sync interval; just to be sure
+    nextTime = std::floor((time + syncInterval_) / syncInterval_) * syncInterval_;
+  }
+
+  for (const auto& extra : extraPoints_) {
+    if (extra > time) {
+      nextTime = std::min(extra, nextTime);
+    }
+  }
+
+  return nextTime;
+}
+
 void Module::setSimulationStartTime(double time) {
   lastSyncPoint_ = time;
 
-  // take the next expected sync point TODO: forward tolerance
-  // (calculated from time point 0)
-  nextSyncPoint_ = 0;
-  while (nextSyncPoint_ - time < 1e-6) {
-    const auto currNextSyncPoint = nextSyncPoint_;
-    nextSyncPoint_ += isyncInterval_;
-    if (currNextSyncPoint == nextSyncPoint_) {
-      // no time advancement (i.e. 0 or too small)
-      // just jump to the init time
-      nextSyncPoint_ = time;
-      break;
-    }
-  }
+  nextSyncPoint_ = nextCandidate(time);
 }
 
 /**
@@ -54,9 +60,16 @@ void Module::setSimulationStartTime(double time) {
  * This is only required for modules that register for {@link SYNCHRONIZATION_POINT}.
  */
 void Module::setSyncInterval(double interval) {
-  if (isyncInterval_ != 0) {
+  if (syncInterval_ != 0) {
     logError() << "Synchronization interval is already set";
   }
-  isyncInterval_ = interval;
+  syncInterval_ = interval;
 }
+
+void Module::addExtraSyncPoints(const std::vector<double>& points) {
+  std::set<double> allpoints(extraPoints_.begin(), extraPoints_.end());
+  allpoints.insert(points.begin(), points.end());
+  extraPoints_ = std::vector<double>(allpoints.begin(), allpoints.end());
+}
+
 } // namespace seissol
