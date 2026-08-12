@@ -78,7 +78,7 @@ TEST_CASE("LTS Weights") {
   const auto expectedWeights = std::vector<std::uint64_t>{2, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 2,
                                                           2, 1, 1, 1, 1, 2, 2, 2, 1, 1, 2, 1};
 
-  REQUIRE(givenWeights == expectedWeights);
+  CHECK(givenWeights == expectedWeights);
 }
 
 TEST_CASE("Cost function for LTS") {
@@ -90,7 +90,7 @@ TEST_CASE("Cost function for LTS") {
     const std::vector<std::uint64_t> cellCosts = {};
     const auto is = computeLocalCostOfClustering(clusterIds, cellCosts, {2}, 1.0, 1.0);
     const auto should = 0.0;
-    REQUIRE(AbsApprox(is).epsilon(eps) == should);
+    CHECK(AbsApprox(is).epsilon(eps) == should);
   }
 
   SUBCASE("One cluster") {
@@ -108,7 +108,7 @@ TEST_CASE("Cost function for LTS") {
         const auto effectiveDt = dt * wiggleFactor;
 
         const auto should = totalCost * (1.0 / effectiveDt);
-        REQUIRE(AbsApprox(is).epsilon(eps) == should);
+        CHECK(AbsApprox(is).epsilon(eps) == should);
       }
     }
   }
@@ -133,7 +133,7 @@ TEST_CASE("Cost function for LTS") {
           const auto costCluster0 = cellCostsCluster0 * (1.0 / effectiveDtCluster0);
           const auto costCluster1 = cellCostsCluster1 * (1.0 / effectiveDtCluster1);
           const auto should = costCluster0 + costCluster1;
-          REQUIRE(AbsApprox(is).epsilon(eps) == should);
+          CHECK(AbsApprox(is).epsilon(eps) == should);
         }
       }
     }
@@ -162,7 +162,7 @@ TEST_CASE("Cost function for LTS") {
           const auto costCluster1 = cellCostsCluster1 * (1.0 / effectiveDtCluster1);
           const auto costCluster2 = cellCostsCluster2 * (1.0 / effectiveDtCluster2);
           const auto should = costCluster0 + costCluster1 + costCluster2;
-          REQUIRE(AbsApprox(is).epsilon(eps) == should);
+          CHECK(AbsApprox(is).epsilon(eps) == should);
         }
       }
     }
@@ -175,17 +175,17 @@ TEST_CASE("Enforce max cluster id") {
   SUBCASE("No change") {
     const auto& should = clusterIds;
     const auto is = enforceMaxClusterId(clusterIds, 6);
-    REQUIRE(is == should);
+    CHECK(is == should);
   }
   SUBCASE("Only one cluster") {
     const auto should = std::vector<std::size_t>{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     const auto is = enforceMaxClusterId(clusterIds, 0);
-    REQUIRE(is == should);
+    CHECK(is == should);
   }
   SUBCASE("Three clusters") {
     const auto should = std::vector<std::size_t>{0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0};
     const auto is = enforceMaxClusterId(clusterIds, 2);
-    REQUIRE(is == should);
+    CHECK(is == should);
   }
 }
 
@@ -193,7 +193,7 @@ TEST_CASE("Batched costs of capped clusterings") {
   using namespace seissol::initializer;
   const auto clusterIds = std::vector<std::size_t>{0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 4};
   const auto cellCosts = std::vector<std::uint64_t>{7, 3, 5, 1, 3, 3, 9, 2, 4, 6, 8, 5};
-  const auto maxClusterId = 4;
+  const std::size_t maxClusterId = 4;
 
   // The batched form has to reproduce the one-cap-at-a-time form exactly, not just closely:
   // the resulting costs are compared against an admissibility threshold, so a last-ulp
@@ -206,12 +206,12 @@ TEST_CASE("Batched costs of capped clusterings") {
       for (const double minimalTimestep : {1.0, 4.2e-4}) {
         const auto batched = computeLocalCostsOfCappedClusterings(
             clusterIds, cellCosts, rate, wiggle, minimalTimestep, maxClusterId);
-        REQUIRE(batched.size() == static_cast<std::size_t>(maxClusterId) + 1);
-        for (int cap = 0; cap <= maxClusterId; ++cap) {
+        REQUIRE(batched.size() == maxClusterId + 1);
+        for (std::size_t cap = 0; cap <= maxClusterId; ++cap) {
           CAPTURE(cap);
           const auto expected = computeLocalCostOfClustering(
               enforceMaxClusterId(clusterIds, cap), cellCosts, rate, wiggle, minimalTimestep);
-          REQUIRE(batched[cap] == AbsApprox(expected).delta(1e-12));
+          CHECK(batched[cap] == AbsApprox(expected).delta(1e-12));
         }
       }
     }
@@ -230,7 +230,7 @@ TEST_CASE("Auto merging of clusters") {
     const auto should = 0;
     const auto is = computeMaxClusterIdAfterAutoMerge(
         clusterIds, cellCosts, {2}, std::numeric_limits<double>::max(), 1.0, minDt);
-    REQUIRE(is == should);
+    CHECK(is == should);
   }
 
   SUBCASE("Does nothing for GTS") {
@@ -238,7 +238,7 @@ TEST_CASE("Auto merging of clusters") {
     for (int i = 1; i <= 5; ++i) {
       const auto is = computeMaxClusterIdAfterAutoMerge(
           enforceMaxClusterId(clusterIds, 0), cellCosts, {1}, i, 0, 0);
-      REQUIRE(is == should);
+      CHECK(is == should);
     }
   }
 
@@ -247,12 +247,12 @@ TEST_CASE("Auto merging of clusters") {
     SUBCASE("Rate 2") {
       const auto is =
           computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, {2}, costBeforeRate2, 1, minDt);
-      REQUIRE(is == should);
+      CHECK(is == should);
     }
     SUBCASE("Rate 3") {
       const auto is =
           computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, {3}, costBeforeRate3, 1, minDt);
-      REQUIRE(is == should);
+      CHECK(is == should);
     }
   }
 
@@ -261,13 +261,13 @@ TEST_CASE("Auto merging of clusters") {
       const auto should = 1;
       const auto is = computeMaxClusterIdAfterAutoMerge(
           clusterIds, cellCosts, {2}, 1.25 * costBeforeRate2, 1, minDt);
-      REQUIRE(is == should);
+      CHECK(is == should);
     }
     SUBCASE("Merge two clusters") {
       const auto should = 0;
       const auto is = computeMaxClusterIdAfterAutoMerge(
           clusterIds, cellCosts, {2}, 2.06 * costBeforeRate2, 1, minDt);
-      REQUIRE(is == should);
+      CHECK(is == should);
     }
   }
 }
@@ -322,33 +322,33 @@ TEST_CASE("LTS clustering invariants on a mesh") {
   std::cout.clear();
 
   const auto wiggle = clustering.result().wiggleFactor;
-  REQUIRE(wiggle > 0.0);
-  REQUIRE(wiggle <= 1.0);
+  CHECK(wiggle > 0.0);
+  CHECK(wiggle <= 1.0);
 
   const auto& elements = pumlReader.getElements();
-  REQUIRE(!elements.empty());
+  CHECK(!elements.empty());
 
   double globalMinTimestep = std::numeric_limits<double>::max();
   for (const auto& element : elements) {
     globalMinTimestep = std::min(globalMinTimestep, element.timestep);
   }
   MPI_Allreduce(MPI_IN_PLACE, &globalMinTimestep, 1, MPI_DOUBLE, MPI_MIN, seissol::Mpi::mpi.comm());
-  REQUIRE(globalMinTimestep > 0.0);
+  CHECK(globalMinTimestep > 0.0);
 
   // (1) enforceMaximumDifference() and enforceMaxClusterId() only ever move cells to a
   //     finer cluster, so the plain binning is a pointwise upper bound on the result.
   for (const auto& element : elements) {
     CAPTURE(element.globalId);
     const auto unsmoothed = getCluster(element.timestep, globalMinTimestep, wiggle, rate);
-    REQUIRE(element.clusterId >= 0);
-    REQUIRE(static_cast<std::uint64_t>(element.clusterId) <= unsmoothed);
-    REQUIRE(element.clusterId < MaxClusters);
+    CHECK(element.clusterId >= 0);
+    CHECK(static_cast<std::uint64_t>(element.clusterId) <= unsmoothed);
+    CHECK(element.clusterId < MaxClusters);
   }
 
   // (1b) the published ladder describes exactly the clustering that was produced
   const auto& effectiveRates = clustering.result().ratios;
   for (std::size_t k = 1; k < effectiveRates.size(); ++k) {
-    REQUIRE(effectiveRates[k] != 1);
+    CHECK(effectiveRates[k] != 1);
   }
   {
     // `exact`, not `forBinning`: the published vector is a complete ladder, and re-applying the
@@ -357,10 +357,10 @@ TEST_CASE("LTS clustering invariants on a mesh") {
         seissol::initializer::ClusterLadder::exact(effectiveRates, globalMinTimestep, wiggle);
     for (const auto& element : elements) {
       CAPTURE(element.globalId);
-      REQUIRE(static_cast<std::size_t>(element.clusterId) <= effectiveRates.size());
+      CHECK(element.clusterId <= effectiveRates.size());
       // expanding must not move a single cell
-      REQUIRE(published.clusterOf(element.timestep) ==
-              getCluster(element.timestep, globalMinTimestep, wiggle, rate));
+      CHECK(published.clusterOf(element.timestep) ==
+            getCluster(element.timestep, globalMinTimestep, wiggle, rate));
     }
   }
 
@@ -385,9 +385,9 @@ TEST_CASE("LTS clustering invariants on a mesh") {
                                   ? element.clusterId - elements[neighbor].clusterId
                                   : elements[neighbor].clusterId - element.clusterId;
       if (faceType == FaceType::DynamicRupture) {
-        REQUIRE(difference == 0);
+        CHECK(difference == 0);
       } else {
-        REQUIRE(difference <= 1);
+        CHECK(difference <= 1);
       }
     }
   }

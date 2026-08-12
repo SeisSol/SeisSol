@@ -99,83 +99,83 @@ TEST_CASE("LTS ladder: normalization table") {
   SUBCASE("empty rate vector is GTS") {
     const Rates rate{};
     for (const double timestep : {0.5, 1.0, 2.0, 100.0, 1e6}) {
-      REQUIRE(cluster(timestep, rate) == 0);
+      CHECK(cluster(timestep, rate) == 0);
     }
   }
 
   SUBCASE("rate {1} is GTS") {
     const Rates rate{1};
-    REQUIRE(clusterCountOf(rate) == 1);
+    CHECK(clusterCountOf(rate) == 1);
     for (const double timestep : {0.5, 1.0, 2.0, 100.0, 1e6}) {
-      REQUIRE(cluster(timestep, rate) == 0);
+      CHECK(cluster(timestep, rate) == 0);
     }
   }
 
   SUBCASE("uniform rate {2}") {
     const Rates rate{2};
-    REQUIRE(clusterCountOf(rate) == Unbounded);
+    CHECK(clusterCountOf(rate) == Unbounded);
     // boundaries at 2, 4, 8, 16, ...
-    REQUIRE(cluster(0.5, rate) == 0);
-    REQUIRE(cluster(1.0, rate) == 0);
-    REQUIRE(cluster(justBelow(2.0), rate) == 0);
-    REQUIRE(cluster(2.0, rate) == 1);
-    REQUIRE(cluster(justBelow(4.0), rate) == 1);
-    REQUIRE(cluster(4.0, rate) == 2);
-    REQUIRE(cluster(1024.0, rate) == 10);
+    CHECK(cluster(0.5, rate) == 0);
+    CHECK(cluster(1.0, rate) == 0);
+    CHECK(cluster(justBelow(2.0), rate) == 0);
+    CHECK(cluster(2.0, rate) == 1);
+    CHECK(cluster(justBelow(4.0), rate) == 1);
+    CHECK(cluster(4.0, rate) == 2);
+    CHECK(cluster(1024.0, rate) == 10);
   }
 
   SUBCASE("bottom merge {4, 2}") {
     const Rates rate{4, 2};
-    REQUIRE(clusterCountOf(rate) == Unbounded);
+    CHECK(clusterCountOf(rate) == Unbounded);
     // boundaries at 4, 8, 16, ... -- cluster 0 absorbs four times the usual range
-    REQUIRE(cluster(justBelow(4.0), rate) == 0);
-    REQUIRE(cluster(4.0, rate) == 1);
-    REQUIRE(cluster(justBelow(8.0), rate) == 1);
-    REQUIRE(cluster(8.0, rate) == 2);
-    REQUIRE(cluster(16.0, rate) == 3);
+    CHECK(cluster(justBelow(4.0), rate) == 0);
+    CHECK(cluster(4.0, rate) == 1);
+    CHECK(cluster(justBelow(8.0), rate) == 1);
+    CHECK(cluster(8.0, rate) == 2);
+    CHECK(cluster(16.0, rate) == 3);
   }
 
   SUBCASE("leading one leaves cluster 0 empty but does not terminate") {
     const Rates rate{1, 2};
     // rate[0] == 1 is an ordinary factor, so the ladder continues. With wiggle == 1 the
     // first bin is [0, 1) and thus unreachable for any cell (tau >= dt_min).
-    REQUIRE(clusterCountOf(rate) == Unbounded);
-    REQUIRE(cluster(justBelow(1.0), rate) == 0);
-    REQUIRE(cluster(1.0, rate) == 1);
-    REQUIRE(cluster(justBelow(2.0), rate) == 1);
-    REQUIRE(cluster(2.0, rate) == 2);
+    CHECK(clusterCountOf(rate) == Unbounded);
+    CHECK(cluster(justBelow(1.0), rate) == 0);
+    CHECK(cluster(1.0, rate) == 1);
+    CHECK(cluster(justBelow(2.0), rate) == 1);
+    CHECK(cluster(2.0, rate) == 2);
   }
 
   SUBCASE("trailing one truncates the ladder") {
     const Rates rate{2, 2, 1};
-    REQUIRE(clusterCountOf(rate) == 2);
-    REQUIRE(cluster(justBelow(2.0), rate) == 0);
-    REQUIRE(cluster(2.0, rate) == 1);
+    CHECK(clusterCountOf(rate) == 2);
+    CHECK(cluster(justBelow(2.0), rate) == 0);
+    CHECK(cluster(2.0, rate) == 1);
     // cluster 1 is the last one and absorbs everything above, even past 4
-    REQUIRE(cluster(4.0, rate) == 1);
-    REQUIRE(cluster(1e6, rate) == 1);
+    CHECK(cluster(4.0, rate) == 1);
+    CHECK(cluster(1e6, rate) == 1);
   }
 
   SUBCASE("mixed rates {3, 2, 5, 6, 1}") {
     const Rates rate{3, 2, 5, 6, 1};
     // Terminator at index 4 => clusters 0..3, i.e. inter-cluster ratios {3, 2, 5}.
     // rate[3] == 6 is consumed but never yields a cluster: it is a dead entry.
-    REQUIRE(clusterCountOf(rate) == 4);
-    REQUIRE(cluster(justBelow(3.0), rate) == 0);
-    REQUIRE(cluster(3.0, rate) == 1);
-    REQUIRE(cluster(justBelow(6.0), rate) == 1);
-    REQUIRE(cluster(6.0, rate) == 2);
-    REQUIRE(cluster(justBelow(30.0), rate) == 2);
-    REQUIRE(cluster(30.0, rate) == 3);
+    CHECK(clusterCountOf(rate) == 4);
+    CHECK(cluster(justBelow(3.0), rate) == 0);
+    CHECK(cluster(3.0, rate) == 1);
+    CHECK(cluster(justBelow(6.0), rate) == 1);
+    CHECK(cluster(6.0, rate) == 2);
+    CHECK(cluster(justBelow(30.0), rate) == 2);
+    CHECK(cluster(30.0, rate) == 3);
     // top cluster is unbounded despite rate[3] == 6 suggesting a boundary at 180
-    REQUIRE(cluster(180.0, rate) == 3);
-    REQUIRE(cluster(1e6, rate) == 3);
+    CHECK(cluster(180.0, rate) == 3);
+    CHECK(cluster(1e6, rate) == 3);
 
     // the dead entry really is dead
     for (const std::uint64_t dead : {2, 4, 6, 7, 99}) {
       const Rates variant{3, 2, 5, dead, 1};
       for (const double timestep : {1.0, 3.0, 5.9, 6.0, 29.0, 30.0, 1e5}) {
-        REQUIRE(cluster(timestep, variant) == cluster(timestep, rate));
+        CHECK(cluster(timestep, variant) == cluster(timestep, rate));
       }
     }
   }
@@ -195,7 +195,7 @@ TEST_CASE("LTS ladder: getCluster and ratepow describe the same ladder") {
       for (int i = 1; i <= 400; ++i) {
         const double timestep = 0.25 * i;
         CAPTURE(timestep);
-        REQUIRE(cluster(timestep, rate, wiggle) == referenceCluster(timestep, 1.0, wiggle, rate));
+        CHECK(cluster(timestep, rate, wiggle) == referenceCluster(timestep, 1.0, wiggle, rate));
       }
     }
   }
@@ -218,7 +218,7 @@ TEST_CASE("LTS ladder: cluster id is monotone in the wiggle factor") {
       for (int j = 10; j <= 100; ++j) {
         const double wiggle = 0.01 * j;
         const auto current = cluster(timestep, rate, wiggle);
-        REQUIRE(current <= previous);
+        CHECK(current <= previous);
         previous = current;
       }
     }
@@ -235,8 +235,8 @@ TEST_CASE("LTS ladder: ratepow and ClusterLayout::clusterRate") {
       CAPTURE(rate);
       const ClusterLayout layout(rate, 1.0, 8);
       for (std::size_t k = 0; k < 8; ++k) {
-        REQUIRE(layout.clusterRate(k) == ratepow(rate, 0, k));
-        REQUIRE(layout.timestepRate(k) == AbsApprox(static_cast<double>(ratepow(rate, 0, k))));
+        CHECK(layout.clusterRate(k) == ratepow(rate, 0, k));
+        CHECK(layout.timestepRate(k) == AbsApprox(static_cast<double>(ratepow(rate, 0, k))));
       }
     }
   }
@@ -249,24 +249,24 @@ TEST_CASE("LTS ladder: ratepow and ClusterLayout::clusterRate") {
     // reading: the ladder simply has no cluster 2 or 3 to ask about.
     const Rates rate{2, 2, 1};
     REQUIRE(clusterCountOf(rate) == 2);
-    REQUIRE(ClusterLadder::intrinsicClusterCount(rate) == 2);
+    CHECK(ClusterLadder::intrinsicClusterCount(rate) == 2);
 
     const ClusterLayout layout(rate, 1.0, 2);
     REQUIRE(layout.globalClusterCount == 2);
-    REQUIRE(layout.rates == Rates{2}); // normalized: the trailing 1 is gone
-    REQUIRE(layout.clusterRate(0) == 1);
-    REQUIRE(layout.clusterRate(1) == 2);
-    REQUIRE(cluster(1e6, rate) == 1);
+    CHECK(layout.rates == Rates{2}); // normalized: the trailing 1 is gone
+    CHECK(layout.clusterRate(0) == 1);
+    CHECK(layout.clusterRate(1) == 2);
+    CHECK(cluster(1e6, rate) == 1);
   }
 
   SUBCASE("both extend a short rate vector with its last entry") {
     const Rates rate{4, 2};
     const ClusterLayout layout(rate, 1.0, 6);
-    REQUIRE(ratepow(rate, 0, 4) == 4 * 2 * 2 * 2);
-    REQUIRE(layout.clusterRate(4) == 4 * 2 * 2 * 2);
+    CHECK(ratepow(rate, 0, 4) == 4 * 2 * 2 * 2);
+    CHECK(layout.clusterRate(4) == 4 * 2 * 2 * 2);
     // partial products start at an offset, too
-    REQUIRE(ratepow(rate, 1, 4) == 2 * 2 * 2);
-    REQUIRE(ratepow(rate, 2, 2) == 1);
+    CHECK(ratepow(rate, 1, 4) == 2 * 2 * 2);
+    CHECK(ratepow(rate, 2, 2) == 1);
   }
 }
 
@@ -274,31 +274,31 @@ TEST_CASE("ClusterLadder: normalization") {
   using seissol::initializer::ClusterLadder;
 
   SUBCASE("intrinsic cluster count") {
-    REQUIRE(ClusterLadder::intrinsicClusterCount({}) == 1);
-    REQUIRE(ClusterLadder::intrinsicClusterCount({1}) == 1);
-    REQUIRE(ClusterLadder::intrinsicClusterCount({2, 1}) == 1);
-    REQUIRE(ClusterLadder::intrinsicClusterCount({2, 2, 1}) == 2);
-    REQUIRE(ClusterLadder::intrinsicClusterCount({3, 2, 5, 6, 1}) == 4);
-    REQUIRE(ClusterLadder::intrinsicClusterCount({2}) == ClusterLadder::Unbounded);
-    REQUIRE(ClusterLadder::intrinsicClusterCount({4, 2}) == ClusterLadder::Unbounded);
+    CHECK(ClusterLadder::intrinsicClusterCount({}) == 1);
+    CHECK(ClusterLadder::intrinsicClusterCount({1}) == 1);
+    CHECK(ClusterLadder::intrinsicClusterCount({2, 1}) == 1);
+    CHECK(ClusterLadder::intrinsicClusterCount({2, 2, 1}) == 2);
+    CHECK(ClusterLadder::intrinsicClusterCount({3, 2, 5, 6, 1}) == 4);
+    CHECK(ClusterLadder::intrinsicClusterCount({2}) == ClusterLadder::Unbounded);
+    CHECK(ClusterLadder::intrinsicClusterCount({4, 2}) == ClusterLadder::Unbounded);
     // a leading 1 is an ordinary factor, not a terminator
-    REQUIRE(ClusterLadder::intrinsicClusterCount({1, 2}) == ClusterLadder::Unbounded);
+    CHECK(ClusterLadder::intrinsicClusterCount({1, 2}) == ClusterLadder::Unbounded);
   }
 
   SUBCASE("short vectors are expanded with their last entry") {
-    REQUIRE(ClusterLadder::normalize({4, 2}, 5) == Rates{4, 2, 2, 2});
-    REQUIRE(ClusterLadder::normalize({2}, 4) == Rates{2, 2, 2});
-    REQUIRE(ClusterLadder::normalize({3, 2, 5, 6, 1}, 4) == Rates{3, 2, 5});
-    REQUIRE(ClusterLadder::normalize({2}, 1).empty());
+    CHECK(ClusterLadder::normalize({4, 2}, 5) == Rates{4, 2, 2, 2});
+    CHECK(ClusterLadder::normalize({2}, 4) == Rates{2, 2, 2});
+    CHECK(ClusterLadder::normalize({3, 2, 5, 6, 1}, 4) == Rates{3, 2, 5});
+    CHECK(ClusterLadder::normalize({2}, 1).empty());
   }
 
   SUBCASE("a leading one survives normalization and marks an empty base cluster") {
     const auto ladder = ClusterLadder::forBinning({1, 2}, 1.0, 1.0, 100.0);
-    REQUIRE(ladder.hasEmptyBaseCluster());
-    REQUIRE(ladder.ratios()[0] == 1);
-    REQUIRE(ladder.timestep(0) == AbsApprox(ladder.timestep(1)));
+    CHECK(ladder.hasEmptyBaseCluster());
+    CHECK(ladder.ratios()[0] == 1);
+    CHECK(ladder.timestep(0) == AbsApprox(ladder.timestep(1)));
     // no cell can reach cluster 0, since every cell timestep is at least dt_min
-    REQUIRE(ladder.clusterOf(1.0) == 1);
+    CHECK(ladder.clusterOf(1.0) == 1);
   }
 }
 
@@ -320,17 +320,17 @@ TEST_CASE("ClusterLadder: agrees with the legacy free functions") {
       REQUIRE(ladder.clusterCount() == getCluster(MaximumTimestep, 1.0, wiggle, rate) + 1);
 
       for (std::size_t k = 0; k < ladder.clusterCount(); ++k) {
-        REQUIRE(ladder.updateFactor(k) == ratepow(rate, 0, k));
+        CHECK(ladder.updateFactor(k) == ratepow(rate, 0, k));
       }
       // beyond index 0 the normalized ratios never contain a 1
       for (std::size_t k = 1; k < ladder.ratios().size(); ++k) {
-        REQUIRE(ladder.ratios()[k] != 1);
+        CHECK(ladder.ratios()[k] != 1);
       }
 
       for (int i = 1; i <= 3000; ++i) {
         const double timestep = 0.25 * i;
         CAPTURE(timestep);
-        REQUIRE(ladder.clusterOf(timestep) == getCluster(timestep, 1.0, wiggle, rate));
+        CHECK(ladder.clusterOf(timestep) == getCluster(timestep, 1.0, wiggle, rate));
       }
     }
   }
@@ -354,7 +354,7 @@ TEST_CASE("ClusterLadder: complete ladders") {
             if (timestep > maximumTimestep) {
               break;
             }
-            REQUIRE(rebuilt.clusterOf(timestep) == original.clusterOf(timestep));
+            CHECK(rebuilt.clusterOf(timestep) == original.clusterOf(timestep));
           }
         }
       }
@@ -368,24 +368,24 @@ TEST_CASE("ClusterLadder: complete ladders") {
     // appears at 8.
     const Rates rate{2, 2, 7};
     const auto original = ClusterLadder::forBinning(rate, 1.0, 1.0, 9.0);
-    REQUIRE(original.ratios() == Rates{2, 2});
-    REQUIRE(original.clusterCount() == 3);
+    CHECK(original.ratios() == Rates{2, 2});
+    CHECK(original.clusterCount() == 3);
 
     const auto reapplied = ClusterLadder::forBinning(original.ratios(), 1.0, 1.0, 9.0);
-    REQUIRE(reapplied.clusterCount() == 4);
-    REQUIRE(reapplied.clusterOf(8.5) == 3);
+    CHECK(reapplied.clusterCount() == 4);
+    CHECK(reapplied.clusterOf(8.5) == 3);
 
     const auto rebuilt = ClusterLadder::exact(original.ratios(), 1.0, 1.0);
-    REQUIRE(rebuilt.clusterCount() == 3);
-    REQUIRE(rebuilt.clusterOf(8.5) == 2);
-    REQUIRE(rebuilt.clusterOf(8.5) == original.clusterOf(8.5));
+    CHECK(rebuilt.clusterCount() == 3);
+    CHECK(rebuilt.clusterOf(8.5) == 2);
+    CHECK(rebuilt.clusterOf(8.5) == original.clusterOf(8.5));
   }
 
   SUBCASE("an empty ladder is a single cluster") {
     const auto ladder = ClusterLadder::exact({}, 1.0, 1.0);
     REQUIRE(ladder.clusterCount() == 1);
-    REQUIRE(ladder.clusterOf(1e9) == 0);
-    REQUIRE(ladder.updateFactor(0) == 1);
+    CHECK(ladder.clusterOf(1e9) == 0);
+    CHECK(ladder.updateFactor(0) == 1);
   }
 }
 
@@ -396,15 +396,15 @@ TEST_CASE("ClusterLadder: truncation") {
 
   const auto truncated = ladder.truncated(3);
   REQUIRE(truncated.clusterCount() == 3);
-  REQUIRE(truncated.ratios() == Rates{4, 2});
+  CHECK(truncated.ratios() == Rates{4, 2});
   for (std::size_t k = 0; k < 3; ++k) {
-    REQUIRE(truncated.updateFactor(k) == ladder.updateFactor(k));
-    REQUIRE(truncated.timestep(k) == AbsApprox(ladder.timestep(k)));
+    CHECK(truncated.updateFactor(k) == ladder.updateFactor(k));
+    CHECK(truncated.timestep(k) == AbsApprox(ladder.timestep(k)));
   }
   // everything above the new top cluster collapses into it
-  REQUIRE(truncated.clusterOf(1e6) == 2);
+  CHECK(truncated.clusterOf(1e6) == 2);
   // truncating to at least the current size is a no-op
-  REQUIRE(ladder.truncated(ladder.clusterCount() + 5).clusterCount() == ladder.clusterCount());
+  CHECK(ladder.truncated(ladder.clusterCount() + 5).clusterCount() == ladder.clusterCount());
 }
 
 } // namespace seissol::unit_test

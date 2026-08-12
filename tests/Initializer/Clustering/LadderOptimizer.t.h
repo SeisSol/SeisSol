@@ -26,22 +26,22 @@ using Ratios = std::vector<std::uint64_t>;
 
 TEST_CASE("ClusterCostModel: the default is the legacy objective") {
   const ClusterCostModel model{};
-  REQUIRE(model.isUpdateCount());
+  CHECK(model.isUpdateCount());
   // exactly weight/updateFactor, so a search configured this way optimizes what SeisSol has
   // always optimized
-  REQUIRE(model.clusterTerm(1234.0, 8) == 1234.0 / 8.0);
-  REQUIRE(model.clusterTerm(0.0, 4) == 0.0);
+  CHECK(model.clusterTerm(1234.0, 8) == 1234.0 / 8.0);
+  CHECK(model.clusterTerm(0.0, 4) == 0.0);
 
   SUBCASE("a launch cost is paid even by an empty cluster") {
     const ClusterCostModel withLaunch{1.0, 50.0, 0.0};
-    REQUIRE_FALSE(withLaunch.isUpdateCount());
-    REQUIRE(withLaunch.clusterTerm(0.0, 2) == 25.0);
+    CHECK_FALSE(withLaunch.isUpdateCount());
+    CHECK(withLaunch.clusterTerm(0.0, 2) == 25.0);
   }
 
   SUBCASE("a fill threshold lifts underfilled clusters") {
     const ClusterCostModel withFill{1.0, 0.0, 400.0};
-    REQUIRE(withFill.clusterTerm(100.0, 1) == 400.0);
-    REQUIRE(withFill.clusterTerm(900.0, 1) == 900.0);
+    CHECK(withFill.clusterTerm(100.0, 1) == 400.0);
+    CHECK(withFill.clusterTerm(900.0, 1) == 900.0);
   }
 }
 
@@ -50,31 +50,31 @@ TEST_CASE("TimestepHistogram: binning") {
   const auto costs = std::vector<std::uint64_t>{1, 2, 4, 8, 16, 32};
 
   const auto histogram = TimestepHistogram::fromCells(timesteps, costs, 1.0, 4);
-  REQUIRE(histogram.maxIndex() == 4);
-  REQUIRE(histogram.totalWeight() == AbsApprox(63.0));
+  CHECK(histogram.maxIndex() == 4);
+  CHECK(histogram.totalWeight() == AbsApprox(63.0));
 
-  REQUIRE(histogram.weightBelow(0) == AbsApprox(0.0));
-  REQUIRE(histogram.weightBelow(1) == AbsApprox(0.0));
-  REQUIRE(histogram.weightIn(1, 2) == AbsApprox(3.0));  // 1.0 and 1.5
-  REQUIRE(histogram.weightIn(2, 3) == AbsApprox(4.0));  // 2.0
-  REQUIRE(histogram.weightIn(3, 4) == AbsApprox(8.0));  // 3.9
-  REQUIRE(histogram.weightIn(4, 5) == AbsApprox(48.0)); // 4.0 and the clamped 100.0
+  CHECK(histogram.weightBelow(0) == AbsApprox(0.0));
+  CHECK(histogram.weightBelow(1) == AbsApprox(0.0));
+  CHECK(histogram.weightIn(1, 2) == AbsApprox(3.0));  // 1.0 and 1.5
+  CHECK(histogram.weightIn(2, 3) == AbsApprox(4.0));  // 2.0
+  CHECK(histogram.weightIn(3, 4) == AbsApprox(8.0));  // 3.9
+  CHECK(histogram.weightIn(4, 5) == AbsApprox(48.0)); // 4.0 and the clamped 100.0
 
   SUBCASE("indices above the range are folded into the top bin, not wrapped") {
     const auto narrow = TimestepHistogram::fromCells(timesteps, costs, 1.0, 2);
-    REQUIRE(narrow.maxIndex() == 2);
-    REQUIRE(narrow.totalWeight() == AbsApprox(63.0));
-    REQUIRE(narrow.weightIn(2, 3) == AbsApprox(60.0));
+    CHECK(narrow.maxIndex() == 2);
+    CHECK(narrow.totalWeight() == AbsApprox(63.0));
+    CHECK(narrow.weightIn(2, 3) == AbsApprox(60.0));
   }
 
   SUBCASE("querying past the end saturates") {
-    REQUIRE(histogram.weightBelow(9999) == AbsApprox(histogram.totalWeight()));
+    CHECK(histogram.weightBelow(9999) == AbsApprox(histogram.totalWeight()));
   }
 
   SUBCASE("reducing over a single rank changes nothing") {
     auto reduced = histogram;
     reduced.reduce(MPI_COMM_SELF);
-    REQUIRE(reduced.cumulative() == histogram.cumulative());
+    CHECK(reduced.cumulative() == histogram.cumulative());
   }
 }
 
@@ -86,20 +86,20 @@ TEST_CASE("optimalLadder: degenerate inputs") {
   SUBCASE("everything in one bin gives a single cluster") {
     const auto result =
         optimalLadder(histogram, ClusterCostModel{}, 1.0, LadderConstraints{8, 8, 0});
-    REQUIRE(result.ratios.empty());
-    REQUIRE(result.cost == AbsApprox(15.0));
+    CHECK(result.ratios.empty());
+    CHECK(result.cost == AbsApprox(15.0));
   }
 
   SUBCASE("a single admissible cluster leaves no choice") {
     const auto result =
         optimalLadder(histogram, ClusterCostModel{}, 1.0, LadderConstraints{8, 1, 0});
-    REQUIRE(result.ratios.empty());
+    CHECK(result.ratios.empty());
   }
 
   SUBCASE("maxIndex of one collapses the lattice") {
     const auto narrow = TimestepHistogram::fromCells(timesteps, costs, 1.0, 1);
     const auto result = optimalLadder(narrow, ClusterCostModel{}, 1.0, LadderConstraints{1, 8, 0});
-    REQUIRE(result.ratios.empty());
+    CHECK(result.ratios.empty());
   }
 }
 
@@ -114,32 +114,31 @@ TEST_CASE("optimalLadder: splitting a bimodal distribution") {
         optimalLadder(histogram, ClusterCostModel{}, 1.0, LadderConstraints{8, 8, 0});
     // 200/1 + 200/8; going via an intermediate empty rung costs the same, so the tie-break
     // towards fewer clusters has to pick the two-cluster ladder
-    REQUIRE(result.ratios == Ratios{8});
-    REQUIRE(result.cost == AbsApprox(225.0));
-    REQUIRE(ladderCost(histogram, ClusterCostModel{}, 1.0, result.ratios) ==
-            AbsApprox(result.cost));
+    CHECK(result.ratios == Ratios{8});
+    CHECK(result.cost == AbsApprox(225.0));
+    CHECK(ladderCost(histogram, ClusterCostModel{}, 1.0, result.ratios) == AbsApprox(result.cost));
   }
 
   SUBCASE("a ratio cap forces the ladder through intermediate rungs") {
     const auto result =
         optimalLadder(histogram, ClusterCostModel{}, 1.0, LadderConstraints{8, 8, 2});
-    REQUIRE(result.ratios == Ratios{2, 2, 2});
+    CHECK(result.ratios == Ratios{2, 2, 2});
     // the intermediate clusters are empty, so update counting charges nothing for them
-    REQUIRE(result.cost == AbsApprox(225.0));
+    CHECK(result.cost == AbsApprox(225.0));
   }
 
   SUBCASE("a launch cost makes empty intermediate rungs unaffordable") {
     const ClusterCostModel model{1.0, 60.0, 0.0};
     const auto capped = optimalLadder(histogram, model, 1.0, LadderConstraints{8, 8, 2});
     const auto free = optimalLadder(histogram, model, 1.0, LadderConstraints{8, 8, 0});
-    REQUIRE(free.ratios == Ratios{8});
-    REQUIRE(free.cost < capped.cost);
+    CHECK(free.ratios == Ratios{8});
+    CHECK(free.cost < capped.cost);
   }
 
   SUBCASE("the cluster budget is respected") {
     const auto result =
         optimalLadder(histogram, ClusterCostModel{}, 1.0, LadderConstraints{8, 2, 2});
-    REQUIRE(result.ratios.size() + 1 <= 2);
+    CHECK(result.ratios.size() + 1 <= 2);
   }
 }
 
@@ -153,11 +152,11 @@ TEST_CASE("optimalLadder: every ratio is a proper divisor step") {
     const auto result = optimalLadder(histogram, model, 1.0, LadderConstraints{24, 8, 0});
     std::uint64_t updateFactor = 1;
     for (const auto ratio : result.ratios) {
-      REQUIRE(ratio >= 2);
+      CHECK(ratio >= 2);
       updateFactor *= ratio;
     }
-    REQUIRE(updateFactor <= 24);
-    REQUIRE(ladderCost(histogram, model, 1.0, result.ratios) == AbsApprox(result.cost));
+    CHECK(updateFactor <= 24);
+    CHECK(ladderCost(histogram, model, 1.0, result.ratios) == AbsApprox(result.cost));
   }
 }
 

@@ -24,23 +24,23 @@ TEST_CASE("ClusterHistogram: binning") {
 
   const auto histogram = ClusterHistogram::fromClustering(clusterIds, cellCosts, 3);
   REQUIRE(histogram.clusterCount() == 3);
-  REQUIRE(histogram.weight(0) == AbsApprox(4.0));
-  REQUIRE(histogram.weight(1) == AbsApprox(6.0));
-  REQUIRE(histogram.weight(2) == AbsApprox(9.0));
-  REQUIRE(histogram.totalWeight() == AbsApprox(19.0));
+  CHECK(histogram.weight(0) == AbsApprox(4.0));
+  CHECK(histogram.weight(1) == AbsApprox(6.0));
+  CHECK(histogram.weight(2) == AbsApprox(9.0));
+  CHECK(histogram.totalWeight() == AbsApprox(19.0));
 
   SUBCASE("trailing clusters may be empty") {
     const auto padded = ClusterHistogram::fromClustering(clusterIds, cellCosts, 5);
     REQUIRE(padded.clusterCount() == 5);
-    REQUIRE(padded.weight(3) == AbsApprox(0.0));
-    REQUIRE(padded.weight(4) == AbsApprox(0.0));
-    REQUIRE(padded.totalWeight() == AbsApprox(histogram.totalWeight()));
+    CHECK(padded.weight(3) == AbsApprox(0.0));
+    CHECK(padded.weight(4) == AbsApprox(0.0));
+    CHECK(padded.totalWeight() == AbsApprox(histogram.totalWeight()));
   }
 
   SUBCASE("reducing over a single rank changes nothing") {
     auto reduced = histogram;
     reduced.reduce(MPI_COMM_SELF);
-    REQUIRE(reduced.weights() == histogram.weights());
+    CHECK(reduced.weights() == histogram.weights());
   }
 }
 
@@ -71,7 +71,7 @@ TEST_CASE("ClusterHistogram: cost agrees with the per-cell cost") {
                                            rate,
                                            wiggle,
                                            MinimalTimestep);
-          REQUIRE(histogram.cost(ladder, cap) == expected);
+          CHECK(histogram.cost(ladder, cap) == expected);
         }
       }
     }
@@ -89,7 +89,7 @@ TEST_CASE("ClusterHistogram: cost agrees with the per-cell cost") {
                                          rate,
                                          1.0,
                                          MinimalTimestep);
-        REQUIRE(histogram.cost(ladder, cap) == AbsApprox(expected).epsilon(0.0).delta(1e-12));
+        CHECK(histogram.cost(ladder, cap) == AbsApprox(expected).epsilon(0.0).delta(1e-12));
       }
     }
   }
@@ -97,7 +97,7 @@ TEST_CASE("ClusterHistogram: cost agrees with the per-cell cost") {
   SUBCASE("an uncapped cost is the cost at the topmost cluster") {
     const auto rate = std::vector<std::uint64_t>{2};
     const auto ladder = ClusterLadder::ofSize(rate, MinimalTimestep, histogram.clusterCount());
-    REQUIRE(histogram.cost(ladder) == histogram.cost(ladder, ClusterCount - 1));
+    CHECK(histogram.cost(ladder) == histogram.cost(ladder, ClusterCount - 1));
   }
 }
 
