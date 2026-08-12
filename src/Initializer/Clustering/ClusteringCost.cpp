@@ -20,7 +20,7 @@
 namespace seissol::initializer {
 
 double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
-                                    const std::vector<int>& cellCosts,
+                                    const std::vector<std::uint64_t>& cellCosts,
                                     const std::vector<uint64_t>& rate,
                                     double wiggleFactor,
                                     double minimalTimestep) {
@@ -31,7 +31,7 @@ double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
     const auto cluster = clusterIds[i];
     const auto cellCost = cellCosts[i];
     const auto invUpdateFactor = ratepow(rate, 0, cluster);
-    cost += cellCost / static_cast<double>(invUpdateFactor);
+    cost += static_cast<double>(cellCost) / static_cast<double>(invUpdateFactor);
   }
 
   const auto minDtWithWiggle = minimalTimestep * wiggleFactor;
@@ -39,7 +39,7 @@ double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
 }
 
 double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
-                                     const std::vector<int>& cellCosts,
+                                     const std::vector<std::uint64_t>& cellCosts,
                                      const std::vector<uint64_t>& rate,
                                      double wiggleFactor,
                                      double minimalTimestep,
@@ -51,12 +51,13 @@ double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
   return cost;
 }
 
-std::vector<double> computeLocalCostsOfCappedClusterings(const std::vector<int>& clusterIds,
-                                                         const std::vector<int>& cellCosts,
-                                                         const std::vector<uint64_t>& rate,
-                                                         double wiggleFactor,
-                                                         double minimalTimestep,
-                                                         int maxClusterId) {
+std::vector<double>
+    computeLocalCostsOfCappedClusterings(const std::vector<int>& clusterIds,
+                                         const std::vector<std::uint64_t>& cellCosts,
+                                         const std::vector<uint64_t>& rate,
+                                         double wiggleFactor,
+                                         double minimalTimestep,
+                                         int maxClusterId) {
   assert(clusterIds.size() == cellCosts.size());
   assert(maxClusterId >= 0);
 
@@ -75,7 +76,7 @@ std::vector<double> computeLocalCostsOfCappedClusterings(const std::vector<int>&
     const auto cluster = clusterIds[i];
     for (std::size_t cap = 0; cap < capCount; ++cap) {
       const auto capped = std::min(static_cast<std::size_t>(cluster), cap);
-      costs[cap] += cellCost / updateFactors[capped];
+      costs[cap] += static_cast<double>(cellCost) / updateFactors[capped];
     }
   }
 
@@ -98,7 +99,7 @@ std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int max
 
 // Merges clusters such that new cost is max oldCost * allowedPerformanceLossRatio
 int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
-                                      const std::vector<int>& cellCosts,
+                                      const std::vector<std::uint64_t>& cellCosts,
                                       const std::vector<uint64_t>& rate,
                                       double maximalAdmissibleCost,
                                       double wiggleFactor,

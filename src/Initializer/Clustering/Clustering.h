@@ -26,9 +26,9 @@ namespace seissol::initializer {
 struct ClusteringConfig {
   parameters::BoundaryFormat boundaryFormat;
   std::vector<std::uint64_t> rate;
-  int vertexWeightElement{};
-  int vertexWeightDynamicRupture{};
-  int vertexWeightFreeSurfaceWithGravity{};
+  std::uint64_t vertexWeightElement{};
+  std::uint64_t vertexWeightDynamicRupture{};
+  std::uint64_t vertexWeightFreeSurfaceWithGravity{};
   const FaceMap* faceMap{nullptr};
 };
 
@@ -45,7 +45,7 @@ struct ClusteringResult {
   std::vector<std::uint64_t> ratios;
   double wiggleFactor{1.0};
   /// Per-cell cost the clustering was scored with; also the base of the vertex weights.
-  std::vector<int> cellCosts;
+  std::vector<std::uint64_t> cellCosts;
   GlobalTimestep timesteps;
 
   [[nodiscard]] std::size_t clusterCount() const { return ratios.size() + 1; }
@@ -66,13 +66,14 @@ class Clustering {
   [[nodiscard]] const ClusteringResult& result() const { return result_; }
 
   private:
-  [[nodiscard]] std::vector<int> computeCostsPerTimestep(const geometry::PumlMesh& mesh) const;
+  [[nodiscard]] std::vector<std::uint64_t>
+      computeCostsPerTimestep(const geometry::PumlMesh& mesh) const;
 
   seissol::SeisSol& seissolInstance_;
   std::vector<std::uint64_t> rate_;
-  int vertexWeightElement_{};
-  int vertexWeightDynamicRupture_{};
-  int vertexWeightFreeSurfaceWithGravity_{};
+  std::uint64_t vertexWeightElement_{};
+  std::uint64_t vertexWeightDynamicRupture_{};
+  std::uint64_t vertexWeightFreeSurfaceWithGravity_{};
   parameters::BoundaryFormat boundaryFormat_;
   const FaceMap* faceMap_{nullptr};
 

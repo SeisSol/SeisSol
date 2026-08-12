@@ -11,6 +11,8 @@
 #include "Initializer/Clustering/ClusterCostModel.h"
 #include "ParameterReader.h"
 
+#include <cstdint>
+
 namespace seissol::initializer::parameters {
 
 enum class LtsWeightsTypes : int {
@@ -21,9 +23,9 @@ enum class LtsWeightsTypes : int {
 };
 
 struct VertexWeightParameters {
-  int weightElement;
-  int weightDynamicRupture;
-  int weightFreeSurfaceWithGravity;
+  std::uint64_t weightElement;
+  std::uint64_t weightDynamicRupture;
+  std::uint64_t weightFreeSurfaceWithGravity;
 };
 
 enum class AutoMergeCostBaseline {

@@ -20,7 +20,7 @@ TEST_CASE("ClusterHistogram: binning") {
   using seissol::initializer::ClusterHistogram;
 
   const auto clusterIds = std::vector<int>{0, 0, 0, 0, 1, 1, 2};
-  const auto cellCosts = std::vector<int>{1, 1, 1, 1, 3, 3, 9};
+  const auto cellCosts = std::vector<std::uint64_t>{1, 1, 1, 1, 3, 3, 9};
 
   const auto histogram = ClusterHistogram::fromClustering(clusterIds, cellCosts, 3);
   REQUIRE(histogram.clusterCount() == 3);
@@ -50,7 +50,7 @@ TEST_CASE("ClusterHistogram: cost agrees with the per-cell cost") {
   using seissol::initializer::ClusterLadder;
 
   const auto clusterIds = std::vector<int>{0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 4};
-  const auto cellCosts = std::vector<int>{7, 3, 5, 1, 3, 3, 9, 2, 4, 6, 8, 5};
+  const auto cellCosts = std::vector<std::uint64_t>{7, 3, 5, 1, 3, 3, 9, 2, 4, 6, 8, 5};
   constexpr std::size_t ClusterCount = 5;
   constexpr double MinimalTimestep = 4.2e-4;
 

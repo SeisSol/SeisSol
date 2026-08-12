@@ -11,6 +11,7 @@
 #include "Initializer/Clustering/ClusterLadder.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <mpi.h>
 #include <vector>
@@ -42,7 +43,7 @@ class ClusterHistogram {
 
   /// Accumulates `cellCosts` into `clusterCount` bins indexed by `clusterIds`.
   static ClusterHistogram fromClustering(const std::vector<int>& clusterIds,
-                                         const std::vector<int>& cellCosts,
+                                         const std::vector<std::uint64_t>& cellCosts,
                                          std::size_t clusterCount);
 
   /// Sums the histogram across all ranks in place. The only collective the search needs.

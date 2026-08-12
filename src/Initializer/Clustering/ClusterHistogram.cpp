@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <mpi.h>
 #include <utility>
 #include <vector>
@@ -21,7 +22,7 @@ namespace seissol::initializer {
 ClusterHistogram::ClusterHistogram(std::vector<double> weights) : weights_(std::move(weights)) {}
 
 ClusterHistogram ClusterHistogram::fromClustering(const std::vector<int>& clusterIds,
-                                                  const std::vector<int>& cellCosts,
+                                                  const std::vector<std::uint64_t>& cellCosts,
                                                   std::size_t clusterCount) {
   assert(clusterIds.size() == cellCosts.size());
   std::vector<double> weights(clusterCount, 0.0);
@@ -29,7 +30,7 @@ ClusterHistogram ClusterHistogram::fromClustering(const std::vector<int>& cluste
     assert(clusterIds[cell] >= 0);
     const auto cluster = static_cast<std::size_t>(clusterIds[cell]);
     assert(cluster < clusterCount);
-    weights[cluster] += cellCosts[cell];
+    weights[cluster] += static_cast<double>(cellCosts[cell]);
   }
   return ClusterHistogram(std::move(weights));
 }

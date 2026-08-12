@@ -154,15 +154,15 @@ const ClusteringResult& Clustering::compute(const seissol::geometry::PumlMesh& m
   return result_;
 }
 
-std::vector<int>
+std::vector<std::uint64_t>
     Clustering::computeCostsPerTimestep(const seissol::geometry::PumlMesh& mesh) const {
   const auto& cells = mesh.cells();
 
-  std::vector<int> cellCosts(cells.size());
+  std::vector<std::uint64_t> cellCosts(cells.size());
   const void* boundaryCond = mesh.cellData(1);
   for (std::size_t cell = 0; cell < cells.size(); ++cell) {
-    int dynamicRupture = 0;
-    int freeSurfaceWithGravity = 0;
+    std::uint64_t dynamicRupture = 0;
+    std::uint64_t freeSurfaceWithGravity = 0;
 
     unsigned int faceids[Cell::NumFaces];
     PUML::Downward::faces(mesh, cells[cell], faceids);
@@ -173,8 +173,8 @@ std::vector<int>
       freeSurfaceWithGravity += (faceType == FaceType::FreeSurfaceGravity) ? 1 : 0;
     }
 
-    const int costDynamicRupture = vertexWeightDynamicRupture_ * dynamicRupture;
-    const int costDisplacement = vertexWeightFreeSurfaceWithGravity_ * freeSurfaceWithGravity;
+    const auto costDynamicRupture = vertexWeightDynamicRupture_ * dynamicRupture;
+    const auto costDisplacement = vertexWeightFreeSurfaceWithGravity_ * freeSurfaceWithGravity;
     cellCosts[cell] = vertexWeightElement_ + costDynamicRupture + costDisplacement;
   }
   return cellCosts;

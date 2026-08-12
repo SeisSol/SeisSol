@@ -11,6 +11,7 @@
 
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 
 namespace seissol::initializer {
 
@@ -26,7 +27,7 @@ void VertexWeightModel::build(const ClusteringResult& clustering) {
   setAllowedImbalances();
 }
 
-const int* VertexWeightModel::vertexWeights() const {
+const std::uint64_t* VertexWeightModel::vertexWeights() const {
   assert(!vertexWeights_.empty() && "vertex weights are not initialized");
   return vertexWeights_.data();
 }

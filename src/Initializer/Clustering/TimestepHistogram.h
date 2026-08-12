@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_INITIALIZER_CLUSTERING_TIMESTEPHISTOGRAM_H_
 
 #include <cstddef>
+#include <cstdint>
 #include <mpi.h>
 #include <vector>
 
@@ -35,7 +36,7 @@ class TimestepHistogram {
 
   /// Bins cells, folding everything at or above `maxIndex` into the topmost bin.
   static TimestepHistogram fromCells(const std::vector<double>& cellTimesteps,
-                                     const std::vector<int>& cellCosts,
+                                     const std::vector<std::uint64_t>& cellCosts,
                                      double baseTimestep,
                                      std::size_t maxIndex);
 

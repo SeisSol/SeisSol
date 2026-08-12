@@ -13,6 +13,7 @@
 
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 
 namespace seissol::initializer {
 
@@ -42,7 +43,7 @@ void ExponentialBalancedWeights::setVertexWeights() {
     const auto factor = ratepow(clustering.ratios, clustering.clusterIds[cell], maxCluster());
     vertexWeights_[ncon_ * cell] = factor * clustering.cellCosts[cell];
 
-    constexpr int MemoryWeight{1};
+    constexpr std::uint64_t MemoryWeight{1};
     vertexWeights_[ncon_ * cell + 1] = MemoryWeight;
   }
 }

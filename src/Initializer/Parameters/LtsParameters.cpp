@@ -219,10 +219,12 @@ TimeSteppingParameters::TimeSteppingParameters(VertexWeightParameters vertexWeig
 
 TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("discretization");
-  const auto weightElement = reader->readWithDefault("vertexweightelement", 100);
-  const auto weightDynamicRupture = reader->readWithDefault("vertexweightdynamicrupture", 100);
-  const auto weightFreeSurfaceWithGravity =
-      reader->readWithDefault("vertexweightfreesurfacewithgravity", 100);
+  const auto weightElement =
+      static_cast<std::uint64_t>(reader->readWithDefault("vertexweightelement", 100));
+  const auto weightDynamicRupture =
+      static_cast<std::uint64_t>(reader->readWithDefault("vertexweightdynamicrupture", 100));
+  const auto weightFreeSurfaceWithGravity = static_cast<std::uint64_t>(
+      reader->readWithDefault("vertexweightfreesurfacewithgravity", 100));
   const double cfl = reader->readWithDefault("cfl", 0.5);
   double maxTimestepWidth = std::numeric_limits<double>::max();
 

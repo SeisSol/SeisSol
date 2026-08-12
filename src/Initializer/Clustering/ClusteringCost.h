@@ -15,13 +15,13 @@
 namespace seissol::initializer {
 
 double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
-                                    const std::vector<int>& cellCosts,
+                                    const std::vector<std::uint64_t>& cellCosts,
                                     const std::vector<uint64_t>& rate,
                                     double wiggleFactor,
                                     double minimalTimestep);
 
 double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
-                                     const std::vector<int>& cellCosts,
+                                     const std::vector<std::uint64_t>& cellCosts,
                                      const std::vector<uint64_t>& rate,
                                      double wiggleFactor,
                                      double minimalTimestep,
@@ -33,17 +33,18 @@ double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
 /// bit for bit: each entry accumulates over the cells in the same order. Computing them
 /// together replaces one full clustering copy and one reduction per candidate with a single
 /// pass and a single reduction.
-std::vector<double> computeLocalCostsOfCappedClusterings(const std::vector<int>& clusterIds,
-                                                         const std::vector<int>& cellCosts,
-                                                         const std::vector<uint64_t>& rate,
-                                                         double wiggleFactor,
-                                                         double minimalTimestep,
-                                                         int maxClusterId);
+std::vector<double>
+    computeLocalCostsOfCappedClusterings(const std::vector<int>& clusterIds,
+                                         const std::vector<std::uint64_t>& cellCosts,
+                                         const std::vector<uint64_t>& rate,
+                                         double wiggleFactor,
+                                         double minimalTimestep,
+                                         int maxClusterId);
 
 std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int maxClusterId);
 
 int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
-                                      const std::vector<int>& cellCosts,
+                                      const std::vector<std::uint64_t>& cellCosts,
                                       const std::vector<uint64_t>& rate,
                                       double maximalAdmissibleCost,
                                       double wiggleFactor,

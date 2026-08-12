@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <mpi.h>
 #include <utility>
 #include <vector>
@@ -20,7 +21,7 @@ TimestepHistogram::TimestepHistogram(std::vector<double> cumulative)
     : cumulative_(std::move(cumulative)) {}
 
 TimestepHistogram TimestepHistogram::fromCells(const std::vector<double>& cellTimesteps,
-                                               const std::vector<int>& cellCosts,
+                                               const std::vector<std::uint64_t>& cellCosts,
                                                double baseTimestep,
                                                std::size_t maxIndex) {
   assert(cellTimesteps.size() == cellCosts.size());
@@ -34,7 +35,7 @@ TimestepHistogram TimestepHistogram::fromCells(const std::vector<double>& cellTi
     // clamp before the cast: a timestep far above the ladder would otherwise wrap
     const auto index =
         scaled >= maxIndexAsDouble ? maxIndex : static_cast<std::size_t>(std::max(scaled, 0.0));
-    bins[index] += cellCosts[cell];
+    bins[index] += static_cast<double>(cellCosts[cell]);
   }
 
   std::vector<double> cumulative(maxIndex + 2, 0.0);

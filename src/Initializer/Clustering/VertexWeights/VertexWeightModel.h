@@ -11,6 +11,7 @@
 #include "Initializer/Clustering/Clustering.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace seissol::initializer {
@@ -32,7 +33,10 @@ class VertexWeightModel {
   /// `clustering` must outlive the call, not the object.
   void build(const ClusteringResult& clustering);
 
-  [[nodiscard]] const int* vertexWeights() const;
+  /// Weights as the graph partitioner wants them: one block of `nWeightsPerVertex()` per cell.
+  /// Unsigned and 64 bit wide because a weight is `cellCost * updateFactor`, which overflows a
+  /// 32-bit int for deep ladders; PUML widens whatever it is given to `unsigned long` anyway.
+  [[nodiscard]] const std::uint64_t* vertexWeights() const;
   [[nodiscard]] const double* imbalances() const;
   [[nodiscard]] int nWeightsPerVertex() const;
 
@@ -47,7 +51,7 @@ class VertexWeightModel {
   [[nodiscard]] std::size_t maxCluster() const { return clustering_->ratios.size(); }
 
   const ClusteringResult* clustering_{nullptr};
-  std::vector<int> vertexWeights_;
+  std::vector<std::uint64_t> vertexWeights_;
   std::vector<double> imbalances_;
   int ncon_{0};
 };

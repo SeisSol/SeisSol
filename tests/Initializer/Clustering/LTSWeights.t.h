@@ -73,10 +73,10 @@ TEST_CASE("LTS Weights") {
   std::cout.clear();
 
   const auto givenWeights =
-      std::vector<unsigned>(weightModel.vertexWeights(), weightModel.vertexWeights() + 24);
+      std::vector<std::uint64_t>(weightModel.vertexWeights(), weightModel.vertexWeights() + 24);
 
-  const auto expectedWeights =
-      std::vector<unsigned>{2, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 1, 1, 2, 1};
+  const auto expectedWeights = std::vector<std::uint64_t>{2, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 2,
+                                                          2, 1, 1, 1, 1, 2, 2, 2, 1, 1, 2, 1};
 
   REQUIRE(givenWeights == expectedWeights);
 }
@@ -87,7 +87,7 @@ TEST_CASE("Cost function for LTS") {
 
   SUBCASE("No clusters") {
     const std::vector<int> clusterIds = {};
-    const std::vector<int> cellCosts = {};
+    const std::vector<std::uint64_t> cellCosts = {};
     const auto is = computeLocalCostOfClustering(clusterIds, cellCosts, {2}, 1.0, 1.0);
     const auto should = 0.0;
     REQUIRE(AbsApprox(is).epsilon(eps) == should);
@@ -95,7 +95,7 @@ TEST_CASE("Cost function for LTS") {
 
   SUBCASE("One cluster") {
     const std::vector<int> clusterIds = {0, 0, 0, 0, 0};
-    std::vector<int> cellCosts = {1, 2, 3, 4, 5};
+    std::vector<std::uint64_t> cellCosts = {1, 2, 3, 4, 5};
     for (int i = 1; i <= 10; ++i) {
       const auto dt = 1.0 / i;
       for (int j = 1; j <= 10; ++j) {
@@ -103,7 +103,8 @@ TEST_CASE("Cost function for LTS") {
 
         const auto is = computeLocalCostOfClustering(clusterIds, cellCosts, {2}, wiggleFactor, dt);
 
-        const auto totalCost = std::accumulate(cellCosts.begin(), cellCosts.end(), 0);
+        const auto totalCost = static_cast<double>(
+            std::accumulate(cellCosts.begin(), cellCosts.end(), std::uint64_t{0}));
         const auto effectiveDt = dt * wiggleFactor;
 
         const auto should = totalCost * (1.0 / effectiveDt);
@@ -114,7 +115,7 @@ TEST_CASE("Cost function for LTS") {
 
   SUBCASE("Two clusters") {
     const std::vector<int> clusterIds = {1, 0, 1, 1};
-    const std::vector<int> cellCosts = {2, 1, 3, 1};
+    const std::vector<std::uint64_t> cellCosts = {2, 1, 3, 1};
     const auto cellCostsCluster0 = 1;
     const auto cellCostsCluster1 = 2 + 3 + 1;
     for (unsigned int rate = 1; rate < 4; ++rate) {
@@ -140,7 +141,7 @@ TEST_CASE("Cost function for LTS") {
 
   SUBCASE("Three clusters") {
     const std::vector<int> clusterIds = {2, 0, 1, 1, 1};
-    const std::vector<int> cellCosts = {2, 1, 3, 1, 2};
+    const std::vector<std::uint64_t> cellCosts = {2, 1, 3, 1, 2};
     const auto cellCostsCluster0 = 1;
     const auto cellCostsCluster1 = 2 + 3 + 1;
     const auto cellCostsCluster2 = 2;
@@ -191,7 +192,7 @@ TEST_CASE("Enforce max cluster id") {
 TEST_CASE("Batched costs of capped clusterings") {
   using namespace seissol::initializer;
   const auto clusterIds = std::vector<int>{0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 4};
-  const auto cellCosts = std::vector<int>{7, 3, 5, 1, 3, 3, 9, 2, 4, 6, 8, 5};
+  const auto cellCosts = std::vector<std::uint64_t>{7, 3, 5, 1, 3, 3, 9, 2, 4, 6, 8, 5};
   const auto maxClusterId = 4;
 
   // The batched form has to reproduce the one-cap-at-a-time form exactly, not just closely:
@@ -220,7 +221,7 @@ TEST_CASE("Batched costs of capped clusterings") {
 TEST_CASE("Auto merging of clusters") {
   using namespace seissol::initializer;
   const auto clusterIds = std::vector<int>{0, 0, 0, 0, 1, 1, 2};
-  const auto cellCosts = std::vector<int>{1, 1, 1, 1, 3, 3, 9};
+  const auto cellCosts = std::vector<std::uint64_t>{1, 1, 1, 1, 3, 3, 9};
   const auto minDt = 0.5;
   const auto costBeforeRate2 = computeLocalCostOfClustering(clusterIds, cellCosts, {2}, 1.0, minDt);
   const auto costBeforeRate3 = computeLocalCostOfClustering(clusterIds, cellCosts, {3}, 1.0, minDt);

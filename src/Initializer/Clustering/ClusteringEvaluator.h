@@ -32,7 +32,7 @@ class ClusteringEvaluator {
                       parameters::BoundaryFormat boundaryFormat,
                       const FaceMap& faceMap,
                       const GlobalTimestep& timesteps,
-                      const std::vector<int>& cellCosts,
+                      const std::vector<std::uint64_t>& cellCosts,
                       std::vector<std::uint64_t> rate,
                       bool smoothDuringSearch);
 
@@ -75,7 +75,7 @@ class ClusteringEvaluator {
   [[nodiscard]] ClusterHistogram globalHistogram() const;
 
   [[nodiscard]] const GlobalTimestep& timesteps() const { return *timesteps_; }
-  [[nodiscard]] const std::vector<int>& cellCosts() const { return *cellCosts_; }
+  [[nodiscard]] const std::vector<std::uint64_t>& cellCosts() const { return *cellCosts_; }
   [[nodiscard]] const std::vector<std::uint64_t>& rate() const { return rate_; }
 
   private:
@@ -85,7 +85,7 @@ class ClusteringEvaluator {
   ClusterSmoother smoother_;
   SmoothingRule smoothingRule_{};
   const GlobalTimestep* timesteps_;
-  const std::vector<int>* cellCosts_;
+  const std::vector<std::uint64_t>* cellCosts_;
   std::vector<std::uint64_t> rate_;
   bool smoothDuringSearch_;
 

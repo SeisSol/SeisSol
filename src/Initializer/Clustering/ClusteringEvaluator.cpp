@@ -31,7 +31,7 @@ ClusteringEvaluator::ClusteringEvaluator(const geometry::PumlMesh& mesh,
                                          parameters::BoundaryFormat boundaryFormat,
                                          const FaceMap& faceMap,
                                          const GlobalTimestep& timesteps,
-                                         const std::vector<int>& cellCosts,
+                                         const std::vector<std::uint64_t>& cellCosts,
                                          std::vector<std::uint64_t> rate,
                                          bool smoothDuringSearch)
     : smoother_(mesh, boundaryFormat, faceMap), timesteps_(&timesteps), cellCosts_(&cellCosts),

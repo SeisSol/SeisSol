@@ -47,7 +47,7 @@ TEST_CASE("ClusterCostModel: the default is the legacy objective") {
 
 TEST_CASE("TimestepHistogram: binning") {
   const auto timesteps = std::vector<double>{1.0, 1.5, 2.0, 3.9, 4.0, 100.0};
-  const auto costs = std::vector<int>{1, 2, 4, 8, 16, 32};
+  const auto costs = std::vector<std::uint64_t>{1, 2, 4, 8, 16, 32};
 
   const auto histogram = TimestepHistogram::fromCells(timesteps, costs, 1.0, 4);
   REQUIRE(histogram.maxIndex() == 4);
@@ -80,7 +80,7 @@ TEST_CASE("TimestepHistogram: binning") {
 
 TEST_CASE("optimalLadder: degenerate inputs") {
   const auto timesteps = std::vector<double>{1.0, 1.0, 1.0};
-  const auto costs = std::vector<int>{5, 5, 5};
+  const auto costs = std::vector<std::uint64_t>{5, 5, 5};
   const auto histogram = TimestepHistogram::fromCells(timesteps, costs, 1.0, 8);
 
   SUBCASE("everything in one bin gives a single cluster") {
@@ -106,7 +106,7 @@ TEST_CASE("optimalLadder: degenerate inputs") {
 TEST_CASE("optimalLadder: splitting a bimodal distribution") {
   // half the work at the finest timestep, half at eight times that
   const auto timesteps = std::vector<double>{1.0, 1.0, 8.0, 8.0};
-  const auto costs = std::vector<int>{100, 100, 100, 100};
+  const auto costs = std::vector<std::uint64_t>{100, 100, 100, 100};
   const auto histogram = TimestepHistogram::fromCells(timesteps, costs, 1.0, 8);
 
   SUBCASE("update counting takes the direct jump") {
@@ -145,7 +145,7 @@ TEST_CASE("optimalLadder: splitting a bimodal distribution") {
 
 TEST_CASE("optimalLadder: every ratio is a proper divisor step") {
   const auto timesteps = std::vector<double>{1.0, 2.0, 3.0, 5.0, 7.0, 11.0, 13.0, 17.0, 23.0};
-  const auto costs = std::vector<int>{9, 8, 7, 6, 5, 4, 3, 2, 1};
+  const auto costs = std::vector<std::uint64_t>{9, 8, 7, 6, 5, 4, 3, 2, 1};
   const auto histogram = TimestepHistogram::fromCells(timesteps, costs, 1.0, 24);
 
   for (const auto& model : std::vector<ClusterCostModel>{
