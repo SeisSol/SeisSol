@@ -338,44 +338,6 @@ reader::scripting::DataTable PlasticityPointGenerator::generate() const {
   return table;
 }
 
-reader::scripting::DataTable FaultBarycenterGenerator::generate() const {
-  const std::vector<Fault>& fault = meshReader_.getFault();
-  const std::vector<Element>& elements = meshReader_.getElements();
-  const std::vector<Vertex>& vertices = meshReader_.getVertices();
-
-  reader::scripting::DataTable table(numberOfPoints_ * fault.size());
-
-  const auto faultFace = [&](std::size_t index) -> std::pair<std::size_t, std::uint8_t> {
-    const Fault& f = fault[index / numberOfPoints_];
-    if (f.element >= 0) {
-      return {f.element, f.side};
-    } else {
-      return {f.neighborElement, f.neighborSide};
-    }
-  };
-
-  const auto faultBarycenter = [&](std::size_t index, std::size_t c) {
-    const auto [element, side] = faultFace(index);
-    std::array<double, Cell::Dim> barycenter{};
-    MeshTools::center(elements[element], side, vertices, barycenter.data());
-    return barycenter[c];
-  };
-
-  table.bindComputed("x", [=](std::size_t index) -> double { return faultBarycenter(index, 0); });
-  table.bindComputed("y", [=](std::size_t index) -> double { return faultBarycenter(index, 1); });
-  table.bindComputed("z", [=](std::size_t index) -> double { return faultBarycenter(index, 2); });
-
-  table.bindComputed("group", [&, faultFace](std::size_t index) {
-    const auto [element, side] = faultFace(index);
-    return elements[element].faultTags[side];
-  });
-
-  // hard-coded to 0 (is this whole writer obsolete?)
-  table.bindComputed("sim", [](std::size_t) -> std::int32_t { return 0; });
-
-  return table;
-}
-
 reader::scripting::DataTable FaultGPGenerator::generate() const {
   const std::vector<Fault>& fault = meshReader_.getFault();
   const std::vector<Element>& elements = meshReader_.getElements();

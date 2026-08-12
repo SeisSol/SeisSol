@@ -106,18 +106,6 @@ class PlasticityPointGenerator : public QueryGenerator {
   bool pointwise_{true};
 };
 
-class FaultBarycenterGenerator : public QueryGenerator {
-  public:
-  FaultBarycenterGenerator(const seissol::geometry::MeshReader& meshReader,
-                           std::size_t numberOfPoints)
-      : meshReader_(meshReader), numberOfPoints_(numberOfPoints) {}
-  [[nodiscard]] reader::scripting::DataTable generate() const override;
-
-  private:
-  const seissol::geometry::MeshReader& meshReader_;
-  std::size_t numberOfPoints_;
-};
-
 class FaultGPGenerator : public QueryGenerator {
   public:
   FaultGPGenerator(const seissol::geometry::MeshReader& meshReader,
