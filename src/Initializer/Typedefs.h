@@ -156,8 +156,11 @@ struct GlobalData {
   real* vandermondeMatrix{nullptr};
   real* vandermondeMatrixInverse{nullptr};
 
-  real* selectAne{nullptr};
-  real* selectEla{nullptr};
+  // coeffs at the start of the STP interval
+  real* stpZero{nullptr};
+
+  // coeffs for an integral over the whole STP
+  real* stpInt{nullptr};
 
   // tensor::resample
   real* resampleMatrix{nullptr};
