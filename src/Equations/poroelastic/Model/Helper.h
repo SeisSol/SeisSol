@@ -27,7 +27,7 @@ class Zinv;
 namespace seissol::model {
 
 template <typename Tview>
-static void calcZinv(yateto::DenseTensorView<2, real, unsigned>& zInv,
+inline void calcZinv(yateto::DenseTensorView<2, real, unsigned>& zInv,
                      Tview& sourceMatrix,
                      size_t quantity,
                      double timeStepWidth) {
@@ -84,7 +84,7 @@ struct AdditionalPoroelasticParameters {
   double beta2;
 };
 
-static AdditionalPoroelasticParameters
+inline AdditionalPoroelasticParameters
     getAdditionalParameters(const PoroElasticMaterial& material) {
   Eigen::Matrix<double, 6, 1> alpha;
   alpha << 1 - (3 * material.lambda + 2 * material.mu) / (3 * material.bulkSolid),
