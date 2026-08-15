@@ -136,6 +136,17 @@ In Voigt notation, with the stress vector :math:`\boldsymbol{\sigma} = (\sigma_{
 
 This relation uses the engineering convention in which the off-diagonal entries of the Voigt strain vector are :math:`2\epsilon_{ij}` (engineering shear strains); only under this convention does the matrix identity :math:`\mathbf{S} = \mathbf{C}^{-1}` reproduce the tensor relation :math:`\epsilon_{ij} = s_{ijkl}\,\sigma_{kl}`.
 
+.. warning::
+
+   The Voigt vector above is ordered :math:`(xx, yy, zz, yz, xz, xy)`, which is
+   also the ordering the material parameters :math:`c_{IJ}` follow. SeisSol's
+   *quantity* vector, and hence the stress moments the energy output works with,
+   is ordered :math:`(xx, yy, zz, xy, yz, xz)` -- the last three are permuted.
+   The compliance therefore has to be assembled in the quantity ordering before
+   it is contracted with the stress moments. Getting this wrong is silent for any
+   material with an isotropic shear block, and only shows up for genuinely
+   anisotropic ones.
+
 The isotropic result is recovered when :math:`c_{ijkl} = \lambda\,\delta_{ij}\,\delta_{kl} + \mu\,(\delta_{ik}\,\delta_{jl} + \delta_{il}\,\delta_{jk})`, the standard isotropic elasticity tensor in the Lamé parameters :math:`\lambda` and :math:`\mu`.
 
 **Dissipation.** Both isotropic and anisotropic elastic materials are non-dissipative:
@@ -162,79 +173,157 @@ This conservation property makes the elastic energy balance a useful diagnostic 
 Viscoelastic energy
 ^^^^^^^^^^^^^^^^^^^
 
-For viscoelastic materials (generalised Maxwell / Zener model with :math:`L` relaxation mechanisms), the constitutive equations are:
+SeisSol implements the generalised Maxwell body with *strain-rate-like* anelastic
+variables, which is worth stating explicitly because much of the literature uses
+stress-like memory variables instead. The system solved is
 
 .. math::
 
-   \sigma_{ij} = c_{ijkl}^U\,\epsilon_{kl} - \sum_{l=1}^{L} \Omega_{ij}^{(l)}
+   \dot{\sigma}_{ij} = c_{ijkl}^U\,\dot{\epsilon}_{kl}
+       - \sum_{l=1}^{L} d_{ijkl}^{(l)}\,\vartheta_{kl}^{(l)}
 
 .. math::
 
-   \dot{\Omega}_{ij}^{(l)} = -\frac{1}{\tau_l}\left(\Omega_{ij}^{(l)} - \omega_l\, c_{ijkl}^U\,\epsilon_{kl}\right)
+   \dot{\vartheta}_{ij}^{(l)} = \omega_l\left(\dot{\epsilon}_{ij} - \vartheta_{ij}^{(l)}\right)
 
-with unrelaxed stiffness :math:`c_{ijkl}^U`, memory variables :math:`\Omega_{ij}^{(l)}`, relaxation times :math:`\tau_l`, and weights :math:`\omega_l`.
-
-**Elastic energy (mechanical work of stresses).** Computed directly from the field variables:
-
-.. math::
-
-   W_e = \int_{\Omega_e} \frac{1}{2}\, \sigma_{ij}\, \epsilon_{ij} \,\mathrm{d}\mathbf{x}
-
-For isotropic viscoelastic materials with unrelaxed Lamé parameters :math:`\lambda^U, \mu^U` and relaxed parameters :math:`\lambda^R = \lambda^U\,(1 - \sum_l \omega_l)`, :math:`\mu^R = \mu^U\,(1 - \sum_l \omega_l)`, the strain can be eliminated via the instantaneous constitutive relation as :math:`\epsilon_{kl} = s_{klmn}^U\,\bigl(\sigma_{mn} + \sum_l \Omega^{(l)}_{mn}\bigr)`. Defining the effective unrelaxed stress :math:`\tilde{\sigma}_{ij} = \sigma_{ij} + \sum_l \Omega^{(l)}_{ij}`, the mechanical work of stresses takes the stress-only form:
+with the unrelaxed stiffness :math:`c^U` (this is what ``material.lambda`` and
+``material.mu`` hold once ``fitAttenuation`` has run), the relaxation frequencies
+:math:`\omega_l` (``material.omega``), and the modulus defect :math:`d^{(l)}` of
+mechanism :math:`l`. The latter is stored in ``material.theta`` as
 
 .. math::
 
-   W_e = \int_{\Omega_e} \frac{1}{4\mu^U}\left(\sigma_{ij}\,\tilde{\sigma}_{ij} - \frac{\lambda^U}{3\lambda^U+2\mu^U}\,\sigma_{kk}\,\tilde{\sigma}_{ll}\right)\mathrm{d}\mathbf{x}
+   \theta^{(l)} = \bigl(-(\delta\lambda_l + 2\,\delta\mu_l),\; -\delta\lambda_l,\; -2\,\delta\mu_l\bigr)
 
-**Total stored energy.** The full free energy stored in all springs of the rheological model (relaxed spring + :math:`L` Maxwell springs) is:
+so that :math:`d^{(l)}` is the isotropic stiffness built from
+:math:`(\delta\lambda_l, \delta\mu_l)`, and the source tensor assembled by
+``getTransposedSourceCoefficientTensor`` is exactly :math:`-d^{(l)}`. Note that
+:math:`\delta\lambda_l` and :math:`\delta\mu_l` are fitted **independently** (from
+two separate least-squares solves in ``fitAttenuation``); in particular
+:math:`d^{(l)} \neq \omega_l\, c^U`, so formulations that assume a single scalar
+weight per mechanism do not apply here.
 
-.. math::
-
-   W_\mathrm{stored} = \frac{1}{2}\int_{\Omega_e}\left(c_{ijkl}^R\,\epsilon_{ij}\,\epsilon_{kl} + \sum_{l=1}^{L} \frac{1}{\omega_l}\, s_{ijkl}^U\, \Omega_{ij}^{(l)}\, \Omega_{kl}^{(l)}\right)\mathrm{d}\mathbf{x}
-
-with the relaxed stiffness :math:`c_{ijkl}^R = c_{ijkl}^U\,(1 - \sum_l \omega_l)` and the unrelaxed compliance :math:`s_{ijkl}^U` defined analogously to :math:`s_{ijkl}` above (with :math:`c_{ijkl}^U` in place of :math:`c_{ijkl}`).
-
-For isotropic viscoelastic materials, the relaxed-stiffness term reduces to the standard Lamé form, and the memory-variable term reduces under isotropic compliance (the memory variables :math:`\Omega^{(l)}_{ij}` are tensorial stress-like quantities with the same symmetries and units as a stress):
-
-.. math::
-
-   c_{ijkl}^R\,\epsilon_{ij}\,\epsilon_{kl} = \lambda^R\,\epsilon_{kk}^2 + 2\mu^R\,\epsilon_{ij}\,\epsilon_{ij}
+The relaxed stiffness is
 
 .. math::
 
-   s_{ijkl}^U\, \Omega_{ij}^{(l)}\, \Omega_{kl}^{(l)} = \frac{1}{2\mu^U}\left(\Omega^{(l)}_{ij}\,\Omega^{(l)}_{ij} - \frac{\lambda^U}{3\lambda^U+2\mu^U}\,{\Omega^{(l)}_{kk}}^2\right)
+   c^R = c^U - \sum_{l=1}^{L} d^{(l)},
+   \qquad
+   \lambda^R = \lambda^U - \sum_l \delta\lambda_l,
+   \qquad
+   \mu^R = \mu^U - \sum_l \delta\mu_l.
 
-so that:
-
-.. math::
-
-   W_\mathrm{stored} = \int_{\Omega_e}\left(\frac{\lambda^R}{2}\,\epsilon_{kk}^2 + \mu^R\,\epsilon_{ij}\,\epsilon_{ij} + \sum_{l=1}^{L} \frac{1}{4\mu^U\,\omega_l}\left(\Omega^{(l)}_{ij}\,\Omega^{(l)}_{ij} - \frac{\lambda^U}{3\lambda^U+2\mu^U}\,{\Omega^{(l)}_{kk}}^2\right)\right)\mathrm{d}\mathbf{x}
-
-**Dissipation rate.** The rate of energy dissipated by the dashpots is:
-
-.. math::
-
-   \dot{D} = \int_{\Omega_e} \sum_{l=1}^{L} \frac{1}{\tau_l\,\omega_l}\, s_{ijkl}^U\, \Omega_{ij}^{(l)}\, \Omega_{kl}^{(l)} \,\mathrm{d}\mathbf{x}
-
-In the isotropic case, applying the same compliance reduction yields:
+**The anelastic variables are strain rates.** The relaxation equation forces
+:math:`[\vartheta] = [\dot{\epsilon}]`. Writing :math:`\xi^{(l)}` for their time
+integral and :math:`e^{(l)} := \epsilon - \xi^{(l)}` for the spring strain of
+Maxwell branch :math:`l`, one gets :math:`\dot{\xi}^{(l)} = \omega_l\, e^{(l)}`,
+hence
 
 .. math::
 
-   \dot{D} = \int_{\Omega_e} \sum_{l=1}^{L} \frac{1}{2\mu^U\,\tau_l\,\omega_l}\left(\Omega^{(l)}_{ij}\,\Omega^{(l)}_{ij} - \frac{\lambda^U}{3\lambda^U+2\mu^U}\,{\Omega^{(l)}_{kk}}^2\right)\mathrm{d}\mathbf{x}
+   e_{ij}^{(l)} = \frac{\vartheta_{ij}^{(l)}}{\omega_l}.
 
-**Cumulative dissipated energy:**
+This is what makes the whole energy budget computable without any history: every
+quantity below is a function of the instantaneous state
+:math:`(\sigma, \vartheta^{(1..L)})` alone.
+
+**Recovering the strain.** The total strain is not a state variable, but follows
+from the relaxed constitutive relation:
+
+.. math::
+
+   \sigma^R_{ij} := \sigma_{ij} - \sum_{l=1}^{L} \frac{1}{\omega_l}\,
+       d_{ijkl}^{(l)}\,\vartheta_{kl}^{(l)} \;=\; c^R_{ijkl}\,\epsilon_{kl}.
+
+**Stored energy.** The free energy held in the relaxed spring and in the
+:math:`L` Maxwell springs:
+
+.. math::
+
+   W_\mathrm{stored} = \frac{1}{2}\int_{\Omega_e}\left(
+       c^R_{ijkl}\,\epsilon_{ij}\,\epsilon_{kl}
+     + \sum_{l=1}^{L} d^{(l)}_{ijkl}\,e^{(l)}_{ij}\,e^{(l)}_{kl}
+   \right)\mathrm{d}\mathbf{x}
+
+The first term is reported as ``elastic_energy``, the second as
+``viscoelastic_energy``. For :math:`L = 0` the first term reduces to the purely
+elastic expression, as it must.
+
+Both belong to the same reporting group as the kinetic energy, so the terminal
+line reads
+
+.. code-block:: none
+
+   Elastic energy: <total>, kinematic x%, potential y%, viscoelastic z%
+
+with the total being :math:`W_\mathrm{kin} + W_\mathrm{stored}`. Reporting only
+the relaxed spring as "potential" would understate the stored energy by the
+branch contribution, which grows with the attenuation.
+
+.. warning::
+
+   :math:`\tfrac{1}{2}\,\sigma_{ij}\,s^U_{ijkl}\,\sigma_{kl}` -- the elastic
+   formula evaluated with the unrelaxed compliance -- is **not** the stored
+   energy, and neither is the same expression with the relaxed compliance. The
+   :math:`\sigma^R` correction cannot be absorbed into a choice of moduli; both
+   variants are wrong by several percent, with a sign that depends on the loading
+   history.
+
+**Dissipation rate.** The power absorbed by the dashpots:
+
+.. math::
+
+   \dot{D} = \int_{\Omega_e} \sum_{l=1}^{L} \omega_l\;
+       d^{(l)}_{ijkl}\,e^{(l)}_{ij}\,e^{(l)}_{kl}\,\mathrm{d}\mathbf{x}
+   \;=\; \int_{\Omega_e} \sum_{l=1}^{L} \frac{1}{\omega_l}\;
+       d^{(l)}_{ijkl}\,\vartheta^{(l)}_{ij}\,\vartheta^{(l)}_{kl}\,\mathrm{d}\mathbf{x}
+   \;\geq\; 0
+
+This is reported as ``viscous_dissipation_rate``, in watts. It is an
+*instantaneous rate*, not a cumulative energy: the time integral
 
 .. math::
 
    W_\mathrm{diss}(t) = \int_0^t \dot{D}(t')\,\mathrm{d}t'
 
+is left to postprocessing, since accumulating it in the solver would require
+carrying an extra state through the time-stepping kernels.
+
+**Volumetric/deviatoric evaluation.** All of the above are isotropic quadratic
+forms, so the implementation evaluates them in a volumetric/deviatoric split and
+never inverts a :math:`6\times 6` matrix. With
+:math:`\Delta K_l = \delta\lambda_l + \tfrac{2}{3}\delta\mu_l`:
+
+.. math::
+
+   \mathrm{tr}\,\sigma^R = \mathrm{tr}\,\sigma
+       - \sum_l \frac{3\,\Delta K_l}{\omega_l}\,\mathrm{tr}\,\vartheta^{(l)},
+   \qquad
+   \mathrm{dev}\,\sigma^R = \mathrm{dev}\,\sigma
+       - \sum_l \frac{2\,\delta\mu_l}{\omega_l}\,\mathrm{dev}\,\vartheta^{(l)}
+
+.. math::
+
+   d^{(l)}_{ijkl}\,a_{ij}\,a_{kl}
+     = \Delta K_l\,(\mathrm{tr}\,a)^2 + 2\,\delta\mu_l\,\|\mathrm{dev}\,a\|^2
+
+**Admissibility.** The least-squares fit in ``fitAttenuation`` does not constrain
+the signs of its coefficients, so a poor combination of :math:`Q` and frequency
+band can yield a fit that reproduces the target :math:`Q` while being
+thermodynamically inconsistent (a branch with :math:`\delta\mu_l \leq 0`, or
+non-positive relaxed moduli). The reported dissipation would then be negative.
+SeisSol checks this once during setup and warns; the remedy is a different central
+frequency or frequency ratio.
+
 **Energy balance:**
 
 .. math::
 
-   \frac{\mathrm{d}}{\mathrm{d}t}\left(W_\mathrm{kin} + W_\mathrm{stored}\right) = P_\mathrm{ext} - \dot{D}
+   \frac{\mathrm{d}}{\mathrm{d}t}\left(W_\mathrm{kin} + W_\mathrm{stored}\right)
+       = P_\mathrm{ext} - \dot{D}
 
-Without external sources, the total energy decreases monotonically due to internal relaxation.
+Without external sources, the total energy decreases monotonically due to
+internal relaxation.
 
 
 Poroelastic energy
@@ -365,10 +454,11 @@ Summary of energy balances
 +---------------------+-------------------------------------+---------------------------------------------+
 | Elastic (iso/aniso) | :math:`W_\mathrm{kin} + W_e`        | None (energy conserved)                     |
 +---------------------+-------------------------------------+---------------------------------------------+
-| Viscoelastic        | :math:`W_\mathrm{kin} +             | Internal relaxation of memory variables     |
-|                     | W_\mathrm{stored}`                  |                                             |
+| Viscoelastic        | :math:`W_\mathrm{kin} +             | Internal relaxation of the Maxwell          |
+|                     | W_\mathrm{stored}`                  | branches, ``viscous_dissipation_rate``      |
 +---------------------+-------------------------------------+---------------------------------------------+
-| Poroelastic         | :math:`W_\mathrm{kin} + W_p`        | Viscous Darcy friction in pore fluid        |
+| Poroelastic         | :math:`W_\mathrm{kin} + W_p`        | Viscous Darcy friction in the pore fluid,   |
+|                     |                                     | ``darcy_dissipation_rate``                  |
 +---------------------+-------------------------------------+---------------------------------------------+
 
 In all dissipative cases the energy balance reads:
@@ -378,6 +468,16 @@ In all dissipative cases the energy balance reads:
    \frac{\mathrm{d}}{\mathrm{d}t}\left(W_\mathrm{kin} + W_\mathrm{pot}\right) = P_\mathrm{ext} - \dot{D}
 
 where :math:`W_\mathrm{pot}` is the respective potential/stored energy and :math:`\dot{D} \geq 0` the dissipation rate.
+
+.. note::
+
+   The dissipation columns are reported as instantaneous **rates** (unit W), not
+   as cumulative energies. Closing the balance therefore means integrating the
+   reported rate over time in postprocessing and comparing against the change in
+   :math:`W_\mathrm{kin} + W_\mathrm{pot}`. The accuracy of that integration is
+   limited by the output interval, so a coarse ``EnergyOutputInterval`` will not
+   close the budget to machine precision even for a perfectly conservative
+   scheme.
 
 For coupled acoustic-elastic simulations, the global energy balance over both domains reads:
 
