@@ -7,34 +7,57 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_ENERGY_H_
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_ENERGY_H_
 
+#include "Equations/Energy.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
+#include "Kernels/Precision.h"
 #include "Model/Common.h"
 
 namespace seissol::model {
 
 template <>
 struct EnergyCompute<ElasticMaterial> {
-  static constexpr std::size_t EnergyCount = 7;
-  static inline const std::array<std::string, EnergyCount> Energies{
-      "momentumX",
-      "momentumY",
-      "momentumZ",
-      "acoustic_energy",
-      "elastic_energy",
-      "acoustic_kinetic_energy",
-      "elastic_kinetic_energy",
-  };
+  static constexpr auto Energies =
+      detail::concat(MomentumEnergies, AcousticEnergies, ElasticEnergies);
+  static constexpr std::size_t EnergyCount = Energies.size();
+  static_assert(detail::descriptorsWellFormed(Energies),
+                "energy descriptors must be named, unique, and grouped consistently");
+
+  // output positions, looked up by name so that reordering cannot misplace a value
+  static constexpr auto MomentumXIdx = detail::indexOf(Energies, "momentumX");
+  static constexpr auto MomentumYIdx = detail::indexOf(Energies, "momentumY");
+  static constexpr auto MomentumZIdx = detail::indexOf(Energies, "momentumZ");
+  static constexpr auto AcousticEnergyIdx = detail::indexOf(Energies, "acoustic_energy");
+  static constexpr auto AcousticKineticIdx = detail::indexOf(Energies, "acoustic_kinetic_energy");
+  static constexpr auto ElasticEnergyIdx = detail::indexOf(Energies, "elastic_energy");
+  static constexpr auto ElasticKineticIdx = detail::indexOf(Energies, "elastic_kinetic_energy");
+  static_assert(MomentumXIdx < EnergyCount, "MomentumX missing from the descriptor list");
+  static_assert(MomentumYIdx < EnergyCount, "MomentumY missing from the descriptor list");
+  static_assert(MomentumZIdx < EnergyCount, "MomentumZ missing from the descriptor list");
+  static_assert(AcousticEnergyIdx < EnergyCount, "AcousticEnergy missing from the descriptor list");
+  static_assert(AcousticKineticIdx < EnergyCount,
+                "AcousticKinetic missing from the descriptor list");
+  static_assert(ElasticEnergyIdx < EnergyCount, "ElasticEnergy missing from the descriptor list");
+  static_assert(ElasticKineticIdx < EnergyCount, "ElasticKinetic missing from the descriptor list");
+
+  /// No anelastic variables. See the viscoelastic specialization for the
+  /// non-trivial case; the argument is accepted uniformly so that
+  /// EnergyOutput does not need to branch on the material.
+  struct Moments {};
+  static Moments computeMoments(const real* /*dofs*/, const real* /*dofsAne*/) { return {}; }
 
   static ElasticMaterial::EnergyData initEnergyData(const ElasticMaterial& /*material*/) {
     return {};
   }
 
+  template <typename LinearViewT, typename QuadraticViewT>
   static std::array<double, EnergyCount>
       computeEnergies(const ElasticMaterial& material,
-                      const AcousticMaterial::EnergyData& /*data*/,
-                      const init::massLPR::view::type& linSub,
-                      const init::massSPR::view::type& quadSub) {
+                      const ElasticMaterial::EnergyData& /*data*/,
+                      const LinearViewT& linSub,
+                      const QuadraticViewT& quadSub,
+                      const Moments& /*moments*/,
+                      std::size_t /*sim*/) {
     std::array<double, EnergyCount> output{};
 
     constexpr auto UIdx = ElasticMaterial::TractionQuantities;
@@ -51,6 +74,12 @@ struct EnergyCompute<ElasticMaterial> {
     const double curMomentumY = rho * v;
     const double curMomentumZ = rho * w;
 
+    // the momentum is material-independent; in particular it must also be reported for
+    // acoustic cells (otherwise mixed acoustic/elastic setups silently lose momentum)
+    output[MomentumXIdx] = curMomentumX;
+    output[MomentumYIdx] = curMomentumY;
+    output[MomentumZIdx] = curMomentumZ;
+
     if (std::abs(material.getMuBar()) < 10e-14) {
       // Acoustic
       constexpr std::size_t PIdx = 0;
@@ -58,8 +87,8 @@ struct EnergyCompute<ElasticMaterial> {
       const auto pp = quadSub(PIdx, PIdx);
       const double curAcousticEnergy = pp / (2 * k);
 
-      output[3] = curAcousticEnergy;
-      output[5] = curKineticEnergy;
+      output[AcousticEnergyIdx] = curAcousticEnergy;
+      output[AcousticKineticIdx] = curKineticEnergy;
     } else {
       // Elastic
       auto getStressIndex = [](int i, int j) {
@@ -67,9 +96,6 @@ struct EnergyCompute<ElasticMaterial> {
             std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
         return Lookup[i][j];
       };
-      output[0] = curMomentumX;
-      output[1] = curMomentumY;
-      output[2] = curMomentumZ;
 
       auto getStressPair = [&](int i1, int j1, int i2, int j2) {
         return quadSub(getStressIndex(i1, j1), getStressIndex(i2, j2));
@@ -94,8 +120,8 @@ struct EnergyCompute<ElasticMaterial> {
         }
       }
 
-      output[4] = 0.5 * curElasticEnergy;
-      output[6] = curKineticEnergy;
+      output[ElasticEnergyIdx] = 0.5 * curElasticEnergy;
+      output[ElasticKineticIdx] = curKineticEnergy;
     }
 
     return output;

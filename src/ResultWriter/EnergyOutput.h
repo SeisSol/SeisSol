@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 #define SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 
+#include "Equations/Energy.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
@@ -16,42 +17,60 @@
 #include "Memory/MemoryAllocator.h"
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
+#include "Monitoring/Unit.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <array>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <string>
+#include <string_view>
+#include <vector>
 
 namespace seissol {
 class SeisSol;
 namespace writer {
 
+/// Resolves an EnergyUnit to the SIUnit used for formatting.
+const SIUnit& siUnit(model::EnergyUnit unit);
+
 class EnergiesStorage {
   public:
   void setSimcount(size_t count);
 
-  size_t addEnergy(const std::string& name);
+  /// Registers an energy. Registering the same name twice is a programming
+  /// error and aborts; so is an empty name.
+  size_t addEnergy(const model::EnergyDescriptor& descriptor);
 
   double& energy(size_t handle, size_t sim);
 
   [[nodiscard]] double energy(size_t handle, size_t sim) const;
 
-  double& energy(const std::string& name, size_t sim);
+  /// Both overloads abort on an unknown name. Returning zero instead would
+  /// silently turn a typo into a plausible-looking result.
+  double& energy(std::string_view name, size_t sim);
 
-  [[nodiscard]] double energy(const std::string& name, size_t sim) const;
+  [[nodiscard]] double energy(std::string_view name, size_t sim) const;
 
-  [[nodiscard]] const std::map<std::string, size_t>& handles() const;
+  /// Whether an energy of that name was registered. Use this -- not a zero
+  /// return from energy() -- to test for optional quantities.
+  [[nodiscard]] bool has(std::string_view name) const;
+
+  [[nodiscard]] const std::vector<model::EnergyDescriptor>& descriptors() const;
 
   std::vector<double>& values();
 
   void reset();
 
   private:
+  [[nodiscard]] size_t handleOf(std::string_view name) const;
+
   std::size_t simcount_{1};
   std::vector<double> values_;
-  std::map<std::string, size_t> handles_;
+  std::vector<model::EnergyDescriptor> descriptors_;
+  std::map<std::string, size_t, std::less<>> handles_;
 };
 
 class EnergyOutput : public Module {

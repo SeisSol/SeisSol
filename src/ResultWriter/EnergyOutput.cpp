@@ -49,6 +49,7 @@
 #include <mpi.h>
 #include <optional>
 #include <ostream>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <utils/logger.h>
@@ -125,25 +126,69 @@ std::array<real, multisim::NumSimulations>
   return frictionalWorkReturn;
 }
 
+// Energies that do not come from the material's EnergyCompute specialization.
 // keep these here until we find a better place for them
+//
+// Note: plastic moment, frictional work and the momentum triple are printed by
+// bespoke blocks in printEnergies (they need an equivalent magnitude, a
+// three-component grouping, or a ratio against a non-adjacent quantity), so
+// their descriptors carry no label.
 
-const std::string PlasticMoment = "plastic_moment";
-const std::string GravitationalEnergy = "graviational_energy";
-const std::string SeismicMoment = "seismic_moment";
-const std::string TotalFrictionalWork = "total_frictional_work";
-const std::string StaticFrictionalWork = "static_frictional_work";
-const std::string Potency = "potency";
+constexpr std::string_view PlasticMoment = "plastic_moment";
+constexpr std::string_view GravitationalEnergy = "gravitational_energy";
+constexpr std::string_view SeismicMoment = "seismic_moment";
+constexpr std::string_view TotalFrictionalWork = "total_frictional_work";
+constexpr std::string_view StaticFrictionalWork = "static_frictional_work";
+constexpr std::string_view Potency = "potency";
+
+constexpr std::array GlobalEnergies{
+    model::EnergyDescriptor{PlasticMoment, model::EnergyUnit::Moment},
+    model::EnergyDescriptor{
+        GravitationalEnergy, model::EnergyUnit::Energy, "gravitational", "Gravitational energy:"},
+    model::EnergyDescriptor{SeismicMoment, model::EnergyUnit::Moment},
+    model::EnergyDescriptor{TotalFrictionalWork, model::EnergyUnit::Energy},
+    model::EnergyDescriptor{StaticFrictionalWork, model::EnergyUnit::Energy},
+    model::EnergyDescriptor{Potency, model::EnergyUnit::Scalar},
+};
+static_assert(model::detail::descriptorsWellFormed(GlobalEnergies),
+              "energy descriptors must be named, unique, and grouped consistently");
+
+constexpr std::array MomentumComponents{
+    std::string_view{"momentumX"}, std::string_view{"momentumY"}, std::string_view{"momentumZ"}};
 
 } // namespace
 
+const SIUnit& siUnit(model::EnergyUnit unit) {
+  switch (unit) {
+  case model::EnergyUnit::Energy:
+    return UnitEnergy;
+  case model::EnergyUnit::Power:
+    return UnitPower;
+  case model::EnergyUnit::Moment:
+    return UnitMoment;
+  case model::EnergyUnit::Momentum:
+    return UnitMomentum;
+  case model::EnergyUnit::Scalar:
+    return UnitScalar;
+  }
+  logError() << "Unhandled energy unit.";
+  return UnitScalar;
+}
+
 void EnergiesStorage::setSimcount(size_t count) { simcount_ = count; }
 
-size_t EnergiesStorage::addEnergy(const std::string& name) {
-  const auto index = handles_.size();
-  handles_[name] = index;
-  for (std::size_t i = 0; i < simcount_; ++i) {
-    values_.emplace_back(0);
+size_t EnergiesStorage::addEnergy(const model::EnergyDescriptor& descriptor) {
+  if (descriptor.name.empty()) {
+    logError() << "Attempted to register an energy without a name. This usually means that an"
+               << "EnergyCompute specialization declares more energies than it names.";
   }
+  if (handles_.find(descriptor.name) != handles_.end()) {
+    logError() << "Energy" << std::string(descriptor.name).c_str() << "registered twice.";
+  }
+  const auto index = descriptors_.size();
+  handles_.emplace(std::string(descriptor.name), index);
+  descriptors_.emplace_back(descriptor);
+  values_.resize(values_.size() + simcount_, 0);
   return index;
 }
 
@@ -155,19 +200,31 @@ double& EnergiesStorage::energy(size_t handle, size_t sim) {
   return values_[simcount_ * handle + sim];
 }
 
-double& EnergiesStorage::energy(const std::string& name, size_t sim) {
-  return energy(handles_.at(name), sim);
-}
-
-[[nodiscard]] double EnergiesStorage::energy(const std::string& name, size_t sim) const {
-  if (handles_.find(name) == handles_.end()) {
-    return 0;
+[[nodiscard]] size_t EnergiesStorage::handleOf(std::string_view name) const {
+  const auto it = handles_.find(name);
+  if (it == handles_.end()) {
+    // Deliberately fatal: silently returning zero turns a typo into a
+    // plausible-looking number that nobody notices.
+    logError() << "Unknown energy" << std::string(name).c_str()
+               << "-- use EnergiesStorage::has() to test for optional quantities.";
   }
-  return energy(handles_.at(name), sim);
+  return it->second;
 }
 
-[[nodiscard]] const std::map<std::string, size_t>& EnergiesStorage::handles() const {
-  return handles_;
+double& EnergiesStorage::energy(std::string_view name, size_t sim) {
+  return energy(handleOf(name), sim);
+}
+
+[[nodiscard]] double EnergiesStorage::energy(std::string_view name, size_t sim) const {
+  return energy(handleOf(name), sim);
+}
+
+[[nodiscard]] bool EnergiesStorage::has(std::string_view name) const {
+  return handles_.find(name) != handles_.end();
+}
+
+[[nodiscard]] const std::vector<model::EnergyDescriptor>& EnergiesStorage::descriptors() const {
+  return descriptors_;
 }
 
 std::vector<double>& EnergiesStorage::values() { return values_; }
@@ -195,8 +252,11 @@ void EnergyOutput::init(
   isTerminalOutputEnabled_ = parameters.terminalOutput && (rank == 0);
   terminatorMaxTimePostRupture_ = parameters.terminatorMaxTimePostRupture;
   terminatorMomentRateThreshold_ = parameters.terminatorMomentRateThreshold;
+  // The slip-rate terminator is active exactly when a finite post-rupture time was
+  // configured. The comparison used to be the other way round, which enabled the
+  // check precisely when the user had switched the terminator off.
   isCheckAbortCriteraSlipRateEnabled_ =
-      (terminatorMaxTimePostRupture_ >= std::numeric_limits<double>::max());
+      (terminatorMaxTimePostRupture_ < std::numeric_limits<double>::max());
   isCheckAbortCriteraMomentRateEnabled_ = (terminatorMomentRateThreshold_ > 0);
   computeVolumeEnergiesEveryOutput_ = parameters.computeVolumeEnergiesEveryOutput;
   outputFileName_ = outputFileNamePrefix + "-energy.csv";
@@ -214,15 +274,12 @@ void EnergyOutput::init(
 
   energiesStorage_.setSimcount(multisim::NumSimulations);
 
-  energiesStorage_.addEnergy(PlasticMoment);
-  energiesStorage_.addEnergy(GravitationalEnergy);
-  energiesStorage_.addEnergy(SeismicMoment);
-  energiesStorage_.addEnergy(TotalFrictionalWork);
-  energiesStorage_.addEnergy(StaticFrictionalWork);
-  energiesStorage_.addEnergy(Potency);
+  for (const auto& descriptor : GlobalEnergies) {
+    energiesStorage_.addEnergy(descriptor);
+  }
 
-  for (const auto& energy : model::EnergyCompute<model::MaterialT>::Energies) {
-    energiesStorage_.addEnergy(energy);
+  for (const auto& descriptor : model::EnergyCompute<model::MaterialT>::Energies) {
+    energiesStorage_.addEnergy(descriptor);
   }
 }
 
@@ -405,12 +462,6 @@ void EnergyOutput::computeVolumeEnergies() {
   seissol::quadrature::TetrahedronQuadrature(
       quadraturePointsTet, quadratureWeightsTet, QuadPolyDegree);
 
-  constexpr auto NumQuadraturePointsTri = QuadPolyDegree * QuadPolyDegree;
-  double quadraturePointsTri[NumQuadraturePointsTri][2]{};
-  double quadratureWeightsTri[NumQuadraturePointsTri]{};
-  seissol::quadrature::TriangleQuadrature(
-      quadraturePointsTri, quadratureWeightsTri, QuadPolyDegree);
-
   // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
   // it
   for (const auto& layer : ltsStorage_->leaves(Ghost)) {
@@ -422,6 +473,8 @@ void EnergyOutput::computeVolumeEnergies() {
     const auto* pstrainData = layer.var<LTS::PStrain>();
     const auto* dofsData = layer.var<LTS::Dofs>();
     const auto* energyData = layer.var<LTS::EnergyData>();
+    // only allocated for materials with anelastic variables
+    const auto* dofsAneData = layer.var<LTS::DofsAne>();
 
     constexpr auto SimCount = multisim::NumSimulations;
     constexpr auto EnergyCountSingle = model::EnergyCompute<model::MaterialT>::EnergyCount;
@@ -453,23 +506,26 @@ void EnergyOutput::computeVolumeEnergies() {
       // Needed to weight the integral.
       const auto jacobiDet = 6 * volume;
 
-      alignas(Alignment) real linData[tensor::massLPR::size()];
-      auto lin = init::massLPR::view::create(linData);
-      // Evaluate numerical solution at quad. nodes
-      kernel::massLP krnl;
+      alignas(Alignment) real linData[tensor::momentQ::size()];
+      auto lin = init::momentQ::view::create(linData);
+      // cell integral of Q: momentQ(0, J) == \int_{T_ref} Q_J
+      kernel::momentQCompute krnl;
       krnl.M3 = init::M3::Values;
-      krnl.massLPR = linData;
+      krnl.momentQ = linData;
       krnl.Q = dofsData[cell];
       krnl.execute();
 
-      alignas(Alignment) real quadData[tensor::massSPR::size()];
-      auto quad = init::massSPR::view::create(quadData);
-      // Evaluate numerical solution at quad. nodes
-      kernel::massSP krnl2;
+      alignas(Alignment) real quadData[tensor::momentQQ::size()];
+      auto quad = init::momentQQ::view::create(quadData);
+      // second moments of Q: momentQQ(I, J) == \int_{T_ref} Q_I Q_J
+      kernel::momentQQCompute krnl2;
       krnl2.M3 = init::M3::Values;
-      krnl2.massSPR = quadData;
+      krnl2.momentQQ = quadData;
       krnl2.Q = dofsData[cell];
       krnl2.execute();
+
+      const auto moments = model::EnergyCompute<model::MaterialT>::computeMoments(
+          dofsData[cell], dofsAneData != nullptr ? dofsAneData[cell] : nullptr);
 
       for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
 
@@ -479,7 +535,7 @@ void EnergyOutput::computeVolumeEnergies() {
         // assume _constant_ material over a cell (will need adjustments for e.g. #1297)
 
         const auto localValues = model::EnergyCompute<model::MaterialT>::computeEnergies(
-            material, energyData[cell], linSub, quadSub);
+            material, energyData[cell], linSub, quadSub, moments, sim);
 
         for (std::size_t i = 0; i < localValues.size(); ++i) {
           energyValues[localValues.size() * sim + i] += jacobiDet * localValues[i];
@@ -514,31 +570,34 @@ void EnergyOutput::computeVolumeEnergies() {
 
         // See for example (Saito, Tsunami generation and propagation, 2019) section 3.2.3 for
         // derivation.
+        //
+        // The rotation into the global frame has to happen *before* squaring, hence the
+        // two-step approach: the kernel produces the modal coefficients of the rotated
+        // displacement, and the quadratic form against M2 is evaluated here.
 
-        alignas(Alignment) std::array<real, tensor::quadFaceDisplacements::Size>
-            quadFaceDisplacements{};
+        alignas(Alignment) std::array<real, tensor::faceDisplacementSquared::Size>
+            faceDisplacementSquared{};
         {
-          seissol::kernel::quadFaceDisplacementsCompute evalKrnl;
+          seissol::kernel::faceDisplacementSquaredCompute evalKrnl;
           evalKrnl.rotatedFaceDisplacement = curFaceDisplacementsData;
           evalKrnl.M2 = init::M2::Values;
           evalKrnl.MV2nTo2m = nodal::init::MV2nTo2m::Values;
-          evalKrnl.quadFaceDisplacements = quadFaceDisplacements.data();
+          evalKrnl.faceDisplacementSquared = faceDisplacementSquared.data();
           evalKrnl.displacementRotationMatrix = rotateDisplacementToFaceNormalData;
           evalKrnl.execute();
         }
 
-        const auto quadFaceDisplacementsViewFused =
-            init::quadFaceDisplacements::view::create(quadFaceDisplacements.data());
+        const auto squaredViewFused =
+            init::faceDisplacementSquared::view::create(faceDisplacementSquared.data());
 
         const auto surface = MeshTools::surface(elements[elementId], face, vertices);
         const auto rho = material.getDensity();
 
         for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
-          const auto quadFaceDisplacementsView =
-              multisim::simtensor(quadFaceDisplacementsViewFused, sim);
+          const auto squaredView = multisim::simtensor(squaredViewFused, sim);
 
           // contains an elided 0.5 * 2.0 (1/2 due to energy; 2 due to surface)
-          localGravitationalEnergy[sim] += rho * g * surface * quadFaceDisplacementsView(0);
+          localGravitationalEnergy[sim] += rho * g * surface * squaredView(0);
         }
       }
 
@@ -576,8 +635,8 @@ void EnergyOutput::computeVolumeEnergies() {
 
     for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
       for (std::size_t i = 0; i < model::EnergyCompute<model::MaterialT>::EnergyCount; ++i) {
-        const auto& name = model::EnergyCompute<model::MaterialT>::Energies[i];
-        energiesStorage_.energy(name, sim) +=
+        const auto& descriptor = model::EnergyCompute<model::MaterialT>::Energies[i];
+        energiesStorage_.energy(descriptor.name, sim) +=
             energyValues[sim * model::EnergyCompute<model::MaterialT>::EnergyCount + i];
       }
 
@@ -631,56 +690,75 @@ void EnergyOutput::printEnergies() {
     };
     const auto magnitude = [&](double moment) { return 2.0 / 3.0 * std::log10(moment) - 6.07; };
 
-    const auto printRatio = [&](const std::string& first,
-                                const std::string& second,
-                                const std::string& text,
-                                const SIUnit& unit) {
-      const auto total = energiesStorage_.energy(first, sim) + energiesStorage_.energy(second, sim);
-      const auto ratio1 = energiesStorage_.energy(first, sim) / total * 100.0;
-      const auto ratio2 = energiesStorage_.energy(second, sim) / total * 100.0;
-      if (shouldPrint(total)) {
-        logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str() << text.c_str()
-                  << printValue(total, unit).c_str() << "," << ratio1 << "% ," << ratio2 << "%";
+    // Energies sharing a group are summed and reported on one line, driven by the
+    // member that carries the heading. A single-member group prints just the
+    // total; a larger one appends each member's share. This is what lets the
+    // viscoelastic branch energy join the elastic group -- reporting the
+    // kinetic/potential split without it would understate the potential share.
+    const auto printGroup = [&](const model::EnergyDescriptor& labelled) {
+      const auto& descriptors = energiesStorage_.descriptors();
+      double total = 0.0;
+      for (const auto& member : descriptors) {
+        if (member.group == labelled.group) {
+          total += energiesStorage_.energy(member.name, sim);
+        }
       }
+      // guard before dividing, so an empty field does not produce 0/0
+      if (!shouldPrint(total)) {
+        return;
+      }
+
+      std::ostringstream shares;
+      shares << std::setprecision(outputPrecision);
+      for (const auto& member : descriptors) {
+        if (member.group != labelled.group || member.shortLabel.empty()) {
+          continue;
+        }
+        shares << ", " << member.shortLabel << " "
+               << (energiesStorage_.energy(member.name, sim) / total * 100.0) << "%";
+      }
+
+      logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                << std::string(labelled.groupLabel).c_str()
+                << printValue(total, siUnit(labelled.unit)).c_str() << shares.str().c_str();
     };
 
     const auto seismicMoment = energiesStorage_.energy(SeismicMoment, sim);
     if (shouldComputeVolumeEnergies()) {
-      printRatio("elastic_kinetic_energy",
-                 "elastic_energy",
-                 "Elastic energy (total, % kinematic, % potential): ",
-                 UnitEnergy);
-      printRatio("acoustic_kinetic_energy",
-                 "acoustic_energy",
-                 "Acoustic energy (total, % kinematic, % potential): ",
-                 UnitEnergy);
-
-      const auto gravitationalEnergy = energiesStorage_.energy(GravitationalEnergy, sim);
-      if (shouldPrint(gravitationalEnergy)) {
-        logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                  << "Gravitational energy:" << printValue(gravitationalEnergy, UnitEnergy).c_str();
+      // Every group is printed generically, in descriptor registration order.
+      // Anything needing more than a total and per-member shares -- the plastic
+      // moment with its equivalent magnitude, the momentum triple, frictional
+      // work -- gets a bespoke block below.
+      for (const auto& descriptor : energiesStorage_.descriptors()) {
+        if (!descriptor.groupLabel.empty()) {
+          printGroup(descriptor);
+        }
       }
 
       const auto plasticMoment = energiesStorage_.energy(PlasticMoment, sim);
-      const auto ratioPlasticMoment = 100.0 * plasticMoment / (plasticMoment + seismicMoment);
       if (shouldPrint(plasticMoment)) {
+        const auto ratioPlasticMoment = 100.0 * plasticMoment / (plasticMoment + seismicMoment);
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
                   << "Plastic moment (value, equivalent Mw, % total moment):"
                   << printValue(plasticMoment, UnitMoment).c_str() << ","
                   << magnitude(plasticMoment) << "," << ratioPlasticMoment << "%";
       }
+
+      if (std::all_of(MomentumComponents.begin(),
+                      MomentumComponents.end(),
+                      [&](std::string_view name) { return energiesStorage_.has(name); })) {
+        logInfo()
+            << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+            << " Total momentum (X, Y, Z):"
+            << printValue(energiesStorage_.energy(MomentumComponents[0], sim), UnitMomentum).c_str()
+            << ","
+            << printValue(energiesStorage_.energy(MomentumComponents[1], sim), UnitMomentum).c_str()
+            << ","
+            << printValue(energiesStorage_.energy(MomentumComponents[2], sim), UnitMomentum)
+                   .c_str();
+      }
     } else {
       logInfo() << "Volume energies skipped at this step";
-    }
-
-    {
-      const auto totalMomentumX = energiesStorage_.energy("momentumX", sim);
-      const auto totalMomentumY = energiesStorage_.energy("momentumY", sim);
-      const auto totalMomentumZ = energiesStorage_.energy("momentumZ", sim);
-      logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                << " Total momentum (X, Y, Z):" << printValue(totalMomentumX, UnitMomentum).c_str()
-                << "," << printValue(totalMomentumY, UnitMomentum).c_str() << ","
-                << printValue(totalMomentumZ, UnitMomentum).c_str();
     }
 
     const auto totalFrictionalWork = energiesStorage_.energy(TotalFrictionalWork, sim);
@@ -700,9 +778,9 @@ void EnergyOutput::printEnergies() {
                 << ", Mw:" << magnitude(seismicMoment);
     }
 
-    for (const auto& [handle, _] : energiesStorage_.handles()) {
-      if (!std::isfinite(energiesStorage_.energy(handle, sim))) {
-        infnan.emplace_back(sim, handle);
+    for (const auto& descriptor : energiesStorage_.descriptors()) {
+      if (!std::isfinite(energiesStorage_.energy(descriptor.name, sim))) {
+        infnan.emplace_back(sim, std::string(descriptor.name));
       }
     }
   }
@@ -715,10 +793,18 @@ void EnergyOutput::printEnergies() {
 void EnergyOutput::checkAbortCriterion(
     const std::array<double, multisim::NumSimulations>& timeSinceThreshold,
     const std::string& prefixMessage) {
+  // A simulation counts as "ready to abort" once it has been below the threshold
+  // for longer than the configured time. Simulations that have not reached the
+  // threshold at all are still running and must block the abort; simulations that
+  // never entered the observation window (timeSinceThreshold == 0 or infinite)
+  // carry no information and must *not* block it, or a single such simulation
+  // would keep a fused run alive indefinitely.
   size_t abortCount = 0;
+  size_t decidableCount = 0;
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
     if ((timeSinceThreshold[sim] > 0) and
         (timeSinceThreshold[sim] < std::numeric_limits<double>::infinity())) {
+      ++decidableCount;
       if (static_cast<double>(timeSinceThreshold[sim]) < terminatorMaxTimePostRupture_) {
         logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold[sim]
                   << "s; in simulation: " << sim
@@ -732,7 +818,7 @@ void EnergyOutput::checkAbortCriterion(
     }
   }
 
-  bool abort = abortCount == multisim::NumSimulations;
+  bool abort = (decidableCount > 0) and (abortCount == decidableCount);
   const auto& comm = Mpi::mpi.comm();
   MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);
   if (abort) {
@@ -745,11 +831,13 @@ void EnergyOutput::writeHeader() {
 }
 
 void EnergyOutput::writeEnergies(double time) {
-  for (const auto& [name, handle] : energiesStorage_.handles()) {
+  // iterate the descriptors, not the name->handle map: the map is ordered
+  // alphabetically, the descriptors in registration order
+  const auto& descriptors = energiesStorage_.descriptors();
+  for (std::size_t handle = 0; handle < descriptors.size(); ++handle) {
     for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
-      const std::string simIndex = std::to_string(sim);
-      out_ << time << "," << name << "," << simIndex << "," << energiesStorage_.energy(handle, sim)
-           << '\n';
+      out_ << time << "," << descriptors[handle].name << "," << sim << ","
+           << energiesStorage_.energy(handle, sim) << '\n';
     }
   }
   out_.flush();

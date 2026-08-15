@@ -9,27 +9,43 @@
 
 #include "Equations/acoustic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
+#include "Kernels/Precision.h"
 #include "Model/Common.h"
 
 namespace seissol::model {
 
 template <>
 struct EnergyCompute<AcousticMaterial> {
-  static constexpr std::size_t EnergyCount = 7;
-  static inline const std::array<std::string, EnergyCount> Energies{
-      "acoustic_energy",
-      "acoustic_kinetic_energy",
-  };
+  static constexpr auto Energies = AcousticEnergies;
+  static constexpr std::size_t EnergyCount = Energies.size();
+  static_assert(detail::descriptorsWellFormed(Energies),
+                "energy descriptors must be named, unique, and grouped consistently");
+
+  // output positions, looked up by name so that reordering cannot misplace a value
+  static constexpr auto AcousticEnergyIdx = detail::indexOf(Energies, "acoustic_energy");
+  static constexpr auto AcousticKineticIdx = detail::indexOf(Energies, "acoustic_kinetic_energy");
+  static_assert(AcousticEnergyIdx < EnergyCount, "AcousticEnergy missing from the descriptor list");
+  static_assert(AcousticKineticIdx < EnergyCount,
+                "AcousticKinetic missing from the descriptor list");
+
+  /// No anelastic variables. See the viscoelastic specialization for the
+  /// non-trivial case; the argument is accepted uniformly so that
+  /// EnergyOutput does not need to branch on the material.
+  struct Moments {};
+  static Moments computeMoments(const real* /*dofs*/, const real* /*dofsAne*/) { return {}; }
 
   static AcousticMaterial::EnergyData initEnergyData(const AcousticMaterial& /*material*/) {
     return {};
   }
 
+  template <typename LinearViewT, typename QuadraticViewT>
   static std::array<double, EnergyCount>
       computeEnergies(const AcousticMaterial& material,
                       const AcousticMaterial::EnergyData& /*data*/,
-                      const init::massLPR::view::type& /*linSub*/,
-                      const init::massSPR::view::type& quadSub) {
+                      const LinearViewT& /*linSub*/,
+                      const QuadraticViewT& quadSub,
+                      const Moments& /*moments*/,
+                      std::size_t /*sim*/) {
     std::array<double, EnergyCount> output{};
 
     constexpr auto UIdx = AcousticMaterial::TractionQuantities;
@@ -46,8 +62,8 @@ struct EnergyCompute<AcousticMaterial> {
     const auto pp = quadSub(PIdx, PIdx);
     const double curAcousticEnergy = pp / (2 * k);
 
-    output[0] = curAcousticEnergy;
-    output[1] = curKineticEnergy;
+    output[AcousticEnergyIdx] = curAcousticEnergy;
+    output[AcousticKineticIdx] = curKineticEnergy;
 
     return output;
   }
