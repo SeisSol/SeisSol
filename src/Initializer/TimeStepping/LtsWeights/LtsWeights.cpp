@@ -133,7 +133,7 @@ void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
   details_ = collectGlobalTimeStepDetails();
   cellCosts_ = computeCostsPerTimestep();
 
-  const auto& ltsParameters = seissolInstance_.getSeisSolParameters().timeStepping.lts;
+  const auto& ltsParameters = seissolInstance_.parameters().timeStepping.lts;
   auto maxClusterIdToEnforce = ltsParameters.getMaxNumberOfClusters() - 1;
 
   if (!continueComputation) {
@@ -210,7 +210,7 @@ LtsWeights::ComputeWiggleFactorResult
   auto mapMaxClusterIdToLowestCost = std::map<int, double>{};
   auto maxMapClusterIdToBestWiggleFactor = std::map<int, double>{};
 
-  const auto& ltsParameters = seissolInstance_.getSeisSolParameters().timeStepping.lts;
+  const auto& ltsParameters = seissolInstance_.parameters().timeStepping.lts;
   const double minWiggleFactor = ltsParameters.getWiggleFactorMinimum();
   const double maxWiggleFactor = 1.0;
 
@@ -400,7 +400,7 @@ std::uint64_t ratepow(const std::vector<std::uint64_t>& rate, std::uint64_t a, s
 seissol::initializer::GlobalTimestep LtsWeights::collectGlobalTimeStepDetails() {
   return seissol::initializer::computeTimesteps(
       seissol::initializer::CellToVertexArray::fromPUML(*meshGeometry_),
-      seissolInstance_.getSeisSolParameters());
+      seissolInstance_.parameters());
 }
 
 int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWiggleFactor) {
@@ -433,7 +433,7 @@ int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWig
       clusterIds_ = computeClusterIds(curWiggleFactor);
       cellchanges = meshTopology_->cells().size();
     }
-    const auto& ltsParameters = seissolInstance_.getSeisSolParameters().timeStepping.lts;
+    const auto& ltsParameters = seissolInstance_.parameters().timeStepping.lts;
     if (ltsParameters.getWiggleFactorEnforceMaximumDifference()) {
       MPI_Allreduce(MPI_IN_PLACE, &cellchanges, 1, MPI_INT, MPI_SUM, seissol::Mpi::mpi.comm());
       if (cellchanges > 0) {

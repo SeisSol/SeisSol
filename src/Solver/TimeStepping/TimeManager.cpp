@@ -57,7 +57,7 @@ TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
   loopStatistics_.addRegion("computePointSources");
 
   loopStatistics_.enableSampleOutput(
-      seissolInstance.getSeisSolParameters().output.loopStatisticsNetcdfOutput);
+      seissolInstance.parameters().output.loopStatisticsNetcdfOutput);
 }
 
 TimeManager::~TimeManager() = default;
@@ -72,13 +72,12 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // store the time stepping
   this->clusterLayout_ = clusterLayout;
 
-  auto clusteringWriter =
-      writer::ClusteringWriter(seissolInstance_.getSeisSolParameters().output.prefix);
+  auto clusteringWriter = writer::ClusteringWriter(seissolInstance_.parameters().output.prefix);
 
   std::vector<std::size_t> drCellsPerCluster(clusterLayout.globalClusterCount);
 
   // setup DR schedulers
-  for (const auto& layer : memoryManager.getDRStorage().leaves()) {
+  for (const auto& layer : memoryManager.drStorage().leaves()) {
     drCellsPerCluster[layer.getIdentifier().lts] += layer.size();
   }
 
@@ -106,18 +105,18 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   }
 
   std::vector<AbstractTimeCluster*> cellClusterBackmap(
-      memoryManager.getLtsStorage().getColorMap().size());
+      memoryManager.ltsStorage().getColorMap().size());
 
   const auto deltaId = [&](const auto& id, HaloType halo, int32_t offset) {
     auto cloned = id;
     cloned.halo = halo;
     cloned.lts += offset;
-    return memoryManager.getLtsStorage().getColorMap().colorId(cloned);
+    return memoryManager.ltsStorage().getColorMap().colorId(cloned);
   };
 
   // iterate over local time clusters
-  for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost)) {
-    auto globalData = memoryManager.getGlobalData();
+  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
+    auto globalData = memoryManager.globalData();
 
     const auto clusterId = layer.getIdentifier().lts;
 
@@ -132,9 +131,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     const auto profilingId = layer.id();
 
     auto* dynRupInteriorData =
-        &memoryManager.getDRStorage().layer(deltaId(layer.getIdentifier(), HaloType::Interior, 0));
+        &memoryManager.drStorage().layer(deltaId(layer.getIdentifier(), HaloType::Interior, 0));
     auto* dynRupCopyData =
-        &memoryManager.getDRStorage().layer(deltaId(layer.getIdentifier(), HaloType::Copy, 0));
+        &memoryManager.drStorage().layer(deltaId(layer.getIdentifier(), HaloType::Copy, 0));
 
     auto& cluster = clusters_.emplace_back(
         std::make_unique<TimeCluster>(clusterId,
@@ -150,15 +149,15 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                       &layer,
                                       dynRupInteriorData,
                                       dynRupCopyData,
-                                      memoryManager.getFrictionLaw(),
-                                      memoryManager.getFrictionLawDevice(),
-                                      memoryManager.getFaultOutputManager(),
+                                      memoryManager.frictionLaw(),
+                                      memoryManager.frictionLawDevice(),
+                                      memoryManager.faultOutputManager(),
                                       seissolInstance_,
                                       &loopStatistics_,
                                       &actorStateStatisticsManager_.addCluster(profilingId)));
 
     const auto clusterSize = layer.size();
-    const auto dynRupSize = memoryManager.getDRStorage().layer(layer.id()).size();
+    const auto dynRupSize = memoryManager.drStorage().layer(layer.id()).size();
     // Add writer to output
     clusteringWriter.addCluster(
         profilingId, clusterId, layer.getIdentifier().halo, clusterSize, dynRupSize);
@@ -178,8 +177,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     }
   };
 
-  for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost)) {
-    for (auto& otherLayer : memoryManager.getLtsStorage().leaves(Ghost)) {
+  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
+    for (auto& otherLayer : memoryManager.ltsStorage().leaves(Ghost)) {
       // only traverse half of all combinations
       if (layer.id() < otherLayer.id()) {
         const int64_t lts1 = layer.getIdentifier().lts;
@@ -194,14 +193,14 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // Create ghost time clusters for MPI
   const auto preferredDataTransferMode = Mpi::mpi.getPreferredDataTransferMode();
   const auto persistent = usePersistentMpi(seissolInstance_.env());
-  for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost | Interior)) {
+  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost | Interior)) {
 
     const auto displayName = "copy-" + std::to_string(layer.getIdentifier().lts);
 
     for (const auto [i, halo] : common::enumerate(haloStructure.at(layer.id()))) {
 
       const bool hasNeighborRegions = !halo.copy.empty() || !halo.ghost.empty();
-      const auto other = memoryManager.getLtsStorage().getColorMap().argument(i);
+      const auto other = memoryManager.ltsStorage().getColorMap().argument(i);
 
       if (hasNeighborRegions) {
 
@@ -252,7 +251,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
   if (seissol::useCommThread(Mpi::mpi, seissolInstance_.env())) {
     communicationManager_ = std::make_unique<ThreadedCommunicationManager>(
-        std::move(ghostClusters), &seissolInstance_.getPinning());
+        std::move(ghostClusters), &seissolInstance_.pinning());
   } else {
     communicationManager_ = std::make_unique<SerialCommunicationManager>(std::move(ghostClusters));
   }
@@ -281,7 +280,7 @@ void TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faul
   }
 }
 
-seissol::dr::output::OutputManager* TimeManager::getFaultOutputManager() {
+seissol::dr::output::OutputManager* TimeManager::faultOutputManager() {
   assert(faultOutputManager_ != nullptr);
   return faultOutputManager_;
 }
@@ -411,7 +410,7 @@ void TimeManager::synchronizeTo(seissol::initializer::AllocationPlace place) {
     sameExecutor &= exec == cluster->getExecutor();
   }
   if (sameExecutor) {
-    seissolInstance_.getMemoryManager().synchronizeTo(place);
+    seissolInstance_.memoryManager().synchronizeTo(place);
   } else {
     auto* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
     for (auto& cluster : clusters_) {

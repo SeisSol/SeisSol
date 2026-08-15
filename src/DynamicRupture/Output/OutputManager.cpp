@@ -125,7 +125,7 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
 
   impl_->setMeshReader(&userMesher);
 
-  const auto& seissolParameters = seissolInstance_.getSeisSolParameters();
+  const auto& seissolParameters = seissolInstance_.parameters();
   const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
                            seissol::initializer::parameters::OutputType::AtPickpointAndElementwise;
   const bool pointEnabled = seissolParameters.drParameters.outputPointType ==
@@ -139,9 +139,8 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
     ppOutputBuilder_ = std::make_unique<PickPointBuilder>();
     ppOutputBuilder_->setMeshReader(&userMesher);
     ppOutputBuilder_->setParams(seissolParameters.output.pickpointParameters);
-    ppOutputBuilder_->setTimestep(
-        seissolInstance_.getMemoryManager().clusterLayout().minimumTimestep,
-        seissolParameters.timeStepping.endTime);
+    ppOutputBuilder_->setTimestep(seissolInstance_.memoryManager().clusterLayout().minimumTimestep,
+                                  seissolParameters.timeStepping.endTime);
   }
   if (elementwiseEnabled) {
     logInfo() << "Enabling 2D fault output";
@@ -162,7 +161,7 @@ void OutputManager::setLtsData(LTS::Storage& userWpStorage,
   drStorage_ = &userDrStorage;
   impl_->setLtsData(userWpStorage, userWpBackmap, userDrStorage);
   initFaceToLtsMap();
-  const auto& seissolParameters = seissolInstance_.getSeisSolParameters();
+  const auto& seissolParameters = seissolInstance_.parameters();
   const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
                            seissol::initializer::parameters::OutputType::AtPickpointAndElementwise;
   const bool pointEnabled = seissolParameters.drParameters.outputPointType ==
@@ -185,7 +184,7 @@ void OutputManager::setLtsData(LTS::Storage& userWpStorage,
 void OutputManager::initElementwiseOutput() {
   logInfo() << "Setting up the fault output.";
   ewOutputBuilder_->build(ewOutputData_);
-  const auto& seissolParameters = seissolInstance_.getSeisSolParameters();
+  const auto& seissolParameters = seissolInstance_.parameters();
 
   const auto& receiverPoints = ewOutputData_->receiverPoints;
   const auto cellConnectivity = getCellConnectivity(receiverPoints);
@@ -291,14 +290,14 @@ void OutputManager::initElementwiseOutput() {
     schedWriter.name = "fault-elementwise";
     schedWriter.planWrite = writer.makeWriter();
 
-    seissolInstance_.getOutputManager().addOutput(schedWriter);
+    seissolInstance_.outputManager().addOutput(schedWriter);
   }
 }
 
 void OutputManager::initPickpointOutput() {
   logInfo() << "Setting up on-fault receivers.";
   ppOutputBuilder_->build(ppOutputData_);
-  const auto& seissolParameters = seissolInstance_.getSeisSolParameters();
+  const auto& seissolParameters = seissolInstance_.parameters();
 
   seissolInstance_.pickpointWriter().enable(
       seissolParameters.output.pickpointParameters.writeInterval);
@@ -498,7 +497,7 @@ void OutputManager::initFaceToLtsMap() {
 }
 
 bool OutputManager::isAtPickpoint(double time, double dt) {
-  const auto& seissolParameters = seissolInstance_.getSeisSolParameters();
+  const auto& seissolParameters = seissolInstance_.parameters();
   const bool isFirstStep = iterationStep_ == 0;
   const double abortTime = seissolParameters.timeStepping.endTime;
   const bool isCloseToTimeOut = (abortTime - time) < (dt * TimeMargin);
@@ -515,7 +514,7 @@ void OutputManager::writePickpointOutput(std::size_t layerId,
                                          double meshDt,
                                          double meshInDt,
                                          parallel::runtime::StreamRuntime& runtime) {
-  const auto& seissolParameters = seissolInstance_.getSeisSolParameters();
+  const auto& seissolParameters = seissolInstance_.parameters();
   if (this->ppOutputBuilder_) {
     if (this->isAtPickpoint(time, dt)) {
       const auto findResult = ppOutputData_.find(layerId);
@@ -584,7 +583,7 @@ void OutputManager::flushPickpointDataToFile() {
 
 void OutputManager::updateElementwiseOutput() {
   if (this->ewOutputBuilder_) {
-    const auto& seissolParameters = seissolInstance_.getSeisSolParameters();
+    const auto& seissolParameters = seissolInstance_.parameters();
     impl_->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
                            seissolParameters.drParameters.slipRateOutputType,
                            ewOutputData_,
