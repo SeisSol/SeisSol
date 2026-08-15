@@ -12,6 +12,7 @@
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h"
+#include "Equations/EnergyBase.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -51,6 +52,7 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -142,13 +144,16 @@ constexpr std::string_view StaticFrictionalWork = "static_frictional_work";
 constexpr std::string_view Potency = "potency";
 
 constexpr std::array GlobalEnergies{
-    model::EnergyDescriptor{PlasticMoment, model::EnergyUnit::Moment},
-    model::EnergyDescriptor{
-        GravitationalEnergy, model::EnergyUnit::Energy, "gravitational", "Gravitational energy:"},
-    model::EnergyDescriptor{SeismicMoment, model::EnergyUnit::Moment},
-    model::EnergyDescriptor{TotalFrictionalWork, model::EnergyUnit::Energy},
-    model::EnergyDescriptor{StaticFrictionalWork, model::EnergyUnit::Energy},
-    model::EnergyDescriptor{Potency, model::EnergyUnit::Scalar},
+    model::EnergyDescriptor{PlasticMoment, model::EnergyUnit::Moment, {}, {}, {}},
+    model::EnergyDescriptor{GravitationalEnergy,
+                            model::EnergyUnit::Energy,
+                            "gravitational",
+                            "Gravitational energy:",
+                            {}},
+    model::EnergyDescriptor{SeismicMoment, model::EnergyUnit::Moment, {}, {}, {}},
+    model::EnergyDescriptor{TotalFrictionalWork, model::EnergyUnit::Energy, {}, {}, {}},
+    model::EnergyDescriptor{StaticFrictionalWork, model::EnergyUnit::Energy, {}, {}, {}},
+    model::EnergyDescriptor{Potency, model::EnergyUnit::Scalar, {}, {}, {}},
 };
 static_assert(model::detail::descriptorsWellFormed(GlobalEnergies),
               "energy descriptors must be named, unique, and grouped consistently");
@@ -183,7 +188,7 @@ size_t EnergiesStorage::addEnergy(const model::EnergyDescriptor& descriptor) {
                << "EnergyCompute specialization declares more energies than it names.";
   }
   if (handles_.find(descriptor.name) != handles_.end()) {
-    logError() << "Energy" << std::string(descriptor.name).c_str() << "registered twice.";
+    logError() << "Energy" << std::string(descriptor.name) << "registered twice.";
   }
   const auto index = descriptors_.size();
   handles_.emplace(std::string(descriptor.name), index);
@@ -714,8 +719,8 @@ void EnergyOutput::printEnergies() {
         if (member.group != labelled.group || member.shortLabel.empty()) {
           continue;
         }
-        shares << ", " << member.shortLabel << " "
-               << (energiesStorage_.energy(member.name, sim) / total * 100.0) << "%";
+        shares << " , " << member.shortLabel << " "
+               << (energiesStorage_.energy(member.name, sim) / total * 100.0) << " %";
       }
 
       logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
@@ -739,21 +744,20 @@ void EnergyOutput::printEnergies() {
       if (shouldPrint(plasticMoment)) {
         const auto ratioPlasticMoment = 100.0 * plasticMoment / (plasticMoment + seismicMoment);
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                  << "Plastic moment (value, equivalent Mw, % total moment):"
-                  << printValue(plasticMoment, UnitMoment).c_str() << ","
-                  << magnitude(plasticMoment) << "," << ratioPlasticMoment << "%";
+                  << "Plastic moment:" << printValue(plasticMoment, UnitMoment).c_str()
+                  << ", equivalent Mw:" << magnitude(plasticMoment)
+                  << ", of total moment:" << ratioPlasticMoment << "%";
       }
 
       if (std::all_of(MomentumComponents.begin(),
                       MomentumComponents.end(),
                       [&](std::string_view name) { return energiesStorage_.has(name); })) {
         logInfo()
-            << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-            << " Total momentum (X, Y, Z):"
+            << std::setprecision(outputPrecision) << fusedPrefix.c_str() << " Total momentum: X"
             << printValue(energiesStorage_.energy(MomentumComponents[0], sim), UnitMomentum).c_str()
-            << ","
+            << ", Y"
             << printValue(energiesStorage_.energy(MomentumComponents[1], sim), UnitMomentum).c_str()
-            << ","
+            << ", Z"
             << printValue(energiesStorage_.energy(MomentumComponents[2], sim), UnitMomentum)
                    .c_str();
       }
@@ -768,9 +772,8 @@ void EnergyOutput::printEnergies() {
       const auto ratio2 =
           (totalFrictionalWork - staticFrictionalWork) / totalFrictionalWork * 100.0;
       logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                << "Frictional work (total, % static, % radiated): "
-                << printValue(totalFrictionalWork, UnitEnergy).c_str() << "," << ratio1 << "% ,"
-                << ratio2 << "%";
+                << "Frictional work: " << printValue(totalFrictionalWork, UnitEnergy).c_str()
+                << ", static" << ratio1 << "% , radiated" << ratio2 << "%";
 
       logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
                 << "Seismic moment (without plasticity):"

@@ -48,14 +48,10 @@ class EnergiesStorage {
 
   [[nodiscard]] double energy(size_t handle, size_t sim) const;
 
-  /// Both overloads abort on an unknown name. Returning zero instead would
-  /// silently turn a typo into a plausible-looking result.
   double& energy(std::string_view name, size_t sim);
 
   [[nodiscard]] double energy(std::string_view name, size_t sim) const;
 
-  /// Whether an energy of that name was registered. Use this -- not a zero
-  /// return from energy() -- to test for optional quantities.
   [[nodiscard]] bool has(std::string_view name) const;
 
   [[nodiscard]] const std::vector<model::EnergyDescriptor>& descriptors() const;

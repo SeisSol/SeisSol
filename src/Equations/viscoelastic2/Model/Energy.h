@@ -8,7 +8,7 @@
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_ENERGY_H_
 
 #include "Common/Constants.h"
-#include "Equations/Energy.h"
+#include "Equations/EnergyBase.h"
 #include "Equations/viscoelastic2/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"

@@ -7,7 +7,7 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ENERGY_H_
 #define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ENERGY_H_
 
-#include "Equations/Energy.h"
+#include "Equations/EnergyBase.h"
 #include "Equations/anisotropic/Model/Datastructures.h"
 #include "Equations/anisotropic/Model/IntegrationData.h"
 #include "GeneratedCode/init.h"

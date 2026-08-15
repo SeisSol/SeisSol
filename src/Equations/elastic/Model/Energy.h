@@ -7,7 +7,7 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_ENERGY_H_
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_ENERGY_H_
 
-#include "Equations/Energy.h"
+#include "Equations/EnergyBase.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Precision.h"
