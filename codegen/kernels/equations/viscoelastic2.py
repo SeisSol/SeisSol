@@ -243,6 +243,59 @@ class Viscoelastic2ADERDG(ADERDGBase):
             dofsQP["kp"] <= self.db.evalAtQP[self.t("kl")] * self.Q["lp"],
         )
 
+        self.addAnelasticEnergyProducts(generator)
+
+    def addAnelasticEnergyProducts(self, generator):
+        """Mass-matrix moments involving the anelastic variables.
+
+        The viscoelastic energies are quadratic forms in the combined state
+        z = (sigma, vartheta^(1..L)). ADERDGBase.addEnergyProducts already covers
+        the sigma-sigma block via momentQQCompute; these two add the remaining ones:
+
+          momentQaneQane[I,J,m,n]  == \\int_{T_ref} Qane_{I,m} Qane_{J,n}
+          momentQQane[I,J,m]  == \\int_{T_ref} Q_I Qane_{J,m}
+
+        Cross-mechanism terms (m != n) are needed: the relaxed strain is
+        eps = C_r^-1 (sigma - sum_l D^(l) Qane^(l) / omega_l), so squaring it
+        couples every pair of mechanisms.
+
+        Both are quadratic in an OptionalDimTensor, i.e. they rely on yateto
+        handling the fused-simulation index as a batch index.
+        """
+        momentQaneQane = OptionalDimTensor(
+            "momentQaneQane",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (
+                self.numberOfAnelasticQuantities(),
+                self.numberOfAnelasticQuantities(),
+                self.numberOfMechanisms,
+                self.numberOfMechanisms,
+            ),
+        )
+        generator.add(
+            "momentQaneQaneCompute",
+            momentQaneQane["IJmn"]
+            <= self.db.M3["ij"] * self.Qane["iIm"] * self.Qane["jJn"],
+        )
+
+        momentQQane = OptionalDimTensor(
+            "momentQQane",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (
+                self.numberOfQuantities(),
+                self.numberOfAnelasticQuantities(),
+                self.numberOfMechanisms,
+            ),
+        )
+        generator.add(
+            "momentQQaneCompute",
+            momentQQane["IJm"] <= self.db.M3["ij"] * self.Q["iI"] * self.Qane["jJm"],
+        )
+
     def addLocal(self, generator, targets):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)

@@ -134,22 +134,37 @@ def addKernels(generator, aderdg, include_tensors, targets):
         * displacementRotationMatrix["np"],
     )
 
-    quadFaceDisplacements = OptionalDimTensor(
-        "quadFaceDisplacements",
+    # Explicit temporary: without it the two rotated-displacement factors carry
+    # different contraction indices and yateto cannot see that they are the same
+    # subexpression, so it recomputes the rotation for both.
+    faceDisplacementModal = OptionalDimTensor(
+        "faceDisplacementModal",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (numberOf2DBasisFunctions, 3),
+        alignStride=True,
+        temporary=True,
+    )
+    faceDisplacementSquared = OptionalDimTensor(
+        "faceDisplacementSquared",
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
         (3,),
     )
     generator.add(
-        "quadFaceDisplacementsCompute",
-        quadFaceDisplacements["n"]
-        <= aderdg.db.M2["ij"]
-        * aderdg.db.MV2nTo2m["iI"]
-        * aderdg.db.MV2nTo2m["jJ"]
-        * rotatedFaceDisplacement["Ip"]
-        * rotatedFaceDisplacement["Jp"]
-        * displacementRotationMatrix["np"],
+        "faceDisplacementSquaredCompute",
+        [
+            faceDisplacementModal["mn"]
+            <= aderdg.db.MV2nTo2m["mI"]
+            * rotatedFaceDisplacement["Ip"]
+            * displacementRotationMatrix["np"],
+            faceDisplacementSquared["n"]
+            <= aderdg.db.M2["ij"]
+            * faceDisplacementModal["in"]
+            * faceDisplacementModal["jn"],
+        ],
     )
 
     if "gpu" in targets:

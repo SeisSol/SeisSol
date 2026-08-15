@@ -259,6 +259,52 @@ class ADERDGBase(ABC):
         )
         generator.add("computeChristoffel", computeChristoffel)
 
+        self.addEnergyProducts(generator)
+
+    def addEnergyProducts(self, generator):
+        """Mass-matrix moments of Q, used by the volume energy output.
+
+        momentQ[0,J]  == \\int_{T_ref} Q_J
+        momentQQ[I,J] == \\int_{T_ref} Q_I Q_J
+
+        Multiply by the Jacobi determinant to obtain the physical integral. Both
+        are exact, as opposed to evaluating at quadrature points.
+
+        Note: this lives in ADERDGBase (not LinearADERDG), because the
+        viscoelastic2 generator derives directly from ADERDGBase and would
+        otherwise not get the kernels at all.
+        """
+        # Only the cell integral is needed, so M3 is narrowed to its first row.
+        # subselect keeps the rank and sets the extent to 1, which turns the
+        # kernel from an nb x nq product into an nq one.
+        momentQ = OptionalDimTensor(
+            "momentQ",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (1, self.numberOfQuantities()),
+            alignStride=True,
+        )
+        generator.add(
+            "momentQCompute",
+            momentQ["IJ"] <= self.db.M3["Ij"].subselect("I", 0) * self.Q["jJ"],
+        )
+
+        # The fused-simulation index 's' occurs in the result and in both Q
+        # factors, i.e. it is a batch index. yateto handles that as of
+        # <yateto batch-index fix>; without it this asserts in the GEMM factory.
+        momentQQ = OptionalDimTensor(
+            "momentQQ",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (self.numberOfQuantities(), self.numberOfQuantities()),
+        )
+        generator.add(
+            "momentQQCompute",
+            momentQQ["IJ"] <= self.db.M3["ij"] * self.Q["iI"] * self.Q["jJ"],
+        )
+
     @abstractmethod
     def addLocal(self, generator, targets):
         pass
@@ -320,27 +366,6 @@ class LinearADERDG(ADERDGBase):
         generator.add(
             "evalAtQP",
             dofsQP["kp"] <= self.db.evalAtQP[self.t("kl")] * self.Q["lp"],
-        )
-
-        massLPR = OptionalDimTensor(
-            "massLPR",
-            self.Q.optName(),
-            self.Q.optSize(),
-            self.Q.optPos(),
-            (self.numberOf3DBasisFunctions(), self.numberOfQuantities()),
-            alignStride=True,
-        )
-        generator.add("massLP", massLPR["IJ"] <= self.db.M3["Ij"] * self.Q["jJ"])
-
-        massSPR = OptionalDimTensor(
-            "massSPR",
-            self.Q.optName(),
-            self.Q.optSize(),
-            self.Q.optPos(),
-            (self.numberOfQuantities(), self.numberOfQuantities()),
-        )
-        generator.add(
-            "massSP", massSPR["IJ"] <= self.db.M3["ij"] * self.Q["iI"] * self.Q["jJ"]
         )
 
     def addLocal(self, generator, targets):
