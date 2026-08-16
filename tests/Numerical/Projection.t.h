@@ -17,8 +17,8 @@
 #include "Solver/MultipleSimulations.h"
 #include "TestHelper.h"
 
+#include <algorithm>
 #include <array>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -37,6 +37,87 @@ constexpr double Tolerance = 1e-10;
 bool nodalTransposed() {
   return static_cast<std::size_t>(nodal::tensor::nodes2D::Shape[0]) !=
          projection::modalSize(2, ConvergenceOrder);
+}
+
+using Tet = std::array<std::array<double, 3>, 4>;
+
+//! @brief The reference tetrahedron, i.e. element.vertices[0..3] in reference coordinates.
+constexpr Tet ReferenceTet{std::array<double, 3>{0, 0, 0},
+                           std::array<double, 3>{1, 0, 0},
+                           std::array<double, 3>{0, 1, 0},
+                           std::array<double, 3>{0, 0, 1}};
+
+std::array<double, 3> midpoint(const std::array<double, 3>& a, const std::array<double, 3>& b) {
+  return {0.5 * (a[0] + b[0]), 0.5 * (a[1] + b[1]), 0.5 * (a[2] + b[2])};
+}
+
+// Transcriptions of the legacy refinement::DivideTetrahedronBy4 and ...By8. The legacy
+// refinement::MeshRefiner passed element.vertices[0..3] as a, b, c, d, so evaluating these on
+// ReferenceTet gives the subcells the refined output mesh used to consist of.
+std::vector<Tet> legacyRefine4(const Tet& in) {
+  const auto& [a, b, c, d] = in;
+  const auto center = midpoint(midpoint(a, b), midpoint(c, d));
+  return {Tet{a, b, c, center}, Tet{a, b, d, center}, Tet{a, c, d, center}, Tet{b, c, d, center}};
+}
+
+std::vector<Tet> legacyRefine8(const Tet& in) {
+  const auto& [a, b, c, d] = in;
+  const auto ab = midpoint(a, b);
+  const auto ac = midpoint(a, c);
+  const auto ad = midpoint(a, d);
+  const auto bc = midpoint(b, c);
+  const auto bd = midpoint(b, d);
+  const auto cd = midpoint(c, d);
+  return {Tet{a, ab, ac, ad},
+          Tet{b, ab, bc, bd},
+          Tet{c, ac, bc, cd},
+          Tet{d, ad, bd, cd},
+          Tet{ab, ac, ad, bd},
+          Tet{ab, ac, bc, bd},
+          Tet{ac, ad, bd, cd},
+          Tet{ac, bc, bd, cd}};
+}
+
+//! @brief Swaps the last two vertices of a negatively oriented tetrahedron, as the tables do.
+Tet orientedTet(const Tet& in) {
+  const std::array<double, 3> u{in[1][0] - in[0][0], in[1][1] - in[0][1], in[1][2] - in[0][2]};
+  const std::array<double, 3> v{in[2][0] - in[0][0], in[2][1] - in[0][1], in[2][2] - in[0][2]};
+  const std::array<double, 3> w{in[3][0] - in[0][0], in[3][1] - in[0][1], in[3][2] - in[0][2]};
+  const auto determinant = u[0] * (v[1] * w[2] - v[2] * w[1]) - u[1] * (v[0] * w[2] - v[2] * w[0]) +
+                           u[2] * (v[0] * w[1] - v[1] * w[0]);
+  return determinant > 0 ? in : Tet{in[0], in[1], in[3], in[2]};
+}
+
+Tet subcellVertices(const AffineMap<3, 3>& map) {
+  Tet vertices{};
+  for (std::size_t d = 0; d < 3; ++d) {
+    vertices[0][d] = map.offset[d];
+    for (std::size_t j = 0; j < 3; ++j) {
+      vertices[j + 1][d] = map.offset[d] + map.matrix[d][j];
+    }
+  }
+  return vertices;
+}
+
+double signedVolume(const AffineMap<3, 3>& map) {
+  const auto& m = map.matrix;
+  return m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
+         m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
+         m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+}
+
+// Compares two tetrahedra as vertex sets, i.e. up to the vertex order inside the cell. All
+// coordinates involved are dyadic rationals, so sorting them exactly is safe.
+void requireSameCell(const Tet& actual, const Tet& expected) {
+  auto lhs = actual;
+  auto rhs = expected;
+  std::sort(lhs.begin(), lhs.end());
+  std::sort(rhs.begin(), rhs.end());
+  for (std::size_t i = 0; i < 4; ++i) {
+    for (std::size_t d = 0; d < 3; ++d) {
+      REQUIRE(lhs[i][d] == AbsApprox(rhs[i][d]).epsilon(Tolerance).delta(Tolerance));
+    }
+  }
 }
 
 seissol::numerical::AffineMap<2, 3> faceEmbedding(std::size_t side) {
@@ -207,22 +288,18 @@ TEST_CASE("Numerical/Projection: the table matches build() in the generated layo
   }
 }
 
-TEST_CASE("Numerical/Projection: subcells tile the reference cell") {
-  // the union of the subcell volumes has to be the reference cell
-  const auto volume = [](const AffineMap<3, 3>& map) {
-    const auto& m = map.matrix;
-    return std::abs(m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
-                    m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
-                    m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]));
-  };
-
+TEST_CASE("Numerical/Projection: subcells tile the reference cell without inverting") {
+  // The union of the subcell volumes has to be the reference cell. Note that the volumes are
+  // summed signed on purpose: an inverted subcell would still tile the reference cell, but it
+  // would be written out as a tetrahedron with a negative Jacobian.
   for (const auto& refine :
        {io::instance::geometry::TetrahedronRefine4, io::instance::geometry::TetrahedronRefine8}) {
     const auto subcells =
         io::instance::geometry::subdivideMaps(io::instance::geometry::unrefined<3>(), refine);
     double total = 0;
     for (const auto& subcell : subcells) {
-      total += volume(subcell);
+      REQUIRE(signedVolume(subcell) > Tolerance);
+      total += signedVolume(subcell);
     }
     REQUIRE(total == AbsApprox(1.0).epsilon(Tolerance).delta(Tolerance));
   }
@@ -232,9 +309,51 @@ TEST_CASE("Numerical/Projection: subcells tile the reference cell") {
   double area = 0;
   for (const auto& subcell : faceRefine) {
     const auto& m = subcell.matrix;
-    area += std::abs(m[0][0] * m[1][1] - m[0][1] * m[1][0]);
+    const auto subarea = m[0][0] * m[1][1] - m[0][1] * m[1][0];
+    REQUIRE(subarea > Tolerance);
+    area += subarea;
   }
   REQUIRE(area == AbsApprox(1.0).epsilon(Tolerance).delta(Tolerance));
+}
+
+// The subdivision tables have to be read in the vertex order of the reference simplex that
+// AffineMap::fromVertices reconstructs from -- not in the (rotated) vertex order of the legacy
+// refinement::Tetrahedron::unitTetrahedron(). Getting that wrong is invisible in the volumes:
+// the relabelling is an even permutation, so the subcells still tile the reference cell, they
+// just pick a different diagonal of the inner octahedron.
+TEST_CASE("Numerical/Projection: tetrahedron subdivisions match the legacy refiner") {
+  const auto check = [](const std::vector<AffineMap<3, 3>>& subcells,
+                        const std::vector<Tet>& legacy) {
+    REQUIRE(subcells.size() == legacy.size());
+    for (std::size_t i = 0; i < subcells.size(); ++i) {
+      requireSameCell(subcellVertices(subcells[i]), legacy[i]);
+    }
+  };
+
+  const auto refine4 = io::instance::geometry::subdivideMaps(
+      io::instance::geometry::unrefined<3>(), io::instance::geometry::TetrahedronRefine4);
+  check(refine4, legacyRefine4(ReferenceTet));
+
+  const auto refine8 = io::instance::geometry::subdivideMaps(
+      io::instance::geometry::unrefined<3>(), io::instance::geometry::TetrahedronRefine8);
+  check(refine8, legacyRefine8(ReferenceTet));
+
+  // refinement::DivideTetrahedronBy32 divided by 8 first and split each of those subcells by
+  // its center point afterwards, in the ordering 4*i + j. The center split enumerates the four
+  // faces of the cell it subdivides, so it depends on that cell's vertex order: for the four
+  // outer subcells the legacy By8 table had inverted, reorienting them swaps the first two of
+  // the four cells the split produces. That is unavoidable -- no odd permutation leaves the
+  // enumeration fixed -- and it only renumbers cells within a block of four; the resulting set
+  // of 32 cells is the legacy one either way.
+  std::vector<Tet> legacy32;
+  for (const auto& outer : legacyRefine8(ReferenceTet)) {
+    for (const auto& inner : legacyRefine4(orientedTet(outer))) {
+      legacy32.push_back(inner);
+    }
+  }
+  const auto refine32 =
+      io::instance::geometry::subdivideMaps(refine8, io::instance::geometry::TetrahedronRefine4);
+  check(refine32, legacy32);
 }
 
 TEST_CASE("Numerical/Projection: face embedding is consistent with chiTau2XiEtaZeta") {

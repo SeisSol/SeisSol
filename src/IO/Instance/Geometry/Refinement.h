@@ -17,6 +17,17 @@
 
 namespace seissol::io::instance::geometry {
 
+/**
+ * @brief Subdivision tables, given as the vertices of each subcell in the coordinates of the
+ * reference simplex.
+ *
+ * The vertex order is the one of AffineMap::fromVertices, i.e. the entries of a tetrahedron are
+ * the images of @f$ 0, e_1, e_2, e_3 @f$ and therefore correspond to element.vertices[0..3].
+ * Every entry is oriented positively; a subdivision built from these tables consists of valid
+ * (non-inverted) output cells. Note that reorienting a cell renumbers the subcells a subsequent
+ * center split produces, so the tables have to stay oriented rather than being normalized after
+ * the fact.
+ */
 extern const std::vector<std::vector<std::array<double, 3>>> TetrahedronRefine4;
 extern const std::vector<std::vector<std::array<double, 3>>> TetrahedronRefine8;
 extern const std::vector<std::vector<std::array<double, 2>>> TriangleRefine4;

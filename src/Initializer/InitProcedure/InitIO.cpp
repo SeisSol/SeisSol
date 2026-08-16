@@ -239,10 +239,13 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     }
     if (seissolParams.output.waveFieldParameters.refinement ==
         seissol::initializer::parameters::VolumeRefinement::Refine32) {
-      subcells = io::instance::geometry::subdivideMaps(subcells,
-                                                       io::instance::geometry::TetrahedronRefine4);
+      // the edge division has to come first; the legacy refinement::DivideTetrahedronBy32
+      // subdivided by 8 and then split each of those subcells by its center point, which (as
+      // subdivideMaps enumerates input-major) is the ordering 4*i + j the output cells had
       subcells = io::instance::geometry::subdivideMaps(subcells,
                                                        io::instance::geometry::TetrahedronRefine8);
+      subcells = io::instance::geometry::subdivideMaps(subcells,
+                                                       io::instance::geometry::TetrahedronRefine4);
     }
 
     const auto truePoints = io::instance::geometry::applyMaps(subcells, trueBase);
