@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Common/Constants.h"
+#include "Common/Typedefs.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
@@ -17,6 +18,7 @@
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
 #include "Recorders.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -28,6 +30,14 @@
 
 using namespace seissol::initializer;
 using namespace seissol::recording;
+
+namespace seissol::tensor {
+struct Qane;
+struct Qext;
+struct dQane;
+struct dQext;
+struct Zinv;
+} // namespace seissol::tensor
 
 // NOLINTBEGIN (-misc-const-correctness)
 
@@ -106,29 +116,33 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
       // stars
       localPtrs[cell] = reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>());
-#ifdef USE_VISCOELASTIC2
-      auto* dofsAne = currentLayer_->var<LTS::DofsAne>(AllocationPlace::Device);
-      dofsAnePtrs[cell] = dofsAne[cell];
+      if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+        auto* dofsAne = currentLayer_->var<LTS::DofsAne>(AllocationPlace::Device);
+        dofsAnePtrs[cell] = dofsAne[cell];
 
-      auto* idofsAne = currentLayer_->var<LTS::IDofsAneScratch>(AllocationPlace::Device);
-      idofsAnePtrs[cell] = static_cast<real*>(idofsAne) + tensor::Iane::size() * cell;
+        auto* idofsAne = currentLayer_->var<LTS::IDofsAneScratch>(AllocationPlace::Device);
+        idofsAnePtrs[cell] = static_cast<real*>(idofsAne) + kernels::size<tensor::Iane>() * cell;
 
-      auto* derivativesExt =
-          currentLayer_->var<LTS::DerivativesExtScratch>(AllocationPlace::Device);
-      derivativesExtPtrs[cell] = static_cast<real*>(derivativesExt) +
-                                 (tensor::dQext::size(1) + tensor::dQext::size(2)) * cell;
+        auto* derivativesExt =
+            currentLayer_->var<LTS::DerivativesExtScratch>(AllocationPlace::Device);
+        derivativesExtPtrs[cell] =
+            static_cast<real*>(derivativesExt) +
+            (kernels::size<tensor::dQext>(1) + kernels::size<tensor::dQext>(2)) * cell;
 
-      auto* derivativesAne =
-          currentLayer_->var<LTS::DerivativesAneScratch>(AllocationPlace::Device);
-      derivativesAnePtrs[cell] = static_cast<real*>(derivativesAne) +
-                                 (tensor::dQane::size(1) + tensor::dQane::size(2)) * cell;
+        auto* derivativesAne =
+            currentLayer_->var<LTS::DerivativesAneScratch>(AllocationPlace::Device);
+        derivativesAnePtrs[cell] =
+            static_cast<real*>(derivativesAne) +
+            (kernels::size<tensor::dQane>(1) + kernels::size<tensor::dQane>(2)) * cell;
 
-      auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
-      dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + tensor::Qext::size() * cell;
-#endif
-#ifdef USE_POROELASTIC
-      auto* zinvExtraPtr = currentLayer_->var<LTS::ZinvExtra>(AllocationPlace::Device);
-      zinvExtraPtrs[cell] = zinvExtraPtr + yateto::computeFamilySize<tensor::Zinv>() * cell;
+        auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
+        dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + kernels::size<tensor::Qext>() * cell;
+      }
+#ifdef SEISSOL_KERNELS_STP
+      if constexpr (Config::MaterialType == model::MaterialType::Poroelastic) {
+        auto* zinvExtraPtr = currentLayer_->var<LTS::ZinvExtra>(AllocationPlace::Device);
+        zinvExtraPtrs[cell] = zinvExtraPtr + yateto::computeFamilySize<tensor::Zinv>() * cell;
+      }
 #endif
 
       // derivatives
@@ -161,16 +175,16 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsForLtsBuffers);
     }
 
-#ifdef USE_VISCOELASTIC2
-    (*currentTable_)[key].set(inner_keys::Wp::Id::DofsAne, dofsAnePtrs);
-    (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
-    (*currentTable_)[key].set(inner_keys::Wp::Id::IdofsAne, idofsAnePtrs);
-    (*currentTable_)[key].set(inner_keys::Wp::Id::DerivativesAne, derivativesAnePtrs);
-    (*currentTable_)[key].set(inner_keys::Wp::Id::DerivativesExt, derivativesExtPtrs);
-#endif
-#ifdef USE_POROELASTIC
-    (*currentTable_)[key].set(inner_keys::Wp::Id::ZinvExtra, zinvExtraPtrs);
-#endif
+    if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+      (*currentTable_)[key].set(inner_keys::Wp::Id::DofsAne, dofsAnePtrs);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::IdofsAne, idofsAnePtrs);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::DerivativesAne, derivativesAnePtrs);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::DerivativesExt, derivativesExtPtrs);
+    }
+    if constexpr (Config::MaterialType == model::MaterialType::Poroelastic) {
+      (*currentTable_)[key].set(inner_keys::Wp::Id::ZinvExtra, zinvExtraPtrs);
+    }
   }
 }
 
@@ -196,10 +210,10 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
         idofsPtrs.push_back(idofsAddressRegistry_[cell]);
         dofsPtrs.push_back(static_cast<real*>(data.get<LTS::Dofs>()));
         localPtrs.push_back(reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
-#ifdef USE_VISCOELASTIC2
-        auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
-        dofsExtPtrs.push_back(static_cast<real*>(dofsExt) + tensor::Qext::size() * cell);
-#endif
+        if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+          auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
+          dofsExtPtrs.push_back(static_cast<real*>(dofsExt) + kernels::size<tensor::Qext>() * cell);
+        }
       }
     }
 
@@ -210,9 +224,9 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
       (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs);
       (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs);
       (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs);
-#ifdef USE_VISCOELASTIC2
-      (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
-#endif
+      if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+        (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
+      }
     }
   }
 }

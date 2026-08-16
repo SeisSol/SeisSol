@@ -11,13 +11,22 @@
 #include "Common/Constants.h"
 #include "Datastructures.h"
 #include "GeneratedCode/tensor.h"
+#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+
+namespace seissol::tensor {
+struct ET;
+} // namespace seissol::tensor
 
 namespace seissol::model {
 
+// TODO: remove zeroLengthArrayHandler when only initialized where relevant
+
 struct PoroelasticLocalData {
-  real sourceMatrix[seissol::tensor::ET::size()]{};
+  real sourceMatrix[zeroLengthArrayHandler(kernels::size<tensor::ET>())]{};
+  // NOLINTNEXTLINE
   real G[PoroElasticMaterial::NumQuantities]{};
+  // NOLINTNEXTLINE
   real Zinv[PoroElasticMaterial::NumQuantities][ConvergenceOrder * ConvergenceOrder]{};
 
   // preferrably double; will be compared closely against the "default" timestep width almost all

@@ -38,7 +38,7 @@
 #include <Device/device.h>
 #endif
 
-#ifdef USE_POROELASTIC
+#ifdef SEISSOL_KERNELS_STP
 #include "Proxy/Constants.h"
 #endif
 
@@ -117,7 +117,7 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
                          sizeof(NeighboringIntegrationData) / sizeof(real) * layer.size(),
                          false);
 
-#ifdef USE_POROELASTIC
+#ifdef SEISSOL_KERNELS_STP
 
 #pragma omp parallel for schedule(static)
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {

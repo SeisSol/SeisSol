@@ -38,7 +38,7 @@ jobs:
           - type: poroelastic
             multisim: 1
             mechanisms: 0
-          - type: viscoelastic2
+          - type: viscoelastic
             multisim: 1
             mechanisms: 3
           - type: anisotropic
@@ -198,7 +198,7 @@ jobs:
             volume: true
             surface: false
           - name: tpv5-visco
-            equation: viscoelastic2
+            equation: viscoelastic
             dispequation: viscoelastic-3
             multisim: 1
             energies: true

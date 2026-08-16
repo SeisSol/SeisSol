@@ -119,7 +119,7 @@ class TestFindCandidates:
             "dense.xml",
             "elastic_O5_d_hsw.xml",
             "elastic_O5_s_hsw_libxsmm.xml",
-            "viscoelastic2_O6_d_skx_pspamm_ms8.xml",
+            "viscoelastic_O6_d_skx_pspamm_ms8.xml",
             "poroelastic_O4_f32_a64fx.xml",
         ]:
             (tmp_path / fname).touch()
@@ -131,7 +131,7 @@ class TestFindCandidates:
             "dense.xml",
             "elastic_O5_d_hsw.xml",
             "elastic_O5_s_hsw_libxsmm.xml",
-            "viscoelastic2_O6_d_skx_pspamm_ms8.xml",
+            "viscoelastic_O6_d_skx_pspamm_ms8.xml",
             "poroelastic_O4_f32_a64fx.xml",
         }
 
@@ -153,11 +153,11 @@ class TestFindCandidates:
         assert c.atts["precision"] == "f32"
 
     def test_parses_multiple_simulations(self, layout_dir):
-        c = findCandidates(str(layout_dir))["viscoelastic2_O6_d_skx_pspamm_ms8.xml"]
+        c = findCandidates(str(layout_dir))["viscoelastic_O6_d_skx_pspamm_ms8.xml"]
         assert c.atts["multipleSimulations"] == 8
 
     def test_parses_gemmgen(self, layout_dir):
-        c = findCandidates(str(layout_dir))["viscoelastic2_O6_d_skx_pspamm_ms8.xml"]
+        c = findCandidates(str(layout_dir))["viscoelastic_O6_d_skx_pspamm_ms8.xml"]
         assert c.atts["gemmgen"] == "pspamm"
 
     def test_parses_architecture(self, layout_dir):

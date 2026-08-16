@@ -27,6 +27,8 @@ class Zinv;
 
 namespace seissol::model {
 
+#ifdef SEISSOL_KERNELS_STP
+
 template <typename Tview>
 inline void calcZinv(yateto::DenseTensorView<2, real, unsigned>& zInv,
                      const Tview& sourceMatrix,
@@ -115,6 +117,8 @@ inline AdditionalPoroelasticParameters
 
   return {alpha, cKBar, cM, m, cBar, rhoBar, rho1, rho2, beta1, beta2};
 }
+
+#endif
 
 } // namespace seissol::model
 #endif // SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_HELPER_H_

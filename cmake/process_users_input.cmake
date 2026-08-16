@@ -60,6 +60,10 @@ set(EQUATIONS "elastic" CACHE STRING "Equation set used")
 set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic acoustic)
 set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
+set(VISCO_MODE "split" CACHE STRING "")
+set(VISCO_MODE_OPTIONS "split" "extend")
+set_property(CACHE VISCO_MODE PROPERTY STRINGS ${VISCO_MODE_OPTIONS})
+
 
 set(HOST_ARCH "auto" CACHE STRING "Type of host architecture")
 set(HOST_ARCH_OPTIONS noarch auto wsm snb hsw knc knl skx naples rome milan bergamo turin thunderx2t99 power9 power10 power11 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1 apple-m2 apple-m3 apple-m4 rvv128 rvv256 rvv512 rvv1024 rvv2048 rvv4096 avx2-128 avx2-256 avx10-128 avx10-256 avx10-512 lsx lasx)
@@ -168,6 +172,11 @@ check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
 # check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
+
+if (EQUATIONS STREQUAL "viscoelastic2")
+    message(STATUS "viscoelastic2 is equivalent to viscoelastic and mapped to it as such.")
+    set(EQUATIONS "viscoelastic" CACHE STRING "" FORCE)
+endif()
 
 string(REPLACE "," ";" GEMM_TOOLS_LIST ${GEMM_TOOLS_LIST})
 

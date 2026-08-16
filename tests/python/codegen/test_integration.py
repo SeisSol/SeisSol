@@ -299,7 +299,7 @@ class TestMatrixFileInventory:
     @pytest.mark.parametrize("order", [2, 3, 4, 5, 6, 7, 8])
     def test_stp_matrix_exists_for_poroelastic(self, order):
         """Space-Time-Predictor matrices — required for poroelastic &
-        viscoelastic2 at every order.
+        viscoelastic (split) at every order.
         """
         f = MATRICES_DIR / f"stp_{order}.json"
         assert f.exists(), f"Missing stp_{order}.json"

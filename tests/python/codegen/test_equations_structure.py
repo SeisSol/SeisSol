@@ -24,7 +24,6 @@ EQUATION_MODULES = [
     "anisotropic",
     "poroelastic",
     "viscoelastic",
-    "viscoelastic2",
 ]
 
 
@@ -145,8 +144,6 @@ class TestCrossEquationDoFConsistency:
         instance = object.__new__(mod.EQUATION_CLASS)
         defaults = {"order": 4}
         if module_name == "viscoelastic":
-            defaults.update(numberOfMechanisms=3, numberOfElasticQuantities=9)
-        if module_name == "viscoelastic2":
             defaults.update(numberOfMechanisms=3, numberOfElasticQuantities=9)
         defaults.update(kwargs)
         for k, v in defaults.items():

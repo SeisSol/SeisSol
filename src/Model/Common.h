@@ -26,7 +26,7 @@
 
 namespace seissol::model {
 
-template <typename MaterialT>
+template <typename MaterialT, typename = void>
 struct MaterialSetup;
 
 template <typename T>

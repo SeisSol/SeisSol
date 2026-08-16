@@ -23,6 +23,8 @@
 
 namespace seissol::model {
 
+#ifdef SEISSOL_KERNELS_STP
+
 template <>
 struct MaterialSetup<PoroElasticMaterial> {
   template <typename T>
@@ -301,6 +303,8 @@ struct MaterialSetup<PoroElasticMaterial> {
     getElasticPlaneWaveOperator(material, n, mdata);
   }
 };
+
+#endif
 
 } // namespace seissol::model
 

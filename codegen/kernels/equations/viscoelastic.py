@@ -84,7 +84,7 @@ class ViscoelasticADERDG(LinearADERDG):
         return self.db.ET
 
     def name(self):
-        return "viscoelastic2"
+        return "viscoelastic"
 
     def godunov_spp(self):
         spp = np.zeros(

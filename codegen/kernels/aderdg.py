@@ -156,6 +156,10 @@ class ADERDGBase(ABC):
             CSCMemoryLayout,
         )
 
+        # add an empty source matrix so that `ET` as name is defined
+        if not self.db.containsName("ET"):
+            self.db.ET = Tensor("ET", self.godunov_spp().shape)
+
     def name(self):
         return ""
 
@@ -320,6 +324,7 @@ class ADERDGBase(ABC):
     def add_include_tensors(self, include_tensors):
         include_tensors.add(self.db.samplingDirections)
         include_tensors.add(self.db.M2inv)
+        include_tensors.add(self.db.ET)
 
 
 class LinearADERDG(ADERDGBase):
