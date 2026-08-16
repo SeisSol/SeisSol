@@ -31,10 +31,11 @@ You may explicitly compile and install multiple of these configurations at the s
 - ``EQUATIONS``: the equation system to compile for
 
     * ``elastic``: isotropic elastic
-    * ``viscoelastic``: obsolete, use ``viscoelastic2`` instead
-    * ``viscoelastic2``: isotropic viscoelastic. Requires a positive number of relaxation mechanisms (``NUMBER_OF_MECHANISMS``).
+    * ``viscoelastic``: isotropic viscoelastic. Requires a positive number of relaxation mechanisms (``NUMBER_OF_MECHANISMS``).
     * ``anisotropic``: anisotropic elastic; essentially uses the same kernels as the ``elastic`` mode, but with more general matrices
     * ``poroelastic``: isotropic poroelastic
+
+- ``VISCO_MODE``: only relevant for visco-elastic/visco-acoustic. ``split`` uses the optimized kernel an is the default; ``extend`` uses the CK kernel, and is considered deprecated.
 - ``NUMBER_OF_MECHANISMS``: the number of mechanisms for viscoelastic simulations. For all other equations, this parameter is required to be 0.
 - ``ORDER``: the expected convergence order. It corresponds to the polynomial degree plus 1. The order is used for both space and time integration. For example, if you specify order 4, you will be using polynomials of degree 3 in space and time. Note that a higher order can impact the performance greatly.
 - ``PRECISION``:

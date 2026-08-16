@@ -16,7 +16,7 @@
 #include "Equations/anisotropic/Model/Datastructures.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
-#include "Equations/viscoelastic2/Model/Datastructures.h"
+#include "Equations/viscoelastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"

@@ -7,8 +7,8 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Wolf
 
-#ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_DATASTRUCTURES_H_
-#define SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_DATASTRUCTURES_H_
+#ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_DATASTRUCTURES_H_
+#define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_DATASTRUCTURES_H_
 
 #include "Common/Constants.h"
 #include "Common/Typedefs.h"
@@ -28,24 +28,33 @@
 #include <cstddef>
 #include <string>
 #include <utils/logger.h>
+#include <variant>
 
 namespace seissol::model {
-struct ViscoElasticLocalData;
-struct ViscoElasticNeighborData;
+struct ViscoElasticLocalDataSplit;
+struct ViscoElasticNeighborDataSplit;
+struct ViscoElasticLocalDataExtend;
+struct ViscoElasticNeighborDataExtend;
 
 template <ViscoImplementation Implementation>
 struct ViscoSolver {
   using Type = kernels::solver::linearck::Solver;
+  using LocalData = std::monostate;
+  using NeighborData = std::monostate;
 };
 
 template <>
 struct ViscoSolver<ViscoImplementation::QuantityExtension> {
   using Type = kernels::solver::linearck::Solver;
+  using LocalData = ViscoElasticLocalDataExtend;
+  using NeighborData = ViscoElasticNeighborDataExtend;
 };
 
 template <>
 struct ViscoSolver<ViscoImplementation::AnelasticTensor> {
   using Type = kernels::solver::linearckanelastic::Solver;
+  using LocalData = ViscoElasticLocalDataSplit;
+  using NeighborData = ViscoElasticNeighborDataSplit;
 };
 
 template <std::size_t MechanismsP>
@@ -66,8 +75,8 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   static constexpr bool SupportsLTS = true;
   static constexpr bool SupportsEnergy = true;
 
-  using LocalSpecificData = ViscoElasticLocalData;
-  using NeighborSpecificData = ViscoElasticNeighborData;
+  using LocalSpecificData = ViscoSolver<Config::ViscoMode>::LocalData;
+  using NeighborSpecificData = ViscoSolver<Config::ViscoMode>::NeighborData;
 
   using Solver = ViscoSolver<Config::ViscoMode>::Type;
 
@@ -192,4 +201,4 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
 using ViscoElasticMaterial = ViscoElasticMaterialParametrized<Config::RelaxationMechanisms>;
 } // namespace seissol::model
 
-#endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_DATASTRUCTURES_H_
+#endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_DATASTRUCTURES_H_

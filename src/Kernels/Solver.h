@@ -17,11 +17,11 @@
 
 // IWYU pragma: begin_exports
 
-#ifdef USE_VISCOELASTIC2
+#ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
 #include "Kernels/LinearCKAnelastic/Local.h"
 #include "Kernels/LinearCKAnelastic/Neighbor.h"
 #include "Kernels/LinearCKAnelastic/Time.h"
-#elif defined(USE_POROELASTIC)
+#elif defined(SEISSOL_KERNELS_STP)
 #include "Kernels/LinearCK/Local.h"
 #include "Kernels/LinearCK/Neighbor.h"
 #include "Kernels/STP/Time.h"

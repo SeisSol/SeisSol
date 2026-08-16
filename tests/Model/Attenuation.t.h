@@ -6,7 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Equations/Datastructures.h"
-#include "Equations/viscoelastic2/Model/Datastructures.h"
+#include "Equations/viscoelastic/Model/Datastructures.h"
 #include "Physics/Attenuation.h"
 #include "TestHelper.h"
 

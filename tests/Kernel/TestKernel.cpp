@@ -9,6 +9,6 @@
 
 #include "PointSourceCluster.t.h"
 
-#ifdef USE_POROELASTIC
+#ifdef SEISSOL_KERNELS_STP
 #include "STP.t.h"
-#endif // USE_POROELASTIC
+#endif // SEISSOL_KERNELS_STP

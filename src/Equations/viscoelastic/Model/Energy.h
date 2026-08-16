@@ -4,12 +4,12 @@
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
-#ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_ENERGY_H_
-#define SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_ENERGY_H_
+#ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_ENERGY_H_
+#define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_ENERGY_H_
 
 #include "Common/Constants.h"
 #include "Equations/EnergyBase.h"
-#include "Equations/viscoelastic2/Model/Datastructures.h"
+#include "Equations/viscoelastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Precision.h"
@@ -89,7 +89,7 @@ struct EnergyCompute<ViscoElasticMaterialParametrized<Mechanisms>> {
   }
 
   /**
-   * The viscoelastic2 system is a generalized Maxwell body,
+   * The viscoelastic system is a generalized Maxwell body,
    *
    *   dsigma/dt        = C_u : epsdot - sum_l D^(l) : vartheta^(l)
    *   dvartheta^(l)/dt = omega_l ( epsdot - vartheta^(l) )
@@ -282,4 +282,4 @@ struct EnergyCompute<ViscoElasticMaterialParametrized<Mechanisms>> {
 };
 
 } // namespace seissol::model
-#endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_ENERGY_H_
+#endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_ENERGY_H_
