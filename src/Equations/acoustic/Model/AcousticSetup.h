@@ -110,7 +110,7 @@ struct MaterialSetup<AcousticMaterial> {
       }
 
       auto matRT = matR.transpose();
-      auto matRlu = matRT.lu();
+      auto matRlu = matRT.fullPivHouseholderQr();
       const auto godunov = matRlu.solve(chi * matRT).eval();
       const auto godunovI = matRlu.solve(chiI * matRT).eval();
 

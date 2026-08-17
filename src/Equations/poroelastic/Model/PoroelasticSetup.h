@@ -286,7 +286,7 @@ struct MaterialSetup<PoroElasticMaterial> {
         Matrix<double, PoroElasticMaterial::NumQuantities, PoroElasticMaterial::NumQuantities>;
     using CVector = Eigen::Matrix<std::complex<double>, PoroElasticMaterial::NumQuantities, 1>;
 
-    auto splitEigenDecomposition = [&ZeroThreshold](const PoroElasticMaterial& material) {
+    auto splitEigenDecomposition = [](const PoroElasticMaterial& material) {
       auto eigenpair = getEigenDecomposition(material, ZeroThreshold);
       return std::pair<CVector, CMatrix>{eigenpair.getValuesAsVector(),
                                          eigenpair.getVectorsAsMatrix()};
@@ -320,7 +320,7 @@ struct MaterialSetup<PoroElasticMaterial> {
           MaterialType::Poroelastic, qGodLocal, qGodNeighbor, realR);
     } else {
       auto matRT = matR.transpose();
-      auto matRlu = matRT.lu();
+      auto matRlu = matRT.fullPivHouseholderQr();
       CMatrix godunovMinus = matRlu.solve(chiMinus * matRT);
       CMatrix godunovPlus = matRlu.solve(chiPlus * matRT);
 
