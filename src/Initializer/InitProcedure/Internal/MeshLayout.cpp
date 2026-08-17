@@ -161,10 +161,42 @@ void combineCopyInterior(std::vector<ClusterMap>& map,
       if (copySize + interiorSize < threshold) {
         // adding cells to a cellMap only is fine; they won't appear in the send regions
 
-        map[copyLayer].cellMap.insert(map[interiorLayer].cellMap.begin(),
-                                      map[interiorLayer].cellMap.end(),
-                                      map[copyLayer].cellMap.end());
+        map[copyLayer].cellMap.insert(map[copyLayer].cellMap.begin(),
+                                      map[interiorLayer].cellMap.begin(),
+                                      map[interiorLayer].cellMap.end());
         map[interiorLayer].cellMap.clear();
+      }
+    }
+  }
+}
+
+void combineCopyInteriorDR(std::vector<std::vector<std::size_t>>& map,
+                           const LTSColorMap& colormap,
+                           std::size_t threshold) {
+  const auto colorAdjust = [&](std::size_t color, HaloType halo) {
+    auto id = colormap.argument(color);
+    id.halo = halo;
+    return colormap.colorId(id);
+  };
+
+  // reversed vs. meshLayout; for scheduling reasons.
+
+  std::vector<ClusterMap> outmap;
+  outmap.reserve(map.size());
+  for (std::size_t i = 0; i < map.size(); ++i) {
+    if (colormap.argument(i).halo == HaloType::Copy) {
+      const auto copyLayer = i;
+      const auto interiorLayer = colorAdjust(i, HaloType::Interior);
+
+      const auto copySize = map[copyLayer].size();
+      const auto interiorSize = map[interiorLayer].size();
+
+      if (copySize + interiorSize < threshold) {
+        // adding cells to a cellMap only is fine; they won't appear in the send regions
+
+        map[interiorLayer].insert(
+            map[interiorLayer].begin(), map[copyLayer].begin(), map[copyLayer].end());
+        map[copyLayer].clear();
       }
     }
   }

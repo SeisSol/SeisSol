@@ -148,8 +148,10 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   logInfo() << "Creating mesh layout...";
 
   const auto meshLayout = [&]() {
+    const auto envCombine = seissolInstance.env().getOptional<std::size_t>("ICCOMBINE");
     auto meshLayoutPre = internal::layoutCells(colors, colorsGhost, colorMap, meshReader);
-    internal::combineCopyInterior(meshLayoutPre, colorMap, seissolParams.timeStepping.iccombine);
+    internal::combineCopyInterior(
+        meshLayoutPre, colorMap, envCombine.value_or(seissolParams.timeStepping.iccombine));
     return meshLayoutPre;
   }();
 
@@ -329,7 +331,13 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   logInfo() << "Setting up DR...";
 
-  const auto drLayout = internal::layoutDR(colors, colorsGhost, colorMap, meshReader);
+  const auto drLayout = [&]() {
+    const auto envCombineDR = seissolInstance.env().getOptional<std::size_t>("ICCOMBINE_DR");
+    auto drLayoutPre = internal::layoutDR(colors, colorsGhost, colorMap, meshReader);
+    internal::combineCopyInteriorDR(
+        drLayoutPre, colorMap, envCombineDR.value_or(seissolParams.timeStepping.iccombineDR));
+    return drLayoutPre;
+  }();
 
   auto& drStorage = seissolInstance.getMemoryManager().getDRStorage();
 
