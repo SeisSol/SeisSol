@@ -46,6 +46,9 @@ double
   return 1.0;
 }
 
+InstantaneousTimeMirrorManager::InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
+    : seissolInstance_(seissolInstance) {}
+
 void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           double triggerTime,
                                           seissol::geometry::MeshReader* meshReader,

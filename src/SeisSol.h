@@ -29,6 +29,7 @@
 #include "Solver/TimeStepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
 
+#include <list>
 #include <memory>
 #include <optional>
 #include <string>
@@ -135,7 +136,7 @@ class SeisSol {
   /**
    * Reference for timeMirrorManagers to be accessed externally when required
    */
-  std::vector<seissol::physics::InstantaneousTimeMirrorManager>& getTimeMirrorManagers() {
+  std::list<seissol::physics::InstantaneousTimeMirrorManager>& getTimeMirrorManagers() {
     return timeMirrorManagers_;
   }
 
@@ -267,7 +268,7 @@ class SeisSol {
   monitoring::FlopCounter flopCounter_;
 
   //! TimeMirror Managers
-  std::vector<seissol::physics::InstantaneousTimeMirrorManager> timeMirrorManagers_;
+  std::list<seissol::physics::InstantaneousTimeMirrorManager> timeMirrorManagers_;
 
   //! time stamp which can be used for backuping files of previous runs
   std::string backupTimeStamp_;
