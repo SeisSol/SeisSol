@@ -181,10 +181,12 @@ PUMLReader::PUMLReader(const std::string& meshFile,
   meshTopologyExtra.setComm(seissol::Mpi::mpi.comm());
   meshGeometry.setComm(seissol::Mpi::mpi.comm());
 
+  logInfo() << "Read (geometric) connectivity data.";
   read(meshGeometry, meshFile, false, boundaryFormat);
 
   // Note: we need to call generatePUML in order to create the dual graph of the mesh
   // Note 2: we also need it for vertex identification
+  logInfo() << "Generate (geometric) mesh.";
   meshGeometry.generateMesh();
 
   if (topologyFormat != initializer::parameters::TopologyFormat::Geometric) {
@@ -193,20 +195,26 @@ PUMLReader::PUMLReader(const std::string& meshFile,
     const bool readTopology =
         topologyFormat == initializer::parameters::TopologyFormat::IdentifyFace;
 
+    logInfo() << "Read (topologic) connectivity data.";
     read(meshTopologyExtra, meshFile, readTopology, boundaryFormat);
 
     int id = -1;
     if (topologyFormat == initializer::parameters::TopologyFormat::IdentifyVertex) {
+      logInfo() << "Read topologic identification data.";
       id = meshTopologyExtra.addData<unsigned long>(
           (std::string(meshFile) + ":/identify").c_str(), PUML::VERTEX, {});
     }
 
     // generate the topology mesh for the dual graph
+    logInfo() << "Generate (topologic) mesh.";
     meshTopologyExtra.generateMesh();
 
     if (topologyFormat == initializer::parameters::TopologyFormat::IdentifyVertex) {
       // re-identify vertices; then re-distribute
+      logInfo() << "Identify topologic vertex data.";
       meshTopologyExtra.identify(id);
+
+      logInfo() << "Generate (topologic) mesh again.";
       meshTopologyExtra.generateMesh();
     }
   }
@@ -219,13 +227,17 @@ PUMLReader::PUMLReader(const std::string& meshFile,
   // in and run rather than its result.
   const initializer::ClusteringResult* clusteringResult = nullptr;
   if (clustering != nullptr) {
+    logInfo() << "Compute clustering.";
     clusteringResult = &clustering->compute(meshTopology, meshGeometry);
   }
 
+  logInfo() << "Partition the mesh.";
   partition(meshTopology, meshGeometry, clusteringResult, weightModel, tpwgt, partitioningLib);
 
+  logInfo() << "Generate the correctly-distributed meshes.";
   generatePUML(meshTopology, meshGeometry);
 
+  logInfo() << "Set up mesh data structures.";
   getMesh(meshTopology, meshGeometry, faceMap, boundaryFormat);
 }
 
@@ -319,8 +331,10 @@ void PUMLReader::generatePUML(PumlMesh& meshTopology, PumlMesh& meshGeometry) {
   SCOREP_USER_REGION("PUMLReader_generate", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   if (&meshTopology != &meshGeometry) {
+    logInfo() << "Generate the correct (topologic) mesh.";
     meshTopology.generateMesh();
   }
+  logInfo() << "Generate the correct (geometric) mesh.";
   meshGeometry.generateMesh();
 }
 
