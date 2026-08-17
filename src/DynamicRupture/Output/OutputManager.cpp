@@ -212,7 +212,7 @@ void OutputManager::initElementwiseOutput() {
       io::instance::geometry::WriterGroup::FullSnapshot,
       seissolParameters.output.hdfcompress};
 
-  auto writer = io::instance::geometry::GeometryWriter("fault-elementwise",
+  auto writer = io::instance::geometry::GeometryWriter("fault",
                                                        receiverPoints.size() / dataCount /
                                                            multisim::NumSimulations,
                                                        io::instance::geometry::Shape::Triangle,
@@ -290,7 +290,7 @@ void OutputManager::initElementwiseOutput() {
 
   io::writer::ScheduledWriter schedWriter;
   schedWriter.interval = writeInterval;
-  schedWriter.name = "fault-elementwise";
+  schedWriter.name = "fault";
   schedWriter.planWrite = writer.makeWriter();
 
   seissolInstance_.getOutputManager().addOutput(schedWriter);

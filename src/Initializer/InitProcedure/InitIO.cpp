@@ -547,7 +547,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     auto& freeSurfaceIntegrator = seissolInstance.freeSurfaceIntegrator();
     auto& meshReader = seissolInstance.meshReader();
     io::writer::ScheduledWriter schedWriter;
-    schedWriter.name = "free-surface";
+    schedWriter.name = "surface";
     schedWriter.interval = seissolParams.output.freeSurfaceParameters.interval;
     auto* surfaceMeshIds = freeSurfaceIntegrator.surfaceStorage->var<SurfaceLTS::MeshId>();
     auto* surfaceMeshSides = freeSurfaceIntegrator.surfaceStorage->var<SurfaceLTS::Side>();
@@ -579,7 +579,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         io::instance::geometry::WriterGroup::FullSnapshot,
         seissolParams.output.hdfcompress};
 
-    auto writer = io::instance::geometry::GeometryWriter("free-surface",
+    auto writer = io::instance::geometry::GeometryWriter("surface",
                                                          freeSurfaceIntegrator.backmap.size(),
                                                          io::instance::geometry::Shape::Triangle,
                                                          config,

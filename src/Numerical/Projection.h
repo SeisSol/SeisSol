@@ -202,7 +202,7 @@ struct Spec {
   Source source{Source::Modal};
   Target target{Target::Interpolate};
   //! If set, the derivative direction (in the coordinates of the source reference cell).
-  std::optional<std::size_t> derivative{};
+  std::optional<std::size_t> derivative;
 };
 
 /**
