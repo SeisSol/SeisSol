@@ -36,9 +36,9 @@ class Hdf5Location {
   YAML::Node serialize();
 
   private:
-  std::string fileP;
-  std::vector<std::string> groupsP;
-  std::optional<std::string> datasetP;
+  std::string fileP_;
+  std::vector<std::string> groupsP_;
+  std::optional<std::string> datasetP_;
 };
 
 struct Hdf5AttributeWrite : public WriteInstruction {

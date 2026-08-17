@@ -68,23 +68,23 @@ void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage& drSto
     auto* initialPressure = layer.var<DynamicRupture::InitialPressure>();
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-        for (unsigned int dim = 0; dim < 6; ++dim) {
+        for (std::uint32_t dim = 0; dim < 6; ++dim) {
           initialStressInFaultCS[ltsFace][dim][pointIndex] = 0;
         }
         initialPressure[ltsFace][pointIndex] = 0;
       }
     }
 
-    for (unsigned i = 0; i < drParameters->nucleationCount; ++i) {
+    for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
       auto* nucleationStressInFaultCS = layer.var<DynamicRupture::NucleationStressInFaultCS>();
       auto* nucleationPressure = layer.var<DynamicRupture::NucleationPressure>();
       for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
         for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-          for (unsigned int dim = 0; dim < 6; ++dim) {
-            nucleationStressInFaultCS[ltsFace * drParameters->nucleationCount + i][dim]
+          for (std::uint32_t dim = 0; dim < 6; ++dim) {
+            nucleationStressInFaultCS[ltsFace * drParameters_->nucleationCount + i][dim]
                                      [pointIndex] = 0;
           }
-          nucleationPressure[ltsFace * drParameters->nucleationCount + i][pointIndex] = 0;
+          nucleationPressure[ltsFace * drParameters_->nucleationCount + i][pointIndex] = 0;
         }
       }
     }
@@ -106,18 +106,18 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
     const auto& drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
     const auto meshFace = drFaceInformation[ltsFace].meshFace;
-    const Fault& fault = seissolInstance.meshReader().getFault().at(meshFace);
+    const Fault& fault = seissolInstance_.meshReader().getFault().at(meshFace);
 
     VrtxCoords strikeVector{};
     VrtxCoords dipVector{};
     misc::computeStrikeAndDipVectors(fault.normal, strikeVector, dipVector);
 
     // cos^2 can be greater than 1 because of rounding errors
-    const real cos = std::clamp(MeshTools::dot(strikeVector, fault.tangent1), -1.0, 1.0);
+    const double cos = std::clamp(MeshTools::dot(strikeVector, fault.tangent1), -1.0, 1.0);
     VrtxCoords crossProduct{};
     MeshTools::cross(strikeVector, fault.tangent1, crossProduct);
-    const real scalarProduct = MeshTools::dot(crossProduct, fault.normal);
-    const real sin = std::sqrt(1 - cos * cos) * std::copysign(1.0, scalarProduct);
+    const double scalarProduct = MeshTools::dot(crossProduct, fault.normal);
+    const double sin = std::sqrt(1 - cos * cos) * std::copysign(1.0, scalarProduct);
     for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       imposedSlipDirection1[ltsFace][pointIndex] =
           cos * strikeSlip[ltsFace][pointIndex] + sin * dipSlip[ltsFace][pointIndex];

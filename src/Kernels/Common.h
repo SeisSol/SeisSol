@@ -80,7 +80,7 @@ namespace kernels {
  * @param convergenceOrder convergence order.
  * @return number of basis funcitons.
  **/
-constexpr unsigned int getNumberOfBasisFunctions(unsigned int convergenceOrder = ConvergenceOrder) {
+constexpr std::size_t getNumberOfBasisFunctions(std::size_t convergenceOrder = ConvergenceOrder) {
   return convergenceOrder * (convergenceOrder + 1) * (convergenceOrder + 2) / 6;
 }
 
@@ -91,8 +91,8 @@ constexpr unsigned int getNumberOfBasisFunctions(unsigned int convergenceOrder =
  * @return aligned number of reals.
  **/
 template <typename RealT = real>
-constexpr unsigned int getNumberOfAlignedReals(unsigned int numberOfReals,
-                                               unsigned int alignment = Vectorsize) {
+constexpr std::size_t getNumberOfAlignedReals(std::size_t numberOfReals,
+                                              std::size_t alignment = Vectorsize) {
   // in principle, we could simplify this formula by substituting alignment = alignment /
   // sizeof(real). However, this will cause errors, if alignment is not dividable by sizeof(real)
   // which could happen e.g. if alignment < sizeof(real), or if we have real == long double (if
@@ -110,9 +110,9 @@ constexpr unsigned int getNumberOfAlignedReals(unsigned int numberOfReals,
  * @return aligned number of basis functions.
  **/
 template <typename RealT = real>
-constexpr unsigned int
-    getNumberOfAlignedBasisFunctions(unsigned int convergenceOrder = ConvergenceOrder,
-                                     unsigned int alignment = Vectorsize) {
+constexpr std::size_t
+    getNumberOfAlignedBasisFunctions(std::size_t convergenceOrder = ConvergenceOrder,
+                                     std::size_t alignment = Vectorsize) {
   // return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) *
   // REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
   const auto numberOfBasisFunctions = getNumberOfBasisFunctions(convergenceOrder);

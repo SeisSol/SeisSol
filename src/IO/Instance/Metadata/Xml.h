@@ -30,9 +30,9 @@ class XmlInstructor {
   std::vector<std::shared_ptr<writer::instructions::WriteInstruction>> instructions();
 
   private:
-  std::string file;
-  std::ostringstream cache;
-  std::vector<std::shared_ptr<writer::instructions::WriteInstruction>> instructionList;
+  std::string file_;
+  std::ostringstream cache_;
+  std::vector<std::shared_ptr<writer::instructions::WriteInstruction>> instructionList_;
 };
 
 class XmlAttribute {
@@ -48,12 +48,12 @@ class XmlAttribute {
 
   template <typename T>
   void setImmediate(const T& data) {
-    this->data = writer::WriteInline::create(data);
+    this->data_ = writer::WriteInline::create(data);
   }
 
   template <typename T>
   T getImmediate() const {
-    const auto* data = this->data->getLocalPointer();
+    const auto* data = this->data_->getLocalPointer();
     const auto* dataConv = reinterpret_cast<const T*>(data);
     return *dataConv;
   }
@@ -61,20 +61,20 @@ class XmlAttribute {
   void write(XmlInstructor& instructor) const;
 
   private:
-  std::string name;
-  std::shared_ptr<writer::DataSource> data;
+  std::string name_;
+  std::shared_ptr<writer::DataSource> data_;
 };
 
 template <>
 inline void XmlAttribute::setImmediate<std::string>(const std::string& data) {
-  this->data = writer::WriteInline::createString(data);
+  this->data_ = writer::WriteInline::createString(data);
 }
 
 template <>
 inline std::string XmlAttribute::getImmediate<std::string>() const {
-  const auto* data = this->data->getLocalPointer();
+  const auto* data = this->data_->getLocalPointer();
   const auto* dataConv = reinterpret_cast<const char*>(data);
-  return std::string(dataConv, dataConv + this->data->getLocalSize());
+  return std::string(dataConv, dataConv + this->data_->getLocalSize());
 }
 
 class XmlEntry {
@@ -90,8 +90,8 @@ class XmlEntry {
   virtual void innerWrite(XmlInstructor& instructor) const = 0;
 
   private:
-  std::string name;
-  std::vector<XmlAttribute> attributes;
+  std::string name_;
+  std::vector<XmlAttribute> attributes_;
 };
 
 class XmlNode : public XmlEntry {
@@ -105,7 +105,7 @@ class XmlNode : public XmlEntry {
   void innerWrite(XmlInstructor& instructor) const override;
 
   private:
-  std::vector<std::shared_ptr<XmlEntry>> entries;
+  std::vector<std::shared_ptr<XmlEntry>> entries_;
 };
 
 class XmlData : public XmlEntry {
@@ -115,12 +115,12 @@ class XmlData : public XmlEntry {
 
   template <typename T>
   void setImmediate(const T& data) {
-    this->data = writer::WriteInline::create(data);
+    this->data_ = writer::WriteInline::create(data);
   }
 
   template <typename T>
   T getImmediate() const {
-    const auto* data = this->data->getLocalPointer();
+    const auto* data = this->data_->getLocalPointer();
     const auto* dataConv = reinterpret_cast<const T*>(data);
     return *dataConv;
   }
@@ -135,24 +135,24 @@ class XmlData : public XmlEntry {
   void innerWrite(XmlInstructor& instructor) const override;
 
   private:
-  std::shared_ptr<writer::DataSource> data;
+  std::shared_ptr<writer::DataSource> data_;
 };
 
 template <>
 inline void XmlData::setImmediate<std::string>(const std::string& data) {
-  this->data = writer::WriteInline::createString(data);
+  this->data_ = writer::WriteInline::createString(data);
 }
 
 template <>
 inline std::string XmlData::getImmediate<std::string>() const {
-  const auto* data = this->data->getLocalPointer();
+  const auto* data = this->data_->getLocalPointer();
   const auto* dataConv = reinterpret_cast<const char*>(data);
-  return std::string(dataConv, dataConv + this->data->getLocalSize());
+  return std::string(dataConv, dataConv + this->data_->getLocalSize());
 }
 
 class XmlFile {
   private:
-  std::shared_ptr<XmlEntry> root;
+  std::shared_ptr<XmlEntry> root_;
 
   public:
   std::shared_ptr<XmlEntry> getRoot();

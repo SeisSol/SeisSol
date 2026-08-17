@@ -28,7 +28,7 @@ const std::vector<std::string> NegativePrefixes = {
 } // namespace
 
 namespace seissol {
-SIUnit::SIUnit(const std::string& unit, bool binary) : unit(unit), binary(binary) {}
+SIUnit::SIUnit(const std::string& unit, bool binary) : unit_(unit), binary_(binary) {}
 
 std::string formatInteger(uint64_t value) {
   std::stringstream out;
@@ -103,7 +103,7 @@ std::string SIUnit::formatPrefix(double value, std::optional<double> error, int 
   double mantissa = std::abs(value);
   double errorOrZero = error.value_or(0);
   int position = 0;
-  const double skip = binary ? 1024 : 1000;
+  const double skip = binary_ ? 1024 : 1000;
   const double sign = value < 0 ? -1 : 1;
   // only one of the following two while loops should be triggered at any time
   // the 100 is rather arbitrary to prevent a loop forever
@@ -120,8 +120,8 @@ std::string SIUnit::formatPrefix(double value, std::optional<double> error, int 
     ++position;
   }
 
-  if ((binary && position > static_cast<int>(PositiveBytePrefixes.size())) ||
-      (!binary && position > static_cast<int>(PositivePrefixes.size())) ||
+  if ((binary_ && position > static_cast<int>(PositiveBytePrefixes.size())) ||
+      (!binary_ && position > static_cast<int>(PositivePrefixes.size())) ||
       -position > static_cast<int>(NegativePrefixes.size())) {
     // out of range, default to scientific notation
     return formatScientific(value, error, digits);
@@ -130,7 +130,7 @@ std::string SIUnit::formatPrefix(double value, std::optional<double> error, int 
       if (position < 0) {
         return NegativePrefixes[-position - 1];
       } else if (position > 0) {
-        if (binary) {
+        if (binary_) {
           return PositiveBytePrefixes[position - 1];
         } else {
           return PositivePrefixes[position - 1];
@@ -150,7 +150,7 @@ std::string SIUnit::formatPrefix(double value, std::optional<double> error, int 
     if (error.has_value()) {
       stream << " ± " << errorOrZero << ")";
     }
-    stream << " " << prefix << unit;
+    stream << " " << prefix << unit_;
     return stream.str();
   }
 }
@@ -166,7 +166,7 @@ std::string SIUnit::formatScientific(double value, std::optional<double> error, 
   if (error.has_value()) {
     stream << " ± " << error.value() << ")";
   }
-  stream << " " << unit;
+  stream << " " << unit_;
   return stream.str();
 }
 

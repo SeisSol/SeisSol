@@ -50,6 +50,8 @@ if (DEVICE_KERNEL_SAVETEMPS)
     set(SEISSOL_HIPCC ${SEISSOL_HIPCC} --save-temps)
 endif()
 
+set(SEISSOL_HIPCC ${SEISSOL_HIPCC} -fPIC)
+
 set(CMAKE_HIP_CREATE_SHARED_LIBRARY
 "${HIP_HIPCC_CMAKE_LINKER_HELPER} \
 ${HCC_PATH} \
@@ -65,7 +67,7 @@ function(make_device_lib NAME FILES)
     set_source_files_properties(${FILES} PROPERTIES HIP_SOURCE_PROPERTY_FORMAT 1)
 
     hip_reset_flags()
-    hip_add_library(${NAME} SHARED ${FILES}
+    hip_add_library(${NAME} ${DEVICE_LIBTYPE} ${FILES}
             HIPCC_OPTIONS ${SEISSOL_HIPCC}
             NVCC_OPTIONS ${SEISSOL_NVCC})
 

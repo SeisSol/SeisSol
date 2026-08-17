@@ -37,21 +37,21 @@ struct FlopCounter {
   void incrementHardwareFlopsPlasticity(long long update);
 
   private:
-  std::ofstream out;
-  long long previousTotalHWFlops = 0;
-  long long previousTotalNZFlops = 0;
-  double previousWallTime = 0;
+  std::ofstream out_;
+  long long previousTotalHWFlops_ = 0;
+  long long previousTotalNZFlops_ = 0;
+  double previousWallTime_ = 0;
   // global variables for summing-up SeisSol internal counters
-  long long nonZeroFlopsLocal = 0;
-  long long hardwareFlopsLocal = 0;
-  long long nonZeroFlopsNeighbor = 0;
-  long long hardwareFlopsNeighbor = 0;
-  long long nonZeroFlopsOther = 0;
-  long long hardwareFlopsOther = 0;
-  long long nonZeroFlopsDynamicRupture = 0;
-  long long hardwareFlopsDynamicRupture = 0;
-  long long nonZeroFlopsPlasticity = 0;
-  long long hardwareFlopsPlasticity = 0;
+  long long nonZeroFlopsLocal_ = 0;
+  long long hardwareFlopsLocal_ = 0;
+  long long nonZeroFlopsNeighbor_ = 0;
+  long long hardwareFlopsNeighbor_ = 0;
+  long long nonZeroFlopsOther_ = 0;
+  long long hardwareFlopsOther_ = 0;
+  long long nonZeroFlopsDynamicRupture_ = 0;
+  long long hardwareFlopsDynamicRupture_ = 0;
+  long long nonZeroFlopsPlasticity_ = 0;
+  long long hardwareFlopsPlasticity_ = 0;
 };
 } // namespace seissol::monitoring
 

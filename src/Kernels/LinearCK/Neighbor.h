@@ -28,10 +28,10 @@ class Neighbor : public NeighborKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
 
-  void computeNeighborsIntegral(LTS::Ref& data,
-                                const CellDRMapping (&cellDrMapping)[4],
-                                real* timeIntegrated[4],
-                                real* faceNeighborsPrefetch[4]) override;
+  void computeNeighborsIntegral(
+      LTS::Ref& data,
+      const std::array<real*, Cell::NumFaces>& timeIntegrated,
+      const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) override;
 
   void computeBatchedNeighborsIntegral(recording::ConditionalPointersToRealsTable& table,
                                        seissol::parallel::runtime::StreamRuntime& runtime) override;
@@ -39,7 +39,7 @@ class Neighbor : public NeighborKernel {
   void flopsNeighborsIntegral(
       const std::array<FaceType, Cell::NumFaces>& faceTypes,
       const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-      const CellDRMapping (&cellDrMapping)[4],
+      const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping,
       std::uint64_t& nonZeroFlops,
       std::uint64_t& hardwareFlops,
       std::uint64_t& drNonZeroFlops,
@@ -48,13 +48,13 @@ class Neighbor : public NeighborKernel {
   std::uint64_t bytesNeighborsIntegral() override;
 
   protected:
-  kernel::neighboringFlux m_nfKrnlPrototype;
-  dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;
+  kernel::neighboringFlux nfKrnlPrototype_;
+  dynamicRupture::kernel::nodalFlux drKrnlPrototype_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_neighboringFlux deviceNfKrnlPrototype;
-  dynamicRupture::kernel::gpu_nodalFlux deviceDrKrnlPrototype;
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  kernel::gpu_neighboringFlux deviceNfKrnlPrototype_;
+  dynamicRupture::kernel::gpu_nodalFlux deviceDrKrnlPrototype_;
+  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 #endif
 };
 

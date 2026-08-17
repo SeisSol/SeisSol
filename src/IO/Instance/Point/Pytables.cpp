@@ -23,18 +23,18 @@ Pytables::Pytables() = default;
 
 std::function<writer::Writer(const std::string&, std::size_t, double)> Pytables::makeWriter() {
   return [this](const std::string& prefix, std::size_t counter, double /*time*/) -> writer::Writer {
-    const auto filename = prefix + "-" + name + ".h5";
+    const auto filename = prefix + "-" + name_ + ".h5";
     auto writer = writer::Writer();
 
-    this->rowstorageCopy = this->rowstorage;
-    const auto rowCount = this->rowCount;
+    this->rowstorageCopy_ = this->rowstorage_;
+    const auto rowCount = this->rowCount_;
     this->resetStorage();
 
     auto rowDatatype = getRowDatatype();
     writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
         writer::instructions::Hdf5Location(filename, {}),
         "receiverdata",
-        writer::WriteBuffer::create(rowstorageCopy.data(), rowCount, {}, rowDatatype),
+        writer::WriteBuffer::create(rowstorageCopy_.data(), rowCount, {}, rowDatatype),
         rowDatatype));
 
     // first write
@@ -54,7 +54,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> Pytables:
       writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
           writer::instructions::Hdf5Location(filename, {}),
           "TITLE",
-          writer::WriteInline::createString(name)));
+          writer::WriteInline::createString(name_)));
 
       writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
           writer::instructions::Hdf5Location(filename, {}, "receiverdata"),
@@ -68,16 +68,16 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> Pytables:
           writer::instructions::Hdf5Location(filename, {}, "receiverdata"),
           "TITLE",
           writer::WriteInline::createString("receiverdata")));
-      for (std::size_t i = 0; i < quantities.size(); ++i) {
+      for (std::size_t i = 0; i < quantities_.size(); ++i) {
         writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
             writer::instructions::Hdf5Location(filename, {}, "receiverdata"),
             std::string("FIELD_") + std::to_string(i) + std::string("_NAME"),
-            writer::WriteInline::createString(quantities[i].name)));
+            writer::WriteInline::createString(quantities_[i].name)));
         // TODO: fix
         writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
             writer::instructions::Hdf5Location(filename, {}, "receiverdata"),
             std::string("FIELD_") + std::to_string(i) + std::string("_FILL"),
-            writer::WriteInline::create(0ULL, quantities[i].datatype)));
+            writer::WriteInline::create(0ULL, quantities_[i].datatype)));
       }
     }
     // TODO: fix

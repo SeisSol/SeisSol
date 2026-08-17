@@ -10,6 +10,7 @@
 #include "Equations/Datastructures.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/Parameters/ParameterReader.h"
+#include "Model/Plasticity.h"
 
 #include <algorithm>
 #include <array>
@@ -119,7 +120,8 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("pickpoint");
 
   const auto printTimeInterval = reader->readWithDefault("printtimeinterval", 1);
-  const auto maxPickStore = reader->readWithDefault("maxpickstore", 50);
+
+  const auto interval = reader->readWithDefault("outputinterval", VeryLongTime);
 
   const auto outputMaskString =
       reader->readWithDefault<std::string>("outputmask", "1 1 1 1 1 1 0 0 0 0 0 0");
@@ -130,10 +132,10 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
   const auto aggregate = reader->readWithDefault("aggregateperrank", false);
 
-  reader->warnDeprecated({"noutpoints"});
+  reader->warnDeprecated({"noutpoints", "maxpickstore"});
 
   return PickpointParameters{
-      printTimeInterval, maxPickStore, outputMask, pickpointFileName, aggregate, collectiveio};
+      printTimeInterval, interval, outputMask, pickpointFileName, aggregate, collectiveio};
 }
 
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
@@ -143,8 +145,16 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
   auto enabled = reader->readWithDefault("receiveroutput", true);
   warnIntervalAndDisable(enabled, interval, "receiveroutput", "receiveroutputinterval");
 
+  const auto format = reader->readWithDefaultStringEnum<ReceiverOutputFormat>(
+      "receiverformat",
+      "csv",
+      {
+          {"csv", ReceiverOutputFormat::Csv},
+          {"hdf5", ReceiverOutputFormat::Hdf5},
+      });
+
   const auto computeRotation = reader->readWithDefault("receivercomputerotation", false);
-  const auto computeStrain = reader->readWithDefault("receivercomputestrain", false);
+  const auto computeStrain = reader->readWithDefault("ReceiverComputeStrainRate", false);
   const auto samplingInterval = reader->readWithDefault("pickdt", 0.005);
   const auto fileName = reader->readPath("rfilename");
 
@@ -158,6 +168,7 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
 
   // note: we'll need to supply a filename, even if we don't use the receivers
   return ReceiverOutputParameters{enabled,
+                                  format,
                                   computeRotation,
                                   computeStrain,
                                   interval,
@@ -177,7 +188,7 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
     const auto format = reader->readWithDefaultEnum<OutputFormat>(
         "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
 
-    // TODO: deprecate the "format" value for real
+    // TODO: deprecate the "format" value at some point (not yet though)
     logInfo()
         << "Disabling/enabling the wavefield output via the \"format\" option is deprecated "
            "and may be removed in a future version of SeisSol. Consider using the parameter "
@@ -215,13 +226,15 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
 
   const auto plasticityMaskString =
       reader->readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));
-  const std::array<bool, 7> plasticityMask =
-      convertStringToArray<bool, 7>(plasticityMaskString, false);
+  const std::array<bool, seissol::model::PlasticityData::Quantities.size()> plasticityMask =
+      convertStringToArray<bool, seissol::model::PlasticityData::Quantities.size()>(
+          plasticityMaskString, false);
 
   const auto integrationMaskString =
       reader->readWithDefault("integrationmask", std::string("0 0 0 0 0 0 0 0 0"));
-  const std::array<bool, 9> integrationMask =
-      convertStringToArray<bool, 9>(integrationMaskString, false);
+  const std::array<bool, seissol::model::MaterialT::NumQuantities> integrationMask =
+      convertStringToArray<bool, seissol::model::MaterialT::NumQuantities>(integrationMaskString,
+                                                                           false);
 
   const auto groupsRaw = reader->readWithDefault("outputgroups", std::vector<int>());
   const auto groups = std::unordered_set<int>(groupsRaw.begin(), groupsRaw.end());

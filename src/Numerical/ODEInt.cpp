@@ -249,7 +249,7 @@ void initializeRungeKuttaScheme(RungeKuttaVariant variant,
 
 RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storageSizes,
                                          ODESolverConfig config)
-    : config(config) {
+    : config_(config) {
 
   // NOTE: we initialize in Eigen, but copy to std vectors afterwards.
   // Because e.g. NVHPC seemed to have a big problem with this case somehow after some refactor.
@@ -260,18 +260,18 @@ RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storage
     Eigen::VectorXd bn;
     Eigen::VectorXd cn;
 
-    initializeRungeKuttaScheme(config.solver, numberOfStages, an, bn, cn);
+    initializeRungeKuttaScheme(config.solver, numberOfStages_, an, bn, cn);
 
-    a.resize(static_cast<long>(numberOfStages) * numberOfStages);
-    b.resize(numberOfStages);
-    c.resize(numberOfStages);
+    a_.resize(static_cast<long>(numberOfStages_) * numberOfStages_);
+    b_.resize(numberOfStages_);
+    c_.resize(numberOfStages_);
 
-    for (int i = 0; i < numberOfStages; ++i) {
-      for (int j = 0; j < numberOfStages; ++j) {
-        a[i * numberOfStages + j] = an(i, j);
+    for (int i = 0; i < numberOfStages_; ++i) {
+      for (int j = 0; j < numberOfStages_; ++j) {
+        a_[i * numberOfStages_ + j] = an(i, j);
       }
-      b[i] = bn[i];
-      c[i] = cn[i];
+      b_[i] = bn[i];
+      c_[i] = cn[i];
     }
   }
 
@@ -279,7 +279,7 @@ RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storage
     auto curStoragePtrs = std::vector<real*>();
     curStoragePtrs.reserve(storageSizes.size());
     for (const auto storageSize : storageSizes) {
-      curStoragePtrs.push_back(storages.emplace_back(storageSize).data());
+      curStoragePtrs.push_back(storages_.emplace_back(storageSize).data());
     }
     return curStoragePtrs;
   };
@@ -287,16 +287,16 @@ RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storage
   // TODO: maybe combine everything in a single buffer sometime?
 
   // Initialize storages for stages
-  stages.reserve(numberOfStages);
-  storages.reserve((numberOfStages + 1) * storageSizes.size()); // +1 due to buffer
-  for (int i = 0; i < numberOfStages; ++i) {
-    stages.emplace_back(allocateStorage(), storageSizes);
+  stages_.reserve(numberOfStages_);
+  storages_.reserve((numberOfStages_ + 1) * storageSizes.size()); // +1 due to buffer
+  for (int i = 0; i < numberOfStages_; ++i) {
+    stages_.emplace_back(allocateStorage(), storageSizes);
   }
 
   // Initialize buffer
-  buffer.updateStoragesAndSizes(allocateStorage(), storageSizes);
+  buffer_.updateStoragesAndSizes(allocateStorage(), storageSizes);
 }
 
-void RungeKuttaODESolver::setConfig(ODESolverConfig newConfig) { config = newConfig; }
+void RungeKuttaODESolver::setConfig(ODESolverConfig newConfig) { config_ = newConfig; }
 
 } // namespace seissol::ode

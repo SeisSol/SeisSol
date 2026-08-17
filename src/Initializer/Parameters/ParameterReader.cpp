@@ -18,12 +18,12 @@
 namespace seissol::initializer::parameters {
 
 ParameterReader::ParameterReader(const YAML::Node& node, const std::string& rootPath, bool empty)
-    : node(node), rootPath(rootPath), empty(empty) {}
+    : node_(node), rootPath_(rootPath), empty_(empty) {}
 
 std::optional<std::string> ParameterReader::readPath(const std::string& field) {
   const auto fileName = read<std::string>(field);
   if (fileName.has_value()) {
-    const auto lastPath = filesystem::path(rootPath);
+    const auto lastPath = filesystem::path(rootPath_);
     auto nextPath = filesystem::path(fileName.value());
     const auto loadFileName = [&]() {
       if (nextPath.is_relative()) {
@@ -61,7 +61,7 @@ std::string ParameterReader::readPathOrFail(const std::string& field,
 
 void ParameterReader::warnDeprecatedSingle(const std::string& field) {
   if (hasField(field)) {
-    visited.emplace(field);
+    visited_.emplace(field);
     logInfo() << "The field" << field
               << "is no longer in use. You may safely remove it from your parameters file.";
   }
@@ -74,14 +74,14 @@ void ParameterReader::warnDeprecated(const std::vector<std::string>& fields) {
 }
 
 void ParameterReader::warnUnknown(const std::string& prefix) const {
-  for (const auto& subnodes : node) {
+  for (const auto& subnodes : node_) {
     auto field = subnodes.first.as<std::string>();
-    if (visited.find(field) == visited.end()) {
+    if (visited_.find(field) == visited_.end()) {
       logWarning() << "The field" << field << "in" << prefix
                    << "was given in the parameter file, but is unknown to SeisSol.";
     }
   }
-  for (const auto& pair : subreaders) {
+  for (const auto& pair : subreaders_) {
     pair.second->warnUnknown(pair.first);
   }
 }
@@ -89,14 +89,14 @@ void ParameterReader::warnUnknown(const std::string& prefix) const {
 void ParameterReader::markUnused(const std::vector<std::string>& fields) {
   for (const auto& field : fields) {
     logDebug() << "The field" << field << "is ignored (if it is found).";
-    visited.emplace(field);
+    visited_.emplace(field);
   }
 }
 
 ParameterReader* ParameterReader::readSubNode(const std::string& subnodeName) {
-  visited.emplace(subnodeName);
+  visited_.emplace(subnodeName);
   logDebug() << "Entering section" << subnodeName;
-  if (subreaders.find(subnodeName) == subreaders.end()) {
+  if (subreaders_.find(subnodeName) == subreaders_.end()) {
     bool empty = false;
     if (hasField(subnodeName)) {
       empty = false;
@@ -106,13 +106,13 @@ ParameterReader* ParameterReader::readSubNode(const std::string& subnodeName) {
                  << "not found in the given parameter file. Using an empty reader->";
       empty = true;
     }
-    subreaders.emplace(
+    subreaders_.emplace(
         subnodeName,
-        std::make_shared<ParameterReader>(ParameterReader(node[subnodeName], rootPath, empty)));
+        std::make_shared<ParameterReader>(ParameterReader(node_[subnodeName], rootPath_, empty)));
   }
-  return subreaders.at(subnodeName).get();
+  return subreaders_.at(subnodeName).get();
 }
 
-bool ParameterReader::hasField(const std::string& field) { return !empty && node[field]; }
+bool ParameterReader::hasField(const std::string& field) { return !empty_ && node_[field]; }
 
 } // namespace seissol::initializer::parameters

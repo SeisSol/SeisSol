@@ -41,10 +41,10 @@ struct DirichletBoundaryAux {
 
 struct FreeSurfaceGravity : public DirichletBoundaryAux<FreeSurfaceGravity> {
   real** displacementDataPtrs{};
-  double* rhos;
+  double* rhos{nullptr};
   double g{};
 
-  void dispatch(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) {
+  void dispatch(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) const {
 
     assert(displacementDataPtrs != nullptr);
     assert(rhos != nullptr);
@@ -57,7 +57,7 @@ struct EasiBoundary : public DirichletBoundaryAux<EasiBoundary> {
   real** easiBoundaryMapPtrs{};
   real** easiBoundaryConstantPtrs{};
 
-  void dispatch(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) {
+  void dispatch(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) const {
 
     assert(easiBoundaryMapPtrs != nullptr);
     assert(easiBoundaryConstantPtrs != nullptr);
@@ -74,8 +74,8 @@ struct EasiBoundary : public DirichletBoundaryAux<EasiBoundary> {
 namespace seissol::kernels::time::aux {
 void extractRotationMatrices(real** displacementToFaceNormalPtrs,
                              real** displacementToGlobalDataPtrs,
-                             real** TPtrs,
-                             real** TinvPtrs,
+                             real** tPtrs,
+                             real** tinvPtrs,
                              size_t numElements,
                              void* deviceStream);
 

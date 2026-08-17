@@ -245,20 +245,6 @@ class ADERDGBase(ABC):
         )
         generator.add("computeFluxSolverNeighbor", computeFluxSolverNeighbor)
 
-        QFortran = Tensor(
-            "QFortran",
-            (self.numberOf3DBasisFunctions(), self.numberOfQuantities()),
-        )
-        multSimToFirstSim = Tensor(
-            "multSimToFirstSim", (self.Q.optSize(),), spp={(0,): "1.0"}
-        )
-        if self.Q.hasOptDim():
-            copyQToQFortran = QFortran["kp"] <= self.Q["kp"] * multSimToFirstSim["s"]
-        else:
-            copyQToQFortran = QFortran["kp"] <= self.Q["kp"]
-
-        generator.add("copyQToQFortran", copyQToQFortran)
-
         stiffnessTensor = Tensor("stiffnessTensor", (3, 3, 3, 3))
         direction = Tensor("direction", (3,))
         christoffel = Tensor("christoffel", (3, 3))
@@ -490,11 +476,17 @@ class LinearADERDG(ADERDGBase):
                 alignStride=True,
             )
             power = powers[0]
-            derivatives = [dQ0]
+
+            dQ0True = self.Q if target == "gpu" else dQ0
+
+            derivatives = [dQ0True]
 
             # for now, interleave Taylor expansion and derivative computation
-            derivativeExpr = [self.I["kp"] <= power * dQ0["kp"]]
+            derivativeExpr = [self.I["kp"] <= power * dQ0True["kp"]]
             derivativeTaylorExpansion = power * dQ0["kp"]
+
+            if target == "gpu":
+                derivativeExpr += [dQ0["kp"] <= self.Q["kp"]]
 
             self.dQs = [dQ0]
 

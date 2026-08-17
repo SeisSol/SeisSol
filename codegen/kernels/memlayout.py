@@ -116,3 +116,50 @@ def guessMemoryLayout(env):
         bestFit = "dense.xml"
     print("Using memory layout {}".format(bestFit))
     return os.path.join(path, bestFit)
+
+
+def resolveMemoryLayout(memLayout, targets):
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    config_root = os.path.normpath(os.path.join(script_dir, "..", "config"))
+    subfolder = "gpu" if "gpu" in targets else "cpu"
+    config_dir = os.path.join(config_root, subfolder)
+
+    if os.path.isabs(memLayout):
+        if os.path.isfile(memLayout):
+            resolved_mem_layout = memLayout
+        else:
+            # CMake FILEPATH cache values can become absolute paths in the build tree.
+            # Recover by using the basename in the active target config folder.
+            resolved_mem_layout = os.path.join(config_dir, os.path.basename(memLayout))
+    elif os.path.isfile(memLayout):
+        resolved_mem_layout = memLayout
+    else:
+        # Keep supporting values relative to codegen/config, e.g. "cpu/dense.xml".
+        path_from_config_root = os.path.join(config_root, memLayout)
+        if os.path.isfile(path_from_config_root):
+            resolved_mem_layout = path_from_config_root
+        else:
+            resolved_mem_layout = os.path.join(config_dir, memLayout)
+
+    if not os.path.isfile(resolved_mem_layout):
+        raise FileNotFoundError(
+            f"Could not find memory layout '{memLayout}' for target "
+            f"'{subfolder}'. Tried '{resolved_mem_layout}'."
+        )
+
+    resolved_abs = os.path.abspath(resolved_mem_layout)
+    config_abs = os.path.abspath(config_root)
+    target_abs = os.path.abspath(config_dir)
+
+    if os.path.commonpath([resolved_abs, target_abs]) == target_abs:
+        print(
+            "Using the pre-defined memory layout config file "
+            f"{os.path.basename(resolved_mem_layout)} ({subfolder})"
+        )
+    elif os.path.commonpath([resolved_abs, config_abs]) == config_abs:
+        relative_name = os.path.relpath(resolved_abs, config_abs)
+        print(f"Using the pre-defined memory layout config file {relative_name}")
+    else:
+        print(f"Using the memory layout config file {resolved_mem_layout}")
+
+    return resolved_mem_layout

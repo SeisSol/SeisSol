@@ -39,9 +39,7 @@ inline void test_nan(init::QgodLocal::view::type& qgodNeighbor) {
   }
 }
 
-// TODO: add acoustic Godunov state
-TEST_CASE("Godunov state is correct" *
-          doctest::skip(std::is_same_v<model::MaterialT, model::AcousticMaterial>)) {
+TEST_CASE("Godunov state is correct") {
   constexpr real Epsilon = 1e2 * std::numeric_limits<real>::epsilon();
 
   real localData[tensor::QgodLocal::size()];

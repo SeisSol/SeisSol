@@ -21,12 +21,12 @@ Stopwatch::Stopwatch() = default;
 /**
  * Reset the stopwatch to zero
  */
-void Stopwatch::reset() { time = 0; }
+void Stopwatch::reset() { time_ = 0; }
 
 /**
  * starts the time measuring
  */
-void Stopwatch::start() { (void)clock_gettime(CLOCK_MONOTONIC, &startTime); }
+void Stopwatch::start() { (void)clock_gettime(CLOCK_MONOTONIC, &startTime_); }
 
 /**
  * get time measuring
@@ -37,7 +37,7 @@ double Stopwatch::split() {
   struct timespec end{};
   (void)clock_gettime(CLOCK_MONOTONIC, &end);
 
-  return seconds(difftime(startTime, end));
+  return seconds(difftime(startTime_, end));
 }
 
 /**
@@ -49,8 +49,8 @@ double Stopwatch::pause() {
   struct timespec end{};
   (void)clock_gettime(CLOCK_MONOTONIC, &end);
 
-  time += difftime(startTime, end);
-  return seconds(time);
+  time_ += difftime(startTime_, end);
+  return seconds(time_);
 }
 
 /**
@@ -67,7 +67,7 @@ double Stopwatch::stop() {
 /**
  * Collective operation, printing avg, min and max time
  */
-void Stopwatch::printTime(const std::string& text) const { print(text, seconds(time)); }
+void Stopwatch::printTime(const std::string& text) const { print(text, seconds(time_)); }
 
 void Stopwatch::print(const std::string& text, double time) {
   const auto summary = statistics::parallelSummary(time);

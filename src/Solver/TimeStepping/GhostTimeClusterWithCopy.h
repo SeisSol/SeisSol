@@ -19,9 +19,11 @@ template <Mpi::DataTransferMode CommType>
 class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
   public:
   GhostTimeClusterWithCopy(double maxTimeStepSize,
-                           int timeStepRate,
-                           int globalTimeClusterId,
-                           int otherGlobalTimeClusterId,
+                           std::uint64_t timeStepRate,
+                           std::size_t globalTimeClusterId,
+                           std::size_t otherGlobalTimeClusterId,
+                           const std::string& displayName,
+                           const std::string& otherDisplayName,
                            const seissol::solver::HaloCommunication& meshStructure,
                            bool persistent);
   ~GhostTimeClusterWithCopy() override;
@@ -39,22 +41,22 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
 
   void finalize() override;
 
-  std::list<int> prefetchCopyLayer();
+  std::list<std::size_t> prefetchCopyLayer();
   void prefetchGhostRegion(std::size_t region);
 
   private:
-  std::vector<void*> duplicatedCopyRegions;
-  std::vector<void*> duplicatedGhostRegions;
+  std::vector<void*> duplicatedCopyRegions_;
+  std::vector<void*> duplicatedGhostRegions_;
 
-  std::vector<void*> prefetchCopyRegionsStreams;
-  std::vector<void*> prefetchGhostRegionsStreams;
+  std::vector<void*> prefetchCopyRegionsStreams_;
+  std::vector<void*> prefetchGhostRegionsStreams_;
 
   enum class ReceiveState { RequiresMpiTesting, RequiresPrefetchTesting, Ready };
-  std::vector<ReceiveState> receiveRegionsStates{};
+  std::vector<ReceiveState> receiveRegionsStates_;
 
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 
-  bool persistent;
+  bool persistent_;
 };
 } // namespace seissol::time_stepping
 

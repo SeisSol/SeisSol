@@ -12,7 +12,7 @@ namespace seissol {
 
 enum class Executor { Host, Device };
 
-constexpr auto executorEnabled(Executor executor) -> bool {
+constexpr auto executorEnabled([[maybe_unused]] Executor executor) -> bool {
 #ifdef ACL_DEVICE
   return true;
 #else

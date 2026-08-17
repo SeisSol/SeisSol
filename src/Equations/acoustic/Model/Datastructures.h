@@ -36,7 +36,8 @@ struct AcousticMaterial : public Material {
   static inline const std::string Text = "acoustic";
   // The stress-velocity formulation of the elastic model is reused.
   // By definition, the normal stress and pressure are negatives of each other.
-  static inline const std::array<std::string, NumQuantities> Quantities = {"-p", "v1", "v2", "v3"};
+  static inline const std::array<std::string, NumQuantities> Quantities = {
+      "pprime", "v1", "v2", "v3"};
   static constexpr std::size_t Parameters = 1 + Material::Parameters;
 
   static constexpr bool SupportsDR = false;
@@ -64,7 +65,7 @@ struct AcousticMaterial : public Material {
     // It is not used for acoustic materials as they do not support NRF sources.
 
     auto stiffnessTensorView =
-        seissol_general::init::stiffnessTensor::view::create(fullTensor.data());
+        seissol::general::init::stiffnessTensor::view::create(fullTensor.data());
     stiffnessTensorView.setZero();
     stiffnessTensorView(0, 0, 0, 0) = lambda;
     stiffnessTensorView(0, 0, 1, 1) = lambda;

@@ -67,25 +67,25 @@ struct ExtTriangle {
   ExtTriangle() = default;
 
   explicit ExtTriangle(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2, const ExtVrtxCoords& p3) {
-    points[0] = p1;
-    points[1] = p2;
-    points[2] = p3;
+    points_[0] = p1;
+    points_[1] = p2;
+    points_[2] = p3;
   }
 
   ExtVrtxCoords& point(size_t index) {
     assert((index < 3) && "ExtTriangle index must be less than 3");
-    return points[index];
+    return points_[index];
   }
 
   [[nodiscard]] ExtVrtxCoords point(size_t index) const {
     assert((index < 3) && "ExtTriangle index must be less than 3");
-    return points[index];
+    return points_[index];
   }
 
   static std::size_t size() { return 3; }
 
   private:
-  std::array<ExtVrtxCoords, 3> points{};
+  std::array<ExtVrtxCoords, 3> points_{};
 };
 
 struct ReceiverPoint {

@@ -6,6 +6,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Common/ConfigHelper.h"
 #include "Common/Executor.h"
 #include "Kernels/Common.h"
 #include "Proxy/Common.h"
@@ -13,6 +14,8 @@
 #include "Proxy/Runner.h"
 #include "Proxy/Tools.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -45,7 +48,9 @@ int main(int argc, char* argv[]) {
   const std::vector<std::string> formatValues = {"plain", "json"};
 
   utils::Args args("The SeisSol proxy is used to benchmark the kernels used in the SeisSol "
-                   "earthquake simulation software.");
+                   "earthquake simulation software. This version of SeisSol proxy (" +
+                   seissol::ConfigString + ") was built with the following properties:\n" +
+                   seissol::ConfigDescriptor);
   args.addAdditionalOption("cells", "Number of cells");
   args.addAdditionalOption("timesteps", "Number of timesteps");
   args.addAdditionalOption("kernel", kernelHelp.str());
@@ -56,10 +61,10 @@ int main(int argc, char* argv[]) {
   }
 
   ProxyConfig config{};
-  config.cells = args.getAdditionalArgument<unsigned>("cells");
-  config.timesteps = args.getAdditionalArgument<unsigned>("timesteps");
+  config.cells = args.getAdditionalArgument<std::size_t>("cells");
+  config.timesteps = args.getAdditionalArgument<std::size_t>("timesteps");
   const auto kernelStr = args.getAdditionalArgument<std::string>("kernel");
-  const auto formatValue = args.getArgument<int>("format", 0);
+  const auto formatValue = args.getArgument<std::int32_t>("format", 0);
 
   const auto format = formatValue == 1 ? OutputFormat::Json : OutputFormat::Plain;
 

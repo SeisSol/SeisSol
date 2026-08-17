@@ -33,15 +33,15 @@ class FreeSurfaceIntegrator {
     FreeSurfaceWithGravity = 3
   };
 
-  real* projectionMatrixMemory{nullptr};
-  real* projectionMatrix[4]{};
-  real* projectionMatrixFromFace{nullptr};
-  std::size_t numberOfSubTriangles{0};
-  std::size_t numberOfAlignedSubTriangles{0};
+  real* projectionMatrixMemory_{nullptr};
+  real* projectionMatrix_[4]{};
+  real* projectionMatrixFromFace_{nullptr};
+  std::size_t numberOfSubTriangles_{0};
+  std::size_t numberOfAlignedSubTriangles_{0};
 
   static constexpr auto PolyDegree = ConvergenceOrder - 1;
   static constexpr auto NumQuadraturePoints = PolyDegree * PolyDegree;
-  bool m_enabled{false};
+  bool enabled_{false};
 
   void initializeProjectionMatrices(unsigned maxRefinementDepth);
   void computeSubTriangleAverages(
@@ -85,7 +85,7 @@ class FreeSurfaceIntegrator {
 
   void calculateOutput() const;
 
-  [[nodiscard]] bool enabled() const { return m_enabled; }
+  [[nodiscard]] bool enabled() const { return enabled_; }
 };
 
 } // namespace seissol::solver

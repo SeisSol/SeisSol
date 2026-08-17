@@ -44,8 +44,8 @@ Typically, 1D, 2D, and 3D ASAGI files are used in SeisSol setups.
 Installing ASAGI
 ----------------
 
-Be careful that the python and gcc package is the same as for the
-compilation of SeisSol in a later step.
+Make sure that the compiler and Python packages you use are the same
+as for SeisSol later on.
 First clone ASAGI with:
 
 .. code-block:: bash
@@ -55,30 +55,21 @@ First clone ASAGI with:
   cd ASAGI
   git submodule update --init
 
-Set compiler options, e.g. for intel compilers on SuperMUC:
-
-.. code-block:: bash
-
-  export FC=mpif90
-  export CXX=mpiCC
-  export CC=mpicc
-
 Run cmake, and compile with:
 
 .. code-block:: bash
 
   mkdir build && cd build
   CMAKE_PREFIX_PATH=$NETCDF_BASE
-  cmake .. -DSHARED_LIB=no -DSTATIC_LIB=yes -DCMAKE_INSTALL_PREFIX=$HOME
+  cmake .. -DFORTRAN=OFF -DSHARED_LIB=OFF -DSTATIC_LIB=ON -DCMAKE_INSTALL_PREFIX=$HOME
   make -j 48
   make install
-  (Know errors: 1.Numa could not found - turn off Numa by adding -DNONUMA=on . )
-
+  # (known errors: 1.Numa could not found - turn off Numa by adding -DNONUMA=ON . )
 
 Building SeisSol with ASAGI support
 -----------------------------------
 
-Simply turn on the option ``ASAGI=ON`` in the using ccmake.
+Enable the option ``ASAGI=ON`` in the using cmake, and compile easi with ``ASAGI=ON`` as well.
 
 Generating the NetCDF input file
 --------------------------------
@@ -93,7 +84,7 @@ A typical example which generates a 2D ASAGI file can be found
 Using asagiconv
 ~~~~~~~~~~~~~~~
 
-Asagiconv (Located
+Asagiconv (located
 `here <https://github.com/SeisSol/SeisSol/tree/master/preprocessing/science/asagiconv>`__)
 allows querying data, vizualising and exporting to NetCDF data from the
 3D Velocity Model for Southern California. For more detail, see `ASAGI
@@ -160,15 +151,49 @@ The AffineMap is therefore needed to define the unit vectors used for indexing t
 Note that the variables in the affine map can have different names than x, y or z (actually it should be preferred to avoid confusion).
 An AffineMap may also be used for 3D arrays, in case the coordinates variables are not aligned with the Cartesian coordinate system.
 
+Performance Tuning
+------------------
 
-Further information
--------------------
+By default, SeisSol assumes that the whole ASAGI file fits onto a single rank of the simulation.
+As a very rough estimate, up to 20 GiB-large files should be usable in modern systems.
 
-For further information, the use of asagiconv and asagi and its
-compilation, please see: `ASAGI
-docu <http://www.seissol.org/sites/default/files/asagi.pdf>`__.
+For larger files, there are several tuning options (via environment variables):
+
+- ``SEISSOL_ASAGI_MPI_MODE`` (default ``OFF``): distribute the ASAGI grid via MPI, thus decreasing the memory load per rank.
+
+  - ``OFF``: not distributed; the file resides on each MPI rank as a whole.
+  - ``COMM_THREAD``: distribute; use a communication thread to handle data exchanges. (needs the communication thread within SeisSol to be enabled)
+  - ``WINDOWS``: distribute; use unidirectional MPI functionalities for data exchanges. (does not need an extra communication thread)
+
+- ``SEISSOL_ASAGI_NUMA_MODE`` (default ``OFF``): behavior for different NUMA domains on one node.
+
+  - ``OFF``: disables multithreading for ASAGI reading alltogether.
+  - ``ON``: enables NUMA-aware data distribution; always fetches the data from the respective NUMA domain
+  - ``CACHE``: enables NUMA-aware data distribution; caches data from other NUMA domains
+
+- ``SEISSOL_ASAGI_SPARSE`` (default ``NO``): optimize for a sparse grid, i.e. cache (only relevant with MPI)
+
+- ``SEISSOL_ASAGI_BLOCK_SIZE`` (default ``64``): the block size for MPI/NUMA distribution
+
+- ``SEISSOL_ASAGI_CACHE_SIZE`` (default ``128``): the number of blocks cached for MPI/NUMA (for NUMA, if the NUMA mode is set to cache; for MPI only if ``SEISSOL_ASAGI_SPARSE`` is enabled)
+
+- ``SEISSOL_ASAGI_NUM_THREADS`` (default ``0``): the thread count for ASAGI, *including* the communication thread (if used). Only used if ``SEISSOL_ASAGI_NUMA_MODE`` is not ``OFF``. Also, if its value is given as 0, it is set equal to the number of cores visible to ASAGI.
+
+For larger files, it is advantageous to try ``SEISSOL_ASAGI_MPI_MODE=WINDOWS`` and ``SEISSOL_ASAGI_NUMA_MODE=ON``
+first; followed by other options.
+Depending on the MPI implementation (you will need to test this by yourself),
+``SEISSOL_ASAGI_MPI_MODE=COMM_THREAD`` might work better.
+The ``SEISSOL_ASAGI_NUMA_MODE=CACHE`` option might give a little more speedup if you only access few grid points per rank.
+
+Further documentation
+---------------------
+
+See `the ASAGI documentation <https://tum-i5.github.io/ASAGI/doc.pdf>`__ .
+Note that the variables it refers to are ASAGI-internal variables; for how to use them, see
 
 Known issues
 ------------
 
-There is a bug when using ASAGI with MPI. A workaround is described in https://github.com/SeisSol/SeisSol/issues/46.
+- There is a bug when using ASAGI with MPI, if not all ranks request data (e.g. in the case of many ranks and a fault). A workaround is described in https://github.com/SeisSol/SeisSol/issues/46.
+
+- With the default options, large ASAGI files (i.e. larger than the local memory on a node/rank) will fail during model initialization. In this case, set ``SEISSOL_ASAGI_MPI_MODE`` to either ``WINDOWS`` or ``COMM_THREAD``.

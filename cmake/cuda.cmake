@@ -9,7 +9,7 @@ enable_language(CUDA)
 
 function(make_device_lib NAME FILES)
 
-    add_library(${NAME} SHARED ${FILES})
+    add_library(${NAME} ${DEVICE_LIBTYPE} ${FILES})
 
     set_target_properties(${NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
     set_source_files_properties(${FILES} PROPERTIES LANGUAGE CUDA)

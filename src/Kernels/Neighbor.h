@@ -22,10 +22,27 @@ class NeighborKernel : public Kernel {
   public:
   ~NeighborKernel() override = default;
 
-  virtual void computeNeighborsIntegral(LTS::Ref& data,
-                                        const CellDRMapping (&cellDrMapping)[4],
-                                        real* timeIntegrated[4],
-                                        real* faceNeighborsPrefetch[4]) = 0;
+  /**
+   * @brief Compute the flux contribution of neighboring cells onto the cell, given time-integrated
+   * neighbor cell DoFs.
+   *
+   * This step equals the second part of the ADER-DG "corrector"; meaning that we add the flux
+   * contributions from the neighboring cells as well as the dynamic rupture faces. We assume that
+   * we have the neighboring values already present in a time-integrated manner. We either take them
+   * from the neighboring cells directly (they are usually precomputed), or need to have them
+   * pre-computed via the TimeKernel (mostly in the case of LTS, if our neighbor is a cell from a
+   * larger time cluster).
+   *
+   * @param data Cell data reference object (contains references to all stored data arrays for that
+   * cell)
+   * @param timeIntegrated The time-integrated DoFs of neighboring cells (usually ONLY for regular
+   * faces; DR is handled via the data object normally)
+   * @param faceNeighborsPrefetch The current time step width
+   */
+  virtual void
+      computeNeighborsIntegral(LTS::Ref& data,
+                               const std::array<real*, Cell::NumFaces>& timeIntegrated,
+                               const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) = 0;
 
   virtual void
       computeBatchedNeighborsIntegral(recording::ConditionalPointersToRealsTable& table,
@@ -34,7 +51,7 @@ class NeighborKernel : public Kernel {
   virtual void flopsNeighborsIntegral(
       const std::array<FaceType, Cell::NumFaces>& faceTypes,
       const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-      const CellDRMapping (&cellDrMapping)[4],
+      const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping,
       std::uint64_t& nonZeroFlops,
       std::uint64_t& hardwareFlops,
       std::uint64_t& drNonZeroFlops,

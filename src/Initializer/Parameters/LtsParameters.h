@@ -36,15 +36,15 @@ AutoMergeCostBaseline parseAutoMergeCostBaseline(std::string str);
 
 class LtsParameters {
   private:
-  std::vector<uint64_t> rate;
-  double wiggleFactorMinimum{};
-  double wiggleFactorStepsize{};
-  bool wiggleFactorEnforceMaximumDifference{};
-  int maxNumberOfClusters{std::numeric_limits<int>::max() - 1};
-  bool autoMergeClusters{};
-  double allowedPerformanceLossRatioAutoMerge{};
-  AutoMergeCostBaseline autoMergeCostBaseline{AutoMergeCostBaseline::BestWiggleFactor};
-  LtsWeightsTypes ltsWeightsType{LtsWeightsTypes::ExponentialWeights};
+  std::vector<uint64_t> rate_;
+  double wiggleFactorMinimum_{};
+  double wiggleFactorStepsize_{};
+  bool wiggleFactorEnforceMaximumDifference_{};
+  int maxNumberOfClusters_{std::numeric_limits<int>::max() - 1};
+  bool autoMergeClusters_{};
+  double allowedPerformanceLossRatioAutoMerge_{};
+  AutoMergeCostBaseline autoMergeCostBaseline_{AutoMergeCostBaseline::BestWiggleFactor};
+  LtsWeightsTypes ltsWeightsType_{LtsWeightsTypes::ExponentialWeights};
 
   public:
   [[nodiscard]] std::vector<uint64_t> getRate() const;

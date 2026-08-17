@@ -27,17 +27,17 @@ class GridPoints {
   public:
   GridPoints() {
     for (size_t i = 0; i < N; ++i) {
-      values[i] =
+      values_[i] =
           misc::TpMaxWaveNumber * std::exp(-misc::TpLogDz * (misc::NumTpGridPoints - i - 1));
     }
   }
 
 #pragma omp declare simd
-  const RealT& operator[](size_t i) const { return values[i]; };
-  [[nodiscard]] const std::array<RealT, N>& data() const { return values; }
+  const RealT& operator[](size_t i) const { return values_[i]; };
+  [[nodiscard]] const std::array<RealT, N>& data() const { return values_; }
 
   private:
-  std::array<RealT, N> values;
+  std::array<RealT, N> values_;
 };
 
 /**
@@ -50,18 +50,18 @@ class InverseFourierCoefficients {
     const GridPoints<N, double> localGridPoints;
 
     for (size_t i = 1; i < N - 1; ++i) {
-      values[i] = std::sqrt(2 / M_PI) * localGridPoints[i] * misc::TpLogDz;
+      values_[i] = std::sqrt(2 / M_PI) * localGridPoints[i] * misc::TpLogDz;
     }
-    values[0] = std::sqrt(2 / M_PI) * localGridPoints[0] * (1 + misc::TpLogDz);
-    values[N - 1] = std::sqrt(2 / M_PI) * localGridPoints[N - 1] * 0.5 * misc::TpLogDz;
+    values_[0] = std::sqrt(2 / M_PI) * localGridPoints[0] * (1 + misc::TpLogDz);
+    values_[N - 1] = std::sqrt(2 / M_PI) * localGridPoints[N - 1] * 0.5 * misc::TpLogDz;
   }
 
 #pragma omp declare simd
-  const RealT& operator[](size_t i) const { return values[i]; };
-  [[nodiscard]] const std::array<RealT, N>& data() const { return values; }
+  const RealT& operator[](size_t i) const { return values_[i]; };
+  [[nodiscard]] const std::array<RealT, N>& data() const { return values_; }
 
   private:
-  std::array<RealT, N> values;
+  std::array<RealT, N> values_;
 };
 
 /**
@@ -76,16 +76,16 @@ class GaussianHeatSource {
 
     for (size_t i = 0; i < N; ++i) {
       const double heatGeneration = std::exp(-0.5 * misc::power<2>(localGridPoints[i]));
-      values[i] = factor * heatGeneration;
+      values_[i] = factor * heatGeneration;
     }
   }
 
 #pragma omp declare simd
-  const RealT& operator[](size_t i) const { return values[i]; };
-  [[nodiscard]] const std::array<RealT, N>& data() const { return values; }
+  const RealT& operator[](size_t i) const { return values_[i]; };
+  [[nodiscard]] const std::array<RealT, N>& data() const { return values_; }
 
   private:
-  std::array<RealT, N> values;
+  std::array<RealT, N> values_;
 };
 
 } // namespace seissol::dr::friction_law::tp

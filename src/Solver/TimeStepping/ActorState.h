@@ -33,8 +33,8 @@ inline std::ostream& operator<<(std::ostream& stream, const Message& message);
 
 class MessageQueue {
   private:
-  std::queue<Message> queue;
-  std::mutex mutex;
+  std::queue<Message> queue_;
+  std::mutex mutex_;
 
   public:
   MessageQueue() = default;
@@ -92,28 +92,23 @@ struct NeighborCluster {
 };
 
 class DynamicRuptureScheduler {
-  long lastCorrectionStepsInterior = -1;
-  long lastCorrectionStepsCopy = -1;
-  long lastFaultOutput = -1;
-  long numberOfDynamicRuptureFaces;
-  bool firstClusterWithDynamicRuptureFaces;
+  long lastCorrectionStepsInterior_ = -1;
+  long lastCorrectionStepsCopy_ = -1;
+  long numberOfDynamicRuptureFaces_;
+  double outputTimestep_{};
 
   public:
-  DynamicRuptureScheduler(long numberOfDynamicRuptureFaces, bool isFirstDynamicRuptureCluster);
+  DynamicRuptureScheduler(long numberOfDynamicRuptureFaces, double outputTimestep);
 
   [[nodiscard]] bool mayComputeInterior(long curCorrectionSteps) const;
-
-  [[nodiscard]] bool mayComputeFaultOutput(long curCorrectionSteps) const;
 
   void setLastCorrectionStepsInterior(long steps);
 
   void setLastCorrectionStepsCopy(long steps);
 
-  void setLastFaultOutput(long steps);
-
   [[nodiscard]] bool hasDynamicRuptureFaces() const;
 
-  [[nodiscard]] bool isFirstClusterWithDynamicRuptureFaces() const;
+  [[nodiscard]] double getOutputTimestep() const;
 };
 
 struct ActResult {

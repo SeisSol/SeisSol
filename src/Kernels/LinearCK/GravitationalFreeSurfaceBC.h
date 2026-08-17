@@ -32,11 +32,11 @@ namespace seissol {
 
 class GravitationalFreeSurfaceBc {
   private:
-  double gravitationalAcceleration;
+  double gravitationalAcceleration_;
 
   public:
   explicit GravitationalFreeSurfaceBc(double gravitationalAcceleration)
-      : gravitationalAcceleration(gravitationalAcceleration) {};
+      : gravitationalAcceleration_(gravitationalAcceleration) {};
 
   static std::pair<std::uint64_t, std::uint64_t>
       getFlopsDisplacementFace(unsigned face, [[maybe_unused]] FaceType faceType);
@@ -138,7 +138,7 @@ class GravitationalFreeSurfaceBc {
       }
 
       const double rho = materialData.local->getDensity();
-      const double g = gravitationalAcceleration; // [m/s^2]
+      const double g = gravitationalAcceleration_; // [m/s^2]
       const double z = std::sqrt(materialData.local->getLambdaBar() * rho);
 
       // Note: Probably need to increase ConvergenceOrderby 1 here!
@@ -188,7 +188,7 @@ class GravitationalFreeSurfaceBc {
   template <typename TimeKrnl, typename MappingKrnl>
   void evaluateOnDevice(unsigned faceIdx,
                         MappingKrnl&& projectKernelPrototype,
-                        TimeKrnl& timeKernel,
+                        TimeKrnl& /*timeKernel*/,
                         recording::ConditionalPointersToRealsTable& dataTable,
                         recording::ConditionalMaterialTable& materialTable,
                         double timeStepWidth,
@@ -197,7 +197,7 @@ class GravitationalFreeSurfaceBc {
 
     using namespace seissol::recording;
     auto* deviceStream = runtime.stream();
-    ConditionalKey key(
+    const ConditionalKey key(
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, faceIdx);
     if (dataTable.find(key) != dataTable.end()) {
       const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getSize()};
@@ -217,12 +217,12 @@ class GravitationalFreeSurfaceBc {
       auto* invImpedances =
           materialTable[key].get(inner_keys::Material::Id::InvImpedances)->getDeviceDataPtr();
 
-      auto** TinvDataPtrs = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
-      auto** TDataPtrs = dataTable[key].get(inner_keys::Wp::Id::T)->getDeviceDataPtr();
+      auto** tinvDataPtrs = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
+      auto** tDataPtrs = dataTable[key].get(inner_keys::Wp::Id::T)->getDeviceDataPtr();
       kernels::time::aux::extractRotationMatrices(rotateDisplacementToFaceNormalPtrs,
                                                   rotateDisplacementToGlobalPtrs,
-                                                  TDataPtrs,
-                                                  TinvDataPtrs,
+                                                  tDataPtrs,
+                                                  tinvDataPtrs,
                                                   numElements,
                                                   deviceStream);
 
@@ -262,7 +262,7 @@ class GravitationalFreeSurfaceBc {
 
       double factorEvaluated = 1;
       double factorInt = deltaTInt;
-      const double g = gravitationalAcceleration;
+      const double g = gravitationalAcceleration_;
 
       auto** derivativesPtrs =
           dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
@@ -279,7 +279,7 @@ class GravitationalFreeSurfaceBc {
 
         auto projectKernel = projectKernelPrototype;
         projectKernel.numElements = numElements;
-        projectKernel.Tinv = const_cast<const real**>(TinvDataPtrs);
+        projectKernel.Tinv = const_cast<const real**>(tinvDataPtrs);
         projectKernel.INodal = dofsFaceNodalPtrs;
         projectKernel.linearAllocator.initialize(auxTmpMem.get());
         projectKernel.streamPtr = deviceStream;

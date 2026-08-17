@@ -16,47 +16,56 @@ namespace seissol::regularizedYoffe {
  */
 template <typename T>
 SEISSOL_HOSTDEVICE inline T regularizedYoffe(T time, T tauS, T tauR) {
-  const T k = 2.0 / (M_PI * tauR * tauS * tauS);
+  // constants to respect the target precision
+  constexpr T K2 = 2.0;
+  constexpr T K025 = 0.25;
+  constexpr T K0375 = 0.375;
+  constexpr T K05 = 0.5;
+  constexpr T K075 = 0.75;
+  constexpr T K15 = 1.5;
+  constexpr T KPi = M_PI;
+
+  const auto k = K2 / (KPi * tauR * tauS * tauS);
   // c1 to c6 are analytical functions used for building the regularized Yoffe function
   const auto c1 = [&]() {
-    return (0.5 * time + 0.25 * tauR) * std::sqrt(time * (tauR - time)) +
+    return (K05 * time + K025 * tauR) * std::sqrt(time * (tauR - time)) +
            (time * tauR - tauR * tauR) * std::asin(std::sqrt(time / tauR)) -
-           0.75 * tauR * tauR * std::atan(std::sqrt((tauR - time) / time));
+           K075 * tauR * tauR * std::atan(std::sqrt((tauR - time) / time));
   };
 
-  const auto c2 = [&] { return 0.375 * M_PI * tauR * tauR; };
+  const auto c2 = [&] { return K0375 * KPi * tauR * tauR; };
 
   const auto c3 = [&]() {
-    return (tauS - time - 0.5 * tauR) * std::sqrt((time - tauS) * (tauR - time + tauS)) +
-           tauR * (2 * tauR - 2 * time + 2 * tauS) * std::asin(std::sqrt((time - tauS) / tauR)) +
-           1.5 * tauR * tauR * std::atan(std::sqrt((tauR - time + tauS) / (time - tauS)));
+    return (tauS - time - K05 * tauR) * std::sqrt((time - tauS) * (tauR - time + tauS)) +
+           tauR * (K2 * tauR - K2 * time + K2 * tauS) * std::asin(std::sqrt((time - tauS) / tauR)) +
+           K15 * tauR * tauR * std::atan(std::sqrt((tauR - time + tauS) / (time - tauS)));
   };
 
   const auto c4 = [&]() {
     // 2 typos fixed in the second term compared with Tinti et al. 2005
-    return (-tauS + 0.5 * time + 0.25 * tauR) *
-               std::sqrt((time - 2.0 * tauS) * (tauR - time + 2.0 * tauS)) -
-           tauR * (tauR - time + 2.0 * tauS) * std::asin(std::sqrt((time - 2.0 * tauS) / tauR)) -
-           0.75 * tauR * tauR *
-               std::atan(std::sqrt((tauR - time + 2.0 * tauS) / (time - 2.0 * tauS)));
+    return (-tauS + K05 * time + K025 * tauR) *
+               std::sqrt((time - K2 * tauS) * (tauR - time + K2 * tauS)) -
+           tauR * (tauR - time + K2 * tauS) * std::asin(std::sqrt((time - K2 * tauS) / tauR)) -
+           K075 * tauR * tauR *
+               std::atan(std::sqrt((tauR - time + K2 * tauS) / (time - K2 * tauS)));
   };
 
-  const auto c5 = [&]() { return 0.5 * M_PI * tauR * (time - tauR); };
+  const auto c5 = [&]() { return K05 * KPi * tauR * (time - tauR); };
 
-  const auto c6 = [&]() { return 0.5 * M_PI * tauR * (2.0 * tauS - time + tauR); };
+  const auto c6 = [&]() { return K05 * KPi * tauR * (K2 * tauS - time + tauR); };
 
-  if (tauR > 2.0 * tauS) {
+  if (tauR > K2 * tauS) {
     if (time <= 0) {
       return 0;
     } else if (time <= tauS) {
       return k * (c1() + c2());
-    } else if (time <= 2.0 * tauS) {
+    } else if (time <= K2 * tauS) {
       return k * (c1() - c2() + c3());
     } else if (time < tauR) {
       return k * (c1() + c3() + c4());
     } else if (time < tauR + tauS) {
       return k * (c3() + c4() + c5());
-    } else if (time < tauR + 2.0 * tauS) {
+    } else if (time < tauR + K2 * tauS) {
       return k * (c4() + c6());
     } else {
       return 0;
@@ -68,11 +77,11 @@ SEISSOL_HOSTDEVICE inline T regularizedYoffe(T time, T tauS, T tauR) {
       return k * (c1() + c2());
     } else if (time < tauR) {
       return k * (c1() - c2() + c3());
-    } else if (time <= 2.0 * tauS) {
+    } else if (time <= K2 * tauS) {
       return k * (c5() + c3() - c2());
     } else if (time < tauR + tauS) {
       return k * (c3() + c4() + c5());
-    } else if (time < tauR + 2.0 * tauS) {
+    } else if (time < tauR + K2 * tauS) {
       return k * (c4() + c6());
     } else {
       return 0;

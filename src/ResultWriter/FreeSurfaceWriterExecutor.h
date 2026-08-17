@@ -39,15 +39,15 @@ class FreeSurfaceWriterExecutor {
 
   private:
   /** The MPI communicator for the writer */
-  MPI_Comm m_comm{MPI_COMM_NULL};
+  MPI_Comm comm_{MPI_COMM_NULL};
 
-  xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>* m_xdmfWriter{nullptr};
-  unsigned m_numVariables{0};
+  xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>* xdmfWriter_{nullptr};
+  unsigned numVariables_{0};
 
   /** Backend stopwatch */
-  Stopwatch m_stopwatch;
+  Stopwatch stopwatch_;
 
-  bool m_enabled{false};
+  bool enabled_{false};
 
   public:
   FreeSurfaceWriterExecutor() = default;
@@ -58,40 +58,40 @@ class FreeSurfaceWriterExecutor {
   void execInit(const async::ExecInfo& info, const FreeSurfaceInitParam& param);
 
   void exec(const async::ExecInfo& info, const FreeSurfaceParam& param) {
-    if (m_xdmfWriter == nullptr) {
+    if (xdmfWriter_ == nullptr) {
       return;
     }
 
-    m_stopwatch.start();
+    stopwatch_.start();
 
-    m_xdmfWriter->addTimeStep(param.time);
+    xdmfWriter_->addTimeStep(param.time);
 
-    for (unsigned int i = 0; i < m_numVariables; i++) {
-      m_xdmfWriter->writeCellData(i, static_cast<const real*>(info.buffer(Variables0 + i)));
+    for (unsigned int i = 0; i < numVariables_; i++) {
+      xdmfWriter_->writeCellData(i, static_cast<const real*>(info.buffer(Variables0 + i)));
     }
 
-    m_xdmfWriter->flush();
+    xdmfWriter_->flush();
 
-    m_stopwatch.pause();
+    stopwatch_.pause();
   }
 
   void setLocationFlagData(const unsigned int* locationFlags) {
-    m_xdmfWriter->writeExtraIntCellData(0, locationFlags);
+    xdmfWriter_->writeExtraIntCellData(0, locationFlags);
   }
 
   void finalize() {
-    if (m_enabled) {
+    if (enabled_) {
       // note: also includes some ranks which do nothing at all
-      m_stopwatch.printTime("Time free surface writer backend:");
+      stopwatch_.printTime("Time free surface writer backend:");
     }
 
-    if (m_comm != MPI_COMM_NULL) {
-      MPI_Comm_free(&m_comm);
-      m_comm = MPI_COMM_NULL;
+    if (comm_ != MPI_COMM_NULL) {
+      MPI_Comm_free(&comm_);
+      comm_ = MPI_COMM_NULL;
     }
 
-    delete m_xdmfWriter;
-    m_xdmfWriter = nullptr;
+    delete xdmfWriter_;
+    xdmfWriter_ = nullptr;
   }
 
   private:

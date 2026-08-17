@@ -28,9 +28,9 @@ template <std::size_t CellVertices>
 class AsyncCellIDs {
   private:
   /** Null, if MPI is not enabled */
-  std::vector<unsigned> localCells;
+  std::vector<unsigned> localCells_;
 
-  const unsigned int* constCells;
+  const unsigned int* constCells_;
 
   public:
   AsyncCellIDs(std::size_t nCells,
@@ -44,14 +44,14 @@ class AsyncCellIDs {
     offset -= nVertices;
 
     // Add the offset to all cells
-    localCells.resize(nCells * CellVertices);
+    localCells_.resize(nCells * CellVertices);
     for (std::size_t i = 0; i < nCells * CellVertices; i++) {
-      localCells[i] = cells[i] + offset;
+      localCells_[i] = cells[i] + offset;
     }
-    constCells = localCells.data();
+    constCells_ = localCells_.data();
   }
 
-  [[nodiscard]] const unsigned int* cells() const { return constCells; }
+  [[nodiscard]] const unsigned int* cells() const { return constCells_; }
 };
 
 } // namespace seissol

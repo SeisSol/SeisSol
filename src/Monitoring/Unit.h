@@ -32,8 +32,8 @@ struct SIUnit {
       formatScientific(double value, std::optional<double> error = {}, int digits = 4) const;
 
   private:
-  std::string unit;
-  bool binary;
+  std::string unit_;
+  bool binary_;
 };
 
 const inline SIUnit UnitTime = SIUnit("s", false);

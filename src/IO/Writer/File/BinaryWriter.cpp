@@ -19,34 +19,34 @@
 
 namespace seissol::io::writer::file {
 
-BinaryFile::BinaryFile(MPI_Comm comm) : comm(comm) {}
+BinaryFile::BinaryFile(MPI_Comm comm) : comm_(comm) {}
 void BinaryFile::openFile(const std::string& name) {
-  MPI_File_open(comm,
+  MPI_File_open(comm_,
                 name.c_str(),
                 MPI_MODE_CREATE | MPI_MODE_WRONLY | MPI_MODE_APPEND,
                 MPI_INFO_NULL,
-                &file);
+                &file_);
 }
 void BinaryFile::writeGlobal(const void* data, std::size_t size) {
   int rank = 0;
-  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_rank(comm_, &rank);
   if (rank == 0) {
-    MPI_File_write(file, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
+    MPI_File_write(file_, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
   }
-  MPI_Barrier(comm);
+  MPI_Barrier(comm_);
 }
 void BinaryFile::writeDistributed(const void* data, std::size_t size) {
   // TODO: get max write size
-  MPI_File_write_all(file, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
+  MPI_File_write_all(file_, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
 }
-void BinaryFile::closeFile() { MPI_File_close(&file); }
+void BinaryFile::closeFile() { MPI_File_close(&file_); }
 
-BinaryWriter::BinaryWriter(MPI_Comm comm) : comm(comm) {}
+BinaryWriter::BinaryWriter(MPI_Comm comm) : comm_(comm) {}
 
 void BinaryWriter::write(const async::ExecInfo& info, const instructions::BinaryWrite& write) {
-  if (openFiles.find(write.filename) == openFiles.end()) {
-    openFiles[write.filename] = std::make_unique<BinaryFile>(BinaryFile(comm));
-    openFiles[write.filename]->openFile(write.filename);
+  if (openFiles_.find(write.filename) == openFiles_.end()) {
+    openFiles_[write.filename] = std::make_unique<BinaryFile>(BinaryFile(comm_));
+    openFiles_[write.filename]->openFile(write.filename);
   }
 
   const void* dataPointer = write.dataSource->getPointer(info);
@@ -55,14 +55,14 @@ void BinaryWriter::write(const async::ExecInfo& info, const instructions::Binary
   const auto dataSize = write.dataSource->count(info) * write.dataSource->datatype()->size();
 
   if (write.dataSource->distributed()) {
-    openFiles[write.filename]->writeDistributed(dataPointer, dataSize);
+    openFiles_[write.filename]->writeDistributed(dataPointer, dataSize);
   } else {
-    openFiles[write.filename]->writeGlobal(dataPointer, dataSize);
+    openFiles_[write.filename]->writeGlobal(dataPointer, dataSize);
   }
 }
 
 void BinaryWriter::finalize() {
-  for (auto& [_, file] : openFiles) {
+  for (auto& [_, file] : openFiles_) {
     file->closeFile();
   }
 }
