@@ -58,10 +58,10 @@ see the following list:
 Time clustering
 ~~~~~~~~~~~~~~~
 
-Local time-stepping behaves differently on GPUs than on CPUs.
-A time cluster that carries little work does not become cheap in proportion, because a launch costs
+Local time-stepping poses additional challenges on GPUs compared on CPUs:
+a time cluster that carries little work does not become cheap in proportion, because a launch costs
 roughly the same regardless of how many elements it touches, and because a small cluster never
-saturates the device.
+saturates the device. While these effects are also already visible on CPUs; they do not carry such a large effect.
 The cost model that SeisSol uses to pick a clustering can be told about both effects through
 *LtsCostLaunch* and *LtsCostFill*; see :ref:`the section on choosing the ladder automatically
 <lts_lattice_search>`.
