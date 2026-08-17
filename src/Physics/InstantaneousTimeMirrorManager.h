@@ -46,8 +46,14 @@ class InstantaneousTimeMirrorManager : public Module {
   std::vector<seissol::time_stepping::AbstractTimeCluster*> clusters_;
 
   public:
-  explicit InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
-      : seissolInstance_(seissolInstance) {};
+  explicit InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance);
+
+  // delete all other constructors due to it being a module.
+
+  InstantaneousTimeMirrorManager(const InstantaneousTimeMirrorManager&) = delete;
+  auto operator=(const InstantaneousTimeMirrorManager&) = delete;
+  InstantaneousTimeMirrorManager(InstantaneousTimeMirrorManager&&) = delete;
+  auto operator=(InstantaneousTimeMirrorManager&&) = delete;
 
   void init(double velocityScalingFactor,
             double triggerTime,
