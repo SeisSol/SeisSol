@@ -12,7 +12,6 @@
 #include "Initializer/InputAux.h"
 #include "Model/Plasticity.h"
 #include "ParameterReader.h"
-#include "xdmfwriter/backends/Backend.h"
 
 #include <list>
 #include <string>
@@ -27,6 +26,16 @@ enum class FaultRefinement { Triple = 1, Quad = 2, None = 3 };
 enum class OutputFormat : int { None = 10, Xdmf = 6 };
 
 enum class VolumeRefinement : int { NoRefine = 0, Refine4 = 1, Refine8 = 2, Refine32 = 3 };
+
+enum class XdmfBackend : int { Posix, Hdf5 };
+
+/**
+ * How volumetric/surface data is transferred onto the output points: either by evaluating the
+ * solution there, or by an L2 projection onto the output (Lagrange) space. The latter is
+ * conservative on each output subcell, the former is cheaper and reproduces the solution exactly
+ * at the sampled points.
+ */
+enum class ProjectionMethod : int { Pointwise, L2 };
 
 struct CheckpointParameters {
   bool enabled{false};
@@ -117,12 +126,16 @@ struct WaveFieldOutputParameters {
   std::array<bool, seissol::model::PlasticityData::Quantities.size()> plasticityMask{};
   std::array<bool, seissol::model::MaterialT::NumQuantities> integrationMask{};
   std::unordered_set<int> groups;
+  bool computeRotation{false};
+  bool computeStrain{false};
 };
 
 struct OutputParameters {
   bool loopStatisticsNetcdfOutput{false};
   OutputFormat format{OutputFormat::None};
-  xdmfwriter::BackendType xdmfWriterBackend{};
+  XdmfBackend xdmfWriterBackend{};
+  ProjectionMethod projection{ProjectionMethod::L2};
+  uint32_t hdfcompress{0};
   std::string prefix;
   CheckpointParameters checkpointParameters;
   ElementwiseFaultParameters elementwiseParameters;
@@ -135,7 +148,9 @@ struct OutputParameters {
   OutputParameters() = default;
   OutputParameters(bool loopStatisticsNetcdfOutput,
                    OutputFormat format,
-                   xdmfwriter::BackendType xdmfWriterBackend,
+                   XdmfBackend xdmfWriterBackend,
+                   ProjectionMethod projection,
+                   uint32_t hdfcompress,
                    const std::string& prefix,
                    const CheckpointParameters& checkpointParameters,
                    const ElementwiseFaultParameters& elementwiseParameters,
@@ -145,11 +160,11 @@ struct OutputParameters {
                    const ReceiverOutputParameters& receiverParameters,
                    const WaveFieldOutputParameters& waveFieldParameters)
       : loopStatisticsNetcdfOutput(loopStatisticsNetcdfOutput), format(format),
-        xdmfWriterBackend(xdmfWriterBackend), prefix(prefix),
-        checkpointParameters(checkpointParameters), elementwiseParameters(elementwiseParameters),
-        energyParameters(energyParameters), freeSurfaceParameters(freeSurfaceParameters),
-        pickpointParameters(pickpointParameters), receiverParameters(receiverParameters),
-        waveFieldParameters(waveFieldParameters) {}
+        xdmfWriterBackend(xdmfWriterBackend), projection(projection), hdfcompress(hdfcompress),
+        prefix(prefix), checkpointParameters(checkpointParameters),
+        elementwiseParameters(elementwiseParameters), energyParameters(energyParameters),
+        freeSurfaceParameters(freeSurfaceParameters), pickpointParameters(pickpointParameters),
+        receiverParameters(receiverParameters), waveFieldParameters(waveFieldParameters) {}
 };
 
 void warnIntervalAndDisable(bool& enabled,

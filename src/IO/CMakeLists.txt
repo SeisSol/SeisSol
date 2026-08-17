@@ -10,7 +10,10 @@ add_library(seissol-io STATIC
     Datatype/HDF5Type.cpp
     Datatype/MPIType.cpp
     Instance/Checkpoint/CheckpointManager.cpp
+    Instance/Geometry/Points.cpp
+    Instance/Geometry/Refinement.cpp
     Instance/Mesh/VtkHdf.cpp
+    Instance/Mesh/Xdmf.cpp
     Instance/Metadata/Pvd.cpp
     Instance/Metadata/Xml.cpp
     Instance/Point/Csv.cpp

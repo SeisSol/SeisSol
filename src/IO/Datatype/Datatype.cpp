@@ -11,6 +11,7 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <iomanip>
 #include <memory>
 #include <optional>
@@ -237,10 +238,70 @@ YAML::Node IntegerDatatype::serialize() const {
 
 std::string IntegerDatatype::toStringRaw(const void* data) const {
   // for now
+  if (sizeP_ == 1) {
+    if (signP_) {
+      return toStringRawPrimitive<int8_t>(data, 0);
+    } else {
+      return toStringRawPrimitive<uint8_t>(data, 0);
+    }
+  }
+  if (sizeP_ == 2) {
+    if (signP_) {
+      return toStringRawPrimitive<int16_t>(data, 0);
+    } else {
+      return toStringRawPrimitive<uint16_t>(data, 0);
+    }
+  }
+  if (sizeP_ == 4) {
+    if (signP_) {
+      return toStringRawPrimitive<int32_t>(data, 0);
+    } else {
+      return toStringRawPrimitive<uint32_t>(data, 0);
+    }
+  }
+  if (sizeP_ == 8) {
+    if (signP_) {
+      return toStringRawPrimitive<int64_t>(data, 0);
+    } else {
+      return toStringRawPrimitive<uint64_t>(data, 0);
+    }
+  }
+
+  // error
   return toStringRawPrimitive<long long>(data, 0);
 }
 std::optional<std::vector<char>> IntegerDatatype::fromStringRaw(const std::string& str) const {
   // for now
+  if (sizeP_ == 1) {
+    if (signP_) {
+      return fromStringRawPrimitive<int8_t>(str);
+    } else {
+      return fromStringRawPrimitive<uint8_t>(str);
+    }
+  }
+  if (sizeP_ == 2) {
+    if (signP_) {
+      return fromStringRawPrimitive<int16_t>(str);
+    } else {
+      return fromStringRawPrimitive<uint16_t>(str);
+    }
+  }
+  if (sizeP_ == 4) {
+    if (signP_) {
+      return fromStringRawPrimitive<int32_t>(str);
+    } else {
+      return fromStringRawPrimitive<uint32_t>(str);
+    }
+  }
+  if (sizeP_ == 8) {
+    if (signP_) {
+      return fromStringRawPrimitive<int64_t>(str);
+    } else {
+      return fromStringRawPrimitive<uint64_t>(str);
+    }
+  }
+
+  // error
   return fromStringRawPrimitive<long long>(str);
 }
 
