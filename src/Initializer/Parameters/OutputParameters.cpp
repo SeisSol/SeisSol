@@ -280,7 +280,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
                                                      });
   const auto projection = reader->readWithDefaultStringEnum<ProjectionMethod>(
       "projection",
-      "pointwise",
+      "l2",
       {
           {"pointwise", ProjectionMethod::Pointwise},
           {"l2", ProjectionMethod::L2},

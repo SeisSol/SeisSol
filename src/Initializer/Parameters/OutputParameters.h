@@ -134,7 +134,7 @@ struct OutputParameters {
   bool loopStatisticsNetcdfOutput{false};
   OutputFormat format{OutputFormat::None};
   XdmfBackend xdmfWriterBackend{};
-  ProjectionMethod projection{ProjectionMethod::Pointwise};
+  ProjectionMethod projection{ProjectionMethod::L2};
   uint32_t hdfcompress{0};
   std::string prefix;
   CheckpointParameters checkpointParameters;
