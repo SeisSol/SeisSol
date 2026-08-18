@@ -63,6 +63,40 @@ struct DataEntry {
 
     setter(index, &value);
   }
+
+  template <typename T>
+  [[nodiscard]] T getValueAs(std::size_t index) const {
+    switch (datatype) {
+    case DataType::F32:
+      return getValue<float>(index);
+    case DataType::F64:
+      return getValue<double>(index);
+    case DataType::I32:
+      return getValue<int32_t>(index);
+    case DataType::I64:
+      return getValue<int64_t>(index);
+    }
+    throw;
+  }
+
+  template <typename T>
+  void setValueAs(std::size_t index, T value) const {
+    switch (datatype) {
+    case DataType::F32:
+      setValue<float>(index, value);
+      return;
+    case DataType::F64:
+      setValue<double>(index, value);
+      return;
+    case DataType::I32:
+      setValue<int32_t>(index, value);
+      return;
+    case DataType::I64:
+      setValue<int64_t>(index, value);
+      return;
+    }
+    throw;
+  }
 };
 
 class DataTable {

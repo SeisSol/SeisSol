@@ -7,6 +7,8 @@
 
 #include "Reader/Scripting/LuaReader.h"
 
+#ifdef USE_LUA
+
 #include "Parallel/OpenMP.h"
 #include "Reader/Scripting/DataTable.h"
 
@@ -444,3 +446,5 @@ void LuaReader::call(const scripting::DataTable& table) {
 }
 
 } // namespace seissol::reader::scripting
+
+#endif

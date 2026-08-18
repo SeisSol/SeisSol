@@ -7,6 +7,8 @@
 
 #include "EasiReader.h"
 
+#ifdef USE_EASI
+
 #include "Reader/Datafield/AsagiReader.h"
 #include "Reader/Scripting/DataTable.h"
 
@@ -34,17 +36,20 @@ class MixedResultsAdapter : public easi::ResultAdapter {
   public:
   MixedResultsAdapter(std::size_t base,
                       const std::vector<DataEntry>& entries,
-                      const std::vector<std::string>& expected)
+                      const std::vector<std::string>& provided)
       : base_(base), entries_(entries) {
+
+    std::unordered_map<std::string, bool> providedMap;
+    for (const auto& provide : provided) {
+      providedMap[provide] = true;
+    }
+
     for (std::size_t i = 0; i < entries.size(); ++i) {
       if (entries[i].direction != Direction::In) {
         indices_[entries[i].name] = i;
-      }
-    }
-
-    for (const auto& expect : expected) {
-      if (indices_.find(expect) == indices_.end()) {
-        logError() << "Easi script output parameter not found:" << expect;
+        if (providedMap.find(entries[i].name) == providedMap.end()) {
+          logError() << "Easi script output parameter not found:" << entries[i].name;
+        }
       }
     }
   }
@@ -68,24 +73,13 @@ class MixedResultsAdapter : public easi::ResultAdapter {
 #pragma omp parallel for schedule(static)
     for (std::size_t i = 0; i < value.size(); ++i) {
       const auto localIndex = base_ + index(i);
-      if (entry.datatype == DataType::F32) {
-        entry.setValue<float>(localIndex, value(i));
-      }
-      if (entry.datatype == DataType::F64) {
-        entry.setValue<double>(localIndex, value(i));
-      }
-      if (entry.datatype == DataType::I32) {
-        entry.setValue<int32_t>(localIndex, value(i));
-      }
-      if (entry.datatype == DataType::I64) {
-        entry.setValue<int64_t>(localIndex, value(i));
-      }
+      entry.setValueAs(localIndex, value(i));
     }
   }
   [[nodiscard]] bool isSubset(const std::set<std::string>& parameters) const override {
     const auto myParams = this->parameters();
-    return std::all_of(parameters.begin(), parameters.end(), [&](const auto& param) {
-      return myParams.find(param) != myParams.end();
+    return std::all_of(myParams.begin(), myParams.end(), [&](const auto& param) {
+      return parameters.find(param) != parameters.end();
     });
   }
   ResultAdapter* subsetAdapter(const std::set<std::string>& subset) override {
@@ -153,16 +147,24 @@ void EasiReader::call(const scripting::DataTable& table) {
     inVarMap[inVars_[i]] = i;
   }
   std::vector<std::size_t> inVarToEntry(inVars_.size());
+  std::vector<bool> found(inVars_.size());
 
   for (std::size_t i = 0; i < entries.size(); ++i) {
     const auto& entry = entries[i];
     if (entry.name == "group") {
+      // special behavior: group is int
       groupEntry = i;
     }
     if (inVarMap.find(entry.name) != inVarMap.end()) {
-      inVarToEntry[inVarMap.at(entry.name)] = i;
-    } else {
-      logError() << "Error while loading easi script input parameters:" << entry.name
+      const auto index = inVarMap.at(entry.name);
+      inVarToEntry[index] = i;
+      found[index] = true;
+    }
+  }
+
+  for (std::size_t i = 0; i < inVars_.size(); ++i) {
+    if (!found[i]) {
+      logError() << "Error while loading easi script input parameters:" << inVars_[i]
                  << "not found.";
     }
   }
@@ -182,11 +184,11 @@ void EasiReader::call(const scripting::DataTable& table) {
     for (std::size_t point = 0; point < size; ++point) {
       for (std::size_t i = 0; i < inVars_.size(); ++i) {
         const auto& entry = entries[inVarToEntry[i]];
-        query.x(point, i) = entry.getValue<double>(base + point);
+        query.x(point, i) = entry.getValueAs<double>(base + point);
       }
       if (groupEntry.has_value()) {
         const auto& entry = entries[groupEntry.value()];
-        query.group(point) = entry.getValue<int>(base + point);
+        query.group(point) = entry.getValueAs<int32_t>(base + point);
       }
     }
 
@@ -199,3 +201,5 @@ void EasiReader::call(const scripting::DataTable& table) {
 }
 
 } // namespace seissol::reader::scripting
+
+#endif

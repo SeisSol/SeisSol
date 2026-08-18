@@ -699,7 +699,7 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
   auto mapTerms = init::easiBoundaryMap::view::create(mapTermsData);
 
   // Constant terms are named const_{varName}, e.g. const_u
-  offset = 0;
+  std::size_t offset = 0;
   for (const auto& varName : varNames) {
     const auto termName = std::string{"const_"} + varName;
     if (supplied.count(termName) > 0) {
