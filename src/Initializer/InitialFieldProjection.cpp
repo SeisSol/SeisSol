@@ -176,7 +176,7 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
           quantity, reader::scripting::Direction::Out, data.data(), dataPointStride, bindOffset);
     }
 
-    const auto reader = reader::scripting::buildReader(iniFields[0], inVars);
+    const auto reader = reader::scripting::buildReader(iniFields[i], inVars);
     reader->call(table);
   }
 

@@ -670,16 +670,15 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
   assert(mapTermsData != nullptr);
   assert(constantTermsData != nullptr);
   constexpr auto NumNodes = tensor::INodal::Shape[0];
+
   auto table = reader::scripting::DataTable(NumNodes);
-  size_t offset{0};
-  for (std::size_t i = 0; i < NumNodes; ++i) {
-    table.bindViewConst("x", reader::scripting::Direction::In, nodes, 3, 0);
-    table.bindViewConst("y", reader::scripting::Direction::In, nodes, 3, 1);
-    table.bindViewConst("z", reader::scripting::Direction::In, nodes, 3, 2);
-    table.bindComputed("group", [](std::size_t) -> std::int32_t { return 1; });
-    // hard-coded to 0
-    table.bindComputed("sim", [](std::size_t) -> std::int32_t { return 0; });
-  }
+  table.bindViewConst("x", reader::scripting::Direction::In, nodes, 3, 0);
+  table.bindViewConst("y", reader::scripting::Direction::In, nodes, 3, 1);
+  table.bindViewConst("z", reader::scripting::Direction::In, nodes, 3, 2);
+  table.bindComputed("group", [](std::size_t) -> std::int32_t { return 1; });
+  // hard-coded to 0
+  table.bindComputed("sim", [](std::size_t) -> std::int32_t { return 0; });
+
   const auto& suppliedPre = model_->outputVars();
   std::set<std::string> supplied(suppliedPre.begin(), suppliedPre.end());
 

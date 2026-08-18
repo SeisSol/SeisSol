@@ -32,11 +32,19 @@ namespace {
 // helper class to be independent from adapting single structs/arrays only
 class MixedResultsAdapter : public easi::ResultAdapter {
   public:
-  MixedResultsAdapter(std::size_t base, const std::vector<DataEntry>& entries)
+  MixedResultsAdapter(std::size_t base,
+                      const std::vector<DataEntry>& entries,
+                      const std::vector<std::string>& expected)
       : base_(base), entries_(entries) {
     for (std::size_t i = 0; i < entries.size(); ++i) {
       if (entries[i].direction != Direction::In) {
         indices_[entries[i].name] = i;
+      }
+    }
+
+    for (const auto& expect : expected) {
+      if (indices_.find(expect) == indices_.end()) {
+        logError() << "Easi script output parameter not found:" << expect;
       }
     }
   }
@@ -59,7 +67,19 @@ class MixedResultsAdapter : public easi::ResultAdapter {
 
 #pragma omp parallel for schedule(static)
     for (std::size_t i = 0; i < value.size(); ++i) {
-      entry.setter(base_ + index(i), &value(i));
+      const auto localIndex = base_ + index(i);
+      if (entry.datatype == DataType::F32) {
+        entry.setValue<float>(localIndex, value(i));
+      }
+      if (entry.datatype == DataType::F64) {
+        entry.setValue<double>(localIndex, value(i));
+      }
+      if (entry.datatype == DataType::I32) {
+        entry.setValue<int32_t>(localIndex, value(i));
+      }
+      if (entry.datatype == DataType::I64) {
+        entry.setValue<int64_t>(localIndex, value(i));
+      }
     }
   }
   [[nodiscard]] bool isSubset(const std::set<std::string>& parameters) const override {
@@ -141,6 +161,9 @@ void EasiReader::call(const scripting::DataTable& table) {
     }
     if (inVarMap.find(entry.name) != inVarMap.end()) {
       inVarToEntry[inVarMap.at(entry.name)] = i;
+    } else {
+      logError() << "Error while loading easi script input parameters:" << entry.name
+                 << "not found.";
     }
   }
 
@@ -153,7 +176,7 @@ void EasiReader::call(const scripting::DataTable& table) {
       query = easi::Query(size, inVars_.size());
     }
 
-    auto adapter = MixedResultsAdapter(batch * CallBatchSize, entries);
+    auto adapter = MixedResultsAdapter(batch * CallBatchSize, entries, outVars_);
 
 #pragma omp parallel for schedule(static)
     for (std::size_t point = 0; point < size; ++point) {

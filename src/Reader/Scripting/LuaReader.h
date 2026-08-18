@@ -57,8 +57,8 @@ class LuaReader : public DataReader {
   // Non-copyable, movable
   LuaReader(const LuaReader&) = delete;
   LuaReader& operator=(const LuaReader&) = delete;
-  LuaReader(LuaReader&& other) noexcept;
-  LuaReader& operator=(LuaReader&& other) noexcept;
+  LuaReader(LuaReader&& other) noexcept = delete;
+  LuaReader& operator=(LuaReader&& other) noexcept = delete;
 
   explicit LuaReader(const std::string& code);
 

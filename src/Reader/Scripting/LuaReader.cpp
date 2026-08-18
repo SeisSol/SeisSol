@@ -92,12 +92,6 @@ LuaStateState loadScript(const std::string& code) {
 
   const auto modCode = loadCodeLmathX() + code;
 
-  const int status = luaL_dostring(luaState, modCode.data());
-
-  if (status != LUA_OK) {
-    logError() << "Loading a script failed:" << modCode;
-  }
-
   LuaStateState state{};
 
   if (luaL_loadbufferx(luaState, modCode.c_str(), modCode.size(), "script", "t") != LUA_OK) {
@@ -214,7 +208,7 @@ int fieldSampleTrampoline(lua_State* luaState) {
   // Stack: [self_table, coord_1, coord_2, ...]
   auto* closure =
       static_cast<LuaReader::FieldClosure*>(lua_touserdata(luaState, lua_upvalueindex(1)));
-  if (closure != nullptr || !closure->sampler) {
+  if (closure == nullptr || !closure->sampler) {
     return luaL_error(luaState, "field sampler not bound");
   }
   const int nArgs = lua_gettop(luaState) - 1; // everything after self
@@ -230,7 +224,7 @@ int fieldSampleTrampoline(lua_State* luaState) {
   }
   double results[16] = {0};
   try {
-    closure->sampler(coords, results);
+    closure->sampler(results, coords);
   } catch (const std::exception& e) {
     return luaL_error(luaState, "field sampler threw: %s", e.what());
   } catch (...) {
@@ -246,7 +240,11 @@ int fieldSampleTrampoline(lua_State* luaState) {
 
 } // namespace
 
-LuaReader::~LuaReader() = default;
+LuaReader::~LuaReader() {
+  for (auto& state : luaStates_) {
+    lua_close(state.luaState);
+  }
+}
 
 LuaReader::LuaReader(const std::string& code) : code_(code) {
 
