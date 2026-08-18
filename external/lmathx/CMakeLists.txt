@@ -28,6 +28,8 @@ else()
 message(FATAL_ERROR "Your Lua version ${LUA_VERSION_STRING} is older than the minimum lmathx package version supported (5.1).")
 endif()
 
+target_link_libraries(lmathx PRIVATE Lua::Lua)
+
 target_link_libraries(seissol-external INTERFACE lmathx)
 target_compile_definitions(seissol-external INTERFACE SEISSOL_LUA_LMATHX)
 
