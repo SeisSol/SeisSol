@@ -11,6 +11,7 @@
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 
+#include <Eigen/LU>
 #include <array>
 #include <cstddef>
 #include <utils/logger.h>
@@ -55,20 +56,21 @@ auto CellTransform::spaceToRef(const CellTransform::VectorEigenT& input) const -
   // in the general case... we need to invert a function. So... Newton.
   // we want: f(y) = x; or: f(y) - x = 0
 
-  auto iterate = VectorEigenT();
-  constexpr double Eps = 1e-8;
-  constexpr std::size_t Tries = 100000;
+  auto iterate = VectorEigenT::Zero().eval();
+  constexpr double Eps = 1e-5;
+  constexpr std::size_t Tries = 100;
   for (std::size_t i = 0; i < Tries; ++i) {
     const auto inputProbe = refToSpace(iterate);
+    const auto residual = inputProbe - input;
     if ((inputProbe - input).norm() < Eps) {
       return iterate;
     }
     const auto inputProbeDerivative = refToSpaceJacobian(iterate);
-    iterate -= inputProbeDerivative.fullPivLu().solve(inputProbe);
+    iterate -= inputProbeDerivative.fullPivLu().solve(residual).eval();
   }
 
   logError() << "Root finding failed for" << input << "after" << Tries
-             << "iterations. Last iterate:" << iterate;
+             << "iterations. Last iterate:" << iterate << "giving" << refToSpace(iterate);
   return iterate;
 }
 
@@ -82,7 +84,8 @@ AffineTransform::AffineTransform(const std::array<CoordinateT, Cell::NumVertices
     }
   }
 
-  itransform_ = transform_.inverse();
+  itransform_ = Eigen::PartialPivLU<MatrixEigenT>(transform_);
+  determinant_ = transform_.determinant();
 }
 
 AffineTransform::AffineTransform(const std::array<VectorEigenT, Cell::NumVertices>& vertices) {
@@ -95,7 +98,8 @@ AffineTransform::AffineTransform(const std::array<VectorEigenT, Cell::NumVertice
     }
   }
 
-  itransform_ = transform_.inverse();
+  itransform_ = Eigen::PartialPivLU<MatrixEigenT>(transform_);
+  determinant_ = transform_.determinant();
 }
 
 auto AffineTransform::refToSpaceImpl(const VectorEigenT& input) const -> VectorEigenT {
@@ -118,7 +122,7 @@ auto AffineTransform::fromMeshCell(std::size_t id, const MeshReader& mesh) -> Af
 
 auto AffineTransform::spaceToRef(const VectorEigenT& input) const -> VectorEigenT {
   // we can invert pretty straight-forwardly
-  return itransform_ * (input - offset_);
+  return itransform_.solve(input - offset_);
 }
 
 } // namespace seissol::geometry

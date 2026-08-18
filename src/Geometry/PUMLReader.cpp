@@ -532,11 +532,11 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
 
   // Set vertices
   vertices_.resize(verticesGeometry.size());
+  std::vector<int> preElements;
   for (std::size_t i = 0; i < verticesGeometry.size(); i++) {
     std::copy_n(
         verticesGeometry[i].coordinate(), vertices_[i].coords.size(), vertices_[i].coords.begin());
 
-    std::vector<int> preElements;
     PUML::Upward::cells(meshGeometry, verticesGeometry[i], preElements);
     vertices_[i].elements.resize(preElements.size());
     std::copy(preElements.begin(), preElements.end(), vertices_[i].elements.begin());

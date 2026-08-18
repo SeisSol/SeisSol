@@ -53,8 +53,9 @@ class AffineTransform : public CellTransform {
 
   private:
   MatrixEigenT transform_;
-  MatrixEigenT itransform_;
+  Eigen::PartialPivLU<MatrixEigenT> itransform_;
   VectorEigenT offset_;
+  double determinant_{};
 };
 } // namespace seissol::geometry
 #endif // SEISSOL_SRC_GEOMETRY_CELLTRANSFORM_H_

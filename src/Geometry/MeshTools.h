@@ -79,7 +79,7 @@ class MeshTools {
   /**
    * Calculates the surface of a triangle based on its (unnormalized) normal.
    **/
-  static double surface(CoordinateT& faceNormal);
+  static double surface(const CoordinateT& faceNormal);
 
   /**
    * Returns the surface area of the side of a tetrahedron.

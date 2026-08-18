@@ -112,7 +112,7 @@ double MeshTools::distance(const CoordinateT& v1, const CoordinateT& v2) {
   return norm(diff);
 }
 
-double MeshTools::surface(CoordinateT& faceNormal) {
+double MeshTools::surface(const CoordinateT& faceNormal) {
   // Area of a triangle spanned by a and b = 0.5 * ||a x b||.
   return 0.5 * norm(faceNormal);
 }

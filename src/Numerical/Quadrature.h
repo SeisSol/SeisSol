@@ -9,9 +9,6 @@
 #ifndef SEISSOL_SRC_NUMERICAL_QUADRATURE_H_
 #define SEISSOL_SRC_NUMERICAL_QUADRATURE_H_
 
-// NOLINTNEXTLINE
-#define _USE_MATH_DEFINES
-
 #include "Geometry/MeshDefinition.h"
 #include "Numerical/Functions.h"
 
@@ -209,7 +206,7 @@ inline void TetrahedronQuadrature(double (*points)[3], double* weights, std::siz
 template <std::size_t Dim>
 std::pair<std::vector<std::array<double, Dim>>, std::vector<double>>
     quadrature(std::size_t degree) {
-  static_assert(Dim >= 1, "Dim needs to be non-negative");
+  static_assert(Dim >= 1, "Dim needs to be positive");
   static_assert(Dim <= 3, "Higher dimensions than 3 are not implemented for the quadrature");
   std::size_t arraysize = 1;
   for (std::size_t _ = 0; _ < Dim; ++_) {
@@ -224,11 +221,11 @@ std::pair<std::vector<std::array<double, Dim>>, std::vector<double>>
     TriangleQuadrature(reinterpret_cast<double (*)[2]>(points.data()), weights.data(), degree);
   }
   if constexpr (Dim == 1) {
-    GaussLegendre(points.data(), weights.data(), degree);
+    GaussLegendre(reinterpret_cast<double*>(points.data()), weights.data(), degree);
 
     // convert to shifted GL
     for (auto& point : points) {
-      point = (point + 1) / 2;
+      point[0] = (point[0] + 1) / 2;
     }
     for (auto& weight : weights) {
       weight /= 2;

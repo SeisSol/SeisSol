@@ -192,25 +192,22 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         // NOLINTNEXTLINE
         auto& materialLocal = materialData[cell];
 
-        std::array<double, Cell::NumVertices> x{};
-        std::array<double, Cell::NumVertices> y{};
-        std::array<double, Cell::NumVertices> z{};
         std::array<double, Cell::Dim> gradXi{};
         std::array<double, Cell::Dim> gradEta{};
         std::array<double, Cell::Dim> gradZeta{};
 
-        // Iterate over all 4 vertices of the tetrahedron
-        for (std::size_t vertex = 0; vertex < Cell::NumVertices; ++vertex) {
-          const CoordinateT& coords = vertices[elements[meshId].vertices[vertex]].coords;
-          x[vertex] = coords[0];
-          y[vertex] = coords[1];
-          z[vertex] = coords[2];
-        }
+        const auto transform = seissol::geometry::AffineTransform::fromMeshCell(
+            secondaryInformation[cell].meshId, meshReader);
 
         // IMPORTANT NOTE: we rely on the linearity of the cell transform in this place.
         // hence, you may use an AffineTransform with an arbitrary point here; but nothing more.
-        seissol::transformations::tetrahedronGlobalToReferenceJacobian(
-            x, y, z, gradXi, gradEta, gradZeta);
+        const auto grad = transform.spaceToRefJacobian(Eigen::Vector3d(1. / 4, 1. / 4, 1. / 4));
+
+        for (std::size_t i = 0; i < Cell::Dim; ++i) {
+          gradXi[i] = grad(0, i);
+          gradEta[i] = grad(1, i);
+          gradZeta[i] = grad(2, i);
+        }
 
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 0, matAT);
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 1, matBT);
