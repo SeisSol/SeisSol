@@ -243,8 +243,8 @@ struct MaterialSetup<AnisotropicMaterial> {
         chiI(i, i) = 1.0;
       }
 
-      auto matRT = matR.transpose();
-      auto matRlu = matRT.fullPivHouseholderQr();
+      const auto matRT = matR.transpose();
+      const auto matRlu = matRT.fullPivHouseholderQr();
       const auto godunov = matRlu.solve(chi * matRT).eval();
       const auto godunovI = matRlu.solve(chiI * matRT).eval();
 
