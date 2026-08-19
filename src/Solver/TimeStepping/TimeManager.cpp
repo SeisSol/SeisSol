@@ -257,9 +257,6 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     communicationManager_ = std::make_unique<SerialCommunicationManager>(std::move(ghostClusters));
   }
 
-  auto& timeMirrorManagers = seissolInstance_.getTimeMirrorManagers();
-  auto& [increaseManager, decreaseManager] = timeMirrorManagers;
-
   auto* ghostClusterPointer = communicationManager_->getGhostClusters();
 
   std::vector<AbstractTimeCluster*> allClusters(clusters_.size() + ghostClusterPointer->size());
@@ -270,8 +267,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     allClusters[i + clusters_.size()] = ghostClusterPointer->at(i).get();
   }
 
-  increaseManager.setClusterVector(allClusters);
-  decreaseManager.setClusterVector(allClusters);
+  for (auto& timeMirrorManager : seissolInstance_.getTimeMirrorManagers()) {
+    timeMirrorManager.setClusterVector(allClusters);
+  }
 }
 
 void TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {
