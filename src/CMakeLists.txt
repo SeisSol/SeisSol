@@ -20,6 +20,8 @@ add_subdirectory(DynamicRupture)
 
 add_subdirectory(Equations)
 
+add_subdirectory(Expr)
+
 add_subdirectory(Geometry)
 
 add_subdirectory(Initializer)
