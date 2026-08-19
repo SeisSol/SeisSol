@@ -493,7 +493,7 @@ struct SolutionData<model::PoroElasticMaterial> {
    * to be at least the generic 1e2 * eps.
    */
   static constexpr double MatrixEpsilon =
-      std::max(1e-9, 1e2 * static_cast<double>(std::numeric_limits<real>::epsilon()));
+      std::max(1e-9, 1e2 * std::numeric_limits<real>::epsilon());
 
   const inline static std::vector<double> MaterialVal1{
       40.0e9,  // bulk_solid
