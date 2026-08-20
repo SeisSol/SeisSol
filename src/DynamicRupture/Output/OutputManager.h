@@ -78,8 +78,7 @@ class OutputManager {
   LTS::Backmap* wpBackmap_{nullptr};
   DynamicRupture::Storage* drStorage_{nullptr};
 
-  FaceToLtsMapType faceToLtsMap_;
-  std::vector<::seissol::initializer::StoragePosition> globalFaceToLtsMap_;
+  ::seissol::initializer::StorageBackmap<1> faceToLtsMap_;
   seissol::geometry::MeshReader* meshReader_{nullptr};
 
   size_t iterationStep_{0};

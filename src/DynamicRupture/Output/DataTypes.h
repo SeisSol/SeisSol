@@ -139,8 +139,6 @@ const inline std::vector<std::vector<std::string>> VariableLabels = {{"SRs", "SR
                                                                      {"DS"},
                                                                      {"P_f", "Tmp"}};
 
-using FaceToLtsMapType = std::vector<std::pair<DynamicRupture::Layer*, size_t>>;
-
 } // namespace seissol::dr::output
 
 namespace seissol::dr {

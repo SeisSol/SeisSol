@@ -129,9 +129,9 @@ void ReceiverOutput::calcFaultOutput(
     assert(faceIndex != -1 && "receiver is not initialized");
     LocalInfo local{};
 
-    auto [layer, ltsId] = (*faceToLtsMap_)[faceIndex];
-    local.layer = layer;
-    local.ltsId = ltsId;
+    const auto position = faceToLtsMap_->get(faceIndex);
+    local.layer = &drStorage_->layer(position.color);
+    local.ltsId = position.cell;
     local.index = i;
     local.fusedIndex = outputData->receiverPoints[i].simIndex;
     local.state = outputData.get();

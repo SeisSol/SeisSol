@@ -183,7 +183,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       real* timeDerivative1Device = nullptr;
       real* timeDerivative2Device = nullptr;
 
-      const auto getDofs = [&](const auto& position) -> real* {
+      const auto getDofs = [&](const StoragePosition& position) -> real* {
         const auto halo = ltsStorage.getColorMap().argument(position.color).halo;
         if (halo == HaloType::Ghost) {
           return ltsStorage.lookup<LTS::DofsHalo>(position);

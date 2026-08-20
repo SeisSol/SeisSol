@@ -34,13 +34,13 @@ namespace seissol::kernels::solver::stp {
 
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   krnlPrototype_.kDivMT = global.onHost->stiffnessMatricesTransposed;
-  krnlPrototype_.timeInt = init::timeInt::Values;
-  krnlPrototype_.wHat = init::wHat::Values;
+  krnlPrototype_.timeInt = global.onHost->stpInt;
+  krnlPrototype_.wHat = global.onHost->stpZero;
 
 #ifdef ACL_DEVICE
   deviceKrnlPrototype_.kDivMT = global.onDevice->stiffnessMatricesTransposed;
-  deviceKrnlPrototype_.timeInt = init::timeInt::Values;
-  deviceKrnlPrototype_.wHat = init::wHat::Values;
+  deviceKrnlPrototype_.timeInt = global.onDevice->stpInt;
+  deviceKrnlPrototype_.wHat = global.onDevice->stpZero;
 #endif
 }
 
@@ -236,6 +236,13 @@ void Spacetime::computeBatchedAder(
     }
 
     krnl.streamPtr = runtime.stream();
+
+    // TODO: integrate into the following kernel
+    device.algorithms.setToValue(krnl.spaceTimePredictor,
+                                 static_cast<real>(0.0),
+                                 tensor::spaceTimePredictor::size(),
+                                 krnl.numElements,
+                                 krnl.streamPtr);
 
     krnl.execute();
   }
