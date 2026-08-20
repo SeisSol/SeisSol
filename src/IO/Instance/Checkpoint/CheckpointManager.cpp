@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <list>
 #include <map>
 #include <memory>
 #include <mpi.h>
@@ -37,9 +38,14 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
   return [=](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
     writer::Writer writer;
     const auto filename = prefix + std::string("-checkpoint-") + std::to_string(counter) + ".h5";
-    for (const auto& [_, ckpTree] : dataRegistry) {
-      const std::size_t cells = ckpTree.cells;
-      assert(cells == ckpTree.ids.size());
+
+    for (const auto& [_, ckpStorage] : dataRegistry) {
+
+      const auto location =
+          writer::instructions::Hdf5Location(filename, {"checkpoint", ckpStorage.name});
+
+      const std::size_t cells = ckpStorage.cells;
+      assert(cells == ckpStorage.ids.size());
       std::size_t totalCells = 0;
       MPI_Allreduce(&cells,
                     &totalCells,
@@ -48,25 +54,26 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
                     MPI_SUM,
                     Mpi::mpi.comm());
       writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(filename, {"checkpoint", ckpTree.name}),
+          location,
           "__ids",
-          writer::WriteBuffer::create(ckpTree.ids.data(), ckpTree.ids.size()),
+          writer::WriteBuffer::create(ckpStorage.ids.data(), ckpStorage.ids.size()),
           datatype::inferDatatype<std::size_t>()));
-      for (const auto& variable : ckpTree.variables) {
+      for (const auto& variable : ckpStorage.variables) {
         std::shared_ptr<writer::DataSource> dataSource;
         if (variable.pack.has_value()) {
           // data needs to be transformed, copy
           const auto elemSize = variable.memoryDatatype->size();
           const auto packFn = variable.pack.value();
-          dataSource = writer::GeneratedBuffer::createElementwise<char>(
+          dataSource = writer::GeneratedBuffer::createElementwise<std::byte>(
               elemSize,
               1,
               std::vector<std::size_t>(),
               [=](void* target, std::size_t index) {
-                std::invoke(packFn,
-                            target,
-                            reinterpret_cast<const void*>(
-                                reinterpret_cast<const char*>(variable.data) + index * elemSize));
+                std::invoke(
+                    packFn,
+                    target,
+                    reinterpret_cast<const void*>(
+                        reinterpret_cast<const std::byte*>(variable.data) + index * elemSize));
               },
               variable.datatype);
         } else {
@@ -75,20 +82,28 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
               variable.data, cells, variable.datatype, std::vector<std::size_t>());
         }
         writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
-            writer::instructions::Hdf5Location(filename, {"checkpoint", ckpTree.name}),
-            variable.name,
-            dataSource,
-            variable.datatype));
+            location, variable.name, dataSource, variable.datatype));
       }
     }
+
+    writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+        writer::instructions::Hdf5Location(filename, {"checkpoint"}),
+        "__order",
+        writer::WriteInline::create(ConvergenceOrder)));
+
     writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
         writer::instructions::Hdf5Location(filename, {"checkpoint"}),
         "__time",
         writer::WriteInline::create(time)));
     writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
         writer::instructions::Hdf5Location(filename, {"checkpoint"}),
-        "__order",
-        writer::WriteInline::create(ConvergenceOrder)));
+        "__alignment",
+        writer::WriteInline::create(Alignment)));
+    writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+        writer::instructions::Hdf5Location(filename, {"checkpoint"}),
+        "__version",
+        writer::WriteInline::create(FormatVersion)));
+
     return writer;
   };
 }
@@ -103,54 +118,81 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   auto reader = reader::file::Hdf5Reader(seissol::Mpi::mpi.comm());
   reader.openFile(file);
   reader.openGroup("checkpoint");
-  const auto convergenceOrderRead = reader.readAttributeScalar<int>("__order");
-  if (convergenceOrderRead != ConvergenceOrder) {
-    logError() << "Convergence order does not match. Read:" << convergenceOrderRead;
+  const auto versionRead = reader.readAttributeScalar<std::size_t>("__version");
+  if (versionRead != FormatVersion) {
+    logWarning() << "The checkpoint format version does not match. Read:" << versionRead
+                 << "vs build:" << FormatVersion << ". The checkpoint read will most likely fail.";
   }
-  for (auto& [_, ckpTree] : dataRegistry_) {
-    reader.openGroup(ckpTree.name);
-    auto distributor = reader::Distributor(seissol::Mpi::mpi.comm());
+  const auto convergenceOrderRead = reader.readAttributeScalar<std::size_t>("__order");
+  if (convergenceOrderRead != ConvergenceOrder) {
+    logWarning() << "Convergence order does not match. Read:" << convergenceOrderRead
+                 << "vs build:" << ConvergenceOrder
+                 << ". The checkpoint read will most likely fail.";
+  }
+  const auto alignmentRead = reader.readAttributeScalar<std::size_t>("__alignment");
+  if (alignmentRead != Alignment) {
+    logWarning() << "Memory alignment and padding does not match. Read:" << alignmentRead
+                 << "vs build:" << Alignment << ". The checkpoint read will most likely fail.";
+  }
 
-    logInfo() << "Reading group IDs for" << ckpTree.name;
-    auto groupIds = reader.readData<std::size_t>("__ids");
-    distributor.setup(groupIds, ckpTree.ids);
+  // the distributors should not be moved (for the closures in the DistributionInstance not to point
+  // to invalid memory).
+  std::list<reader::Distributor> distributors;
+  std::vector<reader::Distributor::DistributionInstance> distributions;
 
-    std::vector<reader::Distributor::DistributionInstance> distributions;
-    distributions.reserve(ckpTree.variables.size());
-    for (auto& variable : ckpTree.variables) {
-      logInfo() << "Reading variable" << ckpTree.name << "/" << variable.name;
-      const std::size_t count = reader.dataCount(variable.name);
-      const std::size_t currsize = count * variable.datatype->size();
-      if (currsize > storesize) {
-        std::free(datastore);
-        datastore = std::malloc(currsize);
-        if (datastore == nullptr) {
-          logError() << "Realloc failed; maybe you are reading too much (checkpoint) data?";
+  for (auto& [_, ckpStorage] : dataRegistry_) {
+    if (reader.hasEntry(ckpStorage.name)) {
+      reader.openGroup(ckpStorage.name);
+
+      logInfo() << "Reading group IDs for" << ckpStorage.name;
+      auto groupIds = reader.readData<std::size_t>("__ids");
+      auto& distributor = distributors.emplace_back(seissol::Mpi::mpi.comm());
+      distributor.setup(groupIds, ckpStorage.ids);
+
+      for (auto& variable : ckpStorage.variables) {
+        if (reader.hasEntry(variable.name)) {
+          logInfo() << "Reading variable" << ckpStorage.name << "/" << variable.name;
+          const std::size_t count = reader.dataCount(variable.name);
+          const std::size_t currsize = count * variable.datatype->size();
+          if (currsize > storesize) {
+            std::free(datastore);
+            datastore = std::malloc(currsize);
+            if (datastore == nullptr) {
+              logError() << "Realloc failed; maybe you are reading too much (checkpoint) data?";
+            }
+            storesize = currsize;
+
+            // touch memory explicitly
+            std::memset(datastore, 0, storesize);
+          }
+          reader.readDataRaw(datastore, variable.name, count, variable.datatype);
+          const auto distribution =
+              distributor.distributeRaw(variable.data,
+                                        datastore,
+                                        datatype::convertToMPI(variable.datatype),
+                                        datatype::convertToMPI(variable.memoryDatatype),
+                                        variable.unpack);
+          distributions.push_back(distribution);
+        } else {
+          logWarning() << "The following variable was not found checkpoint file (instead, using "
+                          "default values):"
+                       << ckpStorage.name << "/" << variable.name;
         }
-        storesize = currsize;
-
-        // touch memory explicitly
-        std::memset(datastore, 0, storesize);
       }
-      reader.readDataRaw(datastore, variable.name, count, variable.datatype);
-      const auto distribution =
-          distributor.distributeRaw(variable.data,
-                                    datastore,
-                                    datatype::convertToMPI(variable.datatype),
-                                    datatype::convertToMPI(variable.memoryDatatype),
-                                    variable.unpack);
-      distributions.push_back(distribution);
+      reader.closeGroup();
+    } else {
+      logWarning() << "The following data storage was not found in the checkpoint file:"
+                   << ckpStorage.name;
     }
-    logInfo() << "Finishing data distribution for" << ckpTree.name;
-    for (auto& distribution : distributions) {
-      distribution.complete();
-    }
-
-    reader.closeGroup();
   }
   const auto time = reader.readAttributeScalar<double>("__time");
   reader.closeGroup();
   reader.closeFile();
+
+  logInfo() << "Finishing data distribution.";
+  for (auto& distribution : distributions) {
+    distribution.complete();
+  }
 
   logInfo() << "Checkpoint loading complete.";
 

@@ -181,6 +181,11 @@ std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
 namespace seissol::io::reader {
 Distributor::Distributor(MPI_Comm comm) : comm_(comm) {}
 
+Distributor::~Distributor() = default;
+
+Distributor::Distributor(const Distributor&) = default;
+auto Distributor::operator=(const Distributor&) -> Distributor& = default;
+
 void Distributor::setup(const std::vector<std::size_t>& sourceIds,
                         const std::vector<std::size_t>& targetIds) {
   int commsize = 0;
