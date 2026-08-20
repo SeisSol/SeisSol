@@ -258,43 +258,23 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 
   real* nodalAvgDisplacements =
       static_cast<real*>(currentLayer_->var<LTS::NodalAvgDisplacements>(AllocationPlace::Device));
-
-  real* rotateDisplacementToFaceNormalScratch = static_cast<real*>(
-      currentLayer_->var<LTS::RotateDisplacementToFaceNormalScratch>(AllocationPlace::Device));
-  real* rotateDisplacementToGlobalScratch = static_cast<real*>(
-      currentLayer_->var<LTS::RotateDisplacementToGlobalScratch>(AllocationPlace::Device));
-  real* rotatedFaceDisplacementScratch = static_cast<real*>(
-      currentLayer_->var<LTS::RotatedFaceDisplacementScratch>(AllocationPlace::Device));
-  real* dofsFaceNodalScratch =
-      static_cast<real*>(currentLayer_->var<LTS::DofsFaceNodalScratch>(AllocationPlace::Device));
-  real* prevCoefficientsScratch =
-      static_cast<real*>(currentLayer_->var<LTS::PrevCoefficientsScratch>(AllocationPlace::Device));
-
-  real* dofsFaceBoundaryNodalScratch = static_cast<real*>(
-      currentLayer_->var<LTS::DofsFaceBoundaryNodalScratch>(AllocationPlace::Device));
+  real* fsgdataPtr = static_cast<real*>(currentLayer_->var<LTS::FSGData>(AllocationPlace::Device));
+  real* fsgdataPtrHost = static_cast<real*>(currentLayer_->var<LTS::FSGData>());
 
   if (size > 0) {
     std::array<std::vector<unsigned>, Cell::NumFaces> cellIndices{};
     std::array<std::vector<real*>, Cell::NumFaces> nodalAvgDisplacementsPtrs{};
     std::array<std::vector<real*>, Cell::NumFaces> displacementsPtrs{};
 
-    std::array<std::vector<real*>, Cell::NumFaces> derivatives{};
-    std::array<std::vector<real*>, Cell::NumFaces> dofsPtrs{};
-    std::array<std::vector<real*>, Cell::NumFaces> idofsPtrs{};
-    std::array<std::vector<real*>, Cell::NumFaces> neighPtrs{};
-    std::array<std::vector<real*>, Cell::NumFaces> t{};
-    std::array<std::vector<real*>, Cell::NumFaces> tInv{};
+    std::array<std::vector<real*>, 4> derivatives{};
+    std::array<std::vector<real*>, 4> dofsPtrs{};
+    std::array<std::vector<real*>, 4> idofsPtrs{};
+    std::array<std::vector<real*>, 4> neighPtrs{};
+    std::array<std::vector<real*>, 4> t{};
+    std::array<std::vector<real*>, 4> tInv{};
+    std::array<std::vector<real*>, 4> fsgdata{};
 
-    std::array<std::vector<inner_keys::Material::DataType>, Cell::NumFaces> rhos;
-    std::array<std::vector<inner_keys::Material::DataType>, Cell::NumFaces> lambdas;
-
-    std::array<std::vector<real*>, Cell::NumFaces> rotateDisplacementToFaceNormalPtrs{};
-    std::array<std::vector<real*>, Cell::NumFaces> rotateDisplacementToGlobalPtrs{};
-    std::array<std::vector<real*>, Cell::NumFaces> rotatedFaceDisplacementPtrs{};
-    std::array<std::vector<real*>, Cell::NumFaces> dofsFaceNodalPtrs{};
-    std::array<std::vector<real*>, Cell::NumFaces> prevCoefficientsPtrs{};
-    std::array<std::vector<double>, Cell::NumFaces> invImpedances{};
-    std::array<std::vector<real*>, Cell::NumFaces> dofsFaceBoundaryNodalPtrs{};
+    std::array<std::vector<double>, 4> invImpedances{};
 
     std::array<std::size_t, Cell::NumFaces> counter{};
 
@@ -319,28 +299,20 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
           t[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].dataT);
           tInv[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].dataTinv);
 
-          rhos[face].push_back(dataHost.get<LTS::Material>().local->getDensity());
-          lambdas[face].push_back(dataHost.get<LTS::Material>().local->getLambdaBar());
-
           real* displ{&nodalAvgDisplacements[nodalAvgDisplacementsCounter]};
           nodalAvgDisplacementsPtrs[face].push_back(displ);
           nodalAvgDisplacementsCounter += NodalAvgDisplacementsSize;
 
-          rotateDisplacementToFaceNormalPtrs[face].push_back(
-              rotateDisplacementToFaceNormalScratch +
-              counter[face] * init::displacementRotationMatrix::Size);
-          rotateDisplacementToGlobalPtrs[face].push_back(
-              rotateDisplacementToGlobalScratch +
-              counter[face] * init::displacementRotationMatrix::Size);
-          rotatedFaceDisplacementPtrs[face].push_back(
-              rotatedFaceDisplacementScratch + counter[face] * init::rotatedFaceDisplacement::Size);
-          dofsFaceBoundaryNodalPtrs[face].push_back(dofsFaceBoundaryNodalScratch +
-                                                    counter[face] * tensor::INodal::size());
-          dofsFaceNodalPtrs[face].push_back(dofsFaceNodalScratch +
-                                            counter[face] * tensor::INodal::size());
-          prevCoefficientsPtrs[face].push_back(prevCoefficientsScratch +
-                                               counter[face] * NodalAvgDisplacementsSize);
-          invImpedances[face].push_back(0);
+          fsgdata[face].push_back(fsgdataPtr);
+          fsgdataPtr += 3;
+          fsgdataPtrHost += 3;
+
+          const auto rho = dataHost.get<LTS::Material>().local->getDensity();
+          const auto lambda = dataHost.get<LTS::Material>().local->getLambdaBar();
+
+          fsgdataPtrHost[0] = 1.0 / std::sqrt(rho * lambda);
+          fsgdataPtrHost[1] = rho * g_;
+          fsgdataPtrHost[2] = rho;
 
           ++counter[face];
         }
@@ -363,24 +335,11 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
         (*currentTable_)[key].set(inner_keys::Wp::Id::Tinv, tInv[face]);
 
         (*currentTable_)[key].set(inner_keys::Wp::Id::FaceDisplacement, displacementsPtrs[face]);
-        (*currentMaterialTable_)[key].set(inner_keys::Material::Id::Rho, rhos[face]);
-        (*currentMaterialTable_)[key].set(inner_keys::Material::Id::Lambda, lambdas[face]);
 
         (*currentTable_)[key].set(inner_keys::Wp::Id::NodalAvgDisplacements,
                                   nodalAvgDisplacementsPtrs[face]);
 
-        (*currentTable_)[key].set(inner_keys::Wp::Id::RotateDisplacementToFaceNormal,
-                                  rotateDisplacementToFaceNormalPtrs[face]);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::RotateDisplacementToGlobal,
-                                  rotateDisplacementToGlobalPtrs[face]);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::RotatedFaceDisplacement,
-                                  rotatedFaceDisplacementPtrs[face]);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::DofsFaceNodal, dofsFaceNodalPtrs[face]);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::PrevCoefficients, prevCoefficientsPtrs[face]);
-        (*currentMaterialTable_)[key].set(inner_keys::Material::Id::InvImpedances,
-                                          invImpedances[face]);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::DofsFaceBoundaryNodal,
-                                  dofsFaceBoundaryNodalPtrs[face]);
+        (*currentTable_)[key].set(inner_keys::Wp::Id::FSGData, fsgdata[face]);
       }
     }
   }
@@ -397,12 +356,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
     std::array<std::vector<real*>, Cell::NumFaces> easiBoundaryMapPtrs{};
     std::array<std::vector<real*>, Cell::NumFaces> easiBoundaryConstantPtrs{};
 
-    std::array<std::vector<real*>, Cell::NumFaces> dofsFaceBoundaryNodalPtrs{};
-
-    std::array<std::size_t, Cell::NumFaces> counter{};
-
-    real* dofsFaceBoundaryNodalScratch = static_cast<real*>(
-        currentLayer_->var<LTS::DofsFaceBoundaryNodalScratch>(AllocationPlace::Device));
+    std::array<std::size_t, 4> counter{};
 
     for (std::size_t cell = 0; cell < size; ++cell) {
       auto data = currentLayer_->cellRef(cell, AllocationPlace::Device);
@@ -423,8 +377,6 @@ void LocalIntegrationRecorder::recordDirichletBc() {
           easiBoundaryConstantPtrs[face].push_back(
               dataHost.get<LTS::BoundaryMappingDevice>()[face].easiBoundaryConstant);
 
-          dofsFaceBoundaryNodalPtrs[face].push_back(dofsFaceBoundaryNodalScratch +
-                                                    counter[face] * tensor::INodal::size());
           ++counter[face];
         }
       }
@@ -443,9 +395,6 @@ void LocalIntegrationRecorder::recordDirichletBc() {
         (*currentTable_)[key].set(inner_keys::Wp::Id::EasiBoundaryMap, easiBoundaryMapPtrs[face]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::EasiBoundaryConstant,
                                   easiBoundaryConstantPtrs[face]);
-
-        (*currentTable_)[key].set(inner_keys::Wp::Id::DofsFaceBoundaryNodal,
-                                  dofsFaceBoundaryNodalPtrs[face]);
       }
     }
   }

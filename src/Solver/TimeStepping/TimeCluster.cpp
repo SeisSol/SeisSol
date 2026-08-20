@@ -640,8 +640,7 @@ void TimeCluster::computeLocalIntegrationFlops() {
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       if (cellInformation->faceTypes[face] == FaceType::FreeSurfaceGravity) {
         const auto [nonZeroFlopsDisplacement, hardwareFlopsDisplacement] =
-            GravitationalFreeSurfaceBc::getFlopsDisplacementFace(
-                face, cellInformation[cell].faceTypes[face]);
+            GravitationalFreeSurfaceBc::getFlopsDisplacementFace(face);
         flopsNonZero += nonZeroFlopsDisplacement;
         flopsHardware += hardwareFlopsDisplacement;
       }

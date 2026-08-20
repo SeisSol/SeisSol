@@ -459,7 +459,7 @@ class LinearADERDG(ADERDGBase):
             )
 
     def addTime(self, generator, targets):
-        powers = [Scalar(f"power({i})") for i in range(self.order)]
+        self.powers = [Scalar(f"power({i})") for i in range(self.order)]
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
 
@@ -475,7 +475,7 @@ class LinearADERDG(ADERDGBase):
                 qShape,
                 alignStride=True,
             )
-            power = powers[0]
+            power = self.powers[0]
 
             dQ0True = self.Q if target == "gpu" else dQ0
 
@@ -491,7 +491,7 @@ class LinearADERDG(ADERDGBase):
             self.dQs = [dQ0]
 
             for i in range(1, self.order):
-                power = powers[i]
+                power = self.powers[i]
                 derivativeSum = Add()
                 if self.sourceMatrix():
                     derivativeSum += derivatives[-1]["kq"] * self.sourceMatrix()["qp"]

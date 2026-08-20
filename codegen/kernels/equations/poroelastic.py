@@ -50,6 +50,9 @@ class PoroelasticADERDG(LinearADERDG):
     def numberOfQuantities(self):
         return 13
 
+    def velocityOffset(self):
+        return 6
+
     def numberOfExtendedQuantities(self):
         return self.numberOfQuantities()
 
