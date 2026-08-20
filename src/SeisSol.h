@@ -52,7 +52,7 @@ class SeisSol {
    */
   virtual ~SeisSol() { delete meshReader_; }
 
-  const parallel::Pinning& getPinning() { return pinning_; }
+  const parallel::Pinning& pinning() { return pinning_; }
 
   /**
    * Initialize C++ part of the program
@@ -81,13 +81,11 @@ class SeisSol {
 
   void setExecutionPlaceCutoff(std::size_t size);
 
-  initializer::MemoryManager& getMemoryManager() { return *memoryManager_; }
+  initializer::MemoryManager& memoryManager() { return *memoryManager_; }
 
   time_stepping::TimeManager& timeManager() { return timeManager_; }
 
   Simulator& simulator() { return simulator_; }
-
-  sourceterm::Manager& sourceTermManager() { return sourceTermManager_; }
 
   solver::FreeSurfaceIntegrator& freeSurfaceIntegrator() { return freeSurfaceIntegrator_; }
 
@@ -132,7 +130,7 @@ class SeisSol {
    */
   monitoring::FlopCounter& flopCounter() { return flopCounter_; }
 
-  const std::optional<std::string>& getCheckpointLoadFile() { return checkpointLoadFile_; }
+  const std::optional<std::string>& checkpointLoadFile() { return checkpointLoadFile_; }
   /**
    * Reference for timeMirrorManagers to be accessed externally when required
    */
@@ -152,16 +150,6 @@ class SeisSol {
   }
 
   /**
-   * Delete the mesh reader to free memory resources.
-   *
-   * Should be called after initialization
-   */
-  void freeMeshReader() {
-    delete meshReader_;
-    meshReader_ = nullptr;
-  }
-
-  /**
    * Get the mesh reader
    */
   const seissol::geometry::MeshReader& meshReader() const { return *meshReader_; }
@@ -171,7 +159,7 @@ class SeisSol {
    */
   seissol::geometry::MeshReader& meshReader() { return *meshReader_; }
 
-  const seissol::initializer::parameters::SeisSolParameters& getSeisSolParameters() const {
+  const seissol::initializer::parameters::SeisSolParameters& parameters() const {
     return seissolParameters_;
   }
 
@@ -182,7 +170,7 @@ class SeisSol {
    */
   void deleteMemoryManager() { memoryManager_.reset(nullptr); }
 
-  GravitationSetup& getGravitationSetup() { return gravitationSetup_; }
+  GravitationSetup& gravitationSetup() { return gravitationSetup_; }
 
   /*
    * sets a time stamp for backuping
@@ -191,14 +179,14 @@ class SeisSol {
 
   void setTimestepScale(double scale) { timestepScale_ = scale; }
 
-  double getTimestepScale() const { return timestepScale_; }
+  double timestepScale() const { return timestepScale_; }
 
   /*
    * returns the backup time stamp
    * */
-  const std::string& getBackupTimeStamp() { return backupTimeStamp_; }
+  const std::string& backupTimeStamp() const { return backupTimeStamp_; }
 
-  seissol::io::OutputManager& getOutputManager() { return outputManager_; }
+  seissol::io::OutputManager& outputManager() { return outputManager_; }
 
   utils::Env& env() { return env_; }
 
@@ -233,9 +221,6 @@ class SeisSol {
 
   //! Simulator
   Simulator simulator_;
-
-  //! Source term module
-  sourceterm::Manager sourceTermManager_;
 
   //! Free surface integrator module
   solver::FreeSurfaceIntegrator freeSurfaceIntegrator_;

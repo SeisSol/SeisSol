@@ -83,7 +83,7 @@ class TimeManager {
                    const SimulationSettings& settings);
 
   void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
-  seissol::dr::output::OutputManager* getFaultOutputManager();
+  seissol::dr::output::OutputManager* faultOutputManager();
 
   /**
    * Advance in time until all clusters reach the next synchronization time.

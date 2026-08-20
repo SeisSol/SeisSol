@@ -121,8 +121,8 @@ TimeCluster::TimeCluster(unsigned int clusterId,
   spacetimeKernel_.setGlobalData(globalData);
   timeKernel_.setGlobalData(globalData);
   localKernel_.setGlobalData(globalData);
-  localKernel_.setInitConds(&seissolInstance_.getMemoryManager().getInitialConditions());
-  localKernel_.setGravitationalAcceleration(seissolInstance_.getGravitationSetup().acceleration);
+  localKernel_.setInitConds(&seissolInstance_.memoryManager().initialConditions());
+  localKernel_.setGravitationalAcceleration(seissolInstance_.gravitationSetup().acceleration);
   neighborKernel_.setGlobalData(globalData);
   dynamicRuptureKernel_.setGlobalData(globalData);
 
@@ -361,7 +361,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   real* const* buffers = clusterData_->var<LTS::Buffers>();
   real* const* derivatives = clusterData_->var<LTS::Derivatives>();
 
-  kernels::LocalTmp tmp(seissolInstance_.getGravitationSetup().acceleration);
+  kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
 
   const auto timeStepWidth = timeStepSize();
   const auto timeBasis = seissol::kernels::timeBasis();
@@ -443,7 +443,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
   auto& materialTable = clusterData_->getConditionalTable<inner_keys::Material>();
   auto& indicesTable = clusterData_->getConditionalTable<inner_keys::Indices>();
 
-  kernels::LocalTmp tmp(seissolInstance_.getGravitationSetup().acceleration);
+  kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
 
   const double timeStepWidth = timeStepSize();
   const auto timeBasis = seissol::kernels::timeBasis();
@@ -584,7 +584,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
                             [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
                               seissol::kernels::Plasticity::computePlasticityBatched(
                                   timeStepWidth,
-                                  seissolInstance_.getSeisSolParameters().model.tv,
+                                  seissolInstance_.parameters().model.tv,
                                   globalDataOnDevice_,
                                   table,
                                   plasticity,
@@ -928,7 +928,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   std::array<real*, Cell::NumFaces> timeIntegrated{};
   std::array<real*, Cell::NumFaces> faceNeighborsPrefetch{};
 
-  const auto tV = seissolInstance_.getSeisSolParameters().model.tv;
+  const auto tV = seissolInstance_.parameters().model.tv;
 
   const auto timestep = timeStepSize();
   const auto oneMinusIntegratingFactor =

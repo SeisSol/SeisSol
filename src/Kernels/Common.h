@@ -120,29 +120,52 @@ constexpr std::size_t
 }
 
 /**
- * Check if a type has a .size() member.
+  Helper struct for HasSizeInternal (to allow an arbitrary number of parameters)
  */
-template <typename T, typename = void>
-struct HasSize {
+template <typename... Ts>
+struct SizeParams {
+  template <typename T>
+  using HasSizeInternal = decltype(std::declval<T>().size(std::declval<Ts>()...), void());
+
+  template <typename T>
+  using SizeT = decltype(std::declval<T>().size(std::declval<Ts>()...));
+};
+
+/**
+  Helper struct for HasSize (interface wrapper).
+ */
+template <typename T, typename SP, typename = void>
+struct HasSizeInternal {
   static constexpr bool Value = false;
   using Type = std::size_t;
 };
 
-template <typename T>
-struct HasSize<T, decltype(std::declval<T>().size(), void())> {
+template <typename T, typename SP>
+struct HasSizeInternal<T, SP, typename SP::template HasSizeInternal<T>> {
   static constexpr bool Value = true;
-  using Type = decltype(std::declval<T>().size());
+  using Type = typename SP::template SizeT<T>;
+};
+
+/**
+ * Check if a type has a .size(...) member.
+ */
+template <typename T, typename... Args>
+struct HasSize {
+  using Internal = HasSizeInternal<T, SizeParams<Args...>>;
+
+  static constexpr bool Value = Internal::Value;
+  using Type = typename Internal::Type;
 };
 
 /**
  * returns T::size() if T has size function and 0 otherwise.
  */
-template <class T>
-constexpr auto size() -> typename HasSize<T>::Type {
-  if constexpr (HasSize<T>::Value) {
-    return T::size();
+template <class T, typename... Args>
+constexpr auto size(Args... args) -> typename HasSizeInternal<T, SizeParams<Args...>>::Type {
+  if constexpr (HasSizeInternal<T, SizeParams<Args...>>::Value) {
+    return T::size(args...);
   } else {
-    return static_cast<typename HasSize<T>::Type>(0);
+    return static_cast<typename HasSizeInternal<T, SizeParams<Args...>>::Type>(0);
   }
 }
 

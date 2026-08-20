@@ -7,7 +7,7 @@
 
 #include "InstantaneousTimeMirrorManager.h"
 
-#include "Initializer/CellLocalMatrices.h"
+#include "Initializer/Model/CellLocalMatrices.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Memory/Descriptor/LTS.h"
@@ -70,7 +70,7 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           LTS::Storage& ltsStorage,
                                           const initializer::ClusterLayout* clusterLayout) {
 
-  const auto itmParameters = seissolInstance_.getSeisSolParameters().model.itmParameters;
+  const auto itmParameters = seissolInstance_.parameters().model.itmParameters;
   const auto reflectionType = itmParameters.itmReflectionType;
 
   // check over all cells (cheap; though it can be reduced to at most one per layer)
@@ -108,7 +108,7 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
 
   logInfo() << "Updating CellLocalMatrices";
   initializer::initializeCellLocalMatrices(
-      *meshReader_, *ltsStorage_, *clusterLayout_, seissolInstance_.getSeisSolParameters().model);
+      *meshReader_, *ltsStorage_, *clusterLayout_, seissolInstance_.parameters().model);
 
 #ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
@@ -127,7 +127,7 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
 }
 
 void InstantaneousTimeMirrorManager::updateVelocities() {
-  const auto itmParameters = seissolInstance_.getSeisSolParameters().model.itmParameters;
+  const auto itmParameters = seissolInstance_.parameters().model.itmParameters;
   const auto reflectionType = itmParameters.itmReflectionType;
 
   const auto updateMaterial = [&](model::Material& material) {
@@ -176,7 +176,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
 }
 
 void InstantaneousTimeMirrorManager::updateTimeSteps() {
-  const auto itmParameters = seissolInstance_.getSeisSolParameters().model.itmParameters;
+  const auto itmParameters = seissolInstance_.parameters().model.itmParameters;
   const auto reflectionType = itmParameters.itmReflectionType;
 
   const double timeStepScaling =
@@ -211,7 +211,7 @@ void initializeTimeMirrorManagers(double scalingFactor,
                                   seissol::SeisSol& seissolInstance,
                                   const initializer::ClusterLayout* clusterLayout) {
   increaseManager.init(scalingFactor, triggerTime, meshReader, ltsStorage, clusterLayout);
-  auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
+  auto itmParameters = seissolInstance.parameters().model.itmParameters;
   const double eps = itmParameters.itmDuration;
 
   decreaseManager.init(1 / scalingFactor, triggerTime + eps, meshReader, ltsStorage, clusterLayout);
