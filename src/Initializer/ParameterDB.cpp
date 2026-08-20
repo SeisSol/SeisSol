@@ -565,11 +565,6 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
       adapter.addBindingPoint(name, pointer);
     }
 
-    // allocate points if not done
-    if (materials_->size() < numPoints) {
-      materials_->resize(numPoints);
-    }
-
     easiEvalSafe(model, query, adapter, "volume material:" + T::Text);
 
     return materialsFromQuery;
@@ -585,14 +580,21 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
       const std::vector<double> quadratureWeights(gen->getQuadratureWeights().begin(),
                                                   gen->getQuadratureWeights().end());
 
-// Compute homogenized material parameters for every element in a specialization for the
-// particular material
+      // allocate output array
+      materials_->resize(numElems);
+
+      // Compute homogenized material parameters for every element in a specialization for the
+      // particular material
+
 #pragma omp parallel for schedule(static)
       for (std::size_t elementIdx = 0; elementIdx < numElems; ++elementIdx) {
         materials_->at(elementIdx) = MaterialAverager<T>::computeAveragedMaterial(
             elementIdx, quadratureWeights, materialsFromQuery);
       }
     } else {
+      // allocate output array
+      materials_->resize(numPoints);
+
       // Usual behavior without homogenization
       for (std::size_t i = 0; i < numPoints; ++i) {
         materials_->at(i) = T(materialsFromQuery[i]);
