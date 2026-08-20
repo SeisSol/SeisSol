@@ -273,10 +273,6 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
     std::array<std::vector<real*>, 4> t{};
     std::array<std::vector<real*>, 4> tInv{};
     std::array<std::vector<real*>, 4> fsgdata{};
-    std::array<std::vector<real*>, 4> rhosPtr{};
-
-    std::array<std::vector<inner_keys::Material::DataType>, Cell::NumFaces> rhos;
-    std::array<std::vector<inner_keys::Material::DataType>, Cell::NumFaces> lambdas;
 
     std::array<std::vector<double>, 4> invImpedances{};
 
@@ -303,9 +299,6 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
           t[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].dataT);
           tInv[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].dataTinv);
 
-          rhos[face].push_back(dataHost.get<LTS::Material>().local->getDensity());
-          lambdas[face].push_back(dataHost.get<LTS::Material>().local->getLambdaBar());
-
           real* displ{&nodalAvgDisplacements[nodalAvgDisplacementsCounter]};
           nodalAvgDisplacementsPtrs[face].push_back(displ);
           nodalAvgDisplacementsCounter += NodalAvgDisplacementsSize;
@@ -314,9 +307,12 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
           fsgdataPtr += 3;
           fsgdataPtrHost += 3;
 
-          fsgdataPtrHost[0] = 1.0 / std::sqrt(rhos[face].back() * lambdas[face].back());
-          fsgdataPtrHost[1] = rhos[face].back() * g_;
-          fsgdataPtrHost[2] = rhos[face].back();
+          const auto rho = dataHost.get<LTS::Material>().local->getDensity();
+          const auto lambda = dataHost.get<LTS::Material>().local->getLambdaBar();
+
+          fsgdataPtrHost[0] = 1.0 / std::sqrt(rho * lambda);
+          fsgdataPtrHost[1] = rho * g_;
+          fsgdataPtrHost[2] = rho;
 
           ++counter[face];
         }
@@ -339,14 +335,11 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
         (*currentTable_)[key].set(inner_keys::Wp::Id::Tinv, tInv[face]);
 
         (*currentTable_)[key].set(inner_keys::Wp::Id::FaceDisplacement, displacementsPtrs[face]);
-        (*currentMaterialTable_)[key].set(inner_keys::Material::Id::Rho, rhos[face]);
-        (*currentMaterialTable_)[key].set(inner_keys::Material::Id::Lambda, lambdas[face]);
 
         (*currentTable_)[key].set(inner_keys::Wp::Id::NodalAvgDisplacements,
                                   nodalAvgDisplacementsPtrs[face]);
 
         (*currentTable_)[key].set(inner_keys::Wp::Id::FSGData, fsgdata[face]);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::Rhos, rhosPtr[face]);
       }
     }
   }

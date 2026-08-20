@@ -73,11 +73,6 @@ struct Dr {
   };
 };
 
-struct Material {
-  using DataType = double;
-  enum struct Id : size_t { Rho = 0, Lambda, Count };
-};
-
 struct Indices {
   using DataType = unsigned;
   enum struct Id : size_t { Cells = 0, Count };
