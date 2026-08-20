@@ -93,7 +93,12 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   };
 
   // material retrieval for copy+interior layers
-  const auto ctv = seissol::initializer::CellToVertexArray::fromMeshReader(meshReader);
+  const auto ctvInner = seissol::initializer::CellToVertexArray::fromMeshReader(meshReader);
+  const auto ctvGhost =
+      seissol::initializer::CellToVertexArray::fromVectors(ghostVertices, ghostGroups);
+  const auto ctv = seissol::initializer::CellToVertexArray::join({ctvInner, ctvGhost});
+  const auto ghostOffset = ctvInner.size;
+
   const auto queryGen = getBestQueryGenerator(ctv);
   auto materialsDB = queryDB<MaterialT>(queryGen, seissolParams.model.materialFileName);
 
@@ -113,20 +118,9 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
     }
   }
 
-  // material retrieval for ghost layers
-  auto queryGenGhost = getBestQueryGenerator(
-      seissol::initializer::CellToVertexArray::fromVectors(ghostVertices, ghostGroups));
-  auto materialsDBGhost = queryDB<MaterialT>(queryGenGhost, seissolParams.model.materialFileName);
-
 #pragma omp parallel for schedule(static)
   for (size_t i = 0; i < materialsDB.size(); ++i) {
     auto& cellMat = materialsDB[i];
-    cellMat.initialize(seissolParams.model);
-  }
-
-#pragma omp parallel for schedule(static)
-  for (size_t i = 0; i < materialsDBGhost.size(); ++i) {
-    auto& cellMat = materialsDBGhost[i];
     cellMat.initialize(seissolParams.model);
   }
 
@@ -152,7 +146,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         const auto neighborRank = linear.rank;
         const auto neighborRankIdx = linear.inRankIndices[0];
         const auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
-        const auto& localMaterial = materialsDBGhost[materialGhostIdx];
+        const auto& localMaterial = materialsDB[materialGhostIdx + ghostOffset];
         initAssign(materialData, localMaterial);
       }
     } else {
