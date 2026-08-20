@@ -129,6 +129,7 @@ void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeInteg
 }
 
 void Spacetime::computeAder(const real* coeffs,
+                            const real* coeffsEval,
                             double timeStepWidth,
                             LTS::Ref& data,
                             LocalTmp& tmp,
@@ -179,6 +180,7 @@ std::uint64_t Spacetime::bytesAder() {
 
 void Spacetime::computeBatchedAder(
     SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM const real* coeffsEval,
     SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM LocalTmp& tmp,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,

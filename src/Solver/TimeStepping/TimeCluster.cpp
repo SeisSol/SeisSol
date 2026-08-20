@@ -366,6 +366,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   const auto timeStepWidth = timeStepSize();
   const auto timeBasis = seissol::kernels::timeBasis();
   const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
+  const auto evalCoeffs = timeBasis.point(timeStepWidth, timeStepWidth);
 
 #pragma omp parallel for private(bufferPointer, integrationBuffer),                                \
     firstprivate(tmp) schedule(static)
@@ -392,8 +393,14 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
       bufferPointer = integrationBuffer;
     }
 
-    spacetimeKernel_.computeAder(
-        integrationCoeffs.data(), timeStepWidth, data, tmp, bufferPointer, derivatives[cell], true);
+    spacetimeKernel_.computeAder(integrationCoeffs.data(),
+                                 evalCoeffs.data(),
+                                 timeStepWidth,
+                                 data,
+                                 tmp,
+                                 bufferPointer,
+                                 derivatives[cell],
+                                 true);
 
     // Compute local integrals (including local boundary conditions)
     localKernel_.computeIntegral(bufferPointer, data, tmp, ct_.correctionTime, timeStepWidth);
@@ -448,6 +455,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
   const double timeStepWidth = timeStepSize();
   const auto timeBasis = seissol::kernels::timeBasis();
   const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
+  const auto evalCoeffs = timeBasis.point(timeStepWidth, timeStepWidth);
 
   const ComputeGraphType graphType =
       resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
@@ -457,6 +465,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
       *clusterData_,
       [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
         spacetimeKernel_.computeBatchedAder(integrationCoeffs.data(),
+                                            evalCoeffs.data(),
                                             timeStepWidth,
                                             tmp,
                                             dataTable,

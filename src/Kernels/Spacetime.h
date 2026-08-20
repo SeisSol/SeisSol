@@ -49,6 +49,7 @@ class SpacetimeKernel : public Kernel {
    * @param updateDisplacement Update the face displacement (needed for elastic-acoustic)
    */
   virtual void computeAder(const real* coeffs,
+                           const real* coeffsEval,
                            double timeStepWidth,
                            LTS::Ref& data,
                            LocalTmp& tmp,
@@ -57,6 +58,7 @@ class SpacetimeKernel : public Kernel {
                            bool updateDisplacement = false) = 0;
 
   virtual void computeBatchedAder(const real* coeffs,
+                                  const real* coeffsEval,
                                   double timeStepWidth,
                                   LocalTmp& tmp,
                                   recording::ConditionalPointersToRealsTable& dataTable,

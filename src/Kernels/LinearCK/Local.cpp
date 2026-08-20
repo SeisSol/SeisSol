@@ -142,7 +142,7 @@ void Local::computeIntegral(
   lfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
   lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
 
-  volKrnl.execute();
+  // volKrnl.execute();
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
@@ -287,7 +287,7 @@ void Local::computeBatchedIntegral(
     }
     volKrnl.linearAllocator.initialize(tmpMem.get());
     volKrnl.streamPtr = runtime.stream();
-    volKrnl.execute();
+    // volKrnl.execute();
 
 #ifdef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
     kernel::gpu_localFluxAll localFluxKrnl = deviceLocalFluxAllKernelPrototype_;
@@ -447,8 +447,8 @@ void Local::evaluateBatchedTimeDependentBc(
 void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
                           std::uint64_t& nonZeroFlops,
                           std::uint64_t& hardwareFlops) {
-  nonZeroFlops = seissol::kernel::volume::NonZeroFlops;
-  hardwareFlops = seissol::kernel::volume::HardwareFlops;
+  nonZeroFlops = 0;  // seissol::kernel::volume::NonZeroFlops;
+  hardwareFlops = 0; // seissol::kernel::volume::HardwareFlops;
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // Local flux is executed for all faces that are not dynamic rupture.

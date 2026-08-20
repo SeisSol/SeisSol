@@ -343,25 +343,33 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
       const auto traction2 =
           VariableIndexing<RangeExecutor<Type>::Exec>::index(tractionResults.traction2, o, i);
 
-      localImposedStateM[N][index] += weight * normalStress;
-      localImposedStateM[T1][index] += weight * traction1;
-      localImposedStateM[T2][index] += weight * traction2;
-      localImposedStateM[U][index] +=
-          weight * (qIMinus[o][U][i] - invZpNeig * (normalStress - qIMinus[o][N][i]));
-      localImposedStateM[V][index] +=
-          weight * (qIMinus[o][V][i] - invZsNeig * (traction1 - qIMinus[o][T1][i]));
-      localImposedStateM[W][index] +=
-          weight * (qIMinus[o][W][i] - invZsNeig * (traction2 - qIMinus[o][T2][i]));
+      const auto diffNM = normalStress - qIMinus[o][N][i];
+      const auto diffT1M = traction1 - qIMinus[o][T1][i];
+      const auto diffT2M = traction2 - qIMinus[o][T2][i];
 
-      localImposedStateP[N][index] += weight * normalStress;
-      localImposedStateP[T1][index] += weight * traction1;
-      localImposedStateP[T2][index] += weight * traction2;
-      localImposedStateP[U][index] +=
-          weight * (qIPlus[o][U][i] + invZp * (normalStress - qIPlus[o][N][i]));
-      localImposedStateP[V][index] +=
-          weight * (qIPlus[o][V][i] + invZs * (traction1 - qIPlus[o][T1][i]));
-      localImposedStateP[W][index] +=
-          weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
+      localImposedStateM[N][index] += weight * diffNM;
+      localImposedStateM[T1][index] += weight * diffT1M;
+      localImposedStateM[T2][index] += weight * diffT2M;
+      localImposedStateM[1][index] += weight * -qIMinus[o][1][i];
+      localImposedStateM[2][index] += weight * -qIMinus[o][2][i];
+      localImposedStateM[4][index] += weight * -qIMinus[o][4][i];
+      localImposedStateM[U][index] += weight * (-invZpNeig * diffNM);
+      localImposedStateM[V][index] += weight * (-invZsNeig * diffT1M);
+      localImposedStateM[W][index] += weight * (-invZsNeig * diffT2M);
+
+      const auto diffNP = normalStress - qIPlus[o][N][i];
+      const auto diffT1P = traction1 - qIPlus[o][T1][i];
+      const auto diffT2P = traction2 - qIPlus[o][T2][i];
+
+      localImposedStateP[N][index] += weight * diffNP;
+      localImposedStateP[T1][index] += weight * diffT1P;
+      localImposedStateP[T2][index] += weight * diffT2P;
+      localImposedStateP[1][index] += weight * -qIPlus[o][1][i];
+      localImposedStateP[2][index] += weight * -qIPlus[o][2][i];
+      localImposedStateP[4][index] += weight * -qIPlus[o][4][i];
+      localImposedStateP[U][index] += weight * (+invZp * diffNP);
+      localImposedStateP[V][index] += weight * (+invZs * diffT1P);
+      localImposedStateP[W][index] += weight * (+invZs * diffT2P);
     }
   }
 
