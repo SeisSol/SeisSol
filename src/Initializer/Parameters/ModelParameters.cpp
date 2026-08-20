@@ -108,6 +108,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                                                        {
                                                            {"godunov", NumericalFlux::Godunov},
                                                            {"rusanov", NumericalFlux::Rusanov},
+                                                           {"centered", NumericalFlux::Centered},
+                                                           {"mixed", NumericalFlux::Mixed},
                                                        });
 
   const auto fluxNearFault =
@@ -116,7 +118,14 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                                                        {
                                                            {"godunov", NumericalFlux::Godunov},
                                                            {"rusanov", NumericalFlux::Rusanov},
+                                                           {"centered", NumericalFlux::Centered},
+                                                           {"mixed", NumericalFlux::Mixed},
                                                        });
+
+  const auto fluxRPart = reader->readWithDefault("fluxrpart", 0.0);
+  const auto fluxRPartNearFault = reader->readWithDefault("fluxrpartnearfault", 0.0);
+  const auto fluxGPart = reader->readWithDefault("fluxgpart", 0.0);
+  const auto fluxGPartNearFault = reader->readWithDefault("fluxgpartnearfault", 0.0);
 
   return ModelParameters{hasBoundaryFile,
                          plasticity,
@@ -132,7 +141,11 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          plasticityFileNames,
                          itmParameters,
                          flux,
-                         fluxNearFault};
+                         fluxNearFault,
+                         fluxRPart,
+                         fluxRPartNearFault,
+                         fluxGPart,
+                         fluxGPartNearFault};
 }
 
 std::string fluxToString(NumericalFlux flux) {
@@ -141,6 +154,12 @@ std::string fluxToString(NumericalFlux flux) {
   }
   if (flux == NumericalFlux::Rusanov) {
     return "Rusanov flux";
+  }
+  if (flux == NumericalFlux::Centered) {
+    return "Centered flux";
+  }
+  if (flux == NumericalFlux::Mixed) {
+    return "Mixed flux (consult parameter file)";
   }
   return "(unknown flux)";
 }

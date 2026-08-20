@@ -24,7 +24,7 @@ struct ITMParameters {
   ReflectionType itmReflectionType{ReflectionType::BothWaves};
 };
 
-enum class NumericalFlux { Godunov, Rusanov };
+enum class NumericalFlux { Godunov, Rusanov, Centered, Mixed };
 
 std::string fluxToString(NumericalFlux flux);
 
@@ -44,6 +44,10 @@ struct ModelParameters {
   ITMParameters itmParameters;
   NumericalFlux flux{NumericalFlux::Godunov};
   NumericalFlux fluxNearFault{NumericalFlux::Godunov};
+  double fluxRPart{0};
+  double fluxNearFaultRPart{0};
+  double fluxGPart{0};
+  double fluxNearFaultGPart{0};
 };
 
 ModelParameters readModelParameters(ParameterReader* baseReader);
