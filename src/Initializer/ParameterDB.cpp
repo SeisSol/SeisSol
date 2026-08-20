@@ -114,6 +114,23 @@ void easiEvalSafe(easi::Component* model,
   }
 }
 
+easi::Component* loadEasiModel(const std::string& fileName) {
+  logInfo() << "Loading easi file" << fileName;
+#ifdef USE_ASAGI
+  seissol::asagi::AsagiReader asagiReader;
+  easi::YAMLParser parser(3, &asagiReader);
+#else
+  easi::YAMLParser parser(3);
+#endif
+  try {
+    return parser.parse(fileName);
+  } catch (const std::exception& error) {
+    logError() << "Error while parsing easi file" << fileName << ":" << std::string(error.what());
+    // silence no-return warnings
+    return nullptr;
+  }
+}
+
 } // namespace
 
 CellToVertexArray::CellToVertexArray(size_t size,
@@ -726,22 +743,6 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
     }
   }
   easiEvalSafe(model_, query, adapter, "Dirichlet BC data");
-}
-
-easi::Component* loadEasiModel(const std::string& fileName) {
-#ifdef USE_ASAGI
-  seissol::asagi::AsagiReader asagiReader;
-  easi::YAMLParser parser(3, &asagiReader);
-#else
-  easi::YAMLParser parser(3);
-#endif
-  try {
-    return parser.parse(fileName);
-  } catch (const std::exception& error) {
-    logError() << "Error while parsing easi file" << fileName << ":" << std::string(error.what());
-    // silence no-return warnings
-    return nullptr;
-  }
 }
 
 std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMaterial,

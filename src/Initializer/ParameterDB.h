@@ -64,7 +64,6 @@ struct CellToVertexArray {
   static CellToVertexArray join(std::vector<CellToVertexArray> arrays);
 };
 
-easi::Component* loadEasiModel(const std::string& fileName);
 std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMaterial,
                                                       const CellToVertexArray& cellToVertex);
 
