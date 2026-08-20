@@ -75,13 +75,12 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
     ghostIdxMap[neighbor.first].reserve(neighbor.second.size());
     for (const auto& metadata : neighbor.second) {
       ghostIdxMap[neighbor.first].push_back(ghostVertices.size());
-      std::array<std::array<double, Cell::Dim>, Cell::NumVertices> vertices{};
+      auto& vertices = ghostVertices.emplace_back();
       for (size_t i = 0; i < Cell::NumVertices; ++i) {
         for (size_t j = 0; j < Cell::Dim; ++j) {
           vertices[i][j] = metadata.vertices[i][j];
         }
       }
-      ghostVertices.emplace_back(vertices);
       ghostGroups.push_back(metadata.group);
     }
   }
