@@ -254,7 +254,8 @@ class NoSpecialization {
  */
 class BiMaterialFault {
   public:
-  explicit BiMaterialFault(const FrictionLawParameters& parameters) : drParameters_(&parameters) {};
+  explicit BiMaterialFault(const FrictionLawParameters& parameters)
+      : vStar_(parameters.vStar), prakashLength_(parameters.prakashLength) {};
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
   /**
@@ -283,9 +284,8 @@ class BiMaterialFault {
                     std::uint32_t pointIndex) {
     // modify strength according to Prakash-Clifton
     // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
-    const auto expval =
-        -(std::max(static_cast<real>(0.0), localSlipRate) + this->drParameters_->vStar) * deltaT /
-        this->drParameters_->prakashLength;
+    const auto expval = -(std::max(static_cast<real>(0.0), localSlipRate) + this->vStar_) * deltaT /
+                        this->prakashLength_;
     const real expterm = std::exp(expval);
     const real exp1mterm = -std::expm1(expval);
     const real newStrength =
@@ -295,7 +295,9 @@ class BiMaterialFault {
   }
 
   protected:
-  const FrictionLawParameters* drParameters_;
+  real vStar_{};
+  real prakashLength_{};
+
   real (*__restrict regularizedStrength_)[misc::NumPaddedPoints]{};
 };
 
@@ -304,7 +306,8 @@ class BiMaterialFault {
  */
 class TPApprox {
   public:
-  explicit TPApprox(const FrictionLawParameters& parameters) : drParameters_(&parameters) {};
+  explicit TPApprox(const FrictionLawParameters& parameters)
+      : tpProxyExponent_(parameters.tpProxyExponent) {};
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
   /**
@@ -316,12 +319,12 @@ class TPApprox {
   };
 
 #pragma omp declare simd
-  real stateVariableHook(real localAccumulatedSlip,
-                         real localDc,
-                         std::size_t /*ltsFace*/,
-                         std::uint32_t /*pointIndex*/) {
+  [[nodiscard]] real stateVariableHook(real localAccumulatedSlip,
+                                       real localDc,
+                                       std::size_t /*ltsFace*/,
+                                       std::uint32_t /*pointIndex*/) const {
     const real factor = (static_cast<real>(1.0) + std::fabs(localAccumulatedSlip) / localDc);
-    return static_cast<real>(1.0) - std::pow(factor, -this->drParameters_->tpProxyExponent);
+    return static_cast<real>(1.0) - std::pow(factor, -this->tpProxyExponent_);
   }
 
 #pragma omp declare simd
@@ -334,7 +337,7 @@ class TPApprox {
   };
 
   protected:
-  const FrictionLawParameters* drParameters_;
+  real tpProxyExponent_{};
 };
 
 } // namespace seissol::dr::friction_law::cpu
