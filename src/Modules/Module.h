@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_MODULES_MODULE_H_
 
 #include <optional>
+#include <vector>
 namespace seissol {
 
 /**
@@ -18,13 +19,20 @@ namespace seissol {
 class Module {
   private:
   /** The synchronization interval for this module */
-  double isyncInterval_{0};
+  double syncInterval_{0};
 
   /** The next synchronization point for this module */
   double nextSyncPoint_{0};
 
   /** The last time when syncPoint was called */
   double lastSyncPoint_;
+
+  /** Extra time points (sorted) where this module will trigger */
+  std::vector<double> extraPoints_;
+
+  std::size_t extraIndex_{};
+
+  [[nodiscard]] double nextCandidate(double time) const;
 
   public:
   Module();
@@ -109,7 +117,7 @@ class Module {
   virtual void syncPoint(double currentTime) {}
 
   protected:
-  [[nodiscard]] double syncInterval() const { return isyncInterval_; }
+  [[nodiscard]] double syncInterval() const { return syncInterval_; }
 
   /**
    * Set the synchronization interval for this module
@@ -117,6 +125,8 @@ class Module {
    * This is only required for modules that register for {@link SYNCHRONIZATION_POINT}.
    */
   void setSyncInterval(double interval);
+
+  void addExtraSyncPoints(const std::vector<double>& points);
 };
 
 } // namespace seissol

@@ -227,6 +227,7 @@ void OutputManager::initElementwiseOutput() {
                                         const_cast<const real**>(dataPointers.data()),
                                         seissolParameters.output.prefix.data(),
                                         printTime,
+                                        seissolParameters.output.elementwiseParameters.extraTimes,
                                         backendType,
                                         backupTimeStamp_);
 
@@ -290,6 +291,7 @@ void OutputManager::initElementwiseOutput() {
     schedWriter.interval = printTime;
     schedWriter.name = "fault-elementwise";
     schedWriter.planWrite = writer.makeWriter();
+    schedWriter.extraTimes = seissolParameters.output.elementwiseParameters.extraTimes;
 
     seissolInstance_.getOutputManager().addOutput(schedWriter);
   }

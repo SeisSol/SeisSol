@@ -18,6 +18,7 @@
 #include <string>
 #include <unordered_set>
 #include <utils/logger.h>
+#include <utils/stringutils.h>
 #include <vector>
 
 namespace seissol::initializer::parameters {
@@ -71,8 +72,17 @@ ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader
 
   const auto vtkorder = reader->readWithDefault("vtkorder", -1);
 
+  const auto extraTimesStr = reader->readWithDefault<std::string>("extratimes", "");
+  const auto extraTimesSplit = utils::StringUtils::split(extraTimesStr, ';');
+
+  std::vector<double> extraTimes;
+  extraTimes.reserve(extraTimesSplit.size());
+  for (const auto& extraTimesCandidate : extraTimesSplit) {
+    extraTimes.push_back(std::stod(extraTimesCandidate));
+  }
+
   return ElementwiseFaultParameters{
-      printTimeIntervalSec, outputMask, refinementStrategy, refinement, vtkorder};
+      printTimeIntervalSec, outputMask, refinementStrategy, refinement, vtkorder, extraTimes};
 }
 
 EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
