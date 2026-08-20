@@ -41,8 +41,7 @@ class RateAndState : public ReceiverOutput {
     }
 
     if (!(failuresInner.empty() && failuresOuter.empty())) {
-      const auto* pointData = local.state->receiverPoints[local.index].global.coords;
-      const std::array<double, 3> point{pointData[0], pointData[1], pointData[2]};
+      const auto& point = local.state->receiverPoints[local.index].global;
       auto& printWarning = *local.printWarning;
       if (!printWarning) {
         logWarning(true)

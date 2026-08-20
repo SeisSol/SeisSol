@@ -15,3 +15,5 @@ add_library(seissol-numerical OBJECT
 
 target_link_libraries(seissol-numerical PUBLIC seissol-common-properties)
 target_link_libraries(seissol-lib PUBLIC seissol-numerical)
+
+target_compile_definitions(seissol-numerical PUBLIC _USE_MATH_DEFINES)

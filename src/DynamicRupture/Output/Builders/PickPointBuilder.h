@@ -10,6 +10,8 @@
 
 #include "Common/Iterator.h"
 #include "DynamicRupture/Output/DataTypes.h"
+#include "Geometry/CellTransform.h"
+#include "Geometry/MeshDefinition.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PointMapper.h"
@@ -75,8 +77,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       convertStringToMask(line, coords);
 
       ReceiverPoint point{};
-      for (int i = 0; i < 3; ++i) {
-        point.global.coords[i] = coords[i];
+      for (std::size_t i = 0; i < coords.size(); ++i) {
+        point.global[i] = coords[i];
       }
 
       potentialReceivers_.push_back(point);
@@ -102,7 +104,9 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
         if (closest.has_value()) {
           const auto& faultItem = faultInfos.at(closest.value());
-          const auto& element = meshElements.at(faultItem.element);
+
+          assert(faultItem.element.hasValue());
+          const auto& element = meshElements.at(faultItem.element.value());
 
           receiver.globalTriangle = getGlobalTriangle(faultItem.side, element, meshVertices);
           projectPointToFace(receiver.global, receiver.globalTriangle, faultItem.normal);
@@ -115,12 +119,11 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
           receiver.elementIndex = element.localId;
           receiver.elementGlobalIndex = element.globalId;
 
-          receiver.reference = transformations::tetrahedronGlobalToReference(
-              meshVertices[element.vertices[0]].coords,
-              meshVertices[element.vertices[1]].coords,
-              meshVertices[element.vertices[2]].coords,
-              meshVertices[element.vertices[3]].coords,
-              receiver.global.getAsEigen3LibVector());
+          const auto transform = seissol::geometry::AffineTransform::fromMeshCell(
+              faultItem.element.value(), *meshReader_);
+
+          const auto point = transform.spaceToRef(Eigen::Vector3d(receiver.global.data()));
+          std::copy(point.begin(), point.end(), receiver.reference.begin());
         }
       } catch (const std::exception& error) {
         logError() << "An error occurred while trying to find an on-fault receiver point:"
@@ -145,7 +148,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     }
   }
 
-  std::optional<size_t> findClosestFaultIndex(const ExtVrtxCoords& point) {
+  std::optional<size_t> findClosestFaultIndex(const CoordinateT& point) {
     const auto& meshElements = meshReader_->getElements();
     const auto& meshVertices = meshReader_->getVertices();
     const auto& fault = meshReader_->getFault();
@@ -154,9 +157,9 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     auto closest = std::optional<std::size_t>();
 
     for (auto [faceIdx, faultItem] : seissol::common::enumerate(fault)) {
-      if (faultItem.element >= 0) {
-        const auto face =
-            getGlobalTriangle(faultItem.side, meshElements.at(faultItem.element), meshVertices);
+      if (faultItem.element.hasValue()) {
+        const auto face = getGlobalTriangle(
+            faultItem.side, meshElements.at(faultItem.element.value()), meshVertices);
         const auto insideQuantifier = isInsideFace(point, face, faultItem.normal);
 
         if (insideQuantifier > -1e-12) {

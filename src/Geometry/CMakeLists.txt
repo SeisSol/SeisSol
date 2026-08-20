@@ -6,6 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-geometry OBJECT
+    CellTransform.cpp
     MeshReader.cpp
     MeshTools.cpp
     PartitioningLib.cpp

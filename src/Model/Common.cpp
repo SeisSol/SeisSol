@@ -16,9 +16,9 @@
 
 namespace seissol::model {
 
-void getBondMatrix(const VrtxCoords normal,
-                   const VrtxCoords tangent1,
-                   const VrtxCoords tangent2,
+void getBondMatrix(const CoordinateT& normal,
+                   const CoordinateT& tangent1,
+                   const CoordinateT& tangent2,
                    std::array<double, 36>& matN) {
   matN[0 * 6 + 0] = normal[0] * normal[0];
   matN[0 * 6 + 1] = normal[1] * normal[1];
