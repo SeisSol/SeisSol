@@ -34,22 +34,20 @@ namespace seissol::kernels::solver::stp {
 
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   krnlPrototype_.kDivMT = global.onHost->stiffnessMatricesTransposed;
-  krnlPrototype_.timeInt = init::timeInt::Values;
-  krnlPrototype_.wHat = init::wHat::Values;
+  krnlPrototype_.timeInt = global.onHost->stpInt;
+  krnlPrototype_.wHat = global.onHost->stpZero;
 
 #ifdef ACL_DEVICE
   deviceKrnlPrototype_.kDivMT = global.onDevice->stiffnessMatricesTransposed;
-  deviceKrnlPrototype_.timeInt = init::timeInt::Values;
-  deviceKrnlPrototype_.wHat = init::wHat::Values;
+  deviceKrnlPrototype_.timeInt = global.onDevice->stpInt;
+  deviceKrnlPrototype_.wHat = global.onDevice->stpZero;
 #endif
 }
 
 void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp)
 
 {
-  // alignas(PagesizeStack) real stpRhs[tensor::spaceTimePredictorRhs::size()];
   assert((reinterpret_cast<uintptr_t>(stp)) % Alignment == 0);
-  // std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
   std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
   kernel::spaceTimePredictor krnl = krnlPrototype_;
 
@@ -75,7 +73,6 @@ void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeInteg
   krnl.I = timeIntegrated;
   krnl.timestep = timeStepWidth;
   krnl.spaceTimePredictor = stp;
-  // krnl.spaceTimePredictorRhs = stpRhs;
 
   // The matrix Zinv depends on the timestep
   // If the timestep is not as expected e.g. when approaching a sync point
@@ -183,6 +180,7 @@ void Spacetime::computeBatchedAder(
 
     krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
 
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
     for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
       krnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
@@ -198,6 +196,9 @@ void Spacetime::computeBatchedAder(
     krnl.extraOffset_Gkt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[10]);
     krnl.extraOffset_Glt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[11]);
     krnl.extraOffset_Gmt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[12]);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[10]);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[11]);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[12]);
 
     // checking the first cell should suffice; if we always work on the same cluster.
     // (which we currently always do)
@@ -207,6 +208,7 @@ void Spacetime::computeBatchedAder(
             timeStepWidth) < 1e-7;
 
     if (defaultTimestep) {
+      SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, specific.Zinv);
       for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
         krnl.Zinv(i) = const_cast<const real**>(
             (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
@@ -220,10 +222,7 @@ void Spacetime::computeBatchedAder(
             layerZinvData + yateto::computeFamilySize<tensor::Zinv>() * i);
         const auto& localIntegration = layerLocalIntegration[i];
 
-        // currently, we need to cast away the `const` here (due to Yateto not having a const view
-        // yet)
-        auto sourceMatrix =
-            init::ET::view::create(const_cast<real*>(localIntegration.specific.sourceMatrix));
+        const auto sourceMatrix = init::ET::view::create(localIntegration.specific.sourceMatrix);
         model::zInvInitializerForLoop<0,
                                       seissol::model::MaterialT::NumQuantities,
                                       decltype(sourceMatrix)>(
@@ -237,6 +236,13 @@ void Spacetime::computeBatchedAder(
     }
 
     krnl.streamPtr = runtime.stream();
+
+    // TODO: integrate into the following kernel
+    device.algorithms.setToValue(krnl.spaceTimePredictor,
+                                 static_cast<real>(0.0),
+                                 tensor::spaceTimePredictor::size(),
+                                 krnl.numElements,
+                                 krnl.streamPtr);
 
     krnl.execute();
   }

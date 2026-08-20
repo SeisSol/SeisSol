@@ -127,7 +127,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + tensor::Qext::size() * cell;
 #endif
 #ifdef USE_POROELASTIC
-      auto* zinvExtraPtr = currentLayer->var<LTS::ZinvExtra>(AllocationPlace::Device);
+      auto* zinvExtraPtr = currentLayer_->var<LTS::ZinvExtra>(AllocationPlace::Device);
       zinvExtraPtrs[cell] = zinvExtraPtr + yateto::computeFamilySize<tensor::Zinv>() * cell;
 #endif
 
@@ -169,7 +169,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     (*currentTable_)[key].set(inner_keys::Wp::Id::DerivativesExt, derivativesExtPtrs);
 #endif
 #ifdef USE_POROELASTIC
-    (*currentTable)[key].set(inner_keys::Wp::Id::ZinvExtra, zinvExtraPtrs);
+    (*currentTable_)[key].set(inner_keys::Wp::Id::ZinvExtra, zinvExtraPtrs);
 #endif
   }
 }
