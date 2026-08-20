@@ -77,7 +77,7 @@ CsvAnalysisWriter::~CsvAnalysisWriter() {
 void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::Mpi::mpi;
 
-  const auto initialConditionType = seissolInstance_.getSeisSolParameters().initialization.type;
+  const auto initialConditionType = seissolInstance_.parameters().initialization.type;
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero ||
       initialConditionType == seissol::initializer::parameters::InitializationType::Travelling ||
       initialConditionType ==
@@ -88,10 +88,10 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   logInfo() << "Print analysis for initial conditions" << static_cast<int>(initialConditionType)
             << " at time " << simulationTime;
 
-  const auto& iniFields = seissolInstance_.getMemoryManager().getInitialConditions();
+  const auto& iniFields = seissolInstance_.memoryManager().initialConditions();
 
-  const auto& ltsStorage = seissolInstance_.getMemoryManager().getLtsStorage();
-  const auto* globalData = seissolInstance_.getMemoryManager().getGlobalData().onHost;
+  const auto& ltsStorage = seissolInstance_.memoryManager().ltsStorage();
+  const auto* globalData = seissolInstance_.memoryManager().globalData().onHost;
 
   const std::vector<Vertex>& vertices = meshReader_->getVertices();
   const std::vector<Element>& elements = meshReader_->getElements();
@@ -107,11 +107,10 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   std::vector<double> data;
 
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Easi) {
-    data = initializer::projectEasiFields(
-        {seissolInstance_.getSeisSolParameters().initialization.filename},
-        simulationTime,
-        *meshReader_,
-        seissolInstance_.getSeisSolParameters().initialization.hasTime);
+    data = initializer::projectEasiFields({seissolInstance_.parameters().initialization.filename},
+                                          simulationTime,
+                                          *meshReader_,
+                                          seissolInstance_.parameters().initialization.hasTime);
   }
 
   double quadraturePoints[NumQuadPoints][3];
