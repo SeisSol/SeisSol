@@ -152,6 +152,11 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
                                                   tensor::INodal::size());
     layer.setEntrySize<LTS::PrevCoefficientsScratch>(sizeof(real) * freeSurfaceCount *
                                                      NodalDisplacementsSize);
+
+#ifdef USE_POROELASTIC
+    layer.setEntrySize<LTS::ZinvExtra>(layer.size() * yateto::computeFamilySize<tensor::Zinv>() *
+                                       sizeof(real));
+#endif
   }
 }
 
