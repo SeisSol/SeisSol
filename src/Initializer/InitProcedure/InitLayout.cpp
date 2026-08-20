@@ -12,9 +12,11 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/Internal/Buckets.h"
 #include "Initializer/InitProcedure/Internal/LtsSetup.h"
+#include "Initializer/InitProcedure/Internal/Scratchpads.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/TimeStepping/Halo.h"
 #include "Internal/MeshLayout.h"
+#include "Kernels/Common.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
@@ -100,7 +102,7 @@ void verifyHaloSetup(const LTS::Storage& ltsStorage, const std::vector<ClusterMa
 }
 
 void setupMemory(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
+  const auto& seissolParams = seissolInstance.parameters();
   const auto& meshReader = seissolInstance.meshReader();
 
   const auto rank = seissol::Mpi::mpi.rank();
@@ -114,9 +116,9 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
                                   : seissolInstance.getEffectiveClusterRates();
 
   const auto clusterLayout = ClusterLayout::fromMesh(
-      effectiveRates, seissolInstance.meshReader(), seissolInstance.getTimestepScale(), true);
+      effectiveRates, seissolInstance.meshReader(), seissolInstance.timestepScale(), true);
 
-  seissolInstance.getMemoryManager().setClusterLayout(clusterLayout);
+  seissolInstance.memoryManager().setClusterLayout(clusterLayout);
 
   std::vector<std::size_t> clusterMap(clusterLayout.globalClusterCount);
   std::iota(clusterMap.begin(), clusterMap.end(), 0);
@@ -153,8 +155,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   const auto meshLayout = internal::layoutCells(colors, colorsGhost, colorMap, meshReader);
 
-  auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
-  auto& backmap = seissolInstance.getMemoryManager().getBackmap();
+  auto& ltsStorage = seissolInstance.memoryManager().ltsStorage();
+  auto& backmap = seissolInstance.memoryManager().backmap();
   LTS::addTo(ltsStorage, settings);
   ltsStorage.setName("cluster");
   ltsStorage.setLayerCount(colorMap);
@@ -325,18 +327,18 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     }
   }
 
-  seissolInstance.getMemoryManager().initializeFrictionLaw();
+  seissolInstance.memoryManager().initializeFrictionLaw();
 
   logInfo() << "Setting up DR...";
 
   const auto drLayout = internal::layoutDR(colors, colorsGhost, colorMap, meshReader);
 
-  auto& drStorage = seissolInstance.getMemoryManager().getDRStorage();
+  auto& drStorage = seissolInstance.memoryManager().drStorage();
 
   drStorage.setName("dr");
 
   /// Dynamic rupture storage
-  seissolInstance.getMemoryManager().getDynamicRupture().addTo(drStorage);
+  seissolInstance.memoryManager().drDescriptor().addTo(drStorage);
 
   drStorage.setLayerCount(ltsStorage.getColorMap());
   drStorage.fixate();
@@ -348,7 +350,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   drStorage.allocateVariables();
   drStorage.touchVariables();
 
-  auto& drBackmap = seissolInstance.getMemoryManager().getDRBackmap();
+  auto& drBackmap = seissolInstance.memoryManager().drBackmap();
   drBackmap.setSize(meshReader.getFault().size());
 
   const auto* zeroDR = drStorage.var<DynamicRupture::FaceInformation>();
@@ -361,7 +363,10 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     }
   }
 
-  seissolInstance.getMemoryManager().fixateLtsStorage();
+  if constexpr (isDeviceOn()) {
+    seissol::initializer::internal::deriveRequiredScratchpadMemoryForDr(drStorage);
+    drStorage.allocateScratchPads();
+  }
 
   // pass 4: correct LTS setup, again. Do bucket setup, determine communication datastructures
   logInfo() << "Setting up data exchange and face displacements (buckets)...";
@@ -369,7 +374,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   logInfo() << "Setting up kernel clusters...";
   seissolInstance.timeManager().addClusters(
-      clusterLayout, haloCommunication, seissolInstance.getMemoryManager(), settings);
+      clusterLayout, haloCommunication, seissolInstance.memoryManager(), settings);
 
   seissolInstance.dofSync().setup(meshLayout, &ltsStorage);
 }

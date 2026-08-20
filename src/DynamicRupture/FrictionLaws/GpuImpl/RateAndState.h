@@ -32,17 +32,18 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
   static void copySpecificStorageDataToLocal(FrictionLawData* data,
                                              DynamicRupture::Layer& layerData) {
-    data->a = layerData.var<LTSRateAndState::RsA>(seissol::initializer::AllocationPlace::Device);
-    data->sl0 =
-        layerData.var<LTSRateAndState::RsSl0>(seissol::initializer::AllocationPlace::Device);
-    data->stateVariable = layerData.var<LTSRateAndState::StateVariable>(
-        seissol::initializer::AllocationPlace::Device);
-    data->f0 = layerData.var<LTSRateAndState::RsF0>(seissol::initializer::AllocationPlace::Device);
-    data->muW =
-        layerData.var<LTSRateAndState::RsMuW>(seissol::initializer::AllocationPlace::Device);
-    data->b = layerData.var<LTSRateAndState::RsB>(seissol::initializer::AllocationPlace::Device);
-    data->convergenceInner = layerData.var<LTSRateAndState::ConvergenceInner>();
-    data->convergenceOuter = layerData.var<LTSRateAndState::ConvergenceOuter>();
+
+    constexpr auto Place = seissol::initializer::AllocationPlace::Device;
+
+    data->a = layerData.var<LTSRateAndState::RsA>(Place);
+    data->sl0 = layerData.var<LTSRateAndState::RsSl0>(Place);
+    data->stateVariable = layerData.var<LTSRateAndState::StateVariable>(Place);
+    data->f0 = layerData.var<LTSRateAndState::RsF0>(Place);
+    data->muW = layerData.var<LTSRateAndState::RsMuW>(Place);
+    data->b = layerData.var<LTSRateAndState::RsB>(Place);
+    data->convergenceInner = layerData.var<LTSRateAndState::ConvergenceInner>(Place);
+    data->convergenceOuter = layerData.var<LTSRateAndState::ConvergenceOuter>(Place);
+
     Derived::copySpecificStorageDataToLocal(data, layerData);
     TPMethod::copyStorageToLocal(data, layerData);
   }

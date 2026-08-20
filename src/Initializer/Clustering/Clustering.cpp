@@ -57,11 +57,11 @@ const ClusteringResult& Clustering::compute(const seissol::geometry::PumlMesh& m
 
   logInfo() << "Computing LTS weights.";
 
-  auto details = computeTimesteps(CellToVertexArray::fromPUML(meshGeometry),
-                                  seissolInstance_.getSeisSolParameters());
+  auto details =
+      computeTimesteps(CellToVertexArray::fromPUML(meshGeometry), seissolInstance_.parameters());
   auto cellCosts = computeCostsPerTimestep(meshTopology);
 
-  const auto& ltsParameters = seissolInstance_.getSeisSolParameters().timeStepping.lts;
+  const auto& ltsParameters = seissolInstance_.parameters().timeStepping.lts;
   // getMaxNumberOfClusters() is validated to be positive, so the decrement cannot wrap
   auto maxClusterIdToEnforce = static_cast<std::size_t>(ltsParameters.getMaxNumberOfClusters()) - 1;
 
