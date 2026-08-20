@@ -15,6 +15,8 @@ import sys
 import numpy as np
 import pandas as pd
 
+from validation_report import write_report_json
+
 if hasattr(np, "trapezoid"):
     trapz_func = np.trapezoid
 else:
@@ -162,10 +164,17 @@ def find_all_receivers(directory: str, prefix: str, file_type: str = "receiver")
     return np.array(sorted(list(set(receiver_ids))))
 
 
-def report_errors(label: str, all_errors: dict[int, dict[str, float]], epsilon: float) -> bool:
-    """Print a per-receiver × per-column error table and return True if any exceed epsilon."""
+def report_errors(
+    label: str, all_errors: dict[int, dict[str, float]], epsilon: float
+) -> tuple[bool, dict[str, float]]:
+    """Print a per-receiver × per-column error table.
+
+    Returns ``(exceeded, per_column_max)`` where ``per_column_max`` maps each
+    column to its worst error across all receivers -- used to build the
+    machine-readable summary regardless of pass/fail.
+    """
     if not all_errors:
-        return False
+        return False, {}
 
     # Build a DataFrame: rows = receiver IDs, columns = all unique column names seen
     all_cols = sorted({col for errs in all_errors.values() for col in errs})
@@ -177,13 +186,15 @@ def report_errors(label: str, all_errors: dict[int, dict[str, float]], epsilon: 
     print(f"\nRelative L2 error of quantities at {label}:")
     print(df.to_string())
 
+    per_column_max = {col: float(np.nanmax(df[col].to_numpy())) for col in df.columns}
+
     exceeded = False
     for col in df.columns:
         broken = df.index[df[col] > epsilon].tolist()
         if broken:
             print(f"  '{col}' exceeds relative error of {epsilon} at {label} {broken}")
             exceeded = True
-    return exceeded
+    return exceeded, per_column_max
 
 def main():
     parser = argparse.ArgumentParser(description="Compare two sets of receivers.")
@@ -191,9 +202,18 @@ def main():
     parser.add_argument("output_ref", type=str)
     parser.add_argument("--epsilon", type=float, default=0.01)
     parser.add_argument("--prefix", type=str, default="tpv", required=False)
+    parser.add_argument(
+        "--report-json",
+        type=str,
+        default=None,
+        help="Write a machine-readable summary of the achieved errors to this "
+        "path (always written, regardless of pass/fail). Does not affect the "
+        "exit code.",
+    )
     args = parser.parse_args()
 
     ANY_FAILURE = False
+    quantities: dict[str, float] = {}
     for file_type in ("receiver", "faultreceiver"):
         label = f"{file_type}s"
         sim_ids = find_all_receivers(args.output, args.prefix, file_type)
@@ -203,7 +223,16 @@ def main():
             f"some {label} IDs are missing: {ids} vs {ref_ids}"
         )
         errors = {index: receiver_diff(args, index, file_type=file_type) for index in ref_ids}
-        ANY_FAILURE |= report_errors(label, errors, args.epsilon)
+        exceeded, per_column_max = report_errors(label, errors, args.epsilon)
+        ANY_FAILURE |= exceeded
+        # Prefix by receiver type so "receiver" and "faultreceiver" don't collide.
+        for col, val in per_column_max.items():
+            quantities[f"{file_type}:{col}"] = val
+
+    if args.report_json is not None:
+        write_report_json(
+            args.report_json, "receiver", args.epsilon, not ANY_FAILURE, quantities
+        )
 
     sys.exit(1 if ANY_FAILURE else 0)
 
