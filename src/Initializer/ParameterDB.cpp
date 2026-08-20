@@ -237,8 +237,8 @@ reader::scripting::DataTable ElementBarycenterGenerator::generate() const {
 
 ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellToVertex)
     : cellToVertex_(cellToVertex) {
-  double quadraturePoints[NumQuadpoints][3];
-  double quadratureWeights[NumQuadpoints];
+  double quadraturePoints[NumQuadpoints][3]{};
+  double quadratureWeights[NumQuadpoints]{};
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, ConvergenceOrder);
 
   std::copy(
@@ -352,7 +352,8 @@ reader::scripting::DataTable FaultGPGenerator::generate() const {
   const auto& self = *this;
 
   // element, side, sideOrientation
-  const auto faultFace = [=](std::size_t index) -> std::tuple<std::size_t, std::uint8_t, int> {
+  const auto faultFace =
+      [=, &fault, &elements](std::size_t index) -> std::tuple<std::size_t, std::uint8_t, int> {
     const Fault& f = fault.at(self.faceIDs_[index / NumPoints]);
     if (f.element >= 0) {
       return {f.element, f.side, -1};
@@ -391,7 +392,7 @@ reader::scripting::DataTable FaultGPGenerator::generate() const {
   table.bindComputed(
       "z", [faultCoordinate](std::size_t index) -> double { return faultCoordinate(index, 2); });
 
-  table.bindComputed("group", [=](std::size_t index) {
+  table.bindComputed("group", [=, &elements](std::size_t index) {
     const auto [element, side, _] = faultFace(index);
     return elements[element].faultTags[side];
   });

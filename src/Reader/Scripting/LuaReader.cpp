@@ -359,7 +359,6 @@ void LuaReader::call(const scripting::DataTable& table) {
 #pragma omp for schedule(static)
     for (std::size_t point = 0; point < table.numPoints(); ++point) {
       // Push function and arguments to stack
-      lua_getfield(luaState, -1, "evaluate");
       lua_rawgeti(luaState, LUA_REGISTRYINDEX, luaStateState.refEvaluate);
       lua_rawgeti(luaState, LUA_REGISTRYINDEX, luaStateState.refFields);
 
