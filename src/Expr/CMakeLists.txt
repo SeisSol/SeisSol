@@ -5,8 +5,9 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#add_library(seissol-expr OBJECT
-#)
+add_library(seissol-expr OBJECT
+    SderivFrontend.cpp
+)
 
-#target_link_libraries(seissol-expr PUBLIC seissol-common-properties)
-#target_link_libraries(seissol-lib PUBLIC seissol-expr)
+target_link_libraries(seissol-expr PUBLIC seissol-common-properties)
+target_link_libraries(seissol-lib PUBLIC seissol-expr)

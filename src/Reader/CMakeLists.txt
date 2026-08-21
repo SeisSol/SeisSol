@@ -15,6 +15,7 @@ add_library(seissol-reader OBJECT
 
     Scripting/EasiReader.cpp
     Scripting/LuaReader.cpp
+    Scripting/LuaTracer.cpp
     Scripting/ReaderBuilder.cpp
 )
 
