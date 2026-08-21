@@ -31,7 +31,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("LTS Weights") {
+TEST_CASE("LTS Weights" * doctest::test_suite("initializer")) {
   std::cout.setstate(std::ios_base::failbit);
   using namespace seissol::initializer;
 
@@ -81,7 +81,7 @@ TEST_CASE("LTS Weights") {
   CHECK(givenWeights == expectedWeights);
 }
 
-TEST_CASE("Cost function for LTS") {
+TEST_CASE("Cost function for LTS" * doctest::test_suite("initializer")) {
   const auto eps = 10e-12;
   using namespace seissol::initializer;
 
@@ -169,7 +169,7 @@ TEST_CASE("Cost function for LTS") {
   }
 }
 
-TEST_CASE("Enforce max cluster id") {
+TEST_CASE("Enforce max cluster id" * doctest::test_suite("initializer")) {
   using namespace seissol::initializer;
   const auto clusterIds = std::vector<std::size_t>{0, 1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1, 0};
   SUBCASE("No change") {
@@ -189,7 +189,7 @@ TEST_CASE("Enforce max cluster id") {
   }
 }
 
-TEST_CASE("Batched costs of capped clusterings") {
+TEST_CASE("Batched costs of capped clusterings" * doctest::test_suite("initializer")) {
   using namespace seissol::initializer;
   const auto clusterIds = std::vector<std::size_t>{0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 4};
   const auto cellCosts = std::vector<std::uint64_t>{7, 3, 5, 1, 3, 3, 9, 2, 4, 6, 8, 5};
@@ -218,7 +218,7 @@ TEST_CASE("Batched costs of capped clusterings") {
   }
 }
 
-TEST_CASE("Auto merging of clusters") {
+TEST_CASE("Auto merging of clusters" * doctest::test_suite("initializer")) {
   using namespace seissol::initializer;
   const auto clusterIds = std::vector<std::size_t>{0, 0, 0, 0, 1, 1, 2};
   const auto cellCosts = std::vector<std::uint64_t>{1, 1, 1, 1, 3, 3, 9};
@@ -272,7 +272,7 @@ TEST_CASE("Auto merging of clusters") {
   }
 }
 
-TEST_CASE("LTS clustering invariants on a mesh") {
+TEST_CASE("LTS clustering invariants on a mesh" * doctest::test_suite("initializer")) {
   // Value-free characterization of the end-to-end clustering: rather than pinning golden
   // cluster ids (which would have to be regenerated for every mesh change), this asserts
   // the two structural properties that the refactor must not break.
