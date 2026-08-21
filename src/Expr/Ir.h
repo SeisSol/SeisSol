@@ -40,6 +40,10 @@ inline constexpr NodeId NoNode = -1;
 using GridId = std::int32_t;
 inline constexpr GridId NoGrid = -1;
 
+// Upper bound on Lookup coordinate count, from the grid dimensionality easi
+// supports. Bounded so a Lookup's argument span always fits a small stack array.
+inline constexpr std::int32_t MaxLookupDimension = 6;
+
 enum class Kind : std::uint8_t {
   Const,  // literal
   Field,  // named input channel (vx, x, t, group, …) — resolved via Binding
@@ -50,6 +54,8 @@ enum class Kind : std::uint8_t {
   Fold,   // temporal reducer                                [derived-output]
   Sample  // materialize at output cadence                   [derived-output]
 };
+
+const char* name(Kind kind);
 
 // Pointwise ops. Arity is fixed per op; the enum order carries no meaning any
 // more (see delta 1) — always go through arity().
@@ -172,14 +178,31 @@ struct NodeHash {
 // The interning arena. Owns every node and hands out stable NodeIds; equal
 // subtrees get equal ids, so CSE falls out of construction and both the plan
 // builder and the linearizer keep working on plain id equality.
+//
+// CHANGED against the handed-over header (reported): the copy/move operations
+// are explicit. NodeHash/NodeEq hold a back-pointer to the owning Arena — they
+// need it to reach args_ for Lookup nodes — and that pointer is not reachable
+// after the map has been constructed (unordered_map::hash_function() returns a
+// copy). A defaulted move would therefore carry pool_ over with a hasher still
+// aimed at the moved-from Arena, whose args_ is empty; the next intern() of a
+// Lookup then reads a dangling span. Program holds an Arena by value and
+// frontends return Program by value, so this path is taken on every build.
+// The fix is to rebuild pool_ from nodes_ after the transfer: O(n), once.
 class Arena {
   public:
   Arena();
+  ~Arena() = default;
+  Arena(const Arena& other);
+  Arena& operator=(const Arena& other);
+  Arena(Arena&& other) noexcept;
+  Arena& operator=(Arena&& other) noexcept;
 
   [[nodiscard]] const Node& operator[](NodeId id) const { return nodes_[id]; }
   [[nodiscard]] std::size_t size() const { return nodes_.size(); }
 
   [[nodiscard]] int channel(const std::string& name);
+  // -1 if the name was never interned; does not intern.
+  [[nodiscard]] int findChannel(const std::string& name) const;
   [[nodiscard]] const std::string& channelName(int id) const { return channelNames_[id]; }
   [[nodiscard]] std::size_t channelCount() const { return channelNames_.size(); }
 
@@ -204,6 +227,7 @@ class Arena {
 
   private:
   NodeId intern(const Node& n);
+  void rebuildPool();
 
   std::vector<Node> nodes_;
   std::vector<NodeId> args_;

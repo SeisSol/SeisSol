@@ -4,8 +4,6 @@
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
-#ifndef SEISSOL_SRC_TESTS_EXPR_SDERIVFRONTEND_T_H_
-#define SEISSOL_SRC_TESTS_EXPR_SDERIVFRONTEND_T_H_
 
 // Same shape as LuaTracer.t.h: sources inline, positive / negative /
 // differential.
@@ -241,5 +239,3 @@ select(lt(z, -1000), m_rho(x, y, z), 2700)
 }
 
 } // namespace seissol::unit_test
-
-#endif // SEISSOL_SRC_TESTS_EXPR_SDERIVFRONTEND_T_H_

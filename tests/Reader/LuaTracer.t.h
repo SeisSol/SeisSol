@@ -4,8 +4,6 @@
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
-#ifndef SEISSOL_SRC_TESTS_READER_SCRIPTING_LUATRACER_T_H_
-#define SEISSOL_SRC_TESTS_READER_SCRIPTING_LUATRACER_T_H_
 
 // Every script is a string literal here rather than a file on disk: the corpus
 // is small, the tests are then hermetic (no path resolution, no install step,
@@ -488,5 +486,3 @@ return M
 }
 
 } // namespace seissol::unit_test
-
-#endif // SEISSOL_SRC_TESTS_READER_SCRIPTING_LUATRACER_T_H_
