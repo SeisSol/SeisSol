@@ -47,6 +47,7 @@ class InstantaneousTimeMirrorManager : public Module {
 
   public:
   explicit InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance);
+  ~InstantaneousTimeMirrorManager() override;
 
   // delete all other constructors due to it being a module.
 
@@ -69,12 +70,6 @@ class InstantaneousTimeMirrorManager : public Module {
   void scaleClusterTimes(double scalingFactor);
   void updateVelocities();
   void updateTimeSteps();
-
-  template <typename MaterialType>
-  void updateVelocitiesForMaterialType();
-
-  template <typename MaterialType>
-  void updateTimeStepsForMaterialType();
 };
 
 void initializeTimeMirrorManagers(double scalingFactor,

@@ -104,7 +104,7 @@ void seissol::writer::FreeSurfaceWriter::setUp() {
 
   utils::Env env("SEISSOL_");
   if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, env)) {
-    const auto freeCpus = seissolInstance_.getPinning().getFreeCPUsMask();
+    const auto freeCpus = seissolInstance_.pinning().getFreeCPUsMask();
     logInfo() << "Free surface writer thread affinity:" << parallel::Pinning::maskToString(freeCpus)
               << "(" << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {

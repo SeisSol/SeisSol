@@ -7,18 +7,17 @@
 
 #include "InstantaneousTimeMirrorManager.h"
 
-#include "Equations/Datastructures.h"
-#include "Initializer/CellLocalMatrices.h"
+#include "Initializer/Model/CellLocalMatrices.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
 #include "SeisSol.h"
 
 #include <cstddef>
-#include <type_traits>
 #include <utils/logger.h>
 #include <vector>
 
@@ -46,27 +45,38 @@ double
   return 1.0;
 }
 
+namespace {
+void checkSupported(const model::Material& material,
+                    initializer::parameters::ReflectionType reflectionType) {
+  if (material.getMaterialType() != model::MaterialType::Elastic &&
+      material.getMaterialType() != model::MaterialType::Anisotropic) {
+    logError() << "ITM material update is not implemented for this material type.";
+  }
+  if (material.getMaterialType() == model::MaterialType::Anisotropic &&
+      !isAnisotropicReflectionTypeSupported(reflectionType)) {
+    logError() << "Anisotropic materials cannot have Pwave, Swave, and BothWavesVelocity.";
+  }
+}
+} // namespace
+
 InstantaneousTimeMirrorManager::InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
     : seissolInstance_(seissolInstance) {}
+
+InstantaneousTimeMirrorManager::~InstantaneousTimeMirrorManager() = default;
 
 void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           double triggerTime,
                                           seissol::geometry::MeshReader* meshReader,
                                           LTS::Storage& ltsStorage,
                                           const initializer::ClusterLayout* clusterLayout) {
-  constexpr bool IsElastic =
-      std::is_same_v<seissol::model::MaterialT, seissol::model::ElasticMaterial>;
-  constexpr bool IsAnisotropic =
-      std::is_same_v<seissol::model::MaterialT, seissol::model::AnisotropicMaterial>;
-  if constexpr (!IsElastic && !IsAnisotropic) {
-    logError() << "ITM material update is not implemented for this material type.";
-  }
 
-  if constexpr (IsAnisotropic) {
-    const auto reflectionType =
-        seissolInstance_.getSeisSolParameters().model.itmParameters.itmReflectionType;
-    if (!isAnisotropicReflectionTypeSupported(reflectionType)) {
-      logError() << "Anisotropic materials cannot have Pwave, Swave, and BothWavesVelocity.";
+  const auto itmParameters = seissolInstance_.parameters().model.itmParameters;
+  const auto reflectionType = itmParameters.itmReflectionType;
+
+  // check over all cells (cheap; though it can be reduced to at most one per layer)
+  for (auto& layer : ltsStorage.leaves()) {
+    for (std::size_t i = 0; i < layer.size(); ++i) {
+      checkSupported(layer.cellRef(i).get<LTS::MaterialData>(), reflectionType);
     }
   }
 
@@ -98,7 +108,7 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
 
   logInfo() << "Updating CellLocalMatrices";
   initializer::initializeCellLocalMatrices(
-      *meshReader_, *ltsStorage_, *clusterLayout_, seissolInstance_.getSeisSolParameters().model);
+      *meshReader_, *ltsStorage_, *clusterLayout_, seissolInstance_.parameters().model);
 
 #ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
@@ -116,16 +126,12 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
   isEnabled_ = false;
 }
 
-template <typename MaterialType>
-void InstantaneousTimeMirrorManager::updateVelocitiesForMaterialType() {
-  constexpr bool IsElastic = std::is_same_v<MaterialType, seissol::model::ElasticMaterial>;
-  constexpr bool IsAnisotropic = std::is_same_v<MaterialType, seissol::model::AnisotropicMaterial>;
-
-  const auto itmParameters = seissolInstance_.getSeisSolParameters().model.itmParameters;
+void InstantaneousTimeMirrorManager::updateVelocities() {
+  const auto itmParameters = seissolInstance_.parameters().model.itmParameters;
   const auto reflectionType = itmParameters.itmReflectionType;
 
-  const auto updateMaterial = [&](MaterialType& material) {
-    if constexpr (IsElastic) {
+  const auto updateMaterial = [&](model::Material& material) {
+    if (material.getMaterialType() == model::MaterialType::Elastic) {
       const auto rho = material.getDensity();
       const auto lambda = material.getLambdaBar();
       const auto mu = material.getMuBar();
@@ -150,9 +156,7 @@ void InstantaneousTimeMirrorManager::updateVelocitiesForMaterialType() {
       } else {
         logError() << "Unknown reflection type; material cannot be updated.";
       }
-    }
-
-    if constexpr (IsAnisotropic) {
+    } else if (material.getMaterialType() == model::MaterialType::Anisotropic) {
       // for anisotropic materials, you could scale down density
       // or scale up all the direction-dependent coefficients.
       // we scale density for code simplicity
@@ -171,23 +175,12 @@ void InstantaneousTimeMirrorManager::updateVelocitiesForMaterialType() {
   }
 }
 
-template <typename MaterialType>
-void InstantaneousTimeMirrorManager::updateTimeStepsForMaterialType() {
-  constexpr bool IsElastic = std::is_same_v<MaterialType, seissol::model::ElasticMaterial>;
-  constexpr bool IsAnisotropic = std::is_same_v<MaterialType, seissol::model::AnisotropicMaterial>;
-  if constexpr (!IsElastic && !IsAnisotropic) {
-    return;
-  }
-
-  const auto itmParameters = seissolInstance_.getSeisSolParameters().model.itmParameters;
+void InstantaneousTimeMirrorManager::updateTimeSteps() {
+  const auto itmParameters = seissolInstance_.parameters().model.itmParameters;
   const auto reflectionType = itmParameters.itmReflectionType;
 
-  double timeStepScaling = 1.0;
-  if constexpr (IsElastic) {
-    timeStepScaling = getElasticTimeStepScalingFactor(reflectionType, velocityScalingFactor_);
-  } else {
-    timeStepScaling = 1.0 / velocityScalingFactor_;
-  }
+  const double timeStepScaling =
+      getElasticTimeStepScalingFactor(reflectionType, velocityScalingFactor_);
 
   if (timeStepScaling != 1.0) {
     scaleClusterTimes(timeStepScaling);
@@ -204,14 +197,6 @@ void InstantaneousTimeMirrorManager::scaleClusterTimes(double scalingFactor) {
   }
 }
 
-void InstantaneousTimeMirrorManager::updateVelocities() {
-  updateVelocitiesForMaterialType<seissol::model::MaterialT>();
-}
-
-void InstantaneousTimeMirrorManager::updateTimeSteps() {
-  updateTimeStepsForMaterialType<seissol::model::MaterialT>();
-}
-
 void InstantaneousTimeMirrorManager::setClusterVector(
     const std::vector<seissol::time_stepping::AbstractTimeCluster*>& clusters) {
   this->clusters_ = clusters;
@@ -226,7 +211,7 @@ void initializeTimeMirrorManagers(double scalingFactor,
                                   seissol::SeisSol& seissolInstance,
                                   const initializer::ClusterLayout* clusterLayout) {
   increaseManager.init(scalingFactor, triggerTime, meshReader, ltsStorage, clusterLayout);
-  auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
+  auto itmParameters = seissolInstance.parameters().model.itmParameters;
   const double eps = itmParameters.itmDuration;
 
   decreaseManager.init(1 / scalingFactor, triggerTime + eps, meshReader, ltsStorage, clusterLayout);
