@@ -109,11 +109,7 @@ struct MaterialSetup<AcousticMaterial> {
       chi(0, 0) = 1.0;
 
       const auto matRT = matR.transpose();
-      // Deliberately partialPivLu and not a rank-revealing factorization: matR is a regular
-      // eigenvector basis, so a solver that declares it rank deficient and zeroes part of the
-      // solution can only ever be wrong -- and silently so. Partial pivoting also preserves the
-      // sparsity of matR (measured growth factor 1.0 across all equation sets and materials),
-      // which makes it markedly more accurate here than Householder QR.
+      // Deliberately partialPivLu and not a rank-revealing factorization; cf. ElasticSetup.h
       const auto matRlu = matRT.partialPivLu();
       const auto godunov = matRlu.solve(chi * matRT).eval();
 
