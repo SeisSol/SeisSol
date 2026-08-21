@@ -18,11 +18,11 @@ TEST_CASE("Anisotropic Instantaneous Time Mirror supports only BothWaves reflect
           doctest::skip(!std::is_same_v<model::MaterialT, model::AnisotropicMaterial>)) {
   using seissol::initializer::parameters::ReflectionType;
 
-  CHECK(seissol::ITM::isAnisotropicReflectionTypeSupported(ReflectionType::BothWaves));
-  CHECK_FALSE(seissol::ITM::isAnisotropicReflectionTypeSupported(ReflectionType::Pwave));
-  CHECK_FALSE(seissol::ITM::isAnisotropicReflectionTypeSupported(ReflectionType::Swave));
+  CHECK(seissol::physics::isAnisotropicReflectionTypeSupported(ReflectionType::BothWaves));
+  CHECK_FALSE(seissol::physics::isAnisotropicReflectionTypeSupported(ReflectionType::Pwave));
+  CHECK_FALSE(seissol::physics::isAnisotropicReflectionTypeSupported(ReflectionType::Swave));
   CHECK_FALSE(
-      seissol::ITM::isAnisotropicReflectionTypeSupported(ReflectionType::BothWavesVelocity));
+      seissol::physics::isAnisotropicReflectionTypeSupported(ReflectionType::BothWavesVelocity));
 }
 
 TEST_CASE("Instantaneous Time Mirror Swave lambda scaling matches implementation formula") {
@@ -32,7 +32,7 @@ TEST_CASE("Instantaneous Time Mirror Swave lambda scaling matches implementation
   const double expected =
       (lambda + 2.0 * mu) / velocityScalingFactor - 2.0 * velocityScalingFactor * mu;
 
-  CHECK(seissol::ITM::getSwaveScaledLambda(lambda, mu, velocityScalingFactor) ==
+  CHECK(seissol::physics::getSwaveScaledLambda(lambda, mu, velocityScalingFactor) ==
         AbsApprox(expected).epsilon(1.0e-15));
 }
 
@@ -40,17 +40,17 @@ TEST_CASE("Elastic Instantaneous Time Mirror time-step scaling depends on reflec
   using seissol::initializer::parameters::ReflectionType;
 
   const double velocityScalingFactor = 2.5;
-  CHECK(seissol::ITM::getElasticTimeStepScalingFactor(ReflectionType::BothWaves,
-                                                      velocityScalingFactor) ==
+  CHECK(seissol::physics::getElasticTimeStepScalingFactor(ReflectionType::BothWaves,
+                                                          velocityScalingFactor) ==
         AbsApprox(1.0 / velocityScalingFactor).epsilon(1.0e-15));
-  CHECK(
-      seissol::ITM::getElasticTimeStepScalingFactor(ReflectionType::Pwave, velocityScalingFactor) ==
-      AbsApprox(1.0 / velocityScalingFactor).epsilon(1.0e-15));
-  CHECK(
-      seissol::ITM::getElasticTimeStepScalingFactor(ReflectionType::Swave, velocityScalingFactor) ==
-      AbsApprox(velocityScalingFactor).epsilon(1.0e-15));
-  CHECK(seissol::ITM::getElasticTimeStepScalingFactor(ReflectionType::BothWavesVelocity,
-                                                      velocityScalingFactor) ==
+  CHECK(seissol::physics::getElasticTimeStepScalingFactor(ReflectionType::Pwave,
+                                                          velocityScalingFactor) ==
+        AbsApprox(1.0 / velocityScalingFactor).epsilon(1.0e-15));
+  CHECK(seissol::physics::getElasticTimeStepScalingFactor(ReflectionType::Swave,
+                                                          velocityScalingFactor) ==
+        AbsApprox(velocityScalingFactor).epsilon(1.0e-15));
+  CHECK(seissol::physics::getElasticTimeStepScalingFactor(ReflectionType::BothWavesVelocity,
+                                                          velocityScalingFactor) ==
         AbsApprox(1.0).epsilon(1.0e-15));
 }
 } // namespace seissol::unit_test

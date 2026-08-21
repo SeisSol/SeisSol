@@ -10,12 +10,12 @@
 # ---------------------------------------------------------------------------
 
 configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/TimeStepping/mesh.h5
+    ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/Clustering/mesh.h5
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh.h5
     COPYONLY
 )
 configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/TimeStepping/material.yaml
+    ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/Clustering/material.yaml
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/material.yaml
     COPYONLY
 )

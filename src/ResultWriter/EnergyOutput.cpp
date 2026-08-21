@@ -187,7 +187,8 @@ void EnergyOutput::init(
   isTerminalOutputEnabled_ = parameters.terminalOutput && (rank == 0);
   terminatorMaxTimePostRupture_ = parameters.terminatorMaxTimePostRupture;
   terminatorMomentRateThreshold_ = parameters.terminatorMomentRateThreshold;
-  isCheckAbortCriteraSlipRateEnabled_ = std::isfinite(terminatorMaxTimePostRupture_);
+  isCheckAbortCriteraSlipRateEnabled_ =
+      (terminatorMaxTimePostRupture_ >= std::numeric_limits<double>::max());
   isCheckAbortCriteraMomentRateEnabled_ = (terminatorMomentRateThreshold_ > 0);
   computeVolumeEnergiesEveryOutput_ = parameters.computeVolumeEnergiesEveryOutput;
   outputFileName_ = outputFileNamePrefix + "-energy.csv";
@@ -264,7 +265,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     double& staticFrictionalWork = energiesStorage_.staticFrictionalWork(sim);
     double& seismicMoment = energiesStorage_.seismicMoment(sim);
     double& potency = energiesStorage_.potency(sim);
-    minTimeSinceSlipRateBelowThreshold_[sim] = std::numeric_limits<double>::infinity();
+    minTimeSinceSlipRateBelowThreshold_[sim] = std::numeric_limits<double>::max();
 
     for (const auto& layer : drStorage_->leaves()) {
 
@@ -362,7 +363,7 @@ void EnergyOutput::computeVolumeEnergies() {
     const std::vector<Element>& elements = meshReader_->getElements();
     const std::vector<Vertex>& vertices = meshReader_->getVertices();
 
-    [[maybe_unused]] const auto g = seissolInstance_.getGravitationSetup().acceleration;
+    [[maybe_unused]] const auto g = seissolInstance_.gravitationSetup().acceleration;
 
     constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
     constexpr auto NumQuadraturePointsTet = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
@@ -595,7 +596,7 @@ void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
 
 void EnergyOutput::printEnergies() {
   const auto outputPrecision =
-      seissolInstance_.getSeisSolParameters().output.energyParameters.terminalPrecision;
+      seissolInstance_.parameters().output.energyParameters.terminalPrecision;
 
   const auto shouldPrint = [](double thresholdValue) { return std::abs(thresholdValue) > 1.e-20; };
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {

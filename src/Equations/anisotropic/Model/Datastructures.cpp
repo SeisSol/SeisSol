@@ -33,10 +33,9 @@ double AnisotropicMaterial::getMuBar() const { return (c44 + c55 + c66) / 3.0; }
 AnisotropicMaterial::AnisotropicMaterial() = default;
 
 AnisotropicMaterial::AnisotropicMaterial(const ElasticMaterial& m)
-    : c11(m.lambda + 2 * m.mu), c12(m.lambda), c13(m.lambda), c22(m.lambda + 2 * m.mu),
-      c23(m.lambda), c33(m.lambda + 2 * m.mu), c44(m.mu), c55(m.mu), c66(m.mu) {
-  rho = m.rho;
-}
+    : Material(m.rho), c11(m.lambda + 2 * m.mu), c12(m.lambda), c13(m.lambda),
+      c22(m.lambda + 2 * m.mu), c23(m.lambda), c33(m.lambda + 2 * m.mu), c44(m.mu), c55(m.mu),
+      c66(m.mu) {}
 
 AnisotropicMaterial::AnisotropicMaterial(const std::vector<double>& materialValues)
     : Material(materialValues), c11(materialValues.at(1)), c12(materialValues.at(2)),
