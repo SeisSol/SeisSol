@@ -29,6 +29,7 @@ add_library(seissol-initializer OBJECT
     InitProcedure/Internal/MeshLayout.cpp
 
     Parameters/CubeGeneratorParameters.cpp
+    Parameters/DatafieldParameters.cpp
     Parameters/DRParameters.cpp
     Parameters/InitializationParameters.cpp
     Parameters/LtsParameters.cpp

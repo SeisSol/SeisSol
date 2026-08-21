@@ -12,3 +12,7 @@
 #ifdef USE_NETCDF
 #include "NRFReader.t.h"
 #endif
+
+#include "Datafield/GridStore.t.h"
+#include "Datafield/Interpolation.t.h"
+#include "Datafield/TimeWindow.t.h"
