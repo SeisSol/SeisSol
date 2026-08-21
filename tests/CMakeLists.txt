@@ -88,6 +88,12 @@ function(seissol_add_test_module NAME)
             TEST_PREFIX "${NAME}/"
         )
     endif()
+
+    if (NOT NEW_BINARY_NAMING)
+        set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME "SeisSol_test_${NAME}_${EXE_NAME_PREFIX}")
+    else()
+        set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME "testseissol-${NAME}-${NAME_SUFFIX}")
+    endif()
 endfunction()
 
 
