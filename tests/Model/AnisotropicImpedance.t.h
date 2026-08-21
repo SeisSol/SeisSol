@@ -249,7 +249,9 @@ TEST_CASE("Anisotropic lateral stress reconstruction" * doctest::test_suite("dyn
     const double mu = 3.203e10;
     const double lambda = 3.204e10;
     const auto frame = makeFaultFrame(Eigen::Vector3d(0.3, -0.5, 0.81));
-    const auto lateral = DrLateralMatrix(rotateToFault(isotropicMaterial(rho, mu, lambda), frame));
+    const auto lateral =
+        seissol::initializer::model::impedance_detail::lateralStressFromChristoffel(
+            rotateToFault(isotropicMaterial(rho, mu, lambda), frame));
 
     const double cs = std::sqrt(mu / rho);
     const double cp = std::sqrt((lambda + 2 * mu) / rho);
@@ -263,7 +265,8 @@ TEST_CASE("Anisotropic lateral stress reconstruction" * doctest::test_suite("dyn
   SUBCASE("reproduces the plane wave stress of a tilted VTI") {
     const auto frame = makeFaultFrame(Eigen::Vector3d::UnitZ());
     const auto material = rotateToFault(tiltedVti(35.0), frame);
-    const auto lateral = DrLateralMatrix(material);
+    const auto lateral =
+        seissol::initializer::model::impedance_detail::lateralStressFromChristoffel(material);
     const auto stiffness = voigt(material);
 
     // every polarisation of a wave travelling along the fault normal has only the strain rates
@@ -300,8 +303,7 @@ TEST_CASE("Anisotropic lateral stress reconstruction" * doctest::test_suite("dyn
     const auto frame = makeFaultFrame(Eigen::Vector3d(0.3, -0.5, 0.81));
     const auto material = rotateToFault(tiltedVti(35.0), frame);
 
-    seissol::initializer::model::DrLateralMatrix fromEigen =
-        seissol::initializer::model::DrLateralMatrix::Zero();
+    DrLateralMatrix fromEigen = DrLateralMatrix::Zero();
     seissol::initializer::model::impedance_detail::admittanceFromEigendecomposition(material,
                                                                                     &fromEigen);
     const auto fromClosedForm =
