@@ -37,14 +37,28 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
 
     const auto stfEvaluated = STF::evaluateSTF(ctx, currentTime, timeIncrement);
 
-    ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] =
-        ctx.faultStresses.traction1[timeIndex] -
-        ctx.data->impAndEta[ctx.ltsFace].etaS *
-            ctx.data->imposedSlipDirection1[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
-    ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] =
-        ctx.faultStresses.traction2[timeIndex] -
-        ctx.data->impAndEta[ctx.ltsFace].etaS *
-            ctx.data->imposedSlipDirection2[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
+    const auto evalCardinal1 =
+        ctx.data->imposedSlipDirection1[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
+    const auto evalCardinal2 =
+        ctx.data->imposedSlipDirection2[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
+
+    const auto [tU1, tU2] = common::matmulEta(ctx.data->impAndEta[ctx.ltsFace],
+                                              ctx.data->impedanceMatrices[ctx.ltsFace],
+                                              evalCardinal1,
+                                              evalCardinal2);
+
+    // the prescribed slip rate also changes the fault-normal traction if the impedance couples the
+    // normal and the tangential directions (anisotropy); zero otherwise
+    const auto tUN = common::matmulEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
+                                             ctx.data->impedanceMatrices[ctx.ltsFace],
+                                             evalCardinal1,
+                                             evalCardinal2);
+
+    const auto traction1 = ctx.faultStresses.traction1 - tU1;
+    const auto traction2 = ctx.faultStresses.traction2 - tU2;
+
+    ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = traction1;
+    ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = traction2;
 
     ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] =
         ctx.data->imposedSlipDirection1[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
@@ -62,8 +76,9 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
     ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex] +=
         ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] * timeIncrement;
 
-    ctx.tractionResults.traction1[timeIndex] = ctx.data->traction1[ctx.ltsFace][ctx.pointIndex];
-    ctx.tractionResults.traction2[timeIndex] = ctx.data->traction2[ctx.ltsFace][ctx.pointIndex];
+    ctx.tractionResults.normalStress = ctx.faultStresses.normalStress - tUN;
+    ctx.tractionResults.traction1 = traction1;
+    ctx.tractionResults.traction2 = traction2;
   }
 
   SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& __restrict ctx,

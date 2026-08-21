@@ -7,13 +7,16 @@
 
 #include "Factory.h"
 
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "FrictionLaws/FrictionLaws.h"
 #include "Initializer/Initializers.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+#include "Model/CommonDatastructures.h"
 #include "Output/Output.h"
 
+#include <cstdint>
 #include <memory>
 #include <utils/logger.h>
 
@@ -275,9 +278,49 @@ class RateAndStateSevereVelocityWeakeningFactory : public AbstractFactory {
 };
 } // namespace
 
+namespace {
+/**
+ * With an anisotropic impedance, shear slip changes the fault-normal traction instantaneously
+ * (sigma = sigma_stick - V * (eta * n)_n). That is structurally the same coupling as the bimaterial
+ * one, which Ranjith & Rice (2001, JMPS 49, 341) showed to render Coulomb friction ill-posed: the
+ * growth rate of interfacial perturbations is proportional to the wavenumber, so the problem does
+ * not converge under mesh refinement (Cochard & Rice 2000).
+ *
+ * Ranjith & Gao (2007, IJSS 44, 4318) show that for anisotropy this can already happen with
+ * *identical* materials on both sides, purely from an obliquely oriented symmetry axis.
+ *
+ * Rate-and-state with a > 0 and the Prakash-Clifton regularisation of the bimaterial slip
+ * weakening law both provide the necessary regularisation; plain slip weakening does not.
+ */
+void warnAboutUnregularizedNormalCoupling(
+    const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters) {
+  if constexpr (Config::MaterialType != model::MaterialType::Anisotropic) {
+    return;
+  } else {
+    using seissol::dr::misc::FrictionLawType;
+    const auto law = drParameters->frictionLawType;
+    const bool unregularized = law == FrictionLawType::LinearSlipWeakening ||
+                               law == FrictionLawType::LinearSlipWeakeningLegacy ||
+                               law == FrictionLawType::LinearSlipWeakeningTPApprox;
+    if (unregularized) {
+      logWarning() << "Anisotropic dynamic rupture couples shear slip to the fault-normal traction."
+                   << "Combined with an unregularized slip weakening law (friction law"
+                   << static_cast<uint32_t>(law)
+                   << "), this is the same class of problem that Ranjith & Rice (2001) showed to be"
+                   << "ill-posed for bimaterial interfaces: perturbations grow without a bound on"
+                   << "the growth rate, and the solution need not converge under mesh refinement."
+                   << "Please verify mesh convergence, or use a regularized law -- rate-and-state"
+                   << "(a > 0), or the Prakash-Clifton regularized friction law 6.";
+    }
+  }
+}
+} // namespace
+
 std::unique_ptr<AbstractFactory>
     getFactory(const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
                seissol::SeisSol& seissolInstance) {
+  warnAboutUnregularizedNormalCoupling(drParameters);
+
   switch (drParameters->frictionLawType) {
   case seissol::dr::misc::FrictionLawType::NoFault:
     return std::make_unique<NoFaultFactory>(drParameters, seissolInstance);

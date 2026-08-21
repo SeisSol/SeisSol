@@ -50,7 +50,6 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    */
   SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext& __restrict ctx,
                                                      uint32_t timeIndex) {
-    const auto& devImpAndEta{ctx.data->impAndEta[ctx.ltsFace]};
     const auto deltaT{ctx.args->deltaT[timeIndex]};
 
     auto& faultStresses = ctx.faultStresses;
@@ -58,29 +57,106 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto& strength = ctx.strengthBuffer;
 
     // calculate absolute value of stress in Y and Z direction
-    const real totalStress1 = ctx.data->initialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] +
-                              faultStresses.traction1[timeIndex];
-    const real totalStress2 = ctx.data->initialStressInFaultCS[ctx.ltsFace][5][ctx.pointIndex] +
-                              faultStresses.traction2[timeIndex];
+    const real totalStress1 =
+        ctx.data->initialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] + faultStresses.traction1;
+    const real totalStress2 =
+        ctx.data->initialStressInFaultCS[ctx.ltsFace][5][ctx.pointIndex] + faultStresses.traction2;
     const real absoluteShearStress = misc::magnitude(totalStress1, totalStress2);
+
+    const auto [eta, invEta] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
+                                                  ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                  totalStress1,
+                                                  totalStress2,
+                                                  absoluteShearStress);
+
+    // the direction along which the slip rate is decomposed further down; scaled such that
+    // dividing by `divisor` yields the unit slip direction
+    real dirStress1 = totalStress1;
+    real dirStress2 = totalStress2;
+    real etaEff = eta;
+    real slipRateMagnitude{};
+
+    if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+      // see the CPU implementation for the derivation: sweeping n -> V -> n twice resolves both
+      // the non-collinearity of slip and trial traction and the normal/shear coupling
+      const real invAbsolute = (absoluteShearStress > 0)
+                                   ? static_cast<real>(1.0) / absoluteShearStress
+                                   : static_cast<real>(0.0);
+      real n1 = totalStress1 * invAbsolute;
+      real n2 = totalStress2 * invAbsolute;
+      real projectedStress = absoluteShearStress;
+      real localEta = eta;
+      real localEtaNormal = common::projectEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
+                                                     ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                     totalStress1,
+                                                     totalStress2,
+                                                     absoluteShearStress);
+
+      constexpr std::uint32_t DirectionSweeps = 2;
+      for (std::uint32_t sweep = 0; sweep < DirectionSweeps; ++sweep) {
+        etaEff = localEta + ctx.strengthSlopeBuffer * localEtaNormal;
+        etaEff = (etaEff > 0) ? etaEff : localEta;
+        slipRateMagnitude = std::max(static_cast<real>(0.0), (projectedStress - strength) / etaEff);
+
+        if (sweep + 1 == DirectionSweeps) {
+          break;
+        }
+
+        const real localStrength = projectedStress - slipRateMagnitude * localEta;
+        const auto [d1, d2] = common::updateSlipDirection(ctx.data->impAndEta[ctx.ltsFace],
+                                                          ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                          localStrength,
+                                                          slipRateMagnitude,
+                                                          totalStress1,
+                                                          totalStress2,
+                                                          absoluteShearStress);
+        n1 = d1;
+        n2 = d2;
+        projectedStress = n1 * totalStress1 + n2 * totalStress2;
+        const auto [e, unusedInv] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
+                                                       ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                       n1,
+                                                       n2,
+                                                       static_cast<real>(1.0));
+        localEta = e;
+        localEtaNormal = common::projectEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
+                                                  ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                  n1,
+                                                  n2,
+                                                  static_cast<real>(1.0));
+      }
+
+      dirStress1 = n1 * projectedStress;
+      dirStress2 = n2 * projectedStress;
+    } else {
+      slipRateMagnitude =
+          std::max(static_cast<real>(0.0), (absoluteShearStress - strength) * invEta);
+    }
+
     // calculate slip rates
-    ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] =
-        std::max(static_cast<real>(0.0), (absoluteShearStress - strength) * devImpAndEta.invEtaS);
-    const auto divisor =
-        strength + devImpAndEta.etaS * ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
-    ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] =
-        ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] * totalStress1 / divisor;
-    ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] =
-        ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] * totalStress2 / divisor;
+    ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = slipRateMagnitude;
+    const auto divisor = strength + etaEff * slipRateMagnitude;
+    ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] = slipRateMagnitude * dirStress1 / divisor;
+    ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] = slipRateMagnitude * dirStress2 / divisor;
+
+    const auto [tU1, tU2] = common::matmulEta(ctx.data->impAndEta[ctx.ltsFace],
+                                              ctx.data->impedanceMatrices[ctx.ltsFace],
+                                              ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
+                                              ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex]);
+
+    const auto tUN = common::matmulEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
+                                             ctx.data->impedanceMatrices[ctx.ltsFace],
+                                             ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
+                                             ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex]);
+
     // calculate traction
-    tractionResults.traction1[timeIndex] =
-        faultStresses.traction1[timeIndex] -
-        devImpAndEta.etaS * ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex];
-    tractionResults.traction2[timeIndex] =
-        faultStresses.traction2[timeIndex] -
-        devImpAndEta.etaS * ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex];
-    ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = tractionResults.traction1[timeIndex];
-    ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = tractionResults.traction2[timeIndex];
+    // the normal stress written here is the *dynamic* normal traction, using the slip rate just
+    // solved for
+    tractionResults.normalStress = faultStresses.normalStress - tUN;
+    tractionResults.traction1 = faultStresses.traction1 - tU1;
+    tractionResults.traction2 = faultStresses.traction2 - tU2;
+    ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = tractionResults.traction1;
+    ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = tractionResults.traction2;
     // update directional slip
     ctx.data->slip1[ctx.ltsFace][ctx.pointIndex] +=
         ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] * deltaT;
@@ -162,11 +238,13 @@ class LinearSlipWeakeningLaw
 
     auto& strength = ctx.strengthBuffer;
 
+    // The anisotropic normal/shear coupling is deliberately not applied here: the strength is
+    // affine in the normal stress, so it is handled exactly through the divisor in
+    // calcSlipRateAndTraction, using the slope filled in below.
     const real totalNormalStress =
         ctx.data->initialStressInFaultCS[ctx.ltsFace][0][ctx.pointIndex] +
-        ctx.faultStresses.normalStress[timeIndex] +
-        ctx.data->initialPressure[ctx.ltsFace][ctx.pointIndex] +
-        ctx.faultStresses.fluidPressure[timeIndex];
+        ctx.faultStresses.normalStress + ctx.data->initialPressure[ctx.ltsFace][ctx.pointIndex] +
+        ctx.faultStresses.fluidPressure;
     strength = -ctx.data->cohesion[ctx.ltsFace][ctx.pointIndex] -
                ctx.data->mu[ctx.ltsFace][ctx.pointIndex] *
                    std::min(totalNormalStress, static_cast<real>(0.0));
@@ -178,6 +256,18 @@ class LinearSlipWeakeningLaw
                                       deltaT,
                                       vStar,
                                       prakashLength);
+
+    if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+      // d(strength) / d(-sigma_eff). Zero while the normal stress is clamped; the clamp is
+      // evaluated at the uncorrected normal stress, which is second order in the coupling.
+      ctx.strengthSlopeBuffer = (totalNormalStress < 0 ? ctx.data->mu[ctx.ltsFace][ctx.pointIndex]
+                                                       : static_cast<real>(0.0)) *
+                                SpecializationT::strengthHookSlope(
+                                    ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex],
+                                    deltaT,
+                                    vStar,
+                                    prakashLength);
+    }
   }
 
   SEISSOL_DEVICE static void calcStateVariableHook(FrictionLawContext& __restrict ctx,
@@ -247,6 +337,18 @@ class NoSpecialization {
                                           real /*prakashLength*/) {
     return strength;
   };
+
+  /**
+   * d(strengthHook output) / d(its faultStrength argument). Only needed for the anisotropic
+   * normal/shear coupling. MUST be free of side effects and evaluated with the same arguments as
+   * the corresponding strengthHook call.
+   */
+  SEISSOL_DEVICE static real strengthHookSlope(real /*localSlipRate*/,
+                                               real /*deltaT*/,
+                                               real /*vStar*/,
+                                               real /*prakashLength*/) {
+    return static_cast<real>(1.0);
+  };
 };
 
 class BiMaterialFault {
@@ -289,6 +391,18 @@ class BiMaterialFault {
     ctx.data->regularizedStrength[ctx.ltsFace][ctx.pointIndex] = newStrength;
     return newStrength;
   };
+
+  /**
+   * See NoSpecialization::strengthHookSlope. The Prakash-Clifton regularisation low-passes the
+   * strength, so only the fraction exp1mterm of a change in faultStrength arrives instantaneously;
+   * regularizedStrength carries the previous step and drops out of the derivative.
+   */
+  SEISSOL_DEVICE static real
+      strengthHookSlope(real localSlipRate, real deltaT, real vStar, real prakashLength) {
+    const auto expval =
+        -(std::max(static_cast<real>(0.0), localSlipRate) + vStar) * deltaT / prakashLength;
+    return -std::expm1(expval);
+  };
 };
 
 class TPApprox {
@@ -318,6 +432,18 @@ class TPApprox {
                                           real /*vStar*/,
                                           real /*prakashLength*/) {
     return strength;
+  };
+
+  /**
+   * d(strengthHook output) / d(its faultStrength argument). Only needed for the anisotropic
+   * normal/shear coupling. MUST be free of side effects and evaluated with the same arguments as
+   * the corresponding strengthHook call.
+   */
+  SEISSOL_DEVICE static real strengthHookSlope(real /*localSlipRate*/,
+                                               real /*deltaT*/,
+                                               real /*vStar*/,
+                                               real /*prakashLength*/) {
+    return static_cast<real>(1.0);
   };
 };
 

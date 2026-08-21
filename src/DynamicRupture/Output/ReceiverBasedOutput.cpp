@@ -11,6 +11,9 @@
 #include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
+#include "DynamicRupture/Typedefs.h"
+#include "Equations/Datastructures.h" // IWYU pragma: keep
+#include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -23,6 +26,7 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
 #include "Numerical/BasisFunction.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
@@ -376,43 +380,121 @@ void ReceiverOutput::calcFaultOutput(
 }
 
 void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
-  const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
-  const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
-  const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
-
   auto diff = [&local](int i) {
     return local.faceAlignedValuesMinus[i] - local.faceAlignedValuesPlus[i];
   };
 
-  local.faceAlignedStress12 =
-      local.faceAlignedValuesPlus[QuantityIndices::XY] +
-      ((diff(QuantityIndices::XY) + impAndEta.zsNeig * diff(QuantityIndices::V)) * impAndEta.zs) *
-          shearDivisor;
+  if constexpr (model::MaterialT::Type != model::MaterialType::Elastic &&
+                model::MaterialT::Type != model::MaterialType::Viscoelastic) {
+    // Anisotropy couples the fault-normal and the two tangential directions, poroelasticity adds
+    // the fluid pressure as a fourth interface variable. In both cases the Godunov state has to be
+    // reconstructed with the full matrix -- exactly as
+    // common::precomputeStressFromQInterpolated does it for the solver:
+    //
+    //   T*   = eta * (Y+ T+ + Y- T- + (v- - v+))
+    //   v*_+ = v+ + Y+ (T* - T+)
+    const auto& impedanceMatrices =
+        ((local.layer->var<DynamicRupture::ImpedanceMatrices>())[local.ltsId]);
 
-  local.faceAlignedStress13 =
-      local.faceAlignedValuesPlus[QuantityIndices::XZ] +
-      ((diff(QuantityIndices::XZ) + impAndEta.zsNeig * diff(QuantityIndices::W)) * impAndEta.zs) *
-          shearDivisor;
+    constexpr std::size_t Count =
+        model::MaterialT::Type == model::MaterialType::Poroelastic ? 4 : 3;
+    constexpr auto StressIndices = []() {
+      if constexpr (Count == 4) {
+        return std::array<int, 4>{
+            QuantityIndices::XX, QuantityIndices::XY, QuantityIndices::XZ, QuantityIndices::FP};
+      } else {
+        return std::array<int, 3>{QuantityIndices::XX, QuantityIndices::XY, QuantityIndices::XZ};
+      }
+    }();
+    constexpr auto VelocityIndices = []() {
+      if constexpr (Count == 4) {
+        return std::array<int, 4>{
+            QuantityIndices::U, QuantityIndices::V, QuantityIndices::W, QuantityIndices::FU};
+      } else {
+        return std::array<int, 3>{QuantityIndices::U, QuantityIndices::V, QuantityIndices::W};
+      }
+    }();
 
-  local.transientNormalTraction =
-      local.faceAlignedValuesPlus[QuantityIndices::XX] +
-      ((diff(QuantityIndices::XX) + impAndEta.zpNeig * diff(QuantityIndices::U)) * impAndEta.zp) *
-          normalDivisor;
+    // Y+ T+ and Y- T-; the matrices are dense and column major, so [col * Count + row]
+    std::array<real, Count> admittedPlus{};
+    std::array<real, Count> admittedMinus{};
+    for (std::size_t k = 0; k < Count; ++k) {
+      for (std::size_t j = 0; j < Count; ++j) {
+        admittedPlus[j] += impedanceMatrices.impedance[k * Count + j] *
+                           local.faceAlignedValuesPlus[StressIndices[k]];
+        admittedMinus[j] += impedanceMatrices.impedanceNeig[k * Count + j] *
+                            local.faceAlignedValuesMinus[StressIndices[k]];
+      }
+    }
 
-  local.faultNormalVelocity =
-      local.faceAlignedValuesPlus[QuantityIndices::U] +
-      (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]) *
-          impAndEta.invZp;
+    std::array<real, Count> traction{};
+    for (std::size_t k = 0; k < Count; ++k) {
+      const real rhs = diff(VelocityIndices[k]) + admittedPlus[k] + admittedMinus[k];
+      for (std::size_t j = 0; j < Count; ++j) {
+        traction[j] += impedanceMatrices.eta[k * Count + j] * rhs;
+      }
+    }
 
-  real missingSigmaValues =
-      (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]);
-  missingSigmaValues *= (1.0 - 2.0 * std::pow(local.waveSpeedsPlus->sWaveVelocity /
-                                                  local.waveSpeedsPlus->pWaveVelocity,
-                                              2));
+    local.transientNormalTraction = traction[0];
+    local.faceAlignedStress12 = traction[1];
+    local.faceAlignedStress13 = traction[2];
 
-  local.faceAlignedStress22 = local.faceAlignedValuesPlus[QuantityIndices::YY] + missingSigmaValues;
-  local.faceAlignedStress33 = local.faceAlignedValuesPlus[QuantityIndices::ZZ] + missingSigmaValues;
-  local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ];
+    std::array<real, Count> tractionDiff{};
+    for (std::size_t k = 0; k < Count; ++k) {
+      tractionDiff[k] = traction[k] - local.faceAlignedValuesPlus[StressIndices[k]];
+    }
+
+    real normalVelocity = local.faceAlignedValuesPlus[QuantityIndices::U];
+    std::array<real, 3> lateralStress{};
+    for (std::size_t k = 0; k < Count; ++k) {
+      normalVelocity += impedanceMatrices.impedance[k * Count + 0] * tractionDiff[k];
+      for (std::size_t j = 0; j < 3; ++j) {
+        lateralStress[j] += impedanceMatrices.lateralStress[k * 3 + j] * tractionDiff[k];
+      }
+    }
+    local.faultNormalVelocity = normalVelocity;
+
+    // the stress components which are not part of the fault-normal Riemann problem
+    local.faceAlignedStress22 = local.faceAlignedValuesPlus[QuantityIndices::YY] + lateralStress[0];
+    local.faceAlignedStress33 = local.faceAlignedValuesPlus[QuantityIndices::ZZ] + lateralStress[1];
+    local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ] + lateralStress[2];
+  } else {
+    const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
+    const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
+    const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
+
+    local.faceAlignedStress12 =
+        local.faceAlignedValuesPlus[QuantityIndices::XY] +
+        ((diff(QuantityIndices::XY) + impAndEta.zsNeig * diff(QuantityIndices::V)) * impAndEta.zs) *
+            shearDivisor;
+
+    local.faceAlignedStress13 =
+        local.faceAlignedValuesPlus[QuantityIndices::XZ] +
+        ((diff(QuantityIndices::XZ) + impAndEta.zsNeig * diff(QuantityIndices::W)) * impAndEta.zs) *
+            shearDivisor;
+
+    local.transientNormalTraction =
+        local.faceAlignedValuesPlus[QuantityIndices::XX] +
+        ((diff(QuantityIndices::XX) + impAndEta.zpNeig * diff(QuantityIndices::U)) * impAndEta.zp) *
+            normalDivisor;
+
+    local.faultNormalVelocity =
+        local.faceAlignedValuesPlus[QuantityIndices::U] +
+        (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]) *
+            impAndEta.invZp;
+
+    real missingSigmaValues =
+        (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]);
+    missingSigmaValues *= (1.0 - 2.0 * std::pow(local.waveSpeedsPlus->sWaveVelocity /
+                                                    local.waveSpeedsPlus->pWaveVelocity,
+                                                2));
+
+    local.faceAlignedStress22 =
+        local.faceAlignedValuesPlus[QuantityIndices::YY] + missingSigmaValues;
+    local.faceAlignedStress33 =
+        local.faceAlignedValuesPlus[QuantityIndices::ZZ] + missingSigmaValues;
+    local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ];
+  }
 }
 
 void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength) {

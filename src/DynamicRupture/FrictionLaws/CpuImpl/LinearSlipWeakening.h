@@ -31,13 +31,16 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                              std::array<real, misc::NumPaddedPoints>& strengthBuffer,
                              std::size_t ltsFace,
                              uint32_t timeIndex) {
+    // d(strength)/d(-sigma_eff); only needed for the anisotropic normal/shear coupling
+    alignas(Alignment) std::array<real, misc::NumPaddedPoints> strengthSlopeBuffer{};
+
     // computes fault strength, which is the critical value whether active slip exists.
-    this->calcStrengthHook(faultStresses, strengthBuffer, timeIndex, ltsFace);
+    this->calcStrengthHook(faultStresses, strengthBuffer, strengthSlopeBuffer, timeIndex, ltsFace);
 
     // computes resulting slip rates, traction and slip dependent on current friction
     // coefficient and strength
     this->calcSlipRateAndTraction(
-        faultStresses, tractionResults, strengthBuffer, timeIndex, ltsFace);
+        faultStresses, tractionResults, strengthBuffer, strengthSlopeBuffer, timeIndex, ltsFace);
 
     // integrate state variable in time
     this->calcStateVariableHook(stateVariableBuffer, timeIndex, ltsFace);
@@ -62,38 +65,123 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   void calcSlipRateAndTraction(const FaultStresses<Executor::Host>& faultStresses,
                                TractionResults<Executor::Host>& tractionResults,
                                std::array<real, misc::NumPaddedPoints>& strength,
+                               std::array<real, misc::NumPaddedPoints>& strengthSlope,
                                uint32_t timeIndex,
                                std::size_t ltsFace) {
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
       const real totalTraction1 = this->initialStressInFaultCS_[ltsFace][3][pointIndex] +
-                                  faultStresses.traction1[timeIndex][pointIndex];
+                                  faultStresses.traction1[pointIndex];
       const real totalTraction2 = this->initialStressInFaultCS_[ltsFace][5][pointIndex] +
-                                  faultStresses.traction2[timeIndex][pointIndex];
+                                  faultStresses.traction2[pointIndex];
       const real absoluteTraction = misc::magnitude(totalTraction1, totalTraction2);
 
-      // calculate slip rates
-      this->slipRateMagnitude_[ltsFace][pointIndex] =
-          std::max(static_cast<real>(0.0),
-                   (absoluteTraction - strength[pointIndex]) * this->impAndEta_[ltsFace].invEtaS);
+      const auto [eta, invEta] = common::projectEta(this->impAndEta_[ltsFace],
+                                                    this->impedanceMatrices_[ltsFace],
+                                                    totalTraction1,
+                                                    totalTraction2,
+                                                    absoluteTraction);
 
-      const auto divisor = strength[pointIndex] + this->impAndEta_[ltsFace].etaS *
-                                                      this->slipRateMagnitude_[ltsFace][pointIndex];
-      this->slipRate1_[ltsFace][pointIndex] =
-          this->slipRateMagnitude_[ltsFace][pointIndex] * totalTraction1 / divisor;
-      this->slipRate2_[ltsFace][pointIndex] =
-          this->slipRateMagnitude_[ltsFace][pointIndex] * totalTraction2 / divisor;
+      // the direction along which the slip rate is decomposed further down; scaled such that
+      // dividing by `divisor` yields the unit slip direction
+      real dirTraction1 = totalTraction1;
+      real dirTraction2 = totalTraction2;
+      real etaEff = eta;
+      real slipRateMagnitude{};
+
+      if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+        // Anisotropy: the slip rate is no longer parallel to the trial traction, and the strength
+        // depends on the slip rate through the normal stress. Both are resolved by sweeping
+        //   n -> V -> n
+        // twice; the first sweep alone reproduces the isotropic formula.
+        const real invAbsolute = (absoluteTraction > 0) ? static_cast<real>(1.0) / absoluteTraction
+                                                        : static_cast<real>(0.0);
+        real n1 = totalTraction1 * invAbsolute;
+        real n2 = totalTraction2 * invAbsolute;
+        real projectedTraction = absoluteTraction;
+        real localEta = eta;
+        real localEtaNormal = common::projectEtaNormal(this->impAndEta_[ltsFace],
+                                                       this->impedanceMatrices_[ltsFace],
+                                                       totalTraction1,
+                                                       totalTraction2,
+                                                       absoluteTraction);
+
+        constexpr std::uint32_t DirectionSweeps = 2;
+        for (std::uint32_t sweep = 0; sweep < DirectionSweeps; ++sweep) {
+          // S(V) = S0 + slope * (eta * n)_n * V is exact, so the closed form survives
+          etaEff = localEta + strengthSlope[pointIndex] * localEtaNormal;
+          // a pathologically large coupling must never flip the sign of the divisor
+          etaEff = (etaEff > 0) ? etaEff : localEta;
+          slipRateMagnitude =
+              std::max(static_cast<real>(0.0), (projectedTraction - strength[pointIndex]) / etaEff);
+
+          if (sweep + 1 == DirectionSweeps) {
+            break;
+          }
+
+          const real localStrength = projectedTraction - slipRateMagnitude * localEta;
+          const auto [d1, d2] = common::updateSlipDirection(this->impAndEta_[ltsFace],
+                                                            this->impedanceMatrices_[ltsFace],
+                                                            localStrength,
+                                                            slipRateMagnitude,
+                                                            totalTraction1,
+                                                            totalTraction2,
+                                                            absoluteTraction);
+          n1 = d1;
+          n2 = d2;
+          projectedTraction = n1 * totalTraction1 + n2 * totalTraction2;
+          const auto [e, _] = common::projectEta(this->impAndEta_[ltsFace],
+                                                 this->impedanceMatrices_[ltsFace],
+                                                 n1,
+                                                 n2,
+                                                 static_cast<real>(1.0));
+          localEta = e;
+          localEtaNormal = common::projectEtaNormal(this->impAndEta_[ltsFace],
+                                                    this->impedanceMatrices_[ltsFace],
+                                                    n1,
+                                                    n2,
+                                                    static_cast<real>(1.0));
+        }
+
+        // divisor below equals projectedTraction, so this restores V * n
+        dirTraction1 = n1 * projectedTraction;
+        dirTraction2 = n2 * projectedTraction;
+      } else {
+        dirTraction1 = totalTraction1;
+        dirTraction2 = totalTraction2;
+        etaEff = eta;
+
+        slipRateMagnitude =
+            std::max(static_cast<real>(0.0), (absoluteTraction - strength[pointIndex]) * invEta);
+      }
+
+      // calculate slip rates
+      this->slipRateMagnitude_[ltsFace][pointIndex] = slipRateMagnitude;
+
+      const auto divisor = strength[pointIndex] + etaEff * slipRateMagnitude;
+      this->slipRate1_[ltsFace][pointIndex] = slipRateMagnitude * dirTraction1 / divisor;
+      this->slipRate2_[ltsFace][pointIndex] = slipRateMagnitude * dirTraction2 / divisor;
+
+      const auto [tU1, tU2] = common::matmulEta(this->impAndEta_[ltsFace],
+                                                this->impedanceMatrices_[ltsFace],
+                                                this->slipRate1_[ltsFace][pointIndex],
+                                                this->slipRate2_[ltsFace][pointIndex]);
+
+      const auto tUN = common::matmulEtaNormal(this->impAndEta_[ltsFace],
+                                               this->impedanceMatrices_[ltsFace],
+                                               this->slipRate1_[ltsFace][pointIndex],
+                                               this->slipRate2_[ltsFace][pointIndex]);
 
       // calculate traction
-      tractionResults.traction1[timeIndex][pointIndex] =
-          faultStresses.traction1[timeIndex][pointIndex] -
-          this->impAndEta_[ltsFace].etaS * this->slipRate1_[ltsFace][pointIndex];
-      tractionResults.traction2[timeIndex][pointIndex] =
-          faultStresses.traction2[timeIndex][pointIndex] -
-          this->impAndEta_[ltsFace].etaS * this->slipRate2_[ltsFace][pointIndex];
-      this->traction1_[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
-      this->traction2_[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
+      // the normal stress written here is the *dynamic* normal traction, i.e. in the same space as
+      // faultStresses/qInterpolated -- unlike the effective normal stress used for the strength,
+      // it carries neither the initial stress nor the min(., 0) clamp.
+      tractionResults.normalStress[pointIndex] = faultStresses.normalStress[pointIndex] - tUN;
+      tractionResults.traction1[pointIndex] = faultStresses.traction1[pointIndex] - tU1;
+      tractionResults.traction2[pointIndex] = faultStresses.traction2[pointIndex] - tU2;
+      this->traction1_[ltsFace][pointIndex] = tractionResults.traction1[pointIndex];
+      this->traction2_[ltsFace][pointIndex] = tractionResults.traction2[pointIndex];
 
       // update directional slip
       this->slip1_[ltsFace][pointIndex] +=
@@ -145,15 +233,19 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
   void calcStrengthHook(const FaultStresses<Executor::Host>& faultStresses,
                         std::array<real, misc::NumPaddedPoints>& strength,
+                        std::array<real, misc::NumPaddedPoints>& strengthSlope,
                         uint32_t timeIndex,
                         std::size_t ltsFace) {
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-      // calculate fault strength (Uphoff eq 2.44) with addition cohesion term
+      // calculate fault strength (Uphoff eq 2.44) with addition cohesion term.
+      // The anisotropic normal/shear coupling is deliberately *not* applied here: since the
+      // strength is affine in the normal stress, it is handled exactly through the divisor in
+      // calcSlipRateAndTraction, using the slope filled in below.
       const real totalNormalStress = this->initialStressInFaultCS_[ltsFace][0][pointIndex] +
-                                     faultStresses.normalStress[timeIndex][pointIndex] +
+                                     faultStresses.normalStress[pointIndex] +
                                      this->initialPressure_[ltsFace][pointIndex] +
-                                     faultStresses.fluidPressure[timeIndex][pointIndex];
+                                     faultStresses.fluidPressure[pointIndex];
 
       strength[pointIndex] =
           -cohesion_[ltsFace][pointIndex] -
@@ -165,6 +257,18 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                                        this->deltaT_[timeIndex],
                                        ltsFace,
                                        pointIndex);
+
+      if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+        // d(strength) / d(-sigma_eff). Zero while the normal stress is clamped -- note that the
+        // clamp is evaluated at the uncorrected normal stress, which is second order in the
+        // coupling and only matters right at the opening threshold.
+        strengthSlope[pointIndex] =
+            (totalNormalStress < 0 ? this->mu_[ltsFace][pointIndex] : static_cast<real>(0.0)) *
+            specialization_.strengthHookSlope(this->slipRateMagnitude_[ltsFace][pointIndex],
+                                              this->deltaT_[timeIndex],
+                                              ltsFace,
+                                              pointIndex);
+      }
     }
   }
 
@@ -247,6 +351,22 @@ class NoSpecialization {
                            std::uint32_t /*pointIndex*/) {
     return strength;
   };
+
+#pragma omp declare simd
+  /**
+   * d(strengthHook output) / d(its faultStrength argument).
+   *
+   * Only needed for the anisotropic normal/shear coupling, where the fault strength depends on the
+   * slip rate through the normal stress. MUST be free of side effects -- unlike strengthHook,
+   * which advances the Prakash-Clifton state -- and has to be evaluated with the same
+   * localSlipRate and deltaT as the corresponding strengthHook call.
+   */
+  static real strengthHookSlope(real /*localSlipRate*/,
+                                real /*deltaT*/,
+                                std::size_t /*ltsFace*/,
+                                std::uint32_t /*pointIndex*/) {
+    return static_cast<real>(1.0);
+  };
 };
 
 /**
@@ -294,6 +414,22 @@ class BiMaterialFault {
     return newStrength;
   }
 
+#pragma omp declare simd
+  /**
+   * See NoSpecialization::strengthHookSlope. The Prakash-Clifton regularisation low-passes the
+   * strength, so only the fraction exp1mterm of a change in faultStrength arrives instantaneously.
+   * regularizedStrength_ carries the previous step and does not depend on the current normal
+   * stress, hence it drops out of the derivative.
+   */
+  [[nodiscard]] real strengthHookSlope(real localSlipRate,
+                                       real deltaT,
+                                       std::size_t /*ltsFace*/,
+                                       std::uint32_t /*pointIndex*/) const {
+    const auto expval = -(std::max(static_cast<real>(0.0), localSlipRate) + this->vStar_) * deltaT /
+                        this->prakashLength_;
+    return -std::expm1(expval);
+  }
+
   protected:
   real vStar_{};
   real prakashLength_{};
@@ -334,6 +470,22 @@ class TPApprox {
                            std::size_t /*ltsFace*/,
                            std::uint32_t /*pointIndex*/) {
     return strength;
+  };
+
+#pragma omp declare simd
+  /**
+   * d(strengthHook output) / d(its faultStrength argument).
+   *
+   * Only needed for the anisotropic normal/shear coupling, where the fault strength depends on the
+   * slip rate through the normal stress. MUST be free of side effects -- unlike strengthHook,
+   * which advances the Prakash-Clifton state -- and has to be evaluated with the same
+   * localSlipRate and deltaT as the corresponding strengthHook call.
+   */
+  static real strengthHookSlope(real /*localSlipRate*/,
+                                real /*deltaT*/,
+                                std::size_t /*ltsFace*/,
+                                std::uint32_t /*pointIndex*/) {
+    return static_cast<real>(1.0);
   };
 
   protected:

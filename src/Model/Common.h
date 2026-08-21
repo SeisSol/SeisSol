@@ -186,7 +186,7 @@ void getFaceRotationMatrix(const VrtxCoords normal,
 
 template <typename MaterialT>
 MaterialT getRotatedMaterialCoefficients(const std::array<double, 36>& rotationParameters,
-                                         MaterialT& material) {
+                                         const MaterialT& material) {
   return MaterialSetup<MaterialT>::getRotatedMaterialCoefficients(rotationParameters, material);
 }
 

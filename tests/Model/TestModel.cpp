@@ -7,5 +7,7 @@
 
 #include <doctest.h>
 
+#include "AnisotropicImpedance.t.h" // IWYU pragma: keep
 #include "Attenuation.t.h"
 #include "GodunovState.t.h"
+#include "PoroelasticImpedance.t.h" // IWYU pragma: keep
