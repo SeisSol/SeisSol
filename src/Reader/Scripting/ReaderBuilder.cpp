@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "ReaderBuilder.h"
 
+#include "Expr/SderivFrontend.h"
 #include "Reader/Scripting/CompiledReader.h"
 #include "Reader/Scripting/DataReader.h"
 #include "Reader/Scripting/EasiReader.h"
@@ -67,6 +68,22 @@ std::unique_ptr<DataReader> buildLua(const std::string& path) {
   return std::make_unique<CompiledReader>(std::move(*program), std::make_unique<LuaReader>(code));
 }
 
+/// A .sderiv module names its own outputs, so nothing is passed in and nothing
+/// can drift out of step with the file.
+///
+/// No reference reader is handed to CompiledReader, and that is not an
+/// omission: there is no interpreter for this language, so there is neither an
+/// oracle to compare against nor a path to fall back TO. A failure is a
+/// configuration error, which is what makes the frontend's parse diagnostics
+/// load-bearing rather than a convenience.
+std::unique_ptr<DataReader> buildSderiv(const std::string& path) {
+  const std::string source = readFile(stripPrefix(path));
+  auto program = expr::compileSderivModule(source);
+  logInfo() << "Compiled the sderiv module" << path << "with" << program.outputs().size()
+            << "outputs.";
+  return std::make_unique<CompiledReader>(std::move(program), nullptr);
+}
+
 } // namespace
 
 std::unique_ptr<DataReader> buildReader(const std::string& path,
@@ -86,6 +103,9 @@ std::unique_ptr<DataReader> buildReader(const std::string& path,
   }
   if (parts[0] == "lua") {
     return buildLua(path);
+  }
+  if (parts[0] == "sderiv") {
+    return buildSderiv(path);
   }
 
   logError() << "The script" << path << "does not have a built-in reader.";

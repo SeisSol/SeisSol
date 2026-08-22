@@ -99,7 +99,7 @@ void mustReject(const std::string& source, const std::string& fragment) {
   // errors in a parameter file, and "parse error" alone sends someone to the
   // wrong line.
   REQUIRE_THROWS_WITH_AS(
-      compileSderiv(source, "out"), doctest::Contains(fragment.c_str()), ExprError);
+      compileSderiv(source, "out"), doctest::Contains(fragment.c_str()), SderivError);
 }
 
 } // namespace
@@ -159,7 +159,9 @@ TEST_SUITE("SderivFrontend") {
   TEST_CASE("backslashes and quotes survive a file path") {
     const auto program = mustCompile(EscapedPath);
     REQUIRE(program.grids().size() == 1);
-    CHECK(std::string(program.grids().at(0).file) == R"(C:\models\a"b.nc)");
+    // GridDesc::file became GridDesc::path in Package 4, when the frontends
+    // were ported onto Grid.h's contract.
+    CHECK(program.grids().at(0).path == R"(C:\models\a"b.nc)");
   }
 
   TEST_CASE("let bindings share rather than duplicate") {
@@ -235,6 +237,76 @@ select(lt(z, -1000), m_rho(x, y, z), 2700)
 )");
     const auto lua = mustCompile(SelectOverLookup);
     CHECK(sderiv.fingerprint() == lua.fingerprint());
+  }
+
+  // ------------------------------------------------------ out def ----------
+
+  TEST_CASE("a module names its own outputs and they can read each other") {
+    const auto program = compileSderivModule(R"SD(
+# a small material model
+grid m = "asagi", "model.nc", "data", "linear", "rho", "vp", "vs"
+
+def vs = m_vs(x, y, z)
+
+out def rho    = m_rho(x, y, z)
+out def mu     = rho * vs * vs
+out def lambda = rho * m_vp(x, y, z)**2.0 - 2.0 * mu
+)SD");
+
+    REQUIRE(program.outputs().size() == 3);
+    CHECK(program.outputs()[0].name == "rho");
+    CHECK(program.outputs()[1].name == "mu");
+    CHECK(program.outputs()[2].name == "lambda");
+    CHECK(program.grids().size() == 1);
+    CHECK(program.roots().size() == 3);
+  }
+
+  TEST_CASE("an output read by a later output is interned, not duplicated") {
+    // The reason the outputs live in ONE module rather than three sources: the
+    // shared subexpression must be one node, or the module form buys nothing
+    // over three calls to compileSderiv.
+    const auto shared = compileSderivModule("out def a = sqrt(x)\nout def b = a + a\n");
+    const auto separate =
+        compileSderivModule("out def a = sqrt(x)\nout def b = sqrt(x) + sqrt(x)\n");
+    CHECK(shared.arena().size() == separate.arena().size());
+  }
+
+  TEST_CASE("comments and blank lines are ignored") {
+    const auto withComments = compileSderivModule(R"SD(
+# leading comment
+out def a = x + 1.0   # trailing comment
+#
+out def b = y
+)SD");
+    const auto without = compileSderivModule("out def a = x + 1.0\nout def b = y\n");
+    CHECK(withComments.fingerprint() == without.fingerprint());
+  }
+
+  TEST_CASE("out def is refused where it would not mean anything") {
+    // A function has no call site to take arguments from, so an exported one
+    // cannot be evaluated per point.
+    CHECK_THROWS_AS(compileSderivModule("out def f(a) = a * 2.0\n"), SderivError);
+
+    // No outputs at all: the module produces nothing, which is a configuration
+    // error rather than an empty program.
+    CHECK_THROWS_AS(compileSderivModule("def a = x\n"), SderivError);
+
+    // Both forms at once would leave it open which one is "the" output.
+    CHECK_THROWS_AS(compileSderivModule("out def a = x\nx + 1.0\n"), SderivError);
+
+    // A duplicate plain def used to be taken last-wins, silently.
+    CHECK_THROWS_AS(compileSderivModule("def a = x\ndef a = y\nout def b = a\n"), SderivError);
+  }
+
+  TEST_CASE("the two module forms stay separate") {
+    // The trailing-expression form still works and is still named by the caller.
+    const auto named = compileSderiv("x * 2.0", "rho");
+    REQUIRE(named.outputs().size() == 1);
+    CHECK(named.outputs()[0].name == "rho");
+
+    // Naming an output from outside a module that names its own is a mismatch,
+    // not something to resolve silently in either direction.
+    CHECK_THROWS_AS(compileSderiv("out def rho = x\n", "sigma"), SderivError);
   }
 }
 

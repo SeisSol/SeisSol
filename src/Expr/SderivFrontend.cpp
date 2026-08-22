@@ -28,7 +28,7 @@ namespace seissol::expr {
 namespace {
 
 // ============================================================ tokenizer =====
-enum class TokenKind : std::uint8_t { Num, Str, Pow, Op, Name, Let, In, Def, Grid, Eof };
+enum class TokenKind : std::uint8_t { Num, Str, Pow, Op, Name, Let, In, Def, Out, Grid, Eof };
 
 struct Token {
   TokenKind kind{};
@@ -155,6 +155,8 @@ std::vector<Token> tokenize(const std::string& source) {
         kind = TokenKind::In;
       } else if (value == "def") {
         kind = TokenKind::Def;
+      } else if (value == "out") {
+        kind = TokenKind::Out;
       } else if (value == "grid") {
         kind = TokenKind::Grid;
       }
@@ -210,8 +212,14 @@ struct GridDeclaration {
 
 struct ParsedProgram {
   std::vector<SurfaceId> defs;
+  // The subset of `defs` marked `out`, in declaration order. A subset rather
+  // than a separate list: an exported definition IS an ordinary definition and
+  // resolves through the same symbol table, so a later output can read an
+  // earlier one by name. Keeping them in two containers would have made that a
+  // coincidence rather than a property.
+  std::vector<SurfaceId> exports;
   std::vector<GridDeclaration> grids;
-  SurfaceId expression{-1};
+  SurfaceId expression{-1}; // -1 when the module declares its outputs itself
 };
 
 // =============================================== catalogs (spec-defined) ====
@@ -261,14 +269,30 @@ class Parser {
     // def and grid interleave freely and need no separator, for the same reason
     // def already needed none: each starts with its own token kind, so the
     // greedy expression in a def body stops cleanly at the next declaration.
-    while (peek().kind == TokenKind::Def || peek().kind == TokenKind::Grid) {
-      if (peek().kind == TokenKind::Def) {
-        parsed.defs.push_back(definition());
-      } else {
+    while (peek().kind == TokenKind::Def || peek().kind == TokenKind::Grid ||
+           peek().kind == TokenKind::Out) {
+      if (peek().kind == TokenKind::Grid) {
         parsed.grids.push_back(gridDeclaration());
+        continue;
+      }
+      const bool exported = peek().kind == TokenKind::Out;
+      if (exported) {
+        eat(TokenKind::Out);
+      }
+      const SurfaceId id = definition(exported);
+      parsed.defs.push_back(id);
+      if (exported) {
+        parsed.exports.push_back(id);
       }
     }
-    parsed.expression = expression();
+
+    // A module is EITHER a trailing expression, whose name the caller supplies,
+    // OR a set of `out def`s that name themselves. Allowing both would leave it
+    // open which one is "the" output, and a file that grew an `out def` while
+    // keeping its trailing expression would silently gain a second one.
+    if (parsed.exports.empty()) {
+      parsed.expression = expression();
+    }
     eat(TokenKind::Eof);
     return parsed;
   }
@@ -315,7 +339,7 @@ class Parser {
     return grid;
   }
 
-  SurfaceId definition() {
+  SurfaceId definition(bool exported) {
     const int position = peek().position;
     eat(TokenKind::Def);
     SurfaceNode node;
@@ -332,6 +356,12 @@ class Parser {
         }
       }
       eat(TokenKind::Op, ")");
+    }
+    // An output is a value per point, not a function -- there is no call site
+    // for it to take arguments from. Rejected here rather than at lowering so
+    // the diagnostic carries the declaration's position.
+    if (exported && !node.params.empty()) {
+      throw SderivError("parse", "an output definition takes no parameters", position);
     }
     eat(TokenKind::Op, "=");
     node.a = expression();
@@ -744,57 +774,106 @@ class Lowering {
 
 } // namespace
 
+namespace {
+
+// Compile one source into `program`. `externalName` is set for the trailing-
+// expression form, where the caller names the single output; it is null for a
+// module that declares its own outputs with `out def`.
+//
+// Shared by both entry points rather than duplicated, because everything from
+// the grid interning down is identical and the only difference is where the
+// output names come from.
+void compileSource(const std::string& source,
+                   const std::string* externalName,
+                   reader::scripting::DataType type,
+                   Program& program,
+                   std::vector<std::string>& channelOrder) {
+  SurfaceArena surface;
+  const auto tokens = tokenize(source);
+  Parser parser(tokens, surface);
+  const ParsedProgram parsed = parser.program();
+
+  if (externalName != nullptr && parsed.expression < 0) {
+    throw SderivError("parse",
+                      "the caller named the output `" + *externalName +
+                          "`, but this module declares its own outputs with `out def`",
+                      0);
+  }
+  if (externalName == nullptr && parsed.exports.empty()) {
+    throw SderivError(
+        "parse", "the module declares no outputs; mark at least one definition `out def`", 0);
+  }
+
+  std::set<std::string> defNames;
+  for (const SurfaceId id : parsed.defs) {
+    // validate() catches a duplicate OUTPUT name, but a duplicate plain `def`
+    // would silently take the last one, because the symbol table is a map. That
+    // is a shadowing bug the author cannot see, so it is caught here.
+    if (!defNames.insert(surface[id].text).second) {
+      throw SderivError(
+          "parse", "duplicate definition `" + surface[id].text + "`", surface[id].position);
+    }
+  }
+  const ComponentTable components = checkGrids(parsed.grids, defNames);
+
+  std::vector<GridId> gridIds;
+  gridIds.reserve(parsed.grids.size());
+  for (const auto& grid : parsed.grids) {
+    reader::datafield::GridDesc desc;
+    // Grid.h is the contract; the surface vocabularies map onto it here.
+    // `components` deliberately does NOT reach the desc: Grid.h declines to
+    // carry a component-name table, because Kind::Lookup already holds a
+    // resolved integer and a second name-resolution path is the defect class
+    // this frontend exists to remove. The names stay in ComponentTable, which
+    // is frontend-local and already built above.
+    //
+    // NOT YET EXPRESSIBLE in the surface syntax: GridDesc::boundary and
+    // GridDesc::timeAxis, both left at their defaults (Clamp, static). A
+    // time-dependent grid therefore cannot be declared from sderiv yet; that
+    // is a grammar addition and it belongs with the GridUpdateModule work.
+    desc.kind = *reader::datafield::parseGridKind(grid.kind);
+    desc.path = grid.file;
+    desc.variable = grid.variable;
+    desc.interpolation = *reader::datafield::parseInterpolation(grid.interpolation);
+    // internGrid dedupes, so two outputs naming the same grid share a GridId
+    // and the backend loads the file once.
+    gridIds.push_back(program.internGrid(desc));
+  }
+
+  Lowering lowering(surface, parsed, components, gridIds, program);
+
+  // Roots first, names after, so `channels()` has seen every output before the
+  // channel order is folded in.
+  std::vector<std::pair<std::string, NodeId>> roots;
+  if (externalName != nullptr) {
+    roots.emplace_back(*externalName, lowering.lower(parsed.expression));
+  } else {
+    for (const SurfaceId id : parsed.exports) {
+      // Lowered through the ordinary Name path, so an `out def` reads exactly
+      // like any other definition -- including from a later output that names
+      // it. Interning makes the shared subexpression one node either way.
+      roots.emplace_back(surface[id].text, lowering.lower(surface[id].a));
+    }
+  }
+
+  for (const auto& name : lowering.channels()) {
+    if (std::find(channelOrder.begin(), channelOrder.end(), name) == channelOrder.end()) {
+      channelOrder.push_back(name);
+    }
+  }
+  for (auto& [name, root] : roots) {
+    program.addOutput(name, type, root);
+  }
+}
+
+} // namespace
+
 Program compileSderiv(const std::vector<SderivOutput>& outputs) {
   Program program;
   std::vector<std::string> channelOrder;
-
   for (const auto& output : outputs) {
-    SurfaceArena surface;
-    const auto tokens = tokenize(output.source);
-    Parser parser(tokens, surface);
-    const ParsedProgram parsed = parser.program();
-
-    std::set<std::string> defNames;
-    for (const SurfaceId id : parsed.defs) {
-      defNames.insert(surface[id].text);
-    }
-    const ComponentTable components = checkGrids(parsed.grids, defNames);
-
-    std::vector<GridId> gridIds;
-    gridIds.reserve(parsed.grids.size());
-    for (const auto& grid : parsed.grids) {
-      reader::datafield::GridDesc desc;
-      // Grid.h is the contract; the surface vocabularies map onto it here.
-      // `components` deliberately does NOT reach the desc: Grid.h declines to
-      // carry a component-name table, because Kind::Lookup already holds a
-      // resolved integer and a second name-resolution path is the defect class
-      // this frontend exists to remove. The names stay in ComponentTable, which
-      // is frontend-local and already built above.
-      //
-      // NOT YET EXPRESSIBLE in the surface syntax: GridDesc::boundary and
-      // GridDesc::timeAxis, both left at their defaults (Clamp, static). A
-      // time-dependent grid therefore cannot be declared from sderiv yet; that
-      // is a grammar addition and it belongs with the GridUpdateModule work.
-      desc.kind = *reader::datafield::parseGridKind(grid.kind);
-      desc.path = grid.file;
-      desc.variable = grid.variable;
-      desc.interpolation = *reader::datafield::parseInterpolation(grid.interpolation);
-      // internGrid dedupes, so two outputs naming the same grid share a GridId
-      // and the backend loads the file once.
-      gridIds.push_back(program.internGrid(desc));
-    }
-
-    Lowering lowering(surface, parsed, components, gridIds, program);
-    const NodeId root = lowering.lower(parsed.expression);
-
-    for (const auto& name : lowering.channels()) {
-      if (std::find(channelOrder.begin(), channelOrder.end(), name) == channelOrder.end()) {
-        channelOrder.push_back(name);
-      }
-    }
-    program.addOutput(output.name, output.type, root);
+    compileSource(output.source, &output.name, output.type, program, channelOrder);
   }
-
   for (const auto& name : channelOrder) {
     program.addInput(name, reader::scripting::DataType::F64);
   }
@@ -804,6 +883,17 @@ Program compileSderiv(const std::vector<SderivOutput>& outputs) {
 
 Program compileSderiv(const std::string& source, const std::string& outputName) {
   return compileSderiv({SderivOutput{outputName, source, reader::scripting::DataType::F64}});
+}
+
+Program compileSderivModule(const std::string& source) {
+  Program program;
+  std::vector<std::string> channelOrder;
+  compileSource(source, nullptr, reader::scripting::DataType::F64, program, channelOrder);
+  for (const auto& name : channelOrder) {
+    program.addInput(name, reader::scripting::DataType::F64);
+  }
+  validate(program);
+  return program;
 }
 
 } // namespace seissol::expr

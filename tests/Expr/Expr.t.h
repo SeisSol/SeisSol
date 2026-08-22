@@ -413,7 +413,7 @@ TEST_SUITE("Expr::Lower") {
     p.addInput("x", DT::F64);
     p.addInput("t", DT::F64);
     Arena& a = p.arena();
-    const GridId g = p.internGrid(datafield::GridDesc{});
+    const GridId g = p.internGrid(reader::datafield::GridDesc{});
     const NodeId look = a.lookup(g, 0, {a.field("x")});
     p.addOutput("u", DT::F64, a.pw(Fn::Mul, look, a.pw(Fn::Sin, a.field("t"))));
     validate(p);
@@ -431,7 +431,7 @@ TEST_SUITE("Expr::Lower") {
     p.addInput("x", DT::F64);
     p.addInput("t", DT::F64);
     Arena& a = p.arena();
-    const GridId g = p.internGrid(datafield::GridDesc{});
+    const GridId g = p.internGrid(reader::datafield::GridDesc{});
     const NodeId look = a.lookup(g, 0, {a.field("x")});
     p.addOutput("u", DT::F64, a.pw(Fn::Mul, look, a.pw(Fn::Sin, a.field("t"))));
     validate(p);
@@ -453,7 +453,7 @@ TEST_SUITE("Expr::Lower") {
     Program p;
     p.addInput("x", DT::F64);
     Arena& a = p.arena();
-    const GridId g = p.internGrid(datafield::GridDesc{});
+    const GridId g = p.internGrid(reader::datafield::GridDesc{});
     p.addOutput("u", DT::F64, a.lookup(g, 0, {a.field("x")}));
     validate(p);
 

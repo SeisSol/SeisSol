@@ -240,7 +240,7 @@ Program randomProgram(std::mt19937& rng, int depth, bool withLookup, int outputC
     program.addInput(n, DT::F64);
   }
   Arena& arena = program.arena();
-  const GridId grid = withLookup ? program.internGrid(datafield::GridDesc{}) : NoGrid;
+  const GridId grid = withLookup ? program.internGrid(reader::datafield::GridDesc{}) : NoGrid;
 
   std::vector<NodeId> leaves{arena.field("x"),
                              arena.field("y"),
@@ -489,7 +489,7 @@ TEST_SUITE("Expr::Interp") {
     Program program;
     program.addInput("x", DT::F64);
     Arena& arena = program.arena();
-    const GridId grid = program.internGrid(datafield::GridDesc{});
+    const GridId grid = program.internGrid(reader::datafield::GridDesc{});
     program.addOutput("u", DT::F64, arena.lookup(grid, 0, {arena.field("x")}));
     validate(program);
 

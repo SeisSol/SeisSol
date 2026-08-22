@@ -29,10 +29,12 @@
 //
 // GRAMMAR (deltas against the derived-output frontend marked +):
 //
-//     program    := { definition | griddecl } expr EOF
-//     definition := 'def' NAME [ '(' NAME { ',' NAME } ')' ] '=' expr
-//   + griddecl   := 'grid' NAME '=' STR ',' STR ',' STR { ',' STR }
-//                    //     name     kind  file  interp  components...
+//   + program    := { definition | griddecl } ( expr | ) EOF
+//   + definition := [ 'out' ] 'def' NAME [ '(' NAME { ',' NAME } ')' ] '=' expr
+//   + griddecl   := 'grid' NAME '=' STR ',' STR [ ',' STR ] ',' STR { ',' STR }
+//                    //     name     kind  file  [variable]  interp  components...
+//   + comment    := '#' { any } NEWLINE
+//
 //     expr       := 'let' NAME '=' expr 'in' expr | add
 //     add        := mul { ('+'|'-') mul }
 //     mul        := unary { ('*'|'/') unary }
@@ -40,10 +42,31 @@
 //     power      := primary [ '**' unary ]           // right-associative
 //     primary    := NUM | NAME [ '(' args ')' ] | '(' expr ')'
 //
+// `out` IS A MODIFIER ON def, not a sibling keyword, and the grammar says so
+// with one production rather than two that happen to look alike. An exported
+// definition binds exactly like an ordinary one -- same symbol table, same
+// visibility, same reuse -- so a later output can read an earlier one by name:
+//
+//     def vs     = m_vs(x, y, z)          # internal
+//     out def rho    = m_rho(x, y, z)
+//     out def mu     = rho * vs * vs      # reads the output above
+//
+// The alternative -- a separate `export rho, mu` list -- was rejected because it
+// is a hand-maintained parallel list to the definitions, which is the same
+// defect class as Lua's M.output_parameters against the actual return values,
+// and the reason the tracer exists. A marker on the definition cannot drift.
+//
+// `out def NAME(params)` is refused: an output is a value per point, not a
+// function, and there is no call site for it to take arguments from.
+//
+// A module is EITHER a trailing expression, whose name the caller supplies via
+// compileSderiv(source, name), OR one or more `out def`s -- never both, because
+// then it would be open which one is "the" output.
+//
 // STRINGS ARE CONFINED TO griddecl. They are lexed everywhere but primary() has
 // no string case, so a string in an expression is a parse error that names the
 // restriction. That is what keeps `asagi`, `linear` and the component names out
-// of the keyword set: `grid` is the only word this frontend adds.
+// of the keyword set: `grid` and `out` are the only words this frontend adds.
 //
 // GRID COMPONENTS ARE ORDINARY FUNCTIONS. `grid m = "asagi", "model.nc",
 // "linear", "rho", "vp", "vs"` registers m_rho, m_vp and m_vs, each callable
@@ -95,6 +118,18 @@ struct SderivOutput {
 // failure. Unlike the Lua path there is no fallback to fall back TO, so a
 // failure here is a hard configuration error and the caller should logError.
 [[nodiscard]] Program compileSderiv(const std::vector<SderivOutput>& outputs);
+
+/// Compile ONE source that names its own outputs with `out def`.
+///
+/// The form a `.sderiv` file on disk takes, and the reason it exists: the
+/// overload above takes one source PER OUTPUT, so a three-quantity material
+/// model would repeat its grid declarations and helper definitions three times.
+/// Here the prologue is written once and every output can read the ones above
+/// it by name.
+///
+/// Throws SderivError if the source has no `out def`, or if it ends in a bare
+/// expression instead.
+[[nodiscard]] Program compileSderivModule(const std::string& source);
 
 // Convenience for the single-output case and for tests.
 [[nodiscard]] Program compileSderiv(const std::string& source, const std::string& outputName);
