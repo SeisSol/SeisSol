@@ -72,7 +72,7 @@ class LuaReader : public DataReader {
 
   const std::vector<std::string>& outputVars() override { return outputs_; }
 
-  void prepare() override {}
+  void prepare(const scripting::DataTable& /*table*/) override {}
 
   /**
     The actual call. Should be optimized for dispatches in SIMD environments.

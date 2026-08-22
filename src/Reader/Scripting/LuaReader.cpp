@@ -7,6 +7,8 @@
 
 #include "Reader/Scripting/LuaReader.h"
 
+#include "Reader/Scripting/LuaTracer.h"
+
 #ifdef USE_LUA
 
 #include "Parallel/OpenMP.h"
@@ -91,6 +93,12 @@ LuaStateState loadScript(const std::string& code) {
   luaL_openlibs(luaState);
 
   loadLmathx(luaState);
+
+  // The branch-free vocabulary the tracer defines. Installed here too, because
+  // ReaderBuilder falls back to this reader when a trace fails, and a script
+  // written for the tracer uses ssol.select instead of `if` -- without this it
+  // would fail on every point and silently write nothing.
+  registerConcreteSsol(luaState);
 
   const auto modCode = loadCodeLmathX() + code;
 

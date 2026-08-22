@@ -127,6 +127,24 @@
 
 namespace seissol::reader::scripting {
 
+// Install the concrete `ssol` vocabulary -- lt/le/gt/ge/eq/land/lor/lnot/select
+// -- as a global table in `luaState`.
+//
+// `ssol` used to exist only inside the tracer,
+// which quietly broke the fallback the whole design rests on: ReaderBuilder
+// falls back to the interpreted LuaReader when a trace fails, and a script
+// written for the tracer -- i.e. one using ssol.select instead of `if` -- could
+// not run there at all. It failed on every point and wrote nothing.
+//
+// These are the SAME functions the tracer already uses for its concrete probe
+// runs, exported rather than reimplemented: a second implementation of `select`
+// is precisely the divergence the differential check exists to detect, and it
+// would be detecting our own duplicate.
+//
+// Declared here rather than in LuaReader.h because the tracer owns the
+// vocabulary's meaning. Available only with USE_LUA, like everything else here.
+void registerConcreteSsol(lua_State* luaState);
+
 // Grids come from M.field_specs. `kind` selects the loader ("asagi", "scec",
 // …) but every kind is a regular grid as far as the IR is concerned: one
 // Kind::Lookup per requested component. NOTE that this makes FieldSpec-

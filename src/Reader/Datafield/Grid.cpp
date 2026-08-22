@@ -220,6 +220,13 @@ std::optional<double> GridStore::timeSpacing(std::size_t id) const {
   return std::nullopt;
 }
 
+GridStore& sharedGridStore() {
+  // Function-local static: constructed on first use, after MPI is up, which a
+  // namespace-scope object could not promise.
+  static GridStore store;
+  return store;
+}
+
 void GridStore::load() {
   // Two phases on purpose. Window sizing needs the geometry — how many slices
   // there are and what one costs — and the geometry is only known once the file

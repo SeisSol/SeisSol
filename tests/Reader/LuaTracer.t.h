@@ -46,6 +46,11 @@ namespace {
 constexpr auto PlanarWave = R"lua(
 local M = {}
 M.output_parameters = {"u", "v", "w"}
+-- Declared only because the INTERPRETED reader needs it; the tracer derives
+-- the signature from the prototype and ignores this. Kept in step with
+-- M.evaluate's parameter list by hand -- which is exactly the maintenance the
+-- tracer exists to remove.
+M.input_parameters = {"x", "y", "z", "t"}
 
 local kx, ky, kz = 1.0, 0.5, -0.25
 local omega = 2.0
@@ -67,6 +72,7 @@ return M
 constexpr auto LayeredSelect = R"lua(
 local M = {}
 M.output_parameters = {"rho"}
+M.input_parameters = {"x", "y", "z"}
 
 function M.evaluate(fields, x, y, z)
   local shallow = ssol.gt(z, -1000.0)
@@ -96,6 +102,7 @@ return M
 constexpr auto SharedSubexpression = R"lua(
 local M = {}
 M.output_parameters = {"a", "b"}
+M.input_parameters = {"x", "y"}
 
 function M.evaluate(fields, x, y)
   local r = math.sqrt(x*x + y*y)
@@ -343,7 +350,10 @@ TEST_SUITE("LuaTracer") {
   TEST_CASE("net 1: a comparison operator on a traced value is refused") {
     const auto failure = mustRefuse(RawIfGreater);
     CHECK(failure.cause == Cause::UntracedOperator);
-    CHECK(failure.line == 5);
+    // Line 6, not 5: the raw string literal opens with a newline, so `local M`
+    // is the chunk's second line. The expectation said 5 and was never checked,
+    // because this file did not compile until Package 4.
+    CHECK(failure.line == 6);
   }
 
   TEST_CASE("net 2: a condition that never reaches select is refused") {
@@ -436,48 +446,67 @@ return M
 
   TEST_CASE("the traced program agrees with the interpreted reader") {
     // This is the acceptance criterion for the package, and the same check
-    // CompiledReader::prepare should run at init before trusting a kernel.
+    // CompiledReader::prepare runs at init before trusting a kernel.
     // Deliberately not only at "nice" coordinates: the ladder is where the
     // interesting disagreements live.
+    //
+    // this case was written against a DataTable with
+    // addInput/addOutput/get/set, which does not exist -- the real ABI binds
+    // views onto caller storage. It never compiled, so the whole Reader test
+    // target did not build.
     const std::vector<double> ladder = {-1e6, -1e3, -1.0, -1e-3, 0.0, 1e-3, 1.0, 1e3, 1e6};
+    const std::size_t numPoints = ladder.size();
 
     for (const auto* code : {PlanarWave, LayeredSelect, SharedSubexpression}) {
       const auto program = mustTrace(code);
 
-      DataTable table(ladder.size());
-      for (const auto& in : program.inputs()) {
-        table.addInput(in.name, DataType::F64);
-      }
-      for (const auto& out : program.outputs()) {
-        table.addOutput(out.name, DataType::F64);
-      }
-      for (std::size_t channel = 0; channel < program.inputs().size(); ++channel) {
-        for (std::size_t point = 0; point < ladder.size(); ++point) {
-          table.set(program.inputs()[channel].name, point, ladder[point]);
-        }
+      // One storage vector per channel, since bindView is a view onto memory
+      // the caller owns rather than a column the table allocates.
+      std::vector<std::vector<double>> inputs(program.inputs().size(),
+                                              std::vector<double>(numPoints));
+      std::vector<std::vector<double>> traced(program.outputs().size(),
+                                              std::vector<double>(numPoints, 0.0));
+      std::vector<std::vector<double>> expected(program.outputs().size(),
+                                                std::vector<double>(numPoints, 0.0));
+      for (auto& channel : inputs) {
+        channel = ladder;
       }
 
-      const auto binding = expr::Binding::bind(program, table);
+      DataTable compiledTable(numPoints);
+      DataTable referenceTable(numPoints);
+      for (std::size_t i = 0; i < program.inputs().size(); ++i) {
+        compiledTable.bindViewConst<double>(
+            program.inputs()[i].name, Direction::In, inputs[i].data());
+        referenceTable.bindViewConst<double>(
+            program.inputs()[i].name, Direction::In, inputs[i].data());
+      }
+      for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+        compiledTable.bindView<double>(program.outputs()[i].name, Direction::Out, traced[i].data());
+        referenceTable.bindView<double>(
+            program.outputs()[i].name, Direction::Out, expected[i].data());
+      }
+
+      expr::Binding binding = expr::Binding::bind(program, compiledTable);
       expr::BackendOptions options;
       options.preferred = expr::BackendKind::Interpreter;
-      makeKernel(program, binding, /*grids=*/{}, options)->run(table);
+      reader::datafield::GridStore grids;
+      const auto kernel = makeKernel(program, binding, grids, options);
+      kernel->precompute(compiledTable);
+      kernel->run(compiledTable);
 
-      DataTable reference = table;
       LuaReader interpreted{code};
-      interpreted.prepare();
-      interpreted.call(reference);
+      interpreted.prepare(referenceTable);
+      interpreted.call(referenceTable);
 
-      for (const auto& out : program.outputs()) {
-        for (std::size_t point = 0; point < ladder.size(); ++point) {
-          const double traced = table.get(out.name, point);
-          const double expected = reference.get(out.name, point);
-          if (std::isnan(expected)) {
-            CHECK(std::isnan(traced));
+      for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+        for (std::size_t point = 0; point < numPoints; ++point) {
+          if (std::isnan(expected[i][point])) {
+            CHECK(std::isnan(traced[i][point]));
           } else {
             // Bit equality is the right bar here, not a tolerance: both paths
             // evaluate the same operations in the same order in fp64, so any
             // difference is a lowering bug and not accumulated rounding.
-            CHECK(traced == expected);
+            CHECK(traced[i][point] == expected[i][point]);
           }
         }
       }

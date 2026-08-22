@@ -73,6 +73,13 @@ struct TraceState {
   // Set when a C closure raises through luaL_error, so the pcall handler can
   // report a cause instead of guessing from the message text.
   Cause cause{Cause::UntracedOperator};
+
+  // the script line the raise came from. fail() used to set
+  // only `cause`, so every TraceFailure from a net carried line == -1 and the
+  // diagnostic pointed at the file but not into it. Captured in fail() because
+  // that is the only place the Lua stack is still standing -- after lua_error
+  // unwinds there is nothing left to ask.
+  int line{-1};
 };
 
 TraceState* state(lua_State* luaState) {
@@ -97,7 +104,15 @@ int pushSym(lua_State* luaState, NodeId id, bool isBool = false) {
 }
 
 [[noreturn]] void fail(lua_State* luaState, Cause cause, const char* fmt, ...) {
-  state(luaState)->cause = cause;
+  TraceState* tracer = state(luaState);
+  tracer->cause = cause;
+
+  // Level 1 is the Lua frame that called us; a metamethod raise from `z > 0`
+  // sits directly under the C closure, which is the line the user wrote.
+  lua_Debug debug;
+  tracer->line = (lua_getstack(luaState, 1, &debug) != 0 && lua_getinfo(luaState, "l", &debug) != 0)
+                     ? debug.currentline
+                     : -1;
   va_list args;
   va_start(args, fmt);
   lua_pushvfstring(luaState, fmt, args);
@@ -543,6 +558,10 @@ int concreteSelect(lua_State* l) {
 // ---------------------------------------------------------------------------
 // Environment
 // ---------------------------------------------------------------------------
+void pushSsolTableImpl(lua_State* luaState, bool symbolic);
+
+void pushSsolTable(lua_State* luaState, bool symbolic) { pushSsolTableImpl(luaState, symbolic); }
+
 void buildEnvironment(lua_State* luaState, bool symbolic) {
   lua_newtable(luaState);
   for (const auto* global : {"assert",
@@ -574,6 +593,14 @@ void buildEnvironment(lua_State* luaState, bool symbolic) {
   }
   lua_setfield(luaState, -2, "math");
 
+  pushSsolTable(luaState, symbolic);
+  lua_setfield(luaState, -2, "ssol");
+
+  lua_pushvalue(luaState, -1);
+  lua_setfield(luaState, -2, "_G");
+}
+
+void pushSsolTableImpl(lua_State* luaState, bool symbolic) {
   lua_newtable(luaState);
   const struct {
     const char* name;
@@ -593,13 +620,13 @@ void buildEnvironment(lua_State* luaState, bool symbolic) {
     // real booleans. That is exactly what makes `if ssol.gt(z, 0) then` show up
     // as a divergent line trace -- the symbolic run cannot see it, because a
     // userdata condition is unconditionally truthy.
+    //
+    // The concrete column is also what the interpreted LuaReader installs, so
+    // the fallback path evaluates the identical functions rather than a second
+    // implementation that agrees with this one only by inspection.
     lua_pushcfunction(luaState, symbolic ? entry.symbolicFn : entry.concreteFn);
     lua_setfield(luaState, -2, entry.name);
   }
-  lua_setfield(luaState, -2, "ssol");
-
-  lua_pushvalue(luaState, -1);
-  lua_setfield(luaState, -2, "_G");
 }
 
 // os, io, debug, require, load, dofile and package are absent by construction:
@@ -861,6 +888,11 @@ bool probe(const std::string& code,
 
 } // namespace
 
+void registerConcreteSsol(lua_State* luaState) {
+  pushSsolTable(luaState, /*symbolic=*/false);
+  lua_setglobal(luaState, "ssol");
+}
+
 // ---------------------------------------------------------------------------
 std::optional<expr::Program>
     traceLuaModule(const std::string& code, const TraceOptions& options, TraceFailure& failure) {
@@ -881,6 +913,7 @@ std::optional<expr::Program>
   auto abort = [&](Cause cause, std::string reason) {
     failure.cause = cause;
     failure.reason = std::move(reason);
+    failure.line = traceState.line;
     lua_close(luaState);
     return std::nullopt;
   };

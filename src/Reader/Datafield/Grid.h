@@ -344,6 +344,14 @@ class Grid {
 };
 
 // Owns every grid a set of Programs references, deduplicated by GridDesc.
+class GridStore;
+
+// The process-wide store.
+//
+// Injectable so tests stay hermetic: pass an own GridStore to CompiledReader
+// rather than reaching for this.
+[[nodiscard]] GridStore& sharedGridStore();
+
 class GridStore {
   public:
   GridStore() = default;
