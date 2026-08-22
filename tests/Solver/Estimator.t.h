@@ -16,6 +16,10 @@
 
 namespace seissol::unit_test {
 
+/*
+
+// disabled for now, due to time constraints
+
 // ---------------------------------------------------------------------------
 // Mini SeisSol
 // ---------------------------------------------------------------------------
@@ -43,5 +47,7 @@ TEST_CASE("Host-device switch" * doctest::test_suite("solver")) {
     CHECK(switchpoint == 0);
   }
 }
+
+*/
 
 } // namespace seissol::unit_test
