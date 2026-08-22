@@ -105,8 +105,8 @@ TEST_CASE("readModelParameters defaults" * doctest::test_suite("initializer")) {
   const YAML::Node node = YAML::Load(R"(
     equations:
       materialfilename: mat.yaml
-      qp: 1
-      qs: 1
+      freqcentral: 1
+      freqratio: 1
   )");
   ParameterReader reader(node, "", false);
   auto params = readModelParameters(&reader);
