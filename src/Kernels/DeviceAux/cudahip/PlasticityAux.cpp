@@ -77,7 +77,8 @@ __global__ void
   }
 
   // 1. Compute the mean stress for each node
-  const real meanStress = (localStresses[0] + localStresses[1] + localStresses[2]) / 3.0F;
+  const real meanStress =
+      (localStresses[0] + localStresses[1] + localStresses[2]) / static_cast<real>(3);
 
 // 2. Compute deviatoric stress tensor
 #pragma unroll
@@ -86,8 +87,9 @@ __global__ void
   }
 
   // 3. Compute the second invariant for each node
-  real tau = 0.5 * (localStresses[0] * localStresses[0] + localStresses[1] * localStresses[1] +
-                    localStresses[2] * localStresses[2]);
+  real tau = static_cast<real>(0.5) *
+             (localStresses[0] * localStresses[0] + localStresses[1] * localStresses[1] +
+              localStresses[2] * localStresses[2]);
   tau += (localStresses[3] * localStresses[3] + localStresses[4] * localStresses[4] +
           localStresses[5] * localStresses[5]);
   tau = std::sqrt(tau);
@@ -106,10 +108,10 @@ __global__ void
   __syncthreads();
 
   // 5. Compute the yield factor
-  real yieldfactor = 0.0;
+  real yieldfactor{};
   if (tau > taulim) {
     isAdjusted = true;
-    yieldfactor = ((taulim / tau) - 1.0) * oneMinusIntegratingFactor;
+    yieldfactor = ((taulim / tau) - static_cast<real>(1.0)) * oneMinusIntegratingFactor;
   }
 
   // 6. Adjust deviatoric stress tensor if a node within a node exceeds the elasticity region

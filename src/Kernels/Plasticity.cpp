@@ -125,12 +125,11 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   for (std::size_t ip = 0; ip < tensor::yieldFactor::size(); ++ip) {
     // Compute yield := (t_c / tau - 1) r for every node,
     // where r = 1 - exp(-timeStepWidth / tV)
-    if (tau[ip] > taulim[ip]) {
-      adjust = 1;
-      yieldFactor[ip] = (taulim[ip] / tau[ip] - 1.0) * oneMinusIntegratingFactor;
-    } else {
-      yieldFactor[ip] = 0.0;
-    }
+    const auto doesYield = tau[ip] > taulim[ip];
+    adjust = doesYield ? 1 : 0;
+    const auto ifYield =
+        (taulim[ip] / tau[ip] - static_cast<real>(1.0)) * oneMinusIntegratingFactor;
+    yieldFactor[ip] = doesYield ? ifYield : 0;
   }
 
   if (adjust != 0) {
@@ -159,56 +158,56 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
      *                = sigma_{ij} + yield s_{ij}
      */
 
-#pragma omp simd collapse(2)
-    for (std::size_t i = 0; i < NumNodes; ++i) {
-      for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-        const auto qp = s + multisim::NumSimulations * i;
+    constexpr auto NumTotalPoints = NumNodes * multisim::NumSimulations;
 
-        real dudtPstrainSqAcc = 0;
+#pragma omp simd
+    for (std::size_t qp = 0; qp < NumTotalPoints; ++qp) {
 
-        for (std::size_t x = 0; x < 6; ++x) {
-          const auto q = qp + multisim::NumSimulations * NumNodes * x;
-          /**
-           * Equation (10) from Wollherr et al.:
-           *
-           * d/dt strain_{ij} = (sigma_{ij} + sigma0_{ij} - P_{ij}(sigma)) / (2mu tV)
-           *
-           * where (11)
-           *
-           * P_{ij}(sigma) = { tau_c/tau s_{ij} + m delta_{ij}         if     tau >= taulim
-           *                 { sigma_{ij} + sigma0_{ij}                else
-           *
-           * Thus,
-           *
-           * d/dt strain_{ij} = { (1 - tau_c/tau) / (2mu tV) s_{ij}   if     tau >= taulim
-           *                    { 0                                    else
-           *
-           * Consider tau >= taulim first. We have (1 - tau_c/tau) = -yield / r. Therefore,
-           *
-           * d/dt strain_{ij} = -1 / (2mu tV r) yield s_{ij}
-           *                  = -1 / (2mu tV r) (sigmaNew_{ij} - sigma_{ij})
-           *                  = (sigma_{ij} - sigmaNew_{ij}) / (2mu tV r)
-           *                  = -yield s_{ij} / (2mu tV r)
-           *
-           * If tau < taulim, then sigma_{ij} - sigmaNew_{ij} = 0.
-           */
-          const auto qStressNodalUpdate = qStressNodal[q] * yieldFactor[qp];
-          const auto dudtPstrain = -factor * qStressNodalUpdate;
+      real dudtPstrainSqAcc = 0;
 
-          // Integrate with explicit Euler
-          pstrain[q] += timeStepWidth * dudtPstrain;
+#pragma unroll
+      for (std::size_t x = 0; x < 6; ++x) {
+        const auto q = qp + NumTotalPoints * x;
+        /**
+         * Equation (10) from Wollherr et al.:
+         *
+         * d/dt strain_{ij} = (sigma_{ij} + sigma0_{ij} - P_{ij}(sigma)) / (2mu tV)
+         *
+         * where (11)
+         *
+         * P_{ij}(sigma) = { tau_c/tau s_{ij} + m delta_{ij}         if     tau >= taulim
+         *                 { sigma_{ij} + sigma0_{ij}                else
+         *
+         * Thus,
+         *
+         * d/dt strain_{ij} = { (1 - tau_c/tau) / (2mu tV) s_{ij}   if     tau >= taulim
+         *                    { 0                                    else
+         *
+         * Consider tau >= taulim first. We have (1 - tau_c/tau) = -yield / r. Therefore,
+         *
+         * d/dt strain_{ij} = -1 / (2mu tV r) yield s_{ij}
+         *                  = -1 / (2mu tV r) (sigmaNew_{ij} - sigma_{ij})
+         *                  = (sigma_{ij} - sigmaNew_{ij}) / (2mu tV r)
+         *                  = -yield s_{ij} / (2mu tV r)
+         *
+         * If tau < taulim, then sigma_{ij} - sigmaNew_{ij} = 0.
+         */
+        const auto qStressNodalUpdate = qStressNodal[q] * yieldFactor[qp];
+        const auto dudtPstrain = -factor * qStressNodalUpdate;
 
-          // now contains the update for qStressNodal (cf. below)
-          qStressNodal[q] = qStressNodalUpdate;
+        // Integrate with explicit Euler
+        pstrain[q] += timeStepWidth * dudtPstrain;
 
-          dudtPstrainSqAcc += dudtPstrain * dudtPstrain;
-        }
+        // now contains the update for qStressNodal (cf. below)
+        qStressNodal[q] = qStressNodalUpdate;
 
-        // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
-        // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
-
-        qEtaNodal[qp] += timeStepWidth * std::sqrt(0.5 * dudtPstrainSqAcc);
+        dudtPstrainSqAcc += dudtPstrain * dudtPstrain;
       }
+
+      // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
+      // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
+
+      qEtaNodal[qp] += timeStepWidth * std::sqrt(static_cast<real>(0.5) * dudtPstrainSqAcc);
     }
 
     kernel::plConvertToModal adjKrnl;
