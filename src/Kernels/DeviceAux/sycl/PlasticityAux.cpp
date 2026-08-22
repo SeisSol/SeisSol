@@ -38,9 +38,9 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
                          unsigned* __restrict isAdjustableVector,
                          std::size_t* __restrict yieldCounter,
                          const seissol::model::PlasticityData* __restrict plasticity,
-                         double oneMinusIntegratingFactor,
-                         double tV,
-                         double timeStepWidth,
+                         real oneMinusIntegratingFactor,
+                         real tV,
+                         real timeStepWidth,
                          const size_t numElements,
                          void* streamPtr) {
   constexpr unsigned NumNodes = init::QStressNodal::Stop[multisim::BasisFunctionDimension] -
@@ -66,7 +66,7 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
       }
 
       // 1. Compute the mean stress for each node
-      real meanStress =
+      const real meanStress =
           (localStresses[0] + localStresses[1] + localStresses[2]) / static_cast<real>(3);
 
 // 2. Compute deviatoric stress tensor

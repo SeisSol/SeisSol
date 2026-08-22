@@ -44,9 +44,9 @@ using namespace device;
 #endif
 
 namespace seissol::kernels {
-std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
-                                          double timeStepWidth,
-                                          double tV,
+std::size_t Plasticity::computePlasticity(real oneMinusIntegratingFactor,
+                                          real timeStepWidth,
+                                          real tV,
                                           const GlobalData* global,
                                           const seissol::model::PlasticityData* plasticityData,
                                           real degreesOfFreedom[tensor::Q::size()],
@@ -222,8 +222,8 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 }
 
 void Plasticity::computePlasticityBatched(
-    SEISSOL_GPU_PARAM double timeStepWidth,
-    SEISSOL_GPU_PARAM double tV,
+    SEISSOL_GPU_PARAM real timeStepWidth,
+    SEISSOL_GPU_PARAM real tV,
     SEISSOL_GPU_PARAM const GlobalData* global,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
     SEISSOL_GPU_PARAM seissol::model::PlasticityData* plasticityData,

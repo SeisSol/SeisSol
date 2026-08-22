@@ -64,9 +64,9 @@ __global__ void
                                unsigned* __restrict isAdjustableVector,
                                std::size_t* __restrict yieldCounter,
                                const seissol::model::PlasticityData* __restrict plasticity,
-                               double oneMinusIntegratingFactor,
-                               double tV,
-                               double timeStepWidth) {
+                               real oneMinusIntegratingFactor,
+                               real tV,
+                               real timeStepWidth) {
   real* __restrict qStressNodal = nodalStressTensors[blockIdx.x];
   real localStresses[NumStressComponents];
 
@@ -155,9 +155,9 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
                          unsigned* __restrict isAdjustableVector,
                          std::size_t* __restrict yieldCounter,
                          const seissol::model::PlasticityData* __restrict plasticity,
-                         double oneMinusIntegratingFactor,
-                         double tV,
-                         double timeStepWidth,
+                         real oneMinusIntegratingFactor,
+                         real tV,
+                         real timeStepWidth,
                          size_t numElements,
                          void* streamPtr) {
   // use Stop/Start to include padding (and possibly avoid masked warps/wavefronts)
