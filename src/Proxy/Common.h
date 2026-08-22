@@ -36,12 +36,15 @@ struct ProxyOutput {
   double actualNonZeroGFlop{};
   double actualHardwareGFlop{};
   double gib{};
+  double kernelGib{};
   double nonZeroFlopPerCycle{};
   double hardwareFlopPerCycle{};
   double bytesPerCycle{};
+  double kernelBytesPerCycle{};
   double nonZeroGFlops{};
   double hardwareGFlops{};
   double gibPerSecond{};
+  double kernelGibPerSecond{};
 };
 
 struct Aux {
