@@ -47,7 +47,7 @@ TEST_CASE("Parses receiver file correctly" * doctest::test_suite("resultwriter")
 
   REQUIRE(points.size() == expectedPoints.size());
   for (auto i = 0U; i < points.size(); ++i) {
-    REQUIRE(points[i] == expectedPoints[i]);
+    CHECK(points[i] == expectedPoints[i]);
   }
 }
 } // namespace seissol::unit_test

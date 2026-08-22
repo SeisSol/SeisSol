@@ -38,10 +38,10 @@ TEST_CASE("MeshReader" * doctest::test_suite("geometry")) {
 
     rdr.disableDR();
 
-    REQUIRE(rdr.getElements()[0].boundaries[0] == FaceType::Regular);
-    REQUIRE(rdr.getElements()[0].boundaries[1] == FaceType::Regular);
-    REQUIRE(rdr.getElements()[0].boundaries[2] == FaceType::Regular);
-    REQUIRE(rdr.getElements()[0].boundaries[3] == FaceType::Regular);
+    CHECK(rdr.getElements()[0].boundaries[0] == FaceType::Regular);
+    CHECK(rdr.getElements()[0].boundaries[1] == FaceType::Regular);
+    CHECK(rdr.getElements()[0].boundaries[2] == FaceType::Regular);
+    CHECK(rdr.getElements()[0].boundaries[3] == FaceType::Regular);
   }
 }
 

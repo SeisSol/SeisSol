@@ -75,7 +75,7 @@ TEST_CASE("Variable Subsampler" * doctest::test_suite("geometry")) {
       subsampler.get(dofs.data(), cellMap.data(), var, &outDofs[var * SubTriangles]);
     }
     for (std::size_t i = 0; i < Quantities * SubTriangles; ++i) {
-      REQUIRE(outDofs[i] == AbsApprox(expectedDOFs[i]).epsilon(Epsilon));
+      CHECK(outDofs[i] == AbsApprox(expectedDOFs[i]).epsilon(Epsilon));
     }
   };
 }

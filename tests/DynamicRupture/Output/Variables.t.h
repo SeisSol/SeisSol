@@ -19,7 +19,7 @@ TEST_CASE("DR Variables" * doctest::test_suite("dynamicrupture")) {
     const auto countVariables = [&variableCounter](auto& /*var*/, int) { ++variableCounter; };
 
     misc::forEach(drVars, countVariables);
-    REQUIRE(variableCounter == 12);
+    CHECK(variableCounter == 12);
   }
 
   SUBCASE("TotalVariablesCount") {
@@ -42,7 +42,7 @@ TEST_CASE("DR Variables" * doctest::test_suite("dynamicrupture")) {
     };
 
     misc::forEach(drVars, countVariables);
-    REQUIRE(variableCounter == 20);
+    CHECK(variableCounter == 20);
   }
 
   SUBCASE("AllocationDeallocationOfVariables") {
