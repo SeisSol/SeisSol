@@ -6,6 +6,11 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-expr OBJECT
+    Ir.cpp
+    Program.cpp
+    Validate.cpp
+    Lower.cpp
+    Interp.cpp
     SderivFrontend.cpp
 )
 

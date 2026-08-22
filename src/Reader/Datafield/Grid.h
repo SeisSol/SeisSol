@@ -188,6 +188,23 @@ inline constexpr std::size_t DefaultWindowMemoryBudget = 1ULL << 30; // 1 GiB
 // [min, min + (num-1)*delta], and the file's time step is delta[timeAxis]. That
 // is why there is no separate bounds()/timeSpacing() virtual -- one export, one
 // place for a backend to get it wrong.
+// Surface-syntax names for the two closed vocabularies above. Both frontends
+// (sderiv grid declarations, Lua field_specs) spell these as strings, and both
+// used to carry their own mapping -- which is how "linear" and Interpolation
+// could drift apart between the traced and the interpreted path. One mapping,
+// here, next to the enums it maps onto.
+//
+// std::nullopt rather than a default on an unknown name: the sderiv frontend
+// reports it with a source position, the Lua tracer as a TraceFailure, and
+// neither diagnostic can be produced from in here.
+[[nodiscard]] std::optional<GridKind> parseGridKind(const std::string& text);
+[[nodiscard]] std::optional<Interpolation> parseInterpolation(const std::string& text);
+
+// The dataset inside the file when a frontend does not name one. Matches
+// AsagiLiteGrid::open's own default; stated once so the two frontends cannot
+// disagree about what an omitted variable means.
+inline constexpr const char* DefaultGridVariable = "z";
+
 struct GridGeometry {
   unsigned dimensions{0};
   double min[MaxGridDimensions]{};
@@ -208,6 +225,21 @@ struct GridDesc {
 
   [[nodiscard]] bool timeDependent() const { return timeAxis.has_value(); }
   [[nodiscard]] bool operator==(const GridDesc& other) const;
+
+  // Everything about this grid that reaches the EMITTED KERNEL, and nothing
+  // else. Program::canonicalForm() folds this in so that two programs sampling
+  // different files through the same scheme share a compiled kernel, while two
+  // sampling the same file through Linear and Cubic do not.
+  //
+  // path and variable are deliberately absent: they select which bytes the
+  // GridStore loads, not which code the backend emits. Program::internGrid()
+  // therefore dedupes on canonicalKey() PLUS path PLUS variable, and the cache
+  // key on canonicalKey() alone -- two different questions, two different keys.
+  //
+  // Stable across runs and builds: fixed-width tokens, no enum values written
+  // as integers (a reordered enum must not silently alias two schemes), no
+  // locale-dependent formatting.
+  [[nodiscard]] std::string canonicalKey() const;
 };
 
 // NOT PROVIDED, deliberately: a component-name to component-index mapping.

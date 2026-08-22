@@ -202,6 +202,7 @@ struct GridDeclaration {
   std::string name;
   std::string kind;
   std::string file;
+  std::string variable;
   std::string interpolation;
   std::vector<std::string> components;
   int position{0};
@@ -228,10 +229,27 @@ const std::unordered_map<std::string, Fn> Builtins = {
     {"le", Fn::Le},        {"eq", Fn::Eq},       {"land", Fn::And},    {"lor", Fn::Or},
     {"select", Fn::Select}};
 
-// Closed vocabularies, so a swapped file/interpolation pair fails at parse time
-// rather than at grid-load time on one rank of a large job.
-const std::unordered_set<std::string> GridKinds = {"asagi", "scec"};
-const std::unordered_set<std::string> Interpolations = {"linear", "nearest"};
+// The grid vocabularies are closed, so a swapped file/interpolation pair fails
+// at parse time rather than at grid-load time on one rank of a large job. They
+// are NOT restated here: datafield::parseGridKind / parseInterpolation are the
+// vocabulary, and a scheme added to Grid.h becomes available to this frontend
+// without a second edit that someone can forget.
+
+// The dataset inside the file. Optional, and it is the closed interpolation
+// vocabulary above that makes the slot unambiguous: in
+//   "asagi", FILE, X, ...
+// X is the interpolation if it names one and the variable otherwise. The
+// default matches AsagiLiteGrid::open's own default rather than restating a
+// convention in a second place.
+//
+// The alternative -- a required slot -- was rejected because the Lua field_spec
+// table has to gain the same field, and there it MUST be optional: field_specs
+// is a pre-existing ABI with scripts already written against it. Two spellings
+// of the same option in the two frontends is exactly the divergence the shared
+// Program is supposed to remove.
+// Variable default and the two vocabulary parsers now live in Grid.h, so the
+// Lua path cannot disagree with this one about what "linear" means.
+using reader::datafield::DefaultGridVariable;
 
 // ============================================================== parser ======
 class Parser {
@@ -281,7 +299,15 @@ class Parser {
     eat(TokenKind::Op, ",");
     grid.file = eat(TokenKind::Str).value;
     eat(TokenKind::Op, ",");
-    grid.interpolation = eat(TokenKind::Str).value;
+    const Token& slot = eat(TokenKind::Str);
+    if (reader::datafield::parseInterpolation(slot.value).has_value()) {
+      grid.variable = DefaultGridVariable;
+      grid.interpolation = slot.value;
+    } else {
+      grid.variable = slot.value;
+      eat(TokenKind::Op, ",");
+      grid.interpolation = eat(TokenKind::Str).value;
+    }
     while (valueIs(",")) {
       eat(TokenKind::Op, ",");
       grid.components.push_back(eat(TokenKind::Str).value);
@@ -459,11 +485,11 @@ ComponentTable checkGrids(const std::vector<GridDeclaration>& grids,
     if (!gridNames.insert(grid.name).second) {
       throw SderivError("grid", "duplicate grid `" + grid.name + "`", grid.position);
     }
-    if (GridKinds.count(grid.kind) == 0) {
+    if (!reader::datafield::parseGridKind(grid.kind).has_value()) {
       throw SderivError(
           "grid", "grid `" + grid.name + "`: unknown kind \"" + grid.kind + "\"", grid.position);
     }
-    if (Interpolations.count(grid.interpolation) == 0) {
+    if (!reader::datafield::parseInterpolation(grid.interpolation).has_value()) {
       throw SderivError("grid",
                         "grid `" + grid.name + "`: unknown interpolation \"" + grid.interpolation +
                             "\"; did the file and the interpolation get swapped?",
@@ -737,13 +763,22 @@ Program compileSderiv(const std::vector<SderivOutput>& outputs) {
     std::vector<GridId> gridIds;
     gridIds.reserve(parsed.grids.size());
     for (const auto& grid : parsed.grids) {
-      datafield::GridDesc desc;
-      // TODO(verify): field names taken from the Lua FieldSpec. Check against
-      // Reader/Datafield/Grid.h — the one type here this frontend does not own.
-      desc.kind = grid.kind;
-      desc.file = grid.file;
-      desc.interpolation = grid.interpolation;
-      desc.components = grid.components;
+      reader::datafield::GridDesc desc;
+      // Grid.h is the contract; the surface vocabularies map onto it here.
+      // `components` deliberately does NOT reach the desc: Grid.h declines to
+      // carry a component-name table, because Kind::Lookup already holds a
+      // resolved integer and a second name-resolution path is the defect class
+      // this frontend exists to remove. The names stay in ComponentTable, which
+      // is frontend-local and already built above.
+      //
+      // NOT YET EXPRESSIBLE in the surface syntax: GridDesc::boundary and
+      // GridDesc::timeAxis, both left at their defaults (Clamp, static). A
+      // time-dependent grid therefore cannot be declared from sderiv yet; that
+      // is a grammar addition and it belongs with the GridUpdateModule work.
+      desc.kind = *reader::datafield::parseGridKind(grid.kind);
+      desc.path = grid.file;
+      desc.variable = grid.variable;
+      desc.interpolation = *reader::datafield::parseInterpolation(grid.interpolation);
       // internGrid dedupes, so two outputs naming the same grid share a GridId
       // and the backend loads the file once.
       gridIds.push_back(program.internGrid(desc));

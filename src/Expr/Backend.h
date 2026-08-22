@@ -68,7 +68,7 @@ struct BackendOptions {
 // warning and returns the interpreter.
 std::unique_ptr<Kernel> makeKernel(const Program& program,
                                    const Binding& binding,
-                                   datafield::GridStore& grids,
+                                   reader::datafield::GridStore& grids,
                                    const BackendOptions& options);
 
 // --- deferred backends -------------------------------------------------------
@@ -84,11 +84,12 @@ std::unique_ptr<Kernel> makeKernel(const Program& program,
 // because full replication in host memory covers the current models, and
 // sharding needs the sub-box/halo analysis on Lookup coordinate arguments
 // before it can be correct.
-std::unique_ptr<Kernel>
-    makeTextureKernel(const Program& program, const Binding& binding, datafield::GridStore& grids);
+std::unique_ptr<Kernel> makeTextureKernel(const Program& program,
+                                          const Binding& binding,
+                                          reader::datafield::GridStore& grids);
 std::unique_ptr<Kernel> makeDistributedKernel(const Program& program,
                                               const Binding& binding,
-                                              datafield::GridStore& grids);
+                                              reader::datafield::GridStore& grids);
 
 } // namespace seissol::expr
 

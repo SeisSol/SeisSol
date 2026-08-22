@@ -70,14 +70,28 @@ class Binding {
   // Gather `count` points starting at `first` into `dst`, one contiguous lane
   // block per input channel: dst[channel * count + lane]. Scatter is the
   // mirror image. Both are the only places a DataTable accessor is touched.
+  //
+  // Integer channels are NOT overloaded, and that is deliberate. A group or
+  // fault-tag column is read through the same tile as everything else, because
+  // the program has one compute type and Program.h already records what that
+  // costs (exactness above 2^24 under F32). Adding int32/int64 tiles would
+  // reintroduce the per-node typing that Program.h declines to build.
   void gather(const reader::scripting::DataTable& table,
               std::size_t first,
               std::size_t count,
               double* dst) const;
+  void gather(const reader::scripting::DataTable& table,
+              std::size_t first,
+              std::size_t count,
+              float* dst) const;
   void scatter(const reader::scripting::DataTable& table,
                std::size_t first,
                std::size_t count,
                const double* src) const;
+  void scatter(const reader::scripting::DataTable& table,
+               std::size_t first,
+               std::size_t count,
+               const float* src) const;
 
   private:
   std::vector<ColumnBinding> inputs_;

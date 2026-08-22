@@ -15,6 +15,8 @@ add_library(seissol-reader OBJECT
     Datafield/GridFactory.cpp
     Datafield/Interpolation.cpp
 
+    Scripting/DataReader.cpp
+    Scripting/DataTable.cpp
     Scripting/EasiReader.cpp
     Scripting/LuaReader.cpp
     Scripting/LuaTracer.cpp

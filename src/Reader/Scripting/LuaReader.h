@@ -28,7 +28,13 @@ struct FieldSpec {
   ///< Path to the file. Relative to the script.
   std::string file;
 
-  ///< interpolation mode; either "linear" or "nearest"
+  ///< The dataset inside the file. Optional in field_specs;
+  ///< an absent or empty entry means datafield::DefaultGridVariable. Additive
+  ///< on purpose -- field_specs is an ABI with scripts already written against
+  ///< it, so this cannot be a required key.
+  std::string variable;
+
+  ///< interpolation mode; "nearest", "linear" or "cubic"
   std::string interpolation;
 
   ///< Output names in order (ignored for SCEC)

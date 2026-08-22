@@ -85,7 +85,7 @@ class Program {
   [[nodiscard]] const std::vector<NodeId>& roots() const { return roots_; }
 
   // Every external grid the DAG references, in GridId order.
-  [[nodiscard]] const std::vector<datafield::GridDesc>& grids() const { return grids_; }
+  [[nodiscard]] const std::vector<reader::datafield::GridDesc>& grids() const { return grids_; }
 
   [[nodiscard]] ComputeType computeType() const { return computeType_; }
   void setComputeType(ComputeType t) { computeType_ = t; }
@@ -117,7 +117,7 @@ class Program {
   void addOutput(const std::string& name, reader::scripting::DataType type, NodeId root);
   void addInput(const std::string& name, reader::scripting::DataType type);
   void addState(const std::string& name, double initial, NodeId root);
-  GridId internGrid(const datafield::GridDesc& desc);
+  GridId internGrid(const reader::datafield::GridDesc& desc);
 
   private:
   Arena arena_;
@@ -125,7 +125,7 @@ class Program {
   std::vector<VarSpec> outputs_;
   std::vector<StateSpec> state_;
   std::vector<NodeId> roots_;
-  std::vector<datafield::GridDesc> grids_;
+  std::vector<reader::datafield::GridDesc> grids_;
   ComputeType computeType_{ComputeType::F64};
 };
 

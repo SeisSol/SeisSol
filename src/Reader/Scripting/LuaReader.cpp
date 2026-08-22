@@ -185,6 +185,11 @@ std::vector<FieldSpec> readFieldSpecs(lua_State* luaState) {
       fs.file = lua_tostring(luaState, -1);
     }
     lua_pop(luaState, 1);
+    lua_getfield(luaState, -1, "variable");
+    if (lua_type(luaState, -1) == LUA_TSTRING) {
+      fs.variable = lua_tostring(luaState, -1);
+    }
+    lua_pop(luaState, 1);
     lua_getfield(luaState, -1, "interpolation");
     if (lua_type(luaState, -1) == LUA_TSTRING) {
       fs.interpolation = lua_tostring(luaState, -1);

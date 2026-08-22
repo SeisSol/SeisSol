@@ -677,6 +677,7 @@ std::vector<FieldSpec> readFieldSpecs(lua_State* luaState, int moduleIndex) {
         spec.name = stringField(luaState, -1, "name");
         spec.kind = stringField(luaState, -1, "kind");
         spec.file = stringField(luaState, -1, "file");
+        spec.variable = stringField(luaState, -1, "variable");
         spec.interpolation = stringField(luaState, -1, "interpolation");
         lua_getfield(luaState, -1, "parameters");
         spec.parameters = stringArray(luaState, -1);
@@ -892,14 +893,35 @@ std::optional<expr::Program>
                        "` declares no parameters; the tracer needs the component count before it "
                        "can emit the lookups, so `parameters` is required for every kind");
     }
-    datafield::GridDesc desc;
-    // TODO(verify): field names taken from FieldSpec. Check against
-    // Reader/Datafield/Grid.h — this is the one place the tracer touches a type
-    // it does not own.
-    desc.kind = spec.kind;
-    desc.file = spec.file;
-    desc.interpolation = spec.interpolation;
-    desc.components = spec.parameters;
+    const auto kind = reader::datafield::parseGridKind(spec.kind);
+    if (!kind.has_value()) {
+      return abort(Cause::LoadError,
+                   "field `" + spec.name + "` declares unknown kind \"" + spec.kind + "\"");
+    }
+    // An absent `variable` is the documented default, not a diagnostic; an
+    // unknown interpolation is the reverse. Distinguishing the two is why the
+    // parser returns optional instead of falling back to Linear.
+    const std::string interpolationName =
+        spec.interpolation.empty() ? std::string("linear") : spec.interpolation;
+    const auto interpolation = reader::datafield::parseInterpolation(interpolationName);
+    if (!interpolation.has_value()) {
+      return abort(Cause::LoadError,
+                   "field `" + spec.name + "` declares unknown interpolation \"" +
+                       spec.interpolation + "\"");
+    }
+
+    reader::datafield::GridDesc desc;
+    // Grid.h is the contract. `parameters` stays local: it gives the tracer the
+    // component count it needs to emit the lookups, but Kind::Lookup carries a
+    // resolved integer, and Grid.h declines to hold a second name table for the
+    // same reason Program.h infers the signature instead of trusting it.
+    //
+    // NOT YET EXPRESSIBLE in field_specs: boundary and timeAxis, both left at
+    // their defaults (Clamp, static), exactly as on the sderiv side.
+    desc.kind = *kind;
+    desc.path = spec.file;
+    desc.variable = spec.variable.empty() ? reader::datafield::DefaultGridVariable : spec.variable;
+    desc.interpolation = *interpolation;
     traceState.gridIds.push_back(program.internGrid(desc));
   }
 

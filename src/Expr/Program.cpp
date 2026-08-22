@@ -259,11 +259,11 @@ void Program::addState(const std::string& name, double initial, NodeId root) {
   state_.push_back(StateSpec{name, initial, root});
 }
 
-GridId Program::internGrid(const datafield::GridDesc& desc) {
-  const std::string key = desc.canonicalKey() + '\x1f' + desc.path + '\x1f' + desc.dataset;
+GridId Program::internGrid(const reader::datafield::GridDesc& desc) {
+  const std::string key = desc.canonicalKey() + '\x1f' + desc.path + '\x1f' + desc.variable;
   for (std::size_t i = 0; i < grids_.size(); ++i) {
     const std::string other =
-        grids_[i].canonicalKey() + '\x1f' + grids_[i].path + '\x1f' + grids_[i].dataset;
+        grids_[i].canonicalKey() + '\x1f' + grids_[i].path + '\x1f' + grids_[i].variable;
     if (other == key) {
       return static_cast<GridId>(i);
     }

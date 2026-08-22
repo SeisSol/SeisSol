@@ -26,6 +26,76 @@ bool GridDesc::operator==(const GridDesc& other) const {
          timeAxis == other.timeAxis;
 }
 
+namespace {
+
+const char* token(GridKind kind) {
+  switch (kind) {
+  case GridKind::AsagiLite:
+    return "asagilite";
+  case GridKind::Scec:
+    return "scec";
+  case GridKind::Distributed:
+    return "distributed";
+  }
+  return "unknown";
+}
+
+const char* token(Interpolation interp) {
+  switch (interp) {
+  case Interpolation::Nearest:
+    return "nearest";
+  case Interpolation::Linear:
+    return "linear";
+  case Interpolation::Cubic:
+    return "cubic";
+  }
+  return "unknown";
+}
+
+const char* token(BoundaryMode boundary) {
+  switch (boundary) {
+  case BoundaryMode::Clamp:
+    return "clamp";
+  case BoundaryMode::Fail:
+    return "fail";
+  }
+  return "unknown";
+}
+
+} // namespace
+
+std::optional<GridKind> parseGridKind(const std::string& text) {
+  if (text == "asagi" || text == "asagilite") {
+    return GridKind::AsagiLite;
+  }
+  if (text == "scec") {
+    return GridKind::Scec;
+  }
+  return std::nullopt;
+}
+
+std::optional<Interpolation> parseInterpolation(const std::string& text) {
+  if (text == "nearest") {
+    return Interpolation::Nearest;
+  }
+  if (text == "linear") {
+    return Interpolation::Linear;
+  }
+  if (text == "cubic") {
+    return Interpolation::Cubic;
+  }
+  return std::nullopt;
+}
+
+std::string GridDesc::canonicalKey() const {
+  // The time axis is part of the key because it changes the sampling arity the
+  // kernel emits, not merely which slices are resident.
+  std::string key =
+      std::string(token(kind)) + '\x1f' + token(interpolation) + '\x1f' + token(boundary) + '\x1f';
+  key += timeAxis.has_value() ? ('t' + std::to_string(*timeAxis)) : std::string("static");
+  return key;
+}
+
 void Grid::bounds(double* min, double* max) const {
   GridGeometry geom;
   geometry(geom);
