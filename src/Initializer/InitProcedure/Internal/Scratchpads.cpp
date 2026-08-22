@@ -19,7 +19,6 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <unordered_set>
