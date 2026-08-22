@@ -15,6 +15,7 @@
 #include "Reader/Datafield/Interpolation.h"
 #include "Reader/Scripting/DataTable.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -290,6 +291,99 @@ TEST_SUITE("ExprBackend") {
     const auto kernel = makeKernel(program, binding, store, options);
     REQUIRE(kernel != nullptr);
     CHECK(kernel->kind() == BackendKind::Interpreter);
+  }
+
+  TEST_CASE("run(KernelArgs) agrees with run(table), at any granularity") {
+    // The shape EasiBoundary::query needs: one binding, and only the bases move
+    // per face. Bitwise agreement is the bar -- the two paths must not be two
+    // numerical paths, or the element-wise call site would silently drift from
+    // the dense one.
+    const Program program = compileSderivModule(
+        "def a = x*x + y*y\nout def u = a + z*group\nout def v = a - z\nout def w = a*z\n");
+    constexpr std::size_t Nodes = 9;
+
+    std::vector<double> face(3 * Nodes);
+    std::vector<double> out(3 * Nodes, -1.0);
+    for (std::size_t i = 0; i < face.size(); ++i) {
+      face[i] = 0.1 * static_cast<double>(i + 1);
+    }
+
+    DataTable table(Nodes);
+    table.bindViewConst<double>("x", Direction::In, face.data(), 3, 0);
+    table.bindViewConst<double>("y", Direction::In, face.data(), 3, 1);
+    table.bindViewConst<double>("z", Direction::In, face.data(), 3, 2);
+    // bindConstant rather than bindComputed: the latter has no address
+    // arithmetic behind it and would make the binding unaddressable.
+    table.bindConstant<std::int32_t>("group", 1);
+    table.bindView<double>("u", Direction::Out, out.data(), 3, 0);
+    table.bindView<double>("v", Direction::Out, out.data(), 3, 1);
+    table.bindView<double>("w", Direction::Out, out.data(), 3, 2);
+
+    Binding binding = Binding::bind(program, table);
+    REQUIRE(binding.addressable());
+
+    df::GridStore store;
+    const auto kernel = makeKernel(program, binding, store, {});
+    kernel->precompute(table);
+    kernel->run(table);
+    const std::vector<double> reference = out;
+
+    KernelArgs args{};
+    const void* inputs[4] = {face.data(), face.data(), face.data(), nullptr};
+    void* outputs[3] = {out.data(), out.data(), out.data()};
+    args.inputs = inputs;
+    args.inputCount = 4;
+    args.outputs = outputs;
+    args.outputCount = 3;
+
+    SUBCASE("the whole range in one call") {
+      std::fill(out.begin(), out.end(), -1.0);
+      args.first = 0;
+      args.count = Nodes;
+      kernel->run(args);
+      for (std::size_t i = 0; i < out.size(); ++i) {
+        CHECK(out[i] == reference[i]);
+      }
+    }
+
+    SUBCASE("one point per call") {
+      std::fill(out.begin(), out.end(), -1.0);
+      for (std::size_t n = 0; n < Nodes; ++n) {
+        args.first = n;
+        args.count = 1;
+        kernel->run(args);
+      }
+      for (std::size_t i = 0; i < out.size(); ++i) {
+        CHECK(out[i] == reference[i]);
+      }
+    }
+
+    SUBCASE("a null base keeps the one the binding was built with") {
+      // `group` is passed as null above, so it must still read the bound
+      // constant rather than whatever inputs[3] happened to be.
+      std::fill(out.begin(), out.end(), -1.0);
+      args.first = 0;
+      args.count = Nodes;
+      kernel->run(args);
+      CHECK(out[0] == reference[0]);
+    }
+  }
+
+  TEST_CASE("a computed column makes a binding unaddressable") {
+    const Program program = compileSderivModule("out def u = x + group\n");
+    std::vector<double> x = {1.0, 2.0};
+    std::vector<double> out(2, 0.0);
+
+    DataTable table(2);
+    table.bindViewConst<double>("x", Direction::In, x.data());
+    // The one bind form with no address arithmetic behind it.
+    table.bindComputed("group", [](std::size_t) -> std::int32_t { return 1; });
+    table.bindView<double>("u", Direction::Out, out.data());
+
+    const Binding binding = Binding::bind(program, table);
+    // Not an error -- run(table) still works. It is what makeKernel will check
+    // before offering a device backend.
+    CHECK_FALSE(binding.addressable());
   }
 
 } // TEST_SUITE

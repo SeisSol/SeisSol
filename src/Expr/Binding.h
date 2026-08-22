@@ -31,6 +31,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 namespace seissol::expr {
@@ -50,6 +51,12 @@ struct ColumnBinding {
   // DataTable does not distinguish them from the outside, and the property that
   // matters downstream is the writability, not which builder produced it.
   bool computed{false};
+
+  /// Address arithmetic, resolved once at bind time. Empty exactly when the
+  /// column was bound with bindComputed -- see DataTable::StridedView. A
+  /// program with any empty entry can only be evaluated through the accessor,
+  /// which rules out the device backends and the per-call base override.
+  std::optional<reader::scripting::StridedView> view;
 };
 
 // A contiguous run of points sharing one group value. Half-open [begin, end).
@@ -112,6 +119,34 @@ class Binding {
   // the program has one compute type and Program.h already records what that
   // costs (exactness above 2^24 under F32). Adding int32/int64 tiles would
   // reintroduce the per-node typing that Program.h declines to build.
+  /// True when every bound column has a StridedView, i.e. when this binding can
+  /// be evaluated from raw pointers alone. What makeKernel checks before
+  /// offering a device backend, and what run(KernelArgs) requires.
+  [[nodiscard]] bool addressable() const { return addressable_; }
+
+  /// Gather from bases supplied per call rather than from the bound table.
+  /// `inputs[i]` may be null to keep the bound base for that slot.
+  void gatherFrom(const void* const* inputs,
+                  std::size_t inputCount,
+                  std::size_t first,
+                  std::size_t count,
+                  double* dst) const;
+  void gatherFrom(const void* const* inputs,
+                  std::size_t inputCount,
+                  std::size_t first,
+                  std::size_t count,
+                  float* dst) const;
+  void scatterTo(void* const* outputs,
+                 std::size_t outputCount,
+                 std::size_t first,
+                 std::size_t count,
+                 const double* src) const;
+  void scatterTo(void* const* outputs,
+                 std::size_t outputCount,
+                 std::size_t first,
+                 std::size_t count,
+                 const float* src) const;
+
   void gather(const reader::scripting::DataTable& table,
               std::size_t first,
               std::size_t count,
@@ -132,11 +167,25 @@ class Binding {
   private:
   void buildGroupRanges(const Program& program, const reader::scripting::DataTable& table);
 
+  template <typename Tile>
+  void gatherFromImpl(const void* const* inputs,
+                      std::size_t inputCount,
+                      std::size_t first,
+                      std::size_t count,
+                      Tile* dst) const;
+  template <typename Tile>
+  void scatterToImpl(void* const* outputs,
+                     std::size_t outputCount,
+                     std::size_t first,
+                     std::size_t count,
+                     const Tile* src) const;
+
   std::vector<ColumnBinding> inputs_;
   std::vector<ColumnBinding> outputs_;
   std::vector<GroupRange> groupRanges_;
   std::vector<std::size_t> permutation_;
   std::size_t numPoints_{0};
+  bool addressable_{false};
   std::vector<std::byte> persistent_;
   std::int32_t persistentSlotCount_{0};
   ComputeType computeType_{ComputeType::F64};

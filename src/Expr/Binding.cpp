@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <new>
 #include <numeric>
 #include <stdexcept>
@@ -207,6 +208,7 @@ Binding Binding::bind(const Program& program, const DataTable& table) {
     column.slot = static_cast<int>(i);
     column.tableType = entry.datatype;
     column.computed = entry.setter == nullptr;
+    column.view = entry.view;
     binding.inputs_.push_back(column);
   }
 
@@ -237,7 +239,17 @@ Binding Binding::bind(const Program& program, const DataTable& table) {
     column.slot = static_cast<int>(i);
     column.tableType = entry.datatype;
     column.computed = false;
+    column.view = entry.view;
     binding.outputs_.push_back(column);
+  }
+
+  binding.addressable_ = true;
+  for (const auto* set : {&binding.inputs_, &binding.outputs_}) {
+    for (const auto& column : *set) {
+      if (!column.view.has_value()) {
+        binding.addressable_ = false;
+      }
+    }
   }
 
   binding.buildGroupRanges(program, table);
@@ -341,6 +353,154 @@ float* Binding::persistentF32() {
     logError() << "expr: the program computes in f64; asked for the f32 persistent buffer.";
   }
   return persistent_.empty() ? nullptr : reinterpret_cast<float*>(persistent_.data());
+}
+
+namespace {
+
+// One column, read straight through its address arithmetic. No std::function,
+// no datatype switch inside the lane loop -- the column's storage type picks the
+// loop once, exactly as gatherColumn does for the table path.
+template <typename Tile, typename Col>
+void gatherView(const reader::scripting::StridedView& view,
+                const void* base,
+                const std::vector<std::size_t>& permutation,
+                std::size_t first,
+                std::size_t count,
+                Tile* dst) {
+  const auto* bytes = static_cast<const char*>(base) + view.byteOffset;
+  for (std::size_t lane = 0; lane < count; ++lane) {
+    const std::size_t point = permutation.empty() ? first + lane : permutation[first + lane];
+    Col value{};
+    std::memcpy(&value, bytes + point * view.byteStride, sizeof(Col));
+    dst[lane] = static_cast<Tile>(value);
+  }
+}
+
+template <typename Tile>
+void gatherViewDispatch(const ColumnBinding& column,
+                        const void* base,
+                        const std::vector<std::size_t>& permutation,
+                        std::size_t first,
+                        std::size_t count,
+                        Tile* dst) {
+  switch (column.tableType) {
+  case DataType::F32:
+    gatherView<Tile, float>(*column.view, base, permutation, first, count, dst);
+    return;
+  case DataType::F64:
+    gatherView<Tile, double>(*column.view, base, permutation, first, count, dst);
+    return;
+  case DataType::I32:
+    gatherView<Tile, std::int32_t>(*column.view, base, permutation, first, count, dst);
+    return;
+  case DataType::I64:
+    gatherView<Tile, std::int64_t>(*column.view, base, permutation, first, count, dst);
+    return;
+  }
+}
+
+template <typename Tile, typename Col>
+void scatterView(const reader::scripting::StridedView& view,
+                 void* base,
+                 const std::vector<std::size_t>& permutation,
+                 std::size_t first,
+                 std::size_t count,
+                 const Tile* src) {
+  auto* bytes = static_cast<char*>(base) + view.byteOffset;
+  for (std::size_t lane = 0; lane < count; ++lane) {
+    const std::size_t point = permutation.empty() ? first + lane : permutation[first + lane];
+    const auto value = static_cast<Col>(src[lane]);
+    std::memcpy(bytes + point * view.byteStride, &value, sizeof(Col));
+  }
+}
+
+template <typename Tile>
+void scatterViewDispatch(const ColumnBinding& column,
+                         void* base,
+                         const std::vector<std::size_t>& permutation,
+                         std::size_t first,
+                         std::size_t count,
+                         const Tile* src) {
+  switch (column.tableType) {
+  case DataType::F32:
+    scatterView<Tile, float>(*column.view, base, permutation, first, count, src);
+    return;
+  case DataType::F64:
+    scatterView<Tile, double>(*column.view, base, permutation, first, count, src);
+    return;
+  case DataType::I32:
+    scatterView<Tile, std::int32_t>(*column.view, base, permutation, first, count, src);
+    return;
+  case DataType::I64:
+    scatterView<Tile, std::int64_t>(*column.view, base, permutation, first, count, src);
+    return;
+  }
+}
+
+} // namespace
+
+template <typename Tile>
+void Binding::gatherFromImpl(const void* const* inputs,
+                             std::size_t inputCount,
+                             std::size_t first,
+                             std::size_t count,
+                             Tile* dst) const {
+  for (std::size_t i = 0; i < inputs_.size(); ++i) {
+    const ColumnBinding& column = inputs_[i];
+    if (!column.view.has_value()) {
+      logError() << "expr: this binding has a computed column and cannot be evaluated from raw "
+                    "pointers; use run(table).";
+    }
+    // A null override keeps the bound base, so a caller that moves only some
+    // columns per face need not restate the rest.
+    const void* base = (i < inputCount && inputs[i] != nullptr) ? inputs[i] : column.view->base;
+    gatherViewDispatch<Tile>(column, base, permutation_, first, count, dst + i * count);
+  }
+}
+
+template <typename Tile>
+void Binding::scatterToImpl(void* const* outputs,
+                            std::size_t outputCount,
+                            std::size_t first,
+                            std::size_t count,
+                            const Tile* src) const {
+  for (std::size_t i = 0; i < outputs_.size(); ++i) {
+    const ColumnBinding& column = outputs_[i];
+    if (!column.view.has_value()) {
+      logError() << "expr: this binding has a computed output column; use run(table).";
+    }
+    void* base = (i < outputCount && outputs[i] != nullptr) ? outputs[i] : column.view->base;
+    scatterViewDispatch<Tile>(column, base, permutation_, first, count, src + i * count);
+  }
+}
+
+void Binding::gatherFrom(const void* const* inputs,
+                         std::size_t inputCount,
+                         std::size_t first,
+                         std::size_t count,
+                         double* dst) const {
+  gatherFromImpl<double>(inputs, inputCount, first, count, dst);
+}
+void Binding::gatherFrom(const void* const* inputs,
+                         std::size_t inputCount,
+                         std::size_t first,
+                         std::size_t count,
+                         float* dst) const {
+  gatherFromImpl<float>(inputs, inputCount, first, count, dst);
+}
+void Binding::scatterTo(void* const* outputs,
+                        std::size_t outputCount,
+                        std::size_t first,
+                        std::size_t count,
+                        const double* src) const {
+  scatterToImpl<double>(outputs, outputCount, first, count, src);
+}
+void Binding::scatterTo(void* const* outputs,
+                        std::size_t outputCount,
+                        std::size_t first,
+                        std::size_t count,
+                        const float* src) const {
+  scatterToImpl<float>(outputs, outputCount, first, count, src);
 }
 
 void Binding::gather(const DataTable& table,

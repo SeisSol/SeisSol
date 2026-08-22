@@ -40,6 +40,35 @@ enum class BackendKind : std::uint8_t {
 
 const char* name(BackendKind kind);
 
+/// One call's worth of raw arguments, in Binding slot order.
+struct KernelArgs {
+  /// inputs[i] is the base for Program::inputs()[i], outputs[j] for outputs()[j].
+  /// A null entry means "use the base the Binding was bound with", so a caller
+  /// that only moves some of the columns need not restate the others.
+  const void* const* inputs{nullptr};
+  void* const* outputs{nullptr};
+  std::size_t inputCount{0};
+  std::size_t outputCount{0};
+
+  /// Point range, in the Binding's (possibly permuted) index space.
+  /// count == 1 is the element-wise form; nothing about the kernel changes.
+  std::size_t first{0};
+  std::size_t count{0};
+
+  /// Opaque queue/stream, matching SeisSol's existing void* convention
+  /// (Layer::synchronizeTo and friends). Null means synchronous on the host.
+  /// Ignored by the interpreter and by RtcCpu.
+  void* stream{nullptr};
+
+  /// Whether the backend may open a parallel region.
+  ///
+  /// Default OFF, and that is a correctness default rather than a conservative
+  /// one: the element-wise call site is a loop over faces that is itself
+  /// already inside an OpenMP region, and nesting one there would be wrong
+  /// regardless of how it performs. The dense run(table) path sets it.
+  bool allowThreads{false};
+};
+
 // A prepared, ready-to-run instance of one Program against one Binding.
 class Kernel {
   public:
@@ -76,6 +105,27 @@ class Kernel {
   // filled it reads uninitialised persistent slots, which is a silently wrong
   // result rather than a crash, so it is an error rather than a warning.
   virtual void run(const reader::scripting::DataTable& table) = 0;
+
+  // Evaluate a range, with the column BASES supplied per call.
+  //
+  // ADDED (reported, Package 5). run(table) evaluates a whole table, which is
+  // the wrong shape for the consumer that matters: EasiBoundary::query is
+  // called once per face and builds a DataTable each time. Measured, that costs
+  // 0.4 us per face to build plus 0.4 us to bind, against 0.3 us to evaluate --
+  // so today the setup already costs more than the arithmetic, and with a
+  // compiled kernel it would be 87% of the total. Compiling is pointless until
+  // the setup leaves the per-face loop.
+  //
+  // So: bind ONCE against a representative table, then call this per face with
+  // only the bases moved. Strides, offsets and types stay in the Binding, where
+  // they belong -- they are identical for every face.
+  //
+  // This is what yateto and TensorForge spell PTR_BASED, and it is the right
+  // shape here for the same reason: the indirection sits at FACE granularity,
+  // so one pointer load amortises over the face's nodal points. An index list
+  // would save four bytes per array per face, which at that amortisation is not
+  // measurable.
+  virtual void run(const KernelArgs& args) = 0;
 
   [[nodiscard]] virtual BackendKind kind() const = 0;
 };

@@ -125,6 +125,26 @@ class StoreSampler final : public GridSampler {
 
 // --- table seam -------------------------------------------------------------
 
+// Interp.h's TileIo over raw bases, for run(KernelArgs). The permutation and
+// every stride still come from the Binding; only the bases move.
+template <typename T>
+class RawTileIo final : public TileIo<T> {
+  public:
+  RawTileIo(const Binding& binding, const KernelArgs& args) : binding_(&binding), args_(&args) {}
+
+  void gather(std::size_t first, std::size_t count, T* dst) const override {
+    binding_->gatherFrom(args_->inputs, args_->inputCount, first, count, dst);
+  }
+
+  void scatter(std::size_t first, std::size_t count, const T* src) override {
+    binding_->scatterTo(args_->outputs, args_->outputCount, first, count, src);
+  }
+
+  private:
+  const Binding* binding_;
+  const KernelArgs* args_;
+};
+
 // Interp.h's TileIo over a (Binding, DataTable) pair. Two lines, as Interp.h
 // predicted: Binding already produces exactly the dst[channel * count + lane]
 // layout the interpreter wants, and already resolves the permutation.
@@ -179,14 +199,23 @@ class InterpreterKernel final : public Kernel {
     precomputed_ = true;
   }
 
-  void run(const DataTable& table) override {
-    if (needsPrecompute_ && !precomputed_) {
-      // Not a warning: the hoisted slots would be read as whatever the
-      // allocation zeroed them to, which is a plausible-looking wrong answer
-      // rather than a crash.
-      logError() << "expr: the kernel has a precompute stage that was never run; call "
-                    "Kernel::precompute() from prepare().";
+  void run(const KernelArgs& args) override {
+    if (!binding_->addressable()) {
+      logError() << "expr: this program has a computed column, so it cannot be evaluated from raw "
+                    "bases; call run(table) instead.";
+      return;
     }
+    guardPrecompute();
+    RawTileIo<T> io(*binding_, args);
+    // One range, exactly what was asked for. The group partitioning is NOT
+    // applied here: the caller has already chosen the range, and re-imposing
+    // partitions over it would evaluate points outside it.
+    const std::vector<PointRange> range{PointRange{args.first, args.first + args.count}};
+    interpreter_.run(io, binding_->numPoints(), persistent(), range);
+  }
+
+  void run(const DataTable& table) override {
+    guardPrecompute();
     BoundTileIo<T> io(*binding_, table);
     interpreter_.run(io, binding_->numPoints(), persistent(), partitions_);
   }
@@ -194,6 +223,16 @@ class InterpreterKernel final : public Kernel {
   [[nodiscard]] BackendKind kind() const override { return BackendKind::Interpreter; }
 
   private:
+  void guardPrecompute() const {
+    if (needsPrecompute_ && !precomputed_) {
+      // Not a warning: the hoisted slots would be read as whatever the
+      // allocation zeroed them to, which is a plausible-looking wrong answer
+      // rather than a crash.
+      logError() << "expr: the kernel has a precompute stage that was never run; call "
+                    "Kernel::precompute() from prepare().";
+    }
+  }
+
   T* persistent();
 
   Binding* binding_;
