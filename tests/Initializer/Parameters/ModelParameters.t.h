@@ -82,8 +82,8 @@ TEST_CASE("readModelParameters parses YAML" * doctest::test_suite("initializer")
       tv: 0.2
       numflux: Rusanov
       numfluxnearfault: Godunov
-      qp: 1
-      qs: 1
+      freqcentral: 1
+      freqratio: 1
   )");
   ParameterReader reader(node, "", false);
   auto params = readModelParameters(&reader);
