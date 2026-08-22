@@ -11,6 +11,7 @@
 
 #include "Common/Marker.h"
 #include "GeneratedCode/init.h"
+#include "Monitoring/Metric.h"
 
 #include <cassert>
 #include <cstddef>
@@ -124,42 +125,30 @@ void Neighbor::computeNeighborsIntegral(
   nKrnl.execute();
 }
 
-void Neighbor::flopsNeighborsIntegral(
-    const std::array<FaceType, Cell::NumFaces>& faceTypes,
-    const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-    const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping,
-    std::uint64_t& nonZeroFlops,
-    std::uint64_t& hardwareFlops,
-    std::uint64_t& drNonZeroFlops,
-    std::uint64_t& drHardwareFlops) {
-  // reset flops
-  nonZeroFlops = 0;
-  hardwareFlops = 0;
-  drNonZeroFlops = 0;
-  drHardwareFlops = 0;
+std::pair<PerformanceEstimate, PerformanceEstimate>
+    Neighbor::metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes,
+                      const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
+                      const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping) const {
+
+  PerformanceEstimate regular;
+  PerformanceEstimate dr;
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // neighboring cell contribution only for interior faces
     if (faceTypes[face] == FaceType::Regular) {
       assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] < 3);
 
-      nonZeroFlops += seissol::kernel::neighborFluxExt::nonZeroFlops(
-          neighboringIndices[face][1], neighboringIndices[face][0], face);
-      hardwareFlops += seissol::kernel::neighborFluxExt::hardwareFlops(
+      regular += PerformanceEstimate::fromKernel<seissol::kernel::neighborFluxExt>(
           neighboringIndices[face][1], neighboringIndices[face][0], face);
     } else if (faceTypes[face] == FaceType::DynamicRupture) {
-      drNonZeroFlops += dynamicRupture::kernel::nodalFlux::nonZeroFlops(
-          cellDrMapping[face].side, cellDrMapping[face].faceRelation);
-      drHardwareFlops += dynamicRupture::kernel::nodalFlux::hardwareFlops(
+      dr += PerformanceEstimate::fromKernel<dynamicRupture::kernel::nodalFlux>(
           cellDrMapping[face].side, cellDrMapping[face].faceRelation);
     }
   }
 
-  nonZeroFlops += kernel::neighbor::NonZeroFlops;
-  hardwareFlops += kernel::neighbor::HardwareFlops;
-}
+  regular += PerformanceEstimate::fromKernel<kernel::neighbor>();
 
-std::uint64_t Neighbor::bytesNeighborsIntegral() {
+  // legacy memory estimate
   std::uint64_t reals = 0;
 
   // 4 * tElasticDOFS load, DOFs load, DOFs write
@@ -167,7 +156,9 @@ std::uint64_t Neighbor::bytesNeighborsIntegral() {
   // flux solvers load
   reals += 4 * tensor::AminusT::size() + tensor::w::size();
 
-  return reals * sizeof(real);
+  regular.bytes = reals * sizeof(real);
+
+  return {regular, dr};
 }
 
 void Neighbor::computeBatchedNeighborsIntegral(

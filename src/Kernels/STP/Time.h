@@ -15,6 +15,7 @@
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Spacetime.h"
 #include "Kernels/Time.h"
+#include "Monitoring/Metric.h"
 
 #ifdef ACL_DEVICE
 #include <Device/device.h>
@@ -41,9 +42,7 @@ class Spacetime : public SpacetimeKernel {
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
-
-  std::uint64_t bytesAder() override;
+  [[nodiscard]] PerformanceEstimate metrics() const override;
 
   private:
   void executeSTP(double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp);
@@ -64,7 +63,7 @@ class Time : public TimeKernel {
                        real** timeIntegratedDofs,
                        std::size_t numElements,
                        seissol::parallel::runtime::StreamRuntime& runtime) override;
-  void flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
+  [[nodiscard]] PerformanceEstimate metrics() const override;
 };
 
 } // namespace seissol::kernels::solver::stp

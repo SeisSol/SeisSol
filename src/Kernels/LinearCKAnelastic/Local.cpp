@@ -11,6 +11,7 @@
 
 #include "Common/Marker.h"
 #include "Kernels/Common.h"
+#include "Monitoring/Metric.h"
 
 #include <cassert>
 #include <cstddef>
@@ -105,24 +106,28 @@ void Local::computeIntegral(
   lKrnl.execute();
 }
 
-void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                          std::uint64_t& nonZeroFlops,
-                          std::uint64_t& hardwareFlops) {
-  nonZeroFlops = seissol::kernel::volumeExt::NonZeroFlops;
-  hardwareFlops = seissol::kernel::volumeExt::HardwareFlops;
+PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const {
+  auto estimate = PerformanceEstimate::fromKernel<seissol::kernel::volumeExt>();
 
-  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    if (faceTypes[face] != FaceType::DynamicRupture || isDeviceOn()) {
-      nonZeroFlops += seissol::kernel::localFluxExt::nonZeroFlops(face);
-      hardwareFlops += seissol::kernel::localFluxExt::hardwareFlops(face);
+#if defined(ACL_DEVICE) && defined(SEISSOL_DEVICE_COMBINE_LOCAL_FLUX)
+  constexpr bool CombineLocalFlux = true;
+#else
+  constexpr bool CombineLocalFlux = false;
+#endif
+
+  if constexpr (CombineLocalFlux) {
+    estimate += PerformanceEstimate::fromKernel<seissol::kernel::fluxLocalAll>();
+  } else {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      if (faceTypes[face] != FaceType::DynamicRupture) {
+        estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxExt>(face);
+      }
     }
+
+    estimate += PerformanceEstimate::fromKernel<seissol::kernel::local>();
   }
 
-  nonZeroFlops += seissol::kernel::local::NonZeroFlops;
-  hardwareFlops += seissol::kernel::local::HardwareFlops;
-}
-
-std::uint64_t Local::bytesIntegral() {
+  // legacy memory estimate
   std::uint64_t reals = 0;
 
   // star matrices load
@@ -134,7 +139,9 @@ std::uint64_t Local::bytesIntegral() {
   // DOFs write
   reals += tensor::Q::size() + tensor::Qane::size();
 
-  return reals * sizeof(real);
+  estimate.bytes = reals * sizeof(real);
+
+  return estimate;
 }
 
 void Local::computeBatchedIntegral(
