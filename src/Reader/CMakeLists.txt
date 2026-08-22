@@ -6,8 +6,6 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-reader OBJECT
-    SamplingModule.cpp
-
     Datafield/AsagiLite.cpp
     Datafield/AsagiModule.cpp
     Datafield/AsagiReader.cpp
