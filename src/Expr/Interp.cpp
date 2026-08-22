@@ -60,9 +60,8 @@ TileInterpreter<T>::TileInterpreter(const Program& program,
 
 // One switch per instruction, amortised over `count` lanes. The lane loops are
 // left in the plainest possible shape — unit stride, no aliasing, no branches
-// except the ones inside a Select's arithmetic — so the vectoriser can take
-// them. The sderiv interpreter puts `omp simd` on exactly these loops; that is
-// still applicable and orthogonal to what happens here.
+// except the ones inside a Select's arithmetic — so the vectorizer can take
+// them.
 template <typename T>
 void TileInterpreter<T>::runStage(const StageCode& stage,
                                   const T* inputTile,
@@ -83,6 +82,7 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
     switch (inst.op) {
     case Opcode::Const: {
       const T value = static_cast<T>(inst.value);
+#pragma omp simd
       for (std::size_t l = 0; l < count; ++l) {
         dst[l] = value;
       }
@@ -90,6 +90,7 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
     }
     case Opcode::LoadInput: {
       const T* const __restrict src = inputTile + static_cast<std::size_t>(inst.imm) * count;
+#pragma omp simd
       for (std::size_t l = 0; l < count; ++l) {
         dst[l] = src[l];
       }
@@ -98,6 +99,7 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
     case Opcode::LoadPersistent: {
       const T* const __restrict src =
           persistent + static_cast<std::size_t>(inst.imm) * numPoints + first;
+#pragma omp simd
       for (std::size_t l = 0; l < count; ++l) {
         dst[l] = src[l];
       }
@@ -123,7 +125,7 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
       switch (inst.fn) {
 #define SEISSOL_EXPR_PW_LOOP_UNARY(NAME, EXPR)                                                     \
   case Fn::NAME: {                                                                                 \
-    for (std::size_t l = 0; l < count; ++l) {                                                      \
+    _Pragma("omp simd") for (std::size_t l = 0; l < count; ++l) {                                  \
       const T x = a0[l];                                                                           \
       dst[l] = (EXPR);                                                                             \
     }                                                                                              \
@@ -131,7 +133,7 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
   }
 #define SEISSOL_EXPR_PW_LOOP_BINARY(NAME, EXPR)                                                    \
   case Fn::NAME: {                                                                                 \
-    for (std::size_t l = 0; l < count; ++l) {                                                      \
+    _Pragma("omp simd") for (std::size_t l = 0; l < count; ++l) {                                  \
       const T x = a0[l];                                                                           \
       const T y = a1[l];                                                                           \
       dst[l] = (EXPR);                                                                             \
@@ -140,7 +142,7 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
   }
 #define SEISSOL_EXPR_PW_LOOP_TERNARY(NAME, EXPR)                                                   \
   case Fn::NAME: {                                                                                 \
-    for (std::size_t l = 0; l < count; ++l) {                                                      \
+    _Pragma("omp simd") for (std::size_t l = 0; l < count; ++l) {                                  \
       const T x = a0[l];                                                                           \
       const T y = a1[l];                                                                           \
       const T z = a2[l];                                                                           \
