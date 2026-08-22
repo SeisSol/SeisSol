@@ -51,7 +51,9 @@ jobs:
           mkdir -p /opt/seissol
 
           # allow oversubscribe and run as root for OpenMPI
-          export OMPI_MCA_rmaps_base_oversubscribe=true
+          export OMPI_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
           export OMPI_ALLOW_RUN_AS_ROOT=1
           export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
@@ -64,7 +66,9 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           # allow oversubscribe and run as root for OpenMPI
-          export OMPI_MCA_rmaps_base_oversubscribe=true
+          export OMPI_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
           export OMPI_ALLOW_RUN_AS_ROOT=1
           export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
