@@ -16,6 +16,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/Stopwatch.h"
 #include "Parallel/MPI.h"
+#include "Reader/Datafield/GridUpdateModule.h"
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "SeisSol.h"
 
@@ -72,6 +73,12 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
   seissol::initializer::initprocedure::initModel(seissolInstance);
   seissol::initializer::initprocedure::initSideConditions(seissolInstance);
   seissol::initializer::initprocedure::initIO(seissolInstance);
+
+  // After every model has been read, so the shared grid store knows which grids
+  // exist and whether any of them is time-dependent. Before the simulator is set
+  // up, because registering a synchronisation-point hook later would miss the
+  // interval negotiation.
+  seissol::reader::datafield::registerGridUpdateModule();
 
   // synchronize data to device
   seissolInstance.memoryManager().synchronizeTo(seissol::initializer::AllocationPlace::Device);

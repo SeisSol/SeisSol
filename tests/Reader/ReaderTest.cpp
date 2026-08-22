@@ -14,6 +14,7 @@
 #endif
 
 #include "Datafield/GridStore.t.h"
+#include "Datafield/GridUpdateModule.t.h"
 #include "Datafield/Interpolation.t.h"
 #include "Datafield/TimeWindow.t.h"
 #include "LuaTracer.t.h"

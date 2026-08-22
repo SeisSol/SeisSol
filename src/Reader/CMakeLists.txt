@@ -11,6 +11,7 @@ add_library(seissol-reader OBJECT
     Datafield/AsagiReader.cpp
     Datafield/Grid.cpp
     Datafield/GridFactory.cpp
+    Datafield/GridUpdateModule.cpp
     Datafield/Interpolation.cpp
 
     Scripting/CompiledReader.cpp
