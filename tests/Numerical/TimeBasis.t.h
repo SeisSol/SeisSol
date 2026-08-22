@@ -14,7 +14,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE_TEMPLATE("Monomial Basis", RealT, float, double) {
+TEST_CASE_TEMPLATE("Monomial Basis" * doctest::test_suite("numerical"), RealT, float, double) {
   // needed due to absolute error
   constexpr double Delta = 10 * std::numeric_limits<double>::epsilon();
 
@@ -28,21 +28,21 @@ TEST_CASE_TEMPLATE("Monomial Basis", RealT, float, double) {
       const auto expD = basis.derivative(point, Span);
       const auto expInt = basis.integrate(0, point, Span);
       for (std::size_t j = 0; j < i; ++j) {
-        REQUIRE(exp[j] == AbsApprox(static_cast<RealT>(taylorTerm(point, j))).delta(Delta));
-        REQUIRE(expInt[j] == AbsApprox(static_cast<RealT>(taylorTerm(point, j + 1))).delta(Delta));
+        CHECK(exp[j] == AbsApprox(static_cast<RealT>(taylorTerm(point, j))).delta(Delta));
+        CHECK(expInt[j] == AbsApprox(static_cast<RealT>(taylorTerm(point, j + 1))).delta(Delta));
 
         // needed due to size_t being unsigned
         if (j > 0) {
-          REQUIRE(expD[j] == AbsApprox(static_cast<RealT>(taylorTerm(point, j - 1))).delta(Delta));
+          CHECK(expD[j] == AbsApprox(static_cast<RealT>(taylorTerm(point, j - 1))).delta(Delta));
         } else {
-          REQUIRE(expD[j] == AbsApprox(0.0));
+          CHECK(expD[j] == AbsApprox(0.0));
         }
       }
     }
   }
 }
 
-TEST_CASE_TEMPLATE("Legendre Basis", RealT, float, double) {
+TEST_CASE_TEMPLATE("Legendre Basis" * doctest::test_suite("numerical"), RealT, float, double) {
   // needed due to absolute error
   constexpr double Delta = 10 * std::numeric_limits<RealT>::epsilon();
   constexpr double Epsilon = 1000 * std::numeric_limits<RealT>::epsilon();
@@ -57,18 +57,17 @@ TEST_CASE_TEMPLATE("Legendre Basis", RealT, float, double) {
 
       const auto tau = point / Span;
       for (std::size_t j = 0; j < i; ++j) {
-        REQUIRE(exp[j] == AbsApprox(static_cast<RealT>(functions::shiftedLegendre(j, tau, 0)))
-                              .delta(Delta)
-                              .epsilon(Epsilon));
-        REQUIRE(expD[j] * Span ==
-                AbsApprox(static_cast<RealT>(functions::shiftedLegendre(j, tau, 1)))
-                    .delta(Delta)
-                    .epsilon(Epsilon));
-        REQUIRE(expInt[j] / Span ==
-                AbsApprox(static_cast<RealT>(functions::shiftedLegendre(j, tau, -1) -
-                                             functions::shiftedLegendre(j, 0, -1)))
-                    .delta(Delta)
-                    .epsilon(Epsilon));
+        CHECK(exp[j] == AbsApprox(static_cast<RealT>(functions::shiftedLegendre(j, tau, 0)))
+                            .delta(Delta)
+                            .epsilon(Epsilon));
+        CHECK(expD[j] * Span == AbsApprox(static_cast<RealT>(functions::shiftedLegendre(j, tau, 1)))
+                                    .delta(Delta)
+                                    .epsilon(Epsilon));
+        CHECK(expInt[j] / Span ==
+              AbsApprox(static_cast<RealT>(functions::shiftedLegendre(j, tau, -1) -
+                                           functions::shiftedLegendre(j, 0, -1)))
+                  .delta(Delta)
+                  .epsilon(Epsilon));
       }
     }
   }

@@ -88,7 +88,7 @@ inline double justBelow(double value) {
   return std::nextafter(value, -std::numeric_limits<double>::max());
 }
 
-TEST_CASE("LTS ladder: normalization table") {
+TEST_CASE("LTS ladder: normalization table" * doctest::test_suite("initializer")) {
   // dt_min = 1 and wiggle = 1 throughout, so every bin boundary is an exact integer in
   // double and the <= comparison in getCluster() is exact.
 
@@ -177,7 +177,8 @@ TEST_CASE("LTS ladder: normalization table") {
   }
 }
 
-TEST_CASE("LTS ladder: getCluster and ratepow describe the same ladder") {
+TEST_CASE("LTS ladder: getCluster and ratepow describe the same ladder" *
+          doctest::test_suite("initializer")) {
   // The invariant that ClusterLadder has to preserve:
   //   getCluster(tau) == k  <=>  ratepow(rate,0,k) <= tau/(w*dt) < ratepow(rate,0,k+1)
   // (with the top cluster unbounded wherever the rate-1 terminator applies).
@@ -197,7 +198,8 @@ TEST_CASE("LTS ladder: getCluster and ratepow describe the same ladder") {
   }
 }
 
-TEST_CASE("LTS ladder: cluster id is monotone in the wiggle factor") {
+TEST_CASE("LTS ladder: cluster id is monotone in the wiggle factor" *
+          doctest::test_suite("initializer")) {
   // Underpins the clustering cache in computeClusterIdsAndEnforceMaximumDifferenceCached():
   // shrinking the wiggle factor shrinks every bin boundary, so cell cluster ids can only
   // rise. Sweeping wiggle factors upwards therefore lets min(cached, fresh) start the
@@ -221,7 +223,8 @@ TEST_CASE("LTS ladder: cluster id is monotone in the wiggle factor") {
   }
 }
 
-TEST_CASE("LTS ladder: ratepow and ClusterLayout::clusterRate") {
+TEST_CASE("LTS ladder: ratepow and ClusterLayout::clusterRate" *
+          doctest::test_suite("initializer")) {
   using namespace seissol::initializer;
   using namespace seissol::initializer;
 
@@ -266,7 +269,7 @@ TEST_CASE("LTS ladder: ratepow and ClusterLayout::clusterRate") {
   }
 }
 
-TEST_CASE("ClusterLadder: normalization") {
+TEST_CASE("ClusterLadder: normalization" * doctest::test_suite("initializer")) {
   using seissol::initializer::ClusterLadder;
 
   SUBCASE("intrinsic cluster count") {
@@ -298,7 +301,8 @@ TEST_CASE("ClusterLadder: normalization") {
   }
 }
 
-TEST_CASE("ClusterLadder: agrees with the legacy free functions") {
+TEST_CASE("ClusterLadder: agrees with the legacy free functions" *
+          doctest::test_suite("initializer")) {
   using namespace seissol::initializer;
   using seissol::initializer::ClusterLadder;
 
@@ -332,7 +336,7 @@ TEST_CASE("ClusterLadder: agrees with the legacy free functions") {
   }
 }
 
-TEST_CASE("ClusterLadder: complete ladders") {
+TEST_CASE("ClusterLadder: complete ladders" * doctest::test_suite("initializer")) {
   using seissol::initializer::ClusterLadder;
 
   SUBCASE("expanding a rate vector and rebuilding it moves no cell") {
@@ -385,7 +389,7 @@ TEST_CASE("ClusterLadder: complete ladders") {
   }
 }
 
-TEST_CASE("ClusterLadder: truncation") {
+TEST_CASE("ClusterLadder: truncation" * doctest::test_suite("initializer")) {
   using seissol::initializer::ClusterLadder;
   const auto ladder = ClusterLadder::forBinning({4, 2}, 1.0, 1.0, 1000.0);
   REQUIRE(ladder.clusterCount() > 3);
