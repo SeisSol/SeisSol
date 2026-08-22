@@ -205,6 +205,17 @@ def addKernels(generator, aderdg, include_tensors, targets):
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
 
+        # This kernel does two things:
+        # 1: Compute eta (for all three dimensions) at the end of the timestep
+        # 2: Compute the integral of eta in normal direction over the timestep
+        # We do this by building up the Taylor series of eta.
+        # Eta is defined by the ODE eta_t = u^R - 1/Z * (rho g eta - p^R)
+        # Compute coefficients by differentiating ODE recursively, e.g.:
+        # eta_tt = u^R_t - 1/Z * (rho eta_t g - p^R_t)
+        # and substituting the previous coefficient eta_t
+        # This implementation sums up the Taylor series directly without storing
+        # all coefficients.
+
         def kernelPerFace(f):
             kernel = [
                 faceDisplacementTmp["mp"]
