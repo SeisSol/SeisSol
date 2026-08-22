@@ -91,6 +91,8 @@ class Binding {
   // Re-allocating resets the state to StateSpec::initial. That is the documented
   // meaning of a rebind -- a state slot is tied to the identity of the point set
   // it was allocated for, and a new point set has no history to carry.
+  // A no-op when the shape already matches, so two kernels over one Binding
+  // share the state instead of the second resetting it to StateSpec::initial.
   void allocatePersistent(const Program& program, std::int32_t slotCount);
   [[nodiscard]] std::int32_t persistentSlotCount() const { return persistentSlotCount_; }
 

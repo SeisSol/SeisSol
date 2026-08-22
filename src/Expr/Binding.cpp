@@ -300,6 +300,13 @@ void Binding::buildGroupRanges(const Program& program, const DataTable& table) {
 }
 
 void Binding::allocatePersistent(const Program& program, std::int32_t slotCount) {
+  // Idempotent on shape. makeKernel calls this, so building an interpreter and
+  // an RTC kernel over one Binding would otherwise reset the state slots in
+  // between -- and the differential check that compares two backends is exactly
+  // the case that does it.
+  if (slotCount == persistentSlotCount_ && !persistent_.empty()) {
+    return;
+  }
   persistentSlotCount_ = slotCount;
   if (slotCount <= 0) {
     persistent_.clear();
