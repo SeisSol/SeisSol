@@ -27,6 +27,7 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <algorithm>
@@ -45,6 +46,7 @@
 #endif
 
 GENERATE_HAS_MEMBER(ET)
+GENERATE_HAS_MEMBER(extraOffset_ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
 namespace seissol::kernels::solver::linearck {
@@ -140,6 +142,7 @@ void Spacetime::computeAder(const real* coeffs,
 void Spacetime::computeBatchedAder(
     SEISSOL_GPU_PARAM const real* coeffs,
     SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM LTS::Layer& layer,
     SEISSOL_GPU_PARAM LocalTmp& tmp,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
     SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
@@ -157,13 +160,24 @@ void Spacetime::computeBatchedAder(
     derivativesKrnl.numElements = numElements;
     derivativesKrnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
 
+    const auto** localIntegrationPtrs = const_cast<const real**>(
+        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
     for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      derivativesKrnl.star(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+      derivativesKrnl.star(i) = localIntegrationPtrs;
       derivativesKrnl.extraOffset_star(i) =
           SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
+
+    constexpr auto SourceMatrixOffset =
+        offsetof(LocalIntegrationData, specific) +
+        get_offset_sourceMatrix<decltype(LocalIntegrationData::specific)>();
+    static_assert(SourceMatrixOffset % sizeof(real) == 0,
+                  "SourceMatrixOffset is not dividable by the real size.");
+
+    set_ET(derivativesKrnl, localIntegrationPtrs);
+    set_extraOffset_ET(derivativesKrnl, SourceMatrixOffset / sizeof(real));
 
     for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derivativesKrnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
@@ -202,12 +216,10 @@ void Spacetime::computeBatchedAder(
 #endif
 }
 
-void Spacetime::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
-  nonZeroFlops = kernel::derivative::NonZeroFlops;
-  hardwareFlops = kernel::derivative::HardwareFlops;
-}
+PerformanceEstimate Spacetime::metrics() const {
+  auto estimate = PerformanceEstimate::fromKernel<kernel::derivative>();
 
-std::uint64_t Spacetime::bytesAder() {
+  // legacy memory estimate
   std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
@@ -217,7 +229,9 @@ std::uint64_t Spacetime::bytesAder() {
 
   /// \todo incorporate derivatives
 
-  return reals * sizeof(real);
+  estimate.bytes = reals * sizeof(real);
+
+  return estimate;
 }
 
 void Time::evaluate(const real* coeffs,
@@ -277,9 +291,8 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
 #endif
 }
 
-void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
-  nonZeroFlops = kernel::derivativeTaylorExpansion::NonZeroFlops;
-  hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
+PerformanceEstimate Time::metrics() const {
+  return PerformanceEstimate::fromKernel<kernel::derivativeTaylorExpansion>();
 }
 
 void Time::setGlobalData(const CompoundGlobalData& global) {}

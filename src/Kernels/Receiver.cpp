@@ -76,7 +76,10 @@ ReceiverCluster::ReceiverCluster(
       seissolInstance_(seissolInstance) {
   timeKernel_.setGlobalData(global);
   spacetimeKernel_.setGlobalData(global);
-  spacetimeKernel_.flopsAder(nonZeroFlops_, hardwareFlops_);
+
+  estimate_ = spacetimeKernel_.metrics();
+
+  perfHandle_ = seissolInstance_.flopCounter().addMetric("receiver", "WP");
 }
 
 void ReceiverCluster::addReceiver(std::size_t meshId,
@@ -101,7 +104,7 @@ void ReceiverCluster::addReceiver(std::size_t meshId,
   const size_t reserved = ncols() * (syncPointInterval_ / samplingInterval_ + 1);
 
   const auto position = backmap.get(meshId);
-  auto& ltsStorage = seissolInstance_.getMemoryManager().getLtsStorage();
+  auto& ltsStorage = seissolInstance_.memoryManager().ltsStorage();
   receivers_.emplace_back(pointId,
                           point,
                           coords,
@@ -119,8 +122,10 @@ double ReceiverCluster::calcReceivers(double time,
                                       parallel::runtime::StreamRuntime& runtime) {
 
   double outReceiverTime = time;
+  std::size_t samplingSteps = 0;
   while (outReceiverTime < expansionPoint + timeStepWidth) {
     outReceiverTime += samplingInterval_;
+    ++samplingSteps;
   }
 
   if (executor == Executor::Device) {
@@ -146,7 +151,7 @@ double ReceiverCluster::calcReceivers(double time,
       alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()]{};
       alignas(PagesizeStack) real timeDerivatives[Solver::DerivativesSize]{};
 
-      kernels::LocalTmp tmp(seissolInstance_.getGravitationSetup().acceleration);
+      kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
 
       kernel::evaluateDOFSAtPoint krnl;
       krnl.QAtPoint = timeEvaluatedAtPoint;
@@ -181,9 +186,6 @@ double ReceiverCluster::calcReceivers(double time,
                                    timeEvaluated, // useless but the interface requires it
                                    timeDerivatives);
 
-      seissolInstance_.flopCounter().incrementNonZeroFlopsOther(nonZeroFlops_);
-      seissolInstance_.flopCounter().incrementHardwareFlopsOther(hardwareFlops_);
-
       double receiverTime = time;
       while (receiverTime < expansionPoint + timeStepWidth) {
         const auto coeffs = timeBasis.point(receiverTime - expansionPoint, timeStepWidth);
@@ -217,6 +219,9 @@ double ReceiverCluster::calcReceivers(double time,
 
     auto& callRuntime = extraRuntime_.has_value() ? extraRuntime_.value() : runtime;
     callRuntime.enqueueLoop(recvCount, receiverHandler);
+
+    seissolInstance_.flopCounter().incrementMetric(perfHandle_,
+                                                   estimate_ * recvCount * samplingSteps);
   }
   return outReceiverTime;
 }

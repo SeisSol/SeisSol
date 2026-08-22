@@ -211,10 +211,23 @@ struct MaterialSetup<AnisotropicMaterial> {
     }
     auto lambdaNeighbor = Matrix33(eigenvaluesNeighbor.asDiagonal());
 
+    // The null-space columns are only determined up to a scaling. Left at unit length they are
+    // ~10 orders of magnitude below the wave columns, which carry the stiffnesses. For
+    // heterogeneous materials that makes matR numerically rank deficient: the smallest singular
+    // value is ~6e-7 against a largest of ~1e11, a ratio of 6e-18, well below the ~2e-15 that a
+    // rank-revealing factorization uses as its threshold. Such a solver then zeroes everything past
+    // its detected rank and silently returns a truncated, wrong solution.
+    //
+    // Scaling the null-space columns to the magnitude of the stiffness block brings cond(matR) down
+    // from ~2e17 to ~4e7 and restores full numerical rank. The Godunov matrices are unaffected:
+    // R * chi * R^-1 is invariant under a diagonal rescaling of the columns, since a diagonal
+    // matrix commutes with the 0/1 selector chi. ElasticSetup.h scales these columns likewise, by
+    // lambda + 2 mu.
+    const double nullSpaceScale = localA.cwiseAbs().maxCoeff();
     Matrix63 nullSpaceEigenvectors = Matrix63::Zero();
-    nullSpaceEigenvectors(1, 0) = 1;
-    nullSpaceEigenvectors(2, 1) = 1;
-    nullSpaceEigenvectors(4, 2) = 1;
+    nullSpaceEigenvectors(1, 0) = nullSpaceScale;
+    nullSpaceEigenvectors(2, 1) = nullSpaceScale;
+    nullSpaceEigenvectors(4, 2) = nullSpaceScale;
 
     matR << localA * eigenvectorsLocal, nullSpaceEigenvectors, neighborA * eigenvectorsNeighbor,
         -eigenvectorsLocal * lambdaLocal, Matrix33::Zero(), eigenvectorsNeighbor * lambdaNeighbor;
@@ -234,22 +247,26 @@ struct MaterialSetup<AnisotropicMaterial> {
           MaterialType::Anisotropic, qGodLocal, qGodNeighbor, matR);
 
     } else {
+      // The three outgoing quasi-P/quasi-S waves go to the neighbor subsystem; the incoming waves
+      // and the three null-space modes form the complement, so qGodLocal follows exactly as
+      // I - godunov instead of a second solve.
       Matrix99 chi = Matrix99::Zero();
       chi(0, 0) = 1.0;
       chi(1, 1) = 1.0;
       chi(2, 2) = 1.0;
 
-      const auto godunov = ((matR * chi) * matR.inverse()).eval();
+      const auto matRT = matR.transpose();
+      // Deliberately partialPivLu and not a rank-revealing factorization; cf. ElasticSetup.h
+      const auto matRlu = matRT.partialPivLu();
+      const auto godunov = matRlu.solve(chi * matRT).eval();
 
-      // qGodLocal = I - qGodNeighbor
-      for (unsigned i = 0; i < qGodLocal.shape(1); ++i) {
-        for (unsigned j = 0; j < qGodLocal.shape(0); ++j) {
-          qGodLocal(i, j) = -godunov(j, i);
-          qGodNeighbor(i, j) = godunov(j, i);
+      // QgodLocal = I - QgodNeighbor
+      for (unsigned i = 0; i < godunov.cols(); ++i) {
+        for (unsigned j = 0; j < godunov.rows(); ++j) {
+          const double identity = (i == j) ? 1.0 : 0.0;
+          qGodLocal(i, j) = identity - godunov(i, j);
+          qGodNeighbor(i, j) = godunov(i, j);
         }
-      }
-      for (unsigned idx = 0; idx < qGodLocal.shape(0) && idx < qGodLocal.shape(1); ++idx) {
-        qGodLocal(idx, idx) += 1.0;
       }
     }
   }

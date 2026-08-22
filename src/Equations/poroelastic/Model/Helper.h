@@ -29,7 +29,7 @@ namespace seissol::model {
 
 template <typename Tview>
 inline void calcZinv(yateto::DenseTensorView<2, real, unsigned>& zInv,
-                     Tview& sourceMatrix,
+                     const Tview& sourceMatrix,
                      size_t quantity,
                      double timeStepWidth) {
   using Matrix = Eigen::Matrix<real, ConvergenceOrder, ConvergenceOrder>;
@@ -60,7 +60,7 @@ template <size_t Istart, size_t Iend, typename Tview>
 struct ZInvInitializer {
   ZInvInitializer(
       real zInvData[PoroElasticMaterial::NumQuantities][ConvergenceOrder * ConvergenceOrder],
-      Tview& sourceMatrix,
+      const Tview& sourceMatrix,
       real timeStepWidth) {
     auto zInv = init::Zinv::view<Istart>::create(zInvData[Istart]);
     calcZinv(zInv, sourceMatrix, Istart, timeStepWidth);

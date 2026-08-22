@@ -34,7 +34,7 @@ class Datatype : public std::enable_shared_from_this<Datatype> {
   [[nodiscard]] virtual YAML::Node serialize() const = 0;
   virtual Array unwrap(std::size_t maxDimensions);
   virtual std::string toStringRaw(const void* data) const = 0;
-  [[nodiscard]] virtual std::optional<std::vector<char>>
+  [[nodiscard]] virtual std::optional<std::vector<uint8_t>>
       fromStringRaw(const std::string& str) const = 0;
 
   template <typename T>
@@ -45,7 +45,7 @@ class Datatype : public std::enable_shared_from_this<Datatype> {
   std::optional<T> fromString(const std::string& str) const {
     const auto result = fromStringRaw(str);
     if (result.has_value()) {
-      const char* dataRaw = result.value().data();
+      const auto* dataRaw = result.value().data();
       const T* data = reinterpret_cast<const T*>(dataRaw);
       return std::make_optional<T>(*data);
     } else {
@@ -66,7 +66,7 @@ class OpaqueDatatype : public Datatype {
   [[nodiscard]] YAML::Node serialize() const override;
 
   std::string toStringRaw(const void* data) const override;
-  [[nodiscard]] std::optional<std::vector<char>>
+  [[nodiscard]] std::optional<std::vector<uint8_t>>
       fromStringRaw(const std::string& str) const override;
 
   private:
@@ -84,7 +84,7 @@ class StringDatatype : public Datatype {
   [[nodiscard]] YAML::Node serialize() const override;
 
   std::string toStringRaw(const void* data) const override;
-  [[nodiscard]] std::optional<std::vector<char>>
+  [[nodiscard]] std::optional<std::vector<uint8_t>>
       fromStringRaw(const std::string& str) const override;
 
   private:
@@ -98,7 +98,7 @@ class F32Datatype : public Datatype {
   [[nodiscard]] YAML::Node serialize() const override;
 
   std::string toStringRaw(const void* data) const override;
-  [[nodiscard]] std::optional<std::vector<char>>
+  [[nodiscard]] std::optional<std::vector<uint8_t>>
       fromStringRaw(const std::string& str) const override;
 };
 
@@ -109,7 +109,7 @@ class F64Datatype : public Datatype {
   [[nodiscard]] YAML::Node serialize() const override;
 
   std::string toStringRaw(const void* data) const override;
-  [[nodiscard]] std::optional<std::vector<char>>
+  [[nodiscard]] std::optional<std::vector<uint8_t>>
       fromStringRaw(const std::string& str) const override;
 };
 
@@ -120,7 +120,7 @@ class F80Datatype : public Datatype {
   [[nodiscard]] YAML::Node serialize() const override;
 
   std::string toStringRaw(const void* data) const override;
-  [[nodiscard]] std::optional<std::vector<char>>
+  [[nodiscard]] std::optional<std::vector<uint8_t>>
       fromStringRaw(const std::string& str) const override;
 };
 
@@ -137,7 +137,7 @@ class IntegerDatatype : public Datatype {
   [[nodiscard]] YAML::Node serialize() const override;
 
   std::string toStringRaw(const void* data) const override;
-  [[nodiscard]] std::optional<std::vector<char>>
+  [[nodiscard]] std::optional<std::vector<uint8_t>>
       fromStringRaw(const std::string& str) const override;
 
   private:
@@ -162,7 +162,7 @@ class ArrayDatatype : public Datatype {
   [[nodiscard]] YAML::Node serialize() const override;
 
   std::string toStringRaw(const void* data) const override;
-  [[nodiscard]] std::optional<std::vector<char>>
+  [[nodiscard]] std::optional<std::vector<uint8_t>>
       fromStringRaw(const std::string& str) const override;
 
   private:
@@ -191,7 +191,7 @@ class StructDatatype : public Datatype {
   [[nodiscard]] YAML::Node serialize() const override;
 
   std::string toStringRaw(const void* data) const override;
-  [[nodiscard]] std::optional<std::vector<char>>
+  [[nodiscard]] std::optional<std::vector<uint8_t>>
       fromStringRaw(const std::string& str) const override;
 
   private:

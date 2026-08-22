@@ -9,41 +9,41 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Online Mask Parsing") {
+TEST_CASE("Online Mask Parsing" * doctest::test_suite("parallel")) {
   using namespace seissol::parallel;
   SUBCASE("Single") {
     const std::string mask = "1";
     auto is = Pinning::parseOnlineCpuMask(mask, 3);
     auto should = std::deque<bool>{false, true, false};
-    REQUIRE(is == should);
+    CHECK(is == should);
   }
 
   SUBCASE("Range") {
     const std::string mask = "1-2";
     auto is = Pinning::parseOnlineCpuMask(mask, 3);
     auto should = std::deque<bool>{false, true, true};
-    REQUIRE(is == should);
+    CHECK(is == should);
   }
 
   SUBCASE("Two single") {
     const std::string mask = "0,3";
     auto is = Pinning::parseOnlineCpuMask(mask, 4);
     auto should = std::deque<bool>{true, false, false, true};
-    REQUIRE(is == should);
+    CHECK(is == should);
   }
 
   SUBCASE("Two ranges") {
     const std::string mask = "0-1,3-4";
     auto is = Pinning::parseOnlineCpuMask(mask, 5);
     auto should = std::deque<bool>{true, true, false, true, true};
-    REQUIRE(is == should);
+    CHECK(is == should);
   }
 
   SUBCASE("Single and range") {
     const std::string mask = "0,3-4";
     auto is = Pinning::parseOnlineCpuMask(mask, 5);
     auto should = std::deque<bool>{true, false, false, true, true};
-    REQUIRE(is == should);
+    CHECK(is == should);
   }
 }
 

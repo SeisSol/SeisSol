@@ -45,6 +45,7 @@ const inline SIUnit UnitMoment = SIUnit("Nm", false);
 const inline SIUnit UnitMomentum = SIUnit("Ns", false);
 const inline SIUnit UnitScalar = SIUnit("", false);
 const inline SIUnit UnitByte = SIUnit("B", true);
+const inline SIUnit UnitBytePerS = SIUnit("B/s", true);
 } // namespace seissol
 
 #endif // SEISSOL_SRC_MONITORING_UNIT_H_

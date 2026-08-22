@@ -457,7 +457,7 @@ void EnergyOutput::computeVolumeEnergies() {
   const std::vector<Element>& elements = meshReader_->getElements();
   const std::vector<Vertex>& vertices = meshReader_->getVertices();
 
-  const auto g = seissolInstance_.getGravitationSetup().acceleration;
+  const auto g = seissolInstance_.gravitationSetup().acceleration;
 
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadraturePointsTet = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
@@ -681,7 +681,7 @@ void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
 
 void EnergyOutput::printEnergies() {
   const auto outputPrecision =
-      seissolInstance_.getSeisSolParameters().output.energyParameters.terminalPrecision;
+      seissolInstance_.parameters().output.energyParameters.terminalPrecision;
 
   std::vector<std::pair<std::size_t, std::string>> infnan;
 
