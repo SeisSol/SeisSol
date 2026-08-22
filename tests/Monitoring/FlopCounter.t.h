@@ -8,6 +8,7 @@
 #include <doctest.h>
 
 #include "Monitoring/FlopCounter.h"
+#include "Monitoring/Metric.h"
 
 namespace seissol::unit_test {
 using seissol::monitoring::FlopCounter;
@@ -20,48 +21,29 @@ TEST_CASE("FlopCounter increment operations" * doctest::test_suite("monitoring")
 
   FlopCounter counter;
 
-  SUBCASE("Increment local flops") {
-    counter.incrementNonZeroFlopsLocal(100);
-    counter.incrementHardwareFlopsLocal(150);
-    counter.incrementNonZeroFlopsLocal(200);
-    counter.incrementHardwareFlopsLocal(250);
-    CHECK(true);
-  }
+  const auto one = counter.addMetric("one", "");
+  const auto two = counter.addMetric("two", "");
 
-  SUBCASE("Increment neighbor flops") {
-    counter.incrementNonZeroFlopsNeighbor(1000);
-    counter.incrementHardwareFlopsNeighbor(1500);
-    CHECK(true);
-  }
-
-  SUBCASE("Increment other flops") {
-    counter.incrementNonZeroFlopsOther(500);
-    counter.incrementHardwareFlopsOther(700);
-    CHECK(true);
-  }
-
-  SUBCASE("Increment dynamic rupture flops") {
-    counter.incrementNonZeroFlopsDynamicRupture(2000);
-    counter.incrementHardwareFlopsDynamicRupture(3000);
-    CHECK(true);
-  }
-
-  SUBCASE("Increment plasticity flops") {
-    counter.incrementNonZeroFlopsPlasticity(400);
-    counter.incrementHardwareFlopsPlasticity(600);
+  SUBCASE("Increment metric") {
+    counter.incrementMetric(one, PerformanceEstimate{1, 2, 3, 4});
+    counter.incrementMetric(two, PerformanceEstimate{1, 2, 3, 4});
+    counter.incrementMetric(one, PerformanceEstimate{2, 3, 4, 5});
     CHECK(true);
   }
 
   SUBCASE("Zero increment is valid") {
-    counter.incrementNonZeroFlopsLocal(0);
-    counter.incrementHardwareFlopsLocal(0);
+    counter.incrementMetric(one, PerformanceEstimate{});
     CHECK(true);
   }
 
   SUBCASE("Large values") {
-    counter.incrementHardwareFlopsLocal(1'000'000'000LL);
-    counter.incrementHardwareFlopsLocal(1'000'000'000LL);
-    counter.incrementHardwareFlopsLocal(1'000'000'000LL);
+    counter.incrementMetric(one,
+                            PerformanceEstimate{
+                                1'000'000'000ULL,
+                                1'000'000'000ULL,
+                                1'000'000'000ULL,
+                                1'000'000'000ULL,
+                            });
     CHECK(true);
   }
 }

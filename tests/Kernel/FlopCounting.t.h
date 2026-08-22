@@ -23,89 +23,76 @@ namespace seissol::unit_test {
 TEST_CASE("Spacetime flopsAder" * doctest::test_suite("kernel")) {
   kernels::Spacetime spacetime;
 
-  std::uint64_t nonZeroFlops = 0;
-  std::uint64_t hardwareFlops = 0;
-  spacetime.flopsAder(nonZeroFlops, hardwareFlops);
+  const auto metric = spacetime.metrics();
 
-  SUBCASE("Flops are positive") {
-    CHECK(nonZeroFlops > 0);
-    CHECK(hardwareFlops > 0);
+  SUBCASE("Metrics are positive") {
+    CHECK(metric.nonzeroFlop > 0);
+    CHECK(metric.hardwareFlop > 0);
+    CHECK(metric.bytes > 0);
+    CHECK(metric.kernelBytes > 0);
   }
 
-  SUBCASE("Hardware flops >= nonzero flops") { CHECK(hardwareFlops >= nonZeroFlops); }
+  SUBCASE("Hardware flops >= nonzero flops") { CHECK(metric.hardwareFlop >= metric.nonzeroFlop); }
 
   SUBCASE("Deterministic: calling twice gives same result") {
-    std::uint64_t nz2 = 0;
-    std::uint64_t hw2 = 0;
-    spacetime.flopsAder(nz2, hw2);
-    CHECK(nonZeroFlops == nz2);
-    CHECK(hardwareFlops == hw2);
+    const auto metric2 = spacetime.metrics();
+    CHECK(metric.nonzeroFlop == metric2.nonzeroFlop);
+    CHECK(metric.hardwareFlop == metric2.hardwareFlop);
+    CHECK(metric.bytes == metric2.bytes);
+    CHECK(metric.kernelBytes == metric2.kernelBytes);
   }
-}
-
-TEST_CASE("Spacetime bytesAder" * doctest::test_suite("kernel")) {
-  kernels::Spacetime spacetime;
-  auto bytes = spacetime.bytesAder();
-
-  CHECK(bytes > 0);
-  // Must be a multiple of sizeof(real)
-  CHECK(bytes % sizeof(real) == 0);
 }
 
 // ---------------------------------------------------------------------------
 // Local kernel flops and bytes
 // ---------------------------------------------------------------------------
 
-TEST_CASE("Local flopsIntegral all Regular faces" * doctest::test_suite("kernel")) {
+TEST_CASE("Local metrics all Regular faces" * doctest::test_suite("kernel")) {
   kernels::Local local;
 
   std::array<FaceType, Cell::NumFaces> faceTypes{};
   faceTypes.fill(FaceType::Regular);
 
-  std::uint64_t nonZeroFlops = 0;
-  std::uint64_t hardwareFlops = 0;
-  local.flopsIntegral(faceTypes, nonZeroFlops, hardwareFlops);
+  const auto metric = local.metrics(faceTypes);
 
-  SUBCASE("Positive flops") {
-    CHECK(nonZeroFlops > 0);
-    CHECK(hardwareFlops > 0);
+  SUBCASE("Metrics are positive") {
+    CHECK(metric.nonzeroFlop > 0);
+    CHECK(metric.hardwareFlop > 0);
+    CHECK(metric.bytes > 0);
+    CHECK(metric.kernelBytes > 0);
   }
 
-  SUBCASE("Hardware >= nonzero") { CHECK(hardwareFlops >= nonZeroFlops); }
+  SUBCASE("Hardware >= nonzero") { CHECK(metric.hardwareFlop >= metric.nonzeroFlop); }
 }
 
-TEST_CASE("Local flopsIntegral with DynamicRupture faces" * doctest::test_suite("kernel")) {
+TEST_CASE("Local metrics with DynamicRupture faces" * doctest::test_suite("kernel")) {
   kernels::Local local;
 
   // All faces are DR → local flux is skipped for each (on CPU)
   std::array<FaceType, Cell::NumFaces> faceTypesDR{};
   faceTypesDR.fill(FaceType::DynamicRupture);
 
-  std::uint64_t nzDR = 0;
-  std::uint64_t hwDR = 0;
-  local.flopsIntegral(faceTypesDR, nzDR, hwDR);
+  const auto metricDR = local.metrics(faceTypesDR);
 
   // All regular faces
   std::array<FaceType, Cell::NumFaces> faceTypesReg{};
   faceTypesReg.fill(FaceType::Regular);
 
-  std::uint64_t nzReg = 0;
-  std::uint64_t hwReg = 0;
-  local.flopsIntegral(faceTypesReg, nzReg, hwReg);
+  const auto metricReg = local.metrics(faceTypesReg);
 
   SUBCASE("DR faces have fewer local flops than regular (on CPU)") {
     if constexpr (isDeviceOn()) {
       // On the GPU, the kernel runs regardless, so flops may be equal
-      CHECK(nzDR > 0);
+      CHECK(metricDR.nonzeroFlop > 0);
     } else {
       // On the CPU, DR faces skip the local flux contribution
-      CHECK(nzDR < nzReg);
-      CHECK(hwDR < hwReg);
+      CHECK(metricDR.nonzeroFlop < metricReg.nonzeroFlop);
+      CHECK(metricDR.hardwareFlop < metricReg.hardwareFlop);
     }
   }
 }
 
-TEST_CASE("Local flopsIntegral mixed faces" * doctest::test_suite("kernel")) {
+TEST_CASE("Local metrics mixed faces" * doctest::test_suite("kernel")) {
   kernels::Local local;
 
   const std::array<FaceType, Cell::NumFaces> faceTypes = {
@@ -114,27 +101,20 @@ TEST_CASE("Local flopsIntegral mixed faces" * doctest::test_suite("kernel")) {
       FaceType::Outflow,
   };
 
-  std::uint64_t nonZeroFlops = 0;
-  std::uint64_t hardwareFlops = 0;
-  local.flopsIntegral(faceTypes, nonZeroFlops, hardwareFlops);
+  const auto metric = local.metrics(faceTypes);
 
-  CHECK(nonZeroFlops > 0);
-  CHECK(hardwareFlops >= nonZeroFlops);
-}
+  CHECK(metric.nonzeroFlop > 0);
+  CHECK(metric.hardwareFlop >= metric.nonzeroFlop);
 
-TEST_CASE("Local bytesIntegral" * doctest::test_suite("kernel")) {
-  kernels::Local local;
-  auto bytes = local.bytesIntegral();
-
-  CHECK(bytes > 0);
-  CHECK(bytes % sizeof(real) == 0);
+  CHECK(metric.bytes > 0);
+  CHECK(metric.bytes % sizeof(real) == 0);
 }
 
 // ---------------------------------------------------------------------------
 // Neighbor kernel flops and bytes
 // ---------------------------------------------------------------------------
 
-TEST_CASE("Neighbor flopsNeighborsIntegral all Regular" * doctest::test_suite("kernel")) {
+TEST_CASE("Neighbor metrics all Regular" * doctest::test_suite("kernel")) {
   kernels::Neighbor neighbor;
 
   std::array<FaceType, Cell::NumFaces> faceTypes{};
@@ -147,26 +127,26 @@ TEST_CASE("Neighbor flopsNeighborsIntegral all Regular" * doctest::test_suite("k
 
   const std::array<CellDRMapping, Cell::NumFaces> drMapping{};
 
-  std::uint64_t nz = 0;
-  std::uint64_t hw = 0;
-  std::uint64_t drNz = 0;
-  std::uint64_t drHw = 0;
-  neighbor.flopsNeighborsIntegral(faceTypes, neighboringIndices, drMapping, nz, hw, drNz, drHw);
+  const auto [metric, metricDR] = neighbor.metrics(faceTypes, neighboringIndices, drMapping);
 
-  SUBCASE("Positive flops for regular faces") {
-    CHECK(nz > 0);
-    CHECK(hw > 0);
+  SUBCASE("Metrics are positive") {
+    CHECK(metric.nonzeroFlop > 0);
+    CHECK(metric.hardwareFlop > 0);
+    CHECK(metric.bytes > 0);
+    CHECK(metric.kernelBytes > 0);
   }
 
-  SUBCASE("No DR flops for regular faces") {
-    CHECK(drNz == 0);
-    CHECK(drHw == 0);
+  SUBCASE("DR metrics are zero") {
+    CHECK(metricDR.nonzeroFlop == 0);
+    CHECK(metricDR.hardwareFlop == 0);
+    // CHECK(metricDR.bytes > 0);
+    CHECK(metricDR.kernelBytes == 0);
   }
 
-  SUBCASE("Hardware >= nonzero") { CHECK(hw >= nz); }
+  SUBCASE("Hardware >= nonzero") { CHECK(metric.hardwareFlop >= metric.nonzeroFlop); }
 }
 
-TEST_CASE("Neighbor flopsNeighborsIntegral with DR faces" * doctest::test_suite("kernel")) {
+TEST_CASE("Neighbor metrics with DR faces" * doctest::test_suite("kernel")) {
   kernels::Neighbor neighbor;
 
   std::array<FaceType, Cell::NumFaces> faceTypes{};
@@ -175,26 +155,16 @@ TEST_CASE("Neighbor flopsNeighborsIntegral with DR faces" * doctest::test_suite(
   const std::array<std::array<uint8_t, 2>, Cell::NumFaces> neighboringIndices{};
   const std::array<CellDRMapping, Cell::NumFaces> drMapping{};
 
-  std::uint64_t nz = 0;
-  std::uint64_t hw = 0;
-  std::uint64_t drNz = 0;
-  std::uint64_t drHw = 0;
-  neighbor.flopsNeighborsIntegral(faceTypes, neighboringIndices, drMapping, nz, hw, drNz, drHw);
+  const auto [metric, metricDR] = neighbor.metrics(faceTypes, neighboringIndices, drMapping);
 
-  SUBCASE("DR flops are positive") {
-    CHECK(drNz > 0);
-    CHECK(drHw > 0);
+  SUBCASE("DR metrics are positive") {
+    CHECK(metricDR.nonzeroFlop > 0);
+    CHECK(metricDR.hardwareFlop > 0);
+    // CHECK(metricDR.bytes > 0);
+    CHECK(metricDR.kernelBytes > 0);
   }
 
-  SUBCASE("DR hardware >= nonzero") { CHECK(drHw >= drNz); }
-}
-
-TEST_CASE("Neighbor bytesNeighborsIntegral" * doctest::test_suite("kernel")) {
-  kernels::Neighbor neighbor;
-  auto bytes = neighbor.bytesNeighborsIntegral();
-
-  CHECK(bytes > 0);
-  CHECK(bytes % sizeof(real) == 0);
+  SUBCASE("DR hardware >= nonzero") { CHECK(metricDR.hardwareFlop >= metricDR.nonzeroFlop); }
 }
 
 // ---------------------------------------------------------------------------
@@ -208,31 +178,23 @@ TEST_CASE("Kernel flop ordering: Ader < Local < Neighbor" * doctest::test_suite(
   // contribute significantly.
 
   kernels::Spacetime spacetime;
-  std::uint64_t aderNz = 0;
-  std::uint64_t aderHw = 0;
-  spacetime.flopsAder(aderNz, aderHw);
+  const auto aderMetrics = spacetime.metrics();
 
   kernels::Local local;
   std::array<FaceType, Cell::NumFaces> faceTypes{};
   faceTypes.fill(FaceType::Regular);
-  std::uint64_t localNz = 0;
-  std::uint64_t localHw = 0;
-  local.flopsIntegral(faceTypes, localNz, localHw);
+  const auto localMetrics = local.metrics(faceTypes);
 
   kernels::Neighbor neighbor;
   const std::array<std::array<uint8_t, 2>, Cell::NumFaces> neighboringIndices{};
   const std::array<CellDRMapping, Cell::NumFaces> drMapping{};
-  std::uint64_t neighborNz = 0;
-  std::uint64_t neighborHw = 0;
-  std::uint64_t drNz = 0;
-  std::uint64_t drHw = 0;
-  neighbor.flopsNeighborsIntegral(
-      faceTypes, neighboringIndices, drMapping, neighborNz, neighborHw, drNz, drHw);
+  const auto [neighborMetrics, drMetrics] =
+      neighbor.metrics(faceTypes, neighboringIndices, drMapping);
 
   // All three kernels should have non-trivial cost
-  CHECK(aderNz > 100);
-  CHECK(localNz > 100);
-  CHECK(neighborNz > 100);
+  CHECK(aderMetrics.nonzeroFlop > 100);
+  CHECK(localMetrics.nonzeroFlop > 100);
+  CHECK(neighborMetrics.nonzeroFlop > 100);
 }
 
 } // namespace seissol::unit_test

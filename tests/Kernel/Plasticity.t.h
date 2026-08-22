@@ -84,27 +84,22 @@ TEST_CASE("Plasticity computeRelaxTime" * doctest::test_suite("kernel")) {
 // flopsPlasticity: generated code constants
 // ---------------------------------------------------------------------------
 
-TEST_CASE("Plasticity flopsPlasticity" * doctest::test_suite("kernel")) {
-  std::uint64_t nzCheck = 0;
-  std::uint64_t hwCheck = 0;
-  std::uint64_t nzYield = 0;
-  std::uint64_t hwYield = 0;
-
-  Plasticity::flopsPlasticity(nzCheck, hwCheck, nzYield, hwYield);
+TEST_CASE("Plasticity metrics" * doctest::test_suite("kernel")) {
+  const auto [metricsCheck, metricsYield] = Plasticity::metrics();
 
   SUBCASE("Check flops are positive") {
-    CHECK(nzCheck > 0);
-    CHECK(hwCheck > 0);
+    CHECK(metricsCheck.nonzeroFlop > 0);
+    CHECK(metricsCheck.hardwareFlop > 0);
   }
 
   SUBCASE("Yield flops are positive") {
-    CHECK(nzYield > 0);
-    CHECK(hwYield > 0);
+    CHECK(metricsYield.nonzeroFlop > 0);
+    CHECK(metricsYield.hardwareFlop > 0);
   }
 
   SUBCASE("Hardware flops >= nonzero flops") {
-    CHECK(hwCheck >= nzCheck);
-    CHECK(hwYield >= nzYield);
+    CHECK(metricsCheck.hardwareFlop >= metricsCheck.nonzeroFlop);
+    CHECK(metricsYield.hardwareFlop >= metricsYield.nonzeroFlop);
   }
 }
 
