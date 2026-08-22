@@ -6,17 +6,28 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef SEISSOL_SRC_READER_ASAGIREADER_H_
-#define SEISSOL_SRC_READER_ASAGIREADER_H_
-
-#ifdef USE_ASAGI
+#ifndef SEISSOL_SRC_READER_DATAFIELD_ASAGIREADER_H_
+#define SEISSOL_SRC_READER_DATAFIELD_ASAGIREADER_H_
 
 #include "Parallel/MPI.h"
-#include "easi/util/AsagiReader.h"
 
 namespace asagi {
 class Grid;
 } // namespace asagi
+
+#ifdef USE_EASI
+#include "easi/util/AsagiReader.h"
+#else
+// class interface replacement if not linked against easi
+namespace easi {
+class AsagiReader {
+  public:
+  virtual ~AsagiReader() = default;
+  virtual ::asagi::Grid* open(const char* file, const char* varname) = 0;
+  [[nodiscard]] virtual unsigned numberOfThreads() const { return 1; }
+};
+} // namespace easi
+#endif
 
 namespace seissol::asagi {
 enum class NumaCacheMode { Off, On, Cache };
@@ -41,6 +52,4 @@ class AsagiReader : public easi::AsagiReader {
 
 } // namespace seissol::asagi
 
-#endif
-
-#endif // SEISSOL_SRC_READER_ASAGIREADER_H_
+#endif // SEISSOL_SRC_READER_DATAFIELD_ASAGIREADER_H_

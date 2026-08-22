@@ -25,6 +25,8 @@ SeisSol.cpp
 )
 target_link_libraries(seissol-lib PUBLIC seissol-config)
 
+target_link_libraries(seissol-lib PUBLIC seissol-external)
+
 # Eqations have to be set at compile time currently.
 if ("${EQUATIONS}" STREQUAL "elastic")
   target_sources(seissol-lib PRIVATE

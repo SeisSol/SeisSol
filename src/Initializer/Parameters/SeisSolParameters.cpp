@@ -9,6 +9,7 @@
 
 #include "Initializer/Parameters/CubeGeneratorParameters.h"
 #include "Initializer/Parameters/DRParameters.h"
+#include "Initializer/Parameters/DatafieldParameters.h"
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Parameters/LtsParameters.h"
 #include "Initializer/Parameters/MeshParameters.h"
@@ -26,6 +27,7 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
 
   const CubeGeneratorParameters cubeGeneratorParameters =
       readCubeGeneratorParameters(parameterReader);
+  const DatafieldParameters datafieldParameters = readDatafieldParameters(parameterReader);
   const DRParameters drParameters = readDRParameters(parameterReader);
   const InitializationParameters initializationParameters =
       readInitializationParameters(parameterReader);
@@ -54,6 +56,7 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
   logInfo() << "SeisSol parameter file read successfully.";
 
   return SeisSolParameters{cubeGeneratorParameters,
+                           datafieldParameters,
                            drParameters,
                            initializationParameters,
                            meshParameters,

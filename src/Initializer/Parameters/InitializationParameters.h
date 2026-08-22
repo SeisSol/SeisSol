@@ -13,10 +13,11 @@
 #include "ParameterReader.h"
 
 #include <Eigen/Dense>
+#include <cstdint>
 
 namespace seissol::initializer::parameters {
 
-enum class InitializationType : int {
+enum class InitializationType : int32_t {
   Zero,
   Planarwave,
   SuperimposedPlanarwave,
@@ -28,7 +29,7 @@ enum class InitializationType : int {
   Ocean1,
   Ocean2,
   PressureInjection,
-  Easi
+  Script
 };
 
 struct InitializationParameters {

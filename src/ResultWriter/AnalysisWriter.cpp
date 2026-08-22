@@ -78,10 +78,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::Mpi::mpi;
 
   const auto initialConditionType = seissolInstance_.parameters().initialization.type;
-  if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero ||
-      initialConditionType == seissol::initializer::parameters::InitializationType::Travelling ||
-      initialConditionType ==
-          seissol::initializer::parameters::InitializationType::PressureInjection) {
+  if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero) {
     return;
   }
 
@@ -106,7 +103,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
   std::vector<double> data;
 
-  if (initialConditionType == seissol::initializer::parameters::InitializationType::Easi) {
+  if (initialConditionType == seissol::initializer::parameters::InitializationType::Script) {
     data = initializer::projectEasiFields({seissolInstance_.parameters().initialization.filename},
                                           simulationTime,
                                           *meshReader_,
@@ -190,7 +187,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         const auto volume = MeshTools::volume(elements[meshId], vertices);
         const auto jacobiDet = 6 * volume;
 
-        if (initialConditionType != seissol::initializer::parameters::InitializationType::Easi) {
+        if (initialConditionType != seissol::initializer::parameters::InitializationType::Script) {
           // Compute global position of quadrature points.
           const double* elementCoords[Cell::NumVertices];
           for (std::size_t v = 0; v < Cell::NumVertices; ++v) {

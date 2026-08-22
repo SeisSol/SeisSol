@@ -36,6 +36,7 @@ add_library(seissol-initializer OBJECT
     Model/DynamicRuptureMatrices.cpp
 
     Parameters/CubeGeneratorParameters.cpp
+    Parameters/DatafieldParameters.cpp
     Parameters/DRParameters.cpp
     Parameters/InitializationParameters.cpp
     Parameters/LtsParameters.cpp
