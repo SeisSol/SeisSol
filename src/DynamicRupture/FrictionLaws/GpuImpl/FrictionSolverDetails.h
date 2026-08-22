@@ -23,9 +23,12 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   ~FrictionSolverDetails() override = default;
 
   void allocateAuxiliaryMemory(GlobalData* globalData) override {
+    // call the device module directly here
     {
-      data_ =
-          seissol::memory::allocTyped<FrictionLawData>(1, 1, memory::Memkind::DeviceGlobalMemory);
+#ifdef ACL_DEVICE
+      data_ = reinterpret_cast<FrictionLawData*>(
+          device::DeviceInstance::getInstance().api->allocGlobMem(sizeof(FrictionLawData)));
+#endif
     }
 
     resampleMatrix_ = globalData->resampleMatrix;

@@ -11,22 +11,16 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Monitoring/Metric.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <cstddef>
 #include <cstdint>
-#include <utility>
 
 namespace seissol {
 
-std::pair<std::uint64_t, std::uint64_t>
-    GravitationalFreeSurfaceBc::getFlopsDisplacementFace(unsigned int face) {
-  std::uint64_t hardwareFlops = 0;
-  std::uint64_t nonZeroFlops = 0;
-
-  hardwareFlops += kernel::fsgKernel::hardwareFlops(face);
-  nonZeroFlops += kernel::fsgKernel::nonZeroFlops(face);
-
-  return {nonZeroFlops, hardwareFlops};
+PerformanceEstimate GravitationalFreeSurfaceBc::metrics(int8_t face) {
+  return PerformanceEstimate::fromKernel<kernel::fsgKernel>(face);
 }
+
 } // namespace seissol

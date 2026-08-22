@@ -27,6 +27,7 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <algorithm>
@@ -213,12 +214,10 @@ void Spacetime::computeBatchedAder(
 #endif
 }
 
-void Spacetime::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
-  nonZeroFlops = kernel::derivative::NonZeroFlops;
-  hardwareFlops = kernel::derivative::HardwareFlops;
-}
+PerformanceEstimate Spacetime::metrics() const {
+  auto estimate = PerformanceEstimate::fromKernel<kernel::derivative>();
 
-std::uint64_t Spacetime::bytesAder() {
+  // legacy memory estimate
   std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
@@ -228,7 +227,9 @@ std::uint64_t Spacetime::bytesAder() {
 
   /// \todo incorporate derivatives
 
-  return reals * sizeof(real);
+  estimate.bytes = reals * sizeof(real);
+
+  return estimate;
 }
 
 void Time::evaluate(const real* coeffs,
@@ -288,9 +289,8 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
 #endif
 }
 
-void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
-  nonZeroFlops = kernel::derivativeTaylorExpansion::NonZeroFlops;
-  hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
+PerformanceEstimate Time::metrics() const {
+  return PerformanceEstimate::fromKernel<kernel::derivativeTaylorExpansion>();
 }
 
 void Time::setGlobalData(const CompoundGlobalData& global) {}

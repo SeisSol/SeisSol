@@ -12,6 +12,7 @@
 #include "Common/Constants.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Local.h"
+#include "Monitoring/Metric.h"
 
 #include <memory>
 #pragma GCC diagnostic push
@@ -52,11 +53,8 @@ class Local : public LocalKernel {
                                       double timeStepWidth,
                                       seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                     std::uint64_t& nonZeroFlops,
-                     std::uint64_t& hardwareFlops) override;
-
-  std::uint64_t bytesIntegral() override;
+  [[nodiscard]] PerformanceEstimate
+      metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const override;
 
   protected:
   kernel::volume volumeKernelPrototype_;

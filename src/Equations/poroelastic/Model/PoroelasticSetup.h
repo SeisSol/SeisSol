@@ -286,7 +286,7 @@ struct MaterialSetup<PoroElasticMaterial> {
         Matrix<double, PoroElasticMaterial::NumQuantities, PoroElasticMaterial::NumQuantities>;
     using CVector = Eigen::Matrix<std::complex<double>, PoroElasticMaterial::NumQuantities, 1>;
 
-    auto splitEigenDecomposition = [&ZeroThreshold](const PoroElasticMaterial& material) {
+    auto splitEigenDecomposition = [](const PoroElasticMaterial& material) {
       auto eigenpair = getEigenDecomposition(material, ZeroThreshold);
       return std::pair<CVector, CMatrix>{eigenpair.getValuesAsVector(),
                                          eigenpair.getVectorsAsMatrix()};
@@ -319,16 +319,27 @@ struct MaterialSetup<PoroElasticMaterial> {
       getTransposedFreeSurfaceGodunovState(
           MaterialType::Poroelastic, qGodLocal, qGodNeighbor, realR);
     } else {
-      CMatrix invR = matR.inverse();
-      CMatrix godunovMinus = matR * chiMinus * invR;
-      CMatrix godunovPlus = matR * chiPlus * invR;
+      // Only the outgoing (negative eigenvalue) projector is computed; qGodLocal is its complement.
+      //
+      // Note that chiMinus and chiPlus are NOT complementary here: the five zero eigenvalues are in
+      // neither of them, so forming both projectors separately leaves the null-space modes out of
+      // both Godunov matrices. Deriving qGodLocal as I - qGodNeighbor assigns them to the local
+      // subsystem, exactly as the elastic and anisotropic setups already do. This does not change
+      // the flux at all -- the affected columns (1, 2, 4, 11, 12) multiply the structurally zero
+      // rows of the star matrix -- but it restores qGodLocal + qGodNeighbor == I, which is what
+      // makes the invariant testable and the flux solver assembly consistent across equation sets.
+      const auto matRT = matR.transpose();
 
-      for (unsigned i = 0; i < qGodLocal.shape(1); ++i) {
-        for (unsigned j = 0; j < qGodLocal.shape(0); ++j) {
-          qGodLocal(j, i) = godunovPlus(i, j).real();
-          qGodNeighbor(j, i) = godunovMinus(i, j).real();
-          assert(std::abs(godunovPlus(j, i).imag()) < ZeroThreshold);
-          assert(std::abs(godunovMinus(j, i).imag()) < ZeroThreshold);
+      // Deliberately partialPivLu and not a rank-revealing factorization; cf. ElasticSetup.h
+      const auto matRlu = matRT.partialPivLu();
+      const auto godunovMinus = matRlu.solve(chiMinus * matRT).eval();
+
+      for (unsigned i = 0; i < qGodLocal.shape(0); ++i) {
+        for (unsigned j = 0; j < qGodLocal.shape(1); ++j) {
+          const double identity = (i == j) ? 1.0 : 0.0;
+          qGodLocal(i, j) = identity - godunovMinus(i, j).real();
+          qGodNeighbor(i, j) = godunovMinus(i, j).real();
+          assert(std::abs(godunovMinus(i, j).imag()) < ZeroThreshold);
         }
       }
     }
