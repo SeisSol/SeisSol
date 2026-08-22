@@ -21,7 +21,7 @@ namespace seissol::unit_test {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("Spacetime flopsAder" * doctest::test_suite("kernel")) {
-  kernels::Spacetime spacetime;
+  const kernels::Spacetime spacetime;
 
   const auto metric = spacetime.metrics();
 
@@ -48,7 +48,7 @@ TEST_CASE("Spacetime flopsAder" * doctest::test_suite("kernel")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("Local metrics all Regular faces" * doctest::test_suite("kernel")) {
-  kernels::Local local;
+  const kernels::Local local;
 
   std::array<FaceType, Cell::NumFaces> faceTypes{};
   faceTypes.fill(FaceType::Regular);
@@ -66,7 +66,7 @@ TEST_CASE("Local metrics all Regular faces" * doctest::test_suite("kernel")) {
 }
 
 TEST_CASE("Local metrics with DynamicRupture faces" * doctest::test_suite("kernel")) {
-  kernels::Local local;
+  const kernels::Local local;
 
   // All faces are DR → local flux is skipped for each (on CPU)
   std::array<FaceType, Cell::NumFaces> faceTypesDR{};
@@ -93,7 +93,7 @@ TEST_CASE("Local metrics with DynamicRupture faces" * doctest::test_suite("kerne
 }
 
 TEST_CASE("Local metrics mixed faces" * doctest::test_suite("kernel")) {
-  kernels::Local local;
+  const kernels::Local local;
 
   const std::array<FaceType, Cell::NumFaces> faceTypes = {
       FaceType::Regular,
@@ -115,7 +115,7 @@ TEST_CASE("Local metrics mixed faces" * doctest::test_suite("kernel")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("Neighbor metrics all Regular" * doctest::test_suite("kernel")) {
-  kernels::Neighbor neighbor;
+  const kernels::Neighbor neighbor;
 
   std::array<FaceType, Cell::NumFaces> faceTypes{};
   faceTypes.fill(FaceType::Regular);
@@ -147,7 +147,7 @@ TEST_CASE("Neighbor metrics all Regular" * doctest::test_suite("kernel")) {
 }
 
 TEST_CASE("Neighbor metrics with DR faces" * doctest::test_suite("kernel")) {
-  kernels::Neighbor neighbor;
+  const kernels::Neighbor neighbor;
 
   std::array<FaceType, Cell::NumFaces> faceTypes{};
   faceTypes.fill(FaceType::DynamicRupture);
@@ -177,15 +177,15 @@ TEST_CASE("Kernel flop ordering: Ader < Local < Neighbor" * doctest::test_suite(
   // than the spatial integration (Local), and neighbor integration should also
   // contribute significantly.
 
-  kernels::Spacetime spacetime;
+  const kernels::Spacetime spacetime;
   const auto aderMetrics = spacetime.metrics();
 
-  kernels::Local local;
+  const kernels::Local local;
   std::array<FaceType, Cell::NumFaces> faceTypes{};
   faceTypes.fill(FaceType::Regular);
   const auto localMetrics = local.metrics(faceTypes);
 
-  kernels::Neighbor neighbor;
+  const kernels::Neighbor neighbor;
   const std::array<std::array<uint8_t, 2>, Cell::NumFaces> neighboringIndices{};
   const std::array<CellDRMapping, Cell::NumFaces> drMapping{};
   const auto [neighborMetrics, drMetrics] =
