@@ -144,7 +144,6 @@ void Spacetime::computeBatchedAder(
     SEISSOL_GPU_PARAM LTS::Layer& layer,
     SEISSOL_GPU_PARAM LocalTmp& tmp,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
-    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
     SEISSOL_GPU_PARAM bool updateDisplacement,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
@@ -200,13 +199,8 @@ void Spacetime::computeBatchedAder(
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      bc.evaluateOnDevice(face,
-                          deviceFsgKernelPrototype_,
-                          dataTable,
-                          materialTable,
-                          timeStepWidth,
-                          device_,
-                          runtime);
+      bc.evaluateOnDevice(
+          face, deviceFsgKernelPrototype_, dataTable, timeStepWidth, device_, runtime);
     }
   }
 #else
