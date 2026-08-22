@@ -66,7 +66,7 @@ void ReceiverBasedOutputBuilder::setVariableList(const std::vector<std::size_t>&
 }
 
 void ReceiverBasedOutputBuilder::setFaceToLtsMap(
-    std::vector<::seissol::initializer::StoragePosition>* faceToLtsMap) {
+    ::seissol::initializer::StorageBackmap<1>* faceToLtsMap) {
   this->faceToLtsMap_ = faceToLtsMap;
 }
 
@@ -105,9 +105,9 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
   constexpr size_t NumVertices{4};
   for (const auto& point : outputData_->receiverPoints) {
     if (point.isInside) {
-      if (faceIndices.find(faceToLtsMap_->at(point.faultFaceIndex).global) == faceIndices.end()) {
+      if (faceIndices.find(faceToLtsMap_->get(point.faultFaceIndex).global) == faceIndices.end()) {
         const auto faceIndex = faceIndices.size();
-        faceIndices[faceToLtsMap_->at(point.faultFaceIndex).global] = faceIndex;
+        faceIndices[faceToLtsMap_->get(point.faultFaceIndex).global] = faceIndex;
       }
 
       ++foundPoints;
@@ -221,7 +221,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
       const auto elementIndex = faultInfo[point.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
       outputData_->deviceIndices[pointCounter] =
-          faceIndices.at(faceToLtsMap_->at(point.faultFaceIndex).global);
+          faceIndices.at(faceToLtsMap_->get(point.faultFaceIndex).global);
 
       outputData_->deviceDataPlus[pointCounter] = elementIndices.at(elementIndex);
 
