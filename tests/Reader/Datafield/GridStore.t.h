@@ -40,13 +40,27 @@ class StubGrid : public Grid {
     out.num[2] = slices_; // time
   }
   void sample(const double* /*x*/, double* out) const override { out[0] = 0.0; }
-  void sampleBatch(const double* /*x*/, std::size_t count, double* out) const override {
-    for (std::size_t i = 0; i < count; ++i) {
-      out[i] = 0.0;
-    }
+  void sampleBatch(const double* const* /*x*/,
+                   std::size_t count,
+                   double* const* out) const override {
+    fill(count, out);
+  }
+  void
+      sampleBatch(const double* const* /*x*/, std::size_t count, float* const* out) const override {
+    fill(count, out);
   }
 
   private:
+  template <typename Out>
+  void fill(std::size_t count, Out* const* out) const {
+    if (out[0] == nullptr) {
+      return;
+    }
+    for (std::size_t i = 0; i < count; ++i) {
+      out[0][i] = Out{0};
+    }
+  }
+
   double dt_;
   unsigned slices_;
   std::size_t sliceBytes_;

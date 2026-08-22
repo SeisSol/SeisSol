@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Binding.t.h"
 #include "Expr.t.h"
 #include "Interp.t.h"
 #include "SderivFrontend.t.h"

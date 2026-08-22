@@ -194,6 +194,29 @@ void oracle(const ArrayView& v, Interpolation type, const double* x, std::size_t
   }
 }
 
+// The kernel takes a pointer per axis and per component now (see
+// Interpolation.h); these tests were written against the flat blocks and the
+// two describe the same memory, so the adapter is address arithmetic only. The
+// pointer-array behaviour that the flat form CANNOT express -- skipping a
+// component, aliasing out onto x -- gets its own cases below.
+template <typename Out>
+std::size_t sampleBatchFlat(const ArrayView& v,
+                            Interpolation t,
+                            const double* x,
+                            std::size_t n,
+                            Out* out,
+                            SampleScratch& sc) {
+  std::vector<const double*> xs(v.dimensions);
+  std::vector<Out*> outs(v.components);
+  for (unsigned d = 0; d < v.dimensions; ++d) {
+    xs[d] = x + static_cast<std::size_t>(d) * n;
+  }
+  for (unsigned c = 0; c < v.components; ++c) {
+    outs[c] = out + static_cast<std::size_t>(c) * n;
+  }
+  return sampleBatch(v, t, xs.data(), n, outs.data(), sc);
+}
+
 // AoS helper over the SoA kernel
 std::vector<double>
     interp(const ArrayView& v, Interpolation t, const std::vector<std::vector<double>>& pts) {
@@ -205,7 +228,7 @@ std::vector<double>
     }
   }
   SampleScratch sc;
-  sampleBatch(v, t, xs.data(), n, ys.data(), sc);
+  sampleBatchFlat(v, t, xs.data(), n, ys.data(), sc);
   for (std::size_t i = 0; i < n; ++i) {
     for (unsigned c = 0; c < v.components; ++c) {
       r[i * v.components + c] = ys[c * n + i];
@@ -337,7 +360,7 @@ TEST_CASE("Datafield interpolation matches the easi reference") {
     const double xs[] = {-3.0, 1.5, 2.5, 99.0, nan};
     double out[5];
     SampleScratch scratch;
-    REQUIRE(sampleBatch(store.view, Interpolation::Linear, xs, 5, out, scratch) == 3);
+    REQUIRE(sampleBatchFlat(store.view, Interpolation::Linear, xs, 5, out, scratch) == 3);
   }
 
   SUBCASE("a degenerate axis always samples its single slice") {
@@ -400,7 +423,7 @@ TEST_CASE("Datafield interpolation matches the easi reference") {
         std::vector<double> actual(n * 2);
         oracle(store.view, type, aos.data(), n, reference.data());
         SampleScratch scratch;
-        sampleBatch(store.view, type, soa.data(), n, actual.data(), scratch);
+        sampleBatchFlat(store.view, type, soa.data(), n, actual.data(), scratch);
         std::size_t differing = 0;
         for (std::size_t i = 0; i < n; ++i) {
           for (unsigned c = 0; c < 2; ++c) {
@@ -463,8 +486,8 @@ TEST_CASE("Datafield interpolation matches the easi reference") {
       std::vector<double> b(n * components);
       SampleScratch s1;
       SampleScratch s2;
-      sampleBatch(natural.view, type, xs.data(), n, a.data(), s1);
-      sampleBatch(view, type, xs.data(), n, b.data(), s2);
+      sampleBatchFlat(natural.view, type, xs.data(), n, a.data(), s1);
+      sampleBatchFlat(view, type, xs.data(), n, b.data(), s2);
       for (std::size_t i = 0; i < n * components; ++i) {
         REQUIRE(a[i] == b[i]);
       }
@@ -491,6 +514,84 @@ TEST_CASE("Datafield interpolation matches the easi reference") {
     }
     REQUIRE(worst > 0.0);
     REQUIRE(worst < 1e-6);
+  }
+}
+
+TEST_CASE("Datafield sampling honours the pointer-array contract") {
+  using namespace datafield_test;
+
+  // 3-D, three components, so the skip and the aliasing cases are not degenerate.
+  const auto store =
+      makeStore({0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}, {6, 6, 6}, 3, [](const double* p, unsigned c) {
+        return (c + 1) * (p[0] + 2.0 * p[1] + 3.0 * p[2]) + c;
+      });
+
+  constexpr std::size_t N = 7;
+  std::vector<double> xs(3 * N);
+  for (std::size_t i = 0; i < N; ++i) {
+    xs[0 * N + i] = 0.3 + 0.6 * static_cast<double>(i);
+    xs[1 * N + i] = 1.1 + 0.4 * static_cast<double>(i);
+    xs[2 * N + i] = 2.2 + 0.3 * static_cast<double>(i);
+  }
+  const double* coords[3] = {&xs[0], &xs[N], &xs[2 * N]};
+
+  for (const auto type : {Interpolation::Nearest, Interpolation::Linear, Interpolation::Cubic}) {
+    // Reference: every component requested.
+    std::vector<double> all(3 * N, 0.0);
+    double* allPtr[3] = {&all[0], &all[N], &all[2 * N]};
+    SampleScratch scratch;
+    sampleBatch(store.view, type, coords, N, allPtr, scratch);
+
+    SUBCASE("a skipped component does not change the ones that are kept") {
+      // Skipping must be exactly that -- not a different code path that happens
+      // to agree to within a tolerance. Bitwise, or the null-skip is a second
+      // numerical path and Grid.h's cross-path argument no longer holds.
+      std::vector<double> only(N, -1.0);
+      double* onlyPtr[3] = {nullptr, &only[0], nullptr};
+      SampleScratch s2;
+      sampleBatch(store.view, type, coords, N, onlyPtr, s2);
+      for (std::size_t i = 0; i < N; ++i) {
+        REQUIRE(only[i] == all[N + i]);
+      }
+    }
+
+    SUBCASE("out may alias x, because the slot allocator can make it so") {
+      std::vector<double> aliased = xs;
+      const double* aliasCoords[3] = {&aliased[0], &aliased[N], &aliased[2 * N]};
+      // Component 1 lands on top of the y coordinate run it was computed from.
+      double* aliasOut[3] = {nullptr, &aliased[N], nullptr};
+      SampleScratch s3;
+      sampleBatch(store.view, type, aliasCoords, N, aliasOut, s3);
+      for (std::size_t i = 0; i < N; ++i) {
+        REQUIRE(aliased[N + i] == all[N + i]);
+      }
+    }
+
+    SUBCASE("the float overload differs from the f64 one only by the store") {
+      std::vector<float> f(3 * N, 0.0F);
+      float* fPtr[3] = {&f[0], &f[N], &f[2 * N]};
+      SampleScratch s4;
+      sampleBatch(store.view, type, coords, N, fPtr, s4);
+      for (std::size_t k = 0; k < 3 * N; ++k) {
+        REQUIRE(f[k] == static_cast<float>(all[k]));
+      }
+    }
+
+    SUBCASE("out entries need not be contiguous with each other") {
+      // The whole point of the pointer array: the destinations are separate
+      // transient slots, which the allocator does not place adjacently.
+      std::vector<double> a(N, 0.0);
+      std::vector<double> b(N, 0.0);
+      std::vector<double> c(N, 0.0);
+      double* scattered[3] = {a.data(), b.data(), c.data()};
+      SampleScratch s5;
+      sampleBatch(store.view, type, coords, N, scattered, s5);
+      for (std::size_t i = 0; i < N; ++i) {
+        REQUIRE(a[i] == all[i]);
+        REQUIRE(b[i] == all[N + i]);
+        REQUIRE(c[i] == all[2 * N + i]);
+      }
+    }
   }
 }
 

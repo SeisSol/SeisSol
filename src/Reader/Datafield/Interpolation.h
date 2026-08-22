@@ -79,19 +79,51 @@ class SampleScratch {
   std::vector<double> work;        // ping-pong partner of `gather`
 };
 
-/// Batch sample. `x` is SoA over axes, `out` is SoA over components:
-///   x[axis * count + lane], out[component * count + lane].
+/// Batch sample. One pointer per axis and one per component, each addressing a
+/// contiguous run of `count` values: x[axis][lane], out[component][lane].
+///
+/// CHANGED (reported): both used to be flat blocks, x[axis * count + lane] and
+/// out[component * count + lane]. Pointer arrays because every caller that
+/// matters holds these runs SEPARATELY -- the interpreter keeps each coordinate
+/// in its own transient slot and wants each result in its own -- so a flat block
+/// forced a copy of dimension * count values in and components * count out, per
+/// tile, purely to satisfy the signature.
+///
+/// `out[c] == nullptr` skips component c entirely: it is neither gathered nor
+/// reduced. This is not a micro-optimisation. A Kind::Lookup node names ONE
+/// component, so without skipping, every lookup would pay the full
+/// tensor-product reduction for components nobody reads -- 4^3 weighted adds
+/// per point per component for Cubic in 3-D. Gathering all components at a
+/// stencil point stays worthwhile in the other direction, which is why the
+/// split is here and not one call per component: componentStride is 1, so the
+/// random-access address arithmetic is shared, and it is the expensive half.
+///
+/// ALIASING: out[c] may alias x[d]. The interpreter's slot allocator is free to
+/// reuse a coordinate slot that dies at this instruction as the destination.
+/// This is safe because every read of x happens in phase 1, before the first
+/// write to out -- a constraint on the implementation, not an accident.
+/// out[c] pointers must not alias EACH OTHER; that is a caller error.
 ///
 /// Coordinates outside the array volume are clamped onto the boundary; the
 /// return value counts how many lanes were clamped on at least one axis, which
 /// is what a BoundaryMode::Fail backend turns into a logError. Non-finite
 /// coordinates are clamped too rather than being allowed to reach the index
 /// cast (see the note on the clamp idiom in Grid.h).
+///
+/// The float form differs ONLY in the final store. The reduction itself stays
+/// f64 in both: the cross-path tolerance in Grid.h is derived against easi's
+/// f64 kernel, and reducing in f32 would move the result far outside it.
 std::size_t sampleBatch(const ArrayView& view,
                         Interpolation interp,
-                        const double* x,
+                        const double* const* x,
                         std::size_t count,
-                        double* out,
+                        double* const* out,
+                        SampleScratch& scratch);
+std::size_t sampleBatch(const ArrayView& view,
+                        Interpolation interp,
+                        const double* const* x,
+                        std::size_t count,
+                        float* const* out,
                         SampleScratch& scratch);
 
 /// Single point. Convenience wrapper; the batch form is the one that vectorises.

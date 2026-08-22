@@ -11,7 +11,9 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace seissol::reader::datafield {
 
@@ -148,11 +150,11 @@ inline double loadAs(const void* data, std::size_t index) {
   return static_cast<double>(static_cast<const T*>(data)[index]);
 }
 
-template <Interpolation Type, typename T>
+template <Interpolation Type, typename T, typename Out>
 std::size_t sampleBatchTyped(const ArrayView& view,
-                             const double* x,
+                             const double* const* x,
                              std::size_t count,
-                             double* out,
+                             Out* const* out,
                              SampleScratch& scratch) {
   constexpr unsigned Width = kernelOf(Type).width;
   const unsigned dim = view.dimensions;
@@ -174,8 +176,9 @@ std::size_t sampleBatchTyped(const ArrayView& view,
     for (unsigned d = 0; d < dim; ++d) {
       double axisWeights[MaxStencilWidth];
       std::int64_t windowStart = 0;
-      any |= locateAxis<Type>(
-          view, d, x[static_cast<std::size_t>(d) * count + lane], windowStart, axisWeights);
+      // Every read of x happens here, before anything writes out -- which is
+      // what makes an out[c] that aliases x[d] safe. See Interpolation.h.
+      any |= locateAxis<Type>(view, d, x[d][lane], windowStart, axisWeights);
       start[static_cast<std::size_t>(d) * count + lane] = windowStart;
       for (unsigned j = 0; j < Width; ++j) {
         weights[(static_cast<std::size_t>(d) * Width + j) * count + lane] = axisWeights[j];
@@ -203,6 +206,9 @@ std::size_t sampleBatchTyped(const ArrayView& view,
         offset += static_cast<std::size_t>(node) * view.stride[d];
       }
       for (unsigned c = 0; c < comps; ++c) {
+        if (out[c] == nullptr) {
+          continue;
+        }
         gather[(f * comps + c) * count + lane] =
             loadAs<T>(view.data, offset + static_cast<std::size_t>(c) * view.componentStride);
       }
@@ -219,14 +225,31 @@ std::size_t sampleBatchTyped(const ArrayView& view,
   // Ping-pong rather than in place: vectorised over lanes there is no scalar
   // accumulator, so an in-place pass would zero the k == 0 term before reading
   // it. See the note on sampleBatch in Grid.h — the failure is invisible in 1-D.
+  //
+  // The final pass writes STRAIGHT INTO out when the caller wants f64, which is
+  // what removes the copy loop this function used to end with. At d == 0 the
+  // pass produces cnt == 1 block per component, i.e. exactly one run of `count`
+  // per component -- the shape out already has. For an f32 caller the store has
+  // to convert, so the pass lands in scratch and the conversion is the only
+  // thing that touches out.
+  constexpr bool DirectStore = std::is_same_v<Out, double>;
   const double* source = gather;
   double* target = scratch.work.data();
   std::size_t cnt = stencilSize;
   for (int d = static_cast<int>(dim) - 1; d >= 0; --d) {
+    const bool last = d == 0;
     cnt /= Width;
     for (std::size_t p = 0; p < cnt; ++p) {
       for (unsigned c = 0; c < comps; ++c) {
+        if (out[c] == nullptr) {
+          continue;
+        }
         double* dst = target + (p * comps + c) * count;
+        if constexpr (DirectStore) {
+          if (last) {
+            dst = out[c];
+          }
+        }
         for (std::size_t lane = 0; lane < count; ++lane) {
           dst[lane] = 0.0;
         }
@@ -244,52 +267,88 @@ std::size_t sampleBatchTyped(const ArrayView& view,
     target = next;
   }
 
-  for (unsigned c = 0; c < comps; ++c) {
-    const double* src = source + static_cast<std::size_t>(c) * count;
-    double* dst = out + static_cast<std::size_t>(c) * count;
-    for (std::size_t lane = 0; lane < count; ++lane) {
-      dst[lane] = src[lane];
+  if constexpr (!DirectStore) {
+    for (unsigned c = 0; c < comps; ++c) {
+      if (out[c] == nullptr) {
+        continue;
+      }
+      const double* src = source + static_cast<std::size_t>(c) * count;
+      for (std::size_t lane = 0; lane < count; ++lane) {
+        out[c][lane] = static_cast<Out>(src[lane]);
+      }
     }
   }
   return clampedLanes;
 }
 
-template <Interpolation Type>
+template <Interpolation Type, typename Out>
 std::size_t dispatchType(const ArrayView& view,
-                         const double* x,
+                         const double* const* x,
                          std::size_t count,
-                         double* out,
+                         Out* const* out,
                          SampleScratch& scratch) {
   return (view.type == ElementType::Float)
-             ? sampleBatchTyped<Type, float>(view, x, count, out, scratch)
-             : sampleBatchTyped<Type, double>(view, x, count, out, scratch);
+             ? sampleBatchTyped<Type, float, Out>(view, x, count, out, scratch)
+             : sampleBatchTyped<Type, double, Out>(view, x, count, out, scratch);
+}
+
+// The scheme switch is the only thing the two public overloads do differently
+// from each other, so it lives once here and they are both one line.
+template <typename Out>
+std::size_t dispatchInterp(const ArrayView& view,
+                           Interpolation interp,
+                           const double* const* x,
+                           std::size_t count,
+                           Out* const* out,
+                           SampleScratch& scratch) {
+  if (count == 0 || view.data == nullptr) {
+    return 0;
+  }
+  switch (interp) {
+  case Interpolation::Nearest:
+    return dispatchType<Interpolation::Nearest, Out>(view, x, count, out, scratch);
+  case Interpolation::Linear:
+    return dispatchType<Interpolation::Linear, Out>(view, x, count, out, scratch);
+  case Interpolation::Cubic:
+    return dispatchType<Interpolation::Cubic, Out>(view, x, count, out, scratch);
+  }
+  return 0;
 }
 
 } // namespace
 
 std::size_t sampleBatch(const ArrayView& view,
                         Interpolation interp,
-                        const double* x,
+                        const double* const* x,
                         std::size_t count,
-                        double* out,
+                        double* const* out,
                         SampleScratch& scratch) {
-  if (count == 0 || view.data == nullptr) {
-    return 0;
-  }
-  switch (interp) {
-  case Interpolation::Nearest:
-    return dispatchType<Interpolation::Nearest>(view, x, count, out, scratch);
-  case Interpolation::Linear:
-    return dispatchType<Interpolation::Linear>(view, x, count, out, scratch);
-  case Interpolation::Cubic:
-    return dispatchType<Interpolation::Cubic>(view, x, count, out, scratch);
-  }
-  return 0;
+  return dispatchInterp<double>(view, interp, x, count, out, scratch);
+}
+
+std::size_t sampleBatch(const ArrayView& view,
+                        Interpolation interp,
+                        const double* const* x,
+                        std::size_t count,
+                        float* const* out,
+                        SampleScratch& scratch) {
+  return dispatchInterp<float>(view, interp, x, count, out, scratch);
 }
 
 std::size_t sample(const ArrayView& view, Interpolation interp, const double* x, double* out) {
+  // A single point is the degenerate batch: with count == 1 a flat block and a
+  // pointer array per entry describe the same memory, so the wrapper is the
+  // address arithmetic and nothing else.
+  const double* xs[MaxGridDimensions] = {};
+  for (unsigned d = 0; d < view.dimensions; ++d) {
+    xs[d] = x + d;
+  }
+  std::vector<double*> outs(view.components);
+  for (unsigned c = 0; c < view.components; ++c) {
+    outs[c] = out + c;
+  }
   SampleScratch scratch;
-  return sampleBatch(view, interp, x, 1, out, scratch);
+  return sampleBatch(view, interp, xs, 1, outs.data(), scratch);
 }
 
 namespace {

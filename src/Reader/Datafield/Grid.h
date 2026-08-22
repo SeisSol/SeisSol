@@ -272,8 +272,42 @@ class Grid {
   // Single point. `x` has dimensions() entries, `out` has components().
   virtual void sample(const double* x, double* out) const = 0;
 
-  // Batch, SoA in and SoA out: x[axis * count + lane], out[comp * count + lane].
-  // This is what a Lookup node lowers to.
+  // Batch. One pointer per axis in, one per component out, each addressing a
+  // contiguous run of `count`: x[axis][lane], out[comp][lane]. `out` has
+  // components() entries; a null entry skips that component entirely.
+  //
+  // CHANGED (reported, Package 4). Both sides used to be flat blocks. Pointer
+  // arrays because the caller this interface exists for -- the Lookup lowering
+  // -- holds each coordinate in its own transient slot and wants each result in
+  // its own, so flat blocks cost a copy of dimension * count values in and
+  // components * count out on every tile, purely to satisfy the signature. With
+  // pointer arrays a Lookup is zero-copy end to end in the f64 path.
+  //
+  // The null-skip is the other half of the same decision. A Lookup node names
+  // ONE component, so the alternative -- returning every component and letting
+  // the caller pick -- pays the full tensor-product reduction for values nobody
+  // reads: 4^3 weighted adds per point per component for Cubic in 3-D. Skipping
+  // in the GATHER is a smaller win and skipping there is not the point; because
+  // componentStride is 1, the random-access address arithmetic is shared across
+  // components, which is exactly why this is one call and not one call per
+  // component.
+  //
+  // NOT SOLVED HERE, and worth knowing: two Lookups on the same grid and the
+  // same coordinates but different components are two nodes, hence two calls,
+  // hence two gathers. A material query reading rho, vp and vs therefore pays
+  // the stencil gather three times. Fixing that is a fusion in the lowering
+  // (one instruction, several destinations), and this signature is already the
+  // shape such a fused instruction would call -- several non-null entries in
+  // `out`. It is additive; it is not done.
+  //
+  // ALIASING: out[comp] may alias x[axis], because the slot allocator can reuse
+  // a coordinate slot that dies at the Lookup as its destination. Implementations
+  // must therefore read every coordinate before writing any output. Distinct
+  // out[] entries must not alias each other.
+  //
+  // The float form differs only in the final store; the reduction stays f64 in
+  // both, because the cross-path tolerance above is derived against easi's f64
+  // kernel and an f32 reduction lands far outside it.
   //
   // Implementations must keep the two phases separate: gathering the width^d
   // stencil values is random access and will not vectorise, whereas the
@@ -288,7 +322,8 @@ class Grid {
   // zeroes the k == 0 term before reading it. Ping-pong between two buffers.
   // The failure is invisible in 1-D (a single pass never aliases) and wrong in
   // every value in 2-D and 3-D.
-  virtual void sampleBatch(const double* x, std::size_t count, double* out) const = 0;
+  virtual void sampleBatch(const double* const* x, std::size_t count, double* const* out) const = 0;
+  virtual void sampleBatch(const double* const* x, std::size_t count, float* const* out) const = 0;
 
   // Volume, for the out-of-bounds decision and for diagnostics. Derived from
   // geometry(), not virtual -- a backend that could disagree with its own

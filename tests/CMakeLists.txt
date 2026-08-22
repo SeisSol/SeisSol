@@ -20,7 +20,7 @@ set(seissol_test_sources
         DynamicRupture/TestDynamicRupture.cpp
         Common/TestCommon.cpp
         Modules/TestModule.cpp
-        Expr/TestExpr.cpp
+        Expr/ExprTest.cpp
 )
 
 configure_file(

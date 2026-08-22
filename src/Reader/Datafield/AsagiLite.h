@@ -139,7 +139,15 @@ class AsagiLiteGrid final : public Grid {
   [[nodiscard]] std::size_t components() const override { return view_.components; }
   void geometry(GridGeometry& out) const override;
   void sample(const double* x, double* out) const override;
-  void sampleBatch(const double* x, std::size_t count, double* out) const override;
+  void sampleBatch(const double* const* x, std::size_t count, double* const* out) const override;
+  void sampleBatch(const double* const* x, std::size_t count, float* const* out) const override;
+
+  private:
+  /// Shared by both sampleBatch overloads: the BoundaryMode::Fail diagnostic is
+  /// about the query, not about the result type.
+  void reportClamped(std::size_t clamped, std::size_t count) const;
+
+  public:
   [[nodiscard]] std::size_t bytesPerTimeSlice() const override { return sliceBytes_; }
   [[nodiscard]] std::optional<std::pair<double, double>> timeWindow() const override;
 

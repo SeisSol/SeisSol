@@ -706,8 +706,21 @@ void AsagiLiteGrid::sample(const double* x, double* out) const {
   }
 }
 
-void AsagiLiteGrid::sampleBatch(const double* x, std::size_t count, double* out) const {
+void AsagiLiteGrid::sampleBatch(const double* const* x,
+                                std::size_t count,
+                                double* const* out) const {
   const std::size_t clamped = datafield::sampleBatch(view_, interp_, x, count, out, scratch_);
+  reportClamped(clamped, count);
+}
+
+void AsagiLiteGrid::sampleBatch(const double* const* x,
+                                std::size_t count,
+                                float* const* out) const {
+  const std::size_t clamped = datafield::sampleBatch(view_, interp_, x, count, out, scratch_);
+  reportClamped(clamped, count);
+}
+
+void AsagiLiteGrid::reportClamped(std::size_t clamped, std::size_t count) const {
   if (clamped != 0 && boundary_ == BoundaryMode::Fail) {
     logError() << "AsagiLite:" << path_ << "queried outside its volume for" << clamped << "of"
                << count << "points.";

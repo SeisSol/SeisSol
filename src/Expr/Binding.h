@@ -30,16 +30,26 @@
 #include "Reader/Scripting/DataTable.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace seissol::expr {
 
+// The input channel a program reads its layer/region id through. Spelled once,
+// here, because Binding is the only layer that treats a channel as anything
+// other than a name: it is the column the tile builder partitions on.
+inline constexpr const char* GroupChannelName = "group";
+
 // How one DataTable column maps into (or out of) a compute-type tile buffer.
 struct ColumnBinding {
   std::size_t entry{0}; // index into DataTable::dataEntries()
-  int slot{0};          // input channel id / output index
+  int slot{0};          // index into Program::inputs() / Program::outputs()
   reader::scripting::DataType tableType{reader::scripting::DataType::F64};
-  bool computed{false}; // bindComputed column: gather goes through the functor
+  // The column has no setter, so it can never serve as an output. True for
+  // bindComputed and for the bindViewConst/bindMemberViewConst family alike --
+  // DataTable does not distinguish them from the outside, and the property that
+  // matters downstream is the writability, not which builder produced it.
+  bool computed{false};
 };
 
 // A contiguous run of points sharing one group value. Half-open [begin, end).
@@ -66,6 +76,30 @@ class Binding {
   [[nodiscard]] const std::vector<GroupRange>& groupRanges() const { return groupRanges_; }
   // Permutation applied to reach the group ranges; empty when unpermuted.
   [[nodiscard]] const std::vector<std::size_t>& permutation() const { return permutation_; }
+
+  // --- persistent storage ---
+  //
+  // ADDED (reported). Program.h puts the state next to the point set and the
+  // permutation it is indexed by, i.e. here; Interp.h expects a raw pointer with
+  // slot-major layout, persistent[slot * numPoints + point]. The buffer cannot
+  // be sized in bind(), because the slot count is a property of the LOWERING
+  // (state slots plus hoisted values) and bind() sees only the Program. Hence a
+  // second, explicit call once the lowering exists, rather than a hidden resize
+  // on first use: the allocation is numPoints * slots * sizeof(ComputeType) and
+  // belongs where a profile can see it.
+  //
+  // Re-allocating resets the state to StateSpec::initial. That is the documented
+  // meaning of a rebind -- a state slot is tied to the identity of the point set
+  // it was allocated for, and a new point set has no history to carry.
+  void allocatePersistent(const Program& program, std::int32_t slotCount);
+  [[nodiscard]] std::int32_t persistentSlotCount() const { return persistentSlotCount_; }
+
+  // Typed views of the buffer above. Not a template, for the reason the gather
+  // overloads are not: the compute type is fixed per Program, so the choice is
+  // made once by the caller that already switched on it to pick an interpreter.
+  // Both log an error when asked for the type the Program does not compute in.
+  [[nodiscard]] double* persistentF64();
+  [[nodiscard]] float* persistentF32();
 
   // Gather `count` points starting at `first` into `dst`, one contiguous lane
   // block per input channel: dst[channel * count + lane]. Scatter is the
@@ -94,11 +128,16 @@ class Binding {
                const float* src) const;
 
   private:
+  void buildGroupRanges(const Program& program, const reader::scripting::DataTable& table);
+
   std::vector<ColumnBinding> inputs_;
   std::vector<ColumnBinding> outputs_;
   std::vector<GroupRange> groupRanges_;
   std::vector<std::size_t> permutation_;
   std::size_t numPoints_{0};
+  std::vector<std::byte> persistent_;
+  std::int32_t persistentSlotCount_{0};
+  ComputeType computeType_{ComputeType::F64};
 };
 
 } // namespace seissol::expr

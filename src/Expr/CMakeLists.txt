@@ -8,6 +8,7 @@
 add_library(seissol-expr OBJECT
     Ir.cpp
     Program.cpp
+    Binding.cpp
     Validate.cpp
     Lower.cpp
     Interp.cpp
