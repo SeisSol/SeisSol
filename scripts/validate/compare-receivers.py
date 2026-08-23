@@ -14,7 +14,6 @@ import sys
 
 import numpy as np
 import pandas as pd
-
 from validation_report import write_report_json
 
 if hasattr(np, "trapezoid"):
@@ -25,9 +24,16 @@ else:
 
 # Maps legacy variable names (written by older SeisSol versions) to current names.
 _LEGACY_NAMES = {
-    "xx": "s_xx", "yy": "s_yy", "zz": "s_zz",
-    "xy": "s_xy", "xz": "s_xz", "yz": "s_yz",
-    "u": "v1", "v": "v2", "w": "v3", "-p": "pprime",
+    "xx": "s_xx",
+    "yy": "s_yy",
+    "zz": "s_zz",
+    "xy": "s_xy",
+    "xz": "s_xz",
+    "yz": "s_yz",
+    "u": "v1",
+    "v": "v2",
+    "w": "v3",
+    "-p": "pprime",
 }
 
 
@@ -117,16 +123,22 @@ def compare_receiver_columns(
         diff_col = sim_receiver[col].values - ref_col
         ref_norm = np.sqrt(trapz_func(ref_col**2, x=time))
         diff_norm = np.sqrt(trapz_func(diff_col**2, x=time))
-        errors[col] = float(diff_norm / ref_norm) if ref_norm > 1e-10 else float(diff_norm)
+        errors[col] = (
+            float(diff_norm / ref_norm) if ref_norm > 1e-10 else float(diff_norm)
+        )
     return errors
 
 
-def receiver_diff(args: argparse.Namespace, index: int, file_type: str = "receiver") -> dict[str, float]:
+def receiver_diff(
+    args: argparse.Namespace, index: int, file_type: str = "receiver"
+) -> dict[str, float]:
     """
     Checks if the receivers have same time axis, and returns the relative L2 errors
     """
     sim_files = glob.glob(f"{args.output}/{args.prefix}-{file_type}-{index:05d}*.dat")
-    ref_files = glob.glob(f"{args.output_ref}/{args.prefix}-{file_type}-{index:05d}*.dat")
+    ref_files = glob.glob(
+        f"{args.output_ref}/{args.prefix}-{file_type}-{index:05d}*.dat"
+    )
 
     # allow copy layer receivers
     assert len(sim_files) >= 1
@@ -141,15 +153,21 @@ def receiver_diff(args: argparse.Namespace, index: int, file_type: str = "receiv
     sim_receiver.reset_index(drop=True, inplace=True)
     ref_receiver.reset_index(drop=True, inplace=True)
 
-    max_time_diff = np.max(np.abs(sim_receiver["Time"].values - ref_receiver["Time"].values))
-    assert max_time_diff < 1e-6, (
-        f"Record time mismatch at {file_type} {index}: max |Δt| = {max_time_diff:.3e}"
+    max_time_diff = np.max(
+        np.abs(sim_receiver["Time"].values - ref_receiver["Time"].values)
+    )
+    assert (
+        max_time_diff < 1e-6
+    ), f"Record time mismatch at {file_type} {index}: max |Δt| = {max_time_diff:.3e}"
+
+    return compare_receiver_columns(
+        sim_receiver, ref_receiver, f"{file_type}-{index:05d}"
     )
 
-    return compare_receiver_columns(sim_receiver, ref_receiver, f"{file_type}-{index:05d}")
 
-
-def find_all_receivers(directory: str, prefix: str, file_type: str = "receiver") -> np.typing.NDArray[np.int_]:
+def find_all_receivers(
+    directory: str, prefix: str, file_type: str = "receiver"
+) -> np.typing.NDArray[np.int_]:
     """
     Returns list of receivers in the directory with a particular prefix
     """
@@ -196,6 +214,7 @@ def report_errors(
             exceeded = True
     return exceeded, per_column_max
 
+
 def main():
     parser = argparse.ArgumentParser(description="Compare two sets of receivers.")
     parser.add_argument("output", type=str)
@@ -222,6 +241,7 @@ def main():
         # Structural: the report keys are f"{file_type}:{col}" for every column
         # except Time (see compare_receiver_columns), read from one file per type.
         import json
+
         names = []
         for file_type in ("receiver", "faultreceiver"):
             ids = find_all_receivers(args.output, args.prefix, file_type)
@@ -248,10 +268,12 @@ def main():
         sim_ids = find_all_receivers(args.output, args.prefix, file_type)
         ref_ids = find_all_receivers(args.output_ref, args.prefix, file_type)
         ids = np.intersect1d(sim_ids, ref_ids)
-        assert len(ids) == len(ref_ids), (
-            f"some {label} IDs are missing: {ids} vs {ref_ids}"
-        )
-        errors = {index: receiver_diff(args, index, file_type=file_type) for index in ref_ids}
+        assert len(ids) == len(
+            ref_ids
+        ), f"some {label} IDs are missing: {ids} vs {ref_ids}"
+        errors = {
+            index: receiver_diff(args, index, file_type=file_type) for index in ref_ids
+        }
         exceeded, per_column_max = report_errors(label, errors, args.epsilon)
         ANY_FAILURE |= exceeded
         # Prefix by receiver type so "receiver" and "faultreceiver" don't collide.
@@ -264,6 +286,7 @@ def main():
         )
 
     sys.exit(1 if ANY_FAILURE else 0)
+
 
 if __name__ == "__main__":
     main()

@@ -5,12 +5,10 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-import argparse
 import sys
 
 import numpy as np
 import seissolxdmf as sx
-
 from validation_report import write_report_json
 
 # Fields that are mesh bookkeeping, not physical quantities to compare.
@@ -27,7 +25,9 @@ def list_quantities(file):
     return [q for q in sorted(mesh.ReadAvailableDataFields()) if q not in _METAFIELDS]
 
 
-def compare(file, file_ref, epsilon, report_json=None, category="mesh", geom_epsilon=1e-10):
+def compare(
+    file, file_ref, epsilon, report_json=None, category="mesh", geom_epsilon=1e-10
+):
     mesh = sx.seissolxdmf(file)
     mesh_ref = sx.seissolxdmf(file_ref)
 
@@ -48,9 +48,11 @@ def compare(file, file_ref, epsilon, report_json=None, category="mesh", geom_eps
         preIds_ref = mesh_ref.Read1dData("global-id", mesh_ref.nElements, isInt=True)
         ids_ref = np.argsort(preIds_ref)
 
-        global_id_correct = np.all(np.abs(geom[connect[ids]] - geom_ref[connect_ref[ids_ref]]) < geom_epsilon)
+        global_id_correct = np.all(
+            np.abs(geom[connect[ids]] - geom_ref[connect_ref[ids_ref]]) < geom_epsilon
+        )
         matching = global_id_correct
-        print(f'Global IDs present; conformant: {global_id_correct}')
+        print(f"Global IDs present; conformant: {global_id_correct}")
 
     if not matching:
         # if the reference solution has no global IDs, heuristically sort by barycenter, weighed by 3D cube position
@@ -113,8 +115,9 @@ def compare(file, file_ref, epsilon, report_json=None, category="mesh", geom_eps
     def l2_difference(q_0, q_1):
         return l2_norm(q_0 - q_1)
 
-    quantity_names = [q for q in sorted(mesh.ReadAvailableDataFields())
-                      if q not in _METAFIELDS]
+    quantity_names = [
+        q for q in sorted(mesh.ReadAvailableDataFields()) if q not in _METAFIELDS
+    ]
     errors = np.zeros((len(quantity_names)))
 
     last_index = mesh.ndt
@@ -152,8 +155,8 @@ def compare(file, file_ref, epsilon, report_json=None, category="mesh", geom_eps
             errors[i] = relative_error
 
     failure = False
-    if global_id_correct == False:
-        print('Global IDs present, but did not match.')
+    if global_id_correct is False:
+        print("Global IDs present, but did not match.")
         failure = True
 
     if np.any(errors > epsilon):

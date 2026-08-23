@@ -110,11 +110,24 @@ def c(text: str, *codes: str) -> str:
 
 # Convenience accessors for common roles. They take the *already-padded* text
 # so the visible width is preserved in tables.
-def _ok(s: str) -> str:    return c(s, _Ansi.GREEN, _Ansi.BOLD)
-def _bad(s: str) -> str:   return c(s, _Ansi.RED, _Ansi.BOLD)
-def _warn(s: str) -> str:  return c(s, _Ansi.YELLOW)
-def _info(s: str) -> str:  return c(s, _Ansi.CYAN)
-def _dim(s: str) -> str:   return c(s, _Ansi.DIM)
+def _ok(s: str) -> str:
+    return c(s, _Ansi.GREEN, _Ansi.BOLD)
+
+
+def _bad(s: str) -> str:
+    return c(s, _Ansi.RED, _Ansi.BOLD)
+
+
+def _warn(s: str) -> str:
+    return c(s, _Ansi.YELLOW)
+
+
+def _info(s: str) -> str:
+    return c(s, _Ansi.CYAN)
+
+
+def _dim(s: str) -> str:
+    return c(s, _Ansi.DIM)
 
 
 # ---------------------------------------------------------------------------
@@ -135,11 +148,11 @@ class CaseSpec:
     ``output`` directory holds the committed reference (and is the record target).
     """
 
-    key: str            # opaque identifier from cases.json (e.g. "tpv5/double")
-    config: str         # binary selector, e.g. "elastic-o6-f64"
-    params_path: Path   # absolute path to the parameter file
-    case_dir: Path      # parent of params_path (SeisSol run cwd)
-    prefix: str         # output file prefix, e.g. "tpv"
+    key: str  # opaque identifier from cases.json (e.g. "tpv5/double")
+    config: str  # binary selector, e.g. "elastic-o6-f64"
+    params_path: Path  # absolute path to the parameter file
+    case_dir: Path  # parent of params_path (SeisSol run cwd)
+    prefix: str  # output file prefix, e.g. "tpv"
     output_dir: Optional[Path] = None  # own committed output dir (record target)
     reference: str = ""  # another case's key; "" => compare against own output
     # Resolved compare target, filled in by load_cases (own output_dir, or the
@@ -166,17 +179,19 @@ class CaseSpec:
 class CompareResult:
     category: str
     passed: bool
-    epsilon: float                       # the category threshold that was applied
+    epsilon: float  # the category threshold that was applied
     detail: str = ""
-    achieved: Optional[float] = None     # worst error actually measured
+    achieved: Optional[float] = None  # worst error actually measured
     quantities: dict[str, float] = dataclasses.field(default_factory=dict)
-    has_summary: bool = False            # a report JSON was produced
+    has_summary: bool = False  # a report JSON was produced
     # per-quantity threshold violations: (quantity, achieved, threshold)
     failures: list[tuple[str, float, float]] = dataclasses.field(default_factory=list)
     # conditional expected-failure state (see the xfail/skip machinery)
-    xfail_outcome: str = ""   # "" | "xfail" (failed as expected) | "xpass" (passed unexpectedly)
+    xfail_outcome: str = (
+        ""  # "" | "xfail" (failed as expected) | "xpass" (passed unexpectedly)
+    )
     xfail_reason: str = ""
-    skipped: bool = False     # category-level conditional skip (not compared)
+    skipped: bool = False  # category-level conditional skip (not compared)
     skip_reason: str = ""
 
 
@@ -203,8 +218,10 @@ class CaseResult:
     duration_s: float
     compares: list[CompareResult]
     recorded: bool = False
-    skipped: bool = False   # not evaluated (no binary / derived record / conditional skip)
-    note: str = ""          # why it was skipped, shown in the report
+    skipped: bool = (
+        False  # not evaluated (no binary / derived record / conditional skip)
+    )
+    note: str = ""  # why it was skipped, shown in the report
     xfail_strict: bool = False  # if set, an unexpected pass (xpass) fails the run
 
     @property
@@ -240,7 +257,7 @@ def load_cases(precomputed_dir: Path) -> dict[str, CaseSpec]:
         params_path = (precomputed_dir / entry["parameters"]).resolve()
         prefix, output_dir = "", None
         out = entry.get("output")
-        if isinstance(out, str):        # lenient: a bare string is the prefix
+        if isinstance(out, str):  # lenient: a bare string is the prefix
             prefix = out
         elif isinstance(out, dict):
             prefix = out.get("prefix", "")
@@ -335,7 +352,10 @@ def _has_quantity_thresholds(tpv_data: dict, category: str) -> bool:
 
 
 def _quantity_epsilon(
-    tpv_data: dict, category: str, quantity: str, variant: str,
+    tpv_data: dict,
+    category: str,
+    quantity: str,
+    variant: str,
     override: Optional[float],
 ) -> float:
     """Threshold for a single quantity, falling back to the category threshold.
@@ -363,7 +383,9 @@ def _quantity_epsilon(
 
 
 def _evaluate_quantities(
-    result: "CompareResult", tpv_data: dict, variant: str,
+    result: "CompareResult",
+    tpv_data: dict,
+    variant: str,
     override: Optional[float],
 ) -> None:
     """Re-decide one comparison's verdict from its per-quantity achieved errors.
@@ -377,9 +399,11 @@ def _evaluate_quantities(
     configured = set(tpv_data.get(result.category, {}).get("quantities", {}))
     seen = set(result.quantities)
     for missing in sorted(configured - seen):
-        print(f"{_warn('[warn]')} {result.category}: per-quantity threshold for "
-              f"'{missing}' set but that quantity was not found in the output",
-              file=sys.stderr)
+        print(
+            f"{_warn('[warn]')} {result.category}: per-quantity threshold for "
+            f"'{missing}' set but that quantity was not found in the output",
+            file=sys.stderr,
+        )
 
     failures: list[tuple[str, float, float]] = []
     for q, achieved in result.quantities.items():
@@ -448,7 +472,10 @@ def run_seissol(
     env["OMP_NUM_THREADS"] = str(threads)
 
     cmd = list(mpi_cmd) + ["-np", str(ranks), str(binary), str(case.params_path)]
-    print(f"{_info('[run]')} {case.key}: (cd {case.case_dir}) {shlex.join(cmd)}", flush=True)
+    print(
+        f"{_info('[run]')} {case.key}: (cd {case.case_dir}) {shlex.join(cmd)}",
+        flush=True,
+    )
 
     t0 = _dt.datetime.now()
     proc = subprocess.run(cmd, cwd=case.case_dir, env=env)
@@ -472,8 +499,11 @@ def _read_summary(path: Path) -> Optional[dict]:
 
     def _decode(v):
         if isinstance(v, str):
-            return {"inf": float("inf"), "-inf": float("-inf"),
-                    "nan": float("nan")}.get(v, v)
+            return {
+                "inf": float("inf"),
+                "-inf": float("-inf"),
+                "nan": float("nan"),
+            }.get(v, v)
         return v
 
     payload["max_error"] = _decode(payload.get("max_error"))
@@ -522,7 +552,9 @@ def _expect(path: Path, what: str) -> Optional[str]:
     return None
 
 
-def compare_mesh(case: CaseSpec, suffix: str, category: str, epsilon: float) -> CompareResult:
+def compare_mesh(
+    case: CaseSpec, suffix: str, category: str, epsilon: float
+) -> CompareResult:
     """Volume/fault/surface XDMF comparison via compare-mesh.py."""
     out_xdmf = case.workdir / f"{case.prefix}{suffix}.xdmf"
     ref_xdmf = case.reference_dir / f"{case.prefix}{suffix}.xdmf"
@@ -532,8 +564,14 @@ def compare_mesh(case: CaseSpec, suffix: str, category: str, epsilon: float) -> 
             return CompareResult(category, False, epsilon, msg)
     rc, summary = _run_compare(
         COMPARE_MESH,
-        [str(out_xdmf), str(ref_xdmf), "--epsilon", str(epsilon),
-         "--category", category],
+        [
+            str(out_xdmf),
+            str(ref_xdmf),
+            "--epsilon",
+            str(epsilon),
+            "--category",
+            category,
+        ],
         cwd=case.case_dir,
     )
     return _apply_summary(CompareResult(category, rc == 0, epsilon), summary)
@@ -542,8 +580,14 @@ def compare_mesh(case: CaseSpec, suffix: str, category: str, epsilon: float) -> 
 def compare_receivers(case: CaseSpec, epsilon: float) -> CompareResult:
     rc, summary = _run_compare(
         COMPARE_RECEIVERS,
-        [str(case.workdir), str(case.reference_dir),
-         "--prefix", case.prefix, "--epsilon", str(epsilon)],
+        [
+            str(case.workdir),
+            str(case.reference_dir),
+            "--prefix",
+            case.prefix,
+            "--epsilon",
+            str(epsilon),
+        ],
         cwd=case.case_dir,
     )
     return _apply_summary(CompareResult("receiver", rc == 0, epsilon), summary)
@@ -594,8 +638,9 @@ def _first_matching_reason(rules, labels: set, case_key: str, config: str):
     return None
 
 
-def _apply_xfail(cr: CompareResult, case: CaseSpec, tpv_data: dict,
-                 category: str, labels: set) -> None:
+def _apply_xfail(
+    cr: CompareResult, case: CaseSpec, tpv_data: dict, category: str, labels: set
+) -> None:
     """Tag a comparison as xfail/xpass if a category- or case-level rule matches."""
     rules = list(tpv_data.get(category, {}).get("xfail", [])) + list(case.xfail)
     reason = _first_matching_reason(rules, labels, case.key, case.config)
@@ -604,15 +649,17 @@ def _apply_xfail(cr: CompareResult, case: CaseSpec, tpv_data: dict,
         cr.xfail_outcome = "xfail" if not cr.passed else "xpass"
 
 
-def _category_skip_reason(case: CaseSpec, tpv_data: dict, category: str,
-                          labels: set):
+def _category_skip_reason(case: CaseSpec, tpv_data: dict, category: str, labels: set):
     """Reason if this category is conditionally skipped (category-level rules only)."""
     return _first_matching_reason(
-        tpv_data.get(category, {}).get("skip", []), labels, case.key, case.config)
+        tpv_data.get(category, {}).get("skip", []), labels, case.key, case.config
+    )
 
 
 def verify_case(
-    case: CaseSpec, tpv_data: dict, epsilon_override: Optional[float],
+    case: CaseSpec,
+    tpv_data: dict,
+    epsilon_override: Optional[float],
     labels: Optional[set] = None,
 ) -> list[CompareResult]:
     """Run all comparisons enabled in <prefix>-data.json for one case.
@@ -664,13 +711,18 @@ def _list_quantities(script: Path, args: Sequence[str], cwd: Path) -> list[str]:
     try:
         proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
         if proc.returncode != 0:
-            print(f"{_warn('[warn]')} {script.name} --list-quantities failed: "
-                  f"{proc.stderr.strip()}", file=sys.stderr)
+            print(
+                f"{_warn('[warn]')} {script.name} --list-quantities failed: "
+                f"{proc.stderr.strip()}",
+                file=sys.stderr,
+            )
             return []
         return list(json.loads(proc.stdout))
     except (OSError, json.JSONDecodeError) as e:
-        print(f"{_warn('[warn]')} could not list quantities via {script.name}: {e}",
-              file=sys.stderr)
+        print(
+            f"{_warn('[warn]')} could not list quantities via {script.name}: {e}",
+            file=sys.stderr,
+        )
         return []
 
 
@@ -687,7 +739,11 @@ def generate_data_skeleton(case: CaseSpec, target: Path) -> None:
     data: dict = {}
 
     # Volume / fault / surface: one XDMF file each; quantities are its data fields.
-    for category, suffix in (("volume", ""), ("fault", "-fault"), ("surface", "-surface")):
+    for category, suffix in (
+        ("volume", ""),
+        ("fault", "-fault"),
+        ("surface", "-surface"),
+    ):
         xdmf = target / f"{p}{suffix}.xdmf"
         if xdmf.is_file():
             quants = _list_quantities(COMPARE_MESH, [str(xdmf)], cwd=case.case_dir)
@@ -696,22 +752,28 @@ def generate_data_skeleton(case: CaseSpec, target: Path) -> None:
     # Energy: a single CSV.
     energy_csv = target / f"{p}-energy.csv"
     if energy_csv.is_file():
-        quants = _list_quantities(COMPARE_ENERGIES, [str(energy_csv)], cwd=case.case_dir)
+        quants = _list_quantities(
+            COMPARE_ENERGIES, [str(energy_csv)], cwd=case.case_dir
+        )
         data["energy"] = _skeleton_category(quants)
 
     # Receivers: any receiver or faultreceiver .dat files.
-    has_receivers = any(target.glob(f"{p}-receiver-*.dat")) or \
-        any(target.glob(f"{p}-faultreceiver-*.dat"))
+    has_receivers = any(target.glob(f"{p}-receiver-*.dat")) or any(
+        target.glob(f"{p}-faultreceiver-*.dat")
+    )
     if has_receivers:
         quants = _list_quantities(
-            COMPARE_RECEIVERS, [str(target), "--prefix", p], cwd=case.case_dir)
+            COMPARE_RECEIVERS, [str(target), "--prefix", p], cwd=case.case_dir
+        )
         data["receiver"] = _skeleton_category(quants)
 
     out = target / f"{p}-data.json"
     out.write_text(json.dumps(data, indent=2) + "\n")
     cats = ", ".join(data) or "none"
-    print(f"{c('[record]', _Ansi.MAGENTA)} {case.key}: generated {out.name} "
-          f"(categories: {cats}; review the placeholder epsilons)")
+    print(
+        f"{c('[record]', _Ansi.MAGENTA)} {case.key}: generated {out.name} "
+        f"(categories: {cats}; review the placeholder epsilons)"
+    )
 
 
 def _skeleton_category(quantities: list[str]) -> dict:
@@ -762,10 +824,12 @@ def record_case(case: CaseSpec) -> int:
             if src.is_dir():
                 shutil.copytree(src, target / src.name)
                 m += 1
-    print(f"{c('[record]', _Ansi.MAGENTA)} {case.key}: wrote {n} files and {m} directories to {target}")
+    print(
+        f"{c('[record]', _Ansi.MAGENTA)} {case.key}: wrote {n} files and {m} directories to {target}"
+    )
 
     if keep is not None:
-        preserved.write_bytes(keep)          # keep a hand-authored data file as-is
+        preserved.write_bytes(keep)  # keep a hand-authored data file as-is
     else:
         generate_data_skeleton(case, target)  # none existed -> start one automatically
     return n
@@ -810,7 +874,9 @@ def update_references_json(
 
 
 def select_cases(
-    cases: dict[str, CaseSpec], requested: Iterable[str], all_: bool,
+    cases: dict[str, CaseSpec],
+    requested: Iterable[str],
+    all_: bool,
 ) -> list[CaseSpec]:
     if all_:
         return list(cases.values())
@@ -819,8 +885,7 @@ def select_cases(
     for r in requested:
         # Match an exact key, or every key under the "<r>/" prefix (so "tpv5"
         # selects "tpv5/double", "tpv5/single", ... without a formal name split).
-        matched = [c for c in cases.values()
-                   if c.key == r or c.key.startswith(r + "/")]
+        matched = [c for c in cases.values() if c.key == r or c.key.startswith(r + "/")]
         if not matched:
             raise KeyError(f"No case matches '{r}'")
         for c in matched:
@@ -840,8 +905,10 @@ def list_cases(selected: list[CaseSpec], epsilon_override: Optional[float]) -> N
     """Dry-run: show each selected case's reference and per-category epsilons."""
     for case in selected:
         tag = f"   (derived <- {case.reference})" if case.is_derived else ""
-        print(f"{c(case.key, _Ansi.BOLD)}   config={case.config}   "
-              f"ref={case.reference or 'self'}{tag}")
+        print(
+            f"{c(case.key, _Ansi.BOLD)}   config={case.config}   "
+            f"ref={case.reference or 'self'}{tag}"
+        )
         tpv = load_tpv_data(case)
         enabled = [cat for cat in _CANONICAL_CATEGORIES if _enabled(tpv, cat)]
         if not enabled:
@@ -864,7 +931,11 @@ def _state_of(r: "CaseResult") -> str:
         return f"RC={r.run_returncode}"
     if not r.compares:
         return "FAIL"
-    return "FAIL" if any(_compare_is_failure(c, r.xfail_strict) for c in r.compares) else "PASS"
+    return (
+        "FAIL"
+        if any(_compare_is_failure(c, r.xfail_strict) for c in r.compares)
+        else "PASS"
+    )
 
 
 _CANONICAL_CATEGORIES = ["volume", "fault", "surface", "energy", "receiver"]
@@ -873,8 +944,9 @@ _CANONICAL_CATEGORIES = ["volume", "fault", "surface", "energy", "receiver"]
 def _category_columns(results: list["CaseResult"]) -> list[str]:
     """Category columns present across the run, canonical order first."""
     present = {cr.category for r in results for cr in r.compares}
-    return ([c for c in _CANONICAL_CATEGORIES if c in present]
-            + sorted(present - set(_CANONICAL_CATEGORIES)))
+    return [c for c in _CANONICAL_CATEGORIES if c in present] + sorted(
+        present - set(_CANONICAL_CATEGORIES)
+    )
 
 
 def _offenders(cr: "CompareResult") -> list[tuple[str, float, float]]:
@@ -887,8 +959,11 @@ def _offenders(cr: "CompareResult") -> list[tuple[str, float, float]]:
     if cr.failures:
         lst = list(cr.failures)
     elif cr.quantities:
-        lst = [(q, e, cr.epsilon) for q, e in cr.quantities.items()
-               if not (e <= cr.epsilon)]
+        lst = [
+            (q, e, cr.epsilon)
+            for q, e in cr.quantities.items()
+            if not (e <= cr.epsilon)
+        ]
     else:
         return []
 
@@ -899,9 +974,13 @@ def _offenders(cr: "CompareResult") -> list[tuple[str, float, float]]:
     return sorted(lst, key=sev, reverse=True)
 
 
-def write_report(results: list[CaseResult], report_path: Optional[Path],
-                 near_miss: float = 0.5, drift: Optional[list[tuple]] = None,
-                 drift_factor: float = 2.0) -> None:
+def write_report(
+    results: list[CaseResult],
+    report_path: Optional[Path],
+    near_miss: float = 0.5,
+    drift: Optional[list[tuple]] = None,
+    drift_factor: float = 2.0,
+) -> None:
     """Render the run report.
 
     Two parts: a per-category grid (one row per case, one column per enabled
@@ -928,19 +1007,25 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
             return "nan"
         return f"{x:.{prec}e}"
 
-    state_of = _state_of        # module-level; shared with the JSON report
-    offenders = _offenders      # module-level; shared with the Markdown summary
+    state_of = _state_of  # module-level; shared with the JSON report
+    offenders = _offenders  # module-level; shared with the Markdown summary
 
     # Pre-compute the failure block rows (color-independent) so widths line up
     # globally across every failing case.
-    fail_blocks: list[tuple[str, list[tuple[str, str, Optional[float], Optional[float]]]]] = []
+    fail_blocks: list[
+        tuple[str, list[tuple[str, str, Optional[float], Optional[float]]]]
+    ] = []
     for r in results:
         st = state_of(r)
         if st in ("PASS", "SKIP", "REC"):
             continue
         if st.startswith("RC="):
-            fail_blocks.append((r.case.key,
-                                [("run", f"exited with code {r.run_returncode}", None, None)]))
+            fail_blocks.append(
+                (
+                    r.case.key,
+                    [("run", f"exited with code {r.run_returncode}", None, None)],
+                )
+            )
             continue
         cmap = {cr.category: cr for cr in r.compares}
         rows: list[tuple[str, str, Optional[float], Optional[float]]] = []
@@ -953,7 +1038,9 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
                 for q, a, thr in offs[:MAX_QTY_ROWS]:
                     rows.append((cat, q, a, thr))
                 if len(offs) > MAX_QTY_ROWS:
-                    rows.append((cat, f"(+{len(offs) - MAX_QTY_ROWS} more)", None, None))
+                    rows.append(
+                        (cat, f"(+{len(offs) - MAX_QTY_ROWS} more)", None, None)
+                    )
             else:
                 rows.append((cat, cr.detail or "failed", None, None))
         fail_blocks.append((r.case.key, rows))
@@ -961,14 +1048,22 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
     all_rows = [row for _, rows in fail_blocks for row in rows]
     cat_w = max([0] + [len(cat) for cat, _, _, _ in all_rows])
     qty_w = max([0] + [len(q) for _, q, _, _ in all_rows])
-    num_w = max([0] + [len(num(v, 2)) for _, _, a, thr in all_rows
-                       for v in (a, thr) if v is not None])
+    num_w = max(
+        [0]
+        + [
+            len(num(v, 2))
+            for _, _, a, thr in all_rows
+            for v in (a, thr)
+            if v is not None
+        ]
+    )
 
     drift = drift or []
     d_cat_w = max([0] + [len(cat) for _, cat, _, _, _, _ in drift])
     d_qty_w = max([0] + [len(q) for _, _, q, _, _, _ in drift])
-    d_num_w = max([0] + [len(num(v, 2)) for _, _, _, b, cu, _ in drift
-                         for v in (b, cu)])
+    d_num_w = max(
+        [0] + [len(num(v, 2)) for _, _, _, b, cu, _ in drift for v in (b, cu)]
+    )
 
     buckets = {"PASS": 0, "FAIL": 0, "SKIP": 0, "REC": 0}
     for r in results:
@@ -983,7 +1078,9 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
             if cr.skipped:
                 xfail_rows.append((r.case.key, cr.category, "skip", cr.skip_reason))
             elif cr.xfail_outcome:
-                xfail_rows.append((r.case.key, cr.category, cr.xfail_outcome, cr.xfail_reason))
+                xfail_rows.append(
+                    (r.case.key, cr.category, cr.xfail_outcome, cr.xfail_reason)
+                )
     x_cat_w = max([0] + [len(cat) for _, cat, _, _ in xfail_rows])
     x_kind_w = max([0] + [len(k) for _, _, k, _ in xfail_rows])
     n_xfail = sum(1 for _, _, k, _ in xfail_rows if k == "xfail")
@@ -995,16 +1092,22 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
         bad_ = (lambda s: _bad(s)) if colorize else (lambda s: s)
         dim_ = (lambda s: _dim(s)) if colorize else (lambda s: s)
         bold_ = (lambda s: c(s, _Ansi.BOLD)) if colorize else (lambda s: s)
-        mag_ = (lambda s: c(s, _Ansi.MAGENTA, _Ansi.BOLD)) if colorize else (lambda s: s)
+        mag_ = (
+            (lambda s: c(s, _Ansi.MAGENTA, _Ansi.BOLD)) if colorize else (lambda s: s)
+        )
 
         warn_ = (lambda s: _warn(s)) if colorize else (lambda s: s)
 
         def cell_render(cr: CompareResult) -> str:
             if cr.skipped:
-                return dim_(f"{'skip':>{COL_W}} ")   # conditional category skip
+                return dim_(f"{'skip':>{COL_W}} ")  # conditional category skip
             # Near-miss: passing, but the achieved max sits in [near_miss·ε, ε).
             ratio = 0.0
-            if cr.achieved is not None and math.isfinite(cr.achieved) and cr.epsilon > 0:
+            if (
+                cr.achieved is not None
+                and math.isfinite(cr.achieved)
+                and cr.epsilon > 0
+            ):
                 ratio = cr.achieved / cr.epsilon
             near = cr.passed and near_miss > 0 and near_miss <= ratio < 1.0
             # 'err' for a hard failure (no achieved value, e.g. missing file);
@@ -1041,8 +1144,9 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
             text = "—" if r.skipped else f"{r.duration_s:.1f}s"
             return dim_(f"{text:>{TIME_W}}")
 
-        head = (f"{'case':<{CASE_W}} {'state':<{STATE_W}} {'time':>{TIME_W}}"
-                + "".join(f"{cat:>{COL_W}} " for cat in cols))
+        head = f"{'case':<{CASE_W}} {'state':<{STATE_W}} {'time':>{TIME_W}}" + "".join(
+            f"{cat:>{COL_W}} " for cat in cols
+        )
         lines = [bold_(head), "─" * len(head)]
 
         for r in results:
@@ -1064,7 +1168,9 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
         lines.append("─" * len(head))
         evaluated = buckets["PASS"] + buckets["FAIL"]
         total_time = sum(r.duration_s for r in results)
-        parts = [f"{buckets['PASS']}/{evaluated} passed"] if evaluated else ["no tests run"]
+        parts = (
+            [f"{buckets['PASS']}/{evaluated} passed"] if evaluated else ["no tests run"]
+        )
         if buckets["SKIP"]:
             parts.append(f"{buckets['SKIP']} skipped")
         if buckets["REC"]:
@@ -1091,9 +1197,11 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
                     if a is None and thr is None:
                         lines.append(f"    {catcell}  {dim_(q)}")
                     else:
-                        line = (f"    {catcell}  {q:<{qty_w}}  "
-                                f"{bad_(f'{num(a, 2):>{num_w}}')}  >  "
-                                f"{dim_(f'{num(thr, 2):>{num_w}}')}")
+                        line = (
+                            f"    {catcell}  {q:<{qty_w}}  "
+                            f"{bad_(f'{num(a, 2):>{num_w}}')}  >  "
+                            f"{dim_(f'{num(thr, 2):>{num_w}}')}"
+                        )
                         lines.append(line)
 
         if xfail_rows:
@@ -1106,8 +1214,10 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
                     lines.append(f"  {ck}")
                     last_ck = ck
                 paint = kind_color.get(kind, dim_)
-                lines.append(f"    {cat:<{x_cat_w}}  {paint(f'{kind:<{x_kind_w}}')}  "
-                             f"{dim_(reason)}")
+                lines.append(
+                    f"    {cat:<{x_cat_w}}  {paint(f'{kind:<{x_kind_w}}')}  "
+                    f"{dim_(reason)}"
+                )
 
         if drift:
             last_ck = None
@@ -1119,7 +1229,8 @@ def write_report(results: list[CaseResult], report_path: Optional[Path],
                 lines.append(
                     f"    {cat:<{d_cat_w}}  {q:<{d_qty_w}}  "
                     f"{dim_(f'{num(base, 2):>{d_num_w}}')} \u2192 "
-                    f"{warn_(f'{num(cur, 2):>{d_num_w}}')}  ({rs})")
+                    f"{warn_(f'{num(cur, 2):>{d_num_w}}')}  ({rs})"
+                )
         return "\n".join(lines)
 
     print("\n" + render(colorize=True))
@@ -1139,8 +1250,9 @@ def _json_num(x: Optional[float]):
     return x
 
 
-def build_run_report(results: list[CaseResult],
-                     drift: Optional[list[tuple]] = None) -> dict:
+def build_run_report(
+    results: list[CaseResult], drift: Optional[list[tuple]] = None
+) -> dict:
     """Assemble the whole run as a JSON-serialisable dict (schema 1).
 
     Carries, per case: identity (case key, config, reference, prefix,
@@ -1174,20 +1286,22 @@ def build_run_report(results: list[CaseResult],
             }
             for cr in r.compares
         ]
-        cases.append({
-            "case": r.case.key,
-            "reference": r.case.reference,
-            "config": r.case.config,
-            "prefix": r.case.prefix,
-            "output_dir": str(r.case.output_dir) if r.case.output_dir else None,
-            "state": _state_of(r),
-            "passed": r.passed,
-            "ran": r.ran,
-            "returncode": r.run_returncode,
-            "time_s": round(r.duration_s, 3),
-            "note": r.note,
-            "comparisons": comparisons,
-        })
+        cases.append(
+            {
+                "case": r.case.key,
+                "reference": r.case.reference,
+                "config": r.case.config,
+                "prefix": r.case.prefix,
+                "output_dir": str(r.case.output_dir) if r.case.output_dir else None,
+                "state": _state_of(r),
+                "passed": r.passed,
+                "ran": r.ran,
+                "returncode": r.run_returncode,
+                "time_s": round(r.duration_s, 3),
+                "note": r.note,
+                "comparisons": comparisons,
+            }
+        )
 
     return {
         "schema": 1,
@@ -1202,21 +1316,30 @@ def build_run_report(results: list[CaseResult],
         },
         "cases": cases,
         "drift": [
-            {"case": ck, "category": cat, "quantity": q,
-             "baseline": _json_num(base), "current": _json_num(cur),
-             "ratio": _json_num(ratio)}
+            {
+                "case": ck,
+                "category": cat,
+                "quantity": q,
+                "baseline": _json_num(base),
+                "current": _json_num(cur),
+                "ratio": _json_num(ratio),
+            }
             for (ck, cat, q, base, cur, ratio) in (drift or [])
         ],
     }
 
 
-def write_run_report_json(results: list[CaseResult], path: Path,
-                          drift: Optional[list[tuple]] = None) -> None:
+def write_run_report_json(
+    results: list[CaseResult], path: Path, drift: Optional[list[tuple]] = None
+) -> None:
     path.write_text(json.dumps(build_run_report(results, drift), indent=2) + "\n")
 
 
-def render_markdown(results: list[CaseResult], near_miss: float = 0.5,
-                    drift: Optional[list[tuple]] = None) -> str:
+def render_markdown(
+    results: list[CaseResult],
+    near_miss: float = 0.5,
+    drift: Optional[list[tuple]] = None,
+) -> str:
     """GitHub-flavored Markdown version of the report (grid + failures)."""
     cols = _category_columns(results)
     buckets = {"PASS": 0, "FAIL": 0, "SKIP": 0, "REC": 0}
@@ -1266,8 +1389,11 @@ def render_markdown(results: list[CaseResult], near_miss: float = 0.5,
             note = r.note or ("recorded" if r.recorded else "")
             if note:
                 state_txt += f" — {note}"
-            out.append(f"| {r.case.key} | {state_txt} | {tcell} | "
-                       + " | ".join("" for _ in cols) + " |")
+            out.append(
+                f"| {r.case.key} | {state_txt} | {tcell} | "
+                + " | ".join("" for _ in cols)
+                + " |"
+            )
             continue
         cmap = {cr.category: cr for cr in r.compares}
         cells = []
@@ -1280,20 +1406,26 @@ def render_markdown(results: list[CaseResult], near_miss: float = 0.5,
                 cells.append("skip")
                 continue
             val = "err" if cr.achieved is None else mdnum(cr.achieved)
-            ratio = (cr.achieved / cr.epsilon
-                     if cr.achieved is not None and math.isfinite(cr.achieved)
-                     and cr.epsilon > 0 else 0.0)
+            ratio = (
+                cr.achieved / cr.epsilon
+                if cr.achieved is not None
+                and math.isfinite(cr.achieved)
+                and cr.epsilon > 0
+                else 0.0
+            )
             if cr.xfail_outcome == "xfail":
-                cells.append(f"~~{val}~~")           # expected failure
+                cells.append(f"~~{val}~~")  # expected failure
             elif cr.xfail_outcome == "xpass":
-                cells.append(f"{val} ⚠️")            # unexpected pass
+                cells.append(f"{val} ⚠️")  # unexpected pass
             elif not cr.passed:
-                cells.append(f"**{val}**")           # failure
+                cells.append(f"**{val}**")  # failure
             elif near_miss > 0 and near_miss <= ratio < 1.0:
-                cells.append(f"_{val}_")             # near-miss
+                cells.append(f"_{val}_")  # near-miss
             else:
                 cells.append(val)
-        out.append(f"| {r.case.key} | {state_txt} | {tcell} | " + " | ".join(cells) + " |")
+        out.append(
+            f"| {r.case.key} | {state_txt} | {tcell} | " + " | ".join(cells) + " |"
+        )
 
     fails = [r for r in results if not r.passed and not r.skipped]
     if fails:
@@ -1318,11 +1450,17 @@ def render_markdown(results: list[CaseResult], near_miss: float = 0.5,
             out.append("")
         out.append("</details>")
 
-    xfail_rows = [(r.case.key, cr.category,
-                   "skip" if cr.skipped else cr.xfail_outcome,
-                   cr.skip_reason if cr.skipped else cr.xfail_reason)
-                  for r in results for cr in r.compares
-                  if cr.skipped or cr.xfail_outcome]
+    xfail_rows = [
+        (
+            r.case.key,
+            cr.category,
+            "skip" if cr.skipped else cr.xfail_outcome,
+            cr.skip_reason if cr.skipped else cr.xfail_reason,
+        )
+        for r in results
+        for cr in r.compares
+        if cr.skipped or cr.xfail_outcome
+    ]
     if xfail_rows:
         out += ["", "<details><summary>Expected failures / skips</summary>", ""]
         last = None
@@ -1349,9 +1487,12 @@ def render_markdown(results: list[CaseResult], near_miss: float = 0.5,
     return "\n".join(out) + "\n"
 
 
-def write_step_summary(results: list[CaseResult], mode: str,
-                       near_miss: float = 0.5,
-                       drift: Optional[list[tuple]] = None) -> None:
+def write_step_summary(
+    results: list[CaseResult],
+    mode: str,
+    near_miss: float = 0.5,
+    drift: Optional[list[tuple]] = None,
+) -> None:
     """Append the Markdown report to ``$GITHUB_STEP_SUMMARY`` when appropriate.
 
     mode ``auto`` writes only inside GitHub Actions (the env var is set),
@@ -1364,8 +1505,11 @@ def write_step_summary(results: list[CaseResult], mode: str,
     target = os.environ.get("GITHUB_STEP_SUMMARY")
     if not target:
         if mode == "always":
-            print(f"{_warn('[warn]')} --step-summary=always but "
-                  f"GITHUB_STEP_SUMMARY is not set; skipping", file=sys.stderr)
+            print(
+                f"{_warn('[warn]')} --step-summary=always but "
+                f"GITHUB_STEP_SUMMARY is not set; skipping",
+                file=sys.stderr,
+            )
         return
     with open(target, "a") as fh:  # GitHub step summaries are append-only
         fh.write(render_markdown(results, near_miss, drift))
@@ -1396,8 +1540,9 @@ def load_baseline_achieved(path: Path) -> dict:
     return out
 
 
-def compute_drift(results: list[CaseResult], baseline: dict,
-                  factor: float) -> list[tuple]:
+def compute_drift(
+    results: list[CaseResult], baseline: dict, factor: float
+) -> list[tuple]:
     """Find (case, category, quantity) whose achieved error grew >= factor.
 
     Returns ``(case, category, quantity, baseline, current, ratio)`` worst first.
@@ -1422,6 +1567,7 @@ def compute_drift(results: list[CaseResult], baseline: dict,
 
 # --- epsilon suggestion (#4) -----------------------------------------------
 
+
 def _ceil_1sig(x: float) -> float:
     """Round x UP to one significant figure (clean, never below the input)."""
     if not math.isfinite(x) or x <= 0:
@@ -1441,7 +1587,11 @@ def suggest_epsilons(results: list[CaseResult], factor: float) -> dict:
     for r in results:
         cats: dict = {}
         for cr in r.compares:
-            if not cr.has_summary or cr.achieved is None or not math.isfinite(cr.achieved):
+            if (
+                not cr.has_summary
+                or cr.achieved is None
+                or not math.isfinite(cr.achieved)
+            ):
                 continue
             cats[cr.category] = _ceil_1sig(cr.achieved * factor)
         if cats:
@@ -1460,93 +1610,184 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    p.add_argument("--precomputed-dir", type=Path, default=Path.cwd(),
-                   help="precomputed-seissol checkout (default: cwd).")
-    p.add_argument("--binary-dir", type=Path, default=None,
-                   help="Directory holding seissol-<config> binaries "
-                        "(not required with --list).")
+    p.add_argument(
+        "--precomputed-dir",
+        type=Path,
+        default=Path.cwd(),
+        help="precomputed-seissol checkout (default: cwd).",
+    )
+    p.add_argument(
+        "--binary-dir",
+        type=Path,
+        default=None,
+        help="Directory holding seissol-<config> binaries "
+        "(not required with --list).",
+    )
     sel = p.add_argument_group("Case selection")
-    sel.add_argument("--case", action="append", default=[],
-                     help="Case key to run: an exact key like 'tpv5/double', or "
-                          "a prefix like 'tpv5' to select every 'tpv5/...' key. "
-                          "Repeatable.")
-    sel.add_argument("--all", action="store_true",
-                     help="Run every entry in cases.json.")
-    sel.add_argument("--rerun-failed", type=Path, default=None, metavar="REPORT_JSON",
-                     help="Re-run only the cases that failed in a previous "
-                          "--report-json file (overrides --case/--all).")
-    sel.add_argument("--list", action="store_true",
-                     help="List the selected cases with their resolved reference "
-                          "and per-category epsilons, then exit without running.")
+    sel.add_argument(
+        "--case",
+        action="append",
+        default=[],
+        help="Case key to run: an exact key like 'tpv5/double', or "
+        "a prefix like 'tpv5' to select every 'tpv5/...' key. "
+        "Repeatable.",
+    )
+    sel.add_argument(
+        "--all", action="store_true", help="Run every entry in cases.json."
+    )
+    sel.add_argument(
+        "--rerun-failed",
+        type=Path,
+        default=None,
+        metavar="REPORT_JSON",
+        help="Re-run only the cases that failed in a previous "
+        "--report-json file (overrides --case/--all).",
+    )
+    sel.add_argument(
+        "--list",
+        action="store_true",
+        help="List the selected cases with their resolved reference "
+        "and per-category epsilons, then exit without running.",
+    )
 
     run = p.add_argument_group("Run options")
-    run.add_argument("--mpi-cmd", default="mpirun",
-                     help="MPI launcher (default: mpirun).")
-    run.add_argument("--mpi-args", default="",
-                     help="Extra MPI launcher args, shell-split "
-                          "(e.g. \"--oversubscribe --allow-run-as-root\").")
+    run.add_argument(
+        "--mpi-cmd", default="mpirun", help="MPI launcher (default: mpirun)."
+    )
+    run.add_argument(
+        "--mpi-args",
+        default="",
+        help="Extra MPI launcher args, shell-split "
+        '(e.g. "--oversubscribe --allow-run-as-root").',
+    )
     run.add_argument("--ranks", type=int, default=1)
     run.add_argument("--threads", type=int, default=1)
-    run.add_argument("--no-run", action="store_true",
-                     help="Skip the simulation; verify the existing output/.")
-    run.add_argument("--no-clean", action="store_true",
-                     help="Don't wipe output/ before running.")
+    run.add_argument(
+        "--no-run",
+        action="store_true",
+        help="Skip the simulation; verify the existing output/.",
+    )
+    run.add_argument(
+        "--no-clean", action="store_true", help="Don't wipe output/ before running."
+    )
 
     cmp_ = p.add_argument_group("Verification options")
-    cmp_.add_argument("--epsilon", type=float, default=None,
-                      help="Override comparison epsilon for ALL categories.")
-    cmp_.add_argument("--label", action="append", default=[], metavar="NAME",
-                      help="Active environment label for xfail/skip rules (e.g. "
-                           "'gpu', 'cpu', 'cuda'). Repeatable.")
-    cmp_.add_argument("--xfail-strict", action="store_true",
-                      help="Treat an unexpected pass (xpass) as a failure "
-                           "(default: warn only).")
+    cmp_.add_argument(
+        "--epsilon",
+        type=float,
+        default=None,
+        help="Override comparison epsilon for ALL categories.",
+    )
+    cmp_.add_argument(
+        "--label",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="Active environment label for xfail/skip rules (e.g. "
+        "'gpu', 'cpu', 'cuda'). Repeatable.",
+    )
+    cmp_.add_argument(
+        "--xfail-strict",
+        action="store_true",
+        help="Treat an unexpected pass (xpass) as a failure " "(default: warn only).",
+    )
 
     rec = p.add_argument_group("Re-record options (--record)")
-    rec.add_argument("--record", action="store_true",
-                     help="Overwrite the precomputed reference with the new output.")
-    rec.add_argument("--seissol-commit", default="",
-                     help="SeisSol commit hash, stored in references.json.")
-    rec.add_argument("--note", default="",
-                     help="Free-form note stored in references.json.")
+    rec.add_argument(
+        "--record",
+        action="store_true",
+        help="Overwrite the precomputed reference with the new output.",
+    )
+    rec.add_argument(
+        "--seissol-commit",
+        default="",
+        help="SeisSol commit hash, stored in references.json.",
+    )
+    rec.add_argument(
+        "--note", default="", help="Free-form note stored in references.json."
+    )
 
     out = p.add_argument_group("Output")
-    out.add_argument("--report", type=Path, default=None,
-                     help="Also write a plain-text summary report to this file.")
-    out.add_argument("--report-json", type=Path, default=None,
-                     help="Also write the full run report as JSON to this file "
-                          "(per-case state, time, achieved epsilon per category "
-                          "and per quantity, and per-quantity failures).")
-    out.add_argument("--color", choices=("auto", "never", "always"), default="auto",
-                     help="Colorize stdout. 'auto' = TTY+!NO_COLOR. (default: auto)")
-    out.add_argument("--step-summary", choices=("auto", "always", "never"),
-                     default="auto",
-                     help="Append a Markdown report to $GITHUB_STEP_SUMMARY. "
-                          "'auto' = only when that variable is set (i.e. in "
-                          "GitHub Actions). (default: auto)")
-    out.add_argument("--near-miss", type=float, default=0.5, metavar="FRAC",
-                     help="Highlight passing categories whose achieved error is "
-                          "at least FRAC of their epsilon (0 disables). "
-                          "(default: 0.5)")
-    out.add_argument("--fail-fast", action="store_true",
-                     help="Abort after the first failing case.")
+    out.add_argument(
+        "--report",
+        type=Path,
+        default=None,
+        help="Also write a plain-text summary report to this file.",
+    )
+    out.add_argument(
+        "--report-json",
+        type=Path,
+        default=None,
+        help="Also write the full run report as JSON to this file "
+        "(per-case state, time, achieved epsilon per category "
+        "and per quantity, and per-quantity failures).",
+    )
+    out.add_argument(
+        "--color",
+        choices=("auto", "never", "always"),
+        default="auto",
+        help="Colorize stdout. 'auto' = TTY+!NO_COLOR. (default: auto)",
+    )
+    out.add_argument(
+        "--step-summary",
+        choices=("auto", "always", "never"),
+        default="auto",
+        help="Append a Markdown report to $GITHUB_STEP_SUMMARY. "
+        "'auto' = only when that variable is set (i.e. in "
+        "GitHub Actions). (default: auto)",
+    )
+    out.add_argument(
+        "--near-miss",
+        type=float,
+        default=0.5,
+        metavar="FRAC",
+        help="Highlight passing categories whose achieved error is "
+        "at least FRAC of their epsilon (0 disables). "
+        "(default: 0.5)",
+    )
+    out.add_argument(
+        "--fail-fast", action="store_true", help="Abort after the first failing case."
+    )
 
     ana = p.add_argument_group("Analysis (post-run)")
-    ana.add_argument("--drift-baseline", type=Path, default=None, metavar="REPORT_JSON",
-                     help="Compare achieved errors against a previous "
-                          "--report-json and warn about per-quantity regressions "
-                          "(even when still passing).")
-    ana.add_argument("--drift-factor", type=float, default=2.0, metavar="X",
-                     help="Flag a quantity when its achieved error grew by at "
-                          "least this factor vs the baseline. (default: 2.0)")
-    ana.add_argument("--suggest-epsilons", action="store_true",
-                     help="After the run, print suggested per-category epsilons "
-                          "(max achieved * factor, rounded up) as a tpv-data.json "
-                          "fragment.")
-    ana.add_argument("--suggest-factor", type=float, default=3.0, metavar="X",
-                     help="Safety factor for --suggest-epsilons. (default: 3.0)")
-    ana.add_argument("--suggest-out", type=Path, default=None, metavar="PATH",
-                     help="Write the epsilon suggestions here instead of stdout.")
+    ana.add_argument(
+        "--drift-baseline",
+        type=Path,
+        default=None,
+        metavar="REPORT_JSON",
+        help="Compare achieved errors against a previous "
+        "--report-json and warn about per-quantity regressions "
+        "(even when still passing).",
+    )
+    ana.add_argument(
+        "--drift-factor",
+        type=float,
+        default=2.0,
+        metavar="X",
+        help="Flag a quantity when its achieved error grew by at "
+        "least this factor vs the baseline. (default: 2.0)",
+    )
+    ana.add_argument(
+        "--suggest-epsilons",
+        action="store_true",
+        help="After the run, print suggested per-category epsilons "
+        "(max achieved * factor, rounded up) as a tpv-data.json "
+        "fragment.",
+    )
+    ana.add_argument(
+        "--suggest-factor",
+        type=float,
+        default=3.0,
+        metavar="X",
+        help="Safety factor for --suggest-epsilons. (default: 3.0)",
+    )
+    ana.add_argument(
+        "--suggest-out",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="Write the epsilon suggestions here instead of stdout.",
+    )
     return p
 
 
@@ -1571,8 +1812,11 @@ def main(argv: Optional[list[str]] = None) -> int:
             if k in cases:
                 selected.append(cases[k])
             else:
-                print(f"{_warn('[warn]')} {k}: in report but not in cases.json; "
-                      f"skipping", file=sys.stderr)
+                print(
+                    f"{_warn('[warn]')} {k}: in report but not in cases.json; "
+                    f"skipping",
+                    file=sys.stderr,
+                )
         if not selected:
             print("No failed cases to re-run.", file=sys.stderr)
             return 0
@@ -1595,16 +1839,27 @@ def main(argv: Optional[list[str]] = None) -> int:
     results: list[CaseResult] = []
 
     for case in selected:
-        print(f"\n{c('=== ' + case.key + '  config=' + case.config + ' ===', _Ansi.CYAN, _Ansi.BOLD)}")
+        print(
+            f"\n{c('=== ' + case.key + '  config=' + case.config + ' ===', _Ansi.CYAN, _Ansi.BOLD)}"
+        )
 
         # Case-level conditional skip (cases.json "skip"): matches the active
         # labels / this case's key / config -> not run, recorded, or verified.
         skip_reason = _first_matching_reason(case.skip, labels, case.key, case.config)
         if skip_reason is not None:
             print(f"{_warn('[skip]')} {case.key}: {skip_reason}")
-            results.append(CaseResult(case, False, 0, 0.0, [], skipped=True,
-                                      note=f"skip: {skip_reason}",
-                                      xfail_strict=args.xfail_strict))
+            results.append(
+                CaseResult(
+                    case,
+                    False,
+                    0,
+                    0.0,
+                    [],
+                    skipped=True,
+                    note=f"skip: {skip_reason}",
+                    xfail_strict=args.xfail_strict,
+                )
+            )
             continue
 
         # A derived entry owns no reference, so there is nothing to record for
@@ -1620,8 +1875,9 @@ def main(argv: Optional[list[str]] = None) -> int:
             binary = resolve_binary(args.binary_dir, case.config)
         except FileNotFoundError as e:
             print(f"{_warn('[skip]')} {case.key}: {e}", file=sys.stderr)
-            results.append(CaseResult(case, False, -1, 0.0, [], skipped=True,
-                                      note="no binary"))
+            results.append(
+                CaseResult(case, False, -1, 0.0, [], skipped=True, note="no binary")
+            )
             if args.fail_fast:
                 break
             continue
@@ -1629,12 +1885,19 @@ def main(argv: Optional[list[str]] = None) -> int:
         ran, rc, duration = False, 0, 0.0
         if not args.no_run:
             rc, duration = run_seissol(
-                case, binary, mpi_cmd, args.ranks, args.threads,
+                case,
+                binary,
+                mpi_cmd,
+                args.ranks,
+                args.threads,
                 clean_output=not args.no_clean,
             )
             ran = True
             if rc != 0:
-                print(f"{_bad('[fail]')} {case.key}: SeisSol exited with {rc}", file=sys.stderr)
+                print(
+                    f"{_bad('[fail]')} {case.key}: SeisSol exited with {rc}",
+                    file=sys.stderr,
+                )
                 results.append(CaseResult(case, True, rc, duration, []))
                 if args.fail_fast:
                     break
@@ -1649,19 +1912,27 @@ def main(argv: Optional[list[str]] = None) -> int:
                     )
                 results.append(CaseResult(case, ran, rc, duration, [], recorded=True))
             except Exception as e:
-                print(f"{_bad('[fail]')} {case.key}: record failed: {e}", file=sys.stderr)
-                results.append(CaseResult(
-                    case, ran, rc, duration,
-                    [CompareResult("record", False, 0.0, str(e))],
-                ))
+                print(
+                    f"{_bad('[fail]')} {case.key}: record failed: {e}", file=sys.stderr
+                )
+                results.append(
+                    CaseResult(
+                        case,
+                        ran,
+                        rc,
+                        duration,
+                        [CompareResult("record", False, 0.0, str(e))],
+                    )
+                )
                 if args.fail_fast:
                     break
             continue
 
         tpv_data = load_tpv_data(case)
         compares = verify_case(case, tpv_data, args.epsilon, labels)
-        cr = CaseResult(case, ran, rc, duration, compares,
-                        xfail_strict=args.xfail_strict)
+        cr = CaseResult(
+            case, ran, rc, duration, compares, xfail_strict=args.xfail_strict
+        )
         results.append(cr)
         if not cr.passed and args.fail_fast:
             break
@@ -1671,29 +1942,43 @@ def main(argv: Optional[list[str]] = None) -> int:
         baseline = load_baseline_achieved(args.drift_baseline)
         drift_rows = compute_drift(results, baseline, args.drift_factor)
         if drift_rows:
-            print(f"{_warn('[drift]')} {len(drift_rows)} quantity(ies) grew "
-                  f"\u2265{args.drift_factor:g}\u00d7 vs baseline "
-                  f"(see the Drift section)", file=sys.stderr)
+            print(
+                f"{_warn('[drift]')} {len(drift_rows)} quantity(ies) grew "
+                f"\u2265{args.drift_factor:g}\u00d7 vs baseline "
+                f"(see the Drift section)",
+                file=sys.stderr,
+            )
 
-    write_report(results, args.report, near_miss=args.near_miss,
-                 drift=drift_rows, drift_factor=args.drift_factor)
+    write_report(
+        results,
+        args.report,
+        near_miss=args.near_miss,
+        drift=drift_rows,
+        drift_factor=args.drift_factor,
+    )
     if args.report_json:
         write_run_report_json(results, args.report_json, drift=drift_rows)
-    write_step_summary(results, args.step_summary, near_miss=args.near_miss,
-                       drift=drift_rows)
+    write_step_summary(
+        results, args.step_summary, near_miss=args.near_miss, drift=drift_rows
+    )
 
     if args.suggest_epsilons:
         suggestions = suggest_epsilons(results, args.suggest_factor)
         text = json.dumps(suggestions, indent=2) + "\n"
         if any(not r.passed for r in results):
-            print(f"{_warn('[warn]')} suggesting epsilons from a run with "
-                  f"failures; review before use", file=sys.stderr)
+            print(
+                f"{_warn('[warn]')} suggesting epsilons from a run with "
+                f"failures; review before use",
+                file=sys.stderr,
+            )
         if args.suggest_out:
             args.suggest_out.write_text(text)
             print(f"Wrote epsilon suggestions to {args.suggest_out}")
         else:
-            print(f"\nSuggested epsilons (max achieved \u00d7 "
-                  f"{args.suggest_factor:g}, rounded up):")
+            print(
+                f"\nSuggested epsilons (max achieved \u00d7 "
+                f"{args.suggest_factor:g}, rounded up):"
+            )
             print(text)
 
     return 0 if all(r.passed for r in results) else 1
