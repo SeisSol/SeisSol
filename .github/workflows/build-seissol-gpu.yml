@@ -263,7 +263,7 @@ jobs:
           export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
           export OMPI_MCA_rmaps_base_oversubscribe=true
 
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/verify.py \
+          python3 $GITHUB_WORKSPACE/scripts/scripts/validate/verify.py \
             --precomputed-dir precomputed \
             --binary-dir $GITHUB_WORKSPACE/install \
             --all \
