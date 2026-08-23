@@ -14,13 +14,13 @@
 #include "Common/Typedefs.h"
 #include "Config.h"
 #include "Equations/elastic/Model/Datastructures.h"
+#include "Equations/viscoelastic/Model/Attenuation.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Kernels/LinearCK/Solver.h"
 #include "Kernels/LinearCKAnelastic/Solver.h"
 #include "Model/CommonDatastructures.h"
-#include "Physics/Attenuation.h"
 
 #include <array>
 #include <atomic>

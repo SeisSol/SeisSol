@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_PHYSICS_ATTENUATION_H_
-#define SEISSOL_SRC_PHYSICS_ATTENUATION_H_
+#ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_ATTENUATION_H_
+#define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_ATTENUATION_H_
 
 #include <Eigen/Dense>
 #include <cmath>
@@ -111,4 +111,4 @@ void fitAttenuation(seissol::model::ViscoElasticMaterial<Mechanisms>& vm,
 
 } // namespace seissol::physics
 
-#endif // SEISSOL_SRC_PHYSICS_ATTENUATION_H_
+#endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_ATTENUATION_H_
