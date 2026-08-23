@@ -23,8 +23,8 @@
 namespace seissol::model {
 
 template <std::size_t Mechanisms>
-struct EnergyCompute<ViscoElasticMaterialParametrized<Mechanisms>> {
-  using ViscoMaterial = ViscoElasticMaterialParametrized<Mechanisms>;
+struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
+  using ViscoMaterial = ViscoElasticMaterial<Mechanisms>;
 
   static constexpr auto Energies =
       detail::concat(MomentumEnergies, AcousticEnergies, ElasticEnergies, ViscoelasticEnergies);

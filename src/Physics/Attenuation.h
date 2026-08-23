@@ -15,13 +15,13 @@
 
 namespace seissol::model {
 template <std::size_t>
-struct ViscoElasticMaterialParametrized;
+struct ViscoElasticMaterial;
 } // namespace seissol::model
 
 namespace seissol::physics {
 
 template <std::size_t Mechanisms>
-void fitAttenuation(seissol::model::ViscoElasticMaterialParametrized<Mechanisms>& vm,
+void fitAttenuation(seissol::model::ViscoElasticMaterial<Mechanisms>& vm,
                     double freqCentral,
                     double freqRatio) {
   if (Mechanisms > 0) {

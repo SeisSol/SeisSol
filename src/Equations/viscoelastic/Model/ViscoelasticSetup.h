@@ -22,9 +22,9 @@
 namespace seissol::model {
 
 template <std::size_t N>
-struct MaterialSetup<ViscoElasticMaterialParametrized<N>,
+struct MaterialSetup<ViscoElasticMaterial<N>,
                      std::enable_if<Config::ViscoMode == ViscoImplementation::QuantityExtension>> {
-  using MaterialT = ViscoElasticMaterialParametrized<N>;
+  using MaterialT = ViscoElasticMaterial<N>;
 
   template <typename T>
   static void getTransposedViscoelasticCoefficientMatrix(double omega,
@@ -154,9 +154,9 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>,
 #ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
 
 template <std::size_t N>
-struct MaterialSetup<ViscoElasticMaterialParametrized<N>,
+struct MaterialSetup<ViscoElasticMaterial<N>,
                      std::enable_if<Config::ViscoMode == ViscoImplementation::AnelasticTensor>> {
-  using MaterialT = ViscoElasticMaterialParametrized<N>;
+  using MaterialT = ViscoElasticMaterial<N>;
 
   using Matrix99 = Eigen::Matrix<double, MaterialT::NumQuantities, MaterialT::NumQuantities>;
 

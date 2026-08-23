@@ -43,7 +43,7 @@ struct MaterialTypeSelector<MaterialType::Anisotropic> {
 
 template <>
 struct MaterialTypeSelector<MaterialType::Viscoelastic> {
-  using Type = ViscoElasticMaterial;
+  using Type = ViscoElasticMaterial<Config::RelaxationMechanisms>;
 };
 
 template <>

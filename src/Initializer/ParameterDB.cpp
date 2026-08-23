@@ -516,12 +516,12 @@ struct MaterialAverager<ElasticMaterial> {
 };
 
 template <std::size_t Mechanisms>
-struct MaterialAverager<ViscoElasticMaterialParametrized<Mechanisms>> {
+struct MaterialAverager<ViscoElasticMaterial<Mechanisms>> {
   [[maybe_unused]] static constexpr bool Implemented = true;
-  static ViscoElasticMaterialParametrized<Mechanisms> computeAveragedMaterial(
+  static ViscoElasticMaterial<Mechanisms> computeAveragedMaterial(
       std::size_t elementIdx,
       const std::vector<double>& quadratureWeights,
-      const std::vector<ViscoElasticMaterialParametrized<Mechanisms>>& materialsFromQuery) {
+      const std::vector<ViscoElasticMaterial<Mechanisms>>& materialsFromQuery) {
     double muMeanInv = 0.0;
     double rhoMean = 0.0;
     double vERatioMean = 0.0;
@@ -548,7 +548,7 @@ struct MaterialAverager<ViscoElasticMaterialParametrized<Mechanisms>> {
     const double lambdaMean =
         (4.0 * std::pow(muMean, 2) * vERatioMean) / (1.0 - 6.0 * muMean * vERatioMean);
 
-    ViscoElasticMaterialParametrized<Mechanisms> result{};
+    ViscoElasticMaterial<Mechanisms> result{};
     result.rho = rhoMean;
     result.mu = muMean;
     result.lambda = lambdaMean;
@@ -763,11 +763,7 @@ std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMat
   return queryGen;
 }
 
-template class MaterialParameterDB<seissol::model::AnisotropicMaterial>;
-template class MaterialParameterDB<seissol::model::ElasticMaterial>;
-template class MaterialParameterDB<seissol::model::AcousticMaterial>;
-template class MaterialParameterDB<seissol::model::ViscoElasticMaterial>;
-template class MaterialParameterDB<seissol::model::PoroElasticMaterial>;
+template class MaterialParameterDB<seissol::model::MaterialT>;
 template class MaterialParameterDB<seissol::model::Plasticity>;
 
 } // namespace seissol::initializer

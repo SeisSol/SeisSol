@@ -58,7 +58,7 @@ struct ViscoSolver<ViscoImplementation::AnelasticTensor> {
 };
 
 template <std::size_t MechanismsP>
-struct ViscoElasticMaterialParametrized : public ElasticMaterial {
+struct ViscoElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t NumberPerMechanism = 6;
   static constexpr std::size_t NumElasticQuantities = 9;
   static constexpr std::size_t NumQuantities =
@@ -93,11 +93,10 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   double qp{};
   double qs{};
 
-  static const std::unordered_map<std::string, double ViscoElasticMaterialParametrized::*>
-      ParameterMap;
+  static const std::unordered_map<std::string, double ViscoElasticMaterial::*> ParameterMap;
 
-  ViscoElasticMaterialParametrized() = default;
-  explicit ViscoElasticMaterialParametrized(const std::vector<double>& materialValues)
+  ViscoElasticMaterial() = default;
+  explicit ViscoElasticMaterial(const std::vector<double>& materialValues)
       : ElasticMaterial(materialValues) {
     for (std::size_t mech = 0; mech < Mechanisms; ++mech) {
       this->omega[mech] = materialValues.at(3 + 4 * mech);
@@ -112,12 +111,10 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
     qs = std::numeric_limits<double>::signaling_NaN();
   }
 
-  explicit ViscoElasticMaterialParametrized(const ElasticMaterial& elastic)
-      : ElasticMaterial(elastic) {}
-  explicit ViscoElasticMaterialParametrized(const AcousticMaterial& acoustic)
-      : ElasticMaterial(acoustic) {}
+  explicit ViscoElasticMaterial(const ElasticMaterial& elastic) : ElasticMaterial(elastic) {}
+  explicit ViscoElasticMaterial(const AcousticMaterial& acoustic) : ElasticMaterial(acoustic) {}
 
-  ~ViscoElasticMaterialParametrized() override = default;
+  ~ViscoElasticMaterial() override = default;
 
   /**
    * Modulus defect of relaxation mechanism `mech`, i.e. the stiffness of the
@@ -207,15 +204,13 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
 };
 
 template <std::size_t N>
-inline const std::unordered_map<std::string, double ViscoElasticMaterialParametrized<N>::*>
-    ViscoElasticMaterialParametrized<N>::ParameterMap{
-        {"rho", &ViscoElasticMaterialParametrized<N>::rho},
-        {"lambda", &ViscoElasticMaterialParametrized<N>::lambda},
-        {"mu", &ViscoElasticMaterialParametrized<N>::mu},
-        {"Qp", &ViscoElasticMaterialParametrized<N>::qp},
-        {"Qs", &ViscoElasticMaterialParametrized<N>::qs}};
+inline const std::unordered_map<std::string, double ViscoElasticMaterial<N>::*>
+    ViscoElasticMaterial<N>::ParameterMap{{"rho", &ViscoElasticMaterial<N>::rho},
+                                          {"lambda", &ViscoElasticMaterial<N>::lambda},
+                                          {"mu", &ViscoElasticMaterial<N>::mu},
+                                          {"Qp", &ViscoElasticMaterial<N>::qp},
+                                          {"Qs", &ViscoElasticMaterial<N>::qs}};
 
-using ViscoElasticMaterial = ViscoElasticMaterialParametrized<Config::RelaxationMechanisms>;
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_DATASTRUCTURES_H_
