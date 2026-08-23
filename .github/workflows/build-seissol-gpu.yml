@@ -17,7 +17,6 @@ jobs:
     name: seissol-build-test<${{matrix.setup.cc}}, ${{matrix.setup.backend}}, ${{matrix.setup.arch}}, ${{matrix.build_type}}>
     runs-on: ubuntu-26.04
     container: ${{ matrix.setup.container }}
-    continue-on-error: true
     defaults:
       run:
         shell: bash
@@ -131,6 +130,16 @@ jobs:
           cfg-simulations: 1
 
       - uses: ./.github/actions/seissol-build
+        name: poroelastic-s-p6
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        with:
+          cfg-order: 6
+          cfg-equation: poroelastic
+          cfg-mechanisms: 0
+          cfg-precision: single
+          cfg-simulations: 1
+
+      - uses: ./.github/actions/seissol-build
         name: acoustic-s-p6
         if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         with:
@@ -163,7 +172,6 @@ jobs:
     container:
       image: ${{ matrix.setup.container }}
       options: ${{ matrix.setup.container-options || ' ' }}
-    continue-on-error: true
     needs: [seissol-build-test]
     if: ${{ github.repository == 'SeisSol/SeisSol' }}
     strategy:

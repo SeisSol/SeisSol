@@ -45,7 +45,7 @@ void Simulator::abort() { aborted_ = true; }
 void Simulator::simulate(SeisSol& seissolInstance) {
   SCOREP_USER_REGION("simulate", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-  auto* faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
+  auto* faultOutputManager = seissolInstance.timeManager().faultOutputManager();
   faultOutputManager->writePickpointOutput(0.0, 0.0);
 
   Stopwatch simulationStopwatch;
@@ -152,7 +152,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   Modules::callHook<ModuleHook::SimulationEnd>();
 
-  const auto& outputParams = seissolInstance.getSeisSolParameters().output;
+  const auto& outputParams = seissolInstance.parameters().output;
 
   const bool isLoopStatisticsNetcdfOutputOn = outputParams.loopStatisticsNetcdfOutput;
   const auto& outputPrefix = outputParams.prefix;

@@ -20,7 +20,6 @@ jobs:
     name: seissol-build-test<${{matrix.setup.name}}, ${{matrix.arch}}, ${{matrix.build_type}}>
     runs-on: self-hosted #ubuntu-26.04
     container: ${{ matrix.setup.container }}
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -202,7 +201,6 @@ jobs:
     name: seissol-run-test<${{matrix.setup.name}}, ${{matrix.arch}}, ${{matrix.build_type}}><r${{matrix.parallel.ranks}}×t${{matrix.parallel.threads}}>
     runs-on: self-hosted #ubuntu-26.04
     container: ${{ matrix.setup.container }}
-    continue-on-error: true
     needs: seissol-build-test
     if: ${{ github.repository == 'SeisSol/SeisSol' }} #  && github.ref_name == 'master'
     strategy:

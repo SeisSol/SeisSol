@@ -17,10 +17,26 @@ namespace seissol::dr::friction_law::gpu {
 
 class FrictionSolverDetails : public FrictionSolverInterface {
   public:
-  explicit FrictionSolverDetails(const FrictionLawParameters& drParameters);
-  ~FrictionSolverDetails() override;
+  explicit FrictionSolverDetails(const FrictionLawParameters& drParameters)
+      : FrictionSolverInterface(drParameters) {}
 
-  void allocateAuxiliaryMemory(GlobalData* globalData) override;
+  ~FrictionSolverDetails() override = default;
+
+  void allocateAuxiliaryMemory(GlobalData* globalData) override {
+    // call the device module directly here
+    {
+#ifdef ACL_DEVICE
+      data_ = reinterpret_cast<FrictionLawData*>(
+          device::DeviceInstance::getInstance().api->allocGlobMem(sizeof(FrictionLawData)));
+#endif
+    }
+
+    resampleMatrix_ = globalData->resampleMatrix;
+    devSpaceWeights_ = globalData->spaceWeights;
+    devTpInverseFourierCoefficients_ = globalData->tpInverseFourierCoefficients;
+    devHeatSource_ = globalData->heatSource;
+    devTpGridPoints_ = globalData->tpGridPoints;
+  }
 
   protected:
   size_t currLayerSize_{};
