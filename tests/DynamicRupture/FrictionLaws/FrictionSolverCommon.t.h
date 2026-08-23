@@ -16,7 +16,7 @@ namespace seissol::unit_test {
 using namespace seissol;
 using namespace seissol::dr;
 
-TEST_CASE("Friction Solver Common") {
+TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
   if constexpr (model::MaterialT::SupportsDR) {
     FaultStresses<Executor::Host> faultStresses{};
     TractionResults<Executor::Host> tractionResults{};
@@ -87,8 +87,8 @@ TEST_CASE("Friction Solver Common") {
       for (size_t o = 0; o < misc::TimeSteps; o++) {
         for (size_t q = 0; q < misc::NumQuantities; q++) {
           for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
-            REQUIRE(qIPlus[o][q][p] == qP(o, q, p));
-            REQUIRE(qIMinus[o][q][p] == qM(o, q, p));
+            CHECK(qIPlus[o][q][p] == qP(o, q, p));
+            CHECK(qIMinus[o][q][p] == qM(o, q, p));
           }
         }
       }
@@ -105,10 +105,10 @@ TEST_CASE("Friction Solver Common") {
           const real expectedTraction2 =
               impAndEta.etaS * (qM(o, 8, p) - qP(o, 8, p) + impAndEta.invZs * qP(o, 5, p) +
                                 impAndEta.invZsNeig * qM(o, 5, p));
-          REQUIRE(faultStresses.normalStress[o][p] ==
-                  AbsApprox(expectedNormalStress).epsilon(Epsilon));
-          REQUIRE(faultStresses.traction1[o][p] == AbsApprox(expectedTraction1).epsilon(Epsilon));
-          REQUIRE(faultStresses.traction2[o][p] == AbsApprox(expectedTraction2).epsilon(Epsilon));
+          CHECK(faultStresses.normalStress[o][p] ==
+                AbsApprox(expectedNormalStress).epsilon(Epsilon));
+          CHECK(faultStresses.traction1[o][p] == AbsApprox(expectedTraction1).epsilon(Epsilon));
+          CHECK(faultStresses.traction2[o][p] == AbsApprox(expectedTraction2).epsilon(Epsilon));
         }
       }
     }
@@ -155,18 +155,18 @@ TEST_CASE("Friction Solver Common") {
           expectedW[1] +=
               timeWeights[o] * (qP(o, 8, p) + impAndEta.invZs * (t2(o, p) - qP(o, 5, p)));
         }
-        REQUIRE(iSMinus[0][p] == AbsApprox(expectedNormalStress[0]).epsilon(Epsilon));
-        REQUIRE(iSMinus[3][p] == AbsApprox(expectedTraction1[0]).epsilon(Epsilon));
-        REQUIRE(iSMinus[5][p] == AbsApprox(expectedTraction2[0]).epsilon(Epsilon));
-        REQUIRE(iSMinus[6][p] == AbsApprox(expectedU[0]).epsilon(Epsilon));
-        REQUIRE(iSMinus[7][p] == AbsApprox(expectedV[0]).epsilon(Epsilon));
-        REQUIRE(iSMinus[8][p] == AbsApprox(expectedW[0]).epsilon(Epsilon));
-        REQUIRE(iSPlus[0][p] == AbsApprox(expectedNormalStress[1]).epsilon(Epsilon));
-        REQUIRE(iSPlus[3][p] == AbsApprox(expectedTraction1[1]).epsilon(Epsilon));
-        REQUIRE(iSPlus[5][p] == AbsApprox(expectedTraction2[1]).epsilon(Epsilon));
-        REQUIRE(iSPlus[6][p] == AbsApprox(expectedU[1]).epsilon(Epsilon));
-        REQUIRE(iSPlus[7][p] == AbsApprox(expectedV[1]).epsilon(Epsilon));
-        REQUIRE(iSPlus[8][p] == AbsApprox(expectedW[1]).epsilon(Epsilon));
+        CHECK(iSMinus[0][p] == AbsApprox(expectedNormalStress[0]).epsilon(Epsilon));
+        CHECK(iSMinus[3][p] == AbsApprox(expectedTraction1[0]).epsilon(Epsilon));
+        CHECK(iSMinus[5][p] == AbsApprox(expectedTraction2[0]).epsilon(Epsilon));
+        CHECK(iSMinus[6][p] == AbsApprox(expectedU[0]).epsilon(Epsilon));
+        CHECK(iSMinus[7][p] == AbsApprox(expectedV[0]).epsilon(Epsilon));
+        CHECK(iSMinus[8][p] == AbsApprox(expectedW[0]).epsilon(Epsilon));
+        CHECK(iSPlus[0][p] == AbsApprox(expectedNormalStress[1]).epsilon(Epsilon));
+        CHECK(iSPlus[3][p] == AbsApprox(expectedTraction1[1]).epsilon(Epsilon));
+        CHECK(iSPlus[5][p] == AbsApprox(expectedTraction2[1]).epsilon(Epsilon));
+        CHECK(iSPlus[6][p] == AbsApprox(expectedU[1]).epsilon(Epsilon));
+        CHECK(iSPlus[7][p] == AbsApprox(expectedV[1]).epsilon(Epsilon));
+        CHECK(iSPlus[8][p] == AbsApprox(expectedW[1]).epsilon(Epsilon));
       }
     }
   }

@@ -162,15 +162,14 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         return calc
 
     for target in targets:
-        if target == "gpu":
-            name_prefix = generate_kernel_name_prefix(target)
-            generator.addFamily(
-                f"{name_prefix}projectToDR",
-                simpleParameterSpace(4, 4),
-                multiInterpolateQ,
-                None,
-                target=target,
-            )
+        name_prefix = generate_kernel_name_prefix(target)
+        generator.addFamily(
+            f"{name_prefix}projectToDR",
+            simpleParameterSpace(4, 4),
+            multiInterpolateQ,
+            None,
+            target=target,
+        )
 
     nodalFluxGenerator = (
         lambda i, h: aderdg.extendedQTensor()["kp"]

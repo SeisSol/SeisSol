@@ -20,17 +20,17 @@ namespace seissol::unit_test {
 
 inline void assertPoint(const double* a, const Eigen::Vector3d& b, double epsilon) {
   for (std::size_t i = 0; i < Cell::Dim; i++) {
-    REQUIRE(a[i] == AbsApprox(b[i]).epsilon(epsilon));
+    CHECK(a[i] == AbsApprox(b[i]).epsilon(epsilon));
   }
 }
 
 inline void assertCell(const unsigned int* a, const Eigen::Vector4i& b) {
   for (std::size_t i = 0; i < Cell::NumFaces; i++) {
-    REQUIRE(a[i] == b[i]);
+    CHECK(a[i] == b[i]);
   }
 }
 
-TEST_CASE("Mesh refiner") {
+TEST_CASE("Mesh refiner" * doctest::test_suite("geometry")) {
   constexpr double Epsilon = std::numeric_limits<double>::epsilon();
 
   // NOLINTNEXTLINE (-cert-dcl59-cpp)
@@ -59,8 +59,8 @@ TEST_CASE("Mesh refiner") {
 
     const seissol::refinement::DivideTetrahedronBy4<double> refineBy4;
     const seissol::refinement::MeshRefiner<double> meshRefiner(mockReader, refineBy4);
-    REQUIRE(meshRefiner.getNumCells() == 4);
-    REQUIRE(meshRefiner.getNumVertices() == 5);
+    CHECK(meshRefiner.getNumCells() == 4);
+    CHECK(meshRefiner.getNumVertices() == 5);
     for (std::size_t i = 0; i < meshRefiner.getNumVertices(); i++) {
       assertPoint(&meshRefiner.getVertexData()[3 * i], expectedVerticesDivideBy4[i], Epsilon);
     }
@@ -92,8 +92,8 @@ TEST_CASE("Mesh refiner") {
 
     const seissol::refinement::DivideTetrahedronBy8<double> refineBy8;
     const seissol::refinement::MeshRefiner<double> meshRefiner(mockReader, refineBy8);
-    REQUIRE(meshRefiner.getNumCells() == 8);
-    REQUIRE(meshRefiner.getNumVertices() == 10);
+    CHECK(meshRefiner.getNumCells() == 8);
+    CHECK(meshRefiner.getNumVertices() == 10);
     for (std::size_t i = 0; i < meshRefiner.getNumVertices(); i++) {
       assertPoint(&meshRefiner.getVertexData()[3 * i], expectedVerticesDivideBy8[i], Epsilon);
     }
@@ -140,8 +140,8 @@ TEST_CASE("Mesh refiner") {
 
     const seissol::refinement::DivideTetrahedronBy32<double> refineBy32;
     const seissol::refinement::MeshRefiner<double> meshRefiner(mockReader, refineBy32);
-    REQUIRE(meshRefiner.getNumCells() == 32);
-    REQUIRE(meshRefiner.getNumVertices() == 18);
+    CHECK(meshRefiner.getNumCells() == 32);
+    CHECK(meshRefiner.getNumVertices() == 18);
     for (std::size_t i = 0; i < meshRefiner.getNumVertices(); i++) {
       assertPoint(&meshRefiner.getVertexData()[3 * i], expectedVerticesDivideBy32[i], Epsilon);
     }

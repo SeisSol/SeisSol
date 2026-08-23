@@ -327,24 +327,23 @@ class Viscoelastic2ADERDG(ADERDGBase):
                 target=target,
             )
 
-            if target == "gpu":
-                flux_ops = [
-                    self.Qext["kp"]
-                    <= sum(
-                        [
-                            plusFluxMatrixAccessor(i)
-                            * self.I["lq"]
-                            * self.AplusTAll[i]["qp"]
-                            for i in range(4)
-                        ],
-                        start=self.Qext["kp"],
-                    )
-                ]
-                generator.add(
-                    f"{name_prefix}fluxLocalAll",
-                    flux_ops + local_ops,
-                    target=target,
+            flux_ops = [
+                self.Qext["kp"]
+                <= sum(
+                    [
+                        plusFluxMatrixAccessor(i)
+                        * self.I["lq"]
+                        * self.AplusTAll[i]["qp"]
+                        for i in range(4)
+                    ],
+                    start=self.Qext["kp"],
                 )
+            ]
+            generator.add(
+                f"{name_prefix}fluxLocalAll",
+                flux_ops + local_ops,
+                target=target,
+            )
 
     def addNeighbor(self, generator, targets):
         for target in targets:

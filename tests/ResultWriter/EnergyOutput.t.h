@@ -6,8 +6,10 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Equations/Energy.h"
+#include "Equations/EnergyBase.h"
 #include "ResultWriter/EnergyOutput.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <string_view>
@@ -22,42 +24,42 @@ TEST_CASE("EnergiesStorage handles") {
   EnergiesStorage storage;
   storage.setSimcount(1);
 
-  const auto first = storage.addEnergy(EnergyDescriptor{"first"});
-  const auto second = storage.addEnergy(EnergyDescriptor{"second"});
-  const auto third = storage.addEnergy(EnergyDescriptor{"third"});
+  const auto first = storage.addEnergy(EnergyDescriptor{"first", EnergyUnit::Scalar, {}, {}, {}});
+  const auto second = storage.addEnergy(EnergyDescriptor{"second", EnergyUnit::Scalar, {}, {}, {}});
+  const auto third = storage.addEnergy(EnergyDescriptor{"third", EnergyUnit::Scalar, {}, {}, {}});
 
   SUBCASE("handles are consecutive and follow registration order") {
-    REQUIRE(first == 0);
-    REQUIRE(second == 1);
-    REQUIRE(third == 2);
-    REQUIRE(storage.descriptors().size() == 3);
+    CHECK(first == 0);
+    CHECK(second == 1);
+    CHECK(third == 2);
+    CHECK(storage.descriptors().size() == 3);
     // registration order, not the alphabetical order of the name -> handle map
-    REQUIRE(storage.descriptors()[0].name == "first");
-    REQUIRE(storage.descriptors()[1].name == "second");
-    REQUIRE(storage.descriptors()[2].name == "third");
+    CHECK(storage.descriptors()[0].name == "first");
+    CHECK(storage.descriptors()[1].name == "second");
+    CHECK(storage.descriptors()[2].name == "third");
   }
 
   SUBCASE("lookup by name and by handle agree") {
     storage.energy(second, 0) = 17.0;
-    REQUIRE(storage.energy("second", 0) == 17.0);
+    CHECK(storage.energy("second", 0) == 17.0);
     storage.energy("third", 0) = -3.5;
-    REQUIRE(storage.energy(third, 0) == -3.5);
+    CHECK(storage.energy(third, 0) == -3.5);
   }
 
   SUBCASE("has() reports registration, and does not create entries") {
-    REQUIRE(storage.has("first"));
-    REQUIRE_FALSE(storage.has("frist"));
-    REQUIRE(storage.descriptors().size() == 3);
+    CHECK(storage.has("first"));
+    CHECK_FALSE(storage.has("frist"));
+    CHECK(storage.descriptors().size() == 3);
   }
 
   SUBCASE("reset clears the values but keeps the handles") {
     storage.energy(first, 0) = 1.0;
     storage.energy(second, 0) = 2.0;
     storage.reset();
-    REQUIRE(storage.energy(first, 0) == 0.0);
-    REQUIRE(storage.energy(second, 0) == 0.0);
-    REQUIRE(storage.descriptors().size() == 3);
-    REQUIRE(storage.has("first"));
+    CHECK(storage.energy(first, 0) == 0.0);
+    CHECK(storage.energy(second, 0) == 0.0);
+    CHECK(storage.descriptors().size() == 3);
+    CHECK(storage.has("first"));
   }
 }
 
@@ -66,8 +68,8 @@ TEST_CASE("EnergiesStorage multi-simulation indexing") {
   EnergiesStorage storage;
   storage.setSimcount(Simcount);
 
-  const auto alpha = storage.addEnergy(EnergyDescriptor{"alpha"});
-  const auto beta = storage.addEnergy(EnergyDescriptor{"beta"});
+  const auto alpha = storage.addEnergy(EnergyDescriptor{"alpha", EnergyUnit::Scalar, {}, {}, {}});
+  const auto beta = storage.addEnergy(EnergyDescriptor{"beta", EnergyUnit::Scalar, {}, {}, {}});
 
   for (std::size_t sim = 0; sim < Simcount; ++sim) {
     storage.energy(alpha, sim) = 10.0 + static_cast<double>(sim);
@@ -76,20 +78,20 @@ TEST_CASE("EnergiesStorage multi-simulation indexing") {
 
   SUBCASE("simulations do not alias each other") {
     for (std::size_t sim = 0; sim < Simcount; ++sim) {
-      REQUIRE(storage.energy(alpha, sim) == 10.0 + static_cast<double>(sim));
-      REQUIRE(storage.energy("beta", sim) == 100.0 + static_cast<double>(sim));
+      CHECK(storage.energy(alpha, sim) == 10.0 + static_cast<double>(sim));
+      CHECK(storage.energy("beta", sim) == 100.0 + static_cast<double>(sim));
     }
   }
 
   SUBCASE("the value buffer is sized handles x simulations") {
-    REQUIRE(storage.values().size() == 2 * Simcount);
+    CHECK(storage.values().size() == 2 * Simcount);
   }
 
   SUBCASE("reset clears every simulation") {
     storage.reset();
     for (std::size_t sim = 0; sim < Simcount; ++sim) {
-      REQUIRE(storage.energy(alpha, sim) == 0.0);
-      REQUIRE(storage.energy(beta, sim) == 0.0);
+      CHECK(storage.energy(alpha, sim) == 0.0);
+      CHECK(storage.energy(beta, sim) == 0.0);
     }
   }
 }
@@ -98,15 +100,15 @@ TEST_CASE("Energy descriptors of the configured material are well formed") {
   using Compute = seissol::model::EnergyCompute<seissol::model::MaterialT>;
 
   SUBCASE("EnergyCount matches the descriptor list") {
-    REQUIRE(Compute::EnergyCount == Compute::Energies.size());
-    REQUIRE(Compute::EnergyCount > 0);
+    CHECK(Compute::EnergyCount == Compute::Energies.size());
+    CHECK(Compute::EnergyCount > 0);
   }
 
   SUBCASE("every descriptor is named and unique") {
     for (std::size_t i = 0; i < Compute::Energies.size(); ++i) {
-      REQUIRE_FALSE(Compute::Energies[i].name.empty());
+      CHECK_FALSE(Compute::Energies[i].name.empty());
       for (std::size_t j = i + 1; j < Compute::Energies.size(); ++j) {
-        REQUIRE(Compute::Energies[i].name != Compute::Energies[j].name);
+        CHECK(Compute::Energies[i].name != Compute::Energies[j].name);
       }
     }
   }
@@ -114,8 +116,8 @@ TEST_CASE("Energy descriptors of the configured material are well formed") {
   SUBCASE("every group carries exactly one heading") {
     for (const auto& descriptor : Compute::Energies) {
       if (descriptor.group.empty()) {
-        REQUIRE(descriptor.groupLabel.empty());
-        REQUIRE(descriptor.shortLabel.empty());
+        CHECK(descriptor.groupLabel.empty());
+        CHECK(descriptor.shortLabel.empty());
         continue;
       }
       std::size_t headings = 0;
@@ -124,7 +126,7 @@ TEST_CASE("Energy descriptors of the configured material are well formed") {
           ++headings;
         }
       }
-      REQUIRE(headings == 1);
+      CHECK(headings == 1);
     }
   }
 
@@ -137,7 +139,7 @@ TEST_CASE("Energy descriptors of the configured material are well formed") {
       }
       for (const auto& other : Compute::Energies) {
         if (other.group == descriptor.group) {
-          REQUIRE(other.unit == descriptor.unit);
+          CHECK(other.unit == descriptor.unit);
         }
       }
     }
@@ -149,9 +151,9 @@ TEST_CASE("Energy descriptors of the configured material are well formed") {
     for (const auto& descriptor : Compute::Energies) {
       storage.addEnergy(descriptor);
     }
-    REQUIRE(storage.descriptors().size() == Compute::EnergyCount);
+    CHECK(storage.descriptors().size() == Compute::EnergyCount);
     for (const auto& descriptor : Compute::Energies) {
-      REQUIRE(storage.has(descriptor.name));
+      CHECK(storage.has(descriptor.name));
     }
   }
 }
@@ -168,12 +170,9 @@ TEST_CASE("The stored potential energy is fully accounted for") {
     return {};
   };
   const auto declares = [](std::string_view name) {
-    for (const auto& descriptor : Compute::Energies) {
-      if (descriptor.name == name) {
-        return true;
-      }
-    }
-    return false;
+    return std::any_of(Compute::Energies.begin(),
+                       Compute::Energies.end(),
+                       [name](const auto& descriptor) { return descriptor.name == name; });
   };
 
   // Everything that is part of the stored potential must sit in the same group
@@ -181,8 +180,8 @@ TEST_CASE("The stored potential energy is fully accounted for") {
   // that includes the Maxwell branch springs: leaving them out would make the
   // printed potential share understate the actual potential.
   if (declares("elastic_kinetic_energy") && declares("viscoelastic_energy")) {
-    REQUIRE(groupOf("viscoelastic_energy") == groupOf("elastic_kinetic_energy"));
-    REQUIRE(groupOf("elastic_energy") == groupOf("elastic_kinetic_energy"));
+    CHECK(groupOf("viscoelastic_energy") == groupOf("elastic_kinetic_energy"));
+    CHECK(groupOf("elastic_energy") == groupOf("elastic_kinetic_energy"));
   }
 
   // A dissipation rate is a flux, not a stored energy, and must never be summed
@@ -191,7 +190,7 @@ TEST_CASE("The stored potential energy is fully accounted for") {
     if (descriptor.unit == seissol::model::EnergyUnit::Power) {
       for (const auto& other : Compute::Energies) {
         if (other.group == descriptor.group) {
-          REQUIRE(other.unit == seissol::model::EnergyUnit::Power);
+          CHECK(other.unit == seissol::model::EnergyUnit::Power);
         }
       }
     }

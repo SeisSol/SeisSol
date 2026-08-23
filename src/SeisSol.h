@@ -29,11 +29,14 @@
 #include "Solver/TimeStepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
 
+#include <cstdint>
+#include <list>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utils/env.h>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol {
 
@@ -133,9 +136,7 @@ class SeisSol {
   /**
    * Reference for timeMirrorManagers to be accessed externally when required
    */
-  std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
-            seissol::ITM::InstantaneousTimeMirrorManager>&
-      getTimeMirrorManagers() {
+  std::list<seissol::physics::InstantaneousTimeMirrorManager>& getTimeMirrorManagers() {
     return timeMirrorManagers_;
   }
 
@@ -181,6 +182,22 @@ class SeisSol {
   void setTimestepScale(double scale) { timestepScale_ = scale; }
 
   double timestepScale() const { return timestepScale_; }
+
+  /*
+   * The rate vector the clustering actually settled on, normalized to full length.
+   *
+   * This is not necessarily the vector from the parameter file: a search that chooses the
+   * ladder rather than only the wiggle factor publishes its result here, and everything
+   * downstream of the mesh reader has to use this one. Set alongside the timestep scale,
+   * which is the other half of the same decision.
+   * */
+  void setEffectiveClusterRates(const std::vector<std::uint64_t>& rates) {
+    effectiveClusterRates_ = rates;
+  }
+
+  const std::vector<std::uint64_t>& getEffectiveClusterRates() const {
+    return effectiveClusterRates_;
+  }
 
   /*
    * returns the backup time stamp
@@ -254,9 +271,7 @@ class SeisSol {
   monitoring::FlopCounter flopCounter_;
 
   //! TimeMirror Managers
-  std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
-            seissol::ITM::InstantaneousTimeMirrorManager>
-      timeMirrorManagers_;
+  std::list<seissol::physics::InstantaneousTimeMirrorManager> timeMirrorManagers_;
 
   //! time stamp which can be used for backuping files of previous runs
   std::string backupTimeStamp_;
@@ -268,14 +283,14 @@ class SeisSol {
   utils::Env env_;
 
   double timestepScale_{1.0};
+  std::vector<std::uint64_t> effectiveClusterRates_;
 
   public:
   SeisSol(const initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)
       : outputManager_(*this), seissolParameters_(parameters),
         memoryManager_(std::make_unique<initializer::MemoryManager>(*this)), timeManager_(*this),
         freeSurfaceWriter_(*this), analysisWriter_(*this), waveFieldWriter_(*this),
-        faultWriter_(*this), receiverWriter_(*this), energyOutput_(*this),
-        timeMirrorManagers_(*this, *this), env_(env) {}
+        faultWriter_(*this), receiverWriter_(*this), energyOutput_(*this), env_(env) {}
 
   SeisSol(const SeisSol&) = delete;
   SeisSol(SeisSol&&) = delete;
