@@ -1,0 +1,136 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# Variant-set file for compile_variants.py.
+#
+# Structure mirrors a GitHub Actions matrix on purpose: each preset is either an
+# explicit `variants:` list or a `matrix:` (cross-product) with optional
+# `include:` / `exclude:`. Settings cascade: top-level `defaults:` ->
+# per-preset `defaults:` -> the individual variant.
+#
+# Run:   ./compile_variants.py --preset cpu-all --max-parallel 4
+#        ./compile_variants.py --preset quick --dry-run
+#        ./compile_variants.py --preset cpu-all --list
+
+version: 1
+
+defaults:
+  source_dir: ../..        # where the top-level CMakeLists.txt lives
+  build_root: build        # per-variant build trees go under here
+  install_prefix: install  # shared prefix; binaries land in <prefix>/bin
+  generator: Ninja
+  build_type: Release
+  jobs: 0                  # 0 = auto (cores / --max-parallel)
+  env:                     # environment for the cmake/build subprocess
+    CC: gcc
+    CXX: g++
+    FC: gfortran
+  defines:
+    ASAGI: "ON"
+
+presets:
+  ci-cpu:
+    defaults:
+      host_arch: hsw
+    matrix:
+      order: [6]
+      precision: [single, double]
+      equation:
+        - { type: acoustic }
+        - { type: elastic }
+        - { type: poroelastic }
+        - { type: viscoelastic2, mechanisms: 3 }
+        - { type: anisotropic }
+        - { type: elastic, order: 3, multisim: 8 }
+
+  ci-gpu:
+    defaults:
+      host_arch: hsw
+      device_backend: cuda
+      device_arch: sm_86
+    matrix:
+      order: [6]
+      precision: [single, double]
+      equation:
+        - { type: acoustic }
+        - { type: elastic }
+        - { type: poroelastic }
+        - { type: viscoelastic2, mechanisms: 3 }
+        - { type: anisotropic }
+        - { type: elastic, order: 3, multisim: 8 }
+
+  tensorforge:
+    matrix:
+      order: [3,4,5,6]
+      precision: [single, double]
+      equation:
+        - { type: elastic }
+        - { type: viscoelastic2, mechanisms: 3 }
+        - { type: elastic, multisim: 8 }
+      exclude:
+        - order: 6
+          equations: elastic
+          precision: single
+          multisim: 8
+        - order: 6
+          equations: elastic
+          precision: double
+          multisim: 8
+
+  # Minimal smoke build.
+  quick:
+    variants:
+      - { equations: elastic, order: 4, precision: double, host_arch: hsw }
+
+  # Mirrors build-seissol-cpu.yml: one order/arch, both precisions, the same
+  # set of equation configs (note the GitHub-style `equation` dict bundling
+  # type + multisim + mechanisms).
+  cpu-all:
+    defaults:
+      host_arch: hsw
+    matrix:
+      order: [6]
+      precision: [single, double]
+      equation:
+        - { type: acoustic }
+        - { type: elastic }
+        - { type: poroelastic }
+        - { type: viscoelastic2, mechanisms: 3 }
+        - { type: anisotropic }
+        - { type: elastic, multisim: 8 }
+
+  # Mirrors build-seissol-gpu.yml (NVIDIA leg). `equation` carries its own
+  # order here, exactly like the CI.
+  gpu-nv:
+    defaults:
+      host_arch: snb
+      device_backend: cuda
+      device_arch: sm_80
+    matrix:
+      precision: [single, double]
+      equation:
+        - { type: acoustic, order: 6 }
+        - { type: elastic, order: 6 }
+        - { type: viscoelastic2, order: 6, mechanisms: 3 }
+        - { type: anisotropic, order: 6 }
+        - { type: elastic, order: 3, multisim: 32 }
+
+  # Example of exclude + a compiler override on a single leg via include.
+  matrix-demo:
+    matrix:
+      order: [4, 6]
+      precision: [single, double]
+      equation:
+        - { type: elastic }
+        - { type: anisotropic }
+      exclude:
+        # skip single-precision anisotropic
+        - { precision: single, type: anisotropic }
+      include:
+        # add one clang-built elastic variant with a custom suffix
+        - equations: elastic
+          order: 6
+          precision: double
+          custom_suffix: clang
+          env: { CC: clang, CXX: clang++ }
