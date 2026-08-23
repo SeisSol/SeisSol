@@ -118,10 +118,10 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
   }
 }
 
-std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
-                                      double time,
-                                      const seissol::geometry::MeshReader& meshReader,
-                                      bool needsTime) {
+std::vector<double> projectScriptFields(const std::vector<std::string>& iniFields,
+                                        double time,
+                                        const seissol::geometry::MeshReader& meshReader,
+                                        bool needsTime) {
   const auto& vertices = meshReader.getVertices();
   const auto& elements = meshReader.getElements();
 
@@ -183,15 +183,15 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
   return data;
 }
 
-void projectEasiInitialField(const std::vector<std::string>& iniFields,
-                             const GlobalData& globalData,
-                             const seissol::geometry::MeshReader& meshReader,
-                             LTS::Storage& storage,
-                             bool needsTime) {
+void projectScriptInitialField(const std::vector<std::string>& iniFields,
+                               const GlobalData& globalData,
+                               const seissol::geometry::MeshReader& meshReader,
+                               LTS::Storage& storage,
+                               bool needsTime) {
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  const auto data = projectEasiFields(iniFields, 0, meshReader, needsTime);
+  const auto data = projectScriptFields(iniFields, 0, meshReader, needsTime);
 
   const auto dataStride = NumQuadPoints * iniFields.size() * model::MaterialT::Quantities.size();
   const auto quantityCount = model::MaterialT::Quantities.size();

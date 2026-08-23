@@ -164,11 +164,11 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
   if (initConditionParams.type != seissol::initializer::parameters::InitializationType::Zero) {
     if (initConditionParams.type == seissol::initializer::parameters::InitializationType::Script) {
       logInfo() << "Loading the initial condition from the script" << initConditionParams.filename;
-      seissol::initializer::projectEasiInitialField({initConditionParams.filename},
-                                                    *memoryManager.globalData().onHost,
-                                                    seissolInstance.meshReader(),
-                                                    memoryManager.ltsStorage(),
-                                                    initConditionParams.hasTime);
+      seissol::initializer::projectScriptInitialField({initConditionParams.filename},
+                                                      *memoryManager.globalData().onHost,
+                                                      seissolInstance.meshReader(),
+                                                      memoryManager.ltsStorage(),
+                                                      initConditionParams.hasTime);
     } else {
       auto initConditions = buildInitialConditionList(seissolInstance);
       if (!initConditionParams.avoidIC) {

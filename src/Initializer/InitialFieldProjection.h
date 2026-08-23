@@ -24,16 +24,16 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
                          const seissol::geometry::MeshReader& meshReader,
                          LTS::Storage& storage);
 
-std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
-                                      double time,
-                                      const seissol::geometry::MeshReader& meshReader,
-                                      bool needsTime);
+std::vector<double> projectScriptFields(const std::vector<std::string>& iniFields,
+                                        double time,
+                                        const seissol::geometry::MeshReader& meshReader,
+                                        bool needsTime);
 
-void projectEasiInitialField(const std::vector<std::string>& iniFields,
-                             const GlobalData& globalData,
-                             const seissol::geometry::MeshReader& meshReader,
-                             LTS::Storage& storage,
-                             bool needsTime);
+void projectScriptInitialField(const std::vector<std::string>& iniFields,
+                               const GlobalData& globalData,
+                               const seissol::geometry::MeshReader& meshReader,
+                               LTS::Storage& storage,
+                               bool needsTime);
 } // namespace seissol::initializer
 
 #endif // SEISSOL_SRC_INITIALIZER_INITIALFIELDPROJECTION_H_

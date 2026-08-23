@@ -104,10 +104,10 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   std::vector<double> data;
 
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Script) {
-    data = initializer::projectEasiFields({seissolInstance_.parameters().initialization.filename},
-                                          simulationTime,
-                                          *meshReader_,
-                                          seissolInstance_.parameters().initialization.hasTime);
+    data = initializer::projectScriptFields({seissolInstance_.parameters().initialization.filename},
+                                            simulationTime,
+                                            *meshReader_,
+                                            seissolInstance_.parameters().initialization.hasTime);
   }
 
   double quadraturePoints[NumQuadPoints][3];
