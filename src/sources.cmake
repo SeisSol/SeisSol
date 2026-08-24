@@ -25,8 +25,9 @@ SeisSol.cpp
 )
 target_link_libraries(seissol-lib PUBLIC seissol-config)
 
-# Eqations have to be set at compile time currently.
-if ("${EQUATIONS}" STREQUAL "elastic")
+# include necessary kernel files (we can't include all of them right now, because of some undefined kernels + tensors)
+
+if ("${EQUATIONS}" STREQUAL "elastic" OR "${EQUATIONS}" STREQUAL "acoustic" OR "${EQUATIONS}" STREQUAL "anisotropic")
   target_sources(seissol-lib PRIVATE
     Kernels/LinearCK/Local.cpp
     Kernels/LinearCK/Neighbor.cpp
@@ -35,16 +36,7 @@ if ("${EQUATIONS}" STREQUAL "elastic")
   target_include_directories(seissol-common-properties INTERFACE Equations/elastic)
   target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCK)
 
-elseif ("${EQUATIONS}" STREQUAL "acoustic")
-  target_sources(seissol-lib PRIVATE
-    Kernels/LinearCK/Local.cpp
-    Kernels/LinearCK/Neighbor.cpp
-    Kernels/LinearCK/Time.cpp
-    )
-  target_include_directories(seissol-common-properties INTERFACE Equations/acoustic)
-  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCK)
-
-elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
+elseif ("${EQUATIONS}" STREQUAL "viscoelastic" OR "${EQUATIONS}" STREQUAL "viscoacoustic")
   if (VISCO_MODE STREQUAL "split")
     target_sources(seissol-lib PRIVATE
       Kernels/LinearCKAnelastic/Neighbor.cpp
@@ -61,15 +53,6 @@ elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
     target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCK)
   endif()
   target_include_directories(seissol-common-properties INTERFACE Equations/viscoelastic)
-
-elseif ("${EQUATIONS}" STREQUAL "anisotropic")
-  target_sources(seissol-lib PRIVATE
-    Kernels/LinearCK/Neighbor.cpp
-    Kernels/LinearCK/Local.cpp
-    Kernels/LinearCK/Time.cpp
-  )
-  target_include_directories(seissol-common-properties INTERFACE Equations/anisotropic)
-  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCK)
 
 elseif ("${EQUATIONS}" STREQUAL "poroelastic")
   target_sources(seissol-lib PRIVATE
