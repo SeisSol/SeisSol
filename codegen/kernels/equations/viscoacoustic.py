@@ -80,7 +80,7 @@ class ViscoacousticADERDG(LinearCK):
         return self.db.ET
 
     def name(self):
-        return "viscoelastic"
+        return "viscoacoustic"
 
     def godunov_spp(self):
         spp = np.zeros((self.numQuantities(), self.numQuantities()), dtype=bool)

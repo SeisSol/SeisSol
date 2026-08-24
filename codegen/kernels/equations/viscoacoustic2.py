@@ -45,5 +45,8 @@ class Viscoacoustic2ADERDG(LinearCKAnelastic):
     def numAnelasticQuantities(self):
         return 1
 
+    def name(self):
+        return "viscoacoustic"
+
 
 EQUATION_CLASS = Viscoacoustic2ADERDG

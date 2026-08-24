@@ -60,5 +60,8 @@ class Viscoelastic2ADERDG(LinearCKAnelastic):
         extractTractionsSPP[2, 5] = 1
         return extractTractionsSPP
 
+    def name(self):
+        return "viscoelastic"
+
 
 EQUATION_CLASS = Viscoelastic2ADERDG
