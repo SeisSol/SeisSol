@@ -13,10 +13,9 @@
 #include <cstdlib>
 
 namespace seissol::unit_test {
-TEST_CASE("Attenuation" *
-          doctest::skip(!std::is_same_v<model::MaterialT, model::ViscoElasticMaterial>) *
-          doctest::test_suite("model")) {
-  seissol::model::ViscoElasticMaterial vm;
+TEST_CASE("Attenuation" * doctest::test_suite("model")) {
+
+  seissol::model::ViscoElasticMaterial<3> vm;
 
   // The test data used here was picked from one cell in a coarse discretization of the Northridge
   // scenario.
@@ -36,26 +35,21 @@ TEST_CASE("Attenuation" *
 
   CHECK(vm.rho == rho);
 
-  if (model::ViscoElasticMaterial::Mechanisms == 3) {
-    CHECK(vm.mu == doctest::Approx(33628014790.452877));
-    CHECK(vm.lambda == doctest::Approx(29578827039.733589));
+  CHECK(vm.mu == doctest::Approx(33628014790.452877));
+  CHECK(vm.lambda == doctest::Approx(29578827039.733589));
 
-    CHECK(vm.omega[0] == doctest::Approx(0.18849555921538758));
-    CHECK(vm.omega[1] == doctest::Approx(1.8849555921538763));
-    CHECK(vm.omega[2] == doctest::Approx(18.849555921538762));
+  CHECK(vm.omega[0] == doctest::Approx(0.18849555921538758));
+  CHECK(vm.omega[1] == doctest::Approx(1.8849555921538763));
+  CHECK(vm.omega[2] == doctest::Approx(18.849555921538762));
 
-    CHECK(vm.theta[0][0] == doctest::Approx(-2662632131.4096899));
-    CHECK(vm.theta[1][0] == doctest::Approx(-2233089891.3828750));
-    CHECK(vm.theta[2][0] == doctest::Approx(-2833117392.9633269));
-    CHECK(vm.theta[0][1] == doctest::Approx(777200013.84026122));
-    CHECK(vm.theta[1][1] == doctest::Approx(739358274.28576028));
-    CHECK(vm.theta[2][1] == doctest::Approx(1061064406.7129726));
-    CHECK(vm.theta[0][2] == doctest::Approx(-3439832145.2499514));
-    CHECK(vm.theta[1][2] == doctest::Approx(-2972448165.6686354));
-    CHECK(vm.theta[2][2] == doctest::Approx(-3894181799.6762996));
-  } else if (model::ViscoElasticMaterial::Mechanisms > 0) {
-    INFO("The attenuation test has been skipped, since the test data is tuned to 3 mechanisms "
-         "only.");
-  }
+  CHECK(vm.theta[0][0] == doctest::Approx(-2662632131.4096899));
+  CHECK(vm.theta[1][0] == doctest::Approx(-2233089891.3828750));
+  CHECK(vm.theta[2][0] == doctest::Approx(-2833117392.9633269));
+  CHECK(vm.theta[0][1] == doctest::Approx(777200013.84026122));
+  CHECK(vm.theta[1][1] == doctest::Approx(739358274.28576028));
+  CHECK(vm.theta[2][1] == doctest::Approx(1061064406.7129726));
+  CHECK(vm.theta[0][2] == doctest::Approx(-3439832145.2499514));
+  CHECK(vm.theta[1][2] == doctest::Approx(-2972448165.6686354));
+  CHECK(vm.theta[2][2] == doctest::Approx(-3894181799.6762996));
 }
 } // namespace seissol::unit_test
