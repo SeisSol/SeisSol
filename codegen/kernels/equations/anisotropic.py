@@ -28,4 +28,5 @@ class AnisotropicADERDG(ElasticADERDG):
         return "anisotropic"
 
 
-EQUATION_CLASS = AnisotropicADERDG
+def kernel_class(**kwargs):
+    return AnisotropicADERDG

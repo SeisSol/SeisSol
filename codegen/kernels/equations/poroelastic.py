@@ -80,4 +80,5 @@ class PoroelasticADERDG(STP):
         return self.transformationSpp()
 
 
-EQUATION_CLASS = PoroelasticADERDG
+def kernel_class(**kwargs):
+    return PoroelasticADERDG

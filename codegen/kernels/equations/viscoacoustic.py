@@ -8,6 +8,7 @@
 
 import numpy as np
 from kernels.aderdg.linearck import LinearCK
+from kernels.aderdg.linearckanelastic import LinearCKAnelastic
 from yateto import Tensor
 from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
 
@@ -103,4 +104,51 @@ class ViscoacousticADERDG(LinearCK):
         return self.transformation_spp()
 
 
-EQUATION_CLASS = ViscoacousticADERDG
+class Viscoacoustic2ADERDG(LinearCKAnelastic):
+    def __init__(
+        self,
+        order,
+        multipleSimulations,
+        matricesDir,
+        memLayout,
+        numMechanisms,
+        **kwargs,
+    ):
+        super().__init__(
+            order,
+            multipleSimulations,
+            matricesDir,
+            memLayout,
+            numMechanisms,
+            **kwargs,
+        )
+
+        clones = {
+            "star": ["star(0)", "star(1)", "star(2)"],
+        }
+        self.db.update(
+            parseXMLMatrixFile(f"{matricesDir}/equation-viscoacoustic.xml", clones)
+        )
+
+        memoryLayoutFromFile(memLayout, self.db, clones)
+        self.kwargs = kwargs
+
+    def numQuantities(self):
+        return 4
+
+    def numAnelasticQuantities(self):
+        return 1
+
+    def name(self):
+        return "viscoacoustic"
+
+
+def kernel_class(**kwargs):
+    visco_mode = kwargs["visco_mode"].lower()
+
+    if kwargs["visco_mode"] == "extend":
+        return ViscoacousticADERDG
+    if kwargs["visco_mode"] == "split":
+        return Viscoacoustic2ADERDG
+
+    raise NotImplementedError(f"Unknown visco_mode {visco_mode}.")

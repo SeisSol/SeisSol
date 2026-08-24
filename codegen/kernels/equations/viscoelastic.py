@@ -8,6 +8,7 @@
 
 import numpy as np
 from kernels.aderdg.linearck import LinearCK
+from kernels.aderdg.linearckanelastic import LinearCKAnelastic
 from yateto import Tensor
 from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
 
@@ -117,4 +118,65 @@ class ViscoelasticADERDG(LinearCK):
         return extractTractionsSPP
 
 
-EQUATION_CLASS = ViscoelasticADERDG
+class Viscoelastic2ADERDG(LinearCKAnelastic):
+    def __init__(
+        self,
+        order,
+        multipleSimulations,
+        matricesDir,
+        memLayout,
+        numMechanisms,
+        **kwargs,
+    ):
+        super().__init__(
+            order,
+            multipleSimulations,
+            matricesDir,
+            memLayout,
+            numMechanisms,
+            **kwargs,
+        )
+
+        clones = {
+            "star": ["star(0)", "star(1)", "star(2)"],
+        }
+        self.db.update(
+            parseXMLMatrixFile(f"{matricesDir}/equation-viscoelastic.xml", clones)
+        )
+
+        memoryLayoutFromFile(memLayout, self.db, clones)
+        self.kwargs = kwargs
+
+    def numQuantities(self):
+        return 9
+
+    def numAnelasticQuantities(self):
+        return 6
+
+    def extractVelocities(self):
+        extractVelocitiesSPP = np.zeros((3, self.numQuantities()))
+        extractVelocitiesSPP[0, 6] = 1
+        extractVelocitiesSPP[1, 7] = 1
+        extractVelocitiesSPP[2, 8] = 1
+        return extractVelocitiesSPP
+
+    def extractTractions(self):
+        extractTractionsSPP = np.zeros((3, self.numQuantities()))
+        extractTractionsSPP[0, 0] = 1
+        extractTractionsSPP[1, 3] = 1
+        extractTractionsSPP[2, 5] = 1
+        return extractTractionsSPP
+
+    def name(self):
+        return "viscoelastic"
+
+
+def kernel_class(**kwargs):
+    visco_mode = kwargs["visco_mode"].lower()
+
+    if kwargs["visco_mode"] == "extend":
+        return ViscoelasticADERDG
+    if kwargs["visco_mode"] == "split":
+        return Viscoelastic2ADERDG
+
+    raise NotImplementedError(f"Unknown visco_mode {visco_mode}.")

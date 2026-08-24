@@ -50,6 +50,7 @@ set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.
      "--drQuadRule" ${DR_QUAD_RULE}
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
      "--executable_pspamm=${PSpaMM_PROGRAM}"
+     "--visco_mode" ${VISCO_MODE}
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
      ${OVERRIDE_VECTORSIZE_PARAM})
 

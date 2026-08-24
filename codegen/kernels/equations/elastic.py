@@ -48,4 +48,5 @@ class ElasticADERDG(LinearCK):
         return extractTractionsSPP
 
 
-EQUATION_CLASS = ElasticADERDG
+def kernel_class(**kwargs):
+    return ElasticADERDG

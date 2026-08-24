@@ -48,4 +48,5 @@ class AcousticADERDG(LinearCK):
         return "acoustic"
 
 
-EQUATION_CLASS = AcousticADERDG
+def kernel_class(**kwargs):
+    return AcousticADERDG

@@ -69,6 +69,9 @@ def main():
     )
     cmdLineParser.add_argument("--executable_libxsmm", default="")
     cmdLineParser.add_argument("--executable_pspamm", default="")
+    cmdLineParser.add_argument(
+        "--visco_mode", type=str, choices=["none", "split", "extend"]
+    )
 
     # "dry run" parameter for use directly in CMake (before building)
     cmdLineParser.add_argument(
@@ -165,17 +168,6 @@ def main():
 
     subfolders = []
 
-    equationsModuleName = f"kernels.equations.{cmdLineArgs.equations}"
-
-    equationsSpec = importlib.util.find_spec(equationsModuleName)
-    if equationsSpec is None:
-        raise RuntimeError("Could not find kernels for " + cmdLineArgs.equations)
-
-    # actually load the module
-    equations = importlib.import_module(equationsModuleName)
-
-    equation_class = equations.EQUATION_CLASS
-
     routine_cache = GlobalRoutineCache()
 
     gemmTools = GeneratorCollection(gemm_generators)
@@ -186,7 +178,7 @@ def main():
             name,
         )
 
-    def generate_equation(subfolders, equation, order):
+    def generate_equation(subfolders, order):
         precision = "double" if cmdLineArgs.precision in ["d", "f64"] else "single"
         fusedSuffix = (
             "-f" + str(cmdLineArgs.multipleSimulations)
@@ -215,7 +207,18 @@ def main():
         cmdArgsDict = vars(cmdLineArgs)
         cmdArgsDict["memLayout"] = mem_layout
 
-        adg = equation(**cmdArgsDict)
+        equationsModuleName = f"kernels.equations.{cmdLineArgs.equations}"
+
+        equationsSpec = importlib.util.find_spec(equationsModuleName)
+        if equationsSpec is None:
+            raise RuntimeError("Could not find kernels for " + cmdLineArgs.equations)
+
+        # actually load the module
+        equations = importlib.import_module(equationsModuleName)
+
+        equation_class = equations.kernel_class(**cmdArgsDict)
+
+        adg = equation_class(**cmdArgsDict)
 
         include_tensors = set()
         generator = Generator(arch)
@@ -337,7 +340,7 @@ def main():
             )
             file.writelines(["// IWYU pragma: end_exports\n"])
 
-    generate_equation(subfolders, equation_class, cmdLineArgs.order)
+    generate_equation(subfolders, cmdLineArgs.order)
     generate_general(subfolders)
 
     if cmdLineArgs.mode == "codegen":
