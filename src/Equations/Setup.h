@@ -15,6 +15,7 @@
 #include "Equations/anisotropic/Model/AnisotropicSetup.h"
 #include "Equations/elastic/Model/ElasticSetup.h"
 #include "Equations/poroelastic/Model/PoroelasticSetup.h"
+#include "Equations/viscoacoustic/Model/ViscoacousticSetup.h"
 #include "Equations/viscoelastic/Model/ViscoelasticSetup.h"
 
 // IWYU pragma: end_exports

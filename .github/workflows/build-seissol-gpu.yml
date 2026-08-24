@@ -42,6 +42,10 @@ jobs:
             multisim: 1
             mechanisms: 3
             order: 6
+          - type: viscoacoustic
+            multisim: 1
+            mechanisms: 3
+            order: 6
           - type: anisotropic
             multisim: 1
             mechanisms: 0

@@ -22,6 +22,8 @@
 #include "Equations/elastic/Model/IntegrationData.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/poroelastic/Model/IntegrationData.h"
+#include "Equations/viscoacoustic/Model/Datastructures.h"
+#include "Equations/viscoacoustic/Model/IntegrationData.h"
 #include "Equations/viscoelastic/Model/Datastructures.h"
 #include "Equations/viscoelastic/Model/IntegrationData.h"
 
@@ -44,6 +46,11 @@ struct MaterialTypeSelector<MaterialType::Anisotropic> {
 template <>
 struct MaterialTypeSelector<MaterialType::Viscoelastic> {
   using Type = ViscoElasticMaterial<Config::RelaxationMechanisms>;
+};
+
+template <>
+struct MaterialTypeSelector<MaterialType::Viscoacoustic> {
+  using Type = ViscoAcousticMaterial<Config::RelaxationMechanisms>;
 };
 
 template <>

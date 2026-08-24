@@ -40,6 +40,9 @@ jobs:
           - type: viscoelastic
             multisim: 1
             mechanisms: 3
+          - type: viscoacoustic
+            multisim: 1
+            mechanisms: 3
           - type: anisotropic
             multisim: 1
             mechanisms: 0

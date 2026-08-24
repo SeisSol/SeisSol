@@ -27,6 +27,7 @@
 #include "Equations/poroelastic/Model/Energy.h"
 #endif
 #ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
+#include "Equations/viscoacoustic/Model/Energy.h"
 #include "Equations/viscoelastic/Model/Energy.h"
 #endif
 
