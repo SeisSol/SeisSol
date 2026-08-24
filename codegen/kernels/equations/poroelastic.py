@@ -35,13 +35,9 @@ class PoroelasticADERDG(LinearADERDG):
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile(
-                "{}/matrices_poroelastic.xml".format(matricesDir), clones
-            )
+            parseXMLMatrixFile(f"{matricesDir}/equation-poroelastic.xml", clones)
         )
-        self.db.update(
-            parseJSONMatrixFile("{}/stp_{}.json".format(matricesDir, order), clones)
-        )
+        self.db.update(parseJSONMatrixFile(f"{matricesDir}/stp_{order}.json", clones))
 
         memoryLayoutFromFile(memLayout, self.db, clones)
 

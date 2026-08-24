@@ -34,9 +34,7 @@ class Viscoacoustic2ADERDG(Viscoelastic2ADERDG):
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile(
-                "{}/matrices_viscoacoustic.xml".format(matricesDir), clones
-            )
+            parseXMLMatrixFile(f"{matricesDir}/equation-viscoacoustic.xml", clones)
         )
 
         memoryLayoutFromFile(memLayout, self.db, clones)

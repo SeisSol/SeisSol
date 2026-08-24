@@ -16,7 +16,9 @@ class ElasticADERDG(LinearADERDG):
         clones = {
             "star": ["star(0)", "star(1)", "star(2)"],
         }
-        self.db.update(parseXMLMatrixFile("{}/star.xml".format(matricesDir), clones))
+        self.db.update(
+            parseXMLMatrixFile(f"{matricesDir}/equation-elastic.xml", clones)
+        )
 
         memoryLayoutFromFile(memLayout, self.db, clones)
         self.kwargs = kwargs

@@ -18,7 +18,7 @@ class AnisotropicADERDG(ADERDGBase):
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile("{}/star_anisotropic.xml".format(matricesDir), clones)
+            parseXMLMatrixFile(f"{matricesDir}/equation-anisotropic.xml", clones)
         )
         memoryLayoutFromFile(memLayout, self.db, clones)
 

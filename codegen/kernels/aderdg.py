@@ -35,7 +35,7 @@ class ADERDGBase(ABC):
         self.t = (lambda x: x[::-1]) if transpose else (lambda x: x)
 
         self.db = parseXMLMatrixFile(
-            "{}/matrices_{}.xml".format(matricesDir, self.num3DBasisFunctions()),
+            f"{matricesDir}/aderdg-{order}.xml",
             transpose=self.transpose,
             alignStride=self.alignStride,
         )
@@ -48,12 +48,8 @@ class ADERDGBase(ABC):
                 alignStride=self.alignStride,
             )
         )
-        self.db.update(
-            parseJSONMatrixFile("{}/sampling_directions.json".format(matricesDir))
-        )
-        self.db.update(
-            parseJSONMatrixFile("{}/mass_{}.json".format(matricesDir, order))
-        )
+        self.db.update(parseJSONMatrixFile(f"{matricesDir}/sampling_directions.json"))
+        self.db.update(parseJSONMatrixFile(f"{matricesDir}/mass-{order}.json"))
 
         # mass matrices are diagonal; treat them as sparse for now
         self.db.M2.setMemoryLayout(CSCMemoryLayout)

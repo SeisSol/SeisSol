@@ -19,7 +19,7 @@ class AcousticADERDG(LinearADERDG):
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile("{}/star_acoustic.xml".format(matricesDir), clones)
+            parseXMLMatrixFile(f"{matricesDir}/equation-acoustic.xml", clones)
         )
 
         memoryLayoutFromFile(memLayout, self.db, clones)

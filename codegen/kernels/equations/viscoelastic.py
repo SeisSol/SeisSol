@@ -20,7 +20,7 @@ class ViscoelasticADERDG(LinearADERDG):
         matricesDir,
         memLayout,
         numMechanisms,
-        **kwargs
+        **kwargs,
     ):
         self.numMechanisms = numMechanisms
         self.numElasticQuantities = 9
@@ -30,9 +30,7 @@ class ViscoelasticADERDG(LinearADERDG):
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile(
-                "{}/matrices_viscoelastic.xml".format(matricesDir), clones
-            )
+            parseXMLMatrixFile(f"{matricesDir}/equation-viscoelastic.xml", clones)
         )
 
         star_spp = self.db.star[0].spp().as_ndarray()

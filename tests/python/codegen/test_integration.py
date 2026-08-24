@@ -13,7 +13,7 @@ assembles at build time.
 
 Unlike test_aderdg_math.py (which bypasses __init__ to test pure logic),
 these exercise the full constructor path, including:
- - XML matrix file parsing (matrices_{N}.xml, star.xml, ...)
+ - XML matrix file parsing (aderdg-{N}.xml, equation-elastic.xml, ...)
  - JSON matrix file parsing (plasticity-ip-matrices-{order}.json, ...)
  - memoryLayoutFromFile + CSC memory layouts
  - The full nodal/gravitational matrix suite
@@ -275,8 +275,7 @@ class TestMatrixFileInventory:
     def test_matrices_N_xml_exists_for_each_order(self, order):
         """matrices_{numberOf3DBasisFunctions}.xml is required for every
         supported order."""
-        n = self.BASIS_FOR_ORDER[order]
-        f = MATRICES_DIR / f"matrices_{n}.xml"
+        f = MATRICES_DIR / f"aderdg-{order}.xml"
         assert f.exists(), f"Missing matrix file for order={order}: {f}"
 
     @pytest.mark.parametrize("order", [2, 3, 4, 5, 6, 7, 8])
@@ -293,7 +292,7 @@ class TestMatrixFileInventory:
 
     @pytest.mark.parametrize("order", [2, 3, 4, 5, 6, 7, 8])
     def test_mass_matrix_per_order_exists(self, order):
-        f = MATRICES_DIR / f"mass_{order}.json"
+        f = MATRICES_DIR / f"mass-{order}.json"
         assert f.exists(), f"Missing mass matrix file for order={order}"
 
     @pytest.mark.parametrize("order", [2, 3, 4, 5, 6, 7, 8])
@@ -317,11 +316,12 @@ class TestMatrixFileInventory:
     def test_equation_specific_matrices_exist(self):
         """star matrices for each equation that needs one."""
         for fname in [
-            "star.xml",  # elastic
-            "star_acoustic.xml",  # acoustic
-            "star_anisotropic.xml",  # anisotropic
-            "matrices_viscoelastic.xml",
-            "matrices_poroelastic.xml",
+            "equation-elastic.xml",
+            "equation-acoustic.xml",
+            "equation-anisotropic.xml",
+            "equation-viscoacoustic.xml",
+            "equation-viscoelastic.xml",
+            "equation-poroelastic.xml",
         ]:
             f = MATRICES_DIR / fname
             assert f.exists(), f"Missing equation matrix file: {f}"

@@ -35,9 +35,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile(
-                "{}/matrices_viscoelastic.xml".format(matricesDir), clones
-            )
+            parseXMLMatrixFile(f"{matricesDir}/equation-viscoelastic.xml", clones)
         )
         memoryLayoutFromFile(memLayout, self.db, clones)
 
