@@ -53,7 +53,7 @@ def main():
     cmdLineParser.add_argument(
         "--precision", type=str, choices=["s", "d", "f32", "f64"]
     )
-    cmdLineParser.add_argument("--numberOfMechanisms", type=int)
+    cmdLineParser.add_argument("--numMechanisms", type=int)
     cmdLineParser.add_argument("--vectorsize", default=0, type=int)
     cmdLineParser.add_argument("--memLayout")
     cmdLineParser.add_argument("--multipleSimulations", type=int)

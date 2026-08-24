@@ -18,7 +18,7 @@ class Viscoacoustic2ADERDG(Viscoelastic2ADERDG):
         multipleSimulations,
         matricesDir,
         memLayout,
-        numberOfMechanisms,
+        numMechanisms,
         **kwargs,
     ):
         super().__init__(
@@ -26,7 +26,7 @@ class Viscoacoustic2ADERDG(Viscoelastic2ADERDG):
             multipleSimulations,
             matricesDir,
             memLayout,
-            numberOfMechanisms,
+            numMechanisms,
             **kwargs,
         )
 
@@ -42,10 +42,10 @@ class Viscoacoustic2ADERDG(Viscoelastic2ADERDG):
         memoryLayoutFromFile(memLayout, self.db, clones)
         self.kwargs = kwargs
 
-    def numberOfQuantities(self):
+    def numQuantities(self):
         return 4
 
-    def numberOfAnelasticQuantities(self):
+    def numAnelasticQuantities(self):
         return 1
 
 

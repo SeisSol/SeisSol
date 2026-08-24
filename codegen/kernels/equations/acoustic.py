@@ -27,7 +27,7 @@ class AcousticADERDG(LinearADERDG):
 
     # The 4 quantities are pressure and three velocity components
     # in acoustic materials.
-    def numberOfQuantities(self):
+    def numQuantities(self):
         return 4
 
     def starMatrix(self, dim):
@@ -37,14 +37,14 @@ class AcousticADERDG(LinearADERDG):
         super().addLocal(generator, targets)
 
     def extractVelocities(self):
-        extractVelocitiesSPP = np.zeros((3, self.numberOfQuantities()))
+        extractVelocitiesSPP = np.zeros((3, self.numQuantities()))
         extractVelocitiesSPP[0, 1] = 1
         extractVelocitiesSPP[1, 2] = 1
         extractVelocitiesSPP[2, 3] = 1
         return extractVelocitiesSPP
 
     def extractTractions(self):
-        extractTractionsSPP = np.zeros((3, self.numberOfQuantities()))
+        extractTractionsSPP = np.zeros((3, self.numQuantities()))
         extractTractionsSPP[0, 0] = 1
         return extractTractionsSPP
 

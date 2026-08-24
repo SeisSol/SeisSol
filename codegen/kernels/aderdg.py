@@ -35,7 +35,7 @@ class ADERDGBase(ABC):
         self.t = (lambda x: x[::-1]) if transpose else (lambda x: x)
 
         self.db = parseXMLMatrixFile(
-            "{}/matrices_{}.xml".format(matricesDir, self.numberOf3DBasisFunctions()),
+            "{}/matrices_{}.xml".format(matricesDir, self.num3DBasisFunctions()),
             transpose=self.transpose,
             alignStride=self.alignStride,
         )
@@ -59,7 +59,7 @@ class ADERDGBase(ABC):
         self.db.M2.setMemoryLayout(CSCMemoryLayout)
         self.db.M3.setMemoryLayout(CSCMemoryLayout)
 
-        qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
+        qShape = (self.num3DBasisFunctions(), self.numQuantities())
         self.Q = OptionalDimTensor(
             "Q", "s", multipleSimulations, 0, qShape, alignStride=True
         )
@@ -120,7 +120,7 @@ class ADERDGBase(ABC):
             "s",
             multipleSimulations,
             0,
-            (self.numberOf2DBasisFunctions(), self.numberOfQuantities()),
+            (self.num2DBasisFunctions(), self.numQuantities()),
             alignStride=True,
         )
 
@@ -163,27 +163,27 @@ class ADERDGBase(ABC):
     def name(self):
         return ""
 
-    def numberOf2DBasisFunctions(self):
+    def num2DBasisFunctions(self):
         return self.order * (self.order + 1) // 2
 
-    def numberOf3DBasisFunctions(self):
+    def num3DBasisFunctions(self):
         return self.order * (self.order + 1) * (self.order + 2) // 6
 
-    def numberOf3DQuadraturePoints(self):
+    def num3DQuadraturePoints(self):
         return (self.order + 1) ** 3
 
     def godunov_spp(self):
-        shape = (self.numberOfQuantities(), self.numberOfQuantities())
+        shape = (self.numQuantities(), self.numQuantities())
         return np.ones(shape, dtype=bool)
 
     def flux_solver_spp(self):
-        shape = (self.numberOfQuantities(), self.numberOfExtendedQuantities())
+        shape = (self.numQuantities(), self.numExtendedQuantities())
         return np.ones(shape, dtype=bool)
 
     def transformation_spp(self):
         shape = (
-            self.numberOfExtendedQuantities(),
-            self.numberOfExtendedQuantities(),
+            self.numExtendedQuantities(),
+            self.numExtendedQuantities(),
         )
         return np.ones(shape, dtype=bool)
 
@@ -191,7 +191,7 @@ class ADERDGBase(ABC):
         return self.godunov_spp()
 
     def extractVelocities(self):
-        extractVelocitiesSPP = np.zeros((3, self.numberOfQuantities()))
+        extractVelocitiesSPP = np.zeros((3, self.numQuantities()))
         extractVelocitiesSPP[0, 6] = 1
         extractVelocitiesSPP[1, 7] = 1
         extractVelocitiesSPP[2, 8] = 1
@@ -201,7 +201,7 @@ class ADERDGBase(ABC):
         return self.extractVelocities().T
 
     def extractTractions(self):
-        extractTractionsSPP = np.zeros((3, self.numberOfQuantities()))
+        extractTractionsSPP = np.zeros((3, self.numQuantities()))
         extractTractionsSPP[0, 0] = 1
         extractTractionsSPP[1, 3] = 1
         extractTractionsSPP[2, 5] = 1
@@ -211,11 +211,11 @@ class ADERDGBase(ABC):
         return self.extractTractions().T
 
     @abstractmethod
-    def numberOfQuantities(self):
+    def numQuantities(self):
         pass
 
     @abstractmethod
-    def numberOfExtendedQuantities(self):
+    def numExtendedQuantities(self):
         pass
 
     @abstractmethod
@@ -286,7 +286,7 @@ class ADERDGBase(ABC):
             self.Q.optName(),
             self.Q.optSize(),
             self.Q.optPos(),
-            (1, self.numberOfQuantities()),
+            (1, self.numQuantities()),
             alignStride=True,
         )
         generator.add(
@@ -302,7 +302,7 @@ class ADERDGBase(ABC):
             self.Q.optName(),
             self.Q.optSize(),
             self.Q.optPos(),
-            (self.numberOfQuantities(), self.numberOfQuantities()),
+            (self.numQuantities(), self.numQuantities()),
         )
         generator.add(
             "momentQQCompute",
@@ -337,15 +337,15 @@ class LinearADERDG(ADERDGBase):
     def extendedQTensor(self):
         return self.Q
 
-    def numberOfExtendedQuantities(self):
-        return self.numberOfQuantities()
+    def numExtendedQuantities(self):
+        return self.numQuantities()
 
     def addInit(self, generator):
         super().addInit(generator)
 
         iniShape = (
-            self.numberOf3DQuadraturePoints(),
-            self.numberOfQuantities(),
+            self.num3DQuadraturePoints(),
+            self.numQuantities(),
         )
         iniCond = OptionalDimTensor(
             "iniCond",
@@ -521,8 +521,8 @@ class LinearADERDG(ADERDGBase):
             name_prefix = generate_kernel_name_prefix(target)
 
             qShape = (
-                self.numberOf3DBasisFunctions(),
-                self.numberOfQuantities(),
+                self.num3DBasisFunctions(),
+                self.numQuantities(),
             )
             dQ0 = OptionalDimTensor(
                 "dQ(0)",

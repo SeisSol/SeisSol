@@ -42,7 +42,7 @@ set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.
      "--device_vendor" ${DEVICE_VENDOR}
      "--precision" ${PRECISION_PREFIX}
      "--order" ${ORDER}
-     "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
+     "--numMechanisms" ${NUMBER_OF_MECHANISMS}
      "--memLayout" ${MEMORY_LAYOUT}
      "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
      "--PlasticityMethod" ${PLASTICITY_METHOD}

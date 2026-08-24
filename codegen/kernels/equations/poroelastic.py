@@ -26,7 +26,7 @@ class PoroelasticADERDG(LinearADERDG):
         multipleSimulations,
         matricesDir,
         memLayout,
-        numberOfMechanisms,
+        numMechanisms,
         **kwargs,
     ):
 
@@ -47,11 +47,11 @@ class PoroelasticADERDG(LinearADERDG):
 
         self.kwargs = kwargs
 
-    def numberOfQuantities(self):
+    def numQuantities(self):
         return 13
 
-    def numberOfExtendedQuantities(self):
-        return self.numberOfQuantities()
+    def numExtendedQuantities(self):
+        return self.numQuantities()
 
     def starMatrix(self, dim):
         return self.db.star[dim]
@@ -60,7 +60,7 @@ class PoroelasticADERDG(LinearADERDG):
         return self.db.ET
 
     def extractVelocities(self):
-        extractVelocitiesSPP = np.zeros((4, self.numberOfQuantities()))
+        extractVelocitiesSPP = np.zeros((4, self.numQuantities()))
         extractVelocitiesSPP[0, 6] = 1
         extractVelocitiesSPP[1, 7] = 1
         extractVelocitiesSPP[2, 8] = 1
@@ -68,7 +68,7 @@ class PoroelasticADERDG(LinearADERDG):
         return extractVelocitiesSPP
 
     def extractTractions(self):
-        extractTractionsSPP = np.zeros((4, self.numberOfQuantities()))
+        extractTractionsSPP = np.zeros((4, self.numQuantities()))
         extractTractionsSPP[0, 0] = 1
         extractTractionsSPP[1, 3] = 1
         extractTractionsSPP[2, 5] = 1
@@ -79,9 +79,7 @@ class PoroelasticADERDG(LinearADERDG):
         return "poroelastic"
 
     def transformationSpp(self):
-        spp = np.zeros(
-            (self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool
-        )
+        spp = np.zeros((self.numQuantities(), self.numQuantities()), dtype=bool)
         spp[0:6, 0:6] = 1
         spp[6:9, 6:9] = 1
         spp[9, 9] = 1
@@ -95,8 +93,8 @@ class PoroelasticADERDG(LinearADERDG):
         super().addTime(generator, targets)
 
         stpShape = (
-            self.numberOf3DBasisFunctions(),
-            self.numberOfQuantities(),
+            self.num3DBasisFunctions(),
+            self.numQuantities(),
             self.order,
         )
         spaceTimePredictorRhs = OptionalDimTensor(
@@ -189,7 +187,7 @@ class PoroelasticADERDG(LinearADERDG):
                 spaceTimePredictorRhs["kpt"] <= self.Q["kp"] * self.db.wHat["t"]
             )
             for n in range(self.order - 1, -1, -1):
-                for o in range(self.numberOfQuantities() - 1, -1, -1):
+                for o in range(self.numQuantities() - 1, -1, -1):
                     kernels.append(
                         spaceTimePredictor["kpt"]
                         .subslice("k", *modeRange(n))
@@ -254,7 +252,7 @@ class PoroelasticADERDG(LinearADERDG):
 
         # Test to see if the kernel actually solves the system of equations
         # This part is not used in the time kernel, but for unit testing
-        deltaSppLarge = np.eye(self.numberOfQuantities())
+        deltaSppLarge = np.eye(self.numQuantities())
         deltaLarge = Tensor("deltaLarge", deltaSppLarge.shape, spp=deltaSppLarge)
         deltaSppSmall = np.eye(self.order)
         deltaSmall = Tensor("deltaSmall", deltaSppSmall.shape, spp=deltaSppSmall)

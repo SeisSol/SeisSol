@@ -19,11 +19,11 @@ class ViscoelasticADERDG(LinearADERDG):
         multipleSimulations,
         matricesDir,
         memLayout,
-        numberOfMechanisms,
+        numMechanisms,
         **kwargs
     ):
-        self.numberOfMechanisms = numberOfMechanisms
-        self.numberOfElasticQuantities = 9
+        self.numMechanisms = numMechanisms
+        self.numElasticQuantities = 9
 
         super().__init__(order, multipleSimulations, matricesDir)
         clones = {
@@ -37,17 +37,17 @@ class ViscoelasticADERDG(LinearADERDG):
 
         star_spp = self.db.star[0].spp().as_ndarray()
         star_rows, star_cols = star_spp.shape
-        aniso_cols = star_cols - self.numberOfElasticQuantities
+        aniso_cols = star_cols - self.numElasticQuantities
         star_spp_new = np.zeros(
-            (self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool
+            (self.numQuantities(), self.numQuantities()), dtype=bool
         )
         star_spp_new[0:star_rows, 0:star_cols] = star_spp
         """ The last 6 columns of star_spp contain the prototype
         sparsity pattern for a mechanism. Therefore, the spp is repeated
         for every mechanism. """
-        for mech in range(1, numberOfMechanisms):
-            offset0 = self.numberOfElasticQuantities
-            offsetm = self.numberOfElasticQuantities + mech * aniso_cols
+        for mech in range(1, numMechanisms):
+            offset0 = self.numElasticQuantities
+            offsetm = self.numElasticQuantities + mech * aniso_cols
             star_spp_new[0:star_rows, offsetm : (offsetm + aniso_cols)] = star_spp[
                 0:star_rows, offset0 : (offset0 + aniso_cols)
             ]
@@ -56,15 +56,13 @@ class ViscoelasticADERDG(LinearADERDG):
                 self.db.star[dim].name(), star_spp_new.shape, spp=star_spp_new
             )
 
-        source_spp = np.zeros(
-            (self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool
-        )
+        source_spp = np.zeros((self.numQuantities(), self.numQuantities()), dtype=bool)
         ET_spp = self.db["ET"].spp().as_ndarray()
         """ ET is a prototype sparsity pattern for a mechanism.
         Therefore, repeated for every mechanism. See Kaeser
         and Dumbser 2006, III. Viscoelastic attenuation."""
-        for mech in range(numberOfMechanisms):
-            offset = self.numberOfElasticQuantities + mech * aniso_cols
+        for mech in range(numMechanisms):
+            offset = self.numElasticQuantities + mech * aniso_cols
             r = slice(offset, offset + aniso_cols)
             source_spp[r, 0:aniso_cols] = ET_spp
             source_spp[r, r] = np.identity(aniso_cols, dtype=bool)
@@ -74,8 +72,8 @@ class ViscoelasticADERDG(LinearADERDG):
 
         self.kwargs = kwargs
 
-    def numberOfQuantities(self):
-        return 9 + 6 * self.numberOfMechanisms
+    def numQuantities(self):
+        return 9 + 6 * self.numMechanisms
 
     def starMatrix(self, dim):
         return self.db.star[dim]
@@ -87,22 +85,18 @@ class ViscoelasticADERDG(LinearADERDG):
         return "viscoelastic"
 
     def godunov_spp(self):
-        spp = np.zeros(
-            (self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool
-        )
-        spp[0 : self.numberOfElasticQuantities, :] = True
+        spp = np.zeros((self.numQuantities(), self.numQuantities()), dtype=bool)
+        spp[0 : self.numElasticQuantities, :] = True
         return spp
 
     def flux_solver_spp(self):
         return self.godunov_spp()
 
     def transformation_spp(self):
-        spp = np.zeros(
-            (self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool
-        )
+        spp = np.zeros((self.numQuantities(), self.numQuantities()), dtype=bool)
         spp[0:6, 0:6] = 1
         spp[6:9, 6:9] = 1
-        for mechs in range(self.numberOfMechanisms):
+        for mechs in range(self.numMechanisms):
             offset = 9 + mechs * 6
             spp[offset : (offset + 6), offset : (offset + 6)] = 1
         return spp
