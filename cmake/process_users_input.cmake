@@ -60,7 +60,7 @@ set(OVERRIDE_VECTORSIZE 0 CACHE STRING "If not 0, it overrides the pre-defined a
 set(OVERRIDE_ALIGNMENT 0 CACHE STRING "If not 0, it overrides the pre-defined architecture alignment")
 
 set(EQUATIONS "elastic" CACHE STRING "Equation set used")
-set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic acoustic)
+set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic acoustic viscoacoustic)
 set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
 set(VISCO_MODE "split" CACHE STRING "")
