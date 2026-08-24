@@ -138,12 +138,10 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
         auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
         dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + kernels::size<tensor::Qext>() * cell;
       }
-#ifdef SEISSOL_KERNELS_STP
       if constexpr (Config::MaterialType == model::MaterialType::Poroelastic) {
         auto* zinvExtraPtr = currentLayer_->var<LTS::ZinvExtra>(AllocationPlace::Device);
-        zinvExtraPtrs[cell] = zinvExtraPtr + yateto::computeFamilySize<tensor::Zinv>() * cell;
+        zinvExtraPtrs[cell] = zinvExtraPtr + kernels::familySize<tensor::Zinv>() * cell;
       }
-#endif
 
       // derivatives
       const bool isDerivativesProvided =

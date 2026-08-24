@@ -154,12 +154,10 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
     layer.setEntrySize<LTS::PrevCoefficientsScratch>(sizeof(real) * freeSurfaceCount *
                                                      NodalDisplacementsSize);
 
-#ifdef SEISSOL_KERNELS_STP
     if constexpr (Config::MaterialType == model::MaterialType::Poroelastic) {
-      layer.setEntrySize<LTS::ZinvExtra>(layer.size() * yateto::computeFamilySize<tensor::Zinv>() *
+      layer.setEntrySize<LTS::ZinvExtra>(layer.size() * kernels::familySize<tensor::Zinv>() *
                                          sizeof(real));
     }
-#endif
   }
 }
 

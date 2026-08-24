@@ -60,14 +60,12 @@ inline void calcZinv(yateto::DenseTensorView<2, real, unsigned>& zInv,
 // constexpr for loop since we need to instatiate the view templates
 template <size_t Istart, size_t Iend, typename Tview>
 struct ZInvInitializer {
-  ZInvInitializer(
-      real zInvData[PoroElasticMaterial::NumQuantities][ConvergenceOrder * ConvergenceOrder],
-      const Tview& sourceMatrix,
-      real timeStepWidth) {
-    auto zInv = init::Zinv::view<Istart>::create(zInvData[Istart]);
+  ZInvInitializer(real* zInvData, const Tview& sourceMatrix, real timeStepWidth) {
+    auto zInv = init::Zinv::view<Istart>::create(zInvData);
     calcZinv(zInv, sourceMatrix, Istart, timeStepWidth);
     if constexpr (Istart < Iend - 1) {
-      ZInvInitializer<Istart + 1, Iend, Tview>(zInvData, sourceMatrix, timeStepWidth);
+      auto* nextZInvData = zInvData + init::Zinv::size(Istart);
+      ZInvInitializer<Istart + 1, Iend, Tview>(nextZInvData, sourceMatrix, timeStepWidth);
     }
   };
 };

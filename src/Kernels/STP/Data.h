@@ -29,7 +29,7 @@ struct STPLocalData {
 
   // currently hard-coded to poroelasticity
   // NOLINTNEXTLINE
-  real Zinv[13][zeroLengthArrayHandler(kernels::size<tensor::Zinv>(0))]{};
+  real Zinv[zeroLengthArrayHandler(kernels::familySize<tensor::Zinv>())]{};
 
   // preferrably double; will be compared closely against the "default" timestep width almost all
   // the time
