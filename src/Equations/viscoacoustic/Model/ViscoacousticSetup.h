@@ -26,22 +26,22 @@ struct MaterialSetup<ViscoAcousticMaterial<N>,
   using MaterialT = ViscoAcousticMaterial<N>;
 
   template <typename T>
-  static void getTransposedViscoelasticCoefficientMatrix(double omega,
-                                                         std::size_t dim,
-                                                         std::size_t mech,
-                                                         T& M) {
+  static void getTransposedViscoacousticCoefficientMatrix(double omega,
+                                                          std::size_t dim,
+                                                          std::size_t mech,
+                                                          T& M) {
     const auto col = MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
     switch (dim) {
     case 0:
-      M(6, col) = -omega;
+      M(1, col) = -omega;
       break;
 
     case 1:
-      M(7, col) = -omega;
+      M(2, col) = -omega;
       break;
 
     case 2:
-      M(8, col) = -omega;
+      M(3, col) = -omega;
       break;
     }
   }
@@ -72,10 +72,10 @@ struct MaterialSetup<ViscoAcousticMaterial<N>,
 
   template <typename T>
   static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& AT) {
-    getTransposedCoefficientMatrix(dynamic_cast<const ElasticMaterial&>(material), dim, AT);
+    getTransposedCoefficientMatrix(dynamic_cast<const AcousticMaterial&>(material), dim, AT);
 
     for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-      getTransposedViscoelasticCoefficientMatrix(material.omega[mech], dim, mech, AT);
+      getTransposedViscoacousticCoefficientMatrix(material.omega[mech], dim, mech, AT);
     }
   }
 
@@ -84,8 +84,8 @@ struct MaterialSetup<ViscoAcousticMaterial<N>,
                                         FaceType faceType,
                                         init::QgodLocal::view::type& qGodLocal,
                                         init::QgodNeighbor::view::type& qGodNeighbor) {
-    seissol::model::getTransposedGodunovState(dynamic_cast<const ElasticMaterial&>(local),
-                                              dynamic_cast<const ElasticMaterial&>(neighbor),
+    seissol::model::getTransposedGodunovState(dynamic_cast<const AcousticMaterial&>(local),
+                                              dynamic_cast<const AcousticMaterial&>(neighbor),
                                               faceType,
                                               qGodLocal,
                                               qGodNeighbor);
@@ -134,22 +134,22 @@ struct MaterialSetup<ViscoAcousticMaterial<N>,
   using Matrix99 = Eigen::Matrix<double, MaterialT::NumQuantities, MaterialT::NumQuantities>;
 
   template <typename T>
-  static void getTransposedViscoelasticCoefficientMatrix(double omega,
-                                                         std::size_t dim,
-                                                         std::size_t mech,
-                                                         T& M) {
+  static void getTransposedViscoacousticCoefficientMatrix(double omega,
+                                                          std::size_t dim,
+                                                          std::size_t mech,
+                                                          T& M) {
     const std::size_t col = MaterialT::NumQuantities + mech * MaterialT::NumberPerMechanism;
     switch (dim) {
     case 0:
-      M(6, col) = -omega;
+      M(1, col) = -omega;
       break;
 
     case 1:
-      M(7, col) = -omega;
+      M(2, col) = -omega;
       break;
 
     case 2:
-      M(8, col) = -omega;
+      M(3, col) = -omega;
       break;
     }
   }
@@ -165,9 +165,9 @@ struct MaterialSetup<ViscoAcousticMaterial<N>,
   template <typename T>
   static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& AT) {
     ::seissol::model::getTransposedCoefficientMatrix(
-        dynamic_cast<const ElasticMaterial&>(material), dim, AT);
+        dynamic_cast<const AcousticMaterial&>(material), dim, AT);
 
-    getTransposedViscoelasticCoefficientMatrix(1.0, dim, 0, AT);
+    getTransposedViscoacousticCoefficientMatrix(1.0, dim, 0, AT);
   }
 
   static void getTransposedGodunovState(const MaterialT& local,
@@ -175,9 +175,9 @@ struct MaterialSetup<ViscoAcousticMaterial<N>,
                                         FaceType faceType,
                                         init::QgodLocal::view::type& qGodLocal,
                                         init::QgodNeighbor::view::type& qGodNeighbor) {
-    ::seissol::model::getTransposedGodunovState<ElasticMaterial>(
-        dynamic_cast<const ElasticMaterial&>(local),
-        dynamic_cast<const ElasticMaterial&>(neighbor),
+    ::seissol::model::getTransposedGodunovState<AcousticMaterial>(
+        dynamic_cast<const AcousticMaterial&>(local),
+        dynamic_cast<const AcousticMaterial&>(neighbor),
         faceType,
         qGodLocal,
         qGodNeighbor);
@@ -199,7 +199,7 @@ struct MaterialSetup<ViscoAcousticMaterial<N>,
       Coeff.setZero();
       getTransposedCoefficientMatrix(material, d, Coeff);
       for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-        getTransposedViscoelasticCoefficientMatrix(material.omega[mech], d, mech, Coeff);
+        getTransposedViscoacousticCoefficientMatrix(material.omega[mech], d, mech, Coeff);
       }
 
       for (std::size_t i = 0; i < MaterialT::NumQuantities; ++i) {
