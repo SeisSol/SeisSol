@@ -7,12 +7,12 @@
 # SPDX-FileContributor: Carsten Uphoff
 
 import numpy as np
-from kernels.aderdg import LinearADERDG
+from kernels.aderdg.linearck import LinearCK
 from yateto import Tensor
 from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
 
 
-class ViscoelasticADERDG(LinearADERDG):
+class ViscoelasticADERDG(LinearCK):
     def __init__(
         self,
         order,
@@ -101,6 +101,20 @@ class ViscoelasticADERDG(LinearADERDG):
 
     def transformation_inv_spp(self):
         return self.transformation_spp()
+
+    def extractVelocities(self):
+        extractVelocitiesSPP = np.zeros((3, self.numQuantities()))
+        extractVelocitiesSPP[0, 6] = 1
+        extractVelocitiesSPP[1, 7] = 1
+        extractVelocitiesSPP[2, 8] = 1
+        return extractVelocitiesSPP
+
+    def extractTractions(self):
+        extractTractionsSPP = np.zeros((3, self.numQuantities()))
+        extractTractionsSPP[0, 0] = 1
+        extractTractionsSPP[1, 3] = 1
+        extractTractionsSPP[2, 5] = 1
+        return extractTractionsSPP
 
 
 EQUATION_CLASS = ViscoelasticADERDG

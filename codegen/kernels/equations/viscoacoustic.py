@@ -7,12 +7,12 @@
 # SPDX-FileContributor: Carsten Uphoff
 
 import numpy as np
-from kernels.aderdg import LinearADERDG
+from kernels.aderdg.linearck import LinearCK
 from yateto import Tensor
 from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
 
 
-class ViscoacousticADERDG(LinearADERDG):
+class ViscoacousticADERDG(LinearCK):
     def __init__(
         self,
         order,

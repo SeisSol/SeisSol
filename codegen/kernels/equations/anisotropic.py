@@ -7,11 +7,11 @@
 # SPDX-FileContributor: Carsten Uphoff
 # SPDX-FileContributor: Sebastian Wolf
 
-from kernels.equations.elastic import ElasticADERDG as ADERDGBase
+from kernels.equations.elastic import ElasticADERDG
 from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
 
 
-class AnisotropicADERDG(ADERDGBase):
+class AnisotropicADERDG(ElasticADERDG):
     def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
         super().__init__(order, multipleSimulations, matricesDir, memLayout)
         clones = {
@@ -26,12 +26,6 @@ class AnisotropicADERDG(ADERDGBase):
 
     def name(self):
         return "anisotropic"
-
-    def addInit(self, generator):
-        super().addInit(generator)
-
-    def add_include_tensors(self, include_tensors):
-        super().add_include_tensors(include_tensors)
 
 
 EQUATION_CLASS = AnisotropicADERDG

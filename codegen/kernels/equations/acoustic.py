@@ -7,12 +7,11 @@
 # SPDX-FileContributor: Jinwen Pan
 
 import numpy as np
+from kernels.aderdg.linearck import LinearCK
 from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
 
-from ..aderdg import LinearADERDG
 
-
-class AcousticADERDG(LinearADERDG):
+class AcousticADERDG(LinearCK):
     def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
         super().__init__(order, multipleSimulations, matricesDir)
         clones = {
@@ -32,9 +31,6 @@ class AcousticADERDG(LinearADERDG):
 
     def starMatrix(self, dim):
         return self.db.star[dim]
-
-    def addLocal(self, generator, targets):
-        super().addLocal(generator, targets)
 
     def extractVelocities(self):
         extractVelocitiesSPP = np.zeros((3, self.numQuantities()))

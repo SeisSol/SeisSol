@@ -6,12 +6,11 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 # SPDX-FileContributor: Carsten Uphoff
 
+from kernels.aderdg.linearckanelastic import LinearCKAnelastic
 from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
 
-from .viscoelastic2 import Viscoelastic2ADERDG
 
-
-class Viscoacoustic2ADERDG(Viscoelastic2ADERDG):
+class Viscoacoustic2ADERDG(LinearCKAnelastic):
     def __init__(
         self,
         order,
