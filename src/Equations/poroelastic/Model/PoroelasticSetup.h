@@ -263,9 +263,10 @@ struct MaterialSetup<PoroElasticMaterial> {
     }
   }
 
-  static void initializeSpecificLocalData(const PoroElasticMaterial& material,
-                                          double timeStepWidth,
-                                          PoroelasticLocalData* localData) {
+  static void
+      initializeSpecificLocalData(const PoroElasticMaterial& material,
+                                  double timeStepWidth,
+                                  typename PoroElasticMaterial::Solver::LocalData* localData) {
     auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
     sourceMatrix.setZero();
     getTransposedSourceCoefficientTensor(material, sourceMatrix);
@@ -280,8 +281,9 @@ struct MaterialSetup<PoroElasticMaterial> {
     localData->typicalTimeStepWidth = timeStepWidth;
   }
 
-  static void initializeSpecificNeighborData(const PoroElasticMaterial& material,
-                                             PoroelasticNeighborData* localData) {}
+  static void initializeSpecificNeighborData(
+      const PoroElasticMaterial& material,
+      typename PoroElasticMaterial::Solver::NeighborData* neighborData) {}
 
   static void getFaceRotationMatrix(const VrtxCoords normal,
                                     const VrtxCoords tangent1,

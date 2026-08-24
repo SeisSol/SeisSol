@@ -24,8 +24,6 @@
 #include <vector>
 
 namespace seissol::model {
-struct AcousticLocalData;
-struct AcousticNeighborData;
 
 struct AcousticMaterial : public Material {
   static constexpr std::size_t NumQuantities = 4;
@@ -45,8 +43,8 @@ struct AcousticMaterial : public Material {
   static constexpr bool SupportsLTS = true;
   static constexpr bool SupportsEnergy = true;
 
-  using LocalSpecificData = AcousticLocalData;
-  using NeighborSpecificData = AcousticNeighborData;
+  using LocalSpecificData = std::monostate;
+  using NeighborSpecificData = std::monostate;
   using Solver = kernels::solver::linearck::Solver;
 
   using EnergyData = std::monostate;

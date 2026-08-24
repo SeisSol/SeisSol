@@ -31,30 +31,20 @@
 #include <variant>
 
 namespace seissol::model {
-struct ViscoElasticLocalDataSplit;
-struct ViscoElasticNeighborDataSplit;
-struct ViscoElasticLocalDataExtend;
-struct ViscoElasticNeighborDataExtend;
 
 template <ViscoImplementation Implementation>
 struct ViscoSolver {
   using Type = kernels::solver::linearck::Solver;
-  using LocalData = std::monostate;
-  using NeighborData = std::monostate;
 };
 
 template <>
 struct ViscoSolver<ViscoImplementation::QuantityExtension> {
   using Type = kernels::solver::linearck::Solver;
-  using LocalData = ViscoElasticLocalDataExtend;
-  using NeighborData = ViscoElasticNeighborDataExtend;
 };
 
 template <>
 struct ViscoSolver<ViscoImplementation::AnelasticTensor> {
   using Type = kernels::solver::linearckanelastic::Solver;
-  using LocalData = ViscoElasticLocalDataSplit;
-  using NeighborData = ViscoElasticNeighborDataSplit;
 };
 
 template <std::size_t MechanismsP>
@@ -75,8 +65,8 @@ struct ViscoElasticMaterial : public ElasticMaterial {
   static constexpr bool SupportsLTS = true;
   static constexpr bool SupportsEnergy = true;
 
-  using LocalSpecificData = ViscoSolver<Config::ViscoMode>::LocalData;
-  using NeighborSpecificData = ViscoSolver<Config::ViscoMode>::NeighborData;
+  using LocalSpecificData = std::monostate;
+  using NeighborSpecificData = std::monostate;
 
   using Solver = ViscoSolver<Config::ViscoMode>::Type;
 

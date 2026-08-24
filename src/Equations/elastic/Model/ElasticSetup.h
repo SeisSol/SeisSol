@@ -11,7 +11,6 @@
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_ELASTICSETUP_H_
 
 #include "Equations/elastic/Model/Datastructures.h"
-#include "Equations/elastic/Model/IntegrationData.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
@@ -205,10 +204,12 @@ struct MaterialSetup<ElasticMaterial> {
 
   static void initializeSpecificLocalData(const ElasticMaterial& material,
                                           double timeStepWidth,
-                                          ElasticLocalData* localData) {}
+                                          typename ElasticMaterial::Solver::LocalData* localData) {}
 
-  static void initializeSpecificNeighborData(const ElasticMaterial& material,
-                                             ElasticNeighborData* localData) {}
+  static void
+      initializeSpecificNeighborData(const ElasticMaterial& material,
+                                     typename ElasticMaterial::Solver::NeighborData* neighborData) {
+  }
   static void getPlaneWaveOperator(
       const ElasticMaterial& material,
       const double n[3],

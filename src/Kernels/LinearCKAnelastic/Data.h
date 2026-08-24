@@ -1,17 +1,18 @@
-// SPDX-FileCopyrightText: 2024 SeisSol Group
+// SPDX-FileCopyrightText: 2026 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_DATA_H_
+#define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_DATA_H_
 
-#ifndef SEISSOL_SRC_EQUATIONS_VISCOACOUSTIC_MODEL_INTEGRATIONDATA_H_
-#define SEISSOL_SRC_EQUATIONS_VISCOACOUSTIC_MODEL_INTEGRATIONDATA_H_
-
-#include "Common/Constants.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+
+#include <cstddef>
+#include <yateto/InitTools.h>
 
 namespace seissol::tensor {
 struct ET;
@@ -20,25 +21,21 @@ struct w;
 struct W;
 } // namespace seissol::tensor
 
-namespace seissol::model {
+namespace seissol::kernels::solver::linearckanelastic {
 
-// TODO: remove zeroLengthArrayHandler when only initialized where relevant
+// TODO: maybe at some point remove the zeroLengthArrayHandlers
 
-struct ViscoAcousticLocalDataExtend {
-  real sourceMatrix[zeroLengthArrayHandler(kernels::size<tensor::ET>())]{};
-};
-struct ViscoAcousticNeighborDataExtend {};
-
-struct ViscoAcousticLocalDataSplit {
+struct AnelasticLocalData {
   // NOLINTNEXTLINE
   real E[zeroLengthArrayHandler(kernels::size<tensor::E>())]{};
   real w[zeroLengthArrayHandler(kernels::size<tensor::w>())]{};
   // NOLINTNEXTLINE
   real W[zeroLengthArrayHandler(kernels::size<tensor::W>())]{};
 };
-struct ViscoAcousticNeighborDataSplit {
+
+struct AnelasticNeighborData {
   real w[zeroLengthArrayHandler(kernels::size<tensor::w>())]{};
 };
-} // namespace seissol::model
 
-#endif // SEISSOL_SRC_EQUATIONS_VISCOACOUSTIC_MODEL_INTEGRATIONDATA_H_
+} // namespace seissol::kernels::solver::linearckanelastic
+#endif // SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_DATA_H_

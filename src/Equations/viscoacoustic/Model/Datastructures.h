@@ -31,31 +31,21 @@
 #include <variant>
 
 namespace seissol::model {
-struct ViscoAcousticLocalDataSplit;
-struct ViscoAcousticNeighborDataSplit;
-struct ViscoAcousticLocalDataExtend;
-struct ViscoAcousticNeighborDataExtend;
 
 // TODO: unify by solver class
 template <ViscoImplementation Implementation>
 struct ViscoSolverAcoustic {
   using Type = kernels::solver::linearck::Solver;
-  using LocalData = std::monostate;
-  using NeighborData = std::monostate;
 };
 
 template <>
 struct ViscoSolverAcoustic<ViscoImplementation::QuantityExtension> {
   using Type = kernels::solver::linearck::Solver;
-  using LocalData = ViscoAcousticLocalDataExtend;
-  using NeighborData = ViscoAcousticNeighborDataExtend;
 };
 
 template <>
 struct ViscoSolverAcoustic<ViscoImplementation::AnelasticTensor> {
   using Type = kernels::solver::linearckanelastic::Solver;
-  using LocalData = ViscoAcousticLocalDataSplit;
-  using NeighborData = ViscoAcousticNeighborDataSplit;
 };
 
 template <std::size_t MechanismsP>
@@ -76,8 +66,8 @@ struct ViscoAcousticMaterial : public AcousticMaterial {
   static constexpr bool SupportsLTS = true;
   static constexpr bool SupportsEnergy = true;
 
-  using LocalSpecificData = ViscoSolverAcoustic<Config::ViscoMode>::LocalData;
-  using NeighborSpecificData = ViscoSolverAcoustic<Config::ViscoMode>::NeighborData;
+  using LocalSpecificData = std::monostate;
+  using NeighborSpecificData = std::monostate;
 
   using Solver = ViscoSolverAcoustic<Config::ViscoMode>::Type;
 

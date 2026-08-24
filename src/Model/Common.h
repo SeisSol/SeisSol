@@ -139,13 +139,13 @@ void getPlaneWaveOperator(const T& material,
 template <typename T>
 void initializeSpecificLocalData(const T& material,
                                  double timeStepWidth,
-                                 typename T::LocalSpecificData* localData) {
+                                 typename T::Solver::LocalData* localData) {
   MaterialSetup<T>::initializeSpecificLocalData(material, timeStepWidth, localData);
 }
 
 template <typename T>
 void initializeSpecificNeighborData(const T& material,
-                                    typename T::NeighborSpecificData* neighborData) {
+                                    typename T::Solver::NeighborData* neighborData) {
   MaterialSetup<T>::initializeSpecificNeighborData(material, neighborData);
 }
 

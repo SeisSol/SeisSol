@@ -10,6 +10,7 @@
 #include "GeneratedCode/tensor.h"
 
 #include <cstddef>
+#include <variant>
 #include <yateto/InitTools.h>
 
 namespace seissol::numerical {
@@ -18,6 +19,8 @@ class MonomialBasis;
 } // namespace seissol::numerical
 
 namespace seissol::kernels::solver::linearck {
+
+struct LinearLocalData;
 
 class Spacetime;
 class Time;
@@ -35,6 +38,9 @@ struct Solver {
 
   static constexpr std::size_t BuffersSize = tensor::I::size();
   static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ>();
+
+  using LocalData = LinearLocalData;
+  using NeighborData = std::monostate;
 };
 
 } // namespace seissol::kernels::solver::linearck

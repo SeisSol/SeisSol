@@ -11,7 +11,6 @@
 #define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ANISOTROPICSETUP_H_
 
 #include "Datastructures.h"
-#include "Equations/anisotropic/Model/IntegrationData.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
@@ -342,12 +341,14 @@ struct MaterialSetup<AnisotropicMaterial> {
     return rotatedMaterial;
   }
 
-  static void initializeSpecificLocalData(const AnisotropicMaterial& material,
-                                          double timeStepWidth,
-                                          AnisotropicLocalData* localData) {}
+  static void
+      initializeSpecificLocalData(const AnisotropicMaterial& material,
+                                  double timeStepWidth,
+                                  typename AnisotropicMaterial::Solver::LocalData* localData) {}
 
-  static void initializeSpecificNeighborData(const AnisotropicMaterial& material,
-                                             AnisotropicNeighborData* localData) {}
+  static void initializeSpecificNeighborData(
+      const AnisotropicMaterial& material,
+      typename AnisotropicMaterial::Solver::NeighborData* neighborData) {}
 
   static void getPlaneWaveOperator(const AnisotropicMaterial& material,
                                    const double n[3],

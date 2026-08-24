@@ -11,9 +11,6 @@
 #include "Kernels/Precision.h"
 namespace seissol::model {
 
-struct AnisotropicLocalData {};
-struct AnisotropicNeighborData {};
-
 struct AnisotropicEnergyData {
   std::array<real, 36> matS{};
 };

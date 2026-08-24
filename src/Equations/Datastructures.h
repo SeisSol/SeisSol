@@ -15,17 +15,12 @@
 
 // Gather all datastructure Headers here
 #include "Equations/acoustic/Model/Datastructures.h"
-#include "Equations/acoustic/Model/IntegrationData.h"
 #include "Equations/anisotropic/Model/Datastructures.h"
 #include "Equations/anisotropic/Model/IntegrationData.h"
 #include "Equations/elastic/Model/Datastructures.h"
-#include "Equations/elastic/Model/IntegrationData.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
-#include "Equations/poroelastic/Model/IntegrationData.h"
 #include "Equations/viscoacoustic/Model/Datastructures.h"
-#include "Equations/viscoacoustic/Model/IntegrationData.h"
 #include "Equations/viscoelastic/Model/Datastructures.h"
-#include "Equations/viscoelastic/Model/IntegrationData.h"
 
 // IWYU pragma: end_exports
 

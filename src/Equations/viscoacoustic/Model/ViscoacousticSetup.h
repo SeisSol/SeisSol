@@ -11,7 +11,6 @@
 #define SEISSOL_SRC_EQUATIONS_VISCOACOUSTIC_MODEL_VISCOACOUSTICSETUP_H_
 
 #include "Equations/viscoacoustic/Model/Datastructures.h"
-#include "Equations/viscoacoustic/Model/IntegrationData.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
@@ -94,13 +93,13 @@ struct MaterialSetup<ViscoAcousticMaterial<N>,
 
   static void initializeSpecificLocalData(const MaterialT& material,
                                           double /*timeStepWidth*/,
-                                          typename MaterialT::LocalSpecificData* localData) {
+                                          typename MaterialT::Solver::LocalData* localData) {
     auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
     getTransposedSourceCoefficientTensor(material, sourceMatrix);
   }
 
   static void initializeSpecificNeighborData(const MaterialT& material,
-                                             typename MaterialT::NeighborSpecificData* localData) {}
+                                             typename MaterialT::Solver::NeighborData* localData) {}
 
   static void getFaceRotationMatrix(const VrtxCoords normal,
                                     const VrtxCoords tangent1,
@@ -243,7 +242,7 @@ struct MaterialSetup<ViscoAcousticMaterial<N>,
 
   static void initializeSpecificLocalData(const MaterialT& material,
                                           double timeStepWidth,
-                                          typename MaterialT::LocalSpecificData* localData) {
+                                          typename MaterialT::Solver::LocalData* localData) {
     auto E = init::E::view::create(localData->E);
     E.setZero();
     getTransposedSourceCoefficientTensor(material, E);
@@ -259,7 +258,7 @@ struct MaterialSetup<ViscoAcousticMaterial<N>,
 
   static void
       initializeSpecificNeighborData(const MaterialT& localMaterial,
-                                     typename MaterialT::NeighborSpecificData* neighborData) {
+                                     typename MaterialT::Solver::NeighborData* neighborData) {
     // We only need the local omegas
     auto w = init::w::view::create(neighborData->w);
     for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {

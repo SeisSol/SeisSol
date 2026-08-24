@@ -9,6 +9,7 @@
 
 #include "Config.h"
 #include "Equations/Datastructures.h"
+#include "Kernels/Data.h"
 #include "Kernels/LinearCK/Solver.h"
 #include "Kernels/LinearCKAnelastic/Solver.h"
 #include "Kernels/Precision.h"

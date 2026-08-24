@@ -12,7 +12,6 @@
 #define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_
 
 #include "Equations/acoustic/Model/Datastructures.h"
-#include "Equations/acoustic/Model/IntegrationData.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
@@ -131,10 +130,12 @@ struct MaterialSetup<AcousticMaterial> {
   }
   static void initializeSpecificLocalData(const AcousticMaterial& material,
                                           double timeStepWidth,
-                                          AcousticLocalData* localData) {}
+                                          typename AcousticMaterial::Solver::LocalData* localData) {
+  }
 
-  static void initializeSpecificNeighborData(const AcousticMaterial& material,
-                                             AcousticNeighborData* localData) {}
+  static void initializeSpecificNeighborData(
+      const AcousticMaterial& material,
+      typename AcousticMaterial::Solver::NeighborData* neighborData) {}
 
   static void getPlaneWaveOperator(const AcousticMaterial& material,
                                    const double n[3],
