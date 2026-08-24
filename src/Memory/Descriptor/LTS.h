@@ -97,9 +97,7 @@ struct LTS {
   struct Dofs : public initializer::Variable<real[tensor::Q::size()]> {};
   struct DofsHalo : public initializer::Variable<real[tensor::Q::size()]> {};
   // size is zero if Qane is not defined
-  struct DofsAne
-      : public initializer::Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> {
-  };
+  struct DofsAne : public initializer::Variable<real[zeroGuard(kernels::size<tensor::Qane>())]> {};
   struct Buffers : public initializer::Variable<real*> {};
   struct Derivatives : public initializer::Variable<real*> {};
   struct CellInformation : public initializer::Variable<CellLocalInformation> {};

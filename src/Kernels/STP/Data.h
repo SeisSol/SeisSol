@@ -18,10 +18,10 @@ struct Zinv;
 } // namespace seissol::tensor
 
 namespace seissol::kernels::solver::stp {
-// TODO: remove zeroLengthArrayHandler when only initialized where relevant
+// TODO: remove zeroGuard when only initialized where relevant
 
 struct STPLocalData {
-  real sourceMatrix[zeroLengthArrayHandler(kernels::size<tensor::ET>())]{};
+  real sourceMatrix[zeroGuard(kernels::size<tensor::ET>())]{};
 
   // currently hard-coded to poroelasticity
   // NOLINTNEXTLINE
@@ -29,7 +29,7 @@ struct STPLocalData {
 
   // currently hard-coded to poroelasticity
   // NOLINTNEXTLINE
-  real Zinv[zeroLengthArrayHandler(kernels::familySize<tensor::Zinv>())]{};
+  real Zinv[zeroGuard(kernels::familySize<tensor::Zinv>())]{};
 
   // preferrably double; will be compared closely against the "default" timestep width almost all
   // the time

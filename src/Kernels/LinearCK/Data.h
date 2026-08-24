@@ -17,10 +17,10 @@ struct ET;
 } // namespace seissol::tensor
 
 namespace seissol::kernels::solver::linearck {
-// TODO: remove zeroLengthArrayHandler when only initialized where relevant
+// TODO: remove zeroGuard when only initialized where relevant
 
 struct LinearLocalData {
-  real sourceMatrix[zeroLengthArrayHandler(kernels::size<tensor::ET>())]{};
+  real sourceMatrix[zeroGuard(kernels::size<tensor::ET>())]{};
 };
 
 } // namespace seissol::kernels::solver::linearck

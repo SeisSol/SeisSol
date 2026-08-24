@@ -212,8 +212,8 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
     // volumetric and deviatoric parts:
     //   tr  sigma_r = tr sigma  - sum_m 3 dK_m  tr vartheta^(m)  / omega_m
     //   dev sigma_r = dev sigma - sum_m 2 dMu_m dev vartheta^(m) / omega_m
-    std::array<double, zeroLengthArrayHandler(Mechanisms)> volFactor{};
-    std::array<double, zeroLengthArrayHandler(Mechanisms)> devFactor{};
+    std::array<double, zeroGuard(Mechanisms)> volFactor{};
+    std::array<double, zeroGuard(Mechanisms)> devFactor{};
     for (std::size_t m = 0; m < Mechanisms; ++m) {
       const auto inverseOmega = 1.0 / material.omega[m];
       volFactor[m] = 3.0 * material.getDeltaBulk(m) * inverseOmega;

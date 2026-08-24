@@ -74,11 +74,11 @@ struct ViscoAcousticMaterial : public AcousticMaterial {
   using EnergyData = std::monostate;
 
   //! Relaxation frequencies
-  double omega[zeroLengthArrayHandler(Mechanisms)]{};
+  double omega[zeroGuard(Mechanisms)]{};
   /** Entries of the source matrix (E)
    * theta[0] = -lambda * Y_lambda
    **/
-  double theta[zeroLengthArrayHandler(Mechanisms)][1]{};
+  double theta[zeroGuard(Mechanisms)][1]{};
   double qp{};
 
   static const std::unordered_map<std::string, double ViscoAcousticMaterial::*> ParameterMap;

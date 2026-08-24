@@ -73,13 +73,13 @@ struct ViscoElasticMaterial : public ElasticMaterial {
   using EnergyData = std::monostate;
 
   //! Relaxation frequencies
-  double omega[zeroLengthArrayHandler(Mechanisms)]{};
+  double omega[zeroGuard(Mechanisms)]{};
   /** Entries of the source matrix (E)
    * theta[0] = -(lambda * Y_lambda + 2.0 * mu * Y_mu)
    * theta[1] = -lambda * Y_lambda
    * theta[2] = -2.0 * mu * Y_mu
    **/
-  double theta[zeroLengthArrayHandler(Mechanisms)][3]{};
+  double theta[zeroGuard(Mechanisms)][3]{};
   double qp{};
   double qs{};
 

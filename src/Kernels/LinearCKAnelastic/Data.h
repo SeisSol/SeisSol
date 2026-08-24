@@ -23,18 +23,18 @@ struct W;
 
 namespace seissol::kernels::solver::linearckanelastic {
 
-// TODO: maybe at some point remove the zeroLengthArrayHandlers
+// TODO: maybe at some point remove the zeroGuards
 
 struct AnelasticLocalData {
   // NOLINTNEXTLINE
-  real E[zeroLengthArrayHandler(kernels::size<tensor::E>())]{};
-  real w[zeroLengthArrayHandler(kernels::size<tensor::w>())]{};
+  real E[zeroGuard(kernels::size<tensor::E>())]{};
+  real w[zeroGuard(kernels::size<tensor::w>())]{};
   // NOLINTNEXTLINE
-  real W[zeroLengthArrayHandler(kernels::size<tensor::W>())]{};
+  real W[zeroGuard(kernels::size<tensor::W>())]{};
 };
 
 struct AnelasticNeighborData {
-  real w[zeroLengthArrayHandler(kernels::size<tensor::w>())]{};
+  real w[zeroGuard(kernels::size<tensor::w>())]{};
 };
 
 } // namespace seissol::kernels::solver::linearckanelastic
