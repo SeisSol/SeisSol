@@ -8,7 +8,7 @@
 #include "Time.h"
 
 #include "Common/Marker.h"
-#include "Equations/poroelastic/Model/PoroelasticSetup.h"
+#include "Equations/poroelastic/Model/Helper.h"
 #include "Kernels/Common.h"
 #include "Kernels/MemoryOps.h"
 #include "Monitoring/Metric.h"

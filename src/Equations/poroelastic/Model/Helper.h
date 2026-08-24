@@ -8,7 +8,7 @@
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_HELPER_H_
 
 #include "Equations/EnergyBase.h"
-#include "Equations/elastic/Model/ElasticSetup.h"
+#include "Equations/elastic/Model/Setup.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"

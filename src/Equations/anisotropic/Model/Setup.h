@@ -7,8 +7,8 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Wolf
 
-#ifndef SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ANISOTROPICSETUP_H_
-#define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ANISOTROPICSETUP_H_
+#ifndef SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_SETUP_H_
+#define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_SETUP_H_
 
 #include "Datastructures.h"
 #include "GeneratedCode/init.h"
@@ -372,4 +372,4 @@ struct MaterialSetup<AnisotropicMaterial> {
 
 } // namespace seissol::model
 
-#endif // SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ANISOTROPICSETUP_H_
+#endif // SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_SETUP_H_

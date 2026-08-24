@@ -11,12 +11,12 @@
 // IWYU pragma: begin_exports
 
 // Gather all Setup Headers here
-#include "Equations/acoustic/Model/AcousticSetup.h"
-#include "Equations/anisotropic/Model/AnisotropicSetup.h"
-#include "Equations/elastic/Model/ElasticSetup.h"
-#include "Equations/poroelastic/Model/PoroelasticSetup.h"
-#include "Equations/viscoacoustic/Model/ViscoacousticSetup.h"
-#include "Equations/viscoelastic/Model/ViscoelasticSetup.h"
+#include "Equations/acoustic/Model/Setup.h"
+#include "Equations/anisotropic/Model/Setup.h"
+#include "Equations/elastic/Model/Setup.h"
+#include "Equations/poroelastic/Model/Setup.h"
+#include "Equations/viscoacoustic/Model/Setup.h"
+#include "Equations/viscoelastic/Model/Setup.h"
 
 // IWYU pragma: end_exports
 

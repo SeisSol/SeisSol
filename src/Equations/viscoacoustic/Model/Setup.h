@@ -7,8 +7,8 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Wolf
 
-#ifndef SEISSOL_SRC_EQUATIONS_VISCOACOUSTIC_MODEL_VISCOACOUSTICSETUP_H_
-#define SEISSOL_SRC_EQUATIONS_VISCOACOUSTIC_MODEL_VISCOACOUSTICSETUP_H_
+#ifndef SEISSOL_SRC_EQUATIONS_VISCOACOUSTIC_MODEL_SETUP_H_
+#define SEISSOL_SRC_EQUATIONS_VISCOACOUSTIC_MODEL_SETUP_H_
 
 #include "Equations/viscoacoustic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
@@ -286,4 +286,4 @@ struct MaterialSetup<ViscoAcousticMaterial<N>,
 
 } // namespace seissol::model
 
-#endif // SEISSOL_SRC_EQUATIONS_VISCOACOUSTIC_MODEL_VISCOACOUSTICSETUP_H_
+#endif // SEISSOL_SRC_EQUATIONS_VISCOACOUSTIC_MODEL_SETUP_H_

@@ -7,8 +7,8 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Wolf
 
-#ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_VISCOELASTICSETUP_H_
-#define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_VISCOELASTICSETUP_H_
+#ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_SETUP_H_
+#define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_SETUP_H_
 
 #include "Equations/viscoelastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
@@ -336,4 +336,4 @@ struct MaterialSetup<ViscoElasticMaterial<N>,
 
 } // namespace seissol::model
 
-#endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_VISCOELASTICSETUP_H_
+#endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_SETUP_H_

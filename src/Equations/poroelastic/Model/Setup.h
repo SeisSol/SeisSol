@@ -5,10 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_POROELASTICSETUP_H_
-#define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_POROELASTICSETUP_H_
+#ifndef SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_SETUP_H_
+#define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_SETUP_H_
 
-#include "Equations/elastic/Model/ElasticSetup.h"
+#include "Equations/elastic/Model/Setup.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/poroelastic/Model/Helper.h"
 #include "GeneratedCode/init.h"
@@ -321,4 +321,4 @@ struct MaterialSetup<PoroElasticMaterial> {
 
 } // namespace seissol::model
 
-#endif // SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_POROELASTICSETUP_H_
+#endif // SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_SETUP_H_

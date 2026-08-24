@@ -7,8 +7,8 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Wolf
 
-#ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_ELASTICSETUP_H_
-#define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_ELASTICSETUP_H_
+#ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_SETUP_H_
+#define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_SETUP_H_
 
 #include "Equations/elastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
@@ -224,4 +224,4 @@ struct MaterialSetup<ElasticMaterial> {
 
 } // namespace seissol::model
 
-#endif // SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_ELASTICSETUP_H_
+#endif // SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_SETUP_H_

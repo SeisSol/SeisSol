@@ -8,8 +8,8 @@
 // SPDX-FileContributor: Sebastian Wolf
 // SPDX-FileContributor: Jinwen Pan
 
-#ifndef SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_
-#define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_
+#ifndef SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_SETUP_H_
+#define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_SETUP_H_
 
 #include "Equations/acoustic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
@@ -167,4 +167,4 @@ struct MaterialSetup<AcousticMaterial> {
 };
 } // namespace seissol::model
 
-#endif // SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_
+#endif // SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_SETUP_H_
