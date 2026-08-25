@@ -12,4 +12,5 @@
 #include "Expr.t.h"
 #include "Interp.t.h"
 #include "RtcCpu.t.h"
+#include "RtcGpu.t.h"
 #include "SderivFrontend.t.h"

@@ -8,6 +8,7 @@
 
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
+#include "Expr/Codegen.h"
 #include "Expr/Interp.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
@@ -42,92 +43,27 @@ namespace {
 
 using reader::scripting::DataTable;
 
-// --- expression text --------------------------------------------------------
-
-// The arithmetic, taken from the table applyPw evaluates. One source of truth:
-// a Fn added to Interp.h appears here without a second edit, and the two cannot
-// disagree about what it computes.
-const char* pwExpression(Fn fn) {
-  switch (fn) {
-#define SEISSOL_EXPR_PW_TEXT_UNARY(NAME, EXPR)                                                     \
-  case Fn::NAME:                                                                                   \
-    return #EXPR;
-#define SEISSOL_EXPR_PW_TEXT_BINARY(NAME, EXPR)                                                    \
-  case Fn::NAME:                                                                                   \
-    return #EXPR;
-#define SEISSOL_EXPR_PW_TEXT_TERNARY(NAME, EXPR)                                                   \
-  case Fn::NAME:                                                                                   \
-    return #EXPR;
-    SEISSOL_EXPR_PW_LIST(
-        SEISSOL_EXPR_PW_TEXT_UNARY, SEISSOL_EXPR_PW_TEXT_BINARY, SEISSOL_EXPR_PW_TEXT_TERNARY)
-#undef SEISSOL_EXPR_PW_TEXT_UNARY
-#undef SEISSOL_EXPR_PW_TEXT_BINARY
-#undef SEISSOL_EXPR_PW_TEXT_TERNARY
-  }
-  return nullptr;
+// The CPU kernel works on a gathered tile, so its addressing is tile-relative.
+// The arithmetic in between is emitted by codegen::emitStageBody and is the
+// same text the GPU backends get.
+std::string cpuLoadInput(std::int32_t index) {
+  return "inputTile[" + std::to_string(index) + "ul * count + l]";
 }
-
-bool identifierChar(char c) {
-  return (std::isalnum(static_cast<unsigned char>(c)) != 0) || c == '_';
+std::string cpuLoadPersistent(std::int32_t slot) {
+  return "persistent[" + std::to_string(slot) + "ul * numPoints + first + l]";
 }
-
-// Substitute the placeholders x, y, z and T as whole IDENTIFIERS.
-//
-// Not a plain string replace, and the reason is worth stating: `std::exp(x)`
-// contains an `x` inside `exp`. A naive replace of "x" turns that into
-// `std::e<operand>p(<operand>)`, which still compiles for some operand names
-// and computes nonsense. Every substitution here is token-boundary aware.
-std::string substitute(const std::string& text,
-                       const std::string& x,
-                       const std::string& y,
-                       const std::string& z,
-                       const std::string& computeType) {
-  std::string out;
-  out.reserve(text.size() * 2);
-  std::size_t i = 0;
-  while (i < text.size()) {
-    if (!identifierChar(text[i])) {
-      out.push_back(text[i]);
-      ++i;
-      continue;
-    }
-    const std::size_t begin = i;
-    while (i < text.size() && identifierChar(text[i])) {
-      ++i;
-    }
-    const std::string token = text.substr(begin, i - begin);
-    if (token == "x") {
-      out += x;
-    } else if (token == "y") {
-      out += y;
-    } else if (token == "z") {
-      out += z;
-    } else if (token == "T") {
-      out += computeType;
-    } else {
-      out += token;
-    }
-  }
-  return out;
+std::string cpuStoreOutput(std::int32_t index) {
+  return "outputTile[" + std::to_string(index) + "ul * count + l]";
 }
-
-std::string slotName(std::int32_t slot) { return "s" + std::to_string(slot); }
-
-// Enough digits to round-trip an IEEE double, so a Const in the emitted source
-// is the same bit pattern the interpreter materialises. %.17g rather than
-// std::to_string, which truncates at six decimals and would quietly change the
-// program.
-std::string literal(double value, const char* computeType) {
-  std::array<char, 40> buffer{};
-  std::snprintf(buffer.data(), buffer.size(), "%.17g", value);
-  return std::string(computeType) + "(" + buffer.data() + ")";
+std::string cpuStorePersistent(std::int32_t slot) {
+  return "persistent[" + std::to_string(slot) + "ul * numPoints + first + l]";
 }
 
 void emitStage(std::ostringstream& out,
                const char* name,
                const StageCode& stage,
                const std::vector<std::int32_t>& operands,
-               const char* computeType) {
+               const std::string& computeType) {
   out << "extern \"C\" void " << name << "(const " << computeType << "* __restrict inputTile,\n"
       << "                                 " << computeType << "* __restrict outputTile,\n"
       << "                                 " << computeType << "* __restrict persistent,\n"
@@ -140,52 +76,15 @@ void emitStage(std::ostringstream& out,
     return;
   }
 
-  // One lane loop. Every transient is a local, not a slot in a scratch array --
-  // that is what the interpreter cannot do and what lets this vectorise.
+  codegen::StageAddressing addressing;
+  addressing.loadInput = cpuLoadInput;
+  addressing.loadPersistent = cpuLoadPersistent;
+  addressing.storeOutput = cpuStoreOutput;
+  addressing.storePersistent = cpuStorePersistent;
+
   out << "  for (unsigned long l = 0; l < count; ++l) {\n";
-  for (std::int32_t slot = 0; slot < stage.slotCount; ++slot) {
-    out << "    " << computeType << " " << slotName(slot) << " = " << computeType << "(0);\n";
-  }
-  out << "    (void)0;\n";
-
-  for (const Instruction& inst : stage.code) {
-    const std::string dst = slotName(inst.dst);
-    switch (inst.op) {
-    case Opcode::Const:
-      out << "    " << dst << " = " << literal(inst.value, computeType) << ";\n";
-      break;
-    case Opcode::LoadInput:
-      out << "    " << dst << " = inputTile[" << inst.imm << "ul * count + l];\n";
-      break;
-    case Opcode::LoadPersistent:
-      out << "    " << dst << " = persistent[" << inst.imm << "ul * numPoints + first + l];\n";
-      break;
-    case Opcode::Pw: {
-      const std::string a0 = slotName(operands[inst.operandBegin]);
-      // Unary and binary ops never read y/z, but the interpreter aliases them
-      // onto a0, so mirroring that keeps the emitted text well formed for every
-      // arity without a special case per arity.
-      const std::string a1 = inst.operandCount > 1 ? slotName(operands[inst.operandBegin + 1]) : a0;
-      const std::string a2 = inst.operandCount > 2 ? slotName(operands[inst.operandBegin + 2]) : a0;
-      out << "    " << dst << " = " << substitute(pwExpression(inst.fn), a0, a1, a2, computeType)
-          << ";\n";
-      break;
-    }
-    case Opcode::Lookup:
-      // cpuCompilable() rejects these before we get here.
-      out << "    #error \"lookup reached the CPU code generator\"\n";
-      break;
-    }
-  }
-
-  for (const Store& store : stage.outputs) {
-    out << "    outputTile[" << store.target << "ul * count + l] = " << slotName(store.source)
-        << ";\n";
-  }
-  for (const Store& store : stage.persistent) {
-    out << "    persistent[" << store.target
-        << "ul * numPoints + first + l] = " << slotName(store.source) << ";\n";
-  }
+  codegen::emitStageBody(
+      out, stage, operands, computeType, codegen::MathStyle::Namespaced, addressing, "    ");
   out << "  }\n}\n\n";
 }
 
@@ -481,19 +380,10 @@ std::string defaultFlags(const BackendOptions& options) {
 
 } // namespace
 
-bool cpuCompilable(const LoweredProgram& lowered) {
-  for (const auto* stage : {&lowered.precompute(), &lowered.run()}) {
-    for (const Instruction& inst : stage->code) {
-      if (inst.op == Opcode::Lookup) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
+bool cpuCompilable(const LoweredProgram& lowered) { return !codegen::containsLookup(lowered); }
 
 std::string emitCpuSource(const Program& program, const LoweredProgram& lowered) {
-  const char* computeType = program.computeType() == ComputeType::F32 ? "float" : "double";
+  const std::string computeType = program.computeType() == ComputeType::F32 ? "float" : "double";
 
   std::ostringstream out;
   out << "// Generated by seissol::expr for program fingerprint 0x" << std::hex

@@ -10,7 +10,9 @@ add_library(seissol-expr OBJECT
     Program.cpp
     Binding.cpp
     Backend.cpp
+    Codegen.cpp
     RtcCpu.cpp
+    RtcGpu.cpp
     Validate.cpp
     Lower.cpp
     Interp.cpp
