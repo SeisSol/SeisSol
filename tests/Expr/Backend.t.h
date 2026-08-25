@@ -285,7 +285,10 @@ TEST_SUITE("ExprBackend") {
     Binding binding = Binding::bind(program, table);
     df::GridStore store;
     BackendOptions options;
-    options.preferred = BackendKind::RtcCpu;
+    // RtcCpu is implemented since Package 5, so the case now uses one that is
+    // not. The property under test is the fallback, not which backend is
+    // missing this week.
+    options.preferred = BackendKind::RtcCuda;
     options.allowFallback = true;
 
     const auto kernel = makeKernel(program, binding, store, options);

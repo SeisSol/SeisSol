@@ -227,15 +227,26 @@ const std::unordered_map<std::string, double> Constants = {{"pi", M_PI}, {"g", 9
 
 // Spelled exactly as the Lua-side ssol.* names, so a model transliterates.
 const std::unordered_map<std::string, Fn> Builtins = {
-    {"sqrt", Fn::Sqrt},    {"abs", Fn::Abs},     {"exp", Fn::Exp},     {"log", Fn::Log},
-    {"log2", Fn::Log2},    {"log10", Fn::Log10}, {"sign", Fn::Sign},   {"floor", Fn::Floor},
-    {"ceil", Fn::Ceil},    {"round", Fn::Round}, {"sin", Fn::Sin},     {"cos", Fn::Cos},
-    {"tan", Fn::Tan},      {"asin", Fn::Asin},   {"acos", Fn::Acos},   {"sinh", Fn::Sinh},
-    {"cosh", Fn::Cosh},    {"tanh", Fn::Tanh},   {"asinh", Fn::Asinh}, {"acosh", Fn::Acosh},
-    {"atanh", Fn::Atanh},  {"erf", Fn::Erf},     {"min", Fn::Min},     {"max", Fn::Max},
-    {"pow", Fn::Pow},      {"atan2", Fn::Atan2}, {"mod", Fn::Mod},     {"lt", Fn::Lt},
-    {"le", Fn::Le},        {"eq", Fn::Eq},       {"land", Fn::And},    {"lor", Fn::Or},
-    {"select", Fn::Select}};
+    {"sqrt", Fn::Sqrt},   {"abs", Fn::Abs},      {"exp", Fn::Exp},     {"log", Fn::Log},
+    {"log2", Fn::Log2},   {"log10", Fn::Log10},  {"sign", Fn::Sign},   {"floor", Fn::Floor},
+    {"ceil", Fn::Ceil},   {"round", Fn::Round},  {"sin", Fn::Sin},     {"cos", Fn::Cos},
+    {"tan", Fn::Tan},     {"asin", Fn::Asin},    {"acos", Fn::Acos},   {"sinh", Fn::Sinh},
+    {"cosh", Fn::Cosh},   {"tanh", Fn::Tanh},    {"asinh", Fn::Asinh}, {"acosh", Fn::Acosh},
+    {"atanh", Fn::Atanh}, {"erf", Fn::Erf},      {"min", Fn::Min},     {"max", Fn::Max},
+    {"pow", Fn::Pow},     {"atan2", Fn::Atan2},  {"mod", Fn::Mod},     {"lt", Fn::Lt},
+    {"le", Fn::Le},       {"eq", Fn::Eq},        {"land", Fn::And},    {"lor", Fn::Or},
+    {"atan", Fn::Atan},   {"select", Fn::Select}};
+
+// ADDED (reported, Package 5). The header promises that these names are spelled
+// exactly as the Lua-side ssol.* ones so a model transliterates, but `gt`, `ge`
+// and `lnot` were missing -- the three the Lua tracer builds by rewriting rather
+// than by naming an Fn. They are rewrites here too, for the same reason: the IR
+// has Lt and Le and no Gt or Ge, because a > b IS b < a and a second node kind
+// would be a second thing for every consumer to handle.
+//
+// `atan` was missing outright, although Fn::Atan exists and the interpreter
+// implements it.
+const std::unordered_map<std::string, Fn> SwappedComparisons = {{"gt", Fn::Lt}, {"ge", Fn::Le}};
 
 // The grid vocabularies are closed, so a swapped file/interpolation pair fails
 // at parse time rather than at grid-load time on one rank of a large job. They
@@ -720,6 +731,27 @@ class Lowering {
         }
         const NodeId one = program_.arena().konst(1.0);
         return program_.arena().pw(Fn::Sub, one, lower(node.args[0], env));
+      }
+
+      // a > b is b < a. Rewritten here rather than given its own Fn, so every
+      // consumer of the IR keeps one comparison shape to handle.
+      if (const auto swapped = SwappedComparisons.find(node.text);
+          swapped != SwappedComparisons.end()) {
+        if (node.args.size() != 2) {
+          fail(node,
+               "`" + node.text + "` takes 2 arguments, got " + std::to_string(node.args.size()));
+        }
+        return program_.arena().pw(
+            swapped->second, lower(node.args[1], env), lower(node.args[0], env));
+      }
+      // A condition is 0.0 or 1.0, so negation is 1 - c. Same rewrite the Lua
+      // tracer performs, and it keeps conditions in the arithmetic domain
+      // rather than introducing a boolean one.
+      if (node.text == "lnot") {
+        if (node.args.size() != 1) {
+          fail(node, "`lnot` takes 1 argument, got " + std::to_string(node.args.size()));
+        }
+        return program_.arena().pw(Fn::Sub, program_.arena().konst(1.0), lower(node.args[0], env));
       }
 
       const auto builtin = Builtins.find(node.text);

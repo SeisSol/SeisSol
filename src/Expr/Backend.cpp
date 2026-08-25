@@ -10,6 +10,7 @@
 #include "Expr/Interp.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
+#include "Expr/RtcCpu.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
 #include "utils/logger.h"
@@ -329,7 +330,22 @@ std::unique_ptr<Kernel> makeKernel(const Program& program,
   switch (options.preferred) {
   case BackendKind::Interpreter:
     return makeInterpreter(program, binding, grids, options);
-  case BackendKind::RtcCpu:
+  case BackendKind::RtcCpu: {
+    // The grids have to be interned before the kernel exists either way, and a
+    // compiled program that turns out to sample one falls through to the
+    // interpreter below rather than failing.
+    LoweredProgram lowered = lower(program, options.lowering);
+    auto kernel = makeRtcCpuKernel(program, binding, std::move(lowered), options);
+    if (kernel != nullptr) {
+      internGrids(program, grids);
+      return kernel;
+    }
+    if (!options.allowFallback) {
+      logError() << "expr: the compiled CPU backend is unusable and fallback was disabled.";
+      return nullptr;
+    }
+    return makeInterpreter(program, binding, grids, options);
+  }
   case BackendKind::RtcCuda:
   case BackendKind::RtcHip:
     // Package 5. Not a stub that pretends: with allowFallback the caller gets a

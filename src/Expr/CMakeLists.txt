@@ -10,6 +10,7 @@ add_library(seissol-expr OBJECT
     Program.cpp
     Binding.cpp
     Backend.cpp
+    RtcCpu.cpp
     Validate.cpp
     Lower.cpp
     Interp.cpp
@@ -17,4 +18,9 @@ add_library(seissol-expr OBJECT
 )
 
 target_link_libraries(seissol-expr PUBLIC seissol-common-properties)
+
+# The compiled CPU backend loads its artifact with dlopen. It degrades to the
+# interpreter at run time when the toolchain is unusable, so this is the only
+# build-time requirement it has.
+target_link_libraries(seissol-expr PUBLIC ${CMAKE_DL_LIBS})
 target_link_libraries(seissol-lib PUBLIC seissol-expr)
