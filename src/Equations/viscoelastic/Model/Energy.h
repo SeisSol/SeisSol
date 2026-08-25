@@ -26,8 +26,12 @@ template <std::size_t Mechanisms>
 struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
   using ViscoMaterial = ViscoElasticMaterial<Mechanisms>;
 
-  static constexpr auto Energies =
-      detail::concat(MomentumEnergies, AcousticEnergies, ElasticEnergies, ViscoelasticEnergies);
+  static constexpr auto Energies = detail::concat(MomentumEnergies,
+                                                  AcousticEnergies,
+                                                  ElasticEnergies,
+                                                  ViscoacousticEnergies,
+                                                  ViscoelasticEnergies,
+                                                  ViscoEnergies);
   static constexpr std::size_t EnergyCount = Energies.size();
   static_assert(detail::descriptorsWellFormed(Energies),
                 "energy descriptors must be named, unique, and grouped consistently");
@@ -41,6 +45,7 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
   static constexpr auto ElasticEnergyIdx = detail::indexOf(Energies, "elastic_energy");
   static constexpr auto ElasticKineticIdx = detail::indexOf(Energies, "elastic_kinetic_energy");
   static constexpr auto ViscoelasticEnergyIdx = detail::indexOf(Energies, "viscoelastic_energy");
+  static constexpr auto ViscoacousticEnergyIdx = detail::indexOf(Energies, "viscoacoustic_energy");
   static constexpr auto ViscousDissipationIdx =
       detail::indexOf(Energies, "viscous_dissipation_rate");
   static_assert(MomentumXIdx < EnergyCount, "MomentumX missing from the descriptor list");
@@ -53,6 +58,8 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
   static_assert(ElasticKineticIdx < EnergyCount, "ElasticKinetic missing from the descriptor list");
   static_assert(ViscoelasticEnergyIdx < EnergyCount,
                 "ViscoelasticEnergy missing from the descriptor list");
+  static_assert(ViscoacousticEnergyIdx < EnergyCount,
+                "ViscoacousticEnergy missing from the descriptor list");
   static_assert(ViscousDissipationIdx < EnergyCount,
                 "ViscousDissipation missing from the descriptor list");
 
@@ -260,18 +267,19 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
       dissipationRate += material.omega[m] * quadratic;
     }
 
-    output[ViscoelasticEnergyIdx] = branchEnergy;
     output[ViscousDissipationIdx] = dissipationRate;
 
     if (acoustic) {
       // No shear branch survives (dMu_m = mu_u * beta_m vanishes with mu_u), so
       // only the volumetric part contributes.
       const auto bulkRelaxed = material.getBulkRelaxed();
+      output[ViscoacousticEnergyIdx] = branchEnergy;
       output[AcousticEnergyIdx] = traceSigmaRSq / (18.0 * bulkRelaxed);
       output[AcousticKineticIdx] = curKineticEnergy;
     } else {
       const auto bulkRelaxed = material.getBulkRelaxed();
       const auto muRelaxed = material.getMuRelaxed();
+      output[ViscoelasticEnergyIdx] = branchEnergy;
       output[ElasticEnergyIdx] =
           traceSigmaRSq / (18.0 * bulkRelaxed) + devSigmaRSq / (4.0 * muRelaxed);
       output[ElasticKineticIdx] = curKineticEnergy;

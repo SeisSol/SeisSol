@@ -116,7 +116,7 @@ jobs:
       - id: build
         name: build-seissol
         run: |
-          if [ "${{ matrix.equation.type }}" = viscoelastic ] || [ "${{ matrix.equation.type }}" = poroelastic ] || [ "${{ matrix.equation.multisim }}" != 1 ]; then
+          if [ "${{ matrix.equation.type }}" = viscoelastic ] || [ "${{ matrix.equation.type }}" = viscoacoustic ] || [ "${{ matrix.equation.type }}" = poroelastic ] || [ "${{ matrix.equation.multisim }}" != 1 ]; then
               if [ "${{ matrix.setup.pythonbreak }}" = false ]; then
                   # the Intel image still works with an older Python version. Hence, use the following hack.
                   pip3 install pyyaml

@@ -65,10 +65,12 @@ struct ViscoElasticMaterial : public ElasticMaterial {
   static constexpr bool SupportsLTS = true;
   static constexpr bool SupportsEnergy = true;
 
+  static constexpr ViscoImplementation ViscoMode = Config::ViscoMode;
+
   using LocalSpecificData = std::monostate;
   using NeighborSpecificData = std::monostate;
 
-  using Solver = ViscoSolver<Config::ViscoMode>::Type;
+  using Solver = ViscoSolver<ViscoMode>::Type;
 
   using EnergyData = std::monostate;
 

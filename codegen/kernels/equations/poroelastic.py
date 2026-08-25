@@ -27,7 +27,9 @@ class PoroelasticADERDG(STP):
         **kwargs,
     ):
 
-        super().__init__(order, multipleSimulations, matricesDir)
+        super().__init__(
+            order, multipleSimulations, matricesDir, memLayout, numMechanisms
+        )
         clones = {
             "star": ["star(0)", "star(1)", "star(2)"],
         }

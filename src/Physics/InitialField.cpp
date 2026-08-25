@@ -52,7 +52,8 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          Eigen::Vector3d kVec)
     : phase_(phase), kVec_(std::move(kVec)) {
 
-  if constexpr (model::MaterialT::Type == model::MaterialType::Acoustic) {
+  if constexpr (model::MaterialT::Type == model::MaterialType::Acoustic ||
+                model::MaterialT::Type == model::MaterialType::Viscoacoustic) {
     // Acoustic materials has the following wave modes:
     // P, N, N, -P
     // Here we impose the P mode

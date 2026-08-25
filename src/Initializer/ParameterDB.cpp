@@ -542,7 +542,9 @@ struct MaterialAverager<ViscoElasticMaterial<Mechanisms>> {
     }
 
     const auto base = MaterialAverager<ElasticMaterial>::computeAveragedMaterial(
-        elementIdx, quadratureWeights, [materialsFromQuery](std::size_t index) {
+        elementIdx,
+        quadratureWeights,
+        [materialsFromQuery](std::size_t index) -> const ElasticMaterial& {
           return materialsFromQuery(index);
         });
 
@@ -572,7 +574,9 @@ struct MaterialAverager<ViscoAcousticMaterial<Mechanisms>> {
     }
 
     const auto base = MaterialAverager<AcousticMaterial>::computeAveragedMaterial(
-        elementIdx, quadratureWeights, [materialsFromQuery](std::size_t index) {
+        elementIdx,
+        quadratureWeights,
+        [materialsFromQuery](std::size_t index) -> const AcousticMaterial& {
           return materialsFromQuery(index);
         });
 

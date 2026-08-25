@@ -7,7 +7,6 @@
 # SPDX-FileContributor: Carsten Uphoff
 # SPDX-FileContributor: Sebastian Wolf
 
-import kernels.equations.acoustic as acoustic
 import numpy as np
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor
@@ -37,7 +36,7 @@ def addKernels(generator, aderdg):
 
     # extract the moment tensors entries in SeisSol ordering
     # i.e.: (xx, yy, zz, xy, yz, xz)
-    if not isinstance(aderdg, acoustic.AcousticADERDG):
+    if numQuantities >= 6:  # TODO: need a better criterion
         assert numQuantities >= 6
         momentToNRF_spp = np.zeros((numQuantities, 3, 3))
         momentToNRF_spp[0, 0, 0] = 1

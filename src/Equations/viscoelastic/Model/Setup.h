@@ -22,7 +22,8 @@ namespace seissol::model {
 
 template <std::size_t N>
 struct MaterialSetup<ViscoElasticMaterial<N>,
-                     std::enable_if<Config::ViscoMode == ViscoImplementation::QuantityExtension>> {
+                     std::enable_if_t<ViscoAcousticMaterial<N>::ViscoMode ==
+                                      ViscoImplementation::QuantityExtension>> {
   using MaterialT = ViscoElasticMaterial<N>;
 
   template <typename T>
@@ -153,18 +154,17 @@ struct MaterialSetup<ViscoElasticMaterial<N>,
 #ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
 
 template <std::size_t N>
-struct MaterialSetup<ViscoElasticMaterial<N>,
-                     std::enable_if<Config::ViscoMode == ViscoImplementation::AnelasticTensor>> {
+struct MaterialSetup<
+    ViscoElasticMaterial<N>,
+    std::enable_if_t<ViscoAcousticMaterial<N>::ViscoMode == ViscoImplementation::AnelasticTensor>> {
   using MaterialT = ViscoElasticMaterial<N>;
-
-  using Matrix99 = Eigen::Matrix<double, MaterialT::NumQuantities, MaterialT::NumQuantities>;
 
   template <typename T>
   static void getTransposedViscoelasticCoefficientMatrix(double omega,
                                                          std::size_t dim,
                                                          std::size_t mech,
                                                          T& M) {
-    const std::size_t col = MaterialT::NumQuantities + mech * MaterialT::NumberPerMechanism;
+    const std::size_t col = MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
     switch (dim) {
     case 0:
       M(6, col) = -omega;

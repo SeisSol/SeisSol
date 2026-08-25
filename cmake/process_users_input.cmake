@@ -440,11 +440,11 @@ message(STATUS "Memory alignment has been set to ${ALIGNMENT} B.")
 message(STATUS "Vector size has been set to ${VECTORSIZE} B.")
 
 # check NUMBER_OF_MECHANISMS
-if ((NOT "${EQUATIONS}" MATCHES "viscoelastic.?") AND ${NUMBER_OF_MECHANISMS} GREATER 0)
+if ((NOT "${EQUATIONS}" MATCHES "visco.?") AND ${NUMBER_OF_MECHANISMS} GREATER 0)
     message(FATAL_ERROR "${EQUATIONS} does not support a NUMBER_OF_MECHANISMS > 0.")
 endif()
 
-if ("${EQUATIONS}" MATCHES "viscoelastic.?" AND ${NUMBER_OF_MECHANISMS} LESS 1)
+if ("${EQUATIONS}" MATCHES "visco.?" AND ${NUMBER_OF_MECHANISMS} LESS 1)
     message(FATAL_ERROR "${EQUATIONS} needs a NUMBER_OF_MECHANISMS > 0.")
 endif()
 

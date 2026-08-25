@@ -330,6 +330,8 @@ void seissol::model::getTransposedFreeSurfaceGodunovState(MaterialType materialt
 
   qGodLocal.setZero();
   switch (materialtype) {
+  case MaterialType::Viscoacoustic:
+    [[fallthrough]];
   case MaterialType::Acoustic: {
     // Acoustic material only has one traction (=pressure) and one velocity comp.
     // relevant to the Riemann problem

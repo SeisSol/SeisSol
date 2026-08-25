@@ -10,7 +10,7 @@ import numpy as np
 from kernels.aderdg.linearck import LinearCK
 from kernels.aderdg.linearckanelastic import LinearCKAnelastic
 from yateto import Tensor
-from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
+from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile
 
 
 class ViscoacousticADERDG(LinearCK):
@@ -31,7 +31,7 @@ class ViscoacousticADERDG(LinearCK):
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile(f"{matricesDir}/equation-viscoacoustic.xml", clones)
+            parseJSONMatrixFile(f"{matricesDir}/equation-viscoacoustic.json", clones)
         )
 
         star_spp = self.db.star[0].spp().as_ndarray()
@@ -103,6 +103,18 @@ class ViscoacousticADERDG(LinearCK):
     def transformation_inv_spp(self):
         return self.transformation_spp()
 
+    def extractVelocities(self):
+        extractVelocitiesSPP = np.zeros((3, self.numQuantities()))
+        extractVelocitiesSPP[0, 1] = 1
+        extractVelocitiesSPP[1, 2] = 1
+        extractVelocitiesSPP[2, 3] = 1
+        return extractVelocitiesSPP
+
+    def extractTractions(self):
+        extractTractionsSPP = np.zeros((3, self.numQuantities()))
+        extractTractionsSPP[0, 0] = 1
+        return extractTractionsSPP
+
 
 class Viscoacoustic2ADERDG(LinearCKAnelastic):
     def __init__(
@@ -127,7 +139,7 @@ class Viscoacoustic2ADERDG(LinearCKAnelastic):
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile(f"{matricesDir}/equation-viscoacoustic.xml", clones)
+            parseJSONMatrixFile(f"{matricesDir}/equation-viscoacoustic.json", clones)
         )
 
         memoryLayoutFromFile(memLayout, self.db, clones)
@@ -141,6 +153,19 @@ class Viscoacoustic2ADERDG(LinearCKAnelastic):
 
     def name(self):
         return "viscoacoustic"
+
+    def extractVelocities(self):
+        extractVelocitiesSPP = np.zeros((3, self.numQuantities()))
+        extractVelocitiesSPP[0, 1] = 1
+        extractVelocitiesSPP[1, 2] = 1
+        extractVelocitiesSPP[2, 3] = 1
+        return extractVelocitiesSPP
+
+    def extractTractions(self):
+        # TODO: make (1, numQuantities)
+        extractTractionsSPP = np.zeros((3, self.numQuantities()))
+        extractTractionsSPP[0, 0] = 1
+        return extractTractionsSPP
 
 
 def kernel_class(**kwargs):

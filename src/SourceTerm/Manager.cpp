@@ -128,24 +128,28 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
 
   std::array<double, 81> stiffnessTensor{};
   switch (material->getMaterialType()) {
-  case seissol::model::MaterialType::Acoustic:
-    logError() << "NRF sources are only compatible with isotropic (visco)elastic, anisotropic, and "
-                  "poroelastic materials.";
-    break;
   case seissol::model::MaterialType::Anisotropic:
     [[fallthrough]];
-  case seissol::model::MaterialType::Poroelastic:
+  case seissol::model::MaterialType::Poroelastic: {
     if (subfault.mu != 0) {
       logError() << "There are specific fault parameters for the fault. This is only compatible "
                     "with isotropic (visco)elastic materials.";
     }
     material->getFullStiffnessTensor(stiffnessTensor);
     break;
-  default:
+  }
+  case seissol::model::MaterialType::Viscoelastic:
+    [[fallthrough]];
+  case seissol::model::MaterialType::Elastic: {
     seissol::model::ElasticMaterial em =
         *dynamic_cast<const seissol::model::ElasticMaterial*>(material);
     em.mu = (subfault.mu == 0.0) ? em.mu : subfault.mu;
     em.getFullStiffnessTensor(stiffnessTensor);
+    break;
+  }
+  default:
+    logError() << "NRF sources are only compatible with isotropic (visco)elastic, anisotropic, and "
+                  "poroelastic materials.";
     break;
   }
 

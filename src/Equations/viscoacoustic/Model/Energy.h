@@ -27,7 +27,7 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
   using ViscoMaterial = ViscoAcousticMaterial<Mechanisms>;
 
   static constexpr auto Energies =
-      detail::concat(MomentumEnergies, AcousticEnergies, ViscoelasticEnergies);
+      detail::concat(MomentumEnergies, AcousticEnergies, ViscoacousticEnergies, ViscoEnergies);
   static constexpr std::size_t EnergyCount = Energies.size();
   static_assert(detail::descriptorsWellFormed(Energies),
                 "energy descriptors must be named, unique, and grouped consistently");
@@ -38,7 +38,7 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
   static constexpr auto MomentumZIdx = detail::indexOf(Energies, "momentumZ");
   static constexpr auto AcousticEnergyIdx = detail::indexOf(Energies, "acoustic_energy");
   static constexpr auto AcousticKineticIdx = detail::indexOf(Energies, "acoustic_kinetic_energy");
-  static constexpr auto ViscoelasticEnergyIdx = detail::indexOf(Energies, "viscoelastic_energy");
+  static constexpr auto ViscoacousticEnergyIdx = detail::indexOf(Energies, "viscoacoustic_energy");
   static constexpr auto ViscousDissipationIdx =
       detail::indexOf(Energies, "viscous_dissipation_rate");
   static_assert(MomentumXIdx < EnergyCount, "MomentumX missing from the descriptor list");
@@ -47,8 +47,8 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
   static_assert(AcousticEnergyIdx < EnergyCount, "AcousticEnergy missing from the descriptor list");
   static_assert(AcousticKineticIdx < EnergyCount,
                 "AcousticKinetic missing from the descriptor list");
-  static_assert(ViscoelasticEnergyIdx < EnergyCount,
-                "ViscoelasticEnergy missing from the descriptor list");
+  static_assert(ViscoacousticEnergyIdx < EnergyCount,
+                "ViscoacousticEnergy missing from the descriptor list");
   static_assert(ViscousDissipationIdx < EnergyCount,
                 "ViscousDissipation missing from the descriptor list");
 
@@ -150,96 +150,29 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
     const auto ane = multisim::simtensor(aneFused, sim);
     const auto cross = multisim::simtensor(crossFused, sim);
 
-    // Voigt order (xx, yy, zz, xy, yz, xz). The anelastic variables carry tensor
-    // components, so a double contraction weights the off-diagonals by two.
-    constexpr std::array<double, 6> ContractionWeight{1.0, 1.0, 1.0, 2.0, 2.0, 2.0};
-
     // moments of the traces
-    const auto traceSigmaSq = [&]() {
-      double sum = 0.0;
-      for (std::size_t i = 0; i < 3; ++i) {
-        for (std::size_t j = 0; j < 3; ++j) {
-          sum += quadSub(i, j);
-        }
-      }
-      return sum;
-    }();
-    const auto traceSigmaTheta = [&](std::size_t m) {
-      double sum = 0.0;
-      for (std::size_t i = 0; i < 3; ++i) {
-        for (std::size_t j = 0; j < 3; ++j) {
-          sum += cross(i, j, m);
-        }
-      }
-      return sum;
-    };
-    const auto traceThetaTheta = [&](std::size_t m, std::size_t n) {
-      double sum = 0.0;
-      for (std::size_t i = 0; i < 3; ++i) {
-        for (std::size_t j = 0; j < 3; ++j) {
-          sum += ane(i, j, m, n);
-        }
-      }
-      return sum;
-    };
-
-    // moments of the full double contractions
-    const auto contractSigmaSq = [&]() {
-      double sum = 0.0;
-      for (std::size_t i = 0; i < 6; ++i) {
-        sum += ContractionWeight[i] * quadSub(i, i);
-      }
-      return sum;
-    }();
-    const auto contractSigmaTheta = [&](std::size_t m) {
-      double sum = 0.0;
-      for (std::size_t i = 0; i < 6; ++i) {
-        sum += ContractionWeight[i] * cross(i, i, m);
-      }
-      return sum;
-    };
-    const auto contractThetaTheta = [&](std::size_t m, std::size_t n) {
-      double sum = 0.0;
-      for (std::size_t i = 0; i < 6; ++i) {
-        sum += ContractionWeight[i] * ane(i, i, m, n);
-      }
-      return sum;
-    };
-
-    const bool acoustic = std::abs(material.getMuBar()) < 10e-14;
+    const auto traceSigmaSq = quadSub(0, 0);
+    const auto traceSigmaTheta = [&](std::size_t m) { return cross(0, 0, m); };
+    const auto traceThetaTheta = [&](std::size_t m, std::size_t n) { return ane(0, 0, m, n); };
 
     // sigma_r = sigma - sum_m D^(m) vartheta^(m) / omega_m, split into its
     // volumetric and deviatoric parts:
     //   tr  sigma_r = tr sigma  - sum_m 3 dK_m  tr vartheta^(m)  / omega_m
     //   dev sigma_r = dev sigma - sum_m 2 dMu_m dev vartheta^(m) / omega_m
     std::array<double, zeroGuard(Mechanisms)> volFactor{};
-    std::array<double, zeroGuard(Mechanisms)> devFactor{};
     for (std::size_t m = 0; m < Mechanisms; ++m) {
       const auto inverseOmega = 1.0 / material.omega[m];
       volFactor[m] = 3.0 * material.getDeltaBulk(m) * inverseOmega;
-      devFactor[m] = 2.0 * material.getDeltaMu(m) * inverseOmega;
     }
-
-    // Deviatoric moments follow from dev a : dev b = a:b - 1/3 tr a tr b.
-    const auto devSigmaSq = contractSigmaSq - traceSigmaSq / 3.0;
-    const auto devSigmaTheta = [&](std::size_t m) {
-      return contractSigmaTheta(m) - traceSigmaTheta(m) / 3.0;
-    };
-    const auto devThetaTheta = [&](std::size_t m, std::size_t n) {
-      return contractThetaTheta(m, n) - traceThetaTheta(m, n) / 3.0;
-    };
 
     // Volumetric and deviatoric parts are orthogonal, so sigma_r splits cleanly:
     //   tr  sigma_r = tr sigma  - sum_m 3 dK_m  tr vartheta^(m)  / omega_m
     //   dev sigma_r = dev sigma - sum_m 2 dMu_m dev vartheta^(m) / omega_m
     double traceSigmaRSq = traceSigmaSq;
-    double devSigmaRSq = devSigmaSq;
     for (std::size_t m = 0; m < Mechanisms; ++m) {
       traceSigmaRSq -= 2.0 * volFactor[m] * traceSigmaTheta(m);
-      devSigmaRSq -= 2.0 * devFactor[m] * devSigmaTheta(m);
       for (std::size_t n = 0; n < Mechanisms; ++n) {
         traceSigmaRSq += volFactor[m] * volFactor[n] * traceThetaTheta(m, n);
-        devSigmaRSq += devFactor[m] * devFactor[n] * devThetaTheta(m, n);
       }
     }
 
@@ -249,14 +182,12 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
     for (std::size_t m = 0; m < Mechanisms; ++m) {
       const auto inverseOmega = 1.0 / material.omega[m];
       const auto traceSq = traceThetaTheta(m, m) * inverseOmega * inverseOmega;
-      const auto devSq = (contractThetaTheta(m, m) * inverseOmega * inverseOmega) - traceSq / 3.0;
-      const auto quadratic = material.getDeltaBulk(m) * traceSq +
-                             (acoustic ? 0.0 : 2.0 * material.getDeltaMu(m) * devSq);
+      const auto quadratic = material.getDeltaBulk(m) * traceSq;
       branchEnergy += 0.5 * quadratic;
       dissipationRate += material.omega[m] * quadratic;
     }
 
-    output[ViscoelasticEnergyIdx] = branchEnergy;
+    output[ViscoacousticEnergyIdx] = branchEnergy;
     output[ViscousDissipationIdx] = dissipationRate;
 
     // No shear branch survives (dMu_m = mu_u * beta_m vanishes with mu_u), so

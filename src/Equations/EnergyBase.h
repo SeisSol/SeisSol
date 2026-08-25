@@ -157,6 +157,13 @@ inline constexpr std::array ElasticEnergies{
  */
 inline constexpr std::array ViscoelasticEnergies{
     EnergyDescriptor{"viscoelastic_energy", EnergyUnit::Energy, "elastic", {}, "viscoelastic"},
+};
+
+inline constexpr std::array ViscoacousticEnergies{
+    EnergyDescriptor{"viscoacoustic_energy", EnergyUnit::Energy, "acoustic", {}, "viscoacoustic"},
+};
+
+inline constexpr std::array ViscoEnergies{
     EnergyDescriptor{"viscous_dissipation_rate",
                      EnergyUnit::Power,
                      "viscous_dissipation",

@@ -40,6 +40,7 @@ class AcousticADERDG(LinearCK):
         return extractVelocitiesSPP
 
     def extractTractions(self):
+        # TODO: make (1, numQuantities)
         extractTractionsSPP = np.zeros((3, self.numQuantities()))
         extractTractionsSPP[0, 0] = 1
         return extractTractionsSPP

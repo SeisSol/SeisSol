@@ -40,7 +40,7 @@ configure_file("Alignment.h.in"
 capitalize(${EQUATIONS} PARAMETER_MATERIAL)
 set(PARAMETER_VISCOMODE "None")
 
-if (EQUATIONS STREQUAL "viscoelastic")
+if (EQUATIONS MATCHES "visco.?")
   if (VISCO_MODE STREQUAL "extend")
     set(PARAMETER_VISCOMODE "QuantityExtension")
   elseif (VISCO_MODE STREQUAL "split")

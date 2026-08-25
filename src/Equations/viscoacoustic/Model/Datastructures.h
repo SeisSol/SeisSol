@@ -66,10 +66,12 @@ struct ViscoAcousticMaterial : public AcousticMaterial {
   static constexpr bool SupportsLTS = true;
   static constexpr bool SupportsEnergy = true;
 
+  static constexpr ViscoImplementation ViscoMode = Config::ViscoMode;
+
   using LocalSpecificData = std::monostate;
   using NeighborSpecificData = std::monostate;
 
-  using Solver = ViscoSolverAcoustic<Config::ViscoMode>::Type;
+  using Solver = ViscoSolverAcoustic<ViscoMode>::Type;
 
   using EnergyData = std::monostate;
 
