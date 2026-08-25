@@ -38,7 +38,7 @@ void testResidual(std::array<std::complex<double>, Dim * Dim>& m,
   }
 }
 
-TEST_CASE("Eigenvalues are correctly computed") {
+TEST_CASE("Eigenvalues are correctly computed" * doctest::test_suite("numerical")) {
   SUBCASE("Eigenvalues 3") {
     constexpr std::size_t Dim = 3;
 

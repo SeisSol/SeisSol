@@ -65,8 +65,4 @@ void FrictionSolver::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   initialPressure_ = layerData.var<DynamicRupture::InitialPressure>(place);
   nucleationPressure_ = layerData.var<DynamicRupture::NucleationPressure>(place);
 }
-seissol::initializer::AllocationPlace FrictionSolver::allocationPlace() {
-  return seissol::initializer::AllocationPlace::Host;
-}
-
 } // namespace seissol::dr::friction_law

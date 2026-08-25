@@ -50,7 +50,7 @@ struct Element {
   /** Material of the element */
   ElemGroup group;
   ElemFaultTags faultTags; // member of struct Element
-  int clusterId;
+  std::size_t clusterId;
   double timestep;
 };
 
