@@ -200,7 +200,7 @@ TEST_SUITE("ExprRtcGpu") {
     const std::string source =
         emitGpuSource(program, lower(program), gpuLayoutOf(binding), GpuTarget::Cuda);
     CHECK(source.find("float value;") != std::string::npos);
-    CHECK(source.find("unsigned long stride_in0") != std::string::npos);
+    CHECK(source.find("unsigned long long stride_in0") != std::string::npos);
   }
 
   TEST_CASE("the HIP target brings its own runtime header") {

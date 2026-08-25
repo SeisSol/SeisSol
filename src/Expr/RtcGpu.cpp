@@ -38,9 +38,6 @@ const char* elementType(DataType type) {
   return "double";
 }
 
-std::string inputName(std::int32_t index) { return "in" + std::to_string(index); }
-std::string outputName(std::int32_t index) { return "out" + std::to_string(index); }
-
 // Addressing for the device kernel. Every column is `base + p * stride +
 // offset`, read at its own element type and converted once into the compute
 // type -- the same conversion Binding::gatherFrom performs on the host, in the
@@ -51,17 +48,17 @@ std::string outputName(std::int32_t index) { return "out" + std::to_string(index
 // appears here, because there is no tile.
 std::string gpuLoadInput(std::int32_t index) {
   const std::string i = std::to_string(index);
-  return "load_in" + i + "(in" + i + ", stride_in" + i + ", offset_in" + i + ", p)";
+  return "load_in" + i + "(a.in" + i + ", a.stride_in" + i + ", a.offset_in" + i + ", p)";
 }
 std::string gpuLoadPersistent(std::int32_t slot) {
-  return "persistent[" + std::to_string(slot) + "ul * numPoints + p]";
+  return "a.persistent[" + std::to_string(slot) + "ull * a.numPoints + p]";
 }
 std::string gpuStoreOutput(std::int32_t index) {
   const std::string i = std::to_string(index);
-  return "store_out" + i + "(out" + i + ", stride_out" + i + ", offset_out" + i + ", p)";
+  return "store_out" + i + "(a.out" + i + ", a.stride_out" + i + ", a.offset_out" + i + ", p)";
 }
 std::string gpuStorePersistent(std::int32_t slot) {
-  return "persistent[" + std::to_string(slot) + "ul * numPoints + p]";
+  return "a.persistent[" + std::to_string(slot) + "ull * a.numPoints + p]";
 }
 
 void emitPrologue(std::ostringstream& out, GpuTarget target) {
@@ -120,36 +117,56 @@ void emitAccessors(std::ostringstream& out,
   out << "\n";
 }
 
-void emitSignature(std::ostringstream& out,
-                   const char* name,
-                   const GpuLayout& layout,
-                   const std::string& computeType) {
-  out << "SEISSOL_EXPR_KERNEL void " << name << "(\n";
+/// The kernel takes ONE by-value struct rather than 3N+4 scalars.
+///
+/// CHANGED (reported, Package 5). The scalar form made the kernel's ARITY a
+/// function of the program, so every caller had to know how many parameters
+/// there were and in what order -- and cuLaunchKernel takes a void** it cannot
+/// type-check. Getting that wrong does not crash: the arguments land a slot
+/// over, `count` is read out of a pointer, and the kernel writes nothing at
+/// all. That is the failure that showed up while testing this, and it is hard
+/// to see precisely because it looks like the kernel simply did nothing.
+///
+/// With a struct the launch is one parameter for every program, and the field
+/// ORDER stops being something a caller reproduces by hand: the emitted
+/// definition and GpuArguments are built from the same list.
+///
+/// Fixed-width fields by intent. `unsigned long` is 32-bit on Windows and
+/// 64-bit on Linux, and a struct passed by value across the host/device
+/// boundary cannot afford that ambiguity.
+void emitArgumentStruct(std::ostringstream& out,
+                        const GpuLayout& layout,
+                        const std::string& computeType) {
+  out << "struct SeissolExprArgs {\n";
   for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
-    out << "    const void* __restrict " << inputName(static_cast<std::int32_t>(i))
-        << ", unsigned long stride_in" << i << ", unsigned long offset_in" << i << ",\n";
+    out << "  const void* in" << i << ";\n"
+        << "  unsigned long long stride_in" << i << ";\n"
+        << "  unsigned long long offset_in" << i << ";\n";
   }
   for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
-    out << "    void* __restrict " << outputName(static_cast<std::int32_t>(i))
-        << ", unsigned long stride_out" << i << ", unsigned long offset_out" << i << ",\n";
+    out << "  void* out" << i << ";\n"
+        << "  unsigned long long stride_out" << i << ";\n"
+        << "  unsigned long long offset_out" << i << ";\n";
   }
-  out << "    " << computeType << "* __restrict persistent,\n"
-      << "    unsigned long numPoints, unsigned long first, unsigned long count)";
+  out << "  " << computeType << "* persistent;\n"
+      << "  unsigned long long numPoints;\n"
+      << "  unsigned long long first;\n"
+      << "  unsigned long long count;\n"
+      << "};\n\n";
 }
 
 void emitStage(std::ostringstream& out,
                const char* name,
                const StageCode& stage,
                const std::vector<std::int32_t>& operands,
-               const GpuLayout& layout,
                const std::string& computeType) {
-  emitSignature(out, name, layout, computeType);
-  out << " {\n";
+  out << "SEISSOL_EXPR_KERNEL void " << name << "(SeissolExprArgs a) {\n";
 
   // Grid-stride loop, so the launch geometry is free to be whatever the driver
   // layer picks and a short range still uses every thread it was given.
-  out << "  for (unsigned long l = SEISSOL_EXPR_TID; l < count; l += SEISSOL_EXPR_NTHREADS) {\n"
-      << "    const unsigned long p = first + l;\n";
+  out << "  for (unsigned long long l = SEISSOL_EXPR_TID; l < a.count; l += "
+         "SEISSOL_EXPR_NTHREADS) {\n"
+      << "    const unsigned long long p = a.first + l;\n";
 
   codegen::StageAddressing addressing;
   addressing.loadInput = gpuLoadInput;
@@ -242,78 +259,54 @@ GpuLayout gpuLayoutOf(const Binding& binding) {
   return layout;
 }
 
-std::string emitGpuHostTrampoline(const GpuLayout& layout, const std::string& computeType) {
-  std::ostringstream out;
-  out << "extern \"C\" void seissol_expr_invoke(void** a) {\n"
-      << "  seissol_expr_run(\n";
-  std::size_t k = 0;
-  const auto scalar = [&](const char* type) { out << "    *(" << type << "*)a[" << k++ << "]"; };
-  for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
-    scalar("const void*");
-    out << ", ";
-    scalar("unsigned long");
-    out << ", ";
-    scalar("unsigned long");
-    out << ",\n";
-  }
-  for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
-    scalar("void*");
-    out << ", ";
-    scalar("unsigned long");
-    out << ", ";
-    scalar("unsigned long");
-    out << ",\n";
-  }
-  out << "    *(" << computeType << "**)a[" << k++ << "],\n";
-  scalar("unsigned long");
-  out << ", ";
-  scalar("unsigned long");
-  out << ", ";
-  scalar("unsigned long");
-  out << ");\n}\n";
-  return out.str();
+std::string emitGpuHostTrampoline(const GpuLayout& /*layout*/, const std::string& /*computeType*/) {
+  // One line, and independent of the program: the struct is what carries the
+  // shape now. That is the point of the change -- a caller of the kernel has
+  // nothing left to get wrong about arity or order.
+  return "extern \"C\" void seissol_expr_invoke(void** a) {\n"
+         "  seissol_expr_run(*(SeissolExprArgs*)a[0]);\n"
+         "}\n";
 }
 
 GpuArguments::GpuArguments(const Binding& binding, const KernelArgs& args, void* persistent) {
-  // 3 scalars per column, plus persistent, numPoints, first, count.
-  const std::size_t count = 3 * (binding.inputs().size() + binding.outputs().size()) + 4;
-  storage_.reserve(count);
-  pointers_.reserve(count);
+  // The byte image of the emitted SeissolExprArgs, in declaration order. Every
+  // field is eight bytes wide and eight-byte aligned, which is why a flat
+  // append works and no padding has to be reasoned about: pointers are 64-bit
+  // on every target this runs on, and the scalars are `unsigned long long` for
+  // exactly that reason.
+  const std::size_t fields = 3 * (binding.inputs().size() + binding.outputs().size()) + 4;
+  image_.reserve(fields * sizeof(std::uint64_t));
+
+  const auto appendPointer = [this](const void* value) { append(&value, sizeof(value)); };
+  const auto appendScalar = [this](std::uint64_t value) { append(&value, sizeof(value)); };
 
   for (std::size_t i = 0; i < binding.inputs().size(); ++i) {
     const auto& column = binding.inputs()[i];
-    const void* base =
-        (i < args.inputCount && args.inputs[i] != nullptr) ? args.inputs[i] : column.view->base;
-    add(&base, sizeof(base));
-    const auto stride = static_cast<std::uint64_t>(column.view->byteStride);
-    const auto offset = static_cast<std::uint64_t>(column.view->byteOffset);
-    add(&stride, sizeof(stride));
-    add(&offset, sizeof(offset));
+    appendPointer((i < args.inputCount && args.inputs[i] != nullptr) ? args.inputs[i]
+                                                                     : column.view->base);
+    appendScalar(column.view->byteStride);
+    appendScalar(column.view->byteOffset);
   }
   for (std::size_t i = 0; i < binding.outputs().size(); ++i) {
     const auto& column = binding.outputs()[i];
-    void* base =
-        (i < args.outputCount && args.outputs[i] != nullptr) ? args.outputs[i] : column.view->base;
-    add(&base, sizeof(base));
-    const auto stride = static_cast<std::uint64_t>(column.view->byteStride);
-    const auto offset = static_cast<std::uint64_t>(column.view->byteOffset);
-    add(&stride, sizeof(stride));
-    add(&offset, sizeof(offset));
+    appendPointer((i < args.outputCount && args.outputs[i] != nullptr) ? args.outputs[i]
+                                                                       : column.view->base);
+    appendScalar(column.view->byteStride);
+    appendScalar(column.view->byteOffset);
   }
+  appendPointer(persistent);
+  appendScalar(binding.numPoints());
+  appendScalar(args.first);
+  appendScalar(args.count);
 
-  add(&persistent, sizeof(persistent));
-  const auto numPoints = static_cast<std::uint64_t>(binding.numPoints());
-  const auto first = static_cast<std::uint64_t>(args.first);
-  const auto span = static_cast<std::uint64_t>(args.count);
-  add(&numPoints, sizeof(numPoints));
-  add(&first, sizeof(first));
-  add(&span, sizeof(span));
+  // cuLaunchKernel wants an array of pointers TO the arguments. There is now
+  // exactly one argument, so exactly one entry.
+  pointers_.push_back(image_.data());
 }
 
-void GpuArguments::add(const void* value, std::size_t bytes) {
-  storage_.emplace_back();
-  std::memcpy(storage_.back().data(), value, bytes);
-  pointers_.push_back(storage_.back().data());
+void GpuArguments::append(const void* value, std::size_t bytes) {
+  const auto* source = static_cast<const unsigned char*>(value);
+  image_.insert(image_.end(), source, source + bytes);
 }
 
 std::string emitGpuSource(const Program& program,
@@ -325,15 +318,12 @@ std::string emitGpuSource(const Program& program,
   std::ostringstream out;
   emitPrologue(out, target);
   emitAccessors(out, layout, computeType);
+  emitArgumentStruct(out, layout, computeType);
   if (lowered.hasPrecompute()) {
-    emitStage(out,
-              "seissol_expr_precompute",
-              lowered.precompute(),
-              lowered.operands(),
-              layout,
-              computeType);
+    emitStage(
+        out, "seissol_expr_precompute", lowered.precompute(), lowered.operands(), computeType);
   }
-  emitStage(out, "seissol_expr_run", lowered.run(), lowered.operands(), layout, computeType);
+  emitStage(out, "seissol_expr_run", lowered.run(), lowered.operands(), computeType);
   return out.str();
 }
 

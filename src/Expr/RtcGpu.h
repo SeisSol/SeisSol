@@ -104,9 +104,10 @@ struct GpuLayout {
 /// the failure mode is silent: parameters land one slot over, the count becomes
 /// a pointer, and the kernel writes nothing at all rather than crashing.
 ///
-/// The layout matches cuLaunchKernel's kernelParams: each entry POINTS AT the
+/// The layout matches cuLaunchKernel's kernelParams: each entry POINTS AT an
 /// argument value, and the values live in this object, so it has to outlive the
-/// launch.
+/// launch. Since the kernel takes a single by-value struct, there is exactly
+/// one entry and this object holds that struct's byte image.
 class GpuArguments {
   public:
   /// `persistent` may be null when the lowering has no persistent slots, which
@@ -117,11 +118,11 @@ class GpuArguments {
   [[nodiscard]] std::size_t size() const { return pointers_.size(); }
 
   private:
-  void add(const void* value, std::size_t bytes);
+  void append(const void* value, std::size_t bytes);
 
-  /// Deque-like stability matters: pointers_ points into this, so it must never
-  /// reallocate. Reserved up front from the known parameter count.
-  std::vector<std::array<unsigned char, sizeof(std::uint64_t)>> storage_;
+  /// The by-value struct's byte image. pointers_ points into it, so it is
+  /// reserved up front and never grown afterwards.
+  std::vector<unsigned char> image_;
   std::vector<void*> pointers_;
 };
 
