@@ -11,6 +11,7 @@
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
 #include "Expr/RtcCpu.h"
+#include "Expr/RtcGpuDriver.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
 #include "utils/logger.h"
@@ -279,6 +280,14 @@ std::size_t maxComponents(const std::vector<std::size_t>& ids, GridStore& store)
   return most;
 }
 
+/// The same options with the architecture dropped, for handing to a DIFFERENT
+/// backend than the one `arch` was meant for. See the note on BackendOptions::arch.
+BackendOptions forFallback(const BackendOptions& options) {
+  BackendOptions fallback = options;
+  fallback.arch.clear();
+  return fallback;
+}
+
 std::unique_ptr<Kernel> makeInterpreter(const Program& program,
                                         Binding& binding,
                                         GridStore& grids,
@@ -347,7 +356,35 @@ std::unique_ptr<Kernel> makeKernel(const Program& program,
     return makeInterpreter(program, binding, grids, options);
   }
   case BackendKind::RtcCuda:
-  case BackendKind::RtcHip:
+  case BackendKind::RtcHip: {
+    LoweredProgram lowered = lower(program, options.lowering);
+    auto kernel = makeRtcGpuKernel(program,
+                                   binding,
+                                   std::move(lowered),
+                                   options,
+                                   options.preferred == BackendKind::RtcCuda ? GpuTarget::Cuda
+                                                                             : GpuTarget::Hip);
+    if (kernel != nullptr) {
+      internGrids(program, grids);
+      return kernel;
+    }
+    if (!options.allowFallback) {
+      logError() << "expr: backend" << name(options.preferred)
+                 << "is unusable and fallback was disabled.";
+      return nullptr;
+    }
+    // The device path declines for reasons the model author can act on -- a
+    // grid lookup, a computed column, a host pointer -- and makeRtcGpuKernel
+    // has already named which. Trying the compiled CPU kernel before the
+    // interpreter, because none of those reasons apply to it.
+    LoweredProgram cpuLowering = lower(program, options.lowering);
+    auto cpu = makeRtcCpuKernel(program, binding, std::move(cpuLowering), forFallback(options));
+    if (cpu != nullptr) {
+      internGrids(program, grids);
+      return cpu;
+    }
+    return makeInterpreter(program, binding, grids, forFallback(options));
+  }
     // Package 5. Not a stub that pretends: with allowFallback the caller gets a
     // working kernel and a warning naming what it did not get, which is the
     // behaviour makeKernel promises ("never returns null").

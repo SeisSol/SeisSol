@@ -134,7 +134,15 @@ struct BackendOptions {
   BackendKind preferred{BackendKind::Interpreter};
   bool allowFallback{true}; // fall back to Interpreter if `preferred` is unusable
   std::size_t tileSize{0};  // 0 = pick from the program's live-value count
-  std::string arch;         // "native", "sm_80", "gfx90a", …
+  /// Target architecture for `preferred`, and for that backend ONLY: "native"
+  /// or "skylake" for RtcCpu, "80" for NVRTC, "gfx90a" for HIPRTC.
+  ///
+  /// It is per-backend by nature, so makeKernel CLEARS it when it falls back to
+  /// a different one -- otherwise a GPU run that falls back to the compiled CPU
+  /// kernel hands "-march=80" to the host compiler, which fails the compile and
+  /// silently drops another level to the interpreter. Empty means each backend
+  /// picks its own default.
+  std::string arch;
 
   // ADDED (reported, Package 4). makeKernel owns the lowering -- a backend
   // consumes a LoweredProgram, not a Program -- so the only way a caller can

@@ -68,7 +68,17 @@ enum class GpuRejection : std::uint8_t {
   /// work, and reading host memory from the kernel would fault.
   PersistentState,
   /// At least one base pointer is not device-accessible.
-  HostPointer
+  HostPointer,
+  /// A column's stride or offset is not a whole number of its own elements.
+  ///
+  /// The device kernel loads through a typed pointer, which is undefined on a
+  /// misaligned address -- and on a GPU that is a fault or a silently wrong
+  /// value, not a slow path. Every DataTable bind form produces element
+  /// multiples (bindView by construction, bindMemberView because a member is
+  /// aligned within its struct), so this cannot trigger for anything the ABI
+  /// itself builds; it is here because the check is two comparisons and the
+  /// alternative is an invariant that only holds by argument.
+  Misaligned
 };
 
 [[nodiscard]] const char* describe(GpuRejection rejection);

@@ -24,6 +24,20 @@ namespace {
 
 using reader::scripting::DataType;
 
+std::size_t elementSize(DataType type) {
+  switch (type) {
+  case DataType::F32:
+    return sizeof(float);
+  case DataType::F64:
+    return sizeof(double);
+  case DataType::I32:
+    return sizeof(std::int32_t);
+  case DataType::I64:
+    return sizeof(std::int64_t);
+  }
+  return sizeof(double);
+}
+
 const char* elementType(DataType type) {
   switch (type) {
   case DataType::F32:
@@ -90,10 +104,12 @@ void emitAccessors(std::ostringstream& out,
     out << "__device__ inline " << computeType << " load_in" << i
         << "(const void* __restrict base, unsigned long stride, unsigned long offset,\n"
         << "    unsigned long p) {\n"
+        // A typed load, not a byte copy. gpuRejection() has already established
+        // that stride and offset are element multiples, so the address is
+        // aligned -- and __builtin_memcpy is not something every device
+        // frontend is guaranteed to lower well.
         << "  const char* bytes = (const char*)base + offset + p * stride;\n"
-        << "  " << element << " value;\n"
-        << "  __builtin_memcpy(&value, bytes, sizeof(value));\n"
-        << "  return (" << computeType << ")value;\n"
+        << "  return (" << computeType << ")(*(const " << element << "*)bytes);\n"
         << "}\n";
   }
   for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
@@ -202,6 +218,8 @@ const char* describe(GpuRejection rejection) {
     return "it carries state or hoisted values, which live in a host-side buffer";
   case GpuRejection::HostPointer:
     return "at least one bound pointer is not reachable from the device";
+  case GpuRejection::Misaligned:
+    return "a column's stride or offset is not a whole number of its elements";
   }
   return "";
 }
@@ -220,6 +238,14 @@ GpuRejection gpuRejection(const LoweredProgram& lowered,
   }
   if (lowered.persistentSlotCount() > 0) {
     return GpuRejection::PersistentState;
+  }
+  for (const auto* set : {&binding.inputs(), &binding.outputs()}) {
+    for (const auto& column : *set) {
+      const std::size_t element = elementSize(column.tableType);
+      if (column.view->byteStride % element != 0 || column.view->byteOffset % element != 0) {
+        return GpuRejection::Misaligned;
+      }
+    }
   }
   if (deviceAccessible != nullptr) {
     for (const auto* set : {&binding.inputs(), &binding.outputs()}) {

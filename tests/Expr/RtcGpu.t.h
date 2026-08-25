@@ -199,7 +199,10 @@ TEST_SUITE("ExprRtcGpu") {
 
     const std::string source =
         emitGpuSource(program, lower(program), gpuLayoutOf(binding), GpuTarget::Cuda);
-    CHECK(source.find("float value;") != std::string::npos);
+    // A typed load, not a byte copy: gpuRejection() has established that the
+    // address is element-aligned, so the cast is safe and a frontend that
+    // lowers __builtin_memcpy badly cannot hurt us.
+    CHECK(source.find("(const float*)bytes") != std::string::npos);
     CHECK(source.find("unsigned long long stride_in0") != std::string::npos);
   }
 

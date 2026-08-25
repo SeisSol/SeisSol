@@ -285,15 +285,47 @@ TEST_SUITE("ExprBackend") {
     Binding binding = Binding::bind(program, table);
     df::GridStore store;
     BackendOptions options;
-    // RtcCpu is implemented since Package 5, so the case now uses one that is
-    // not. The property under test is the fallback, not which backend is
-    // missing this week.
+    // RtcCuda has no runtime compiler in an ordinary build, so this exercises
+    // the fallback. The property under test is that SOMETHING usable comes
+    // back, not which backend -- the chain deliberately tries the compiled CPU
+    // kernel before the interpreter, and which one wins depends on the build.
     options.preferred = BackendKind::RtcCuda;
     options.allowFallback = true;
 
     const auto kernel = makeKernel(program, binding, store, options);
     REQUIRE(kernel != nullptr);
-    CHECK(kernel->kind() == BackendKind::Interpreter);
+    CHECK(kernel->kind() != BackendKind::RtcCuda);
+    kernel->precompute(table);
+    kernel->run(table);
+    CHECK(out[0] == doctest::Approx(2.0));
+  }
+
+  TEST_CASE("a device architecture is not carried into a CPU fallback") {
+    // BackendOptions::arch means something different to each backend: "80" is a
+    // compute capability for NVRTC and a nonsense -march= for a host compiler.
+    // Passing it across a fallback made the CPU kernel fail to compile and drop
+    // another level, silently.
+    const Program program = compileSderivModule("out def u = x * 3.0\n");
+    std::vector<double> x = {1.0, 2.0};
+    std::vector<double> out(2, 0.0);
+
+    DataTable table(2);
+    table.bindViewConst<double>("x", Direction::In, x.data());
+    table.bindView<double>("u", Direction::Out, out.data());
+
+    Binding binding = Binding::bind(program, table);
+    df::GridStore store;
+    BackendOptions options;
+    options.preferred = BackendKind::RtcCuda;
+    options.arch = "80";
+    options.allowFallback = true;
+
+    const auto kernel = makeKernel(program, binding, store, options);
+    REQUIRE(kernel != nullptr);
+    kernel->precompute(table);
+    kernel->run(table);
+    CHECK(out[0] == doctest::Approx(3.0));
+    CHECK(out[1] == doctest::Approx(6.0));
   }
 
   TEST_CASE("run(KernelArgs) agrees with run(table), at any granularity") {
