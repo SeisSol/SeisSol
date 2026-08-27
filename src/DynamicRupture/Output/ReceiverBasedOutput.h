@@ -55,6 +55,10 @@ class ReceiverOutput {
 
   bool printRSFWarning_{false};
 
+  PerformanceEstimate estimatePerFace_{};
+  PerformanceEstimate estimatePerPoint_{};
+  std::size_t perfHandle_{};
+
   struct LocalInfo {
     DynamicRupture::Layer* layer{};
     size_t ltsId{};
@@ -67,6 +71,7 @@ class ReceiverOutput {
     bool* printWarning{nullptr};
 
     std::size_t index{};
+    std::size_t faceId{};
     std::size_t fusedIndex{};
 
     real iniTraction1{};
@@ -115,7 +120,7 @@ class ReceiverOutput {
     const auto devVar = local.state->deviceVariables.find(drStorage_->info<StorageT>().index);
     if (devVar != local.state->deviceVariables.end()) {
       return reinterpret_cast<const std::remove_extent_t<typename StorageT::Type>*>(
-          devVar->second->get(local.state->deviceIndices[local.index]));
+          devVar->second->get(local.faceId));
     } else {
       return local.layer->var<StorageT>()[local.ltsId];
     }

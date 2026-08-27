@@ -317,15 +317,17 @@ void OutputManager::initPickpointOutput() {
       files.resize(1);
       auto fileName = buildIndexedMPIFileName(seissolParameters.output.prefix, -1, "faultreceiver");
       fileName += ".dat";
-      std::vector<std::size_t> receivers(outputData->receiverPoints.size());
+      std::vector<std::size_t> receivers(outputData->outputPoints.size());
       std::iota(receivers.begin(), receivers.end(), 0);
       files[0] = PickpointFile{fileName, receivers};
     } else {
       // aggregate at least all fused simulations
 
       std::unordered_map<std::size_t, std::vector<std::size_t>> globalIndexMap;
-      for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
-        globalIndexMap[outputData->receiverPoints[i].globalReceiverIndex].push_back(i);
+      for (size_t i = 0; i < outputData->outputPoints.size(); ++i) {
+        globalIndexMap[outputData->receiverPoints[outputData->outputPoints[i].receiverIds[0]]
+                           .globalReceiverIndex]
+            .push_back(i);
       }
 
       files.resize(globalIndexMap.size());
@@ -358,8 +360,7 @@ void OutputManager::initPickpointOutput() {
     };
 
     const size_t actualPointCount =
-        allReceiversInOneFilePerRank ? outputData->receiverPoints.size() / multisim::NumSimulations
-                                     : 1;
+        allReceiversInOneFilePerRank ? outputData->outputPoints.size() : 1;
 
     for (std::size_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
       for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
@@ -390,10 +391,13 @@ void OutputManager::initPickpointOutput() {
 
           title << "TITLE = \"Temporal Signal for fault receiver number(s) and simulation(s)";
           for (const auto& gIdx : ppfile.indices) {
-            const auto& receiver = outputData->receiverPoints[gIdx];
-            const size_t globalIndex = receiver.globalReceiverIndex + 1;
-            const size_t simIndex = receiver.simIndex + 1;
-            title << " " << globalIndex << "," << simIndex << ";";
+            const auto& point = outputData->outputPoints[gIdx];
+            for (const auto& receiverId : point.receiverIds) {
+              const auto& receiver = outputData->receiverPoints[receiverId];
+              const size_t globalIndex = receiver.globalReceiverIndex + 1;
+              const size_t simIndex = receiver.simIndex + 1;
+              title << " " << globalIndex << "," << simIndex << ";";
+            }
           }
           title << "\"";
 
@@ -405,51 +409,54 @@ void OutputManager::initPickpointOutput() {
           file << '\n';
 
           for (const auto& gIdx : ppfile.indices) {
-            const auto& receiver = outputData->receiverPoints[gIdx];
-            const size_t globalIndex = receiver.globalReceiverIndex + 1;
-            const size_t simIndex = receiver.simIndex + 1;
-            const auto& point = receiver.global;
+            const auto& point = outputData->outputPoints[gIdx];
+            for (const auto& receiverId : point.receiverIds) {
+              const auto& receiver = outputData->receiverPoints[receiverId];
+              const size_t globalIndex = receiver.globalReceiverIndex + 1;
+              const size_t simIndex = receiver.simIndex + 1;
+              const auto& point = receiver.global;
 
-            // output coordinates
-            if (simIndex == 1) {
-              file << "# Receiver number " << globalIndex << '\n';
-              file << "# x1\t" << makeFormatted(point[0]) << '\n';
-              file << "# x2\t" << makeFormatted(point[1]) << '\n';
-              file << "# x3\t" << makeFormatted(point[2]) << '\n';
-            }
-
-            // stress info
-            std::array<real, 6> rotatedInitialStress{};
-            {
-              const auto position = faceToLtsMap_.get(receiver.faultFaceIndex);
-
-              const auto* initialStress =
-                  drStorage_->lookup<DynamicRupture::InitialStressInFaultCS>(position);
-              std::array<real, 6> unrotatedInitialStress{};
-              for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();
-                   ++stressVar) {
-                unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.gpIndex];
+              // output coordinates
+              if (simIndex == 1) {
+                file << "# Receiver number " << globalIndex << '\n';
+                file << "# x1\t" << makeFormatted(point[0]) << '\n';
+                file << "# x2\t" << makeFormatted(point[1]) << '\n';
+                file << "# x3\t" << makeFormatted(point[2]) << '\n';
               }
 
-              seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
-              alignAlongDipAndStrikeKernel.stressRotationMatrix =
-                  outputData->stressGlbToDipStrikeAligned[gIdx].data();
-              alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
-                  outputData->stressFaceAlignedToGlb[gIdx].data();
+              // stress info
+              std::array<real, 6> rotatedInitialStress{};
+              {
+                const auto position = faceToLtsMap_.get(receiver.faultFaceIndex);
 
-              alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress.data();
-              alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress.data();
-              alignAlongDipAndStrikeKernel.execute();
-            }
+                const auto* initialStress =
+                    drStorage_->lookup<DynamicRupture::InitialStressInFaultCS>(position);
+                std::array<real, 6> unrotatedInitialStress{};
+                for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();
+                     ++stressVar) {
+                  unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.gpIndex];
+                }
 
-            {
-              using namespace misc::quantity_indices;
-              file << "# P_0" << simIndex << "\t" << makeFormatted(rotatedInitialStress[XX])
-                   << '\n';
-              file << "# T_s" << simIndex << "\t" << makeFormatted(rotatedInitialStress[XY])
-                   << '\n';
-              file << "# T_d" << simIndex << "\t" << makeFormatted(rotatedInitialStress[XZ])
-                   << '\n';
+                seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
+                alignAlongDipAndStrikeKernel.stressRotationMatrix =
+                    outputData->outputPoints[gIdx].stressGlbToDipStrikeAligned.data();
+                alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
+                    outputData->outputPoints[gIdx].stressFaceAlignedToGlb.data();
+
+                alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress.data();
+                alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress.data();
+                alignAlongDipAndStrikeKernel.execute();
+              }
+
+              {
+                using namespace misc::quantity_indices;
+                file << "# P_0" << simIndex << "\t" << makeFormatted(rotatedInitialStress[XX])
+                     << '\n';
+                file << "# T_s" << simIndex << "\t" << makeFormatted(rotatedInitialStress[XY])
+                     << '\n';
+                file << "# T_d" << simIndex << "\t" << makeFormatted(rotatedInitialStress[XZ])
+                     << '\n';
+              }
             }
           }
         } else {

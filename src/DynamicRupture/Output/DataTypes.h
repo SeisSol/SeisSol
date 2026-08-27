@@ -147,20 +147,27 @@ struct PlusMinusBasisFunctions {
   std::vector<real> minusSide;
 };
 
+struct ReceiverOutputFace {
+  std::vector<std::size_t> outputPointIds;
+};
+
+struct ReceiverOutputPoint {
+  std::vector<std::size_t> receiverIds;
+  PlusMinusBasisFunctions basisFunctions;
+  FaultDirections faultDirections;
+  std::array<real, seissol::tensor::stressRotationMatrix::size()> stressGlbToDipStrikeAligned;
+  std::array<real, seissol::tensor::stressRotationMatrix::size()> stressFaceAlignedToGlb;
+  std::array<real, seissol::tensor::T::size()> faceAlignedToGlbData;
+  std::array<real, seissol::tensor::Tinv::size()> glbToFaceAlignedData;
+  Eigen::Matrix<real, 2, 2> jacobianT2d;
+};
+
 struct ReceiverOutputData {
   output::DrVarsT vars;
-  std::vector<PlusMinusBasisFunctions> basisFunctions;
   std::vector<ReceiverPoint> receiverPoints;
-  std::vector<std::array<real, seissol::tensor::stressRotationMatrix::size()>>
-      stressGlbToDipStrikeAligned;
-  std::vector<std::array<real, seissol::tensor::stressRotationMatrix::size()>>
-      stressFaceAlignedToGlb;
-  std::vector<std::array<real, seissol::tensor::T::size()>> faceAlignedToGlbData;
-  std::vector<std::array<real, seissol::tensor::Tinv::size()>> glbToFaceAlignedData;
-  std::vector<Eigen::Matrix<real, 2, 2>, Eigen::aligned_allocator<Eigen::Matrix<real, 2, 2>>>
-      jacobianT2d;
+  std::vector<ReceiverOutputFace> outputFaces;
+  std::vector<ReceiverOutputPoint> outputPoints;
 
-  std::vector<FaultDirections> faultDirections;
   std::vector<double> cachedTime;
   size_t currentCacheLevel{0};
   size_t maxCacheLevel{50};
@@ -173,7 +180,6 @@ struct ReceiverOutputData {
   std::size_t cellCount{0};
 
   std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollectorUntyped>> deviceVariables;
-  std::vector<std::size_t> deviceIndices;
   std::optional<parallel::runtime::StreamRuntime> extraRuntime;
 };
 } // namespace seissol::dr

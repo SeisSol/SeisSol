@@ -100,17 +100,19 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
   std::unordered_map<std::size_t, std::size_t> elementIndices;
   std::unordered_map<std::pair<int, std::size_t>, GhostElement, HashPair<int, std::size_t>>
       elementIndicesGhost;
-  std::size_t foundPoints = 0;
+  std::map<std::array<double, 3>, std::size_t> pointIndices;
 
-  constexpr size_t NumVertices{4};
-  for (const auto& point : outputData_->receiverPoints) {
+  constexpr size_t NumVertices{Cell::NumVertices};
+  for (const auto [index, point] : common::enumerate(outputData_->receiverPoints)) {
     if (point.isInside) {
       if (faceIndices.find(faceToLtsMap_->get(point.faultFaceIndex).global) == faceIndices.end()) {
         const auto faceIndex = faceIndices.size();
         faceIndices[faceToLtsMap_->get(point.faultFaceIndex).global] = faceIndex;
+        outputData_->outputFaces.emplace_back();
       }
 
-      ++foundPoints;
+      const auto faceIndex = faceIndices[faceToLtsMap_->get(point.faultFaceIndex).global];
+
       const auto elementIndex = faultInfo[point.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
 
@@ -158,8 +160,24 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
         }
       }
 
-      outputData_->basisFunctions.emplace_back(
-          getPlusMinusBasisFunctions(point.global.coords, elemCoords, neighborElemCoords));
+      auto pointCoords = std::array<double, 3>{
+          point.global.coords[0], point.global.coords[1], point.global.coords[2]};
+
+      // use exact arithmetic here (will most likely only find fused sims; and possibly
+      // doubly-specified points from the parameter file)
+      if (pointIndices.find(pointCoords) == pointIndices.end()) {
+        const auto pointIndex = pointIndices.size();
+        pointIndices[pointCoords] = pointIndex;
+        auto& outputPoint = outputData_->outputPoints.emplace_back();
+        assert(outputData_->outputPoints.size() == pointIndices.size());
+
+        outputPoint.basisFunctions =
+            getPlusMinusBasisFunctions(point.global.coords, elemCoords, neighborElemCoords);
+
+        outputData_->outputFaces[faceIndex].outputPointIds.push_back(pointIndex);
+      }
+
+      outputData_->outputPoints[pointIndices[pointCoords]].receiverIds.push_back(index);
     }
   }
 
@@ -211,55 +229,57 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
     }
   }
 
-  outputData_->deviceDataPlus.resize(foundPoints);
-  outputData_->deviceDataMinus.resize(foundPoints);
-  outputData_->deviceIndices.resize(foundPoints);
-  std::size_t pointCounter = 0;
-  for (std::size_t i = 0; i < outputData_->receiverPoints.size(); ++i) {
-    const auto& point = outputData_->receiverPoints[i];
-    if (point.isInside) {
-      const auto elementIndex = faultInfo[point.faultFaceIndex].element;
-      const auto& element = elementsInfo[elementIndex];
-      outputData_->deviceIndices[pointCounter] =
-          faceIndices.at(faceToLtsMap_->get(point.faultFaceIndex).global);
+  outputData_->deviceDataPlus.resize(faceIndices.size());
+  outputData_->deviceDataMinus.resize(faceIndices.size());
+  for (std::size_t i = 0; i < outputData_->outputFaces.size(); ++i) {
+    const auto& face = outputData_->outputFaces[i];
+    const auto& point =
+        outputData_
+            ->receiverPoints[outputData_->outputPoints[face.outputPointIds[0]].receiverIds[0]];
+    const auto elementIndex = faultInfo[point.faultFaceIndex].element;
+    const auto& element = elementsInfo[elementIndex];
 
-      outputData_->deviceDataPlus[pointCounter] = elementIndices.at(elementIndex);
+    outputData_->deviceDataPlus[i] = elementIndices.at(elementIndex);
 
-      const auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
-      if (neighborElementIndex >= 0) {
-        outputData_->deviceDataMinus[pointCounter] = elementIndices.at(neighborElementIndex);
-      } else {
-        const auto faultSide = faultInfo[point.faultFaceIndex].side;
-        const auto neighborRank = element.neighborRanks[faultSide];
-        const auto neighborIndex = element.mpiIndices[faultSide];
-        outputData_->deviceDataMinus[pointCounter] =
-            elementIndices.size() +
-            elementIndicesGhost.at(std::pair<int, std::size_t>(neighborRank, neighborIndex)).index;
-      }
-
-      ++pointCounter;
+    const auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
+    if (neighborElementIndex >= 0) {
+      outputData_->deviceDataMinus[i] = elementIndices.at(neighborElementIndex);
+    } else {
+      const auto faultSide = faultInfo[point.faultFaceIndex].side;
+      const auto neighborRank = element.neighborRanks[faultSide];
+      const auto neighborIndex = element.mpiIndices[faultSide];
+      outputData_->deviceDataMinus[i] =
+          elementIndices.size() +
+          elementIndicesGhost.at(std::pair<int, std::size_t>(neighborRank, neighborIndex)).index;
     }
   }
 }
 
 void ReceiverBasedOutputBuilder::initFaultDirections() {
-  const size_t nReceiverPoints = outputData_->receiverPoints.size();
-  outputData_->faultDirections.resize(nReceiverPoints);
+  auto& points = outputData_->outputPoints;
+
+  const size_t pointCount = points.size();
+
   const auto& faultInfo = meshReader_->getFault();
 
-  for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-    const size_t globalIndex = outputData_->receiverPoints[receiverId].faultFaceIndex;
+  // (currently works per point, not per face; in case we ever need that)
 
-    auto& faceNormal = outputData_->faultDirections[receiverId].faceNormal;
-    auto& tangent1 = outputData_->faultDirections[receiverId].tangent1;
-    auto& tangent2 = outputData_->faultDirections[receiverId].tangent2;
+  for (size_t pointId = 0; pointId < pointCount; ++pointId) {
+    auto& faultDirections = outputData_->outputPoints[pointId].faultDirections;
+
+    const auto receiverIdPrototype = points[pointId].receiverIds[0];
+    const size_t globalIndex = outputData_->receiverPoints[receiverIdPrototype].faultFaceIndex;
+
+    auto& faceNormal = faultDirections.faceNormal;
+    auto& tangent1 = faultDirections.tangent1;
+    auto& tangent2 = faultDirections.tangent2;
 
     std::copy_n(&faultInfo[globalIndex].normal[0], 3, faceNormal.begin());
     std::copy_n(&faultInfo[globalIndex].tangent1[0], 3, tangent1.begin());
     std::copy_n(&faultInfo[globalIndex].tangent2[0], 3, tangent2.begin());
 
-    auto& strike = outputData_->faultDirections[receiverId].strike;
-    auto& dip = outputData_->faultDirections[receiverId].dip;
+    auto& strike = faultDirections.strike;
+    auto& dip = faultDirections.dip;
     misc::computeStrikeAndDipVectors(faceNormal.data(), strike.data(), dip.data());
   }
 }
@@ -268,39 +288,35 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
   using namespace seissol::transformations;
   using RotationMatrixViewT = yateto::DenseTensorView<2, real, unsigned>;
 
-  // allocate Rotation Matrices
-  // Note: several receiver can share the same rotation matrix
-  const size_t nReceiverPoints = outputData_->receiverPoints.size();
-  outputData_->stressGlbToDipStrikeAligned.resize(nReceiverPoints);
-  outputData_->stressFaceAlignedToGlb.resize(nReceiverPoints);
-  outputData_->faceAlignedToGlbData.resize(nReceiverPoints);
-  outputData_->glbToFaceAlignedData.resize(nReceiverPoints);
+  // allocate Rotation Matrices (currently per point, in case we ever need that)
+  auto& points = outputData_->outputPoints;
+
+  const size_t pointCount = points.size();
 
   // init Rotation Matrices
-  for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-    const auto& faceNormal = outputData_->faultDirections[receiverId].faceNormal;
-    const auto& strike = outputData_->faultDirections[receiverId].strike;
-    const auto& dip = outputData_->faultDirections[receiverId].dip;
-    const auto& tangent1 = outputData_->faultDirections[receiverId].tangent1;
-    const auto& tangent2 = outputData_->faultDirections[receiverId].tangent2;
+  for (size_t pointId = 0; pointId < pointCount; ++pointId) {
+    const auto& faultDirections = outputData_->outputPoints[pointId].faultDirections;
+    const auto& faceNormal = faultDirections.faceNormal;
+    const auto& strike = faultDirections.strike;
+    const auto& dip = faultDirections.dip;
+    const auto& tangent1 = faultDirections.tangent1;
+    const auto& tangent2 = faultDirections.tangent2;
 
     {
-      auto* memorySpace = outputData_->stressGlbToDipStrikeAligned[receiverId].data();
+      auto* memorySpace = points[pointId].stressGlbToDipStrikeAligned.data();
       RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
       inverseSymmetricTensor2RotationMatrix(
           faceNormal.data(), strike.data(), dip.data(), rotationMatrixView, 0, 0);
     }
     {
-      auto* memorySpace = outputData_->stressFaceAlignedToGlb[receiverId].data();
+      auto* memorySpace = points[pointId].stressFaceAlignedToGlb.data();
       RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
       symmetricTensor2RotationMatrix(
           faceNormal.data(), tangent1.data(), tangent2.data(), rotationMatrixView, 0, 0);
     }
     {
-      auto faceAlignedToGlb =
-          init::T::view::create(outputData_->faceAlignedToGlbData[receiverId].data());
-      auto glbToFaceAligned =
-          init::Tinv::view::create(outputData_->glbToFaceAlignedData[receiverId].data());
+      auto faceAlignedToGlb = init::T::view::create(points[pointId].faceAlignedToGlbData.data());
+      auto glbToFaceAligned = init::Tinv::view::create(points[pointId].glbToFaceAlignedData.data());
 
       seissol::model::getFaceRotationMatrix(
           faceNormal.data(), tangent1.data(), tangent2.data(), faceAlignedToGlb, glbToFaceAligned);
@@ -327,12 +343,14 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
   const auto& verticesInfo = meshReader_->getVertices();
   const auto& elementsInfo = meshReader_->getElements();
 
-  const size_t nReceiverPoints = outputData_->receiverPoints.size();
-  outputData_->jacobianT2d.resize(nReceiverPoints);
+  auto& points = outputData_->outputPoints;
 
-  for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-    const auto side = outputData_->receiverPoints[receiverId].localFaceSideId;
-    const auto elementIndex = outputData_->receiverPoints[receiverId].elementIndex;
+  const size_t pointCount = points.size();
+
+  for (size_t pointId = 0; pointId < pointCount; ++pointId) {
+    const auto receiverIdPrototype = points[pointId].receiverIds[0];
+    const auto side = outputData_->receiverPoints[receiverIdPrototype].localFaceSideId;
+    const auto elementIndex = outputData_->receiverPoints[receiverIdPrototype].elementIndex;
 
     assert(elementIndex >= 0);
 
@@ -354,7 +372,7 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
       xac[Z] = face.point(2)[Z] - face.point(0)[Z];
     }
 
-    const auto faultIndex = outputData_->receiverPoints[receiverId].faultFaceIndex;
+    const auto faultIndex = outputData_->receiverPoints[receiverIdPrototype].faultFaceIndex;
     const auto* tangent1 = faultInfo[faultIndex].tangent1;
     const auto* tangent2 = faultInfo[faultIndex].tangent2;
 
@@ -363,7 +381,7 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
     matrix(0, 1) = MeshTools::dot(tangent2, xab);
     matrix(1, 0) = MeshTools::dot(tangent1, xac);
     matrix(1, 1) = MeshTools::dot(tangent2, xac);
-    outputData_->jacobianT2d[receiverId] = matrix.inverse();
+    points[pointId].jacobianT2d = matrix.inverse();
   }
 }
 
