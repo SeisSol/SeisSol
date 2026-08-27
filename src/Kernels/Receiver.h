@@ -35,18 +35,24 @@ class SeisSol;
 namespace kernels {
 struct Receiver {
   Receiver(std::size_t pointId,
+           std::size_t receiverCellId,
            Eigen::Vector3d position,
            const double* elementCoords[4],
-           LTS::Ref dataHost,
-           LTS::Ref dataDevice,
            size_t reserved);
   std::size_t pointId;
+  std::size_t receiverCellId;
   Eigen::Vector3d position;
   basisFunction::SampledBasisFunctions<real> basisFunctions;
   basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
+  std::vector<real> output;
+};
+
+struct ReceiverCell {
+  ReceiverCell(std::size_t meshId, LTS::Ref dataHost, LTS::Ref dataDevice);
+  std::size_t meshId{};
   LTS::Ref dataHost;
   LTS::Ref dataDevice;
-  std::vector<real> output;
+  std::vector<std::size_t> receivers;
 };
 
 struct DerivedReceiverQuantity {
@@ -114,10 +120,14 @@ class ReceiverCluster {
   std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollector_{nullptr};
   std::vector<size_t> deviceIndices_;
   std::vector<Receiver> receivers_;
+  std::vector<ReceiverCell> receiverCells_;
+  std::unordered_map<std::size_t, std::size_t> meshToReceiverCell_;
   seissol::kernels::Spacetime spacetimeKernel_;
   seissol::kernels::Time timeKernel_;
   std::vector<std::size_t> quantities_;
-  PerformanceEstimate estimate_{};
+  PerformanceEstimate estimatePerCell_{};
+  PerformanceEstimate estimatePerCellStep_{};
+  PerformanceEstimate estimatePerPoint_{};
   std::size_t perfHandle_{};
   double samplingInterval_;
   double syncPointInterval_;
