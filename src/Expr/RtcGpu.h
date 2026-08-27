@@ -46,7 +46,33 @@
 
 namespace seissol::expr {
 
-enum class GpuTarget : std::uint8_t { Cuda, Hip };
+enum class GpuTarget : std::uint8_t {
+  Cuda,
+  Hip,
+  /// OpenCL C, for Intel.
+  ///
+  /// The SOURCE language, not the runtime. It is enqueued through SYCL's
+  /// kernel_compiler extension on SeisSol's existing sycl::queue rather than
+  /// through raw OpenCL, because raw OpenCL would need get_native<opencl>() on
+  /// the queue -- which fails on a Level Zero backend, i.e. the normal case on
+  /// an Intel GPU.
+  ///
+  /// OpenCL C rather than SYCL source, although the extension accepts both,
+  /// because the extension itself is experimental and its own specification
+  /// says shipping software should not depend on it. Keeping the source in the
+  /// stable half means that if the extension changes, or is replaced by raw
+  /// OpenCL or a SPIR-V path, only the enqueue moves.
+  OpenCl
+};
+
+/// Whether `target` takes its arguments as one by-value struct (CUDA, HIP) or
+/// as a flat parameter list (OpenCL).
+///
+/// Not a style choice. OpenCL C does not portably allow pointers inside a
+/// struct passed as a KERNEL argument, so that target has to spell the
+/// parameters out -- and its enqueue is clSetKernelArg per index anyway, which
+/// wants exactly that. GpuArguments produces both views from one packing.
+[[nodiscard]] bool usesArgumentStruct(GpuTarget target);
 
 /// Why a program cannot go to a device backend. Reported rather than returned
 /// as a bare bool, because "fell back to the interpreter" without a reason is
@@ -134,15 +160,31 @@ class GpuArguments {
   /// gpuRejection() already guarantees for a program that reaches a device.
   GpuArguments(const Binding& binding, const KernelArgs& args, void* persistent);
 
+  /// The cuLaunchKernel view: one entry, pointing at the argument struct.
   [[nodiscard]] void** data() { return pointers_.data(); }
   [[nodiscard]] std::size_t size() const { return pointers_.size(); }
+
+  /// The clSetKernelArg view: one entry per parameter, in declaration order.
+  /// Same bytes, same order -- the two views cannot disagree because there is
+  /// one packing behind them.
+  [[nodiscard]] std::size_t fieldCount() const { return fields_.size(); }
+  [[nodiscard]] const void* fieldData(std::size_t index) const {
+    return image_.data() + fields_[index].offset;
+  }
+  [[nodiscard]] std::size_t fieldSize(std::size_t index) const { return fields_[index].size; }
 
   private:
   void append(const void* value, std::size_t bytes);
 
   /// The by-value struct's byte image. pointers_ points into it, so it is
   /// reserved up front and never grown afterwards.
+  struct Field {
+    std::size_t offset{0};
+    std::size_t size{0};
+  };
+
   std::vector<unsigned char> image_;
+  std::vector<Field> fields_;
   std::vector<void*> pointers_;
 };
 
@@ -164,6 +206,12 @@ class GpuArguments {
 /// exactly what GpuArguments exists to avoid.
 [[nodiscard]] std::string emitGpuHostTrampoline(const GpuLayout& layout,
                                                 const std::string& computeType);
+
+/// The same, for the flat-parameter targets: takes an array of POINTERS to the
+/// parameter values, which is what GpuArguments' field view hands out and what
+/// clSetKernelArg consumes one at a time.
+[[nodiscard]] std::string emitGpuHostTrampolineFlat(const GpuLayout& layout,
+                                                    const std::string& computeType);
 
 } // namespace seissol::expr
 

@@ -62,17 +62,32 @@ const char* elementType(DataType type) {
 // appears here, because there is no tile.
 std::string gpuLoadInput(std::int32_t index) {
   const std::string i = std::to_string(index);
-  return "load_in" + i + "(a.in" + i + ", a.stride_in" + i + ", a.offset_in" + i + ", p)";
+  return "load_in" + i + "(a->in" + i + ", a->stride_in" + i + ", a->offset_in" + i + ", p)";
 }
 std::string gpuLoadPersistent(std::int32_t slot) {
-  return "a.persistent[" + std::to_string(slot) + "ull * a.numPoints + p]";
+  return "a->persistent[" + std::to_string(slot) + " * a->numPoints + p]";
 }
-std::string gpuStoreOutput(std::int32_t index) {
+std::string gpuStoreOutput(std::int32_t index, const std::string& value) {
   const std::string i = std::to_string(index);
-  return "store_out" + i + "(a.out" + i + ", a.stride_out" + i + ", a.offset_out" + i + ", p)";
+  return "store_out" + i + "(a->out" + i + ", a->stride_out" + i + ", a->offset_out" + i + ", p, " +
+         value + ")";
 }
-std::string gpuStorePersistent(std::int32_t slot) {
-  return "a.persistent[" + std::to_string(slot) + "ull * a.numPoints + p]";
+std::string gpuStorePersistent(std::int32_t slot, const std::string& value) {
+  return "a->persistent[" + std::to_string(slot) + " * a->numPoints + p] = " + value;
+}
+
+/// OpenCL C needs an address space on every pointer that reaches global
+/// memory; CUDA and HIP infer it. Emitted rather than hardcoded so the rest of
+/// the generator stays dialect-agnostic.
+const char* globalQualifier(GpuTarget target) {
+  return target == GpuTarget::OpenCl ? "__global " : "";
+}
+
+/// `inline` on a device function: `__device__ inline` for CUDA/HIP, plain
+/// `inline` for OpenCL C, which has no such qualifier and puts everything on
+/// the device by construction.
+const char* deviceFunction(GpuTarget target) {
+  return target == GpuTarget::OpenCl ? "inline" : "__device__ inline";
 }
 
 void emitPrologue(std::ostringstream& out, GpuTarget target) {
@@ -83,114 +98,162 @@ void emitPrologue(std::ostringstream& out, GpuTarget target) {
     // its built-ins from nvrtc without an include.
     out << "#include <hip/hip_runtime.h>\n";
   }
-  out << "\n"
-      << "// Lane indexing, factored out so the same source can be compiled and RUN on\n"
+  if (target == GpuTarget::OpenCl) {
+    // Not optional and not conditional on the compute type: an f32 program can
+    // still carry an f64 column, and the accessor for it names `double`.
+    out << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+  }
+
+  // One name for a 64-bit unsigned, because the dialects spell it differently
+  // and the emitted body should not have to care. `unsigned long` would be
+  // 32-bit on a Windows host and is not an OpenCL C type at all.
+  out << "typedef " << (target == GpuTarget::OpenCl ? "ulong" : "unsigned long long")
+      << " SeissolU64;\n\n";
+
+  out << "// Lane indexing, factored out so the same source can be compiled and RUN on\n"
       << "// the host by a test that defines these differently. That is how the\n"
       << "// arithmetic is checked against the interpreter without a device.\n"
-      << "#ifndef SEISSOL_EXPR_TID\n"
-      << "#define SEISSOL_EXPR_TID (blockIdx.x * blockDim.x + threadIdx.x)\n"
-      << "#define SEISSOL_EXPR_NTHREADS (gridDim.x * blockDim.x)\n"
-      << "#define SEISSOL_EXPR_KERNEL extern \"C\" __global__\n"
-      << "#endif\n\n";
+      << "#ifndef SEISSOL_EXPR_TID\n";
+  if (target == GpuTarget::OpenCl) {
+    out << "#define SEISSOL_EXPR_TID get_global_id(0)\n"
+        << "#define SEISSOL_EXPR_NTHREADS get_global_size(0)\n"
+        << "#define SEISSOL_EXPR_KERNEL __kernel\n";
+  } else {
+    out << "#define SEISSOL_EXPR_TID (blockIdx.x * blockDim.x + threadIdx.x)\n"
+        << "#define SEISSOL_EXPR_NTHREADS (gridDim.x * blockDim.x)\n"
+        << "#define SEISSOL_EXPR_KERNEL extern \"C\" __global__\n";
+  }
+  out << "#endif\n\n";
 }
 
 /// One typed accessor per column, so the element type is resolved at
 /// generation time and no per-point switch survives into the kernel.
+///
+/// The store is a FUNCTION rather than a reference-returning proxy: OpenCL C
+/// has no operator overloading, and a second store form for one dialect is
+/// exactly the kind of split this generator exists to avoid.
 void emitAccessors(std::ostringstream& out,
                    const GpuLayout& layout,
-                   const std::string& computeType) {
+                   const std::string& computeType,
+                   GpuTarget target) {
+  const std::string global = globalQualifier(target);
+  const std::string fn = deviceFunction(target);
+
   for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
     const char* element = elementType(layout.inputs[i]);
-    out << "__device__ inline " << computeType << " load_in" << i
-        << "(const void* __restrict base, unsigned long stride, unsigned long offset,\n"
-        << "    unsigned long p) {\n"
+    out << fn << " " << computeType << " load_in" << i << "(" << global
+        << "const void* base, SeissolU64 stride, SeissolU64 offset, SeissolU64 p) {\n"
         // A typed load, not a byte copy. gpuRejection() has already established
         // that stride and offset are element multiples, so the address is
         // aligned -- and __builtin_memcpy is not something every device
         // frontend is guaranteed to lower well.
-        << "  const char* bytes = (const char*)base + offset + p * stride;\n"
-        << "  return (" << computeType << ")(*(const " << element << "*)bytes);\n"
+        << "  " << global << "const char* bytes = (" << global
+        << "const char*)base + offset + p * stride;\n"
+        << "  return (" << computeType << ")(*(" << global << "const " << element << "*)bytes);\n"
         << "}\n";
   }
   for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
     const char* element = elementType(layout.outputs[i]);
-    // Returns a proxy-free lvalue-ish setter: emitted stores read
-    // `store_outN(...) = value`, so this hands back a reference to a typed
-    // location. A reference rather than a store function keeps
-    // codegen::emitStageBody's store form identical across backends.
-    out << "struct SeissolStore" << i << " {\n"
-        << "  " << element << "* p;\n"
-        << "  __device__ inline void operator=(" << computeType << " v) const { *p = (" << element
-        << ")v; }\n"
-        << "};\n"
-        << "__device__ inline SeissolStore" << i << " store_out" << i
-        << "(void* __restrict base, unsigned long stride, unsigned long offset,\n"
-        << "    unsigned long p) {\n"
-        << "  char* bytes = (char*)base + offset + p * stride;\n"
-        << "  SeissolStore" << i << " s; s.p = (" << element << "*)bytes; return s;\n"
+    out << fn << " void store_out" << i << "(" << global
+        << "void* base, SeissolU64 stride, SeissolU64 offset, SeissolU64 p,\n"
+        << "    " << computeType << " v) {\n"
+        << "  " << global << "char* bytes = (" << global << "char*)base + offset + p * stride;\n"
+        << "  *(" << global << element << "*)bytes = (" << element << ")v;\n"
         << "}\n";
   }
   out << "\n";
 }
 
-/// The kernel takes ONE by-value struct rather than 3N+4 scalars.
+/// The argument block: one by-value struct for CUDA and HIP, a flat parameter
+/// list for OpenCL.
 ///
-/// CHANGED (reported, Package 5). The scalar form made the kernel's ARITY a
-/// function of the program, so every caller had to know how many parameters
-/// there were and in what order -- and cuLaunchKernel takes a void** it cannot
-/// type-check. Getting that wrong does not crash: the arguments land a slot
-/// over, `count` is read out of a pointer, and the kernel writes nothing at
-/// all. That is the failure that showed up while testing this, and it is hard
-/// to see precisely because it looks like the kernel simply did nothing.
+/// The struct is what makes the launch arity-independent, and getting the
+/// scalar form wrong does not crash -- the parameters land a slot over, `count`
+/// is read out of a pointer, and the kernel writes nothing at all. That is why
+/// CUDA and HIP use it.
 ///
-/// With a struct the launch is one parameter for every program, and the field
-/// ORDER stops being something a caller reproduces by hand: the emitted
-/// definition and GpuArguments are built from the same list.
+/// OpenCL C cannot: a struct passed as a KERNEL argument may not portably
+/// contain pointers. So there the parameters are spelled out and immediately
+/// gathered into a local struct, which the point function then takes by
+/// pointer exactly as on the other targets. The fusion seam stays identical
+/// across all three; only the outermost signature differs.
 ///
-/// Fixed-width fields by intent. `unsigned long` is 32-bit on Windows and
-/// 64-bit on Linux, and a struct passed by value across the host/device
-/// boundary cannot afford that ambiguity.
+/// GpuArguments packs the fields once and offers both views, so the two orders
+/// cannot drift.
 void emitArgumentStruct(std::ostringstream& out,
                         const GpuLayout& layout,
-                        const std::string& computeType) {
-  out << "struct SeissolExprArgs {\n";
+                        const std::string& computeType,
+                        GpuTarget target) {
+  const std::string global = globalQualifier(target);
+  out << "typedef struct {\n";
   for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
-    out << "  const void* in" << i << ";\n"
-        << "  unsigned long long stride_in" << i << ";\n"
-        << "  unsigned long long offset_in" << i << ";\n";
+    out << "  " << global << "const void* in" << i << ";\n"
+        << "  SeissolU64 stride_in" << i << ";\n"
+        << "  SeissolU64 offset_in" << i << ";\n";
   }
   for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
-    out << "  void* out" << i << ";\n"
-        << "  unsigned long long stride_out" << i << ";\n"
-        << "  unsigned long long offset_out" << i << ";\n";
+    out << "  " << global << "void* out" << i << ";\n"
+        << "  SeissolU64 stride_out" << i << ";\n"
+        << "  SeissolU64 offset_out" << i << ";\n";
   }
-  out << "  " << computeType << "* persistent;\n"
-      << "  unsigned long long numPoints;\n"
-      << "  unsigned long long first;\n"
-      << "  unsigned long long count;\n"
-      << "};\n\n";
+  out << "  " << global << computeType << "* persistent;\n"
+      << "  SeissolU64 numPoints;\n"
+      << "  SeissolU64 first;\n"
+      << "  SeissolU64 count;\n"
+      << "} SeissolExprArgs;\n\n";
+}
+
+/// The flat parameter list, in the same order as the struct's fields.
+void emitFlatParameters(std::ostringstream& out,
+                        const GpuLayout& layout,
+                        const std::string& computeType) {
+  for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
+    out << "    __global const void* in" << i << ", SeissolU64 stride_in" << i
+        << ", SeissolU64 offset_in" << i << ",\n";
+  }
+  for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
+    out << "    __global void* out" << i << ", SeissolU64 stride_out" << i
+        << ", SeissolU64 offset_out" << i << ",\n";
+  }
+  out << "    __global " << computeType << "* persistent, SeissolU64 numPoints,\n"
+      << "    SeissolU64 first, SeissolU64 count";
+}
+
+/// Gather the flat parameters into a local struct, so the point function's
+/// signature is the same on every target.
+void emitFlatGather(std::ostringstream& out, const GpuLayout& layout) {
+  out << "  SeissolExprArgs a;\n";
+  for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
+    out << "  a.in" << i << " = in" << i << "; a.stride_in" << i << " = stride_in" << i
+        << "; a.offset_in" << i << " = offset_in" << i << ";\n";
+  }
+  for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
+    out << "  a.out" << i << " = out" << i << "; a.stride_out" << i << " = stride_out" << i
+        << "; a.offset_out" << i << " = offset_out" << i << ";\n";
+  }
+  out << "  a.persistent = persistent; a.numPoints = numPoints;\n"
+      << "  a.first = first; a.count = count;\n";
 }
 
 void emitStage(std::ostringstream& out,
                const char* name,
                const StageCode& stage,
                const std::vector<std::int32_t>& operands,
-               const std::string& computeType) {
+               const GpuLayout& layout,
+               const std::string& computeType,
+               GpuTarget target) {
   // Emitted in two pieces, and that split is the interesting part.
   //
   // The POINT function is the expression and nothing else: no loop, no launch
   // geometry, no assumption about who calls it. A kernel that already owns a
-  // loop over the same points -- a TensorForge-generated batched contraction,
-  // say -- can call it from inside, with the interior state still in registers
-  // and the result never touching global memory. That is how the projections
-  // fuse without this generator learning what a GEMM is.
+  // loop over the same points can call it from inside, with the interior state
+  // still in registers. That is how a projection fuses without this generator
+  // learning what a GEMM is.
   //
-  // The WRAPPER is the standalone form: a grid-stride loop calling the point
-  // function once per point. It exists so a program that nobody wants to fuse
-  // still has something to launch, and it is what the driver layer loads.
-  out << "__device__ inline void " << name << "_point(const SeissolExprArgs& a,\n"
-      << "                                            unsigned long long p) {\n";
-  const std::string body = "  ";
+  // The WRAPPER is the standalone form, and it is what the driver layer loads.
+  out << deviceFunction(target) << " void " << name << "_point(\n"
+      << "    " << (target == GpuTarget::OpenCl ? "" : "const ")
+      << "SeissolExprArgs* a, SeissolU64 p) {\n";
 
   codegen::StageAddressing addressing;
   addressing.loadInput = gpuLoadInput;
@@ -199,15 +262,22 @@ void emitStage(std::ostringstream& out,
   addressing.storePersistent = gpuStorePersistent;
 
   codegen::emitStageBody(
-      out, stage, operands, computeType, codegen::MathStyle::Unqualified, addressing, body.c_str());
+      out, stage, operands, computeType, codegen::MathStyle::Unqualified, addressing, "  ");
   out << "}\n\n";
 
+  out << "SEISSOL_EXPR_KERNEL void " << name << "(";
+  if (target == GpuTarget::OpenCl) {
+    out << "\n";
+    emitFlatParameters(out, layout, computeType);
+    out << ") {\n";
+    emitFlatGather(out, layout);
+  } else {
+    out << "SeissolExprArgs a) {\n";
+  }
   // Grid-stride loop, so the launch geometry is free to be whatever the driver
   // layer picks and a short range still uses every thread it was given.
-  out << "SEISSOL_EXPR_KERNEL void " << name << "(SeissolExprArgs a) {\n"
-      << "  for (unsigned long long l = SEISSOL_EXPR_TID; l < a.count; l += "
-         "SEISSOL_EXPR_NTHREADS) {\n"
-      << "    " << name << "_point(a, a.first + l);\n"
+  out << "  for (SeissolU64 l = SEISSOL_EXPR_TID; l < a.count; l += SEISSOL_EXPR_NTHREADS) {\n"
+      << "    " << name << "_point(&a, a.first + l);\n"
       << "  }\n}\n\n";
 }
 
@@ -219,6 +289,8 @@ std::uint64_t mix(std::uint64_t hash, std::uint64_t value) {
 }
 
 } // namespace
+
+bool usesArgumentStruct(GpuTarget target) { return target != GpuTarget::OpenCl; }
 
 const char* describe(GpuRejection rejection) {
   switch (rejection) {
@@ -315,6 +387,39 @@ std::string emitGpuHostTrampoline(const GpuLayout& /*layout*/, const std::string
          "}\n";
 }
 
+std::string emitGpuHostTrampolineFlat(const GpuLayout& layout, const std::string& computeType) {
+  // Generated from the layout because the flat form IS arity-dependent -- which
+  // is exactly why the other targets do not use it.
+  std::ostringstream out;
+  out << "extern \"C\" void seissol_expr_invoke(const void** a) {\n  seissol_expr_run(\n";
+  std::size_t k = 0;
+  const auto arg = [&](const char* type) { out << "    *(" << type << "*)a[" << k++ << "]"; };
+  for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
+    arg("const void* const");
+    out << ", ";
+    arg("const SeissolU64");
+    out << ", ";
+    arg("const SeissolU64");
+    out << ",\n";
+  }
+  for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
+    arg("void* const");
+    out << ", ";
+    arg("const SeissolU64");
+    out << ", ";
+    arg("const SeissolU64");
+    out << ",\n";
+  }
+  out << "    *(" << computeType << "* const*)a[" << k++ << "],\n";
+  arg("const SeissolU64");
+  out << ", ";
+  arg("const SeissolU64");
+  out << ", ";
+  arg("const SeissolU64");
+  out << ");\n}\n";
+  return out.str();
+}
+
 GpuArguments::GpuArguments(const Binding& binding, const KernelArgs& args, void* persistent) {
   // The byte image of the emitted SeissolExprArgs, in declaration order. Every
   // field is eight bytes wide and eight-byte aligned, which is why a flat
@@ -353,6 +458,7 @@ GpuArguments::GpuArguments(const Binding& binding, const KernelArgs& args, void*
 
 void GpuArguments::append(const void* value, std::size_t bytes) {
   const auto* source = static_cast<const unsigned char*>(value);
+  fields_.push_back(Field{image_.size(), bytes});
   image_.insert(image_.end(), source, source + bytes);
 }
 
@@ -364,13 +470,19 @@ std::string emitGpuSource(const Program& program,
 
   std::ostringstream out;
   emitPrologue(out, target);
-  emitAccessors(out, layout, computeType);
-  emitArgumentStruct(out, layout, computeType);
+  emitAccessors(out, layout, computeType, target);
+  emitArgumentStruct(out, layout, computeType, target);
   if (lowered.hasPrecompute()) {
-    emitStage(
-        out, "seissol_expr_precompute", lowered.precompute(), lowered.operands(), computeType);
+    emitStage(out,
+              "seissol_expr_precompute",
+              lowered.precompute(),
+              lowered.operands(),
+              layout,
+              computeType,
+              target);
   }
-  emitStage(out, "seissol_expr_run", lowered.run(), lowered.operands(), computeType);
+  emitStage(
+      out, "seissol_expr_run", lowered.run(), lowered.operands(), layout, computeType, target);
   return out.str();
 }
 

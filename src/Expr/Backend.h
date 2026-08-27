@@ -34,8 +34,16 @@ enum class BackendKind : std::uint8_t {
   RtcCpu,      // host compiler -> shared object
   RtcCuda,     // NVRTC
   RtcHip,      // hiprtc
-  Texture,     // NOT IMPLEMENTED — hardware-sampled grids, see stub below
-  Distributed  // NOT IMPLEMENTED — sharded grids, see stub below
+  /// OpenCL C source, enqueued through SYCL's kernel_compiler extension.
+  ///
+  /// The source language is OpenCL C rather than SYCL because that half is
+  /// stable; the enqueue goes through SYCL so it works on a Level Zero backend,
+  /// where raw OpenCL would not. Support is queried at run time -- whether a
+  /// backend accepts OpenCL C source is a property of the backend, not of the
+  /// build.
+  RtcOpenCl,
+  Texture,    // NOT IMPLEMENTED — hardware-sampled grids, see stub below
+  Distributed // NOT IMPLEMENTED — sharded grids, see stub below
 };
 
 const char* name(BackendKind kind);
@@ -134,6 +142,15 @@ struct BackendOptions {
   BackendKind preferred{BackendKind::Interpreter};
   bool allowFallback{true}; // fall back to Interpreter if `preferred` is unusable
   std::size_t tileSize{0};  // 0 = pick from the program's live-value count
+  /// The device queue, for backends that need one to compile as well as to
+  /// launch: a `sycl::queue*` for BackendKind::RtcOpenCl. Ignored by every
+  /// other backend, which take their stream per call through KernelArgs.
+  ///
+  /// It is here rather than in KernelArgs because the OpenCL path builds its
+  /// kernel bundle from the queue's CONTEXT, which happens once at prepare()
+  /// and not per launch.
+  void* deviceQueue{nullptr};
+
   /// Target architecture for `preferred`, and for that backend ONLY: "native"
   /// or "skylake" for RtcCpu, "80" for NVRTC, "gfx90a" for HIPRTC.
   ///

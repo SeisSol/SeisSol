@@ -44,10 +44,15 @@ struct StageAddressing {
   std::string (*loadInput)(std::int32_t index){nullptr};
   /// Expression for `LoadPersistent` with slot `i`.
   std::string (*loadPersistent)(std::int32_t slot){nullptr};
-  /// Assignment target for an output store.
-  std::string (*storeOutput)(std::int32_t index){nullptr};
-  /// Assignment target for a persistent store.
-  std::string (*storePersistent)(std::int32_t slot){nullptr};
+  /// The COMPLETE store statement, without the trailing semicolon, given the
+  /// name of the local holding the value.
+  ///
+  /// A statement rather than an assignment target, because not every dialect
+  /// can produce one: OpenCL C has no operator overloading, so a device backend
+  /// that wanted `store(...) = v` would need a second store form. Handing the
+  /// value in lets each target spell the store however it can.
+  std::string (*storeOutput)(std::int32_t index, const std::string& value){nullptr};
+  std::string (*storePersistent)(std::int32_t slot, const std::string& value){nullptr};
 };
 
 /// The expression text for `fn`, straight out of the interpreter's table, with

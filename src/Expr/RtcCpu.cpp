@@ -53,11 +53,11 @@ std::string cpuLoadInput(std::int32_t index) {
 std::string cpuLoadPersistent(std::int32_t slot) {
   return "persistent[" + std::to_string(slot) + "ul * numPoints + first + l]";
 }
-std::string cpuStoreOutput(std::int32_t index) {
-  return "outputTile[" + std::to_string(index) + "ul * count + l]";
+std::string cpuStoreOutput(std::int32_t index, const std::string& value) {
+  return "outputTile[" + std::to_string(index) + "ul * count + l] = " + value;
 }
-std::string cpuStorePersistent(std::int32_t slot) {
-  return "persistent[" + std::to_string(slot) + "ul * numPoints + first + l]";
+std::string cpuStorePersistent(std::int32_t slot, const std::string& value) {
+  return "persistent[" + std::to_string(slot) + "ul * numPoints + first + l] = " + value;
 }
 
 void emitStage(std::ostringstream& out,

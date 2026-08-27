@@ -203,7 +203,9 @@ TEST_SUITE("ExprRtcGpu") {
     // address is element-aligned, so the cast is safe and a frontend that
     // lowers __builtin_memcpy badly cannot hurt us.
     CHECK(source.find("(const float*)bytes") != std::string::npos);
-    CHECK(source.find("unsigned long long stride_in0") != std::string::npos);
+    // SeissolU64, because the dialects spell a 64-bit unsigned differently and
+    // `unsigned long` is 32-bit on a Windows host.
+    CHECK(source.find("SeissolU64 stride_in0") != std::string::npos);
   }
 
   TEST_CASE("the HIP target brings its own runtime header") {
@@ -315,7 +317,72 @@ TEST_SUITE("ExprRtcGpu") {
     CHECK(source.find("SEISSOL_EXPR_KERNEL void seissol_expr_run(") != std::string::npos);
     // The wrapper must be a loop over the point function and nothing else, or
     // the two would be two implementations of the same expression.
-    CHECK(source.find("seissol_expr_run_point(a, a.first + l)") != std::string::npos);
+    CHECK(source.find("seissol_expr_run_point(&a, a.first + l)") != std::string::npos);
+  }
+
+  TEST_CASE("the OpenCL dialect differs where it has to and nowhere else") {
+    const Program program = compileSderivModule("out def u = sqrt(x) + y\n");
+    std::vector<double> x(2);
+    std::vector<double> y(2);
+    std::vector<double> u(2);
+    DataTable table(2);
+    table.bindViewConst<double>("x", Direction::In, x.data());
+    table.bindViewConst<double>("y", Direction::In, y.data());
+    table.bindView<double>("u", Direction::Out, u.data());
+    const Binding binding = Binding::bind(program, table);
+    const GpuLayout layout = gpuLayoutOf(binding);
+
+    const std::string opencl = emitGpuSource(program, lower(program), layout, GpuTarget::OpenCl);
+    const std::string cuda = emitGpuSource(program, lower(program), layout, GpuTarget::Cuda);
+
+    // Address spaces are required in OpenCL C and inferred everywhere else.
+    CHECK(opencl.find("__global const void* in0") != std::string::npos);
+    // Not "__global": the CUDA keyword __global__ contains it. The OpenCL
+    // address space is what must be absent.
+    CHECK(cuda.find("__global const void*") == std::string::npos);
+    // f64 is an extension there, and needed even for an f32 program that
+    // carries one f64 column.
+    CHECK(opencl.find("cl_khr_fp64") != std::string::npos);
+    // No `unsigned long` anywhere: 32-bit on Windows, and not an OpenCL C type.
+    CHECK(opencl.find("unsigned long") == std::string::npos);
+    CHECK(opencl.find("typedef ulong SeissolU64") != std::string::npos);
+    // A kernel-argument struct may not portably hold pointers, so this target
+    // spells the parameters out and gathers them into a local struct.
+    // The kernel qualifier goes through the macro, so both the definition and
+    // the use have to be there.
+    CHECK(opencl.find("#define SEISSOL_EXPR_KERNEL __kernel") != std::string::npos);
+    CHECK(opencl.find("SEISSOL_EXPR_KERNEL void seissol_expr_run(") != std::string::npos);
+    CHECK(opencl.find("SeissolExprArgs a;") != std::string::npos);
+    // The point function is identical in shape on both, which is what keeps
+    // the fusion seam target-independent.
+    CHECK(opencl.find("seissol_expr_run_point(&a, a.first + l)") != std::string::npos);
+    CHECK(cuda.find("seissol_expr_run_point(&a, a.first + l)") != std::string::npos);
+  }
+
+  TEST_CASE("both argument views come from one packing") {
+    const Program program = compileSderivModule("out def u = x + y\n");
+    std::vector<double> x = {1.0};
+    std::vector<double> y = {2.0};
+    std::vector<double> u = {0.0};
+    DataTable table(1);
+    table.bindViewConst<double>("x", Direction::In, x.data());
+    table.bindViewConst<double>("y", Direction::In, y.data());
+    table.bindView<double>("u", Direction::Out, u.data());
+    const Binding binding = Binding::bind(program, table);
+
+    KernelArgs args{};
+    args.first = 0;
+    args.count = 1;
+    GpuArguments packed(binding, args, nullptr);
+
+    // Two inputs and one output at three fields each, plus persistent,
+    // numPoints, first and count.
+    CHECK(packed.fieldCount() == 3 * 3 + 4);
+    // The struct view is one entry pointing at the whole image; the flat view
+    // is one entry per field of that same image. They cannot disagree because
+    // there is one packing behind both.
+    CHECK(packed.size() == 1);
+    CHECK(packed.fieldData(0) == *packed.data());
   }
 
 } // TEST_SUITE

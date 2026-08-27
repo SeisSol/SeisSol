@@ -147,12 +147,10 @@ void emitStageBody(std::ostringstream& out,
   }
 
   for (const Store& store : stage.outputs) {
-    out << indent << addressing.storeOutput(store.target) << " = " << slotName(store.source)
-        << ";\n";
+    out << indent << addressing.storeOutput(store.target, slotName(store.source)) << ";\n";
   }
   for (const Store& store : stage.persistent) {
-    out << indent << addressing.storePersistent(store.target) << " = " << slotName(store.source)
-        << ";\n";
+    out << indent << addressing.storePersistent(store.target, slotName(store.source)) << ";\n";
   }
 }
 

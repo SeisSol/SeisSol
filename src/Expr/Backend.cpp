@@ -326,6 +326,8 @@ const char* name(BackendKind kind) {
     return "rtc-cuda";
   case BackendKind::RtcHip:
     return "rtc-hip";
+  case BackendKind::RtcOpenCl:
+    return "rtc-opencl";
   case BackendKind::Texture:
     return "texture";
   case BackendKind::Distributed:
@@ -358,14 +360,16 @@ std::unique_ptr<Kernel> makeKernel(const Program& program,
     return makeInterpreter(program, binding, grids, options);
   }
   case BackendKind::RtcCuda:
-  case BackendKind::RtcHip: {
+  case BackendKind::RtcHip:
+  case BackendKind::RtcOpenCl: {
     LoweredProgram lowered = lower(program, options.lowering);
     auto kernel = makeRtcGpuKernel(program,
                                    binding,
                                    std::move(lowered),
                                    options,
-                                   options.preferred == BackendKind::RtcCuda ? GpuTarget::Cuda
-                                                                             : GpuTarget::Hip);
+                                   options.preferred == BackendKind::RtcCuda  ? GpuTarget::Cuda
+                                   : options.preferred == BackendKind::RtcHip ? GpuTarget::Hip
+                                                                              : GpuTarget::OpenCl);
     if (kernel != nullptr) {
       internGrids(program, grids);
       return kernel;

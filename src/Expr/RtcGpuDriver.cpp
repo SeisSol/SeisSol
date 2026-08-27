@@ -35,6 +35,10 @@
 #include <hip/hiprtc.h>
 #endif
 
+#if defined(SEISSOL_EXPR_HAVE_SYCL)
+#include <sycl/sycl.hpp>
+#endif
+
 namespace seissol::expr {
 
 namespace {
@@ -342,7 +346,117 @@ bool deviceAccessibleHip(const void* pointer) {
 
 #endif // SEISSOL_EXPR_HAVE_HIPRTC
 
-DeviceFunction compileFor(GpuTarget target, const std::string& source, const std::string& arch) {
+#if defined(SEISSOL_EXPR_HAVE_SYCL)
+
+namespace syclex = sycl::ext::oneapi::experimental;
+
+/// Build the OpenCL C source into a sycl::kernel on `queue`'s context.
+///
+/// WHY THE SOURCE IS OpenCL C AND THE ENQUEUE IS SYCL. Raw OpenCL would need
+/// sycl::get_native<backend::opencl>() on the queue, which fails when the SYCL
+/// backend is Level Zero -- the normal case on an Intel GPU. Going through
+/// kernel_compiler keeps the enqueue backend-agnostic. Keeping the SOURCE in
+/// OpenCL C rather than SYCL keeps the half that would be expensive to change
+/// out of an extension whose own specification says shipping software should
+/// not depend on it.
+///
+/// WHAT IS QUERIED AND WHY. Whether a backend accepts OpenCL C source is a
+/// property of the BACKEND, not of the build: a Level Zero device may decline
+/// it even where the extension is present. So it is asked at run time and a
+/// refusal falls back like any other, rather than being assumed at configure
+/// time and failing on the machine that matters.
+DeviceFunction compileOpenCl(const std::string& source, void* queuePointer) {
+  DeviceFunction loaded;
+  if (queuePointer == nullptr) {
+    logWarning() << "expr: the OpenCL backend needs a sycl::queue in "
+                    "BackendOptions::deviceQueue; using another backend.";
+    return loaded;
+  }
+  auto* queue = static_cast<sycl::queue*>(queuePointer);
+
+  try {
+    if (!queue->get_device().ext_oneapi_can_compile(syclex::source_language::opencl)) {
+      logWarning() << "expr: this device does not compile OpenCL C at run time; using another "
+                      "backend.";
+      return loaded;
+    }
+    auto bundle = syclex::create_kernel_bundle_from_source(
+        queue->get_context(), syclex::source_language::opencl, source);
+    auto executable = syclex::build(bundle);
+    if (!executable.ext_oneapi_has_kernel("seissol_expr_run")) {
+      logWarning() << "expr: the generated OpenCL module has no seissol_expr_run.";
+      return loaded;
+    }
+    loaded.module = new sycl::kernel_bundle<sycl::bundle_state::executable>(executable);
+    loaded.function = new sycl::kernel(executable.ext_oneapi_get_kernel("seissol_expr_run"));
+    if (executable.ext_oneapi_has_kernel("seissol_expr_precompute")) {
+      loaded.precompute =
+          new sycl::kernel(executable.ext_oneapi_get_kernel("seissol_expr_precompute"));
+    }
+  } catch (const sycl::exception& error) {
+    // The message carries the compiler's own diagnostics, which for generated
+    // source is the only thing that makes a failure actionable.
+    logWarning() << "expr: the OpenCL kernel did not build:" << error.what();
+    return DeviceFunction{};
+  }
+  return loaded;
+}
+
+bool launchOpenCl(void* entry, GpuArguments& args, std::size_t count, void* queuePointer) {
+  if (entry == nullptr || queuePointer == nullptr) {
+    return false;
+  }
+  if (count == 0) {
+    return true;
+  }
+  auto* queue = static_cast<sycl::queue*>(queuePointer);
+  auto* kernel = static_cast<sycl::kernel*>(entry);
+
+  const std::size_t local = DefaultBlockSize;
+  const std::size_t groups = blocksFor(count);
+  const std::size_t global = groups * local;
+
+  try {
+    queue->submit([&](sycl::handler& handler) {
+      // raw_kernel_arg, because the kernel's arity is a property of the PROGRAM
+      // and there is no compile-time type list to hand to set_args. This is the
+      // flat view of the same packing cuLaunchKernel gets as one struct.
+      for (std::size_t i = 0; i < args.fieldCount(); ++i) {
+        handler.set_arg(static_cast<int>(i),
+                        syclex::raw_kernel_arg(args.fieldData(i), args.fieldSize(i)));
+      }
+      handler.parallel_for(sycl::nd_range<1>{sycl::range<1>{global}, sycl::range<1>{local}},
+                           *kernel);
+    });
+  } catch (const sycl::exception& error) {
+    logError() << "expr: launching the OpenCL kernel failed:" << error.what();
+    return false;
+  }
+  return true;
+}
+
+void* allocOpenCl(std::size_t bytes, void* queuePointer) {
+  if (bytes == 0 || queuePointer == nullptr) {
+    return nullptr;
+  }
+  auto* queue = static_cast<sycl::queue*>(queuePointer);
+  void* pointer = sycl::malloc_device(bytes, *queue);
+  if (pointer != nullptr) {
+    queue->memset(pointer, 0, bytes).wait();
+  }
+  return pointer;
+}
+
+void freeOpenCl(void* pointer, void* queuePointer) {
+  if (pointer != nullptr && queuePointer != nullptr) {
+    sycl::free(pointer, *static_cast<sycl::queue*>(queuePointer));
+  }
+}
+
+#endif // SEISSOL_EXPR_HAVE_SYCL
+
+DeviceFunction
+    compileFor(GpuTarget target, const std::string& source, const std::string& arch, void* queue) {
 #if defined(SEISSOL_EXPR_HAVE_NVRTC)
   if (target == GpuTarget::Cuda) {
     return compileCuda(source, arch);
@@ -353,9 +467,15 @@ DeviceFunction compileFor(GpuTarget target, const std::string& source, const std
     return compileHip(source, arch);
   }
 #endif
+#if defined(SEISSOL_EXPR_HAVE_SYCL)
+  if (target == GpuTarget::OpenCl) {
+    return compileOpenCl(source, queue);
+  }
+#endif
   static_cast<void>(target);
   static_cast<void>(source);
   static_cast<void>(arch);
+  static_cast<void>(queue);
   return {};
 }
 
@@ -378,7 +498,13 @@ bool launchFor(GpuTarget target, void* entry, GpuArguments& args, std::size_t co
   return false;
 }
 
-void* allocFor(GpuTarget target, std::size_t bytes) {
+void* allocFor(GpuTarget target, std::size_t bytes, void* queue) {
+#if defined(SEISSOL_EXPR_HAVE_SYCL)
+  if (target == GpuTarget::OpenCl) {
+    return allocOpenCl(bytes, queue);
+  }
+#endif
+  static_cast<void>(queue);
 #if defined(SEISSOL_EXPR_HAVE_NVRTC)
   if (target == GpuTarget::Cuda) {
     return allocCuda(bytes);
@@ -394,7 +520,14 @@ void* allocFor(GpuTarget target, std::size_t bytes) {
   return nullptr;
 }
 
-void freeFor(GpuTarget target, void* pointer) {
+void freeFor(GpuTarget target, void* pointer, void* queue) {
+#if defined(SEISSOL_EXPR_HAVE_SYCL)
+  if (target == GpuTarget::OpenCl) {
+    freeOpenCl(pointer, queue);
+    return;
+  }
+#endif
+  static_cast<void>(queue);
 #if defined(SEISSOL_EXPR_HAVE_NVRTC)
   if (target == GpuTarget::Cuda) {
     freeCuda(pointer);
@@ -434,12 +567,14 @@ class RtcGpuKernel final : public Kernel {
                LoweredProgram lowered,
                DeviceFunction function,
                GpuTarget target,
-               std::size_t elementWidth)
-      : binding_(&binding), lowered_(std::move(lowered)), function_(function), target_(target) {
+               std::size_t elementWidth,
+               void* queue)
+      : binding_(&binding), lowered_(std::move(lowered)), function_(function), target_(target),
+        queue_(queue) {
     const auto slots = static_cast<std::size_t>(lowered_.persistentSlotCount());
     persistentBytes_ = slots * binding.numPoints() * elementWidth;
     if (persistentBytes_ > 0) {
-      persistent_ = allocFor(target_, persistentBytes_);
+      persistent_ = allocFor(target_, persistentBytes_, queue_);
       if (persistent_ == nullptr) {
         logError() << "expr: could not allocate" << persistentBytes_
                    << "bytes of device memory for the persistent buffer.";
@@ -447,7 +582,7 @@ class RtcGpuKernel final : public Kernel {
     }
   }
 
-  ~RtcGpuKernel() override { freeFor(target_, persistent_); }
+  ~RtcGpuKernel() override { freeFor(target_, persistent_, queue_); }
 
   RtcGpuKernel(const RtcGpuKernel&) = delete;
   RtcGpuKernel& operator=(const RtcGpuKernel&) = delete;
@@ -467,7 +602,7 @@ class RtcGpuKernel final : public Kernel {
     args.first = 0;
     args.count = binding_->numPoints();
     GpuArguments packed(*binding_, args, persistent_);
-    if (!launchFor(target_, function_.precompute, packed, args.count, args.stream)) {
+    if (!launchFor(target_, function_.precompute, packed, args.count, streamFor(args))) {
       logError() << "expr: launching the device precompute stage failed.";
     }
     precomputed_ = true;
@@ -492,20 +627,40 @@ class RtcGpuKernel final : public Kernel {
                     "Kernel::precompute() from prepare().";
     }
     GpuArguments packed(*binding_, args, persistent_);
-    if (!launchFor(target_, function_.function, packed, args.count, args.stream)) {
+    if (!launchFor(target_, function_.function, packed, args.count, streamFor(args))) {
       logError() << "expr: launching the compiled device kernel failed.";
     }
   }
 
   [[nodiscard]] BackendKind kind() const override {
-    return target_ == GpuTarget::Cuda ? BackendKind::RtcCuda : BackendKind::RtcHip;
+    switch (target_) {
+    case GpuTarget::Cuda:
+      return BackendKind::RtcCuda;
+    case GpuTarget::Hip:
+      return BackendKind::RtcHip;
+    case GpuTarget::OpenCl:
+      return BackendKind::RtcOpenCl;
+    }
+    return BackendKind::RtcCuda;
   }
 
   private:
+  /// The OpenCL path enqueues on the queue it was BUILT against -- the kernel
+  /// bundle belongs to that queue's context -- so a per-call stream would have
+  /// to come from the same context anyway. Everywhere else the per-call stream
+  /// wins, which is what lets a caller overlap two evaluations.
+  [[nodiscard]] void* streamFor(const KernelArgs& args) const {
+    if (target_ == GpuTarget::OpenCl) {
+      return queue_;
+    }
+    return args.stream;
+  }
+
   Binding* binding_;
   LoweredProgram lowered_;
   DeviceFunction function_;
   GpuTarget target_;
+  void* queue_{nullptr};
   void* persistent_{nullptr};
   std::size_t persistentBytes_{0};
   bool precomputed_{false};
@@ -514,6 +669,11 @@ class RtcGpuKernel final : public Kernel {
 } // namespace
 
 bool gpuRuntimeAvailable(GpuTarget target) {
+#if defined(SEISSOL_EXPR_HAVE_SYCL)
+  if (target == GpuTarget::OpenCl) {
+    return true;
+  }
+#endif
 #if defined(SEISSOL_EXPR_HAVE_NVRTC)
   if (target == GpuTarget::Cuda) {
     return true;
@@ -569,7 +729,7 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
     auto found = cache().find(key);
     if (found == cache().end()) {
       const std::string source = emitGpuSource(program, lowered, layout, target);
-      found = cache().emplace(key, compileFor(target, source, arch)).first;
+      found = cache().emplace(key, compileFor(target, source, arch, options.deviceQueue)).first;
     }
     function = found->second;
   }
@@ -581,7 +741,8 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
             << cost(lowered, program.computeType()).summary(program.computeType()).c_str()
             << "-- for" << arch;
   const std::size_t width = program.computeType() == ComputeType::F32 ? 4 : 8;
-  return std::make_unique<RtcGpuKernel>(binding, std::move(lowered), function, target, width);
+  return std::make_unique<RtcGpuKernel>(
+      binding, std::move(lowered), function, target, width, options.deviceQueue);
 }
 
 } // namespace seissol::expr

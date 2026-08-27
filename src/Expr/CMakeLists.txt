@@ -58,3 +58,11 @@ if (WITH_GPU AND DEVICE_BACKEND STREQUAL "hip")
         message(STATUS "seissol-expr: no HIPRTC; device programs fall back")
     endif()
 endif()
+
+# The Intel path: OpenCL C source enqueued through SYCL's kernel_compiler
+# extension. Whether a given DEVICE accepts OpenCL C source is queried at run
+# time, so this only says the compiler and headers are present.
+if (WITH_GPU AND DEVICE_BACKEND STREQUAL "oneapi")
+    target_compile_definitions(seissol-expr PRIVATE SEISSOL_EXPR_HAVE_SYCL)
+    message(STATUS "seissol-expr: OpenCL-through-SYCL backend enabled")
+endif()
