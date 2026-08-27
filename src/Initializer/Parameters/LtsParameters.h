@@ -19,7 +19,7 @@ enum class LtsWeightsTypes : int {
   ExponentialWeights = 0,
   ExponentialBalancedWeights,
   EncodedBalancedWeights,
-  Count
+  Count,
 };
 
 struct VertexWeightParameters {

@@ -8,6 +8,8 @@
 #ifndef SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_CONDITIONALKEY_H_
 #define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_CONDITIONALKEY_H_
 
+#include "Common/Literals.h"
+
 #include <functional>
 #include <limits>
 #include <utility>
@@ -34,7 +36,7 @@ struct ConditionalKey {
 template <class T>
 inline void hashCombine(std::size_t& seed, const T& value) {
   const std::hash<T> hasher;
-  seed ^= hasher(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+  seed ^= hasher(value) + 0x9e3779b9_UZ + (seed << 6) + (seed >> 2);
 }
 
 template <class T>

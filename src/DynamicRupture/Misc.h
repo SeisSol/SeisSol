@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_
 
 #include "Common/Constants.h"
+#include "Common/Literals.h"
 #include "Common/Marker.h"
 #include "GeneratedCode/init.h"
 #include "Geometry/MeshDefinition.h"
@@ -140,7 +141,7 @@ SEISSOL_HOSTDEVICE constexpr auto power(T base) -> T {
 #endif
   for (std::int32_t i = ILogExp - 1; i >= 0; --i) {
     res *= res;
-    if ((Exp & (1 << i)) != 0) {
+    if ((Exp & (1_U32 << i)) != 0) {
       res *= base;
     }
   }

@@ -159,7 +159,7 @@ class Storage {
   void setName(const std::string& name) { this->name_ = name; }
 
   void synchronizeTo(AllocationPlace place, void* stream) {
-    for (auto& container : memoryContainer_) {
+    for (const auto& container : memoryContainer_) {
       container.synchronizeTo(place, stream);
     }
   }

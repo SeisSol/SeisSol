@@ -247,7 +247,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           if (static_cast<std::size_t>(element.neighbors[face]) !=
                   meshReader.getElements().size() ||
               element.neighborRanks[face] != rank) {
-            const auto& neighbor = [&]() {
+            const auto& neighbor = [&] {
               const bool ghostNeighbor = element.neighborRanks[face] != rank;
               if (ghostNeighbor) {
                 const auto rank = element.neighborRanks[face];

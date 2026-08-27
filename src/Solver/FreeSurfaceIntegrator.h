@@ -30,7 +30,7 @@ class FreeSurfaceIntegrator {
     Elastic = 0,
     Acoustic = 1,
     FreeSurface = 2,
-    FreeSurfaceWithGravity = 3
+    FreeSurfaceWithGravity = 3,
   };
 
   real* projectionMatrixMemory_{nullptr};

@@ -58,13 +58,14 @@ class CheckpointManager {
     if (storage.info(var).mask != initializer::LayerMask(Ghost)) {
       logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
     }
-    dataRegistry_[&storage].variables.emplace_back(
-        CheckpointVariable{name,
-                           storage.var(var),
-                           datatype::inferDatatype<typename HandleT::Type>(),
-                           datatype::inferDatatype<typename HandleT::Type>(),
-                           {},
-                           {}});
+    dataRegistry_[&storage].variables.emplace_back(CheckpointVariable{
+        name,
+        storage.var(var),
+        datatype::inferDatatype<typename HandleT::Type>(),
+        datatype::inferDatatype<typename HandleT::Type>(),
+        {},
+        {},
+    });
   }
 
   template <typename StorageT, typename VarmapT>
@@ -72,13 +73,14 @@ class CheckpointManager {
     if (storage.template info<StorageT>().mask != initializer::LayerMask(Ghost)) {
       logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
     }
-    dataRegistry_[&storage].variables.emplace_back(
-        CheckpointVariable{name,
-                           storage.template var<StorageT>(),
-                           datatype::inferDatatype<typename StorageT::Type>(),
-                           datatype::inferDatatype<typename StorageT::Type>(),
-                           {},
-                           {}});
+    dataRegistry_[&storage].variables.emplace_back(CheckpointVariable{
+        name,
+        storage.template var<StorageT>(),
+        datatype::inferDatatype<typename StorageT::Type>(),
+        datatype::inferDatatype<typename StorageT::Type>(),
+        {},
+        {},
+    });
   }
 
   template <typename S, typename T, typename VarmapT>
@@ -90,12 +92,14 @@ class CheckpointManager {
     if (var.mask != initializer::LayerMask(Ghost)) {
       logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
     }
-    dataRegistry_[&storage].variables.emplace_back(CheckpointVariable{name,
-                                                                      storage.var(var),
-                                                                      datatype::inferDatatype<S>(),
-                                                                      datatype::inferDatatype<T>(),
-                                                                      pack,
-                                                                      unpack});
+    dataRegistry_[&storage].variables.emplace_back(CheckpointVariable{
+        name,
+        storage.var(var),
+        datatype::inferDatatype<S>(),
+        datatype::inferDatatype<T>(),
+        pack,
+        unpack,
+    });
   }
 
   template <std::size_t Pad, std::size_t Nopad, typename T, std::size_t Npad, typename VarmapT>

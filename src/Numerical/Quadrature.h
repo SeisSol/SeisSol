@@ -100,7 +100,7 @@ inline std::pair<std::vector<double>, std::vector<double>>
 inline void GaussJacobi(double* points, double* weights, unsigned n, unsigned a, unsigned b) {
   const double weightFactor =
       -(2.0 * n + a + b + 2) * functions::factorial(n + a) * functions::factorial(n + b) *
-      (1 << (a + b)) /
+      (1ULL << (a + b)) /
       ((n + a + b + 1.0) * functions::factorial(n + a + b) * functions::factorial(n + 1));
   for (unsigned i = 1; i <= n; ++i) {
     // x = Initial guess for polynomial root

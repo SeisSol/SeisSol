@@ -56,7 +56,16 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   static constexpr MaterialType Type = MaterialType::Viscoelastic;
   static inline const std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
   static inline const std::array<std::string, NumElasticQuantities> Quantities{
-      "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
+      "s_xx",
+      "s_yy",
+      "s_zz",
+      "s_xy",
+      "s_yz",
+      "s_xz",
+      "v1",
+      "v2",
+      "v3",
+  };
   static constexpr std::size_t Parameters = ElasticMaterial::Parameters + 4 * Mechanisms;
 
   static constexpr bool SupportsDR = true;
@@ -118,7 +127,8 @@ inline const std::unordered_map<std::string, double ViscoElasticMaterialParametr
         {"lambda", &ViscoElasticMaterialParametrized<N>::lambda},
         {"mu", &ViscoElasticMaterialParametrized<N>::mu},
         {"Qp", &ViscoElasticMaterialParametrized<N>::qp},
-        {"Qs", &ViscoElasticMaterialParametrized<N>::qs}};
+        {"Qs", &ViscoElasticMaterialParametrized<N>::qs},
+    };
 
 using ViscoElasticMaterial = ViscoElasticMaterialParametrized<Config::RelaxationMechanisms>;
 } // namespace seissol::model

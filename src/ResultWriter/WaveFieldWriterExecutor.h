@@ -34,7 +34,7 @@ enum BufferTags {
   Clustering = 4,
   GlobalIds = 5,
   Variables0 = 6,
-  BuffertagMax = Variables0
+  BuffertagMax = Variables0,
 };
 
 struct WaveFieldInitParam {

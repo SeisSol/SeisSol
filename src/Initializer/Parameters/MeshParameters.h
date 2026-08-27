@@ -12,16 +12,30 @@
 #include "ParameterReader.h"
 
 #include <Eigen/Dense>
+#include <cstdint>
 #include <optional>
 #include <string>
 
 namespace seissol::initializer::parameters {
 
-enum class MeshFormat : int { PUML, CubeGenerator };
+enum class MeshFormat : int32_t {
+  PUML,
+  CubeGenerator,
+};
 
-enum class BoundaryFormat : int { Auto, I32, I64, I32x4 };
+enum class BoundaryFormat : int32_t {
+  Auto,
+  I32,
+  I64,
+  I32x4,
+};
 
-enum class TopologyFormat : int { Auto, Geometric, IdentifyFace, IdentifyVertex };
+enum class TopologyFormat : int32_t {
+  Auto,
+  Geometric,
+  IdentifyFace,
+  IdentifyVertex,
+};
 
 struct MeshParameters {
   bool showEdgeCutStatistics{false};

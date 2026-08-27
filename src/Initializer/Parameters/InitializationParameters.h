@@ -28,7 +28,7 @@ enum class InitializationType : int {
   Ocean1,
   Ocean2,
   PressureInjection,
-  Easi
+  Easi,
 };
 
 struct InitializationParameters {

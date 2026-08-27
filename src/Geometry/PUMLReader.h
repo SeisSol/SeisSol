@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_GEOMETRY_PUMLREADER_H_
 #define SEISSOL_SRC_GEOMETRY_PUMLREADER_H_
 
+#include "Common/Literals.h"
 #include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "MeshReader.h"
@@ -33,10 +34,10 @@ inline uint32_t decodeBoundary(const void* data,
                                seissol::initializer::parameters::BoundaryFormat format) {
   if (format == seissol::initializer::parameters::BoundaryFormat::I32) {
     const auto* dataCasted = reinterpret_cast<const uint32_t*>(data);
-    return (dataCasted[cell] >> (8 * face)) & 0xff;
+    return (dataCasted[cell] >> (8 * face)) & 0xff_u64;
   } else if (format == seissol::initializer::parameters::BoundaryFormat::I64) {
     const auto* dataCasted = reinterpret_cast<const uint64_t*>(data);
-    return (dataCasted[cell] >> (16 * face)) & 0xffff;
+    return (dataCasted[cell] >> (16 * face)) & 0xffff_u64;
   } else if (format == seissol::initializer::parameters::BoundaryFormat::I32x4) {
     const auto* dataCasted = reinterpret_cast<const int*>(data);
     return dataCasted[cell * Cell::NumFaces + face];

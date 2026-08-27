@@ -33,7 +33,16 @@ struct AnisotropicMaterial : public Material {
   static constexpr MaterialType Type = MaterialType::Anisotropic;
   static inline const std::string Text = "anisotropic";
   static inline const std::array<std::string, NumQuantities> Quantities{
-      "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
+      "s_xx",
+      "s_yy",
+      "s_zz",
+      "s_xy",
+      "s_yz",
+      "s_xz",
+      "v1",
+      "v2",
+      "v3",
+  };
   static constexpr std::size_t Parameters = 21 + Material::Parameters;
 
   static constexpr bool SupportsDR = false;

@@ -39,7 +39,7 @@ struct LTS {
     ConstantShared,
     Timebucket,
     Plasticity,
-    PlasticityData
+    PlasticityData,
   };
 
   static auto allocationModeWP(AllocationPreset preset,

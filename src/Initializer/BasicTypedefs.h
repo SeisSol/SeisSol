@@ -11,7 +11,11 @@
 #include <cstdint>
 namespace seissol {
 
-enum class HaloType { Ghost, Copy, Interior };
+enum class HaloType {
+  Ghost,
+  Copy,
+  Interior,
+};
 
 /*
   Face types that a tetrahedron face may assume.
@@ -43,10 +47,10 @@ enum class FaceType : uint8_t {
   // Periodic = 6,
 
   // analytical boundary, taken from the initial conditions (boundary, nonlinear)
-  Analytical = 7
+  Analytical = 7,
 };
 
-enum class BCType {
+enum class BCType : int8_t {
   // an internal face, with a neighbor
   Internal,
 
@@ -57,7 +61,7 @@ enum class BCType {
   ExternalNone,
 
   // unhandled face type
-  Unknown
+  Unknown,
 };
 
 // Once the FaceType enum is updated, make sure to update these methods here as well.
@@ -84,13 +88,13 @@ constexpr bool isInternalFaceType(FaceType faceType) {
   return getBCType(faceType) == BCType::Internal;
 }
 
-enum class ComputeGraphType {
+enum class ComputeGraphType : int8_t {
   AccumulatedVelocities = 0,
   StreamedVelocities,
   NeighborIntegral,
   DynamicRuptureInterface,
   Plasticity,
-  Count
+  Count,
 };
 
 } // namespace seissol

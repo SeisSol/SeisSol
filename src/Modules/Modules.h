@@ -28,7 +28,7 @@ enum class ModulePriority : int {
   Low = 100,
   Lower = 1000,
   Lowest = 10000,
-  Min = std::numeric_limits<int>::max()
+  Min = std::numeric_limits<int>::max(),
 };
 
 /**
@@ -66,7 +66,7 @@ enum class ModuleHook : int {
   Shutdown = 11,
   FirstHook = PreMPI,
   MaxInitHooks = SimulationStart + 1,
-  MaxHooks = Shutdown + 1
+  MaxHooks = Shutdown + 1,
 };
 
 /**

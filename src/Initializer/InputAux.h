@@ -23,8 +23,8 @@ namespace seissol::initializer {
 template <typename OutputType, typename ContainerT>
 bool isCapacityEnough(const std::string& inputString, ContainerT& outputMask) {
   std::istringstream inputStream(inputString);
-  auto begin = std::istream_iterator<OutputType>(inputStream);
-  auto end = std::istream_iterator<OutputType>();
+  const auto begin = std::istream_iterator<OutputType>(inputStream);
+  const auto end = std::istream_iterator<OutputType>();
 
   const size_t numInputElements = std::distance(begin, end);
   return numInputElements <= outputMask.size();
@@ -46,7 +46,7 @@ void convertStringToMask(const std::string& stringMask, ContainerT& mask) {
 
   std::istringstream inputStream(stringMask);
   auto it = std::istream_iterator<T>(inputStream);
-  auto end = std::istream_iterator<T>();
+  const auto end = std::istream_iterator<T>();
 
   for (int index = 0; it != end; ++index, ++it) {
     if (std::is_same_v<T, bool>) {
@@ -157,7 +157,7 @@ class FileProcessor {
 
   static void removeEmptyLines(StringsType& content) {
     const std::string whitespace = " \n\r\t\f\v";
-    auto isEmptyString = [&whitespace](const std::string& string) -> bool {
+    const auto isEmptyString = [&whitespace](const std::string& string) -> bool {
       const size_t start = string.find_first_not_of(whitespace);
       return start == std::string::npos;
     };
@@ -169,7 +169,7 @@ class FileProcessor {
       }
     }
 
-    for (auto& itr : deletees) {
+    for (const auto& itr : deletees) {
       content.erase(itr);
     }
   }

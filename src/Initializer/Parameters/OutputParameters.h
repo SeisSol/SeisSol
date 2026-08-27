@@ -22,11 +22,23 @@ namespace seissol::initializer::parameters {
 
 constexpr double VeryLongTime = 1.0e100;
 
-enum class FaultRefinement { Triple = 1, Quad = 2, None = 3 };
+enum class FaultRefinement {
+  Triple = 1,
+  Quad = 2,
+  None = 3,
+};
 
-enum class OutputFormat : int { None = 10, Xdmf = 6 };
+enum class OutputFormat : int {
+  None = 10,
+  Xdmf = 6,
+};
 
-enum class VolumeRefinement : int { NoRefine = 0, Refine4 = 1, Refine8 = 2, Refine32 = 3 };
+enum class VolumeRefinement : int {
+  NoRefine = 0,
+  Refine4 = 1,
+  Refine8 = 2,
+  Refine32 = 3,
+};
 
 struct CheckpointParameters {
   bool enabled{false};
@@ -67,7 +79,10 @@ struct PickpointParameters {
   bool collectiveio{false};
 };
 
-enum class ReceiverOutputFormat { Csv, Hdf5 };
+enum class ReceiverOutputFormat {
+  Csv,
+  Hdf5,
+};
 
 struct ReceiverOutputParameters {
   bool enabled{false};

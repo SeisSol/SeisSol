@@ -444,7 +444,7 @@ private:
   }
 
   void synchronizeTo(AllocationPlace place, void* stream) {
-    for (auto& container : memoryContainer_) {
+    for (const auto& container : memoryContainer_) {
       container.synchronizeTo(place, stream);
     }
   }

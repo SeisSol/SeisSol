@@ -98,7 +98,7 @@ class BasisFunctionDerivativeGenerator {
         functions::gradTetraDubinerP({i, j, k}, {xi_, eta_, zeta_});
     return {static_cast<T>(gradEvaluated[0]),
             static_cast<T>(gradEvaluated[1]),
-            static_cast<T>(gradEvaluated[2])};
+            static_cast<T>(gradEvaluated[2]),};
   }
 };
 

@@ -92,50 +92,59 @@ constexpr size_t AllBits = ~0_UZ;
 constexpr size_t encodeAny(unsigned count) { return ~(AllBits << count); }
 
 enum struct KernelNames : size_t {
-  Time = 1 << 0,
-  Volume = 1 << 1,
-  LocalFlux = 1 << 2,
-  NeighborFlux = 1 << 3,
-  FaceDisplacements = 1 << 4,
-  Plasticity = 1 << 5,
-  DrSpaceMap = 1 << 6,
-  BoundaryConditions = 1 << 7,
-  Count = 9,
-  Any = encodeAny(Count)
+  Time = 1_UZ << 0,
+  Volume = 1_UZ << 1,
+  LocalFlux = 1_UZ << 2,
+  NeighborFlux = 1_UZ << 3,
+  FaceDisplacements = 1_UZ << 4,
+  Plasticity = 1_UZ << 5,
+  DrSpaceMap = 1_UZ << 6,
+  BoundaryConditions = 1_UZ << 7,
+  Count = 9_UZ,
+  Any = encodeAny(Count),
 };
 
 enum struct ComputationKind : size_t {
-  WithoutDerivatives = 1 << 0,
-  WithDerivatives = 1 << 1,
-  WithLtsDerivatives = 1 << 2,
-  WithGtsDerivatives = 1 << 3,
-  WithGtsBuffers = 1 << 4,
-  WithLtsBuffers = 1 << 5,
-  FreeSurfaceGravity = 1 << 6,
-  Dirichlet = 1 << 7,
-  Analytical = 1 << 8,
-  Count = 9,
-  None = encodeAny(Count)
+  WithoutDerivatives = 1_UZ << 0,
+  WithDerivatives = 1_UZ << 1,
+  WithLtsDerivatives = 1_UZ << 2,
+  WithGtsDerivatives = 1_UZ << 3,
+  WithGtsBuffers = 1_UZ << 4,
+  WithLtsBuffers = 1_UZ << 5,
+  FreeSurfaceGravity = 1_UZ << 6,
+  Dirichlet = 1_UZ << 7,
+  Analytical = 1_UZ << 8,
+  Count = 9_UZ,
+  None = encodeAny(Count),
 };
 
 enum struct FaceKinds : size_t {
-  Regular = 1 << 0,
-  FreeSurface = 1 << 1,
-  Outflow = 1 << 2,
-  DynamicRupture = 1 << 3,
-  Count = 4,
-  None = encodeAny(Count)
+  Regular = 1_UZ << 0,
+  FreeSurface = 1_UZ << 1,
+  Outflow = 1_UZ << 2,
+  DynamicRupture = 1_UZ << 3,
+  Count = 4_UZ,
+  None = encodeAny(Count),
 };
 
-enum struct FaceId : size_t { Count = 4, Any = AllBits };
-enum struct FaceRelations : size_t { Count = 48, Any = AllBits };
-enum struct DrFaceRelations : size_t { Count = 16, Any = AllBits };
+enum struct FaceId : size_t {
+  Count = 4,
+  Any = AllBits,
+};
+enum struct FaceRelations : size_t {
+  Count = 48,
+  Any = AllBits,
+};
+enum struct DrFaceRelations : size_t {
+  Count = 16,
+  Any = AllBits,
+};
 
 enum struct ExchangeInfo : size_t {
-  Buffers = 1 << 0,
-  Derivatives = 1 << 1,
-  Count = 2,
-  Any = encodeAny(Count)
+  Buffers = 1_UZ << 0,
+  Derivatives = 1_UZ << 1,
+  Count = 2_UZ,
+  Any = encodeAny(Count),
 };
 
 } // namespace seissol::recording

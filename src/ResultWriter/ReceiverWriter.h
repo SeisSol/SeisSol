@@ -93,8 +93,8 @@ class ReceiverWriter : public seissol::Module {
   void writeHeader(std::size_t pointId, const Eigen::Vector3d& point);
 
   // -- Members --
-  seissol::initializer::parameters::ReceiverOutputFormat format_{
-      seissol::initializer::parameters::ReceiverOutputFormat::Hdf5};
+  seissol::initializer::parameters::ReceiverOutputFormat format_ =
+      seissol::initializer::parameters::ReceiverOutputFormat::Hdf5;
   std::string receiverFileName_;
   std::string fileNamePrefix_;
   double samplingInterval_{0.0};

@@ -14,21 +14,23 @@
 
 #include <Eigen/Dense>
 #include <cstdint>
-#include <numeric>
 #include <string>
 
 namespace seissol::initializer::parameters {
 
-enum class OutputType : int {
+enum class OutputType : int32_t {
   None = 0,
   AtPickpoint = 3,
   Elementwise = 4,
-  AtPickpointAndElementwise = 5
+  AtPickpointAndElementwise = 5,
 };
 
-enum class RefPointMethod : int { Point = 0, Normal = 1 };
+enum class RefPointMethod : int32_t {
+  Point = 0,
+  Normal = 1,
+};
 
-enum class SlipRateOutputType : int {
+enum class SlipRateOutputType : int32_t {
   VelocityDifference = 0,
   TractionsAndFailure = 1,
 };

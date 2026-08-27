@@ -29,6 +29,8 @@ class LtsSetup {
 
   public:
   using BitmapType = std::uint16_t;
+  static constexpr BitmapType One = static_cast<BitmapType>(1);
+
   static_assert(CountIndex <= sizeof(BitmapType) * 8, "Capacity of the LtsSetup exceeded");
 
   LtsSetup() = default;
@@ -92,14 +94,14 @@ class LtsSetup {
   [[nodiscard]] constexpr auto accumulateBuffers() const -> bool { return test(IndexCache); }
 
   [[nodiscard]] constexpr auto test(std::uint32_t index) const -> bool {
-    return (data_ & (1 << index)) != 0;
+    return (data_ & (One << index)) != 0;
   }
 
   constexpr auto set(std::uint32_t index, bool value) -> LtsSetup& {
     if (value) {
-      data_ |= 1 << index;
+      data_ |= One << index;
     } else {
-      data_ &= ~(1 << index);
+      data_ &= ~(One << index);
     }
     return *this;
   }

@@ -29,7 +29,7 @@ enum class LocalSolver {
   Unknown,
   CauchyKovalevski,
   CauchyKovalevskiAnelastic,
-  SpaceTimePredictorPoroelastic
+  SpaceTimePredictorPoroelastic,
 };
 
 struct Material {

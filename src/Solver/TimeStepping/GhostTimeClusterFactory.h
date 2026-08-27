@@ -10,11 +10,12 @@
 
 #include "Solver/TimeStepping/DirectGhostTimeCluster.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
+#include "Parallel/MPI.h"
+#include "memory"
+
 #ifdef ACL_DEVICE
 #include "Solver/TimeStepping/GhostTimeClusterWithCopy.h"
 #endif // ACL_DEVICE
-#include "Parallel/MPI.h"
-#include "memory"
 
 namespace seissol::time_stepping {
 struct GhostTimeClusterFactory {
@@ -30,8 +31,8 @@ struct GhostTimeClusterFactory {
           Mpi::DataTransferMode mode,
           bool persistent) {
     switch (mode) {
-#ifdef ACL_DEVICE
     case Mpi::DataTransferMode::CopyInCopyOutHost: {
+#ifdef ACL_DEVICE
       using GhostClusterT = GhostTimeClusterWithCopy<Mpi::DataTransferMode::CopyInCopyOutHost>;
       return std::make_unique<GhostClusterT>(maxTimeStepSize,
                                              timeStepRate,
@@ -41,8 +42,8 @@ struct GhostTimeClusterFactory {
                                              otherDisplayName,
                                              meshStructure,
                                              persistent);
-    }
 #endif // ACL_DEVICE
+    }
     case Mpi::DataTransferMode::Direct: {
       return std::make_unique<DirectGhostTimeCluster>(maxTimeStepSize,
                                                       timeStepRate,

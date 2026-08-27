@@ -245,19 +245,23 @@ struct DREnergyOutput {
         seissol::io::datatype::StructDatatype::MemberInfo{
             "slip",
             offsetof(DREnergyOutput, slip),
-            seissol::io::datatype::inferDatatype<decltype(slip)>()},
+            seissol::io::datatype::inferDatatype<decltype(slip)>(),
+        },
         seissol::io::datatype::StructDatatype::MemberInfo{
             "accumulatedSlip",
             offsetof(DREnergyOutput, accumulatedSlip),
-            seissol::io::datatype::inferDatatype<decltype(accumulatedSlip)>()},
+            seissol::io::datatype::inferDatatype<decltype(accumulatedSlip)>(),
+        },
         seissol::io::datatype::StructDatatype::MemberInfo{
             "frictionalEnergy",
             offsetof(DREnergyOutput, frictionalEnergy),
-            seissol::io::datatype::inferDatatype<decltype(frictionalEnergy)>()},
+            seissol::io::datatype::inferDatatype<decltype(frictionalEnergy)>(),
+        },
         seissol::io::datatype::StructDatatype::MemberInfo{
             "timeSinceSlipRateBelowThreshold",
             offsetof(DREnergyOutput, timeSinceSlipRateBelowThreshold),
-            seissol::io::datatype::inferDatatype<decltype(timeSinceSlipRateBelowThreshold)>()},
+            seissol::io::datatype::inferDatatype<decltype(timeSinceSlipRateBelowThreshold)>(),
+        },
     };
   }
 };

@@ -95,21 +95,25 @@ struct ReceiverPoint {
   int faultFaceIndex{-1};     // Face Fault index which the receiver belongs to
   int localFaceSideId{-1};    // Side ID of a reference element
   int elementIndex{-1};       // Element which the receiver belongs to
-  std::size_t elementGlobalIndex{
-      std::numeric_limits<std::size_t>::max()}; // Element which the receiver belongs to
-  int globalReceiverIndex{-1};                  // receiver index of global list
-  bool isInside{false};                         // If a point is inside the mesh or not
+
+  // Element which the receiver belongs to
+  std::size_t elementGlobalIndex{std::numeric_limits<std::size_t>::max()};
+  int globalReceiverIndex{-1}; // receiver index of global list
+  bool isInside{false};        // If a point is inside the mesh or not
   int nearestGpIndex{-1};
   int faultTag{-1};
   int simIndex{0}; // Simulation index for multisim
-  int gpIndex{-1}; // Index of the nearest gaussian point considering fused simulations
+
+  // Index of the nearest gaussian point considering fused simulations
+  int gpIndex{-1};
 
   // Internal points are required because computed gradients
   // are inaccurate near triangle edges,
   // specifically for low-order elements
   int nearestInternalGpIndex{-1};
-  int internalGpIndexFused{
-      -1}; // Index of the nearest internal gaussian point considering fused simulations
+
+  // Index of the nearest internal gaussian point considering fused simulations
+  int internalGpIndexFused{-1};
 };
 using ReceiverPoints = std::vector<ReceiverPoint>;
 

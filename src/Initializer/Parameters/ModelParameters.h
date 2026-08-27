@@ -14,7 +14,12 @@
 
 namespace seissol::initializer::parameters {
 
-enum class ReflectionType { BothWaves = 1, BothWavesVelocity, Pwave, Swave };
+enum class ReflectionType {
+  BothWaves = 1,
+  BothWavesVelocity,
+  Pwave,
+  Swave,
+};
 
 struct ITMParameters {
   bool itmEnabled{false};
@@ -24,7 +29,10 @@ struct ITMParameters {
   ReflectionType itmReflectionType{ReflectionType::BothWaves};
 };
 
-enum class NumericalFlux { Godunov, Rusanov };
+enum class NumericalFlux {
+  Godunov,
+  Rusanov,
+};
 
 std::string fluxToString(NumericalFlux flux);
 
