@@ -105,6 +105,8 @@ struct TimeSteppingParameters {
   double maxTimestepWidth{};
   double endTime{};
   LtsParameters lts;
+  std::size_t iccombine{0};
+  std::size_t iccombineDR{0};
 
   TimeSteppingParameters() = default;
 
@@ -112,7 +114,9 @@ struct TimeSteppingParameters {
                          double cfl,
                          double maxTimestepWidth,
                          double endTime,
-                         LtsParameters lts);
+                         LtsParameters lts,
+                         std::size_t iccombine,
+                         std::size_t iccombineDR);
 };
 
 LtsParameters readLtsParameters(ParameterReader* baseReader);

@@ -180,42 +180,39 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   std::vector<solver::RemoteCluster> remoteClusters;
   remoteClusters.reserve(regions.size());
 
-  if (regions.empty()) {
-    for (std::size_t index = 0; index < layer.size(); ++index) {
-      allocate(index, false);
-    }
-    for (std::size_t index = 0; index < layer.size(); ++index) {
-      allocate(index, true);
-    }
-  } else {
-    std::size_t counter = 0;
+  std::size_t counter = 0;
 
-    // allocate all to-transfer buffers/derivatives contiguously (note: region.rank)
-    // (thus do non-relevant buffers before and non-relevant derivatives afterwards)
-    for (const auto& region : regions) {
-      allocationPass(counter, region, false, false);
+  // allocate all to-transfer buffers/derivatives contiguously (note: region.rank)
+  // (thus do non-relevant buffers before and non-relevant derivatives afterwards)
+  for (const auto& region : regions) {
+    allocationPass(counter, region, false, false);
 
-      // transfer allocation
-      manager.align();
-      auto startPosition = manager.position();
-      allocationPass(counter, region, true, false);
-      allocationPass(counter, region, true, true);
-      manager.align();
-      auto endPosition = manager.position();
-      auto size = endPosition - startPosition;
-      assert(size % typeSize == 0);
+    // transfer allocation
+    manager.align();
+    auto startPosition = manager.position();
+    allocationPass(counter, region, true, false);
+    allocationPass(counter, region, true, true);
+    manager.align();
+    auto endPosition = manager.position();
+    auto size = endPosition - startPosition;
+    assert(size % typeSize == 0);
 
-      // NOLINTNEXTLINE
-      auto* startPtr = reinterpret_cast<void*>(startPosition);
+    // NOLINTNEXTLINE
+    auto* startPtr = reinterpret_cast<void*>(startPosition);
 
-      remoteClusters.emplace_back(startPtr, size / typeSize, datatype, region.rank, region.tag);
+    remoteClusters.emplace_back(startPtr, size / typeSize, datatype, region.rank, region.tag);
 
-      allocationPass(counter, region, false, true);
+    allocationPass(counter, region, false, true);
 
-      counter += region.count;
-    }
+    counter += region.count;
+  }
 
-    assert(counter == layer.size());
+  // the rest is interior (also the default if there is no region at all)
+  for (std::size_t index = counter; index < layer.size(); ++index) {
+    allocate(index, false);
+  }
+  for (std::size_t index = counter; index < layer.size(); ++index) {
+    allocate(index, true);
   }
 
   layer.setEntrySize<LTS::BuffersDerivatives>(manager.size());
