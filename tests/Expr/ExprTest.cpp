@@ -9,6 +9,7 @@
 
 #include "Backend.t.h"
 #include "Binding.t.h"
+#include "Cost.t.h"
 #include "Expr.t.h"
 #include "Interp.t.h"
 #include "RtcCpu.t.h"

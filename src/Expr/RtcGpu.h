@@ -63,10 +63,19 @@ enum class GpuRejection : std::uint8_t {
   /// permutation lives in host memory. Refused rather than silently ignored:
   /// evaluating the unpermuted order would put results on the wrong points.
   Permuted,
-  /// Carries state or hoisted values. The persistent buffer is a host
-  /// allocation owned by Binding; giving it a device counterpart is separate
-  /// work, and reading host memory from the kernel would fault.
-  PersistentState,
+  /// Declares state with a non-zero initial value.
+  ///
+  /// NARROWED (reported, Package 5). This used to refuse any persistent slot at
+  /// all, which also refused HOISTING -- and hoisting is precisely what a
+  /// material-dependent boundary condition needs, since wave speeds are
+  /// time-independent and recomputing them every step is most of the work
+  /// (measured: 114 weighted ops per point against 54 when hoisted).
+  ///
+  /// The device buffer is zeroed on allocation and the precompute stage writes
+  /// the hoisted slots, so hoisting needs nothing else. What is still missing
+  /// is a fill for declared state whose initial value is not zero; that wants a
+  /// small kernel and no program in sight uses it.
+  StatefulProgram,
   /// At least one base pointer is not device-accessible.
   HostPointer,
   /// A column's stride or offset is not a whole number of its own elements.
@@ -91,7 +100,8 @@ enum class GpuRejection : std::uint8_t {
 /// and asking the consumer to declare it would turn a wrong declaration into a
 /// fault inside the kernel. Pass nullptr to skip the check, which is what a
 /// codegen test wants.
-[[nodiscard]] GpuRejection gpuRejection(const LoweredProgram& lowered,
+[[nodiscard]] GpuRejection gpuRejection(const Program& program,
+                                        const LoweredProgram& lowered,
                                         const Binding& binding,
                                         bool (*deviceAccessible)(const void*));
 

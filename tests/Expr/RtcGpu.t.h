@@ -121,7 +121,7 @@ bool deviceCodeAgrees(const std::string& source, bool& ran) {
   }
 
   Binding binding = Binding::bind(program, table);
-  REQUIRE(gpuRejection(lower(program), binding, nullptr) == GpuRejection::None);
+  REQUIRE(gpuRejection(program, lower(program), binding, nullptr) == GpuRejection::None);
 
   df::GridStore store;
   const auto kernel = makeKernel(program, binding, store, {});
@@ -240,7 +240,7 @@ TEST_SUITE("ExprRtcGpu") {
       table.bindViewConst<double>("z", Direction::In, z.data());
       table.bindView<double>("u", Direction::Out, u.data());
       const Binding binding = Binding::bind(program, table);
-      CHECK(gpuRejection(lower(program), binding, nullptr) == GpuRejection::Lookup);
+      CHECK(gpuRejection(program, lower(program), binding, nullptr) == GpuRejection::Lookup);
     }
 
     SUBCASE("a computed column") {
@@ -250,7 +250,8 @@ TEST_SUITE("ExprRtcGpu") {
       table.bindComputed("group", [](std::size_t) -> std::int32_t { return 1; });
       table.bindView<double>("u", Direction::Out, u.data());
       const Binding binding = Binding::bind(program, table);
-      CHECK(gpuRejection(lower(program), binding, nullptr) == GpuRejection::ComputedColumn);
+      CHECK(gpuRejection(program, lower(program), binding, nullptr) ==
+            GpuRejection::ComputedColumn);
     }
 
     SUBCASE("a host pointer") {
@@ -259,7 +260,7 @@ TEST_SUITE("ExprRtcGpu") {
       table.bindViewConst<double>("x", Direction::In, x.data());
       table.bindView<double>("u", Direction::Out, u.data());
       const Binding binding = Binding::bind(program, table);
-      CHECK(gpuRejection(lower(program), binding, [](const void*) { return false; }) ==
+      CHECK(gpuRejection(program, lower(program), binding, [](const void*) { return false; }) ==
             GpuRejection::HostPointer);
     }
   }
@@ -293,6 +294,28 @@ TEST_SUITE("ExprRtcGpu") {
       }
       CHECK(same);
     }
+  }
+
+  TEST_CASE("the kernel splits into a point function and a wrapper") {
+    // The split is what lets a kernel that already owns a loop over the same
+    // points -- a batched contraction, say -- call the expression from inside,
+    // with the interior state still in registers. Without it, fusing a
+    // projection would mean teaching this generator what a GEMM is.
+    const Program program = compileSderivModule("out def u = x * 2.0\n");
+    std::vector<double> x(4);
+    std::vector<double> u(4);
+    DataTable table(4);
+    table.bindViewConst<double>("x", Direction::In, x.data());
+    table.bindView<double>("u", Direction::Out, u.data());
+    const Binding binding = Binding::bind(program, table);
+
+    const std::string source =
+        emitGpuSource(program, lower(program), gpuLayoutOf(binding), GpuTarget::Cuda);
+    CHECK(source.find("__device__ inline void seissol_expr_run_point") != std::string::npos);
+    CHECK(source.find("SEISSOL_EXPR_KERNEL void seissol_expr_run(") != std::string::npos);
+    // The wrapper must be a loop over the point function and nothing else, or
+    // the two would be two implementations of the same expression.
+    CHECK(source.find("seissol_expr_run_point(a, a.first + l)") != std::string::npos);
   }
 
 } // TEST_SUITE

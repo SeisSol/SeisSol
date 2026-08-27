@@ -8,6 +8,7 @@
 
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
+#include "Expr/Cost.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
 #include "Expr/RtcGpu.h"
@@ -46,6 +47,8 @@ using reader::scripting::DataTable;
 struct DeviceFunction {
   void* module{nullptr};
   void* function{nullptr};
+  /// Null when the lowering has no precompute stage.
+  void* precompute{nullptr};
   [[nodiscard]] bool valid() const { return function != nullptr; }
 };
 
@@ -184,15 +187,38 @@ DeviceFunction compileCuda(const std::string& source, const std::string& arch) {
   }
   loaded.module = module;
   loaded.function = function;
+  // Optional: only emitted when the lowering has a precompute stage.
+  CUfunction precompute = nullptr;
+  if (cuModuleGetFunction(&precompute, module, "seissol_expr_precompute") == CUDA_SUCCESS) {
+    loaded.precompute = precompute;
+  }
   return loaded;
 }
 
-bool launchCuda(const DeviceFunction& loaded, GpuArguments& args, std::size_t count, void* stream) {
-  const unsigned blocks = blocksFor(count);
-  if (blocks == 0) {
-    return true;
+void* allocCuda(std::size_t bytes) {
+  CUdeviceptr pointer = 0;
+  if (bytes == 0 || cuMemAlloc(&pointer, bytes) != CUDA_SUCCESS) {
+    return nullptr;
   }
-  const CUresult result = cuLaunchKernel(static_cast<CUfunction>(loaded.function),
+  // Zeroed, which is what makes hoisting work with no further ceremony: the
+  // precompute stage writes every hoisted slot before anything reads one, and
+  // zero-initialised declared state needs nothing more.
+  cuMemsetD8(pointer, 0, bytes);
+  return reinterpret_cast<void*>(pointer);
+}
+
+void freeCuda(void* pointer) {
+  if (pointer != nullptr) {
+    cuMemFree(reinterpret_cast<CUdeviceptr>(pointer));
+  }
+}
+
+bool launchCuda(void* entry, GpuArguments& args, std::size_t count, void* stream) {
+  const unsigned blocks = blocksFor(count);
+  if (blocks == 0 || entry == nullptr) {
+    return blocks == 0;
+  }
+  const CUresult result = cuLaunchKernel(static_cast<CUfunction>(entry),
                                          blocks,
                                          1,
                                          1,
@@ -266,15 +292,34 @@ DeviceFunction compileHip(const std::string& source, const std::string& arch) {
   }
   loaded.module = module;
   loaded.function = function;
+  hipFunction_t precompute = nullptr;
+  if (hipModuleGetFunction(&precompute, module, "seissol_expr_precompute") == hipSuccess) {
+    loaded.precompute = precompute;
+  }
   return loaded;
 }
 
-bool launchHip(const DeviceFunction& loaded, GpuArguments& args, std::size_t count, void* stream) {
-  const unsigned blocks = blocksFor(count);
-  if (blocks == 0) {
-    return true;
+void* allocHip(std::size_t bytes) {
+  void* pointer = nullptr;
+  if (bytes == 0 || hipMalloc(&pointer, bytes) != hipSuccess) {
+    return nullptr;
   }
-  return hipModuleLaunchKernel(static_cast<hipFunction_t>(loaded.function),
+  hipMemset(pointer, 0, bytes);
+  return pointer;
+}
+
+void freeHip(void* pointer) {
+  if (pointer != nullptr) {
+    hipFree(pointer);
+  }
+}
+
+bool launchHip(void* entry, GpuArguments& args, std::size_t count, void* stream) {
+  const unsigned blocks = blocksFor(count);
+  if (blocks == 0 || entry == nullptr) {
+    return blocks == 0;
+  }
+  return hipModuleLaunchKernel(static_cast<hipFunction_t>(entry),
                                blocks,
                                1,
                                1,
@@ -314,27 +359,56 @@ DeviceFunction compileFor(GpuTarget target, const std::string& source, const std
   return {};
 }
 
-bool launchFor(GpuTarget target,
-               const DeviceFunction& loaded,
-               GpuArguments& args,
-               std::size_t count,
-               void* stream) {
+bool launchFor(GpuTarget target, void* entry, GpuArguments& args, std::size_t count, void* stream) {
 #if defined(SEISSOL_EXPR_HAVE_NVRTC)
   if (target == GpuTarget::Cuda) {
-    return launchCuda(loaded, args, count, stream);
+    return launchCuda(entry, args, count, stream);
   }
 #endif
 #if defined(SEISSOL_EXPR_HAVE_HIPRTC)
   if (target == GpuTarget::Hip) {
-    return launchHip(loaded, args, count, stream);
+    return launchHip(entry, args, count, stream);
   }
 #endif
   static_cast<void>(target);
-  static_cast<void>(loaded);
+  static_cast<void>(entry);
   static_cast<void>(args);
   static_cast<void>(count);
   static_cast<void>(stream);
   return false;
+}
+
+void* allocFor(GpuTarget target, std::size_t bytes) {
+#if defined(SEISSOL_EXPR_HAVE_NVRTC)
+  if (target == GpuTarget::Cuda) {
+    return allocCuda(bytes);
+  }
+#endif
+#if defined(SEISSOL_EXPR_HAVE_HIPRTC)
+  if (target == GpuTarget::Hip) {
+    return allocHip(bytes);
+  }
+#endif
+  static_cast<void>(target);
+  static_cast<void>(bytes);
+  return nullptr;
+}
+
+void freeFor(GpuTarget target, void* pointer) {
+#if defined(SEISSOL_EXPR_HAVE_NVRTC)
+  if (target == GpuTarget::Cuda) {
+    freeCuda(pointer);
+    return;
+  }
+#endif
+#if defined(SEISSOL_EXPR_HAVE_HIPRTC)
+  if (target == GpuTarget::Hip) {
+    freeHip(pointer);
+    return;
+  }
+#endif
+  static_cast<void>(target);
+  static_cast<void>(pointer);
 }
 
 bool (*accessibilityCheck(GpuTarget target))(const void*) {
@@ -356,14 +430,47 @@ bool (*accessibilityCheck(GpuTarget target))(const void*) {
 
 class RtcGpuKernel final : public Kernel {
   public:
-  RtcGpuKernel(Binding& binding, LoweredProgram lowered, DeviceFunction function, GpuTarget target)
-      : binding_(&binding), lowered_(std::move(lowered)), function_(function), target_(target) {}
+  RtcGpuKernel(Binding& binding,
+               LoweredProgram lowered,
+               DeviceFunction function,
+               GpuTarget target,
+               std::size_t elementWidth)
+      : binding_(&binding), lowered_(std::move(lowered)), function_(function), target_(target) {
+    const auto slots = static_cast<std::size_t>(lowered_.persistentSlotCount());
+    persistentBytes_ = slots * binding.numPoints() * elementWidth;
+    if (persistentBytes_ > 0) {
+      persistent_ = allocFor(target_, persistentBytes_);
+      if (persistent_ == nullptr) {
+        logError() << "expr: could not allocate" << persistentBytes_
+                   << "bytes of device memory for the persistent buffer.";
+      }
+    }
+  }
 
+  ~RtcGpuKernel() override { freeFor(target_, persistent_); }
+
+  RtcGpuKernel(const RtcGpuKernel&) = delete;
+  RtcGpuKernel& operator=(const RtcGpuKernel&) = delete;
+  RtcGpuKernel(RtcGpuKernel&&) = delete;
+  RtcGpuKernel& operator=(RtcGpuKernel&&) = delete;
+
+  /// Fill the hoisted slots. Safe to call again, and MEANT to be: anything that
+  /// changes an input LowerOptions declared invariant -- a velocity model
+  /// swapped mid-run by the instantaneous time mirroring, say -- makes the
+  /// hoisted values stale, and re-running this is the whole remedy. The buffer
+  /// is not reallocated, so the call costs one launch and nothing else.
   void precompute(const DataTable& /*table*/) override {
-    // gpuRejection() refuses a program with persistent slots, so there is
-    // nothing for a device precompute stage to fill. When the device-side
-    // persistent buffer lands, this is where it gets written -- and the
-    // rejection reason goes away in the same change.
+    if (function_.precompute == nullptr) {
+      return;
+    }
+    KernelArgs args{};
+    args.first = 0;
+    args.count = binding_->numPoints();
+    GpuArguments packed(*binding_, args, persistent_);
+    if (!launchFor(target_, function_.precompute, packed, args.count, args.stream)) {
+      logError() << "expr: launching the device precompute stage failed.";
+    }
+    precomputed_ = true;
   }
 
   void run(const DataTable& /*table*/) override {
@@ -377,8 +484,15 @@ class RtcGpuKernel final : public Kernel {
   }
 
   void run(const KernelArgs& args) override {
-    GpuArguments packed(*binding_, args, nullptr);
-    if (!launchFor(target_, function_, packed, args.count, args.stream)) {
+    if (function_.precompute != nullptr && !precomputed_) {
+      // Same guard as everywhere else: the hoisted slots would read as the
+      // zeros the allocation left, which is a plausible wrong answer rather
+      // than a fault.
+      logError() << "expr: the kernel has a precompute stage that was never run; call "
+                    "Kernel::precompute() from prepare().";
+    }
+    GpuArguments packed(*binding_, args, persistent_);
+    if (!launchFor(target_, function_.function, packed, args.count, args.stream)) {
       logError() << "expr: launching the compiled device kernel failed.";
     }
   }
@@ -392,6 +506,9 @@ class RtcGpuKernel final : public Kernel {
   LoweredProgram lowered_;
   DeviceFunction function_;
   GpuTarget target_;
+  void* persistent_{nullptr};
+  std::size_t persistentBytes_{0};
+  bool precomputed_{false};
 };
 
 } // namespace
@@ -426,7 +543,8 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
     return nullptr;
   }
 
-  const GpuRejection rejection = gpuRejection(lowered, binding, accessibilityCheck(target));
+  const GpuRejection rejection =
+      gpuRejection(program, lowered, binding, accessibilityCheck(target));
   if (rejection != GpuRejection::None) {
     logWarning() << "expr: this program cannot run on a device because" << describe(rejection)
                  << "-- using another backend.";
@@ -459,8 +577,11 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
     return nullptr;
   }
 
-  logInfo() << "expr: compiled device kernel --" << lowered.summary().c_str() << "-- for" << arch;
-  return std::make_unique<RtcGpuKernel>(binding, std::move(lowered), function, target);
+  logInfo() << "expr: compiled device kernel --" << lowered.summary().c_str() << "--"
+            << cost(lowered, program.computeType()).summary(program.computeType()).c_str()
+            << "-- for" << arch;
+  const std::size_t width = program.computeType() == ComputeType::F32 ? 4 : 8;
+  return std::make_unique<RtcGpuKernel>(binding, std::move(lowered), function, target, width);
 }
 
 } // namespace seissol::expr

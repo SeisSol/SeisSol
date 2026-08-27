@@ -7,6 +7,7 @@
 #include "Expr/Backend.h"
 
 #include "Expr/Binding.h"
+#include "Expr/Cost.h"
 #include "Expr/Interp.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
@@ -293,7 +294,8 @@ std::unique_ptr<Kernel> makeInterpreter(const Program& program,
                                         GridStore& grids,
                                         const BackendOptions& options) {
   LoweredProgram lowered = lower(program, options.lowering);
-  logInfo() << "expr: interpreter kernel --" << lowered.summary().c_str();
+  logInfo() << "expr: interpreter kernel --" << lowered.summary().c_str() << "--"
+            << cost(lowered, program.computeType()).summary(program.computeType()).c_str();
 
   binding.allocatePersistent(program, lowered.persistentSlotCount());
 

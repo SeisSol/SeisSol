@@ -11,6 +11,7 @@ add_library(seissol-expr OBJECT
     Binding.cpp
     Backend.cpp
     Codegen.cpp
+    Cost.cpp
     RtcCpu.cpp
     RtcGpu.cpp
     RtcGpuDriver.cpp

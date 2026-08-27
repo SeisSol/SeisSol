@@ -176,13 +176,21 @@ void emitStage(std::ostringstream& out,
                const StageCode& stage,
                const std::vector<std::int32_t>& operands,
                const std::string& computeType) {
-  out << "SEISSOL_EXPR_KERNEL void " << name << "(SeissolExprArgs a) {\n";
-
-  // Grid-stride loop, so the launch geometry is free to be whatever the driver
-  // layer picks and a short range still uses every thread it was given.
-  out << "  for (unsigned long long l = SEISSOL_EXPR_TID; l < a.count; l += "
-         "SEISSOL_EXPR_NTHREADS) {\n"
-      << "    const unsigned long long p = a.first + l;\n";
+  // Emitted in two pieces, and that split is the interesting part.
+  //
+  // The POINT function is the expression and nothing else: no loop, no launch
+  // geometry, no assumption about who calls it. A kernel that already owns a
+  // loop over the same points -- a TensorForge-generated batched contraction,
+  // say -- can call it from inside, with the interior state still in registers
+  // and the result never touching global memory. That is how the projections
+  // fuse without this generator learning what a GEMM is.
+  //
+  // The WRAPPER is the standalone form: a grid-stride loop calling the point
+  // function once per point. It exists so a program that nobody wants to fuse
+  // still has something to launch, and it is what the driver layer loads.
+  out << "__device__ inline void " << name << "_point(const SeissolExprArgs& a,\n"
+      << "                                            unsigned long long p) {\n";
+  const std::string body = "  ";
 
   codegen::StageAddressing addressing;
   addressing.loadInput = gpuLoadInput;
@@ -191,8 +199,16 @@ void emitStage(std::ostringstream& out,
   addressing.storePersistent = gpuStorePersistent;
 
   codegen::emitStageBody(
-      out, stage, operands, computeType, codegen::MathStyle::Unqualified, addressing, "    ");
-  out << "  }\n}\n\n";
+      out, stage, operands, computeType, codegen::MathStyle::Unqualified, addressing, body.c_str());
+  out << "}\n\n";
+
+  // Grid-stride loop, so the launch geometry is free to be whatever the driver
+  // layer picks and a short range still uses every thread it was given.
+  out << "SEISSOL_EXPR_KERNEL void " << name << "(SeissolExprArgs a) {\n"
+      << "  for (unsigned long long l = SEISSOL_EXPR_TID; l < a.count; l += "
+         "SEISSOL_EXPR_NTHREADS) {\n"
+      << "    " << name << "_point(a, a.first + l);\n"
+      << "  }\n}\n\n";
 }
 
 std::uint64_t mix(std::uint64_t hash, std::uint64_t value) {
@@ -214,8 +230,8 @@ const char* describe(GpuRejection rejection) {
     return "a column is bound as a computed value, so the kernel has no address to read";
   case GpuRejection::Permuted:
     return "the point set had to be reordered to group it, and the permutation is host-side";
-  case GpuRejection::PersistentState:
-    return "it carries state or hoisted values, which live in a host-side buffer";
+  case GpuRejection::StatefulProgram:
+    return "it declares state with a non-zero initial value, which needs a fill kernel";
   case GpuRejection::HostPointer:
     return "at least one bound pointer is not reachable from the device";
   case GpuRejection::Misaligned:
@@ -224,7 +240,8 @@ const char* describe(GpuRejection rejection) {
   return "";
 }
 
-GpuRejection gpuRejection(const LoweredProgram& lowered,
+GpuRejection gpuRejection(const Program& program,
+                          const LoweredProgram& lowered,
                           const Binding& binding,
                           bool (*deviceAccessible)(const void*)) {
   if (codegen::containsLookup(lowered)) {
@@ -236,8 +253,12 @@ GpuRejection gpuRejection(const LoweredProgram& lowered,
   if (!binding.permutation().empty()) {
     return GpuRejection::Permuted;
   }
-  if (lowered.persistentSlotCount() > 0) {
-    return GpuRejection::PersistentState;
+  // Hoisted slots are fine: the buffer is zeroed and precompute writes them.
+  // Declared state is only fine when zero-initialised, for want of a fill.
+  for (const auto& state : program.state()) {
+    if (state.initial != 0.0) {
+      return GpuRejection::StatefulProgram;
+    }
   }
   for (const auto* set : {&binding.inputs(), &binding.outputs()}) {
     for (const auto& column : *set) {

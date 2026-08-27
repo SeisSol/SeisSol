@@ -9,6 +9,7 @@
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
 #include "Expr/Codegen.h"
+#include "Expr/Cost.h"
 #include "Expr/Interp.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
@@ -440,7 +441,9 @@ std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
           ? options.tileSize
           : chooseTileSize(lowered.peakSlotCount(), program.computeType(), DefaultTileBudgetBytes);
 
-  logInfo() << "expr: compiled CPU kernel --" << lowered.summary().c_str() << "-- with" << flags;
+  logInfo() << "expr: compiled CPU kernel --" << lowered.summary().c_str() << "--"
+            << cost(lowered, program.computeType()).summary(program.computeType()).c_str()
+            << "-- with" << flags;
 
   if (program.computeType() == ComputeType::F32) {
     return std::make_unique<RtcCpuKernel<float>>(binding, std::move(lowered), artifact, tileSize);
