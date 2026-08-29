@@ -16,6 +16,8 @@
 
 #include <PUML/PUML.h>
 #include <PUML/Topology.h>
+#include <array>
+#include <cstdint>
 
 namespace seissol::initializer {
 class Clustering;
@@ -93,8 +95,10 @@ class PUMLReader : public seissol::geometry::MeshReader {
                const FaceMap& faceMap,
                seissol::initializer::parameters::BoundaryFormat boundaryFormat);
 
-  void
-      addMPINeighor(const PumlMesh& meshTopology, int rank, const std::vector<unsigned int>& faces);
+  void addMPINeighor(const PumlMesh& meshTopology,
+                     int rank,
+                     const std::vector<unsigned int>& faces,
+                     const std::vector<std::array<std::uint8_t, Cell::NumFaces>>& pumlFaceMaps);
 };
 
 } // namespace seissol::geometry

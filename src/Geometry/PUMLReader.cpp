@@ -19,6 +19,7 @@
 #include "Monitoring/Instrumentation.h"
 #include "PartitioningLib.h"
 
+#include <Eigen/Core>
 #include <PUML/Downward.h>
 #include <PUML/Neighbor.h>
 #include <PUML/PUML.h>
@@ -147,9 +148,6 @@ inline bool
 
 // helper arrays
 
-// converts the PUML vertex indexing to the internal SeisSol indexing
-const std::array<std::int32_t, 4> PumlFaceToSeisSol = {0, 1, 3, 2};
-
 // indexes the vertices on each face i (or FaceVertexToOrientation[i][j] == -1 to indicate that the
 // vertex does not lie on it)
 const std::array<std::array<std::int32_t, 4>, 4> FaceVertexToOrientation = {
@@ -161,6 +159,94 @@ const std::array<std::array<std::int32_t, 4>, 4> FaceVertexToOrientation = {
 // the first vertex on the face (i.e. FirstFaceVertex[i] == j, where j is the lowest index in
 // FaceVertexToOrientation[i] to not be -1)
 const std::array<std::int32_t, 4> FirstFaceVertex = {0, 0, 0, 1};
+
+// PUML face p is opposite the local vertex PumlFaceMissingVertex[p]; SeisSol face s is opposite
+// the local vertex Cell::NumVertices - 1 - s
+const std::array<std::size_t, 4> PumlFaceMissingVertex = {3, 2, 0, 1};
+
+/**
+ * Signed volume measure of a tetrahedron, with the same convention as
+ * MeshReader::verifyMeshOrientation, which requires a negative value.
+ */
+double orientationDeterminant(const std::array<const double*, Cell::NumVertices>& coords) {
+  Eigen::Matrix<double, 4, 4> mat;
+  mat << coords[0][0], coords[0][1], coords[0][2], 1, coords[1][0], coords[1][1], coords[1][2], 1,
+      coords[2][0], coords[2][1], coords[2][2], 1, coords[3][0], coords[3][1], coords[3][2], 1;
+  return mat.determinant();
+}
+
+/**
+ * The canonical local vertex numbering of a cell: sort the vertices by topological id, then
+ * repair the orientation with the transposition (2 3) where the sorted order would come out
+ * positively oriented. Returns the map from the new local slot to the old one.
+ *
+ * Sorting alone already forces the face orientation index to zero on every interior face.
+ * FirstFaceVertex is the smallest local index on each face, hence under a sorted numbering it is
+ * the vertex with the smallest topological id on that face -- and both sides of a face agree on
+ * which vertex that is. The transposition (2 3) leaves local slots 0 and 1 alone and therefore
+ * keeps that property intact, which no other odd permutation does.
+ *
+ * The sort key has to be the topological id, since that is what identifies the two sides of a
+ * face, while the orientation has to be judged on the geometry. For periodic meshes the two
+ * differ.
+ */
+std::array<std::size_t, Cell::NumVertices>
+    canonicalVertexOrder(const std::array<unsigned int, Cell::NumVertices>& topoVertices,
+                         const std::array<const double*, Cell::NumVertices>& coords) {
+  std::array<std::size_t, Cell::NumVertices> order{};
+  std::iota(order.begin(), order.end(), 0);
+  std::sort(order.begin(), order.end(), [&](auto a, auto b) {
+    return topoVertices[a] < topoVertices[b];
+  });
+
+  std::array<const double*, Cell::NumVertices> sorted{};
+  for (std::size_t k = 0; k < Cell::NumVertices; ++k) {
+    sorted[k] = coords[order[k]];
+  }
+  if (orientationDeterminant(sorted) >= 0) {
+    std::swap(order[2], order[3]);
+  }
+  return order;
+}
+
+/**
+ * PUML face index -> SeisSol face index for a given canonical vertex order. Both index schemes
+ * cover the same four faces; only the ordering within a cell differs.
+ */
+std::array<std::uint8_t, Cell::NumFaces>
+    canonicalFaceMap(const std::array<std::size_t, Cell::NumVertices>& order) {
+  std::array<std::size_t, Cell::NumVertices> inverse{};
+  for (std::size_t k = 0; k < Cell::NumVertices; ++k) {
+    inverse[order[k]] = k;
+  }
+  std::array<std::uint8_t, Cell::NumFaces> map{};
+  for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
+    map[f] = static_cast<std::uint8_t>(Cell::NumVertices - 1 - inverse[PumlFaceMissingVertex[f]]);
+  }
+  return map;
+}
+
+/**
+ * Recover the vertex order from a face map. PumlFaceMissingVertex is a bijection, so the face map
+ * already determines the permutation and only one of the two needs to be kept per cell.
+ */
+std::array<std::size_t, Cell::NumVertices>
+    vertexOrderFromFaceMap(const std::array<std::uint8_t, Cell::NumFaces>& map) {
+  std::array<std::size_t, Cell::NumVertices> order{};
+  for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
+    order[Cell::NumVertices - 1 - map[f]] = PumlFaceMissingVertex[f];
+  }
+  return order;
+}
+
+template <typename T>
+void applyVertexOrder(std::array<T, Cell::NumVertices>& values,
+                      const std::array<std::size_t, Cell::NumVertices>& order) {
+  const auto original = values;
+  for (std::size_t k = 0; k < Cell::NumVertices; ++k) {
+    values[k] = original[order[k]];
+  }
+}
 } // namespace
 
 PUMLReader::PUMLReader(const std::string& meshFile,
@@ -363,6 +449,24 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
 
   bool isMeshCorrect = true;
 
+  // Canonical local vertex numbering. Computed for every cell up front, because the neighbor
+  // lookup below needs the numbering of cells that come later in the loop.
+  std::vector<std::array<std::uint8_t, Cell::NumFaces>> pumlFaceMaps(cells.size());
+  for (std::size_t i = 0; i < cells.size(); i++) {
+    std::array<unsigned int, Cell::NumVertices> topoVertices{};
+    PUML::Downward::vertices(meshTopology, cells[i], topoVertices.data());
+
+    std::array<unsigned int, Cell::NumVertices> geomVertices{};
+    PUML::Downward::vertices(meshGeometry, cellsGeometry[i], geomVertices.data());
+
+    std::array<const double*, Cell::NumVertices> coords{};
+    for (std::size_t k = 0; k < Cell::NumVertices; k++) {
+      coords[k] = verticesGeometry[geomVertices[k]].coordinate();
+    }
+
+    pumlFaceMaps[i] = canonicalFaceMap(canonicalVertexOrder(topoVertices, coords));
+  }
+
   // Compute everything local
   elements_.resize(cells.size());
   for (std::size_t i = 0; i < cells.size(); i++) {
@@ -371,12 +475,20 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
     elements_[i].clusterId = clusterIds[i];
     elements_[i].timestep = timestep[i];
 
+    const auto& pumlToSeisSol = pumlFaceMaps[i];
+    const auto vertexOrder = vertexOrderFromFaceMap(pumlToSeisSol);
+
     // Vertices
-    PUML::Downward::vertices(
-        meshGeometry, cellsGeometry[i], reinterpret_cast<unsigned int*>(elements_[i].vertices));
+    std::array<unsigned int, Cell::NumVertices> geomVertices{};
+    PUML::Downward::vertices(meshGeometry, cellsGeometry[i], geomVertices.data());
+    applyVertexOrder(geomVertices, vertexOrder);
+    for (std::size_t k = 0; k < Cell::NumVertices; k++) {
+      elements_[i].vertices[k] = geomVertices[k];
+    }
 
     std::array<unsigned int, Cell::NumVertices> topoVertices{};
     PUML::Downward::vertices(meshTopology, cells[i], topoVertices.data());
+    applyVertexOrder(topoVertices, vertexOrder);
 
     // Neighbor information
     std::array<unsigned int, Cell::NumFaces> faceids{};
@@ -389,51 +501,55 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
       const bool isLocallyCorrect = checkMeshCorrectnessLocally<PumlTopology>(
           faces[faceids[j]], neighbors, j, faceTag, cellIdsAsInFile[i], faceMap);
       isMeshCorrect &= isLocallyCorrect;
+      const auto side = pumlToSeisSol[j];
+
       if (neighbors[j] < 0) {
-        elements_[i].neighbors[PumlFaceToSeisSol[j]] = cellsGeometry.size();
+        elements_[i].neighbors[side] = cellsGeometry.size();
 
         if (!faces[faceids[j]].isShared()) {
           // Boundary sides
-          elements_[i].neighborRanks[PumlFaceToSeisSol[j]] = rank;
+          elements_[i].neighborRanks[side] = rank;
         } else {
           // MPI Boundary
           neighborInfo[faces[faceids[j]].shared()[0]].push_back(faceids[j]);
 
-          elements_[i].neighborRanks[PumlFaceToSeisSol[j]] = faces[faceids[j]].shared()[0];
+          elements_[i].neighborRanks[side] = faces[faceids[j]].shared()[0];
         }
       } else {
         logassert(neighbors[j] >= 0 && static_cast<std::size_t>(neighbors[j]) < cells.size());
 
-        elements_[i].neighbors[PumlFaceToSeisSol[j]] = neighbors[j];
+        elements_[i].neighbors[side] = neighbors[j];
 
         std::array<int, Cell::NumFaces> nfaces{};
         PUML::Neighbor::face(meshTopology, neighbors[j], nfaces.data());
         const auto* back = std::find(nfaces.begin(), nfaces.end(), i);
         logassert(back != nfaces.end());
 
-        elements_[i].neighborSides[PumlFaceToSeisSol[j]] = PumlFaceToSeisSol[back - nfaces.begin()];
+        const auto& neighborPumlToSeisSol = pumlFaceMaps[neighbors[j]];
+        elements_[i].neighborSides[side] = neighborPumlToSeisSol[back - nfaces.begin()];
 
-        const auto firstVertex = topoVertices[FirstFaceVertex[PumlFaceToSeisSol[j]]];
+        const auto firstVertex = topoVertices[FirstFaceVertex[side]];
 
         std::array<unsigned int, Cell::NumVertices> nvertices{};
         PUML::Downward::vertices(meshTopology, cells[neighbors[j]], nvertices.data());
+        applyVertexOrder(nvertices, vertexOrderFromFaceMap(neighborPumlToSeisSol));
         const auto* neighborFirstVertex =
             std::find(nvertices.begin(), nvertices.end(), firstVertex);
         logassert(neighborFirstVertex != nvertices.end());
 
-        elements_[i].sideOrientations[PumlFaceToSeisSol[j]] =
-            FaceVertexToOrientation[elements_[i].neighborSides[PumlFaceToSeisSol[j]]]
+        elements_[i].sideOrientations[side] =
+            FaceVertexToOrientation[elements_[i].neighborSides[side]]
                                    [neighborFirstVertex - nvertices.begin()];
-        logassert(elements_[i].sideOrientations[PumlFaceToSeisSol[j]] >= 0);
+        logassert(elements_[i].sideOrientations[side] == 0);
 
-        elements_[i].neighborRanks[PumlFaceToSeisSol[j]] = rank;
+        elements_[i].neighborRanks[side] = rank;
       }
 
       const auto bcCurrentFace = faceMap.at(faceTag);
 
-      elements_[i].boundaries[PumlFaceToSeisSol[j]] = bcCurrentFace.value_or(FaceType::Regular);
-      elements_[i].faultTags[PumlFaceToSeisSol[j]] = faceTag;
-      elements_[i].mpiIndices[PumlFaceToSeisSol[j]] = 0;
+      elements_[i].boundaries[side] = bcCurrentFace.value_or(FaceType::Regular);
+      elements_[i].faultTags[side] = faceTag;
+      elements_[i].mpiIndices[side] = 0;
     }
 
     elements_[i].group = group[i];
@@ -464,7 +580,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
     sum += info.second.size();
 
     // Create MPI neighbor list
-    addMPINeighor(meshTopology, info.first, info.second);
+    addMPINeighor(meshTopology, info.first, info.second, pumlFaceMaps);
 
     copySide[k].resize(info.second.size());
     ghostSide[k].resize(info.second.size());
@@ -491,20 +607,27 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
       // The side of boundary
       std::array<int, 2> cellIds{};
       PUML::Upward::cells(meshTopology, faces[info.second[i]], cellIds.data());
-      const auto side = PUML::Downward::faceSide(meshTopology, cells[cellIds[0]], info.second[i]);
-      logassert(side >= 0 && static_cast<std::size_t>(side) < Cell::NumFaces);
-      copySide[k][i] = side;
+      const auto pumlSide =
+          PUML::Downward::faceSide(meshTopology, cells[cellIds[0]], info.second[i]);
+      logassert(pumlSide >= 0 && static_cast<std::size_t>(pumlSide) < Cell::NumFaces);
+
+      // Send the SeisSol side under the canonical numbering: the receiving rank cannot translate
+      // a PUML side, because the numbering is per cell now.
+      const auto vertexOrder = vertexOrderFromFaceMap(pumlFaceMaps[cellIds[0]]);
+      const auto side = pumlFaceMaps[cellIds[0]][pumlSide];
+      copySide[k][i] = static_cast<char>(side);
 
       std::array<unsigned int, Cell::NumVertices> topoVertices{};
       PUML::Downward::vertices(meshTopology, cells[cellIds[0]], topoVertices.data());
+      applyVertexOrder(topoVertices, vertexOrder);
 
       // First vertex of the face on the boundary
-      const auto firstVertex = topoVertices[FirstFaceVertex[PumlFaceToSeisSol[side]]];
+      const auto firstVertex = topoVertices[FirstFaceVertex[side]];
       copyFirstVertex[k][i] = vertices[firstVertex].gid();
 
       // Set the MPI index
-      logassert(elements_[cellIds[0]].mpiIndices[PumlFaceToSeisSol[side]] == 0);
-      elements_[cellIds[0]].mpiIndices[PumlFaceToSeisSol[side]] = i;
+      logassert(elements_[cellIds[0]].mpiIndices[side] == 0);
+      elements_[cellIds[0]].mpiIndices[side] = i;
     }
 
     MPI_Isend(copySide[k].data(),
@@ -533,22 +656,24 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
       PUML::Upward::cells(meshTopology, faces[info.second[i]], cellIds.data());
       logassert(cellIds[1] < 0);
 
-      // the linters demanded a double cast here
+      // the linters demanded a double cast here; both sides are already SeisSol sides under the
+      // canonical numbering, so no translation is applied to either of them
       const auto side = static_cast<std::size_t>(static_cast<unsigned char>(copySide[k][i]));
       const auto gSide = static_cast<std::size_t>(static_cast<unsigned char>(ghostSide[k][i]));
-      elements_[cellIds[0]].neighborSides[PumlFaceToSeisSol[side]] = PumlFaceToSeisSol[gSide];
+      elements_[cellIds[0]].neighborSides[side] = gSide;
 
       // Set side sideOrientation
       std::array<unsigned long, Cell::NumVertices> nvertices{};
       PUML::Downward::gvertices(meshTopology, cells[cellIds[0]], nvertices.data());
+      applyVertexOrder(nvertices, vertexOrderFromFaceMap(pumlFaceMaps[cellIds[0]]));
 
       const auto* localFirstVertex =
           std::find(nvertices.begin(), nvertices.end(), ghostFirstVertex[k][i]);
       logassert(localFirstVertex != nvertices.end());
 
-      elements_[cellIds[0]].sideOrientations[PumlFaceToSeisSol[side]] =
-          FaceVertexToOrientation[PumlFaceToSeisSol[side]][localFirstVertex - nvertices.begin()];
-      logassert(elements_[cellIds[0]].sideOrientations[PumlFaceToSeisSol[side]] >= 0);
+      elements_[cellIds[0]].sideOrientations[side] =
+          FaceVertexToOrientation[side][localFirstVertex - nvertices.begin()];
+      logassert(elements_[cellIds[0]].sideOrientations[side] == 0);
     }
   }
 
@@ -568,9 +693,11 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
   }
 }
 
-void PUMLReader::addMPINeighor(const PumlMesh& meshTopology,
-                               int rank,
-                               const std::vector<unsigned int>& faces) {
+void PUMLReader::addMPINeighor(
+    const PumlMesh& meshTopology,
+    int rank,
+    const std::vector<unsigned int>& faces,
+    const std::vector<std::array<std::uint8_t, Cell::NumFaces>>& pumlFaceMaps) {
   const std::size_t id = mpiNeighbors_.size();
   MPINeighbor& neighbor = mpiNeighbors_[rank];
 
@@ -587,10 +714,10 @@ void PUMLReader::addMPINeighor(const PumlMesh& meshTopology,
 
     std::array<unsigned int, Cell::NumFaces> sides{};
     PUML::Downward::faces(meshTopology, meshTopology.cells()[cellIds[0]], sides.data());
-    neighbor.elements[i].localSide = [&]() {
+    neighbor.elements[i].localSide = [&]() -> std::size_t {
       for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-        if (sides[PumlFaceToSeisSol[f]] == faces[i]) {
-          return f;
+        if (sides[f] == faces[i]) {
+          return pumlFaceMaps[cellIds[0]][f];
         }
       }
       throw;
