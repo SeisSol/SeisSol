@@ -65,7 +65,7 @@ void TimeCommon::computeIntegrals(Time& time,
     // collect information only in the case that neighboring element contributions are required
     if (faceTypes[dofneighbor] == FaceType::Regular) {
       // check if the time integration is already done (-> copy pointer)
-      if (!ltsSetup.neighborHasDerivatives(dofneighbor)) {
+      if (ltsSetup.neighborBuffer(dofneighbor) != BufferType::Derivatives) {
         timeIntegrated[dofneighbor] = timeDofs[dofneighbor];
       }
       // integrate the DOFs in time via the derivatives and set pointer to local buffer

@@ -50,11 +50,8 @@ enum class BCType {
   // an internal face, with a neighbor
   Internal,
 
-  // a boundary face with a fake neighbor (it needs the Neighbor kernel)
-  ExternalFake,
-
-  // a boundary face without a fake neighbor (can handle everything in the Local kernel)
-  ExternalNone,
+  // a boundary face (can handle everything in the Local kernel)
+  External,
 
   // unhandled face type
   Unknown
@@ -69,10 +66,8 @@ constexpr BCType getBCType(FaceType faceType) {
   if (faceType == FaceType::FreeSurface || faceType == FaceType::FreeSurfaceGravity ||
       faceType == FaceType::Dirichlet || faceType == FaceType::Analytical ||
       faceType == FaceType::Outflow) {
-    return BCType::ExternalNone;
+    return BCType::External;
   }
-
-  // currently, there is no ExternalFake BC
 
   // should never happen, unless you forgot to implement something
   return BCType::Unknown;

@@ -100,7 +100,8 @@ struct LTS {
   struct DofsAne
       : public initializer::Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> {
   };
-  struct Buffers : public initializer::Variable<real*> {};
+  struct StepIntegrals : public initializer::Variable<real*> {};
+  struct AccumulatedIntegrals : public initializer::Variable<real*> {};
   struct Derivatives : public initializer::Variable<real*> {};
   struct CellInformation : public initializer::Variable<CellLocalInformation> {};
   struct SecondaryInformation : public initializer::Variable<SecondaryCellLocalInformation> {};
@@ -116,9 +117,10 @@ struct LTS {
   struct PStrain : public initializer::Variable<
                        real[tensor::QStressNodal::size() + tensor::QEtaNodal::size()]> {};
   struct FaceDisplacements : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
-  struct BuffersDerivatives : public initializer::Bucket<real> {};
+  struct Buffers : public initializer::Bucket<real> {};
 
-  struct BuffersDevice : public initializer::Variable<real*> {};
+  struct StepIntegralsDevice : public initializer::Variable<real*> {};
+  struct AccumulatedIntegralsDevice : public initializer::Variable<real*> {};
   struct DerivativesDevice : public initializer::Variable<real*> {};
   struct FaceNeighborsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
   struct FaceDisplacementsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {
@@ -154,7 +156,8 @@ struct LTS {
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
                                                         DofsHalo,
                                                         DofsAne,
-                                                        Buffers,
+                                                        StepIntegrals,
+                                                        AccumulatedIntegrals,
                                                         Derivatives,
                                                         CellInformation,
                                                         SecondaryInformation,
@@ -168,8 +171,9 @@ struct LTS {
                                                         BoundaryMapping,
                                                         PStrain,
                                                         FaceDisplacements,
-                                                        BuffersDerivatives,
-                                                        BuffersDevice,
+                                                        Buffers,
+                                                        StepIntegralsDevice,
+                                                        AccumulatedIntegralsDevice,
                                                         DerivativesDevice,
                                                         FaceNeighborsDevice,
                                                         FaceDisplacementsDevice,
@@ -228,7 +232,9 @@ struct LTS {
                            allocationModeWP(AllocationPreset::Dofs));
     }
 
-    storage.add<Buffers>(
+    storage.add<StepIntegrals>(
+        LayerMask(), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+    storage.add<AccumulatedIntegrals>(
         LayerMask(), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
     storage.add<Derivatives>(
         LayerMask(), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
@@ -255,10 +261,11 @@ struct LTS {
 
     // TODO(David): remove/rename "constant" flag (the data is temporary; and copying it for IO is
     // handled differently)
-    storage.add<BuffersDerivatives>(
+    storage.add<Buffers>(
         LayerMask(), PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
 
-    storage.add<BuffersDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
+    storage.add<StepIntegralsDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
+    storage.add<AccumulatedIntegralsDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
     storage.add<DerivativesDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
     storage.add<FaceDisplacementsDevice>(
         LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);

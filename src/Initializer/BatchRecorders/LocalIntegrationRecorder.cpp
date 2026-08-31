@@ -68,7 +68,8 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     dQPtrs_.resize(size);
 
     real** derivatives = currentLayer_->var<LTS::DerivativesDevice>();
-    real** buffers = currentLayer_->var<LTS::BuffersDevice>();
+    real** stepIntegrals = currentLayer_->var<LTS::StepIntegralsDevice>();
+    real** accumulatedIntegrals = currentLayer_->var<LTS::AccumulatedIntegralsDevice>();
 
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLayer_->cellRef(cell, AllocationPlace::Device);
@@ -80,28 +81,38 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
       // idofs
       real* nextIdofPtr = &integratedDofsScratch[integratedDofsAddressCounter_];
-      const bool isBuffersProvided = dataHost.get<LTS::CellInformation>().ltsSetup.hasBuffers();
-      const bool isLtsBuffers = dataHost.get<LTS::CellInformation>().ltsSetup.accumulateBuffers();
+      const bool hasStepIntegrals =
+          dataHost.get<LTS::CellInformation>().ltsSetup.hasBuffer(BufferType::StepIntegrals);
+      const bool hasAccumulatedIntegrals =
+          dataHost.get<LTS::CellInformation>().ltsSetup.hasBuffer(BufferType::AccumulatedIntegrals);
 
-      if (isBuffersProvided) {
-        if (isLtsBuffers) {
-          // lts buffers may require either accumulation or overriding (in case of reset command)
-          idofsPtrs.push_back(nextIdofPtr);
+      // we always need space for the step integral right now
 
-          idofsForLtsBuffers.push_back(nextIdofPtr);
-          ltsBuffers.push_back(buffers[cell]);
-
-          idofsAddressRegistry_[cell] = nextIdofPtr;
-          integratedDofsAddressCounter_ += kernels::Solver::BuffersSize;
-        } else {
-          // gts buffers have to be always overridden
-          idofsPtrs.push_back(buffers[cell]);
-          idofsAddressRegistry_[cell] = buffers[cell];
-        }
+      real* stepPtr = nullptr;
+      if (hasStepIntegrals) {
+        stepPtr = stepIntegrals[cell];
       } else {
-        idofsPtrs.push_back(nextIdofPtr);
-        idofsAddressRegistry_[cell] = nextIdofPtr;
+        stepPtr = nextIdofPtr;
         integratedDofsAddressCounter_ += kernels::Solver::BuffersSize;
+      }
+
+      idofsPtrs.push_back(stepPtr);
+      idofsAddressRegistry_[cell] = stepPtr;
+
+      if (hasAccumulatedIntegrals) {
+        ltsBuffers.push_back(accumulatedIntegrals[cell]);
+        idofsForLtsBuffers.push_back(stepPtr);
+      }
+
+      // derivatives
+      const bool isDerivativesProvided =
+          dataHost.get<LTS::CellInformation>().ltsSetup.hasBuffer(BufferType::Derivatives);
+      if (isDerivativesProvided) {
+        dQPtrs_[cell] = derivatives[cell];
+
+      } else {
+        dQPtrs_[cell] = &derivativesScratch[derivativesAddressCounter_];
+        derivativesAddressCounter_ += seissol::kernels::Solver::DerivativesSize;
       }
 
       // stars
@@ -130,17 +141,6 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       auto* zinvExtraPtr = currentLayer_->var<LTS::ZinvExtra>(AllocationPlace::Device);
       zinvExtraPtrs[cell] = zinvExtraPtr + yateto::computeFamilySize<tensor::Zinv>() * cell;
 #endif
-
-      // derivatives
-      const bool isDerivativesProvided =
-          dataHost.get<LTS::CellInformation>().ltsSetup.hasDerivatives();
-      if (isDerivativesProvided) {
-        dQPtrs_[cell] = derivatives[cell];
-
-      } else {
-        dQPtrs_[cell] = &derivativesScratch[derivativesAddressCounter_];
-        derivativesAddressCounter_ += seissol::kernels::Solver::DerivativesSize;
-      }
     }
     // just to be sure that we took all branches while filling in idofsPtrs vector
     assert(dofsPtrs.size() == idofsPtrs.size());

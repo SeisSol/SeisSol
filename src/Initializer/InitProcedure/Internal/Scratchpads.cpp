@@ -12,6 +12,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/LtsSetup.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
@@ -22,7 +23,6 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <unordered_set>
 
 namespace seissol::tensor {
 struct Iane;
@@ -41,10 +41,6 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
 
     const auto* cellInformation = layer.var<LTS::CellInformation>();
 
-    // look at const pointers (instead of non-const) to make clang-tidy happy
-    std::unordered_set<const real*> registry{};
-    auto* faceNeighbors = layer.var<LTS::FaceNeighborsDevice>();
-
     std::size_t derivativesCounter{0};
     std::size_t integratedDofsCounter{0};
     std::size_t nodalDisplacementsCounter{0};
@@ -55,33 +51,19 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
     std::array<std::size_t, 4> dirichletPerFace{};
 
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      const bool needsScratchMemForDerivatives = !cellInformation[cell].ltsSetup.hasDerivatives();
+      const bool needsScratchMemForDerivatives =
+          !cellInformation[cell].ltsSetup.hasBuffer(BufferType::Derivatives);
+      const bool needsScratchMemForStepIntegral =
+          !cellInformation[cell].ltsSetup.hasBuffer(BufferType::StepIntegrals);
       if (needsScratchMemForDerivatives) {
         ++derivativesCounter;
       }
-      ++integratedDofsCounter;
+      if (needsScratchMemForStepIntegral) {
+        ++integratedDofsCounter;
+      }
 
       // include data provided by ghost layers
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        const real* neighborBuffer = faceNeighbors[cell][face];
-
-        // check whether a neighbor element idofs has not been counted twice
-        if ((registry.find(neighborBuffer) == registry.end())) {
-
-          // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
-          if (neighborBuffer != nullptr) {
-            if (cellInformation[cell].faceTypes[face] == FaceType::Regular) {
-
-              const bool isNeighbProvidesDerivatives =
-                  cellInformation[cell].ltsSetup.neighborHasDerivatives(face);
-              if (isNeighbProvidesDerivatives) {
-                ++integratedDofsCounter;
-              }
-              registry.insert(neighborBuffer);
-            }
-          }
-        }
-
         if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity) {
           ++nodalDisplacementsCounter;
         }
