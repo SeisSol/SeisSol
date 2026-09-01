@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 #include <yaml-cpp/yaml.h>
+#include <cstdint>
 
 namespace seissol::io::datatype {
 
