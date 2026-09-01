@@ -118,3 +118,13 @@ Name of the Strain Rate Output for Off-Fault Receivers
 The strain rate output was named just "strain" output for the off-fault receivers.
 The corresponding option was likewise called :code:`ReceiverComputeStrain`,
 not :code:`ReceiverComputeStrainRate`.
+
+Potency and Seismic Moment Quadrature
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(since before 0.9.0, `#527 <https://github.com/SeisSol/SeisSol/pull/527>`_, April 2022)
+
+The potency and the seismic moment were computed by averaging the value over all points.
+Now, to make the integration more exact, they are instead weighed by the quadrature rule
+the underlying DR implementation uses. As a result, the computed seismic moment and magnitude
+may slightly change compared to before.
