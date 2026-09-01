@@ -13,6 +13,27 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+Refined wavefield output
+~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+Two things changed about the volume output at the same time, and both affect a comparison against
+files written by an older version.
+
+First, a refined wavefield output used to sample the subcells in a different vertex labelling than
+the one the output mesh was built with, so the value written for a subcell was the solution at the
+center of one of its siblings. With ``refinement = 1``, three of the four subcells of every element
+carried a neighbour's value; with ``refinement = 2`` and ``3``, the inner subcells were sampled at
+a point that is not the center of any subcell at all. ``refinement = 0`` was unaffected, because
+the center of the whole element does not move under that relabelling. This is now corrected, so
+output written with ``refinement > 0`` differs from what older versions produced.
+
+Second, how the solution reaches the output points is now a parameter rather than a property of
+the writer. It is ``wavefieldprojection`` for the wavefield and ``surfaceprojection`` for the free
+surface (see :ref:`wave_field_output` and :ref:`free_surface_output`). The defaults reproduce what
+each output did before -- ``pointwise`` for the wavefield, ``l2`` for the free surface -- so no
+parameter file needs to change; the option exists to make the two comparable when that is wanted.
+
 Energy Output
 ~~~~~~~~~~~~~
 (since 0.9.0, `#531 <https://github.com/SeisSol/SeisSol/pull/531>`_, April 2022)

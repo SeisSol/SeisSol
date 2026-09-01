@@ -27,7 +27,33 @@ Refinement
 | 2: Refinement strategy is Equal Face Area: 8 subcells per cell
 | 3: Refinement strategy is Equal Face Area and Face Extraction: 32
   subcells per cell
-| The unknowns are always evaluated at the center of the subcell.
+| By default, the unknowns are evaluated at the center of the subcell; see
+  ``wavefieldprojection`` below for the alternative.
+
+.. note::
+
+   Up to and including SeisSol v1.3, the subcells of a refined wavefield output were sampled in a
+   different vertex labelling than the one the output mesh was built with. As a result, the value
+   written for a subcell was the solution at the center of one of its siblings -- for
+   ``refinement = 1``, three of the four subcells of every element were affected, and for
+   ``refinement = 2`` and ``3`` the inner subcells were sampled at a point that is not the center
+   of any subcell at all. Only ``refinement = 0`` was unaffected, since the center of the whole
+   element is invariant under that relabelling. Output written with ``refinement > 0`` by an older
+   version therefore differs from what SeisSol produces now, and the difference is not a
+   regression.
+
+wavefieldprojection
+-------------------
+
+Controls how the solution is transferred onto the output points:
+
+| ``pointwise`` (default): the solution is evaluated at the output points. For
+  ``wavefieldvtkorder = -1`` these are the subcell centers, so this reproduces the classic
+  wavefield output.
+| ``l2``: the solution is projected onto the output space in the L2 sense. For
+  ``wavefieldvtkorder = -1`` this is the average over each subcell, which is conservative but
+  differs from the point value by O(h^2).
+
 
 .. _wavefield-iouputmask:
 
@@ -101,6 +127,7 @@ Example
    printIntervalCriterion = 2          ! Criterion for index of printed info: 1=timesteps,2=time,3=timesteps+time
    refinement = 1
    wavefieldvtkorder = -1
+   wavefieldprojection = 'pointwise'
    /
 
 High-Order VTKHDF Output
