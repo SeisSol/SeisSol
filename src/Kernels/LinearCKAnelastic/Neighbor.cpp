@@ -52,8 +52,7 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   }
 #endif
   nfKrnlPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
-  nfKrnlPrototype_.rT = global.onHost->neighborChangeOfBasisMatricesTransposed;
-  nfKrnlPrototype_.fP = global.onHost->neighborFluxMatrices;
+  nfKrnlPrototype_.fPrT = global.onHost->neighborChangeOfBasisMatricesTransposed;
   drKrnlPrototype_.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
 
 #ifdef ACL_DEVICE
@@ -96,14 +95,12 @@ void Neighbor::computeNeighborsIntegral(
     // neighboring cell contribution only for interior faces
     if (data.get<LTS::CellInformation>().faceTypes[face] == FaceType::Regular) {
       assert(data.get<LTS::CellInformation>().faceRelations[face][0] < Cell::NumFaces &&
-             data.get<LTS::CellInformation>().faceRelations[face][1] < 3);
+             data.get<LTS::CellInformation>().faceRelations[face][1] == 0);
 
       nfKrnl.I = timeIntegrated[face];
       nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
       nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
-      nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][1],
-                     data.get<LTS::CellInformation>().faceRelations[face][0],
-                     face);
+      nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][0], face);
     } else if (data.get<LTS::CellInformation>().faceTypes[face] == FaceType::DynamicRupture) {
       assert((reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov)) % Alignment == 0);
 
@@ -139,7 +136,7 @@ std::pair<PerformanceEstimate, PerformanceEstimate>
       assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] < 3);
 
       regular += PerformanceEstimate::fromKernel<seissol::kernel::neighborFluxExt>(
-          neighboringIndices[face][1], neighboringIndices[face][0], face);
+          neighboringIndices[face][0], face);
     } else if (faceTypes[face] == FaceType::DynamicRupture) {
       dr += PerformanceEstimate::fromKernel<dynamicRupture::kernel::nodalFlux>(
           cellDrMapping[face].side, cellDrMapping[face].faceRelation);

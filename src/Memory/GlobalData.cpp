@@ -147,11 +147,9 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   globalMatrixMemSize +=
       yateto::computeFamilySize<init::rDivM>(yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize +=
-      yateto::computeFamilySize<init::rT>(yateto::alignedReals<real>(prop.alignment));
+      yateto::computeFamilySize<init::fPrT>(yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize +=
       yateto::computeFamilySize<init::fMrT>(yateto::alignedReals<real>(prop.alignment));
-  globalMatrixMemSize +=
-      yateto::computeFamilySize<init::fP>(yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize += yateto::computeFamilySize<nodal::init::V3mTo2nFace>(
       yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize += yateto::computeFamilySize<init::project2nFaceTo3m>(
@@ -198,12 +196,10 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
       globalMatrixMemPtr, globalData.stiffnessMatrices, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<init::rDivM>(
       globalMatrixMemPtr, globalData.changeOfBasisMatrices, prop.alignment);
-  copyManager.template copyFamilyToMemAndSetPtr<init::rT>(
+  copyManager.template copyFamilyToMemAndSetPtr<init::fPrT>(
       globalMatrixMemPtr, globalData.neighborChangeOfBasisMatricesTransposed, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<init::fMrT>(
       globalMatrixMemPtr, globalData.localChangeOfBasisMatricesTransposed, prop.alignment);
-  copyManager.template copyFamilyToMemAndSetPtr<init::fP>(
-      globalMatrixMemPtr, globalData.neighborFluxMatrices, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<nodal::init::V3mTo2nFace>(
       globalMatrixMemPtr, globalData.v3mTo2nFace, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<init::project2nFaceTo3m>(

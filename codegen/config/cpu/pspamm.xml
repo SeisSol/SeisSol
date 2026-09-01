@@ -13,6 +13,11 @@
 <matrix name="fMrT(2)" sparse="aligned"/>
 <matrix name="fMrT(3)" sparse="aligned"/>
 
+<matrix name="fPrT(0)" sparse="aligned"/>
+<matrix name="fPrT(1)" sparse="aligned"/>
+<matrix name="fPrT(2)" sparse="aligned"/>
+<matrix name="fPrT(3)" sparse="aligned"/>
+
 <matrix name="rDivM(0)" sparse="aligned"/>
 <matrix name="rDivM(1)" sparse="aligned"/>
 <matrix name="rDivM(2)" sparse="aligned"/>

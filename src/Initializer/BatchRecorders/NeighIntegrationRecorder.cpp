@@ -140,8 +140,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
         if (neighborBufferPtr != nullptr) {
           const auto faceRelation =
-              dataHost.get<LTS::CellInformation>().faceRelations[face][1] +
-              3 * dataHost.get<LTS::CellInformation>().faceRelations[face][0] + 12 * face;
+              dataHost.get<LTS::CellInformation>().faceRelations[face][0] + 4 * face;
 
           assert((*FaceRelations::Count) > faceRelation &&
                  "incorrect face relation count has been detected");

@@ -297,31 +297,30 @@ class Viscoelastic2ADERDG(ADERDGBase):
             name_prefix = generate_kernel_name_prefix(target)
 
             minusFluxMatrixAccessor = (
-                lambda h, j, i: self.db.rDivM[i][self.t("km")]
-                * self.db.fP[h][self.t("mn")]
-                * self.db.rT[j][self.t("nl")]
+                lambda j, i: self.db.rDivM[i][self.t("km")]
+                * self.db.fPrT[j][self.t("ml")]
             )
             if self.kwargs["enable_premultiply_flux"] and target == "gpu":
                 contractionResult = tensor_collection_from_constant_expression(
                     "minusFluxMatrices",
                     minusFluxMatrixAccessor,
-                    simpleParameterSpace(3, 4, 4),
+                    simpleParameterSpace(4, 4),
                     target_indices="kl",
                 )
                 self.db.update(contractionResult)
-                minusFluxMatrixAccessor = lambda h, j, i: self.db.minusFluxMatrices[
-                    h, j, i
-                ]["kl"]
+                minusFluxMatrixAccessor = lambda j, i: self.db.minusFluxMatrices[j, i][
+                    "kl"
+                ]
 
             neighborFluxExt = (
-                lambda h, j, i: self.Qext["kp"]
+                lambda j, i: self.Qext["kp"]
                 <= self.Qext["kp"]
-                + minusFluxMatrixAccessor(h, j, i) * self.I["lq"] * self.AminusT["qp"]
+                + minusFluxMatrixAccessor(j, i) * self.I["lq"] * self.AminusT["qp"]
             )
-            neighborFluxExtPrefetch = lambda h, j, i: self.I
+            neighborFluxExtPrefetch = lambda j, i: self.I
             generator.addFamily(
                 f"{name_prefix}neighborFluxExt",
-                simpleParameterSpace(3, 4, 4),
+                simpleParameterSpace(4, 4),
                 neighborFluxExt,
                 neighborFluxExtPrefetch,
                 target=target,
