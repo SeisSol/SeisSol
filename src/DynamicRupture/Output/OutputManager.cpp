@@ -317,17 +317,17 @@ void OutputManager::initPickpointOutput() {
       files.resize(1);
       auto fileName = buildIndexedMPIFileName(seissolParameters.output.prefix, -1, "faultreceiver");
       fileName += ".dat";
-      std::vector<std::size_t> receivers(outputData->outputPoints.size());
+      std::vector<std::size_t> receivers(outputData->topology.pointCount());
       std::iota(receivers.begin(), receivers.end(), 0);
       files[0] = PickpointFile{fileName, receivers};
     } else {
       // aggregate at least all fused simulations
 
       std::unordered_map<std::size_t, std::vector<std::size_t>> globalIndexMap;
-      for (size_t i = 0; i < outputData->outputPoints.size(); ++i) {
-        globalIndexMap[outputData->receiverPoints[outputData->outputPoints[i].receiverIds[0]]
-                           .globalReceiverIndex]
-            .push_back(i);
+      for (size_t i = 0; i < outputData->topology.pointCount(); ++i) {
+        const auto& receiver =
+            outputData->receiverPoints[outputData->topology.representative(i)];
+        globalIndexMap[receiver.globalReceiverIndex].push_back(i);
       }
 
       files.resize(globalIndexMap.size());
@@ -360,7 +360,7 @@ void OutputManager::initPickpointOutput() {
     };
 
     const size_t actualPointCount =
-        allReceiversInOneFilePerRank ? outputData->outputPoints.size() : 1;
+        allReceiversInOneFilePerRank ? outputData->topology.pointCount() : 1;
 
     for (std::size_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
       for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
@@ -391,8 +391,7 @@ void OutputManager::initPickpointOutput() {
 
           title << "TITLE = \"Temporal Signal for fault receiver number(s) and simulation(s)";
           for (const auto& gIdx : ppfile.indices) {
-            const auto& point = outputData->outputPoints[gIdx];
-            for (const auto& receiverId : point.receiverIds) {
+            for (const auto receiverId : outputData->topology.receiversOf(gIdx)) {
               const auto& receiver = outputData->receiverPoints[receiverId];
               const size_t globalIndex = receiver.globalReceiverIndex + 1;
               const size_t simIndex = receiver.simIndex + 1;
@@ -409,8 +408,8 @@ void OutputManager::initPickpointOutput() {
           file << '\n';
 
           for (const auto& gIdx : ppfile.indices) {
-            const auto& point = outputData->outputPoints[gIdx];
-            for (const auto& receiverId : point.receiverIds) {
+            const auto faceId = outputData->topology.points[gIdx].faceId;
+            for (const auto receiverId : outputData->topology.receiversOf(gIdx)) {
               const auto& receiver = outputData->receiverPoints[receiverId];
               const size_t globalIndex = receiver.globalReceiverIndex + 1;
               const size_t simIndex = receiver.simIndex + 1;
@@ -439,9 +438,9 @@ void OutputManager::initPickpointOutput() {
 
                 seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
                 alignAlongDipAndStrikeKernel.stressRotationMatrix =
-                    outputData->outputPoints[gIdx].stressGlbToDipStrikeAligned.data();
+                    outputData->topology.faces[faceId].stressGlbToDipStrikeAligned.data();
                 alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
-                    outputData->outputPoints[gIdx].stressFaceAlignedToGlb.data();
+                    outputData->topology.faces[faceId].stressFaceAlignedToGlb.data();
 
                 alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress.data();
                 alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress.data();
@@ -560,7 +559,7 @@ void OutputManager::flushPickpointDataToFile() {
         for (std::size_t pointId : ppfile.indices) {
           // the output variables are indexed per receiver, and the header lists one column block
           // per (point, simulation) pair
-          for (std::size_t receiverId : outputData->outputPoints[pointId].receiverIds) {
+          for (const auto receiverId : outputData->topology.receiversOf(pointId)) {
             auto recordResults = [receiverId, level, &data](const auto& var, int) {
               if (var.isActive) {
                 for (std::size_t dim = 0; dim < var.dim(); ++dim) {

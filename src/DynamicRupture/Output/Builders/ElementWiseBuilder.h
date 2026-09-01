@@ -31,9 +31,12 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
     assignFusedIndices();
     assignFaultTags();
     initTimeCaching();
+    // initTopology establishes the face/point hierarchy all following steps index into, and fixes
+    // the receiver numbering; everything below has to run after it
+    initTopology();
     initOutputVariables(elementwiseParams_.outputMask);
-    // establishes the face/point topology all following steps index into
-    initBasisFunctions(true);
+    initBasisFunctions();
+    initDeviceCollectors(true);
     initFaultDirections();
     initRotationMatrices();
     initJacobian2dMatrices();

@@ -8,21 +8,27 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
 
+#include "Common/Iterator.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Tree/Backmap.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <Eigen/Dense>
 #include <array>
 #include <cassert>
+#include <cstddef>
 #include <cstring>
 #include <limits>
+#include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
+#include <unordered_map>
 #include <vector>
 
 namespace seissol::dr::output {
@@ -147,26 +153,93 @@ struct PlusMinusBasisFunctions {
   std::vector<real> minusSide;
 };
 
-struct ReceiverOutputFace {
-  std::vector<std::size_t> outputPointIds;
+/**
+  Data of a single fault face taking part in the output.
+
+  Everything stored here is a function of the fault face alone, so it is set up once per face and
+  evaluated once per face and time step, no matter how many output points the face carries.
+ */
+struct OutputFace {
+  std::size_t faultFaceIndex{};
+  ::seissol::initializer::StoragePosition position{};
+
+  std::size_t elementIndex{};
+  std::size_t localFaceSideId{};
+
+  FaultDirections faultDirections{};
+  std::array<real, seissol::tensor::stressRotationMatrix::size()> stressGlbToDipStrikeAligned{};
+  std::array<real, seissol::tensor::stressRotationMatrix::size()> stressFaceAlignedToGlb{};
+  std::array<real, seissol::tensor::Tinv::size()> glbToFaceAlignedData{};
+  Eigen::Matrix<real, 2, 2> jacobianT2d{Eigen::Matrix<real, 2, 2>::Zero()};
+
+  // gather indices into ReceiverOutputData::deviceDataCollector
+  std::size_t deviceDataPlus{};
+  std::size_t deviceDataMinus{};
 };
 
-struct ReceiverOutputPoint {
-  std::vector<std::size_t> receiverIds;
+/**
+  Data of a single output location on a fault face; i.e. everything which depends on the position
+  within the face, but not on the simulation a receiver belongs to.
+ */
+struct OutputPoint {
+  std::size_t faceId{};
   PlusMinusBasisFunctions basisFunctions;
-  FaultDirections faultDirections;
-  std::array<real, seissol::tensor::stressRotationMatrix::size()> stressGlbToDipStrikeAligned;
-  std::array<real, seissol::tensor::stressRotationMatrix::size()> stressFaceAlignedToGlb;
-  std::array<real, seissol::tensor::T::size()> faceAlignedToGlbData;
-  std::array<real, seissol::tensor::Tinv::size()> glbToFaceAlignedData;
-  Eigen::Matrix<real, 2, 2> jacobianT2d;
+  std::size_t nearestGpIndex{};
+  std::size_t nearestInternalGpIndex{};
+};
+
+/**
+  The face -> point -> receiver hierarchy of the on-fault output, in CSR form.
+
+  A face owns a contiguous range of points, and a point owns a contiguous range of receivers. The
+  receivers are renumbered while the topology is built, which is what makes the ranges contiguous
+  and reduces the structure to two offset vectors -- no index arrays are needed.
+
+    points of face f:     [pointOffset[f],     pointOffset[f + 1])
+    receivers of point p: [receiverOffset[p],  receiverOffset[p + 1])
+ */
+struct OutputTopology {
+  std::vector<OutputFace> faces;
+  std::vector<OutputPoint> points;
+  std::vector<std::size_t> pointOffset{0};
+  std::vector<std::size_t> receiverOffset{0};
+
+  [[nodiscard]] std::size_t faceCount() const { return faces.size(); }
+  [[nodiscard]] std::size_t pointCount() const { return points.size(); }
+  [[nodiscard]] std::size_t receiverCount() const { return receiverOffset.back(); }
+
+  [[nodiscard]] auto pointsOf(std::size_t face) const {
+    return common::range(pointOffset[face], pointOffset[face + 1]);
+  }
+
+  [[nodiscard]] auto receiversOf(std::size_t point) const {
+    return common::range(receiverOffset[point], receiverOffset[point + 1]);
+  }
+
+  /**
+    The first receiver of a point; usable wherever a representative of the point is needed (e.g.
+    for its coordinates, which all its receivers share).
+   */
+  [[nodiscard]] std::size_t representative(std::size_t point) const {
+    return receiverOffset[point];
+  }
+
+  void addFace(const OutputFace& face) {
+    faces.push_back(face);
+    pointOffset.push_back(points.size());
+  }
+
+  void addPoint(const OutputPoint& point, std::size_t receiverCount) {
+    points.push_back(point);
+    receiverOffset.push_back(receiverOffset.back() + receiverCount);
+    pointOffset.back() = points.size();
+  }
 };
 
 struct ReceiverOutputData {
   output::DrVarsT vars;
   std::vector<ReceiverPoint> receiverPoints;
-  std::vector<ReceiverOutputFace> outputFaces;
-  std::vector<ReceiverOutputPoint> outputPoints;
+  OutputTopology topology;
 
   std::vector<double> cachedTime;
   size_t currentCacheLevel{0};
@@ -175,8 +248,6 @@ struct ReceiverOutputData {
   std::optional<int64_t> clusterId;
 
   std::unique_ptr<parallel::DataCollector<real>> deviceDataCollector;
-  std::vector<std::size_t> deviceDataPlus;
-  std::vector<std::size_t> deviceDataMinus;
   std::size_t cellCount{0};
 
   std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollectorUntyped>> deviceVariables;

@@ -47,12 +47,6 @@ void ReceiverOutput::setLtsData(LTS::Storage& userWpStorage,
   wpStorage_ = &userWpStorage;
   wpBackmap_ = &userWpBackmap;
   drStorage_ = &userDrStorage;
-
-  estimatePerFace_ = timeKernel_.metrics() * 2;
-  estimatePerPoint_ =
-      PerformanceEstimate::fromKernel<seissol::dynamicRupture::kernel::rotateInitStress>() * 2;
-
-  // perfHandle_ = seissolInstance_.flopCounter().addMetric("onfault-receiver", "DR");
 }
 
 void ReceiverOutput::getDofs(const real*(&derivatives), std::size_t meshId) {
@@ -125,19 +119,18 @@ void ReceiverOutput::calcFaultOutput(
     alignas(Alignment) real faceAlignedValuesPlus[tensor::QAtPoint::size()]{};
     alignas(Alignment) real faceAlignedValuesMinus[tensor::QAtPoint::size()]{};
 
-    const auto& outFace = outputData->outputFaces[faceId];
-    const auto faceIndex =
-        outputData
-            ->receiverPoints[outputData->outputPoints[outFace.outputPointIds[0]].receiverIds[0]]
-            .faultFaceIndex;
+    const auto& topology = outputData->topology;
+    const auto& outFace = topology.faces[faceId];
+    const auto faceIndex = outFace.faultFaceIndex;
 
-    assert(faceIndex != -1 && "receiver is not initialized");
     LocalInfo local{};
 
-    const auto position = faceToLtsMap_->get(faceIndex);
-    local.layer = &drStorage_->layer(position.color);
-    local.ltsId = position.cell;
+    local.layer = &drStorage_->layer(outFace.position.color);
+    local.ltsId = outFace.position.cell;
     local.faceId = faceId;
+    local.state = outputData.get();
+    local.time = time;
+    local.printWarning = &this->printRSFWarning_;
 
     local.waveSpeedsPlus = &((local.layer->var<DynamicRupture::WaveSpeedsPlus>())[local.ltsId]);
     local.waveSpeedsMinus = &((local.layer->var<DynamicRupture::WaveSpeedsMinus>())[local.ltsId]);
@@ -156,8 +149,8 @@ void ReceiverOutput::calcFaultOutput(
       const real* steMinus = nullptr;
 
       if constexpr (isDeviceOn()) {
-        stePlus = outputData->deviceDataCollector->get(outputData->deviceDataPlus[faceId]);
-        steMinus = outputData->deviceDataCollector->get(outputData->deviceDataMinus[faceId]);
+        stePlus = outputData->deviceDataCollector->get(outFace.deviceDataPlus);
+        steMinus = outputData->deviceDataCollector->get(outFace.deviceDataMinus);
       } else {
         getDofs(stePlus, faultInfo.element);
         if (faultInfo.neighborElement >= 0) {
@@ -171,54 +164,46 @@ void ReceiverOutput::calcFaultOutput(
       timeKernel_.evaluate(timeCoeffs.data(), steMinus, dofsMinus);
     }
 
-    for (const auto& pointId : outputData->outputFaces[faceId].outputPointIds) {
+    // the rotations and the interpolation frame are properties of the face, so both kernels are
+    // configured once here and only fed with per-point basis functions below
+    const auto& normal = outFace.faultDirections.faceNormal;
+    const auto& tangent1 = outFace.faultDirections.tangent1;
+    const auto& tangent2 = outFace.faultDirections.tangent2;
+    const auto& strike = outFace.faultDirections.strike;
+    const auto& dip = outFace.faultDirections.dip;
+    const auto& jacobiT2d = outFace.jacobianT2d;
 
-      const auto* phiPlusSide = outputData->outputPoints[pointId].basisFunctions.plusSide.data();
-      const auto* phiMinusSide = outputData->outputPoints[pointId].basisFunctions.minusSide.data();
+    seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
+    kernel.Tinv = outFace.glbToFaceAlignedData.data();
 
-      seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
-      kernel.Tinv = outputData->outputPoints[pointId].glbToFaceAlignedData.data();
+    seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
+    alignAlongDipAndStrikeKernel.stressRotationMatrix = outFace.stressGlbToDipStrikeAligned.data();
+    alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix = outFace.stressFaceAlignedToGlb.data();
+
+    for (const auto pointId : topology.pointsOf(faceId)) {
+      const auto& outPoint = topology.points[pointId];
 
       kernel.Q = dofsPlus;
-      kernel.basisFunctionsAtPoint = phiPlusSide;
+      kernel.basisFunctionsAtPoint = outPoint.basisFunctions.plusSide.data();
       kernel.QAtPoint = faceAlignedValuesPlus;
       kernel.execute();
 
       kernel.Q = dofsMinus;
-      kernel.basisFunctionsAtPoint = phiMinusSide;
+      kernel.basisFunctionsAtPoint = outPoint.basisFunctions.minusSide.data();
       kernel.QAtPoint = faceAlignedValuesMinus;
       kernel.execute();
 
-      const auto& normal = outputData->outputPoints[pointId].faultDirections.faceNormal;
-      const auto& tangent1 = outputData->outputPoints[pointId].faultDirections.tangent1;
-      const auto& tangent2 = outputData->outputPoints[pointId].faultDirections.tangent2;
-      const auto& strike = outputData->outputPoints[pointId].faultDirections.strike;
-      const auto& dip = outputData->outputPoints[pointId].faultDirections.dip;
+      local.nearestGpIndex = static_cast<int>(outPoint.nearestGpIndex);
+      local.nearestInternalGpIndex = static_cast<int>(outPoint.nearestInternalGpIndex);
 
-      const auto& jacobiT2d = outputData->outputPoints[pointId].jacobianT2d;
-
-      seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
-      alignAlongDipAndStrikeKernel.stressRotationMatrix =
-          outputData->outputPoints[pointId].stressGlbToDipStrikeAligned.data();
-      alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
-          outputData->outputPoints[pointId].stressFaceAlignedToGlb.data();
-
-      for (const auto& receiverId : outputData->outputPoints[pointId].receiverIds) {
-        const auto i = receiverId;
-
+      for (const auto i : topology.receiversOf(pointId)) {
         local.index = i;
         local.fusedIndex = outputData->receiverPoints[i].simIndex;
-        local.state = outputData.get();
 
         assert(outputData->receiverPoints[i].isInside == true &&
                "a receiver is not within any tetrahedron adjacent to a fault");
 
-        local.time = time;
-        local.printWarning = &this->printRSFWarning_;
-
-        local.nearestGpIndex = outputData->receiverPoints[i].nearestGpIndex;
         local.gpIndex = outputData->receiverPoints[i].gpIndex;
-        local.nearestInternalGpIndex = outputData->receiverPoints[i].nearestInternalGpIndex;
         local.internalGpIndexFused = outputData->receiverPoints[i].internalGpIndexFused;
 
         const auto* initStresses = getCellData<DynamicRupture::InitialStressInFaultCS>(local);
@@ -387,7 +372,7 @@ void ReceiverOutput::calcFaultOutput(
     }
   };
 
-  callRuntime.enqueueLoop(outputData->outputFaces.size(), handler);
+  callRuntime.enqueueLoop(outputData->topology.faceCount(), handler);
 
   if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
     outputData->cachedTime[outputData->currentCacheLevel] = time;

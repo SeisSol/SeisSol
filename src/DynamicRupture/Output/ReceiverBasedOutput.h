@@ -16,7 +16,6 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
-#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <vector>
@@ -55,10 +54,6 @@ class ReceiverOutput {
   kernels::Time timeKernel_;
 
   bool printRSFWarning_{false};
-
-  PerformanceEstimate estimatePerFace_{};
-  PerformanceEstimate estimatePerPoint_{};
-  std::size_t perfHandle_{};
 
   struct LocalInfo {
     DynamicRupture::Layer* layer{};
