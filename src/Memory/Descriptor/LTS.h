@@ -142,8 +142,6 @@ struct LTS {
 
   struct ZinvExtra : public initializer::Scratchpad<real> {};
 
-  struct FSGData : public initializer::Bucket<real> {};
-
   struct Integrals : public initializer::Variable<real[tensor::Q::size()]> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
@@ -181,8 +179,7 @@ struct LTS {
                                                         FlagScratch,
                                                         QStressNodalScratch,
                                                         Integrals,
-                                                        ZinvExtra,
-                                                        FSGData> {};
+                                                        ZinvExtra> {};
 
   using Storage = initializer::Storage<LTSVarmap>;
   using Layer = initializer::Layer<LTSVarmap>;
@@ -274,8 +271,6 @@ struct LTS {
       storage.add<QStressNodalScratch>(LayerMask(), Alignment, mode);
 
       storage.add<ZinvExtra>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
-
-      storage.add<FSGData>(LayerMask(), Alignment, mode);
     }
   }
 

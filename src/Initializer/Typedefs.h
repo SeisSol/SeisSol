@@ -276,6 +276,7 @@ struct BoundaryFaceInformation {
   real dataTinv[seissol::tensor::Tinv::size()]{};
   real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()]{};
   real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()]{};
+  real fsgData[3]{};
 };
 
 struct CellBoundaryMapping {
@@ -284,12 +285,13 @@ struct CellBoundaryMapping {
   real* dataTinv{nullptr};
   real* easiBoundaryConstant{nullptr};
   real* easiBoundaryMap{nullptr};
+  real* fsgData{nullptr};
 
   CellBoundaryMapping() = default;
   explicit CellBoundaryMapping(BoundaryFaceInformation& faceInfo)
       : nodes(faceInfo.nodes), dataT(faceInfo.dataT), dataTinv(faceInfo.dataTinv),
         easiBoundaryConstant(faceInfo.easiBoundaryConstant),
-        easiBoundaryMap(faceInfo.easiBoundaryMap) {}
+        easiBoundaryMap(faceInfo.easiBoundaryMap), fsgData(faceInfo.fsgData) {}
 };
 
 struct GravitationSetup {
