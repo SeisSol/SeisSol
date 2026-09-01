@@ -340,7 +340,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
     writer.addCellData<uint64_t>(
         "clustering", {}, true, [=](uint64_t* target, std::size_t index, std::size_t /*subcell*/) {
-          target[0] = meshReader.getElements()[index].clusterId;
+          target[0] = meshReader.getElements()[cellIndices[index]].clusterId;
         });
 
     writer.addCellData<std::size_t>(
@@ -348,7 +348,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         {},
         true,
         [=](std::size_t* target, std::size_t index, std::size_t /*subcell*/) {
-          target[0] = meshReader.getElements()[index].globalId;
+          target[0] = meshReader.getElements()[cellIndices[index]].globalId;
         });
 
     constexpr std::size_t MaxVtk3dPoints =
@@ -534,7 +534,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                   const auto position = backmap.get(cellIndices[index]);
                   const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(position);
                   const auto* pointsSingleQuantity =
-                      dofsAllQuantities + QDofPointsPadded * quantity;
+                      dofsAllQuantities + tensor::QStressNodal::size() * quantity;
                   kernel::projectNodalToVtkVolume vtkproj{};
                   memory::AlignedArray<real, multisim::NumSimulations> simselect{};
                   alignas(Alignment) std::array<real, MaxVtk3dPoints> alignedTarget{};
