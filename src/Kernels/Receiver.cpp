@@ -187,7 +187,7 @@ double ReceiverCluster::calcReceivers(double time,
       if (executor == Executor::Device) {
         tmpReceiverData.setPointer<LTS::Dofs>(
             reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::Dofs>())>(
-                deviceCollector_->get(deviceIndices_[i])));
+                deviceCollector_->get(i)));
       }
 
       const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
@@ -253,13 +253,11 @@ double ReceiverCluster::calcReceivers(double time,
 
 void ReceiverCluster::allocateData() {
   if constexpr (isDeviceOn()) {
-    deviceIndices_.resize(receivers_.size());
+    // one entry per cell; the gather index equals the cell index
     std::vector<real*> dofs;
-    for (size_t i = 0; i < receiverCells_.size(); ++i) {
-      // NOLINTNEXTLINE(misc-const-correctness)
-      real* const currentDofs = receiverCells_[i].dataDevice.get<LTS::Dofs>();
-      dofs.push_back(currentDofs);
-      deviceIndices_[i] = i;
+    dofs.reserve(receiverCells_.size());
+    for (const auto& receiverCell : receiverCells_) {
+      dofs.push_back(receiverCell.dataDevice.get<LTS::Dofs>());
     }
 
     const bool hostAccessible = useUSM() && !extraRuntime_.has_value();

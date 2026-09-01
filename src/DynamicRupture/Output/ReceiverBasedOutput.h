@@ -16,6 +16,7 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <vector>

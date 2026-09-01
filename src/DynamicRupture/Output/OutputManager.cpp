@@ -558,14 +558,18 @@ void OutputManager::flushPickpointDataToFile() {
       for (size_t level = 0; level < outputData->currentCacheLevel; ++level) {
         data << makeFormatted(outputData->cachedTime[level]) << '\t';
         for (std::size_t pointId : ppfile.indices) {
-          auto recordResults = [pointId, level, &data](const auto& var, int) {
-            if (var.isActive) {
-              for (std::size_t dim = 0; dim < var.dim(); ++dim) {
-                data << makeFormatted(var(dim, level, pointId)) << '\t';
+          // the output variables are indexed per receiver, and the header lists one column block
+          // per (point, simulation) pair
+          for (std::size_t receiverId : outputData->outputPoints[pointId].receiverIds) {
+            auto recordResults = [receiverId, level, &data](const auto& var, int) {
+              if (var.isActive) {
+                for (std::size_t dim = 0; dim < var.dim(); ++dim) {
+                  data << makeFormatted(var(dim, level, receiverId)) << '\t';
+                }
               }
-            }
-          };
-          misc::forEach(outputData->vars, recordResults);
+            };
+            misc::forEach(outputData->vars, recordResults);
+          }
         }
         data << '\n';
       }

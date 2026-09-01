@@ -8,6 +8,7 @@
 #include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.h"
 
 #include "Common/Constants.h"
+#include "Common/Iterator.h"
 #include "Common/Typedefs.h"
 #include "Config.h"
 #include "DynamicRupture/Misc.h"
@@ -40,6 +41,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <memory>
 #include <tuple>
 #include <unordered_map>
@@ -100,7 +102,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
   std::unordered_map<std::size_t, std::size_t> elementIndices;
   std::unordered_map<std::pair<int, std::size_t>, GhostElement, HashPair<int, std::size_t>>
       elementIndicesGhost;
-  std::map<std::array<double, 3>, std::size_t> pointIndices;
+  std::map<std::pair<std::size_t, std::array<double, 3>>, std::size_t> pointIndices;
 
   constexpr size_t NumVertices{Cell::NumVertices};
   for (const auto [index, point] : common::enumerate(outputData_->receiverPoints)) {
@@ -111,7 +113,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
         outputData_->outputFaces.emplace_back();
       }
 
-      const auto faceIndex = faceIndices[faceToLtsMap_->get(point.faultFaceIndex).global];
+      const auto faceIndex = faceIndices.at(faceToLtsMap_->get(point.faultFaceIndex).global);
 
       const auto elementIndex = faultInfo[point.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
@@ -160,14 +162,19 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
         }
       }
 
-      auto pointCoords = std::array<double, 3>{
-          point.global.coords[0], point.global.coords[1], point.global.coords[2]};
+      // the key is scoped to the face: coordinates alone are not enough, since the node points
+      // of adjacent fault faces may coincide exactly (a corner of the reference face maps to a
+      // mesh vertex bit-for-bit). Merging across faces would attach a receiver to the LTS cell,
+      // basis functions and rotation matrices of a different face.
+      const auto pointKey = std::pair<std::size_t, std::array<double, 3>>{
+          faceIndex,
+          {point.global.coords[0], point.global.coords[1], point.global.coords[2]}};
 
       // use exact arithmetic here (will most likely only find fused sims; and possibly
       // doubly-specified points from the parameter file)
-      if (pointIndices.find(pointCoords) == pointIndices.end()) {
-        const auto pointIndex = pointIndices.size();
-        pointIndices[pointCoords] = pointIndex;
+      if (pointIndices.find(pointKey) == pointIndices.end()) {
+        const auto pointIndex = outputData_->outputPoints.size();
+        pointIndices[pointKey] = pointIndex;
         auto& outputPoint = outputData_->outputPoints.emplace_back();
         assert(outputData_->outputPoints.size() == pointIndices.size());
 
@@ -177,7 +184,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
         outputData_->outputFaces[faceIndex].outputPointIds.push_back(pointIndex);
       }
 
-      outputData_->outputPoints[pointIndices[pointCoords]].receiverIds.push_back(index);
+      outputData_->outputPoints[pointIndices.at(pointKey)].receiverIds.push_back(index);
     }
   }
 

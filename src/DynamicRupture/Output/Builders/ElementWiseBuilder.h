@@ -32,9 +32,10 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
     assignFaultTags();
     initTimeCaching();
     initOutputVariables(elementwiseParams_.outputMask);
+    // establishes the face/point topology all following steps index into
+    initBasisFunctions(true);
     initFaultDirections();
     initRotationMatrices();
-    initBasisFunctions(true);
     initJacobian2dMatrices();
     outputData_->isActive = true;
   }

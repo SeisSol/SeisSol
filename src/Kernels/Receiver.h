@@ -26,6 +26,7 @@
 
 #include <Eigen/Dense>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 
 namespace seissol {
@@ -118,7 +119,6 @@ class ReceiverCluster {
   private:
   std::optional<parallel::runtime::StreamRuntime> extraRuntime_;
   std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollector_{nullptr};
-  std::vector<size_t> deviceIndices_;
   std::vector<Receiver> receivers_;
   std::vector<ReceiverCell> receiverCells_;
   std::unordered_map<std::size_t, std::size_t> meshToReceiverCell_;

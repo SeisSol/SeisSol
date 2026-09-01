@@ -47,10 +47,11 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       assignFusedIndices();
       assignFaultTags();
       initTimeCaching();
-      initFaultDirections();
       initOutputVariables(pickpointParams_.outputMask);
-      initRotationMatrices();
+      // establishes the face/point topology all following steps index into
       initBasisFunctions(false);
+      initFaultDirections();
+      initRotationMatrices();
       initJacobian2dMatrices();
       outputData_->isActive = true;
     }
