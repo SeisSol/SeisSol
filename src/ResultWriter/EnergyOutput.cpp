@@ -404,10 +404,10 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
           }
           double potencyIncrease = 0.0;
           for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
-            potencyIncrease += drEnergyOutput[i].accumulatedSlip[k * SimCount + sim];
+            potencyIncrease += drEnergyOutput[i].accumulatedSlip[k * SimCount + sim] *
+                               init::quadweights::Values[k];
           }
-          potencyIncrease *=
-              0.5 * godunovData[i].doubledSurfaceArea / seissol::dr::misc::NumBoundaryGaussPoints;
+          potencyIncrease *= godunovData[i].doubledSurfaceArea;
           potency[sim] += potencyIncrease;
           seismicMoment[sim] += potencyIncrease * mu;
         }
